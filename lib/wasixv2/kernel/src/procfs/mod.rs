@@ -27,7 +27,7 @@ use crate::{
     fs::{FsContext, HostClock},
     ident::Comm,
     mm::Mm,
-    ns::{NsProxy, PidNs},
+    ns::{NsProxy, PidNs, UserNs},
     nsfs::Nsfs,
     pid::{Pids, Upid},
     process::Tree,
@@ -293,6 +293,21 @@ impl Source {
             Some(state.tasks.get(&TaskId(tid))?.ns.clone())
         });
         ns.unwrap_or_else(|| self.ns.clone())
+    }
+
+    /// The user namespace of the task `tid`, which opens a file and sees its ids through it
+    /// (`seq_user_ns`); without the task, the one that owns the instance's pid namespace.
+    fn user_ns_of(&self, tid: u32) -> Arc<UserNs> {
+        let ns = self.state.upgrade().and_then(|state| {
+            let state = state.read_or_recover();
+            Some(state.tasks.get(&TaskId(tid))?.process.cred().user_ns)
+        });
+        ns.unwrap_or_else(|| {
+            self.pid_ns
+                .owner_ns()
+                .expect("a pid namespace has an owner")
+                .clone()
+        })
     }
 
     /// Whether the task `tid` may set where its pid namespace's next pid search starts

@@ -19,7 +19,7 @@ use wasixv2_wait::{PollMask, WaitQueue, wait_event};
 
 use super::{CAP_SYS_RESOURCE, Ids, Object, Perm, READ, WRITE, capable, get_or_create};
 use crate::Kernel;
-use crate::ns::PidNs;
+use crate::ns::{PidNs, UserNs};
 use crate::pid::PidRef;
 use crate::sync::MutexExt;
 
@@ -122,13 +122,14 @@ impl State {
         found
     }
 
-    /// The `msqid_ds` of the queue, its pids as `ns` sees them (`pid_vnr`).
-    fn to_abi(&self, perm: &Perm, ns: &PidNs) -> Msqid64Ds {
+    /// The `msqid_ds` of the queue: its ids as `user_ns` sees them, its pids as `pid_ns`
+    /// does (`pid_vnr`).
+    fn to_abi(&self, perm: &Perm, pid_ns: &PidNs, user_ns: &UserNs) -> Msqid64Ds {
         let (stime, stime_high) = super::split_time(self.stime);
         let (rtime, rtime_high) = super::split_time(self.rtime);
         let (ctime, ctime_high) = super::split_time(self.ctime);
         Msqid64Ds {
-            msg_perm: perm.to_abi(),
+            msg_perm: perm.to_abi(user_ns),
             msg_stime: stime,
             msg_stime_high: stime_high,
             msg_rtime: rtime,
@@ -138,8 +139,8 @@ impl State {
             msg_cbytes: self.cbytes as u32,
             msg_qnum: self.messages.len() as u32,
             msg_qbytes: self.qbytes as u32,
-            msg_lspid: self.lspid.as_ref().map_or(0, |pid| pid.nr(ns)),
-            msg_lrpid: self.lrpid.as_ref().map_or(0, |pid| pid.nr(ns)),
+            msg_lspid: self.lspid.as_ref().map_or(0, |pid| pid.nr(pid_ns)),
+            msg_lrpid: self.lrpid.as_ref().map_or(0, |pid| pid.nr(pid_ns)),
             ..Msqid64Ds::default()
         }
     }
@@ -414,7 +415,8 @@ impl Kernel {
                         perm.check(&cred, READ)?;
                     }
                     // The last sender and receiver as the caller sees them (`pid_vnr`).
-                    state.to_abi(&perm, &self.active_pid_ns(caller.task()))
+                    let pid_ns = self.active_pid_ns(caller.task());
+                    state.to_abi(&perm, &pid_ns, &self.cred(caller).user_ns)
                 };
                 write_value(caller.memory(), GuestPtrMut::new(buf), &ds).await?;
                 Ok(match IpcCmd(cmd) {
@@ -432,8 +434,8 @@ impl Kernel {
                 if qbytes > MSGMNB as usize && !capable(&cred, CAP_SYS_RESOURCE) {
                     return Err(Errno::EPERM.into());
                 }
+                perm.update(&ds.msg_perm, &self.cred(caller).user_ns)?;
                 state.qbytes = qbytes;
-                perm.update(&ds.msg_perm);
                 state.ctime = self.ipc_now();
                 drop((perm, state));
                 queue.queue.wake(PollMask::empty());

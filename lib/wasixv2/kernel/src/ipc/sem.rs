@@ -496,7 +496,7 @@ impl Kernel {
                     let (otime, otime_high) = split_time(state.otime);
                     let (ctime, ctime_high) = split_time(state.ctime);
                     Semid64Ds {
-                        sem_perm: perm.to_abi(),
+                        sem_perm: perm.to_abi(&self.cred(caller).user_ns),
                         sem_otime: otime,
                         sem_otime_high: otime_high,
                         sem_ctime: ctime,
@@ -517,7 +517,7 @@ impl Kernel {
                 let mut state = set.state();
                 let mut perm = set.perm();
                 perm.check_owner(&cred)?;
-                perm.update(&ds.sem_perm);
+                perm.update(&ds.sem_perm, &self.cred(caller).user_ns)?;
                 state.ctime = now;
                 Ok(0)
             }

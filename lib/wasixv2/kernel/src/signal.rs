@@ -35,6 +35,7 @@ use crate::{
     sync::MutexExt,
     time,
     timer::{self, Timer},
+    uidgid::{Kuid, OVERFLOW_ID},
 };
 
 pub(crate) const NSIG: i32 = 64;
@@ -94,7 +95,7 @@ pub(crate) struct Signals {
 
 /// The signals queued for each user, against `RLIMIT_SIGPENDING` (`UCOUNT_RLIMIT_SIGPENDING`).
 #[derive(Default)]
-pub(crate) struct SigqueueUsers(Mutex<HashMap<u32, Arc<AtomicU64>>>);
+pub(crate) struct SigqueueUsers(Mutex<HashMap<Kuid, Arc<AtomicU64>>>);
 
 /// The charge of one queued signal to its user (`sigqueue->ucounts`), given back when the
 /// signal leaves its queue or its timer goes.
@@ -106,7 +107,7 @@ pub(crate) struct Overflow;
 impl SigqueueUsers {
     /// `inc_rlimit_get_ucounts`: charges one signal to `uid`, unless that takes it past `limit`.
     /// `None` overrides the limit; the signal still counts.
-    pub(crate) fn charge(&self, uid: u32, limit: Option<u64>) -> Result<Charge, Overflow> {
+    pub(crate) fn charge(&self, uid: Kuid, limit: Option<u64>) -> Result<Charge, Overflow> {
         let count = self.0.lock_or_recover().entry(uid).or_default().clone();
         let queued = count.fetch_add(1, Ordering::Relaxed) + 1;
         let charge = Charge(count);
@@ -516,7 +517,7 @@ pub(crate) fn kernel_info(sig: i32) -> Siginfo {
 }
 
 /// A `siginfo` for a signal a process sent: `si_pid` and `si_uid` (its real uid) are its first
-/// fields.
+/// fields, as the sender sees them; [`Kernel::deliver`] shows them as the receiver does.
 pub(crate) fn user_info(sig: i32, code: SiCode, pid: Pid, uid: u32) -> Siginfo {
     let mut info = kernel_info(sig);
     info.si_code = code.0;
@@ -1711,7 +1712,8 @@ impl Kernel {
     /// `send_signal_locked`'s view of a signal from `sender` (`None`: from outside the machine)
     /// to the process `target`: a sender that has no pid in the target's pid namespace is
     /// outside it, so it shows as pid 0 and forces SIGKILL and SIGSTOP on the namespace's
-    /// init. Queues `info` for the group, or for `task` alone.
+    /// init. A uid the sender names in its user namespace shows as the target's user namespace
+    /// sees it. Queues `info` for the group, or for `task` alone.
     fn deliver(
         &self,
         sender: Option<&Process>,
@@ -1720,13 +1722,26 @@ impl Kernel {
         task: Option<TaskId>,
         mut info: Siginfo,
     ) -> Result<(), Errno> {
-        let outside = match (sender, self.procs.find(target)) {
+        let target = self.procs.find(target);
+        let outside = match (sender, &target) {
             (Some(sender), Some(target)) => self.pids.nr(&target.pid_ns, sender.pid.0) == 0,
             (Some(_), None) => false,
             (None, _) => true,
         };
-        if outside && has_si_pid_and_uid(&info) {
-            info.sifields[0..4].copy_from_slice(&0i32.to_le_bytes());
+        if has_si_pid_and_uid(&info) {
+            if let (Some(sender), Some(target)) = (sender, &target) {
+                let (from, to) = (sender.cred().user_ns, target.cred().user_ns);
+                if !Arc::ptr_eq(&from, &to) {
+                    let uid = u32::from_le_bytes(info.sifields[4..8].try_into().unwrap());
+                    let seen = from
+                        .make_kuid(uid)
+                        .map_or(OVERFLOW_ID, |kuid| to.munged_uid(kuid));
+                    info.sifields[4..8].copy_from_slice(&seen.to_le_bytes());
+                }
+            }
+            if outside {
+                info.sifields[0..4].copy_from_slice(&0i32.to_le_bytes());
+            }
         }
         group.send_from(task, info, outside)
     }
@@ -2206,7 +2221,8 @@ impl Kernel {
     /// (`task_tgid_vnr(current)`).
     pub(crate) fn sender_info(&self, caller: &Caller<'_>, sig: i32, code: SiCode) -> Siginfo {
         let process = self.process(caller.task());
-        let uid = process.cred().user.real;
+        let cred = process.cred();
+        let uid = cred.user_ns.munged_uid(cred.user.real);
         user_info(sig, code, self.pids.own_nr(process.pid.0), uid)
     }
 

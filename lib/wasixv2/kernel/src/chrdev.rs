@@ -150,7 +150,7 @@ impl Kernel {
         if let Some((name, device)) = self.console_node(at) {
             // The console's user is logged in on it: the node is theirs, as `login` leaves a
             // terminal.
-            let owner = crate::cred::Cred::new(&self.credentials).fs_owner();
+            let owner = (self.credentials.uid(), self.credentials.gid());
             create_tty_node(&self.vfs, at, name, device, owner).await?;
         }
         Ok(())

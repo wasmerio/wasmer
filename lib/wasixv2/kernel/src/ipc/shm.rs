@@ -43,7 +43,7 @@ use super::{CAP_IPC_LOCK, Ids, Object, Perm, READ, WRITE, capable, get_or_create
 use crate::{
     Kernel,
     mm::{self, Mapped, PAGE_SIZE, Shared, Source},
-    ns::PidNs,
+    ns::{PidNs, UserNs},
     pid::PidRef,
     sync::MutexExt,
 };
@@ -198,14 +198,15 @@ impl Segment {
         }
     }
 
-    /// The `shmid_ds` of the segment, its pids as `ns` sees them (`pid_vnr`).
-    fn to_abi(&self, perm: &Perm, ns: &PidNs) -> Shmid64Ds {
+    /// The `shmid_ds` of the segment: its ids as `user_ns` sees them, its pids as `pid_ns`
+    /// does (`pid_vnr`).
+    fn to_abi(&self, perm: &Perm, pid_ns: &PidNs, user_ns: &UserNs) -> Shmid64Ds {
         let state = self.state();
         let (atime, atime_high) = super::split_time(state.atime);
         let (dtime, dtime_high) = super::split_time(state.dtime);
         let (ctime, ctime_high) = super::split_time(state.ctime);
         Shmid64Ds {
-            shm_perm: perm.to_abi(),
+            shm_perm: perm.to_abi(user_ns),
             shm_segsz: self.size as u32,
             shm_atime: atime,
             shm_atime_high: atime_high,
@@ -213,8 +214,8 @@ impl Segment {
             shm_dtime_high: dtime_high,
             shm_ctime: ctime,
             shm_ctime_high: ctime_high,
-            shm_cpid: state.cpid.as_ref().map_or(0, |pid| pid.nr(ns)),
-            shm_lpid: state.lpid.as_ref().map_or(0, |pid| pid.nr(ns)),
+            shm_cpid: state.cpid.as_ref().map_or(0, |pid| pid.nr(pid_ns)),
+            shm_lpid: state.lpid.as_ref().map_or(0, |pid| pid.nr(pid_ns)),
             shm_nattch: state.nattch,
             ..Shmid64Ds::default()
         }
@@ -524,7 +525,8 @@ impl Kernel {
                     perm.check(&cred, READ)?;
                 }
                 // The creator and last user as the caller sees them (`pid_vnr`).
-                let ds = segment.to_abi(&perm, &self.active_pid_ns(caller.task()));
+                let pid_ns = self.active_pid_ns(caller.task());
+                let ds = segment.to_abi(&perm, &pid_ns, &self.cred(caller).user_ns);
                 write_value(caller.memory(), GuestPtrMut::new(buf), &ds).await?;
                 Ok(match IpcCmd(cmd) {
                     IpcCmd::IPC_STAT => 0,
@@ -537,7 +539,7 @@ impl Kernel {
                 let mut state = segment.state();
                 let mut perm = segment.perm();
                 perm.check_owner(&cred)?;
-                perm.update(&ds.shm_perm);
+                perm.update(&ds.shm_perm, &self.cred(caller).user_ns)?;
                 state.ctime = self.ipc_now();
                 Ok(0)
             }

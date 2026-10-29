@@ -43,6 +43,7 @@ use crate::{
     ns::NetNs,
     socket::{Blocking, RCV, SND, Timeouts, WaitOn},
     sync::MutexExt,
+    uidgid::{Kgid, Kuid},
 };
 use gc::{InFlight, Inflight};
 
@@ -83,8 +84,8 @@ impl Kind {
     }
 }
 
-/// `struct ucred`, with the kernel's id of the process (`struct pid`): each reader sees its
-/// own pid for it ([`Kernel::ucred_bytes`]).
+/// `struct ucred`, with the kernel's id of the process (`struct pid`) and kernel ids: each
+/// reader sees its own pid and ids for them ([`Kernel::ucred_bytes`]).
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
 pub(crate) struct Ucred {
     pub(crate) pid: i32,
@@ -124,7 +125,7 @@ impl Ucred {
 pub(crate) struct PeerCred {
     pub(crate) ucred: Ucred,
     /// The supplementary groups, ascending.
-    pub(crate) groups: Arc<[u32]>,
+    pub(crate) groups: Arc<[Kgid]>,
 }
 
 /// Where a bound socket is found.
@@ -1440,16 +1441,22 @@ impl Kernel {
         let (uid, gid) = process.cred().ucred_ids();
         Ucred {
             pid: process.pid.0 as i32,
-            uid,
-            gid,
+            uid: uid.0,
+            gid: gid.0,
         }
     }
 
     /// `cred_to_ucred` and `scm_recv`'s `pid_vnr`: `cred` as the caller reads it, with the pid
-    /// it sees for the process (0 outside its pid namespace).
+    /// it sees for the process (0 outside its pid namespace) and the ids its user namespace
+    /// sees for them; the invalid ids of no peer stay.
     pub(crate) fn ucred_bytes(&self, caller: &Caller<'_>, cred: Ucred) -> Vec<u8> {
         let pid = self.vnr(caller, cred.pid as u32);
-        Ucred { pid, ..cred }.to_bytes()
+        let ns = self.cred(caller).user_ns;
+        let (uid, gid) = match cred.uid == Ucred::NONE.uid {
+            true => (cred.uid, cred.gid),
+            false => (ns.munged_uid(Kuid(cred.uid)), ns.munged_gid(Kgid(cred.gid))),
+        };
+        Ucred { pid, uid, gid }.to_bytes()
     }
 
     /// The caller as a socket's peer: what `SO_PEERCRED` and `SO_PEERGROUPS` report
@@ -1457,18 +1464,25 @@ impl Kernel {
     pub(crate) fn peer_cred(&self, caller: &Caller<'_>) -> PeerCred {
         PeerCred {
             ucred: self.ucred(caller),
-            groups: self.process(caller.task()).cred().groups.as_slice().into(),
+            groups: self.cred(caller).groups.as_slice().into(),
         }
     }
 
     /// `scm_check_creds`: a process may claim its own pid and any of its real, effective or
-    /// saved ids, and others with `CAP_SYS_ADMIN`, `CAP_SETUID` and `CAP_SETGID`.
-    fn may_claim(&self, caller: &Caller<'_>, claim: &Ucred) -> bool {
+    /// saved ids, and others with `CAP_SYS_ADMIN`, `CAP_SETUID` and `CAP_SETGID`. `claim` has
+    /// the guest's ids, which its user namespace must map (`EINVAL`); the kernel ids come back.
+    fn may_claim(&self, caller: &Caller<'_>, claim: &Ucred) -> Result<(Kuid, Kgid), Errno> {
         let process = self.process(caller.task());
         let cred = process.cred();
-        (claim.pid == self.pids.own_nr(process.pid.0) || cred.capable(Cap::SysAdmin))
-            && (cred.user.holds(claim.uid) || cred.capable(Cap::Setuid))
-            && (cred.group.holds(claim.gid) || cred.capable(Cap::Setgid))
+        let uid = cred.user_ns.make_kuid(claim.uid).ok_or(Errno::EINVAL)?;
+        let gid = cred.user_ns.make_kgid(claim.gid).ok_or(Errno::EINVAL)?;
+        let allowed = (claim.pid == self.pids.own_nr(process.pid.0) || cred.capable(Cap::SysAdmin))
+            && (cred.user.holds(uid) || cred.capable(Cap::Setuid))
+            && (cred.group.holds(gid) || cred.capable(Cap::Setgid));
+        match allowed {
+            true => Ok((uid, gid)),
+            false => Err(Errno::EPERM),
+        }
     }
 
     /// `unix_create`.
@@ -1637,7 +1651,7 @@ impl Kernel {
         controls: &[wasixv2_vnet::Control],
     ) -> SysResult<Ancillary> {
         let mut anc = Ancillary {
-            uid: self.process(caller.task()).cred().user.real,
+            uid: self.cred(caller).user.real.0,
             ..Ancillary::default()
         };
         let level = SocketLevel::SOL_SOCKET.0;
@@ -1665,14 +1679,13 @@ impl Kernel {
                     let cred = Ucred::from_bytes(&control.data)
                         .filter(|_| control.data.len() == 12)
                         .ok_or(Errno::EINVAL)?;
-                    if !self.may_claim(caller, &cred) {
-                        return Err(Errno::EPERM.into());
-                    }
+                    let (uid, gid) = self.may_claim(caller, &cred)?;
                     // `find_get_pid`: the claimed process, in the caller's pid namespace.
                     let pid = self.find_vpid(caller, cred.pid).ok_or(Errno::ESRCH)?;
                     anc.cred = Some(Ucred {
                         pid: pid as i32,
-                        ..cred
+                        uid: uid.0,
+                        gid: gid.0,
                     });
                 }
                 _ => return Err(Errno::EINVAL.into()),

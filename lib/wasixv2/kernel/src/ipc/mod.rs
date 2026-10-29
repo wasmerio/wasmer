@@ -24,7 +24,11 @@ use wasixv2_abi::{Ipc64Perm, IpcCmd, IpcFlags, IpcKey};
 use wasixv2_syscalls::Errno;
 use wasixv2_vfs::Cred;
 
-use crate::sync::MutexExt;
+use crate::{
+    ns::UserNs,
+    sync::MutexExt,
+    uidgid::{Kgid, Kuid},
+};
 
 /// `IPCMNI`: indices of one kind of object stay below it.
 const IPCMNI: usize = 32768;
@@ -66,7 +70,7 @@ pub(crate) struct Ipc {
     pub(crate) mq: Arc<mqueue::Mqueues>,
 }
 
-/// `kern_ipc_perm`: who owns an object and who may use it.
+/// `kern_ipc_perm`: who owns an object and who may use it, by kernel ids.
 #[derive(Clone, Debug)]
 pub(crate) struct Perm {
     pub(crate) key: i32,
@@ -123,21 +127,25 @@ impl Perm {
         }
     }
 
-    /// `ipc_update_perm`: `IPC_SET` changes the owner and the permission bits.
-    pub(crate) fn update(&mut self, from: &Ipc64Perm) {
-        self.uid = from.uid;
-        self.gid = from.gid;
+    /// `ipc_update_perm`: `IPC_SET` changes the owner, which the caller names in its user
+    /// namespace `ns` and must be mapped there (`EINVAL`), and the permission bits.
+    pub(crate) fn update(&mut self, from: &Ipc64Perm, ns: &UserNs) -> Result<(), Errno> {
+        let uid = ns.make_kuid(from.uid).ok_or(Errno::EINVAL)?;
+        let gid = ns.make_kgid(from.gid).ok_or(Errno::EINVAL)?;
+        self.uid = uid.0;
+        self.gid = gid.0;
         self.mode = (self.mode & !MODE_BITS) | (from.mode & MODE_BITS);
+        Ok(())
     }
 
-    /// `kernel_to_ipc64_perm`.
-    pub(crate) fn to_abi(&self) -> Ipc64Perm {
+    /// `kernel_to_ipc64_perm`: the ids as the caller's user namespace `ns` sees them.
+    pub(crate) fn to_abi(&self, ns: &UserNs) -> Ipc64Perm {
         Ipc64Perm {
             key: self.key,
-            uid: self.uid,
-            gid: self.gid,
-            cuid: self.cuid,
-            cgid: self.cgid,
+            uid: ns.munged_uid(Kuid(self.uid)),
+            gid: ns.munged_gid(Kgid(self.gid)),
+            cuid: ns.munged_uid(Kuid(self.cuid)),
+            cgid: ns.munged_gid(Kgid(self.cgid)),
             mode: self.mode,
             seq: self.seq,
             ..Ipc64Perm::default()

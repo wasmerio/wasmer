@@ -27,6 +27,7 @@ use crate::{
     sync::MutexExt,
     timer::{Timer, Timers},
     tty::Jobs,
+    uidgid::Kuid,
 };
 
 /// What an owner names (`fown_struct.pid_type`): one thread (`F_OWNER_TID`), a process
@@ -59,8 +60,8 @@ pub(crate) struct Fown {
     ty: OwnerType,
     /// The real and effective uid of whoever set the owner, which the receiver's must match
     /// (`sigio_perm`).
-    uid: u32,
-    euid: u32,
+    uid: Kuid,
+    euid: Kuid,
     /// `F_SETSIG`: the signal to send with its `siginfo`, or 0 for a plain `SIGIO`.
     signum: i32,
 }
@@ -73,7 +74,13 @@ impl OpenFile {
 
     /// `__f_setown`: makes `pid` of kind `ty` the owner, as set by someone with real and
     /// effective uid `cred`; unless `force`, only if the file has no owner yet.
-    pub(crate) fn set_owner(&self, pid: Option<u32>, ty: OwnerType, cred: (u32, u32), force: bool) {
+    pub(crate) fn set_owner(
+        &self,
+        pid: Option<u32>,
+        ty: OwnerType,
+        cred: (Kuid, Kuid),
+        force: bool,
+    ) {
         let mut fown = self.fown.lock_or_recover();
         if !force && fown.pid.is_some() {
             return;
@@ -111,7 +118,7 @@ pub struct FasyncOn<'a> {
     /// The caller, whom an object that picks an owner itself names (`tty_fasync`).
     pub(crate) task: TaskId,
     /// The caller's real and effective uid.
-    pub(crate) cred: (u32, u32),
+    pub(crate) cred: (Kuid, Kuid),
 }
 
 /// One open file on an object's list (`fasync_struct`).
@@ -369,7 +376,7 @@ impl Sigio {
 fn sigio_perm(process: &Process, fown: &Fown) -> bool {
     let cred = process.cred.lock_or_recover();
     let (uid, suid) = (cred.user.real, cred.user.saved);
-    fown.euid == 0
+    fown.euid == Kuid::GLOBAL_ROOT
         || [fown.uid, fown.euid]
             .iter()
             .any(|&id| id == uid || id == suid)
@@ -650,7 +657,8 @@ impl Kernel {
         Ok(0)
     }
 
-    /// `f_getowner_uids`: the real and effective uid of whoever set the owner.
+    /// `f_getowner_uids`: the real and effective uid of whoever set the owner, as the caller's
+    /// user namespace sees them.
     pub(crate) async fn f_getowner_uids(
         &self,
         caller: &Caller<'_>,
@@ -658,12 +666,9 @@ impl Kernel {
         arg: u32,
     ) -> SysResult<i32> {
         let fown = file.fown();
-        write_value(
-            caller.memory(),
-            GuestPtrMut::new(arg),
-            &[fown.uid, fown.euid],
-        )
-        .await?;
+        let ns = self.cred(caller).user_ns;
+        let uids = [fown.uid, fown.euid].map(|uid| ns.munged_uid(uid));
+        write_value(caller.memory(), GuestPtrMut::new(arg), &uids).await?;
         Ok(0)
     }
 
@@ -693,7 +698,7 @@ impl Kernel {
     }
 
     /// The caller's real and effective uid, which an owner it sets records.
-    fn uids(&self, caller: &Caller<'_>) -> (u32, u32) {
+    fn uids(&self, caller: &Caller<'_>) -> (Kuid, Kuid) {
         let cred = self.cred(caller);
         (cred.user.real, cred.user.effective)
     }

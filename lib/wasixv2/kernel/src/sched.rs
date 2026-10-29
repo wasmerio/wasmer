@@ -985,16 +985,18 @@ impl Kernel {
                     .collect()
             }
             PrioWhich::PRIO_USER => {
+                // A uid the caller's user namespace does not map has no tasks.
+                let cred = state.tasks[&caller.task()].process.cred();
                 let uid = match who {
-                    0 => state.tasks[&caller.task()].process.cred().user.real,
-                    who => who as u32,
+                    0 => Some(cred.user.real),
+                    who => cred.user_ns.make_kuid(who as u32),
                 };
                 // Only the tasks the caller sees (`task_pid_vnr(p)`).
                 let ns = caller_pid_ns(state, caller);
                 state
                     .tasks
                     .iter()
-                    .filter(|(_, task)| task.process.cred().user.real == uid)
+                    .filter(|(_, task)| Some(task.process.cred().user.real) == uid)
                     .map(|(&id, _)| id)
                     .filter(|id| self.pids.nr(ns, id.0) != 0)
                     .filter(alive)

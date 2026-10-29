@@ -12,7 +12,7 @@ use super::{Source, node::Scope};
 use crate::{
     file::OpenFile,
     mm::{Mm, PAGE_SIZE, RegionKind},
-    ns::{NetNs, NsProxy, PidNs},
+    ns::{NetNs, NsProxy, PidNs, UserNs},
     resource::{ADDRESS_SPACE, TICKS},
     sched::cpus,
     sync::MutexExt,
@@ -505,7 +505,13 @@ fn net_if_inet6(ns: &NetNs) -> Vec<u8> {
     out.into_bytes()
 }
 
-pub(super) fn per_pid(source: &Source, scope: Scope, file: PerPid) -> FsResult<Vec<u8>> {
+/// A file of a process's directory, as a reader in the user namespace `reader` sees it.
+pub(super) fn per_pid(
+    source: &Source,
+    scope: Scope,
+    file: PerPid,
+    reader: &UserNs,
+) -> FsResult<Vec<u8>> {
     let info = source.process(scope.pid).ok_or(Errno::ESRCH)?;
     let process = &info.process;
     Ok(match file {
@@ -529,7 +535,7 @@ pub(super) fn per_pid(source: &Source, scope: Scope, file: PerPid) -> FsResult<V
             let pages = source.mm(scope).map_or(0, |mm| mm.size()) / PAGE_SIZE;
             format!("{pages} {pages} 0 0 0 {pages} 0\n").into_bytes()
         }
-        PerPid::Status => status(source, scope, &info),
+        PerPid::Status => status(source, scope, &info, reader),
     })
 }
 
@@ -853,7 +859,8 @@ fn stat_line(source: &Source, scope: Scope, info: &super::ProcessInfo) -> Vec<u8
 }
 
 /// `proc_pid_status`.
-fn status(source: &Source, scope: Scope, info: &super::ProcessInfo) -> Vec<u8> {
+/// `proc_pid_status`: the ids as the reader's user namespace `reader` sees them.
+fn status(source: &Source, scope: Scope, info: &super::ProcessInfo, reader: &UserNs) -> Vec<u8> {
     let process = &info.process;
     let ident = process.ident.lock_or_recover().clone();
     let task = source.task(scope.pid, scope.tid);
@@ -880,14 +887,22 @@ fn status(source: &Source, scope: Scope, info: &super::ProcessInfo) -> Vec<u8> {
     let threads = source.threads(scope.pid).len().max(1);
     let (letter, state_name) = state(info, task.as_ref());
     let cred = process.cred();
-    let (user, group) = (&cred.user, &cred.group);
+    let user = cred.user;
+    let user = [user.real, user.effective, user.saved, user.fs].map(|id| reader.munged_uid(id));
+    let group = cred.group;
+    let group =
+        [group.real, group.effective, group.saved, group.fs].map(|id| reader.munged_gid(id));
     let comm = task
         .as_ref()
         .map_or(Vec::new(), |task| task.comm.name().to_vec());
     let affinity = task
         .as_ref()
         .map_or(Vec::new(), |task| task.sched.affinity().to_vec());
-    let groups: String = cred.groups.iter().map(|gid| format!("{gid} ")).collect();
+    let groups: String = cred
+        .groups
+        .iter()
+        .map(|&gid| format!("{} ", reader.munged_gid(gid)))
+        .collect();
     let cpus = cpus();
     let mut out = String::new();
     let _ = write!(
@@ -904,14 +919,14 @@ fn status(source: &Source, scope: Scope, info: &super::ProcessInfo) -> Vec<u8> {
         String::from_utf8_lossy(&comm),
         source.nr(scope.pid),
         source.nr(info.parent),
-        user.real,
-        user.effective,
-        user.saved,
-        user.fs,
-        group.real,
-        group.effective,
-        group.saved,
-        group.fs,
+        user[0],
+        user[1],
+        user[2],
+        user[3],
+        group[0],
+        group[1],
+        group[2],
+        group[3],
         in_each(scope.pid),
         ns_pid.join("\t"),
         in_each(ident.pgid),

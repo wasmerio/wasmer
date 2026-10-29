@@ -45,7 +45,9 @@ mod time;
 mod timer;
 mod timerfd;
 mod tty;
+mod uidgid;
 mod unix;
+mod userns;
 mod work;
 
 use std::{
@@ -88,7 +90,7 @@ use wasixv2_syscalls::{
 use wasixv2_vfs::{Filesystem, Mount, Vfs};
 
 use crate::{
-    cred::{IdChange, IdKind},
+    cred::{IdChange, IdKind, given},
     file::{FdTable, OpenFile},
     fs::FsContext,
     mm::Mm,
@@ -119,6 +121,9 @@ pub struct Kernel {
     /// Shared with the process filesystems, which read it.
     state: Arc<TaskTable>,
     // ---- ns ----
+    /// The initial user namespace (`init_user_ns`), which owns the initial namespaces and
+    /// which [`Kernel::spawn`]ed processes' credentials are in.
+    init_user_ns: Arc<ns::UserNs>,
     /// The initial namespaces (`init_nsproxy`), which [`Kernel::spawn`]ed processes start in.
     init_ns: Arc<ns::NsProxy>,
     /// The inode numbers of namespaces made after boot.
@@ -279,6 +284,7 @@ impl Kernel {
         let inotify = Arc::new(fs::inotify::Registry::default());
         let dnotify = Arc::new(fs::dnotify::Dnotify::new(sigio.clone()));
         fs::dnotify::Notify::install(&vfs, inotify.clone(), dnotify.clone());
+        let init_user_ns = ns::UserNs::initial_user();
         Self {
             ptys: tty::Ptys::new(clock.clone()),
             pseudo: pseudo::Pseudo::new(&vfs, clock),
@@ -288,10 +294,12 @@ impl Kernel {
             host,
             state,
             init_ns: Arc::new(ns::NsProxy::initial(
+                &init_user_ns,
                 vfs.namespace().clone(),
                 Uname::default().to_utsname(),
                 None,
             )),
+            init_user_ns,
             ns_inums: Arc::default(),
             network_factory: None,
             inotify,
@@ -334,7 +342,12 @@ impl Kernel {
         );
         let uname = *self.init_ns.uts.lock_or_recover();
         let mnt = self.vfs.namespace().clone();
-        self.init_ns = Arc::new(ns::NsProxy::initial(mnt, uname, Some(network)));
+        self.init_ns = Arc::new(ns::NsProxy::initial(
+            &self.init_user_ns,
+            mnt,
+            uname,
+            Some(network),
+        ));
         self
     }
 
@@ -404,7 +417,7 @@ impl Kernel {
     /// running as the kernel's [`Credentials`], as a child of init when the kernel has one, in
     /// the initial namespaces. `EAGAIN` when the initial pid namespace has no pid left.
     pub fn spawn(&self, config: ProcessConfig) -> Result<TaskId, Errno> {
-        let cred = cred::Cred::new(&self.credentials);
+        let cred = cred::Cred::new(&self.credentials, self.init_user_ns.clone());
         let mut files = self.fd_table();
         for file in stdio::open_files(config.stdio, &self.pseudo, cred.fs_owner()) {
             files
@@ -424,7 +437,7 @@ impl Kernel {
         files: FdTable,
         parent: u32,
     ) -> Result<TaskId, Errno> {
-        let cred = cred::Cred::new(&self.credentials);
+        let cred = cred::Cred::new(&self.credentials, self.init_user_ns.clone());
         let pid_ns = self.init_ns.pid_for_children.clone();
         let mut state = self.state.lock_or_recover();
         let id = TaskId(state.last_id + 1);
@@ -1780,16 +1793,28 @@ impl Syscalls for Kernel {
         self.sys_set_ids(caller, IdKind::Group, IdChange::Id(gid))
     }
     async fn setreuid(&self, caller: &Caller<'_>, ruid: Uid, euid: Uid) -> SysResult<i32> {
-        self.sys_set_ids(caller, IdKind::User, IdChange::Re(ruid, euid))
+        self.sys_set_ids(caller, IdKind::User, IdChange::Re(given(ruid), given(euid)))
     }
     async fn setregid(&self, caller: &Caller<'_>, rgid: Gid, egid: Gid) -> SysResult<i32> {
-        self.sys_set_ids(caller, IdKind::Group, IdChange::Re(rgid, egid))
+        self.sys_set_ids(
+            caller,
+            IdKind::Group,
+            IdChange::Re(given(rgid), given(egid)),
+        )
     }
     async fn setresuid(&self, caller: &Caller<'_>, r: Uid, e: Uid, s: Uid) -> SysResult<i32> {
-        self.sys_set_ids(caller, IdKind::User, IdChange::Res(r, e, s))
+        self.sys_set_ids(
+            caller,
+            IdKind::User,
+            IdChange::Res(given(r), given(e), given(s)),
+        )
     }
     async fn setresgid(&self, caller: &Caller<'_>, r: Gid, e: Gid, s: Gid) -> SysResult<i32> {
-        self.sys_set_ids(caller, IdKind::Group, IdChange::Res(r, e, s))
+        self.sys_set_ids(
+            caller,
+            IdKind::Group,
+            IdChange::Res(given(r), given(e), given(s)),
+        )
     }
     async fn getresuid(
         &self,

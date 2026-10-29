@@ -406,11 +406,17 @@ impl ProcNode {
             return (0, 0);
         };
         let process = info.process;
-        if !process.ident.lock_or_recover().dumpable {
-            return (0, 0);
-        }
         let cred = process.cred();
-        (cred.user.effective, cred.group.effective)
+        if !process.ident.lock_or_recover().dumpable {
+            // The root of the user namespace the image runs in (`mm->user_ns`), or the global
+            // root without one.
+            let ns = &cred.user_ns;
+            return (
+                ns.root_uid().map_or(0, |uid| uid.0),
+                ns.root_gid().map_or(0, |gid| gid.0),
+            );
+        }
+        (cred.user.effective.0, cred.group.effective.0)
     }
 
     /// `proc_ns_get_link`: the namespace's nsfs inode, for a caller that may read the task's
@@ -433,7 +439,11 @@ impl ProcNode {
                 return Err(Errno::EACCES);
             }
         }
-        let ns = link.get(&task.ns, &target.process.pid_ns);
+        let ns = link.get(
+            &task.ns,
+            &target.process.pid_ns,
+            &target.process.cred().user_ns,
+        );
         Ok(Link::Jump(self.source.nsfs.path(&ns)))
     }
 }
@@ -695,7 +705,8 @@ impl Node for ProcNode {
                 PidEntry::File(file) => {
                     let comm = (file == text::PerPid::Comm && options.write)
                         .then(|| Write::Comm(self.source.clone(), scope));
-                    (text::per_pid(&self.source, scope, file)?, comm)
+                    let reader = self.source.user_ns_of(options.task);
+                    (text::per_pid(&self.source, scope, file, &reader)?, comm)
                 }
                 _ => return Err(Errno::ENXIO),
             },

@@ -458,7 +458,10 @@ impl Kernel {
         let mut text = vec![0; len as usize];
         caller.memory().read(msg.addr(), &mut text).await?;
         let nonblocking = file.flags().contains(OpenFlags::O_NONBLOCK);
-        let sender = (self.process(caller.task()).pid.0, self.env(caller).cred.uid);
+        // The sender's uid as it sees it; delivery shows it as the owner does.
+        let cred = self.cred(caller);
+        let uid = cred.user_ns.munged_uid(cred.user.real);
+        let sender = (self.process(caller.task()).pid.0, uid);
         let mut message = Some(text);
         let send = || -> Option<Result<(), Errno>> {
             let mut state = queue.state();

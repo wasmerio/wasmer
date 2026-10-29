@@ -209,6 +209,14 @@ impl<T> Ns<T> {
     }
 }
 
+impl<T> Ns<T> {
+    /// The user namespace that owns this one (`ns->ops->owner`); for a user namespace, its
+    /// parent.
+    pub(crate) fn owner_ns(&self) -> Option<&Arc<UserNs>> {
+        self.common.owner.as_ref()
+    }
+}
+
 impl<T> Deref for Ns<T> {
     type Target = T;
 
@@ -234,12 +242,6 @@ pub(crate) struct Net {
     pub(crate) devconf: Mutex<crate::devinet::Devconf>,
 }
 
-/// A user namespace's creator.
-pub(crate) struct User {
-    /// The effective uid that made it (`owner`); root's for the initial one.
-    owner: u32,
-}
-
 /// A cgroup namespace. There is one, and no cgroup hierarchy behind it.
 pub(crate) struct Cgroup;
 
@@ -251,7 +253,7 @@ pub(crate) type UtsNs = Ns<Mutex<NewUtsname>>;
 pub(crate) type IpcNs = Ns<ipc::Ipc>;
 pub(crate) type NetNs = Ns<Net>;
 pub(crate) type PidNs = Ns<PidSpace>;
-pub(crate) type UserNs = Ns<User>;
+pub(crate) type UserNs = Ns<crate::userns::User>;
 pub(crate) type CgroupNs = Ns<Cgroup>;
 pub(crate) type TimeNs = Ns<Time>;
 
@@ -326,10 +328,11 @@ impl Namespace {
         }
     }
 
-    /// `NS_GET_OWNER_UID`: the uid that made a user namespace, as the caller sees it.
-    pub(crate) fn owner_uid(&self) -> Result<u32, Errno> {
+    /// `NS_GET_OWNER_UID`: the uid that made a user namespace, as the caller, in the user
+    /// namespace `mine`, sees it.
+    pub(crate) fn owner_uid(&self, mine: &UserNs) -> Result<u32, Errno> {
         match self {
-            Namespace::User(ns) => Ok(ns.owner),
+            Namespace::User(ns) => Ok(mine.munged_uid(ns.owner())),
             _ => Err(Errno::EINVAL),
         }
     }
@@ -348,7 +351,8 @@ pub(crate) fn pid_ns_descends(ns: &Arc<PidNs>, ancestor: &Arc<PidNs>) -> bool {
 }
 
 /// The namespaces a task is in (`struct nsproxy`), shared between tasks until one of them gets
-/// another. The user namespace, which Linux keeps in the credentials, is here too.
+/// another. The user namespace is in the process's credentials ([`Cred::user_ns`]), as on
+/// Linux.
 #[derive(Clone)]
 pub(crate) struct NsProxy {
     pub(crate) mnt: Arc<MntNs>,
@@ -362,19 +366,17 @@ pub(crate) struct NsProxy {
     pub(crate) time: Arc<TimeNs>,
     /// The time namespace the task's children start in.
     pub(crate) time_for_children: Arc<TimeNs>,
-    pub(crate) user: Arc<UserNs>,
 }
 
 impl NsProxy {
     /// `init_nsproxy`: the initial namespaces, with the mount tree `mnt`, the UTS names
-    /// `uname`, the network `network`, and owned by the initial user namespace, which root
-    /// made.
+    /// `uname`, the network `network`, and owned by the initial user namespace `user`.
     pub(crate) fn initial(
+        user: &Arc<UserNs>,
         mnt: Arc<wasixv2_vfs::MntNs>,
         uname: NewUtsname,
         network: Option<Arc<dyn wasixv2_vnet::Network>>,
     ) -> Self {
-        let user = Ns::initial(NsKind::User, None, User { owner: 0 });
         let owner = Some(user.clone());
         let time = Ns::initial(NsKind::Time, owner.clone(), Time);
         Self {
@@ -394,7 +396,6 @@ impl NsProxy {
             cgroup: Ns::initial(NsKind::Cgroup, owner, Cgroup),
             time_for_children: time.clone(),
             time,
-            user,
         }
     }
 
@@ -421,7 +422,7 @@ impl NsProxy {
             new.time = new.time_for_children.clone();
             return Ok(Arc::new(new));
         }
-        let mut new = self.copy_user(kernel, flags)?;
+        let mut new = self.copy_user(flags)?;
         if flags & CLONE_NS_ALL & !CloneFlags::CLONE_NEWUSER.0 != 0 {
             if flags & CloneFlags::CLONE_NEWUSER.0 == 0 && !cred.capable(Cap::SysAdmin) {
                 return Err(Errno::EPERM);
@@ -430,7 +431,7 @@ impl NsProxy {
             if flags & ipc_sysvsem == ipc_sysvsem {
                 return Err(Errno::EINVAL);
             }
-            new.create(kernel, flags, active_pid, fs)?;
+            new.create(kernel, flags, cred, active_pid, fs)?;
         }
         if !vm {
             new.time = new.time_for_children.clone();
@@ -451,24 +452,23 @@ impl NsProxy {
         if flags & CLONE_NS_ALL == 0 {
             return Ok(None);
         }
-        let mut new = self.copy_user(kernel, flags)?;
+        let mut new = self.copy_user(flags)?;
         if flags & CLONE_NS_ALL & !CloneFlags::CLONE_NEWUSER.0 != 0 {
             if flags & CloneFlags::CLONE_NEWUSER.0 == 0 && !cred.capable(Cap::SysAdmin) {
                 return Err(Errno::EPERM);
             }
-            new.create(kernel, flags, active_pid, fs)?;
+            new.create(kernel, flags, cred, active_pid, fs)?;
         }
         Ok(Some(new))
     }
 
     /// A copy of the proxy, in a new user namespace if `flags` asks (`copy_creds`,
     /// `unshare_userns`).
-    fn copy_user(&self, kernel: &Kernel, flags: u64) -> Result<Self, Errno> {
-        let mut new = self.clone();
+    fn copy_user(&self, flags: u64) -> Result<Self, Errno> {
         if flags & CloneFlags::CLONE_NEWUSER.0 != 0 {
-            new.make(kernel, NsKind::User, None, None)?;
+            return Err(Errno::EPERM);
         }
-        Ok(new)
+        Ok(self.clone())
     }
 
     /// `create_new_namespaces`: a new namespace of each kind `flags` asks for.
@@ -476,12 +476,13 @@ impl NsProxy {
         &mut self,
         kernel: &Kernel,
         flags: u64,
+        cred: &Cred,
         active_pid: &Arc<PidNs>,
         mut fs: Option<&mut FsContext>,
     ) -> Result<(), Errno> {
         for kind in NsKind::PROXIED {
             if flags & kind.flag() != 0 {
-                self.make(kernel, kind, Some(active_pid), fs.as_deref_mut())?;
+                self.make(kernel, kind, cred, active_pid, fs.as_deref_mut())?;
             }
         }
         Ok(())
@@ -489,23 +490,24 @@ impl NsProxy {
 
     /// Puts a new namespace of `kind` in place of the proxy's (`copy_mnt_ns`, `copy_utsname`,
     /// `copy_ipcs`, `copy_pid_ns`, `copy_cgroup_ns`, `copy_net_ns`, `copy_time_ns`,
-    /// `create_user_ns`), owned by the proxy's user namespace. A new mount namespace copies
+    /// owned by the user namespace of the maker's credentials `cred`. A new mount namespace copies
     /// the mount tree and moves `fs`, the root and working directory, to the copies of their
     /// mounts (`copy_mnt_ns`). A new UTS namespace starts
     /// with a copy of the names (`clone_uts_ns`), a new IPC namespace empty (`create_ipc_ns`),
     /// a new network namespace with the network the kernel's factory makes and no abstract Unix
     /// names (`setup_net`). A new pid namespace goes below the one for children, which must be
-    /// the maker's own, `active_pid` (`copy_pid_ns`), and is for the children only. User,
-    /// cgroup and time namespaces cannot be made yet.
+    /// the maker's own, `active_pid` (`copy_pid_ns`), and is for the children only. Cgroup
+    /// and time namespaces cannot be made yet.
     fn make(
         &mut self,
         kernel: &Kernel,
         kind: NsKind,
-        active_pid: Option<&Arc<PidNs>>,
+        cred: &Cred,
+        active_pid: &Arc<PidNs>,
         fs: Option<&mut FsContext>,
     ) -> Result<(), Errno> {
         let inums = &kernel.ns_inums;
-        let owner = self.user.clone();
+        let owner = cred.user_ns.clone();
         match kind {
             NsKind::Uts => {
                 let names = *self.uts.lock_or_recover();
@@ -530,7 +532,7 @@ impl NsProxy {
             }
             NsKind::Pid => {
                 let parent = &self.pid_for_children;
-                if !active_pid.is_some_and(|active| Arc::ptr_eq(active, parent)) {
+                if !Arc::ptr_eq(active_pid, parent) {
                     return Err(Errno::EINVAL);
                 }
                 let space = PidSpace::child_of(parent)?;
@@ -589,15 +591,15 @@ impl NsLink {
     }
 
     /// The namespace the link shows of a task in `ns`, whose process is in the pid namespace
-    /// `pid` (`ns_ops->get`).
-    pub(crate) fn get(self, ns: &NsProxy, pid: &Arc<PidNs>) -> Namespace {
+    /// `pid` and the user namespace `user` (`ns_ops->get`).
+    pub(crate) fn get(self, ns: &NsProxy, pid: &Arc<PidNs>, user: &Arc<UserNs>) -> Namespace {
         match self {
             NsLink::Net => Namespace::Net(ns.net.clone()),
             NsLink::Uts => Namespace::Uts(ns.uts.clone()),
             NsLink::Ipc => Namespace::Ipc(ns.ipc.clone()),
             NsLink::Pid => Namespace::Pid(pid.clone()),
             NsLink::PidForChildren => Namespace::Pid(ns.pid_for_children.clone()),
-            NsLink::User => Namespace::User(ns.user.clone()),
+            NsLink::User => Namespace::User(user.clone()),
             NsLink::Mnt => Namespace::Mnt(ns.mnt.clone()),
             NsLink::Cgroup => Namespace::Cgroup(ns.cgroup.clone()),
             NsLink::Time => Namespace::Time(ns.time.clone()),
@@ -848,7 +850,7 @@ impl Kernel {
                 NsKind::Ipc => Namespace::Ipc(ns.ipc.clone()),
                 NsKind::Net => Namespace::Net(ns.net.clone()),
                 NsKind::Pid => Namespace::Pid(process.pid_ns.clone()),
-                NsKind::User => Namespace::User(ns.user.clone()),
+                NsKind::User => Namespace::User(process.cred().user_ns),
                 NsKind::Cgroup => Namespace::Cgroup(ns.cgroup.clone()),
                 NsKind::Time => Namespace::Time(ns.time.clone()),
             };
@@ -865,13 +867,11 @@ impl Kernel {
         match ns {
             // `userns_install`: entering one's own user namespace would regain capabilities.
             Namespace::User(ns) => {
-                if Arc::ptr_eq(&ns, &set.proxy.user) || !joiner.alone || joiner.fs_shared {
+                if Arc::ptr_eq(&ns, &joiner.cred.user_ns) || !joiner.alone || joiner.fs_shared {
                     return Err(Errno::EINVAL);
                 }
-                if !admin {
-                    return Err(Errno::EPERM);
-                }
-                set.proxy.user = ns;
+                // No user namespace but the initial one can be made yet.
+                return Err(Errno::EPERM);
             }
             // `mntns_install`: the root and working directory become the namespace's root. Only
             // a caller entering nothing else checks its own `fs_struct`; otherwise Linux checks

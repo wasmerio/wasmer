@@ -12,7 +12,7 @@ use wasixv2_syscalls::{Caller, CpuTimes, Errno, SysResult, UserSliceMut, read_va
 
 use wasixv2_vfs::Cap;
 
-use crate::{Kernel, Process, State, file::NrOpen, mm::PAGE_SIZE, sync::MutexExt};
+use crate::{Kernel, Process, State, file::NrOpen, mm::PAGE_SIZE, sync::MutexExt, uidgid::Kuid};
 
 const INFINITY: u64 = u64::MAX;
 /// `RLIM_NLIMITS`.
@@ -64,7 +64,7 @@ impl Default for Resources {
 pub(crate) fn nproc_exceeded(state: &State, process: &Process) -> bool {
     let cred = process.cred();
     let uid = cred.user.real;
-    if uid == 0 || cred.capable(Cap::SysResource) || cred.capable(Cap::SysAdmin) {
+    if uid == Kuid::GLOBAL_ROOT || cred.capable(Cap::SysResource) || cred.capable(Cap::SysAdmin) {
         return false;
     }
     let tasks = state
