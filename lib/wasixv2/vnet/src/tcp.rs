@@ -948,6 +948,9 @@ impl Socket for TcpSocket {
 
     fn set_option(&self, level: i32, name: i32, value: &[u8]) -> NetResult<()> {
         let mut g = self.lock();
+        if crate::mcast::handles(level, name) {
+            return g.opts.set_mcast(&self.net, level, name, value);
+        }
         let bound = g.local.is_some();
         let changed = g.opts.set(level, name, value, bound)?;
         match changed {

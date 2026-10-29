@@ -185,6 +185,9 @@ pub struct Interface {
     pub addresses: Vec<IfAddr>,
     /// `net.ipv6.conf.<name>.disable_ipv6`.
     pub ipv6_disabled: bool,
+    /// The multicast groups the interface is in, newest first, with how many memberships
+    /// hold each (see [`crate::iface::Link::groups`]).
+    pub groups: Vec<(IpAddr, u32)>,
 }
 
 /// What `RTM_NEWLINK` with `NLM_F_CREATE` makes (`rtnl_newlink_create`).

@@ -46,6 +46,9 @@ pub(crate) struct SendCtl {
     pub oif: u32,
     /// `UDP_SEGMENT`'s size: the payload goes out as datagrams of this size.
     pub gso_size: Option<usize>,
+    /// `IP_TTL` / `IPV6_HOPLIMIT`: the datagram's hop limit, if given (`ipc->ttl`,
+    /// `ipc6->hlimit`).
+    pub ttl: Option<u8>,
 }
 
 fn int(c: &Control) -> NetResult<i32> {
@@ -84,6 +87,7 @@ pub(crate) fn udp(
         };
         ctl.src = ip.src;
         ctl.oif = ip.oif;
+        ctl.ttl = ip.ttl;
     }
     Ok(ctl)
 }
@@ -132,9 +136,11 @@ fn ip(controls: &[Control], allow_ipv6: bool) -> NetResult<SendCtl> {
                 ctl.src = Some(spec_dst.into()).filter(|ip: &IpAddr| !ip.is_unspecified());
             }
             k if k == IpOption::IP_TTL.0 => {
-                if !(1..=255).contains(&int(c)?) {
+                let ttl = int(c)?;
+                if !(1..=255).contains(&ttl) {
                     return Err(Errno::EINVAL);
                 }
+                ctl.ttl = Some(ttl as u8);
             }
             k if k == IpOption::IP_TOS.0 => {
                 let tos = match c.data.len() {
@@ -236,9 +242,11 @@ fn ip6(controls: &[Control], net_raw: bool) -> NetResult<SendCtl> {
                 }
             }
             k if k == Ipv6Option::IPV6_HOPLIMIT.0 || k == IPV6_2292HOPLIMIT => {
-                if !(-1..=255).contains(&int(c)?) {
+                let hops = int(c)?;
+                if !(-1..=255).contains(&hops) {
                     return Err(Errno::EINVAL);
                 }
+                ctl.ttl = u8::try_from(hops).ok();
             }
             k if k == Ipv6Option::IPV6_TCLASS.0 => {
                 if !(-1..=255).contains(&int(c)?) {
@@ -275,7 +283,11 @@ mod tests {
     #[test]
     fn ip_messages_are_validated_in_order() {
         let udp4 = |cs: &[Control]| udp(cs, Domain::Inet, true, false);
-        assert_eq!(udp4(&[ttl(64)]), Ok(SendCtl::default()));
+        let ttl64 = SendCtl {
+            ttl: Some(64),
+            ..SendCtl::default()
+        };
+        assert_eq!(udp4(&[ttl(64)]), Ok(ttl64));
         assert_eq!(udp4(&[ttl(0)]), Err(Errno::EINVAL));
         assert_eq!(
             udp4(&[c(SOL_IP, IpOption::IP_TTL.0, &[64])]),

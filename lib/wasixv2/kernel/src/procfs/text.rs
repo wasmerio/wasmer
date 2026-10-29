@@ -493,37 +493,53 @@ fn net_if_inet6(ns: &NetNs) -> Vec<u8> {
     out.into_bytes()
 }
 
-/// `igmp_mc_seq_show`: the groups an interface is in. Sockets' memberships deliver nothing
-/// and are not kept, so these are the kernel's own: an up interface is in the all-hosts group
-/// (`ip_mc_up`).
+/// `igmp_mc_seq_show`: the IPv4 groups each interface is in, newest first: those sockets
+/// joined, and the all-hosts group an up interface is in (`ip_mc_up`). No reports are sent,
+/// so no timer runs and the interface is no group's reporter.
 fn net_igmp(ns: &NetNs) -> Vec<u8> {
-    use wasixv2_vnet::iface::flags::IFF_UP;
+    use std::net::IpAddr;
     let interfaces = ns
         .network
         .as_ref()
         .map(|n| n.interfaces())
         .unwrap_or_default();
     let mut out = String::from("Idx\tDevice    : Count Querier\tGroup    Users Timer\tReporter\n");
-    for iface in interfaces.iter().filter(|i| i.flags & IFF_UP != 0) {
+    for iface in &interfaces {
+        let groups: Vec<_> = iface
+            .groups
+            .iter()
+            .filter_map(|(g, users)| match g {
+                IpAddr::V4(v4) => Some((*v4, *users)),
+                IpAddr::V6(_) => None,
+            })
+            .collect();
+        if groups.is_empty() {
+            continue;
+        }
         let _ = writeln!(
             out,
             "{}\t{:<10}: {:>5} {:>7}",
-            iface.index, iface.name, 1, "V3"
+            iface.index,
+            iface.name,
+            groups.len(),
+            "V3"
         );
-        // 224.0.0.1 as the big-endian word it is, in hex.
-        let all_hosts = u32::from_le_bytes([224, 0, 0, 1]);
-        let _ = writeln!(out, "\t\t\t\t{all_hosts:08X} {:>5} 0:00000000\t\t0", 1);
+        for (group, users) in groups {
+            // The big-endian word, printed as the native one it is read as.
+            let word = u32::from_le_bytes(group.octets());
+            let _ = writeln!(out, "\t\t\t\t{word:08X} {users:>5} 0:00000000\t\t0");
+        }
     }
     out.into_bytes()
 }
 
-/// `igmp6_mc_seq_show`: the kernel's own IPv6 memberships of an up interface with IPv6, the
-/// newest first as `igmp6_group_added` puts them: the solicited-node group of each address
-/// (`addrconf_join_solict`, not on loopback), all-nodes (`ff02::1`) and interface-local
-/// all-nodes (`ff01::1`).
+/// `igmp6_mc_seq_show`: the IPv6 groups each interface is in, newest first: those sockets
+/// joined, and the kernel's own while it is up with IPv6 (all-nodes, `ff02::1` and
+/// interface-local `ff01::1`, and each address's solicited-node group, not on loopback). The
+/// all-nodes and interface-local groups are never reported (`MAF_NOREPORT`); the interface
+/// was the last to report the others (`MAF_LAST_REPORTER`).
 fn net_igmp6(ns: &NetNs) -> Vec<u8> {
     use std::net::{IpAddr, Ipv6Addr};
-    use wasixv2_vnet::iface::flags::{IFF_LOOPBACK, IFF_UP};
     /// `MAF_NOREPORT | MAF_LAST_REPORTER` and `MAF_LAST_REPORTER`.
     const NOREPORT: u32 = 0x0c;
     const REPORTED: u32 = 0x04;
@@ -532,34 +548,24 @@ fn net_igmp6(ns: &NetNs) -> Vec<u8> {
         .as_ref()
         .map(|n| n.interfaces())
         .unwrap_or_default();
+    let all_nodes = Ipv6Addr::new(0xff02, 0, 0, 0, 0, 0, 0, 1);
     let mut out = String::new();
-    for iface in interfaces
-        .iter()
-        .filter(|i| i.flags & IFF_UP != 0 && !i.ipv6_disabled)
-    {
-        let mut groups = vec![
-            (Ipv6Addr::new(0xff01, 0, 0, 0, 0, 0, 0, 1), NOREPORT),
-            (Ipv6Addr::new(0xff02, 0, 0, 0, 0, 0, 0, 1), NOREPORT),
-        ];
-        if iface.flags & IFF_LOOPBACK == 0 {
-            for a in &iface.addresses {
-                if let IpAddr::V6(v6) = a.addr {
-                    let low = u128::from(v6) & 0xff_ffff;
-                    let group = Ipv6Addr::from(0xff02_0000_0000_0000_0000_0001_ff00_0000 | low);
-                    if !groups.iter().any(|(g, _)| *g == group) {
-                        groups.push((group, REPORTED));
-                    }
-                }
-            }
-        }
-        for (group, flags) in groups.iter().rev() {
+    for iface in &interfaces {
+        for (group, users) in &iface.groups {
+            let IpAddr::V6(group) = *group else {
+                continue;
+            };
+            // Below link scope, or all-nodes (`igmp6_join_group`).
+            let flags = match group == all_nodes || group.segments()[0] & 0xf < 2 {
+                true => NOREPORT,
+                false => REPORTED,
+            };
             let _ = writeln!(
                 out,
-                "{:<4} {:<15} {:032x} {:>5} {flags:08X} 0",
+                "{:<4} {:<15} {:032x} {users:>5} {flags:08X} 0",
                 iface.index,
                 iface.name,
-                u128::from(*group),
-                1
+                u128::from(group),
             );
         }
     }

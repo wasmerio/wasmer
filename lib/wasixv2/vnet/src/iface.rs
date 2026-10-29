@@ -357,6 +357,11 @@ pub struct Link {
     pub addrs: Vec<IfAddr>,
     /// `net.ipv6.conf.<name>.disable_ipv6`: no IPv6 address, not even link-local.
     pub ipv6_disabled: bool,
+    /// The multicast groups sockets joined on the interface (`in_device->mc_list`,
+    /// `inet6_dev->mc_list`), newest first as `ip_mc_inc_group` and `__ipv6_dev_mc_inc` link
+    /// them, with how many memberships hold each. The kernel's own (see
+    /// [`Link::groups`]) are not kept here.
+    pub joined: Vec<(IpAddr, u32)>,
 }
 
 impl Link {
@@ -385,7 +390,58 @@ impl Link {
     pub fn carrier(&self) -> bool {
         self.flags() & IFF_LOWER_UP != 0
     }
+
+    /// The groups the kernel joins by itself while the interface is up: IPv4's all-hosts
+    /// group (`ip_mc_up`), and with IPv6 the all-nodes groups (`ipv6_mc_up`, interface-local
+    /// and link-local) and each address's solicited-node group (`addrconf_join_solict`, not
+    /// on loopback), oldest first.
+    fn own_groups(&self) -> Vec<IpAddr> {
+        if !self.is_up() {
+            return Vec::new();
+        }
+        let mut groups = vec![IpAddr::V4(Ipv4Addr::new(224, 0, 0, 1))];
+        if self.ipv6_disabled {
+            return groups;
+        }
+        groups.push(Ipv6Addr::new(0xff01, 0, 0, 0, 0, 0, 0, 1).into());
+        groups.push(Ipv6Addr::new(0xff02, 0, 0, 0, 0, 0, 0, 1).into());
+        if !self.is_loopback() {
+            for a in &self.addrs {
+                if let IpAddr::V6(v6) = a.addr {
+                    let low = u128::from(v6) & 0xff_ffff;
+                    let group = IpAddr::V6(Ipv6Addr::from(SOLICITED_NODE | low));
+                    if !groups.contains(&group) {
+                        groups.push(group);
+                    }
+                }
+            }
+        }
+        groups
+    }
+
+    /// Every group the interface is in, newest first, with its number of memberships: the
+    /// sockets' (`joined`) and the kernel's own, which count as one each (what
+    /// `/proc/net/igmp` and `/proc/net/igmp6` list).
+    pub fn groups(&self) -> Vec<(IpAddr, u32)> {
+        let mut groups = self.joined.clone();
+        for own in self.own_groups().into_iter().rev() {
+            match groups.iter_mut().find(|(g, _)| *g == own) {
+                Some((_, users)) => *users += 1,
+                None => groups.push((own, 1)),
+            }
+        }
+        groups
+    }
+
+    /// `ip_check_mc_rcu`, `ipv6_chk_mcast_addr`: the interface receives what is sent to
+    /// `group`.
+    pub fn in_group(&self, group: IpAddr) -> bool {
+        self.joined.iter().any(|(g, _)| *g == group) || self.own_groups().contains(&group)
+    }
 }
+
+/// `ff02::1:ff00:0/104`, the solicited-node prefix.
+const SOLICITED_NODE: u128 = 0xff02_0000_0000_0000_0000_0001_ff00_0000;
 
 /// A route (`struct fib_alias` with its `fib_info`, `struct fib6_info`).
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -650,6 +706,7 @@ impl Interfaces {
                 kind,
                 addrs: Vec::new(),
                 ipv6_disabled: false,
+                joined: Vec::new(),
             }],
             routes: Vec::new(),
             last_index: LOOPBACK_INDEX,
@@ -743,6 +800,7 @@ impl Interfaces {
             kind,
             addrs: Vec::new(),
             ipv6_disabled: false,
+            joined: Vec::new(),
         });
         Ok(index)
     }
@@ -1300,6 +1358,85 @@ impl Interfaces {
 
     pub fn is_local(&self, ip: IpAddr) -> bool {
         self.local_link(ip).is_some()
+    }
+
+    /// `__ip_dev_find` and `ipv6_chk_addr` without the interface's state: the interface that
+    /// holds `ip`, up or down.
+    pub(crate) fn link_with_addr(&self, ip: IpAddr) -> Option<u32> {
+        self.links
+            .iter()
+            .find(|l| l.addrs.iter().any(|a| a.addr == ip))
+            .map(|l| l.index)
+    }
+
+    /// A membership of `group` on interface `index` (`ip_mc_inc_group`,
+    /// `__ipv6_dev_mc_inc`): the first makes the interface join, at the head of its list.
+    pub(crate) fn join_group(&mut self, index: u32, group: IpAddr) -> NetResult<()> {
+        let link = self.link_mut(index)?;
+        match link.joined.iter_mut().find(|(g, _)| *g == group) {
+            Some((_, users)) => *users += 1,
+            None => link.joined.insert(0, (group, 1)),
+        }
+        Ok(())
+    }
+
+    /// The end of a membership (`ip_mc_dec_group`, `__ipv6_dev_mc_dec`): the last takes the
+    /// interface out of the group. An interface that is gone has left every group already.
+    pub(crate) fn leave_group(&mut self, index: u32, group: IpAddr) {
+        let Ok(link) = self.link_mut(index) else {
+            return;
+        };
+        if let Some(i) = link.joined.iter().position(|(g, _)| *g == group) {
+            link.joined[i].1 -= 1;
+            if link.joined[i].1 == 0 {
+                link.joined.remove(i);
+            }
+        }
+    }
+
+    /// The source address of a multicast datagram out interface `index`
+    /// (`inet_select_addr(dev, 0, scope)`, a simplified `ipv6_dev_get_saddr`): IPv4, the
+    /// interface's first primary address, else one of another up interface that is not
+    /// link-scoped; IPv6, an address of the interface of the group's scope, else any of its
+    /// own. `None` if there is none, as Linux then sends from the unspecified address.
+    pub(crate) fn mc_source(&self, index: u32, group: IpAddr) -> Option<IpAddr> {
+        let link = self.link(index)?;
+        match group {
+            IpAddr::V4(_) => {
+                let primary = |l: &Link| {
+                    l.addrs
+                        .iter()
+                        .find(|a| a.addr.is_ipv4() && !a.is_secondary())
+                        .cloned()
+                };
+                primary(link).map(|a| a.addr).or_else(|| {
+                    self.links
+                        .iter()
+                        .filter(|l| l.is_up() && l.index != index)
+                        .filter_map(primary)
+                        .find(|a| a.scope != RT_SCOPE_LINK)
+                        .map(|a| a.addr)
+                })
+            }
+            IpAddr::V6(g) => {
+                let link_scoped = g.segments()[0] & 0x000f <= 2;
+                let v6: Vec<&IfAddr> = link.addrs.iter().filter(|a| a.addr.is_ipv6()).collect();
+                v6.iter()
+                    .find(|a| (a.scope == RT_SCOPE_LINK) == link_scoped)
+                    .or(v6.first())
+                    .map(|a| a.addr)
+            }
+        }
+    }
+
+    /// The interface an IPv6 multicast datagram leaves by when nothing names one: the first
+    /// up interface with IPv6 but loopback, through the `ff00::/8` route `addrconf` gives each
+    /// (`addrconf_add_mroute`), which the tables here leave out.
+    pub(crate) fn mc6_default_oif(&self) -> Option<u32> {
+        self.links
+            .iter()
+            .find(|l| l.is_up() && !l.is_loopback() && !l.ipv6_disabled)
+            .map(|l| l.index)
     }
 
     /// `fib_lookup` and `ip6_route_output`: local addresses first, then the main table and

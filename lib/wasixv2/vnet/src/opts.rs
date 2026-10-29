@@ -7,7 +7,11 @@ use std::collections::BTreeMap;
 
 use wasixv2_abi::{Errno, IpOption, Ipv6Option, SocketLevel, SocketOption as So, TcpOption as Tcp};
 
-use crate::{Domain, NetResult, SocketKind};
+use crate::{
+    Domain, NetResult, SocketKind,
+    mcast::{self, Mcast},
+    net::Net,
+};
 
 /// `IPV6_V6ONLY`; missing from the generated ABI constants.
 pub const IPV6_V6ONLY: i32 = 26;
@@ -59,6 +63,8 @@ pub struct SockOpts {
     pub bind_device: Vec<u8>,
     pub congestion: Vec<u8>,
     pub user_mss: i32,
+    /// Multicast options and memberships.
+    pub(crate) mc: Mcast,
     /// Plain integer options keyed by (level, name).
     ints: BTreeMap<(i32, i32), i32>,
 }
@@ -91,15 +97,10 @@ const INT_OPTS: &[(i32, i32, i32, bool, bool)] = &[
     (SOL_IP, IpOption::IP_MTU_DISCOVER.0, 1, false, false),
     (SOL_IP, IpOption::IP_FREEBIND.0, 0, true, false),
     (SOL_IP, IpOption::IP_BIND_ADDRESS_NO_PORT.0, 0, true, false),
-    (SOL_IP, IpOption::IP_MULTICAST_TTL.0, 1, false, false),
-    (SOL_IP, IpOption::IP_MULTICAST_LOOP.0, 1, true, false),
-    (SOL_IP, IpOption::IP_MULTICAST_ALL.0, 1, true, false),
     (SOL_IPV6, Ipv6Option::IPV6_RECVPKTINFO.0, 0, true, false),
     (SOL_IPV6, Ipv6Option::IPV6_TCLASS.0, 0, false, false),
     (SOL_IPV6, Ipv6Option::IPV6_RECVTCLASS.0, 0, true, false),
     (SOL_IPV6, Ipv6Option::IPV6_RECVERR.0, 0, true, false),
-    (SOL_IPV6, Ipv6Option::IPV6_MULTICAST_HOPS.0, 1, false, false),
-    (SOL_IPV6, Ipv6Option::IPV6_MULTICAST_LOOP.0, 1, true, false),
     (SOL_IPV6, Ipv6Option::IPV6_DONTFRAG.0, 0, true, false),
     (SOL_IPV6, Ipv6Option::IPV6_FREEBIND.0, 0, true, false),
     (SOL_IPV6, Ipv6Option::IPV6_MTU_DISCOVER.0, 1, false, false),
@@ -188,6 +189,7 @@ impl SockOpts {
             bind_device: Vec::new(),
             congestion: b"cubic".to_vec(),
             user_mss: 0,
+            mc: Mcast::default(),
             ints: BTreeMap::new(),
         }
     }
@@ -252,6 +254,20 @@ impl SockOpts {
             (SOL_TCP, Some(_)) if self.ty == SocketKind::Stream => Ok(()),
             _ => Err(Errno::ENOPROTOOPT),
         }
+    }
+
+    /// `setsockopt` of a multicast option ([`mcast::handles`]), which needs the namespace's
+    /// interfaces.
+    pub(crate) fn set_mcast(
+        &mut self,
+        net: &Net,
+        level: i32,
+        name: i32,
+        value: &[u8],
+    ) -> NetResult<()> {
+        self.check_level(level)?;
+        let bound_dev = net.device_index(&self.bind_device);
+        self.mc.set(net, self.ty, bound_dev, level, name, value)
     }
 
     /// `setsockopt` for the options every inet socket shares. `bound` is whether the socket
@@ -396,6 +412,9 @@ impl SockOpts {
     /// `TCP_INFO`, ...) are answered by the socket first.
     pub fn get(&self, level: i32, name: i32, out: &mut [u8]) -> NetResult<usize> {
         self.check_level(level)?;
+        if mcast::handles(level, name) {
+            return self.mc.get(self.ty, level, name, out);
+        }
         let v = match (level, name) {
             (SOL_SOCKET, n) if n == So::SO_LINGER.0 => {
                 let mut buf = [0u8; 8];

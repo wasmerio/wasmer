@@ -1481,7 +1481,8 @@ fn proc_sys_net_is_the_readers_network_namespace() {
 }
 
 /// `/proc/net/igmp` and `igmp6` list the groups the kernel joins on its own for an up
-/// interface (`ip_mc_up`, all-nodes), which `netstat -g` and `ip maddr` read.
+/// interface (`ip_mc_up`, all-nodes) and those sockets joined, newest first with their
+/// memberships, which `netstat -g` and `ip maddr` read.
 #[test]
 fn proc_net_igmp_lists_the_kernels_own_groups() {
     let (kernel, task, memory) = networked();
@@ -1491,6 +1492,29 @@ fn proc_net_igmp_lists_the_kernels_own_groups() {
         igmp,
         "Idx\tDevice    : Count Querier\tGroup    Users Timer\tReporter\n\
          1\tlo        :     1      V3\n\t\t\t\t010000E0     1 0:00000000\t\t0\n"
+    );
+    // `struct ip_mreqn` for 239.1.2.3 on interface 1, from two sockets.
+    let mreqn = [239, 1, 2, 3, 0, 0, 0, 0, 1, 0, 0, 0];
+    put(&memory.0, 0x600, &mreqn);
+    let joined = || {
+        let fd = block_on(kernel.socket(&caller, AddressFamily::AF_INET, DGRAM, 0)).unwrap();
+        let set = kernel.setsockopt(
+            &caller,
+            fd,
+            wasixv2_abi::SocketLevel::SOL_IP,
+            wasixv2_abi::IpOption::IP_ADD_MEMBERSHIP.0,
+            UserSlice::new(0x600, 12),
+        );
+        assert_eq!(block_on(set), Ok(0));
+        fd
+    };
+    let (_one, _two) = (joined(), joined());
+    let igmp = read_text(&kernel, &caller, "/proc/net/igmp");
+    assert_eq!(
+        igmp,
+        "Idx\tDevice    : Count Querier\tGroup    Users Timer\tReporter\n\
+         1\tlo        :     2      V3\n\t\t\t\t030201EF     2 0:00000000\t\t0\n\
+         \t\t\t\t010000E0     1 0:00000000\t\t0\n"
     );
     let igmp6 = read_text(&kernel, &caller, "/proc/net/igmp6");
     assert_eq!(
