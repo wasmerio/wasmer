@@ -23,9 +23,7 @@ use itertools::Itertools;
 use libwild::{
     Args, FileSystem, FileType, InputFileData, Linker, OutputFileData, OutputOptions, error,
 };
-use object::write::{
-    Relocation, StandardSegment, Symbol as ObjSymbol, SymbolSection,
-};
+use object::write::{Relocation, StandardSegment, Symbol as ObjSymbol, SymbolSection};
 use object::{
     RelocationEncoding, RelocationFlags, RelocationKind, SectionFlags, SectionKind, SymbolFlags,
     SymbolKind, SymbolScope, elf,
