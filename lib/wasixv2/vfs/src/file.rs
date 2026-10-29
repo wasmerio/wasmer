@@ -164,22 +164,36 @@ impl File {
 
     /// Writes at `offset`, as much of `data` as the file's seals allow.
     pub async fn write_at(&self, data: &[u8], offset: u64) -> FsResult<usize> {
+        self.write_at_as(data, offset, &crate::Cred::user(0, 0))
+            .await
+    }
+
+    pub async fn write_at_as(
+        &self,
+        data: &[u8],
+        offset: u64,
+        cred: &crate::Cred,
+    ) -> FsResult<usize> {
         let handle = self.handle()?;
         let inode = self.path.dentry.inode();
         let _sealed = inode.seal_lock().await;
         let data = inode.sealed_write(data, Some(offset)).await?;
-        let n = handle.write_at(data, offset).await?;
+        let n = handle.write_at_as(data, offset, cred).await?;
         self.modified(n);
         Ok(n)
     }
 
     /// Writes at the end of the file (`O_APPEND`). Returns the offset after the data.
     pub async fn append(&self, data: &[u8]) -> FsResult<(u64, usize)> {
+        self.append_as(data, &crate::Cred::user(0, 0)).await
+    }
+
+    pub async fn append_as(&self, data: &[u8], cred: &crate::Cred) -> FsResult<(u64, usize)> {
         let handle = self.handle()?;
         let inode = self.path.dentry.inode();
         let _sealed = inode.seal_lock().await;
         let data = inode.sealed_write(data, None).await?;
-        let (at, n) = handle.append(data).await?;
+        let (at, n) = handle.append_as(data, cred).await?;
         self.modified(n);
         Ok((at + n as u64, n))
     }
@@ -240,6 +254,17 @@ impl File {
     }
 
     pub async fn allocate(&self, mode: crate::AllocMode, offset: u64, len: u64) -> FsResult<()> {
+        self.allocate_as(mode, offset, len, &crate::Cred::user(0, 0))
+            .await
+    }
+
+    pub async fn allocate_as(
+        &self,
+        mode: crate::AllocMode,
+        offset: u64,
+        len: u64,
+        cred: &crate::Cred,
+    ) -> FsResult<()> {
         let handle = self.handle()?;
         // `vfs_fallocate`: only preallocation on an append-only file, nothing on an immutable
         // one.
@@ -256,7 +281,7 @@ impl File {
         let inode = self.path.dentry.inode();
         let _sealed = inode.seal_lock().await;
         inode.sealed_allocate(mode, offset, len).await?;
-        handle.allocate(mode, offset, len).await?;
+        handle.allocate_as(mode, offset, len, cred).await?;
         self.modified(1);
         Ok(())
     }

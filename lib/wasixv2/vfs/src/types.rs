@@ -135,6 +135,8 @@ impl Attr {
 /// `ctime` that accompanies most changes; drivers store what they are given.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct SetAttr {
+    /// The current caller may exceed quota limits (`ignore_hardlimit`).
+    pub quota_exempt: bool,
     pub mode: Option<u32>,
     pub uid: Option<u32>,
     pub gid: Option<u32>,
@@ -196,6 +198,8 @@ pub struct NewNode<'a> {
     /// whose objects depend on their creator, as Linux's `mqueue_create` reads `current` (a
     /// message queue is charged to it); 0 for the embedder.
     pub task: u32,
+    /// `CAP_SYS_RESOURCE` in the initial user namespace (`ignore_hardlimit`).
+    pub quota_exempt: bool,
 }
 
 /// How `rename` treats an existing target.

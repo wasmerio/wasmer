@@ -111,6 +111,7 @@ impl Kernel {
             uid: cred.fsuid,
             gid: cred.fsgid,
             task: caller.task().0,
+            quota_exempt: cred.capable_init(wasixv2_vfs::Cap::SysResource),
         };
         self.vfs.open_unnamed(shm, name, &new, seals).await
     }

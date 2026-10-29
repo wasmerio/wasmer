@@ -23,6 +23,7 @@ fn new(kind: NewKind<'_>) -> NewNode<'_> {
         uid: 1,
         gid: 1,
         task: 0,
+        quota_exempt: false,
     }
 }
 

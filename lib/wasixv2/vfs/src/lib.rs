@@ -20,6 +20,7 @@ mod notify;
 mod ops;
 mod pnode;
 mod posix_acl;
+mod quota;
 mod seals;
 mod security;
 mod sync;
@@ -56,6 +57,7 @@ pub use pnode::Propagation;
 pub use posix_acl::{
     AclEntry, AclKind, PosixAcl, XATTR_NAME_POSIX_ACL_ACCESS, XATTR_NAME_POSIX_ACL_DEFAULT,
 };
+pub use quota::QuotaOps;
 pub use seals::WRITE_SEALS;
 pub use security::Security;
 use sync::MutexExt;

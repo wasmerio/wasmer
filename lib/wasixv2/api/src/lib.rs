@@ -39,7 +39,7 @@ use wasixv2_syscalls::{Layered, TaskId};
 use wasixv2_trace::Trace;
 pub use wasixv2_vfs::Filesystem;
 use wasixv2_vfs::{Cred, Ctx, Errno, LookupFlags, MountFlags, NAME_MAX, Vfs};
-use wasixv2_vfs_mem::{Limits, MemFs};
+use wasixv2_vfs_mem::{Limits, MemFs, QuotaLimits};
 use wasixv2_vfs_overlay::{MAX_LOWERS, OverlayFs};
 use wasixv2_vfs_package::PackageFs;
 pub use wasixv2_vnet::{Net, NetConfig};
@@ -1249,6 +1249,7 @@ struct Tmpfs {
 /// leaves out.
 #[derive(Default)]
 struct TmpfsOptions {
+    quotas: QuotaLimits,
     max_bytes: Option<u64>,
     max_inodes: Option<u64>,
     mode: Option<u32>,
@@ -1285,6 +1286,28 @@ impl Tmpfs {
                     options.max_bytes = Some(blocks.checked_mul(PAGE).ok_or(Errno::EINVAL)?);
                 }
                 b"nr_inodes" => options.max_inodes = Some(memparse_all(value()?)?),
+                b"quota" | b"usrquota" | b"grpquota" if param.value.is_none() => {
+                    options.quotas.types |= match param.key {
+                        b"usrquota" => 1,
+                        b"grpquota" => 2,
+                        _ => 3,
+                    };
+                }
+                b"usrquota_block_hardlimit"
+                | b"grpquota_block_hardlimit"
+                | b"usrquota_inode_hardlimit"
+                | b"grpquota_inode_hardlimit" => {
+                    let limit = memparse_all(value()?)?;
+                    if limit == 0 || limit > i64::MAX as u64 {
+                        return Err(Errno::EINVAL);
+                    }
+                    let kind = usize::from(param.key.starts_with(b"grp"));
+                    if param.key.ends_with(b"block_hardlimit") {
+                        options.quotas.block_hard[kind] = limit;
+                    } else {
+                        options.quotas.inode_hard[kind] = limit;
+                    }
+                }
                 b"mode" => {
                     let mode = std::str::from_utf8(value()?).map_err(|_| Errno::EINVAL)?;
                     let mode = u32::from_str_radix(mode, 8).map_err(|_| Errno::EINVAL)?;
@@ -1306,6 +1329,9 @@ impl Tmpfs {
     /// (`shmem_init_fs_context`). The ids of `uid=` and `gid=` are the mounter's user
     /// namespace's, which must map them (`EINVAL`).
     fn make(&self, options: &TmpfsOptions, cred: &Cred) -> Result<Arc<MemFs>, Errno> {
+        if options.quotas.types != 0 && !cred.user_ns.is_initial() {
+            return Err(Errno::EINVAL);
+        }
         let defaults = Limits::for_memory(Limits::DEFAULT_MEMORY);
         let limits = Limits {
             max_bytes: options.max_bytes.or(defaults.max_bytes),
@@ -1322,7 +1348,7 @@ impl Tmpfs {
             Some(gid) => ns.make_kgid(gid).ok_or(Errno::EINVAL)?,
             None => cred.fsgid,
         };
-        let mut fs = MemFs::with_limits(clock, mode, uid, gid, limits);
+        let mut fs = MemFs::with_limits_and_quotas(clock, mode, uid, gid, limits, options.quotas)?;
         if cfg!(any(target_os = "linux", target_os = "android")) {
             fs = fs.with_shared_pages(Arc::new(HostPages(self.host.clone())));
         }
@@ -1383,6 +1409,7 @@ impl FilesystemType for Tmpfs {
                 false => Err(Errno::EINVAL),
             };
         };
+        instance.check_quota_remount(options.quotas)?;
         instance.set_limits(Limits {
             max_bytes: options.max_bytes,
             max_inodes: options.max_inodes,
@@ -1815,6 +1842,41 @@ mod tests {
                 Some(Errno::EINVAL),
                 "{bad:?}"
             );
+        }
+    }
+
+    #[test]
+    fn tmpfs_quota_options_and_remount_restrictions() {
+        let tmpfs = tmpfs();
+        let set = params(&[
+            ("usrquota", None),
+            ("grpquota", None),
+            ("usrquota_block_hardlimit", Some("8k")),
+            ("grpquota_inode_hardlimit", Some("3")),
+        ]);
+        let options = Tmpfs::options(&set).unwrap();
+        assert_eq!(options.quotas.types, 3);
+        assert_eq!(options.quotas.block_hard, [8192, 0]);
+        let fs: Arc<dyn Filesystem> = tmpfs.make(&options, &Cred::root()).unwrap();
+        assert!(fs.quota().unwrap().active(0));
+        assert!(fs.quota().unwrap().active(1));
+        assert_eq!(tmpfs.reconfigure(&fs, &set), Ok(()));
+        assert_eq!(
+            tmpfs.reconfigure(&fs, &params(&[("usrquota_block_hardlimit", Some("16k"))])),
+            Err(Errno::EINVAL)
+        );
+        let plain: Arc<dyn Filesystem> =
+            tmpfs.make(&TmpfsOptions::default(), &Cred::root()).unwrap();
+        assert_eq!(
+            tmpfs.reconfigure(&plain, &params(&[("quota", None)])),
+            Err(Errno::EINVAL)
+        );
+        for bad in [
+            ("quota", Some("1")),
+            ("usrquota_block_hardlimit", Some("0")),
+            ("grpquota_inode_hardlimit", Some("9223372036854775808")),
+        ] {
+            assert_eq!(Tmpfs::options(&params(&[bad])).err(), Some(Errno::EINVAL));
         }
     }
 

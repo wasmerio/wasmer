@@ -13,6 +13,7 @@ pub(crate) mod io;
 mod lock;
 pub(crate) mod mount;
 mod path;
+mod quota;
 mod splice;
 mod statmount;
 

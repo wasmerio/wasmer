@@ -464,6 +464,24 @@ impl OpenFile {
         broken: &Cell<bool>,
         data: &[u8],
     ) -> SysResult<usize> {
+        self.write_as(
+            task,
+            interrupt,
+            broken,
+            data,
+            &wasixv2_vfs::Cred::user(0, 0),
+        )
+        .await
+    }
+
+    pub(crate) async fn write_as(
+        &self,
+        task: TaskId,
+        interrupt: &dyn Interrupt,
+        broken: &Cell<bool>,
+        data: &[u8],
+        cred: &wasixv2_vfs::Cred,
+    ) -> SysResult<usize> {
         let io = Io {
             task,
             flags: self.flags(),
@@ -476,13 +494,13 @@ impl OpenFile {
         };
         let _pos = self.lock_pos().await;
         if self.flags().contains(OpenFlags::O_APPEND) {
-            let (end, n) = file.append(data).await?;
+            let (end, n) = file.append_as(data, cred).await?;
             *self.pos.lock_or_recover() = end;
             return Ok(n);
         }
         let pos = *self.pos.lock_or_recover();
         check_file_size(pos, data.len())?;
-        let n = file.write_at(data, pos).await?;
+        let n = file.write_at_as(data, pos, cred).await?;
         *self.pos.lock_or_recover() = pos + n as u64;
         Ok(n)
     }

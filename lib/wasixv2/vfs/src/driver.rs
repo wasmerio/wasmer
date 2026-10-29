@@ -61,6 +61,11 @@ pub trait Filesystem: Send + Sync {
         false
     }
 
+    /// The filesystem's quota operations, if configured (`s_qcop`).
+    fn quota(&self) -> Option<&dyn crate::QuotaOps> {
+        None
+    }
+
     /// `export_operations->encode_fh`: a handle for `node` that [`Filesystem::fh_to_node`]
     /// decodes, for `name_to_handle_at` and `open_by_handle_at`. `None` (the default) for a
     /// filesystem without export operations, whose objects only get identifiers that are
@@ -296,6 +301,26 @@ pub trait Handle: Send + Sync {
     /// the offset written at and the count.
     async fn append(&self, _data: &[u8]) -> FsResult<(u64, usize)> {
         Err(Errno::EISDIR)
+    }
+
+    /// Writes as the current caller. Quota-aware drivers use `CAP_SYS_RESOURCE` from
+    /// these credentials (`fs/quota/dquot.c: ignore_hardlimit`), never the opener's.
+    async fn write_at_as(&self, data: &[u8], offset: u64, _cred: &Cred) -> FsResult<usize> {
+        self.write_at(data, offset).await
+    }
+
+    async fn append_as(&self, data: &[u8], _cred: &Cred) -> FsResult<(u64, usize)> {
+        self.append(data).await
+    }
+
+    async fn allocate_as(
+        &self,
+        mode: AllocMode,
+        offset: u64,
+        len: u64,
+        _cred: &Cred,
+    ) -> FsResult<()> {
+        self.allocate(mode, offset, len).await
     }
 
     /// Flushes data, and metadata unless `data_only` (`fsync`/`fdatasync`).

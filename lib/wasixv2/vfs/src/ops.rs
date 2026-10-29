@@ -612,6 +612,7 @@ impl Vfs {
             uid: cx.cred.fsuid,
             gid,
             task: cx.task,
+            quota_exempt: cx.cred.capable_init(Cap::SysResource),
         };
         Ok((new, acls))
     }
@@ -1273,6 +1274,7 @@ impl Vfs {
             return self.setattr(path, ctime_only()).await;
         }
         let mut set = SetAttr {
+            quota_exempt: cred.capable_init(Cap::SysResource),
             uid,
             gid,
             ctime: Some(TimeSet::Now),

@@ -21,6 +21,7 @@ fn new(kind: NewKind<'_>) -> NewNode<'_> {
         uid: 1,
         gid: 1,
         task: 0,
+        quota_exempt: false,
     }
 }
 
@@ -549,4 +550,195 @@ fn file_handles_find_objects_while_they_exist() {
     other.data[0] = 1;
     assert_eq!(block_on(fs.fh_to_node(&other)).err(), Some(Errno::ESTALE));
     assert!(block_on(fs.fh_to_node(&root)).is_ok());
+}
+
+fn quota_fs(clock: Arc<dyn Clock>, limits: QuotaLimits) -> MemFs {
+    MemFs::with_limits_and_quotas(clock, 0o777, 0, 0, Limits::UNLIMITED, limits).unwrap()
+}
+
+#[test]
+fn quotas_charge_sparse_allocations_and_inodes_and_undo_failed_group_charges() {
+    use wasixv2_vfs::QuotaOps;
+    let fs = quota_fs(
+        Arc::new(FixedClock),
+        QuotaLimits {
+            types: 3,
+            block_hard: [3 * BLOCK, BLOCK],
+            inode_hard: [2, 2],
+        },
+    );
+    let root = fs.root();
+    let file = block_on(root.create(b"f", &new(NewKind::Regular))).unwrap();
+    let handle = block_on(file.open(OpenOptions::default())).unwrap();
+    assert_eq!(block_on(handle.write_at(b"x", 1 << 30)), Ok(1));
+    assert_eq!(block_on(handle.write_at(b"y", 0)), Err(Errno::EDQUOT));
+    assert_eq!(
+        fs.get(0, 1).unwrap().dqb_curspace,
+        BLOCK,
+        "group failure rolls back user"
+    );
+    assert_eq!(
+        block_on(handle.allocate(AllocMode::AllocateKeepSize, 0, 2 * BLOCK)),
+        Err(Errno::EDQUOT)
+    );
+    assert_eq!(fs.get(0, 1).unwrap().dqb_curspace, BLOCK);
+    block_on(root.link(b"link", &file)).unwrap();
+    assert_eq!(
+        fs.get(0, 1).unwrap().dqb_curinodes,
+        1,
+        "hard links do not consume quota inodes"
+    );
+    let other = block_on(root.create(b"other", &new(NewKind::Regular))).unwrap();
+    assert!(matches!(
+        block_on(root.create(b"over", &new(NewKind::Regular))),
+        Err(Errno::EDQUOT)
+    ));
+    block_on(root.unlink(b"other")).unwrap();
+    assert_eq!(
+        fs.get(0, 1).unwrap().dqb_curinodes,
+        2,
+        "an open unlinked inode stays charged"
+    );
+    drop(other);
+    assert_eq!(fs.get(0, 1).unwrap().dqb_curinodes, 1);
+    block_on(handle.allocate(AllocMode::PunchHole, 1 << 30, BLOCK)).unwrap();
+    assert_eq!(fs.get(0, 1).unwrap().dqb_curspace, 0);
+    assert_eq!(block_on(handle.write_at(b"z", 0)), Ok(1));
+    block_on(handle.set_size(0)).unwrap();
+    assert_eq!(fs.get(1, 1).unwrap().dqb_curspace, 0);
+}
+
+#[test]
+fn quotas_transfer_atomically_on_chown_and_use_current_writer_privilege() {
+    use wasixv2_abi::{IfDqblk, QuotaMisc as Q};
+    use wasixv2_vfs::{Cred, QuotaOps};
+    let fs = quota_fs(
+        Arc::new(FixedClock),
+        QuotaLimits {
+            types: 3,
+            ..QuotaLimits::default()
+        },
+    );
+    let file = block_on(fs.root().create(b"f", &new(NewKind::Regular))).unwrap();
+    let handle = block_on(file.open(OpenOptions::default())).unwrap();
+    block_on(handle.write_at(b"x", 0)).unwrap();
+    fs.set(
+        1,
+        2,
+        &IfDqblk {
+            dqb_bhardlimit: 1,
+            dqb_valid: Q::QIF_BLIMITS.0,
+            ..IfDqblk::default()
+        },
+    )
+    .unwrap();
+    let change = SetAttr {
+        uid: Some(2),
+        gid: Some(2),
+        ..SetAttr::default()
+    };
+    assert_eq!(block_on(file.setattr(&change)), Err(Errno::EDQUOT));
+    assert_eq!(block_on(file.getattr()).unwrap().uid, 1);
+    assert_eq!(fs.get(0, 1).unwrap().dqb_curspace, BLOCK);
+    assert_eq!(fs.get(0, 2).unwrap().dqb_curspace, 0);
+    block_on(file.setattr(&SetAttr {
+        quota_exempt: true,
+        ..change
+    }))
+    .unwrap();
+    assert_eq!(fs.get(0, 1).unwrap().dqb_curspace, 0);
+    assert_eq!(fs.get(1, 2).unwrap().dqb_curspace, BLOCK);
+    assert_eq!(
+        block_on(handle.write_at_as(b"y", BLOCK, &Cred::user(2, 2))),
+        Err(Errno::EDQUOT)
+    );
+    assert_eq!(
+        block_on(handle.write_at_as(b"y", BLOCK, &Cred::root())),
+        Ok(1)
+    );
+    assert_eq!(
+        block_on(handle.write_at_as(b"z", 2 * BLOCK, &Cred::user(2, 2))),
+        Err(Errno::EDQUOT)
+    );
+    fs.enforce(1, false).unwrap();
+    assert_eq!(fs.enforce(1, false), Err(Errno::EEXIST));
+    assert_eq!(block_on(handle.write_at(b"z", 2 * BLOCK)), Ok(1));
+    fs.enforce(1, true).unwrap();
+    assert_eq!(fs.enforce(1, true), Err(Errno::EEXIST));
+    assert_eq!(fs.get(1, 2).unwrap().dqb_curspace, 3 * BLOCK);
+}
+
+#[test]
+fn quotas_soft_limits_expire_reset_and_preserve_mount_limit_byte_precision() {
+    use std::sync::atomic::AtomicI64;
+    use wasixv2_abi::{IfDqblk, IfDqinfo, QuotaMisc as Q};
+    use wasixv2_vfs::QuotaOps;
+    struct MovingClock(AtomicI64);
+    impl Clock for MovingClock {
+        fn now(&self) -> Timestamp {
+            Timestamp::new(self.0.load(Ordering::Relaxed), 0)
+        }
+    }
+    let clock = Arc::new(MovingClock(AtomicI64::new(100)));
+    let fs = quota_fs(
+        clock.clone(),
+        QuotaLimits {
+            types: 1,
+            block_hard: [BLOCK - 1, 0],
+            ..QuotaLimits::default()
+        },
+    );
+    let file = block_on(fs.root().create(b"f", &new(NewKind::Regular))).unwrap();
+    let handle = block_on(file.open(OpenOptions::default())).unwrap();
+    assert_eq!(
+        block_on(handle.write_at(b"x", 0)),
+        Err(Errno::EDQUOT),
+        "mount limits count exact bytes"
+    );
+    fs.set(
+        0,
+        1,
+        &IfDqblk {
+            dqb_bsoftlimit: 4,
+            dqb_isoftlimit: 1,
+            dqb_valid: Q::QIF_BLIMITS.0 | Q::QIF_ILIMITS.0,
+            ..IfDqblk::default()
+        },
+    )
+    .unwrap();
+    fs.set_info(
+        0,
+        &IfDqinfo {
+            dqi_bgrace: 10,
+            dqi_igrace: 10,
+            dqi_valid: Q::IIF_BGRACE.0 | Q::IIF_IGRACE.0,
+            ..IfDqinfo::default()
+        },
+    )
+    .unwrap();
+    assert_eq!(block_on(handle.write_at(&[0; 8192], 0)), Ok(8192));
+    assert_eq!(fs.get(0, 1).unwrap().dqb_btime, 110);
+    let other = block_on(fs.root().create(b"other", &new(NewKind::Regular))).unwrap();
+    assert_eq!(fs.get(0, 1).unwrap().dqb_itime, 110);
+    clock.0.store(110, Ordering::Relaxed);
+    assert_eq!(
+        block_on(handle.write_at(b"x", 2 * BLOCK)),
+        Err(Errno::EDQUOT)
+    );
+    assert!(matches!(
+        block_on(fs.root().create(b"late", &new(NewKind::Regular))),
+        Err(Errno::EDQUOT)
+    ));
+    block_on(handle.set_size(0)).unwrap();
+    block_on(fs.root().unlink(b"other")).unwrap();
+    drop(other);
+    assert_eq!(
+        (
+            fs.get(0, 1).unwrap().dqb_btime,
+            fs.get(0, 1).unwrap().dqb_itime
+        ),
+        (0, 0)
+    );
+    assert_eq!(block_on(handle.write_at(&[0; 8192], 0)), Ok(8192));
+    assert_eq!(fs.get(0, 1).unwrap().dqb_btime, 120);
 }

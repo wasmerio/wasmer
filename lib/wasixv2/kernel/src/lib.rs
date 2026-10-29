@@ -1396,6 +1396,28 @@ impl Syscalls for Kernel {
             .await
     }
 
+    async fn quotactl(
+        &self,
+        caller: &Caller<'_>,
+        cmd: u32,
+        special: Cstr,
+        id: wasixv2_abi::Qid,
+        addr: VoidPtr,
+    ) -> SysResult<i32> {
+        self.sys_quotactl(caller, cmd, special, id, addr).await
+    }
+
+    async fn quotactl_fd(
+        &self,
+        caller: &Caller<'_>,
+        fd: Fd,
+        cmd: u32,
+        id: wasixv2_abi::Qid,
+        addr: VoidPtr,
+    ) -> SysResult<i32> {
+        self.sys_quotactl_fd(caller, fd, cmd, id, addr).await
+    }
+
     async fn setxattr(
         &self,
         caller: &Caller<'_>,

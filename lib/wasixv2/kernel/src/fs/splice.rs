@@ -349,6 +349,7 @@ impl Kernel {
         let interrupt = self.interrupt(caller);
         let broken = Cell::new(false);
         let mut out = SpliceOut {
+            cred: self.env(caller).cred,
             task: caller.task(),
             output,
             pos: &mut at.pos,
@@ -479,6 +480,7 @@ async fn user_offset(caller: &Caller<'_>, ptr: LoffPtr) -> Result<Option<i64>, E
 /// A splice's output as a pipe consumer: a regular file written at `pos`, which moves, or a
 /// socket or device written as `write` does (`iter_file_splice_write`, `splice_to_socket`).
 struct SpliceOut<'a> {
+    cred: wasixv2_vfs::Cred,
     task: TaskId,
     output: &'a OpenFile,
     pos: &'a mut u64,
@@ -496,7 +498,7 @@ impl Consumer for SpliceOut<'_> {
                     .await;
             };
             check_file_size(*self.pos, data.len())?;
-            let n = file.write_at(data, *self.pos).await?;
+            let n = file.write_at_as(data, *self.pos, &self.cred).await?;
             *self.pos += n as u64;
             Ok(n)
         })

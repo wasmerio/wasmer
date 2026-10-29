@@ -620,6 +620,7 @@ impl OverlayNode {
             uid: attr.uid,
             gid: attr.gid,
             task: 0,
+            quota_exempt: false,
         };
         let unlinked = self.state.lock().unwrap().unlinked;
         // A regular file is filled while unnamed where possible, so a failed or interrupted
@@ -724,6 +725,7 @@ impl OverlayNode {
             uid: 0,
             gid: 0,
             task: 0,
+            quota_exempt: false,
         };
         match upper.create(name, &device).await {
             Ok(_) => return Ok(()),
@@ -1461,6 +1463,32 @@ impl Handle for FileHandle {
 
     async fn write_at(&self, data: &[u8], offset: u64) -> FsResult<usize> {
         self.current().await?.write_at(data, offset).await
+    }
+
+    async fn write_at_as(
+        &self,
+        data: &[u8],
+        offset: u64,
+        cred: &wasixv2_vfs::Cred,
+    ) -> FsResult<usize> {
+        self.current().await?.write_at_as(data, offset, cred).await
+    }
+
+    async fn append_as(&self, data: &[u8], cred: &wasixv2_vfs::Cred) -> FsResult<(u64, usize)> {
+        self.current().await?.append_as(data, cred).await
+    }
+
+    async fn allocate_as(
+        &self,
+        mode: AllocMode,
+        offset: u64,
+        len: u64,
+        cred: &wasixv2_vfs::Cred,
+    ) -> FsResult<()> {
+        self.current()
+            .await?
+            .allocate_as(mode, offset, len, cred)
+            .await
     }
 
     async fn append(&self, data: &[u8]) -> FsResult<(u64, usize)> {

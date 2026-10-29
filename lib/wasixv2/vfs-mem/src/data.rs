@@ -26,7 +26,7 @@ use wasixv2_abi::Errno;
 use wasixv2_pages::{Provider, Seek, SharedPages};
 use wasixv2_vfs::{FsResult, SeekHole};
 
-use crate::{BLOCK, MAX_SIZE, Space};
+use crate::{BLOCK, MAX_SIZE, quota::Charge};
 
 /// The contents of a regular file. Every block holding data is in `alloc`.
 pub(crate) struct Data {
@@ -139,7 +139,12 @@ impl Data {
     /// Writes `data` at `offset`, charging every block it allocates to `space`. Stops at the
     /// first block the space cannot hold: a short count, or `ENOSPC` if nothing was written
     /// (`generic_perform_write`).
-    pub(crate) fn write(&mut self, space: &Space, data: &[u8], offset: u64) -> FsResult<usize> {
+    pub(crate) fn write(
+        &mut self,
+        space: &Charge<'_>,
+        data: &[u8],
+        offset: u64,
+    ) -> FsResult<usize> {
         if data.is_empty() {
             return Ok(0);
         }
@@ -151,10 +156,7 @@ impl Data {
         let reached = match &self.store {
             Store::Heap(_) => self.write_blocks(space, data, offset, end),
             Store::Shared(_) => self.charge(space, offset, end),
-        };
-        if reached == offset {
-            return Err(Errno::ENOSPC);
-        }
+        }?;
         if let Store::Shared(pages) = &self.store {
             let pages = pages.clone();
             self.extend(reached)?;
@@ -168,48 +170,57 @@ impl Data {
 
     /// Writes `data` into heap blocks up to `end`, as far as the space holds them; returns
     /// where it stopped.
-    fn write_blocks(&mut self, space: &Space, data: &[u8], offset: u64, end: u64) -> u64 {
+    fn write_blocks(
+        &mut self,
+        space: &Charge<'_>,
+        data: &[u8],
+        offset: u64,
+        end: u64,
+    ) -> FsResult<u64> {
         let mut pos = offset;
         while pos < end {
             let (index, start) = (pos / BLOCK, (pos % BLOCK) as usize);
             let len = ((BLOCK - start as u64).min(end - pos)) as usize;
-            let Some(page) = self.page(space, index) else {
-                break;
+            let page = match self.page(space, index) {
+                Ok(page) => page,
+                Err(err) if pos == offset => return Err(err),
+                Err(_) => break,
             };
             page[start..start + len].copy_from_slice(&data[(pos - offset) as usize..][..len]);
             pos += len as u64;
         }
-        pos
+        Ok(pos)
     }
 
     /// Charges the blocks under `offset..end` not charged yet, as far as the space holds them;
     /// returns where it stopped.
-    fn charge(&mut self, space: &Space, offset: u64, end: u64) -> u64 {
+    fn charge(&mut self, space: &Charge<'_>, offset: u64, end: u64) -> FsResult<u64> {
         for index in offset / BLOCK..end.div_ceil(BLOCK) {
             if !self.alloc.contains(index) {
-                if space.charge_blocks(1).is_err() {
-                    return (index * BLOCK).max(offset);
+                if let Err(err) = space.charge_blocks(1) {
+                    let pos = (index * BLOCK).max(offset);
+                    return if pos == offset { Err(err) } else { Ok(pos) };
                 }
                 self.alloc.insert(index, index + 1);
             }
         }
-        end
+        Ok(end)
     }
 
     /// The heap block `index`, allocated and charged if it holds no data yet; `None` if the
     /// space is full.
-    fn page(&mut self, space: &Space, index: u64) -> Option<&mut Box<[u8]>> {
+    fn page(&mut self, space: &Charge<'_>, index: u64) -> FsResult<&mut Box<[u8]>> {
         let Store::Heap(blocks) = &mut self.store else {
-            return None;
+            return Err(Errno::EINVAL);
         };
         match blocks.entry(index) {
-            Entry::Occupied(block) => Some(block.into_mut()),
+            Entry::Occupied(block) => Ok(block.into_mut()),
             Entry::Vacant(block) => {
                 if !self.alloc.contains(index) {
-                    space.charge_blocks(1).ok()?;
+                    space.charge_blocks(1)?;
                     self.alloc.insert(index, index + 1);
                 }
-                Some(block.insert(vec![0; BLOCK as usize].into_boxed_slice()))
+                Ok(block.insert(vec![0; BLOCK as usize].into_boxed_slice()))
             }
         }
     }
@@ -231,7 +242,7 @@ impl Data {
 
     /// Sets the size. Shrinking frees every block past the new end, including blocks allocated
     /// past the old end with `FALLOC_FL_KEEP_SIZE` (`shmem_setattr`); growing leaves a hole.
-    pub(crate) fn truncate(&mut self, space: &Space, size: u64) -> FsResult<()> {
+    pub(crate) fn truncate(&mut self, space: &Charge<'_>, size: u64) -> FsResult<()> {
         if size >= self.size {
             self.extend(size)?;
             self.size = size;
@@ -264,7 +275,7 @@ impl Data {
     /// size becomes at least `end`.
     pub(crate) fn allocate(
         &mut self,
-        space: &Space,
+        space: &Charge<'_>,
         start: u64,
         end: u64,
         grow: bool,
@@ -283,7 +294,7 @@ impl Data {
     }
 
     /// Zeroes the byte range `start..end`, freeing the blocks it covers whole.
-    pub(crate) fn punch(&mut self, space: &Space, start: u64, end: u64) -> FsResult<()> {
+    pub(crate) fn punch(&mut self, space: &Charge<'_>, start: u64, end: u64) -> FsResult<()> {
         if start >= end {
             return Ok(());
         }
