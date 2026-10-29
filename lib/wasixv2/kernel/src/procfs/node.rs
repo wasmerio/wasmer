@@ -45,6 +45,8 @@ pub(super) enum Entry {
     Ns(Scope, usize),
     /// `net/<name>`, one of [`NET_ENTRIES`] by index.
     Net(Scope, usize),
+    /// `attr/<name>`: a generic LSM security attribute.
+    Attr(Scope, usize),
 }
 
 /// Whose directory: a process (`/proc/<pid>`) or one of its threads
@@ -408,6 +410,7 @@ pub(super) enum PidEntry {
     /// `ns/`, `net/`.
     Namespaces,
     Net,
+    Attrs,
     /// `mem`: the address space, read and written at the file offset.
     Mem,
     File(text::PerPid),
@@ -415,6 +418,15 @@ pub(super) enum PidEntry {
 
 /// The entries of `/proc/<pid>` and `/proc/<pid>/task/<tid>`: name, kind, mode. `task` and
 /// `timens_offsets` only exist for the process.
+const ATTR_ENTRIES: &[(&str, u32)] = &[
+    ("current", 0o666),
+    ("prev", 0o444),
+    ("exec", 0o666),
+    ("fscreate", 0o666),
+    ("keycreate", 0o666),
+    ("sockcreate", 0o666),
+];
+
 const PID_ENTRIES: &[(&str, PidEntry, u32)] = &[
     ("fd", PidEntry::Fds, 0o500),
     ("fdinfo", PidEntry::FdInfos, 0o555),
@@ -488,6 +500,7 @@ const PID_ENTRIES: &[(&str, PidEntry, u32)] = &[
         PidEntry::File(text::PerPid::CoredumpFilter),
         0o644,
     ),
+    ("attr", PidEntry::Attrs, 0o555),
 ];
 
 /// The files and directories of `/proc/<pid>/net`, which show the task's network namespace:
@@ -651,6 +664,16 @@ impl ProcNode {
                         out.push((u64::from(fd), fd.to_string().into_bytes(), entry));
                     }
                 }
+                PidEntry::Attrs => {
+                    self.alive(scope)?;
+                    for (index, (name, _)) in ATTR_ENTRIES.iter().enumerate() {
+                        out.push((
+                            index as u64,
+                            name.as_bytes().to_vec(),
+                            Entry::Attr(scope, index),
+                        ));
+                    }
+                }
                 PidEntry::Namespaces => {
                     self.alive(scope)?;
                     for (index, link) in NsLink::ALL.iter().enumerate() {
@@ -673,7 +696,11 @@ impl ProcNode {
                     .ok_or(Errno::ENOENT)?;
                 out.extend(net_children(scope, Some(index)));
             }
-            Entry::Fd(..) | Entry::FdInfo(..) | Entry::Ns(..) | Entry::Net(..) => {
+            Entry::Fd(..)
+            | Entry::FdInfo(..)
+            | Entry::Ns(..)
+            | Entry::Net(..)
+            | Entry::Attr(..) => {
                 return Err(Errno::ENOTDIR);
             }
         }
@@ -705,6 +732,7 @@ impl ProcNode {
             Entry::Net(_, index) if NET_ENTRIES[index].2.is_none() => 0o555,
             Entry::FdInfo(..) | Entry::Net(..) => 0o444,
             Entry::Ns(..) => 0o777,
+            Entry::Attr(_, index) => ATTR_ENTRIES[index].1,
             Entry::Fd(scope, fd) => {
                 // The link's mode shows how the file is open (`tid_fd_update_inode`).
                 match self.open_file(scope, fd) {
@@ -729,7 +757,8 @@ impl ProcNode {
             | Entry::Fd(scope, _)
             | Entry::FdInfo(scope, _)
             | Entry::Ns(scope, _)
-            | Entry::Net(scope, _) => scope,
+            | Entry::Net(scope, _)
+            | Entry::Attr(scope, _) => scope,
         };
         let Some(info) = self.source.process(scope.pid) else {
             return (0, 0);
@@ -857,6 +886,7 @@ fn ino(entry: Entry) -> u64 {
         Entry::FdInfo(scope, fd) => scoped(scope, (1 << 28) | u64::from(fd)),
         Entry::Ns(scope, index) => scoped(scope, (1 << 27) | index as u64),
         Entry::Net(scope, index) => scoped(scope, (1 << 26) | index as u64),
+        Entry::Attr(scope, index) => scoped(scope, (1 << 25) | index as u64),
     }
 }
 
@@ -874,13 +904,14 @@ fn file_type(entry: Entry) -> FileType {
             | PidEntry::FdInfos
             | PidEntry::Tasks
             | PidEntry::Namespaces
-            | PidEntry::Net => FileType::Directory,
+            | PidEntry::Net
+            | PidEntry::Attrs => FileType::Directory,
             PidEntry::Exe | PidEntry::Cwd | PidEntry::Root => FileType::Symlink,
             PidEntry::File(_) | PidEntry::Mem => FileType::Regular,
         },
         Entry::Fd(..) | Entry::Ns(..) => FileType::Symlink,
         Entry::Net(_, index) if NET_ENTRIES[index].2.is_none() => FileType::Directory,
-        Entry::FdInfo(..) | Entry::Net(..) => FileType::Regular,
+        Entry::FdInfo(..) | Entry::Net(..) | Entry::Attr(..) => FileType::Regular,
     }
 }
 
@@ -1087,6 +1118,22 @@ impl Node for ProcNode {
             && PID_ENTRIES[index].1 == PidEntry::Mem
         {
             return self.open_mem(scope, options.task);
+        }
+        if let Entry::Attr(scope, _) = self.entry {
+            self.alive(scope)?;
+            let opener_mm = self.source.state.upgrade().and_then(|state| {
+                state
+                    .read_or_recover()
+                    .tasks
+                    .get(&wasixv2_syscalls::TaskId(options.task))
+                    .map(|task| task.mm.clone())
+            });
+            return Ok(Box::new(AttrHandle {
+                source: self.source.clone(),
+                scope,
+                opener: options.task,
+                opener_mm,
+            }));
         }
         let (data, comm) = match self.entry {
             Entry::Static(index) => match STATIC[index].2 {
@@ -1480,6 +1527,49 @@ impl Handle for DirHandle {
             }
         }
         Ok(())
+    }
+}
+
+/// Linux fs/proc/base.c:proc_pid_attr_read/write, with no LSM providing labels.
+struct AttrHandle {
+    source: Arc<Source>,
+    scope: Scope,
+    opener: u32,
+    opener_mm: Option<Arc<crate::mm::Mm>>,
+}
+
+#[async_trait(?Send)]
+impl Handle for AttrHandle {
+    async fn read_at(&self, _: &mut [u8], _: u64) -> FsResult<usize> {
+        self.source
+            .task(self.scope.pid, self.scope.tid)
+            .ok_or(Errno::ESRCH)?;
+        Err(Errno::EINVAL)
+    }
+
+    async fn write_at(&self, _: &[u8], _: u64) -> FsResult<usize> {
+        let current = wasixv2_syscalls::current_task().map_or(self.opener, |id| id.0);
+        let state = self.source.state.upgrade().ok_or(Errno::ESRCH)?;
+        let state = state.read_or_recover();
+        let task = state
+            .tasks
+            .get(&wasixv2_syscalls::TaskId(current))
+            .ok_or(Errno::ESRCH)?;
+        if !self
+            .opener_mm
+            .as_ref()
+            .is_some_and(|mm| Arc::ptr_eq(mm, &task.mm))
+        {
+            return Err(Errno::EPERM);
+        }
+        let target = self.scope.tid.unwrap_or(self.scope.pid);
+        if !state.tasks.contains_key(&wasixv2_syscalls::TaskId(target)) {
+            return Err(Errno::ESRCH);
+        }
+        if current != target {
+            return Err(Errno::EACCES);
+        }
+        Err(Errno::EINVAL)
     }
 }
 
