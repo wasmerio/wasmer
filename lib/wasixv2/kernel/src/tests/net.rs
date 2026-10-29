@@ -22,7 +22,7 @@ use crate::sync::MutexExt;
 
 /// IPv4 only. Stream connects complete at once but report `EINPROGRESS` first; every
 /// received message carries one control message (level 0, type 2, an int 64: `IP_TTL`).
-struct FakeNet {
+pub(super) struct FakeNet {
     me: Weak<FakeNet>,
     bound: Mutex<HashMap<SocketAddr, Weak<FakeSocket>>>,
     next_port: Mutex<u16>,
@@ -46,7 +46,7 @@ struct FakeSocket {
 }
 
 impl FakeNet {
-    fn new() -> Arc<Self> {
+    pub(super) fn new() -> Arc<Self> {
         Arc::new_cyclic(|me| Self {
             me: me.clone(),
             bound: Mutex::default(),

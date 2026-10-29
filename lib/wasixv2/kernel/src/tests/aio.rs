@@ -68,9 +68,13 @@ impl Machine {
     }
 
     pub(super) fn with_credentials(credentials: Credentials) -> Self {
+        Self::configured(|kernel| kernel.with_credentials(credentials))
+    }
+
+    pub(super) fn configured(configure: impl FnOnce(Kernel) -> Kernel) -> Self {
         let host: Arc<dyn Host> = Arc::new(AioHost(RealHost(Instant::now())));
         let root = MemFs::new(Arc::new(HostClock(host.clone())), 0o755, 1, 1);
-        let kernel = Kernel::new(host, Arc::new(root)).with_credentials(credentials);
+        let kernel = configure(Kernel::new(host, Arc::new(root)));
         let stdin = Arc::new(Input(Mutex::new(Vec::new())));
         let (kernel, task, _) = spawn_on(kernel, stdin, &[], &[]);
         Self {
