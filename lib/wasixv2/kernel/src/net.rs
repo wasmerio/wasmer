@@ -1077,7 +1077,15 @@ impl Kernel {
             }
         }
         match any {
-            AnySock::Inet((_, sock)) => sock.socket.set_option(level.0, name, &value)?,
+            AnySock::Inet((_, sock)) => {
+                if level == SocketLevel::SOL_SOCKET
+                    && unix::forcing_buffer(name)
+                    && !self.cred(caller).capable(Cap::NetAdmin)
+                {
+                    return Err(Errno::EPERM.into());
+                }
+                sock.socket.set_option(level.0, name, &value)?
+            }
             // Unix sockets have no options of their own beyond `SOL_SOCKET`.
             AnySock::Unix(..) if level != SocketLevel::SOL_SOCKET => {
                 return Err(Errno::EOPNOTSUPP.into());
