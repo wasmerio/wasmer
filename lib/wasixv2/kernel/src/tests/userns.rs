@@ -842,3 +842,57 @@ fn a_user_namespaces_root_kills_only_what_its_uid_may() {
         Errno::EPERM
     );
 }
+
+/// The rest of the negative set: a user namespace's root locks no memory past its
+/// `RLIMIT_MEMLOCK` and fakes no input on a terminal that is not its own (`capable`, never a
+/// user namespace's), where the initial namespace's root may.
+#[test]
+fn a_user_namespaces_root_neither_locks_memory_nor_fakes_terminal_input() {
+    let (kernel, root, user) = mounting_machine();
+    block_on(kernel.create_device_nodes(b"/mnt")).unwrap();
+    let no_memlock = |p: &P| {
+        let limit = Rlimit64 {
+            rlim_cur: 0,
+            rlim_max: 8 << 20,
+        };
+        block_on(write_value(&p.memory, Rlimit64Ptr::new(0x700), &limit)).unwrap();
+        let caller = p.caller();
+        let res = RlimitResource::RLIMIT_MEMLOCK;
+        let set = kernel.prlimit64(
+            &caller,
+            0,
+            res,
+            ConstRlimit64Ptr::new(0x700),
+            Rlimit64Ptr::NULL,
+        );
+        assert_eq!(block_on(set), Ok(0));
+    };
+    let mlock = |p: &P| {
+        let caller = p.caller();
+        let anon = wasixv2_abi::MapFlags(
+            wasixv2_abi::MapFlags::MAP_PRIVATE.0 | wasixv2_abi::MapFlags::MAP_ANONYMOUS.0,
+        );
+        let rw = wasixv2_abi::ProtFlags(3);
+        let at = block_on(kernel.mmap(&caller, 0, 4096, rw, anon, Fd(-1), 0)).unwrap();
+        block_on(kernel.mlock(&caller, at, 4096))
+    };
+    let tiocsti = |p: &P| {
+        let caller = p.caller();
+        let master = open(
+            &kernel,
+            p,
+            "/mnt/ptmx",
+            OpenFlags::O_RDWR | OpenFlags::O_NOCTTY,
+        );
+        block_on(p.memory.write(0x30, b"x")).unwrap();
+        block_on(kernel.ioctl(&caller, master.unwrap(), IoctlRequest::TIOCSTI, 0x30))
+    };
+    become_root(&kernel, &user, CloneFlags(0));
+    no_memlock(&root);
+    no_memlock(&user);
+
+    assert_eq!(mlock(&root), Ok(0), "CAP_IPC_LOCK");
+    assert_eq!(errno(mlock(&user)), Errno::EPERM);
+    assert_eq!(tiocsti(&root), Ok(0), "CAP_SYS_ADMIN");
+    assert_eq!(errno(tiocsti(&user)), Errno::EPERM);
+}
