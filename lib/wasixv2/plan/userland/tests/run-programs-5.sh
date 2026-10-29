@@ -36,6 +36,11 @@ case $workflow in
     exec timeout -k 5 180 nice -n19 taskset -c 4-7 "$WASMER" "${args[@]}" \
       "$ROOT/bin/bash" -- -c 'cd /uring/test; exec bash ./runtests.sh nop.t read-write.t poll.t timeout.t eventfd.t socket.t open-close.t statx.t unlink.t mkdir.t'
     ;;
+  liburing-timeout)
+    args+=(--volume "$ROOT/liburing-src:/uring")
+    exec timeout -k 5 90 nice -n19 taskset -c 4-7 "$WASMER" "${args[@]}" \
+      "$ROOT/bin/bash" -- -c 'cd /uring/test; exec ./timeout.t'
+    ;;
   libaio)
     args+=(--volume "$ROOT/libaio-src:/aio")
     exec timeout -k 5 120 nice -n19 taskset -c 4-7 "$WASMER" "${args[@]}" \

@@ -24,7 +24,7 @@ build_uring() {
   make -C src -j"$JOBS" CC="$CC" AR="$AR" RANLIB="$RANLIB" liburing.a
   make -C test -j"$JOBS" CC="$CC" AR="$AR" \
     nop.t read-write.t poll.t timeout.t eventfd.t socket.t \
-    open-close.t statx.t unlink.t mkdir.t
+    open-close.t statx.t unlink.t mkdir.t exec-target.t
 }
 
 build_aio() {
