@@ -242,17 +242,22 @@ pub(crate) enum Access<'a> {
 /// time, up to the first page that faults, and returns how many bytes it copied: 0 for an
 /// address space nobody else can reach (its memory is not shared, or its last user left it).
 /// With `force` (`FOLL_FORCE`, as ptrace and `/proc/<pid>/mem` copy) the pages' protection does
-/// not count, but what the host may not write (the low guard, read-only shared views) still
-/// faults.
+/// not count for private COW pages. Holes always fault; shared mappings must
+/// currently allow writes, and the host's low guard/read-only views still apply.
 pub(crate) async fn access_remote_vm(
     mm: &crate::mm::Mm,
     addr: u32,
     buf: Access<'_>,
     force: bool,
 ) -> usize {
+    // mm/memory.c:__access_remote_vm holds mmap_read_lock across GUP/copy.
+    // Serialize with unmap, replacement and protection changes in this mm.
+    let _op = mm.op.lock().await;
     let Some(memory) = mm.foreign() else {
         return 0;
     };
+    let size = memory.size().await;
+    let write = matches!(&buf, Access::Write(_));
     let page = crate::mm::PAGE_SIZE;
     let len = match &buf {
         Access::Read(buf) => buf.len(),
@@ -266,6 +271,9 @@ pub(crate) async fn access_remote_vm(
             break;
         };
         let n = ((page - at % page) as usize).min(len - done);
+        if !mm.remote_page_allowed(at32, n, size, write, force) {
+            break;
+        }
         let copied = match (&mut buf, force) {
             (Access::Read(buf), false) => memory.read(at32, &mut buf[done..done + n]).await,
             (Access::Read(buf), true) => memory.force_read(at32, &mut buf[done..done + n]).await,

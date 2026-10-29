@@ -201,7 +201,7 @@ pub(crate) struct Mm {
     /// first look at the page map to the last update, and by every synchronisation of a
     /// mapping. Each thread runs its own instance on the shared memory, so without it two
     /// threads interleave their growths and each other's checks.
-    op: futures_util::lock::Mutex<()>,
+    pub(crate) op: futures_util::lock::Mutex<()>,
     space: Mutex<AddressSpace>,
     /// What the kernel's copies may do with each page, as `space` says: every change to the
     /// page map reaches it ([`Space`]), and the execution layer checks every copy against it.
@@ -309,6 +309,34 @@ impl Mm {
 
     pub(crate) fn id(&self) -> u64 {
         self.id
+    }
+
+    /// mm/gup.c:gup_vma_lookup/check_vma_flags: FOLL_FORCE still requires
+    /// a VMA and cannot force a write into a shared !VM_WRITE mapping.
+    /// Caller holds op across this check and its memory access.
+    pub(crate) fn remote_page_allowed(
+        &self,
+        addr: u32,
+        len: usize,
+        size: u64,
+        write: bool,
+        force: bool,
+    ) -> bool {
+        let space = self.space();
+        let page = u64::from(addr) / PAGE_SIZE;
+        if !space.page_mapped(page, size / PAGE_SIZE) {
+            return false;
+        }
+        if !force {
+            return self.access.check(addr, len, write).is_ok();
+        }
+        let protected = space.no_access.get(page) || space.read_only.get(page);
+        !(write
+            && protected
+            && space
+                .mappings
+                .containing(u64::from(addr))
+                .is_some_and(Mapping::is_shared))
     }
 
     /// `dup_mmap`: a new address space with the same mappings, for the child `pid` that copies
@@ -1954,13 +1982,14 @@ impl Kernel {
         if len == 0 {
             return Ok(0);
         }
+        let mm = self.mm(caller.task());
+        let _op = mm.op.lock().await;
         self.check_mapped(caller, start.into(), len.into()).await?;
         if prot.contains(ProtFlags::PROT_EXEC) {
             return Err(Errno::EACCES.into());
         }
         // Write access a shared mapping could never have (`VM_MAYWRITE`).
         let (start, end) = (u64::from(start), u64::from(start) + u64::from(len));
-        let mm = self.mm(caller.task());
         let mut space = mm.space();
         if prot.contains(ProtFlags::PROT_WRITE) && space.mappings.read_only_shared_in(start, end) {
             return Err(Errno::EACCES.into());
