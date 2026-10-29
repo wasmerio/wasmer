@@ -225,6 +225,11 @@ pub fn path_rename_internal(
                     })?
                 };
                 if let Err(e) = res {
+                    drop(guard);
+                    let mut guard = source_parent_inode.write();
+                    if let Kind::Dir { entries, .. } = guard.deref_mut() {
+                        entries.insert(source_entry_name, source_entry);
+                    }
                     return Ok(e);
                 }
                 {
