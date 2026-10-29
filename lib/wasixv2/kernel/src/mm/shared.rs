@@ -38,6 +38,7 @@
 
 use std::{ops::Range, sync::Arc};
 
+use wasixv2_abi::ProtFlags;
 use wasixv2_pages::SharedPages;
 use wasixv2_syscalls::{Errno, UserMemory};
 
@@ -54,6 +55,10 @@ pub(crate) struct Mapping {
     pub(crate) start: u64,
     pub(crate) len: u64,
     pub(crate) source: Source,
+    /// Current VM_WRITE, distinct from the source's VM_MAYWRITE.
+    write: bool,
+    /// Stores may have occurred since the last timestamp mark, including before a downgrade.
+    write_since_mark: bool,
 }
 
 pub(crate) enum Source {
@@ -277,6 +282,33 @@ fn differences(a: &[u8], b: &[u8]) -> Vec<Range<usize>> {
 }
 
 impl Mapping {
+    pub(crate) fn new(start: u64, len: u64, source: Source, prot: ProtFlags) -> Self {
+        let write = prot.contains(ProtFlags::PROT_WRITE);
+        Self {
+            start,
+            len,
+            source,
+            write,
+            write_since_mark: write,
+        }
+    }
+
+    /// POSIX mmap permits marking write timestamps by the next MS_SYNC/MS_ASYNC.
+    /// Without guest write faults, conservatively account every writable interval,
+    /// including unchanged contents; Linux uses mm/memory.c:fault_dirty_shared_page.
+    pub(crate) async fn mark_write_time(&mut self) -> Result<(), Errno> {
+        if self.write_since_mark
+            && self.is_shared()
+            && let Some((file, _)) = self.file()
+            && let Ok(inode) = file.inode()
+            && inode.file_type() == wasixv2_vfs::FileType::Regular
+        {
+            inode.update_time().await?;
+        }
+        self.write_since_mark = self.write;
+        Ok(())
+    }
+
     pub(crate) fn end(&self) -> u64 {
         self.start + self.len
     }
@@ -325,14 +357,16 @@ impl Mapping {
     /// mapping is written back, and a mapped object's pages leave the range, which holds
     /// zeroed private pages again.
     pub(crate) async fn release(&mut self, memory: &dyn UserMemory) -> Result<(), Errno> {
-        match &self.source {
+        let marked = self.mark_write_time().await;
+        let released = match &self.source {
             Source::Private { .. } => Ok(()),
             Source::Shared(_) => self.write_back(memory).await,
             Source::Mapped(_) => {
                 let at = u32::try_from(self.start).map_err(|_| Errno::EFAULT)?;
                 memory.unmap_shared(at, self.len).await
             }
-        }
+        };
+        marked.and(released)
     }
 
     /// The mapping moved here from `from` (`mremap`), with its memory copied over. A mapped
@@ -369,6 +403,8 @@ impl Mapping {
             start: at,
             len: self.len - cut,
             source,
+            write: self.write,
+            write_since_mark: self.write_since_mark,
         };
         self.len = cut;
         rest
@@ -485,7 +521,13 @@ impl Mapping {
             Source::Shared(shared) => Source::Shared(shared.part(skip)),
             Source::Mapped(mapped) => Source::Mapped(mapped.part(skip)),
         };
-        Mapping { start, len, source }
+        Mapping {
+            start,
+            len,
+            source,
+            write: self.write,
+            write_since_mark: self.write_since_mark,
+        }
     }
 
     /// A mapping of the object this shared one shows, from byte `offset` of the object on, at
@@ -509,7 +551,13 @@ impl Mapping {
             }
             Source::Mapped(_) => return None,
         };
-        Some(Mapping { start, len, source })
+        Some(Mapping {
+            start,
+            len,
+            source,
+            write: self.write,
+            write_since_mark: self.write_since_mark,
+        })
     }
 
     /// Charge host pages before mremap changes any guest mappings. An alias may expose
@@ -631,6 +679,16 @@ impl Mappings {
             .any(|m| m.start < end && m.end() > start && read_only(m))
     }
 
+    /// Keep writable history on precisely the fragments whose VM_WRITE changes.
+    pub(crate) fn set_write(&mut self, start: u64, end: u64, write: bool) {
+        let affected = self.take_range(start, end);
+        for mut mapping in affected {
+            mapping.write = write;
+            mapping.write_since_mark |= write;
+            self.insert(mapping);
+        }
+    }
+
     pub(crate) fn any_shared(&self) -> bool {
         self.list.iter().any(|m| m.shared().is_some())
     }
@@ -694,6 +752,8 @@ impl Mappings {
             .map(|mapping| Mapping {
                 start: mapping.start,
                 len: mapping.len,
+                write: mapping.write,
+                write_since_mark: mapping.write_since_mark,
                 source: match &mapping.source {
                     Source::Private { file, offset } => Source::Private {
                         file: file.clone(),

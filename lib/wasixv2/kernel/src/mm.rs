@@ -677,6 +677,9 @@ impl AddressSpace {
         self.recount(first, end, |space| {
             space.no_access.set(first, end, !read);
             space.read_only.set(first, end, read && !write);
+            space
+                .mappings
+                .set_write(first * PAGE_SIZE, end * PAGE_SIZE, write);
         });
     }
 
@@ -1619,11 +1622,7 @@ impl Kernel {
         let Some(source) = source else {
             return Ok(start);
         };
-        let mut mapping = Mapping {
-            start: start.into(),
-            len: pages * PAGE_SIZE,
-            source,
-        };
+        let mut mapping = Mapping::new(start.into(), pages * PAGE_SIZE, source, prot);
         let mut filled = mapping.fill(caller.memory()).await;
         if filled == Err(Errno::EOPNOTSUPP)
             && let Some(file) = file
@@ -1685,10 +1684,10 @@ impl Kernel {
         let first = start / PAGE_SIZE;
         let prot = ProtFlags::PROT_READ | ProtFlags::PROT_WRITE;
         mm.space().set_prot(first, first + npages, prot);
-        let mut mapping = Mapping {
+        let mut mapping = Mapping::new(
             start,
-            len: npages * PAGE_SIZE,
-            source: Source::Mapped(Mapped {
+            npages * PAGE_SIZE,
+            Source::Mapped(Mapped {
                 file: None,
                 pages,
                 offset: 0,
@@ -1696,7 +1695,8 @@ impl Kernel {
                 writable: true,
                 writer: None,
             }),
-        };
+            prot,
+        );
         if mapping.fill(caller.memory()).await.is_err() {
             mm.space().unmap(start, npages * PAGE_SIZE);
             return Err(Errno::ENOMEM);
@@ -2396,14 +2396,20 @@ impl Kernel {
         let mut mappings = mm.take_range(start, start + len);
         let mut result = Ok(());
         for mapping in &mut mappings {
-            let Some(shared) = mapping.shared() else {
+            if !mapping.is_shared() {
                 continue;
-            };
-            let file = shared.object.file().cloned();
-            let synced = mapping.sync(caller.memory()).await;
+            }
+            let file = mapping.file().map(|(file, _)| file.clone());
+            let mut synced = mapping.sync(caller.memory()).await;
+            if flags.intersects(MsyncFlags::MS_SYNC | MsyncFlags::MS_ASYNC) {
+                synced = synced.and(mapping.mark_write_time().await);
+            }
             let synced = match (synced, file) {
                 (Ok(()), Some(file)) if flags.contains(MsyncFlags::MS_SYNC) => {
-                    file.inode()?.sync(true).await
+                    match file.inode() {
+                        Ok(inode) => inode.sync(true).await,
+                        Err(_) => Ok(()), // Shared ring objects have no filesystem inode.
+                    }
                 }
                 (synced, _) => synced,
             };
@@ -2682,6 +2688,7 @@ impl Kernel {
         let mappings = mm.space().clear_mappings();
         for mut mapping in mappings {
             let _ = mapping.write_back(caller.memory()).await;
+            let _ = mapping.mark_write_time().await;
         }
         mm.shared.store(false, Ordering::Release);
         // `mmput`: nobody reaches the memory any more.
@@ -2728,11 +2735,7 @@ impl Kernel {
                     .map_err(|_| Errno::EINVAL)?
             }
         };
-        let mut mapping = Mapping {
-            start: start.into(),
-            len: pages * PAGE_SIZE,
-            source,
-        };
+        let mut mapping = Mapping::new(start.into(), pages * PAGE_SIZE, source, prot);
         let mut filled = mapping.fill(caller.memory()).await;
         if filled == Err(Errno::EOPNOTSUPP)
             && let Source::Mapped(mapped) = &mapping.source

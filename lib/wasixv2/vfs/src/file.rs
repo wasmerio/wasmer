@@ -271,6 +271,22 @@ impl File {
         }
     }
 
+    /// fs/inode.c:file_update_time: automatic write-side mtime/ctime accounting,
+    /// without a user setattr permission check or a content-change notification.
+    pub async fn update_time(&self) -> FsResult<()> {
+        if self.path.mnt.is_read_only() {
+            return Ok(());
+        }
+        self.node()
+            .setattr(&crate::SetAttr {
+                mtime: Some(crate::TimeSet::Now),
+                ctime: Some(crate::TimeSet::Now),
+                ..crate::SetAttr::default()
+            })
+            .await?;
+        Ok(())
+    }
+
     pub fn mmap(&self, shared: bool) -> FsResult<()> {
         self.handle()?.mmap(shared)
     }

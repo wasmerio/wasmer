@@ -1025,3 +1025,101 @@ fn file_mmap_accesses_tmpfs_after_validation_and_honors_noatime() {
         }
     }
 }
+
+/// POSIX mmap timestamp window: a writable shared mapping is marked by msync
+/// or removal, even when a same-value store cannot be detected from its bytes.
+#[test]
+fn shared_file_mapping_marks_write_times_at_sync_and_removal() {
+    use wasixv2_vfs::{SetAttr, TimeSet, Timestamp};
+    for native in [false, true] {
+        for operation in [
+            "sync",
+            "async",
+            "unmap",
+            "exit",
+            "readonly",
+            "private",
+            "invalidate",
+            "protect",
+        ] {
+            let (kernel, task) = shared_machine();
+            let memory: Box<dyn UserMemory> = if native {
+                Box::new(MappedMemory::new(2, true))
+            } else {
+                Box::new(FlatMemory(RefCell::new(vec![0; 2 * PAGE as usize])))
+            };
+            let caller = Caller::new(task, &*memory);
+            let fd = memfd(&kernel, &caller, MemfdFlags::empty());
+            ftruncate(&kernel, &caller, fd, i64::from(2 * PAGE));
+            let prot = if operation == "readonly" {
+                ProtFlags::PROT_READ
+            } else {
+                RW
+            };
+            let flags = if operation == "private" {
+                MapFlags::MAP_PRIVATE
+            } else {
+                MapFlags::MAP_SHARED
+            };
+            let at = block_on(kernel.mmap(&caller, 0, 2 * PAGE, prot, flags, fd, 0)).unwrap();
+            let file = kernel.file(task, fd).unwrap();
+            let node = file.inode().unwrap().node();
+            let old = Timestamp::new(1, 0);
+            let reset = || {
+                block_on(node.setattr(&SetAttr {
+                    mtime: Some(TimeSet::At(old)),
+                    ctime: Some(TimeSet::At(old)),
+                    ..SetAttr::default()
+                }))
+                .unwrap();
+            };
+            let check = |marked| {
+                let attr = block_on(node.getattr()).unwrap();
+                let expected = if marked {
+                    Timestamp::new(1_700_000_000, 0)
+                } else {
+                    old
+                };
+                assert_eq!(
+                    (attr.mtime, attr.ctime),
+                    (expected, expected),
+                    "{operation} native={native}"
+                );
+            };
+            reset();
+            // No content change: the approved conservative mark cannot rely on a diff.
+            match operation {
+                "unmap" => {
+                    block_on(kernel.munmap(&caller, at, 2 * PAGE)).unwrap();
+                }
+                "exit" => {
+                    block_on(kernel.exit_group(&caller, 0)).unwrap();
+                }
+                "protect" => {
+                    // Partial downgrade must preserve the first page's pending mark only
+                    // until it has been accounted, without losing the writable second page.
+                    block_on(kernel.mprotect(&caller, at, PAGE, ProtFlags::PROT_READ)).unwrap();
+                    block_on(kernel.msync(&caller, at, PAGE, MsyncFlags::MS_SYNC)).unwrap();
+                    check(true);
+                    reset();
+                    block_on(kernel.msync(&caller, at, PAGE, MsyncFlags::MS_SYNC)).unwrap();
+                    check(false);
+                    block_on(kernel.msync(&caller, at + PAGE, PAGE, MsyncFlags::MS_ASYNC)).unwrap();
+                    check(true);
+                    reset();
+                    block_on(kernel.mprotect(&caller, at, PAGE, RW)).unwrap();
+                    block_on(kernel.msync(&caller, at, PAGE, MsyncFlags::MS_SYNC)).unwrap();
+                }
+                _ => {
+                    let flags = match operation {
+                        "async" => MsyncFlags::MS_ASYNC,
+                        "invalidate" => MsyncFlags::MS_INVALIDATE,
+                        _ => MsyncFlags::MS_SYNC,
+                    };
+                    block_on(kernel.msync(&caller, at, 2 * PAGE, flags)).unwrap();
+                }
+            }
+            check(!matches!(operation, "readonly" | "private" | "invalidate"));
+        }
+    }
+}
