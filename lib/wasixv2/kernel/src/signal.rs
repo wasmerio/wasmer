@@ -601,6 +601,7 @@ impl Signals {
         Arc::new(TaskSignals {
             group: self.clone(),
             task,
+            status: wasixv2_wait::TaskStatus::default(),
         })
     }
 
@@ -1701,6 +1702,7 @@ impl Signals {
 pub(crate) struct TaskSignals {
     group: Arc<Signals>,
     task: TaskId,
+    pub(crate) status: wasixv2_wait::TaskStatus,
 }
 
 impl TaskSignals {
@@ -1869,7 +1871,7 @@ impl TaskSignals {
 
     /// What ends a killable wait of the task (`TASK_KILLABLE`): a fatal signal only.
     pub(crate) fn killable(&self) -> Killable<'_> {
-        Killable(self)
+        Killable(self, wasixv2_wait::TaskState::Uninterruptible)
     }
 
     /// Queues SIGKILL for this task alone, as `zap_other_threads` does for each thread.
@@ -2030,6 +2032,10 @@ impl TaskSignals {
 }
 
 impl Interrupt for TaskSignals {
+    fn task_status(&self) -> Option<(&wasixv2_wait::TaskStatus, wasixv2_wait::TaskState)> {
+        Some((&self.status, wasixv2_wait::TaskState::Interruptible))
+    }
+
     fn pending(&self) -> bool {
         let state = self.group.state.lock_or_recover();
         // A task taken over by an `execve` from another thread has nothing left to wait for.
@@ -2049,9 +2055,13 @@ impl Interrupt for TaskSignals {
 }
 
 /// See [`TaskSignals::killable`].
-pub(crate) struct Killable<'a>(&'a TaskSignals);
+pub(crate) struct Killable<'a>(&'a TaskSignals, wasixv2_wait::TaskState);
 
 impl Interrupt for Killable<'_> {
+    fn task_status(&self) -> Option<(&wasixv2_wait::TaskStatus, wasixv2_wait::TaskState)> {
+        Some((&self.0.status, self.1))
+    }
+
     fn pending(&self) -> bool {
         self.0.fatal_pending().is_some()
     }
@@ -2068,6 +2078,10 @@ struct WaitFor<'a> {
 }
 
 impl Interrupt for WaitFor<'_> {
+    fn task_status(&self) -> Option<(&wasixv2_wait::TaskStatus, wasixv2_wait::TaskState)> {
+        self.signals.task_status()
+    }
+
     fn pending(&self) -> bool {
         let state = self.signals.group.state.lock_or_recover();
         let Some(task) = state.tasks.get(&self.signals.task) else {
@@ -2716,7 +2730,9 @@ impl Kernel {
             let waiter = Waiter::new();
             let mut sleep = self.host.sleep_until(until);
             while self.host.monotonic() < until && signals.fatal_pending().is_none() {
-                let killable = signals.killable();
+                // kernel/sched/fair.c throttle_cfs_rq removes a runnable entity from the
+                // runqueue; it does not put the task into a sleeping state.
+                let killable = Killable(&signals, wasixv2_wait::TaskState::Running);
                 if let Wakeup::TimedOut = waiter.sleep(&killable, Some(sleep.as_mut())).await {
                     break;
                 }
@@ -2724,7 +2740,12 @@ impl Kernel {
             signals.take_throttle();
         }
         let continued = || (!signals.held()).then_some(());
-        wait_event(signals.sent(), continued, &NoInterrupt)
+        signals
+            .status
+            .during(
+                wasixv2_wait::TaskState::Uninterruptible,
+                wait_event(signals.sent(), continued, &NoInterrupt),
+            )
             .await
             .expect("NoInterrupt never interrupts");
     }

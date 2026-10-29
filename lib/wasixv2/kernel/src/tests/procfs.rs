@@ -162,7 +162,7 @@ fn self_names_the_callers_process() {
     assert_eq!(t.read_all(fd), "\n");
     let fd = t.open("/proc/self/stat", OpenFlags::O_RDONLY).unwrap();
     let line = t.read_all(fd);
-    assert!(line.starts_with(&format!("{} () S 0 ", task.0)), "{line}");
+    assert!(line.starts_with(&format!("{} () R 0 ", task.0)), "{line}");
     assert_eq!(line.split(' ').count(), 52, "{line}");
 }
 
@@ -221,7 +221,139 @@ fn a_stopped_task_shows_as_stopped() {
     let fd = t.open(&status, OpenFlags::O_RDONLY).unwrap();
     assert!(t.read_all(fd).contains("State:\tT (stopped)\n"));
     let fd = t.open("/proc/self/status", OpenFlags::O_RDONLY).unwrap();
-    assert!(t.read_all(fd).contains("State:\tS (sleeping)\n"));
+    assert!(t.read_all(fd).contains("State:\tR (running)\n"));
+}
+
+/// Linux fs/proc/array.c get_task_state: a blocked reader sleeps, and a wake makes it
+/// runnable before its executor polls it again. Cancelling the read clears the sleep too.
+#[test]
+fn task_state_follows_blocking_and_wakeup() {
+    let (kernel, task, _) = machine();
+    let observer_memory = memory();
+    let t = T::new(&kernel, task, &observer_memory);
+    let reader_memory = memory();
+    let caller = Caller::new(task, &reader_memory);
+    let thread =
+        block_on(kernel.thread_spawn(&caller, 0x10f00, 0, GuestPtrMut::NULL, 0, GuestPtrMut::NULL))
+            .unwrap();
+    while kernel.take_pending(task).is_some() {}
+    let reader = Caller::new(TaskId(thread as u32), &reader_memory);
+    let (rd, wr) = pipe(&kernel, &caller, OpenFlags::default());
+    let check = |letter: char, name: &str| {
+        let prefix = format!("/proc/{}/task/{thread}", task.0);
+        let fd = t
+            .open(&format!("{prefix}/stat"), OpenFlags::O_RDONLY)
+            .unwrap();
+        let line = t.read_all(fd);
+        assert!(
+            line.starts_with(&format!("{thread} () {letter} ")),
+            "{line}"
+        );
+        block_on(kernel.close(&t.caller, fd)).unwrap();
+        let fd = t
+            .open(&format!("{prefix}/status"), OpenFlags::O_RDONLY)
+            .unwrap();
+        let line = t.read_all(fd);
+        assert!(
+            line.contains(&format!("State:\t{letter} ({name})\n")),
+            "{line}"
+        );
+        block_on(kernel.close(&t.caller, fd)).unwrap();
+    };
+    check('R', "running");
+    {
+        let mut read = std::pin::pin!(kernel.read(&reader, rd, UserSliceMut::new(0x200, 1)));
+        assert!(read.as_mut().now_or_never().is_none());
+        check('S', "sleeping");
+        assert_eq!(t.write(wr, b"a"), Ok(1));
+        check('R', "running");
+        assert_eq!(block_on(read), Ok(1));
+    }
+    check('R', "running");
+    {
+        let mut read = std::pin::pin!(kernel.read(&reader, rd, UserSliceMut::new(0x200, 1)));
+        assert!(read.as_mut().now_or_never().is_none());
+        check('S', "sleeping");
+    }
+    check('R', "running");
+}
+
+/// kernel/exit.c exit_notify: an exited leader is a zombie while its siblings live;
+/// an exited nonleader is dead until its final task reference is released.
+#[test]
+fn exited_threads_have_linux_exit_states() {
+    let (kernel, leader, _) = machine();
+    let memory = memory();
+    let caller = Caller::new(leader, &memory);
+    let spawn = || {
+        block_on(kernel.thread_spawn(&caller, 0x10f00, 0, GuestPtrMut::NULL, 0, GuestPtrMut::NULL))
+            .unwrap()
+    };
+    let exited = TaskId(spawn() as u32);
+    let observer = TaskId(spawn() as u32);
+    while kernel.take_pending(leader).is_some() {}
+    let t = T::new(&kernel, observer, &memory);
+    let mut exit = std::pin::pin!(kernel.exit(&caller, 0));
+    assert!(exit.as_mut().now_or_never().is_none());
+    let exited_caller = Caller::new(exited, &memory);
+    assert_eq!(block_on(kernel.exit(&exited_caller, 0)), Ok(()));
+    for (tid, letter, name) in [(leader, 'Z', "zombie"), (exited, 'X', "dead")] {
+        let prefix = format!("/proc/{}/task/{}", leader.0, tid.0);
+        let fd = t
+            .open(&format!("{prefix}/stat"), OpenFlags::O_RDONLY)
+            .unwrap();
+        let line = t.read_all(fd);
+        assert!(
+            line.starts_with(&format!("{} () {letter} ", tid.0)),
+            "{line}"
+        );
+        let fd = t
+            .open(&format!("{prefix}/status"), OpenFlags::O_RDONLY)
+            .unwrap();
+        assert!(
+            t.read_all(fd)
+                .contains(&format!("State:\t{letter} ({name})\n"))
+        );
+    }
+}
+
+/// kernel/fork.c wait_for_vfork_done uses TASK_KILLABLE, whose reported state is D.
+#[test]
+fn vfork_wait_reports_uninterruptible_sleep() {
+    let (kernel, task, _) = machine();
+    let memory = super::proc::ForkableMemory(memory());
+    let caller = Caller::new(task, &memory);
+    let flags = wasixv2_abi::CloneFlags::CLONE_VFORK.0 as u32 | Signal::SIGCHLD.0 as u32;
+    let child =
+        block_on(kernel.clone(&caller, flags, 0, GuestPtrMut::NULL, 0, GuestPtrMut::NULL)).unwrap();
+    assert!(matches!(
+        kernel.take_pending(task),
+        Some(GuestAction::Fork { vfork: true, .. })
+    ));
+    let observer_memory = self::memory();
+    let t = T::new(&kernel, TaskId(child as u32), &observer_memory);
+    let check = |letter: char, name: &str| {
+        let fd = t
+            .open(&format!("/proc/{}/stat", task.0), OpenFlags::O_RDONLY)
+            .unwrap();
+        let line = t.read_all(fd);
+        assert!(
+            line.starts_with(&format!("{} () {letter} ", task.0)),
+            "{line}"
+        );
+        let fd = t
+            .open(&format!("/proc/{}/status", task.0), OpenFlags::O_RDONLY)
+            .unwrap();
+        assert!(
+            t.read_all(fd)
+                .contains(&format!("State:\t{letter} ({name})\n"))
+        );
+    };
+    let mut wait = Box::pin(kernel.vfork_wait(task));
+    assert!(wait.as_mut().now_or_never().is_none());
+    check('D', "disk sleep");
+    drop(wait);
+    check('R', "running");
 }
 
 /// `task_seccomp`: status shows the task's `no_new_privs`, seccomp mode and filter count.

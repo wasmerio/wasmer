@@ -13,6 +13,11 @@ use crate::{PollMask, PollTable, Pollable, WaitEntry, WaitQueue, WaitRegistratio
 pub trait Interrupt {
     fn pending(&self) -> bool;
 
+    /// The task and its scheduling state during this wait, if it belongs to a task.
+    fn task_status(&self) -> Option<(&crate::TaskStatus, crate::TaskState)> {
+        None
+    }
+
     /// Woken when `pending` may have become true.
     fn queue(&self) -> Option<&WaitQueue> {
         None
@@ -170,25 +175,28 @@ impl Waiter {
         let _interrupt = interrupt
             .queue()
             .map(|queue| self.register(queue, PollMask::empty()));
-        poll_fn(|cx| {
-            {
-                let mut inner = self.state.inner.lock().unwrap();
-                if inner.woken {
-                    inner.woken = false;
-                    return Poll::Ready(Wakeup::Woken(std::mem::take(&mut inner.events)));
+        sleeping(
+            poll_fn(|cx| {
+                {
+                    let mut inner = self.state.inner.lock().unwrap();
+                    if inner.woken {
+                        inner.woken = false;
+                        return Poll::Ready(Wakeup::Woken(std::mem::take(&mut inner.events)));
+                    }
+                    inner.waker = Some(cx.waker().clone());
                 }
-                inner.waker = Some(cx.waker().clone());
-            }
-            if interrupt.pending() {
-                return Poll::Ready(Wakeup::Interrupted);
-            }
-            if let Some(timer) = timer.as_mut()
-                && timer.as_mut().poll(cx).is_ready()
-            {
-                return Poll::Ready(Wakeup::TimedOut);
-            }
-            Poll::Pending
-        })
+                if interrupt.pending() {
+                    return Poll::Ready(Wakeup::Interrupted);
+                }
+                if let Some(timer) = timer.as_mut()
+                    && timer.as_mut().poll(cx).is_ready()
+                {
+                    return Poll::Ready(Wakeup::TimedOut);
+                }
+                Poll::Pending
+            }),
+            interrupt,
+        )
         .await
     }
 }
@@ -215,6 +223,10 @@ pub struct Watched<'a> {
 impl Interrupt for Watched<'_> {
     fn pending(&self) -> bool {
         self.interrupt.pending()
+    }
+
+    fn task_status(&self) -> Option<(&crate::TaskStatus, crate::TaskState)> {
+        self.interrupt.task_status()
     }
 
     /// Registered already.
@@ -314,18 +326,28 @@ pub async fn interruptible<T>(
         .queue()
         .map(|queue| waiter.register(queue, PollMask::empty()));
     let mut future = std::pin::pin!(future);
-    poll_fn(|cx| {
-        // The waker is in place before `pending` is read, so a signal after it wakes us.
-        waiter.state.inner.lock().unwrap().waker = Some(cx.waker().clone());
-        if let Poll::Ready(value) = future.as_mut().poll(cx) {
-            return Poll::Ready(Ok(value));
-        }
-        if interrupt.pending() {
-            return Poll::Ready(Err(Interrupted));
-        }
-        Poll::Pending
-    })
+    sleeping(
+        poll_fn(|cx| {
+            // The waker is in place before `pending` is read, so a signal after it wakes us.
+            waiter.state.inner.lock().unwrap().waker = Some(cx.waker().clone());
+            if let Poll::Ready(value) = future.as_mut().poll(cx) {
+                return Poll::Ready(Ok(value));
+            }
+            if interrupt.pending() {
+                return Poll::Ready(Err(Interrupted));
+            }
+            Poll::Pending
+        }),
+        interrupt,
+    )
     .await
+}
+
+async fn sleeping<F: Future>(future: F, interrupt: &dyn Interrupt) -> F::Output {
+    match interrupt.task_status() {
+        Some((status, state)) => status.during(state, future).await,
+        None => future.await,
+    }
 }
 
 async fn wait<T>(

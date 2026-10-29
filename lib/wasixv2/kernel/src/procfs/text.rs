@@ -1671,14 +1671,34 @@ pub(super) fn escape(path: &[u8]) -> Vec<u8> {
     out
 }
 
-/// The task's state letter: a zombie, in a ptrace stop, stopped by a stop signal, or sleeping
-/// (a task reading its own state is running, but a file does not know who reads it).
+/// Linux fs/proc/array.c `get_task_state` and include/linux/sched.h `__task_state_index`:
+/// exit and job-control states take precedence over the task's actual scheduling state.
 fn state(info: &super::ProcessInfo, task: Option<&super::TaskInfo>) -> (char, &'static str) {
-    match info.zombie {
-        true => ('Z', "zombie"),
-        false if task.is_some_and(|task| task.signals.is_traced()) => ('t', "tracing stop"),
-        false if task.is_some_and(|task| task.signals.is_stopped()) => ('T', "stopped"),
-        false => ('S', "sleeping"),
+    use wasixv2_wait::TaskState;
+    if info.zombie {
+        return ('Z', "zombie");
+    }
+    let Some(task) = task else {
+        return ('X', "dead");
+    };
+    if task.exited {
+        return if task.id == info.process.pid {
+            ('Z', "zombie")
+        } else {
+            ('X', "dead")
+        };
+    }
+    if task.signals.is_traced() {
+        return ('t', "tracing stop");
+    }
+    if task.signals.is_stopped() {
+        return ('T', "stopped");
+    }
+    match task.signals.status.state() {
+        TaskState::Running => ('R', "running"),
+        TaskState::Interruptible => ('S', "sleeping"),
+        TaskState::Uninterruptible => ('D', "disk sleep"),
+        TaskState::Idle => ('I', "idle"),
     }
 }
 

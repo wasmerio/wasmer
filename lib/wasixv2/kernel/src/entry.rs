@@ -62,30 +62,38 @@ impl<L: Layer<Kernel>> Layer<Kernel> for SyscallEntry<L> {
         call: Syscall,
         next: &Kernel,
     ) -> SysResult<SyscallRet> {
-        wasixv2_syscalls::as_task(caller.task(), async {
-            // fs/proc/base.c `proc_pid_syscall`: retain the call while suspended, including
-            // syscall-exit tracing. Drop clears it on both completion and cancellation.
-            let slot = next.task_ref(caller.task(), |t| t.syscall.clone());
-            *slot.lock_or_recover() = call_regs(&call).map(|(nr, args)| CallInfo {
-                nr,
-                args,
-                ..Default::default()
-            });
-            let _current = CurrentCall(slot);
-            let traced = next.tracees.used();
-            let ret = match next.syscall_entry(caller, &call).await {
-                Entry::Done(ret) => ret,
-                Entry::Run(changed) => self.0.call(caller, changed, next).await,
-            };
-            let ret = if traced {
-                next.syscall_exit(caller, &call, ret).await
-            } else {
-                ret
-            };
-            // The typed wasm import keeps its return type even if ptrace changed the syscall.
-            ret.map(|ret| call.ret_from_raw(ret.to_raw()))
-        })
-        .await
+        let (slot, status) = next.task_ref(caller.task(), |t| {
+            (t.syscall.clone(), t.signals.status.clone())
+        });
+        // A pending VFS operation or kernel lock sleeps uninterruptibly. Wait primitives
+        // below supply their specific state, as Linux's prepare_to_wait does.
+        status
+            .during(
+                wasixv2_wait::TaskState::Uninterruptible,
+                wasixv2_syscalls::as_task(caller.task(), async {
+                    // fs/proc/base.c `proc_pid_syscall`: retain the call while suspended, including
+                    // syscall-exit tracing. Drop clears it on both completion and cancellation.
+                    *slot.lock_or_recover() = call_regs(&call).map(|(nr, args)| CallInfo {
+                        nr,
+                        args,
+                        ..Default::default()
+                    });
+                    let _current = CurrentCall(slot);
+                    let traced = next.tracees.used();
+                    let ret = match next.syscall_entry(caller, &call).await {
+                        Entry::Done(ret) => ret,
+                        Entry::Run(changed) => self.0.call(caller, changed, next).await,
+                    };
+                    let ret = if traced {
+                        next.syscall_exit(caller, &call, ret).await
+                    } else {
+                        ret
+                    };
+                    // The typed wasm import keeps its return type even if ptrace changed the syscall.
+                    ret.map(|ret| call.ret_from_raw(ret.to_raw()))
+                }),
+            )
+            .await
     }
 }
 

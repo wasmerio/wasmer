@@ -12,11 +12,13 @@
 mod mask;
 mod poll;
 mod queue;
+mod status;
 mod wait;
 
 pub use mask::PollMask;
 pub use poll::{PollTable, Pollable, poll_wait};
 pub use queue::{WaitEntry, WaitQueue, WaitRegistration};
+pub use status::{TaskState, TaskStatus};
 pub use wait::{
     Interrupt, Interrupted, NoInterrupt, PollWaiter, Waiter, WakeHandle, Wakeup, Watched,
     interruptible, wait_event, wait_event_exclusive, wait_event_timeout,
