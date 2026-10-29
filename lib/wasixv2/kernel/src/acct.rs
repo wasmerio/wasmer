@@ -6,7 +6,7 @@
 //! written by the next call that may wait: the exit's own `exit_mm`, or a `waitid` before it
 //! reports the process, so its parent never sees it gone before its record. The file is
 //! written with the credentials it was opened with (`f_cred`), with no regard to
-//! `RLIMIT_FSIZE`. The free space of its filesystem is not watched: accounting never pauses.
+//! `RLIMIT_FSIZE`. Free-space checks pause/resume records at kernel.acct thresholds.
 
 use std::{
     sync::{Arc, Mutex, Weak},
@@ -30,6 +30,7 @@ pub(crate) const ACCT_V3_SIZE: usize = 64;
 
 /// The `ac_flag` bits.
 pub(crate) const AFORK: u8 = 0x01;
+pub(crate) const ASU: u8 = 0x02;
 pub(crate) const ACORE: u8 = 0x08;
 pub(crate) const AXSIG: u8 = 0x10;
 
@@ -41,14 +42,32 @@ struct AcctFile {
     user_ns: Arc<UserNs>,
     /// The pid namespace it accounts for, whose pids it is written with.
     ns: Weak<PidNs>,
+    space: Mutex<Space>,
+}
+
+struct Space {
+    active: bool,
+    next_check: Duration,
 }
 
 /// The accounting files of every pid namespace that has one (`ns->bacct`), and the records
 /// made but not yet written.
-#[derive(Default)]
 pub(crate) struct Acct {
     files: Mutex<Vec<Arc<AcctFile>>>,
     pending: Mutex<Vec<(Arc<AcctFile>, [u8; ACCT_V3_SIZE])>>,
+    flush: futures_util::lock::Mutex<()>,
+    pub(crate) parameters: Mutex<[i32; 3]>,
+}
+
+impl Default for Acct {
+    fn default() -> Self {
+        Self {
+            files: Mutex::default(),
+            pending: Mutex::default(),
+            flush: Default::default(),
+            parameters: Mutex::new([4, 2, 30]),
+        }
+    }
 }
 
 impl Acct {
@@ -162,6 +181,10 @@ impl Kernel {
             file,
             user_ns: cred.user_ns.clone(),
             ns: Arc::downgrade(&ns),
+            space: Mutex::new(Space {
+                active: false,
+                next_check: self.host.monotonic(),
+            }),
         };
         self.acct.set(&ns, Some(new));
         Ok(0)
@@ -229,14 +252,60 @@ impl Kernel {
         out
     }
 
+    /// Linux kernel/acct.c:check_free_space: inclusive thresholds and a check
+    /// interval; a statfs failure preserves both the state and the retry deadline.
+    async fn acct_check_free_space(&self, file: &AcctFile) -> bool {
+        let now = self.host.monotonic();
+        {
+            let state = file.space.lock_or_recover();
+            if now < state.next_check {
+                return state.active;
+            }
+        }
+        let stat = match self.vfs.statfs(&file.file.path).await {
+            Ok(stat) => stat,
+            Err(_) => return file.space.lock_or_recover().active,
+        };
+        let [resume, suspend, interval] = *self.acct.parameters.lock_or_recover();
+        let mut state = file.space.lock_or_recover();
+        let before = state.active;
+        if state.active {
+            let threshold = stat.blocks.wrapping_mul(suspend as u64) / 100;
+            if stat.blocks_avail <= threshold {
+                state.active = false;
+            }
+        } else {
+            let threshold = stat.blocks.wrapping_mul(resume as u64) / 100;
+            if stat.blocks_avail >= threshold {
+                state.active = true;
+            }
+        }
+        state.next_check = now.saturating_add(Duration::from_secs(u64::from(interval as u32)));
+        if state.active != before {
+            self.printk(
+                crate::printk::Level::Info,
+                if state.active {
+                    "Process accounting resumed"
+                } else {
+                    "Process accounting paused"
+                },
+            );
+        }
+        state.active
+    }
+
     /// Writes the records made so far (`acct_write_process`), in order.
     pub(crate) async fn acct_flush(&self) {
+        let _flush = self.acct.flush.lock().await;
         loop {
             let pending = std::mem::take(&mut *self.acct.pending.lock_or_recover());
             if pending.is_empty() {
                 return;
             }
             for (file, record) in pending {
+                if !self.acct_check_free_space(&file).await {
+                    continue;
+                }
                 // A failed write loses the record, as `__kernel_write`'s result is ignored.
                 let _ = file.file.append(&record).await;
             }

@@ -8,7 +8,10 @@
 use std::{
     any::Any,
     fmt,
-    sync::{Arc, LazyLock},
+    sync::{
+        Arc, LazyLock,
+        atomic::{AtomicBool, Ordering},
+    },
 };
 
 use wasixv2_abi::Errno;
@@ -158,6 +161,8 @@ pub struct Cred {
     pub groups: Vec<u32>,
     /// Effective capabilities, one bit per `Cap`, in `user_ns`.
     pub caps: u64,
+    /// Optional process-accounting marker: successful capability checks set ASU.
+    pub privilege_used: Option<Arc<AtomicBool>>,
     /// The user namespace the capabilities count in (`cred->user_ns`).
     pub user_ns: Arc<dyn UserNs>,
     /// What a security module checks for these credentials (`cred->security`); `None` when
@@ -205,6 +210,7 @@ impl Cred {
             fsgid: gid,
             groups: Vec::new(),
             caps: 0,
+            privilege_used: None,
             user_ns: initial_user_ns(),
             security: None,
         }
@@ -221,18 +227,24 @@ impl Cred {
     /// `ns_capable(current_user_ns(), cap)`: the capability in the credentials' own user
     /// namespace.
     pub fn capable(&self, cap: Cap) -> bool {
-        self.caps & cap.bit() != 0
+        let capable = self.caps & cap.bit() != 0;
+        if capable && let Some(used) = &self.privilege_used {
+            used.store(true, Ordering::Relaxed);
+        }
+        capable
     }
 
     /// `capable`: the capability in the initial user namespace, for what no user namespace
     /// owns (devices, `trusted.*` attributes).
     pub fn capable_init(&self, cap: Cap) -> bool {
-        self.capable(cap) && self.user_ns.is_initial()
+        self.user_ns.is_initial() && self.capable(cap)
     }
 
     /// `capable_wrt_inode_uidgid`: the capability, over an inode whose owner and group the
     /// credentials' user namespace maps (`privileged_wrt_inode_uidgid`).
     pub fn capable_wrt(&self, attr: &Attr, cap: Cap) -> bool {
+        // Linux kernel/capability.c:capable_wrt_inode_uidgid marks successful
+        // ns_capable use even if the later inode-id mapping check fails.
         self.capable(cap) && self.user_ns.has_uid(attr.uid) && self.user_ns.has_gid(attr.gid)
     }
 
@@ -498,5 +510,25 @@ mod tests {
             Err(Errno::EACCES)
         );
         assert_eq!(generic_permission(&root, &dir, MAY_EXEC), Ok(()));
+    }
+    #[test]
+    fn accounting_marks_only_successful_capability_checks() {
+        let used = Arc::new(AtomicBool::new(false));
+        let mut cred = Cred {
+            privilege_used: Some(used.clone()),
+            ..Cred::user(7, 7)
+        };
+        assert!(!cred.capable(Cap::DacOverride));
+        assert!(!used.load(Ordering::Relaxed));
+        cred.caps = Cap::DacOverride.bit();
+        let unmapped = attr(FileType::Regular, 0, u32::MAX, 7);
+        assert!(!cred.capable_wrt(&unmapped, Cap::DacOverride));
+        assert!(
+            used.load(Ordering::Relaxed),
+            "the capability succeeded before the inode mapping failed"
+        );
+        used.store(false, Ordering::Relaxed);
+        assert!(cred.capable(Cap::DacOverride));
+        assert!(used.load(Ordering::Relaxed));
     }
 }

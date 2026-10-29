@@ -78,6 +78,7 @@ impl Kernel {
             keys: self.keys.clone(),
             cgroups: self.cgroups.clone(),
             printk: self.printk.clone(),
+            acct: self.acct.clone(),
             seccomp_logging: self.seccomp_logging.clone(),
             coredump: self.coredump.clone(),
             tunables: self.tunables.clone(),
@@ -192,6 +193,7 @@ struct Source {
     cgroups: Arc<crate::cgroup::Hierarchy>,
     /// The kernel log's tunables.
     printk: Arc<crate::printk::Printk>,
+    acct: Arc<crate::acct::Acct>,
     seccomp_logging: Arc<crate::seccomp::Logging>,
     /// The core dump tunables.
     coredump: Arc<crate::coredump::Coredump>,

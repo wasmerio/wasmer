@@ -173,3 +173,173 @@ fn acct_takes_a_regular_file_from_the_privileged() {
     let (kernel, p) = machine_as(1000);
     assert_eq!(errno(p.acct(&kernel, None)), Errno::EPERM);
 }
+
+#[test]
+fn acct_asu_tracks_successful_capability_use_and_resets_on_fork() {
+    use wasixv2_abi::PrctlOption;
+    let (kernel, p) = machine_as(0);
+    p.create(&kernel, "/acct");
+    p.acct(&kernel, Some("/acct")).unwrap(); // parent uses CAP_SYS_PACCT
+    let (plain, pid) = p.fork(&kernel);
+    plain.exit(&kernel, 0);
+    p.reap(&kernel, pid);
+    assert_eq!(
+        p.contents(&kernel, "/acct")[0] & crate::acct::ASU,
+        0,
+        "uid 0 alone is not privilege use"
+    );
+    let (used, pid) = p.fork(&kernel);
+    assert_eq!(
+        block_on(kernel.prctl(&used.caller(), PrctlOption::PR_GET_IO_FLUSHER, 0, 0, 0, 0)),
+        Ok(0)
+    );
+    let (grandchild, grand_pid) = used.fork(&kernel);
+    grandchild.exit(&kernel, 0);
+    used.reap(&kernel, grand_pid);
+    used.exit(&kernel, 0);
+    p.reap(&kernel, pid);
+    let records = p.contents(&kernel, "/acct");
+    assert_eq!(
+        records[64] & crate::acct::ASU,
+        0,
+        "fork clears inherited PF_SUPERPRIV"
+    );
+    assert_eq!(records[128] & crate::acct::ASU, crate::acct::ASU);
+    // The VFS's DAC override must feed the same accounting flag.
+    p.create(&kernel, "/private");
+    block_on(kernel.fchownat(
+        &p.caller(),
+        CWD,
+        p.path(Some("/private")),
+        99,
+        99,
+        AtFlags(0),
+    ))
+    .unwrap();
+    block_on(kernel.fchmodat(&p.caller(), CWD, p.path(Some("/private")), 0)).unwrap();
+    let (used, pid) = p.fork(&kernel);
+    used.contents(&kernel, "/private");
+    used.exit(&kernel, 0);
+    p.reap(&kernel, pid);
+    assert_eq!(
+        p.contents(&kernel, "/acct")[192] & crate::acct::ASU,
+        crate::acct::ASU
+    );
+}
+
+struct AcctClock(std::sync::atomic::AtomicU64);
+impl Host for AcctClock {
+    fn realtime(&self) -> Duration {
+        TestHost.realtime()
+    }
+    fn monotonic(&self) -> Duration {
+        Duration::from_secs(self.0.load(std::sync::atomic::Ordering::Relaxed))
+    }
+    fn sleep(&self, _: Duration) -> LocalFuture<'_, ()> {
+        Box::pin(async {})
+    }
+    fn random(&self, bytes: &mut [u8]) {
+        TestHost.random(bytes)
+    }
+    fn executor(&self) -> &dyn Executor {
+        &TestHost
+    }
+}
+
+struct SpaceFs {
+    inner: Arc<MemFs>,
+    avail: std::sync::atomic::AtomicU64,
+    fail: std::sync::atomic::AtomicBool,
+}
+#[async_trait::async_trait(?Send)]
+impl wasixv2_vfs::Filesystem for SpaceFs {
+    fn info(&self) -> wasixv2_vfs::FsInfo {
+        self.inner.info()
+    }
+    fn root(&self) -> Arc<dyn wasixv2_vfs::Node> {
+        self.inner.root()
+    }
+    async fn statfs(&self) -> wasixv2_vfs::FsResult<wasixv2_vfs::StatFs> {
+        use std::sync::atomic::Ordering::Relaxed;
+        if self.fail.load(Relaxed) {
+            return Err(Errno::EIO);
+        }
+        Ok(wasixv2_vfs::StatFs {
+            blocks: 100,
+            blocks_avail: self.avail.load(Relaxed),
+            blocks_free: self.avail.load(Relaxed),
+            ..Default::default()
+        })
+    }
+}
+
+#[test]
+fn acct_free_space_hysteresis_interval_and_statfs_failure() {
+    use std::sync::atomic::{AtomicBool, AtomicU64, Ordering::Relaxed};
+    let clock = Arc::new(AcctClock(AtomicU64::new(0)));
+    let root = Arc::new(SpaceFs {
+        inner: Arc::new(MemFs::new(Arc::new(HostClock(clock.clone())), 0o755, 0, 0)),
+        avail: AtomicU64::new(100),
+        fail: AtomicBool::new(false),
+    });
+    let kernel = Kernel::new(clock.clone(), root.clone())
+        .with_credentials(Credentials::new(0, 0))
+        .with_init();
+    let task = kernel
+        .spawn(ProcessConfig {
+            args: vec!["acct".into()],
+            env: vec![],
+            stdio: Stdio {
+                stdin: Arc::new(Input(Mutex::new(Vec::new()))),
+                stdout: Arc::new(Capture::default()),
+                stderr: Arc::new(Capture::default()),
+            },
+        })
+        .unwrap();
+    let p = P::new(task);
+    block_on(
+        kernel
+            .vfs
+            .mount(b"/proc", kernel.procfs(), MountFlags::default(), true),
+    )
+    .unwrap();
+    assert_eq!(p.contents(&kernel, "/proc/sys/kernel/acct"), b"4\t2\t30\n");
+    p.create(&kernel, "/acct");
+    p.acct(&kernel, Some("/acct")).unwrap();
+    let exit = |seconds, available| {
+        clock.0.store(seconds, Relaxed);
+        root.avail.store(available, Relaxed);
+        let (child, pid) = p.fork(&kernel);
+        child.exit(&kernel, 0);
+        p.reap(&kernel, pid);
+        p.contents(&kernel, "/acct").len()
+    };
+    assert_eq!(exit(0, 4), 64, "resume is inclusive");
+    assert_eq!(exit(1, 1), 128, "no check before the interval");
+    assert_eq!(exit(30, 2), 128, "suspend is inclusive");
+    assert_eq!(exit(60, 3), 128, "stay paused between thresholds");
+    root.fail.store(true, Relaxed);
+    assert_eq!(exit(90, 100), 128, "failed statfs preserves paused state");
+    root.fail.store(false, Relaxed);
+    assert_eq!(exit(90, 4), 192, "failed statfs leaves the check due");
+    root.fail.store(true, Relaxed);
+    assert_eq!(exit(120, 0), 256, "failed statfs preserves active state");
+    root.fail.store(false, Relaxed);
+    assert_eq!(exit(120, 0), 256);
+    let fd = block_on(kernel.openat(
+        &p.caller(),
+        CWD,
+        p.path(Some("/proc/sys/kernel/acct")),
+        OpenFlags::O_WRONLY,
+        0,
+    ))
+    .unwrap();
+    put(&p.memory.0, 0x5000, b"10 5 0\n");
+    block_on(kernel.write(&p.caller(), fd, UserSlice::new(0x5000, 7))).unwrap();
+    assert_eq!(exit(150, 9), 256);
+    assert_eq!(
+        exit(150, 10),
+        320,
+        "updated thresholds and zero interval apply"
+    );
+}
