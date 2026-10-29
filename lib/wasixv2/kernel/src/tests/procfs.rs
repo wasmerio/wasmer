@@ -150,6 +150,63 @@ impl<'a> T<'a> {
 }
 
 #[test]
+fn sysvipc_lists_all_three_object_types_with_linux_columns() {
+    let (kernel, task, _) = machine();
+    let memory = memory();
+    let t = T::new(&kernel, task, &memory);
+    let create = wasixv2_abi::IpcFlags::IPC_CREAT.0 as i32 | 0o600;
+    let msg = block_on(kernel.msgget(&t.caller, 41, create)).unwrap();
+    let sem = block_on(kernel.semget(&t.caller, 42, 3, create)).unwrap();
+    let shm = block_on(kernel.shmget(&t.caller, 43, 123, create)).unwrap();
+    for (name, id, key, columns) in [
+        (
+            "msg",
+            msg,
+            41,
+            "key msqid perms cbytes qnum lspid lrpid uid gid cuid cgid stime rtime ctime",
+        ),
+        (
+            "sem",
+            sem,
+            42,
+            "key semid perms nsems uid gid cuid cgid otime ctime",
+        ),
+        (
+            "shm",
+            shm,
+            43,
+            "key shmid perms size cpid lpid nattch uid gid cuid cgid atime dtime ctime rss swap",
+        ),
+    ] {
+        // Linux ipc/{msg,sem,shm}.c:sysvipc_*_proc_show exposes every object,
+        // including objects the reader cannot IPC_STAT, with permissions in octal.
+        let fd = t
+            .open(&format!("/proc/sysvipc/{name}"), OpenFlags::O_RDONLY)
+            .unwrap();
+        assert_eq!(t.fstat(fd).stx_mode & 0o777, 0o444);
+        let data = t.read_all(fd);
+        let mut lines = data.lines();
+        assert_eq!(
+            lines.next().unwrap().split_whitespace().collect::<Vec<_>>(),
+            columns.split_whitespace().collect::<Vec<_>>()
+        );
+        let row = lines.next().unwrap().split_whitespace().collect::<Vec<_>>();
+        assert_eq!(row.len(), columns.split_whitespace().count());
+        assert_eq!(row[0], key.to_string());
+        assert_eq!(row[1], id.to_string());
+        assert_eq!(row[2], "600");
+        if name == "sem" {
+            assert_eq!(row[3], "3");
+        }
+        if name == "shm" {
+            assert_eq!(row[3], "123");
+        }
+        assert!(lines.next().is_none());
+        block_on(kernel.close(&t.caller, fd)).unwrap();
+    }
+}
+
+#[test]
 fn self_names_the_callers_process() {
     let (kernel, task, _) = machine();
     let memory = memory();
