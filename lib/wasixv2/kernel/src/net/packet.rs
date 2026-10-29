@@ -8,7 +8,7 @@ use std::sync::{Arc, Mutex};
 
 use wasixv2_abi::{AddressFamily, MsgFlags, OpenFlags, SocketFlags, SocketOption, SocketType};
 use wasixv2_host::Host;
-use wasixv2_syscalls::{Caller, Errno, Fd, LocalFuture, SysResult};
+use wasixv2_syscalls::{Caller, Errno, LocalFuture, SysResult};
 use wasixv2_vfs::Cap;
 use wasixv2_vnet::{
     bpf::SockFilter,
@@ -233,7 +233,7 @@ impl Kernel {
         kind: SocketType,
         protocol: i32,
         flags: SocketFlags,
-    ) -> SysResult<Fd> {
+    ) -> SysResult<OpenFile> {
         if !self.net_capable(caller, Cap::NetRaw) {
             return Err(Errno::EPERM.into());
         }
@@ -262,7 +262,6 @@ impl Kernel {
             ),
             status,
         );
-        let [fd] = self.install_files(caller, [file], flags.contains(SocketFlags::SOCK_CLOEXEC))?;
-        Ok(fd)
+        Ok(file)
     }
 }

@@ -344,12 +344,23 @@ const STATIC: &[(usize, &str, Static)] = &[
     (ROOT, "zoneinfo", Static::File(text::Global::Zoneinfo)),
     (ROOT, "crypto", Static::File(text::Global::Crypto)),
     (13, "keys", Static::Dir),
-    (125, "maxkeys", key_sysctl(crate::keys::KeySysctl::MaxKeys)),
-    (125, "maxbytes", key_sysctl(crate::keys::KeySysctl::MaxBytes)),
-    (125, "root_maxkeys", key_sysctl(crate::keys::KeySysctl::RootMaxKeys)),
-    (125, "root_maxbytes", key_sysctl(crate::keys::KeySysctl::RootMaxBytes)),
-    (125, "gc_delay", key_sysctl(crate::keys::KeySysctl::GcDelay)),
-
+    (124, "maxkeys", key_sysctl(crate::keys::KeySysctl::MaxKeys)),
+    (
+        124,
+        "maxbytes",
+        key_sysctl(crate::keys::KeySysctl::MaxBytes),
+    ),
+    (
+        124,
+        "root_maxkeys",
+        key_sysctl(crate::keys::KeySysctl::RootMaxKeys),
+    ),
+    (
+        124,
+        "root_maxbytes",
+        key_sysctl(crate::keys::KeySysctl::RootMaxBytes),
+    ),
+    (124, "gc_delay", key_sysctl(crate::keys::KeySysctl::GcDelay)),
 ];
 
 /// The file of an integer sysctl.

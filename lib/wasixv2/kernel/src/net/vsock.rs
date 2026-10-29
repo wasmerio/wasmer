@@ -30,7 +30,7 @@ use wasixv2_abi::{
     SocketFlags, SocketLevel, SocketOption, SocketType, Vmaddr, VmaddrFlags, VsockOption,
 };
 use wasixv2_host::Host;
-use wasixv2_syscalls::{Caller, Errno, Fd, LocalFuture, SysErr, SysResult, write_value};
+use wasixv2_syscalls::{Caller, Errno, LocalFuture, SysErr, SysResult, write_value};
 use wasixv2_vfs::Cap;
 use wasixv2_vnet::{
     BackendStream, Network, Shutdown, SocketKind, StreamState,
@@ -1340,7 +1340,7 @@ impl Kernel {
         kind: SocketType,
         protocol: i32,
         flags: SocketFlags,
-    ) -> SysResult<Fd> {
+    ) -> SysResult<OpenFile> {
         if protocol != 0 && protocol != AddressFamily::AF_VSOCK.0 {
             return Err(Errno::EPROTONOSUPPORT.into());
         }
@@ -1359,18 +1359,7 @@ impl Kernel {
             self.host.clone(),
             None,
         );
-        self.install_vsock(caller, sock, flags)
-    }
-
-    pub(crate) fn install_vsock(
-        &self,
-        caller: &Caller<'_>,
-        sock: Arc<VsockSock>,
-        flags: SocketFlags,
-    ) -> SysResult<Fd> {
-        let file = self.vsock_file(caller, sock, flags);
-        let [fd] = self.install_files(caller, [file], flags.contains(SocketFlags::SOCK_CLOEXEC))?;
-        Ok(fd)
+        Ok(self.vsock_file(caller, sock, flags))
     }
 
     pub(crate) fn vsock_file(

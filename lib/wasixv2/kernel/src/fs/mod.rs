@@ -388,7 +388,8 @@ impl Kernel {
         mode: u32,
         dest: FileDest<'_>,
     ) -> SysResult<Fd> {
-        self.do_open(caller, dfd, filename, build_open_how(flags, mode), dest).await
+        self.do_open(caller, dfd, filename, build_open_how(flags, mode), dest)
+            .await
     }
 
     pub(crate) async fn sys_openat2(
@@ -453,8 +454,17 @@ impl Kernel {
         } else {
             self.start(caller, &env, dfd, &path)?
         };
-        self.open_from(caller, &env, &start, &path, flags, how.mode as u32, lookup)
-            .await
+        self.open_from(
+            caller,
+            &env,
+            &start,
+            &path,
+            flags,
+            how.mode as u32,
+            lookup,
+            dest,
+        )
+        .await
     }
 
     /// `do_filp_open` of `path` from `start` with flags `build_open_flags` checked, and the
@@ -469,6 +479,7 @@ impl Kernel {
         flags: OpenFlags,
         mode: u32,
         lookup: LookupFlags,
+        dest: FileDest<'_>,
     ) -> SysResult<Fd> {
         let vfs_how = wasixv2_vfs::OpenHow {
             flags,

@@ -147,18 +147,6 @@ impl Kernel {
         any_socket_file(file)
     }
 
-    fn install_unix(
-        &self,
-        caller: &Caller<'_>,
-        sock: Arc<unix::Sock>,
-        flags: SocketFlags,
-    ) -> SysResult<Fd> {
-        let owner = self.cred(caller).fs_owner();
-        let file = unix_file(sock, flags, self.pseudo.socket(owner));
-        let [fd] = self.install_files(caller, [file], flags.contains(SocketFlags::SOCK_CLOEXEC))?;
-        Ok(fd)
-    }
-
     /// An open file for the IP socket `socket` of the network namespace `net`. A stream
     /// socket's urgent data signals the file's owner from the start (`sock_alloc_file` makes
     /// the file `sk_send_sigurg` finds).
@@ -197,11 +185,7 @@ impl Kernel {
         let file = self
             .create_socket(caller, family, kind, protocol, flags)
             .await?;
-        self.install(
-            caller,
-            Arc::new(file),
-            flags.contains(SocketFlags::SOCK_CLOEXEC),
-        )
+        self.install(caller, file, flags.contains(SocketFlags::SOCK_CLOEXEC))
     }
 
     pub(crate) async fn socket_to(
@@ -217,7 +201,7 @@ impl Kernel {
         let file = self
             .create_socket(caller, family, kind, protocol, flags)
             .await?;
-        slot.install(Arc::new(file))
+        slot.install(file)
     }
 
     async fn create_socket(
@@ -227,7 +211,7 @@ impl Kernel {
         kind: SocketType,
         protocol: i32,
         flags: SocketFlags,
-    ) -> SysResult<OpenFile> {
+    ) -> SysResult<Arc<OpenFile>> {
         let domain = match family {
             AddressFamily::AF_INET => Domain::Inet,
             AddressFamily::AF_INET6 => Domain::Inet6,
@@ -235,13 +219,23 @@ impl Kernel {
                 let sock = self.unix_socket(caller, kind, protocol)?;
                 let owner = self.cred(caller).fs_owner();
                 let file = unix_file(sock, flags, self.pseudo.socket(owner));
-                return Ok(file);
+                return Ok(Arc::new(file));
             }
             AddressFamily::AF_NETLINK => {
-                return self.netlink_socket(caller, kind, protocol, flags);
+                return self
+                    .netlink_socket(caller, kind, protocol, flags)
+                    .map(Arc::new);
             }
-            AddressFamily::AF_PACKET => return self.packet_socket(caller, kind, protocol, flags),
-            AddressFamily::AF_VSOCK => return self.vsock_socket(caller, kind, protocol, flags),
+            AddressFamily::AF_PACKET => {
+                return self
+                    .packet_socket(caller, kind, protocol, flags)
+                    .map(Arc::new);
+            }
+            AddressFamily::AF_VSOCK => {
+                return self
+                    .vsock_socket(caller, kind, protocol, flags)
+                    .map(Arc::new);
+            }
             // Every other family (and anything past NPROTO) has no implementation.
             _ => return Err(Errno::EAFNOSUPPORT.into()),
         };
@@ -623,8 +617,20 @@ impl Kernel {
                     nl.local_addr()
                 }
             }
-            AnySock::Packet(_, p) => if peer { p.peer_addr()? } else { p.local_addr() },
-            AnySock::Vsock(_, v) => if peer { v.peer_addr()? } else { v.local_addr() },
+            AnySock::Packet(_, p) => {
+                if peer {
+                    return Err(Errno::EOPNOTSUPP.into());
+                } else {
+                    p.local_addr()
+                }
+            }
+            AnySock::Vsock(_, v) => {
+                if peer {
+                    v.peer_addr()?
+                } else {
+                    v.local_addr()
+                }
+            }
         };
         move_addr_to_user(caller, &raw, addr, addrlen).await?;
         Ok(0)
@@ -1484,10 +1490,10 @@ impl Kernel {
             // the initial user namespace.
             AnySock::Unix(_, sock) => {
                 let net_admin = self.cred(caller).capable_init(Cap::NetAdmin);
-                sock.set_option(name, value, net_admin)?
+                sock.set_option(name, &value, net_admin)?
             }
             AnySock::Netlink(_, nl) if level == SocketLevel::SOL_SOCKET => {
-                nl.set_option(name, value)?
+                nl.set_option(name, &value)?
             }
             // `SOL_NETLINK` options (groups, strict checking) are accepted as no-ops.
             AnySock::Netlink(..) => {}
@@ -1595,6 +1601,18 @@ impl Kernel {
                 .sctp_getsockopt(caller, sock, name, len, (optval, optlen))
                 .await;
         }
+        if source_filter_option(level, name)
+            && let AnySock::Inet((_, sock)) = &any
+        {
+            // ip_mc_msfget/ip_mc_gsfget read the request before returning sources.
+            let mut out = vec![0; len.min(4096)];
+            caller.memory().read(optval.addr(), &mut out).await?;
+            out.resize(out.len().max(MSFILTER_OUT), 0);
+            let n = sock.socket.get_option(level.0, name, &mut out)?;
+            caller.memory().write(optval.addr(), &out[..n]).await?;
+            write_value(caller.memory(), optlen, &(n as u32)).await?;
+            return Ok(0);
+        }
         let out = self.option_value(caller, &any, level, name, len)?;
         caller.memory().write(optval.addr(), &out).await?;
         write_value(caller.memory(), optlen, &(out.len() as u32)).await?;
@@ -1660,12 +1678,6 @@ impl Kernel {
             }
             (None, AnySock::Inet((_, sock))) => {
                 let mut out = vec![0; len];
-                if source_filter_option(level, name) {
-                    // In and out: the request is the caller's value, and the sources go as
-                    // far as it asks, past `optlen` (`ip_mc_msfget`, `ip_mc_gsfget`).
-                    caller.memory().read(optval.addr(), &mut out).await?;
-                    out.resize(len.max(MSFILTER_OUT), 0);
-                }
                 let n = sock.socket.get_option(level.0, name, &mut out)?;
                 (out, n)
             }
@@ -1826,8 +1838,9 @@ impl Kernel {
                     any,
                     SocketLevel(s.addr as u32 as i32),
                     (s.addr >> 32) as i32,
-                    &value,
+                    value,
                 )
+                .await
             }
             5 => {
                 if s.ioprio != 0

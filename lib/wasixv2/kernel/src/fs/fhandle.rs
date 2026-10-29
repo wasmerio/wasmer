@@ -172,7 +172,16 @@ impl Kernel {
             ..lookup
         };
         let fd = self
-            .open_from(caller, &env, &path, b"", flags, 0, lookup)
+            .open_from(
+                caller,
+                &env,
+                &path,
+                b"",
+                flags,
+                0,
+                lookup,
+                super::FileDest::Table,
+            )
             .await?;
         Ok(fd.0)
     }

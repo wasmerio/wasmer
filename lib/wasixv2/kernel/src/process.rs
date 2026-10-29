@@ -29,9 +29,8 @@ use wasixv2_vfs::{Cap, FileType, LookupFlags, MAY_EXEC, OpenHow, Path};
 use wasixv2_wait::{PollMask, PollTable, Pollable, WaitQueue, poll_wait, wait_event};
 
 use crate::{
-    Kernel, Process, State, Task,
+    Kernel, Process, State, Task, binfmt_misc,
     cgroup::Cgroup,
-    binfmt_misc,
     file::{Backing, FdTable, FileObject, Io, OpenFile},
     fs::FdReservation,
     ident::{Comm, ExecAux, Ident},
