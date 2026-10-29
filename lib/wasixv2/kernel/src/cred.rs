@@ -875,6 +875,46 @@ mod tests {
     }
 
     #[test]
+    fn capabilities_count_in_a_user_namespace_and_what_it_owns() {
+        let inums = Arc::default();
+        let user = user(1000);
+        let inside = UserNs::create(&user, false, &inums).unwrap();
+        let ns = inside.user_ns.clone();
+
+        assert!(inside.capable(Cap::SysAdmin) && inside.ns_capable(&ns, Cap::SysAdmin));
+        assert!(
+            !inside.capable_init(Cap::SysAdmin),
+            "nothing in the initial namespace"
+        );
+        assert!(!inside.ns_capable(&init(), Cap::Kill));
+        assert!(
+            user.ns_capable(&ns, Cap::SysAdmin),
+            "its creator holds every capability"
+        );
+        assert!(!user.capable(Cap::SysAdmin));
+        assert!(!self::user(2000).ns_capable(&ns, Cap::SysAdmin));
+        assert!(root().ns_capable(&ns, Cap::SysAdmin), "root's above it");
+    }
+
+    #[test]
+    fn moving_into_a_namespace_it_made_keeps_a_process_dumpable() {
+        let inums = Arc::default();
+        let user = user(1000);
+        let inside = UserNs::create(&user, false, &inums).unwrap();
+
+        assert!(
+            !inside.drops_dumpable(&user),
+            "its creator had every capability there"
+        );
+        let mut gained = user.clone();
+        gained.permitted = CAP_FULL;
+        assert!(gained.drops_dumpable(&user));
+        let other = UserNs::create(&self::user(2000), false, &inums).unwrap();
+        let entered = user.for_user_ns(other.user_ns.clone());
+        assert!(entered.drops_dumpable(&user), "another's namespace");
+    }
+
+    #[test]
     fn kill_needs_a_shared_uid_or_cap_kill() {
         let (a, b) = (user(1000), user(2000));
 
