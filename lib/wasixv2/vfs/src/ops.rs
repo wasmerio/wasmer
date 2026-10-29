@@ -263,6 +263,8 @@ impl Vfs {
             self.break_lease(cx, Self::lock_key(&target.dentry), writable, nonblock)
                 .await?;
         }
+        // `lookup_open` sets `FMODE_CREATED` when it made the file.
+        let created = handle.is_some();
         let handle = match (handle, target.dentry.file_type()) {
             (Some(handle), _) => Some(handle),
             (None, FileType::Regular | FileType::Directory) => {
@@ -296,7 +298,7 @@ impl Vfs {
                 object: Self::object(&target.dentry),
             },
         );
-        Ok(File::new(
+        let mut file = File::new(
             self.clone(),
             target,
             handle,
@@ -305,7 +307,9 @@ impl Vfs {
             writable,
             false,
         )
-        .with_access(counted))
+        .with_access(counted);
+        file.created = created;
+        Ok(file)
     }
 
     /// `break_lease`: an open of the regular file `key` names, for writing with `write`, or a
@@ -422,8 +426,10 @@ impl Vfs {
             .set_linkable(!how.flags.contains(OpenFlags::O_EXCL));
         self.may_open(cx, &target, acc_mode & !MAY_WRITE, how.flags)
             .await?;
-        self.finish_open(cx, target, how.flags, true, false, Some(handle))
-            .await
+        // `vfs_tmpfile` makes no name, so the file does not count as created (`FMODE_CREATED`).
+        let mut file = (self.finish_open(cx, target, how.flags, true, false, Some(handle))).await?;
+        file.created = false;
+        Ok(file)
     }
 
     /// A new unnamed regular file on `mnt`, a mount outside the tree, open for reading and
