@@ -53,6 +53,8 @@ use wasixv2_wait::{Interrupt, PollMask, WaitRegistration, Waiter, WakeHandle, Wa
 
 use crate::{Kernel, Process, mm::MMAP_MIN_ADDR, restart::Restart, sync::MutexExt, time};
 
+mod syscalls;
+
 /// `FUTEX_BITSET_MATCH_ANY`.
 const MATCH_ANY: u32 = u32::MAX;
 const FUTEX_WAITERS: u32 = 0x8000_0000;
@@ -848,6 +850,32 @@ impl Kernel {
         bitset: u32,
         timeout: Timeout,
     ) -> SysResult<i32> {
+        match self.do_futex_wait(caller, word, val, bitset, timeout).await {
+            // An untimed wait reruns; a timed one goes on to the same deadline.
+            Err(SysErr::Restart) if !matches!(timeout, Timeout::Never) => Err(self.restart_with(
+                caller,
+                Restart::FutexWait {
+                    addr: word.addr,
+                    private,
+                    val,
+                    bitset,
+                    timeout,
+                },
+            )),
+            ret => ret,
+        }
+    }
+
+    /// `__futex_wait`: queues on `word` while it holds `val`, then sleeps until a wake, the
+    /// timeout (`ETIMEDOUT`) or a signal (`SysErr::Restart`).
+    async fn do_futex_wait(
+        &self,
+        caller: &Caller<'_>,
+        word: Word,
+        val: AtomicWord,
+        bitset: u32,
+        timeout: Timeout,
+    ) -> SysResult<i32> {
         let waiter = Waiter::new();
         let (process, signals) = (self.process(caller.task()), self.interrupt(caller));
         let sleeper = Sleeper::new(&waiter, &process, &*signals);
@@ -880,23 +908,10 @@ impl Kernel {
                     };
                 }
                 Wakeup::Interrupted => {
-                    if !queued.leave() {
-                        return Ok(0);
-                    }
-                    // An untimed wait reruns; a timed one goes on to the same deadline.
-                    return Err(match timeout {
-                        Timeout::Never => SysErr::Restart,
-                        timeout => self.restart_with(
-                            caller,
-                            Restart::FutexWait {
-                                addr: word.addr,
-                                private,
-                                val,
-                                bitset,
-                                timeout,
-                            },
-                        ),
-                    });
+                    return match queued.leave() {
+                        true => Err(SysErr::Restart),
+                        false => Ok(0),
+                    };
                 }
             }
         }

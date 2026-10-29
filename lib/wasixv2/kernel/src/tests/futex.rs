@@ -4,7 +4,9 @@
 use std::sync::atomic::{AtomicU32, Ordering};
 
 use futures::FutureExt as _;
-use wasixv2_abi::{FutexOp, Signal};
+use wasixv2_abi::{
+    ClockId, ConstFutexWaitvArray, Futex2Flags, FutexOp, FutexWaitv, GuestLayout, Signal,
+};
 use wasixv2_syscalls::{AtomicWait, AtomicWord};
 
 use super::{ipc::errno, *};
@@ -618,4 +620,214 @@ fn the_robust_list_walk_faults_in_the_low_guard() {
     assert_eq!(wait.as_mut().now_or_never(), None);
     assert_eq!(AtomicWait::atomic_notify(&kernel, task, PENDING + 4, 1), 1);
     assert_eq!(wait.now_or_never(), Some(Ok(0)));
+}
+
+const U32: u32 = Futex2Flags::FUTEX2_SIZE_U32.0;
+const PRIVATE: u32 = U32 | Futex2Flags::FUTEX2_PRIVATE.0;
+const WAITV: u32 = 0x200;
+
+/// Writes a `futex_waitv` array at [`WAITV`]: (address, value, flags) for each futex.
+fn waitv(memory: &SharedMemory, futexes: &[(u32, u64, u32)]) -> ConstFutexWaitvArray {
+    for (i, &(addr, val, flags)) in futexes.iter().enumerate() {
+        let entry = FutexWaitv {
+            val,
+            uaddr: addr.into(),
+            flags: Futex2Flags(flags),
+            reserved: 0,
+        };
+        let mut bytes = [0; FutexWaitv::SIZE];
+        entry.write_to(&mut bytes);
+        block_on(memory.write(WAITV + (i * FutexWaitv::SIZE) as u32, &bytes)).unwrap();
+    }
+    GuestPtr::new(WAITV)
+}
+
+fn futex2_wake(
+    kernel: &Kernel,
+    caller: &Caller<'_>,
+    addr: u32,
+    nr: i32,
+    flags: u32,
+) -> SysResult<i32> {
+    let wake = kernel.futex_wake(
+        caller,
+        GuestPtrMut::new(addr),
+        u32::MAX,
+        nr,
+        Futex2Flags(flags),
+    );
+    block_on(wake)
+}
+
+#[test]
+fn futex2_wait_and_wake_meet_futex_waiters_and_check_their_flags() {
+    let (kernel, task, _) = setup(b"");
+    let memory = SharedMemory::new();
+    let caller = Caller::new(task, &memory);
+    let (word, null) = (GuestPtrMut::new(WORD), GuestPtrMut::NULL);
+    let clock = ClockId::CLOCK_MONOTONIC;
+    let flags = Futex2Flags(PRIVATE);
+
+    let mut wait = Box::pin(kernel.futex_wait(&caller, word, 0, u32::MAX, flags, null, clock));
+    assert_eq!(wait.as_mut().now_or_never(), None);
+    // A count of 0 wakes nobody (`FLAGS_STRICT`); the old interface wakes it.
+    assert_eq!(futex2_wake(&kernel, &caller, WORD, 0, PRIVATE), Ok(0));
+    let wake = FutexOp::FUTEX_WAKE_PRIVATE;
+    assert_eq!(futex(&kernel, &caller, WORD, wake, 1, 0, 0, 0), Ok(1));
+    assert_eq!(wait.now_or_never(), Some(Ok(0)));
+
+    let wait = |val: u32, mask: u32, flags: u32, addr: u32| {
+        let f = kernel.futex_wait(
+            &caller,
+            GuestPtrMut::new(addr),
+            val,
+            mask,
+            Futex2Flags(flags),
+            null,
+            clock,
+        );
+        block_on(f)
+    };
+    assert_eq!(errno(wait(1, u32::MAX, PRIVATE, WORD)), Errno::EAGAIN);
+    assert_eq!(errno(wait(0, 0, PRIVATE, WORD)), Errno::EINVAL);
+    assert_eq!(errno(wait(0, u32::MAX, 0x1 | 0x80, WORD)), Errno::EINVAL);
+    assert_eq!(
+        errno(wait(0, u32::MAX, PRIVATE | 0x100, WORD)),
+        Errno::EINVAL
+    );
+    assert_eq!(errno(wait(0, u32::MAX, PRIVATE, WORD + 2)), Errno::EINVAL);
+    assert_eq!(
+        errno(futex2_wake(&kernel, &caller, WORD, 1, 3)),
+        Errno::EINVAL
+    );
+    // Only realtime and monotonic timeouts.
+    memory.set(0x700, 0);
+    memory.set(0x704, 0);
+    let timeout = GuestPtrMut::new(0x700);
+    let boottime = ClockId::CLOCK_BOOTTIME;
+    let timed = kernel.futex_wait(&caller, word, 0, u32::MAX, flags, timeout, boottime);
+    assert_eq!(errno(block_on(timed)), Errno::EINVAL);
+    // An absolute time in the past.
+    let timed = kernel.futex_wait(&caller, word, 0, u32::MAX, flags, timeout, clock);
+    assert_eq!(errno(block_on(timed)), Errno::ETIMEDOUT);
+}
+
+/// A NUMA futex is a word and its node: on a one-node machine node 0, and `FUTEX_NO_NODE`
+/// becomes 0; any other node is `EINVAL`, and the pair is 8-byte aligned.
+#[test]
+fn futex2_numa_futexes_live_on_node_zero() {
+    let (kernel, task, _) = setup(b"");
+    let memory = SharedMemory::new();
+    let caller = Caller::new(task, &memory);
+    let numa = PRIVATE | Futex2Flags::FUTEX2_NUMA.0;
+    memory.set(0x404, u32::MAX);
+    assert_eq!(futex2_wake(&kernel, &caller, 0x400, 1, numa), Ok(0));
+    assert_eq!(memory.word(0x404), 0);
+    memory.set(0x404, 1);
+    assert_eq!(
+        errno(futex2_wake(&kernel, &caller, 0x400, 1, numa)),
+        Errno::EINVAL
+    );
+    assert_eq!(
+        errno(futex2_wake(&kernel, &caller, 0x404, 1, numa)),
+        Errno::EINVAL
+    );
+}
+
+#[test]
+fn futex_waitv_returns_the_index_of_the_woken_futex() {
+    let (kernel, task, _) = setup(b"");
+    let memory = SharedMemory::new();
+    let caller = Caller::new(task, &memory);
+    let other = thread(&kernel, &caller);
+    let other_caller = Caller::new(other, &memory);
+    let null = GuestPtrMut::NULL;
+    let clock = ClockId::CLOCK_MONOTONIC;
+    let futexes = waitv(
+        &memory,
+        &[(WORD, 0, PRIVATE), (COND, 0, PRIVATE), (LOCK, 0, U32)],
+    );
+
+    let mut wait = Box::pin(kernel.futex_waitv(&caller, futexes, 3, 0, null, clock));
+    assert_eq!(wait.as_mut().now_or_never(), None);
+    assert_eq!(futex2_wake(&kernel, &other_caller, COND, 1, PRIVATE), Ok(1));
+    assert_eq!(wait.now_or_never(), Some(Ok(1)));
+    // Every other waiter left its futex.
+    assert_eq!(futex2_wake(&kernel, &other_caller, WORD, 1, PRIVATE), Ok(0));
+
+    // A shared futex is woken by a shared wake.
+    let mut wait = Box::pin(kernel.futex_waitv(&caller, futexes, 3, 0, null, clock));
+    assert_eq!(wait.as_mut().now_or_never(), None);
+    assert_eq!(futex2_wake(&kernel, &other_caller, LOCK, 1, U32), Ok(1));
+    assert_eq!(wait.now_or_never(), Some(Ok(2)));
+
+    // A futex that no longer holds its value.
+    memory.set(LOCK, 7);
+    let wait = kernel.futex_waitv(&caller, futexes, 3, 0, null, clock);
+    assert_eq!(errno(block_on(wait)), Errno::EAGAIN);
+}
+
+#[test]
+fn futex_waitv_checks_its_arguments() {
+    let (kernel, task, _) = setup(b"");
+    let memory = SharedMemory::new();
+    let caller = Caller::new(task, &memory);
+    let (null, clock) = (GuestPtrMut::NULL, ClockId::CLOCK_MONOTONIC);
+    let waitv_errno = |futexes: &[(u32, u64, u32)], nr: u32, flags: u32| {
+        let array = waitv(&memory, futexes);
+        errno(block_on(
+            kernel.futex_waitv(&caller, array, nr, flags, null, clock),
+        ))
+    };
+    let ok = [(WORD, 0, PRIVATE)];
+    assert_eq!(waitv_errno(&ok, 0, 0), Errno::EINVAL);
+    assert_eq!(waitv_errno(&ok, 129, 0), Errno::EINVAL);
+    assert_eq!(waitv_errno(&ok, 1, 1), Errno::EINVAL);
+    assert_eq!(
+        waitv_errno(&[(WORD, 1 << 32, PRIVATE)], 1, 0),
+        Errno::EINVAL
+    );
+    assert_eq!(waitv_errno(&[(WORD, 0, 0x3)], 1, 0), Errno::EINVAL);
+    let none = kernel.futex_waitv(&caller, GuestPtr::NULL, 1, 0, null, clock);
+    assert_eq!(errno(block_on(none)), Errno::EINVAL);
+    // 128 futexes, one of which changed.
+    let many: Vec<_> = (0..128).map(|i| (0xe00 + i * 4, 0, PRIVATE)).collect();
+    memory.set(0xe00 + 127 * 4, 1);
+    assert_eq!(waitv_errno(&many, 128, 0), Errno::EAGAIN);
+}
+
+#[test]
+fn futex_requeue_moves_waiters_to_the_second_futex() {
+    let (kernel, task, _) = setup(b"");
+    let memory = SharedMemory::new();
+    let caller = Caller::new(task, &memory);
+    let other = thread(&kernel, &caller);
+    let other_caller = Caller::new(other, &memory);
+    let (null, clock) = (GuestPtrMut::NULL, ClockId::CLOCK_MONOTONIC);
+    let flags = Futex2Flags(PRIVATE);
+    let cond = GuestPtrMut::new(COND);
+    let mut first = Box::pin(kernel.futex_wait(&caller, cond, 0, u32::MAX, flags, null, clock));
+    let mut second =
+        Box::pin(kernel.futex_wait(&other_caller, cond, 0, u32::MAX, flags, null, clock));
+    assert_eq!(first.as_mut().now_or_never(), None);
+    assert_eq!(second.as_mut().now_or_never(), None);
+
+    let requeue = |futexes: &[(u32, u64, u32)], flags: u32| {
+        let array = waitv(&memory, futexes);
+        block_on(kernel.futex_requeue(&caller, array, flags, 1, 1))
+    };
+    let pair = [(COND, 0, PRIVATE), (LOCK, 0, PRIVATE)];
+    assert_eq!(errno(requeue(&pair, 1)), Errno::EINVAL);
+    assert_eq!(
+        errno(requeue(&[(COND, 0, PRIVATE), (LOCK, 0, U32)], 0)),
+        Errno::EINVAL
+    );
+    assert_eq!(
+        errno(requeue(&[(COND, 1, PRIVATE), (LOCK, 0, PRIVATE)], 0)),
+        Errno::EAGAIN
+    );
+    assert_eq!(requeue(&pair, 0), Ok(2));
+    assert_eq!(first.now_or_never(), Some(Ok(0)));
+    assert_eq!(futex2_wake(&kernel, &caller, LOCK, 1, PRIVATE), Ok(1));
+    assert_eq!(second.now_or_never(), Some(Ok(0)));
 }
