@@ -37,6 +37,9 @@ const INET_DIAG_REQ_PROTOCOL: u16 = 3;
 /// `INET_DIAG_*`, the attributes of a message; the bits a request's `idiag_ext` asks for are
 /// `1 << (attribute - 1)`.
 const INET_DIAG_MEMINFO: u16 = 1;
+const INET_DIAG_INFO: u16 = 2;
+const INET_DIAG_LOCALS: u16 = 12;
+const INET_DIAG_PEERS: u16 = 13;
 const INET_DIAG_CONG: u16 = 4;
 const INET_DIAG_TOS: u16 = 5;
 const INET_DIAG_TCLASS: u16 = 6;
@@ -312,6 +315,7 @@ fn sockets_of(net: &NetNs, protocol: u8) -> Result<Vec<InetSock>, Errno> {
             .filter(|s| s.state != TCP_CLOSE)
             .collect()),
         IpProtocol::IPPROTO_UDP => Ok(ports(SocketKind::Datagram).collect()),
+        IpProtocol::IPPROTO_SCTP => Ok(Vec::new()),
         IpProtocol::IPPROTO_RAW => Ok(network
             .map(|n| n.icmp_sockets())
             .unwrap_or_default()
@@ -329,6 +333,9 @@ fn inet_answer(
     net_admin: bool,
     dump: bool,
 ) -> Result<Vec<u8>, Errno> {
+    if q.protocol == IpProtocol::IPPROTO_SCTP.0 as u8 {
+        return sctp_answer(r, q, net_admin, dump);
+    }
     let sockets = sockets_of(r.net, q.protocol)?;
     let raw = q.protocol == IpProtocol::IPPROTO_RAW.0 as u8;
     if !dump {
@@ -772,4 +779,172 @@ fn unix_msg(r: &Request<'_>, req: &UnixDiagReq, e: &crate::unix::DiagEntry, flag
 /// `new_encode_dev`.
 fn new_encode_dev(major: u32, minor: u32) -> u32 {
     (minor & 0xff) | (major << 8) | ((minor & !0xff) << 12)
+}
+
+/// net/sctp/diag.c: sctp_diag_dump / sctp_sock_dump. SCTP uses TCP state bits
+/// for the dump selection but reports SCTP association state numbers in its messages.
+fn sctp_answer(
+    r: &Request<'_>,
+    q: &InetQuery<'_>,
+    net_admin: bool,
+    dump: bool,
+) -> Result<Vec<u8>, Errno> {
+    let Some(network) = &r.net.network else {
+        return if dump {
+            Ok(r.dump(Vec::new()))
+        } else {
+            Err(Errno::ENOENT)
+        };
+    };
+    let endpoints = network.sctp_endpoints();
+    let assocs = network.sctp_assocs();
+    let mut rows = Vec::new();
+    let socket = |domain: Domain, state, local, peer, rx_queue, tx_queue, uid, inode| InetSock {
+        family: match domain {
+            Domain::Inet => 2,
+            Domain::Inet6 => 10,
+        },
+        state,
+        protocol: 132,
+        raw: false,
+        local,
+        peer,
+        rx_queue,
+        tx_queue,
+        uid,
+        inode,
+        v6only: false,
+        port_locked: true,
+        bound_dev: 0,
+    };
+    if dump && q.states & (1 << TCP_LISTEN) != 0 {
+        for ep in endpoints {
+            let any = match ep.domain {
+                Domain::Inet => IpAddr::from([0; 4]),
+                Domain::Inet6 => IpAddr::from([0; 16]),
+            };
+            let s = socket(
+                ep.domain,
+                ep.state,
+                SocketAddr::new(ep.addrs.first().copied().unwrap_or(any), ep.port),
+                None,
+                ep.rx_queue,
+                ep.backlog as usize,
+                ep.uid,
+                ep.inode,
+            );
+            rows.push((
+                s,
+                ep.addrs
+                    .iter()
+                    .map(|a| SocketAddr::new(*a, ep.port))
+                    .collect::<Vec<_>>(),
+                Vec::new(),
+                ep.info,
+                false,
+            ));
+        }
+    }
+    if !dump || q.states & !((1 << TCP_LISTEN) | (1 << TCP_CLOSE)) != 0 {
+        let mut seen = std::collections::HashSet::new();
+        for a in assocs {
+            let local = SocketAddr::new(
+                a.laddrs
+                    .first()
+                    .copied()
+                    .or(a.primary_src)
+                    .unwrap_or(IpAddr::from([0; 4])),
+                a.lport,
+            );
+            let peer = a.primary.map(|ip| SocketAddr::new(ip, a.rport));
+            let laddrs: Vec<_> = a
+                .laddrs
+                .iter()
+                .map(|ip| SocketAddr::new(*ip, a.lport))
+                .collect();
+            let paddrs: Vec<_> = a
+                .paddrs
+                .iter()
+                .map(|ip| SocketAddr::new(*ip, a.rport))
+                .collect();
+            // Linux emits the owning endpoint once before its associations.
+            if dump && seen.insert(a.inode) {
+                rows.push((
+                    socket(a.domain, a.sk_state, local, None, 0, 0, a.uid, a.inode),
+                    laddrs.clone(),
+                    Vec::new(),
+                    a.info,
+                    false,
+                ));
+            }
+            rows.push((
+                socket(
+                    a.domain, a.state, local, peer, a.rx_queue, a.tx_queue, a.uid, a.inode,
+                ),
+                laddrs,
+                paddrs,
+                a.info,
+                true,
+            ));
+        }
+    }
+    let mut msgs = Vec::new();
+    for (s, locals, peers, info, assoc) in rows {
+        let selected = if dump {
+            let mut query = InetQuery {
+                states: u32::MAX,
+                ..*q
+            };
+            query.bytecode = None; // SCTP's handler does not run inet_diag bytecode.
+            dumped(&query, &s, false)
+        } else {
+            assoc && exact(q, &s, false)
+        };
+        if !selected {
+            continue;
+        }
+        if !dump && q.id.idiag_cookie != [NOCOOKIE; 2] && q.id.idiag_cookie != s.cookie() {
+            return Err(Errno::ESTALE);
+        }
+        let mut msg = inet_msg(
+            r,
+            q,
+            &s,
+            net_admin,
+            if dump && !assoc { NLM_F_MULTI } else { 0 },
+        );
+        let addresses = |addrs: Vec<SocketAddr>| {
+            addrs
+                .into_iter()
+                .flat_map(|addr| {
+                    let mut raw = crate::socket::encode(addr);
+                    raw.resize(128, 0);
+                    raw
+                })
+                .collect::<Vec<_>>()
+        };
+        rta(&mut msg, INET_DIAG_LOCALS, &addresses(locals));
+        if assoc {
+            rta(&mut msg, INET_DIAG_PEERS, &addresses(peers));
+        }
+        if q.ext & 2 != 0 {
+            let mut data = vec![0; wasixv2_abi::SctpInfo::SIZE];
+            info.write_to(&mut data);
+            rta(&mut msg, INET_DIAG_INFO, &data);
+        }
+        if assoc && q.ext & 8 != 0 {
+            rta(&mut msg, INET_DIAG_CONG, b"reno\0");
+        }
+        let len = msg.len() as u32;
+        msg[..4].copy_from_slice(&len.to_le_bytes());
+        if !dump {
+            return Ok(msg);
+        }
+        msgs.push(msg);
+    }
+    if dump {
+        Ok(r.dump(msgs))
+    } else {
+        Err(Errno::ENOENT)
+    }
 }

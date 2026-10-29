@@ -236,6 +236,7 @@ impl Kernel {
         // `sk_uid`: the inode owner `sock_alloc` gives the socket.
         let (uid, _) = self.cred(caller).fs_owner();
         let socket = network.socket(domain, kind, protocol, uid)?;
+        self.sctp_timer(&socket);
         let file = self.socket_file(caller, socket, ns.net.clone(), flags);
         let cloexec = flags.contains(SocketFlags::SOCK_CLOEXEC);
         let [slot] = self.reserve_fds::<1>(caller, cloexec)?;

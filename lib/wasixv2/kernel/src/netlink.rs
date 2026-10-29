@@ -1485,4 +1485,52 @@ mod tests {
             -Errno::ENOENT.0
         );
     }
+    #[test]
+    fn sctp_diag_reports_associations_addresses_and_information() {
+        use wasixv2_abi::{GuestLayout, SctpInfo};
+        use wasixv2_vnet::{Domain, SocketKind};
+        let net = net_ns();
+        let n = net.network.as_ref().unwrap();
+        let l = n
+            .socket(Domain::Inet, SocketKind::Stream, 132, 1000)
+            .unwrap();
+        l.bind("127.0.0.1:8082".parse().unwrap(), false).unwrap();
+        l.listen(4).unwrap();
+        l.graft(90);
+        let c = n
+            .socket(Domain::Inet, SocketKind::Stream, 132, 1000)
+            .unwrap();
+        c.graft(91);
+        assert_eq!(
+            c.connect("127.0.0.1:8082".parse().unwrap()),
+            Err(Errno::EINPROGRESS)
+        );
+        let s = l.accept().unwrap().socket;
+        s.graft(92);
+        let nl = diag_socket(net);
+        let mut query = inet_dump(2, 132, !0, &[]);
+        query[18] = 2;
+        nl.send(&query, false, &NoNamespaces).unwrap();
+        let msgs = messages(&replies(&nl).concat());
+        let assoc = msgs
+            .iter()
+            .find(|(kind, p)| *kind == 20 && p[1] == 3)
+            .expect("established SCTP state is 3");
+        let at: Vec<_> = attrs(&assoc.1[72..]).collect();
+        assert!(
+            at.iter()
+                .any(|(kind, data)| *kind == 12 && data.len() == 128)
+        );
+        assert!(
+            at.iter()
+                .any(|(kind, data)| *kind == 13 && data.len() == 128)
+        );
+        let info = SctpInfo::read_from(at.iter().find(|(kind, _)| *kind == 2).unwrap().1).unwrap();
+        assert_eq!(
+            (info.sctpi_state, info.sctpi_instrms, info.sctpi_outstrms),
+            (3, 10, 10)
+        );
+        assert_eq!(msgs.last().unwrap().0, NLMSG_DONE);
+    }
+
 }

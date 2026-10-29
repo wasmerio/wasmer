@@ -24,6 +24,28 @@ use crate::{
 const KMALLOC_MAX_SIZE: usize = 4 << 20;
 
 impl Kernel {
+    /// net/sctp/sm_statefuns.c: sctp_sf_autoclose_timer_expire. The timer owns only a
+    /// weak socket reference; closing the socket drops its hook and cancels the timer.
+    pub(super) fn sctp_timer(&self, socket: &Arc<dyn wasixv2_vnet::Socket>) {
+        let Some(ops) = socket.sctp() else {
+            return;
+        };
+        let weak = Arc::downgrade(socket);
+        let host = self.host.clone();
+        let timer = self.timers.timer(Box::new(move || {
+            let socket = weak.upgrade()?;
+            socket
+                .sctp()?
+                .autoclose_expire()
+                .map(|after| host.monotonic() + after)
+        }));
+        let host = self.host.clone();
+        ops.set_autoclose_timer(Box::new(move |after| match after {
+            Some(after) => timer.start(host.monotonic() + after),
+            None => timer.cancel(),
+        }));
+    }
+
     /// The `SOL_SCTP` `setsockopt`s the kernel serves (`sctp_setsockopt`'s first cases), or
     /// `None` for the protocol's. `CONNECTX` returns the new association's id.
     pub(super) async fn sctp_setsockopt(
