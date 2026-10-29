@@ -715,9 +715,26 @@ fn seccomp_kill_actions_log_without_filter_log_flag_and_respect_mask() {
 fn seccomp_actions_logged_requires_initial_sys_admin() {
     let (stack, task, memory) = logging_machine();
     let caller = Caller::new(task, &memory);
+    let fd = action_file(
+        &stack.inner,
+        &caller,
+        &memory,
+        "actions_logged",
+        OpenFlags::O_WRONLY,
+    );
     super::cred::set_caps(&stack.inner, &caller, &memory, 0);
     assert_eq!(
         errno(action_write(&stack.inner, &caller, &memory, "log\n")),
         Errno::EPERM
+    );
+    put(&memory, 0x400, b"log\n");
+    assert_eq!(
+        errno(block_on(stack.inner.write(
+            &caller,
+            fd,
+            UserSlice::new(0x400, 4)
+        ))),
+        Errno::EPERM,
+        "an already-open fd cannot retain CAP_SYS_ADMIN after a capability drop"
     );
 }
