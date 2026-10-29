@@ -14,9 +14,9 @@
 //! `posix_spawn`, `mremap`, `ioctl`, `semctl`, `prctl`, `syscall`). See DESIGN.md, "Guard page
 //! at 0", for the follow-up that makes the guard `PROT_NONE`.
 //!
-//! Every host write to guest memory goes through [`write`], which faults inside the guard
-//! instead of touching the protected pages, which would kill the host; [`read`] reads there as
-//! the guest does.
+//! Every ordinary kernel user copy checks the low guard before [`read`] or [`write`], and
+//! faults there as Linux's copy_from_user/copy_to_user do. Internal forced reads may inspect
+//! its host-readable bytes; writes always stay out of the guard to avoid killing the host.
 //!
 //! A range of memory can show a shared object's pages instead of its own ([`map_shared`]): the
 //! host maps the object over the range, inside the memory's reservation, which never moves.
@@ -430,6 +430,11 @@ impl<S> ExecEnv<S> {
     /// its address space's page map says ([`wasixv2_syscalls::PageAccess::check`]).
     #[inline]
     fn check_access(&self, addr: u32, len: usize, write: bool) -> Result<(), Fault> {
+        // Linux include/linux/uaccess.h copy_from_user: the low unmapped range faults
+        // for ordinary user copies, while force_read_memory can inspect its host bytes.
+        if in_guard(self.low_guard, addr, len) {
+            return Err(Fault);
+        }
         match &self.page_access {
             Some(access) => access.check(addr, len, write),
             None => Ok(()),
@@ -804,7 +809,7 @@ pub(crate) struct ForeignMemory {
     base: Option<Arc<Base>>,
     low_guard: u32,
     read_only: Arc<ReadOnly>,
-    /// What copies that are not forced may do with each page, as for the guest's own.
+    /// What copies that are not forced may do with each page, as for local user copies.
     page_access: Option<Arc<PageAccess>>,
 }
 
@@ -884,6 +889,9 @@ impl ForeignMemory {
     }
 
     fn check(&self, addr: u32, len: usize, write: bool, force: bool) -> Result<(), Fault> {
+        if !force && in_guard(self.low_guard, addr, len) {
+            return Err(Fault);
+        }
         match (&self.page_access, force) {
             (Some(access), false) => access.check(addr, len, write),
             _ => Ok(()),
@@ -1357,7 +1365,7 @@ mod tests {
     }
 
     #[test]
-    fn only_writes_that_touch_the_guard_fault() {
+    fn only_nonempty_accesses_touch_the_guard() {
         assert!(in_guard(LOW_GUARD, 0, 1));
         assert!(in_guard(LOW_GUARD, LOW_GUARD - 1, 8));
         assert!(!in_guard(LOW_GUARD, LOW_GUARD, 8));
@@ -1416,9 +1424,11 @@ mod tests {
         );
         assert_eq!(
             block_on(foreign.read(0x10, &mut buf)),
-            Ok(()),
-            "the guard reads"
+            Err(Fault),
+            "ordinary user copies cannot read the low guard"
         );
+        assert_eq!(block_on(foreign.force_read(0x10, &mut buf)), Ok(()));
+        assert_eq!(block_on(foreign.read(0x10, &mut [])), Ok(()));
         assert_eq!(block_on(foreign.grow(1)), None);
 
         // Growing shows the new pages to the handle.

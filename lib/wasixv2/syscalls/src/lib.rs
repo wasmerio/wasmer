@@ -9,6 +9,12 @@
 //! it awaits Control::run_task_work with the current Caller before draining take_pending's
 //! signals/actions. This is the kernel's memory-bearing task_work_run boundary; a notification
 //! wakes interruptible calls without fabricating a signal, using their normal restart policy.
+//!
+//! `UserMemory::read` and `write` are kernel user copies, like Linux's `copy_from_user` and
+//! `copy_to_user` (`include/linux/uaccess.h`): a nonempty copy into or out of the low guard
+//! faults even when its host pages remain readable. The guest's own loads are a separate path
+//! and may read that guard for LLVM's null-va_list compatibility. `force_read` is the kernel's
+//! internal access to host-readable bytes, not a user-copy validation bypass for syscalls.
 
 mod caller;
 mod control;

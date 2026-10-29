@@ -288,10 +288,10 @@ async fn a_stack_first_guest_faults_on_a_store_through_a_null_pointer() {
     assert_eq!(data.stdout, b"ok\n");
 }
 
-// Syscalls that write to a buffer in the guard fail with EFAULT, as on a buffer below
-// `mmap_min_addr`; reading one succeeds, as the guest's own loads do.
+// Linux include/linux/uaccess.h copy_from_user/copy_to_user: syscall buffers in the
+// low guard fault even though the guest's own loads remain allowed.
 #[tokio::test]
-async fn syscalls_fail_with_efault_writing_into_the_guard() {
+async fn syscalls_fail_with_efault_copying_from_or_to_the_guard() {
     const EFAULT: i32 = 14;
     let errno_of = |call: &str| {
         stack_first(&format!(
@@ -315,7 +315,7 @@ async fn syscalls_fail_with_efault_writing_into_the_guard() {
     // An empty buffer is never touched.
     let (wat, stdin) = read_into(0, 0);
     let empty = run_with_stdin(&wat, stdin).await;
-    // The kernel reading from the guard: `write` returns 1, so the guest exits with -1.
+    // The kernel reading from the guard must fault too.
     let write = run(&errno_of(
         "(call $write (i32.const 1) (i32.const 4096) (i32.const 1))",
     ))
@@ -324,8 +324,8 @@ async fn syscalls_fail_with_efault_writing_into_the_guard() {
     assert_eq!(read.status.unwrap(), EFAULT);
     assert_eq!(straddling.status.unwrap(), EFAULT);
     assert_eq!(empty.status.unwrap(), 0);
-    assert_eq!(write.status.unwrap(), 255);
-    assert_eq!(write.stdout, [0]);
+    assert_eq!(write.status.unwrap(), EFAULT);
+    assert!(write.stdout.is_empty());
 }
 
 // A module with its data first, or with a stack too small to spare 64 KiB, keeps address 0
