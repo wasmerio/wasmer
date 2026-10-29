@@ -911,6 +911,23 @@ impl Kernel {
             return Err(Errno::EINVAL.into());
         }
         let file = self.io_file(caller, fd)?;
+        self.sync_file_range_on(&file, offset, nbytes, flags).await
+    }
+
+    pub(crate) async fn sync_file_range_on(
+        &self,
+        file: &OpenFile,
+        offset: i64,
+        nbytes: i64,
+        flags: SyncFileRangeFlags,
+    ) -> SysResult<i32> {
+        if !(flags & !SyncFileRangeFlags::SYNC_FILE_RANGE_WRITE_AND_WAIT).is_empty()
+            || offset < 0
+            || nbytes < 0
+            || offset.checked_add(nbytes).is_none()
+        {
+            return Err(Errno::EINVAL.into());
+        }
         match &file.backing {
             Backing::Inode(inner)
                 if matches!(

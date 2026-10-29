@@ -295,7 +295,7 @@ impl Kernel {
             memory: caller.memory(),
         };
         let mut buf = vec![0; total.min(pipe.capacity())];
-        pipe.consume(nonblock, &*interrupt, &mut buf, &mut ToUser(&mut to))
+        pipe.consume(nonblock, &*interrupt, &mut buf, &mut ToUser(&mut to), false)
             .await
     }
 
@@ -358,7 +358,7 @@ impl Kernel {
         let mut buf = vec![0; len.min(ipipe.capacity())];
         self.sync_file_mappings(caller, output).await;
         let spliced = ipipe
-            .consume(nonblock, &*interrupt, &mut buf, &mut out)
+            .consume(nonblock, &*interrupt, &mut buf, &mut out, false)
             .await;
         self.sync_file_mappings(caller, output).await;
         self.epipe(caller, output, spliced, broken.get())

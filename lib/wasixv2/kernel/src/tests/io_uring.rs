@@ -6,7 +6,7 @@ use std::time::Instant;
 use wasixv2_abi::{
     AddressFamily, EventfdFlags, FdPair, GuestLayout, IoUringCqe, IoUringOp, IoUringParams,
     IoUringSqe, IoringCqeFlags, IoringEnterFlags, IoringFeatFlags, IoringOpFlags, IoringSetupFlags,
-    IoringSqFlags, IosqeFlags, KernelTimespec, MapFlags, OpenFlags, ProtFlags,
+    IoringSqFlags, IosqeFlags, Iovec, KernelTimespec, MapFlags, OpenFlags, ProtFlags,
 };
 
 use wasixv2_wait::PollMask;
@@ -287,7 +287,7 @@ fn nops_reads_and_writes_complete_on_the_cq_ring() {
         opcode: 200,
         ..sqe(NOP, -1, 7)
     });
-    ring.push(sqe(IoUringOp::IORING_OP_EPOLL_CTL, -1, 8));
+    ring.push(sqe(IoUringOp::IORING_OP_RECV_ZC, -1, 8));
     ring.push(sqe(READ, 99, 9));
     assert_eq!(ring.submit(3), Ok(1));
     assert_eq!(ring.submit(2), Ok(1));
@@ -751,7 +751,17 @@ fn the_probe_lists_the_supported_operations() {
     ] {
         assert!(supported(op), "opcode {} missing from probe", op.0);
     }
-    assert!(!supported(IoUringOp::IORING_OP_EPOLL_CTL));
+    for opcode in [
+        IoUringOp::IORING_OP_EPOLL_CTL,
+        IoUringOp::IORING_OP_EPOLL_WAIT,
+        IoUringOp::IORING_OP_READV_FIXED,
+        IoUringOp::IORING_OP_WRITEV_FIXED,
+        IoUringOp::IORING_OP_PIPE,
+        IoUringOp::IORING_OP_SYNC_FILE_RANGE,
+    ] {
+        assert!(supported(opcode));
+    }
+    assert!(!supported(IoUringOp::IORING_OP_RECV_ZC));
     // The buffer must come zeroed.
     m.memory.put(SCRATCH + 20, &[1]);
     assert_eq!(errno(ring.register(8, SCRATCH, 70)), Errno::EINVAL);
@@ -3125,7 +3135,6 @@ fn registered_only_setup_installs_only_a_task_ring_slot() {
     );
 }
 
-
 /// kernel/task_work.c:task_work_add(TWA_SIGNAL), io_uring/tw.c:tctx_task_work_run.
 #[test]
 fn task_work_wakes_another_syscall_and_layered_resume_completes_the_read() {
@@ -3262,6 +3271,404 @@ fn cooperative_task_work_runs_on_resume_and_deferred_work_waits_for_enter() {
     }
 }
 
+#[test]
+fn epoll_ctl_and_wait_share_normal_epoll_events_and_rearm_after_faults() {
+    use wasixv2_abi::{EpollCreateFlags, EpollCtlOp, EpollData, EpollEvent, EpollEvents};
+    let m = Machine::new();
+    let ring = m.ring(8, 0);
+    let caller = m.caller();
+    let epfd = block_on(m.kernel.epoll_create1(&caller, EpollCreateFlags(0))).unwrap();
+    let (r, w) = pipe(&m.kernel, &caller, OpenFlags(0));
+    put_value(
+        &m,
+        SCRATCH,
+        EpollEvent {
+            events: EpollEvents::EPOLLIN | EpollEvents::EPOLLONESHOT,
+            data: EpollData(123u64.to_le_bytes()),
+        },
+    );
+    let ctl = IoUringSqe {
+        off: r.0 as u64,
+        addr: SCRATCH.into(),
+        len: EpollCtlOp::EPOLL_CTL_ADD.0 as u32,
+        ..sqe(IoUringOp::IORING_OP_EPOLL_CTL, epfd.0, 1)
+    };
+    ring.push(ctl);
+    let wait = IoUringSqe {
+        addr: (BUF + 64).into(),
+        len: 1,
+        ..sqe(IoUringOp::IORING_OP_EPOLL_WAIT, epfd.0, 2)
+    };
+    ring.push(wait);
+    assert_eq!(ring.submit(2), Ok(2));
+    assert_eq!(res(&ring.reap()), [(1, 0)]);
+    m.memory.put(BUF + 128, b"event");
+    block_on(m.kernel.write(&caller, w, UserSlice::new(BUF + 128, 5))).unwrap();
+    assert_eq!(res(&ring.wait(1)), [(2, 1)]);
+    let event = EpollEvent::read_from(&m.memory.get(BUF + 64, EpollEvent::SIZE)).unwrap();
+    assert!(event.events.contains(EpollEvents::EPOLLIN));
+    assert_eq!(event.data.0, 123u64.to_le_bytes());
+    ring.push(IoUringSqe {
+        len: EpollCtlOp::EPOLL_CTL_MOD.0 as u32,
+        user_data: 3,
+        ..ctl
+    });
+    ring.submit(1).unwrap();
+    ring.reap();
+    ring.push(IoUringSqe {
+        addr: u64::from(u32::MAX - 7),
+        user_data: 4,
+        ..wait
+    });
+    ring.submit(1).unwrap();
+    assert_eq!(res(&ring.reap()), [(4, -Errno::EFAULT.0)]);
+    ring.push(IoUringSqe {
+        user_data: 5,
+        ..wait
+    });
+    ring.submit(1).unwrap();
+    assert_eq!(
+        res(&ring.reap()),
+        [(5, 1)],
+        "copy fault restores one-shot event"
+    );
+    for (bad, errno) in [
+        (
+            IoUringSqe {
+                len: 0,
+                user_data: 6,
+                ..wait
+            },
+            Errno::EINVAL,
+        ),
+        (
+            IoUringSqe {
+                off: 1,
+                user_data: 6,
+                ..wait
+            },
+            Errno::EINVAL,
+        ),
+        (
+            IoUringSqe {
+                fd: r.0,
+                user_data: 6,
+                ..wait
+            },
+            Errno::EINVAL,
+        ),
+        (
+            IoUringSqe {
+                flags: IosqeFlags::IOSQE_FIXED_FILE.0,
+                user_data: 6,
+                ..ctl
+            },
+            Errno::EBADF,
+        ),
+    ] {
+        ring.push(bad);
+        ring.submit(1).unwrap();
+        assert_eq!(res(&ring.reap()), [(6, -errno.0)]);
+    }
+    ring.push(IoUringSqe {
+        addr: u64::MAX,
+        len: EpollCtlOp::EPOLL_CTL_DEL.0 as u32,
+        user_data: 7,
+        ..ctl
+    });
+    ring.submit(1).unwrap();
+    assert_eq!(res(&ring.reap()), [(7, 0)]);
+}
+
+#[test]
+fn fixed_vectors_use_one_registered_range_and_snapshot_the_vector_before_retry() {
+    let m = Machine::new();
+    let ring = m.ring(8, 0);
+    let caller = m.caller();
+    let fd = m.file("fixed-vector", b"abcdefgh");
+    let addr = block_on(m.kernel.mmap(
+        &caller,
+        0,
+        65536,
+        ProtFlags(3),
+        MapFlags::MAP_PRIVATE | MapFlags::MAP_ANONYMOUS,
+        Fd(-1),
+        0,
+    ))
+    .unwrap();
+    let retained = block_on(m.kernel.retain_pages(&caller, addr, 65536)).unwrap();
+    put_value(
+        &m,
+        SCRATCH,
+        Iovec {
+            iov_base: addr,
+            iov_len: 65536,
+        },
+    );
+    assert_eq!(ring.register(0, SCRATCH, 1), Ok(0));
+    let vector = SCRATCH + 64;
+    put_value(
+        &m,
+        vector,
+        Iovec {
+            iov_base: addr + 4,
+            iov_len: 2,
+        },
+    );
+    put_value(
+        &m,
+        vector + 8,
+        Iovec {
+            iov_base: addr + 16,
+            iov_len: 3,
+        },
+    );
+    let read = IoUringSqe {
+        addr: vector.into(),
+        len: 2,
+        off: 1,
+        ..sqe(IoUringOp::IORING_OP_READV_FIXED, fd.0, 1)
+    };
+    ring.push(read);
+    ring.submit(1).unwrap();
+    assert_eq!(res(&ring.reap()), [(1, 5)]);
+    assert_eq!(m.memory.get(addr + 4, 2), b"bc");
+    assert_eq!(m.memory.get(addr + 16, 3), b"def");
+    ring.push(IoUringSqe {
+        opcode: IoUringOp::IORING_OP_WRITEV_FIXED.0,
+        off: 0,
+        user_data: 2,
+        ..read
+    });
+    ring.submit(1).unwrap();
+    assert_eq!(res(&ring.reap()), [(2, 5)]);
+    ring.push(IoUringSqe {
+        addr: BUF.into(),
+        len: 5,
+        ..sqe(READ, fd.0, 3)
+    });
+    ring.submit(1).unwrap();
+    assert_eq!(res(&ring.reap()), [(3, 5)]);
+    assert_eq!(m.memory.get(BUF, 5), b"bcdef");
+    let (r, w) = pipe(&m.kernel, &caller, OpenFlags(0));
+    ring.push(IoUringSqe {
+        fd: r.0,
+        off: 0,
+        user_data: 4,
+        ..read
+    });
+    ring.submit(1).unwrap();
+    assert!(ring.reap().is_empty());
+    put_value(
+        &m,
+        vector,
+        Iovec {
+            iov_base: u32::MAX,
+            iov_len: 0,
+        },
+    );
+    block_on(m.kernel.munmap(&caller, addr, 65536)).unwrap();
+    m.memory.put(addr, &vec![0x55; 65536]);
+    m.memory.put(BUF, b"12345");
+    block_on(m.kernel.write(&caller, w, UserSlice::new(BUF, 5))).unwrap();
+    assert_eq!(res(&ring.wait(1)), [(4, 5)]);
+    let mut bytes = [0; 3];
+    block_on(retained.read(&m.memory, 16, &mut bytes)).unwrap();
+    assert_eq!(&bytes, b"345");
+    assert_eq!(m.memory.get(addr + 16, 3), [0x55; 3]);
+    ring.push(IoUringSqe {
+        user_data: 5,
+        ..read
+    });
+    ring.submit(1).unwrap();
+    assert_eq!(
+        res(&ring.reap()),
+        [(5, -Errno::EFAULT.0)],
+        "empty/out-of-range vector"
+    );
+    ring.push(IoUringSqe {
+        len: 1025,
+        user_data: 6,
+        ..read
+    });
+    ring.submit(1).unwrap();
+    assert_eq!(res(&ring.reap()), [(6, -Errno::EINVAL.0)]);
+}
+
+#[test]
+fn pipe_opcode_installs_normal_or_direct_pairs_and_rolls_back_failed_copyout() {
+    let m = Machine::new();
+    let ring = m.ring(8, 0);
+    let caller = m.caller();
+    let make = IoUringSqe {
+        addr: SCRATCH.into(),
+        op_flags: (OpenFlags::O_NONBLOCK | OpenFlags::O_CLOEXEC).0,
+        ..sqe(IoUringOp::IORING_OP_PIPE, 0, 1)
+    };
+    ring.push(make);
+    ring.submit(1).unwrap();
+    assert_eq!(res(&ring.reap()), [(1, 0)]);
+    let pair = m.memory.get(SCRATCH, 8);
+    let r = Fd(i32::from_le_bytes(pair[..4].try_into().unwrap()));
+    let w = Fd(i32::from_le_bytes(pair[4..].try_into().unwrap()));
+    assert_eq!(
+        block_on(
+            m.kernel
+                .fcntl64(&caller, r, wasixv2_abi::FcntlCmd::F_GETFD, 0)
+        ),
+        Ok(1)
+    );
+    assert_eq!(
+        errno(block_on(m.kernel.read(
+            &caller,
+            r,
+            UserSliceMut::new(BUF, 1)
+        ))),
+        Errno::EAGAIN
+    );
+    m.memory.put(BUF, b"pair");
+    block_on(m.kernel.write(&caller, w, UserSlice::new(BUF, 4))).unwrap();
+    assert_eq!(
+        block_on(m.kernel.read(&caller, r, UserSliceMut::new(BUF + 64, 4))),
+        Ok(4)
+    );
+    assert_eq!(m.memory.get(BUF + 64, 4), b"pair");
+    assert_eq!(register_resources(&ring, false, 3, 0, 0), Ok(0));
+    ring.push(IoUringSqe {
+        op_flags: 0,
+        splice_fd_in: 1,
+        user_data: 2,
+        ..make
+    });
+    ring.submit(1).unwrap();
+    assert_eq!(res(&ring.reap()), [(2, 0)]);
+    assert_eq!((m.get_word(SCRATCH), m.get_word(SCRATCH + 4)), (0, 1));
+    ring.push(IoUringSqe {
+        addr: BUF.into(),
+        len: 4,
+        flags: IosqeFlags::IOSQE_FIXED_FILE.0,
+        ..sqe(WRITE, 1, 3)
+    });
+    ring.push(IoUringSqe {
+        addr: (BUF + 64).into(),
+        len: 4,
+        flags: IosqeFlags::IOSQE_FIXED_FILE.0,
+        ..sqe(READ, 0, 4)
+    });
+    ring.submit(2).unwrap();
+    assert_eq!(res(&ring.reap()), [(3, 4), (4, 4)]);
+    for (entry, error) in [
+        (
+            IoUringSqe {
+                splice_fd_in: 1,
+                user_data: 5,
+                ..make
+            },
+            Errno::EINVAL,
+        ),
+        (
+            IoUringSqe {
+                op_flags: 0,
+                splice_fd_in: 3,
+                user_data: 5,
+                ..make
+            },
+            Errno::EINVAL,
+        ),
+        (
+            IoUringSqe {
+                op_flags: 0,
+                splice_fd_in: 1,
+                addr: u32::MAX.into(),
+                user_data: 5,
+                ..make
+            },
+            Errno::EFAULT,
+        ),
+    ] {
+        ring.push(entry);
+        ring.submit(1).unwrap();
+        assert_eq!(res(&ring.reap()), [(5, -error.0)]);
+    }
+    // Both replaced slots were removed on copyout failure, allowing allocation of the pair.
+    ring.push(IoUringSqe {
+        op_flags: 0,
+        splice_fd_in: -1,
+        user_data: 6,
+        ..make
+    });
+    ring.submit(1).unwrap();
+    assert_eq!(res(&ring.reap()), [(6, 0)]);
+    assert_ne!(m.get_word(SCRATCH), m.get_word(SCRATCH + 4));
+    ring.push(IoUringSqe {
+        addr: u32::MAX.into(),
+        user_data: 7,
+        ..make
+    });
+    ring.submit(1).unwrap();
+    assert_eq!(res(&ring.reap()), [(7, -Errno::EFAULT.0)]);
+}
+
+#[test]
+fn pipe_opcode_packet_mode_discards_tails_and_splits_large_writes() {
+    let m = Machine::new();
+    let ring = m.ring(4, 0);
+    let caller = m.caller();
+    ring.push(IoUringSqe {
+        addr: SCRATCH.into(),
+        op_flags: (OpenFlags::O_DIRECT | OpenFlags::O_NONBLOCK).0,
+        ..sqe(IoUringOp::IORING_OP_PIPE, 0, 1)
+    });
+    ring.submit(1).unwrap();
+    assert_eq!(res(&ring.reap()), [(1, 0)]);
+    let r = Fd(m.get_word(SCRATCH) as i32);
+    let w = Fd(m.get_word(SCRATCH + 4) as i32);
+    m.memory.put(BUF, b"abc");
+    for _ in 0..2 {
+        block_on(m.kernel.write(&caller, w, UserSlice::new(BUF, 3))).unwrap();
+    }
+    assert_eq!(
+        block_on(m.kernel.read(&caller, r, UserSliceMut::new(BUF + 16, 1))),
+        Ok(1)
+    );
+    assert_eq!(
+        block_on(m.kernel.read(&caller, r, UserSliceMut::new(BUF + 16, 16))),
+        Ok(3)
+    );
+    assert_eq!(m.memory.get(BUF + 16, 3), b"abc");
+    assert_eq!(
+        errno(block_on(m.kernel.read(
+            &caller,
+            r,
+            UserSliceMut::new(BUF, 1)
+        ))),
+        Errno::EAGAIN
+    );
+    m.memory.put(BUF, &vec![0x5a; 5000]);
+    assert_eq!(
+        block_on(m.kernel.write(&caller, w, UserSlice::new(BUF, 5000))),
+        Ok(5000)
+    );
+    assert_eq!(
+        block_on(m.kernel.read(&caller, r, UserSliceMut::new(BUF, 5000))),
+        Ok(4096)
+    );
+    assert_eq!(
+        block_on(m.kernel.read(&caller, r, UserSliceMut::new(BUF, 5000))),
+        Ok(904)
+    );
+    // Every tiny packet uses a pipe page; the seventeenth cannot fit in a 16-page pipe.
+    for _ in 0..16 {
+        assert_eq!(
+            block_on(m.kernel.write(&caller, w, UserSlice::new(BUF, 1))),
+            Ok(1)
+        );
+    }
+    assert_eq!(
+        errno(block_on(m.kernel.write(&caller, w, UserSlice::new(BUF, 1)))),
+        Errno::EAGAIN
+    );
+}
 
 #[test]
 fn multishot_timeouts_count_shots_cancel_and_end_when_the_cq_is_full() {
@@ -3333,6 +3740,44 @@ fn multishot_timeouts_count_shots_cancel_and_end_when_the_cq_is_full() {
     let last = full.wait(1);
     assert_eq!(res(&last), [(12, -Errno::ETIME.0)]);
     assert_eq!(last[0].flags & IoringCqeFlags::IORING_CQE_F_MORE.0, 0);
+}
+
+#[test]
+fn sync_file_range_opcode_accepts_regular_and_fixed_files() {
+    let m = Machine::new();
+    let ring = m.ring(4, 0);
+    let fd = m.file("range-sync", b"abc");
+    m.memory.put(SCRATCH, &fd.0.to_le_bytes());
+    assert_eq!(ring.register(2, SCRATCH, 1), Ok(0));
+    let sync = IoUringSqe {
+        len: 3,
+        op_flags: 7,
+        ..sqe(IoUringOp::IORING_OP_SYNC_FILE_RANGE, fd.0, 1)
+    };
+    ring.push(sync);
+    ring.push(IoUringSqe {
+        fd: 0,
+        flags: IosqeFlags::IOSQE_FIXED_FILE.0,
+        user_data: 2,
+        ..sync
+    });
+    ring.submit(2).unwrap();
+    assert_eq!(res(&ring.reap()), [(1, 0), (2, 0)]);
+    ring.push(IoUringSqe {
+        op_flags: 8,
+        user_data: 3,
+        ..sync
+    });
+    ring.submit(1).unwrap();
+    assert_eq!(res(&ring.reap()), [(3, EINVAL)]);
+    let (r, _) = pipe(&m.kernel, &m.caller(), OpenFlags(0));
+    ring.push(IoUringSqe {
+        fd: r.0,
+        user_data: 4,
+        ..sync
+    });
+    ring.submit(1).unwrap();
+    assert_eq!(res(&ring.reap()), [(4, -Errno::ESPIPE.0)]);
 }
 
 #[test]
