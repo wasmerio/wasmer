@@ -15,11 +15,12 @@
 //! netlink families.
 
 mod diag;
+mod generic;
 mod rtnl;
 
 use std::{
-    collections::VecDeque,
-    sync::{Arc, Mutex, MutexGuard},
+    collections::{HashMap, VecDeque},
+    sync::{Arc, Mutex, MutexGuard, Weak},
 };
 
 use wasixv2_abi::{
@@ -45,6 +46,20 @@ use crate::{
 
 const NETLINK_ROUTE: i32 = 0;
 const NETLINK_SOCK_DIAG: i32 = 4;
+const NETLINK_USERSOCK: i32 = 2;
+const NETLINK_KOBJECT_UEVENT: i32 = 15;
+const NETLINK_GENERIC: i32 = 16;
+
+/// net/netlink/af_netlink.c: netlink_table, scoped by protocol and network namespace.
+#[derive(Default)]
+pub(crate) struct Registry(Mutex<HashMap<(i32, u32), Weak<NetlinkSocket>>>);
+
+#[derive(Clone)]
+pub(crate) struct Datagram {
+    pub(crate) data: Vec<u8>,
+    pub(crate) from: Vec<u8>,
+}
+
 /// `NLMSG_HDRLEN` and `NLMSG_ALIGNTO`.
 const NLMSG_HDR: usize = 16;
 const NLMSG_ALIGNTO: usize = 4;
@@ -73,7 +88,10 @@ const REQUEST_OVERHEAD: usize = 32;
 
 #[derive(Default)]
 struct Queue {
-    replies: VecDeque<Vec<u8>>,
+    replies: VecDeque<Datagram>,
+    bound: bool,
+    port: u32,
+    groups: u32,
     /// `sk_rmem_alloc`.
     queued: usize,
     /// `sk_err`: `ENOBUFS` after an overrun.
@@ -85,6 +103,7 @@ struct Queue {
 }
 
 pub(crate) struct NetlinkSocket {
+    me: Weak<NetlinkSocket>,
     /// `NETLINK_ROUTE` or `NETLINK_SOCK_DIAG`.
     protocol: i32,
     queue: Mutex<Queue>,
@@ -135,6 +154,7 @@ impl NetlinkSocket {
         if data.len() > self.max_request() {
             return Err(Errno::EMSGSIZE);
         }
+        self.autobind()?;
         let mut rest = data;
         while rest.len() >= NLMSG_HDR {
             let header = Header {
@@ -148,6 +168,10 @@ impl NetlinkSocket {
             }
             let msg = &rest[..header.len];
             let err = match header.flags & NLM_F_REQUEST != 0 && header.kind >= NLMSG_MIN_TYPE {
+                true if self.protocol == NETLINK_GENERIC => {
+                    self.generic_request(&header, &msg[NLMSG_HDR..])
+                }
+                true if self.protocol == NETLINK_KOBJECT_UEVENT => None,
                 true if self.protocol == NETLINK_SOCK_DIAG => {
                     self.diag_request(&header, &msg[NLMSG_HDR..], net_admin, sender)
                 }
@@ -155,7 +179,7 @@ impl NetlinkSocket {
                 false => None,
             };
             if header.flags & NLM_F_ACK != 0 || err.is_some() {
-                self.reply(ack(msg, header.seq, self.port, err));
+                self.reply(ack(msg, header.seq, self.port(), err));
             }
             // `NLMSG_ALIGN`ed, but never past the end.
             let step = header.len.next_multiple_of(NLMSG_ALIGNTO).min(rest.len());
@@ -187,7 +211,7 @@ impl NetlinkSocket {
         let r = Request {
             net: &self.net,
             seq: h.seq,
-            port: self.port,
+            port: self.port(),
             flags: h.flags,
             sender,
         };
@@ -231,7 +255,7 @@ impl NetlinkSocket {
         let r = rtnl::Request {
             net: &self.net,
             seq: h.seq,
-            port: self.port,
+            port: self.port(),
             flags: h.flags,
             sender,
         };
@@ -264,6 +288,10 @@ impl NetlinkSocket {
     /// `SO_RCVBUF`, which drops the datagram and leaves `ENOBUFS` for the next receive
     /// (`netlink_overrun`).
     fn queue_datagram(&self, reply: Vec<u8>) {
+        self.queue_from(reply, kernel_addr());
+    }
+
+    fn queue_from(&self, reply: Vec<u8>, from: Vec<u8>) {
         let mut q = self.queue();
         if q.queued > q.rcvbuf {
             if q.err.is_none() {
@@ -276,7 +304,7 @@ impl NetlinkSocket {
             return;
         }
         q.queued += reply.len() + REPLY_OVERHEAD;
-        q.replies.push_back(reply);
+        q.replies.push_back(Datagram { data: reply, from });
     }
 
     /// One reply, waiting for one unless non-blocking; the whole datagram, which the caller
@@ -286,6 +314,17 @@ impl NetlinkSocket {
         wait: &mut Blocking<'_>,
         flags: MsgFlags,
     ) -> SysResult<Vec<u8>> {
+        Ok(self.recv_from(wait, flags).await?.data)
+    }
+
+    pub(crate) async fn recv_from(
+        &self,
+        wait: &mut Blocking<'_>,
+        flags: MsgFlags,
+    ) -> SysResult<Datagram> {
+        if flags.contains(MsgFlags::MSG_OOB) {
+            return Err(Errno::EOPNOTSUPP.into());
+        }
         let peek = flags.contains(MsgFlags::MSG_PEEK);
         let take = || {
             let mut q = self.queue();
@@ -296,7 +335,9 @@ impl NetlinkSocket {
                 return q.replies.front().cloned().ok_or(Errno::EAGAIN);
             }
             let reply = q.replies.pop_front().ok_or(Errno::EAGAIN)?;
-            q.queued -= reply.len() + REPLY_OVERHEAD;
+            q.queued -= reply.data.len() + REPLY_OVERHEAD;
+            drop(q);
+            self.wait.wake(PollMask::OUT);
             Ok(reply)
         };
         wait.wait(WaitOn::Queue(&self.wait), PollMask::READABLE, take)
@@ -321,15 +362,266 @@ impl NetlinkSocket {
         self.fasync.wake(SockWake::WaitData, SiCode::POLL_IN);
     }
 
-    pub(crate) fn bind(&self, raw: &[u8]) -> Result<i32, Errno> {
-        if raw.len() < SOCKADDR_NL {
-            return Err(Errno::EINVAL);
+    fn port(&self) -> u32 {
+        self.queue().port
+    }
+
+    fn autobind(&self) -> Result<(), Errno> {
+        if self.queue().bound {
+            return Ok(());
         }
+        self.bind_port(0)
+    }
+
+    /// net/netlink/af_netlink.c: netlink_autobind / netlink_insert.
+    fn bind_port(&self, requested: u32) -> Result<(), Errno> {
+        let mut table = self.net.netlink.0.lock_or_recover();
+        table.retain(|_, socket| socket.strong_count() != 0);
+        let mut q = self.queue();
+        if q.bound {
+            return if requested == q.port {
+                Ok(())
+            } else {
+                Err(Errno::EINVAL)
+            };
+        }
+        let mut port = if requested == 0 { self.port } else { requested };
+        if requested == 0 && table.contains_key(&(self.protocol, port)) {
+            let mut random = [0; 4];
+            self.host.random(&mut random);
+            port = 0x8000_0000 | (u32::from_le_bytes(random) % 0x7fff_f000);
+            while table.contains_key(&(self.protocol, port)) {
+                port = port.wrapping_sub(1).max(0x8000_0000);
+            }
+        }
+        if table.contains_key(&(self.protocol, port)) {
+            return Err(Errno::EADDRINUSE);
+        }
+        table.insert((self.protocol, port), self.me.clone());
+        q.port = port;
+        q.bound = true;
+        Ok(())
+    }
+
+    pub(crate) fn bind(&self, raw: &[u8], net_admin: bool) -> Result<i32, Errno> {
+        let (port, groups) = self.address(raw)?;
+        if groups != 0 && !self.nonroot_recv() && !net_admin {
+            return Err(Errno::EPERM);
+        }
+        self.bind_port(port)?;
+        self.queue().groups = groups;
         Ok(0)
     }
 
+    fn nonroot_recv(&self) -> bool {
+        matches!(self.protocol, NETLINK_KOBJECT_UEVENT | NETLINK_GENERIC)
+    }
+    fn nonroot_send(&self) -> bool {
+        self.protocol == NETLINK_USERSOCK
+    }
+
+    fn address(&self, raw: &[u8]) -> Result<(u32, u32), Errno> {
+        if raw.len() < SOCKADDR_NL
+            || i32::from(u16::from_le_bytes([raw[0], raw[1]])) != AddressFamily::AF_NETLINK.0
+        {
+            return Err(Errno::EINVAL);
+        }
+        let groups = u32::from_le_bytes(raw[8..12].try_into().unwrap());
+        let allowed = match self.protocol {
+            NETLINK_KOBJECT_UEVENT => 1,
+            NETLINK_GENERIC => 1 << 15,
+            _ => u32::MAX,
+        };
+        // netlink_bind masks bits beyond the protocol's allocated groups.
+        Ok((
+            u32::from_le_bytes(raw[4..8].try_into().unwrap()),
+            groups & allowed,
+        ))
+    }
+
     pub(crate) fn local_addr(&self) -> Vec<u8> {
-        sockaddr_nl(self.port)
+        let q = self.queue();
+        let mut raw = sockaddr_nl(q.port);
+        raw[8..12].copy_from_slice(&q.groups.to_le_bytes());
+        raw
+    }
+
+    /// net/netlink/af_netlink.c: netlink_sendmsg, netlink_broadcast and netlink_unicast.
+    fn prepare_target(
+        &self,
+        data: &[u8],
+        to: Option<&[u8]>,
+        net_admin: bool,
+    ) -> Result<Option<Arc<NetlinkSocket>>, Errno> {
+        if data.is_empty() {
+            return Err(Errno::ENODATA);
+        }
+        let (port, group) = if let Some(raw) = to {
+            let (port, groups) = self.address(raw)?;
+            (
+                port,
+                if groups == 0 {
+                    0
+                } else {
+                    groups.trailing_zeros() + 1
+                },
+            )
+        } else {
+            self.queue().dst
+        };
+        if (port != 0 || group != 0) && !self.nonroot_send() && !net_admin {
+            return Err(Errno::EPERM);
+        }
+        self.autobind()?;
+        if data.len() > self.max_request() {
+            return Err(Errno::EMSGSIZE);
+        }
+        if group != 0 {
+            let receivers: Vec<_> = self
+                .net
+                .netlink
+                .0
+                .lock_or_recover()
+                .iter()
+                .filter(|((proto, pid), _)| {
+                    *proto == self.protocol && *pid != self.port() && *pid != port
+                })
+                .filter_map(|(_, socket)| socket.upgrade())
+                .collect();
+            for receiver in receivers {
+                if receiver.queue().groups & (1 << (group - 1)) != 0 {
+                    let mut from = sockaddr_nl(self.port());
+                    from[8..12].copy_from_slice(&(1u32 << (group - 1)).to_le_bytes());
+                    receiver.user_deliver(data.to_vec(), from);
+                }
+            }
+        }
+        if port == 0 {
+            return Ok(None);
+        }
+        let receiver = self
+            .net
+            .netlink
+            .0
+            .lock_or_recover()
+            .get(&(self.protocol, port))
+            .and_then(Weak::upgrade)
+            .ok_or(Errno::ECONNREFUSED)?;
+        let dst = receiver.queue().dst;
+        if dst.0 != 0 && dst.0 != self.port() {
+            return Err(Errno::ECONNREFUSED);
+        }
+        Ok(Some(receiver))
+    }
+
+    fn kernel_send(
+        &self,
+        data: &[u8],
+        net_admin: bool,
+        sender: &dyn Sender,
+    ) -> Result<usize, Errno> {
+        match self.protocol {
+            NETLINK_USERSOCK => Err(Errno::ECONNREFUSED),
+            NETLINK_KOBJECT_UEVENT if !net_admin => Err(Errno::EPERM),
+            NETLINK_KOBJECT_UEVENT => Ok(data.len()),
+            _ => self.send(data, net_admin, sender),
+        }
+    }
+
+    #[cfg(test)]
+    fn send_to(
+        &self,
+        data: &[u8],
+        to: Option<&[u8]>,
+        net_admin: bool,
+        sender: &dyn Sender,
+    ) -> Result<usize, Errno> {
+        match self.prepare_target(data, to, net_admin)? {
+            Some(receiver) => receiver.unicast(data, self.port()),
+            None => self.kernel_send(data, net_admin, sender),
+        }
+    }
+
+    pub(crate) async fn sendmsg(
+        &self,
+        wait: &mut Blocking<'_>,
+        data: &[u8],
+        to: Option<&[u8]>,
+        net_admin: bool,
+        sender: &dyn Sender,
+    ) -> SysResult<usize> {
+        let Some(receiver) = self.prepare_target(data, to, net_admin)? else {
+            return Ok(self.kernel_send(data, net_admin, sender)?);
+        };
+        let queue = receiver.wait.clone();
+        let weak = Arc::downgrade(&receiver);
+        drop(receiver);
+        wait.wait(WaitOn::Queue(&queue), PollMask::WRITABLE, || {
+            weak.upgrade()
+                .ok_or(Errno::ECONNREFUSED)?
+                .unicast(data, self.port())
+        })
+        .await
+    }
+
+    fn unicast(&self, data: &[u8], port: u32) -> Result<usize, Errno> {
+        let len = match self.filter.lock_or_recover().trim_message(data) {
+            Some(len) => len,
+            None => return Ok(data.len()),
+        };
+        let mut q = self.queue();
+        if q.queued > q.rcvbuf {
+            return Err(Errno::EAGAIN);
+        }
+        q.queued += len + REPLY_OVERHEAD;
+        q.replies.push_back(Datagram {
+            data: data[..len].to_vec(),
+            from: sockaddr_nl(port),
+        });
+        drop(q);
+        self.data_ready();
+        Ok(data.len())
+    }
+
+    fn user_deliver(&self, mut data: Vec<u8>, from: Vec<u8>) {
+        match self.filter.lock_or_recover().trim_message(&data) {
+            Some(n) => data.truncate(n),
+            None => return,
+        }
+        self.queue_from(data, from);
+        self.data_ready();
+    }
+
+    /// net/netlink/af_netlink.c: netlink_setsockopt. Group numbers, not masks.
+    pub(crate) fn set_netlink_option(
+        &self,
+        name: i32,
+        value: &[u8],
+        net_admin: bool,
+    ) -> Result<(), Errno> {
+        let group = wasixv2_vnet::opts::read_int(value)?;
+        if name != 1 && name != 2 {
+            return Err(Errno::ENOPROTOOPT);
+        }
+        if !self.nonroot_recv() && !net_admin {
+            return Err(Errno::EPERM);
+        }
+        let allowed = match self.protocol {
+            NETLINK_KOBJECT_UEVENT => group == 1,
+            NETLINK_GENERIC => group == 16,
+            _ => (1..=32).contains(&group),
+        };
+        if !allowed {
+            return Err(Errno::EINVAL);
+        }
+        let mut q = self.queue();
+        let bit = 1 << (group - 1);
+        if name == 1 {
+            q.groups |= bit;
+        } else {
+            q.groups &= !bit;
+        }
+        Ok(())
     }
 
     /// `netlink_getname(peer = 1)`: where `connect` pointed the socket, the kernel by default.
@@ -362,9 +654,10 @@ impl NetlinkSocket {
         }
         let pid = u32::from_le_bytes(raw[4..8].try_into().unwrap());
         let groups = u32::from_le_bytes(raw[8..12].try_into().unwrap());
-        if (pid != 0 || groups != 0) && !net_admin {
+        if (pid != 0 || groups != 0) && !self.nonroot_send() && !net_admin {
             return Err(Errno::EPERM);
         }
+        self.autobind()?;
         // `ffs(nl_groups)`: the lowest group named.
         let group = match groups {
             0 => 0,
@@ -490,6 +783,12 @@ fn ack(request: &[u8], seq: u32, port: u32, err: Option<Errno>) -> Vec<u8> {
     nlmsg(NLMSG_ERROR, flags, seq, port, &p)
 }
 
+impl Drop for NetlinkSocket {
+    fn drop(&mut self) {
+        self.wait.wake(PollMask::HUP);
+    }
+}
+
 impl Pollable for NetlinkSocket {
     /// `datagram_poll`.
     fn poll(&self, mut table: Option<&mut PollTable<'_>>) -> PollMask {
@@ -538,8 +837,12 @@ impl FileObject for NetlinkSocket {
 
     /// `write` has no credentials of the writer here, so a change rests on the opener's
     /// `CAP_NET_ADMIN` alone; `sendmsg` checks the sender's too.
-    fn write<'a>(&'a self, _io: Io<'a>, data: &'a [u8]) -> LocalFuture<'a, SysResult<usize>> {
-        Box::pin(async move { Ok(self.send(data, true, &NoNamespaces)?) })
+    fn write<'a>(&'a self, io: Io<'a>, data: &'a [u8]) -> LocalFuture<'a, SysResult<usize>> {
+        Box::pin(async move {
+            let mut wait = self.blocking(io, crate::socket::SND, MsgFlags(0));
+            self.sendmsg(&mut wait, data, None, true, &NoNamespaces)
+                .await
+        })
     }
 }
 
@@ -555,11 +858,19 @@ impl Kernel {
         if kind != SocketType::SOCK_RAW && kind != SocketType::SOCK_DGRAM {
             return Err(Errno::ESOCKTNOSUPPORT.into());
         }
-        if protocol != NETLINK_ROUTE && protocol != NETLINK_SOCK_DIAG {
+        if !matches!(
+            protocol,
+            NETLINK_ROUTE
+                | NETLINK_SOCK_DIAG
+                | NETLINK_GENERIC
+                | NETLINK_KOBJECT_UEVENT
+                | NETLINK_USERSOCK
+        ) {
             return Err(Errno::EPROTONOSUPPORT.into());
         }
         let net = self.ns(caller).net.clone();
-        let socket = NetlinkSocket {
+        let socket = Arc::new_cyclic(|me| NetlinkSocket {
+            me: me.clone(),
             protocol,
             queue: Mutex::new(Queue {
                 sndbuf: BUF_DEFAULT,
@@ -575,16 +886,13 @@ impl Kernel {
             timeouts: Timeouts::default(),
             host: self.host.clone(),
             filter: Mutex::new(SockFilter::default()),
-        };
+        });
         let mut status = OpenFlags::O_RDWR;
         if flags.contains(SocketFlags::SOCK_NONBLOCK) {
             status |= OpenFlags::O_NONBLOCK;
         }
         let file = OpenFile::new(
-            Backing::Stream(
-                Arc::new(socket),
-                self.pseudo.socket(self.cred(caller).fs_owner()),
-            ),
+            Backing::Stream(socket, self.pseudo.socket(self.cred(caller).fs_owner())),
             status,
         );
         let [fd] = self.install_files(caller, [file], flags.contains(SocketFlags::SOCK_CLOEXEC))?;
@@ -599,7 +907,7 @@ mod tests {
     use super::{rtnl::*, *};
 
     /// A socket on a namespace with only `lo`, up, opened with `CAP_NET_ADMIN`.
-    fn socket() -> NetlinkSocket {
+    fn socket() -> Arc<NetlinkSocket> {
         socket_in(net_ns())
     }
 
@@ -612,15 +920,21 @@ mod tests {
             crate::ns::Net {
                 network: Some(lo),
                 unix_names: Arc::default(),
+                netlink: Default::default(),
                 devconf: Default::default(),
                 sysctl: Default::default(),
             },
         )
     }
 
-    fn socket_in(net: Arc<NetNs>) -> NetlinkSocket {
-        NetlinkSocket {
-            protocol: NETLINK_ROUTE,
+    fn socket_in(net: Arc<NetNs>) -> Arc<NetlinkSocket> {
+        protocol_socket(net, NETLINK_ROUTE)
+    }
+
+    fn protocol_socket(net: Arc<NetNs>, protocol: i32) -> Arc<NetlinkSocket> {
+        Arc::new_cyclic(|me| NetlinkSocket {
+            me: me.clone(),
+            protocol,
             queue: Mutex::new(Queue {
                 sndbuf: BUF_DEFAULT,
                 rcvbuf: BUF_DEFAULT,
@@ -634,7 +948,7 @@ mod tests {
             timeouts: Timeouts::default(),
             host: Arc::new(crate::tests::TestHost),
             filter: Mutex::new(SockFilter::default()),
-        }
+        })
     }
 
     fn header(len: u32, kind: u16, flags: u16) -> Vec<u8> {
@@ -647,7 +961,11 @@ mod tests {
     }
 
     fn replies(nl: &NetlinkSocket) -> Vec<Vec<u8>> {
-        nl.queue().replies.drain(..).collect()
+        nl.queue()
+            .replies
+            .drain(..)
+            .map(|reply| reply.data)
+            .collect()
     }
 
     #[test]
@@ -1307,11 +1625,8 @@ mod tests {
         out
     }
 
-    fn diag_socket(net: Arc<NetNs>) -> NetlinkSocket {
-        NetlinkSocket {
-            protocol: NETLINK_SOCK_DIAG,
-            ..socket_in(net)
-        }
+    fn diag_socket(net: Arc<NetNs>) -> Arc<NetlinkSocket> {
+        protocol_socket(net, NETLINK_SOCK_DIAG)
     }
 
     /// A `SOCK_DIAG_BY_FAMILY` dump request for `family` and `protocol` with `states`, and
@@ -1486,6 +1801,91 @@ mod tests {
         );
     }
     #[test]
+    fn generic_controller_lookup_dump_and_missing_family() {
+        let nl = protocol_socket(net_ns(), NETLINK_GENERIC);
+        let mut payload = vec![3, 2, 0, 0];
+        rta(&mut payload, 2, b"nlctrl\0");
+        let query = nlmsg(16, NLM_F_REQUEST, 42, 0, &payload);
+        nl.send(&query, false, &NoNamespaces).unwrap();
+        let msgs = messages(&replies(&nl).concat());
+        assert_eq!(msgs.len(), 1);
+        assert_eq!(msgs[0].0, 16);
+        assert_eq!(&msgs[0].1[..4], &[1, 2, 0, 0]);
+        assert!(attrs(&msgs[0].1[4..]).any(|(kind, value)| kind == 2 && value == b"nlctrl\0"));
+        let dump = nlmsg(16, NLM_F_REQUEST | NLM_F_DUMP, 43, 0, &[3, 2, 0, 0]);
+        nl.send(&dump, false, &NoNamespaces).unwrap();
+        assert_eq!(
+            messages(&replies(&nl).concat()).last().unwrap().0,
+            NLMSG_DONE
+        );
+        let mut missing = vec![3, 2, 0, 0];
+        rta(&mut missing, 2, b"no-such-family\0");
+        nl.send(
+            &nlmsg(16, NLM_F_REQUEST, 44, 0, &missing),
+            false,
+            &NoNamespaces,
+        )
+        .unwrap();
+        assert_eq!(error(&replies(&nl)[0]), -Errno::ENOENT.0);
+    }
+
+    #[test]
+    fn usersock_ports_unicast_multicast_and_namespace_isolation() {
+        let net = net_ns();
+        let sender = protocol_socket(net.clone(), NETLINK_USERSOCK);
+        let receiver = protocol_socket(net.clone(), NETLINK_USERSOCK);
+        let other = protocol_socket(net_ns(), NETLINK_USERSOCK);
+        let mut target = sockaddr_nl(123);
+        target[8..12].copy_from_slice(&1u32.to_le_bytes());
+        assert_eq!(receiver.bind(&target, false), Err(Errno::EPERM));
+        receiver.bind(&target, true).unwrap();
+        other.bind(&target, true).unwrap();
+        let duplicate = protocol_socket(net, NETLINK_USERSOCK);
+        assert_eq!(duplicate.bind(&target, true), Err(Errno::EADDRINUSE));
+        let direct = sockaddr_nl(123);
+        assert_eq!(
+            sender.send_to(b"opaque user bytes", Some(&direct), false, &NoNamespaces),
+            Ok(17)
+        );
+        let first = receiver.queue().replies.pop_front().unwrap();
+        assert_eq!(first.data, b"opaque user bytes");
+        assert_eq!(first.from, sender.local_addr());
+        assert!(other.queue().replies.is_empty());
+        let mut multicast = sockaddr_nl(0);
+        multicast[8..12].copy_from_slice(&1u32.to_le_bytes());
+        // Linux broadcasts first, then its unicast to usersock port 0 finds no kernel socket.
+        assert_eq!(
+            sender.send_to(b"multicast", Some(&multicast), false, &NoNamespaces),
+            Err(Errno::ECONNREFUSED)
+        );
+        let first = receiver.queue().replies.pop_front().unwrap();
+        assert_eq!(first.data, b"multicast");
+        assert_eq!(&first.from[8..12], &1u32.to_le_bytes());
+        assert!(other.queue().replies.is_empty());
+        drop(receiver);
+        duplicate.bind(&target, true).unwrap();
+    }
+
+    #[test]
+    fn uevent_group_one_can_bind_without_privilege_and_has_no_events() {
+        let nl = protocol_socket(net_ns(), NETLINK_KOBJECT_UEVENT);
+        let mut addr = sockaddr_nl(0);
+        addr[8..12].copy_from_slice(&1u32.to_le_bytes());
+        assert_eq!(nl.bind(&addr, false), Ok(0));
+        assert_eq!(&nl.local_addr()[8..12], &1u32.to_le_bytes());
+        assert!(!nl.poll(None).contains(PollMask::IN));
+        nl.set_netlink_option(2, &1i32.to_le_bytes(), false)
+            .unwrap();
+        assert_eq!(&nl.local_addr()[8..12], &[0; 4]);
+        nl.set_netlink_option(1, &1i32.to_le_bytes(), false)
+            .unwrap();
+        assert_eq!(
+            nl.set_netlink_option(1, &2i32.to_le_bytes(), false),
+            Err(Errno::EINVAL)
+        );
+    }
+
+    #[test]
     fn sctp_diag_reports_associations_addresses_and_information() {
         use wasixv2_abi::{GuestLayout, SctpInfo};
         use wasixv2_vnet::{Domain, SocketKind};
@@ -1533,4 +1933,93 @@ mod tests {
         assert_eq!(msgs.last().unwrap().0, NLMSG_DONE);
     }
 
+    #[test]
+    fn nlctrl_policies_describe_family_and_policy_operations() {
+        let nl = protocol_socket(net_ns(), NETLINK_GENERIC);
+        let mut p = vec![10, 2, 0, 0];
+        rta(&mut p, 1, &16u16.to_le_bytes());
+        nl.send(
+            &nlmsg(16, NLM_F_REQUEST | NLM_F_DUMP, 0, 0, &p),
+            false,
+            &NoNamespaces,
+        )
+        .unwrap();
+        let msgs = messages(&replies(&nl).concat());
+        assert_eq!(msgs.last().unwrap().0, NLMSG_DONE);
+        assert_eq!(msgs.iter().filter(|(kind, _)| *kind == 16).count(), 3);
+        let mut mappings = Vec::new();
+        for (_, payload) in &msgs[..msgs.len() - 1] {
+            for (kind, data) in attrs(&payload[4..]) {
+                if kind & 0x3fff == 9 {
+                    mappings.extend(attrs(data).map(|(command, _)| command & 0x3fff));
+                }
+            }
+        }
+        assert_eq!(mappings, [3, 10]);
+        rta(&mut p, 10, &999u32.to_le_bytes());
+        nl.send(
+            &nlmsg(16, NLM_F_REQUEST | NLM_F_DUMP, 0, 0, &p),
+            false,
+            &NoNamespaces,
+        )
+        .unwrap();
+        assert_eq!(error(&replies(&nl)[0]), -Errno::EOPNOTSUPP.0);
+    }
+    #[test]
+    fn usersock_backpressure_waits_for_receive_and_receiver_close() {
+        use wasixv2_syscalls::TaskId;
+        use wasixv2_wait::NoInterrupt;
+        futures::executor::block_on(async {
+            let net = net_ns();
+            let sender = protocol_socket(net.clone(), NETLINK_USERSOCK);
+            let receiver = protocol_socket(net, NETLINK_USERSOCK);
+            let target = sockaddr_nl(123);
+            receiver.bind(&target, true).unwrap();
+            receiver
+                .set_option(SocketOption::SO_RCVBUF.0, &1i32.to_le_bytes())
+                .unwrap();
+            let io = Io {
+                task: TaskId(1),
+                flags: OpenFlags::O_RDWR,
+                interrupt: &NoInterrupt,
+                broken: None,
+            };
+            assert_eq!(
+                sender.send_to(&vec![b'a'; 2000], Some(&target), false, &NoNamespaces),
+                Ok(2000)
+            );
+            let mut wait = sender.blocking(io, crate::socket::SND, MsgFlags::MSG_DONTWAIT);
+            assert_eq!(
+                sender
+                    .sendmsg(&mut wait, b"b", Some(&target), false, &NoNamespaces)
+                    .await,
+                Err(Errno::EAGAIN.into())
+            );
+            let mut wait = sender.blocking(io, crate::socket::SND, MsgFlags(0));
+            let pending = sender.sendmsg(&mut wait, b"b", Some(&target), false, &NoNamespaces);
+            futures::pin_mut!(pending);
+            assert!(futures::poll!(pending.as_mut()).is_pending());
+            let mut receive = receiver.blocking(io, RCV, MsgFlags::MSG_DONTWAIT);
+            assert_eq!(
+                receiver
+                    .recv_from(&mut receive, MsgFlags(0))
+                    .await
+                    .unwrap()
+                    .data,
+                vec![b'a'; 2000]
+            );
+            assert_eq!(pending.await, Ok(1));
+            drop(receive);
+            assert_eq!(
+                sender.send_to(&vec![b'z'; 2000], Some(&target), false, &NoNamespaces),
+                Ok(2000)
+            );
+            let mut wait = sender.blocking(io, crate::socket::SND, MsgFlags(0));
+            let pending = sender.sendmsg(&mut wait, b"c", Some(&target), false, &NoNamespaces);
+            futures::pin_mut!(pending);
+            assert!(futures::poll!(pending.as_mut()).is_pending());
+            drop(receiver);
+            assert_eq!(pending.await, Err(Errno::ECONNREFUSED.into()));
+        });
+    }
 }

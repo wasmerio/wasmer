@@ -1637,6 +1637,7 @@ mod tests {
             crate::ns::Net {
                 network: None,
                 unix_names: Arc::default(),
+                netlink: Default::default(),
                 sysctl: Default::default(),
                 devconf: Default::default(),
             },

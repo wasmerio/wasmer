@@ -297,7 +297,13 @@ impl Kernel {
         let sock = match self.any_socket(caller, fd)? {
             AnySock::Inet((_, sock)) => sock,
             AnySock::Unix(_, sock) => return self.unix_bind(caller, &sock, &raw).await,
-            AnySock::Netlink(_, nl) => return Ok(nl.bind(&raw)?),
+            AnySock::Netlink(_, nl) => {
+                return Ok(nl.bind(
+                    &raw,
+                    self.cred(caller)
+                        .ns_capable(nl.net.user_ns(), Cap::NetAdmin),
+                )?);
+            }
             AnySock::Packet(_, p) => return Ok(p.bind(&raw)?),
             AnySock::Vsock(_, v) => return self.vsock_bind(caller, &v, &raw),
         };
@@ -745,6 +751,9 @@ impl Kernel {
                 }
             }
             AnySock::Netlink(_, nl) => {
+                if flags.contains(MsgFlags::MSG_OOB) {
+                    return Err(Errno::EOPNOTSUPP.into());
+                }
                 let mut data = vec![0; src.len.min(nl.max_request().saturating_add(1))];
                 src.copy_in(memory, 0, &mut data).await?;
                 let net_admin = self
@@ -755,7 +764,8 @@ impl Kernel {
                     caller,
                     opener: &nl.opener,
                 };
-                Ok(nl.send(&data, net_admin, &sender)?)
+                let mut wait = nl.blocking(io, SND, flags);
+                nl.sendmsg(&mut wait, &data, to, net_admin, &sender).await
             }
             AnySock::Packet(_, p) => Ok(p.send(to)?),
             AnySock::Vsock(_, v) => {
@@ -984,7 +994,8 @@ impl Kernel {
             }
             AnySock::Netlink(_, nl) => {
                 let mut wait = nl.blocking(io, RCV, flags);
-                let reply = nl.recv(&mut wait, flags).await?;
+                let datagram = nl.recv_from(&mut wait, flags).await?;
+                let reply = datagram.data;
                 let len = reply.len().min(dst.len);
                 dst.copy_out(memory, 0, &reply[..len]).await?;
                 let mut out = MsgFlags(0);
@@ -997,7 +1008,7 @@ impl Kernel {
                         true => reply.len(),
                         false => len,
                     },
-                    from: Some(netlink::kernel_addr()),
+                    from: Some(datagram.from),
                     flags: out,
                     controls: Vec::new(),
                     rights: Vec::new(),
@@ -1357,7 +1368,15 @@ impl Kernel {
             AnySock::Netlink(_, nl) if level == SocketLevel::SOL_SOCKET => {
                 nl.set_option(name, &value)?
             }
-            // `SOL_NETLINK` options (groups, strict checking) are accepted as no-ops.
+            AnySock::Netlink(_, nl) if level.0 == 270 && (name == 1 || name == 2) => {
+                nl.set_netlink_option(
+                    name,
+                    &value,
+                    self.cred(caller)
+                        .ns_capable(nl.net.user_ns(), Cap::NetAdmin),
+                )?;
+            }
+            // Other existing netlink options (strict checking, packet info) retain their handling.
             AnySock::Netlink(..) => {}
             // The `SOL_SOCKET` options that only describe the descriptor; `SOL_PACKET` ones
             // (memberships, rings, fanout) are about frames, which never come.
