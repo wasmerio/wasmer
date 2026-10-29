@@ -430,6 +430,11 @@ impl<S> ExecEnv<S> {
     /// its address space's page map says ([`wasixv2_syscalls::PageAccess::check`]).
     #[inline]
     fn check_access(&self, addr: u32, len: usize, write: bool) -> Result<(), Fault> {
+        // The host leaves this guard readable for guest loads, but it is not a
+        // user VMA for kernel copies (Linux mm/gup.c:__get_user_pages).
+        if in_guard(self.low_guard, addr, len) {
+            return Err(Fault);
+        }
         match &self.page_access {
             Some(access) => access.check(addr, len, write),
             None => Ok(()),
@@ -884,6 +889,9 @@ impl ForeignMemory {
     }
 
     fn check(&self, addr: u32, len: usize, write: bool, force: bool) -> Result<(), Fault> {
+        if !force && in_guard(self.low_guard, addr, len) {
+            return Err(Fault);
+        }
         match (&self.page_access, force) {
             (Some(access), false) => access.check(addr, len, write),
             _ => Ok(()),
@@ -1357,7 +1365,7 @@ mod tests {
     }
 
     #[test]
-    fn only_writes_that_touch_the_guard_fault() {
+    fn nonempty_accesses_that_touch_the_guard_are_detected() {
         assert!(in_guard(LOW_GUARD, 0, 1));
         assert!(in_guard(LOW_GUARD, LOW_GUARD - 1, 8));
         assert!(!in_guard(LOW_GUARD, LOW_GUARD, 8));
@@ -1416,8 +1424,14 @@ mod tests {
         );
         assert_eq!(
             block_on(foreign.read(0x10, &mut buf)),
+            Err(Fault),
+            "ordinary kernel copies cannot read the low guard"
+        );
+        assert_eq!(block_on(foreign.read(0, &mut [])), Ok(()));
+        assert_eq!(
+            block_on(foreign.force_read(0x10, &mut buf)),
             Ok(()),
-            "the guard reads"
+            "forced image reads may inspect the guard"
         );
         assert_eq!(block_on(foreign.grow(1)), None);
 
