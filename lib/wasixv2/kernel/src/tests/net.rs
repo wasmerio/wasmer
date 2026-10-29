@@ -1234,6 +1234,98 @@ fn unix_socket_options_read_back_what_was_set() {
     );
 }
 
+/// A peer's pid stays what `SO_PEERCRED` and `SCM_CREDENTIALS` report once it was reaped:
+/// the socket and its queued message hold its `struct pid` (`sk_peer_pid`,
+/// `UNIXCB(skb).pid`), which `pid_vnr` reads at the time of the call.
+#[test]
+fn a_reaped_peer_keeps_its_pid_in_its_credentials() {
+    let (kernel, a, memory) = machine();
+    let caller = Caller::new(a, &memory);
+    let b = super::mapping::another_process(&kernel);
+    let memory_b = FlatMemory(std::cell::RefCell::new(vec![0; 65536]));
+    let caller_b = Caller::new(b, &memory_b);
+    let mut addr = (AddressFamily::AF_UNIX.0 as u16).to_le_bytes().to_vec();
+    addr.extend(b"\0reaped-peer");
+    let len = addr.len() as u32;
+    put(&memory, 0x200, &addr);
+    put(&memory_b, 0x200, &addr);
+    let listener = block_on(kernel.socket(&caller, AddressFamily::AF_UNIX, STREAM, 0)).unwrap();
+    assert_eq!(
+        block_on(kernel.bind(&caller, listener, GuestPtr::new(0x200), len)),
+        Ok(0)
+    );
+    assert_eq!(block_on(kernel.listen(&caller, listener, 1)), Ok(0));
+    let client = block_on(kernel.socket(&caller_b, AddressFamily::AF_UNIX, STREAM, 0)).unwrap();
+    assert_eq!(
+        block_on(kernel.connect(&caller_b, client, GuestPtr::new(0x200), len)),
+        Ok(0)
+    );
+    let server = block_on(kernel.accept4(
+        &caller,
+        listener,
+        GuestPtrMut::NULL,
+        GuestPtrMut::NULL,
+        SocketFlags(0),
+    ))
+    .unwrap();
+    put(&memory, 0x400, &1i32.to_le_bytes());
+    let passcred = SocketOption::SO_PASSCRED.0;
+    let set = kernel.setsockopt(
+        &caller,
+        server,
+        SocketLevel::SOL_SOCKET,
+        passcred,
+        UserSlice::new(0x400, 4),
+    );
+    assert_eq!(block_on(set), Ok(0));
+    put(&memory_b, 0x400, b"x");
+    assert_eq!(
+        send_bytes(&kernel, &caller_b, client, 0x400, 1, MsgFlags(0)),
+        Ok(1)
+    );
+    // B, without a parent, is reaped as it exits, and its pid is free.
+    assert_eq!(block_on(kernel.exit_group(&caller_b, 0)), Ok(()));
+    wasixv2_syscalls::Control::release(&kernel, b);
+    assert_eq!(
+        errno(block_on(kernel.sys_kill(&caller, b.0 as i32, Signal(0)))),
+        Errno::ESRCH
+    );
+
+    put(&memory, 0x2f0, &12u32.to_le_bytes());
+    let peercred = kernel.getsockopt(
+        &caller,
+        server,
+        SocketLevel::SOL_SOCKET,
+        SocketOption::SO_PEERCRED.0,
+        GuestPtrMut::new(0x300),
+        GuestPtrMut::new(0x2f0),
+    );
+    assert_eq!(block_on(peercred), Ok(0));
+    assert_eq!(get_pid(&memory, 0x300), b.0 as i32);
+    // recvmsg: one byte to 0x500, the control messages to 0xb00.
+    put(&memory, 0x700, &0x500u32.to_le_bytes());
+    put(&memory, 0x704, &1u32.to_le_bytes());
+    let hdr = UserMsghdr {
+        msg_name: GuestPtrMut::NULL,
+        msg_namelen: 0,
+        msg_iov: GuestPtr::new(0x700),
+        msg_iovlen: 1,
+        msg_control: GuestPtrMut::new(0xb00),
+        msg_controllen: 64,
+        msg_flags: 0,
+    };
+    block_on(write_value(&memory, GuestPtrMut::new(0x900), &hdr)).unwrap();
+    let got = block_on(kernel.recvmsg(&caller, server, GuestPtrMut::new(0x900), MsgFlags(0)));
+    assert_eq!(got, Ok(1));
+    let kind = i32::from_le_bytes(get(&memory, 0xb08, 4).try_into().unwrap());
+    assert_eq!(kind, crate::unix::SCM_CREDENTIALS);
+    assert_eq!(get_pid(&memory, 0xb0c), b.0 as i32);
+}
+
+fn get_pid(memory: &FlatMemory, at: u32) -> i32 {
+    i32::from_le_bytes(get(memory, at, 4).try_into().unwrap())
+}
+
 #[test]
 fn ip_sends_check_socket_level_control_messages() {
     let (kernel, task, memory) = networked();
