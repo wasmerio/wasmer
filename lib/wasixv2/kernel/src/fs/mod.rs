@@ -374,14 +374,21 @@ impl Kernel {
         flags: OpenFlags,
         mode: u32,
     ) -> SysResult<Fd> {
-        self.openat_to(caller, dfd, filename, flags, mode, FileDest::Table).await
+        self.openat_to(caller, dfd, filename, flags, mode, FileDest::Table)
+            .await
     }
 
     pub(crate) async fn openat_to(
-        &self, caller: &Caller<'_>, dfd: Fd, filename: Cstr,
-        flags: OpenFlags, mode: u32, dest: FileDest<'_>,
+        &self,
+        caller: &Caller<'_>,
+        dfd: Fd,
+        filename: Cstr,
+        flags: OpenFlags,
+        mode: u32,
+        dest: FileDest<'_>,
     ) -> SysResult<Fd> {
-        self.do_open(caller, dfd, filename, build_open_how(flags, mode), dest).await
+        self.do_open(caller, dfd, filename, build_open_how(flags, mode), dest)
+            .await
     }
 
     pub(crate) async fn sys_openat2(
@@ -446,8 +453,17 @@ impl Kernel {
         } else {
             self.start(caller, &env, dfd, &path)?
         };
-        self.open_from(caller, &env, &start, &path, flags, how.mode as u32, lookup)
-            .await
+        self.open_from_to(
+            caller,
+            &env,
+            &start,
+            &path,
+            flags,
+            how.mode as u32,
+            lookup,
+            dest,
+        )
+        .await
     }
 
     /// `do_filp_open` of `path` from `start` with flags `build_open_flags` checked, and the
@@ -463,6 +479,31 @@ impl Kernel {
         mode: u32,
         lookup: LookupFlags,
     ) -> SysResult<Fd> {
+        self.open_from_to(
+            caller,
+            env,
+            start,
+            path,
+            flags,
+            mode,
+            lookup,
+            FileDest::Table,
+        )
+        .await
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    async fn open_from_to(
+        &self,
+        caller: &Caller<'_>,
+        env: &Env,
+        start: &Path,
+        path: &[u8],
+        flags: OpenFlags,
+        mode: u32,
+        lookup: LookupFlags,
+        dest: FileDest<'_>,
+    ) -> SysResult<Fd> {
         let vfs_how = wasixv2_vfs::OpenHow {
             flags,
             mode,
@@ -471,7 +512,9 @@ impl Kernel {
         // `get_unused_fd_flags` before `do_filp_open`: at the limit, nothing is created,
         // truncated or waited for.
         let cloexec = flags.contains(OpenFlags::O_CLOEXEC);
-        if dest.is_direct() && cloexec { return Err(Errno::EINVAL.into()); }
+        if dest.is_direct() && cloexec {
+            return Err(Errno::EINVAL.into());
+        }
         let fd = dest.reserve(self, caller, cloexec)?;
         let file = self
             .vfs
