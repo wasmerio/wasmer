@@ -43,8 +43,6 @@ const ALL_BITS: u32 = InotifyMask::IN_ALL_EVENTS.0
     | IN_ONESHOT;
 /// `struct inotify_event` without its name.
 const EVENT_SIZE: usize = 16;
-/// `/proc/sys/fs/inotify/max_queued_events`.
-const MAX_QUEUED: usize = 16384;
 
 /// The watches on one object: instance and watch descriptor.
 type Watchers = Vec<(Weak<Instance>, i32)>;
@@ -239,6 +237,8 @@ pub(crate) struct Inotify {
 
 /// What watches point to.
 struct Instance {
+    /// The most events its queue holds (`max_events`), past which it overflows.
+    max_events: usize,
     state: Mutex<State>,
     wait: WaitQueue,
     /// The files that get I/O signals (`fsn_fa`).
@@ -303,7 +303,7 @@ impl Instance {
             if state.queue.back() == Some(&record) {
                 return;
             }
-            if state.queue.len() >= MAX_QUEUED {
+            if state.queue.len() >= self.max_events {
                 if state.overflowed {
                     return;
                 }
@@ -424,8 +424,13 @@ impl Kernel {
         if !(flags & !known).is_empty() {
             return Err(Errno::EINVAL.into());
         }
+        // `inotify_new_group`: the limit is what `fs.inotify.max_queued_events` says now.
+        let max_events = self
+            .tunables
+            .get(crate::sysctl::Tunable::InotifyMaxQueuedEvents);
         let inotify = Inotify {
             inner: Arc::new(Instance {
+                max_events: max_events as usize,
                 state: Mutex::default(),
                 wait: WaitQueue::new(),
                 fasync: FasyncList::default(),

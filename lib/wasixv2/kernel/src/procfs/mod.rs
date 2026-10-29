@@ -79,11 +79,20 @@ impl Kernel {
             cgroups: self.cgroups.clone(),
             printk: self.printk.clone(),
             coredump: self.coredump.clone(),
+            tunables: self.tunables.clone(),
+            boot_id: self.boot_id,
         };
         Arc::new(ProcFs {
             source: Arc::new(source),
         })
     }
+}
+
+/// `generate_random_uuid`'s marks on 16 random bytes: version 4, the RFC 4122 variant.
+pub(crate) fn uuid_v4(mut id: [u8; 16]) -> [u8; 16] {
+    id[6] = (id[6] & 0x0f) | 0x40;
+    id[8] = (id[8] & 0x3f) | 0x80;
+    id
 }
 
 /// Whether `path` is `/proc/kmsg`, which opens as the kernel log (`proc_kmsg_operations`).
@@ -184,6 +193,10 @@ struct Source {
     printk: Arc<crate::printk::Printk>,
     /// The core dump tunables.
     coredump: Arc<crate::coredump::Coredump>,
+    /// The integer sysctls.
+    tunables: Arc<crate::sysctl::Tunables>,
+    /// `kernel.random.boot_id`.
+    boot_id: [u8; 16],
 }
 
 /// A process as the tree has it.
@@ -428,6 +441,107 @@ impl Source {
             .sched
             .set_timer_slack(slack);
         Some(())
+    }
+
+    /// `__handle_sysrq` for `key`: the actions the machine has (`0`-`9` the console log level,
+    /// `e` SIGTERM and `i` SIGKILL to every process but init, `m` the memory, `s` sync); any
+    /// other key logs the help, which lists them.
+    async fn sysrq(&self, key: u8) {
+        use crate::printk::Level;
+        let log = |text: &str| self.printk.log(Level::Info, text);
+        match key {
+            b'0'..=b'9' => {
+                let level = i32::from(key - b'0');
+                log("sysrq: Changing Loglevel");
+                self.printk.set_levels(&[level]);
+                log(&format!("sysrq: Loglevel set to {level}"));
+            }
+            b'e' | b'i' => {
+                let (sig, what) = match key {
+                    b'e' => (wasixv2_abi::Signal::SIGTERM, "Terminate All Tasks"),
+                    _ => (wasixv2_abi::Signal::SIGKILL, "Kill All Tasks"),
+                };
+                log(&format!("sysrq: {what}"));
+                self.signal_all_but_init(sig.0);
+            }
+            b'm' => {
+                log("sysrq: Show Memory");
+                let meminfo = String::from_utf8_lossy(&text::meminfo(self)).into_owned();
+                for line in meminfo.lines().take(2) {
+                    log(line);
+                }
+            }
+            b's' => {
+                log("sysrq: Emergency Sync");
+                if let Some(vfs) = self.vfs.upgrade() {
+                    for sb in vfs.superblocks() {
+                        let _ = sb.fs.sync().await;
+                    }
+                }
+                log("Emergency Sync complete");
+            }
+            _ => log(
+                "sysrq: HELP : loglevel(0-9) terminate-all-tasks(e) kill-all-tasks(i) \
+                 show-memory-usage(m) sync(s)",
+            ),
+        }
+    }
+
+    /// `send_sig_all`: `sig` to every process but the machine's init.
+    fn signal_all_but_init(&self, sig: i32) {
+        let Some(state) = self.state.upgrade() else {
+            return;
+        };
+        let groups: Vec<_> = {
+            let state = state.read_or_recover();
+            state
+                .tasks
+                .values()
+                .filter(|task| self.pids.nr(&self.ns.pid_for_children, task.process.pid.0) != 1)
+                .map(|task| task.signals.group().clone())
+                .collect()
+        };
+        let mut done: Vec<Arc<crate::signal::Signals>> = Vec::new();
+        for group in groups {
+            if !done.iter().any(|g| Arc::ptr_eq(g, &group)) {
+                group.send_kernel(sig);
+                done.push(group);
+            }
+        }
+    }
+
+    /// `drop_caches_sysctl_handler`'s note of who asked.
+    fn drop_caches(&self, opener: u32, value: u32) {
+        let comm = self.state.upgrade().and_then(|state| {
+            let state = state.read_or_recover();
+            Some(state.tasks.get(&TaskId(opener))?.comm.name().to_vec())
+        });
+        let comm = String::from_utf8_lossy(&comm.unwrap_or_default()).into_owned();
+        let pid = self.tgid_of(opener).unwrap_or(0);
+        let text = format!("{comm} ({pid}): drop_caches: {value}");
+        self.printk.log(crate::printk::Level::Info, &text);
+    }
+
+    /// The open files of every task, each counted once (`nr_files`).
+    fn nr_files(&self) -> usize {
+        let Some(state) = self.state.upgrade() else {
+            return 0;
+        };
+        let tables: Vec<_> = {
+            let state = state.read_or_recover();
+            state
+                .tasks
+                .values()
+                .map(|task| task.files.clone())
+                .collect()
+        };
+        let mut seen = std::collections::HashSet::new();
+        for table in tables {
+            for (_, file, _) in table.lock_or_recover().iter() {
+                seen.insert(Arc::as_ptr(file) as usize);
+            }
+        }
+        seen.len()
     }
 
     /// How many tasks run, and how many were ever started (`total_forks`).

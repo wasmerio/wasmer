@@ -6,6 +6,9 @@
 //! Every interface is a directory under `devices/virtual/net`, and `class/net/<name>` links to
 //! it, as for Linux's virtual devices; the uplink, a physical device on Linux, is shown the same
 //! way. The attributes are read-only, and nodes are computed when looked up, never stored.
+//!
+//! Besides the network: `fs/cgroup`, where the cgroup hierarchy is mounted, `kernel/mm`, empty
+//! without huge pages, KSM or swap, and `kernel/cgroup`'s `delegate` and `features`.
 
 use std::{any::Any, sync::Arc};
 
@@ -64,6 +67,27 @@ const DIRS: &[(usize, &str)] = &[
     (2, "security"),
     // 8: where the cgroup hierarchy is mounted (`sysfs_create_mount_point(fs_kobj, "cgroup")`).
     (3, "cgroup"),
+    // 8: `mm_kobj`, empty without huge pages, KSM or swap.
+    (2, "mm"),
+    // 9: `cgroup_sysfs_init`.
+    (2, "cgroup"),
+];
+
+/// The fixed files: parent directory, name, contents.
+const FILES: &[(usize, &str, &str)] = &[
+    // `delegate_show`: the files a delegated cgroup's owner gets (`CFTYPE_NS_DELEGATABLE`).
+    (
+        9,
+        "delegate",
+        "cgroup.procs\ncgroup.threads\ncgroup.subtree_control\n",
+    ),
+    // `features_show`: the mount options cgroup2 takes.
+    (
+        9,
+        "features",
+        "nsdelegate\nfavordynmods\nmemory_localevents\nmemory_recursiveprot\n\
+         memory_hugetlb_accounting\npids_localevents\n",
+    ),
 ];
 const CLASS_NET: usize = 4;
 const VIRTUAL_NET: usize = 6;
@@ -143,6 +167,8 @@ enum Entry {
     Root,
     /// One of [`DIRS`].
     Dir(usize),
+    /// One of [`FILES`].
+    File(usize),
     /// `class/net/<name>`, a link to the interface's directory.
     ClassLink(u32),
     /// `devices/virtual/net/<name>`.
@@ -160,6 +186,7 @@ fn ino(entry: Entry) -> u64 {
     match entry {
         Entry::Root => 1,
         Entry::Dir(i) => 2 + i as u64,
+        Entry::File(i) => 1024 + i as u64,
         Entry::ClassLink(index) => (1 << 40) | u64::from(index),
         Entry::Device(index) => (2 << 40) | (u64::from(index) << 8),
         Entry::Attr(index, attr) => (2 << 40) | (u64::from(index) << 8) | (1 + attr as u64),
@@ -170,7 +197,7 @@ fn file_type(entry: Entry) -> FileType {
     match entry {
         Entry::Root | Entry::Dir(_) | Entry::Device(_) => FileType::Directory,
         Entry::ClassLink(_) => FileType::Symlink,
-        Entry::Attr(..) => FileType::Regular,
+        Entry::Attr(..) | Entry::File(_) => FileType::Regular,
     }
 }
 
@@ -264,6 +291,11 @@ impl SysNode {
         for (i, (parent, name)) in DIRS.iter().enumerate() {
             if *parent == me {
                 out.push((i as u64, name.as_bytes().to_vec(), Entry::Dir(i)));
+            }
+        }
+        for (i, (parent, name, _)) in FILES.iter().enumerate() {
+            if *parent == me {
+                out.push((512 + i as u64, name.as_bytes().to_vec(), Entry::File(i)));
             }
         }
         if me == CLASS_NET || me == VIRTUAL_NET {
@@ -366,6 +398,7 @@ impl Node for SysNode {
                 let iface = self.interface()?.ok_or(Errno::ENOENT)?;
                 Ok(Box::new(AttrHandle(attr(&iface, ATTRS[i]))))
             }
+            Entry::File(i) => Ok(Box::new(AttrHandle(Ok(FILES[i].2.to_string())))),
             Entry::ClassLink(_) => Err(Errno::ENXIO),
             _ => {
                 self.children()?;
