@@ -1015,3 +1015,60 @@ fn a_parent_tracer_can_reap_with_sigchld_ignored() {
     assert_eq!(kernel.take_pending(child), Some(GuestAction::Exit(5)));
     assert_eq!(wait(kernel, &caller, child, WALL).unwrap().1, 5);
 }
+
+/// fs/exec.c `de_thread`/`exec_binprm`: a non-leader keeps its tracer and reports its old tid
+/// under the leader's pid, with no phantom exit for the old leader or caller.
+#[test]
+fn non_leader_exec_moves_the_trace_link_and_reports_old_tid() {
+    let (stack, tracer, memory) = machine();
+    let kernel = &stack.inner;
+    let caller = Caller::new(tracer, &memory);
+    let leader = fork_child(kernel, &caller);
+    let child_memory = flat();
+    let leader_caller = Caller::new(leader, &child_memory);
+    super::task::install_prog(kernel, &leader_caller, &child_memory);
+    let tid =
+        block_on(kernel.thread_spawn(&leader_caller, 0x10f00, 0, S32Ptr::NULL, 0, S32Ptr::NULL))
+            .unwrap();
+    let thread = TaskId(tid as u32);
+    while kernel.take_pending(leader).is_some() {}
+    for task in [leader, thread] {
+        assert_eq!(
+            ptrace(
+                kernel,
+                &caller,
+                R::PTRACE_SEIZE,
+                task,
+                0,
+                PtraceOptions::PTRACE_O_TRACEEXEC.0
+            ),
+            Ok(0)
+        );
+    }
+    let thread_caller = Caller::new(thread, &child_memory);
+    let mut exec = Box::pin(super::task::execve(kernel, &thread_caller));
+    assert!(exec.as_mut().now_or_never().is_none());
+    assert!(matches!(
+        kernel.take_pending(leader),
+        Some(GuestAction::Exec { .. })
+    ));
+    let mut start = Box::pin(kernel.exec_wait(leader));
+    assert!(start.as_mut().now_or_never().is_none());
+    assert_eq!(exec.as_mut().now_or_never(), Some(Ok(0)));
+    assert_eq!(kernel.take_pending(thread), Some(GuestAction::Exit(0)));
+    kernel.release(thread);
+    assert!(start.as_mut().now_or_never().is_none(), "exec event stop");
+    assert_eq!(
+        wait(kernel, &caller, leader, WALL).unwrap().1,
+        SIGTRAP | PtraceEvent::PTRACE_EVENT_EXEC.0 << 8
+    );
+    assert_eq!(
+        ptrace(kernel, &caller, R::PTRACE_GETEVENTMSG, leader, 0, 0x680),
+        Ok(0)
+    );
+    assert_eq!(get(&memory.0, 0x680, 4), thread.0.to_le_bytes());
+    assert_eq!(ptrace(kernel, &caller, R::PTRACE_CONT, leader, 0, 0), Ok(0));
+    assert_eq!(start.as_mut().now_or_never(), Some(Ok(())));
+    assert_eq!(kernel.task_signals(leader).tracer(), Some(tracer));
+    assert!(!kernel.tracees.lock().contains_key(&thread));
+}

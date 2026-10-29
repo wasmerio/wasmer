@@ -1812,6 +1812,11 @@ impl Kernel {
         self.exit_futexes(caller, threads).await;
         self.mm_release(caller).await;
         self.exec_commit(task, &name, args, env, image, binary);
+        if task != leader {
+            self.task_signals(leader)
+                .group()
+                .with_trace(leader, |t| t.exec_event = Some(old_vpid));
+        }
         // The `execve` is done, and the leader's new image may start.
         drop(exec);
         // `exec_binprm`'s `ptrace_event(PTRACE_EVENT_EXEC, old_vpid)`, by the task the new
