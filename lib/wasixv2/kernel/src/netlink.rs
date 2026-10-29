@@ -699,6 +699,7 @@ mod tests {
                 crate::ns::Net {
                     network: Some(lo),
                     unix_names: Arc::default(),
+                    devconf: Default::default(),
                 },
             ),
             port: 7,

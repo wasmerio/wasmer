@@ -983,3 +983,90 @@ fn proc_net_unix_lists_the_namespaces_sockets() {
     assert_eq!(text.lines().skip(1).collect::<Vec<_>>().len(), 1, "{text}");
     assert!(text.lines().nth(1).unwrap().ends_with(&only), "{text}");
 }
+
+/// Writes `text` to the file `at`.
+fn write_text(kernel: &Kernel, caller: &Caller<'_>, at: &str, text: &str) -> SysResult<u32> {
+    let name = path(caller.memory(), at);
+    let fd = block_on(kernel.openat(caller, CWD, name, OpenFlags::O_WRONLY, 0))?;
+    block_on(caller.memory().write(0x5000, text.as_bytes())).unwrap();
+    let written = block_on(kernel.write(caller, fd, UserSlice::new(0x5000, text.len() as u32)));
+    assert_eq!(block_on(kernel.close(caller, fd)), Ok(0));
+    written
+}
+
+/// `/proc/sys/net/ipv4/conf` has `all`, `default` and the loopback interface, with Linux's
+/// defaults (`ipv4_devconf`, `ipv4_devconf_dflt`, what loopback sets for itself), shown for
+/// the reader's network namespace. `tag` is written per namespace and interface, and an
+/// interface follows `default` until it is given its own; a new namespace starts from the
+/// initial one's `all` and `default`. LTP clone09 checks that a new namespace's `lo/tag` is
+/// not the one its parent's namespace set.
+#[test]
+fn proc_sys_net_ipv4_conf_is_the_readers_network_namespace() {
+    let (kernel, task, memory) = networked();
+    let caller = Caller::new(task, &memory);
+    let conf = "/proc/sys/net/ipv4/conf";
+    let read = |caller: &Caller<'_>, at: &str| read_text(&kernel, caller, &format!("{conf}/{at}"));
+    let write = |caller: &Caller<'_>, at: &str, text: &str| {
+        write_text(&kernel, caller, &format!("{conf}/{at}"), text)
+    };
+
+    let fd = open(&kernel, &caller, conf).unwrap();
+    let mut names = Vec::new();
+    let n = block_on(kernel.getdents64(&caller, fd, GuestPtrMut::new(0x6000), 4096)).unwrap();
+    let buf = get(&memory.0, 0x6000, n as usize);
+    let mut at = 0;
+    while at < buf.len() {
+        let reclen = u16::from_le_bytes([buf[at + 16], buf[at + 17]]) as usize;
+        let name = &buf[at + 19..at + reclen];
+        let len = name.iter().position(|&b| b == 0).unwrap();
+        names.push(String::from_utf8(name[..len].to_vec()).unwrap());
+        at += reclen;
+    }
+    for name in ["all", "default", "lo"] {
+        assert!(names.contains(&name.to_string()), "{names:?}");
+    }
+    assert_eq!(read(&caller, "all/accept_source_route"), "0\n");
+    assert_eq!(read(&caller, "default/accept_source_route"), "1\n");
+    assert_eq!(read(&caller, "lo/accept_source_route"), "1\n");
+    assert_eq!(
+        read(&caller, "lo/igmpv2_unsolicited_report_interval"),
+        "10000\n"
+    );
+    assert_eq!(read(&caller, "default/disable_policy"), "0\n");
+    assert_eq!(read(&caller, "lo/disable_policy"), "1\n");
+    assert_eq!(
+        stat(&kernel, &caller, &format!("{conf}/lo/tag")).stx_mode & 0o777,
+        0o644
+    );
+    assert_eq!(
+        stat(&kernel, &caller, &format!("{conf}/lo/rp_filter")).stx_mode & 0o777,
+        0o444
+    );
+    assert_eq!(errno(write(&caller, "lo/rp_filter", "1")), Errno::EACCES);
+    assert_eq!(
+        errno(open(&kernel, &caller, &format!("{conf}/eth9/tag"))),
+        Errno::ENOENT
+    );
+
+    assert_eq!(read(&caller, "lo/tag"), "0\n");
+    assert_eq!(write(&caller, "lo/tag", "1\n"), Ok(2));
+    assert_eq!(write(&caller, "default/tag", "5"), Ok(1));
+    assert_eq!(read(&caller, "lo/tag"), "1\n", "lo has its own");
+    assert_eq!(errno(write(&caller, "lo/tag", "one")), Errno::EINVAL);
+
+    let child = fork(&kernel, &caller, CloneFlags::CLONE_NEWNET);
+    let child_caller = Caller::new(child, &memory);
+    assert_eq!(read(&child_caller, "default/tag"), "5\n");
+    assert_eq!(
+        read(&child_caller, "lo/tag"),
+        "5\n",
+        "a new lo follows default"
+    );
+    assert_eq!(write(&child_caller, "default/tag", "-7"), Ok(2));
+    assert_eq!(read(&child_caller, "lo/tag"), "-7\n");
+    assert_eq!(write(&child_caller, "lo/tag", "3"), Ok(1));
+    assert_eq!(write(&child_caller, "default/tag", "9"), Ok(1));
+    assert_eq!(read(&child_caller, "lo/tag"), "3\n");
+    assert_eq!(read(&caller, "default/tag"), "5\n");
+    assert_eq!(read(&caller, "lo/tag"), "1\n");
+}

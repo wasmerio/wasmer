@@ -226,10 +226,12 @@ pub(crate) struct Mnt {
 pub(crate) type NetworkFactory = Arc<dyn Fn() -> Arc<dyn wasixv2_vnet::Network> + Send + Sync>;
 
 /// What a network namespace holds besides its port space: the IP network, without which
-/// `socket` fails with `EAFNOSUPPORT`, and the bound Unix sockets.
+/// `socket` fails with `EAFNOSUPPORT`, the bound Unix sockets, and IPv4's configuration of
+/// its interfaces.
 pub(crate) struct Net {
     pub(crate) network: Option<Arc<dyn wasixv2_vnet::Network>>,
     pub(crate) unix_names: Arc<unix::Names>,
+    pub(crate) devconf: Mutex<crate::devinet::Devconf>,
 }
 
 /// A user namespace's creator.
@@ -385,6 +387,7 @@ impl NsProxy {
                 Net {
                     network,
                     unix_names: Arc::default(),
+                    devconf: Mutex::default(),
                 },
             ),
             pid_for_children: Ns::initial(NsKind::Pid, owner.clone(), PidSpace::initial()),
@@ -510,9 +513,11 @@ impl NsProxy {
             }
             NsKind::Ipc => self.ipc = Ns::new(kind, owner, ipc::Ipc::default(), inums)?,
             NsKind::Net => {
+                let initial = kernel.init_ns.net.devconf.lock_or_recover().for_new_net();
                 let net = Net {
                     network: kernel.network_factory.as_ref().map(|make| make()),
                     unix_names: Arc::new(self.net.unix_names.for_new_net()),
+                    devconf: Mutex::new(initial),
                 };
                 self.net = Ns::new(kind, owner, net, inums)?;
             }
