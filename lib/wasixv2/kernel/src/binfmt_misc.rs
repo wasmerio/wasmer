@@ -6,19 +6,27 @@
 //!
 //! The registry is the `binfmt_misc` filesystem, usually mounted at
 //! `/proc/sys/fs/binfmt_misc`: `register` takes `:name:type:offset:magic:mask:interpreter:flags`
-//! (types `M` and `E`; flags `P` to keep `argv[0]`, `F` to resolve the interpreter at
-//! registration, `D` to register disabled), `status` turns the whole registry on and off,
-//! and each format has a file of its own that shows it and takes `1`, `0` and `-1` (enable,
-//! disable, remove). There is one instance per kernel, mounted in the initial user namespace.
+//! (types `M` and `E`), `status` turns the whole registry on and off, and each format has a
+//! file of its own that shows it and takes `1`, `0` and `-1` (enable, disable, remove).
 //!
-//! Not provided: `O` and `C`, which pass the binary as an open descriptor (`AT_EXECFD`) and run
-//! with its credentials, and the newer `T`, `L` and `B` registrations (`EINVAL`).
+//! The flags: `P` keeps `argv[0]`; `O` hands the interpreter the binary as an open descriptor
+//! (`AT_EXECFD`), `C` also takes the new image's credentials from the binary rather than the
+//! interpreter, and `T` (transparent) leaves the arguments alone and presents the process as
+//! the binary; `F` resolves the interpreter at registration; `L` substitutes the interpreter
+//! for the binary's program interpreter, which no format here has, so it is opened and
+//! dropped as binfmt_elf drops it for a static binary; `D` registers disabled. The kernel has
+//! no BPF, so `B` registrations are `EINVAL` (`CONFIG_BINFMT_MISC_BPF` off).
+//!
+//! Every user namespace that mounts the filesystem gets an instance of its own, owned by its
+//! root (`FS_USERNS_MOUNT`, Linux 6.7); `execve` uses the instance of the caller's user
+//! namespace or of its nearest ancestor with one (`current_binfmt_misc`). An instance's formats
+//! go once nothing has it mounted (`bm_kill_sb`).
 
 use std::{
     any::Any,
     sync::{
         Arc, Mutex, Weak,
-        atomic::{AtomicBool, AtomicU64, Ordering},
+        atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering},
     },
 };
 
@@ -33,7 +41,9 @@ use wasixv2_vfs::{
 use crate::{
     TaskTable,
     fs::mount::{FilesystemType, FsParam},
+    ns::UserNs,
     sync::MutexExt,
+    userns::kernel_user_ns,
 };
 
 /// `BINFMTFS_MAGIC`.
@@ -43,6 +53,32 @@ const MAX_REGISTER_LENGTH: usize = 1920;
 const ROOT_INO: u64 = 1;
 const REGISTER_INO: u64 = 2;
 const STATUS_INO: u64 = 3;
+
+/// `MISC_FMT_PRESERVE_ARGV0` (`P`).
+pub(crate) const PRESERVE_ARGV0: u32 = 1 << 31;
+/// `MISC_FMT_OPEN_BINARY` (`O`).
+pub(crate) const OPEN_BINARY: u32 = 1 << 30;
+/// `MISC_FMT_CREDENTIALS` (`C`).
+pub(crate) const CREDENTIALS: u32 = 1 << 29;
+/// `MISC_FMT_OPEN_FILE` (`F`).
+const OPEN_FILE: u32 = 1 << 28;
+/// `MISC_FMT_TRANSPARENT` (`T`).
+pub(crate) const TRANSPARENT: u32 = 1 << 27;
+/// `MISC_FMT_LOADER` (`L`).
+pub(crate) const LOADER: u32 = 1 << 26;
+/// `MISC_FMT_DISABLED` (`D`), consumed at registration.
+const DISABLED: u32 = 1 << 25;
+
+/// `misc_flags`: each flag's letter, its bit and the bits it implies, in the order shown.
+const FLAGS: [(u8, u32, u32); 7] = [
+    (b'P', PRESERVE_ARGV0, 0),
+    (b'O', OPEN_BINARY, 0),
+    (b'C', CREDENTIALS, OPEN_BINARY),
+    (b'F', OPEN_FILE, 0),
+    (b'T', TRANSPARENT, OPEN_BINARY),
+    (b'L', LOADER, 0),
+    (b'D', DISABLED, 0),
+];
 
 /// How a format is recognised.
 enum Match {
@@ -63,12 +99,10 @@ pub(crate) struct Entry {
     enabled: AtomicBool,
     how: Match,
     interpreter: Vec<u8>,
-    /// `P`: `argv[0]` stays after the file's name.
-    preserve_argv0: bool,
+    /// The `MISC_FMT_*` flags but `D`.
+    flags: u32,
     /// `F`: the interpreter as resolved at registration.
     interp_file: Option<Path>,
-    /// The flags as given, for the entry's file.
-    flags: String,
 }
 
 impl Entry {
@@ -99,7 +133,10 @@ impl Entry {
         };
         out.extend_from_slice(b"interpreter ");
         out.extend_from_slice(&self.interpreter);
-        out.extend_from_slice(format!("\nflags: {}\n", self.flags).as_bytes());
+        out.extend_from_slice(b"\nflags: ");
+        let shown = FLAGS.iter().filter(|(_, bit, _)| self.flags & bit != 0);
+        out.extend(shown.map(|(c, _, _)| *c));
+        out.push(b'\n');
         match &self.how {
             Match::Extension(ext) => {
                 out.extend_from_slice(b"extension .");
@@ -126,34 +163,43 @@ fn hex(bytes: &[u8]) -> String {
     bytes.iter().map(|b| format!("{b:02x}")).collect()
 }
 
-/// What `execve` does with a file a format took: the interpreter to open, and the arguments.
+/// What `execve` does with a file a format took: the interpreter to open, and how
+/// (`MISC_FMT_*` flags).
 pub(crate) struct Handover {
     pub(crate) interpreter: Vec<u8>,
     pub(crate) interp_file: Option<Path>,
-    pub(crate) preserve_argv0: bool,
+    pub(crate) flags: u32,
 }
 
-/// The registry, and the filesystem that shows it.
+/// A registry of formats (`struct binfmt_misc`): the kernel's, for the initial user namespace,
+/// or the one a user namespace made with its first mount.
 pub(crate) struct BinfmtMisc {
     enabled: AtomicBool,
     /// Newest first, the order they are tried in.
     entries: Mutex<Vec<Arc<Entry>>>,
     next_ino: AtomicU64,
-    mounted: Timestamp,
+    /// The superblocks that show it: its formats go with the last (`bm_kill_sb`).
+    supers: AtomicUsize,
+    clock: Arc<dyn Clock>,
     /// Who writes a registration, and where its interpreter is (`F`).
     tasks: Weak<TaskTable>,
     vfs: Weak<Vfs>,
 }
 
 impl BinfmtMisc {
-    pub(crate) fn new(clock: Arc<dyn Clock>, tasks: &Arc<TaskTable>, vfs: &Arc<Vfs>) -> Arc<Self> {
+    pub(crate) fn new(
+        clock: Arc<dyn Clock>,
+        tasks: &Weak<TaskTable>,
+        vfs: &Weak<Vfs>,
+    ) -> Arc<Self> {
         Arc::new(Self {
             enabled: AtomicBool::new(true),
             entries: Mutex::default(),
             next_ino: AtomicU64::new(STATUS_INO + 1),
-            mounted: clock.now(),
-            tasks: Arc::downgrade(tasks),
-            vfs: Arc::downgrade(vfs),
+            supers: AtomicUsize::new(0),
+            clock,
+            tasks: tasks.clone(),
+            vfs: vfs.clone(),
         })
     }
 
@@ -171,7 +217,7 @@ impl BinfmtMisc {
         Some(Handover {
             interpreter: entry.interpreter.clone(),
             interp_file: entry.interp_file.clone(),
-            preserve_argv0: entry.preserve_argv0,
+            flags: entry.flags,
         })
     }
 
@@ -184,7 +230,7 @@ impl BinfmtMisc {
     /// writer `task` sees it, then `add_entry` (`EEXIST` for a name in use).
     async fn register(&self, data: &[u8], task: u32) -> FsResult<usize> {
         let mut entry = create_entry(data, self.next_ino.fetch_add(1, Ordering::Relaxed))?;
-        if entry.flags.contains('F') {
+        if entry.flags & OPEN_FILE != 0 {
             entry.interp_file = Some(self.resolve_interpreter(&entry.interpreter, task).await?);
         }
         let mut entries = self.entries.lock_or_recover();
@@ -312,28 +358,38 @@ fn create_entry(data: &[u8], ino: u64) -> FsResult<Entry> {
             }
             Match::Extension(magic.to_vec())
         }
+        // `B`: no BPF handlers without `CONFIG_BINFMT_MISC_BPF`.
         _ => return Err(Errno::EINVAL),
     };
     if interpreter.is_empty() {
         return Err(Errno::EINVAL);
     }
-    // Flags not provided here (`O`, `C`, `T`, `L`) or unknown end the registration.
-    if flags.iter().any(|f| !b"PFD".contains(f)) {
+    // `check_special_flags`: an unknown letter ends the flags, and what follows is `EINVAL`.
+    let mut bits = 0;
+    for c in flags {
+        let (_, bit, implies) = FLAGS.iter().find(|(f, ..)| f == c).ok_or(Errno::EINVAL)?;
+        bits |= bit | implies;
+    }
+    // Transparency keeps the whole argv, and a loader substitution changes nothing of it.
+    if bits & TRANSPARENT != 0 && bits & PRESERVE_ARGV0 != 0 {
         return Err(Errno::EINVAL);
     }
-    let shown: String = ['P', 'F']
-        .into_iter()
-        .filter(|c| flags.contains(&(*c as u8)))
-        .collect();
+    let invocation = TRANSPARENT | PRESERVE_ARGV0 | CREDENTIALS | OPEN_BINARY;
+    if bits & LOADER != 0 && bits & invocation != 0 {
+        return Err(Errno::EINVAL);
+    }
+    // Without `F` the interpreter is opened at exec from the caller's working directory.
+    if bits & (LOADER | CREDENTIALS) != 0 && bits & OPEN_FILE == 0 && interpreter[0] != b'/' {
+        return Err(Errno::EINVAL);
+    }
     Ok(Entry {
         name: name.to_vec(),
         ino,
-        enabled: AtomicBool::new(!flags.contains(&b'D')),
+        enabled: AtomicBool::new(bits & DISABLED == 0),
         how,
         interpreter: interpreter.to_vec(),
-        preserve_argv0: flags.contains(&b'P'),
+        flags: bits & !DISABLED,
         interp_file: None,
-        flags: shown,
     })
 }
 
@@ -357,24 +413,120 @@ fn unescape(field: &[u8]) -> Option<Vec<u8>> {
     Some(out)
 }
 
-/// The `binfmt_misc` filesystem type: every mount is the kernel's one instance.
-pub(crate) struct BinfmtMiscType(pub(crate) Arc<BinfmtMisc>);
+/// The instances, one per user namespace that mounted the filesystem (`user_ns->binfmt_misc`):
+/// the kernel's for the initial one, and one made by the first mount in any other.
+pub(crate) struct Instances {
+    init: Arc<BinfmtMisc>,
+    init_ns: Arc<UserNs>,
+    /// An instance goes with its namespace, which nothing can then exec in.
+    others: Mutex<Vec<(Weak<UserNs>, Arc<BinfmtMisc>)>>,
+}
+
+impl Instances {
+    pub(crate) fn new(init: Arc<BinfmtMisc>, init_ns: &Arc<UserNs>) -> Arc<Self> {
+        Arc::new(Self {
+            init,
+            init_ns: init_ns.clone(),
+            others: Mutex::default(),
+        })
+    }
+
+    fn of(&self, ns: &Arc<UserNs>) -> Option<Arc<BinfmtMisc>> {
+        if Arc::ptr_eq(ns, &self.init_ns) {
+            return Some(self.init.clone());
+        }
+        let others = self.others.lock_or_recover();
+        let found = others
+            .iter()
+            .find(|(at, _)| std::ptr::eq(at.as_ptr(), Arc::as_ptr(ns)));
+        found.map(|(_, misc)| misc.clone())
+    }
+
+    /// `current_binfmt_misc`: the instance of `ns`, or of its nearest ancestor with one.
+    pub(crate) fn current(&self, ns: &Arc<UserNs>) -> Arc<BinfmtMisc> {
+        let mut at = Some(ns);
+        while let Some(ns) = at {
+            if let Some(misc) = self.of(ns) {
+                return misc;
+            }
+            at = ns.parent();
+        }
+        self.init.clone()
+    }
+
+    /// `bm_fill_super`: the instance of `ns`, made now if it has none.
+    fn get_or_make(&self, ns: &Arc<UserNs>) -> Arc<BinfmtMisc> {
+        if let Some(misc) = self.of(ns) {
+            return misc;
+        }
+        let mut others = self.others.lock_or_recover();
+        others.retain(|(ns, _)| ns.strong_count() > 0);
+        let init = &self.init;
+        let misc = BinfmtMisc::new(init.clock.clone(), &init.tasks, &init.vfs);
+        others.push((Arc::downgrade(ns), misc.clone()));
+        misc
+    }
+}
+
+/// The `binfmt_misc` filesystem type: a mount shows the instance of the mounter's user
+/// namespace.
+pub(crate) struct BinfmtMiscType(pub(crate) Arc<Instances>);
 
 impl FilesystemType for BinfmtMiscType {
     fn mount(
         &self,
         _source: &[u8],
         params: &[FsParam<'_>],
-        _cred: &Cred,
+        cred: &Cred,
     ) -> Result<Arc<dyn Filesystem>, Errno> {
         if !params.is_empty() {
             return Err(Errno::EINVAL);
         }
-        Ok(Arc::new(MiscFs(self.0.clone())))
+        let ns = kernel_user_ns(&cred.user_ns, &self.0.init_ns);
+        let misc = self.0.get_or_make(&ns);
+        // `simple_fill_super`'s inodes belong to the namespace's root (`i_uid_write(.., 0)`).
+        let owner = (
+            ns.make_kuid(0).map_or(u32::MAX, |k| k.0),
+            ns.make_kgid(0).map_or(u32::MAX, |k| k.0),
+        );
+        Ok(MiscFs::new(misc, owner))
+    }
+
+    fn userns_mount(&self) -> bool {
+        true
     }
 }
 
-struct MiscFs(Arc<BinfmtMisc>);
+/// One superblock of an instance.
+struct MiscFs {
+    misc: Arc<BinfmtMisc>,
+    owner: (u32, u32),
+    mounted: Timestamp,
+}
+
+impl MiscFs {
+    fn new(misc: Arc<BinfmtMisc>, owner: (u32, u32)) -> Arc<Self> {
+        // A first superblock turns the instance back on (`bm_fill_super`).
+        if misc.supers.fetch_add(1, Ordering::AcqRel) == 0 {
+            misc.enabled.store(true, Ordering::Release);
+        }
+        let mounted = misc.clock.now();
+        Arc::new(Self {
+            misc,
+            owner,
+            mounted,
+        })
+    }
+}
+
+impl Drop for MiscFs {
+    /// `bm_kill_sb`, whose eviction of the format files removes the formats.
+    fn drop(&mut self) {
+        if self.misc.supers.fetch_sub(1, Ordering::AcqRel) == 1 {
+            self.misc.entries.lock_or_recover().clear();
+        }
+    }
+}
 
 #[async_trait(?Send)]
 impl Filesystem for MiscFs {
@@ -392,8 +544,10 @@ impl Filesystem for MiscFs {
 
     fn root(&self) -> Arc<dyn Node> {
         Arc::new(MiscNode {
-            misc: self.0.clone(),
+            misc: self.misc.clone(),
             ino: ROOT_INO,
+            owner: self.owner,
+            mounted: self.mounted,
         })
     }
 
@@ -411,6 +565,9 @@ impl Filesystem for MiscFs {
 struct MiscNode {
     misc: Arc<BinfmtMisc>,
     ino: u64,
+    /// The superblock's: who owns everything, and when it was made.
+    owner: (u32, u32),
+    mounted: Timestamp,
 }
 
 impl MiscNode {
@@ -418,6 +575,8 @@ impl MiscNode {
         Arc::new(MiscNode {
             misc: self.misc.clone(),
             ino,
+            owner: self.owner,
+            mounted: self.mounted,
         })
     }
 }
@@ -439,7 +598,7 @@ impl Node for MiscNode {
         self
     }
 
-    /// Everything is root's: the root `0755`, `register` `0200`, the rest `0644`.
+    /// Everything is the namespace root's: the root `0755`, `register` `0200`, the rest `0644`.
     async fn getattr(&self) -> FsResult<Attr> {
         let (mode, nlink) = match self.ino {
             ROOT_INO => (0o755, 2),
@@ -448,14 +607,14 @@ impl Node for MiscNode {
             ino if self.misc.entry(ino).is_some() => (0o644, 1),
             _ => (0o644, 0),
         };
-        let time = self.misc.mounted;
+        let time = self.mounted;
         Ok(Attr {
             ino: self.ino,
             file_type: self.file_type(),
             mode,
             nlink,
-            uid: 0,
-            gid: 0,
+            uid: self.owner.0,
+            gid: self.owner.1,
             rdev: Default::default(),
             size: 0,
             blocks: 0,
@@ -595,7 +754,7 @@ mod tests {
         )
         .unwrap();
         assert_eq!(e.name, b"qemu-arm");
-        assert!(e.preserve_argv0);
+        assert_eq!(e.flags, PRESERVE_ARGV0 | OPEN_FILE);
         assert!(e.matches(b"\x7fELF\x00rest", b"/x"));
         assert!(!e.matches(b"\x7fELF\x02rest", b"/x"));
         let shown = "enabled\ninterpreter /bin/qemu\nflags: PF\noffset 0\nmagic 7f454c4601\nmask fffffffffe\n";
@@ -611,9 +770,16 @@ mod tests {
             b"\\a\\M\\\\x\\\\/i\\",
             b":a/b:M::x::/i:",
             b":ab:Q::x::/i:",
-            b":ab:M::x::/i:O",
+            b":ab:M::x::/i:Q",
             b":ab:M::xy:\\xff:/i:",
             b":ab:M:255:xy::/i:",
+            // `B` needs BPF; `T` keeps argv[0] already; `L` takes no invocation flags; `C`
+            // and `L` open the interpreter by an absolute name unless `F` pins it.
+            b":ab:B::::h:",
+            b":ab:M::x::/i:TP",
+            b":ab:M::x::/i:LO",
+            b":ab:M::x::i:C",
+            b":ab:M::x::i:L",
         ] {
             assert!(
                 create_entry(bad, 1).is_err(),
@@ -621,5 +787,27 @@ mod tests {
                 String::from_utf8_lossy(bad)
             );
         }
+    }
+
+    #[test]
+    fn flags_imply_and_show_as_linux_does() {
+        // `C` and `T` imply `O`; the letters show in `misc_flags` order; `D` is consumed.
+        let c = create_entry(b":c:M::x::/i:CD", 1).unwrap();
+        assert_eq!(c.flags, CREDENTIALS | OPEN_BINARY);
+        assert!(!c.enabled.load(Ordering::Relaxed));
+        assert!(
+            String::from_utf8(c.show())
+                .unwrap()
+                .contains("\nflags: OC\n")
+        );
+        let t = create_entry(b":t:E::t::/i:T", 2).unwrap();
+        assert_eq!(t.flags, TRANSPARENT | OPEN_BINARY);
+        let l = create_entry(b":l:E::l::rel:LF", 3).unwrap();
+        assert_eq!(l.flags, LOADER | OPEN_FILE);
+        assert!(
+            String::from_utf8(l.show())
+                .unwrap()
+                .contains("\nflags: FL\n")
+        );
     }
 }

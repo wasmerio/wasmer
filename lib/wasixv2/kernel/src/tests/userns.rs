@@ -1107,3 +1107,48 @@ fn namespace_sysctls_are_writable_by_the_namespaces_root_only() {
     assert_eq!(access(&kernel, &init, pid_max, AccessMode::W_OK), Ok(0));
     assert_eq!(write_text(&kernel, &init, pid_max, "1000"), Ok(4));
 }
+
+/// Whether `execve` of a file named `name` in `p`'s user namespace would go to a binfmt_misc
+/// interpreter (`current_binfmt_misc`, then the match).
+fn misc_takes(kernel: &Kernel, p: &P, name: &[u8]) -> bool {
+    let ns = kernel.process(p.task).cred().user_ns;
+    kernel.binfmt_misc.current(&ns).lookup(b"", name).is_some()
+}
+
+/// A user namespace that mounts binfmt_misc gets an instance of its own, owned by its root
+/// (Linux 6.7): its formats apply to it and below, and the formats above stop applying to it.
+/// Until then it uses its nearest ancestor's.
+#[test]
+fn binfmt_misc_has_an_instance_per_user_namespace_that_mounts_it() {
+    let (kernel, root, user) = mounting_machine();
+    assert_eq!(mkdir(&kernel, &root, "/mnt/bm"), Ok(0));
+    assert_eq!(mount(&kernel, &root, "/mnt/bm", "binfmt_misc"), Ok(0));
+    let init = ":init:E::ii::/prog:";
+    assert_eq!(
+        write_text(&kernel, &root, "/mnt/bm/register", init),
+        Ok(init.len() as u32)
+    );
+    assert_eq!(mkdir(&kernel, &user, "/mnt/own"), Ok(0));
+    become_root(&kernel, &user, CloneFlags::CLONE_NEWNS);
+    assert!(misc_takes(&kernel, &user, b"/x.ii"), "the initial instance");
+
+    assert_eq!(mount(&kernel, &user, "/mnt/own", "binfmt_misc"), Ok(0));
+    assert_eq!(owner(&kernel, &user, "/mnt/own/register"), (0, 0));
+    assert_eq!(
+        errno(open(&kernel, &user, "/mnt/own/init", OpenFlags::O_RDONLY)),
+        Errno::ENOENT
+    );
+    let own = ":own:E::oo::/prog:";
+    assert_eq!(
+        write_text(&kernel, &user, "/mnt/own/register", own),
+        Ok(own.len() as u32)
+    );
+    assert!(misc_takes(&kernel, &user, b"/x.oo"));
+    assert!(!misc_takes(&kernel, &user, b"/x.ii"));
+    assert!(!misc_takes(&kernel, &root, b"/x.oo"));
+    assert!(misc_takes(&kernel, &root, b"/x.ii"));
+    assert_eq!(
+        errno(open(&kernel, &root, "/mnt/bm/own", OpenFlags::O_RDONLY)),
+        Errno::ENOENT
+    );
+}

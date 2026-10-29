@@ -233,6 +233,14 @@ impl Dumpable {
     }
 }
 
+/// The auxiliary vector entries of a binfmt_misc hand-over: the descriptor of the binary
+/// (`AT_EXECFD`, with `O`) and how the interpreter was invoked (`AT_FLAGS`).
+#[derive(Clone, Copy, Default)]
+pub(crate) struct ExecAux {
+    pub(crate) execfd: Option<u32>,
+    pub(crate) flags: u32,
+}
+
 /// What `prctl` and friends keep per process.
 #[derive(Clone)]
 pub(crate) struct Ident {
@@ -244,6 +252,8 @@ pub(crate) struct Ident {
     pub(crate) personality: u32,
     /// Whether the current image was started privilege-elevating (`AT_SECURE`).
     pub(crate) secure_exec: bool,
+    /// What binfmt_misc handed the current image (`AT_EXECFD`, `AT_FLAGS`).
+    pub(crate) exec_aux: ExecAux,
     /// The controlling terminal (`signal->tty`): a child inherits it, `execve` keeps it,
     /// `setsid` drops it.
     pub(crate) tty: Option<std::sync::Arc<crate::tty::Tty>>,
@@ -276,6 +286,7 @@ impl Ident {
             child_subreaper: false,
             personality: 0,
             secure_exec: false,
+            exec_aux: ExecAux::default(),
             tty: None,
             oom_score_adj: 0,
             oom_score_adj_min: 0,
@@ -375,6 +386,11 @@ impl Process {
             egid: ns.munged_gid(cred.group.effective),
             secure: self.ident.lock_or_recover().secure_exec,
         }
+    }
+
+    /// The auxiliary vector entries binfmt_misc gave the current image.
+    pub(crate) fn exec_aux(&self) -> ExecAux {
+        self.ident.lock_or_recover().exec_aux
     }
 
     /// Applies `change` to the credentials, if it allows.

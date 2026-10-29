@@ -213,8 +213,9 @@ pub struct Kernel {
     pids: Arc<pid::Pids>,
     /// The formats `execve` starts besides scripts; by default anything with wasm's magic.
     binfmt: Arc<dyn Binfmt>,
-    /// The formats registered at run time, tried before scripts (`binfmt_misc`).
-    binfmt_misc: Arc<binfmt_misc::BinfmtMisc>,
+    /// The formats registered at run time, tried before scripts, per user namespace
+    /// (`binfmt_misc`).
+    binfmt_misc: Arc<binfmt_misc::Instances>,
     // ---- ipc ----
     /// Serialises epoll nesting changes with their loop checks (`epnested_mutex`).
     epoll_nesting: Mutex<()>,
@@ -452,7 +453,12 @@ impl Kernel {
         fanotify.bind(&state, &vfs);
         fs::dnotify::Notify::install(&vfs, inotify.clone(), dnotify.clone(), fanotify.clone());
         let init_user_ns = ns::UserNs::initial_user();
-        let binfmt_misc = binfmt_misc::BinfmtMisc::new(clock.clone(), &state, &vfs);
+        let binfmt_misc = binfmt_misc::BinfmtMisc::new(
+            clock.clone(),
+            &Arc::downgrade(&state),
+            &Arc::downgrade(&vfs),
+        );
+        let binfmt_misc = binfmt_misc::Instances::new(binfmt_misc, &init_user_ns);
         let filesystems = fs::mount::Registry::new();
         let misc_type = Arc::new(binfmt_misc::BinfmtMiscType(binfmt_misc.clone()));
         filesystems.add("binfmt_misc", misc_type);
@@ -772,7 +778,7 @@ impl Syscalls for Kernel {
             process.args.lock_or_recover(),
             process.env.lock_or_recover(),
         );
-        Ok(Startup::new(&args, &env, process.identity()).size()?)
+        Ok(Startup::new(&args, &env, process.identity(), process.exec_aux()).size()?)
     }
 
     async fn startup_get(&self, caller: &Caller<'_>, buf: UserSliceMut) -> SysResult<i32> {
@@ -784,7 +790,7 @@ impl Syscalls for Kernel {
             process.args.lock_or_recover().clone(),
             process.env.lock_or_recover().clone(),
         );
-        let startup = Startup::new(&args, &env, process.identity());
+        let startup = Startup::new(&args, &env, process.identity(), process.exec_aux());
         // The address space starts out as the image left it.
         self.mem_size(caller).await;
         if buf.len < startup.size()? {

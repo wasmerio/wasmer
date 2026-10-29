@@ -3,7 +3,7 @@
 use wasixv2_abi::AuxvType;
 use wasixv2_syscalls::Errno;
 
-use crate::mm::PAGE_SIZE;
+use crate::{ident::ExecAux, mm::PAGE_SIZE};
 
 const WORD: usize = 4;
 const RANDOM_LEN: usize = 16;
@@ -22,8 +22,8 @@ const AUXV: &[(AuxvType, u32)] = &[
     ),
     (AuxvType::AT_RSEQ_ALIGN, crate::rseq::RSEQ_ALIGN),
 ];
-/// The identity entries, the random bytes and `AT_NULL`.
-const AUXV_EXTRA: usize = 7;
+/// The identity entries, `AT_FLAGS`, the random bytes and `AT_NULL`.
+const AUXV_EXTRA: usize = 8;
 
 /// Who the process runs as: `AT_UID`, `AT_EUID`, `AT_GID`, `AT_EGID` and `AT_SECURE`.
 #[derive(Clone, Copy)]
@@ -40,20 +40,28 @@ pub(crate) struct Startup<'a> {
     args: &'a [Vec<u8>],
     env: &'a [Vec<u8>],
     identity: Identity,
+    exec: ExecAux,
 }
 
 impl<'a> Startup<'a> {
-    pub(crate) fn new(args: &'a [Vec<u8>], env: &'a [Vec<u8>], identity: Identity) -> Self {
+    pub(crate) fn new(
+        args: &'a [Vec<u8>],
+        env: &'a [Vec<u8>],
+        identity: Identity,
+        exec: ExecAux,
+    ) -> Self {
         Self {
             args,
             env,
             identity,
+            exec,
         }
     }
 
     fn header_len(&self) -> usize {
         let pointers = 1 + self.args.len() + 1 + self.env.len() + 1;
-        let auxv = (AUXV.len() + AUXV_EXTRA) * 2;
+        let execfd = usize::from(self.exec.execfd.is_some());
+        let auxv = (AUXV.len() + AUXV_EXTRA + execfd) * 2;
         (pointers + auxv) * WORD
     }
 
@@ -103,7 +111,12 @@ impl<'a> Startup<'a> {
         words.extend([AuxvType::AT_UID.0, id.uid, AuxvType::AT_EUID.0, id.euid]);
         words.extend([AuxvType::AT_GID.0, id.gid, AuxvType::AT_EGID.0, id.egid]);
         words.extend([AuxvType::AT_SECURE.0, id.secure as u32]);
+        words.extend([AuxvType::AT_FLAGS.0, self.exec.flags]);
         words.extend([AuxvType::AT_RANDOM.0, base + random_at as u32]);
+        // `create_elf_tables`: the binary binfmt_misc handed over.
+        if let Some(fd) = self.exec.execfd {
+            words.extend([AuxvType::AT_EXECFD.0, fd]);
+        }
         words.extend([AuxvType::AT_NULL.0, 0]);
 
         for (word, out) in words.iter().zip(block.chunks_exact_mut(WORD)) {

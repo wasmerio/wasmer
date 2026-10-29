@@ -1159,7 +1159,208 @@ fn binfmt_misc_runs_registered_formats_through_their_interpreter() {
     assert_eq!(write(b"/bm/status", b"-1"), Ok(2));
     assert_eq!(errno(read(b"/bm/ext")), Errno::ENOENT);
     assert_eq!(
-        errno(write(b"/bm/register", b":bad:M::x::/i:O")),
+        errno(write(b"/bm/register", b":bad:B::::handler:")),
         Errno::EINVAL
     );
+}
+
+/// The kernel side of `execve` for binfmt_misc tests: files, registrations and the startup
+/// block's auxiliary vector.
+struct Misc<'a> {
+    kernel: &'a Kernel,
+    caller: &'a Caller<'a>,
+    memory: &'a FlatMemory,
+}
+
+impl Misc<'_> {
+    fn cstr(&self, addr: u32, s: &[u8]) -> Cstr {
+        put(self.memory, addr, &[s, b"\0"].concat());
+        Cstr::new(addr)
+    }
+
+    fn write(&self, path: &[u8], data: &[u8]) -> SysResult<u32> {
+        let open = self.kernel.openat(
+            self.caller,
+            Fd(-100),
+            self.cstr(0x3000, path),
+            OpenFlags::O_WRONLY | OpenFlags::O_CREAT,
+            0o755,
+        );
+        let fd = block_on(open)?;
+        put(self.memory, 0x3400, data);
+        let slice = UserSlice::new(0x3400, data.len() as u32);
+        let n = block_on(self.kernel.write(self.caller, fd, slice));
+        assert_eq!(block_on(self.kernel.close(self.caller, fd)), Ok(0));
+        n
+    }
+
+    fn exec(&self, path: &[u8], argv: &[&[u8]]) -> SysResult<i32> {
+        self.cstr(0x2200, path);
+        let mut ptrs = Vec::new();
+        for (i, arg) in argv.iter().enumerate() {
+            let at = 0x2600 + 0x40 * i as u32;
+            self.cstr(at, arg);
+            ptrs.extend_from_slice(&at.to_le_bytes());
+        }
+        ptrs.extend_from_slice(&[0; 4]);
+        put(self.memory, 0x2500, &ptrs);
+        put(self.memory, 0x2580, &[0; 4]);
+        block_on(self.kernel.execve(
+            self.caller,
+            GuestPtr::new(0x2200),
+            GuestPtr::new(0x2500),
+            GuestPtr::new(0x2580),
+        ))
+    }
+
+    fn args(&self) -> Vec<Vec<u8>> {
+        let task = self.caller.task();
+        self.kernel.process(task).args.lock_or_recover().clone()
+    }
+
+    /// The value of auxv entry `key` in the block `startup_get` writes now.
+    fn auxv(&self, key: u32) -> Option<u32> {
+        let base = 0x8000;
+        let size = block_on(self.kernel.startup_size(self.caller)).unwrap();
+        let get = self
+            .kernel
+            .startup_get(self.caller, UserSliceMut::new(base, size));
+        assert_eq!(block_on(get), Ok(0));
+        let word = |at: u32| {
+            let memory = self.memory.0.borrow();
+            u32::from_le_bytes(memory[at as usize..][..4].try_into().unwrap())
+        };
+        let argc = word(base);
+        let mut at = base + 4 * (argc + 2);
+        while word(at) != 0 {
+            at += 4;
+        }
+        at += 4;
+        while word(at) != 0 {
+            if word(at) == key {
+                return Some(word(at + 4));
+            }
+            at += 8;
+        }
+        None
+    }
+
+    /// The first bytes read from descriptor `fd`.
+    fn read_fd(&self, fd: u32, len: u32) -> Vec<u8> {
+        let read = self
+            .kernel
+            .read(self.caller, Fd(fd as i32), UserSliceMut::new(0x3800, len));
+        let n = block_on(read).unwrap();
+        self.memory.0.borrow()[0x3800..0x3800 + n as usize].to_vec()
+    }
+}
+
+#[test]
+fn binfmt_misc_hands_over_the_binary_as_an_open_descriptor() {
+    const AT_EXECFD: u32 = 2;
+    const AT_FLAGS: u32 = 8;
+    let (kernel, task, memory) = super::cred::machine_as(0, 0);
+    let caller = Caller::new(task, &memory);
+    install_prog(&kernel, &caller, &memory);
+    let m = Misc {
+        kernel: &kernel,
+        caller: &caller,
+        memory: &memory,
+    };
+    let mkdir = kernel.mkdirat(&caller, Fd(-100), m.cstr(0x3000, b"/bm"), 0o755);
+    assert_eq!(block_on(mkdir), Ok(0));
+    let mount = kernel.mount(
+        &caller,
+        m.cstr(0x3000, b"binfmt_misc"),
+        m.cstr(0x3100, b"/bm"),
+        m.cstr(0x3200, b"binfmt_misc"),
+        wasixv2_abi::MountFlags(0),
+        wasixv2_abi::ConstVoidPtr::NULL,
+    );
+    assert_eq!(block_on(mount), Ok(0));
+    let register = |line: &[u8]| m.write(b"/bm/register", line);
+
+    // Without `O` there is no descriptor; `P` shows in `AT_FLAGS`.
+    assert!(register(b":keep:E::k::/prog:P").is_ok());
+    m.write(b"/f.k", b"zz").unwrap();
+    assert_eq!(m.exec(b"/f.k", &[b"zero"]), Ok(0));
+    assert_eq!((m.auxv(AT_EXECFD), m.auxv(AT_FLAGS)), (None, Some(1)));
+
+    // `O`: the interpreter gets the binary open at the lowest free descriptor, with the
+    // arguments rewritten as usual.
+    assert!(register(b":open:M::OPEN::/prog:O").is_ok());
+    m.write(b"/data", b"OPENxyz").unwrap();
+    assert_eq!(m.exec(b"/data", &[b"data", b"a"]), Ok(0));
+    assert_eq!(m.args(), [&b"/prog"[..], b"/data", b"a"]);
+    let fd = m.auxv(AT_EXECFD).expect("AT_EXECFD");
+    assert_eq!(m.auxv(AT_FLAGS), Some(0));
+    assert_eq!(m.read_fd(fd, 16), b"OPENxyz");
+    assert_eq!(block_on(kernel.close(&caller, Fd(fd as i32))), Ok(0));
+
+    // `T`: the arguments stay as they were.
+    assert!(register(b":tr:E::tr::/prog:T").is_ok());
+    m.write(b"/x.tr", b"TR").unwrap();
+    assert_eq!(m.exec(b"/x.tr", &[b"zero", b"one"]), Ok(0));
+    assert_eq!(m.args(), [&b"zero"[..], b"one"]);
+    let fd = m.auxv(AT_EXECFD).expect("AT_EXECFD");
+    assert_eq!(m.auxv(AT_FLAGS), Some(2));
+    assert_eq!(m.read_fd(fd, 16), b"TR");
+    assert_eq!(block_on(kernel.close(&caller, Fd(fd as i32))), Ok(0));
+
+    // `L`: the substitute program interpreter is opened, then dropped, since a wasm image has
+    // none; the image runs as it is. One that does not open fails the exec.
+    assert!(register(b":ld:E::ld::/prog:L").is_ok());
+    m.write(b"/w.ld", IMAGE).unwrap();
+    assert_eq!(m.exec(b"/w.ld", &[b"w"]), Ok(0));
+    assert_eq!(m.args(), [&b"w"[..]]);
+    assert!(register(b":gone:E::gn::/nowhere:L").is_ok());
+    m.write(b"/w.gn", IMAGE).unwrap();
+    assert_eq!(errno(m.exec(b"/w.gn", &[b"w"])), Errno::ENOENT);
+
+    // Only one binary can be handed over: an interpreter that is itself an `O` format's.
+    m.write(b"/chain", b"OPEN").unwrap();
+    assert!(register(b":chain:M::CHN::/chain:O").is_ok());
+    m.write(b"/c", b"CHN").unwrap();
+    assert_eq!(errno(m.exec(b"/c", &[b"c"])), Errno::ENOEXEC);
+}
+
+#[test]
+fn binfmt_misc_takes_credentials_from_the_binary_with_c() {
+    let (kernel, task, memory) = super::cred::machine_as(0, 0);
+    let caller = Caller::new(task, &memory);
+    install_prog(&kernel, &caller, &memory);
+    let m = Misc {
+        kernel: &kernel,
+        caller: &caller,
+        memory: &memory,
+    };
+    let mkdir = kernel.mkdirat(&caller, Fd(-100), m.cstr(0x3000, b"/bm"), 0o755);
+    assert_eq!(block_on(mkdir), Ok(0));
+    let mount = kernel.mount(
+        &caller,
+        m.cstr(0x3000, b"binfmt_misc"),
+        m.cstr(0x3100, b"/bm"),
+        m.cstr(0x3200, b"binfmt_misc"),
+        wasixv2_abi::MountFlags(0),
+        wasixv2_abi::ConstVoidPtr::NULL,
+    );
+    assert_eq!(block_on(mount), Ok(0));
+    // A set-user-ID binary of uid 1000; the interpreter is root's and not set-user-ID.
+    for name in [&b"/x.osu"[..], b"/x.csu"] {
+        m.write(name, b"x").unwrap();
+        let path = m.cstr(0x3000, name);
+        let chown = kernel.fchownat(&caller, Fd(-100), path, 1000, 1000, AtFlags(0));
+        assert_eq!(block_on(chown), Ok(0));
+        let chmod = kernel.fchmodat(&caller, Fd(-100), path, 0o4755);
+        assert_eq!(block_on(chmod), Ok(0));
+    }
+    let euid = || kernel.process(task).cred().user.effective.0;
+    assert!(m.write(b"/bm/register", b":o:E::osu::/prog:O").is_ok());
+    assert!(m.write(b"/bm/register", b":c:E::csu::/prog:C").is_ok());
+    // `O` alone: the interpreter's credentials.
+    assert_eq!(m.exec(b"/x.osu", &[b"o"]), Ok(0));
+    assert_eq!(euid(), 0);
+    // `C`: the binary's set-user-ID bit applies.
+    assert_eq!(m.exec(b"/x.csu", &[b"c"]), Ok(0));
+    assert_eq!(euid(), 1000);
 }
