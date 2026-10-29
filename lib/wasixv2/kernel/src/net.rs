@@ -11,10 +11,10 @@
 use std::{cell::RefCell, net::SocketAddr, sync::Arc, time::Duration};
 
 use wasixv2_abi::{
-    AddressFamily, Buf, ConstSockaddrPtr, ConstUserMsghdrPtr, FdPair, GuestLayout, GuestPtr,
-    GuestPtrMut, Iovec, KernelOldTimeval, KernelSockTimeval, MmsghdrArray, MsgFlags, OpenFlags,
-    ShutdownHow, SockaddrPtr, SocketFlags, SocketLevel, SocketOption, SocketType, Socklen,
-    SocklenPtr, UserMsghdr, UserMsghdrPtr,
+    AddressFamily, Buf, ConstSockaddrPtr, ConstUserMsghdrPtr, FdPair, GroupFilter, GuestLayout,
+    GuestPtr, GuestPtrMut, Iovec, KernelOldTimeval, KernelSockTimeval, MmsghdrArray, MsgFlags,
+    OpenFlags, ShutdownHow, SockFprog, SockaddrPtr, SocketFlags, SocketLevel, SocketOption,
+    SocketType, Socklen, SocklenPtr, UserMsghdr, UserMsghdrPtr,
 };
 use wasixv2_syscalls::{
     Caller, Errno, Fd, LocalFuture, SysErr, SysResult, UserMemory, UserSlice, UserSliceMut,
@@ -59,8 +59,6 @@ const OPTMEM_MAX: usize = 128 * 1024;
 const MAX_RW_COUNT: u32 = 0x7fff_f000;
 /// What a stream send or receive moves through kernel memory per step.
 const SOCK_CHUNK: usize = 256 * 1024;
-/// `sizeof(struct sock_fprog)` on wasm32: `len`, padding, the `filter` pointer.
-const SOCK_FPROG: usize = 8;
 /// The largest IP datagram payload. A send copies one byte more, so the protocol sees an
 /// oversized datagram and reports `EMSGSIZE` in its own order.
 const IP_MAX_DATAGRAM: usize = 65535;
@@ -1085,11 +1083,11 @@ impl Kernel {
         {
             return Err(Errno::EPERM.into());
         }
-        if raw.len() != SOCK_FPROG {
-            return Err(Errno::EINVAL.into());
-        }
-        let len = usize::from(u16::from_le_bytes([raw[0], raw[1]]));
-        let filter = u32::from_le_bytes(raw[4..8].try_into().expect("4 bytes"));
+        let fprog = match raw.len() {
+            SockFprog::SIZE => SockFprog::read_from(raw).expect("of its size"),
+            _ => return Err(Errno::EINVAL.into()),
+        };
+        let (len, filter) = (usize::from(fprog.len), fprog.filter.addr());
         if filter == 0 || len == 0 || len * bpf::INSN_LEN > bpf::MAX_PROGRAM_LEN {
             return Ok(Vec::new());
         }
@@ -1257,7 +1255,8 @@ fn source_filter_option(level: SocketLevel, name: i32) -> bool {
 
 /// The most a source filter's `getsockopt` writes: a `struct group_filter` with
 /// `sysctl_mld_max_msf` (64) sources.
-const MSFILTER_OUT: usize = 140 + 64 * 128;
+const MSFILTER_OUT: usize =
+    std::mem::offset_of!(GroupFilter, gf_slist) + 64 * wasixv2_abi::SockaddrStorage::SIZE;
 
 /// `sk_get_filter`: the attached program, whose length (`optlen`) counts instructions: 0
 /// without a filter, the count for a length of 0, `EINVAL` for a length below it, else the

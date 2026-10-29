@@ -1223,9 +1223,7 @@ impl IcmpSocket {
                         true => self.net.state().ifaces.source_on(r.iif, r.from),
                         false => Some(r.dst),
                     };
-                    let mut data = (r.iif as i32).to_le_bytes().to_vec();
-                    data.extend(v4(spec.unwrap_or(r.dst)).octets());
-                    data.extend(v4(r.dst).octets());
+                    let data = cmsg::in_pktinfo(r.iif, v4(spec.unwrap_or(r.dst)), v4(r.dst));
                     out.push(Control {
                         level: SOL_IP,
                         kind: IpOption::IP_PKTINFO.0,
@@ -1245,8 +1243,7 @@ impl IcmpSocket {
             }
             Domain::Inet6 => {
                 if g.opts.flag(SOL_IPV6, Ipv6Option::IPV6_RECVPKTINFO.0) {
-                    let mut data = v6(r.dst).octets().to_vec();
-                    data.extend(r.iif.to_le_bytes());
+                    let data = cmsg::in6_pktinfo(v6(r.dst), r.iif);
                     out.push(Control {
                         level: SOL_IPV6,
                         kind: Ipv6Option::IPV6_PKTINFO.0,

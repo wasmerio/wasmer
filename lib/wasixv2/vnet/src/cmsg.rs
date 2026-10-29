@@ -10,7 +10,9 @@
 
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
-use wasixv2_abi::{Errno, IpOption, Ipv6Option, SocketLevel};
+use wasixv2_abi::{
+    Errno, GuestLayout, In6Addr, In6Pktinfo, InAddr, InPktinfo, IpOption, Ipv6Option, SocketLevel,
+};
 
 use crate::{Control, Domain, NetResult};
 
@@ -33,9 +35,50 @@ const IPV6_2292HOPLIMIT: i32 = 8;
 const IPV6_FLOWINFO: i32 = 11;
 /// `IPV6_SRCRT_TYPE_2`, the only routing header a send may carry.
 const IPV6_SRCRT_TYPE_2: u8 = 2;
-/// `sizeof(struct in_pktinfo)` and `sizeof(struct in6_pktinfo)`.
-const IN_PKTINFO: usize = 12;
-const IN6_PKTINFO: usize = 20;
+/// `sizeof(struct in_pktinfo)`.
+const IN_PKTINFO: usize = InPktinfo::SIZE;
+
+/// An `in_addr` holding `ip` (its bytes are the address's, in network order).
+pub(crate) fn in_addr(ip: Ipv4Addr) -> InAddr {
+    InAddr {
+        s_addr: u32::from_le_bytes(ip.octets()),
+    }
+}
+
+fn ipv4(a: InAddr) -> Ipv4Addr {
+    Ipv4Addr::from(a.s_addr.to_le_bytes())
+}
+
+/// The bytes of `value` in guest layout.
+pub(crate) fn guest_bytes<T: GuestLayout>(value: &T) -> Vec<u8> {
+    let mut out = vec![0; T::SIZE];
+    value.write_to(&mut out);
+    out
+}
+
+/// A `struct in_pktinfo`: the interface, the local address and the destination.
+pub(crate) fn in_pktinfo(ifindex: u32, spec_dst: Ipv4Addr, addr: Ipv4Addr) -> Vec<u8> {
+    guest_bytes(&InPktinfo {
+        ipi_ifindex: ifindex as i32,
+        ipi_spec_dst: in_addr(spec_dst),
+        ipi_addr: in_addr(addr),
+    })
+}
+
+/// A `struct in6_pktinfo`: the address and the interface.
+pub(crate) fn in6_pktinfo(addr: Ipv6Addr, ifindex: u32) -> Vec<u8> {
+    guest_bytes(&In6Pktinfo {
+        ipi6_addr: In6Addr(addr.octets()),
+        ipi6_ifindex: ifindex as i32,
+    })
+}
+
+/// The address and interface of the `struct in6_pktinfo` `data` starts with; `EINVAL` when
+/// it is shorter.
+pub(crate) fn read_in6_pktinfo(data: &[u8]) -> NetResult<(Ipv6Addr, u32)> {
+    let info = In6Pktinfo::read_from(data).ok_or(Errno::EINVAL)?;
+    Ok((Ipv6Addr::from(info.ipi6_addr.0), info.ipi6_ifindex as u32))
+}
 
 /// What a send's control messages ask for.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -122,12 +165,8 @@ fn ip(controls: &[Control], allow_ipv6: bool) -> NetResult<SendCtl> {
     let mut ctl = SendCtl::default();
     for c in controls {
         if allow_ipv6 && c.level == SOL_IPV6 && c.kind == Ipv6Option::IPV6_PKTINFO.0 {
-            if c.data.len() < IN6_PKTINFO {
-                return Err(Errno::EINVAL);
-            }
-            let addr = Ipv6Addr::from(<[u8; 16]>::try_from(&c.data[..16]).expect("16 bytes"));
+            let (addr, index) = read_in6_pktinfo(&c.data)?;
             let src = addr.to_ipv4_mapped().ok_or(Errno::EINVAL)?;
-            let index = u32::from_le_bytes(c.data[16..20].try_into().expect("4 bytes"));
             if index != 0 {
                 ctl.oif = index;
             }
@@ -141,14 +180,14 @@ fn ip(controls: &[Control], allow_ipv6: bool) -> NetResult<SendCtl> {
             // `ip_options_get` takes at most 40 bytes of options, which are never sent.
             k if k == IpOption::IP_RETOPTS.0 => {}
             k if k == IpOption::IP_PKTINFO.0 => {
-                if c.data.len() != IN_PKTINFO {
-                    return Err(Errno::EINVAL);
+                let info = match c.data.len() {
+                    IN_PKTINFO => InPktinfo::read_from(&c.data).expect("of its size"),
+                    _ => return Err(Errno::EINVAL),
+                };
+                if info.ipi_ifindex != 0 {
+                    ctl.oif = info.ipi_ifindex as u32;
                 }
-                let index = u32::from_le_bytes(c.data[..4].try_into().expect("4 bytes"));
-                if index != 0 {
-                    ctl.oif = index;
-                }
-                let spec_dst = Ipv4Addr::from(<[u8; 4]>::try_from(&c.data[4..8]).expect("4"));
+                let spec_dst = ipv4(info.ipi_spec_dst);
                 ctl.src = Some(spec_dst.into()).filter(|ip: &IpAddr| !ip.is_unspecified());
             }
             k if k == IpOption::IP_TTL.0 => {
@@ -200,11 +239,7 @@ fn ip6(controls: &[Control], net_raw: bool) -> NetResult<SendCtl> {
         }
         match c.kind {
             k if k == Ipv6Option::IPV6_PKTINFO.0 || k == IPV6_2292PKTINFO => {
-                if c.data.len() < IN6_PKTINFO {
-                    return Err(Errno::EINVAL);
-                }
-                let addr = Ipv6Addr::from(<[u8; 16]>::try_from(&c.data[..16]).expect("16 bytes"));
-                let index = u32::from_le_bytes(c.data[16..20].try_into().expect("4 bytes"));
+                let (addr, index) = read_in6_pktinfo(&c.data)?;
                 if index != 0 {
                     ctl.oif = index;
                 }
