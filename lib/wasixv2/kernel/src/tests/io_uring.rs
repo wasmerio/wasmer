@@ -3123,3 +3123,191 @@ fn already_past_realtime_timeouts_are_published_before_they_are_armed() {
     ));
     assert_eq!(res(&ring.reap()), [(1, -Errno::ETIME.0)]);
 }
+/// io_uring.c:io_allocate_scq_urings/io_uring_create: user pages and registered-only fds.
+#[test]
+fn no_mmap_rings_retain_private_pages_and_complete_from_timer_threads() {
+    use super::introspect::SyncMemory;
+    let m = Machine::new();
+    let memory = SyncMemory::new(0x3_0000, 0);
+    let caller = Caller::new(m.task, &*memory);
+    let flags = IoringSetupFlags::IORING_SETUP_NO_MMAP.0;
+    let p = IoUringParams {
+        flags,
+        sq_off: wasixv2_abi::IoSqringOffsets {
+            user_addr: 0x2_0000,
+            ..wasixv2_abi::IoSqringOffsets::ZERO
+        },
+        cq_off: wasixv2_abi::IoCqringOffsets {
+            user_addr: 0x1_0000,
+            ..wasixv2_abi::IoCqringOffsets::ZERO
+        },
+        ..IoUringParams::ZERO
+    };
+    let setup = |p: IoUringParams| {
+        let mut bytes = [0; IoUringParams::SIZE];
+        p.write_to(&mut bytes);
+        memory.put(PARAMS, &bytes);
+        block_on(
+            m.kernel
+                .io_uring_setup(&caller, 4, GuestPtrMut::new(PARAMS)),
+        )
+    };
+    assert_eq!(errno(setup(p)), Errno::EINVAL, "no foreign handle");
+    m.kernel.attach_memory(m.task, memory.clone());
+    let mut bad = p;
+    bad.sq_off.user_addr += 1;
+    assert_eq!(errno(setup(bad)), Errno::EINVAL);
+    bad = p;
+    bad.cq_off.user_addr = 0;
+    assert_eq!(errno(setup(bad)), Errno::EFAULT);
+    bad = p;
+    bad.sq_off.user_addr = 0x3_0000;
+    assert_eq!(errno(setup(bad)), Errno::EFAULT);
+    let fd = Fd(setup(p).unwrap());
+    let out = IoUringParams::read_from(&memory.get(PARAMS, IoUringParams::SIZE)).unwrap();
+    assert_eq!(out.sq_off.user_addr, p.sq_off.user_addr);
+    assert_eq!(out.cq_off.user_addr, p.cq_off.user_addr);
+    assert_eq!(
+        errno(block_on(m.kernel.mmap(
+            &caller,
+            0,
+            65536,
+            ProtFlags(3),
+            MapFlags::MAP_SHARED,
+            fd,
+            0
+        ))),
+        Errno::EINVAL
+    );
+    let retained = block_on(m.kernel.retain_pages(&caller, 0x1_0000, 65536)).unwrap();
+    let ts = KernelTimespec {
+        tv_sec: 0,
+        tv_nsec: 50_000_000,
+    };
+    let mut bytes = [0; KernelTimespec::SIZE];
+    ts.write_to(&mut bytes);
+    memory.put(TS, &bytes);
+    let timeout = IoUringSqe {
+        addr: TS.into(),
+        len: 1,
+        ..sqe(IoUringOp::IORING_OP_TIMEOUT, -1, 789)
+    };
+    let mut bytes = [0; IoUringSqe::SIZE];
+    timeout.write_to(&mut bytes);
+    memory.put(0x2_0000, &bytes);
+    memory.put(0x1_0000 + out.sq_off.array, &0u32.to_le_bytes());
+    memory.put(0x1_0000 + out.sq_off.tail, &1u32.to_le_bytes());
+    assert_eq!(
+        block_on(
+            m.kernel
+                .io_uring_enter(&caller, fd, 1, 0, 0, GuestPtr::NULL, 0)
+        ),
+        Ok(1)
+    );
+    block_on(m.kernel.munmap(&caller, 0x1_0000, 65536)).unwrap();
+    // Replace the address: the timer must write the pinned page, never these new bytes.
+    memory.put(0x1_0000, &[0x55; 65536]);
+    let deadline = Instant::now() + Duration::from_secs(2);
+    let mut tail = [0; 4];
+    loop {
+        retained.read_sync(out.cq_off.tail, &mut tail).unwrap();
+        if u32::from_le_bytes(tail) == 1 {
+            break;
+        }
+        assert!(Instant::now() < deadline, "timer did not complete");
+        std::thread::sleep(Duration::from_millis(1));
+    }
+    let mut bytes = [0; IoUringCqe::SIZE];
+    retained.read_sync(out.cq_off.cqes, &mut bytes).unwrap();
+    let cqe = IoUringCqe::read_from(&bytes).unwrap();
+    assert_eq!((cqe.user_data, cqe.res), (789, -Errno::ETIME.0));
+    assert_eq!(memory.get(0x1_0000, 65536), vec![0x55; 65536]);
+    block_on(m.kernel.close(&caller, fd)).unwrap();
+}
+
+#[test]
+fn registered_only_setup_installs_only_a_task_ring_slot() {
+    use super::introspect::SyncMemory;
+    let m = Machine::new();
+    let memory = SyncMemory::new(0x3_0000, 0);
+    m.kernel.attach_memory(m.task, memory.clone());
+    let caller = Caller::new(m.task, &*memory);
+    let mut p = IoUringParams {
+        flags: IoringSetupFlags::IORING_SETUP_REGISTERED_FD_ONLY.0,
+        sq_off: wasixv2_abi::IoSqringOffsets {
+            user_addr: 0x2_0000,
+            ..wasixv2_abi::IoSqringOffsets::ZERO
+        },
+        cq_off: wasixv2_abi::IoCqringOffsets {
+            user_addr: 0x1_0000,
+            ..wasixv2_abi::IoCqringOffsets::ZERO
+        },
+        ..IoUringParams::ZERO
+    };
+    let setup = |p: IoUringParams| {
+        let mut bytes = [0; IoUringParams::SIZE];
+        p.write_to(&mut bytes);
+        memory.put(PARAMS, &bytes);
+        block_on(
+            m.kernel
+                .io_uring_setup(&caller, 4, GuestPtrMut::new(PARAMS)),
+        )
+    };
+    assert_eq!(errno(setup(p)), Errno::EINVAL, "requires NO_MMAP");
+    p.flags |= IoringSetupFlags::IORING_SETUP_NO_MMAP.0;
+    for slot in 0..16 {
+        assert_eq!(setup(p), Ok(slot));
+    }
+    assert_eq!(errno(setup(p)), Errno::EBUSY);
+    assert_eq!(
+        errno(block_on(m.kernel.io_uring_enter(
+            &caller,
+            Fd(0),
+            0,
+            0,
+            0,
+            GuestPtr::NULL,
+            0
+        ))),
+        Errno::EOPNOTSUPP
+    );
+    let enter = IoringEnterFlags::IORING_ENTER_REGISTERED_RING.0;
+    assert_eq!(
+        block_on(
+            m.kernel
+                .io_uring_enter(&caller, Fd(0), 0, 0, enter, GuestPtr::NULL, 0)
+        ),
+        Ok(0)
+    );
+    use wasixv2_abi::IoUringRegisterOp as R;
+    let reg = wasixv2_abi::IoUringRsrcUpdate {
+        offset: 0,
+        ..wasixv2_abi::IoUringRsrcUpdate::ZERO
+    };
+    let mut bytes = [0; wasixv2_abi::IoUringRsrcUpdate::SIZE];
+    reg.write_to(&mut bytes);
+    memory.put(SCRATCH, &bytes);
+    assert_eq!(
+        block_on(m.kernel.io_uring_register(
+            &caller,
+            Fd(0),
+            R::IORING_REGISTER_USE_REGISTERED_RING.0 | R::IORING_UNREGISTER_RING_FDS.0,
+            GuestPtrMut::new(SCRATCH),
+            1
+        )),
+        Ok(1)
+    );
+    assert_eq!(
+        errno(block_on(m.kernel.io_uring_enter(
+            &caller,
+            Fd(0),
+            0,
+            0,
+            enter,
+            GuestPtr::NULL,
+            0
+        ))),
+        Errno::EBADF
+    );
+}
+

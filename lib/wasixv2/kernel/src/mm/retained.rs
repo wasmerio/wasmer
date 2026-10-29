@@ -4,6 +4,7 @@
 
 use super::{Mm, PAGE_SIZE};
 use crate::{Kernel, sync::MutexExt};
+use futures_util::FutureExt;
 use futures_util::lock::Mutex as AsyncMutex;
 use std::{
     collections::BTreeMap,
@@ -15,7 +16,15 @@ use wasixv2_syscalls::{Caller, Errno, Fault, LocalFuture, UserMemory};
 #[derive(Default)]
 pub(super) struct RetainedPages(Mutex<BTreeMap<u64, Weak<Page>>>);
 
-struct Page(AsyncMutex<Source>);
+enum Page {
+    Local(AsyncMutex<Source>),
+    /// P2's foreign handle copies synchronously from any host thread. The same
+    /// source lock orders timer CQ writes against munmap/mremap detachment.
+    Foreign {
+        memory: Arc<dyn UserMemory + Send + Sync>,
+        source: Mutex<Source>,
+    },
+}
 enum Source {
     Live {
         addr: u32,
@@ -99,7 +108,13 @@ impl Kernel {
                         spare,
                     }
                 };
-                let page = Arc::new(Page(AsyncMutex::new(source)));
+                let page = Arc::new(match mm.foreign() {
+                    Some(memory) => Page::Foreign {
+                        memory,
+                        source: Mutex::new(source),
+                    },
+                    None => Page::Local(AsyncMutex::new(source)),
+                });
                 mm.retained
                     .0
                     .lock_or_recover()
@@ -127,14 +142,25 @@ impl Mm {
                 .collect()
         };
         for page in pages {
-            let mut source = page.0.lock().await;
-            if let Source::Live { addr, spare } = &mut *source {
-                // Storage was reserved at registration; unmapping cannot fail for allocation.
-                memory
-                    .force_read(*addr, spare)
-                    .await
-                    .expect("retained page was validated at registration");
-                *source = Source::Owned(std::mem::take(spare));
+            match &*page {
+                Page::Local(source) => {
+                    let mut source = source.lock().await;
+                    if let Source::Live { addr, spare } = &mut *source {
+                        memory
+                            .force_read(*addr, spare)
+                            .await
+                            .expect("retained page was validated at registration");
+                        *source = Source::Owned(std::mem::take(spare));
+                    }
+                }
+                Page::Foreign { memory, source } => {
+                    let mut source = source.lock_or_recover();
+                    if let Source::Live { addr, spare } = &mut *source {
+                        sync_copy(memory.force_read(*addr, spare))
+                            .expect("retained page was validated at registration");
+                        *source = Source::Owned(std::mem::take(spare));
+                    }
+                }
             }
         }
     }
@@ -149,9 +175,17 @@ impl Mm {
         };
         for (at, page) in pages {
             let new = target + at - start;
-            let mut source = page.0.lock().await;
-            if let Source::Live { addr, .. } = &mut *source {
-                *addr = new as u32;
+            match &*page {
+                Page::Local(source) => {
+                    if let Source::Live { addr, .. } = &mut *source.lock().await {
+                        *addr = new as u32;
+                    }
+                }
+                Page::Foreign { source, .. } => {
+                    if let Source::Live { addr, .. } = &mut *source.lock_or_recover() {
+                        *addr = new as u32;
+                    }
+                }
             }
             self.retained
                 .0
@@ -162,6 +196,47 @@ impl Mm {
 }
 
 impl Retained {
+    pub(crate) fn synchronous(&self) -> bool {
+        self.pages
+            .iter()
+            .all(|page| matches!(&**page, Page::Foreign { .. }))
+    }
+
+    /// Pinned ring access from io_uring's timer/wake handlers. No guest store is borrowed.
+    pub(crate) fn read_sync(&self, offset: u32, out: &mut [u8]) -> Result<(), Fault> {
+        self.transfer_sync(offset, out, false)
+    }
+
+    pub(crate) fn write_sync(&self, offset: u32, data: &[u8]) -> Result<(), Fault> {
+        self.transfer_sync(offset, &mut data.to_vec(), true)
+    }
+
+    fn transfer_sync(&self, offset: u32, buf: &mut [u8], write: bool) -> Result<(), Fault> {
+        if u64::from(offset) + buf.len() as u64 > u64::from(self.len) {
+            return Err(Fault);
+        }
+        let mut done = 0;
+        while done < buf.len() {
+            let position =
+                u64::from(self.addr % PAGE_SIZE as u32) + u64::from(offset) + done as u64;
+            let index = (position / PAGE_SIZE) as usize;
+            let skip = (position % PAGE_SIZE) as usize;
+            let n = (PAGE_SIZE as usize - skip).min(buf.len() - done);
+            let Page::Foreign { memory, source } = &*self.pages[index] else {
+                return Err(Fault);
+            };
+            transfer_sync(
+                &mut source.lock_or_recover(),
+                &**memory,
+                skip,
+                &mut buf[done..done + n],
+                write,
+            )?;
+            done += n;
+        }
+        Ok(())
+    }
+
     pub(crate) async fn read(
         &self,
         memory: &dyn UserMemory,
@@ -199,7 +274,15 @@ impl Retained {
             let skip = (position % PAGE_SIZE) as usize;
             let n = (PAGE_SIZE as usize - skip).min(buf.len() - done);
             let bytes = &mut buf[done..done + n];
-            let mut source = self.pages[index].0.lock().await;
+            if let Page::Foreign { memory, source } = &*self.pages[index] {
+                transfer_sync(&mut source.lock_or_recover(), &**memory, skip, bytes, write)?;
+                done += n;
+                continue;
+            }
+            let Page::Local(source) = &*self.pages[index] else {
+                unreachable!()
+            };
+            let mut source = source.lock().await;
             match &mut *source {
                 Source::Live { addr, .. } => {
                     if write {
@@ -230,6 +313,45 @@ impl Retained {
             done += n;
         }
         Ok(())
+    }
+}
+
+/// ForeignMemory's copies are immediate (exec/memory.rs); never block a guest executor.
+fn sync_copy(future: LocalFuture<'_, Result<(), Fault>>) -> Result<(), Fault> {
+    future
+        .now_or_never()
+        .expect("attached foreign memory copies synchronously")
+}
+
+fn transfer_sync(
+    source: &mut Source,
+    memory: &dyn UserMemory,
+    skip: usize,
+    bytes: &mut [u8],
+    write: bool,
+) -> Result<(), Fault> {
+    match source {
+        Source::Live { addr, .. } => {
+            if write {
+                sync_copy(memory.force_write(*addr + skip as u32, bytes))
+            } else {
+                sync_copy(memory.force_read(*addr + skip as u32, bytes))
+            }
+        }
+        Source::Owned(data) => {
+            if write {
+                data[skip..skip + bytes.len()].copy_from_slice(bytes);
+            } else {
+                bytes.copy_from_slice(&data[skip..skip + bytes.len()]);
+            }
+            Ok(())
+        }
+        Source::Shared { pages, offset } => if write {
+            pages.write_at(bytes, *offset + skip as u64)
+        } else {
+            pages.read_at(bytes, *offset + skip as u64)
+        }
+        .map_err(|_| Fault),
     }
 }
 
