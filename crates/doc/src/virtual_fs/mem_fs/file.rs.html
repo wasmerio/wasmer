@@ -1669,233 +1669,311 @@
 <a href=#1669 id=1669 data-nosnippet>1669</a>            <span class="string">"reading past EOF should return zero bytes"</span>,
 <a href=#1670 id=1670 data-nosnippet>1670</a>        );
 <a href=#1671 id=1671 data-nosnippet>1671</a>    }
-<a href=#1672 id=1672 data-nosnippet>1672</a>}
-<a href=#1673 id=1673 data-nosnippet>1673</a>
-<a href=#1674 id=1674 data-nosnippet>1674</a><span class="kw">impl </span>fmt::Debug <span class="kw">for </span>FileHandle {
-<a href=#1675 id=1675 data-nosnippet>1675</a>    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, formatter: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; fmt::Result {
-<a href=#1676 id=1676 data-nosnippet>1676</a>        formatter
-<a href=#1677 id=1677 data-nosnippet>1677</a>            .debug_struct(<span class="string">"FileHandle"</span>)
-<a href=#1678 id=1678 data-nosnippet>1678</a>            .field(<span class="string">"inode"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.inode)
-<a href=#1679 id=1679 data-nosnippet>1679</a>            .field(<span class="string">"readable"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.readable)
-<a href=#1680 id=1680 data-nosnippet>1680</a>            .field(<span class="string">"writable"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.writable)
-<a href=#1681 id=1681 data-nosnippet>1681</a>            .finish()
-<a href=#1682 id=1682 data-nosnippet>1682</a>    }
-<a href=#1683 id=1683 data-nosnippet>1683</a>}
-<a href=#1684 id=1684 data-nosnippet>1684</a>
-<a href=#1685 id=1685 data-nosnippet>1685</a><span class="kw">impl </span>Drop <span class="kw">for </span>FileHandle {
-<a href=#1686 id=1686 data-nosnippet>1686</a>    <span class="kw">fn </span>drop(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-<a href=#1687 id=1687 data-nosnippet>1687</a>        <span class="kw">let </span>remaining = <span class="self">self</span>.lifecycle.closed();
-<a href=#1688 id=1688 data-nosnippet>1688</a>        <span class="kw">if </span>remaining != <span class="number">0 </span>|| !<span class="self">self</span>.lifecycle.is_unlinked() {
-<a href=#1689 id=1689 data-nosnippet>1689</a>            <span class="kw">return</span>;
-<a href=#1690 id=1690 data-nosnippet>1690</a>        }
-<a href=#1691 id=1691 data-nosnippet>1691</a>
-<a href=#1692 id=1692 data-nosnippet>1692</a>        <span class="kw">let </span><span class="prelude-val">Ok</span>(<span class="kw-2">mut </span>fs) = <span class="self">self</span>.filesystem.inner.write() <span class="kw">else </span>{
-<a href=#1693 id=1693 data-nosnippet>1693</a>            <span class="kw">return</span>;
-<a href=#1694 id=1694 data-nosnippet>1694</a>        };
-<a href=#1695 id=1695 data-nosnippet>1695</a>
-<a href=#1696 id=1696 data-nosnippet>1696</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(node) = fs.storage.get(<span class="self">self</span>.inode) <span class="kw">else </span>{
-<a href=#1697 id=1697 data-nosnippet>1697</a>            <span class="kw">return</span>;
-<a href=#1698 id=1698 data-nosnippet>1698</a>        };
+<a href=#1672 id=1672 data-nosnippet>1672</a>
+<a href=#1673 id=1673 data-nosnippet>1673</a>    <span class="kw">async fn </span>assert_seek_overflow_preserves_cursor(file: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span><span class="kw">crate</span>::VirtualFile) {
+<a href=#1674 id=1674 data-nosnippet>1674</a>        <span class="macro">assert_eq!</span>(file.seek(io::SeekFrom::Start(<span class="number">1</span>)).<span class="kw">await</span>.unwrap(), <span class="number">1</span>);
+<a href=#1675 id=1675 data-nosnippet>1675</a>
+<a href=#1676 id=1676 data-nosnippet>1676</a>        <span class="kw">for </span>position <span class="kw">in </span>[
+<a href=#1677 id=1677 data-nosnippet>1677</a>            io::SeekFrom::Current(i64::MAX),
+<a href=#1678 id=1678 data-nosnippet>1678</a>            io::SeekFrom::End(i64::MAX),
+<a href=#1679 id=1679 data-nosnippet>1679</a>            io::SeekFrom::Current(i64::MIN),
+<a href=#1680 id=1680 data-nosnippet>1680</a>            io::SeekFrom::End(i64::MIN),
+<a href=#1681 id=1681 data-nosnippet>1681</a>        ] {
+<a href=#1682 id=1682 data-nosnippet>1682</a>            <span class="kw">let </span>error = file.seek(position).<span class="kw">await</span>.unwrap_err();
+<a href=#1683 id=1683 data-nosnippet>1683</a>            <span class="macro">assert_eq!</span>(error.kind(), io::ErrorKind::InvalidInput);
+<a href=#1684 id=1684 data-nosnippet>1684</a>            <span class="macro">assert_eq!</span>(file.stream_position().<span class="kw">await</span>.unwrap(), <span class="number">1</span>);
+<a href=#1685 id=1685 data-nosnippet>1685</a>        }
+<a href=#1686 id=1686 data-nosnippet>1686</a>
+<a href=#1687 id=1687 data-nosnippet>1687</a>        <span class="macro">assert_eq!</span>(
+<a href=#1688 id=1688 data-nosnippet>1688</a>            file.seek(io::SeekFrom::End(i64::MAX - <span class="number">3</span>)).<span class="kw">await</span>.unwrap(),
+<a href=#1689 id=1689 data-nosnippet>1689</a>            i64::MAX <span class="kw">as </span>u64
+<a href=#1690 id=1690 data-nosnippet>1690</a>        );
+<a href=#1691 id=1691 data-nosnippet>1691</a>        <span class="kw">let </span>error = file.seek(io::SeekFrom::Current(<span class="number">1</span>)).<span class="kw">await</span>.unwrap_err();
+<a href=#1692 id=1692 data-nosnippet>1692</a>        <span class="macro">assert_eq!</span>(error.kind(), io::ErrorKind::InvalidInput);
+<a href=#1693 id=1693 data-nosnippet>1693</a>        <span class="macro">assert_eq!</span>(file.stream_position().<span class="kw">await</span>.unwrap(), i64::MAX <span class="kw">as </span>u64);
+<a href=#1694 id=1694 data-nosnippet>1694</a>        <span class="macro">assert_eq!</span>(
+<a href=#1695 id=1695 data-nosnippet>1695</a>            file.seek(io::SeekFrom::Current(-i64::MAX)).<span class="kw">await</span>.unwrap(),
+<a href=#1696 id=1696 data-nosnippet>1696</a>            <span class="number">0
+<a href=#1697 id=1697 data-nosnippet>1697</a>        </span>);
+<a href=#1698 id=1698 data-nosnippet>1698</a>    }
 <a href=#1699 id=1699 data-nosnippet>1699</a>
-<a href=#1700 id=1700 data-nosnippet>1700</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(lifecycle) = node.file_lifecycle() <span class="kw">else </span>{
-<a href=#1701 id=1701 data-nosnippet>1701</a>            <span class="kw">return</span>;
-<a href=#1702 id=1702 data-nosnippet>1702</a>        };
-<a href=#1703 id=1703 data-nosnippet>1703</a>
-<a href=#1704 id=1704 data-nosnippet>1704</a>        <span class="kw">if </span>Arc::ptr_eq(lifecycle, <span class="kw-2">&amp;</span><span class="self">self</span>.lifecycle)
-<a href=#1705 id=1705 data-nosnippet>1705</a>            &amp;&amp; lifecycle.is_unlinked()
-<a href=#1706 id=1706 data-nosnippet>1706</a>            &amp;&amp; lifecycle.open_handle_count() == <span class="number">0
-<a href=#1707 id=1707 data-nosnippet>1707</a>        </span>{
-<a href=#1708 id=1708 data-nosnippet>1708</a>            fs.storage.remove(<span class="self">self</span>.inode);
-<a href=#1709 id=1709 data-nosnippet>1709</a>        }
-<a href=#1710 id=1710 data-nosnippet>1710</a>    }
-<a href=#1711 id=1711 data-nosnippet>1711</a>}
-<a href=#1712 id=1712 data-nosnippet>1712</a>
-<a href=#1713 id=1713 data-nosnippet>1713</a><span class="doccomment">/// The real file! It is simply a buffer of bytes with a cursor that
-<a href=#1714 id=1714 data-nosnippet>1714</a>/// represents a read/write position in the buffer.
-<a href=#1715 id=1715 data-nosnippet>1715</a></span><span class="attr">#[derive(Debug)]
-<a href=#1716 id=1716 data-nosnippet>1716</a></span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">struct </span>File {
-<a href=#1717 id=1717 data-nosnippet>1717</a>    buffer: TrackedVec,
-<a href=#1718 id=1718 data-nosnippet>1718</a>}
-<a href=#1719 id=1719 data-nosnippet>1719</a>
-<a href=#1720 id=1720 data-nosnippet>1720</a><span class="kw">impl </span>File {
-<a href=#1721 id=1721 data-nosnippet>1721</a>    <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>new(limiter: <span class="prelude-ty">Option</span>&lt;<span class="kw">crate</span>::limiter::DynFsMemoryLimiter&gt;) -&gt; <span class="self">Self </span>{
-<a href=#1722 id=1722 data-nosnippet>1722</a>        <span class="self">Self </span>{
-<a href=#1723 id=1723 data-nosnippet>1723</a>            buffer: TrackedVec::new(limiter),
-<a href=#1724 id=1724 data-nosnippet>1724</a>        }
-<a href=#1725 id=1725 data-nosnippet>1725</a>    }
-<a href=#1726 id=1726 data-nosnippet>1726</a>
-<a href=#1727 id=1727 data-nosnippet>1727</a>    <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>truncate(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-<a href=#1728 id=1728 data-nosnippet>1728</a>        <span class="self">self</span>.buffer.clear();
-<a href=#1729 id=1729 data-nosnippet>1729</a>    }
-<a href=#1730 id=1730 data-nosnippet>1730</a>
-<a href=#1731 id=1731 data-nosnippet>1731</a>    <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>len(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
-<a href=#1732 id=1732 data-nosnippet>1732</a>        <span class="self">self</span>.buffer.len()
-<a href=#1733 id=1733 data-nosnippet>1733</a>    }
-<a href=#1734 id=1734 data-nosnippet>1734</a>}
-<a href=#1735 id=1735 data-nosnippet>1735</a>
-<a href=#1736 id=1736 data-nosnippet>1736</a><span class="kw">impl </span>File {
-<a href=#1737 id=1737 data-nosnippet>1737</a>    <span class="kw">pub fn </span>read(<span class="kw-2">&amp;</span><span class="self">self</span>, buf: <span class="kw-2">&amp;mut </span>[u8], cursor: <span class="kw-2">&amp;mut </span>u64) -&gt; io::Result&lt;usize&gt; {
-<a href=#1738 id=1738 data-nosnippet>1738</a>        <span class="kw">let </span>cur_pos = <span class="kw-2">*</span>cursor <span class="kw">as </span>usize;
-<a href=#1739 id=1739 data-nosnippet>1739</a>
-<a href=#1740 id=1740 data-nosnippet>1740</a>        <span class="comment">// POSIX regular files return EOF, not an error, when reading at or beyond EOF.
-<a href=#1741 id=1741 data-nosnippet>1741</a>        </span><span class="kw">if </span>cur_pos &gt;= <span class="self">self</span>.buffer.len() {
-<a href=#1742 id=1742 data-nosnippet>1742</a>            <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="number">0</span>);
-<a href=#1743 id=1743 data-nosnippet>1743</a>        }
-<a href=#1744 id=1744 data-nosnippet>1744</a>
-<a href=#1745 id=1745 data-nosnippet>1745</a>        <span class="kw">let </span>max_to_read = cmp::min(<span class="self">self</span>.buffer.len() - cur_pos, buf.len());
-<a href=#1746 id=1746 data-nosnippet>1746</a>        <span class="kw">let </span>data_to_copy = <span class="kw-2">&amp;</span><span class="self">self</span>.buffer[cur_pos..][..max_to_read];
+<a href=#1700 id=1700 data-nosnippet>1700</a>    <span class="attr">#[tokio::test]
+<a href=#1701 id=1701 data-nosnippet>1701</a>    </span><span class="kw">async fn </span>test_seek_overflow_preserves_cursor() {
+<a href=#1702 id=1702 data-nosnippet>1702</a>        <span class="kw">let </span>fs = FileSystem::default();
+<a href=#1703 id=1703 data-nosnippet>1703</a>        <span class="kw">let </span><span class="kw-2">mut </span>file = fs
+<a href=#1704 id=1704 data-nosnippet>1704</a>            .new_open_options()
+<a href=#1705 id=1705 data-nosnippet>1705</a>            .read(<span class="bool-val">true</span>)
+<a href=#1706 id=1706 data-nosnippet>1706</a>            .write(<span class="bool-val">true</span>)
+<a href=#1707 id=1707 data-nosnippet>1707</a>            .create_new(<span class="bool-val">true</span>)
+<a href=#1708 id=1708 data-nosnippet>1708</a>            .open(<span class="macro">path!</span>(<span class="string">"/foo.txt"</span>))
+<a href=#1709 id=1709 data-nosnippet>1709</a>            .expect(<span class="string">"failed to create a new file"</span>);
+<a href=#1710 id=1710 data-nosnippet>1710</a>        file.write_all(<span class="string">b"foo"</span>).<span class="kw">await</span>.unwrap();
+<a href=#1711 id=1711 data-nosnippet>1711</a>
+<a href=#1712 id=1712 data-nosnippet>1712</a>        assert_seek_overflow_preserves_cursor(file.as_mut()).<span class="kw">await</span>;
+<a href=#1713 id=1713 data-nosnippet>1713</a>    }
+<a href=#1714 id=1714 data-nosnippet>1714</a>
+<a href=#1715 id=1715 data-nosnippet>1715</a>    <span class="attr">#[tokio::test]
+<a href=#1716 id=1716 data-nosnippet>1716</a>    </span><span class="kw">async fn </span>test_readonly_file_seek_overflow_preserves_cursor() {
+<a href=#1717 id=1717 data-nosnippet>1717</a>        <span class="kw">let </span>fs = FileSystem::default();
+<a href=#1718 id=1718 data-nosnippet>1718</a>        fs.insert_ro_file(<span class="macro">path!</span>(<span class="string">"/foo.txt"</span>), OwnedBuffer::from_static(<span class="string">b"foo"</span>))
+<a href=#1719 id=1719 data-nosnippet>1719</a>            .expect(<span class="string">"failed to insert readonly file"</span>);
+<a href=#1720 id=1720 data-nosnippet>1720</a>        <span class="kw">let </span><span class="kw-2">mut </span>file = fs
+<a href=#1721 id=1721 data-nosnippet>1721</a>            .new_open_options()
+<a href=#1722 id=1722 data-nosnippet>1722</a>            .read(<span class="bool-val">true</span>)
+<a href=#1723 id=1723 data-nosnippet>1723</a>            .open(<span class="macro">path!</span>(<span class="string">"/foo.txt"</span>))
+<a href=#1724 id=1724 data-nosnippet>1724</a>            .expect(<span class="string">"failed to open readonly file"</span>);
+<a href=#1725 id=1725 data-nosnippet>1725</a>
+<a href=#1726 id=1726 data-nosnippet>1726</a>        assert_seek_overflow_preserves_cursor(file.as_mut()).<span class="kw">await</span>;
+<a href=#1727 id=1727 data-nosnippet>1727</a>    }
+<a href=#1728 id=1728 data-nosnippet>1728</a>
+<a href=#1729 id=1729 data-nosnippet>1729</a>    <span class="attr">#[tokio::test]
+<a href=#1730 id=1730 data-nosnippet>1730</a>    </span><span class="kw">async fn </span>test_offloaded_file_seek_overflow_preserves_cursor() {
+<a href=#1731 id=1731 data-nosnippet>1731</a>        <span class="kw">let </span>backing = OffloadBackingStore::new(OwnedBuffer::from_static(<span class="string">b"foo"</span>), <span class="prelude-val">None</span>);
+<a href=#1732 id=1732 data-nosnippet>1732</a>        <span class="kw">let </span>fs = FileSystem::default()
+<a href=#1733 id=1733 data-nosnippet>1733</a>            .with_backing_offload(backing)
+<a href=#1734 id=1734 data-nosnippet>1734</a>            .expect(<span class="string">"failed to configure backing offload"</span>);
+<a href=#1735 id=1735 data-nosnippet>1735</a>        <span class="kw">let </span><span class="kw-2">mut </span>file = fs
+<a href=#1736 id=1736 data-nosnippet>1736</a>            .new_open_options()
+<a href=#1737 id=1737 data-nosnippet>1737</a>            .read(<span class="bool-val">true</span>)
+<a href=#1738 id=1738 data-nosnippet>1738</a>            .write(<span class="bool-val">true</span>)
+<a href=#1739 id=1739 data-nosnippet>1739</a>            .create_new(<span class="bool-val">true</span>)
+<a href=#1740 id=1740 data-nosnippet>1740</a>            .open(<span class="macro">path!</span>(<span class="string">"/foo.txt"</span>))
+<a href=#1741 id=1741 data-nosnippet>1741</a>            .expect(<span class="string">"failed to create a new file"</span>);
+<a href=#1742 id=1742 data-nosnippet>1742</a>        file.write_all(<span class="string">b"foo"</span>).<span class="kw">await</span>.unwrap();
+<a href=#1743 id=1743 data-nosnippet>1743</a>
+<a href=#1744 id=1744 data-nosnippet>1744</a>        assert_seek_overflow_preserves_cursor(file.as_mut()).<span class="kw">await</span>;
+<a href=#1745 id=1745 data-nosnippet>1745</a>    }
+<a href=#1746 id=1746 data-nosnippet>1746</a>}
 <a href=#1747 id=1747 data-nosnippet>1747</a>
-<a href=#1748 id=1748 data-nosnippet>1748</a>        <span class="comment">// SAFETY: `buf[..max_to_read]` and `data_to_copy` have the same size, due to
-<a href=#1749 id=1749 data-nosnippet>1749</a>        // how `max_to_read` is computed.
-<a href=#1750 id=1750 data-nosnippet>1750</a>        </span>buf[..max_to_read].copy_from_slice(data_to_copy);
-<a href=#1751 id=1751 data-nosnippet>1751</a>
-<a href=#1752 id=1752 data-nosnippet>1752</a>        <span class="kw-2">*</span>cursor += max_to_read <span class="kw">as </span>u64;
-<a href=#1753 id=1753 data-nosnippet>1753</a>
-<a href=#1754 id=1754 data-nosnippet>1754</a>        <span class="prelude-val">Ok</span>(max_to_read)
-<a href=#1755 id=1755 data-nosnippet>1755</a>    }
-<a href=#1756 id=1756 data-nosnippet>1756</a>}
-<a href=#1757 id=1757 data-nosnippet>1757</a>
-<a href=#1758 id=1758 data-nosnippet>1758</a><span class="kw">impl </span>File {
-<a href=#1759 id=1759 data-nosnippet>1759</a>    <span class="kw">pub fn </span>seek(<span class="kw-2">&amp;</span><span class="self">self</span>, position: io::SeekFrom, cursor: <span class="kw-2">&amp;mut </span>u64) -&gt; io::Result&lt;u64&gt; {
-<a href=#1760 id=1760 data-nosnippet>1760</a>        <span class="kw">let </span>to_err = |<span class="kw">_</span>| io::ErrorKind::InvalidInput;
-<a href=#1761 id=1761 data-nosnippet>1761</a>
-<a href=#1762 id=1762 data-nosnippet>1762</a>        <span class="comment">// Calculate the next cursor.
-<a href=#1763 id=1763 data-nosnippet>1763</a>        </span><span class="kw">let </span>next_cursor: i64 = <span class="kw">match </span>position {
-<a href=#1764 id=1764 data-nosnippet>1764</a>            <span class="comment">// Calculate from the beginning, so `0 + offset`.
-<a href=#1765 id=1765 data-nosnippet>1765</a>            </span>io::SeekFrom::Start(offset) =&gt; offset.try_into().map_err(to_err)<span class="question-mark">?</span>,
-<a href=#1766 id=1766 data-nosnippet>1766</a>
-<a href=#1767 id=1767 data-nosnippet>1767</a>            <span class="comment">// Calculate from the end, so `buffer.len() + offset`.
-<a href=#1768 id=1768 data-nosnippet>1768</a>            </span>io::SeekFrom::End(offset) =&gt; {
-<a href=#1769 id=1769 data-nosnippet>1769</a>                TryInto::&lt;i64&gt;::try_into(<span class="self">self</span>.buffer.len()).map_err(to_err)<span class="question-mark">? </span>+ offset
-<a href=#1770 id=1770 data-nosnippet>1770</a>            }
-<a href=#1771 id=1771 data-nosnippet>1771</a>
-<a href=#1772 id=1772 data-nosnippet>1772</a>            <span class="comment">// Calculate from the current cursor, so `cursor + offset`.
-<a href=#1773 id=1773 data-nosnippet>1773</a>            </span>io::SeekFrom::Current(offset) =&gt; {
-<a href=#1774 id=1774 data-nosnippet>1774</a>                TryInto::&lt;i64&gt;::try_into(<span class="kw-2">*</span>cursor).map_err(to_err)<span class="question-mark">? </span>+ offset
-<a href=#1775 id=1775 data-nosnippet>1775</a>            }
+<a href=#1748 id=1748 data-nosnippet>1748</a><span class="kw">impl </span>fmt::Debug <span class="kw">for </span>FileHandle {
+<a href=#1749 id=1749 data-nosnippet>1749</a>    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, formatter: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; fmt::Result {
+<a href=#1750 id=1750 data-nosnippet>1750</a>        formatter
+<a href=#1751 id=1751 data-nosnippet>1751</a>            .debug_struct(<span class="string">"FileHandle"</span>)
+<a href=#1752 id=1752 data-nosnippet>1752</a>            .field(<span class="string">"inode"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.inode)
+<a href=#1753 id=1753 data-nosnippet>1753</a>            .field(<span class="string">"readable"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.readable)
+<a href=#1754 id=1754 data-nosnippet>1754</a>            .field(<span class="string">"writable"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.writable)
+<a href=#1755 id=1755 data-nosnippet>1755</a>            .finish()
+<a href=#1756 id=1756 data-nosnippet>1756</a>    }
+<a href=#1757 id=1757 data-nosnippet>1757</a>}
+<a href=#1758 id=1758 data-nosnippet>1758</a>
+<a href=#1759 id=1759 data-nosnippet>1759</a><span class="kw">impl </span>Drop <span class="kw">for </span>FileHandle {
+<a href=#1760 id=1760 data-nosnippet>1760</a>    <span class="kw">fn </span>drop(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+<a href=#1761 id=1761 data-nosnippet>1761</a>        <span class="kw">let </span>remaining = <span class="self">self</span>.lifecycle.closed();
+<a href=#1762 id=1762 data-nosnippet>1762</a>        <span class="kw">if </span>remaining != <span class="number">0 </span>|| !<span class="self">self</span>.lifecycle.is_unlinked() {
+<a href=#1763 id=1763 data-nosnippet>1763</a>            <span class="kw">return</span>;
+<a href=#1764 id=1764 data-nosnippet>1764</a>        }
+<a href=#1765 id=1765 data-nosnippet>1765</a>
+<a href=#1766 id=1766 data-nosnippet>1766</a>        <span class="kw">let </span><span class="prelude-val">Ok</span>(<span class="kw-2">mut </span>fs) = <span class="self">self</span>.filesystem.inner.write() <span class="kw">else </span>{
+<a href=#1767 id=1767 data-nosnippet>1767</a>            <span class="kw">return</span>;
+<a href=#1768 id=1768 data-nosnippet>1768</a>        };
+<a href=#1769 id=1769 data-nosnippet>1769</a>
+<a href=#1770 id=1770 data-nosnippet>1770</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(node) = fs.storage.get(<span class="self">self</span>.inode) <span class="kw">else </span>{
+<a href=#1771 id=1771 data-nosnippet>1771</a>            <span class="kw">return</span>;
+<a href=#1772 id=1772 data-nosnippet>1772</a>        };
+<a href=#1773 id=1773 data-nosnippet>1773</a>
+<a href=#1774 id=1774 data-nosnippet>1774</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(lifecycle) = node.file_lifecycle() <span class="kw">else </span>{
+<a href=#1775 id=1775 data-nosnippet>1775</a>            <span class="kw">return</span>;
 <a href=#1776 id=1776 data-nosnippet>1776</a>        };
 <a href=#1777 id=1777 data-nosnippet>1777</a>
-<a href=#1778 id=1778 data-nosnippet>1778</a>        <span class="comment">// It's an error to seek before byte 0.
-<a href=#1779 id=1779 data-nosnippet>1779</a>        </span><span class="kw">if </span>next_cursor &lt; <span class="number">0 </span>{
-<a href=#1780 id=1780 data-nosnippet>1780</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(io::Error::new(
-<a href=#1781 id=1781 data-nosnippet>1781</a>                io::ErrorKind::InvalidInput,
-<a href=#1782 id=1782 data-nosnippet>1782</a>                <span class="string">"seeking before the byte 0"</span>,
-<a href=#1783 id=1783 data-nosnippet>1783</a>            ));
-<a href=#1784 id=1784 data-nosnippet>1784</a>        }
-<a href=#1785 id=1785 data-nosnippet>1785</a>
-<a href=#1786 id=1786 data-nosnippet>1786</a>        <span class="kw">let </span>next_cursor = next_cursor.try_into().map_err(to_err)<span class="question-mark">?</span>;
-<a href=#1787 id=1787 data-nosnippet>1787</a>        <span class="kw-2">*</span>cursor = next_cursor;
-<a href=#1788 id=1788 data-nosnippet>1788</a>
-<a href=#1789 id=1789 data-nosnippet>1789</a>        <span class="kw">let </span>cursor = <span class="kw-2">*</span>cursor;
-<a href=#1790 id=1790 data-nosnippet>1790</a>        <span class="prelude-val">Ok</span>(cursor)
-<a href=#1791 id=1791 data-nosnippet>1791</a>    }
+<a href=#1778 id=1778 data-nosnippet>1778</a>        <span class="kw">if </span>Arc::ptr_eq(lifecycle, <span class="kw-2">&amp;</span><span class="self">self</span>.lifecycle)
+<a href=#1779 id=1779 data-nosnippet>1779</a>            &amp;&amp; lifecycle.is_unlinked()
+<a href=#1780 id=1780 data-nosnippet>1780</a>            &amp;&amp; lifecycle.open_handle_count() == <span class="number">0
+<a href=#1781 id=1781 data-nosnippet>1781</a>        </span>{
+<a href=#1782 id=1782 data-nosnippet>1782</a>            fs.storage.remove(<span class="self">self</span>.inode);
+<a href=#1783 id=1783 data-nosnippet>1783</a>        }
+<a href=#1784 id=1784 data-nosnippet>1784</a>    }
+<a href=#1785 id=1785 data-nosnippet>1785</a>}
+<a href=#1786 id=1786 data-nosnippet>1786</a>
+<a href=#1787 id=1787 data-nosnippet>1787</a><span class="doccomment">/// The real file! It is simply a buffer of bytes with a cursor that
+<a href=#1788 id=1788 data-nosnippet>1788</a>/// represents a read/write position in the buffer.
+<a href=#1789 id=1789 data-nosnippet>1789</a></span><span class="attr">#[derive(Debug)]
+<a href=#1790 id=1790 data-nosnippet>1790</a></span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">struct </span>File {
+<a href=#1791 id=1791 data-nosnippet>1791</a>    buffer: TrackedVec,
 <a href=#1792 id=1792 data-nosnippet>1792</a>}
 <a href=#1793 id=1793 data-nosnippet>1793</a>
 <a href=#1794 id=1794 data-nosnippet>1794</a><span class="kw">impl </span>File {
-<a href=#1795 id=1795 data-nosnippet>1795</a>    <span class="kw">pub fn </span>write(<span class="kw-2">&amp;mut </span><span class="self">self</span>, buf: <span class="kw-2">&amp;</span>[u8], cursor: <span class="kw-2">&amp;mut </span>u64) -&gt; io::Result&lt;usize&gt; {
-<a href=#1796 id=1796 data-nosnippet>1796</a>        <span class="kw">let </span>position = <span class="kw-2">*</span>cursor <span class="kw">as </span>usize;
-<a href=#1797 id=1797 data-nosnippet>1797</a>        <span class="kw">let </span>end = position
-<a href=#1798 id=1798 data-nosnippet>1798</a>            .checked_add(buf.len())
-<a href=#1799 id=1799 data-nosnippet>1799</a>            .ok_or(io::ErrorKind::InvalidInput)<span class="question-mark">?</span>;
+<a href=#1795 id=1795 data-nosnippet>1795</a>    <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>new(limiter: <span class="prelude-ty">Option</span>&lt;<span class="kw">crate</span>::limiter::DynFsMemoryLimiter&gt;) -&gt; <span class="self">Self </span>{
+<a href=#1796 id=1796 data-nosnippet>1796</a>        <span class="self">Self </span>{
+<a href=#1797 id=1797 data-nosnippet>1797</a>            buffer: TrackedVec::new(limiter),
+<a href=#1798 id=1798 data-nosnippet>1798</a>        }
+<a href=#1799 id=1799 data-nosnippet>1799</a>    }
 <a href=#1800 id=1800 data-nosnippet>1800</a>
-<a href=#1801 id=1801 data-nosnippet>1801</a>        <span class="kw">if </span>position &gt; <span class="self">self</span>.buffer.len() {
-<a href=#1802 id=1802 data-nosnippet>1802</a>            <span class="comment">// Materialize the sparse gap with zeroes in this contiguous in-memory buffer.
-<a href=#1803 id=1803 data-nosnippet>1803</a>            </span><span class="self">self</span>.buffer.resize(position, <span class="number">0</span>)<span class="question-mark">?</span>;
-<a href=#1804 id=1804 data-nosnippet>1804</a>        }
-<a href=#1805 id=1805 data-nosnippet>1805</a>
-<a href=#1806 id=1806 data-nosnippet>1806</a>        <span class="kw">if </span>end &gt; <span class="self">self</span>.buffer.len() {
-<a href=#1807 id=1807 data-nosnippet>1807</a>            <span class="comment">// Writing past the end of the current buffer, must reallocate
-<a href=#1808 id=1808 data-nosnippet>1808</a>            </span><span class="kw">let </span>len_after_end = end - <span class="self">self</span>.buffer.len();
-<a href=#1809 id=1809 data-nosnippet>1809</a>            <span class="kw">let </span>let_to_end = buf.len() - len_after_end;
-<a href=#1810 id=1810 data-nosnippet>1810</a>            <span class="self">self</span>.buffer[position..end - len_after_end].copy_from_slice(<span class="kw-2">&amp;</span>buf[<span class="number">0</span>..let_to_end]);
-<a href=#1811 id=1811 data-nosnippet>1811</a>            <span class="self">self</span>.buffer.extend_from_slice(<span class="kw-2">&amp;</span>buf[let_to_end..buf.len()])<span class="question-mark">?</span>;
-<a href=#1812 id=1812 data-nosnippet>1812</a>        } <span class="kw">else </span>{
-<a href=#1813 id=1813 data-nosnippet>1813</a>            <span class="self">self</span>.buffer[position..end].copy_from_slice(buf);
-<a href=#1814 id=1814 data-nosnippet>1814</a>        }
-<a href=#1815 id=1815 data-nosnippet>1815</a>
-<a href=#1816 id=1816 data-nosnippet>1816</a>        <span class="kw-2">*</span>cursor += buf.len() <span class="kw">as </span>u64;
-<a href=#1817 id=1817 data-nosnippet>1817</a>
-<a href=#1818 id=1818 data-nosnippet>1818</a>        <span class="prelude-val">Ok</span>(buf.len())
-<a href=#1819 id=1819 data-nosnippet>1819</a>    }
-<a href=#1820 id=1820 data-nosnippet>1820</a>
-<a href=#1821 id=1821 data-nosnippet>1821</a>    <span class="kw">fn </span>flush(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; io::Result&lt;()&gt; {
-<a href=#1822 id=1822 data-nosnippet>1822</a>        <span class="prelude-val">Ok</span>(())
-<a href=#1823 id=1823 data-nosnippet>1823</a>    }
-<a href=#1824 id=1824 data-nosnippet>1824</a>}
+<a href=#1801 id=1801 data-nosnippet>1801</a>    <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>truncate(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+<a href=#1802 id=1802 data-nosnippet>1802</a>        <span class="self">self</span>.buffer.clear();
+<a href=#1803 id=1803 data-nosnippet>1803</a>    }
+<a href=#1804 id=1804 data-nosnippet>1804</a>
+<a href=#1805 id=1805 data-nosnippet>1805</a>    <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>len(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+<a href=#1806 id=1806 data-nosnippet>1806</a>        <span class="self">self</span>.buffer.len()
+<a href=#1807 id=1807 data-nosnippet>1807</a>    }
+<a href=#1808 id=1808 data-nosnippet>1808</a>}
+<a href=#1809 id=1809 data-nosnippet>1809</a>
+<a href=#1810 id=1810 data-nosnippet>1810</a><span class="kw">impl </span>File {
+<a href=#1811 id=1811 data-nosnippet>1811</a>    <span class="kw">pub fn </span>read(<span class="kw-2">&amp;</span><span class="self">self</span>, buf: <span class="kw-2">&amp;mut </span>[u8], cursor: <span class="kw-2">&amp;mut </span>u64) -&gt; io::Result&lt;usize&gt; {
+<a href=#1812 id=1812 data-nosnippet>1812</a>        <span class="kw">let </span>cur_pos = <span class="kw-2">*</span>cursor <span class="kw">as </span>usize;
+<a href=#1813 id=1813 data-nosnippet>1813</a>
+<a href=#1814 id=1814 data-nosnippet>1814</a>        <span class="comment">// POSIX regular files return EOF, not an error, when reading at or beyond EOF.
+<a href=#1815 id=1815 data-nosnippet>1815</a>        </span><span class="kw">if </span>cur_pos &gt;= <span class="self">self</span>.buffer.len() {
+<a href=#1816 id=1816 data-nosnippet>1816</a>            <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="number">0</span>);
+<a href=#1817 id=1817 data-nosnippet>1817</a>        }
+<a href=#1818 id=1818 data-nosnippet>1818</a>
+<a href=#1819 id=1819 data-nosnippet>1819</a>        <span class="kw">let </span>max_to_read = cmp::min(<span class="self">self</span>.buffer.len() - cur_pos, buf.len());
+<a href=#1820 id=1820 data-nosnippet>1820</a>        <span class="kw">let </span>data_to_copy = <span class="kw-2">&amp;</span><span class="self">self</span>.buffer[cur_pos..][..max_to_read];
+<a href=#1821 id=1821 data-nosnippet>1821</a>
+<a href=#1822 id=1822 data-nosnippet>1822</a>        <span class="comment">// SAFETY: `buf[..max_to_read]` and `data_to_copy` have the same size, due to
+<a href=#1823 id=1823 data-nosnippet>1823</a>        // how `max_to_read` is computed.
+<a href=#1824 id=1824 data-nosnippet>1824</a>        </span>buf[..max_to_read].copy_from_slice(data_to_copy);
 <a href=#1825 id=1825 data-nosnippet>1825</a>
-<a href=#1826 id=1826 data-nosnippet>1826</a><span class="doccomment">/// Read only file that uses copy-on-write
-<a href=#1827 id=1827 data-nosnippet>1827</a></span><span class="attr">#[derive(Debug)]
-<a href=#1828 id=1828 data-nosnippet>1828</a></span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">struct </span>ReadOnlyFile {
-<a href=#1829 id=1829 data-nosnippet>1829</a>    buffer: OwnedBuffer,
+<a href=#1826 id=1826 data-nosnippet>1826</a>        <span class="kw-2">*</span>cursor += max_to_read <span class="kw">as </span>u64;
+<a href=#1827 id=1827 data-nosnippet>1827</a>
+<a href=#1828 id=1828 data-nosnippet>1828</a>        <span class="prelude-val">Ok</span>(max_to_read)
+<a href=#1829 id=1829 data-nosnippet>1829</a>    }
 <a href=#1830 id=1830 data-nosnippet>1830</a>}
 <a href=#1831 id=1831 data-nosnippet>1831</a>
-<a href=#1832 id=1832 data-nosnippet>1832</a><span class="kw">impl </span>ReadOnlyFile {
-<a href=#1833 id=1833 data-nosnippet>1833</a>    <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>new(buffer: OwnedBuffer) -&gt; <span class="self">Self </span>{
-<a href=#1834 id=1834 data-nosnippet>1834</a>        <span class="self">Self </span>{ buffer }
-<a href=#1835 id=1835 data-nosnippet>1835</a>    }
-<a href=#1836 id=1836 data-nosnippet>1836</a>
-<a href=#1837 id=1837 data-nosnippet>1837</a>    <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>len(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
-<a href=#1838 id=1838 data-nosnippet>1838</a>        <span class="self">self</span>.buffer.len()
-<a href=#1839 id=1839 data-nosnippet>1839</a>    }
-<a href=#1840 id=1840 data-nosnippet>1840</a>}
-<a href=#1841 id=1841 data-nosnippet>1841</a>
-<a href=#1842 id=1842 data-nosnippet>1842</a><span class="kw">impl </span>ReadOnlyFile {
-<a href=#1843 id=1843 data-nosnippet>1843</a>    <span class="kw">pub fn </span>read(<span class="kw-2">&amp;</span><span class="self">self</span>, buf: <span class="kw-2">&amp;mut </span>[u8], cursor: <span class="kw-2">&amp;mut </span>u64) -&gt; io::Result&lt;usize&gt; {
-<a href=#1844 id=1844 data-nosnippet>1844</a>        <span class="kw">let </span>cur_pos = <span class="kw-2">*</span>cursor <span class="kw">as </span>usize;
-<a href=#1845 id=1845 data-nosnippet>1845</a>
-<a href=#1846 id=1846 data-nosnippet>1846</a>        <span class="kw">if </span>cur_pos &gt;= <span class="self">self</span>.buffer.len() {
-<a href=#1847 id=1847 data-nosnippet>1847</a>            <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="number">0</span>);
-<a href=#1848 id=1848 data-nosnippet>1848</a>        }
-<a href=#1849 id=1849 data-nosnippet>1849</a>
-<a href=#1850 id=1850 data-nosnippet>1850</a>        <span class="kw">let </span>max_to_read = cmp::min(<span class="self">self</span>.buffer.len() - cur_pos, buf.len());
-<a href=#1851 id=1851 data-nosnippet>1851</a>        <span class="kw">let </span>data_to_copy = <span class="kw-2">&amp;</span><span class="self">self</span>.buffer[cur_pos..][..max_to_read];
-<a href=#1852 id=1852 data-nosnippet>1852</a>
-<a href=#1853 id=1853 data-nosnippet>1853</a>        <span class="comment">// SAFETY: `buf[..max_to_read]` and `data_to_copy` have the same size, due to
-<a href=#1854 id=1854 data-nosnippet>1854</a>        // how `max_to_read` is computed.
-<a href=#1855 id=1855 data-nosnippet>1855</a>        </span>buf[..max_to_read].copy_from_slice(data_to_copy);
-<a href=#1856 id=1856 data-nosnippet>1856</a>
-<a href=#1857 id=1857 data-nosnippet>1857</a>        <span class="kw-2">*</span>cursor += max_to_read <span class="kw">as </span>u64;
-<a href=#1858 id=1858 data-nosnippet>1858</a>
-<a href=#1859 id=1859 data-nosnippet>1859</a>        <span class="prelude-val">Ok</span>(max_to_read)
-<a href=#1860 id=1860 data-nosnippet>1860</a>    }
-<a href=#1861 id=1861 data-nosnippet>1861</a>}
-<a href=#1862 id=1862 data-nosnippet>1862</a>
-<a href=#1863 id=1863 data-nosnippet>1863</a><span class="kw">impl </span>ReadOnlyFile {
-<a href=#1864 id=1864 data-nosnippet>1864</a>    <span class="kw">pub fn </span>seek(<span class="kw-2">&amp;</span><span class="self">self</span>, position: io::SeekFrom, cursor: <span class="kw-2">&amp;mut </span>u64) -&gt; io::Result&lt;u64&gt; {
-<a href=#1865 id=1865 data-nosnippet>1865</a>        <span class="kw">let </span>to_err = |<span class="kw">_</span>| io::ErrorKind::InvalidInput;
-<a href=#1866 id=1866 data-nosnippet>1866</a>
-<a href=#1867 id=1867 data-nosnippet>1867</a>        <span class="kw">let </span>next_cursor: i64 = <span class="kw">match </span>position {
-<a href=#1868 id=1868 data-nosnippet>1868</a>            io::SeekFrom::Start(offset) =&gt; offset.try_into().map_err(to_err)<span class="question-mark">?</span>,
-<a href=#1869 id=1869 data-nosnippet>1869</a>            io::SeekFrom::End(offset) =&gt; {
-<a href=#1870 id=1870 data-nosnippet>1870</a>                TryInto::&lt;i64&gt;::try_into(<span class="self">self</span>.buffer.len()).map_err(to_err)<span class="question-mark">? </span>+ offset
-<a href=#1871 id=1871 data-nosnippet>1871</a>            }
-<a href=#1872 id=1872 data-nosnippet>1872</a>            io::SeekFrom::Current(offset) =&gt; {
-<a href=#1873 id=1873 data-nosnippet>1873</a>                TryInto::&lt;i64&gt;::try_into(<span class="kw-2">*</span>cursor).map_err(to_err)<span class="question-mark">? </span>+ offset
-<a href=#1874 id=1874 data-nosnippet>1874</a>            }
-<a href=#1875 id=1875 data-nosnippet>1875</a>        };
+<a href=#1832 id=1832 data-nosnippet>1832</a><span class="kw">impl </span>File {
+<a href=#1833 id=1833 data-nosnippet>1833</a>    <span class="kw">pub fn </span>seek(<span class="kw-2">&amp;</span><span class="self">self</span>, position: io::SeekFrom, cursor: <span class="kw-2">&amp;mut </span>u64) -&gt; io::Result&lt;u64&gt; {
+<a href=#1834 id=1834 data-nosnippet>1834</a>        <span class="kw">let </span>to_err = |<span class="kw">_</span>| io::ErrorKind::InvalidInput;
+<a href=#1835 id=1835 data-nosnippet>1835</a>
+<a href=#1836 id=1836 data-nosnippet>1836</a>        <span class="comment">// Calculate the next cursor.
+<a href=#1837 id=1837 data-nosnippet>1837</a>        </span><span class="kw">let </span>next_cursor: i64 = <span class="kw">match </span>position {
+<a href=#1838 id=1838 data-nosnippet>1838</a>            <span class="comment">// Calculate from the beginning, so `0 + offset`.
+<a href=#1839 id=1839 data-nosnippet>1839</a>            </span>io::SeekFrom::Start(offset) =&gt; offset.try_into().map_err(to_err)<span class="question-mark">?</span>,
+<a href=#1840 id=1840 data-nosnippet>1840</a>
+<a href=#1841 id=1841 data-nosnippet>1841</a>            <span class="comment">// Calculate from the end, so `buffer.len() + offset`.
+<a href=#1842 id=1842 data-nosnippet>1842</a>            </span>io::SeekFrom::End(offset) =&gt; TryInto::&lt;i64&gt;::try_into(<span class="self">self</span>.buffer.len())
+<a href=#1843 id=1843 data-nosnippet>1843</a>                .map_err(to_err)<span class="question-mark">?
+<a href=#1844 id=1844 data-nosnippet>1844</a>                </span>.checked_add(offset)
+<a href=#1845 id=1845 data-nosnippet>1845</a>                .ok_or(io::ErrorKind::InvalidInput)<span class="question-mark">?</span>,
+<a href=#1846 id=1846 data-nosnippet>1846</a>
+<a href=#1847 id=1847 data-nosnippet>1847</a>            <span class="comment">// Calculate from the current cursor, so `cursor + offset`.
+<a href=#1848 id=1848 data-nosnippet>1848</a>            </span>io::SeekFrom::Current(offset) =&gt; TryInto::&lt;i64&gt;::try_into(<span class="kw-2">*</span>cursor)
+<a href=#1849 id=1849 data-nosnippet>1849</a>                .map_err(to_err)<span class="question-mark">?
+<a href=#1850 id=1850 data-nosnippet>1850</a>                </span>.checked_add(offset)
+<a href=#1851 id=1851 data-nosnippet>1851</a>                .ok_or(io::ErrorKind::InvalidInput)<span class="question-mark">?</span>,
+<a href=#1852 id=1852 data-nosnippet>1852</a>        };
+<a href=#1853 id=1853 data-nosnippet>1853</a>
+<a href=#1854 id=1854 data-nosnippet>1854</a>        <span class="comment">// It's an error to seek before byte 0.
+<a href=#1855 id=1855 data-nosnippet>1855</a>        </span><span class="kw">if </span>next_cursor &lt; <span class="number">0 </span>{
+<a href=#1856 id=1856 data-nosnippet>1856</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(io::Error::new(
+<a href=#1857 id=1857 data-nosnippet>1857</a>                io::ErrorKind::InvalidInput,
+<a href=#1858 id=1858 data-nosnippet>1858</a>                <span class="string">"seeking before the byte 0"</span>,
+<a href=#1859 id=1859 data-nosnippet>1859</a>            ));
+<a href=#1860 id=1860 data-nosnippet>1860</a>        }
+<a href=#1861 id=1861 data-nosnippet>1861</a>
+<a href=#1862 id=1862 data-nosnippet>1862</a>        <span class="kw">let </span>next_cursor = next_cursor.try_into().map_err(to_err)<span class="question-mark">?</span>;
+<a href=#1863 id=1863 data-nosnippet>1863</a>        <span class="kw-2">*</span>cursor = next_cursor;
+<a href=#1864 id=1864 data-nosnippet>1864</a>
+<a href=#1865 id=1865 data-nosnippet>1865</a>        <span class="kw">let </span>cursor = <span class="kw-2">*</span>cursor;
+<a href=#1866 id=1866 data-nosnippet>1866</a>        <span class="prelude-val">Ok</span>(cursor)
+<a href=#1867 id=1867 data-nosnippet>1867</a>    }
+<a href=#1868 id=1868 data-nosnippet>1868</a>}
+<a href=#1869 id=1869 data-nosnippet>1869</a>
+<a href=#1870 id=1870 data-nosnippet>1870</a><span class="kw">impl </span>File {
+<a href=#1871 id=1871 data-nosnippet>1871</a>    <span class="kw">pub fn </span>write(<span class="kw-2">&amp;mut </span><span class="self">self</span>, buf: <span class="kw-2">&amp;</span>[u8], cursor: <span class="kw-2">&amp;mut </span>u64) -&gt; io::Result&lt;usize&gt; {
+<a href=#1872 id=1872 data-nosnippet>1872</a>        <span class="kw">let </span>position = <span class="kw-2">*</span>cursor <span class="kw">as </span>usize;
+<a href=#1873 id=1873 data-nosnippet>1873</a>        <span class="kw">let </span>end = position
+<a href=#1874 id=1874 data-nosnippet>1874</a>            .checked_add(buf.len())
+<a href=#1875 id=1875 data-nosnippet>1875</a>            .ok_or(io::ErrorKind::InvalidInput)<span class="question-mark">?</span>;
 <a href=#1876 id=1876 data-nosnippet>1876</a>
-<a href=#1877 id=1877 data-nosnippet>1877</a>        <span class="kw">if </span>next_cursor &lt; <span class="number">0 </span>{
-<a href=#1878 id=1878 data-nosnippet>1878</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(io::Error::new(
-<a href=#1879 id=1879 data-nosnippet>1879</a>                io::ErrorKind::InvalidInput,
-<a href=#1880 id=1880 data-nosnippet>1880</a>                <span class="string">"seeking before the byte 0"</span>,
-<a href=#1881 id=1881 data-nosnippet>1881</a>            ));
-<a href=#1882 id=1882 data-nosnippet>1882</a>        }
-<a href=#1883 id=1883 data-nosnippet>1883</a>
-<a href=#1884 id=1884 data-nosnippet>1884</a>        <span class="kw-2">*</span>cursor = next_cursor.try_into().map_err(to_err)<span class="question-mark">?</span>;
-<a href=#1885 id=1885 data-nosnippet>1885</a>        <span class="prelude-val">Ok</span>(<span class="kw-2">*</span>cursor)
-<a href=#1886 id=1886 data-nosnippet>1886</a>    }
-<a href=#1887 id=1887 data-nosnippet>1887</a>}
-<a href=#1888 id=1888 data-nosnippet>1888</a>
-<a href=#1889 id=1889 data-nosnippet>1889</a><span class="kw">impl </span>ReadOnlyFile {
-<a href=#1890 id=1890 data-nosnippet>1890</a>    <span class="kw">pub fn </span>write(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _buf: <span class="kw-2">&amp;</span>[u8], _cursor: <span class="kw-2">&amp;mut </span>u64) -&gt; io::Result&lt;usize&gt; {
-<a href=#1891 id=1891 data-nosnippet>1891</a>        <span class="prelude-val">Err</span>(io::Error::new(
-<a href=#1892 id=1892 data-nosnippet>1892</a>            io::ErrorKind::PermissionDenied,
-<a href=#1893 id=1893 data-nosnippet>1893</a>            <span class="string">"file is read-only"</span>,
-<a href=#1894 id=1894 data-nosnippet>1894</a>        ))
+<a href=#1877 id=1877 data-nosnippet>1877</a>        <span class="kw">if </span>position &gt; <span class="self">self</span>.buffer.len() {
+<a href=#1878 id=1878 data-nosnippet>1878</a>            <span class="comment">// Materialize the sparse gap with zeroes in this contiguous in-memory buffer.
+<a href=#1879 id=1879 data-nosnippet>1879</a>            </span><span class="self">self</span>.buffer.resize(position, <span class="number">0</span>)<span class="question-mark">?</span>;
+<a href=#1880 id=1880 data-nosnippet>1880</a>        }
+<a href=#1881 id=1881 data-nosnippet>1881</a>
+<a href=#1882 id=1882 data-nosnippet>1882</a>        <span class="kw">if </span>end &gt; <span class="self">self</span>.buffer.len() {
+<a href=#1883 id=1883 data-nosnippet>1883</a>            <span class="comment">// Writing past the end of the current buffer, must reallocate
+<a href=#1884 id=1884 data-nosnippet>1884</a>            </span><span class="kw">let </span>len_after_end = end - <span class="self">self</span>.buffer.len();
+<a href=#1885 id=1885 data-nosnippet>1885</a>            <span class="kw">let </span>let_to_end = buf.len() - len_after_end;
+<a href=#1886 id=1886 data-nosnippet>1886</a>            <span class="self">self</span>.buffer[position..end - len_after_end].copy_from_slice(<span class="kw-2">&amp;</span>buf[<span class="number">0</span>..let_to_end]);
+<a href=#1887 id=1887 data-nosnippet>1887</a>            <span class="self">self</span>.buffer.extend_from_slice(<span class="kw-2">&amp;</span>buf[let_to_end..buf.len()])<span class="question-mark">?</span>;
+<a href=#1888 id=1888 data-nosnippet>1888</a>        } <span class="kw">else </span>{
+<a href=#1889 id=1889 data-nosnippet>1889</a>            <span class="self">self</span>.buffer[position..end].copy_from_slice(buf);
+<a href=#1890 id=1890 data-nosnippet>1890</a>        }
+<a href=#1891 id=1891 data-nosnippet>1891</a>
+<a href=#1892 id=1892 data-nosnippet>1892</a>        <span class="kw-2">*</span>cursor += buf.len() <span class="kw">as </span>u64;
+<a href=#1893 id=1893 data-nosnippet>1893</a>
+<a href=#1894 id=1894 data-nosnippet>1894</a>        <span class="prelude-val">Ok</span>(buf.len())
 <a href=#1895 id=1895 data-nosnippet>1895</a>    }
 <a href=#1896 id=1896 data-nosnippet>1896</a>
-<a href=#1897 id=1897 data-nosnippet>1897</a>    <span class="kw">pub fn </span>flush(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; io::Result&lt;()&gt; {
+<a href=#1897 id=1897 data-nosnippet>1897</a>    <span class="kw">fn </span>flush(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; io::Result&lt;()&gt; {
 <a href=#1898 id=1898 data-nosnippet>1898</a>        <span class="prelude-val">Ok</span>(())
 <a href=#1899 id=1899 data-nosnippet>1899</a>    }
 <a href=#1900 id=1900 data-nosnippet>1900</a>}
+<a href=#1901 id=1901 data-nosnippet>1901</a>
+<a href=#1902 id=1902 data-nosnippet>1902</a><span class="doccomment">/// Read only file that uses copy-on-write
+<a href=#1903 id=1903 data-nosnippet>1903</a></span><span class="attr">#[derive(Debug)]
+<a href=#1904 id=1904 data-nosnippet>1904</a></span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">struct </span>ReadOnlyFile {
+<a href=#1905 id=1905 data-nosnippet>1905</a>    buffer: OwnedBuffer,
+<a href=#1906 id=1906 data-nosnippet>1906</a>}
+<a href=#1907 id=1907 data-nosnippet>1907</a>
+<a href=#1908 id=1908 data-nosnippet>1908</a><span class="kw">impl </span>ReadOnlyFile {
+<a href=#1909 id=1909 data-nosnippet>1909</a>    <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>new(buffer: OwnedBuffer) -&gt; <span class="self">Self </span>{
+<a href=#1910 id=1910 data-nosnippet>1910</a>        <span class="self">Self </span>{ buffer }
+<a href=#1911 id=1911 data-nosnippet>1911</a>    }
+<a href=#1912 id=1912 data-nosnippet>1912</a>
+<a href=#1913 id=1913 data-nosnippet>1913</a>    <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>len(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+<a href=#1914 id=1914 data-nosnippet>1914</a>        <span class="self">self</span>.buffer.len()
+<a href=#1915 id=1915 data-nosnippet>1915</a>    }
+<a href=#1916 id=1916 data-nosnippet>1916</a>}
+<a href=#1917 id=1917 data-nosnippet>1917</a>
+<a href=#1918 id=1918 data-nosnippet>1918</a><span class="kw">impl </span>ReadOnlyFile {
+<a href=#1919 id=1919 data-nosnippet>1919</a>    <span class="kw">pub fn </span>read(<span class="kw-2">&amp;</span><span class="self">self</span>, buf: <span class="kw-2">&amp;mut </span>[u8], cursor: <span class="kw-2">&amp;mut </span>u64) -&gt; io::Result&lt;usize&gt; {
+<a href=#1920 id=1920 data-nosnippet>1920</a>        <span class="kw">let </span>cur_pos = <span class="kw-2">*</span>cursor <span class="kw">as </span>usize;
+<a href=#1921 id=1921 data-nosnippet>1921</a>
+<a href=#1922 id=1922 data-nosnippet>1922</a>        <span class="kw">if </span>cur_pos &gt;= <span class="self">self</span>.buffer.len() {
+<a href=#1923 id=1923 data-nosnippet>1923</a>            <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="number">0</span>);
+<a href=#1924 id=1924 data-nosnippet>1924</a>        }
+<a href=#1925 id=1925 data-nosnippet>1925</a>
+<a href=#1926 id=1926 data-nosnippet>1926</a>        <span class="kw">let </span>max_to_read = cmp::min(<span class="self">self</span>.buffer.len() - cur_pos, buf.len());
+<a href=#1927 id=1927 data-nosnippet>1927</a>        <span class="kw">let </span>data_to_copy = <span class="kw-2">&amp;</span><span class="self">self</span>.buffer[cur_pos..][..max_to_read];
+<a href=#1928 id=1928 data-nosnippet>1928</a>
+<a href=#1929 id=1929 data-nosnippet>1929</a>        <span class="comment">// SAFETY: `buf[..max_to_read]` and `data_to_copy` have the same size, due to
+<a href=#1930 id=1930 data-nosnippet>1930</a>        // how `max_to_read` is computed.
+<a href=#1931 id=1931 data-nosnippet>1931</a>        </span>buf[..max_to_read].copy_from_slice(data_to_copy);
+<a href=#1932 id=1932 data-nosnippet>1932</a>
+<a href=#1933 id=1933 data-nosnippet>1933</a>        <span class="kw-2">*</span>cursor += max_to_read <span class="kw">as </span>u64;
+<a href=#1934 id=1934 data-nosnippet>1934</a>
+<a href=#1935 id=1935 data-nosnippet>1935</a>        <span class="prelude-val">Ok</span>(max_to_read)
+<a href=#1936 id=1936 data-nosnippet>1936</a>    }
+<a href=#1937 id=1937 data-nosnippet>1937</a>}
+<a href=#1938 id=1938 data-nosnippet>1938</a>
+<a href=#1939 id=1939 data-nosnippet>1939</a><span class="kw">impl </span>ReadOnlyFile {
+<a href=#1940 id=1940 data-nosnippet>1940</a>    <span class="kw">pub fn </span>seek(<span class="kw-2">&amp;</span><span class="self">self</span>, position: io::SeekFrom, cursor: <span class="kw-2">&amp;mut </span>u64) -&gt; io::Result&lt;u64&gt; {
+<a href=#1941 id=1941 data-nosnippet>1941</a>        <span class="kw">let </span>to_err = |<span class="kw">_</span>| io::ErrorKind::InvalidInput;
+<a href=#1942 id=1942 data-nosnippet>1942</a>
+<a href=#1943 id=1943 data-nosnippet>1943</a>        <span class="kw">let </span>next_cursor: i64 = <span class="kw">match </span>position {
+<a href=#1944 id=1944 data-nosnippet>1944</a>            io::SeekFrom::Start(offset) =&gt; offset.try_into().map_err(to_err)<span class="question-mark">?</span>,
+<a href=#1945 id=1945 data-nosnippet>1945</a>            io::SeekFrom::End(offset) =&gt; TryInto::&lt;i64&gt;::try_into(<span class="self">self</span>.buffer.len())
+<a href=#1946 id=1946 data-nosnippet>1946</a>                .map_err(to_err)<span class="question-mark">?
+<a href=#1947 id=1947 data-nosnippet>1947</a>                </span>.checked_add(offset)
+<a href=#1948 id=1948 data-nosnippet>1948</a>                .ok_or(io::ErrorKind::InvalidInput)<span class="question-mark">?</span>,
+<a href=#1949 id=1949 data-nosnippet>1949</a>            io::SeekFrom::Current(offset) =&gt; TryInto::&lt;i64&gt;::try_into(<span class="kw-2">*</span>cursor)
+<a href=#1950 id=1950 data-nosnippet>1950</a>                .map_err(to_err)<span class="question-mark">?
+<a href=#1951 id=1951 data-nosnippet>1951</a>                </span>.checked_add(offset)
+<a href=#1952 id=1952 data-nosnippet>1952</a>                .ok_or(io::ErrorKind::InvalidInput)<span class="question-mark">?</span>,
+<a href=#1953 id=1953 data-nosnippet>1953</a>        };
+<a href=#1954 id=1954 data-nosnippet>1954</a>
+<a href=#1955 id=1955 data-nosnippet>1955</a>        <span class="kw">if </span>next_cursor &lt; <span class="number">0 </span>{
+<a href=#1956 id=1956 data-nosnippet>1956</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(io::Error::new(
+<a href=#1957 id=1957 data-nosnippet>1957</a>                io::ErrorKind::InvalidInput,
+<a href=#1958 id=1958 data-nosnippet>1958</a>                <span class="string">"seeking before the byte 0"</span>,
+<a href=#1959 id=1959 data-nosnippet>1959</a>            ));
+<a href=#1960 id=1960 data-nosnippet>1960</a>        }
+<a href=#1961 id=1961 data-nosnippet>1961</a>
+<a href=#1962 id=1962 data-nosnippet>1962</a>        <span class="kw-2">*</span>cursor = next_cursor.try_into().map_err(to_err)<span class="question-mark">?</span>;
+<a href=#1963 id=1963 data-nosnippet>1963</a>        <span class="prelude-val">Ok</span>(<span class="kw-2">*</span>cursor)
+<a href=#1964 id=1964 data-nosnippet>1964</a>    }
+<a href=#1965 id=1965 data-nosnippet>1965</a>}
+<a href=#1966 id=1966 data-nosnippet>1966</a>
+<a href=#1967 id=1967 data-nosnippet>1967</a><span class="kw">impl </span>ReadOnlyFile {
+<a href=#1968 id=1968 data-nosnippet>1968</a>    <span class="kw">pub fn </span>write(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _buf: <span class="kw-2">&amp;</span>[u8], _cursor: <span class="kw-2">&amp;mut </span>u64) -&gt; io::Result&lt;usize&gt; {
+<a href=#1969 id=1969 data-nosnippet>1969</a>        <span class="prelude-val">Err</span>(io::Error::new(
+<a href=#1970 id=1970 data-nosnippet>1970</a>            io::ErrorKind::PermissionDenied,
+<a href=#1971 id=1971 data-nosnippet>1971</a>            <span class="string">"file is read-only"</span>,
+<a href=#1972 id=1972 data-nosnippet>1972</a>        ))
+<a href=#1973 id=1973 data-nosnippet>1973</a>    }
+<a href=#1974 id=1974 data-nosnippet>1974</a>
+<a href=#1975 id=1975 data-nosnippet>1975</a>    <span class="kw">pub fn </span>flush(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; io::Result&lt;()&gt; {
+<a href=#1976 id=1976 data-nosnippet>1976</a>        <span class="prelude-val">Ok</span>(())
+<a href=#1977 id=1977 data-nosnippet>1977</a>    }
+<a href=#1978 id=1978 data-nosnippet>1978</a>}
 </code></pre></div></section></main></body></html>
