@@ -246,6 +246,18 @@ pub struct Interface {
     /// The multicast groups the interface is in, newest first, with how many memberships
     /// hold each (see [`crate::iface::Link::groups`]).
     pub groups: Vec<(IpAddr, u32)>,
+    /// The sources the memberships' filters name, per group in `groups`' order (see
+    /// [`crate::iface::Link::group_sources`]).
+    pub sources: Vec<GroupSources>,
+}
+
+/// One group's sources on an interface (`ip_mc_list`'s and `ifmcaddr6`'s source list): each
+/// source and how many memberships include and exclude it (`sf_count[MCAST_INCLUDE]`,
+/// `sf_count[MCAST_EXCLUDE]`), in the order they were first named.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct GroupSources {
+    pub group: IpAddr,
+    pub sources: Vec<(IpAddr, u32, u32)>,
 }
 
 /// What `RTM_NEWLINK` with `NLM_F_CREATE` makes (`rtnl_newlink_create`).

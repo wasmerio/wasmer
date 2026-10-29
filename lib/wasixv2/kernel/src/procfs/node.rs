@@ -152,6 +152,8 @@ const NET_ENTRIES: &[(&str, text::Net)] = &[
     ("if_inet6", text::Net::IfInet6),
     ("igmp", text::Net::Igmp),
     ("igmp6", text::Net::Igmp6),
+    ("mcfilter", text::Net::Mcfilter(false)),
+    ("mcfilter6", text::Net::Mcfilter(true)),
 ];
 
 /// Where pids start in the root's directory positions, after the static entries.

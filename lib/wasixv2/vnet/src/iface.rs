@@ -454,6 +454,39 @@ impl Link {
         groups
     }
 
+    /// Each group's sources, in [`Link::groups`]' order: those the memberships' filters name,
+    /// in the order the filters were made and list them, with how many filters include and
+    /// exclude each (`ip_mc_add_src`'s and `ip6_mc_add_src`'s `sf_count`); a plain join names
+    /// none.
+    pub fn group_sources(&self) -> Vec<crate::GroupSources> {
+        let source_counts = |group: IpAddr| {
+            let mut out: Vec<(IpAddr, u32, u32)> = Vec::new();
+            for f in self.filters.iter().filter(|f| f.group == group) {
+                for &src in &f.sources {
+                    let at = match out.iter().position(|e| e.0 == src) {
+                        Some(at) => at,
+                        None => {
+                            out.push((src, 0, 0));
+                            out.len() - 1
+                        }
+                    };
+                    match f.include {
+                        true => out[at].1 += 1,
+                        false => out[at].2 += 1,
+                    }
+                }
+            }
+            out
+        };
+        self.groups()
+            .into_iter()
+            .map(|(group, _)| crate::GroupSources {
+                group,
+                sources: source_counts(group),
+            })
+            .collect()
+    }
+
     /// The interface is in `group`.
     pub fn in_group(&self, group: IpAddr) -> bool {
         self.joined.iter().any(|(g, _)| *g == group) || self.own_groups().contains(&group)

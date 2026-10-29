@@ -1014,6 +1014,7 @@ impl Network for Net {
                 addresses: l.addrs.clone(),
                 ipv6_disabled: l.ipv6_disabled,
                 groups: l.groups(),
+                sources: l.group_sources(),
             })
             .collect()
     }

@@ -70,6 +70,8 @@ pub(super) enum Net {
     /// `igmp` and `igmp6`.
     Igmp,
     Igmp6,
+    /// `mcfilter` and `mcfilter6`.
+    Mcfilter(bool),
 }
 
 impl Global {
@@ -160,6 +162,7 @@ pub(super) fn net(ns: &NetNs, file: Net) -> Vec<u8> {
         Net::IfInet6 => net_if_inet6(ns),
         Net::Igmp => net_igmp(ns),
         Net::Igmp6 => net_igmp6(ns),
+        Net::Mcfilter(v6) => net_mcfilter(ns, v6),
     }
 }
 
@@ -646,6 +649,49 @@ fn net_igmp6(ns: &NetNs) -> Vec<u8> {
                 iface.name,
                 u128::from(group),
             );
+        }
+    }
+    out.into_bytes()
+}
+
+/// `igmp_mcf_seq_show`, `igmp6_mcf_seq_show`: every source of every group of every interface,
+/// with how many memberships include and exclude it (the name cut to 6 characters). As
+/// `igmp_mcf_get_first` and `igmp6_mcf_get_first` find the first row, the listing starts at
+/// the first interface whose newest group has sources; from there every group's are listed.
+fn net_mcfilter(ns: &NetNs, v6: bool) -> Vec<u8> {
+    use std::net::IpAddr;
+    let interfaces = ns
+        .network
+        .as_ref()
+        .map(|n| n.interfaces())
+        .unwrap_or_default();
+    let mut out = String::from(match v6 {
+        false => "Idx Device        MCA        SRC    INC    EXC\n",
+        true => {
+            "Idx Device                Multicast Address                   Source Address    INC    EXC\n"
+        }
+    });
+    let family = |g: &IpAddr| g.is_ipv6() == v6;
+    let start = interfaces.iter().position(|iface| {
+        let newest = iface.sources.iter().find(|g| family(&g.group));
+        newest.is_some_and(|g| !g.sources.is_empty())
+    });
+    for iface in interfaces.iter().skip(start.unwrap_or(interfaces.len())) {
+        let name: String = iface.name.chars().take(6).collect();
+        for g in iface.sources.iter().filter(|g| family(&g.group)) {
+            for &(src, inc, exc) in &g.sources {
+                // `ntohl` of IPv4's words, `%pi6` for IPv6's.
+                let addrs = match (g.group, src) {
+                    (IpAddr::V4(group), IpAddr::V4(src)) => {
+                        format!("0x{:08x} 0x{:08x}", u32::from(group), u32::from(src))
+                    }
+                    (IpAddr::V6(group), IpAddr::V6(src)) => {
+                        format!("{:032x} {:032x}", u128::from(group), u128::from(src))
+                    }
+                    _ => continue,
+                };
+                let _ = writeln!(out, "{:3} {name:>6} {addrs} {inc:6} {exc:6}", iface.index);
+            }
         }
     }
     out.into_bytes()
