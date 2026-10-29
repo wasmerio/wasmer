@@ -2659,7 +2659,11 @@ impl Kernel {
     /// (`PF_EXITING`), and if the group goes on, the group's signals it was to take go to other
     /// tasks and its part in a group stop under way is taken.
     pub(crate) fn exit_signals(&self, task: TaskId, signals: &TaskSignals) {
-        let process = self.process(task);
+        // kernel/exit.c:do_exit runs this before exit_notify/release_task. A parent
+        // may have reaped our task after take_pending selected its exit action.
+        let Some(process) = self.task_process(task) else {
+            return;
+        };
         let mut state = signals.group.state.lock_or_recover();
         let Some(me) = state.tasks.get_mut(&task) else {
             return;

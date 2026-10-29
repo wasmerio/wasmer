@@ -1931,3 +1931,17 @@ fn fixed_binfmt_interpreters_deny_writers_until_the_registration_is_removed() {
     assert_eq!(m.write(b"/bm/fixed", b"-1"), Ok(2));
     assert!(open().is_ok());
 }
+
+/// kernel/exit.c:do_exit calls exit_signals before exit_notify/release_task. The
+/// execution layer may still be consuming its selected exit action after reaping.
+#[test]
+fn exit_signal_cleanup_tolerates_reaping_after_action_selection() {
+    let (kernel, task, memory) = machine();
+    let signals = kernel.task_signals(task);
+    block_on(kernel.exit_group(&Caller::new(task, &memory), 0)).unwrap();
+    assert!(!live(&kernel, task), "the unparented process was reaped");
+    // Reproduce the parent winning the race after take_pending releases its table lock.
+    kernel.exit_signals(task, &signals);
+    assert_eq!(kernel.take_pending(task), Some(GuestAction::Exit(0)));
+    assert_eq!(kernel.take_pending(task), None);
+}
