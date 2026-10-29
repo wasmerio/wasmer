@@ -514,27 +514,25 @@ impl Mapping {
         Some(Mapping { start, len, source })
     }
 
+    /// Charge host pages before mremap changes any guest mappings. An alias may expose
+    /// file ranges beyond the original mapping, including for old_size == 0.
+    pub(crate) fn materialize(&mut self, cred: &wasixv2_vfs::Cred) -> Result<(), Errno> {
+        if let Source::Mapped(mapped) = &mut self.source
+            && let Some(file) = &mapped.file
+            && let Some(pages) = file
+                .inode()?
+                .node()
+                .shared_pages(mapped.offset..mapped.offset + self.len, cred)?
+        {
+            mapped.pages = pages;
+        }
+        Ok(())
+    }
+
     /// Grows the mapping by `extra` bytes at its end, which `mremap` already took, and fills
     /// them from the source. A mapped object grows only as far as the object reaches: the
     /// pages past its end stay anonymous memory that reads zero, where Linux raises `SIGBUS`.
-    pub(crate) async fn grow(
-        &mut self,
-        memory: &dyn UserMemory,
-        extra: u64,
-        cred: &wasixv2_vfs::Cred,
-    ) -> Result<(), Errno> {
-        if let Source::Mapped(mapped) = &mut self.source
-            && let Some(file) = &mapped.file
-        {
-            let end = mapped.offset + self.len + extra;
-            if let Some(pages) = file
-                .inode()?
-                .node()
-                .shared_pages(mapped.offset..end, cred)?
-            {
-                mapped.pages = pages;
-            }
-        }
+    pub(crate) async fn grow(&mut self, memory: &dyn UserMemory, extra: u64) -> Result<(), Errno> {
         let extra = match &self.source {
             Source::Mapped(mapped) => {
                 let left = mapped.pages.size().saturating_sub(mapped.offset + self.len);

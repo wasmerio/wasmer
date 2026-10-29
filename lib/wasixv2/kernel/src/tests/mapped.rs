@@ -869,3 +869,68 @@ fn host_mapped_files_retain_core_note_provenance_after_splitting() {
     assert_eq!(files[0].offset, u64::from(2 * PAGE));
     assert!(Arc::ptr_eq(&files[0].file, &kernel.file(task, fd).unwrap()));
 }
+
+#[test]
+fn tmpfs_mapping_quota_covers_mremap_growth_and_duplicates_before_changing_memory() {
+    use wasixv2_abi::{IfDqblk, QuotaMisc};
+    use wasixv2_vfs::QuotaOps;
+    use wasixv2_vfs_mem::{Limits, QuotaLimits};
+
+    let host: Arc<dyn Host> = Arc::new(SharedHost);
+    let clock = Arc::new(HostClock(host.clone()));
+    let root = MemFs::new(clock.clone(), 0o755, 1, 1);
+    let shm = Arc::new(
+        MemFs::with_limits_and_quotas(
+            clock,
+            0o1777,
+            0,
+            0,
+            Limits::UNLIMITED,
+            QuotaLimits {
+                types: 1,
+                block_hard: [u64::from(PAGE), 0],
+                ..QuotaLimits::default()
+            },
+        )
+        .unwrap()
+        .with_shared_pages(Arc::new(SharedHost)),
+    );
+    let kernel = Kernel::new(host, Arc::new(root)).with_shm(shm.clone());
+    let (kernel, task, _) = spawn_on(kernel, Arc::new(Input(Mutex::new(Vec::new()))), &[], &[]);
+    let memory = MappedMemory::new(2, false);
+    let caller = Caller::new(task, &memory);
+    let fd = memfd(&kernel, &caller, MemfdFlags::empty());
+    ftruncate(&kernel, &caller, fd, i64::from(2 * PAGE));
+    let a = map_file(&kernel, &caller, fd, PAGE, RW);
+    memory.put(a, b"kept");
+    assert_eq!(shm.get(0, 1).unwrap().dqb_curspace, u64::from(PAGE));
+    assert_eq!(
+        duplicate(&kernel, &caller, a, 2 * PAGE),
+        Err(SysErr::Errno(Errno::EDQUOT))
+    );
+    let remap =
+        || block_on(kernel.mremap(&caller, a, PAGE, 2 * PAGE, MremapFlags::MREMAP_MAYMOVE, 0));
+    assert_eq!(remap(), Err(SysErr::Errno(Errno::EDQUOT)));
+    assert_eq!(memory.get(a, 4), b"kept");
+    let mappings = kernel.shared_mappings(task);
+    assert_eq!(mappings.len(), 1);
+    assert_eq!((mappings[0].addr, mappings[0].len), (a, u64::from(PAGE)));
+    drop(mappings);
+    shm.set(
+        0,
+        1,
+        &IfDqblk {
+            dqb_bhardlimit: u64::from(2 * PAGE / 1024),
+            dqb_valid: QuotaMisc::QIF_BLIMITS.0,
+            ..IfDqblk::default()
+        },
+    )
+    .unwrap();
+    let grown = remap().unwrap() as u32;
+    assert_eq!(shm.get(0, 1).unwrap().dqb_curspace, u64::from(2 * PAGE));
+    memory.put(grown + PAGE, b"grown");
+    assert_eq!(pread(&kernel, &caller, fd, 5, i64::from(PAGE)), b"grown");
+    let alias = duplicate(&kernel, &caller, grown, 2 * PAGE).unwrap() as u32;
+    assert_eq!(memory.get(alias + PAGE, 5), b"grown");
+    assert_eq!(shm.get(0, 1).unwrap().dqb_curspace, u64::from(2 * PAGE));
+}
