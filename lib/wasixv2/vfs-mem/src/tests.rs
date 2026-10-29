@@ -520,3 +520,33 @@ mod shared {
         assert!(file.shared_pages(BLOCK).unwrap().is_none());
     }
 }
+
+#[test]
+fn file_handles_find_objects_while_they_exist() {
+    let fs = fs();
+    let file = block_on(fs.root().create(b"f", &new(NewKind::Regular))).unwrap();
+    let fid = fs.encode_fh(file.as_ref()).unwrap();
+    let ino = file.ino();
+    assert_eq!(fid.kind, 1);
+    assert_eq!(fid.data.len(), 12);
+
+    // Removed but still held: found, as an open tmpfs file is.
+    block_on(fs.root().unlink(b"f")).unwrap();
+    let found = block_on(fs.fh_to_node(&fid)).unwrap();
+    assert_eq!(found.ino(), ino);
+    drop(found);
+
+    // Gone with its last holder; short and mismatched handles name nothing.
+    drop(file);
+    assert_eq!(block_on(fs.fh_to_node(&fid)).err(), Some(Errno::ESTALE));
+    let short = FileId {
+        kind: 1,
+        data: fid.data[..8].to_vec(),
+    };
+    assert_eq!(block_on(fs.fh_to_node(&short)).err(), Some(Errno::ESTALE));
+    let root = fs.encode_fh(fs.root().as_ref()).unwrap();
+    let mut other = root.clone();
+    other.data[0] = 1;
+    assert_eq!(block_on(fs.fh_to_node(&other)).err(), Some(Errno::ESTALE));
+    assert!(block_on(fs.fh_to_node(&root)).is_ok());
+}

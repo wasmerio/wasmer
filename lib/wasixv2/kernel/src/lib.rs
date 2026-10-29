@@ -1141,24 +1141,26 @@ impl Syscalls for Kernel {
 
     async fn name_to_handle_at(
         &self,
-        _: &Caller<'_>,
-        _: Fd,
-        _: Cstr,
-        _: FileHandlePtr,
-        _: S32Ptr,
-        _: i32,
+        caller: &Caller<'_>,
+        dfd: Fd,
+        name: Cstr,
+        handle: FileHandlePtr,
+        mnt_id: S32Ptr,
+        flag: i32,
     ) -> SysResult<i32> {
-        Err(Errno::EOPNOTSUPP.into())
+        self.sys_name_to_handle_at(caller, dfd, name, handle, mnt_id, flag)
+            .await
     }
 
     async fn open_by_handle_at(
         &self,
-        _: &Caller<'_>,
-        _: Fd,
-        _: ConstFileHandlePtr,
-        _: OpenFlags,
+        caller: &Caller<'_>,
+        mountdirfd: Fd,
+        handle: ConstFileHandlePtr,
+        flags: OpenFlags,
     ) -> SysResult<i32> {
-        Err(Errno::EOPNOTSUPP.into())
+        self.sys_open_by_handle_at(caller, mountdirfd, handle, flags)
+            .await
     }
 
     async fn setxattr(

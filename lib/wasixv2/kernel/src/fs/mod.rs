@@ -3,6 +3,7 @@
 
 mod attr;
 pub(crate) mod dnotify;
+mod fhandle;
 mod fifo;
 mod fsopen;
 pub(crate) mod inotify;
@@ -358,19 +359,8 @@ impl Kernel {
         flags: OpenFlags,
         mode: u32,
     ) -> SysResult<Fd> {
-        // `build_open_how`: unknown bits are ignored, O_PATH drops everything else.
-        let mut flags = flags.0 & VALID_OPEN_FLAGS;
-        if flags & OpenFlags::O_PATH.0 != 0 {
-            flags &= O_PATH_FLAGS;
-        }
-        let creating = flags & (OpenFlags::O_CREAT.0 | OpenFlags::__O_TMPFILE.0) != 0;
-        let mode = if creating { mode & MODE_PERM } else { 0 };
-        let how = OpenHow {
-            flags: u64::from(flags),
-            mode: u64::from(mode),
-            resolve: ResolveFlags(0),
-        };
-        self.do_open(caller, dfd, filename, how).await
+        self.do_open(caller, dfd, filename, build_open_how(flags, mode))
+            .await
     }
 
     pub(crate) async fn sys_openat2(
@@ -412,61 +402,7 @@ impl Kernel {
         filename: Cstr,
         how: OpenHow,
     ) -> SysResult<Fd> {
-        let raw = how.flags;
-        let strip = u64::from(OpenFlags::O_CLOEXEC.0);
-        if (raw & !strip) & !u64::from(VALID_OPEN_FLAGS) != 0 {
-            return Err(Errno::EINVAL.into());
-        }
-        if how.resolve.0 & !VALID_RESOLVE_FLAGS != 0 {
-            return Err(Errno::EINVAL.into());
-        }
-        let resolve = how.resolve;
-        if resolve.contains(ResolveFlags::RESOLVE_BENEATH)
-            && resolve.contains(ResolveFlags::RESOLVE_IN_ROOT)
-        {
-            return Err(Errno::EINVAL.into());
-        }
-        let mut flags = OpenFlags(raw as u32);
-        let creating = flags.intersects(OpenFlags::O_CREAT | OpenFlags::__O_TMPFILE);
-        if creating {
-            if how.mode & !u64::from(MODE_PERM) != 0 {
-                return Err(Errno::EINVAL.into());
-            }
-        } else if how.mode != 0 {
-            return Err(Errno::EINVAL.into());
-        }
-        if flags.contains(OpenFlags::O_DIRECTORY | OpenFlags::O_CREAT) {
-            return Err(Errno::EINVAL.into());
-        }
-        let access = flags & OpenFlags::O_ACCMODE;
-        if flags.contains(OpenFlags::__O_TMPFILE)
-            && (!flags.contains(OpenFlags::O_DIRECTORY) || access == OpenFlags::O_RDONLY)
-        {
-            return Err(Errno::EINVAL.into());
-        }
-        if flags.contains(OpenFlags::O_PATH) && flags.0 & !O_PATH_FLAGS != 0 {
-            return Err(Errno::EINVAL.into());
-        }
-        if flags.contains(OpenFlags::__O_SYNC) {
-            flags |= OpenFlags::O_DSYNC;
-        }
-        if resolve.contains(ResolveFlags::RESOLVE_CACHED)
-            && flags.intersects(OpenFlags::O_TRUNC | OpenFlags::O_CREAT | OpenFlags::__O_TMPFILE)
-        {
-            return Err(Errno::EAGAIN.into());
-        }
-        let excl_create = flags.contains(OpenFlags::O_CREAT | OpenFlags::O_EXCL);
-        let lookup = LookupFlags {
-            follow: !flags.contains(OpenFlags::O_NOFOLLOW) && !excl_create,
-            directory: flags.contains(OpenFlags::O_DIRECTORY),
-            empty: flags.contains(OpenFlags::O_EMPTYPATH),
-            no_xdev: resolve.contains(ResolveFlags::RESOLVE_NO_XDEV),
-            no_symlinks: resolve.contains(ResolveFlags::RESOLVE_NO_SYMLINKS),
-            no_magiclinks: resolve.contains(ResolveFlags::RESOLVE_NO_MAGICLINKS),
-            beneath: resolve.contains(ResolveFlags::RESOLVE_BENEATH),
-            in_root: resolve.contains(ResolveFlags::RESOLVE_IN_ROOT),
-        };
-
+        let (flags, lookup) = build_open_flags(&how)?;
         let path = read_path(caller.memory(), filename).await?;
         let env = self.env(caller);
         // `path_init`: `LOOKUP_IN_ROOT` starts even an absolute path at `dfd`, its root.
@@ -475,9 +411,26 @@ impl Kernel {
         } else {
             self.start(caller, &env, dfd, &path)?
         };
+        self.open_from(caller, &env, &start, &path, flags, how.mode as u32, lookup)
+            .await
+    }
+
+    /// `do_filp_open` of `path` from `start` with flags `build_open_flags` checked, and the
+    /// new descriptor.
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) async fn open_from(
+        &self,
+        caller: &Caller<'_>,
+        env: &Env,
+        start: &Path,
+        path: &[u8],
+        flags: OpenFlags,
+        mode: u32,
+        lookup: LookupFlags,
+    ) -> SysResult<Fd> {
         let vfs_how = wasixv2_vfs::OpenHow {
             flags,
-            mode: how.mode as u32,
+            mode,
             lookup,
         };
         // `get_unused_fd_flags` before `do_filp_open`: at the limit, nothing is created,
@@ -486,7 +439,7 @@ impl Kernel {
         let [fd] = self.reserve_fds(caller, cloexec)?;
         let file = self
             .vfs
-            .open(&env.cx(), &start, &path, &vfs_how)
+            .open(&env.cx(), start, path, &vfs_how)
             .await
             .map_err(|errno| env.error(errno))?;
         // `hook_file_open`'s `allowed_access`, kept for ftruncate and ioctl.
@@ -805,6 +758,82 @@ impl Drop for FdReservation {
             table.lock_or_recover().release(self.fd);
         }
     }
+}
+
+/// `build_open_how`: unknown bits are ignored, `O_PATH` drops everything else, and the mode
+/// counts only when creating.
+pub(crate) fn build_open_how(flags: OpenFlags, mode: u32) -> OpenHow {
+    let mut flags = flags.0 & VALID_OPEN_FLAGS;
+    if flags & OpenFlags::O_PATH.0 != 0 {
+        flags &= O_PATH_FLAGS;
+    }
+    let creating = flags & (OpenFlags::O_CREAT.0 | OpenFlags::__O_TMPFILE.0) != 0;
+    let mode = if creating { mode & MODE_PERM } else { 0 };
+    OpenHow {
+        flags: u64::from(flags),
+        mode: u64::from(mode),
+        resolve: ResolveFlags(0),
+    }
+}
+
+/// `build_open_flags`: the open flags and lookup flags of a valid `open_how`.
+pub(crate) fn build_open_flags(how: &OpenHow) -> Result<(OpenFlags, LookupFlags), Errno> {
+    let raw = how.flags;
+    let strip = u64::from(OpenFlags::O_CLOEXEC.0);
+    if (raw & !strip) & !u64::from(VALID_OPEN_FLAGS) != 0 {
+        return Err(Errno::EINVAL);
+    }
+    if how.resolve.0 & !VALID_RESOLVE_FLAGS != 0 {
+        return Err(Errno::EINVAL);
+    }
+    let resolve = how.resolve;
+    if resolve.contains(ResolveFlags::RESOLVE_BENEATH)
+        && resolve.contains(ResolveFlags::RESOLVE_IN_ROOT)
+    {
+        return Err(Errno::EINVAL);
+    }
+    let mut flags = OpenFlags(raw as u32);
+    let creating = flags.intersects(OpenFlags::O_CREAT | OpenFlags::__O_TMPFILE);
+    if creating {
+        if how.mode & !u64::from(MODE_PERM) != 0 {
+            return Err(Errno::EINVAL);
+        }
+    } else if how.mode != 0 {
+        return Err(Errno::EINVAL);
+    }
+    if flags.contains(OpenFlags::O_DIRECTORY | OpenFlags::O_CREAT) {
+        return Err(Errno::EINVAL);
+    }
+    let access = flags & OpenFlags::O_ACCMODE;
+    if flags.contains(OpenFlags::__O_TMPFILE)
+        && (!flags.contains(OpenFlags::O_DIRECTORY) || access == OpenFlags::O_RDONLY)
+    {
+        return Err(Errno::EINVAL);
+    }
+    if flags.contains(OpenFlags::O_PATH) && flags.0 & !O_PATH_FLAGS != 0 {
+        return Err(Errno::EINVAL);
+    }
+    if flags.contains(OpenFlags::__O_SYNC) {
+        flags |= OpenFlags::O_DSYNC;
+    }
+    if resolve.contains(ResolveFlags::RESOLVE_CACHED)
+        && flags.intersects(OpenFlags::O_TRUNC | OpenFlags::O_CREAT | OpenFlags::__O_TMPFILE)
+    {
+        return Err(Errno::EAGAIN);
+    }
+    let excl_create = flags.contains(OpenFlags::O_CREAT | OpenFlags::O_EXCL);
+    let lookup = LookupFlags {
+        follow: !flags.contains(OpenFlags::O_NOFOLLOW) && !excl_create,
+        directory: flags.contains(OpenFlags::O_DIRECTORY),
+        empty: flags.contains(OpenFlags::O_EMPTYPATH),
+        no_xdev: resolve.contains(ResolveFlags::RESOLVE_NO_XDEV),
+        no_symlinks: resolve.contains(ResolveFlags::RESOLVE_NO_SYMLINKS),
+        no_magiclinks: resolve.contains(ResolveFlags::RESOLVE_NO_MAGICLINKS),
+        beneath: resolve.contains(ResolveFlags::RESOLVE_BENEATH),
+        in_root: resolve.contains(ResolveFlags::RESOLVE_IN_ROOT),
+    };
+
+    Ok((flags, lookup))
 }
 
 pub(crate) async fn read_path(memory: &dyn UserMemory, path: Cstr) -> Result<Vec<u8>, Errno> {

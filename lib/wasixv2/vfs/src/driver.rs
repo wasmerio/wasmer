@@ -19,8 +19,8 @@ use crate::{
     mount::Path,
     ops::Ctx,
     types::{
-        AllocMode, Attr, DirSink, FileType, FsInfo, FsResult, NewNode, OpenOptions, RenameMode,
-        SeekHole, SetAttr, StatFs, XattrSet,
+        AllocMode, Attr, DirSink, FileId, FileType, FsInfo, FsResult, NewNode, OpenOptions,
+        RenameMode, SeekHole, SetAttr, StatFs, XattrSet,
     },
 };
 
@@ -57,6 +57,21 @@ pub trait Filesystem: Send + Sync {
     fn binds_objects(&self) -> bool {
         false
     }
+
+    /// `export_operations->encode_fh`: a handle for `node` that [`Filesystem::fh_to_node`]
+    /// decodes, for `name_to_handle_at` and `open_by_handle_at`. `None` (the default) for a
+    /// filesystem without export operations, whose objects only get identifiers that are
+    /// never decoded (`AT_HANDLE_FID`, fanotify's), which the VFS makes from the inode number
+    /// and generation (`exportfs_encode_ino64_fid`).
+    fn encode_fh(&self, _node: &dyn Node) -> Option<FileId> {
+        None
+    }
+
+    /// `export_operations->fh_to_dentry`: the object `fid`, which [`Filesystem::encode_fh`]
+    /// made, while it exists; `ESTALE` once it is gone or for a handle that names nothing.
+    async fn fh_to_node(&self, _fid: &FileId) -> FsResult<Arc<dyn Node>> {
+        Err(Errno::ESTALE)
+    }
 }
 
 /// Where following a symbolic link leads.
@@ -91,6 +106,13 @@ pub trait Node: Send + Sync + Any {
     fn file_type(&self) -> FileType;
 
     fn as_any(&self) -> &dyn Any;
+
+    /// `i_generation`: tells apart objects that had the same inode number at different
+    /// times, for file handles and `FS_IOC_GETVERSION`. 0 for a filesystem that never reuses
+    /// a number.
+    fn generation(&self) -> u32 {
+        0
+    }
 
     /// `inode->i_op->permission`: whether `cred`, of the task `task` (as [`Ctx::task`] numbers
     /// it), may access the object as `mask` asks, its metadata being `attr`. By default the
