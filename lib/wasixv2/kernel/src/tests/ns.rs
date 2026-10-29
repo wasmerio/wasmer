@@ -1560,3 +1560,91 @@ fn ping_sockets_follow_ping_group_range() {
     assert_eq!(write_file(&kernel, &caller, ignore, "1"), Ok(1));
     assert_eq!(read_text(&kernel, &caller, ignore), "1\n");
 }
+
+/// `/proc/net/icmp` and `raw` list ping and raw ICMP sockets as `ping_v4_seq_show` and
+/// `raw_seq_show` do: the bound address and identifier (a raw socket's protocol), the peer,
+/// the state, what is queued, the owner and the inode of the socket's file; `icmp` pads its
+/// lines to 127 columns. Their IPv6 forms list IPv6 sockets.
+#[test]
+fn proc_net_icmp_and_raw_list_ping_and_raw_sockets() {
+    let (kernel, task, memory) = networked();
+    let caller = Caller::new(task, &memory);
+    let ino = |fd: Fd| {
+        let link = readlink(&kernel, &caller, &format!("/proc/self/fd/{}", fd.0)).unwrap();
+        link.trim_start_matches("socket:[")
+            .trim_end_matches(']')
+            .to_string()
+    };
+    assert_eq!(
+        write_file(
+            &kernel,
+            &caller,
+            "/proc/sys/net/ipv4/ping_group_range",
+            "0 0"
+        ),
+        Ok(3)
+    );
+    let socket = |family, r#type, protocol| {
+        block_on(kernel.socket(&caller, family, r#type, protocol)).unwrap()
+    };
+    let ping = socket(AddressFamily::AF_INET, DGRAM, 1);
+    let unbound = socket(AddressFamily::AF_INET, DGRAM, 1);
+    let raw = socket(AddressFamily::AF_INET, 3, 1);
+    let raw6 = socket(AddressFamily::AF_INET6, 3, 58);
+    // The ping socket takes identifier 0x1234 on 127.0.0.1 and connects there.
+    let addr = std::net::SocketAddr::new([127, 0, 0, 1].into(), 0x1234);
+    put(&memory.0, 0x900, &crate::socket::encode(addr));
+    assert_eq!(
+        block_on(kernel.bind(&caller, ping, GuestPtr::new(0x900), 16)),
+        Ok(0)
+    );
+    assert_eq!(
+        block_on(kernel.connect(&caller, ping, GuestPtr::new(0x900), 16)),
+        Ok(0)
+    );
+    let _ = unbound;
+
+    let icmp = read_text(&kernel, &caller, "/proc/net/icmp");
+    let lines: Vec<&str> = icmp.lines().collect();
+    assert!(lines.iter().all(|l| l.len() == 127), "{icmp:?}");
+    assert!(
+        lines[0].starts_with("  sl  local_address rem_address   st tx_queue"),
+        "{icmp}"
+    );
+    let want = format!(
+        "   52: 0100007F:1234 0100007F:1234 01 00000000:00000000 00:00000000 00000000     0        0 {} 2 0 0",
+        ino(ping)
+    );
+    assert_eq!(lines[1..], [format!("{want:<127}")], "{icmp}");
+
+    let raw_text = read_text(&kernel, &caller, "/proc/net/raw");
+    let want = format!(
+        "  97: 00000000:0001 00000000:0000 07 00000000:00000000 00:00000000 00000000     0        0 {} 2 0 0\n",
+        ino(raw)
+    );
+    assert!(raw_text.ends_with(&want), "{raw_text}");
+    assert_eq!(raw_text.lines().count(), 2, "{raw_text}");
+
+    let raw6_text = read_text(&kernel, &caller, "/proc/net/raw6");
+    assert!(raw6_text.starts_with("  sl  local_address                         remote_address "));
+    let row: Vec<&str> = raw6_text
+        .lines()
+        .nth(1)
+        .unwrap()
+        .split_whitespace()
+        .collect();
+    assert_eq!(
+        (row[1], row[3], row[9]),
+        (
+            "00000000000000000000000000000000:003A",
+            "07",
+            ino(raw6).as_str()
+        )
+    );
+    assert_eq!(
+        read_text(&kernel, &caller, "/proc/net/icmp6")
+            .lines()
+            .count(),
+        1
+    );
+}

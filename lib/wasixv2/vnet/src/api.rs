@@ -167,6 +167,28 @@ pub struct PortEntry {
     pub inode: u64,
 }
 
+/// One ping or raw ICMP socket, for `/proc/net/{icmp,icmp6,raw,raw6}`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct IcmpEntry {
+    pub domain: Domain,
+    /// A raw socket (`SOCK_RAW`), else a ping socket.
+    pub raw: bool,
+    /// `inet_rcv_saddr`, `None` for the wildcard.
+    pub local: Option<IpAddr>,
+    /// `inet_num`: a ping socket's identifier, a raw socket's protocol.
+    pub num: u16,
+    /// The connected peer and port (`inet_dport`).
+    pub peer: Option<(IpAddr, u16)>,
+    /// `sk_rmem_alloc`: what the receive queue is charged.
+    pub rx_queue: usize,
+    /// `sk_uid`.
+    pub uid: u32,
+    /// `sock_i_ino`, 0 while the socket has no file.
+    pub inode: u64,
+    /// `sk_drops`: messages lost to a full receive queue.
+    pub drops: u32,
+}
+
 /// A network interface as netlink, `SIOCGIF*`, `getifaddrs` and `/proc/net` show it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Interface {
@@ -233,6 +255,12 @@ pub trait Network: Send + Sync {
 
     /// Every bound socket in the namespace.
     fn ports(&self) -> Vec<PortEntry> {
+        Vec::new()
+    }
+
+    /// The namespace's bound ping sockets and its raw ICMP sockets, each newest first, as
+    /// their hash chains have them.
+    fn icmp_sockets(&self) -> Vec<IcmpEntry> {
         Vec::new()
     }
 
