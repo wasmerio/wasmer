@@ -152,8 +152,18 @@ pub(crate) async fn read_filter(
     Ok(Some(filters))
 }
 
+trait NotificationSink: Send + Sync {
+    fn post(&self, bytes: Vec<u8>, filtered: bool);
+}
+
+impl NotificationSink for Pipe {
+    fn post(&self, bytes: Vec<u8>, filtered: bool) {
+        self.post_notification(bytes, filtered);
+    }
+}
+
 pub(crate) struct Watch {
-    queue: Weak<Pipe>,
+    queue: Weak<dyn NotificationSink>,
     object: u64,
     info: u32,
     user: Arc<AtomicUsize>,
@@ -174,7 +184,7 @@ impl Watch {
             bytes.extend_from_slice(&self.object.to_le_bytes());
         }
         if let Some(queue) = self.queue.upgrade() {
-            queue.post_notification(bytes, false);
+            queue.post(bytes, false);
         }
         self.release();
     }
@@ -213,11 +223,13 @@ impl WatchList {
         let queue = crate::pipe::pipe_info(&file)
             .filter(|p| p.is_notification())
             .ok_or(Errno::EINVAL)?;
+        let sink: Arc<dyn NotificationSink> = queue.clone();
+        let weak = Arc::downgrade(&sink);
         let mut list = self.0.lock_or_recover();
         list.retain(|w| w.charged.load(Ordering::Acquire));
         let found = list
             .iter()
-            .position(|w| w.object == object && w.queue.ptr_eq(&Arc::downgrade(&queue)));
+            .position(|w| w.object == object && w.queue.ptr_eq(&weak));
         if watch_id == -1 {
             let index = found.ok_or(Errno::EBADSLT)?;
             list.remove(index).removal();
@@ -237,7 +249,7 @@ impl WatchList {
         })
         .map_err(|_| Errno::EAGAIN)?;
         let watch = Arc::new(Watch {
-            queue: Arc::downgrade(&queue),
+            queue: weak,
             object,
             info: (watch_id as u32) << 8,
             user,
@@ -263,7 +275,7 @@ impl WatchList {
                 let mut bytes = notification.to_vec();
                 let info = u32::from_le_bytes(bytes[4..8].try_into().unwrap());
                 bytes[4..8].copy_from_slice(&(info & !INFO_ID | watch.info).to_le_bytes());
-                queue.post_notification(bytes, true);
+                queue.post(bytes, true);
             }
         }
     }
