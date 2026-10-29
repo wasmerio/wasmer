@@ -360,3 +360,118 @@ fn whiteouts_replacing_upper_entries_leave_no_temporary_names() {
     // The upper directory holds only the whiteout, under the removed name.
     assert_eq!(list(&lookup(&upper.root(), b"d").unwrap()), [b"f".to_vec()]);
 }
+
+#[test]
+fn copy_up_preserves_file_flags_protection_and_posix_acls() {
+    use wasixv2_vfs::{
+        XATTR_NAME_POSIX_ACL_ACCESS as ACCESS, XATTR_NAME_POSIX_ACL_DEFAULT as DEFAULT,
+    };
+    let (overlay, upper, lower) = setup();
+    let lower_dir = lookup(&lower.root(), b"d").unwrap();
+    let lower_file = lookup(&lower_dir, b"f").unwrap();
+    let flags = Fl::FS_NOATIME_FL.0 | Fl::FS_NODUMP_FL.0 | PROT_FLAGS;
+    block_on(lower_file.fileattr_set(&FileKattr::from_flags(flags))).unwrap();
+    block_on(lower_dir.fileattr_set(&FileKattr::from_flags(Fl::FS_NOATIME_FL.0))).unwrap();
+    let mut acl = 2u32.to_le_bytes().to_vec();
+    for (tag, perm, id) in [
+        (1u16, 6u16, u32::MAX),
+        (2, 4, 7),
+        (4, 0, u32::MAX),
+        (16, 4, u32::MAX),
+        (32, 0, u32::MAX),
+    ] {
+        acl.extend_from_slice(&tag.to_le_bytes());
+        acl.extend_from_slice(&perm.to_le_bytes());
+        acl.extend_from_slice(&id.to_le_bytes());
+    }
+    block_on(lower_file.setxattr(ACCESS, &acl, XattrSet::Any)).unwrap();
+    block_on(lower_dir.setxattr(DEFAULT, &acl, XattrSet::Any)).unwrap();
+    let dir = lookup(&overlay.root(), b"d").unwrap();
+    let file = lookup(&dir, b"f").unwrap();
+    block_on(file.setattr(&SetAttr {
+        mode: Some(0o640),
+        ..SetAttr::default()
+    }))
+    .unwrap();
+    let upper_dir = lookup(&upper.root(), b"d").unwrap();
+    let upper_file = lookup(&upper_dir, b"f").unwrap();
+    assert_eq!(block_on(upper_file.getxattr(ACCESS)), Ok(acl.clone()));
+    assert_eq!(block_on(upper_dir.getxattr(DEFAULT)), Ok(acl));
+    let physical = block_on(upper_file.fileattr_get()).unwrap().flags;
+    assert_eq!(
+        physical & (COPY_FLAGS | PROT_FLAGS | Fl::FS_NODUMP_FL.0),
+        Fl::FS_NOATIME_FL.0
+    );
+    assert_eq!(
+        block_on(upper_file.getxattr(b"trusted.overlay.protattr")),
+        Ok(b"ai".to_vec())
+    );
+    assert_eq!(file.inode_flags() & PROT_FLAGS, PROT_FLAGS);
+    assert_eq!(
+        block_on(file.fileattr_get()).unwrap().flags & PROT_FLAGS,
+        PROT_FLAGS
+    );
+    let restored = OverlayFs::new(Some(upper.clone()), vec![]);
+    let restored_file = lookup(&lookup(&restored.root(), b"d").unwrap(), b"f").unwrap();
+    assert_eq!(
+        block_on(restored_file.fileattr_get()).unwrap().flags & PROT_FLAGS,
+        PROT_FLAGS
+    );
+    block_on(restored_file.fileattr_set(&FileKattr::from_flags(Fl::FS_NOATIME_FL.0))).unwrap();
+    assert_eq!(restored_file.inode_flags() & PROT_FLAGS, 0);
+    assert_eq!(
+        block_on(upper_file.getxattr(b"trusted.overlay.protattr")),
+        Err(Errno::ENODATA)
+    );
+    // A preexisting protection xattr on the synchronous root loads before VFS checks flags.
+    block_on(
+        upper
+            .root()
+            .setxattr(b"trusted.overlay.protattr", b"i", XattrSet::Any),
+    )
+    .unwrap();
+    let restored = OverlayFs::new(Some(upper), vec![]);
+    block_on(restored.root().getattr()).unwrap();
+    assert_eq!(
+        restored.root().inode_flags() & PROT_FLAGS,
+        Fl::FS_IMMUTABLE_FL.0
+    );
+}
+
+#[test]
+fn copy_up_requires_posix_acls_even_when_upper_ignores_unknown_xattrs() {
+    struct NoXattr(Arc<dyn Node>);
+    #[async_trait(?Send)]
+    impl Node for NoXattr {
+        fn ino(&self) -> u64 {
+            self.0.ino()
+        }
+        fn file_type(&self) -> FileType {
+            self.0.file_type()
+        }
+        fn as_any(&self) -> &dyn Any {
+            self
+        }
+        async fn getattr(&self) -> FsResult<Attr> {
+            self.0.getattr().await
+        }
+        async fn setattr(&self, attr: &SetAttr) -> FsResult<Attr> {
+            self.0.setattr(attr).await
+        }
+        async fn open(&self, options: OpenOptions) -> FsResult<Box<dyn Handle>> {
+            self.0.open(options).await
+        }
+    }
+    let lower = mem();
+    let file = write(&lower.root(), b"f", b"data");
+    block_on(file.setxattr(b"user.unknown", b"value", XattrSet::Any)).unwrap();
+    let upper: Arc<dyn Node> = Arc::new(NoXattr(write(&mem().root(), b"f", b"")));
+    assert_eq!(block_on(copy_xattrs(&file, &upper)), Ok(()));
+    block_on(file.setxattr(
+        wasixv2_vfs::XATTR_NAME_POSIX_ACL_ACCESS,
+        &[2, 0, 0, 0],
+        XattrSet::Any,
+    ))
+    .unwrap();
+    assert_eq!(block_on(copy_xattrs(&file, &upper)), Err(Errno::EOPNOTSUPP));
+}

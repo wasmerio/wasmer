@@ -24,13 +24,13 @@ use std::{
     collections::{HashMap, HashSet},
     sync::{
         Arc, Mutex, Weak,
-        atomic::{AtomicU64, Ordering},
+        atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering},
     },
 };
 
 use async_trait::async_trait;
 use futures::lock::Mutex as AsyncMutex;
-use wasixv2_abi::Errno;
+use wasixv2_abi::{Errno, FsInodeFlags as Fl, FsXflags as X};
 use wasixv2_vfs::{
     AllocMode, Attr, Device, DirEntry, DirSink, FileKattr, FileType, Filesystem, FsInfo, FsResult,
     Handle, NewKind, NewNode, Node, OpenOptions, RenameMode, SeekHole, SetAttr, SharedContents,
@@ -121,6 +121,8 @@ impl OverlayFs {
                 unlinked: false,
             }),
             copy_lock: AsyncMutex::new(()),
+            protattr: AtomicU32::new(0),
+            protattr_loaded: AtomicBool::new(false),
         });
         Arc::new(Self { shared, root })
     }
@@ -276,6 +278,8 @@ impl Shared {
                 unlinked: false,
             }),
             copy_lock: AsyncMutex::new(()),
+            protattr: AtomicU32::new(0),
+            protattr_loaded: AtomicBool::new(false),
         });
         self.nodes
             .lock()
@@ -332,6 +336,8 @@ pub struct OverlayNode {
     state: Mutex<State>,
     /// Held while this object's data is copied up for an open, so only one copy is made.
     copy_lock: AsyncMutex<()>,
+    protattr: AtomicU32,
+    protattr_loaded: AtomicBool,
 }
 
 struct State {
@@ -378,6 +384,23 @@ impl OverlayNode {
             .downcast_ref::<OverlayNode>()
             .map(OverlayNode::arc)
             .ok_or(Errno::EXDEV)
+    }
+
+    /// Upper protection xattrs are loaded before the VFS checks inode flags (it obtains
+    /// getattr first). The root is created synchronously, so it shares this lazy path.
+    async fn load_protattr(&self) {
+        if self.protattr_loaded.load(Ordering::Acquire) {
+            return;
+        }
+        let _copy = self.copy_lock.lock().await;
+        if !self.protattr_loaded.load(Ordering::Relaxed) {
+            let flags = match self.upper_node() {
+                Some(upper) => read_protattr(&upper).await,
+                None => 0,
+            };
+            self.protattr.store(flags, Ordering::Release);
+            self.protattr_loaded.store(true, Ordering::Release);
+        }
     }
 
     fn is_dir(&self) -> bool {
@@ -669,6 +692,11 @@ impl OverlayNode {
     /// last reached, unless its name was removed, and makes it this object's upper object.
     async fn install_copy(&self, copy: Copy) -> FsResult<()> {
         let upper = copy.node;
+        // Preserve lower protections in the live overlay inode, including Linux's
+        // best-effort case when upper cannot store overlay.protattr.
+        let protection = self.inode_flags() & PROT_FLAGS | read_protattr(&upper).await;
+        self.protattr.store(protection, Ordering::Release);
+        self.protattr_loaded.store(true, Ordering::Release);
         let (parent, name, unlinked) = {
             let state = self.state.lock().unwrap();
             (state.parent.clone(), state.name.clone(), state.unlinked)
@@ -895,6 +923,7 @@ impl Node for OverlayNode {
     }
 
     async fn getattr(&self) -> FsResult<Attr> {
+        self.load_protattr().await;
         let attr = self.real().getattr().await?;
         Ok(self.fix_attr(attr))
     }
@@ -1175,17 +1204,30 @@ impl Node for OverlayNode {
 
     /// `ovl_fileattr_get`: the real object's.
     fn inode_flags(&self) -> u32 {
-        self.real().inode_flags()
+        self.real().inode_flags() | self.protattr.load(Ordering::Acquire)
     }
 
     async fn fileattr_get(&self) -> FsResult<FileKattr> {
-        self.real().fileattr_get().await
+        self.load_protattr().await;
+        let mut fa = self.real().fileattr_get().await?;
+        let protection = FileKattr::from_flags(self.protattr.load(Ordering::Acquire));
+        fa.flags |= protection.flags;
+        fa.xflags |= protection.xflags;
+        Ok(fa)
     }
 
     /// `ovl_fileattr_set`: on the object copied up.
     async fn fileattr_set(&self, fa: &FileKattr) -> FsResult<()> {
         let upper = self.upper_for_change().await?;
-        upper.fileattr_set(fa).await
+        let _copy = self.copy_lock.lock().await;
+        set_protattr(&upper, fa.flags).await?;
+        self.protattr
+            .store(fa.flags & PROT_FLAGS, Ordering::Release);
+        self.protattr_loaded.store(true, Ordering::Release);
+        let mut fa = *fa;
+        fa.flags &= !PROT_FLAGS;
+        fa.xflags &= !PROT_XFLAGS;
+        upper.fileattr_set(&fa).await
     }
 
     async fn getxattr(&self, name: &[u8]) -> FsResult<Vec<u8>> {
@@ -1233,6 +1275,9 @@ async fn fill_copy(
         handle.set_size(size).await?;
     }
     copy_xattrs(lower, upper).await?;
+    if matches!(attr.file_type, FileType::Regular | FileType::Directory) {
+        copy_fileattr(lower, upper).await?;
+    }
     let set = SetAttr {
         mode: (attr.file_type != FileType::Symlink).then_some(attr.mode),
         ..restore_times(attr)
@@ -1302,11 +1347,96 @@ async fn copy_xattrs(lower: &Arc<dyn Node>, upper: &Arc<dyn Node>) -> FsResult<(
             Err(err) => return Err(err),
         };
         match upper.setxattr(name, &value, XattrSet::Any).await {
-            Ok(()) | Err(Errno::EOPNOTSUPP) => {}
+            Ok(()) => {}
+            // ovl_copy_acl: POSIX ACLs must be copied, unlike unknown xattrs.
+            Err(Errno::EOPNOTSUPP) if wasixv2_vfs::AclKind::of_xattr(name).is_none() => {}
             Err(err) => return Err(err),
         }
     }
     Ok(())
+}
+
+// fs/overlayfs/overlayfs.h: only sync/noatime copy into the physical upper inode.
+const COPY_FLAGS: u32 = Fl::FS_SYNC_FL.0 | Fl::FS_NOATIME_FL.0;
+const COPY_XFLAGS: u32 = X::FS_XFLAG_SYNC.0 | X::FS_XFLAG_NOATIME.0;
+const PROT_FLAGS: u32 = Fl::FS_APPEND_FL.0 | Fl::FS_IMMUTABLE_FL.0;
+const PROT_XFLAGS: u32 = X::FS_XFLAG_APPEND.0 | X::FS_XFLAG_IMMUTABLE.0;
+
+async fn read_protattr(upper: &Arc<dyn Node>) -> u32 {
+    let Some(value) = get_overlay_xattr(upper, b"protattr").await else {
+        return 0;
+    };
+    if value.is_empty() || value.len() > 32 {
+        return 0;
+    }
+    let mut flags = 0;
+    for byte in value {
+        flags |= match byte {
+            b'a' => Fl::FS_APPEND_FL.0,
+            b'i' => Fl::FS_IMMUTABLE_FL.0,
+            _ => return 0,
+        };
+    }
+    flags
+}
+
+/// fs/overlayfs/util.c: ovl_set_protattr stores protection without making upper
+/// immutable/append-only, so copies of its children can still be linked into it.
+async fn set_protattr(upper: &Arc<dyn Node>, flags: u32) -> FsResult<()> {
+    let mut value = Vec::new();
+    if flags & Fl::FS_APPEND_FL.0 != 0 {
+        value.push(b'a');
+    }
+    if flags & Fl::FS_IMMUTABLE_FL.0 != 0 {
+        value.push(b'i');
+    }
+    if !value.is_empty() {
+        return set_overlay_xattr(upper, b"protattr", &value)
+            .await
+            .map_err(|err| {
+                if err == Errno::EOPNOTSUPP {
+                    Errno::EPERM
+                } else {
+                    err
+                }
+            });
+    }
+    for prefix in XATTR_PREFIXES {
+        let name = [prefix, b"protattr"].concat();
+        if upper.getxattr(&name).await.is_ok() {
+            match upper.removexattr(&name).await {
+                Ok(()) | Err(Errno::EOPNOTSUPP | Errno::ENODATA) => {}
+                Err(err) => return Err(err),
+            }
+        }
+    }
+    Ok(())
+}
+
+/// fs/overlayfs/copy_up.c: ovl_copy_fileattr.
+async fn copy_fileattr(lower: &Arc<dyn Node>, upper: &Arc<dyn Node>) -> FsResult<()> {
+    let old = match lower.fileattr_get().await {
+        Ok(fa) => fa,
+        Err(Errno::ENOTTY | Errno::EINVAL) => return Ok(()),
+        Err(err) => return Err(err),
+    };
+    if old.flags & PROT_FLAGS != 0 {
+        match set_protattr(upper, old.flags).await {
+            Ok(()) | Err(Errno::EPERM) => {}
+            Err(err) => return Err(err),
+        }
+    }
+    if old.flags & COPY_FLAGS == 0 {
+        return Ok(());
+    }
+    let mut new = match upper.fileattr_get().await {
+        Ok(fa) => fa,
+        Err(Errno::ENOTTY | Errno::EINVAL) => return Ok(()),
+        Err(err) => return Err(err),
+    };
+    new.flags = new.flags & !COPY_FLAGS | old.flags & COPY_FLAGS;
+    new.xflags = new.xflags & !COPY_XFLAGS | old.xflags & COPY_XFLAGS;
+    upper.fileattr_set(&new).await
 }
 
 fn is_private(name: &[u8]) -> bool {
