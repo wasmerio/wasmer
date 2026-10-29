@@ -21,6 +21,13 @@ use crate::{
 /// `IPV6_V6ONLY`; missing from the generated ABI constants.
 pub const IPV6_V6ONLY: i32 = 26;
 
+/// RFC 2292 option/control-message numbers (Linux UAPI linux/in6.h).
+pub(crate) const IPV6_2292PKTINFO: i32 = 2;
+const IPV6_2292HOPOPTS: i32 = 3;
+const IPV6_2292DSTOPTS: i32 = 4;
+const IPV6_2292RTHDR: i32 = 5;
+pub(crate) const IPV6_2292HOPLIMIT: i32 = 8;
+
 /// `sysctl_wmem_max` / `sysctl_rmem_max` defaults.
 pub const WMEM_MAX: u32 = 212_992;
 pub const RMEM_MAX: u32 = 212_992;
@@ -211,6 +218,15 @@ const INT_OPTS: &[(i32, i32, i32, bool, bool)] = &[
     (SOL_IPV6, Ipv6Option::IPV6_MTU_DISCOVER.0, 1, false, false),
     (SOL_IPV6, Ipv6Option::IPV6_MTU.0, 0, false, false),
     (SOL_IPV6, Ipv6Option::IPV6_RECVHOPLIMIT.0, 0, true, false),
+    // ipv6_sockglue.c do_ipv6_setsockopt: independent np->rxopt bits.
+    (SOL_IPV6, Ipv6Option::IPV6_RECVRTHDR.0, 0, true, false),
+    (SOL_IPV6, Ipv6Option::IPV6_RECVHOPOPTS.0, 0, true, false),
+    (SOL_IPV6, Ipv6Option::IPV6_RECVDSTOPTS.0, 0, true, false),
+    (SOL_IPV6, IPV6_2292PKTINFO, 0, true, false),
+    (SOL_IPV6, IPV6_2292HOPOPTS, 0, true, false),
+    (SOL_IPV6, IPV6_2292DSTOPTS, 0, true, false),
+    (SOL_IPV6, IPV6_2292RTHDR, 0, true, false),
+    (SOL_IPV6, IPV6_2292HOPLIMIT, 0, true, false),
     (SOL_TCP, Tcp::TCP_NODELAY.0, 0, true, true),
     (SOL_TCP, Tcp::TCP_CORK.0, 0, true, true),
     (SOL_TCP, Tcp::TCP_KEEPIDLE.0, 7200, false, true),
