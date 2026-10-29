@@ -2,8 +2,7 @@
 //! inodes, mounts and filesystems, fed by the VFS's `FsWatcher` hook as inotify is. A group of
 //! a permission class answers opens and reads before they happen.
 //!
-//! Not provided: mount namespace marks and mount events (`FAN_REPORT_MNT`, refused as a
-//! kernel before 6.14 does), pre-content events (no filesystem opts into them), filesystem
+//! Not provided: filesystem
 //! error events (accepted on filesystem marks, never generated) and auditing.
 
 use std::{
@@ -187,6 +186,8 @@ enum Target {
     Mount(u64),
     /// A filesystem, by superblock id.
     Sb(u64),
+    /// Mount namespace's VFS id and nsfs inode number.
+    Namespace(u64, u32),
 }
 
 /// How a mark matched an event (`FSNOTIFY_ITER_TYPE_*`).
@@ -259,7 +260,10 @@ struct Fh {
 #[derive(Clone)]
 enum Info {
     /// The object's path, from which the reader gets a descriptor.
-    Path(Path),
+    Path {
+        path: Path,
+        range: Option<(u64, u64)>,
+    },
     /// File identifiers (`fanotify_fid_event`, `fanotify_name_event`).
     Fid {
         fsid: [i32; 2],
@@ -269,6 +273,7 @@ enum Info {
         dir2: Option<(Fh, Vec<u8>)>,
         object: Option<Fh>,
     },
+    Mount(u64),
     Overflow,
 }
 
@@ -326,6 +331,12 @@ impl Event {
                 len += fh_len(fh, dot);
             }
         }
+        if matches!(self.info, Info::Path { range: Some(_), .. }) {
+            len += 24;
+        }
+        if matches!(self.info, Info::Mount(_)) {
+            len += 16;
+        }
         if flags & REPORT_PIDFD != 0 {
             len += PIDFD_INFO_LEN;
         }
@@ -341,7 +352,10 @@ impl Event {
             return false;
         }
         match (&self.info, &new.info) {
-            (Info::Path(a), Info::Path(b)) => a == b,
+            (Info::Path { path: a, range: ar }, Info::Path { path: b, range: br }) => {
+                a == b && ar == br
+            }
+            (Info::Mount(a), Info::Mount(b)) => a == b,
             (
                 Info::Fid {
                     fsid,
@@ -418,6 +432,7 @@ struct Change<'a> {
     /// An event about the object only, which its parent does not hear of
     /// (`fsnotify_inode`).
     self_only: bool,
+    range: Option<(u64, u64)>,
 }
 
 impl Registry {
@@ -466,6 +481,63 @@ impl Registry {
         self.vfs.get().and_then(Weak::upgrade)
     }
 
+    /// fsnotify_mnt: one committed attach/detach/move, after namespace_unlock.
+    pub(crate) fn mount_event(&self, change: wasixv2_vfs::MountEvent) {
+        if !self.watching() {
+            return;
+        }
+        let mask = if change.attach {
+            bit(FanotifyMask::FAN_MNT_ATTACH)
+        } else {
+            0
+        } | if change.detach {
+            bit(FanotifyMask::FAN_MNT_DETACH)
+        } else {
+            0
+        };
+        let mut current = None;
+        for group in self
+            .groups()
+            .into_iter()
+            .filter(|g| g.flags & REPORT_MNT != 0)
+        {
+            let matched = {
+                let state = group.state.lock_or_recover();
+                state.marks.iter().filter(|mark| matches!(mark.target, Target::Namespace(id, _) if id == change.namespace))
+                    .fold(0, |bits, mark| bits | mask & mark.mask & !mark.ignore)
+            };
+            if matched != 0 {
+                let (tid, tgid) = *current.get_or_insert_with(|| self.current());
+                group.push(Event {
+                    mask: matched,
+                    tid: if group.flags & REPORT_TID != 0 {
+                        tid
+                    } else {
+                        tgid
+                    },
+                    tgid,
+                    info: Info::Mount(change.mount_id),
+                    perm: None,
+                });
+            }
+        }
+    }
+
+    pub(crate) fn mount_namespace_deleted(&self, namespace: u64) {
+        for group in self.groups() {
+            let removed = {
+                let mut state = group.state.lock_or_recover();
+                let before = state.marks.len();
+                state.marks.retain(
+                    |mark| !matches!(mark.target, Target::Namespace(id, _) if id == namespace),
+                );
+                before - state.marks.len()
+            };
+            group.uncount(removed);
+        }
+        self.recount();
+    }
+
     /// `fsnotify`: hands `change` to every group with marks it matches.
     fn dispatch(&self, change: &Change<'_>) {
         if !self.marked.load(Ordering::Acquire) {
@@ -495,6 +567,25 @@ impl Registry {
             Perm::Open => OPEN_PERM,
             Perm::OpenExec => OPEN_PERM | OPEN_EXEC_PERM,
             Perm::Access => ACCESS_PERM,
+            Perm::PreAccess { .. } => {
+                if !path.dentry.sb().fs.allow_hsm() || path.dentry.is_dir() {
+                    return None;
+                }
+                PRE_ACCESS
+            }
+        };
+        let range = match perm {
+            Perm::PreAccess { offset, count } => offset.map(|offset| {
+                // fs/notify/fsnotify.c: fsnotify_pre_content reports a page-aligned range.
+                let page = crate::mm::PAGE_SIZE;
+                let start = offset / page * page;
+                let end = offset
+                    .saturating_add(count)
+                    .div_ceil(page)
+                    .saturating_mul(page);
+                (start, end.saturating_sub(start))
+            }),
+            _ => None,
         };
         let is_dir = path.dentry.is_dir();
         let object = FsObject {
@@ -524,6 +615,7 @@ impl Registry {
                 dir: parent.as_ref().map(|(dir, name)| (*dir, name.as_slice())),
                 moved_to: None,
                 self_only: false,
+                range,
             };
             if let Some(event) = group.event_for(self, &change, tid, tgid) {
                 pending.push((group, event));
@@ -630,10 +722,13 @@ impl Group {
             return None;
         }
         let info = match fid_mode {
-            0 => Info::Path(change.path?.clone()),
+            0 => Info::Path {
+                path: change.path?.clone(),
+                range: change.range,
+            },
             _ => self.fid_info(registry, change, dir, mask, matched)?,
         };
-        let perm = (mask & PERM_EVENTS != 0).then(|| {
+        let perm = (mask & (PERM_EVENTS | PRE_ACCESS) != 0).then(|| {
             Arc::new(PermState {
                 state: Mutex::new(PermProgress::Queued),
                 answered: WaitQueue::new(),
@@ -998,6 +1093,7 @@ impl Group {
                 Target::Inode(object) => format!("fanotify ino:{:x} sdev:0 {tail}", object.ino),
                 Target::Mount(id) => format!("fanotify mnt_id:{id:x} {tail}"),
                 Target::Sb(_) => format!("fanotify sdev:0 {tail}"),
+                Target::Namespace(_, ino) => format!("fanotify mnt_ns:{ino:x} {tail}"),
             };
             out.push_str(&line);
         }
@@ -1017,6 +1113,7 @@ impl Registry {
             dir: None,
             moved_to: None,
             self_only: false,
+            range: None,
         };
         match *event {
             FsEvent::Create {
@@ -1137,8 +1234,8 @@ impl Kernel {
         if flags & !(ADMIN_INIT | USER_INIT) != 0 {
             return Err(Errno::EINVAL.into());
         }
-        // Mount events are not provided (Linux 6.14's `FAN_REPORT_MNT`).
-        if flags & REPORT_MNT != 0 {
+        // fanotify_init: mount events have a notification-only group of their own.
+        if flags & REPORT_MNT != 0 && flags & (CLASS_BITS | FID_BITS | REPORT_FD_ERROR) != 0 {
             return Err(Errno::EINVAL.into());
         }
         if event_f_flags & !EVENT_F_BITS != 0
@@ -1252,15 +1349,18 @@ impl Kernel {
             .ok_or(Errno::EINVAL)?
             .group
             .clone();
-        // No group reports mount events, so no mark is on a mount namespace.
-        if mask & MNT_EVENTS != 0 || mark_type == MARK_MNTNS {
+        if group.flags & REPORT_MNT != 0 {
+            if mask & !MNT_EVENTS != 0 || mark_type != MARK_MNTNS {
+                return Err(Errno::EINVAL.into());
+            }
+        } else if mask & MNT_EVENTS != 0 || mark_type == MARK_MNTNS {
             return Err(Errno::EINVAL.into());
         }
         let cred = self.process(caller.task()).cred();
         if mark_type != 0 && !cred.ns_capable(&group.user_ns, Cap::SysAdmin) {
             return Err(Errno::EPERM.into());
         }
-        if mask & PERM_EVENTS != 0 && group.priority == 0 {
+        if mask & (PERM_EVENTS | PRE_ACCESS) != 0 && group.priority == 0 {
             return Err(Errno::EINVAL.into());
         }
         if mask & PRE_ACCESS != 0 && group.priority == 1 {
@@ -1304,7 +1404,19 @@ impl Kernel {
             }
         }
         let is_inode = mark_type == 0;
-        if !is_inode && !cred.ns_capable(&self.sb_owner(path.dentry.sb()), Cap::SysAdmin) {
+        let mount_ns = if mark_type == MARK_MNTNS {
+            match crate::nsfs::namespace(&path) {
+                Some(crate::ns::Namespace::Mnt(ns)) => Some(ns),
+                _ => return Err(Errno::EINVAL.into()),
+            }
+        } else {
+            None
+        };
+        let owner = mount_ns.as_ref().map_or_else(
+            || self.sb_owner(path.dentry.sb()),
+            |ns| ns.user_ns().clone(),
+        );
+        if !is_inode && !cred.ns_capable(&owner, Cap::SysAdmin) {
             return Err(Errno::EPERM.into());
         }
         let is_dir = path.dentry.is_dir();
@@ -1333,6 +1445,10 @@ impl Kernel {
                 ino: path.dentry.node().ino(),
             }),
             MARK_MOUNT => Target::Mount(path.mnt.id),
+            MARK_MNTNS => {
+                let ns = mount_ns.as_ref().unwrap();
+                Target::Namespace(ns.tree.id(), crate::ns::Namespace::Mnt(ns.clone()).ino())
+            }
             _ => Target::Sb(path.dentry.sb().id),
         };
         match cmd {
@@ -1491,7 +1607,7 @@ impl Kernel {
         let mut fd = NOFD;
         let mut opened = None;
         if group.flags & UNPRIV == 0
-            && let Info::Path(path) = &event.info
+            && let Info::Path { path, .. } = &event.info
         {
             match self.event_file(caller, group, path).await {
                 Ok(file) => opened = Some(file),
@@ -1599,6 +1715,27 @@ impl Kernel {
         Ok(Arc::new(OpenFile::new(backing, flags)))
     }
 
+    /// `fsnotify_pre_content`, before the caller accesses or maps a file range.
+    pub(crate) async fn pre_content_permission(
+        &self,
+        caller: &Caller<'_>,
+        file: &OpenFile,
+        offset: Option<u64>,
+        count: u64,
+    ) -> SysResult<()> {
+        let Backing::Inode(inner) = &file.backing else {
+            return Ok(());
+        };
+        if inner.nonotify() || !inner.path.dentry.sb().fs.allow_hsm() {
+            return Ok(());
+        }
+        let env = self.env(caller);
+        self.vfs
+            .permission_event(&env.cx(), &inner.path, Perm::PreAccess { offset, count })
+            .await
+            .map_err(|errno| env.error(errno))
+    }
+
     /// `fsnotify_file_area_perm` for a read of `file`: what its permission groups answer.
     pub(crate) async fn access_permission(
         &self,
@@ -1633,16 +1770,20 @@ fn fanotify_events_supported(
     let is_dir = path.dentry.is_dir();
     let strict =
         group.flags & REPORT_TARGET_FID != 0 || mask & RENAME != 0 || flags & MARK_IGNORE != 0;
-    // No filesystem opts into pre-content events (`SB_I_ALLOW_HSM`).
     if mask & PRE_ACCESS != 0 {
-        return Err(Errno::EOPNOTSUPP);
+        if !path.dentry.sb().fs.allow_hsm() {
+            return Err(Errno::EOPNOTSUPP);
+        }
+        if !is_dir && path.dentry.file_type() != FileType::Regular {
+            return Err(Errno::EINVAL);
+        }
     }
     // procfs (`FS_DISALLOW_NOTIFY_PERM`).
     if mask & PERM_EVENTS != 0 && path.dentry.sb().info.name == "proc" {
         return Err(Errno::EINVAL);
     }
     // Filesystems mounted nowhere (`SB_NOUSER`: pipes, sockets, anonymous inodes).
-    if mark_type != 0 && path.dentry.is_pseudo() {
+    if matches!(mark_type, MARK_MOUNT | MARK_FILESYSTEM) && path.dentry.is_pseudo() {
         return Err(Errno::EINVAL);
     }
     if strict && mark_type == 0 && !is_dir && mask & DIRONLY != 0 {
@@ -1653,6 +1794,27 @@ fn fanotify_events_supported(
 
 /// `copy_info_records_to_user`'s identifier records.
 fn info_records(out: &mut Vec<u8>, event: &Event, flags: u32) {
+    if let Info::Path {
+        range: Some((offset, count)),
+        ..
+    } = event.info
+    {
+        out.extend_from_slice(&[FanotifyMisc::FAN_EVENT_INFO_TYPE_RANGE.0 as u8, 0]);
+        out.extend_from_slice(&24u16.to_ne_bytes());
+        out.extend_from_slice(&0u32.to_ne_bytes());
+        out.extend_from_slice(&offset.to_ne_bytes());
+        out.extend_from_slice(&count.to_ne_bytes());
+        return;
+    }
+
+    if let Info::Mount(id) = event.info {
+        out.extend_from_slice(&[FanotifyMisc::FAN_EVENT_INFO_TYPE_MNT.0 as u8, 0]);
+        out.extend_from_slice(&16u16.to_ne_bytes());
+        out.extend_from_slice(&0u32.to_ne_bytes());
+        out.extend_from_slice(&id.to_ne_bytes());
+        return;
+    }
+
     let Info::Fid {
         fsid,
         dir,
@@ -1812,6 +1974,7 @@ impl Group {
                     (Target::Inode(_), 0)
                         | (Target::Mount(_), MARK_MOUNT)
                         | (Target::Sb(_), MARK_FILESYSTEM)
+                        | (Target::Namespace(..), MARK_MNTNS)
                 )
             });
             before - state.marks.len()

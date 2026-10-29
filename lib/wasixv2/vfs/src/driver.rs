@@ -60,6 +60,11 @@ pub trait Filesystem: Send + Sync {
         false
     }
 
+    /// `SB_I_ALLOW_HSM`: pre-content permission events may mediate access to data.
+    fn allow_hsm(&self) -> bool {
+        false
+    }
+
     /// The filesystem's quota operations, if configured (`s_qcop`).
     fn quota(&self) -> Option<&dyn crate::QuotaOps> {
         None

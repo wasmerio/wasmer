@@ -143,6 +143,7 @@ struct Shared {
     host_gid: u32,
     /// The host device of the mapped directory.
     root_dev: libc::dev_t,
+    allow_hsm: bool,
     /// Other host devices seen below it (host mounts inside the directory), by index - 1.
     other_devs: Mutex<Vec<libc::dev_t>>,
     /// Numbers given to host objects whose own do not fold (`ino`), by device and number.
@@ -260,12 +261,21 @@ impl HostFs {
         let st = stat_fd(fd.as_raw_fd()).map_err(|errno| io::Error::from_raw_os_error(errno.0))?;
         // SAFETY: plain getters.
         let (host_uid, host_gid) = unsafe { (libc::geteuid(), libc::getegid()) };
+        let mut fs = MaybeUninit::<libc::statfs>::uninit();
+        // SAFETY: writes statfs on success, using the pinned root descriptor.
+        cvt(unsafe { libc::fstatfs(fd.as_raw_fd(), fs.as_mut_ptr()) })
+            .map_err(|errno| io::Error::from_raw_os_error(errno.0))?;
+        // SAFETY: fstatfs succeeded.
+        let magic = unsafe { fs.assume_init() }.f_type;
+        // Linux ext4/super.c, xfs/xfs_super.c and btrfs/super.c opt into SB_I_ALLOW_HSM.
+        let allow_hsm = matches!(magic, 0xef53 | 0x58465342 | 0x9123683e);
         let shared = Arc::new(Shared {
             host,
             options,
             host_uid,
             host_gid,
             root_dev: st.st_dev,
+            allow_hsm,
             other_devs: Mutex::default(),
             overflow: Mutex::default(),
         });
@@ -276,6 +286,9 @@ impl HostFs {
 
 #[async_trait(?Send)]
 impl Filesystem for HostFs {
+    fn allow_hsm(&self) -> bool {
+        self.shared.allow_hsm
+    }
     fn info(&self) -> FsInfo {
         FsInfo {
             name: "9p",

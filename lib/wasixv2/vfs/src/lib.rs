@@ -50,7 +50,7 @@ pub use mount::{MNT_UNIQUE_ID_OFFSET, MntNs, Mount, MountFlags, Path, Superblock
 use mount::{Tree, TreeSeq};
 pub use namei::{Last, LookupFlags, MAX_SYMLINKS};
 pub use namespace::{MountAttr, MountInfo, MountOp, UmountFlags};
-pub use notify::{EventInfo, FsEvent, FsWatcher, Object as FsObject, Perm, PermAnswer};
+pub use notify::{EventInfo, FsEvent, FsWatcher, MountEvent, Object as FsObject, Perm, PermAnswer};
 pub use ops::{Ctx, FMODE_EXEC, OpenHow, XATTR_NAME_MAX, XATTR_SIZE_MAX};
 pub use pnode::Propagation;
 pub use posix_acl::{
@@ -271,6 +271,7 @@ impl Vfs {
     /// Installs the watcher that receives change notifications. A VFS has at most one, set
     /// before it is used, so reporting a change never takes a lock.
     pub fn set_watcher(&self, watcher: Arc<dyn FsWatcher>) {
+        assert!(self.tree.watcher.set(watcher.clone()).is_ok());
         assert!(
             self.watcher.set(watcher).is_ok(),
             "the VFS watcher is installed once"

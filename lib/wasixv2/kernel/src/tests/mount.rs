@@ -1379,3 +1379,101 @@ fn an_mqueue_mount_outlives_the_process_whose_namespace_it_shows() {
     // The execution layer lets the task go only now.
     m.kernel.release(child);
 }
+
+#[test]
+fn fanotify_mount_namespace_events_report_attach_move_and_detach() {
+    use wasixv2_abi::{FanotifyInitFlags as F, FanotifyMarkFlags as M, FanotifyMask as E};
+    let m = Machine::as_uid(0);
+    for name in ["/a", "/b"] {
+        m.mkdir(name);
+    }
+    let flags = F::FAN_REPORT_MNT | F::FAN_NONBLOCK;
+    let group = Fd(block_on(m.kernel.fanotify_init(&m.caller(), flags.0, 0)).unwrap());
+    let ns = m.cstr(0x1500, "/proc/self/ns/mnt");
+    let add = M::FAN_MARK_ADD | M::FAN_MARK_MNTNS;
+    let wanted = E::FAN_MNT_ATTACH | E::FAN_MNT_DETACH;
+    assert_eq!(
+        block_on(
+            m.kernel
+                .fanotify_mark(&m.caller(), group, add.0, wanted.0, CWD, ns)
+        ),
+        Ok(0)
+    );
+    let read = || {
+        let n = block_on(
+            m.kernel
+                .read(&m.caller(), group, UserSliceMut::new(0x5000, 256)),
+        )
+        .unwrap();
+        assert_eq!(n, 40);
+        let raw = get(&m.memory.0, 0x5000, 40);
+        assert_eq!(i32::from_ne_bytes(raw[16..20].try_into().unwrap()), -1);
+        assert_eq!(raw[24], 7); // FAN_EVENT_INFO_TYPE_MNT
+        assert_eq!(u16::from_ne_bytes(raw[26..28].try_into().unwrap()), 16);
+        (
+            u64::from_ne_bytes(raw[8..16].try_into().unwrap()),
+            u64::from_ne_bytes(raw[32..40].try_into().unwrap()),
+        )
+    };
+    m.tmpfs("/a");
+    let (mask, id) = read();
+    assert_eq!(mask, E::FAN_MNT_ATTACH.0);
+    assert!(id >= MNT_UNIQUE_ID_OFFSET);
+    assert_eq!(
+        m.mount(Some("/a"), "/b", None, MsFlags::MS_MOVE, None),
+        Ok(0)
+    );
+    assert_eq!(read(), (wanted.0, id));
+    assert_eq!(m.umount2("/b", UmountBits::MNT_DETACH), Ok(0));
+    assert_eq!(read(), (E::FAN_MNT_DETACH.0, id));
+    let flush = M::FAN_MARK_FLUSH | M::FAN_MARK_MNTNS;
+    assert_eq!(
+        block_on(
+            m.kernel
+                .fanotify_mark(&m.caller(), group, flush.0, 0, CWD, GuestPtr::NULL)
+        ),
+        Ok(0)
+    );
+    m.tmpfs("/a");
+    assert_eq!(
+        errno(block_on(m.kernel.read(
+            &m.caller(),
+            group,
+            UserSliceMut::new(0x5000, 256)
+        ))),
+        Errno::EAGAIN
+    );
+    // Namespace marks require a mount-reporting group and an actual mount namespace inode.
+    let plain = Fd(block_on(m.kernel.fanotify_init(&m.caller(), F::FAN_REPORT_FID.0, 0)).unwrap());
+    assert_eq!(
+        errno(block_on(m.kernel.fanotify_mark(
+            &m.caller(),
+            plain,
+            add.0,
+            wanted.0,
+            CWD,
+            ns
+        ))),
+        Errno::EINVAL
+    );
+    let file = m.cstr(0x1500, "/proc/self/ns/user");
+    assert_eq!(
+        errno(block_on(m.kernel.fanotify_mark(
+            &m.caller(),
+            group,
+            add.0,
+            wanted.0,
+            CWD,
+            file
+        ))),
+        Errno::EINVAL
+    );
+    assert_eq!(
+        errno(block_on(m.kernel.fanotify_init(
+            &m.caller(),
+            (flags | F::FAN_CLASS_CONTENT).0,
+            0
+        ))),
+        Errno::EINVAL
+    );
+}

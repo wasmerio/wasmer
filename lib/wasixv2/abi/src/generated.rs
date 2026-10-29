@@ -6509,6 +6509,55 @@ impl GuestLayout for FanotifyEventInfoError {
         self.error_count.write_to(&mut out[8..]);
     }
 }
+/// Access range reported with FAN_PRE_ACCESS (linux/fanotify.h).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct FanotifyEventInfoRange {
+    pub hdr: FanotifyEventInfoHeader,
+    pub pad: u32,
+    pub offset: u64,
+    pub count: u64,
+}
+const _: () = {
+    assert!(core::mem::size_of::<FanotifyEventInfoRange>() == 24);
+    assert!(core::mem::align_of::<FanotifyEventInfoRange>() == 8);
+    assert!(core::mem::offset_of!(FanotifyEventInfoRange, hdr) == 0);
+    assert!(core::mem::offset_of!(FanotifyEventInfoRange, pad) == 4);
+    assert!(core::mem::offset_of!(FanotifyEventInfoRange, offset) == 8);
+    assert!(core::mem::offset_of!(FanotifyEventInfoRange, count) == 16);
+};
+impl Default for FanotifyEventInfoRange {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for FanotifyEventInfoRange {
+    const SIZE: usize = 24;
+    const ALIGN: usize = 8;
+    const ZERO: Self = Self {
+        hdr: <FanotifyEventInfoHeader as GuestLayout>::ZERO,
+        pad: <u32 as GuestLayout>::ZERO,
+        offset: <u64 as GuestLayout>::ZERO,
+        count: <u64 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            hdr: GuestLayout::read_from(&bytes[0..])?,
+            pad: GuestLayout::read_from(&bytes[4..])?,
+            offset: GuestLayout::read_from(&bytes[8..])?,
+            count: GuestLayout::read_from(&bytes[16..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.hdr.write_to(&mut out[0..]);
+        self.pad.write_to(&mut out[4..]);
+        self.offset.write_to(&mut out[8..]);
+        self.count.write_to(&mut out[16..]);
+    }
+}
 /// A mount record (`struct fanotify_event_info_mnt`).
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]

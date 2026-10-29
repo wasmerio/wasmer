@@ -365,12 +365,16 @@ impl Drop for MntNs {
         // The mounts go after the lock: dropping one may drop paths that hold others.
         let _gone = {
             let mut state = self.tree.lock();
-            state.namespaces.remove(&self.id);
-            state.anon_ns.remove(&self.id);
-            match state.ns_of(self.root.id) == Some(self.id) {
+            let gone = match state.ns_of(self.root.id) == Some(self.id) {
                 true => state.umount_tree(&self.root, false),
                 false => Vec::new(),
+            };
+            state.namespaces.remove(&self.id);
+            state.anon_ns.remove(&self.id);
+            if self.anon.is_none() {
+                state.deleted_namespaces.push(self.id);
             }
+            gone
         };
         self.tree.seq.bump();
     }
@@ -379,6 +383,7 @@ impl Drop for MntNs {
 /// The mount table of one VFS.
 pub(crate) struct Tree {
     state: Mutex<TreeState>,
+    pub(crate) watcher: std::sync::OnceLock<Arc<dyn crate::FsWatcher>>,
     pub(crate) seq: Arc<TreeSeq>,
     /// Identifiers of mounts, superblocks, namespaces and open files.
     pub(crate) next_id: AtomicU64,
@@ -391,6 +396,7 @@ impl Tree {
     pub(crate) fn new(seq: Arc<TreeSeq>) -> Arc<Self> {
         Arc::new(Self {
             state: Mutex::default(),
+            watcher: std::sync::OnceLock::new(),
             seq,
             next_id: AtomicU64::new(1),
             write_hold: Mutex::new(()),
@@ -453,8 +459,11 @@ impl Tree {
     }
 
     /// Takes the table (`namespace_sem` and `mount_lock` at once).
-    pub(crate) fn lock(&self) -> MutexGuard<'_, TreeState> {
-        self.state.lock_or_recover()
+    pub(crate) fn lock(&self) -> TreeGuard<'_> {
+        TreeGuard {
+            tree: self,
+            state: Some(self.state.lock_or_recover()),
+        }
     }
 
     /// The mount on top of `path`, if any (`lookup_mnt`).
@@ -478,9 +487,80 @@ impl Tree {
     }
 }
 
+/// The namespace transaction. Notifications are coalesced per mount under the lock
+/// (`mnt_notify`), then delivered after unlock (`namespace_unlock`) to allow reentry.
+pub(crate) struct TreeGuard<'a> {
+    tree: &'a Tree,
+    state: Option<MutexGuard<'a, TreeState>>,
+}
+
+impl std::ops::Deref for TreeGuard<'_> {
+    type Target = TreeState;
+    fn deref(&self) -> &TreeState {
+        self.state.as_ref().unwrap()
+    }
+}
+
+impl std::ops::DerefMut for TreeGuard<'_> {
+    fn deref_mut(&mut self) -> &mut TreeState {
+        self.state.as_mut().unwrap()
+    }
+}
+
+impl Drop for TreeGuard<'_> {
+    fn drop(&mut self) {
+        let mut state = self.state.take().unwrap();
+        let changes = std::mem::take(&mut state.mount_changes);
+        let deleted = std::mem::take(&mut state.deleted_namespaces);
+        let mut events = Vec::new();
+        for (id, old) in changes {
+            let new = state.visible_ns(id);
+            if old == new {
+                if let Some(namespace) = old {
+                    events.push(crate::MountEvent {
+                        namespace,
+                        mount_id: id + MNT_UNIQUE_ID_OFFSET,
+                        attach: true,
+                        detach: true,
+                    });
+                }
+            } else {
+                if let Some(namespace) = old {
+                    events.push(crate::MountEvent {
+                        namespace,
+                        mount_id: id + MNT_UNIQUE_ID_OFFSET,
+                        attach: false,
+                        detach: true,
+                    });
+                }
+                if let Some(namespace) = new {
+                    events.push(crate::MountEvent {
+                        namespace,
+                        mount_id: id + MNT_UNIQUE_ID_OFFSET,
+                        attach: true,
+                        detach: false,
+                    });
+                }
+            }
+        }
+        drop(state);
+        if let Some(watcher) = self.tree.watcher.get() {
+            for event in events {
+                watcher.mount_event(event);
+            }
+            for ns in deleted {
+                watcher.mount_namespace_deleted(ns);
+            }
+        }
+    }
+}
+
 /// The mount table's contents.
 #[derive(Default)]
 pub(crate) struct TreeState {
+    /// Mount id -> namespace before the first change, in transaction order.
+    pub(crate) mount_changes: Vec<(u64, Option<u64>)>,
+    pub(crate) deleted_namespaces: Vec<u64>,
     /// The mount on each mountpoint, by the mount and dentry it is attached on.
     pub(crate) children: HashMap<MountKey, Arc<Mount>>,
     /// The namespace and propagation of every mount in a tree, attached or being built, by id.
@@ -492,6 +572,17 @@ pub(crate) struct TreeState {
 }
 
 impl TreeState {
+    fn visible_ns(&self, id: u64) -> Option<u64> {
+        self.ns_of(id).filter(|ns| !self.anon_ns.contains_key(ns))
+    }
+
+    pub(crate) fn changing_mount(&mut self, mount: &Mount) {
+        if !self.mount_changes.iter().any(|(id, _)| *id == mount.id) {
+            self.mount_changes
+                .push((mount.id, self.visible_ns(mount.id)));
+        }
+    }
+
     /// The namespace `id` is attached in.
     pub(crate) fn ns_of(&self, id: u64) -> Option<u64> {
         self.links
@@ -502,6 +593,7 @@ impl TreeState {
 
     /// Attaches `mount` on `at` (`mnt_set_mountpoint` and `commit_tree`). Nothing is on `at`.
     pub(crate) fn attach(&mut self, mount: &Arc<Mount>, at: &Path) {
+        self.changing_mount(mount);
         *mount.parent.lock_or_recover() = Some(at.clone());
         at.dentry.add_mount(1);
         let previous = self.children.insert(key(at), mount.clone());
@@ -510,6 +602,7 @@ impl TreeState {
 
     /// Takes `mount` off its mountpoint (`umount_mnt`), returning where it was.
     pub(crate) fn detach(&mut self, mount: &Arc<Mount>) -> Option<Path> {
+        self.changing_mount(mount);
         let at = mount.parent.lock_or_recover().take()?;
         if self
             .children

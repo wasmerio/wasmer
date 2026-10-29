@@ -325,6 +325,17 @@ impl Vfs {
             self.permission_event(cx, &target, perm).await?;
         }
         if truncate {
+            if !nonotify && target.dentry.sb().fs.allow_hsm() {
+                self.permission_event(
+                    cx,
+                    &target,
+                    Perm::PreAccess {
+                        offset: Some(0),
+                        count: 0,
+                    },
+                )
+                .await?;
+            }
             let attr = SetAttr {
                 size: Some(0),
                 mtime: Some(TimeSet::Now),
@@ -1263,6 +1274,17 @@ impl Vfs {
         let _write = OpenAccess::new(path.dentry.inode(), true);
         self.break_lease(cx, Self::lock_key(&path.dentry), true, false)
             .await?;
+        if path.dentry.sb().fs.allow_hsm() {
+            self.permission_event(
+                cx,
+                path,
+                Perm::PreAccess {
+                    offset: Some(size),
+                    count: 0,
+                },
+            )
+            .await?;
+        }
         self.set_size(path, size).await
     }
 
