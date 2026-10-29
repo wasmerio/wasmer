@@ -19,9 +19,10 @@ use wasixv2_wait::{PollMask, PollTable, Pollable, WaitQueue, poll_wait};
 use crate::{
     Accepted, BackendDatagram, Control, Domain, NetResult, PortEntry, Publication, QueuedError,
     RecvMsg, SendMsg, Shutdown, Socket, SocketKind,
-    addr::{canonical, present, sockaddr_bytes, unbound},
-    cmsg,
-    net::{Net, Path, UdpRoute},
+    addr::{canonical, canonical_ip, present, sockaddr_bytes, unbound},
+    cmsg::{self, SendCtl},
+    mcast::McRoute,
+    net::{Net, Path, UdpRoute, serves},
     opts::{Changed, SockOpts},
     ports::{BindSpec, SockId},
 };
@@ -422,9 +423,142 @@ impl UdpSocket {
     }
 }
 
+impl UdpSocket {
+    /// The interface and source address of a datagram to the group `dst`
+    /// (`udp_sendmsg`, `udpv6_sendmsg`, `ip4_datagram_connect`): the interface the control
+    /// messages name, else the destination's scope, the socket's device, then
+    /// `IP_MULTICAST_IF`; the source the control messages name, else the bound address (not a
+    /// group or broadcast address, which leave the source to the device), then
+    /// `IP_MULTICAST_IF`'s.
+    fn mc_route(
+        &self,
+        g: &Inner,
+        dst: SocketAddr,
+        scope: u32,
+        ctl: Option<&SendCtl>,
+    ) -> NetResult<McRoute> {
+        let group = dst.ip();
+        let (mc_oif, mc_src) = g.opts.mc.interface(group);
+        let ctl_oif = ctl.map_or(0, |c| c.oif);
+        let oif = [
+            ctl_oif,
+            scope,
+            self.net.device_index(&g.opts.bind_device),
+            mc_oif,
+        ]
+        .into_iter()
+        .find(|&i| i != 0)
+        .unwrap_or(0);
+        let bound = g
+            .local
+            .map(|l| l.ip())
+            .or(g.saddr)
+            .filter(|ip| ip.is_ipv4() == group.is_ipv4())
+            .filter(|ip| !ip.is_unspecified() && !ip.is_multicast())
+            .filter(|ip| *ip != IpAddr::V4(Ipv4Addr::BROADCAST));
+        let src = ctl
+            .and_then(|c| c.src)
+            .map(canonical_ip)
+            .or(bound)
+            .or(mc_src);
+        self.net.mc_route(group, oif, src)
+    }
+
+    /// A send to the group `dst`, which each socket of the namespaces it reaches that is
+    /// bound to the port and allows the group gets a copy of (`__udp4_lib_mcast_deliver`,
+    /// `__udp6_lib_mcast_deliver`).
+    fn send_multicast(
+        &self,
+        mut g: MutexGuard<'_, Inner>,
+        local: SocketAddr,
+        dst: SocketAddr,
+        scope: u32,
+        ctl: &SendCtl,
+        data: &[u8],
+    ) -> NetResult<usize> {
+        let route = self.mc_route(&g, dst, scope, Some(ctl))?;
+        let max = match dst.is_ipv4() {
+            true => MAX_V4_PAYLOAD,
+            false => MAX_V6_PAYLOAD,
+        };
+        if data.len() > max {
+            return Err(Errno::EMSGSIZE);
+        }
+        if let Some(size) = ctl.gso_size {
+            cmsg::check_segments(data.len(), size)?;
+        }
+        if let Some(e) = Self::take_err(&mut g) {
+            return Err(e);
+        }
+        if g.wr_shut {
+            return Err(Errno::EPIPE);
+        }
+        let (ttl, looped) = g.opts.mc.ttl_loop(dst.ip());
+        let ttl = ctl.ttl.unwrap_or(ttl);
+        drop(g);
+        let from = SocketAddr::new(route.src, local.port());
+        let segment = ctl.gso_size.unwrap_or(usize::MAX).max(1);
+        for (net, iif) in self.net.mc_receivers(dst.ip(), route.oif, looped, ttl) {
+            if data.is_empty() {
+                net.udp_mcast_deliver(dst, from, iif, data);
+            }
+            for chunk in data.chunks(segment) {
+                net.udp_mcast_deliver(dst, from, iif, chunk);
+            }
+        }
+        Ok(data.len())
+    }
+
+    /// `__udp_is_mcast_sock`, `__udp_v6_is_mcast_sock`: takes a datagram to the group `dst`
+    /// from `from` that arrived on interface `iif` if the socket is bound to the port and to
+    /// the group or a wildcard of its family, connected to nobody else, on no other device,
+    /// and allows the group (`ip_mc_sf_allow`, `inet6_mc_check`).
+    fn deliver_multicast(&self, dst: SocketAddr, from: SocketAddr, iif: u32, data: &[u8]) {
+        let g = self.lock();
+        let Some(local) = g.local else {
+            return;
+        };
+        let dev = self.net.device_index(&g.opts.bind_device);
+        let takes = serves(local, g.opts.v6only, dst)
+            && g.peer.is_none_or(|p| p == from)
+            && (dev == 0 || dev == iif)
+            && g.opts.mc.allows(dst.ip(), iif);
+        drop(g);
+        if takes {
+            self.deliver(data, from);
+        }
+    }
+}
+
+impl Net {
+    /// A datagram to the group `dst` arrived on interface `iif`: every socket bound to its
+    /// port is offered it.
+    pub(crate) fn udp_mcast_deliver(
+        &self,
+        dst: SocketAddr,
+        from: SocketAddr,
+        iif: u32,
+        data: &[u8],
+    ) {
+        let socks = self.state().udp_on_port(dst.port());
+        for sock in socks.iter().filter_map(Weak::upgrade) {
+            sock.deliver_multicast(dst, from, iif, data);
+        }
+    }
+}
+
+/// The interface a link-scoped IPv6 destination names (`sin6_scope_id`), 0 for none.
+fn scope_of(addr: SocketAddr) -> u32 {
+    match addr {
+        SocketAddr::V6(v6) => v6.scope_id(),
+        SocketAddr::V4(_) => 0,
+    }
+}
+
 impl Drop for UdpSocket {
     fn drop(&mut self) {
         let g = self.inner.get_mut().unwrap();
+        g.opts.mc.drop_all(&self.net);
         let local = g.local.take();
         let published = g.published.take();
         if let Some(local) = local {
@@ -535,7 +669,14 @@ impl Socket for UdpSocket {
     fn connect(&self, addr: SocketAddr) -> NetResult<()> {
         let dst = canonical(addr);
         let mut g = self.lock();
-        let path = self.net.path(dst, g.local.map(|l| l.ip()).or(g.saddr))?;
+        let path = match dst.ip().is_multicast() {
+            // `ip4_datagram_connect` routes a group by `IP_MULTICAST_IF`.
+            true => {
+                let route = self.mc_route(&g, dst, scope_of(addr), None)?;
+                Path::Nowhere { src: route.src }
+            }
+            false => self.net.path(dst, g.local.map(|l| l.ip()).or(g.saddr))?,
+        };
         let src = path.src();
         let local = self.autobind(&mut g)?;
         if local.ip().is_unspecified() {
@@ -639,17 +780,20 @@ impl Socket for UdpSocket {
         }
         let ctl = cmsg::udp(msg.control, self.domain, dst.is_ipv4(), msg.net_raw)?;
         if let IpAddr::V4(v4) = dst.ip()
-            && (v4.is_broadcast() || dst.ip().is_multicast())
+            && v4.is_broadcast()
         {
-            // Broadcast and multicast are not carried (TODO); Linux still checks SO_BROADCAST.
-            if v4.is_broadcast()
-                && !g
-                    .opts
-                    .flag(SocketLevel::SOL_SOCKET.0, SocketOption::SO_BROADCAST.0)
+            // Broadcast is not carried (TODO); Linux still checks SO_BROADCAST.
+            if !g
+                .opts
+                .flag(SocketLevel::SOL_SOCKET.0, SocketOption::SO_BROADCAST.0)
             {
                 return Err(Errno::EACCES);
             }
             return Ok(msg.data.len());
+        }
+        if dst.ip().is_multicast() {
+            let scope = msg.to.map_or(0, scope_of);
+            return self.send_multicast(g, local, dst, scope, &ctl, msg.data);
         }
         let route = self.net.udp_route(local, dst, &ctl)?;
         let max = if dst.is_ipv4() {
@@ -783,6 +927,9 @@ impl Socket for UdpSocket {
 
     fn set_option(&self, level: i32, name: i32, value: &[u8]) -> NetResult<()> {
         let mut g = self.lock();
+        if crate::mcast::handles(level, name) {
+            return g.opts.set_mcast(&self.net, level, name, value);
+        }
         let bound = g.local.is_some();
         let changed = g.opts.set(level, name, value, bound)?;
         if RECVERR.contains(&(level, name)) {

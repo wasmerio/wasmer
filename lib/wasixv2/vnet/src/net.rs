@@ -42,7 +42,7 @@ pub fn rtnl() -> Rtnl {
 
 /// An interface on its way between namespaces (see [`move_link`]).
 pub struct MovedLink {
-    link: Link,
+    link: Box<Link>,
 }
 
 impl MovedLink {
@@ -721,7 +721,7 @@ impl NetState {
 
 /// Whether a UDP socket bound to `local` receives datagrams for `dst` (`compute_score`'s
 /// address match: the same address, or a wildcard of a family that takes it).
-fn serves(local: SocketAddr, v6only: bool, dst: SocketAddr) -> bool {
+pub(crate) fn serves(local: SocketAddr, v6only: bool, dst: SocketAddr) -> bool {
     local.port() == dst.port()
         && match local.ip() {
             ip if ip == dst.ip() => true,
@@ -838,6 +838,7 @@ impl Network for Net {
                 },
                 addresses: l.addrs.clone(),
                 ipv6_disabled: l.ipv6_disabled,
+                groups: l.groups(),
             })
             .collect()
     }
@@ -920,6 +921,7 @@ impl Network for Net {
                 kind,
                 addrs: Vec::new(),
                 ipv6_disabled: false,
+                joined: Vec::new(),
             })
         };
         match spec.kind {
@@ -1039,8 +1041,12 @@ impl Network for Net {
         if link.kind.netns_local() {
             return Err(Errno::EINVAL);
         }
-        let link = st.ifaces.remove(index)?;
-        Ok(MovedLink { link })
+        let mut link = st.ifaces.remove(index)?;
+        // `ip_mc_destroy_dev`: an interface leaves its groups as it leaves the namespace.
+        link.joined.clear();
+        Ok(MovedLink {
+            link: Box::new(link),
+        })
     }
 
     fn adopt_link(&self, rtnl: &Rtnl, moved: MovedLink) -> Result<u32, (Errno, MovedLink)> {
@@ -1048,7 +1054,7 @@ impl Network for Net {
         if st.ifaces.link_by_name(&moved.link.name).is_some() {
             return Err((Errno::EEXIST, moved));
         }
-        let mut link = moved.link;
+        let mut link = *moved.link;
         link.index = st.ifaces.reserve_index(Some(link.index));
         if let LinkKind::Veth(end) = &link.kind {
             end.moved(self.me.clone(), link.index);

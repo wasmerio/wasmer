@@ -1448,3 +1448,266 @@ fn bind_address_no_port_defers_the_port() {
     u.disconnect().unwrap();
     assert_eq!(u.local_addr().unwrap(), a("127.0.0.2:0"));
 }
+
+fn index_of(n: &Net, name: &str) -> u32 {
+    n.interfaces()
+        .into_iter()
+        .find(|i| i.name == name)
+        .unwrap()
+        .index
+}
+
+/// `ip_mreqn`: group, address, interface index.
+fn mreqn(group: &str, address: &str, index: u32) -> Vec<u8> {
+    let ip = |s: &str| s.parse::<std::net::Ipv4Addr>().unwrap().octets();
+    [&ip(group)[..], &ip(address), &index.to_le_bytes()].concat()
+}
+
+/// `ipv6_mreq`: group, interface index.
+fn mreq6(group: &str, index: u32) -> Vec<u8> {
+    let g = group.parse::<std::net::Ipv6Addr>().unwrap().octets();
+    [&g[..], &index.to_le_bytes()].concat()
+}
+
+fn getopt(s: &dyn Socket, level: i32, name: i32, len: usize) -> Result<Vec<u8>, Errno> {
+    let mut out = vec![0; len];
+    let n = s.get_option(level, name, &mut out)?;
+    out.truncate(n);
+    Ok(out)
+}
+
+/// The multicast options as `do_ip_setsockopt` and `do_ipv6_setsockopt` check them: a byte
+/// is enough for IPv4's integers, TTL -1 is the default, an interface is found by address or
+/// index, and stream sockets refuse what only datagrams use.
+#[test]
+fn multicast_options_are_checked_and_read_back() {
+    let n = net();
+    let s = udp(&n);
+    assert_eq!(
+        getopt(&*s, SOL_IP, IpOption::IP_MULTICAST_TTL.0, 4),
+        Ok(int(1).to_vec())
+    );
+    s.set_option(SOL_IP, IpOption::IP_MULTICAST_TTL.0, &[7])
+        .unwrap();
+    assert_eq!(
+        getopt(&*s, SOL_IP, IpOption::IP_MULTICAST_TTL.0, 1),
+        Ok(vec![7])
+    );
+    s.set_option(SOL_IP, IpOption::IP_MULTICAST_TTL.0, &int(-1))
+        .unwrap();
+    assert_eq!(
+        getopt(&*s, SOL_IP, IpOption::IP_MULTICAST_TTL.0, 4),
+        Ok(int(1).to_vec())
+    );
+    assert_eq!(
+        s.set_option(SOL_IP, IpOption::IP_MULTICAST_TTL.0, &int(256)),
+        Err(Errno::EINVAL)
+    );
+    s.set_option(SOL_IP, IpOption::IP_MULTICAST_LOOP.0, &[0])
+        .unwrap();
+    assert_eq!(
+        getopt(&*s, SOL_IP, IpOption::IP_MULTICAST_LOOP.0, 4),
+        Ok(int(0).to_vec())
+    );
+    let lo = [127, 0, 0, 1];
+    s.set_option(SOL_IP, IpOption::IP_MULTICAST_IF.0, &lo)
+        .unwrap();
+    assert_eq!(
+        getopt(&*s, SOL_IP, IpOption::IP_MULTICAST_IF.0, 4),
+        Ok(lo.to_vec())
+    );
+    assert_eq!(
+        s.set_option(SOL_IP, IpOption::IP_MULTICAST_IF.0, &[10, 9, 9, 9]),
+        Err(Errno::EADDRNOTAVAIL)
+    );
+    let t = tcp(&n);
+    assert_eq!(
+        t.set_option(SOL_IP, IpOption::IP_MULTICAST_TTL.0, &int(2)),
+        Err(Errno::EINVAL)
+    );
+    assert_eq!(
+        t.set_option(
+            SOL_IP,
+            IpOption::IP_ADD_MEMBERSHIP.0,
+            &mreqn("239.1.2.3", "0.0.0.0", 1)
+        ),
+        Err(Errno::EPROTO)
+    );
+    let s6 = n
+        .socket(Domain::Inet6, SocketKind::Datagram, 0, UID)
+        .unwrap();
+    assert_eq!(
+        s6.set_option(SOL_IPV6, Ipv6Option::IPV6_MULTICAST_LOOP.0, &int(2)),
+        Err(Errno::EINVAL)
+    );
+    assert_eq!(
+        s6.set_option(SOL_IPV6, Ipv6Option::IPV6_MULTICAST_IF.0, &int(42)),
+        Err(Errno::ENODEV)
+    );
+    s6.set_option(SOL_IPV6, Ipv6Option::IPV6_MULTICAST_HOPS.0, &int(5))
+        .unwrap();
+    assert_eq!(
+        getopt(&*s6, SOL_IPV6, Ipv6Option::IPV6_MULTICAST_HOPS.0, 4),
+        Ok(int(5).to_vec())
+    );
+    assert_eq!(
+        s.set_option(SOL_IPV6, Ipv6Option::IPV6_MULTICAST_HOPS.0, &int(5)),
+        Err(Errno::ENOPROTOOPT)
+    );
+}
+
+/// Memberships (`ip_mc_join_group`, `ip_mc_leave_group`): a group only, once per interface,
+/// counted on the interface while a socket holds them, and gone with the socket.
+#[test]
+fn memberships_join_the_interface_while_held() {
+    let n = net();
+    let lo_groups = |n: &Net| n.interfaces()[0].groups.clone();
+    let group: std::net::IpAddr = "239.1.2.3".parse().unwrap();
+    let add = IpOption::IP_ADD_MEMBERSHIP.0;
+    let s = udp(&n);
+    assert_eq!(
+        s.set_option(SOL_IP, add, &mreqn("10.0.0.1", "127.0.0.1", 0)),
+        Err(Errno::EINVAL)
+    );
+    assert_eq!(s.set_option(SOL_IP, add, &[0; 7]), Err(Errno::EINVAL));
+    // An `ip_mreq`, by the interface's address.
+    s.set_option(SOL_IP, add, &mreqn("239.1.2.3", "127.0.0.1", 0)[..8])
+        .unwrap();
+    assert_eq!(
+        s.set_option(SOL_IP, add, &mreqn("239.1.2.3", "0.0.0.0", 1)),
+        Err(Errno::EADDRINUSE)
+    );
+    let t = udp(&n);
+    t.set_option(SOL_IP, add, &mreqn("239.1.2.3", "0.0.0.0", 1))
+        .unwrap();
+    assert_eq!(lo_groups(&n)[0], (group, 2));
+    let drop = IpOption::IP_DROP_MEMBERSHIP.0;
+    assert_eq!(
+        t.set_option(SOL_IP, drop, &mreqn("239.9.9.9", "0.0.0.0", 1)),
+        Err(Errno::EADDRNOTAVAIL)
+    );
+    t.set_option(SOL_IP, drop, &mreqn("239.1.2.3", "0.0.0.0", 1))
+        .unwrap();
+    assert_eq!(lo_groups(&n)[0], (group, 1));
+    drop_socket(s);
+    assert!(lo_groups(&n).iter().all(|(g, _)| *g != group));
+    // The kernel's own: all-hosts, and IPv6's all-nodes groups.
+    assert!(lo_groups(&n).contains(&("224.0.0.1".parse().unwrap(), 1)));
+    assert!(lo_groups(&n).contains(&("ff02::1".parse().unwrap(), 1)));
+}
+
+fn drop_socket(s: Arc<dyn Socket>) {
+    drop(s);
+}
+
+/// Inside a namespace, a datagram to a group reaches every socket bound to its port that
+/// allows the group, by membership or `IP_MULTICAST_ALL`, if the interface it is sent out of
+/// is in the group and `IP_MULTICAST_LOOP` loops it back.
+#[test]
+fn multicast_reaches_member_sockets_of_the_namespace() {
+    let n = net();
+    let bound = |port: u16| {
+        let s = udp(&n);
+        s.set_option(SOL_SOCKET, SocketOption::SO_REUSEADDR.0, &int(1))
+            .unwrap();
+        s.bind(SocketAddr::new("0.0.0.0".parse().unwrap(), port), false)
+            .unwrap();
+        s
+    };
+    let (member, other, no_all, elsewhere) = (bound(6000), bound(6000), bound(6000), bound(6001));
+    member
+        .set_option(
+            SOL_IP,
+            IpOption::IP_ADD_MEMBERSHIP.0,
+            &mreqn("239.1.2.3", "127.0.0.1", 0),
+        )
+        .unwrap();
+    no_all
+        .set_option(SOL_IP, IpOption::IP_MULTICAST_ALL.0, &int(0))
+        .unwrap();
+    let sender = udp(&n);
+    sender
+        .set_option(SOL_IP, IpOption::IP_MULTICAST_IF.0, &[127, 0, 0, 1])
+        .unwrap();
+    send_to(&*sender, b"m", Some(a("239.1.2.3:6000"))).unwrap();
+    let mut buf = [0; 4];
+    let got = member.recv(&mut buf, MsgFlags(0)).unwrap();
+    let from = got.from.unwrap();
+    assert_eq!(from.port(), sender.local_addr().unwrap().port());
+    assert_eq!(from.ip(), a("127.0.0.1:0").ip());
+    assert_eq!(recv(&*other, 4).unwrap(), b"m");
+    assert_eq!(recv(&*no_all, 4), Err(Errno::EAGAIN));
+    assert_eq!(recv(&*elsewhere, 4), Err(Errno::EAGAIN));
+    // A group the interface is not in reaches nobody.
+    send_to(&*sender, b"x", Some(a("239.7.7.7:6000"))).unwrap();
+    assert_eq!(recv(&*other, 4), Err(Errno::EAGAIN));
+    // No interface to send from: the route to the group decides, and there is none.
+    assert_eq!(
+        send_to(&*udp(&n), b"x", Some(a("239.1.2.3:6000"))),
+        Err(Errno::ENETUNREACH)
+    );
+}
+
+/// Across a veth, a datagram to a group reaches the peer's namespace if its end is in the
+/// group and the hop limit lets it leave, and loops back only to members of the sender's
+/// own interface; IPv6 alike.
+#[test]
+fn multicast_crosses_a_veth_to_member_interfaces() {
+    let (na, nb) = veth_pair(("10.24.0.1", "10.24.0.2"), ("fd00:24::1", "fd00:24::2"));
+    let (veth0, veth1) = (index_of(&na, "veth0"), index_of(&nb, "veth1"));
+    let recv_on = |n: &Net, domain, at: &str| {
+        let s = n.socket(domain, SocketKind::Datagram, 0, UID).unwrap();
+        s.bind(a(at), false).unwrap();
+        s
+    };
+    let r = recv_on(&nb, Domain::Inet, "0.0.0.0:7000");
+    let own = recv_on(&na, Domain::Inet, "0.0.0.0:7000");
+    let sender = udp(&na);
+    sender
+        .set_option(SOL_IP, IpOption::IP_MULTICAST_IF.0, &[10, 24, 0, 1])
+        .unwrap();
+    // Nobody across is in the group yet.
+    send_to(&*sender, b"0", Some(a("239.4.4.4:7000"))).unwrap();
+    assert_eq!(recv(&*r, 4), Err(Errno::EAGAIN));
+    r.set_option(
+        SOL_IP,
+        IpOption::IP_ADD_MEMBERSHIP.0,
+        &mreqn("239.4.4.4", "0.0.0.0", veth1),
+    )
+    .unwrap();
+    send_to(&*sender, b"1", Some(a("239.4.4.4:7000"))).unwrap();
+    let mut buf = [0; 4];
+    let got = r.recv(&mut buf, MsgFlags(0)).unwrap();
+    assert_eq!(got.from.unwrap().ip(), a("10.24.0.1:0").ip());
+    assert_eq!(recv(&*own, 4), Err(Errno::EAGAIN));
+    // TTL 0 stays on the host; all-hosts loops back to the sender's namespace.
+    sender
+        .set_option(SOL_IP, IpOption::IP_MULTICAST_TTL.0, &int(0))
+        .unwrap();
+    send_to(&*sender, b"2", Some(a("239.4.4.4:7000"))).unwrap();
+    assert_eq!(recv(&*r, 4), Err(Errno::EAGAIN));
+    send_to(&*sender, b"3", Some(a("224.0.0.1:7000"))).unwrap();
+    assert_eq!(recv(&*own, 4).unwrap(), b"3");
+
+    let r6 = recv_on(&nb, Domain::Inet6, "[::]:7001");
+    r6.set_option(
+        SOL_IPV6,
+        Ipv6Option::IPV6_ADD_MEMBERSHIP.0,
+        &mreq6("ff02::1:3", veth1),
+    )
+    .unwrap();
+    let s6 = na
+        .socket(Domain::Inet6, SocketKind::Datagram, 0, UID)
+        .unwrap();
+    s6.set_option(
+        SOL_IPV6,
+        Ipv6Option::IPV6_MULTICAST_IF.0,
+        &int(veth0 as i32),
+    )
+    .unwrap();
+    send_to(&*s6, b"6", Some(a("[ff02::1:3]:7001"))).unwrap();
+    let got = r6.recv(&mut buf, MsgFlags(0)).unwrap();
+    assert!(
+        matches!(got.from.unwrap().ip(), std::net::IpAddr::V6(v6) if v6.is_unicast_link_local())
+    );
+}

@@ -8,6 +8,7 @@ mod addr;
 mod api;
 mod cmsg;
 pub mod iface;
+mod mcast;
 mod net;
 pub mod opts;
 pub mod ports;
