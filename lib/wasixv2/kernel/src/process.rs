@@ -983,6 +983,7 @@ impl Kernel {
             tls,
             child_tid,
             &args.set_tid,
+            true,
         )?;
         if let Some((reservation, _)) = pidfd {
             reservation.install(Arc::new(self.pidfd_file(child.0, OpenFlags::O_RDWR)));
@@ -1039,6 +1040,7 @@ impl Kernel {
             args.tls,
             args.child_tid,
             &args.set_tid,
+            true,
         )?;
         if let Some((reservation, _)) = pidfd {
             reservation.install(Arc::new(self.pidfd_file(child.0, OpenFlags::O_RDWR)));
@@ -1148,11 +1150,17 @@ impl Kernel {
         if newsp != 0 {
             return Err(Errno::EINVAL.into());
         }
-        if !caller.memory().can_duplicate().await {
-            return Err(Errno::ENOSYS.into());
-        }
+        let duplicate = caller.memory().can_duplicate().await;
         let parent_task = caller.task();
-        let child = self.copy_process(parent_task, flags, exit_signal, tls, child_tid, set_tid)?;
+        let child = self.copy_process(
+            parent_task,
+            flags,
+            exit_signal,
+            tls,
+            child_tid,
+            set_tid,
+            duplicate,
+        )?;
         let pidfd = pidfd.map(|(reservation, at)| {
             let file = self.pidfd_file(child.0, OpenFlags::O_RDWR);
             (at, reservation.install(Arc::new(file)).0)
@@ -1184,6 +1192,12 @@ impl Kernel {
     /// `set_tid` asks for, from the innermost), and a place in the tree. Without `CLONE_VM`,
     /// that includes the address space's mappings and break (`dup_mm`). The first process of
     /// a pid namespace is its init, which only signals it handles reach from inside.
+    ///
+    /// A fork whose memory the execution layer cannot copy (`duplicate` false: the exception
+    /// handling build) fails with `ENOSYS`, which Linux never returns, but only after every
+    /// check Linux makes passed, so a caller that could not fork anyway hears why first
+    /// (`EPERM`, `EINVAL`, `EAGAIN`, ...). What those checks made is undone.
+    #[allow(clippy::too_many_arguments)]
     fn copy_process(
         &self,
         parent_task: TaskId,
@@ -1192,6 +1206,7 @@ impl Kernel {
         tls: u32,
         child_tid: u32,
         set_tid: &[i32],
+        duplicate: bool,
     ) -> Result<TaskId, Errno> {
         let (id, process, parent_pid) = {
             let mut state = self.state.lock_or_recover();
@@ -1245,6 +1260,10 @@ impl Kernel {
             state
                 .pids
                 .alloc(id.0, &ns.pid_for_children, set_tid, may_set)?;
+            if !duplicate {
+                state.pids.free_unused(id.0, &ns.pid_for_children);
+                return Err(Errno::ENOSYS);
+            }
             let process = Arc::new(Process {
                 pid: id,
                 args: Mutex::new(parent.args.lock_or_recover().clone()),

@@ -327,6 +327,18 @@ impl Pids {
         Ok(())
     }
 
+    /// Frees the numbers [`Pids::alloc`] gave `id` in `ns` and above for a process that is not
+    /// made after all (`bad_fork_free_pid`): `ns` has no init again if it was to be its first.
+    pub(crate) fn free_unused(&self, id: u32, ns: &PidNs) {
+        {
+            let mut state = ns.state.lock_or_recover();
+            if state.reaper == Some(id) {
+                state.reaper = None;
+            }
+        }
+        self.detach(id, PidType::Pid);
+    }
+
     /// Attaches one more `ty` to `id`.
     pub(crate) fn attach(&self, id: u32, ty: PidType) {
         if let Some(entry) = self.table.write_or_recover().get_mut(&id) {
