@@ -343,6 +343,13 @@ const STATIC: &[(usize, &str, Static)] = &[
     (ROOT, "buddyinfo", Static::File(text::Global::Buddyinfo)),
     (ROOT, "zoneinfo", Static::File(text::Global::Zoneinfo)),
     (ROOT, "crypto", Static::File(text::Global::Crypto)),
+    (13, "keys", Static::Dir),
+    (125, "maxkeys", key_sysctl(crate::keys::KeySysctl::MaxKeys)),
+    (125, "maxbytes", key_sysctl(crate::keys::KeySysctl::MaxBytes)),
+    (125, "root_maxkeys", key_sysctl(crate::keys::KeySysctl::RootMaxKeys)),
+    (125, "root_maxbytes", key_sysctl(crate::keys::KeySysctl::RootMaxBytes)),
+    (125, "gc_delay", key_sysctl(crate::keys::KeySysctl::GcDelay)),
+
 ];
 
 /// The file of an integer sysctl.
@@ -358,6 +365,10 @@ const fn ucount(kind: UcountKind) -> Static {
 /// `fs.protected_*` for `which`.
 const fn protected(which: Protection) -> Static {
     Static::File(text::Global::Protected(which))
+}
+
+const fn key_sysctl(entry: crate::keys::KeySysctl) -> Static {
+    Static::File(text::Global::KeySysctl(entry))
 }
 
 /// What an entry of a process or thread directory is.
@@ -1100,6 +1111,9 @@ impl Node for ProcNode {
                             Some(Write::Fs(self.source.sysctls.clone(), file))
                         }
                         text::Global::AioMaxNr => Some(Write::AioMaxNr(self.source.aio.clone())),
+                        text::Global::KeySysctl(entry) => {
+                            Some(Write::Keys(self.source.keys.clone(), entry))
+                        }
                         text::Global::PipeMaxSize => {
                             Some(Write::PipeMaxSize(self.source.pipe_max_size.clone()))
                         }
@@ -1445,6 +1459,7 @@ enum Write {
     PipeMaxSize(Arc<PipeMaxSize>),
     /// `fs.aio-max-nr`.
     AioMaxNr(Arc<AioSysctl>),
+    Keys(Arc<crate::keys::Keys>, crate::keys::KeySysctl),
     /// One of the `vm` tunables.
     Vm(Arc<VmSysctls>, text::Global),
     /// `kernel.tainted`, if the opener may add flags.
@@ -1690,6 +1705,7 @@ impl Handle for FileHandle {
             Write::NrOpen(nr_open) => nr_open.set(sysctl_int(data)?)?,
             Write::PipeMaxSize(max) => max.set(sysctl_int(data)?)?,
             Write::AioMaxNr(aio) => aio.set_max(sysctl_int(data)?),
+            Write::Keys(keys, entry) => keys.set_sysctl(*entry, sysctl_int(data)?)?,
             Write::Vm(vm, file) => match file {
                 text::Global::Overcommit => vm.set_overcommit_memory(sysctl_i32(data)?)?,
                 text::Global::OvercommitRatio => vm.set_overcommit_ratio(sysctl_i32(data)?),
