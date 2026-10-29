@@ -209,6 +209,7 @@ pub(super) fn smaps(mm: Option<&Mm>, rollup: bool) -> Vec<u8> {
             (region.shared, "ms"),
             (region.locked, "lo"),
             (region.wipe_on_fork, "wf"),
+            (region.dont_copy, "dc"),
             (!region.shared, "ac"),
         ] {
             if on {
