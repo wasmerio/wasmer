@@ -55,6 +55,8 @@ pub enum SocketKind {
     Datagram,
     /// `SOCK_RAW`
     Raw,
+    /// `SOCK_SEQPACKET`: SCTP's one-to-many style.
+    SeqPacket,
 }
 
 /// `shutdown`'s `how`.
@@ -204,6 +206,52 @@ pub struct PortEntry {
     pub bound_dev: u32,
 }
 
+/// One SCTP endpoint, for `/proc/net/sctp/eps` (`sctp_eps_seq_show`).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SctpEndpoint {
+    /// `sctp_sock.type`: 0 one-to-one (`SCTP_SOCKET_TCP`), 1 one-to-many, 2 peeled off.
+    pub style: u8,
+    /// `sk_state`, as the TCP state numbers SCTP's socket states share.
+    pub state: u8,
+    pub port: u16,
+    /// The bound addresses, the wildcard as it was bound.
+    pub addrs: Vec<IpAddr>,
+    pub uid: u32,
+    pub inode: u64,
+}
+
+/// One SCTP association, for `/proc/net/sctp/assocs` (`sctp_assocs_seq_show`).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SctpAssocEntry {
+    /// The owning socket's style and state, as in [`SctpEndpoint`].
+    pub style: u8,
+    pub sk_state: u8,
+    /// The association's state, internal numbering (`SCTP_STATE_ESTABLISHED` is 3).
+    pub state: u8,
+    pub id: i32,
+    /// `sndbuf_used`: bytes sent and not yet taken by the peer's window.
+    pub tx_queue: usize,
+    /// `rmem_alloc`: bytes queued for reading here.
+    pub rx_queue: usize,
+    pub uid: u32,
+    pub inode: u64,
+    pub lport: u16,
+    pub rport: u16,
+    /// The association's local addresses and the primary path's source among them.
+    pub laddrs: Vec<IpAddr>,
+    pub primary_src: Option<IpAddr>,
+    /// The peer's addresses and the primary path among them.
+    pub paddrs: Vec<IpAddr>,
+    pub primary: Option<IpAddr>,
+    /// `hbinterval` in milliseconds.
+    pub hbinterval: u32,
+    pub incnt: u16,
+    pub outcnt: u16,
+    pub max_retrans: u16,
+    pub sndbuf: usize,
+    pub rcvbuf: usize,
+}
+
 /// The sysctls that make a namespace ignore echo requests.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum EchoIgnore {
@@ -322,6 +370,21 @@ pub trait Network: Send + Sync {
     /// The namespace's bound ping sockets and its raw ICMP sockets, each newest first, as
     /// their hash chains have them.
     fn icmp_sockets(&self) -> Vec<IcmpEntry> {
+        Vec::new()
+    }
+
+    /// The namespace's SCTP endpoints and their associations, for `/proc/net/sctp`.
+    fn sctp_endpoints(&self) -> Vec<SctpEndpoint> {
+        Vec::new()
+    }
+
+    fn sctp_assocs(&self) -> Vec<SctpAssocEntry> {
+        Vec::new()
+    }
+
+    /// `/proc/net/sctp/snmp`: the namespace's SCTP counters, named and ordered as
+    /// `sctp_snmp_list`.
+    fn sctp_snmp(&self) -> Vec<(&'static str, u64)> {
         Vec::new()
     }
 
@@ -579,6 +642,39 @@ pub trait Socket: Pollable {
     fn graft(&self, ino: u64) {
         let _ = ino;
     }
+
+    /// For a protocol that keeps message boundaries on every socket type (SCTP): the largest
+    /// message a send can take. The kernel then hands `send` the whole message (at most one
+    /// byte more, so an oversized one fails as the protocol decides) and `recv` returns one
+    /// message, or its next part when the buffer is short, never looping for `MSG_WAITALL`.
+    /// `None` for byte streams and datagrams, which the kernel tells apart by `kind`.
+    fn max_record(&self) -> Option<usize> {
+        None
+    }
+
+    /// SCTP's own operations, which `setsockopt` and `getsockopt` multiplex.
+    fn sctp(&self) -> Option<&dyn SctpOps> {
+        None
+    }
+}
+
+/// The SCTP operations behind `SCTP_SOCKOPT_BINDX_*`, `SCTP_SOCKOPT_CONNECTX*` and
+/// `SCTP_SOCKOPT_PEELOFF*`, whose packed address arrays, descriptors and blocking the kernel
+/// handles.
+pub trait SctpOps {
+    /// `sctp_bindx_add`/`sctp_bindx_rem`: adds the addresses to the socket's bind list (binding
+    /// it first if unbound) or removes them, undoing what was done if one fails.
+    /// `privileged` is `CAP_NET_BIND_SERVICE`, as for `Socket::bind`.
+    fn bindx(&self, addrs: &[SocketAddr], add: bool, privileged: bool) -> Result<(), Errno>;
+
+    /// `__sctp_connect` with every address of a peer endpoint (one port): sets up an association
+    /// and returns its id. The association is up when this returns; the kernel reports
+    /// `EINPROGRESS` to a non-blocking caller, as `sctp_wait_for_connect` does.
+    fn connectx(&self, addrs: &[SocketAddr]) -> Result<i32, Errno>;
+
+    /// `sctp_do_peeloff`: branches the association `id` of a one-to-many socket off into a
+    /// socket of its own.
+    fn peeloff(&self, id: i32) -> Result<Arc<dyn Socket>, Errno>;
 }
 
 /// A published UDP port: the endpoint bound to it and the handle that keeps it published.

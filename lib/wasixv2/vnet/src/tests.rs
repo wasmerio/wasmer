@@ -1276,7 +1276,7 @@ fn explicitly_bound_udp_sockets_are_auto_published() {
 
 /// Two namespaces joined by a veth pair, as `ip link add veth0 type veth peer name veth1`,
 /// `ip link set veth1 netns ...`, addresses on both ends and both up make them.
-fn veth_pair(v4: (&str, &str), v6: (&str, &str)) -> (Arc<Net>, Arc<Net>) {
+pub(crate) fn veth_pair(v4: (&str, &str), v6: (&str, &str)) -> (Arc<Net>, Arc<Net>) {
     use crate::{
         NewLink, NewLinkKind,
         iface::{AddMode, IfAddr},

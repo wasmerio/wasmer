@@ -612,7 +612,7 @@ fn clone_newipc_cannot_share_semaphore_adjustments() {
 }
 
 /// The contents of the file `at`, read whole.
-fn read_text(kernel: &Kernel, caller: &Caller<'_>, at: &str) -> String {
+pub(super) fn read_text(kernel: &Kernel, caller: &Caller<'_>, at: &str) -> String {
     let fd = open(kernel, caller, at).unwrap();
     let mut out = Vec::new();
     loop {

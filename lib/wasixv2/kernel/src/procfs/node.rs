@@ -455,26 +455,51 @@ const PID_ENTRIES: &[(&str, PidEntry, u32)] = &[
     ),
 ];
 
-/// The files of `/proc/<pid>/net`, which show the task's network namespace.
-const NET_ENTRIES: &[(&str, text::Net)] = &[
-    ("tcp", text::Net::Tcp(false)),
-    ("tcp6", text::Net::Tcp(true)),
-    ("udp", text::Net::Udp(false)),
-    ("udp6", text::Net::Udp(true)),
-    ("icmp", text::Net::Icmp(false)),
-    ("icmp6", text::Net::Icmp(true)),
-    ("raw", text::Net::Raw(false)),
-    ("raw6", text::Net::Raw(true)),
-    ("unix", text::Net::Unix),
-    ("dev", text::Net::Dev),
-    ("route", text::Net::Route),
-    ("ipv6_route", text::Net::Ipv6Route),
-    ("if_inet6", text::Net::IfInet6),
-    ("igmp", text::Net::Igmp),
-    ("igmp6", text::Net::Igmp6),
-    ("mcfilter", text::Net::Mcfilter(false)),
-    ("mcfilter6", text::Net::Mcfilter(true)),
+/// The files and directories of `/proc/<pid>/net`, which show the task's network namespace:
+/// parent (an index here, `None` for `net` itself), name, and a file or `None` for a
+/// directory.
+const NET_ENTRIES: &[(Option<usize>, &str, Option<text::Net>)] = &[
+    (None, "tcp", Some(text::Net::Tcp(false))),
+    (None, "tcp6", Some(text::Net::Tcp(true))),
+    (None, "udp", Some(text::Net::Udp(false))),
+    (None, "udp6", Some(text::Net::Udp(true))),
+    (None, "icmp", Some(text::Net::Icmp(false))),
+    (None, "icmp6", Some(text::Net::Icmp(true))),
+    (None, "raw", Some(text::Net::Raw(false))),
+    (None, "raw6", Some(text::Net::Raw(true))),
+    (None, "unix", Some(text::Net::Unix)),
+    (None, "dev", Some(text::Net::Dev)),
+    (None, "route", Some(text::Net::Route)),
+    (None, "ipv6_route", Some(text::Net::Ipv6Route)),
+    (None, "if_inet6", Some(text::Net::IfInet6)),
+    (None, "igmp", Some(text::Net::Igmp)),
+    (None, "igmp6", Some(text::Net::Igmp6)),
+    (None, "mcfilter", Some(text::Net::Mcfilter(false))),
+    (None, "mcfilter6", Some(text::Net::Mcfilter(true))),
+    (None, "sctp", None),
+    (Some(NET_SCTP), "assocs", Some(text::Net::SctpAssocs)),
+    (Some(NET_SCTP), "eps", Some(text::Net::SctpEps)),
+    (Some(NET_SCTP), "snmp", Some(text::Net::SctpSnmp)),
 ];
+
+/// `net/sctp` (`sctp_proc_init`).
+const NET_SCTP: usize = 17;
+
+/// The entries of a `net` directory (`parent` `None`) or of one of its directories.
+fn net_children(scope: Scope, parent: Option<usize>) -> Vec<(u64, Vec<u8>, Entry)> {
+    NET_ENTRIES
+        .iter()
+        .enumerate()
+        .filter(|(_, (p, _, _))| *p == parent)
+        .map(|(index, (_, name, _))| {
+            (
+                index as u64,
+                name.as_bytes().to_vec(),
+                Entry::Net(scope, index),
+            )
+        })
+        .collect()
+}
 
 /// Where pids start in the root's directory positions, after the static entries.
 const FIRST_PID_POS: u64 = 1024;
@@ -603,16 +628,16 @@ impl ProcNode {
                     self.source
                         .task(scope.pid, scope.tid)
                         .ok_or(Errno::ENOENT)?;
-                    for (index, (name, _)) in NET_ENTRIES.iter().enumerate() {
-                        out.push((
-                            index as u64,
-                            name.as_bytes().to_vec(),
-                            Entry::Net(scope, index),
-                        ));
-                    }
+                    out.extend(net_children(scope, None));
                 }
                 _ => return Err(Errno::ENOTDIR),
             },
+            Entry::Net(scope, index) if NET_ENTRIES[index].2.is_none() => {
+                self.source
+                    .task(scope.pid, scope.tid)
+                    .ok_or(Errno::ENOENT)?;
+                out.extend(net_children(scope, Some(index)));
+            }
             Entry::Fd(..) | Entry::FdInfo(..) | Entry::Ns(..) | Entry::Net(..) => {
                 return Err(Errno::ENOTDIR);
             }
@@ -642,6 +667,7 @@ impl ProcNode {
                 Static::Link(_) | Static::SelfLink | Static::ThreadSelf => 0o777,
             },
             Entry::Pid(_, index) => PID_ENTRIES[index].2,
+            Entry::Net(_, index) if NET_ENTRIES[index].2.is_none() => 0o555,
             Entry::FdInfo(..) | Entry::Net(..) => 0o444,
             Entry::Ns(..) => 0o777,
             Entry::Fd(scope, fd) => {
@@ -818,6 +844,7 @@ fn file_type(entry: Entry) -> FileType {
             PidEntry::File(_) | PidEntry::Mem => FileType::Regular,
         },
         Entry::Fd(..) | Entry::Ns(..) => FileType::Symlink,
+        Entry::Net(_, index) if NET_ENTRIES[index].2.is_none() => FileType::Directory,
         Entry::FdInfo(..) | Entry::Net(..) => FileType::Regular,
     }
 }
@@ -1157,7 +1184,8 @@ impl Node for ProcNode {
                     .task(scope.pid, scope.tid)
                     .ok_or(Errno::ENOENT)?;
                 let ns = task.ns.as_ref().ok_or(Errno::ENOENT)?;
-                (text::net(&ns.net, NET_ENTRIES[index].1), None)
+                let file = NET_ENTRIES[index].2.ok_or(Errno::EISDIR)?;
+                (text::net(&ns.net, file), None)
             }
             _ => return Err(Errno::ENXIO),
         };

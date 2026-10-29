@@ -82,6 +82,10 @@ impl Network for FakeNet {
         protocol: i32,
         _: u32,
     ) -> Result<Arc<dyn Socket>, Errno> {
+        // `inet_create` of a kernel without SCTP: no protocol for `SOCK_SEQPACKET`.
+        if kind == SocketKind::SeqPacket {
+            return Err(Errno::ESOCKTNOSUPPORT);
+        }
         if protocol != 0 {
             return Err(Errno::EPROTONOSUPPORT);
         }
@@ -150,6 +154,7 @@ impl Socket for FakeSocket {
             SocketKind::Stream => 6,
             SocketKind::Datagram => 17,
             SocketKind::Raw => 255,
+            SocketKind::SeqPacket => 132,
         }
     }
 
@@ -223,7 +228,9 @@ impl Socket for FakeSocket {
             (state.peer, state.peer_socket.upgrade())
         };
         let target = match (self.kind, msg.to.or(peer)) {
-            (SocketKind::Stream, _) => peer_socket.ok_or(Errno::ENOTCONN)?,
+            (SocketKind::Stream | SocketKind::SeqPacket, _) => {
+                peer_socket.ok_or(Errno::ENOTCONN)?
+            }
             (SocketKind::Datagram | SocketKind::Raw, Some(to)) => match self.net().lookup(to) {
                 Some(target) => target,
                 None => return Ok(msg.data.len()),

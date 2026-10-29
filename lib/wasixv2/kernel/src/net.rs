@@ -26,6 +26,7 @@ use wasixv2_wait::PollMask;
 
 mod if_ioctl;
 mod packet;
+mod sctp;
 pub(crate) mod vsock;
 
 pub(crate) use if_ioctl::is_dev_ioctl;
@@ -102,7 +103,13 @@ impl AnySock {
     /// datagram ones never do.
     fn raises_sigpipe(&self) -> bool {
         match self {
-            AnySock::Inet((_, sock)) => sock.socket.kind() == SocketKind::Stream,
+            // `sctp_error` raises it for both of SCTP's types.
+            AnySock::Inet((_, sock)) => {
+                matches!(
+                    sock.socket.kind(),
+                    SocketKind::Stream | SocketKind::SeqPacket
+                )
+            }
             AnySock::Unix(_, sock) => sock.kind() == unix::Kind::Stream,
             // `sk_stream_error` only for `SOCK_STREAM`.
             AnySock::Vsock(_, v) => v.kind() == vsock::Kind::Stream,
@@ -207,6 +214,7 @@ impl Kernel {
         let kind = match kind {
             SocketType::SOCK_STREAM => SocketKind::Stream,
             SocketType::SOCK_DGRAM => SocketKind::Datagram,
+            SocketType::SOCK_SEQPACKET => SocketKind::SeqPacket,
             // `inet_create`: a raw socket names its protocol, and needs CAP_NET_RAW over the
             // network namespace's owner.
             SocketType::SOCK_RAW if protocol == 0 => return Err(Errno::EPROTONOSUPPORT.into()),
@@ -300,12 +308,18 @@ impl Kernel {
         {
             landlock.check_socket(domain == Domain::Inet6, &raw, request, false)?;
         }
+        let privileged = self
+            .cred(caller)
+            .ns_capable(self.ns(caller).net.user_ns(), Cap::NetBindService);
+        if sock.socket.sctp().is_some() {
+            sock.socket.bind(socket::decode_sctp(&raw)?, privileged)?;
+            return Ok(0);
+        }
         let addr = socket::decode(domain, &raw, true)?;
         // AF_UNSPEC is accepted for IPv4 only with INADDR_ANY.
         if socket::family(&raw)? == AddressFamily::AF_UNSPEC && !addr.ip().is_unspecified() {
             return Err(Errno::EAFNOSUPPORT.into());
         }
-        let privileged = self.net_capable(caller, Cap::NetBindService);
         sock.socket.bind(addr, privileged)?;
         Ok(0)
     }
@@ -468,11 +482,14 @@ impl Kernel {
         }
         let socket = &sock.socket;
         let addr = match socket.kind() {
+            _ if socket.sctp().is_some() => socket::decode_sctp(&raw)?,
             // `ip6_datagram_connect` takes an IPv4 address too.
             SocketKind::Datagram | SocketKind::Raw => {
                 socket::decode_dest(socket.domain(), &raw)?.ok_or(Errno::EAFNOSUPPORT)?
             }
-            SocketKind::Stream => socket::decode(socket.domain(), &raw, false)?,
+            SocketKind::Stream | SocketKind::SeqPacket => {
+                socket::decode(socket.domain(), &raw, false)?
+            }
         };
         let interrupt = self.interrupt(caller);
         let mut wait = sock.blocking(Self::io(caller, &*interrupt, &file), SND, wait);
@@ -602,12 +619,13 @@ impl Kernel {
                 let net_raw = self.net_capable(caller, Cap::NetRaw);
                 let mut wait = sock.blocking(io, SND, flags);
                 let mut scratch = Scratch::default();
-                let stream = sock.socket.kind() == SocketKind::Stream;
+                let stream = sock.byte_stream();
+                let max = sock.socket.max_record().unwrap_or(IP_MAX_DATAGRAM);
                 let mut sent = 0;
                 loop {
                     let n = match stream {
                         true => (src.len - sent).min(SOCK_CHUNK),
-                        false => src.len.min(IP_MAX_DATAGRAM + 1),
+                        false => src.len.min(max.saturating_add(1)),
                     };
                     let buf = scratch.get(n);
                     if let Err(err) = src.copy_in(memory, sent, buf).await {
@@ -778,8 +796,12 @@ impl Kernel {
         }
     }
 
-    /// A send's destination. Stream sockets ignore it, as TCP does.
+    /// A send's destination. Byte streams ignore it, as TCP does; SCTP sets up an association
+    /// with it or picks one by it (`sctp_sendmsg_get_daddr`).
     fn destination(&self, sock: &SocketFile, raw: &[u8]) -> Result<Option<SocketAddr>, Errno> {
+        if sock.socket.sctp().is_some() {
+            return socket::decode_sctp(raw).map(Some);
+        }
         if sock.socket.kind() == SocketKind::Stream {
             return Ok(None);
         }
@@ -824,13 +846,15 @@ impl Kernel {
             && !flags.intersects(MsgFlags::MSG_PEEK | MsgFlags::MSG_OOB);
         match sock {
             AnySock::Inet((_, sock)) => {
-                let stream = sock.socket.kind() == SocketKind::Stream;
+                let stream = sock.byte_stream();
                 let keeps = stream && !flags.intersects(TCP_OTHER_READS);
                 let mut wait = sock.blocking(io, RCV, flags);
                 let mut scratch = Scratch::default();
                 let n = match stream {
                     true => dst.len.min(SOCK_CHUNK),
-                    false => dst.len.min(IP_MAX_DATAGRAM),
+                    false => dst
+                        .len
+                        .min(sock.socket.max_record().unwrap_or(IP_MAX_DATAGRAM)),
                 };
                 let buf = scratch.get(n);
                 let msg = match keeps {
@@ -1255,6 +1279,12 @@ impl Kernel {
         // `optmem_max`, as far as anything reads (a `struct group_filter` of 64 sources).
         let mut value = value.copy_in(caller.memory(), OPTMEM_MAX).await?;
         let any = self.any_socket(caller, fd)?;
+        if level == SocketLevel::SOL_SCTP
+            && let AnySock::Inet((file, sock)) = &any
+            && let Some(result) = self.sctp_setsockopt(caller, file, sock, name, &value).await
+        {
+            return result;
+        }
         if level == SocketLevel::SOL_SOCKET {
             match SocketOption(name) {
                 SocketOption::SO_ATTACH_FILTER => {
@@ -1408,6 +1438,14 @@ impl Kernel {
             let program = self.attached_filter(caller, &any)?;
             return get_filter(caller, &program, len, optval, optlen).await;
         }
+        if level == SocketLevel::SOL_SCTP
+            && let AnySock::Inet(sock) = &any
+            && sock.1.socket.sctp().is_some()
+        {
+            return self
+                .sctp_getsockopt(caller, sock, name, len, (optval, optlen))
+                .await;
+        }
         let len = len.min(4096);
         let fixed = match &any {
             _ if level == SocketLevel::SOL_SOCKET && timeout_option(name).is_some() => {
@@ -1495,6 +1533,7 @@ impl Kernel {
                 SocketKind::Stream => SocketType::SOCK_STREAM.0,
                 SocketKind::Datagram => SocketType::SOCK_DGRAM.0,
                 SocketKind::Raw => SocketType::SOCK_RAW.0,
+                SocketKind::SeqPacket => SocketType::SOCK_SEQPACKET.0,
             }),
             SocketOption::SO_PROTOCOL => int(socket.protocol()),
             SocketOption::SO_DOMAIN => int(match socket.domain() {

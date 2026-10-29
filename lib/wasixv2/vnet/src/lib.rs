@@ -18,6 +18,7 @@ pub mod ports;
 mod ratelimit;
 mod raw;
 mod recvq;
+mod sctp;
 mod stream;
 mod sync;
 mod tcp;
@@ -30,12 +31,13 @@ pub use api::{
     Accepted, Answer, Backend, BackendDatagram, BackendStream, Control, Domain, EchoIgnore, Found,
     GroupSources, IcmpEntry, InboundSink, Interface, Lookup, LookupDone, LookupError, Network,
     NewLink, NewLinkKind, PortEntry, Publication, PublishedDatagram, QueuedError, RecvMsg, Room,
-    SendMsg, Shutdown, Socket, SocketKind, StreamState,
+    SctpAssocEntry, SctpEndpoint, SctpOps, SendMsg, Shutdown, Socket, SocketKind, StreamState,
 };
 pub use icmp::IcmpSocket;
 pub use net::{MovedLink, Net, NetConfig, Rtnl, Uplink, move_link, rtnl};
 pub use ratelimit::IcmpLimit;
 pub use recvq::RecvQueue;
+pub use sctp::SctpSocket;
 pub use tcp::TcpSocket;
 pub use udp::UdpSocket;
 pub use wasixv2_wait::{PollMask, PollTable, Pollable, WaitQueue};

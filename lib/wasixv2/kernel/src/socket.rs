@@ -185,6 +185,12 @@ impl SocketFile {
         }
     }
 
+    /// A byte stream (TCP), as opposed to datagrams and to records, which SCTP keeps on both of
+    /// its socket types.
+    pub(crate) fn byte_stream(&self) -> bool {
+        self.socket.kind() == SocketKind::Stream && self.socket.max_record().is_none()
+    }
+
     /// The blocking of one call in direction `dir`.
     pub(crate) fn blocking<'a>(&'a self, io: Io<'a>, dir: usize, flags: MsgFlags) -> Blocking<'a> {
         Blocking::new(&*self.host, io, flags, self.timeouts.get(dir))
@@ -258,7 +264,7 @@ impl SocketFile {
     pub(crate) async fn send(&self, wait: &mut Blocking<'_>, msg: SendMsg<'_>) -> SysResult<usize> {
         let socket = &self.socket;
         let flags = msg.flags & !(MsgFlags::MSG_DONTWAIT | MsgFlags::MSG_NOSIGNAL);
-        let stream = socket.kind() == SocketKind::Stream;
+        let stream = self.byte_stream();
         let mut sent = 0;
         loop {
             let part = SendMsg {
@@ -301,7 +307,7 @@ impl Pollable for SocketFile {
 
 impl FileObject for SocketFile {
     fn messages(&self) -> bool {
-        self.socket.kind() != wasixv2_vnet::SocketKind::Stream
+        !self.byte_stream()
     }
 
     fn read<'a>(&'a self, io: Io<'a>, buf: &'a mut [u8]) -> LocalFuture<'a, SysResult<usize>> {
@@ -319,7 +325,7 @@ impl FileObject for SocketFile {
     ) -> LocalFuture<'a, SysResult<usize>> {
         Box::pin(async move {
             let mut wait = self.blocking(io, RCV, MsgFlags(0));
-            if self.socket.kind() != SocketKind::Stream {
+            if !self.byte_stream() {
                 let n = self.recv(&mut wait, buf, MsgFlags(0)).await?.len;
                 return delivered(n, to.copy_out(&buf[..n]).await);
             }
@@ -415,6 +421,42 @@ pub(crate) fn decode(domain: Domain, raw: &[u8], unspec_any: bool) -> Result<Soc
                 _ => Err(Errno::EAFNOSUPPORT),
             }
         }
+    }
+}
+
+/// An SCTP address (`sctp_sockaddr_af`): either family whatever the socket's, which the
+/// protocol then checks; at least a `struct sockaddr`, an IPv6 one at least RFC 2133's.
+pub(crate) fn decode_sctp(raw: &[u8]) -> Result<SocketAddr, Errno> {
+    if raw.len() < SOCKADDR_IN {
+        return Err(Errno::EINVAL);
+    }
+    match family(raw)? {
+        AddressFamily::AF_INET => Ok(decode_v4(raw)),
+        AddressFamily::AF_INET6 if raw.len() >= SOCKADDR_IN6_MIN => Ok(decode_v6(raw)),
+        _ => Err(Errno::EINVAL),
+    }
+}
+
+/// A packed array of SCTP addresses (`sctp_setsockopt_bindx`, `__sctp_connect`): each takes
+/// its family's whole `sockaddr`; a family SCTP has no address for, or one cut short, is
+/// `EINVAL`, and so is an empty array.
+pub(crate) fn decode_sctp_packed(raw: &[u8]) -> Result<Vec<SocketAddr>, Errno> {
+    let mut addrs = Vec::new();
+    let mut at = 0;
+    while at < raw.len() {
+        let rest = &raw[at..];
+        let len = match family(rest)? {
+            AddressFamily::AF_INET => SOCKADDR_IN,
+            AddressFamily::AF_INET6 => SOCKADDR_IN6,
+            _ => return Err(Errno::EINVAL),
+        };
+        let one = rest.get(..len).ok_or(Errno::EINVAL)?;
+        addrs.push(decode_sctp(one)?);
+        at += len;
+    }
+    match addrs.is_empty() {
+        true => Err(Errno::EINVAL),
+        false => Ok(addrs),
     }
 }
 

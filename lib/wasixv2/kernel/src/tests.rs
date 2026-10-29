@@ -826,6 +826,7 @@ mod ptimer;
 mod ptrace;
 mod pty;
 mod sched;
+mod sctp;
 mod seccomp;
 mod sigio;
 mod signal;

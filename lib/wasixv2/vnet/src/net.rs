@@ -24,6 +24,7 @@ use crate::{
         RouteDecision, RouteMatch, VethEnd, Via, valid_mac,
     },
     ports::{BindSpec, PortRange, PortRng, PortTable, Proto, SockId},
+    sctp::{IPPROTO_SCTP, SctpPorts, SctpSocket},
     sync::MutexExt,
     tcp::{Offer, TcpSocket},
     udp::UdpSocket,
@@ -212,6 +213,7 @@ pub(crate) struct NetState {
     /// The ids this namespace knows other namespaces by (`netns_ids`).
     pub nsids: Vec<(i32, Weak<Net>)>,
     pub icmp: IcmpTables,
+    pub sctp: SctpPorts,
 }
 
 /// A published UDP port: the backend endpoint bound to the host port, and the guest socket
@@ -359,6 +361,7 @@ impl Net {
                 rng: PortRng::new(seed),
                 nsids: Vec::new(),
                 icmp: IcmpTables::default(),
+                sctp: SctpPorts::default(),
             }),
             backend,
             config,
@@ -997,6 +1000,11 @@ impl Network for Net {
         };
         match (kind, protocol) {
             (SocketKind::Stream, 0 | 6) => Ok(TcpSocket::new(self.arc(), domain, uid)),
+            // `inetsw` has SCTP for both of its styles, and is the only `SOCK_SEQPACKET`
+            // protocol, which protocol 0 picks.
+            (SocketKind::Stream, IPPROTO_SCTP) | (SocketKind::SeqPacket, 0 | IPPROTO_SCTP) => {
+                Ok(SctpSocket::new(self.arc(), domain, kind, uid))
+            }
             (SocketKind::Datagram, 0 | 17) => Ok(UdpSocket::new(self.arc(), domain, uid)),
             (SocketKind::Datagram, p) if p == icmp => {
                 Ok(IcmpSocket::new(self.arc(), domain, false, uid))
@@ -1052,6 +1060,18 @@ impl Network for Net {
 
     fn icmp_sockets(&self) -> Vec<IcmpEntry> {
         self.icmp_entries()
+    }
+
+    fn sctp_endpoints(&self) -> Vec<crate::SctpEndpoint> {
+        crate::sctp::endpoints(self)
+    }
+
+    fn sctp_assocs(&self) -> Vec<crate::SctpAssocEntry> {
+        crate::sctp::assocs(self)
+    }
+
+    fn sctp_snmp(&self) -> Vec<(&'static str, u64)> {
+        crate::sctp::snmp(self)
     }
 
     fn interfaces(&self) -> Vec<Interface> {
