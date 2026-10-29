@@ -994,8 +994,10 @@ fn a_parent_tracer_can_reap_with_sigchld_ignored() {
     let caller = Caller::new(parent, &memory);
     let child = fork_child(kernel, &caller);
     assert_eq!(ptrace(kernel, &caller, R::PTRACE_SEIZE, child, 0, 0), Ok(0));
-    let mut action = wasixv2_abi::Sigaction::default();
-    action.sa_handler = wasixv2_abi::SignalHandler::SIG_IGN.0 as u32;
+    let action = wasixv2_abi::Sigaction {
+        sa_handler: wasixv2_abi::SignalHandler::SIG_IGN.0 as u32,
+        ..Default::default()
+    };
     block_on(wasixv2_syscalls::write_value(
         &memory,
         GuestPtrMut::new(0x900),
@@ -1314,4 +1316,47 @@ fn a_vfork_childs_fatal_exit_stops_before_handing_back_the_instance() {
         kernel.take_pending(child),
         Some(GuestAction::VforkReturn { .. })
     ));
+}
+
+/// kernel/exit.c `delay_group_leader`: the tracer hears the final group exit even when the
+/// execution layer released the leader's instance while another thread was still unwinding.
+#[test]
+fn a_released_leader_still_notifies_its_tracer_at_group_exit() {
+    let (stack, tracer, memory) = machine();
+    let kernel = &stack.inner;
+    let caller = Caller::new(tracer, &memory);
+    let leader = fork_child(kernel, &caller);
+    let child_memory = flat();
+    let leader_caller = Caller::new(leader, &child_memory);
+    let thread = TaskId(
+        block_on(kernel.thread_spawn(&leader_caller, 0x10f00, 0, S32Ptr::NULL, 0, S32Ptr::NULL))
+            .unwrap() as u32,
+    );
+    while kernel.take_pending(leader).is_some() {}
+    kernel
+        .task_signals(tracer)
+        .replace_blocked(1u64 << (Signal::SIGCHLD.0 - 1));
+    assert_eq!(
+        ptrace(kernel, &caller, R::PTRACE_SEIZE, leader, 0, 0),
+        Ok(0)
+    );
+    block_on(kernel.exit_group(&leader_caller, 3)).unwrap();
+    assert_eq!(kernel.take_pending(leader), Some(GuestAction::Exit(3)));
+    kernel.release(leader);
+    assert!(
+        !kernel
+            .group_signals(tracer.0)
+            .unwrap()
+            .is_pending(Signal::SIGCHLD.0)
+    );
+    assert_eq!(kernel.take_pending(thread), Some(GuestAction::Exit(3)));
+    block_on(kernel.exit_mm(&Caller::new(thread, &child_memory)));
+    kernel.release(thread);
+    assert!(
+        kernel
+            .group_signals(tracer.0)
+            .unwrap()
+            .is_pending(Signal::SIGCHLD.0)
+    );
+    assert_eq!(wait(kernel, &caller, leader, WALL).unwrap().1, 3);
 }
