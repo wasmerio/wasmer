@@ -12,7 +12,7 @@ mod generated;
 mod memory;
 mod result;
 
-pub use caller::{Caller, TaskId};
+pub use caller::{AsTask, Caller, TaskId, as_task, current_task};
 pub use control::{
     AtomicWait, AtomicWord, BINPRM_BUF_SIZE, Binfmt, Control, ExitMm, GroupStop, GuestAction,
     Image, ImageId, PidView, Resume, SharedMapping, SharedMappings, SignalFrame, VforkParent,
