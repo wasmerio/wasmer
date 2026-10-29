@@ -13,6 +13,10 @@ args=(run --compiler-threads 3 --no-tty --user 0
   --volume "$ROOT/bin:/bin" --volume "$ROOT/work:/work"
   --volume "$TESTS:/tests")
 case $workflow in
+  strace)
+    exec nice -n19 taskset -c 4-7 python3 "$ROOT/strace-src/maint/check-wasixv2.py" \
+      "$WASMER" "$ROOT/bin" "$ROOT/logs/strace"
+    ;;
   core)
     timeout -k 5 120 nice -n19 taskset -c 4-7 "$WASMER" "${args[@]}" "$ROOT/bin/core-file"
     r=$?

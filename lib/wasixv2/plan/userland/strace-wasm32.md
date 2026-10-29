@@ -1,5 +1,64 @@
 # Syscall-info-only strace port for WASIX v2
 
+
+## Implemented and validated (V6)
+
+Fork: `wasix-org/strace`, branch `wasixv2/wasm32`, commit
+`c7f71a82bde664c55281702de964f7579f7353ee` (base `be6eb508a597`).
+The userland-5 build pins this source and ABI `07cd32e`; no prebuilt Wasm,
+ABI changes, releases or shared toolchain replacements are involved.
+
+The port has an ILP32 wasm32 personality, separate 64-bit syscall scalar
+types, and a mandatory syscall-info-only transport. INFO_NONE/event stops
+and an initial syscall-exit stop defer entry decoding without GETREGSET.
+Register injection and unwinding fail explicitly. The generated table uses
+the ABI codegen's public IR for numbers, names, and transport argument count
+and order, and strace's existing catalog for decoder classifications.
+
+**Refinement from the actual transport:** `Syscall::args()` splits annotated
+`@merged-i64` parameters into riscv32 pairs. Thus pread/pwrite, truncate,
+fallocate/fadvise and similar arguments use the existing 32-bit pair
+decoders. Only unmerged i64 arguments such as lseek/mmap offsets occupy one
+64-bit slot. Their values and lseek's i64 result must survive independently
+of kernel-long structure layouts and four-byte PEEKDATA words. The original
+V5 analysis below is historical where it suggests otherwise.
+
+A real kernel bug found during validation is fixed by wasmer
+`6da01a8143d` on `wasixv2/v-strace`: Linux kernel/signal.c `prepare_signal`
+and `ptrace_trap_notify` require a sticky notification when SIGCONT reaches
+a seized task, including before PTRACE_LISTEN begins. Without it strace's
+SEIZE/INTERRUPT startup can hang. The failing-first kernel test covers both
+SIGCONT/LISTEN orderings. Kernel validation: 25 ptrace tests, 34 signal-filter
+tests, all-target Makefile-flags clippy and workspace fmt pass.
+
+With that branch's own systemd-built release CLI, all ten focused guest
+checks pass: `strace -f ls`, the shell pipeline, the openat/read filter,
+exact wide scalar and raw results, SIGUSR1, GETREGSET-denial proof, missing
+syscall-info rejection, unsupported injection, and unsupported unwinding.
+The GETREGSET test installs a KILL_PROCESS seccomp filter, so successful
+fully decoded tracing proves that no register request was attempted.
+The scalar test checks lseek argument/result 4886718345, negative SEEK_CUR,
+split pread64, pointer 1 EFAULT and direct mmap byte offset 0x123450000.
+
+Reproduce one focused workflow (run the build under a systemd user unit,
+with the toolchain environment from `../env.sh` and BINARYEN set):
+
+```sh
+nice -n19 taskset -c 4-7 bash userland-5.sh strace
+nice -n19 taskset -c 4-7 bash tests/run-programs-5.sh /abs/release/wasmer strace
+```
+
+A clean checkout built through the recipe with default Werror and passed
+all ten focused checks through the userland-5 runner as well.
+The host driver stores stdout, traces and statuses under
+`$USERLAND5/logs/strace`; it invokes the fork's `maint/check-wasixv2.py`.
+Native Linux default-Werror build and the four focused lseek, mmap,
+pread64/pwrite64 and syscall-info decoder tests also pass.
+No full suite is part of this workflow. Local evidence and handoff:
+`~/wasixv2-orch/logs/v6strace/STATE.md` and `validated2/`.
+
+## Original V5 design (historical)
+
 Inspected strace 6.17 (`9d7b4d1a59a20171bfad65a4eea883190ddd3791`),
 WASIX v2 `0bc36eb981f`, and its ABI `07cd32e`. The existing build attempt in
 `userland-5.sh strace` fails at configure's architecture dispatch. This document
