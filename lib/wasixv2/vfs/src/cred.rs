@@ -1,4 +1,15 @@
 //! Credentials and the mode-bit permission checks of Linux's `fs/namei.c`.
+//!
+//! Ids are kernel ids: what the initial user namespace sees. A credential's capabilities count
+//! in its user namespace ([`UserNs`]), and over an inode only if that namespace maps the
+//! inode's owner (`capable_wrt_inode_uidgid`); what reaches beyond every namespace, as making
+//! a device node, takes the capability in the initial one ([`Cred::capable_init`]).
+
+use std::{
+    any::Any,
+    fmt,
+    sync::{Arc, LazyLock},
+};
 
 use wasixv2_abi::Errno;
 
@@ -66,8 +77,60 @@ impl Cap {
     }
 }
 
+/// What the VFS needs of a user namespace (`struct user_namespace`): which kernel ids it maps,
+/// and whether it is the initial one. The kernel's namespaces implement it.
+pub trait UserNs: Any + Send + Sync {
+    /// `kuid_has_mapping`: the namespace has a uid for the kernel uid `kuid`.
+    fn has_uid(&self, kuid: u32) -> bool;
+    /// `kgid_has_mapping`.
+    fn has_gid(&self, kgid: u32) -> bool;
+    /// `make_kuid`: the kernel uid of the namespace's `uid`, if it maps one.
+    fn make_kuid(&self, uid: u32) -> Option<u32>;
+    /// `make_kgid`.
+    fn make_kgid(&self, gid: u32) -> Option<u32>;
+    /// Whether this is the initial user namespace (`init_user_ns`), which maps every id.
+    fn is_initial(&self) -> bool;
+}
+
+/// The initial user namespace as the VFS knows it without a kernel: every id but `-1` is
+/// itself. What the embedder mounts belongs to it.
+pub struct InitialUserNs;
+
+impl UserNs for InitialUserNs {
+    fn has_uid(&self, kuid: u32) -> bool {
+        kuid != u32::MAX
+    }
+
+    fn has_gid(&self, kgid: u32) -> bool {
+        kgid != u32::MAX
+    }
+
+    fn make_kuid(&self, uid: u32) -> Option<u32> {
+        (uid != u32::MAX).then_some(uid)
+    }
+
+    fn make_kgid(&self, gid: u32) -> Option<u32> {
+        (gid != u32::MAX).then_some(gid)
+    }
+
+    fn is_initial(&self) -> bool {
+        true
+    }
+}
+
+/// The [`InitialUserNs`].
+pub fn initial_user_ns() -> Arc<dyn UserNs> {
+    static INITIAL: LazyLock<Arc<dyn UserNs>> = LazyLock::new(|| Arc::new(InitialUserNs));
+    INITIAL.clone()
+}
+
+/// Whether `a` and `b` are the same user namespace.
+pub fn same_user_ns(a: &Arc<dyn UserNs>, b: &Arc<dyn UserNs>) -> bool {
+    std::ptr::addr_eq(Arc::as_ptr(a), Arc::as_ptr(b))
+}
+
 /// The identity a filesystem operation runs as.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone)]
 pub struct Cred {
     /// Real ids, which `access` checks against.
     pub uid: u32,
@@ -76,12 +139,39 @@ pub struct Cred {
     pub fsuid: u32,
     pub fsgid: u32,
     pub groups: Vec<u32>,
-    /// Effective capabilities, one bit per `Cap`.
+    /// Effective capabilities, one bit per `Cap`, in `user_ns`.
     pub caps: u64,
+    /// The user namespace the capabilities count in (`cred->user_ns`).
+    pub user_ns: Arc<dyn UserNs>,
+}
+
+impl PartialEq for Cred {
+    fn eq(&self, other: &Self) -> bool {
+        (self.uid, self.gid, self.fsuid, self.fsgid, self.caps)
+            == (other.uid, other.gid, other.fsuid, other.fsgid, other.caps)
+            && self.groups == other.groups
+            && same_user_ns(&self.user_ns, &other.user_ns)
+    }
+}
+
+impl Eq for Cred {}
+
+impl fmt::Debug for Cred {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Cred")
+            .field("uid", &self.uid)
+            .field("gid", &self.gid)
+            .field("fsuid", &self.fsuid)
+            .field("fsgid", &self.fsgid)
+            .field("groups", &self.groups)
+            .field("caps", &self.caps)
+            .field("initial_user_ns", &self.user_ns.is_initial())
+            .finish()
+    }
 }
 
 impl Cred {
-    /// An unprivileged user with no supplementary groups.
+    /// An unprivileged user of the initial user namespace with no supplementary groups.
     pub fn user(uid: u32, gid: u32) -> Self {
         Self {
             uid,
@@ -90,10 +180,11 @@ impl Cred {
             fsgid: gid,
             groups: Vec::new(),
             caps: 0,
+            user_ns: initial_user_ns(),
         }
     }
 
-    /// uid 0 with every capability.
+    /// uid 0 of the initial user namespace with every capability.
     pub fn root() -> Self {
         Self {
             caps: u64::MAX,
@@ -101,8 +192,22 @@ impl Cred {
         }
     }
 
+    /// `ns_capable(current_user_ns(), cap)`: the capability in the credentials' own user
+    /// namespace.
     pub fn capable(&self, cap: Cap) -> bool {
         self.caps & cap.bit() != 0
+    }
+
+    /// `capable`: the capability in the initial user namespace, for what no user namespace
+    /// owns (devices, `trusted.*` attributes).
+    pub fn capable_init(&self, cap: Cap) -> bool {
+        self.capable(cap) && self.user_ns.is_initial()
+    }
+
+    /// `capable_wrt_inode_uidgid`: the capability, over an inode whose owner and group the
+    /// credentials' user namespace maps (`privileged_wrt_inode_uidgid`).
+    pub fn capable_wrt(&self, attr: &Attr, cap: Cap) -> bool {
+        self.capable(cap) && self.user_ns.has_uid(attr.uid) && self.user_ns.has_gid(attr.gid)
     }
 
     /// `in_group_p`: the filesystem gid or a supplementary group.
@@ -110,9 +215,15 @@ impl Cred {
         self.fsgid == gid || self.groups.contains(&gid)
     }
 
-    /// `inode_owner_or_capable`.
+    /// `inode_owner_or_capable`: the owner, or `CAP_FOWNER` with the owner mapped.
     pub fn owns(&self, attr: &Attr) -> bool {
-        self.fsuid == attr.uid || self.capable(Cap::Fowner)
+        self.fsuid == attr.uid || (self.capable(Cap::Fowner) && self.user_ns.has_uid(attr.uid))
+    }
+
+    /// `in_group_or_capable`: a member of `attr`'s group `gid`, or `CAP_FSETID` over `attr`,
+    /// who keeps a set-group-ID bit.
+    pub fn in_group_or_capable(&self, attr: &Attr, gid: u32) -> bool {
+        self.in_group(gid) || self.capable_wrt(attr, Cap::Fsetid)
     }
 }
 
@@ -130,19 +241,21 @@ pub fn generic_permission(cred: &Cred, attr: &Attr, mask: u32) -> FsResult<()> {
         return Ok(());
     }
     if attr.file_type == FileType::Directory {
-        if mask & MAY_WRITE == 0 && cred.capable(Cap::DacReadSearch) {
+        if mask & MAY_WRITE == 0 && cred.capable_wrt(attr, Cap::DacReadSearch) {
             return Ok(());
         }
-        if cred.capable(Cap::DacOverride) {
+        if cred.capable_wrt(attr, Cap::DacOverride) {
             return Ok(());
         }
         return Err(Errno::EACCES);
     }
-    if mask == MAY_READ && cred.capable(Cap::DacReadSearch) {
+    if mask == MAY_READ && cred.capable_wrt(attr, Cap::DacReadSearch) {
         return Ok(());
     }
     // Executing needs at least one execute bit, even with CAP_DAC_OVERRIDE.
-    if (mask & MAY_EXEC == 0 || attr.mode & S_IXUGO != 0) && cred.capable(Cap::DacOverride) {
+    if (mask & MAY_EXEC == 0 || attr.mode & S_IXUGO != 0)
+        && cred.capable_wrt(attr, Cap::DacOverride)
+    {
         return Ok(());
     }
     Err(Errno::EACCES)
@@ -154,7 +267,7 @@ pub fn sticky_denies(cred: &Cred, dir: &Attr, victim: &Attr) -> bool {
     dir.mode & crate::types::S_ISVTX != 0
         && cred.fsuid != victim.uid
         && cred.fsuid != dir.uid
-        && !cred.capable(Cap::Fowner)
+        && !cred.capable_wrt(victim, Cap::Fowner)
 }
 
 #[cfg(test)]

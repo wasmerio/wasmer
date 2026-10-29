@@ -425,6 +425,7 @@ impl Cred {
             fsgid: self.group.fs.0,
             groups: self.groups.iter().map(|gid| gid.0).collect(),
             caps: self.effective,
+            user_ns: self.user_ns.clone(),
         }
     }
 

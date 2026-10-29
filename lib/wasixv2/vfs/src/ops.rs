@@ -479,8 +479,8 @@ impl Vfs {
         } else {
             cx.cred.fsgid
         };
-        if !is_dir && mode & S_ISGID != 0 && !cx.cred.in_group(gid) && !cx.cred.capable(Cap::Fsetid)
-        {
+        // `mode_strip_sgid`: `CAP_FSETID` over the directory.
+        if !is_dir && mode & S_ISGID != 0 && !cx.cred.in_group_or_capable(&dir_attr, gid) {
             mode &= !S_ISGID;
         }
         Ok(NewNode {
@@ -523,8 +523,9 @@ impl Vfs {
             return Err(Errno::EROFS);
         }
         self.may_create(cx.cred, dir).await?;
+        // `vfs_mknod`: `capable(CAP_MKNOD)`, which no user namespace's root has.
         if matches!(new.kind, NewKind::CharDevice(_) | NewKind::BlockDevice(_))
-            && !cx.cred.capable(Cap::Mknod)
+            && !cx.cred.capable_init(Cap::Mknod)
         {
             return Err(Errno::EPERM);
         }
@@ -542,6 +543,12 @@ impl Vfs {
     }
 
     async fn may_create(&self, cred: &Cred, dir: &Path) -> FsResult<()> {
+        // `fsuidgid_has_mapping`: what is made is owned by ids the filesystem's user namespace
+        // can name.
+        let owner = &dir.dentry.sb().owner;
+        if !owner.has_uid(cred.fsuid) || !owner.has_gid(cred.fsgid) {
+            return Err(Errno::EOVERFLOW);
+        }
         self.permission(cred, dir, MAY_WRITE | MAY_EXEC).await?;
         if dir.dentry.is_unlinked() || dir.dentry.inode().is_dead() {
             return Err(Errno::ENOENT);
@@ -799,7 +806,7 @@ impl Vfs {
         new: &[u8],
         mode: RenameMode,
     ) -> FsResult<()> {
-        if mode == RenameMode::Whiteout && !cx.cred.capable(Cap::Mknod) {
+        if mode == RenameMode::Whiteout && !cx.cred.capable_init(Cap::Mknod) {
             return Err(Errno::EPERM);
         }
         let (old_dir, old_last, old_slash) = self.parent_of(cx, old_start, old).await?;
@@ -1015,8 +1022,9 @@ impl Vfs {
             return Err(Errno::EPERM);
         }
         let mut mode = mode & MODE_PERM;
-        // `setattr_prepare`: only members of the file's group may keep set-gid.
-        if !cx.cred.in_group(attr.gid) && !cx.cred.capable(Cap::Fsetid) {
+        // `setattr_prepare`: only members of the file's group, or `CAP_FSETID` over the file,
+        // may keep set-gid.
+        if !cx.cred.in_group_or_capable(&attr, attr.gid) {
             mode &= !S_ISGID;
         }
         let set = SetAttr {
@@ -1044,13 +1052,13 @@ impl Vfs {
         let owner = cred.fsuid == attr.uid;
         if let Some(uid) = uid
             && !(owner && uid == attr.uid)
-            && !cred.capable(Cap::Chown)
+            && !cred.capable_wrt(&attr, Cap::Chown)
         {
             return Err(Errno::EPERM);
         }
         if let Some(gid) = gid
             && !(owner && (gid == attr.gid || cred.in_group(gid)))
-            && !cred.capable(Cap::Chown)
+            && !cred.capable_wrt(&attr, Cap::Chown)
         {
             return Err(Errno::EPERM);
         }
@@ -1226,7 +1234,7 @@ impl Vfs {
             Errno::ENODATA
         };
         if name.starts_with(b"trusted.") {
-            if !cx.cred.capable(Cap::SysAdmin) {
+            if !cx.cred.capable_init(Cap::SysAdmin) {
                 return Err(denied);
             }
         } else if name.starts_with(b"user.") {
@@ -1299,7 +1307,7 @@ impl Vfs {
         };
         let mut out = Vec::new();
         for name in names {
-            if name.starts_with(b"trusted.") && !cx.cred.capable(Cap::SysAdmin) {
+            if name.starts_with(b"trusted.") && !cx.cred.capable_init(Cap::SysAdmin) {
                 continue;
             }
             out.extend_from_slice(&name);

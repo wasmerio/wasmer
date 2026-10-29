@@ -12,7 +12,7 @@ use wasixv2_syscalls::{Caller, Errno, Fd, SysResult};
 use wasixv2_vfs::{Cap, MNT_UNIQUE_ID_OFFSET, MntNs, Mount, MountInfo, Path};
 
 use super::Env;
-use crate::{Kernel, ns::Namespace};
+use crate::{Kernel, ns::Namespace, userns::kernel_user_ns};
 
 /// `STATMOUNT_SUPPORTED`: what this kernel can report.
 const SUPPORTED: u64 = StatmountMask::STATMOUNT_SB_BASIC.0
@@ -197,6 +197,13 @@ impl Kernel {
         Ok(self.ns(caller).mnt.tree.clone())
     }
 
+    /// `ns_capable_noaudit(ns->user_ns, CAP_SYS_ADMIN)`: the caller may see all of the mount
+    /// namespace `ns`.
+    fn mnt_ns_admin(&self, caller: &Caller<'_>, ns: &MntNs) -> bool {
+        let owner = kernel_user_ns(ns.owner(), &self.init_user_ns);
+        self.cred(caller).ns_capable(&owner, Cap::SysAdmin)
+    }
+
     /// `grab_requested_root`: the caller's root in its own namespace, the root of another.
     fn requested_root(&self, caller: &Caller<'_>, env: &Env, ns: &MntNs) -> Path {
         match std::ptr::eq(ns, &*self.ns(caller).mnt.tree) {
@@ -220,7 +227,6 @@ impl Kernel {
         }
         let req = self.mnt_id_req(caller, req, flags & by_fd != 0).await?;
         let env = self.env(caller);
-        let admin = env.cred.capable(Cap::SysAdmin);
         let mut mask = req.param;
         let target = match flags & by_fd != 0 {
             true => {
@@ -237,7 +243,7 @@ impl Kernel {
             false => {
                 let ns = self.requested_ns(caller, &req)?;
                 let own = std::ptr::eq(&*ns, &*self.ns(caller).mnt.tree);
-                if req.mnt_ns_id != 0 && !own && !admin {
+                if req.mnt_ns_id != 0 && !own && !self.mnt_ns_admin(caller, &ns) {
                     return Err(Errno::EPERM.into());
                 }
                 let mount = ns.mount_by_unique_id(req.mnt_id).ok_or(Errno::ENOENT)?;
@@ -254,9 +260,13 @@ impl Kernel {
             Some(ns) => self.requested_root(caller, &env, ns),
             None => env.fs.root.clone(),
         };
-        if flags & by_fd == 0 && target.ns.is_some() {
+        if flags & by_fd == 0
+            && let Some(ns) = &target.ns
+        {
             let mount = &target.mount;
-            if !self.vfs.is_path_reachable(mount, &mount.root, &root) && !admin {
+            if !self.vfs.is_path_reachable(mount, &mount.root, &root)
+                && !self.mnt_ns_admin(caller, ns)
+            {
                 return Err(Errno::EPERM.into());
             }
         }
@@ -417,8 +427,8 @@ impl Kernel {
             return Err(Errno::EINVAL.into());
         }
         let env = self.env(caller);
-        let admin = env.cred.capable(Cap::SysAdmin);
         let ns = self.requested_ns(caller, &req)?;
+        let admin = self.mnt_ns_admin(caller, &ns);
         let own = std::ptr::eq(&*ns, &*self.ns(caller).mnt.tree);
         if req.mnt_ns_id != 0 && !own && !admin {
             return Err(Errno::ENOENT.into());

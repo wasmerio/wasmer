@@ -17,6 +17,7 @@ use std::{
 use wasixv2_abi::Errno;
 
 use crate::{
+    cred::UserNs,
     dentry::Dentry,
     driver::{Filesystem, Node},
     inode::Inode,
@@ -32,6 +33,9 @@ pub struct Superblock {
     pub dev: Device,
     pub fs: Arc<dyn Filesystem>,
     pub info: FsInfo,
+    /// The user namespace the filesystem belongs to (`s_user_ns`): its mounter's, or the
+    /// initial one for what the embedder mounts. Only ids it maps can own what is made on it.
+    pub owner: Arc<dyn UserNs>,
     /// `SB_RDONLY`: starts as the driver says, and a remount changes it, unless the driver
     /// cannot write at all.
     pub(crate) read_only: AtomicBool,
@@ -247,15 +251,24 @@ pub struct MntNs {
     /// An anonymous namespace (`is_anon`), holding a detached tree that `open_tree` copied or
     /// `fsmount` made, with the namespace that tree came from (`seq_origin`; 0 for none).
     anon: Option<u64>,
+    /// The user namespace that owns it (`mnt_ns->user_ns`).
+    owner: Arc<dyn UserNs>,
 }
 
 impl MntNs {
-    /// A namespace whose tree starts at `root`, anonymous if `anon` names its origin.
+    /// The user namespace that owns the namespace (`mnt_ns->user_ns`).
+    pub fn owner(&self) -> &Arc<dyn UserNs> {
+        &self.owner
+    }
+
+    /// A namespace whose tree starts at `root`, anonymous if `anon` names its origin, owned by
+    /// `owner`.
     pub(crate) fn new(
         tree: &Arc<Tree>,
         state: &mut TreeState,
         root: Arc<Mount>,
         anon: Option<u64>,
+        owner: Arc<dyn UserNs>,
     ) -> Arc<Self> {
         let id = tree.next_id.fetch_add(1, Ordering::Relaxed);
         let ns = Arc::new(Self {
@@ -263,6 +276,7 @@ impl MntNs {
             root,
             tree: tree.clone(),
             anon,
+            owner,
         });
         match anon {
             Some(origin) => {

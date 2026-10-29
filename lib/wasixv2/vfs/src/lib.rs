@@ -26,7 +26,10 @@ use std::sync::{
     atomic::{AtomicU32, Ordering},
 };
 
-pub use cred::{Cap, Cred, MAY_EXEC, MAY_READ, MAY_WRITE, generic_permission};
+pub use cred::{
+    Cap, Cred, InitialUserNs, MAY_EXEC, MAY_READ, MAY_WRITE, UserNs, generic_permission,
+    initial_user_ns, same_user_ns,
+};
 pub use dentry::Dentry;
 pub use driver::{Filesystem, Handle, Link, MAX_DIR_COOKIE, Node, SharedContents};
 pub use file::{DIR_POS_EOD, File};
@@ -71,7 +74,7 @@ impl Vfs {
         let tree_seq = Arc::new(TreeSeq::default());
         let tree = Tree::new(tree_seq.clone());
         let next_anon = AtomicU32::new(1);
-        let sb = new_superblock(&tree, &next_anon, root);
+        let sb = new_superblock(&tree, &next_anon, root, initial_user_ns());
         let root_dentry = Dentry::root(&sb, sb.fs.root());
         *sb.root.lock_or_recover() = Arc::downgrade(&root_dentry);
         let devname = sb.info.name.as_bytes().to_vec();
@@ -83,7 +86,7 @@ impl Vfs {
         ));
         let ns = {
             let mut state = tree.lock();
-            let ns = MntNs::new(&tree, &mut state, mount.clone(), None);
+            let ns = MntNs::new(&tree, &mut state, mount.clone(), None, initial_user_ns());
             state.add_link(&mount, ns.id());
             ns
         };
@@ -115,9 +118,13 @@ impl Vfs {
     }
 
     /// The root dentry of `fs`'s instance: the one in use if `fs` is mounted already (`sget`
-    /// of a filesystem with a single instance, as devtmpfs), else a new one. Returns whether it
-    /// is new.
-    pub(crate) fn fs_root(&self, fs: Arc<dyn Filesystem>) -> (Arc<Dentry>, bool) {
+    /// of a filesystem with a single instance, as devtmpfs), else a new one, which belongs to
+    /// the user namespace `owner`. Returns whether it is new.
+    pub(crate) fn fs_root(
+        &self,
+        fs: Arc<dyn Filesystem>,
+        owner: Arc<dyn UserNs>,
+    ) -> (Arc<Dentry>, bool) {
         let mut supers = self.supers.lock_or_recover();
         supers.retain(|sb| sb.strong_count() > 0);
         let same = |sb: &Superblock| std::ptr::addr_eq(Arc::as_ptr(&sb.fs), Arc::as_ptr(&fs));
@@ -134,7 +141,7 @@ impl Vfs {
             *root = Arc::downgrade(&dentry);
             return (dentry, false);
         }
-        let sb = new_superblock(&self.tree, &self.next_anon, fs);
+        let sb = new_superblock(&self.tree, &self.next_anon, fs, owner);
         let dentry = Dentry::root(&sb, sb.fs.root());
         *sb.root.lock_or_recover() = Arc::downgrade(&dentry);
         supers.push(Arc::downgrade(&sb));
@@ -158,6 +165,7 @@ impl Vfs {
             source,
             flags,
             sb_read_only: false,
+            owner: initial_user_ns(),
         };
         self.do_mount(&self.ns, &target, op)
     }
@@ -166,7 +174,7 @@ impl Vfs {
     /// name: those behind pipes, sockets and event descriptors. Their paths come from
     /// [`Mount::pseudo_path`].
     pub fn kern_mount(&self, fs: Arc<dyn Filesystem>) -> Arc<Mount> {
-        let (root, _) = self.fs_root(fs);
+        let (root, _) = self.fs_root(fs, initial_user_ns());
         let devname = root.sb().info.name.as_bytes().to_vec();
         Arc::new(Mount::new(
             self.next_id(),
@@ -302,7 +310,12 @@ fn anon_dev(next_anon: &AtomicU32) -> Device {
     }
 }
 
-fn new_superblock(tree: &Tree, next_anon: &AtomicU32, fs: Arc<dyn Filesystem>) -> Arc<Superblock> {
+fn new_superblock(
+    tree: &Tree,
+    next_anon: &AtomicU32,
+    fs: Arc<dyn Filesystem>,
+    owner: Arc<dyn UserNs>,
+) -> Arc<Superblock> {
     let id = tree.next_id();
     let info = fs.info();
     let dev = info.dev.unwrap_or_else(|| anon_dev(next_anon));
@@ -312,6 +325,7 @@ fn new_superblock(tree: &Tree, next_anon: &AtomicU32, fs: Arc<dyn Filesystem>) -
         fs,
         read_only: std::sync::atomic::AtomicBool::new(info.read_only),
         info,
+        owner,
         rename_lock: futures_util::lock::Mutex::new(()),
         tree_seq: tree.seq.clone(),
         inodes: Default::default(),

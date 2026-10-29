@@ -440,6 +440,15 @@ impl Ns<User> {
         self.setgroups_allowed.load(Ordering::Acquire)
     }
 
+    /// `in_userns`: whether this namespace is `ancestor` or below it.
+    pub(crate) fn descends_from(self: &Arc<Self>, ancestor: &Arc<UserNs>) -> bool {
+        let mut at = self;
+        while at.level > ancestor.level {
+            at = at.parent().expect("a namespace below another has a parent");
+        }
+        Arc::ptr_eq(at, ancestor)
+    }
+
     /// `make_kuid`: the kernel id of the namespace's `uid`, if it maps it.
     pub(crate) fn make_kuid(&self, uid: u32) -> Option<Kuid> {
         self.uid_map()?.down(uid).map(Kuid)
@@ -641,6 +650,39 @@ impl Ns<User> {
         let _writes = self.writes.lock_or_recover();
         self.gid_map.get().is_some() && self.setgroups_allowed()
     }
+}
+
+/// The VFS's view: kernel ids, as the superblocks and credentials it checks hold them.
+impl wasixv2_vfs::UserNs for Ns<User> {
+    fn has_uid(&self, kuid: u32) -> bool {
+        self.map_kuid(Kuid(kuid)).is_some()
+    }
+
+    fn has_gid(&self, kgid: u32) -> bool {
+        self.map_kgid(Kgid(kgid)).is_some()
+    }
+
+    fn make_kuid(&self, uid: u32) -> Option<u32> {
+        Ns::make_kuid(self, uid).map(|kuid| kuid.0)
+    }
+
+    fn make_kgid(&self, gid: u32) -> Option<u32> {
+        Ns::make_kgid(self, gid).map(|kgid| kgid.0)
+    }
+
+    fn is_initial(&self) -> bool {
+        self.level == 0
+    }
+}
+
+/// The kernel's user namespace that `owner`, a superblock's or credential's as the VFS holds
+/// it, is: the initial one `init` for what the VFS made before the kernel knew.
+pub(crate) fn kernel_user_ns(
+    owner: &Arc<dyn wasixv2_vfs::UserNs>,
+    init: &Arc<UserNs>,
+) -> Arc<UserNs> {
+    let any: Arc<dyn std::any::Any + Send + Sync> = owner.clone();
+    any.downcast::<UserNs>().unwrap_or_else(|_| init.clone())
 }
 
 #[cfg(test)]
