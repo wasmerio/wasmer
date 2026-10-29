@@ -14,12 +14,11 @@ signals, preemption, task lifetime), the exec `Abi` registry, the WASIX v1 compa
 waits on the kernel futexes, and the userland fixes. `wasmer run` runs WASIX v2, WASIX v1 and WASI
 modules on the v2 kernel. tests `main` = `6405893`, libc2 `main` = `c26931b5`.
 
-Suite on `feat/wasixv2` `21587f4e504` (merge train 18; wasixv2-tests `9d39c70`, libc2 `1df9bb80`,
-abi `07cd32e`, userland `userland-4`): 3547 pass, 586 expected failures, 728 ignored (one suite run,
-regressions-only check). Per suite (pass / expected failures / ignored): Open POSIX 1536/248/91, LTP
-1322/316/636, libc-test 399/22/0, wasixv2 290/0/1. Listed for the validation phase:
-clock_nanosleep/1-3 (/proc state reports every live task as S), flaky pthread_kill/8-1 and
-cve-2015-7550.
+Suite on `feat/wasixv2` `695109e3965` (merge train 19 + fix19; wasixv2-tests `f6aee33`, libc2 `3b6a3e31`,
+abi `07cd32e`, LTP fork `733f1688a`): 3929 pass, 249 expected failures, 606 ignored (one suite run; the
+runner now runs POSIX as root, mounts the userland at /bin for every suite, forks LTP tests as upstream
+does and builds LTP with libaio). Per suite: Open POSIX 1721/37/81, LTP 1512/197/524, libc-test 403/15/0,
+wasixv2 293/0/1. fix19 removed five teardown host panics; mmap/13-1 and 14-1 pass.
 
 Smoke tests pass: v2 static-web-server (28/28); through the v1 compat layer
 wasmer/static-web-server, phpix/phpix-85-32bit (CLI and `-S` server), coreutils, cowsay,
@@ -152,8 +151,17 @@ holes, `SharedMemory::host_data` only for non-moving memories), tick-sampled CPU
 under 1 ns per syscall), FUSE (`/dev/fuse`, the fuse filesystem; unmodified libfuse 3.17.4 passthrough
 works), per-thread credentials (setxid per task, Landlock TSYNC, per-thread keyrings).
 
-Next: the validation phase. Pending decisions: host-enforced page protections (and userfaultfd),
-the paused memory-accounting branch, keeping `SharedMemory::host_data` in wasmer's lib/api.
+Validation phase, train 19 landed (`695109e3965`): real /proc task states, shared tmpfs pages across fork,
+libc2 signal-wait EINTR, kernel copies EFAULT on the low guard (guest loads stay allowed), the runner
+changes above, io_uring timeout/cancel fixes, and the userland-5 real-program kit (liburing, iproute2,
+util-linux, keyutils, squashfuse, core-note checks). Shared mmap ctime/mtime are marked at msync/munmap
+(POSIX window) until host page protection exists.
+
+Merge train 20 (next): IPC/FS conformance, liburing/poll fixes and the LLVM .symver branch, the strace
+wasm32 port (wasix-org/strace wasixv2/wasm32), /dev/zero mmap, RLIMIT_FSIZE on truncate, the libaio port,
+keys/watch_queue fixes, nanosecond host timers (Host::sleep_until_range). In progress: CHEAP-2, NET.
+Pending decisions: host-enforced page protections (and userfaultfd), the memory-accounting branch,
+`SharedMemory::host_data` in wasmer's lib/api, recording PROT_EXEC without enforcing it.
 
 Open follow-ups: memory accounting (local branch, paused by the user), fork copy-on-write (memory
 design phase 2b), `mmap/24-1` peaks at 8 GB, mlockall ignores RLIMIT_MEMLOCK (mlockall03), no `ldd`
