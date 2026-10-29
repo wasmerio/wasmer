@@ -351,6 +351,8 @@ struct Task {
     ns: Option<Arc<ns::NsProxy>>,
     /// What the execution layer does on the task's next return to the guest.
     work: work::Work,
+    /// `keyctl_session_to_parent` task work, applied on return to userspace.
+    session_keyring_work: Option<Arc<keys::Key>>,
     /// How an interrupted call goes on through `restart_syscall` (`restart_block`).
     restart: Option<restart::Restart>,
     /// The task's name (`comm`), which `PR_SET_NAME` and `execve` set.
@@ -736,6 +738,7 @@ impl Kernel {
             ns: Some(self.init_ns.clone()),
             work: work::Work::new(flag.clone()),
             restart: None,
+            session_keyring_work: None,
             thread: thread::ThreadState::default(),
             signals: signal::Signals::new(Some(account)).attach(
                 id,
@@ -3530,6 +3533,7 @@ impl Control for Kernel {
     }
 
     fn take_pending(&self, task: TaskId) -> Option<GuestAction> {
+        self.key_session_task_work(task);
         // ---- proc ----
         self.kill_vfork_parent(task);
         if let Some(parent) = self.dead_vfork_parent(task) {

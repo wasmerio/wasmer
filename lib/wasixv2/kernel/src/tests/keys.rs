@@ -700,3 +700,51 @@ fn thread_credentials_own_keyrings_and_join_session_affects_only_the_caller() {
     assert_eq!(errno(fork.id(THREAD, false)), Errno::ENOKEY);
     assert_eq!(errno(fork.id(PROCESS, false)), Errno::ENOKEY);
 }
+
+/// keyctl.c `keyctl_session_to_parent` queues work on the single-threaded parent;
+/// process_keys.c `key_change_session_keyring` preserves its other current credentials.
+#[test]
+fn session_to_parent_waits_for_the_parent_and_rejects_multithreaded_parents() {
+    let (kernel, init, flat) = machine_as(0);
+    let memory = ForkableMemory(flat);
+    let fork = |task| {
+        TaskId(
+            block_on(kernel.clone(
+                &Caller::new(task, &memory),
+                Signal::SIGCHLD.0 as u32,
+                0,
+                GuestPtrMut::NULL,
+                0,
+                GuestPtrMut::NULL,
+            ))
+            .unwrap() as u32,
+        )
+    };
+    let parent = fork(init);
+    while kernel.take_pending(init).is_some() {}
+    let p = T::new(&kernel, parent, &memory.0);
+    let old = p.keyctl(JOIN_SESSION_KEYRING, 0, 0, 0, 0).unwrap();
+    let child = fork(parent);
+    while kernel.take_pending(parent).is_some() {}
+    let c = T::new(&kernel, child, &memory.0);
+    let joined = c.keyctl(JOIN_SESSION_KEYRING, 0, 0, 0, 0).unwrap();
+    assert_ne!(joined, old);
+    assert_eq!(c.keyctl(18, 0, 0, 0, 0), Ok(0));
+    assert_eq!(p.id(SESSION, false), Ok(old));
+    // A parent credential change before its return hook must survive the session update.
+    assert_eq!(block_on(kernel.setfsuid(&p.caller, 1234)), Ok(0));
+    kernel.take_pending(parent);
+    assert_eq!(p.id(SESSION, false), Ok(joined));
+    assert_eq!(kernel.task_cred(parent).user.fs.0, 1234);
+    let _thread = block_on(kernel.thread_spawn(
+        &p.caller,
+        0x10f00,
+        0,
+        GuestPtrMut::NULL,
+        0,
+        GuestPtrMut::NULL,
+    ))
+    .unwrap();
+    c.keyctl(JOIN_SESSION_KEYRING, 0, 0, 0, 0).unwrap();
+    assert_eq!(errno(c.keyctl(18, 0, 0, 0, 0)), Errno::EPERM);
+}
