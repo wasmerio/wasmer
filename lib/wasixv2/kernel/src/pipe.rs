@@ -172,6 +172,11 @@ impl State {
     }
 
     fn free(&self) -> usize {
+        if let Some(queue) = &self.watch {
+            // fs/pipe.c pipe_poll tests max_usage slots, even though kernel producers may
+            // fill the larger watch notification ring allocated by watch_queue_set_size.
+            return (self.capacity / PIPE_PAGE).saturating_sub(queue.slots()) * PIPE_PAGE;
+        }
         self.capacity.saturating_sub(self.used() + self.reserved)
     }
 }
@@ -845,7 +850,7 @@ impl Pollable for PipeEnd {
         let state = self.pipe.state.lock_or_recover();
         let mut mask = PollMask::empty();
         if !self.writer {
-            if state.readable() {
+            if state.input_len() != 0 {
                 mask |= PollMask::READABLE;
             }
             if state.writers == 0 && state.w_counter != self.hup_unless {
