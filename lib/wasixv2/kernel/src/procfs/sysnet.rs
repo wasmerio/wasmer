@@ -15,8 +15,9 @@
 //! write propagates. `disable_ipv6` acts (`addrconf_disable_ipv6`), and so do the ICMP ones:
 //! `ping_group_range` decides who may open ICMP datagram sockets, `icmp_echo_ignore_all` and
 //! `icmp_echo_ignore_broadcasts`, and IPv6's `icmp/echo_ignore_all` and `icmp/echo_ignore_multicast`
-//! (any nonzero `u8`), whether the namespace answers echo requests. The rest
-//! describe what packets would do and have no effect, since nothing is turned into packets.
+//! (any nonzero `u8`), whether the namespace answers echo requests, and `icmp_ratelimit`, `icmp_ratemask`,
+//! `icmp_msgs_per_sec`, `icmp_msgs_burst`, `icmp/ratelimit` and `icmp/ratemask` how many ICMP
+//! messages it sends. The rest describe what packets would do and have no effect, since nothing is turned into packets.
 //! `ip_local_port_range`, `ip_unprivileged_port_start` and `somaxconn` show the values the
 //! namespace uses and are read-only here.
 
@@ -28,7 +29,7 @@ use wasixv2_vfs::{
     Attr, DirEntry, DirSink, FileType, FsResult, Handle, MAY_EXEC, MAY_READ, MAY_WRITE, Node,
     OpenOptions, SetAttr,
 };
-use wasixv2_vnet::{EchoIgnore, Interface, iface::valid_name};
+use wasixv2_vnet::{EchoIgnore, IcmpLimit, Interface, iface::valid_name};
 
 use super::Source;
 use crate::{
@@ -54,6 +55,8 @@ pub(crate) struct NetSysctl {
     values: BTreeMap<(bool, Dev, &'static str), i64>,
     /// `net.ipv4.ping_group_range`, once set, as kernel ids.
     ping_group_range: Option<(Kgid, Kgid)>,
+    /// `net.ipv6.icmp.ratemask`, once set.
+    ratemask6: Option<[u64; 4]>,
 }
 
 /// `net.ipv4.ping_group_range`'s default: no group, so ICMP datagram sockets are nobody's
@@ -120,6 +123,10 @@ const CORE: &[Key] = &[fixed("somaxconn", 4096)];
 const IPV4: &[Key] = &[
     key("icmp_echo_ignore_all", 0),
     key("icmp_echo_ignore_broadcasts", 1),
+    key("icmp_msgs_burst", 10000),
+    key("icmp_msgs_per_sec", 10000),
+    key("icmp_ratelimit", 1000),
+    key("icmp_ratemask", 0x1818),
     key("ip_forward", 0),
     fixed("ip_local_port_range", 0),
     fixed("ip_unprivileged_port_start", 1024),
@@ -127,11 +134,13 @@ const IPV4: &[Key] = &[
     key("tcp_fastopen", 1),
     key("tcp_syn_retries", 6),
 ];
-/// `net.ipv6.icmp.*` (`ipv6_icmp_table_template`).
+/// `net.ipv6.icmp.*` (`ipv6_icmp_table_template`); the rate mask is shown by [`flat_value`].
 const IPV6_ICMP: &[Key] = &[
     key("echo_ignore_all", 0),
     key("echo_ignore_anycast", 0),
     key("echo_ignore_multicast", 0),
+    key("ratelimit", 100),
+    key("ratemask", 0),
 ];
 /// `net.ipv6.conf.*.*` (`addrconf_sysctl`).
 const IPV6_CONF: &[Key] = &[
@@ -343,6 +352,10 @@ fn flat_value(net: &NetNs, table: Table, key: &Key, reader: Option<&UserNs>) -> 
         let shown = |gid: Kgid| reader.map_or(gid.0, |ns| ns.munged_gid(gid));
         return format!("{}\t{}", shown(low), shown(high));
     }
+    if (table, key.name) == (Table::Icmp6, "ratemask") {
+        let mask = net.sysctl.lock_or_recover().ratemask6;
+        return bitmap_text(&mask.unwrap_or_else(default_ratemask6));
+    }
     let values = &net.sysctl.lock_or_recover().values;
     values
         .get(&(table.v6(), Dev::All, key.name))
@@ -387,6 +400,106 @@ fn write_ping_group_range(net: &NetNs, data: &[u8], writer: Option<&UserNs>) -> 
     Ok(())
 }
 
+/// `net.ipv6.icmp.ratemask`'s default: the error types but packet too big
+/// (`inet6_net_init`).
+fn default_ratemask6() -> [u64; 4] {
+    let mut mask = [0; 4];
+    for bit in (0..=ICMPV6_ERRMSG_MAX).filter(|&b| b != ICMPV6_PKT_TOOBIG) {
+        mask[bit / 64] |= 1 << (bit % 64);
+    }
+    mask
+}
+
+const ICMPV6_ERRMSG_MAX: usize = 127;
+const ICMPV6_PKT_TOOBIG: usize = 2;
+/// `ICMPV6_MSG_MAX + 1`, the bits of `net.ipv6.icmp.ratemask`.
+const RATEMASK6_BITS: usize = 256;
+
+fn bit(mask: &[u64; 4], n: usize) -> bool {
+    mask[n / 64] & (1 << (n % 64)) != 0
+}
+
+/// `proc_do_large_bitmap`'s text: the runs of set bits, `a` or `a-b`, separated by commas.
+fn bitmap_text(mask: &[u64; 4]) -> String {
+    let mut runs = Vec::new();
+    let mut n = 0;
+    while n < RATEMASK6_BITS {
+        if !bit(mask, n) {
+            n += 1;
+            continue;
+        }
+        let start = n;
+        while n + 1 < RATEMASK6_BITS && bit(mask, n + 1) {
+            n += 1;
+        }
+        runs.push(match start == n {
+            true => start.to_string(),
+            false => format!("{start}-{n}"),
+        });
+        n += 1;
+    }
+    runs.join(",")
+}
+
+/// `proc_do_large_bitmap`'s parse: comma-separated bits and ranges `a-b` with `a <= b`, all
+/// below the bitmap's size, newlines around them skipped; the bitmap becomes exactly those.
+fn parse_bitmap(data: &[u8]) -> Result<[u64; 4], Errno> {
+    let text = std::str::from_utf8(data).map_err(|_| Errno::EINVAL)?;
+    let mut mask = [0; 4];
+    let text = text.trim_matches('\n');
+    if text.is_empty() {
+        return Ok(mask);
+    }
+    let number = |v: &str| match v.parse::<usize>() {
+        Ok(n) if n < RATEMASK6_BITS => Ok(n),
+        _ => Err(Errno::EINVAL),
+    };
+    for item in text.split(',') {
+        let item = item.trim_end_matches('\n');
+        let (a, b) = match item.split_once('-') {
+            Some((a, b)) => (number(a)?, number(b)?),
+            None => (number(item)?, number(item)?),
+        };
+        if a > b {
+            return Err(Errno::EINVAL);
+        }
+        for n in a..=b {
+            mask[n / 64] |= 1 << (n % 64);
+        }
+    }
+    Ok(mask)
+}
+
+/// `net.ipv6.icmp.ratemask`: the namespace limits the types it names from now on.
+fn write_ratemask6(net: &NetNs, data: &[u8]) -> Result<(), Errno> {
+    let mask = parse_bitmap(data)?;
+    if let Some(network) = &net.network {
+        network.set_icmp_limit(IcmpLimit::Ratemask6(mask))?;
+    }
+    net.sysctl.lock_or_recover().ratemask6 = Some(mask);
+    Ok(())
+}
+
+/// The rate-limit sysctl `name` of IPv6 (`v6`) or IPv4 set to `value`; `EINVAL` for a
+/// negative `icmp_msgs_per_sec` or `icmp_msgs_burst` (`proc_dointvec_minmax` from 0). The
+/// time limits are milliseconds and jiffies alike at `HZ=1000` (`proc_dointvec_ms_jiffies`).
+fn icmp_limit(v6: bool, name: &str, value: i64) -> Option<Result<IcmpLimit, Errno>> {
+    let value = value as i32;
+    let limit = match (v6, name) {
+        (false, "icmp_ratelimit") => IcmpLimit::Ratelimit(value),
+        (false, "icmp_ratemask") => IcmpLimit::Ratemask(value),
+        (false, "icmp_msgs_per_sec") => IcmpLimit::MsgsPerSec(value),
+        (false, "icmp_msgs_burst") => IcmpLimit::MsgsBurst(value),
+        (true, "ratelimit") => IcmpLimit::Ratelimit6(value),
+        _ => return None,
+    };
+    let negative = matches!(limit, IcmpLimit::MsgsPerSec(_) | IcmpLimit::MsgsBurst(_)) && value < 0;
+    Some(match negative {
+        true => Err(Errno::EINVAL),
+        false => Ok(limit),
+    })
+}
+
 /// Writes a value of `dev` (IPv4's flat ones under `Dev::All`), with what Linux does on the
 /// change.
 fn write_value(net: &NetNs, v6: bool, dev: Dev, key: &Key, value: i64) -> Result<(), Errno> {
@@ -407,6 +520,12 @@ fn write_value(net: &NetNs, v6: bool, dev: Dev, key: &Key, value: i64) -> Result
         }
         if let (Some(network), Some(which)) = (&net.network, which) {
             network.set_icmp_echo_ignore(which, value != 0)?;
+        }
+    }
+    if let Some(limit) = icmp_limit(v6, key.name, value) {
+        let limit = limit?;
+        if let Some(network) = &net.network {
+            network.set_icmp_limit(limit)?;
         }
     }
     if v6 && key.name == "disable_ipv6" {
@@ -759,6 +878,13 @@ impl Handle for ValueHandle {
             && key.name == "ping_group_range"
         {
             write_ping_group_range(&self.net, data, self.opener_ns.as_deref())?;
+            return Ok(data.len());
+        }
+        if let Value::Key(key) = self.value
+            && self.v6
+            && key.name == "ratemask"
+        {
+            write_ratemask6(&self.net, data)?;
             return Ok(data.len());
         }
         let value = parse_int(data)?;
