@@ -2094,3 +2094,39 @@ fn getsockopt_rejects_unsupported_protocol_levels() {
         );
     }
 }
+
+/// net/socket.c __sys_recvmmsg copies and validates timeout before fd lookup.
+#[test]
+fn recvmmsg_validates_timeout_before_socket_lookup() {
+    let (kernel, task, memory) = networked();
+    let caller = Caller::new(task, &memory);
+    for (sec, nsec) in [(-1, 0), (0, 1_000_000_000)] {
+        let ts = wasixv2_abi::KernelTimespec {
+            tv_sec: sec,
+            tv_nsec: nsec,
+        };
+        block_on(write_value(&memory, GuestPtrMut::new(0x200), &ts)).unwrap();
+        assert_eq!(
+            errno(block_on(kernel.recvmmsg_time64(
+                &caller,
+                Fd(-1),
+                GuestPtrMut::NULL,
+                0,
+                MsgFlags(0),
+                GuestPtrMut::new(0x200)
+            ))),
+            Errno::EINVAL
+        );
+    }
+    assert_eq!(
+        errno(block_on(kernel.recvmmsg_time64(
+            &caller,
+            Fd(-1),
+            GuestPtrMut::NULL,
+            0,
+            MsgFlags(0),
+            GuestPtrMut::new(u32::MAX)
+        ))),
+        Errno::EFAULT
+    );
+}
