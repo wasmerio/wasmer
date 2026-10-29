@@ -20,9 +20,6 @@ use crate::{
     userns::MapKind,
 };
 
-/// `fs.pipe-max-size`, Linux's default.
-const PIPE_MAX_SIZE: u32 = 1 << 20;
-
 /// The system-wide files.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Global {
@@ -40,7 +37,12 @@ pub(super) enum Global {
     Osrelease,
     PidMax,
     NsLastPid,
+    /// `vm.overcommit_memory`, `vm.overcommit_ratio`, `vm.overcommit_kbytes`.
     Overcommit,
+    OvercommitRatio,
+    OvercommitKbytes,
+    /// `vm.max_map_count`.
+    MaxMapCount,
     MmapMinAddr,
     FileMax,
     NrOpen,
@@ -83,6 +85,9 @@ impl Global {
             Self::Hostname
             | Self::Domainname
             | Self::Overcommit
+            | Self::OvercommitRatio
+            | Self::OvercommitKbytes
+            | Self::MaxMapCount
             | Self::MmapMinAddr
             | Self::FileMax
             | Self::NrOpen
@@ -162,12 +167,14 @@ pub(super) fn global(
         Global::Osrelease => line(&uts(&names.release)),
         Global::PidMax => line(&pid_ns.pid_max().to_string()),
         Global::NsLastPid => line(&pid_ns.last_pid().to_string()),
-        // `OVERCOMMIT_GUESS`.
-        Global::Overcommit => line("0"),
+        Global::Overcommit => line(&source.vm.overcommit_memory().to_string()),
+        Global::OvercommitRatio => line(&source.vm.overcommit_ratio().to_string()),
+        Global::OvercommitKbytes => line(&source.vm.overcommit_kbytes().to_string()),
+        Global::MaxMapCount => line(&source.vm.max_map_count().to_string()),
         Global::MmapMinAddr => line(&crate::mm::MMAP_MIN_ADDR.to_string()),
         Global::FileMax => line(&i64::MAX.to_string()),
         Global::NrOpen => line(&source.nr_open.get().to_string()),
-        Global::PipeMaxSize => line(&PIPE_MAX_SIZE.to_string()),
+        Global::PipeMaxSize => line(&source.pipe_max_size.get().to_string()),
         Global::DirNotifyEnable => line(&source.sysctls.dir_notify_enable().to_string()),
         Global::LeasesEnable => line(&source.sysctls.leases_enable().to_string()),
         Global::LeaseBreakTime => line(&source.sysctls.lease_break_time().to_string()),
@@ -236,7 +243,7 @@ fn meminfo(source: &Source) -> Vec<u8> {
         ("Shmem", 0),
         ("AnonPages", used / 1024),
         ("Mapped", 0),
-        ("CommitLimit", total),
+        ("CommitLimit", source.vm.commit_limit_kb(ADDRESS_SPACE)),
         ("Committed_AS", used / 1024),
         ("VmallocTotal", 0),
         ("VmallocUsed", 0),
@@ -703,8 +710,15 @@ fn maps(mm: Option<&Mm>) -> Vec<u8> {
             RegionKind::Heap => "[heap]",
             RegionKind::Anon => "",
         };
+        let flag = |on: bool, c: char| if on { c } else { '-' };
+        let perms = format!(
+            "{}{}-{}",
+            flag(region.read, 'r'),
+            flag(region.write, 'w'),
+            if region.shared { 's' } else { 'p' }
+        );
         let line = format!(
-            "{:08x}-{:08x} rw-p 00000000 00:00 0",
+            "{:08x}-{:08x} {perms} 00000000 00:00 0",
             region.start, region.end
         );
         let _ = match name {

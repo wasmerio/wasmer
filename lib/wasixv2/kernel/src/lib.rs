@@ -140,6 +140,10 @@ pub struct Kernel {
     nr_open: Arc<file::NrOpen>,
     /// `kernel.tainted`.
     taint: Arc<taint::Taint>,
+    /// `fs.pipe-max-size`.
+    pipe_max_size: Arc<pipe::PipeMaxSize>,
+    /// `vm.overcommit_*` and `vm.max_map_count`.
+    vm: Arc<mm::VmSysctls>,
     /// The internal shmem filesystem behind `memfd_create` (`shm_mnt`); without one,
     /// `memfd_create` fails with `ENOSYS`.
     shm: Option<Arc<Mount>>,
@@ -293,6 +297,8 @@ impl Kernel {
             pseudo: pseudo::Pseudo::new(&vfs, clock),
             nr_open: Arc::default(),
             taint: Arc::default(),
+            pipe_max_size: Arc::default(),
+            vm: Arc::default(),
             sigio,
             timers,
             host,

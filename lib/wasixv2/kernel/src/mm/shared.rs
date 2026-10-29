@@ -512,6 +512,14 @@ pub(crate) struct Mappings {
 }
 
 impl Mappings {
+    /// Where each mapping starts and ends, and whether it is shared, lowest first.
+    pub(crate) fn spans(&self) -> Vec<(u64, u64, bool)> {
+        self.list
+            .iter()
+            .map(|m| (m.start, m.end(), m.is_shared()))
+            .collect()
+    }
+
     pub(crate) fn insert(&mut self, mapping: Mapping) {
         let at = self.list.partition_point(|m| m.start < mapping.start);
         self.list.insert(at, mapping);

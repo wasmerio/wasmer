@@ -14,7 +14,9 @@ use super::{Source, text};
 use crate::{
     cred::Cred,
     file::NrOpen,
+    mm::VmSysctls,
     ns::{NsKind, NsLink, PidNs, UserNs},
+    pipe::PipeMaxSize,
     sync::MutexExt,
     taint::Taint,
     userns::MapKind,
@@ -130,6 +132,17 @@ const STATIC: &[(usize, &str, Static)] = &[
         Static::File(text::Global::LeaseBreakTime),
     ),
     (13, "tainted", Static::File(text::Global::Tainted)),
+    (
+        14,
+        "overcommit_ratio",
+        Static::File(text::Global::OvercommitRatio),
+    ),
+    (
+        14,
+        "overcommit_kbytes",
+        Static::File(text::Global::OvercommitKbytes),
+    ),
+    (14, "max_map_count", Static::File(text::Global::MaxMapCount)),
 ];
 
 /// `/proc/sys/user/max_*_namespaces` for `kind`.
@@ -692,6 +705,15 @@ impl Node for ProcNode {
                         | text::Global::LeaseBreakTime => {
                             Some(Write::Fs(self.source.sysctls.clone(), file))
                         }
+                        text::Global::PipeMaxSize => {
+                            Some(Write::PipeMaxSize(self.source.pipe_max_size.clone()))
+                        }
+                        text::Global::Overcommit
+                        | text::Global::OvercommitRatio
+                        | text::Global::OvercommitKbytes
+                        | text::Global::MaxMapCount => {
+                            Some(Write::Vm(self.source.vm.clone(), file))
+                        }
                         // `proc_taint`: `capable(CAP_SYS_ADMIN)`, of the opener here.
                         text::Global::Tainted => {
                             let may = opener.is_none_or(|cred| cred.capable_init(Cap::SysAdmin));
@@ -810,6 +832,10 @@ enum Write {
     NsLastPid(Arc<PidNs>, bool),
     /// `fs.nr_open`.
     NrOpen(Arc<NrOpen>),
+    /// `fs.pipe-max-size`.
+    PipeMaxSize(Arc<PipeMaxSize>),
+    /// One of the `vm` tunables.
+    Vm(Arc<VmSysctls>, text::Global),
     /// `kernel.tainted`, if the opener may add flags.
     Taint(Arc<Taint>, bool),
     /// A map of a user namespace, written with the opener's credentials.
@@ -862,6 +888,13 @@ impl Handle for FileHandle {
             Write::NsLastPid(_, false) => return Err(Errno::EPERM),
             Write::NsLastPid(ns, true) => ns.set_last_pid(sysctl_int(data)?)?,
             Write::NrOpen(nr_open) => nr_open.set(sysctl_int(data)?)?,
+            Write::PipeMaxSize(max) => max.set(sysctl_int(data)?)?,
+            Write::Vm(vm, file) => match file {
+                text::Global::Overcommit => vm.set_overcommit_memory(sysctl_i32(data)?)?,
+                text::Global::OvercommitRatio => vm.set_overcommit_ratio(sysctl_i32(data)?),
+                text::Global::OvercommitKbytes => vm.set_overcommit_kbytes(sysctl_int(data)?),
+                _ => vm.set_max_map_count(sysctl_i32(data)?)?,
+            },
             Write::Taint(_, false) => return Err(Errno::EPERM),
             Write::Taint(taint, true) => taint.add(sysctl_int(data)?),
             Write::Fs(sysctls, file) => {
