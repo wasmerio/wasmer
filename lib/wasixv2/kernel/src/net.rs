@@ -163,6 +163,22 @@ impl Kernel {
         }
         let path = self.pseudo.socket(self.cred(caller).fs_owner());
         socket.graft(path.dentry.node().ino());
+        if socket.kind() == SocketKind::Stream && socket.protocol() == 6 {
+            let weak = Arc::downgrade(&socket);
+            let timer = self.timers.timer(Box::new(move || {
+                weak.upgrade()?.cork_expire();
+                None
+            }));
+            let host = self.host.clone();
+            // net/ipv4/tcp_output.c tcp_check_probe_timer, TCP_DELACK_MAX.
+            socket.set_cork_timer(Box::new(move |on| {
+                if on {
+                    timer.start(host.monotonic() + Duration::from_millis(200));
+                } else {
+                    timer.cancel();
+                }
+            }));
+        }
         let object = Arc::new(SocketFile::new(socket, net, self.host.clone()));
         let file = Arc::new(OpenFile::new(Backing::Stream(object.clone(), path), status));
         if object.socket.kind() == SocketKind::Stream {

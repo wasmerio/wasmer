@@ -74,11 +74,24 @@ impl Transport {
         }
     }
 
-    fn write(&self, data: &[u8], urgent: bool) -> NetResult<usize> {
+    fn write_more(&self, data: &[u8], urgent: bool, more: bool, mss: usize) -> NetResult<usize> {
         match self {
-            Self::Local(c, side) => c.write(*side, data, urgent),
+            Self::Local(c, side) => c.write_more(*side, data, urgent, more, mss),
             Self::Remote(s) if urgent => s.write_urgent(data),
-            Self::Remote(s) => s.write(data),
+            Self::Remote(s) => s.write_more(data, more, mss),
+        }
+    }
+
+    fn push(&self) {
+        match self {
+            Self::Local(c, side) => c.push(*side),
+            Self::Remote(s) => s.push(),
+        }
+    }
+    fn corked_len(&self) -> usize {
+        match self {
+            Self::Local(c, side) => c.corked_len(*side),
+            Self::Remote(s) => s.corked_len(),
         }
     }
 
@@ -165,6 +178,8 @@ enum State {
 
 struct Inner {
     opts: SockOpts,
+    cork_timer: Option<Box<dyn Fn(bool) + Send + Sync>>,
+    cork_armed: bool,
     /// Canonical bound address, once bound.
     local: Option<SocketAddr>,
     /// `SOCK_BINDPORT_LOCK`: the port was chosen by `bind`, so it survives a disconnect.
@@ -282,6 +297,8 @@ impl TcpSocket {
             listener: Mutex::new(None),
             inner: Mutex::new(Inner {
                 opts,
+                cork_timer: None,
+                cork_armed: false,
                 local,
                 port_locked: local.is_some(),
                 addr_locked: local.is_some(),
@@ -662,6 +679,18 @@ impl Pollable for TcpSocket {
 }
 
 impl Socket for TcpSocket {
+    fn set_cork_timer(&self, arm: Box<dyn Fn(bool) + Send + Sync>) {
+        self.lock().cork_timer = Some(arm);
+    }
+
+    fn cork_expire(&self) {
+        let mut g = self.lock();
+        g.cork_armed = false;
+        if let State::Connected(t, _) = &g.state {
+            t.push();
+        }
+    }
+
     fn domain(&self) -> Domain {
         if self.domain.load(Ordering::Acquire) == Domain::Inet6 as u8 {
             Domain::Inet6
@@ -898,8 +927,25 @@ impl Socket for TcpSocket {
                 return Err(g.err.take().unwrap_or(Errno::EPIPE));
             }
         };
-        drop(g);
-        t.write(msg.data, msg.flags.contains(MsgFlags::MSG_OOB))
+        let more = msg.flags.contains(MsgFlags::MSG_MORE)
+            || g.opts.flag(SocketLevel::SOL_TCP.0, TcpOption::TCP_CORK.0);
+        let mss = if g.opts.user_mss != 0 {
+            g.opts.user_mss as usize
+        } else {
+            match &t {
+                Transport::Local(..) => opts::TCP_MSS_LOOPBACK as usize,
+                _ => 1460,
+            }
+        };
+        let result = t.write_more(msg.data, msg.flags.contains(MsgFlags::MSG_OOB), more, mss);
+        let pending = t.corked_len() != 0;
+        if pending != g.cork_armed
+            && let Some(arm) = &g.cork_timer
+        {
+            arm(pending);
+            g.cork_armed = pending;
+        }
+        result
     }
 
     fn recv(&self, buf: &mut [u8], flags: MsgFlags) -> NetResult<RecvMsg> {
@@ -1034,6 +1080,20 @@ impl Socket for TcpSocket {
                 }
             }
             Changed::Nothing => {}
+        }
+        if level == SocketLevel::SOL_TCP.0
+            && ((name == TcpOption::TCP_NODELAY.0 && g.opts.flag(level, name))
+                || (name == TcpOption::TCP_CORK.0 && !g.opts.flag(level, name)))
+        {
+            if let State::Connected(t, _) = &g.state {
+                t.push();
+            }
+            if g.cork_armed {
+                if let Some(arm) = &g.cork_timer {
+                    arm(false);
+                }
+                g.cork_armed = false;
+            }
         }
         if let State::Connected(Transport::Remote(s), _)
         | State::Connecting(Transport::Remote(s), _) = &g.state
