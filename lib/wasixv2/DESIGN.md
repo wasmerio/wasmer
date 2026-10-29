@@ -264,6 +264,15 @@ These follow `fs/select.c` and `fs/eventpoll.c`.
   - `reverse_path_check`'s wakeup-path limits.
   - `max_user_watches`.
 
+### Asynchronous I/O
+
+Linux AIO (`fs/aio.c`, kernel `aio.rs`) and io_uring (`io_uring/*`, kernel `io_uring/`) keep their rings in shared pages of the host's (`Host::shared_pages`), which the guest maps (`io_setup` maps an AIO ring itself, as `aio_setup_ring` does; `mmap` of a ring file at `IORING_OFF_*` maps io_uring's through `FileObject::mmap_pages`) and the kernel reads and writes from any thread. A host or memory without shared pages has neither (`ENOMEM`).
+
+- **No thread pool.** AIO reads, writes and syncs run to completion in `io_submit`, as Linux's buffered AIO does. io_uring issues each request in `io_uring_enter` without letting it block (`RWF_NOWAIT`, `MSG_DONTWAIT`); one on a pollable file that would block is armed on the file's wait queues, as Linux's poll-arm path does, and its wakeup makes it task work. Regular files never block, so their requests complete inline.
+- **Task work** runs in `io_uring_enter` of a task on the request's memory, which holds its buffers, as `IORING_SETUP_DEFER_TASKRUN` rings do on Linux: calls cannot run work on the way back to the guest. While work waits, the ring polls readable and its SQ flags say `IORING_SQ_TASKRUN`.
+- **Wakeups** of armed requests, polls (`IOCB_CMD_POLL`, `IORING_OP_POLL_ADD`) and timeouts are handled from the timer driver with nothing locked (Linux's task work and workqueues), so a completion may signal an eventfd whose queue woke it.
+- **Not supported:** `IORING_SETUP_SQPOLL`/`IOPOLL` (`EINVAL`), rings in user memory, personalities, registered ring descriptors, provided buffer rings and direct descriptors. A fork child still shows its parent's AIO rings, which Linux leaves out (`VM_DONTCOPY`), but has none of its contexts.
+
 ### Signal-driven I/O
 
 `O_ASYNC` follows `fs/fcntl.c` (kernel `fasync.rs`).
