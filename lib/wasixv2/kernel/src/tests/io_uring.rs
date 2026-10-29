@@ -4254,3 +4254,73 @@ fn unregister_and_ring_teardown_release_retained_memlock() {
     block_on(m.kernel.close(&m.caller(), ring.fd)).unwrap();
     assert!(block_on(m.kernel.retain_pages(&m.caller(), addr + 65536, 1)).is_ok());
 }
+
+#[test]
+fn retained_write_during_mremap_copy_follows_the_move() {
+    use futures::FutureExt as _;
+    use std::{cell::Cell, task::Poll};
+    struct PauseCopy<'a> {
+        memory: &'a dyn UserMemory,
+        target: u32,
+        pause: Cell<bool>,
+    }
+    impl UserMemory for PauseCopy<'_> {
+        fn read<'a>(&'a self, addr: u32, buf: &'a mut [u8]) -> LocalFuture<'a, Result<(), Fault>> {
+            self.memory.read(addr, buf)
+        }
+        fn write<'a>(&'a self, addr: u32, data: &'a [u8]) -> LocalFuture<'a, Result<(), Fault>> {
+            self.memory.write(addr, data)
+        }
+        fn force_write<'a>(
+            &'a self,
+            addr: u32,
+            data: &'a [u8],
+        ) -> LocalFuture<'a, Result<(), Fault>> {
+            Box::pin(async move {
+                self.memory.force_write(addr, data).await?;
+                if addr == self.target && self.pause.replace(false) {
+                    let mut first = true;
+                    futures::future::poll_fn(move |_| {
+                        if std::mem::take(&mut first) {
+                            Poll::Pending
+                        } else {
+                            Poll::Ready(())
+                        }
+                    })
+                    .await;
+                }
+                Ok(())
+            })
+        }
+        fn size(&self) -> LocalFuture<'_, u64> {
+            self.memory.size()
+        }
+        fn grow(&self, pages: u32) -> LocalFuture<'_, Option<u64>> {
+            self.memory.grow(pages)
+        }
+        fn zero_pages(&self, addr: u32, len: u64) -> LocalFuture<'_, Result<(), Fault>> {
+            self.memory.zero_pages(addr, len)
+        }
+    }
+    let m = Machine::new();
+    let addr = anonymous(&m, 1, false);
+    let target = anonymous(&m, 1, false);
+    let retained = block_on(m.kernel.retain_pages(&m.caller(), addr, 4)).unwrap();
+    let memory = PauseCopy {
+        memory: &m.memory,
+        target,
+        pause: Cell::new(true),
+    };
+    let caller = Caller::new(m.task, &memory);
+    let flags = wasixv2_abi::MremapFlags::MREMAP_MAYMOVE | wasixv2_abi::MremapFlags::MREMAP_FIXED;
+    let mut moving = Box::pin(m.kernel.mremap(&caller, addr, 65536, 65536, flags, target));
+    assert!(moving.as_mut().now_or_never().is_none());
+    let mut write = Box::pin(retained.write(&m.memory, 0, b"race"));
+    assert!(
+        write.as_mut().now_or_never().is_none(),
+        "retained I/O must wait for the page move"
+    );
+    assert_eq!(block_on(moving), Ok(target as i32));
+    assert_eq!(block_on(write), Ok(()));
+    assert_eq!(m.memory.get(target, 4), b"race");
+}
