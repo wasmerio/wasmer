@@ -706,6 +706,8 @@ impl Artifact {
                     get_got_address(RelocationTarget::LibCall(wasmer_vm::LibCall::EHPersonality)),
                 )?;
             } else {
+                // Default RKYV artifacts (notably Singlepass) also need DWARF unwind
+                // registration on macOS/aarch64 when compact unwind is absent.
                 engine_inner.publish_eh_frame(eh_frame)?;
             }
             #[cfg(not(any(
