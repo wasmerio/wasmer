@@ -86,21 +86,24 @@ pub(super) enum FsType {
     /// The message queue filesystem: every mount is the mounter's IPC namespace's one instance
     /// (`get_tree_keyed`).
     Mqueue,
+    /// The cgroup v2 hierarchy: every mount shows it from the mounter's cgroup namespace's
+    /// root, and its options are the hierarchy's.
+    Cgroup2,
     Other(Arc<dyn FilesystemType>),
 }
 
 impl FsType {
-    /// `FS_USERNS_MOUNT`: procfs, sysfs and mqueue are.
+    /// `FS_USERNS_MOUNT`: procfs, sysfs, mqueue and cgroup2 are.
     pub(super) fn userns_mount(&self) -> bool {
         match self {
-            FsType::Proc | FsType::Sys | FsType::Mqueue => true,
+            FsType::Proc | FsType::Sys | FsType::Mqueue | FsType::Cgroup2 => true,
             FsType::Other(ty) => ty.userns_mount(),
         }
     }
 
-    /// The kernel's own types take no options (no `parse_param`).
+    /// The kernel's own types take no options (no `parse_param`), but for cgroup2.
     pub(super) fn takes_params(&self) -> bool {
-        matches!(self, FsType::Other(_))
+        matches!(self, FsType::Other(_) | FsType::Cgroup2)
     }
 }
 
@@ -121,6 +124,7 @@ impl Registry {
                     "securityfs".into(),
                     FsType::Other(Arc::new(crate::lsm::SecurityFsType::default())),
                 ),
+                ("cgroup2".into(), FsType::Cgroup2),
             ]),
         })
     }
@@ -154,6 +158,15 @@ impl Registry {
         let types = self.types.lock_or_recover();
         types.iter().map(|(name, _)| name.clone()).collect()
     }
+}
+
+/// `cgroup2_parse_param` over every option.
+pub(super) fn cgroup_flags(params: &[FsParam<'_>]) -> Result<crate::cgroup::RootFlags, Errno> {
+    let mut flags = crate::cgroup::RootFlags::default();
+    for param in params {
+        flags.parse(param.key, param.value)?;
+    }
+    Ok(flags)
 }
 
 /// `copy_mount_string`: a string argument, or `None` for a null pointer.
@@ -348,12 +361,14 @@ impl Kernel {
     /// The user namespace a new instance of `ty` that the task `task` makes is for
     /// (`fc->user_ns`): the pid namespace's owner for procfs (`proc_init_fs_context`), the
     /// network namespace's for sysfs (`sysfs_init_fs_context`), the IPC namespace's for mqueue
-    /// (`mqueue_init_fs_context`), the mounter's own for any other.
+    /// (`mqueue_init_fs_context`), the cgroup namespace's for cgroup2 (`cgroup_init_fs_context`),
+    /// the mounter's own for any other.
     pub(super) fn fc_user_ns(&self, ty: &FsType, task: TaskId) -> Arc<UserNs> {
         match ty {
             FsType::Proc => self.active_pid_ns(task).user_ns().clone(),
             FsType::Sys => self.task_ns(task).net.user_ns().clone(),
             FsType::Mqueue => self.task_ns(task).ipc.user_ns().clone(),
+            FsType::Cgroup2 => self.task_ns(task).cgroup.user_ns().clone(),
             FsType::Other(_) => self.process(task).cred().user_ns,
         }
     }
@@ -371,7 +386,7 @@ impl Kernel {
         let magic = match ty {
             FsType::Proc => crate::procfs::PROC_SUPER_MAGIC,
             FsType::Sys => crate::sysfs::SYSFS_MAGIC,
-            FsType::Mqueue | FsType::Other(_) => return false,
+            FsType::Mqueue | FsType::Cgroup2 | FsType::Other(_) => return false,
         };
         let ns = self.task_ns(task);
         if ns.mnt.user_ns().is_initial() {
@@ -514,6 +529,10 @@ impl Kernel {
             FsType::Sys => self.sysfs_of(self.task_ns(task).net.clone()),
             // `mqueue_init_fs_context`: the mounter's IPC namespace's instance.
             FsType::Mqueue => self.mqueue_sb(&self.task_ns(task).ipc).1.clone(),
+            FsType::Cgroup2 => {
+                let flags = cgroup_flags(&params)?;
+                self.cgroup_fs(&self.task_ns(task).cgroup, flags)
+            }
             FsType::Other(ty) => ty.mount(source.as_deref().unwrap_or(b""), &params, &env.cred)?,
         };
         // `do_new_mount_fc`.
@@ -557,6 +576,10 @@ impl Kernel {
         }
         match self.filesystems.get(sb.info.name.as_bytes()) {
             Some(FsType::Other(ty)) => ty.reconfigure(&sb.fs, &params)?,
+            Some(FsType::Cgroup2) => {
+                let flags = cgroup_flags(&params)?;
+                self.apply_cgroup_root_flags(&self.task_ns(TaskId(env.task)).cgroup, flags);
+            }
             _ if params.is_empty() => {}
             _ => return Err(Errno::EINVAL),
         }

@@ -73,6 +73,8 @@ pub(super) enum Global {
     /// `/proc/keys`, `/proc/key-users`, which the node renders for its opener.
     Keys,
     KeyUsers,
+    /// `/proc/cgroups`.
+    Cgroups,
 }
 
 /// The files of a network namespace (`/proc/<pid>/net`).
@@ -165,6 +167,8 @@ pub(super) enum PerPid {
     Io,
     Auxv,
     Timers,
+    /// `cgroup`.
+    Cgroup,
 }
 
 /// A system file as a reader in the namespaces `ns`, the pid namespace `pid_ns` and the user
@@ -231,6 +235,7 @@ pub(super) fn global(
         Global::MaxNamespaces(kind) => line(&user_ns.ucount_max(kind).to_string()),
         // The node renders them for its opener.
         Global::Keys | Global::KeyUsers => unreachable!("rendered for the opener"),
+        Global::Cgroups => cgroups(source),
     })
 }
 
@@ -783,14 +788,25 @@ fn net_mcfilter(ns: &NetNs, v6: bool) -> Vec<u8> {
     out.into_bytes()
 }
 
-/// A file of a process's directory, as a reader in the user namespace `reader` and the time
-/// namespace `reader_time` sees it.
+/// `proc_cgroupstats_show`: every controller, none of them on a v1 hierarchy (hierarchy 0),
+/// with the default hierarchy's count of cgroups.
+fn cgroups(source: &Source) -> Vec<u8> {
+    let count = source.cgroups.lock().nr_cgroups();
+    let mut out = String::from("#subsys_name\thierarchy\tnum_cgroups\tenabled\n");
+    for name in crate::cgroup::controller_names() {
+        let _ = writeln!(out, "{name}\t0\t{count}\t1");
+    }
+    out.into_bytes()
+}
+
+/// A file of a process's directory, as a reader in the user namespace `reader` and the
+/// namespaces `viewer` sees it.
 pub(super) fn per_pid(
     source: &Source,
     scope: Scope,
     file: PerPid,
     reader: &Arc<UserNs>,
-    reader_time: &TimeNs,
+    viewer: &NsProxy,
 ) -> FsResult<Vec<u8>> {
     let info = source.process(scope.pid).ok_or(Errno::ESRCH)?;
     let process = &info.process;
@@ -812,7 +828,7 @@ pub(super) fn per_pid(
             let ns = task.ns.as_ref().ok_or(Errno::EINVAL)?;
             mounts(source, &ns.mnt.tree, &root, file == PerPid::Mountinfo)
         }
-        PerPid::Stat => stat_line(source, scope, &info, reader_time),
+        PerPid::Stat => stat_line(source, scope, &info, &viewer.time),
         PerPid::Statm => {
             let pages = source.mm(scope).map_or(0, |mm| mm.size()) / PAGE_SIZE;
             format!("{pages} {pages} 0 0 0 {pages} 0\n").into_bytes()
@@ -876,6 +892,14 @@ pub(super) fn per_pid(
         PerPid::Timers => {
             let task = source.task(scope.pid, scope.tid).ok_or(Errno::ESRCH)?;
             introspect::timers(&task, source.nr(scope.pid), |id| source.nr(id))
+        }
+        // `proc_cgroup_show`: the path as seen from the reader's cgroup namespace; a zombie's
+        // is the one it exited in.
+        PerPid::Cgroup => {
+            let task = source.task(scope.pid, scope.tid).map(|task| task.cgroup);
+            let cgroup = task.or(info.cgroup.clone()).ok_or(Errno::ESRCH)?;
+            let root = &viewer.cgroup.root;
+            source.cgroups.proc_line(&cgroup, root).unwrap_or_default()
         }
     })
 }

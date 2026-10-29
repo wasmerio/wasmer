@@ -1561,7 +1561,8 @@ fn group(gid: u32) -> String {
     group
 }
 
-/// Mounts the kernel's filesystems as a Linux system has them: `/proc`, `/sys`, `/dev` (a memory
+/// Mounts the kernel's filesystems as a Linux system has them: `/proc`, `/sys` with the cgroup
+/// hierarchy at `/sys/fs/cgroup`, `/dev` (a memory
 /// filesystem with the device nodes, as devtmpfs is, and the conventional links into
 /// `/proc/self/fd`), memory filesystems at `/dev/shm` for POSIX shared memory and at `/tmp`,
 /// world-writable and sticky, and the pty filesystem at `/dev/pts`. The memory filesystems are
@@ -1615,6 +1616,8 @@ async fn mount_kernel_filesystems(kernel: &Kernel, host: &Arc<dyn Host>) {
                 flags(true, true),
             )
             .await;
+            // Where systemd and container runtimes look for the cgroup v2 hierarchy.
+            mount("/sys/fs/cgroup", kernel.cgroupfs(), flags(true, true)).await;
         }
         let dev = tmpfs(0o755);
         kernel

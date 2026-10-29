@@ -152,6 +152,7 @@ const STATIC: &[(usize, &str, Static)] = &[
     // 52
     (13, "yama", Static::Dir),
     (52, "ptrace_scope", Static::File(text::Global::PtraceScope)),
+    (ROOT, "cgroups", Static::File(text::Global::Cgroups)),
 ];
 
 /// `/proc/sys/user/max_*_namespaces` for `kind`.
@@ -246,6 +247,7 @@ const PID_ENTRIES: &[(&str, PidEntry, u32)] = &[
     ("io", PidEntry::File(text::PerPid::Io), 0o400),
     ("auxv", PidEntry::File(text::PerPid::Auxv), 0o400),
     ("timers", PidEntry::File(text::PerPid::Timers), 0o444),
+    ("cgroup", PidEntry::File(text::PerPid::Cgroup), 0o444),
 ];
 
 /// The files of `/proc/<pid>/net`, which show the task's network namespace.
@@ -889,8 +891,8 @@ impl Node for ProcNode {
                 PidEntry::File(file) => {
                     self.check_pid_file(scope, file, options.task)?;
                     let reader = self.source.user_ns_of(options.task);
-                    let reader_time = self.source.ns_of(options.task).time.clone();
-                    let data = text::per_pid(&self.source, scope, file, &reader, &reader_time)?;
+                    let viewer = self.source.ns_of(options.task);
+                    let data = text::per_pid(&self.source, scope, file, &reader, &viewer)?;
                     let write = match options.write {
                         true => self.per_pid_write(scope, file, options.task)?,
                         false => None,
@@ -1253,7 +1255,7 @@ fn set_loginuid(
     };
     ident.loginuid = kuid;
     Ok(())
-
+}
 
 /// `timens_offsets_write`'s parsing: at most two lines of `<clock> <sec> <nsec>`, the clock
 /// by name or number. Returns the offsets and the bytes taken.
@@ -1297,7 +1299,6 @@ fn parse_timens_offsets(data: &[u8]) -> Result<(Vec<TimensOffset>, usize), Errno
         rest = next;
     }
     Ok((offsets, taken))
-}
 }
 
 /// `proc_dointvec`'s parsing of one integer: blanks around it, nothing else.

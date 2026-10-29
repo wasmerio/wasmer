@@ -62,6 +62,8 @@ const DIRS: &[(usize, &str)] = &[
     (5, "net"),
     // `/sys/kernel/security`, where securityfs is mounted.
     (2, "security"),
+    // 8: where the cgroup hierarchy is mounted (`sysfs_create_mount_point(fs_kobj, "cgroup")`).
+    (3, "cgroup"),
 ];
 const CLASS_NET: usize = 4;
 const VIRTUAL_NET: usize = 6;

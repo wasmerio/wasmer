@@ -4,8 +4,13 @@
 //! Knows nothing about the wasm engine, the layers, or concrete filesystem drivers and network
 //! backends.
 
+// The kernel's state is one deep graph of types (task table, process tree, cgroups, namespaces,
+// filesystems); proving it `Send` and `Sync` for the VFS's traits goes past the default depth.
+#![recursion_limit = "256"]
+
 mod aio;
 mod binfmt_misc;
+mod cgroup;
 mod chrdev;
 mod cputime;
 mod cred;
@@ -178,6 +183,8 @@ pub struct Kernel {
     sysctls: Arc<fs::FsSysctls>,
     /// The filesystem types `mount` makes instances of.
     filesystems: Arc<fs::mount::Registry>,
+    /// The cgroup v2 hierarchy (`cgrp_dfl_root`).
+    cgroups: Arc<cgroup::Hierarchy>,
     // ---- thr ----
     futexes: futex::Futexes,
     // ---- proc ----
@@ -329,6 +336,9 @@ struct Task {
     // ---- base ----
     /// The CPU time the execution layer charges the task with.
     cpu: Arc<CpuAccount>,
+    // ---- cgroup ----
+    /// The task's place in the cgroup hierarchy (`task->cgroups`).
+    css: cgroup::Css,
 }
 
 /// `struct task_io_accounting`: what the read and write calls moved and how many there were.
@@ -402,6 +412,7 @@ impl Kernel {
         let filesystems = fs::mount::Registry::new();
         let misc_type = Arc::new(binfmt_misc::BinfmtMiscType(binfmt_misc.clone()));
         filesystems.add("binfmt_misc", misc_type);
+        let cgroups = cgroup::Hierarchy::new(clock.clone());
         Self {
             ptys: tty::Ptys::new(clock.clone()),
             pseudo: pseudo::Pseudo::new(&vfs, clock),
@@ -420,7 +431,9 @@ impl Kernel {
                 vfs.namespace().clone(),
                 Uname::default().to_utsname(),
                 None,
+                cgroups.root().clone(),
             )),
+            cgroups,
             init_user_ns,
             ns_inums: Arc::default(),
             network_factory: None,
@@ -478,6 +491,7 @@ impl Kernel {
             mnt,
             uname,
             Some(network),
+            self.cgroups.root().clone(),
         ));
         self
     }
@@ -598,7 +612,13 @@ impl Kernel {
         let flag = Arc::new(WorkFlag::default());
         let account = signal::Account::new(self.sigqueue_users.clone(), &process);
         let cpu = Arc::new(CpuAccount::new(process.cpu.clone()));
+        // The root cgroup has no `pids.max`.
+        let css = self
+            .cgroups
+            .fork(self.cgroups.root().clone(), cpu.clone(), false)
+            .expect("the root cgroup takes every task");
         let task = Task {
+            css,
             comm,
             sched: sched::Sched::default(),
             seccomp: seccomp::Seccomp::default(),
