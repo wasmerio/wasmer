@@ -84,6 +84,20 @@ enum Source {
     },
 }
 
+enum LockedSource<'a> {
+    Local(futures_util::lock::MutexGuard<'a, Source>),
+    Foreign(std::sync::MutexGuard<'a, Source>),
+}
+
+impl LockedSource<'_> {
+    fn source(&mut self) -> &mut Source {
+        match self {
+            Self::Local(source) => source,
+            Self::Foreign(source) => source,
+        }
+    }
+}
+
 pub(crate) struct Retained {
     pub(crate) addr: u32,
     pub(crate) len: u32,
@@ -213,33 +227,41 @@ impl Mm {
         }
     }
 
-    pub(super) async fn retain_moved(&self, start: u64, len: u64, target: u64) {
-        let pages: Vec<_> = {
-            let mut table = self.retained.0.lock_or_recover();
-            let keys: Vec<_> = table.range(start..start + len).map(|(&at, _)| at).collect();
-            keys.into_iter()
-                .filter_map(|at| table.remove(&at).and_then(|p| p.upgrade()).map(|p| (at, p)))
-                .collect()
-        };
-        for (at, page) in pages {
-            let new = target + at - start;
-            match &page.kind {
-                PageKind::Local(source) => {
-                    if let Source::Live { addr, .. } = &mut *source.lock().await {
-                        *addr = new as u32;
-                    }
-                }
-                PageKind::Foreign { source, .. } => {
-                    if let Source::Live { addr, .. } = &mut *source.lock_or_recover() {
-                        *addr = new as u32;
-                    }
-                }
-            }
-            self.retained
-                .0
-                .lock_or_recover()
-                .insert(new, Arc::downgrade(&page));
+    /// mm/mremap.c:move_vma moves the pinned physical pages. Serialize the
+    /// equivalent copy and mapping relocation with every retained transfer.
+    pub(super) async fn retain_moved(
+        &self,
+        start: u64,
+        len: u64,
+        target: u64,
+        moving: impl std::future::Future<Output = Result<(), Errno>>,
+    ) -> Result<(), Errno> {
+        let pages: Vec<_> = self
+            .retained
+            .0
+            .lock_or_recover()
+            .range(start..start + len)
+            .filter_map(|(&at, page)| page.upgrade().map(|page| (at, page)))
+            .collect();
+        let mut held = Vec::with_capacity(pages.len());
+        // Always lock in address order, including when a registration spans pages.
+        for (_, page) in &pages {
+            held.push(match &page.kind {
+                PageKind::Local(source) => LockedSource::Local(source.lock().await),
+                PageKind::Foreign { source, .. } => LockedSource::Foreign(source.lock_or_recover()),
+            });
         }
+        moving.await?;
+        let mut table = self.retained.0.lock_or_recover();
+        for ((at, page), source) in pages.iter().zip(&mut held) {
+            let new = target + at - start;
+            if let Source::Live { addr, .. } = source.source() {
+                *addr = new as u32;
+            }
+            table.remove(at);
+            table.insert(new, Arc::downgrade(page));
+        }
+        Ok(())
     }
 }
 

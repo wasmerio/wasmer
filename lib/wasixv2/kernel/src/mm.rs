@@ -1766,12 +1766,13 @@ impl Kernel {
                 addr64 + old_size,
             )
             .await;
-            copy(caller.memory(), addr64, target, old_size.min(new_size)).await?;
-            mm.space().remap_flags(addr64, old_size, target, new_size);
-            self.move_mappings(caller, addr64, old_size, target, new_size)
-                .await?;
-            mm.retain_moved(addr64, old_size.min(new_size), target)
-                .await;
+            mm.retain_moved(addr64, old_size.min(new_size), target, async {
+                copy(caller.memory(), addr64, target, old_size.min(new_size)).await?;
+                mm.space().remap_flags(addr64, old_size, target, new_size);
+                self.move_mappings(caller, addr64, old_size, target, new_size)
+                    .await
+            })
+            .await?;
             match remap.dont_unmap {
                 true => {
                     // `dontunmap_complete`: the source is never locked after the move.
@@ -1812,11 +1813,13 @@ impl Kernel {
             return Err(Errno::ENOMEM.into());
         }
         let target = self.map_anywhere(caller, new_pages).await?;
-        copy(caller.memory(), addr64, target, old_size).await?;
-        mm.space().remap_flags(addr64, old_size, target, new_size);
-        self.move_mappings(caller, addr64, old_size, target, new_size)
-            .await?;
-        mm.retain_moved(addr64, old_size, target).await;
+        mm.retain_moved(addr64, old_size, target, async {
+            copy(caller.memory(), addr64, target, old_size).await?;
+            mm.space().remap_flags(addr64, old_size, target, new_size);
+            self.move_mappings(caller, addr64, old_size, target, new_size)
+                .await
+        })
+        .await?;
         mm.space().unmap(addr64, old_size);
         Ok(target as i32)
     }
