@@ -125,6 +125,10 @@ pub(super) enum Global {
     Interrupts,
     Softirqs,
     KeySysctl(crate::keys::KeySysctl),
+    /// `/proc/sysvipc/{msg,sem,shm}` of the opener's IPC namespace.
+    SysvipcMsg,
+    SysvipcSem,
+    SysvipcShm,
 }
 
 /// The files of a network namespace (`/proc/<pid>/net`).
@@ -302,6 +306,58 @@ pub(super) fn global(
         Global::AioNr => line(&source.aio.nr().to_string()),
         Global::AioMaxNr => line(&source.aio.max().to_string()),
         Global::KeySysctl(entry) => line(&source.keys.sysctl(entry).to_string()),
+        // Linux ipc/{msg,sem,shm}.c:sysvipc_*_proc_show. The IPC namespace is
+        // the opener's, pids belong to this procfs instance, and ids to the reader.
+        Global::SysvipcMsg => {
+            let mut out = String::from(
+                "       key      msqid perms      cbytes       qnum lspid lrpid   uid   gid  cuid  cgid      stime      rtime      ctime\n",
+            );
+            for row in ns.ipc.msg.list() {
+                let p = row.perm.to_abi(user_ns);
+                writeln!(out, "{:10} {:10}  {:4o}  {:10} {:10} {:5} {:5} {:5} {:5} {:5} {:5} {:10} {:10} {:10}",
+                    p.key, row.id, p.mode, row.cbytes, row.qnum,
+                    source.nr(row.lspid), source.nr(row.lrpid),
+                    p.uid, p.gid, p.cuid, p.cgid, row.stime, row.rtime, row.ctime).unwrap();
+            }
+            out.into_bytes()
+        }
+        Global::SysvipcSem => {
+            let mut out = String::from(
+                "       key      semid perms      nsems   uid   gid  cuid  cgid      otime      ctime\n",
+            );
+            for row in ns.ipc.sem.list() {
+                let p = row.perm.to_abi(user_ns);
+                writeln!(
+                    out,
+                    "{:10} {:10}  {:4o} {:10} {:5} {:5} {:5} {:5} {:10} {:10}",
+                    p.key,
+                    row.id,
+                    p.mode,
+                    row.nsems,
+                    p.uid,
+                    p.gid,
+                    p.cuid,
+                    p.cgid,
+                    row.otime,
+                    row.ctime
+                )
+                .unwrap();
+            }
+            out.into_bytes()
+        }
+        Global::SysvipcShm => {
+            let mut out = String::from(
+                "       key      shmid perms       size  cpid  lpid nattch   uid   gid  cuid  cgid      atime      dtime      ctime        rss       swap\n",
+            );
+            for row in ns.ipc.shm.list() {
+                let p = row.perm.to_abi(user_ns);
+                writeln!(out, "{:10} {:10}  {:4o} {:10} {:5} {:5}  {:5} {:5} {:5} {:5} {:5} {:10} {:10} {:10} {:10} {:10}",
+                    p.key, row.id, p.mode, row.size, source.nr(row.cpid), source.nr(row.lpid),
+                    row.nattch, p.uid, p.gid, p.cuid, p.cgid,
+                    row.atime, row.dtime, row.ctime, row.rss, 0).unwrap();
+            }
+            out.into_bytes()
+        }
         Global::OverflowUid | Global::OverflowGid => line(&OVERFLOW_ID.to_string()),
         Global::CapLastCap => line(&wasixv2_vfs::Cap::LAST.to_string()),
         Global::Tainted => line(&source.taint.get().to_string()),

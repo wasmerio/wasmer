@@ -376,6 +376,11 @@ const STATIC: &[(usize, &str, Static)] = &[
         Static::File(text::Global::SeccompActionsLogged),
     ),
     (13, "acct", Static::File(text::Global::Acct)),
+    // 134: append to preserve existing static inode identities.
+    (ROOT, "sysvipc", Static::Dir),
+    (134, "msg", Static::File(text::Global::SysvipcMsg)),
+    (134, "sem", Static::File(text::Global::SysvipcSem)),
+    (134, "shm", Static::File(text::Global::SysvipcShm)),
 ];
 
 /// The file of an integer sysctl.
