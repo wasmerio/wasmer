@@ -436,6 +436,12 @@ impl Ctx {
 
     /// Completes a request that waited, ending its wait.
     pub(crate) fn finish_waiting(&self, waiting: Waiting, res: i32) {
+        // Linux io_uring/timeout.c:io_kill_timeout counts sequence-triggered
+        // timeouts, but io_timeout_cancel does not count cancellation.
+        if res == 0 && matches!(&waiting, Waiting::Timeout { .. }) {
+            self.timeout_seq
+                .fetch_add(1, std::sync::atomic::Ordering::Release);
+        }
         let req = waiting.into_req();
         self.finish(req, res, 0, res < 0);
     }
@@ -553,6 +559,10 @@ fn timeout_fired(ctx: &Ctx, id: u64) -> Option<Duration> {
     if let Some(next) = at.future(ctx.host().as_ref()) {
         return Some(next);
     }
+    // Linux io_uring/timeout.c:io_timeout_fn advances cq_timeouts before
+    // completing each firing, including every multishot firing.
+    ctx.timeout_seq
+        .fetch_add(1, std::sync::atomic::Ordering::Release);
     let user_data = req.sqe.user_data;
     // A multishot timeout goes on until its count of firings is spent.
     if let Some(left) = repeats.as_mut() {

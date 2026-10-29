@@ -42,7 +42,10 @@ mod tctx;
 
 use std::{
     collections::{HashMap, VecDeque},
-    sync::{Arc, Mutex, Weak},
+    sync::{
+        Arc, Mutex, Weak,
+        atomic::{AtomicU32, Ordering},
+    },
     time::Duration,
 };
 
@@ -233,6 +236,8 @@ pub(crate) struct Ctx {
     submit: futures_util::lock::Mutex<()>,
     /// Woken by every completion and by new task work (`cq_wait`).
     cq_wait: WaitQueue,
+    /// `cq_timeouts`: expirations since the ring was created, for `io_should_wake`.
+    timeout_seq: AtomicU32,
     /// The ring file's readiness (`poll_wq`).
     poll_wq: WaitQueue,
     timers: Timers,
@@ -1055,6 +1060,7 @@ impl Kernel {
         };
         let saved = self.set_user_sigmask(caller, sigmask, sigsz).await?;
         let min = min_complete.min(ctx.shape.cq_entries);
+        let mut timeout_seq = None;
         let interrupt = self.interrupt(caller);
         let ret = loop {
             self.io_uring_run_task_work(caller).await;
@@ -1062,10 +1068,17 @@ impl Kernel {
                 let _submit = ctx.submit.lock().await;
                 self.run_task_work(caller, ctx, mm).await;
             }
-            if min == 0 || ctx.cq_ready() >= min {
+            // Linux io_uring/wait.c:io_cqring_wait snapshots after initial
+            // task work. io_uring.h:io_should_wake returns on any subsequent
+            // timeout, even with fewer than min_complete CQEs.
+            let timeout_seq =
+                *timeout_seq.get_or_insert_with(|| ctx.timeout_seq.load(Ordering::Acquire));
+            let expired = || ctx.timeout_seq.load(Ordering::Acquire) != timeout_seq;
+            if min == 0 || ctx.cq_ready() >= min || expired() {
                 break Ok(0);
             }
-            let ready = || (ctx.cq_ready() >= min || ctx.has_work(Some(mm))).then_some(());
+            let ready =
+                || (ctx.cq_ready() >= min || expired() || ctx.has_work(Some(mm))).then_some(());
             let waited = match deadline {
                 None => wait_event(&ctx.cq_wait, ready, &*interrupt).await.map(Some),
                 Some(at) => {
@@ -1212,6 +1225,7 @@ impl Ctx {
                 }),
                 submit: Default::default(),
                 cq_wait: WaitQueue::new(),
+                timeout_seq: AtomicU32::new(0),
                 poll_wq: WaitQueue::new(),
                 timers,
                 host,
