@@ -105,7 +105,7 @@ fn test_module_compilation_abort(engine: Engine) {
             assert_eq!(e.reason(), reason)
         }
         other => {
-            panic!("expected CompileError::Aborted, got {:?}", other);
+            panic!("expected CompileError::Aborted, got {other:?}");
         }
     }
 }
