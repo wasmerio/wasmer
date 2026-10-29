@@ -570,6 +570,8 @@ pub type ConstFileHandlePtr = GuestPtr<FileHandle>;
 pub type ConstOpenHowPtr = GuestPtr<OpenHow>;
 /// Guest pointer to an array of `iovec`.
 pub type ConstIovecArray = GuestPtr<Iovec>;
+/// Guest pointer to an array of `sock-filter`.
+pub type ConstSockFilterArray = GuestPtr<SockFilter>;
 /// Guest pointer to a `xattr-args`.
 pub type XattrArgsPtr = GuestPtrMut<XattrArgs>;
 /// Guest pointer to a `xattr-args`.
@@ -5324,6 +5326,1777 @@ impl GuestLayout for Limits {
     const ZERO: Self = Self(0);
     fn read_from(bytes: &[u8]) -> Option<Self> {
         <u32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// Limits and handle types of `name_to_handle_at` (`linux/fcntl.h` `MAX_HANDLE_SZ`,
+/// `linux/exportfs.h` `enum fid_type` and its flag bits).
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct FileHandleMisc(pub i32);
+impl FileHandleMisc {
+    /// `FILEID_ROOT`: the root of the filesystem, which some filesystems encode as such.
+    pub const FILEID_ROOT: Self = Self(0);
+    /// `FILEID_INO32_GEN`: a 32-bit inode number and a 32-bit generation.
+    pub const FILEID_INO32_GEN: Self = Self(1);
+    /// `FILEID_INO32_GEN_PARENT`: also the parent's inode number and generation.
+    pub const FILEID_INO32_GEN_PARENT: Self = Self(2);
+    /// `FILEID_INO64_GEN`: a 64-bit inode number and a 32-bit generation.
+    pub const FILEID_INO64_GEN: Self = Self(129);
+    /// `FILEID_INO64_GEN_PARENT`.
+    pub const FILEID_INO64_GEN_PARENT: Self = Self(130);
+    /// `FILEID_INVALID`.
+    pub const FILEID_INVALID: Self = Self(255);
+    /// `MAX_HANDLE_SZ`: the most bytes `name_to_handle_at` fills.
+    pub const MAX_HANDLE_SZ: Self = Self(128);
+    /// `FILEID_IS_CONNECTABLE`: a handle made with `AT_HANDLE_CONNECTABLE`.
+    pub const FILEID_IS_CONNECTABLE: Self = Self(65536);
+    /// `FILEID_IS_DIR`: a connectable handle of a directory.
+    pub const FILEID_IS_DIR: Self = Self(131072);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("FILEID_ROOT", Self::FILEID_ROOT),
+        ("FILEID_INO32_GEN", Self::FILEID_INO32_GEN),
+        ("FILEID_INO32_GEN_PARENT", Self::FILEID_INO32_GEN_PARENT),
+        ("FILEID_INO64_GEN", Self::FILEID_INO64_GEN),
+        ("FILEID_INO64_GEN_PARENT", Self::FILEID_INO64_GEN_PARENT),
+        ("FILEID_INVALID", Self::FILEID_INVALID),
+        ("MAX_HANDLE_SZ", Self::MAX_HANDLE_SZ),
+        ("FILEID_IS_CONNECTABLE", Self::FILEID_IS_CONNECTABLE),
+        ("FILEID_IS_DIR", Self::FILEID_IS_DIR),
+    ];
+    /// Name of the first constant with this value, if any.
+    pub const fn name(self) -> Option<&'static str> {
+        match self.0 {
+            0 => Some("FILEID_ROOT"),
+            1 => Some("FILEID_INO32_GEN"),
+            2 => Some("FILEID_INO32_GEN_PARENT"),
+            129 => Some("FILEID_INO64_GEN"),
+            130 => Some("FILEID_INO64_GEN_PARENT"),
+            255 => Some("FILEID_INVALID"),
+            128 => Some("MAX_HANDLE_SZ"),
+            65536 => Some("FILEID_IS_CONNECTABLE"),
+            131072 => Some("FILEID_IS_DIR"),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Debug for FileHandleMisc {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.name() {
+            Some(name) => f.write_str(name),
+            None => write!(f, "FileHandleMisc({})", self.0),
+        }
+    }
+}
+
+impl GuestLayout for FileHandleMisc {
+    const SIZE: usize = <i32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <i32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <i32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// `FS_IOC_FSGETXATTR`/`FS_IOC_FSSETXATTR` attributes (`struct fsxattr`, `linux/fs.h`).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct Fsxattr {
+    pub fsx_xflags: u32,
+    pub fsx_extsize: u32,
+    pub fsx_nextents: u32,
+    pub fsx_projid: u32,
+    pub fsx_cowextsize: u32,
+    pub fsx_pad: [u8; 8],
+}
+const _: () = {
+    assert!(core::mem::size_of::<Fsxattr>() == 28);
+    assert!(core::mem::align_of::<Fsxattr>() == 4);
+    assert!(core::mem::offset_of!(Fsxattr, fsx_xflags) == 0);
+    assert!(core::mem::offset_of!(Fsxattr, fsx_extsize) == 4);
+    assert!(core::mem::offset_of!(Fsxattr, fsx_nextents) == 8);
+    assert!(core::mem::offset_of!(Fsxattr, fsx_projid) == 12);
+    assert!(core::mem::offset_of!(Fsxattr, fsx_cowextsize) == 16);
+    assert!(core::mem::offset_of!(Fsxattr, fsx_pad) == 20);
+};
+impl Default for Fsxattr {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for Fsxattr {
+    const SIZE: usize = 28;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        fsx_xflags: <u32 as GuestLayout>::ZERO,
+        fsx_extsize: <u32 as GuestLayout>::ZERO,
+        fsx_nextents: <u32 as GuestLayout>::ZERO,
+        fsx_projid: <u32 as GuestLayout>::ZERO,
+        fsx_cowextsize: <u32 as GuestLayout>::ZERO,
+        fsx_pad: <[u8; 8] as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            fsx_xflags: GuestLayout::read_from(&bytes[0..])?,
+            fsx_extsize: GuestLayout::read_from(&bytes[4..])?,
+            fsx_nextents: GuestLayout::read_from(&bytes[8..])?,
+            fsx_projid: GuestLayout::read_from(&bytes[12..])?,
+            fsx_cowextsize: GuestLayout::read_from(&bytes[16..])?,
+            fsx_pad: GuestLayout::read_from(&bytes[20..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.fsx_xflags.write_to(&mut out[0..]);
+        self.fsx_extsize.write_to(&mut out[4..]);
+        self.fsx_nextents.write_to(&mut out[8..]);
+        self.fsx_projid.write_to(&mut out[12..]);
+        self.fsx_cowextsize.write_to(&mut out[16..]);
+        self.fsx_pad.write_to(&mut out[20..]);
+    }
+}
+/// Inode flags of `FS_IOC_GETFLAGS`/`FS_IOC_SETFLAGS` (`FS_*_FL`, `linux/fs.h`; the ext2
+/// on-disk encoding).
+///
+/// C: `int`
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct FsInodeFlags(pub u32);
+impl FsInodeFlags {
+    pub const FS_SECRM_FL: Self = Self(0x1);
+    pub const FS_UNRM_FL: Self = Self(0x2);
+    pub const FS_COMPR_FL: Self = Self(0x4);
+    pub const FS_SYNC_FL: Self = Self(0x8);
+    pub const FS_IMMUTABLE_FL: Self = Self(0x10);
+    pub const FS_APPEND_FL: Self = Self(0x20);
+    pub const FS_NODUMP_FL: Self = Self(0x40);
+    pub const FS_NOATIME_FL: Self = Self(0x80);
+    pub const FS_DIRTY_FL: Self = Self(0x100);
+    pub const FS_COMPRBLK_FL: Self = Self(0x200);
+    pub const FS_NOCOMP_FL: Self = Self(0x400);
+    pub const FS_ENCRYPT_FL: Self = Self(0x800);
+    pub const FS_BTREE_FL: Self = Self(0x1000);
+    pub const FS_INDEX_FL: Self = Self(0x1000);
+    pub const FS_IMAGIC_FL: Self = Self(0x2000);
+    pub const FS_JOURNAL_DATA_FL: Self = Self(0x4000);
+    pub const FS_NOTAIL_FL: Self = Self(0x8000);
+    pub const FS_DIRSYNC_FL: Self = Self(0x10000);
+    pub const FS_TOPDIR_FL: Self = Self(0x20000);
+    pub const FS_HUGE_FILE_FL: Self = Self(0x40000);
+    pub const FS_EXTENT_FL: Self = Self(0x80000);
+    pub const FS_VERITY_FL: Self = Self(0x100000);
+    pub const FS_EA_INODE_FL: Self = Self(0x200000);
+    pub const FS_EOFBLOCKS_FL: Self = Self(0x400000);
+    pub const FS_NOCOW_FL: Self = Self(0x800000);
+    pub const FS_DAX_FL: Self = Self(0x2000000);
+    pub const FS_INLINE_DATA_FL: Self = Self(0x10000000);
+    pub const FS_PROJINHERIT_FL: Self = Self(0x20000000);
+    pub const FS_CASEFOLD_FL: Self = Self(0x40000000);
+    pub const FS_RESERVED_FL: Self = Self(0x80000000);
+    pub const FS_FL_USER_VISIBLE: Self = Self(0x3dfff);
+    pub const FS_FL_USER_MODIFIABLE: Self = Self(0x380ff);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("FS_SECRM_FL", Self::FS_SECRM_FL),
+        ("FS_UNRM_FL", Self::FS_UNRM_FL),
+        ("FS_COMPR_FL", Self::FS_COMPR_FL),
+        ("FS_SYNC_FL", Self::FS_SYNC_FL),
+        ("FS_IMMUTABLE_FL", Self::FS_IMMUTABLE_FL),
+        ("FS_APPEND_FL", Self::FS_APPEND_FL),
+        ("FS_NODUMP_FL", Self::FS_NODUMP_FL),
+        ("FS_NOATIME_FL", Self::FS_NOATIME_FL),
+        ("FS_DIRTY_FL", Self::FS_DIRTY_FL),
+        ("FS_COMPRBLK_FL", Self::FS_COMPRBLK_FL),
+        ("FS_NOCOMP_FL", Self::FS_NOCOMP_FL),
+        ("FS_ENCRYPT_FL", Self::FS_ENCRYPT_FL),
+        ("FS_BTREE_FL", Self::FS_BTREE_FL),
+        ("FS_INDEX_FL", Self::FS_INDEX_FL),
+        ("FS_IMAGIC_FL", Self::FS_IMAGIC_FL),
+        ("FS_JOURNAL_DATA_FL", Self::FS_JOURNAL_DATA_FL),
+        ("FS_NOTAIL_FL", Self::FS_NOTAIL_FL),
+        ("FS_DIRSYNC_FL", Self::FS_DIRSYNC_FL),
+        ("FS_TOPDIR_FL", Self::FS_TOPDIR_FL),
+        ("FS_HUGE_FILE_FL", Self::FS_HUGE_FILE_FL),
+        ("FS_EXTENT_FL", Self::FS_EXTENT_FL),
+        ("FS_VERITY_FL", Self::FS_VERITY_FL),
+        ("FS_EA_INODE_FL", Self::FS_EA_INODE_FL),
+        ("FS_EOFBLOCKS_FL", Self::FS_EOFBLOCKS_FL),
+        ("FS_NOCOW_FL", Self::FS_NOCOW_FL),
+        ("FS_DAX_FL", Self::FS_DAX_FL),
+        ("FS_INLINE_DATA_FL", Self::FS_INLINE_DATA_FL),
+        ("FS_PROJINHERIT_FL", Self::FS_PROJINHERIT_FL),
+        ("FS_CASEFOLD_FL", Self::FS_CASEFOLD_FL),
+        ("FS_RESERVED_FL", Self::FS_RESERVED_FL),
+        ("FS_FL_USER_VISIBLE", Self::FS_FL_USER_VISIBLE),
+        ("FS_FL_USER_MODIFIABLE", Self::FS_FL_USER_MODIFIABLE),
+    ];
+
+    pub const fn empty() -> Self {
+        Self(0)
+    }
+    pub const fn bits(self) -> u32 {
+        self.0
+    }
+    pub const fn is_empty(self) -> bool {
+        self.0 == 0
+    }
+    /// Whether all bits of `other` are set.
+    pub const fn contains(self, other: Self) -> bool {
+        self.0 & other.0 == other.0
+    }
+    /// Whether any bit of `other` is set.
+    pub const fn intersects(self, other: Self) -> bool {
+        self.0 & other.0 != 0
+    }
+}
+
+impl fmt::Debug for FsInodeFlags {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("FsInodeFlags(")?;
+        let mut rest = self.0;
+        let mut first = true;
+        for (name, flag) in Self::MEMBERS {
+            if flag.0 != 0 && self.contains(*flag) && rest & flag.0 != 0 {
+                if !first {
+                    f.write_str(" | ")?;
+                }
+                f.write_str(name)?;
+                first = false;
+                rest &= !flag.0;
+            }
+        }
+        if rest != 0 || first {
+            if !first {
+                f.write_str(" | ")?;
+            }
+            write!(f, "{rest:#x}")?;
+        }
+        f.write_str(")")
+    }
+}
+impl core::ops::BitOr for FsInodeFlags {
+    type Output = Self;
+    fn bitor(self, rhs: Self) -> Self {
+        Self(self.0 | rhs.0)
+    }
+}
+impl core::ops::BitAnd for FsInodeFlags {
+    type Output = Self;
+    fn bitand(self, rhs: Self) -> Self {
+        Self(self.0 & rhs.0)
+    }
+}
+impl core::ops::BitXor for FsInodeFlags {
+    type Output = Self;
+    fn bitxor(self, rhs: Self) -> Self {
+        Self(self.0 ^ rhs.0)
+    }
+}
+impl core::ops::Not for FsInodeFlags {
+    type Output = Self;
+    fn not(self) -> Self {
+        Self(!self.0)
+    }
+}
+impl core::ops::BitOrAssign for FsInodeFlags {
+    fn bitor_assign(&mut self, rhs: Self) {
+        self.0 |= rhs.0;
+    }
+}
+impl core::ops::BitAndAssign for FsInodeFlags {
+    fn bitand_assign(&mut self, rhs: Self) {
+        self.0 &= rhs.0;
+    }
+}
+impl core::ops::BitXorAssign for FsInodeFlags {
+    fn bitxor_assign(&mut self, rhs: Self) {
+        self.0 ^= rhs.0;
+    }
+}
+
+impl GuestLayout for FsInodeFlags {
+    const SIZE: usize = <u32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// Extended inode flags of `struct fsxattr` and `struct file_attr` (`FS_XFLAG_*`,
+/// `linux/fs.h`).
+///
+/// C: `unsigned`
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct FsXflags(pub u32);
+impl FsXflags {
+    pub const FS_XFLAG_REALTIME: Self = Self(0x1);
+    pub const FS_XFLAG_PREALLOC: Self = Self(0x2);
+    pub const FS_XFLAG_IMMUTABLE: Self = Self(0x8);
+    pub const FS_XFLAG_APPEND: Self = Self(0x10);
+    pub const FS_XFLAG_SYNC: Self = Self(0x20);
+    pub const FS_XFLAG_NOATIME: Self = Self(0x40);
+    pub const FS_XFLAG_NODUMP: Self = Self(0x80);
+    pub const FS_XFLAG_RTINHERIT: Self = Self(0x100);
+    pub const FS_XFLAG_PROJINHERIT: Self = Self(0x200);
+    pub const FS_XFLAG_NOSYMLINKS: Self = Self(0x400);
+    pub const FS_XFLAG_EXTSIZE: Self = Self(0x800);
+    pub const FS_XFLAG_EXTSZINHERIT: Self = Self(0x1000);
+    pub const FS_XFLAG_NODEFRAG: Self = Self(0x2000);
+    pub const FS_XFLAG_FILESTREAM: Self = Self(0x4000);
+    pub const FS_XFLAG_DAX: Self = Self(0x8000);
+    pub const FS_XFLAG_COWEXTSIZE: Self = Self(0x10000);
+    pub const FS_XFLAG_VERITY: Self = Self(0x20000);
+    pub const FS_XFLAG_CASEFOLD: Self = Self(0x40000);
+    pub const FS_XFLAG_CASENONPRESERVING: Self = Self(0x80000);
+    pub const FS_XFLAG_HASATTR: Self = Self(0x80000000);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("FS_XFLAG_REALTIME", Self::FS_XFLAG_REALTIME),
+        ("FS_XFLAG_PREALLOC", Self::FS_XFLAG_PREALLOC),
+        ("FS_XFLAG_IMMUTABLE", Self::FS_XFLAG_IMMUTABLE),
+        ("FS_XFLAG_APPEND", Self::FS_XFLAG_APPEND),
+        ("FS_XFLAG_SYNC", Self::FS_XFLAG_SYNC),
+        ("FS_XFLAG_NOATIME", Self::FS_XFLAG_NOATIME),
+        ("FS_XFLAG_NODUMP", Self::FS_XFLAG_NODUMP),
+        ("FS_XFLAG_RTINHERIT", Self::FS_XFLAG_RTINHERIT),
+        ("FS_XFLAG_PROJINHERIT", Self::FS_XFLAG_PROJINHERIT),
+        ("FS_XFLAG_NOSYMLINKS", Self::FS_XFLAG_NOSYMLINKS),
+        ("FS_XFLAG_EXTSIZE", Self::FS_XFLAG_EXTSIZE),
+        ("FS_XFLAG_EXTSZINHERIT", Self::FS_XFLAG_EXTSZINHERIT),
+        ("FS_XFLAG_NODEFRAG", Self::FS_XFLAG_NODEFRAG),
+        ("FS_XFLAG_FILESTREAM", Self::FS_XFLAG_FILESTREAM),
+        ("FS_XFLAG_DAX", Self::FS_XFLAG_DAX),
+        ("FS_XFLAG_COWEXTSIZE", Self::FS_XFLAG_COWEXTSIZE),
+        ("FS_XFLAG_VERITY", Self::FS_XFLAG_VERITY),
+        ("FS_XFLAG_CASEFOLD", Self::FS_XFLAG_CASEFOLD),
+        (
+            "FS_XFLAG_CASENONPRESERVING",
+            Self::FS_XFLAG_CASENONPRESERVING,
+        ),
+        ("FS_XFLAG_HASATTR", Self::FS_XFLAG_HASATTR),
+    ];
+
+    pub const fn empty() -> Self {
+        Self(0)
+    }
+    pub const fn bits(self) -> u32 {
+        self.0
+    }
+    pub const fn is_empty(self) -> bool {
+        self.0 == 0
+    }
+    /// Whether all bits of `other` are set.
+    pub const fn contains(self, other: Self) -> bool {
+        self.0 & other.0 == other.0
+    }
+    /// Whether any bit of `other` is set.
+    pub const fn intersects(self, other: Self) -> bool {
+        self.0 & other.0 != 0
+    }
+}
+
+impl fmt::Debug for FsXflags {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("FsXflags(")?;
+        let mut rest = self.0;
+        let mut first = true;
+        for (name, flag) in Self::MEMBERS {
+            if flag.0 != 0 && self.contains(*flag) && rest & flag.0 != 0 {
+                if !first {
+                    f.write_str(" | ")?;
+                }
+                f.write_str(name)?;
+                first = false;
+                rest &= !flag.0;
+            }
+        }
+        if rest != 0 || first {
+            if !first {
+                f.write_str(" | ")?;
+            }
+            write!(f, "{rest:#x}")?;
+        }
+        f.write_str(")")
+    }
+}
+impl core::ops::BitOr for FsXflags {
+    type Output = Self;
+    fn bitor(self, rhs: Self) -> Self {
+        Self(self.0 | rhs.0)
+    }
+}
+impl core::ops::BitAnd for FsXflags {
+    type Output = Self;
+    fn bitand(self, rhs: Self) -> Self {
+        Self(self.0 & rhs.0)
+    }
+}
+impl core::ops::BitXor for FsXflags {
+    type Output = Self;
+    fn bitxor(self, rhs: Self) -> Self {
+        Self(self.0 ^ rhs.0)
+    }
+}
+impl core::ops::Not for FsXflags {
+    type Output = Self;
+    fn not(self) -> Self {
+        Self(!self.0)
+    }
+}
+impl core::ops::BitOrAssign for FsXflags {
+    fn bitor_assign(&mut self, rhs: Self) {
+        self.0 |= rhs.0;
+    }
+}
+impl core::ops::BitAndAssign for FsXflags {
+    fn bitand_assign(&mut self, rhs: Self) {
+        self.0 &= rhs.0;
+    }
+}
+impl core::ops::BitXorAssign for FsXflags {
+    fn bitxor_assign(&mut self, rhs: Self) {
+        self.0 ^= rhs.0;
+    }
+}
+
+impl GuestLayout for FsXflags {
+    const SIZE: usize = <u32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// `file_getattr`/`file_setattr` sizes (`FILE_ATTR_SIZE_*`, `linux/fs.h`).
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct FileAttrSize(pub u32);
+impl FileAttrSize {
+    pub const FILE_ATTR_SIZE_VER0: Self = Self(24);
+    pub const FILE_ATTR_SIZE_LATEST: Self = Self(24);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("FILE_ATTR_SIZE_VER0", Self::FILE_ATTR_SIZE_VER0),
+        ("FILE_ATTR_SIZE_LATEST", Self::FILE_ATTR_SIZE_LATEST),
+    ];
+    /// Name of the first constant with this value, if any.
+    pub const fn name(self) -> Option<&'static str> {
+        match self.0 {
+            24 => Some("FILE_ATTR_SIZE_VER0"),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Debug for FileAttrSize {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.name() {
+            Some(name) => f.write_str(name),
+            None => write!(f, "FileAttrSize({})", self.0),
+        }
+    }
+}
+
+impl GuestLayout for FileAttrSize {
+    const SIZE: usize = <u32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// Header of a POSIX ACL extended attribute value (`struct posix_acl_xattr_header`,
+/// `linux/posix_acl_xattr.h`), little-endian; `posix-acl-xattr-entry` records follow.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct PosixAclXattrHeader {
+    pub a_version: u32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<PosixAclXattrHeader>() == 4);
+    assert!(core::mem::align_of::<PosixAclXattrHeader>() == 4);
+    assert!(core::mem::offset_of!(PosixAclXattrHeader, a_version) == 0);
+};
+impl Default for PosixAclXattrHeader {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for PosixAclXattrHeader {
+    const SIZE: usize = 4;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        a_version: <u32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            a_version: GuestLayout::read_from(&bytes[0..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.a_version.write_to(&mut out[0..]);
+    }
+}
+/// One entry of a POSIX ACL extended attribute (`struct posix_acl_xattr_entry`),
+/// little-endian.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct PosixAclXattrEntry {
+    pub e_tag: u16,
+    pub e_perm: u16,
+    pub e_id: u32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<PosixAclXattrEntry>() == 8);
+    assert!(core::mem::align_of::<PosixAclXattrEntry>() == 4);
+    assert!(core::mem::offset_of!(PosixAclXattrEntry, e_tag) == 0);
+    assert!(core::mem::offset_of!(PosixAclXattrEntry, e_perm) == 2);
+    assert!(core::mem::offset_of!(PosixAclXattrEntry, e_id) == 4);
+};
+impl Default for PosixAclXattrEntry {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for PosixAclXattrEntry {
+    const SIZE: usize = 8;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        e_tag: <u16 as GuestLayout>::ZERO,
+        e_perm: <u16 as GuestLayout>::ZERO,
+        e_id: <u32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            e_tag: GuestLayout::read_from(&bytes[0..])?,
+            e_perm: GuestLayout::read_from(&bytes[2..])?,
+            e_id: GuestLayout::read_from(&bytes[4..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.e_tag.write_to(&mut out[0..]);
+        self.e_perm.write_to(&mut out[2..]);
+        self.e_id.write_to(&mut out[4..]);
+    }
+}
+/// POSIX ACL tags, permissions and constants (`linux/posix_acl.h`,
+/// `linux/posix_acl_xattr.h`).
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct PosixAclMisc(pub i32);
+impl PosixAclMisc {
+    pub const ACL_UNDEFINED_ID: Self = Self(-1);
+    pub const ACL_EXECUTE: Self = Self(1);
+    pub const ACL_USER_OBJ: Self = Self(1);
+    pub const ACL_USER: Self = Self(2);
+    pub const ACL_WRITE: Self = Self(2);
+    pub const POSIX_ACL_XATTR_VERSION: Self = Self(2);
+    pub const ACL_GROUP_OBJ: Self = Self(4);
+    pub const ACL_READ: Self = Self(4);
+    pub const ACL_GROUP: Self = Self(8);
+    pub const ACL_MASK: Self = Self(16);
+    pub const ACL_OTHER: Self = Self(32);
+    pub const ACL_TYPE_DEFAULT: Self = Self(16384);
+    pub const ACL_TYPE_ACCESS: Self = Self(32768);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("ACL_UNDEFINED_ID", Self::ACL_UNDEFINED_ID),
+        ("ACL_EXECUTE", Self::ACL_EXECUTE),
+        ("ACL_USER_OBJ", Self::ACL_USER_OBJ),
+        ("ACL_USER", Self::ACL_USER),
+        ("ACL_WRITE", Self::ACL_WRITE),
+        ("POSIX_ACL_XATTR_VERSION", Self::POSIX_ACL_XATTR_VERSION),
+        ("ACL_GROUP_OBJ", Self::ACL_GROUP_OBJ),
+        ("ACL_READ", Self::ACL_READ),
+        ("ACL_GROUP", Self::ACL_GROUP),
+        ("ACL_MASK", Self::ACL_MASK),
+        ("ACL_OTHER", Self::ACL_OTHER),
+        ("ACL_TYPE_DEFAULT", Self::ACL_TYPE_DEFAULT),
+        ("ACL_TYPE_ACCESS", Self::ACL_TYPE_ACCESS),
+    ];
+    /// Name of the first constant with this value, if any.
+    pub const fn name(self) -> Option<&'static str> {
+        match self.0 {
+            -1 => Some("ACL_UNDEFINED_ID"),
+            1 => Some("ACL_EXECUTE"),
+            2 => Some("ACL_USER"),
+            4 => Some("ACL_GROUP_OBJ"),
+            8 => Some("ACL_GROUP"),
+            16 => Some("ACL_MASK"),
+            32 => Some("ACL_OTHER"),
+            16384 => Some("ACL_TYPE_DEFAULT"),
+            32768 => Some("ACL_TYPE_ACCESS"),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Debug for PosixAclMisc {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.name() {
+            Some(name) => f.write_str(name),
+            None => write!(f, "PosixAclMisc({})", self.0),
+        }
+    }
+}
+
+impl GuestLayout for PosixAclMisc {
+    const SIZE: usize = <i32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <i32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <i32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// Quota limits and usage of one id (`struct if_dqblk`, `linux/quota.h`).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct IfDqblk {
+    pub dqb_bhardlimit: u64,
+    pub dqb_bsoftlimit: u64,
+    pub dqb_curspace: u64,
+    pub dqb_ihardlimit: u64,
+    pub dqb_isoftlimit: u64,
+    pub dqb_curinodes: u64,
+    pub dqb_btime: u64,
+    pub dqb_itime: u64,
+    pub dqb_valid: u32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<IfDqblk>() == 72);
+    assert!(core::mem::align_of::<IfDqblk>() == 8);
+    assert!(core::mem::offset_of!(IfDqblk, dqb_bhardlimit) == 0);
+    assert!(core::mem::offset_of!(IfDqblk, dqb_bsoftlimit) == 8);
+    assert!(core::mem::offset_of!(IfDqblk, dqb_curspace) == 16);
+    assert!(core::mem::offset_of!(IfDqblk, dqb_ihardlimit) == 24);
+    assert!(core::mem::offset_of!(IfDqblk, dqb_isoftlimit) == 32);
+    assert!(core::mem::offset_of!(IfDqblk, dqb_curinodes) == 40);
+    assert!(core::mem::offset_of!(IfDqblk, dqb_btime) == 48);
+    assert!(core::mem::offset_of!(IfDqblk, dqb_itime) == 56);
+    assert!(core::mem::offset_of!(IfDqblk, dqb_valid) == 64);
+};
+impl Default for IfDqblk {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for IfDqblk {
+    const SIZE: usize = 72;
+    const ALIGN: usize = 8;
+    const ZERO: Self = Self {
+        dqb_bhardlimit: <u64 as GuestLayout>::ZERO,
+        dqb_bsoftlimit: <u64 as GuestLayout>::ZERO,
+        dqb_curspace: <u64 as GuestLayout>::ZERO,
+        dqb_ihardlimit: <u64 as GuestLayout>::ZERO,
+        dqb_isoftlimit: <u64 as GuestLayout>::ZERO,
+        dqb_curinodes: <u64 as GuestLayout>::ZERO,
+        dqb_btime: <u64 as GuestLayout>::ZERO,
+        dqb_itime: <u64 as GuestLayout>::ZERO,
+        dqb_valid: <u32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            dqb_bhardlimit: GuestLayout::read_from(&bytes[0..])?,
+            dqb_bsoftlimit: GuestLayout::read_from(&bytes[8..])?,
+            dqb_curspace: GuestLayout::read_from(&bytes[16..])?,
+            dqb_ihardlimit: GuestLayout::read_from(&bytes[24..])?,
+            dqb_isoftlimit: GuestLayout::read_from(&bytes[32..])?,
+            dqb_curinodes: GuestLayout::read_from(&bytes[40..])?,
+            dqb_btime: GuestLayout::read_from(&bytes[48..])?,
+            dqb_itime: GuestLayout::read_from(&bytes[56..])?,
+            dqb_valid: GuestLayout::read_from(&bytes[64..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.dqb_bhardlimit.write_to(&mut out[0..]);
+        self.dqb_bsoftlimit.write_to(&mut out[8..]);
+        self.dqb_curspace.write_to(&mut out[16..]);
+        self.dqb_ihardlimit.write_to(&mut out[24..]);
+        self.dqb_isoftlimit.write_to(&mut out[32..]);
+        self.dqb_curinodes.write_to(&mut out[40..]);
+        self.dqb_btime.write_to(&mut out[48..]);
+        self.dqb_itime.write_to(&mut out[56..]);
+        self.dqb_valid.write_to(&mut out[64..]);
+    }
+}
+/// `Q_GETNEXTQUOTA` result (`struct if_nextdqblk`).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct IfNextdqblk {
+    pub dqb_bhardlimit: u64,
+    pub dqb_bsoftlimit: u64,
+    pub dqb_curspace: u64,
+    pub dqb_ihardlimit: u64,
+    pub dqb_isoftlimit: u64,
+    pub dqb_curinodes: u64,
+    pub dqb_btime: u64,
+    pub dqb_itime: u64,
+    pub dqb_valid: u32,
+    pub dqb_id: u32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<IfNextdqblk>() == 72);
+    assert!(core::mem::align_of::<IfNextdqblk>() == 8);
+    assert!(core::mem::offset_of!(IfNextdqblk, dqb_bhardlimit) == 0);
+    assert!(core::mem::offset_of!(IfNextdqblk, dqb_bsoftlimit) == 8);
+    assert!(core::mem::offset_of!(IfNextdqblk, dqb_curspace) == 16);
+    assert!(core::mem::offset_of!(IfNextdqblk, dqb_ihardlimit) == 24);
+    assert!(core::mem::offset_of!(IfNextdqblk, dqb_isoftlimit) == 32);
+    assert!(core::mem::offset_of!(IfNextdqblk, dqb_curinodes) == 40);
+    assert!(core::mem::offset_of!(IfNextdqblk, dqb_btime) == 48);
+    assert!(core::mem::offset_of!(IfNextdqblk, dqb_itime) == 56);
+    assert!(core::mem::offset_of!(IfNextdqblk, dqb_valid) == 64);
+    assert!(core::mem::offset_of!(IfNextdqblk, dqb_id) == 68);
+};
+impl Default for IfNextdqblk {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for IfNextdqblk {
+    const SIZE: usize = 72;
+    const ALIGN: usize = 8;
+    const ZERO: Self = Self {
+        dqb_bhardlimit: <u64 as GuestLayout>::ZERO,
+        dqb_bsoftlimit: <u64 as GuestLayout>::ZERO,
+        dqb_curspace: <u64 as GuestLayout>::ZERO,
+        dqb_ihardlimit: <u64 as GuestLayout>::ZERO,
+        dqb_isoftlimit: <u64 as GuestLayout>::ZERO,
+        dqb_curinodes: <u64 as GuestLayout>::ZERO,
+        dqb_btime: <u64 as GuestLayout>::ZERO,
+        dqb_itime: <u64 as GuestLayout>::ZERO,
+        dqb_valid: <u32 as GuestLayout>::ZERO,
+        dqb_id: <u32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            dqb_bhardlimit: GuestLayout::read_from(&bytes[0..])?,
+            dqb_bsoftlimit: GuestLayout::read_from(&bytes[8..])?,
+            dqb_curspace: GuestLayout::read_from(&bytes[16..])?,
+            dqb_ihardlimit: GuestLayout::read_from(&bytes[24..])?,
+            dqb_isoftlimit: GuestLayout::read_from(&bytes[32..])?,
+            dqb_curinodes: GuestLayout::read_from(&bytes[40..])?,
+            dqb_btime: GuestLayout::read_from(&bytes[48..])?,
+            dqb_itime: GuestLayout::read_from(&bytes[56..])?,
+            dqb_valid: GuestLayout::read_from(&bytes[64..])?,
+            dqb_id: GuestLayout::read_from(&bytes[68..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.dqb_bhardlimit.write_to(&mut out[0..]);
+        self.dqb_bsoftlimit.write_to(&mut out[8..]);
+        self.dqb_curspace.write_to(&mut out[16..]);
+        self.dqb_ihardlimit.write_to(&mut out[24..]);
+        self.dqb_isoftlimit.write_to(&mut out[32..]);
+        self.dqb_curinodes.write_to(&mut out[40..]);
+        self.dqb_btime.write_to(&mut out[48..]);
+        self.dqb_itime.write_to(&mut out[56..]);
+        self.dqb_valid.write_to(&mut out[64..]);
+        self.dqb_id.write_to(&mut out[68..]);
+    }
+}
+/// Quota grace times and flags of one quota type (`struct if_dqinfo`).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct IfDqinfo {
+    pub dqi_bgrace: u64,
+    pub dqi_igrace: u64,
+    pub dqi_flags: u32,
+    pub dqi_valid: u32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<IfDqinfo>() == 24);
+    assert!(core::mem::align_of::<IfDqinfo>() == 8);
+    assert!(core::mem::offset_of!(IfDqinfo, dqi_bgrace) == 0);
+    assert!(core::mem::offset_of!(IfDqinfo, dqi_igrace) == 8);
+    assert!(core::mem::offset_of!(IfDqinfo, dqi_flags) == 16);
+    assert!(core::mem::offset_of!(IfDqinfo, dqi_valid) == 20);
+};
+impl Default for IfDqinfo {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for IfDqinfo {
+    const SIZE: usize = 24;
+    const ALIGN: usize = 8;
+    const ZERO: Self = Self {
+        dqi_bgrace: <u64 as GuestLayout>::ZERO,
+        dqi_igrace: <u64 as GuestLayout>::ZERO,
+        dqi_flags: <u32 as GuestLayout>::ZERO,
+        dqi_valid: <u32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            dqi_bgrace: GuestLayout::read_from(&bytes[0..])?,
+            dqi_igrace: GuestLayout::read_from(&bytes[8..])?,
+            dqi_flags: GuestLayout::read_from(&bytes[16..])?,
+            dqi_valid: GuestLayout::read_from(&bytes[20..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.dqi_bgrace.write_to(&mut out[0..]);
+        self.dqi_igrace.write_to(&mut out[8..]);
+        self.dqi_flags.write_to(&mut out[16..]);
+        self.dqi_valid.write_to(&mut out[20..]);
+    }
+}
+/// `quotactl` commands (`Q_*`, `QCMD(cmd, type)` = `cmd << SUBCMDSHIFT | type`), quota
+/// types, formats and the `dqb-valid`/`dqi-valid` bits (`linux/quota.h`).
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct QuotaMisc(pub u32);
+impl QuotaMisc {
+    pub const USRQUOTA: Self = Self(0);
+    pub const GRPQUOTA: Self = Self(1);
+    pub const QIF_BLIMITS: Self = Self(1);
+    pub const IIF_BGRACE: Self = Self(1);
+    pub const DQF_ROOT_SQUASH: Self = Self(1);
+    pub const PRJQUOTA: Self = Self(2);
+    pub const QIF_SPACE: Self = Self(2);
+    pub const IIF_IGRACE: Self = Self(2);
+    pub const QIF_ILIMITS: Self = Self(4);
+    pub const IIF_FLAGS: Self = Self(4);
+    pub const QFMT_SHMEM: Self = Self(5);
+    pub const IIF_ALL: Self = Self(7);
+    pub const SUBCMDSHIFT: Self = Self(8);
+    pub const QIF_INODES: Self = Self(8);
+    pub const SUBCMDMASK: Self = Self(255);
+    pub const QIF_BTIME: Self = Self(16);
+    pub const QIF_ITIME: Self = Self(32);
+    pub const QIF_ALL: Self = Self(63);
+    pub const Q_SYNC: Self = Self(8388609);
+    pub const Q_QUOTAON: Self = Self(8388610);
+    pub const Q_QUOTAOFF: Self = Self(8388611);
+    pub const Q_GETFMT: Self = Self(8388612);
+    pub const Q_GETINFO: Self = Self(8388613);
+    pub const Q_SETINFO: Self = Self(8388614);
+    pub const Q_GETQUOTA: Self = Self(8388615);
+    pub const Q_SETQUOTA: Self = Self(8388616);
+    pub const Q_GETNEXTQUOTA: Self = Self(8388617);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("USRQUOTA", Self::USRQUOTA),
+        ("GRPQUOTA", Self::GRPQUOTA),
+        ("QIF_BLIMITS", Self::QIF_BLIMITS),
+        ("IIF_BGRACE", Self::IIF_BGRACE),
+        ("DQF_ROOT_SQUASH", Self::DQF_ROOT_SQUASH),
+        ("PRJQUOTA", Self::PRJQUOTA),
+        ("QIF_SPACE", Self::QIF_SPACE),
+        ("IIF_IGRACE", Self::IIF_IGRACE),
+        ("QIF_ILIMITS", Self::QIF_ILIMITS),
+        ("IIF_FLAGS", Self::IIF_FLAGS),
+        ("QFMT_SHMEM", Self::QFMT_SHMEM),
+        ("IIF_ALL", Self::IIF_ALL),
+        ("SUBCMDSHIFT", Self::SUBCMDSHIFT),
+        ("QIF_INODES", Self::QIF_INODES),
+        ("SUBCMDMASK", Self::SUBCMDMASK),
+        ("QIF_BTIME", Self::QIF_BTIME),
+        ("QIF_ITIME", Self::QIF_ITIME),
+        ("QIF_ALL", Self::QIF_ALL),
+        ("Q_SYNC", Self::Q_SYNC),
+        ("Q_QUOTAON", Self::Q_QUOTAON),
+        ("Q_QUOTAOFF", Self::Q_QUOTAOFF),
+        ("Q_GETFMT", Self::Q_GETFMT),
+        ("Q_GETINFO", Self::Q_GETINFO),
+        ("Q_SETINFO", Self::Q_SETINFO),
+        ("Q_GETQUOTA", Self::Q_GETQUOTA),
+        ("Q_SETQUOTA", Self::Q_SETQUOTA),
+        ("Q_GETNEXTQUOTA", Self::Q_GETNEXTQUOTA),
+    ];
+    /// Name of the first constant with this value, if any.
+    pub const fn name(self) -> Option<&'static str> {
+        match self.0 {
+            0 => Some("USRQUOTA"),
+            1 => Some("GRPQUOTA"),
+            2 => Some("PRJQUOTA"),
+            4 => Some("QIF_ILIMITS"),
+            5 => Some("QFMT_SHMEM"),
+            7 => Some("IIF_ALL"),
+            8 => Some("SUBCMDSHIFT"),
+            255 => Some("SUBCMDMASK"),
+            16 => Some("QIF_BTIME"),
+            32 => Some("QIF_ITIME"),
+            63 => Some("QIF_ALL"),
+            8388609 => Some("Q_SYNC"),
+            8388610 => Some("Q_QUOTAON"),
+            8388611 => Some("Q_QUOTAOFF"),
+            8388612 => Some("Q_GETFMT"),
+            8388613 => Some("Q_GETINFO"),
+            8388614 => Some("Q_SETINFO"),
+            8388615 => Some("Q_GETQUOTA"),
+            8388616 => Some("Q_SETQUOTA"),
+            8388617 => Some("Q_GETNEXTQUOTA"),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Debug for QuotaMisc {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.name() {
+            Some(name) => f.write_str(name),
+            None => write!(f, "QuotaMisc({})", self.0),
+        }
+    }
+}
+
+impl GuestLayout for QuotaMisc {
+    const SIZE: usize = <u32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// A permission event's answer, written to the fanotify descriptor (`struct
+/// fanotify_response`, `linux/fanotify.h`).
+///
+/// C: `struct fanotify_response`
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct FanotifyResponse {
+    pub fd: i32,
+    pub response: u32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<FanotifyResponse>() == 8);
+    assert!(core::mem::align_of::<FanotifyResponse>() == 4);
+    assert!(core::mem::offset_of!(FanotifyResponse, fd) == 0);
+    assert!(core::mem::offset_of!(FanotifyResponse, response) == 4);
+};
+impl Default for FanotifyResponse {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for FanotifyResponse {
+    const SIZE: usize = 8;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        fd: <i32 as GuestLayout>::ZERO,
+        response: <u32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            fd: GuestLayout::read_from(&bytes[0..])?,
+            response: GuestLayout::read_from(&bytes[4..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.fd.write_to(&mut out[0..]);
+        self.response.write_to(&mut out[4..]);
+    }
+}
+/// Header of each information record after an fanotify event (`struct
+/// fanotify_event_info_header`).
+///
+/// C: `struct fanotify_event_info_header`
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct FanotifyEventInfoHeader {
+    pub info_type: u8,
+    pub pad: u8,
+    pub len: u16,
+}
+const _: () = {
+    assert!(core::mem::size_of::<FanotifyEventInfoHeader>() == 4);
+    assert!(core::mem::align_of::<FanotifyEventInfoHeader>() == 2);
+    assert!(core::mem::offset_of!(FanotifyEventInfoHeader, info_type) == 0);
+    assert!(core::mem::offset_of!(FanotifyEventInfoHeader, pad) == 1);
+    assert!(core::mem::offset_of!(FanotifyEventInfoHeader, len) == 2);
+};
+impl Default for FanotifyEventInfoHeader {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for FanotifyEventInfoHeader {
+    const SIZE: usize = 4;
+    const ALIGN: usize = 2;
+    const ZERO: Self = Self {
+        info_type: <u8 as GuestLayout>::ZERO,
+        pad: <u8 as GuestLayout>::ZERO,
+        len: <u16 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            info_type: GuestLayout::read_from(&bytes[0..])?,
+            pad: GuestLayout::read_from(&bytes[1..])?,
+            len: GuestLayout::read_from(&bytes[2..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.info_type.write_to(&mut out[0..]);
+        self.pad.write_to(&mut out[1..]);
+        self.len.write_to(&mut out[2..]);
+    }
+}
+/// A file identifier record (`struct fanotify_event_info_fid`); a `file-handle` follows at
+/// offset 12, and for `FAN_EVENT_INFO_TYPE_DFID_NAME` a NUL-terminated name after it.
+///
+/// C: `struct fanotify_event_info_fid`
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct FanotifyEventInfoFid {
+    pub hdr: FanotifyEventInfoHeader,
+    pub fsid: KernelFsid,
+}
+const _: () = {
+    assert!(core::mem::size_of::<FanotifyEventInfoFid>() == 12);
+    assert!(core::mem::align_of::<FanotifyEventInfoFid>() == 4);
+    assert!(core::mem::offset_of!(FanotifyEventInfoFid, hdr) == 0);
+    assert!(core::mem::offset_of!(FanotifyEventInfoFid, fsid) == 4);
+};
+impl Default for FanotifyEventInfoFid {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for FanotifyEventInfoFid {
+    const SIZE: usize = 12;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        hdr: <FanotifyEventInfoHeader as GuestLayout>::ZERO,
+        fsid: <KernelFsid as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            hdr: GuestLayout::read_from(&bytes[0..])?,
+            fsid: GuestLayout::read_from(&bytes[4..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.hdr.write_to(&mut out[0..]);
+        self.fsid.write_to(&mut out[4..]);
+    }
+}
+/// A pidfd record (`struct fanotify_event_info_pidfd`).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct FanotifyEventInfoPidfd {
+    pub hdr: FanotifyEventInfoHeader,
+    pub pidfd: i32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<FanotifyEventInfoPidfd>() == 8);
+    assert!(core::mem::align_of::<FanotifyEventInfoPidfd>() == 4);
+    assert!(core::mem::offset_of!(FanotifyEventInfoPidfd, hdr) == 0);
+    assert!(core::mem::offset_of!(FanotifyEventInfoPidfd, pidfd) == 4);
+};
+impl Default for FanotifyEventInfoPidfd {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for FanotifyEventInfoPidfd {
+    const SIZE: usize = 8;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        hdr: <FanotifyEventInfoHeader as GuestLayout>::ZERO,
+        pidfd: <i32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            hdr: GuestLayout::read_from(&bytes[0..])?,
+            pidfd: GuestLayout::read_from(&bytes[4..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.hdr.write_to(&mut out[0..]);
+        self.pidfd.write_to(&mut out[4..]);
+    }
+}
+/// A filesystem error record (`struct fanotify_event_info_error`).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct FanotifyEventInfoError {
+    pub hdr: FanotifyEventInfoHeader,
+    pub error: i32,
+    pub error_count: u32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<FanotifyEventInfoError>() == 12);
+    assert!(core::mem::align_of::<FanotifyEventInfoError>() == 4);
+    assert!(core::mem::offset_of!(FanotifyEventInfoError, hdr) == 0);
+    assert!(core::mem::offset_of!(FanotifyEventInfoError, error) == 4);
+    assert!(core::mem::offset_of!(FanotifyEventInfoError, error_count) == 8);
+};
+impl Default for FanotifyEventInfoError {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for FanotifyEventInfoError {
+    const SIZE: usize = 12;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        hdr: <FanotifyEventInfoHeader as GuestLayout>::ZERO,
+        error: <i32 as GuestLayout>::ZERO,
+        error_count: <u32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            hdr: GuestLayout::read_from(&bytes[0..])?,
+            error: GuestLayout::read_from(&bytes[4..])?,
+            error_count: GuestLayout::read_from(&bytes[8..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.hdr.write_to(&mut out[0..]);
+        self.error.write_to(&mut out[4..]);
+        self.error_count.write_to(&mut out[8..]);
+    }
+}
+/// A mount record (`struct fanotify_event_info_mnt`).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct FanotifyEventInfoMnt {
+    pub hdr: FanotifyEventInfoHeader,
+    pub mnt_id: u64,
+}
+const _: () = {
+    assert!(core::mem::size_of::<FanotifyEventInfoMnt>() == 16);
+    assert!(core::mem::align_of::<FanotifyEventInfoMnt>() == 8);
+    assert!(core::mem::offset_of!(FanotifyEventInfoMnt, hdr) == 0);
+    assert!(core::mem::offset_of!(FanotifyEventInfoMnt, mnt_id) == 8);
+};
+impl Default for FanotifyEventInfoMnt {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for FanotifyEventInfoMnt {
+    const SIZE: usize = 16;
+    const ALIGN: usize = 8;
+    const ZERO: Self = Self {
+        hdr: <FanotifyEventInfoHeader as GuestLayout>::ZERO,
+        mnt_id: <u64 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            hdr: GuestLayout::read_from(&bytes[0..])?,
+            mnt_id: GuestLayout::read_from(&bytes[8..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.hdr.write_to(&mut out[0..]);
+        self.mnt_id.write_to(&mut out[8..]);
+    }
+}
+/// `fanotify_init` flags (`FAN_CLOEXEC`, `FAN_CLASS_*`, `FAN_REPORT_*`).
+///
+/// C: `unsigned`
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct FanotifyInitFlags(pub u32);
+impl FanotifyInitFlags {
+    pub const FAN_CLASS_NOTIF: Self = Self(0x0);
+    pub const FAN_CLOEXEC: Self = Self(0x1);
+    pub const FAN_NONBLOCK: Self = Self(0x2);
+    pub const FAN_CLASS_CONTENT: Self = Self(0x4);
+    pub const FAN_CLASS_PRE_CONTENT: Self = Self(0x8);
+    pub const FAN_ALL_CLASS_BITS: Self = Self(0xc);
+    pub const FAN_UNLIMITED_QUEUE: Self = Self(0x10);
+    pub const FAN_UNLIMITED_MARKS: Self = Self(0x20);
+    pub const FAN_ENABLE_AUDIT: Self = Self(0x40);
+    pub const FAN_REPORT_PIDFD: Self = Self(0x80);
+    pub const FAN_REPORT_TID: Self = Self(0x100);
+    pub const FAN_REPORT_FID: Self = Self(0x200);
+    pub const FAN_REPORT_DIR_FID: Self = Self(0x400);
+    pub const FAN_REPORT_NAME: Self = Self(0x800);
+    pub const FAN_REPORT_DFID_NAME: Self = Self(0xc00);
+    pub const FAN_REPORT_TARGET_FID: Self = Self(0x1000);
+    pub const FAN_REPORT_DFID_NAME_TARGET: Self = Self(0x1e00);
+    pub const FAN_REPORT_FD_ERROR: Self = Self(0x2000);
+    pub const FAN_REPORT_MNT: Self = Self(0x4000);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("FAN_CLASS_NOTIF", Self::FAN_CLASS_NOTIF),
+        ("FAN_CLOEXEC", Self::FAN_CLOEXEC),
+        ("FAN_NONBLOCK", Self::FAN_NONBLOCK),
+        ("FAN_CLASS_CONTENT", Self::FAN_CLASS_CONTENT),
+        ("FAN_CLASS_PRE_CONTENT", Self::FAN_CLASS_PRE_CONTENT),
+        ("FAN_ALL_CLASS_BITS", Self::FAN_ALL_CLASS_BITS),
+        ("FAN_UNLIMITED_QUEUE", Self::FAN_UNLIMITED_QUEUE),
+        ("FAN_UNLIMITED_MARKS", Self::FAN_UNLIMITED_MARKS),
+        ("FAN_ENABLE_AUDIT", Self::FAN_ENABLE_AUDIT),
+        ("FAN_REPORT_PIDFD", Self::FAN_REPORT_PIDFD),
+        ("FAN_REPORT_TID", Self::FAN_REPORT_TID),
+        ("FAN_REPORT_FID", Self::FAN_REPORT_FID),
+        ("FAN_REPORT_DIR_FID", Self::FAN_REPORT_DIR_FID),
+        ("FAN_REPORT_NAME", Self::FAN_REPORT_NAME),
+        ("FAN_REPORT_DFID_NAME", Self::FAN_REPORT_DFID_NAME),
+        ("FAN_REPORT_TARGET_FID", Self::FAN_REPORT_TARGET_FID),
+        (
+            "FAN_REPORT_DFID_NAME_TARGET",
+            Self::FAN_REPORT_DFID_NAME_TARGET,
+        ),
+        ("FAN_REPORT_FD_ERROR", Self::FAN_REPORT_FD_ERROR),
+        ("FAN_REPORT_MNT", Self::FAN_REPORT_MNT),
+    ];
+
+    pub const fn empty() -> Self {
+        Self(0)
+    }
+    pub const fn bits(self) -> u32 {
+        self.0
+    }
+    pub const fn is_empty(self) -> bool {
+        self.0 == 0
+    }
+    /// Whether all bits of `other` are set.
+    pub const fn contains(self, other: Self) -> bool {
+        self.0 & other.0 == other.0
+    }
+    /// Whether any bit of `other` is set.
+    pub const fn intersects(self, other: Self) -> bool {
+        self.0 & other.0 != 0
+    }
+}
+
+impl fmt::Debug for FanotifyInitFlags {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("FanotifyInitFlags(")?;
+        let mut rest = self.0;
+        let mut first = true;
+        for (name, flag) in Self::MEMBERS {
+            if flag.0 != 0 && self.contains(*flag) && rest & flag.0 != 0 {
+                if !first {
+                    f.write_str(" | ")?;
+                }
+                f.write_str(name)?;
+                first = false;
+                rest &= !flag.0;
+            }
+        }
+        if rest != 0 || first {
+            if !first {
+                f.write_str(" | ")?;
+            }
+            write!(f, "{rest:#x}")?;
+        }
+        f.write_str(")")
+    }
+}
+impl core::ops::BitOr for FanotifyInitFlags {
+    type Output = Self;
+    fn bitor(self, rhs: Self) -> Self {
+        Self(self.0 | rhs.0)
+    }
+}
+impl core::ops::BitAnd for FanotifyInitFlags {
+    type Output = Self;
+    fn bitand(self, rhs: Self) -> Self {
+        Self(self.0 & rhs.0)
+    }
+}
+impl core::ops::BitXor for FanotifyInitFlags {
+    type Output = Self;
+    fn bitxor(self, rhs: Self) -> Self {
+        Self(self.0 ^ rhs.0)
+    }
+}
+impl core::ops::Not for FanotifyInitFlags {
+    type Output = Self;
+    fn not(self) -> Self {
+        Self(!self.0)
+    }
+}
+impl core::ops::BitOrAssign for FanotifyInitFlags {
+    fn bitor_assign(&mut self, rhs: Self) {
+        self.0 |= rhs.0;
+    }
+}
+impl core::ops::BitAndAssign for FanotifyInitFlags {
+    fn bitand_assign(&mut self, rhs: Self) {
+        self.0 &= rhs.0;
+    }
+}
+impl core::ops::BitXorAssign for FanotifyInitFlags {
+    fn bitxor_assign(&mut self, rhs: Self) {
+        self.0 ^= rhs.0;
+    }
+}
+
+impl GuestLayout for FanotifyInitFlags {
+    const SIZE: usize = <u32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// `fanotify_mark` flags (`FAN_MARK_*`).
+///
+/// C: `unsigned`
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct FanotifyMarkFlags(pub u32);
+impl FanotifyMarkFlags {
+    pub const FAN_MARK_INODE: Self = Self(0x0);
+    pub const FAN_MARK_ADD: Self = Self(0x1);
+    pub const FAN_MARK_REMOVE: Self = Self(0x2);
+    pub const FAN_MARK_DONT_FOLLOW: Self = Self(0x4);
+    pub const FAN_MARK_ONLYDIR: Self = Self(0x8);
+    pub const FAN_MARK_MOUNT: Self = Self(0x10);
+    pub const FAN_MARK_IGNORED_MASK: Self = Self(0x20);
+    pub const FAN_MARK_IGNORED_SURV_MODIFY: Self = Self(0x40);
+    pub const FAN_MARK_FLUSH: Self = Self(0x80);
+    pub const FAN_MARK_FILESYSTEM: Self = Self(0x100);
+    pub const FAN_MARK_MNTNS: Self = Self(0x110);
+    pub const FAN_MARK_EVICTABLE: Self = Self(0x200);
+    pub const FAN_MARK_IGNORE: Self = Self(0x400);
+    pub const FAN_MARK_IGNORE_SURV: Self = Self(0x440);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("FAN_MARK_INODE", Self::FAN_MARK_INODE),
+        ("FAN_MARK_ADD", Self::FAN_MARK_ADD),
+        ("FAN_MARK_REMOVE", Self::FAN_MARK_REMOVE),
+        ("FAN_MARK_DONT_FOLLOW", Self::FAN_MARK_DONT_FOLLOW),
+        ("FAN_MARK_ONLYDIR", Self::FAN_MARK_ONLYDIR),
+        ("FAN_MARK_MOUNT", Self::FAN_MARK_MOUNT),
+        ("FAN_MARK_IGNORED_MASK", Self::FAN_MARK_IGNORED_MASK),
+        (
+            "FAN_MARK_IGNORED_SURV_MODIFY",
+            Self::FAN_MARK_IGNORED_SURV_MODIFY,
+        ),
+        ("FAN_MARK_FLUSH", Self::FAN_MARK_FLUSH),
+        ("FAN_MARK_FILESYSTEM", Self::FAN_MARK_FILESYSTEM),
+        ("FAN_MARK_MNTNS", Self::FAN_MARK_MNTNS),
+        ("FAN_MARK_EVICTABLE", Self::FAN_MARK_EVICTABLE),
+        ("FAN_MARK_IGNORE", Self::FAN_MARK_IGNORE),
+        ("FAN_MARK_IGNORE_SURV", Self::FAN_MARK_IGNORE_SURV),
+    ];
+
+    pub const fn empty() -> Self {
+        Self(0)
+    }
+    pub const fn bits(self) -> u32 {
+        self.0
+    }
+    pub const fn is_empty(self) -> bool {
+        self.0 == 0
+    }
+    /// Whether all bits of `other` are set.
+    pub const fn contains(self, other: Self) -> bool {
+        self.0 & other.0 == other.0
+    }
+    /// Whether any bit of `other` is set.
+    pub const fn intersects(self, other: Self) -> bool {
+        self.0 & other.0 != 0
+    }
+}
+
+impl fmt::Debug for FanotifyMarkFlags {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("FanotifyMarkFlags(")?;
+        let mut rest = self.0;
+        let mut first = true;
+        for (name, flag) in Self::MEMBERS {
+            if flag.0 != 0 && self.contains(*flag) && rest & flag.0 != 0 {
+                if !first {
+                    f.write_str(" | ")?;
+                }
+                f.write_str(name)?;
+                first = false;
+                rest &= !flag.0;
+            }
+        }
+        if rest != 0 || first {
+            if !first {
+                f.write_str(" | ")?;
+            }
+            write!(f, "{rest:#x}")?;
+        }
+        f.write_str(")")
+    }
+}
+impl core::ops::BitOr for FanotifyMarkFlags {
+    type Output = Self;
+    fn bitor(self, rhs: Self) -> Self {
+        Self(self.0 | rhs.0)
+    }
+}
+impl core::ops::BitAnd for FanotifyMarkFlags {
+    type Output = Self;
+    fn bitand(self, rhs: Self) -> Self {
+        Self(self.0 & rhs.0)
+    }
+}
+impl core::ops::BitXor for FanotifyMarkFlags {
+    type Output = Self;
+    fn bitxor(self, rhs: Self) -> Self {
+        Self(self.0 ^ rhs.0)
+    }
+}
+impl core::ops::Not for FanotifyMarkFlags {
+    type Output = Self;
+    fn not(self) -> Self {
+        Self(!self.0)
+    }
+}
+impl core::ops::BitOrAssign for FanotifyMarkFlags {
+    fn bitor_assign(&mut self, rhs: Self) {
+        self.0 |= rhs.0;
+    }
+}
+impl core::ops::BitAndAssign for FanotifyMarkFlags {
+    fn bitand_assign(&mut self, rhs: Self) {
+        self.0 &= rhs.0;
+    }
+}
+impl core::ops::BitXorAssign for FanotifyMarkFlags {
+    fn bitxor_assign(&mut self, rhs: Self) {
+        self.0 ^= rhs.0;
+    }
+}
+
+impl GuestLayout for FanotifyMarkFlags {
+    const SIZE: usize = <u32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// fanotify event bits of a mark's mask and of `fanotify-event-metadata.mask` (`FAN_*`).
+///
+/// C: `uint64_t`
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct FanotifyMask(pub u64);
+impl FanotifyMask {
+    pub const FAN_ACCESS: Self = Self(0x1);
+    pub const FAN_MODIFY: Self = Self(0x2);
+    pub const FAN_ATTRIB: Self = Self(0x4);
+    pub const FAN_CLOSE_WRITE: Self = Self(0x8);
+    pub const FAN_CLOSE_NOWRITE: Self = Self(0x10);
+    pub const FAN_CLOSE: Self = Self(0x18);
+    pub const FAN_OPEN: Self = Self(0x20);
+    pub const FAN_MOVED_FROM: Self = Self(0x40);
+    pub const FAN_MOVED_TO: Self = Self(0x80);
+    pub const FAN_MOVE: Self = Self(0xc0);
+    pub const FAN_CREATE: Self = Self(0x100);
+    pub const FAN_DELETE: Self = Self(0x200);
+    pub const FAN_DELETE_SELF: Self = Self(0x400);
+    pub const FAN_MOVE_SELF: Self = Self(0x800);
+    pub const FAN_OPEN_EXEC: Self = Self(0x1000);
+    pub const FAN_Q_OVERFLOW: Self = Self(0x4000);
+    pub const FAN_FS_ERROR: Self = Self(0x8000);
+    pub const FAN_OPEN_PERM: Self = Self(0x10000);
+    pub const FAN_ACCESS_PERM: Self = Self(0x20000);
+    pub const FAN_OPEN_EXEC_PERM: Self = Self(0x40000);
+    pub const FAN_PRE_ACCESS: Self = Self(0x100000);
+    pub const FAN_MNT_ATTACH: Self = Self(0x1000000);
+    pub const FAN_MNT_DETACH: Self = Self(0x2000000);
+    pub const FAN_EVENT_ON_CHILD: Self = Self(0x8000000);
+    pub const FAN_RENAME: Self = Self(0x10000000);
+    pub const FAN_ONDIR: Self = Self(0x40000000);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("FAN_ACCESS", Self::FAN_ACCESS),
+        ("FAN_MODIFY", Self::FAN_MODIFY),
+        ("FAN_ATTRIB", Self::FAN_ATTRIB),
+        ("FAN_CLOSE_WRITE", Self::FAN_CLOSE_WRITE),
+        ("FAN_CLOSE_NOWRITE", Self::FAN_CLOSE_NOWRITE),
+        ("FAN_CLOSE", Self::FAN_CLOSE),
+        ("FAN_OPEN", Self::FAN_OPEN),
+        ("FAN_MOVED_FROM", Self::FAN_MOVED_FROM),
+        ("FAN_MOVED_TO", Self::FAN_MOVED_TO),
+        ("FAN_MOVE", Self::FAN_MOVE),
+        ("FAN_CREATE", Self::FAN_CREATE),
+        ("FAN_DELETE", Self::FAN_DELETE),
+        ("FAN_DELETE_SELF", Self::FAN_DELETE_SELF),
+        ("FAN_MOVE_SELF", Self::FAN_MOVE_SELF),
+        ("FAN_OPEN_EXEC", Self::FAN_OPEN_EXEC),
+        ("FAN_Q_OVERFLOW", Self::FAN_Q_OVERFLOW),
+        ("FAN_FS_ERROR", Self::FAN_FS_ERROR),
+        ("FAN_OPEN_PERM", Self::FAN_OPEN_PERM),
+        ("FAN_ACCESS_PERM", Self::FAN_ACCESS_PERM),
+        ("FAN_OPEN_EXEC_PERM", Self::FAN_OPEN_EXEC_PERM),
+        ("FAN_PRE_ACCESS", Self::FAN_PRE_ACCESS),
+        ("FAN_MNT_ATTACH", Self::FAN_MNT_ATTACH),
+        ("FAN_MNT_DETACH", Self::FAN_MNT_DETACH),
+        ("FAN_EVENT_ON_CHILD", Self::FAN_EVENT_ON_CHILD),
+        ("FAN_RENAME", Self::FAN_RENAME),
+        ("FAN_ONDIR", Self::FAN_ONDIR),
+    ];
+
+    pub const fn empty() -> Self {
+        Self(0)
+    }
+    pub const fn bits(self) -> u64 {
+        self.0
+    }
+    pub const fn is_empty(self) -> bool {
+        self.0 == 0
+    }
+    /// Whether all bits of `other` are set.
+    pub const fn contains(self, other: Self) -> bool {
+        self.0 & other.0 == other.0
+    }
+    /// Whether any bit of `other` is set.
+    pub const fn intersects(self, other: Self) -> bool {
+        self.0 & other.0 != 0
+    }
+}
+
+impl fmt::Debug for FanotifyMask {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("FanotifyMask(")?;
+        let mut rest = self.0;
+        let mut first = true;
+        for (name, flag) in Self::MEMBERS {
+            if flag.0 != 0 && self.contains(*flag) && rest & flag.0 != 0 {
+                if !first {
+                    f.write_str(" | ")?;
+                }
+                f.write_str(name)?;
+                first = false;
+                rest &= !flag.0;
+            }
+        }
+        if rest != 0 || first {
+            if !first {
+                f.write_str(" | ")?;
+            }
+            write!(f, "{rest:#x}")?;
+        }
+        f.write_str(")")
+    }
+}
+impl core::ops::BitOr for FanotifyMask {
+    type Output = Self;
+    fn bitor(self, rhs: Self) -> Self {
+        Self(self.0 | rhs.0)
+    }
+}
+impl core::ops::BitAnd for FanotifyMask {
+    type Output = Self;
+    fn bitand(self, rhs: Self) -> Self {
+        Self(self.0 & rhs.0)
+    }
+}
+impl core::ops::BitXor for FanotifyMask {
+    type Output = Self;
+    fn bitxor(self, rhs: Self) -> Self {
+        Self(self.0 ^ rhs.0)
+    }
+}
+impl core::ops::Not for FanotifyMask {
+    type Output = Self;
+    fn not(self) -> Self {
+        Self(!self.0)
+    }
+}
+impl core::ops::BitOrAssign for FanotifyMask {
+    fn bitor_assign(&mut self, rhs: Self) {
+        self.0 |= rhs.0;
+    }
+}
+impl core::ops::BitAndAssign for FanotifyMask {
+    fn bitand_assign(&mut self, rhs: Self) {
+        self.0 &= rhs.0;
+    }
+}
+impl core::ops::BitXorAssign for FanotifyMask {
+    fn bitxor_assign(&mut self, rhs: Self) {
+        self.0 ^= rhs.0;
+    }
+}
+
+impl GuestLayout for FanotifyMask {
+    const SIZE: usize = <u64 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u64 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u64 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// fanotify constants: the metadata version, permission responses, the special
+/// descriptor values and the information record types (`linux/fanotify.h`).
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct FanotifyMisc(pub i32);
+impl FanotifyMisc {
+    /// `FAN_EPIDFD`: the pidfd of a process that is gone.
+    pub const FAN_EPIDFD: Self = Self(-2);
+    /// `FAN_NOFD`: an event without a descriptor (FID reporting, overflow).
+    pub const FAN_NOFD: Self = Self(-1);
+    pub const FAN_NOPIDFD: Self = Self(-1);
+    pub const FAN_RESPONSE_INFO_NONE: Self = Self(0);
+    pub const FAN_ALLOW: Self = Self(1);
+    pub const FAN_EVENT_INFO_TYPE_FID: Self = Self(1);
+    pub const FAN_RESPONSE_INFO_AUDIT_RULE: Self = Self(1);
+    pub const FAN_DENY: Self = Self(2);
+    pub const FAN_EVENT_INFO_TYPE_DFID_NAME: Self = Self(2);
+    pub const FAN_EVENT_INFO_TYPE_DFID: Self = Self(3);
+    pub const FANOTIFY_METADATA_VERSION: Self = Self(3);
+    pub const FAN_EVENT_INFO_TYPE_PIDFD: Self = Self(4);
+    pub const FAN_EVENT_INFO_TYPE_ERROR: Self = Self(5);
+    pub const FAN_EVENT_INFO_TYPE_RANGE: Self = Self(6);
+    pub const FAN_EVENT_INFO_TYPE_MNT: Self = Self(7);
+    pub const FAN_ERRNO_BITS: Self = Self(8);
+    pub const FAN_EVENT_INFO_TYPE_OLD_DFID_NAME: Self = Self(10);
+    pub const FAN_EVENT_INFO_TYPE_NEW_DFID_NAME: Self = Self(12);
+    pub const FAN_AUDIT: Self = Self(16);
+    pub const FAN_ERRNO_SHIFT: Self = Self(24);
+    pub const FAN_INFO: Self = Self(32);
+    pub const FAN_ERRNO_MASK: Self = Self(255);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("FAN_EPIDFD", Self::FAN_EPIDFD),
+        ("FAN_NOFD", Self::FAN_NOFD),
+        ("FAN_NOPIDFD", Self::FAN_NOPIDFD),
+        ("FAN_RESPONSE_INFO_NONE", Self::FAN_RESPONSE_INFO_NONE),
+        ("FAN_ALLOW", Self::FAN_ALLOW),
+        ("FAN_EVENT_INFO_TYPE_FID", Self::FAN_EVENT_INFO_TYPE_FID),
+        (
+            "FAN_RESPONSE_INFO_AUDIT_RULE",
+            Self::FAN_RESPONSE_INFO_AUDIT_RULE,
+        ),
+        ("FAN_DENY", Self::FAN_DENY),
+        (
+            "FAN_EVENT_INFO_TYPE_DFID_NAME",
+            Self::FAN_EVENT_INFO_TYPE_DFID_NAME,
+        ),
+        ("FAN_EVENT_INFO_TYPE_DFID", Self::FAN_EVENT_INFO_TYPE_DFID),
+        ("FANOTIFY_METADATA_VERSION", Self::FANOTIFY_METADATA_VERSION),
+        ("FAN_EVENT_INFO_TYPE_PIDFD", Self::FAN_EVENT_INFO_TYPE_PIDFD),
+        ("FAN_EVENT_INFO_TYPE_ERROR", Self::FAN_EVENT_INFO_TYPE_ERROR),
+        ("FAN_EVENT_INFO_TYPE_RANGE", Self::FAN_EVENT_INFO_TYPE_RANGE),
+        ("FAN_EVENT_INFO_TYPE_MNT", Self::FAN_EVENT_INFO_TYPE_MNT),
+        ("FAN_ERRNO_BITS", Self::FAN_ERRNO_BITS),
+        (
+            "FAN_EVENT_INFO_TYPE_OLD_DFID_NAME",
+            Self::FAN_EVENT_INFO_TYPE_OLD_DFID_NAME,
+        ),
+        (
+            "FAN_EVENT_INFO_TYPE_NEW_DFID_NAME",
+            Self::FAN_EVENT_INFO_TYPE_NEW_DFID_NAME,
+        ),
+        ("FAN_AUDIT", Self::FAN_AUDIT),
+        ("FAN_ERRNO_SHIFT", Self::FAN_ERRNO_SHIFT),
+        ("FAN_INFO", Self::FAN_INFO),
+        ("FAN_ERRNO_MASK", Self::FAN_ERRNO_MASK),
+    ];
+    /// Name of the first constant with this value, if any.
+    pub const fn name(self) -> Option<&'static str> {
+        match self.0 {
+            -2 => Some("FAN_EPIDFD"),
+            -1 => Some("FAN_NOFD"),
+            0 => Some("FAN_RESPONSE_INFO_NONE"),
+            1 => Some("FAN_ALLOW"),
+            2 => Some("FAN_DENY"),
+            3 => Some("FAN_EVENT_INFO_TYPE_DFID"),
+            4 => Some("FAN_EVENT_INFO_TYPE_PIDFD"),
+            5 => Some("FAN_EVENT_INFO_TYPE_ERROR"),
+            6 => Some("FAN_EVENT_INFO_TYPE_RANGE"),
+            7 => Some("FAN_EVENT_INFO_TYPE_MNT"),
+            8 => Some("FAN_ERRNO_BITS"),
+            10 => Some("FAN_EVENT_INFO_TYPE_OLD_DFID_NAME"),
+            12 => Some("FAN_EVENT_INFO_TYPE_NEW_DFID_NAME"),
+            16 => Some("FAN_AUDIT"),
+            24 => Some("FAN_ERRNO_SHIFT"),
+            32 => Some("FAN_INFO"),
+            255 => Some("FAN_ERRNO_MASK"),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Debug for FanotifyMisc {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.name() {
+            Some(name) => f.write_str(name),
+            None => write!(f, "FanotifyMisc({})", self.0),
+        }
+    }
+}
+
+impl GuestLayout for FanotifyMisc {
+    const SIZE: usize = <i32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <i32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <i32 as GuestLayout>::read_from(bytes).map(Self)
     }
     fn write_to(&self, out: &mut [u8]) {
         self.0.write_to(out);
@@ -15001,6 +16774,474 @@ impl GuestLayout for Ipv6Mreq {
         self.ipv6mr_ifindex.write_to(&mut out[16..]);
     }
 }
+/// `IP_ADD_SOURCE_MEMBERSHIP`, `IP_DROP_SOURCE_MEMBERSHIP`, `IP_BLOCK_SOURCE` and
+/// `IP_UNBLOCK_SOURCE` payload (`struct ip_mreq_source`).
+///
+/// C: `struct ip_mreq_source`
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct IpMreqSource {
+    pub imr_multiaddr: InAddr,
+    pub imr_interface: InAddr,
+    pub imr_sourceaddr: InAddr,
+}
+const _: () = {
+    assert!(core::mem::size_of::<IpMreqSource>() == 12);
+    assert!(core::mem::align_of::<IpMreqSource>() == 4);
+    assert!(core::mem::offset_of!(IpMreqSource, imr_multiaddr) == 0);
+    assert!(core::mem::offset_of!(IpMreqSource, imr_interface) == 4);
+    assert!(core::mem::offset_of!(IpMreqSource, imr_sourceaddr) == 8);
+};
+impl Default for IpMreqSource {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for IpMreqSource {
+    const SIZE: usize = 12;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        imr_multiaddr: <InAddr as GuestLayout>::ZERO,
+        imr_interface: <InAddr as GuestLayout>::ZERO,
+        imr_sourceaddr: <InAddr as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            imr_multiaddr: GuestLayout::read_from(&bytes[0..])?,
+            imr_interface: GuestLayout::read_from(&bytes[4..])?,
+            imr_sourceaddr: GuestLayout::read_from(&bytes[8..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.imr_multiaddr.write_to(&mut out[0..]);
+        self.imr_interface.write_to(&mut out[4..]);
+        self.imr_sourceaddr.write_to(&mut out[8..]);
+    }
+}
+/// `IP_MSFILTER` payload (`struct ip_msfilter`): `imsf-numsrc` sources follow from offset 16
+/// (`IP_MSFILTER_SIZE`); the kernel's flexible array shares `imsf-slist`'s place.
+///
+/// C: `struct ip_msfilter`
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct IpMsfilter {
+    pub imsf_multiaddr: InAddr,
+    pub imsf_interface: InAddr,
+    /// `MCAST_INCLUDE` (1) or `MCAST_EXCLUDE` (0).
+    pub imsf_fmode: u32,
+    pub imsf_numsrc: u32,
+    pub imsf_slist: [InAddr; 1],
+}
+const _: () = {
+    assert!(core::mem::size_of::<IpMsfilter>() == 20);
+    assert!(core::mem::align_of::<IpMsfilter>() == 4);
+    assert!(core::mem::offset_of!(IpMsfilter, imsf_multiaddr) == 0);
+    assert!(core::mem::offset_of!(IpMsfilter, imsf_interface) == 4);
+    assert!(core::mem::offset_of!(IpMsfilter, imsf_fmode) == 8);
+    assert!(core::mem::offset_of!(IpMsfilter, imsf_numsrc) == 12);
+    assert!(core::mem::offset_of!(IpMsfilter, imsf_slist) == 16);
+};
+impl Default for IpMsfilter {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for IpMsfilter {
+    const SIZE: usize = 20;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        imsf_multiaddr: <InAddr as GuestLayout>::ZERO,
+        imsf_interface: <InAddr as GuestLayout>::ZERO,
+        imsf_fmode: <u32 as GuestLayout>::ZERO,
+        imsf_numsrc: <u32 as GuestLayout>::ZERO,
+        imsf_slist: <[InAddr; 1] as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            imsf_multiaddr: GuestLayout::read_from(&bytes[0..])?,
+            imsf_interface: GuestLayout::read_from(&bytes[4..])?,
+            imsf_fmode: GuestLayout::read_from(&bytes[8..])?,
+            imsf_numsrc: GuestLayout::read_from(&bytes[12..])?,
+            imsf_slist: GuestLayout::read_from(&bytes[16..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.imsf_multiaddr.write_to(&mut out[0..]);
+        self.imsf_interface.write_to(&mut out[4..]);
+        self.imsf_fmode.write_to(&mut out[8..]);
+        self.imsf_numsrc.write_to(&mut out[12..]);
+        self.imsf_slist.write_to(&mut out[16..]);
+    }
+}
+/// `MCAST_JOIN_GROUP`/`MCAST_LEAVE_GROUP` payload (`struct group_req`).
+///
+/// C: `struct group_req`
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct GroupReq {
+    pub gr_interface: u32,
+    pub gr_group: SockaddrStorage,
+}
+const _: () = {
+    assert!(core::mem::size_of::<GroupReq>() == 132);
+    assert!(core::mem::align_of::<GroupReq>() == 4);
+    assert!(core::mem::offset_of!(GroupReq, gr_interface) == 0);
+    assert!(core::mem::offset_of!(GroupReq, gr_group) == 4);
+};
+impl Default for GroupReq {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for GroupReq {
+    const SIZE: usize = 132;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        gr_interface: <u32 as GuestLayout>::ZERO,
+        gr_group: <SockaddrStorage as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            gr_interface: GuestLayout::read_from(&bytes[0..])?,
+            gr_group: GuestLayout::read_from(&bytes[4..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.gr_interface.write_to(&mut out[0..]);
+        self.gr_group.write_to(&mut out[4..]);
+    }
+}
+/// `MCAST_JOIN_SOURCE_GROUP`, `MCAST_LEAVE_SOURCE_GROUP`, `MCAST_BLOCK_SOURCE` and
+/// `MCAST_UNBLOCK_SOURCE` payload (`struct group_source_req`).
+///
+/// C: `struct group_source_req`
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct GroupSourceReq {
+    pub gsr_interface: u32,
+    pub gsr_group: SockaddrStorage,
+    pub gsr_source: SockaddrStorage,
+}
+const _: () = {
+    assert!(core::mem::size_of::<GroupSourceReq>() == 260);
+    assert!(core::mem::align_of::<GroupSourceReq>() == 4);
+    assert!(core::mem::offset_of!(GroupSourceReq, gsr_interface) == 0);
+    assert!(core::mem::offset_of!(GroupSourceReq, gsr_group) == 4);
+    assert!(core::mem::offset_of!(GroupSourceReq, gsr_source) == 132);
+};
+impl Default for GroupSourceReq {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for GroupSourceReq {
+    const SIZE: usize = 260;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        gsr_interface: <u32 as GuestLayout>::ZERO,
+        gsr_group: <SockaddrStorage as GuestLayout>::ZERO,
+        gsr_source: <SockaddrStorage as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            gsr_interface: GuestLayout::read_from(&bytes[0..])?,
+            gsr_group: GuestLayout::read_from(&bytes[4..])?,
+            gsr_source: GuestLayout::read_from(&bytes[132..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.gsr_interface.write_to(&mut out[0..]);
+        self.gsr_group.write_to(&mut out[4..]);
+        self.gsr_source.write_to(&mut out[132..]);
+    }
+}
+/// `MCAST_MSFILTER` payload (`struct group_filter`): `gf-numsrc` sources follow from offset
+/// 140 (`GROUP_FILTER_SIZE`); the kernel's flexible array shares `gf-slist`'s place.
+///
+/// C: `struct group_filter`
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct GroupFilter {
+    pub gf_interface: u32,
+    pub gf_group: SockaddrStorage,
+    /// `MCAST_INCLUDE` (1) or `MCAST_EXCLUDE` (0).
+    pub gf_fmode: u32,
+    pub gf_numsrc: u32,
+    pub gf_slist: [SockaddrStorage; 1],
+}
+const _: () = {
+    assert!(core::mem::size_of::<GroupFilter>() == 268);
+    assert!(core::mem::align_of::<GroupFilter>() == 4);
+    assert!(core::mem::offset_of!(GroupFilter, gf_interface) == 0);
+    assert!(core::mem::offset_of!(GroupFilter, gf_group) == 4);
+    assert!(core::mem::offset_of!(GroupFilter, gf_fmode) == 132);
+    assert!(core::mem::offset_of!(GroupFilter, gf_numsrc) == 136);
+    assert!(core::mem::offset_of!(GroupFilter, gf_slist) == 140);
+};
+impl Default for GroupFilter {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for GroupFilter {
+    const SIZE: usize = 268;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        gf_interface: <u32 as GuestLayout>::ZERO,
+        gf_group: <SockaddrStorage as GuestLayout>::ZERO,
+        gf_fmode: <u32 as GuestLayout>::ZERO,
+        gf_numsrc: <u32 as GuestLayout>::ZERO,
+        gf_slist: <[SockaddrStorage; 1] as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            gf_interface: GuestLayout::read_from(&bytes[0..])?,
+            gf_group: GuestLayout::read_from(&bytes[4..])?,
+            gf_fmode: GuestLayout::read_from(&bytes[132..])?,
+            gf_numsrc: GuestLayout::read_from(&bytes[136..])?,
+            gf_slist: GuestLayout::read_from(&bytes[140..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.gf_interface.write_to(&mut out[0..]);
+        self.gf_group.write_to(&mut out[4..]);
+        self.gf_fmode.write_to(&mut out[132..]);
+        self.gf_numsrc.write_to(&mut out[136..]);
+        self.gf_slist.write_to(&mut out[140..]);
+    }
+}
+/// `IP_PKTINFO` control message and option payload (`struct in_pktinfo`).
+///
+/// C: `struct in_pktinfo`
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct InPktinfo {
+    pub ipi_ifindex: i32,
+    pub ipi_spec_dst: InAddr,
+    pub ipi_addr: InAddr,
+}
+const _: () = {
+    assert!(core::mem::size_of::<InPktinfo>() == 12);
+    assert!(core::mem::align_of::<InPktinfo>() == 4);
+    assert!(core::mem::offset_of!(InPktinfo, ipi_ifindex) == 0);
+    assert!(core::mem::offset_of!(InPktinfo, ipi_spec_dst) == 4);
+    assert!(core::mem::offset_of!(InPktinfo, ipi_addr) == 8);
+};
+impl Default for InPktinfo {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for InPktinfo {
+    const SIZE: usize = 12;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        ipi_ifindex: <i32 as GuestLayout>::ZERO,
+        ipi_spec_dst: <InAddr as GuestLayout>::ZERO,
+        ipi_addr: <InAddr as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            ipi_ifindex: GuestLayout::read_from(&bytes[0..])?,
+            ipi_spec_dst: GuestLayout::read_from(&bytes[4..])?,
+            ipi_addr: GuestLayout::read_from(&bytes[8..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.ipi_ifindex.write_to(&mut out[0..]);
+        self.ipi_spec_dst.write_to(&mut out[4..]);
+        self.ipi_addr.write_to(&mut out[8..]);
+    }
+}
+/// `IPV6_PKTINFO` control message and option payload (`struct in6_pktinfo`).
+///
+/// C: `struct in6_pktinfo`
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct In6Pktinfo {
+    pub ipi6_addr: In6Addr,
+    pub ipi6_ifindex: i32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<In6Pktinfo>() == 20);
+    assert!(core::mem::align_of::<In6Pktinfo>() == 4);
+    assert!(core::mem::offset_of!(In6Pktinfo, ipi6_addr) == 0);
+    assert!(core::mem::offset_of!(In6Pktinfo, ipi6_ifindex) == 16);
+};
+impl Default for In6Pktinfo {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for In6Pktinfo {
+    const SIZE: usize = 20;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        ipi6_addr: <In6Addr as GuestLayout>::ZERO,
+        ipi6_ifindex: <i32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            ipi6_addr: GuestLayout::read_from(&bytes[0..])?,
+            ipi6_ifindex: GuestLayout::read_from(&bytes[16..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.ipi6_addr.write_to(&mut out[0..]);
+        self.ipi6_ifindex.write_to(&mut out[16..]);
+    }
+}
+/// `IPV6_PATHMTU` control message and option payload (`struct ip6_mtuinfo`).
+///
+/// C: `struct ip6_mtuinfo`
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct Ip6Mtuinfo {
+    pub ip6m_addr: SockaddrIn6,
+    pub ip6m_mtu: u32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<Ip6Mtuinfo>() == 32);
+    assert!(core::mem::align_of::<Ip6Mtuinfo>() == 4);
+    assert!(core::mem::offset_of!(Ip6Mtuinfo, ip6m_addr) == 0);
+    assert!(core::mem::offset_of!(Ip6Mtuinfo, ip6m_mtu) == 28);
+};
+impl Default for Ip6Mtuinfo {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for Ip6Mtuinfo {
+    const SIZE: usize = 32;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        ip6m_addr: <SockaddrIn6 as GuestLayout>::ZERO,
+        ip6m_mtu: <u32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            ip6m_addr: GuestLayout::read_from(&bytes[0..])?,
+            ip6m_mtu: GuestLayout::read_from(&bytes[28..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.ip6m_addr.write_to(&mut out[0..]);
+        self.ip6m_mtu.write_to(&mut out[28..]);
+    }
+}
+/// One classic BPF instruction (`struct sock_filter`, UAPI `linux/filter.h`).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct SockFilter {
+    pub code: u16,
+    pub jt: u8,
+    pub jf: u8,
+    pub k: u32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<SockFilter>() == 8);
+    assert!(core::mem::align_of::<SockFilter>() == 4);
+    assert!(core::mem::offset_of!(SockFilter, code) == 0);
+    assert!(core::mem::offset_of!(SockFilter, jt) == 2);
+    assert!(core::mem::offset_of!(SockFilter, jf) == 3);
+    assert!(core::mem::offset_of!(SockFilter, k) == 4);
+};
+impl Default for SockFilter {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for SockFilter {
+    const SIZE: usize = 8;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        code: <u16 as GuestLayout>::ZERO,
+        jt: <u8 as GuestLayout>::ZERO,
+        jf: <u8 as GuestLayout>::ZERO,
+        k: <u32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            code: GuestLayout::read_from(&bytes[0..])?,
+            jt: GuestLayout::read_from(&bytes[2..])?,
+            jf: GuestLayout::read_from(&bytes[3..])?,
+            k: GuestLayout::read_from(&bytes[4..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.code.write_to(&mut out[0..]);
+        self.jt.write_to(&mut out[2..]);
+        self.jf.write_to(&mut out[3..]);
+        self.k.write_to(&mut out[4..]);
+    }
+}
+/// `SO_ATTACH_FILTER`/`SO_ATTACH_REUSEPORT_CBPF` payload (`struct sock_fprog`, UAPI
+/// `linux/filter.h`): `len` instructions at `filter`.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct SockFprog {
+    pub len: u16,
+    pub filter: ConstSockFilterArray,
+}
+const _: () = {
+    assert!(core::mem::size_of::<SockFprog>() == 8);
+    assert!(core::mem::align_of::<SockFprog>() == 4);
+    assert!(core::mem::offset_of!(SockFprog, len) == 0);
+    assert!(core::mem::offset_of!(SockFprog, filter) == 4);
+};
+impl Default for SockFprog {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for SockFprog {
+    const SIZE: usize = 8;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        len: <u16 as GuestLayout>::ZERO,
+        filter: <ConstSockFilterArray as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            len: GuestLayout::read_from(&bytes[0..])?,
+            filter: GuestLayout::read_from(&bytes[4..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.len.write_to(&mut out[0..]);
+        self.filter.write_to(&mut out[4..]);
+    }
+}
 /// An error-queue entry (`struct sock_extended_err`, UAPI `linux/errqueue.h`): the payload of
 /// the `IP_RECVERR`/`IPV6_RECVERR` control message `recvmsg(MSG_ERRQUEUE)` returns, followed
 /// by the offender's `sockaddr_in`/`sockaddr_in6` (`SO_EE_OFFENDER`). `ee-data` shares its
@@ -19196,7 +21437,13 @@ impl IoctlRequest {
     pub const NS_GET_OWNER_UID: Self = Self(46852);
     pub const TIOCSPTLCK: Self = Self(1074025521);
     pub const TIOCSIG: Self = Self(1074025526);
+    /// `FS_IOC_SETFLAGS` (`_IOW('f', 2, long)`, 32-bit `long`).
+    pub const FS_IOC_SETFLAGS: Self = Self(1074030082);
+    /// `FS_IOC_SETVERSION` (`_IOW('v', 2, long)`).
+    pub const FS_IOC_SETVERSION: Self = Self(1074034178);
     pub const TFD_IOC_SET_TICKS: Self = Self(1074287616);
+    /// `FS_IOC_FSSETXATTR` (`_IOW('X', 32, struct fsxattr)`).
+    pub const FS_IOC_FSSETXATTR: Self = Self(1075599392);
     pub const TCSETS2: Self = Self(1076646955);
     pub const TCSETSW2: Self = Self(1076646956);
     pub const TCSETSF2: Self = Self(1076646957);
@@ -19205,6 +21452,12 @@ impl IoctlRequest {
     pub const TIOCGPKT: Self = Self(2147767352);
     pub const TIOCGPTLCK: Self = Self(2147767353);
     pub const TIOCGEXCL: Self = Self(2147767360);
+    /// `FS_IOC_GETFLAGS` (`_IOR('f', 1, long)`, 32-bit `long`).
+    pub const FS_IOC_GETFLAGS: Self = Self(2147771905);
+    /// `FS_IOC_GETVERSION` (`_IOR('v', 1, long)`): the inode's generation.
+    pub const FS_IOC_GETVERSION: Self = Self(2147776001);
+    /// `FS_IOC_FSGETXATTR` (`_IOR('X', 31, struct fsxattr)`).
+    pub const FS_IOC_FSGETXATTR: Self = Self(2149341215);
     pub const TCGETS2: Self = Self(2150388778);
     /// `_IOWR(PIDFS_IOCTL_MAGIC, 11, struct pidfd_info)` with the 88-byte `pidfd-info`
     /// (`PIDFD_INFO_SIZE_VER3`). It is an extensible request: the kernel takes the same type and
@@ -19364,7 +21617,10 @@ impl IoctlRequest {
         ("NS_GET_OWNER_UID", Self::NS_GET_OWNER_UID),
         ("TIOCSPTLCK", Self::TIOCSPTLCK),
         ("TIOCSIG", Self::TIOCSIG),
+        ("FS_IOC_SETFLAGS", Self::FS_IOC_SETFLAGS),
+        ("FS_IOC_SETVERSION", Self::FS_IOC_SETVERSION),
         ("TFD_IOC_SET_TICKS", Self::TFD_IOC_SET_TICKS),
+        ("FS_IOC_FSSETXATTR", Self::FS_IOC_FSSETXATTR),
         ("TCSETS2", Self::TCSETS2),
         ("TCSETSW2", Self::TCSETSW2),
         ("TCSETSF2", Self::TCSETSF2),
@@ -19373,6 +21629,9 @@ impl IoctlRequest {
         ("TIOCGPKT", Self::TIOCGPKT),
         ("TIOCGPTLCK", Self::TIOCGPTLCK),
         ("TIOCGEXCL", Self::TIOCGEXCL),
+        ("FS_IOC_GETFLAGS", Self::FS_IOC_GETFLAGS),
+        ("FS_IOC_GETVERSION", Self::FS_IOC_GETVERSION),
+        ("FS_IOC_FSGETXATTR", Self::FS_IOC_FSGETXATTR),
         ("TCGETS2", Self::TCGETS2),
         ("PIDFD_GET_INFO", Self::PIDFD_GET_INFO),
     ];
@@ -19529,7 +21788,10 @@ impl IoctlRequest {
             46852 => Some("NS_GET_OWNER_UID"),
             1074025521 => Some("TIOCSPTLCK"),
             1074025526 => Some("TIOCSIG"),
+            1074030082 => Some("FS_IOC_SETFLAGS"),
+            1074034178 => Some("FS_IOC_SETVERSION"),
             1074287616 => Some("TFD_IOC_SET_TICKS"),
+            1075599392 => Some("FS_IOC_FSSETXATTR"),
             1076646955 => Some("TCSETS2"),
             1076646956 => Some("TCSETSW2"),
             1076646957 => Some("TCSETSF2"),
@@ -19538,6 +21800,9 @@ impl IoctlRequest {
             2147767352 => Some("TIOCGPKT"),
             2147767353 => Some("TIOCGPTLCK"),
             2147767360 => Some("TIOCGEXCL"),
+            2147771905 => Some("FS_IOC_GETFLAGS"),
+            2147776001 => Some("FS_IOC_GETVERSION"),
+            2149341215 => Some("FS_IOC_FSGETXATTR"),
             2150388778 => Some("TCGETS2"),
             3227057931 => Some("PIDFD_GET_INFO"),
             _ => None,
