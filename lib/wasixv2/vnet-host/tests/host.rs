@@ -52,6 +52,7 @@ fn send(s: &dyn Socket, data: &[u8], to: Option<SocketAddr>) -> Result<usize, Er
         flags: MsgFlags(0),
         control: &[],
         net_raw: false,
+        now: std::time::Duration::ZERO,
     })
 }
 

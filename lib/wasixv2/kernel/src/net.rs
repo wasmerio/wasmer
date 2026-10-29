@@ -519,6 +519,7 @@ impl Kernel {
                         flags,
                         control: if sent == 0 { &control } else { &[] },
                         net_raw,
+                        now: self.host.monotonic(),
                     };
                     match sock.send(&mut wait, msg).await {
                         Ok(k) => {

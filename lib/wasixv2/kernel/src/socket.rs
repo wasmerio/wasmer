@@ -261,9 +261,13 @@ impl SocketFile {
                 flags,
                 ..msg
             };
+            // Each attempt is made at its own time, after whatever wait came before it.
             match wait
                 .wait(WaitOn::Object(&**socket), PollMask::WRITABLE, || {
-                    socket.send(part)
+                    socket.send(SendMsg {
+                        now: self.host.monotonic(),
+                        ..part
+                    })
                 })
                 .await
             {
@@ -320,6 +324,7 @@ impl FileObject for SocketFile {
             flags: MsgFlags(0),
             control: &[],
             net_raw: false,
+            now: self.host.monotonic(),
         };
         Box::pin(async move {
             let mut wait = self.blocking(io, SND, MsgFlags(0));

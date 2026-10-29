@@ -14,6 +14,7 @@ mod mcast;
 mod net;
 pub mod opts;
 pub mod ports;
+mod ratelimit;
 mod stream;
 mod sync;
 mod tcp;
@@ -30,6 +31,7 @@ pub use api::{
 };
 pub use icmp::IcmpSocket;
 pub use net::{MovedLink, Net, NetConfig, Rtnl, Uplink, move_link, rtnl};
+pub use ratelimit::IcmpLimit;
 pub use tcp::TcpSocket;
 pub use udp::UdpSocket;
 pub use wasixv2_wait::{PollMask, PollTable, Pollable, WaitQueue};

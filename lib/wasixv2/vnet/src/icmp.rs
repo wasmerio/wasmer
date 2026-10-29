@@ -23,6 +23,7 @@ use std::{
         Arc, Mutex, MutexGuard, Weak,
         atomic::{AtomicU64, Ordering},
     },
+    time::Duration,
 };
 
 use wasixv2_abi::{Errno, IpOption, Ipv6Option, MsgFlags, SoEeOrigin, SocketLevel, SocketOption};
@@ -38,6 +39,7 @@ use crate::{
     net::{IpPath, Net},
     opts::{SockOpts, read_int, write_bytes, write_int},
     ports::SockId,
+    ratelimit::{Cause, IcmpLimit, Limits, Outgoing},
     sync::MutexExt,
     udp::error_result,
 };
@@ -106,7 +108,7 @@ pub(crate) struct Back {
 }
 
 /// The ICMP state of a namespace: its ping sockets by identifier (`ping_table`), its raw ICMP
-/// sockets, and the sysctls the kernel's ICMP heeds.
+/// sockets, and the sysctls the kernel's ICMP heeds, rate limits among them.
 #[derive(Debug)]
 pub(crate) struct IcmpTables {
     /// (identifier, socket, `SO_REUSEADDR`, socket), oldest first.
@@ -122,6 +124,7 @@ pub(crate) struct IcmpTables {
     pub echo_ignore_multicast6: bool,
     /// The identification of the next IPv4 header made up for a raw socket.
     ip_id: u16,
+    pub limits: Limits,
 }
 
 impl Default for IcmpTables {
@@ -135,6 +138,7 @@ impl Default for IcmpTables {
             echo_ignore_all6: false,
             echo_ignore_multicast6: false,
             ip_id: 1,
+            limits: Limits::default(),
         }
     }
 }
@@ -484,8 +488,8 @@ fn parse_error(msg: &IcmpMsg) -> Option<Quoted<'_>> {
 
 impl Net {
     /// An ICMP message arrived on interface `iif` from the namespace `back` names
-    /// (`icmp_rcv`, `icmpv6_rcv`).
-    pub(crate) fn icmp_input(&self, msg: IcmpMsg, iif: u32, back: Back) {
+    /// (`icmp_rcv`, `icmpv6_rcv`), at `now` on the kernel's monotonic clock.
+    pub(crate) fn icmp_input(&self, msg: IcmpMsg, iif: u32, back: Back, now: Duration) {
         let raws: Vec<_> = {
             let mut st = self.state();
             st.icmp.raw.retain(|w| w.strong_count() > 0);
@@ -495,7 +499,7 @@ impl Net {
         // received from another namespace.
         let pkttype = match msg.dst.is_multicast() {
             false => PACKET_HOST,
-            true if std::ptr::eq(Arc::as_ptr(&back.net), self) => PACKET_LOOPBACK,
+            true if self.is(&back.net) => PACKET_LOOPBACK,
             true => PACKET_MULTICAST,
         };
         for raw in raws.iter().filter_map(Weak::upgrade) {
@@ -506,7 +510,9 @@ impl Net {
         }
         let v6 = msg.dst.is_ipv6();
         match (v6, msg.data[0]) {
-            (false, ICMP_ECHO) | (true, ICMPV6_ECHO_REQUEST) => self.icmp_echo(&msg, iif, back),
+            (false, ICMP_ECHO) | (true, ICMPV6_ECHO_REQUEST) => {
+                self.icmp_echo(&msg, iif, back, now)
+            }
             // `icmp_rcv` drops everything but echoes sent to a group.
             _ if !v6 && msg.dst.is_multicast() => {}
             (false, ICMP_ECHOREPLY) | (true, ICMPV6_ECHO_REPLY) => self.ping_input(&msg, iif),
@@ -522,10 +528,15 @@ impl Net {
     /// the address it was sent to, or for a group from an address of the interface it
     /// arrived on. IPv4 heeds `icmp_echo_ignore_all` and, for a group,
     /// `icmp_echo_ignore_broadcasts`; IPv6 `echo_ignore_all` and, for a group,
-    /// `echo_ignore_multicast` (`icmpv6_rcv`).
-    fn icmp_echo(&self, msg: &IcmpMsg, iif: u32, back: Back) {
+    /// `echo_ignore_multicast` (`icmpv6_rcv`). Then the rate limits apply (`icmp_reply`,
+    /// `icmpv6_echo_reply`).
+    fn icmp_echo(&self, msg: &IcmpMsg, iif: u32, back: Back, now: Duration) {
+        let type_ = match msg.dst {
+            IpAddr::V4(_) => ICMP_ECHOREPLY,
+            IpAddr::V6(_) => ICMPV6_ECHO_REPLY,
+        };
         let src = {
-            let st = self.state();
+            let mut st = self.state();
             let group = msg.dst.is_multicast();
             let ignored = match msg.dst {
                 IpAddr::V4(_) => {
@@ -535,7 +546,16 @@ impl Net {
                     st.icmp.echo_ignore_all6 || (group && st.icmp.echo_ignore_multicast6)
                 }
             };
-            if ignored {
+            let reply = Outgoing {
+                v6: msg.dst.is_ipv6(),
+                type_,
+                code: 0,
+                cause: Cause::Echo,
+                dst: msg.src,
+                in_loopback: iif == LOOPBACK_INDEX,
+                out_loopback: self.is(&back.net),
+            };
+            if ignored || !st.icmp.limits.allow(&reply, now) {
                 return;
             }
             match msg.dst.is_multicast() {
@@ -547,10 +567,7 @@ impl Net {
             return;
         };
         let mut data = msg.data.clone();
-        data[0] = match msg.dst {
-            IpAddr::V4(_) => ICMP_ECHOREPLY,
-            IpAddr::V6(_) => ICMPV6_ECHO_REPLY,
-        };
+        data[0] = type_;
         set_checksum(src, msg.src, &mut data, 2);
         let reply = IcmpMsg {
             src,
@@ -562,7 +579,32 @@ impl Net {
             net: self.arc(),
             iif,
         };
-        back.net.icmp_input(reply, back.iif, me);
+        back.net.icmp_input(reply, back.iif, me, now);
+    }
+
+    /// Whether `net` is this namespace, where a message goes through loopback.
+    fn is(&self, net: &Arc<Net>) -> bool {
+        std::ptr::eq(Arc::as_ptr(net), self)
+    }
+
+    /// Whether the rate limits let an error about a packet go (`__icmp_send`, `icmp6_send`).
+    fn error_allowed(
+        &self,
+        msg: &IcmpMsg,
+        in_loopback: bool,
+        out_loopback: bool,
+        now: Duration,
+    ) -> bool {
+        let out = Outgoing {
+            v6: msg.dst.is_ipv6(),
+            type_: msg.data[0],
+            code: msg.data[1],
+            cause: Cause::Error,
+            dst: msg.dst,
+            in_loopback,
+            out_loopback,
+        };
+        self.state().icmp.limits.allow(&out, now)
     }
 
     /// `ping_rcv`: an echo reply goes to the ping socket its identifier names.
@@ -620,8 +662,8 @@ impl Net {
         }
     }
 
-    /// Sends an ICMP message along `path` (the route a socket looked up).
-    fn icmp_deliver(&self, msg: IcmpMsg, path: IpPath) {
+    /// Sends an ICMP message along `path` (the route a socket looked up) at `now`.
+    fn icmp_deliver(&self, msg: IcmpMsg, path: IpPath, now: Duration) {
         match path {
             IpPath::Local {
                 net, iif, back_iif, ..
@@ -630,7 +672,7 @@ impl Net {
                     net: self.arc(),
                     iif: back_iif,
                 };
-                net.icmp_input(msg, iif, back);
+                net.icmp_input(msg, iif, back, now);
             }
             IpPath::Nowhere {
                 unresolved: true, ..
@@ -639,32 +681,37 @@ impl Net {
                     IpAddr::V4(_) => IPPROTO_ICMP,
                     IpAddr::V6(_) => IPPROTO_ICMPV6,
                 } as u8;
-                self.neighbour_failed(msg.src, msg.dst, proto, &msg.data);
+                self.neighbour_failed(msg.src, msg.dst, proto, &msg.data, now);
             }
             _ => {}
         }
     }
 
-    /// A UDP datagram from `src` to `dst` that no socket of this namespace takes: the port
-    /// unreachable `__udp4_lib_rcv` and `__udp6_lib_rcv` send goes back to the sender's
-    /// namespace.
+    /// A UDP datagram from `src` to `dst` that arrived on `iif` and no socket of this
+    /// namespace takes: the port unreachable `__udp4_lib_rcv` and `__udp6_lib_rcv` send goes
+    /// back to the sender's namespace, as the rate limits allow at `now`.
     pub(crate) fn udp_unreachable(
         &self,
         src: SocketAddr,
         dst: SocketAddr,
         payload: &[u8],
+        iif: u32,
         back: Back,
+        now: Duration,
     ) {
         let (type_, code) = match dst {
             SocketAddr::V4(_) => (ICMP_DEST_UNREACH, ICMP_PORT_UNREACH),
             SocketAddr::V6(_) => (ICMPV6_DEST_UNREACH, ICMPV6_PORT_UNREACH),
         };
         let msg = udp_error(type_, code, dst.ip(), src, dst, payload);
+        if !self.error_allowed(&msg, iif == LOOPBACK_INDEX, self.is(&back.net), now) {
+            return;
+        }
         let me = Back {
             net: self.arc(),
             iif: 0,
         };
-        back.net.icmp_input(msg, back.iif, me);
+        back.net.icmp_input(msg, back.iif, me, now);
     }
 
     /// The namespace's ping and raw ICMP sockets ([`crate::Network::icmp_sockets`]); read
@@ -679,8 +726,17 @@ impl Net {
     /// to `dst` whose next hop no neighbour answers for comes back from the sender's own
     /// address as a host (address) unreachable quoting it, through loopback. Linux sends it
     /// once resolution gives up; here it comes at once. Never about an ICMP error
-    /// (`icmp_pointers[].error`, `is_ineligible`) or to a group.
-    pub(crate) fn neighbour_failed(&self, src: IpAddr, dst: IpAddr, proto: u8, transport: &[u8]) {
+    /// (`icmp_pointers[].error`, `is_ineligible`) or to a group. The packet was on its way
+    /// out another device, so the global rate limit applies at `now`, the destination's not
+    /// (the message goes to this namespace, through loopback).
+    pub(crate) fn neighbour_failed(
+        &self,
+        src: IpAddr,
+        dst: IpAddr,
+        proto: u8,
+        transport: &[u8],
+        now: Duration,
+    ) {
         let v6 = dst.is_ipv6();
         let icmp_error = match (v6, transport.first()) {
             (false, Some(t)) if i32::from(proto) == IPPROTO_ICMP => {
@@ -700,11 +756,19 @@ impl Net {
             true => (ICMPV6_DEST_UNREACH, ICMPV6_ADDR_UNREACH),
         };
         let msg = quote_error(type_, code, src, src, dst, proto, transport);
+        if !self.error_allowed(&msg, false, true, now) {
+            return;
+        }
         let back = Back {
             net: self.arc(),
             iif: LOOPBACK_INDEX,
         };
-        self.icmp_input(msg, LOOPBACK_INDEX, back);
+        self.icmp_input(msg, LOOPBACK_INDEX, back, now);
+    }
+
+    /// One of the rate-limit sysctls ([`IcmpLimit`]).
+    pub(crate) fn set_limit(&self, limit: IcmpLimit) {
+        self.state().icmp.limits.set(limit);
     }
 
     /// One of the echo sysctls ([`EchoIgnore`]).
@@ -1497,7 +1561,7 @@ impl Socket for IcmpSocket {
             let mtu = self.net.mtu_to(dst);
             self.check_mtu(&mut g, dst, mtu, msg.data.len(), ctl.dontfrag)?;
             let ttl = hdr_ttl.or(ctl.ttl).unwrap_or_else(|| self.unicast_ttl(&g));
-            return self.send_unicast(g, data, dst, ttl, ident, path, msg.data.len());
+            return self.send_unicast(g, data, dst, ttl, ident, path, msg.data.len(), msg.now);
         }
         let (mc_oif, mc_src) = g.opts.mc.interface(dst);
         let oif = if oif != 0 { oif } else { mc_oif };
@@ -1528,7 +1592,7 @@ impl Socket for IcmpSocket {
                 net: self.net.clone(),
                 iif: route.oif,
             };
-            net.icmp_input(message.clone(), iif, back);
+            net.icmp_input(message.clone(), iif, back, msg.now);
         }
         Ok(msg.data.len())
     }
@@ -1779,7 +1843,8 @@ impl IcmpSocket {
         Ok(())
     }
 
-    /// A unicast send along `path`, from its source.
+    /// A unicast send along `path`, from its source, of the `len` bytes the guest sent at
+    /// `now`.
     #[allow(clippy::too_many_arguments)]
     fn send_unicast(
         &self,
@@ -1790,6 +1855,7 @@ impl IcmpSocket {
         ident: u16,
         path: IpPath,
         len: usize,
+        now: Duration,
     ) -> NetResult<usize> {
         if let Some(e) = Self::take_err(&mut g) {
             return Err(e);
@@ -1821,7 +1887,7 @@ impl IcmpSocket {
             ttl,
             data,
         };
-        self.net.icmp_deliver(msg, path);
+        self.net.icmp_deliver(msg, path, now);
         Ok(len)
     }
 }
