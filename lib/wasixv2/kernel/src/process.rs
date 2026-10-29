@@ -501,12 +501,27 @@ impl Kernel {
     /// parent's instance no longer counts as running there.
     pub(crate) fn complete_vfork_done(&self, task: TaskId) {
         self.fork_vfork_done(task);
-        let vfork_parent = self.procs.tree.lock_or_recover().end_vfork(task);
+        let Some(parent) = self.procs.tree.lock_or_recover().end_vfork(task) else {
+            return;
+        };
         // A parent gone from the instance waits for nothing.
-        if let Some(parent) = vfork_parent
-            && parent.resumes != Resume::Gone
-        {
+        if parent.resumes != Resume::Gone {
             self.vfork_done(parent.task);
+        }
+        // The instance learns whose it is again, unless the child's exit told it already: a
+        // trap leaves the memory before anything else.
+        self.hand_back(task, parent);
+    }
+
+    /// Queues the [`GuestAction::VforkReturn`] of the vfork child `child`, once: its instance
+    /// goes back to `parent`, or ends with the child if the parent went on elsewhere.
+    pub(crate) fn hand_back(&self, child: TaskId, parent: VforkParent) {
+        let mut state = self.state.lock_or_recover();
+        if let Some(entry) = state.tasks.get_mut(&child)
+            && !entry.work.has_vfork_return()
+        {
+            let unstarted = entry.work.push(GuestAction::VforkReturn { parent, child });
+            debug_assert!(unstarted.is_empty(), "a hand-back starts nothing");
         }
     }
 
