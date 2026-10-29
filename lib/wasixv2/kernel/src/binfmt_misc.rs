@@ -266,7 +266,7 @@ impl BinfmtMisc {
             false => fs.cwd.clone(),
         };
         let target = vfs.lookup(&cx, &start, path, LookupFlags::follow()).await?;
-        if target.dentry.file_type() != FileType::Regular || target.mnt.flags().noexec {
+        if target.dentry.file_type() != FileType::Regular || target.mnt.is_noexec() {
             return Err(Errno::EACCES);
         }
         vfs.permission(&cx, &target, MAY_EXEC).await?;
@@ -530,6 +530,11 @@ impl Drop for MiscFs {
 
 #[async_trait(?Send)]
 impl Filesystem for MiscFs {
+    // fs/binfmt_misc.c bm_fill_super: SB_I_NOEXEC.
+    fn noexec(&self) -> bool {
+        true
+    }
+
     fn info(&self) -> FsInfo {
         FsInfo {
             name: "binfmt_misc",

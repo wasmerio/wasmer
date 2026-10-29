@@ -163,6 +163,10 @@ impl Vfs {
             OpenFlags::O_WRONLY => MAY_WRITE,
             _ => MAY_READ | MAY_WRITE,
         };
+        if flags.contains(FMODE_EXEC) {
+            // fs/exec.c do_open_execat: MAY_EXEC, independent of userspace read access.
+            acc_mode = MAY_EXEC;
+        }
         if flags.contains(OpenFlags::O_TRUNC) {
             acc_mode |= MAY_WRITE;
         }
@@ -465,6 +469,9 @@ impl Vfs {
         flags: OpenFlags,
     ) -> FsResult<()> {
         let cred = cx.cred;
+        if flags.contains(FMODE_EXEC) && path.mnt.is_noexec() {
+            return Err(Errno::EACCES);
+        }
         match path.dentry.file_type() {
             FileType::Symlink => return Err(Errno::ELOOP),
             FileType::Directory => {

@@ -174,6 +174,11 @@ impl Mount {
         MNT_UNIQUE_ID_OFFSET + self.id
     }
 
+    /// fs/exec.c path_noexec: MNT_NOEXEC or immutable SB_I_NOEXEC.
+    pub fn is_noexec(&self) -> bool {
+        self.flags().noexec || self.sb().fs.noexec()
+    }
+
     pub fn sb(&self) -> &Arc<Superblock> {
         self.root.sb()
     }

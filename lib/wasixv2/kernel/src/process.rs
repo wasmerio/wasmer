@@ -238,6 +238,8 @@ struct Binary {
     /// namespace does not map (`bprm_fill_uid`).
     may_setid: bool,
     write_denial: Option<Arc<wasixv2_vfs::ExecAccess>>,
+    /// fs/exec.c would_dump sets BINPRM_FLAGS_ENFORCE_NONDUMP on unreadable files.
+    readable: bool,
     /// Its size when it was opened.
     size: u64,
 }
@@ -1972,7 +1974,7 @@ impl Kernel {
             FileType::Symlink => return Err(Errno::ELOOP.into()),
             _ => return Err(Errno::EACCES.into()),
         }
-        if target.mnt.flags().noexec {
+        if target.mnt.is_noexec() {
             return Err(Errno::EACCES.into());
         }
         self.vfs.permission(&env.cx(), &target, MAY_EXEC).await?;
@@ -2000,7 +2002,13 @@ impl Kernel {
         let may_setid = self.mnt_may_suid(caller.task(), &cred, &target)
             && cred.user_ns.has_uid(owner.0)
             && cred.user_ns.has_gid(owner.1);
+        let readable = self
+            .vfs
+            .permission(&env.cx(), &target, wasixv2_vfs::MAY_READ)
+            .await
+            .is_ok();
         let binary = Binary {
+            readable,
             mode: attr.mode,
             owner,
             may_setid,
@@ -2095,8 +2103,9 @@ impl Kernel {
         // `prepare_exec_creds`: no thread keyring, a new process keyring when asked for.
         cred.keys.process = None;
         self.with_task(task, |t| t.thread_keyring = None);
-        // `begin_new_exec`: an image run with other ids dumps as `fs.suid_dumpable` says.
-        let dumpable = match cred.user.effective == cred.user.real
+        // fs/exec.c:begin_new_exec/would_dump: unreadable or privileged images use suid_dumpable.
+        let readable = binary.readable && executable.as_ref().is_none_or(|(_, file)| file.readable);
+        let dumpable = match readable && cred.user.effective == cred.user.real
             && cred.group.effective == cred.group.real
         {
             true => crate::ident::Dumpable::User,

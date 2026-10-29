@@ -1738,3 +1738,101 @@ fn failed_exec_releases_write_denial_and_successful_reexec_releases_the_old_file
         .is_ok()
     );
 }
+
+#[test]
+fn exec_would_dump_checks_unreadable_native_and_handed_over_binaries() {
+    let (kernel, task, memory) = super::cred::machine_as(0, 0);
+    let caller = Caller::new(task, &memory);
+    install_prog(&kernel, &caller, &memory);
+    let m = Misc {
+        kernel: &kernel,
+        caller: &caller,
+        memory: &memory,
+    };
+    assert_eq!(
+        block_on(kernel.mkdirat(&caller, Fd(-100), m.cstr(0x3000, b"/bm"), 0o755)),
+        Ok(0)
+    );
+    assert_eq!(
+        block_on(kernel.mount(
+            &caller,
+            m.cstr(0x3000, b"binfmt_misc"),
+            m.cstr(0x3100, b"/bm"),
+            m.cstr(0x3200, b"binfmt_misc"),
+            wasixv2_abi::MountFlags(0),
+            wasixv2_abi::ConstVoidPtr::NULL
+        )),
+        Ok(0)
+    );
+    m.write(b"/bm/register", b":unread:E::unread::/prog:O")
+        .unwrap();
+    m.write(b"/binary.unread", b"secret").unwrap();
+    m.write(b"/native", IMAGE).unwrap();
+    assert_eq!(
+        block_on(kernel.fchmodat(&caller, Fd(-100), m.cstr(0x3000, b"/native"), 0o111)),
+        Ok(0)
+    );
+    assert_eq!(
+        block_on(kernel.fchmodat(&caller, Fd(-100), m.cstr(0x3000, b"/binary.unread"), 0o111)),
+        Ok(0)
+    );
+    assert_eq!(block_on(kernel.setresgid(&caller, 1, 1, 1)), Ok(0));
+    assert_eq!(block_on(kernel.setresuid(&caller, 1, 1, 1)), Ok(0));
+    assert_eq!(m.exec(b"/binary.unread", &[b"x"]), Ok(0));
+    let dumpable = || {
+        block_on(kernel.prctl(
+            &caller,
+            wasixv2_abi::PrctlOption::PR_GET_DUMPABLE,
+            0,
+            0,
+            0,
+            0,
+        ))
+    };
+    assert_eq!(dumpable(), Ok(0));
+    // A readable interpreter by itself restores dumpability on the next exec.
+    assert_eq!(m.exec(b"/prog", &[b"prog"]), Ok(0));
+    assert_eq!(dumpable(), Ok(1));
+    assert_eq!(m.exec(b"/native", &[b"native"]), Ok(0));
+    assert_eq!(dumpable(), Ok(0));
+}
+
+#[test]
+fn binfmt_misc_superblock_forbids_execution_even_on_an_exec_mount() {
+    let (kernel, task, memory) = super::cred::machine_as(0, 0);
+    let caller = Caller::new(task, &memory);
+    let m = Misc {
+        kernel: &kernel,
+        caller: &caller,
+        memory: &memory,
+    };
+    assert_eq!(
+        block_on(kernel.mkdirat(&caller, Fd(-100), m.cstr(0x3000, b"/bm"), 0o755)),
+        Ok(0)
+    );
+    assert_eq!(
+        block_on(kernel.mount(
+            &caller,
+            m.cstr(0x3000, b"binfmt_misc"),
+            m.cstr(0x3100, b"/bm"),
+            m.cstr(0x3200, b"binfmt_misc"),
+            wasixv2_abi::MountFlags(0),
+            wasixv2_abi::ConstVoidPtr::NULL
+        )),
+        Ok(0)
+    );
+    let env = kernel.env(&caller);
+    let path = block_on(kernel.vfs.lookup(
+        &env.cx(),
+        &env.fs.root,
+        b"/bm/status",
+        wasixv2_vfs::LookupFlags::follow(),
+    ))
+    .unwrap();
+    assert!(!path.mnt.flags().noexec);
+    assert!(path.mnt.is_noexec());
+    assert_eq!(
+        m.exec(b"/bm/status", &[b"status"]),
+        Err(SysErr::Errno(Errno::EACCES))
+    );
+}

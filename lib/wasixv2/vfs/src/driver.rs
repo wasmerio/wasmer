@@ -61,6 +61,11 @@ pub trait Filesystem: Send + Sync {
         false
     }
 
+    /// `SB_I_NOEXEC`: execution is forbidden regardless of mount flags.
+    fn noexec(&self) -> bool {
+        false
+    }
+
     /// `SB_I_ALLOW_HSM`: pre-content permission events may mediate access to data.
     fn allow_hsm(&self) -> bool {
         false
