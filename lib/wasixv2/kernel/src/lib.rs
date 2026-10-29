@@ -39,6 +39,7 @@ mod socket;
 mod startup;
 mod stdio;
 mod sync;
+mod taint;
 mod thread;
 mod time;
 mod timer;
@@ -136,6 +137,8 @@ pub struct Kernel {
     pseudo: pseudo::Pseudo,
     /// `fs.nr_open`, which every descriptor table reads.
     nr_open: Arc<file::NrOpen>,
+    /// `kernel.tainted`.
+    taint: Arc<taint::Taint>,
     /// The internal shmem filesystem behind `memfd_create` (`shm_mnt`); without one,
     /// `memfd_create` fails with `ENOSYS`.
     shm: Option<Arc<Mount>>,
@@ -281,6 +284,7 @@ impl Kernel {
             ptys: tty::Ptys::new(clock.clone()),
             pseudo: pseudo::Pseudo::new(&vfs, clock),
             nr_open: Arc::default(),
+            taint: Arc::default(),
             sigio: fasync::Sigio::new(jobs.clone(), &timers),
             timers,
             host,

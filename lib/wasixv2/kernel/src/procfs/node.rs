@@ -17,6 +17,7 @@ use crate::{
     file::NrOpen,
     ns::{NetNs, NsKind, NsLink, PidNs, UserNs},
     sync::MutexExt,
+    taint::Taint,
     userns::MapKind,
 };
 
@@ -121,6 +122,7 @@ const STATIC: &[(usize, &str, Static)] = &[
     (13, "overflowuid", Static::File(text::Global::OverflowUid)),
     (13, "overflowgid", Static::File(text::Global::OverflowGid)),
     (13, "cap_last_cap", Static::File(text::Global::CapLastCap)),
+    (13, "tainted", Static::File(text::Global::Tainted)),
 ];
 
 /// `/proc/sys/user/max_*_namespaces` for `kind`.
@@ -718,6 +720,11 @@ impl Node for ProcNode {
                             Some(Write::NsLastPid(pid_ns, may))
                         }
                         text::Global::NrOpen => Some(Write::NrOpen(self.source.nr_open.clone())),
+                        // `proc_taint`: `capable(CAP_SYS_ADMIN)`, of the opener here.
+                        text::Global::Tainted => {
+                            let may = opener.is_none_or(|cred| cred.capable_init(Cap::SysAdmin));
+                            Some(Write::Taint(self.source.taint.clone(), may))
+                        }
                         _ => None,
                     };
                     (data, write)
@@ -856,6 +863,8 @@ enum Write {
     NsLastPid(Arc<PidNs>, bool),
     /// `fs.nr_open`.
     NrOpen(Arc<NrOpen>),
+    /// `kernel.tainted`, if the opener may add flags.
+    Taint(Arc<Taint>, bool),
     /// A value of `/proc/sys/net/ipv4/conf` in the opener's network namespace.
     Devconf(Arc<NetNs>, devinet::Scope, usize),
     /// A map of a user namespace, written with the opener's credentials.
@@ -906,6 +915,8 @@ impl Handle for FileHandle {
             Write::NsLastPid(_, false) => return Err(Errno::EPERM),
             Write::NsLastPid(ns, true) => ns.set_last_pid(sysctl_int(data)?)?,
             Write::NrOpen(nr_open) => nr_open.set(sysctl_int(data)?)?,
+            Write::Taint(_, false) => return Err(Errno::EPERM),
+            Write::Taint(taint, true) => taint.add(sysctl_int(data)?),
             Write::Devconf(net, scope, var) => {
                 let value = sysctl_i32(data)?;
                 net.devconf.lock_or_recover().set(*scope, *var, value)?;

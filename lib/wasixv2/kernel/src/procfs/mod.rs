@@ -34,6 +34,7 @@ use crate::{
     sched::Sched,
     signal::TaskSignals,
     sync::MutexExt,
+    taint::Taint,
 };
 
 /// `PROC_SUPER_MAGIC`.
@@ -61,6 +62,7 @@ impl Kernel {
             filesystems: self.filesystems.clone(),
             mounted: HostClock(self.host.clone()).now(),
             nr_open: self.nr_open.clone(),
+            taint: self.taint.clone(),
         };
         Arc::new(ProcFs {
             source: Arc::new(source),
@@ -132,6 +134,8 @@ struct Source {
     mounted: Timestamp,
     /// `fs.nr_open`.
     nr_open: Arc<NrOpen>,
+    /// `kernel.tainted`.
+    taint: Arc<Taint>,
 }
 
 /// A process as the tree has it.
