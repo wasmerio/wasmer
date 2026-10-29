@@ -289,6 +289,11 @@ struct State {
 pub(crate) use kbuf::Pbuf;
 
 impl Ctx {
+    #[cfg(test)]
+    pub(crate) async fn hold_submit(&self) -> futures_util::lock::MutexGuard<'_, ()> {
+        self.submit.lock().await
+    }
+
     fn read_word(&self, offset: u64) -> u32 {
         let mut word = [0; 4];
         let _ = self.rings.read_at(&mut word, offset);

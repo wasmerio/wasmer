@@ -4491,3 +4491,39 @@ fn review_non_immediate_foreign_copy_faults_without_panicking() {
     assert_eq!(retained.read_sync(0, &mut bytes), Ok(()));
     assert_eq!(bytes, [0; 4]);
 }
+
+#[test]
+fn return_task_work_defers_a_busy_ring_without_blocking() {
+    use futures::FutureExt as _;
+    let m = Machine::new();
+    let ring = m.ring(8, 0);
+    let caller = m.caller();
+    let (r, w) = pipe(&m.kernel, &caller, OpenFlags(0));
+    ring.push(IoUringSqe {
+        addr: BUF.into(),
+        len: 4,
+        ..sqe(READ, r.0, 91)
+    });
+    ring.submit(1).unwrap();
+    while m.kernel.take_pending(m.task).is_some() {}
+    m.memory.put(BUF + 32, b"work");
+    block_on(m.kernel.write(&caller, w, UserSlice::new(BUF + 32, 4))).unwrap();
+    let flag = m.kernel.work_flag(m.task);
+    let deadline = Instant::now() + Duration::from_secs(2);
+    while !flag.is_raised() {
+        assert!(Instant::now() < deadline);
+        std::thread::yield_now();
+    }
+    let ctx = crate::io_uring::ring_of(&m.kernel.file(m.task, ring.fd).unwrap()).unwrap();
+    let held = block_on(ctx.hold_submit());
+    assert!(
+        m.kernel.run_task_work(&caller).now_or_never().is_some(),
+        "return work must not wait behind buffer registration"
+    );
+    assert!(flag.is_raised(), "deferred work must remain visible");
+    assert!(ring.reap().is_empty());
+    drop(held);
+    block_on(m.kernel.run_task_work(&caller));
+    assert_eq!(res(&ring.reap()), [(91, 4)]);
+    assert_eq!(m.memory.get(BUF, 4), b"work");
+}
