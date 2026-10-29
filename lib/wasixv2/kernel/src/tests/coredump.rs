@@ -458,3 +458,55 @@ fn coredump_notes_include_saved_auxv_and_file_vma_offsets_and_names() {
     );
     assert_eq!(&files[44..], b"/mapped file\0/mapped file\0/mapped file\0");
 }
+
+/// fs/coredump.c vma_dump_size omits VM_DONTDUMP bytes; the PT_LOAD
+/// still describes the VMA. Fork inherits the flag, and MADV_DODUMP clears it.
+#[test]
+fn dontdump_ranges_keep_their_addresses_but_omit_core_bytes() {
+    use wasixv2_abi::{MadviseAdvice, MapFlags, ProtFlags};
+    let (kernel, p) = machine();
+    p.set_core_limit(&kernel, u64::MAX);
+    let page = WASM_PAGE_SIZE as u32;
+    let at = block_on(kernel.mmap(
+        &p.caller(),
+        0,
+        3 * page,
+        ProtFlags(3),
+        MapFlags::MAP_PRIVATE | MapFlags::MAP_ANONYMOUS,
+        Fd(-1),
+        0,
+    ))
+    .unwrap();
+    let marker = b"dontdump-secret-marker";
+    put(&p.memory.0, at + page, marker);
+    assert_eq!(
+        block_on(kernel.madvise(&p.caller(), at + page, page, MadviseAdvice::MADV_DONTDUMP)),
+        Ok(0)
+    );
+    let (child, pid) = p.fork(&kernel);
+    // This fixture's general fork helper creates fresh memory. Model exec's
+    // memory copy explicitly so the core actually contains the parent's marker.
+    *child.memory.0.0.borrow_mut() = p.memory.0.0.borrow().clone();
+    child.die_of(&kernel, pid, Signal::SIGABRT);
+    p.reap(&kernel, pid);
+    let core = p.read(&kernel, "/core").unwrap();
+    assert!(!core.windows(marker.len()).any(|w| w == marker));
+    let count = u16::from_le_bytes(core[44..46].try_into().unwrap());
+    assert!((0..count as usize).any(|i| {
+        let h = 52 + i * 32;
+        let word = |n| u32::from_le_bytes(core[h + n..h + n + 4].try_into().unwrap());
+        word(0) == 1 && word(8) == at + page && word(16) == 0 && word(20) == page
+    }));
+    assert_eq!(
+        block_on(kernel.madvise(&p.caller(), at + page, page, MadviseAdvice::MADV_DODUMP)),
+        Ok(0)
+    );
+    let (child, pid) = p.fork(&kernel);
+    // This fixture's general fork helper creates fresh memory. Model exec's
+    // memory copy explicitly so the core actually contains the parent's marker.
+    *child.memory.0.0.borrow_mut() = p.memory.0.0.borrow().clone();
+    child.die_of(&kernel, pid, Signal::SIGABRT);
+    p.reap(&kernel, pid);
+    let core = p.read(&kernel, "/core").unwrap();
+    assert!(core.windows(marker.len()).any(|w| w == marker));
+}
