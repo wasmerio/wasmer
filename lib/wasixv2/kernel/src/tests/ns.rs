@@ -699,6 +699,7 @@ fn networked() -> (Kernel, TaskId, ForkableMemory) {
 }
 
 const STREAM: i32 = 1;
+const DGRAM: i32 = 2;
 
 /// Binds a new TCP socket to 127.0.0.1:`port` and listens on it.
 fn listen_tcp(kernel: &Kernel, caller: &Caller<'_>, port: u16) -> SysResult<Fd> {
@@ -778,13 +779,15 @@ fn a_new_network_namespace_starts_with_loopback_down() {
         errno(listen_tcp(&kernel, &caller, 80)),
         Errno::EADDRNOTAVAIL
     );
-    // An alias names its interface; IFF_LOOPBACK and IFF_RUNNING are the device's own.
+    // On an AF_INET socket an alias stands for its address (`devinet_ioctl`), and lo has
+    // none yet; IFF_LOOPBACK and IFF_RUNNING are the device's own.
     put(&memory.0, 0x400, b"lo:1\0");
     put(&memory.0, 0x410, &IFF_UP.to_le_bytes());
     assert_eq!(
-        ioctl(&kernel, &caller, fd, IoctlRequest::SIOCSIFFLAGS),
-        Ok(0)
+        errno(ioctl(&kernel, &caller, fd, IoctlRequest::SIOCSIFFLAGS)),
+        Errno::EADDRNOTAVAIL
     );
+    assert_eq!(set_lo_flags(&kernel, &caller, fd, IFF_UP), Ok(0));
     assert_eq!(
         lo_flags(&kernel, &caller, fd),
         IFF_UP | IFF_LOOPBACK | IFF_RUNNING
@@ -1069,4 +1072,156 @@ fn proc_sys_net_ipv4_conf_is_the_readers_network_namespace() {
     assert_eq!(read(&child_caller, "lo/tag"), "3\n");
     assert_eq!(read(&caller, "default/tag"), "5\n");
     assert_eq!(read(&caller, "lo/tag"), "1\n");
+}
+
+/// `ifconfig lo:1 10.1.2.3 netmask 255.255.0.0`, `ifconfig lo:1 down`, `ifconfig lo mtu`, and
+/// `ifconfig lo inet6 add` / `del` through the `SIOC*` requests ifconfig makes.
+#[test]
+fn ifconfig_requests_change_addresses() {
+    let (kernel, task, memory) = networked();
+    let caller = Caller::new(task, &memory);
+    let inet = block_on(kernel.socket(&caller, AddressFamily::AF_INET, DGRAM, 0)).unwrap();
+    let inet6 = block_on(kernel.socket(&caller, AddressFamily::AF_INET6, DGRAM, 0)).unwrap();
+    let unix = block_on(kernel.socket(&caller, AddressFamily::AF_UNIX, DGRAM, 0)).unwrap();
+    let ifr = |name: &[u8], ip: [u8; 4]| {
+        let mut raw = [0u8; 32];
+        raw[..name.len()].copy_from_slice(name);
+        raw[16..18].copy_from_slice(&(AddressFamily::AF_INET.0 as u16).to_le_bytes());
+        raw[20..24].copy_from_slice(&ip);
+        put(&memory.0, 0x400, &raw);
+    };
+    let sin_addr = || <[u8; 4]>::try_from(get(&memory.0, 0x414, 4)).unwrap();
+
+    ifr(b"lo:1", [10, 1, 2, 3]);
+    assert_eq!(
+        ioctl(&kernel, &caller, inet, IoctlRequest::SIOCSIFADDR),
+        Ok(0)
+    );
+    assert_eq!(
+        errno(ioctl(&kernel, &caller, unix, IoctlRequest::SIOCSIFADDR)),
+        Errno::ENOTTY
+    );
+    ifr(b"lo:1", [0; 4]);
+    ioctl(&kernel, &caller, inet, IoctlRequest::SIOCGIFNETMASK).unwrap();
+    assert_eq!(sin_addr(), [255, 0, 0, 0], "classful");
+    ifr(b"lo:1", [255, 0, 255, 0]);
+    assert_eq!(
+        errno(ioctl(&kernel, &caller, inet, IoctlRequest::SIOCSIFNETMASK)),
+        Errno::EINVAL
+    );
+    ifr(b"lo:1", [255, 255, 0, 0]);
+    assert_eq!(
+        ioctl(&kernel, &caller, inet, IoctlRequest::SIOCSIFNETMASK),
+        Ok(0)
+    );
+    ifr(b"lo:1", [0; 4]);
+    ioctl(&kernel, &caller, inet, IoctlRequest::SIOCGIFADDR).unwrap();
+    assert_eq!(sin_addr(), [10, 1, 2, 3]);
+    ioctl(&kernel, &caller, inet, IoctlRequest::SIOCGIFNETMASK).unwrap();
+    assert_eq!(sin_addr(), [255, 255, 0, 0]);
+    ifr(b"lo", [0; 4]);
+    ioctl(&kernel, &caller, inet, IoctlRequest::SIOCGIFADDR).unwrap();
+    assert_eq!(sin_addr(), [127, 0, 0, 1], "lo's own label");
+    ifr(b"lo:1", [0; 4]);
+    assert_eq!(
+        ioctl(&kernel, &caller, inet, IoctlRequest::SIOCSIFFLAGS),
+        Ok(0)
+    );
+    assert_eq!(
+        errno(ioctl(&kernel, &caller, inet, IoctlRequest::SIOCGIFADDR)),
+        Errno::EADDRNOTAVAIL
+    );
+
+    put(&memory.0, 0x400, b"lo\0");
+    put(&memory.0, 0x410, &9000i32.to_le_bytes());
+    assert_eq!(
+        ioctl(&kernel, &caller, unix, IoctlRequest::SIOCSIFMTU),
+        Ok(0)
+    );
+    put(&memory.0, 0x410, &[0; 16]);
+    ioctl(&kernel, &caller, inet, IoctlRequest::SIOCGIFMTU).unwrap();
+    assert_eq!(get(&memory.0, 0x410, 4), 9000i32.to_le_bytes());
+    ioctl(&kernel, &caller, inet, IoctlRequest::SIOCGIFHWADDR).unwrap();
+    assert_eq!(
+        get(&memory.0, 0x410, 2),
+        772u16.to_le_bytes(),
+        "ARPHRD_LOOPBACK"
+    );
+
+    // `struct in6_ifreq`: fd00::1/64 on interface 1.
+    let mut req = vec![0xfd, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1];
+    req.extend(64u32.to_le_bytes());
+    req.extend(1i32.to_le_bytes());
+    put(&memory.0, 0x400, &req);
+    assert_eq!(
+        ioctl(&kernel, &caller, inet6, IoctlRequest::SIOCSIFADDR),
+        Ok(0)
+    );
+    assert_eq!(
+        errno(ioctl(&kernel, &caller, inet6, IoctlRequest::SIOCSIFADDR)),
+        Errno::EEXIST
+    );
+    assert_eq!(
+        ioctl(&kernel, &caller, inet6, IoctlRequest::SIOCDIFADDR),
+        Ok(0)
+    );
+    assert_eq!(
+        errno(ioctl(&kernel, &caller, inet6, IoctlRequest::SIOCDIFADDR)),
+        Errno::EADDRNOTAVAIL
+    );
+}
+
+/// `route add -net 10.9.0.0 netmask 255.255.0.0 dev lo` and `route del` (`SIOCADDRT`,
+/// `SIOCDELRT` with a `struct rtentry`), and what they need.
+#[test]
+fn route_requests_change_the_routing_table() {
+    let (kernel, task, memory) = networked();
+    let caller = Caller::new(task, &memory);
+    let inet = block_on(kernel.socket(&caller, AddressFamily::AF_INET, DGRAM, 0)).unwrap();
+    let sockaddr = |ip: [u8; 4]| {
+        let mut raw = (AddressFamily::AF_INET.0 as u16).to_le_bytes().to_vec();
+        raw.extend([0, 0]);
+        raw.extend(ip);
+        raw.extend([0; 8]);
+        raw
+    };
+    let mut rt = vec![0u8; 4];
+    rt.extend(sockaddr([10, 9, 0, 0]));
+    rt.extend(sockaddr([0; 4]));
+    rt.extend(sockaddr([255, 255, 0, 0]));
+    rt.extend(1u16.to_le_bytes()); // RTF_UP
+    rt.resize(68, 0);
+    rt.extend(0x600u32.to_le_bytes());
+    rt.resize(84, 0);
+    put(&memory.0, 0x400, &rt);
+    put(&memory.0, 0x600, b"lo\0");
+    assert_eq!(
+        ioctl(&kernel, &caller, inet, IoctlRequest::SIOCADDRT),
+        Ok(0)
+    );
+    assert_eq!(
+        errno(ioctl(&kernel, &caller, inet, IoctlRequest::SIOCADDRT)),
+        Errno::EEXIST
+    );
+    let route = read_text(&kernel, &caller, "/proc/net/route");
+    assert!(route.contains("lo\t0000090A\t00000000\t0001"), "{route}");
+    assert_eq!(
+        ioctl(&kernel, &caller, inet, IoctlRequest::SIOCDELRT),
+        Ok(0)
+    );
+    assert_eq!(
+        errno(ioctl(&kernel, &caller, inet, IoctlRequest::SIOCDELRT)),
+        Errno::ESRCH
+    );
+    // A host part in the destination, and a family that is not AF_INET.
+    put(&memory.0, 0x404, &sockaddr([10, 9, 0, 1]));
+    assert_eq!(
+        errno(ioctl(&kernel, &caller, inet, IoctlRequest::SIOCADDRT)),
+        Errno::EINVAL
+    );
+    put(&memory.0, 0x404, &[0; 2]);
+    assert_eq!(
+        errno(ioctl(&kernel, &caller, inet, IoctlRequest::SIOCADDRT)),
+        Errno::EAFNOSUPPORT
+    );
 }

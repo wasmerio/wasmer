@@ -12,9 +12,9 @@ use std::{cell::RefCell, net::SocketAddr, sync::Arc, time::Duration};
 
 use wasixv2_abi::{
     AddressFamily, Buf, ConstSockaddrPtr, ConstUserMsghdrPtr, FdPair, GuestLayout, GuestPtr,
-    GuestPtrMut, IoctlRequest, Iovec, KernelOldTimeval, KernelSockTimeval, MmsghdrArray, MsgFlags,
-    OpenFlags, ShutdownHow, SockaddrPtr, SocketFlags, SocketLevel, SocketOption, SocketType,
-    Socklen, SocklenPtr, UserMsghdr, UserMsghdrPtr,
+    GuestPtrMut, Iovec, KernelOldTimeval, KernelSockTimeval, MmsghdrArray, MsgFlags, OpenFlags,
+    ShutdownHow, SockaddrPtr, SocketFlags, SocketLevel, SocketOption, SocketType, Socklen,
+    SocklenPtr, UserMsghdr, UserMsghdrPtr,
 };
 use wasixv2_syscalls::{
     Caller, Errno, Fd, LocalFuture, SysErr, SysResult, UserMemory, UserSlice, UserSliceMut,
@@ -23,6 +23,10 @@ use wasixv2_syscalls::{
 use wasixv2_vfs::{Cap, Path};
 use wasixv2_vnet::{Control, Domain, SendMsg, Shutdown, SocketKind};
 use wasixv2_wait::PollMask;
+
+mod if_ioctl;
+
+pub(crate) use if_ioctl::is_dev_ioctl;
 
 use crate::{
     Kernel,
@@ -547,7 +551,11 @@ impl Kernel {
                 let mut data = vec![0; src.len.min(nl.max_request().saturating_add(1))];
                 src.copy_in(memory, 0, &mut data).await?;
                 let net_admin = self.cred(caller).capable(Cap::NetAdmin);
-                Ok(nl.send(&data, net_admin)?)
+                let sender = NetlinkSender {
+                    kernel: self,
+                    caller,
+                };
+                Ok(nl.send(&data, net_admin, &sender)?)
             }
         };
         match sock.raises_sigpipe() && !flags.contains(MsgFlags::MSG_NOSIGNAL) {
@@ -1177,7 +1185,7 @@ fn recv_result(sock: &SocketFile, flags: MsgFlags, msg: &wasixv2_vnet::RecvMsg) 
 }
 
 /// `base + off` as a guest address; `EFAULT` past the end of the address space.
-fn offset(base: u32, off: usize) -> Result<u32, Errno> {
+pub(crate) fn offset(base: u32, off: usize) -> Result<u32, Errno> {
     u32::try_from(off)
         .ok()
         .and_then(|off| base.checked_add(off))
@@ -1580,23 +1588,31 @@ fn parse_timeout(name: i32, raw: &[u8]) -> Result<Option<Duration>, Errno> {
     Ok(Some(Duration::new(sec as u64, usec as u32 * 1000)))
 }
 
-/// The interface requests every socket answers (`dev_ioctl`).
-pub(crate) fn is_dev_ioctl(request: IoctlRequest) -> bool {
-    matches!(
-        request,
-        IoctlRequest::SIOCGIFINDEX
-            | IoctlRequest::SIOCGIFNAME
-            | IoctlRequest::SIOCGIFFLAGS
-            | IoctlRequest::SIOCSIFFLAGS
-            | IoctlRequest::SIOCGIFMTU
-            | IoctlRequest::SIOCGIFADDR
-            | IoctlRequest::SIOCGIFNETMASK
-    )
+/// The sender of a netlink request, for whom `IFLA_NET_NS_PID` and `IFLA_NET_NS_FD` name
+/// namespaces.
+struct NetlinkSender<'a> {
+    kernel: &'a Kernel,
+    caller: &'a Caller<'a>,
 }
 
-/// `sizeof(struct ifreq)` and `IFNAMSIZ`.
-const IFREQ: usize = 32;
-const IFNAMSIZ: usize = 16;
+impl netlink::Sender for NetlinkSender<'_> {
+    fn net_of_pid(&self, pid: u32) -> Result<Arc<NetNs>, Errno> {
+        let pid = i32::try_from(pid).map_err(|_| Errno::ESRCH)?;
+        let process = self.kernel.lookup_pid(self.caller, pid)?;
+        self.kernel.net_ns_of(&process).ok_or(Errno::ESRCH)
+    }
+
+    fn net_of_fd(&self, fd: i32) -> Result<Arc<NetNs>, Errno> {
+        let file = self.kernel.io_file(self.caller, Fd(fd))?;
+        match file
+            .downcast::<crate::nsfs::NsFile>()
+            .map(|f| f.namespace())
+        {
+            Some(crate::ns::Namespace::Net(ns)) => Ok(ns.clone()),
+            _ => Err(Errno::EINVAL),
+        }
+    }
+}
 
 impl Kernel {
     /// The network namespace a socket was made in (`sock_net`); `None` if `file` is not a
@@ -1610,78 +1626,6 @@ impl Kernel {
         }
         let netlink = file.object().cloned().and_then(netlink::downcast)?;
         Some(netlink.net.clone())
-    }
-
-    /// `dev_ioctl`: `SIOCGIF*` and `SIOCSIFFLAGS` on the interface table of `net`, the
-    /// socket's namespace (`sock_ioctl` passes `sock_net(sk)`), not the caller's.
-    pub(crate) async fn sys_dev_ioctl(
-        &self,
-        caller: &Caller<'_>,
-        net: &NetNs,
-        request: IoctlRequest,
-        arg: u32,
-    ) -> SysResult<i32> {
-        let memory = caller.memory();
-        let mut ifr = [0u8; IFREQ];
-        memory.read(arg, &mut ifr).await?;
-        let interfaces = net
-            .network
-            .as_ref()
-            .map(|net| net.interfaces())
-            .unwrap_or_default();
-        let iface = if request == IoctlRequest::SIOCGIFNAME {
-            let index = i32::from_le_bytes(ifr[IFNAMSIZ..IFNAMSIZ + 4].try_into().unwrap());
-            interfaces.iter().find(|i| i.index as i32 == index)
-        } else {
-            // The name ends at the last byte, and an alias (`lo:1`) names its interface.
-            let end = ifr[..IFNAMSIZ - 1]
-                .iter()
-                .position(|&b| b == 0 || b == b':')
-                .unwrap_or(IFNAMSIZ - 1);
-            let name = &ifr[..end];
-            // Changes need `CAP_NET_ADMIN` before the interface is looked up.
-            if request == IoctlRequest::SIOCSIFFLAGS && !self.cred(caller).capable(Cap::NetAdmin) {
-                return Err(Errno::EPERM.into());
-            }
-            interfaces.iter().find(|i| i.name.as_bytes() == name)
-        };
-        let iface = iface.ok_or(Errno::ENODEV)?;
-        if request == IoctlRequest::SIOCSIFFLAGS {
-            // `ifr_flags` is a short, which `dev_change_flags` takes sign-extended.
-            let flags = i16::from_le_bytes([ifr[IFNAMSIZ], ifr[IFNAMSIZ + 1]]) as i32 as u32;
-            let network = net.network.as_ref().ok_or(Errno::ENODEV)?;
-            network.change_flags(iface.index, flags)?;
-            return Ok(0);
-        }
-        let v4 = || {
-            iface.addresses.iter().find_map(|a| match a.addr {
-                std::net::IpAddr::V4(v4) => Some((v4, a.prefix_len)),
-                _ => None,
-            })
-        };
-        let sockaddr = |ip: std::net::Ipv4Addr| socket::encode(SocketAddr::new(ip.into(), 0));
-        let value = match request {
-            IoctlRequest::SIOCGIFNAME => {
-                let mut name = [0u8; IFNAMSIZ];
-                let n = iface.name.len().min(IFNAMSIZ - 1);
-                name[..n].copy_from_slice(&iface.name.as_bytes()[..n]);
-                memory.write(arg, &name).await?;
-                return Ok(0);
-            }
-            IoctlRequest::SIOCGIFINDEX => (iface.index as i32).to_le_bytes().to_vec(),
-            IoctlRequest::SIOCGIFFLAGS => (iface.flags as u16).to_le_bytes().to_vec(),
-            IoctlRequest::SIOCGIFMTU => (iface.mtu as i32).to_le_bytes().to_vec(),
-            IoctlRequest::SIOCGIFADDR => sockaddr(v4().ok_or(Errno::EADDRNOTAVAIL)?.0),
-            _ => {
-                let (_, len) = v4().ok_or(Errno::EADDRNOTAVAIL)?;
-                let mask = u32::MAX
-                    .checked_shl(32u32.saturating_sub(len.into()))
-                    .unwrap_or(0);
-                sockaddr(mask.into())
-            }
-        };
-        memory.write(offset(arg, IFNAMSIZ)?, &value).await?;
-        Ok(0)
     }
 }
 

@@ -171,6 +171,9 @@ const NET_ENTRIES: &[(&str, text::Net)] = &[
     ("udp6", text::Net::Udp(true)),
     ("unix", text::Net::Unix),
     ("dev", text::Net::Dev),
+    ("route", text::Net::Route),
+    ("ipv6_route", text::Net::Ipv6Route),
+    ("if_inet6", text::Net::IfInet6),
 ];
 
 /// Where pids start in the root's directory positions, after the static entries.

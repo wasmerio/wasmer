@@ -796,6 +796,19 @@ impl Kernel {
         Ok(0)
     }
 
+    /// The network namespace of `process` (`get_net_ns_by_pid`): its leader's, or a live
+    /// thread's once the leader is gone; `None` once every thread exited.
+    pub(crate) fn net_ns_of(&self, process: &crate::Process) -> Option<Arc<NetNs>> {
+        let state = self.state.read_or_recover();
+        let live = |t: &&crate::Task| std::ptr::eq(&*t.process, process) && !t.thread.exited();
+        state
+            .tasks
+            .get(&TaskId(process.pid.0))
+            .filter(live)
+            .or_else(|| state.tasks.values().find(live))
+            .map(|t| t.ns.net.clone())
+    }
+
     /// `validate_nsset`: installs the namespaces of the kinds `set.flags` names that process
     /// `pid` is in, user namespace first. The process must be alive and the caller allowed to
     /// read its state (`PTRACE_MODE_READ_REALCREDS`).
