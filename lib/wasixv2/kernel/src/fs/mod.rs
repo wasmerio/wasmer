@@ -486,6 +486,10 @@ impl Kernel {
                 path,
             ));
         }
+        // `/proc/kmsg` opens as the kernel log (`proc_kmsg_operations`).
+        if crate::procfs::is_kmsg(&path) {
+            return Ok(Backing::Stream(self.open_proc_kmsg(caller)?, path));
+        }
         // A message queue's file opens as the queue (`mqueue_file_operations`).
         if let Some(queue) = crate::ipc::mqueue::queue_of(&path) {
             return Ok(Backing::Stream(Arc::new(queue), path));

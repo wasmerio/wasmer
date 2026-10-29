@@ -153,6 +153,18 @@ const STATIC: &[(usize, &str, Static)] = &[
     (13, "yama", Static::Dir),
     (52, "ptrace_scope", Static::File(text::Global::PtraceScope)),
     (ROOT, "cgroups", Static::File(text::Global::Cgroups)),
+    (ROOT, "kmsg", Static::File(text::Global::Kmsg)),
+    (13, "printk", Static::File(text::Global::Printk)),
+    (
+        13,
+        "dmesg_restrict",
+        Static::File(text::Global::DmesgRestrict),
+    ),
+    (
+        13,
+        "printk_devkmsg",
+        Static::File(text::Global::PrintkDevkmsg),
+    ),
 ];
 
 /// `/proc/sys/user/max_*_namespaces` for `kind`.
@@ -285,6 +297,11 @@ impl ProcNode {
             source,
             entry: Entry::Root,
         })
+    }
+
+    /// Whether this is `/proc/kmsg`.
+    pub(super) fn is_kmsg(&self) -> bool {
+        matches!(self.entry, Entry::Static(index) if matches!(STATIC[index].2, Static::File(text::Global::Kmsg)))
     }
 
     /// The process of a `/proc/<pid>` directory.
@@ -871,6 +888,16 @@ impl Node for ProcNode {
                         | text::Global::MaxMapCount => {
                             Some(Write::Vm(self.source.vm.clone(), file))
                         }
+                        text::Global::Printk | text::Global::PrintkDevkmsg => {
+                            Some(Write::Printk(self.source.printk.clone(), file, true))
+                        }
+                        // `proc_dointvec_minmax_sysadmin`: `capable(CAP_SYS_ADMIN)`.
+                        text::Global::DmesgRestrict => {
+                            let may = opener
+                                .as_ref()
+                                .is_none_or(|cred| cred.capable_init(Cap::SysAdmin));
+                            Some(Write::Printk(self.source.printk.clone(), file, may))
+                        }
                         // `proc_taint`: `capable(CAP_SYS_ADMIN)`, of the opener here.
                         text::Global::Tainted => {
                             let may = opener.is_none_or(|cred| cred.capable_init(Cap::SysAdmin));
@@ -1197,6 +1224,8 @@ enum Write {
     Timerslack(Arc<Source>, Scope),
     /// A write that is taken and changes nothing.
     Discard,
+    /// One of the kernel log's tunables, if the opener may set it.
+    Printk(Arc<crate::printk::Printk>, text::Global, bool),
 }
 
 /// `__set_oom_adj`: `oom_score_adj` from -1000 to 1000, or with `legacy` `oom_adj` from -17 to
@@ -1313,6 +1342,38 @@ fn sysctl_i32(data: &[u8]) -> Result<i32, Errno> {
     text.trim().parse().map_err(|_| Errno::EINVAL)
 }
 
+/// Sets one of the kernel log's tunables: `kernel.printk` takes up to four levels
+/// (`proc_dointvec`), `kernel.dmesg_restrict` 0 or 1 (`proc_dointvec_minmax`),
+/// `kernel.printk_devkmsg` `on`, `off` or `ratelimit` (`devkmsg_sysctl_set_loglvl`).
+fn write_printk(printk: &crate::printk::Printk, file: text::Global, data: &[u8]) -> FsResult<()> {
+    let text = std::str::from_utf8(data).map_err(|_| Errno::EINVAL)?;
+    match file {
+        text::Global::Printk => {
+            let levels: Vec<i32> = text
+                .split_whitespace()
+                .take(4)
+                .map(str::parse)
+                .collect::<Result<_, _>>()
+                .map_err(|_| Errno::EINVAL)?;
+            printk.set_levels(&levels);
+        }
+        text::Global::DmesgRestrict => match sysctl_int(data)? {
+            restrict @ (0 | 1) => printk.set_dmesg_restrict(restrict == 1),
+            _ => return Err(Errno::EINVAL),
+        },
+        _ => {
+            let mode = match text.trim_end_matches(['\n', '\0']) {
+                "on" => crate::printk::Devkmsg::On,
+                "off" => crate::printk::Devkmsg::Off,
+                "ratelimit" => crate::printk::Devkmsg::Ratelimit,
+                _ => return Err(Errno::EINVAL),
+            };
+            printk.set_devkmsg(mode);
+        }
+    }
+    Ok(())
+}
+
 #[async_trait(?Send)]
 impl Handle for FileHandle {
     async fn read_at(&self, buf: &mut [u8], offset: u64) -> FsResult<usize> {
@@ -1380,6 +1441,8 @@ impl Handle for FileHandle {
                 source.set_timer_slack(*scope, slack).ok_or(Errno::ESRCH)?;
             }
             Write::Discard => {}
+            Write::Printk(_, _, false) => return Err(Errno::EPERM),
+            Write::Printk(printk, file, true) => write_printk(printk, *file, data)?,
             Write::Taint(_, false) => return Err(Errno::EPERM),
             Write::Taint(taint, true) => taint.add(sysctl_int(data)?),
             Write::Yama(_, false) => return Err(Errno::EPERM),

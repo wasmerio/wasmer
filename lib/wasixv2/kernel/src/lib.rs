@@ -41,6 +41,7 @@ mod pid;
 mod pipe;
 mod poll;
 mod posix_timer;
+mod printk;
 mod process;
 mod procfs;
 mod pseudo;
@@ -86,6 +87,7 @@ pub use fs::{
     mount::{FilesystemType, FsParam},
 };
 pub use ident::{Uname, UnameError};
+pub use printk::Level as LogLevel;
 pub use reboot::PowerRequest;
 pub use timekeeping::Timekeeper;
 use wasixv2_abi::{
@@ -185,6 +187,8 @@ pub struct Kernel {
     filesystems: Arc<fs::mount::Registry>,
     /// The cgroup v2 hierarchy (`cgrp_dfl_root`).
     cgroups: Arc<cgroup::Hierarchy>,
+    /// The kernel log.
+    printk: Arc<printk::Printk>,
     // ---- thr ----
     futexes: futex::Futexes,
     // ---- proc ----
@@ -412,8 +416,14 @@ impl Kernel {
         let filesystems = fs::mount::Registry::new();
         let misc_type = Arc::new(binfmt_misc::BinfmtMiscType(binfmt_misc.clone()));
         filesystems.add("binfmt_misc", misc_type);
-        let cgroups = cgroup::Hierarchy::new(clock.clone());
+        let printk = Arc::new(printk::Printk::new(host.clone()));
+        // `start_kernel`'s `linux_banner`.
+        let uname = Uname::default();
+        let banner = format!("Linux version {} {}", uname.release(), uname.version());
+        printk.log(printk::Level::Notice, &banner);
+        let cgroups = cgroup::Hierarchy::new(clock.clone(), printk.clone());
         Self {
+            printk,
             ptys: tty::Ptys::new(clock.clone()),
             pseudo: pseudo::Pseudo::new(&vfs, clock),
             nr_open: Arc::default(),
@@ -1661,6 +1671,10 @@ impl Syscalls for Kernel {
 
     async fn unshare(&self, caller: &Caller<'_>, unshare_flags: Ulong) -> SysResult<i32> {
         self.sys_unshare(caller, unshare_flags)
+    }
+
+    async fn syslog(&self, caller: &Caller<'_>, r#type: i32, buf: Buf, len: i32) -> SysResult<i32> {
+        self.sys_syslog(caller, r#type, buf, len).await
     }
 
     async fn mount(

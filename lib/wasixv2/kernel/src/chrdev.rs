@@ -1,7 +1,8 @@
 //! Character devices: the drivers behind device nodes, found by device number when a node is
 //! opened (`chrdev_open`). The memory devices follow `drivers/char/mem.c`, the random devices
 //! `drivers/char/random.c`; `/dev/tty` is the opener's controlling terminal (`tty_open`), and
-//! the host's console is a terminal of its own (see `tty`).
+//! the host's console is a terminal of its own (see `tty`). `/dev/kmsg` is the kernel log
+//! (see `printk`).
 //!
 //! The nodes themselves live on an ordinary filesystem, as on Linux, where devtmpfs is a tmpfs:
 //! [`Kernel::create_device_nodes`] makes the standard ones.
@@ -29,12 +30,13 @@ const TTYAUX_MAJOR: u32 = 5;
 const TTY_MODE: u32 = 0o620;
 
 /// The device nodes `devtmpfs` would create for the drivers here: name, minor numbers, mode.
-const NODES: [(&str, Device, u32); 7] = [
+const NODES: [(&str, Device, u32); 8] = [
     ("null", dev(MEM_MAJOR, 3), 0o666),
     ("zero", dev(MEM_MAJOR, 5), 0o666),
     ("full", dev(MEM_MAJOR, 7), 0o666),
     ("random", dev(MEM_MAJOR, 8), 0o666),
     ("urandom", dev(MEM_MAJOR, 9), 0o666),
+    ("kmsg", dev(MEM_MAJOR, 11), 0o644),
     ("tty", dev(TTYAUX_MAJOR, 0), 0o666),
     ("ptmx", crate::tty::PTMX, 0o666),
 ];
@@ -91,6 +93,7 @@ impl Kernel {
                 _file: file,
                 fasync: FasyncList::default(),
             }),
+            (MEM_MAJOR, 11) => self.open_dev_kmsg(caller, file, flags)?,
             _ => return Err(Errno::ENXIO.into()),
         };
         Ok(object)

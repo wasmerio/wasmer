@@ -75,6 +75,12 @@ pub(super) enum Global {
     KeyUsers,
     /// `/proc/cgroups`.
     Cgroups,
+    /// `/proc/kmsg`, which opens as the kernel log.
+    Kmsg,
+    /// `kernel.printk`, `kernel.dmesg_restrict` and `kernel.printk_devkmsg`.
+    Printk,
+    DmesgRestrict,
+    PrintkDevkmsg,
 }
 
 /// The files of a network namespace (`/proc/<pid>/net`).
@@ -117,6 +123,9 @@ impl Global {
             | Self::LeasesEnable
             | Self::LeaseBreakTime
             | Self::AioMaxNr
+            | Self::Printk
+            | Self::DmesgRestrict
+            | Self::PrintkDevkmsg
             | Self::Tainted
             | Self::PtraceScope
             // Who may write these is the namespace's business, not the mode's
@@ -125,6 +134,7 @@ impl Global {
             | Self::MaxNamespaces(_) => 0o644,
             // `pid_ns_ctl_handler` checks the writer itself.
             Self::NsLastPid => 0o666,
+            Self::Kmsg => 0o400,
             _ => 0o444,
         }
     }
@@ -236,6 +246,17 @@ pub(super) fn global(
         // The node renders them for its opener.
         Global::Keys | Global::KeyUsers => unreachable!("rendered for the opener"),
         Global::Cgroups => cgroups(source),
+        Global::Kmsg => Vec::new(),
+        Global::Printk => {
+            let [console, message, minimum, default] = source.printk.levels();
+            line(&format!("{console}\t{message}\t{minimum}\t{default}"))
+        }
+        Global::DmesgRestrict => line(&u8::from(source.printk.dmesg_restrict()).to_string()),
+        Global::PrintkDevkmsg => line(match source.printk.devkmsg() {
+            crate::printk::Devkmsg::On => "on",
+            crate::printk::Devkmsg::Off => "off",
+            crate::printk::Devkmsg::Ratelimit => "ratelimit",
+        }),
     })
 }
 

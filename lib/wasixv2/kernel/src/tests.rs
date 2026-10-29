@@ -817,6 +817,7 @@ mod mount;
 mod net;
 mod ns;
 mod pidns;
+mod printk;
 mod proc;
 mod procfs;
 mod ptimer;
