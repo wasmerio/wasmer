@@ -255,9 +255,16 @@ struct Entry {
     numbers: Box<[Upid]>,
     /// How many of each [`PidType`] are attached.
     users: [u32; 4],
+    /// How many [`PidRef`]s hold the id (the `struct pid` count): they keep the entry, so
+    /// its numbers can still be read, once nothing is attached.
+    refs: u32,
+    /// Nothing is attached any more: the numbers left their namespaces (`free_pid`), so no
+    /// lookup finds the id and the numbers may name other ids.
+    freed: bool,
 }
 
-/// The numbers of every id the kernel handed out and that something is attached to.
+/// The numbers of every id the kernel handed out and that something is attached to or a
+/// [`PidRef`] holds.
 #[derive(Default)]
 pub(crate) struct Pids {
     table: RwLock<HashMap<u32, Entry>>,
@@ -322,6 +329,8 @@ impl Pids {
         let entry = Entry {
             numbers: taken.into_boxed_slice(),
             users: [1, 0, 0, 0],
+            refs: 0,
+            freed: false,
         };
         self.table.write_or_recover().insert(id, entry);
         Ok(())
@@ -329,7 +338,9 @@ impl Pids {
 
     /// Attaches one more `ty` to `id`.
     pub(crate) fn attach(&self, id: u32, ty: PidType) {
-        if let Some(entry) = self.table.write_or_recover().get_mut(&id) {
+        if let Some(entry) = self.table.write_or_recover().get_mut(&id)
+            && !entry.freed
+        {
             entry.users[ty as usize] += 1;
         }
     }
@@ -344,12 +355,18 @@ impl Pids {
             };
             let users = &mut entry.users[ty as usize];
             *users = users.saturating_sub(1);
-            if entry.users.iter().any(|&n| n != 0) {
+            if entry.freed || entry.users.iter().any(|&n| n != 0) {
                 return;
             }
-            table.remove(&id).expect("looked up above")
+            match entry.refs {
+                0 => table.remove(&id).expect("looked up above").numbers,
+                _ => {
+                    entry.freed = true;
+                    entry.numbers.clone()
+                }
+            }
         };
-        for upid in freed.numbers.iter() {
+        for upid in freed.iter() {
             if upid.ns.free(upid.nr) {
                 self.zapped.lock_or_recover().push(upid.ns.clone());
             }
@@ -364,10 +381,17 @@ impl Pids {
         table.get(&id).is_some_and(|e| e.users[ty as usize] > 0)
     }
 
-    /// `pid_nr_ns`: the number `id` has in `ns`, 0 when it has none there.
+    /// `pid_nr_ns`: the number `id` has in `ns`, 0 when it has none there or is gone.
     pub(crate) fn nr(&self, ns: &PidNs, id: u32) -> Pid {
+        self.number(ns, id, false)
+    }
+
+    /// The number `id` has in `ns`; with `held`, also once the id is gone, as long as a
+    /// [`PidRef`] keeps it.
+    fn number(&self, ns: &PidNs, id: u32, held: bool) -> Pid {
         let table = self.table.read_or_recover();
-        let Some(upid) = table.get(&id).and_then(|e| e.numbers.get(ns.level)) else {
+        let entry = table.get(&id).filter(|entry| held || !entry.freed);
+        let Some(upid) = entry.and_then(|e| e.numbers.get(ns.level)) else {
             return 0;
         };
         match std::ptr::eq(&**upid.ns, &**ns) {
@@ -380,7 +404,8 @@ impl Pids {
     /// task of the caller's own thread group), 0 once it is gone.
     pub(crate) fn own_nr(&self, id: u32) -> Pid {
         let table = self.table.read_or_recover();
-        let last = table.get(&id).and_then(|entry| entry.numbers.last());
+        let entry = table.get(&id).filter(|entry| !entry.freed);
+        let last = entry.and_then(|entry| entry.numbers.last());
         last.map_or(0, |upid| upid.nr as Pid)
     }
 
@@ -388,7 +413,7 @@ impl Pids {
     /// line); empty when it has none in `ns`.
     pub(crate) fn upids_from(&self, ns: &PidNs, id: u32) -> Vec<Upid> {
         let table = self.table.read_or_recover();
-        let Some(entry) = table.get(&id) else {
+        let Some(entry) = table.get(&id).filter(|entry| !entry.freed) else {
             return Vec::new();
         };
         match entry.numbers.get(ns.level) {
@@ -400,6 +425,73 @@ impl Pids {
     /// The namespaces whose reaper's exit may go on now ([`PidSpace::free`]).
     fn take_zapped(&self) -> Vec<Arc<PidNs>> {
         std::mem::take(&mut *self.zapped.lock_or_recover())
+    }
+
+    /// `get_pid`: a reference to `id` that keeps its numbers readable ([`Pids::nr`]) for as long
+    /// as it lives, though the id may be gone by then. An id the table no longer has reads 0.
+    pub(crate) fn get(self: &Arc<Self>, id: u32) -> PidRef {
+        if let Some(entry) = self.table.write_or_recover().get_mut(&id) {
+            entry.refs += 1;
+        }
+        PidRef {
+            pids: self.clone(),
+            id,
+        }
+    }
+
+    /// `put_pid`: one reference to `id` less; a freed id's entry goes with its last one.
+    fn put(&self, id: u32) {
+        let mut table = self.table.write_or_recover();
+        let Some(entry) = table.get_mut(&id) else {
+            return;
+        };
+        entry.refs = entry.refs.saturating_sub(1);
+        if entry.refs == 0 && entry.freed {
+            table.remove(&id);
+        }
+    }
+}
+
+/// A held `struct pid`: what an object keeps of the process that last used it (a SysV IPC
+/// object's creator or last operator), to show its number later, as Linux's objects do with
+/// `get_pid` and `pid_vnr`, even after the process was reaped.
+pub(crate) struct PidRef {
+    pids: Arc<Pids>,
+    id: u32,
+}
+
+impl PidRef {
+    /// The kernel's id it holds.
+    pub(crate) fn id(&self) -> u32 {
+        self.id
+    }
+
+    /// A reference to another id of the same table.
+    pub(crate) fn of(&self, id: u32) -> PidRef {
+        self.pids.get(id)
+    }
+
+    /// `pid_nr_ns`: its number in `ns`, 0 when it has none there.
+    pub(crate) fn nr(&self, ns: &PidNs) -> Pid {
+        self.pids.number(ns, self.id, true)
+    }
+}
+
+impl Clone for PidRef {
+    fn clone(&self) -> Self {
+        self.pids.get(self.id)
+    }
+}
+
+impl Drop for PidRef {
+    fn drop(&mut self) {
+        self.pids.put(self.id);
+    }
+}
+
+impl std::fmt::Debug for PidRef {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("PidRef").field(&self.id).finish()
     }
 }
 

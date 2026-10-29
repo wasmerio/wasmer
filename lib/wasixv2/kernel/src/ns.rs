@@ -643,7 +643,7 @@ impl Kernel {
     fn exit_sem(&self, process: &Process) {
         if process.group.single_threaded() {
             let ipc = process.sysvsem.lock_or_recover().clone();
-            ipc.sem.exit(process.pid.0, self.ipc_now());
+            ipc.sem.exit(&self.pids.get(process.pid.0), self.ipc_now());
         }
     }
 

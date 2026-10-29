@@ -259,6 +259,40 @@ fn message_queues_select_by_type_between_processes() {
 }
 
 #[test]
+fn ipc_objects_keep_the_pid_of_a_reaped_process() {
+    let (kernel, a, _) = setup(b"");
+    let b = another_process(&kernel);
+    let (memory_a, memory_b) = (memory(), memory());
+    let (caller_a, caller_b) = (Caller::new(a, &memory_a), Caller::new(b, &memory_b));
+    let msg = block_on(kernel.msgget(&caller_a, 78, CREATE)).unwrap();
+    let shm = block_on(kernel.shmget(&caller_a, 6, 100, CREATE)).unwrap();
+    assert_eq!(msgsnd(&kernel, &caller_b, msg, 1, b"hi", 0), Ok(0));
+    let at = block_on(kernel.shmat(&caller_b, shm, 0, 0)).unwrap() as u32;
+    assert_eq!(block_on(kernel.shmdt(&caller_b, at)), Ok(0));
+    // B, without a parent, is reaped as it exits; its pid is free, and the execution layer
+    // then lets its task go too.
+    assert_eq!(block_on(kernel.exit_group(&caller_b, 0)), Ok(()));
+    kernel.release(b);
+    assert_eq!(
+        errno(block_on(kernel.sys_kill(&caller_a, b.0 as i32, Signal(0)))),
+        Errno::ESRCH
+    );
+    // The queue and the segment still show it, as Linux's hold its `struct pid`.
+    assert_eq!(
+        block_on(kernel.msgctl(&caller_a, msg, IpcCmd::IPC_STAT.0, GuestPtrMut::new(0x600))),
+        Ok(0)
+    );
+    let ds: Msqid64Ds = block_on(read_value(&memory_a, GuestPtr::new(0x600))).unwrap();
+    assert_eq!(ds.msg_lspid, b.0 as i32);
+    assert_eq!(
+        block_on(kernel.shmctl(&caller_a, shm, IpcCmd::IPC_STAT.0, GuestPtrMut::new(0x700))),
+        Ok(0)
+    );
+    let ds: Shmid64Ds = block_on(read_value(&memory_a, GuestPtr::new(0x700))).unwrap();
+    assert_eq!((ds.shm_cpid, ds.shm_lpid), (a.0 as i32, b.0 as i32));
+}
+
+#[test]
 fn shared_memory_hands_data_over_at_detach_and_attach() {
     let (kernel, a, _) = setup(b"");
     let b = another_process(&kernel);

@@ -18,7 +18,7 @@ use wasixv2_syscalls::{Caller, Errno, SysResult, read_value, write_value};
 use wasixv2_wait::{PollMask, WaitQueue, wait_event, wait_event_timeout};
 
 use super::{Ids, Object, Perm, READ, WRITE, get_or_create, split_time};
-use crate::{Kernel, Process, sync::MutexExt, time};
+use crate::{Kernel, Process, pid::PidRef, sync::MutexExt, time};
 
 /// `SEMMSL`: semaphores per set.
 pub(crate) const SEMMSL: i32 = 32000;
@@ -66,16 +66,17 @@ struct State {
     undo: HashMap<u32, Vec<i32>>,
 }
 
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Default)]
 struct Sem {
     value: i32,
-    pid: u32,
+    /// The last process that changed the value (`sempid`).
+    pid: Option<PidRef>,
 }
 
 /// `struct sem_queue`: a sleeping `semop`.
 struct Pending {
     sops: Vec<Sembuf>,
-    pid: u32,
+    pid: PidRef,
     alter: bool,
     /// The operation the last attempt stopped at, for `GETNCNT` and `GETZCNT`.
     blocking: Mutex<usize>,
@@ -93,7 +94,8 @@ enum Stop {
 impl State {
     /// `perform_atomic_semop`: applies `sops` in order on a copy and commits only if all of them
     /// can go, which also covers several operations on one semaphore.
-    fn apply(&mut self, sops: &[Sembuf], pid: u32) -> Result<(), Stop> {
+    fn apply(&mut self, sops: &[Sembuf], owner: &PidRef) -> Result<(), Stop> {
+        let pid = owner.id();
         let mut values: Vec<i32> = self.sems.iter().map(|sem| sem.value).collect();
         let undoes = sops
             .iter()
@@ -132,7 +134,7 @@ impl State {
             sem.value = value;
         }
         for sop in sops {
-            self.sems[sop.sem_num as usize].pid = pid;
+            self.sems[sop.sem_num as usize].pid = Some(owner.clone());
         }
         if let Some(adj) = adj {
             self.undo.insert(pid, adj);
@@ -148,7 +150,7 @@ impl State {
             let mut at = 0;
             while at < self.pending.len() {
                 let pending = self.pending[at].clone();
-                let result = match self.apply(&pending.sops, pending.pid) {
+                let result = match self.apply(&pending.sops, &pending.pid) {
                     Err(Stop::Block(index)) => {
                         *pending.blocking.lock_or_recover() = index;
                         at += 1;
@@ -183,12 +185,12 @@ impl State {
     }
 
     /// A `semctl` changed values: adjustments to them no longer apply, and sleepers may go.
-    fn values_set(&mut self, nums: std::ops::Range<usize>, pid: u32, now: u64) {
+    fn values_set(&mut self, nums: std::ops::Range<usize>, pid: &PidRef, now: u64) {
         for adj in self.undo.values_mut() {
             adj[nums.clone()].fill(0);
         }
         for sem in &mut self.sems[nums] {
-            sem.pid = pid;
+            sem.pid = Some(pid.clone());
         }
         self.ctime = now;
         self.update_queue(now);
@@ -253,17 +255,17 @@ impl Sems {
 
     /// `exit_sem`: applies the adjustments process `pid` accumulated, clamped to the valid
     /// range, and wakes what they allow.
-    pub(crate) fn exit(&self, pid: u32, now: u64) {
+    pub(crate) fn exit(&self, owner: &PidRef, now: u64) {
         let sets = self.ids.lock_or_recover().all();
         for (_, set) in sets {
             let mut state = set.state();
-            let Some(adj) = state.undo.remove(&pid) else {
+            let Some(adj) = state.undo.remove(&owner.id()) else {
                 continue;
             };
             for (sem, adj) in state.sems.iter_mut().zip(adj) {
                 if adj != 0 {
                     sem.value = (sem.value + adj).clamp(0, SEMVMX);
-                    sem.pid = pid;
+                    sem.pid = Some(owner.clone());
                 }
             }
             if state.update_queue(now) {
@@ -391,7 +393,7 @@ impl Kernel {
         let nowait =
             |sop: &Sembuf| IpcFlags(sop.sem_flg as u16 as u32).contains(IpcFlags::IPC_NOWAIT);
         let cred = self.env(caller).cred;
-        let pid = self.process(caller.task()).pid.0;
+        let pid = self.pids.get(self.process(caller.task()).pid.0);
         let now = self.ipc_now();
         let set = self.ns(caller).ipc.sem.get(semid)?;
         let pending = {
@@ -403,7 +405,7 @@ impl Kernel {
             if state.removed {
                 return Err(Errno::EIDRM.into());
             }
-            match state.apply(&sops, pid) {
+            match state.apply(&sops, &pid) {
                 Ok(()) => {
                     state.otime = now;
                     if alter && state.update_queue(now) {
@@ -460,7 +462,7 @@ impl Kernel {
         }
         let cred = self.env(caller).cred;
         let now = self.ipc_now();
-        let pid = self.process(caller.task()).pid.0;
+        let pid = self.pids.get(self.process(caller.task()).pid.0);
         let ns = self.ns(caller);
         let sems = &ns.ipc.sem;
         match IpcCmd(cmd) {
@@ -552,7 +554,7 @@ impl Kernel {
                     return Err(Errno::EIDRM.into());
                 }
                 state.sems[num].value = val;
-                state.values_set(num..num + 1, pid, now);
+                state.values_set(num..num + 1, &pid, now);
                 drop(state);
                 set.queue.wake(PollMask::empty());
                 Ok(0)
@@ -589,7 +591,7 @@ impl Kernel {
                 for (sem, value) in state.sems.iter_mut().zip(values) {
                     sem.value = value;
                 }
-                state.values_set(0..n, pid, now);
+                state.values_set(0..n, &pid, now);
                 drop(state);
                 set.queue.wake(PollMask::empty());
                 Ok(0)
@@ -606,7 +608,7 @@ impl Kernel {
                     .ok_or(Errno::EINVAL)?;
                 Ok(match IpcCmd(cmd) {
                     IpcCmd::GETVAL => state.sems[num].value,
-                    IpcCmd::GETPID => self.pids.nr(&pid_ns, state.sems[num].pid),
+                    IpcCmd::GETPID => state.sems[num].pid.as_ref().map_or(0, |p| p.nr(&pid_ns)),
                     IpcCmd::GETNCNT => state.count_waiting(num, false),
                     _ => state.count_waiting(num, true),
                 })
@@ -618,7 +620,7 @@ impl Kernel {
     /// `exit_sem` for a process that is gone, in the IPC namespace its adjustments are in.
     pub(crate) fn ipc_process_exited(&self, process: &Process) {
         let ipc = process.sysvsem.lock_or_recover().clone();
-        ipc.sem.exit(process.pid.0, self.ipc_now());
+        ipc.sem.exit(&self.pids.get(process.pid.0), self.ipc_now());
     }
 }
 
