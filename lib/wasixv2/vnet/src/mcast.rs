@@ -12,6 +12,7 @@
 //! the interface receives from a source some membership's filter allows (`ip_check_mc_rcu`).
 
 use std::{
+    mem::offset_of,
     net::{IpAddr, Ipv4Addr, Ipv6Addr},
     sync::{
         Arc,
@@ -19,7 +20,11 @@ use std::{
     },
 };
 
-use wasixv2_abi::{Errno, IpOption, Ipv6Option, SocketLevel};
+use wasixv2_abi::{
+    Errno, GroupFilter, GroupReq, GroupSourceReq, GuestLayout, IpMreq, IpMreqSource, IpMreqn,
+    IpMsfilter, IpOption, Ipv6Mreq, Ipv6Option, SockaddrIn, SockaddrIn6, SockaddrStorage,
+    SocketLevel,
+};
 
 use crate::{
     NetResult, SocketKind,
@@ -44,25 +49,37 @@ const MCAST_MSFILTER: i32 = 48;
 /// `MCAST_EXCLUDE`, `MCAST_INCLUDE`.
 const MCAST_EXCLUDE: u32 = 0;
 const MCAST_INCLUDE: u32 = 1;
-/// `struct group_source_req` on wasm32: `gsr_interface`, then two `sockaddr_storage`s.
-const GROUP_SOURCE_REQ_LEN: usize = 4 + 2 * SS_LEN;
-/// `sizeof(struct sockaddr_storage)`.
-const SS_LEN: usize = 128;
-/// `GROUP_FILTER_SIZE(0)` on wasm32: `gf_interface`, `gf_group`, `gf_fmode`, `gf_numsrc`.
-const GROUP_FILTER_LEN: usize = 4 + SS_LEN + 8;
-/// `sizeof(struct ip_mreq_source)`, `IP_MSFILTER_SIZE(0)`.
-const IP_MREQ_SOURCE_LEN: usize = 12;
-const IP_MSFILTER_LEN: usize = 16;
+/// The guest layouts of the options' payloads (wasixv2-abi): sizes and field offsets.
+const SS_LEN: usize = SockaddrStorage::SIZE;
+const SIN_ADDR: usize = offset_of!(SockaddrIn, sin_addr);
+const SIN6_ADDR: usize = offset_of!(SockaddrIn6, sin6_addr);
+const IP_MREQ_LEN: usize = IpMreq::SIZE;
+const IP_MREQN_LEN: usize = IpMreqn::SIZE;
+const IMR_ADDRESS: usize = offset_of!(IpMreqn, imr_address);
+const IMR_IFINDEX: usize = offset_of!(IpMreqn, imr_ifindex);
+const IPV6_MREQ_LEN: usize = Ipv6Mreq::SIZE;
+const IPV6MR_IFINDEX: usize = offset_of!(Ipv6Mreq, ipv6mr_ifindex);
+const IP_MREQ_SOURCE_LEN: usize = IpMreqSource::SIZE;
+const IMR_INTERFACE: usize = offset_of!(IpMreqSource, imr_interface);
+const IMR_SOURCEADDR: usize = offset_of!(IpMreqSource, imr_sourceaddr);
+/// `IP_MSFILTER_SIZE(0)`: up to the sources.
+const IP_MSFILTER_LEN: usize = offset_of!(IpMsfilter, imsf_slist);
+const IMSF_INTERFACE: usize = offset_of!(IpMsfilter, imsf_interface);
+const IMSF_FMODE: usize = offset_of!(IpMsfilter, imsf_fmode);
+const IMSF_NUMSRC: usize = offset_of!(IpMsfilter, imsf_numsrc);
+const GROUP_REQ_LEN: usize = GroupReq::SIZE;
+const GR_GROUP: usize = offset_of!(GroupReq, gr_group);
+const GROUP_SOURCE_REQ_LEN: usize = GroupSourceReq::SIZE;
+const GSR_GROUP: usize = offset_of!(GroupSourceReq, gsr_group);
+const GSR_SOURCE: usize = offset_of!(GroupSourceReq, gsr_source);
+/// `GROUP_FILTER_SIZE(0)`: up to the sources.
+const GROUP_FILTER_LEN: usize = offset_of!(GroupFilter, gf_slist);
+const GF_GROUP: usize = offset_of!(GroupFilter, gf_group);
+const GF_FMODE: usize = offset_of!(GroupFilter, gf_fmode);
+const GF_NUMSRC: usize = offset_of!(GroupFilter, gf_numsrc);
 /// `net.ipv4.igmp_max_msf`, `sysctl_mld_max_msf`: the sources one filter may name.
 const IGMP_MAX_MSF: usize = 10;
 const MLD_MAX_MSF: usize = 64;
-/// `struct group_req` on wasm32: `gr_interface`, then a `sockaddr_storage` aligned to 4.
-const GROUP_REQ_LEN: usize = 4 + 128;
-/// `sizeof(struct ip_mreq)` and `sizeof(struct ip_mreqn)`.
-const IP_MREQ_LEN: usize = 8;
-const IP_MREQN_LEN: usize = 12;
-/// `sizeof(struct ipv6_mreq)`.
-const IPV6_MREQ_LEN: usize = 20;
 /// `net.ipv4.igmp_max_memberships`.
 const IGMP_MAX_MEMBERSHIPS: usize = 20;
 /// `AF_INET`, `AF_INET6`.
@@ -304,10 +321,10 @@ impl Mcast {
                     return Err(Errno::EINVAL);
                 }
                 let ifindex = match value.len() >= IP_MREQN_LEN {
-                    true => u32_at(value, 8),
+                    true => u32_at(value, IMR_IFINDEX),
                     false => 0,
                 };
-                let (group, address) = (v4_at(value, 0), v4_at(value, 4));
+                let (group, address) = (v4_at(value, 0), v4_at(value, IMR_ADDRESS));
                 match n == IpOption::IP_ADD_MEMBERSHIP.0 {
                     true => self.join4(net, group, address, ifindex, false)?,
                     false => self.leave4(net, group, address, ifindex)?,
@@ -318,15 +335,14 @@ impl Mcast {
                     return Err(Errno::EINVAL);
                 }
                 let ifindex = u32_at(value, 0);
-                let family = u16::from_le_bytes([value[4], value[5]]);
+                let family = u16::from_le_bytes([value[GR_GROUP], value[GR_GROUP + 1]]);
                 let join = name == MCAST_JOIN_GROUP;
                 match level {
                     SOL_IP => {
                         if family != AF_INET {
                             return Err(Errno::EADDRNOTAVAIL);
                         }
-                        // `struct sockaddr_in`: the address after the family and port.
-                        let group = v4_at(value, 8);
+                        let group = v4_at(value, GR_GROUP + SIN_ADDR);
                         match join {
                             true => {
                                 self.join4(net, group, Ipv4Addr::UNSPECIFIED, ifindex, false)?
@@ -338,8 +354,7 @@ impl Mcast {
                         if family != AF_INET6 {
                             return Err(Errno::EADDRNOTAVAIL);
                         }
-                        // `struct sockaddr_in6`: the address after family, port and flowinfo.
-                        let group = v6_at(value, 12);
+                        let group = v6_at(value, GR_GROUP + SIN6_ADDR);
                         match join {
                             true => self.join6(net, group, ifindex, false)?,
                             false => self.leave6(net, group, ifindex)?,
@@ -392,7 +407,7 @@ impl Mcast {
                 if stream {
                     return Err(Errno::EPROTO);
                 }
-                let (group, ifindex) = (v6_at(value, 0), u32_at(value, 16));
+                let (group, ifindex) = (v6_at(value, 0), u32_at(value, IPV6MR_IFINDEX));
                 match n == Ipv6Option::IPV6_ADD_MEMBERSHIP.0 {
                     true => self.join6(net, group, ifindex, false)?,
                     false => self.leave6(net, group, ifindex)?,
@@ -433,7 +448,11 @@ impl Mcast {
         if value.len() != IP_MREQ_SOURCE_LEN {
             return Err(Errno::EINVAL);
         }
-        let (group, address, source) = (v4_at(value, 0), v4_at(value, 4), v4_at(value, 8));
+        let (group, address, source) = (
+            v4_at(value, 0),
+            v4_at(value, IMR_INTERFACE),
+            v4_at(value, IMR_SOURCEADDR),
+        );
         let (add, include) = match IpOption(name) {
             IpOption::IP_BLOCK_SOURCE => (true, false),
             IpOption::IP_UNBLOCK_SOURCE => (false, false),
@@ -461,7 +480,10 @@ impl Mcast {
             return Err(Errno::EINVAL);
         }
         let ifindex = u32_at(value, 0);
-        let (group, source) = match (ss_addr(value, 4, v6), ss_addr(value, 4 + SS_LEN, v6)) {
+        let (group, source) = match (
+            ss_addr(value, GSR_GROUP, v6),
+            ss_addr(value, GSR_SOURCE, v6),
+        ) {
             (Some(group), Some(source)) => (group, source),
             _ => return Err(Errno::EADDRNOTAVAIL),
         };
@@ -593,7 +615,7 @@ impl Mcast {
         if value.len() < IP_MSFILTER_LEN {
             return Err(Errno::EINVAL);
         }
-        let numsrc = u32_at(value, 12) as usize;
+        let numsrc = u32_at(value, IMSF_NUMSRC) as usize;
         if numsrc > IGMP_MAX_MSF {
             return Err(Errno::ENOBUFS);
         }
@@ -603,7 +625,11 @@ impl Mcast {
         let sources = (0..numsrc)
             .map(|i| IpAddr::V4(v4_at(value, IP_MSFILTER_LEN + 4 * i)))
             .collect();
-        let (group, address, fmode) = (v4_at(value, 0), v4_at(value, 4), u32_at(value, 8));
+        let (group, address, fmode) = (
+            v4_at(value, 0),
+            v4_at(value, IMSF_INTERFACE),
+            u32_at(value, IMSF_FMODE),
+        );
         self.msfilter4(net, group, address, 0, fmode, sources)
     }
 
@@ -614,7 +640,7 @@ impl Mcast {
         if value.len() < GROUP_FILTER_LEN {
             return Err(Errno::EINVAL);
         }
-        let numsrc = u32_at(value, 4 + SS_LEN + 4) as usize;
+        let numsrc = u32_at(value, GF_NUMSRC) as usize;
         let max = if v6 { MLD_MAX_MSF } else { IGMP_MAX_MSF };
         if numsrc > max {
             return Err(Errno::ENOBUFS);
@@ -623,14 +649,14 @@ impl Mcast {
             return Err(Errno::EINVAL);
         }
         let ifindex = u32_at(value, 0);
-        let fmode = u32_at(value, 4 + SS_LEN);
+        let fmode = u32_at(value, GF_FMODE);
         let at = |i: usize| GROUP_FILTER_LEN + SS_LEN * i;
         if v6 {
-            let group = v6_at(value, 4 + 8);
-            let sources = (0..numsrc).map(|i| IpAddr::V6(v6_at(value, at(i) + 8)));
+            let group = v6_at(value, GF_GROUP + SIN6_ADDR);
+            let sources = (0..numsrc).map(|i| IpAddr::V6(v6_at(value, at(i) + SIN6_ADDR)));
             return self.msfilter6(net, group, ifindex, fmode, sources.collect());
         }
-        let Some(IpAddr::V4(group)) = ss_addr(value, 4, false) else {
+        let Some(IpAddr::V4(group)) = ss_addr(value, GF_GROUP, false) else {
             return Err(Errno::EADDRNOTAVAIL);
         };
         let sources: Option<Vec<IpAddr>> =
@@ -706,8 +732,8 @@ impl Mcast {
             return Err(Errno::EINVAL);
         }
         let (address, mut index) = match value.len() {
-            IP_MREQN_LEN.. => (v4_at(value, 4), u32_at(value, 8)),
-            IP_MREQ_LEN.. => (v4_at(value, 4), 0),
+            IP_MREQN_LEN.. => (v4_at(value, IMR_ADDRESS), u32_at(value, IMR_IFINDEX)),
+            IP_MREQ_LEN.. => (v4_at(value, IMR_ADDRESS), 0),
             _ => (v4_at(value, 0), 0),
         };
         if index == 0 && address.is_unspecified() {
@@ -928,7 +954,7 @@ impl Mcast {
         if out.len() < IP_MSFILTER_LEN {
             return Err(Errno::EINVAL);
         }
-        let (group, address) = (v4_at(out, 0), v4_at(out, 4));
+        let (group, address) = (v4_at(out, 0), v4_at(out, IMSF_INTERFACE));
         if !group.is_multicast() {
             return Err(Errno::EINVAL);
         }
@@ -939,10 +965,10 @@ impl Mcast {
             .find(|m| m.group == IpAddr::V4(group) && m.ifindex == index)
             .ok_or(Errno::EADDRNOTAVAIL)?;
         let list = m.sources.clone().unwrap_or_default();
-        let copy = list.len().min(u32_at(out, 12) as usize);
+        let copy = list.len().min(u32_at(out, IMSF_NUMSRC) as usize);
         let copy = copy.min((out.len() - IP_MSFILTER_LEN) / 4);
-        out[8..12].copy_from_slice(&u32::from(m.include).to_le_bytes());
-        out[12..16].copy_from_slice(&(list.len() as u32).to_le_bytes());
+        out[IMSF_FMODE..IMSF_FMODE + 4].copy_from_slice(&u32::from(m.include).to_le_bytes());
+        out[IMSF_NUMSRC..IMSF_NUMSRC + 4].copy_from_slice(&(list.len() as u32).to_le_bytes());
         for (i, src) in list.iter().take(copy).enumerate() {
             let at = IP_MSFILTER_LEN + 4 * i;
             if let IpAddr::V4(v4) = src {
@@ -959,8 +985,8 @@ impl Mcast {
             return Err(Errno::EINVAL);
         }
         let group = match v6 {
-            true => IpAddr::V6(v6_at(out, 4 + 8)),
-            false => ss_addr(out, 4, false).ok_or(Errno::EINVAL)?,
+            true => IpAddr::V6(v6_at(out, GF_GROUP + SIN6_ADDR)),
+            false => ss_addr(out, GF_GROUP, false).ok_or(Errno::EINVAL)?,
         };
         if !group.is_multicast() {
             return Err(Errno::EINVAL);
@@ -972,10 +998,10 @@ impl Mcast {
             .find(|m| m.group == group && m.ifindex == ifindex)
             .ok_or(Errno::EADDRNOTAVAIL)?;
         let list = m.sources.clone().unwrap_or_default();
-        let copy = list.len().min(u32_at(out, 4 + SS_LEN + 4) as usize);
+        let copy = list.len().min(u32_at(out, GF_NUMSRC) as usize);
         let copy = copy.min((out.len() - GROUP_FILTER_LEN) / SS_LEN);
-        out[4 + SS_LEN..4 + SS_LEN + 4].copy_from_slice(&u32::from(m.include).to_le_bytes());
-        out[4 + SS_LEN + 4..GROUP_FILTER_LEN].copy_from_slice(&(list.len() as u32).to_le_bytes());
+        out[GF_FMODE..GF_FMODE + 4].copy_from_slice(&u32::from(m.include).to_le_bytes());
+        out[GF_NUMSRC..GF_NUMSRC + 4].copy_from_slice(&(list.len() as u32).to_le_bytes());
         for (i, src) in list.iter().take(copy).enumerate() {
             let at = GROUP_FILTER_LEN + SS_LEN * i;
             let slot = &mut out[at..at + SS_LEN];
@@ -983,11 +1009,11 @@ impl Mcast {
             match src {
                 IpAddr::V4(v4) => {
                     slot[..2].copy_from_slice(&AF_INET.to_le_bytes());
-                    slot[4..8].copy_from_slice(&v4.octets());
+                    slot[SIN_ADDR..SIN_ADDR + 4].copy_from_slice(&v4.octets());
                 }
                 IpAddr::V6(v6) => {
                     slot[..2].copy_from_slice(&AF_INET6.to_le_bytes());
-                    slot[8..24].copy_from_slice(&v6.octets());
+                    slot[SIN6_ADDR..SIN6_ADDR + 16].copy_from_slice(&v6.octets());
                 }
             }
         }
@@ -1019,13 +1045,13 @@ fn v6_at(value: &[u8], at: usize) -> Ipv6Addr {
     Ipv6Addr::from(<[u8; 16]>::try_from(&value[at..at + 16]).expect("16 bytes"))
 }
 
-/// The address of the `sockaddr_storage` at `at` if it is of the family (`sockaddr_in6`'s
-/// address after family, port and flowinfo; `sockaddr_in`'s after family and port).
+/// The address of the `sockaddr_storage` at `at` if it is of the family, as a `sockaddr_in6`
+/// or `sockaddr_in`.
 fn ss_addr(value: &[u8], at: usize, v6: bool) -> Option<IpAddr> {
     let family = u16::from_le_bytes([value[at], value[at + 1]]);
     match v6 {
-        true => (family == AF_INET6).then(|| IpAddr::V6(v6_at(value, at + 8))),
-        false => (family == AF_INET).then(|| IpAddr::V4(v4_at(value, at + 4))),
+        true => (family == AF_INET6).then(|| IpAddr::V6(v6_at(value, at + SIN6_ADDR))),
+        false => (family == AF_INET).then(|| IpAddr::V4(v4_at(value, at + SIN_ADDR))),
     }
 }
 

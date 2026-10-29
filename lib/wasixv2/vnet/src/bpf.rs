@@ -18,7 +18,7 @@ use std::{
     },
 };
 
-use wasixv2_abi::{Errno, SocketOption as So};
+use wasixv2_abi::{Errno, GuestLayout, SockFilter as Insn, SocketOption as So};
 
 use crate::{
     NetResult,
@@ -35,7 +35,7 @@ const MEMWORDS: u32 = 16;
 pub const SO_GET_FILTER: i32 = So::SO_ATTACH_FILTER.0;
 const SKF_AD_MAX: i32 = 64;
 /// `sizeof(struct sock_filter)`.
-pub const INSN_LEN: usize = 8;
+pub const INSN_LEN: usize = Insn::SIZE;
 /// The longest program, in bytes.
 pub const MAX_PROGRAM_LEN: usize = MAXINSNS * INSN_LEN;
 
@@ -109,15 +109,6 @@ pub const ETH_P_IP: u16 = 0x0800;
 pub const ETH_P_IPV6: u16 = 0x86dd;
 /// `ETH_HLEN`.
 pub const ETH_HLEN: usize = 14;
-
-/// One `struct sock_filter`.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-struct Insn {
-    code: u16,
-    jt: u8,
-    jf: u8,
-    k: u32,
-}
 
 /// A checked classic BPF program, kept as attached (`orig_prog`) for `SO_GET_FILTER`.
 #[derive(Debug, PartialEq, Eq)]
@@ -202,12 +193,7 @@ impl Program {
         }
         let insns: Vec<Insn> = raw
             .chunks_exact(INSN_LEN)
-            .map(|c| Insn {
-                code: u16::from_le_bytes([c[0], c[1]]),
-                jt: c[2],
-                jf: c[3],
-                k: u32::from_le_bytes([c[4], c[5], c[6], c[7]]),
-            })
+            .map(|c| Insn::read_from(c).expect("a whole instruction"))
             .collect();
         for (pc, i) in insns.iter().enumerate() {
             if !code_allowed(i.code) {
@@ -244,10 +230,7 @@ impl Program {
             .iter()
             .flat_map(|i| {
                 let mut b = [0u8; INSN_LEN];
-                b[..2].copy_from_slice(&i.code.to_le_bytes());
-                b[2] = i.jt;
-                b[3] = i.jf;
-                b[4..].copy_from_slice(&i.k.to_le_bytes());
+                i.write_to(&mut b);
                 b
             })
             .collect()

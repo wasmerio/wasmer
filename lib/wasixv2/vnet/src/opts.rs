@@ -344,13 +344,7 @@ impl SockOpts {
                 return Ok(Changed::Nothing);
             }
             (SOL_IPV6, n) if n == Ipv6Option::IPV6_PKTINFO.0 => {
-                // `struct in6_pktinfo`: the address, then the interface index.
-                if value.len() < 20 {
-                    return Err(Errno::EINVAL);
-                }
-                let addr = <[u8; 16]>::try_from(&value[..16]).expect("16 bytes");
-                let index = u32::from_le_bytes(value[16..20].try_into().expect("4 bytes"));
-                self.sticky_pktinfo = (addr.into(), index);
+                self.sticky_pktinfo = crate::cmsg::read_in6_pktinfo(value)?;
                 return Ok(Changed::Nothing);
             }
             (SOL_TCP, n) if n == Tcp::TCP_CONGESTION.0 => {
