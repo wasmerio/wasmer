@@ -126,6 +126,12 @@ impl Kernel {
         mm.access
             .check(addr, len as usize, true)
             .map_err(|_| Errno::EFAULT)?;
+        // Unregistration drops page resources (io_uring/rsrc.c:io_buffer_unmap).
+        // Do not keep their dead address records until a later munmap.
+        mm.retained
+            .0
+            .lock_or_recover()
+            .retain(|_, page| page.strong_count() != 0);
         let limit = self.lock_limit(caller);
         let uid = self.process(caller.task()).cred().user.real;
         let mut records = Vec::new();
@@ -514,5 +520,53 @@ impl UserMemory for RetainedMemory<'_> {
     }
     fn force_write<'a>(&'a self, addr: u32, data: &'a [u8]) -> LocalFuture<'a, Result<(), Fault>> {
         self.memory.force_write(addr, data)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use futures::executor::block_on;
+
+    struct SizeOnly;
+    impl UserMemory for SizeOnly {
+        fn read<'a>(&'a self, _: u32, _: &'a mut [u8]) -> LocalFuture<'a, Result<(), Fault>> {
+            Box::pin(async { Err(Fault) })
+        }
+        fn write<'a>(&'a self, _: u32, _: &'a [u8]) -> LocalFuture<'a, Result<(), Fault>> {
+            Box::pin(async { Err(Fault) })
+        }
+        fn size(&self) -> LocalFuture<'_, u64> {
+            Box::pin(async { 4 * PAGE_SIZE })
+        }
+        fn grow(&self, _: u32) -> LocalFuture<'_, Option<u64>> {
+            Box::pin(async { None })
+        }
+    }
+
+    #[test]
+    fn registrations_prune_dead_address_records_and_preserve_live_pins() {
+        let host = Arc::new(crate::tests::TestHost);
+        let root =
+            wasixv2_vfs_mem::MemFs::new(Arc::new(crate::HostClock(host.clone())), 0o755, 1, 1);
+        let kernel = Kernel::new(host, Arc::new(root));
+        let task = kernel
+            .new_process(Vec::new(), Vec::new(), kernel.fd_table(), 0)
+            .unwrap();
+        let memory = SizeOnly;
+        let caller = Caller::new(task, &memory);
+        let live = block_on(kernel.retain_pages(&caller, 65536, 1)).unwrap();
+        let stale = block_on(kernel.retain_pages(&caller, 131072, 1)).unwrap();
+        drop(stale);
+        let last = block_on(kernel.retain_pages(&caller, 196608, 1)).unwrap();
+        let mm = kernel.mm(task);
+        assert_eq!(mm.retained.0.lock_or_recover().len(), 2);
+        assert!(Arc::ptr_eq(
+            &live.pages[0],
+            &block_on(kernel.retain_pages(&caller, 65536, 1))
+                .unwrap()
+                .pages[0]
+        ));
+        drop(last);
     }
 }
