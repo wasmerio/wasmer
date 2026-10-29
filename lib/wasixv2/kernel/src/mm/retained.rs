@@ -68,7 +68,7 @@ enum PageKind {
     /// P2's foreign handle copies synchronously from any host thread. The same
     /// source lock orders timer CQ writes against munmap/mremap detachment.
     Foreign {
-        memory: Arc<dyn UserMemory + Send + Sync>,
+        memory: Mutex<Option<Arc<dyn UserMemory + Send + Sync>>>,
         source: Mutex<Source>,
     },
 }
@@ -169,7 +169,7 @@ impl Kernel {
                 };
                 let kind = match mm.foreign() {
                     Some(memory) => PageKind::Foreign {
-                        memory,
+                        memory: Mutex::new(Some(memory)),
                         source: Mutex::new(source),
                     },
                     None => PageKind::Local(AsyncMutex::new(source)),
@@ -220,10 +220,16 @@ impl Mm {
                 PageKind::Foreign { memory, source } => {
                     let mut source = source.lock_or_recover();
                     if let Source::Live { addr, spare } = &mut *source {
-                        sync_copy(memory.force_read(*addr, spare))
+                        let memory = memory.lock_or_recover();
+                        let memory = memory.as_ref().ok_or(Fault);
+                        memory
+                            .and_then(|memory| sync_copy(memory.force_read(*addr, spare)))
                             .expect("retained page was validated at registration");
                         *source = Source::Owned(std::mem::take(spare));
                     }
+                    // Linux pins only the page, not the entire dead mm. Owned
+                    // bytes and SharedPages no longer need the image's handle.
+                    memory.lock_or_recover().take();
                 }
             }
         }
@@ -307,9 +313,11 @@ impl Retained {
             let PageKind::Foreign { memory, source } = &self.pages[index].kind else {
                 return Err(Fault);
             };
+            let mut source = source.lock_or_recover();
+            let memory = memory.lock_or_recover();
             transfer_sync(
-                &mut source.lock_or_recover(),
-                &**memory,
+                &mut source,
+                memory.as_deref().map(|m| m as &dyn UserMemory),
                 skip,
                 &mut buf[done..done + n],
                 write,
@@ -357,7 +365,15 @@ impl Retained {
             let n = (PAGE_SIZE as usize - skip).min(buf.len() - done);
             let bytes = &mut buf[done..done + n];
             if let PageKind::Foreign { memory, source } = &self.pages[index].kind {
-                transfer_sync(&mut source.lock_or_recover(), &**memory, skip, bytes, write)?;
+                let mut source = source.lock_or_recover();
+                let memory = memory.lock_or_recover();
+                transfer_sync(
+                    &mut source,
+                    memory.as_deref().map(|m| m as &dyn UserMemory),
+                    skip,
+                    bytes,
+                    write,
+                )?;
                 done += n;
                 continue;
             }
@@ -407,13 +423,14 @@ fn sync_copy(future: LocalFuture<'_, Result<(), Fault>>) -> Result<(), Fault> {
 
 fn transfer_sync(
     source: &mut Source,
-    memory: &dyn UserMemory,
+    memory: Option<&dyn UserMemory>,
     skip: usize,
     bytes: &mut [u8],
     write: bool,
 ) -> Result<(), Fault> {
     match source {
         Source::Live { addr, .. } => {
+            let memory = memory.ok_or(Fault)?;
             if write {
                 sync_copy(memory.force_write(*addr + skip as u32, bytes))
             } else {

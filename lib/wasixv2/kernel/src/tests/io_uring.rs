@@ -4427,3 +4427,27 @@ fn inherited_ring_uses_registrants_buffers_or_faults_without_foreign_memory() {
         }
     }
 }
+
+#[test]
+fn review_foreign_pins_release_old_image_handle_on_detachment() {
+    for shared in [false, true] {
+        let m = Machine::new();
+        let addr = anonymous(&m, 1, shared);
+        m.memory.put(addr, b"keep");
+        let owner = super::introspect::SyncMemory::new(block_on(m.memory.size()) as usize, 0);
+        owner.put(addr, b"keep");
+        let weak = Arc::downgrade(&owner);
+        m.kernel.attach_memory(m.task, owner.clone());
+        let retained = block_on(m.kernel.retain_pages(&m.caller(), addr, 4)).unwrap();
+        block_on(m.kernel.exit_mmap(&m.caller()));
+        drop(owner);
+        assert!(
+            weak.upgrade().is_none(),
+            "only the pinned page may outlive the image"
+        );
+        let mut bytes = [0; 4];
+        retained.read_sync(0, &mut bytes).unwrap();
+        assert_eq!(&bytes, b"keep");
+    }
+}
+
