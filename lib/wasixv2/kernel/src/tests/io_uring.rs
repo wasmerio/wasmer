@@ -4256,3 +4256,43 @@ fn review_foreign_pins_release_old_image_handle_on_detachment() {
     }
 }
 
+#[test]
+fn review_detachment_copy_fault_preserves_zeroed_retained_storage() {
+    let m = Machine::new();
+    let addr = anonymous(&m, 1, false);
+    m.memory.put(addr, b"live");
+    let retained = block_on(m.kernel.retain_pages(&m.caller(), addr, 4)).unwrap();
+    let no_memory = crate::process::NoMemory;
+    block_on(m.kernel.exit_mmap(&Caller::new(m.task, &no_memory)));
+    let mut bytes = [1; 4];
+    block_on(retained.read(&m.memory, 0, &mut bytes)).unwrap();
+    assert_eq!(bytes, [0; 4]);
+}
+
+#[test]
+fn review_non_immediate_foreign_copy_faults_without_panicking() {
+    struct Pending;
+    impl UserMemory for Pending {
+        fn read<'a>(&'a self, _: u32, _: &'a mut [u8]) -> LocalFuture<'a, Result<(), Fault>> {
+            Box::pin(futures::future::pending())
+        }
+        fn write<'a>(&'a self, _: u32, _: &'a [u8]) -> LocalFuture<'a, Result<(), Fault>> {
+            Box::pin(futures::future::pending())
+        }
+        fn size(&self) -> LocalFuture<'_, u64> {
+            Box::pin(async { 1 << 32 })
+        }
+        fn grow(&self, _: u32) -> LocalFuture<'_, Option<u64>> {
+            Box::pin(async { None })
+        }
+    }
+    let m = Machine::new();
+    let addr = anonymous(&m, 1, false);
+    m.kernel.attach_memory(m.task, Arc::new(Pending));
+    let retained = block_on(m.kernel.retain_pages(&m.caller(), addr, 4)).unwrap();
+    let mut bytes = [1; 4];
+    assert_eq!(retained.read_sync(0, &mut bytes), Err(Fault));
+    block_on(m.kernel.exit_mmap(&m.caller()));
+    assert_eq!(retained.read_sync(0, &mut bytes), Ok(()));
+    assert_eq!(bytes, [0; 4]);
+}

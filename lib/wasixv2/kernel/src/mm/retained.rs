@@ -210,10 +210,13 @@ impl Mm {
                 PageKind::Local(source) => {
                     let mut source = source.lock().await;
                     if let Source::Live { addr, spare } = &mut *source {
-                        memory
-                            .force_read(*addr, spare)
-                            .await
-                            .expect("retained page was validated at registration");
+                        if memory.force_read(*addr, spare).await.is_err() {
+                            tracing::error!(
+                                address = *addr,
+                                "failed to copy retained page during detachment"
+                            );
+                            spare.fill(0);
+                        }
                         *source = Source::Owned(std::mem::take(spare));
                     }
                 }
@@ -222,9 +225,16 @@ impl Mm {
                     if let Source::Live { addr, spare } = &mut *source {
                         let memory = memory.lock_or_recover();
                         let memory = memory.as_ref().ok_or(Fault);
-                        memory
+                        if memory
                             .and_then(|memory| sync_copy(memory.force_read(*addr, spare)))
-                            .expect("retained page was validated at registration");
+                            .is_err()
+                        {
+                            tracing::error!(
+                                address = *addr,
+                                "failed to copy foreign retained page during detachment"
+                            );
+                            spare.fill(0);
+                        }
                         *source = Source::Owned(std::mem::take(spare));
                     }
                     // Linux pins only the page, not the entire dead mm. Owned
@@ -416,9 +426,9 @@ impl Retained {
 
 /// ForeignMemory's copies are immediate (exec/memory.rs); never block a guest executor.
 fn sync_copy(future: LocalFuture<'_, Result<(), Fault>>) -> Result<(), Fault> {
-    future
-        .now_or_never()
-        .expect("attached foreign memory copies synchronously")
+    // A future handle that stops completing immediately must fault, not panic
+    // a timer thread or an mm teardown path.
+    future.now_or_never().unwrap_or(Err(Fault))
 }
 
 fn transfer_sync(
