@@ -1416,7 +1416,8 @@ fn packet_sockets_answer_interface_requests_and_carry_no_frames() {
 /// Writes `text` to the file at `at` (`sysctl -w`).
 fn write_file(kernel: &Kernel, caller: &Caller<'_>, at: &str, text: &str) -> SysResult<u32> {
     let name = path(caller.memory(), at);
-    let fd = block_on(kernel.openat(caller, CWD, name, OpenFlags::O_WRONLY, 0))?;
+    let flags = OpenFlags::O_WRONLY | OpenFlags::O_TRUNC;
+    let fd = block_on(kernel.openat(caller, CWD, name, flags, 0))?;
     block_on(caller.memory().write(0x5000, text.as_bytes())).unwrap();
     let n = block_on(kernel.write(
         caller,
