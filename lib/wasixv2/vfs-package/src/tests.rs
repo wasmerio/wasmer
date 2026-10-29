@@ -182,6 +182,7 @@ fn mutations_fail_with_erofs() {
         uid: 0,
         gid: 0,
         task: 0,
+        quota_exempt: false,
     };
     assert_eq!(block_on(root.create(b"n", &new)).err(), Some(Errno::EROFS));
     assert_eq!(block_on(root.unlink(b"a.txt")), Err(Errno::EROFS));

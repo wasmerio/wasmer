@@ -36,6 +36,10 @@ use wasixv2_vfs::{
 };
 
 mod data;
+mod quota;
+
+pub use quota::QuotaLimits;
+use quota::{Charge, Quotas};
 
 use data::Data;
 
@@ -107,6 +111,7 @@ struct Shared {
     clock: Arc<dyn Clock>,
     next_ino: AtomicU64,
     space: Space,
+    quotas: Quotas,
     /// Makes the shared memory objects regular files keep their data in, if they do.
     pages: OnceLock<Arc<dyn Provider>>,
     /// The root's permission bits and owner as the filesystem was made with them
@@ -215,10 +220,24 @@ impl MemFs {
         gid: u32,
         limits: Limits,
     ) -> Self {
+        Self::with_limits_and_quotas(clock, mode, uid, gid, limits, QuotaLimits::default())
+            .expect("an empty filesystem has room for its root")
+    }
+
+    /// A tmpfs with quota accounting enabled at mount time (`shmem_fill_super`).
+    pub fn with_limits_and_quotas(
+        clock: Arc<dyn Clock>,
+        mode: u32,
+        uid: u32,
+        gid: u32,
+        limits: Limits,
+        quotas: QuotaLimits,
+    ) -> FsResult<Self> {
         let shared = Arc::new(Shared {
             clock,
             next_ino: AtomicU64::new(1),
             space: Space::new(limits),
+            quotas: Quotas::new(quotas),
             pages: OnceLock::new(),
             root_owner: (mode & 0o7777, uid, gid),
             nodes: Mutex::default(),
@@ -229,11 +248,26 @@ impl MemFs {
             uid,
             gid,
             task: 0,
+            quota_exempt: false,
         };
         // The root's `..` is itself.
-        let root = MemNode::new(&shared, &root).expect("an empty filesystem has room for its root");
+        let root = MemNode::new(&shared, &root)?;
         root.meta().nlink = 2;
-        Self { shared, root }
+        Ok(Self { shared, root })
+    }
+
+    /// `shmem_reconfigure`: quotas cannot be enabled or their defaults changed on remount.
+    pub fn check_quota_remount(&self, options: QuotaLimits) -> FsResult<()> {
+        let old = self.shared.quotas.defaults;
+        if options.types != 0 && old.types == 0
+            || (0..2).any(|i| {
+                options.block_hard[i] != 0 && options.block_hard[i] != old.block_hard[i]
+                    || options.inode_hard[i] != 0 && options.inode_hard[i] != old.inode_hard[i]
+            })
+        {
+            return Err(Errno::EINVAL);
+        }
+        Ok(())
     }
 
     /// Changes the limits a remount names (`shmem_reconfigure`): `max_bytes` and `max_inodes`
@@ -275,6 +309,10 @@ impl MemFs {
 
 #[async_trait(?Send)]
 impl Filesystem for MemFs {
+    fn quota(&self) -> Option<&dyn wasixv2_vfs::QuotaOps> {
+        (self.shared.quotas.defaults.types != 0).then_some(self)
+    }
+
     fn info(&self) -> FsInfo {
         FsInfo {
             name: "tmpfs",
@@ -358,6 +396,22 @@ impl Filesystem for MemFs {
         if Some(max_inodes) != defaults.max_inodes {
             out.extend_from_slice(format!(",nr_inodes={max_inodes}").as_bytes());
         }
+        let quota = self.shared.quotas.defaults;
+        for (i, name) in ["usrquota", "grpquota"].into_iter().enumerate() {
+            if quota.types & (1 << i) != 0 {
+                out.extend_from_slice(format!(",{name}").as_bytes());
+            }
+            if quota.block_hard[i] != 0 {
+                out.extend_from_slice(
+                    format!(",{name}_block_hardlimit={}", quota.block_hard[i]).as_bytes(),
+                );
+            }
+            if quota.inode_hard[i] != 0 {
+                out.extend_from_slice(
+                    format!(",{name}_inode_hardlimit={}", quota.inode_hard[i]).as_bytes(),
+                );
+            }
+        }
         let (mode, uid, gid) = self.shared.root_owner;
         if mode != 0o1777 {
             out.extend_from_slice(format!(",mode={mode:03o}").as_bytes());
@@ -378,6 +432,8 @@ pub struct MemNode {
     this: Weak<MemNode>,
     shared: Arc<Shared>,
     meta: Mutex<Meta>,
+    /// Serializes allocation with quota ownership transfer; always taken before data/meta.
+    quota_owner: Mutex<(u32, u32)>,
     content: Content,
 }
 
@@ -448,6 +504,16 @@ impl MemNode {
     /// A new object, charged to the filesystem's inode space.
     fn new(shared: &Arc<Shared>, new: &NewNode<'_>) -> FsResult<Arc<Self>> {
         shared.space.reserve_inode()?;
+        if let Err(err) = shared.quotas.charge(
+            (new.uid, new.gid),
+            0,
+            1,
+            shared.now().sec.max(0) as u64,
+            new.quota_exempt,
+        ) {
+            shared.space.free_inode();
+            return Err(err);
+        }
         let now = shared.now();
         let (content, rdev) = match new.kind {
             NewKind::Regular => {
@@ -465,6 +531,7 @@ impl MemNode {
             file_type: new.kind.file_type(),
             this: this.clone(),
             shared: shared.clone(),
+            quota_owner: Mutex::new((new.uid, new.gid)),
             meta: Mutex::new(Meta {
                 mode: new.mode,
                 uid: new.uid,
@@ -591,6 +658,10 @@ impl Drop for MemNode {
     fn drop(&mut self) {
         self.shared.nodes.lock().unwrap().remove(&self.ino);
         let space = &self.shared.space;
+        let owner = *self.quota_owner.lock().unwrap();
+        self.shared
+            .quotas
+            .release(owner, self.allocated() * BLOCK, 1);
         space.release_blocks(self.allocated());
         let xattrs: u64 = self.meta().xattrs.iter().map(xattr_space).sum();
         space.release_ispace(xattrs);
@@ -679,31 +750,47 @@ impl Node for MemNode {
     }
 
     async fn setattr(&self, attr: &SetAttr) -> FsResult<Attr> {
-        if let Some(size) = attr.size {
-            if size > MAX_SIZE {
-                return Err(Errno::EFBIG);
-            }
-            self.data()?.truncate(&self.shared.space, size)?;
-        }
         {
-            let mut meta = self.meta();
-            if let Some(mode) = attr.mode {
-                meta.mode = mode;
+            let mut owner = self.quota_owner.lock().unwrap();
+            let charge = Charge {
+                shared: &self.shared,
+                owner: *owner,
+                exempt: attr.quota_exempt,
+            };
+            if let Some(size) = attr.size {
+                if size > MAX_SIZE {
+                    return Err(Errno::EFBIG);
+                }
+                self.data()?.truncate(&charge, size)?;
             }
-            if let Some(uid) = attr.uid {
-                meta.uid = uid;
-            }
-            if let Some(gid) = attr.gid {
-                meta.gid = gid;
-            }
-            if let Some(time) = attr.atime {
-                meta.atime = self.shared.time(time);
-            }
-            if let Some(time) = attr.mtime {
-                meta.mtime = self.shared.time(time);
-            }
-            if let Some(time) = attr.ctime {
-                meta.ctime = self.shared.time(time);
+            {
+                let next = (attr.uid.unwrap_or(owner.0), attr.gid.unwrap_or(owner.1));
+                self.shared.quotas.transfer(
+                    [*owner, next],
+                    self.allocated() * BLOCK,
+                    self.shared.now().sec.max(0) as u64,
+                    attr.quota_exempt,
+                )?;
+                *owner = next;
+                let mut meta = self.meta();
+                if let Some(mode) = attr.mode {
+                    meta.mode = mode;
+                }
+                if let Some(uid) = attr.uid {
+                    meta.uid = uid;
+                }
+                if let Some(gid) = attr.gid {
+                    meta.gid = gid;
+                }
+                if let Some(time) = attr.atime {
+                    meta.atime = self.shared.time(time);
+                }
+                if let Some(time) = attr.mtime {
+                    meta.mtime = self.shared.time(time);
+                }
+                if let Some(time) = attr.ctime {
+                    meta.ctime = self.shared.time(time);
+                }
             }
         }
         self.getattr().await
@@ -1003,6 +1090,52 @@ impl MemHandle {
     }
 }
 
+impl MemHandle {
+    fn write(&self, data: &[u8], offset: Option<u64>, exempt: bool) -> FsResult<(u64, usize)> {
+        let owner = self.node.quota_owner.lock().unwrap();
+        let charge = Charge {
+            shared: &self.node.shared,
+            owner: *owner,
+            exempt,
+        };
+        let result = {
+            let mut file = self.node.data()?;
+            let at = offset.unwrap_or(file.size);
+            file.write(&charge, data, at).map(|n| (at, n))
+        }?;
+        self.node.touch();
+        Ok(result)
+    }
+
+    fn fallocate(&self, mode: AllocMode, offset: u64, len: u64, exempt: bool) -> FsResult<()> {
+        let end = offset
+            .checked_add(len)
+            .filter(|&end| end <= MAX_SIZE)
+            .ok_or(Errno::EFBIG)?;
+        let owner = self.node.quota_owner.lock().unwrap();
+        let charge = Charge {
+            shared: &self.node.shared,
+            owner: *owner,
+            exempt,
+        };
+        {
+            let mut file = self.node.data()?;
+            match mode {
+                AllocMode::Allocate | AllocMode::AllocateKeepSize => {
+                    file.allocate(&charge, offset, end, mode == AllocMode::Allocate)?;
+                }
+                AllocMode::PunchHole => file.punch(&charge, offset, end)?,
+                AllocMode::ZeroRange { keep_size } => {
+                    file.punch(&charge, offset, end)?;
+                    file.allocate(&charge, offset, end, !keep_size)?;
+                }
+            }
+        }
+        self.node.touch();
+        Ok(())
+    }
+}
+
 #[async_trait(?Send)]
 impl Handle for MemHandle {
     async fn read_at(&self, buf: &mut [u8], offset: u64) -> FsResult<usize> {
@@ -1012,53 +1145,61 @@ impl Handle for MemHandle {
     }
 
     async fn write_at(&self, data: &[u8], offset: u64) -> FsResult<usize> {
-        let n = self
-            .node
-            .data()?
-            .write(&self.node.shared.space, data, offset)?;
-        self.node.touch();
-        Ok(n)
+        self.write(data, Some(offset), false).map(|(_, n)| n)
     }
 
     async fn append(&self, data: &[u8]) -> FsResult<(u64, usize)> {
-        let result = {
-            let mut file = self.node.data()?;
-            let at = file.size;
-            file.write(&self.node.shared.space, data, at)
-                .map(|n| (at, n))
-        }?;
-        self.node.touch();
-        Ok(result)
+        self.write(data, None, false)
+    }
+
+    async fn write_at_as(
+        &self,
+        data: &[u8],
+        offset: u64,
+        cred: &wasixv2_vfs::Cred,
+    ) -> FsResult<usize> {
+        self.write(
+            data,
+            Some(offset),
+            cred.capable_init(wasixv2_vfs::Cap::SysResource),
+        )
+        .map(|(_, n)| n)
+    }
+
+    async fn append_as(&self, data: &[u8], cred: &wasixv2_vfs::Cred) -> FsResult<(u64, usize)> {
+        self.write(data, None, cred.capable_init(wasixv2_vfs::Cap::SysResource))
     }
 
     async fn allocate(&self, mode: AllocMode, offset: u64, len: u64) -> FsResult<()> {
-        let end = offset
-            .checked_add(len)
-            .filter(|&end| end <= MAX_SIZE)
-            .ok_or(Errno::EFBIG)?;
-        let space = &self.node.shared.space;
-        {
-            let mut file = self.node.data()?;
-            match mode {
-                AllocMode::Allocate | AllocMode::AllocateKeepSize => {
-                    file.allocate(space, offset, end, mode == AllocMode::Allocate)?;
-                }
-                AllocMode::PunchHole => file.punch(space, offset, end)?,
-                AllocMode::ZeroRange { keep_size } => {
-                    file.punch(space, offset, end)?;
-                    file.allocate(space, offset, end, !keep_size)?;
-                }
-            }
-        }
-        self.node.touch();
-        Ok(())
+        self.fallocate(mode, offset, len, false)
+    }
+
+    async fn allocate_as(
+        &self,
+        mode: AllocMode,
+        offset: u64,
+        len: u64,
+        cred: &wasixv2_vfs::Cred,
+    ) -> FsResult<()> {
+        self.fallocate(
+            mode,
+            offset,
+            len,
+            cred.capable_init(wasixv2_vfs::Cap::SysResource),
+        )
     }
 
     async fn set_size(&self, size: u64) -> FsResult<()> {
         if size > MAX_SIZE {
             return Err(Errno::EFBIG);
         }
-        self.node.data()?.truncate(&self.node.shared.space, size)?;
+        let owner = self.node.quota_owner.lock().unwrap();
+        let charge = Charge {
+            shared: &self.node.shared,
+            owner: *owner,
+            exempt: false,
+        };
+        self.node.data()?.truncate(&charge, size)?;
         self.node.touch();
         Ok(())
     }

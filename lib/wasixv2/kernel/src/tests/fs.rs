@@ -1346,3 +1346,118 @@ fn posix_acls_grant_inherit_and_follow_chmod() {
     assert_eq!(errno(t.open("/g", OpenFlags::O_RDONLY)), Errno::EACCES);
     assert_eq!(errno(set("/f", access, &grant)), Errno::EPERM);
 }
+
+#[test]
+fn tmpfs_quotactl_fd_controls_limits_and_checks_permissions() {
+    use wasixv2_abi::{IfDqblk, IfDqinfo, QuotaMisc as Q};
+    use wasixv2_vfs::{Cap, MountFlags};
+    use wasixv2_vfs_mem::{Limits, QuotaLimits};
+    let (kernel, task, memory) = super::cred::machine_as(0, 0);
+    let t = T::new(&kernel, task, &memory);
+    t.mkdir("/quota");
+    let fs = Arc::new(
+        MemFs::with_limits_and_quotas(
+            Arc::new(HostClock(Arc::new(TestHost))),
+            0o777,
+            0,
+            0,
+            Limits::UNLIMITED,
+            QuotaLimits {
+                types: 1,
+                ..QuotaLimits::default()
+            },
+        )
+        .unwrap(),
+    );
+    block_on(
+        kernel
+            .vfs
+            .mount(b"/quota", fs.clone(), MountFlags::default(), false),
+    )
+    .unwrap();
+    let dir = t.open("/quota", OpenFlags::O_PATH).unwrap();
+    let quota = |fd, op: Q, kind: u32, id| {
+        block_on(kernel.quotactl_fd(
+            &t.caller,
+            fd,
+            op.0 << 8 | kind,
+            id,
+            GuestPtrMut::new(0x4000),
+        ))
+    };
+    assert_eq!(errno(quota(Fd(-1), Q::Q_GETFMT, 3, 0)), Errno::EBADF);
+    assert_eq!(errno(quota(dir, Q::Q_GETFMT, 3, 0)), Errno::EINVAL);
+    assert_eq!(errno(quota(dir, Q::Q_GETFMT, 2, 0)), Errno::EINVAL);
+    assert_eq!(errno(quota(dir, Q::Q_GETFMT, 1, 0)), Errno::ESRCH);
+    assert_eq!(quota(dir, Q::Q_GETFMT, 0, 0), Ok(0));
+    assert_eq!(
+        u32::from_le_bytes(get(&memory, 0x4000, 4).try_into().unwrap()),
+        Q::QFMT_SHMEM.0
+    );
+    assert_eq!(quota(dir, Q::Q_GETINFO, 0, 0), Ok(0));
+    let info: IfDqinfo =
+        block_on(wasixv2_syscalls::read_value(&memory, GuestPtr::new(0x4000))).unwrap();
+    assert_eq!(
+        (info.dqi_bgrace, info.dqi_igrace, info.dqi_flags),
+        (604800, 604800, 1 << 16)
+    );
+    let file = t
+        .open("/quota/f", OpenFlags::O_CREAT | OpenFlags::O_RDWR)
+        .unwrap();
+    let limits = IfDqblk {
+        dqb_bhardlimit: 4,
+        dqb_valid: Q::QIF_BLIMITS.0,
+        ..IfDqblk::default()
+    };
+    block_on(wasixv2_syscalls::write_value(
+        &memory,
+        GuestPtrMut::new(0x4000),
+        &limits,
+    ))
+    .unwrap();
+    assert_eq!(quota(dir, Q::Q_SETQUOTA, 0, 0), Ok(0));
+    // Dropping only CAP_SYS_RESOURCE makes uid 0 obey the limits, even on an existing fd.
+    super::cred::set_caps(
+        &kernel,
+        &t.caller,
+        &memory,
+        crate::cred::CAP_FULL & !Cap::SysResource.bit(),
+    );
+    assert_eq!(t.write(file, &[0; 8192]), Ok(4096));
+    assert_eq!(errno(t.write(file, b"over")), Errno::EDQUOT);
+    assert_eq!(quota(dir, Q::Q_GETQUOTA, 0, 0), Ok(0));
+    let dq: IfDqblk =
+        block_on(wasixv2_syscalls::read_value(&memory, GuestPtr::new(0x4000))).unwrap();
+    assert_eq!((dq.dqb_curspace, dq.dqb_curinodes), (4096, 2));
+    assert_eq!(quota(dir, Q::Q_QUOTAON, 0, 0), Err(Errno::EEXIST.into()));
+    assert_eq!(quota(dir, Q::Q_QUOTAOFF, 0, 0), Ok(0));
+    assert_eq!(t.write(file, b"accounted"), Ok(9));
+    assert_eq!(quota(dir, Q::Q_QUOTAON, 0, 0), Ok(0));
+    assert_eq!(quota(dir, Q::Q_GETNEXTQUOTA, 0, 0), Ok(0));
+    assert_eq!(block_on(kernel.setuid(&t.caller, 1)), Ok(0));
+    assert_eq!(errno(quota(dir, Q::Q_GETQUOTA, 0, 0)), Errno::EPERM);
+    assert_eq!(quota(dir, Q::Q_GETQUOTA, 0, 1), Ok(0));
+    assert_eq!(errno(quota(dir, Q::Q_GETNEXTQUOTA, 0, 0)), Errno::EPERM);
+    assert_eq!(errno(quota(dir, Q::Q_SETQUOTA, 0, 1)), Errno::EPERM);
+    assert_eq!(quota(dir, Q::Q_GETFMT, 0, 0), Ok(0));
+    assert_eq!(
+        block_on(kernel.quotactl(
+            &t.caller,
+            Q::Q_SYNC.0 << 8,
+            GuestPtr::new(0),
+            0,
+            GuestPtrMut::new(0)
+        )),
+        Ok(0)
+    );
+    assert_eq!(
+        errno(block_on(kernel.quotactl(
+            &t.caller,
+            Q::Q_GETQUOTA.0 << 8,
+            t.path("/quota"),
+            1,
+            GuestPtrMut::new(0)
+        ))),
+        Errno::ENOTBLK
+    );
+}

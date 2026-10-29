@@ -181,6 +181,7 @@ impl ReadSink for CopyOut<'_> {
 /// position lock throughout (`fdget_pos`), so threads sharing the description never interleave
 /// within one call.
 struct Target<'a> {
+    cred: wasixv2_vfs::Cred,
     task: TaskId,
     file: &'a OpenFile,
     interrupt: &'a dyn Interrupt,
@@ -227,7 +228,7 @@ impl Target<'_> {
                 .await;
         };
         if self.append {
-            let (end, n) = inner.append(data).await?;
+            let (end, n) = inner.append_as(data, &self.cred).await?;
             if matches!(self.at, At::Position) {
                 self.file.set_pos(end);
             }
@@ -235,7 +236,7 @@ impl Target<'_> {
         }
         let offset = self.start + done as u64;
         check_file_size(offset, data.len())?;
-        let n = inner.write_at(data, offset).await?;
+        let n = inner.write_at_as(data, offset, &self.cred).await?;
         if matches!(self.at, At::Position) {
             self.file.set_pos(offset + n as u64);
         }
@@ -269,6 +270,7 @@ impl Kernel {
             _ => None,
         };
         let target = Target {
+            cred: self.env(caller).cred,
             task: caller.task(),
             file,
             interrupt: &*interrupt,
@@ -359,6 +361,7 @@ impl Kernel {
         };
         let o_append = file.flags().contains(OpenFlags::O_APPEND);
         let target = Target {
+            cred: self.env(caller).cred,
             task: caller.task(),
             file,
             interrupt: &*interrupt,
@@ -689,7 +692,13 @@ impl Kernel {
                 Err(err) => return Err(err),
             };
             let written = match output
-                .write(caller.task(), &*interrupt, broken, &buf[..n])
+                .write_as(
+                    caller.task(),
+                    &*interrupt,
+                    broken,
+                    &buf[..n],
+                    &self.env(caller).cred,
+                )
                 .await
             {
                 Ok(written) => written,
@@ -777,7 +786,9 @@ impl Kernel {
             if n == 0 {
                 break;
             }
-            let written = dst.write_at(&buf[..n], pos_out).await?;
+            let written = dst
+                .write_at_as(&buf[..n], pos_out, &self.env(caller).cred)
+                .await?;
             pos_in += written as u64;
             pos_out += written as u64;
             done += written as u64;
@@ -906,7 +917,9 @@ impl Kernel {
         // Linux refuses all but plain allocation on an append-only inode (`IS_APPEND`, from
         // `chattr +a`), which no filesystem here has; an `O_APPEND` descriptor is no such thing.
         self.sync_file_mappings(caller, &file).await;
-        let allocated = inner.allocate(alloc, offset as u64, len as u64).await;
+        let allocated = inner
+            .allocate_as(alloc, offset as u64, len as u64, &self.env(caller).cred)
+            .await;
         self.sync_file_mappings(caller, &file).await;
         allocated?;
         Ok(0)
