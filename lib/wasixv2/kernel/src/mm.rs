@@ -392,6 +392,9 @@ pub(crate) struct Region {
     pub(crate) write: bool,
     /// A mapping of a shared object (`VM_SHARED`, or `VM_MAYSHARE` for a read-only one).
     pub(crate) shared: bool,
+    /// `VM_LOCKED` and `VM_WIPEONFORK`.
+    pub(crate) locked: bool,
+    pub(crate) wipe_on_fork: bool,
 }
 
 /// What sets an area above the image apart from its neighbours: two next to each other are one
@@ -891,6 +894,8 @@ impl AddressSpace {
                 read: true,
                 write: true,
                 shared: false,
+                locked: false,
+                wipe_on_fork: false,
             };
             areas.push((image, None));
         }
@@ -921,6 +926,8 @@ impl AddressSpace {
                         read: key.read,
                         write: key.write,
                         shared: mapping.is_some_and(|(_, shared)| shared),
+                        locked: key.locked,
+                        wipe_on_fork: key.wipe_on_fork,
                     };
                     areas.push((region, Some(key)));
                 }

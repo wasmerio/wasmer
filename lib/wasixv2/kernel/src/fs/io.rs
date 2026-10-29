@@ -256,6 +256,20 @@ impl Kernel {
         iovecs: &[Iovec],
         at: At,
     ) -> SysResult<u32> {
+        let ret = self.read_iovecs_unaccounted(caller, file, iovecs, at).await;
+        // `inc_syscr` and `add_rchar`.
+        let read = *ret.as_ref().unwrap_or(&0);
+        self.process(caller.task()).ioac.account(false, read);
+        ret
+    }
+
+    async fn read_iovecs_unaccounted(
+        &self,
+        caller: &Caller<'_>,
+        file: &OpenFile,
+        iovecs: &[Iovec],
+        at: At,
+    ) -> SysResult<u32> {
         let total: usize = iovecs.iter().map(|iov| iov.iov_len as usize).sum();
         let interrupt = self.interrupt(caller);
         let _pos = match (at, &file.backing) {
@@ -311,6 +325,23 @@ impl Kernel {
     /// non-blocking object or a fault ends it with the count so far. A datagram is one write.
     /// A byte stream with no reader left raises `SIGPIPE`.
     async fn write_from_iovecs(
+        &self,
+        caller: &Caller<'_>,
+        file: &OpenFile,
+        iovecs: &[Iovec],
+        at: At,
+        flags: RwfFlags,
+    ) -> SysResult<u32> {
+        let ret = self
+            .write_iovecs_unaccounted(caller, file, iovecs, at, flags)
+            .await;
+        // `inc_syscw` and `add_wchar`.
+        let written = *ret.as_ref().unwrap_or(&0);
+        self.process(caller.task()).ioac.account(true, written);
+        ret
+    }
+
+    async fn write_iovecs_unaccounted(
         &self,
         caller: &Caller<'_>,
         file: &OpenFile,

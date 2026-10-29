@@ -188,6 +188,8 @@ pub struct Kernel {
     keys: Arc<keys::Keys>,
     /// Yama's `ptrace_scope` and the `PR_SET_PTRACER` exceptions.
     yama: Arc<yama::Yama>,
+    /// The last audit session id handed out (`session_id`).
+    audit_sessions: Arc<std::sync::atomic::AtomicU32>,
     /// Who traces whom (`ptrace`).
     tracees: Arc<ptrace::Tracees>,
     /// What hides the order of the resources `kcmp` compares, made at its first use.
@@ -245,6 +247,11 @@ struct Process {
     /// The file the image was loaded from (`mm->exe_file`); `None` for a process the embedder
     /// started from bytes.
     exe: Mutex<Option<wasixv2_vfs::Path>>,
+    /// The process's I/O counts, as `/proc/<pid>/io` shows them (`signal->ioac`).
+    ioac: IoAccounting,
+    /// The auxiliary vector the image started with, as `/proc/<pid>/auxv` shows it
+    /// (`mm->saved_auxv`): pairs of words up to `AT_NULL`.
+    auxv: Mutex<Vec<u8>>,
     // ---- thr ----
     group: thread::Group,
     // ---- base ----
@@ -302,6 +309,35 @@ struct Task {
     // ---- base ----
     /// The CPU time the execution layer charges the task with.
     cpu: Arc<CpuAccount>,
+}
+
+/// `struct task_io_accounting`: what the read and write calls moved and how many there were.
+/// Every file's data is in memory, so nothing is read from or written to storage
+/// (`read_bytes`, `write_bytes`).
+#[derive(Default)]
+struct IoAccounting {
+    rchar: std::sync::atomic::AtomicU64,
+    wchar: std::sync::atomic::AtomicU64,
+    syscr: std::sync::atomic::AtomicU64,
+    syscw: std::sync::atomic::AtomicU64,
+}
+
+impl IoAccounting {
+    fn account(&self, write: bool, bytes: u32) {
+        use std::sync::atomic::Ordering::Relaxed;
+        let (chars, calls) = match write {
+            true => (&self.wchar, &self.syscw),
+            false => (&self.rchar, &self.syscr),
+        };
+        chars.fetch_add(u64::from(bytes), Relaxed);
+        calls.fetch_add(1, Relaxed);
+    }
+
+    /// `rchar`, `wchar`, `syscr`, `syscw`.
+    fn counts(&self) -> [u64; 4] {
+        use std::sync::atomic::Ordering::Relaxed;
+        [&self.rchar, &self.wchar, &self.syscr, &self.syscw].map(|c| c.load(Relaxed))
+    }
 }
 
 impl Task {
@@ -369,6 +405,7 @@ impl Kernel {
             yama: Arc::default(),
             kcmp: std::sync::OnceLock::new(),
             tracees: Default::default(),
+            audit_sessions: Arc::default(),
             credentials: Credentials::default(),
             init: None,
             jobs,
@@ -515,6 +552,8 @@ impl Kernel {
             args: Mutex::new(args.into_iter().map(String::into_bytes).collect()),
             env: Mutex::new(env.into_iter().map(String::into_bytes).collect()),
             exe: Mutex::new(None),
+            auxv: Mutex::default(),
+            ioac: IoAccounting::default(),
             group: thread::Group::new(),
         });
         let flag = Arc::new(WorkFlag::default());
@@ -619,6 +658,7 @@ impl Syscalls for Kernel {
         self.host.random(&mut random);
         let block = startup.build(buf.addr, random)?;
         buf.copy_out(caller.memory(), &block).await?;
+        *process.auxv.lock_or_recover() = startup.auxv(&block);
         Ok(0)
     }
 

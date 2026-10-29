@@ -1369,6 +1369,8 @@ impl Kernel {
                 args: Mutex::new(parent.args.lock_or_recover().clone()),
                 env: Mutex::new(parent.env.lock_or_recover().clone()),
                 exe: Mutex::new(parent.exe.lock_or_recover().clone()),
+                auxv: Mutex::new(parent.auxv.lock_or_recover().clone()),
+                ioac: Default::default(),
                 group: thread::Group::new(),
                 start: self.host.monotonic(),
                 // A child's times start at zero, and it inherits no interval timers.

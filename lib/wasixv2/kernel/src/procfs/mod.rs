@@ -7,6 +7,7 @@
 //! produced when it is opened and read from that snapshot, as `seq_file` does for the first
 //! read.
 
+mod introspect;
 mod node;
 mod sysnet;
 mod text;
@@ -70,6 +71,7 @@ impl Kernel {
             nr_open: self.nr_open.clone(),
             taint: self.taint.clone(),
             yama: self.yama.clone(),
+            audit_sessions: self.audit_sessions.clone(),
             pipe_max_size: self.pipe_max_size.clone(),
             vm: self.vm.clone(),
             keys: self.keys.clone(),
@@ -152,6 +154,8 @@ struct Source {
     taint: Arc<Taint>,
     /// `kernel.yama.ptrace_scope`.
     yama: Arc<crate::yama::Yama>,
+    /// The audit session ids `loginuid` writes hand out.
+    audit_sessions: Arc<std::sync::atomic::AtomicU32>,
     /// `fs.pipe-max-size`.
     pipe_max_size: Arc<PipeMaxSize>,
     /// The `vm` tunables.
@@ -380,6 +384,22 @@ impl Source {
         let state = self.state.upgrade()?;
         let state = state.read_or_recover();
         Some(state.tasks.get(&TaskId(tid))?.process.pid.0)
+    }
+
+    /// `timerslack_ns_write`: the task's timer slack, its default for 0.
+    fn set_timer_slack(&self, scope: node::Scope, slack: u64) -> Option<()> {
+        let tid = match scope.tid {
+            Some(tid) => tid,
+            None => self.threads(scope.pid).first()?.1,
+        };
+        let state = self.state.upgrade()?;
+        let mut state = state.lock_or_recover();
+        state
+            .tasks
+            .get_mut(&TaskId(tid))?
+            .sched
+            .set_timer_slack(slack);
+        Some(())
     }
 
     /// How many tasks run, and how many were ever started (`total_forks`).

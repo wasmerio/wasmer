@@ -200,6 +200,43 @@ const PID_ENTRIES: &[(&str, PidEntry, u32)] = &[
     ("gid_map", PidEntry::File(text::PerPid::GidMap), 0o644),
     ("projid_map", PidEntry::File(text::PerPid::ProjidMap), 0o644),
     ("setgroups", PidEntry::File(text::PerPid::Setgroups), 0o644),
+    ("oom_score", PidEntry::File(text::PerPid::OomScore), 0o444),
+    (
+        "oom_score_adj",
+        PidEntry::File(text::PerPid::OomScoreAdj),
+        0o644,
+    ),
+    ("oom_adj", PidEntry::File(text::PerPid::OomAdj), 0o644),
+    (
+        "personality",
+        PidEntry::File(text::PerPid::Personality),
+        0o400,
+    ),
+    ("wchan", PidEntry::File(text::PerPid::Wchan), 0o444),
+    ("stack", PidEntry::File(text::PerPid::Stack), 0o400),
+    (
+        "timerslack_ns",
+        PidEntry::File(text::PerPid::TimerslackNs),
+        0o666,
+    ),
+    ("schedstat", PidEntry::File(text::PerPid::Schedstat), 0o444),
+    ("sched", PidEntry::File(text::PerPid::Sched), 0o644),
+    ("loginuid", PidEntry::File(text::PerPid::Loginuid), 0o644),
+    ("sessionid", PidEntry::File(text::PerPid::Sessionid), 0o444),
+    (
+        "mountstats",
+        PidEntry::File(text::PerPid::Mountstats),
+        0o400,
+    ),
+    ("smaps", PidEntry::File(text::PerPid::Smaps), 0o444),
+    (
+        "smaps_rollup",
+        PidEntry::File(text::PerPid::SmapsRollup),
+        0o444,
+    ),
+    ("io", PidEntry::File(text::PerPid::Io), 0o400),
+    ("auxv", PidEntry::File(text::PerPid::Auxv), 0o400),
+    ("timers", PidEntry::File(text::PerPid::Timers), 0o444),
 ];
 
 /// The files of `/proc/<pid>/net`, which show the task's network namespace.
@@ -752,6 +789,7 @@ impl Node for ProcNode {
             },
             Entry::Pid(scope, index) => match PID_ENTRIES[index].1 {
                 PidEntry::File(file) => {
+                    self.check_pid_file(scope, file, options.task)?;
                     let reader = self.source.user_ns_of(options.task);
                     let data = text::per_pid(&self.source, scope, file, &reader)?;
                     let write = match options.write {
@@ -804,11 +842,101 @@ impl ProcNode {
                 }
                 return Ok(Some(Write::Setgroups(target)));
             }
+            file @ (text::PerPid::OomScoreAdj | text::PerPid::OomAdj) => {
+                let info = self.source.process(scope.pid).ok_or(Errno::ESRCH)?;
+                let capable = self
+                    .source
+                    .cred_of(opener)
+                    .is_none_or(|cred| cred.capable_init(Cap::SysResource));
+                let legacy = file == text::PerPid::OomAdj;
+                return Ok(Some(Write::OomAdj(info.process, legacy, capable)));
+            }
+            // `proc_loginuid_write`: only the task itself.
+            text::PerPid::Loginuid => {
+                if opener != scope.tid.unwrap_or(scope.pid) {
+                    return Err(Errno::EPERM);
+                }
+                let info = self.source.process(scope.pid).ok_or(Errno::ESRCH)?;
+                let cred = self.source.cred_of(opener).ok_or(Errno::EPERM)?;
+                let sessions = self.source.audit_sessions.clone();
+                return Ok(Some(Write::Loginuid(
+                    info.process,
+                    Box::new(cred),
+                    sessions,
+                )));
+            }
+            text::PerPid::TimerslackNs => {
+                return Ok(Some(Write::Timerslack(self.source.clone(), scope)));
+            }
+            // `proc_sched_write`: resets statistics this kernel does not keep.
+            text::PerPid::Sched => return Ok(Some(Write::Discard)),
             _ => return Ok(None),
         };
         let target = self.user_ns(scope)?;
         let cred = self.source.cred_of(opener).ok_or(Errno::EPERM)?;
         Ok(Some(Write::Map(target, map, Box::new(cred))))
+    }
+
+    /// The checks `/proc/<pid>` files make of their reader: `PTRACE_MODE_READ_FSCREDS` for `io`,
+    /// `auxv` and `smaps*` (`EACCES`); attaching for `personality` (`lock_trace`, `EPERM`);
+    /// `CAP_SYS_ADMIN` and attaching for `stack`; `CAP_SYS_NICE` over another task's user
+    /// namespace for `timerslack_ns` (`EPERM`).
+    fn check_pid_file(&self, scope: Scope, file: text::PerPid, opener: u32) -> FsResult<()> {
+        use crate::ptrace::{MODE_ATTACH_FSCREDS, MODE_READ_FSCREDS};
+        use text::PerPid as P;
+        let may = |mode: u32| self.may_ptrace(scope, opener, mode);
+        match file {
+            P::Io | P::Auxv | P::Smaps | P::SmapsRollup if !may(MODE_READ_FSCREDS) => {
+                Err(Errno::EACCES)
+            }
+            P::Personality if !may(MODE_ATTACH_FSCREDS) => Err(Errno::EPERM),
+            P::Stack => {
+                let admin = self
+                    .source
+                    .cred_of(opener)
+                    .is_none_or(|cred| cred.capable_init(Cap::SysAdmin));
+                match (admin, may(MODE_ATTACH_FSCREDS)) {
+                    (false, _) => Err(Errno::EACCES),
+                    (true, false) => Err(Errno::EPERM),
+                    (true, true) => Ok(()),
+                }
+            }
+            P::TimerslackNs if opener != scope.tid.unwrap_or(scope.pid) => {
+                let target = self.user_ns(scope)?;
+                let nice = self
+                    .source
+                    .cred_of(opener)
+                    .is_none_or(|cred| cred.ns_capable(&target, Cap::SysNice));
+                match nice {
+                    true => Ok(()),
+                    false => Err(Errno::EPERM),
+                }
+            }
+            _ => Ok(()),
+        }
+    }
+
+    /// `ptrace_may_access` of the opener `opener` to the process of `scope`; the kernel's own
+    /// opens (no task) may.
+    fn may_ptrace(&self, scope: Scope, opener: u32, mode: u32) -> bool {
+        let (Some(target), Some(tree)) =
+            (self.source.process(scope.pid), self.source.tree.upgrade())
+        else {
+            return false;
+        };
+        let opener = self
+            .source
+            .tgid_of(opener)
+            .and_then(|tgid| self.source.process(tgid));
+        opener.is_none_or(|opener| {
+            crate::ptrace::may_access(
+                &self.source.yama,
+                &tree,
+                &opener.process,
+                &target.process,
+                mode,
+            )
+        })
     }
 
     /// The user namespace of the process whose directory `scope` is.
@@ -818,7 +946,6 @@ impl ProcNode {
     }
 }
 
-/// An open directory, listed afresh on every read as `proc_readdir` does.
 /// `mem_open` (`proc_mem_open(inode, PTRACE_MODE_ATTACH)`): the opener needs to be allowed
 /// to attach to the task (`PTRACE_MODE_ATTACH_FSCREDS`, else `EACCES`); the file holds the
 /// task's address space as it was at the open.
@@ -889,6 +1016,7 @@ impl Handle for MemHandle {
     }
 }
 
+/// An open directory, listed afresh on every read as `proc_readdir` does.
 struct DirHandle(Arc<dyn Node>);
 
 #[async_trait(?Send)]
@@ -944,6 +1072,77 @@ enum Write {
     Ucount(Arc<UserNs>, NsKind),
     /// One of the machine's `fs.*` integers.
     Fs(Arc<crate::fs::FsSysctls>, text::Global),
+    /// `oom_score_adj`, or with `true` the legacy `oom_adj`, of a process, by an opener with
+    /// `CAP_SYS_RESOURCE` or not.
+    OomAdj(Arc<crate::Process>, bool, bool),
+    /// The audit login uid of a process, set by itself with its credentials.
+    Loginuid(
+        Arc<crate::Process>,
+        Box<Cred>,
+        Arc<std::sync::atomic::AtomicU32>,
+    ),
+    /// A task's `timer_slack_ns`.
+    Timerslack(Arc<Source>, Scope),
+    /// A write that is taken and changes nothing.
+    Discard,
+}
+
+/// `__set_oom_adj`: `oom_score_adj` from -1000 to 1000, or with `legacy` `oom_adj` from -17 to
+/// 15 on its scale; lowering it below its floor (the current value for `oom_adj`) needs
+/// `CAP_SYS_RESOURCE`, whose writes set the floor (`oom_score_adj_min`).
+fn set_oom_adj(process: &crate::Process, value: i32, legacy: bool, capable: bool) -> FsResult<()> {
+    use super::introspect::{OOM_ADJUST_MAX, OOM_DISABLE, OOM_SCORE_ADJ_MAX, OOM_SCORE_ADJ_MIN};
+    let adj = match legacy {
+        true if !(OOM_DISABLE..=OOM_ADJUST_MAX).contains(&value) => return Err(Errno::EINVAL),
+        true if value == OOM_ADJUST_MAX => OOM_SCORE_ADJ_MAX,
+        true => value * OOM_SCORE_ADJ_MAX / -OOM_DISABLE,
+        false if !(OOM_SCORE_ADJ_MIN..=OOM_SCORE_ADJ_MAX).contains(&value) => {
+            return Err(Errno::EINVAL);
+        }
+        false => value,
+    };
+    let mut ident = process.ident.lock_or_recover();
+    let floor = match legacy {
+        true => ident.oom_score_adj,
+        false => ident.oom_score_adj_min,
+    };
+    if adj < floor && !capable {
+        return Err(Errno::EACCES);
+    }
+    ident.oom_score_adj = adj;
+    if !legacy && capable {
+        ident.oom_score_adj_min = adj;
+    }
+    Ok(())
+}
+
+/// `audit_set_loginuid`: anyone may set an unset login uid; changing one needs
+/// `CAP_AUDIT_CONTROL`. A uid starts a new session; `AUDIT_UID_UNSET` (`u32::MAX`) clears both.
+fn set_loginuid(
+    process: &crate::Process,
+    cred: &Cred,
+    sessions: &std::sync::atomic::AtomicU32,
+    uid: u32,
+) -> FsResult<()> {
+    use std::sync::atomic::Ordering::Relaxed;
+    let kuid = match uid {
+        u32::MAX => None,
+        uid => Some(cred.user_ns.make_kuid(uid).ok_or(Errno::EINVAL)?),
+    };
+    let mut ident = process.ident.lock_or_recover();
+    if ident.loginuid.is_some() && !cred.capable_init(Cap::AuditControl) {
+        return Err(Errno::EPERM);
+    }
+    ident.sessionid = match kuid {
+        Some(_) => match sessions.fetch_add(1, Relaxed).wrapping_add(1) {
+            // `AUDIT_SID_UNSET` is skipped.
+            u32::MAX => sessions.fetch_add(1, Relaxed).wrapping_add(1),
+            id => id,
+        },
+        None => u32::MAX,
+    };
+    ident.loginuid = kuid;
+    Ok(())
 }
 
 /// `proc_dointvec`'s parsing of one integer: blanks around it, nothing else.
@@ -993,6 +1192,22 @@ impl Handle for FileHandle {
                 text::Global::OvercommitKbytes => vm.set_overcommit_kbytes(sysctl_int(data)?),
                 _ => vm.set_max_map_count(sysctl_i32(data)?)?,
             },
+            Write::OomAdj(process, legacy, capable) => {
+                let value = sysctl_i32(data)?;
+                set_oom_adj(process, value, *legacy, *capable)?;
+            }
+            Write::Loginuid(process, cred, sessions) => {
+                if offset != 0 {
+                    return Err(Errno::EINVAL);
+                }
+                set_loginuid(process, cred, sessions, sysctl_int(data)?)?;
+            }
+            Write::Timerslack(source, scope) => {
+                let text = std::str::from_utf8(data).map_err(|_| Errno::EINVAL)?;
+                let slack: u64 = text.trim().parse().map_err(|_| Errno::EINVAL)?;
+                source.set_timer_slack(*scope, slack).ok_or(Errno::ESRCH)?;
+            }
+            Write::Discard => {}
             Write::Taint(_, false) => return Err(Errno::EPERM),
             Write::Taint(taint, true) => taint.add(sysctl_int(data)?),
             Write::Yama(_, false) => return Err(Errno::EPERM),

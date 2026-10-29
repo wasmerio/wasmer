@@ -8,7 +8,7 @@ use wasixv2_syscalls::Errno;
 use wasixv2_vfs::{FsResult, MntNs, Mount, MountFlags, Path};
 use wasixv2_vnet::SocketKind;
 
-use super::{Source, node::Scope};
+use super::{Source, introspect, node::Scope};
 use crate::{
     file::OpenFile,
     mm::{Mm, PAGE_SIZE, RegionKind},
@@ -128,6 +128,23 @@ pub(super) enum PerPid {
     GidMap,
     ProjidMap,
     Setgroups,
+    OomScore,
+    OomScoreAdj,
+    OomAdj,
+    Personality,
+    Wchan,
+    Stack,
+    TimerslackNs,
+    Schedstat,
+    Sched,
+    Loginuid,
+    Sessionid,
+    Mountstats,
+    Smaps,
+    SmapsRollup,
+    Io,
+    Auxv,
+    Timers,
 }
 
 /// A system file as a reader in the namespaces `ns`, the pid namespace `pid_ns` and the user
@@ -665,6 +682,54 @@ pub(super) fn per_pid(
         PerPid::GidMap => process.cred().user_ns.show_map(MapKind::Gid, reader),
         PerPid::ProjidMap => process.cred().user_ns.show_map(MapKind::Projid, reader),
         PerPid::Setgroups => process.cred().user_ns.show_setgroups(),
+        PerPid::OomScore => {
+            let task = source.task(scope.pid, scope.tid).ok_or(Errno::ESRCH)?;
+            introspect::oom_score(process, &task, source.mm(scope).as_deref())
+        }
+        PerPid::OomScoreAdj => {
+            format!("{}\n", process.ident.lock_or_recover().oom_score_adj).into_bytes()
+        }
+        PerPid::OomAdj => {
+            let adj = process.ident.lock_or_recover().oom_score_adj;
+            format!("{}\n", introspect::oom_adj(adj)).into_bytes()
+        }
+        PerPid::Personality => {
+            format!("{:08x}\n", process.ident.lock_or_recover().personality).into_bytes()
+        }
+        // `proc_pid_wchan`: no kernel symbol names a host wait.
+        PerPid::Wchan => b"0".to_vec(),
+        // `proc_pid_stack`: there is no kernel stack to show.
+        PerPid::Stack => Vec::new(),
+        PerPid::TimerslackNs => {
+            let task = source.task(scope.pid, scope.tid).ok_or(Errno::ESRCH)?;
+            format!("{}\n", task.sched.timer_slack()).into_bytes()
+        }
+        PerPid::Schedstat => {
+            let task = source.task(scope.pid, scope.tid).ok_or(Errno::ESRCH)?;
+            introspect::schedstat(&task)
+        }
+        PerPid::Sched => {
+            let task = source.task(scope.pid, scope.tid).ok_or(Errno::ESRCH)?;
+            let pid = source.nr(scope.tid.unwrap_or(scope.pid));
+            let threads = source.threads(scope.pid).len();
+            introspect::sched(task.comm.name(), pid, threads, &task)
+        }
+        PerPid::Loginuid => introspect::loginuid(process, reader),
+        PerPid::Sessionid => introspect::sessionid(process),
+        PerPid::Mountstats => {
+            let task = source.task(scope.pid, scope.tid).ok_or(Errno::ESRCH)?;
+            let root = task.fs.lock_or_recover().root.clone();
+            let ns = task.ns.as_ref().ok_or(Errno::EINVAL)?;
+            introspect::mountstats(source, &ns.mnt.tree, &root)
+        }
+        PerPid::Smaps => introspect::smaps(source.mm(scope).as_deref(), false),
+        PerPid::SmapsRollup => introspect::smaps(source.mm(scope).as_deref(), true),
+        PerPid::Io => introspect::io(process),
+        PerPid::Auxv => process.auxv.lock_or_recover().clone(),
+        PerPid::Timers => {
+            let task = source.task(scope.pid, scope.tid).ok_or(Errno::ESRCH)?;
+            introspect::timers(&task, source.nr(scope.pid), |id| source.nr(id))
+        }
     })
 }
 
@@ -878,7 +943,7 @@ pub(crate) fn root_in_fs(mount: &Mount) -> Vec<u8> {
 }
 
 /// `mangle`: space, tab, newline and backslash as octal escapes.
-fn escape(path: &[u8]) -> Vec<u8> {
+pub(super) fn escape(path: &[u8]) -> Vec<u8> {
     let mut out = Vec::with_capacity(path.len());
     for &b in path {
         match b {

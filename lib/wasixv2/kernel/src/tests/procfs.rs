@@ -916,3 +916,90 @@ fn yama_ptrace_scope_takes_0_to_3_and_locks_at_3() {
     super::cred::set_caps(&kernel, &t.caller, &memory, all & !sys_ptrace);
     assert_eq!(set("3"), Err(Errno::EPERM.into()));
 }
+
+/// The `/proc/<pid>` files of the OOM score, audit identity, scheduling, I/O and memory: what
+/// they show and what writes they take.
+#[test]
+fn pid_files_for_oom_audit_sched_io_and_memory() {
+    let (kernel, task, _) = super::cred::machine_as(0, 0);
+    let vfs = kernel.vfs().clone();
+    block_on(vfs.mount(b"/proc", kernel.procfs(), MountFlags::default(), true)).unwrap();
+    let memory = memory();
+    let t = T::new(&kernel, task, &memory);
+    let read = |name: &str| {
+        let fd = t.open(&format!("/proc/self/{name}"), OpenFlags::O_RDONLY)?;
+        let text = t.read_all(fd);
+        block_on(kernel.close(&t.caller, fd)).unwrap();
+        Ok::<_, SysErr>(text)
+    };
+    let set = |name: &str, value: &str| {
+        let fd = t.open(&format!("/proc/self/{name}"), OpenFlags::O_WRONLY)?;
+        let written = t.write(fd, value.as_bytes());
+        block_on(kernel.close(&t.caller, fd)).unwrap();
+        written
+    };
+
+    assert_eq!(read("oom_score_adj").unwrap(), "0\n");
+    assert!(read("oom_score").unwrap().starts_with("10"));
+    assert_eq!(set("oom_score_adj", "500\n"), Ok(4));
+    assert_eq!(read("oom_adj").unwrap(), "8\n");
+    assert_eq!(set("oom_score_adj", "1001"), Err(Errno::EINVAL.into()));
+    assert_eq!(set("oom_adj", "-17"), Ok(3));
+    assert_eq!(read("oom_score_adj").unwrap(), "-1000\n");
+    assert_eq!(read("oom_score").unwrap(), "0\n", "never picked");
+    assert_eq!(set("oom_adj", "16"), Err(Errno::EINVAL.into()));
+
+    assert_eq!(read("personality").unwrap(), "00000000\n");
+    assert_eq!(read("wchan").unwrap(), "0");
+    assert_eq!(read("stack").unwrap(), "");
+    assert_eq!(read("timerslack_ns").unwrap(), "50000\n");
+    assert_eq!(set("timerslack_ns", "1000"), Ok(4));
+    assert_eq!(read("timerslack_ns").unwrap(), "1000\n");
+    assert_eq!(set("timerslack_ns", "0"), Ok(1));
+    assert_eq!(read("timerslack_ns").unwrap(), "50000\n");
+    assert_eq!(read("schedstat").unwrap().split(' ').count(), 3);
+    assert!(read("sched").unwrap().starts_with("test ("));
+    assert!(
+        read("smaps_rollup")
+            .unwrap()
+            .lines()
+            .next()
+            .unwrap()
+            .ends_with("[rollup]")
+    );
+    assert!(
+        read("mountstats")
+            .unwrap()
+            .contains(" mounted on /proc with fstype proc\n")
+    );
+
+    // The audit identity: unset until set, then a new session.
+    assert_eq!(read("loginuid").unwrap(), "4294967295");
+    assert_eq!(read("sessionid").unwrap(), "4294967295");
+    assert_eq!(set("loginuid", "1000"), Ok(4));
+    assert_eq!(
+        (read("loginuid").unwrap(), read("sessionid").unwrap()),
+        ("1000".into(), "1".into())
+    );
+    let all = u64::MAX >> (63 - u64::from(wasixv2_vfs::Cap::LAST));
+    let audit = wasixv2_vfs::Cap::AuditControl.bit() | wasixv2_vfs::Cap::SysResource.bit();
+    super::cred::set_caps(&kernel, &t.caller, &memory, all & !audit);
+    assert_eq!(set("loginuid", "1001"), Err(Errno::EPERM.into()));
+    // The capable write of 500 set the floor; only the legacy file compares with the value.
+    assert_eq!(set("oom_score_adj", "-1000"), Err(Errno::EACCES.into()));
+    assert_eq!(set("oom_adj", "-17"), Ok(3));
+    assert_eq!(set("oom_score_adj", "600"), Ok(3));
+    assert_eq!(
+        set("oom_adj", "-1"),
+        Err(Errno::EACCES.into()),
+        "below the value"
+    );
+
+    let io = read("io").unwrap();
+    let count = |key: &str| -> u64 {
+        let line = io.lines().find(|l| l.starts_with(key)).unwrap();
+        line.split_whitespace().nth(1).unwrap().parse().unwrap()
+    };
+    assert!(count("wchar:") >= 10 && count("syscw:") >= 5, "{io}");
+    assert!(count("rchar:") > 0 && count("syscr:") > 0);
+}
