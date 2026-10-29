@@ -570,6 +570,8 @@ pub type ConstFileHandlePtr = GuestPtr<FileHandle>;
 pub type ConstOpenHowPtr = GuestPtr<OpenHow>;
 /// Guest pointer to an array of `iovec`.
 pub type ConstIovecArray = GuestPtr<Iovec>;
+/// Guest pointer to an array of `sock-filter`.
+pub type ConstSockFilterArray = GuestPtr<SockFilter>;
 /// Guest pointer to a `xattr-args`.
 pub type XattrArgsPtr = GuestPtrMut<XattrArgs>;
 /// Guest pointer to a `xattr-args`.
@@ -15001,6 +15003,474 @@ impl GuestLayout for Ipv6Mreq {
         self.ipv6mr_ifindex.write_to(&mut out[16..]);
     }
 }
+/// `IP_ADD_SOURCE_MEMBERSHIP`, `IP_DROP_SOURCE_MEMBERSHIP`, `IP_BLOCK_SOURCE` and
+/// `IP_UNBLOCK_SOURCE` payload (`struct ip_mreq_source`).
+///
+/// C: `struct ip_mreq_source`
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct IpMreqSource {
+    pub imr_multiaddr: InAddr,
+    pub imr_interface: InAddr,
+    pub imr_sourceaddr: InAddr,
+}
+const _: () = {
+    assert!(core::mem::size_of::<IpMreqSource>() == 12);
+    assert!(core::mem::align_of::<IpMreqSource>() == 4);
+    assert!(core::mem::offset_of!(IpMreqSource, imr_multiaddr) == 0);
+    assert!(core::mem::offset_of!(IpMreqSource, imr_interface) == 4);
+    assert!(core::mem::offset_of!(IpMreqSource, imr_sourceaddr) == 8);
+};
+impl Default for IpMreqSource {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for IpMreqSource {
+    const SIZE: usize = 12;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        imr_multiaddr: <InAddr as GuestLayout>::ZERO,
+        imr_interface: <InAddr as GuestLayout>::ZERO,
+        imr_sourceaddr: <InAddr as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            imr_multiaddr: GuestLayout::read_from(&bytes[0..])?,
+            imr_interface: GuestLayout::read_from(&bytes[4..])?,
+            imr_sourceaddr: GuestLayout::read_from(&bytes[8..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.imr_multiaddr.write_to(&mut out[0..]);
+        self.imr_interface.write_to(&mut out[4..]);
+        self.imr_sourceaddr.write_to(&mut out[8..]);
+    }
+}
+/// `IP_MSFILTER` payload (`struct ip_msfilter`): `imsf-numsrc` sources follow from offset 16
+/// (`IP_MSFILTER_SIZE`); the kernel's flexible array shares `imsf-slist`'s place.
+///
+/// C: `struct ip_msfilter`
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct IpMsfilter {
+    pub imsf_multiaddr: InAddr,
+    pub imsf_interface: InAddr,
+    /// `MCAST_INCLUDE` (1) or `MCAST_EXCLUDE` (0).
+    pub imsf_fmode: u32,
+    pub imsf_numsrc: u32,
+    pub imsf_slist: [InAddr; 1],
+}
+const _: () = {
+    assert!(core::mem::size_of::<IpMsfilter>() == 20);
+    assert!(core::mem::align_of::<IpMsfilter>() == 4);
+    assert!(core::mem::offset_of!(IpMsfilter, imsf_multiaddr) == 0);
+    assert!(core::mem::offset_of!(IpMsfilter, imsf_interface) == 4);
+    assert!(core::mem::offset_of!(IpMsfilter, imsf_fmode) == 8);
+    assert!(core::mem::offset_of!(IpMsfilter, imsf_numsrc) == 12);
+    assert!(core::mem::offset_of!(IpMsfilter, imsf_slist) == 16);
+};
+impl Default for IpMsfilter {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for IpMsfilter {
+    const SIZE: usize = 20;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        imsf_multiaddr: <InAddr as GuestLayout>::ZERO,
+        imsf_interface: <InAddr as GuestLayout>::ZERO,
+        imsf_fmode: <u32 as GuestLayout>::ZERO,
+        imsf_numsrc: <u32 as GuestLayout>::ZERO,
+        imsf_slist: <[InAddr; 1] as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            imsf_multiaddr: GuestLayout::read_from(&bytes[0..])?,
+            imsf_interface: GuestLayout::read_from(&bytes[4..])?,
+            imsf_fmode: GuestLayout::read_from(&bytes[8..])?,
+            imsf_numsrc: GuestLayout::read_from(&bytes[12..])?,
+            imsf_slist: GuestLayout::read_from(&bytes[16..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.imsf_multiaddr.write_to(&mut out[0..]);
+        self.imsf_interface.write_to(&mut out[4..]);
+        self.imsf_fmode.write_to(&mut out[8..]);
+        self.imsf_numsrc.write_to(&mut out[12..]);
+        self.imsf_slist.write_to(&mut out[16..]);
+    }
+}
+/// `MCAST_JOIN_GROUP`/`MCAST_LEAVE_GROUP` payload (`struct group_req`).
+///
+/// C: `struct group_req`
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct GroupReq {
+    pub gr_interface: u32,
+    pub gr_group: SockaddrStorage,
+}
+const _: () = {
+    assert!(core::mem::size_of::<GroupReq>() == 132);
+    assert!(core::mem::align_of::<GroupReq>() == 4);
+    assert!(core::mem::offset_of!(GroupReq, gr_interface) == 0);
+    assert!(core::mem::offset_of!(GroupReq, gr_group) == 4);
+};
+impl Default for GroupReq {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for GroupReq {
+    const SIZE: usize = 132;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        gr_interface: <u32 as GuestLayout>::ZERO,
+        gr_group: <SockaddrStorage as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            gr_interface: GuestLayout::read_from(&bytes[0..])?,
+            gr_group: GuestLayout::read_from(&bytes[4..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.gr_interface.write_to(&mut out[0..]);
+        self.gr_group.write_to(&mut out[4..]);
+    }
+}
+/// `MCAST_JOIN_SOURCE_GROUP`, `MCAST_LEAVE_SOURCE_GROUP`, `MCAST_BLOCK_SOURCE` and
+/// `MCAST_UNBLOCK_SOURCE` payload (`struct group_source_req`).
+///
+/// C: `struct group_source_req`
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct GroupSourceReq {
+    pub gsr_interface: u32,
+    pub gsr_group: SockaddrStorage,
+    pub gsr_source: SockaddrStorage,
+}
+const _: () = {
+    assert!(core::mem::size_of::<GroupSourceReq>() == 260);
+    assert!(core::mem::align_of::<GroupSourceReq>() == 4);
+    assert!(core::mem::offset_of!(GroupSourceReq, gsr_interface) == 0);
+    assert!(core::mem::offset_of!(GroupSourceReq, gsr_group) == 4);
+    assert!(core::mem::offset_of!(GroupSourceReq, gsr_source) == 132);
+};
+impl Default for GroupSourceReq {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for GroupSourceReq {
+    const SIZE: usize = 260;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        gsr_interface: <u32 as GuestLayout>::ZERO,
+        gsr_group: <SockaddrStorage as GuestLayout>::ZERO,
+        gsr_source: <SockaddrStorage as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            gsr_interface: GuestLayout::read_from(&bytes[0..])?,
+            gsr_group: GuestLayout::read_from(&bytes[4..])?,
+            gsr_source: GuestLayout::read_from(&bytes[132..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.gsr_interface.write_to(&mut out[0..]);
+        self.gsr_group.write_to(&mut out[4..]);
+        self.gsr_source.write_to(&mut out[132..]);
+    }
+}
+/// `MCAST_MSFILTER` payload (`struct group_filter`): `gf-numsrc` sources follow from offset
+/// 140 (`GROUP_FILTER_SIZE`); the kernel's flexible array shares `gf-slist`'s place.
+///
+/// C: `struct group_filter`
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct GroupFilter {
+    pub gf_interface: u32,
+    pub gf_group: SockaddrStorage,
+    /// `MCAST_INCLUDE` (1) or `MCAST_EXCLUDE` (0).
+    pub gf_fmode: u32,
+    pub gf_numsrc: u32,
+    pub gf_slist: [SockaddrStorage; 1],
+}
+const _: () = {
+    assert!(core::mem::size_of::<GroupFilter>() == 268);
+    assert!(core::mem::align_of::<GroupFilter>() == 4);
+    assert!(core::mem::offset_of!(GroupFilter, gf_interface) == 0);
+    assert!(core::mem::offset_of!(GroupFilter, gf_group) == 4);
+    assert!(core::mem::offset_of!(GroupFilter, gf_fmode) == 132);
+    assert!(core::mem::offset_of!(GroupFilter, gf_numsrc) == 136);
+    assert!(core::mem::offset_of!(GroupFilter, gf_slist) == 140);
+};
+impl Default for GroupFilter {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for GroupFilter {
+    const SIZE: usize = 268;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        gf_interface: <u32 as GuestLayout>::ZERO,
+        gf_group: <SockaddrStorage as GuestLayout>::ZERO,
+        gf_fmode: <u32 as GuestLayout>::ZERO,
+        gf_numsrc: <u32 as GuestLayout>::ZERO,
+        gf_slist: <[SockaddrStorage; 1] as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            gf_interface: GuestLayout::read_from(&bytes[0..])?,
+            gf_group: GuestLayout::read_from(&bytes[4..])?,
+            gf_fmode: GuestLayout::read_from(&bytes[132..])?,
+            gf_numsrc: GuestLayout::read_from(&bytes[136..])?,
+            gf_slist: GuestLayout::read_from(&bytes[140..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.gf_interface.write_to(&mut out[0..]);
+        self.gf_group.write_to(&mut out[4..]);
+        self.gf_fmode.write_to(&mut out[132..]);
+        self.gf_numsrc.write_to(&mut out[136..]);
+        self.gf_slist.write_to(&mut out[140..]);
+    }
+}
+/// `IP_PKTINFO` control message and option payload (`struct in_pktinfo`).
+///
+/// C: `struct in_pktinfo`
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct InPktinfo {
+    pub ipi_ifindex: i32,
+    pub ipi_spec_dst: InAddr,
+    pub ipi_addr: InAddr,
+}
+const _: () = {
+    assert!(core::mem::size_of::<InPktinfo>() == 12);
+    assert!(core::mem::align_of::<InPktinfo>() == 4);
+    assert!(core::mem::offset_of!(InPktinfo, ipi_ifindex) == 0);
+    assert!(core::mem::offset_of!(InPktinfo, ipi_spec_dst) == 4);
+    assert!(core::mem::offset_of!(InPktinfo, ipi_addr) == 8);
+};
+impl Default for InPktinfo {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for InPktinfo {
+    const SIZE: usize = 12;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        ipi_ifindex: <i32 as GuestLayout>::ZERO,
+        ipi_spec_dst: <InAddr as GuestLayout>::ZERO,
+        ipi_addr: <InAddr as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            ipi_ifindex: GuestLayout::read_from(&bytes[0..])?,
+            ipi_spec_dst: GuestLayout::read_from(&bytes[4..])?,
+            ipi_addr: GuestLayout::read_from(&bytes[8..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.ipi_ifindex.write_to(&mut out[0..]);
+        self.ipi_spec_dst.write_to(&mut out[4..]);
+        self.ipi_addr.write_to(&mut out[8..]);
+    }
+}
+/// `IPV6_PKTINFO` control message and option payload (`struct in6_pktinfo`).
+///
+/// C: `struct in6_pktinfo`
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct In6Pktinfo {
+    pub ipi6_addr: In6Addr,
+    pub ipi6_ifindex: i32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<In6Pktinfo>() == 20);
+    assert!(core::mem::align_of::<In6Pktinfo>() == 4);
+    assert!(core::mem::offset_of!(In6Pktinfo, ipi6_addr) == 0);
+    assert!(core::mem::offset_of!(In6Pktinfo, ipi6_ifindex) == 16);
+};
+impl Default for In6Pktinfo {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for In6Pktinfo {
+    const SIZE: usize = 20;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        ipi6_addr: <In6Addr as GuestLayout>::ZERO,
+        ipi6_ifindex: <i32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            ipi6_addr: GuestLayout::read_from(&bytes[0..])?,
+            ipi6_ifindex: GuestLayout::read_from(&bytes[16..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.ipi6_addr.write_to(&mut out[0..]);
+        self.ipi6_ifindex.write_to(&mut out[16..]);
+    }
+}
+/// `IPV6_PATHMTU` control message and option payload (`struct ip6_mtuinfo`).
+///
+/// C: `struct ip6_mtuinfo`
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct Ip6Mtuinfo {
+    pub ip6m_addr: SockaddrIn6,
+    pub ip6m_mtu: u32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<Ip6Mtuinfo>() == 32);
+    assert!(core::mem::align_of::<Ip6Mtuinfo>() == 4);
+    assert!(core::mem::offset_of!(Ip6Mtuinfo, ip6m_addr) == 0);
+    assert!(core::mem::offset_of!(Ip6Mtuinfo, ip6m_mtu) == 28);
+};
+impl Default for Ip6Mtuinfo {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for Ip6Mtuinfo {
+    const SIZE: usize = 32;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        ip6m_addr: <SockaddrIn6 as GuestLayout>::ZERO,
+        ip6m_mtu: <u32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            ip6m_addr: GuestLayout::read_from(&bytes[0..])?,
+            ip6m_mtu: GuestLayout::read_from(&bytes[28..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.ip6m_addr.write_to(&mut out[0..]);
+        self.ip6m_mtu.write_to(&mut out[28..]);
+    }
+}
+/// One classic BPF instruction (`struct sock_filter`, UAPI `linux/filter.h`).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct SockFilter {
+    pub code: u16,
+    pub jt: u8,
+    pub jf: u8,
+    pub k: u32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<SockFilter>() == 8);
+    assert!(core::mem::align_of::<SockFilter>() == 4);
+    assert!(core::mem::offset_of!(SockFilter, code) == 0);
+    assert!(core::mem::offset_of!(SockFilter, jt) == 2);
+    assert!(core::mem::offset_of!(SockFilter, jf) == 3);
+    assert!(core::mem::offset_of!(SockFilter, k) == 4);
+};
+impl Default for SockFilter {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for SockFilter {
+    const SIZE: usize = 8;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        code: <u16 as GuestLayout>::ZERO,
+        jt: <u8 as GuestLayout>::ZERO,
+        jf: <u8 as GuestLayout>::ZERO,
+        k: <u32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            code: GuestLayout::read_from(&bytes[0..])?,
+            jt: GuestLayout::read_from(&bytes[2..])?,
+            jf: GuestLayout::read_from(&bytes[3..])?,
+            k: GuestLayout::read_from(&bytes[4..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.code.write_to(&mut out[0..]);
+        self.jt.write_to(&mut out[2..]);
+        self.jf.write_to(&mut out[3..]);
+        self.k.write_to(&mut out[4..]);
+    }
+}
+/// `SO_ATTACH_FILTER`/`SO_ATTACH_REUSEPORT_CBPF` payload (`struct sock_fprog`, UAPI
+/// `linux/filter.h`): `len` instructions at `filter`.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct SockFprog {
+    pub len: u16,
+    pub filter: ConstSockFilterArray,
+}
+const _: () = {
+    assert!(core::mem::size_of::<SockFprog>() == 8);
+    assert!(core::mem::align_of::<SockFprog>() == 4);
+    assert!(core::mem::offset_of!(SockFprog, len) == 0);
+    assert!(core::mem::offset_of!(SockFprog, filter) == 4);
+};
+impl Default for SockFprog {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for SockFprog {
+    const SIZE: usize = 8;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        len: <u16 as GuestLayout>::ZERO,
+        filter: <ConstSockFilterArray as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            len: GuestLayout::read_from(&bytes[0..])?,
+            filter: GuestLayout::read_from(&bytes[4..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.len.write_to(&mut out[0..]);
+        self.filter.write_to(&mut out[4..]);
+    }
+}
 /// An error-queue entry (`struct sock_extended_err`, UAPI `linux/errqueue.h`): the payload of
 /// the `IP_RECVERR`/`IPV6_RECVERR` control message `recvmsg(MSG_ERRQUEUE)` returns, followed
 /// by the offender's `sockaddr_in`/`sockaddr_in6` (`SO_EE_OFFENDER`). `ee-data` shares its
@@ -18983,6 +19453,2704 @@ impl GuestLayout for IoUringGeteventsArg {
         self.sigmask_sz.write_to(&mut out[8..]);
         self.min_wait_usec.write_to(&mut out[12..]);
         self.ts.write_to(&mut out[16..]);
+    }
+}
+/// `iocb.aio_lio_opcode` (`IOCB_CMD_*`, `linux/aio_abi.h`).
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct IocbCmd(pub u16);
+impl IocbCmd {
+    pub const IOCB_CMD_PREAD: Self = Self(0);
+    pub const IOCB_CMD_PWRITE: Self = Self(1);
+    pub const IOCB_CMD_FSYNC: Self = Self(2);
+    pub const IOCB_CMD_FDSYNC: Self = Self(3);
+    pub const IOCB_CMD_POLL: Self = Self(5);
+    pub const IOCB_CMD_NOOP: Self = Self(6);
+    pub const IOCB_CMD_PREADV: Self = Self(7);
+    pub const IOCB_CMD_PWRITEV: Self = Self(8);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("IOCB_CMD_PREAD", Self::IOCB_CMD_PREAD),
+        ("IOCB_CMD_PWRITE", Self::IOCB_CMD_PWRITE),
+        ("IOCB_CMD_FSYNC", Self::IOCB_CMD_FSYNC),
+        ("IOCB_CMD_FDSYNC", Self::IOCB_CMD_FDSYNC),
+        ("IOCB_CMD_POLL", Self::IOCB_CMD_POLL),
+        ("IOCB_CMD_NOOP", Self::IOCB_CMD_NOOP),
+        ("IOCB_CMD_PREADV", Self::IOCB_CMD_PREADV),
+        ("IOCB_CMD_PWRITEV", Self::IOCB_CMD_PWRITEV),
+    ];
+    /// Name of the first constant with this value, if any.
+    pub const fn name(self) -> Option<&'static str> {
+        match self.0 {
+            0 => Some("IOCB_CMD_PREAD"),
+            1 => Some("IOCB_CMD_PWRITE"),
+            2 => Some("IOCB_CMD_FSYNC"),
+            3 => Some("IOCB_CMD_FDSYNC"),
+            5 => Some("IOCB_CMD_POLL"),
+            6 => Some("IOCB_CMD_NOOP"),
+            7 => Some("IOCB_CMD_PREADV"),
+            8 => Some("IOCB_CMD_PWRITEV"),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Debug for IocbCmd {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.name() {
+            Some(name) => f.write_str(name),
+            None => write!(f, "IocbCmd({})", self.0),
+        }
+    }
+}
+
+impl GuestLayout for IocbCmd {
+    const SIZE: usize = <u16 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u16 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u16 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// `iocb.aio_flags` (`IOCB_FLAG_*`, `linux/aio_abi.h`).
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct IocbFlags(pub u32);
+impl IocbFlags {
+    /// `aio_resfd` names an eventfd that every completion signals.
+    pub const IOCB_FLAG_RESFD: Self = Self(0x1);
+    /// `aio_reqprio` is an I/O priority.
+    pub const IOCB_FLAG_IOPRIO: Self = Self(0x2);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("IOCB_FLAG_RESFD", Self::IOCB_FLAG_RESFD),
+        ("IOCB_FLAG_IOPRIO", Self::IOCB_FLAG_IOPRIO),
+    ];
+
+    pub const fn empty() -> Self {
+        Self(0)
+    }
+    pub const fn bits(self) -> u32 {
+        self.0
+    }
+    pub const fn is_empty(self) -> bool {
+        self.0 == 0
+    }
+    /// Whether all bits of `other` are set.
+    pub const fn contains(self, other: Self) -> bool {
+        self.0 & other.0 == other.0
+    }
+    /// Whether any bit of `other` is set.
+    pub const fn intersects(self, other: Self) -> bool {
+        self.0 & other.0 != 0
+    }
+}
+
+impl fmt::Debug for IocbFlags {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("IocbFlags(")?;
+        let mut rest = self.0;
+        let mut first = true;
+        for (name, flag) in Self::MEMBERS {
+            if flag.0 != 0 && self.contains(*flag) && rest & flag.0 != 0 {
+                if !first {
+                    f.write_str(" | ")?;
+                }
+                f.write_str(name)?;
+                first = false;
+                rest &= !flag.0;
+            }
+        }
+        if rest != 0 || first {
+            if !first {
+                f.write_str(" | ")?;
+            }
+            write!(f, "{rest:#x}")?;
+        }
+        f.write_str(")")
+    }
+}
+impl core::ops::BitOr for IocbFlags {
+    type Output = Self;
+    fn bitor(self, rhs: Self) -> Self {
+        Self(self.0 | rhs.0)
+    }
+}
+impl core::ops::BitAnd for IocbFlags {
+    type Output = Self;
+    fn bitand(self, rhs: Self) -> Self {
+        Self(self.0 & rhs.0)
+    }
+}
+impl core::ops::BitXor for IocbFlags {
+    type Output = Self;
+    fn bitxor(self, rhs: Self) -> Self {
+        Self(self.0 ^ rhs.0)
+    }
+}
+impl core::ops::Not for IocbFlags {
+    type Output = Self;
+    fn not(self) -> Self {
+        Self(!self.0)
+    }
+}
+impl core::ops::BitOrAssign for IocbFlags {
+    fn bitor_assign(&mut self, rhs: Self) {
+        self.0 |= rhs.0;
+    }
+}
+impl core::ops::BitAndAssign for IocbFlags {
+    fn bitand_assign(&mut self, rhs: Self) {
+        self.0 &= rhs.0;
+    }
+}
+impl core::ops::BitXorAssign for IocbFlags {
+    fn bitxor_assign(&mut self, rhs: Self) {
+        self.0 ^= rhs.0;
+    }
+}
+
+impl GuestLayout for IocbFlags {
+    const SIZE: usize = <u32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// The header of a Linux AIO context's completion ring, which `io_setup` maps into the
+/// caller's memory at the context's address (`struct aio_ring`, `fs/aio.c`; kernel-internal,
+/// but libaio reads it). The `io-event`s follow it.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct AioRing {
+    /// The context's index in the process's table (`kioctx::id`).
+    pub id: u32,
+    /// How many events the ring holds.
+    pub nr: u32,
+    /// The next event to read; userspace may move it.
+    pub head: u32,
+    /// Where the next completion goes.
+    pub tail: u32,
+    pub magic: u32,
+    pub compat_features: u32,
+    pub incompat_features: u32,
+    /// The size of this header.
+    pub header_length: u32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<AioRing>() == 32);
+    assert!(core::mem::align_of::<AioRing>() == 4);
+    assert!(core::mem::offset_of!(AioRing, id) == 0);
+    assert!(core::mem::offset_of!(AioRing, nr) == 4);
+    assert!(core::mem::offset_of!(AioRing, head) == 8);
+    assert!(core::mem::offset_of!(AioRing, tail) == 12);
+    assert!(core::mem::offset_of!(AioRing, magic) == 16);
+    assert!(core::mem::offset_of!(AioRing, compat_features) == 20);
+    assert!(core::mem::offset_of!(AioRing, incompat_features) == 24);
+    assert!(core::mem::offset_of!(AioRing, header_length) == 28);
+};
+impl Default for AioRing {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for AioRing {
+    const SIZE: usize = 32;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        id: <u32 as GuestLayout>::ZERO,
+        nr: <u32 as GuestLayout>::ZERO,
+        head: <u32 as GuestLayout>::ZERO,
+        tail: <u32 as GuestLayout>::ZERO,
+        magic: <u32 as GuestLayout>::ZERO,
+        compat_features: <u32 as GuestLayout>::ZERO,
+        incompat_features: <u32 as GuestLayout>::ZERO,
+        header_length: <u32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            id: GuestLayout::read_from(&bytes[0..])?,
+            nr: GuestLayout::read_from(&bytes[4..])?,
+            head: GuestLayout::read_from(&bytes[8..])?,
+            tail: GuestLayout::read_from(&bytes[12..])?,
+            magic: GuestLayout::read_from(&bytes[16..])?,
+            compat_features: GuestLayout::read_from(&bytes[20..])?,
+            incompat_features: GuestLayout::read_from(&bytes[24..])?,
+            header_length: GuestLayout::read_from(&bytes[28..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.id.write_to(&mut out[0..]);
+        self.nr.write_to(&mut out[4..]);
+        self.head.write_to(&mut out[8..]);
+        self.tail.write_to(&mut out[12..]);
+        self.magic.write_to(&mut out[16..]);
+        self.compat_features.write_to(&mut out[20..]);
+        self.incompat_features.write_to(&mut out[24..]);
+        self.header_length.write_to(&mut out[28..]);
+    }
+}
+/// Constants of the AIO ring (`fs/aio.c`).
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct AioRingMisc(pub u32);
+impl AioRingMisc {
+    pub const AIO_RING_INCOMPAT_FEATURES: Self = Self(0);
+    pub const AIO_RING_COMPAT_FEATURES: Self = Self(1);
+    pub const AIO_RING_MAGIC: Self = Self(2701791393);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        (
+            "AIO_RING_INCOMPAT_FEATURES",
+            Self::AIO_RING_INCOMPAT_FEATURES,
+        ),
+        ("AIO_RING_COMPAT_FEATURES", Self::AIO_RING_COMPAT_FEATURES),
+        ("AIO_RING_MAGIC", Self::AIO_RING_MAGIC),
+    ];
+    /// Name of the first constant with this value, if any.
+    pub const fn name(self) -> Option<&'static str> {
+        match self.0 {
+            0 => Some("AIO_RING_INCOMPAT_FEATURES"),
+            1 => Some("AIO_RING_COMPAT_FEATURES"),
+            2701791393 => Some("AIO_RING_MAGIC"),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Debug for AioRingMisc {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.name() {
+            Some(name) => f.write_str(name),
+            None => write!(f, "AioRingMisc({})", self.0),
+        }
+    }
+}
+
+impl GuestLayout for AioRingMisc {
+    const SIZE: usize = <u32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// One submission queue entry (`struct io_uring_sqe`). Most fields are unions named by the
+/// operation; their common names are used here.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct IoUringSqe {
+    pub opcode: u8,
+    pub flags: u8,
+    pub ioprio: u16,
+    pub fd: i32,
+    /// `off`, `addr2` or `cmd_op`.
+    pub off: u64,
+    /// `addr`, `splice_off_in` or `level`/`optname`.
+    pub addr: u64,
+    pub len: u32,
+    /// `rw_flags`, `fsync_flags`, `poll32_events`, `msg_flags`, `timeout_flags`,
+    /// `accept_flags`, `cancel_flags`, `open_flags`, `statx_flags` and the other per-operation
+    /// flags.
+    pub op_flags: u32,
+    pub user_data: u64,
+    /// `buf_index` or `buf_group`.
+    pub buf_index: u16,
+    pub personality: u16,
+    /// `splice_fd_in`, `file_index`, `optlen` or `addr_len`.
+    pub splice_fd_in: i32,
+    pub addr3: u64,
+    pub pad2: u64,
+}
+const _: () = {
+    assert!(core::mem::size_of::<IoUringSqe>() == 64);
+    assert!(core::mem::align_of::<IoUringSqe>() == 8);
+    assert!(core::mem::offset_of!(IoUringSqe, opcode) == 0);
+    assert!(core::mem::offset_of!(IoUringSqe, flags) == 1);
+    assert!(core::mem::offset_of!(IoUringSqe, ioprio) == 2);
+    assert!(core::mem::offset_of!(IoUringSqe, fd) == 4);
+    assert!(core::mem::offset_of!(IoUringSqe, off) == 8);
+    assert!(core::mem::offset_of!(IoUringSqe, addr) == 16);
+    assert!(core::mem::offset_of!(IoUringSqe, len) == 24);
+    assert!(core::mem::offset_of!(IoUringSqe, op_flags) == 28);
+    assert!(core::mem::offset_of!(IoUringSqe, user_data) == 32);
+    assert!(core::mem::offset_of!(IoUringSqe, buf_index) == 40);
+    assert!(core::mem::offset_of!(IoUringSqe, personality) == 42);
+    assert!(core::mem::offset_of!(IoUringSqe, splice_fd_in) == 44);
+    assert!(core::mem::offset_of!(IoUringSqe, addr3) == 48);
+    assert!(core::mem::offset_of!(IoUringSqe, pad2) == 56);
+};
+impl Default for IoUringSqe {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for IoUringSqe {
+    const SIZE: usize = 64;
+    const ALIGN: usize = 8;
+    const ZERO: Self = Self {
+        opcode: <u8 as GuestLayout>::ZERO,
+        flags: <u8 as GuestLayout>::ZERO,
+        ioprio: <u16 as GuestLayout>::ZERO,
+        fd: <i32 as GuestLayout>::ZERO,
+        off: <u64 as GuestLayout>::ZERO,
+        addr: <u64 as GuestLayout>::ZERO,
+        len: <u32 as GuestLayout>::ZERO,
+        op_flags: <u32 as GuestLayout>::ZERO,
+        user_data: <u64 as GuestLayout>::ZERO,
+        buf_index: <u16 as GuestLayout>::ZERO,
+        personality: <u16 as GuestLayout>::ZERO,
+        splice_fd_in: <i32 as GuestLayout>::ZERO,
+        addr3: <u64 as GuestLayout>::ZERO,
+        pad2: <u64 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            opcode: GuestLayout::read_from(&bytes[0..])?,
+            flags: GuestLayout::read_from(&bytes[1..])?,
+            ioprio: GuestLayout::read_from(&bytes[2..])?,
+            fd: GuestLayout::read_from(&bytes[4..])?,
+            off: GuestLayout::read_from(&bytes[8..])?,
+            addr: GuestLayout::read_from(&bytes[16..])?,
+            len: GuestLayout::read_from(&bytes[24..])?,
+            op_flags: GuestLayout::read_from(&bytes[28..])?,
+            user_data: GuestLayout::read_from(&bytes[32..])?,
+            buf_index: GuestLayout::read_from(&bytes[40..])?,
+            personality: GuestLayout::read_from(&bytes[42..])?,
+            splice_fd_in: GuestLayout::read_from(&bytes[44..])?,
+            addr3: GuestLayout::read_from(&bytes[48..])?,
+            pad2: GuestLayout::read_from(&bytes[56..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.opcode.write_to(&mut out[0..]);
+        self.flags.write_to(&mut out[1..]);
+        self.ioprio.write_to(&mut out[2..]);
+        self.fd.write_to(&mut out[4..]);
+        self.off.write_to(&mut out[8..]);
+        self.addr.write_to(&mut out[16..]);
+        self.len.write_to(&mut out[24..]);
+        self.op_flags.write_to(&mut out[28..]);
+        self.user_data.write_to(&mut out[32..]);
+        self.buf_index.write_to(&mut out[40..]);
+        self.personality.write_to(&mut out[42..]);
+        self.splice_fd_in.write_to(&mut out[44..]);
+        self.addr3.write_to(&mut out[48..]);
+        self.pad2.write_to(&mut out[56..]);
+    }
+}
+/// One completion queue entry (`struct io_uring_cqe`).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct IoUringCqe {
+    pub user_data: u64,
+    pub res: i32,
+    pub flags: u32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<IoUringCqe>() == 16);
+    assert!(core::mem::align_of::<IoUringCqe>() == 8);
+    assert!(core::mem::offset_of!(IoUringCqe, user_data) == 0);
+    assert!(core::mem::offset_of!(IoUringCqe, res) == 8);
+    assert!(core::mem::offset_of!(IoUringCqe, flags) == 12);
+};
+impl Default for IoUringCqe {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for IoUringCqe {
+    const SIZE: usize = 16;
+    const ALIGN: usize = 8;
+    const ZERO: Self = Self {
+        user_data: <u64 as GuestLayout>::ZERO,
+        res: <i32 as GuestLayout>::ZERO,
+        flags: <u32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            user_data: GuestLayout::read_from(&bytes[0..])?,
+            res: GuestLayout::read_from(&bytes[8..])?,
+            flags: GuestLayout::read_from(&bytes[12..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.user_data.write_to(&mut out[0..]);
+        self.res.write_to(&mut out[8..]);
+        self.flags.write_to(&mut out[12..]);
+    }
+}
+/// `io_uring_sqe.opcode` (`enum io_uring_op`).
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct IoUringOp(pub u8);
+impl IoUringOp {
+    pub const IORING_OP_NOP: Self = Self(0);
+    pub const IORING_OP_READV: Self = Self(1);
+    pub const IORING_OP_WRITEV: Self = Self(2);
+    pub const IORING_OP_FSYNC: Self = Self(3);
+    pub const IORING_OP_READ_FIXED: Self = Self(4);
+    pub const IORING_OP_WRITE_FIXED: Self = Self(5);
+    pub const IORING_OP_POLL_ADD: Self = Self(6);
+    pub const IORING_OP_POLL_REMOVE: Self = Self(7);
+    pub const IORING_OP_SYNC_FILE_RANGE: Self = Self(8);
+    pub const IORING_OP_SENDMSG: Self = Self(9);
+    pub const IORING_OP_RECVMSG: Self = Self(10);
+    pub const IORING_OP_TIMEOUT: Self = Self(11);
+    pub const IORING_OP_TIMEOUT_REMOVE: Self = Self(12);
+    pub const IORING_OP_ACCEPT: Self = Self(13);
+    pub const IORING_OP_ASYNC_CANCEL: Self = Self(14);
+    pub const IORING_OP_LINK_TIMEOUT: Self = Self(15);
+    pub const IORING_OP_CONNECT: Self = Self(16);
+    pub const IORING_OP_FALLOCATE: Self = Self(17);
+    pub const IORING_OP_OPENAT: Self = Self(18);
+    pub const IORING_OP_CLOSE: Self = Self(19);
+    pub const IORING_OP_FILES_UPDATE: Self = Self(20);
+    pub const IORING_OP_STATX: Self = Self(21);
+    pub const IORING_OP_READ: Self = Self(22);
+    pub const IORING_OP_WRITE: Self = Self(23);
+    pub const IORING_OP_FADVISE: Self = Self(24);
+    pub const IORING_OP_MADVISE: Self = Self(25);
+    pub const IORING_OP_SEND: Self = Self(26);
+    pub const IORING_OP_RECV: Self = Self(27);
+    pub const IORING_OP_OPENAT2: Self = Self(28);
+    pub const IORING_OP_EPOLL_CTL: Self = Self(29);
+    pub const IORING_OP_SPLICE: Self = Self(30);
+    pub const IORING_OP_PROVIDE_BUFFERS: Self = Self(31);
+    pub const IORING_OP_REMOVE_BUFFERS: Self = Self(32);
+    pub const IORING_OP_TEE: Self = Self(33);
+    pub const IORING_OP_SHUTDOWN: Self = Self(34);
+    pub const IORING_OP_RENAMEAT: Self = Self(35);
+    pub const IORING_OP_UNLINKAT: Self = Self(36);
+    pub const IORING_OP_MKDIRAT: Self = Self(37);
+    pub const IORING_OP_SYMLINKAT: Self = Self(38);
+    pub const IORING_OP_LINKAT: Self = Self(39);
+    pub const IORING_OP_MSG_RING: Self = Self(40);
+    pub const IORING_OP_FSETXATTR: Self = Self(41);
+    pub const IORING_OP_SETXATTR: Self = Self(42);
+    pub const IORING_OP_FGETXATTR: Self = Self(43);
+    pub const IORING_OP_GETXATTR: Self = Self(44);
+    pub const IORING_OP_SOCKET: Self = Self(45);
+    pub const IORING_OP_URING_CMD: Self = Self(46);
+    pub const IORING_OP_SEND_ZC: Self = Self(47);
+    pub const IORING_OP_SENDMSG_ZC: Self = Self(48);
+    pub const IORING_OP_READ_MULTISHOT: Self = Self(49);
+    pub const IORING_OP_WAITID: Self = Self(50);
+    pub const IORING_OP_FUTEX_WAIT: Self = Self(51);
+    pub const IORING_OP_FUTEX_WAKE: Self = Self(52);
+    pub const IORING_OP_FUTEX_WAITV: Self = Self(53);
+    pub const IORING_OP_FIXED_FD_INSTALL: Self = Self(54);
+    pub const IORING_OP_FTRUNCATE: Self = Self(55);
+    pub const IORING_OP_BIND: Self = Self(56);
+    pub const IORING_OP_LISTEN: Self = Self(57);
+    pub const IORING_OP_RECV_ZC: Self = Self(58);
+    pub const IORING_OP_EPOLL_WAIT: Self = Self(59);
+    pub const IORING_OP_READV_FIXED: Self = Self(60);
+    pub const IORING_OP_WRITEV_FIXED: Self = Self(61);
+    pub const IORING_OP_PIPE: Self = Self(62);
+    pub const IORING_OP_NOP128: Self = Self(63);
+    pub const IORING_OP_URING_CMD128: Self = Self(64);
+    pub const IORING_OP_LAST: Self = Self(65);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("IORING_OP_NOP", Self::IORING_OP_NOP),
+        ("IORING_OP_READV", Self::IORING_OP_READV),
+        ("IORING_OP_WRITEV", Self::IORING_OP_WRITEV),
+        ("IORING_OP_FSYNC", Self::IORING_OP_FSYNC),
+        ("IORING_OP_READ_FIXED", Self::IORING_OP_READ_FIXED),
+        ("IORING_OP_WRITE_FIXED", Self::IORING_OP_WRITE_FIXED),
+        ("IORING_OP_POLL_ADD", Self::IORING_OP_POLL_ADD),
+        ("IORING_OP_POLL_REMOVE", Self::IORING_OP_POLL_REMOVE),
+        ("IORING_OP_SYNC_FILE_RANGE", Self::IORING_OP_SYNC_FILE_RANGE),
+        ("IORING_OP_SENDMSG", Self::IORING_OP_SENDMSG),
+        ("IORING_OP_RECVMSG", Self::IORING_OP_RECVMSG),
+        ("IORING_OP_TIMEOUT", Self::IORING_OP_TIMEOUT),
+        ("IORING_OP_TIMEOUT_REMOVE", Self::IORING_OP_TIMEOUT_REMOVE),
+        ("IORING_OP_ACCEPT", Self::IORING_OP_ACCEPT),
+        ("IORING_OP_ASYNC_CANCEL", Self::IORING_OP_ASYNC_CANCEL),
+        ("IORING_OP_LINK_TIMEOUT", Self::IORING_OP_LINK_TIMEOUT),
+        ("IORING_OP_CONNECT", Self::IORING_OP_CONNECT),
+        ("IORING_OP_FALLOCATE", Self::IORING_OP_FALLOCATE),
+        ("IORING_OP_OPENAT", Self::IORING_OP_OPENAT),
+        ("IORING_OP_CLOSE", Self::IORING_OP_CLOSE),
+        ("IORING_OP_FILES_UPDATE", Self::IORING_OP_FILES_UPDATE),
+        ("IORING_OP_STATX", Self::IORING_OP_STATX),
+        ("IORING_OP_READ", Self::IORING_OP_READ),
+        ("IORING_OP_WRITE", Self::IORING_OP_WRITE),
+        ("IORING_OP_FADVISE", Self::IORING_OP_FADVISE),
+        ("IORING_OP_MADVISE", Self::IORING_OP_MADVISE),
+        ("IORING_OP_SEND", Self::IORING_OP_SEND),
+        ("IORING_OP_RECV", Self::IORING_OP_RECV),
+        ("IORING_OP_OPENAT2", Self::IORING_OP_OPENAT2),
+        ("IORING_OP_EPOLL_CTL", Self::IORING_OP_EPOLL_CTL),
+        ("IORING_OP_SPLICE", Self::IORING_OP_SPLICE),
+        ("IORING_OP_PROVIDE_BUFFERS", Self::IORING_OP_PROVIDE_BUFFERS),
+        ("IORING_OP_REMOVE_BUFFERS", Self::IORING_OP_REMOVE_BUFFERS),
+        ("IORING_OP_TEE", Self::IORING_OP_TEE),
+        ("IORING_OP_SHUTDOWN", Self::IORING_OP_SHUTDOWN),
+        ("IORING_OP_RENAMEAT", Self::IORING_OP_RENAMEAT),
+        ("IORING_OP_UNLINKAT", Self::IORING_OP_UNLINKAT),
+        ("IORING_OP_MKDIRAT", Self::IORING_OP_MKDIRAT),
+        ("IORING_OP_SYMLINKAT", Self::IORING_OP_SYMLINKAT),
+        ("IORING_OP_LINKAT", Self::IORING_OP_LINKAT),
+        ("IORING_OP_MSG_RING", Self::IORING_OP_MSG_RING),
+        ("IORING_OP_FSETXATTR", Self::IORING_OP_FSETXATTR),
+        ("IORING_OP_SETXATTR", Self::IORING_OP_SETXATTR),
+        ("IORING_OP_FGETXATTR", Self::IORING_OP_FGETXATTR),
+        ("IORING_OP_GETXATTR", Self::IORING_OP_GETXATTR),
+        ("IORING_OP_SOCKET", Self::IORING_OP_SOCKET),
+        ("IORING_OP_URING_CMD", Self::IORING_OP_URING_CMD),
+        ("IORING_OP_SEND_ZC", Self::IORING_OP_SEND_ZC),
+        ("IORING_OP_SENDMSG_ZC", Self::IORING_OP_SENDMSG_ZC),
+        ("IORING_OP_READ_MULTISHOT", Self::IORING_OP_READ_MULTISHOT),
+        ("IORING_OP_WAITID", Self::IORING_OP_WAITID),
+        ("IORING_OP_FUTEX_WAIT", Self::IORING_OP_FUTEX_WAIT),
+        ("IORING_OP_FUTEX_WAKE", Self::IORING_OP_FUTEX_WAKE),
+        ("IORING_OP_FUTEX_WAITV", Self::IORING_OP_FUTEX_WAITV),
+        (
+            "IORING_OP_FIXED_FD_INSTALL",
+            Self::IORING_OP_FIXED_FD_INSTALL,
+        ),
+        ("IORING_OP_FTRUNCATE", Self::IORING_OP_FTRUNCATE),
+        ("IORING_OP_BIND", Self::IORING_OP_BIND),
+        ("IORING_OP_LISTEN", Self::IORING_OP_LISTEN),
+        ("IORING_OP_RECV_ZC", Self::IORING_OP_RECV_ZC),
+        ("IORING_OP_EPOLL_WAIT", Self::IORING_OP_EPOLL_WAIT),
+        ("IORING_OP_READV_FIXED", Self::IORING_OP_READV_FIXED),
+        ("IORING_OP_WRITEV_FIXED", Self::IORING_OP_WRITEV_FIXED),
+        ("IORING_OP_PIPE", Self::IORING_OP_PIPE),
+        ("IORING_OP_NOP128", Self::IORING_OP_NOP128),
+        ("IORING_OP_URING_CMD128", Self::IORING_OP_URING_CMD128),
+        ("IORING_OP_LAST", Self::IORING_OP_LAST),
+    ];
+    /// Name of the first constant with this value, if any.
+    pub const fn name(self) -> Option<&'static str> {
+        match self.0 {
+            0 => Some("IORING_OP_NOP"),
+            1 => Some("IORING_OP_READV"),
+            2 => Some("IORING_OP_WRITEV"),
+            3 => Some("IORING_OP_FSYNC"),
+            4 => Some("IORING_OP_READ_FIXED"),
+            5 => Some("IORING_OP_WRITE_FIXED"),
+            6 => Some("IORING_OP_POLL_ADD"),
+            7 => Some("IORING_OP_POLL_REMOVE"),
+            8 => Some("IORING_OP_SYNC_FILE_RANGE"),
+            9 => Some("IORING_OP_SENDMSG"),
+            10 => Some("IORING_OP_RECVMSG"),
+            11 => Some("IORING_OP_TIMEOUT"),
+            12 => Some("IORING_OP_TIMEOUT_REMOVE"),
+            13 => Some("IORING_OP_ACCEPT"),
+            14 => Some("IORING_OP_ASYNC_CANCEL"),
+            15 => Some("IORING_OP_LINK_TIMEOUT"),
+            16 => Some("IORING_OP_CONNECT"),
+            17 => Some("IORING_OP_FALLOCATE"),
+            18 => Some("IORING_OP_OPENAT"),
+            19 => Some("IORING_OP_CLOSE"),
+            20 => Some("IORING_OP_FILES_UPDATE"),
+            21 => Some("IORING_OP_STATX"),
+            22 => Some("IORING_OP_READ"),
+            23 => Some("IORING_OP_WRITE"),
+            24 => Some("IORING_OP_FADVISE"),
+            25 => Some("IORING_OP_MADVISE"),
+            26 => Some("IORING_OP_SEND"),
+            27 => Some("IORING_OP_RECV"),
+            28 => Some("IORING_OP_OPENAT2"),
+            29 => Some("IORING_OP_EPOLL_CTL"),
+            30 => Some("IORING_OP_SPLICE"),
+            31 => Some("IORING_OP_PROVIDE_BUFFERS"),
+            32 => Some("IORING_OP_REMOVE_BUFFERS"),
+            33 => Some("IORING_OP_TEE"),
+            34 => Some("IORING_OP_SHUTDOWN"),
+            35 => Some("IORING_OP_RENAMEAT"),
+            36 => Some("IORING_OP_UNLINKAT"),
+            37 => Some("IORING_OP_MKDIRAT"),
+            38 => Some("IORING_OP_SYMLINKAT"),
+            39 => Some("IORING_OP_LINKAT"),
+            40 => Some("IORING_OP_MSG_RING"),
+            41 => Some("IORING_OP_FSETXATTR"),
+            42 => Some("IORING_OP_SETXATTR"),
+            43 => Some("IORING_OP_FGETXATTR"),
+            44 => Some("IORING_OP_GETXATTR"),
+            45 => Some("IORING_OP_SOCKET"),
+            46 => Some("IORING_OP_URING_CMD"),
+            47 => Some("IORING_OP_SEND_ZC"),
+            48 => Some("IORING_OP_SENDMSG_ZC"),
+            49 => Some("IORING_OP_READ_MULTISHOT"),
+            50 => Some("IORING_OP_WAITID"),
+            51 => Some("IORING_OP_FUTEX_WAIT"),
+            52 => Some("IORING_OP_FUTEX_WAKE"),
+            53 => Some("IORING_OP_FUTEX_WAITV"),
+            54 => Some("IORING_OP_FIXED_FD_INSTALL"),
+            55 => Some("IORING_OP_FTRUNCATE"),
+            56 => Some("IORING_OP_BIND"),
+            57 => Some("IORING_OP_LISTEN"),
+            58 => Some("IORING_OP_RECV_ZC"),
+            59 => Some("IORING_OP_EPOLL_WAIT"),
+            60 => Some("IORING_OP_READV_FIXED"),
+            61 => Some("IORING_OP_WRITEV_FIXED"),
+            62 => Some("IORING_OP_PIPE"),
+            63 => Some("IORING_OP_NOP128"),
+            64 => Some("IORING_OP_URING_CMD128"),
+            65 => Some("IORING_OP_LAST"),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Debug for IoUringOp {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.name() {
+            Some(name) => f.write_str(name),
+            None => write!(f, "IoUringOp({})", self.0),
+        }
+    }
+}
+
+impl GuestLayout for IoUringOp {
+    const SIZE: usize = <u8 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u8 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u8 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// `io_uring_sqe.flags` (`IOSQE_*`).
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct IosqeFlags(pub u8);
+impl IosqeFlags {
+    pub const IOSQE_FIXED_FILE: Self = Self(0x1);
+    pub const IOSQE_IO_DRAIN: Self = Self(0x2);
+    pub const IOSQE_IO_LINK: Self = Self(0x4);
+    pub const IOSQE_IO_HARDLINK: Self = Self(0x8);
+    pub const IOSQE_ASYNC: Self = Self(0x10);
+    pub const IOSQE_BUFFER_SELECT: Self = Self(0x20);
+    pub const IOSQE_CQE_SKIP_SUCCESS: Self = Self(0x40);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("IOSQE_FIXED_FILE", Self::IOSQE_FIXED_FILE),
+        ("IOSQE_IO_DRAIN", Self::IOSQE_IO_DRAIN),
+        ("IOSQE_IO_LINK", Self::IOSQE_IO_LINK),
+        ("IOSQE_IO_HARDLINK", Self::IOSQE_IO_HARDLINK),
+        ("IOSQE_ASYNC", Self::IOSQE_ASYNC),
+        ("IOSQE_BUFFER_SELECT", Self::IOSQE_BUFFER_SELECT),
+        ("IOSQE_CQE_SKIP_SUCCESS", Self::IOSQE_CQE_SKIP_SUCCESS),
+    ];
+
+    pub const fn empty() -> Self {
+        Self(0)
+    }
+    pub const fn bits(self) -> u8 {
+        self.0
+    }
+    pub const fn is_empty(self) -> bool {
+        self.0 == 0
+    }
+    /// Whether all bits of `other` are set.
+    pub const fn contains(self, other: Self) -> bool {
+        self.0 & other.0 == other.0
+    }
+    /// Whether any bit of `other` is set.
+    pub const fn intersects(self, other: Self) -> bool {
+        self.0 & other.0 != 0
+    }
+}
+
+impl fmt::Debug for IosqeFlags {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("IosqeFlags(")?;
+        let mut rest = self.0;
+        let mut first = true;
+        for (name, flag) in Self::MEMBERS {
+            if flag.0 != 0 && self.contains(*flag) && rest & flag.0 != 0 {
+                if !first {
+                    f.write_str(" | ")?;
+                }
+                f.write_str(name)?;
+                first = false;
+                rest &= !flag.0;
+            }
+        }
+        if rest != 0 || first {
+            if !first {
+                f.write_str(" | ")?;
+            }
+            write!(f, "{rest:#x}")?;
+        }
+        f.write_str(")")
+    }
+}
+impl core::ops::BitOr for IosqeFlags {
+    type Output = Self;
+    fn bitor(self, rhs: Self) -> Self {
+        Self(self.0 | rhs.0)
+    }
+}
+impl core::ops::BitAnd for IosqeFlags {
+    type Output = Self;
+    fn bitand(self, rhs: Self) -> Self {
+        Self(self.0 & rhs.0)
+    }
+}
+impl core::ops::BitXor for IosqeFlags {
+    type Output = Self;
+    fn bitxor(self, rhs: Self) -> Self {
+        Self(self.0 ^ rhs.0)
+    }
+}
+impl core::ops::Not for IosqeFlags {
+    type Output = Self;
+    fn not(self) -> Self {
+        Self(!self.0)
+    }
+}
+impl core::ops::BitOrAssign for IosqeFlags {
+    fn bitor_assign(&mut self, rhs: Self) {
+        self.0 |= rhs.0;
+    }
+}
+impl core::ops::BitAndAssign for IosqeFlags {
+    fn bitand_assign(&mut self, rhs: Self) {
+        self.0 &= rhs.0;
+    }
+}
+impl core::ops::BitXorAssign for IosqeFlags {
+    fn bitxor_assign(&mut self, rhs: Self) {
+        self.0 ^= rhs.0;
+    }
+}
+
+impl GuestLayout for IosqeFlags {
+    const SIZE: usize = <u8 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u8 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u8 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// `io_uring_params.flags` (`IORING_SETUP_*`).
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct IoringSetupFlags(pub u32);
+impl IoringSetupFlags {
+    pub const IORING_SETUP_IOPOLL: Self = Self(0x1);
+    pub const IORING_SETUP_SQPOLL: Self = Self(0x2);
+    pub const IORING_SETUP_SQ_AFF: Self = Self(0x4);
+    pub const IORING_SETUP_CQSIZE: Self = Self(0x8);
+    pub const IORING_SETUP_CLAMP: Self = Self(0x10);
+    pub const IORING_SETUP_ATTACH_WQ: Self = Self(0x20);
+    pub const IORING_SETUP_R_DISABLED: Self = Self(0x40);
+    pub const IORING_SETUP_SUBMIT_ALL: Self = Self(0x80);
+    pub const IORING_SETUP_COOP_TASKRUN: Self = Self(0x100);
+    pub const IORING_SETUP_TASKRUN_FLAG: Self = Self(0x200);
+    pub const IORING_SETUP_SQE128: Self = Self(0x400);
+    pub const IORING_SETUP_CQE32: Self = Self(0x800);
+    pub const IORING_SETUP_SINGLE_ISSUER: Self = Self(0x1000);
+    pub const IORING_SETUP_DEFER_TASKRUN: Self = Self(0x2000);
+    pub const IORING_SETUP_NO_MMAP: Self = Self(0x4000);
+    pub const IORING_SETUP_REGISTERED_FD_ONLY: Self = Self(0x8000);
+    pub const IORING_SETUP_NO_SQARRAY: Self = Self(0x10000);
+    pub const IORING_SETUP_HYBRID_IOPOLL: Self = Self(0x20000);
+    pub const IORING_SETUP_CQE_MIXED: Self = Self(0x40000);
+    pub const IORING_SETUP_SQE_MIXED: Self = Self(0x80000);
+    pub const IORING_SETUP_SQ_REWIND: Self = Self(0x100000);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("IORING_SETUP_IOPOLL", Self::IORING_SETUP_IOPOLL),
+        ("IORING_SETUP_SQPOLL", Self::IORING_SETUP_SQPOLL),
+        ("IORING_SETUP_SQ_AFF", Self::IORING_SETUP_SQ_AFF),
+        ("IORING_SETUP_CQSIZE", Self::IORING_SETUP_CQSIZE),
+        ("IORING_SETUP_CLAMP", Self::IORING_SETUP_CLAMP),
+        ("IORING_SETUP_ATTACH_WQ", Self::IORING_SETUP_ATTACH_WQ),
+        ("IORING_SETUP_R_DISABLED", Self::IORING_SETUP_R_DISABLED),
+        ("IORING_SETUP_SUBMIT_ALL", Self::IORING_SETUP_SUBMIT_ALL),
+        ("IORING_SETUP_COOP_TASKRUN", Self::IORING_SETUP_COOP_TASKRUN),
+        ("IORING_SETUP_TASKRUN_FLAG", Self::IORING_SETUP_TASKRUN_FLAG),
+        ("IORING_SETUP_SQE128", Self::IORING_SETUP_SQE128),
+        ("IORING_SETUP_CQE32", Self::IORING_SETUP_CQE32),
+        (
+            "IORING_SETUP_SINGLE_ISSUER",
+            Self::IORING_SETUP_SINGLE_ISSUER,
+        ),
+        (
+            "IORING_SETUP_DEFER_TASKRUN",
+            Self::IORING_SETUP_DEFER_TASKRUN,
+        ),
+        ("IORING_SETUP_NO_MMAP", Self::IORING_SETUP_NO_MMAP),
+        (
+            "IORING_SETUP_REGISTERED_FD_ONLY",
+            Self::IORING_SETUP_REGISTERED_FD_ONLY,
+        ),
+        ("IORING_SETUP_NO_SQARRAY", Self::IORING_SETUP_NO_SQARRAY),
+        (
+            "IORING_SETUP_HYBRID_IOPOLL",
+            Self::IORING_SETUP_HYBRID_IOPOLL,
+        ),
+        ("IORING_SETUP_CQE_MIXED", Self::IORING_SETUP_CQE_MIXED),
+        ("IORING_SETUP_SQE_MIXED", Self::IORING_SETUP_SQE_MIXED),
+        ("IORING_SETUP_SQ_REWIND", Self::IORING_SETUP_SQ_REWIND),
+    ];
+
+    pub const fn empty() -> Self {
+        Self(0)
+    }
+    pub const fn bits(self) -> u32 {
+        self.0
+    }
+    pub const fn is_empty(self) -> bool {
+        self.0 == 0
+    }
+    /// Whether all bits of `other` are set.
+    pub const fn contains(self, other: Self) -> bool {
+        self.0 & other.0 == other.0
+    }
+    /// Whether any bit of `other` is set.
+    pub const fn intersects(self, other: Self) -> bool {
+        self.0 & other.0 != 0
+    }
+}
+
+impl fmt::Debug for IoringSetupFlags {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("IoringSetupFlags(")?;
+        let mut rest = self.0;
+        let mut first = true;
+        for (name, flag) in Self::MEMBERS {
+            if flag.0 != 0 && self.contains(*flag) && rest & flag.0 != 0 {
+                if !first {
+                    f.write_str(" | ")?;
+                }
+                f.write_str(name)?;
+                first = false;
+                rest &= !flag.0;
+            }
+        }
+        if rest != 0 || first {
+            if !first {
+                f.write_str(" | ")?;
+            }
+            write!(f, "{rest:#x}")?;
+        }
+        f.write_str(")")
+    }
+}
+impl core::ops::BitOr for IoringSetupFlags {
+    type Output = Self;
+    fn bitor(self, rhs: Self) -> Self {
+        Self(self.0 | rhs.0)
+    }
+}
+impl core::ops::BitAnd for IoringSetupFlags {
+    type Output = Self;
+    fn bitand(self, rhs: Self) -> Self {
+        Self(self.0 & rhs.0)
+    }
+}
+impl core::ops::BitXor for IoringSetupFlags {
+    type Output = Self;
+    fn bitxor(self, rhs: Self) -> Self {
+        Self(self.0 ^ rhs.0)
+    }
+}
+impl core::ops::Not for IoringSetupFlags {
+    type Output = Self;
+    fn not(self) -> Self {
+        Self(!self.0)
+    }
+}
+impl core::ops::BitOrAssign for IoringSetupFlags {
+    fn bitor_assign(&mut self, rhs: Self) {
+        self.0 |= rhs.0;
+    }
+}
+impl core::ops::BitAndAssign for IoringSetupFlags {
+    fn bitand_assign(&mut self, rhs: Self) {
+        self.0 &= rhs.0;
+    }
+}
+impl core::ops::BitXorAssign for IoringSetupFlags {
+    fn bitxor_assign(&mut self, rhs: Self) {
+        self.0 ^= rhs.0;
+    }
+}
+
+impl GuestLayout for IoringSetupFlags {
+    const SIZE: usize = <u32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// `io_uring_params.features` (`IORING_FEAT_*`).
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct IoringFeatFlags(pub u32);
+impl IoringFeatFlags {
+    pub const IORING_FEAT_SINGLE_MMAP: Self = Self(0x1);
+    pub const IORING_FEAT_NODROP: Self = Self(0x2);
+    pub const IORING_FEAT_SUBMIT_STABLE: Self = Self(0x4);
+    pub const IORING_FEAT_RW_CUR_POS: Self = Self(0x8);
+    pub const IORING_FEAT_CUR_PERSONALITY: Self = Self(0x10);
+    pub const IORING_FEAT_FAST_POLL: Self = Self(0x20);
+    pub const IORING_FEAT_POLL_32BITS: Self = Self(0x40);
+    pub const IORING_FEAT_SQPOLL_NONFIXED: Self = Self(0x80);
+    pub const IORING_FEAT_EXT_ARG: Self = Self(0x100);
+    pub const IORING_FEAT_NATIVE_WORKERS: Self = Self(0x200);
+    pub const IORING_FEAT_RSRC_TAGS: Self = Self(0x400);
+    pub const IORING_FEAT_CQE_SKIP: Self = Self(0x800);
+    pub const IORING_FEAT_LINKED_FILE: Self = Self(0x1000);
+    pub const IORING_FEAT_REG_REG_RING: Self = Self(0x2000);
+    pub const IORING_FEAT_RECVSEND_BUNDLE: Self = Self(0x4000);
+    pub const IORING_FEAT_MIN_TIMEOUT: Self = Self(0x8000);
+    pub const IORING_FEAT_RW_ATTR: Self = Self(0x10000);
+    pub const IORING_FEAT_NO_IOWAIT: Self = Self(0x20000);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("IORING_FEAT_SINGLE_MMAP", Self::IORING_FEAT_SINGLE_MMAP),
+        ("IORING_FEAT_NODROP", Self::IORING_FEAT_NODROP),
+        ("IORING_FEAT_SUBMIT_STABLE", Self::IORING_FEAT_SUBMIT_STABLE),
+        ("IORING_FEAT_RW_CUR_POS", Self::IORING_FEAT_RW_CUR_POS),
+        (
+            "IORING_FEAT_CUR_PERSONALITY",
+            Self::IORING_FEAT_CUR_PERSONALITY,
+        ),
+        ("IORING_FEAT_FAST_POLL", Self::IORING_FEAT_FAST_POLL),
+        ("IORING_FEAT_POLL_32BITS", Self::IORING_FEAT_POLL_32BITS),
+        (
+            "IORING_FEAT_SQPOLL_NONFIXED",
+            Self::IORING_FEAT_SQPOLL_NONFIXED,
+        ),
+        ("IORING_FEAT_EXT_ARG", Self::IORING_FEAT_EXT_ARG),
+        (
+            "IORING_FEAT_NATIVE_WORKERS",
+            Self::IORING_FEAT_NATIVE_WORKERS,
+        ),
+        ("IORING_FEAT_RSRC_TAGS", Self::IORING_FEAT_RSRC_TAGS),
+        ("IORING_FEAT_CQE_SKIP", Self::IORING_FEAT_CQE_SKIP),
+        ("IORING_FEAT_LINKED_FILE", Self::IORING_FEAT_LINKED_FILE),
+        ("IORING_FEAT_REG_REG_RING", Self::IORING_FEAT_REG_REG_RING),
+        (
+            "IORING_FEAT_RECVSEND_BUNDLE",
+            Self::IORING_FEAT_RECVSEND_BUNDLE,
+        ),
+        ("IORING_FEAT_MIN_TIMEOUT", Self::IORING_FEAT_MIN_TIMEOUT),
+        ("IORING_FEAT_RW_ATTR", Self::IORING_FEAT_RW_ATTR),
+        ("IORING_FEAT_NO_IOWAIT", Self::IORING_FEAT_NO_IOWAIT),
+    ];
+
+    pub const fn empty() -> Self {
+        Self(0)
+    }
+    pub const fn bits(self) -> u32 {
+        self.0
+    }
+    pub const fn is_empty(self) -> bool {
+        self.0 == 0
+    }
+    /// Whether all bits of `other` are set.
+    pub const fn contains(self, other: Self) -> bool {
+        self.0 & other.0 == other.0
+    }
+    /// Whether any bit of `other` is set.
+    pub const fn intersects(self, other: Self) -> bool {
+        self.0 & other.0 != 0
+    }
+}
+
+impl fmt::Debug for IoringFeatFlags {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("IoringFeatFlags(")?;
+        let mut rest = self.0;
+        let mut first = true;
+        for (name, flag) in Self::MEMBERS {
+            if flag.0 != 0 && self.contains(*flag) && rest & flag.0 != 0 {
+                if !first {
+                    f.write_str(" | ")?;
+                }
+                f.write_str(name)?;
+                first = false;
+                rest &= !flag.0;
+            }
+        }
+        if rest != 0 || first {
+            if !first {
+                f.write_str(" | ")?;
+            }
+            write!(f, "{rest:#x}")?;
+        }
+        f.write_str(")")
+    }
+}
+impl core::ops::BitOr for IoringFeatFlags {
+    type Output = Self;
+    fn bitor(self, rhs: Self) -> Self {
+        Self(self.0 | rhs.0)
+    }
+}
+impl core::ops::BitAnd for IoringFeatFlags {
+    type Output = Self;
+    fn bitand(self, rhs: Self) -> Self {
+        Self(self.0 & rhs.0)
+    }
+}
+impl core::ops::BitXor for IoringFeatFlags {
+    type Output = Self;
+    fn bitxor(self, rhs: Self) -> Self {
+        Self(self.0 ^ rhs.0)
+    }
+}
+impl core::ops::Not for IoringFeatFlags {
+    type Output = Self;
+    fn not(self) -> Self {
+        Self(!self.0)
+    }
+}
+impl core::ops::BitOrAssign for IoringFeatFlags {
+    fn bitor_assign(&mut self, rhs: Self) {
+        self.0 |= rhs.0;
+    }
+}
+impl core::ops::BitAndAssign for IoringFeatFlags {
+    fn bitand_assign(&mut self, rhs: Self) {
+        self.0 &= rhs.0;
+    }
+}
+impl core::ops::BitXorAssign for IoringFeatFlags {
+    fn bitxor_assign(&mut self, rhs: Self) {
+        self.0 ^= rhs.0;
+    }
+}
+
+impl GuestLayout for IoringFeatFlags {
+    const SIZE: usize = <u32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// `io_uring_enter` flags (`IORING_ENTER_*`).
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct IoringEnterFlags(pub u32);
+impl IoringEnterFlags {
+    pub const IORING_ENTER_GETEVENTS: Self = Self(0x1);
+    pub const IORING_ENTER_SQ_WAKEUP: Self = Self(0x2);
+    pub const IORING_ENTER_SQ_WAIT: Self = Self(0x4);
+    pub const IORING_ENTER_EXT_ARG: Self = Self(0x8);
+    pub const IORING_ENTER_REGISTERED_RING: Self = Self(0x10);
+    pub const IORING_ENTER_ABS_TIMER: Self = Self(0x20);
+    pub const IORING_ENTER_EXT_ARG_REG: Self = Self(0x40);
+    pub const IORING_ENTER_NO_IOWAIT: Self = Self(0x80);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("IORING_ENTER_GETEVENTS", Self::IORING_ENTER_GETEVENTS),
+        ("IORING_ENTER_SQ_WAKEUP", Self::IORING_ENTER_SQ_WAKEUP),
+        ("IORING_ENTER_SQ_WAIT", Self::IORING_ENTER_SQ_WAIT),
+        ("IORING_ENTER_EXT_ARG", Self::IORING_ENTER_EXT_ARG),
+        (
+            "IORING_ENTER_REGISTERED_RING",
+            Self::IORING_ENTER_REGISTERED_RING,
+        ),
+        ("IORING_ENTER_ABS_TIMER", Self::IORING_ENTER_ABS_TIMER),
+        ("IORING_ENTER_EXT_ARG_REG", Self::IORING_ENTER_EXT_ARG_REG),
+        ("IORING_ENTER_NO_IOWAIT", Self::IORING_ENTER_NO_IOWAIT),
+    ];
+
+    pub const fn empty() -> Self {
+        Self(0)
+    }
+    pub const fn bits(self) -> u32 {
+        self.0
+    }
+    pub const fn is_empty(self) -> bool {
+        self.0 == 0
+    }
+    /// Whether all bits of `other` are set.
+    pub const fn contains(self, other: Self) -> bool {
+        self.0 & other.0 == other.0
+    }
+    /// Whether any bit of `other` is set.
+    pub const fn intersects(self, other: Self) -> bool {
+        self.0 & other.0 != 0
+    }
+}
+
+impl fmt::Debug for IoringEnterFlags {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("IoringEnterFlags(")?;
+        let mut rest = self.0;
+        let mut first = true;
+        for (name, flag) in Self::MEMBERS {
+            if flag.0 != 0 && self.contains(*flag) && rest & flag.0 != 0 {
+                if !first {
+                    f.write_str(" | ")?;
+                }
+                f.write_str(name)?;
+                first = false;
+                rest &= !flag.0;
+            }
+        }
+        if rest != 0 || first {
+            if !first {
+                f.write_str(" | ")?;
+            }
+            write!(f, "{rest:#x}")?;
+        }
+        f.write_str(")")
+    }
+}
+impl core::ops::BitOr for IoringEnterFlags {
+    type Output = Self;
+    fn bitor(self, rhs: Self) -> Self {
+        Self(self.0 | rhs.0)
+    }
+}
+impl core::ops::BitAnd for IoringEnterFlags {
+    type Output = Self;
+    fn bitand(self, rhs: Self) -> Self {
+        Self(self.0 & rhs.0)
+    }
+}
+impl core::ops::BitXor for IoringEnterFlags {
+    type Output = Self;
+    fn bitxor(self, rhs: Self) -> Self {
+        Self(self.0 ^ rhs.0)
+    }
+}
+impl core::ops::Not for IoringEnterFlags {
+    type Output = Self;
+    fn not(self) -> Self {
+        Self(!self.0)
+    }
+}
+impl core::ops::BitOrAssign for IoringEnterFlags {
+    fn bitor_assign(&mut self, rhs: Self) {
+        self.0 |= rhs.0;
+    }
+}
+impl core::ops::BitAndAssign for IoringEnterFlags {
+    fn bitand_assign(&mut self, rhs: Self) {
+        self.0 &= rhs.0;
+    }
+}
+impl core::ops::BitXorAssign for IoringEnterFlags {
+    fn bitxor_assign(&mut self, rhs: Self) {
+        self.0 ^= rhs.0;
+    }
+}
+
+impl GuestLayout for IoringEnterFlags {
+    const SIZE: usize = <u32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// The submission ring's flags word (`IORING_SQ_*`).
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct IoringSqFlags(pub u32);
+impl IoringSqFlags {
+    pub const IORING_SQ_NEED_WAKEUP: Self = Self(0x1);
+    pub const IORING_SQ_CQ_OVERFLOW: Self = Self(0x2);
+    pub const IORING_SQ_TASKRUN: Self = Self(0x4);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("IORING_SQ_NEED_WAKEUP", Self::IORING_SQ_NEED_WAKEUP),
+        ("IORING_SQ_CQ_OVERFLOW", Self::IORING_SQ_CQ_OVERFLOW),
+        ("IORING_SQ_TASKRUN", Self::IORING_SQ_TASKRUN),
+    ];
+
+    pub const fn empty() -> Self {
+        Self(0)
+    }
+    pub const fn bits(self) -> u32 {
+        self.0
+    }
+    pub const fn is_empty(self) -> bool {
+        self.0 == 0
+    }
+    /// Whether all bits of `other` are set.
+    pub const fn contains(self, other: Self) -> bool {
+        self.0 & other.0 == other.0
+    }
+    /// Whether any bit of `other` is set.
+    pub const fn intersects(self, other: Self) -> bool {
+        self.0 & other.0 != 0
+    }
+}
+
+impl fmt::Debug for IoringSqFlags {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("IoringSqFlags(")?;
+        let mut rest = self.0;
+        let mut first = true;
+        for (name, flag) in Self::MEMBERS {
+            if flag.0 != 0 && self.contains(*flag) && rest & flag.0 != 0 {
+                if !first {
+                    f.write_str(" | ")?;
+                }
+                f.write_str(name)?;
+                first = false;
+                rest &= !flag.0;
+            }
+        }
+        if rest != 0 || first {
+            if !first {
+                f.write_str(" | ")?;
+            }
+            write!(f, "{rest:#x}")?;
+        }
+        f.write_str(")")
+    }
+}
+impl core::ops::BitOr for IoringSqFlags {
+    type Output = Self;
+    fn bitor(self, rhs: Self) -> Self {
+        Self(self.0 | rhs.0)
+    }
+}
+impl core::ops::BitAnd for IoringSqFlags {
+    type Output = Self;
+    fn bitand(self, rhs: Self) -> Self {
+        Self(self.0 & rhs.0)
+    }
+}
+impl core::ops::BitXor for IoringSqFlags {
+    type Output = Self;
+    fn bitxor(self, rhs: Self) -> Self {
+        Self(self.0 ^ rhs.0)
+    }
+}
+impl core::ops::Not for IoringSqFlags {
+    type Output = Self;
+    fn not(self) -> Self {
+        Self(!self.0)
+    }
+}
+impl core::ops::BitOrAssign for IoringSqFlags {
+    fn bitor_assign(&mut self, rhs: Self) {
+        self.0 |= rhs.0;
+    }
+}
+impl core::ops::BitAndAssign for IoringSqFlags {
+    fn bitand_assign(&mut self, rhs: Self) {
+        self.0 &= rhs.0;
+    }
+}
+impl core::ops::BitXorAssign for IoringSqFlags {
+    fn bitxor_assign(&mut self, rhs: Self) {
+        self.0 ^= rhs.0;
+    }
+}
+
+impl GuestLayout for IoringSqFlags {
+    const SIZE: usize = <u32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// The completion ring's flags word (`IORING_CQ_*`).
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct IoringCqFlags(pub u32);
+impl IoringCqFlags {
+    pub const IORING_CQ_EVENTFD_DISABLED: Self = Self(0x1);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[(
+        "IORING_CQ_EVENTFD_DISABLED",
+        Self::IORING_CQ_EVENTFD_DISABLED,
+    )];
+
+    pub const fn empty() -> Self {
+        Self(0)
+    }
+    pub const fn bits(self) -> u32 {
+        self.0
+    }
+    pub const fn is_empty(self) -> bool {
+        self.0 == 0
+    }
+    /// Whether all bits of `other` are set.
+    pub const fn contains(self, other: Self) -> bool {
+        self.0 & other.0 == other.0
+    }
+    /// Whether any bit of `other` is set.
+    pub const fn intersects(self, other: Self) -> bool {
+        self.0 & other.0 != 0
+    }
+}
+
+impl fmt::Debug for IoringCqFlags {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("IoringCqFlags(")?;
+        let mut rest = self.0;
+        let mut first = true;
+        for (name, flag) in Self::MEMBERS {
+            if flag.0 != 0 && self.contains(*flag) && rest & flag.0 != 0 {
+                if !first {
+                    f.write_str(" | ")?;
+                }
+                f.write_str(name)?;
+                first = false;
+                rest &= !flag.0;
+            }
+        }
+        if rest != 0 || first {
+            if !first {
+                f.write_str(" | ")?;
+            }
+            write!(f, "{rest:#x}")?;
+        }
+        f.write_str(")")
+    }
+}
+impl core::ops::BitOr for IoringCqFlags {
+    type Output = Self;
+    fn bitor(self, rhs: Self) -> Self {
+        Self(self.0 | rhs.0)
+    }
+}
+impl core::ops::BitAnd for IoringCqFlags {
+    type Output = Self;
+    fn bitand(self, rhs: Self) -> Self {
+        Self(self.0 & rhs.0)
+    }
+}
+impl core::ops::BitXor for IoringCqFlags {
+    type Output = Self;
+    fn bitxor(self, rhs: Self) -> Self {
+        Self(self.0 ^ rhs.0)
+    }
+}
+impl core::ops::Not for IoringCqFlags {
+    type Output = Self;
+    fn not(self) -> Self {
+        Self(!self.0)
+    }
+}
+impl core::ops::BitOrAssign for IoringCqFlags {
+    fn bitor_assign(&mut self, rhs: Self) {
+        self.0 |= rhs.0;
+    }
+}
+impl core::ops::BitAndAssign for IoringCqFlags {
+    fn bitand_assign(&mut self, rhs: Self) {
+        self.0 &= rhs.0;
+    }
+}
+impl core::ops::BitXorAssign for IoringCqFlags {
+    fn bitxor_assign(&mut self, rhs: Self) {
+        self.0 ^= rhs.0;
+    }
+}
+
+impl GuestLayout for IoringCqFlags {
+    const SIZE: usize = <u32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// `io_uring_cqe.flags` (`IORING_CQE_F_*`). The selected buffer's id is in the bits above
+/// `IORING_CQE_BUFFER_SHIFT`.
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct IoringCqeFlags(pub u32);
+impl IoringCqeFlags {
+    pub const IORING_CQE_F_BUFFER: Self = Self(0x1);
+    pub const IORING_CQE_F_MORE: Self = Self(0x2);
+    pub const IORING_CQE_F_SOCK_NONEMPTY: Self = Self(0x4);
+    pub const IORING_CQE_F_NOTIF: Self = Self(0x8);
+    pub const IORING_CQE_F_BUF_MORE: Self = Self(0x10);
+    pub const IORING_CQE_F_SKIP: Self = Self(0x20);
+    pub const IORING_CQE_F_32: Self = Self(0x8000);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("IORING_CQE_F_BUFFER", Self::IORING_CQE_F_BUFFER),
+        ("IORING_CQE_F_MORE", Self::IORING_CQE_F_MORE),
+        (
+            "IORING_CQE_F_SOCK_NONEMPTY",
+            Self::IORING_CQE_F_SOCK_NONEMPTY,
+        ),
+        ("IORING_CQE_F_NOTIF", Self::IORING_CQE_F_NOTIF),
+        ("IORING_CQE_F_BUF_MORE", Self::IORING_CQE_F_BUF_MORE),
+        ("IORING_CQE_F_SKIP", Self::IORING_CQE_F_SKIP),
+        ("IORING_CQE_F_32", Self::IORING_CQE_F_32),
+    ];
+
+    pub const fn empty() -> Self {
+        Self(0)
+    }
+    pub const fn bits(self) -> u32 {
+        self.0
+    }
+    pub const fn is_empty(self) -> bool {
+        self.0 == 0
+    }
+    /// Whether all bits of `other` are set.
+    pub const fn contains(self, other: Self) -> bool {
+        self.0 & other.0 == other.0
+    }
+    /// Whether any bit of `other` is set.
+    pub const fn intersects(self, other: Self) -> bool {
+        self.0 & other.0 != 0
+    }
+}
+
+impl fmt::Debug for IoringCqeFlags {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("IoringCqeFlags(")?;
+        let mut rest = self.0;
+        let mut first = true;
+        for (name, flag) in Self::MEMBERS {
+            if flag.0 != 0 && self.contains(*flag) && rest & flag.0 != 0 {
+                if !first {
+                    f.write_str(" | ")?;
+                }
+                f.write_str(name)?;
+                first = false;
+                rest &= !flag.0;
+            }
+        }
+        if rest != 0 || first {
+            if !first {
+                f.write_str(" | ")?;
+            }
+            write!(f, "{rest:#x}")?;
+        }
+        f.write_str(")")
+    }
+}
+impl core::ops::BitOr for IoringCqeFlags {
+    type Output = Self;
+    fn bitor(self, rhs: Self) -> Self {
+        Self(self.0 | rhs.0)
+    }
+}
+impl core::ops::BitAnd for IoringCqeFlags {
+    type Output = Self;
+    fn bitand(self, rhs: Self) -> Self {
+        Self(self.0 & rhs.0)
+    }
+}
+impl core::ops::BitXor for IoringCqeFlags {
+    type Output = Self;
+    fn bitxor(self, rhs: Self) -> Self {
+        Self(self.0 ^ rhs.0)
+    }
+}
+impl core::ops::Not for IoringCqeFlags {
+    type Output = Self;
+    fn not(self) -> Self {
+        Self(!self.0)
+    }
+}
+impl core::ops::BitOrAssign for IoringCqeFlags {
+    fn bitor_assign(&mut self, rhs: Self) {
+        self.0 |= rhs.0;
+    }
+}
+impl core::ops::BitAndAssign for IoringCqeFlags {
+    fn bitand_assign(&mut self, rhs: Self) {
+        self.0 &= rhs.0;
+    }
+}
+impl core::ops::BitXorAssign for IoringCqeFlags {
+    fn bitxor_assign(&mut self, rhs: Self) {
+        self.0 ^= rhs.0;
+    }
+}
+
+impl GuestLayout for IoringCqeFlags {
+    const SIZE: usize = <u32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// Per-operation flags of `io_uring_sqe` (`IORING_FSYNC_*`, `IORING_TIMEOUT_*`,
+/// `IORING_POLL_*`, `IORING_ASYNC_CANCEL_*`, `IORING_RECVSEND_*`, `IORING_ACCEPT_*`,
+/// `IORING_NOP_*`). Families share bits; each operation reads its own.
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct IoringOpFlags(pub u32);
+impl IoringOpFlags {
+    pub const IORING_FSYNC_DATASYNC: Self = Self(0x1);
+    pub const IORING_TIMEOUT_ABS: Self = Self(0x1);
+    pub const IORING_TIMEOUT_UPDATE: Self = Self(0x2);
+    pub const IORING_TIMEOUT_BOOTTIME: Self = Self(0x4);
+    pub const IORING_TIMEOUT_REALTIME: Self = Self(0x8);
+    pub const IORING_LINK_TIMEOUT_UPDATE: Self = Self(0x10);
+    pub const IORING_TIMEOUT_ETIME_SUCCESS: Self = Self(0x20);
+    pub const IORING_TIMEOUT_MULTISHOT: Self = Self(0x40);
+    pub const IORING_TIMEOUT_IMMEDIATE_ARG: Self = Self(0x80);
+    pub const IORING_TIMEOUT_CLOCK_MASK: Self = Self(0xc);
+    pub const IORING_TIMEOUT_UPDATE_MASK: Self = Self(0x12);
+    pub const IORING_POLL_ADD_MULTI: Self = Self(0x1);
+    pub const IORING_POLL_UPDATE_EVENTS: Self = Self(0x2);
+    pub const IORING_POLL_UPDATE_USER_DATA: Self = Self(0x4);
+    pub const IORING_POLL_ADD_LEVEL: Self = Self(0x8);
+    pub const IORING_ASYNC_CANCEL_ALL: Self = Self(0x1);
+    pub const IORING_ASYNC_CANCEL_FD: Self = Self(0x2);
+    pub const IORING_ASYNC_CANCEL_ANY: Self = Self(0x4);
+    pub const IORING_ASYNC_CANCEL_FD_FIXED: Self = Self(0x8);
+    pub const IORING_ASYNC_CANCEL_USERDATA: Self = Self(0x10);
+    pub const IORING_ASYNC_CANCEL_OP: Self = Self(0x20);
+    pub const IORING_RECVSEND_POLL_FIRST: Self = Self(0x1);
+    pub const IORING_RECV_MULTISHOT: Self = Self(0x2);
+    pub const IORING_RECVSEND_FIXED_BUF: Self = Self(0x4);
+    pub const IORING_SEND_ZC_REPORT_USAGE: Self = Self(0x8);
+    pub const IORING_RECVSEND_BUNDLE: Self = Self(0x10);
+    pub const IORING_SEND_VECTORIZED: Self = Self(0x20);
+    pub const IORING_ACCEPT_MULTISHOT: Self = Self(0x1);
+    pub const IORING_ACCEPT_DONTWAIT: Self = Self(0x2);
+    pub const IORING_ACCEPT_POLL_FIRST: Self = Self(0x4);
+    pub const IORING_NOP_INJECT_RESULT: Self = Self(0x1);
+    pub const IORING_NOP_FILE: Self = Self(0x2);
+    pub const IORING_NOP_FIXED_FILE: Self = Self(0x4);
+    pub const IORING_NOP_FIXED_BUFFER: Self = Self(0x8);
+    pub const IORING_NOP_TW: Self = Self(0x10);
+    pub const IORING_NOP_CQE32: Self = Self(0x20);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("IORING_FSYNC_DATASYNC", Self::IORING_FSYNC_DATASYNC),
+        ("IORING_TIMEOUT_ABS", Self::IORING_TIMEOUT_ABS),
+        ("IORING_TIMEOUT_UPDATE", Self::IORING_TIMEOUT_UPDATE),
+        ("IORING_TIMEOUT_BOOTTIME", Self::IORING_TIMEOUT_BOOTTIME),
+        ("IORING_TIMEOUT_REALTIME", Self::IORING_TIMEOUT_REALTIME),
+        (
+            "IORING_LINK_TIMEOUT_UPDATE",
+            Self::IORING_LINK_TIMEOUT_UPDATE,
+        ),
+        (
+            "IORING_TIMEOUT_ETIME_SUCCESS",
+            Self::IORING_TIMEOUT_ETIME_SUCCESS,
+        ),
+        ("IORING_TIMEOUT_MULTISHOT", Self::IORING_TIMEOUT_MULTISHOT),
+        (
+            "IORING_TIMEOUT_IMMEDIATE_ARG",
+            Self::IORING_TIMEOUT_IMMEDIATE_ARG,
+        ),
+        ("IORING_TIMEOUT_CLOCK_MASK", Self::IORING_TIMEOUT_CLOCK_MASK),
+        (
+            "IORING_TIMEOUT_UPDATE_MASK",
+            Self::IORING_TIMEOUT_UPDATE_MASK,
+        ),
+        ("IORING_POLL_ADD_MULTI", Self::IORING_POLL_ADD_MULTI),
+        ("IORING_POLL_UPDATE_EVENTS", Self::IORING_POLL_UPDATE_EVENTS),
+        (
+            "IORING_POLL_UPDATE_USER_DATA",
+            Self::IORING_POLL_UPDATE_USER_DATA,
+        ),
+        ("IORING_POLL_ADD_LEVEL", Self::IORING_POLL_ADD_LEVEL),
+        ("IORING_ASYNC_CANCEL_ALL", Self::IORING_ASYNC_CANCEL_ALL),
+        ("IORING_ASYNC_CANCEL_FD", Self::IORING_ASYNC_CANCEL_FD),
+        ("IORING_ASYNC_CANCEL_ANY", Self::IORING_ASYNC_CANCEL_ANY),
+        (
+            "IORING_ASYNC_CANCEL_FD_FIXED",
+            Self::IORING_ASYNC_CANCEL_FD_FIXED,
+        ),
+        (
+            "IORING_ASYNC_CANCEL_USERDATA",
+            Self::IORING_ASYNC_CANCEL_USERDATA,
+        ),
+        ("IORING_ASYNC_CANCEL_OP", Self::IORING_ASYNC_CANCEL_OP),
+        (
+            "IORING_RECVSEND_POLL_FIRST",
+            Self::IORING_RECVSEND_POLL_FIRST,
+        ),
+        ("IORING_RECV_MULTISHOT", Self::IORING_RECV_MULTISHOT),
+        ("IORING_RECVSEND_FIXED_BUF", Self::IORING_RECVSEND_FIXED_BUF),
+        (
+            "IORING_SEND_ZC_REPORT_USAGE",
+            Self::IORING_SEND_ZC_REPORT_USAGE,
+        ),
+        ("IORING_RECVSEND_BUNDLE", Self::IORING_RECVSEND_BUNDLE),
+        ("IORING_SEND_VECTORIZED", Self::IORING_SEND_VECTORIZED),
+        ("IORING_ACCEPT_MULTISHOT", Self::IORING_ACCEPT_MULTISHOT),
+        ("IORING_ACCEPT_DONTWAIT", Self::IORING_ACCEPT_DONTWAIT),
+        ("IORING_ACCEPT_POLL_FIRST", Self::IORING_ACCEPT_POLL_FIRST),
+        ("IORING_NOP_INJECT_RESULT", Self::IORING_NOP_INJECT_RESULT),
+        ("IORING_NOP_FILE", Self::IORING_NOP_FILE),
+        ("IORING_NOP_FIXED_FILE", Self::IORING_NOP_FIXED_FILE),
+        ("IORING_NOP_FIXED_BUFFER", Self::IORING_NOP_FIXED_BUFFER),
+        ("IORING_NOP_TW", Self::IORING_NOP_TW),
+        ("IORING_NOP_CQE32", Self::IORING_NOP_CQE32),
+    ];
+
+    pub const fn empty() -> Self {
+        Self(0)
+    }
+    pub const fn bits(self) -> u32 {
+        self.0
+    }
+    pub const fn is_empty(self) -> bool {
+        self.0 == 0
+    }
+    /// Whether all bits of `other` are set.
+    pub const fn contains(self, other: Self) -> bool {
+        self.0 & other.0 == other.0
+    }
+    /// Whether any bit of `other` is set.
+    pub const fn intersects(self, other: Self) -> bool {
+        self.0 & other.0 != 0
+    }
+}
+
+impl fmt::Debug for IoringOpFlags {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("IoringOpFlags(")?;
+        let mut rest = self.0;
+        let mut first = true;
+        for (name, flag) in Self::MEMBERS {
+            if flag.0 != 0 && self.contains(*flag) && rest & flag.0 != 0 {
+                if !first {
+                    f.write_str(" | ")?;
+                }
+                f.write_str(name)?;
+                first = false;
+                rest &= !flag.0;
+            }
+        }
+        if rest != 0 || first {
+            if !first {
+                f.write_str(" | ")?;
+            }
+            write!(f, "{rest:#x}")?;
+        }
+        f.write_str(")")
+    }
+}
+impl core::ops::BitOr for IoringOpFlags {
+    type Output = Self;
+    fn bitor(self, rhs: Self) -> Self {
+        Self(self.0 | rhs.0)
+    }
+}
+impl core::ops::BitAnd for IoringOpFlags {
+    type Output = Self;
+    fn bitand(self, rhs: Self) -> Self {
+        Self(self.0 & rhs.0)
+    }
+}
+impl core::ops::BitXor for IoringOpFlags {
+    type Output = Self;
+    fn bitxor(self, rhs: Self) -> Self {
+        Self(self.0 ^ rhs.0)
+    }
+}
+impl core::ops::Not for IoringOpFlags {
+    type Output = Self;
+    fn not(self) -> Self {
+        Self(!self.0)
+    }
+}
+impl core::ops::BitOrAssign for IoringOpFlags {
+    fn bitor_assign(&mut self, rhs: Self) {
+        self.0 |= rhs.0;
+    }
+}
+impl core::ops::BitAndAssign for IoringOpFlags {
+    fn bitand_assign(&mut self, rhs: Self) {
+        self.0 &= rhs.0;
+    }
+}
+impl core::ops::BitXorAssign for IoringOpFlags {
+    fn bitxor_assign(&mut self, rhs: Self) {
+        self.0 ^= rhs.0;
+    }
+}
+
+impl GuestLayout for IoringOpFlags {
+    const SIZE: usize = <u32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// `io_uring_register` operations (`enum io_uring_register_op`).
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct IoUringRegisterOp(pub u32);
+impl IoUringRegisterOp {
+    pub const IORING_REGISTER_BUFFERS: Self = Self(0);
+    pub const IORING_UNREGISTER_BUFFERS: Self = Self(1);
+    pub const IORING_REGISTER_FILES: Self = Self(2);
+    pub const IORING_UNREGISTER_FILES: Self = Self(3);
+    pub const IORING_REGISTER_EVENTFD: Self = Self(4);
+    pub const IORING_UNREGISTER_EVENTFD: Self = Self(5);
+    pub const IORING_REGISTER_FILES_UPDATE: Self = Self(6);
+    pub const IORING_REGISTER_EVENTFD_ASYNC: Self = Self(7);
+    pub const IORING_REGISTER_PROBE: Self = Self(8);
+    pub const IORING_REGISTER_PERSONALITY: Self = Self(9);
+    pub const IORING_UNREGISTER_PERSONALITY: Self = Self(10);
+    pub const IORING_REGISTER_RESTRICTIONS: Self = Self(11);
+    pub const IORING_REGISTER_ENABLE_RINGS: Self = Self(12);
+    pub const IORING_REGISTER_FILES2: Self = Self(13);
+    pub const IORING_REGISTER_FILES_UPDATE2: Self = Self(14);
+    pub const IORING_REGISTER_BUFFERS2: Self = Self(15);
+    pub const IORING_REGISTER_BUFFERS_UPDATE: Self = Self(16);
+    pub const IORING_REGISTER_IOWQ_AFF: Self = Self(17);
+    pub const IORING_UNREGISTER_IOWQ_AFF: Self = Self(18);
+    pub const IORING_REGISTER_IOWQ_MAX_WORKERS: Self = Self(19);
+    pub const IORING_REGISTER_RING_FDS: Self = Self(20);
+    pub const IORING_UNREGISTER_RING_FDS: Self = Self(21);
+    pub const IORING_REGISTER_PBUF_RING: Self = Self(22);
+    pub const IORING_UNREGISTER_PBUF_RING: Self = Self(23);
+    pub const IORING_REGISTER_SYNC_CANCEL: Self = Self(24);
+    pub const IORING_REGISTER_FILE_ALLOC_RANGE: Self = Self(25);
+    pub const IORING_REGISTER_PBUF_STATUS: Self = Self(26);
+    pub const IORING_REGISTER_NAPI: Self = Self(27);
+    pub const IORING_UNREGISTER_NAPI: Self = Self(28);
+    pub const IORING_REGISTER_CLOCK: Self = Self(29);
+    pub const IORING_REGISTER_CLONE_BUFFERS: Self = Self(30);
+    pub const IORING_REGISTER_SEND_MSG_RING: Self = Self(31);
+    pub const IORING_REGISTER_ZCRX_IFQ: Self = Self(32);
+    pub const IORING_REGISTER_RESIZE_RINGS: Self = Self(33);
+    pub const IORING_REGISTER_MEM_REGION: Self = Self(34);
+    pub const IORING_REGISTER_QUERY: Self = Self(35);
+    pub const IORING_REGISTER_ZCRX_CTRL: Self = Self(36);
+    pub const IORING_REGISTER_BPF_FILTER: Self = Self(37);
+    pub const IORING_REGISTER_LAST: Self = Self(38);
+    pub const IORING_REGISTER_USE_REGISTERED_RING: Self = Self(2147483648);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("IORING_REGISTER_BUFFERS", Self::IORING_REGISTER_BUFFERS),
+        ("IORING_UNREGISTER_BUFFERS", Self::IORING_UNREGISTER_BUFFERS),
+        ("IORING_REGISTER_FILES", Self::IORING_REGISTER_FILES),
+        ("IORING_UNREGISTER_FILES", Self::IORING_UNREGISTER_FILES),
+        ("IORING_REGISTER_EVENTFD", Self::IORING_REGISTER_EVENTFD),
+        ("IORING_UNREGISTER_EVENTFD", Self::IORING_UNREGISTER_EVENTFD),
+        (
+            "IORING_REGISTER_FILES_UPDATE",
+            Self::IORING_REGISTER_FILES_UPDATE,
+        ),
+        (
+            "IORING_REGISTER_EVENTFD_ASYNC",
+            Self::IORING_REGISTER_EVENTFD_ASYNC,
+        ),
+        ("IORING_REGISTER_PROBE", Self::IORING_REGISTER_PROBE),
+        (
+            "IORING_REGISTER_PERSONALITY",
+            Self::IORING_REGISTER_PERSONALITY,
+        ),
+        (
+            "IORING_UNREGISTER_PERSONALITY",
+            Self::IORING_UNREGISTER_PERSONALITY,
+        ),
+        (
+            "IORING_REGISTER_RESTRICTIONS",
+            Self::IORING_REGISTER_RESTRICTIONS,
+        ),
+        (
+            "IORING_REGISTER_ENABLE_RINGS",
+            Self::IORING_REGISTER_ENABLE_RINGS,
+        ),
+        ("IORING_REGISTER_FILES2", Self::IORING_REGISTER_FILES2),
+        (
+            "IORING_REGISTER_FILES_UPDATE2",
+            Self::IORING_REGISTER_FILES_UPDATE2,
+        ),
+        ("IORING_REGISTER_BUFFERS2", Self::IORING_REGISTER_BUFFERS2),
+        (
+            "IORING_REGISTER_BUFFERS_UPDATE",
+            Self::IORING_REGISTER_BUFFERS_UPDATE,
+        ),
+        ("IORING_REGISTER_IOWQ_AFF", Self::IORING_REGISTER_IOWQ_AFF),
+        (
+            "IORING_UNREGISTER_IOWQ_AFF",
+            Self::IORING_UNREGISTER_IOWQ_AFF,
+        ),
+        (
+            "IORING_REGISTER_IOWQ_MAX_WORKERS",
+            Self::IORING_REGISTER_IOWQ_MAX_WORKERS,
+        ),
+        ("IORING_REGISTER_RING_FDS", Self::IORING_REGISTER_RING_FDS),
+        (
+            "IORING_UNREGISTER_RING_FDS",
+            Self::IORING_UNREGISTER_RING_FDS,
+        ),
+        ("IORING_REGISTER_PBUF_RING", Self::IORING_REGISTER_PBUF_RING),
+        (
+            "IORING_UNREGISTER_PBUF_RING",
+            Self::IORING_UNREGISTER_PBUF_RING,
+        ),
+        (
+            "IORING_REGISTER_SYNC_CANCEL",
+            Self::IORING_REGISTER_SYNC_CANCEL,
+        ),
+        (
+            "IORING_REGISTER_FILE_ALLOC_RANGE",
+            Self::IORING_REGISTER_FILE_ALLOC_RANGE,
+        ),
+        (
+            "IORING_REGISTER_PBUF_STATUS",
+            Self::IORING_REGISTER_PBUF_STATUS,
+        ),
+        ("IORING_REGISTER_NAPI", Self::IORING_REGISTER_NAPI),
+        ("IORING_UNREGISTER_NAPI", Self::IORING_UNREGISTER_NAPI),
+        ("IORING_REGISTER_CLOCK", Self::IORING_REGISTER_CLOCK),
+        (
+            "IORING_REGISTER_CLONE_BUFFERS",
+            Self::IORING_REGISTER_CLONE_BUFFERS,
+        ),
+        (
+            "IORING_REGISTER_SEND_MSG_RING",
+            Self::IORING_REGISTER_SEND_MSG_RING,
+        ),
+        ("IORING_REGISTER_ZCRX_IFQ", Self::IORING_REGISTER_ZCRX_IFQ),
+        (
+            "IORING_REGISTER_RESIZE_RINGS",
+            Self::IORING_REGISTER_RESIZE_RINGS,
+        ),
+        (
+            "IORING_REGISTER_MEM_REGION",
+            Self::IORING_REGISTER_MEM_REGION,
+        ),
+        ("IORING_REGISTER_QUERY", Self::IORING_REGISTER_QUERY),
+        ("IORING_REGISTER_ZCRX_CTRL", Self::IORING_REGISTER_ZCRX_CTRL),
+        (
+            "IORING_REGISTER_BPF_FILTER",
+            Self::IORING_REGISTER_BPF_FILTER,
+        ),
+        ("IORING_REGISTER_LAST", Self::IORING_REGISTER_LAST),
+        (
+            "IORING_REGISTER_USE_REGISTERED_RING",
+            Self::IORING_REGISTER_USE_REGISTERED_RING,
+        ),
+    ];
+    /// Name of the first constant with this value, if any.
+    pub const fn name(self) -> Option<&'static str> {
+        match self.0 {
+            0 => Some("IORING_REGISTER_BUFFERS"),
+            1 => Some("IORING_UNREGISTER_BUFFERS"),
+            2 => Some("IORING_REGISTER_FILES"),
+            3 => Some("IORING_UNREGISTER_FILES"),
+            4 => Some("IORING_REGISTER_EVENTFD"),
+            5 => Some("IORING_UNREGISTER_EVENTFD"),
+            6 => Some("IORING_REGISTER_FILES_UPDATE"),
+            7 => Some("IORING_REGISTER_EVENTFD_ASYNC"),
+            8 => Some("IORING_REGISTER_PROBE"),
+            9 => Some("IORING_REGISTER_PERSONALITY"),
+            10 => Some("IORING_UNREGISTER_PERSONALITY"),
+            11 => Some("IORING_REGISTER_RESTRICTIONS"),
+            12 => Some("IORING_REGISTER_ENABLE_RINGS"),
+            13 => Some("IORING_REGISTER_FILES2"),
+            14 => Some("IORING_REGISTER_FILES_UPDATE2"),
+            15 => Some("IORING_REGISTER_BUFFERS2"),
+            16 => Some("IORING_REGISTER_BUFFERS_UPDATE"),
+            17 => Some("IORING_REGISTER_IOWQ_AFF"),
+            18 => Some("IORING_UNREGISTER_IOWQ_AFF"),
+            19 => Some("IORING_REGISTER_IOWQ_MAX_WORKERS"),
+            20 => Some("IORING_REGISTER_RING_FDS"),
+            21 => Some("IORING_UNREGISTER_RING_FDS"),
+            22 => Some("IORING_REGISTER_PBUF_RING"),
+            23 => Some("IORING_UNREGISTER_PBUF_RING"),
+            24 => Some("IORING_REGISTER_SYNC_CANCEL"),
+            25 => Some("IORING_REGISTER_FILE_ALLOC_RANGE"),
+            26 => Some("IORING_REGISTER_PBUF_STATUS"),
+            27 => Some("IORING_REGISTER_NAPI"),
+            28 => Some("IORING_UNREGISTER_NAPI"),
+            29 => Some("IORING_REGISTER_CLOCK"),
+            30 => Some("IORING_REGISTER_CLONE_BUFFERS"),
+            31 => Some("IORING_REGISTER_SEND_MSG_RING"),
+            32 => Some("IORING_REGISTER_ZCRX_IFQ"),
+            33 => Some("IORING_REGISTER_RESIZE_RINGS"),
+            34 => Some("IORING_REGISTER_MEM_REGION"),
+            35 => Some("IORING_REGISTER_QUERY"),
+            36 => Some("IORING_REGISTER_ZCRX_CTRL"),
+            37 => Some("IORING_REGISTER_BPF_FILTER"),
+            38 => Some("IORING_REGISTER_LAST"),
+            2147483648 => Some("IORING_REGISTER_USE_REGISTERED_RING"),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Debug for IoUringRegisterOp {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.name() {
+            Some(name) => f.write_str(name),
+            None => write!(f, "IoUringRegisterOp({})", self.0),
+        }
+    }
+}
+
+impl GuestLayout for IoUringRegisterOp {
+    const SIZE: usize = <u32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// Other io_uring constants: the `mmap` offsets of the rings (`IORING_OFF_*`), the buffer id
+/// shift of a completion, `IORING_FILE_INDEX_ALLOC`, `IORING_REGISTER_FILES_SKIP` and the
+/// probe's `IO_URING_OP_SUPPORTED`.
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct IoUringMisc(pub i64);
+impl IoUringMisc {
+    pub const IORING_OFF_SQ_RING: Self = Self(0);
+    pub const IORING_OFF_CQ_RING: Self = Self(134217728);
+    pub const IORING_OFF_SQES: Self = Self(268435456);
+    pub const IORING_OFF_PBUF_RING: Self = Self(2147483648);
+    pub const IORING_OFF_PBUF_SHIFT: Self = Self(16);
+    pub const IORING_OFF_MMAP_MASK: Self = Self(4160749568);
+    pub const IORING_CQE_BUFFER_SHIFT: Self = Self(16);
+    pub const IORING_FILE_INDEX_ALLOC: Self = Self(4294967295);
+    pub const IORING_REGISTER_FILES_SKIP: Self = Self(-2);
+    pub const IO_URING_OP_SUPPORTED: Self = Self(1);
+    pub const IORING_RSRC_REGISTER_SPARSE: Self = Self(1);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("IORING_OFF_SQ_RING", Self::IORING_OFF_SQ_RING),
+        ("IORING_OFF_CQ_RING", Self::IORING_OFF_CQ_RING),
+        ("IORING_OFF_SQES", Self::IORING_OFF_SQES),
+        ("IORING_OFF_PBUF_RING", Self::IORING_OFF_PBUF_RING),
+        ("IORING_OFF_PBUF_SHIFT", Self::IORING_OFF_PBUF_SHIFT),
+        ("IORING_OFF_MMAP_MASK", Self::IORING_OFF_MMAP_MASK),
+        ("IORING_CQE_BUFFER_SHIFT", Self::IORING_CQE_BUFFER_SHIFT),
+        ("IORING_FILE_INDEX_ALLOC", Self::IORING_FILE_INDEX_ALLOC),
+        (
+            "IORING_REGISTER_FILES_SKIP",
+            Self::IORING_REGISTER_FILES_SKIP,
+        ),
+        ("IO_URING_OP_SUPPORTED", Self::IO_URING_OP_SUPPORTED),
+        (
+            "IORING_RSRC_REGISTER_SPARSE",
+            Self::IORING_RSRC_REGISTER_SPARSE,
+        ),
+    ];
+    /// Name of the first constant with this value, if any.
+    pub const fn name(self) -> Option<&'static str> {
+        match self.0 {
+            0 => Some("IORING_OFF_SQ_RING"),
+            134217728 => Some("IORING_OFF_CQ_RING"),
+            268435456 => Some("IORING_OFF_SQES"),
+            2147483648 => Some("IORING_OFF_PBUF_RING"),
+            16 => Some("IORING_OFF_PBUF_SHIFT"),
+            4160749568 => Some("IORING_OFF_MMAP_MASK"),
+            4294967295 => Some("IORING_FILE_INDEX_ALLOC"),
+            -2 => Some("IORING_REGISTER_FILES_SKIP"),
+            1 => Some("IO_URING_OP_SUPPORTED"),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Debug for IoUringMisc {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.name() {
+            Some(name) => f.write_str(name),
+            None => write!(f, "IoUringMisc({})", self.0),
+        }
+    }
+}
+
+impl GuestLayout for IoUringMisc {
+    const SIZE: usize = <i64 as GuestLayout>::SIZE;
+    const ALIGN: usize = <i64 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <i64 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// `IORING_REGISTER_FILES_UPDATE` argument (`struct io_uring_files_update`).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct IoUringFilesUpdate {
+    pub offset: u32,
+    pub resv: u32,
+    /// Guest address of the `s32` descriptors, zero-extended.
+    pub fds: u64,
+}
+const _: () = {
+    assert!(core::mem::size_of::<IoUringFilesUpdate>() == 16);
+    assert!(core::mem::align_of::<IoUringFilesUpdate>() == 8);
+    assert!(core::mem::offset_of!(IoUringFilesUpdate, offset) == 0);
+    assert!(core::mem::offset_of!(IoUringFilesUpdate, resv) == 4);
+    assert!(core::mem::offset_of!(IoUringFilesUpdate, fds) == 8);
+};
+impl Default for IoUringFilesUpdate {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for IoUringFilesUpdate {
+    const SIZE: usize = 16;
+    const ALIGN: usize = 8;
+    const ZERO: Self = Self {
+        offset: <u32 as GuestLayout>::ZERO,
+        resv: <u32 as GuestLayout>::ZERO,
+        fds: <u64 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            offset: GuestLayout::read_from(&bytes[0..])?,
+            resv: GuestLayout::read_from(&bytes[4..])?,
+            fds: GuestLayout::read_from(&bytes[8..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.offset.write_to(&mut out[0..]);
+        self.resv.write_to(&mut out[4..]);
+        self.fds.write_to(&mut out[8..]);
+    }
+}
+/// `IORING_REGISTER_FILES2`/`BUFFERS2` argument (`struct io_uring_rsrc_register`).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct IoUringRsrcRegister {
+    pub nr: u32,
+    pub flags: u32,
+    pub resv2: u64,
+    pub data: u64,
+    pub tags: u64,
+}
+const _: () = {
+    assert!(core::mem::size_of::<IoUringRsrcRegister>() == 32);
+    assert!(core::mem::align_of::<IoUringRsrcRegister>() == 8);
+    assert!(core::mem::offset_of!(IoUringRsrcRegister, nr) == 0);
+    assert!(core::mem::offset_of!(IoUringRsrcRegister, flags) == 4);
+    assert!(core::mem::offset_of!(IoUringRsrcRegister, resv2) == 8);
+    assert!(core::mem::offset_of!(IoUringRsrcRegister, data) == 16);
+    assert!(core::mem::offset_of!(IoUringRsrcRegister, tags) == 24);
+};
+impl Default for IoUringRsrcRegister {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for IoUringRsrcRegister {
+    const SIZE: usize = 32;
+    const ALIGN: usize = 8;
+    const ZERO: Self = Self {
+        nr: <u32 as GuestLayout>::ZERO,
+        flags: <u32 as GuestLayout>::ZERO,
+        resv2: <u64 as GuestLayout>::ZERO,
+        data: <u64 as GuestLayout>::ZERO,
+        tags: <u64 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            nr: GuestLayout::read_from(&bytes[0..])?,
+            flags: GuestLayout::read_from(&bytes[4..])?,
+            resv2: GuestLayout::read_from(&bytes[8..])?,
+            data: GuestLayout::read_from(&bytes[16..])?,
+            tags: GuestLayout::read_from(&bytes[24..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.nr.write_to(&mut out[0..]);
+        self.flags.write_to(&mut out[4..]);
+        self.resv2.write_to(&mut out[8..]);
+        self.data.write_to(&mut out[16..]);
+        self.tags.write_to(&mut out[24..]);
+    }
+}
+/// `IORING_REGISTER_FILES_UPDATE2`/`BUFFERS_UPDATE` argument (`struct io_uring_rsrc_update2`).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct IoUringRsrcUpdate2 {
+    pub offset: u32,
+    pub resv: u32,
+    pub data: u64,
+    pub tags: u64,
+    pub nr: u32,
+    pub resv2: u32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<IoUringRsrcUpdate2>() == 32);
+    assert!(core::mem::align_of::<IoUringRsrcUpdate2>() == 8);
+    assert!(core::mem::offset_of!(IoUringRsrcUpdate2, offset) == 0);
+    assert!(core::mem::offset_of!(IoUringRsrcUpdate2, resv) == 4);
+    assert!(core::mem::offset_of!(IoUringRsrcUpdate2, data) == 8);
+    assert!(core::mem::offset_of!(IoUringRsrcUpdate2, tags) == 16);
+    assert!(core::mem::offset_of!(IoUringRsrcUpdate2, nr) == 24);
+    assert!(core::mem::offset_of!(IoUringRsrcUpdate2, resv2) == 28);
+};
+impl Default for IoUringRsrcUpdate2 {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for IoUringRsrcUpdate2 {
+    const SIZE: usize = 32;
+    const ALIGN: usize = 8;
+    const ZERO: Self = Self {
+        offset: <u32 as GuestLayout>::ZERO,
+        resv: <u32 as GuestLayout>::ZERO,
+        data: <u64 as GuestLayout>::ZERO,
+        tags: <u64 as GuestLayout>::ZERO,
+        nr: <u32 as GuestLayout>::ZERO,
+        resv2: <u32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            offset: GuestLayout::read_from(&bytes[0..])?,
+            resv: GuestLayout::read_from(&bytes[4..])?,
+            data: GuestLayout::read_from(&bytes[8..])?,
+            tags: GuestLayout::read_from(&bytes[16..])?,
+            nr: GuestLayout::read_from(&bytes[24..])?,
+            resv2: GuestLayout::read_from(&bytes[28..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.offset.write_to(&mut out[0..]);
+        self.resv.write_to(&mut out[4..]);
+        self.data.write_to(&mut out[8..]);
+        self.tags.write_to(&mut out[16..]);
+        self.nr.write_to(&mut out[24..]);
+        self.resv2.write_to(&mut out[28..]);
+    }
+}
+/// The header of `IORING_REGISTER_PROBE`'s result (`struct io_uring_probe`); `ops_len`
+/// `io-uring-probe-op`s follow it.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct IoUringProbe {
+    pub last_op: u8,
+    pub ops_len: u8,
+    pub resv: u16,
+    pub resv2: [u32; 3],
+}
+const _: () = {
+    assert!(core::mem::size_of::<IoUringProbe>() == 16);
+    assert!(core::mem::align_of::<IoUringProbe>() == 4);
+    assert!(core::mem::offset_of!(IoUringProbe, last_op) == 0);
+    assert!(core::mem::offset_of!(IoUringProbe, ops_len) == 1);
+    assert!(core::mem::offset_of!(IoUringProbe, resv) == 2);
+    assert!(core::mem::offset_of!(IoUringProbe, resv2) == 4);
+};
+impl Default for IoUringProbe {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for IoUringProbe {
+    const SIZE: usize = 16;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        last_op: <u8 as GuestLayout>::ZERO,
+        ops_len: <u8 as GuestLayout>::ZERO,
+        resv: <u16 as GuestLayout>::ZERO,
+        resv2: <[u32; 3] as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            last_op: GuestLayout::read_from(&bytes[0..])?,
+            ops_len: GuestLayout::read_from(&bytes[1..])?,
+            resv: GuestLayout::read_from(&bytes[2..])?,
+            resv2: GuestLayout::read_from(&bytes[4..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.last_op.write_to(&mut out[0..]);
+        self.ops_len.write_to(&mut out[1..]);
+        self.resv.write_to(&mut out[2..]);
+        self.resv2.write_to(&mut out[4..]);
+    }
+}
+/// One operation of `IORING_REGISTER_PROBE`'s result (`struct io_uring_probe_op`).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct IoUringProbeOp {
+    pub op: u8,
+    pub resv: u8,
+    pub flags: u16,
+    pub resv2: u32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<IoUringProbeOp>() == 8);
+    assert!(core::mem::align_of::<IoUringProbeOp>() == 4);
+    assert!(core::mem::offset_of!(IoUringProbeOp, op) == 0);
+    assert!(core::mem::offset_of!(IoUringProbeOp, resv) == 1);
+    assert!(core::mem::offset_of!(IoUringProbeOp, flags) == 2);
+    assert!(core::mem::offset_of!(IoUringProbeOp, resv2) == 4);
+};
+impl Default for IoUringProbeOp {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for IoUringProbeOp {
+    const SIZE: usize = 8;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        op: <u8 as GuestLayout>::ZERO,
+        resv: <u8 as GuestLayout>::ZERO,
+        flags: <u16 as GuestLayout>::ZERO,
+        resv2: <u32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            op: GuestLayout::read_from(&bytes[0..])?,
+            resv: GuestLayout::read_from(&bytes[1..])?,
+            flags: GuestLayout::read_from(&bytes[2..])?,
+            resv2: GuestLayout::read_from(&bytes[4..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.op.write_to(&mut out[0..]);
+        self.resv.write_to(&mut out[1..]);
+        self.flags.write_to(&mut out[2..]);
+        self.resv2.write_to(&mut out[4..]);
+    }
+}
+/// `rseq` flags (`enum rseq_flags`, `linux/rseq.h`).
+///
+/// C: `int`
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct RseqFlags(pub i32);
+impl RseqFlags {
+    pub const RSEQ_FLAG_UNREGISTER: Self = Self(0x1);
+    pub const RSEQ_FLAG_SLICE_EXT_DEFAULT_ON: Self = Self(0x2);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("RSEQ_FLAG_UNREGISTER", Self::RSEQ_FLAG_UNREGISTER),
+        (
+            "RSEQ_FLAG_SLICE_EXT_DEFAULT_ON",
+            Self::RSEQ_FLAG_SLICE_EXT_DEFAULT_ON,
+        ),
+    ];
+
+    pub const fn empty() -> Self {
+        Self(0)
+    }
+    pub const fn bits(self) -> i32 {
+        self.0
+    }
+    pub const fn is_empty(self) -> bool {
+        self.0 == 0
+    }
+    /// Whether all bits of `other` are set.
+    pub const fn contains(self, other: Self) -> bool {
+        self.0 & other.0 == other.0
+    }
+    /// Whether any bit of `other` is set.
+    pub const fn intersects(self, other: Self) -> bool {
+        self.0 & other.0 != 0
+    }
+}
+
+impl fmt::Debug for RseqFlags {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("RseqFlags(")?;
+        let mut rest = self.0;
+        let mut first = true;
+        for (name, flag) in Self::MEMBERS {
+            if flag.0 != 0 && self.contains(*flag) && rest & flag.0 != 0 {
+                if !first {
+                    f.write_str(" | ")?;
+                }
+                f.write_str(name)?;
+                first = false;
+                rest &= !flag.0;
+            }
+        }
+        if rest != 0 || first {
+            if !first {
+                f.write_str(" | ")?;
+            }
+            write!(f, "{rest:#x}")?;
+        }
+        f.write_str(")")
+    }
+}
+impl core::ops::BitOr for RseqFlags {
+    type Output = Self;
+    fn bitor(self, rhs: Self) -> Self {
+        Self(self.0 | rhs.0)
+    }
+}
+impl core::ops::BitAnd for RseqFlags {
+    type Output = Self;
+    fn bitand(self, rhs: Self) -> Self {
+        Self(self.0 & rhs.0)
+    }
+}
+impl core::ops::BitXor for RseqFlags {
+    type Output = Self;
+    fn bitxor(self, rhs: Self) -> Self {
+        Self(self.0 ^ rhs.0)
+    }
+}
+impl core::ops::Not for RseqFlags {
+    type Output = Self;
+    fn not(self) -> Self {
+        Self(!self.0)
+    }
+}
+impl core::ops::BitOrAssign for RseqFlags {
+    fn bitor_assign(&mut self, rhs: Self) {
+        self.0 |= rhs.0;
+    }
+}
+impl core::ops::BitAndAssign for RseqFlags {
+    fn bitand_assign(&mut self, rhs: Self) {
+        self.0 &= rhs.0;
+    }
+}
+impl core::ops::BitXorAssign for RseqFlags {
+    fn bitxor_assign(&mut self, rhs: Self) {
+        self.0 ^= rhs.0;
+    }
+}
+
+impl GuestLayout for RseqFlags {
+    const SIZE: usize = <i32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <i32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <i32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// `struct rseq.cpu_id` values before or without a registration (`enum rseq_cpu_id_state`),
+/// and the sizes the auxiliary vector reports (`AT_RSEQ_FEATURE_SIZE`, `AT_RSEQ_ALIGN`).
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct RseqMisc(pub i32);
+impl RseqMisc {
+    pub const RSEQ_CPU_ID_UNINITIALIZED: Self = Self(-1);
+    pub const RSEQ_CPU_ID_REGISTRATION_FAILED: Self = Self(-2);
+    /// The size of the area before `struct rseq` became extensible (`ORIG_RSEQ_SIZE`, `kernel/rseq.c`).
+    pub const ORIG_RSEQ_SIZE: Self = Self(32);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("RSEQ_CPU_ID_UNINITIALIZED", Self::RSEQ_CPU_ID_UNINITIALIZED),
+        (
+            "RSEQ_CPU_ID_REGISTRATION_FAILED",
+            Self::RSEQ_CPU_ID_REGISTRATION_FAILED,
+        ),
+        ("ORIG_RSEQ_SIZE", Self::ORIG_RSEQ_SIZE),
+    ];
+    /// Name of the first constant with this value, if any.
+    pub const fn name(self) -> Option<&'static str> {
+        match self.0 {
+            -1 => Some("RSEQ_CPU_ID_UNINITIALIZED"),
+            -2 => Some("RSEQ_CPU_ID_REGISTRATION_FAILED"),
+            32 => Some("ORIG_RSEQ_SIZE"),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Debug for RseqMisc {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.name() {
+            Some(name) => f.write_str(name),
+            None => write!(f, "RseqMisc({})", self.0),
+        }
+    }
+}
+
+impl GuestLayout for RseqMisc {
+    const SIZE: usize = <i32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <i32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <i32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// `struct rseq.flags` and `struct rseq_cs.flags` (`enum rseq_cs_flags`).
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct RseqCsFlags(pub u32);
+impl RseqCsFlags {
+    pub const RSEQ_CS_FLAG_NO_RESTART_ON_PREEMPT: Self = Self(0x1);
+    pub const RSEQ_CS_FLAG_NO_RESTART_ON_SIGNAL: Self = Self(0x2);
+    pub const RSEQ_CS_FLAG_NO_RESTART_ON_MIGRATE: Self = Self(0x4);
+    pub const RSEQ_CS_FLAG_SLICE_EXT_AVAILABLE: Self = Self(0x10);
+    pub const RSEQ_CS_FLAG_SLICE_EXT_ENABLED: Self = Self(0x20);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        (
+            "RSEQ_CS_FLAG_NO_RESTART_ON_PREEMPT",
+            Self::RSEQ_CS_FLAG_NO_RESTART_ON_PREEMPT,
+        ),
+        (
+            "RSEQ_CS_FLAG_NO_RESTART_ON_SIGNAL",
+            Self::RSEQ_CS_FLAG_NO_RESTART_ON_SIGNAL,
+        ),
+        (
+            "RSEQ_CS_FLAG_NO_RESTART_ON_MIGRATE",
+            Self::RSEQ_CS_FLAG_NO_RESTART_ON_MIGRATE,
+        ),
+        (
+            "RSEQ_CS_FLAG_SLICE_EXT_AVAILABLE",
+            Self::RSEQ_CS_FLAG_SLICE_EXT_AVAILABLE,
+        ),
+        (
+            "RSEQ_CS_FLAG_SLICE_EXT_ENABLED",
+            Self::RSEQ_CS_FLAG_SLICE_EXT_ENABLED,
+        ),
+    ];
+
+    pub const fn empty() -> Self {
+        Self(0)
+    }
+    pub const fn bits(self) -> u32 {
+        self.0
+    }
+    pub const fn is_empty(self) -> bool {
+        self.0 == 0
+    }
+    /// Whether all bits of `other` are set.
+    pub const fn contains(self, other: Self) -> bool {
+        self.0 & other.0 == other.0
+    }
+    /// Whether any bit of `other` is set.
+    pub const fn intersects(self, other: Self) -> bool {
+        self.0 & other.0 != 0
+    }
+}
+
+impl fmt::Debug for RseqCsFlags {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("RseqCsFlags(")?;
+        let mut rest = self.0;
+        let mut first = true;
+        for (name, flag) in Self::MEMBERS {
+            if flag.0 != 0 && self.contains(*flag) && rest & flag.0 != 0 {
+                if !first {
+                    f.write_str(" | ")?;
+                }
+                f.write_str(name)?;
+                first = false;
+                rest &= !flag.0;
+            }
+        }
+        if rest != 0 || first {
+            if !first {
+                f.write_str(" | ")?;
+            }
+            write!(f, "{rest:#x}")?;
+        }
+        f.write_str(")")
+    }
+}
+impl core::ops::BitOr for RseqCsFlags {
+    type Output = Self;
+    fn bitor(self, rhs: Self) -> Self {
+        Self(self.0 | rhs.0)
+    }
+}
+impl core::ops::BitAnd for RseqCsFlags {
+    type Output = Self;
+    fn bitand(self, rhs: Self) -> Self {
+        Self(self.0 & rhs.0)
+    }
+}
+impl core::ops::BitXor for RseqCsFlags {
+    type Output = Self;
+    fn bitxor(self, rhs: Self) -> Self {
+        Self(self.0 ^ rhs.0)
+    }
+}
+impl core::ops::Not for RseqCsFlags {
+    type Output = Self;
+    fn not(self) -> Self {
+        Self(!self.0)
+    }
+}
+impl core::ops::BitOrAssign for RseqCsFlags {
+    fn bitor_assign(&mut self, rhs: Self) {
+        self.0 |= rhs.0;
+    }
+}
+impl core::ops::BitAndAssign for RseqCsFlags {
+    fn bitand_assign(&mut self, rhs: Self) {
+        self.0 &= rhs.0;
+    }
+}
+impl core::ops::BitXorAssign for RseqCsFlags {
+    fn bitxor_assign(&mut self, rhs: Self) {
+        self.0 ^= rhs.0;
+    }
+}
+
+impl GuestLayout for RseqCsFlags {
+    const SIZE: usize = <u32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// A thread's restartable sequences area (`struct rseq`, `linux/rseq.h`), up to its feature
+/// end. Linux aligns it to 32 bytes, which WIT cannot express; the layout is the same.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct Rseq {
+    pub cpu_id_start: u32,
+    pub cpu_id: u32,
+    /// Guest address of the active `struct rseq_cs`, zero-extended.
+    pub rseq_cs: u64,
+    pub flags: u32,
+    pub node_id: u32,
+    pub mm_cid: u32,
+    /// `struct rseq_slice_ctrl`.
+    pub slice_ctrl: u32,
+    pub reserved: u8,
+}
+const _: () = {
+    assert!(core::mem::size_of::<Rseq>() == 40);
+    assert!(core::mem::align_of::<Rseq>() == 8);
+    assert!(core::mem::offset_of!(Rseq, cpu_id_start) == 0);
+    assert!(core::mem::offset_of!(Rseq, cpu_id) == 4);
+    assert!(core::mem::offset_of!(Rseq, rseq_cs) == 8);
+    assert!(core::mem::offset_of!(Rseq, flags) == 16);
+    assert!(core::mem::offset_of!(Rseq, node_id) == 20);
+    assert!(core::mem::offset_of!(Rseq, mm_cid) == 24);
+    assert!(core::mem::offset_of!(Rseq, slice_ctrl) == 28);
+    assert!(core::mem::offset_of!(Rseq, reserved) == 32);
+};
+impl Default for Rseq {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for Rseq {
+    const SIZE: usize = 40;
+    const ALIGN: usize = 8;
+    const ZERO: Self = Self {
+        cpu_id_start: <u32 as GuestLayout>::ZERO,
+        cpu_id: <u32 as GuestLayout>::ZERO,
+        rseq_cs: <u64 as GuestLayout>::ZERO,
+        flags: <u32 as GuestLayout>::ZERO,
+        node_id: <u32 as GuestLayout>::ZERO,
+        mm_cid: <u32 as GuestLayout>::ZERO,
+        slice_ctrl: <u32 as GuestLayout>::ZERO,
+        reserved: <u8 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            cpu_id_start: GuestLayout::read_from(&bytes[0..])?,
+            cpu_id: GuestLayout::read_from(&bytes[4..])?,
+            rseq_cs: GuestLayout::read_from(&bytes[8..])?,
+            flags: GuestLayout::read_from(&bytes[16..])?,
+            node_id: GuestLayout::read_from(&bytes[20..])?,
+            mm_cid: GuestLayout::read_from(&bytes[24..])?,
+            slice_ctrl: GuestLayout::read_from(&bytes[28..])?,
+            reserved: GuestLayout::read_from(&bytes[32..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.cpu_id_start.write_to(&mut out[0..]);
+        self.cpu_id.write_to(&mut out[4..]);
+        self.rseq_cs.write_to(&mut out[8..]);
+        self.flags.write_to(&mut out[16..]);
+        self.node_id.write_to(&mut out[20..]);
+        self.mm_cid.write_to(&mut out[24..]);
+        self.slice_ctrl.write_to(&mut out[28..]);
+        self.reserved.write_to(&mut out[32..]);
     }
 }
 /// Terminal window size for `TIOCGWINSZ`/`TIOCSWINSZ` (`struct winsize`).
