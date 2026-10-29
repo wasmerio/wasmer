@@ -304,3 +304,67 @@ fn an_unnamed_read_only_file_is_writable_and_linkable() {
     let host = setup.outside.parent().unwrap().join("inside/named");
     assert_eq!(fs::read(host).unwrap(), b"tmp");
 }
+
+#[test]
+fn host_file_handles_use_native_exports_without_pinning_exported_files() {
+    use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};
+    use wasixv2_vfs::HandleKind;
+    let s = setup();
+    let real = s._dir.path().join("inside/data");
+    let name = std::ffi::CString::new(real.as_os_str().as_encoded_bytes()).unwrap();
+    // Probe host support independently so a missing driver implementation cannot make
+    // this regression test skip itself. Some hosts mount filesystems without export ops.
+    // SAFETY: NUL-terminated path and an aligned file_handle header plus 128 data bytes.
+    let raw = unsafe { libc::open(name.as_ptr(), libc::O_PATH | libc::O_CLOEXEC) };
+    assert!(raw >= 0);
+    // SAFETY: open returned an owned descriptor.
+    let fd = unsafe { OwnedFd::from_raw_fd(raw) };
+    let mut native = [0u64; 17];
+    native[0] = 128;
+    let mut mount = 0i32;
+    // SAFETY: initialized buffers have the full UAPI sizes.
+    let result = unsafe {
+        libc::syscall(
+            libc::SYS_name_to_handle_at,
+            fd.as_raw_fd(),
+            c"".as_ptr(),
+            native.as_mut_ptr(),
+            &mut mount,
+            libc::AT_EMPTY_PATH,
+        )
+    };
+    if result < 0 {
+        let err = std::io::Error::last_os_error().raw_os_error().unwrap();
+        assert!(
+            [libc::EOPNOTSUPP, libc::ENOSYS].contains(&err),
+            "native export failed: {err}"
+        );
+        return;
+    }
+    let root = s.vfs.root();
+    let cred = Cred::root();
+    let cx = Ctx {
+        cred: &cred,
+        root: &root,
+        umask: 0,
+        task: 0,
+        leases: None,
+    };
+    let path = block_on(
+        s.vfs
+            .lookup(&cx, &root, b"/mnt/data", LookupFlags::follow()),
+    )
+    .unwrap();
+    let handle = s.vfs.encode_fh(&path, HandleKind::Decodable).unwrap();
+    assert!(handle.data.len() <= wasixv2_vfs::MAX_HANDLE_SZ);
+    let fs = &path.dentry.sb().fs;
+    match block_on(fs.fh_to_node(&handle)) {
+        Ok(decoded) => assert_eq!(decoded.ino(), path.dentry.node().ino()),
+        Err(Errno::EPERM) => {} // Native decoding requires the host's CAP_DAC_READ_SEARCH.
+        Err(err) => panic!("native decode failed: {err:?}"),
+    }
+    // Only mount roots are retained by the export machinery, not this ordinary inode.
+    let weak = Arc::downgrade(path.dentry.node());
+    drop(path);
+    assert!(weak.upgrade().is_none());
+}
