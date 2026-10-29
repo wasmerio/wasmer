@@ -1321,7 +1321,7 @@ impl Kernel {
         LockLimit {
             bytes,
             // `can_do_mlock`: `capable(CAP_IPC_LOCK)`.
-            exempt: process.cred().capable_init(Cap::IpcLock),
+            exempt: self.cred(caller).capable_init(Cap::IpcLock),
         }
     }
 

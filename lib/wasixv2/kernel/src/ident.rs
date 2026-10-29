@@ -344,7 +344,7 @@ fn cap_valid(cap: Ulong) -> bool {
 pub(crate) struct LentCred<'a> {
     kernel: &'a Kernel,
     task: wasixv2_syscalls::TaskId,
-    saved: Option<Cred>,
+    saved: Option<std::sync::Arc<Cred>>,
 }
 
 impl Drop for LentCred<'_> {
@@ -356,51 +356,9 @@ impl Drop for LentCred<'_> {
 }
 
 impl Process {
-    /// A snapshot of the process's credentials.
-    pub(crate) fn cred(&self) -> Cred {
-        self.cred.lock_or_recover().clone()
-    }
-
-    /// `commit_creds`: installs `new`, and makes the process as dumpable as `fs.suid_dumpable`
-    /// says and forgets its parent-death signal if that changed its effective or filesystem
-    /// ids or gave it capabilities.
-    pub(crate) fn commit_cred(&self, new: Cred) {
-        let mut cred = self.cred.lock_or_recover();
-        if new.drops_dumpable(&cred) {
-            let mut ident = self.ident.lock_or_recover();
-            ident.dumpable = Dumpable::suid(&self.tunables);
-            ident.clear_pdeathsig();
-        }
-        *cred = new;
-    }
-
-    /// The identity entries of the process's auxiliary vector, as its user namespace sees them
-    /// (`create_elf_tables`).
-    pub(crate) fn identity(&self) -> Identity {
-        let cred = self.cred();
-        let ns = &cred.user_ns;
-        Identity {
-            uid: ns.munged_uid(cred.user.real),
-            euid: ns.munged_uid(cred.user.effective),
-            gid: ns.munged_gid(cred.group.real),
-            egid: ns.munged_gid(cred.group.effective),
-            secure: self.ident.lock_or_recover().secure_exec,
-        }
-    }
-
     /// The auxiliary vector entries binfmt_misc gave the current image.
     pub(crate) fn exec_aux(&self) -> ExecAux {
         self.ident.lock_or_recover().exec_aux
-    }
-
-    /// Applies `change` to the credentials, if it allows.
-    pub(crate) fn update_cred(
-        &self,
-        change: impl FnOnce(&Cred) -> Result<Cred, Errno>,
-    ) -> SysResult<i32> {
-        let new = change(&self.cred())?;
-        self.commit_cred(new);
-        Ok(0)
     }
 }
 
@@ -435,14 +393,14 @@ impl Kernel {
     }
 
     /// The caller's credentials (`current_cred`): an io_uring personality's while the caller
-    /// issues a request under it, else the process's.
-    pub(crate) fn cred(&self, caller: &Caller<'_>) -> Cred {
+    /// issues a request under it, else the task's.
+    pub(crate) fn cred(&self, caller: &Caller<'_>) -> std::sync::Arc<Cred> {
         self.current_cred(caller.task())
     }
 
     /// `override_creds`: `task`'s calls run as `cred` until the guard goes (`revert_creds`).
     pub(crate) fn lend_cred(&self, task: wasixv2_syscalls::TaskId, cred: Cred) -> LentCred<'_> {
-        let saved = self.with_task(task, |t| t.cred_override.replace(cred));
+        let saved = self.with_task(task, |t| t.cred_override.replace(std::sync::Arc::new(cred)));
         LentCred {
             kernel: self,
             task,
@@ -451,9 +409,58 @@ impl Kernel {
     }
 
     /// [`Kernel::cred`] for the task `task`.
-    pub(crate) fn current_cred(&self, task: wasixv2_syscalls::TaskId) -> Cred {
-        let (process, lent) = self.task_ref(task, |t| (t.process.clone(), t.cred_override.clone()));
-        lent.unwrap_or_else(|| process.cred())
+    pub(crate) fn current_cred(&self, task: wasixv2_syscalls::TaskId) -> std::sync::Arc<Cred> {
+        self.task_ref(task, |t| {
+            t.cred_override.as_ref().unwrap_or(&t.cred).clone()
+        })
+    }
+
+    /// Objective credentials (`include/linux/cred.h: __task_cred`), ignoring overrides.
+    pub(crate) fn task_cred(&self, task: wasixv2_syscalls::TaskId) -> std::sync::Arc<Cred> {
+        let state = self.state.read_or_recover();
+        state
+            .tasks
+            .get(&task)
+            .map(|t| t.cred.clone())
+            .or_else(|| state.retired_creds.get(&task).cloned())
+            .expect("credentials of an unknown task")
+    }
+
+    /// Linux kernel/cred.c `commit_creds`: publish a prepared immutable snapshot.
+    pub(crate) fn commit_cred(&self, task: wasixv2_syscalls::TaskId, new: Cred) {
+        self.with_task(task, |t| {
+            assert!(t.cred_override.is_none(), "commit during override_creds");
+            if new.drops_dumpable(&t.cred) {
+                let mut ident = t.process.ident.lock_or_recover();
+                ident.dumpable = Dumpable::suid(&self.tunables);
+                ident.clear_pdeathsig();
+            }
+            t.cred = std::sync::Arc::new(new);
+            t.signals.publish_cred(t.cred.clone());
+        });
+    }
+
+    pub(crate) fn update_cred(
+        &self,
+        task: wasixv2_syscalls::TaskId,
+        change: impl FnOnce(&Cred) -> Result<Cred, Errno>,
+    ) -> SysResult<i32> {
+        let new = change(&self.task_cred(task))?;
+        self.commit_cred(task, new);
+        Ok(0)
+    }
+
+    /// `create_elf_tables`: auxiliary-vector ids come from the new image's task.
+    pub(crate) fn identity(&self, task: wasixv2_syscalls::TaskId) -> Identity {
+        let cred = self.task_cred(task);
+        let ns = &cred.user_ns;
+        Identity {
+            uid: ns.munged_uid(cred.user.real),
+            euid: ns.munged_uid(cred.user.effective),
+            gid: ns.munged_gid(cred.group.real),
+            egid: ns.munged_gid(cred.group.effective),
+            secure: self.process(task).ident.lock_or_recover().secure_exec,
+        }
     }
 
     /// `setuid`, `setreuid`, `setresuid` and their gid twins, with the guest's ids, which must
@@ -464,7 +471,7 @@ impl Kernel {
         kind: IdKind,
         change: IdChange<u32>,
     ) -> SysResult<i32> {
-        self.process(caller.task()).update_cred(|cred| match kind {
+        self.update_cred(caller.task(), |cred| match kind {
             IdKind::User => cred.change_uids(change.to_kernel(|id| cred.user_ns.make_kuid(id))?),
             IdKind::Group => cred.change_gids(change.to_kernel(|id| cred.user_ns.make_kgid(id))?),
         })
@@ -472,8 +479,7 @@ impl Kernel {
 
     /// `setfsuid` and `setfsgid` return the old id whether or not they change it.
     pub(crate) fn sys_setfsid(&self, caller: &Caller<'_>, kind: IdKind, id: u32) -> SysResult<i32> {
-        let process = self.process(caller.task());
-        let cred = process.cred();
+        let cred = self.cred(caller);
         let ns = &cred.user_ns;
         let (old, new) = match kind {
             IdKind::User => {
@@ -485,7 +491,7 @@ impl Kernel {
                 (ns.munged_gid(old), new)
             }
         };
-        process.commit_cred(new);
+        self.commit_cred(caller.task(), new);
         Ok(old as i32)
     }
 
@@ -558,8 +564,7 @@ impl Kernel {
         size: i32,
         list: ConstGidArray,
     ) -> SysResult<i32> {
-        let process = self.process(caller.task());
-        if !process.cred().may_setgroups() {
+        if !self.cred(caller).may_setgroups() {
             return Err(Errno::EPERM.into());
         }
         let size = usize::try_from(size)
@@ -572,7 +577,7 @@ impl Kernel {
             .chunks_exact(4)
             .map(|gid| Gid::from_le_bytes(gid.try_into().unwrap()))
             .collect();
-        process.update_cred(|cred| {
+        self.update_cred(caller.task(), |cred| {
             // `groups_from_user`: every group must be mapped.
             let groups = groups
                 .iter()
@@ -601,7 +606,12 @@ impl Kernel {
         if hdr.pid < 0 {
             return Err(Errno::EINVAL.into());
         }
-        let cred = self.lookup_pid(caller, hdr.pid)?.cred();
+        let target = if hdr.pid == 0 {
+            caller.task()
+        } else {
+            wasixv2_syscalls::TaskId(self.find_vpid(caller, hdr.pid).ok_or(Errno::ESRCH)?)
+        };
+        let cred = self.task_cred(target);
         for word in 0..words {
             let shift = 32 * word;
             let set = UserCapDataStruct {
@@ -625,7 +635,6 @@ impl Kernel {
         let words = self.capability_words(caller, header).await?;
         let hdr: UserCapHeaderStruct =
             read_value(caller.memory(), GuestPtr::new(header.addr())).await?;
-        let process = self.process(caller.task());
         if hdr.pid != 0 && hdr.pid != self.own_tid(caller.task()) {
             return Err(Errno::EPERM.into());
         }
@@ -638,7 +647,9 @@ impl Kernel {
             permitted |= u64::from(set.permitted) << shift;
             inheritable |= u64::from(set.inheritable) << shift;
         }
-        process.update_cred(|cred| cred.capset(effective, permitted, inheritable))
+        self.update_cred(caller.task(), |cred| {
+            cred.capset(effective, permitted, inheritable)
+        })
     }
 
     /// `cap_validate_magic`: how many 32-bit words per set the header's version uses.
@@ -805,11 +816,11 @@ impl Kernel {
                 return self.timer_create_prctl(caller, arg2, [arg3, arg4, arg5]);
             }
             PrctlOption::PR_GET_KEEPCAPS => {
-                return Ok(process.cred().secure(secure::KEEP_CAPS) as i32);
+                return Ok(self.cred(caller).secure(secure::KEEP_CAPS) as i32);
             }
             PrctlOption::PR_SET_KEEPCAPS => {
                 let keep = flag(arg2)?;
-                return process.update_cred(|cred| {
+                return self.update_cred(caller.task(), |cred| {
                     if cred.secure(secure::KEEP_CAPS_LOCKED) {
                         return Err(Errno::EPERM);
                     }
@@ -819,18 +830,18 @@ impl Kernel {
                     Ok(new)
                 });
             }
-            PrctlOption::PR_GET_SECUREBITS => return Ok(process.cred().securebits as i32),
+            PrctlOption::PR_GET_SECUREBITS => return Ok(self.cred(caller).securebits as i32),
             PrctlOption::PR_SET_SECUREBITS => {
-                return process.update_cred(|cred| set_securebits(cred, arg2));
+                return self.update_cred(caller.task(), |cred| set_securebits(cred, arg2));
             }
             PrctlOption::PR_CAPBSET_READ => {
                 if !cap_valid(arg2) {
                     return Err(Errno::EINVAL.into());
                 }
-                return Ok((process.cred().bounding >> arg2 & 1) as i32);
+                return Ok((self.cred(caller).bounding >> arg2 & 1) as i32);
             }
             PrctlOption::PR_CAPBSET_DROP => {
-                return process.update_cred(|cred| {
+                return self.update_cred(caller.task(), |cred| {
                     if !cred.capable(Cap::Setpcap) {
                         return Err(Errno::EPERM);
                     }
@@ -842,7 +853,7 @@ impl Kernel {
                     Ok(new)
                 });
             }
-            PR_CAP_AMBIENT => return ambient(&process, arg2, arg3, arg4 | arg5),
+            PR_CAP_AMBIENT => return ambient(self, caller, arg2, arg3, arg4 | arg5),
             PrctlOption::PR_GET_SECCOMP => return Ok(self.prctl_get_seccomp(caller)),
             PrctlOption::PR_SET_SECCOMP => {
                 return self.prctl_set_seccomp(caller, arg2, arg3).await;
@@ -851,7 +862,7 @@ impl Kernel {
             // `prctl_set_mm` needs CAP_SYS_RESOURCE over the initial user namespace, and even
             // then the wasm memory layout has nothing it could change.
             PrctlOption::PR_SET_MM => {
-                return match process.cred().capable_init(Cap::SysResource) {
+                return match self.cred(caller).capable_init(Cap::SysResource) {
                     true => Err(Errno::EINVAL.into()),
                     false => Err(Errno::EPERM.into()),
                 };
@@ -890,7 +901,13 @@ fn set_securebits(cred: &Cred, bits: Ulong) -> Result<Cred, Errno> {
 }
 
 /// `PR_CAP_AMBIENT`: raising needs the capability in the permitted and inheritable sets.
-fn ambient(process: &Process, op: Ulong, cap: Ulong, rest: Ulong) -> SysResult<i32> {
+fn ambient(
+    kernel: &Kernel,
+    caller: &Caller<'_>,
+    op: Ulong,
+    cap: Ulong,
+    rest: Ulong,
+) -> SysResult<i32> {
     const IS_SET: Ulong = 1;
     const RAISE: Ulong = 2;
     const LOWER: Ulong = 3;
@@ -899,7 +916,7 @@ fn ambient(process: &Process, op: Ulong, cap: Ulong, rest: Ulong) -> SysResult<i
         if cap | rest != 0 {
             return Err(Errno::EINVAL.into());
         }
-        return process.update_cred(|cred| {
+        return kernel.update_cred(caller.task(), |cred| {
             Ok(Cred {
                 ambient: 0,
                 ..cred.clone()
@@ -911,8 +928,8 @@ fn ambient(process: &Process, op: Ulong, cap: Ulong, rest: Ulong) -> SysResult<i
     }
     let bit = 1 << cap;
     match op {
-        IS_SET => Ok((process.cred().ambient & bit != 0) as i32),
-        RAISE | LOWER => process.update_cred(|cred| {
+        IS_SET => Ok((kernel.cred(caller).ambient & bit != 0) as i32),
+        RAISE | LOWER => kernel.update_cred(caller.task(), |cred| {
             let mut new = cred.clone();
             if op == LOWER {
                 new.ambient &= !bit;

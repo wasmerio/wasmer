@@ -74,7 +74,7 @@ impl Kernel {
             return Err(Errno::EINVAL.into());
         }
         // check_quotactl_permission uses effective ids and the initial namespace's capability.
-        let cred = self.process(caller.task()).cred();
+        let cred = self.cred(caller);
         let own = match kind {
             0 => cred
                 .user_ns

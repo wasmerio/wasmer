@@ -196,7 +196,7 @@ impl MqueueFs {
         let tasks = self.tasks.upgrade().ok_or(Errno::EACCES)?;
         let state = tasks.read_or_recover();
         let task = state.tasks.get(&TaskId(new.task)).ok_or(Errno::ESRCH)?;
-        let cred = task.process.cred();
+        let cred = task.cred.clone();
         let limit = task
             .process
             .resources

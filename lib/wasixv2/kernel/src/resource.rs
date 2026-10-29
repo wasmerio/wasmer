@@ -61,8 +61,9 @@ impl Default for Resources {
 
 /// `copy_process`'s `RLIMIT_NPROC` check for a new task of `process`: a user other than root
 /// without `CAP_SYS_RESOURCE` or `CAP_SYS_ADMIN` cannot have more tasks than the soft limit.
-pub(crate) fn nproc_exceeded(state: &State, process: &Process) -> bool {
-    let cred = process.cred();
+pub(crate) fn nproc_exceeded(state: &State, task: &crate::Task) -> bool {
+    let cred = &task.cred;
+    let process = &task.process;
     let uid = cred.user.real;
     if uid == Kuid::GLOBAL_ROOT
         || cred.capable_init(Cap::SysResource)
@@ -73,7 +74,7 @@ pub(crate) fn nproc_exceeded(state: &State, process: &Process) -> bool {
     let tasks = state
         .tasks
         .values()
-        .filter(|task| task.process.cred().user.real == uid)
+        .filter(|task| task.cred.clone().user.real == uid)
         .count();
     process.resources.lock_or_recover().nproc_reached(tasks)
 }
@@ -182,7 +183,7 @@ impl Kernel {
             .ok_or(Errno::EINVAL)?;
         let cred = self.cred(caller);
         if !std::ptr::eq(&*process, &*self.process(caller.task()))
-            && !cred.may_change_limits_of(&process.cred())
+            && !cred.may_change_limits_of(&self.task_cred(process.pid))
         {
             return Err(Errno::EPERM.into());
         }

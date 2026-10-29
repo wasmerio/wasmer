@@ -63,7 +63,7 @@ pub(crate) struct Cred {
     pub(crate) fsgid: u32,
     /// The real uid, which message queues are charged to.
     pub(crate) uid: u32,
-    cred: TaskCred,
+    cred: Arc<TaskCred>,
     owner: Arc<UserNs>,
 }
 

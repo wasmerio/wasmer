@@ -1111,7 +1111,7 @@ fn namespace_sysctls_are_writable_by_the_namespaces_root_only() {
 /// Whether `execve` of a file named `name` in `p`'s user namespace would go to a binfmt_misc
 /// interpreter (`current_binfmt_misc`, then the match).
 fn misc_takes(kernel: &Kernel, p: &P, name: &[u8]) -> bool {
-    let ns = kernel.process(p.task).cred().user_ns;
+    let ns = kernel.task_cred(p.task).user_ns.clone();
     kernel.binfmt_misc.current(&ns).lookup(b"", name).is_some()
 }
 

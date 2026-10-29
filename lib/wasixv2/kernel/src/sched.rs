@@ -759,7 +759,7 @@ impl Kernel {
                 rtprio_limit: resources.soft(RlimitResource::RLIMIT_RTPRIO),
                 // `user_check_sched_setscheduler`: `capable(CAP_SYS_NICE)`.
                 capable: cred.capable_init(Cap::SysNice),
-                same_owner: cred.same_owner(&task.process.cred()),
+                same_owner: cred.same_owner(&task.cred.clone()),
                 dl_others,
                 now: self.host.monotonic(),
             }
@@ -953,7 +953,7 @@ impl Kernel {
         let allowed = {
             let state = self.state.read_or_recover();
             let id = self.find_task(&state, caller, pid)?;
-            let target = state.tasks[&id].process.cred();
+            let target = state.tasks[&id].cred.clone();
             cred.same_owner(&target) || cred.ns_capable(&target.user_ns, Cap::SysNice)
         };
         if !allowed {
@@ -1032,7 +1032,7 @@ impl Kernel {
             }
             PrioWhich::PRIO_USER => {
                 // A uid the caller's user namespace does not map has no tasks.
-                let cred = state.tasks[&caller.task()].process.cred();
+                let cred = state.tasks[&caller.task()].cred.clone();
                 let uid = match who {
                     0 => Some(cred.user.real),
                     who => cred.user_ns.make_kuid(who as u32),
@@ -1042,7 +1042,7 @@ impl Kernel {
                 state
                     .tasks
                     .iter()
-                    .filter(|(_, task)| Some(task.process.cred().user.real) == uid)
+                    .filter(|(_, task)| Some(task.cred.clone().user.real) == uid)
                     .map(|(&id, _)| id)
                     .filter(|id| self.pids.nr(ns, id.0) != 0)
                     .filter(alive)
@@ -1090,7 +1090,7 @@ impl Kernel {
         for id in targets {
             let task = state.tasks.get_mut(&id).expect("listed above");
             // `set_one_prio_perm`: `CAP_SYS_NICE` over the target's user namespace.
-            let target = task.process.cred();
+            let target = task.cred.clone();
             if !cred.same_owner(&target) && !cred.ns_capable(&target.user_ns, Cap::SysNice) {
                 error = Some(Errno::EPERM);
                 continue;
@@ -1500,7 +1500,7 @@ impl Kernel {
         }
         for id in targets {
             let task = state.tasks.get_mut(&id).expect("listed above");
-            let target = task.process.cred();
+            let target = task.cred.clone();
             if target.user.real != cred.user.effective
                 && target.user.real != cred.user.real
                 && !cred.capable_init(Cap::SysNice)

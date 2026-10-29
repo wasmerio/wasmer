@@ -690,7 +690,7 @@ impl Kernel {
         comm: &[u8],
         limit: u64,
     ) -> Names {
-        let cred = process.cred();
+        let cred = self.task_cred(task);
         let ns = self.task_ns(task);
         let hostname = {
             let names = ns.uts.lock_or_recover();
@@ -722,7 +722,7 @@ impl Kernel {
 
     /// What the notes tell of `process` and its dumping `task`.
     fn core_info(&self, task: TaskId, process: &Process, info: Siginfo, comm: &[u8]) -> CoreInfo {
-        let cred = process.cred();
+        let cred = self.task_cred(task);
         let (pgid, sid) = {
             let ident = process.ident.lock_or_recover();
             (ident.pgid, ident.sid)
@@ -749,8 +749,8 @@ impl Kernel {
             ppid: if parent == 0 { 0 } else { nr(parent) },
             pgrp: nr(pgid),
             sid: nr(sid),
-            uid: process.cred().user_ns.munged_uid(cred.user.real),
-            gid: process.cred().user_ns.munged_gid(cred.group.real),
+            uid: self.task_cred(task).user_ns.munged_uid(cred.user.real),
+            gid: self.task_cred(task).user_ns.munged_gid(cred.group.real),
             utime: times.user,
             stime: times.system,
             cutime: children.user,

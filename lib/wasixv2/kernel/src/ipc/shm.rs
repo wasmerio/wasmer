@@ -527,7 +527,7 @@ impl Kernel {
                 }
                 // The creator and last user as the caller sees them (`pid_vnr`).
                 let pid_ns = self.active_pid_ns(caller.task());
-                let ds = segment.to_abi(&perm, &pid_ns, &self.cred(caller).user_ns);
+                let ds = segment.to_abi(&perm, &pid_ns, &self.cred(caller).user_ns.clone());
                 write_value(caller.memory(), GuestPtrMut::new(buf), &ds).await?;
                 Ok(match IpcCmd(cmd) {
                     IpcCmd::IPC_STAT => 0,
@@ -540,7 +540,7 @@ impl Kernel {
                 let mut state = segment.state();
                 let mut perm = segment.perm();
                 perm.check_owner(&cred)?;
-                perm.update(&ds.shm_perm, &self.cred(caller).user_ns)?;
+                perm.update(&ds.shm_perm, &self.cred(caller).user_ns.clone())?;
                 state.ctime = self.ipc_now();
                 Ok(0)
             }

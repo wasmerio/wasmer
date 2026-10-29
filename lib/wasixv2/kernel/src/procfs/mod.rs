@@ -211,6 +211,7 @@ struct ProcessInfo {
 
 /// A task's shared parts.
 struct TaskInfo {
+    cred: Arc<crate::cred::Cred>,
     id: TaskId,
     syscall: crate::entry::CallSlot,
     files: Arc<Mutex<FdTable>>,
@@ -314,6 +315,7 @@ impl Source {
             return None;
         }
         Some(TaskInfo {
+            cred: task.cred.clone(),
             id: TaskId(tid),
             syscall: task.syscall.clone(),
             files: task.files.clone(),
@@ -384,7 +386,7 @@ impl Source {
             return Vec::new();
         };
         let ctx = crate::keys::Ctx {
-            cred: task.process.cred(),
+            cred: task.cred.clone(),
             thread: task.thread_keyring.clone(),
             now: self.host.realtime().as_secs(),
         };
@@ -392,16 +394,20 @@ impl Source {
         self.keys.proc_keys(&ctx, user_ns)
     }
 
-    fn cred_of(&self, tid: u32) -> Option<crate::cred::Cred> {
+    fn cred_of(&self, tid: u32) -> Option<Arc<crate::cred::Cred>> {
         let state = self.state.upgrade()?;
         let state = state.read_or_recover();
-        Some(state.tasks.get(&TaskId(tid))?.process.cred())
+        state
+            .tasks
+            .get(&TaskId(tid))
+            .map(|t| t.cred.clone())
+            .or_else(|| state.retired_creds.get(&TaskId(tid)).cloned())
     }
 
     /// The user namespace of the task `tid`, which opens a file and sees its ids through it
     /// (`seq_user_ns`); without the task, the one that owns the instance's pid namespace.
     fn user_ns_of(&self, tid: u32) -> Arc<UserNs> {
-        let ns = self.cred_of(tid).map(|cred| cred.user_ns);
+        let ns = self.cred_of(tid).map(|cred| cred.user_ns.clone());
         ns.unwrap_or_else(|| {
             self.pid_ns
                 .owner_ns()
@@ -418,7 +424,7 @@ impl Source {
         };
         let state = state.read_or_recover();
         state.tasks.get(&TaskId(tid)).is_some_and(|task| {
-            let cred = task.process.cred();
+            let cred = task.cred.clone();
             cred.ns_capable(ns.user_ns(), wasixv2_vfs::Cap::SysAdmin)
                 || cred.ns_capable(ns.user_ns(), wasixv2_vfs::Cap::CheckpointRestore)
         })

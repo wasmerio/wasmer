@@ -1226,7 +1226,7 @@ impl Kernel {
         flags: u32,
         event_f_flags: u32,
     ) -> SysResult<i32> {
-        let cred = self.process(caller.task()).cred();
+        let cred = self.cred(caller);
         let admin = cred.capable_init(Cap::SysAdmin);
         if (flags & ADMIN_INIT != 0 || flags & (FID_BITS | REPORT_MNT) == 0) && !admin {
             return Err(Errno::EPERM.into());
@@ -1356,7 +1356,7 @@ impl Kernel {
         } else if mask & MNT_EVENTS != 0 || mark_type == MARK_MNTNS {
             return Err(Errno::EINVAL.into());
         }
-        let cred = self.process(caller.task()).cred();
+        let cred = self.cred(caller);
         if mark_type != 0 && !cred.ns_capable(&group.user_ns, Cap::SysAdmin) {
             return Err(Errno::EPERM.into());
         }

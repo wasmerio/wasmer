@@ -311,7 +311,10 @@ impl Kernel {
     /// hand a terminal on.
     pub(crate) fn sys_vhangup(&self, task: TaskId) -> SysResult<i32> {
         let process = self.process(task);
-        if !process.cred().capable_init(wasixv2_vfs::Cap::SysTtyConfig) {
+        if !self
+            .current_cred(task)
+            .capable_init(wasixv2_vfs::Cap::SysTtyConfig)
+        {
             return Err(Errno::EPERM.into());
         }
         let tty = process.ident.lock_or_recover().tty.clone();

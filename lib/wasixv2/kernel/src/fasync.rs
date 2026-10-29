@@ -20,7 +20,7 @@ use wasixv2_syscalls::{Caller, Errno, Fd, SysResult, TaskId, read_value, write_v
 use wasixv2_wait::{PollMask, PollTable, Pollable, WaitEntry, WaitRegistration};
 
 use crate::{
-    Kernel, Process,
+    Kernel,
     file::OpenFile,
     pid::PidType,
     signal::{NSIG, Signals, kernel_info},
@@ -328,16 +328,22 @@ impl Sigio {
         let info = || kernel_info(Signal::SIGURG.0);
         match fown.ty {
             OwnerType::Thread | OwnerType::Process => {
-                if let Some((process, signals)) = self.jobs.live_task(pid)
-                    && sigio_perm(&process, &fown)
+                if let Some((_process, signals)) = self.jobs.live_task(pid)
+                    && signals
+                        .group()
+                        .cred(Some(TaskId(pid)))
+                        .is_some_and(|cred| sigio_perm(&cred, &fown))
                 {
                     let task = (fown.ty == OwnerType::Thread).then_some(TaskId(pid));
                     let _ = signals.group().send_from(task, info(), false);
                 }
             }
             OwnerType::Group => {
-                for (process, signals) in self.jobs.pgrp_processes(pid) {
-                    if sigio_perm(&process, &fown) {
+                for (_process, signals) in self.jobs.pgrp_processes(pid) {
+                    if signals
+                        .cred(None)
+                        .is_some_and(|cred| sigio_perm(&cred, &fown))
+                    {
                         let _ = signals.send_from(None, info(), false);
                     }
                 }
@@ -356,15 +362,15 @@ impl Sigio {
         };
         match fown.ty {
             OwnerType::Thread | OwnerType::Process => {
-                let Some((process, signals)) = self.jobs.live_task(pid) else {
+                let Some((_process, signals)) = self.jobs.live_task(pid) else {
                     return;
                 };
                 let task = (fown.ty == OwnerType::Thread).then_some(TaskId(pid));
-                send_to_task(&fown, &process, signals.group(), task, fd, band);
+                send_to_task(&fown, signals.group(), task, fd, band);
             }
             OwnerType::Group => {
-                for (process, signals) in self.jobs.pgrp_processes(pid) {
-                    send_to_task(&fown, &process, &signals, None, fd, band);
+                for (_process, signals) in self.jobs.pgrp_processes(pid) {
+                    send_to_task(&fown, &signals, None, fd, band);
                 }
             }
         }
@@ -373,8 +379,7 @@ impl Sigio {
 
 /// `sigio_perm`: whoever set the owner is root, or its real or effective uid is the
 /// receiver's real or saved one.
-fn sigio_perm(process: &Process, fown: &Fown) -> bool {
-    let cred = process.cred.lock_or_recover();
+fn sigio_perm(cred: &crate::cred::Cred, fown: &Fown) -> bool {
     let (uid, suid) = (cred.user.real, cred.user.saved);
     fown.euid == Kuid::GLOBAL_ROOT
         || [fown.uid, fown.euid]
@@ -385,15 +390,11 @@ fn sigio_perm(process: &Process, fown: &Fown) -> bool {
 /// `send_sigio_to_task`: the `F_SETSIG` signal with the descriptor and the band in its
 /// `siginfo`, or plain SIGIO from the kernel without one, or when the realtime signal finds no
 /// room in the receiver's queue. To `task` alone, or to the whole process.
-fn send_to_task(
-    fown: &Fown,
-    process: &Process,
-    signals: &Signals,
-    task: Option<TaskId>,
-    fd: Fd,
-    band: SiCode,
-) {
-    if !sigio_perm(process, fown) {
+fn send_to_task(fown: &Fown, signals: &Signals, task: Option<TaskId>, fd: Fd, band: SiCode) {
+    if !signals
+        .cred(task)
+        .is_some_and(|cred| sigio_perm(&cred, fown))
+    {
         return;
     }
     if fown.signum != 0 {
@@ -666,7 +667,7 @@ impl Kernel {
         arg: u32,
     ) -> SysResult<i32> {
         let fown = file.fown();
-        let ns = self.cred(caller).user_ns;
+        let ns = self.cred(caller).user_ns.clone();
         let uids = [fown.uid, fown.euid].map(|uid| ns.munged_uid(uid));
         write_value(caller.memory(), GuestPtrMut::new(arg), &uids).await?;
         Ok(0)

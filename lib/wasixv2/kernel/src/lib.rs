@@ -259,6 +259,8 @@ pub struct Kernel {
 struct State {
     last_id: u32,
     tasks: HashMap<TaskId, Task>,
+    /// Released leaders keep their objective identity until reap (kernel/cred.c `exit_creds`).
+    retired_creds: HashMap<TaskId, Arc<cred::Cred>>,
     /// The tasks of reaped processes whose instances still unwind: out of the table
     /// (`release_task`), until the execution layer lets them go (`put_task_struct`).
     dead: HashMap<TaskId, thread::DeadTask>,
@@ -313,7 +315,6 @@ struct Process {
     /// The timers on its CPU clocks and its threads'.
     cpu_timers: cputime::CpuTimers,
     ident: Mutex<ident::Ident>,
-    cred: Mutex<cred::Cred>,
     resources: Mutex<resource::Resources>,
     // ---- ns ----
     /// The pid namespace the process is in (`task_active_pid_ns`), for its whole life.
@@ -322,11 +323,11 @@ struct Process {
     /// its last task applied them on its way out (`exit_sem`), so a process that is gone holds
     /// no namespace, as Linux's `exit_task_namespaces` lets it go.
     sysvsem: Mutex<Option<Arc<ns::IpcNs>>>,
-    /// The kernel's integer sysctls, which a credential change reads (`fs.suid_dumpable`).
-    tunables: Arc<sysctl::Tunables>,
 }
 
 struct Task {
+    /// Objective credentials (kernel/cred.c `commit_creds`), shared until replaced.
+    cred: Arc<cred::Cred>,
     /// The active syscall for /proc/<pid>/syscall, cleared on return.
     syscall: entry::CallSlot,
     /// Per-thread I/O counts (`task->ioac`).
@@ -364,7 +365,7 @@ struct Task {
     cpu: Arc<CpuAccount>,
     /// The credentials an io_uring request's personality lends the task while it is issued
     /// (`override_creds`), which its own calls use instead of the process's.
-    cred_override: Option<cred::Cred>,
+    cred_override: Option<Arc<cred::Cred>>,
     // ---- ipc ----
     /// The rings the task submitted to and its registered ring descriptors
     /// (`task->io_uring`).
@@ -676,11 +677,9 @@ impl Kernel {
             maxrss: Default::default(),
             cpu_timers: Default::default(),
             ident: Mutex::new(ident::Ident::new(id.0)),
-            cred: Mutex::new(cred),
             resources: Mutex::default(),
             pid_ns,
             sysvsem: Mutex::new(Some(self.init_ns.ipc.clone())),
-            tunables: self.tunables.clone(),
             args: Mutex::new(args.into_iter().map(String::into_bytes).collect()),
             env: Mutex::new(env.into_iter().map(String::into_bytes).collect()),
             exe: Mutex::new(None),
@@ -697,6 +696,7 @@ impl Kernel {
             .fork(self.cgroups.root().clone(), cpu.clone(), false)
             .expect("the root cgroup takes every task");
         let task = Task {
+            cred: Arc::new(cred),
             css,
             syscall: Default::default(),
             ioac: Default::default(),
@@ -723,6 +723,7 @@ impl Kernel {
             uring: Arc::default(),
         };
         let process = task.process.clone();
+        task.signals.publish_cred(task.cred.clone());
         state.tasks.insert(id, task);
         drop(state);
         // ---- proc ----
@@ -778,7 +779,13 @@ impl Syscalls for Kernel {
             process.args.lock_or_recover(),
             process.env.lock_or_recover(),
         );
-        Ok(Startup::new(&args, &env, process.identity(), process.exec_aux()).size()?)
+        Ok(Startup::new(
+            &args,
+            &env,
+            self.identity(caller.task()),
+            process.exec_aux(),
+        )
+        .size()?)
     }
 
     async fn startup_get(&self, caller: &Caller<'_>, buf: UserSliceMut) -> SysResult<i32> {
@@ -790,7 +797,12 @@ impl Syscalls for Kernel {
             process.args.lock_or_recover().clone(),
             process.env.lock_or_recover().clone(),
         );
-        let startup = Startup::new(&args, &env, process.identity(), process.exec_aux());
+        let startup = Startup::new(
+            &args,
+            &env,
+            self.identity(caller.task()),
+            process.exec_aux(),
+        );
         // The address space starts out as the image left it.
         self.mem_size(caller).await;
         if buf.len < startup.size()? {

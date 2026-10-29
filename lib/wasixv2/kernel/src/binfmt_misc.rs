@@ -252,7 +252,7 @@ impl BinfmtMisc {
             let state = tasks.read_or_recover();
             let found = state.tasks.get(&TaskId(task)).ok_or(Errno::ENOENT)?;
             let fs = found.fs.lock_or_recover().clone();
-            (fs, found.process.cred().fs())
+            (fs, found.cred.clone().fs())
         };
         let cx = Ctx {
             cred: &cred,

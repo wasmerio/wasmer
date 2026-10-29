@@ -5,8 +5,8 @@
 //! The ids are kernel ids ([`Kuid`], [`Kgid`]); the syscalls translate them through the
 //! process's user namespace ([`Cred::user_ns`]), whose root is privileged the way Linux makes
 //! it: a process whose effective uid is that root holds every capability, and the set*id
-//! transitions drop and regain them as on Linux. Credentials are per process; Linux keeps them
-//! per thread, but libc applies every set*id call to all threads, so a program cannot tell.
+//! transitions drop and regain them as on Linux. Credentials are immutable per-task snapshots, shared until a caller commits a replacement
+//! (`kernel/cred.c`). libc broadcasts set*id calls to implement the POSIX process interface.
 
 use std::{fmt, sync::Arc};
 
@@ -283,7 +283,7 @@ pub(crate) struct Cred {
     /// The user namespace the capabilities count in, and the ids are seen through
     /// (`cred->user_ns`).
     pub(crate) user_ns: Arc<UserNs>,
-    /// The Landlock domain the process is confined to (`landlock_cred(cred)->domain`).
+    /// The Landlock domain the task is confined to (`landlock_cred(cred)->domain`).
     pub(crate) landlock: Option<Arc<crate::landlock::Domain>>,
     /// The session and process keyrings, and the default `request_key` keyring.
     pub(crate) keys: crate::keys::CredKeys,

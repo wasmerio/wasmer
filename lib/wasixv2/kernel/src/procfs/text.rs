@@ -1339,10 +1339,26 @@ pub(super) fn per_pid(
             format!("{pages} {pages} 0 0 0 {pages} 0\n").into_bytes()
         }
         PerPid::Status => status(source, scope, &info, reader),
-        PerPid::UidMap => process.cred().user_ns.show_map(MapKind::Uid, reader),
-        PerPid::GidMap => process.cred().user_ns.show_map(MapKind::Gid, reader),
-        PerPid::ProjidMap => process.cred().user_ns.show_map(MapKind::Projid, reader),
-        PerPid::Setgroups => process.cred().user_ns.show_setgroups(),
+        PerPid::UidMap => source
+            .cred_of(scope.tid.unwrap_or(scope.pid))
+            .expect("listed task")
+            .user_ns
+            .show_map(MapKind::Uid, reader),
+        PerPid::GidMap => source
+            .cred_of(scope.tid.unwrap_or(scope.pid))
+            .expect("listed task")
+            .user_ns
+            .show_map(MapKind::Gid, reader),
+        PerPid::ProjidMap => source
+            .cred_of(scope.tid.unwrap_or(scope.pid))
+            .expect("listed task")
+            .user_ns
+            .show_map(MapKind::Projid, reader),
+        PerPid::Setgroups => source
+            .cred_of(scope.tid.unwrap_or(scope.pid))
+            .expect("listed task")
+            .user_ns
+            .show_setgroups(),
         PerPid::TimensOffsets => {
             let task = source.task(scope.pid, scope.tid).ok_or(Errno::ESRCH)?;
             match &task.ns {
@@ -1793,7 +1809,9 @@ fn status(source: &Source, scope: Scope, info: &super::ProcessInfo, reader: &Use
     let locked_kb = task.as_ref().map_or(0, |task| task.mm.locked()) / 1024;
     let threads = source.threads(scope.pid).len().max(1);
     let (letter, state_name) = state(info, task.as_ref());
-    let cred = process.cred();
+    let cred = source
+        .cred_of(scope.tid.unwrap_or(scope.pid))
+        .expect("listed task");
     let user = cred.user;
     let user = [user.real, user.effective, user.saved, user.fs].map(|id| reader.munged_uid(id));
     let group = cred.group;

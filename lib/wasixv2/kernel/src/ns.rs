@@ -870,11 +870,17 @@ impl Kernel {
         let new_cred = match flags & CloneFlags::CLONE_NEWUSER.0 != 0 {
             true => {
                 let chrooted = fs.lock_or_recover().chrooted(&ns);
-                Some(UserNs::create(&process.cred(), chrooted, &self.ns_inums)?)
+                Some(UserNs::create(
+                    &self.cred(caller),
+                    chrooted,
+                    &self.ns_inums,
+                )?)
             }
             false => None,
         };
-        let cred = new_cred.clone().unwrap_or_else(|| process.cred());
+        let cred = new_cred
+            .clone()
+            .unwrap_or_else(|| (*self.task_cred(caller.task())).clone());
         let new_ns = ns.unshare(
             self,
             flags,
@@ -884,7 +890,7 @@ impl Kernel {
             &cgroup,
         )?;
         if let Some(cred) = new_cred {
-            process.commit_cred(cred);
+            self.commit_cred(task, cred);
         }
         let ipc_or_sysvsem = CloneFlags::CLONE_NEWIPC.0 | CloneFlags::CLONE_SYSVSEM.0;
         if flags & ipc_or_sysvsem != 0 {
@@ -940,7 +946,7 @@ impl Kernel {
         });
         let joiner = Joiner {
             process: &process,
-            cred: process.cred(),
+            cred: (*self.task_cred(task)).clone(),
             alone: process.group.single_threaded(),
             single: process.group.single_threaded() && !self.mm_shared_elsewhere(task),
             fs_shared: Arc::strong_count(&fs) > 2,
@@ -957,7 +963,7 @@ impl Kernel {
         }
         // `commit_nsset`: the credentials first.
         if let Some(cred) = set.cred.take() {
-            process.commit_cred(cred);
+            self.commit_cred(task, cred);
         }
         if let Some(root) = set.root.take() {
             let mut fs = fs.lock_or_recover();
@@ -1006,7 +1012,7 @@ impl Kernel {
         let dumpable = process.ident.lock_or_recover().dumpable;
         if !std::ptr::eq(&*process, joiner.process)
             && !joiner.cred.may_read_task(
-                &process.cred(),
+                &self.task_cred(TaskId(pid)),
                 dumpable == crate::ident::Dumpable::User,
                 false,
             )
@@ -1033,7 +1039,7 @@ impl Kernel {
                 NsKind::Ipc => Namespace::Ipc(ns.ipc.clone()),
                 NsKind::Net => Namespace::Net(ns.net.clone()),
                 NsKind::Pid => Namespace::Pid(process.pid_ns.clone()),
-                NsKind::User => Namespace::User(process.cred().user_ns),
+                NsKind::User => Namespace::User(self.task_cred(TaskId(pid)).user_ns.clone()),
                 NsKind::Cgroup => Namespace::Cgroup(ns.cgroup.clone()),
                 NsKind::Time => Namespace::Time(ns.time.clone()),
             };

@@ -141,12 +141,19 @@ impl Account {
 
     /// `sig_get_ucounts` for `info`: kernel signals and `kill`'s standard ones go past the
     /// limit (`override_rlimit`). SIGKILL is never queued, so it costs nothing.
-    fn charge(&self, info: &Siginfo) -> Result<Option<Charge>, Overflow> {
+    fn charge(
+        &self,
+        info: &Siginfo,
+        cred: Option<&crate::cred::Cred>,
+    ) -> Result<Option<Charge>, Overflow> {
         let sig = info.si_signo;
         let Some(process) = self.process.upgrade().filter(|_| sig != Signal::SIGKILL.0) else {
             return Ok(None);
         };
-        let uid = process.cred.lock_or_recover().user.real;
+        let Some(cred) = cred else {
+            return Ok(None);
+        };
+        let uid = cred.user.real;
         let limit = match sig < SIGRTMIN && info.si_code >= 0 {
             true => None,
             false => Some(process.resources.lock_or_recover().sigpending()),
@@ -335,6 +342,7 @@ impl Pending {
 }
 
 struct TaskState {
+    cred: Option<Arc<crate::cred::Cred>>,
     /// The task's work flag, raised whenever a signal may have become deliverable to it.
     flag: Arc<WorkFlag>,
     /// Kernel work makes the task leave a blocking wait without a signal (`TIF_NOTIFY_SIGNAL`).
@@ -387,6 +395,7 @@ impl TaskState {
             notify: false,
             sigpending: false,
             exiting: false,
+            cred: None,
             blocked: inherited.blocked,
             saved: None,
             pending: Pending::default(),
@@ -543,6 +552,20 @@ pub(crate) fn user_info(sig: i32, code: SiCode, pid: Pid, uid: u32) -> Siginfo {
 }
 
 impl Signals {
+    /// Target snapshot for callbacks without a Kernel; never hold this lock across accounting.
+    pub(crate) fn cred(&self, task: Option<TaskId>) -> Option<Arc<crate::cred::Cred>> {
+        let state = self.state.lock_or_recover();
+        let target = match task {
+            Some(task) => state.tasks.get(&task),
+            None => state
+                .tasks
+                .iter()
+                .min_by_key(|(id, _)| id.0)
+                .map(|(_, task)| task),
+        }?;
+        target.cred.clone()
+    }
+
     /// A group whose queued signals `account` pays for.
     pub(crate) fn new(account: Option<Account>) -> Arc<Self> {
         Arc::new(Self {
@@ -830,7 +853,11 @@ impl Signals {
     fn generate(&self, task: Option<TaskId>, info: Siginfo, outside: bool) -> Result<bool, Errno> {
         let force = outside || info.si_code == SiCode::SI_KERNEL.0;
         // The charge reads the process's credentials and limits, which come before the group.
-        let charge = self.account.as_ref().map_or(Ok(None), |a| a.charge(&info));
+        let cred = self.cred(task);
+        let charge = self
+            .account
+            .as_ref()
+            .map_or(Ok(None), |a| a.charge(&info, cred.as_deref()));
         let mut state = self.state.lock_or_recover();
         if !state.prepare(task, info.si_signo, force) {
             drop(state);
@@ -1655,6 +1682,10 @@ pub(crate) struct TaskSignals {
 }
 
 impl TaskSignals {
+    pub(crate) fn publish_cred(&self, cred: Arc<crate::cred::Cred>) {
+        self.with(|task| task.cred = Some(cred));
+    }
+
     pub(crate) fn group(&self) -> &Arc<Signals> {
         &self.group
     }
@@ -2083,7 +2114,26 @@ fn to_sigset(bits: u64) -> Sigset {
 
 use wasixv2_abi::GuestLayout;
 
+pub(crate) struct Sender {
+    process: Arc<Process>,
+    cred: Arc<crate::cred::Cred>,
+}
+
+impl std::ops::Deref for Sender {
+    type Target = Process;
+    fn deref(&self) -> &Process {
+        &self.process
+    }
+}
+
 impl Kernel {
+    pub(crate) fn signal_sender(&self, task: TaskId) -> Sender {
+        Sender {
+            process: self.process(task),
+            cred: self.current_cred(task),
+        }
+    }
+
     pub(crate) fn task_signals(&self, task: TaskId) -> Arc<TaskSignals> {
         self.task_ref(task, |task| task.signals.clone())
     }
@@ -2132,7 +2182,7 @@ impl Kernel {
     /// sees it. Queues `info` for the group, or for `task` alone.
     fn deliver(
         &self,
-        sender: Option<&Process>,
+        sender: Option<&Sender>,
         target: u32,
         group: &Signals,
         task: Option<TaskId>,
@@ -2145,8 +2195,13 @@ impl Kernel {
             (None, _) => true,
         };
         if has_si_pid_and_uid(&info) {
-            if let (Some(sender), Some(target)) = (sender, &target) {
-                let (from, to) = (sender.cred().user_ns, target.cred().user_ns);
+            if let (Some(sender), Some(_target)) = (sender, &target) {
+                let (from, to) = (
+                    sender.cred.user_ns.clone(),
+                    group
+                        .cred(task)
+                        .map_or_else(|| self.init_user_ns.clone(), |cred| cred.user_ns.clone()),
+                );
                 if !Arc::ptr_eq(&from, &to) {
                     let uid = u32::from_le_bytes(info.sifields[4..8].try_into().unwrap());
                     let seen = from
@@ -2512,12 +2567,12 @@ impl Kernel {
     /// `ptrace_do_notify`'s `siginfo`: `sig` with `code`, from the task itself.
     pub(crate) fn ptrace_trap_info(
         &self,
-        process: &Process,
+        _process: &Process,
         task: TaskId,
         sig: i32,
         code: i32,
     ) -> Siginfo {
-        let cred = process.cred();
+        let cred = self.task_cred(task);
         let uid = cred.user_ns.munged_uid(cred.user.real);
         let mut info = user_info(sig, SiCode(code), self.pids.own_nr(task.0), uid);
         info.si_code = code;
@@ -2543,8 +2598,11 @@ impl Kernel {
         // The tracer's pid in the tracee's namespace and its uid as the tracee sees it.
         let (pid, uid) = match tracer.and_then(|t| self.task_process(t).map(|p| (t, p))) {
             Some((tracer, them)) => {
-                let cred = them.cred();
-                let uid = process.cred().user_ns.munged_uid(cred.user.real);
+                let cred = self.task_cred(them.pid);
+                let uid = self
+                    .task_cred(process.pid)
+                    .user_ns
+                    .munged_uid(cred.user.real);
                 (self.pids.nr(&process.pid_ns, tracer.0), uid)
             }
             None => (0, 0),
@@ -2905,7 +2963,8 @@ impl Kernel {
         if reserved_to_kernel(info.si_code) && tid.unwrap_or(tgid) != self.own_tid(caller.task()) {
             return Err(Errno::EPERM.into());
         }
-        let sender = Some(&*self.process(caller.task()));
+        let sender = self.signal_sender(caller.task());
+        let sender = Some(&sender);
         match tid {
             Some(tid) => self.send_to_task(caller, sender, Some(tgid), tid, info)?,
             None => {
@@ -2921,7 +2980,7 @@ impl Kernel {
     /// (`task_tgid_vnr(current)`).
     pub(crate) fn sender_info(&self, caller: &Caller<'_>, sig: i32, code: SiCode) -> Siginfo {
         let process = self.process(caller.task());
-        let cred = process.cred();
+        let cred = self.cred(caller);
         let uid = cred.user_ns.munged_uid(cred.user.real);
         user_info(sig, code, self.pids.own_nr(process.pid.0), uid)
     }
@@ -2929,22 +2988,33 @@ impl Kernel {
     /// `check_kill_permission` for a signal from `sender` (`None`: from outside the machine,
     /// which may signal anything) to the process `target`: `kill_ok_by_cred`, or `SIGCONT`
     /// within the sender's session.
-    fn may_signal(&self, sender: Option<&Process>, target: u32, sig: i32) -> bool {
-        let (Some(sender), Some(target)) = (sender, self.procs.find(target)) else {
+    fn may_signal(&self, sender: Option<&Sender>, target: u32, sig: i32) -> bool {
+        let target_cred = {
+            let state = self.state.read_or_recover();
+            state.tasks.get(&TaskId(target)).map(|t| t.cred.clone())
+        };
+        let (Some(sender), Some(target)) = (
+            sender,
+            self.task_process(TaskId(target))
+                .or_else(|| self.procs.find(target)),
+        ) else {
             return true;
         };
         // `security_task_kill`: Landlock's signal scope, which never holds within a thread
         // group.
-        if let Some(domain) = &sender.cred().landlock
+        if let Some(domain) = &sender.cred.landlock
             && sender.pid != target.pid
             && domain.scoped(
-                target.cred().landlock.as_ref(),
+                target_cred.as_ref().and_then(|c| c.landlock.as_ref()),
                 crate::landlock::SCOPE_SIGNAL,
             )
         {
             return false;
         }
-        if sender.cred().may_signal(&target.cred()) {
+        if target_cred
+            .as_ref()
+            .is_none_or(|cred| sender.cred.may_signal(cred))
+        {
             return true;
         }
         // One process's lock at a time: two processes may check each other at once.
@@ -2963,14 +3033,20 @@ impl Kernel {
     ) -> Result<(), Errno> {
         let groups = self.groups(Some(pid));
         let (leader, group) = groups.first().ok_or(Errno::ESRCH)?;
-        self.deliver(sender, *leader, group, None, info)
+        let sender = sender
+            .and_then(|p| self.procs.find(p.pid.0))
+            .map(|p| Sender {
+                cred: self.task_cred(p.pid),
+                process: p,
+            });
+        self.deliver(sender.as_ref(), *leader, group, None, info)
     }
 
     /// Queues `info` for the thread group of the id `pid` (`kill_pid_info`), if `sender` may
     /// signal it.
     pub(crate) fn send_to_group(
         &self,
-        sender: Option<&Process>,
+        sender: Option<&Sender>,
         pid: u32,
         info: Siginfo,
     ) -> Result<(), Errno> {
@@ -3031,7 +3107,7 @@ impl Kernel {
     fn send_to_task(
         &self,
         caller: &Caller<'_>,
-        sender: Option<&Process>,
+        sender: Option<&Sender>,
         tgid: Option<Pid>,
         tid: Pid,
         info: Siginfo,
@@ -3057,7 +3133,7 @@ impl Kernel {
         };
         let (pid, group) = target.ok_or(Errno::ESRCH)?;
         check_sendable(info.si_signo)?;
-        if !self.may_signal(sender, pid, info.si_signo) {
+        if !self.may_signal(sender, tid, info.si_signo) {
             return Err(Errno::EPERM);
         }
         match info.si_signo {
@@ -3070,7 +3146,7 @@ impl Kernel {
     /// task `task` alone, as `pidfd_send_signal(PIDFD_SELF_THREAD)` sends it.
     pub(crate) fn send_to_self(
         &self,
-        sender: &Process,
+        sender: &Sender,
         task: TaskId,
         info: Siginfo,
     ) -> Result<(), Errno> {
@@ -3114,7 +3190,7 @@ impl Kernel {
             return Err(Errno::ESRCH.into());
         }
         check_sendable(sig.0)?;
-        let sender = self.process(caller.task());
+        let sender = self.signal_sender(caller.task());
         let mut sent = false;
         for (target, group) in targets {
             if !self.may_signal(Some(&sender), target, sig.0) {
@@ -3142,7 +3218,7 @@ impl Kernel {
         sig: Signal,
     ) -> SysResult<i32> {
         let info = self.sender_info(caller, sig.0, SiCode::SI_TKILL);
-        let sender = self.process(caller.task());
+        let sender = self.signal_sender(caller.task());
         self.send_to_task(caller, Some(&sender), tgid, tid, info)?;
         Ok(0)
     }

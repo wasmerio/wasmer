@@ -185,7 +185,7 @@ impl Kernel {
         let elapsed = self.host.monotonic().saturating_sub(process.start);
         let btime = self.host.realtime().saturating_sub(elapsed).as_secs();
         let times = process.cpu.times();
-        let cred = process.cred();
+        let cred = self.task_cred(process.pid);
         let (pid, ppid) = match file.ns.upgrade() {
             Some(ns) => (
                 self.pids.nr(&ns, process.pid.0),

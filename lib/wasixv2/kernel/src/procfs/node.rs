@@ -723,7 +723,9 @@ impl ProcNode {
             return (0, 0);
         };
         let process = info.process;
-        let cred = process.cred();
+        let Some(cred) = self.source.cred_of(scope.tid.unwrap_or(scope.pid)) else {
+            return (0, 0);
+        };
         if process.ident.lock_or_recover().dumpable != crate::ident::Dumpable::User {
             // The root of the user namespace the image runs in (`mm->user_ns`), or the global
             // root without one.
@@ -790,18 +792,14 @@ impl ProcNode {
         if !Arc::ptr_eq(&caller.process, &target.process) {
             let dumpable =
                 target.process.ident.lock_or_recover().dumpable == crate::ident::Dumpable::User;
-            let cred = caller.process.cred();
-            if !cred.may_read_task(&target.process.cred(), dumpable, true) {
+            let cred = self.source.cred_of(cx.task).ok_or(Errno::ESRCH)?;
+            if !cred.may_read_task(&*task.cred, dumpable, true) {
                 return Err(Errno::EACCES);
             }
         }
         // `ns_get_path`: a task that is done has none.
         let task_ns = task.ns.as_ref().ok_or(Errno::ENOENT)?;
-        let ns = link.get(
-            task_ns,
-            &target.process.pid_ns,
-            &target.process.cred().user_ns,
-        );
+        let ns = link.get(task_ns, &target.process.pid_ns, &task.cred.user_ns);
         Ok(Link::Jump(self.source.nsfs.path(&ns)))
     }
 }
@@ -1236,7 +1234,10 @@ impl ProcNode {
             text::PerPid::TimensOffsets => {
                 let cred = self.source.cred_of(opener).ok_or(Errno::EPERM)?;
                 let target = (self.source.clone(), scope);
-                return Ok(Some(Write::TimensOffsets(target, Box::new(cred))));
+                return Ok(Some(Write::TimensOffsets(
+                    target,
+                    Box::new((*cred).clone()),
+                )));
             }
             text::PerPid::CoredumpFilter => {
                 let info = self.source.process(scope.pid).ok_or(Errno::ESRCH)?;
@@ -1272,7 +1273,7 @@ impl ProcNode {
                 let sessions = self.source.audit_sessions.clone();
                 return Ok(Some(Write::Loginuid(
                     info.process,
-                    Box::new(cred),
+                    Box::new((*cred).clone()),
                     sessions,
                 )));
             }
@@ -1285,7 +1286,7 @@ impl ProcNode {
         };
         let target = self.user_ns(scope)?;
         let cred = self.source.cred_of(opener).ok_or(Errno::EPERM)?;
-        Ok(Some(Write::Map(target, map, Box::new(cred))))
+        Ok(Some(Write::Map(target, map, Box::new((*cred).clone()))))
     }
 
     /// The checks `/proc/<pid>` files make of their reader: `PTRACE_MODE_READ_FSCREDS` for `io`,
@@ -1335,6 +1336,8 @@ impl ProcNode {
         else {
             return false;
         };
+        let opener_cred = self.source.cred_of(opener);
+        let target_cred = self.source.cred_of(scope.tid.unwrap_or(scope.pid));
         let opener = self
             .source
             .tgid_of(opener)
@@ -1345,6 +1348,8 @@ impl ProcNode {
                 &tree,
                 &opener.process,
                 &target.process,
+                opener_cred.as_deref().expect("opener task"),
+                target_cred.as_deref().expect("target task"),
                 mode,
             )
         })
@@ -1352,8 +1357,10 @@ impl ProcNode {
 
     /// The user namespace of the process whose directory `scope` is.
     fn user_ns(&self, scope: Scope) -> FsResult<Arc<UserNs>> {
-        let info = self.source.process(scope.pid).ok_or(Errno::ESRCH)?;
-        Ok(info.process.cred().user_ns)
+        self.source
+            .cred_of(scope.tid.unwrap_or(scope.pid))
+            .map(|cred| cred.user_ns.clone())
+            .ok_or(Errno::ESRCH)
     }
 }
 
@@ -1367,6 +1374,8 @@ impl ProcNode {
             .source
             .task(scope.pid, scope.tid)
             .ok_or(Errno::ENOENT)?;
+        let opener_cred = self.source.cred_of(opener);
+        let target_cred = self.source.cred_of(scope.tid.unwrap_or(scope.pid));
         let opener = self
             .source
             .tgid_of(opener)
@@ -1376,7 +1385,15 @@ impl ProcNode {
             let tree = self.source.tree.upgrade().ok_or(Errno::ENOENT)?;
             let mode = crate::ptrace::MODE_ATTACH_FSCREDS;
             let yama = &self.source.yama;
-            if !crate::ptrace::may_access(yama, &tree, &opener.process, &target.process, mode) {
+            if !crate::ptrace::may_access(
+                yama,
+                &tree,
+                &opener.process,
+                &target.process,
+                opener_cred.as_deref().ok_or(Errno::ENOENT)?,
+                target_cred.as_deref().ok_or(Errno::ENOENT)?,
+                mode,
+            ) {
                 return Err(Errno::EACCES);
             }
         }
