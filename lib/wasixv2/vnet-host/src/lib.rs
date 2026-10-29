@@ -7,6 +7,10 @@
 //! reactor moves bytes between the buffers and the host sockets and wakes the objects'
 //! `WaitQueue`s. Unix hosts only for now (TODO: Windows); nothing here uses tokio.
 //!
+//! The namespace's DNS server asks the backend's resolver ([`ResolverConfig`]), which runs the
+//! host's blocking lookups (hosts file, `getaddrinfo`, `getnameinfo`, the host's name servers)
+//! on worker threads of its own and caches what they found briefly.
+//!
 //! [`BackendStream`]: wasixv2_vnet::BackendStream
 //! [`BackendDatagram`]: wasixv2_vnet::BackendDatagram
 
@@ -14,11 +18,15 @@
 mod errno;
 #[cfg(unix)]
 mod reactor;
+#[cfg(unix)]
+mod resolver;
 
 #[cfg(unix)]
 pub use errno::errno_from_io;
 #[cfg(unix)]
 pub use reactor::HostBackend;
+#[cfg(unix)]
+pub use resolver::ResolverConfig;
 
 /// Where systemd-resolved lists the upstream servers its stub at `127.0.0.53` asks.
 pub const SYSTEMD_RESOLVED_UPSTREAM: &str = "/run/systemd/resolve/resolv.conf";

@@ -12,7 +12,7 @@ use wasixv2_abi::{Errno, MsgFlags, SocketLevel, SocketOption, TcpOption};
 use wasixv2_vnet::{
     Domain, Net, NetConfig, Network, PollMask, PollTable, SendMsg, Shutdown, Socket, SocketKind,
 };
-use wasixv2_vnet_host::HostBackend;
+use wasixv2_vnet_host::{HostBackend, ResolverConfig};
 use wasixv2_wait::{WaitEntry, WaitQueue, WaitRegistration};
 
 struct Signal(mpsc::Sender<()>);
@@ -662,4 +662,117 @@ fn echo_requests_through_the_host() {
     let ident = p.local_addr().unwrap().port();
     assert_eq!(u16::from_be_bytes([buf[4], buf[5]]), ident);
     assert_eq!(&buf[8..r.len], b"wasixv2");
+}
+
+/// A query for `name` of `qtype`, class IN, with recursion desired.
+fn dns_query(id: u16, name: &str, qtype: u16) -> Vec<u8> {
+    let mut q = id.to_be_bytes().to_vec();
+    q.extend([1, 0, 0, 1, 0, 0, 0, 0, 0, 0]);
+    for label in name.split('.') {
+        q.push(label.len() as u8);
+        q.extend(label.as_bytes());
+    }
+    q.push(0);
+    q.extend(qtype.to_be_bytes());
+    q.extend([0, 1]);
+    q
+}
+
+/// A stub name server on 127.0.0.1, UDP and TCP on one port: over UDP it answers every query
+/// with TC set and nothing else, over TCP with one TXT record "hello", as a server whose
+/// answer is too long for a datagram would. It reports the identifiers it saw.
+fn stub_name_server(seen: mpsc::Sender<u16>) -> u16 {
+    let (tcp, udp) = loop {
+        let tcp = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = tcp.local_addr().unwrap().port();
+        if let Ok(udp) = UdpSocket::bind(("127.0.0.1", port)) {
+            break (tcp, udp);
+        }
+    };
+    let port = udp.local_addr().unwrap().port();
+    let answer = |q: &[u8], truncated: bool| {
+        let mut a = q.to_vec();
+        a[2] |= 0x80 | if truncated { 0x02 } else { 0 };
+        a[3] = 0x80;
+        if !truncated {
+            a[7] = 1;
+            a.extend([0xc0, 12, 0, 16, 0, 1, 0, 0, 0, 60, 0, 6, 5]);
+            a.extend(b"hello");
+        }
+        a
+    };
+    let udp_seen = seen.clone();
+    std::thread::spawn(move || {
+        let mut buf = [0; 512];
+        while let Ok((n, from)) = udp.recv_from(&mut buf) {
+            let _ = udp_seen.send(u16::from_be_bytes([buf[0], buf[1]]));
+            let _ = udp.send_to(&answer(&buf[..n], true), from);
+        }
+    });
+    std::thread::spawn(move || {
+        for mut c in tcp.incoming().flatten() {
+            let mut len = [0; 2];
+            c.read_exact(&mut len).unwrap();
+            let mut q = vec![0; usize::from(u16::from_be_bytes(len))];
+            c.read_exact(&mut q).unwrap();
+            let _ = seen.send(u16::from_be_bytes([q[0], q[1]]));
+            let a = answer(&q, false);
+            c.write_all(&(a.len() as u16).to_be_bytes()).unwrap();
+            c.write_all(&a).unwrap();
+        }
+    });
+    port
+}
+
+/// The guest's query to 10.0.2.3 and its answer, over UDP.
+fn ask(s: &dyn Socket, query: &[u8]) -> Vec<u8> {
+    send(s, query, Some("10.0.2.3:53".parse().unwrap())).unwrap();
+    wait_for(s, PollMask::IN);
+    let mut buf = [0; 512];
+    let r = s.recv(&mut buf, MsgFlags(0)).unwrap();
+    assert_eq!(r.from, Some("10.0.2.3:53".parse().unwrap()));
+    buf[..r.len].to_vec()
+}
+
+/// The DNS server with the host backend's resolver: names in the host's hosts file are
+/// answered from it, with the CNAME of their canonical name; a query it does not answer
+/// itself goes to the host's name servers with an identifier of its own, over TCP once the
+/// UDP answer comes back truncated, and its answer goes to the guest with the guest's.
+#[test]
+fn the_dns_server_asks_the_hosts_file_and_the_host_name_servers() {
+    let dir = std::env::temp_dir().join(format!("wasixv2-vnet-host-dns-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("hosts"), "192.0.2.10 stub.test alias.test\n").unwrap();
+    std::fs::write(dir.join("resolv.conf"), "nameserver 127.0.0.1\n").unwrap();
+    let (tx, seen) = mpsc::channel();
+    let config = ResolverConfig {
+        hosts: dir.join("hosts"),
+        resolv_conf: dir.join("resolv.conf"),
+        port: stub_name_server(tx),
+    };
+    let net = Net::new(
+        NetConfig::host_default(),
+        Some(HostBackend::with_resolver(config).unwrap()),
+    );
+    let s = net
+        .socket(Domain::Inet, SocketKind::Datagram, 0, 1)
+        .unwrap();
+
+    let a = ask(&*s, &dns_query(0x0102, "Alias.Test", 1));
+    assert_eq!((&a[..2], a[3] & 0xf, a[7]), (&[1, 2][..], 0, 2));
+    // CNAME alias.test -> stub.test, then stub.test A 192.0.2.10.
+    assert!(a.windows(11).any(|w| w == b"\x04stub\x04test\x00"));
+    assert!(a.ends_with(&[192, 0, 2, 10]));
+
+    let a = ask(&*s, &dns_query(0x0304, "txt.test", 16));
+    assert_eq!((&a[..2], a[2] & 0x02, a[7]), (&[3, 4][..], 0, 1));
+    assert!(a.ends_with(b"\x05hello"));
+    let (udp_id, tcp_id) = (seen.recv().unwrap(), seen.recv().unwrap());
+    assert_eq!(udp_id, tcp_id);
+    assert_ne!(udp_id, 0x0304);
+
+    // A name nobody has: NXDOMAIN, or SERVFAIL on a host without a working resolver.
+    let a = ask(&*s, &dns_query(5, "nothing.invalid", 1));
+    assert!(matches!(a[3] & 0xf, 2 | 3), "rcode {}", a[3] & 0xf);
+    let _ = std::fs::remove_dir_all(&dir);
 }
