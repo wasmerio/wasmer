@@ -1,12 +1,13 @@
-//! The LSM syscalls and securityfs: the capabilities and Landlock are listed, and neither keeps
-//! process attributes.
+//! The LSM syscalls and securityfs: the capabilities, Landlock and Yama are listed, and none
+//! keeps process attributes.
 
 use wasixv2_abi::{GuestPtr, GuestPtrMut, LsmCtxPtr};
 
 use super::ipc::{errno, get, machine, put};
 use super::*;
 
-/// `lsm_list_modules` lists capability (100) and landlock (110), if `size` leaves room.
+/// `lsm_list_modules` lists capability (100), landlock (110) and yama (105), if `size` leaves
+/// room.
 #[test]
 fn list_modules() {
     let (kernel, task, memory) = machine();
@@ -16,12 +17,15 @@ fn list_modules() {
         let size = GuestPtrMut::new(0x100);
         block_on(kernel.lsm_list_modules(&caller, GuestPtrMut::new(0x200), size, flags))
     };
-    assert_eq!(errno(list(8, 0)), Errno::E2BIG);
-    assert_eq!(get(&memory, 0x100, 4), 16u32.to_le_bytes());
-    assert_eq!(list(16, 0), Ok(2));
-    let ids: Vec<u8> = [100u64, 110].iter().flat_map(|i| i.to_le_bytes()).collect();
-    assert_eq!(get(&memory, 0x200, 16), ids);
-    assert_eq!(errno(list(16, 1)), Errno::EINVAL);
+    assert_eq!(errno(list(16, 0)), Errno::E2BIG);
+    assert_eq!(get(&memory, 0x100, 4), 24u32.to_le_bytes());
+    assert_eq!(list(24, 0), Ok(3));
+    let ids: Vec<u8> = [100u64, 110, 105]
+        .iter()
+        .flat_map(|i| i.to_le_bytes())
+        .collect();
+    assert_eq!(get(&memory, 0x200, 24), ids);
+    assert_eq!(errno(list(24, 1)), Errno::EINVAL);
 }
 
 /// No module answers for process attributes: `EOPNOTSUPP` with a size of 0, after the checks
@@ -80,7 +84,7 @@ fn securityfs_lists_the_modules() {
     );
     let fd = block_on(open).unwrap();
     let n = block_on(kernel.read(&caller, fd, UserSliceMut::new(0x400, 64))).unwrap();
-    assert_eq!(get(&memory, 0x400, n as usize), b"capability,landlock");
+    assert_eq!(get(&memory, 0x400, n as usize), b"capability,landlock,yama");
     let open = kernel.openat(
         &caller,
         Fd(-100),

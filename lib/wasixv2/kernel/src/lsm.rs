@@ -1,6 +1,6 @@
 //! The Linux security modules this kernel has, as `lsm_list_modules`, `lsm_get_self_attr`,
 //! `lsm_set_self_attr` (`security/lsm_syscalls.c`, `security/security.c`) and securityfs's
-//! `lsm` file (`security/inode.c`) show them: the capabilities and Landlock. Neither keeps
+//! `lsm` file (`security/inode.c`) show them: the capabilities, Landlock and Yama. None keeps
 //! process attributes, so the attribute calls find no module to answer.
 
 use std::{
@@ -18,10 +18,12 @@ use wasixv2_vfs::{
 
 use crate::{Kernel, fs::mount::FilesystemType, fs::mount::FsParam};
 
-/// The active modules, in the order they stack (`lsm_idlist`, `lsm_names`).
+/// The active modules, in the order they stack (`lsm_idlist`, `lsm_names`): the capabilities
+/// first (`LSM_ORDER_FIRST`), then as `CONFIG_LSM`'s default orders them.
 const MODULES: &[(LsmId, &str)] = &[
     (LsmId::LSM_ID_CAPABILITY, "capability"),
     (LsmId::LSM_ID_LANDLOCK, "landlock"),
+    (LsmId::LSM_ID_YAMA, "yama"),
 ];
 
 /// `SECURITYFS_MAGIC`.
