@@ -776,7 +776,11 @@ pub fn emit_metadata_and_link(
                     WASMER_IMAGE_FILENAME.to_string(),
                 ]
             }
-            _ => unreachable!("unexpected format"),
+            _ => {
+                return Err(CompileError::UnsupportedTarget(format!(
+                    "unsupported binary format: {format:?}"
+                )));
+            }
         };
 
         {
