@@ -461,8 +461,13 @@ fn a_sibling_execve_while_the_leader_is_in_vfork_runs_in_the_threads_namespaces(
 /// leader's: those go as the old leader exits.
 #[test]
 fn a_sibling_execve_takes_the_threads_namespaces_into_the_new_image() {
-    let (kernel, leader, memory) = machine();
+    let (kernel, leader, memory) = super::cred::machine_as(0, 0);
     let caller = Caller::new(leader, &memory);
+    // Give the old leader a private proxy, so the kernel's init_ns holds no reference to it.
+    assert_eq!(
+        block_on(kernel.unshare(&caller, CloneFlags::CLONE_NEWUTS.0 as u32)),
+        Ok(0)
+    );
     install_prog(&kernel, &caller, &memory);
     let execing = spawn_thread(&kernel, &caller);
     while kernel.take_pending(leader).is_some() {}
