@@ -262,6 +262,10 @@ impl FileObject for MemDevice {
         Box::pin(async move { result })
     }
 
+    fn mmap_anonymous(&self) -> bool {
+        self.kind == Mem::Zero
+    }
+
     /// The memory devices have no `poll`, so epoll refuses them.
     fn can_poll(&self) -> bool {
         false

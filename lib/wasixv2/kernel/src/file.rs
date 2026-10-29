@@ -173,6 +173,12 @@ pub trait FileObject: Pollable + Any {
         None
     }
 
+    /// `mmap_zero`: the device maps fresh anonymous memory, with a separate shmem
+    /// object per shared mmap, rather than pages belonging to the open file.
+    fn mmap_anonymous(&self) -> bool {
+        false
+    }
+
     /// `f_op->mmap` of an object that is pages of its own (an io_uring's rings): for `len`
     /// bytes from `offset` of the file, the shared object to map and where in it. `None` for
     /// an object that cannot be mapped (the default).

@@ -68,6 +68,51 @@ fn pread(kernel: &Kernel, caller: &Caller<'_>, fd: Fd, len: u32, pos: i64) -> Ve
     out
 }
 
+/// drivers/char/mem.c:mmap_zero discards the device backing for private mappings;
+/// mm/shmem.c:shmem_zero_setup creates a distinct shmem object for each shared mmap.
+#[test]
+fn dev_zero_mappings_are_anonymous_and_independent() {
+    let (kernel, task, memory, _) = with_file(b"");
+    block_on(kernel.create_device_nodes(b"/")).unwrap();
+    let caller = Caller::new(task, &memory);
+    let fd = open(&kernel, &caller, b"/zero", OpenFlags::O_RDWR);
+    for flags in [MapFlags::MAP_PRIVATE, MapFlags::MAP_SHARED] {
+        let at = block_on(kernel.mmap(&caller, 0, PAGE, RW, flags, fd, i64::from(PAGE))).unwrap();
+        assert_eq!(get(&memory, at, 16), [0; 16]);
+        put(&memory, at, b"changed");
+        let other = mmap(&kernel, &caller, PAGE, flags, fd).unwrap();
+        assert_eq!(get(&memory, other, 7), [0; 7]);
+        assert_eq!(get(&memory, at, 7), b"changed");
+        if flags == MapFlags::MAP_PRIVATE {
+            assert_eq!(madvise(&kernel, &caller, at, PAGE, WIPE), Ok(0));
+            assert_eq!(
+                madvise(&kernel, &caller, at, PAGE, MadviseAdvice::MADV_DONTNEED),
+                Ok(0)
+            );
+            assert_eq!(get(&memory, at, 7), [0; 7]);
+        }
+        assert_eq!(
+            block_on(kernel.msync(&caller, at, PAGE, MsyncFlags::MS_SYNC)),
+            Ok(0)
+        );
+        assert_eq!(block_on(kernel.munmap(&caller, at, PAGE)), Ok(0));
+        assert_eq!(block_on(kernel.munmap(&caller, other, PAGE)), Ok(0));
+    }
+    let readonly = open(&kernel, &caller, b"/zero", OpenFlags::O_RDONLY);
+    assert_eq!(
+        errno(mmap(&kernel, &caller, PAGE, MapFlags::MAP_SHARED, readonly)),
+        Errno::EACCES
+    );
+    assert!(mmap(&kernel, &caller, PAGE, MapFlags::MAP_PRIVATE, readonly).is_ok());
+    for path in [b"/null".as_slice(), b"/full"] {
+        let fd = open(&kernel, &caller, path, OpenFlags::O_RDWR);
+        assert_eq!(
+            errno(mmap(&kernel, &caller, PAGE, MapFlags::MAP_PRIVATE, fd)),
+            Errno::ENODEV
+        );
+    }
+}
+
 #[test]
 fn private_mapping_copies_the_file_and_keeps_its_changes() {
     let (kernel, task, memory, fd) = with_file(b"hello file");

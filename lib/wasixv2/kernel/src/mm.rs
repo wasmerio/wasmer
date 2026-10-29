@@ -1590,14 +1590,15 @@ impl Kernel {
                 MapFlags::MAP_PRIVATE => None,
                 _ => return Err(Errno::EINVAL.into()),
             },
-            Some(file) => Some(check_file_mapping(
+            Some(file) => check_file_mapping(
+                self,
                 file,
                 offset,
                 pages,
                 prot,
                 flags,
                 &self.cred(caller).fs(),
-            )?),
+            )?,
         };
         let start = if flags.intersects(MapFlags::MAP_FIXED | MapFlags::MAP_FIXED_NOREPLACE) {
             let noreplace = !flags.contains(MapFlags::MAP_FIXED);
@@ -2783,13 +2784,14 @@ impl Kernel {
 /// pages for a shared mapping of a file kept in a shared memory object (read-only where the
 /// mapping may never be written), a copy otherwise.
 fn check_file_mapping(
+    kernel: &Kernel,
     file: &Arc<OpenFile>,
     offset: Loff,
     pages: u64,
     prot: ProtFlags,
     flags: MapFlags,
     cred: &wasixv2_vfs::Cred,
-) -> Result<Source, Errno> {
+) -> Result<Option<Source>, Errno> {
     // `file_mmap_ok`: the range must fit below the largest file offset.
     let offset = u64::try_from(offset).map_err(|_| Errno::EOVERFLOW)?;
     if offset
@@ -2823,19 +2825,32 @@ fn check_file_mapping(
     if file.check_readable().is_err() {
         return Err(Errno::EACCES);
     }
+    // drivers/char/mem.c:mmap_zero: private mappings become anonymous; shared
+    // mappings get a new shmem object (mm/shmem.c:shmem_zero_setup), ignoring pgoff.
+    if file.object().is_some_and(|object| object.mmap_anonymous()) {
+        let mut source = if shared {
+            kernel.shared_anonymous(pages)?
+        } else {
+            None
+        };
+        if let Some(Source::Mapped(mapped)) = &mut source {
+            mapped.writable = writable;
+        }
+        return Ok(source);
+    }
     // An object that is pages of its own maps them (`f_op->mmap`).
     if let Some(object) = file.object()
         && let Some(found) = object.mmap_pages(offset, pages * PAGE_SIZE)
     {
         let (pages, offset) = found?;
-        return Ok(Source::Mapped(Mapped {
+        return Ok(Some(Source::Mapped(Mapped {
             file: Some(file.clone()),
             pages,
             offset,
             segment: None,
             writable: shared && writable,
             writer: None,
-        }));
+        })));
     }
     // Only regular files have pages to map (`can_mmap_file`).
     let inode = match file.inode() {
@@ -2844,7 +2859,7 @@ fn check_file_mapping(
     };
     if !shared {
         let file = file.clone();
-        return Ok(Source::Private { file, offset });
+        return Ok(Some(Source::Private { file, offset }));
     }
     // `memfd_check_seals_mmap`: a write-sealed file takes no writable shared mapping, and a
     // read-only one never becomes writable (`VM_MAYWRITE` cleared).
@@ -2866,17 +2881,17 @@ fn check_file_mapping(
         .node()
         .shared_pages(offset..offset + pages * PAGE_SIZE, cred)?
     {
-        return Ok(Source::Mapped(Mapped {
+        return Ok(Some(Source::Mapped(Mapped {
             file: Some(file.clone()),
             pages,
             offset,
             segment: None,
             writable,
             writer,
-        }));
+        })));
     }
     let shared = Shared::new(Object::File(file.clone()), offset, writable, writer);
-    Ok(Source::Shared(shared))
+    Ok(Some(Source::Shared(shared)))
 }
 
 #[cfg(test)]

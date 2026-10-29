@@ -266,6 +266,52 @@ fn duplicate(kernel: &Kernel, caller: &Caller<'_>, addr: u32, len: u32) -> SysRe
     block_on(kernel.mremap(caller, addr, 0, len, flags, 0))
 }
 
+/// drivers/char/mem.c:mmap_zero gives every shared mmap its own shmem object;
+/// mm/mmap.c:dup_mmap preserves that object in a fork child.
+#[test]
+fn dev_zero_shared_mapping_retains_its_object_across_fork_and_remap() {
+    let (kernel, parent) = shared_machine();
+    block_on(kernel.create_device_nodes(b"/")).unwrap();
+    let memory = MappedMemory::new(2, true);
+    let caller = Caller::new(parent, &memory);
+    let fd = super::mapping::open(&kernel, &caller, b"/zero", OpenFlags::O_RDWR);
+    let map =
+        |flags| block_on(kernel.mmap(&caller, 0, PAGE, RW, flags, fd, i64::from(PAGE))).unwrap();
+    let shared = map(MapFlags::MAP_SHARED);
+    let independent = map(MapFlags::MAP_SHARED_VALIDATE);
+    let private = map(MapFlags::MAP_PRIVATE);
+    memory.put(shared, b"parent");
+    memory.put(private, b"parent");
+    assert_eq!(memory.get(independent, 6), [0; 6]);
+    let duplicate = duplicate(&kernel, &caller, shared, PAGE).unwrap() as u32;
+    assert_eq!(memory.get(duplicate, 6), b"parent");
+    let child = fork(&kernel, &caller);
+    let child_memory = memory.fork(&kernel.shared_mappings(child));
+    child_memory.put(shared, b"child!");
+    assert_eq!(memory.get(shared, 6), b"child!");
+    assert_eq!(memory.get(duplicate, 6), b"child!");
+    child_memory.put(private, b"child!");
+    assert_eq!(memory.get(private, 6), b"parent");
+    assert_eq!(block_on(kernel.munmap(&caller, shared, PAGE)), Ok(0));
+    assert_eq!(child_memory.get(shared, 6), b"child!");
+    assert_eq!(memory.get(duplicate, 6), b"child!");
+    let readonly = super::mapping::open(&kernel, &caller, b"/zero", OpenFlags::O_RDONLY);
+    let at = block_on(kernel.mmap(
+        &caller,
+        0,
+        PAGE,
+        ProtFlags(1),
+        MapFlags::MAP_SHARED,
+        readonly,
+        0,
+    ))
+    .unwrap();
+    assert_eq!(
+        errno(block_on(kernel.mprotect(&caller, at, PAGE, RW))),
+        Errno::EACCES
+    );
+}
+
 #[test]
 fn two_mappings_of_shared_anonymous_memory_see_each_others_stores_at_once() {
     let (kernel, task) = shared_machine();
