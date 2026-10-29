@@ -1,4 +1,4 @@
-//! `clock_res_get`, `clock_time_get`: Linux clocks in nanoseconds.
+//! V1 clock reads and per-process clock_time_set offsets over Linux clocks.
 
 use std::sync::Mutex;
 
