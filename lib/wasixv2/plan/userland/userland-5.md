@@ -30,7 +30,8 @@ bash tests/run-programs-5.sh /absolute/path/to/wasmer network
 ```
 
 Workflows: `network`, `namespaces`, `privileges`, `keys`, `seccomp`, `core`,
-`fuse`, `liburing`, `liburing-timeout`, `libaio`. The core workflow expects SIGABRT, invokes host
+`fuse`, `liburing`, `liburing-timeout`, `liburing-followups`, `libaio`,
+`libaio-setup`. The core workflow expects SIGABRT, invokes host
 `readelf --notes`, then checks the ELF32 notes and memory independently.
 The FUSE workflow also needs host `mksquashfs`. The seccomp executable is
 Linux's `samples/seccomp/dropper.c`, taken from `${LINUX_SOURCE:-~/wasixv2-tools/linux}`;
@@ -82,3 +83,61 @@ Follow-up packages: a strace wasm architecture port; libaio's static wasm
 build in coordination with the linking owner; io_uring wake/task-work
 ordering; Linux-exact syscall reads of the low guard in coordination with
 its documented LLVM workaround. No expected-failure lists were changed.
+
+
+## V5 follow-up results
+
+Validated on `wasixv2/v-uring` at `2c223d3165c`, based on `0bc36eb981f`.
+The libc2/ABI pins remain unchanged. Detailed red/green logs and handoff state
+are in `~/wasixv2-orch/logs/v5uring/STATE.md`.
+
+| Selected upstream program | Result |
+| --- | --- |
+| liburing poll.t | PASS, including forked basic polling, deferred multishot readiness, disabled-ring polling and 65,536 self-polls (16 seconds total) |
+| liburing statx.t / unlink.t / mkdir.t | PASS; pathname copies below the existing low guard return EFAULT |
+| liburing timeout.t | PASS, including its exec helper |
+| liburing read-write.t / socket.t | Still fail on SQPOLL setup returning EINVAL, an explicit kernel limit |
+| libaio official harness cases/2.t | PASS inside the machine: all eight setup/context validation checks |
+| Full libaio library / event-wait harness | Blocked by upstream's unconditional legacy io_getevents syscall; static .symver assembly is fixed |
+| strace | Port plan recorded; no working wasm32 build or -f result claimed |
+
+SQPOLL already returns exactly EINVAL, covered by the kernel setup unit test.
+Liburing 2.12's `test/helpers.c:t_create_ring_params` does **not** skip that
+result: it skips EPERM only for a non-root SQPOLL request. The kernel error
+has not been changed to manufacture a skip. The six-test follow-up workflow
+therefore exits 1 with exactly read-write.t and socket.t listed as failures.
+
+Runtime fixes (each has a failing-first kernel regression and Linux citation):
+
+- `4029e466cb7`: process poll wakeups on the submitting task's existing return hook.
+- `d07c277311d`: fault shared pathname copies in the low guard, preserving Linux's
+  NULL plus AT_EMPTY_PATH exemptions; guest loads and the exec contract stay as before.
+- `c46a1196f39`: retain real registration-race callbacks without advertising idle polls
+  as pending work (a regression found during validation of the first change).
+- `6308f5e3a9f`: queue initial multishot readiness as task work, including deferred rings.
+- `2c223d3165c`: detach one-shot registrations on their first wake and rearm after a
+  spurious wake, keeping multishot registrations active.
+
+Final checks passed: 78 io_uring tests, 27 filesystem tests, 27 mount tests,
+all-target kernel clippy with Makefile lint flags, `cargo fmt --all --check`,
+a systemd release CLI build and the selected program workflows above. No full
+suite or expected-failure-list edits were made.
+
+For libaio, use LLVM branch `wasix-org/llvm-project:wasixv2/wasm-symver`,
+commit `568452b96`, through `LIBAIO_LLVM_LOCATION`. No LLVM release/tag was pushed.
+The setup-only recipe uses a normal archive of the real io_setup object and
+the harness's documented LIBAIO link-input option; no libaio source is patched.
+See [libaio-time64.md](libaio-time64.md) for the independent full-build blocker
+and proper time64-only port design. See [strace-wasm32.md](strace-wasm32.md) for
+the syscall-info-only port plan, including scalar-slot widths and table differences.
+
+Reproduce one workflow at a time using the archived release CLI or a build of
+that runtime branch:
+
+```sh
+bash tests/run-programs-5.sh /absolute/path/to/wasmer liburing-followups
+bash tests/run-programs-5.sh /absolute/path/to/wasmer liburing-timeout
+LIBAIO_LLVM_LOCATION=/absolute/path/to/llvm/build \
+  nice -n19 taskset -c 4-7 bash userland-5.sh libaio-setup
+bash tests/run-programs-5.sh /absolute/path/to/wasmer libaio-setup
+```

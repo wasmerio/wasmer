@@ -51,7 +51,8 @@ build_aio_setup() {
     export WASIXCC_LLVM_LOCATION=$LIBAIO_LLVM_LOCATION
   fi
   make -B -C src -j"$JOBS" CC="$CC" io_setup.ol
-  make -B -C harness -j"$JOBS" CC="$CC" LIBAIO=../src/io_setup.ol cases/2.p
+  "$AR" rcs "$ROOT/libaio-setup.a" src/io_setup.ol
+  make -B -C harness -j"$JOBS" CC="$CC" LIBAIO="$ROOT/libaio-setup.a" cases/2.p
 }
 
 build_keys() {
