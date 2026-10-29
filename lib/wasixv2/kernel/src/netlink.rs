@@ -548,6 +548,7 @@ mod tests {
                 network: Some(lo),
                 unix_names: Arc::default(),
                 devconf: Default::default(),
+                sysctl: Default::default(),
             },
         )
     }

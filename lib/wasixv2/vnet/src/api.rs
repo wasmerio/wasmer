@@ -182,6 +182,8 @@ pub struct Interface {
     pub peer: Option<(u32, Option<i32>)>,
     /// Addresses, IPv4 first in Linux's order.
     pub addresses: Vec<IfAddr>,
+    /// `net.ipv6.conf.<name>.disable_ipv6`.
+    pub ipv6_disabled: bool,
 }
 
 /// What `RTM_NEWLINK` with `NLM_F_CREATE` makes (`rtnl_newlink_create`).
@@ -261,6 +263,12 @@ pub trait Network: Send + Sync {
     /// The ids given to other namespaces, for `RTM_GETNSID` dumps.
     fn peer_ids(&self) -> Vec<i32> {
         Vec::new()
+    }
+
+    /// `net.ipv6.conf.<name>.disable_ipv6` (`addrconf_disable_ipv6`).
+    fn set_ipv6_disabled(&self, index: u32, disabled: bool) -> Result<(), Errno> {
+        let _ = (index, disabled);
+        Err(Errno::EOPNOTSUPP)
     }
 
     /// The routes of every table, for `RTM_GETROUTE` dumps and `/proc/net/route`.

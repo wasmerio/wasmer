@@ -8,8 +8,10 @@
 //! read.
 
 mod node;
+mod sysnet;
 mod text;
 
+pub(crate) use sysnet::NetSysctl;
 pub(crate) use text::root_in_fs;
 
 use std::sync::{Arc, Mutex, Weak};
@@ -49,7 +51,11 @@ impl Kernel {
     /// A process filesystem showing the processes of `pid_ns` and below, by their pids there
     /// (`proc_fill_super` with the mounter's `pid_ns`).
     pub(crate) fn procfs_in(&self, pid_ns: Arc<PidNs>) -> Arc<dyn Filesystem> {
+        let mounted = HostClock(self.host.clone()).now();
         let source = Source {
+            sysnet: self
+                .vfs
+                .kern_mount(Arc::new(sysnet::SysNetFs::new(mounted))),
             state: Arc::downgrade(&self.state),
             tree: Arc::downgrade(&self.procs.tree),
             vfs: Arc::downgrade(&self.vfs),
@@ -60,7 +66,7 @@ impl Kernel {
             nsfs: self.pseudo.nsfs.clone(),
             filesystems: self.filesystems.clone(),
             sysctls: self.sysctls.clone(),
-            mounted: HostClock(self.host.clone()).now(),
+            mounted,
             nr_open: self.nr_open.clone(),
         };
         Arc::new(ProcFs {
@@ -135,6 +141,8 @@ struct Source {
     mounted: Timestamp,
     /// `fs.nr_open`.
     nr_open: Arc<NrOpen>,
+    /// Where `/proc/sys/net` leads: the trees of the network namespaces' sysctls.
+    sysnet: Arc<wasixv2_vfs::Mount>,
 }
 
 /// A process as the tree has it.

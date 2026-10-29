@@ -1777,6 +1777,7 @@ mod tests {
                 network: None,
                 unix_names: names,
                 devconf: Default::default(),
+                sysctl: Default::default(),
             },
         )
     }

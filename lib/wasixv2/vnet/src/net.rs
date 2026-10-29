@@ -837,8 +837,16 @@ impl Network for Net {
                     _ => None,
                 },
                 addresses: l.addrs.clone(),
+                ipv6_disabled: l.ipv6_disabled,
             })
             .collect()
+    }
+
+    fn set_ipv6_disabled(&self, index: u32, disabled: bool) -> Result<(), Errno> {
+        let rtnl = rtnl();
+        self.configure(&rtnl)
+            .ifaces
+            .set_ipv6_disabled(index, disabled)
     }
 
     fn change_flags(&self, index: u32, flags: u32) -> Result<(), Errno> {
@@ -911,6 +919,7 @@ impl Network for Net {
                 mac,
                 kind,
                 addrs: Vec::new(),
+                ipv6_disabled: false,
             })
         };
         match spec.kind {
