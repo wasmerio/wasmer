@@ -464,7 +464,7 @@ fn capabilities_and_unconfigured_operations() {
     let (kernel, task, memory) = machine();
     let t = T::new(&kernel, task, &memory);
     assert_eq!(t.keyctl(CAPABILITIES, 0x3000, 2, 0, 0), Ok(2));
-    assert_eq!(get(&memory, 0x3000, 2), [0xa1, 0]);
+    assert_eq!(get(&memory, 0x3000, 2), [0xa1, 4]);
     assert_eq!(
         errno(t.keyctl(GET_PERSISTENT, 0, 0, 0, 0)),
         Errno::EOPNOTSUPP
@@ -546,4 +546,108 @@ fn key_sysctls_gc_delay_controls_expired_revoked_and_invalidated_links() {
     assert_eq!(t.keyctl(INVALIDATE, key as u32, 0, 0, 0), Ok(0));
     kernel.clock_was_set();
     assert!(t.read(PROCESS).unwrap().is_empty());
+}
+
+#[test]
+fn key_watches_report_mutations_ids_and_removals_through_notification_pipes() {
+    use wasixv2_abi::{GuestLayout, IoctlRequest, KeyNotification};
+    const WATCH: i32 = 32;
+    let (kernel, task, memory) = machine();
+    let t = T::new(&kernel, task, &memory);
+    let ring = t.id(SESSION, true).unwrap();
+    let keep = t.id(PROCESS, true).unwrap();
+    let (r, _) = super::ipc::pipe(
+        &kernel,
+        &t.caller,
+        OpenFlags::O_NOTIFICATION_PIPE | OpenFlags::O_NONBLOCK,
+    );
+    assert_eq!(
+        block_on(kernel.ioctl(&t.caller, r, IoctlRequest::IOC_WATCH_QUEUE_SET_SIZE, 64)),
+        Ok(0)
+    );
+    assert_eq!(t.keyctl(WATCH, ring as u32, r.0 as u32, 0x5a, 0), Ok(0));
+    let key = t.add("user", "watched", b"one", ring).unwrap();
+    assert_eq!(t.keyctl(WATCH, key as u32, r.0 as u32, 3, 0), Ok(0));
+    assert_eq!(
+        t.keyctl(WATCH, key as u32, r.0 as u32, 4, 0),
+        Err(SysErr::Errno(Errno::EBUSY))
+    );
+    put(&memory, 0x2000, b"two");
+    assert_eq!(t.keyctl(UPDATE, key as u32, 0x2000, 3, 0), Ok(0));
+    assert_eq!(t.add("user", "watched", b"three", ring), Ok(key));
+    assert_eq!(t.keyctl(SET_TIMEOUT, key as u32, 10, 0, 0), Ok(0));
+    assert_eq!(t.keyctl(LINK, key as u32, keep as u32, 0, 0), Ok(0));
+    assert_eq!(t.keyctl(UNLINK, key as u32, ring as u32, 0, 0), Ok(0));
+    assert_eq!(t.keyctl(CLEAR, ring as u32, 0, 0, 0), Ok(0));
+    assert_eq!(t.keyctl(WATCH, key as u32, r.0 as u32, u32::MAX, 0), Ok(0));
+    let n = block_on(kernel.read(&t.caller, r, UserSliceMut::new(0x4000, 256))).unwrap();
+    assert_eq!(n, 7 * 16);
+    let raw = get(&memory, 0x4000, n as usize);
+    let events: Vec<_> = raw
+        .chunks_exact(16)
+        .map(|b| {
+            let e = KeyNotification::read_from(b).unwrap();
+            (e.watch.type_subtype, e.watch.info >> 8, e.key_id, e.aux)
+        })
+        .collect();
+    assert_eq!(
+        events[..6],
+        [
+            (1 | 2 << 24, 0x5a, ring as u32, key as u32),
+            (1 | 1 << 24, 3, key as u32, 0),
+            (1 | 1 << 24, 3, key as u32, 0),
+            (1 | 7 << 24, 3, key as u32, 0),
+            (1 | 3 << 24, 0x5a, ring as u32, key as u32),
+            (1 | 4 << 24, 0x5a, ring as u32, 0),
+        ]
+    );
+    assert_eq!(events[6].0, 0); // WATCH_META_REMOVAL_NOTIFICATION, object serial in u64 body.
+    assert_eq!(events[6].1, 3);
+    assert_eq!(
+        t.keyctl(WATCH, key as u32, r.0 as u32, u32::MAX, 0),
+        Err(SysErr::Errno(Errno::EBADSLT))
+    );
+    assert_eq!(t.keyctl(WATCH, key as u32, r.0 as u32, 9, 0), Ok(0));
+    assert_eq!(t.keyctl(REVOKE, key as u32, 0, 0, 0), Ok(0));
+    assert_eq!(
+        block_on(kernel.read(&t.caller, r, UserSliceMut::new(0x4000, 16))),
+        Ok(16)
+    );
+    let revoked = KeyNotification::read_from(&get(&memory, 0x4000, 16)).unwrap();
+    assert_eq!(revoked.watch.type_subtype, 1 | 5 << 24);
+    let other = t.add("user", "invalidated", b"x", ring).unwrap();
+    assert_eq!(t.keyctl(WATCH, other as u32, r.0 as u32, 10, 0), Ok(0));
+    assert_eq!(t.keyctl(INVALIDATE, other as u32, 0, 0, 0), Ok(0));
+    let n = block_on(kernel.read(&t.caller, r, UserSliceMut::new(0x4000, 64))).unwrap();
+    assert!(
+        get(&memory, 0x4000, n as usize)
+            .chunks_exact(16)
+            .any(|b| KeyNotification::read_from(b).unwrap().watch.type_subtype == 1 | 6 << 24)
+    );
+}
+
+#[test]
+fn key_watch_checks_view_permission_and_linux_error_precedence() {
+    let (kernel, task, memory) = machine();
+    let t = T::new(&kernel, task, &memory);
+    let (r, _) = super::ipc::pipe(&kernel, &t.caller, OpenFlags::O_NOTIFICATION_PIPE);
+    let key = t.add("user", "no-view", b"secret", SESSION).unwrap();
+    assert_eq!(
+        t.keyctl(32, key as u32, r.0 as u32, 256, 0),
+        Err(SysErr::Errno(Errno::EINVAL))
+    );
+    assert_eq!(
+        t.keyctl(32, key as u32, u32::MAX, 1, 0),
+        Err(SysErr::Errno(Errno::EINVAL))
+    );
+    // Keep SETATTR, WRITE and SEARCH, but no VIEW even when possessed.
+    assert_eq!(t.keyctl(SETPERM, key as u32, 0x3e3e0000, 0, 0), Ok(0));
+    assert_eq!(
+        t.keyctl(32, key as u32, r.0 as u32, 1, 0),
+        Err(SysErr::Errno(Errno::EACCES))
+    );
+    assert_eq!(
+        t.keyctl(32, key as u32, u32::MAX, u32::MAX, 0),
+        Err(SysErr::Errno(Errno::EACCES))
+    );
 }

@@ -17,7 +17,10 @@ use std::{
     time::Duration,
 };
 
-use wasixv2_abi::{Errno, KeyPerm, KeySpec, KeyctlOp, Ulong};
+use wasixv2_abi::{
+    Errno, GuestLayout, KeyNotification, KeyNotificationSubtype as Notification, KeyPerm, KeySpec,
+    KeyctlFlags, KeyctlOp, Ulong, WatchNotification, WatchNotificationType,
+};
 use wasixv2_syscalls::{Caller, SysResult, read_cstr};
 use wasixv2_vfs::Cap;
 
@@ -180,6 +183,7 @@ pub(crate) struct Key {
     /// Whose quota the key counts against: its owner's.
     user: Mutex<Arc<KeyUser>>,
     state: Mutex<KeyState>,
+    watchers: crate::WatchList,
 }
 
 struct KeyState {
@@ -212,6 +216,21 @@ impl Drop for Key {
 }
 
 impl Key {
+    /// security/keys/internal.h notify_key; kernel/watch_queue.c supplies each watch ID.
+    fn notify(&self, subtype: Notification, aux: u32) {
+        let notification = KeyNotification {
+            watch: WatchNotification {
+                type_subtype: WatchNotificationType::WATCH_TYPE_KEY_NOTIFY.0 | subtype.0 << 24,
+                info: 16,
+            },
+            key_id: self.serial as u32,
+            aux,
+        };
+        let mut bytes = [0; 16];
+        notification.write_to(&mut bytes);
+        self.watchers.post(self.serial as u64, &bytes);
+    }
+
     fn st(&self) -> std::sync::MutexGuard<'_, KeyState> {
         self.state.lock_or_recover()
     }
@@ -508,6 +527,7 @@ impl Keys {
             kind,
             description: description.to_vec(),
             user: Mutex::new(user),
+            watchers: crate::WatchList::default(),
             state: Mutex::new(KeyState {
                 uid: owner.0,
                 gid: owner.1,
@@ -910,6 +930,8 @@ impl Kernel {
             st.payload = data;
             st.negative = None;
             st.expiry = None;
+            drop(st);
+            old.notify(Notification::NOTIFY_KEY_UPDATED, 0); // key_create_or_update -> __key_update
             return Ok(old.serial);
         }
         let owner = (ctx.cred.user.fs, ctx.cred.group.fs);
@@ -1038,6 +1060,32 @@ impl Kernel {
             partial: true,
         };
         match KeyctlOp(option) {
+            KeyctlOp::KEYCTL_WATCH_KEY => {
+                // security/keys/keyctl.c keyctl_watch_key: validate ID before lookup, and
+                // KEY_LOOKUP_CREATE/KEY_NEED_VIEW before get_watch_queue (including removal).
+                let watch_id = arg4 as i32;
+                if !(-1..=255).contains(&watch_id) {
+                    return Err(Errno::EINVAL.into());
+                }
+                let key = found(
+                    self,
+                    &mut ctx,
+                    Lookup {
+                        create: true,
+                        partial: false,
+                    },
+                    Need::View,
+                )?
+                .key;
+                key.watchers.watch(
+                    self,
+                    caller,
+                    key.serial as u64,
+                    wasixv2_syscalls::Fd(arg3 as i32),
+                    watch_id,
+                )?;
+                Ok(0)
+            }
             KeyctlOp::KEYCTL_GET_KEYRING_ID => {
                 let lookup = Lookup {
                     create: arg3 != 0,
@@ -1066,6 +1114,7 @@ impl Kernel {
                 key.kind.check_payload(&data)?;
                 key.charge(len as u32)?;
                 key.st().payload = data;
+                key.notify(Notification::NOTIFY_KEY_UPDATED, 0); // key_update: NOTIFY_KEY_UPDATED
                 Ok(0)
             }
             KeyctlOp::KEYCTL_REVOKE => {
@@ -1075,18 +1124,23 @@ impl Kernel {
                 }
                 .key;
                 let mut st = key.st();
+                let changed = !st.revoked;
                 st.revoked = true;
                 st.revoked_at = Some(ctx.now);
                 // `keyring_revoke`: a revoked keyring holds nothing.
                 let links = std::mem::take(&mut st.links);
                 drop(st);
                 drop(links);
+                if changed {
+                    key.notify(Notification::NOTIFY_KEY_REVOKED, 0);
+                } // key_revoke
                 self.keys.rearm_gc();
                 Ok(0)
             }
             KeyctlOp::KEYCTL_CHOWN => {
                 let key = found(self, &mut ctx, partial, Need::Setattr)?.key;
                 self.key_chown(&ctx, &key, arg3, arg4)?;
+                key.notify(Notification::NOTIFY_KEY_SETATTR, 0);
                 Ok(0)
             }
             KeyctlOp::KEYCTL_SETPERM => {
@@ -1102,6 +1156,7 @@ impl Kernel {
                     return Err(Errno::EACCES.into());
                 }
                 key.st().perm = perm;
+                key.notify(Notification::NOTIFY_KEY_SETATTR, 0);
                 Ok(0)
             }
             KeyctlOp::KEYCTL_DESCRIBE => {
@@ -1120,6 +1175,7 @@ impl Kernel {
             KeyctlOp::KEYCTL_CLEAR => {
                 let ring = self.lookup_keyring(caller, &mut ctx, id, Need::Write)?;
                 ring.key.st().links.clear();
+                ring.key.notify(Notification::NOTIFY_KEY_CLEARED, 0); // keyring_clear
                 Ok(0)
             }
             KeyctlOp::KEYCTL_LINK => {
@@ -1134,6 +1190,9 @@ impl Kernel {
                 let mut st = ring.key.st();
                 let at = st.links.iter().position(|k| Arc::ptr_eq(k, &key));
                 st.links.remove(at.ok_or(Errno::ENOENT)?);
+                drop(st);
+                ring.key
+                    .notify(Notification::NOTIFY_KEY_UNLINKED, key.serial as u32);
                 Ok(0)
             }
             KeyctlOp::KEYCTL_SEARCH => {
@@ -1216,12 +1275,19 @@ impl Kernel {
                     0 => None,
                     timeout => Some(ctx.now + u64::from(timeout)),
                 };
+                key.notify(Notification::NOTIFY_KEY_SETATTR, 0); // keyctl_set_timeout
                 self.keys.rearm_gc();
                 Ok(0)
             }
             KeyctlOp::KEYCTL_INVALIDATE => {
                 let key = found(self, &mut ctx, Lookup::default(), Need::Search)?.key;
-                key.st().invalidated = true;
+                let mut st = key.st();
+                let changed = !st.invalidated;
+                st.invalidated = true;
+                drop(st);
+                if changed {
+                    key.notify(Notification::NOTIFY_KEY_INVALIDATED, 0);
+                }
                 self.keys.rearm_gc();
                 Ok(0)
             }
@@ -1257,11 +1323,20 @@ impl Kernel {
                 }
                 link(&to.key, &key)?;
                 from.key.st().links.remove(at);
+                from.key
+                    .notify(Notification::NOTIFY_KEY_UNLINKED, key.serial as u32);
                 Ok(0)
             }
             KeyctlOp::KEYCTL_CAPABILITIES => {
                 let caps0 = 0x01 | 0x20 | 0x80;
-                put_out(caller, arg2, arg3, &[caps0, 0], false).await
+                put_out(
+                    caller,
+                    arg2,
+                    arg3,
+                    &[caps0, KeyctlFlags::KEYCTL_CAPS1_NOTIFICATIONS.0 as u8],
+                    false,
+                )
+                .await
             }
             // security/keys/keyctl.c: no request-key token is ever installed without a
             // usermode helper, but argument validation still precedes the authority check.
@@ -1295,8 +1370,7 @@ impl Kernel {
                 id if id < 0 => Err(Errno::EINVAL.into()),
                 _ => Err(Errno::ENOKEY.into()),
             },
-            // Persistent keyrings, Diffie-Hellman, public keys, restrictions and
-            // notifications are not configured.
+            // Persistent keyrings, Diffie-Hellman, public keys and restrictions are not configured.
             _ => Err(Errno::EOPNOTSUPP.into()),
         }
     }
@@ -1443,6 +1517,8 @@ fn link(ring: &Arc<Key>, key: &Arc<Key>) -> Result<(), Errno> {
     st.links
         .retain(|k| !(k.kind == key.kind && k.description == key.description));
     st.links.push(key.clone());
+    drop(st);
+    ring.notify(Notification::NOTIFY_KEY_LINKED, key.serial as u32); // __key_link
     Ok(())
 }
 
