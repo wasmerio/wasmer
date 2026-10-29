@@ -859,7 +859,8 @@ impl Kernel {
         path.dentry.inode().bind(&pipe);
         let read = OpenFile::new(
             Backing::Stream(Arc::new(read), path.clone()),
-            OpenFlags::O_RDONLY | status,
+            // fs/pipe.c:create_pipe_files applies O_DIRECT to the writer only.
+            OpenFlags::O_RDONLY | (status & !OpenFlags::O_DIRECT),
         );
         let write = OpenFile::new(
             Backing::Stream(Arc::new(write), path),

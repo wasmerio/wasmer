@@ -3419,7 +3419,10 @@ impl Control for Kernel {
         let (action, signals, dead, task_work) = {
             let mut guard = self.state.lock_or_recover();
             let state = &mut *guard;
-            let task_work = state.tasks.get(&task).map(|t| (t.uring.clone(), t.work.flag().clone()));
+            let task_work = state
+                .tasks
+                .get(&task)
+                .map(|t| (t.uring.clone(), t.work.flag().clone()));
             // ---- proc ----
             // A reaped process's task, still unwinding, takes what was left for it: its exit,
             // or a vfork child's hand-back of the instance.
@@ -3437,7 +3440,11 @@ impl Control for Kernel {
         };
         // A producer can queue task work between exec's hook and this flag clear.
         // Keep that work visible so exec repeats its memory-bearing hook before returning.
-        if let Some((tctx, flag)) = task_work && tctx.pending() { flag.raise(); }
+        if let Some((tctx, flag)) = task_work
+            && tctx.pending()
+        {
+            flag.raise();
+        }
         match action {
             // What made the task leave its wait is here.
             Some(action) => {

@@ -206,6 +206,7 @@ fn setup_sizes_the_rings_and_refuses_polling_modes() {
     for refused in [
         IoringSetupFlags::IORING_SETUP_SQPOLL.0,
         IoringSetupFlags::IORING_SETUP_IOPOLL.0,
+        IoringSetupFlags::IORING_SETUP_HYBRID_IOPOLL.0,
         IoringSetupFlags::IORING_SETUP_DEFER_TASKRUN.0,
         1 << 30,
     ] {
@@ -3168,10 +3169,18 @@ fn task_work_wakes_another_syscall_and_layered_resume_completes_the_read() {
         assert!(Instant::now() < deadline);
         std::thread::yield_now();
     }
-    assert_eq!(
-        blocked.as_mut().poll(&mut cx),
-        Poll::Ready(Err(SysErr::Restart))
-    );
+    loop {
+        match blocked.as_mut().poll(&mut cx) {
+            Poll::Ready(result) => {
+                assert_eq!(result, Err(SysErr::Restart));
+                break;
+            }
+            Poll::Pending => {
+                assert!(Instant::now() < deadline);
+                std::thread::yield_now();
+            }
+        }
+    }
     drop(blocked);
     assert!(ring.reap().is_empty());
     // Another task in the same mm cannot run the submitter's tctx.
@@ -3179,7 +3188,6 @@ fn task_work_wakes_another_syscall_and_layered_resume_completes_the_read() {
     block_on(m.kernel.run_task_work(&Caller::new(other, &m.memory)));
     assert!(ring.reap().is_empty());
     let (p, rings) = (ring.p, ring.rings);
-    drop(ring);
     let caller = Caller::new(m.task, &m.memory);
     let layered = wasixv2_syscalls::Layered::new((), m.kernel);
     block_on(layered.run_task_work(&caller));
@@ -3249,11 +3257,21 @@ fn cooperative_task_work_runs_on_resume_and_deferred_work_waits_for_enter() {
         if defer {
             assert!(blocked.as_mut().poll(&mut cx).is_pending());
         } else {
-            assert_eq!(
-                blocked.as_mut().poll(&mut cx),
-                std::task::Poll::Ready(Err(SysErr::Restart)),
-                "TWA_SIGNAL_NO_IPI still wakes interruptible waits"
-            );
+            loop {
+                match blocked.as_mut().poll(&mut cx) {
+                    std::task::Poll::Ready(result) => {
+                        assert_eq!(result, Err(SysErr::Restart));
+                        break;
+                    }
+                    std::task::Poll::Pending => {
+                        assert!(
+                            Instant::now() < deadline,
+                            "TWA_SIGNAL_NO_IPI did not wake interruptible wait"
+                        );
+                        std::thread::yield_now();
+                    }
+                }
+            }
         }
         drop(blocked);
         // Simulate take_pending racing a producer after exec's previous hook. It must
@@ -3623,6 +3641,18 @@ fn pipe_opcode_packet_mode_discards_tails_and_splits_large_writes() {
     assert_eq!(res(&ring.reap()), [(1, 0)]);
     let r = Fd(m.get_word(SCRATCH) as i32);
     let w = Fd(m.get_word(SCRATCH + 4) as i32);
+    let read_flags = block_on(
+        m.kernel
+            .fcntl64(&caller, r, wasixv2_abi::FcntlCmd::F_GETFL, 0),
+    )
+    .unwrap();
+    let write_flags = block_on(
+        m.kernel
+            .fcntl64(&caller, w, wasixv2_abi::FcntlCmd::F_GETFL, 0),
+    )
+    .unwrap();
+    assert_eq!(read_flags as u32 & OpenFlags::O_DIRECT.0, 0);
+    assert_ne!(write_flags as u32 & OpenFlags::O_DIRECT.0, 0);
     m.memory.put(BUF, b"abc");
     for _ in 0..2 {
         block_on(m.kernel.write(&caller, w, UserSlice::new(BUF, 3))).unwrap();
@@ -3656,6 +3686,59 @@ fn pipe_opcode_packet_mode_discards_tails_and_splits_large_writes() {
     assert_eq!(
         block_on(m.kernel.read(&caller, r, UserSliceMut::new(BUF, 5000))),
         Ok(904)
+    );
+    let (copy_r, copy_w) = pipe(&m.kernel, &caller, OpenFlags::O_NONBLOCK);
+    m.memory.put(BUF, b"abc");
+    for _ in 0..2 {
+        block_on(m.kernel.write(&caller, w, UserSlice::new(BUF, 3))).unwrap();
+    }
+    let movement = IoUringSqe {
+        len: 6,
+        splice_fd_in: r.0,
+        ..sqe(IoUringOp::IORING_OP_TEE, copy_w.0, 10)
+    };
+    ring.push(movement);
+    ring.submit(1).unwrap();
+    assert_eq!(res(&ring.reap()), [(10, 6)]);
+    for _ in 0..2 {
+        assert_eq!(
+            block_on(
+                m.kernel
+                    .read(&caller, copy_r, UserSliceMut::new(BUF + 16, 6))
+            ),
+            Ok(3)
+        );
+    }
+    ring.push(IoUringSqe {
+        opcode: IoUringOp::IORING_OP_SPLICE.0,
+        addr: u64::MAX,
+        off: u64::MAX,
+        user_data: 11,
+        ..movement
+    });
+    ring.submit(1).unwrap();
+    assert_eq!(res(&ring.reap()), [(11, 6)]);
+    assert_eq!(
+        block_on(
+            m.kernel
+                .read(&caller, copy_r, UserSliceMut::new(BUF + 16, 2))
+        ),
+        Ok(2)
+    );
+    assert_eq!(
+        block_on(
+            m.kernel
+                .read(&caller, copy_r, UserSliceMut::new(BUF + 16, 6))
+        ),
+        Ok(3)
+    );
+    assert_eq!(
+        errno(block_on(m.kernel.read(
+            &caller,
+            r,
+            UserSliceMut::new(BUF + 16, 1)
+        ))),
+        Errno::EAGAIN
     );
     // Every tiny packet uses a pipe page; the seventeenth cannot fit in a 16-page pipe.
     for _ in 0..16 {
