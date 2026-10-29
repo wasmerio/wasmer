@@ -171,6 +171,8 @@ struct TaskInfo {
     mm: Arc<Mm>,
     comm: Comm,
     sched: Sched,
+    /// `NoNewPrivs`, `Seccomp` and `Seccomp_filters`.
+    seccomp: (bool, u32, u32),
     /// `None` once the task is done (`task->nsproxy` is `NULL`).
     ns: Option<Arc<NsProxy>>,
     cpu: CpuTimes,
@@ -266,6 +268,7 @@ impl Source {
             mm: task.mm.clone(),
             comm: task.comm,
             sched: task.sched.clone(),
+            seccomp: task.seccomp.status(),
             ns: task.ns.clone(),
             cpu: task.cpu.times(),
         })

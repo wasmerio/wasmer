@@ -250,6 +250,7 @@ impl Kernel {
                 restart: None,
                 comm: task.comm,
                 sched,
+                seccomp: task.seccomp.clone(),
                 thread,
                 signals: task
                     .signals
@@ -732,7 +733,10 @@ impl Kernel {
                 unstarted.extend(entry.work.push(GuestAction::StartImage { task: leader }));
             }
             unstarted.extend(entry.work.push(GuestAction::Exit(0)));
+            // The caller goes on as the leader: with its seccomp state, not the old leader's.
+            let seccomp = entry.seccomp.clone();
             let entry = state.tasks.get_mut(&leader).expect("the leader is listed");
+            entry.seccomp = seccomp;
             if detached {
                 entry.work.detach_exec();
             }

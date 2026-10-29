@@ -1283,9 +1283,11 @@ impl Kernel {
             let ns = task
                 .live_ns()
                 .copy(self, flags.0, &cred, &parent.pid_ns, own_fs.as_mut())?;
-            let mut ident = parent.ident.lock_or_recover().for_child();
+            let ident = parent.ident.lock_or_recover().for_child();
+            // `copy_seccomp`.
+            let mut seccomp = task.seccomp.clone();
             if flags.contains(CloneFlags::CLONE_NNP) {
-                ident.no_new_privs = true;
+                seccomp.no_new_privs = true;
             }
             let id = TaskId(state.last_id + 1);
             // `checkpoint_restore_ns_capable` over each pid namespace's owner, for the caller.
@@ -1354,6 +1356,7 @@ impl Kernel {
                 restart: None,
                 comm: task.comm,
                 sched,
+                seccomp,
                 thread: task.thread.for_process(flags, tls, child_tid),
                 signals,
             };
@@ -1645,7 +1648,7 @@ impl Kernel {
         signals.group().exec_reset();
         *process.args.lock_or_recover() = args;
         *process.env.lock_or_recover() = env;
-        let no_new_privs = process.ident.lock_or_recover().no_new_privs;
+        let no_new_privs = self.task_ref(task, |t| t.seccomp.no_new_privs);
         let old = process.cred();
         let (cred, secure) = old.exec(
             binary.mode,

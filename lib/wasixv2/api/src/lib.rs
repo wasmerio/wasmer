@@ -31,7 +31,7 @@ pub use wasixv2_host::{
     WindowSize,
 };
 pub use wasixv2_kernel::{Credentials, ProcessConfig, Stdio, Uname, UnameError};
-use wasixv2_kernel::{FilesystemType, FsParam, HostClock, Kernel};
+use wasixv2_kernel::{FilesystemType, FsParam, HostClock, Kernel, SyscallEntry};
 use wasixv2_pages::{Provider, SharedPages};
 use wasixv2_syscalls::{Layered, TaskId};
 use wasixv2_trace::Trace;
@@ -68,6 +68,14 @@ pub enum RunError {
 /// The directories [`Machine::install_commands`] puts commands in, relative to the root.
 const COMMAND_DIRS: [&str; 2] = ["bin", "usr/bin"];
 
+/// The syscalls programs call: through the kernel's syscall entry (seccomp), traced, into the
+/// kernel.
+type Stack = Layered<SyscallEntry<Trace>, Kernel>;
+
+fn stack(kernel: Kernel) -> Stack {
+    Layered::new(SyscallEntry(Trace), kernel)
+}
+
 /// One kernel and the processes it runs.
 ///
 /// The root filesystem is in memory and laid out as a small Linux system (see
@@ -82,9 +90,9 @@ const COMMAND_DIRS: [&str; 2] = ["bin", "usr/bin"];
 /// Processes run as the machine's user ([`MachineBuilder::user`]), which also owns the root
 /// filesystem, mapped host directories and package volumes.
 pub struct Machine {
-    syscalls: Arc<Layered<Trace, Kernel>>,
+    syscalls: Arc<Stack>,
     /// The guest ABIs programs may target: `wasixv2`, then WASIX v1 with the `wasix1` feature.
-    abis: Arc<Abis<Layered<Trace, Kernel>>>,
+    abis: Arc<Abis<Stack>>,
     /// The package commands WASIX v1 programs start with their defaults.
     #[cfg(feature = "wasix1")]
     wasix1: Wasix1Commands,
@@ -249,7 +257,7 @@ impl MachineBuilder {
         );
         now(mount_kernel_filesystems(&kernel, &host));
         Machine {
-            syscalls: Arc::new(Layered::new(Trace, kernel)),
+            syscalls: Arc::new(stack(kernel)),
             abis,
             #[cfg(feature = "wasix1")]
             wasix1,
@@ -394,7 +402,7 @@ impl Machine {
             self.abis.clone(),
         );
         mount_kernel_filesystems(&kernel, &self.host).await;
-        self.syscalls = Arc::new(Layered::new(Trace, kernel));
+        self.syscalls = Arc::new(stack(kernel));
         Ok(())
     }
 
@@ -782,7 +790,7 @@ pub struct Layer(Arc<dyn Filesystem>);
 /// [`Machine::signaller`].
 #[derive(Clone)]
 pub struct Signaller {
-    syscalls: Arc<Layered<Trace, Kernel>>,
+    syscalls: Arc<Stack>,
     running: Arc<Mutex<Vec<TaskId>>>,
 }
 
@@ -887,7 +895,7 @@ fn boot(
     uname: &Uname,
     init: bool,
     console: Option<&Console>,
-    abis: Arc<Abis<Layered<Trace, Kernel>>>,
+    abis: Arc<Abis<Stack>>,
 ) -> Kernel {
     let mut kernel = Kernel::new(host.clone(), root)
         .with_binfmt(abis)
@@ -925,7 +933,7 @@ struct Wasix1Commands {
 fn abis(
     loader: Option<Arc<dyn Loader>>,
     #[cfg(feature = "wasix1")] wasix1: &Wasix1Commands,
-) -> Abis<Layered<Trace, Kernel>> {
+) -> Abis<Stack> {
     let mut abis = Abis::new();
     if let Some(loader) = loader {
         abis.set_loader(loader);
