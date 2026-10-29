@@ -1,0 +1,659 @@
+//! ptrace at the level of syscalls and signals: attaching, ptrace stops and what wait reports of
+//! them, the tracee's memory, syscall stops, event stops, and the ends of tracer and tracee.
+
+use futures::FutureExt as _;
+use wasixv2_abi::{
+    Idtype, PtraceEvent, PtraceOptions, PtraceRequest as R, RusagePtr, S32Ptr, SiCode, Siginfo,
+    Signal, WaitOptions,
+};
+use wasixv2_syscalls::{Layered, read_value};
+
+use super::{
+    introspect::SyncMemory,
+    ipc::{errno, get},
+    proc::{ForkableMemory, fork_child},
+    *,
+};
+
+const SIGTRAP: i32 = Signal::SIGTRAP.0;
+const WALL: u32 = WaitOptions::__WALL.0;
+const WNOHANG: u32 = WaitOptions::WNOHANG.0;
+const NR_GETPID: u64 = 172;
+
+type Stack = Layered<SyscallEntry, Kernel>;
+
+fn machine() -> (Stack, TaskId, ForkableMemory) {
+    let (kernel, task, _) = setup(b"");
+    let memory = ForkableMemory(FlatMemory(RefCell::new(vec![0; 65536])));
+    (Layered::new(SyscallEntry(Dispatch), kernel), task, memory)
+}
+
+fn flat() -> FlatMemory {
+    FlatMemory(RefCell::new(vec![0; 65536]))
+}
+
+fn ptrace(
+    kernel: &Kernel,
+    caller: &Caller<'_>,
+    request: R,
+    pid: TaskId,
+    addr: u32,
+    data: u32,
+) -> SysResult<i32> {
+    block_on(kernel.ptrace(caller, request, pid.0 as i32, addr, data))
+}
+
+/// `waitpid(pid, WNOHANG | options)` as libc2 makes it (`waitid` with `WEXITED`): the
+/// report's code, status and pid, or `None`.
+fn wait(
+    kernel: &Kernel,
+    caller: &Caller<'_>,
+    pid: TaskId,
+    options: u32,
+) -> Option<(SiCode, i32, i32)> {
+    let infop = GuestPtrMut::new(0x500);
+    let options = WaitOptions(options | WNOHANG | WaitOptions::WEXITED.0);
+    let which = kernel.waitid(
+        caller,
+        Idtype::P_PID,
+        pid.0 as i32,
+        infop,
+        options,
+        RusagePtr::NULL,
+    );
+    block_on(which).unwrap();
+    let info: Siginfo = block_on(read_value(caller.memory(), GuestPtr::new(0x500))).unwrap();
+    let field = |at: usize| i32::from_le_bytes(info.sifields[at..at + 4].try_into().unwrap());
+    (field(0) != 0).then(|| (SiCode(info.si_code), field(8), field(0)))
+}
+
+/// libc2's `__emulate_wait4` status for a stop (`CLD_STOPPED`, `CLD_TRAPPED`): the event bits
+/// of `si_status` stay above the signal.
+fn wait4_status(si_status: i32) -> i32 {
+    (si_status << 8) + 0x7f
+}
+
+/// Whether `task` waits in a stop.
+fn waits_stopped(kernel: &Kernel, task: TaskId) -> bool {
+    Box::pin(kernel.stop_wait(task)).now_or_never().is_none()
+}
+
+/// A child of `parent` that runs on memory of its own, traced the old way
+/// (`PTRACE_TRACEME`) and stopped by SIGSTOP, as strace's children start.
+fn traced_child(kernel: &Kernel, caller: &Caller<'_>, child_memory: &FlatMemory) -> TaskId {
+    let child = fork_child(kernel, caller);
+    let child_caller = Caller::new(child, child_memory);
+    assert_eq!(
+        ptrace(kernel, &child_caller, R::PTRACE_TRACEME, TaskId(0), 0, 0),
+        Ok(0)
+    );
+    kernel.kill(child, Signal::SIGSTOP).unwrap();
+    assert_eq!(kernel.take_pending(child), Some(GuestAction::Stopped));
+    let stopped = wait(kernel, caller, child, WALL);
+    assert_eq!(
+        stopped.map(|(code, status, _)| (code, status)),
+        Some((SiCode::CLD_TRAPPED, Signal::SIGSTOP.0))
+    );
+    child
+}
+
+/// `PTRACE_TRACEME`, then a signal-delivery stop: the tracer's wait reports `CLD_TRAPPED` with
+/// the signal, once, without `WUNTRACED`; the tracer reads the `siginfo`, and its `PTRACE_CONT`
+/// decides what is delivered: nothing, or another signal.
+#[test]
+fn a_tracee_stops_for_each_signal_and_delivers_what_the_tracer_chose() {
+    let (stack, parent, memory) = machine();
+    let kernel = &stack.inner;
+    let caller = Caller::new(parent, &memory);
+    let child_memory = flat();
+    let child = traced_child(kernel, &caller, &child_memory);
+    let child_caller = Caller::new(child, &child_memory);
+    assert_eq!(
+        errno(ptrace(
+            kernel,
+            &child_caller,
+            R::PTRACE_TRACEME,
+            TaskId(0),
+            0,
+            0
+        )),
+        Errno::EPERM
+    );
+    assert!(waits_stopped(kernel, child));
+    assert_eq!(wait(kernel, &caller, child, WALL), None, "reported once");
+
+    // Discard the SIGSTOP; the child runs.
+    assert_eq!(ptrace(kernel, &caller, R::PTRACE_CONT, child, 0, 0), Ok(0));
+    assert!(!waits_stopped(kernel, child));
+    assert_eq!(kernel.take_pending(child), None);
+    assert_eq!(
+        errno(ptrace(
+            kernel,
+            &caller,
+            R::PTRACE_GETSIGINFO,
+            child,
+            0,
+            0x600
+        )),
+        Errno::ESRCH
+    );
+
+    // An ignored signal stops a traced task too; the tracer swaps it for SIGUSR2's
+    // replacement, SIGWINCH, which is ignored.
+    kernel.kill(child, Signal::SIGURG).unwrap();
+    assert_eq!(kernel.take_pending(child), Some(GuestAction::Stopped));
+    let (code, status, pid) = wait(kernel, &caller, child, WALL).unwrap();
+    assert_eq!(
+        (code, status, pid),
+        (SiCode::CLD_TRAPPED, Signal::SIGURG.0, child.0 as i32)
+    );
+    assert_eq!(
+        ptrace(kernel, &caller, R::PTRACE_GETSIGINFO, child, 0, 0x600),
+        Ok(0)
+    );
+    let info: Siginfo = block_on(read_value(&memory, GuestPtr::new(0x600))).unwrap();
+    assert_eq!(info.si_signo, Signal::SIGURG.0);
+    assert_eq!(
+        ptrace(
+            kernel,
+            &caller,
+            R::PTRACE_CONT,
+            child,
+            0,
+            Signal::SIGWINCH.0 as u32
+        ),
+        Ok(0)
+    );
+    assert_eq!(kernel.take_pending(child), None);
+
+    // A signal the tracer passes on is delivered: SIGTERM's default action kills.
+    kernel.kill(child, Signal::SIGTERM).unwrap();
+    assert_eq!(kernel.take_pending(child), Some(GuestAction::Stopped));
+    assert!(wait(kernel, &caller, child, WALL).is_some());
+    assert_eq!(
+        errno(ptrace(kernel, &caller, R::PTRACE_CONT, child, 0, 65)),
+        Errno::EIO
+    );
+    assert_eq!(
+        ptrace(
+            kernel,
+            &caller,
+            R::PTRACE_CONT,
+            child,
+            0,
+            Signal::SIGTERM.0 as u32
+        ),
+        Ok(0)
+    );
+    assert!(matches!(
+        kernel.take_pending(child),
+        Some(GuestAction::Exit(_))
+    ));
+}
+
+/// `PTRACE_ATTACH` stops the task with SIGSTOP; in its stop the tracer reads and writes its
+/// memory (`PEEKDATA`, `POKEDATA`), and there are no registers or steps (`EIO`). `PTRACE_DETACH`
+/// lets it go.
+#[test]
+fn attach_peeks_and_pokes_the_tracees_memory() {
+    let (stack, parent, memory) = machine();
+    let kernel = &stack.inner;
+    let caller = Caller::new(parent, &memory);
+    let child = fork_child(kernel, &caller);
+    let shared = SyncMemory::new(2 * 65536, 0x100);
+    kernel.attach_memory(child, shared.clone());
+    shared.put(0x2000, &0x1234_5678u32.to_le_bytes());
+
+    assert_eq!(
+        errno(ptrace(kernel, &caller, R::PTRACE_ATTACH, parent, 0, 0)),
+        Errno::EPERM
+    );
+    assert_eq!(
+        ptrace(kernel, &caller, R::PTRACE_ATTACH, child, 0, 0),
+        Ok(0)
+    );
+    assert_eq!(
+        errno(ptrace(kernel, &caller, R::PTRACE_ATTACH, child, 0, 0)),
+        Errno::EPERM
+    );
+    // Not stopped yet.
+    assert_eq!(
+        errno(ptrace(
+            kernel,
+            &caller,
+            R::PTRACE_PEEKDATA,
+            child,
+            0x2000,
+            0x600
+        )),
+        Errno::ESRCH
+    );
+    assert_eq!(kernel.take_pending(child), Some(GuestAction::Stopped));
+    let stopped = wait(kernel, &caller, child, WALL).map(|(code, status, _)| (code, status));
+    assert_eq!(stopped, Some((SiCode::CLD_TRAPPED, Signal::SIGSTOP.0)));
+
+    assert_eq!(
+        ptrace(kernel, &caller, R::PTRACE_PEEKDATA, child, 0x2000, 0x600),
+        Ok(0)
+    );
+    assert_eq!(get(&memory.0, 0x600, 4), 0x1234_5678u32.to_le_bytes());
+    assert_eq!(
+        ptrace(kernel, &caller, R::PTRACE_PEEKTEXT, child, 0x2000, 0x600),
+        Ok(0)
+    );
+    assert_eq!(
+        ptrace(
+            kernel,
+            &caller,
+            R::PTRACE_POKEDATA,
+            child,
+            0x2004,
+            0xdead_beef
+        ),
+        Ok(0)
+    );
+    assert_eq!(shared.get(0x2004, 4), 0xdead_beefu32.to_le_bytes());
+    let end = 2 * 65536 - 2;
+    assert_eq!(
+        errno(ptrace(
+            kernel,
+            &caller,
+            R::PTRACE_PEEKDATA,
+            child,
+            end,
+            0x600
+        )),
+        Errno::EIO
+    );
+    assert_eq!(
+        errno(ptrace(kernel, &caller, R::PTRACE_POKEDATA, child, 0x10, 1)),
+        Errno::EIO,
+        "the guard"
+    );
+    for request in [
+        R::PTRACE_PEEKUSR,
+        R::PTRACE_POKEUSR,
+        R::PTRACE_SINGLESTEP,
+        R::PTRACE_GETREGSET,
+    ] {
+        assert_eq!(
+            errno(ptrace(kernel, &caller, request, child, 0, 0x600)),
+            Errno::EIO,
+            "{request:?}"
+        );
+    }
+
+    assert_eq!(
+        ptrace(kernel, &caller, R::PTRACE_DETACH, child, 0, 0),
+        Ok(0)
+    );
+    assert_eq!(kernel.take_pending(child), None);
+    assert_eq!(
+        errno(ptrace(kernel, &caller, R::PTRACE_CONT, child, 0, 0)),
+        Errno::ESRCH
+    );
+}
+
+/// `PTRACE_SYSCALL` with `PTRACE_O_TRACESYSGOOD`: the call stops at its entry and at its exit
+/// with `SIGTRAP | 0x80`, which libc's `waitpid` reports as `WSTOPSIG`, and
+/// `PTRACE_GET_SYSCALL_INFO` tells the call's number and arguments, then its result.
+#[test]
+fn syscall_stops_report_entry_and_exit() {
+    let (stack, parent, memory) = machine();
+    let kernel = &stack.inner;
+    let caller = Caller::new(parent, &memory);
+    let child_memory = flat();
+    let child = traced_child(kernel, &caller, &child_memory);
+    let child_caller = Caller::new(child, &child_memory);
+    let sysgood = PtraceOptions::PTRACE_O_TRACESYSGOOD.0;
+    assert_eq!(
+        ptrace(kernel, &caller, R::PTRACE_SETOPTIONS, child, 0, sysgood),
+        Ok(0)
+    );
+    assert_eq!(
+        errno(ptrace(
+            kernel,
+            &caller,
+            R::PTRACE_SETOPTIONS,
+            child,
+            0,
+            1 << 30
+        )),
+        Errno::EINVAL
+    );
+    assert_eq!(
+        ptrace(kernel, &caller, R::PTRACE_SYSCALL, child, 0, 0),
+        Ok(0)
+    );
+    assert_eq!(kernel.take_pending(child), None);
+
+    let mut call = Box::pin(stack.getpid(&child_caller));
+    assert!(
+        call.as_mut().now_or_never().is_none(),
+        "stopped at the entry"
+    );
+    let (code, status, _) = wait(kernel, &caller, child, WALL).unwrap();
+    assert_eq!((code, status), (SiCode::CLD_TRAPPED, SIGTRAP | 0x80));
+    assert_eq!(wait4_status(status), 0x857f);
+    assert_eq!(
+        ptrace(
+            kernel,
+            &caller,
+            R::PTRACE_GET_SYSCALL_INFO,
+            child,
+            88,
+            0x700
+        ),
+        Ok(80)
+    );
+    let info = get(&memory.0, 0x700, 88);
+    assert_eq!(info[0], 1, "PTRACE_SYSCALL_INFO_ENTRY");
+    assert_eq!(
+        u32::from_le_bytes(info[4..8].try_into().unwrap()),
+        0x4000_00f3,
+        "AUDIT_ARCH_RISCV32"
+    );
+    assert_eq!(
+        u64::from_le_bytes(info[24..32].try_into().unwrap()),
+        NR_GETPID
+    );
+    assert_eq!(
+        ptrace(kernel, &caller, R::PTRACE_GETEVENTMSG, child, 0, 0x680),
+        Ok(0)
+    );
+    assert_eq!(
+        get(&memory.0, 0x680, 4),
+        1u32.to_le_bytes(),
+        "PTRACE_EVENTMSG_SYSCALL_ENTRY"
+    );
+    // Only what fits is written; the whole size is returned.
+    assert_eq!(
+        ptrace(kernel, &caller, R::PTRACE_GET_SYSCALL_INFO, child, 8, 0x800),
+        Ok(80)
+    );
+
+    assert_eq!(
+        ptrace(kernel, &caller, R::PTRACE_SYSCALL, child, 0, 0),
+        Ok(0)
+    );
+    assert!(
+        call.as_mut().now_or_never().is_none(),
+        "stopped at the exit"
+    );
+    let (_, status, _) = wait(kernel, &caller, child, WALL).unwrap();
+    assert_eq!(status, SIGTRAP | 0x80);
+    assert_eq!(
+        ptrace(
+            kernel,
+            &caller,
+            R::PTRACE_GET_SYSCALL_INFO,
+            child,
+            88,
+            0x700
+        ),
+        Ok(33)
+    );
+    let info = get(&memory.0, 0x700, 33);
+    assert_eq!(info[0], 2, "PTRACE_SYSCALL_INFO_EXIT");
+    let pid = i64::from_le_bytes(info[24..32].try_into().unwrap());
+    assert_eq!((pid, info[32]), (i64::from(child.0), 0));
+
+    assert_eq!(ptrace(kernel, &caller, R::PTRACE_CONT, child, 0, 0), Ok(0));
+    assert_eq!(call.as_mut().now_or_never(), Some(Ok(child.0 as i32)));
+    // Without PTRACE_SYSCALL nothing stops.
+    assert_eq!(block_on(stack.getpid(&child_caller)), Ok(child.0 as i32));
+}
+
+/// `PTRACE_SEIZE` does not stop the task; `PTRACE_INTERRUPT` makes it trap with
+/// `PTRACE_EVENT_STOP`, whose event bits wait reports above SIGTRAP; `PTRACE_LISTEN` keeps it
+/// there without a report.
+#[test]
+fn seize_interrupt_and_listen() {
+    let (stack, parent, memory) = machine();
+    let kernel = &stack.inner;
+    let caller = Caller::new(parent, &memory);
+    let child = fork_child(kernel, &caller);
+    let options = PtraceOptions::PTRACE_O_TRACESYSGOOD.0;
+    assert_eq!(
+        errno(ptrace(kernel, &caller, R::PTRACE_SEIZE, child, 4, 0)),
+        Errno::EIO
+    );
+    assert_eq!(
+        errno(ptrace(kernel, &caller, R::PTRACE_SEIZE, child, 0, 1 << 30)),
+        Errno::EIO
+    );
+    assert_eq!(
+        ptrace(kernel, &caller, R::PTRACE_SEIZE, child, 0, options),
+        Ok(0)
+    );
+    assert_eq!(kernel.take_pending(child), None, "no SIGSTOP");
+    assert_eq!(wait(kernel, &caller, child, WALL), None);
+
+    assert_eq!(
+        ptrace(kernel, &caller, R::PTRACE_INTERRUPT, child, 0, 0),
+        Ok(0)
+    );
+    assert_eq!(kernel.take_pending(child), Some(GuestAction::Stopped));
+    let event_stop = SIGTRAP | PtraceEvent::PTRACE_EVENT_STOP.0 << 8;
+    let (code, status, _) = wait(kernel, &caller, child, WALL).unwrap();
+    // A tracer's wait reports every ptrace stop as trapped (`wait_task_stopped`).
+    assert_eq!((code, status), (SiCode::CLD_TRAPPED, event_stop));
+    assert_eq!(wait4_status(status) >> 16, PtraceEvent::PTRACE_EVENT_STOP.0);
+    assert_eq!(wait4_status(status) >> 8 & 0xff, SIGTRAP);
+    assert_eq!(
+        ptrace(kernel, &caller, R::PTRACE_GETSIGINFO, child, 0, 0x600),
+        Ok(0)
+    );
+    let info: Siginfo = block_on(read_value(&memory, GuestPtr::new(0x600))).unwrap();
+    assert_eq!(info.si_code, event_stop);
+
+    assert_eq!(
+        ptrace(kernel, &caller, R::PTRACE_LISTEN, child, 0, 0),
+        Ok(0)
+    );
+    assert!(waits_stopped(kernel, child));
+    assert_eq!(
+        errno(ptrace(kernel, &caller, R::PTRACE_CONT, child, 0, 0)),
+        Errno::ESRCH,
+        "listening"
+    );
+    assert_eq!(
+        ptrace(kernel, &caller, R::PTRACE_INTERRUPT, child, 0, 0),
+        Ok(0)
+    );
+    assert_eq!(kernel.take_pending(child), Some(GuestAction::Stopped));
+    assert!(wait(kernel, &caller, child, WALL).is_some());
+    assert_eq!(ptrace(kernel, &caller, R::PTRACE_CONT, child, 0, 0), Ok(0));
+    assert_eq!(kernel.take_pending(child), None);
+}
+
+/// With `PTRACE_O_TRACEFORK` a fork stops the parent with `PTRACE_EVENT_FORK`, whose message
+/// is the child's pid, and the child is traced too, starting in a trap stop.
+#[test]
+fn a_traced_fork_reports_the_child_which_is_traced_too() {
+    let (stack, tracer, memory) = machine();
+    let kernel = &stack.inner;
+    let caller = Caller::new(tracer, &memory);
+    let child = fork_child(kernel, &caller);
+    let options = PtraceOptions::PTRACE_O_TRACEFORK.0;
+    assert_eq!(
+        ptrace(kernel, &caller, R::PTRACE_SEIZE, child, 0, options),
+        Ok(0)
+    );
+
+    let child_memory = ForkableMemory(flat());
+    let child_caller = Caller::new(child, &child_memory);
+    let sigchld = u32::try_from(Signal::SIGCHLD.0).unwrap();
+    let (parent_tid, child_tid) = (S32Ptr::new(8), S32Ptr::new(16));
+    let mut fork = Box::pin(kernel.clone(&child_caller, sigchld, 0, parent_tid, 0, child_tid));
+    assert!(fork.as_mut().now_or_never().is_none(), "the event stop");
+    let (code, status, _) = wait(kernel, &caller, child, WALL).unwrap();
+    assert_eq!(
+        (code, status),
+        (
+            SiCode::CLD_TRAPPED,
+            SIGTRAP | PtraceEvent::PTRACE_EVENT_FORK.0 << 8
+        )
+    );
+    assert_eq!(
+        ptrace(kernel, &caller, R::PTRACE_GETEVENTMSG, child, 0, 0x680),
+        Ok(0)
+    );
+    let grandchild = TaskId(u32::from_le_bytes(
+        get(&memory.0, 0x680, 4).try_into().unwrap(),
+    ));
+    assert_ne!(grandchild, child);
+
+    assert_eq!(kernel.task_signals(grandchild).tracer(), Some(tracer));
+    assert_eq!(kernel.take_pending(grandchild), Some(GuestAction::Stopped));
+    let (_, status, pid) = wait(kernel, &caller, grandchild, WALL).unwrap();
+    assert_eq!(status, SIGTRAP | PtraceEvent::PTRACE_EVENT_STOP.0 << 8);
+    assert_eq!(pid, grandchild.0 as i32);
+
+    assert_eq!(ptrace(kernel, &caller, R::PTRACE_CONT, child, 0, 0), Ok(0));
+    assert_eq!(fork.as_mut().now_or_never(), Some(Ok(grandchild.0 as i32)));
+}
+
+/// A tracee's end is reported to a tracer that is not its parent (`WEXITED`), and a tracer's
+/// end lets its tracees go, killing them with `PTRACE_O_EXITKILL`.
+#[test]
+fn the_ends_of_tracee_and_tracer() {
+    let (stack, parent, memory) = machine();
+    let kernel = &stack.inner;
+    let caller = Caller::new(parent, &memory);
+    // Siblings: Yama's default lets only an ancestor attach.
+    let tracer = fork_child(kernel, &caller);
+    let tracee = fork_child(kernel, &caller);
+    let victim = fork_child(kernel, &caller);
+    let tracer_memory = flat();
+    let tracer_caller = Caller::new(tracer, &tracer_memory);
+    assert_eq!(
+        errno(ptrace(
+            kernel,
+            &tracer_caller,
+            R::PTRACE_SEIZE,
+            tracee,
+            0,
+            0
+        )),
+        Errno::EPERM
+    );
+    kernel.yama.set_scope(0).unwrap();
+    assert_eq!(
+        ptrace(kernel, &tracer_caller, R::PTRACE_SEIZE, tracee, 0, 0),
+        Ok(0)
+    );
+    let exitkill = PtraceOptions::PTRACE_O_EXITKILL.0;
+    assert_eq!(
+        ptrace(kernel, &tracer_caller, R::PTRACE_SEIZE, victim, 0, exitkill),
+        Ok(0)
+    );
+
+    let tracee_memory = flat();
+    let tracee_caller = Caller::new(tracee, &tracee_memory);
+    assert_eq!(block_on(kernel.exit_group(&tracee_caller, 3)), Ok(()));
+    assert!(matches!(
+        kernel.take_pending(tracee),
+        Some(GuestAction::Exit(3))
+    ));
+    let reported = wait(kernel, &tracer_caller, tracee, WALL);
+    assert_eq!(
+        reported.map(|(code, status, _)| (code, status)),
+        Some((SiCode::CLD_EXITED, 3))
+    );
+    // Its parent still reaps the zombie.
+    let reaped = wait(kernel, &caller, tracee, 0).map(|(code, status, _)| (code, status));
+    assert_eq!(reaped, Some((SiCode::CLD_EXITED, 3)));
+
+    assert_eq!(block_on(kernel.exit_group(&tracer_caller, 0)), Ok(()));
+    assert!(matches!(
+        kernel.take_pending(tracer),
+        Some(GuestAction::Exit(0))
+    ));
+    assert_eq!(kernel.task_signals(victim).tracer(), None);
+    assert!(
+        matches!(kernel.take_pending(victim), Some(GuestAction::Exit(_))),
+        "SIGKILL"
+    );
+}
+
+/// Yama's scope 3 forbids even `PTRACE_TRACEME`; scope 2 needs `CAP_SYS_PTRACE` of the parent.
+#[test]
+fn yama_scopes_limit_traceme() {
+    let (stack, parent, memory) = machine();
+    let kernel = &stack.inner;
+    let caller = Caller::new(parent, &memory);
+    let child = fork_child(kernel, &caller);
+    let child_memory = flat();
+    let child_caller = Caller::new(child, &child_memory);
+    kernel.yama.set_scope(2).unwrap();
+    assert_eq!(
+        errno(ptrace(
+            kernel,
+            &child_caller,
+            R::PTRACE_TRACEME,
+            TaskId(0),
+            0,
+            0
+        )),
+        Errno::EPERM
+    );
+    kernel.yama.set_scope(3).unwrap();
+    assert_eq!(
+        errno(ptrace(
+            kernel,
+            &child_caller,
+            R::PTRACE_TRACEME,
+            TaskId(0),
+            0,
+            0
+        )),
+        Errno::EPERM
+    );
+}
+
+/// `execve` of a task traced the old way, without `PTRACE_O_TRACEEXEC`, sends it SIGTRAP; with
+/// the option it stops with `PTRACE_EVENT_EXEC`.
+#[test]
+fn execve_of_a_tracee_traps() {
+    let (stack, parent, memory) = machine();
+    let kernel = &stack.inner;
+    let caller = Caller::new(parent, &memory);
+    let child_memory = flat();
+    let child = traced_child(kernel, &caller, &child_memory);
+    let child_caller = Caller::new(child, &child_memory);
+    super::task::install_prog(kernel, &child_caller, &child_memory);
+    assert_eq!(ptrace(kernel, &caller, R::PTRACE_CONT, child, 0, 0), Ok(0));
+    assert_eq!(kernel.take_pending(child), None);
+    assert_eq!(block_on(super::task::execve(kernel, &child_caller)), Ok(0));
+    while let Some(action) = kernel.take_pending(child) {
+        if action == GuestAction::Stopped {
+            break;
+        }
+    }
+    let (code, status, _) = wait(kernel, &caller, child, WALL).unwrap();
+    assert_eq!((code, status), (SiCode::CLD_TRAPPED, SIGTRAP));
+
+    let exec = PtraceOptions::PTRACE_O_TRACEEXEC.0;
+    assert_eq!(
+        ptrace(kernel, &caller, R::PTRACE_SETOPTIONS, child, 0, exec),
+        Ok(0)
+    );
+    assert_eq!(ptrace(kernel, &caller, R::PTRACE_CONT, child, 0, 0), Ok(0));
+    while kernel.take_pending(child).is_some() {}
+    let mut call = Box::pin(super::task::execve(kernel, &child_caller));
+    assert!(call.as_mut().now_or_never().is_none());
+    let (_, status, _) = wait(kernel, &caller, child, WALL).unwrap();
+    assert_eq!(status, SIGTRAP | PtraceEvent::PTRACE_EVENT_EXEC.0 << 8);
+    assert_eq!(
+        ptrace(kernel, &caller, R::PTRACE_GETEVENTMSG, child, 0, 0x680),
+        Ok(0)
+    );
+    assert_eq!(
+        get(&memory.0, 0x680, 4),
+        child.0.to_le_bytes(),
+        "the old tid"
+    );
+    assert_eq!(ptrace(kernel, &caller, R::PTRACE_CONT, child, 0, 0), Ok(0));
+    assert_eq!(call.as_mut().now_or_never(), Some(Ok(0)));
+}

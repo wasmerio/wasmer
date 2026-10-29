@@ -1,7 +1,8 @@
 //! Syscall entry (`syscall_trace_enter`): what the kernel does with a call before it runs it,
 //! as a [`Layer`] in front of the kernel. Today that is seccomp.
 
-use wasixv2_syscalls::{Caller, Layer, SysResult, Syscall, SyscallRet, Syscalls, dispatch};
+use wasixv2_abi::Errno;
+use wasixv2_syscalls::{Caller, Layer, SysErr, SysResult, Syscall, SyscallRet, Syscalls, dispatch};
 
 use crate::Kernel;
 
@@ -26,10 +27,15 @@ impl<L: Layer<Kernel>> Layer<Kernel> for SyscallEntry<L> {
         call: Syscall,
         next: &Kernel,
     ) -> SysResult<SyscallRet> {
-        match next.syscall_entry(caller, &call).await {
+        let traced = next.tracees.used();
+        let ret = match next.syscall_entry(caller, &call).await {
             Some(ret) => ret,
             None => self.0.call(caller, call, next).await,
+        };
+        if traced {
+            next.syscall_exit(caller, &ret).await;
         }
+        ret
     }
 }
 
@@ -75,6 +81,36 @@ impl Kernel {
             ),
             _ => (call.nr()?, call.args()),
         };
+        // `syscall_trace_enter`: the tracer sees the call first, then seccomp filters it,
+        // unless the tracer suspended seccomp (`PTRACE_O_SUSPEND_SECCOMP`).
+        if self.ptrace_syscall_entry(caller, nr, args).await {
+            return Some(Err(Errno::ENOSYS.into()));
+        }
+        let suspended = self
+            .trace_link(caller.task())
+            .is_some_and(|link| link.has(wasixv2_abi::PtraceOptions::PTRACE_O_SUSPEND_SECCOMP));
+        if suspended {
+            return None;
+        }
         self.secure_computing(caller, call, nr, args).await
+    }
+
+    /// `syscall_exit_work`: a traced task's tracer sees the call's end, unless the task is
+    /// on its way out (an `exit`, a fatal signal), as Linux never returns from those.
+    async fn syscall_exit(&self, caller: &Caller<'_>, ret: &SysResult<SyscallRet>) {
+        let task = caller.task();
+        if self.trace_link(task).is_none() || self.exiting_task(task) {
+            return;
+        }
+        let raw = match ret {
+            Ok(ret) => ret.to_raw(),
+            Err(SysErr::Errno(errno)) => -i64::from(errno.0),
+            // The `-ERESTART*` codes a tracer sees for an interrupted call.
+            Err(SysErr::Restart) => -512,
+            Err(SysErr::RestartNoIntr) => -513,
+            Err(SysErr::RestartNoHand) => -514,
+            Err(SysErr::RestartBlock) => -516,
+        };
+        self.ptrace_syscall_exit(task, raw).await;
     }
 }

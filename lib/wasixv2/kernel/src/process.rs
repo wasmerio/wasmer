@@ -232,11 +232,11 @@ struct Binary {
 
 /// How a process ended, as `waitid` reports it.
 #[derive(Clone, Copy)]
-struct Exit {
-    code: SiCode,
-    status: i32,
+pub(crate) struct Exit {
+    pub(crate) code: SiCode,
+    pub(crate) status: i32,
     /// The process's real uid when it exited.
-    uid: Kuid,
+    pub(crate) uid: Kuid,
 }
 
 impl Exit {
@@ -423,7 +423,7 @@ pub(crate) fn vfork_parent_resumes(state: &State, action: GuestAction) -> GuestA
 
 /// The `siginfo` of SIGCHLD and `waitid`: `si_pid` (the child's pid as the parent sees it),
 /// `si_uid` (the child's real uid as the parent's user namespace `ns` sees it), `si_status`.
-fn child_info(signo: i32, pid: Pid, exit: Exit, ns: &UserNs) -> Siginfo {
+pub(crate) fn child_info(signo: i32, pid: Pid, exit: Exit, ns: &UserNs) -> Siginfo {
     let mut info = Siginfo {
         si_signo: signo,
         si_errno: 0,
@@ -438,7 +438,7 @@ fn child_info(signo: i32, pid: Pid, exit: Exit, ns: &UserNs) -> Siginfo {
 
 /// Which children a `waitid` asks about.
 #[derive(Clone, Copy)]
-enum Which {
+pub(crate) enum Which {
     All,
     Pid(u32),
     Pgid(u32),
@@ -593,7 +593,7 @@ impl Kernel {
     }
 
     /// The signal state of the thread group led by `pid`.
-    fn group_signals(&self, pid: u32) -> Option<Arc<Signals>> {
+    pub(crate) fn group_signals(&self, pid: u32) -> Option<Arc<Signals>> {
         self.jobs.group_signals(pid)
     }
 
@@ -604,6 +604,20 @@ impl Kernel {
             || self.init_user_ns.clone(),
             |process| process.cred().user_ns,
         )
+    }
+
+    /// The signal whose default action killed the process `pid`, if one did.
+    pub(crate) fn killed_by(&self, pid: u32) -> Option<i32> {
+        let tree = self.procs.tree.lock_or_recover();
+        tree.nodes.get(&pid).and_then(|node| node.killed_by)
+    }
+
+    /// Whether the process `pid`'s parent is the process `parent`.
+    pub(crate) fn is_parent_of(&self, parent: u32, pid: u32) -> bool {
+        let tree = self.procs.tree.lock_or_recover();
+        tree.nodes
+            .get(&pid)
+            .is_some_and(|node| node.parent == parent)
     }
 
     /// Records that a signal's default action is killing the process `task` belongs to, so its
@@ -938,8 +952,18 @@ impl Kernel {
     pub(crate) async fn kernel_clone(
         &self,
         caller: &Caller<'_>,
-        mut args: KernelClone,
+        args: KernelClone,
     ) -> SysResult<i32> {
+        let ret = self.copy_and_start(caller, args).await;
+        if ret.is_ok() {
+            // `ptrace_event_pid`, once the child is made.
+            self.ptrace_clone_event(caller.task()).await;
+        }
+        ret
+    }
+
+    /// [`Kernel::kernel_clone`] up to the child's start.
+    async fn copy_and_start(&self, caller: &Caller<'_>, mut args: KernelClone) -> SysResult<i32> {
         // An empty mount namespace is a new one.
         if args.flags.contains(CloneFlags::CLONE_EMPTY_MNTNS) {
             args.flags |= CloneFlags::CLONE_NEWNS;
@@ -1412,6 +1436,7 @@ impl Kernel {
         // It inherits `RLIMIT_CPU`, and with it the expiry it sets (`posix_cputimers_group_init`).
         process.rlimit_cpu_changed();
         self.procs.add(process, parent, exit_signal);
+        self.ptrace_init_task(parent_task, id, flags, exit_signal);
         Ok(id)
     }
 
@@ -1535,6 +1560,8 @@ impl Kernel {
         // group on its way out does not exec; the exit it is taking ends the caller on the way
         // back.
         let task = caller.task();
+        // `old_vpid`: the caller's tid as its tracer saw it before `de_thread`.
+        let old_vpid = self.tid_for_tracer(task);
         let exec = self.zap_threads(task)?;
         let leader = self.process(task).pid;
         // The leader leaves its old image for the new one, which runs once committed.
@@ -1555,6 +1582,11 @@ impl Kernel {
         self.exec_commit(task, &name, args, env, image, binary);
         // The `execve` is done, and the leader's new image may start.
         drop(exec);
+        // `exec_binprm`'s `ptrace_event(PTRACE_EVENT_EXEC, old_vpid)`, by the task the new
+        // image runs as.
+        if task == leader {
+            self.ptrace_exec_event(task, old_vpid).await;
+        }
         Ok(0)
     }
 
@@ -1695,7 +1727,7 @@ impl Kernel {
         let (mut cred, secure) = old.exec(
             binary.mode,
             binary.owner,
-            binary.may_setid && !no_new_privs,
+            binary.may_setid && !no_new_privs && !self.ptrace_unsafe_exec(task),
             no_new_privs,
         );
         // `prepare_exec_creds`: no thread keyring, a new process keyring when asked for.
@@ -1856,7 +1888,12 @@ impl Kernel {
                 Some((pid, nr, self.stop_event(&process, options)?, process))
             });
         }
-        let ready = ready.map(|(_, nr, exit, child)| (nr, exit, child));
+        let mut ready = ready.map(|(_, nr, exit, child)| (nr, exit, child));
+        if ready.is_none() {
+            let (traced, found) = self.ptrace_wait_once(me, which, options);
+            any |= traced;
+            ready = found;
+        }
         match (ready, any) {
             (Some(found), _) => Some(Ok(Some(found))),
             (None, false) => Some(Err(Errno::ECHILD)),

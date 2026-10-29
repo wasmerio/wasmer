@@ -113,6 +113,8 @@ enum Verdict {
     /// The task or its group is killed with `sig`.
     KillThread(i32),
     KillProcess(i32),
+    /// `SECCOMP_RET_TRACE` with its data, for the tracer to decide.
+    Trace(u32),
 }
 
 impl Kernel {
@@ -137,11 +139,15 @@ impl Kernel {
             1 if MODE1_SYSCALLS.contains(&nr) => Verdict::Allow,
             // `__secure_computing_strict`: `do_exit(SIGKILL)`.
             1 => Verdict::KillThread(Signal::SIGKILL.0),
-            2 => self.run_filters(caller, filter?, nr, args),
+            2 => self.run_filters(caller, filter.clone()?, nr, args),
             _ => Verdict::KillThread(Signal::SIGKILL.0),
         };
+        let verdict = match verdict {
+            Verdict::Trace(data) => self.seccomp_trace(caller, filter?, nr, args, data).await,
+            verdict => verdict,
+        };
         Some(match verdict {
-            Verdict::Allow => return None,
+            Verdict::Allow | Verdict::Trace(_) => return None,
             Verdict::Skip(raw) => skipped(call, raw),
             Verdict::KillThread(sig) => self.seccomp_kill(caller, sig, false).await,
             Verdict::KillProcess(sig) => self.seccomp_kill(caller, sig, true).await,
@@ -189,12 +195,48 @@ impl Kernel {
                 self.task_signals(caller.task()).force(info);
                 Verdict::Skip(i64::from(args[0] as u32 as i32))
             }
-            // Without a tracer, as there is none: `ENOSYS`.
-            SeccompRet::SECCOMP_RET_TRACE => Verdict::Skip(-i64::from(Errno::ENOSYS.0)),
+            SeccompRet::SECCOMP_RET_TRACE => Verdict::Trace(data),
             SeccompRet::SECCOMP_RET_LOG | SeccompRet::SECCOMP_RET_ALLOW => Verdict::Allow,
             SeccompRet::SECCOMP_RET_KILL_THREAD => Verdict::KillThread(Signal::SIGSYS.0),
             // `SECCOMP_RET_KILL_PROCESS`, and every action Linux does not know.
             _ => Verdict::KillProcess(Signal::SIGSYS.0),
+        }
+    }
+
+    /// `SECCOMP_RET_TRACE`: without a tracer that asked for `PTRACE_EVENT_SECCOMP` the call
+    /// fails with `ENOSYS`; with one, the task stops for it with the filter's `data` as the
+    /// message, and once resumed the call runs if the filters, run again with tracing taken as
+    /// allowed (`recheck_after_trace`), let it; a fatal signal meanwhile skips it.
+    async fn seccomp_trace(
+        &self,
+        caller: &Caller<'_>,
+        filter: Arc<Filter>,
+        nr: u32,
+        args: [u64; 6],
+        data: u32,
+    ) -> Verdict {
+        let task = caller.task();
+        let enabled = self
+            .trace_link(task)
+            .is_some_and(|link| link.has(wasixv2_abi::PtraceOptions::PTRACE_O_TRACESECCOMP));
+        let enosys = Verdict::Skip(-i64::from(Errno::ENOSYS.0));
+        if !enabled {
+            return enosys;
+        }
+        let signals = self.task_signals(task);
+        signals.group().with_trace(task, |t| {
+            let mut call = t.call.unwrap_or_default();
+            (call.nr, call.args, call.seccomp_data) = (nr, args, data);
+            t.call = Some(call);
+        });
+        let event = wasixv2_abi::PtraceEvent::PTRACE_EVENT_SECCOMP;
+        self.ptrace_event(task, event, u64::from(data)).await;
+        if signals.group().sigkill_pending_for(task) {
+            return enosys;
+        }
+        match self.run_filters(caller, filter, nr, args) {
+            Verdict::Trace(_) => Verdict::Allow,
+            verdict => verdict,
         }
     }
 
@@ -287,6 +329,11 @@ impl Kernel {
     }
 
     /// `prctl(PR_GET_SECCOMP)`: the caller's mode.
+    /// Whether `task` is in a seccomp mode (`seccomp_mode(&current->seccomp)`).
+    pub(crate) fn seccomp_active(&self, task: wasixv2_syscalls::TaskId) -> bool {
+        self.task_ref(task, |t| t.seccomp.mode != 0)
+    }
+
     pub(crate) fn prctl_get_seccomp(&self, caller: &Caller<'_>) -> i32 {
         self.task_ref(caller.task(), |t| t.seccomp.mode) as i32
     }
