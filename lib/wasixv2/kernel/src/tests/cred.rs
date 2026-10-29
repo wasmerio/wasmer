@@ -346,7 +346,7 @@ fn uname_reports_the_configured_names_and_root_may_rename_the_host() {
         block_on(kernel.uname(&caller, NewUtsnamePtr::new(UTS))),
         Ok(0)
     );
-    assert_eq!(uname_field(&memory, 0), "wasixv2");
+    assert_eq!(uname_field(&memory, 0), "Linux");
     assert_eq!(uname_field(&memory, 1), "box");
     assert_eq!(uname_field(&memory, 2), "6.1.0");
     assert_eq!(uname_field(&memory, 4), "wasm32");

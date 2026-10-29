@@ -1274,7 +1274,7 @@ fn run_wasixv2_reports_the_configured_uname_and_user() {
         .arg(&module_file)
         .assert()
         .code(1)
-        .stdout("localhost 7.2.0");
+        .stdout("localhost 7.2.0-wasixv2");
     wasmer_command()
         .arg("run")
         .args(["--uname-release", &"x".repeat(65)])
