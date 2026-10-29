@@ -332,6 +332,34 @@ fn failed_request_key_construction_expires_and_obeys_the_default_destination() {
     assert!(t.read(session).unwrap().is_empty());
 }
 
+/// security/keys/keyring.c search_nested_keyrings does not report the state of an
+/// unrelated traversal ring; an expired ring can still contain a live matching key.
+#[test]
+fn unrelated_expired_keyrings_do_not_replace_a_search_miss() {
+    let (kernel, task, memory) = machine();
+    let t = T::new(&kernel, task, &memory);
+    let revoked = t.add("keyring", "revoked", b"", THREAD).unwrap();
+    assert_eq!(t.keyctl(REVOKE, revoked as u32, 0, 0, 0), Ok(0));
+    let expired = t.add("keyring", "expired", b"", THREAD).unwrap();
+    let live = t.add("user", "reachable", b"payload", expired).unwrap();
+    assert_eq!(t.keyctl(SET_TIMEOUT, expired as u32, 1, 0, 0), Ok(0));
+    kernel
+        .time
+        .settime(kernel.host.realtime() + Duration::from_secs(2))
+        .unwrap();
+    assert_eq!(errno(t.request("keyring", "missing", 0)), Errno::ENOKEY);
+    assert_eq!(t.request("user", "reachable", 0), Ok(live));
+    // Explicit destination lookup still validates the destination's own state.
+    assert_eq!(
+        errno(t.request("keyring", "missing", revoked)),
+        Errno::EKEYREVOKED
+    );
+    assert_eq!(
+        errno(t.request("keyring", "missing", expired)),
+        Errno::EKEYEXPIRED
+    );
+}
+
 /// security/keys/keyctl.c checks malformed REJECT/INSTANTIATE arguments before authority;
 /// neither the caller's credentials nor root grant a request-key authorization token.
 #[test]

@@ -1480,8 +1480,12 @@ fn search(
         if !seen.insert(ring.serial) {
             continue;
         }
-        if let Err(error) = ring.validate(ctx.now) {
-            skipped = error;
+        // security/keys/keyring.c search_nested_keyrings: revoked containers are not
+        // traversed, while expiry belongs to a matching candidate, not its container.
+        if ring.st().revoked {
+            if ring.kind == kind && ring.description == description {
+                skipped = Errno::EKEYREVOKED;
+            }
             continue;
         }
         if !ring.permits(&ctx.cred, possessed, Need::Search) {
