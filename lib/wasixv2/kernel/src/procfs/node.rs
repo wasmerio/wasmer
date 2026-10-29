@@ -14,7 +14,7 @@ use super::{Source, text};
 use crate::{
     cred::Cred,
     file::NrOpen,
-    ns::{NetNs, NsKind, NsLink, PidNs, UserNs},
+    ns::{NsKind, NsLink, PidNs, UserNs},
     sync::MutexExt,
     userns::MapKind,
 };

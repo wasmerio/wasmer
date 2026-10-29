@@ -6,10 +6,12 @@
 //! A name no interface of the reader's namespace has can be looked up, but not opened
 //! (`ENOENT`), where Linux fails the lookup already.
 //!
-//! Values are kept per namespace and per interface, writable by root. `disable_ipv6` acts
-//! (`addrconf_disable_ipv6`); the rest describe what packets would do and have no effect,
-//! since nothing is turned into packets. `ip_local_port_range`, `ip_unprivileged_port_start`
-//! and `somaxconn` show the values the namespace uses and are read-only here.
+//! Values are kept per namespace and per interface, writable by root. IPv4's `conf` values are
+//! [`devinet`]'s (`devinet_sysctl_register`), which knows their defaults, what an interface
+//! inherits and which may be written. `disable_ipv6` acts (`addrconf_disable_ipv6`); the rest
+//! describe what packets would do and have no effect, since nothing is turned into packets.
+//! `ip_local_port_range`, `ip_unprivileged_port_start` and `somaxconn` show the values the
+//! namespace uses and are read-only here.
 
 use std::{any::Any, collections::BTreeMap, sync::Arc};
 
@@ -21,7 +23,7 @@ use wasixv2_vfs::{
 use wasixv2_vnet::{Interface, iface::valid_name};
 
 use super::Source;
-use crate::{ns::NetNs, sync::MutexExt};
+use crate::{devinet, ns::NetNs, sync::MutexExt};
 
 /// Which interfaces' values a `conf` directory holds.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -94,18 +96,6 @@ const IPV4: &[Key] = &[
     key("tcp_fastopen", 1),
     key("tcp_syn_retries", 6),
 ];
-/// `net.ipv4.conf.*.*` (`devinet_sysctl`).
-const IPV4_CONF: &[Key] = &[
-    key("accept_local", 0),
-    key("accept_redirects", 1),
-    key("arp_announce", 0),
-    key("arp_ignore", 0),
-    key("forwarding", 0),
-    key("log_martians", 0),
-    key("proxy_arp", 0),
-    key("rp_filter", 0),
-    key("send_redirects", 1),
-];
 /// `net.ipv6.conf.*.*` (`addrconf_sysctl`).
 const IPV6_CONF: &[Key] = &[
     key("accept_dad", 1),
@@ -142,7 +132,7 @@ enum Entry {
         v6: bool,
         which: Which,
     },
-    /// A value of `conf/<which>`, by index in its table.
+    /// A value of `conf/<which>`, by index in [`IPV6_CONF`] or [`devinet::VARS`].
     DevKey {
         v6: bool,
         which: Which,
@@ -168,11 +158,12 @@ impl Entry {
         }
     }
 
-    fn key(self) -> Option<&'static Key> {
+    fn value(self) -> Option<Value> {
         match self {
-            Entry::DevKey { v6, key, .. } => Some(&conf_keys(v6)[key]),
-            Entry::Flat { core: true, key } => Some(&CORE[key]),
-            Entry::Flat { core: false, key } => Some(&IPV4[key]),
+            Entry::DevKey { v6: true, key, .. } => Some(Value::Key(&IPV6_CONF[key])),
+            Entry::DevKey { v6: false, key, .. } => Some(Value::Devinet(key)),
+            Entry::Flat { core: true, key } => Some(Value::Key(&CORE[key])),
+            Entry::Flat { core: false, key } => Some(Value::Key(&IPV4[key])),
             _ => None,
         }
     }
@@ -199,11 +190,49 @@ impl Entry {
     }
 }
 
-fn conf_keys(v6: bool) -> &'static [Key] {
-    match v6 {
-        true => IPV6_CONF,
-        false => IPV4_CONF,
+/// A value of the tree: one of the [`Key`]s here, or IPv4's `conf` value with this index in
+/// [`devinet::VARS`].
+#[derive(Clone, Copy)]
+enum Value {
+    Key(&'static Key),
+    Devinet(usize),
+}
+
+impl Value {
+    fn writable(self) -> bool {
+        match self {
+            Value::Key(key) => key.writable,
+            Value::Devinet(var) => devinet::VARS[var].writable,
+        }
     }
+}
+
+/// The names of a `conf/<dev>` directory's values, in order.
+fn conf_names(v6: bool) -> Vec<&'static str> {
+    match v6 {
+        true => IPV6_CONF.iter().map(|key| key.name).collect(),
+        false => devinet::VARS.iter().map(|var| var.name).collect(),
+    }
+}
+
+/// `devinet`'s scope for `dev`.
+fn devinet_scope(dev: Dev) -> devinet::Scope {
+    match dev {
+        Dev::All => devinet::Scope::All,
+        Dev::Default => devinet::Scope::Default,
+        Dev::Index(index) => devinet::Scope::Dev(index),
+    }
+}
+
+/// IPv4's `conf` value `var` of `dev` (`devinet_conf_proc`'s read).
+fn devinet_value(net: &NetNs, dev: Dev, var: usize) -> i32 {
+    let devs = devinet::devices(net.network.as_deref());
+    let found = match dev {
+        Dev::Index(index) => devs.iter().find(|d| d.index == index),
+        _ => None,
+    };
+    let scope = devinet_scope(dev);
+    net.devconf.lock_or_recover().get(scope, var, found)
 }
 
 fn interfaces(net: &NetNs) -> Vec<Interface> {
@@ -366,7 +395,10 @@ impl SysNetNode {
             }
             Entry::Dev { v6, which } => {
                 self.dev(net, which)?;
-                keys(conf_keys(v6), &|key| Entry::DevKey { v6, which, key })
+                let names = conf_names(v6).into_iter().enumerate();
+                names
+                    .map(|(key, name)| (name.to_string(), Entry::DevKey { v6, which, key }))
+                    .collect()
             }
             Entry::DevKey { .. } | Entry::Flat { .. } => return Err(Errno::ENOTDIR),
         })
@@ -374,13 +406,18 @@ impl SysNetNode {
 
     /// A value's text in namespace `net`, and where it is kept.
     fn value(&self, net: &NetNs) -> FsResult<(String, bool, Dev)> {
-        let key = self.entry.key().ok_or(Errno::EISDIR)?;
-        Ok(match self.entry {
-            Entry::DevKey { v6, which, .. } => {
+        Ok(match (self.entry, self.entry.value()) {
+            (Entry::DevKey { which, .. }, Some(Value::Devinet(var))) => {
+                let dev = self.dev(net, which)?;
+                (devinet_value(net, dev, var).to_string() + "\n", false, dev)
+            }
+            (Entry::DevKey { v6, which, .. }, Some(Value::Key(key))) => {
                 let dev = self.dev(net, which)?;
                 (dev_value(net, v6, dev, key).to_string() + "\n", v6, dev)
             }
-            Entry::Flat { core, .. } => (flat_value(net, core, key) + "\n", false, Dev::All),
+            (Entry::Flat { core, .. }, Some(Value::Key(key))) => {
+                (flat_value(net, core, key) + "\n", false, Dev::All)
+            }
             _ => return Err(Errno::EISDIR),
         })
     }
@@ -402,8 +439,8 @@ impl Node for SysNetNode {
 
     async fn getattr(&self) -> FsResult<Attr> {
         let file_type = self.file_type();
-        let mode = match self.entry.key() {
-            Some(key) if key.writable => 0o644,
+        let mode = match self.entry.value() {
+            Some(value) if value.writable() => 0o644,
             Some(_) => 0o444,
             None => 0o555,
         };
@@ -455,9 +492,9 @@ impl Node for SysNetNode {
             return Ok(self.node(Entry::Dev { v6, which }));
         }
         if let Entry::Dev { v6, which } = self.entry {
-            let key = conf_keys(v6)
+            let key = conf_names(v6)
                 .iter()
-                .position(|k| k.name == name)
+                .position(|n| *n == name)
                 .ok_or(Errno::ENOENT)?;
             return Ok(self.node(Entry::DevKey { v6, which, key }));
         }
@@ -476,14 +513,14 @@ impl Node for SysNetNode {
             let children = self.children(&net)?;
             return Ok(Box::new(DirHandle(children)));
         }
-        let key = self.entry.key().ok_or(Errno::EISDIR)?;
+        let value = self.entry.value().ok_or(Errno::EISDIR)?;
         let (text, v6, dev) = self.value(&net)?;
         Ok(Box::new(ValueHandle {
             data: text.into_bytes(),
             net,
             v6,
             dev,
-            key,
+            value,
             writable: options.write,
         }))
     }
@@ -517,7 +554,7 @@ struct ValueHandle {
     net: Arc<NetNs>,
     v6: bool,
     dev: Dev,
-    key: &'static Key,
+    value: Value,
     writable: bool,
 }
 
@@ -533,10 +570,19 @@ impl Handle for ValueHandle {
     }
 
     async fn write_at(&self, data: &[u8], _: u64) -> FsResult<usize> {
-        if !self.writable || !self.key.writable {
+        if !self.writable || !self.value.writable() {
             return Err(Errno::EACCES);
         }
-        write_value(&self.net, self.v6, self.dev, self.key, parse_int(data)?)?;
+        let value = parse_int(data)?;
+        match self.value {
+            Value::Key(key) => write_value(&self.net, self.v6, self.dev, key, value)?,
+            Value::Devinet(var) => {
+                let scope = devinet_scope(self.dev);
+                // `parse_int` keeps to an `int`.
+                let value = value as i32;
+                self.net.devconf.lock_or_recover().set(scope, var, value)?;
+            }
+        }
         Ok(data.len())
     }
 

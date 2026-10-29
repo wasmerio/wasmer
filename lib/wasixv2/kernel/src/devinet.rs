@@ -1,7 +1,8 @@
 //! IPv4's configuration of a network namespace's interfaces (`net/ipv4/devinet.c`), as
-//! `/proc/sys/net/ipv4/conf/{all,default,<interface>}` shows it: the values `devinet_sysctl`
-//! names, with Linux's defaults. None of them changes how the network behaves here, so only
-//! `tag`, which Linux keeps without acting on it either, can be written; the rest are read-only.
+//! `/proc/sys/net/ipv4/conf/{all,default,<interface>}` shows it (procfs's `sysnet`): the values
+//! `devinet_sysctl` names, with Linux's defaults. None of them changes how the network behaves
+//! here, so only `tag`, which Linux keeps without acting on it either, can be written; the rest
+//! are read-only.
 
 use std::collections::HashMap;
 
@@ -83,10 +84,9 @@ pub(crate) enum Scope {
     Dev(u32),
 }
 
-/// An interface of a network namespace, as `conf/` lists it.
+/// An interface of a network namespace, as its values know it.
 pub(crate) struct Dev {
     pub(crate) index: u32,
-    pub(crate) name: String,
     loopback: bool,
 }
 
@@ -96,7 +96,6 @@ pub(crate) fn devices(network: Option<&dyn wasixv2_vnet::Network>) -> Vec<Dev> {
     let (index, name) = LOOPBACK;
     let mut devs = vec![Dev {
         index,
-        name: name.to_string(),
         loopback: true,
     }];
     let interfaces = network.map(|net| net.interfaces()).unwrap_or_default();
@@ -106,7 +105,6 @@ pub(crate) fn devices(network: Option<&dyn wasixv2_vnet::Network>) -> Vec<Dev> {
         }
         devs.push(Dev {
             index: interface.index,
-            name: interface.name,
             loopback: interface.flags & IFF_LOOPBACK != 0,
         });
     }
