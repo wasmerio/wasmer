@@ -7,7 +7,7 @@ use crate::{
 use async_trait::async_trait;
 use std::{
     any::Any,
-    collections::BTreeMap,
+    collections::{BTreeMap, BTreeSet},
     sync::{
         Arc, Mutex, Weak,
         atomic::{AtomicU64, Ordering},
@@ -134,7 +134,7 @@ impl Filesystem for FuseFs {
 }
 
 struct CachedEntry {
-    node: Option<Arc<FuseNode>>,
+    node: Option<Weak<FuseNode>>,
     until: Duration,
 }
 pub(super) struct FuseNode {
@@ -212,6 +212,16 @@ impl FuseNode {
     }
     /// fuse_iget: wire nodeid is identity, attr.ino is the stat number the daemon supplies.
     fn entry(&self, name: &[u8], out: &[u8]) -> FsResult<Arc<FuseNode>> {
+        let result = self.link_entry(name, out);
+        if result.is_err()
+            && let Ok(id) = u64_at(out, 0)
+            && id > 1
+        {
+            self.conn.forget(id, 1);
+        }
+        result
+    }
+    fn link_entry(&self, name: &[u8], out: &[u8]) -> FsResult<Arc<FuseNode>> {
         if out.len() < 128 {
             return Err(Errno::EIO);
         }
@@ -256,7 +266,7 @@ impl FuseNode {
         self.entries.lock_or_recover().insert(
             name.to_vec(),
             CachedEntry {
-                node: Some(node.clone()),
+                node: Some(Arc::downgrade(&node)),
                 until,
             },
         );
@@ -341,6 +351,7 @@ impl FuseNode {
             dir,
             no_open,
             poll: self.new_poll(),
+            cookies: Mutex::new(DirCookies::default()),
         })
     }
     fn new_poll(&self) -> Arc<super::poll::PollState> {
@@ -452,11 +463,14 @@ impl Node for FuseNode {
             if let Some(cached) = entries.get(name)
                 && cached.until > self.conn.host.monotonic()
             {
-                return cached
-                    .node
-                    .clone()
-                    .map(|n| n as Arc<dyn Node>)
-                    .ok_or(Errno::ENOENT);
+                match &cached.node {
+                    None => return Err(Errno::ENOENT),
+                    Some(node) => {
+                        if let Some(node) = node.upgrade() {
+                            return Ok(node);
+                        }
+                    }
+                }
             }
             entries.remove(name);
         }
@@ -513,6 +527,7 @@ impl Node for FuseNode {
                     dir: false,
                     no_open: false,
                     poll: self.new_poll(),
+                    cookies: Mutex::new(DirCookies::default()),
                 };
                 Ok((node, Box::new(handle)))
             }
@@ -650,6 +665,34 @@ impl Node for FuseNode {
     }
 }
 
+/// FUSE offsets are opaque u64 values; wasm telldir is a signed 32-bit long.
+#[derive(Default)]
+struct DirCookies {
+    from_wire: BTreeMap<u64, u64>,
+    to_wire: BTreeMap<u64, u64>,
+}
+impl DirCookies {
+    fn wire(&self, cookie: u64) -> FsResult<u64> {
+        if cookie == 0 {
+            Ok(0)
+        } else {
+            self.to_wire.get(&cookie).copied().ok_or(Errno::EINVAL)
+        }
+    }
+    fn cookie(&mut self, wire: u64) -> FsResult<u64> {
+        if let Some(cookie) = self.from_wire.get(&wire) {
+            return Ok(*cookie);
+        }
+        let cookie = self.to_wire.len() as u64 + 1;
+        if cookie > wasixv2_vfs::MAX_DIR_COOKIE {
+            return Err(Errno::EOVERFLOW);
+        }
+        self.from_wire.insert(wire, cookie);
+        self.to_wire.insert(cookie, wire);
+        Ok(cookie)
+    }
+}
+
 struct FuseHandle {
     node: Arc<FuseNode>,
     fh: u64,
@@ -658,6 +701,7 @@ struct FuseHandle {
     dir: bool,
     no_open: bool,
     poll: Arc<super::poll::PollState>,
+    cookies: Mutex<DirCookies>,
 }
 impl Drop for FuseHandle {
     fn drop(&mut self) {
@@ -891,64 +935,90 @@ impl Handle for FuseHandle {
         }
     }
     async fn readdir(&self, cookie: u64, sink: &mut dyn DirSink) -> FsResult<()> {
-        let plus = self.node.conn.queue.lock_or_recover().flags & (1 << 13) != 0;
-        let out = self
-            .node
-            .conn
-            .request(
-                if plus { 44 } else { 28 },
-                self.node.id,
-                self.rw(cookie, MAX_IO),
-                0,
-                MAX_IO,
-            )
-            .await?;
-        let mut at = 0;
-        while at < out.len() {
-            let entry_at = at;
+        let mut wire = self.cookies.lock_or_recover().wire(cookie)?;
+        let mut seen = BTreeSet::new();
+        loop {
+            if !seen.insert(wire) {
+                return Err(Errno::EIO);
+            }
+            let plus = self.node.conn.queue.lock_or_recover().flags & (1 << 13) != 0;
+            let out = self
+                .node
+                .conn
+                .request(
+                    if plus { 44 } else { 28 },
+                    self.node.id,
+                    self.rw(wire, MAX_IO),
+                    0,
+                    MAX_IO,
+                )
+                .await?;
+            if out.is_empty() {
+                return Ok(());
+            }
+            let mut at = 0;
+            let mut full = false;
+            let mut progressed = false;
             let prefix = if plus { 128 } else { 0 };
-            if out.len() - at < prefix + 24 {
-                return Err(Errno::EIO);
+            // fs/fuse/readdir.c:parse_dirplusfile links every entry, even after dir_emit
+            // fills the caller's buffer. Unlinked entries must lose their lookup count.
+            while out.len() - at >= prefix + 24 {
+                let start = at;
+                let d = at + prefix;
+                let len = u32_at(&out, d + 16)? as usize;
+                if len == 0 || len > 255 {
+                    return Err(Errno::EIO);
+                }
+                let reclen = (prefix + 24 + len + 7) & !7;
+                if reclen > out.len() - at {
+                    break;
+                }
+                at += reclen;
+                let name = &out[d + 24..d + 24 + len];
+                if name.contains(&b'/') || name.contains(&0) {
+                    return Err(Errno::EIO);
+                }
+                let next = u64_at(&out, d + 8)?;
+                let ino = u64_at(&out, d)?;
+                let dtype = u32_at(&out, d + 20)? as u8;
+                if plus && name != b"." && name != b".." && u64_at(&out, start)? != 0 {
+                    // A failed link already queues its matching FORGET; the directory
+                    // record itself remains usable (fuse_direntplus_link).
+                    let _ = self.node.entry(name, &out[start..start + 128]);
+                }
+                if full {
+                    continue;
+                }
+                if name == b"." || name == b".." {
+                    wire = next;
+                    progressed = true;
+                    continue;
+                }
+                let cookie = self.cookies.lock_or_recover().cookie(next)?;
+                let kind = FileType::from_mode(u32::from(dtype) << 12).unwrap_or(FileType::Regular);
+                if !sink.push_type(
+                    DirEntry {
+                        name,
+                        ino,
+                        file_type: kind,
+                        next: cookie,
+                    },
+                    dtype,
+                ) {
+                    full = true;
+                    continue;
+                }
+                wire = next;
+                progressed = true;
             }
-            let d = at + prefix;
-            let ino = u64_at(&out, d)?;
-            let next = u64_at(&out, d + 8)?;
-            let len = u32_at(&out, d + 16)? as usize;
-            let kind =
-                FileType::from_mode(u32_at(&out, d + 20)? << 12).unwrap_or(FileType::Regular);
-            let end = d
-                .checked_add(24 + len)
-                .filter(|&end| end <= out.len())
-                .ok_or(Errno::EIO)?;
-            if len == 0 || len > 255 {
-                return Err(Errno::EIO);
+            if full {
+                return Ok(());
             }
-            let name = &out[d + 24..end];
-            if name.contains(&0) || name.contains(&b'/') {
-                return Err(Errno::EIO);
-            }
-            at = entry_at + ((prefix + 24 + len + 7) & !7);
-            if at > out.len() {
-                return Err(Errno::EIO);
-            }
-            if name == b"." || name == b".." {
-                continue;
-            }
-            if next > wasixv2_vfs::MAX_DIR_COOKIE {
-                return Err(Errno::EOVERFLOW);
-            }
-            if plus {
-                self.node.entry(name, &out[entry_at..entry_at + 128])?;
-            }
-            if !sink.push(DirEntry {
-                name,
-                ino,
-                file_type: kind,
-                next,
-            }) {
-                break;
+            // Linux ignores a partial trailing record; an entirely partial batch has no
+            // further position to resume from, so it ends this directory read.
+            if !progressed {
+                return Ok(());
             }
         }
-        Ok(())
     }
 }
