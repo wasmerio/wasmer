@@ -2174,17 +2174,6 @@ impl Kernel {
             {
                 return Err(Errno::EINVAL.into());
             }
-            // madvise_willneed returns EBADF for anonymous VMAs without CONFIG_SWAP.
-            if advice == MadviseAdvice::MADV_WILLNEED
-                && (u64::from(start) / PAGE_SIZE..end / PAGE_SIZE).any(|page| {
-                    !space
-                        .mappings
-                        .first_in(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
-                        .is_some_and(|mapping| mapping.file().is_some() || mapping.is_shared())
-                })
-            {
-                return Err(Errno::EBADF.into());
-            }
         }
         match advice {
             MadviseAdvice::MADV_DONTDUMP | MadviseAdvice::MADV_DODUMP => {
