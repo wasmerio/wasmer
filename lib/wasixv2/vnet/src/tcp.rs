@@ -6,7 +6,7 @@ use std::{
     net::SocketAddr,
     sync::{
         Arc, Mutex, MutexGuard, Weak,
-        atomic::{AtomicU64, Ordering},
+        atomic::{AtomicU8, AtomicU64, Ordering},
     },
 };
 
@@ -190,7 +190,7 @@ struct Inner {
 pub struct TcpSocket {
     net: Arc<Net>,
     id: SockId,
-    domain: Domain,
+    domain: AtomicU8,
     /// `sk_uid`, for `SO_REUSEPORT`.
     uid: u32,
     /// `sock_i_ino`: the inode of the socket's file, 0 until it has one.
@@ -274,7 +274,7 @@ impl TcpSocket {
         Arc::new_cyclic(|me| Self {
             net,
             id,
-            domain,
+            domain: AtomicU8::new(domain as u8),
             uid,
             ino: AtomicU64::new(0),
             wq,
@@ -304,7 +304,7 @@ impl TcpSocket {
 
     fn spec(&self, o: &SockOpts, ip: std::net::IpAddr) -> BindSpec {
         BindSpec {
-            family: self.domain,
+            family: self.domain(),
             addr: ip,
             v6only: o.v6only,
             reuseaddr: o.reuseaddr,
@@ -357,7 +357,7 @@ impl TcpSocket {
     }
 
     fn domain_any(&self) -> std::net::IpAddr {
-        match self.domain {
+        match self.domain() {
             Domain::Inet => std::net::Ipv4Addr::UNSPECIFIED.into(),
             Domain::Inet6 => std::net::Ipv6Addr::UNSPECIFIED.into(),
         }
@@ -365,16 +365,16 @@ impl TcpSocket {
 
     pub(crate) fn port_entry(&self) -> Option<PortEntry> {
         let g = self.inner.lock().unwrap();
-        let local = present(self.domain, g.local?);
+        let local = present(self.domain(), g.local?);
         let (peer, listening, rx_queue, tx_queue) = match &g.state {
             State::Connected(t, p) => {
                 let tx = match t {
                     Transport::Local(c, side) => c.output_len(*side),
                     Transport::Remote(s) => s.output_len(),
                 };
-                (Some(present(self.domain, *p)), false, t.input_len(), tx)
+                (Some(present(self.domain(), *p)), false, t.input_len(), tx)
             }
-            State::Connecting(_, p) => (Some(present(self.domain, *p)), false, 0, 0),
+            State::Connecting(_, p) => (Some(present(self.domain(), *p)), false, 0, 0),
             State::Listening(l) => {
                 let l = l.inner.lock().unwrap();
                 (None, true, l.ready.len(), l.backlog as usize)
@@ -483,7 +483,7 @@ impl TcpSocket {
         let opts = self.inner.lock().unwrap().opts.inherit();
         let child = Self::with_state(
             self.net.clone(),
-            self.domain,
+            self.domain(),
             self.uid,
             opts.clone(),
             Some(local),
@@ -663,7 +663,11 @@ impl Pollable for TcpSocket {
 
 impl Socket for TcpSocket {
     fn domain(&self) -> Domain {
-        self.domain
+        if self.domain.load(Ordering::Acquire) == Domain::Inet6 as u8 {
+            Domain::Inet6
+        } else {
+            Domain::Inet
+        }
     }
 
     fn kind(&self) -> SocketKind {
@@ -751,7 +755,7 @@ impl Socket for TcpSocket {
         let (socket, peer) = l.pop().ok_or(Errno::EAGAIN)?;
         Ok(Accepted {
             socket,
-            peer: present(self.domain, peer),
+            peer: present(self.domain(), peer),
         })
     }
 
@@ -940,13 +944,13 @@ impl Socket for TcpSocket {
         Ok(g.local
             .or(g.put_back)
             .or(g.saddr.map(|ip| SocketAddr::new(ip, 0)))
-            .map_or(unbound(self.domain), |a| present(self.domain, a)))
+            .map_or(unbound(self.domain()), |a| present(self.domain(), a)))
     }
 
     fn peer_addr(&self) -> NetResult<SocketAddr> {
         let g = self.lock();
         match &g.state {
-            State::Connected(t, peer) if !t.is_done() => Ok(present(self.domain, *peer)),
+            State::Connected(t, peer) if !t.is_done() => Ok(present(self.domain(), *peer)),
             _ => Err(Errno::ENOTCONN),
         }
     }
@@ -988,6 +992,26 @@ impl Socket for TcpSocket {
 
     fn set_option(&self, level: i32, name: i32, value: &[u8]) -> NetResult<()> {
         let mut g = self.lock();
+        if (level, name)
+            == (
+                SocketLevel::SOL_IPV6.0,
+                wasixv2_abi::Ipv6Option::IPV6_ADDRFORM.0,
+            )
+        {
+            let peer = match &g.state {
+                State::Connected(t, peer) if !t.is_done() => Some(peer.ip()),
+                _ => None,
+            };
+            g.opts.addrform(&self.net, value, peer, false)?;
+            if let Some(local) = g.local {
+                self.net
+                    .state()
+                    .tcp
+                    .set_family(self.id, local.port(), Domain::Inet);
+            }
+            self.domain.store(Domain::Inet as u8, Ordering::Release);
+            return Ok(());
+        }
         if crate::mcast::handles(level, name) {
             return g.opts.set_mcast(&self.net, level, name, value);
         }

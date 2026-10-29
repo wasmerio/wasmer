@@ -460,11 +460,23 @@ impl SockOpts {
         out: &mut [u8],
     ) -> Option<NetResult<usize>> {
         if level != SOL_IPV6
-            || ![Ipv6Option::IPV6_MTU.0, Ipv6Option::IPV6_PATHMTU.0].contains(&name)
+            || ![
+                Ipv6Option::IPV6_ADDRFORM.0,
+                Ipv6Option::IPV6_MTU.0,
+                Ipv6Option::IPV6_PATHMTU.0,
+            ]
+            .contains(&name)
         {
             return None;
         }
         Some(self.check_level(level).and_then(|()| {
+            if name == Ipv6Option::IPV6_ADDRFORM.0 {
+                if !matches!(self.ty, SocketKind::Stream | SocketKind::Datagram) {
+                    return Err(Errno::ENOPROTOOPT);
+                }
+                peer.ok_or(Errno::ENOTCONN)?;
+                return Ok(write_int(out, wasixv2_abi::AddressFamily::AF_INET6.0));
+            }
             let mtu = peer.and_then(|p| net.mtu_to(p));
             if name == Ipv6Option::IPV6_PATHMTU.0 {
                 Self::path_mtu(out, mtu)
@@ -484,6 +496,38 @@ impl SockOpts {
         } else {
             mtu
         }
+    }
+
+    /// Linux v6.12 net/ipv6/ipv6_sockglue.c do_ipv6_setsockopt: convert
+    /// only an established TCP/UDP IPv4-mapped connection, releasing IPv6 state.
+    pub(crate) fn addrform(
+        &mut self,
+        net: &Net,
+        value: &[u8],
+        peer: Option<std::net::IpAddr>,
+        pending_v6: bool,
+    ) -> NetResult<()> {
+        self.check_level(SOL_IPV6)?;
+        if read_int(value)? != wasixv2_abi::AddressFamily::AF_INET.0 {
+            return Err(Errno::EINVAL);
+        }
+        if !matches!(self.ty, SocketKind::Stream | SocketKind::Datagram) {
+            return Err(Errno::ENOPROTOOPT);
+        }
+        if pending_v6 {
+            return Err(Errno::EBUSY);
+        }
+        let peer = peer.ok_or(Errno::ENOTCONN)?;
+        if self.v6only || !peer.is_ipv4() {
+            return Err(Errno::EADDRNOTAVAIL);
+        }
+        self.mc.drop_ipv6(net);
+        self.sticky_hdrs.clear();
+        self.sticky_pktinfo = (Ipv6Addr::UNSPECIFIED, 0);
+        self.rxpmtu = None;
+        self.ints.retain(|(level, _), _| *level != SOL_IPV6);
+        self.family = Some(Domain::Inet);
+        Ok(())
     }
 
     /// The hop limit of a unicast packet: `IP_TTL`/`IPV6_UNICAST_HOPS`, else the default 64.
