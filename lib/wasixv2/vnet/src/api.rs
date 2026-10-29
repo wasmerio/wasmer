@@ -17,10 +17,19 @@
 //!
 //! Errors are guest-visible `Errno` values with Linux's meaning and precedence.
 
-use std::{fmt, net::SocketAddr, sync::Arc};
+use std::{
+    fmt,
+    net::{IpAddr, SocketAddr},
+    sync::Arc,
+};
 
 use wasixv2_abi::{Errno, MsgFlags, SoEeOrigin};
 use wasixv2_wait::{PollTable, Pollable, WaitQueue};
+
+use crate::{
+    iface::{AddMode, AddrMatch, IfAddr, Route, RouteDecision, RouteMatch},
+    net::{MovedLink, Rtnl},
+};
 
 /// The address family of an IP socket. Unix sockets never reach this crate.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -151,17 +160,45 @@ pub struct PortEntry {
     pub listening: bool,
 }
 
-/// A network interface, for netlink, `SIOCGIF*` and `getifaddrs`.
+/// A network interface as netlink, `SIOCGIF*`, `getifaddrs` and `/proc/net` show it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Interface {
     /// The interface index, from 1.
     pub index: u32,
     pub name: String,
-    /// `IFF_*` flags (`IFF_UP`, `IFF_LOOPBACK`, `IFF_RUNNING`, ...).
+    /// `IFF_*` flags as `dev_get_flags` reports them (`IFF_UP`, `IFF_LOOPBACK`,
+    /// `IFF_RUNNING`, ...).
     pub flags: u32,
     pub mtu: u32,
-    /// Addresses with their prefix lengths.
-    pub addresses: Vec<(std::net::IpAddr, u8)>,
+    pub mac: [u8; 6],
+    /// `IFLA_INFO_KIND` (`"veth"`, `"dummy"`) for an interface a request made.
+    pub kind: Option<&'static str>,
+    /// A veth end's peer (`IFLA_LINK`), with the id this namespace knows the peer's namespace
+    /// by (`IFLA_LINK_NETNSID`) when it is another one.
+    pub peer: Option<(u32, Option<i32>)>,
+    /// Addresses, IPv4 first in Linux's order.
+    pub addresses: Vec<IfAddr>,
+}
+
+/// What `RTM_NEWLINK` with `NLM_F_CREATE` makes (`rtnl_newlink_create`).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct NewLink {
+    /// The name, or a pattern with `%d`; `None` takes the kind's (`veth%d`, `dummy%d`).
+    pub name: Option<String>,
+    pub mtu: Option<u32>,
+    pub mac: Option<[u8; 6]>,
+    pub kind: NewLinkKind,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum NewLinkKind {
+    Dummy,
+    /// A pair: the new interface and its peer (`VETH_INFO_PEER`), both in this namespace.
+    Veth {
+        peer_name: Option<String>,
+        peer_mtu: Option<u32>,
+        peer_mac: Option<[u8; 6]>,
+    },
 }
 
 /// A network namespace: what the kernel's `socket` and the network pseudo files use.
@@ -196,6 +233,89 @@ pub trait Network: Send + Sync {
     fn change_flags(&self, index: u32, flags: u32) -> Result<(), Errno> {
         let _ = (index, flags);
         Err(Errno::EOPNOTSUPP)
+    }
+
+    /// The routes of every table, for `RTM_GETROUTE` dumps and `/proc/net/route`.
+    fn routes(&self) -> Vec<Route> {
+        Vec::new()
+    }
+
+    /// The route lookup a socket sending to `dst` makes (`RTM_GETROUTE` for one address).
+    fn route_get(&self, dst: IpAddr) -> Result<RouteDecision, Errno> {
+        let _ = dst;
+        Err(Errno::ENETUNREACH)
+    }
+
+    /// `RTM_NEWLINK` with `NLM_F_CREATE`: a dummy interface or a veth pair, down. Returns the
+    /// new interface's index, and for a pair its peer's.
+    fn new_link(&self, link: NewLink) -> Result<(u32, Option<u32>), Errno> {
+        let _ = link;
+        Err(Errno::EOPNOTSUPP)
+    }
+
+    /// `RTM_DELLINK`: deleting a veth end deletes its peer too. Interfaces no request made
+    /// (`lo`, the uplink) are `EOPNOTSUPP`.
+    fn del_link(&self, index: u32) -> Result<(), Errno> {
+        let _ = index;
+        Err(Errno::EOPNOTSUPP)
+    }
+
+    /// `dev_change_name` (`IFLA_IFNAME`, `SIOCSIFNAME`).
+    fn rename_link(&self, index: u32, name: &str) -> Result<(), Errno> {
+        let _ = (index, name);
+        Err(Errno::EOPNOTSUPP)
+    }
+
+    /// `dev_set_mtu` (`IFLA_MTU`, `SIOCSIFMTU`).
+    fn set_mtu(&self, index: u32, mtu: u32) -> Result<(), Errno> {
+        let _ = (index, mtu);
+        Err(Errno::EOPNOTSUPP)
+    }
+
+    /// `dev_set_mac_address` (`IFLA_ADDRESS`, `SIOCSIFHWADDR`).
+    fn set_mac(&self, index: u32, mac: [u8; 6]) -> Result<(), Errno> {
+        let _ = (index, mac);
+        Err(Errno::EOPNOTSUPP)
+    }
+
+    /// `RTM_NEWADDR` (`ip addr add`, `SIOCSIFADDR`).
+    fn add_address(&self, index: u32, addr: IfAddr, mode: AddMode) -> Result<(), Errno> {
+        let _ = (index, addr, mode);
+        Err(Errno::EOPNOTSUPP)
+    }
+
+    /// `RTM_DELADDR` (`ip addr del`, `SIOCDIFADDR`).
+    fn del_address(&self, index: u32, which: &AddrMatch) -> Result<(), Errno> {
+        let _ = (index, which);
+        Err(Errno::EOPNOTSUPP)
+    }
+
+    /// `RTM_NEWROUTE` (`ip route add`, `SIOCADDRT`).
+    fn add_route(&self, route: Route, mode: AddMode) -> Result<(), Errno> {
+        let _ = (route, mode);
+        Err(Errno::EOPNOTSUPP)
+    }
+
+    /// `RTM_DELROUTE` (`ip route del`, `SIOCDELRT`).
+    fn del_route(&self, which: &RouteMatch) -> Result<(), Errno> {
+        let _ = which;
+        Err(Errno::EOPNOTSUPP)
+    }
+
+    /// The first half of moving interface `index` to another namespace
+    /// (`__dev_change_net_namespace`): it goes down and leaves this namespace with its
+    /// addresses and routes. `EINVAL` for an interface that stays in its namespace (`lo`, the
+    /// uplink). See [`crate::move_link`].
+    fn take_link(&self, rtnl: &Rtnl, index: u32) -> Result<MovedLink, Errno> {
+        let _ = (rtnl, index);
+        Err(Errno::EOPNOTSUPP)
+    }
+
+    /// The second half: the interface joins this namespace, keeping its index if free, and
+    /// returns its index; on failure the link comes back.
+    fn adopt_link(&self, rtnl: &Rtnl, link: MovedLink) -> Result<u32, (Errno, MovedLink)> {
+        let _ = rtnl;
+        Err((Errno::EOPNOTSUPP, link))
     }
 }
 

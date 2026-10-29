@@ -517,9 +517,7 @@ impl Socket for UdpSocket {
         let dst = canonical(addr);
         let mut g = self.lock();
         let path = self.net.path(dst, g.local.map(|l| l.ip()))?;
-        let src = match path {
-            Path::Local { src } | Path::Backend { src, .. } => src,
-        };
+        let src = path.src();
         let local = self.autobind(&mut g)?;
         if local.ip().is_unspecified() {
             self.net.state().udp.rehash(self.id, local.port(), src);
@@ -534,8 +532,9 @@ impl Socket for UdpSocket {
             Path::Backend { host_dst, .. } => {
                 self.backend_endpoint(&mut g)?.connect(Some(host_dst))?
             }
-            // The association moved inside the namespace: nothing from outside is for us now.
-            Path::Local { .. } => {
+            // The association moved inside the namespace or to a link of its own: nothing from
+            // outside is for us now.
+            Path::Local { .. } | Path::Nowhere { .. } => {
                 g.backend = None;
                 if let Some((_, ep)) = &g.published {
                     let _ = ep.attach(None);
@@ -672,6 +671,8 @@ impl Socket for UdpSocket {
                 }
                 Ok(msg.data.len())
             }
+            // Lost on a link where nothing answers.
+            UdpRoute::Nowhere => Ok(msg.data.len()),
             UdpRoute::Backend { host_dst } => {
                 let b = self.backend_endpoint(&mut g)?;
                 drop(g);

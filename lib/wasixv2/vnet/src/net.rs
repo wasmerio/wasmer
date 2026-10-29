@@ -14,14 +14,72 @@ use wasixv2_wait::{PollTable, WaitQueue};
 
 use crate::{
     Backend, BackendDatagram, BackendStream, Domain, InboundSink, Interface, NetResult, Network,
-    PortEntry, Publication, Room, Socket, SocketKind,
+    NewLink, NewLinkKind, PortEntry, Publication, Room, Socket, SocketKind,
     addr::{canonical, canonical_ip},
     cmsg::SendCtl,
-    iface::{Interfaces, Route, RouteDecision},
+    iface::{
+        AddMode, AddrMatch, IfAddr, Interfaces, Link, LinkKind, Route, RouteDecision, RouteMatch,
+        VethEnd, Via, valid_mac,
+    },
     ports::{BindSpec, PortRange, PortRng, PortTable, Proto, SockId},
+    sync::MutexExt,
     tcp::{Offer, TcpSocket},
     udp::UdpSocket,
 };
+
+/// The lock every change of interfaces, addresses and routes takes first (`rtnl_lock`), so a
+/// change that spans namespaces, such as moving an interface, happens as one. It comes before
+/// any namespace's own lock.
+static RTNL: Mutex<()> = Mutex::new(());
+
+/// Proof that the caller holds the configuration lock (see [`rtnl`]).
+pub struct Rtnl(#[allow(dead_code)] MutexGuard<'static, ()>);
+
+/// Takes the configuration lock.
+pub fn rtnl() -> Rtnl {
+    Rtnl(RTNL.lock_or_recover())
+}
+
+/// An interface on its way between namespaces (see [`move_link`]).
+pub struct MovedLink {
+    link: Link,
+}
+
+impl MovedLink {
+    pub fn name(&self) -> &str {
+        &self.link.name
+    }
+}
+
+/// `__dev_change_net_namespace`: moves interface `index` of `from` to `to`, where it arrives
+/// down and without addresses, keeping its index if free there. `EEXIST` if `to` has an
+/// interface of its name, `EINVAL` for one that stays in its namespace. Returns its index in
+/// `to`.
+pub fn move_link(from: &dyn Network, index: u32, to: &dyn Network) -> NetResult<u32> {
+    let rtnl = rtnl();
+    let link = from
+        .interfaces()
+        .into_iter()
+        .find(|i| i.index == index)
+        .ok_or(Errno::ENODEV)?;
+    // Only what a request made can move (`netns_local` is checked first).
+    if link.kind.is_none() {
+        return Err(Errno::EINVAL);
+    }
+    if to.interfaces().iter().any(|i| i.name == link.name) {
+        return Err(Errno::EEXIST);
+    }
+    let link = from.take_link(&rtnl, index)?;
+    match to.adopt_link(&rtnl, link) {
+        Ok(index) => Ok(index),
+        Err((e, link)) => {
+            if let Err((back, _)) = from.adopt_link(&rtnl, link) {
+                tracing::warn!(?back, "an interface that could not move is lost");
+            }
+            Err(e)
+        }
+    }
+}
 
 /// The host-facing interface of a namespace (`eth0`): the addresses the guest uses for
 /// traffic that leaves through the backend.
@@ -115,6 +173,8 @@ pub(crate) struct NetState {
     pub udp_pubs: Vec<UdpPublication>,
     pub ifaces: Interfaces,
     pub rng: PortRng,
+    /// The ids this namespace knows other namespaces by (`peernet2id_alloc`), by position.
+    pub nsids: Vec<Weak<Net>>,
 }
 
 /// A published UDP port: the backend endpoint bound to the host port, and the guest socket
@@ -129,8 +189,34 @@ pub(crate) struct UdpPublication {
 
 /// Where a destination goes.
 pub(crate) enum Path {
-    Local { src: IpAddr },
-    Backend { src: IpAddr, host_dst: SocketAddr },
+    /// To a socket of this namespace (`net` is `None`), or across a veth of the peer's.
+    Local {
+        src: IpAddr,
+        net: Option<Arc<Net>>,
+    },
+    Backend {
+        src: IpAddr,
+        host_dst: SocketAddr,
+    },
+    /// Out an interface where nothing answers: a dummy, a veth without carrier, or one whose
+    /// peer does not hold the destination (there is no forwarding).
+    Nowhere {
+        src: IpAddr,
+    },
+}
+
+impl Path {
+    pub(crate) fn src(&self) -> IpAddr {
+        match self {
+            Path::Local { src, .. } | Path::Backend { src, .. } | Path::Nowhere { src } => *src,
+        }
+    }
+}
+
+/// A route decision made under the namespace's lock, before the peer of a veth was asked.
+enum Hop {
+    Done(Path),
+    Veth { src: IpAddr, end: VethEnd },
 }
 
 /// One network namespace. Implements [`Network`].
@@ -146,26 +232,28 @@ impl Net {
     pub fn new(config: NetConfig, backend: Option<Arc<dyn Backend>>) -> Arc<Self> {
         let mut ifaces = Interfaces::loopback_only(config.loopback_up);
         if let Some(up) = &config.uplink {
-            let idx = ifaces.add_link(&up.name, up.mtu, up.mac);
+            let idx = ifaces
+                .add_link(&up.name, LinkKind::Uplink, up.mtu, up.mac)
+                .expect("a valid uplink name");
             ifaces.set_up(idx, true).expect("link exists");
-            if let Some((a, len, gw)) = up.v4 {
+            let v4 = up
+                .v4
+                .map(|(a, len, gw)| (a.into(), len, gw.map(IpAddr::from)));
+            let v6 = up
+                .v6
+                .map(|(a, len, gw)| (a.into(), len, gw.map(IpAddr::from)));
+            for (a, len, gw) in [v4, v6].into_iter().flatten() {
                 ifaces
-                    .add_addr(idx, a.into(), len)
+                    .add_addr(idx, IfAddr::new(a, len), AddMode::ADD)
                     .expect("valid uplink address");
                 if let Some(gw) = gw {
+                    let any = match a {
+                        IpAddr::V4(_) => Ipv4Addr::UNSPECIFIED.into(),
+                        IpAddr::V6(_) => Ipv6Addr::UNSPECIFIED.into(),
+                    };
                     ifaces
-                        .add_route(default_route(Ipv4Addr::UNSPECIFIED.into(), gw.into(), idx))
-                        .expect("fresh table");
-                }
-            }
-            if let Some((a, len, gw)) = up.v6 {
-                ifaces
-                    .add_addr(idx, a.into(), len)
-                    .expect("valid uplink address");
-                if let Some(gw) = gw {
-                    ifaces
-                        .add_route(default_route(Ipv6Addr::UNSPECIFIED.into(), gw.into(), idx))
-                        .expect("fresh table");
+                        .add_route(Route::unicast(any, 0, Some(gw), idx), AddMode::ADD)
+                        .expect("a gateway on the uplink's subnet");
                 }
             }
         }
@@ -177,6 +265,7 @@ impl Net {
                 udp_pubs: Vec::new(),
                 ifaces,
                 rng: PortRng::new(seed),
+                nsids: Vec::new(),
             }),
             backend,
             config,
@@ -186,7 +275,15 @@ impl Net {
     }
 
     pub(crate) fn state(&self) -> MutexGuard<'_, NetState> {
-        self.state.lock().unwrap()
+        self.state.lock_or_recover()
+    }
+
+    /// The namespace's state for a configuration change, which `_rtnl` serialises, without
+    /// the veth ends whose peer's namespace is gone.
+    fn configure(&self, _rtnl: &Rtnl) -> MutexGuard<'_, NetState> {
+        let mut st = self.state();
+        st.prune();
+        st
     }
 
     pub(crate) fn arc(&self) -> Arc<Net> {
@@ -199,12 +296,38 @@ impl Net {
 
     /// Changes the interface and route tables (`ip link`, `ip addr`, `ip route`).
     pub fn update_interfaces<R>(&self, f: impl FnOnce(&mut Interfaces) -> R) -> R {
-        f(&mut self.state().ifaces)
+        let rtnl = rtnl();
+        f(&mut self.configure(&rtnl).ifaces)
     }
 
     /// `fib_lookup` for `dst`.
-    pub fn route(&self, dst: IpAddr) -> Option<RouteDecision> {
+    pub fn route(&self, dst: IpAddr) -> NetResult<RouteDecision> {
         self.state().ifaces.route(dst)
+    }
+
+    /// The id this namespace knows `other` by (`peernet2id_alloc`); `None` for itself.
+    fn nsid(&self, st: &mut NetState, other: &Weak<Net>) -> Option<i32> {
+        if Weak::ptr_eq(other, &self.me) {
+            return None;
+        }
+        let id = match st.nsids.iter().position(|n| Weak::ptr_eq(n, other)) {
+            Some(id) => id,
+            None => {
+                st.nsids.push(other.clone());
+                st.nsids.len() - 1
+            }
+        };
+        Some(id as i32)
+    }
+
+    /// `eth_random_addr`: a random, locally administered unicast address.
+    fn random_mac(st: &mut NetState) -> [u8; 6] {
+        let mut mac = [0u8; 6];
+        for b in &mut mac {
+            *b = st.rng.below(256) as u8;
+        }
+        mac[0] = (mac[0] & 0xfe) | 0x02;
+        mac
     }
 
     /// DNS policy: the guest's `/etc/resolv.conf`.
@@ -323,6 +446,7 @@ impl Net {
             let ip = st
                 .ifaces
                 .route(peer.map_or(any, |p| p.ip()))
+                .ok()
                 .filter(|d| !d.local)
                 .map(|d| d.src)
                 .unwrap_or(if dst.is_ipv4() {
@@ -344,23 +468,28 @@ impl Net {
 
     /// Where traffic to `dst` (canonical) goes, given the socket's bound address.
     pub(crate) fn path(&self, dst: SocketAddr, bound: Option<IpAddr>) -> NetResult<Path> {
-        self.path_in(&self.state(), dst, bound)
+        let hop = self.hop(&self.state(), dst, bound)?;
+        Ok(match hop {
+            Hop::Done(path) => path,
+            Hop::Veth { src, end } => across(src, &end, dst),
+        })
     }
 
-    fn path_in(&self, st: &NetState, dst: SocketAddr, bound: Option<IpAddr>) -> NetResult<Path> {
-        let decision = st.ifaces.route(dst.ip()).ok_or(Errno::ENETUNREACH)?;
+    /// The route to `dst` as far as this namespace decides it.
+    fn hop(&self, st: &NetState, dst: SocketAddr, bound: Option<IpAddr>) -> NetResult<Hop> {
+        let decision = st.ifaces.route(dst.ip())?;
         let src = bound
             .filter(|ip| !ip.is_unspecified())
             .unwrap_or(decision.src);
-        if decision.local {
-            return Ok(Path::Local { src });
-        }
-        if self.backend.is_none() {
-            return Err(Errno::ENETUNREACH);
-        }
-        Ok(Path::Backend {
-            src,
-            host_dst: self.host_view(dst),
+        Ok(match decision.via {
+            Via::Local => Hop::Done(Path::Local { src, net: None }),
+            Via::Uplink if self.backend.is_some() => Hop::Done(Path::Backend {
+                src,
+                host_dst: self.host_view(dst),
+            }),
+            Via::Uplink => return Err(Errno::ENETUNREACH),
+            Via::Veth(end) => Hop::Veth { src, end },
+            Via::Nowhere => Hop::Done(Path::Nowhere { src }),
         })
     }
 
@@ -480,7 +609,7 @@ impl Net {
         dst: SocketAddr,
         ctl: &SendCtl,
     ) -> NetResult<UdpRoute> {
-        let route = {
+        let (hop, to) = {
             let st = self.state();
             // `ip_route_output_key_hash_rcu`: an unknown interface is ENODEV, a source address
             // that is not the machine's EINVAL.
@@ -493,27 +622,78 @@ impl Net {
             {
                 return Err(Errno::EINVAL);
             }
-            let path = self.path_in(&st, dst, src.or(Some(local.ip())))?;
-            match path {
-                Path::Local { src } => {
-                    let from = SocketAddr::new(src, local.port());
-                    // Liveness without upgrading: a last reference must not drop under the lock.
-                    let live = |w: &Weak<UdpSocket>, _| w.strong_count() > 0;
-                    let to = st
-                        .udp
-                        .lookup_one(dst, Some(from), live, from.port() as usize);
-                    Ok((from, to))
-                }
-                Path::Backend { host_dst, .. } => Err(host_dst),
-            }
+            let hop = self.hop(&st, dst, src.or(Some(local.ip())))?;
+            let to = match &hop {
+                Hop::Done(Path::Local { src, .. }) => udp_receiver(&st, *src, local, dst),
+                _ => None,
+            };
+            (hop, to)
         };
-        Ok(match route {
-            Ok((from, to)) => UdpRoute::Local {
-                from,
+        Ok(match hop {
+            Hop::Done(Path::Local { src, .. }) => UdpRoute::Local {
+                from: SocketAddr::new(src, local.port()),
                 to: to.and_then(|w| w.upgrade()),
             },
-            Err(host_dst) => UdpRoute::Backend { host_dst },
+            Hop::Done(Path::Backend { host_dst, .. }) => UdpRoute::Backend { host_dst },
+            Hop::Done(Path::Nowhere { .. }) => UdpRoute::Nowhere,
+            Hop::Veth { src, end } => match across(src, &end, dst) {
+                Path::Local {
+                    src,
+                    net: Some(peer),
+                } => {
+                    let to = udp_receiver(&peer.state(), src, local, dst);
+                    UdpRoute::Local {
+                        from: SocketAddr::new(src, local.port()),
+                        to: to.and_then(|w| w.upgrade()),
+                    }
+                }
+                _ => UdpRoute::Nowhere,
+            },
         })
+    }
+}
+
+/// The socket of the namespace `st` that receives a datagram to `dst` from `src` and the port
+/// of `local`, looked up without upgrading: a last reference must not drop under the lock.
+fn udp_receiver(
+    st: &NetState,
+    src: IpAddr,
+    local: SocketAddr,
+    dst: SocketAddr,
+) -> Option<Weak<UdpSocket>> {
+    let from = SocketAddr::new(src, local.port());
+    let live = |w: &Weak<UdpSocket>, _| w.strong_count() > 0;
+    st.udp
+        .lookup_one(dst, Some(from), live, from.port() as usize)
+}
+
+/// Across a veth: the peer's namespace if it holds `dst`, else nowhere, as Linux without
+/// forwarding drops what it receives for an address it does not have.
+fn across(src: IpAddr, end: &VethEnd, dst: SocketAddr) -> Path {
+    let (net, _) = end.peer();
+    match net.upgrade() {
+        Some(net) if net.state().ifaces.is_local(dst.ip()) => Path::Local {
+            src,
+            net: Some(net),
+        },
+        _ => Path::Nowhere { src },
+    }
+}
+
+impl NetState {
+    /// Deletes the veth ends whose peer's namespace is gone: Linux deletes both ends of a
+    /// pair as either namespace exits.
+    fn prune(&mut self) {
+        let orphans: Vec<u32> = self
+            .ifaces
+            .links()
+            .iter()
+            .filter(|l| matches!(&l.kind, LinkKind::Veth(end) if end.orphaned()))
+            .map(|l| l.index)
+            .collect();
+        for index in orphans {
+            let _ = self.ifaces.remove(index);
+        }
     }
 }
 
@@ -572,17 +752,8 @@ pub(crate) enum UdpRoute {
     },
     /// Out through the backend to `host_dst`.
     Backend { host_dst: SocketAddr },
-}
-
-fn default_route(dst: IpAddr, gw: IpAddr, oif: u32) -> Route {
-    Route {
-        dst,
-        prefix_len: 0,
-        gateway: Some(gw),
-        oif,
-        prefsrc: None,
-        metric: 0,
-    }
+    /// Out an interface where nothing answers: the datagram is lost.
+    Nowhere,
 }
 
 impl Network for Net {
@@ -624,22 +795,201 @@ impl Network for Net {
     }
 
     fn interfaces(&self) -> Vec<Interface> {
-        self.state()
-            .ifaces
-            .links()
+        let mut st = self.state();
+        st.prune();
+        let links = st.ifaces.links().to_vec();
+        links
             .iter()
             .map(|l| Interface {
                 index: l.index,
                 name: l.name.clone(),
-                flags: l.flags,
+                flags: l.flags(),
                 mtu: l.mtu,
-                addresses: l.addrs.iter().map(|a| (a.addr, a.prefix_len)).collect(),
+                mac: l.mac,
+                kind: l.kind.name(),
+                peer: match &l.kind {
+                    LinkKind::Veth(end) => {
+                        let (net, index) = end.peer();
+                        Some((index, self.nsid(&mut st, &net)))
+                    }
+                    _ => None,
+                },
+                addresses: l.addrs.clone(),
             })
             .collect()
     }
 
     fn change_flags(&self, index: u32, flags: u32) -> Result<(), Errno> {
-        self.state().ifaces.change_flags(index, flags)
+        let rtnl = rtnl();
+        self.configure(&rtnl).ifaces.change_flags(index, flags)
+    }
+
+    fn routes(&self) -> Vec<Route> {
+        self.state().ifaces.routes().to_vec()
+    }
+
+    fn route_get(&self, dst: IpAddr) -> Result<RouteDecision, Errno> {
+        self.route(dst)
+    }
+
+    /// `veth_newlink` makes the peer first, so it has the lower index; `dummy_setup`'s and
+    /// `veth_setup`'s defaults otherwise, with random addresses (`eth_hw_addr_random`).
+    fn new_link(&self, spec: NewLink) -> Result<(u32, Option<u32>), Errno> {
+        let rtnl = rtnl();
+        let mut st = self.configure(&rtnl);
+        let st = &mut *st;
+        let mac = |given: Option<[u8; 6]>, st: &mut NetState| match given {
+            Some(mac) if !valid_mac(mac) => Err(Errno::EADDRNOTAVAIL),
+            Some(mac) => Ok(mac),
+            None => Ok(Self::random_mac(st)),
+        };
+        let link = |index, name, kind: LinkKind, mtu: Option<u32>, mac| -> NetResult<Link> {
+            let mtu = mtu.unwrap_or(1500);
+            kind.check_mtu(mtu)?;
+            Ok(Link {
+                index,
+                name,
+                flags: kind.initial_flags(),
+                mtu,
+                mac,
+                kind,
+                addrs: Vec::new(),
+            })
+        };
+        match spec.kind {
+            NewLinkKind::Dummy => {
+                let name = st
+                    .ifaces
+                    .check_name(spec.name.as_deref().unwrap_or("dummy%d"))?;
+                let mac = mac(spec.mac, st)?;
+                LinkKind::Dummy.check_mtu(spec.mtu.unwrap_or(1500))?;
+                let index = st.ifaces.reserve_index(None);
+                st.ifaces
+                    .insert(link(index, name, LinkKind::Dummy, spec.mtu, mac)?);
+                Ok((index, None))
+            }
+            NewLinkKind::Veth {
+                peer_name,
+                peer_mtu,
+                peer_mac,
+            } => {
+                // The peer is registered first, so a pattern in the device's name skips it.
+                let peer_name = st
+                    .ifaces
+                    .check_name(peer_name.as_deref().unwrap_or("veth%d"))?;
+                let peer_mac = mac(peer_mac, st)?;
+                let mac = mac(spec.mac, st)?;
+                let peer = st.ifaces.reserve_index(None);
+                let index = st.ifaces.reserve_index(None);
+                let (end, peer_end) = VethEnd::pair(self.me.clone(), index, peer);
+                let peer_link = link(
+                    peer,
+                    peer_name,
+                    LinkKind::Veth(peer_end),
+                    peer_mtu,
+                    peer_mac,
+                )?;
+                st.ifaces.insert(peer_link);
+                let dev = st
+                    .ifaces
+                    .check_name(spec.name.as_deref().unwrap_or("veth%d"))
+                    .and_then(|name| link(index, name, LinkKind::Veth(end), spec.mtu, mac));
+                match dev {
+                    Ok(dev) => st.ifaces.insert(dev),
+                    Err(e) => {
+                        let _ = st.ifaces.remove(peer);
+                        return Err(e);
+                    }
+                }
+                Ok((index, Some(peer)))
+            }
+        }
+    }
+
+    fn del_link(&self, index: u32) -> Result<(), Errno> {
+        let rtnl = rtnl();
+        let mut st = self.configure(&rtnl);
+        let link = st.ifaces.link(index).ok_or(Errno::ENODEV)?;
+        if link.kind.name().is_none() {
+            return Err(Errno::EOPNOTSUPP);
+        }
+        let link = st.ifaces.remove(index)?;
+        drop(st);
+        // `veth_dellink`: the peer goes too, wherever it is.
+        if let LinkKind::Veth(end) = &link.kind {
+            let (net, peer) = end.peer();
+            if let Some(net) = net.upgrade() {
+                let mut st = net.configure(&rtnl);
+                let is_peer = matches!(
+                    st.ifaces.link(peer).map(|l| &l.kind),
+                    Some(LinkKind::Veth(other)) if other.is_peer_of(end)
+                );
+                if is_peer {
+                    let _ = st.ifaces.remove(peer);
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn rename_link(&self, index: u32, name: &str) -> Result<(), Errno> {
+        let rtnl = rtnl();
+        self.configure(&rtnl).ifaces.rename(index, name)
+    }
+
+    fn set_mtu(&self, index: u32, mtu: u32) -> Result<(), Errno> {
+        let rtnl = rtnl();
+        self.configure(&rtnl).ifaces.set_mtu(index, mtu)
+    }
+
+    fn set_mac(&self, index: u32, mac: [u8; 6]) -> Result<(), Errno> {
+        let rtnl = rtnl();
+        self.configure(&rtnl).ifaces.set_mac(index, mac)
+    }
+
+    fn add_address(&self, index: u32, addr: IfAddr, mode: AddMode) -> Result<(), Errno> {
+        let rtnl = rtnl();
+        self.configure(&rtnl).ifaces.add_addr(index, addr, mode)
+    }
+
+    fn del_address(&self, index: u32, which: &AddrMatch) -> Result<(), Errno> {
+        let rtnl = rtnl();
+        self.configure(&rtnl).ifaces.del_addr(index, which)
+    }
+
+    fn add_route(&self, route: Route, mode: AddMode) -> Result<(), Errno> {
+        let rtnl = rtnl();
+        self.configure(&rtnl).ifaces.add_route(route, mode)
+    }
+
+    fn del_route(&self, which: &RouteMatch) -> Result<(), Errno> {
+        let rtnl = rtnl();
+        self.configure(&rtnl).ifaces.del_route(which)
+    }
+
+    fn take_link(&self, rtnl: &Rtnl, index: u32) -> Result<MovedLink, Errno> {
+        let mut st = self.configure(rtnl);
+        let link = st.ifaces.link(index).ok_or(Errno::ENODEV)?;
+        if link.kind.netns_local() {
+            return Err(Errno::EINVAL);
+        }
+        let link = st.ifaces.remove(index)?;
+        Ok(MovedLink { link })
+    }
+
+    fn adopt_link(&self, rtnl: &Rtnl, moved: MovedLink) -> Result<u32, (Errno, MovedLink)> {
+        let mut st = self.configure(rtnl);
+        if st.ifaces.link_by_name(&moved.link.name).is_some() {
+            return Err((Errno::EEXIST, moved));
+        }
+        let mut link = moved.link;
+        link.index = st.ifaces.reserve_index(Some(link.index));
+        if let LinkKind::Veth(end) = &link.kind {
+            end.moved(self.me.clone(), link.index);
+        }
+        let index = link.index;
+        st.ifaces.insert(link);
+        Ok(index)
     }
 }
 

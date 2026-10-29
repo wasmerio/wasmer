@@ -189,7 +189,7 @@ impl NetlinkSocket {
             },
             (RTM_GETADDR, true) => self.reply(self.dump(h.seq, |out| {
                 for iface in &interfaces {
-                    for &(ip, prefix) in &iface.addresses {
+                    for (ip, prefix) in iface.addresses.iter().map(|a| (a.addr, a.prefix_len)) {
                         let wanted = match family as i32 {
                             0 => true,
                             f if f == AddressFamily::AF_INET.0 => ip.is_ipv4(),

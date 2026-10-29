@@ -1122,3 +1122,133 @@ fn explicitly_bound_udp_sockets_are_auto_published() {
     drop(s);
     assert!(n.state().udp_pubs.is_empty());
 }
+
+/// Two namespaces joined by a veth pair, as `ip link add veth0 type veth peer name veth1`,
+/// `ip link set veth1 netns ...`, addresses on both ends and both up make them.
+fn veth_pair(v4: (&str, &str), v6: (&str, &str)) -> (Arc<Net>, Arc<Net>) {
+    use crate::{
+        NewLink, NewLinkKind,
+        iface::{AddMode, IfAddr},
+        move_link,
+    };
+    let (na, nb) = (net(), net());
+    let (veth0, veth1) = na
+        .new_link(NewLink {
+            name: Some("veth0".into()),
+            mtu: None,
+            mac: None,
+            kind: NewLinkKind::Veth {
+                peer_name: Some("veth1".into()),
+                peer_mtu: None,
+                peer_mac: None,
+            },
+        })
+        .unwrap();
+    let veth1 = move_link(&*na, veth1.unwrap(), &*nb).unwrap();
+    for (n, index, (ip4, ip6)) in [(&na, veth0, (v4.0, v6.0)), (&nb, veth1, (v4.1, v6.1))] {
+        for (ip, len) in [(ip4, 24), (ip6, 64)] {
+            n.add_address(index, IfAddr::new(ip.parse().unwrap(), len), AddMode::ADD)
+                .unwrap();
+        }
+        n.change_flags(index, crate::iface::flags::IFF_UP).unwrap();
+    }
+    (na, nb)
+}
+
+/// TCP and UDP cross a veth pair into the namespace at its other end, which sees the
+/// connecting end's address as the peer's; the way back takes the route back.
+#[test]
+fn veth_carries_streams_and_datagrams_between_namespaces() {
+    let (na, nb) = veth_pair(("10.23.0.1", "10.23.0.2"), ("fd00:23::1", "fd00:23::2"));
+    let l = tcp(&nb);
+    l.bind(a("10.23.0.2:7000"), false).unwrap();
+    l.listen(4).unwrap();
+    let c = tcp(&na);
+    c.connect(a("10.23.0.2:7000")).unwrap();
+    assert_eq!(c.local_addr().unwrap().ip(), a("10.23.0.1:0").ip());
+    let acc = l.accept().unwrap();
+    assert_eq!(acc.peer, c.local_addr().unwrap());
+    send(&*c, b"ping").unwrap();
+    assert_eq!(recv(&*acc.socket, 8).unwrap(), b"ping");
+
+    let u = nb
+        .socket(Domain::Inet6, SocketKind::Datagram, 0, UID)
+        .unwrap();
+    u.bind(a("[fd00:23::2]:5000"), false).unwrap();
+    let v = na
+        .socket(Domain::Inet6, SocketKind::Datagram, 0, UID)
+        .unwrap();
+    send_to(&*v, b"hi", Some(a("[fd00:23::2]:5000"))).unwrap();
+    let mut buf = [0; 8];
+    let got = u.recv(&mut buf, MsgFlags(0)).unwrap();
+    let from = got.from.unwrap();
+    assert_eq!(from.ip(), a("[fd00:23::1]:0").ip());
+    send_to(&*u, b"back", Some(from)).unwrap();
+    assert_eq!(recv(&*v, 8).unwrap(), b"back");
+
+    // The namespaces stay apart: neither has the other's addresses.
+    let x = tcp(&na);
+    assert_eq!(x.bind(a("10.23.0.2:0"), false), Err(Errno::EADDRNOTAVAIL));
+    // An address on the link that nobody has: nothing answers.
+    assert_eq!(
+        tcp(&na).connect(a("10.23.0.9:7000")),
+        Err(Errno::EHOSTUNREACH)
+    );
+    send_to(&*udp(&na), b"lost", Some(a("10.23.0.9:9"))).unwrap();
+}
+
+/// Carrier needs both ends up; deleting one end deletes the other; a namespace that goes takes
+/// its ends' peers with it.
+#[test]
+fn veth_carrier_deletion_and_namespace_exit() {
+    use crate::iface::flags::{IFF_LOWER_UP, IFF_UP};
+    let (na, nb) = veth_pair(("10.23.0.1", "10.23.0.2"), ("fd00:23::1", "fd00:23::2"));
+    let veth = |n: &Net, name: &str| n.interfaces().into_iter().find(|i| i.name == name);
+    assert_ne!(veth(&na, "veth0").unwrap().flags & IFF_LOWER_UP, 0);
+    let peer = veth(&na, "veth0").unwrap().peer.unwrap();
+    assert_eq!(peer, (veth(&nb, "veth1").unwrap().index, Some(0)));
+    nb.change_flags(veth(&nb, "veth1").unwrap().index, 0)
+        .unwrap();
+    let veth0 = veth(&na, "veth0").unwrap();
+    assert_eq!(veth0.flags & (IFF_UP | IFF_LOWER_UP), IFF_UP);
+    assert_eq!(
+        tcp(&na).connect(a("10.23.0.2:7000")),
+        Err(Errno::EHOSTUNREACH)
+    );
+
+    assert_eq!(nb.del_link(1), Err(Errno::EOPNOTSUPP));
+    na.del_link(veth0.index).unwrap();
+    assert!(veth(&nb, "veth1").is_none());
+
+    let (na, nb) = veth_pair(("10.23.0.1", "10.23.0.2"), ("fd00:23::1", "fd00:23::2"));
+    drop(nb);
+    assert!(veth(&na, "veth0").is_none());
+    assert_eq!(na.interfaces().len(), 1);
+}
+
+/// `move_link`: the interface arrives down without addresses, keeping its index; names in
+/// use and interfaces that stay home refuse.
+#[test]
+fn moving_an_interface_between_namespaces() {
+    use crate::{NewLink, NewLinkKind, iface::flags::IFF_UP, move_link};
+    let (na, nb) = (net(), net());
+    let dummy = |n: &Net| {
+        n.new_link(NewLink {
+            name: Some("dummy0".into()),
+            mtu: None,
+            mac: None,
+            kind: NewLinkKind::Dummy,
+        })
+    };
+    let (d, _) = dummy(&na).unwrap();
+    na.change_flags(d, IFF_UP).unwrap();
+    assert_eq!(move_link(&*na, 1, &*nb), Err(Errno::EINVAL));
+    dummy(&nb).unwrap();
+    assert_eq!(move_link(&*na, d, &*nb), Err(Errno::EEXIST));
+    let c = net();
+    assert_eq!(move_link(&*na, d, &*c), Ok(d));
+    let moved = c.interfaces().into_iter().find(|i| i.index == d).unwrap();
+    assert_eq!((moved.name.as_str(), moved.flags & IFF_UP), ("dummy0", 0));
+    assert!(moved.addresses.is_empty());
+    assert_eq!(na.interfaces().len(), 1);
+}
