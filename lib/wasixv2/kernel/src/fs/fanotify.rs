@@ -303,6 +303,7 @@ struct Event {
     /// The task that caused it and its process, as kernel ids; 0 for none.
     tid: u32,
     tgid: u32,
+    pid: Option<crate::pid::PidRef>,
     info: Info,
     perm: Option<Arc<PermState>>,
 }
@@ -477,6 +478,14 @@ impl Registry {
         (task.0, tgid)
     }
 
+    /// fanotify_alloc_event holds get_pid(pid), not just its current numeric ID.
+    fn hold_pid(&self, id: u32) -> Option<crate::pid::PidRef> {
+        if id == 0 {
+            return None;
+        }
+        Some(self.tasks.get()?.upgrade()?.read_or_recover().pids.get(id))
+    }
+
     fn vfs(&self) -> Option<Arc<Vfs>> {
         self.vfs.get().and_then(Weak::upgrade)
     }
@@ -516,6 +525,11 @@ impl Registry {
                         tgid
                     },
                     tgid,
+                    pid: self.hold_pid(if group.flags & REPORT_TID != 0 {
+                        tid
+                    } else {
+                        tgid
+                    }),
                     info: Info::Mount(change.mount_id),
                     perm: None,
                 });
@@ -771,6 +785,7 @@ impl Group {
             mask,
             tid,
             tgid,
+            pid: registry.hold_pid(tid),
             info,
             perm,
         })
@@ -898,6 +913,7 @@ impl Group {
                     mask: Q_OVERFLOW,
                     tid: 0,
                     tgid: 0,
+                    pid: None,
                     info: Info::Overflow,
                     perm: None,
                 });
@@ -1626,10 +1642,10 @@ impl Kernel {
     ) -> SysResult<usize> {
         let len = event.len(group.flags);
         let reader_tgid = self.process(caller.task()).pid.0;
-        let mut pid = match event.tid {
-            0 => 0,
-            id => self.vnr(caller, id),
-        };
+        let mut pid = event
+            .pid
+            .as_ref()
+            .map_or(0, |pid| pid.nr(&self.process(caller.task()).pid_ns));
         if group.flags & UNPRIV != 0 && reader_tgid != event.tgid {
             pid = 0;
         }

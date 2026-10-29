@@ -1024,6 +1024,16 @@ fn fanotify_syscall_entry_reports_the_callers_pid_and_tid() {
             t.close(Fd(events[0].1));
         }
         assert_eq!(wasixv2_syscalls::current_task(), None);
+        let fd = block_on(stack.openat(&caller, CWD, name, OpenFlags::O_RDONLY, 0)).unwrap();
+        block_on(stack.close(&caller, fd)).unwrap();
+        block_on(stack.exit(&caller, 0)).unwrap();
+        stack.inner.release(caller.task());
+        assert!(stack.inner.task_process(caller.task()).is_none());
+        // fanotify_alloc_event holds get_pid(pid) until the queued event is consumed.
+        let events = fanotify_events(&t, group);
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].2, expected, "the exited thread's PID is retained");
+        t.close(Fd(events[0].1));
     }
 }
 
