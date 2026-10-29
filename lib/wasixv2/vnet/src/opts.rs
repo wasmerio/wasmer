@@ -598,6 +598,16 @@ impl SockOpts {
     pub fn set(&mut self, level: i32, name: i32, value: &[u8], bound: bool) -> NetResult<Changed> {
         self.check_level(level)?;
         match (level, name) {
+            (SOL_IPV6, n) if n == Ipv6Option::IPV6_ADDRFORM.0 => {
+                // do_ipv6_setsockopt validates the family before unsupported protocols.
+                return Err(
+                    if read_int(value)? != wasixv2_abi::AddressFamily::AF_INET.0 {
+                        Errno::EINVAL
+                    } else {
+                        Errno::ENOPROTOOPT
+                    },
+                );
+            }
             (SOL_SOCKET, n) if SockFilter::handles(n) => {
                 self.filter.set(n, value)?;
                 return Ok(Changed::Nothing);
