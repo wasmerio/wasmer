@@ -697,13 +697,11 @@ impl Kernel {
         let mut new_fs = (flags & CloneFlags::CLONE_FS.0 != 0
             && (flags & CloneFlags::CLONE_NEWNS.0 != 0 || shared(Arc::strong_count(&fs))))
         .then(|| fs.lock_or_recover().clone());
-        let new_files = (flags & CloneFlags::CLONE_FILES.0 != 0
-            && shared(Arc::strong_count(&files)))
-        .then(|| {
-            Arc::new(Mutex::new(crate::process::copy_files(
-                &files.lock_or_recover(),
-            )))
-        });
+        let new_files =
+            match flags & CloneFlags::CLONE_FILES.0 != 0 && shared(Arc::strong_count(&files)) {
+                true => Some(Arc::new(Mutex::new(files.lock_or_recover().dup()?))),
+                false => None,
+            };
         let new_ns = ns.unshare(
             self,
             flags,

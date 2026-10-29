@@ -12,6 +12,7 @@ use wasixv2_vfs::{
 
 use super::{Source, text};
 use crate::{
+    file::NrOpen,
     ns::{NsLink, PidNs},
     sync::MutexExt,
 };
@@ -589,6 +590,7 @@ impl Node for ProcNode {
                             let may = self.source.may_checkpoint_restore(options.task);
                             Some(Write::NsLastPid(pid_ns, may))
                         }
+                        text::Global::NrOpen => Some(Write::NrOpen(self.source.nr_open.clone())),
                         _ => None,
                     };
                     (data, write)
@@ -658,6 +660,8 @@ enum Write {
     /// `kernel.ns_last_pid` of the opener's pid namespace, if it may
     /// (`checkpoint_restore_ns_capable`).
     NsLastPid(Arc<PidNs>, bool),
+    /// `fs.nr_open`.
+    NrOpen(Arc<NrOpen>),
 }
 
 /// `proc_dointvec`'s parsing of one integer: blanks around it, nothing else.
@@ -689,6 +693,7 @@ impl Handle for FileHandle {
             // `pid_ns_ctl_handler`.
             Write::NsLastPid(_, false) => return Err(Errno::EPERM),
             Write::NsLastPid(ns, true) => ns.set_last_pid(sysctl_int(data)?)?,
+            Write::NrOpen(nr_open) => nr_open.set(sysctl_int(data)?)?,
         }
         Ok(data.len())
     }

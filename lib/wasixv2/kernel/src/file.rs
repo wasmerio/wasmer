@@ -582,7 +582,46 @@ struct Slot {
     cloexec: bool,
 }
 
-#[derive(Default)]
+/// `fs.nr_open` (`sysctl_nr_open`, `fs/file.c`): no descriptor table grows to hold this many
+/// descriptors, whatever `RLIMIT_NOFILE` allows, and no hard `RLIMIT_NOFILE` exceeds it. One for
+/// the machine, which every descriptor table reads.
+pub(crate) struct NrOpen(AtomicU32);
+
+impl NrOpen {
+    /// Linux's default, `1024 * 1024`.
+    pub(crate) const DEFAULT: u32 = 1 << 20;
+    /// `sysctl_nr_open_min` and `sysctl_nr_open_max` of a 32-bit kernel, as [`FdTable::max_fds`]
+    /// models one: `BITS_PER_LONG`, and `min(INT_MAX, SIZE_MAX / sizeof(void *))` rounded down
+    /// to a multiple of it.
+    pub(crate) const MIN: u32 = BITS_PER_LONG;
+    pub(crate) const MAX: u32 = (u32::MAX / 4) & !(BITS_PER_LONG - 1);
+
+    pub(crate) fn get(&self) -> u32 {
+        self.0.load(Ordering::Relaxed)
+    }
+
+    /// `proc_douintvec_minmax`'s write: `ERANGE` outside [`NrOpen::MIN`]..=[`NrOpen::MAX`].
+    pub(crate) fn set(&self, value: u32) -> Result<(), Errno> {
+        if !(Self::MIN..=Self::MAX).contains(&value) {
+            return Err(Errno::ERANGE);
+        }
+        self.0.store(value, Ordering::Relaxed);
+        Ok(())
+    }
+}
+
+impl Default for NrOpen {
+    fn default() -> Self {
+        Self(AtomicU32::new(Self::DEFAULT))
+    }
+}
+
+/// The word size of the 32-bit kernel the descriptor table models, which its sizes are
+/// multiples of.
+const BITS_PER_LONG: u32 = 32;
+/// The descriptors a new table holds (`NR_OPEN_DEFAULT`).
+const NR_OPEN_DEFAULT: usize = BITS_PER_LONG as usize;
+
 pub(crate) struct FdTable {
     slots: Vec<Option<Slot>>,
     /// Descriptors handed out for a file still being opened (`get_unused_fd_flags` before
@@ -591,9 +630,93 @@ pub(crate) struct FdTable {
     /// The soft `RLIMIT_NOFILE` once a process set one; no descriptor at or above it is handed
     /// out.
     limit: Option<usize>,
+    /// How many descriptors the table holds (`fdtable.max_fds`): it grows, and never shrinks,
+    /// as `alloc_fdtable` sizes it.
+    max_fds: usize,
+    /// The machine's `fs.nr_open`, past which the table does not grow.
+    nr_open: Arc<NrOpen>,
 }
 
 impl FdTable {
+    pub(crate) fn new(nr_open: Arc<NrOpen>) -> Self {
+        Self {
+            slots: Vec::new(),
+            reserved: BTreeSet::new(),
+            limit: None,
+            max_fds: NR_OPEN_DEFAULT,
+            nr_open,
+        }
+    }
+
+    /// `dup_fd`: a new table with the same open files at the same numbers, close-on-exec
+    /// flags included. `EMFILE` when the copy would need more room than `fs.nr_open` allows
+    /// (`alloc_fdtable`), as after the sysctl was lowered below the highest descriptor.
+    pub(crate) fn dup(&self) -> Result<Self, Errno> {
+        // `sane_fdtable_size`: up to the highest descriptor in use, a reserved one included.
+        let last = self.iter().map(|(fd, ..)| fd.0 as usize).last();
+        let last = last.max(self.reserved.last().copied());
+        let open_files = last.map_or(NR_OPEN_DEFAULT, |last| {
+            (last + 1).next_multiple_of(BITS_PER_LONG as usize)
+        });
+        let max_fds = self.alloc_fdtable(open_files)?;
+        let mut copy = self.copy();
+        copy.max_fds = max_fds;
+        Ok(copy)
+    }
+
+    /// [`FdTable::dup`] without its room check, for `execve`'s `unshare_files` past the point
+    /// of no return. Linux's fails there only when `fs.nr_open` was lowered below the table's
+    /// highest descriptor, and kills the process; this copy goes on.
+    pub(crate) fn copy(&self) -> Self {
+        let mut copy = Self::new(self.nr_open.clone());
+        copy.limit = self.limit;
+        copy.max_fds = self.max_fds;
+        for (fd, file, cloexec) in self.iter() {
+            copy.install_at(fd, file.clone(), cloexec);
+        }
+        copy
+    }
+
+    /// `alloc_fdtable`: the size of a table of at least `slots` descriptors, a power of two
+    /// from 256 on a 32-bit kernel, but none past the default's grows beyond `fs.nr_open`,
+    /// rounded down to a whole word (`EMFILE` if that is too small).
+    fn alloc_fdtable(&self, slots: usize) -> Result<usize, Errno> {
+        if slots <= NR_OPEN_DEFAULT {
+            return Ok(NR_OPEN_DEFAULT);
+        }
+        // A 32-bit kernel's first grown table holds 256 descriptors.
+        let mut nr = slots.max(256).next_power_of_two();
+        let nr_open = self.nr_open.get() as usize;
+        if nr > nr_open {
+            nr = nr_open & !(BITS_PER_LONG as usize - 1);
+            if nr < slots {
+                return Err(Errno::EMFILE);
+            }
+        }
+        // The array of `struct file *` stays below `INT_MAX` bytes.
+        if nr > i32::MAX as usize / 4 {
+            return Err(Errno::EMFILE);
+        }
+        Ok(nr)
+    }
+
+    /// `expand_files`: makes the table hold descriptor `fd`, growing it if need be.
+    pub(crate) fn expand(&mut self, fd: usize) -> Result<(), Errno> {
+        if !self.may_hold(fd) {
+            return Err(Errno::EMFILE);
+        }
+        if fd >= self.max_fds {
+            self.max_fds = self.alloc_fdtable(fd + 1)?;
+        }
+        Ok(())
+    }
+
+    /// Whether the table holds descriptor `fd`, or [`FdTable::expand`] can grow it to.
+    fn may_hold(&self, fd: usize) -> bool {
+        let nr_open = self.nr_open.get() as usize;
+        fd < self.max_fds || (fd < nr_open && self.alloc_fdtable(fd + 1).is_ok())
+    }
+
     pub(crate) fn set_limit(&mut self, limit: usize) {
         self.limit = Some(limit);
     }
@@ -608,7 +731,7 @@ impl FdTable {
     }
 
     /// Installs `file` at the lowest free descriptor, as `open` does; `None` if that would reach
-    /// the limit (`EMFILE`).
+    /// the limit, or the table cannot grow to it (`EMFILE`).
     pub(crate) fn install(&mut self, file: Arc<OpenFile>, cloexec: bool) -> Option<Fd> {
         self.install_from(0, file, cloexec)
     }
@@ -622,6 +745,7 @@ impl FdTable {
         cloexec: bool,
     ) -> Option<Fd> {
         let index = self.free_from(min).next()?;
+        self.expand(index).ok()?;
         if self.slots.len() <= index {
             self.slots.resize_with(index + 1, || None);
         }
@@ -629,7 +753,8 @@ impl FdTable {
         Some(Fd(index as i32))
     }
 
-    /// Puts `file` at `fd`, as `dup2` does, and returns what was there.
+    /// Puts `file` at `fd`, as `dup2` does once [`FdTable::expand`] made room, and returns what
+    /// was there.
     pub(crate) fn install_at(
         &mut self,
         fd: Fd,
@@ -648,7 +773,8 @@ impl FdTable {
     /// Whether `n` descriptors are free below the limit, for calls that install several at
     /// once and must not install some of them only.
     pub(crate) fn has_room(&self, n: usize) -> bool {
-        self.free_from(0).take(n).count() == n
+        let free: Vec<usize> = self.free_from(0).take(n).collect();
+        free.len() == n && free.last().is_none_or(|&fd| self.may_hold(fd))
     }
 
     fn free_from(&self, min: usize) -> impl Iterator<Item = usize> + '_ {
@@ -657,9 +783,11 @@ impl FdTable {
         })
     }
 
-    /// Reserves the lowest free descriptor; `None` at the limit (`EMFILE`).
+    /// Reserves the lowest free descriptor; `None` at the limit, or where the table cannot grow
+    /// to it (`EMFILE`).
     pub(crate) fn reserve(&mut self) -> Option<Fd> {
         let index = self.free_from(0).next()?;
+        self.expand(index).ok()?;
         self.reserved.insert(index);
         Some(Fd(index as i32))
     }
@@ -692,16 +820,11 @@ impl FdTable {
         Some(self.slots.get_mut(index)?.take()?.file)
     }
 
-    /// The table's capacity as Linux's `fdtable.max_fds` would be: 32 descriptors, then grown
-    /// in power-of-two multiples of 256 (`alloc_fdtable` on a 32-bit kernel). `select` ignores
-    /// descriptors at or above it.
+    /// The table's capacity, Linux's `fdtable.max_fds`: 32 descriptors, then grown in
+    /// power-of-two multiples of 256 (`alloc_fdtable` on a 32-bit kernel) up to `fs.nr_open`.
+    /// `select` ignores descriptors at or above it.
     pub(crate) fn max_fds(&self) -> usize {
-        const DEFAULT: usize = 32;
-        const STEP: usize = 1024 / 4;
-        match self.slots.len() {
-            len if len <= DEFAULT => DEFAULT,
-            len => ((len - 1) / STEP + 1).next_power_of_two() * STEP,
-        }
+        self.max_fds
     }
 
     /// Every open descriptor, lowest first, with its close-on-exec flag.

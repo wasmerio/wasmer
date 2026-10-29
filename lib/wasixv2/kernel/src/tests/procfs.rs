@@ -2,8 +2,11 @@
 //! descriptors, and device semantics.
 
 use futures::FutureExt as _;
-use wasixv2_abi::{EventfdFlags, ResolveFlags, Statx};
-use wasixv2_syscalls::read_value;
+use wasixv2_abi::{
+    ConstRlimit64Ptr, EventfdFlags, FcntlCmd, ResolveFlags, Rlimit64, Rlimit64Ptr, RlimitResource,
+    Statx,
+};
+use wasixv2_syscalls::{read_value, write_value};
 use wasixv2_vfs::{FileType, MountFlags};
 
 use super::ipc::{errno, get, pipe, put};
@@ -476,4 +479,86 @@ fn pidfd_send_signal_takes_a_proc_pid_directory() {
         GuestPtrMut::NULL,
     );
     assert_eq!(block_on(waitid), Err(Errno::EBADF.into()), "pidfd_get_pid");
+}
+
+/// `fs.nr_open` takes what `proc_douintvec_minmax` takes, from root alone, and bounds every
+/// descriptor table as `fs/file.c` does: no table grows to it (`expand_files`, which `dup3`
+/// reports as `EBADF`), no copy of a larger one is made (`dup_fd`), and no hard
+/// `RLIMIT_NOFILE` exceeds it.
+#[test]
+fn nr_open_bounds_descriptor_tables_and_rlimit_nofile() {
+    let (kernel, task, _) = super::cred::machine_as(0, 0);
+    let vfs = kernel.vfs().clone();
+    block_on(vfs.mount(b"/proc", kernel.procfs(), MountFlags::default(), true)).unwrap();
+    let memory = memory();
+    let t = T::new(&kernel, task, &memory);
+    let nr_open = "/proc/sys/fs/nr_open";
+    let set = |value: &str| {
+        let fd = t.open(nr_open, OpenFlags::O_WRONLY).unwrap();
+        let written = t.write(fd, value.as_bytes());
+        block_on(kernel.close(&t.caller, fd)).unwrap();
+        written
+    };
+    let get = || {
+        let fd = t.open(nr_open, OpenFlags::O_RDONLY).unwrap();
+        t.read_all(fd)
+    };
+    let dup3 = |new: i32| block_on(kernel.dup3(&t.caller, Fd(0), Fd(new), OpenFlags::empty()));
+
+    assert_eq!(get(), "1048576\n");
+    // Below `BITS_PER_LONG`, or above `sysctl_nr_open_max` of a 32-bit kernel.
+    assert_eq!(set("31\n"), Err(Errno::ERANGE.into()));
+    assert_eq!(set("1073741793"), Err(Errno::ERANGE.into()));
+    assert_eq!(set("1073741792"), Ok(10));
+    assert_eq!(dup3(65), Ok(Fd(65)));
+
+    // A copy of the table would need 96 descriptors.
+    assert_eq!(set("64\n"), Ok(3));
+    assert_eq!(get(), "64\n");
+    let forkable = super::proc::forkable();
+    let forker = Caller::new(task, &forkable);
+    let sigchld = Signal::SIGCHLD.0 as u32;
+    let null = GuestPtrMut::NULL;
+    let fork = |flags: u32| block_on(kernel.clone(&forker, flags | sigchld, 0, null, 0, null));
+    assert_eq!(fork(0), Err(Errno::EMFILE.into()));
+    assert_eq!(kernel.take_pending(task), None);
+    block_on(kernel.close(&t.caller, Fd(65))).unwrap();
+    assert!(
+        fork(0).is_ok(),
+        "the table copies once its highest descriptor went"
+    );
+    let Some(GuestAction::Fork { child, .. }) = kernel.take_pending(task) else {
+        panic!("fork left no child");
+    };
+
+    // The parent's table grew to 256 descriptors before and keeps them; the child's copy
+    // holds the default 32 and grows to 64 at most.
+    assert_eq!(dup3(255), Ok(Fd(255)));
+    let child_memory = super::procfs::memory();
+    let child = Caller::new(child, &child_memory);
+    let dup3 = |new: i32| block_on(kernel.dup3(&child, Fd(0), Fd(new), OpenFlags::empty()));
+    assert_eq!(dup3(63), Ok(Fd(63)));
+    assert_eq!(dup3(64), Err(Errno::EBADF.into()));
+    let dupfd = kernel.fcntl64(&child, Fd(0), FcntlCmd::F_DUPFD, 64);
+    assert_eq!(block_on(dupfd), Err(Errno::EMFILE.into()));
+
+    let limit = |max: u64| {
+        let limit = Rlimit64 {
+            rlim_cur: 32,
+            rlim_max: max,
+        };
+        block_on(write_value(&memory, Rlimit64Ptr::new(0x400), &limit)).unwrap();
+        let new = ConstRlimit64Ptr::new(0x400);
+        let nofile = RlimitResource::RLIMIT_NOFILE;
+        block_on(kernel.prlimit64(&t.caller, 0, nofile, new, Rlimit64Ptr::NULL))
+    };
+    assert_eq!(limit(65), Err(Errno::EPERM.into()));
+    assert_eq!(limit(64), Ok(0));
+
+    // Only root writes it.
+    block_on(kernel.setresuid(&t.caller, 1, 1, 1)).unwrap();
+    assert_eq!(
+        t.open(nr_open, OpenFlags::O_WRONLY),
+        Err(Errno::EACCES.into())
+    );
 }

@@ -18,8 +18,7 @@ use crate::{
     sync::MutexExt,
 };
 
-/// `fs.nr_open` and `fs.pipe-max-size`, Linux's defaults.
-const NR_OPEN: u32 = 1 << 20;
+/// `fs.pipe-max-size`, Linux's default.
 const PIPE_MAX_SIZE: u32 = 1 << 20;
 
 /// The system-wide files.
@@ -135,7 +134,7 @@ pub(super) fn global(
         Global::Overcommit => line("0"),
         Global::MmapMinAddr => line(&crate::mm::MMAP_MIN_ADDR.to_string()),
         Global::FileMax => line(&i64::MAX.to_string()),
-        Global::NrOpen => line(&NR_OPEN.to_string()),
+        Global::NrOpen => line(&source.nr_open.get().to_string()),
         Global::PipeMaxSize => line(&PIPE_MAX_SIZE.to_string()),
     })
 }

@@ -692,7 +692,10 @@ impl Kernel {
                 .tasks
                 .values_mut()
                 .filter(|t| Arc::ptr_eq(&t.process, process))
-                .map(|t| std::mem::take(&mut t.files))
+                .map(|t| {
+                    let empty = Arc::new(Mutex::new(FdTable::new(self.nr_open.clone())));
+                    std::mem::replace(&mut t.files, empty)
+                })
                 .collect()
         };
         // The tasks may be gone by now (another one releasing at the same time took the last),
@@ -1075,6 +1078,10 @@ impl Kernel {
                 return Err(Errno::EINTR);
             }
             let sched = task.sched.for_child()?;
+            let files = match flags.contains(CloneFlags::CLONE_FILES) {
+                true => task.files.clone(),
+                false => Arc::new(Mutex::new(task.files.lock_or_recover().dup()?)),
+            };
             // The child's own root and working directory, which a new mount namespace moves
             // (`copy_fs` before `copy_namespaces`); `CLONE_NEWNS` never goes with `CLONE_FS`.
             let mut own_fs =
@@ -1115,10 +1122,6 @@ impl Kernel {
                 pid_ns: ns.pid_for_children.clone(),
                 sysvsem: Mutex::new(ns.ipc.clone()),
             });
-            let files = match flags.contains(CloneFlags::CLONE_FILES) {
-                true => task.files.clone(),
-                false => Arc::new(Mutex::new(copy_files(&task.files.lock_or_recover()))),
-            };
             let fs = match own_fs {
                 None => task.fs.clone(),
                 Some(fs) => Arc::new(Mutex::new(fs)),
@@ -1396,7 +1399,7 @@ impl Kernel {
         let table = match table {
             (files, false) => files,
             (files, true) => {
-                let copy = Arc::new(Mutex::new(copy_files(&files.lock_or_recover())));
+                let copy = Arc::new(Mutex::new(files.lock_or_recover().copy()));
                 self.with_task(task, |t| t.files = copy.clone());
                 copy
             }
@@ -1902,19 +1905,6 @@ async fn copy_clone_args(
         }
     };
     Ok((args, set_tid))
-}
-
-/// `dup_fd`: the same open files at the same numbers, close-on-exec flags included.
-pub(crate) fn copy_files(table: &FdTable) -> FdTable {
-    let mut copy = FdTable::default();
-    copy.set_limit(table.limit());
-    for fd in (0..table.end()).map(|fd| Fd(fd as i32)) {
-        if let Some(file) = table.get(fd) {
-            let cloexec = table.cloexec(fd).unwrap_or(false);
-            copy.install_at(fd, file, cloexec);
-        }
-    }
-    copy
 }
 
 /// Reads a NULL-terminated array of string pointers (`copy_strings`). A NULL array is empty.

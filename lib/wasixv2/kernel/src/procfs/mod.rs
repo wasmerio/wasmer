@@ -23,7 +23,7 @@ use wasixv2_vfs::{
 
 use crate::{
     Kernel, Process, TaskTable,
-    file::FdTable,
+    file::{FdTable, NrOpen},
     fs::{FsContext, HostClock},
     ident::Comm,
     mm::Mm,
@@ -60,6 +60,7 @@ impl Kernel {
             nsfs: self.pseudo.nsfs.clone(),
             filesystems: self.filesystems.clone(),
             mounted: HostClock(self.host.clone()).now(),
+            nr_open: self.nr_open.clone(),
         };
         Arc::new(ProcFs {
             source: Arc::new(source),
@@ -129,6 +130,8 @@ struct Source {
     filesystems: Arc<crate::fs::mount::Registry>,
     /// Every node's timestamps: when the filesystem was made.
     mounted: Timestamp,
+    /// `fs.nr_open`.
+    nr_open: Arc<NrOpen>,
 }
 
 /// A process as the tree has it.
