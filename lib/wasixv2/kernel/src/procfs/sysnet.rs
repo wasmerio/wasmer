@@ -21,7 +21,7 @@ use wasixv2_syscalls::Errno;
 use wasixv2_vfs::{
     Attr, DirEntry, DirSink, FileType, FsResult, Handle, Node, OpenOptions, SetAttr,
 };
-use wasixv2_vnet::{Interface, iface::valid_name};
+use wasixv2_vnet::{EchoIgnore, Interface, iface::valid_name};
 
 use super::Source;
 use crate::{ns::NetNs, sync::MutexExt};
@@ -306,7 +306,11 @@ fn write_value(net: &NetNs, v6: bool, dev: Dev, key: &Key, value: i64) -> Result
             return Err(Errno::EINVAL);
         }
         if let Some(network) = &net.network {
-            network.set_icmp_echo_ignore(name == "icmp_echo_ignore_broadcasts", value != 0)?;
+            let which = match name {
+                "icmp_echo_ignore_broadcasts" => EchoIgnore::Broadcasts,
+                _ => EchoIgnore::All,
+            };
+            network.set_icmp_echo_ignore(which, value != 0)?;
         }
     }
     if v6 && key.name == "disable_ipv6" {

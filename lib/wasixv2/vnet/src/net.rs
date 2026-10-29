@@ -13,8 +13,8 @@ use wasixv2_abi::Errno;
 use wasixv2_wait::{PollTable, WaitQueue};
 
 use crate::{
-    Backend, BackendDatagram, BackendStream, Domain, IcmpEntry, InboundSink, Interface, NetResult,
-    Network, NewLink, NewLinkKind, PortEntry, Publication, Room, Socket, SocketKind,
+    Backend, BackendDatagram, BackendStream, Domain, EchoIgnore, IcmpEntry, InboundSink, Interface,
+    NetResult, Network, NewLink, NewLinkKind, PortEntry, Publication, Room, Socket, SocketKind,
     addr::{canonical, canonical_ip},
     cmsg::SendCtl,
     icmp::{IPPROTO_ICMP, IPPROTO_ICMPV6, IcmpSocket, IcmpTables},
@@ -1017,8 +1017,8 @@ impl Network for Net {
             .collect()
     }
 
-    fn set_icmp_echo_ignore(&self, broadcasts: bool, ignore: bool) -> Result<(), Errno> {
-        self.set_echo_ignore(broadcasts, ignore);
+    fn set_icmp_echo_ignore(&self, which: EchoIgnore, ignore: bool) -> Result<(), Errno> {
+        self.set_echo_ignore(which, ignore);
         Ok(())
     }
 
