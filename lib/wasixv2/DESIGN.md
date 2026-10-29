@@ -537,6 +537,10 @@ The last normal unmount awaits DESTROY; lazy unmount retains the instance until
 its final reference and then queues DESTROY. Mounting `fusectl` at
 `/sys/fs/fuse/connections` exposes each connection's `waiting` and `abort` files;
 writing `abort` disconnects it and wakes blocked callers.
+`max_background` limits daemon-visible background requests, including queued
+requests the daemon has not read yet. INIT and fusectl configure that limit and
+`congestion_threshold`; congestion has no readahead/writeback path to throttle
+while page-cache capabilities remain disabled.
 
 Device-driven kernel unit tests cover the protocol and lifecycle without a host
 FUSE dependency. Running real sshfs, rclone, squashfuse and fuse-overlayfs remains

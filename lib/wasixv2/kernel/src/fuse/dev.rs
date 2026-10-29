@@ -35,6 +35,10 @@ impl Drop for Waiting<'_> {
     }
 }
 
+fn background(opcode: u32) -> bool {
+    matches!(opcode, 18 | 29 | 40)
+}
+
 pub(super) struct Request {
     pub(super) unique: u64,
     pub(super) opcode: u32,
@@ -62,6 +66,7 @@ pub(super) struct Queue {
     pub(super) congestion_threshold: u16,
     next: u64,
     pending: VecDeque<Arc<Request>>,
+    background: VecDeque<Arc<Request>>,
     processing: BTreeMap<u64, Arc<Request>>,
     forgets: BTreeMap<u64, u64>,
     no_interrupt: bool,
@@ -82,6 +87,7 @@ impl Default for Queue {
             flags: 0,
             next: 0,
             pending: VecDeque::new(),
+            background: VecDeque::new(),
             processing: BTreeMap::new(),
             forgets: BTreeMap::new(),
             no_interrupt: false,
@@ -93,7 +99,28 @@ impl Default for Queue {
 
 impl Queue {
     pub(super) fn waiting(&self) -> usize {
-        self.pending.len() + self.processing.len()
+        self.pending.len() + self.processing.len() + self.background.len()
+    }
+    pub(super) fn promote_background(&mut self) {
+        // fs/fuse/dev.c:flush_bg_queue counts daemon-visible background requests,
+        // including ones not read yet, until fuse_request_bg_finish completes them.
+        if !self.connected {
+            return;
+        }
+        let mut active = self
+            .pending
+            .iter()
+            .chain(self.processing.values())
+            .filter(|r| background(r.opcode))
+            .count();
+        while let Some(req) = self.background.front() {
+            if background(req.opcode) && active >= usize::from(self.max_background) {
+                break;
+            }
+            let req = self.background.pop_front().unwrap();
+            active += usize::from(background(req.opcode));
+            self.pending.push_back(req);
+        }
     }
 }
 
@@ -155,7 +182,12 @@ impl Connection {
                 max,
             });
             if q.connected {
-                q.pending.push_back(req.clone());
+                if background(opcode) || (opcode == DESTROY && !q.background.is_empty()) {
+                    q.background.push_back(req.clone());
+                    q.promote_background();
+                } else {
+                    q.pending.push_back(req.clone());
+                }
             }
             (req, q.connected)
         };
@@ -396,6 +428,8 @@ impl Connection {
             drop(slot);
         }
         req.wait.wake(PollMask::IN);
+        self.queue.lock_or_recover().promote_background();
+        self.readable.wake(PollMask::IN);
     }
 
     fn release_device(&self, device: u64) {
@@ -437,6 +471,7 @@ impl Connection {
             q.connected = false;
             q.forgets.clear();
             let mut requests: Vec<_> = q.pending.drain(..).collect();
+            requests.extend(q.background.drain(..));
             requests.extend(std::mem::take(&mut q.processing).into_values());
             requests
         };
@@ -625,6 +660,13 @@ impl Connection {
                 q.flags = u32_at(&body, 12).unwrap_or(0) & super::INIT_FLAGS;
                 q.max_write =
                     (u32_at(&body, 20).unwrap_or(4096) as usize).clamp(4096, MAX_IO - HEADER - 40);
+                let limit = u32_at(&body, 16).unwrap_or(0);
+                if limit as u16 != 0 {
+                    q.max_background = limit as u16;
+                }
+                if limit >> 16 != 0 {
+                    q.congestion_threshold = (limit >> 16) as u16;
+                }
             }
             _ => q.init_error = true,
         }
