@@ -1,8 +1,10 @@
 //! `/proc/sys/net` (`net/sysctl_net.c`, `net/ipv4/devinet.c`'s and `net/ipv6/addrconf.c`'s
-//! `devconf` tables): the sysctls of the reader's network namespace. Linux looks the namespace
-//! up from `current` as the walk goes; here a driver learns its caller only when a link is
-//! followed, so `/proc/sys/net` is a magic link, as `/proc/net` is a link to `self/net`, to the
-//! tree of the caller's namespace in a filesystem mounted nowhere (as nsfs's objects are).
+//! `devconf` tables): the sysctls of the reader's network namespace, which Linux finds from
+//! `current`. A driver learns the task only when a file or directory is opened, so the nodes
+//! are the same for every namespace, interfaces' directories named by interface name, and the
+//! namespace is the opener's: a directory lists, and a value reads and writes, the opener's.
+//! A name no interface of the reader's namespace has can be looked up, but not opened
+//! (`ENOENT`), where Linux fails the lookup already.
 //!
 //! Values are kept per namespace and per interface, writable by root. `disable_ipv6` acts
 //! (`addrconf_disable_ipv6`); the rest describe what packets would do and have no effect,
@@ -14,15 +16,12 @@ use std::{any::Any, collections::BTreeMap, sync::Arc};
 use async_trait::async_trait;
 use wasixv2_syscalls::Errno;
 use wasixv2_vfs::{
-    Attr, DirEntry, DirSink, FileType, Filesystem, FsInfo, FsResult, Handle, NAME_MAX, Node,
-    OpenOptions, SetAttr, StatFs, Timestamp,
+    Attr, DirEntry, DirSink, FileType, FsResult, Handle, Node, OpenOptions, SetAttr,
 };
-use wasixv2_vnet::Interface;
+use wasixv2_vnet::{Interface, iface::valid_name};
 
+use super::Source;
 use crate::{ns::NetNs, sync::MutexExt};
-
-/// `PROC_SUPER_MAGIC`: the files are procfs's.
-const PROC_SUPER_MAGIC: u32 = 0x9fa0;
 
 /// Which interfaces' values a `conf` directory holds.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -35,8 +34,30 @@ pub(crate) enum Dev {
 /// The values a namespace's sysctls were set to; unset ones have their defaults.
 #[derive(Default)]
 pub(crate) struct NetSysctl {
-    /// Keyed by (IPv6?, interfaces, name); the flat ones under [`Dev::All`] of the family.
+    /// Keyed by (IPv6?, interfaces, name); the flat ones under [`Dev::All`] of IPv4.
     values: BTreeMap<(bool, Dev, &'static str), i64>,
+}
+
+/// Interface names as the tree has met them, by number: a directory's inode number is its
+/// name's, which never changes meaning (the VFS interns inodes by number).
+#[derive(Default)]
+pub(super) struct Names(Vec<String>);
+
+impl Names {
+    fn id(&mut self, name: &str) -> u32 {
+        let at = match self.0.iter().position(|n| n == name) {
+            Some(at) => at,
+            None => {
+                self.0.push(name.into());
+                self.0.len() - 1
+            }
+        };
+        at as u32
+    }
+
+    fn name(&self, id: u32) -> Option<String> {
+        self.0.get(id as usize).cloned()
+    }
 }
 
 /// One sysctl: name, default, whether root may write it.
@@ -64,8 +85,7 @@ const fn fixed(name: &'static str, default: i64) -> Key {
 
 /// `net.core.*`.
 const CORE: &[Key] = &[fixed("somaxconn", 4096)];
-/// `net.ipv4.*` (`ipv4_net_table`), the port range and start shown by
-/// [`flat_value`].
+/// `net.ipv4.*` (`ipv4_net_table`); the port range is shown by [`flat_value`].
 const IPV4: &[Key] = &[
     key("icmp_echo_ignore_broadcasts", 1),
     key("ip_forward", 0),
@@ -98,7 +118,15 @@ const IPV6_CONF: &[Key] = &[
     key("keep_addr_on_down", 0),
 ];
 
-/// The directories of the tree.
+/// A `conf` directory: `all`, `default`, or an interface's by the id of its name.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Which {
+    All,
+    Default,
+    Named(u32),
+}
+
+/// The nodes of the tree.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Entry {
     Root,
@@ -109,15 +137,15 @@ enum Entry {
     Conf {
         v6: bool,
     },
-    /// `conf/<dev>`.
+    /// `conf/<which>`.
     Dev {
         v6: bool,
-        dev: Dev,
+        which: Which,
     },
-    /// A value of `conf/<dev>`, by index in its table.
+    /// A value of `conf/<which>`, by index in its table.
     DevKey {
         v6: bool,
-        dev: Dev,
+        which: Which,
         key: usize,
     },
     /// A value of `core` or `ipv4`.
@@ -126,6 +154,11 @@ enum Entry {
         key: usize,
     },
 }
+
+/// Where the tree's inode numbers start among the process filesystem's.
+const INO_BASE: u64 = 1 << 62;
+/// `/proc/sys/net`'s.
+pub(super) const ROOT_INO: u64 = INO_BASE | 1;
 
 impl Entry {
     fn file_type(self) -> FileType {
@@ -144,26 +177,25 @@ impl Entry {
         }
     }
 
-    /// The inode number within a namespace's tree: below 2^32, which the namespace's own
-    /// number goes above, since the VFS interns inodes by number.
-    fn ino(self) -> u32 {
-        let dev = |dev: Dev| match dev {
-            Dev::All => 1,
-            Dev::Default => 2,
-            Dev::Index(i) => 3 + (i & 0x3f_ffff),
+    fn ino(self) -> u64 {
+        let which = |w: Which| match w {
+            Which::All => 1,
+            Which::Default => 2,
+            Which::Named(id) => 3 + u64::from(id),
         };
-        match self {
+        let local = match self {
             Entry::Root => 1,
             Entry::Core => 2,
             Entry::Ipv4 => 3,
             Entry::Ipv6 => 4,
-            Entry::Conf { v6 } => 5 + u32::from(v6),
-            Entry::Flat { core, key } => 16 + 64 * u32::from(core) + key as u32,
-            Entry::Dev { v6, dev: d } => (1 << 31) | (u32::from(v6) << 30) | (dev(d) << 8),
-            Entry::DevKey { v6, dev: d, key } => {
-                (1 << 31) | (u32::from(v6) << 30) | (dev(d) << 8) | (1 + key as u32)
+            Entry::Conf { v6 } => 5 + u64::from(v6),
+            Entry::Flat { core, key } => 16 + 64 * u64::from(core) + key as u64,
+            Entry::Dev { v6, which: w } => (1 << 40) | (u64::from(v6) << 39) | (which(w) << 8),
+            Entry::DevKey { v6, which: w, key } => {
+                (1 << 40) | (u64::from(v6) << 39) | (which(w) << 8) | (1 + key as u64)
             }
-        }
+        };
+        INO_BASE | local
     }
 }
 
@@ -200,7 +232,7 @@ fn dev_value(net: &NetNs, v6: bool, dev: Dev, key: &Key) -> i64 {
 /// A value of `core` or `ipv4`, as text.
 fn flat_value(net: &NetNs, core: bool, key: &Key) -> String {
     if key.name == "ip_local_port_range" {
-        // `inet_get_local_port_range`, which the namespace's port tables use.
+        // `inet_get_local_port_range`: the range the namespace's port tables use.
         return "32768\t60999".into();
     }
     let values = &net.sysctl.lock_or_recover().values;
@@ -221,13 +253,9 @@ fn parse_int(data: &[u8]) -> Result<i64, Errno> {
         .map_err(|_| Errno::EINVAL)
 }
 
-/// Writes a value, with what Linux does on the change.
-fn write_value(net: &NetNs, entry: Entry, value: i64) -> Result<(), Errno> {
-    let key = entry.key().ok_or(Errno::EISDIR)?;
-    let (v6, dev) = match entry {
-        Entry::DevKey { v6, dev, .. } => (v6, dev),
-        _ => (false, Dev::All),
-    };
+/// Writes a value of `dev` (IPv4's flat ones under `Dev::All`), with what Linux does on the
+/// change.
+fn write_value(net: &NetNs, v6: bool, dev: Dev, key: &Key, value: i64) -> Result<(), Errno> {
     if v6 && key.name == "disable_ipv6" {
         // `addrconf_disable_ipv6`: `all` applies to every interface and to `default`.
         let network = net.network.as_ref().ok_or(Errno::ENODEV)?;
@@ -253,120 +281,46 @@ fn write_value(net: &NetNs, entry: Entry, value: i64) -> Result<(), Errno> {
     Ok(())
 }
 
-/// The filesystem the trees are in. Its root is empty and never walked into: every walk starts
-/// at a namespace's tree, through `/proc/sys/net`.
-pub(crate) struct SysNetFs {
-    root: Arc<dyn Node>,
-}
-
-impl SysNetFs {
-    pub(crate) fn new(mounted: Timestamp) -> Self {
-        Self {
-            root: Arc::new(EmptyRoot(mounted)),
-        }
-    }
-}
-
-struct EmptyRoot(Timestamp);
-
-#[async_trait(?Send)]
-impl Node for EmptyRoot {
-    fn ino(&self) -> u64 {
-        1
-    }
-
-    fn file_type(&self) -> FileType {
-        FileType::Directory
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    async fn getattr(&self) -> FsResult<Attr> {
-        Ok(Attr {
-            ino: 1,
-            file_type: FileType::Directory,
-            mode: 0o555,
-            nlink: 2,
-            uid: 0,
-            gid: 0,
-            rdev: Default::default(),
-            size: 0,
-            blocks: 0,
-            blksize: 1024,
-            atime: self.0,
-            mtime: self.0,
-            ctime: self.0,
-            btime: None,
-            dev: None,
-        })
-    }
-
-    async fn setattr(&self, _: &SetAttr) -> FsResult<Attr> {
-        Err(Errno::EPERM)
-    }
-
-    async fn open(&self, _: OpenOptions) -> FsResult<Box<dyn Handle>> {
-        Err(Errno::ENOENT)
-    }
-}
-
-#[async_trait(?Send)]
-impl Filesystem for SysNetFs {
-    fn info(&self) -> FsInfo {
-        FsInfo {
-            name: "proc",
-            magic: PROC_SUPER_MAGIC,
-            name_max: NAME_MAX,
-            read_only: false,
-            dev: None,
-            has_btime: false,
-            stable: false,
-        }
-    }
-
-    fn root(&self) -> Arc<dyn Node> {
-        self.root.clone()
-    }
-
-    async fn statfs(&self) -> FsResult<StatFs> {
-        Ok(StatFs {
-            block_size: 4096,
-            name_max: NAME_MAX as u32,
-            fragment_size: 4096,
-            ..StatFs::default()
-        })
-    }
-}
-
-/// A node of one namespace's tree.
-pub(crate) struct SysNetNode {
-    net: Arc<NetNs>,
+/// A node of the tree.
+pub(super) struct SysNetNode {
+    source: Arc<Source>,
     entry: Entry,
-    mounted: Timestamp,
 }
 
 impl SysNetNode {
-    /// The `net` directory of namespace `net`.
-    pub(crate) fn root(net: Arc<NetNs>, mounted: Timestamp) -> Arc<dyn Node> {
+    /// `/proc/sys/net`.
+    pub(super) fn root(source: Arc<Source>) -> Arc<dyn Node> {
         Arc::new(Self {
-            net,
+            source,
             entry: Entry::Root,
-            mounted,
         })
     }
 
     fn node(&self, entry: Entry) -> Arc<dyn Node> {
         Arc::new(Self {
-            net: self.net.clone(),
+            source: self.source.clone(),
             entry,
-            mounted: self.mounted,
         })
     }
 
-    /// The entries of a directory: name and entry.
-    fn children(&self) -> FsResult<Vec<(String, Entry)>> {
+    /// The interfaces a `conf/<which>` stands for in `net`; `ENOENT` for a name the namespace
+    /// has no interface of.
+    fn dev(&self, net: &NetNs, which: Which) -> FsResult<Dev> {
+        Ok(match which {
+            Which::All => Dev::All,
+            Which::Default => Dev::Default,
+            Which::Named(id) => {
+                let name = self.source.sysnet_names.lock_or_recover().name(id);
+                let iface = interfaces(net)
+                    .into_iter()
+                    .find(|f| Some(&f.name) == name.as_ref());
+                Dev::Index(iface.ok_or(Errno::ENOENT)?.index)
+            }
+        })
+    }
+
+    /// A directory's entries in namespace `net`.
+    fn children(&self, net: &NetNs) -> FsResult<Vec<(String, Entry)>> {
         let keys = |keys: &[Key], make: &dyn Fn(usize) -> Entry| {
             keys.iter()
                 .enumerate()
@@ -388,59 +342,54 @@ impl SysNetNode {
             Entry::Ipv6 => vec![("conf".into(), Entry::Conf { v6: true })],
             Entry::Conf { v6 } => {
                 let mut out = vec![
-                    ("all".to_string(), Entry::Dev { v6, dev: Dev::All }),
+                    (
+                        "all".to_string(),
+                        Entry::Dev {
+                            v6,
+                            which: Which::All,
+                        },
+                    ),
                     (
                         "default".to_string(),
                         Entry::Dev {
                             v6,
-                            dev: Dev::Default,
+                            which: Which::Default,
                         },
                     ),
                 ];
-                for iface in interfaces(&self.net) {
-                    let dev = Dev::Index(iface.index);
-                    out.push((iface.name, Entry::Dev { v6, dev }));
+                let mut names = self.source.sysnet_names.lock_or_recover();
+                for iface in interfaces(net) {
+                    let which = Which::Named(names.id(&iface.name));
+                    out.push((iface.name, Entry::Dev { v6, which }));
                 }
                 out
             }
-            Entry::Dev { v6, dev } => {
-                self.alive(dev)?;
-                keys(conf_keys(v6), &|key| Entry::DevKey { v6, dev, key })
+            Entry::Dev { v6, which } => {
+                self.dev(net, which)?;
+                keys(conf_keys(v6), &|key| Entry::DevKey { v6, which, key })
             }
             Entry::DevKey { .. } | Entry::Flat { .. } => return Err(Errno::ENOTDIR),
         })
     }
 
-    /// An interface's directory is gone with the interface.
-    fn alive(&self, dev: Dev) -> FsResult<()> {
-        match dev {
-            Dev::Index(i) if !interfaces(&self.net).iter().any(|f| f.index == i) => {
-                Err(Errno::ENOENT)
-            }
-            _ => Ok(()),
-        }
-    }
-
-    fn text(&self) -> FsResult<String> {
+    /// A value's text in namespace `net`, and where it is kept.
+    fn value(&self, net: &NetNs) -> FsResult<(String, bool, Dev)> {
         let key = self.entry.key().ok_or(Errno::EISDIR)?;
-        let value = match self.entry {
-            Entry::DevKey { v6, dev, .. } => {
-                self.alive(dev)?;
-                dev_value(&self.net, v6, dev, key).to_string()
+        Ok(match self.entry {
+            Entry::DevKey { v6, which, .. } => {
+                let dev = self.dev(net, which)?;
+                (dev_value(net, v6, dev, key).to_string() + "\n", v6, dev)
             }
-            Entry::Flat { core, .. } => flat_value(&self.net, core, key),
+            Entry::Flat { core, .. } => (flat_value(net, core, key) + "\n", false, Dev::All),
             _ => return Err(Errno::EISDIR),
-        };
-        Ok(value + "\n")
+        })
     }
 }
 
 #[async_trait(?Send)]
 impl Node for SysNetNode {
-    /// The namespace's own inode number above the entry's.
     fn ino(&self) -> u64 {
-        let ns = crate::ns::Namespace::Net(self.net.clone()).ino();
-        (u64::from(ns) << 32) | u64::from(self.entry.ino())
+        self.entry.ino()
     }
 
     fn file_type(&self) -> FileType {
@@ -452,15 +401,13 @@ impl Node for SysNetNode {
     }
 
     async fn getattr(&self) -> FsResult<Attr> {
-        if let Entry::Dev { dev, .. } | Entry::DevKey { dev, .. } = self.entry {
-            self.alive(dev)?;
-        }
         let file_type = self.file_type();
         let mode = match self.entry.key() {
             Some(key) if key.writable => 0o644,
             Some(_) => 0o444,
             None => 0o555,
         };
+        let time = self.source.mounted;
         Ok(Attr {
             ino: self.ino(),
             file_type,
@@ -475,9 +422,9 @@ impl Node for SysNetNode {
             size: 0,
             blocks: 0,
             blksize: 1024,
-            atime: self.mounted,
-            mtime: self.mounted,
-            ctime: self.mounted,
+            atime: time,
+            mtime: time,
+            ctime: time,
             btime: None,
             dev: None,
         })
@@ -492,40 +439,66 @@ impl Node for SysNetNode {
         self.getattr().await
     }
 
+    /// The fixed names, and in `conf` any name an interface may have, which the opener's
+    /// namespace decides.
     async fn lookup(&self, name: &[u8]) -> FsResult<Arc<dyn Node>> {
+        let name = std::str::from_utf8(name).map_err(|_| Errno::ENOENT)?;
+        if let Entry::Conf { v6 } = self.entry {
+            let which = match name {
+                "all" => Which::All,
+                "default" => Which::Default,
+                name if valid_name(name) => {
+                    Which::Named(self.source.sysnet_names.lock_or_recover().id(name))
+                }
+                _ => return Err(Errno::ENOENT),
+            };
+            return Ok(self.node(Entry::Dev { v6, which }));
+        }
+        if let Entry::Dev { v6, which } = self.entry {
+            let key = conf_keys(v6)
+                .iter()
+                .position(|k| k.name == name)
+                .ok_or(Errno::ENOENT)?;
+            return Ok(self.node(Entry::DevKey { v6, which, key }));
+        }
+        // The other entries are the same in every namespace.
         let found = self
-            .children()?
+            .children(&self.source.ns.net)?
             .into_iter()
-            .find(|(child, _)| child.as_bytes() == name)
+            .find(|(child, _)| child == name)
             .ok_or(Errno::ENOENT)?;
         Ok(self.node(found.1))
     }
 
     async fn open(&self, options: OpenOptions) -> FsResult<Box<dyn Handle>> {
+        let net = self.source.ns_of(options.task).net.clone();
         if self.file_type() == FileType::Directory {
-            self.children()?;
-            return Ok(Box::new(DirHandle(self.node(self.entry))));
+            let children = self.children(&net)?;
+            return Ok(Box::new(DirHandle(children)));
         }
+        let key = self.entry.key().ok_or(Errno::EISDIR)?;
+        let (text, v6, dev) = self.value(&net)?;
         Ok(Box::new(ValueHandle {
-            data: self.text()?.into_bytes(),
-            net: self.net.clone(),
-            entry: self.entry,
+            data: text.into_bytes(),
+            net,
+            v6,
+            dev,
+            key,
             writable: options.write,
         }))
     }
 }
 
-/// An open directory, listed afresh on every read.
-struct DirHandle(Arc<dyn Node>);
+/// An open directory: its entries in the opener's namespace when opened.
+struct DirHandle(Vec<(String, Entry)>);
 
 #[async_trait(?Send)]
 impl Handle for DirHandle {
     async fn readdir(&self, cookie: u64, sink: &mut dyn DirSink) -> FsResult<()> {
-        let node: &SysNetNode = self.0.as_any().downcast_ref().expect("a sysctl directory");
-        for (pos, (name, entry)) in node.children()?.iter().enumerate().skip(cookie as usize) {
+        for (pos, (name, entry)) in self.0.iter().enumerate().skip(cookie as usize) {
             let entry = DirEntry {
                 name: name.as_bytes(),
-                ino: (node.ino() & !u64::from(u32::MAX)) | u64::from(entry.ino()),
+                ino: entry.ino(),
                 file_type: entry.file_type(),
                 next: pos as u64 + 1,
             };
@@ -537,11 +510,14 @@ impl Handle for DirHandle {
     }
 }
 
-/// An open value: its text at open; a write sets it (`proc_sys_write`).
+/// An open value: its text at open; a write sets it in the opener's namespace
+/// (`proc_sys_write`).
 struct ValueHandle {
     data: Vec<u8>,
     net: Arc<NetNs>,
-    entry: Entry,
+    v6: bool,
+    dev: Dev,
+    key: &'static Key,
     writable: bool,
 }
 
@@ -557,11 +533,10 @@ impl Handle for ValueHandle {
     }
 
     async fn write_at(&self, data: &[u8], _: u64) -> FsResult<usize> {
-        let key = self.entry.key().ok_or(Errno::EISDIR)?;
-        if !self.writable || !key.writable {
+        if !self.writable || !self.key.writable {
             return Err(Errno::EACCES);
         }
-        write_value(&self.net, self.entry, parse_int(data)?)?;
+        write_value(&self.net, self.v6, self.dev, self.key, parse_int(data)?)?;
         Ok(data.len())
     }
 
