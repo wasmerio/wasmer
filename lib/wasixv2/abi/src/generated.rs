@@ -21788,6 +21788,797 @@ impl GuestLayout for IoUringProbeOp {
         self.resv2.write_to(&mut out[4..]);
     }
 }
+/// One buffer of a provided buffer ring (`struct io_uring_buf`). The ring's tail overlays
+/// the `resv` of its first entry (`struct io_uring_buf_ring`).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct IoUringBuf {
+    pub addr: u64,
+    pub len: u32,
+    pub bid: u16,
+    pub resv: u16,
+}
+const _: () = {
+    assert!(core::mem::size_of::<IoUringBuf>() == 16);
+    assert!(core::mem::align_of::<IoUringBuf>() == 8);
+    assert!(core::mem::offset_of!(IoUringBuf, addr) == 0);
+    assert!(core::mem::offset_of!(IoUringBuf, len) == 8);
+    assert!(core::mem::offset_of!(IoUringBuf, bid) == 12);
+    assert!(core::mem::offset_of!(IoUringBuf, resv) == 14);
+};
+impl Default for IoUringBuf {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for IoUringBuf {
+    const SIZE: usize = 16;
+    const ALIGN: usize = 8;
+    const ZERO: Self = Self {
+        addr: <u64 as GuestLayout>::ZERO,
+        len: <u32 as GuestLayout>::ZERO,
+        bid: <u16 as GuestLayout>::ZERO,
+        resv: <u16 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            addr: GuestLayout::read_from(&bytes[0..])?,
+            len: GuestLayout::read_from(&bytes[8..])?,
+            bid: GuestLayout::read_from(&bytes[12..])?,
+            resv: GuestLayout::read_from(&bytes[14..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.addr.write_to(&mut out[0..]);
+        self.len.write_to(&mut out[8..]);
+        self.bid.write_to(&mut out[12..]);
+        self.resv.write_to(&mut out[14..]);
+    }
+}
+/// `IORING_(UN)REGISTER_PBUF_RING` argument (`struct io_uring_buf_reg`).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct IoUringBufReg {
+    pub ring_addr: u64,
+    pub ring_entries: u32,
+    pub bgid: u16,
+    pub flags: u16,
+    pub min_left: u32,
+    pub resv: [u32; 5],
+}
+const _: () = {
+    assert!(core::mem::size_of::<IoUringBufReg>() == 40);
+    assert!(core::mem::align_of::<IoUringBufReg>() == 8);
+    assert!(core::mem::offset_of!(IoUringBufReg, ring_addr) == 0);
+    assert!(core::mem::offset_of!(IoUringBufReg, ring_entries) == 8);
+    assert!(core::mem::offset_of!(IoUringBufReg, bgid) == 12);
+    assert!(core::mem::offset_of!(IoUringBufReg, flags) == 14);
+    assert!(core::mem::offset_of!(IoUringBufReg, min_left) == 16);
+    assert!(core::mem::offset_of!(IoUringBufReg, resv) == 20);
+};
+impl Default for IoUringBufReg {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for IoUringBufReg {
+    const SIZE: usize = 40;
+    const ALIGN: usize = 8;
+    const ZERO: Self = Self {
+        ring_addr: <u64 as GuestLayout>::ZERO,
+        ring_entries: <u32 as GuestLayout>::ZERO,
+        bgid: <u16 as GuestLayout>::ZERO,
+        flags: <u16 as GuestLayout>::ZERO,
+        min_left: <u32 as GuestLayout>::ZERO,
+        resv: <[u32; 5] as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            ring_addr: GuestLayout::read_from(&bytes[0..])?,
+            ring_entries: GuestLayout::read_from(&bytes[8..])?,
+            bgid: GuestLayout::read_from(&bytes[12..])?,
+            flags: GuestLayout::read_from(&bytes[14..])?,
+            min_left: GuestLayout::read_from(&bytes[16..])?,
+            resv: GuestLayout::read_from(&bytes[20..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.ring_addr.write_to(&mut out[0..]);
+        self.ring_entries.write_to(&mut out[8..]);
+        self.bgid.write_to(&mut out[12..]);
+        self.flags.write_to(&mut out[14..]);
+        self.min_left.write_to(&mut out[16..]);
+        self.resv.write_to(&mut out[20..]);
+    }
+}
+/// `IORING_REGISTER_PBUF_STATUS` argument (`struct io_uring_buf_status`).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct IoUringBufStatus {
+    pub buf_group: u32,
+    pub head: u32,
+    pub resv: [u32; 8],
+}
+const _: () = {
+    assert!(core::mem::size_of::<IoUringBufStatus>() == 40);
+    assert!(core::mem::align_of::<IoUringBufStatus>() == 4);
+    assert!(core::mem::offset_of!(IoUringBufStatus, buf_group) == 0);
+    assert!(core::mem::offset_of!(IoUringBufStatus, head) == 4);
+    assert!(core::mem::offset_of!(IoUringBufStatus, resv) == 8);
+};
+impl Default for IoUringBufStatus {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for IoUringBufStatus {
+    const SIZE: usize = 40;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        buf_group: <u32 as GuestLayout>::ZERO,
+        head: <u32 as GuestLayout>::ZERO,
+        resv: <[u32; 8] as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            buf_group: GuestLayout::read_from(&bytes[0..])?,
+            head: GuestLayout::read_from(&bytes[4..])?,
+            resv: GuestLayout::read_from(&bytes[8..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.buf_group.write_to(&mut out[0..]);
+        self.head.write_to(&mut out[4..]);
+        self.resv.write_to(&mut out[8..]);
+    }
+}
+/// `io_uring_buf_reg.flags` (`enum io_uring_register_pbuf_ring_flags`).
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct IouPbufRingFlags(pub u16);
+impl IouPbufRingFlags {
+    /// The kernel allocates the ring, which the application maps at
+    /// `IORING_OFF_PBUF_RING | bgid << IORING_OFF_PBUF_SHIFT`.
+    pub const IOU_PBUF_RING_MMAP: Self = Self(0x1);
+    /// Buffers are consumed incrementally.
+    pub const IOU_PBUF_RING_INC: Self = Self(0x2);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("IOU_PBUF_RING_MMAP", Self::IOU_PBUF_RING_MMAP),
+        ("IOU_PBUF_RING_INC", Self::IOU_PBUF_RING_INC),
+    ];
+
+    pub const fn empty() -> Self {
+        Self(0)
+    }
+    pub const fn bits(self) -> u16 {
+        self.0
+    }
+    pub const fn is_empty(self) -> bool {
+        self.0 == 0
+    }
+    /// Whether all bits of `other` are set.
+    pub const fn contains(self, other: Self) -> bool {
+        self.0 & other.0 == other.0
+    }
+    /// Whether any bit of `other` is set.
+    pub const fn intersects(self, other: Self) -> bool {
+        self.0 & other.0 != 0
+    }
+}
+
+impl fmt::Debug for IouPbufRingFlags {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("IouPbufRingFlags(")?;
+        let mut rest = self.0;
+        let mut first = true;
+        for (name, flag) in Self::MEMBERS {
+            if flag.0 != 0 && self.contains(*flag) && rest & flag.0 != 0 {
+                if !first {
+                    f.write_str(" | ")?;
+                }
+                f.write_str(name)?;
+                first = false;
+                rest &= !flag.0;
+            }
+        }
+        if rest != 0 || first {
+            if !first {
+                f.write_str(" | ")?;
+            }
+            write!(f, "{rest:#x}")?;
+        }
+        f.write_str(")")
+    }
+}
+impl core::ops::BitOr for IouPbufRingFlags {
+    type Output = Self;
+    fn bitor(self, rhs: Self) -> Self {
+        Self(self.0 | rhs.0)
+    }
+}
+impl core::ops::BitAnd for IouPbufRingFlags {
+    type Output = Self;
+    fn bitand(self, rhs: Self) -> Self {
+        Self(self.0 & rhs.0)
+    }
+}
+impl core::ops::BitXor for IouPbufRingFlags {
+    type Output = Self;
+    fn bitxor(self, rhs: Self) -> Self {
+        Self(self.0 ^ rhs.0)
+    }
+}
+impl core::ops::Not for IouPbufRingFlags {
+    type Output = Self;
+    fn not(self) -> Self {
+        Self(!self.0)
+    }
+}
+impl core::ops::BitOrAssign for IouPbufRingFlags {
+    fn bitor_assign(&mut self, rhs: Self) {
+        self.0 |= rhs.0;
+    }
+}
+impl core::ops::BitAndAssign for IouPbufRingFlags {
+    fn bitand_assign(&mut self, rhs: Self) {
+        self.0 &= rhs.0;
+    }
+}
+impl core::ops::BitXorAssign for IouPbufRingFlags {
+    fn bitxor_assign(&mut self, rhs: Self) {
+        self.0 ^= rhs.0;
+    }
+}
+
+impl GuestLayout for IouPbufRingFlags {
+    const SIZE: usize = <u16 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u16 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u16 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// `IORING_REGISTER_RING_FDS` and `IORING_UNREGISTER_RING_FDS` argument
+/// (`struct io_uring_rsrc_update`).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct IoUringRsrcUpdate {
+    pub offset: u32,
+    pub resv: u32,
+    pub data: u64,
+}
+const _: () = {
+    assert!(core::mem::size_of::<IoUringRsrcUpdate>() == 16);
+    assert!(core::mem::align_of::<IoUringRsrcUpdate>() == 8);
+    assert!(core::mem::offset_of!(IoUringRsrcUpdate, offset) == 0);
+    assert!(core::mem::offset_of!(IoUringRsrcUpdate, resv) == 4);
+    assert!(core::mem::offset_of!(IoUringRsrcUpdate, data) == 8);
+};
+impl Default for IoUringRsrcUpdate {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for IoUringRsrcUpdate {
+    const SIZE: usize = 16;
+    const ALIGN: usize = 8;
+    const ZERO: Self = Self {
+        offset: <u32 as GuestLayout>::ZERO,
+        resv: <u32 as GuestLayout>::ZERO,
+        data: <u64 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            offset: GuestLayout::read_from(&bytes[0..])?,
+            resv: GuestLayout::read_from(&bytes[4..])?,
+            data: GuestLayout::read_from(&bytes[8..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.offset.write_to(&mut out[0..]);
+        self.resv.write_to(&mut out[4..]);
+        self.data.write_to(&mut out[8..]);
+    }
+}
+/// `IORING_REGISTER_FILE_ALLOC_RANGE` argument (`struct io_uring_file_index_range`): the
+/// slots `[off, off + len)`.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct IoUringFileIndexRange {
+    pub off: u32,
+    pub len: u32,
+    pub resv: u64,
+}
+const _: () = {
+    assert!(core::mem::size_of::<IoUringFileIndexRange>() == 16);
+    assert!(core::mem::align_of::<IoUringFileIndexRange>() == 8);
+    assert!(core::mem::offset_of!(IoUringFileIndexRange, off) == 0);
+    assert!(core::mem::offset_of!(IoUringFileIndexRange, len) == 4);
+    assert!(core::mem::offset_of!(IoUringFileIndexRange, resv) == 8);
+};
+impl Default for IoUringFileIndexRange {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for IoUringFileIndexRange {
+    const SIZE: usize = 16;
+    const ALIGN: usize = 8;
+    const ZERO: Self = Self {
+        off: <u32 as GuestLayout>::ZERO,
+        len: <u32 as GuestLayout>::ZERO,
+        resv: <u64 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            off: GuestLayout::read_from(&bytes[0..])?,
+            len: GuestLayout::read_from(&bytes[4..])?,
+            resv: GuestLayout::read_from(&bytes[8..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.off.write_to(&mut out[0..]);
+        self.len.write_to(&mut out[4..]);
+        self.resv.write_to(&mut out[8..]);
+    }
+}
+/// The header a multishot `IORING_OP_RECVMSG` writes at the start of each provided buffer
+/// (`struct io_uring_recvmsg_out`); the name, the control data and the payload follow it.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct IoUringRecvmsgOut {
+    pub namelen: u32,
+    pub controllen: u32,
+    pub payloadlen: u32,
+    pub flags: u32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<IoUringRecvmsgOut>() == 16);
+    assert!(core::mem::align_of::<IoUringRecvmsgOut>() == 4);
+    assert!(core::mem::offset_of!(IoUringRecvmsgOut, namelen) == 0);
+    assert!(core::mem::offset_of!(IoUringRecvmsgOut, controllen) == 4);
+    assert!(core::mem::offset_of!(IoUringRecvmsgOut, payloadlen) == 8);
+    assert!(core::mem::offset_of!(IoUringRecvmsgOut, flags) == 12);
+};
+impl Default for IoUringRecvmsgOut {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for IoUringRecvmsgOut {
+    const SIZE: usize = 16;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        namelen: <u32 as GuestLayout>::ZERO,
+        controllen: <u32 as GuestLayout>::ZERO,
+        payloadlen: <u32 as GuestLayout>::ZERO,
+        flags: <u32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            namelen: GuestLayout::read_from(&bytes[0..])?,
+            controllen: GuestLayout::read_from(&bytes[4..])?,
+            payloadlen: GuestLayout::read_from(&bytes[8..])?,
+            flags: GuestLayout::read_from(&bytes[12..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.namelen.write_to(&mut out[0..]);
+        self.controllen.write_to(&mut out[4..]);
+        self.payloadlen.write_to(&mut out[8..]);
+        self.flags.write_to(&mut out[12..]);
+    }
+}
+/// `IORING_OP_MSG_RING` commands, in `sqe->addr` (`enum io_uring_msg_ring_flags`).
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct IoUringMsgRingCmd(pub u32);
+impl IoUringMsgRingCmd {
+    /// Post `len` as the result and `off` as the user data on the target ring.
+    pub const IORING_MSG_DATA: Self = Self(0);
+    /// Install a registered file in the target ring's table.
+    pub const IORING_MSG_SEND_FD: Self = Self(1);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("IORING_MSG_DATA", Self::IORING_MSG_DATA),
+        ("IORING_MSG_SEND_FD", Self::IORING_MSG_SEND_FD),
+    ];
+    /// Name of the first constant with this value, if any.
+    pub const fn name(self) -> Option<&'static str> {
+        match self.0 {
+            0 => Some("IORING_MSG_DATA"),
+            1 => Some("IORING_MSG_SEND_FD"),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Debug for IoUringMsgRingCmd {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.name() {
+            Some(name) => f.write_str(name),
+            None => write!(f, "IoUringMsgRingCmd({})", self.0),
+        }
+    }
+}
+
+impl GuestLayout for IoUringMsgRingCmd {
+    const SIZE: usize = <u32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// `IORING_OP_MSG_RING` flags (`sqe->msg_ring_flags`).
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct IoringMsgRingFlags(pub u32);
+impl IoringMsgRingFlags {
+    pub const IORING_MSG_RING_CQE_SKIP: Self = Self(0x1);
+    /// The target's CQE takes its flags from `sqe->file_index`.
+    pub const IORING_MSG_RING_FLAGS_PASS: Self = Self(0x2);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("IORING_MSG_RING_CQE_SKIP", Self::IORING_MSG_RING_CQE_SKIP),
+        (
+            "IORING_MSG_RING_FLAGS_PASS",
+            Self::IORING_MSG_RING_FLAGS_PASS,
+        ),
+    ];
+
+    pub const fn empty() -> Self {
+        Self(0)
+    }
+    pub const fn bits(self) -> u32 {
+        self.0
+    }
+    pub const fn is_empty(self) -> bool {
+        self.0 == 0
+    }
+    /// Whether all bits of `other` are set.
+    pub const fn contains(self, other: Self) -> bool {
+        self.0 & other.0 == other.0
+    }
+    /// Whether any bit of `other` is set.
+    pub const fn intersects(self, other: Self) -> bool {
+        self.0 & other.0 != 0
+    }
+}
+
+impl fmt::Debug for IoringMsgRingFlags {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("IoringMsgRingFlags(")?;
+        let mut rest = self.0;
+        let mut first = true;
+        for (name, flag) in Self::MEMBERS {
+            if flag.0 != 0 && self.contains(*flag) && rest & flag.0 != 0 {
+                if !first {
+                    f.write_str(" | ")?;
+                }
+                f.write_str(name)?;
+                first = false;
+                rest &= !flag.0;
+            }
+        }
+        if rest != 0 || first {
+            if !first {
+                f.write_str(" | ")?;
+            }
+            write!(f, "{rest:#x}")?;
+        }
+        f.write_str(")")
+    }
+}
+impl core::ops::BitOr for IoringMsgRingFlags {
+    type Output = Self;
+    fn bitor(self, rhs: Self) -> Self {
+        Self(self.0 | rhs.0)
+    }
+}
+impl core::ops::BitAnd for IoringMsgRingFlags {
+    type Output = Self;
+    fn bitand(self, rhs: Self) -> Self {
+        Self(self.0 & rhs.0)
+    }
+}
+impl core::ops::BitXor for IoringMsgRingFlags {
+    type Output = Self;
+    fn bitxor(self, rhs: Self) -> Self {
+        Self(self.0 ^ rhs.0)
+    }
+}
+impl core::ops::Not for IoringMsgRingFlags {
+    type Output = Self;
+    fn not(self) -> Self {
+        Self(!self.0)
+    }
+}
+impl core::ops::BitOrAssign for IoringMsgRingFlags {
+    fn bitor_assign(&mut self, rhs: Self) {
+        self.0 |= rhs.0;
+    }
+}
+impl core::ops::BitAndAssign for IoringMsgRingFlags {
+    fn bitand_assign(&mut self, rhs: Self) {
+        self.0 &= rhs.0;
+    }
+}
+impl core::ops::BitXorAssign for IoringMsgRingFlags {
+    fn bitxor_assign(&mut self, rhs: Self) {
+        self.0 ^= rhs.0;
+    }
+}
+
+impl GuestLayout for IoringMsgRingFlags {
+    const SIZE: usize = <u32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// `IORING_OP_FIXED_FD_INSTALL` flags (`sqe->install_fd_flags`).
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct IoringFixedFdFlags(pub u32);
+impl IoringFixedFdFlags {
+    pub const IORING_FIXED_FD_NO_CLOEXEC: Self = Self(0x1);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[(
+        "IORING_FIXED_FD_NO_CLOEXEC",
+        Self::IORING_FIXED_FD_NO_CLOEXEC,
+    )];
+
+    pub const fn empty() -> Self {
+        Self(0)
+    }
+    pub const fn bits(self) -> u32 {
+        self.0
+    }
+    pub const fn is_empty(self) -> bool {
+        self.0 == 0
+    }
+    /// Whether all bits of `other` are set.
+    pub const fn contains(self, other: Self) -> bool {
+        self.0 & other.0 == other.0
+    }
+    /// Whether any bit of `other` is set.
+    pub const fn intersects(self, other: Self) -> bool {
+        self.0 & other.0 != 0
+    }
+}
+
+impl fmt::Debug for IoringFixedFdFlags {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("IoringFixedFdFlags(")?;
+        let mut rest = self.0;
+        let mut first = true;
+        for (name, flag) in Self::MEMBERS {
+            if flag.0 != 0 && self.contains(*flag) && rest & flag.0 != 0 {
+                if !first {
+                    f.write_str(" | ")?;
+                }
+                f.write_str(name)?;
+                first = false;
+                rest &= !flag.0;
+            }
+        }
+        if rest != 0 || first {
+            if !first {
+                f.write_str(" | ")?;
+            }
+            write!(f, "{rest:#x}")?;
+        }
+        f.write_str(")")
+    }
+}
+impl core::ops::BitOr for IoringFixedFdFlags {
+    type Output = Self;
+    fn bitor(self, rhs: Self) -> Self {
+        Self(self.0 | rhs.0)
+    }
+}
+impl core::ops::BitAnd for IoringFixedFdFlags {
+    type Output = Self;
+    fn bitand(self, rhs: Self) -> Self {
+        Self(self.0 & rhs.0)
+    }
+}
+impl core::ops::BitXor for IoringFixedFdFlags {
+    type Output = Self;
+    fn bitxor(self, rhs: Self) -> Self {
+        Self(self.0 ^ rhs.0)
+    }
+}
+impl core::ops::Not for IoringFixedFdFlags {
+    type Output = Self;
+    fn not(self) -> Self {
+        Self(!self.0)
+    }
+}
+impl core::ops::BitOrAssign for IoringFixedFdFlags {
+    fn bitor_assign(&mut self, rhs: Self) {
+        self.0 |= rhs.0;
+    }
+}
+impl core::ops::BitAndAssign for IoringFixedFdFlags {
+    fn bitand_assign(&mut self, rhs: Self) {
+        self.0 &= rhs.0;
+    }
+}
+impl core::ops::BitXorAssign for IoringFixedFdFlags {
+    fn bitxor_assign(&mut self, rhs: Self) {
+        self.0 ^= rhs.0;
+    }
+}
+
+impl GuestLayout for IoringFixedFdFlags {
+    const SIZE: usize = <u32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// `IORING_OP_URING_CMD` commands on a socket (`enum io_uring_socket_op`).
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct IoUringSocketOp(pub u32);
+impl IoUringSocketOp {
+    pub const SOCKET_URING_OP_SIOCINQ: Self = Self(0);
+    pub const SOCKET_URING_OP_SIOCOUTQ: Self = Self(1);
+    pub const SOCKET_URING_OP_GETSOCKOPT: Self = Self(2);
+    pub const SOCKET_URING_OP_SETSOCKOPT: Self = Self(3);
+    pub const SOCKET_URING_OP_TX_TIMESTAMP: Self = Self(4);
+    pub const SOCKET_URING_OP_GETSOCKNAME: Self = Self(5);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("SOCKET_URING_OP_SIOCINQ", Self::SOCKET_URING_OP_SIOCINQ),
+        ("SOCKET_URING_OP_SIOCOUTQ", Self::SOCKET_URING_OP_SIOCOUTQ),
+        (
+            "SOCKET_URING_OP_GETSOCKOPT",
+            Self::SOCKET_URING_OP_GETSOCKOPT,
+        ),
+        (
+            "SOCKET_URING_OP_SETSOCKOPT",
+            Self::SOCKET_URING_OP_SETSOCKOPT,
+        ),
+        (
+            "SOCKET_URING_OP_TX_TIMESTAMP",
+            Self::SOCKET_URING_OP_TX_TIMESTAMP,
+        ),
+        (
+            "SOCKET_URING_OP_GETSOCKNAME",
+            Self::SOCKET_URING_OP_GETSOCKNAME,
+        ),
+    ];
+    /// Name of the first constant with this value, if any.
+    pub const fn name(self) -> Option<&'static str> {
+        match self.0 {
+            0 => Some("SOCKET_URING_OP_SIOCINQ"),
+            1 => Some("SOCKET_URING_OP_SIOCOUTQ"),
+            2 => Some("SOCKET_URING_OP_GETSOCKOPT"),
+            3 => Some("SOCKET_URING_OP_SETSOCKOPT"),
+            4 => Some("SOCKET_URING_OP_TX_TIMESTAMP"),
+            5 => Some("SOCKET_URING_OP_GETSOCKNAME"),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Debug for IoUringSocketOp {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.name() {
+            Some(name) => f.write_str(name),
+            None => write!(f, "IoUringSocketOp({})", self.0),
+        }
+    }
+}
+
+impl GuestLayout for IoUringSocketOp {
+    const SIZE: usize = <u32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// More io_uring constants: `IORING_NOTIF_USAGE_ZC_COPIED` (a zero-copy send's
+/// notification result), `SPLICE_F_FD_IN_FIXED` (`splice_flags`: `splice_fd_in` is a
+/// registered file) and the `IORING_URING_CMD_*` flags (`sqe->uring_cmd_flags`).
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct IoUringMisc2(pub u32);
+impl IoUringMisc2 {
+    pub const IORING_NOTIF_USAGE_ZC_COPIED: Self = Self(2147483648);
+    pub const SPLICE_F_FD_IN_FIXED: Self = Self(2147483648);
+    pub const IORING_URING_CMD_FIXED: Self = Self(1);
+    pub const IORING_URING_CMD_MULTISHOT: Self = Self(2);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        (
+            "IORING_NOTIF_USAGE_ZC_COPIED",
+            Self::IORING_NOTIF_USAGE_ZC_COPIED,
+        ),
+        ("SPLICE_F_FD_IN_FIXED", Self::SPLICE_F_FD_IN_FIXED),
+        ("IORING_URING_CMD_FIXED", Self::IORING_URING_CMD_FIXED),
+        (
+            "IORING_URING_CMD_MULTISHOT",
+            Self::IORING_URING_CMD_MULTISHOT,
+        ),
+    ];
+    /// Name of the first constant with this value, if any.
+    pub const fn name(self) -> Option<&'static str> {
+        match self.0 {
+            2147483648 => Some("IORING_NOTIF_USAGE_ZC_COPIED"),
+            1 => Some("IORING_URING_CMD_FIXED"),
+            2 => Some("IORING_URING_CMD_MULTISHOT"),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Debug for IoUringMisc2 {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.name() {
+            Some(name) => f.write_str(name),
+            None => write!(f, "IoUringMisc2({})", self.0),
+        }
+    }
+}
+
+impl GuestLayout for IoUringMisc2 {
+    const SIZE: usize = <u32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
 /// `rseq` flags (`enum rseq_flags`, `linux/rseq.h`).
 ///
 /// C: `int`
