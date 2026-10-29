@@ -334,6 +334,7 @@ impl Vfs {
                 parent: None,
                 path: None,
                 is_dir: false,
+                unlinked: false,
             };
             watcher.fsnotify(&event, &info);
         }
@@ -405,14 +406,28 @@ impl Vfs {
             let event = FsEvent::Modify {
                 object: notify::Object { sb: sb.id, ino },
             };
-            if let Some((dir, name)) = dir {
-                let dir = notify::Object {
-                    sb: sb.id,
-                    ino: dir,
-                };
+            let parent = dir.map(|(dir, name)| {
+                (
+                    notify::Object {
+                        sb: sb.id,
+                        ino: dir,
+                    },
+                    name,
+                )
+            });
+            if let Some((dir, name)) = parent {
                 watcher.child_event(dir, name, &event, false);
             }
             watcher.event(&event);
+            watcher.fsnotify(
+                &event,
+                &notify::EventInfo {
+                    parent,
+                    path: None,
+                    is_dir: false,
+                    unlinked: false,
+                },
+            );
         }
     }
 
@@ -445,6 +460,7 @@ impl Vfs {
             parent: parent.as_ref().map(|(dir, name)| (*dir, name.as_slice())),
             path,
             is_dir: dentry.is_dir(),
+            unlinked,
         };
         watcher.fsnotify(&event, &info);
     }
