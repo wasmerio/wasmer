@@ -1070,3 +1070,40 @@ fn a_user_namespaces_root_mounts_the_queues_of_its_ipc_namespace() {
     assert_eq!(block_on(kernel.close(&user.caller(), fd)), Ok(0));
     assert_eq!(owner(&kernel, &user, "/mnt/q/queue"), (0, 0));
 }
+
+/// `access(W_OK)` on the namespace sysctls answers as a write does: their table mode is 0644,
+/// and `pid_table_root_permissions` and `set_permissions` give the owner's bits to the root of
+/// the pid namespace's owner and to `CAP_SYS_RESOURCE` over the opener's user namespace, and
+/// the others' (read-only) to everyone else.
+#[test]
+fn namespace_sysctls_are_writable_by_the_namespaces_root_only() {
+    use wasixv2_abi::AccessMode;
+    let access = |kernel: &Kernel, p: &P, at: &str, mode: AccessMode| {
+        block_on(kernel.faccessat(&p.caller(), CWD, path(p, at), mode))
+    };
+    let (pid_max, max_user) = (
+        "/proc/sys/kernel/pid_max",
+        "/proc/sys/user/max_user_namespaces",
+    );
+    let (kernel, root) = machine_as(0);
+    let user = fork(&kernel, &root, CloneFlags(0)).unwrap();
+    assert_eq!(block_on(kernel.setuid(&user.caller(), 1000)), Ok(0));
+    for at in [pid_max, max_user] {
+        assert_eq!(access(&kernel, &root, at, AccessMode::W_OK), Ok(0), "{at}");
+        assert_eq!(access(&kernel, &user, at, AccessMode::R_OK), Ok(0), "{at}");
+        let denied = access(&kernel, &user, at, AccessMode::W_OK);
+        assert_eq!(errno(denied), Errno::EACCES, "{at}");
+    }
+
+    // The root of a new user namespace: its own namespace limits, and the `pid_max` of the
+    // pid namespace it made, but not the initial pid namespace's.
+    let (kernel, user) = machine_as(1000);
+    become_root(&kernel, &user, CloneFlags::CLONE_NEWPID);
+    assert_eq!(access(&kernel, &user, max_user, AccessMode::W_OK), Ok(0));
+    assert_eq!(write_text(&kernel, &user, max_user, "7"), Ok(1));
+    let denied = access(&kernel, &user, pid_max, AccessMode::W_OK);
+    assert_eq!(errno(denied), Errno::EACCES);
+    let init = fork(&kernel, &user, CloneFlags(0)).unwrap();
+    assert_eq!(access(&kernel, &init, pid_max, AccessMode::W_OK), Ok(0));
+    assert_eq!(write_text(&kernel, &init, pid_max, "1000"), Ok(4));
+}

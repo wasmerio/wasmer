@@ -37,7 +37,7 @@ use crate::{
     devinet,
     ns::{NetNs, UserNs},
     sync::MutexExt,
-    uidgid::{Kgid, Kuid},
+    uidgid::Kgid,
 };
 
 /// Which interfaces' values a `conf` directory holds.
@@ -746,17 +746,7 @@ impl Node for SysNetNode {
             let owner = (mode >> 6) & 7;
             mode = (owner << 6) | (owner << 3) | owner;
         }
-        let bits = if cred.user.effective == Kuid(0) {
-            mode >> 6
-        } else if cred.group.effective == Kgid(0) || cred.groups.contains(&Kgid(0)) {
-            mode >> 3
-        } else {
-            mode
-        } & 7;
-        match mask & !bits {
-            0 => Ok(()),
-            _ => Err(Errno::EACCES),
-        }
+        super::node::test_perm(&cred, mode, mask)
     }
 
     /// `proc_sys_setattr`: no mode or owner changes; a truncation (an `O_TRUNC` open) is

@@ -19,6 +19,7 @@ use crate::{
     pipe::PipeMaxSize,
     sync::MutexExt,
     taint::Taint,
+    uidgid::{Kgid, Kuid},
     userns::MapKind,
 };
 
@@ -416,6 +417,44 @@ impl ProcNode {
         (cred.user.effective.0, cred.group.effective.0)
     }
 
+    /// `proc_sys_permission` for a sysctl whose table root gives the permissions for the
+    /// opener's namespace, from the table mode `mode`: `pid_max`'s
+    /// (`pid_table_root_permissions`, the opener's pid namespace: the owner's bits for
+    /// `CAP_SYS_ADMIN` over its owner or its root uid, the group's for its root gid, else the
+    /// others') and `max_*_namespaces`' (`set_permissions`, the opener's user namespace: the
+    /// owner's bits with `CAP_SYS_RESOURCE` over it, else the others'). Then `test_perm`.
+    fn sysctl_root_permission(
+        &self,
+        task: u32,
+        file: text::Global,
+        mode: u32,
+        mask: u32,
+    ) -> FsResult<()> {
+        let Some(cred) = self.source.cred_of(task) else {
+            return Ok(());
+        };
+        let in_egroup = |gid| cred.group.effective == gid || cred.groups.contains(&gid);
+        let bits = match file {
+            text::Global::PidMax => {
+                let owner = self.source.pid_ns_of(task).user_ns().clone();
+                if cred.ns_capable(&owner, Cap::SysAdmin)
+                    || owner.root_uid() == Some(cred.user.effective)
+                {
+                    (mode >> 6) & 7
+                } else if owner.root_gid().is_some_and(in_egroup) {
+                    (mode >> 3) & 7
+                } else {
+                    mode & 4
+                }
+            }
+            _ => match cred.ns_capable(&self.source.user_ns_of(task), Cap::SysResource) {
+                true => (mode >> 6) & 7,
+                false => mode & 4,
+            },
+        };
+        test_perm(&cred, (bits << 6) | (bits << 3) | bits, mask)
+    }
+
     /// `proc_ns_get_link`: the namespace's nsfs inode, for a caller that may read the task's
     /// state (`PTRACE_MODE_READ_FSCREDS`, `EACCES`).
     fn ns_link(&self, cx: &Ctx<'_>, scope: Scope, link: NsLink) -> FsResult<Link> {
@@ -444,6 +483,23 @@ impl ProcNode {
             &target.process.cred().user_ns,
         );
         Ok(Link::Jump(self.source.nsfs.path(&ns)))
+    }
+}
+
+/// `test_perm` (`fs/proc/proc_sysctl.c`): the owner's bits of a sysctl's `mode` for the
+/// initial namespace's root, the group's for its group, else the others'; never execution.
+pub(super) fn test_perm(cred: &Cred, mode: u32, mask: u32) -> FsResult<()> {
+    let mask = mask & (wasixv2_vfs::MAY_READ | wasixv2_vfs::MAY_WRITE | wasixv2_vfs::MAY_EXEC);
+    let bits = if cred.user.effective == Kuid(0) {
+        mode >> 6
+    } else if cred.group.effective == Kgid(0) || cred.groups.contains(&Kgid(0)) {
+        mode >> 3
+    } else {
+        mode
+    } & 7;
+    match mask & !bits {
+        0 => Ok(()),
+        _ => Err(Errno::EACCES),
     }
 }
 
@@ -507,6 +563,27 @@ impl Node for ProcNode {
 
     fn as_any(&self) -> &dyn Any {
         self
+    }
+
+    /// `proc_sys_permission` for the sysctls whose table root decides for the opener's
+    /// namespace (`pid_max`, `max_*_namespaces`); the mode bits for everything else.
+    /// `/proc/sys/net` has its own (`SysNetNode`).
+    fn permission(
+        &self,
+        cred: &wasixv2_vfs::Cred,
+        task: u32,
+        attr: &Attr,
+        mask: u32,
+    ) -> FsResult<()> {
+        match self.entry {
+            Entry::Static(index) => match STATIC[index].2 {
+                Static::File(file @ (text::Global::PidMax | text::Global::MaxNamespaces(_))) => {
+                    self.sysctl_root_permission(task, file, attr.mode, mask)
+                }
+                _ => wasixv2_vfs::generic_permission(cred, attr, mask),
+            },
+            _ => wasixv2_vfs::generic_permission(cred, attr, mask),
+        }
     }
 
     /// `proc_splice_unmountable`: nothing is mounted on a descriptor's link or its `fdinfo`.

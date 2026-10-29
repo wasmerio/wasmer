@@ -105,10 +105,13 @@ impl Global {
             | Self::DirNotifyEnable
             | Self::LeasesEnable
             | Self::LeaseBreakTime
-            | Self::Tainted => 0o644,
-            // Writing these needs a capability over the namespace's owner instead (or, for
-            // `pid_max`, being its root), as the permissions of their sysctl tables give.
-            Self::NsLastPid | Self::PidMax | Self::MaxNamespaces(_) => 0o666,
+            | Self::Tainted
+            // Who may write these is the namespace's business, not the mode's
+            // (`pid_table_root_permissions`, `set_permissions`): see `ProcNode::permission`.
+            | Self::PidMax
+            | Self::MaxNamespaces(_) => 0o644,
+            // `pid_ns_ctl_handler` checks the writer itself.
+            Self::NsLastPid => 0o666,
             _ => 0o444,
         }
     }
