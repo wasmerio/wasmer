@@ -4158,3 +4158,99 @@ fn buffer_registration_does_not_probe_guest_bytes() {
     let caller = Caller::new(m.task, &memory);
     assert!(block_on(m.kernel.retain_pages(&caller, addr, 65536)).is_ok());
 }
+
+fn pin_limit(m: &Machine, task: TaskId, pages: u64) {
+    use wasixv2_abi::{Rlimit64, RlimitResource};
+    put_value(
+        m,
+        SCRATCH,
+        Rlimit64 {
+            rlim_cur: pages * 65536,
+            rlim_max: 8 << 20,
+        },
+    );
+    assert_eq!(
+        block_on(m.kernel.prlimit64(
+            &Caller::new(task, &m.memory),
+            0,
+            RlimitResource::RLIMIT_MEMLOCK,
+            GuestPtr::new(SCRATCH),
+            GuestPtrMut::NULL
+        )),
+        Ok(0)
+    );
+}
+
+#[test]
+fn retained_memlock_pages_charge_user_until_last_reference() {
+    let m = Machine::new();
+    let addr = anonymous(&m, 3, false);
+    pin_limit(&m, m.task, 1);
+    let caller = m.caller();
+    let first = block_on(m.kernel.retain_pages(&caller, addr, 1)).unwrap();
+    let duplicate = block_on(m.kernel.retain_pages(&caller, addr + 1, 1)).unwrap();
+    assert!(matches!(
+        block_on(m.kernel.retain_pages(&caller, addr + 65536, 1)),
+        Err(Errno::ENOMEM)
+    ));
+    block_on(m.kernel.munmap(&caller, addr, 65536)).unwrap();
+    drop(first);
+    assert!(
+        matches!(
+            block_on(m.kernel.retain_pages(&caller, addr + 65536, 1)),
+            Err(Errno::ENOMEM)
+        ),
+        "detached duplicate is still charged"
+    );
+    drop(duplicate);
+    let other = super::mapping::another_process(&m.kernel);
+    pin_limit(&m, other, 1);
+    let first = block_on(m.kernel.retain_pages(&caller, addr + 65536, 1)).unwrap();
+    assert!(
+        matches!(
+            block_on(
+                m.kernel
+                    .retain_pages(&Caller::new(other, &m.memory), addr + 131072, 1)
+            ),
+            Err(Errno::ENOMEM)
+        ),
+        "another mm of the same uid shares locked_vm"
+    );
+    drop(first);
+    assert!(
+        block_on(m.kernel.retain_pages(&caller, addr + 65536, 131072)).is_err(),
+        "partial charge must roll back"
+    );
+    assert!(block_on(m.kernel.retain_pages(&caller, addr + 131072, 1)).is_ok());
+    pin_limit(&m, m.task, 0);
+    assert!(matches!(
+        block_on(m.kernel.retain_pages(&caller, addr + 131072, 1)),
+        Err(Errno::ENOMEM)
+    ));
+}
+
+#[test]
+fn unregister_and_ring_teardown_release_retained_memlock() {
+    let m = Machine::new();
+    let ring = m.ring(2, 0);
+    let addr = anonymous(&m, 2, false);
+    pin_limit(&m, m.task, 1);
+    put_value(
+        &m,
+        SCRATCH + 64,
+        Iovec {
+            iov_base: addr,
+            iov_len: 1,
+        },
+    );
+    assert_eq!(register_resources(&ring, true, 1, SCRATCH + 64, 0), Ok(0));
+    assert!(matches!(
+        block_on(m.kernel.retain_pages(&m.caller(), addr + 65536, 1)),
+        Err(Errno::ENOMEM)
+    ));
+    assert_eq!(ring.register(1, 0, 0), Ok(0));
+    assert!(block_on(m.kernel.retain_pages(&m.caller(), addr + 65536, 1)).is_ok());
+    assert_eq!(register_resources(&ring, true, 1, SCRATCH + 64, 0), Ok(0));
+    block_on(m.kernel.close(&m.caller(), ring.fd)).unwrap();
+    assert!(block_on(m.kernel.retain_pages(&m.caller(), addr + 65536, 1)).is_ok());
+}

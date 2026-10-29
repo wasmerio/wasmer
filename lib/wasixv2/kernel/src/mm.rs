@@ -41,7 +41,7 @@ mod mseal;
 mod process_vm;
 mod retained;
 mod shared;
-pub(crate) use retained::{Retained, RetainedMemory};
+pub(crate) use retained::{MemlockUsers, Retained, RetainedMemory};
 
 use std::{
     collections::BTreeMap,

@@ -227,6 +227,8 @@ pub struct Kernel {
     // ---- sig ----
     /// The signals queued for each user, against `RLIMIT_SIGPENDING`.
     sigqueue_users: Arc<signal::SigqueueUsers>,
+    /// io_uring pins charged to each registering user (user_struct::locked_vm).
+    memlock_users: mm::MemlockUsers,
     /// Sends the I/O signals of files with `O_ASYNC` to their owners.
     sigio: Arc<fasync::Sigio>,
     /// A task entered seccomp once: from then on, every syscall entry looks at its task's
@@ -524,6 +526,7 @@ impl Kernel {
             binfmt_misc,
             epoll_nesting: Mutex::default(),
             sigqueue_users: Arc::default(),
+            memlock_users: Default::default(),
             seccomp_used: Default::default(),
             keys,
             seccomp_logging: Arc::default(),
