@@ -1580,3 +1580,89 @@ fn open_tree_attr_changes_detached_mount_before_publication() {
     let plain = Fd(call("/source", 0, 0, 0).unwrap());
     m.close(plain);
 }
+
+#[test]
+fn statmount_and_listmount_use_listns_namespace_ids() {
+    use wasixv2_abi::IoctlRequest;
+    let m = Machine::as_uid(0);
+    let mask = StatmountMask::STATMOUNT_MNT_NS_ID;
+    let initial_root = m.mnt_id("/", StatxMask::STATX_MNT_ID_UNIQUE);
+    assert_eq!(
+        m.statmount(initial_root, mask, Statmount::SIZE as u32)
+            .unwrap()
+            .0
+            .mnt_ns_id,
+        8
+    );
+    m.unshare(CloneFlags::CLONE_NEWNS).unwrap();
+    let name = m.cstr(0x1000, "/proc/self/ns/mnt");
+    let fd = block_on(
+        m.kernel
+            .openat(&m.caller(), CWD, name, OpenFlags::O_RDONLY, 0),
+    )
+    .unwrap();
+    block_on(
+        m.kernel
+            .ioctl(&m.caller(), fd, IoctlRequest::NS_GET_ID, 0x4000),
+    )
+    .unwrap();
+    let id: u64 = block_on(read_value(&m.memory, GuestPtr::new(0x4000))).unwrap();
+    assert!(id > 8);
+    let root = m.mnt_id("/", StatxMask::STATX_MNT_ID_UNIQUE);
+    assert_eq!(
+        m.statmount(root, mask, Statmount::SIZE as u32)
+            .unwrap()
+            .0
+            .mnt_ns_id,
+        id
+    );
+    let req = MntIdReq {
+        size: 32,
+        mnt_id: root,
+        param: mask.0,
+        mnt_ns_id: id,
+        mnt_ns_fd: 0,
+    };
+    let mut bytes = vec![0; MntIdReq::SIZE];
+    req.write_to(&mut bytes);
+    put(&m.memory.0, 0x5000, &bytes);
+    assert_eq!(
+        block_on(m.kernel.statmount(
+            &m.caller(),
+            GuestPtr::new(0x5000),
+            GuestPtrMut::new(0x6000),
+            Statmount::SIZE as u32,
+            0
+        )),
+        Ok(0)
+    );
+    let mut req = req;
+    req.mnt_id = ListmountMntId::LSMT_ROOT.0;
+    req.param = 0;
+    req.write_to(&mut bytes);
+    put(&m.memory.0, 0x5000, &bytes);
+    assert!(
+        block_on(m.kernel.listmount(
+            &m.caller(),
+            GuestPtr::new(0x5000),
+            GuestPtrMut::new(0x6000),
+            16,
+            0
+        ))
+        .unwrap()
+            > 0
+    );
+    let guarded = Guarded(&m.memory, 65536);
+    let guarded_caller = Caller::new(m.task, &guarded);
+    assert_eq!(
+        errno(block_on(m.kernel.listns(
+            &guarded_caller,
+            GuestPtr::new(0x5000),
+            GuestPtrMut::new(0x6000),
+            0,
+            0
+        ))),
+        Errno::EFAULT
+    );
+    m.close(fd);
+}

@@ -324,6 +324,14 @@ impl Kernel {
                 self.open_namespace(caller, parent)
             }
             IoctlRequest::NS_GET_NSTYPE => Ok(ns.kind().flag() as i32),
+            // Linux `fs/nsfs.c:ns_ioctl`, IDs shared with listns.
+            IoctlRequest::NS_GET_ID | IoctlRequest::NS_GET_MNTNS_ID => {
+                if request == IoctlRequest::NS_GET_MNTNS_ID && ns.kind() != crate::ns::NsKind::Mnt {
+                    return Err(Errno::EINVAL.into());
+                }
+                write_value(caller.memory(), GuestPtrMut::<u64>::new(arg), &ns.ns_id()).await?;
+                Ok(0)
+            }
             IoctlRequest::NS_GET_OWNER_UID => {
                 let uid = ns.owner_uid(&self.cred(caller).user_ns)?;
                 write_value(caller.memory(), GuestPtrMut::<u32>::new(arg), &uid).await?;
