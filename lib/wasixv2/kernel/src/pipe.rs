@@ -89,6 +89,8 @@ pub(crate) struct Pipe {
 
 struct State {
     buf: VecDeque<u8>,
+    /// fs/pipe.c PIPE_BUF_FLAG_PACKET; stream runs may merge, packets never do.
+    segments: VecDeque<(usize, bool)>,
     capacity: usize,
     /// Room promised to a splice into the pipe that is still reading its input
     /// ([`Reservation`]), which Linux keeps by holding the pipe's lock across the read.
@@ -102,8 +104,63 @@ struct State {
 }
 
 impl State {
+    fn used(&self) -> usize {
+        self.segments
+            .iter()
+            .map(|&(len, packet)| {
+                if packet {
+                    len.next_multiple_of(PIPE_PAGE)
+                } else {
+                    len
+                }
+            })
+            .sum()
+    }
+
+    fn append(&mut self, data: &[u8], packet: bool) {
+        if data.is_empty() {
+            return;
+        }
+        self.buf.extend(data);
+        if !packet && let Some((len, false)) = self.segments.back_mut() {
+            *len += data.len();
+            return;
+        }
+        self.segments.push_back((data.len(), packet));
+    }
+
+    /// pipe_read stops after a packet even if space remains in the user's buffer.
+    fn read_len(&self, max: usize) -> usize {
+        let mut n = 0;
+        for &(len, packet) in &self.segments {
+            n += len;
+            if packet {
+                break;
+            }
+        }
+        n.min(max)
+    }
+
+    fn consume(&mut self, mut n: usize, packet_read: bool) {
+        while n > 0 {
+            let (len, packet) = self.segments.front_mut().expect("buffer segment");
+            let take = n.min(*len);
+            self.buf.drain(..take);
+            *len -= take;
+            n -= take;
+            if packet_read && *packet {
+                self.buf.drain(..*len);
+                self.segments.pop_front();
+                break;
+            }
+            if *len == 0 {
+                self.segments.pop_front();
+            }
+        }
+    }
+
     fn free(&self) -> usize {
-        self.capacity.saturating_sub(self.buf.len() + self.reserved)
+        self.capacity.saturating_sub(self.used() + self.reserved)
     }
 }
 
@@ -143,6 +200,7 @@ fn new_pipe(capacity: usize) -> Arc<Pipe> {
     Arc::new(Pipe {
         state: Mutex::new(State {
             buf: VecDeque::new(),
+            segments: VecDeque::new(),
             capacity,
             reserved: 0,
             readers: 0,
@@ -377,6 +435,7 @@ impl Pipe {
         interrupt: &dyn Interrupt,
         buf: &mut [u8],
         out: &mut dyn Consumer,
+        packet_read: bool,
     ) -> SysResult<usize> {
         if buf.is_empty() {
             return Ok(0);
@@ -392,7 +451,11 @@ impl Pipe {
                         _ => continue,
                     }
                 }
-                let n = buf.len().min(state.buf.len());
+                let n = if packet_read {
+                    state.read_len(buf.len())
+                } else {
+                    buf.len().min(state.buf.len())
+                };
                 for (dst, src) in buf.iter_mut().zip(state.buf.range(..n)) {
                     *dst = *src;
                 }
@@ -400,7 +463,7 @@ impl Pipe {
             };
             let n = out.take(&buf[..n]).await?;
             if n > 0 {
-                self.state.lock_or_recover().buf.drain(..n);
+                self.state.lock_or_recover().consume(n, packet_read);
                 self.wr_wait.wake(PollMask::WRITABLE);
                 self.signal_writers();
             }
@@ -432,13 +495,26 @@ impl Pipe {
                 writers: input.writers > 0,
             };
         }
-        let n = len.min(input.buf.len()).min(output.free());
+        // splice_pipe_to_pipe/link_pipe preserve packet flags, including partial packets.
+        let mut n = 0;
+        for &(segment, packet) in &input.segments {
+            let free = output.free();
+            if (packet && free < PIPE_PAGE) || free == 0 || n == len {
+                break;
+            }
+            let take = segment.min(len - n).min(free);
+            let bytes: Vec<_> = input.buf.range(n..n + take).copied().collect();
+            output.append(&bytes, packet);
+            n += take;
+            if take < segment {
+                break;
+            }
+        }
         if n == 0 {
             return Moved::OutFull;
         }
-        output.buf.extend(input.buf.range(..n));
         if consume {
-            input.buf.drain(..n);
+            input.consume(n, false);
         }
         drop((input, output));
         // `wakeup_pipe_readers` and `wakeup_pipe_writers`.
@@ -491,7 +567,7 @@ impl Reservation {
         {
             let mut state = self.pipe.state.lock_or_recover();
             state.reserved -= self.len;
-            state.buf.extend(data);
+            state.append(data, false);
         }
         self.len = 0;
         if !data.is_empty() {
@@ -553,12 +629,12 @@ impl PipeEnd {
             Some(to) => {
                 let mut out = ToUser(to);
                 self.pipe
-                    .consume(nonblock, io.interrupt, buf, &mut out)
+                    .consume(nonblock, io.interrupt, buf, &mut out, true)
                     .await
             }
             None => {
                 self.pipe
-                    .consume(nonblock, io.interrupt, buf, &mut InPlace)
+                    .consume(nonblock, io.interrupt, buf, &mut InPlace, true)
                     .await
             }
         }
@@ -580,6 +656,7 @@ impl PipeEnd {
 
     async fn write_steps(&self, io: Io<'_>, data: &[u8]) -> SysResult<usize> {
         let pipe = &self.pipe;
+        let packet = io.flags.contains(OpenFlags::O_DIRECT);
         let atomic = data.len() <= PIPE_BUF;
         let mut written = 0;
         loop {
@@ -590,10 +667,27 @@ impl PipeEnd {
                     return Some(Err(Errno::EPIPE));
                 }
                 let free = state.free();
-                let fits = if atomic { free >= data.len() } else { free > 0 };
+                let fits = if packet {
+                    free >= PIPE_PAGE
+                } else if atomic {
+                    free >= data.len()
+                } else {
+                    free > 0
+                };
                 if fits {
-                    let n = free.min(data.len() - written);
-                    state.buf.extend(&data[written..written + n]);
+                    let room = if packet {
+                        free / PIPE_PAGE * PIPE_PAGE
+                    } else {
+                        free
+                    };
+                    let n = room.min(data.len() - written);
+                    if packet {
+                        for chunk in data[written..written + n].chunks(PIPE_BUF) {
+                            state.append(chunk, true);
+                        }
+                    } else {
+                        state.append(&data[written..written + n], false);
+                    }
                     return Some(Ok(n));
                 }
                 io.nonblocking().then_some(Err(Errno::EAGAIN))
@@ -630,7 +724,7 @@ impl PipeEnd {
         if size > state.capacity && size > max as usize && !privileged {
             return Err(Errno::EPERM);
         }
-        if state.buf.len() > size {
+        if state.used() > size {
             return Err(Errno::EBUSY);
         }
         state.capacity = size;
@@ -731,7 +825,6 @@ pub(crate) fn fcntl(
 
 impl Kernel {
     /// `do_pipe2`.
-    // TODO: O_DIRECT (packet mode) is accepted but the pipe stays a byte stream.
     pub(crate) async fn sys_pipe2(
         &self,
         caller: &Caller<'_>,
@@ -743,7 +836,7 @@ impl Kernel {
             return Err(Errno::EINVAL.into());
         }
         let owner = self.cred(caller).fs_owner();
-        let status = flags & OpenFlags::O_NONBLOCK;
+        let status = flags & (OpenFlags::O_NONBLOCK | OpenFlags::O_DIRECT);
         let [read, write] = self.pipe_files(self.new_pipe_size(caller), owner, status);
         let cloexec = flags.contains(OpenFlags::O_CLOEXEC);
         self.install_pair(caller, fildes, [read, write], cloexec)

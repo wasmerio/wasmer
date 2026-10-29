@@ -32,6 +32,12 @@ pub(crate) const SUPPORTED: &[IoUringOp] = &[
     IoUringOp::IORING_OP_NOP,
     IoUringOp::IORING_OP_READV,
     IoUringOp::IORING_OP_WRITEV,
+    IoUringOp::IORING_OP_READV_FIXED,
+    IoUringOp::IORING_OP_WRITEV_FIXED,
+    IoUringOp::IORING_OP_EPOLL_CTL,
+    IoUringOp::IORING_OP_EPOLL_WAIT,
+    IoUringOp::IORING_OP_PIPE,
+    IoUringOp::IORING_OP_SYNC_FILE_RANGE,
     IoUringOp::IORING_OP_FSYNC,
     IoUringOp::IORING_OP_READ_FIXED,
     IoUringOp::IORING_OP_WRITE_FIXED,
@@ -135,6 +141,8 @@ pub(crate) struct Req {
     /// The provided buffer it took (`REQ_F_BUFFER_SELECTED`).
     pbuf: Option<Pbuf>,
     msg_header: Option<wasixv2_abi::UserMsghdr>,
+    epoll_event: Option<wasixv2_abi::EpollEvent>,
+    iovecs: Option<Vec<Iovec>>,
     msg_len: u32,
     zc_notif: Option<(u64, bool)>,
     queue_noticed: Option<Arc<std::sync::atomic::AtomicBool>>,
@@ -267,6 +275,8 @@ impl Req {
             connecting: false,
             pbuf: None,
             msg_header: None,
+            epoll_event: None,
+            iovecs: None,
             msg_len: 0,
             zc_notif: None,
             queue_noticed: None,
@@ -640,6 +650,38 @@ impl Kernel {
                 Err(errno) => init = Err(errno),
             }
         }
+        if init.is_ok()
+            && matches!(
+                IoUringOp(req.sqe.opcode),
+                IoUringOp::IORING_OP_READV_FIXED | IoUringOp::IORING_OP_WRITEV_FIXED
+            )
+        {
+            match prep_reg_iovecs(caller, &req.sqe).await {
+                Ok(iovecs) => req.iovecs = Some(iovecs),
+                Err(errno) => init = Err(errno),
+            }
+        }
+        if init.is_ok()
+            && req.opcode() == op(IoUringOp::IORING_OP_EPOLL_CTL)
+            && (req.sqe.buf_index != 0 || req.sqe.splice_fd_in != 0)
+        {
+            init = Err(Errno::EINVAL);
+        }
+        if init.is_ok()
+            && req.opcode() == op(IoUringOp::IORING_OP_EPOLL_CTL)
+            && req.sqe.len != wasixv2_abi::EpollCtlOp::EPOLL_CTL_DEL.0 as u32
+        {
+            let event = match u32::try_from(req.sqe.addr) {
+                Ok(addr) => read_value(caller.memory(), GuestPtr::new(addr))
+                    .await
+                    .map_err(|_| Errno::EFAULT),
+                Err(_) => Err(Errno::EFAULT),
+            };
+            match event {
+                Ok(event) => req.epoll_event = Some(event),
+                Err(errno) => init = Err(errno),
+            }
+        }
         if let Err(errno) = init {
             req.failed = Some(errno);
         }
@@ -849,7 +891,57 @@ impl Kernel {
             | IoUringOp::IORING_OP_WRITE
             | IoUringOp::IORING_OP_WRITEV
             | IoUringOp::IORING_OP_WRITE_FIXED
+            | IoUringOp::IORING_OP_READV_FIXED
+            | IoUringOp::IORING_OP_WRITEV_FIXED
             | IoUringOp::IORING_OP_READ_MULTISHOT => self.op_rw(caller, ctx, req).await,
+            IoUringOp::IORING_OP_EPOLL_CTL => {
+                // io_uring/epoll.c:io_epoll_ctl; this opcode does normal fd lookups.
+                if sqe.buf_index != 0 || sqe.splice_fd_in != 0 {
+                    return Err(Errno::EINVAL);
+                }
+                if req.has(IosqeFlags::IOSQE_FIXED_FILE) {
+                    return Err(Errno::EBADF);
+                }
+                let file = self.file(caller.task(), Fd(sqe.fd))?;
+                Ok(Outcome::of(self.epoll_ctl_file(
+                    caller,
+                    file,
+                    wasixv2_abi::EpollCtlOp(sqe.len as i32),
+                    Fd(sqe.off as i32),
+                    req.epoll_event,
+                )))
+            }
+            IoUringOp::IORING_OP_EPOLL_WAIT => {
+                if sqe.off != 0 || sqe.op_flags != 0 || sqe.buf_index != 0 || sqe.splice_fd_in != 0
+                {
+                    return Err(Errno::EINVAL);
+                }
+                let file = self.req_file(caller, ctx, req)?;
+                let addr = u32::try_from(sqe.addr).map_err(|_| Errno::EFAULT)?;
+                match self
+                    .epoll_sendevents(caller, &file, GuestPtrMut::new(addr), sqe.len as i32)
+                    .await
+                {
+                    Ok(0) => Ok(Outcome::Again(PollMask::READABLE)),
+                    result => Ok(Outcome::of(result)),
+                }
+            }
+            IoUringOp::IORING_OP_PIPE => self.op_pipe(caller, ctx, &sqe).await,
+            IoUringOp::IORING_OP_SYNC_FILE_RANGE => {
+                if sqe.addr != 0 || sqe.buf_index != 0 || sqe.splice_fd_in != 0 {
+                    return Err(Errno::EINVAL);
+                }
+                let file = self.req_file(caller, ctx, req)?;
+                Ok(Outcome::of(
+                    self.sync_file_range_on(
+                        &file,
+                        sqe.off as i64,
+                        i64::from(sqe.len),
+                        wasixv2_abi::SyncFileRangeFlags(sqe.op_flags),
+                    )
+                    .await,
+                ))
+            }
             IoUringOp::IORING_OP_FSYNC => {
                 if sqe.addr != 0 || sqe.buf_index != 0 || sqe.splice_fd_in != 0 {
                     return Err(Errno::EINVAL);
@@ -1457,6 +1549,69 @@ impl Kernel {
         })
     }
 
+    /// io_uring/openclose.c:io_pipe_{prep,fixed,fd}; direct errors clear new slots.
+    async fn op_pipe(
+        &self,
+        caller: &Caller<'_>,
+        ctx: &Ctx,
+        sqe: &IoUringSqe,
+    ) -> Result<Outcome, Errno> {
+        if sqe.fd != 0 || sqe.off != 0 || sqe.addr3 != 0 {
+            return Err(Errno::EINVAL);
+        }
+        let flags = OpenFlags(sqe.op_flags);
+        let allowed =
+            OpenFlags::O_CLOEXEC | OpenFlags::O_NONBLOCK | OpenFlags::O_DIRECT | OpenFlags::O_EXCL;
+        if flags.0 & !allowed.0 != 0 {
+            return Err(Errno::EINVAL);
+        }
+        // fs/pipe.c:create_pipe_files without CONFIG_WATCH_QUEUE.
+        if flags.contains(OpenFlags::O_EXCL) {
+            return Err(Errno::ENODEV);
+        }
+        let addr = u32::try_from(sqe.addr).map_err(|_| Errno::EFAULT)?;
+        let index = sqe.splice_fd_in as u32;
+        if index == 0 {
+            return Ok(Outcome::of(
+                self.sys_pipe2(caller, GuestPtrMut::new(addr), flags).await,
+            ));
+        }
+        if flags.contains(OpenFlags::O_CLOEXEC) {
+            return Err(Errno::EINVAL);
+        }
+        let files = self.pipe_files(
+            self.new_pipe_size(caller),
+            self.cred(caller).fs_owner(),
+            flags & (OpenFlags::O_NONBLOCK | OpenFlags::O_DIRECT),
+        );
+        let [read, write] = files.map(Arc::new);
+        let allocated = index == u32::MAX;
+        let first = ctx.install_direct(read, index)?;
+        let first = if allocated { first as u32 } else { index - 1 };
+        let second_index = if allocated { index } else { index + 1 };
+        let result = async {
+            let second = ctx.install_direct(write, second_index)?;
+            let second = if allocated {
+                second as u32
+            } else {
+                second_index - 1
+            };
+            let mut fds = [0; 8];
+            fds[..4].copy_from_slice(&first.to_le_bytes());
+            fds[4..].copy_from_slice(&second.to_le_bytes());
+            if caller.memory().write(addr, &fds).await.is_err() {
+                ctx.remove_direct(second)?;
+                return Err(Errno::EFAULT);
+            }
+            Ok(())
+        }
+        .await;
+        if result.is_err() {
+            ctx.remove_direct(first)?;
+        }
+        Ok(Outcome::of(result.map(|()| 0).map_err(SysErr::from)))
+    }
+
     /// `io_read` and `io_write` (`rw.c`): a non-blocking attempt; a pollable file that would
     /// block is armed for `EPOLLIN` or `EPOLLOUT`, unless `RWF_NOWAIT` asked for `EAGAIN`.
     async fn op_rw(&self, caller: &Caller<'_>, ctx: &Ctx, req: &mut Req) -> Result<Outcome, Errno> {
@@ -1467,14 +1622,21 @@ impl Kernel {
             IoUringOp::IORING_OP_WRITE
                 | IoUringOp::IORING_OP_WRITEV
                 | IoUringOp::IORING_OP_WRITE_FIXED
+                | IoUringOp::IORING_OP_WRITEV_FIXED
         );
         let fixed = matches!(
             opcode,
-            IoUringOp::IORING_OP_READ_FIXED | IoUringOp::IORING_OP_WRITE_FIXED
+            IoUringOp::IORING_OP_READ_FIXED
+                | IoUringOp::IORING_OP_WRITE_FIXED
+                | IoUringOp::IORING_OP_READV_FIXED
+                | IoUringOp::IORING_OP_WRITEV_FIXED
         );
         let vectored = matches!(
             opcode,
-            IoUringOp::IORING_OP_READV | IoUringOp::IORING_OP_WRITEV
+            IoUringOp::IORING_OP_READV
+                | IoUringOp::IORING_OP_WRITEV
+                | IoUringOp::IORING_OP_READV_FIXED
+                | IoUringOp::IORING_OP_WRITEV_FIXED
         );
         // `io_prep_rw`.
         if sqe.ioprio != 0 {
@@ -1520,6 +1682,30 @@ impl Kernel {
                     iov_base: pbuf.addr,
                     iov_len: pbuf.len,
                 }]
+            }
+            (true, true, _) => {
+                // io_uring/rw.c:io_rw_prep_reg_vec, rsrc.c:io_import_reg_vec.
+                let vectors = req
+                    .iovecs
+                    .as_ref()
+                    .expect("fixed vectors prepared at submission")
+                    .clone();
+                let node = fixed_node(ctx, req)?;
+                let mut total = 0u64;
+                for iov in &vectors {
+                    let end = u64::from(iov.iov_base) + u64::from(iov.iov_len);
+                    if iov.iov_len == 0
+                        || iov.iov_base < node.item.addr
+                        || end > u64::from(node.item.addr) + u64::from(node.item.len)
+                    {
+                        return Err(Errno::EFAULT);
+                    }
+                    total += u64::from(iov.iov_len);
+                }
+                if total > crate::MAX_RW_COUNT as u64 {
+                    return Err(Errno::EINVAL);
+                }
+                vectors
             }
             (true, _, _) => {
                 read_iovecs(caller.memory(), GuestPtr::new(sqe.addr as u32), sqe.len).await?
@@ -2314,6 +2500,14 @@ fn init_req(ctx: &Ctx, req: &mut Req) -> Result<(), Errno> {
     if sqe.flags & !SQE_VALID_FLAGS != 0 {
         return Err(Errno::EINVAL);
     }
+    if req.has(IosqeFlags::IOSQE_FIXED_FILE)
+        && matches!(
+            IoUringOp(sqe.opcode),
+            IoUringOp::IORING_OP_EPOLL_CTL | IoUringOp::IORING_OP_PIPE
+        )
+    {
+        return Err(Errno::EBADF);
+    }
     if sqe.personality != 0 {
         let state = ctx.state.lock_or_recover();
         let creds = state.personalities.get(&sqe.personality);
@@ -2611,4 +2805,23 @@ fn fixed_buffer(ctx: &Ctx, req: &mut Req) -> Result<Iovec, Errno> {
         iov_base: sqe.addr as u32,
         iov_len: sqe.len,
     })
+}
+
+/// io_uring/rsrc.c:io_prep_reg_iovec copies vectors without the ordinary readv
+/// MAX_RW_COUNT truncation; io_import_reg_vec validates the registered ranges later.
+async fn prep_reg_iovecs(caller: &Caller<'_>, sqe: &IoUringSqe) -> Result<Vec<Iovec>, Errno> {
+    if sqe.len > 1024 {
+        return Err(Errno::EINVAL);
+    }
+    let addr = u32::try_from(sqe.addr).map_err(|_| Errno::EFAULT)?;
+    let mut raw = vec![0; sqe.len as usize * Iovec::SIZE];
+    caller
+        .memory()
+        .read(addr, &mut raw)
+        .await
+        .map_err(|_| Errno::EFAULT)?;
+    Ok(raw
+        .chunks_exact(Iovec::SIZE)
+        .map(|raw| Iovec::read_from(raw).expect("iovec size"))
+        .collect())
 }

@@ -549,11 +549,22 @@ impl Kernel {
         event: ConstEpollEventPtr,
     ) -> SysResult<i32> {
         let has_event = op != EpollCtlOp::EPOLL_CTL_DEL;
-        let mut event = match has_event {
+        let event = match has_event {
             true => Some(read_value(caller.memory(), event).await?),
             false => None,
         };
         let epfile = self.file(caller.task(), epfd)?;
+        self.epoll_ctl_file(caller, epfile, op, fd, event)
+    }
+
+    pub(crate) fn epoll_ctl_file(
+        &self,
+        caller: &Caller<'_>,
+        epfile: Arc<OpenFile>,
+        op: EpollCtlOp,
+        fd: Fd,
+        mut event: Option<EpollEvent>,
+    ) -> SysResult<i32> {
         let target = self.file(caller.task(), fd)?;
         if !target.can_poll() {
             return Err(Errno::EPERM.into());
@@ -745,15 +756,42 @@ impl Kernel {
                 Wakeup::Interrupted => return Err(SysErr::Errno(Errno::EINTR)),
             }
         };
-        // One copy of all events; if it faults, none is delivered and all go back.
-        let mut raw = vec![0; events.len() * EpollEvent::SIZE];
-        for (sent, slot) in events.iter().zip(raw.chunks_exact_mut(EpollEvent::SIZE)) {
-            sent.event.write_to(slot);
+        copy_events(caller, &ep, events, out).await
+    }
+
+    /// fs/eventpoll.c:epoll_sendevents, used by io_uring/epoll.c:io_epoll_wait.
+    pub(crate) async fn epoll_sendevents(
+        &self,
+        caller: &Caller<'_>,
+        file: &OpenFile,
+        out: EpollEventArray,
+        maxevents: i32,
+    ) -> SysResult<i32> {
+        if maxevents <= 0 || maxevents > MAX_EVENTS {
+            return Err(Errno::EINVAL.into());
         }
-        if caller.memory().write(out.addr(), &raw).await.is_err() {
-            ep.unsend(&events);
+        if u64::from(out.addr()) + maxevents as u64 * EpollEvent::SIZE as u64 > 1 << 32 {
             return Err(Errno::EFAULT.into());
         }
-        Ok(events.len() as i32)
+        let ep = &file.downcast::<Epoll>().ok_or(Errno::EINVAL)?.ep;
+        copy_events(caller, ep, ep.send_events(maxevents as usize), out).await
     }
+}
+
+async fn copy_events(
+    caller: &Caller<'_>,
+    ep: &Ep,
+    events: Vec<Sent>,
+    out: EpollEventArray,
+) -> SysResult<i32> {
+    // One copy of all events; if it faults, none is delivered and all go back.
+    let mut raw = vec![0; events.len() * EpollEvent::SIZE];
+    for (sent, slot) in events.iter().zip(raw.chunks_exact_mut(EpollEvent::SIZE)) {
+        sent.event.write_to(slot);
+    }
+    if caller.memory().write(out.addr(), &raw).await.is_err() {
+        ep.unsend(&events);
+        return Err(Errno::EFAULT.into());
+    }
+    Ok(events.len() as i32)
 }
