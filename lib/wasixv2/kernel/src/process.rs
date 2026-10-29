@@ -113,8 +113,12 @@ pub(crate) struct Tree {
 }
 
 impl Tree {
-    /// Takes `pid` out of the tree, as it is reaped (`release_task`): its thread group's id,
-    /// process group and session hold its pids no more.
+    /// Takes `pid` out of the tree, as it is reaped (`release_task`): its leader's task, thread
+    /// group's id, process group and session hold its pids no more. The leader's task may
+    /// outlive this until the execution layer releases it ([`forget_task`]), but its pid is
+    /// free from here on, as Linux detaches it in `release_task`.
+    ///
+    /// [`forget_task`]: crate::thread::forget_task
     pub(crate) fn reap(&mut self, pid: u32) -> Option<Node> {
         let node = self.nodes.remove(&pid)?;
         if let (Some(attr), Some(exit)) = (&node.pidfs, &node.exit) {
@@ -125,6 +129,7 @@ impl Tree {
             let ident = node.process.ident.lock_or_recover();
             (ident.pgid, ident.sid)
         };
+        self.pids.detach(pid, PidType::Pid);
         self.pids.detach(pid, PidType::Tgid);
         self.pids.detach(pgid, PidType::Pgid);
         self.pids.detach(sid, PidType::Sid);

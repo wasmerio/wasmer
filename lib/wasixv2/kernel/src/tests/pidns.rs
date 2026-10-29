@@ -582,6 +582,34 @@ fn pids_are_reused_once_free_and_wrap_at_pid_max() {
 }
 
 #[test]
+fn reaping_frees_the_pid_before_the_execution_layer_releases_the_task() {
+    let (kernel, parent) = machine();
+    let (child, pid) = fork(&kernel, &parent, 0).unwrap();
+    // The child is a zombie once it exits, while its instance still unwinds: the execution
+    // layer has not released its task yet.
+    block_on(kernel.exit_group(&child.caller(), 0)).unwrap();
+    assert_eq!(reap(&kernel, &parent, pid), Ok(Some((pid, 1, 0))));
+    // `release_task` at the reap detaches the pid, so nothing finds it and it is free again.
+    let getpgid = |pid| block_on(kernel.getpgid(&parent.caller(), pid));
+    assert_eq!(errno(getpgid(pid)), Errno::ESRCH);
+    assert_eq!(
+        errno(kill(&kernel, &parent, pid, Signal::SIGUSR1)),
+        Errno::ESRCH
+    );
+    let last = format!("{}", pid - 1);
+    assert_eq!(
+        echo(&kernel, &parent, "/proc/sys/kernel/ns_last_pid", &last),
+        Ok(last.len() as i32)
+    );
+    let (reused, reused_pid) = fork(&kernel, &parent, 0).unwrap();
+    assert_eq!(reused_pid, pid);
+    // The old task's release leaves the new process's pid alone.
+    kernel.release(child.task);
+    assert_eq!(getpgid(pid), getpgid(0));
+    assert_eq!(getpid(&kernel, &reused), pid);
+}
+
+#[test]
 fn a_new_namespace_counts_from_one_and_shows_its_own_last_pid() {
     let (kernel, parent) = machine();
     let (init, _) = fork(&kernel, &parent, NEWPID).unwrap();
