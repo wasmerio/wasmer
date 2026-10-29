@@ -16,8 +16,8 @@
 //! only, so a seqpacket socket reaches the host as a device without `VIRTIO_VSOCK_F_SEQPACKET`
 //! (`ESOCKTNOSUPPORT`). `/dev/vsock` answers `IOCTL_VM_SOCKETS_GET_LOCAL_CID`.
 //!
-//! Not yet: connections the host opens to a guest listener, the `net.vsock` sysctls,
-//! `SO_ZEROCOPY`, `SO_INQ` and the error queue.
+//! Host listeners use the backend's optional inbound transport. Zerocopy sends use the
+//! Linux copied fallback and report completion through the error queue.
 
 use std::{
     collections::{HashMap, VecDeque},
@@ -26,14 +26,16 @@ use std::{
 };
 
 use wasixv2_abi::{
-    AddressFamily, GuestLayout, GuestPtrMut, IoctlRequest, MsgFlags, OpenFlags, SockaddrVm,
-    SocketFlags, SocketLevel, SocketOption, SocketType, Vmaddr, VmaddrFlags, VsockOption,
+    AddressFamily, GuestLayout, GuestPtrMut, IoctlRequest, MsgFlags, OpenFlags, ScmType,
+    SoEeOrigin, SockExtendedErr, SockaddrVm, SocketFlags, SocketLevel, SocketOption, SocketType,
+    Vmaddr, VmaddrFlags, VsockOption,
 };
 use wasixv2_host::Host;
 use wasixv2_syscalls::{Caller, Errno, LocalFuture, SysErr, SysResult, write_value};
 use wasixv2_vfs::Cap;
 use wasixv2_vnet::{
-    BackendStream, Network, Shutdown, SocketKind, StreamState,
+    BackendStream, Network, Room, Shutdown, SocketKind, StreamState, VsockInboundSink,
+    VsockPublication,
     opts::{self, SockOpts},
 };
 use wasixv2_wait::{PollMask, PollTable, Pollable, WaitQueue, poll_wait};
@@ -455,6 +457,7 @@ struct Inner {
     link: Option<Link>,
     accept: VecDeque<Arc<VsockSock>>,
     backlog: u32,
+    publication: Option<Box<dyn VsockPublication>>,
     /// `SO_VM_SOCKETS_BUFFER_SIZE`, `_MIN_SIZE` and `_MAX_SIZE`.
     buffer: u64,
     buffer_min: u64,
@@ -462,6 +465,10 @@ struct Inner {
     connect_timeout: Duration,
     /// The `SOL_SOCKET` options `sock_setsockopt` keeps.
     opts: SockOpts,
+    inq: bool,
+    zerocopy: bool,
+    zc_next: u32,
+    errors: VecDeque<SockExtendedErr>,
 }
 
 /// One `AF_VSOCK` socket.
@@ -476,6 +483,7 @@ pub(crate) struct VsockSock {
     wait: WaitQueue,
     pub(crate) timeouts: Timeouts,
     host: Arc<dyn Host>,
+    room: WaitQueue,
 }
 
 /// The socket an open file holds; dropping it releases the socket (`vsock_release`).
@@ -500,6 +508,18 @@ impl VsockSock {
         net: Arc<NetNs>,
         host: Arc<dyn Host>,
         parent: Option<&Inner>,
+    ) -> Arc<Self> {
+        Self::new_with_wait(kind, table, transports, net, host, parent, WaitQueue::new())
+    }
+
+    fn new_with_wait(
+        kind: Kind,
+        table: Arc<Table>,
+        transports: Transports,
+        net: Arc<NetNs>,
+        host: Arc<dyn Host>,
+        parent: Option<&Inner>,
+        wait: WaitQueue,
     ) -> Arc<Self> {
         let opts_kind = match kind {
             Kind::Stream => SocketKind::Stream,
@@ -537,14 +557,20 @@ impl VsockSock {
                 link: None,
                 accept: VecDeque::new(),
                 backlog: 0,
+                publication: None,
                 buffer,
                 buffer_min,
                 buffer_max,
                 connect_timeout,
                 opts,
+                inq: parent.is_some_and(|p| p.inq),
+                zerocopy: parent.is_some_and(|p| p.zerocopy),
+                zc_next: 0,
+                errors: VecDeque::new(),
             }),
-            wait: WaitQueue::new(),
+            wait,
             timeouts: Timeouts::default(),
+            room: WaitQueue::new(),
             host,
         })
     }
@@ -680,6 +706,26 @@ impl VsockSock {
         }
         inner.backlog = backlog;
         inner.state = State::Listen;
+        if let Some(publication) = &inner.publication {
+            publication.set_backlog(backlog);
+        } else if self.kind == Kind::Stream
+            && inner.local.cid != CID_LOCAL
+            && let Some((_, network)) = &self.transports.g2h
+        {
+            // The backend never calls the sink synchronously while creating the listener.
+            match network.vsock_listen(
+                inner.local.port,
+                backlog,
+                Arc::new(HostSink(self.me.clone())),
+            ) {
+                Ok(publication) => inner.publication = Some(publication),
+                Err(Errno::EOPNOTSUPP) => {}
+                Err(e) => {
+                    inner.state = State::Close;
+                    return Err(e);
+                }
+            }
+        }
         drop(inner);
         self.wait.wake(PollMask::empty());
         Ok(())
@@ -693,6 +739,7 @@ impl VsockSock {
         }
         let child = inner.accept.pop_front().ok_or(Errno::EAGAIN)?;
         drop(inner);
+        self.room.wake(PollMask::OUT);
         child.lock().sock_state = SockState::Connected;
         Ok(child)
     }
@@ -955,6 +1002,74 @@ impl VsockSock {
         }
     }
 
+    /// net/core/skbuff.c: __msg_zerocopy_callback. Our send copies the user's bytes, so completion is immediate
+    /// and advertises SO_EE_CODE_ZEROCOPY_COPIED. One id per successful sendmsg, not chunk.
+    pub(crate) fn complete_send(&self, flags: MsgFlags) {
+        let mut inner = self.lock();
+        if !flags.contains(MsgFlags::MSG_ZEROCOPY) || !inner.zerocopy {
+            return;
+        }
+        let id = inner.zc_next;
+        inner.zc_next = id.wrapping_add(1);
+        if let Some(last) = inner.errors.back_mut()
+            && last.ee_data.checked_add(1) == Some(id)
+        {
+            last.ee_data = id;
+        } else {
+            inner.errors.push_back(SockExtendedErr {
+                ee_errno: 0,
+                ee_origin: SoEeOrigin::SO_EE_ORIGIN_ZEROCOPY.0,
+                ee_type: 0,
+                ee_code: 1,
+                ee_pad: 0,
+                ee_info: id,
+                ee_data: id,
+            });
+        }
+        drop(inner);
+        self.wait.wake(PollMask::ERR);
+    }
+
+    /// net/socket.c: sock_recv_errqueue. MSG_PEEK does not retain error queue entries.
+    pub(crate) fn recv_error(&self) -> Result<wasixv2_vnet::Control, Errno> {
+        let error = self.lock().errors.pop_front().ok_or(Errno::EAGAIN)?;
+        let mut data = vec![0; SockExtendedErr::SIZE];
+        error.write_to(&mut data);
+        Ok(wasixv2_vnet::Control {
+            level: 287,
+            kind: 1,
+            data,
+        })
+    }
+
+    /// net/vmw_vsock/af_vsock.c: vsock_stream_inq_hint, after a successful receive.
+    pub(crate) fn inq_control(&self) -> Option<wasixv2_vnet::Control> {
+        let inner = self.lock();
+        if !inner.inq || self.kind != Kind::Stream {
+            return None;
+        }
+        let bytes = match &inner.link {
+            Some(Link::Local { pipe, side }) => pipe.bytes(*side),
+            Some(Link::Host(stream)) => stream.input_len(),
+            None => 0,
+        };
+        let stopped = inner.shutdown & RCV_SHUTDOWN != 0
+            || inner.link.is_none()
+            || (Self::done(&inner) && inner.state != State::Established);
+        let eof =
+            bytes == 0 && (Self::done(&inner) || Self::peer_shutdown(&inner) & SEND_SHUTDOWN != 0);
+        let hint = if stopped || eof {
+            1
+        } else {
+            bytes.min(i32::MAX as usize) as i32
+        };
+        Some(wasixv2_vnet::Control {
+            level: SocketLevel::SOL_SOCKET.0,
+            kind: ScmType::SCM_INQ.0,
+            data: hint.to_le_bytes().to_vec(),
+        })
+    }
+
     /// `SIOCINQ`: `EINVAL` for a listener, else the bytes queued.
     fn input_len(&self) -> Result<usize, Errno> {
         let inner = self.lock();
@@ -989,9 +1104,13 @@ impl VsockSock {
         if let Some(Link::Local { pipe, side }) = inner.link.take() {
             pipe.close(side);
         }
+        let publication = inner.publication.take();
+        inner.state = State::Close;
         let pending = std::mem::take(&mut inner.accept);
         let local = inner.local;
         drop(inner);
+        drop(publication);
+        self.room.wake(PollMask::empty());
         for child in pending {
             child.release();
         }
@@ -1081,7 +1200,20 @@ impl VsockSock {
             SocketOption(name),
             SocketOption::SO_ZEROCOPY | SocketOption::SO_INQ
         ) {
-            return Err(Errno::ENOPROTOOPT);
+            // net/vmw_vsock/af_vsock.c: vsock_sol_socket_setsockopt.
+            if SocketOption(name) == SocketOption::SO_INQ && self.kind != Kind::Stream {
+                return Err(Errno::ENOPROTOOPT);
+            }
+            let value = opts::read_int(value)?;
+            if !(0..=1).contains(&value) {
+                return Err(Errno::EINVAL);
+            }
+            if SocketOption(name) == SocketOption::SO_INQ {
+                inner.inq = value != 0;
+            } else {
+                inner.zerocopy = value != 0;
+            }
+            return Ok(());
         }
         let bound = inner.local.bound();
         inner
@@ -1098,6 +1230,9 @@ impl VsockSock {
         let mut inner = self.lock();
         Self::refresh(&mut inner);
         match SocketOption(name) {
+            SocketOption::SO_INQ if self.kind == Kind::Stream => int(inner.inq as i32),
+            SocketOption::SO_INQ => Err(Errno::ENOPROTOOPT),
+            SocketOption::SO_ZEROCOPY => int(inner.zerocopy as i32),
             SocketOption::SO_TYPE => int(self.socket_type().0),
             SocketOption::SO_PROTOCOL => int(0),
             SocketOption::SO_DOMAIN => int(AddressFamily::AF_VSOCK.0),
@@ -1114,6 +1249,58 @@ impl VsockSock {
                 Ok(out)
             }
         }
+    }
+}
+
+/// `virtio_transport_recv_listen`: a host REQUEST makes a connected child on the
+/// listener's accept queue. Weak ownership avoids retaining the socket through its backend.
+struct HostSink(Weak<VsockSock>);
+
+impl VsockInboundSink for HostSink {
+    fn poll_room(&self, mut table: Option<&mut PollTable<'_>>) -> Room {
+        let Some(listener) = self.0.upgrade() else {
+            return Room::Gone;
+        };
+        poll_wait(&mut table, &listener.room);
+        let inner = listener.lock();
+        if inner.state != State::Listen {
+            Room::Gone
+        } else if inner.accept.len() as u32 > inner.backlog {
+            Room::Full
+        } else {
+            Room::Ready
+        }
+    }
+
+    fn incoming(&self, cid: u32, port: u32, stream: Arc<dyn BackendStream>, wq: WaitQueue) -> bool {
+        let Some(listener) = self.0.upgrade() else {
+            return false;
+        };
+        let mut inner = listener.lock();
+        if inner.state != State::Listen || inner.accept.len() as u32 > inner.backlog {
+            return false;
+        }
+        let child = VsockSock::new_with_wait(
+            listener.kind,
+            listener.table.clone(),
+            listener.transports.clone(),
+            listener.net.clone(),
+            listener.host.clone(),
+            Some(&inner),
+            wq,
+        );
+
+        {
+            let mut c = child.lock();
+            c.local = Addr::new(listener.transports.local_cid(), inner.local.port);
+            c.remote = Addr::new(cid, port);
+            c.state = State::Established;
+            c.link = Some(Link::Host(stream));
+        }
+        inner.accept.push_back(child);
+        drop(inner);
+        listener.wait.wake(PollMask::READABLE);
+        true
     }
 }
 
@@ -1150,7 +1337,7 @@ impl Pollable for VsockFile {
         let mut inner = sock.lock();
         VsockSock::refresh(&mut inner);
         let mut mask = PollMask::empty();
-        if inner.err.is_some() {
+        if inner.err.is_some() || !inner.errors.is_empty() {
             mask |= PollMask::ERR;
         }
         let peer_shutdown = VsockSock::peer_shutdown(&inner);
@@ -1805,5 +1992,111 @@ mod tests {
         s.set_vsock_option(name, &[0; 16]).unwrap();
         assert_eq!(s.connect_timeout(), CONNECT_TIMEOUT);
         assert_eq!(s.set_vsock_option(99, &[0; 8]), Err(Errno::ENOPROTOOPT));
+    }
+    #[test]
+    fn zerocopy_completions_and_inq_follow_linux() {
+        let (_l, client, child) = connected(Kind::Stream, CID_LOCAL);
+        let one = 1i32.to_le_bytes();
+        for opt in [SocketOption::SO_ZEROCOPY, SocketOption::SO_INQ] {
+            assert_eq!(
+                client.set_option(opt.0, &2i32.to_le_bytes()),
+                Err(Errno::EINVAL)
+            );
+            client.set_option(opt.0, &one).unwrap();
+            assert_eq!(client.getsockopt(opt.0).unwrap(), one);
+        }
+        assert_eq!(client.recv_error(), Err(Errno::EAGAIN));
+        client
+            .try_send(b"abc", MsgFlags::MSG_ZEROCOPY, false)
+            .unwrap();
+        client.complete_send(MsgFlags::MSG_ZEROCOPY);
+        client.complete_send(MsgFlags::MSG_ZEROCOPY);
+        let file = VsockFile(client.clone());
+        assert!(file.poll(None).contains(PollMask::ERR));
+        let c = client.recv_error().unwrap();
+        assert_eq!((c.level, c.kind), (287, 1));
+        let e = SockExtendedErr::read_from(&c.data).unwrap();
+        assert_eq!(
+            (e.ee_errno, e.ee_origin, e.ee_code, e.ee_info, e.ee_data),
+            (0, 5, 1, 0, 1)
+        );
+        assert!(!file.poll(None).contains(PollMask::ERR));
+        child.set_option(SocketOption::SO_INQ.0, &one).unwrap();
+        child.try_recv(&mut [0; 1], MsgFlags(0)).unwrap();
+        assert_eq!(child.inq_control().unwrap().data, 2i32.to_le_bytes());
+        child.try_recv(&mut [0; 2], MsgFlags(0)).unwrap();
+        assert_eq!(child.inq_control().unwrap().data, 0i32.to_le_bytes());
+        client.shutdown(1).unwrap();
+        assert_eq!(child.inq_control().unwrap().data, 1i32.to_le_bytes());
+        let table = Arc::new(Table::default());
+        assert_eq!(
+            sock(Kind::SeqPacket, &table).set_option(SocketOption::SO_INQ.0, &one),
+            Err(Errno::ENOPROTOOPT)
+        );
+    }
+
+    #[test]
+    fn host_inbound_connections_join_the_guest_accept_queue() {
+        struct HostStream;
+        impl Pollable for HostStream {
+            fn poll(&self, _: Option<&mut PollTable<'_>>) -> PollMask {
+                PollMask::WRITABLE
+            }
+        }
+        impl BackendStream for HostStream {
+            fn state(&self) -> StreamState {
+                StreamState::Established
+            }
+            fn read(&self, _: &mut [u8], _: bool) -> Result<usize, Errno> {
+                Err(Errno::EAGAIN)
+            }
+            fn write(&self, data: &[u8]) -> Result<usize, Errno> {
+                Ok(data.len())
+            }
+            fn write_urgent(&self, _: &[u8]) -> Result<usize, Errno> {
+                Err(Errno::EOPNOTSUPP)
+            }
+            fn read_urgent(&self, _: bool) -> Result<u8, Errno> {
+                Err(Errno::EOPNOTSUPP)
+            }
+            fn at_mark(&self) -> bool {
+                false
+            }
+            fn shutdown(&self, _: Shutdown) -> Result<(), Errno> {
+                Ok(())
+            }
+            fn take_error(&self) -> Option<Errno> {
+                None
+            }
+            fn peer_addr(&self) -> std::net::SocketAddr {
+                ([0, 0, 0, 0], 0).into()
+            }
+            fn input_len(&self) -> usize {
+                0
+            }
+        }
+        let table = Arc::new(Table::default());
+        let listener = sock(Kind::Stream, &table);
+        listener.bind(&raw(CID_ANY, 7000), false).unwrap();
+        listener
+            .set_option(SocketOption::SO_KEEPALIVE.0, &1i32.to_le_bytes())
+            .unwrap();
+        listener.listen(0).unwrap();
+        let sink = HostSink(Arc::downgrade(&listener));
+        assert_eq!(sink.poll_room(None), Room::Ready);
+        assert!(sink.incoming(2, 5678, Arc::new(HostStream), WaitQueue::new()));
+        assert_eq!(sink.poll_room(None), Room::Full);
+        let child = listener.try_accept().unwrap();
+        assert_eq!(child.lock().remote, Addr::new(2, 5678));
+        assert_eq!(child.lock().local.port, 7000);
+        assert_eq!(
+            child.getsockopt(SocketOption::SO_KEEPALIVE.0).unwrap(),
+            1i32.to_le_bytes()
+        );
+        assert_eq!(child.try_send(b"host", MsgFlags(0), false), Ok(4));
+        assert_eq!(sink.poll_room(None), Room::Ready);
+        listener.release();
+        assert_eq!(sink.poll_room(None), Room::Gone);
+        assert!(!sink.incoming(2, 5679, Arc::new(HostStream), WaitQueue::new()));
     }
 }

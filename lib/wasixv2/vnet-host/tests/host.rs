@@ -789,6 +789,7 @@ fn vsock_streams_reach_host_unix_sockets_by_port() {
     let vsock = VsockConfig {
         cid: 3,
         routes: vec![(Some(2), VsockRoute::UnixPrefix(prefix))],
+        inbound: None,
     };
     let backend = HostBackend::with_vsock(ResolverConfig::default(), vsock).unwrap();
     assert_eq!(backend.vsock_cid(), Some(3));
@@ -821,4 +822,52 @@ fn vsock_streams_reach_host_unix_sockets_by_port() {
     );
     assert_eq!(HostBackend::new().unwrap().vsock_cid(), None);
     let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn host_connections_reach_vsock_listeners_and_close_unpublishes() {
+    use wasixv2_vnet::{BackendStream, Room, VsockInboundSink};
+    struct Sink(mpsc::Sender<(u32, u32, Arc<dyn BackendStream>, WaitQueue)>);
+    impl VsockInboundSink for Sink {
+        fn poll_room(&self, _: Option<&mut PollTable<'_>>) -> Room {
+            Room::Ready
+        }
+        fn incoming(&self, cid: u32, port: u32, s: Arc<dyn BackendStream>, wq: WaitQueue) -> bool {
+            self.0.send((cid, port, s, wq)).is_ok()
+        }
+    }
+    let dir = std::env::temp_dir().join(format!("wasixv2-vsock-in-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let backend = HostBackend::with_vsock(
+        ResolverConfig::default(),
+        VsockConfig {
+            cid: 3,
+            routes: Vec::new(),
+            inbound: Some(VsockRoute::UnixPrefix(dir.join("guest"))),
+        },
+    )
+    .unwrap();
+    let (tx, rx) = mpsc::channel();
+    let publication = backend.vsock_listen(5001, 4, Arc::new(Sink(tx))).unwrap();
+    let mut host = std::os::unix::net::UnixStream::connect(dir.join("guest_5001")).unwrap();
+    host.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
+    let (cid, port, stream, wq) = rx.recv_timeout(Duration::from_secs(5)).unwrap();
+    assert_eq!((cid, port), (2, u32::MAX));
+    assert_eq!(stream.state(), StreamState::Established);
+    assert_eq!(stream.write(b"guest"), Ok(5));
+    let mut buf = [0; 5];
+    host.read_exact(&mut buf).unwrap();
+    assert_eq!(&buf, b"guest");
+    let (tx, rx) = mpsc::channel();
+    let _reg = wq.add(Arc::new(Signal(tx)));
+    host.write_all(b"host!").unwrap();
+    while stream.input_len() < 5 {
+        rx.recv_timeout(Duration::from_secs(5)).unwrap();
+    }
+    assert_eq!(stream.read(&mut buf, false), Ok(5));
+    assert_eq!(&buf, b"host!");
+    publication.set_backlog(2);
+    drop(publication);
+    assert!(!dir.join("guest_5001").exists());
+    std::fs::remove_dir(&dir).unwrap();
 }

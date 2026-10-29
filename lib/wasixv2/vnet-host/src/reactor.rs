@@ -26,6 +26,7 @@ use wasixv2_abi::{Errno, IpOption, Ipv6Option, SocketLevel, SocketOption, TcpOpt
 use wasixv2_vnet::{
     Backend, BackendDatagram, BackendStream, Domain, InboundSink, Lookup, LookupDone, Publication,
     PublishedDatagram, QueuedError, RecvQueue, Room, Shutdown, StreamState as Phase,
+    VsockInboundSink, VsockPublication,
 };
 use wasixv2_wait::{PollMask, PollTable, Pollable, WaitEntry, WaitQueue, WaitRegistration};
 
@@ -161,6 +162,9 @@ pub struct VsockConfig {
     pub cid: u32,
     /// Routes by destination CID, the first that matches wins; `None` matches every CID.
     pub routes: Vec<(Option<u32>, VsockRoute)>,
+    /// Optional host listener for guest ports. Unix peers are CID_HOST/PORT_ANY, since
+    /// Unix sockets have no vsock source address; native vsock preserves both fields.
+    pub inbound: Option<VsockRoute>,
 }
 
 /// Where a vsock connection to the host side goes.
@@ -381,6 +385,8 @@ struct StreamShared {
     sock: socket2::Socket,
     token: Token,
     peer: SocketAddr,
+    /// Whether the host transport carries TCP urgent marks (vsock never does).
+    urgent: bool,
     /// The guest socket's queue.
     wq: WaitQueue,
     /// Listed on `Shared::dirty`.
@@ -528,6 +534,9 @@ impl StreamShared {
     /// starts at one can hold an urgent byte, as its first. Returns the bytes read and whether
     /// the first is urgent, or `None` when data arrived while the host said there was none.
     fn read_host(&self, buf: &mut [u8]) -> io::Result<Option<(usize, bool)>> {
+        if !self.urgent {
+            return (&self.sock).read(buf).map(|n| Some((n, false)));
+        }
         let fd = self.sock.as_raw_fd();
         let mut queued: libc::c_int = 0;
         // SAFETY: `FIONREAD` writes one int to the pointer, which points to one.
@@ -609,9 +618,14 @@ impl HostStream {
         wq: WaitQueue,
     ) -> io::Result<Arc<Self>> {
         let sock = sock.into();
-        socket2::SockRef::from(&sock).set_out_of_band_inline(true)?;
+        let family = sock.local_addr()?.family();
+        let urgent = family == libc::AF_INET as _ || family == libc::AF_INET6 as _;
+        if urgent {
+            sock.set_out_of_band_inline(true)?;
+        }
         let token = backend.token();
         let shared = Arc::new(StreamShared {
+            urgent,
             sock,
             token,
             peer,
@@ -858,14 +872,48 @@ impl BackendStream for HostStream {
 // ---- publishing ----
 
 struct ListenerShared {
-    sock: TcpListener,
+    sock: socket2::Socket,
     token: Token,
-    sink: Arc<dyn InboundSink>,
+    sink: ListenerSink,
     backend: Weak<Shared>,
     /// Listed on `Shared::listeners`.
     pending: AtomicBool,
     /// Registrations on the guest listeners' room queues while their accept queues are full.
     room: Mutex<Vec<WaitRegistration>>,
+}
+
+enum ListenerSink {
+    Inet(Arc<dyn InboundSink>),
+    Vsock(Arc<dyn VsockInboundSink>),
+}
+
+impl ListenerSink {
+    fn poll_room(&self, table: Option<&mut PollTable<'_>>) -> Room {
+        match self {
+            Self::Inet(s) => s.poll_room(table),
+            Self::Vsock(s) => s.poll_room(table),
+        }
+    }
+
+    fn incoming(
+        &self,
+        peer: &socket2::SockAddr,
+        stream: Arc<dyn BackendStream>,
+        wq: WaitQueue,
+    ) -> bool {
+        match self {
+            Self::Inet(s) => s.incoming(stream, wq),
+            Self::Vsock(s) => {
+                #[cfg(any(target_os = "linux", target_os = "android"))]
+                if peer.family() == libc::AF_VSOCK as _ {
+                    // SAFETY: accept returned a sockaddr_vm for this address family.
+                    let addr = unsafe { &*peer.as_ptr().cast::<libc::sockaddr_vm>() };
+                    return s.incoming(addr.svm_cid, addr.svm_port, stream, wq);
+                }
+                s.incoming(2, u32::MAX, stream, wq)
+            }
+        }
+    }
 }
 
 impl ListenerShared {
@@ -888,16 +936,23 @@ impl ListenerShared {
             }
             match self.sock.accept() {
                 Ok((sock, peer)) if room == Room::Gone => {
-                    tracing::debug!(%peer, "published connection without a guest listener");
-                    let _ = socket2::SockRef::from(&sock).set_linger(Some(Duration::ZERO));
+                    tracing::debug!(?peer, "published connection without a guest listener");
+                    let _ = sock.set_linger(Some(Duration::ZERO));
                 }
                 Ok((sock, peer)) => {
                     // The queue of the guest socket-to-be, which adopts it.
+                    if let Err(e) = sock.set_nonblocking(true) {
+                        tracing::warn!(error = %e, "setting accepted socket nonblocking");
+                        continue;
+                    }
                     let wq = WaitQueue::new();
-                    match HostStream::register(&backend, tcp(sock), peer, true, wq.clone()) {
+                    let ip_peer = peer
+                        .as_socket()
+                        .unwrap_or_else(|| (Ipv4Addr::UNSPECIFIED, 0).into());
+                    match HostStream::register(&backend, sock, ip_peer, true, wq.clone()) {
                         Ok(stream) => {
-                            if !self.sink.incoming(stream, wq) {
-                                tracing::debug!(%peer, "published connection refused by the guest");
+                            if !self.sink.incoming(&peer, stream, wq) {
+                                tracing::debug!(?peer, "published connection refused by the guest");
                             }
                         }
                         Err(e) => tracing::warn!(error = %e, "registering published connection"),
@@ -975,6 +1030,25 @@ impl Drop for HostPublication {
             let fd = self.shared.sock.as_raw_fd();
             let _ = b.registry.deregister(&mut SourceFd(&fd));
             b.remove(self.shared.token);
+        }
+    }
+}
+
+struct HostVsockPublication {
+    publication: HostPublication,
+    path: Option<std::path::PathBuf>,
+}
+
+impl VsockPublication for HostVsockPublication {
+    fn set_backlog(&self, backlog: u32) {
+        self.publication.set_backlog(backlog);
+    }
+}
+
+impl Drop for HostVsockPublication {
+    fn drop(&mut self) {
+        if let Some(path) = &self.path {
+            let _ = std::fs::remove_file(path);
         }
     }
 }
@@ -1333,6 +1407,60 @@ impl Backend for HostBackend {
         Ok(stream)
     }
 
+    fn vsock_listen(
+        &self,
+        port: u32,
+        backlog: u32,
+        sink: Arc<dyn VsockInboundSink>,
+    ) -> Result<Box<dyn VsockPublication>, Errno> {
+        let route = self
+            .vsock
+            .as_ref()
+            .and_then(|v| v.inbound.as_ref())
+            .ok_or(Errno::EOPNOTSUPP)?;
+        let (domain, addr, path) = match route {
+            VsockRoute::UnixPrefix(prefix) => {
+                let mut path = prefix.clone().into_os_string();
+                path.push(format!("_{port}"));
+                let path = std::path::PathBuf::from(path);
+                (
+                    socket2::Domain::UNIX,
+                    socket2::SockAddr::unix(&path).map_err(|e| errno_from_io(&e))?,
+                    Some(path),
+                )
+            }
+            #[cfg(any(target_os = "linux", target_os = "android"))]
+            VsockRoute::HostVsock => (
+                socket2::Domain::VSOCK,
+                socket2::SockAddr::vsock(u32::MAX, port),
+                None,
+            ),
+            #[cfg(not(any(target_os = "linux", target_os = "android")))]
+            VsockRoute::HostVsock => return Err(Errno::ENODEV),
+        };
+        let open = || -> io::Result<HostPublication> {
+            let sock = socket2::Socket::new(domain, socket2::Type::STREAM, None)?;
+            sock.set_nonblocking(true)?;
+            sock.bind(&addr)?;
+            let result = (|| {
+                sock.listen(backlog.min(i32::MAX as u32) as i32)?;
+                self.register_listener(
+                    sock,
+                    ListenerSink::Vsock(sink),
+                    (Ipv4Addr::UNSPECIFIED, 0).into(),
+                )
+            })();
+            if result.is_err()
+                && let Some(path) = &path
+            {
+                let _ = std::fs::remove_file(path);
+            }
+            result
+        };
+        let publication = open().map_err(|e| errno_from_io(&e))?;
+        Ok(Box::new(HostVsockPublication { publication, path }))
+    }
+
     fn datagram(&self, domain: Domain, wq: WaitQueue) -> Result<Arc<dyn BackendDatagram>, Errno> {
         let any: SocketAddr = match domain {
             Domain::Inet => (Ipv4Addr::UNSPECIFIED, 0).into(),
@@ -1385,6 +1513,22 @@ impl Backend for HostBackend {
     ) -> io::Result<Box<dyn Publication>> {
         let sock = listen(host, backlog)?;
         let addr = sock.local_addr()?;
+        let sock = socket2::Socket::from(std::os::fd::OwnedFd::from(sock));
+        Ok(Box::new(self.register_listener(
+            sock,
+            ListenerSink::Inet(sink),
+            addr,
+        )?))
+    }
+}
+
+impl HostBackend {
+    fn register_listener(
+        &self,
+        sock: socket2::Socket,
+        sink: ListenerSink,
+        addr: SocketAddr,
+    ) -> io::Result<HostPublication> {
         let token = self.shared.token();
         let shared = Arc::new(ListenerShared {
             sock,
@@ -1408,11 +1552,11 @@ impl Backend for HostBackend {
             self.shared.remove(token);
             return Err(e);
         }
-        Ok(Box::new(HostPublication {
+        Ok(HostPublication {
             shared,
             backend: Arc::downgrade(&self.shared),
             addr,
-        }))
+        })
     }
 }
 

@@ -405,6 +405,18 @@ pub trait Network: Send + Sync {
         Err(Errno::ENODEV)
     }
 
+    /// Host-to-guest stream listener (`virtio_transport_recv_listen`). The handle closes
+    /// the host listener when dropped. No inbound transport by default.
+    fn vsock_listen(
+        &self,
+        port: u32,
+        backlog: u32,
+        sink: Arc<dyn VsockInboundSink>,
+    ) -> Result<Box<dyn VsockPublication>, Errno> {
+        let _ = (port, backlog, sink);
+        Err(Errno::EOPNOTSUPP)
+    }
+
     /// The namespace's interfaces; a fresh namespace has only loopback.
     fn interfaces(&self) -> Vec<Interface> {
         Vec::new()
@@ -753,6 +765,18 @@ pub trait Backend: Send + Sync {
         Err(Errno::ENODEV)
     }
 
+    /// Host-to-guest stream listener (`virtio_transport_recv_listen`). The handle closes
+    /// the host listener when dropped. No inbound transport by default.
+    fn vsock_listen(
+        &self,
+        port: u32,
+        backlog: u32,
+        sink: Arc<dyn VsockInboundSink>,
+    ) -> Result<Box<dyn VsockPublication>, Errno> {
+        let _ = (port, backlog, sink);
+        Err(Errno::EOPNOTSUPP)
+    }
+
     /// Asks the host's resolver, for the namespace's DNS server (`NetConfig::dns_server`), and
     /// returns at once: `done` gets the answer later, from the backend's own thread as
     /// [`InboundSink::incoming`] is called, or before `lookup` returns when the backend knows
@@ -929,6 +953,17 @@ pub trait InboundSink: Send + Sync {
     /// made for the connection adopts it as its own. Returns `false` if the guest listener is
     /// gone or its queue filled since `poll_room`; the backend then drops the connection.
     fn incoming(&self, stream: Arc<dyn BackendStream>, wq: WaitQueue) -> bool;
+}
+
+/// Receives host-to-guest vsock connections. Backpressure follows [`InboundSink`].
+pub trait VsockInboundSink: Send + Sync {
+    fn poll_room(&self, table: Option<&mut PollTable<'_>>) -> Room;
+    fn incoming(&self, cid: u32, port: u32, stream: Arc<dyn BackendStream>, wq: WaitQueue) -> bool;
+}
+
+/// Keeps a host-to-guest vsock listener alive.
+pub trait VsockPublication: Send + Sync {
+    fn set_backlog(&self, backlog: u32);
 }
 
 /// A running publication; dropping it stops it.
