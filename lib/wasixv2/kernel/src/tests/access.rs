@@ -19,6 +19,7 @@ const ANON: MapFlags = MapFlags(MapFlags::MAP_PRIVATE.0 | MapFlags::MAP_ANONYMOU
 struct Checked<M> {
     memory: M,
     access: Arc<PageAccess>,
+    low_guard: u32,
 }
 
 impl<M: UserMemory> UserMemory for Checked<M> {
@@ -59,6 +60,10 @@ impl<M: UserMemory> UserMemory for Checked<M> {
     fn can_duplicate(&self) -> LocalFuture<'_, bool> {
         self.memory.can_duplicate()
     }
+
+    fn low_guard(&self) -> LocalFuture<'_, u32> {
+        Box::pin(async { self.low_guard })
+    }
 }
 
 /// A process with `input` on its stdin, on one page of memory checked against its address
@@ -69,6 +74,7 @@ fn checked(input: &[u8]) -> (Kernel, TaskId, Checked<ForkableMemory>, Arc<Captur
     let memory = Checked {
         memory: ForkableMemory(FlatMemory(RefCell::new(vec![0; PAGE as usize]))),
         access,
+        low_guard: 0,
     };
     (kernel, task, memory, stdout)
 }
@@ -85,6 +91,26 @@ fn write_out(kernel: &Kernel, caller: &Caller<'_>, addr: u32) -> SysResult<u32> 
 /// `read(0, addr, 4)`: the kernel writes guest memory.
 fn read_in(kernel: &Kernel, caller: &Caller<'_>, addr: u32) -> SysResult<u32> {
     block_on(kernel.read(caller, Fd(0), UserSliceMut::new(addr, 4)))
+}
+
+/// Linux mm/mprotect.c do_mprotect_pkey: no VMA covers the unmapped NULL page.
+#[test]
+fn mprotect_cannot_map_the_low_guard() {
+    let (kernel, task, mut memory, _) = checked(b"");
+    memory.low_guard = PAGE;
+    block_on(memory.grow(1)).unwrap();
+    let caller = Caller::new(task, &memory);
+
+    assert_eq!(block_on(kernel.mprotect(&caller, 0, 0, READ)), Ok(0));
+    assert_eq!(
+        block_on(kernel.mprotect(&caller, 1, PAGE, READ)),
+        Err(Errno::EINVAL.into())
+    );
+    assert_eq!(
+        block_on(kernel.mprotect(&caller, 0, PAGE + 1, READ)),
+        Err(Errno::ENOMEM.into())
+    );
+    assert_eq!(block_on(kernel.mprotect(&caller, PAGE, PAGE, READ)), Ok(0));
 }
 
 #[test]
