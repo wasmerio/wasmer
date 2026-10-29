@@ -105,6 +105,17 @@ pub struct MountFlags {
     pub nosymfollow: bool,
 }
 
+/// What a mount copied into the mount namespace of a less privileged user namespace may not
+/// change or uncover (`lock_mnt_tree`).
+#[derive(Clone, Copy, Debug, Default)]
+pub(crate) struct MountLock {
+    /// `MNT_LOCKED`: it hides what is below it, so it stays where it is.
+    pub(crate) covering: bool,
+    /// The flags as they were locked (`MNT_LOCK_READONLY`, `MNT_LOCK_NODEV`, `MNT_LOCK_NOSUID`,
+    /// `MNT_LOCK_NOEXEC`, `MNT_LOCK_ATIME`): those set stay set, and the atime mode stays.
+    pub(crate) flags: Option<MountFlags>,
+}
+
 /// A filesystem (or a subtree of one, for a bind mount) attached somewhere.
 pub struct Mount {
     pub id: u64,
@@ -120,6 +131,7 @@ pub struct Mount {
     pub(crate) expiry_mark: AtomicBool,
     /// Write accesses held through it (`mnt_writers`): files open for writing.
     pub(crate) writers: AtomicUsize,
+    pub(crate) lock: RwLock<MountLock>,
 }
 
 impl Mount {
@@ -132,7 +144,27 @@ impl Mount {
             parent: Mutex::new(None),
             expiry_mark: AtomicBool::new(false),
             writers: AtomicUsize::new(0),
+            lock: RwLock::default(),
         }
+    }
+
+    /// `MNT_LOCKED`: the mount was copied into a less privileged mount namespace over what it
+    /// hides, so it cannot be unmounted or moved there.
+    pub fn is_locked(&self) -> bool {
+        self.lock.read_or_recover().covering
+    }
+
+    /// `can_change_locked_flags`: whether `new` keeps every flag the mount's lock holds.
+    pub fn may_set_flags(&self, new: &MountFlags) -> bool {
+        let Some(locked) = self.lock.read_or_recover().flags else {
+            return true;
+        };
+        let atime = |f: &MountFlags| (f.noatime, f.nodiratime, f.strictatime);
+        !(locked.read_only && !new.read_only
+            || locked.nodev && !new.nodev
+            || locked.nosuid && !new.nosuid
+            || locked.noexec && !new.noexec
+            || atime(&locked) != atime(new))
     }
 
     /// The id `statx(STATX_MNT_ID_UNIQUE)`, `statmount` and `listmount` use (`mnt_id_unique`):
@@ -395,6 +427,13 @@ impl Tree {
         mounts: &[Arc<Mount>],
         change: impl Fn(MountFlags) -> MountFlags,
     ) -> Result<(), Errno> {
+        // `can_change_locked_flags`, for every mount first.
+        if mounts
+            .iter()
+            .any(|mount| !mount.may_set_flags(&change(mount.flags())))
+        {
+            return Err(Errno::EPERM);
+        }
         let _hold = self.write_hold.lock_or_recover();
         let busy = mounts.iter().any(|mount| {
             let old = mount.flags();
@@ -522,6 +561,16 @@ impl TreeState {
 
     pub(crate) fn has_children(&self, mount: &Mount) -> bool {
         self.children.keys().any(|(parent, _)| *parent == mount.id)
+    }
+
+    /// `has_locked_children`: a locked mount is attached at or below `dentry` of `mount`.
+    pub(crate) fn has_locked_children(&self, mount: &Mount, dentry: &Arc<Dentry>) -> bool {
+        self.children_of(mount).iter().any(|child| {
+            child.is_locked()
+                && child
+                    .parent()
+                    .is_some_and(|at| dentry.is_ancestor_of(&at.dentry))
+        })
     }
 
     /// `mount` and every mount below it, parents before children (`next_mnt` order).

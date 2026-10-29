@@ -24,6 +24,7 @@ use wasixv2_abi::Errno;
 use crate::{
     dentry::Dentry,
     mount::{Mount, Path, TreeState},
+    sync::RwLockExt,
     types::FsResult,
 };
 
@@ -272,6 +273,9 @@ impl TreeState {
                 unbindable,
             },
         );
+        // The lock of the flags goes with them; `MNT_LOCKED` only with a whole tree's copy.
+        let flags = old.lock.read_or_recover().flags;
+        mount.lock.write_or_recover().flags = flags;
         mount
     }
 
@@ -303,12 +307,18 @@ impl TreeState {
         pending.reverse();
         while let Some((original, parent_copy)) = pending.pop() {
             if !flags.copy_unbindable && self.is_unbindable(&original) {
+                // What a locked mount hides is never left showing.
+                if original.is_locked() {
+                    self.umount_tree(&top, false);
+                    return Err(Errno::EPERM);
+                }
                 continue;
             }
             let Some(at) = original.parent() else {
                 continue;
             };
             let copy = self.clone_mnt(ids, &original, original.root.clone(), flags);
+            copy.lock.write_or_recover().covering = original.is_locked();
             self.attach(
                 &copy,
                 &Path {

@@ -637,3 +637,91 @@ fn nothing_is_made_on_a_filesystem_whose_user_namespace_cannot_name_its_owner() 
     );
     assert!(open_mode(&kernel, &user, "/mnt/t/made", 0o644).is_ok());
 }
+
+/// `mount` with `flags` and no type, for remounts.
+fn remount(kernel: &Kernel, p: &P, at: &str, flags: u32) -> SysResult<i32> {
+    let target = path(p, at);
+    let caller = p.caller();
+    let flags = wasixv2_abi::MountFlags(flags);
+    let mount = kernel.mount(
+        &caller,
+        GuestPtr::NULL,
+        target,
+        GuestPtr::NULL,
+        flags,
+        GuestPtr::NULL,
+    );
+    block_on(mount)
+}
+
+fn umount(kernel: &Kernel, p: &P, at: &str) -> SysResult<i32> {
+    let caller = p.caller();
+    let flags = wasixv2_abi::UmountFlags(0);
+    block_on(kernel.umount2(&caller, path(p, at), flags))
+}
+
+const MS_REMOUNT: u32 = wasixv2_abi::MountFlags::MS_REMOUNT.0;
+const MS_BIND: u32 = wasixv2_abi::MountFlags::MS_BIND.0;
+const MS_NOSUID: u32 = wasixv2_abi::MountFlags::MS_NOSUID.0;
+
+/// LTP mountns, `namespace.c`'s `lock_mnt_tree`: the mounts a user namespace's mount namespace
+/// gets from its parent stay over what they hide and keep the flags they have; what it mounts
+/// itself is its own.
+#[test]
+fn a_mount_namespace_copied_for_a_user_namespace_has_its_mounts_locked() {
+    let (kernel, _root, user) = mounting_machine();
+    let clock = Arc::new(HostClock(Arc::new(TestHost) as Arc<dyn Host>));
+    let srv = Arc::new(MemFs::new(clock, 0o1777, 0, 0));
+    let nosuid = MountFlags {
+        nosuid: true,
+        ..MountFlags::default()
+    };
+    block_on(kernel.vfs().mount(b"/srv", srv, nosuid, true)).unwrap();
+    assert_eq!(mkdir(&kernel, &user, "/mnt/t"), Ok(0));
+    become_root(&kernel, &user, CloneFlags::CLONE_NEWNS);
+
+    assert_eq!(errno(umount(&kernel, &user, "/srv")), Errno::EINVAL);
+    assert_eq!(errno(umount(&kernel, &user, "/proc")), Errno::EINVAL);
+    let rebind = MS_REMOUNT | MS_BIND;
+    assert_eq!(
+        errno(remount(&kernel, &user, "/srv", rebind)),
+        Errno::EPERM,
+        "clearing a locked nosuid"
+    );
+    assert_eq!(remount(&kernel, &user, "/srv", rebind | MS_NOSUID), Ok(0));
+    assert_eq!(mount(&kernel, &user, "/mnt/t", "tmpfs"), Ok(0));
+    assert_eq!(remount(&kernel, &user, "/mnt/t", rebind | MS_NOSUID), Ok(0));
+    assert_eq!(
+        remount(&kernel, &user, "/mnt/t", rebind),
+        Ok(0),
+        "its own mount"
+    );
+    assert_eq!(umount(&kernel, &user, "/mnt/t"), Ok(0));
+}
+
+/// procfs shows the whole machine: a user namespace's root mounts it in a pid namespace it
+/// owns only where its mount namespace shows all of a procfs already, with nothing locked
+/// on it (`mount_too_revealing`).
+#[test]
+fn procfs_mounts_in_a_user_namespace_only_where_one_is_fully_visible() {
+    for covered in [false, true] {
+        let (kernel, root, user) = mounting_machine();
+        if covered {
+            assert_eq!(mount(&kernel, &root, "/proc/sys", "tmpfs"), Ok(0));
+        }
+        become_root(
+            &kernel,
+            &user,
+            CloneFlags::CLONE_NEWNS | CloneFlags::CLONE_NEWPID,
+        );
+        let init = fork(&kernel, &user, CloneFlags(0)).unwrap();
+
+        let mounted = mount(&kernel, &init, "/proc", "proc");
+        match covered {
+            false => assert_eq!(mounted, Ok(0)),
+            true => assert_eq!(errno(mounted), Errno::EPERM, "/proc/sys is covered"),
+        }
+        // Without a pid namespace of its own, procfs is the initial user namespace's.
+        assert_eq!(errno(mount(&kernel, &user, "/proc", "proc")), Errno::EPERM);
+    }
+}

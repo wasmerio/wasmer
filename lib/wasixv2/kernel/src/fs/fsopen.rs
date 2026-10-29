@@ -450,6 +450,9 @@ impl Kernel {
             if context.phase != Phase::AwaitingMount {
                 return Err(Errno::EBUSY.into());
             }
+            if self.mount_too_revealing(caller.task(), &context.ty, &mount_flags) {
+                return Err(Errno::EPERM.into());
+            }
             let source = context.source.clone().unwrap_or_else(|| b"none".to_vec());
             let read_only = context.read_only.unwrap_or(false);
             let owner = context.user_ns.clone();

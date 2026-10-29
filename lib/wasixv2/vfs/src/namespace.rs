@@ -11,12 +11,13 @@ use wasixv2_abi::Errno;
 
 use crate::{
     Vfs,
-    cred::UserNs,
+    cred::{UserNs, same_user_ns},
     dentry::Dentry,
     driver::Filesystem,
     file::File,
     mount::{MntNs, Mount, MountFlags, Path, Superblock, TreeState, is_path_reachable},
     pnode::{CopyFlags, Propagation},
+    sync::RwLockExt,
     types::FsResult,
 };
 
@@ -158,6 +159,9 @@ impl Vfs {
                 if !check_mnt(&state, ns, &target.mnt) || !target.is_mount_root() {
                     return Err(Errno::EINVAL);
                 }
+                if !target.mnt.may_set_flags(&flags) {
+                    return Err(Errno::EPERM);
+                }
                 // `reconfigure_super`, then `set_mount_attributes`.
                 self.tree.set_sb_read_only(target.mnt.sb(), read_only)?;
                 self.tree
@@ -167,6 +171,9 @@ impl Vfs {
                 let state = self.tree.lock();
                 if !check_mnt(&state, ns, &target.mnt) || !target.is_mount_root() {
                     return Err(Errno::EINVAL);
+                }
+                if !target.mnt.may_set_flags(&flags) {
+                    return Err(Errno::EPERM);
                 }
                 // `do_reconfigure_mnt`: `mnt_make_readonly` while no file writes through it.
                 self.tree
@@ -314,6 +321,11 @@ impl Vfs {
         if recursive && state.ns_of(old.id).is_none() {
             return Err(Errno::EINVAL);
         }
+        // A copy without what is mounted below would uncover what a locked mount hides
+        // (`has_locked_children`).
+        if !recursive && state.has_locked_children(old, &source.dentry) {
+            return Err(Errno::EINVAL);
+        }
         let flags = CopyFlags::default();
         match recursive {
             true => Ok(state
@@ -369,10 +381,13 @@ impl Vfs {
         }
         if check_mnt(&state, ns, old) {
             // A mount of the caller's namespace: it must have a parent, which must not
-            // propagate, and stay in the namespace.
+            // propagate, and stay in the namespace; a locked one stays where it is.
             let Some(from) = old.parent() else {
                 return Err(Errno::EINVAL);
             };
+            if old.is_locked() {
+                return Err(Errno::EINVAL);
+            }
             if state.is_shared(&from.mnt) || !check_mnt(&state, ns, &at.mnt) {
                 return Err(Errno::EINVAL);
             }
@@ -544,8 +559,8 @@ impl Vfs {
         flags: UmountFlags,
     ) -> FsResult<()> {
         let mount = &path.mnt;
-        // `can_umount`.
-        if !path.is_mount_root() || !check_mnt(&self.tree.lock(), ns, mount) {
+        // `can_umount`: a locked mount stays over what it hides.
+        if !path.is_mount_root() || !check_mnt(&self.tree.lock(), ns, mount) || mount.is_locked() {
             return Err(Errno::EINVAL);
         }
         let is_root = Arc::ptr_eq(mount, &caller_root.mnt);
@@ -613,7 +628,7 @@ impl Vfs {
         if !root.is_mount_root() || root_mnt.parent().is_none() {
             return Err(Errno::EINVAL);
         }
-        if !new_root.is_mount_root() || new_mnt.parent().is_none() {
+        if !new_root.is_mount_root() || new_mnt.parent().is_none() || new_mnt.is_locked() {
             return Err(Errno::EINVAL);
         }
         if !is_path_reachable(old_mnt, &old_at.dentry, new_root) {
@@ -627,6 +642,11 @@ impl Vfs {
         state.detach(new_mnt);
         state.attach(new_mnt, &root_mp);
         state.attach(root_mnt, &old_at);
+        // A locked root stays hidden: the lock moves to the mount now in its place.
+        if root_mnt.is_locked() {
+            new_mnt.lock.write_or_recover().covering = true;
+            root_mnt.lock.write_or_recover().covering = false;
+        }
         Ok(())
     }
 
@@ -659,6 +679,34 @@ impl Vfs {
     /// `EBUSY` while a file is open for writing on it.
     pub fn reconfigure_read_only(&self, sb: &Superblock, read_only: bool) -> FsResult<()> {
         self.tree.set_sb_read_only(sb, read_only)
+    }
+
+    /// `mnt_already_visible`: a mount of `ns` shows a whole instance of the filesystem type
+    /// whose magic is `magic`, from its root, with flags a new mount with `flags` does not
+    /// loosen, and with no locked mount on it hiding anything (Linux lets such a mount cover a
+    /// permanently empty directory; none here is). A filesystem that shows the whole machine,
+    /// as procfs, is mounted in a user namespace's mount namespace only when it is
+    /// (`mount_too_revealing`).
+    pub fn already_visible(&self, ns: &MntNs, magic: u32, flags: &MountFlags) -> bool {
+        let state = self.tree.lock();
+        state.mounts_in(ns.id()).into_iter().any(|mount| {
+            let sb = mount.sb();
+            if sb.info.magic != magic || mount.root.parent().is_some() {
+                return false;
+            }
+            let locked = mount.lock.read_or_recover().flags;
+            let read_only = sb.is_read_only() || locked.is_some_and(|l| l.read_only);
+            let atime = |f: &MountFlags| (f.noatime, f.nodiratime, f.strictatime);
+            if read_only && !flags.read_only
+                || locked.is_some_and(|locked| atime(&locked) != atime(flags))
+            {
+                return false;
+            }
+            !state
+                .children_of(&mount)
+                .iter()
+                .any(|child| child.is_locked())
+        })
     }
 
     /// The namespace `mount` is attached in (`mnt_ns`), if any.
@@ -818,16 +866,30 @@ impl MntNs {
     /// `copy_mnt_ns`: a new namespace holding a copy of every mount of this one, shared mounts
     /// joining their originals' peer groups and slaves their masters, owned by `owner`. Each of
     /// `paths` (the new root and working directory) moves to the copy of its mount.
+    ///
+    /// A copy for another user namespace is less privileged (`CL_UNPRIVILEGED`): every copy
+    /// receives from its original but sends nothing back (`CL_SLAVE`), keeps the flags it has
+    /// set and its atime mode, and every one but the root stays over what it hides
+    /// (`lock_mnt_tree`).
     pub fn copy(&self, owner: Arc<dyn UserNs>, paths: &mut [&mut Path]) -> Arc<MntNs> {
         let mut state = self.tree.lock();
+        let unprivileged = !same_user_ns(&owner, self.owner());
         let flags = CopyFlags {
             copy_unbindable: true,
+            slave: unprivileged,
             ..CopyFlags::default()
         };
         let source = self.root().mnt;
         let (root, copies) = state
             .copy_tree(&self.tree.next_id, &source, &source.root, flags)
             .expect("copying unbindable mounts too, a whole tree copies");
+        if unprivileged {
+            for (_, copy) in &copies {
+                let mut lock = copy.lock.write_or_recover();
+                lock.flags = Some(copy.flags());
+                lock.covering = !Arc::ptr_eq(copy, &root);
+            }
+        }
         let ns = MntNs::new(&self.tree, &mut state, root, None, owner);
         let copied: Vec<_> = copies.iter().map(|(_, copy)| copy.clone()).collect();
         state.set_ns(&copied, ns.id());
