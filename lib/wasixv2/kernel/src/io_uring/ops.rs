@@ -1673,7 +1673,7 @@ impl Kernel {
                             }
                             false => sqe.len,
                         };
-                        let pbuf = kbuf::select(caller, ctx, sqe.buf_index, len).await?;
+                        let pbuf = kbuf::select(caller, ctx, req.mm, sqe.buf_index, len).await?;
                         req.pbuf = Some(pbuf.clone());
                         pbuf
                     }
@@ -1908,7 +1908,8 @@ impl Kernel {
                     let pbuf = match req.pbuf.clone() {
                         Some(pbuf) => pbuf,
                         None => {
-                            let pbuf = kbuf::select(caller, ctx, sqe.buf_index, select_len).await?;
+                            let pbuf = kbuf::select(caller, ctx, req.mm, sqe.buf_index, select_len)
+                                .await?;
                             req.pbuf = Some(pbuf.clone());
                             pbuf
                         }
@@ -2785,6 +2786,7 @@ fn fixed_node(ctx: &Ctx, req: &mut Req) -> Result<super::rsrc::BufferNode, Errno
             .and_then(Clone::clone)
             .ok_or(Errno::EFAULT)?
     };
+    node.item.check_mm(req.mm)?;
     req.buffer_node = Some(node.clone());
     Ok(node)
 }

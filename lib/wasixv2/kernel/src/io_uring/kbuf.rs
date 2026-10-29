@@ -185,6 +185,7 @@ pub(super) fn mmap(ctx: &Ctx, offset: u64) -> Result<Arc<dyn SharedPages>, Errno
 pub(super) async fn select(
     caller: &Caller<'_>,
     ctx: &Ctx,
+    mm: u64,
     bgid: u16,
     len: u32,
 ) -> Result<Pbuf, Errno> {
@@ -201,6 +202,9 @@ pub(super) async fn select(
             Group::Ring(ring) => ring.clone(),
         }
     };
+    if let Storage::User(range) = &ring.storage {
+        range.check_mm(mm)?;
+    }
     let head = ring.head.load(Ordering::Relaxed);
     let mut tail = [0; 2];
     ring.read(caller, 14, &mut tail).await?;

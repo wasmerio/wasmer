@@ -101,6 +101,7 @@ impl LockedSource<'_> {
 pub(crate) struct Retained {
     pub(crate) addr: u32,
     pub(crate) len: u32,
+    owner: u64,
     pages: Vec<Arc<Page>>,
 }
 
@@ -188,6 +189,7 @@ impl Kernel {
         Ok(Arc::new(Retained {
             addr,
             len,
+            owner: mm.id(),
             pages: records,
         }))
     }
@@ -266,6 +268,16 @@ impl Mm {
 }
 
 impl Retained {
+    /// Linux pins struct pages, not the issuer's virtual addresses. Foreign
+    /// handles keep addressing the registrant; a local borrowed memory cannot.
+    pub(crate) fn check_mm(&self, mm: u64) -> Result<(), Errno> {
+        if self.owner == mm || self.synchronous() {
+            Ok(())
+        } else {
+            Err(Errno::EFAULT)
+        }
+    }
+
     pub(crate) fn synchronous(&self) -> bool {
         self.pages
             .iter()
