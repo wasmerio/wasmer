@@ -144,6 +144,8 @@ const STATIC: &[(usize, &str, Static)] = &[
         Static::File(text::Global::OvercommitKbytes),
     ),
     (14, "max_map_count", Static::File(text::Global::MaxMapCount)),
+    (ROOT, "keys", Static::File(text::Global::Keys)),
+    (ROOT, "key-users", Static::File(text::Global::KeyUsers)),
 ];
 
 /// `/proc/sys/user/max_*_namespaces` for `kind`.
@@ -756,7 +758,12 @@ impl Node for ProcNode {
                     let pid_ns = self.source.pid_ns_of(options.task);
                     let opener = self.source.cred_of(options.task);
                     let user_ns = self.source.user_ns_of(options.task);
-                    let data = text::global(&self.source, &ns, &pid_ns, &user_ns, file)?;
+                    let data = match file {
+                        // What the opener may view, as its keyrings make it possess keys.
+                        text::Global::Keys => self.source.proc_keys(options.task, &user_ns),
+                        text::Global::KeyUsers => self.source.keys.proc_key_users(&user_ns),
+                        _ => text::global(&self.source, &ns, &pid_ns, &user_ns, file)?,
+                    };
                     let write = match file {
                         _ if !options.write => None,
                         // `pid_table_root_permissions`: `CAP_SYS_ADMIN` over the pid

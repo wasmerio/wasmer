@@ -1318,13 +1318,15 @@ impl Kernel {
             let mut own_fs =
                 (!flags.contains(CloneFlags::CLONE_FS)).then(|| task.fs.lock_or_recover().clone());
             // `copy_creds`: a new user namespace comes first, and owns the other new ones.
-            let cred = match flags.contains(CloneFlags::CLONE_NEWUSER) {
+            let mut cred = match flags.contains(CloneFlags::CLONE_NEWUSER) {
                 true => {
                     let chrooted = task.fs.lock_or_recover().chrooted(task.live_ns());
                     UserNs::create(&parent.cred(), chrooted, &self.ns_inums)?
                 }
                 false => parent.cred(),
             };
+            // A new process has no process keyring of its own yet.
+            cred.keys = cred.keys.for_child();
             let ns = task
                 .live_ns()
                 .copy(self, flags.0, &cred, &parent.pid_ns, own_fs.as_mut())?;
@@ -1402,6 +1404,7 @@ impl Kernel {
                 comm: task.comm,
                 sched,
                 seccomp,
+                thread_keyring: None,
                 thread: task.thread.for_process(flags, tls, child_tid),
                 signals,
             };
@@ -1699,12 +1702,15 @@ impl Kernel {
         *process.env.lock_or_recover() = env;
         let no_new_privs = self.task_ref(task, |t| t.seccomp.no_new_privs);
         let old = process.cred();
-        let (cred, secure) = old.exec(
+        let (mut cred, secure) = old.exec(
             binary.mode,
             binary.owner,
             binary.may_setid && !no_new_privs,
             no_new_privs,
         );
+        // `prepare_exec_creds`: no thread keyring, a new process keyring when asked for.
+        cred.keys.process = None;
+        self.with_task(task, |t| t.thread_keyring = None);
         let dumpable =
             cred.user.effective == cred.user.real && cred.group.effective == cred.group.real;
         let privileged = secure || cred.drops_dumpable(&old);

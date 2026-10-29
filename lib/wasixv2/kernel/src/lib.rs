@@ -18,6 +18,7 @@ mod futex;
 mod ident;
 mod ioctl;
 mod ipc;
+mod keys;
 mod landlock;
 mod memfd;
 mod mm;
@@ -182,6 +183,8 @@ pub struct Kernel {
     /// A task entered seccomp once: from then on, every syscall entry looks at its task's
     /// mode (`TIF_SECCOMP` for everyone, until the first).
     seccomp_used: std::sync::atomic::AtomicBool,
+    /// Every key, by serial, and each user's (`key_serial_tree`, `key_user_tree`).
+    keys: Arc<keys::Keys>,
     // ---- base ----
     /// What [`Kernel::spawn`]ed processes run as.
     credentials: Credentials,
@@ -282,6 +285,8 @@ struct Task {
     sched: sched::Sched,
     /// Seccomp mode and filters, and `no_new_privs`.
     seccomp: seccomp::Seccomp,
+    /// The thread keyring (`cred->thread_keyring`), which a new task starts without.
+    thread_keyring: Option<Arc<keys::Key>>,
     // ---- thr ----
     thread: thread::ThreadState,
     // ---- sig ----
@@ -353,6 +358,7 @@ impl Kernel {
             epoll_nesting: Mutex::default(),
             sigqueue_users: Arc::default(),
             seccomp_used: Default::default(),
+            keys: Arc::default(),
             credentials: Credentials::default(),
             init: None,
             reboot: Default::default(),
@@ -509,6 +515,7 @@ impl Kernel {
             comm,
             sched: sched::Sched::default(),
             seccomp: seccomp::Seccomp::default(),
+            thread_keyring: None,
             process,
             mm: Arc::default(),
             files: Arc::new(Mutex::new(files)),
@@ -1994,6 +2001,46 @@ impl Syscalls for Kernel {
         flags: u32,
     ) -> SysResult<i32> {
         self.sys_landlock_restrict_self(caller, ruleset_fd, flags)
+            .await
+    }
+
+    async fn add_key(
+        &self,
+        caller: &Caller<'_>,
+        r#type: Cstr,
+        description: Cstr,
+        payload: wasixv2_abi::ConstVoidPtr,
+        plen: Usize,
+        ringid: wasixv2_abi::KeySerial,
+    ) -> SysResult<i32> {
+        let (kind, desc, data) = (r#type.addr(), description.addr(), payload.addr());
+        self.sys_add_key(caller, kind, desc, data, plen, ringid)
+            .await
+    }
+
+    async fn request_key(
+        &self,
+        caller: &Caller<'_>,
+        r#type: Cstr,
+        description: Cstr,
+        callout_info: Cstr,
+        destringid: wasixv2_abi::KeySerial,
+    ) -> SysResult<i32> {
+        let (kind, desc, callout) = (r#type.addr(), description.addr(), callout_info.addr());
+        self.sys_request_key(caller, kind, desc, callout, destringid)
+            .await
+    }
+
+    async fn keyctl(
+        &self,
+        caller: &Caller<'_>,
+        option: i32,
+        arg2: Ulong,
+        arg3: Ulong,
+        arg4: Ulong,
+        arg5: Ulong,
+    ) -> SysResult<i32> {
+        self.sys_keyctl(caller, option, arg2, arg3, arg4, arg5)
             .await
     }
 

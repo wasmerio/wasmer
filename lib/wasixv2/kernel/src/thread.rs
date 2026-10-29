@@ -251,6 +251,7 @@ impl Kernel {
                 comm: task.comm,
                 sched,
                 seccomp: task.seccomp.clone(),
+                thread_keyring: None,
                 thread,
                 signals: task
                     .signals
