@@ -112,6 +112,7 @@ pub(crate) struct Req {
     pub(crate) mm: u64,
     /// The task that submitted it (`req->tctx`).
     pub(crate) task: TaskId,
+    pub(super) task_work: Option<Arc<super::tctx::TaskWork>>,
     /// Its personality's credentials, which it is issued with (`REQ_F_CREDS`).
     creds: Option<Cred>,
     /// Its file, found at its first issue (`IORING_FEAT_LINKED_FILE`).
@@ -239,6 +240,7 @@ impl Req {
         Self {
             id,
             sqe,
+            task_work: None,
             mm,
             task,
             creds: None,
@@ -591,6 +593,7 @@ impl Kernel {
     ) -> bool {
         let (sqe, prep_error) = submission;
         let mut req = Req::new(ctx.next_id(), sqe, (mm, caller.task()));
+        req.task_work = Some(self.uring_task_work(caller.task()));
         let mut init = match prep_error {
             Some(err) => Err(err),
             None => init_req(ctx, &mut req),

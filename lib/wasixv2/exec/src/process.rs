@@ -604,18 +604,46 @@ mod tests {
         released: Mutex<Vec<TaskId>>,
         /// The tasks that left their memory and the ones that faulted, in order.
         ended: Mutex<Vec<(&'static str, TaskId)>>,
+        memory_task_work: bool,
+        resume_flag: Option<Arc<wasixv2_syscalls::WorkFlag>>,
     }
 
     impl Recorder {
         fn queue(&self, task: TaskId, action: GuestAction) {
+            if let Some(flag) = &self.resume_flag {
+                flag.raise();
+            }
             let mut pending = self.pending.lock().unwrap();
             pending.entry(task).or_default().push_back(action);
         }
     }
 
-    impl Syscalls for Recorder {}
+    impl Syscalls for Recorder {
+        async fn exit_group(&self, caller: &Caller<'_>, status: i32) -> SysResult<()> {
+            self.queue(caller.task(), GuestAction::Exit(status));
+            Ok(())
+        }
+    }
 
     impl Control for Recorder {
+        fn work_flag(&self, _: TaskId) -> Arc<wasixv2_syscalls::WorkFlag> {
+            self.resume_flag
+                .clone()
+                .unwrap_or_else(|| Arc::new(wasixv2_syscalls::WorkFlag::always()))
+        }
+
+        fn run_task_work<'a>(&'a self, caller: &'a Caller<'_>) -> LocalFuture<'a, ()> {
+            Box::pin(async move {
+                if self.memory_task_work {
+                    caller
+                        .memory()
+                        .write(4096, &1u32.to_le_bytes())
+                        .await
+                        .unwrap();
+                }
+            })
+        }
+
         fn take_pending(&self, task: TaskId) -> Option<GuestAction> {
             self.pending.lock().unwrap().get_mut(&task)?.pop_front()
         }
@@ -748,6 +776,42 @@ mod tests {
         assert_eq!(status, 128 + Signal::SIGILL.0);
         let ended = control.ended.lock().unwrap();
         assert_eq!(ended[..2], [("fault", PARENT), ("exit_mm", PARENT)]);
+    }
+
+    /// Kernel task work must see the current memory on syscall returns and user-code
+    /// preemption, while an unraised WorkFlag keeps the hook off the fast path.
+    #[cfg(feature = "sys")]
+    #[test]
+    fn task_work_runs_before_returning_from_syscalls_and_preemption() {
+        for raised in [true, false] {
+            let expected = i32::from(raised);
+            let wasm = wat::parse_str(format!(r#"(module
+                (import "wasixv2" "sched_yield" (func $yield (result i32)))
+                (import "wasixv2" "exit_group" (func $exit (param i32)))
+                (import "wasixv2-exec" "preempt" (func $preempt (result i32)))
+                (memory (export "memory") 1)
+                (func (export "_start")
+                    (i32.store (i32.const 4096) (i32.const 0))
+                    (drop (call $yield))
+                    (if (i32.ne (i32.load (i32.const 4096)) (i32.const {expected})) (then unreachable))
+                    (i32.store (i32.const 4096) (i32.const 0))
+                    (drop (call $preempt))
+                    (if (i32.ne (i32.load (i32.const 4096)) (i32.const {expected})) (then unreachable))
+                    (call $exit (i32.const 0))))"#)).unwrap();
+            let store = Store::default();
+            let module = wasmer::Module::new(&store, wasm).unwrap();
+            let control = Arc::new(Recorder {
+                memory_task_work: true,
+                resume_flag: (!raised).then(|| Arc::new(wasixv2_syscalls::WorkFlag::default())),
+                ..Recorder::default()
+            });
+            let run = crate::run(store, &module, control, PARENT, Arc::new(NoThreads));
+            assert_eq!(
+                futures::executor::block_on(run).unwrap(),
+                0,
+                "raised={raised}"
+            );
+        }
     }
 
     #[test]

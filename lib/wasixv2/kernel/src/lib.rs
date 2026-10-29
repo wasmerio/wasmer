@@ -3405,6 +3405,10 @@ impl Syscalls for Kernel {
 }
 
 impl Control for Kernel {
+    fn run_task_work<'a>(&'a self, caller: &'a Caller<'_>) -> LocalFuture<'a, ()> {
+        Box::pin(self.io_uring_run_task_work(caller))
+    }
+
     fn take_pending(&self, task: TaskId) -> Option<GuestAction> {
         // ---- proc ----
         self.kill_vfork_parent(task);
@@ -3412,9 +3416,10 @@ impl Control for Kernel {
             self.task_signals(task).group().clear_notify(task);
             return Some(GuestAction::ExitMm { task: parent });
         }
-        let (action, signals, dead) = {
+        let (action, signals, dead, task_work) = {
             let mut guard = self.state.lock_or_recover();
             let state = &mut *guard;
+            let task_work = state.tasks.get(&task).map(|t| (t.uring.clone(), t.work.flag().clone()));
             // ---- proc ----
             // A reaped process's task, still unwinding, takes what was left for it: its exit,
             // or a vfork child's hand-back of the instance.
@@ -3428,8 +3433,11 @@ impl Control for Kernel {
             work.flag().clear();
             let action = work.take();
             let action = action.map(|action| process::vfork_parent_resumes(state, action));
-            (action, signals, dead)
+            (action, signals, dead, task_work)
         };
+        // A producer can queue task work between exec's hook and this flag clear.
+        // Keep that work visible so exec repeats its memory-bearing hook before returning.
+        if let Some((tctx, flag)) = task_work && tctx.pending() { flag.raise(); }
         match action {
             // What made the task leave its wait is here.
             Some(action) => {

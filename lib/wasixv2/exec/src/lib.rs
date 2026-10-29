@@ -923,116 +923,132 @@ pub async fn complete<S: Syscalls + Control + 'static, T>(
         // Nothing to do unless the kernel raised the flag (`exit_to_user_mode_prepare`).
         data.work.is_raised()
     };
-    while let Some(action) = raised.then(|| syscalls.take_pending(task)).flatten() {
-        match action {
-            GuestAction::Exit(status) => {
-                // All its time is charged before its exit can be seen.
-                env.read().await.data().sample_cpu();
-                // `do_exit`'s `exit_mm`, while the memory is still there.
-                let memory = GuestMemory { env };
-                syscalls.exit_mm(&Caller::new(task, &memory)).await;
-                return Outcome::Unwind(RuntimeError::user(Box::new(Exited(status))));
-            }
-            GuestAction::StartThread {
-                task: child,
-                tid,
-                start_arg,
-            } => {
-                if !thread::start(env, syscalls, child, tid, start_arg).await {
-                    ret = Err(SysErr::Errno(Errno::EAGAIN));
+    if raised {
+        loop {
+            let memory = GuestMemory { env };
+            syscalls.run_task_work(&Caller::new(task, &memory)).await;
+            let Some(action) = syscalls.take_pending(task) else {
+                // A producer may have queued work just before take_pending cleared its flag.
+                // Drain once more after that clear; later producers leave the flag raised.
+                syscalls.run_task_work(&Caller::new(task, &memory)).await;
+                break;
+            };
+            match action {
+                GuestAction::Exit(status) => {
+                    // All its time is charged before its exit can be seen.
+                    env.read().await.data().sample_cpu();
+                    // `do_exit`'s `exit_mm`, while the memory is still there.
+                    let memory = GuestMemory { env };
+                    syscalls.exit_mm(&Caller::new(task, &memory)).await;
+                    return Outcome::Unwind(RuntimeError::user(Box::new(Exited(status))));
                 }
-            }
-            // ---- proc ----
-            GuestAction::SwitchTask {
-                task: to,
-                ret: value,
-            } => {
-                process::switch(env, to).await;
-                task = to;
-                switched = Some(value);
-            }
-            GuestAction::Exec { vfork_parent } => {
-                // The kernel queues the image with the action; without one, the empty image
-                // fails to load and the process dies as past any `execve`'s point of no return.
-                let image = syscalls
-                    .take_image(task)
-                    .unwrap_or_else(|| Image::copied(Vec::new()));
-                let Some(parent) = vfork_parent else {
-                    return Outcome::Unwind(RuntimeError::user(Box::new(process::ExecNew(image))));
-                };
-                process::spawn_image(env, task, image).await;
-                match vfork_resume(env, parent, task).await {
-                    Some(VforkResume::Unwind(err)) => return Outcome::Unwind(err),
-                    Some(VforkResume::ReturnSuccess) => (task, switched) = (parent.task, Some(0)),
-                    // What ended the parent's image is its next work.
-                    None => task = parent.task,
-                }
-            }
-            GuestAction::Fork {
-                child,
-                pid,
-                tid,
-                parent_tid,
-                pidfd,
-                child_tid,
-                tls,
-                vfork,
-            } => {
-                // The guest unwinds now; the import that forked resumes once it rewinds.
-                let parent = (pid, parent_tid, pidfd, vfork);
-                let child_side = (tid, child_tid, tls);
-                return match fork::start(env, syscalls, child, parent, child_side).await {
-                    Ok(()) => Outcome::Unwinding,
-                    Err(SysErr::Errno(errno)) => Outcome::Return(Err(errno)),
-                    Err(_) => unreachable!("fork fails with an errno"),
-                };
-            }
-            GuestAction::VforkReturn { parent, child } => {
-                // The child ended; nothing runs as it any more, and all its time is charged.
-                // Its memory is the parent's, which stays.
-                env.read().await.data().sample_cpu();
-                let memory = GuestMemory { env };
-                syscalls.exit_mm(&Caller::new(child, &memory)).await;
-                syscalls.release(child);
-                match vfork_resume(env, parent, child).await {
-                    Some(VforkResume::Unwind(err)) => return Outcome::Unwind(err),
-                    Some(VforkResume::ReturnSuccess) => (task, switched) = (parent.task, Some(0)),
-                    None => task = parent.task,
-                }
-            }
-            GuestAction::StartImage { task: leader } => {
-                // Without an image, the empty one fails to load and the process dies as past
-                // any `execve`'s point of no return.
-                let image = syscalls
-                    .take_image(leader)
-                    .unwrap_or_else(|| Image::copied(Vec::new()));
-                process::take_over(env, leader, image).await;
-            }
-            GuestAction::ExitMm { task: dead } => {
-                let memory = GuestMemory { env };
-                syscalls.exit_mm(&Caller::new(dead, &memory)).await;
-            }
-            // `do_signal_stop`'s `schedule`: the instance waits, and the call it interrupted
-            // goes on as before the stop once the group continues.
-            GuestAction::Stopped => syscalls.stop_wait(task).await,
-            GuestAction::Signal(frame) => {
-                let restart = handled.get_or_insert(match ret {
-                    Err(SysErr::RestartNoIntr) => true,
-                    Err(SysErr::Restart) => frame.restarts(),
-                    _ => false,
-                });
-                let Some(abi) = instance_abi(env).await else {
-                    syscalls.signal_return(task, None);
-                    return Outcome::Unwind(RuntimeError::new("signal delivery before bind"));
-                };
-                match abi.deliver_signal(env, &frame, *restart).await {
-                    Ok(sigreturn) => {
-                        syscalls.signal_return(task, sigreturn.mask);
-                        *restart = sigreturn.restart;
+                GuestAction::StartThread {
+                    task: child,
+                    tid,
+                    start_arg,
+                } => {
+                    if !thread::start(env, syscalls, child, tid, start_arg).await {
+                        ret = Err(SysErr::Errno(Errno::EAGAIN));
                     }
-                    Err(err) => {
+                }
+                // ---- proc ----
+                GuestAction::SwitchTask {
+                    task: to,
+                    ret: value,
+                } => {
+                    process::switch(env, to).await;
+                    task = to;
+                    switched = Some(value);
+                }
+                GuestAction::Exec { vfork_parent } => {
+                    // The kernel queues the image with the action; without one, the empty image
+                    // fails to load and the process dies as past any `execve`'s point of no return.
+                    let image = syscalls
+                        .take_image(task)
+                        .unwrap_or_else(|| Image::copied(Vec::new()));
+                    let Some(parent) = vfork_parent else {
+                        return Outcome::Unwind(RuntimeError::user(Box::new(process::ExecNew(
+                            image,
+                        ))));
+                    };
+                    process::spawn_image(env, task, image).await;
+                    match vfork_resume(env, parent, task).await {
+                        Some(VforkResume::Unwind(err)) => return Outcome::Unwind(err),
+                        Some(VforkResume::ReturnSuccess) => {
+                            (task, switched) = (parent.task, Some(0))
+                        }
+                        // What ended the parent's image is its next work.
+                        None => task = parent.task,
+                    }
+                }
+                GuestAction::Fork {
+                    child,
+                    pid,
+                    tid,
+                    parent_tid,
+                    pidfd,
+                    child_tid,
+                    tls,
+                    vfork,
+                } => {
+                    // The guest unwinds now; the import that forked resumes once it rewinds.
+                    let parent = (pid, parent_tid, pidfd, vfork);
+                    let child_side = (tid, child_tid, tls);
+                    return match fork::start(env, syscalls, child, parent, child_side).await {
+                        Ok(()) => Outcome::Unwinding,
+                        Err(SysErr::Errno(errno)) => Outcome::Return(Err(errno)),
+                        Err(_) => unreachable!("fork fails with an errno"),
+                    };
+                }
+                GuestAction::VforkReturn { parent, child } => {
+                    // The child ended; nothing runs as it any more, and all its time is charged.
+                    // Its memory is the parent's, which stays.
+                    env.read().await.data().sample_cpu();
+                    let memory = GuestMemory { env };
+                    syscalls.exit_mm(&Caller::new(child, &memory)).await;
+                    syscalls.release(child);
+                    match vfork_resume(env, parent, child).await {
+                        Some(VforkResume::Unwind(err)) => return Outcome::Unwind(err),
+                        Some(VforkResume::ReturnSuccess) => {
+                            (task, switched) = (parent.task, Some(0))
+                        }
+                        None => task = parent.task,
+                    }
+                }
+                GuestAction::StartImage { task: leader } => {
+                    // Without an image, the empty one fails to load and the process dies as past
+                    // any `execve`'s point of no return.
+                    let image = syscalls
+                        .take_image(leader)
+                        .unwrap_or_else(|| Image::copied(Vec::new()));
+                    process::take_over(env, leader, image).await;
+                }
+                GuestAction::ExitMm { task: dead } => {
+                    let memory = GuestMemory { env };
+                    syscalls.exit_mm(&Caller::new(dead, &memory)).await;
+                }
+                // `do_signal_stop`'s `schedule`: the instance waits, and the call it interrupted
+                // goes on as before the stop once the group continues.
+                GuestAction::Stopped => syscalls.stop_wait(task).await,
+                GuestAction::Signal(frame) => {
+                    let restart = handled.get_or_insert(match ret {
+                        Err(SysErr::RestartNoIntr) => true,
+                        Err(SysErr::Restart) => frame.restarts(),
+                        _ => false,
+                    });
+                    let Some(abi) = instance_abi(env).await else {
                         syscalls.signal_return(task, None);
-                        return Outcome::Unwind(err);
+                        return Outcome::Unwind(RuntimeError::new("signal delivery before bind"));
+                    };
+                    match abi.deliver_signal(env, &frame, *restart).await {
+                        Ok(sigreturn) => {
+                            syscalls.signal_return(task, sigreturn.mask);
+                            *restart = sigreturn.restart;
+                        }
+                        Err(err) => {
+                            syscalls.signal_return(task, None);
+                            return Outcome::Unwind(err);
+                        }
                     }
                 }
             }

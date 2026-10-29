@@ -16690,6 +16690,10 @@ impl<L, S: crate::Control> crate::Control for Layered<L, S> {
         self.inner.take_pending(task)
     }
 
+    fn run_task_work<'a>(&'a self, caller: &'a crate::Caller<'_>) -> crate::LocalFuture<'a, ()> {
+        self.inner.run_task_work(caller)
+    }
+
     fn signal_return(&self, task: crate::TaskId, mask: Option<u64>) {
         self.inner.signal_return(task, mask)
     }

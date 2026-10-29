@@ -18,12 +18,10 @@
 //! complete from the wakeup or the timer that ends them. There is no thread pool
 //! (`io-wq`): `IOSQE_ASYNC` arms a pollable file's request at once instead of trying it first.
 //!
-//! **Task work.** Linux runs a ring's task work when the submitter returns to userspace, or,
-//! with `IORING_SETUP_DEFER_TASKRUN`, only in `io_uring_enter`. Calls here cannot run work on
-//! the way back to the guest, so every ring runs it as a deferred one does: in `io_uring_enter`,
-//! on its way in and while it waits for completions. While work waits, the ring polls readable
-//! (`io_has_work`) and the SQ ring's flags say `IORING_SQ_TASKRUN`, which tells liburing to
-//! enter the kernel even to peek.
+//! **Task work.** Non-deferred rings run the owning task's queued I/O before signals/actions
+//! on the syscall-return and preemption paths (`Control::run_task_work`). TWA_SIGNAL wakes
+//! interruptible calls through the signal notification path; COOP omits a running-task kick, and DEFER
+//! runs only in io_uring_enter. Only TASKRUN_FLAG rings publish IORING_SQ_TASKRUN.
 //!
 //! **Completions** go to the CQ ring, or, while it is full, to an overflow list that is flushed
 //! as the application makes room (`IORING_FEAT_NODROP`, with `IORING_SQ_CQ_OVERFLOW` set in
@@ -331,7 +329,7 @@ impl Ctx {
         if !state.overflow.is_empty() {
             flags |= IoringSqFlags::IORING_SQ_CQ_OVERFLOW.0;
         }
-        if !state.ready.is_empty() {
+        if self.shape.has(IoringSetupFlags::IORING_SETUP_TASKRUN_FLAG) && !state.ready.is_empty() {
             flags |= IoringSqFlags::IORING_SQ_TASKRUN.0;
         }
         self.write_word(SQ_FLAGS, flags);
@@ -483,10 +481,16 @@ impl Ctx {
 
     /// Queues `req` as task work, to be issued by a call on its memory.
     pub(crate) fn queue_ready(&self, req: Req) {
+        let task_work = req.task_work.clone();
         {
             let mut state = self.state.lock_or_recover();
             state.ready.push_back(req);
             self.update_sq_flags(&state);
+        }
+        if !self.shape.has(IoringSetupFlags::IORING_SETUP_DEFER_TASKRUN)
+            && let Some(task_work) = task_work
+        {
+            task_work.notify();
         }
         self.notify(false);
     }
@@ -875,6 +879,7 @@ impl Kernel {
         if disabled {
             return Err(Errno::EBADFD.into());
         }
+        self.io_uring_run_task_work(caller).await;
         let mm = self.mm(caller.task()).id();
         let mut ret = 0;
         if to_submit > 0 {
@@ -913,7 +918,10 @@ impl Kernel {
         loop {
             let req = {
                 let mut state = ctx.state.lock_or_recover();
-                let at = state.ready.iter().position(|req| req.mm == mm);
+                let at = state
+                    .ready
+                    .iter()
+                    .position(|req| req.mm == mm && req.task == caller.task());
                 let req = at.and_then(|at| state.ready.remove(at));
                 ctx.update_sq_flags(&state);
                 req
@@ -1044,6 +1052,7 @@ impl Kernel {
         let min = min_complete.min(ctx.shape.cq_entries);
         let interrupt = self.interrupt(caller);
         let ret = loop {
+            self.io_uring_run_task_work(caller).await;
             {
                 let _submit = ctx.submit.lock().await;
                 self.run_task_work(caller, ctx, mm).await;
@@ -1062,6 +1071,7 @@ impl Kernel {
             match waited {
                 Ok(Some(())) => {}
                 Ok(None) => break Err(Errno::ETIME),
+                Err(_) if self.tctx(caller.task()).pending() => continue,
                 Err(_) => break Err(Errno::EINTR),
             }
         };
