@@ -2472,3 +2472,75 @@ fn stream_sockets_refuse_only_the_old_membership_options() {
     drop_socket(t);
     assert!(lo_groups(&n).iter().all(|(g, _)| *g != group));
 }
+
+/// With `IPV6_RECVPATHMTU`, a send `IPV6_DONTFRAG` refuses leaves its path MTU for the next
+/// `recvmsg` of a UDP or raw socket, ahead of queued data and only the latest one
+/// (`ipv6_local_rxpmtu`, `ipv6_recv_rxpmtu`): no data, the destination as the sender, an
+/// `IPV6_PATHMTU` control message. `IP_PMTUDISC_DO` alone leaves none. `IPV6_PATHMTU` reads
+/// the MTU of a connected socket's route (`ENOTCONN` unconnected).
+#[test]
+fn ipv6_recvpathmtu_reports_the_mtu_a_dontfrag_send_exceeded() {
+    let (na, _nb) = veth_pair(("10.33.0.1", "10.33.0.2"), ("fd00:33::1", "fd00:33::2"));
+    let veth0 = index_of(&na, "veth0");
+    na.set_mtu(veth0, 1400).unwrap();
+    let s6 = n6_udp(&na);
+    s6.bind(a("[::]:7012"), false).unwrap();
+    let big = vec![7u8; 1400];
+    let to = a("[fd00:33::2]:7011");
+    let pathmtu = |s: &dyn Socket| getopt(s, SOL_IPV6, Ipv6Option::IPV6_PATHMTU.0, 32);
+    assert_eq!(pathmtu(&*s6), Err(Errno::ENOTCONN));
+    s6.set_option(SOL_IPV6, Ipv6Option::IPV6_RECVPATHMTU.0, &int(1))
+        .unwrap();
+    assert_eq!(
+        getopt(&*s6, SOL_IPV6, Ipv6Option::IPV6_RECVPATHMTU.0, 4).unwrap(),
+        int(1)
+    );
+    s6.set_option(SOL_IPV6, Ipv6Option::IPV6_MTU_DISCOVER.0, &int(2))
+        .unwrap();
+    assert_eq!(send_to(&*s6, &big, Some(to)), Err(Errno::EMSGSIZE));
+    assert_eq!(recv(&*s6, 64), Err(Errno::EAGAIN));
+    s6.set_option(SOL_IPV6, Ipv6Option::IPV6_DONTFRAG.0, &int(1))
+        .unwrap();
+    assert_eq!(send_to(&*s6, &big, Some(to)), Err(Errno::EMSGSIZE));
+    na.set_mtu(veth0, 1300).unwrap();
+    assert_eq!(send_to(&*s6, &big, Some(to)), Err(Errno::EMSGSIZE));
+    // Itself, to itself: a datagram is queued, the path MTU still comes first.
+    send_to(&*s6, b"q", Some(a("[::1]:7012"))).unwrap();
+    let mut buf = [0u8; 16];
+    let m = s6.recv(&mut buf, MsgFlags(0)).unwrap();
+    assert_eq!((m.len, m.from), (0, Some(a("[fd00:33::2]:0"))));
+    let c = &m.control[0];
+    assert_eq!((c.level, c.kind), (SOL_IPV6, Ipv6Option::IPV6_PATHMTU.0));
+    assert_eq!(c.data.len(), 32);
+    assert_eq!(&c.data[..2], &10u16.to_le_bytes());
+    assert_eq!(
+        &c.data[8..24],
+        &"fd00:33::2".parse::<std::net::Ipv6Addr>().unwrap().octets()
+    );
+    assert_eq!(u32::from_le_bytes(c.data[28..32].try_into().unwrap()), 1300);
+    assert_eq!(recv(&*s6, 16).unwrap(), b"q");
+
+    let u = n6_udp(&na);
+    u.connect(to).unwrap();
+    let mtu = pathmtu(&*u).unwrap();
+    assert_eq!(u32::from_le_bytes(mtu[28..32].try_into().unwrap()), 1300);
+    assert!(mtu[..28].iter().all(|&b| b == 0));
+    assert_eq!(
+        getopt(&*u, SOL_IPV6, Ipv6Option::IPV6_PATHMTU.0, 31),
+        Err(Errno::EINVAL)
+    );
+
+    let r = raw_icmp(&na, Domain::Inet6);
+    r.set_option(SOL_IPV6, Ipv6Option::IPV6_RECVPATHMTU.0, &int(1))
+        .unwrap();
+    r.set_option(SOL_IPV6, Ipv6Option::IPV6_DONTFRAG.0, &int(1))
+        .unwrap();
+    let mut req = vec![128, 0, 0, 0, 0, 1, 0, 1];
+    req.resize(1300, 0);
+    assert_eq!(
+        send_to(&*r, &req, Some(a("[fd00:33::2]:0"))),
+        Err(Errno::EMSGSIZE)
+    );
+    let m = r.recv(&mut buf, MsgFlags(0)).unwrap();
+    assert_eq!(m.control[0].kind, Ipv6Option::IPV6_PATHMTU.0);
+}
