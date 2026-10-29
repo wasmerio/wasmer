@@ -1932,6 +1932,47 @@ fn fixed_binfmt_interpreters_deny_writers_until_the_registration_is_removed() {
     assert!(open().is_ok());
 }
 
+/// Linux kernel/exit.c:do_exit elects one group-dead task with
+/// atomic_dec_and_test(&tsk->signal->live). Concurrent host releases must not
+/// run group cleanup twice after the leader's credentials have been reaped.
+#[test]
+fn concurrent_last_releases_complete_group_exit_once() {
+    for _ in 0..1000 {
+        let (kernel, leader, memory) = machine();
+        let caller = Caller::new(leader, &memory);
+        let worker = spawn_thread(&kernel, &caller);
+        assert!(matches!(
+            kernel.take_pending(leader),
+            Some(GuestAction::StartThread { .. })
+        ));
+        block_on(kernel.exit_group(&caller, 0)).unwrap();
+        assert!(
+            live(&kernel, worker),
+            "the worker must actually have started"
+        );
+        block_on(kernel.exit_mm(&caller));
+        block_on(kernel.exit_mm(&Caller::new(worker, &memory)));
+        let start = std::sync::Barrier::new(2);
+        std::thread::scope(|scope| {
+            let first = scope.spawn(|| {
+                start.wait();
+                kernel.release_task(leader);
+            });
+            let second = scope.spawn(|| {
+                start.wait();
+                kernel.release_task(worker);
+            });
+            first.join().expect("leader cleanup must not panic");
+            second.join().expect("worker cleanup must not panic");
+        });
+        assert!(
+            kernel.procs.find(leader.0).is_none(),
+            "the group must be reaped"
+        );
+        assert!(kernel.state.lock_or_recover().tasks.is_empty());
+    }
+}
+
 /// kernel/exit.c:do_exit calls exit_signals before exit_notify/release_task. The
 /// execution layer may still be consuming its selected exit action after reaping.
 #[test]

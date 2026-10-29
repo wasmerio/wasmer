@@ -41,6 +41,8 @@ struct GroupState {
     /// The status of the leader's own `exit`, which is the group's when it ends without an
     /// `exit_group` (`wait_task_zombie` reads the leader's `exit_code`).
     leader_exit: Option<i32>,
+    /// One caller has claimed final group cleanup after all memory users left.
+    notified: bool,
 }
 
 /// An `execve` in progress in a thread group.
@@ -543,6 +545,16 @@ impl Kernel {
             // A pid namespace's init is a zombie only once the namespace is empty.
             if self.zap_pid_ns(process) {
                 return;
+            }
+            {
+                // kernel/exit.c:do_exit elects group_dead once with
+                // atomic_dec_and_test(signal->live). Multiple host releases can
+                // reach this point together; only one may publish/reap the group.
+                let mut group = process.group.state.lock_or_recover();
+                if group.notified {
+                    return;
+                }
+                group.notified = true;
             }
             // exit_mm releases mm->exe_file before the process becomes a zombie.
             process.exe_write_access.lock_or_recover().take();
