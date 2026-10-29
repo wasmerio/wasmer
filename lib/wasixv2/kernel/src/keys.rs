@@ -1,7 +1,7 @@
 //! The key retention service (`security/keys`): keys of the `user`, `logon` and `keyring`
 //! types, the thread, process and session keyrings of the credentials, each user's keyrings,
-//! `add_key`, `request_key` (which finds keys but constructs none: there is no
-//! `/sbin/request-key` to call up, so a missing key is `ENOKEY`), `keyctl`, and `/proc/keys` and
+//! `add_key`, `request_key` (including negative caching when `/sbin/request-key` is unavailable),
+//! `keyctl`, and `/proc/keys` and
 //! `/proc/key-users`.
 //!
 //! A key lives while something holds it: a keyring that links it, credentials, or a caller;
@@ -152,6 +152,8 @@ struct KeyState {
     gid: Kgid,
     perm: u32,
     payload: Vec<u8>,
+    /// A negatively instantiated key's error (`key->state`), separate from key_validate.
+    negative: Option<Errno>,
     /// A keyring's keys, in the order they were linked.
     links: Vec<Arc<Key>>,
     revoked: bool,
@@ -188,6 +190,14 @@ impl Key {
             return Err(Errno::EKEYEXPIRED);
         }
         Ok(())
+    }
+
+    /// `key_read_state`: a negative key has no payload its type's read method may see.
+    fn read_state(&self) -> Result<(), Errno> {
+        match self.st().negative {
+            Some(error) => Err(error),
+            None => Ok(()),
+        }
     }
 
     /// Whether the key is gone for every lookup (`KEY_FLAG_INVALIDATED`, or garbage).
@@ -246,6 +256,8 @@ impl Key {
 pub(crate) struct Keys {
     serials: Mutex<KeyTable>,
     users: Mutex<HashMap<u32, Arc<KeyUser>>>,
+    /// `key_construction_mutex`: the final search, allocation and link are indivisible.
+    construction: Mutex<()>,
 }
 
 #[derive(Default)]
@@ -364,6 +376,7 @@ impl Keys {
                 gid: owner.1,
                 perm,
                 payload,
+                negative: None,
                 links: Vec::new(),
                 revoked: false,
                 invalidated: false,
@@ -451,9 +464,10 @@ impl Keys {
             let flag = |on: bool, c: char| if on { c } else { '-' };
             let usage = Arc::strong_count(&key) - 1;
             out.push_str(&format!(
-                "{:08x} I{}-Q--{} {:5} {:>4} {:08x} {:5} {:5} {:<9.9} {}",
+                "{:08x} I{}-Q-{}{} {:5} {:>4} {:08x} {:5} {:5} {:<9.9} {}",
                 key.serial,
                 flag(st.revoked, 'R'),
+                flag(st.negative.is_some(), 'N'),
                 flag(st.invalidated, 'i'),
                 usage,
                 timeout,
@@ -472,7 +486,9 @@ impl Keys {
                         n => out.push_str(&format!(": {n}")),
                     }
                 }
-                _ if !st.revoked => out.push_str(&format!(": {}", st.payload.len())),
+                _ if !st.revoked && st.negative.is_none() => {
+                    out.push_str(&format!(": {}", st.payload.len()))
+                }
                 _ => {}
             }
             out.push('\n');
@@ -549,8 +565,8 @@ struct Found {
 struct Lookup {
     /// `KEY_LOOKUP_CREATE`: make the special keyrings the caller lacks.
     create: bool,
-    /// `KEY_LOOKUP_PARTIAL` with its `key_validate`: refuse revoked and expired keys.
-    validate: bool,
+    /// `KEY_LOOKUP_PARTIAL`: permit negative state, but still run key_validate.
+    partial: bool,
 }
 
 /// The default permissions of a key `add_key` makes (`key_create_or_update`).
@@ -681,7 +697,10 @@ impl Kernel {
                 Found { key, possessed }
             }
         };
-        if lookup.validate {
+        if need != Need::Unlink {
+            if !lookup.partial {
+                found.key.read_state()?;
+            }
             found.key.validate(ctx.now)?;
         }
         if !found.key.permits(&ctx.cred, found.possessed, need) {
@@ -700,7 +719,7 @@ impl Kernel {
     ) -> Result<Found, Errno> {
         let lookup = Lookup {
             create: true,
-            validate: false,
+            partial: false,
         };
         let found = self.lookup_key(caller, ctx, id, lookup, need)?;
         if found.key.kind != Kind::Keyring {
@@ -735,14 +754,13 @@ impl Kernel {
         let ring = self.lookup_keyring(caller, &mut ctx, ringid, Need::Write)?;
         kind.check_payload(&data)?;
         kind.vet_description(&description)?;
+        let _construction = self.keys.construction.lock_or_recover();
         // `key_create_or_update`: a type that updates updates the key of that description the
         // keyring holds, if the caller may write it.
         if kind != Kind::Keyring
-            && let Some(old) = ring
-                .key
-                .keys()
-                .into_iter()
-                .find(|k| k.kind == kind && k.description == description)
+            && let Some(old) = ring.key.keys().into_iter().find(|k| {
+                k.kind == kind && k.description == description && k.validate(ctx.now).is_ok()
+            })
         {
             let possessed = ring.possessed;
             if !old.permits(&ctx.cred, possessed, Need::Write) {
@@ -750,7 +768,10 @@ impl Kernel {
             }
             old.validate(ctx.now)?;
             old.charge(plen)?;
-            old.st().payload = data;
+            let mut st = old.st();
+            st.payload = data;
+            st.negative = None;
+            st.expiry = None;
             return Ok(old.serial);
         }
         let owner = (ctx.cred.user.fs, ctx.cred.group.fs);
@@ -761,29 +782,101 @@ impl Kernel {
         Ok(key.serial)
     }
 
-    /// `request_key`: the key of `type` and `description` the caller's keyrings hold, linked
-    /// into the destination keyring. There is no upcall to make a missing one: `ENOKEY`.
+    /// security/keys/request_key.c `request_key_and_link`: a lookup, or construction when
+    /// callout_info is non-NULL. The unavailable usermode helper leaves a negative key linked
+    /// for 60 seconds (`complete_request_key`, `construct_key_and_link`).
     pub(crate) async fn sys_request_key(
         &self,
         caller: &Caller<'_>,
         kind: u32,
         description: u32,
-        _callout: u32,
+        callout: u32,
         dest: i32,
     ) -> SysResult<i32> {
         let kind = Kind::lookup(&read_type(caller, kind).await?)?;
         let description = read_description(caller, description).await?;
+        if callout != 0 {
+            // sys_request_key copies the callout even when the key is already cached.
+            read_cstr(
+                caller.memory(),
+                wasixv2_abi::GuestPtr::new(callout),
+                MAX_DESC,
+            )
+            .await
+            .map_err(|error| match error {
+                wasixv2_syscalls::CstrError::Fault => Errno::EFAULT,
+                wasixv2_syscalls::CstrError::TooLong => Errno::EINVAL,
+            })?;
+        }
         let mut ctx = self.key_ctx(caller);
         let dest = match dest {
             0 => None,
             id => Some(self.lookup_keyring(caller, &mut ctx, id, Need::Write)?),
         };
         let roots = ctx.search_roots(&self.keys);
-        let key = search(&ctx, &roots, true, kind, &description)?;
-        if let Some(dest) = dest {
-            link(&dest.key, &key)?;
+        let _construction = self.keys.construction.lock_or_recover();
+        match search(&ctx, &roots, true, kind, &description, true) {
+            Ok(key) => {
+                if let Some(dest) = dest {
+                    if !key.permits(&ctx.cred, true, Need::Link) {
+                        return Err(Errno::EACCES.into());
+                    }
+                    link(&dest.key, &key)?;
+                }
+                Ok(key.serial)
+            }
+            Err(Errno::EAGAIN) if callout != 0 => {
+                if kind == Kind::Keyring {
+                    return Err(Errno::EPERM.into());
+                }
+                kind.vet_description(&description)?;
+                let dest = match dest {
+                    Some(dest) => dest.key,
+                    None => self.request_key_destination(&ctx)?,
+                };
+                let key = self.keys.alloc(
+                    kind,
+                    &description,
+                    (ctx.cred.user.fs, ctx.cred.group.fs),
+                    default_perm(kind),
+                    Vec::new(),
+                    false,
+                )?;
+                // No helper is available: complete_request_key negates the allocated key.
+                {
+                    let mut st = key.st();
+                    st.negative = Some(Errno::ENOKEY);
+                    st.expiry = Some(ctx.now.saturating_add(60));
+                }
+                link(&dest, &key)?;
+                Err(Errno::ENOENT.into())
+            }
+            Err(Errno::EAGAIN) => Err(Errno::ENOKEY.into()),
+            Err(error) => Err(error.into()),
         }
-        Ok(key.serial)
+    }
+
+    /// security/keys/request_key.c `construct_get_dest_keyring`: defaults fall through to
+    /// the next existing ring. A joined session still requires WRITE (CVE-2017-17807).
+    fn request_key_destination(&self, ctx: &Ctx) -> Result<Arc<Key>, Errno> {
+        let default = ctx.cred.keys.reqkey;
+        let ring = match default {
+            0 | 1 | 7 if ctx.thread.is_some() => ctx.thread.clone().expect("checked"),
+            0..=2 | 7 if ctx.cred.keys.process.is_some() => {
+                ctx.cred.keys.process.clone().expect("checked")
+            }
+            0..=3 | 7 if ctx.cred.keys.session.is_some() => {
+                ctx.cred.keys.session.clone().expect("checked")
+            }
+            4 => self.keys.user_keyrings(&ctx.cred).0,
+            0..=3 | 5 | 7 => self.keys.user_keyrings(&ctx.cred).1,
+            _ => return Err(Errno::EINVAL),
+        };
+        if !ring.permits(&ctx.cred, true, Need::Write) {
+            return Err(Errno::EACCES);
+        }
+        ring.validate(ctx.now)?;
+        Ok(ring)
     }
 
     /// `keyctl`.
@@ -803,13 +896,13 @@ impl Kernel {
         };
         let partial = Lookup {
             create: false,
-            validate: true,
+            partial: true,
         };
         match KeyctlOp(option) {
             KeyctlOp::KEYCTL_GET_KEYRING_ID => {
                 let lookup = Lookup {
                     create: arg3 != 0,
-                    validate: false,
+                    partial: false,
                 };
                 let key = self
                     .lookup_key(caller, &mut ctx, id, lookup, Need::Search)?
@@ -887,7 +980,7 @@ impl Kernel {
                 Ok(0)
             }
             KeyctlOp::KEYCTL_LINK => {
-                let key = found(self, &mut ctx, partial, Need::Link)?.key;
+                let key = found(self, &mut ctx, Lookup::default(), Need::Link)?.key;
                 let ring = self.lookup_keyring(caller, &mut ctx, arg3 as i32, Need::Write)?;
                 link(&ring.key, &key)?;
                 Ok(0)
@@ -908,7 +1001,14 @@ impl Kernel {
                     0 => None,
                     dest => Some(self.lookup_keyring(caller, &mut ctx, dest, Need::Write)?),
                 };
-                let key = search(&ctx, &[ring.key], ring.possessed, kind, &description)?;
+                let key = search(&ctx, &[ring.key], ring.possessed, kind, &description, false)
+                    .map_err(|error| {
+                        if error == Errno::EAGAIN {
+                            Errno::ENOKEY
+                        } else {
+                            error
+                        }
+                    })?;
                 if let Some(dest) = dest {
                     let possessed = ctx.possesses(&self.keys, &key);
                     if !key.permits(&ctx.cred, possessed, Need::Link) {
@@ -919,10 +1019,11 @@ impl Kernel {
                 Ok(key.serial)
             }
             KeyctlOp::KEYCTL_READ => {
-                let found = match found(self, &mut ctx, partial, Need::Unlink) {
+                let found = match found(self, &mut ctx, Lookup::default(), Need::Unlink) {
                     Ok(found) => found,
                     Err(errno) => return Err(errno.into()),
                 };
+                found.key.read_state()?;
                 // `keyctl_read_key`: with READ, or as a key the caller possesses and may
                 // search.
                 let readable = found.key.permits(&ctx.cred, found.possessed, Need::Read);
@@ -934,6 +1035,7 @@ impl Kernel {
                 if !found.key.kind.readable() {
                     return Err(Errno::EOPNOTSUPP.into());
                 }
+                found.key.validate(ctx.now)?;
                 let data = match found.key.kind {
                     Kind::Keyring => found
                         .key
@@ -950,7 +1052,15 @@ impl Kernel {
                 let old = ctx.cred.keys.reqkey;
                 match defl {
                     -1 => Ok(old),
-                    0..=7 => {
+                    0..=5 | 7 => {
+                        let special = match defl {
+                            1 => Some(KeySpec::KEY_SPEC_THREAD_KEYRING.0),
+                            2 => Some(KeySpec::KEY_SPEC_PROCESS_KEYRING.0),
+                            _ => None,
+                        };
+                        if let Some(id) = special {
+                            self.lookup_keyring(caller, &mut ctx, id, Need::Write)?;
+                        }
                         self.set_cred_keys(caller, |k| k.reqkey = defl);
                         Ok(old)
                     }
@@ -981,7 +1091,7 @@ impl Kernel {
                 if arg5 & !EXCL != 0 {
                     return Err(Errno::EINVAL.into());
                 }
-                let key = found(self, &mut ctx, partial, Need::Link)?.key;
+                let key = found(self, &mut ctx, Lookup::default(), Need::Link)?.key;
                 let from = self.lookup_keyring(caller, &mut ctx, arg3 as i32, Need::Write)?;
                 let to = self.lookup_keyring(caller, &mut ctx, arg4 as i32, Need::Write)?;
                 let held = from
@@ -1008,11 +1118,33 @@ impl Kernel {
                 let caps0 = 0x01 | 0x20 | 0x80;
                 put_out(caller, arg2, arg3, &[caps0, 0], false).await
             }
-            // No request_key authorisation is ever under way.
-            KeyctlOp::KEYCTL_INSTANTIATE
-            | KeyctlOp::KEYCTL_INSTANTIATE_IOV
-            | KeyctlOp::KEYCTL_NEGATE
-            | KeyctlOp::KEYCTL_REJECT => Err(Errno::EPERM.into()),
+            // security/keys/keyctl.c: no request-key token is ever installed without a
+            // usermode helper, but argument validation still precedes the authority check.
+            KeyctlOp::KEYCTL_INSTANTIATE => {
+                if arg3 != 0 && arg4 > 1024 * 1024 - 1 {
+                    return Err(Errno::EINVAL.into());
+                }
+                Err(Errno::EPERM.into())
+            }
+            KeyctlOp::KEYCTL_INSTANTIATE_IOV => {
+                let iovecs = crate::fs::read_iovecs(
+                    caller.memory(),
+                    wasixv2_abi::GuestPtr::new(arg3),
+                    if arg3 == 0 { 0 } else { arg4 },
+                )
+                .await?;
+                if iovecs.iter().map(|iov| u64::from(iov.iov_len)).sum::<u64>() > 1024 * 1024 - 1 {
+                    return Err(Errno::EINVAL.into());
+                }
+                Err(Errno::EPERM.into())
+            }
+            KeyctlOp::KEYCTL_NEGATE => Err(Errno::EPERM.into()),
+            KeyctlOp::KEYCTL_REJECT => {
+                if arg4 == 0 || arg4 >= 4095 || matches!(arg4, 512 | 513 | 514 | 516) {
+                    return Err(Errno::EINVAL.into());
+                }
+                Err(Errno::EPERM.into())
+            }
             KeyctlOp::KEYCTL_ASSUME_AUTHORITY => match id {
                 0 => Ok(0),
                 id if id < 0 => Err(Errno::EINVAL.into()),
@@ -1187,31 +1319,50 @@ fn reaches(from: &Arc<Key>, target: &Arc<Key>, depth: usize) -> Result<bool, Err
 
 /// `keyring_search_rcu` from `roots`: the first key of `kind` and `description` the caller may
 /// search, through keyrings it may search. Revoked or expired matches are skipped and reported
-/// if nothing better is found; nothing is `ENOKEY`.
+/// if nothing better is found; a searchable miss is `EAGAIN`, distinct from a negative key.
 fn search(
     ctx: &Ctx,
     roots: &[Arc<Key>],
     possessed: bool,
     kind: Kind,
     description: &[u8],
+    skip_expired: bool,
 ) -> Result<Arc<Key>, Errno> {
     let mut queue: VecDeque<(Arc<Key>, usize)> = roots.iter().map(|k| (k.clone(), 0)).collect();
     let mut seen = HashSet::new();
-    let mut skipped = Errno::ENOKEY;
+    let mut skipped = Errno::EAGAIN;
     while let Some((ring, depth)) = queue.pop_front() {
         if !seen.insert(ring.serial) {
             continue;
         }
-        for key in ring.keys() {
+        if let Err(error) = ring.validate(ctx.now) {
+            skipped = error;
+            continue;
+        }
+        if !ring.permits(&ctx.cred, possessed, Need::Search) {
+            skipped = Errno::EACCES;
+            continue;
+        }
+        for key in std::iter::once(ring.clone()).chain(ring.keys()) {
             if key.kind == kind && key.description == description {
+                match key.validate(ctx.now) {
+                    Err(Errno::EKEYEXPIRED) if skip_expired => continue,
+                    Err(error) => {
+                        skipped = error;
+                        continue;
+                    }
+                    Ok(()) => {}
+                }
                 if !key.permits(&ctx.cred, possessed, Need::Search) {
+                    skipped = Errno::EACCES;
                     continue;
                 }
-                match key.validate(ctx.now) {
+                match key.read_state() {
                     Ok(()) => return Ok(key),
-                    Err(errno) => skipped = errno,
+                    Err(error) => skipped = error,
                 }
             } else if key.kind == Kind::Keyring
+                && !Arc::ptr_eq(&key, &ring)
                 && depth + 1 < MAX_DEPTH
                 && key.permits(&ctx.cred, possessed, Need::Search)
             {
