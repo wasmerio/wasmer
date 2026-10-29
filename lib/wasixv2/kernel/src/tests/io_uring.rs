@@ -3931,3 +3931,35 @@ fn updating_a_multishot_timeout_changes_its_period_and_rejects_absolute_updates(
     ring.submit(1).unwrap();
     assert_eq!(res(&ring.wait(3)), [(4, -Errno::ETIME.0); 3]);
 }
+
+#[test]
+fn buffer_registration_does_not_probe_guest_bytes() {
+    struct NoProbe<'a>(&'a dyn UserMemory);
+    impl UserMemory for NoProbe<'_> {
+        fn read<'a>(
+            &'a self,
+            _: u32,
+            _: &'a mut [u8],
+        ) -> LocalFuture<'a, Result<(), wasixv2_syscalls::Fault>> {
+            panic!("registration must not read guest bytes");
+        }
+        fn write<'a>(
+            &'a self,
+            _: u32,
+            _: &'a [u8],
+        ) -> LocalFuture<'a, Result<(), wasixv2_syscalls::Fault>> {
+            panic!("registration must not write guest bytes");
+        }
+        fn size(&self) -> LocalFuture<'_, u64> {
+            self.0.size()
+        }
+        fn grow(&self, pages: u32) -> LocalFuture<'_, Option<u64>> {
+            self.0.grow(pages)
+        }
+    }
+    let m = Machine::new();
+    let addr = anonymous(&m, 1, false);
+    let memory = NoProbe(&m.memory);
+    let caller = Caller::new(m.task, &memory);
+    assert!(block_on(m.kernel.retain_pages(&caller, addr, 65536)).is_ok());
+}

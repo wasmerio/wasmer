@@ -66,18 +66,8 @@ impl Kernel {
             .map_err(|_| Errno::EFAULT)?;
         let mut records = Vec::new();
         for base in (u64::from(addr) / PAGE_SIZE..end.div_ceil(PAGE_SIZE)).map(|p| p * PAGE_SIZE) {
-            let at = base.max(u64::from(addr)) as u32;
-            let mut byte = [0];
-            caller
-                .memory()
-                .read(at, &mut byte)
-                .await
-                .map_err(|_| Errno::EFAULT)?;
-            caller
-                .memory()
-                .write(at, &byte)
-                .await
-                .map_err(|_| Errno::EFAULT)?;
+            // pin_user_pages(FOLL_WRITE | FOLL_LONGTERM) validates access without
+            // modifying user bytes (Linux mm/gup.c:check_vma_flags).
             let existing = mm
                 .retained
                 .0
