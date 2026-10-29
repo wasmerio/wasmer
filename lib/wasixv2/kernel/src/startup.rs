@@ -16,6 +16,11 @@ const AUXV: &[(AuxvType, u32)] = &[
     (AuxvType::AT_PAGESZ, PAGE_SIZE as u32),
     (AuxvType::AT_CLKTCK, CLOCK_TICKS),
     (AuxvType::AT_HWCAP, 0),
+    (
+        AuxvType::AT_RSEQ_FEATURE_SIZE,
+        crate::rseq::RSEQ_FEATURE_SIZE,
+    ),
+    (AuxvType::AT_RSEQ_ALIGN, crate::rseq::RSEQ_ALIGN),
 ];
 /// The identity entries, the random bytes and `AT_NULL`.
 const AUXV_EXTRA: usize = 7;

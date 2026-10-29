@@ -1,10 +1,13 @@
 //! Task lifetime: the work flag, releasing tasks, `de_thread`, faults and `restart_syscall`.
 
 use futures::FutureExt as _;
-use wasixv2_abi::{FutexOp, KernelTimespec, Pid, Sigaction, Signal, Sigset};
+use wasixv2_abi::{CloneFlags, FutexOp, KernelTimespec, Pid, Sigaction, Signal, Sigset};
 use wasixv2_syscalls::{Image, Resume, VforkParent, read_value, write_value};
 
-use super::{ipc::machine, *};
+use super::{
+    ipc::{errno, machine},
+    *,
+};
 use crate::sync::MutexExt;
 
 /// The flags `pthread_create` passes.
@@ -922,4 +925,62 @@ fn an_interrupted_timed_futex_wait_restarts_to_its_deadline() {
         block_on(kernel.restart_syscall(&caller)),
         Err(SysErr::Errno(Errno::ETIMEDOUT))
     );
+}
+
+/// `rseq` registers one area per thread, checked against its length and signature, and fills
+/// in the ids at once: CPU 0, node 0, concurrency id 0.
+#[test]
+fn rseq_registers_one_area_per_thread() {
+    let (kernel, task, memory) = machine();
+    let caller = Caller::new(task, &memory);
+    let rseq = |area: u32, len: u32, flags: i32, sig: u32| {
+        block_on(kernel.rseq(&caller, GuestPtrMut::new(area), len, flags, sig))
+    };
+    const AREA: u32 = 0x1040;
+    const SIG: u32 = 0x5305_3053;
+    super::ipc::put(&memory, AREA, &[0xff; 64]);
+    assert_eq!(errno(rseq(AREA + 16, 32, 0, SIG)), Errno::EINVAL);
+    assert_eq!(errno(rseq(AREA + 32, 64, 0, SIG)), Errno::EINVAL);
+    assert_eq!(errno(rseq(AREA, 31, 0, SIG)), Errno::EINVAL);
+    assert_eq!(errno(rseq(AREA, 64, 4, SIG)), Errno::EINVAL);
+    assert_eq!(rseq(AREA, 64, 0, SIG), Ok(0));
+    // cpu_id_start, cpu_id, rseq_cs, flags, node_id, mm_cid; the rest is untouched.
+    let area = super::ipc::get(&memory, AREA, 32);
+    assert_eq!(area[..28], [0; 28]);
+    assert_eq!(area[28..32], [0xff; 4]);
+
+    assert_eq!(errno(rseq(AREA, 64, 0, SIG)), Errno::EBUSY);
+    assert_eq!(errno(rseq(AREA, 64, 0, SIG + 1)), Errno::EPERM);
+    assert_eq!(errno(rseq(AREA + 64, 64, 0, SIG)), Errno::EINVAL);
+
+    // A new thread has none; registering its own is fine.
+    let thread = spawn_thread(&kernel, &caller);
+    let thread_caller = Caller::new(thread, &memory);
+    let other = kernel.rseq(&thread_caller, GuestPtrMut::new(AREA + 0x40), 32, 0, SIG);
+    assert_eq!(block_on(other), Ok(0));
+
+    let unregister = |len: u32, flags: i32, sig: u32| rseq(AREA, len, 1 | flags, sig);
+    assert_eq!(errno(unregister(32, 0, SIG)), Errno::EINVAL);
+    assert_eq!(errno(unregister(64, 2, SIG)), Errno::EINVAL);
+    assert_eq!(errno(unregister(64, 0, SIG + 1)), Errno::EPERM);
+    assert_eq!(unregister(64, 0, SIG), Ok(0));
+    assert_eq!(super::word(&memory, AREA + 4), u32::MAX);
+    assert_eq!(errno(unregister(64, 0, SIG)), Errno::EINVAL);
+    assert_eq!(rseq(AREA, 32, 0, SIG), Ok(0));
+}
+
+/// A fork child keeps its parent's rseq area; a child on the same memory gets none, and an
+/// `execve` drops it (`rseq_fork`, `rseq_execve`).
+#[test]
+fn rseq_areas_follow_fork_but_not_clone_vm() {
+    let mut parent = thread::ThreadState::default();
+    parent.rseq = Some(crate::rseq::Rseq {
+        area: 0x1000,
+        len: 32,
+        sig: 1,
+    });
+    let fork = parent.for_process(CloneFlags(Signal::SIGCHLD.0 as u64), 0, 0);
+    assert_eq!(fork.rseq, parent.rseq);
+    let vm = parent.for_process(CloneFlags::CLONE_VM | CloneFlags::CLONE_VFORK, 0, 0);
+    assert_eq!(vm.rseq, None);
 }

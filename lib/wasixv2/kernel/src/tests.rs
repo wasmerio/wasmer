@@ -276,6 +276,9 @@ fn startup_block_lays_out_argv_envp_and_auxv() {
         .collect();
     assert!(auxv.contains(&(6, 65536)), "AT_PAGESZ: {auxv:?}");
     assert!(auxv.contains(&(11, 1)), "AT_UID: {auxv:?}");
+    // `AT_RSEQ_FEATURE_SIZE` and `AT_RSEQ_ALIGN`.
+    assert!(auxv.contains(&(27, 33)), "AT_RSEQ_FEATURE_SIZE: {auxv:?}");
+    assert!(auxv.contains(&(28, 64)), "AT_RSEQ_ALIGN: {auxv:?}");
     let random = auxv.iter().find(|(key, _)| *key == 25).unwrap().1;
     assert_eq!(memory.0.borrow()[random as usize..][..16], [0x5a; 16]);
     assert!(random + 16 <= base + size);

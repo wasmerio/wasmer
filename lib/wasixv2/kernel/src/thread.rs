@@ -90,6 +90,8 @@ pub(crate) struct ThreadState {
     robust_list: u32,
     /// The thread pointer `CLONE_SETTLS` gave the task.
     tls: u32,
+    /// The restartable sequences area the task registered (`task_struct::rseq`).
+    pub(crate) rseq: Option<crate::rseq::Rseq>,
     /// The task called `exit` or was killed with its thread; it goes away once the execution
     /// layer releases it.
     exited: bool,
@@ -108,8 +110,9 @@ impl ThreadState {
     }
 
     /// The thread state of a new process's first task, made from the caller's (`copy_process`):
-    /// no robust list, the caller's thread pointer unless `CLONE_SETTLS` gives `tls`, and
-    /// `CLONE_CHILD_CLEARTID`'s `child_tid`.
+    /// no robust list, the caller's thread pointer unless `CLONE_SETTLS` gives `tls`,
+    /// `CLONE_CHILD_CLEARTID`'s `child_tid`, and the caller's rseq area unless the child
+    /// shares its memory (`rseq_fork`).
     pub(crate) fn for_process(&self, flags: CloneFlags, tls: u32, child_tid: u32) -> Self {
         Self {
             clear_child_tid: match flags.contains(CloneFlags::CLONE_CHILD_CLEARTID) {
@@ -120,6 +123,10 @@ impl ThreadState {
             tls: match flags.contains(CloneFlags::CLONE_SETTLS) {
                 true => tls,
                 false => self.tls,
+            },
+            rseq: match flags.contains(CloneFlags::CLONE_VM) {
+                true => None,
+                false => self.rseq,
             },
             exited: false,
             left_mm: false,
@@ -234,6 +241,8 @@ impl Kernel {
                     true => tls,
                     false => task.thread.tls,
                 },
+                // `rseq_fork` with `CLONE_VM`.
+                rseq: None,
                 exited: false,
                 left_mm: false,
                 exit_mm_handed: false,
