@@ -13,6 +13,7 @@ pub mod opts;
 pub mod ports;
 mod recvq;
 mod stream;
+mod sync;
 mod tcp;
 mod udp;
 
@@ -21,10 +22,10 @@ mod tests;
 
 pub use api::{
     Accepted, Backend, BackendDatagram, BackendStream, Control, Domain, InboundSink, Interface,
-    Network, PortEntry, Publication, PublishedDatagram, QueuedError, RecvMsg, Room, SendMsg,
-    Shutdown, Socket, SocketKind, StreamState,
+    Network, NewLink, NewLinkKind, PortEntry, Publication, PublishedDatagram, QueuedError, RecvMsg,
+    Room, SendMsg, Shutdown, Socket, SocketKind, StreamState,
 };
-pub use net::{Net, NetConfig, Uplink};
+pub use net::{MovedLink, Net, NetConfig, Rtnl, Uplink, move_link, rtnl};
 pub use recvq::RecvQueue;
 pub use tcp::TcpSocket;
 pub use udp::UdpSocket;

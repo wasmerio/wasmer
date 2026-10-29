@@ -1654,8 +1654,8 @@ impl Kernel {
             return Ok(0);
         }
         let v4 = || {
-            iface.addresses.iter().find_map(|&(ip, len)| match ip {
-                std::net::IpAddr::V4(v4) => Some((v4, len)),
+            iface.addresses.iter().find_map(|a| match a.addr {
+                std::net::IpAddr::V4(v4) => Some((v4, a.prefix_len)),
                 _ => None,
             })
         };

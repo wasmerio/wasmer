@@ -525,10 +525,10 @@ impl TcpSocket {
         Offer::Queued
     }
 
-    /// Connects to a listener of this namespace.
-    fn connect_local(&self, g: &mut Inner, dst: SocketAddr) -> NetResult<()> {
+    /// Connects to a listener of `target`, this namespace or the one across a veth.
+    fn connect_local(&self, g: &mut Inner, dst: SocketAddr, target: &Net) -> NetResult<()> {
         let local = g.local.expect("bound before connecting");
-        let Some(listening) = self.net.find_listener(dst, local) else {
+        let Some(listening) = target.find_listener(dst, local) else {
             self.put_port(g);
             return Err(Errno::ECONNREFUSED);
         };
@@ -735,9 +735,11 @@ impl Socket for TcpSocket {
             return Err(Errno::ENETUNREACH);
         }
         let path = self.net.path(dst, g.local.map(|l| l.ip()))?;
-        let src = match &path {
-            Path::Local { src } | Path::Backend { src, .. } => *src,
-        };
+        // Nothing answers out there: Linux's connect fails once neighbour resolution gives up.
+        if let Path::Nowhere { .. } = path {
+            return Err(Errno::EHOSTUNREACH);
+        }
+        let src = path.src();
         match g.local {
             None => {
                 let port = self.net.tcp_bind_connect(
@@ -758,7 +760,11 @@ impl Socket for TcpSocket {
         g.wr_shut = false;
         g.err = None;
         match path {
-            Path::Local { .. } => self.connect_local(&mut g, dst),
+            Path::Local { net, .. } => {
+                let target = net.unwrap_or_else(|| self.net.clone());
+                self.connect_local(&mut g, dst, &target)
+            }
+            Path::Nowhere { .. } => unreachable!("refused above"),
             Path::Backend { host_dst, .. } => {
                 let backend = self.net.backend.clone().ok_or(Errno::ENETUNREACH)?;
                 match backend.connect(host_dst, self.wq.clone()) {
