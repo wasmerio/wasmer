@@ -1041,6 +1041,13 @@ impl Socket for TcpSocket {
             };
             return Ok(opts::write_int(out, err.map_or(0, |e| e.0)));
         }
+        let peer = match &g.state {
+            State::Connected(t, peer) if !t.is_done() => Some(peer.ip()),
+            _ => None,
+        };
+        if let Some(result) = g.opts.get_mtu(&self.net, peer, level, name, out) {
+            return result;
+        }
         if level == SocketLevel::SOL_TCP.0 && name == TcpOption::TCP_MAXSEG.0 {
             let mss = match &g.state {
                 State::Connected(Transport::Local(..), _) => opts::TCP_MSS_LOOPBACK,

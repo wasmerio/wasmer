@@ -3181,3 +3181,64 @@ fn ipv6_sticky_routing_headers_are_checked_and_kept() {
         .unwrap();
     assert_eq!(v4.set_option(41, rthdr, &srh), Err(Errno::ENOPROTOOPT));
 }
+
+/// net/ipv6/ipv6_sockglue.c do_ipv6_setsockopt/do_ipv6_getsockopt:
+/// IPV6_MTU sets a fragmentation limit, but getsockopt returns the route MTU.
+#[test]
+fn ipv6_mtu_validation_and_route_mtu() {
+    use wasixv2_abi::{Ipv6Option, SocketLevel};
+    let n = net();
+    for (kind, protocol) in [
+        (SocketKind::Datagram, 0),
+        (SocketKind::Stream, 0),
+        (SocketKind::Raw, 253),
+        (SocketKind::Stream, 132),
+    ] {
+        let s = n.socket(Domain::Inet6, kind, protocol, UID).unwrap();
+        let level = SocketLevel::SOL_IPV6.0;
+        let option = Ipv6Option::IPV6_MTU.0;
+        let mut out = [0; 4];
+        assert_eq!(s.get_option(level, option, &mut out), Err(Errno::ENOTCONN));
+        for value in [-1i32, 1, 1279] {
+            assert_eq!(
+                s.set_option(level, option, &value.to_le_bytes()),
+                Err(Errno::EINVAL)
+            );
+        }
+        assert_eq!(s.set_option(level, option, &[0; 3]), Err(Errno::EINVAL));
+        for value in [0i32, 1280, 65536, i32::MAX] {
+            s.set_option(level, option, &value.to_le_bytes()).unwrap();
+        }
+        if kind != SocketKind::Stream {
+            s.connect(a("[::1]:19001")).unwrap();
+            assert_eq!(s.get_option(level, option, &mut out), Ok(4));
+            assert_eq!(i32::from_le_bytes(out), 65536);
+        }
+    }
+}
+
+#[test]
+fn ipv6_mtu_limits_unfragmented_datagrams() {
+    use wasixv2_abi::{Ipv6Option, SocketLevel};
+    let n = net();
+    let s = n
+        .socket(Domain::Inet6, SocketKind::Datagram, 0, UID)
+        .unwrap();
+    s.bind(a("[::1]:19006"), false).unwrap();
+    s.connect(a("[::1]:19006")).unwrap();
+    s.set_option(
+        SocketLevel::SOL_IPV6.0,
+        Ipv6Option::IPV6_MTU.0,
+        &1280i32.to_le_bytes(),
+    )
+    .unwrap();
+    s.set_option(
+        SocketLevel::SOL_IPV6.0,
+        Ipv6Option::IPV6_DONTFRAG.0,
+        &1i32.to_le_bytes(),
+    )
+    .unwrap();
+    assert_eq!(send(&*s, &vec![0; 1233]), Err(Errno::EMSGSIZE));
+    assert_eq!(send(&*s, &vec![0; 1232]), Ok(1232));
+    assert_eq!(recv(&*s, 2000).unwrap().len(), 1232);
+}

@@ -1198,7 +1198,7 @@ impl IcmpSocket {
         len: usize,
         dontfrag: Option<bool>,
     ) -> NetResult<()> {
-        let Some(mtu) = mtu.map(|m| m as usize) else {
+        let Some(mtu) = mtu.map(|m| g.opts.fragment_mtu(m, self.v6()) as usize) else {
             return Ok(());
         };
         let v6 = self.v6();
@@ -1993,9 +1993,8 @@ impl Socket for IcmpSocket {
         if crate::mcast::handles(level, name) {
             return g.opts.get_mcast(&self.net, level, name, out);
         }
-        if (level, name) == (SOL_IPV6, Ipv6Option::IPV6_PATHMTU.0) {
-            let mtu = g.peer.and_then(|p| self.net.mtu_to(p));
-            return SockOpts::path_mtu(out, mtu);
+        if let Some(result) = g.opts.get_mtu(&self.net, g.peer, level, name, out) {
+            return result;
         }
         g.opts.get(level, name, out)
     }
