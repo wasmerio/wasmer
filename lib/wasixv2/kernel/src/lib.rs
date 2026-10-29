@@ -205,7 +205,7 @@ pub struct Kernel {
     /// `kernel.random.boot_id`.
     boot_id: [u8; 16],
     // ---- thr ----
-    futexes: futex::Futexes,
+    futexes: Arc<futex::Futexes>,
     // ---- proc ----
     /// The process tree: parents, zombies and vfork relations.
     procs: process::Procs,
@@ -488,7 +488,7 @@ impl Kernel {
             vsock: Arc::default(),
             shm: None,
             vfs,
-            futexes: futex::Futexes::default(),
+            futexes: Arc::default(),
             procs,
             pids,
             binfmt: Arc::new(process::WasmMagic),

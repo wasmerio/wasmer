@@ -1976,6 +1976,22 @@ impl Kernel {
         options: WaitOptions,
         ru: RusagePtr,
     ) -> SysResult<i32> {
+        self.waitid_result(caller, which, upid, infop, options, ru, true)
+            .await
+            .map(|_| 0)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) async fn waitid_result(
+        &self,
+        caller: &Caller<'_>,
+        which: Idtype,
+        upid: Pid,
+        infop: SiginfoPtr,
+        options: WaitOptions,
+        ru: RusagePtr,
+        report_empty: bool,
+    ) -> SysResult<bool> {
         let options = options.0;
         if options & !WAIT_KNOWN != 0 {
             return Err(Errno::EINVAL.into());
@@ -2009,6 +2025,7 @@ impl Kernel {
         // pid namespace's dying init nothing to wait for.
         self.unhash_reaped();
         self.pid_ns_progress();
+        let ready = found.is_some();
         let (info, usage) = match found {
             Some((pid, exit, child)) => {
                 let usage = child.usage_both();
@@ -2025,13 +2042,16 @@ impl Kernel {
                 Rusage::default(),
             ),
         };
+        if !ready && !report_empty {
+            return Ok(false);
+        }
         if !ru.is_null() {
             write_value(caller.memory(), ru, &usage).await?;
         }
         if !infop.is_null() {
             write_value(caller.memory(), infop, &info).await?;
         }
-        Ok(0)
+        Ok(ready)
     }
 
     /// One pass of `do_wait`: a child to report, `Ok(None)` for `WNOHANG` when none is,

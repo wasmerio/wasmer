@@ -80,6 +80,11 @@ pub(crate) const SUPPORTED: &[IoUringOp] = &[
     IoUringOp::IORING_OP_SEND_ZC,
     IoUringOp::IORING_OP_SENDMSG_ZC,
     IoUringOp::IORING_OP_MSG_RING,
+    IoUringOp::IORING_OP_FUTEX_WAIT,
+    IoUringOp::IORING_OP_FUTEX_WAKE,
+    IoUringOp::IORING_OP_FUTEX_WAITV,
+    IoUringOp::IORING_OP_WAITID,
+    IoUringOp::IORING_OP_URING_CMD,
 ];
 
 /// `SQE_VALID_FLAGS`.
@@ -129,6 +134,7 @@ pub(crate) struct Req {
     msg_header: Option<wasixv2_abi::UserMsghdr>,
     msg_len: u32,
     zc_notif: Option<(u64, bool)>,
+    queue_noticed: Option<Arc<std::sync::atomic::AtomicBool>>,
 }
 
 /// A link timeout and its armed timer.
@@ -139,6 +145,10 @@ struct LinkTimeout {
 
 /// What a waiting request waits for.
 pub(crate) enum Waiting {
+    Futex {
+        req: Req,
+        queued: crate::futex::UringWait,
+    },
     /// Armed on its file's queues; a wakeup makes it task work.
     Armed {
         req: Req,
@@ -164,7 +174,8 @@ pub(crate) enum Waiting {
 impl Waiting {
     fn req(&self) -> &Req {
         match self {
-            Waiting::Armed { req, .. }
+            Waiting::Futex { req, .. }
+            | Waiting::Armed { req, .. }
             | Waiting::Poll { req, .. }
             | Waiting::Timeout { req, .. } => req,
         }
@@ -172,7 +183,8 @@ impl Waiting {
 
     fn into_req(self) -> Req {
         match self {
-            Waiting::Armed { req, .. }
+            Waiting::Futex { req, .. }
+            | Waiting::Armed { req, .. }
             | Waiting::Poll { req, .. }
             | Waiting::Timeout { req, .. } => req,
         }
@@ -183,7 +195,7 @@ impl Waiting {
         match self {
             Waiting::Poll { req, events, .. } => Some((req.sqe.opcode, *events)),
             Waiting::Armed { req, .. } => Some((req.sqe.opcode, PollMask::empty())),
-            Waiting::Timeout { .. } => None,
+            Waiting::Timeout { .. } | Waiting::Futex { .. } => None,
         }
     }
 }
@@ -241,6 +253,7 @@ impl Req {
             msg_header: None,
             msg_len: 0,
             zc_notif: None,
+            queue_noticed: None,
         }
     }
 
@@ -277,12 +290,16 @@ struct Entry {
     ctx: Weak<Ctx>,
     id: u64,
     events: PollMask,
+    noticed: Option<Arc<std::sync::atomic::AtomicBool>>,
 }
 
 impl WaitEntry for Entry {
     fn wake(&self, events: PollMask) -> bool {
         if !events.is_empty() && (events & self.events).is_empty() {
             return false;
+        }
+        if let Some(noticed) = &self.noticed {
+            noticed.store(true, std::sync::atomic::Ordering::Release);
         }
         if let Some(ctx) = self.ctx.upgrade() {
             ctx.woken(self.id);
@@ -300,6 +317,7 @@ fn register(ctx: &Ctx, file: &OpenFile, id: u64, events: PollMask) -> (PollMask,
             ctx: ctx.me.clone(),
             id,
             events,
+            noticed: None,
         };
         registrations.push(queue.add(Arc::new(entry)));
     };
@@ -425,6 +443,22 @@ pub(crate) fn expired_timeouts(state: &mut State) -> Vec<Waiting> {
 /// From the timer driver: a waiting request's file woke it. An armed request becomes task
 /// work; a poll that finds its events completes, or, multishot, posts and waits on.
 pub(crate) fn handle_wakeup(ctx: &Ctx, id: u64) {
+    let futex = {
+        let state = ctx.state.lock_or_recover();
+        match state.waiting.get(&id) {
+            Some(Waiting::Futex { queued, .. }) => Some(queued.ready()),
+            _ => None,
+        }
+    };
+    if let Some(result) = futex {
+        if let Some(res) = result
+            && let Some(waiting) = ctx.take_waiting(id)
+        {
+            ctx.finish(waiting.into_req(), res, 0, false);
+        }
+        return;
+    }
+
     let poll = {
         let state = ctx.state.lock_or_recover();
         match state.waiting.get(&id) {
@@ -696,6 +730,10 @@ impl Kernel {
     ) -> Result<Outcome, Errno> {
         let sqe = req.sqe;
         match IoUringOp(sqe.opcode) {
+            IoUringOp::IORING_OP_FUTEX_WAIT
+            | IoUringOp::IORING_OP_FUTEX_WAKE
+            | IoUringOp::IORING_OP_FUTEX_WAITV => self.op_futex(caller, ctx, req).await,
+            IoUringOp::IORING_OP_WAITID => self.op_waitid(caller, ctx, req).await,
             IoUringOp::IORING_OP_MSG_RING => self.op_msg_ring(caller, ctx, req),
             IoUringOp::IORING_OP_SPLICE | IoUringOp::IORING_OP_TEE => {
                 self.op_splice(caller, ctx, req).await
@@ -831,6 +869,108 @@ impl Kernel {
                 Ok(Outcome::of(kbuf::remove(ctx, &sqe).map_err(SysErr::from)))
             }
             _ => self.op_misc(caller, ctx, req).await,
+        }
+    }
+
+    async fn op_futex(
+        &self,
+        caller: &Caller<'_>,
+        ctx: &Ctx,
+        req: &mut Req,
+    ) -> Result<Outcome, Errno> {
+        let s = req.sqe;
+        let vector = IoUringOp(s.opcode) == IoUringOp::IORING_OP_FUTEX_WAITV;
+        if s.buf_index != 0 || s.splice_fd_in != 0 || s.op_flags != 0 {
+            return Err(Errno::EINVAL);
+        }
+        let addr = u32::try_from(s.addr).map_err(|_| Errno::EFAULT)?;
+        let queued = if vector {
+            if s.fd != 0 || s.off != 0 || s.addr3 != 0 {
+                return Err(Errno::EINVAL);
+            }
+            self.uring_futex_waitv(caller, ctx.me.clone(), req.id, addr, s.len)
+                .await
+        } else {
+            if s.len != 0 {
+                return Err(Errno::EINVAL);
+            }
+            let value = u32::try_from(s.off).map_err(|_| Errno::EINVAL)?;
+            let mask = u32::try_from(s.addr3).map_err(|_| Errno::EINVAL)?;
+            if IoUringOp(s.opcode) == IoUringOp::IORING_OP_FUTEX_WAKE {
+                return Ok(Outcome::of(
+                    self.sys_futex_wake(
+                        caller,
+                        GuestPtrMut::new(addr),
+                        mask,
+                        value as i32,
+                        wasixv2_abi::Futex2Flags(s.fd as u32),
+                    )
+                    .await,
+                ));
+            }
+            self.uring_futex_wait(
+                caller,
+                ctx.me.clone(),
+                req.id,
+                addr,
+                value,
+                mask,
+                s.fd as u32,
+            )
+            .await
+        };
+        match queued {
+            Ok(queued) => {
+                let req = std::mem::replace(req, req.taken());
+                Ok(Outcome::Wait(Box::new(Waiting::Futex { req, queued })))
+            }
+            Err(err) => Ok(Outcome::of(Err(err))),
+        }
+    }
+
+    async fn op_waitid(
+        &self,
+        caller: &Caller<'_>,
+        ctx: &Ctx,
+        req: &mut Req,
+    ) -> Result<Outcome, Errno> {
+        use wasixv2_abi::{Idtype, WaitOptions};
+        let s = req.sqe;
+        if s.addr != 0 || s.buf_index != 0 || s.addr3 != 0 || s.op_flags != 0 {
+            return Err(Errno::EINVAL);
+        }
+        let noticed = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let entry = Entry {
+            ctx: ctx.me.clone(),
+            id: req.id,
+            events: PollMask::READABLE,
+            noticed: Some(noticed.clone()),
+        };
+        // io_uring/waitid.c:io_waitid: queue before __do_wait to close the exit race.
+        let registration = self.procs.changed.add(Arc::new(entry));
+        let options = WaitOptions(s.splice_fd_in as u32);
+        let info = GuestPtrMut::new(s.off as u32);
+        let result = self
+            .waitid_result(
+                caller,
+                Idtype(s.len as i32),
+                s.fd,
+                info,
+                options | WaitOptions::WNOHANG,
+                GuestPtrMut::NULL,
+                options.contains(WaitOptions::WNOHANG),
+            )
+            .await;
+        match result {
+            Ok(false) if !options.contains(WaitOptions::WNOHANG) => {
+                req.queue_noticed = Some(noticed);
+                let req = std::mem::replace(req, req.taken());
+                Ok(Outcome::Wait(Box::new(Waiting::Armed {
+                    req,
+                    registrations: vec![registration],
+                })))
+            }
+            result => Ok(Outcome::of(result.map(|_| 0))),
         }
     }
 
@@ -1144,6 +1284,10 @@ impl Kernel {
                     .await
                     .map(|n| n as i32)
                 }
+            }
+            IoUringOp::IORING_OP_URING_CMD => {
+                let file = self.req_file(caller, ctx, req)?;
+                self.uring_socket_cmd(caller, file, &s).await
             }
             IoUringOp::IORING_OP_SOCKET => {
                 if s.addr != 0 || s.op_flags != 0 || s.buf_index != 0 {
@@ -2142,13 +2286,15 @@ fn arm_on(ctx: &Arc<Ctx>, mut req: Req, targets: Vec<(Arc<OpenFile>, PollMask)>)
 /// Keeps a request that waits for its wakeup or timer, with its link timeout armed.
 fn wait(ctx: &Arc<Ctx>, mut waiting: Waiting) {
     let req = match &mut waiting {
-        Waiting::Armed { req, .. } | Waiting::Poll { req, .. } | Waiting::Timeout { req, .. } => {
-            req
-        }
+        Waiting::Futex { req, .. }
+        | Waiting::Armed { req, .. }
+        | Waiting::Poll { req, .. }
+        | Waiting::Timeout { req, .. } => req,
     };
     let id = req.id;
     arm_link_timeout(ctx, req);
-    let poll = matches!(waiting, Waiting::Poll { .. });
+    let noticed = req.queue_noticed.clone();
+    let poll = matches!(waiting, Waiting::Poll { .. } | Waiting::Futex { .. });
     let fired = {
         let mut state = ctx.state.lock_or_recover();
         state.waiting.insert(id, waiting);
@@ -2159,7 +2305,7 @@ fn wait(ctx: &Arc<Ctx>, mut waiting: Waiting) {
         ctx.finish_waiting(waiting, 0);
     }
     // A wakeup before the poll was in the table found nothing: look again.
-    if poll {
+    if poll || noticed.is_some_and(|flag| flag.load(std::sync::atomic::Ordering::Acquire)) {
         ctx.woken(id);
     }
 }

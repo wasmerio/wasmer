@@ -591,12 +591,40 @@ impl Kernel {
         addr: SockaddrPtr,
         addrlen: SocklenPtr,
     ) -> SysResult<i32> {
-        let raw = match self.any_socket(caller, fd)? {
-            AnySock::Inet((_, sock)) => socket::encode(sock.socket.local_addr()?),
-            AnySock::Unix(_, sock) => sock.local_addr(),
-            AnySock::Netlink(_, nl) => nl.local_addr(),
-            AnySock::Packet(_, p) => p.local_addr(),
-            AnySock::Vsock(_, v) => v.local_addr(),
+        let file = self.file(caller.task(), fd)?;
+        self.getname_file(caller, file, false, addr, addrlen).await
+    }
+
+    pub(crate) async fn getname_file(
+        &self,
+        caller: &Caller<'_>,
+        file: Arc<OpenFile>,
+        peer: bool,
+        addr: SockaddrPtr,
+        addrlen: SocklenPtr,
+    ) -> SysResult<i32> {
+        let raw = match any_socket_file(file)? {
+            AnySock::Inet((_, sock)) => socket::encode(if peer {
+                sock.socket.peer_addr()?
+            } else {
+                sock.socket.local_addr()?
+            }),
+            AnySock::Unix(_, sock) => {
+                if peer {
+                    sock.peer_addr()?
+                } else {
+                    sock.local_addr()
+                }
+            }
+            AnySock::Netlink(_, nl) => {
+                if peer {
+                    nl.peer_addr()
+                } else {
+                    nl.local_addr()
+                }
+            }
+            AnySock::Packet(_, p) => if peer { p.peer_addr() } else { p.local_addr() },
+            AnySock::Vsock(_, v) => if peer { v.peer_addr()? } else { v.local_addr() },
         };
         move_addr_to_user(caller, &raw, addr, addrlen).await?;
         Ok(0)
@@ -1358,8 +1386,19 @@ impl Kernel {
         value: UserSlice,
     ) -> SysResult<i32> {
         // `optmem_max`, as far as anything reads (a `struct group_filter` of 64 sources).
-        let mut value = value.copy_in(caller.memory(), OPTMEM_MAX).await?;
+        let value = value.copy_in(caller.memory(), OPTMEM_MAX).await?;
         let any = self.any_socket(caller, fd)?;
+        self.set_option_on(caller, any, level, name, value).await
+    }
+
+    async fn set_option_on(
+        &self,
+        caller: &Caller<'_>,
+        any: AnySock,
+        level: SocketLevel,
+        name: i32,
+        mut value: Vec<u8>,
+    ) -> SysResult<i32> {
         if level == SocketLevel::SOL_SCTP
             && let AnySock::Inet((file, sock)) = &any
             && let Some(result) = self.sctp_setsockopt(caller, file, sock, name, &value).await
@@ -1527,8 +1566,38 @@ impl Kernel {
                 .sctp_getsockopt(caller, sock, name, len, (optval, optlen))
                 .await;
         }
+        let out = self.option_value(caller, &any, level, name, len)?;
+        caller.memory().write(optval.addr(), &out).await?;
+        write_value(caller.memory(), optlen, &(out.len() as u32)).await?;
+        Ok(0)
+    }
+
+    fn option_value(
+        &self,
+        caller: &Caller<'_>,
+        any: &AnySock,
+        level: SocketLevel,
+        name: i32,
+        len: usize,
+    ) -> SysResult<Vec<u8>> {
+        if level == SocketLevel::SOL_SOCKET && SocketOption(name) == SocketOption::SO_PEERGROUPS {
+            let peer = match any {
+                AnySock::Unix(_, sock) => sock.peer_cred(),
+                _ => None,
+            }
+            .ok_or(Errno::ENODATA)?;
+            if len < peer.groups.len() * 4 {
+                return Err(Errno::ERANGE.into());
+            }
+            let ns = self.cred(caller).user_ns;
+            return Ok(peer
+                .groups
+                .iter()
+                .flat_map(|&gid| ns.munged_gid(gid).to_le_bytes())
+                .collect());
+        }
         let len = len.min(4096);
-        let fixed = match &any {
+        let fixed = match any {
             _ if level == SocketLevel::SOL_SOCKET && timeout_option(name).is_some() => {
                 Some(timeout_value(any.timeouts(), name))
             }
@@ -1555,7 +1624,7 @@ impl Kernel {
             AnySock::Vsock(..) => return Err(Errno::ENOPROTOOPT.into()),
             _ => return Err(Errno::EOPNOTSUPP.into()),
         };
-        let (out, n) = match (fixed, &any) {
+        let (mut out, n) = match (fixed, any) {
             (Some(value), _) => {
                 let n = value.len().min(len);
                 (value, n)
@@ -1573,9 +1642,8 @@ impl Kernel {
             }
             (None, _) => unreachable!("only IP sockets defer to the protocol"),
         };
-        caller.memory().write(optval.addr(), &out[..n]).await?;
-        write_value(caller.memory(), optlen, &(n as u32)).await?;
-        Ok(0)
+        out.truncate(n);
+        Ok(out)
     }
 
     /// The program `SO_ATTACH_FILTER` attached to a socket, empty for none.
@@ -1665,6 +1733,77 @@ impl Kernel {
         let len = iovecs.iter().map(|iov| iov.iov_len as usize).sum();
         self.send_from(caller, &sock, &GuestIov { iovecs, len }, None, &[], flags)
             .await
+    }
+
+    /// io_uring/cmd_net.c:io_uring_cmd_sock. Socket option lengths are values in
+    /// the SQE; GETSOCKOPT reports the actual length in cqe.res.
+    pub(crate) async fn uring_socket_cmd(
+        &self,
+        caller: &Caller<'_>,
+        file: Arc<OpenFile>,
+        s: &wasixv2_abi::IoUringSqe,
+    ) -> SysResult<i32> {
+        let cmd = s.off as u32;
+        if s.off >> 32 != 0 || s.op_flags & !1 != 0 {
+            return Err(Errno::EINVAL.into());
+        }
+        let any = any_socket_file(file.clone()).map_err(|_| Errno::EOPNOTSUPP)?;
+        match cmd {
+            0 | 1 => match any {
+                AnySock::Inet((_, sock)) => Ok(if cmd == 0 {
+                    sock.socket.input_len()?
+                } else {
+                    sock.socket.output_len()?
+                } as i32),
+                _ => Err(Errno::EOPNOTSUPP.into()),
+            },
+            2 => {
+                let level = SocketLevel(s.addr as u32 as i32);
+                let name = (s.addr >> 32) as i32;
+                if level != SocketLevel::SOL_SOCKET {
+                    return Err(Errno::EOPNOTSUPP.into());
+                }
+                let len = usize::try_from(s.splice_fd_in).map_err(|_| Errno::EINVAL)?;
+                let value = self.option_value(caller, &any, level, name, len)?;
+                let addr = u32::try_from(s.addr3).map_err(|_| Errno::EFAULT)?;
+                caller.memory().write(addr, &value).await?;
+                Ok(value.len() as i32)
+            }
+            3 => {
+                let addr = u32::try_from(s.addr3).map_err(|_| Errno::EFAULT)?;
+                let len = u32::try_from(s.splice_fd_in).map_err(|_| Errno::EINVAL)?;
+                let value = UserSlice::new(addr, len)
+                    .copy_in(caller.memory(), 4096)
+                    .await?;
+                self.set_option_on(
+                    caller,
+                    any,
+                    SocketLevel(s.addr as u32 as i32),
+                    (s.addr >> 32) as i32,
+                    value,
+                ).await
+            }
+            5 => {
+                if s.ioprio != 0
+                    || s.len != 0
+                    || s.op_flags != 0
+                    || !(0..=1).contains(&s.splice_fd_in)
+                {
+                    return Err(Errno::EINVAL.into());
+                }
+                let addr = u32::try_from(s.addr).map_err(|_| Errno::EFAULT)?;
+                let len = u32::try_from(s.addr3).map_err(|_| Errno::EFAULT)?;
+                self.getname_file(
+                    caller,
+                    file,
+                    s.splice_fd_in != 0,
+                    GuestPtrMut::new(addr),
+                    GuestPtrMut::new(len),
+                )
+                .await
+            }
+            _ => Err(Errno::EOPNOTSUPP.into()),
+        }
     }
 
     /// `io_sendmsg`: `sendmsg` of the msghdr at `msg` on the socket `file`.
