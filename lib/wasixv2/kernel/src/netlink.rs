@@ -1,4 +1,5 @@
-//! `AF_NETLINK` sockets with `NETLINK_ROUTE` and `NETLINK_SOCK_DIAG`. Route sockets carry the
+//! `AF_NETLINK` routing, socket diagnostics, generic control, uevent and user sockets.
+//! Route sockets carry the
 //! links, addresses and routes of the socket's network namespace, read (`getifaddrs`, `if_nameindex`, `ip link`, `ip addr`, `ip route`) and
 //! changed (`ip link add/set/del`, `ip addr add/del`, `ip route add/del`); [`rtnl`] answers the
 //! requests. Requests are parsed as `netlink_rcv_skb` and `rtnetlink_rcv_msg` do, and replies
@@ -10,9 +11,9 @@
 //! device, and may drop the reply or cut it short. Diag sockets dump the namespace's IP and
 //! Unix sockets for `ss` ([`diag`]).
 //!
-//! Not yet: multicast groups (no change is announced), neighbours, rules, traffic control and
-//! namespace ids (`EOPNOTSUPP`, after the `CAP_NET_ADMIN` check every change makes), and other
-//! netlink families.
+//! Generic sockets expose nlctrl, uevent subscriptions have no hotplug producer, and user
+//! sockets exchange datagrams within their namespace. Route-change multicast notifications
+//! and packet-level traffic control remain outside this message transport.
 
 mod diag;
 mod generic;
@@ -104,7 +105,7 @@ struct Queue {
 
 pub(crate) struct NetlinkSocket {
     me: Weak<NetlinkSocket>,
-    /// `NETLINK_ROUTE` or `NETLINK_SOCK_DIAG`.
+    /// The protocol, which has its own port-id namespace.
     protocol: i32,
     queue: Mutex<Queue>,
     wait: WaitQueue,
@@ -639,7 +640,6 @@ impl NetlinkSocket {
 
     /// `netlink_connect`. Pointing a socket at a process or a multicast group needs
     /// `CAP_NET_ADMIN` for rtnetlink, which has no `NL_CFG_F_NONROOT_SEND`.
-    // TODO: messages to another netlink socket; sends always reach the kernel.
     pub(crate) fn connect(&self, raw: &[u8], net_admin: bool) -> Result<(), Errno> {
         let family = match raw.get(..2) {
             Some(f) => u16::from_le_bytes([f[0], f[1]]) as i32,
@@ -711,7 +711,7 @@ impl NetlinkSocket {
     }
 }
 
-/// The kernel's own netlink address, the source of every reply.
+/// The kernel's own netlink address, the source of kernel-generated replies.
 pub(crate) fn kernel_addr() -> Vec<u8> {
     sockaddr_nl(0)
 }
@@ -847,7 +847,7 @@ impl FileObject for NetlinkSocket {
 }
 
 impl Kernel {
-    /// `netlink_create` for `NETLINK_ROUTE` and `NETLINK_SOCK_DIAG`.
+    /// `netlink_create` for the supported message protocols.
     pub(crate) fn netlink_socket(
         &self,
         caller: &Caller<'_>,
