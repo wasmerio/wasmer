@@ -2046,3 +2046,28 @@ fn unix_streams_carry_an_out_of_band_byte() {
         Errno::EOPNOTSUPP
     );
 }
+
+/// net/socket.c __sys_socketpair creates the socket before calling ->socketpair;
+/// inet_create errors therefore take precedence over sock_no_socketpair.
+#[test]
+fn socketpair_validates_the_protocol_before_pair_support() {
+    let (kernel, task, memory) = networked();
+    let caller = Caller::new(task, &memory);
+    for (kind, protocol, error) in [
+        (3, 0, Errno::EPROTONOSUPPORT),
+        (DGRAM, 6, Errno::EPROTONOSUPPORT),
+        (STREAM, 1, Errno::EPROTONOSUPPORT),
+        (DGRAM, 0, Errno::EOPNOTSUPP),
+    ] {
+        assert_eq!(
+            errno(block_on(kernel.socketpair(
+                &caller,
+                AddressFamily::AF_INET,
+                kind,
+                protocol,
+                GuestPtrMut::new(0x100)
+            ))),
+            error
+        );
+    }
+}

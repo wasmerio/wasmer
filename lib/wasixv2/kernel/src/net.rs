@@ -301,10 +301,13 @@ impl Kernel {
         let (kind, flags) = socket_type(r#type)?;
         match family {
             AddressFamily::AF_UNIX => {}
-            AddressFamily::AF_INET | AddressFamily::AF_INET6 => {
+            _ => {
+                // net/socket.c __sys_socketpair calls sock_create before
+                // ->socketpair, preserving protocol and permission errors.
+                self.create_socket(caller, family, kind, protocol, flags)
+                    .await?;
                 return Err(Errno::EOPNOTSUPP.into());
             }
-            _ => return Err(Errno::EAFNOSUPPORT.into()),
         }
         let a = self.unix_socket(caller, kind, protocol)?;
         let b = self.unix_socket(caller, kind, protocol)?;
