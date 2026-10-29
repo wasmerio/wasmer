@@ -1134,7 +1134,7 @@ fn statmount_and_listmount_hide_mounts_outside_the_root_from_users() {
 
 /// The machine's memory with a low guard of `.1` bytes, where reads go through and writes
 /// fault, as the execution layer's (DESIGN.md, "Guard page at 0").
-struct Guarded<'a>(&'a ForkableMemory, u32);
+pub(super) struct Guarded<'a>(pub(super) &'a dyn UserMemory, pub(super) u32);
 
 impl UserMemory for Guarded<'_> {
     fn read<'a>(&'a self, addr: u32, buf: &'a mut [u8]) -> LocalFuture<'a, Result<(), Fault>> {

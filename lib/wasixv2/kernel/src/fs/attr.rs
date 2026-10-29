@@ -66,7 +66,7 @@ impl Kernel {
         {
             return Err(Errno::EINVAL.into());
         }
-        let path = read_path(caller.memory(), filename).await?;
+        let path = super::read_path_maybe_null(caller.memory(), filename, flags).await?;
         let env = self.env(caller);
         let target = self
             .resolve_at(caller, &env, dfd, &path, flags, true)
@@ -337,7 +337,7 @@ impl Kernel {
         if !(flags & !(AtFlags::AT_SYMLINK_NOFOLLOW | AtFlags::AT_EMPTY_PATH)).is_empty() {
             return Err(Errno::EINVAL.into());
         }
-        let path = read_path(caller.memory(), pathname).await?;
+        let path = super::read_path_maybe_null(caller.memory(), pathname, flags).await?;
         Ok(self
             .resolve_at(caller, env, dfd, &path, flags, follow)
             .await?)
