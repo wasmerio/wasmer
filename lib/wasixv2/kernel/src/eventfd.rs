@@ -70,6 +70,20 @@ impl EventFd {
     }
 }
 
+impl EventFd {
+    /// `eventfd_signal`: adds one to the count, as a completion signals its eventfd, from where
+    /// no wait is possible; a count at its maximum stays there.
+    pub(crate) fn signal(&self) {
+        {
+            let mut count = self.count.lock_or_recover();
+            if *count < MAX {
+                *count += 1;
+            }
+        }
+        self.wait.wake(PollMask::READABLE);
+    }
+}
+
 impl Pollable for EventFd {
     /// `eventfd_poll`.
     fn poll(&self, mut table: Option<&mut PollTable<'_>>) -> PollMask {
@@ -100,6 +114,20 @@ impl FileObject for EventFd {
 }
 
 impl Kernel {
+    /// `eventfd_ctx_fdget`: the eventfd open as `fd`; `EBADF` for no file, `EINVAL` for a file
+    /// that is not an eventfd.
+    pub(crate) fn eventfd_ctx_fdget(
+        &self,
+        caller: &Caller<'_>,
+        fd: Fd,
+    ) -> Result<Arc<OpenFile>, Errno> {
+        let file = self.file(caller.task(), fd)?;
+        match file.downcast::<EventFd>() {
+            Some(_) => Ok(file),
+            None => Err(Errno::EINVAL),
+        }
+    }
+
     /// `do_eventfd`.
     pub(crate) async fn sys_eventfd2(
         &self,

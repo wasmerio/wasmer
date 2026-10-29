@@ -12,6 +12,7 @@ use wasixv2_vfs::{
 
 use super::{Source, text};
 use crate::{
+    aio::AioSysctl,
     cred::Cred,
     file::NrOpen,
     mm::VmSysctls,
@@ -146,6 +147,8 @@ const STATIC: &[(usize, &str, Static)] = &[
     (14, "max_map_count", Static::File(text::Global::MaxMapCount)),
     (ROOT, "keys", Static::File(text::Global::Keys)),
     (ROOT, "key-users", Static::File(text::Global::KeyUsers)),
+    (15, "aio-nr", Static::File(text::Global::AioNr)),
+    (15, "aio-max-nr", Static::File(text::Global::AioMaxNr)),
 ];
 
 /// `/proc/sys/user/max_*_namespaces` for `kind`.
@@ -797,6 +800,7 @@ impl Node for ProcNode {
                         | text::Global::LeaseBreakTime => {
                             Some(Write::Fs(self.source.sysctls.clone(), file))
                         }
+                        text::Global::AioMaxNr => Some(Write::AioMaxNr(self.source.aio.clone())),
                         text::Global::PipeMaxSize => {
                             Some(Write::PipeMaxSize(self.source.pipe_max_size.clone()))
                         }
@@ -927,6 +931,8 @@ enum Write {
     NrOpen(Arc<NrOpen>),
     /// `fs.pipe-max-size`.
     PipeMaxSize(Arc<PipeMaxSize>),
+    /// `fs.aio-max-nr`.
+    AioMaxNr(Arc<AioSysctl>),
     /// One of the `vm` tunables.
     Vm(Arc<VmSysctls>, text::Global),
     /// `kernel.tainted`, if the opener may add flags.
@@ -982,6 +988,7 @@ impl Handle for FileHandle {
             Write::NsLastPid(ns, true) => ns.set_last_pid(sysctl_int(data)?)?,
             Write::NrOpen(nr_open) => nr_open.set(sysctl_int(data)?)?,
             Write::PipeMaxSize(max) => max.set(sysctl_int(data)?)?,
+            Write::AioMaxNr(aio) => aio.set_max(sysctl_int(data)?),
             Write::Vm(vm, file) => match file {
                 text::Global::Overcommit => vm.set_overcommit_memory(sysctl_i32(data)?)?,
                 text::Global::OvercommitRatio => vm.set_overcommit_ratio(sysctl_i32(data)?),

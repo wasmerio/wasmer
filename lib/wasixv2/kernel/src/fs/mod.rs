@@ -6,7 +6,7 @@ pub(crate) mod dnotify;
 mod fifo;
 mod fsopen;
 pub(crate) mod inotify;
-mod io;
+pub(crate) mod io;
 mod lock;
 pub(crate) mod mount;
 mod path;

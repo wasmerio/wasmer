@@ -70,6 +70,7 @@ impl Kernel {
             nr_open: self.nr_open.clone(),
             taint: self.taint.clone(),
             pipe_max_size: self.pipe_max_size.clone(),
+            aio: self.aio.clone(),
             vm: self.vm.clone(),
             keys: self.keys.clone(),
         };
@@ -151,6 +152,8 @@ struct Source {
     taint: Arc<Taint>,
     /// `fs.pipe-max-size`.
     pipe_max_size: Arc<PipeMaxSize>,
+    /// `fs.aio-nr` and `fs.aio-max-nr`.
+    aio: Arc<crate::aio::AioSysctl>,
     /// The `vm` tunables.
     vm: Arc<VmSysctls>,
     /// What `/proc/keys` and `/proc/key-users` show.

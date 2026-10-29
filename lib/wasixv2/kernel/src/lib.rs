@@ -4,6 +4,7 @@
 //! Knows nothing about the wasm engine, the layers, or concrete filesystem drivers and network
 //! backends.
 
+mod aio;
 mod chrdev;
 mod cputime;
 mod cred;
@@ -150,6 +151,8 @@ pub struct Kernel {
     taint: Arc<taint::Taint>,
     /// `fs.pipe-max-size`.
     pipe_max_size: Arc<pipe::PipeMaxSize>,
+    /// `fs.aio-nr` and `fs.aio-max-nr`.
+    aio: Arc<aio::AioSysctl>,
     /// `vm.overcommit_*` and `vm.max_map_count`.
     vm: Arc<mm::VmSysctls>,
     /// The internal shmem filesystem behind `memfd_create` (`shm_mnt`); without one,
@@ -332,6 +335,7 @@ impl Kernel {
             nr_open: Arc::default(),
             taint: Arc::default(),
             pipe_max_size: Arc::default(),
+            aio: Arc::default(),
             vm: Arc::default(),
             sigio,
             timers,
@@ -2624,6 +2628,58 @@ impl Syscalls for Kernel {
         flags: wasixv2_abi::EventfdFlags,
     ) -> SysResult<Fd> {
         self.sys_eventfd2(caller, count, flags).await
+    }
+
+    // ---- aio ----
+    async fn io_setup(
+        &self,
+        caller: &Caller<'_>,
+        nr_events: u32,
+        ctxp: wasixv2_abi::AioContextPtr,
+    ) -> SysResult<i32> {
+        self.sys_io_setup(caller, nr_events, ctxp).await
+    }
+
+    async fn io_destroy(
+        &self,
+        caller: &Caller<'_>,
+        ctx: wasixv2_abi::AioContext,
+    ) -> SysResult<i32> {
+        self.sys_io_destroy(caller, ctx).await
+    }
+
+    async fn io_submit(
+        &self,
+        caller: &Caller<'_>,
+        ctx_id: wasixv2_abi::AioContext,
+        nr: wasixv2_abi::Slong,
+        iocbpp: wasixv2_abi::ConstIocbPtrArray,
+    ) -> SysResult<i32> {
+        self.sys_io_submit(caller, ctx_id, nr, iocbpp).await
+    }
+
+    async fn io_cancel(
+        &self,
+        caller: &Caller<'_>,
+        ctx_id: wasixv2_abi::AioContext,
+        iocb: wasixv2_abi::IocbPtr,
+        result: wasixv2_abi::IoEventPtr,
+    ) -> SysResult<i32> {
+        self.sys_io_cancel(caller, ctx_id, iocb, result).await
+    }
+
+    async fn io_pgetevents_time64(
+        &self,
+        caller: &Caller<'_>,
+        ctx_id: wasixv2_abi::AioContext,
+        min_nr: wasixv2_abi::Slong,
+        nr: wasixv2_abi::Slong,
+        events: wasixv2_abi::IoEventArray,
+        timeout: KernelTimespecPtr,
+        usig: wasixv2_abi::ConstAioSigsetPtr,
+    ) -> SysResult<i32> {
+        self.sys_io_pgetevents(caller, ctx_id, min_nr, nr, events, timeout, usig)
+            .await
     }
 
     async fn ppoll_time64(

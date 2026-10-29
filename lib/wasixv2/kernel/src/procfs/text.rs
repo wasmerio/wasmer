@@ -55,6 +55,9 @@ pub(super) enum Global {
     DirNotifyEnable,
     LeasesEnable,
     LeaseBreakTime,
+    /// `fs.aio-nr`, `fs.aio-max-nr`.
+    AioNr,
+    AioMaxNr,
     /// `kernel.overflowuid`, `kernel.overflowgid`.
     OverflowUid,
     OverflowGid,
@@ -108,6 +111,7 @@ impl Global {
             | Self::DirNotifyEnable
             | Self::LeasesEnable
             | Self::LeaseBreakTime
+            | Self::AioMaxNr
             | Self::Tainted
             // Who may write these is the namespace's business, not the mode's
             // (`pid_table_root_permissions`, `set_permissions`): see `ProcNode::permission`.
@@ -194,6 +198,8 @@ pub(super) fn global(
         Global::DirNotifyEnable => line(&source.sysctls.dir_notify_enable().to_string()),
         Global::LeasesEnable => line(&source.sysctls.leases_enable().to_string()),
         Global::LeaseBreakTime => line(&source.sysctls.lease_break_time().to_string()),
+        Global::AioNr => line(&source.aio.nr().to_string()),
+        Global::AioMaxNr => line(&source.aio.max().to_string()),
         Global::OverflowUid | Global::OverflowGid => line(&OVERFLOW_ID.to_string()),
         Global::CapLastCap => line(&wasixv2_vfs::Cap::LAST.to_string()),
         Global::Tainted => line(&source.taint.get().to_string()),
