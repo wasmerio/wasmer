@@ -1210,10 +1210,7 @@ impl Node for ProcNode {
                         }
                         text::Global::Acct => Some(Write::Acct(self.source.acct.clone())),
                         text::Global::SeccompActionsLogged => {
-                            let may = opener
-                                .as_ref()
-                                .is_none_or(|cred| cred.capable_init(Cap::SysAdmin));
-                            Some(Write::Seccomp(self.source.seccomp_logging.clone(), may))
+                            Some(Write::Seccomp(self.source.clone(), options.task))
                         }
                         text::Global::Printk | text::Global::PrintkDevkmsg => {
                             Some(Write::Printk(self.source.printk.clone(), file, true))
@@ -1585,7 +1582,7 @@ struct FileHandle {
 /// What a writable file sets.
 enum Write {
     Acct(Arc<crate::acct::Acct>),
-    Seccomp(Arc<crate::seccomp::Logging>, bool),
+    Seccomp(Arc<Source>, u32),
     /// A task's name.
     Comm(Arc<Source>, Scope),
     /// `kernel.pid_max` of the opener's pid namespace.
@@ -1828,8 +1825,19 @@ impl Handle for FileHandle {
                 acct.parameters.lock_or_recover()[..values.len()].copy_from_slice(&values);
             }
 
-            Write::Seccomp(_, false) => return Err(Errno::EPERM),
-            Write::Seccomp(log, true) => log.set_names(data, offset)?,
+            Write::Seccomp(source, opener) => {
+                // Linux seccomp.c:write_actions_logged checks current credentials
+                // at write time, even for an fd opened before a capability drop.
+                let current = wasixv2_syscalls::current_task().map_or(*opener, |task| task.0);
+                if current != 0
+                    && !source
+                        .cred_of(current)
+                        .is_some_and(|cred| cred.capable_init(Cap::SysAdmin))
+                {
+                    return Err(Errno::EPERM);
+                }
+                source.seccomp_logging.set_names(data, offset)?;
+            }
             Write::Map(ns, kind, cred) => return ns.write_map(*kind, cred, offset, data),
             Write::Setgroups(ns) => return ns.write_setgroups(offset, data),
             // `timens_offsets_write` and `proc_timens_set_offset`.
