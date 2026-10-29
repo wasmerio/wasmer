@@ -267,6 +267,8 @@ struct Inner {
     established: bool,
     /// The inode of the socket's file once it has one (`sock_graft`; `sock_i_ino`).
     ino: u64,
+    /// The socket inode a path name made, and its filesystem's device (`unix_diag_vfs`).
+    vfs: Option<(u64, wasixv2_vfs::Device)>,
     /// The `SOL_SOCKET` options. `sk_sndbuf` bounds what this socket may have queued at its
     /// peer and a record's size; `SO_PASSCRED` asks for the sender's credentials.
     opts: SockOpts,
@@ -327,6 +329,30 @@ pub(crate) struct SeqEntry {
     pub(crate) addr: Option<Vec<u8>>,
 }
 
+/// What `unix_diag`'s `sk_diag_fill` reads of a socket.
+pub(crate) struct DiagEntry {
+    /// The socket's cookie (`sock_gen_cookie`), never reused.
+    pub(crate) cookie: u64,
+    pub(crate) ino: u64,
+    pub(crate) socket_type: SocketType,
+    /// `sk_state`: `TCP_LISTEN`, `TCP_ESTABLISHED` or `TCP_CLOSE`.
+    pub(crate) state: u8,
+    /// The bound address, family included.
+    pub(crate) addr: Option<Vec<u8>>,
+    pub(crate) vfs: Option<(u64, wasixv2_vfs::Device)>,
+    /// The peer's inode, if connected.
+    pub(crate) peer: Option<u64>,
+    /// A listener's queued connections, by their clients' inodes.
+    pub(crate) icons: Vec<u64>,
+    /// `unix_diag_rqlen`: a listener's queue and backlog, else `unix_inq_len` and
+    /// `unix_outq_len`.
+    pub(crate) rqlen: (u32, u32),
+    pub(crate) shutdown: u8,
+    pub(crate) uid: u32,
+    /// `SK_MEMINFO_*`.
+    pub(crate) meminfo: [u32; 9],
+}
+
 /// What a receive returns.
 pub(crate) struct Received {
     /// The bytes received: at most what the caller asked for.
@@ -379,6 +405,7 @@ impl Sock {
                 released: false,
                 established: false,
                 ino: 0,
+                vfs: None,
                 opts: SockOpts::unix(ty),
             }),
             wait: WaitQueue::new(),
@@ -439,6 +466,83 @@ impl Sock {
 
     fn lock(&self) -> MutexGuard<'_, Inner> {
         self.inner.lock_or_recover()
+    }
+
+    /// The socket as `unix_diag` reports it. Peers are looked at after this socket's lock is
+    /// gone, as `unix_peer_get` takes a reference first.
+    pub(crate) fn diag_entry(&self) -> DiagEntry {
+        const TCP_ESTABLISHED: u8 = 1;
+        const TCP_CLOSE: u8 = 7;
+        const TCP_LISTEN: u8 = 10;
+        let inner = self.lock();
+        let listening = inner.state == State::Listening;
+        let established = match self.kind {
+            Kind::Dgram => inner.established,
+            Kind::Stream | Kind::SeqPacket => inner.state == State::Connected,
+        };
+        let state = match (listening, established) {
+            (true, _) => TCP_LISTEN,
+            (false, true) => TCP_ESTABLISHED,
+            (false, false) => TCP_CLOSE,
+        };
+        // `unix_inq_len`: every byte for a stream or seqpacket socket, the first datagram's.
+        let inq = match self.kind {
+            Kind::Dgram => inner.rx.front().map_or(0, |m| m.data.len()),
+            Kind::Stream | Kind::SeqPacket => inner.rx_bytes,
+        };
+        let peer = inner.peer.as_ref().and_then(Weak::upgrade);
+        let embryos: Vec<_> = inner.accept.iter().cloned().collect();
+        let entry = DiagEntry {
+            cookie: self.id,
+            ino: inner.ino,
+            socket_type: self.kind.socket_type(),
+            state,
+            addr: inner.addr.clone(),
+            vfs: inner.vfs,
+            peer: None,
+            icons: Vec::new(),
+            rqlen: match listening {
+                true => (inner.accept.len() as u32, inner.backlog as u32),
+                false => (inq as u32, 0),
+            },
+            shutdown: inner.shutdown,
+            uid: self.owner.ucred.uid,
+            meminfo: [
+                inner.rx_bytes as u32,
+                inner.opts.rcvbuf as u32,
+                0,
+                inner.opts.sndbuf as u32,
+                0,
+                0,
+                0,
+                0,
+                0,
+            ],
+        };
+        drop(inner);
+        let outq = match (&peer, listening) {
+            (Some(peer), false) if self.kind != Kind::Dgram => peer.lock().rx_bytes,
+            _ => 0,
+        };
+        let icons = embryos
+            .iter()
+            .filter_map(|embryo| embryo.peer())
+            .map(|client| client.lock().ino)
+            .collect();
+        DiagEntry {
+            peer: peer.map(|p| p.lock().ino),
+            icons,
+            rqlen: match listening {
+                true => entry.rqlen,
+                false => (entry.rqlen.0, outq as u32),
+            },
+            meminfo: {
+                let mut m = entry.meminfo;
+                m[2] = outq as u32;
+                m
+            },
+            ..entry
+        }
     }
 
     /// The network namespace the socket was made in (`sock_net`).
@@ -1645,6 +1749,7 @@ impl Kernel {
             let _ = self.vfs.unlink(&env.cx(), &start, path).await;
             return Err(errno.into());
         }
+        sock.lock().vfs = Some((found.dentry.node().ino(), found.dentry.sb().dev));
         Ok(0)
     }
 

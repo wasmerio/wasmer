@@ -1,5 +1,5 @@
-//! `AF_NETLINK` sockets with `NETLINK_ROUTE`: links, addresses and routes of the socket's
-//! network namespace, read (`getifaddrs`, `if_nameindex`, `ip link`, `ip addr`, `ip route`) and
+//! `AF_NETLINK` sockets with `NETLINK_ROUTE` and `NETLINK_SOCK_DIAG`. Route sockets carry the
+//! links, addresses and routes of the socket's network namespace, read (`getifaddrs`, `if_nameindex`, `ip link`, `ip addr`, `ip route`) and
 //! changed (`ip link add/set/del`, `ip addr add/del`, `ip route add/del`); [`rtnl`] answers the
 //! requests. Requests are parsed as `netlink_rcv_skb` and `rtnetlink_rcv_msg` do, and replies
 //! are queued when the request is sent, so a non-blocking `recv` right after the `send` finds
@@ -7,12 +7,14 @@
 //! dropped and the next receive fails with `ENOBUFS` (`netlink_overrun`). A classic BPF
 //! filter the socket has attached (`SO_ATTACH_FILTER`) runs over each reply first, as
 //! `netlink_unicast` and `netlink_dump` run `sk_filter`: it sees the netlink messages with no
-//! device, and may drop the reply or cut it short.
+//! device, and may drop the reply or cut it short. Diag sockets dump the namespace's IP and
+//! Unix sockets for `ss` ([`diag`]).
 //!
 //! Not yet: multicast groups (no change is announced), neighbours, rules, traffic control and
 //! namespace ids (`EOPNOTSUPP`, after the `CAP_NET_ADMIN` check every change makes), and other
 //! netlink families.
 
+mod diag;
 mod rtnl;
 
 use std::{
@@ -42,6 +44,7 @@ use crate::{
 };
 
 const NETLINK_ROUTE: i32 = 0;
+const NETLINK_SOCK_DIAG: i32 = 4;
 /// `NLMSG_HDRLEN` and `NLMSG_ALIGNTO`.
 const NLMSG_HDR: usize = 16;
 const NLMSG_ALIGNTO: usize = 4;
@@ -82,6 +85,8 @@ struct Queue {
 }
 
 pub(crate) struct NetlinkSocket {
+    /// `NETLINK_ROUTE` or `NETLINK_SOCK_DIAG`.
+    protocol: i32,
     queue: Mutex<Queue>,
     wait: WaitQueue,
     /// The files that get I/O signals.
@@ -143,6 +148,9 @@ impl NetlinkSocket {
             }
             let msg = &rest[..header.len];
             let err = match header.flags & NLM_F_REQUEST != 0 && header.kind >= NLMSG_MIN_TYPE {
+                true if self.protocol == NETLINK_SOCK_DIAG => {
+                    self.diag_request(&header, &msg[NLMSG_HDR..], net_admin, sender)
+                }
                 true => self.request(&header, &msg[NLMSG_HDR..], net_admin, sender),
                 false => None,
             };
@@ -203,6 +211,31 @@ impl NetlinkSocket {
         };
         match answer {
             Ok(reply) if reply.is_empty() => None,
+            Ok(reply) => {
+                self.reply(reply);
+                None
+            }
+            Err(e) => Some(e),
+        }
+    }
+
+    /// `sock_diag_rcv_msg` for one request; queues any reply and returns the error to
+    /// acknowledge. Reading needs no capability; `net_admin` adds marks to the messages.
+    fn diag_request(
+        &self,
+        h: &Header,
+        payload: &[u8],
+        net_admin: bool,
+        sender: &dyn Sender,
+    ) -> Option<Errno> {
+        let r = rtnl::Request {
+            net: &self.net,
+            seq: h.seq,
+            port: self.port,
+            flags: h.flags,
+            sender,
+        };
+        match diag::request(&r, h.kind, payload, net_admin) {
             Ok(reply) => {
                 self.reply(reply);
                 None
@@ -351,7 +384,7 @@ impl NetlinkSocket {
         }
         match SocketOption(name) {
             SocketOption::SO_TYPE => int(SocketType::SOCK_RAW.0),
-            SocketOption::SO_PROTOCOL => int(NETLINK_ROUTE),
+            SocketOption::SO_PROTOCOL => int(self.protocol),
             SocketOption::SO_DOMAIN => int(AddressFamily::AF_NETLINK.0),
             SocketOption::SO_ERROR => int(self.queue().err.take().map_or(0, |e| e.0)),
             SocketOption::SO_SNDBUF => int(self.queue().sndbuf as i32),
@@ -511,7 +544,7 @@ impl FileObject for NetlinkSocket {
 }
 
 impl Kernel {
-    /// `netlink_create` for `NETLINK_ROUTE`.
+    /// `netlink_create` for `NETLINK_ROUTE` and `NETLINK_SOCK_DIAG`.
     pub(crate) fn netlink_socket(
         &self,
         caller: &Caller<'_>,
@@ -522,11 +555,12 @@ impl Kernel {
         if kind != SocketType::SOCK_RAW && kind != SocketType::SOCK_DGRAM {
             return Err(Errno::ESOCKTNOSUPPORT.into());
         }
-        if protocol != NETLINK_ROUTE {
+        if protocol != NETLINK_ROUTE && protocol != NETLINK_SOCK_DIAG {
             return Err(Errno::EPROTONOSUPPORT.into());
         }
         let net = self.ns(caller).net.clone();
         let socket = NetlinkSocket {
+            protocol,
             queue: Mutex::new(Queue {
                 sndbuf: BUF_DEFAULT,
                 rcvbuf: BUF_DEFAULT,
@@ -586,6 +620,7 @@ mod tests {
 
     fn socket_in(net: Arc<NetNs>) -> NetlinkSocket {
         NetlinkSocket {
+            protocol: NETLINK_ROUTE,
             queue: Mutex::new(Queue {
                 sndbuf: BUF_DEFAULT,
                 rcvbuf: BUF_DEFAULT,
@@ -1257,5 +1292,197 @@ mod tests {
             .find(|m| m.get(NLMSG_HDR + 1) == Some(&0))
             .unwrap();
         assert_eq!(attr(default, 12, RTA_DST), None);
+    }
+
+    /// The messages of a reply: (type, payload).
+    fn messages(reply: &[u8]) -> Vec<(u16, Vec<u8>)> {
+        let mut out = Vec::new();
+        let mut rest = reply;
+        while rest.len() >= NLMSG_HDR {
+            let len = u32::from_le_bytes(rest[..4].try_into().unwrap()) as usize;
+            let kind = u16::from_le_bytes([rest[4], rest[5]]);
+            out.push((kind, rest[NLMSG_HDR..len].to_vec()));
+            rest = &rest[len.next_multiple_of(NLMSG_ALIGNTO).min(rest.len())..];
+        }
+        out
+    }
+
+    fn diag_socket(net: Arc<NetNs>) -> NetlinkSocket {
+        NetlinkSocket {
+            protocol: NETLINK_SOCK_DIAG,
+            ..socket_in(net)
+        }
+    }
+
+    /// A `SOCK_DIAG_BY_FAMILY` dump request for `family` and `protocol` with `states`, and
+    /// `extra` after the request (attributes).
+    fn inet_dump(family: u8, protocol: u8, states: u32, extra: &[u8]) -> Vec<u8> {
+        let mut req = vec![family, protocol, 0, 0];
+        req.extend(states.to_le_bytes());
+        req.extend([0u8; 48]);
+        req.extend(extra);
+        let mut data = header((16 + req.len()) as u32, 20, NLM_F_REQUEST | NLM_F_DUMP);
+        data.extend(req);
+        data
+    }
+
+    #[test]
+    fn sock_diag_dumps_tcp_listeners_and_connections_from_the_port_table() {
+        use wasixv2_vnet::{Domain, SocketKind};
+        let net = net_ns();
+        let network = net.network.clone().unwrap();
+        let listener = network
+            .socket(Domain::Inet, SocketKind::Stream, 0, 1000)
+            .unwrap();
+        listener
+            .bind("127.0.0.1:8080".parse().unwrap(), false)
+            .unwrap();
+        listener.listen(5).unwrap();
+        listener.graft(77);
+        let client = network
+            .socket(Domain::Inet, SocketKind::Stream, 0, 1000)
+            .unwrap();
+        let _ = client.connect("127.0.0.1:8080".parse().unwrap());
+        // A bound UDP socket, which a TCP dump leaves out.
+        let udp = network
+            .socket(Domain::Inet, SocketKind::Datagram, 0, 0)
+            .unwrap();
+        udp.bind("127.0.0.1:5353".parse().unwrap(), false).unwrap();
+
+        let nl = diag_socket(net.clone());
+        let all = !0u32;
+        nl.send(&inet_dump(2, 6, all, &[]), false, &NoNamespaces)
+            .unwrap();
+        let reply = replies(&nl).concat();
+        let msgs = messages(&reply);
+        assert_eq!(msgs.last().unwrap().0, NLMSG_DONE);
+        let socks: Vec<_> = msgs[..msgs.len() - 1]
+            .iter()
+            .map(|(_, p)| p.clone())
+            .collect();
+        // The listener and both ends of the connection.
+        assert_eq!(socks.len(), 3, "{msgs:?}");
+        let listen = socks.iter().find(|p| p[1] == 10).expect("a listener");
+        assert_eq!(listen[0], 2);
+        assert_eq!(&listen[4..6], &8080u16.to_be_bytes());
+        assert_eq!(&listen[8..12], &[127, 0, 0, 1]);
+        // rqueue, wqueue (the backlog), uid, inode.
+        let word = |p: &[u8], at: usize| u32::from_le_bytes(p[at..at + 4].try_into().unwrap());
+        assert_eq!(word(listen, 56), 1, "one connection queued");
+        assert_eq!(word(listen, 60), 5);
+        assert_eq!(word(listen, 64), 1000);
+        assert_eq!(word(listen, 68), 77);
+        assert!(socks.iter().filter(|p| p[1] == 1).count() == 2);
+
+        // Only listeners; then a port filter in bytecode: `sport = :8080`.
+        nl.send(&inet_dump(2, 6, 1 << 10, &[]), false, &NoNamespaces)
+            .unwrap();
+        assert_eq!(messages(&replies(&nl).concat()).len(), 2);
+        let mut bc = vec![11, 8, 12, 0, 0, 0];
+        bc.extend(8080u16.to_le_bytes());
+        let mut attr = ((4 + bc.len()) as u16).to_le_bytes().to_vec();
+        attr.extend(1u16.to_le_bytes());
+        attr.extend(&bc);
+        nl.send(&inet_dump(2, 6, all, &attr), false, &NoNamespaces)
+            .unwrap();
+        let msgs = messages(&replies(&nl).concat());
+        assert_eq!(msgs.len(), 3, "the listener, the accepted end, NLMSG_DONE");
+        // A bad program is EINVAL; an unknown protocol ENOENT; a short request EINVAL.
+        let mut bad = attr.clone();
+        bad[4] = 99;
+        nl.send(&inet_dump(2, 6, all, &bad), false, &NoNamespaces)
+            .unwrap();
+        let errno = |nl: &NetlinkSocket| {
+            let msgs = messages(&replies(nl).concat());
+            assert_eq!(msgs[0].0, NLMSG_ERROR);
+            i32::from_le_bytes(msgs[0].1[..4].try_into().unwrap())
+        };
+        assert_eq!(errno(&nl), -Errno::EINVAL.0);
+        nl.send(&inet_dump(2, 33, all, &[]), false, &NoNamespaces)
+            .unwrap();
+        assert_eq!(errno(&nl), -Errno::ENOENT.0);
+        let mut short = header(20, 20, NLM_F_REQUEST | NLM_F_DUMP);
+        short.extend([2, 6, 0, 0]);
+        nl.send(&short, false, &NoNamespaces).unwrap();
+        assert_eq!(errno(&nl), -Errno::EINVAL.0);
+        // UDP lists its bound socket as unconnected (`TCP_CLOSE`).
+        nl.send(&inet_dump(2, 17, all, &[]), false, &NoNamespaces)
+            .unwrap();
+        let msgs = messages(&replies(&nl).concat());
+        assert_eq!(msgs.len(), 2);
+        assert_eq!(msgs[0].1[1], 7);
+        drop((listener, client, udp));
+    }
+
+    #[test]
+    fn sock_diag_dumps_unix_sockets_with_names_peers_and_queues() {
+        use crate::unix::{Kind, PeerCred, Sock};
+        let net = net_ns();
+        let host: Arc<dyn Host> = Arc::new(crate::tests::TestHost);
+        let a = Sock::new(Kind::Stream, net.clone(), PeerCred::default(), host.clone());
+        let b = Sock::new(Kind::Stream, net.clone(), PeerCred::default(), host.clone());
+        Sock::pair(&a, &b);
+        a.graft(500);
+        b.graft(501);
+        // An unnamed socket without a file is never listed.
+        let _hidden = Sock::new(Kind::Dgram, net.clone(), PeerCred::default(), host);
+
+        let nl = diag_socket(net);
+        // AF_UNIX, every state, UDIAG_SHOW_PEER | UDIAG_SHOW_RQLEN.
+        let mut req = vec![1u8, 0, 0, 0];
+        req.extend((!0u32).to_le_bytes());
+        req.extend(0u32.to_le_bytes());
+        req.extend(0x14u32.to_le_bytes());
+        req.extend([0xffu8; 8]);
+        let mut data = header(16 + 24, 20, NLM_F_REQUEST | NLM_F_DUMP);
+        data.extend(&req);
+        nl.send(&data, false, &NoNamespaces).unwrap();
+        let msgs = messages(&replies(&nl).concat());
+        assert_eq!(msgs.len(), 3, "{msgs:?}");
+        let first = msgs
+            .iter()
+            .find(|(_, p)| p[4..8] == 500u32.to_le_bytes())
+            .unwrap();
+        assert_eq!(first.1[0], 1);
+        assert_eq!(first.1[1], 1, "SOCK_STREAM");
+        assert_eq!(first.1[2], 1, "TCP_ESTABLISHED");
+        let attrs: Vec<_> = attrs(&first.1[16..])
+            .map(|(k, d)| (k, d.to_vec()))
+            .collect();
+        assert!(
+            attrs.contains(&(2, 501u32.to_le_bytes().to_vec())),
+            "{attrs:?}"
+        );
+        assert!(attrs.iter().any(|(k, _)| *k == 4));
+        assert!(attrs.contains(&(6, vec![0])), "UNIX_DIAG_SHUTDOWN always");
+        // The socket of one inode, without NLM_F_DUMP; none for an unknown one.
+        let mut exact = req.clone();
+        exact[8..12].copy_from_slice(&501u32.to_le_bytes());
+        let mut data = header(16 + 24, 20, NLM_F_REQUEST);
+        data.extend(&exact);
+        nl.send(&data, false, &NoNamespaces).unwrap();
+        let msgs = messages(&replies(&nl).concat());
+        assert_eq!(msgs.len(), 1);
+        assert_eq!(msgs[0].1[4..8], 501u32.to_le_bytes());
+        exact[8..12].copy_from_slice(&9u32.to_le_bytes());
+        let mut data = header(16 + 24, 20, NLM_F_REQUEST);
+        data.extend(&exact);
+        nl.send(&data, false, &NoNamespaces).unwrap();
+        let msgs = messages(&replies(&nl).concat());
+        assert_eq!(
+            i32::from_le_bytes(msgs[0].1[..4].try_into().unwrap()),
+            -Errno::ENOENT.0
+        );
+        // Families without a handler.
+        let mut data = header(16 + 24, 20, NLM_F_REQUEST | NLM_F_DUMP);
+        let mut other = req.clone();
+        other[0] = 17;
+        data.extend(&other);
+        nl.send(&data, false, &NoNamespaces).unwrap();
+        let msgs = messages(&replies(&nl).concat());
+        assert_eq!(
+            i32::from_le_bytes(msgs[0].1[..4].try_into().unwrap()),
+            -Errno::ENOENT.0
+        );
     }
 }
