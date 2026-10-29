@@ -4252,6 +4252,13 @@ fn unregister_and_ring_teardown_release_retained_memlock() {
     assert!(block_on(m.kernel.retain_pages(&m.caller(), addr + 65536, 1)).is_ok());
     assert_eq!(register_resources(&ring, true, 1, SCRATCH + 64, 0), Ok(0));
     block_on(m.kernel.close(&m.caller(), ring.fd)).unwrap();
+    // Linux io_uring/memmap.c:io_uring_mmap keeps the ring file alive through its VMAs.
+    assert!(matches!(
+        block_on(m.kernel.retain_pages(&m.caller(), addr + 65536, 1)),
+        Err(Errno::ENOMEM)
+    ));
+    block_on(m.kernel.munmap(&m.caller(), ring.rings, 65536)).unwrap();
+    block_on(m.kernel.munmap(&m.caller(), ring.sqes, 65536)).unwrap();
     assert!(block_on(m.kernel.retain_pages(&m.caller(), addr + 65536, 1)).is_ok());
 }
 
