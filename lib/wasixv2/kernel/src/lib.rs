@@ -17,6 +17,7 @@ mod file;
 mod fs;
 mod futex;
 mod ident;
+mod io_uring;
 mod ioctl;
 mod ipc;
 mod keys;
@@ -2742,6 +2743,43 @@ impl Syscalls for Kernel {
         usig: wasixv2_abi::ConstAioSigsetPtr,
     ) -> SysResult<i32> {
         self.sys_io_pgetevents(caller, ctx_id, min_nr, nr, events, timeout, usig)
+            .await
+    }
+
+    // ---- io_uring ----
+    async fn io_uring_setup(
+        &self,
+        caller: &Caller<'_>,
+        entries: u32,
+        params: wasixv2_abi::IoUringParamsPtr,
+    ) -> SysResult<i32> {
+        self.sys_io_uring_setup(caller, entries, params).await
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    async fn io_uring_enter(
+        &self,
+        caller: &Caller<'_>,
+        fd: Fd,
+        to_submit: u32,
+        min_complete: u32,
+        flags: u32,
+        argp: wasixv2_abi::ConstVoidPtr,
+        argsz: Usize,
+    ) -> SysResult<i32> {
+        self.sys_io_uring_enter(caller, fd, to_submit, min_complete, flags, argp, argsz)
+            .await
+    }
+
+    async fn io_uring_register(
+        &self,
+        caller: &Caller<'_>,
+        fd: Fd,
+        opcode: u32,
+        arg: wasixv2_abi::VoidPtr,
+        nr_args: u32,
+    ) -> SysResult<i32> {
+        self.sys_io_uring_register(caller, fd, opcode, arg, nr_args)
             .await
     }
 

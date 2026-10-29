@@ -800,6 +800,7 @@ mod aio;
 mod cred;
 mod fs;
 mod futex;
+mod io_uring;
 mod ipc;
 mod jobctl;
 mod keys;

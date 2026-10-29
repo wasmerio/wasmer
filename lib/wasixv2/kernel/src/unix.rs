@@ -1655,6 +1655,7 @@ impl Kernel {
         file: &OpenFile,
         sock: &Sock,
         raw: &[u8],
+        wait: MsgFlags,
     ) -> SysResult<i32> {
         if sock.kind == Kind::Dgram && crate::socket::family(raw)? == AddressFamily::AF_UNSPEC {
             sock.connect_dgram(None)?;
@@ -1668,7 +1669,7 @@ impl Kernel {
         }
         let cred = self.peer_cred(caller);
         let interrupt = self.interrupt(caller);
-        let mut wait = sock.blocking(Self::io(caller, &*interrupt, file), SND, MsgFlags(0));
+        let mut wait = sock.blocking(Self::io(caller, &*interrupt, file), SND, wait);
         wait.wait(WaitOn::Queue(&target.wait), PollMask::WRITABLE, || {
             sock.try_connect(&target, &cred)
         })

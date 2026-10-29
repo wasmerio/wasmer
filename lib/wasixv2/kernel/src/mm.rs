@@ -2401,6 +2401,19 @@ fn check_file_mapping(
     if file.check_readable().is_err() {
         return Err(Errno::EACCES);
     }
+    // An object that is pages of its own maps them (`f_op->mmap`).
+    if let Some(object) = file.object()
+        && let Some(found) = object.mmap_pages(offset, pages * PAGE_SIZE)
+    {
+        let (pages, offset) = found?;
+        return Ok(Source::Mapped(Mapped {
+            pages,
+            offset,
+            segment: None,
+            writable: shared && writable,
+            writer: None,
+        }));
+    }
     // Only regular files have pages to map (`can_mmap_file`).
     let inode = match file.inode() {
         Ok(inode) if inode.file_type() == FileType::Regular => inode,

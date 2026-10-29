@@ -22,6 +22,7 @@ use wasixv2_wait::{NoInterrupt, PollMask, WaitQueue, Waiter};
 pub(crate) type Callback = Box<dyn Fn() -> Option<Duration> + Send + Sync>;
 
 /// The machine's timer queue.
+#[derive(Clone)]
 pub(crate) struct Timers {
     shared: Arc<Shared>,
 }

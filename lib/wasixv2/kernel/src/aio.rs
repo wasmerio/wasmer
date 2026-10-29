@@ -443,7 +443,11 @@ impl WaitEntry for PollEntry {
 }
 
 /// `ioprio_check_cap` (`block/ioprio.c`): an I/O priority's class and level.
-fn ioprio_check_cap(kernel: &Kernel, caller: &Caller<'_>, ioprio: i16) -> Result<(), Errno> {
+pub(crate) fn ioprio_check_cap(
+    kernel: &Kernel,
+    caller: &Caller<'_>,
+    ioprio: i16,
+) -> Result<(), Errno> {
     const CLASS_SHIFT: u16 = 13;
     let ioprio = ioprio as u16;
     let (class, level) = ((ioprio >> CLASS_SHIFT) & 7, ioprio & 7);
