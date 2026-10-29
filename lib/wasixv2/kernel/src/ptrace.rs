@@ -560,7 +560,7 @@ impl Kernel {
     /// `ptrace_notify`: a SIGTRAP stop with `exit_code` (`SIGTRAP` with an event or `0x80`)
     /// and `message`.
     pub(crate) async fn ptrace_notify(&self, task: TaskId, exit_code: i32, message: u64) -> i32 {
-        let Some(process) = self.task_process(task) else {
+        let Some(cred) = self.find_task_cred(task) else {
             return 0;
         };
         let sig = wasixv2_abi::Signal::SIGTRAP.0;
@@ -568,7 +568,7 @@ impl Kernel {
             exit_code,
             why: wasixv2_abi::SiCode::CLD_TRAPPED,
             message,
-            info: Some(self.ptrace_trap_info(&process, task, sig, exit_code)),
+            info: Some(self.ptrace_trap_info(&cred, task, sig, exit_code)),
             sync: None,
         };
         self.ptrace_stop(task, stop).await
@@ -1187,7 +1187,12 @@ impl Kernel {
             exit_code: code,
             why: wasixv2_abi::SiCode::CLD_TRAPPED,
             message,
-            info: Some(self.ptrace_trap_info(&process, task, wasixv2_abi::Signal::SIGTRAP.0, code)),
+            info: Some(self.ptrace_trap_info(
+                &self.task_cred(task),
+                task,
+                wasixv2_abi::Signal::SIGTRAP.0,
+                code,
+            )),
             sync: Some(SyncStop::Exit),
         };
         if group.enter_exit_stop(task, stop).is_none() {

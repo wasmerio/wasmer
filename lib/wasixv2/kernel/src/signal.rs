@@ -2328,7 +2328,17 @@ impl Kernel {
                     exit_code: code,
                     why: SiCode::CLD_TRAPPED,
                     message: message as u32 as u64,
-                    info: Some(self.ptrace_trap_info(&process, task, Signal::SIGTRAP.0, code)),
+                    info: Some(
+                        self.ptrace_trap_info(
+                            state.tasks[&task]
+                                .cred
+                                .as_deref()
+                                .expect("attached task credentials"),
+                            task,
+                            Signal::SIGTRAP.0,
+                            code,
+                        ),
+                    ),
                     sync: Some(crate::ptrace::SyncStop::Trap),
                 };
                 if state.enter_trace_stop(task, stop).is_some() {
@@ -2344,7 +2354,7 @@ impl Kernel {
                 && !state.sigkill_pending(task)
                 && state.fatal(task).is_none()
             {
-                let stop = self.jobctl_trap(&process, task, &state);
+                let stop = self.jobctl_trap(task, &state);
                 let sig = stop.exit_code & 0x7f;
                 if state.enter_trace_stop(task, stop).is_some() {
                     drop(state);
@@ -2532,7 +2542,7 @@ impl Kernel {
 
     /// `do_jobctl_trap`'s stop for `task`: a seized tracee reports a `PTRACE_EVENT_STOP` with
     /// the group stop's signal, or SIGTRAP outside one; another its group stop's signal.
-    fn jobctl_trap(&self, process: &Process, task: TaskId, state: &GroupState) -> TraceStop {
+    fn jobctl_trap(&self, task: TaskId, state: &GroupState) -> TraceStop {
         let seized = state.tasks[&task]
             .ptrace
             .link
@@ -2559,7 +2569,17 @@ impl Kernel {
             exit_code,
             why: SiCode::CLD_STOPPED,
             message: 0,
-            info: Some(self.ptrace_trap_info(process, task, sig, exit_code)),
+            info: Some(
+                self.ptrace_trap_info(
+                    state.tasks[&task]
+                        .cred
+                        .as_deref()
+                        .expect("attached task credentials"),
+                    task,
+                    sig,
+                    exit_code,
+                ),
+            ),
             sync: Some(crate::ptrace::SyncStop::Trap),
         }
     }
@@ -2567,12 +2587,11 @@ impl Kernel {
     /// `ptrace_do_notify`'s `siginfo`: `sig` with `code`, from the task itself.
     pub(crate) fn ptrace_trap_info(
         &self,
-        _process: &Process,
+        cred: &crate::cred::Cred,
         task: TaskId,
         sig: i32,
         code: i32,
     ) -> Siginfo {
-        let cred = self.task_cred(task);
         let uid = cred.user_ns.munged_uid(cred.user.real);
         let mut info = user_info(sig, SiCode(code), self.pids.own_nr(task.0), uid);
         info.si_code = code;
@@ -2624,7 +2643,7 @@ impl Kernel {
             return self.stopped(process, signals, completed);
         };
         state.task(task).stopped = false;
-        let stop = self.jobctl_trap(process, task, &state);
+        let stop = self.jobctl_trap(task, &state);
         let sig = stop.exit_code & 0x7f;
         let entered = state.enter_trace_stop(task, stop).is_some();
         drop(state);
