@@ -54,7 +54,7 @@ impl Tctx {
     }
 
     /// `io_ring_add_registered_file`: the first free slot of `[start, end)`.
-    fn add_registered(&self, file: Arc<OpenFile>, start: u32, end: u32) -> Result<u32, Errno> {
+    pub(super) fn add_registered(&self, file: Arc<OpenFile>, start: u32, end: u32) -> Result<u32, Errno> {
         let mut state = self.0.lock_or_recover();
         let slot = (start..end).find(|&i| state.registered[i as usize].is_none());
         let slot = slot.ok_or(Errno::EBUSY)?;

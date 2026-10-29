@@ -30,11 +30,11 @@
 //! the meantime). Each one signals a registered eventfd unless the CQ ring's flags say
 //! `IORING_CQ_EVENTFD_DISABLED`, and wakes `io_uring_enter` waiters and pollers of the ring.
 //!
-//! Not supported: `IORING_SETUP_SQPOLL` and `IORING_SETUP_IOPOLL` (`EINVAL`), rings in user
-//! memory (`IORING_SETUP_NO_MMAP` and `IORING_SETUP_REGISTERED_FD_ONLY`), and the operations
-//! the probe leaves out. User-provided buffer rings and fixed buffers use mm's retained
-//! pages; kernel-allocated buffer rings use this file's mmap hook. Mixed SQE/CQE widths
-//! and SQ_REWIND use the same ring storage and submission machinery.
+//! NO_MMAP rings use retained pages through P2's attached foreign-memory handle; they require
+//! shared linear memory (EINVAL without it). REGISTERED_FD_ONLY installs solely in Tctx.
+//! SQPOLL, IOPOLL and HYBRID_IOPOLL return EINVAL: there is no device-polling kernel thread.
+//! RECV_ZC has no registered hardware receive queue and is left out of the probe.
+//! User/MMAP provided buffers, mixed entry widths and SQ_REWIND share the normal machinery.
 
 mod kbuf;
 mod ops;
@@ -80,8 +80,7 @@ pub(crate) use tctx::{Cancel, Tctx};
 /// `IORING_MAX_ENTRIES` and `IORING_MAX_CQ_ENTRIES`.
 const MAX_ENTRIES: u32 = 32768;
 const MAX_CQ_ENTRIES: u32 = 2 * MAX_ENTRIES;
-/// The setup flags a ring here takes (`IORING_SETUP_FLAGS` minus polling, rings in user
-/// memory and what builds on them).
+/// The setup flags a ring here takes (`IORING_SETUP_FLAGS` minus device polling).
 const SETUP_FLAGS: u32 = IoringSetupFlags::IORING_SETUP_CQSIZE.0
     | IoringSetupFlags::IORING_SETUP_CLAMP.0
     | IoringSetupFlags::IORING_SETUP_ATTACH_WQ.0
@@ -96,7 +95,9 @@ const SETUP_FLAGS: u32 = IoringSetupFlags::IORING_SETUP_CQSIZE.0
     | IoringSetupFlags::IORING_SETUP_NO_SQARRAY.0
     | IoringSetupFlags::IORING_SETUP_CQE_MIXED.0
     | IoringSetupFlags::IORING_SETUP_SQE_MIXED.0
-    | IoringSetupFlags::IORING_SETUP_SQ_REWIND.0;
+    | IoringSetupFlags::IORING_SETUP_SQ_REWIND.0
+    | IoringSetupFlags::IORING_SETUP_NO_MMAP.0
+    | IoringSetupFlags::IORING_SETUP_REGISTERED_FD_ONLY.0;
 /// `IORING_ENTER_FLAGS`.
 const ENTER_FLAGS: u32 = 0xff;
 /// What a ring here does of `IORING_FEAT_*`.
@@ -190,12 +191,45 @@ struct Cqe {
     extra: [u64; 2],
 }
 
+/// `io_mapped_region`: allocated pages or retained user pages (memmap.c:io_create_region).
+enum RingMemory {
+    Mapped(Arc<dyn SharedPages>),
+    User(Arc<crate::mm::Retained>),
+}
+
+impl RingMemory {
+    fn read_at(&self, buf: &mut [u8], offset: u64) -> std::io::Result<()> {
+        match self {
+            Self::Mapped(pages) => pages.read_at(buf, offset),
+            Self::User(pages) => u32::try_from(offset)
+                .map_err(|_| wasixv2_syscalls::Fault)
+                .and_then(|offset| pages.read_sync(offset, buf))
+                .map_err(|_| std::io::ErrorKind::InvalidInput.into()),
+        }
+    }
+    fn write_at(&self, bytes: &[u8], offset: u64) -> std::io::Result<()> {
+        match self {
+            Self::Mapped(pages) => pages.write_at(bytes, offset),
+            Self::User(pages) => u32::try_from(offset)
+                .map_err(|_| wasixv2_syscalls::Fault)
+                .and_then(|offset| pages.write_sync(offset, bytes))
+                .map_err(|_| std::io::ErrorKind::InvalidInput.into()),
+        }
+    }
+    fn mapped(&self) -> Result<Arc<dyn SharedPages>, Errno> {
+        match self {
+            Self::Mapped(pages) => Ok(pages.clone()),
+            Self::User(_) => Err(Errno::EINVAL),
+        }
+    }
+}
+
 /// A ring (`struct io_ring_ctx`).
 pub(crate) struct Ctx {
     me: Weak<Ctx>,
     shape: Shape,
-    rings: Arc<dyn SharedPages>,
-    sqes: Arc<dyn SharedPages>,
+    rings: RingMemory,
+    sqes: RingMemory,
     state: Mutex<State>,
     /// Held while SQEs are taken and requests issued (`uring_lock`).
     submit: futures_util::lock::Mutex<()>,
@@ -551,8 +585,20 @@ impl FileObject for IoRing {
         const SQES: u64 = 0x1000_0000;
         let ctx = &self.0;
         let (pages, size) = match offset {
-            SQ_RING | CQ_RING => (ctx.rings.clone(), ctx.shape.rings_size),
-            SQES => (ctx.sqes.clone(), ctx.shape.sqes_size),
+            SQ_RING | CQ_RING => (
+                match ctx.rings.mapped() {
+                    Ok(p) => p,
+                    Err(e) => return Some(Err(e)),
+                },
+                ctx.shape.rings_size,
+            ),
+            SQES => (
+                match ctx.sqes.mapped() {
+                    Ok(p) => p,
+                    Err(e) => return Some(Err(e)),
+                },
+                ctx.shape.sqes_size,
+            ),
             off if off & 0xf800_0000 == 0x8000_0000 => {
                 let pages = match kbuf::mmap(ctx, off) {
                     Ok(pages) => pages,
@@ -665,6 +711,11 @@ impl Kernel {
         {
             return Err(Errno::EINVAL.into());
         }
+        if has(IoringSetupFlags::IORING_SETUP_REGISTERED_FD_ONLY)
+            && !has(IoringSetupFlags::IORING_SETUP_NO_MMAP)
+        {
+            return Err(Errno::EINVAL.into());
+        }
         if has(IoringSetupFlags::IORING_SETUP_SQ_REWIND)
             && !has(IoringSetupFlags::IORING_SETUP_NO_SQARRAY)
         {
@@ -686,14 +737,38 @@ impl Kernel {
                 return Err(Errno::EINVAL.into());
             }
         }
-        let rings = self
-            .host
-            .shared_pages(shape.rings_size)
-            .map_err(|_| Errno::ENOMEM)?;
-        let sqes = self
-            .host
-            .shared_pages(shape.sqes_size)
-            .map_err(|_| Errno::ENOMEM)?;
+        // io_uring.c:io_allocate_scq_urings; cq_off supplies the combined rings,
+        // sq_off the SQEs. User pages stay retained independently of their guest address.
+        let (rings_addr, sqes_addr) = (p.cq_off.user_addr, p.sq_off.user_addr);
+        let (rings, sqes) = if has(IoringSetupFlags::IORING_SETUP_NO_MMAP) {
+            if self.mm(caller.task()).foreign().is_none() {
+                return Err(Errno::EINVAL.into());
+            }
+            let rings = self
+                .user_ring_memory(caller, rings_addr, shape.rings_size)
+                .await?;
+            let sqes = self
+                .user_ring_memory(caller, sqes_addr, shape.sqes_size)
+                .await?;
+            (rings, sqes)
+        } else {
+            (
+                RingMemory::Mapped(
+                    self.host
+                        .shared_pages(shape.rings_size)
+                        .map_err(|_| Errno::ENOMEM)?,
+                ),
+                RingMemory::Mapped(
+                    self.host
+                        .shared_pages(shape.sqes_size)
+                        .map_err(|_| Errno::ENOMEM)?,
+                ),
+            )
+        };
+        // io_allocate_scq_urings clears the ring header, not the caller's SQEs/arrays.
+        rings
+            .write_at(&[0; CQES as usize], 0)
+            .map_err(|_| Errno::EFAULT)?;
         p.sq_entries = shape.sq_entries;
         p.cq_entries = shape.cq_entries;
         p.features = FEATURES;
@@ -706,7 +781,11 @@ impl Kernel {
             dropped: SQ_DROPPED as u32,
             array: shape.sq_array.unwrap_or(0) as u32,
             resv1: 0,
-            user_addr: 0,
+            user_addr: if has(IoringSetupFlags::IORING_SETUP_NO_MMAP) {
+                sqes_addr
+            } else {
+                0
+            },
         };
         p.cq_off = IoCqringOffsets {
             head: CQ_HEAD as u32,
@@ -717,7 +796,11 @@ impl Kernel {
             cqes: CQES as u32,
             flags: CQ_FLAGS as u32,
             resv1: 0,
-            user_addr: 0,
+            user_addr: if has(IoringSetupFlags::IORING_SETUP_NO_MMAP) {
+                rings_addr
+            } else {
+                0
+            },
         };
         let ctx = Ctx::new(shape, (rings, sqes), self.timers.clone(), self.host.clone());
         if ctx.shape.has(IoringSetupFlags::IORING_SETUP_SINGLE_ISSUER)
@@ -726,12 +809,43 @@ impl Kernel {
             ctx.state.lock_or_recover().submitter = Some(caller.task());
         }
         write_value(caller.memory(), params, &p).await?;
+        self.tctx(caller.task()).add(&ctx);
         let file = OpenFile::new(
             Backing::Stream(Arc::new(IoRing(ctx)), self.pseudo.anon("[io_uring]")),
             OpenFlags::O_RDWR,
         );
+        if has(IoringSetupFlags::IORING_SETUP_REGISTERED_FD_ONLY) {
+            return Ok(self.tctx(caller.task()).add_registered(
+                Arc::new(file),
+                0,
+                tctx::RINGFD_REG_MAX,
+            )? as i32);
+        }
         let [fd] = self.install_files(caller, [file], true)?;
         Ok(fd.0)
+    }
+
+    async fn user_ring_memory(
+        &self,
+        caller: &Caller<'_>,
+        addr: u64,
+        size: u64,
+    ) -> SysResult<RingMemory> {
+        // memmap.c:io_create_region: nonzero, page-aligned user regions.
+        if addr == 0 {
+            return Err(Errno::EFAULT.into());
+        }
+        if !addr.is_multiple_of(PAGE_SIZE) {
+            return Err(Errno::EINVAL.into());
+        }
+        addr.checked_add(size).ok_or(Errno::EOVERFLOW)?;
+        let addr = u32::try_from(addr).map_err(|_| Errno::EFAULT)?;
+        let len = u32::try_from(size).map_err(|_| Errno::EFAULT)?;
+        let pages = self.retain_pages(caller, addr, len).await?;
+        if !pages.synchronous() {
+            return Err(Errno::EINVAL.into());
+        }
+        Ok(RingMemory::User(pages))
     }
 
     /// `io_uring_enter`: submits up to `to_submit` SQEs, then with `IORING_ENTER_GETEVENTS`
@@ -1059,7 +1173,7 @@ fn io_uring_sizes(p: &IoUringParams, entries: u32) -> Result<Shape, Errno> {
 impl Ctx {
     fn new(
         shape: Shape,
-        (rings, sqes): (Arc<dyn SharedPages>, Arc<dyn SharedPages>),
+        (rings, sqes): (RingMemory, RingMemory),
         timers: Timers,
         host: Arc<dyn Host>,
     ) -> Arc<Self> {
