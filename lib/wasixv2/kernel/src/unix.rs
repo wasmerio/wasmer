@@ -32,7 +32,7 @@ use wasixv2_syscalls::{Caller, Errno, LocalFuture, SysResult, write_value};
 use wasixv2_vfs::{Cap, FileType, LookupFlags, MAY_WRITE};
 use wasixv2_vnet::{
     SocketKind,
-    opts::{self, Changed, SockOpts},
+    opts::{Changed, SockOpts},
 };
 use wasixv2_wait::{PollMask, PollTable, Pollable, WaitQueue, poll_wait};
 
@@ -986,26 +986,11 @@ impl Sock {
     pub(crate) fn set_option(&self, name: i32, value: &[u8], net_admin: bool) -> Result<(), Errno> {
         let level = SocketLevel::SOL_SOCKET.0;
         let mut inner = self.lock();
-        let changed = match SocketOption(name) {
-            // `SO_SNDBUFFORCE`/`SO_RCVBUFFORCE` skip the `wmem_max`/`rmem_max` clamp.
-            SocketOption::SO_SNDBUFFORCE | SocketOption::SO_RCVBUFFORCE => {
-                if !net_admin {
-                    return Err(Errno::EPERM);
-                }
-                let val = opts::read_int(value)?.max(0) as usize;
-                match SocketOption(name) {
-                    SocketOption::SO_SNDBUFFORCE => {
-                        inner.opts.sndbuf = val.saturating_mul(2).max(opts::SOCK_MIN_SNDBUF)
-                    }
-                    _ => inner.opts.rcvbuf = val.saturating_mul(2).max(opts::SOCK_MIN_RCVBUF),
-                }
-                Changed::Buffers
-            }
-            _ => {
-                let bound = inner.addr.is_some();
-                inner.opts.set(level, name, value, bound)?
-            }
-        };
+        if forcing_buffer(name) && !net_admin {
+            return Err(Errno::EPERM);
+        }
+        let bound = inner.addr.is_some();
+        let changed = inner.opts.set(level, name, value, bound)?;
         drop(inner);
         if changed == Changed::Buffers {
             // More room may be there now.
@@ -1739,6 +1724,15 @@ impl Kernel {
 }
 
 /// `shutdown`'s `how` as `RCV_SHUTDOWN`/`SEND_SHUTDOWN` bits.
+/// `SO_SNDBUFFORCE` and `SO_RCVBUFFORCE`, which `sk_setsockopt` allows only with
+/// `CAP_NET_ADMIN` (`sockopt_capable`), for every family.
+pub(crate) fn forcing_buffer(name: i32) -> bool {
+    matches!(
+        SocketOption(name),
+        SocketOption::SO_SNDBUFFORCE | SocketOption::SO_RCVBUFFORCE
+    )
+}
+
 pub(crate) fn shutdown_mode(how: i32) -> Result<u8, Errno> {
     match how {
         0 => Ok(RCV_SHUTDOWN),
@@ -1850,7 +1844,7 @@ mod tests {
         let (a, b) = pair(Kind::Dgram);
         let mut anc = Ancillary::default();
         // `wmem_default` less the skb's share.
-        let limit = opts::UDP_BUF_DEFAULT - RECORD_OVERHEAD;
+        let limit = wasixv2_vnet::opts::UDP_BUF_DEFAULT - RECORD_OVERHEAD;
         let mut data = vec![0u8; limit + 1];
         let sent = a.try_send_dgram(&b, &mut data, &mut anc, Ucred::default());
         assert_eq!(sent, Err(Errno::EMSGSIZE));

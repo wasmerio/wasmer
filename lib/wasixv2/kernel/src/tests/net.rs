@@ -1116,6 +1116,66 @@ fn files_in_flight_count_against_their_sender_only() {
     assert_eq!(fill(first), None);
 }
 
+/// `SO_SNDBUFFORCE`/`SO_RCVBUFFORCE` need `CAP_NET_ADMIN` in every family, and then skip the
+/// `wmem_max`/`rmem_max` clamp.
+#[test]
+fn forcing_buffer_sizes_needs_cap_net_admin() {
+    let force =
+        |kernel: &Kernel, caller: &Caller<'_>, memory: &FlatMemory, fd, name: SocketOption| {
+            put(memory, 0x400, &(1i32 << 22).to_le_bytes());
+            block_on(kernel.setsockopt(
+                caller,
+                fd,
+                SocketLevel::SOL_SOCKET,
+                name.0,
+                UserSlice::new(0x400, 4),
+            ))
+        };
+    let names = [SocketOption::SO_SNDBUFFORCE, SocketOption::SO_RCVBUFFORCE];
+
+    let (kernel, task, memory) = networked();
+    let caller = Caller::new(task, &memory);
+    let (unix, _) = unix_pair(&kernel, &caller, &memory, STREAM);
+    let inet = socket(&kernel, &caller, DGRAM);
+    for fd in [unix, inet] {
+        for name in names {
+            assert_eq!(
+                errno(force(&kernel, &caller, &memory, fd, name)),
+                Errno::EPERM
+            );
+        }
+    }
+
+    let (kernel, task, memory) = super::cred::machine_with(|kernel| {
+        kernel
+            .with_credentials(Credentials::new(0, 0))
+            .with_network(FakeNet::new())
+    });
+    let caller = Caller::new(task, &memory);
+    let (unix, _) = unix_pair(&kernel, &caller, &memory, STREAM);
+    let inet = socket(&kernel, &caller, DGRAM);
+    for name in names {
+        assert_eq!(force(&kernel, &caller, &memory, unix, name), Ok(0));
+        // On to the protocol, which the fake network's sockets refuse every option of.
+        let inet = force(&kernel, &caller, &memory, inet, name);
+        assert_eq!(errno(inet), Errno::ENOPROTOOPT);
+    }
+    put(&memory, 0x2f0, &4u32.to_le_bytes());
+    let got = block_on(kernel.getsockopt(
+        &caller,
+        unix,
+        SocketLevel::SOL_SOCKET,
+        SocketOption::SO_SNDBUF.0,
+        GuestPtrMut::new(0x300),
+        GuestPtrMut::new(0x2f0),
+    ));
+    assert_eq!(got, Ok(0));
+    assert_eq!(
+        super::ipc::get(&memory, 0x300, 4),
+        (1i32 << 23).to_le_bytes()
+    );
+}
+
 #[test]
 fn unix_socket_options_read_back_what_was_set() {
     let (kernel, task, memory) = machine();

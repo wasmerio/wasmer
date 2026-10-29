@@ -159,6 +159,13 @@ fn buf_size(val: i32, max: u32, min: usize) -> usize {
     (v * 2).max(min)
 }
 
+/// Buffer size after `SO_SNDBUFFORCE`/`SO_RCVBUFFORCE`: no maximum, but a negative value is 0
+/// and the doubled value must fit an `int` (`sk_setsockopt`'s `set_sndbuf`/`__sock_set_rcvbuf`).
+fn forced_buf_size(val: i32, min: usize) -> usize {
+    let v = val.clamp(0, i32::MAX / 2) as usize;
+    (v * 2).max(min)
+}
+
 /// `sk_sndbuf` after `setsockopt(SO_SNDBUF, val)`, for every socket family.
 pub fn sndbuf_from(val: i32) -> usize {
     buf_size(val, WMEM_MAX, SOCK_MIN_SNDBUF)
@@ -315,9 +322,15 @@ impl SockOpts {
                 self.rcvbuf = buf_size(val, RMEM_MAX, SOCK_MIN_RCVBUF);
                 Ok(Changed::Buffers)
             }
-            // TODO: the forcing variants, which ignore the maximum with CAP_NET_ADMIN.
-            (SOL_SOCKET, n) if n == So::SO_SNDBUFFORCE.0 || n == So::SO_RCVBUFFORCE.0 => {
-                Err(Errno::EPERM)
+            // The forcing variants skip the `wmem_max`/`rmem_max` clamp. They need
+            // `CAP_NET_ADMIN` (`sockopt_capable`), which the socket layer above checks.
+            (SOL_SOCKET, n) if n == So::SO_SNDBUFFORCE.0 => {
+                self.sndbuf = forced_buf_size(val, SOCK_MIN_SNDBUF);
+                Ok(Changed::Buffers)
+            }
+            (SOL_SOCKET, n) if n == So::SO_RCVBUFFORCE.0 => {
+                self.rcvbuf = forced_buf_size(val, SOCK_MIN_RCVBUF);
+                Ok(Changed::Buffers)
             }
             (SOL_SOCKET, n) if n == So::SO_RCVLOWAT.0 => {
                 self.rcvlowat = if val < 0 {
@@ -460,6 +473,27 @@ mod tests {
         let mut b = [0u8; 4];
         o.get(level, name, &mut b).unwrap();
         i32::from_le_bytes(b)
+    }
+
+    #[test]
+    fn forced_buffer_sizes_skip_the_maximum_but_not_the_minimum() {
+        let mut o = SockOpts::new(SocketKind::Datagram, Domain::Inet);
+        let force = |o: &mut SockOpts, name: So, val: i32| {
+            o.set(SOL_SOCKET, name.0, &val.to_le_bytes(), false)
+                .unwrap()
+        };
+        assert_eq!(force(&mut o, So::SO_SNDBUFFORCE, 1 << 22), Changed::Buffers);
+        assert_eq!(get(&o, SOL_SOCKET, So::SO_SNDBUF.0), 1 << 23);
+        force(&mut o, So::SO_RCVBUFFORCE, 1 << 22);
+        assert_eq!(get(&o, SOL_SOCKET, So::SO_RCVBUF.0), 1 << 23);
+        // CVE-2016-9793: a negative size is 0, never a negative buffer.
+        force(&mut o, So::SO_SNDBUFFORCE, 0xffff_ff00_u32 as i32);
+        assert_eq!(get(&o, SOL_SOCKET, So::SO_SNDBUF.0), SOCK_MIN_SNDBUF as i32);
+        force(&mut o, So::SO_RCVBUFFORCE, i32::MIN);
+        assert_eq!(get(&o, SOL_SOCKET, So::SO_RCVBUF.0), SOCK_MIN_RCVBUF as i32);
+        // The doubled size still fits an int.
+        force(&mut o, So::SO_SNDBUFFORCE, i32::MAX);
+        assert_eq!(get(&o, SOL_SOCKET, So::SO_SNDBUF.0), i32::MAX - 1);
     }
 
     #[test]
