@@ -14,9 +14,11 @@ signals, preemption, task lifetime), the exec `Abi` registry, the WASIX v1 compa
 waits on the kernel futexes, and the userland fixes. `wasmer run` runs WASIX v2, WASIX v1 and WASI
 modules on the v2 kernel. tests `main` = `6405893`, libc2 `main` = `c26931b5`.
 
-Suite on `feat/wasixv2` `908423d1510` (merge train 13; wasixv2-tests `5e21625`, libc2 `b69aa1d3`,
-abi `e7bb953`, wasixcc `7ab1ffb`, userland `userland-4`): 3390 pass, 614 expected failures, 818 ignored,
-0 unexpected after the bless (one suite run, regressions-only check).
+Suite on `feat/wasixv2` `f9c8b36bad6` (merge train 14; wasixv2-tests `cabce84`, libc2 `5e03a9fe`,
+abi `d0187cb`, wasixcc `7ab1ffb`, userland `userland-4`): 3471 pass, 610 expected failures, 761 ignored
+(one suite run, regressions-only check; 3 regressions listed with causes and being fixed: keyctl07,
+cve-2017-12192 (no key construction), proc-vfork-sibling-exec (host panic, delayed exit_mm drops the
+new image's namespaces)). LTP is built without libaio, so 245 AIO tests are skipped.
 
 Smoke tests pass: v2 static-web-server (28/28); through the v1 compat layer
 wasmer/static-web-server, phpix/phpix-85-32bit (CLI and `-S` server), coreutils, cowsay,
@@ -125,10 +127,15 @@ release_task and the vfork exit order, pid references in unix credentials and tt
 the in-process DNS server (`--dns`, 10.0.2.3); sched_* through the kernel, uname "Linux 7.2.0-wasixv2",
 reboot(2), F_CREATED_QUERY, SO_*BUFFORCE, /proc/sys/user writable by the namespace root.
 
-Merge train 14 (next): P1 sandbox (seccomp incl. user notifications, Landlock, keyrings, LSM syscalls,
-securityfs), P4 AIO/futex2/rseq/io_uring, P5 file handles/fanotify/inode flags/POSIX ACLs/binfmt_misc,
-P6 machine-owned wall clock/adjtimex/time namespaces/alarm clocks. In progress: P2 ptrace and
-introspection, P3 cgroup v2 and services, P7 vsock/sock_diag/raw/SCTP.
+Merge train 14 has landed (`f9c8b36bad6`): seccomp (filters, user notifications) at a syscall-entry
+layer, Landlock, keyrings, LSM syscalls and securityfs; Linux AIO, futex2, rseq, io_uring; file handles,
+fanotify, inode flags, POSIX ACLs, binfmt_misc; the machine-owned wall clock, adjtimex, time namespaces,
+alarm clocks.
+
+Merge train 15 (next): P2 ptrace (syscall level), process_vm_*, /proc/<pid>/mem, kcmp, pidfd_getfd,
+Yama, ioprio, mseal and more /proc/<pid>; P3 cgroup v2 (pids, cpu, io, freezer, namespaces), kernel log,
+acct(2), core dumps, /proc and /proc/sys; P7 vsock, sock_diag, raw sockets, unix OOB, SCTP. In progress:
+ptrace, io_uring and filesystem follow-ups; train 14's regressions.
 
 Open follow-ups: memory accounting (local branch, paused by the user), fork copy-on-write (memory
 design phase 2b), `mmap/24-1` peaks at 8 GB, mlockall ignores RLIMIT_MEMLOCK (mlockall03), no `ldd`
