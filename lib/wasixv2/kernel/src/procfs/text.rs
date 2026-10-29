@@ -290,11 +290,15 @@ fn sockets(ns: &NetNs, kind: SocketKind, v6: bool) -> Vec<u8> {
             (false, true) => 0x01,
             (false, false) => 0x07,
         };
+        // A listener's send queue is empty (`write_seq - snd_una`), its receive queue the
+        // accept queue (`sk_ack_backlog`).
+        let tx_queue = if port.listening { 0 } else { port.tx_queue };
         let _ = writeln!(
             out,
-            "{sl:4}: {} {} {state:02X} 00000000:00000000 00:00000000 00000000 {:5}        0 {}",
+            "{sl:4}: {} {} {state:02X} {tx_queue:08X}:{:08X} 00:00000000 00000000 {:5}        0 {}",
             hex_addr(port.local),
             hex_addr(peer),
+            port.rx_queue,
             port.uid,
             port.inode,
         );

@@ -187,6 +187,17 @@ pub struct PortEntry {
     /// The inode of the socket's file (`sock_i_ino`), 0 while it has none: a connection still
     /// in the accept queue.
     pub inode: u64,
+    /// What `tcp_diag_get_info` and `get_tcp4_sock` report as the receive and send queues: a
+    /// listener's accept queue length and backlog, a connection's unread and unacknowledged
+    /// bytes, a UDP socket's `sk_rmem_alloc` and 0.
+    pub rx_queue: usize,
+    pub tx_queue: usize,
+    /// `IPV6_V6ONLY`.
+    pub v6only: bool,
+    /// `SOCK_BINDPORT_LOCK`: `bind` chose the port.
+    pub port_locked: bool,
+    /// `sk_bound_dev_if` (`SO_BINDTODEVICE`), 0 for none.
+    pub bound_dev: u32,
 }
 
 /// The sysctls that make a namespace ignore echo requests.

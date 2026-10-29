@@ -350,12 +350,20 @@ impl TcpSocket {
     pub(crate) fn port_entry(&self) -> Option<PortEntry> {
         let g = self.inner.lock().unwrap();
         let local = present(self.domain, g.local?);
-        let (peer, listening) = match &g.state {
-            State::Connected(_, p) | State::Connecting(_, p) => {
-                (Some(present(self.domain, *p)), false)
+        let (peer, listening, rx_queue, tx_queue) = match &g.state {
+            State::Connected(t, p) => {
+                let tx = match t {
+                    Transport::Local(c, side) => c.output_len(*side),
+                    Transport::Remote(s) => s.output_len(),
+                };
+                (Some(present(self.domain, *p)), false, t.input_len(), tx)
             }
-            State::Listening(_) => (None, true),
-            State::Closed => (None, false),
+            State::Connecting(_, p) => (Some(present(self.domain, *p)), false, 0, 0),
+            State::Listening(l) => {
+                let l = l.inner.lock().unwrap();
+                (None, true, l.ready.len(), l.backlog as usize)
+            }
+            State::Closed => (None, false, 0, 0),
         };
         Some(PortEntry {
             kind: SocketKind::Stream,
@@ -364,6 +372,11 @@ impl TcpSocket {
             listening,
             uid: self.uid,
             inode: self.ino.load(Ordering::Relaxed),
+            rx_queue,
+            tx_queue,
+            v6only: g.opts.v6only,
+            port_locked: g.port_locked,
+            bound_dev: self.net.device_index(&g.opts.bind_device),
         })
     }
 

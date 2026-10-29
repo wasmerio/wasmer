@@ -169,7 +169,7 @@ impl Request<'_> {
     }
 
     /// A dump: the messages `fill` makes, then `NLMSG_DONE`.
-    fn dump(&self, msgs: Vec<Vec<u8>>) -> Vec<u8> {
+    pub(super) fn dump(&self, msgs: Vec<Vec<u8>>) -> Vec<u8> {
         let mut out = msgs.concat();
         out.extend(nlmsg(
             super::NLMSG_DONE,

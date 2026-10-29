@@ -167,6 +167,11 @@ impl UdpSocket {
             listening: false,
             uid: self.uid,
             inode: self.ino.load(Ordering::Relaxed),
+            rx_queue: g.queued,
+            tx_queue: 0,
+            v6only: g.opts.v6only,
+            port_locked: g.port_locked,
+            bound_dev: self.net.device_index(&g.opts.bind_device),
         })
     }
 
