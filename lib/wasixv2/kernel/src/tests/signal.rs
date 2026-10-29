@@ -764,6 +764,34 @@ fn a_vfork_child_is_a_zombie_only_after_its_exit_mm() {
     kernel.release(child);
 }
 
+/// A trap leaves the memory before anything else (the instance runs the child's `exit_mm`
+/// first, then its fault kills it): the end of the vfork in `complete_vfork_done` hands the
+/// instance back all the same, once, so the instance knows whether the parent still waits in
+/// it.
+#[test]
+fn a_trapped_vfork_child_hands_the_instance_back_at_its_exit_mm() {
+    let vforked = Vforked::new();
+    let (kernel, child) = (&vforked.kernel, vforked.child);
+    block_on(kernel.exit_mm(&Caller::new(child, &vforked.memory)));
+    assert!(kernel.fault(child, Signal::SIGILL.0));
+    let parent = VforkParent {
+        task: vforked.parent,
+        resumes: Resume::Returns,
+        pid: child.0 as i32,
+    };
+    let mut actions = Vec::new();
+    while let Some(action) = kernel.take_pending(child) {
+        actions.push(action);
+    }
+    let hand_back = GuestAction::VforkReturn { parent, child };
+    assert_eq!(
+        actions.iter().filter(|a| **a == hand_back).count(),
+        1,
+        "{actions:?}"
+    );
+    kernel.release(child);
+}
+
 /// With SIGCHLD ignored a child is reaped as it becomes a zombie (`exit_notify`'s autoreap),
 /// which for a vfork child comes after its `exit_mm`: killed, it stays in the tree until the
 /// instance ran its `exit_mm`, and its pid goes then.
