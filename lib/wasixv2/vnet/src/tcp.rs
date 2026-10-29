@@ -774,6 +774,11 @@ impl Socket for TcpSocket {
                 self.connect_local(&mut g, dst, &target)
             }
             Path::Nowhere { .. } => unreachable!("refused above"),
+            Path::Dns { .. } => {
+                let stream = self.net.dns_connect(dst, self.wq.clone());
+                g.state = State::Connecting(Transport::Remote(stream), dst);
+                Err(Errno::EINPROGRESS)
+            }
             Path::Backend { host_dst, .. } => {
                 let backend = self.net.backend.clone().ok_or(Errno::ENETUNREACH)?;
                 match backend.connect(host_dst, self.wq.clone()) {

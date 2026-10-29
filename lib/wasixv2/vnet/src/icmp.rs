@@ -714,6 +714,55 @@ impl Net {
         back.net.icmp_input(msg, back.iif, me, now);
     }
 
+    /// An ICMP message to the namespace's DNS server, a host on the uplink: it answers echo
+    /// requests, as slirp's does, and takes nothing else.
+    pub(crate) fn dns_icmp(&self, msg: IcmpMsg, now: Duration) {
+        let (request, reply) = match msg.dst {
+            IpAddr::V4(_) => (ICMP_ECHO, ICMP_ECHOREPLY),
+            IpAddr::V6(_) => (ICMPV6_ECHO_REQUEST, ICMPV6_ECHO_REPLY),
+        };
+        if msg.data.len() < ICMP_HDR || msg.data[0] != request || !checksum_ok(&msg) {
+            return;
+        }
+        let mut data = msg.data;
+        data[0] = reply;
+        set_checksum(msg.dst, msg.src, &mut data, 2);
+        let reply = IcmpMsg {
+            src: msg.dst,
+            dst: msg.src,
+            ttl: DEFAULT_TTL,
+            data,
+        };
+        self.deliver_from_dns_server(reply, now);
+    }
+
+    /// A UDP datagram from `src` to a port of the DNS server other than 53: the server's port
+    /// unreachable.
+    pub(crate) fn dns_port_unreachable(
+        &self,
+        src: SocketAddr,
+        dst: SocketAddr,
+        payload: &[u8],
+        now: Duration,
+    ) {
+        let (type_, code) = match dst {
+            SocketAddr::V4(_) => (ICMP_DEST_UNREACH, ICMP_PORT_UNREACH),
+            SocketAddr::V6(_) => (ICMPV6_DEST_UNREACH, ICMPV6_PORT_UNREACH),
+        };
+        let msg = udp_error(type_, code, dst.ip(), src, dst, payload);
+        self.deliver_from_dns_server(msg, now);
+    }
+
+    /// An ICMP message from the DNS server, which arrives on the uplink.
+    fn deliver_from_dns_server(&self, msg: IcmpMsg, now: Duration) {
+        let iif = self.uplink_index();
+        let back = Back {
+            net: self.arc(),
+            iif,
+        };
+        self.icmp_input(msg, iif, back, now);
+    }
+
     /// The namespace's ping and raw ICMP sockets ([`crate::Network::icmp_sockets`]); read
     /// once the namespace's lock is gone, as sockets lock themselves first.
     pub(crate) fn icmp_entries(&self) -> Vec<IcmpEntry> {
@@ -1878,6 +1927,17 @@ impl IcmpSocket {
         }
         let src = path.src();
         self.finish(&g, &mut data, src, dst, ident)?;
+        if let IpPath::Dns { src } = path {
+            drop(g);
+            let msg = IcmpMsg {
+                src,
+                dst,
+                ttl,
+                data,
+            };
+            self.net.dns_icmp(msg, now);
+            return Ok(len);
+        }
         if let IpPath::Backend { host_dst, src } = path {
             let echo = match self.domain {
                 Domain::Inet => ICMP_ECHO,
