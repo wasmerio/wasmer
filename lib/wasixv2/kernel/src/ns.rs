@@ -684,7 +684,7 @@ impl Kernel {
         if process.group.single_threaded()
             && let Some(ipc) = process.sysvsem.lock_or_recover().clone()
         {
-            ipc.sem.exit(process.pid.0, self.ipc_now());
+            ipc.sem.exit(&self.pids.get(process.pid.0), self.ipc_now());
         }
     }
 

@@ -44,7 +44,8 @@ use super::{Ids, Object, Perm, READ, WRITE, get_or_create};
 use crate::{
     Kernel,
     mm::{self, Mapped, PAGE_SIZE, Shared, Source},
-    ns::UserNs,
+    ns::{PidNs, UserNs},
+    pid::PidRef,
     sync::MutexExt,
 };
 
@@ -100,8 +101,9 @@ struct State {
     /// Destroyed: no longer in the table, attachable by nobody.
     gone: bool,
     nattch: u32,
-    cpid: u32,
-    lpid: u32,
+    /// The creator and the last process that attached or detached it.
+    cpid: Option<PidRef>,
+    lpid: Option<PidRef>,
     atime: u64,
     dtime: u64,
     ctime: u64,
@@ -197,13 +199,14 @@ impl Segment {
         }
     }
 
-    fn to_abi(&self, perm: &Perm, ns: &UserNs) -> Shmid64Ds {
+    /// The `shmid_ds` of the segment, its pids as `pid_ns` sees them (`pid_vnr`).
+    fn to_abi(&self, perm: &Perm, pid_ns: &PidNs, user_ns: &UserNs) -> Shmid64Ds {
         let state = self.state();
         let (atime, atime_high) = super::split_time(state.atime);
         let (dtime, dtime_high) = super::split_time(state.dtime);
         let (ctime, ctime_high) = super::split_time(state.ctime);
         Shmid64Ds {
-            shm_perm: perm.to_abi(ns),
+            shm_perm: perm.to_abi(user_ns),
             shm_segsz: self.size as u32,
             shm_atime: atime,
             shm_atime_high: atime_high,
@@ -211,8 +214,8 @@ impl Segment {
             shm_dtime_high: dtime_high,
             shm_ctime: ctime,
             shm_ctime_high: ctime_high,
-            shm_cpid: state.cpid as i32,
-            shm_lpid: state.lpid as i32,
+            shm_cpid: state.cpid.as_ref().map_or(0, |pid| pid.nr(pid_ns)),
+            shm_lpid: state.lpid.as_ref().map_or(0, |pid| pid.nr(pid_ns)),
             shm_nattch: state.nattch,
             ..Shmid64Ds::default()
         }
@@ -225,7 +228,8 @@ pub(crate) struct Attachment {
     segment: Arc<Segment>,
     id: i32,
     table: Arc<Segments>,
-    pid: u32,
+    /// The process the attachment is in.
+    pid: PidRef,
     host: Arc<dyn Host>,
 }
 
@@ -240,13 +244,13 @@ impl Attachment {
             let mut state = self.segment.state();
             state.nattch += 1;
             state.atime = self.host.realtime().as_secs();
-            state.lpid = self.pid;
+            state.lpid = Some(self.pid.clone());
         }
         Arc::new(Attachment {
             segment: self.segment.clone(),
             id: self.id,
             table: self.table.clone(),
-            pid,
+            pid: self.pid.of(pid),
             host: self.host.clone(),
         })
     }
@@ -258,7 +262,7 @@ impl Drop for Attachment {
         let destroy = {
             let mut state = self.segment.state();
             state.nattch -= 1;
-            state.lpid = self.pid;
+            state.lpid = Some(self.pid.clone());
             state.dtime = self.host.realtime().as_secs();
             state.nattch == 0 && self.segment.perm().mode & SHM_DEST != 0
         };
@@ -303,8 +307,8 @@ impl Segments {
                     id,
                     perm: segment.perm().clone(),
                     size: segment.size,
-                    cpid: state.cpid,
-                    lpid: state.lpid,
+                    cpid: state.cpid.as_ref().map_or(0, PidRef::id),
+                    lpid: state.lpid.as_ref().map_or(0, PidRef::id),
                     nattch: state.nattch,
                     atime: state.atime,
                     dtime: state.dtime,
@@ -339,7 +343,7 @@ impl Kernel {
     ) -> SysResult<i32> {
         let cred = self.ipc_cred(caller);
         let now = self.ipc_now();
-        let pid = self.process(caller.task()).pid.0;
+        let pid = self.pids.get(self.process(caller.task()).pid.0);
         let ns = self.ns(caller);
         let segments = &ns.ipc.shm;
         let check = |segment: &Segment| match segment.size < size as usize {
@@ -361,8 +365,8 @@ impl Kernel {
                 state: Mutex::new(State {
                     gone: false,
                     nattch: 0,
-                    cpid: pid,
-                    lpid: 0,
+                    cpid: Some(pid.clone()),
+                    lpid: None,
                     atime: 0,
                     dtime: 0,
                     ctime: now,
@@ -420,7 +424,7 @@ impl Kernel {
             access |= 0o111;
         }
         let cred = self.ipc_cred(caller);
-        let pid = self.process(caller.task()).pid.0;
+        let pid = self.pids.get(self.process(caller.task()).pid.0);
         let segment = self.ns(caller).ipc.shm.get(shmid)?;
         {
             let mut state = segment.state();
@@ -438,7 +442,7 @@ impl Kernel {
             segment: segment.clone(),
             id: shmid,
             table: self.ns(caller).ipc.shm.clone(),
-            pid,
+            pid: pid.clone(),
             host: self.host.clone(),
         });
         let source = match segment.host_pages() {
@@ -459,7 +463,7 @@ impl Kernel {
         let at = self.map_segment(caller, addr, len, remap, source).await?;
         let mut state = segment.state();
         state.atime = self.ipc_now();
-        state.lpid = pid;
+        state.lpid = Some(pid);
         Ok(at as i32)
     }
 
@@ -520,13 +524,9 @@ impl Kernel {
                 if IpcCmd(cmd) != super::SHM_STAT_ANY {
                     perm.check(&cred, READ)?;
                 }
-                let ds = segment.to_abi(&perm, &self.cred(caller).user_ns);
                 // The creator and last user as the caller sees them (`pid_vnr`).
-                let ds = Shmid64Ds {
-                    shm_cpid: self.vnr(caller, ds.shm_cpid as u32),
-                    shm_lpid: self.vnr(caller, ds.shm_lpid as u32),
-                    ..ds
-                };
+                let pid_ns = self.active_pid_ns(caller.task());
+                let ds = segment.to_abi(&perm, &pid_ns, &self.cred(caller).user_ns);
                 write_value(caller.memory(), GuestPtrMut::new(buf), &ds).await?;
                 Ok(match IpcCmd(cmd) {
                     IpcCmd::IPC_STAT => 0,

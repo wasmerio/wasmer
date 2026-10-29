@@ -20,7 +20,8 @@ use wasixv2_wait::{PollMask, WaitQueue, wait_event};
 
 use super::{Ids, Object, Perm, READ, WRITE, get_or_create};
 use crate::Kernel;
-use crate::ns::UserNs;
+use crate::ns::{PidNs, UserNs};
+use crate::pid::PidRef;
 use crate::sync::MutexExt;
 
 /// `MSGMNI`: queues in the namespace.
@@ -65,8 +66,9 @@ struct State {
     messages: VecDeque<Message>,
     cbytes: usize,
     qbytes: usize,
-    lspid: u32,
-    lrpid: u32,
+    /// The last sender and receiver.
+    lspid: Option<PidRef>,
+    lrpid: Option<PidRef>,
     stime: u64,
     rtime: u64,
     ctime: u64,
@@ -121,12 +123,13 @@ impl State {
         found
     }
 
-    fn to_abi(&self, perm: &Perm, ns: &UserNs) -> Msqid64Ds {
+    /// The `msqid_ds` of the queue, its pids as `pid_ns` sees them (`pid_vnr`).
+    fn to_abi(&self, perm: &Perm, pid_ns: &PidNs, user_ns: &UserNs) -> Msqid64Ds {
         let (stime, stime_high) = super::split_time(self.stime);
         let (rtime, rtime_high) = super::split_time(self.rtime);
         let (ctime, ctime_high) = super::split_time(self.ctime);
         Msqid64Ds {
-            msg_perm: perm.to_abi(ns),
+            msg_perm: perm.to_abi(user_ns),
             msg_stime: stime,
             msg_stime_high: stime_high,
             msg_rtime: rtime,
@@ -136,8 +139,8 @@ impl State {
             msg_cbytes: self.cbytes as u32,
             msg_qnum: self.messages.len() as u32,
             msg_qbytes: self.qbytes as u32,
-            msg_lspid: self.lspid as i32,
-            msg_lrpid: self.lrpid as i32,
+            msg_lspid: self.lspid.as_ref().map_or(0, |pid| pid.nr(pid_ns)),
+            msg_lrpid: self.lrpid.as_ref().map_or(0, |pid| pid.nr(pid_ns)),
             ..Msqid64Ds::default()
         }
     }
@@ -171,8 +174,8 @@ impl Queues {
                     perm: queue.perm().clone(),
                     cbytes: state.cbytes,
                     qnum: state.messages.len(),
-                    lspid: state.lspid,
-                    lrpid: state.lrpid,
+                    lspid: state.lspid.as_ref().map_or(0, PidRef::id),
+                    lrpid: state.lrpid.as_ref().map_or(0, PidRef::id),
                     stime: state.stime,
                     rtime: state.rtime,
                     ctime: state.ctime,
@@ -207,8 +210,8 @@ impl Kernel {
                     messages: VecDeque::new(),
                     cbytes: 0,
                     qbytes: MSGMNB as usize,
-                    lspid: 0,
-                    lrpid: 0,
+                    lspid: None,
+                    lrpid: None,
                     stime: 0,
                     rtime: 0,
                     ctime: now,
@@ -246,7 +249,7 @@ impl Kernel {
         let mut text = vec![0; msgsz as usize];
         caller.memory().read(mtext(msgp.addr())?, &mut text).await?;
         let cred = self.ipc_cred(caller);
-        let pid = self.process(caller.task()).pid.0;
+        let pid = self.pids.get(self.process(caller.task()).pid.0);
         let queue = self.ns(caller).ipc.msg.get(msqid)?;
         let nowait = IpcFlags(msgflg as u32).contains(IpcFlags::IPC_NOWAIT);
         let mut message = Some(Message { mtype, text });
@@ -262,7 +265,7 @@ impl Kernel {
             if !state.fits(size) {
                 return nowait.then_some(Err(Errno::EAGAIN));
             }
-            state.lspid = pid;
+            state.lspid = Some(pid.clone());
             state.stime = self.ipc_now();
             state.cbytes += size;
             state.messages.push_back(message.take().expect("sent once"));
@@ -305,7 +308,7 @@ impl Kernel {
         };
         let noerror = flags.contains(MsgrcvFlags::MSG_NOERROR);
         let cred = self.ipc_cred(caller);
-        let pid = self.process(caller.task()).pid.0;
+        let pid = self.pids.get(self.process(caller.task()).pid.0);
         let queue = self.ns(caller).ipc.msg.get(msqid)?;
         let receive = || -> Option<Result<Message, Errno>> {
             let mut state = queue.state();
@@ -331,7 +334,7 @@ impl Kernel {
             let message = state.messages.remove(at).expect("found above");
             state.cbytes -= message.text.len();
             state.rtime = self.ipc_now();
-            state.lrpid = pid;
+            state.lrpid = Some(pid.clone());
             drop(state);
             queue.queue.wake(PollMask::empty());
             Some(Ok(message))
@@ -411,13 +414,9 @@ impl Kernel {
                     if IpcCmd(cmd) != super::MSG_STAT_ANY {
                         perm.check(&cred, READ)?;
                     }
-                    state.to_abi(&perm, &self.cred(caller).user_ns)
-                };
-                // The last sender and receiver as the caller sees them (`pid_vnr`).
-                let ds = Msqid64Ds {
-                    msg_lspid: self.vnr(caller, ds.msg_lspid as u32),
-                    msg_lrpid: self.vnr(caller, ds.msg_lrpid as u32),
-                    ..ds
+                    // The last sender and receiver as the caller sees them (`pid_vnr`).
+                    let pid_ns = self.active_pid_ns(caller.task());
+                    state.to_abi(&perm, &pid_ns, &self.cred(caller).user_ns)
                 };
                 write_value(caller.memory(), GuestPtrMut::new(buf), &ds).await?;
                 Ok(match IpcCmd(cmd) {
