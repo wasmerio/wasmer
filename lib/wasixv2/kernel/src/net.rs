@@ -1756,10 +1756,24 @@ impl Kernel {
         level: SocketLevel,
         name: i32,
     ) -> Result<Option<Vec<u8>>, Errno> {
-        if level != SocketLevel::SOL_SOCKET {
-            return Ok(None);
-        }
         let socket = &sock.socket;
+        if level != SocketLevel::SOL_SOCKET {
+            // net/ipv4/af_inet.c inet_getsockopt handles SOL_IP; inet6_getsockopt
+            // handles SOL_IPV6. Protocols reject levels they do not implement with
+            // EOPNOTSUPP (tcp_getsockopt/udp_getsockopt/raw_getsockopt).
+            let supported = level == SocketLevel::SOL_IP
+                || (socket.domain() == Domain::Inet6 && level == SocketLevel::SOL_IPV6)
+                || match socket.kind() {
+                    SocketKind::Stream => level == SocketLevel::SOL_TCP,
+                    SocketKind::Datagram => level.0 == 17 || level.0 == 136,
+                    SocketKind::Raw => level == SocketLevel::SOL_RAW,
+                    SocketKind::SeqPacket => level == SocketLevel::SOL_SCTP,
+                };
+            return match supported {
+                true => Ok(None),
+                false => Err(Errno::EOPNOTSUPP),
+            };
+        }
         let int = |v: i32| Ok(Some(v.to_le_bytes().to_vec()));
         match SocketOption(name) {
             SocketOption::SO_TYPE => int(match socket.kind() {
