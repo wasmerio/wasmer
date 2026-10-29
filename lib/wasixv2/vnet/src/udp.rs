@@ -57,6 +57,9 @@ struct Datagram {
 struct Inner {
     opts: SockOpts,
     local: Option<SocketAddr>,
+    /// `inet_rcv_saddr` of a bind that took no port (`IP_BIND_ADDRESS_NO_PORT`): the address
+    /// the port taken later by `connect` or a send goes with.
+    saddr: Option<IpAddr>,
     /// `SOCK_BINDADDR_LOCK` / `SOCK_BINDPORT_LOCK`.
     addr_locked: bool,
     port_locked: bool,
@@ -103,6 +106,7 @@ impl UdpSocket {
             inner: Mutex::new(Inner {
                 opts: SockOpts::new(SocketKind::Datagram, domain),
                 local: None,
+                saddr: None,
                 addr_locked: false,
                 port_locked: false,
                 peer: None,
@@ -145,7 +149,7 @@ impl UdpSocket {
         if let Some(local) = g.local {
             return Ok(local);
         }
-        let ip = self.any();
+        let ip = g.saddr.unwrap_or(self.any());
         let port = self
             .net
             .udp_bind(self.id, self.spec(&g.opts, ip), 0, self.me.clone())?;
@@ -487,6 +491,12 @@ impl Socket for UdpSocket {
         if g.local.is_some() {
             return Err(Errno::EINVAL);
         }
+        // `__inet_bind`: without a port, the address waits for the port autobind picks.
+        if addr.port() == 0 && g.opts.flag(0, IpOption::IP_BIND_ADDRESS_NO_PORT.0) {
+            g.saddr = Some(addr.ip());
+            g.addr_locked |= !addr.ip().is_unspecified();
+            return Ok(());
+        }
         let port = self.net.udp_bind(
             self.id,
             self.spec(&g.opts, addr.ip()),
@@ -495,7 +505,8 @@ impl Socket for UdpSocket {
         )?;
         let local = SocketAddr::new(addr.ip(), port);
         g.local = Some(local);
-        g.addr_locked = !addr.ip().is_unspecified();
+        g.saddr = None;
+        g.addr_locked |= !addr.ip().is_unspecified();
         g.port_locked = addr.port() != 0;
         self.claim_publication(&mut g, None);
         drop(g);
@@ -516,7 +527,7 @@ impl Socket for UdpSocket {
     fn connect(&self, addr: SocketAddr) -> NetResult<()> {
         let dst = canonical(addr);
         let mut g = self.lock();
-        let path = self.net.path(dst, g.local.map(|l| l.ip()))?;
+        let path = self.net.path(dst, g.local.map(|l| l.ip()).or(g.saddr))?;
         let src = path.src();
         let local = self.autobind(&mut g)?;
         if local.ip().is_unspecified() {
@@ -559,6 +570,9 @@ impl Socket for UdpSocket {
             if !g.port_locked {
                 st.udp.unbind(self.id, local.port());
                 g.local = None;
+                // An address `bind` chose stays without the port (`inet_reset_saddr` only
+                // for an unlocked one).
+                g.saddr = g.addr_locked.then_some(local.ip());
                 drop(st);
                 released = self.release_publication(&mut g);
             } else if !g.addr_locked {
@@ -736,6 +750,7 @@ impl Socket for UdpSocket {
     fn local_addr(&self) -> NetResult<SocketAddr> {
         let g = self.lock();
         Ok(g.local
+            .or(g.saddr.map(|ip| SocketAddr::new(ip, 0)))
             .map_or(unbound(self.domain), |a| present(self.domain, a)))
     }
 

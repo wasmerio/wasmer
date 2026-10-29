@@ -1396,3 +1396,55 @@ fn moving_an_interface_between_namespaces() {
     assert_eq!(na.peer_id(&*c), Some(0));
     assert_eq!(c.peer_id(&*na), None);
 }
+
+/// `IP_BIND_ADDRESS_NO_PORT`: `bind` with port 0 keeps the address and takes no port; the
+/// port comes with the first `connect`, `listen` or send, from that address.
+#[test]
+fn bind_address_no_port_defers_the_port() {
+    let n = net();
+    let no_port = |s: &dyn Socket| {
+        s.set_option(SOL_IP, IpOption::IP_BIND_ADDRESS_NO_PORT.0, &int(1))
+            .unwrap();
+        s.bind(a("127.0.0.2:0"), false).unwrap();
+        assert_eq!(s.local_addr().unwrap(), a("127.0.0.2:0"));
+    };
+    let (l1, l2) = (tcp(&n), tcp(&n));
+    l1.bind(a("127.0.0.1:7001"), false).unwrap();
+    l2.bind(a("127.0.0.1:7002"), false).unwrap();
+    l1.listen(4).unwrap();
+    l2.listen(4).unwrap();
+    let (c1, c2) = (tcp(&n), tcp(&n));
+    no_port(&*c1);
+    no_port(&*c2);
+    // A bind without a port leaves the socket free to bind again (`inet_num` is 0).
+    c2.bind(a("127.0.0.2:0"), false).unwrap();
+    c1.connect(a("127.0.0.1:7001")).unwrap();
+    c2.connect(a("127.0.0.1:7002")).unwrap();
+    let (s1, s2) = (c1.local_addr().unwrap(), c2.local_addr().unwrap());
+    assert_eq!(
+        (s1.ip(), s2.ip()),
+        (a("127.0.0.2:0").ip(), a("127.0.0.2:0").ip())
+    );
+    assert_ne!(s1.port(), 0);
+    assert_eq!(l1.accept().unwrap().peer, s1);
+
+    let l3 = tcp(&n);
+    no_port(&*l3);
+    l3.listen(4).unwrap();
+    assert_eq!(l3.local_addr().unwrap().ip(), a("127.0.0.2:0").ip());
+    assert_ne!(l3.local_addr().unwrap().port(), 0);
+
+    // UDP: the first send binds from the address; a disconnect gives the port back and
+    // keeps the address.
+    let (r, u) = (udp(&n), udp(&n));
+    r.bind(a("127.0.0.1:7003"), false).unwrap();
+    no_port(&*u);
+    send_to(&*u, b"x", Some(a("127.0.0.1:7003"))).unwrap();
+    let mut buf = [0; 4];
+    let from = r.recv(&mut buf, MsgFlags(0)).unwrap().from.unwrap();
+    assert_eq!(from, u.local_addr().unwrap());
+    assert_eq!(from.ip(), a("127.0.0.2:0").ip());
+    u.connect(a("127.0.0.1:7003")).unwrap();
+    u.disconnect().unwrap();
+    assert_eq!(u.local_addr().unwrap(), a("127.0.0.2:0"));
+}

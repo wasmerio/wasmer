@@ -171,6 +171,9 @@ struct Inner {
     /// What `getsockname` reports once an autobound port went back to the table while
     /// unbound: `inet_put_port` clears `inet_num` but leaves `inet_sport`.
     put_back: Option<SocketAddr>,
+    /// `inet_rcv_saddr` of a bind that took no port (`IP_BIND_ADDRESS_NO_PORT`): the address
+    /// the port taken later by `connect` or `listen` goes with.
+    saddr: Option<std::net::IpAddr>,
     state: State,
     /// `sk_err` while not connected.
     err: Option<Errno>,
@@ -277,6 +280,7 @@ impl TcpSocket {
                 port_locked: local.is_some(),
                 addr_locked: local.is_some(),
                 put_back: None,
+                saddr: None,
                 state,
                 err: None,
                 failed: false,
@@ -337,7 +341,7 @@ impl TcpSocket {
 
     fn autobind(&self, g: &mut Inner) -> NetResult<()> {
         if g.local.is_none() {
-            let ip = self.domain_any();
+            let ip = g.saddr.unwrap_or(self.domain_any());
             let port = self
                 .net
                 .tcp_bind(self.id, self.spec(&g.opts, ip), 0, self.me.clone())?;
@@ -423,6 +427,7 @@ impl TcpSocket {
         if g.addr_locked {
             return;
         }
+        g.saddr = None;
         if let Some(local) = g.local.filter(|l| !l.ip().is_unspecified()) {
             let any = self.domain_any();
             self.net.state().tcp.rehash(self.id, local.port(), any);
@@ -658,6 +663,15 @@ impl Socket for TcpSocket {
         if g.local.is_some() || !matches!(g.state, State::Closed) {
             return Err(Errno::EINVAL);
         }
+        // `__inet_bind`: without a port, the address waits for the port `connect` picks.
+        if addr.port() == 0
+            && g.opts
+                .flag(0, wasixv2_abi::IpOption::IP_BIND_ADDRESS_NO_PORT.0)
+        {
+            g.saddr = Some(addr.ip());
+            g.addr_locked |= !addr.ip().is_unspecified();
+            return Ok(());
+        }
         let port = self.net.tcp_bind(
             self.id,
             self.spec(&g.opts, addr.ip()),
@@ -665,8 +679,9 @@ impl Socket for TcpSocket {
             self.me.clone(),
         )?;
         g.local = Some(SocketAddr::new(addr.ip(), port));
+        g.saddr = None;
         g.port_locked = addr.port() != 0;
-        g.addr_locked = !addr.ip().is_unspecified();
+        g.addr_locked |= !addr.ip().is_unspecified();
         Ok(())
     }
 
@@ -734,7 +749,7 @@ impl Socket for TcpSocket {
         if mapped && g.opts.v6only {
             return Err(Errno::ENETUNREACH);
         }
-        let path = self.net.path(dst, g.local.map(|l| l.ip()))?;
+        let path = self.net.path(dst, g.local.map(|l| l.ip()).or(g.saddr))?;
         // Nothing answers out there: Linux's connect fails once neighbour resolution gives up.
         if let Path::Nowhere { .. } = path {
             return Err(Errno::EHOSTUNREACH);
@@ -896,6 +911,7 @@ impl Socket for TcpSocket {
         let g = self.lock();
         Ok(g.local
             .or(g.put_back)
+            .or(g.saddr.map(|ip| SocketAddr::new(ip, 0)))
             .map_or(unbound(self.domain), |a| present(self.domain, a)))
     }
 
