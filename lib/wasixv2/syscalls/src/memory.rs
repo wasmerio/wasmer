@@ -215,6 +215,51 @@ impl PageAccess {
         *held = ranges;
     }
 
+    /// Replaces what is restricted in `[start, end)` with `ranges`, which lie inside it, lowest
+    /// first and apart, keeping the rest: the change of one part of the page map, as Linux
+    /// changes the page tables of the pages an `mprotect` or `munmap` covers only. Ranges that
+    /// touch and allow the same join, as [`PageAccess::set`] would have them.
+    pub fn update(&self, start: u64, end: u64, ranges: Vec<Restricted>) {
+        let mut held = self.ranges.write().unwrap_or_else(PoisonError::into_inner);
+        let first = held.partition_point(|r| r.range.end <= start);
+        let last = held.partition_point(|r| r.range.start < end);
+        let mut middle = Vec::with_capacity(ranges.len() + 2);
+        if first < last {
+            let head = &held[first];
+            if head.range.start < start {
+                middle.push(Restricted {
+                    range: head.range.start..start,
+                    readable: head.readable,
+                });
+            }
+        }
+        let tail = held[first..last]
+            .last()
+            .filter(|tail| tail.range.end > end)
+            .map(|tail| Restricted {
+                range: end..tail.range.end,
+                readable: tail.readable,
+            });
+        middle.extend(ranges);
+        middle.extend(tail);
+        let changed = middle.len();
+        held.splice(first..last, middle);
+        // Join across the edges of the change.
+        let mut at = first.saturating_sub(1);
+        let mut stop = (first + changed + 1).min(held.len());
+        while at + 1 < stop {
+            let (left, right) = (&held[at], &held[at + 1]);
+            if left.range.end == right.range.start && left.readable == right.readable {
+                held[at].range.end = held[at + 1].range.end;
+                held.remove(at + 1);
+                stop -= 1;
+            } else {
+                at += 1;
+            }
+        }
+        self.restricted.store(!held.is_empty(), Ordering::Release);
+    }
+
     /// The restricted ranges, lowest first.
     pub fn ranges(&self) -> Vec<Restricted> {
         self.ranges
@@ -485,5 +530,24 @@ mod tests {
             copied(Err(Fault)).as_mut().poll(&mut cx),
             Poll::Ready(Err(Fault))
         );
+    }
+
+    fn r(range: Range<u64>, readable: bool) -> Restricted {
+        Restricted { range, readable }
+    }
+
+    /// An update replaces only its own part, clips what straddles it, and joins what touches.
+    #[test]
+    fn an_update_changes_its_part_of_the_access_only() {
+        let access = PageAccess::default();
+        access.set(vec![r(0..10, false), r(20..40, true), r(50..60, false)]);
+        access.update(30, 55, vec![r(30..35, true), r(45..55, false)]);
+        assert_eq!(
+            access.ranges(),
+            [r(0..10, false), r(20..35, true), r(45..60, false)]
+        );
+        access.update(0, 100, Vec::new());
+        assert!(access.ranges().is_empty());
+        assert_eq!(access.check(0, 4, true), Ok(()));
     }
 }
