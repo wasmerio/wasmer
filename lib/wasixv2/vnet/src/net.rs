@@ -141,6 +141,10 @@ pub struct NetConfig {
     pub auto_publish: Option<IpAddr>,
     /// DNS policy: the name servers `resolv.conf` lists.
     pub nameservers: Vec<IpAddr>,
+    /// The namespace's DNS server, as slirp's at 10.0.2.3: addresses on the uplink's subnets
+    /// where a host answers DNS over UDP and TCP port 53 from the backend's resolver
+    /// ([`crate::Backend::lookup`]) and echo requests, and refuses everything else.
+    pub dns_server: Vec<IpAddr>,
     /// Seed for ephemeral port selection.
     pub seed: u64,
 }
@@ -156,6 +160,7 @@ impl Default for NetConfig {
             host_loopback_alias: None,
             auto_publish: None,
             nameservers: Vec::new(),
+            dns_server: Vec::new(),
             seed: 0x5eed,
         }
     }
@@ -163,15 +168,35 @@ impl Default for NetConfig {
 
 impl NetConfig {
     /// A namespace behind a host backend: loopback plus the default uplink, with the gateway
-    /// reaching the host's loopback.
+    /// reaching the host's loopback and the DNS server at the uplink's [`Uplink::dns_server`]
+    /// addresses, which `resolv.conf` names.
     pub fn host_default() -> Self {
         let uplink = Uplink::default();
         let gw = uplink.v4.and_then(|v| v.2).map(IpAddr::V4);
+        let dns = uplink.dns_server();
         Self {
             uplink: Some(uplink),
             host_loopback_alias: gw,
+            nameservers: dns.clone(),
+            dns_server: dns,
             ..Self::default()
         }
+    }
+}
+
+impl Uplink {
+    /// Where slirp puts its DNS server: host 3 of each of the uplink's subnets (10.0.2.3 by
+    /// default, `<prefix>::3` as slirp's `fec0::3`).
+    pub fn dns_server(&self) -> Vec<IpAddr> {
+        let v4 = self.v4.map(|(a, len, _)| {
+            let mask = u32::MAX.checked_shl(32 - u32::from(len)).unwrap_or(0);
+            IpAddr::V4(Ipv4Addr::from((u32::from(a) & mask) | 3))
+        });
+        let v6 = self.v6.map(|(a, len, _)| {
+            let mask = u128::MAX.checked_shl(128 - u32::from(len)).unwrap_or(0);
+            IpAddr::V6(Ipv6Addr::from((u128::from(a) & mask) | 3))
+        });
+        v4.into_iter().chain(v6).collect()
     }
 }
 
@@ -210,6 +235,10 @@ pub(crate) enum Path {
         src: IpAddr,
         host_dst: SocketAddr,
     },
+    /// To the namespace's DNS server ([`NetConfig::dns_server`]), out the uplink.
+    Dns {
+        src: IpAddr,
+    },
     /// Out an interface where nothing answers: a dummy, a veth without carrier, or one whose
     /// peer does not hold the destination (there is no forwarding). `unresolved` when
     /// neighbour resolution of the next hop fails there.
@@ -222,7 +251,10 @@ pub(crate) enum Path {
 impl Path {
     pub(crate) fn src(&self) -> IpAddr {
         match self {
-            Path::Local { src, .. } | Path::Backend { src, .. } | Path::Nowhere { src, .. } => *src,
+            Path::Local { src, .. }
+            | Path::Backend { src, .. }
+            | Path::Dns { src }
+            | Path::Nowhere { src, .. } => *src,
         }
     }
 }
@@ -255,6 +287,10 @@ pub(crate) enum IpPath {
         src: IpAddr,
         host_dst: SocketAddr,
     },
+    /// To the namespace's DNS server.
+    Dns {
+        src: IpAddr,
+    },
     Nowhere {
         src: IpAddr,
         unresolved: bool,
@@ -266,6 +302,7 @@ impl IpPath {
         match self {
             IpPath::Local { src, .. }
             | IpPath::Backend { src, .. }
+            | IpPath::Dns { src }
             | IpPath::Nowhere { src, .. } => *src,
         }
     }
@@ -550,6 +587,7 @@ impl Net {
         let hop = next_hop(&decision, dst.ip());
         Ok(match decision.via {
             Via::Local => Hop::Done(Path::Local { src, net: None }),
+            Via::Uplink if self.is_dns_server(dst.ip()) => Hop::Done(Path::Dns { src }),
             Via::Uplink if self.backend.is_some() => Hop::Done(Path::Backend {
                 src,
                 host_dst: self.host_view(dst),
@@ -732,6 +770,9 @@ impl Net {
                 back_iif: LOOPBACK_INDEX,
             },
             Hop::Done(Path::Backend { host_dst, .. }) => UdpRoute::Backend { host_dst },
+            Hop::Done(Path::Dns { src }) => UdpRoute::Dns {
+                from: SocketAddr::new(src, local.port()),
+            },
             Hop::Done(Path::Nowhere { src, unresolved }) => UdpRoute::Nowhere {
                 from: SocketAddr::new(src, local.port()),
                 unresolved,
@@ -779,6 +820,7 @@ impl Net {
                 iif: LOOPBACK_INDEX,
                 back_iif: LOOPBACK_INDEX,
             },
+            Via::Uplink if self.is_dns_server(dst) => IpPath::Dns { src },
             Via::Uplink if self.backend.is_some() => IpPath::Backend {
                 src,
                 host_dst: self.host_view(SocketAddr::new(dst, 0)),
@@ -811,7 +853,7 @@ impl Net {
 
 /// The socket of the namespace `st` that receives a datagram to `dst` from `src` and the port
 /// of `local`, looked up without upgrading: a last reference must not drop under the lock.
-fn udp_receiver(
+pub(crate) fn udp_receiver(
     st: &NetState,
     src: IpAddr,
     local: SocketAddr,
@@ -932,6 +974,8 @@ pub(crate) enum UdpRoute {
     },
     /// Out through the backend to `host_dst`.
     Backend { host_dst: SocketAddr },
+    /// To the namespace's DNS server, from `from`.
+    Dns { from: SocketAddr },
     /// Out an interface where nothing answers: the datagram is lost, from `from` (the
     /// route's source and the socket's port); `unresolved` when neighbour resolution fails.
     Nowhere { from: SocketAddr, unresolved: bool },

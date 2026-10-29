@@ -606,7 +606,65 @@ pub trait Backend: Send + Sync {
         backlog: u32,
         sink: Arc<dyn InboundSink>,
     ) -> Result<Box<dyn Publication>, std::io::Error>;
+
+    /// Asks the host's resolver, for the namespace's DNS server (`NetConfig::dns_server`), and
+    /// returns at once: `done` gets the answer later, from the backend's own thread as
+    /// [`InboundSink::incoming`] is called, or before `lookup` returns when the backend knows
+    /// it already, so the caller holds no lock a socket takes. The default has no resolver
+    /// and fails every lookup.
+    fn lookup(&self, lookup: Lookup, done: LookupDone) {
+        let _ = lookup;
+        done(Err(LookupError::Failed));
+    }
 }
+
+/// A question the namespace's DNS server asks the backend's resolver ([`Backend::lookup`]).
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub enum Lookup {
+    /// The addresses of a fully qualified name, written without the trailing dot, of both
+    /// families, and its canonical name: `getaddrinfo` with `AI_CANONNAME`, never applying the
+    /// host's search list.
+    Name(String),
+    /// The name of an address: `getnameinfo` with `NI_NAMEREQD`.
+    Addr(IpAddr),
+    /// A DNS query message, forwarded as it is to the host's name servers.
+    Forward(Vec<u8>),
+}
+
+/// What a [`Lookup`] found, and for how many seconds that holds (the TTL of the records made
+/// of it).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Found {
+    pub answer: Answer,
+    pub ttl: u32,
+}
+
+/// The answer to a [`Lookup`] of the same kind.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Answer {
+    /// The addresses of a name, possibly none (the name exists without addresses), and its
+    /// canonical name.
+    Addrs {
+        canonical: String,
+        addrs: Vec<IpAddr>,
+    },
+    /// The name of an address.
+    Name(String),
+    /// The name servers' response message, with the query's identifier.
+    Message(Vec<u8>),
+}
+
+/// Why a [`Lookup`] found nothing.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum LookupError {
+    /// The name or address has no entry (`NXDOMAIN`), for `ttl` seconds.
+    NotFound { ttl: u32 },
+    /// The host could not tell (`SERVFAIL`).
+    Failed,
+}
+
+/// Receives the result of a [`Backend::lookup`].
+pub type LookupDone = Box<dyn FnOnce(Result<Found, LookupError>) + Send>;
 
 /// Where a backend stream's connection stands, as far as the socket layer cares.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]

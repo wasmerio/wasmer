@@ -2686,3 +2686,316 @@ fn ipv6_recvpathmtu_reports_the_mtu_a_dontfrag_send_exceeded() {
     let m = r.recv(&mut buf, MsgFlags(0)).unwrap();
     assert_eq!(m.control[0].kind, Ipv6Option::IPV6_PATHMTU.0);
 }
+
+/// A backend whose resolver answers when the test says, from the test's thread, as the host's
+/// would from its own; it carries nothing else.
+#[derive(Default)]
+struct Resolver {
+    asked: Mutex<Vec<(crate::Lookup, crate::LookupDone)>>,
+}
+
+impl Resolver {
+    /// The lookups asked so far, without their answers.
+    fn questions(&self) -> Vec<crate::Lookup> {
+        self.asked
+            .lock()
+            .unwrap()
+            .iter()
+            .map(|(l, _)| l.clone())
+            .collect()
+    }
+
+    /// Answers the oldest lookup.
+    fn answer(&self, found: Result<crate::Found, crate::LookupError>) {
+        let (_, done) = self.asked.lock().unwrap().remove(0);
+        done(found);
+    }
+}
+
+impl Backend for Resolver {
+    fn connect(&self, _: SocketAddr, _: WaitQueue) -> Result<Arc<dyn BackendStream>, Errno> {
+        Err(Errno::ENETUNREACH)
+    }
+    fn datagram(&self, _: Domain, _: WaitQueue) -> Result<Arc<dyn BackendDatagram>, Errno> {
+        Err(Errno::ENETUNREACH)
+    }
+    fn publish(
+        &self,
+        _: SocketAddr,
+        _: u32,
+        _: Arc<dyn InboundSink>,
+    ) -> Result<Box<dyn Publication>, std::io::Error> {
+        Err(std::io::ErrorKind::Unsupported.into())
+    }
+    fn lookup(&self, lookup: crate::Lookup, done: crate::LookupDone) {
+        self.asked.lock().unwrap().push((lookup, done));
+    }
+}
+
+fn with_resolver(config: NetConfig) -> (Arc<Net>, Arc<Resolver>) {
+    let r = Arc::new(Resolver::default());
+    (Net::new(config, Some(r.clone())), r)
+}
+
+fn addrs(canonical: &str, list: &[&str], ttl: u32) -> Result<crate::Found, crate::LookupError> {
+    Ok(crate::Found {
+        answer: crate::Answer::Addrs {
+            canonical: canonical.into(),
+            addrs: list.iter().map(|ip| ip.parse().unwrap()).collect(),
+        },
+        ttl,
+    })
+}
+
+/// The records of type `kind` in the answer section of `msg`, as their data.
+fn records(msg: &[u8], kind: u16) -> Vec<Vec<u8>> {
+    let an = u16::from_be_bytes([msg[6], msg[7]]);
+    let mut pos = 12;
+    // The question: a name, type and class.
+    while msg[pos] != 0 && msg[pos] & 0xc0 == 0 {
+        pos += 1 + usize::from(msg[pos]);
+    }
+    pos += 1 + 4;
+    let mut out = Vec::new();
+    for _ in 0..an {
+        while msg[pos] != 0 && msg[pos] & 0xc0 == 0 {
+            pos += 1 + usize::from(msg[pos]);
+        }
+        pos += if msg[pos] == 0 { 1 } else { 2 };
+        let t = u16::from_be_bytes([msg[pos], msg[pos + 1]]);
+        let len = usize::from(u16::from_be_bytes([msg[pos + 8], msg[pos + 9]]));
+        if t == kind {
+            out.push(msg[pos + 10..pos + 10 + len].to_vec());
+        }
+        pos += 10 + len;
+    }
+    out
+}
+
+const DNS: &str = "10.0.2.3:53";
+const TYPE_A: u16 = 1;
+const TYPE_MX: u16 = 15;
+const TYPE_PTR: u16 = 12;
+const TYPE_AAAA: u16 = 28;
+
+/// UDP to 10.0.2.3:53: the server asks the backend's resolver once per name, whatever the
+/// type, answers once the resolver has, from 10.0.2.3:53 to the socket's address, and maps
+/// what the host found to RCODEs. The send never waits for the lookup.
+#[test]
+fn the_dns_server_answers_udp_queries_from_the_resolver() {
+    use crate::{Lookup, LookupError, dns::tests::query};
+    let (n, r) = with_resolver(NetConfig::host_default());
+    assert_eq!(n.resolv_conf(), "nameserver 10.0.2.3\n");
+    let s = udp(&n);
+    send_to(
+        &*s,
+        &query(0x1111, "Example.COM", TYPE_A, None),
+        Some(a(DNS)),
+    )
+    .unwrap();
+    assert_eq!(r.questions(), [Lookup::Name("example.com".into())]);
+    assert!(!s.poll(None).contains(PollMask::IN));
+    r.answer(addrs("example.com", &["192.0.2.7", "2001:db8::7"], 30));
+    let mut buf = [0; 512];
+    let got = s.recv(&mut buf, MsgFlags(0)).unwrap();
+    assert_eq!(got.from, Some(a(DNS)));
+    let answer = &buf[..got.len];
+    assert_eq!(&answer[..2], &[0x11, 0x11]);
+    // QR, RD and RA; NOERROR.
+    assert_eq!(answer[2] & 0x81, 0x81);
+    assert_eq!(answer[3], 0x80);
+    assert_eq!(records(answer, TYPE_A), [vec![192, 0, 2, 7]]);
+
+    // AAAA of a name with only IPv4: NODATA.
+    send_to(&*s, &query(2, "v4.example", TYPE_AAAA, None), Some(a(DNS))).unwrap();
+    r.answer(addrs("v4.example", &["192.0.2.8"], 30));
+    let answer = recv(&*s, 512).unwrap();
+    assert_eq!((answer[3] & 0xf, answer[7]), (0, 0));
+
+    // NXDOMAIN, SERVFAIL.
+    send_to(&*s, &query(3, "nope.example", TYPE_A, None), Some(a(DNS))).unwrap();
+    r.answer(Err(LookupError::NotFound { ttl: 5 }));
+    assert_eq!(recv(&*s, 512).unwrap()[3] & 0xf, 3);
+    send_to(&*s, &query(4, "slow.example", TYPE_A, None), Some(a(DNS))).unwrap();
+    r.answer(Err(LookupError::Failed));
+    assert_eq!(recv(&*s, 512).unwrap()[3] & 0xf, 2);
+
+    // PTR of a whole address asks for its name; MX goes to the name servers as it is.
+    send_to(
+        &*s,
+        &query(5, "7.2.0.192.in-addr.arpa", TYPE_PTR, None),
+        Some(a(DNS)),
+    )
+    .unwrap();
+    assert_eq!(r.questions(), [Lookup::Addr("192.0.2.7".parse().unwrap())]);
+    r.answer(Ok(crate::Found {
+        answer: crate::Answer::Name("host.example".into()),
+        ttl: 30,
+    }));
+    let answer = recv(&*s, 512).unwrap();
+    assert_eq!(
+        records(&answer, TYPE_PTR),
+        [b"\x04host\x07example\x00".to_vec()]
+    );
+    let mx = query(6, "example.com", TYPE_MX, None);
+    send_to(&*s, &mx, Some(a(DNS))).unwrap();
+    assert_eq!(r.questions(), [Lookup::Forward(mx.clone())]);
+    let mut upstream = mx.clone();
+    upstream[..2].copy_from_slice(&[0xab, 0xcd]);
+    upstream[2] |= 0x80;
+    r.answer(Ok(crate::Found {
+        answer: crate::Answer::Message(upstream),
+        ttl: 0,
+    }));
+    let answer = recv(&*s, 512).unwrap();
+    assert_eq!(&answer[..2], &[0, 6], "the query's identifier");
+    assert_eq!(&answer[4..], &mx[4..]);
+
+    // An answer for a socket that went is dropped.
+    send_to(&*s, &query(7, "gone.example", TYPE_A, None), Some(a(DNS))).unwrap();
+    drop(s);
+    r.answer(addrs("gone.example", &["192.0.2.9"], 30));
+}
+
+/// An answer past 512 bytes keeps the records that fit and sets TC; the client asks again
+/// over TCP, where the server answers in full with a length prefix and closes once the client
+/// has closed and every query is answered. A connected UDP socket and an IPv6 socket get
+/// their answers too.
+#[test]
+fn truncated_udp_answers_are_whole_over_tcp() {
+    use crate::dns::tests::query;
+    let (n, r) = with_resolver(NetConfig::host_default());
+    let many: Vec<String> = (1..=40).map(|i| format!("2001:db8::{i:x}")).collect();
+    let many: Vec<&str> = many.iter().map(String::as_str).collect();
+    let s = udp(&n);
+    s.connect(a(DNS)).unwrap();
+    send(&*s, &query(1, "big.example", TYPE_AAAA, None)).unwrap();
+    r.answer(addrs("big.example", &many, 30));
+    let answer = recv(&*s, 4096).unwrap();
+    assert!(answer.len() <= 512);
+    assert_eq!(answer[2] & 0x02, 0x02, "TC");
+    assert_eq!(records(&answer, TYPE_AAAA).len(), 17);
+
+    let c = tcp(&n);
+    assert_eq!(c.connect(a(DNS)), Err(Errno::EINPROGRESS));
+    assert!(c.poll(None).contains(PollMask::OUT));
+    assert_eq!(c.peer_addr(), Ok(a(DNS)));
+    let q = query(2, "big.example", TYPE_AAAA, None);
+    let mut framed = (q.len() as u16).to_be_bytes().to_vec();
+    framed.extend(&q);
+    // In two pieces, the second with a second query.
+    send(&*c, &framed[..5]).unwrap();
+    assert!(r.questions().is_empty());
+    let mut rest = framed[5..].to_vec();
+    rest.extend(&framed);
+    rest[framed.len() - 5 + 3] = 3;
+    send(&*c, &rest).unwrap();
+    assert_eq!(r.questions().len(), 2);
+    c.shutdown(Shutdown::Write).unwrap();
+    assert_eq!(recv(&*c, 10), Err(Errno::EAGAIN));
+    r.answer(addrs("big.example", &many, 30));
+    let mut got = Vec::new();
+    while got.len() < 2 {
+        got.extend(recv(&*c, 2).unwrap());
+    }
+    let len = usize::from(u16::from_be_bytes([got[0], got[1]]));
+    let answer = recv(&*c, len).unwrap();
+    assert_eq!(answer.len(), len);
+    assert_eq!(answer[2] & 0x02, 0, "not truncated");
+    assert_eq!(records(&answer, TYPE_AAAA).len(), 40);
+    // One query left: no end of stream yet.
+    assert_eq!(recv(&*c, 10), Err(Errno::EAGAIN));
+    r.answer(addrs("big.example", &many, 30));
+    let len = u16::from_be_bytes(recv(&*c, 2).unwrap().try_into().unwrap());
+    let answer = recv(&*c, usize::from(len)).unwrap();
+    assert_eq!(&answer[..2], &[0, 3]);
+    assert_eq!(recv(&*c, 10), Ok(Vec::new()), "the server closed");
+    assert!(c.poll(None).contains(PollMask::HUP));
+
+    let s6 = n
+        .socket(Domain::Inet6, SocketKind::Datagram, 0, UID)
+        .unwrap();
+    send_to(
+        &*s6,
+        &query(9, "localhost", TYPE_A, None),
+        Some(a("[::ffff:10.0.2.3]:53")),
+    )
+    .unwrap();
+    let mut buf = [0; 512];
+    let got = s6.recv(&mut buf, MsgFlags(0)).unwrap();
+    assert_eq!(got.from, Some(a("[::ffff:10.0.2.3]:53")));
+    assert_eq!(records(&buf[..got.len], TYPE_A), [vec![127, 0, 0, 1]]);
+    assert!(r.questions().is_empty(), "localhost needs no lookup");
+}
+
+/// The server is a host: it answers pings, a datagram to another port gets a port
+/// unreachable and a connection to another port is refused. Without a DNS server configured,
+/// its address is an ordinary outside address.
+#[test]
+fn the_dns_server_refuses_other_ports_and_answers_pings() {
+    let (n, _r) = with_resolver(NetConfig::host_default());
+    let s = udp(&n);
+    s.connect(a("10.0.2.3:54")).unwrap();
+    send(&*s, b"x").unwrap();
+    assert_eq!(recv(&*s, 8), Err(Errno::ECONNREFUSED));
+
+    let c = tcp(&n);
+    assert_eq!(c.connect(a("10.0.2.3:80")), Err(Errno::EINPROGRESS));
+    assert!(c.poll(None).contains(PollMask::ERR));
+    assert_eq!(c.connect(a("10.0.2.3:80")), Err(Errno::ECONNREFUSED));
+
+    let p = ping_socket(&n, Domain::Inet);
+    send_to(&*p, &echo4(0, 3, b"dns"), Some(a("10.0.2.3:0"))).unwrap();
+    let mut buf = [0; 64];
+    let r = p.recv(&mut buf, MsgFlags(0)).unwrap();
+    assert_eq!(r.from, Some(a("10.0.2.3:0")));
+    assert_eq!((buf[0], &buf[8..r.len]), (0, &b"dns"[..]));
+    assert_eq!(csum(&buf[..r.len]), 0);
+
+    let (n, rec) = backed_with(NetConfig {
+        dns_server: Vec::new(),
+        ..NetConfig::host_default()
+    });
+    let s = udp(&n);
+    send_to(&*s, b"x", Some(a(DNS))).unwrap();
+    assert_eq!(
+        rec.dgrams.lock().unwrap().len(),
+        1,
+        "out through the backend"
+    );
+}
+
+/// With an IPv6 uplink the server also sits at the prefix's host 3, as slirp's `fec0::3`.
+#[test]
+fn the_dns_server_has_an_ipv6_address_on_an_ipv6_uplink() {
+    use crate::dns::tests::query;
+    let uplink = crate::Uplink {
+        v6: Some((
+            "fec0::15".parse().unwrap(),
+            64,
+            Some("fec0::2".parse().unwrap()),
+        )),
+        ..crate::Uplink::default()
+    };
+    let servers = uplink.dns_server();
+    assert_eq!(servers, [a("10.0.2.3:0").ip(), "fec0::3".parse().unwrap()]);
+    let (n, r) = with_resolver(NetConfig {
+        uplink: Some(uplink),
+        dns_server: servers,
+        ..NetConfig::default()
+    });
+    let s = n
+        .socket(Domain::Inet6, SocketKind::Datagram, 0, UID)
+        .unwrap();
+    send_to(
+        &*s,
+        &query(1, "example.com", TYPE_AAAA, None),
+        Some(a("[fec0::3]:53")),
+    )
+    .unwrap();
+    r.answer(addrs("example.com", &["2001:db8::1"], 30));
+    let mut buf = [0; 512];
+    let got = s.recv(&mut buf, MsgFlags(0)).unwrap();
+    assert_eq!(got.from, Some(a("[fec0::3]:53")));
+    assert_eq!(records(&buf[..got.len], TYPE_AAAA).len(), 1);
+}

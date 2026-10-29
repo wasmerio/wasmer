@@ -8,6 +8,7 @@ mod addr;
 mod api;
 pub mod bpf;
 mod cmsg;
+mod dns;
 mod icmp;
 pub mod iface;
 mod mcast;
@@ -25,10 +26,10 @@ mod udp;
 mod tests;
 
 pub use api::{
-    Accepted, Backend, BackendDatagram, BackendStream, Control, Domain, EchoIgnore, GroupSources,
-    IcmpEntry, InboundSink, Interface, Network, NewLink, NewLinkKind, PortEntry, Publication,
-    PublishedDatagram, QueuedError, RecvMsg, Room, SendMsg, Shutdown, Socket, SocketKind,
-    StreamState,
+    Accepted, Answer, Backend, BackendDatagram, BackendStream, Control, Domain, EchoIgnore, Found,
+    GroupSources, IcmpEntry, InboundSink, Interface, Lookup, LookupDone, LookupError, Network,
+    NewLink, NewLinkKind, PortEntry, Publication, PublishedDatagram, QueuedError, RecvMsg, Room,
+    SendMsg, Shutdown, Socket, SocketKind, StreamState,
 };
 pub use icmp::IcmpSocket;
 pub use net::{MovedLink, Net, NetConfig, Rtnl, Uplink, move_link, rtnl};

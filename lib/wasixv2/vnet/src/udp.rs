@@ -172,7 +172,7 @@ impl UdpSocket {
 
     /// `udp_queue_rcv_one_skb`: the socket's filter, then `__udp_enqueue_schedule_skb`, which
     /// drops when the queue already exceeds `SO_RCVBUF`.
-    fn deliver(&self, data: &[u8], from: SocketAddr, at: &Arrival) {
+    pub(crate) fn deliver(&self, data: &[u8], from: SocketAddr, at: &Arrival) {
         let (filter, port) = {
             let g = self.lock();
             (g.opts.filter.clone(), g.local.map_or(0, |l| l.port()))
@@ -835,9 +835,10 @@ impl Socket for UdpSocket {
             Path::Backend { host_dst, .. } => {
                 self.backend_endpoint(&mut g)?.connect(Some(host_dst))?
             }
-            // The association moved inside the namespace or to a link of its own: nothing from
-            // outside is for us now.
-            Path::Local { .. } | Path::Nowhere { .. } => {
+            // The association moved inside the namespace, to a link of its own, or to the DNS
+            // server, whose answers are delivered as local datagrams: nothing the backend
+            // receives is for us now.
+            Path::Local { .. } | Path::Dns { .. } | Path::Nowhere { .. } => {
                 g.backend = None;
                 if let Some((_, ep)) = &g.published {
                     let _ = ep.attach(None);
@@ -1015,6 +1016,17 @@ impl Socket for UdpSocket {
                     let udp = udp_datagram(from, dst, msg.data);
                     self.net
                         .neighbour_failed(from.ip(), dst.ip(), IPPROTO_UDP, &udp, msg.now);
+                }
+                Ok(msg.data.len())
+            }
+            // The namespace's DNS server takes each segment as a datagram of its own.
+            UdpRoute::Dns { from } => {
+                drop(g);
+                if msg.data.is_empty() {
+                    self.net.dns_datagram(from, dst, msg.data, msg.now);
+                }
+                for chunk in msg.data.chunks(segment) {
+                    self.net.dns_datagram(from, dst, chunk, msg.now);
                 }
                 Ok(msg.data.len())
             }
