@@ -3092,6 +3092,11 @@ impl Control for Kernel {
                 .get(&task)
                 .and_then(|t| match t.work.peek() {
                     Some(GuestAction::Exit(code)) => Some(*code),
+                    // A shared-instance vfork child hands back the instance instead of
+                    // unwinding it; its fatal exit still owes the tracer an EXIT stop.
+                    Some(GuestAction::VforkReturn { child, .. }) if *child == task => {
+                        t.process.group.status()
+                    }
                     _ => None,
                 });
         if let Some(code) = exit

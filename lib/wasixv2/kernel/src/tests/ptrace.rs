@@ -1188,3 +1188,98 @@ fn get_rseq_configuration_reports_no_registration() {
     );
     assert_eq!(get(&memory.0, 0x700, 24), vec![0; 24]);
 }
+
+/// `forget_original_parent` calls exit_ptrace before autoreap can unhash the tracer.
+#[test]
+fn an_autoreaped_tracer_releases_its_zombie_tracees() {
+    let (stack, parent, memory) = machine();
+    let kernel = &stack.inner;
+    let caller = Caller::new(parent, &memory);
+    kernel.yama.set_scope(0).unwrap();
+    let tracer = fork_child(kernel, &caller);
+    let tracee = fork_child(kernel, &caller);
+    let tracer_memory = flat();
+    let tracer_caller = Caller::new(tracer, &tracer_memory);
+    assert_eq!(
+        ptrace(kernel, &tracer_caller, R::PTRACE_SEIZE, tracee, 0, 0),
+        Ok(0)
+    );
+    let action = wasixv2_abi::Sigaction {
+        sa_handler: wasixv2_abi::SignalHandler::SIG_IGN.0 as u32,
+        ..Default::default()
+    };
+    block_on(wasixv2_syscalls::write_value(
+        &memory,
+        GuestPtrMut::new(0x900),
+        &action,
+    ))
+    .unwrap();
+    block_on(kernel.rt_sigaction(
+        &caller,
+        Signal::SIGCHLD,
+        GuestPtr::new(0x900),
+        GuestPtrMut::NULL,
+        8,
+    ))
+    .unwrap();
+    let tracee_memory = flat();
+    block_on(kernel.exit_group(&Caller::new(tracee, &tracee_memory), 0)).unwrap();
+    assert!(
+        kernel.procs.find(tracee.0).is_some(),
+        "tracer owns the zombie"
+    );
+    block_on(kernel.exit_group(&tracer_caller, 0)).unwrap();
+    assert!(kernel.procs.find(tracer.0).is_none());
+    assert!(
+        kernel.procs.find(tracee.0).is_none(),
+        "real parent autoreaps after detach"
+    );
+    assert!(!kernel.tracees.lock().contains_key(&tracee));
+}
+
+/// kernel/exit.c `do_exit` stops a killed vfork child before mm_release resumes its parent.
+#[test]
+fn a_vfork_childs_fatal_exit_stops_before_handing_back_the_instance() {
+    let (stack, tracer, memory) = machine();
+    let kernel = &stack.inner;
+    let caller = Caller::new(tracer, &memory);
+    let parent = fork_child(kernel, &caller);
+    let parent_memory = flat();
+    let parent_caller = Caller::new(parent, &parent_memory);
+    assert_eq!(
+        block_on(kernel.clone(
+            &parent_caller,
+            0x4100 | Signal::SIGCHLD.0 as u32,
+            0,
+            S32Ptr::NULL,
+            0,
+            S32Ptr::NULL
+        )),
+        Ok(0)
+    );
+    let Some(GuestAction::SwitchTask { task: child, .. }) = kernel.take_pending(parent) else {
+        panic!("vfork did not switch tasks");
+    };
+    assert_eq!(
+        ptrace(
+            kernel,
+            &caller,
+            R::PTRACE_SEIZE,
+            child,
+            0,
+            PtraceOptions::PTRACE_O_TRACEEXIT.0
+        ),
+        Ok(0)
+    );
+    kernel.kill(child, Signal::SIGKILL).unwrap();
+    assert_eq!(kernel.take_pending(child), Some(GuestAction::Stopped));
+    assert_eq!(
+        wait(kernel, &caller, child, WALL).unwrap().1,
+        SIGTRAP | PtraceEvent::PTRACE_EVENT_EXIT.0 << 8
+    );
+    assert_eq!(ptrace(kernel, &caller, R::PTRACE_CONT, child, 0, 0), Ok(0));
+    assert!(matches!(
+        kernel.take_pending(child),
+        Some(GuestAction::VforkReturn { .. })
+    ));
+}

@@ -76,7 +76,7 @@ impl Group {
         self.state.lock_or_recover().live <= 1
     }
 
-    fn status(&self) -> Option<i32> {
+    pub(crate) fn status(&self) -> Option<i32> {
         self.state.lock_or_recover().exit
     }
 }
