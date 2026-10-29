@@ -3,12 +3,15 @@
 //! `move_vma` moves the live reference instead. Shared mappings retain their object.
 
 use super::{Mm, PAGE_SIZE};
-use crate::{Kernel, sync::MutexExt};
+use crate::{Kernel, sync::MutexExt, uidgid::Kuid};
 use futures_util::FutureExt;
 use futures_util::lock::Mutex as AsyncMutex;
 use std::{
     collections::BTreeMap,
-    sync::{Arc, Mutex, Weak},
+    sync::{
+        Arc, Mutex, Weak,
+        atomic::{AtomicU64, Ordering},
+    },
 };
 use wasixv2_pages::SharedPages;
 use wasixv2_syscalls::{Caller, Errno, Fault, LocalFuture, UserMemory};
@@ -16,7 +19,51 @@ use wasixv2_syscalls::{Caller, Errno, Fault, LocalFuture, UserMemory};
 #[derive(Default)]
 pub(super) struct RetainedPages(Mutex<BTreeMap<u64, Weak<Page>>>);
 
-enum Page {
+/// Linux io_uring/rsrc.c:__io_account_mem uses user->locked_vm, separately
+/// from the mm->locked_vm that mm/mlock.c accounts for mlock.
+#[derive(Default)]
+pub(crate) struct MemlockUsers(Mutex<BTreeMap<Kuid, Weak<AtomicU64>>>);
+
+struct MemlockCharge(Arc<AtomicU64>);
+
+impl MemlockUsers {
+    fn charge(&self, uid: Kuid, limit: u64) -> Result<MemlockCharge, Errno> {
+        let count = {
+            let mut users = self.0.lock_or_recover();
+            users.retain(|_, count| count.strong_count() != 0);
+            match users.get(&uid).and_then(Weak::upgrade) {
+                Some(count) => count,
+                None => {
+                    let count = Arc::new(AtomicU64::new(0));
+                    users.insert(uid, Arc::downgrade(&count));
+                    count
+                }
+            }
+        };
+        count
+            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |n| {
+                n.checked_add(1).filter(|&n| n <= limit)
+            })
+            .map_err(|_| Errno::ENOMEM)?;
+        Ok(MemlockCharge(count))
+    }
+}
+
+impl Drop for MemlockCharge {
+    fn drop(&mut self) {
+        // io_uring/rsrc.c:io_unaccount_mem, on the final pin reference.
+        self.0.fetch_sub(1, Ordering::Relaxed);
+    }
+}
+
+struct Page {
+    kind: PageKind,
+    // Acquired before reserving a spare: retained host copies cost at most the
+    // accounted number of guest pages, including after munmap or ring inheritance.
+    _charge: Option<MemlockCharge>,
+}
+
+enum PageKind {
     Local(AsyncMutex<Source>),
     /// P2's foreign handle copies synchronously from any host thread. The same
     /// source lock orders timer CQ writes against munmap/mremap detachment.
@@ -64,6 +111,8 @@ impl Kernel {
         mm.access
             .check(addr, len as usize, true)
             .map_err(|_| Errno::EFAULT)?;
+        let limit = self.lock_limit(caller);
+        let uid = self.process(caller.task()).cred().user.real;
         let mut records = Vec::new();
         for base in (u64::from(addr) / PAGE_SIZE..end.div_ceil(PAGE_SIZE)).map(|p| p * PAGE_SIZE) {
             // pin_user_pages(FOLL_WRITE | FOLL_LONGTERM) validates access without
@@ -77,6 +126,11 @@ impl Kernel {
             let page = if let Some(page) = existing {
                 page
             } else {
+                let charge = if limit.exempt {
+                    None
+                } else {
+                    Some(self.memlock_users.charge(uid, limit.pages())?)
+                };
                 let shared = {
                     let space = mm.space();
                     space.mappings.containing(base).and_then(|mapping| {
@@ -98,12 +152,16 @@ impl Kernel {
                         spare,
                     }
                 };
-                let page = Arc::new(match mm.foreign() {
-                    Some(memory) => Page::Foreign {
+                let kind = match mm.foreign() {
+                    Some(memory) => PageKind::Foreign {
                         memory,
                         source: Mutex::new(source),
                     },
-                    None => Page::Local(AsyncMutex::new(source)),
+                    None => PageKind::Local(AsyncMutex::new(source)),
+                };
+                let page = Arc::new(Page {
+                    kind,
+                    _charge: charge,
                 });
                 mm.retained
                     .0
@@ -132,8 +190,8 @@ impl Mm {
                 .collect()
         };
         for page in pages {
-            match &*page {
-                Page::Local(source) => {
+            match &page.kind {
+                PageKind::Local(source) => {
                     let mut source = source.lock().await;
                     if let Source::Live { addr, spare } = &mut *source {
                         memory
@@ -143,7 +201,7 @@ impl Mm {
                         *source = Source::Owned(std::mem::take(spare));
                     }
                 }
-                Page::Foreign { memory, source } => {
+                PageKind::Foreign { memory, source } => {
                     let mut source = source.lock_or_recover();
                     if let Source::Live { addr, spare } = &mut *source {
                         sync_copy(memory.force_read(*addr, spare))
@@ -165,13 +223,13 @@ impl Mm {
         };
         for (at, page) in pages {
             let new = target + at - start;
-            match &*page {
-                Page::Local(source) => {
+            match &page.kind {
+                PageKind::Local(source) => {
                     if let Source::Live { addr, .. } = &mut *source.lock().await {
                         *addr = new as u32;
                     }
                 }
-                Page::Foreign { source, .. } => {
+                PageKind::Foreign { source, .. } => {
                     if let Source::Live { addr, .. } = &mut *source.lock_or_recover() {
                         *addr = new as u32;
                     }
@@ -189,7 +247,7 @@ impl Retained {
     pub(crate) fn synchronous(&self) -> bool {
         self.pages
             .iter()
-            .all(|page| matches!(&**page, Page::Foreign { .. }))
+            .all(|page| matches!(&page.kind, PageKind::Foreign { .. }))
     }
 
     /// Pinned ring access from io_uring's timer/wake handlers. No guest store is borrowed.
@@ -212,7 +270,7 @@ impl Retained {
             let index = (position / PAGE_SIZE) as usize;
             let skip = (position % PAGE_SIZE) as usize;
             let n = (PAGE_SIZE as usize - skip).min(buf.len() - done);
-            let Page::Foreign { memory, source } = &*self.pages[index] else {
+            let PageKind::Foreign { memory, source } = &self.pages[index].kind else {
                 return Err(Fault);
             };
             transfer_sync(
@@ -264,12 +322,12 @@ impl Retained {
             let skip = (position % PAGE_SIZE) as usize;
             let n = (PAGE_SIZE as usize - skip).min(buf.len() - done);
             let bytes = &mut buf[done..done + n];
-            if let Page::Foreign { memory, source } = &*self.pages[index] {
+            if let PageKind::Foreign { memory, source } = &self.pages[index].kind {
                 transfer_sync(&mut source.lock_or_recover(), &**memory, skip, bytes, write)?;
                 done += n;
                 continue;
             }
-            let Page::Local(source) = &*self.pages[index] else {
+            let PageKind::Local(source) = &self.pages[index].kind else {
                 unreachable!()
             };
             let mut source = source.lock().await;
