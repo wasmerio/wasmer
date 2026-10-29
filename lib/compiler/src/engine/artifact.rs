@@ -814,13 +814,14 @@ impl Artifact {
     ) -> Result<AllocatedArtifact, DeserializeError> {
         let image = object::File::parse(elf_file_data)
             .map_err(|e| DeserializeError::CorruptedBinary(format!("cannot parse image: {e}")))?;
-        let base = engine_inner.map_elf_binary(&image, elf_file_data)?;
+        let (base, map_size) = engine_inner.map_elf_binary(&image, elf_file_data)?;
         Self::allocate_elf_artifact_from_image(
             engine_inner,
             module_info,
             &image,
             base,
             DebugInfoSource::Bytes(Arc::from(elf_file_data)),
+            map_size,
         )
     }
 
@@ -846,7 +847,7 @@ impl Artifact {
                 "file-backed Artifact is not ELF or Mach-O".to_string(),
             ));
         }
-        let base = engine_inner.map_elf_binary_file(&image, fd)?;
+        let (base, map_size) = engine_inner.map_elf_binary_file(&image, fd)?;
         #[cfg(feature = "compiler")]
         if let Some(debugger) = engine_inner.debugger() {
             engine_inner.register_debugger(path, base, debugger)?;
@@ -857,6 +858,7 @@ impl Artifact {
             &image,
             base,
             DebugInfoSource::File(Arc::new(Mutex::new(debug_file))),
+            map_size,
         )
     }
 
@@ -877,6 +879,7 @@ impl Artifact {
         image: &object::File<'a, R>,
         base: *mut std::ffi::c_void,
         debug_info: DebugInfoSource,
+        map_size: usize,
     ) -> Result<AllocatedArtifact, DeserializeError> {
         const FN_OFFSET_SIZE: usize = std::mem::size_of::<usize>();
         let is_macho = image.format() == object::BinaryFormat::MachO;
@@ -897,11 +900,21 @@ impl Artifact {
                     function_offsets = Some(if is_macho {
                         // Mach-O stores chained pointers here, not plain offsets.
                         // Read the pointers after the mapper has applied the fixups.
-                        let data = unsafe {
-                            std::slice::from_raw_parts(
-                                base.cast::<u8>().add(section.address() as usize),
-                                data.len(),
+                        let invalid_range = || {
+                            DeserializeError::CorruptedBinary(
+                                "Function offset section exceeds allocated range".to_string(),
                             )
+                        };
+                        let address =
+                            usize::try_from(section.address()).map_err(|_| invalid_range())?;
+                        if address
+                            .checked_add(data.len())
+                            .is_none_or(|end| end > map_size)
+                        {
+                            return Err(invalid_range());
+                        }
+                        let data = unsafe {
+                            std::slice::from_raw_parts(base.cast::<u8>().add(address), data.len())
                         };
                         data.as_chunks::<FN_OFFSET_SIZE>()
                             .0

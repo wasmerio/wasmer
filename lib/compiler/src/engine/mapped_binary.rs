@@ -303,7 +303,6 @@ impl ImageSegment {
 pub(crate) struct MemoryMappedBinary {
     #[cfg(unix)]
     base: *mut c_void,
-    #[cfg(unix)]
     size: usize,
 
     // Unwind registry associated with the binary.
@@ -319,6 +318,12 @@ pub(crate) struct MemoryMappedBinary {
 // SAFETY: memory mapped base pointer does not escape the type.
 unsafe impl Send for MemoryMappedBinary {}
 unsafe impl Sync for MemoryMappedBinary {}
+
+impl MemoryMappedBinary {
+    pub(crate) fn size(&self) -> usize {
+        self.size
+    }
+}
 
 #[cfg(unix)]
 impl MemoryMappedBinary {
