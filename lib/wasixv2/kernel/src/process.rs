@@ -1569,6 +1569,10 @@ impl Kernel {
                 thread: task.thread.for_process(flags, tls, child_tid),
                 signals,
             };
+            // `cgroup_post_fork`: a task made in a freezing cgroup is frozen before it runs.
+            if new.css.freezing() {
+                new.signals.freeze(true);
+            }
             state.last_id += 1;
             state.tasks.insert(id, new);
             (id, process, parent.pid.0)

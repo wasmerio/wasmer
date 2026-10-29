@@ -107,6 +107,54 @@ pub(crate) struct Hierarchy {
     clock: Arc<dyn Clock>,
     /// The kernel log, which hears of refused forks.
     printk: Arc<crate::printk::Printk>,
+    notify: Arc<Notify>,
+}
+
+/// `kernfs_notify` for the hierarchy's files: pollers are woken as a file is notified, with the
+/// tree locked; inotify watches hear of it later, from a timer with no lock held
+/// (`kernfs_notify_workfn`), as an inotify instance signals its owner.
+#[derive(Default)]
+struct Notify {
+    /// Files notified and not yet delivered, by cgroup id and file index.
+    pending: Mutex<Vec<(u64, usize)>>,
+    /// Every file's `on->poll`: a poller looks at its own file's count when woken.
+    poll: wasixv2_wait::WaitQueue,
+    vfs: std::sync::OnceLock<std::sync::Weak<wasixv2_vfs::Vfs>>,
+    timer: std::sync::OnceLock<crate::timer::Timer>,
+}
+
+impl Notify {
+    fn post(&self, cgroup: u64, file: usize) {
+        self.poll.wake(wasixv2_wait::PollMask::empty());
+        // Nothing to deliver while nothing is watched; a watch added later missed the change.
+        let watched = self.vfs.get().and_then(std::sync::Weak::upgrade);
+        if !watched.is_some_and(|vfs| vfs.watched(CGROUP2_SUPER_MAGIC)) {
+            return;
+        }
+        let mut pending = self.pending.lock_or_recover();
+        if pending.contains(&(cgroup, file)) {
+            return;
+        }
+        pending.push((cgroup, file));
+        if pending.len() == 1
+            && let Some(timer) = self.timer.get()
+        {
+            timer.start(std::time::Duration::ZERO);
+        }
+    }
+
+    /// `IN_MODIFY` for each file notified, on every mount of the hierarchy.
+    fn deliver(&self) {
+        let pending = std::mem::take(&mut *self.pending.lock_or_recover());
+        let Some(vfs) = self.vfs.get().and_then(std::sync::Weak::upgrade) else {
+            return;
+        };
+        for (cgroup, file) in pending {
+            let ino = cgroup + 1 + file as u64;
+            let name = fs::FILES[file].name.as_bytes();
+            vfs.notify_modify(CGROUP2_SUPER_MAGIC, ino, Some((cgroup, name)));
+        }
+    }
 }
 
 /// A cgroup: its id (`cgroup_id`, the inode number of its directory), its parent and its
@@ -194,6 +242,9 @@ pub(crate) struct NodeAttr {
     pub(crate) atime: Timestamp,
     pub(crate) mtime: Timestamp,
     pub(crate) ctime: Timestamp,
+    /// Changes notified on the file (`kernfs_open_node::event`), which a poller compares with
+    /// what it last read.
+    pub(crate) event: u64,
 }
 
 /// The `pids` controller's state of a cgroup (`struct pids_cgroup`), while it has one.
@@ -225,6 +276,27 @@ struct MemoryState {
     peak: u64,
 }
 
+/// The freezer's state of a cgroup (`struct cgroup_freezer_state` and the `CGRP_FREEZE` and
+/// `CGRP_FROZEN` flags).
+#[derive(Clone, Copy, Debug, Default)]
+struct Freezer {
+    /// `cgroup.freeze`: what was asked of this cgroup itself.
+    freeze: bool,
+    /// It or an ancestor asks for the freeze (`e_freeze`).
+    e_freeze: bool,
+    /// `CGRP_FREEZE`: its tasks are to be frozen.
+    freezing: bool,
+    /// `CGRP_FROZEN`: every task and every descendant is frozen.
+    frozen: bool,
+    /// Its tasks that are frozen or stopped.
+    nr_frozen_tasks: u32,
+    nr_frozen_descendants: u32,
+    /// `frozen_nsec`: how long it was freezing before the last thaw.
+    frozen_time: std::time::Duration,
+    /// `freeze_start_nsec`.
+    freeze_start: Timestamp,
+}
+
 /// A cgroup's mutable state (`struct cgroup`).
 struct State {
     name: Vec<u8>,
@@ -245,8 +317,7 @@ struct State {
     nr_tasks: u32,
     nr_populated_domain_children: u32,
     nr_populated_threaded_children: u32,
-    /// `cgroup.freeze`: what was asked.
-    freeze: bool,
+    freezer: Freezer,
     /// Tasks in its subtree from their fork until they are released (the `pids` counter).
     pids_count: u64,
     pids: PidsState,
@@ -293,6 +364,7 @@ pub(crate) struct Tree {
     nodes: HashMap<u64, State>,
     /// When the tree was locked: the time of whatever changes while it is.
     now: Timestamp,
+    notify: Arc<Notify>,
 }
 
 impl Tree {
@@ -442,8 +514,28 @@ impl Tree {
         self.node(cgroup).populated()
     }
 
+    /// `cgroup.freeze`: what was asked of `cgroup` itself.
+    pub(crate) fn freeze_requested(&self, cgroup: &Cgroup) -> bool {
+        self.node(cgroup).freezer.freeze
+    }
+
+    /// `cgroup.events` `frozen` (`CGRP_FROZEN`).
     pub(crate) fn frozen(&self, cgroup: &Cgroup) -> bool {
-        self.node(cgroup).freeze
+        self.node(cgroup).freezer.frozen
+    }
+
+    /// `CGRP_FREEZE`: tasks of `cgroup` are to be frozen.
+    pub(crate) fn freezing(&self, cgroup: &Cgroup) -> bool {
+        self.node(cgroup).freezer.freezing
+    }
+
+    /// `cgroup.stat.local` `frozen_usec`: how long `cgroup` was freezing, now included.
+    pub(crate) fn frozen_time(&self, cgroup: &Cgroup) -> std::time::Duration {
+        let freezer = &self.node(cgroup).freezer;
+        match freezer.freezing {
+            true => freezer.frozen_time + since(freezer.freeze_start, self.now),
+            false => freezer.frozen_time,
+        }
     }
 
     /// `cgroup.max.depth` and `cgroup.max.descendants`.
@@ -484,11 +576,7 @@ impl Tree {
             if was == now {
                 break;
             }
-            let now = self.now;
-            let node = self.node_mut(cgroup);
-            // `cgroup_file_notify` of `cgroup.events`.
-            let events = fs::file_index("cgroup.events");
-            node.files[events].mtime = now;
+            self.file_notify(cgroup, fs::file_index("cgroup.events"));
             child = Some(cgroup);
             at = cgroup.parent.as_deref();
         }
@@ -540,11 +628,20 @@ impl Tree {
         let forkfail = &mut self.node_mut(&forking).pids.local_forkfail;
         *forkfail += 1;
         let first = *forkfail == 1;
-        if !self.flags.pids_localevents {
+        let (events, events_local) = (
+            fs::file_index("pids.events"),
+            fs::file_index("pids.events.local"),
+        );
+        if self.flags.pids_localevents {
+            self.file_notify(&forking, events);
+            self.file_notify(&forking, events_local);
+        } else {
             self.node_mut(&over).pids.local_max += 1;
+            self.file_notify(&over, events_local);
             let mut at = Some(&over);
             while let Some(cgroup) = at.filter(|c| c.parent.is_some()) {
                 self.node_mut(cgroup).pids.events_max += 1;
+                self.file_notify(cgroup, events);
                 at = cgroup.parent.as_ref();
             }
         }
@@ -826,13 +923,24 @@ impl Tree {
             false => id,
         };
         let now = self.now;
-        self.nodes
-            .insert(id, State::new(name, Some(parent.id), dom, mode, owner, now));
+        let mut state = State::new(name, Some(parent.id), dom, mode, owner, now);
+        // A child of a freezing cgroup is freezing, and frozen while it is empty.
+        let e_freeze = parent_node.freezer.e_freeze;
+        if e_freeze {
+            let freezer = &mut state.freezer;
+            (freezer.e_freeze, freezer.freezing, freezer.frozen) = (true, true, true);
+            freezer.freeze_start = now;
+        }
+        self.nodes.insert(id, state);
         if dom != id {
             self.node_mut(parent).nr_threaded_children += 1;
         }
         for ancestor in std::iter::once(parent).chain(parent.ancestors()) {
-            self.node_mut(ancestor).nr_descendants += 1;
+            let node = self.node_mut(ancestor);
+            node.nr_descendants += 1;
+            if e_freeze {
+                node.freezer.nr_frozen_descendants += 1;
+            }
         }
         let parent_node = self.node_mut(parent);
         parent_node.children.insert(name.to_vec(), cgroup.clone());
@@ -860,10 +968,14 @@ impl Tree {
         if threaded {
             self.node_mut(parent).nr_threaded_children -= 1;
         }
+        let frozen = self.frozen(cgroup);
         for ancestor in cgroup.ancestors() {
             let node = self.node_mut(ancestor);
             node.nr_descendants -= 1;
             node.nr_dying_descendants += 1;
+            if frozen {
+                node.freezer.nr_frozen_descendants -= 1;
+            }
         }
         let parent_node = self.node_mut(parent);
         // The handle may be the last; its state goes on the tree's next lock.
@@ -890,10 +1002,137 @@ impl Tree {
         }
     }
 
-    /// `cgroup_freeze`'s request, recorded.
-    pub(crate) fn set_freeze(&mut self, cgroup: &Cgroup, freeze: bool) {
-        self.node_mut(cgroup).freeze = freeze;
+    /// `cgroup_file_notify`: the file `file` of `cgroup` changed, which its pollers
+    /// (`POLLPRI`) and inotify watches (`IN_MODIFY`) hear of once the tree is unlocked
+    /// (`kernfs_notify`).
+    fn file_notify(&mut self, cgroup: &Cgroup, file: usize) {
+        let now = self.now;
+        let attr = &mut self.node_mut(cgroup).files[file];
+        attr.mtime = now;
+        attr.event += 1;
+        self.notify.post(cgroup.id, file);
     }
+
+    /// The changes `file` of `cgroup` was notified of so far.
+    pub(crate) fn file_event(&self, cgroup: &Cgroup, file: usize) -> u64 {
+        self.node(cgroup).files[file].event
+    }
+
+    /// `cgroup_update_frozen_flag`: `CGRP_FROZEN` becomes `frozen`; whether it changed.
+    fn update_frozen_flag(&mut self, cgroup: &Cgroup, frozen: bool) -> bool {
+        let freezer = &mut self.node_mut(cgroup).freezer;
+        if freezer.frozen == frozen {
+            return false;
+        }
+        freezer.frozen = frozen;
+        self.file_notify(cgroup, fs::file_index("cgroup.events"));
+        true
+    }
+
+    /// `cgroup_propagate_frozen`: a frozen cgroup may complete the freeze of ancestors whose
+    /// every descendant is frozen now; a thawed one thaws them all.
+    fn propagate_frozen(&mut self, cgroup: &Cgroup, frozen: bool) {
+        let mut desc = 1;
+        for ancestor in cgroup.ancestors() {
+            let freezer = &mut self.node_mut(ancestor).freezer;
+            if frozen {
+                freezer.nr_frozen_descendants += desc;
+                let freezer = self.node(ancestor).freezer;
+                if !freezer.freezing
+                    || freezer.nr_frozen_descendants != self.node(ancestor).nr_descendants
+                {
+                    continue;
+                }
+            } else {
+                freezer.nr_frozen_descendants -= desc;
+            }
+            if self.update_frozen_flag(ancestor, frozen) {
+                desc += 1;
+            }
+        }
+    }
+
+    /// `cgroup_update_frozen`: a freezing cgroup whose tasks are all frozen or stopped is
+    /// frozen; any other is not.
+    fn update_frozen(&mut self, cgroup: &Cgroup) {
+        let node = self.node(cgroup);
+        let frozen = node.freezer.freezing && node.freezer.nr_frozen_tasks == node.nr_tasks;
+        if self.update_frozen_flag(cgroup, frozen) {
+            self.propagate_frozen(cgroup, frozen);
+        }
+    }
+
+    /// `cgroup_enter_frozen` and `cgroup_leave_frozen`'s counting: a task of `cgroup` became
+    /// frozen (`adj` 1) or left the frozen state (-1).
+    fn count_frozen(&mut self, cgroup: &Cgroup, adj: i32) {
+        let freezer = &mut self.node_mut(cgroup).freezer;
+        freezer.nr_frozen_tasks = freezer
+            .nr_frozen_tasks
+            .checked_add_signed(adj)
+            .expect("frozen counts balance");
+        self.update_frozen(cgroup);
+    }
+
+    /// `cgroup_freeze`: `cgroup.freeze` of `cgroup` becomes `freeze`, which every descendant
+    /// whose effective state changes follows (`cgroup_do_freeze`). Returns the cgroups whose
+    /// tasks are to be frozen (`true`) or thawed now, for the caller to force
+    /// (`cgroup_freeze_task`) while the tree stays locked.
+    pub(crate) fn freeze(&mut self, cgroup: &Arc<Cgroup>, freeze: bool) -> Vec<(u64, bool)> {
+        if self.node(cgroup).freezer.freeze == freeze {
+            return Vec::new();
+        }
+        self.node_mut(cgroup).freezer.freeze = freeze;
+        let mut applied = Vec::new();
+        let mut stack = vec![cgroup.clone()];
+        while let Some(dsct) = stack.pop() {
+            if self.is_dead(&dsct) {
+                continue;
+            }
+            let parent_e = dsct
+                .parent
+                .as_ref()
+                .is_some_and(|parent| self.node(parent).freezer.e_freeze);
+            let freezer = &mut self.node_mut(&dsct).freezer;
+            let old = freezer.e_freeze;
+            freezer.e_freeze = freezer.freeze || parent_e;
+            // The subtree below an unchanged effective state is unchanged too.
+            if freezer.e_freeze == old {
+                continue;
+            }
+            self.do_freeze(&dsct, freeze);
+            applied.push((dsct.id, freeze));
+            stack.extend(self.node(&dsct).children.values().cloned());
+        }
+        // Nothing changed: the state is the ancestors' to decide, and there is nothing to wait
+        // for, which the reader hears of all the same.
+        if applied.is_empty() {
+            self.file_notify(cgroup, fs::file_index("cgroup.events"));
+        }
+        applied
+    }
+
+    /// `cgroup_do_freeze` without the tasks: `CGRP_FREEZE` follows `freeze`, and a cgroup with
+    /// nothing left to freeze below it is looked at again.
+    fn do_freeze(&mut self, cgroup: &Cgroup, freeze: bool) {
+        let now = self.now;
+        let freezer = &mut self.node_mut(cgroup).freezer;
+        freezer.freezing = freeze;
+        match freeze {
+            true => freezer.freeze_start = now,
+            false => freezer.frozen_time += since(freezer.freeze_start, now),
+        }
+        let node = self.node(cgroup);
+        if node.nr_descendants == node.freezer.nr_frozen_descendants {
+            self.update_frozen(cgroup);
+        }
+    }
+}
+
+/// The time from `start` to `end`, none if the clock went back.
+fn since(start: Timestamp, end: Timestamp) -> std::time::Duration {
+    let nanos = |t: Timestamp| i128::from(t.sec) * 1_000_000_000 + i128::from(t.nsec);
+    let delta = (nanos(end) - nanos(start)).max(0);
+    std::time::Duration::from_nanos(u64::try_from(delta).unwrap_or(u64::MAX))
 }
 
 /// The subtree control of `cgroup` (a helper to read it before a mutable borrow).
@@ -917,6 +1156,7 @@ impl State {
             atime: now,
             mtime: now,
             ctime: now,
+            event: 0,
         };
         Self {
             name: name.to_vec(),
@@ -933,7 +1173,7 @@ impl State {
             nr_tasks: 0,
             nr_populated_domain_children: 0,
             nr_populated_threaded_children: 0,
-            freeze: false,
+            freezer: Freezer::default(),
             pids_count: 0,
             pids: PidsState::default(),
             memory: MemoryState::default(),
@@ -998,11 +1238,13 @@ impl Hierarchy {
         });
         let mut nodes = HashMap::new();
         nodes.insert(1, State::new(b"", None, 1, 0o755, (0, 0), now));
+        let notify = Arc::new(Notify::default());
         Arc::new(Self {
             tree: Mutex::new(Tree {
                 flags: RootFlags::default(),
                 nodes,
                 now,
+                notify: notify.clone(),
             }),
             root,
             next_id: AtomicU64::new(2 + fs::FILES.len() as u64),
@@ -1010,7 +1252,27 @@ impl Hierarchy {
             visible: AtomicBool::new(false),
             clock,
             printk,
+            notify,
         })
+    }
+
+    /// Starts delivering the inotify half of file notifications, on `timers`' thread, to the
+    /// watches of `vfs`.
+    pub(crate) fn start_notify(&self, timers: &crate::timer::Timers, vfs: &Arc<wasixv2_vfs::Vfs>) {
+        let _ = self.notify.vfs.set(Arc::downgrade(vfs));
+        let notify = Arc::downgrade(&self.notify);
+        let timer = timers.timer(Box::new(move || {
+            if let Some(notify) = notify.upgrade() {
+                notify.deliver();
+            }
+            None
+        }));
+        let _ = self.notify.timer.set(timer);
+    }
+
+    /// Woken whenever a file of the hierarchy is notified, for its pollers.
+    pub(crate) fn poll_queue(&self) -> &wasixv2_wait::WaitQueue {
+        &self.notify.poll
     }
 
     pub(crate) fn root(&self) -> &Arc<Cgroup> {
@@ -1150,7 +1412,14 @@ impl Hierarchy {
 #[derive(Clone)]
 pub(crate) struct Css {
     hierarchy: Arc<Hierarchy>,
-    inner: Arc<Mutex<CssState>>,
+    inner: Arc<CssInner>,
+}
+
+struct CssInner {
+    state: Mutex<CssState>,
+    /// The task is frozen or stopped (`task->frozen`), and counted so in its cgroup. Only
+    /// the task itself changes it, with the tree locked; it reads it without.
+    frozen: AtomicBool,
 }
 
 struct CssState {
@@ -1196,12 +1465,54 @@ impl Css {
     fn new(state: CssState) -> Self {
         Self {
             hierarchy: state.hierarchy.clone(),
-            inner: Arc::new(Mutex::new(state)),
+            inner: Arc::new(CssInner {
+                state: Mutex::new(state),
+                frozen: AtomicBool::new(false),
+            }),
         }
     }
 
     fn state(&self) -> MutexGuard<'_, CssState> {
-        self.inner.lock_or_recover()
+        self.inner.state.lock_or_recover()
+    }
+
+    /// `cgroup_task_frozen`.
+    pub(crate) fn frozen(&self) -> bool {
+        self.inner.frozen.load(Ordering::Relaxed)
+    }
+
+    /// Whether the task's cgroup is freezing (`CGRP_FREEZE`), which a new task follows
+    /// (`cgroup_post_fork`). The caller holds the task table, which keeps the freeze from
+    /// changing meanwhile.
+    pub(crate) fn freezing(&self) -> bool {
+        let tree = self.hierarchy.lock();
+        tree.freezing(&self.state().cgroup)
+    }
+
+    /// `cgroup_enter_frozen`: the task, frozen or stopped, counts as frozen in its cgroup.
+    pub(crate) fn enter_frozen(&self) {
+        let mut tree = self.hierarchy.lock();
+        if self.inner.frozen.swap(true, Ordering::Relaxed) {
+            return;
+        }
+        let cgroup = self.state().cgroup.clone();
+        tree.count_frozen(&cgroup, 1);
+    }
+
+    /// `cgroup_leave_frozen`: the task goes on, and is no longer counted frozen if it must
+    /// (`always`, for its exit) or its cgroup no longer freezes; otherwise `retrap` puts the
+    /// freezer's trap back (`JOBCTL_TRAP_FREEZE`), with the tree still locked so that a thaw
+    /// cannot come between.
+    pub(crate) fn leave_frozen(&self, always: bool, retrap: impl FnOnce()) {
+        let mut tree = self.hierarchy.lock();
+        let cgroup = self.state().cgroup.clone();
+        if always || !tree.freezing(&cgroup) {
+            if self.inner.frozen.swap(false, Ordering::Relaxed) {
+                tree.count_frozen(&cgroup, -1);
+            }
+        } else {
+            retrap();
+        }
     }
 
     pub(crate) fn cgroup(&self) -> Arc<Cgroup> {
@@ -1234,37 +1545,65 @@ impl Css {
         let mut tree = self.hierarchy.lock();
         let mut state = self.state();
         if !std::mem::replace(&mut state.exited, true) {
+            // A task left the frozen state before its exit (`get_signal`'s `fatal`).
+            if self.inner.frozen.swap(false, Ordering::Relaxed) {
+                let freezer = &mut tree.node_mut(&state.cgroup).freezer;
+                freezer.nr_frozen_tasks -= 1;
+            }
             tree.update_populated(&state.cgroup, -1);
             state.retire(&mut tree);
+            if tree.freezing(&state.cgroup) {
+                tree.update_frozen(&state.cgroup);
+            }
         }
     }
 
     /// Moves the task to `dst` (`css_set_move_task` with the `pids` controller's
-    /// `pids_can_attach`, which charges the destination whatever its limit).
-    pub(crate) fn migrate(&self, tree: &mut Tree, dst: &Arc<Cgroup>) {
+    /// `pids_can_attach`, which charges the destination whatever its limit, and
+    /// `cgroup_freezer_migrate_task`). Returns whether the task is to be frozen in `dst` or
+    /// thawed there, when either cgroup freezes or the task is frozen: the caller forces that
+    /// (`cgroup_freeze_task`) with the tree still locked.
+    pub(crate) fn migrate(&self, tree: &mut Tree, dst: &Arc<Cgroup>) -> Option<bool> {
         let mut state = self.state();
         if state.cgroup.id == dst.id {
-            return;
+            return None;
         }
+        let src = state.cgroup.clone();
         if !state.exited {
-            tree.update_populated(&state.cgroup, -1);
+            tree.update_populated(&src, -1);
             tree.update_populated(dst, 1);
         }
         tree.pids_charge(dst, 1);
-        tree.pids_charge(&state.cgroup, -1);
+        tree.pids_charge(&src, -1);
         state.retire(tree);
         state.cgroup = dst.clone();
+        let frozen = self.frozen();
+        if !tree.freezing(&src) && !tree.freezing(dst) && !frozen {
+            return None;
+        }
+        if frozen {
+            tree.node_mut(dst).freezer.nr_frozen_tasks += 1;
+            tree.node_mut(&src).freezer.nr_frozen_tasks -= 1;
+        }
+        tree.update_frozen(dst);
+        tree.update_frozen(&src);
+        Some(tree.freezing(dst))
     }
 
     /// Exchanges the cgroups of two tasks, as `de_thread` exchanges the pids of the task that
     /// calls `execve` and its leader: the survivor keeps its own place.
     pub(crate) fn exchange(a: &Css, b: &Css) {
         let mut tree = a.hierarchy.lock();
+        let (frozen_a, frozen_b) = (&a.inner.frozen, &b.inner.frozen);
         let (mut a, mut b) = (a.state(), b.state());
         a.retire(&mut tree);
         b.retire(&mut tree);
         std::mem::swap(&mut a.cgroup, &mut b.cgroup);
         std::mem::swap(&mut a.exited, &mut b.exited);
+        // The frozen counts stay with the cgroups.
+        let was_a = frozen_a.load(Ordering::Relaxed);
+        frozen_a.store(frozen_b.load(Ordering::Relaxed), Ordering::Relaxed);
+        frozen_b.store(was_a, Ordering::Relaxed);
     }
 }
 

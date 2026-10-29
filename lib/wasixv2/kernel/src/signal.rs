@@ -372,6 +372,9 @@ struct TaskState {
     stopped: bool,
     /// Whether and how the task is traced, and its ptrace stops (see `ptrace.rs`).
     ptrace: crate::ptrace::TaskTrace,
+    /// Its cgroup freezes it (`JOBCTL_TRAP_FREEZE`): it leaves its blocking wait and, on its way
+    /// back to the guest, waits in the freezer until thawed, unlike a stop unseen by its parent.
+    trap_freeze: bool,
 }
 
 impl TaskState {
@@ -391,6 +394,7 @@ impl TaskState {
             stop_dequeued: false,
             stopped: false,
             ptrace: Default::default(),
+            trap_freeze: false,
         }
     }
 
@@ -1865,6 +1869,29 @@ impl TaskSignals {
         state.tasks.get(&self.task).is_some_and(|t| t.ptrace.traced)
     }
 
+    /// `cgroup_freeze_task`: the task's cgroup freezes it, and it leaves its blocking wait for
+    /// the freezer (`signal_wake_up`), or thaws it, and it goes on. A task on its way out is
+    /// not bothered.
+    pub(crate) fn freeze(&self, freeze: bool) {
+        let mut state = self.group.state.lock_or_recover();
+        let Some(task) = state.tasks.get_mut(&self.task).filter(|t| !t.exiting) else {
+            return;
+        };
+        task.trap_freeze = freeze;
+        task.flag.raise();
+        drop(state);
+        self.group.queue.wake(wasixv2_wait::PollMask::empty());
+    }
+
+    /// What holds the task where it is: a stop until SIGCONT, or the freezer until it is thawed
+    /// or a fatal signal comes, which it goes on to take.
+    fn held(&self) -> bool {
+        let state = self.group.state.lock_or_recover();
+        state.tasks.get(&self.task).is_some_and(|t| {
+            t.stopped || t.ptrace.traced || (t.trap_freeze && state.fatal(self.task).is_none())
+        })
+    }
+
     // ---- ipc: signalfd ----
     /// `dequeue_signal` for a signalfd: the next signal in `wanted` pending for the task or its
     /// group, blocked or not. Once the task is gone, only the group's.
@@ -1923,8 +1950,8 @@ impl Interrupt for TaskSignals {
         let Some(task) = state.tasks.get(&self.task) else {
             return true;
         };
-        // A group stop sets `TIF_SIGPENDING` too.
-        task.notify || task.stop_pending || task.sigpending
+        // A group stop and the freezer set `TIF_SIGPENDING` too (`recalc_sigpending_tsk`).
+        task.notify || task.stop_pending || task.trap_freeze || task.sigpending
     }
 
     fn queue(&self) -> Option<&WaitQueue> {
@@ -2143,6 +2170,7 @@ impl Kernel {
     /// prepares its handler's frame (`handle_signal`).
     pub(crate) fn take_signal(&self, task: TaskId, signals: &TaskSignals) -> Option<GuestAction> {
         let process = self.process(task);
+        let css = self.task_ref(task, |t| t.css.clone());
         let mut state = signals.group.state.lock_or_recover();
         state.tasks.get_mut(&task)?.notify = false;
         // Every task continued goes here first; one tells the parent (`SIGNAL_CLD_MASK`).
@@ -2214,6 +2242,27 @@ impl Kernel {
                 if let Some(completed) = state.do_signal_stop(task, 0, exiting) {
                     return Some(self.stopped_traced(&process, signals, state, task, completed));
                 }
+            }
+            // Lock order: the signal state, then the thread group's.
+            let fatal = state.fatal(task).is_some() || process.group.signal_group_exit();
+            // `do_freezer_trap`: the freezer holds the task, its signals queued, unless it has
+            // a stop to take or a fatal signal ends it.
+            let me = state.task(task);
+            if me.trap_freeze && !me.stop_pending && !fatal {
+                drop(state);
+                css.enter_frozen();
+                return Some(GuestAction::Stopped);
+            }
+            // Leaving the frozen state: for good, or back into the freezer while the cgroup
+            // still freezes (`cgroup_leave_frozen`). The tree comes before the signal state.
+            if css.frozen() {
+                drop(state);
+                css.leave_frozen(fatal, || signals.freeze(true));
+                state = signals.group.state.lock_or_recover();
+                if !state.tasks.contains_key(&task) {
+                    return None;
+                }
+                continue;
             }
             let me = state.task(task);
             let (blocked, sigpending) = (me.blocked, me.sigpending);
@@ -2477,6 +2526,9 @@ impl Kernel {
         if completed {
             self.notify_parent_cldstop(process, SiCode::CLD_STOPPED, signals.group.stop_status());
         }
+        // A stopped task counts as frozen in its cgroup (`do_signal_stop`).
+        self.task_ref(signals.task, |task| task.css.clone())
+            .enter_frozen();
         GuestAction::Stopped
     }
 
@@ -2486,7 +2538,7 @@ impl Kernel {
     /// (`wants_signal` passes stopped tasks by).
     pub(crate) async fn stop_wait(&self, task: TaskId) {
         let signals = self.task_signals(task);
-        let continued = || (!signals.is_stopped()).then_some(());
+        let continued = || (!signals.held()).then_some(());
         wait_event(signals.sent(), continued, &NoInterrupt)
             .await
             .expect("NoInterrupt never interrupts");

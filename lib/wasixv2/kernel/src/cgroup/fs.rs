@@ -22,6 +22,7 @@ use wasixv2_vfs::{
     Attr, DirEntry, DirSink, FileType, Filesystem, FsInfo, FsResult, Handle, NAME_MAX, NewKind,
     NewNode, Node, OpenOptions, RenameMode, SetAttr, StatFs, TimeSet,
 };
+use wasixv2_wait::{PollMask, PollTable, poll_wait};
 
 use super::{Cgroup, Hierarchy, Kind, MEMORY, NodeAttr, PIDS, PIDS_MAX, UNLIMITED, tasks};
 use crate::{TaskTable, sync::MutexExt};
@@ -89,6 +90,7 @@ pub(crate) const FILES: &[Cftype] = &[
     cft("cgroup.max.descendants", 0, Everywhere, true, true),
     delegatable("cgroup.procs"),
     cft("cgroup.stat", 0, Everywhere, true, false),
+    cft("cgroup.stat.local", 0, NotOnRoot, true, false),
     delegatable("cgroup.subtree_control"),
     delegatable("cgroup.threads"),
     cft("cgroup.type", 0, NotOnRoot, true, true),
@@ -445,6 +447,7 @@ impl Node for FileNode {
             file: self.file,
             opener,
             contents: Mutex::default(),
+            seen: Mutex::new(None),
         }))
     }
 }
@@ -457,6 +460,9 @@ struct FileHandle {
     opener: tasks::Opener,
     /// What the last read from offset 0 made (`seq_file`'s buffer).
     contents: Mutex<Vec<u8>>,
+    /// The file's notification count at that read (`of->event`); none before the first, so a
+    /// file never read polls as changed.
+    seen: Mutex<Option<u64>>,
 }
 
 #[async_trait(?Send)]
@@ -467,6 +473,13 @@ impl Handle for FileHandle {
         }
         let mut contents = self.contents.lock_or_recover();
         if offset == 0 {
+            // `kernfs_seq_show`: what is read now is what pollers saw.
+            let event = self
+                .source
+                .hierarchy
+                .lock()
+                .file_event(&self.cgroup, self.file);
+            *self.seen.lock_or_recover() = Some(event);
             *contents = self.show()?.into_bytes();
         }
         let start = usize::try_from(offset)
@@ -499,6 +512,21 @@ impl Handle for FileHandle {
 
     async fn set_size(&self, _size: u64) -> FsResult<()> {
         Ok(())
+    }
+
+    /// `kernfs_generic_poll`: readable and writable, and `POLLERR | POLLPRI` once the file was
+    /// notified since it was last read.
+    fn poll(&self, mut table: Option<&mut PollTable<'_>>) -> PollMask {
+        poll_wait(&mut table, self.source.hierarchy.poll_queue());
+        let event = self
+            .source
+            .hierarchy
+            .lock()
+            .file_event(&self.cgroup, self.file);
+        match *self.seen.lock_or_recover() == Some(event) {
+            true => PollMask::DEFAULT,
+            false => PollMask(PollMask::DEFAULT.0 | PollMask::ERR.0 | PollMask::PRI.0),
+        }
     }
 }
 
@@ -642,7 +670,10 @@ impl FileHandle {
                 u8::from(tree.populated(cgroup)),
                 u8::from(tree.frozen(cgroup)),
             ),
-            "cgroup.freeze" => format!("{}\n", u8::from(tree.frozen(cgroup))),
+            "cgroup.freeze" => format!("{}\n", u8::from(tree.freeze_requested(cgroup))),
+            "cgroup.stat.local" => {
+                format!("frozen_usec {}\n", tree.frozen_time(cgroup).as_micros())
+            }
             "cgroup.max.depth" => show_count(tree.max_depth(cgroup)),
             "cgroup.max.descendants" => show_count(tree.max_descendants(cgroup)),
             "cgroup.stat" => {
@@ -719,11 +750,8 @@ impl FileHandle {
                     1 => true,
                     _ => return Err(Errno::ERANGE),
                 };
-                // Tasks cannot be held where they are yet: only thawing is possible.
-                if freeze {
-                    return Err(Errno::EOPNOTSUPP);
-                }
-                hierarchy.lock().set_freeze(cgroup, false);
+                let state = self.state()?;
+                tasks::freeze(&state, hierarchy, cgroup, freeze);
                 Ok(())
             }
             "cgroup.subtree_control" => {

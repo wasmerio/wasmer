@@ -187,6 +187,10 @@ impl FsWatcher for Dnotify {
         self.watched.load(Ordering::Acquire)
     }
 
+    fn watches_sb(&self, sb: u64) -> bool {
+        self.watching() && self.marks.lock_or_recover().keys().any(|o| o.sb == sb)
+    }
+
     /// `fsnotify_create`, `fsnotify_delete` with `fsnotify_link_count`, `fsnotify_move`
     /// (`FS_RENAME` only reaches a directory a name moved within, `fsnotify_handle_event`)
     /// and the object events.
@@ -260,6 +264,10 @@ impl FsWatcher for Notify {
         perm: wasixv2_vfs::Perm,
     ) -> Option<wasixv2_vfs::PermAnswer> {
         self.fanotify.permission(path, perm)
+    }
+
+    fn watches_sb(&self, sb: u64) -> bool {
+        self.inotify.watches_sb(sb) || self.dnotify.watches_sb(sb)
     }
 
     fn event(&self, event: &FsEvent<'_>) {

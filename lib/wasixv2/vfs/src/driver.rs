@@ -13,6 +13,7 @@ use std::{any::Any, sync::Arc};
 use async_trait::async_trait;
 use wasixv2_abi::Errno;
 use wasixv2_pages::SharedPages;
+use wasixv2_wait::{PollMask, PollTable};
 
 use crate::{
     cred::Cred,
@@ -331,6 +332,13 @@ pub trait Handle: Send + Sync {
     /// of reading the file into a copy. `None` (the default) for everything else.
     async fn shared_contents(&self) -> Option<SharedContents> {
         None
+    }
+
+    /// The file's readiness, registering on its queues through `table` (`file_operations.poll`).
+    /// Files are always ready (`DEFAULT_POLLMASK`); a driver whose files report changes some
+    /// other way, as kernfs reports `POLLPRI`, says so here.
+    fn poll(&self, _table: Option<&mut PollTable<'_>>) -> PollMask {
+        PollMask::DEFAULT
     }
 
     /// Reads entries starting at `cookie` (0 is the start) into `sink` until it is full or the

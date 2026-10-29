@@ -191,6 +191,24 @@ pub(crate) fn kill(state: &TaskTable, hierarchy: &Hierarchy, cgroup: &Arc<Cgroup
     }
 }
 
+/// `cgroup_freeze`: `cgroup.freeze` of `cgroup` becomes `freeze`, and the tasks of every
+/// cgroup whose effective state changed are frozen or thawed (`cgroup_freeze_task`). The task
+/// table stays locked, so no task forks or moves meanwhile.
+pub(crate) fn freeze(state: &TaskTable, hierarchy: &Hierarchy, cgroup: &Arc<Cgroup>, freeze: bool) {
+    let state = state.read_or_recover();
+    let mut tree = hierarchy.lock();
+    let changed = tree.freeze(cgroup, freeze);
+    if changed.is_empty() {
+        return;
+    }
+    for task in state.tasks.values().filter(|task| !task.css.exited()) {
+        let at = task.css.cgroup().id;
+        if let Some(&(_, freeze)) = changed.iter().find(|(id, _)| *id == at) {
+            task.signals.freeze(freeze);
+        }
+    }
+}
+
 /// `__cgroup_procs_write`: moves the process (`threadgroup`) or the thread `text` names, 0 for
 /// the opener, to `dst`, checked with what the opener had (`cgroup_attach_permissions`).
 pub(crate) fn attach(
@@ -247,8 +265,10 @@ pub(crate) fn attach(
     for id in moving {
         let task = state.tasks.get(&id).expect("listed above");
         // `cgroup_migrate_add_task`: an exiting task stays where it is.
-        if !task.css.exited() {
-            task.css.migrate(&mut tree, dst);
+        if !task.css.exited()
+            && let Some(freeze) = task.css.migrate(&mut tree, dst)
+        {
+            task.signals.freeze(freeze);
         }
     }
     Ok(())
