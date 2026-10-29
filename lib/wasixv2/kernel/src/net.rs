@@ -1217,6 +1217,16 @@ impl Kernel {
             }
         }
         match any {
+            // `ipv6_set_opt_hdr`: hop-by-hop and destination options are privileged.
+            AnySock::Inet((_, sock))
+                if sock.socket.domain() == wasixv2_vnet::Domain::Inet6
+                    && level == SocketLevel::SOL_IPV6
+                    && wasixv2_vnet::opts::STICKY_HDRS.contains(&name)
+                    && name != wasixv2_abi::Ipv6Option::IPV6_RTHDR.0
+                    && !self.cred(caller).capable(Cap::NetRaw) =>
+            {
+                return Err(Errno::EPERM.into());
+            }
             AnySock::Inet((_, sock)) => sock.socket.set_option(level.0, name, &value)?,
             // Unix sockets have no options of their own beyond `SOL_SOCKET`.
             AnySock::Unix(..) if level != SocketLevel::SOL_SOCKET => {
@@ -1235,6 +1245,9 @@ impl Kernel {
             // (memberships, rings, fanout) are about frames, which never come.
             AnySock::Packet(_, p) if level == SocketLevel::SOL_SOCKET => {
                 p.setsockopt(name, &value)?
+            }
+            AnySock::Packet(_, p) if level == SocketLevel::SOL_PACKET => {
+                p.set_packet_option(name, &value)?
             }
             AnySock::Packet(..) => return Err(Errno::ENOPROTOOPT.into()),
             AnySock::Vsock(_, v) if level == SocketLevel::SOL_SOCKET => {
@@ -1336,6 +1349,9 @@ impl Kernel {
                 Some(nl.getsockopt(name)?)
             }
             AnySock::Packet(_, p) if level == SocketLevel::SOL_SOCKET => Some(p.getsockopt(name)?),
+            AnySock::Packet(_, p) if level == SocketLevel::SOL_PACKET => {
+                Some(p.packet_option(name)?)
+            }
             AnySock::Vsock(_, v) if level == SocketLevel::SOL_SOCKET => Some(v.getsockopt(name)?),
             // `vsock_connectible_getsockopt`: a value shorter than the option is `EINVAL`.
             AnySock::Vsock(_, v) if level.0 == AddressFamily::AF_VSOCK.0 => {

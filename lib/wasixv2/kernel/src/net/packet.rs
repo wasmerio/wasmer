@@ -31,6 +31,9 @@ const ARPHRD_ETHER: u16 = 1;
 const ARPHRD_LOOPBACK: u16 = 772;
 /// `SO_SNDBUF` and `SO_RCVBUF`'s default.
 const BUF_DEFAULT: i32 = 212_992;
+/// `PACKET_VERSION`, and `TPACKET_V1`, the format without a ring of its own.
+const PACKET_VERSION: i32 = 10;
+const TPACKET_V1: i32 = 0;
 
 pub(crate) struct PacketSocket {
     kind: SocketType,
@@ -43,6 +46,8 @@ pub(crate) struct PacketSocket {
     pub(crate) timeouts: Timeouts,
     /// `SO_ATTACH_FILTER`'s program, which no frame ever runs through.
     filter: Mutex<SockFilter>,
+    /// `po->tp_version`.
+    tp_version: Mutex<i32>,
     host: Arc<dyn Host>,
 }
 
@@ -140,6 +145,34 @@ impl PacketSocket {
         }
     }
 
+    /// `packet_setsockopt` at `SOL_PACKET`. `PACKET_VERSION` takes the ring formats Linux
+    /// knows, but a ring is mapped memory frames are written into, and there are no frames: a
+    /// format with a ring of its own (`TPACKET_V2`, `TPACKET_V3`) is refused as a kernel
+    /// without it refuses it (`EINVAL`), which tells programs to read with `recvfrom`. The other
+    /// options (memberships, rings, fanout) are about frames too (`ENOPROTOOPT`).
+    pub(crate) fn set_packet_option(&self, name: i32, value: &[u8]) -> Result<(), Errno> {
+        if name != PACKET_VERSION {
+            return Err(Errno::ENOPROTOOPT);
+        }
+        let value: [u8; 4] = value.try_into().map_err(|_| Errno::EINVAL)?;
+        match i32::from_le_bytes(value) {
+            TPACKET_V1 => {
+                *self.tp_version.lock_or_recover() = TPACKET_V1;
+                Ok(())
+            }
+            // `TPACKET_V2` and `TPACKET_V3` exist, but not here; anything else never did.
+            _ => Err(Errno::EINVAL),
+        }
+    }
+
+    /// `packet_getsockopt` at `SOL_PACKET`: `PACKET_VERSION`.
+    pub(crate) fn packet_option(&self, name: i32) -> Result<Vec<u8>, Errno> {
+        match name {
+            PACKET_VERSION => Ok(self.tp_version.lock_or_recover().to_le_bytes().to_vec()),
+            _ => Err(Errno::ENOPROTOOPT),
+        }
+    }
+
     /// `SOL_SOCKET` options as `sock_getsockopt` answers them for this socket.
     pub(crate) fn getsockopt(&self, name: i32) -> Result<Vec<u8>, Errno> {
         let int = |v: i32| Ok(v.to_le_bytes().to_vec());
@@ -214,6 +247,7 @@ impl Kernel {
             wait: WaitQueue::new(),
             timeouts: Timeouts::default(),
             filter: Mutex::new(SockFilter::default()),
+            tp_version: Mutex::new(TPACKET_V1),
             host: self.host.clone(),
         };
         let mut status = OpenFlags::O_RDWR;

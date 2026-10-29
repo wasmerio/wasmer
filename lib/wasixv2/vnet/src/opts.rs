@@ -88,8 +88,88 @@ pub struct SockOpts {
     pub(crate) mc: Mcast,
     /// `SO_ATTACH_FILTER`'s program and `SO_LOCK_FILTER`.
     pub filter: SockFilter,
+    /// The sticky IPv6 extension headers (`np->opt`): `IPV6_HOPOPTS`, `IPV6_RTHDRDSTOPTS`,
+    /// `IPV6_RTHDR` and `IPV6_DSTOPTS`, as set.
+    sticky_hdrs: BTreeMap<i32, Vec<u8>>,
     /// Plain integer options keyed by (level, name).
     ints: BTreeMap<(i32, i32), i32>,
+}
+
+/// The sticky IPv6 extension header options (`ipv6_set_opt_hdr`).
+pub const STICKY_HDRS: [i32; 4] = [
+    Ipv6Option::IPV6_HOPOPTS.0,
+    Ipv6Option::IPV6_RTHDRDSTOPTS.0,
+    Ipv6Option::IPV6_RTHDR.0,
+    Ipv6Option::IPV6_DSTOPTS.0,
+];
+/// `IPV6_SRCRT_TYPE_2` (Mobile IPv6) and `IPV6_SRCRT_TYPE_4` (segment routing).
+const SRCRT_TYPE_2: u8 = 2;
+const SRCRT_TYPE_4: u8 = 4;
+
+/// `ipv6_set_opt_hdr` (the caller checked `CAP_NET_RAW` for all but `IPV6_RTHDR`): an empty
+/// value removes the header; otherwise a whole number of 8-byte units, at most 255, holding
+/// the header its length field claims. A routing header must be Mobile IPv6's type 2 with one
+/// address, or a valid segment routing header (`seg6_validate_srh`).
+fn set_opt_hdr(hdrs: &mut BTreeMap<i32, Vec<u8>>, name: i32, value: &[u8]) -> NetResult<()> {
+    if value.is_empty() {
+        hdrs.remove(&name);
+        return Ok(());
+    }
+    if value.len() < 2 || value.len() & 7 != 0 || value.len() > 8 * 255 {
+        return Err(Errno::EINVAL);
+    }
+    // `ipv6_optlen`.
+    let len = (usize::from(value[1]) + 1) * 8;
+    if len > value.len() {
+        return Err(Errno::EINVAL);
+    }
+    let hdr = &value[..len];
+    if name == Ipv6Option::IPV6_RTHDR.0 {
+        let valid = match hdr.get(2) {
+            Some(&SRCRT_TYPE_2) => hdr[1] == 2 && hdr[3] == 1,
+            Some(&SRCRT_TYPE_4) => seg6_validate_srh(hdr, value.len()),
+            _ => false,
+        };
+        if !valid {
+            return Err(Errno::EINVAL);
+        }
+    }
+    hdrs.insert(name, hdr.to_vec());
+    Ok(())
+}
+
+/// `seg6_validate_srh` (not reduced): `struct ipv6_sr_hdr` is next header, length, type,
+/// segments left, first segment, flags and tag (8 bytes), then the segments, then TLVs.
+fn seg6_validate_srh(srh: &[u8], len: usize) -> bool {
+    const SRH: usize = 8;
+    if len < SRH || srh.len() < SRH || srh[2] != SRCRT_TYPE_4 {
+        return false;
+    }
+    let (hdrlen, segments_left, first_segment) = (
+        usize::from(srh[1]),
+        usize::from(srh[3]),
+        usize::from(srh[4]),
+    );
+    if (hdrlen + 1) << 3 != len || segments_left > first_segment {
+        return false;
+    }
+    let mut offset = SRH + ((first_segment + 1) << 4);
+    let Some(mut trailing) = len.checked_sub(offset) else {
+        return false;
+    };
+    while trailing > 0 {
+        // `struct sr6_tlv`: type, length, then that many bytes.
+        if trailing < 2 {
+            return false;
+        }
+        let tlv = 2 + usize::from(srh[offset + 1]);
+        let Some(left) = trailing.checked_sub(tlv) else {
+            return false;
+        };
+        trailing = left;
+        offset += tlv;
+    }
+    true
 }
 
 /// Plain integer options: (level, name, default, boolean, stream-only).
@@ -217,6 +297,7 @@ impl SockOpts {
             rxpmtu: None,
             mc: Mcast::default(),
             filter: SockFilter::default(),
+            sticky_hdrs: BTreeMap::new(),
             ints: BTreeMap::new(),
         }
     }
@@ -430,6 +511,10 @@ impl SockOpts {
                 self.sticky_pktinfo = crate::cmsg::read_in6_pktinfo(value)?;
                 return Ok(Changed::Nothing);
             }
+            (SOL_IPV6, n) if STICKY_HDRS.contains(&n) => {
+                set_opt_hdr(&mut self.sticky_hdrs, n, value)?;
+                return Ok(Changed::Nothing);
+            }
             (SOL_TCP, n) if n == Tcp::TCP_CONGESTION.0 => {
                 let name = value.split(|b| *b == 0).next().unwrap_or_default();
                 if name != b"cubic" && name != b"reno" {
@@ -614,6 +699,11 @@ impl SockOpts {
                 }
             }
             (SOL_IPV6, IPV6_V6ONLY) => self.v6only as i32,
+            // `ipv6_getsockopt_sticky`: the header, cut to the caller's length; none is empty.
+            (SOL_IPV6, n) if STICKY_HDRS.contains(&n) => {
+                let hdr = self.sticky_hdrs.get(&n).map_or(&[][..], Vec::as_slice);
+                return Ok(write_bytes(out, hdr));
+            }
             _ => match self.int_opt(level, name) {
                 Some((v, _)) => v,
                 None => return Err(Errno::ENOPROTOOPT),
