@@ -570,6 +570,12 @@ fn deadlocks(state: &State, owner: LockOwner, mut blocker: LockOwner) -> bool {
 /// overlapping locks of the same kind (`posix_lock_inode`).
 fn insert_range(ranges: &mut Vec<RangeLock>, request: RangeLock) {
     let mut new = request;
+    // Linux fs/locks.c:posix_lock_inode keeps each owner's ranges contiguous
+    // and ordered by start; posix_test_lock reports the first conflicting one.
+    let owner_start = ranges
+        .iter()
+        .position(|lock| lock.owner == new.owner)
+        .unwrap_or(ranges.len());
     ranges.retain(|l| {
         let adjacent =
             l.end.checked_add(1) == Some(new.start) || new.end.checked_add(1) == Some(l.start);
@@ -582,7 +588,11 @@ fn insert_range(ranges: &mut Vec<RangeLock>, request: RangeLock) {
         }
     });
     remove_range(ranges, new.owner, new.start, new.end);
-    ranges.push(new);
+    let mut at = owner_start;
+    while at < ranges.len() && ranges[at].owner == new.owner && ranges[at].start < new.start {
+        at += 1;
+    }
+    ranges.insert(at, new);
 }
 
 /// Cuts `start..=end` out of `owner`'s locks, splitting any that straddle it.
@@ -655,6 +665,24 @@ mod tests {
             kind,
             start,
             end,
+        }
+    }
+
+    #[test]
+    fn getlk_reports_the_first_conflicting_range_of_an_owner() {
+        for (later, earlier) in [
+            (LockKind::Write, LockKind::Read),
+            (LockKind::Read, LockKind::Write),
+        ] {
+            let locks = LockManager::default();
+            let owner = LockOwner::Process(1);
+            block_on(locks.set(KEY, lock(owner, later, 10, 14), false)).unwrap();
+            let first = lock(owner, earlier, 1, 5);
+            block_on(locks.set(KEY, first, false)).unwrap();
+            // fs/locks.c:posix_test_lock walks each owner's ranges by start,
+            // regardless of the order in which posix_lock_inode received them.
+            let request = lock(LockOwner::Process(2), LockKind::Write, 0, u64::MAX);
+            assert_eq!(locks.test(KEY, &request), Some(first));
         }
     }
 
