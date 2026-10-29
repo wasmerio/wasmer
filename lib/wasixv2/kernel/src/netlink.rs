@@ -29,6 +29,7 @@ pub(crate) use rtnl::{NoNamespaces, Sender};
 
 use crate::{
     Kernel,
+    cred::Cred,
     fasync::{Fasync, SockAsync, SockWake},
     file::{Backing, FileObject, Io, OpenFile},
     ns::NetNs,
@@ -81,9 +82,10 @@ pub(crate) struct NetlinkSocket {
     wait: WaitQueue,
     /// The files that get I/O signals.
     fasync: SockAsync,
-    /// Whether the socket's opener had `CAP_NET_ADMIN` (`file_ns_capable` on its file), which
-    /// a change asks of the sending socket besides of the sender.
-    opener_net_admin: bool,
+    /// The credentials the socket was opened with (`file->f_cred`): a change asks
+    /// `CAP_NET_ADMIN` of them besides of the sender (`file_ns_capable` in
+    /// `__netlink_ns_capable`).
+    pub(crate) opener: Cred,
     /// The network namespace the socket was made in (`sock_net`).
     pub(crate) net: Arc<NetNs>,
     port: u32,
@@ -118,7 +120,7 @@ impl NetlinkSocket {
         net_admin: bool,
         sender: &dyn Sender,
     ) -> Result<usize, Errno> {
-        let net_admin = net_admin && self.opener_net_admin;
+        let net_admin = net_admin && self.opener.ns_capable(self.net.user_ns(), Cap::NetAdmin);
         if data.len() > self.max_request() {
             return Err(Errno::EMSGSIZE);
         }
@@ -505,7 +507,7 @@ impl Kernel {
             }),
             wait: WaitQueue::new(),
             fasync: SockAsync::default(),
-            opener_net_admin: self.cred(caller).ns_capable(net.user_ns(), Cap::NetAdmin),
+            opener: self.cred(caller),
             net,
             // `netlink_autobind`: the process's pid as it sees it.
             port: self.pids.own_nr(self.process(caller.task()).pid.0) as u32,
@@ -544,7 +546,7 @@ mod tests {
         let lo = wasixv2_vnet::Net::new(wasixv2_vnet::NetConfig::default(), None);
         crate::ns::Ns::initial(
             crate::ns::NsKind::Net,
-            None,
+            Some(crate::ns::UserNs::initial_user()),
             crate::ns::Net {
                 network: Some(lo),
                 unix_names: Arc::default(),
@@ -563,7 +565,7 @@ mod tests {
             }),
             wait: WaitQueue::new(),
             fasync: SockAsync::default(),
-            opener_net_admin: true,
+            opener: Cred::new(&crate::Credentials::new(0, 0), net.user_ns().clone()),
             net,
             port: 7,
             timeouts: Timeouts::default(),
@@ -853,6 +855,78 @@ mod tests {
         fn net_of_fd(&self, _: i32) -> Result<Arc<NetNs>, Errno> {
             Err(Errno::EBADF)
         }
+
+        fn net_capable(&self, _: &NetNs, _: Cap) -> bool {
+            true
+        }
+    }
+
+    /// Names one namespace, over whose owner the sender lacks `CAP_NET_ADMIN`.
+    struct Refused(Arc<NetNs>);
+
+    impl Sender for Refused {
+        fn net_of_pid(&self, _: u32) -> Result<Arc<NetNs>, Errno> {
+            Ok(self.0.clone())
+        }
+
+        fn net_of_fd(&self, _: i32) -> Result<Arc<NetNs>, Errno> {
+            Err(Errno::EBADF)
+        }
+
+        fn net_capable(&self, _: &NetNs, _: Cap) -> bool {
+            false
+        }
+    }
+
+    /// A link goes to, or a veth's peer is made in, another namespace only with
+    /// `CAP_NET_ADMIN` over its owner (`rtnl_link_get_net_capable`, `rtnl_get_peer_net`):
+    /// `EPERM`, and nothing changes.
+    #[test]
+    fn links_go_only_to_namespaces_the_sender_administers() {
+        let nl = socket();
+        let other = net_ns();
+        let there = socket_in(other.clone());
+        let refused = Refused(other);
+        let create = NLM_F_ACK | NLM_F_CREATE | NLM_F_EXCL;
+        let mut info = Vec::new();
+        rta(&mut info, IFLA_INFO_KIND, b"dummy\0");
+        let add = msg(
+            RTM_NEWLINK,
+            create,
+            &ifinfo(0, 0, 0),
+            &[
+                (IFLA_IFNAME, name("dummy0")),
+                (IFLA_LINKINFO | 0x8000, info),
+            ],
+        );
+        assert_eq!(change(&nl, &add, &refused), 0);
+        let index = nl.interfaces()[1].index;
+        let mov = msg(
+            RTM_NEWLINK,
+            NLM_F_ACK,
+            &ifinfo(index as i32, 0, u32::MAX),
+            &[(IFLA_NET_NS_PID, 42u32.to_le_bytes().to_vec())],
+        );
+        assert_eq!(change(&nl, &mov, &refused), -Errno::EPERM.0);
+        assert_eq!(nl.interfaces().len(), 2, "dummy0 stays");
+
+        let mut peer = ifinfo(0, 0, 0);
+        rta(&mut peer, IFLA_IFNAME, &name("veth1"));
+        rta(&mut peer, IFLA_NET_NS_PID, &42u32.to_le_bytes());
+        let mut data = Vec::new();
+        rta(&mut data, VETH_INFO_PEER, &peer);
+        let mut info = Vec::new();
+        rta(&mut info, IFLA_INFO_KIND, b"veth\0");
+        rta(&mut info, IFLA_INFO_DATA | 0x8000, &data);
+        let add = msg(
+            RTM_NEWLINK,
+            create,
+            &ifinfo(0, 0, 0),
+            &[(IFLA_IFNAME, name("veth0")), (IFLA_LINKINFO | 0x8000, info)],
+        );
+        assert_eq!(change(&nl, &add, &refused), -Errno::EPERM.0);
+        assert_eq!(nl.interfaces().len(), 2);
+        assert_eq!(there.interfaces().len(), 1, "no veth1 there");
     }
 
     /// `ip link add veth0 type veth peer name veth1`, then `ip link set veth1 netns <pid>`

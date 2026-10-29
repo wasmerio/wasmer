@@ -328,23 +328,25 @@ impl Kernel {
         }
     }
 
-    /// `mount_too_revealing`: a new procfs mount with `flags`, which shows the whole machine
-    /// (`SB_I_USERNS_VISIBLE`), in a mount namespace a user namespace owns, unless a mount
-    /// there shows it all already ([`wasixv2_vfs::Vfs::already_visible`]).
+    /// `mount_too_revealing`: a new procfs or sysfs mount with `flags`, which shows the whole
+    /// machine (`FS_USERNS_MOUNT_RESTRICTED`: `proc_fs_type`, `sysfs_fs_type`), in a mount
+    /// namespace a user namespace owns, unless a mount there shows it all already
+    /// ([`wasixv2_vfs::Vfs::already_visible`]).
     pub(super) fn mount_too_revealing(
         &self,
         task: TaskId,
         ty: &FsType,
         flags: &MountFlags,
     ) -> bool {
-        if !matches!(ty, FsType::Proc) {
-            return false;
-        }
+        let magic = match ty {
+            FsType::Proc => crate::procfs::PROC_SUPER_MAGIC,
+            FsType::Sys => crate::sysfs::SYSFS_MAGIC,
+            FsType::Other(_) => return false,
+        };
         let ns = self.task_ns(task);
         if ns.mnt.user_ns().is_initial() {
             return false;
         }
-        let magic = crate::procfs::PROC_SUPER_MAGIC;
         !self.vfs.already_visible(&ns.mnt.tree, magic, flags)
     }
 

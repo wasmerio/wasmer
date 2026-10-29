@@ -583,6 +583,7 @@ impl Kernel {
                 let sender = NetlinkSender {
                     kernel: self,
                     caller,
+                    opener: &nl.opener,
                 };
                 Ok(nl.send(&data, net_admin, &sender)?)
             }
@@ -1647,6 +1648,8 @@ fn parse_timeout(name: i32, raw: &[u8]) -> Result<Option<Duration>, Errno> {
 struct NetlinkSender<'a> {
     kernel: &'a Kernel,
     caller: &'a Caller<'a>,
+    /// The sending socket's opener.
+    opener: &'a crate::cred::Cred,
 }
 
 impl netlink::Sender for NetlinkSender<'_> {
@@ -1665,6 +1668,11 @@ impl netlink::Sender for NetlinkSender<'_> {
             Some(crate::ns::Namespace::Net(ns)) => Ok(ns.clone()),
             _ => Err(Errno::EINVAL),
         }
+    }
+
+    fn net_capable(&self, net: &NetNs, cap: Cap) -> bool {
+        let owner = net.user_ns();
+        self.opener.ns_capable(owner, cap) && self.kernel.cred(self.caller).ns_capable(owner, cap)
     }
 }
 

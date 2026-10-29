@@ -11,6 +11,7 @@ use std::{
 
 use wasixv2_abi::AddressFamily;
 use wasixv2_syscalls::Errno;
+use wasixv2_vfs::Cap;
 use wasixv2_vnet::{
     Interface, Network, NewLink, NewLinkKind,
     iface::{
@@ -135,6 +136,9 @@ pub(crate) trait Sender {
     /// `get_net_ns_by_fd`: the network namespace an nsfs descriptor stands for (`EBADF`,
     /// `EINVAL` for another file).
     fn net_of_fd(&self, fd: i32) -> Result<Arc<NetNs>, Errno>;
+    /// `netlink_ns_capable`: whether the sender and the socket's opener both have `cap` over
+    /// the owner of `net`.
+    fn net_capable(&self, net: &NetNs, cap: Cap) -> bool;
 }
 
 /// A sender that cannot name other namespaces, such as a `write`, which has no caller here.
@@ -147,6 +151,10 @@ impl Sender for NoNamespaces {
 
     fn net_of_fd(&self, _: i32) -> Result<Arc<NetNs>, Errno> {
         Err(Errno::EINVAL)
+    }
+
+    fn net_capable(&self, _: &NetNs, _: Cap) -> bool {
+        false
     }
 }
 
@@ -415,15 +423,21 @@ fn link_kind<'a>(attrs: &Attrs<'a>) -> Result<Option<LinkKind<'a>>, Errno> {
     Ok(Some((kind, info.get(IFLA_INFO_DATA))))
 }
 
-/// The namespace `IFLA_NET_NS_PID` or `IFLA_NET_NS_FD` names, if either does.
+/// The namespace `IFLA_NET_NS_PID` or `IFLA_NET_NS_FD` names, if either does, which the
+/// sender needs `CAP_NET_ADMIN` over (`rtnl_link_get_net_capable`, and `rtnl_get_peer_net`
+/// for a veth's peer).
 fn target_net(r: &Request<'_>, attrs: &Attrs<'_>) -> Result<Option<Arc<NetNs>>, Errno> {
-    if let Some(pid) = attrs.u32(IFLA_NET_NS_PID)? {
-        return r.sender.net_of_pid(pid).map(Some);
+    let net = if let Some(pid) = attrs.u32(IFLA_NET_NS_PID)? {
+        r.sender.net_of_pid(pid)?
+    } else if let Some(fd) = attrs.u32(IFLA_NET_NS_FD)? {
+        r.sender.net_of_fd(fd as i32)?
+    } else {
+        return Ok(None);
+    };
+    if !r.sender.net_capable(&net, Cap::NetAdmin) {
+        return Err(Errno::EPERM);
     }
-    if let Some(fd) = attrs.u32(IFLA_NET_NS_FD)? {
-        return r.sender.net_of_fd(fd as i32).map(Some);
-    }
-    Ok(None)
+    Ok(Some(net))
 }
 
 /// `rtnl_newlink_create` and `veth_newlink`: makes the interface (a veth's peer first, from

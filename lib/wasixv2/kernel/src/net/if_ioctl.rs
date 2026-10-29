@@ -188,7 +188,9 @@ impl Kernel {
         arg: u32,
     ) -> SysResult<i32> {
         let domain = Self::socket_domain(file);
-        let admin = || match self.cred(caller).capable(Cap::NetAdmin) {
+        // `dev_ioctl`, `devinet_ioctl`, `addrconf_*_ifaddr` and `ip_rt_ioctl` ask
+        // `CAP_NET_ADMIN` over the owner of the socket's namespace (`ns_capable(net->user_ns)`).
+        let admin = || match self.cred(caller).ns_capable(net.user_ns(), Cap::NetAdmin) {
             true => Ok(()),
             false => Err(Errno::EPERM),
         };

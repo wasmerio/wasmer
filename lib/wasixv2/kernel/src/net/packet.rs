@@ -171,8 +171,9 @@ impl FileObject for PacketSocket {
 }
 
 impl Kernel {
-    /// `packet_create`: `CAP_NET_RAW`, then a raw or datagram socket; `protocol` is the
-    /// Ethernet type in network byte order, as given.
+    /// `packet_create`: `CAP_NET_RAW` over the owner of the caller's network namespace
+    /// (`ns_capable(net->user_ns, CAP_NET_RAW)`), then a raw or datagram socket; `protocol` is
+    /// the Ethernet type in network byte order, as given.
     pub(crate) fn packet_socket(
         &self,
         caller: &Caller<'_>,
@@ -180,7 +181,7 @@ impl Kernel {
         protocol: i32,
         flags: SocketFlags,
     ) -> SysResult<Fd> {
-        if !self.cred(caller).capable(Cap::NetRaw) {
+        if !self.net_capable(caller, Cap::NetRaw) {
             return Err(Errno::EPERM.into());
         }
         if kind != SocketType::SOCK_RAW && kind != SocketType::SOCK_DGRAM {

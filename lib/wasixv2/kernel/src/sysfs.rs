@@ -23,7 +23,7 @@ use wasixv2_vnet::{
 use crate::{Kernel, fs::HostClock, ns::NetNs};
 
 /// `SYSFS_MAGIC`.
-const SYSFS_MAGIC: u32 = 0x6265_6572;
+pub(crate) const SYSFS_MAGIC: u32 = 0x6265_6572;
 const ARPHRD_ETHER: u16 = 1;
 const ARPHRD_LOOPBACK: u16 = 772;
 /// `DEFAULT_TX_QUEUE_LEN`.

@@ -726,6 +726,87 @@ fn procfs_mounts_in_a_user_namespace_only_where_one_is_fully_visible() {
     }
 }
 
+/// [`machine_as`] with a network whose loopback is up, and new network namespaces whose
+/// loopback starts down.
+fn networked_as(uid: u32) -> (Kernel, P) {
+    let loopback = |up| {
+        let config = wasixv2_vnet::NetConfig {
+            loopback_up: up,
+            ..wasixv2_vnet::NetConfig::default()
+        };
+        wasixv2_vnet::Net::new(config, None)
+    };
+    let (kernel, task, _) = super::cred::machine_with(|kernel| {
+        kernel
+            .with_network(loopback(true))
+            .with_network_factory(move || loopback(false))
+            .with_credentials(Credentials::new(uid, uid))
+            .with_init()
+    });
+    let vfs = kernel.vfs().clone();
+    block_on(vfs.mount(b"/proc", kernel.procfs(), MountFlags::default(), true)).unwrap();
+    (kernel, P::new(task))
+}
+
+/// Interface requests and packet sockets ask `CAP_NET_ADMIN` and `CAP_NET_RAW` over the
+/// owner of the network namespace (`dev_ioctl`, `devinet_ioctl`, `packet_create`:
+/// `ns_capable(net->user_ns, ...)`): the root of a new user namespace has them in a network
+/// namespace it made, not in the initial one.
+#[test]
+fn interface_requests_and_packet_sockets_ask_the_network_namespaces_owner() {
+    use wasixv2_abi::AddressFamily;
+    let (kernel, p) = networked_as(1000);
+    become_root(&kernel, &p, CloneFlags(0));
+    let caller = p.caller();
+    let socket = |family, kind| block_on(kernel.socket(&caller, family, kind, 0));
+    let set_lo_up = |fd| {
+        block_on(p.memory.write(0x400, &[b'l', b'o', 0, 0])).unwrap();
+        block_on(p.memory.write(0x410, &1i16.to_le_bytes())).unwrap();
+        block_on(kernel.ioctl(&caller, fd, IoctlRequest::SIOCSIFFLAGS, 0x400))
+    };
+    let (dgram, raw) = (2, 3);
+
+    let inet = socket(AddressFamily::AF_INET, dgram).unwrap();
+    assert_eq!(
+        errno(set_lo_up(inet)),
+        Errno::EPERM,
+        "the initial namespace's lo"
+    );
+    assert_eq!(errno(socket(AddressFamily::AF_PACKET, raw)), Errno::EPERM);
+
+    assert_eq!(unshare(&kernel, &p, CloneFlags::CLONE_NEWNET), Ok(0));
+    let inet = socket(AddressFamily::AF_INET, dgram).unwrap();
+    assert_eq!(set_lo_up(inet), Ok(0), "its own namespace's lo");
+    assert!(socket(AddressFamily::AF_PACKET, raw).is_ok());
+}
+
+/// sysfs shows the whole machine too (`FS_USERNS_MOUNT_RESTRICTED`): a user namespace's root
+/// mounts it for a network namespace it owns only where a whole sysfs is visible already,
+/// and not at all for the initial network namespace.
+#[test]
+fn sysfs_mounts_in_a_user_namespace_only_where_one_is_fully_visible() {
+    for visible in [false, true] {
+        let (kernel, root, user) = mounting_machine();
+        assert_eq!(mkdir(&kernel, &root, "/mnt/sys"), Ok(0));
+        if visible {
+            assert_eq!(mount(&kernel, &root, "/mnt/sys", "sysfs"), Ok(0));
+        }
+        assert_eq!(mkdir(&kernel, &user, "/mnt/t"), Ok(0));
+        become_root(&kernel, &user, CloneFlags::CLONE_NEWNS);
+        assert_eq!(
+            errno(mount(&kernel, &user, "/mnt/t", "sysfs")),
+            Errno::EPERM,
+            "the initial network namespace's"
+        );
+        assert_eq!(unshare(&kernel, &user, CloneFlags::CLONE_NEWNET), Ok(0));
+        let mounted = mount(&kernel, &user, "/mnt/t", "sysfs");
+        match visible {
+            true => assert_eq!(mounted, Ok(0)),
+            false => assert_eq!(errno(mounted), Errno::EPERM, "no sysfs shown whole"),
+        }
+    }
+}
+
 /// Dequeues a pending `sig` of `p` (`sigtimedwait` with a zero timeout), with its `si_uid`.
 fn take_uid(kernel: &Kernel, p: &P, sig: Signal) -> Option<u32> {
     let mask = 1u64 << (sig.0 - 1);
