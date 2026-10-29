@@ -1,11 +1,11 @@
 //! Socket-level tests against a loopback-only namespace.
 
-use std::{net::SocketAddr, sync::Arc};
+use std::{net::SocketAddr, sync::Arc, time::Duration};
 
 use wasixv2_abi::{Errno, MsgFlags};
 use wasixv2_wait::PollMask;
 
-use crate::{Domain, Net, NetConfig, Network, SendMsg, Shutdown, Socket, SocketKind};
+use crate::{Domain, IcmpLimit, Net, NetConfig, Network, SendMsg, Shutdown, Socket, SocketKind};
 
 fn net() -> Arc<Net> {
     Net::new(NetConfig::default(), None)
@@ -38,6 +38,7 @@ fn send_to(s: &dyn Socket, data: &[u8], to: Option<SocketAddr>) -> Result<usize,
         flags: MsgFlags(0),
         control: &[],
         net_raw: false,
+        now: Duration::ZERO,
     })
 }
 
@@ -120,6 +121,7 @@ fn send_oob(s: &dyn Socket, data: &[u8]) -> Result<usize, Errno> {
         flags: MsgFlags::MSG_OOB,
         control: &[],
         net_raw: false,
+        now: Duration::ZERO,
     })
 }
 
@@ -919,6 +921,7 @@ fn send_ctl(
         flags: MsgFlags(0),
         control,
         net_raw: false,
+        now: Duration::ZERO,
     })
 }
 
@@ -2489,4 +2492,81 @@ fn ipv6_source_filters_through_mcast_options() {
         rx.set_option(SOL_IPV6, MCAST_LEAVE_SOURCE_GROUP, &gsr("fd00:31::1")),
         Err(Errno::EINVAL)
     );
+}
+
+fn send_at(s: &dyn Socket, data: &[u8], to: SocketAddr, ms: u64) -> Result<usize, Errno> {
+    s.send(SendMsg {
+        data,
+        to: Some(to),
+        flags: MsgFlags(0),
+        control: &[],
+        net_raw: false,
+        now: Duration::from_millis(ms),
+    })
+}
+
+/// How many messages `s` has queued.
+fn drain(s: &dyn Socket) -> usize {
+    std::iter::from_fn(|| recv(s, 256).ok()).count()
+}
+
+/// Port unreachables leaving through a veth are rate-limited per destination: a burst of six,
+/// then one per `icmp_ratelimit` (`icmp/ratelimit` for IPv6, a tenth of a second); those
+/// through loopback never are (`icmpv4_xrlim_allow`, `icmpv6_xrlim_allow`). Echo replies are
+/// once `icmp_ratemask` names them, and `icmp_msgs_per_sec` caps everything limited.
+#[test]
+fn icmp_errors_through_a_veth_are_rate_limited() {
+    let (na, nb) = veth_pair(("10.32.0.1", "10.32.0.2"), ("fd00:32::1", "fd00:32::2"));
+    let (raw, raw6) = (raw_icmp(&na, Domain::Inet), raw_icmp(&na, Domain::Inet6));
+    let (u, u6) = (udp(&na), n6_udp(&na));
+    let t = 100_000;
+    for _ in 0..10 {
+        send_at(&*u, b"x", a("10.32.0.2:9"), t).unwrap();
+    }
+    assert_eq!(drain(&*raw), 6);
+    send_at(&*u, b"x", a("10.32.0.2:9"), t + 999).unwrap();
+    assert_eq!(drain(&*raw), 0);
+    send_at(&*u, b"x", a("10.32.0.2:9"), t + 1000).unwrap();
+    assert_eq!(drain(&*raw), 1);
+    for _ in 0..10 {
+        send_at(&*u, b"x", a("127.0.0.1:9"), t + 1000).unwrap();
+    }
+    assert_eq!(drain(&*raw), 10);
+
+    for _ in 0..10 {
+        send_at(&*u6, b"x", a("[fd00:32::2]:9"), t).unwrap();
+    }
+    assert_eq!(drain(&*raw6), 6);
+    send_at(&*u6, b"x", a("[fd00:32::2]:9"), t + 100).unwrap();
+    assert_eq!(drain(&*raw6), 1);
+
+    nb.set_icmp_limit(IcmpLimit::Ratelimit(0)).unwrap();
+    for _ in 0..10 {
+        send_at(&*u, b"x", a("10.32.0.2:9"), t + 1000).unwrap();
+    }
+    assert_eq!(drain(&*raw), 10);
+
+    let p = ping_socket(&na, Domain::Inet);
+    let echo = |seq, ms| {
+        send_at(&*p, &echo4(1, seq, b"e"), a("10.32.0.2:0"), ms)
+            .map(drop)
+            .unwrap()
+    };
+    (0..8u16).for_each(|seq| echo(seq, t));
+    assert_eq!(drain(&*p), 8);
+    nb.set_icmp_limit(IcmpLimit::Ratelimit(1000)).unwrap();
+    nb.set_icmp_limit(IcmpLimit::Ratemask(1)).unwrap();
+    (0..8u16).for_each(|seq| echo(seq, t + 10_000));
+    assert_eq!(drain(&*p), 6);
+
+    nb.set_icmp_limit(IcmpLimit::Ratemask(0x1818)).unwrap();
+    nb.set_icmp_limit(IcmpLimit::Ratelimit(0)).unwrap();
+    nb.set_icmp_limit(IcmpLimit::MsgsPerSec(0)).unwrap();
+    for _ in 0..100_000 {
+        send_at(&*u, b"x", a("10.32.0.2:9"), t + 20_000).unwrap();
+    }
+    let sent = drain(&*raw);
+    assert!(sent < 100_000, "{sent}");
+    send_at(&*u, b"x", a("10.32.0.2:9"), t + 30_000).unwrap();
+    assert_eq!(drain(&*raw), 0);
 }

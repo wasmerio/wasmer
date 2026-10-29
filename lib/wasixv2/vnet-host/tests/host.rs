@@ -52,6 +52,7 @@ fn send(s: &dyn Socket, data: &[u8], to: Option<SocketAddr>) -> Result<usize, Er
         flags: MsgFlags(0),
         control: &[],
         net_raw: false,
+        now: std::time::Duration::ZERO,
     })
 }
 
@@ -105,6 +106,7 @@ fn send_oob(s: &dyn Socket, data: &[u8]) -> Result<usize, Errno> {
         flags: MsgFlags::MSG_OOB,
         control: &[],
         net_raw: false,
+        now: Duration::ZERO,
     })
 }
 

@@ -25,6 +25,7 @@ use std::{
     fmt,
     net::{IpAddr, SocketAddr},
     sync::{Arc, Weak},
+    time::Duration,
 };
 
 use wasixv2_abi::{Errno, MsgFlags, SoEeOrigin};
@@ -33,6 +34,7 @@ use wasixv2_wait::{PollTable, Pollable, WaitQueue};
 use crate::{
     iface::{AddMode, AddrMatch, IfAddr, Route, RouteDecision, RouteMatch},
     net::{MovedLink, Net, Rtnl},
+    ratelimit::IcmpLimit,
 };
 
 /// The address family of an IP socket. Unix sockets never reach this crate.
@@ -92,6 +94,10 @@ pub struct SendMsg<'a> {
     pub control: &'a [Control],
     /// The caller holds `CAP_NET_RAW`, which some control messages need (IPv6 option headers).
     pub net_raw: bool,
+    /// The kernel's monotonic clock (`CLOCK_MONOTONIC`) at the call: the time of whatever
+    /// the send sets off, such as the ICMP messages a namespace answers with and their rate
+    /// limits.
+    pub now: Duration,
 }
 
 /// What `Socket::recv` received.
@@ -336,6 +342,12 @@ pub trait Network: Send + Sync {
     /// One of the sysctls the namespace's ICMP heeds answering echo requests.
     fn set_icmp_echo_ignore(&self, which: EchoIgnore, ignore: bool) -> Result<(), Errno> {
         let _ = (which, ignore);
+        Err(Errno::EOPNOTSUPP)
+    }
+
+    /// One of the sysctls that rate-limit the ICMP messages the namespace sends.
+    fn set_icmp_limit(&self, limit: IcmpLimit) -> Result<(), Errno> {
+        let _ = limit;
         Err(Errno::EOPNOTSUPP)
     }
 

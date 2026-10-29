@@ -266,9 +266,13 @@ impl SocketFile {
                 flags,
                 ..msg
             };
-            // A send that finds no room has room appearing signal (`SOCKWQ_ASYNC_NOSPACE`).
+            // A send that finds no room has room appearing signal (`SOCKWQ_ASYNC_NOSPACE`). Each
+            // attempt is made at its own time, after whatever wait came before it.
             let send = || {
-                let sent = socket.send(part);
+                let sent = socket.send(SendMsg {
+                    now: self.host.monotonic(),
+                    ..part
+                });
                 if sent == Err(Errno::EAGAIN) {
                     self.fasync.set_nospace();
                 }
@@ -331,6 +335,7 @@ impl FileObject for SocketFile {
             flags: MsgFlags(0),
             control: &[],
             net_raw: false,
+            now: self.host.monotonic(),
         };
         Box::pin(async move {
             let mut wait = self.blocking(io, SND, MsgFlags(0));

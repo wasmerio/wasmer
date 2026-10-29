@@ -14,6 +14,7 @@ mod mcast;
 mod net;
 pub mod opts;
 pub mod ports;
+mod ratelimit;
 mod recvq;
 mod stream;
 mod sync;
@@ -31,6 +32,7 @@ pub use api::{
 };
 pub use icmp::IcmpSocket;
 pub use net::{MovedLink, Net, NetConfig, Rtnl, Uplink, move_link, rtnl};
+pub use ratelimit::IcmpLimit;
 pub use recvq::RecvQueue;
 pub use tcp::TcpSocket;
 pub use udp::UdpSocket;

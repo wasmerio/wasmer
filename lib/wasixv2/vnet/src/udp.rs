@@ -971,12 +971,13 @@ impl Socket for UdpSocket {
                             net: self.net.clone(),
                             iif: back_iif,
                         };
+                        let unreachable = |data: &[u8]| {
+                            at.udp_unreachable(from, dst, data, iif, back.clone(), msg.now)
+                        };
                         if msg.data.is_empty() {
-                            at.udp_unreachable(from, dst, msg.data, back.clone());
+                            unreachable(msg.data);
                         }
-                        for chunk in msg.data.chunks(segment) {
-                            at.udp_unreachable(from, dst, chunk, back.clone());
-                        }
+                        msg.data.chunks(segment).for_each(unreachable);
                     }
                 }
                 Ok(msg.data.len())
@@ -988,7 +989,7 @@ impl Socket for UdpSocket {
                 if unresolved {
                     let udp = udp_datagram(from, dst, msg.data);
                     self.net
-                        .neighbour_failed(from.ip(), dst.ip(), IPPROTO_UDP, &udp);
+                        .neighbour_failed(from.ip(), dst.ip(), IPPROTO_UDP, &udp, msg.now);
                 }
                 Ok(msg.data.len())
             }
