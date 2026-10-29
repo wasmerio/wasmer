@@ -7,7 +7,7 @@ use wasixv2_abi::{Errno, OpenFlags, SealFlags};
 
 use crate::{
     Vfs,
-    cred::{Cap, Cred, MAY_EXEC, MAY_READ, MAY_WRITE, generic_permission, sticky_denies},
+    cred::{Cap, Cred, MAY_EXEC, MAY_READ, MAY_WRITE, sticky_denies},
     dentry::Dentry,
     driver::{Handle, Link, Node},
     file::File,
@@ -59,8 +59,9 @@ impl Vfs {
         Walk::new(self, cx, start, path, flags)?.resolve().await
     }
 
-    /// `inode_permission`: mode bits, plus no writes to a read-only filesystem.
-    pub async fn permission(&self, cred: &Cred, path: &Path, mask: u32) -> FsResult<()> {
+    /// `inode_permission`: no writes to a read-only filesystem, then the node's own check for
+    /// the caller `cx` ([`Node::permission`]), the mode bits unless its filesystem decides.
+    pub async fn permission(&self, cx: &Ctx<'_>, path: &Path, mask: u32) -> FsResult<()> {
         let attr = path.dentry.node().getattr().await?;
         if mask & MAY_WRITE != 0
             && path.dentry.sb().is_read_only()
@@ -71,7 +72,7 @@ impl Vfs {
         {
             return Err(Errno::EROFS);
         }
-        generic_permission(cred, &attr, mask)
+        path.dentry.node().permission(cx.cred, cx.task, &attr, mask)
     }
 
     /// `getattr` with the device filled in from the filesystem.
@@ -216,7 +217,7 @@ impl Vfs {
             }
             truncate = true;
         }
-        self.may_open(cx.cred, &target, acc_mode, flags).await?;
+        self.may_open(cx, &target, acc_mode, flags).await?;
         let writable = access != OpenFlags::O_RDONLY;
         self.finish_open(cx.task, target, flags, writable, truncate, created)
             .await
@@ -292,11 +293,12 @@ impl Vfs {
     /// `may_open`.
     async fn may_open(
         &self,
-        cred: &Cred,
+        cx: &Ctx<'_>,
         path: &Path,
         acc_mode: u32,
         flags: OpenFlags,
     ) -> FsResult<()> {
+        let cred = cx.cred;
         match path.dentry.file_type() {
             FileType::Symlink => return Err(Errno::ELOOP),
             FileType::Directory => {
@@ -313,7 +315,7 @@ impl Vfs {
             _ => {}
         }
         if acc_mode != 0 {
-            self.permission(cred, path, acc_mode).await?;
+            self.permission(cx, path, acc_mode).await?;
         }
         if flags.contains(OpenFlags::O_NOATIME) {
             let attr = path.dentry.node().getattr().await?;
@@ -338,7 +340,7 @@ impl Vfs {
             ..how.lookup
         };
         let dir = self.lookup(cx, start, path, lookup).await?;
-        self.permission(cx.cred, &dir, MAY_WRITE | MAY_EXEC).await?;
+        self.permission(cx, &dir, MAY_WRITE | MAY_EXEC).await?;
         // Held while the file is made (`mnt_want_write` in `do_o_tmpfile`); the open takes its
         // own.
         let _write = self.tree.get_write_access(&dir.mnt)?;
@@ -361,7 +363,7 @@ impl Vfs {
             .dentry
             .inode()
             .set_linkable(!how.flags.contains(OpenFlags::O_EXCL));
-        self.may_open(cx.cred, &target, acc_mode & !MAY_WRITE, how.flags)
+        self.may_open(cx, &target, acc_mode & !MAY_WRITE, how.flags)
             .await?;
         self.finish_open(cx.task, target, how.flags, true, false, Some(handle))
             .await
@@ -463,7 +465,7 @@ impl Vfs {
         if dir.mnt.is_read_only() {
             return Err(Errno::EROFS);
         }
-        self.may_create(cx.cred, dir).await?;
+        self.may_create(cx, dir).await?;
         // `vfs_mknod`: `capable(CAP_MKNOD)`, which no user namespace's root has.
         if matches!(new.kind, NewKind::CharDevice(_) | NewKind::BlockDevice(_))
             && !cx.cred.capable_init(Cap::Mknod)
@@ -483,14 +485,15 @@ impl Vfs {
         dir.dentry.child(name, node)
     }
 
-    async fn may_create(&self, cred: &Cred, dir: &Path) -> FsResult<()> {
+    async fn may_create(&self, cx: &Ctx<'_>, dir: &Path) -> FsResult<()> {
+        let cred = cx.cred;
         // `fsuidgid_has_mapping`: what is made is owned by ids the filesystem's user namespace
         // can name.
         let owner = &dir.dentry.sb().owner;
         if !owner.has_uid(cred.fsuid) || !owner.has_gid(cred.fsgid) {
             return Err(Errno::EOVERFLOW);
         }
-        self.permission(cred, dir, MAY_WRITE | MAY_EXEC).await?;
+        self.permission(cx, dir, MAY_WRITE | MAY_EXEC).await?;
         if dir.dentry.is_unlinked() || dir.dentry.inode().is_dead() {
             return Err(Errno::ENOENT);
         }
@@ -600,7 +603,7 @@ impl Vfs {
         if dir.mnt.is_read_only() {
             return Err(Errno::EROFS);
         }
-        self.may_create(cx.cred, &dir).await?;
+        self.may_create(cx, &dir).await?;
         if source.dentry.file_type() == FileType::Directory {
             return Err(Errno::EPERM);
         }
@@ -630,12 +633,13 @@ impl Vfs {
     /// `may_delete_dentry` for `victim` in `dir`.
     async fn may_delete(
         &self,
-        cred: &Cred,
+        cx: &Ctx<'_>,
         dir: &Path,
         victim: &Path,
         is_dir: bool,
     ) -> FsResult<()> {
-        self.permission(cred, dir, MAY_WRITE | MAY_EXEC).await?;
+        let cred = cx.cred;
+        self.permission(cx, dir, MAY_WRITE | MAY_EXEC).await?;
         let dir_attr = dir.dentry.node().getattr().await?;
         let victim_attr = victim.dentry.node().getattr().await?;
         if sticky_denies(cred, &dir_attr, &victim_attr) {
@@ -682,7 +686,7 @@ impl Vfs {
                 Errno::ENOTDIR
             });
         }
-        self.may_delete(cx.cred, &dir, &victim, false).await?;
+        self.may_delete(cx, &dir, &victim, false).await?;
         if self.is_local_mountpoint(&victim) {
             return Err(Errno::EBUSY);
         }
@@ -719,7 +723,7 @@ impl Vfs {
         let _lock = dir.dentry.inode().lock().await;
         let victim = lookup_one(&dir, &name).await?;
         let _victim_lock = victim.dentry.inode().lock().await;
-        self.may_delete(cx.cred, &dir, &victim, true).await?;
+        self.may_delete(cx, &dir, &victim, true).await?;
         if self.is_local_mountpoint(&victim) {
             return Err(Errno::EBUSY);
         }
@@ -821,28 +825,28 @@ impl Vfs {
             return Ok(());
         }
         let is_dir = source.dentry.is_dir();
-        self.may_delete(cx.cred, &old_dir, &source, is_dir).await?;
+        self.may_delete(cx, &old_dir, &source, is_dir).await?;
         let new_is_dir = target.as_ref().is_some_and(|t| t.dentry.is_dir());
         match &target {
-            None => self.may_create(cx.cred, &new_dir).await?,
+            None => self.may_create(cx, &new_dir).await?,
             Some(target) => {
                 let as_dir = if mode == RenameMode::Exchange {
                     new_is_dir
                 } else {
                     is_dir
                 };
-                self.may_delete(cx.cred, &new_dir, target, as_dir).await?;
+                self.may_delete(cx, &new_dir, target, as_dir).await?;
             }
         }
         if cross_dir {
             if is_dir {
-                self.permission(cx.cred, &source, MAY_WRITE).await?;
+                self.permission(cx, &source, MAY_WRITE).await?;
             }
             if mode == RenameMode::Exchange
                 && let Some(target) = &target
                 && new_is_dir
             {
-                self.permission(cx.cred, target, MAY_WRITE).await?;
+                self.permission(cx, target, MAY_WRITE).await?;
             }
         }
         if self.is_local_mountpoint(&source)
@@ -929,7 +933,7 @@ impl Vfs {
         {
             return Err(Errno::EROFS);
         }
-        self.permission(cx.cred, path, mask).await
+        self.permission(cx, path, mask).await
     }
 
     async fn setattr(&self, path: &Path, attr: SetAttr) -> FsResult<()> {
@@ -1044,7 +1048,7 @@ impl Vfs {
             if explicit || atime.is_none() || mtime.is_none() {
                 return Err(Errno::EPERM);
             }
-            self.permission(cx.cred, path, MAY_WRITE).await?;
+            self.permission(cx, path, MAY_WRITE).await?;
         }
         let set = SetAttr {
             atime,
@@ -1066,7 +1070,7 @@ impl Vfs {
         if path.mnt.is_read_only() {
             return Err(Errno::EROFS);
         }
-        self.permission(cx.cred, path, MAY_WRITE).await?;
+        self.permission(cx, path, MAY_WRITE).await?;
         self.set_size(path, size).await
     }
 
@@ -1192,7 +1196,7 @@ impl Vfs {
         if name.starts_with(b"security.") && mask & MAY_WRITE == 0 {
             return Ok(());
         }
-        self.permission(cx.cred, path, mask).await
+        self.permission(cx, path, mask).await
     }
 
     pub async fn getxattr(&self, cx: &Ctx<'_>, path: &Path, name: &[u8]) -> FsResult<Vec<u8>> {

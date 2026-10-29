@@ -896,3 +896,46 @@ fn a_user_namespaces_root_neither_locks_memory_nor_fakes_terminal_input() {
     assert_eq!(tiocsti(&root), Ok(0), "CAP_SYS_ADMIN");
     assert_eq!(errno(tiocsti(&user)), Errno::EPERM);
 }
+
+/// `/proc/sys/net/ipv4/conf` of a network namespace that a user namespace owns is writable by
+/// that namespace's root, which has `CAP_NET_ADMIN` over it (`net_ctl_permissions`), though the
+/// files are root's of the initial namespace and `0644`; the process was not allowed before.
+/// `forwarding` takes the capability itself (`devinet_sysctl_forward`): root of the initial
+/// namespace without it opens the file and fails to write it with `EPERM`.
+#[test]
+fn a_network_namespaces_owner_writes_its_ipv4_conf() {
+    let conf = "/proc/sys/net/ipv4/conf";
+    let at = |name: &str| format!("{conf}/{name}");
+    let (kernel, p) = machine_as(1000);
+    assert_eq!(
+        write_text(&kernel, &p, &at("lo/tag"), "1"),
+        Err(Errno::EACCES.into())
+    );
+    become_root(&kernel, &p, CloneFlags::CLONE_NEWNET);
+    assert_eq!(write_text(&kernel, &p, &at("lo/tag"), "7"), Ok(1));
+    assert_eq!(read_text(&kernel, &p, &at("lo/tag")), "7\n");
+    assert_eq!(write_text(&kernel, &p, &at("all/forwarding"), "1"), Ok(1));
+    assert_eq!(read_text(&kernel, &p, &at("lo/forwarding")), "1\n");
+    assert_eq!(
+        write_text(&kernel, &p, &at("all/mc_forwarding"), "1"),
+        Err(Errno::EACCES.into())
+    );
+
+    // In a user namespace without a new network namespace, the initial one's is not its own.
+    let (kernel, p) = machine_as(1000);
+    become_root(&kernel, &p, CloneFlags::empty());
+    assert_eq!(
+        write_text(&kernel, &p, &at("lo/tag"), "1"),
+        Err(Errno::EACCES.into())
+    );
+
+    let (kernel, p) = machine_as(0);
+    let all = u64::MAX >> (63 - u64::from(wasixv2_vfs::Cap::LAST));
+    let net_admin = wasixv2_vfs::Cap::NetAdmin.bit();
+    super::cred::set_caps(&kernel, &p.caller(), &p.memory.0, all & !net_admin);
+    assert_eq!(
+        write_text(&kernel, &p, &at("all/forwarding"), "1"),
+        Err(Errno::EPERM.into())
+    );
+    assert_eq!(write_text(&kernel, &p, &at("all/tag"), "1"), Ok(1));
+}

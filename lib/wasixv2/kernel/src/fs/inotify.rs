@@ -481,7 +481,7 @@ impl Kernel {
         {
             return Err(Errno::ENOTDIR.into());
         }
-        self.vfs.permission(&env.cred, &target, MAY_READ).await?;
+        self.vfs.permission(&env.cx(), &target, MAY_READ).await?;
         let object = FsObject {
             sb: target.dentry.sb().id,
             ino: target.dentry.node().ino(),

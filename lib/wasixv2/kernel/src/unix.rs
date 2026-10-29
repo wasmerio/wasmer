@@ -1532,7 +1532,7 @@ impl Kernel {
                     .vfs
                     .lookup(&env.cx(), &start, path, LookupFlags::follow())
                     .await?;
-                self.vfs.permission(&env.cred, &found, MAY_WRITE).await?;
+                self.vfs.permission(&env.cx(), &found, MAY_WRITE).await?;
                 if found.dentry.file_type() != FileType::Socket {
                     return Err(Errno::ECONNREFUSED.into());
                 }

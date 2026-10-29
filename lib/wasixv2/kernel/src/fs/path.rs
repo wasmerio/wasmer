@@ -195,7 +195,7 @@ impl Kernel {
             ..LookupFlags::default()
         };
         let dir = self.vfs.lookup(&env.cx(), &start, &path, lookup).await?;
-        self.vfs.permission(&env.cred, &dir, MAY_EXEC).await?;
+        self.vfs.permission(&env.cx(), &dir, MAY_EXEC).await?;
         self.with_task(caller.task(), |task| task.fs.lock_or_recover().cwd = dir);
         Ok(0)
     }
@@ -206,7 +206,7 @@ impl Kernel {
             return Err(Errno::ENOTDIR.into());
         }
         let env = self.env(caller);
-        self.vfs.permission(&env.cred, &dir, MAY_EXEC).await?;
+        self.vfs.permission(&env.cx(), &dir, MAY_EXEC).await?;
         self.with_task(caller.task(), |task| task.fs.lock_or_recover().cwd = dir);
         Ok(0)
     }
@@ -224,7 +224,7 @@ impl Kernel {
             .vfs
             .lookup(&env.cx(), &env.fs.cwd, &path, lookup)
             .await?;
-        self.vfs.permission(&env.cred, &dir, MAY_EXEC).await?;
+        self.vfs.permission(&env.cx(), &dir, MAY_EXEC).await?;
         if !env.cred.capable(Cap::SysChroot) {
             return Err(Errno::EPERM.into());
         }

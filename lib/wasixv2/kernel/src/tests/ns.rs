@@ -996,8 +996,9 @@ fn write_text(kernel: &Kernel, caller: &Caller<'_>, at: &str, text: &str) -> Sys
 
 /// `/proc/sys/net/ipv4/conf` has `all`, `default` and the loopback interface, with Linux's
 /// defaults (`ipv4_devconf`, `ipv4_devconf_dflt`, what loopback sets for itself), shown for
-/// the reader's network namespace. `tag` is written per namespace and interface, and an
-/// interface follows `default` until it is given its own; a new namespace starts from the
+/// the reader's network namespace. Every value but `mc_forwarding` is `0644` and written per
+/// namespace and interface, and an interface follows `default` until it is given its own,
+/// except in the values `devinet_conf_proc` does not track; a new namespace starts from the
 /// initial one's `all` and `default`. LTP clone09 checks that a new namespace's `lo/tag` is
 /// not the one its parent's namespace set.
 #[test]
@@ -1040,9 +1041,32 @@ fn proc_sys_net_ipv4_conf_is_the_readers_network_namespace() {
     );
     assert_eq!(
         stat(&kernel, &caller, &format!("{conf}/lo/rp_filter")).stx_mode & 0o777,
+        0o644
+    );
+    assert_eq!(
+        stat(&kernel, &caller, &format!("{conf}/lo/mc_forwarding")).stx_mode & 0o777,
         0o444
     );
-    assert_eq!(errno(write(&caller, "lo/rp_filter", "1")), Errno::EACCES);
+    assert_eq!(
+        errno(write(&caller, "lo/mc_forwarding", "1")),
+        Errno::EACCES,
+        "root does not override a read-only sysctl's mode"
+    );
+    assert_eq!(write(&caller, "lo/rp_filter", "2"), Ok(1));
+    assert_eq!(read(&caller, "lo/rp_filter"), "2\n");
+    // `disable_policy` is not tracked: a write to `default` does not reach `lo`.
+    assert_eq!(write(&caller, "default/disable_policy", "0"), Ok(1));
+    assert_eq!(read(&caller, "lo/disable_policy"), "1\n");
+    assert_eq!(write(&caller, "default/promote_secondaries", "1"), Ok(1));
+    assert_eq!(read(&caller, "lo/promote_secondaries"), "0\n");
+    // `forwarding` turned on in `all` reaches `default` and every interface, and turns
+    // `accept_redirects` off in `all` (`inet_forward_change`).
+    assert_eq!(write(&caller, "all/forwarding", "1"), Ok(1));
+    assert_eq!(read(&caller, "default/forwarding"), "1\n");
+    assert_eq!(read(&caller, "lo/forwarding"), "1\n");
+    assert_eq!(read(&caller, "all/accept_redirects"), "0\n");
+    assert_eq!(write(&caller, "default/forwarding", "0"), Ok(1));
+    assert_eq!(read(&caller, "lo/forwarding"), "1\n");
     assert_eq!(
         errno(open(&kernel, &caller, &format!("{conf}/eth9/tag"))),
         Errno::ENOENT

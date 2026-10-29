@@ -161,9 +161,7 @@ impl<'a> Walk<'a> {
             if !self.path.dentry.is_dir() {
                 return Err(Errno::ENOTDIR);
             }
-            self.vfs
-                .permission(self.cx.cred, &self.path, MAY_EXEC)
-                .await?;
+            self.vfs.permission(self.cx, &self.path, MAY_EXEC).await?;
             let top = self.stack.last_mut().expect("checked above");
             let comp = top.comps.pop_front().expect("checked above");
             self.jumped = false;

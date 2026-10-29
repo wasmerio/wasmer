@@ -20,6 +20,7 @@ use crate::{
     pipe::PipeMaxSize,
     sync::MutexExt,
     taint::Taint,
+    uidgid::{Kgid, Kuid},
     userns::MapKind,
 };
 
@@ -390,10 +391,7 @@ impl ProcNode {
             Entry::Pid(_, index) => PID_ENTRIES[index].2,
             Entry::FdInfo(..) | Entry::Net(..) => 0o444,
             Entry::Devconf(_) => 0o555,
-            Entry::DevconfVar(_, var) => match devinet::VARS[var].writable {
-                true => 0o644,
-                false => 0o444,
-            },
+            Entry::DevconfVar(_, var) => devinet::VARS[var].mode,
             Entry::Ns(..) => 0o777,
             Entry::Fd(scope, fd) => {
                 // The link's mode shows how the file is open (`tid_fd_update_inode`).
@@ -410,7 +408,10 @@ impl ProcNode {
     }
 
     /// Who owns the node: root for the system files, and for a process's own its effective
-    /// uid and gid, or root's once it is not dumpable (`task_dump_owner`).
+    /// uid and gid, or root's once it is not dumpable (`task_dump_owner`). Linux gives a
+    /// network namespace's sysctl files to its owner's root (`net_ctl_set_ownership`); a node
+    /// here is looked up without its caller, so they show the initial namespace's, and
+    /// [`ProcNode::permission`] lets the namespace's root write them as Linux does.
     fn owner(&self) -> (u32, u32) {
         let scope = match self.entry {
             Entry::Root | Entry::Static(_) | Entry::Devconf(_) | Entry::DevconfVar(..) => {
@@ -438,6 +439,46 @@ impl ProcNode {
             );
         }
         (cred.user.effective.0, cred.group.effective.0)
+    }
+
+    /// Whether the task `task` has `CAP_NET_ADMIN` over the owner of the network namespace
+    /// `net`; the embedder has every capability.
+    fn net_admin(&self, task: u32, net: &NetNs) -> bool {
+        let cred = self.source.cred_of(task);
+        cred.is_none_or(|cred| cred.ns_capable(net.user_ns(), Cap::NetAdmin))
+    }
+
+    /// `proc_sys_permission` for a value of `/proc/sys/net/ipv4/conf` whose table mode is
+    /// `mode`, for the task `task` with `cred`: no execution, then `net_ctl_permissions` (the
+    /// owner's bits for everyone with `CAP_NET_ADMIN` over the opener's network namespace's
+    /// owner) and `test_perm` (the owner's bits for the initial namespace's root, the group's
+    /// for its group, else the others'). The inode's owner and the DAC capabilities do not
+    /// count.
+    fn devconf_permission(&self, task: u32, mode: u32, mask: u32) -> FsResult<()> {
+        let mask = mask & (wasixv2_vfs::MAY_READ | wasixv2_vfs::MAY_WRITE | wasixv2_vfs::MAY_EXEC);
+        if mask & wasixv2_vfs::MAY_EXEC != 0 {
+            return Err(Errno::EACCES);
+        }
+        let Some(cred) = self.source.cred_of(task) else {
+            return Ok(());
+        };
+        let net = self.source.ns_of(task).net.clone();
+        let mut mode = mode;
+        if cred.ns_capable(net.user_ns(), Cap::NetAdmin) {
+            let owner = (mode >> 6) & 7;
+            mode = (owner << 6) | (owner << 3) | owner;
+        }
+        let bits = if cred.user.effective == Kuid(0) {
+            mode >> 6
+        } else if cred.group.effective == Kgid(0) || cred.groups.contains(&Kgid(0)) {
+            mode >> 3
+        } else {
+            mode
+        } & 7;
+        match mask & !bits {
+            0 => Ok(()),
+            _ => Err(Errno::EACCES),
+        }
     }
 
     /// `proc_ns_get_link`: the namespace's nsfs inode, for a caller that may read the task's
@@ -537,6 +578,23 @@ impl Node for ProcNode {
 
     fn as_any(&self) -> &dyn Any {
         self
+    }
+
+    /// `proc_sys_permission` for the values of `/proc/sys/net/ipv4/conf`, which the opener's
+    /// network namespace decides; the mode bits for everything else.
+    fn permission(
+        &self,
+        cred: &wasixv2_vfs::Cred,
+        task: u32,
+        attr: &Attr,
+        mask: u32,
+    ) -> FsResult<()> {
+        match self.entry {
+            Entry::DevconfVar(_, var) => {
+                self.devconf_permission(task, devinet::VARS[var].mode, mask)
+            }
+            _ => wasixv2_vfs::generic_permission(cred, attr, mask),
+        }
     }
 
     /// `proc_splice_unmountable`: nothing is mounted on a descriptor's link or its `fdinfo`.
@@ -778,10 +836,6 @@ impl Node for ProcNode {
             }
             // The opener's network namespace, as `net_ctl_header_lookup` takes `current`'s.
             Entry::DevconfVar(scope, var) => {
-                // `proc_sys_permission`: root does not override a read-only sysctl's mode.
-                if options.write && !devinet::VARS[var].writable {
-                    return Err(Errno::EACCES);
-                }
                 let net = self.source.ns_of(options.task).net.clone();
                 let value = {
                     let devs = devinet::devices(net.network.as_deref());
@@ -798,7 +852,10 @@ impl Node for ProcNode {
                     let devconf = net.devconf.lock_or_recover();
                     devconf.get(scope, var, dev.flatten().as_ref())
                 };
-                let write = options.write.then_some(Write::Devconf(net, scope, var));
+                let net_admin = self.net_admin(options.task, &net);
+                let write = options
+                    .write
+                    .then_some(Write::Devconf(net, scope, var, net_admin));
                 (format!("{value}\n").into_bytes(), write)
             }
             _ => return Err(Errno::ENXIO),
@@ -891,8 +948,9 @@ enum Write {
     Vm(Arc<VmSysctls>, text::Global),
     /// `kernel.tainted`, if the opener may add flags.
     Taint(Arc<Taint>, bool),
-    /// A value of `/proc/sys/net/ipv4/conf` in the opener's network namespace.
-    Devconf(Arc<NetNs>, devinet::Scope, usize),
+    /// A value of `/proc/sys/net/ipv4/conf` in the opener's network namespace, and whether
+    /// the opener has `CAP_NET_ADMIN` over its owner.
+    Devconf(Arc<NetNs>, devinet::Scope, usize, bool),
     /// A map of a user namespace, written with the opener's credentials.
     Map(Arc<UserNs>, MapKind, Box<Cred>),
     /// Whether a user namespace allows `setgroups`.
@@ -950,9 +1008,11 @@ impl Handle for FileHandle {
             },
             Write::Taint(_, false) => return Err(Errno::EPERM),
             Write::Taint(taint, true) => taint.add(sysctl_int(data)?),
-            Write::Devconf(net, scope, var) => {
+            Write::Devconf(net, scope, var, net_admin) => {
                 let value = sysctl_i32(data)?;
-                net.devconf.lock_or_recover().set(*scope, *var, value)?;
+                let devs = devinet::devices(net.network.as_deref());
+                let mut devconf = net.devconf.lock_or_recover();
+                devconf.set(*scope, *var, value, &devs, *net_admin)?;
             }
         }
         Ok(data.len())
