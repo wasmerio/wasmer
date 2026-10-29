@@ -1174,13 +1174,31 @@ impl Kernel {
                 crate::time::from_timespec(ts)?
             }
         };
-        let realtime = clock == IoringOpFlags::IORING_TIMEOUT_REALTIME.0;
-        Ok(self.timeout_deadline(ts, abs, realtime))
+        Ok(self.timeout_deadline(caller, ts, abs, clock))
     }
 
-    /// The monotonic deadline of a timeout of `ts`, absolute on the realtime clock or, for
-    /// `CLOCK_BOOTTIME`, the monotonic one, which never sleeps here.
-    fn timeout_deadline(&self, ts: Duration, abs: bool, realtime: bool) -> Deadline {
+    /// The monotonic deadline of a timeout of `ts` on the clock `clock` names (of
+    /// `IORING_TIMEOUT_CLOCK_MASK`), absolute on the realtime clock or, for `CLOCK_BOOTTIME`,
+    /// the monotonic one, which never sleeps here. An absolute monotonic or boot time is in
+    /// the caller's time namespace (`io_parse_user_time`'s `timens_ktime_to_host`).
+    fn timeout_deadline(
+        &self,
+        caller: &Caller<'_>,
+        ts: Duration,
+        abs: bool,
+        clock: u32,
+    ) -> Deadline {
+        let realtime = clock == IoringOpFlags::IORING_TIMEOUT_REALTIME.0;
+        let ts = match (abs, realtime) {
+            (true, false) => {
+                let on = match clock == IoringOpFlags::IORING_TIMEOUT_BOOTTIME.0 {
+                    true => crate::time::Clock::Boottime,
+                    false => crate::time::Clock::Monotonic,
+                };
+                self.timens_to_host(caller, on, ts)
+            }
+            _ => ts,
+        };
         let now = self.host.monotonic();
         let deadline = match (abs, realtime) {
             (false, _) => now.saturating_add(ts),
@@ -1237,8 +1255,8 @@ impl Kernel {
             .map_err(|_| Errno::EFAULT)?;
         let ts = crate::time::from_timespec(ts)?;
         let abs = flags & IoringOpFlags::IORING_TIMEOUT_ABS.0 != 0;
-        let realtime = flags & IoringOpFlags::IORING_TIMEOUT_REALTIME.0 != 0;
-        let at = self.timeout_deadline(ts, abs, realtime);
+        let clock = flags & IoringOpFlags::IORING_TIMEOUT_CLOCK_MASK.0;
+        let at = self.timeout_deadline(caller, ts, abs, clock);
         let state = ctx.state.lock_or_recover();
         let timer = state.waiting.values().find_map(|w| match w {
             Waiting::Timeout { req, _timer, .. } if req.sqe.user_data == target => Some(_timer),

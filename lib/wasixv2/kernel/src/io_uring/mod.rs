@@ -752,8 +752,10 @@ impl Kernel {
             Some(ts) => {
                 let ts = crate::time::from_timespec(ts)?;
                 Some(
+                    // An absolute timeout is on the ring's clock (`CLOCK_MONOTONIC`) in the
+                    // caller's time namespace.
                     match flags & IoringEnterFlags::IORING_ENTER_ABS_TIMER.0 != 0 {
-                        true => ts,
+                        true => self.timens_to_host(caller, crate::time::Clock::Monotonic, ts),
                         false => self.host.monotonic().saturating_add(ts),
                     },
                 )

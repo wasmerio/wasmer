@@ -78,7 +78,8 @@ impl Kernel {
         let at = time::from_timespec(ts)?;
         Ok(match realtime {
             true => Timeout::UntilRealtime(at),
-            false => Timeout::Until(at),
+            // An absolute monotonic timeout is in the caller's time namespace.
+            false => Timeout::Until(self.timens_to_host(caller, time::Clock::Monotonic, at)),
         })
     }
 
