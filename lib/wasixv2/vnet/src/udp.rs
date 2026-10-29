@@ -20,8 +20,9 @@ use crate::{
     Accepted, BackendDatagram, Control, Domain, NetResult, PortEntry, Publication, QueuedError,
     RecvMsg, SendMsg, Shutdown, Socket, SocketKind,
     addr::{canonical, canonical_ip, present, sockaddr_bytes, unbound},
+    bpf::{Arrival, PACKET_HOST, PACKET_LOOPBACK, PACKET_MULTICAST, SockFilter},
     cmsg::{self, SendCtl},
-    icmp::{Back, Quoted},
+    icmp::{Back, IPPROTO_UDP, Quoted, UDP_HDR, udp_datagram},
     mcast::McRoute,
     net::{Net, Path, UdpRoute, serves},
     opts::{Changed, SockOpts},
@@ -169,8 +170,16 @@ impl UdpSocket {
         })
     }
 
-    /// `__udp_enqueue_schedule_skb`: drop when the queue already exceeds `SO_RCVBUF`.
-    fn deliver(&self, data: &[u8], from: SocketAddr) {
+    /// `udp_queue_rcv_one_skb`: the socket's filter, then `__udp_enqueue_schedule_skb`, which
+    /// drops when the queue already exceeds `SO_RCVBUF`.
+    fn deliver(&self, data: &[u8], from: SocketAddr, at: &Arrival) {
+        let (filter, port) = {
+            let g = self.lock();
+            (g.opts.filter.clone(), g.local.map_or(0, |l| l.port()))
+        };
+        let Some(data) = self.filtered(&filter, data, from, port, at) else {
+            return;
+        };
         let mut g = self.lock();
         if g.queued > g.opts.rcvbuf {
             return;
@@ -182,6 +191,76 @@ impl UdpSocket {
         });
         drop(g);
         self.wq.wake(PollMask::IN | PollMask::RDNORM);
+    }
+
+    /// `sk_filter_trim_cap` with the UDP header as the least kept: what of `data` the socket
+    /// keeps, `None` for nothing.
+    fn filtered<'a>(
+        &self,
+        filter: &SockFilter,
+        data: &'a [u8],
+        from: SocketAddr,
+        port: u16,
+        at: &Arrival,
+    ) -> Option<&'a [u8]> {
+        if !filter.attached() {
+            return Some(data);
+        }
+        let udp = udp_datagram(from, SocketAddr::new(at.dst, port), data);
+        let frame = self.net.frame(at, IPPROTO_UDP, &[], &udp, false);
+        let keep = filter.trim(&frame.packet(), UDP_HDR)?;
+        Some(&data[..keep - UDP_HDR])
+    }
+
+    /// A datagram from the backend endpoint, through the socket's filter: one the filter
+    /// drops is taken off and the next one tried. It arrived on the uplink, for the bound
+    /// address or the uplink's.
+    fn backend_recv(
+        &self,
+        b: &dyn BackendDatagram,
+        buf: &mut [u8],
+        peek: bool,
+        filter: &SockFilter,
+    ) -> NetResult<(usize, usize, SocketAddr)> {
+        if !filter.attached() {
+            return b.recv_from(buf, peek);
+        }
+        let local = self.lock().local;
+        let mut tmp = vec![0; MAX_SEND + 1];
+        loop {
+            let (n, _, host_from) = b.recv_from(&mut tmp, true)?;
+            let from = self.net.guest_view(host_from);
+            let uplink = self.net.uplink_index();
+            let at = {
+                let st = self.net.state();
+                let bound = local.map(|l| canonical_ip(l.ip()));
+                let dst = bound
+                    .filter(|ip| !ip.is_unspecified())
+                    .or_else(|| st.ifaces.source_on(uplink, from.ip()))
+                    .unwrap_or(from.ip());
+                Arrival {
+                    src: from.ip(),
+                    dst,
+                    ttl: 64,
+                    iif: uplink,
+                    pkttype: PACKET_HOST,
+                }
+            };
+            let port = local.map_or(0, |l| l.port());
+            let kept = self
+                .filtered(filter, &tmp[..n], from, port, &at)
+                .map(<[u8]>::len);
+            let Some(full) = kept else {
+                b.recv_from(&mut tmp, false)?;
+                continue;
+            };
+            let len = buf.len().min(full);
+            buf[..len].copy_from_slice(&tmp[..len]);
+            if !peek {
+                b.recv_from(&mut tmp, false)?;
+            }
+            return Ok((len, full, host_from));
+        }
     }
 
     /// The endpoint for traffic leaving the namespace, made on first use. It wakes this
@@ -485,11 +564,22 @@ impl UdpSocket {
         let from = SocketAddr::new(route.src, local.port());
         let segment = ctl.gso_size.unwrap_or(usize::MAX).max(1);
         for (net, iif) in self.net.mc_receivers(dst.ip(), route.oif, looped, ttl) {
+            // The sender's own namespace gets the looped-back copy (`dev_loopback_xmit`).
+            let at = Arrival {
+                src: from.ip(),
+                dst: dst.ip(),
+                ttl,
+                iif,
+                pkttype: match Arc::ptr_eq(&net, &self.net) {
+                    true => PACKET_LOOPBACK,
+                    false => PACKET_MULTICAST,
+                },
+            };
             if data.is_empty() {
-                net.udp_mcast_deliver(dst, from, iif, data);
+                net.udp_mcast_deliver(dst, from, &at, data);
             }
             for chunk in data.chunks(segment) {
-                net.udp_mcast_deliver(dst, from, iif, chunk);
+                net.udp_mcast_deliver(dst, from, &at, chunk);
             }
         }
         Ok(data.len())
@@ -499,7 +589,8 @@ impl UdpSocket {
     /// from `from` that arrived on interface `iif` if the socket is bound to the port and to
     /// the group or a wildcard of its family, connected to nobody else, on no other device,
     /// and allows the group (`ip_mc_sf_allow`, `inet6_mc_check`).
-    fn deliver_multicast(&self, dst: SocketAddr, from: SocketAddr, iif: u32, data: &[u8]) {
+    fn deliver_multicast(&self, dst: SocketAddr, from: SocketAddr, at: &Arrival, data: &[u8]) {
+        let iif = at.iif;
         let g = self.lock();
         let Some(local) = g.local else {
             return;
@@ -511,7 +602,7 @@ impl UdpSocket {
             && g.opts.mc.allows(dst.ip(), iif);
         drop(g);
         if takes {
-            self.deliver(data, from);
+            self.deliver(data, from, at);
         }
     }
 }
@@ -523,12 +614,12 @@ impl Net {
         &self,
         dst: SocketAddr,
         from: SocketAddr,
-        iif: u32,
+        at: &Arrival,
         data: &[u8],
     ) {
         let socks = self.state().udp_on_port(dst.port());
         for sock in socks.iter().filter_map(Weak::upgrade) {
-            sock.deliver_multicast(dst, from, iif, data);
+            sock.deliver_multicast(dst, from, at, data);
         }
     }
 }
@@ -801,21 +892,30 @@ impl Socket for UdpSocket {
         }
         // `UDP_SEGMENT`: the payload leaves as datagrams of the segment size.
         let segment = ctl.gso_size.unwrap_or(usize::MAX).max(1);
+        let ttl = ctl.ttl.unwrap_or_else(|| g.opts.unicast_ttl(self.domain));
         match route {
             UdpRoute::Local {
                 from,
                 to,
                 at,
+                iif,
                 back_iif,
             } => {
                 drop(g);
                 match to {
                     Some(target) => {
+                        let arrival = Arrival {
+                            src: from.ip(),
+                            dst: dst.ip(),
+                            ttl,
+                            iif,
+                            pkttype: PACKET_HOST,
+                        };
                         if msg.data.is_empty() {
-                            target.deliver(msg.data, from);
+                            target.deliver(msg.data, from, &arrival);
                         }
                         for chunk in msg.data.chunks(segment) {
-                            target.deliver(chunk, from);
+                            target.deliver(chunk, from, &arrival);
                         }
                     }
                     // Nobody takes it there: the namespace answers with a port unreachable,
@@ -880,9 +980,10 @@ impl Socket for UdpSocket {
         }
         let backend = g.backend.clone();
         let rd_shut = g.rd_shut;
+        let filter = g.opts.filter.clone();
         drop(g);
         if let Some(b) = backend {
-            match b.recv_from(buf, peek) {
+            match self.backend_recv(&*b, buf, peek, &filter) {
                 Ok((len, full_len, from)) => {
                     let from = self.net.guest_view(from);
                     return Ok(dgram_result(self.domain, len, full_len, from));

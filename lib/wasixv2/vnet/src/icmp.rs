@@ -32,6 +32,7 @@ use crate::{
     Accepted, BackendDatagram, Control, Domain, NetResult, QueuedError, RecvMsg, SendMsg, Shutdown,
     Socket, SocketKind,
     addr::{canonical_ip, present, unbound},
+    bpf::{Arrival, PACKET_HOST, PACKET_LOOPBACK, PACKET_MULTICAST, SockFilter},
     cmsg::{self, SendCtl},
     net::{IpPath, Net},
     opts::{SockOpts, read_int, write_bytes, write_int},
@@ -42,7 +43,7 @@ use crate::{
 
 pub(crate) const IPPROTO_ICMP: i32 = 1;
 pub(crate) const IPPROTO_ICMPV6: i32 = 58;
-const IPPROTO_UDP: u8 = 17;
+pub(crate) const IPPROTO_UDP: u8 = 17;
 
 const ICMP_ECHOREPLY: u8 = 0;
 const ICMP_DEST_UNREACH: u8 = 3;
@@ -75,8 +76,8 @@ const OVERHEAD: usize = 768;
 /// The ICMP header: type, code, checksum, and the identifier and sequence of an echo.
 const ICMP_HDR: usize = 8;
 const IPV4_HDR: usize = 20;
-const IPV6_HDR: usize = 40;
-const UDP_HDR: usize = 8;
+pub(crate) const IPV6_HDR: usize = 40;
+pub(crate) const UDP_HDR: usize = 8;
 /// How much of the offending packet an ICMP error quotes (`icmp_send`: 576 bytes of error
 /// packet; `icmp6_send`: the IPv6 minimum MTU).
 const ICMP_ERR_ROOM: usize = 576 - IPV4_HDR - ICMP_HDR;
@@ -250,7 +251,7 @@ fn checksum_ok(msg: &IcmpMsg) -> bool {
 }
 
 /// An IPv4 header for `len` bytes of protocol `proto`, as a raw IPv4 socket receives it.
-fn ipv4_header(
+pub(crate) fn ipv4_header(
     src: Ipv4Addr,
     dst: Ipv4Addr,
     proto: u8,
@@ -271,7 +272,13 @@ fn ipv4_header(
     h
 }
 
-fn ipv6_header(src: Ipv6Addr, dst: Ipv6Addr, proto: u8, hops: u8, len: usize) -> [u8; IPV6_HDR] {
+pub(crate) fn ipv6_header(
+    src: Ipv6Addr,
+    dst: Ipv6Addr,
+    proto: u8,
+    hops: u8,
+    len: usize,
+) -> [u8; IPV6_HDR] {
     let mut h = [0u8; IPV6_HDR];
     h[0] = 0x60;
     h[4..6].copy_from_slice(&(len as u16).to_be_bytes());
@@ -289,11 +296,25 @@ fn v4(ip: IpAddr) -> Ipv4Addr {
     }
 }
 
-fn v6(ip: IpAddr) -> Ipv6Addr {
+pub(crate) fn v6(ip: IpAddr) -> Ipv6Addr {
     match ip {
         IpAddr::V6(v6) => v6,
         IpAddr::V4(v4) => v4.to_ipv6_mapped(),
     }
+}
+
+/// A UDP datagram from `src` to `dst`: its header, with the checksum, then `payload`.
+pub(crate) fn udp_datagram(src: SocketAddr, dst: SocketAddr, payload: &[u8]) -> Vec<u8> {
+    let udp_len = UDP_HDR + payload.len();
+    let mut udp = Vec::with_capacity(udp_len);
+    udp.extend(src.port().to_be_bytes());
+    udp.extend(dst.port().to_be_bytes());
+    udp.extend((udp_len as u16).to_be_bytes());
+    udp.extend([0, 0]);
+    udp.extend_from_slice(payload);
+    let csum = fold(pseudo_sum(src.ip(), dst.ip(), IPPROTO_UDP, udp_len) + sum16(&udp));
+    udp[6..8].copy_from_slice(&csum.max(1).to_be_bytes());
+    udp
 }
 
 /// The ICMP error `type_`/`code` sent from `from` to the sender of a UDP datagram from
@@ -306,15 +327,8 @@ pub(crate) fn udp_error(
     dst: SocketAddr,
     payload: &[u8],
 ) -> IcmpMsg {
-    let udp_len = UDP_HDR + payload.len();
-    let mut udp = Vec::with_capacity(udp_len);
-    udp.extend(src.port().to_be_bytes());
-    udp.extend(dst.port().to_be_bytes());
-    udp.extend((udp_len as u16).to_be_bytes());
-    udp.extend([0, 0]);
-    udp.extend_from_slice(payload);
-    let csum = fold(pseudo_sum(src.ip(), dst.ip(), IPPROTO_UDP, udp_len) + sum16(&udp));
-    udp[6..8].copy_from_slice(&csum.max(1).to_be_bytes());
+    let udp = udp_datagram(src, dst, payload);
+    let udp_len = udp.len();
     let (header, room): (Vec<u8>, usize) = match dst.ip() {
         IpAddr::V4(_) => (
             ipv4_header(
@@ -463,8 +477,15 @@ impl Net {
             st.icmp.raw.retain(|w| w.strong_count() > 0);
             st.icmp.raw.clone()
         };
+        // What a group's message arrives as: the sender's own looped-back copy, or one
+        // received from another namespace.
+        let pkttype = match msg.dst.is_multicast() {
+            false => PACKET_HOST,
+            true if std::ptr::eq(Arc::as_ptr(&back.net), self) => PACKET_LOOPBACK,
+            true => PACKET_MULTICAST,
+        };
         for raw in raws.iter().filter_map(Weak::upgrade) {
-            raw.raw_input(&msg, iif);
+            raw.raw_input(&msg, iif, pkttype);
         }
         if msg.data.len() < ICMP_HDR || !checksum_ok(&msg) {
             return;
@@ -529,7 +550,7 @@ impl Net {
         let candidates = self.state().icmp.pings(ident);
         for sock in candidates.iter().filter_map(Weak::upgrade) {
             if sock.ping_match(msg.dst, iif) {
-                sock.queue(msg.data.clone(), msg, iif);
+                sock.queue(msg.data.clone(), msg, iif, PACKET_HOST);
                 return;
             }
         }
@@ -766,7 +787,7 @@ impl IcmpSocket {
     /// `raw_v4_input`/`ipv6_raw_deliver` with `raw_rcv`: a copy of every ICMP message of the
     /// socket's family to its bound address, from its peer, on its device, of a group it
     /// allows, that its filter passes.
-    fn raw_input(&self, msg: &IcmpMsg, iif: u32) {
+    fn raw_input(&self, msg: &IcmpMsg, iif: u32, pkttype: u8) {
         if msg.dst.is_ipv6() != self.v6() {
             return;
         }
@@ -790,11 +811,45 @@ impl IcmpSocket {
             }
             _ => msg.data.clone(),
         };
-        self.queue(data, msg, iif);
+        self.queue(data, msg, iif, pkttype);
     }
 
-    /// Queues a message, dropped when the receive buffer is full (`sock_queue_rcv_skb`).
-    fn queue(&self, data: Vec<u8>, msg: &IcmpMsg, iif: u32) {
+    /// `sk_filter`: whether the socket's filter keeps `data`, a message that arrived as `at`
+    /// says, and how much of it (an IPv4 raw socket's filter sees the IP header too).
+    fn filter(&self, filter: &SockFilter, data: &mut Vec<u8>, at: &Arrival) -> bool {
+        if !filter.attached() {
+            return true;
+        }
+        let proto = self.protocol() as u8;
+        let frame = match self.raw && !self.v6() && data.len() >= IPV4_HDR {
+            true => self
+                .net
+                .frame(at, proto, &data[..IPV4_HDR], &data[IPV4_HDR..], true),
+            false => self.net.frame(at, proto, &[], data, false),
+        };
+        match filter.trim(&frame.packet(), 1) {
+            Some(keep) => {
+                data.truncate(keep);
+                true
+            }
+            None => false,
+        }
+    }
+
+    /// Queues a message that passes the socket's filter, dropped when the receive buffer is
+    /// full (`sock_queue_rcv_skb`).
+    fn queue(&self, mut data: Vec<u8>, msg: &IcmpMsg, iif: u32, pkttype: u8) {
+        let filter = self.lock().opts.filter.clone();
+        let at = Arrival {
+            src: msg.src,
+            dst: msg.dst,
+            ttl: msg.ttl,
+            iif,
+            pkttype,
+        };
+        if !self.filter(&filter, &mut data, &at) {
+            return;
+        }
         let mut g = self.lock();
         if g.queued > g.opts.rcvbuf {
             return;
@@ -938,14 +993,7 @@ impl IcmpSocket {
 
     /// `IP_TTL`/`IPV6_UNICAST_HOPS`, or the default.
     fn unicast_ttl(&self, g: &Inner) -> u8 {
-        let v = match self.domain {
-            Domain::Inet => g.opts.int(SOL_IP, IpOption::IP_TTL.0),
-            Domain::Inet6 => g.opts.int(SOL_IPV6, Ipv6Option::IPV6_UNICAST_HOPS.0),
-        };
-        u8::try_from(v)
-            .ok()
-            .filter(|&t| t > 0)
-            .unwrap_or(DEFAULT_TTL)
+        g.opts.unicast_ttl(self.domain)
     }
 
     /// The bound address as a source, unless it is a group's.
@@ -1354,9 +1402,20 @@ impl Socket for IcmpSocket {
                 match b.recv_from(&mut tmp, false) {
                     Ok((n, _, from)) => {
                         tmp.truncate(n);
-                        if let Some(r) = self.backend_reply(&g, tmp, from) {
-                            g.queued += r.data.len() + OVERHEAD;
-                            g.queue.push_back(r);
+                        if let Some(mut r) = self.backend_reply(&g, tmp, from) {
+                            let at = Arrival {
+                                src: r.from,
+                                dst: r.dst,
+                                ttl: r.ttl,
+                                iif: self.net.uplink_index(),
+                                pkttype: PACKET_HOST,
+                            };
+                            r.iif = at.iif;
+                            let filter = g.opts.filter.clone();
+                            if self.filter(&filter, &mut r.data, &at) {
+                                g.queued += r.data.len() + OVERHEAD;
+                                g.queue.push_back(r);
+                            }
                         }
                     }
                     Err(Errno::EAGAIN) => {}

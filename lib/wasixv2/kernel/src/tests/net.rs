@@ -1375,3 +1375,243 @@ fn tcp_reads_that_fault_keep_the_data() {
     let server = accept.unwrap();
     stream_reads_that_fault_keep_the_data(&kernel, &caller, &memory, client, server);
 }
+
+/// `struct sock_fprog` at `at`, pointing at `count` instructions at `filter`.
+fn fprog(memory: &FlatMemory, at: u32, count: u16, filter: u32) {
+    let mut raw = count.to_le_bytes().to_vec();
+    raw.extend([0, 0]);
+    raw.extend(filter.to_le_bytes());
+    put(memory, at, &raw);
+}
+
+/// One `struct sock_filter`: `BPF_RET | BPF_K` of `k`.
+fn ret(k: u32) -> Vec<u8> {
+    let mut b = 6u16.to_le_bytes().to_vec();
+    b.extend([0, 0]);
+    b.extend(k.to_le_bytes());
+    b
+}
+
+fn setsockopt_at(
+    kernel: &Kernel,
+    caller: &Caller<'_>,
+    fd: Fd,
+    name: SocketOption,
+    at: u32,
+    len: u32,
+) -> SysResult<i32> {
+    block_on(kernel.setsockopt(
+        caller,
+        fd,
+        SocketLevel::SOL_SOCKET,
+        name.0,
+        UserSlice::new(at, len),
+    ))
+}
+
+/// `SO_GET_FILTER` with a length of `len` instructions: the result and the length back.
+fn get_filter(
+    kernel: &Kernel,
+    caller: &Caller<'_>,
+    memory: &FlatMemory,
+    fd: Fd,
+    len: u32,
+) -> (SysResult<i32>, u32) {
+    put(memory, 0x2f0, &len.to_le_bytes());
+    let result = block_on(kernel.getsockopt(
+        caller,
+        fd,
+        SocketLevel::SOL_SOCKET,
+        SocketOption::SO_ATTACH_FILTER.0,
+        GuestPtrMut::new(0x300),
+        GuestPtrMut::new(0x2f0),
+    ));
+    let len = u32::from_le_bytes(get(memory, 0x2f0, 4).try_into().unwrap());
+    (result, len)
+}
+
+/// `SO_ATTACH_FILTER` reads the guest's `sock_fprog` as `copy_bpf_fprog_from_user` and
+/// `__get_filter` do, and `SO_GET_FILTER` counts instructions; a TCP socket needs
+/// `CAP_NET_ADMIN`, a locked filter stays.
+#[test]
+fn socket_filters_are_read_from_the_guest_sock_fprog() {
+    let vnet = wasixv2_vnet::Net::new(wasixv2_vnet::NetConfig::default(), None);
+    let (kernel, task, memory) = super::cred::machine_with(|kernel| kernel.with_network(vnet));
+    let caller = Caller::new(task, &memory);
+    let tcp = socket(&kernel, &caller, STREAM);
+    let udp = socket(&kernel, &caller, DGRAM);
+    put(&memory, 0x1000, &[ret(1), ret(2)].concat());
+    fprog(&memory, 0x200, 2, 0x1000);
+    let attach = |fd, len| {
+        setsockopt_at(
+            &kernel,
+            &caller,
+            fd,
+            SocketOption::SO_ATTACH_FILTER,
+            0x200,
+            len,
+        )
+    };
+    assert_eq!(errno(attach(tcp, 8)), Errno::EPERM);
+    assert_eq!(errno(attach(udp, 4)), Errno::EINVAL);
+    assert_eq!(get_filter(&kernel, &caller, &memory, udp, 4), (Ok(0), 0));
+    assert_eq!(attach(udp, 8), Ok(0));
+    assert_eq!(get_filter(&kernel, &caller, &memory, udp, 0), (Ok(0), 2));
+    assert_eq!(
+        errno(get_filter(&kernel, &caller, &memory, udp, 1).0),
+        Errno::EINVAL
+    );
+    assert_eq!(get_filter(&kernel, &caller, &memory, udp, 2), (Ok(0), 2));
+    assert_eq!(get(&memory, 0x300, 16), [ret(1), ret(2)].concat());
+    // No program, too many instructions, one the guest cannot read.
+    fprog(&memory, 0x200, 2, 0);
+    assert_eq!(errno(attach(udp, 8)), Errno::EINVAL);
+    fprog(&memory, 0x200, 4097, 0x1000);
+    assert_eq!(errno(attach(udp, 8)), Errno::EINVAL);
+    fprog(&memory, 0x200, 2, 0xffff_fff0);
+    assert_eq!(errno(attach(udp, 8)), Errno::EFAULT);
+    // Locked, an attach fails with EPERM before the program is read.
+    put(&memory, 0x400, &1i32.to_le_bytes());
+    assert_eq!(
+        setsockopt_at(
+            &kernel,
+            &caller,
+            udp,
+            SocketOption::SO_LOCK_FILTER,
+            0x400,
+            4
+        ),
+        Ok(0)
+    );
+    assert_eq!(errno(attach(udp, 8)), Errno::EPERM);
+    assert_eq!(
+        errno(setsockopt_at(
+            &kernel,
+            &caller,
+            udp,
+            SocketOption::SO_DETACH_FILTER,
+            0x400,
+            4
+        )),
+        Errno::EPERM
+    );
+}
+
+/// A Unix datagram's receiver runs its filter over the message (`unix_dgram_sendmsg`): what
+/// it drops is lost while the send succeeds, a shorter length cuts the message.
+#[test]
+fn unix_datagrams_go_through_the_receivers_filter() {
+    let (kernel, task, memory) = machine();
+    let caller = Caller::new(task, &memory);
+    let (a, b) = unix_pair(&kernel, &caller, &memory, DGRAM);
+    put(&memory, 0x1000, &ret(2));
+    fprog(&memory, 0x200, 1, 0x1000);
+    assert_eq!(
+        setsockopt_at(
+            &kernel,
+            &caller,
+            b,
+            SocketOption::SO_ATTACH_FILTER,
+            0x200,
+            8
+        ),
+        Ok(0)
+    );
+    put(&memory, 0x600, b"hello");
+    assert_eq!(
+        send_bytes(&kernel, &caller, a, 0x600, 5, MsgFlags(0)),
+        Ok(5)
+    );
+    let recv = || {
+        block_on(kernel.recvfrom(
+            &caller,
+            b,
+            UserSliceMut::new(0x700, 64),
+            MsgFlags::MSG_DONTWAIT,
+            GuestPtrMut::NULL,
+            GuestPtrMut::NULL,
+        ))
+    };
+    assert_eq!(recv(), Ok(2));
+    assert_eq!(get(&memory, 0x700, 2), b"he");
+    put(&memory, 0x1000, &ret(0));
+    assert_eq!(
+        setsockopt_at(
+            &kernel,
+            &caller,
+            b,
+            SocketOption::SO_ATTACH_FILTER,
+            0x200,
+            8
+        ),
+        Ok(0)
+    );
+    assert_eq!(
+        send_bytes(&kernel, &caller, a, 0x600, 5, MsgFlags(0)),
+        Ok(5)
+    );
+    assert_eq!(errno(recv()), Errno::EAGAIN);
+    put(&memory, 0x400, &0i32.to_le_bytes());
+    assert_eq!(
+        setsockopt_at(
+            &kernel,
+            &caller,
+            b,
+            SocketOption::SO_DETACH_FILTER,
+            0x400,
+            4
+        ),
+        Ok(0)
+    );
+    assert_eq!(
+        errno(setsockopt_at(
+            &kernel,
+            &caller,
+            b,
+            SocketOption::SO_DETACH_FILTER,
+            0x400,
+            4
+        )),
+        Errno::ENOENT
+    );
+}
+
+/// A packet socket keeps the filter tcpdump and DHCP clients attach, though no frame runs
+/// through it.
+#[test]
+fn packet_sockets_keep_their_filter() {
+    let (kernel, task, memory) = super::cred::machine_with(|kernel| {
+        kernel
+            .with_credentials(Credentials::new(0, 0))
+            .with_network(FakeNet::new())
+    });
+    let caller = Caller::new(task, &memory);
+    let fd = block_on(kernel.socket(&caller, AddressFamily::AF_PACKET, 3, 0x0300)).unwrap();
+    put(&memory, 0x1000, &ret(0xffff));
+    fprog(&memory, 0x200, 1, 0x1000);
+    assert_eq!(
+        setsockopt_at(
+            &kernel,
+            &caller,
+            fd,
+            SocketOption::SO_ATTACH_FILTER,
+            0x200,
+            8
+        ),
+        Ok(0)
+    );
+    assert_eq!(get_filter(&kernel, &caller, &memory, fd, 0), (Ok(0), 1));
+    put(&memory, 0x400, &0i32.to_le_bytes());
+    let detach = || {
+        setsockopt_at(
+            &kernel,
+            &caller,
+            fd,
+            SocketOption::SO_DETACH_FILTER,
+            0x400,
+            4,
+        )
+    };
+    assert_eq!(detach(), Ok(0));
+    assert_eq!(errno(detach()), Errno::ENOENT);
+}
