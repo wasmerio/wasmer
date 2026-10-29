@@ -10,7 +10,11 @@
 
 use std::{
     collections::{BTreeMap, HashMap, HashSet, VecDeque},
-    sync::{Arc, Mutex, Weak},
+    sync::{
+        Arc, Mutex, Weak,
+        atomic::{AtomicU32, Ordering},
+    },
+    time::Duration,
 };
 
 use wasixv2_abi::{Errno, KeyPerm, KeySpec, KeyctlOp, Ulong};
@@ -30,6 +34,30 @@ const MAXKEYS: u32 = 200;
 const MAXBYTES: u32 = 20000;
 const ROOT_MAXKEYS: u32 = 1_000_000;
 const ROOT_MAXBYTES: u32 = 25_000_000;
+
+/// The configured security/keys/sysctl.c entries (persistent keyrings are unconfigured).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum KeySysctl {
+    MaxKeys,
+    MaxBytes,
+    RootMaxKeys,
+    RootMaxBytes,
+    GcDelay,
+}
+
+struct KeyLimits([AtomicU32; 5]);
+
+impl Default for KeyLimits {
+    fn default() -> Self {
+        Self([MAXKEYS, MAXBYTES, ROOT_MAXKEYS, ROOT_MAXBYTES, 300].map(AtomicU32::new))
+    }
+}
+
+impl KeyLimits {
+    fn get(&self, entry: KeySysctl) -> u32 {
+        self.0[entry as usize].load(Ordering::Relaxed)
+    }
+}
 
 /// `KEY_MAX_DESC_SIZE`, the longest type name, and the largest `user` payload.
 const MAX_DESC: usize = 4096;
@@ -114,6 +142,7 @@ impl Kind {
 /// One user's keys and quota (`struct key_user`), and their keyrings.
 pub(crate) struct KeyUser {
     uid: Kuid,
+    limits: Arc<KeyLimits>,
     state: Mutex<UserState>,
 }
 
@@ -131,8 +160,14 @@ struct UserState {
 impl KeyUser {
     fn quota(&self) -> (u32, u32) {
         match self.uid.0 {
-            0 => (ROOT_MAXKEYS, ROOT_MAXBYTES),
-            _ => (MAXKEYS, MAXBYTES),
+            0 => (
+                self.limits.get(KeySysctl::RootMaxKeys),
+                self.limits.get(KeySysctl::RootMaxBytes),
+            ),
+            _ => (
+                self.limits.get(KeySysctl::MaxKeys),
+                self.limits.get(KeySysctl::MaxBytes),
+            ),
         }
     }
 }
@@ -157,6 +192,7 @@ struct KeyState {
     /// A keyring's keys, in the order they were linked.
     links: Vec<Arc<Key>>,
     revoked: bool,
+    revoked_at: Option<u64>,
     invalidated: bool,
     /// When it expires, in seconds of the realtime clock; `None` for never.
     expiry: Option<u64>,
@@ -242,7 +278,7 @@ impl Key {
         let mut user = owner.state.lock_or_recover();
         let (_, maxbytes) = owner.quota();
         let bytes = user.qnbytes - st.quotalen + new;
-        if bytes > maxbytes {
+        if new > st.quotalen && bytes > maxbytes {
             return Err(Errno::EDQUOT);
         }
         user.qnbytes = bytes;
@@ -252,12 +288,15 @@ impl Key {
 }
 
 /// The machine's keys: the serial table and each user's.
-#[derive(Default)]
 pub(crate) struct Keys {
     serials: Mutex<KeyTable>,
     users: Mutex<HashMap<u32, Arc<KeyUser>>>,
     /// `key_construction_mutex`: the final search, allocation and link are indivisible.
     construction: Mutex<()>,
+    limits: Arc<KeyLimits>,
+    host: Arc<dyn wasixv2_host::Host>,
+    gc: crate::timer::Timer,
+    gc_lock: Mutex<()>,
 }
 
 #[derive(Default)]
@@ -313,6 +352,103 @@ impl Ctx {
 }
 
 impl Keys {
+    pub(crate) fn new(
+        host: Arc<dyn wasixv2_host::Host>,
+        timers: &crate::timer::Timers,
+    ) -> Arc<Self> {
+        Arc::new_cyclic(|me: &Weak<Self>| {
+            let weak = me.clone();
+            let gc = timers.realtime_timer(Box::new(move || {
+                let keys = weak.upgrade()?;
+                let _guard = keys.gc_lock.lock_or_recover();
+                keys.collect()
+            }));
+            Self {
+                serials: Mutex::default(),
+                users: Mutex::default(),
+                construction: Mutex::default(),
+                limits: Arc::default(),
+                host,
+                gc,
+                gc_lock: Mutex::default(),
+            }
+        })
+    }
+
+    pub(crate) fn sysctl(&self, entry: KeySysctl) -> u32 {
+        self.limits.get(entry)
+    }
+
+    pub(crate) fn set_sysctl(&self, entry: KeySysctl, value: u32) -> Result<(), Errno> {
+        // security/keys/sysctl.c: proc_dointvec_minmax, [1, INT_MAX], or [0, INT_MAX] for gc_delay.
+        if value > i32::MAX as u32 || (value == 0 && entry != KeySysctl::GcDelay) {
+            return Err(Errno::EINVAL);
+        }
+        self.limits.0[entry as usize].store(value, Ordering::Relaxed);
+        if entry == KeySysctl::GcDelay {
+            self.rearm_gc();
+        }
+        Ok(())
+    }
+
+    fn rearm_gc(&self) {
+        let _guard = self.gc_lock.lock_or_recover();
+        match self.collect() {
+            Some(at) => self.gc.start(at),
+            None => self.gc.cancel(),
+        }
+    }
+
+    /// security/keys/gc.c key_garbage_collector and keyring.c keyring_gc: collect links,
+    /// not keys held by credentials, after expiry/revocation plus the grace period. Drop
+    /// removed links outside key locks, and only hold the serial table while taking a snapshot.
+    fn collect(&self) -> Option<Duration> {
+        let keys: Vec<Arc<Key>> = self
+            .serials
+            .lock_or_recover()
+            .keys
+            .values()
+            .filter_map(Weak::upgrade)
+            .collect();
+        let now = self.host.realtime().as_secs();
+        let delay = u64::from(self.sysctl(KeySysctl::GcDelay));
+        let mut dead = HashSet::new();
+        let mut next: Option<u64> = None;
+        for key in &keys {
+            let st = key.st();
+            let expiry = st.expiry.into_iter().chain(st.revoked_at).min();
+            let at = match st.invalidated {
+                true => Some(now),
+                false => expiry.map(|at| at.saturating_add(delay)),
+            };
+            if let Some(at) = at {
+                if at <= now {
+                    dead.insert(key.serial);
+                } else {
+                    next = Some(next.map_or(at, |old| old.min(at)));
+                }
+            }
+        }
+        for key in &keys {
+            if key.kind == Kind::Keyring {
+                let removed = {
+                    let mut st = key.st();
+                    let (live, removed) = std::mem::take(&mut st.links)
+                        .into_iter()
+                        .partition::<Vec<_>, _>(|k| !dead.contains(&k.serial));
+                    st.links = live;
+                    removed
+                };
+                drop(removed);
+            }
+        }
+        next.map(|at| {
+            self.host
+                .monotonic()
+                .saturating_add(Duration::from_secs(at.saturating_sub(now)))
+        })
+    }
+
     fn user(&self, uid: Kuid) -> Arc<KeyUser> {
         let mut users = self.users.lock_or_recover();
         users
@@ -320,6 +456,7 @@ impl Keys {
             .or_insert_with(|| {
                 Arc::new(KeyUser {
                     uid,
+                    limits: self.limits.clone(),
                     state: Mutex::default(),
                 })
             })
@@ -379,6 +516,7 @@ impl Keys {
                 negative: None,
                 links: Vec::new(),
                 revoked: false,
+                revoked_at: None,
                 invalidated: false,
                 expiry: None,
                 quotalen,
@@ -849,6 +987,7 @@ impl Kernel {
                     st.expiry = Some(ctx.now.saturating_add(60));
                 }
                 link(&dest, &key)?;
+                self.keys.rearm_gc();
                 Err(Errno::ENOENT.into())
             }
             Err(Errno::EAGAIN) => Err(Errno::ENOKEY.into()),
@@ -937,8 +1076,12 @@ impl Kernel {
                 .key;
                 let mut st = key.st();
                 st.revoked = true;
+                st.revoked_at = Some(ctx.now);
                 // `keyring_revoke`: a revoked keyring holds nothing.
-                st.links.clear();
+                let links = std::mem::take(&mut st.links);
+                drop(st);
+                drop(links);
+                self.keys.rearm_gc();
                 Ok(0)
             }
             KeyctlOp::KEYCTL_CHOWN => {
@@ -1073,11 +1216,13 @@ impl Kernel {
                     0 => None,
                     timeout => Some(ctx.now + u64::from(timeout)),
                 };
+                self.keys.rearm_gc();
                 Ok(0)
             }
             KeyctlOp::KEYCTL_INVALIDATE => {
                 let key = found(self, &mut ctx, Lookup::default(), Need::Search)?.key;
                 key.st().invalidated = true;
+                self.keys.rearm_gc();
                 Ok(0)
             }
             KeyctlOp::KEYCTL_GET_SECURITY => {

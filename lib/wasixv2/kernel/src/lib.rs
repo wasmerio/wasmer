@@ -345,6 +345,7 @@ impl Kernel {
         let timers = timer::Timers::new(host.clone());
         time.on_clock_was_set_delayed(timers.clock_was_set_delayed_hook());
         let sigio = fasync::Sigio::new(jobs.clone(), &timers);
+        let keys = keys::Keys::new(host.clone(), &timers);
         let inotify = Arc::new(fs::inotify::Registry::default());
         let dnotify = Arc::new(fs::dnotify::Dnotify::new(sigio.clone()));
         let fanotify = Arc::new(fs::fanotify::Registry::default());
@@ -392,7 +393,7 @@ impl Kernel {
             epoll_nesting: Mutex::default(),
             sigqueue_users: Arc::default(),
             seccomp_used: Default::default(),
-            keys: Arc::default(),
+            keys,
             credentials: Credentials::default(),
             init: None,
             reboot: Default::default(),

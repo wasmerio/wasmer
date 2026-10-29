@@ -71,6 +71,7 @@ pub(super) enum Global {
     /// `/proc/keys`, `/proc/key-users`, which the node renders for its opener.
     Keys,
     KeyUsers,
+    KeySysctl(crate::keys::KeySysctl),
 }
 
 /// The files of a network namespace (`/proc/<pid>/net`).
@@ -112,6 +113,7 @@ impl Global {
             | Self::DirNotifyEnable
             | Self::LeasesEnable
             | Self::LeaseBreakTime
+            | Self::KeySysctl(_)
             | Self::AioMaxNr
             | Self::Tainted
             // Who may write these is the namespace's business, not the mode's
@@ -204,6 +206,7 @@ pub(super) fn global(
         Global::LeaseBreakTime => line(&source.sysctls.lease_break_time().to_string()),
         Global::AioNr => line(&source.aio.nr().to_string()),
         Global::AioMaxNr => line(&source.aio.max().to_string()),
+        Global::KeySysctl(entry) => line(&source.keys.sysctl(entry).to_string()),
         Global::OverflowUid | Global::OverflowGid => line(&OVERFLOW_ID.to_string()),
         Global::CapLastCap => line(&wasixv2_vfs::Cap::LAST.to_string()),
         Global::Tainted => line(&source.taint.get().to_string()),

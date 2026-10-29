@@ -101,6 +101,23 @@ impl<'a> T<'a> {
         Ok(get(self.memory, 0x3000, n))
     }
 
+    fn write_sysctl(&self, name: &str, value: &str) -> SysResult<u32> {
+        let path = self.cstr(0x1200, &format!("/proc/sys/kernel/keys/{name}"));
+        let fd =
+            block_on(
+                self.kernel
+                    .openat(&self.caller, Fd(-100), path, OpenFlags::O_WRONLY, 0),
+            )?;
+        put(self.memory, 0x2000, value.as_bytes());
+        let result = block_on(self.kernel.write(
+            &self.caller,
+            fd,
+            UserSlice::new(0x2000, value.len() as u32),
+        ));
+        block_on(self.kernel.close(&self.caller, fd)).unwrap();
+        result
+    }
+
     fn proc(&self, path: &str) -> String {
         let name = self.cstr(0x1200, path);
         let open = self
@@ -117,7 +134,15 @@ impl<'a> T<'a> {
 
 /// A process on a kernel with `/proc` mounted.
 fn machine() -> (Kernel, TaskId, FlatMemory) {
-    let (kernel, task, _) = setup(b"");
+    machine_as(1)
+}
+
+fn machine_as(uid: u32) -> (Kernel, TaskId, FlatMemory) {
+    let host: Arc<dyn Host> = Arc::new(super::ptimer::RealHost(std::time::Instant::now()));
+    let root = MemFs::new(Arc::new(HostClock(host.clone())), 0o755, 1, 1);
+    let kernel = Kernel::new(host, Arc::new(root)).with_credentials(Credentials::new(uid, uid));
+    let stdin = Arc::new(Input(Mutex::new(Vec::new())));
+    let (kernel, task, _) = spawn_on(kernel, stdin, &[], &[]);
     let vfs = kernel.vfs().clone();
     let proc = vfs.mount(
         b"/proc",
@@ -419,3 +444,78 @@ fn capabilities_and_unconfigured_operations() {
     assert_eq!(errno(t.keyctl(99, 0, 0, 0, 0)), Errno::EOPNOTSUPP);
 }
 
+/// Linux security/keys/sysctl.c exposes the configured tunables as global 0644 integers.
+#[test]
+fn key_sysctls_validate_values_and_bound_key_quotas() {
+    let (kernel, task, memory) = machine_as(0);
+    let t = T::new(&kernel, task, &memory);
+    for (name, initial) in [
+        ("maxkeys", 200),
+        ("maxbytes", 20000),
+        ("root_maxkeys", 1_000_000),
+        ("root_maxbytes", 25_000_000),
+        ("gc_delay", 300),
+    ] {
+        let path = format!("/proc/sys/kernel/keys/{name}");
+        assert_eq!(t.proc(&path), format!("{initial}\n"));
+        for value in ["-1", "2147483648", "x"] {
+            assert_eq!(errno(t.write_sysctl(name, value)), Errno::EINVAL);
+        }
+        if name != "gc_delay" {
+            assert_eq!(errno(t.write_sysctl(name, "0")), Errno::EINVAL);
+        }
+        assert_eq!(t.proc(&path), format!("{initial}\n"));
+    }
+    t.id(PROCESS, true).unwrap();
+    t.id(USER, false).unwrap();
+    t.id(USER_SESSION, false).unwrap();
+    assert_eq!(t.write_sysctl("root_maxkeys", "4"), Ok(1));
+    t.add("user", "a", b"x", PROCESS).unwrap();
+    assert_eq!(errno(t.add("user", "b", b"x", PROCESS)), Errno::EDQUOT);
+    assert!(t.proc("/proc/key-users").contains(" 4/4 "));
+    assert_eq!(t.write_sysctl("root_maxkeys", "5"), Ok(1));
+    let key = t.add("user", "b", b"payload", PROCESS).unwrap();
+    // Lowering a byte quota does not prevent shrinking a payload already over the quota.
+    assert_eq!(t.write_sysctl("root_maxbytes", "1"), Ok(1));
+    assert_eq!(t.add("user", "b", b"x", PROCESS), Ok(key));
+    assert_eq!(errno(t.add("user", "b", b"longer", PROCESS)), Errno::EDQUOT);
+    assert_eq!(t.write_sysctl("maxkeys", "1"), Ok(1));
+    assert_eq!(block_on(kernel.setuid(&t.caller, 1)), Ok(0));
+    t.add("user", "owned-by-user", b"x", PROCESS).unwrap();
+    assert_eq!(
+        errno(t.add("user", "second-user-key", b"x", PROCESS)),
+        Errno::EDQUOT
+    );
+    assert_eq!(errno(t.write_sysctl("maxkeys", "2")), Errno::EACCES);
+}
+
+/// security/keys/gc.c `key_garbage_collector` and keyring.c `keyring_gc` remove dead links
+/// after the tunable grace period, freeing their quota. CLOCK_REALTIME sets must rearm it.
+#[test]
+fn key_sysctls_gc_delay_controls_expired_revoked_and_invalidated_links() {
+    let (kernel, task, memory) = machine_as(0);
+    let t = T::new(&kernel, task, &memory);
+    t.id(PROCESS, true).unwrap();
+    assert_eq!(t.write_sysctl("gc_delay", "10"), Ok(2));
+    let key = t.add("user", "expiring", b"x", PROCESS).unwrap();
+    assert_eq!(t.keyctl(SET_TIMEOUT, key as u32, 1, 0, 0), Ok(0));
+    kernel
+        .time
+        .settime(kernel.host.realtime() + Duration::from_secs(2))
+        .unwrap();
+    kernel.clock_was_set();
+    assert_eq!(t.read(PROCESS).unwrap(), key.to_le_bytes());
+    assert_eq!(t.write_sysctl("gc_delay", "0"), Ok(1));
+    assert!(t.read(PROCESS).unwrap().is_empty());
+    assert_eq!(errno(t.describe(key)), Errno::ENOKEY);
+    let key = t.add("user", "revoked", b"x", PROCESS).unwrap();
+    assert_eq!(t.keyctl(REVOKE, key as u32, 0, 0, 0), Ok(0));
+    // Re-run a clock-set notification synchronously, so this does not race the driver.
+    kernel.clock_was_set();
+    assert!(t.read(PROCESS).unwrap().is_empty());
+    assert_eq!(errno(t.describe(key)), Errno::ENOKEY);
+    let key = t.add("user", "invalidated", b"x", PROCESS).unwrap();
+    assert_eq!(t.keyctl(INVALIDATE, key as u32, 0, 0, 0), Ok(0));
+    kernel.clock_was_set();
+    assert!(t.read(PROCESS).unwrap().is_empty());
+}
