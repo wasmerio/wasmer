@@ -12,6 +12,7 @@ use wasixv2_vfs::{
 };
 
 use super::{Source, text};
+use crate::ipc::sysctl::Sysctl as IpcSysctl;
 use crate::sysctl::Tunable;
 use crate::{
     aio::AioSysctl,
@@ -381,7 +382,18 @@ const STATIC: &[(usize, &str, Static)] = &[
     (134, "msg", Static::File(text::Global::SysvipcMsg)),
     (134, "sem", Static::File(text::Global::SysvipcSem)),
     (134, "shm", Static::File(text::Global::SysvipcShm)),
+    (13, "shmmax", ipc_sysctl(IpcSysctl::ShmMax)),
+    (13, "shmall", ipc_sysctl(IpcSysctl::ShmAll)),
+    (13, "shmmni", ipc_sysctl(IpcSysctl::ShmMni)),
+    (13, "msgmax", ipc_sysctl(IpcSysctl::MsgMax)),
+    (13, "msgmni", ipc_sysctl(IpcSysctl::MsgMni)),
+    (13, "msgmnb", ipc_sysctl(IpcSysctl::MsgMnb)),
+    (13, "sem", ipc_sysctl(IpcSysctl::Sem)),
 ];
+
+const fn ipc_sysctl(which: IpcSysctl) -> Static {
+    Static::File(text::Global::IpcSysctl(which))
+}
 
 /// The file of an integer sysctl.
 const fn tunable(tunable: Tunable) -> Static {
@@ -803,8 +815,11 @@ impl ProcNode {
         };
         let in_egroup = |gid| cred.group.effective == gid || cred.groups.contains(&gid);
         let bits = match file {
-            text::Global::PidMax => {
-                let owner = self.source.pid_ns_of(task).user_ns().clone();
+            text::Global::PidMax | text::Global::IpcSysctl(_) => {
+                let owner = match file {
+                    text::Global::IpcSysctl(_) => self.source.ns_of(task).ipc.user_ns().clone(),
+                    _ => self.source.pid_ns_of(task).user_ns().clone(),
+                };
                 if cred.ns_capable(&owner, Cap::SysAdmin)
                     || owner.root_uid() == Some(cred.user.effective)
                 {
@@ -946,9 +961,11 @@ impl Node for ProcNode {
     ) -> FsResult<()> {
         match self.entry {
             Entry::Static(index) => match STATIC[index].2 {
-                Static::File(file @ (text::Global::PidMax | text::Global::Ucount(_))) => {
-                    self.sysctl_root_permission(task, file, attr.mode, mask)
-                }
+                Static::File(
+                    file @ (text::Global::PidMax
+                    | text::Global::Ucount(_)
+                    | text::Global::IpcSysctl(_)),
+                ) => self.sysctl_root_permission(task, file, attr.mode, mask),
                 _ => wasixv2_vfs::generic_permission_acl(cred, attr, acl, mask),
             },
             _ => wasixv2_vfs::generic_permission_acl(cred, attr, acl, mask),
@@ -1180,6 +1197,9 @@ impl Node for ProcNode {
                             Some(Write::NsLastPid(pid_ns, may))
                         }
                         text::Global::NrOpen => Some(Write::NrOpen(self.source.nr_open.clone())),
+                        text::Global::IpcSysctl(which) => {
+                            Some(Write::IpcSysctl(ns.ipc.clone(), which))
+                        }
                         text::Global::DirNotifyEnable
                         | text::Global::LeasesEnable
                         | text::Global::LeaseBreakTime => {
@@ -1606,6 +1626,7 @@ struct FileHandle {
 
 /// What a writable file sets.
 enum Write {
+    IpcSysctl(Arc<crate::ns::IpcNs>, IpcSysctl),
     Acct(Arc<crate::acct::Acct>),
     Seccomp(Arc<Source>, u32),
     /// A task's name.
@@ -1837,6 +1858,13 @@ impl Handle for FileHandle {
     /// sysctl's new value.
     async fn write_at(&self, data: &[u8], offset: u64) -> FsResult<usize> {
         match self.write.as_ref().ok_or(Errno::EINVAL)? {
+            Write::IpcSysctl(ns, which) => {
+                // proc_sysctl.c:sysctl_writes_strict ignores subsequent writes.
+                if offset != 0 {
+                    return Ok(data.len());
+                }
+                ns.limits.lock_or_recover().write(*which, data)?;
+            }
             Write::Acct(acct) => {
                 let text = std::str::from_utf8(data).map_err(|_| Errno::EINVAL)?;
                 let values = text

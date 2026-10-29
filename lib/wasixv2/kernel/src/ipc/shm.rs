@@ -350,19 +350,24 @@ impl Kernel {
         let pid = self.pids.get(self.process(caller.task()).pid.0);
         let ns = self.ns(caller);
         let segments = &ns.ipc.shm;
+        let limits = *ns.ipc.limits.lock_or_recover();
+        let limit = limits.shmmni as usize;
         let check = |segment: &Segment| match segment.size < size as usize {
             true => Err(Errno::EINVAL),
             false => Ok(()),
         };
-        let create = |perm| {
-            if !(SHMMIN..=SHMMAX).contains(&size) {
+        let create = |perm, ids: &Ids<Segment>| {
+            if !(SHMMIN..=limits.shmmax).contains(&size) {
                 return Err(Errno::EINVAL);
             }
             let pages = u64::from(size).div_ceil(PAGE_SIZE);
             let mut total = segments.total.lock_or_recover();
-            if *total + pages > u64::from(SHMALL) {
+            if *total + pages > u64::from(limits.shmall) {
                 return Err(Errno::ENOSPC);
             }
+            // Linux ipc/shm.c:newseg charges shm_tot only after ipc_addid
+            // succeeds. Check under the same ids lock before allocating backing.
+            ids.check_capacity(limit)?;
             let backing = self.segment_backing(pages)?;
             *total += pages;
             Ok(Segment {
@@ -380,7 +385,6 @@ impl Kernel {
                 size: size as usize,
             })
         };
-        let limit = SHMMNI as usize;
         Ok(get_or_create(
             &segments.ids,
             key,
@@ -493,10 +497,21 @@ impl Kernel {
         let cred = self.ipc_cred(caller);
         let ns = self.ns(caller);
         let segments = &ns.ipc.shm;
+        let limits = *ns.ipc.limits.lock_or_recover();
         match IpcCmd(cmd) {
             IpcCmd::IPC_INFO => {
                 let max = segments.ids.lock_or_recover().max_index();
-                let info = [SHMMAX, SHMMIN, SHMMNI, SHMMNI, SHMALL, 0, 0, 0, 0];
+                let info = [
+                    limits.shmmax,
+                    SHMMIN,
+                    limits.shmmni,
+                    limits.shmmni,
+                    limits.shmall,
+                    0,
+                    0,
+                    0,
+                    0,
+                ];
                 write_words(caller, buf, &info).await?;
                 Ok(max)
             }

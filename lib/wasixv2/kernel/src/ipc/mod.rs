@@ -15,6 +15,7 @@ pub(crate) mod mqueuefs;
 pub(crate) mod msg;
 pub(crate) mod sem;
 pub(crate) mod shm;
+pub(crate) mod sysctl;
 
 use std::{
     collections::HashMap,
@@ -116,6 +117,7 @@ impl Kernel {
 /// What an IPC namespace holds ([`crate::ns::IpcNs`]): its SysV objects and POSIX message
 /// queues.
 pub(crate) struct Ipc {
+    pub(crate) limits: Mutex<sysctl::Limits>,
     pub(crate) sem: sem::Sems,
     pub(crate) msg: msg::Queues,
     pub(crate) shm: Arc<shm::Segments>,
@@ -127,6 +129,7 @@ impl Ipc {
     /// `creator` (`create_ipc_ns`).
     pub(crate) fn new(creator: (u32, u32)) -> Self {
         Self {
+            limits: Mutex::new(sysctl::Limits::default()),
             sem: Default::default(),
             msg: Default::default(),
             shm: Default::default(),
@@ -252,6 +255,13 @@ pub(crate) fn build_id(index: usize, seq: u16) -> i32 {
 }
 
 impl<T: Object> Ids<T> {
+    /// Check the identifier limit before allocating or charging a new object.
+    fn check_capacity(&self, limit: usize) -> Result<(), Errno> {
+        if self.in_use >= limit.min(IPCMNI) {
+            return Err(Errno::ENOSPC);
+        }
+        Ok(())
+    }
     /// The object named by `id`, if its index holds it in that id's generation
     /// (`ipc_obtain_object_check`).
     pub(crate) fn get(&self, id: i32) -> Option<Arc<T>> {
@@ -282,9 +292,7 @@ impl<T: Object> Ids<T> {
         limit: usize,
         make: impl FnOnce(u16) -> Arc<T>,
     ) -> Result<(i32, Arc<T>), Errno> {
-        if self.in_use >= limit.min(IPCMNI) {
-            return Err(Errno::ENOSPC);
-        }
+        self.check_capacity(limit)?;
         let max = (self.in_use * 3 / 2).clamp(MIN_CYCLE, IPCMNI);
         let start = self.last_index.map_or(0, |last| last + 1);
         let free = |index: &usize| self.slots.get(*index).is_none_or(Option::is_none);
@@ -363,7 +371,7 @@ pub(crate) fn get_or_create<T: Object>(
     cred: &Cred,
     limit: usize,
     check: impl FnOnce(&T) -> Result<(), Errno>,
-    create: impl FnOnce(Perm) -> Result<T, Errno>,
+    create: impl FnOnce(Perm, &Ids<T>) -> Result<T, Errno>,
 ) -> Result<i32, Errno> {
     let flags_bits = IpcFlags(flags as u32);
     let mut ids = ids.lock_or_recover();
@@ -384,7 +392,7 @@ pub(crate) fn get_or_create<T: Object>(
     if key != IpcKey::IPC_PRIVATE.0 && !flags_bits.contains(IpcFlags::IPC_CREAT) {
         return Err(Errno::ENOENT);
     }
-    let object = create(Perm::new(key, cred, flags))?;
+    let object = create(Perm::new(key, cred, flags), &ids)?;
     let (id, _) = ids.add(key, limit, |seq| {
         object.perm().seq = seq;
         Arc::new(object)
