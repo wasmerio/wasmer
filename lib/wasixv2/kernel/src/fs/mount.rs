@@ -125,6 +125,13 @@ impl Registry {
         })
     }
 
+    /// Adds one of the kernel's own types made by a [`FilesystemType`].
+    pub(crate) fn add(&self, name: &str, ty: Arc<dyn FilesystemType>) {
+        self.types
+            .lock_or_recover()
+            .push((name.into(), FsType::Other(ty)));
+    }
+
     pub(super) fn get(&self, name: &[u8]) -> Option<FsType> {
         let types = self.types.lock_or_recover();
         types

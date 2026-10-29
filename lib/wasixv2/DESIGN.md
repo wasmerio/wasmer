@@ -655,6 +655,8 @@ The execution crate is the only layer below the facade that knows about the wasm
 - **Task lifetime.** The execution layer releases each task once its instance is done with it. A process becomes a zombie, closes its files and notifies its parent only once its last thread is gone and its leader left its memory, as a zombie leader waits on Linux. Reaping it is Linux's `release_task`: its tasks leave the task table there and then, so no lookup finds them and their process, memory and files go, even while their instances still unwind. What an instance takes on its way out (its queued exit, its work flag, its CPU account) stays until the execution layer releases the task, which for a reaped one is `put_task_struct`; every other call on it does nothing.
 - **Dynamic linking.** Side modules are loaded and linked by the host; see the next section.
 
+**binfmt_misc.** Formats registered at run time (`fs/binfmt_misc.c`, kernel `binfmt_misc.rs`) are tried before a `#!` line, as Linux tries binfmt_misc first: a file whose first bytes carry a registered magic (under its mask) or whose name has a registered extension runs as its interpreter with the file's name as the first argument, in place of `argv[0]` or before it (`P`), the interpreter opened by name or as resolved when the format was registered (`F`). The registry is the `binfmt_misc` filesystem (`register`, `status`, one file per format), one instance per kernel. Passing the binary as a descriptor (`O`, `C`) is not provided.
+
 ### Asyncify
 
 `wasixv2-exec`'s `asyncify` module is the machinery of the asyncify configuration, and knows no ABI: wasixv2's `clone`, `stack-save` and `stack-restore` use it (exec's `fork` module), and a compatibility layer for another ABI can do the same.

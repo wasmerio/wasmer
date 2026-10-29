@@ -984,3 +984,122 @@ fn rseq_areas_follow_fork_but_not_clone_vm() {
     let vm = parent.for_process(CloneFlags::CLONE_VM | CloneFlags::CLONE_VFORK, 0, 0);
     assert_eq!(vm.rseq, None);
 }
+
+/// binfmt_misc: a registered format's files run through its interpreter, which gets the file's
+/// name, before any `#!` line is looked at; formats are shown, turned off and removed through
+/// their files.
+#[test]
+fn binfmt_misc_runs_registered_formats_through_their_interpreter() {
+    let (kernel, task, memory) = super::cred::machine_as(0, 0);
+    let caller = Caller::new(task, &memory);
+    install_prog(&kernel, &caller, &memory);
+    let cstr = |addr: u32, s: &[u8]| {
+        let mut bytes = s.to_vec();
+        bytes.push(0);
+        put(&memory, addr, &bytes);
+        Cstr::new(addr)
+    };
+    let mkdir = kernel.mkdirat(&caller, Fd(-100), cstr(0x3000, b"/bm"), 0o755);
+    assert_eq!(block_on(mkdir), Ok(0));
+    let mount = kernel.mount(
+        &caller,
+        cstr(0x3000, b"binfmt_misc"),
+        cstr(0x3100, b"/bm"),
+        cstr(0x3200, b"binfmt_misc"),
+        wasixv2_abi::MountFlags(0),
+        wasixv2_abi::ConstVoidPtr::NULL,
+    );
+    assert_eq!(block_on(mount), Ok(0));
+    let write = |path: &[u8], data: &[u8]| {
+        let open = kernel.openat(
+            &caller,
+            Fd(-100),
+            cstr(0x3000, path),
+            OpenFlags::O_WRONLY,
+            0,
+        );
+        let fd = block_on(open)?;
+        put(&memory, 0x3400, data);
+        let n = block_on(kernel.write(&caller, fd, UserSlice::new(0x3400, data.len() as u32)));
+        assert_eq!(block_on(kernel.close(&caller, fd)), Ok(0));
+        n
+    };
+    let read = |path: &[u8]| {
+        let open = kernel.openat(
+            &caller,
+            Fd(-100),
+            cstr(0x3000, path),
+            OpenFlags::O_RDONLY,
+            0,
+        );
+        let fd = block_on(open)?;
+        let n = block_on(kernel.read(&caller, fd, UserSliceMut::new(0x3800, 512)))?;
+        assert_eq!(block_on(kernel.close(&caller, fd)), Ok(0));
+        Ok::<_, SysErr>(memory.0.borrow()[0x3800..0x3800 + n as usize].to_vec())
+    };
+    let create = |path: &[u8], data: &[u8]| {
+        let flags = OpenFlags::O_CREAT | OpenFlags::O_WRONLY;
+        let open = kernel.openat(&caller, Fd(-100), cstr(0x3000, path), flags, 0o755);
+        let fd = block_on(open).unwrap();
+        put(&memory, 0x3400, data);
+        let write = kernel.write(&caller, fd, UserSlice::new(0x3400, data.len() as u32));
+        assert_eq!(block_on(write), Ok(data.len() as u32));
+        assert_eq!(block_on(kernel.close(&caller, fd)), Ok(0));
+    };
+    let exec = |path: &[u8], argv: &[&[u8]]| {
+        cstr(0x2200, path);
+        let mut ptrs = Vec::new();
+        let mut at = 0x2600;
+        for arg in argv {
+            cstr(at, arg);
+            ptrs.extend_from_slice(&at.to_le_bytes());
+            at += 0x40;
+        }
+        ptrs.extend_from_slice(&[0; 4]);
+        put(&memory, 0x2500, &ptrs);
+        put(&memory, 0x2580, &[0; 4]);
+        let call = kernel.execve(
+            &caller,
+            GuestPtr::new(0x2200),
+            GuestPtr::new(0x2500),
+            GuestPtr::new(0x2580),
+        );
+        block_on(call)
+    };
+    let args = || kernel.process(task).args.lock_or_recover().clone();
+
+    assert_eq!(read(b"/bm/status"), Ok(b"enabled\n".to_vec()));
+    let demo = b":demo:M::DEMO::/prog:\n";
+    assert_eq!(write(b"/bm/register", demo), Ok(demo.len() as u32));
+    assert_eq!(errno(write(b"/bm/register", demo)), Errno::EEXIST);
+    let shown = b"enabled\ninterpreter /prog\nflags: \noffset 0\nmagic 44454d4f\n";
+    assert_eq!(read(b"/bm/demo"), Ok(shown.to_vec()));
+
+    // A magic match: the interpreter, the file's name, then argv[1] on.
+    create(b"/data", b"DEMOxyz");
+    assert_eq!(exec(b"/data", &[b"data", b"a"]), Ok(0));
+    assert_eq!(args(), [&b"/prog"[..], b"/data", b"a"]);
+    // An extension match keeping argv[0] (`P`).
+    let ext = b":ext:E::dx::/prog:P";
+    assert_eq!(write(b"/bm/register", ext), Ok(ext.len() as u32));
+    create(b"/f.dx", b"zz");
+    assert_eq!(exec(b"/f.dx", &[b"zero", b"one"]), Ok(0));
+    assert_eq!(args(), [&b"/prog"[..], b"/f.dx", b"zero", b"one"]);
+
+    // Turned off, the format matches nothing, and the file is no executable at all.
+    assert_eq!(write(b"/bm/demo", b"0"), Ok(1));
+    assert_eq!(errno(exec(b"/data", &[b"data"])), Errno::ENOEXEC);
+    assert_eq!(write(b"/bm/demo", b"1"), Ok(1));
+    assert_eq!(write(b"/bm/status", b"0\n"), Ok(2));
+    assert_eq!(errno(exec(b"/data", &[b"data"])), Errno::ENOEXEC);
+    assert_eq!(write(b"/bm/status", b"1"), Ok(1));
+    // Removed one at a time, or all at once.
+    assert_eq!(write(b"/bm/demo", b"-1"), Ok(2));
+    assert_eq!(errno(read(b"/bm/demo")), Errno::ENOENT);
+    assert_eq!(write(b"/bm/status", b"-1"), Ok(2));
+    assert_eq!(errno(read(b"/bm/ext")), Errno::ENOENT);
+    assert_eq!(
+        errno(write(b"/bm/register", b":bad:M::x::/i:O")),
+        Errno::EINVAL
+    );
+}
