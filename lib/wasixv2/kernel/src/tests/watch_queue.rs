@@ -132,6 +132,24 @@ fn notification_pipes_validate_configuration_and_reject_user_writes_and_splice()
         block_on(kernel.tee(&caller, r, other, 1, wasixv2_abi::SpliceFlags(0))),
         Err(SysErr::Errno(Errno::EINVAL))
     );
+    // io_uring/splice.c:io_splice reaches the same get_pipe_info(for_splice=true)
+    // restriction through the kernel's by-file entry, without the syscall wrapper.
+    for (input, output) in [(r, other), (ordinary, w)] {
+        let input = kernel.file(task, input).unwrap();
+        let output = kernel.file(task, output).unwrap();
+        assert_eq!(
+            block_on(kernel.splice_files(
+                &caller,
+                &input,
+                &output,
+                None,
+                None,
+                1,
+                wasixv2_abi::SpliceFlags(0),
+            )),
+            Err(SysErr::Errno(Errno::EINVAL)),
+        );
+    }
 }
 
 #[test]

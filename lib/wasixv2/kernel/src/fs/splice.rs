@@ -99,6 +99,12 @@ impl Kernel {
             return Err(Errno::EINVAL.into());
         }
         let (ipipe, opipe) = (pipe_info(input), pipe_info(output));
+        // fs/pipe.c:get_pipe_info(for_splice=true), including io_uring/splice.c:io_splice.
+        if ipipe.as_ref().is_some_and(|p| p.is_notification())
+            || opipe.as_ref().is_some_and(|p| p.is_notification())
+        {
+            return Err(Errno::EINVAL.into());
+        }
         if (ipipe.is_some() && in_at.is_some()) || (opipe.is_some() && out_at.is_some()) {
             return Err(Errno::ESPIPE.into());
         }
@@ -193,8 +199,8 @@ impl Kernel {
             return Ok(0);
         }
         // fs/pipe.c get_pipe_info(for_splice=true) excludes watch queues.
-        if pipe_info(&input).is_some_and(|p| p.is_notification())
-            || pipe_info(&output).is_some_and(|p| p.is_notification())
+        if pipe_info(input).is_some_and(|p| p.is_notification())
+            || pipe_info(output).is_some_and(|p| p.is_notification())
         {
             return Err(Errno::EINVAL.into());
         }
