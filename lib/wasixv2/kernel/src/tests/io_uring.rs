@@ -742,7 +742,16 @@ fn the_probe_lists_the_supported_operations() {
     assert_eq!((probe[0], probe[1]), (last - 1, last));
     let supported = |op: IoUringOp| probe[16 + usize::from(op.0) * 8 + 2] & 1 == 1;
     assert!(supported(READ) && supported(IoUringOp::IORING_OP_ACCEPT));
-    assert!(!supported(IoUringOp::IORING_OP_SPLICE));
+    for op in [
+        IoUringOp::IORING_OP_SPLICE,
+        IoUringOp::IORING_OP_TEE,
+        IoUringOp::IORING_OP_SEND_ZC,
+        IoUringOp::IORING_OP_SENDMSG_ZC,
+        IoUringOp::IORING_OP_MSG_RING,
+    ] {
+        assert!(supported(op), "opcode {} missing from probe", op.0);
+    }
+    assert!(!supported(IoUringOp::IORING_OP_EPOLL_CTL));
     // The buffer must come zeroed.
     m.memory.put(SCRATCH + 20, &[1]);
     assert_eq!(errno(ring.register(8, SCRATCH, 70)), Errno::EINVAL);
@@ -2373,4 +2382,305 @@ fn socket_bind_and_listen_work_with_direct_descriptors() {
         ),
         1
     );
+}
+
+#[test]
+fn splice_waits_for_both_endpoints_and_tee_keeps_the_input() {
+    let m = Machine::new();
+    let ring = m.ring(8, 0);
+    let (input, writer) = pipe(&m.kernel, &m.caller(), OpenFlags(0));
+    let (reader, output) = pipe(&m.kernel, &m.caller(), OpenFlags(0));
+    put_value(&m, SCRATCH + 64, input.0);
+    assert_eq!(register_resources(&ring, false, 1, SCRATCH + 64, 0), Ok(0));
+    let splice = IoUringSqe {
+        addr: u64::MAX,
+        off: u64::MAX,
+        len: 4,
+        splice_fd_in: 0,
+        op_flags: 0x8000_0000,
+        ..sqe(IoUringOp::IORING_OP_SPLICE, output.0, 1)
+    };
+    ring.push(splice);
+    assert_eq!(ring.submit(1), Ok(1));
+    assert!(
+        ring.reap().is_empty(),
+        "a writable output alone must not spin or complete"
+    );
+    m.memory.put(BUF, b"data");
+    block_on(m.kernel.write(&m.caller(), writer, UserSlice::new(BUF, 4))).unwrap();
+    assert_eq!(res(&ring.wait(1)), [(1, 4)]);
+    block_on(
+        m.kernel
+            .read(&m.caller(), reader, UserSliceMut::new(BUF + 64, 4)),
+    )
+    .unwrap();
+    assert_eq!(m.memory.get(BUF + 64, 4), b"data");
+    block_on(m.kernel.write(&m.caller(), writer, UserSlice::new(BUF, 4))).unwrap();
+    assert_eq!(
+        run_sqe(
+            &ring,
+            IoUringSqe {
+                addr: 0,
+                off: 0,
+                ..IoUringSqe {
+                    opcode: IoUringOp::IORING_OP_TEE.0,
+                    ..splice
+                }
+            }
+        ),
+        4
+    );
+    block_on(
+        m.kernel
+            .read(&m.caller(), input, UserSliceMut::new(BUF + 64, 4)),
+    )
+    .unwrap();
+    assert_eq!(m.memory.get(BUF + 64, 4), b"data");
+    block_on(
+        m.kernel
+            .read(&m.caller(), reader, UserSliceMut::new(BUF + 64, 4)),
+    )
+    .unwrap();
+    assert_eq!(m.memory.get(BUF + 64, 4), b"data");
+    let fd = m.file("splice-offset", b"012345");
+    assert_eq!(
+        run_sqe(
+            &ring,
+            IoUringSqe {
+                addr: 2,
+                off: u64::MAX,
+                len: 2,
+                splice_fd_in: fd.0,
+                ..sqe(IoUringOp::IORING_OP_SPLICE, output.0, 2)
+            }
+        ),
+        2
+    );
+    assert_eq!(
+        block_on(
+            m.kernel
+                .lseek(&m.caller(), fd, 0, wasixv2_abi::SeekWhence::SEEK_CUR)
+        ),
+        Ok(6)
+    );
+    block_on(
+        m.kernel
+            .read(&m.caller(), reader, UserSliceMut::new(BUF + 64, 2)),
+    )
+    .unwrap();
+    assert_eq!(m.memory.get(BUF + 64, 2), b"23");
+}
+
+#[test]
+fn splice_rearms_when_the_destination_pipe_is_full() {
+    let m = Machine::new();
+    let ring = m.ring(8, 0);
+    let (input, writer) = pipe(&m.kernel, &m.caller(), OpenFlags(0));
+    let (reader, output) = pipe(&m.kernel, &m.caller(), OpenFlags(0));
+    let size =
+        block_on(
+            m.kernel
+                .fcntl64(&m.caller(), output, wasixv2_abi::FcntlCmd::F_GETPIPE_SZ, 0),
+        )
+        .unwrap() as u32;
+    let buf = anonymous(&m, size.div_ceil(65536), false);
+    m.memory.put(buf, &vec![b'x'; size as usize]);
+    assert_eq!(
+        block_on(
+            m.kernel
+                .write(&m.caller(), output, UserSlice::new(buf, size))
+        ),
+        Ok(size)
+    );
+    m.memory.put(BUF, b"late");
+    block_on(m.kernel.write(&m.caller(), writer, UserSlice::new(BUF, 4))).unwrap();
+    ring.push(IoUringSqe {
+        addr: u64::MAX,
+        off: u64::MAX,
+        len: 4,
+        splice_fd_in: input.0,
+        ..sqe(IoUringOp::IORING_OP_SPLICE, output.0, 1)
+    });
+    assert_eq!(ring.submit(1), Ok(1));
+    assert!(ring.reap().is_empty());
+    assert_eq!(
+        block_on(
+            m.kernel
+                .read(&m.caller(), reader, UserSliceMut::new(buf, size))
+        ),
+        Ok(size)
+    );
+    assert_eq!(res(&ring.wait(1)), [(1, 4)]);
+    block_on(
+        m.kernel
+            .read(&m.caller(), reader, UserSliceMut::new(BUF + 64, 4)),
+    )
+    .unwrap();
+    assert_eq!(m.memory.get(BUF + 64, 4), b"late");
+}
+
+#[test]
+fn msg_ring_delivers_data_and_fixed_files_and_checks_disabled_targets() {
+    let m = Machine::new();
+    let source = m.ring(8, 0);
+    let target = m.ring(8, 0);
+    let fd = m.file("sent-file", b"pass");
+    put_value(&m, SCRATCH + 64, fd.0);
+    assert_eq!(
+        register_resources(&source, false, 1, SCRATCH + 64, 0),
+        Ok(0)
+    );
+    assert_eq!(register_resources(&target, false, 1, 0, 0), Ok(0));
+    assert_eq!(
+        run_sqe(
+            &source,
+            IoUringSqe {
+                off: 99,
+                len: 42,
+                ..sqe(IoUringOp::IORING_OP_MSG_RING, target.fd.0, 1)
+            }
+        ),
+        0
+    );
+    assert_eq!(res(&target.reap()), [(99, 42)]);
+    assert_eq!(
+        run_sqe(
+            &source,
+            IoUringSqe {
+                addr: 1,
+                off: 100,
+                addr3: 0,
+                splice_fd_in: -1,
+                ..sqe(IoUringOp::IORING_OP_MSG_RING, target.fd.0, 2)
+            }
+        ),
+        0
+    );
+    assert_eq!(res(&target.reap()), [(100, 0)]);
+    assert_eq!(
+        run_sqe(
+            &target,
+            IoUringSqe {
+                flags: IosqeFlags::IOSQE_FIXED_FILE.0,
+                addr: u64::from(BUF),
+                len: 4,
+                ..sqe(READ, 0, 3)
+            }
+        ),
+        4
+    );
+    assert_eq!(m.memory.get(BUF, 4), b"pass");
+    let disabled = m.ring(8, IoringSetupFlags::IORING_SETUP_R_DISABLED.0);
+    assert_eq!(
+        run_sqe(
+            &source,
+            sqe(IoUringOp::IORING_OP_MSG_RING, disabled.fd.0, 4)
+        ),
+        -Errno::EBADFD.0
+    );
+    assert_eq!(
+        run_sqe(&source, sqe(IoUringOp::IORING_OP_MSG_RING, fd.0, 5)),
+        -Errno::EBADFD.0
+    );
+    assert_eq!(
+        run_sqe(
+            &source,
+            IoUringSqe {
+                addr: 1,
+                ..sqe(IoUringOp::IORING_OP_MSG_RING, source.fd.0, 6)
+            }
+        ),
+        EINVAL
+    );
+}
+
+#[test]
+fn copying_zero_copy_sends_post_notifications_even_on_failure() {
+    let m = Machine::configured(|kernel| kernel.with_network(super::net::FakeNet::new()));
+    let ring = m.ring(8, 0);
+    let sender = block_on(m.kernel.socket(&m.caller(), AddressFamily::AF_INET, 2, 0)).unwrap();
+    let receiver = block_on(m.kernel.socket(&m.caller(), AddressFamily::AF_INET, 2, 0)).unwrap();
+    let raw = crate::socket::encode("127.0.0.1:35000".parse().unwrap());
+    m.memory.put(SCRATCH, &raw);
+    block_on(m.kernel.bind(
+        &m.caller(),
+        receiver,
+        GuestPtr::new(SCRATCH),
+        raw.len() as u32,
+    ))
+    .unwrap();
+    block_on(m.kernel.connect(
+        &m.caller(),
+        sender,
+        GuestPtr::new(SCRATCH),
+        raw.len() as u32,
+    ))
+    .unwrap();
+    m.memory.put(BUF, b"copy");
+    let report = IoringOpFlags::IORING_SEND_ZC_REPORT_USAGE.0 as u16;
+    put_value(
+        &m,
+        SCRATCH + 64,
+        wasixv2_abi::Iovec {
+            iov_base: BUF,
+            iov_len: 4,
+        },
+    );
+    put_value(
+        &m,
+        SCRATCH + 128,
+        wasixv2_abi::UserMsghdr {
+            msg_iov: GuestPtr::new(SCRATCH + 64),
+            msg_iovlen: 1,
+            ..wasixv2_abi::UserMsghdr::ZERO
+        },
+    );
+    for entry in [
+        IoUringSqe {
+            addr: u64::from(BUF),
+            len: 4,
+            ioprio: report,
+            addr3: 99,
+            ..sqe(IoUringOp::IORING_OP_SEND_ZC, sender.0, 1)
+        },
+        IoUringSqe {
+            addr: u64::from(SCRATCH + 128),
+            ioprio: report,
+            addr3: 99,
+            ..sqe(IoUringOp::IORING_OP_SENDMSG_ZC, sender.0, 1)
+        },
+        IoUringSqe {
+            addr: u64::from(SCRATCH + 64),
+            len: 1,
+            ioprio: report | IoringOpFlags::IORING_SEND_VECTORIZED.0 as u16,
+            addr3: 99,
+            ..sqe(IoUringOp::IORING_OP_SEND_ZC, sender.0, 1)
+        },
+    ] {
+        ring.push(entry);
+        assert_eq!(ring.submit(1), Ok(1));
+        let cqes = ring.reap();
+        assert_eq!(res(&cqes), [(1, 4), (99, i32::MIN)]);
+        assert_ne!(cqes[0].flags & IoringCqeFlags::IORING_CQE_F_MORE.0, 0);
+        assert_eq!(cqes[1].flags, IoringCqeFlags::IORING_CQE_F_NOTIF.0);
+        assert_eq!(
+            block_on(
+                m.kernel
+                    .read(&m.caller(), receiver, UserSliceMut::new(BUF + 64, 4))
+            ),
+            Ok(4)
+        );
+        assert_eq!(m.memory.get(BUF + 64, 4), b"copy");
+    }
+    let (unix, _) = unix_pair(&m, 1);
+    ring.push(IoUringSqe {
+        addr: u64::from(BUF),
+        len: 4,
+        ..sqe(IoUringOp::IORING_OP_SEND_ZC, unix.0, 2)
+    });
+    assert_eq!(ring.submit(1), Ok(1));
+    let cqes = ring.reap();
+    assert_eq!(res(&cqes), [(2, -Errno::EOPNOTSUPP.0), (2, 0)]);
+    assert_eq!(cqes[0].flags, IoringCqeFlags::IORING_CQE_F_MORE.0);
+    assert_eq!(cqes[1].flags, IoringCqeFlags::IORING_CQE_F_NOTIF.0);
 }

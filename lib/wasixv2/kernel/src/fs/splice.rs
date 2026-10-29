@@ -28,7 +28,7 @@ const SPLICE_F_ALL: u32 = SpliceFlags::SPLICE_F_MOVE.0
 /// Where a splice reads or writes a file: at `*off` from the caller, which is written back, or
 /// at the file position, which moves.
 struct Offset {
-    ptr: LoffPtr,
+    position: bool,
     pos: u64,
 }
 
@@ -62,6 +62,40 @@ impl Kernel {
         }
         let out_at = user_offset(caller, off_out).await?;
         let in_at = user_offset(caller, off_in).await?;
+        let (n, input_offset, output_offset) = self
+            .splice_files(caller, &input, &output, in_at, out_at, len, flags)
+            .await?;
+        if let Some(at) = output_offset {
+            write_value(caller.memory(), off_out, &at).await?;
+        }
+        if let Some(at) = input_offset {
+            write_value(caller.memory(), off_in, &at).await?;
+        }
+        Ok(n)
+    }
+
+    /// io_uring/splice.c:io_splice uses offsets by value, without guest pointers.
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) async fn splice_files(
+        &self,
+        caller: &Caller<'_>,
+        input: &OpenFile,
+        output: &OpenFile,
+        mut in_at: Option<i64>,
+        mut out_at: Option<i64>,
+        len: u32,
+        flags: SpliceFlags,
+    ) -> SysResult<(i32, Option<i64>, Option<i64>)> {
+        if len == 0 {
+            return Ok((0, in_at, out_at));
+        }
+        if flags.0 & !SPLICE_F_ALL != 0 {
+            return Err(Errno::EINVAL.into());
+        }
+        let (ipipe, opipe) = (pipe_info(input), pipe_info(output));
+        if (ipipe.is_some() && in_at.is_some()) || (opipe.is_some() && out_at.is_some()) {
+            return Err(Errno::ESPIPE.into());
+        }
         // `do_splice`.
         input.check_readable()?;
         output.check_writable()?;
@@ -73,7 +107,7 @@ impl Kernel {
                 if Arc::ptr_eq(&ipipe, &opipe) {
                     return Err(Errno::EINVAL.into());
                 }
-                nonblock |= nonblocking(&input) || nonblocking(&output);
+                nonblock |= nonblocking(input) || nonblocking(output);
                 self.splice_pipe_to_pipe(caller, &ipipe, &opipe, len, nonblock)
                     .await?
             }
@@ -84,31 +118,37 @@ impl Kernel {
                 if output.flags().contains(OpenFlags::O_APPEND) {
                     return Err(Errno::EINVAL.into());
                 }
-                nonblock |= nonblocking(&input);
-                let _pos = self.lock_file_pos(&output, out_at).await;
-                let mut at = Offset::new(&output, off_out, out_at, len)?;
+                nonblock |= nonblocking(input);
+                let _pos = self.lock_file_pos(output, out_at).await;
+                let mut at = Offset::new(output, out_at, len)?;
                 let spliced = self
-                    .splice_from_pipe(caller, &ipipe, &output, &mut at, len, nonblock)
+                    .splice_from_pipe(caller, &ipipe, output, &mut at, len, nonblock)
                     .await?;
-                self.put_offset(caller, &output, at).await?;
+                if out_at.is_some() {
+                    out_at = Some(at.pos as i64);
+                }
+                Self::put_offset(output, at);
                 spliced
             }
             (None, Some(opipe)) => {
                 if in_at.is_some() && input.check_seekable().is_err() {
                     return Err(Errno::EINVAL.into());
                 }
-                nonblock |= nonblocking(&output);
-                let _pos = self.lock_file_pos(&input, in_at).await;
-                let mut at = Offset::new(&input, off_in, in_at, len)?;
+                nonblock |= nonblocking(output);
+                let _pos = self.lock_file_pos(input, in_at).await;
+                let mut at = Offset::new(input, in_at, len)?;
                 let spliced = self
-                    .splice_to_pipe(caller, &input, &opipe, &mut at, len, nonblock)
+                    .splice_to_pipe(caller, input, &opipe, &mut at, len, nonblock)
                     .await?;
-                self.put_offset(caller, &input, at).await?;
+                if in_at.is_some() {
+                    in_at = Some(at.pos as i64);
+                }
+                Self::put_offset(input, at);
                 spliced
             }
             (None, None) => return Err(Errno::EINVAL.into()),
         };
-        Ok(spliced as i32)
+        Ok((spliced as i32, in_at, out_at))
     }
 
     /// `tee`: copies at most `len` bytes from the front of one pipe to the end of another and
@@ -129,10 +169,27 @@ impl Kernel {
         }
         let input = self.io_file(caller, fd_in)?;
         let output = self.io_file(caller, fd_out)?;
+        self.tee_files(caller, &input, &output, len, flags).await
+    }
+
+    pub(crate) async fn tee_files(
+        &self,
+        caller: &Caller<'_>,
+        input: &OpenFile,
+        output: &OpenFile,
+        len: u32,
+        flags: SpliceFlags,
+    ) -> SysResult<i32> {
+        if flags.0 & !SPLICE_F_ALL != 0 {
+            return Err(Errno::EINVAL.into());
+        }
+        if len == 0 {
+            return Ok(0);
+        }
         // `do_tee`.
         input.check_readable()?;
         output.check_writable()?;
-        let (Some(ipipe), Some(opipe)) = (pipe_info(&input), pipe_info(&output)) else {
+        let (Some(ipipe), Some(opipe)) = (pipe_info(input), pipe_info(output)) else {
             return Err(Errno::EINVAL.into());
         };
         if Arc::ptr_eq(&ipipe, &opipe) {
@@ -383,20 +440,17 @@ impl Kernel {
 
     /// Writes back where the splice ended: to the caller's offset, or as the position of a
     /// file that has one.
-    async fn put_offset(&self, caller: &Caller<'_>, file: &OpenFile, at: Offset) -> SysResult<()> {
-        if !at.ptr.is_null() {
-            write_value(caller.memory(), at.ptr, &(at.pos as i64)).await?;
-        } else if file.check_seekable().is_ok() {
+    fn put_offset(file: &OpenFile, at: Offset) {
+        if at.position && file.check_seekable().is_ok() {
             file.set_pos(at.pos);
         }
-        Ok(())
     }
 }
 
 impl Offset {
     /// The offset a splice of `len` bytes starts at, from the caller or the file position,
     /// checked as `rw_verify_area` does: not negative, and not past the largest offset.
-    fn new(file: &OpenFile, ptr: LoffPtr, at: Option<i64>, len: usize) -> Result<Self, Errno> {
+    fn new(file: &OpenFile, at: Option<i64>, len: usize) -> Result<Self, Errno> {
         let pos = match at {
             Some(at) => at,
             None => file.pos() as i64,
@@ -405,7 +459,7 @@ impl Offset {
             return Err(Errno::EINVAL);
         }
         Ok(Self {
-            ptr,
+            position: at.is_none(),
             pos: pos as u64,
         })
     }

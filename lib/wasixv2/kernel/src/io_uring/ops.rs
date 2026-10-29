@@ -75,6 +75,11 @@ pub(crate) const SUPPORTED: &[IoUringOp] = &[
     IoUringOp::IORING_OP_SOCKET,
     IoUringOp::IORING_OP_BIND,
     IoUringOp::IORING_OP_LISTEN,
+    IoUringOp::IORING_OP_SPLICE,
+    IoUringOp::IORING_OP_TEE,
+    IoUringOp::IORING_OP_SEND_ZC,
+    IoUringOp::IORING_OP_SENDMSG_ZC,
+    IoUringOp::IORING_OP_MSG_RING,
 ];
 
 /// `SQE_VALID_FLAGS`.
@@ -105,6 +110,8 @@ pub(crate) struct Req {
     /// Its file, found at its first issue (`IORING_FEAT_LINKED_FILE`).
     file: Option<Arc<OpenFile>>,
     file_node: Option<super::rsrc::FileNode>,
+    input: Option<Arc<OpenFile>>,
+    input_node: Option<super::rsrc::FileNode>,
     buffer_node: Option<super::rsrc::BufferNode>,
     /// The requests linked after it.
     link: VecDeque<Req>,
@@ -121,6 +128,7 @@ pub(crate) struct Req {
     pbuf: Option<Pbuf>,
     msg_header: Option<wasixv2_abi::UserMsghdr>,
     msg_len: u32,
+    zc_notif: Option<(u64, bool)>,
 }
 
 /// A link timeout and its armed timer.
@@ -193,11 +201,19 @@ impl Waiting {
 /// How an attempt at a request ended.
 enum Outcome {
     /// Complete with this result and these CQE flags; `fail` breaks its link.
-    Done { res: i32, flags: u32, fail: bool },
+    Done {
+        res: i32,
+        flags: u32,
+        fail: bool,
+    },
     /// A multishot request's result; it goes on.
-    More { res: i32, flags: u32 },
+    More {
+        res: i32,
+        flags: u32,
+    },
     /// It would block until the file reports one of these events.
     Again(PollMask),
+    AgainOn(Vec<(Arc<OpenFile>, PollMask)>),
     /// It waits for its own wakeup or timer.
     Wait(Box<Waiting>),
 }
@@ -223,6 +239,8 @@ impl Req {
             creds: None,
             file: None,
             file_node: None,
+            input: None,
+            input_node: None,
             buffer_node: None,
             link: VecDeque::new(),
             link_timeout: None,
@@ -232,6 +250,7 @@ impl Req {
             pbuf: None,
             msg_header: None,
             msg_len: 0,
+            zc_notif: None,
         }
     }
 
@@ -251,7 +270,9 @@ impl Req {
     /// Whether it or a request linked to it holds a ring's file (`io_match_linked` of
     /// `REQ_F_INFLIGHT`).
     pub(crate) fn holds_ring(&self) -> bool {
-        let ring = |req: &Req| req.file.as_deref().is_some_and(is_ring);
+        let ring = |req: &Req| {
+            req.file.as_deref().is_some_and(is_ring) || req.input.as_deref().is_some_and(is_ring)
+        };
         ring(self) || self.link.iter().any(ring)
     }
 
@@ -316,8 +337,24 @@ impl Ctx {
             self.recycle(&req, pbuf);
         }
         let skip = req.has(IosqeFlags::IOSQE_CQE_SKIP_SUCCESS) && res >= 0;
+        let flags = flags
+            | if req.zc_notif.is_some() {
+                IoringCqeFlags::IORING_CQE_F_MORE.0
+            } else {
+                0
+            };
         if !skip {
             self.post(req.sqe.user_data, res, flags, req.is_timeout());
+        }
+        // io_uring/net.c:io_send_zc_cleanup, notif.c:io_notif_tw_complete:
+        // copying has relinquished the buffer already, including on failure.
+        if let Some((data, report)) = req.zc_notif.take() {
+            self.post(
+                data,
+                if report { i32::MIN } else { 0 },
+                IoringCqeFlags::IORING_CQE_F_NOTIF.0,
+                false,
+            );
         }
         let link = std::mem::take(&mut req.link);
         let broken = fail && !req.has(IosqeFlags::IOSQE_IO_HARDLINK);
@@ -629,6 +666,10 @@ impl Kernel {
                         return;
                     }
                 }
+                Outcome::AgainOn(targets) => {
+                    arm_on(ctx, req, targets);
+                    return;
+                }
                 Outcome::Again(events) => {
                     arm(ctx, req, events);
                     return;
@@ -677,6 +718,10 @@ impl Kernel {
     ) -> Result<Outcome, Errno> {
         let sqe = req.sqe;
         match IoUringOp(sqe.opcode) {
+            IoUringOp::IORING_OP_MSG_RING => self.op_msg_ring(caller, ctx, req),
+            IoUringOp::IORING_OP_SPLICE | IoUringOp::IORING_OP_TEE => {
+                self.op_splice(caller, ctx, req).await
+            }
             IoUringOp::IORING_OP_NOP => self.op_nop(caller, ctx, req),
             IoUringOp::IORING_OP_FILES_UPDATE => {
                 if req.has(IosqeFlags::IOSQE_FIXED_FILE)
@@ -756,7 +801,9 @@ impl Kernel {
             IoUringOp::IORING_OP_SEND
             | IoUringOp::IORING_OP_RECV
             | IoUringOp::IORING_OP_SENDMSG
-            | IoUringOp::IORING_OP_RECVMSG => self.op_net(caller, ctx, req).await,
+            | IoUringOp::IORING_OP_RECVMSG
+            | IoUringOp::IORING_OP_SEND_ZC
+            | IoUringOp::IORING_OP_SENDMSG_ZC => self.op_net(caller, ctx, req).await,
             IoUringOp::IORING_OP_SHUTDOWN => {
                 if sqe.off != 0 || sqe.addr != 0 || sqe.op_flags != 0 || sqe.buf_index != 0 {
                     return Err(Errno::EINVAL);
@@ -806,6 +853,135 @@ impl Kernel {
                 Ok(Outcome::of(kbuf::remove(ctx, &sqe).map_err(SysErr::from)))
             }
             _ => self.op_misc(caller, ctx, req).await,
+        }
+    }
+
+    /// io_uring/msg_ring.c:io_msg_ring_data/io_msg_send_fd.
+    fn op_msg_ring(&self, caller: &Caller<'_>, ctx: &Ctx, req: &mut Req) -> Result<Outcome, Errno> {
+        let s = req.sqe;
+        if s.buf_index != 0 || s.personality != 0 || s.op_flags & !3 != 0 {
+            return Err(Errno::EINVAL);
+        }
+        let file = self.req_file(caller, ctx, req)?;
+        let target = super::ring_of(&file).map_err(|_| Errno::EBADFD)?;
+        let result = match s.addr {
+            0 => {
+                if s.addr3 != 0
+                    || s.op_flags & !2 != 0
+                    || (s.op_flags & 2 == 0 && s.splice_fd_in != 0)
+                {
+                    return Err(Errno::EINVAL);
+                }
+                if target.state.lock_or_recover().disabled {
+                    return Err(Errno::EBADFD);
+                }
+                let flags = if s.op_flags & 2 != 0 {
+                    s.splice_fd_in as u32
+                } else {
+                    0
+                };
+                if flags & (1 << 15) != 0
+                    && !target
+                        .shape
+                        .has(wasixv2_abi::IoringSetupFlags::IORING_SETUP_CQE32)
+                {
+                    return Err(Errno::EINVAL);
+                }
+                if !target.post_aux(s.off, s.len as i32, flags) {
+                    return Err(Errno::EOVERFLOW);
+                }
+                0
+            }
+            1 => {
+                if s.len != 0 || std::ptr::eq(ctx, &*target) {
+                    return Err(Errno::EINVAL);
+                }
+                if target.state.lock_or_recover().disabled {
+                    return Err(Errno::EBADFD);
+                }
+                let file = {
+                    let state = ctx.state.lock_or_recover();
+                    let index = s.addr3 as u32 as usize;
+                    state
+                        .files
+                        .as_ref()
+                        .and_then(|table| table.get(index))
+                        .and_then(|entry| entry.as_ref())
+                        .map(|node| node.item.clone())
+                        .ok_or(Errno::EBADF)?
+                };
+                let result = target.install_direct(file, s.splice_fd_in as u32)?;
+                if s.op_flags & 1 == 0 && !target.post_aux(s.off, result, 0) {
+                    return Err(Errno::EOVERFLOW);
+                }
+                result
+            }
+            _ => return Err(Errno::EINVAL),
+        };
+        Ok(Outcome::of(Ok(result)))
+    }
+
+    /// Linux io_uring/splice.c:io_splice/io_tee, using the same pipe engine as the syscalls.
+    async fn op_splice(
+        &self,
+        caller: &Caller<'_>,
+        ctx: &Ctx,
+        req: &mut Req,
+    ) -> Result<Outcome, Errno> {
+        use wasixv2_abi::SpliceFlags;
+        let s = req.sqe;
+        let tee = IoUringOp(s.opcode) == IoUringOp::IORING_OP_TEE;
+        if s.op_flags & !0x8000_000f != 0 || (tee && (s.off != 0 || s.addr != 0)) {
+            return Err(Errno::EINVAL);
+        }
+        let output = self.req_file(caller, ctx, req)?;
+        let input = if let Some(input) = &req.input {
+            input.clone()
+        } else {
+            let input = if s.op_flags & 0x8000_0000 != 0 {
+                let state = ctx.state.lock_or_recover();
+                let node = state
+                    .files
+                    .as_ref()
+                    .and_then(|table| table.get(s.splice_fd_in as u32 as usize))
+                    .and_then(Clone::clone)
+                    .ok_or(Errno::EBADF)?;
+                let file = node.item.clone();
+                req.input_node = Some(node);
+                file
+            } else {
+                self.file(caller.task(), Fd(s.splice_fd_in))?
+            };
+            req.input = Some(input.clone());
+            input
+        };
+        if s.len == 0 {
+            return Ok(Outcome::of(Ok(0)));
+        }
+        let user_nonblock = s.op_flags & SpliceFlags::SPLICE_F_NONBLOCK.0 != 0;
+        let flags = SpliceFlags(s.op_flags & 0xf) | SpliceFlags::SPLICE_F_NONBLOCK;
+        let result = if tee {
+            self.tee_files(caller, &input, &output, s.len, flags).await
+        } else {
+            let in_at = (s.addr != u64::MAX).then_some(s.addr as i64);
+            let out_at = (s.off != u64::MAX).then_some(s.off as i64);
+            self.splice_files(caller, &input, &output, in_at, out_at, s.len, flags)
+                .await
+                .map(|(n, _, _)| n)
+        };
+        match result {
+            Err(SysErr::Errno(Errno::EAGAIN)) if !user_nonblock => Ok(Outcome::AgainOn(vec![
+                (input, PollMask::READABLE),
+                (output, PollMask::WRITABLE),
+            ])),
+            result => {
+                let res = cqe_res(result);
+                Ok(Outcome::Done {
+                    res,
+                    flags: 0,
+                    fail: res != s.len as i32,
+                })
+            }
         }
     }
 
@@ -1230,7 +1406,15 @@ impl Kernel {
         req: &mut Req,
     ) -> Result<Outcome, Errno> {
         let sqe = req.sqe;
-        let opcode = IoUringOp(sqe.opcode);
+        let zc = matches!(
+            IoUringOp(sqe.opcode),
+            IoUringOp::IORING_OP_SEND_ZC | IoUringOp::IORING_OP_SENDMSG_ZC
+        );
+        let opcode = match IoUringOp(sqe.opcode) {
+            IoUringOp::IORING_OP_SEND_ZC => IoUringOp::IORING_OP_SEND,
+            IoUringOp::IORING_OP_SENDMSG_ZC => IoUringOp::IORING_OP_SENDMSG,
+            op => op,
+        };
         let send = matches!(
             opcode,
             IoUringOp::IORING_OP_SEND | IoUringOp::IORING_OP_SENDMSG
@@ -1243,6 +1427,12 @@ impl Kernel {
         let poll_first = IoringOpFlags::IORING_RECVSEND_POLL_FIRST.0;
         let multishot = IoringOpFlags::IORING_RECV_MULTISHOT.0;
         let known = match send {
+            true if zc => {
+                poll_first
+                    | IoringOpFlags::IORING_RECVSEND_FIXED_BUF.0
+                    | IoringOpFlags::IORING_SEND_ZC_REPORT_USAGE.0
+                    | IoringOpFlags::IORING_SEND_VECTORIZED.0
+            }
             true => poll_first,
             false => poll_first | multishot,
         };
@@ -1261,7 +1451,26 @@ impl Kernel {
         {
             return Err(Errno::EINVAL);
         }
+        if zc
+            && msg
+            && (sqe.off != 0
+                || sqe.splice_fd_in != 0
+                || iou
+                    & (IoringOpFlags::IORING_RECVSEND_FIXED_BUF.0
+                        | IoringOpFlags::IORING_SEND_VECTORIZED.0)
+                    != 0)
+        {
+            return Err(Errno::EINVAL);
+        }
+        let fixed_send = zc && iou & IoringOpFlags::IORING_RECVSEND_FIXED_BUF.0 != 0;
+        let vector_send = zc && iou & IoringOpFlags::IORING_SEND_VECTORIZED.0 != 0;
+        if fixed_send && vector_send {
+            return Err(Errno::EINVAL);
+        }
         let file = self.req_file(caller, ctx, req)?;
+        if zc && file.downcast::<crate::socket::SocketFile>().is_none() {
+            return Err(Errno::EOPNOTSUPP);
+        }
         let user_flags = MsgFlags(sqe.op_flags);
         // `REQ_F_NOWAIT`: the application asked not to wait.
         let nowait = user_flags.contains(MsgFlags::MSG_DONTWAIT);
@@ -1306,22 +1515,42 @@ impl Kernel {
         } else {
             sqe.len
         };
-        let (addr, len) = match select {
-            true => {
-                let pbuf = match req.pbuf.clone() {
-                    Some(pbuf) => pbuf,
-                    None => {
-                        let pbuf = kbuf::select(caller, ctx, sqe.buf_index, select_len).await?;
-                        req.pbuf = Some(pbuf.clone());
-                        pbuf
-                    }
-                };
-                (pbuf.addr, pbuf.len)
+        let (addr, len) = if fixed_send {
+            let iov = fixed_buffer(ctx, req)?;
+            (iov.iov_base, iov.iov_len)
+        } else {
+            match select {
+                true => {
+                    let pbuf = match req.pbuf.clone() {
+                        Some(pbuf) => pbuf,
+                        None => {
+                            let pbuf = kbuf::select(caller, ctx, sqe.buf_index, select_len).await?;
+                            req.pbuf = Some(pbuf.clone());
+                            pbuf
+                        }
+                    };
+                    (pbuf.addr, pbuf.len)
+                }
+                false => (sqe.addr as u32, sqe.len),
             }
-            false => (sqe.addr as u32, sqe.len),
         };
+        let memory = req
+            .buffer_node
+            .as_ref()
+            .map(|node| crate::mm::RetainedMemory {
+                memory: caller.memory(),
+                range: &node.item,
+            });
+        let redirected = memory
+            .as_ref()
+            .map(|memory| Caller::new(caller.task(), memory));
+        let io_caller = redirected.as_ref().unwrap_or(caller);
         let mut more_payload = true;
-        let done = if let Some(hdr) = selected_header {
+        let done = if vector_send {
+            let iovecs = read_iovecs(caller.memory(), GuestPtr::new(addr), len).await?;
+            self.uring_send_vectors(caller, file.clone(), iovecs, flags)
+                .await
+        } else if let Some(hdr) = selected_header {
             self.uring_recvmsg_selected(
                 caller,
                 file.clone(),
@@ -1338,7 +1567,7 @@ impl Kernel {
         } else {
             match opcode {
                 IoUringOp::IORING_OP_SEND => {
-                    self.uring_send(caller, file.clone(), (addr, len), flags)
+                    self.uring_send(io_caller, file.clone(), (addr, len), flags)
                         .await
                 }
                 IoUringOp::IORING_OP_RECV => {
@@ -1870,6 +2099,28 @@ fn init_req(ctx: &Ctx, req: &mut Req) -> Result<(), Errno> {
         let creds = state.personalities.get(&sqe.personality);
         req.creds = Some(creds.ok_or(Errno::EINVAL)?.clone());
     }
+    if matches!(
+        IoUringOp(sqe.opcode),
+        IoUringOp::IORING_OP_SEND_ZC | IoUringOp::IORING_OP_SENDMSG_ZC
+    ) {
+        if sqe.pad2 != 0 || req.has(IosqeFlags::IOSQE_CQE_SKIP_SUCCESS) {
+            return Err(Errno::EINVAL);
+        }
+        let known = IoringOpFlags::IORING_RECVSEND_POLL_FIRST.0
+            | IoringOpFlags::IORING_RECVSEND_FIXED_BUF.0
+            | IoringOpFlags::IORING_SEND_ZC_REPORT_USAGE.0
+            | IoringOpFlags::IORING_SEND_VECTORIZED.0;
+        let report = u32::from(sqe.ioprio) & !known == 0
+            && u32::from(sqe.ioprio) & IoringOpFlags::IORING_SEND_ZC_REPORT_USAGE.0 != 0;
+        req.zc_notif = Some((
+            if sqe.addr3 == 0 {
+                sqe.user_data
+            } else {
+                sqe.addr3
+            },
+            report,
+        ));
+    }
     let selects = [
         IoUringOp::IORING_OP_READ_MULTISHOT,
         IoUringOp::IORING_OP_READ,
@@ -1912,11 +2163,15 @@ fn fail_chain(ctx: &Ctx, mut req: Req, errno: Errno) {
 /// Arms `req` on its file's queues for `events` (`io_arm_poll_handler`), and its link timeout.
 /// A file that became ready meanwhile makes it task work at once; one that cannot wait fails
 /// it with `EAGAIN`.
-fn arm(ctx: &Arc<Ctx>, mut req: Req, events: PollMask) {
+fn arm(ctx: &Arc<Ctx>, req: Req, events: PollMask) {
     let Some(file) = req.file.clone() else {
         ctx.finish(req, -Errno::EAGAIN.0, 0, true);
         return;
     };
+    arm_on(ctx, req, vec![(file, events)]);
+}
+
+fn arm_on(ctx: &Arc<Ctx>, mut req: Req, targets: Vec<(Arc<OpenFile>, PollMask)>) {
     arm_link_timeout(ctx, &mut req);
     let id = req.id;
     // In the table before its entries are on the queues, so no wakeup misses it.
@@ -1927,9 +2182,14 @@ fn arm(ctx: &Arc<Ctx>, mut req: Req, events: PollMask) {
             registrations: Vec::new(),
         },
     );
-    let events = events | PollMask::ERR | PollMask::HUP;
-    let (mask, registrations) = register(ctx, &file, id, events);
-    let ready = !mask.is_empty();
+    let mut registrations = Vec::new();
+    let mut ready = true;
+    for (file, events) in targets {
+        let events = events | PollMask::ERR | PollMask::HUP;
+        let (mask, entries) = register(ctx, &file, id, events);
+        ready &= !mask.is_empty();
+        registrations.extend(entries);
+    }
     let unwaitable = registrations.is_empty();
     let taken = {
         let mut state = ctx.state.lock_or_recover();

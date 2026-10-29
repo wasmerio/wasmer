@@ -1654,6 +1654,19 @@ impl Kernel {
         Ok(self.recv_into(caller, &sock, &dst, flags).await?.result)
     }
 
+    pub(crate) async fn uring_send_vectors(
+        &self,
+        caller: &Caller<'_>,
+        file: Arc<OpenFile>,
+        iovecs: Vec<wasixv2_abi::Iovec>,
+        flags: MsgFlags,
+    ) -> SysResult<usize> {
+        let sock = any_socket_file(file)?;
+        let len = iovecs.iter().map(|iov| iov.iov_len as usize).sum();
+        self.send_from(caller, &sock, &GuestIov { iovecs, len }, None, &[], flags)
+            .await
+    }
+
     /// `io_sendmsg`: `sendmsg` of the msghdr at `msg` on the socket `file`.
     pub(crate) async fn uring_sendmsg(
         &self,
