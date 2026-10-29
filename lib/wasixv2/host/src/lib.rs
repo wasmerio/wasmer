@@ -6,6 +6,8 @@
 //! [`WebHost`] for `wasm32-unknown-unknown` in a browser or node (feature `web`).
 
 #[cfg(feature = "tokio")]
+mod timer;
+#[cfg(feature = "tokio")]
 mod tokio_host;
 #[cfg(feature = "web")]
 mod web_host;
@@ -280,6 +282,17 @@ pub trait Host: Send + Sync {
             }
         })
     }
+    /// Sleeps until a monotonic `deadline`, allowing expiry to be delayed by up to `slack`
+    /// to share a wakeup with other timers. Never completes before `deadline`; executor and
+    /// host scheduling can delay observation beyond the range. Dropping the future cancels it.
+    ///
+    /// Models Linux's `hrtimer_set_expires_range_ns` (`kernel/time/hrtimer.c`): `deadline`
+    /// is the soft expiry, and `deadline + slack` the hard expiry. The default uses
+    /// [`Host::sleep_until`], preserving hosts that do not coalesce timers.
+    fn sleep_until_range(&self, deadline: Duration, slack: Duration) -> LocalFuture<'_, ()> {
+        let _ = slack;
+        self.sleep_until(deadline)
+    }
     /// The CPU time the calling host thread has used so far, user and system time together
     /// (`CLOCK_THREAD_CPUTIME_ID`). Every guest thread runs on a host thread of its own, so the
     /// execution layer charges a guest thread with what this clock advances while it runs.
@@ -421,6 +434,13 @@ mod tests {
             *host.sleeps.lock().unwrap(),
             [Duration::from_millis(10), Duration::from_millis(1)]
         );
+    }
+
+    #[test]
+    fn sleep_until_range_defaults_to_the_existing_deadline() {
+        let host = SteppingHost::default();
+        block_on(host.sleep_until_range(Duration::from_millis(10), Duration::from_millis(5)));
+        assert_eq!(host.monotonic(), Duration::from_millis(10));
     }
 
     #[test]

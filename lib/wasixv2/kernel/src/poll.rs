@@ -33,11 +33,29 @@ impl Kernel {
     }
 
     /// A sleep until `deadline` the waiter can race against; `None` for `Never`.
-    pub(crate) fn timer(&self, deadline: Deadline) -> Option<wasixv2_host::LocalFuture<'_, ()>> {
+    pub(crate) fn timer(
+        &self,
+        caller: &Caller<'_>,
+        deadline: Deadline,
+    ) -> Option<wasixv2_host::LocalFuture<'_, ()>> {
         match deadline {
             Deadline::Never => None,
             Deadline::Now => Some(Box::pin(async {})),
-            Deadline::At(at) => Some(self.host.sleep_until(at)),
+            Deadline::At(at) => {
+                // fs/select.c select_estimate_accuracy; ep_poll uses it too. The
+                // estimated slack is capped at 100 ms, but the task's slack is not.
+                let (slack, nice) =
+                    self.with_task(caller.task(), |t| (t.sched.timer_slack(), t.sched.nice()));
+                let slack = if slack == 0 {
+                    Duration::ZERO
+                } else {
+                    let left = at.saturating_sub(self.host.monotonic());
+                    let divisor = if nice > 0 { 200 } else { 1000 };
+                    let estimate = (left.as_nanos() / divisor).min(100_000_000) as u64;
+                    Duration::from_nanos(slack.max(estimate))
+                };
+                Some(self.host.sleep_until_range(at, slack))
+            }
         }
     }
 
@@ -150,7 +168,7 @@ impl Kernel {
         let interrupt = self.interrupt(caller);
         let files = self.files(caller.task());
         let mut waiter = PollWaiter::new();
-        let mut timer = self.timer(deadline);
+        let mut timer = self.timer(caller, deadline);
         let mut timed_out = deadline == Deadline::Now;
         let mut register = !timed_out;
         let count = loop {
@@ -256,7 +274,7 @@ impl Kernel {
 
         let interrupt = self.interrupt(caller);
         let mut waiter = PollWaiter::new();
-        let mut timer = self.timer(deadline);
+        let mut timer = self.timer(caller, deadline);
         let mut timed_out = deadline == Deadline::Now;
         let mut register = !timed_out;
         let mut result = [vec![0u8; bytes], vec![0u8; bytes], vec![0u8; bytes]];

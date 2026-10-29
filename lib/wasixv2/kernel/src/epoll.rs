@@ -763,7 +763,7 @@ impl Kernel {
 
         let interrupt = self.interrupt(caller);
         let waiter = Waiter::new();
-        let mut timer = self.timer(deadline);
+        let mut timer = self.timer(caller, deadline);
         let mut timed_out = deadline == Deadline::Now;
         let events = loop {
             ep.prepare_poll().await;

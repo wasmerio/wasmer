@@ -830,6 +830,7 @@ mod sctp;
 mod seccomp;
 mod sigio;
 mod signal;
+mod slack;
 mod stdio;
 mod sysctl;
 mod sysvipc;

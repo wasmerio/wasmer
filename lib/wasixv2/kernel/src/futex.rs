@@ -870,11 +870,15 @@ impl Kernel {
     }
 
     /// A sleep for `timeout`, or none.
-    fn futex_timer(&self, timeout: Timeout) -> Option<wasixv2_host::LocalFuture<'_, ()>> {
+    fn futex_timer(
+        &self,
+        timeout: Timeout,
+        slack: Duration,
+    ) -> Option<wasixv2_host::LocalFuture<'_, ()>> {
         match timeout {
             Timeout::Never => None,
-            Timeout::Until(at) => Some(self.host.sleep_until(at)),
-            Timeout::UntilRealtime(at) => Some(self.time.sleep_until_realtime(at)),
+            Timeout::Until(at) => Some(self.host.sleep_until_range(at, slack)),
+            Timeout::UntilRealtime(at) => Some(self.time.sleep_until_with_slack(at, false, slack)),
         }
     }
 
@@ -936,7 +940,10 @@ impl Kernel {
         bitset: u32,
         timeout: Timeout,
     ) -> SysResult<i32> {
-        match self.do_futex_wait(caller, word, val, bitset, timeout).await {
+        match self
+            .do_futex_wait(caller, word, val, bitset, timeout, self.timer_slack(caller))
+            .await
+        {
             // An untimed wait reruns; a timed one goes on to the same deadline.
             Err(SysErr::Restart) if !matches!(timeout, Timeout::Never) => Err(self.restart_with(
                 caller,
@@ -961,6 +968,7 @@ impl Kernel {
         val: AtomicWord,
         bitset: u32,
         timeout: Timeout,
+        slack: Duration,
     ) -> SysResult<i32> {
         let waiter = Waiter::new();
         let (process, signals) = (self.process(caller.task()), self.interrupt(caller));
@@ -979,7 +987,7 @@ impl Kernel {
             }
             Err(fault) => return Err(fault.into()),
         }
-        let mut timer = self.futex_timer(timeout);
+        let mut timer = self.futex_timer(timeout, slack);
         loop {
             // Woken: taken off the chain by the wake.
             if queued.taken() || sleeper.exiting() {
@@ -1125,7 +1133,10 @@ impl Kernel {
         }
         let (process, signals) = (self.process(caller.task()), self.interrupt(caller));
         let sleeper = Sleeper::new(&waiter, &process, &*signals);
-        match self.pi_wait(&sleeper, key, &pi.0, timeout).await {
+        match self
+            .pi_wait(&sleeper, key, &pi.0, timeout, Duration::ZERO)
+            .await
+        {
             Ok(()) => Ok(0),
             Err(PiInterrupt::TimedOut) => Err(Errno::ETIMEDOUT.into()),
             Err(PiInterrupt::Signal) => Err(SysErr::RestartNoIntr),
@@ -1140,8 +1151,9 @@ impl Kernel {
         key: Key,
         pi: &Arc<PiWaiter>,
         timeout: Timeout,
+        slack: Duration,
     ) -> Result<(), PiInterrupt> {
-        let mut timer = self.futex_timer(timeout);
+        let mut timer = self.futex_timer(timeout, slack);
         let why = loop {
             // Granted only once the futex word names the waiter.
             if pi.granted() {
@@ -1225,9 +1237,15 @@ impl Kernel {
             Ok(_) => Some(SysErr::from(Errno::EAGAIN)),
             Err(errno) => Some(errno.into()),
         };
+        // futex_wait_requeue_pi preserves the original task slack through both phases;
+        // futex_lock_pi above uses zero (kernel/futex/requeue.c and pi.c).
+        let slack = self.timer_slack(caller);
         let early = match early {
             Some(err) => Some(err),
-            None => self.requeue_pi_sleep(&sleeper, &requeue, timeout).await,
+            None => {
+                self.requeue_pi_sleep(&sleeper, &requeue, timeout, slack)
+                    .await
+            }
         };
         if let Some(err) = early
             && self.leave_requeue_queue(&queued).await
@@ -1236,7 +1254,7 @@ impl Kernel {
         }
         // On the PI futex now, perhaps already its owner. A deadline that passed, or a signal,
         // ends the wait at once unless the lock is there.
-        match self.pi_wait(&sleeper, target, &pi.0, timeout).await {
+        match self.pi_wait(&sleeper, target, &pi.0, timeout, slack).await {
             Ok(()) => Ok(0),
             Err(PiInterrupt::TimedOut) => Err(Errno::ETIMEDOUT.into()),
             // Linux: "We've already been requeued, but cannot restart by calling
@@ -1252,8 +1270,9 @@ impl Kernel {
         sleeper: &Sleeper<'_>,
         requeue: &Requeue,
         timeout: Timeout,
+        slack: Duration,
     ) -> Option<SysErr> {
-        let mut timer = self.futex_timer(timeout);
+        let mut timer = self.futex_timer(timeout, slack);
         loop {
             if requeue.moved.load(Ordering::Acquire) {
                 return None;

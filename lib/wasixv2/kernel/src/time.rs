@@ -232,6 +232,11 @@ impl ClockOffset {
 }
 
 impl Kernel {
+    /// `hrtimer_nanosleep` and `futex_setup_timer`: the caller's allowed expiry range.
+    pub(crate) fn timer_slack(&self, caller: &Caller<'_>) -> Duration {
+        Duration::from_nanos(self.with_task(caller.task(), |t| t.sched.timer_slack()))
+    }
+
     /// Resolves `id` for the caller, as `clock_gettime` does: a process CPU clock may also
     /// name the process by the caller's own thread id (`pid_for_clock` with `gettime`).
     pub(crate) fn clock(&self, caller: &Caller<'_>, id: ClockId) -> Result<ClockRef, Errno> {
@@ -486,17 +491,30 @@ impl Kernel {
             // Every clock advances at the monotonic clock's rate, so a relative sleep ends at
             // a fixed point of it.
             let deadline = self.host.monotonic().saturating_add(request);
-            return self.nanosleep_until(caller, deadline, rmtp).await;
+            let slack = if alarm {
+                Duration::ZERO
+            } else {
+                self.timer_slack(caller)
+            };
+            return self.nanosleep_range(caller, deadline, slack, rmtp).await;
         }
         // Interrupted, an absolute sleep reruns as it was, and `rmtp` is not written
         // (`-ERESTARTNOHAND`).
         let interrupted = |_: Interrupted| SysErr::RestartNoHand;
+        // `alarm_timer_nsleep` does not use hrtimer_nanosleep's task slack.
+        let slack = if alarm {
+            Duration::ZERO
+        } else {
+            self.timer_slack(caller)
+        };
         let sleep = match clock.clock.settable() {
             // A set of the clock moves the deadline.
-            true => self.time.sleep_until(request, clock.clock == Clock::Tai),
+            true => self
+                .time
+                .sleep_until_with_slack(request, clock.clock == Clock::Tai, slack),
             false => {
                 let request = self.timens_to_host(caller, clock.clock, request);
-                self.host.sleep_until(request)
+                self.host.sleep_until_range(request, slack)
             }
         };
         self.interruptible_sleep(caller, sleep)
@@ -551,19 +569,33 @@ impl Kernel {
         wait_event(&cpu.process.cpu_timers.woken, over, &*interrupt).await
     }
 
-    /// The relative sleep of `clock_nanosleep`, until `deadline` on the monotonic clock.
-    /// Interrupted, it writes the time left to `rmtp` (`nanosleep_copyout`), and without a
-    /// handler `restart_syscall` sleeps the rest.
+    /// Restarts a relative `clock_nanosleep` at its saved hard expiry on the monotonic
+    /// clock. Interrupted again, it writes the time left to `rmtp` (`nanosleep_copyout`).
     pub(crate) async fn nanosleep_until(
         &self,
         caller: &Caller<'_>,
         deadline: Duration,
         rmtp: KernelTimespecPtr,
     ) -> SysResult<i32> {
-        let sleep = self.host.sleep_until(deadline);
+        // `hrtimer_nanosleep_restart`: the saved hard expiry gets no additional slack.
+        self.nanosleep_range(caller, deadline, Duration::ZERO, rmtp)
+            .await
+    }
+
+    async fn nanosleep_range(
+        &self,
+        caller: &Caller<'_>,
+        deadline: Duration,
+        slack: Duration,
+        rmtp: KernelTimespecPtr,
+    ) -> SysResult<i32> {
+        let sleep = self.host.sleep_until_range(deadline, slack);
         if self.interruptible_sleep(caller, sleep).await.is_ok() {
             return Ok(0);
         }
+        // `do_nanosleep` reports hrtimer_expires_remaining; the restart block also
+        // retains the hard expiry (kernel/time/hrtimer.c hrtimer_nanosleep).
+        let deadline = deadline.saturating_add(slack);
         if !rmtp.is_null() {
             let left = deadline.saturating_sub(self.host.monotonic());
             write_value(caller.memory(), rmtp, &to_timespec(left)).await?;
