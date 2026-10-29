@@ -752,3 +752,203 @@ fn urgent_data_reaches_recv_ioctl_and_poll() {
     let pipe_mark = block_on(kernel.ioctl(&p.caller(), r, IoctlRequest::SIOCATMARK, 0x60));
     assert_eq!(errno(pipe_mark), Errno::ENOTTY);
 }
+
+// ---- dnotify ----
+
+/// `si_band` of `POLL_MSG`: `POLLIN | POLLRDNORM | POLLMSG`.
+const POLLMSG_BAND: i32 = 0x441;
+
+/// Writes `path` with its NUL at `at`.
+fn path_at(p: &P, at: u32, path: &str) -> GuestPtr<u8> {
+    let mut name = path.as_bytes().to_vec();
+    name.push(0);
+    put(&p.memory.0, at, &name);
+    GuestPtr::new(at)
+}
+
+fn mkdir(kernel: &Kernel, p: &P, path: &str) {
+    let name = path_at(p, 0x800, path);
+    assert_eq!(
+        block_on(kernel.mkdirat(&p.caller(), CWD, name, 0o755)),
+        Ok(0)
+    );
+}
+
+fn create(kernel: &Kernel, p: &P, path: &str) {
+    let fd = open(kernel, p, path, OpenFlags::O_CREAT | OpenFlags::O_WRONLY).unwrap();
+    close(kernel, p, fd);
+}
+
+fn rename(kernel: &Kernel, p: &P, from: &str, to: &str) {
+    let (from, to) = (path_at(p, 0x800, from), path_at(p, 0x880, to));
+    let flags = wasixv2_abi::RenameFlags(0);
+    let caller = p.caller();
+    let renamed = kernel.renameat2(&caller, CWD, from, CWD, to, flags);
+    assert_eq!(block_on(renamed), Ok(0));
+}
+
+/// A directory open as a descriptor whose `F_SETSIG` signal is `SIGRTMIN`, registered for
+/// `arg`.
+fn notify_dir(kernel: &Kernel, p: &P, path: &str, arg: u32) -> Fd {
+    let fd = open(kernel, p, path, OpenFlags::O_RDONLY).unwrap();
+    let rt = SIGRTMIN.0 as u32;
+    assert_eq!(fcntl(kernel, p, fd, FcntlCmd::F_SETSIG, rt), Ok(0));
+    assert_eq!(fcntl(kernel, p, fd, FcntlCmd::F_NOTIFY, arg), Ok(0));
+    fd
+}
+
+/// The descriptors whose `SIGRTMIN` is pending, in order.
+fn notified(kernel: &Kernel, p: &P) -> Vec<i32> {
+    std::iter::from_fn(|| take(kernel, p, SIGRTMIN))
+        .map(|info| {
+            let (code, band, fd) = poll_info(&info);
+            assert_eq!((code, band), (3, POLLMSG_BAND), "POLL_MSG");
+            fd
+        })
+        .collect()
+}
+
+/// `F_NOTIFY` signals its file's owner, which it makes the caller's process unless the file
+/// has one, once or with `DN_MULTISHOT` for good; an empty mask and closing the descriptor end
+/// it. Without `F_SETSIG` the signal is plain `SIGIO`.
+#[test]
+fn dnotify_signals_the_directory_owner() {
+    use wasixv2_abi::DnotifyFlags as Dn;
+    let (kernel, p) = machine();
+    block(&kernel, &p, &[SIGRTMIN, SIGIO]);
+    mkdir(&kernel, &p, "/d");
+    let d = notify_dir(&kernel, &p, "/d", Dn::DN_CREATE.0);
+    let pid = getpid(&kernel, &p);
+    assert_eq!(fcntl(&kernel, &p, d, FcntlCmd::F_GETOWN, 0), Ok(pid));
+    create(&kernel, &p, "/d/a");
+    create(&kernel, &p, "/d/b");
+    assert_eq!(notified(&kernel, &p), [d.0], "one-shot");
+
+    let multi = Dn::DN_CREATE.0 | Dn::DN_MULTISHOT.0;
+    assert_eq!(fcntl(&kernel, &p, d, FcntlCmd::F_NOTIFY, multi), Ok(0));
+    create(&kernel, &p, "/d/c");
+    create(&kernel, &p, "/d/e");
+    assert_eq!(notified(&kernel, &p), [d.0, d.0], "multishot");
+    assert_eq!(
+        fcntl(&kernel, &p, d, FcntlCmd::F_NOTIFY, Dn::DN_MULTISHOT.0),
+        Ok(0)
+    );
+    create(&kernel, &p, "/d/f");
+    assert_eq!(notified(&kernel, &p), [] as [i32; 0], "removed");
+
+    // Closing any descriptor of the open file ends the registration (`dnotify_flush`).
+    assert_eq!(fcntl(&kernel, &p, d, FcntlCmd::F_NOTIFY, multi), Ok(0));
+    let dup = block_on(kernel.dup(&p.caller(), d)).unwrap();
+    close(&kernel, &p, dup);
+    create(&kernel, &p, "/d/g");
+    assert_eq!(notified(&kernel, &p), [] as [i32; 0], "flushed");
+
+    assert_eq!(fcntl(&kernel, &p, d, FcntlCmd::F_SETSIG, 0), Ok(0));
+    assert_eq!(
+        fcntl(&kernel, &p, d, FcntlCmd::F_NOTIFY, Dn::DN_CREATE.0),
+        Ok(0)
+    );
+    create(&kernel, &p, "/d/h");
+    assert!(take(&kernel, &p, SIGIO).is_some());
+}
+
+/// What each `DN_*` stands for: changes to the directory's entries and to the objects in it,
+/// and to the directory itself (`fsnotify_parent`, `dnotify_handle_event`). `DN_RENAME` is a
+/// rename within the directory; a move out is a deletion, a move in a creation.
+#[test]
+fn dnotify_events_follow_fsnotify() {
+    use wasixv2_abi::DnotifyFlags as Dn;
+    let (kernel, p) = machine();
+    block(&kernel, &p, &[SIGRTMIN]);
+    mkdir(&kernel, &p, "/d");
+    mkdir(&kernel, &p, "/d/sub");
+    create(&kernel, &p, "/d/f");
+    let multi = Dn::DN_MULTISHOT.0;
+    let modify = notify_dir(&kernel, &p, "/d", Dn::DN_MODIFY.0 | multi);
+    let sub = notify_dir(&kernel, &p, "/d/sub", Dn::DN_ATTRIB.0 | multi);
+    let f = open(&kernel, &p, "/d/f", OpenFlags::O_RDWR).unwrap();
+    assert_eq!(write(&kernel, &p, f, b"x"), Ok(1));
+    assert_eq!(notified(&kernel, &p), [modify.0]);
+    // A change to `sub` reaches its own registration and its parent's.
+    let attrib = notify_dir(&kernel, &p, "/d", Dn::DN_ATTRIB.0 | multi);
+    let name = path_at(&p, 0x800, "/d/sub");
+    assert_eq!(
+        block_on(kernel.fchmodat(&p.caller(), CWD, name, 0o700)),
+        Ok(0)
+    );
+    let mut got = notified(&kernel, &p);
+    got.sort();
+    let mut want = [attrib.0, sub.0];
+    want.sort();
+    assert_eq!(got, want);
+    close(&kernel, &p, attrib);
+    close(&kernel, &p, modify);
+    close(&kernel, &p, sub);
+
+    let access = notify_dir(&kernel, &p, "/d", Dn::DN_ACCESS.0 | multi);
+    assert_eq!(
+        block_on(kernel.pread64(&p.caller(), f, UserSliceMut::new(0x400, 1), 0)),
+        Ok(1)
+    );
+    assert_eq!(notified(&kernel, &p), [access.0]);
+    close(&kernel, &p, access);
+
+    let rename_d = notify_dir(&kernel, &p, "/d", Dn::DN_RENAME.0 | multi);
+    let rename_sub = notify_dir(&kernel, &p, "/d/sub", Dn::DN_RENAME.0 | multi);
+    rename(&kernel, &p, "/d/f", "/d/sub/f");
+    assert_eq!(
+        notified(&kernel, &p),
+        [] as [i32; 0],
+        "not within one directory"
+    );
+    rename(&kernel, &p, "/d/sub/f", "/d/sub/g");
+    assert_eq!(notified(&kernel, &p), [rename_sub.0]);
+    close(&kernel, &p, rename_d);
+    close(&kernel, &p, rename_sub);
+
+    let delete = notify_dir(&kernel, &p, "/d", Dn::DN_DELETE.0 | multi);
+    let create_sub = notify_dir(&kernel, &p, "/d/sub", Dn::DN_CREATE.0 | multi);
+    rename(&kernel, &p, "/d/sub/g", "/d/g");
+    assert_eq!(
+        notified(&kernel, &p),
+        [] as [i32; 0],
+        "a move in creates, out deletes"
+    );
+    rename(&kernel, &p, "/d/g", "/d/sub/g");
+    assert_eq!(notified(&kernel, &p), [delete.0, create_sub.0]);
+    let name = path_at(&p, 0x800, "/d/sub/g");
+    let caller = p.caller();
+    let removed = kernel.unlinkat(&caller, CWD, name, wasixv2_abi::AtFlags(0));
+    assert_eq!(block_on(removed), Ok(0));
+    assert_eq!(notified(&kernel, &p), [] as [i32; 0], "not in /d");
+}
+
+/// `F_NOTIFY` needs a directory unless it removes, and `fs.dir-notify-enable`.
+#[test]
+fn dnotify_needs_a_directory_and_dir_notify_enable() {
+    use wasixv2_abi::DnotifyFlags as Dn;
+    let (kernel, p) = machine();
+    create(&kernel, &p, "/f");
+    let f = open(&kernel, &p, "/f", OpenFlags::O_RDONLY).unwrap();
+    let create_ = Dn::DN_CREATE.0;
+    assert_eq!(
+        errno(fcntl(&kernel, &p, f, FcntlCmd::F_NOTIFY, create_)),
+        Errno::ENOTDIR
+    );
+    assert_eq!(fcntl(&kernel, &p, f, FcntlCmd::F_NOTIFY, 0), Ok(0));
+    let (r, _w) = pipe(&kernel, &p.caller(), OpenFlags(0));
+    assert_eq!(
+        errno(fcntl(&kernel, &p, r, FcntlCmd::F_NOTIFY, create_)),
+        Errno::ENOTDIR
+    );
+    kernel.sysctls.set_dir_notify_enable(0);
+    let d = open(&kernel, &p, "/", OpenFlags::O_RDONLY).unwrap();
+    assert_eq!(
+        errno(fcntl(&kernel, &p, d, FcntlCmd::F_NOTIFY, create_)),
+        Errno::EINVAL
+    );
+    assert_eq!(
+        errno(fcntl(&kernel, &p, d, FcntlCmd::F_NOTIFY, 0)),
+        Errno::EINVAL
+    );
+}

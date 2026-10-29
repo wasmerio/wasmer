@@ -94,6 +94,11 @@ const STATIC: &[(usize, &str, Static)] = &[
     (15, "file-max", Static::File(text::Global::FileMax)),
     (15, "nr_open", Static::File(text::Global::NrOpen)),
     (15, "pipe-max-size", Static::File(text::Global::PipeMaxSize)),
+    (
+        15,
+        "dir-notify-enable",
+        Static::File(text::Global::DirNotifyEnable),
+    ),
 ];
 
 /// What an entry of a process or thread directory is.
@@ -589,6 +594,9 @@ impl Node for ProcNode {
                             let may = self.source.may_checkpoint_restore(options.task);
                             Some(Write::NsLastPid(pid_ns, may))
                         }
+                        text::Global::DirNotifyEnable => {
+                            Some(Write::Fs(self.source.sysctls.clone(), file))
+                        }
                         _ => None,
                     };
                     (data, write)
@@ -658,10 +666,18 @@ enum Write {
     /// `kernel.ns_last_pid` of the opener's pid namespace, if it may
     /// (`checkpoint_restore_ns_capable`).
     NsLastPid(Arc<PidNs>, bool),
+    /// One of the machine's `fs.*` integers.
+    Fs(Arc<crate::fs::FsSysctls>, text::Global),
 }
 
 /// `proc_dointvec`'s parsing of one integer: blanks around it, nothing else.
 fn sysctl_int(data: &[u8]) -> Result<u32, Errno> {
+    let text = std::str::from_utf8(data).map_err(|_| Errno::EINVAL)?;
+    text.trim().parse().map_err(|_| Errno::EINVAL)
+}
+
+/// [`sysctl_int`] for a signed value.
+fn sysctl_i32(data: &[u8]) -> Result<i32, Errno> {
     let text = std::str::from_utf8(data).map_err(|_| Errno::EINVAL)?;
     text.trim().parse().map_err(|_| Errno::EINVAL)
 }
@@ -689,6 +705,13 @@ impl Handle for FileHandle {
             // `pid_ns_ctl_handler`.
             Write::NsLastPid(_, false) => return Err(Errno::EPERM),
             Write::NsLastPid(ns, true) => ns.set_last_pid(sysctl_int(data)?)?,
+            Write::Fs(sysctls, file) => {
+                let value = sysctl_i32(data)?;
+                match file {
+                    text::Global::DirNotifyEnable => sysctls.set_dir_notify_enable(value),
+                    _ => return Err(Errno::EINVAL),
+                }
+            }
         }
         Ok(data.len())
     }

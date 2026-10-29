@@ -59,6 +59,7 @@ impl Kernel {
             ns: self.init_ns.clone(),
             nsfs: self.pseudo.nsfs.clone(),
             filesystems: self.filesystems.clone(),
+            sysctls: self.sysctls.clone(),
             mounted: HostClock(self.host.clone()).now(),
         };
         Arc::new(ProcFs {
@@ -127,6 +128,8 @@ struct Source {
     nsfs: Nsfs,
     /// The filesystem types `/proc/filesystems` lists.
     filesystems: Arc<crate::fs::mount::Registry>,
+    /// What `sys/fs` shows and sets.
+    sysctls: Arc<crate::fs::FsSysctls>,
     /// Every node's timestamps: when the filesystem was made.
     mounted: Timestamp,
 }

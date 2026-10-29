@@ -44,6 +44,7 @@ pub(super) enum Global {
     FileMax,
     NrOpen,
     PipeMaxSize,
+    DirNotifyEnable,
 }
 
 /// The files of a network namespace (`/proc/<pid>/net`).
@@ -67,7 +68,8 @@ impl Global {
             | Self::MmapMinAddr
             | Self::FileMax
             | Self::NrOpen
-            | Self::PipeMaxSize => 0o644,
+            | Self::PipeMaxSize
+            | Self::DirNotifyEnable => 0o644,
             // Writing it needs `CAP_CHECKPOINT_RESTORE` instead.
             Self::NsLastPid => 0o666,
             _ => 0o444,
@@ -137,6 +139,7 @@ pub(super) fn global(
         Global::FileMax => line(&i64::MAX.to_string()),
         Global::NrOpen => line(&NR_OPEN.to_string()),
         Global::PipeMaxSize => line(&PIPE_MAX_SIZE.to_string()),
+        Global::DirNotifyEnable => line(&source.sysctls.dir_notify_enable().to_string()),
     })
 }
 

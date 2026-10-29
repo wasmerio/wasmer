@@ -131,8 +131,11 @@ pub struct Kernel {
     /// The internal shmem filesystem behind `memfd_create` (`shm_mnt`); without one,
     /// `memfd_create` fails with `ENOSYS`.
     shm: Option<Arc<Mount>>,
-    /// inotify watches, fed by the VFS's change notifications.
+    /// inotify watches and dnotify registrations, fed by the VFS's change notifications.
     inotify: Arc<fs::inotify::Registry>,
+    dnotify: Arc<fs::dnotify::Dnotify>,
+    /// The `fs.*` tunables the kernel acts on.
+    sysctls: Arc<fs::FsSysctls>,
     /// The filesystem types `mount` makes instances of.
     filesystems: Arc<fs::mount::Registry>,
     // ---- thr ----
@@ -268,10 +271,14 @@ impl Kernel {
         let procs = process::Procs::new(pids.clone());
         let jobs = tty::Jobs::new(&state, &procs.tree);
         let timers = timer::Timers::new(host.clone());
+        let sigio = fasync::Sigio::new(jobs.clone(), &timers);
+        let inotify = Arc::new(fs::inotify::Registry::default());
+        let dnotify = Arc::new(fs::dnotify::Dnotify::new(sigio.clone()));
+        fs::dnotify::Notify::install(&vfs, inotify.clone(), dnotify.clone());
         Self {
             ptys: tty::Ptys::new(clock.clone()),
             pseudo: pseudo::Pseudo::new(&vfs, clock),
-            sigio: fasync::Sigio::new(jobs.clone(), &timers),
+            sigio,
             timers,
             host,
             state,
@@ -282,7 +289,9 @@ impl Kernel {
             )),
             ns_inums: Arc::default(),
             network_factory: None,
-            inotify: fs::inotify::Registry::install(&vfs),
+            inotify,
+            dnotify,
+            sysctls: Arc::default(),
             filesystems: fs::mount::Registry::new(),
             shm: None,
             vfs,
