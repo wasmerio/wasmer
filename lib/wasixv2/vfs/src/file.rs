@@ -21,8 +21,9 @@ pub const DIR_POS_EOD: u64 = i32::MAX as u64;
 /// An opened object. Shared by every descriptor of one open file description; dropping the last
 /// reference is the last close.
 pub struct File {
-    pub path: Path,
+    // file_operations.release precedes path_put, including the final lazy mount.
     handle: Option<Box<dyn Handle>>,
+    pub path: Path,
     /// Unique per open, the owner of `flock` and OFD locks.
     pub id: u64,
     pub readable: bool,
@@ -285,9 +286,19 @@ impl File {
         if output.path.dentry.inode().sealable {
             return Ok(None);
         }
-        self.handle()?
+        let result = self
+            .handle()?
             .copy_range(offset, output.handle()?, output_offset, len)
-            .await
+            .await?;
+        if let Some(n) = result
+            && n != 0
+        {
+            self.notify(FsEvent::Access {
+                object: self.object(),
+            });
+            output.modified(n as usize);
+        }
+        Ok(result)
     }
 
     pub async fn sync(&self, data_only: bool) -> FsResult<()> {

@@ -1571,7 +1571,9 @@ fn mounts(source: &Source, ns: &MntNs, root: &Path, info: bool) -> Vec<u8> {
             if entry.unbindable {
                 out.extend_from_slice(b" unbindable");
             }
-            let _ = write!(out_string(&mut out), " - {} ", sb.info.name);
+            out.extend_from_slice(b" - ");
+            out.extend_from_slice(&escape(&sb.fs.type_name()));
+            out.push(b' ');
             out.extend_from_slice(&escape(devname));
             let fs_options = if sb.is_read_only() { "ro" } else { "rw" };
             let _ = write!(out_string(&mut out), " {fs_options}");
@@ -1582,7 +1584,9 @@ fn mounts(source: &Source, ns: &MntNs, root: &Path, info: bool) -> Vec<u8> {
             out.push(b' ');
             out.extend_from_slice(&escape(&point));
             let options = mount_options(mount.flags(), mount.is_read_only());
-            let _ = write!(out_string(&mut out), " {} {options}", sb.info.name);
+            out.push(b' ');
+            out.extend_from_slice(&escape(&sb.fs.type_name()));
+            let _ = write!(out_string(&mut out), " {options}");
             sb.fs.show_options(&mut out);
             out.extend_from_slice(b" 0 0\n");
         }

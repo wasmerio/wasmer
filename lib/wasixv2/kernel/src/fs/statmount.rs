@@ -335,11 +335,9 @@ impl Kernel {
             }
         }
         if want(StatmountMask::STATMOUNT_FS_TYPE) {
-            b.string(
-                StatmountMask::STATMOUNT_FS_TYPE,
-                sb.info.name.as_bytes(),
-                |sm| &mut sm.fs_type,
-            );
+            b.string(StatmountMask::STATMOUNT_FS_TYPE, &sb.fs.type_name(), |sm| {
+                &mut sm.fs_type
+            });
             b.fits()?;
         }
         if want(StatmountMask::STATMOUNT_MNT_ROOT) {

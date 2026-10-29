@@ -361,7 +361,7 @@ impl Kernel {
             .lookup(&env.cx(), &env.fs.cwd, path, lookup)
             .await?;
         self.vfs
-            .permission(&env.cx(), &dir, wasixv2_vfs::MAY_EXEC)
+            .permission(&env.cx(), &dir, wasixv2_vfs::MAY_EXEC | 0x40)
             .await?;
         self.with_task(task, |task| task.fs.lock_or_recover().cwd = dir);
         Ok(())
@@ -612,12 +612,15 @@ impl Kernel {
     pub(crate) async fn sys_close(&self, caller: &Caller<'_>, fd: Fd) -> SysResult<i32> {
         let files = self.files(caller.task());
         let file = files.lock_or_recover().remove(fd).ok_or(Errno::EBADF)?;
-        self.closed(caller, &file);
-        if let Backing::Inode(inode) = &file.backing {
+        let result = if let Backing::Inode(inode) = &file.backing {
             inode
                 .flush(u64::from(self.process(caller.task()).pid.0))
-                .await?;
-        }
+                .await
+        } else {
+            Ok(())
+        };
+        self.closed(caller, &file);
+        result?;
         Ok(0)
     }
 
@@ -655,12 +658,12 @@ impl Kernel {
             }
         };
         for file in &closed {
-            self.closed(caller, file);
             if let Backing::Inode(inode) = &file.backing {
                 let _ = inode
                     .flush(u64::from(self.process(caller.task()).pid.0))
                     .await;
             }
+            self.closed(caller, file);
         }
         Ok(0)
     }
@@ -703,12 +706,12 @@ impl Kernel {
             table.install_at(new, file, flags.contains(OpenFlags::O_CLOEXEC))
         };
         if let Some(replaced) = replaced {
-            self.closed(caller, &replaced);
             if let Backing::Inode(inode) = &replaced.backing {
                 let _ = inode
                     .flush(u64::from(self.process(caller.task()).pid.0))
                     .await;
             }
+            self.closed(caller, &replaced);
         }
         Ok(new)
     }

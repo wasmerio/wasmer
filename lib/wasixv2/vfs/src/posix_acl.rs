@@ -467,6 +467,9 @@ impl Vfs {
 
     /// `posix_acl_chmod`: the access ACL follows a new mode.
     pub(crate) async fn acl_chmod(&self, dentry: &Dentry, mode: u32) -> FsResult<()> {
+        if !dentry.node().acl_permissions() {
+            return Ok(());
+        }
         let Ok(Some(acl)) = self.get_acl(dentry, AclKind::Access).await else {
             return Ok(());
         };
@@ -485,6 +488,10 @@ impl Vfs {
         mode: &mut u32,
         umask: u32,
     ) -> FsResult<Option<InitAcls>> {
+        if !dir.node().acl_permissions() {
+            *mode &= !umask;
+            return Ok(None);
+        }
         let parent = match file_type {
             FileType::Symlink => return Ok(None),
             _ => self.get_acl(dir, AclKind::Default).await,

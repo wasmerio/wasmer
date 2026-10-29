@@ -2125,10 +2125,10 @@ impl Kernel {
         let memory = NoMemory;
         let caller = Caller::new(task, &memory);
         for file in closing {
-            self.closed(&caller, &file);
             if let Backing::Inode(inode) = &file.backing {
                 let _ = inode.flush(u64::from(process.pid.0)).await;
             }
+            self.closed(&caller, &file);
         }
         // `exit_itimers` and `flush_itimer_signals`: POSIX timers belong to the old image;
         // interval timers stay.

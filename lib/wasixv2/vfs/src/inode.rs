@@ -61,6 +61,7 @@ struct State {
     last: Weak<Dentry>,
     /// The access and default ACLs as last read or set (`i_acl`, `i_default_acl`).
     acls: [CachedAcl; 2],
+    acl_version: u64,
     /// The kernel object bound to the inode: a FIFO's pipe (`i_pipe`) or a bound Unix socket.
     /// Weak: the object lives as long as its users (open FIFO ends, the bound socket, which in
     /// turn holds the inode through its path).
@@ -97,7 +98,7 @@ impl Inode {
     }
 
     pub(crate) fn is_dead(&self) -> bool {
-        self.state.lock().unwrap().dead
+        self.state.lock().unwrap().dead || self.node.unlinked_directory()
     }
 
     pub(crate) fn set_dead(&self) {
@@ -128,11 +129,23 @@ impl Inode {
     }
 
     pub(crate) fn cached_acl(&self, kind: AclKind) -> CachedAcl {
-        self.state.lock().unwrap().acls[kind.index()].clone()
+        let mut state = self.state.lock().unwrap();
+        let version = self.node.acl_version();
+        if state.acl_version != version {
+            state.acls = [CachedAcl::Unknown, CachedAcl::Unknown];
+            state.acl_version = version;
+        }
+        state.acls[kind.index()].clone()
     }
 
     pub(crate) fn cache_acl(&self, kind: AclKind, acl: CachedAcl) {
-        self.state.lock().unwrap().acls[kind.index()] = acl;
+        let mut state = self.state.lock().unwrap();
+        let version = self.node.acl_version();
+        if state.acl_version != version {
+            state.acls = [CachedAcl::Unknown, CachedAcl::Unknown];
+            state.acl_version = version;
+        }
+        state.acls[kind.index()] = acl;
     }
 
     pub(crate) fn set_last(&self, dentry: &Arc<Dentry>) {
