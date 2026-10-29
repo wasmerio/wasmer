@@ -3,7 +3,8 @@
 //!
 //! Some are acted on: `kernel.threads-max` bounds the tasks `fork` makes, and
 //! `kernel.sched_rr_timeslice_ms` is the `SCHED_RR` quantum, `fs.inotify.max_queued_events` the
-//! queue of a new inotify instance. The rest tune subsystems the machine does not have (page
+//! queue of a new inotify instance, `fs.suid_dumpable` what a process that changed its
+//! credentials may dump. The rest tune subsystems the machine does not have (page
 //! cache writeback, swap, the OOM killer, real-time throttling, panics): they keep what is
 //! written, within Linux's range, and change nothing, as the scheduling attributes do.
 
@@ -53,10 +54,11 @@ pub(crate) enum Tunable {
     LaptopMode,
     AdminReserveKbytes,
     UserReserveKbytes,
+    SuidDumpable,
 }
 
 impl Tunable {
-    pub(crate) const ALL: [Tunable; 26] = [
+    pub(crate) const ALL: [Tunable; 27] = [
         Tunable::ThreadsMax,
         Tunable::Sysrq,
         Tunable::Panic,
@@ -83,6 +85,7 @@ impl Tunable {
         Tunable::LaptopMode,
         Tunable::AdminReserveKbytes,
         Tunable::UserReserveKbytes,
+        Tunable::SuidDumpable,
     ];
 
     /// Linux's default (`init/Kconfig`, the subsystems' initialisers).
@@ -117,6 +120,8 @@ impl Tunable {
             Tunable::LaptopMode => 0,
             Tunable::AdminReserveKbytes => 8192,
             Tunable::UserReserveKbytes => 131072,
+            // `SUID_DUMP_DISABLE`.
+            Tunable::SuidDumpable => 0,
         }
     }
 
@@ -147,6 +152,8 @@ impl Tunable {
                 Write::Range(0, int)
             }
             Tunable::PageCluster => Write::Range(0, 31),
+            // `SUID_DUMP_DISABLE` to `SUID_DUMP_ROOT`.
+            Tunable::SuidDumpable => Write::Range(0, 2),
             Tunable::AdminReserveKbytes | Tunable::UserReserveKbytes => {
                 Write::Range(0, i64::from(u32::MAX))
             }

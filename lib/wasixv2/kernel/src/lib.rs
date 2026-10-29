@@ -318,6 +318,8 @@ struct Process {
     /// its last task applied them on its way out (`exit_sem`), so a process that is gone holds
     /// no namespace, as Linux's `exit_task_namespaces` lets it go.
     sysvsem: Mutex<Option<Arc<ns::IpcNs>>>,
+    /// The kernel's integer sysctls, which a credential change reads (`fs.suid_dumpable`).
+    tunables: Arc<sysctl::Tunables>,
 }
 
 struct Task {
@@ -645,6 +647,7 @@ impl Kernel {
             resources: Mutex::default(),
             pid_ns,
             sysvsem: Mutex::new(Some(self.init_ns.ipc.clone())),
+            tunables: self.tunables.clone(),
             args: Mutex::new(args.into_iter().map(String::into_bytes).collect()),
             env: Mutex::new(env.into_iter().map(String::into_bytes).collect()),
             exe: Mutex::new(None),

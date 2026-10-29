@@ -31,8 +31,8 @@ use std::sync::{
 };
 
 pub use cred::{
-    Cap, Cred, InitialUserNs, MAY_EXEC, MAY_READ, MAY_WRITE, UserNs, generic_permission,
-    generic_permission_acl, initial_user_ns, same_user_ns,
+    Cap, Cred, InitialUserNs, MAY_EXEC, MAY_READ, MAY_WRITE, Protection, UserNs,
+    generic_permission, generic_permission_acl, initial_user_ns, same_user_ns,
 };
 pub use dentry::Dentry;
 pub use driver::{Filesystem, Handle, Link, MAX_DIR_COOKIE, Node, SharedContents};
@@ -79,6 +79,9 @@ pub struct Vfs {
     supers: std::sync::Mutex<Vec<std::sync::Weak<Superblock>>>,
     pub locks: LockManager,
     watcher: std::sync::OnceLock<Arc<dyn FsWatcher>>,
+    /// `fs.protected_symlinks`, `protected_hardlinks`, `protected_fifos` and
+    /// `protected_regular`, in [`Protection::ALL`]'s order; all off, as Linux starts.
+    protected: [std::sync::atomic::AtomicU8; 4],
 }
 
 impl Vfs {
@@ -111,6 +114,7 @@ impl Vfs {
             supers: std::sync::Mutex::new(vec![Arc::downgrade(&sb)]),
             locks: LockManager::default(),
             watcher: std::sync::OnceLock::new(),
+            protected: Default::default(),
         })
     }
 
@@ -337,6 +341,21 @@ impl Vfs {
             return Ok(());
         };
         wait.wait_killable(answer).await
+    }
+
+    /// The setting of the protection `which` (`fs.protected_*`).
+    pub fn protected(&self, which: Protection) -> u8 {
+        self.protected[which as usize].load(std::sync::atomic::Ordering::Relaxed)
+    }
+
+    /// Sets the protection `which`: 0 up to its [`Protection::max`], else `EINVAL`.
+    pub fn set_protected(&self, which: Protection, value: i64) -> FsResult<()> {
+        let value = u8::try_from(value)
+            .ok()
+            .filter(|&v| v <= which.max())
+            .ok_or(Errno::EINVAL)?;
+        self.protected[which as usize].store(value, std::sync::atomic::Ordering::Relaxed);
+        Ok(())
     }
 
     /// Whether anything on an instance of the filesystems whose magic is `magic` is watched

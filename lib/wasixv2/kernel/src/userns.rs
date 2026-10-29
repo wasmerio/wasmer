@@ -161,24 +161,57 @@ impl MapKind {
     }
 }
 
-/// The kinds of namespace a user may make a bounded number of in a user namespace
-/// (`enum ucount_type`), in `/proc/sys/user`'s order.
-pub(crate) const UCOUNT_KINDS: [NsKind; 8] = [
-    NsKind::User,
-    NsKind::Pid,
-    NsKind::Uts,
-    NsKind::Ipc,
-    NsKind::Net,
-    NsKind::Mnt,
-    NsKind::Cgroup,
-    NsKind::Time,
+/// What a user may have a bounded number of in a user namespace (`enum ucount_type`):
+/// namespaces of a kind, inotify instances and inotify watches.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum UcountKind {
+    Ns(NsKind),
+    InotifyInstances,
+    InotifyWatches,
+}
+
+impl From<NsKind> for UcountKind {
+    fn from(kind: NsKind) -> Self {
+        UcountKind::Ns(kind)
+    }
+}
+
+/// The counted kinds, in `/proc/sys/user`'s order.
+pub(crate) const UCOUNT_KINDS: [UcountKind; 10] = [
+    UcountKind::Ns(NsKind::User),
+    UcountKind::Ns(NsKind::Pid),
+    UcountKind::Ns(NsKind::Uts),
+    UcountKind::Ns(NsKind::Ipc),
+    UcountKind::Ns(NsKind::Net),
+    UcountKind::Ns(NsKind::Mnt),
+    UcountKind::Ns(NsKind::Cgroup),
+    UcountKind::Ns(NsKind::Time),
+    UcountKind::InotifyInstances,
+    UcountKind::InotifyWatches,
 ];
 
-fn ucount_index(kind: NsKind) -> usize {
+fn ucount_index(kind: impl Into<UcountKind>) -> usize {
+    let kind = kind.into();
     UCOUNT_KINDS
         .iter()
         .position(|&k| k == kind)
         .expect("every kind is counted")
+}
+
+/// `INOTIFY_WATCH_COST` of a 32-bit kernel: an `inotify_inode_mark` and two inodes' worth.
+const INOTIFY_WATCH_COST: u64 = 64 + 2 * 384;
+
+/// The initial namespace's limit of `kind` (`inotify_user_setup`): 128 inotify instances,
+/// and watches for a hundredth of memory, between 8192 and 1048576.
+fn init_ucount_max(kind: UcountKind) -> u32 {
+    match kind {
+        UcountKind::Ns(_) => INIT_UCOUNT_MAX,
+        UcountKind::InotifyInstances => 128,
+        UcountKind::InotifyWatches => {
+            let watches = crate::resource::ADDRESS_SPACE / 100 / INOTIFY_WATCH_COST;
+            watches.clamp(8192, 1_048_576) as u32
+        }
+    }
 }
 
 /// What a user namespace holds of its own (`struct user_namespace`); its parent is its owner
@@ -197,17 +230,20 @@ pub(crate) struct User {
     setgroups_allowed: AtomicBool,
     /// Serialises the writes of the maps and of `setgroups` (`userns_state_mutex`).
     writes: Mutex<()>,
-    /// `ucount_max`: how many namespaces of each kind of [`UCOUNT_KINDS`] one user may make
-    /// in this namespace and below.
-    ucount_max: [AtomicU32; 8],
-    /// How many each user has made here and below, by kernel uid (`struct ucounts`).
-    ucounts: Mutex<HashMap<Kuid, [u32; 8]>>,
+    /// `ucount_max`: how many of each kind of [`UCOUNT_KINDS`] one user may have in this
+    /// namespace and below.
+    ucount_max: [AtomicU32; UCOUNT_KINDS.len()],
+    /// How many each user has here and below, by kernel uid (`struct ucounts`).
+    ucounts: Mutex<HashMap<Kuid, [u32; UCOUNT_KINDS.len()]>>,
 }
 
 impl User {
     /// The initial user namespace's: every id maps to itself, and root made it.
     pub(crate) fn initial() -> Self {
         let user = Self::new(0, Kuid::GLOBAL_ROOT, true, true, INIT_UCOUNT_MAX);
+        for (max, kind) in user.ucount_max.iter().zip(UCOUNT_KINDS) {
+            max.store(init_ucount_max(kind), Ordering::Relaxed);
+        }
         for map in [&user.uid_map, &user.gid_map, &user.projid_map] {
             let _ = map.set(IdMap::identity());
         }
@@ -244,9 +280,9 @@ impl User {
     }
 }
 
-/// One namespace a user made, counted against `max_*_namespaces` in the user namespace that
-/// owns it and in each above, up to the initial one (`inc_ucount`); dropped with the namespace
-/// (`dec_ucount`).
+/// One thing a user has, a namespace it made or an inotify instance or watch, counted against
+/// its limit in the user namespace that owns it and in each above, up to the initial one
+/// (`inc_ucount`); dropped with what it counts (`dec_ucount`).
 pub(crate) struct Ucount {
     /// Where the count starts, and whose.
     ns: Arc<UserNs>,
@@ -258,7 +294,11 @@ impl Ucount {
     /// `inc_ucount`: counts a namespace of `kind` that `uid` makes, owned by `ns`: in `ns` for
     /// `uid`, then in each parent for the creator of the namespace below it. `ENOSPC` when a
     /// count would pass its namespace's limit.
-    pub(crate) fn charge(ns: &Arc<UserNs>, uid: Kuid, kind: NsKind) -> Result<Self, Errno> {
+    pub(crate) fn charge(
+        ns: &Arc<UserNs>,
+        uid: Kuid,
+        kind: impl Into<UcountKind>,
+    ) -> Result<Self, Errno> {
         let kind = ucount_index(kind);
         let mut at = Some((ns.clone(), uid));
         let mut charged: Vec<(Arc<UserNs>, Kuid)> = Vec::new();
@@ -284,6 +324,13 @@ impl Ucount {
             uid,
             kind,
         })
+    }
+}
+
+impl Ucount {
+    /// Another count of `kind` for the same user in the same namespace.
+    pub(crate) fn charge_another(&self, kind: UcountKind) -> Result<Ucount, Errno> {
+        Ucount::charge(&self.ns, self.uid, kind)
     }
 }
 
@@ -396,13 +443,17 @@ impl Ns<User> {
         }
     }
 
-    /// `max_*_namespaces` for `kind`.
-    pub(crate) fn ucount_max(&self, kind: NsKind) -> u32 {
+    /// The limit of `kind` (`max_*_namespaces`, `max_inotify_*`).
+    pub(crate) fn ucount_max(&self, kind: impl Into<UcountKind>) -> u32 {
         self.ucount_max[ucount_index(kind)].load(Ordering::Relaxed)
     }
 
     /// Sets `max_*_namespaces` for `kind`: 0 up to `INT_MAX` (`EINVAL` beyond).
-    pub(crate) fn set_ucount_max(&self, kind: NsKind, max: u32) -> Result<(), Errno> {
+    pub(crate) fn set_ucount_max(
+        &self,
+        kind: impl Into<UcountKind>,
+        max: u32,
+    ) -> Result<(), Errno> {
         if max > UCOUNT_LIMIT {
             return Err(Errno::EINVAL);
         }

@@ -1005,7 +1005,11 @@ impl Kernel {
         let (process, ns) = target.ok_or(Errno::ESRCH)?;
         let dumpable = process.ident.lock_or_recover().dumpable;
         if !std::ptr::eq(&*process, joiner.process)
-            && !joiner.cred.may_read_task(&process.cred(), dumpable, false)
+            && !joiner.cred.may_read_task(
+                &process.cred(),
+                dumpable == crate::ident::Dumpable::User,
+                false,
+            )
         {
             return Err(Errno::EPERM);
         }

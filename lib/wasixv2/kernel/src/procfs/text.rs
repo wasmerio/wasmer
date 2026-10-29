@@ -17,7 +17,7 @@ use super::{Source, introspect, node::Scope};
 use crate::{
     file::OpenFile,
     mm::{Mm, PAGE_SIZE, RegionKind},
-    ns::{NetNs, NsKind, NsProxy, PidNs, TimeNs, UserNs},
+    ns::{NetNs, NsProxy, PidNs, TimeNs, UserNs},
     resource::{ADDRESS_SPACE, TICKS},
     sched::cpus,
     sync::MutexExt,
@@ -68,11 +68,24 @@ pub(super) enum Global {
     Tainted,
     /// `kernel.yama.ptrace_scope`.
     PtraceScope,
-    /// `user.max_*_namespaces` of the reader's user namespace, for the namespaces of a kind.
-    MaxNamespaces(NsKind),
     /// `/proc/keys`, `/proc/key-users`, which the node renders for its opener.
     Keys,
     KeyUsers,
+    /// `user.max_*_namespaces` and `user.max_inotify_*` of the reader's user namespace.
+    Ucount(crate::userns::UcountKind),
+    /// `fs.inotify.max_user_instances` and `max_user_watches`: the initial namespace's.
+    InitUcount(crate::userns::UcountKind),
+    /// `fs.protected_symlinks`, `protected_hardlinks`, `protected_fifos`, `protected_regular`.
+    Protected(wasixv2_vfs::Protection),
+    /// `/proc/pressure/{cpu,io,memory}`: nothing stalls the system.
+    Pressure,
+    /// `/proc/modules`, `kallsyms`, `timer_list`, `buddyinfo`, `zoneinfo` and `crypto`.
+    Modules,
+    Kallsyms,
+    TimerList,
+    Buddyinfo,
+    Zoneinfo,
+    Crypto,
     /// `/proc/cgroups`.
     Cgroups,
     /// `/proc/kmsg`, which opens as the kernel log.
@@ -157,17 +170,20 @@ impl Global {
             | Self::CoreUsesPid
             | Self::CorePipeLimit
 
+            | Self::InitUcount(_)
+            | Self::Protected(_)
             | Self::Tunable(_)
             | Self::Tainted
             | Self::PtraceScope
             // Who may write these is the namespace's business, not the mode's
             // (`pid_table_root_permissions`, `set_permissions`): see `ProcNode::permission`.
             | Self::PidMax
-            | Self::MaxNamespaces(_) => 0o644,
+            | Self::Ucount(_) => 0o644,
             // `pid_ns_ctl_handler` checks the writer itself.
             Self::NsLastPid => 0o666,
             Self::DropCaches | Self::SysrqTrigger => 0o200,
             Self::Kmsg => 0o400,
+            Self::Pressure => 0o666,
             _ => 0o444,
         }
     }
@@ -277,9 +293,21 @@ pub(super) fn global(
         Global::CapLastCap => line(&wasixv2_vfs::Cap::LAST.to_string()),
         Global::Tainted => line(&source.taint.get().to_string()),
         Global::PtraceScope => line(&source.yama.scope().to_string()),
-        Global::MaxNamespaces(kind) => line(&user_ns.ucount_max(kind).to_string()),
         // The node renders them for its opener.
         Global::Keys | Global::KeyUsers => unreachable!("rendered for the opener"),
+        Global::Ucount(kind) => line(&user_ns.ucount_max(kind).to_string()),
+        Global::InitUcount(kind) => line(&initial(user_ns).ucount_max(kind).to_string()),
+        Global::Protected(which) => {
+            let vfs = source.vfs.upgrade().ok_or(Errno::ENODEV)?;
+            line(&vfs.protected(which).to_string())
+        }
+        Global::Pressure => crate::cgroup::cpu::no_pressure().into_bytes(),
+        // No modules, and no kernel image whose symbols could be listed.
+        Global::Modules | Global::Kallsyms => Vec::new(),
+        Global::TimerList => timer_list(source),
+        Global::Buddyinfo => buddyinfo(source),
+        Global::Zoneinfo => zoneinfo(source),
+        Global::Crypto => crypto(),
         Global::Cgroups => cgroups(source),
         Global::Kmsg => Vec::new(),
         Global::Printk => {
@@ -351,6 +379,156 @@ fn cpuinfo() -> Vec<u8> {
     let mut out = String::new();
     for cpu in 0..cpus() {
         let _ = write!(out, "processor\t: {cpu}\nmodel name\t: wasm32\n\n");
+    }
+    out.into_bytes()
+}
+
+/// The initial user namespace, at the top of `ns`'s line.
+fn initial(ns: &UserNs) -> &UserNs {
+    let mut at = ns;
+    while let Some(parent) = at.parent() {
+        at = parent;
+    }
+    at
+}
+
+/// The bytes the processes' address spaces hold.
+fn memory_used(source: &Source) -> u64 {
+    source
+        .all_pids()
+        .into_iter()
+        .filter_map(|pid| source.mm(Scope { pid, tid: None }))
+        .map(|mm| mm.size())
+        .sum()
+}
+
+/// The free pages, by the order of the largest blocks they make (`MAX_PAGE_ORDER` 10): what
+/// is free is one run, whole blocks of 4 MiB and then a block of each order its rest holds.
+fn free_blocks(source: &Source) -> [u64; 11] {
+    let free = ADDRESS_SPACE.saturating_sub(memory_used(source)) / crate::mm::PAGE_SIZE;
+    let mut orders = [0; 11];
+    orders[10] = free >> 10;
+    for (order, count) in orders.iter_mut().enumerate().take(10) {
+        *count = (free >> order) & 1;
+    }
+    orders
+}
+
+/// `frag_show`: one zone, `Normal`, of node 0.
+fn buddyinfo(source: &Source) -> Vec<u8> {
+    let mut out = String::from("Node 0, zone   Normal ");
+    for count in free_blocks(source) {
+        let _ = write!(out, "{count:>7}");
+    }
+    out.push('\n');
+    out.into_bytes()
+}
+
+/// `zoneinfo_show` for node 0's one zone, with the watermarks `min_free_kbytes` gives.
+fn zoneinfo(source: &Source) -> Vec<u8> {
+    let page = crate::mm::PAGE_SIZE;
+    let spanned = ADDRESS_SPACE / page;
+    let free = ADDRESS_SPACE.saturating_sub(memory_used(source)) / page;
+    let min_kb = source
+        .tunables
+        .get(crate::sysctl::Tunable::MinFreeKbytes)
+        .max(0) as u64;
+    let min = min_kb * 1024 / page;
+    let (low, high) = (min + min / 4, min + min / 2);
+    let mut out = String::from("Node 0, zone   Normal\n");
+    let _ = writeln!(out, "  pages free     {free}");
+    for (name, value) in [
+        ("boost", 0),
+        ("min", min),
+        ("low", low),
+        ("high", high),
+        ("promo", high + min / 4),
+        ("spanned", spanned),
+        ("present", spanned),
+        ("managed", spanned),
+        ("cma", 0),
+    ] {
+        let _ = writeln!(out, "        {name:<9}{value}");
+    }
+    let _ = writeln!(out, "        protection: (0, 0, 0, 0)");
+    for (name, value) in [
+        ("nr_free_pages", free),
+        ("nr_zone_inactive_anon", 0),
+        ("nr_zone_active_anon", spanned - free),
+        ("nr_zone_inactive_file", 0),
+        ("nr_zone_active_file", 0),
+        ("nr_zone_unevictable", 0),
+        ("nr_zone_write_pending", 0),
+        ("nr_mlock", 0),
+        ("nr_bounce", 0),
+        ("nr_free_cma", 0),
+    ] {
+        let _ = writeln!(out, "      {name} {value}");
+    }
+    out += "  pagesets\n";
+    for cpu in 0..cpus() {
+        let _ = write!(
+            out,
+            "    cpu: {cpu}\n              count:    0\n              high:     0\n\
+             \x20             batch:    63\n  vm stats threshold: 0\n"
+        );
+    }
+    out += "  node_unreclaimable:  0\n  start_pfn:           0\n";
+    out.into_bytes()
+}
+
+/// `timer_list_show`: the clock bases of each CPU, none with an active timer the reader could
+/// see (the kernel's timers are host sleeps), and the tick devices.
+fn timer_list(source: &Source) -> Vec<u8> {
+    const BASES: [(&str, &str); 8] = [
+        ("ktime_get", "monotonic"),
+        ("ktime_get_real", "realtime"),
+        ("ktime_get_boottime", "boottime"),
+        ("ktime_get_clocktai", "tai"),
+        ("ktime_get", "monotonic"),
+        ("ktime_get_real", "realtime"),
+        ("ktime_get_boottime", "boottime"),
+        ("ktime_get_clocktai", "tai"),
+    ];
+    let now = source.host.monotonic().as_nanos();
+    let mut out =
+        format!("Timer List Version: v0.10\nHRTIMER_MAX_CLOCK_BASES: 8\nnow at {now} nsecs\n\n");
+    for cpu in 0..cpus() {
+        let _ = writeln!(out, "cpu: {cpu}");
+        for (index, (get_time, _)) in BASES.iter().enumerate() {
+            let _ = write!(
+                out,
+                " clock {index}:\n  .base:       0\n  .index:      {index}\n  .resolution: 1 nsecs\n  \
+                 .get_time:   {get_time}\n  .offset:     0 nsecs\nactive timers:\n"
+            );
+        }
+        out += "  .expires_next   : 9223372036854775807 nsecs\n  .hres_active    : 1\n\n";
+    }
+    out += "Tick Device: mode:     1\nBroadcast device\nClock Event Device: <NULL>\n\n";
+    for cpu in 0..cpus() {
+        let _ = write!(
+            out,
+            "Tick Device: mode:     1\nPer CPU device: {cpu}\nClock Event Device: <NULL>\n\n"
+        );
+    }
+    out.into_bytes()
+}
+
+/// `crypto_show`: the generic algorithms every kernel has built in.
+fn crypto() -> Vec<u8> {
+    let mut out = String::new();
+    for (name, driver, kind, block, digest) in [
+        ("crc32c", "crc32c-generic", "shash", 1, 4),
+        ("sha256", "sha256-generic", "shash", 64, 32),
+        ("sha1", "sha1-generic", "shash", 64, 20),
+        ("md5", "md5-generic", "shash", 64, 16),
+    ] {
+        let _ = write!(
+            out,
+            "name         : {name}\ndriver       : {driver}\nmodule       : kernel\n\
+             priority     : 100\nrefcnt       : 1\nselftest     : passed\ninternal     : no\n\
+             type         : {kind}\nblocksize    : {block}\ndigestsize   : {digest}\n\n"
+        );
     }
     out.into_bytes()
 }
