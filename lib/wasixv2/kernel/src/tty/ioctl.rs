@@ -287,7 +287,8 @@ impl Kernel {
                 if Arc::ptr_eq(tty, real) && !tty.is_ctty_of(&process) {
                     return Err(Errno::ENOTTY.into());
                 }
-                put_int(real.pgrp().map_or(0, |pgrp| self.vnr(caller, pgrp))).await
+                let ns = self.active_pid_ns(task);
+                put_int(real.pgrp().map_or(0, |pgrp| pgrp.nr(&ns))).await
             }
             IoctlRequest::TIOCSPGRP => {
                 match real.check_change(task, Signal::SIGTTOU) {
@@ -307,7 +308,7 @@ impl Kernel {
                     return Err(Errno::ENOTTY.into());
                 }
                 let sid = real.session().ok_or(Errno::ENOTTY)?;
-                put_int(self.vnr(caller, sid)).await
+                put_int(sid.nr(&self.active_pid_ns(task))).await
             }
             // ---- a pty master's (`pty_unix98_ioctl`, `ptm_open_peer`) ----
             IoctlRequest::TIOCGPTPEER => match &tty.driver {

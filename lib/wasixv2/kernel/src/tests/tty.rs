@@ -9,7 +9,8 @@ use std::{
 
 use futures::FutureExt as _;
 use wasixv2_abi::{
-    IoctlRequest, OpenFlags, Pid, Signal, Termios, TermiosCcIndex, TermiosLflag, Winsize,
+    Idtype, IoctlRequest, OpenFlags, Pid, RusagePtr, SiginfoPtr, Signal, Termios, TermiosCcIndex,
+    TermiosLflag, WaitOptions, Winsize,
 };
 use wasixv2_host::WindowSize;
 use wasixv2_syscalls::{read_value, write_value};
@@ -643,6 +644,45 @@ fn proc_stat_shows_the_controlling_terminal() {
     let pid = c.leader.0.to_string();
     assert_eq!(fields[4], (229 << 8).to_string());
     assert_eq!(fields[5], pid);
+}
+
+/// A foreground group that emptied stays the terminal's foreground group: `TIOCGPGRP` and
+/// `/proc/<pid>/stat`'s tpgid still show its number, as `tty->ctrl.pgrp` holds its
+/// `struct pid` (`tiocgpgrp`, `do_task_stat`).
+#[test]
+fn an_emptied_foreground_group_keeps_its_number() {
+    let c = console();
+    let memory = memory();
+    let caller = Caller::new(c.leader, &memory);
+    let job = c.background_job(&caller);
+    let pgrp = job.0 as Pid;
+    assert_eq!(c.tcsetpgrp(&caller, pgrp), Ok(0));
+    let job_memory = self::memory();
+    let job_caller = Caller::new(job, &job_memory);
+    assert_eq!(block_on(c.kernel.exit_group(&job_caller, 0)), Ok(()));
+    // Reaped and released: nothing holds its pid or its group any more.
+    let options = WaitOptions(WaitOptions::WEXITED.0);
+    let wait = c.kernel.waitid(
+        &caller,
+        Idtype::P_PID,
+        pgrp,
+        SiginfoPtr::new(0x300),
+        options,
+        RusagePtr::new(0),
+    );
+    assert_eq!(block_on(wait), Ok(0));
+    c.kernel.release(job);
+    assert_eq!(
+        errno(block_on(c.kernel.sys_kill(&caller, -pgrp, Signal(0)))),
+        Errno::ESRCH
+    );
+
+    assert_eq!(c.ioctl_int(&caller, IoctlRequest::TIOCGPGRP), Ok(pgrp));
+    let fd = open(&c.kernel, &caller, b"/proc/self/stat", OpenFlags::O_RDONLY);
+    let n = block_on(c.kernel.read(&caller, fd, UserSliceMut::new(0x400, 512))).unwrap();
+    let stat = String::from_utf8(get(&memory.0, 0x400, n as usize)).unwrap();
+    let fields: Vec<&str> = stat.rsplit_once(") ").unwrap().1.split(' ').collect();
+    assert_eq!(fields[5], pgrp.to_string());
 }
 
 /// `^S` stops output: a write waits, and `^Q`, echoed or not, lets it go on.

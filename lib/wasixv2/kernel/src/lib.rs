@@ -293,7 +293,7 @@ impl Kernel {
             ..State::default()
         })));
         let procs = process::Procs::new(pids.clone());
-        let jobs = tty::Jobs::new(&state, &procs.tree);
+        let jobs = tty::Jobs::new(&state, &procs.tree, &pids);
         let timers = timer::Timers::new(host.clone());
         let init_user_ns = ns::UserNs::initial_user();
         Self {
