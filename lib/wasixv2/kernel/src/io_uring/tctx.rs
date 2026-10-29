@@ -69,7 +69,11 @@ impl Tctx {
     /// `io_uring_unreg_ringfd`.
     fn unregister_all(&self) -> Vec<Arc<OpenFile>> {
         let mut state = self.0.lock_or_recover();
-        state.registered.iter_mut().filter_map(Option::take).collect()
+        state
+            .registered
+            .iter_mut()
+            .filter_map(Option::take)
+            .collect()
     }
 }
 
@@ -140,8 +144,8 @@ impl Kernel {
         let mut err = Errno::EINVAL;
         for i in 0..nr_args {
             let at = arg + i * IoUringRsrcUpdate::SIZE as u32;
-            let Ok(mut reg) = read_value::<IoUringRsrcUpdate>(caller.memory(), GuestPtr::new(at))
-                .await
+            let Ok(mut reg) =
+                read_value::<IoUringRsrcUpdate>(caller.memory(), GuestPtr::new(at)).await
             else {
                 err = Errno::EFAULT;
                 break;
@@ -209,8 +213,7 @@ impl Kernel {
         let mut err = Errno::EINVAL;
         for i in 0..nr_args {
             let at = arg + i * IoUringRsrcUpdate::SIZE as u32;
-            let Ok(reg) = read_value::<IoUringRsrcUpdate>(caller.memory(), GuestPtr::new(at))
-                .await
+            let Ok(reg) = read_value::<IoUringRsrcUpdate>(caller.memory(), GuestPtr::new(at)).await
             else {
                 err = Errno::EFAULT;
                 break;

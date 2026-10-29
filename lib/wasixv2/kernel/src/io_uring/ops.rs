@@ -557,7 +557,10 @@ impl Kernel {
     /// `io_issue_sqe`: one attempt at `req` that does not block, and what follows from it.
     pub(super) async fn issue(&self, caller: &Caller<'_>, ctx: &Arc<Ctx>, mut req: Req) {
         loop {
-            let lent = req.creds.clone().map(|cred| self.lend_cred(caller.task(), cred));
+            let lent = req
+                .creds
+                .clone()
+                .map(|cred| self.lend_cred(caller.task(), cred));
             let issued = self.issue_op(caller, ctx, &mut req).await;
             drop(lent);
             let outcome = match issued {

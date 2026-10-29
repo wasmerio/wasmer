@@ -64,9 +64,13 @@ pub(super) struct Machine {
 
 impl Machine {
     pub(super) fn new() -> Self {
+        Self::with_credentials(Credentials::default())
+    }
+
+    pub(super) fn with_credentials(credentials: Credentials) -> Self {
         let host: Arc<dyn Host> = Arc::new(AioHost(RealHost(Instant::now())));
         let root = MemFs::new(Arc::new(HostClock(host.clone())), 0o755, 1, 1);
-        let kernel = Kernel::new(host, Arc::new(root));
+        let kernel = Kernel::new(host, Arc::new(root)).with_credentials(credentials);
         let stdin = Arc::new(Input(Mutex::new(Vec::new())));
         let (kernel, task, _) = spawn_on(kernel, stdin, &[], &[]);
         Self {
@@ -477,7 +481,9 @@ fn mremap_moves_a_whole_ring_and_its_context_id() {
     assert_eq!(errno(mremap(ctx, len, len, dont_unmap, 0)), Errno::EINVAL);
     let fixed = may_move | MremapFlags::MREMAP_FIXED;
     let anon = MapFlags::MAP_PRIVATE | MapFlags::MAP_ANONYMOUS;
-    let mmap = m.kernel.mmap(&caller, 0, len, ProtFlags(3), anon, Fd(-1), 0);
+    let mmap = m
+        .kernel
+        .mmap(&caller, 0, len, ProtFlags(3), anon, Fd(-1), 0);
     let to = block_on(mmap).unwrap();
     // The whole ring moves, and the context goes by its new address.
     assert_eq!(mremap(ctx, len, len, fixed, to), Ok(to as i32));

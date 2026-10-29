@@ -927,10 +927,12 @@ fn a_task_cancel_ends_every_request_of_the_task() {
     });
     assert_eq!(ring.submit(2), Ok(2));
     // A thread's exit leaves what holds no ring.
-    m.kernel.io_uring_cancel(m.task, crate::io_uring::Cancel::Tracked);
+    m.kernel
+        .io_uring_cancel(m.task, crate::io_uring::Cancel::Tracked);
     assert!(ring.reap().is_empty());
     // `execve` takes them all.
-    m.kernel.io_uring_cancel(m.task, crate::io_uring::Cancel::All);
+    m.kernel
+        .io_uring_cancel(m.task, crate::io_uring::Cancel::All);
     let mut cqes = ring.reap();
     cqes.sort_by_key(|cqe| cqe.user_data);
     let canceled = -Errno::ECANCELED.0;
@@ -939,7 +941,7 @@ fn a_task_cancel_ends_every_request_of_the_task() {
 
 #[test]
 fn personalities_lend_their_credentials_to_requests() {
-    let m = Machine::new();
+    let m = Machine::with_credentials(Credentials::new(0, 0));
     let ring = m.ring(8, 0);
     let caller = m.caller();
     let fd = m.file("secret", b"root only");
@@ -947,7 +949,10 @@ fn personalities_lend_their_credentials_to_requests() {
     assert_eq!(ring.register(9, 0, 0), Ok(1));
     assert_eq!(ring.register(9, 0, 0), Ok(2));
     assert_eq!(errno(ring.register(9, SCRATCH, 0)), Errno::EINVAL);
-    assert_eq!(block_on(m.kernel.setresuid(&caller, 1000, 1000, 1000)), Ok(0));
+    assert_eq!(
+        block_on(m.kernel.setresuid(&caller, 1000, 1000, 1000)),
+        Ok(0)
+    );
     m.memory.put(SCRATCH, b"secret\0");
     let open = IoUringSqe {
         addr: u64::from(SCRATCH),
@@ -1035,30 +1040,24 @@ fn a_single_issuer_ring_takes_submissions_from_its_creator_only() {
     let ring = m.ring(8, single);
     let other = thread(&m);
     ring.push(sqe(NOP, -1, 1));
-    assert_eq!(
-        errno(ring.enter_as(other, (ring.fd, 0), 1)),
-        Errno::EEXIST
-    );
+    assert_eq!(errno(ring.enter_as(other, (ring.fd, 0), 1)), Errno::EEXIST);
     assert_eq!(ring.enter_as(m.task, (ring.fd, 0), 1), Ok(1));
     let caller = Caller::new(other, &m.memory);
-    let register =
-        m.kernel
-            .io_uring_register(&caller, ring.fd, 9, GuestPtrMut::NULL, 0);
+    let register = m
+        .kernel
+        .io_uring_register(&caller, ring.fd, 9, GuestPtrMut::NULL, 0);
     assert_eq!(errno(block_on(register)), Errno::EEXIST);
 
     // A disabled ring's issuer is whoever enables it.
     let disabled = single | IoringSetupFlags::IORING_SETUP_R_DISABLED.0;
     let ring = m.ring(8, disabled);
     let caller = Caller::new(other, &m.memory);
-    let enable =
-        m.kernel
-            .io_uring_register(&caller, ring.fd, 12, GuestPtrMut::NULL, 0);
+    let enable = m
+        .kernel
+        .io_uring_register(&caller, ring.fd, 12, GuestPtrMut::NULL, 0);
     assert_eq!(block_on(enable), Ok(0));
     ring.push(sqe(NOP, -1, 2));
-    assert_eq!(
-        errno(ring.enter_as(m.task, (ring.fd, 0), 1)),
-        Errno::EEXIST
-    );
+    assert_eq!(errno(ring.enter_as(m.task, (ring.fd, 0), 1)), Errno::EEXIST);
     assert_eq!(ring.enter_as(other, (ring.fd, 0), 1), Ok(1));
 
     // `IORING_SETUP_TASKRUN_FLAG` needs cooperative or deferred task work.
