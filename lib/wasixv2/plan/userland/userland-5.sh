@@ -30,9 +30,28 @@ build_uring() {
 build_aio() {
   checkout libaio https://pagure.io/libaio.git b8eadc9f89e8f7ab0338eacda9f98a6caea76883
   cd "$ROOT/libaio-src"
+  # Static Wasm aliases for libaio's .symver directives require LLVM branch
+  # wasix-org/llvm-project:wasixv2/wasm-symver. No libaio source patch is used.
+  # Select an isolated build without changing the compiler for other packages.
+  if [ -n "${LIBAIO_LLVM_LOCATION:-}" ]; then
+    export WASIXCC_LLVM_LOCATION=$LIBAIO_LLVM_LOCATION
+  fi
   make -C src -j"$JOBS" CC="$CC" AR="$AR" RANLIB="$RANLIB" ENABLE_SHARED=0
   make -C harness -j"$JOBS" CC="$CC" cases/2.p cases/3.p cases/4.p \
     cases/5.p cases/12.p cases/15.p cases/22.p
+}
+
+# A narrow upstream harness target usable while time64-only AIO waiting is
+# unavailable in libaio. Its Makefile documents LIBAIO as a link-input override;
+# use the real io_setup object, with no replacement implementation/source edits.
+build_aio_setup() {
+  checkout libaio https://pagure.io/libaio.git b8eadc9f89e8f7ab0338eacda9f98a6caea76883
+  cd "$ROOT/libaio-src"
+  if [ -n "${LIBAIO_LLVM_LOCATION:-}" ]; then
+    export WASIXCC_LLVM_LOCATION=$LIBAIO_LLVM_LOCATION
+  fi
+  make -B -C src -j"$JOBS" CC="$CC" io_setup.ol
+  make -B -C harness -j"$JOBS" CC="$CC" LIBAIO=../src/io_setup.ol cases/2.p
 }
 
 build_keys() {
@@ -44,6 +63,7 @@ build_keys() {
 }
 
 build_strace() {
+  # wasm32 still needs a real architecture/scalar-slot port; see strace-wasm32.md.
   checkout strace https://github.com/strace/strace.git 9d7b4d1a59a20171bfad65a4eea883190ddd3791
   cd "$ROOT/strace-src"
   ./bootstrap
@@ -163,6 +183,7 @@ EOF
 case ${1:-help} in
   liburing) build_uring ;;
   libaio) build_aio ;;
+  libaio-setup) build_aio_setup ;;
   keyutils) build_keys ;;
   strace) build_strace ;;
   util-linux) build_util ;;
@@ -170,5 +191,5 @@ case ${1:-help} in
   seccomp) build_seccomp ;;
   core) build_core ;;
   fuse) build_fuse ;;
-  *) echo "Usage: $0 {liburing|libaio|keyutils|strace|util-linux|iproute2|seccomp|core|fuse}"; exit 2 ;;
+  *) echo "Usage: $0 {liburing|libaio|libaio-setup|keyutils|strace|util-linux|iproute2|seccomp|core|fuse}"; exit 2 ;;
 esac
