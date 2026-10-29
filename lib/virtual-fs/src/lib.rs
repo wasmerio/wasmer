@@ -345,6 +345,20 @@ impl<'a> OpenOptions<'a> {
 pub trait VirtualFile:
     fmt::Debug + AsyncRead + AsyncWrite + AsyncSeek + Unpin + Upcastable + Send
 {
+    /// Requests synchronization of file data, without requiring unrelated metadata.
+    ///
+    /// The default delegates to [`AsyncWrite::poll_flush`] for compatibility.
+    /// Flushing buffered writes does not itself guarantee durable storage;
+    /// persistent backends should override this with a data-durability barrier.
+    /// Such an override must also drain pending writes before synchronizing data.
+    ///
+    /// WASI `fd_sync` still uses `poll_flush` independently of this hook, so
+    /// implementors must provide full synchronization there if they require
+    /// both WASI synchronization calls to be durable.
+    fn poll_sync_data(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        AsyncWrite::poll_flush(self, cx)
+    }
+
     /// the last time the file was accessed in nanoseconds as a UNIX timestamp
     fn last_accessed(&self) -> u64;
 

@@ -72,6 +72,10 @@ pub(crate) struct FlushPoller {
     pub(crate) file: VirtualFileLock,
 }
 
+pub(crate) struct DataSyncPoller {
+    pub(crate) file: VirtualFileLock,
+}
+
 /// Result of removing an fd under `fd_map.write()`, with an optional flush target
 /// captured before `drop_one_handle` may clear the inode handle.
 pub(crate) struct CloseFdOutcome {
@@ -97,6 +101,17 @@ impl Future for FlushPoller {
         let mut file = self.file.write().unwrap();
         Pin::new(file.as_mut())
             .poll_flush(cx)
+            .map_err(|_| Errno::Io)
+    }
+}
+
+impl Future for DataSyncPoller {
+    type Output = Result<(), Errno>;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let mut file = self.file.write().unwrap();
+        Pin::new(file.as_mut())
+            .poll_sync_data(cx)
             .map_err(|_| Errno::Io)
     }
 }
@@ -3027,7 +3042,11 @@ pub fn fs_error_into_wasi_err(fs_error: FsError) -> Errno {
 mod tests {
     use super::*;
     use once_cell::sync::OnceCell;
+    use std::io;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::task::{Context, Poll};
     use tempfile::tempdir;
+    use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite, ReadBuf};
     use virtual_fs::{RootFileSystemBuilder, TmpFileSystem};
     use wasmer::{Engine, Store};
     use wasmer_config::package::PackageId;
@@ -3058,6 +3077,170 @@ mod tests {
         let duplicate = fs.get_fd(42).unwrap();
         assert_eq!(duplicate.inner.rights, stdout.inner.rights);
         assert!(duplicate.inner.rights.contains(Rights::FD_FILESTAT_GET));
+    }
+
+    #[derive(Debug)]
+    struct SyncProbe {
+        flushes: Arc<AtomicUsize>,
+        data_syncs: Arc<AtomicUsize>,
+        pending: bool,
+        error: Option<io::ErrorKind>,
+    }
+
+    impl AsyncRead for SyncProbe {
+        fn poll_read(
+            self: Pin<&mut Self>,
+            _cx: &mut Context<'_>,
+            _buf: &mut ReadBuf<'_>,
+        ) -> Poll<io::Result<()>> {
+            Poll::Ready(Ok(()))
+        }
+    }
+
+    impl AsyncWrite for SyncProbe {
+        fn poll_write(
+            self: Pin<&mut Self>,
+            _cx: &mut Context<'_>,
+            buf: &[u8],
+        ) -> Poll<io::Result<usize>> {
+            Poll::Ready(Ok(buf.len()))
+        }
+
+        fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+            self.flushes.fetch_add(1, Ordering::Relaxed);
+            Poll::Ready(Ok(()))
+        }
+
+        fn poll_shutdown(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+            Poll::Ready(Ok(()))
+        }
+    }
+
+    impl AsyncSeek for SyncProbe {
+        fn start_seek(self: Pin<&mut Self>, _position: io::SeekFrom) -> io::Result<()> {
+            Ok(())
+        }
+
+        fn poll_complete(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<u64>> {
+            Poll::Ready(Ok(0))
+        }
+    }
+
+    impl VirtualFile for SyncProbe {
+        fn poll_sync_data(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+            self.data_syncs.fetch_add(1, Ordering::Relaxed);
+            if std::mem::take(&mut self.pending) {
+                cx.waker().wake_by_ref();
+                return Poll::Pending;
+            }
+            Poll::Ready(match self.error.take() {
+                Some(error) => Err(error.into()),
+                None => Ok(()),
+            })
+        }
+
+        fn last_accessed(&self) -> u64 {
+            0
+        }
+
+        fn last_modified(&self) -> u64 {
+            0
+        }
+
+        fn created_time(&self) -> u64 {
+            0
+        }
+
+        fn size(&self) -> u64 {
+            0
+        }
+
+        fn set_len(&mut self, _new_size: u64) -> virtual_fs::Result<()> {
+            Ok(())
+        }
+
+        fn unlink(&mut self) -> virtual_fs::Result<()> {
+            Ok(())
+        }
+
+        fn poll_read_ready(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
+            Poll::Ready(Ok(0))
+        }
+
+        fn poll_write_ready(
+            self: Pin<&mut Self>,
+            _cx: &mut Context<'_>,
+        ) -> Poll<io::Result<usize>> {
+            Poll::Ready(Ok(usize::MAX))
+        }
+    }
+
+    #[tokio::test]
+    async fn data_sync_poller_uses_data_barrier_without_flushing() {
+        let flushes = Arc::new(AtomicUsize::new(0));
+        let data_syncs = Arc::new(AtomicUsize::new(0));
+        let file: VirtualFileLock = Arc::new(RwLock::new(Box::new(SyncProbe {
+            flushes: flushes.clone(),
+            data_syncs: data_syncs.clone(),
+            pending: false,
+            error: None,
+        })));
+
+        DataSyncPoller { file: file.clone() }.await.unwrap();
+        assert_eq!(data_syncs.load(Ordering::Relaxed), 1);
+        assert_eq!(flushes.load(Ordering::Relaxed), 0);
+
+        FlushPoller { file }.await.unwrap();
+        assert_eq!(data_syncs.load(Ordering::Relaxed), 1);
+        assert_eq!(flushes.load(Ordering::Relaxed), 1);
+    }
+
+    #[tokio::test]
+    async fn data_sync_poller_forwards_wrapped_pending_and_errors() {
+        use virtual_fs::{
+            ArcBoxFile, ArcFile, CombineFile, DualWriteFile, NullFile, TraceFileSystem,
+        };
+
+        for error in [None, Some(io::ErrorKind::PermissionDenied)] {
+            let flushes = Arc::new(AtomicUsize::new(0));
+            let data_syncs = Arc::new(AtomicUsize::new(0));
+            let probe = ArcFile::new(Box::new(SyncProbe {
+                flushes: flushes.clone(),
+                data_syncs: data_syncs.clone(),
+                pending: true,
+                error,
+            }));
+            let file = ArcBoxFile::new(Box::new(probe));
+            let file = DualWriteFile::new(Box::new(file), |_| {});
+            let file = CombineFile::new(Box::new(file), Box::new(NullFile::default()));
+            let secondary = TmpFileSystem::new();
+            secondary
+                .new_open_options_ext()
+                .insert_device_file("/sync".into(), Box::new(file))
+                .unwrap();
+            let overlay = OverlayFileSystem::new(TmpFileSystem::new(), [secondary]);
+            let traced = TraceFileSystem::new(overlay);
+            let root = TmpFileSystem::new();
+            root.new_open_options_ext()
+                .insert_arc_file("/sync".into(), Arc::new(traced))
+                .unwrap();
+            let file = root.new_open_options().read(true).open("/sync").unwrap();
+            let init = WasiEnvBuilder::new("test_prog")
+                .engine(Engine::default())
+                .stdout(file)
+                .build_init()
+                .unwrap();
+            let file = WasiStateFileGuard::new(&init.state, __WASI_STDOUT_FILENO)
+                .unwrap()
+                .unwrap();
+            let result = DataSyncPoller {
+                file: Arc::new(RwLock::new(Box::new(file))),
+            }
+            .await;
+            assert_eq!(result, error.map_or(Ok(()), |_| Err(Errno::Io)));
+            assert_eq!(data_syncs.load(Ordering::Relaxed), 2);
+            assert_eq!(flushes.load(Ordering::Relaxed), 0);
+        }
     }
 
     fn webc_symlink_fs() -> virtual_fs::WebcVolumeFileSystem {

@@ -114,6 +114,11 @@ struct TraceFile {
 }
 
 impl VirtualFile for TraceFile {
+    #[tracing::instrument(level = "trace", skip_all, fields(path=%self.path.display()))]
+    fn poll_sync_data(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
+        Pin::new(self.file.as_mut()).poll_sync_data(cx)
+    }
+
     #[tracing::instrument(level = "trace", skip(self), fields(path=%self.path.display()))]
     fn last_accessed(&self) -> u64 {
         self.file.last_accessed()
