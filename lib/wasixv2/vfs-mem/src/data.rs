@@ -271,7 +271,7 @@ impl Data {
     /// Sets the size. Shrinking frees every block past the new end, including blocks allocated
     /// past the old end with `FALLOC_FL_KEEP_SIZE` (`shmem_setattr`); growing leaves a hole.
     pub(crate) fn truncate(&mut self, space: &Charge<'_>, size: u64) -> FsResult<()> {
-        if size >= self.size {
+        if size > self.size {
             self.extend(size)?;
             self.size = size;
             return Ok(());

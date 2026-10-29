@@ -536,7 +536,8 @@ mod shared {
         assert_eq!(block_on(handle.write_at(b"over", 0)), Err(Errno::EDQUOT));
         drop(pages);
         drop(overlap);
-        block_on(handle.allocate(AllocMode::PunchHole, BLOCK, 2 * BLOCK)).unwrap();
+        // Even an equal-size truncate must discard materialization beyond EOF.
+        block_on(handle.set_size(0)).unwrap();
         assert_eq!(fs.get(0, 1).unwrap().dqb_curspace, 0);
         // Mappings keep unlinked inodes and their quota alive.
         let pages = file.shared_pages(0..BLOCK, &cred).unwrap().unwrap();

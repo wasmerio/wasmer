@@ -1407,6 +1407,20 @@ impl Kernel {
         if new_size > old_size {
             self.check_lock_growth(caller, addr64, new_size - old_size)?;
         }
+        // Reserve before moving/unmapping anything: quota failure leaves the old VMA intact.
+        let mut growth = if new_size > old_size {
+            mm.space().mappings.aliases(addr64, addr64 + old_size).pop()
+        } else {
+            None
+        };
+        if let Some(mapping) = &mut growth {
+            if mapping.end() == addr64 + old_size {
+                mapping.len += new_size - old_size;
+                mapping.materialize(&self.cred(caller).fs())?;
+            } else {
+                growth = None;
+            }
+        }
         if remap.implies_new_addr() {
             let target = match remap.fixed {
                 true => u64::from(self.map_fixed(caller, new_addr, new_pages, false).await?),
@@ -1419,7 +1433,7 @@ impl Kernel {
             };
             copy(caller.memory(), addr64, target, old_size.min(new_size)).await?;
             mm.space().remap_flags(addr64, old_size, target, new_size);
-            self.move_mappings(caller, addr64, old_size, target, new_size)
+            self.move_mappings(caller, addr64, old_size, target, new_size, growth)
                 .await?;
             match remap.dont_unmap {
                 true => {
@@ -1451,7 +1465,7 @@ impl Kernel {
                 .is_ok()
         {
             mm.space().remap_flags(addr64, old_size, addr64, new_size);
-            self.move_mappings(caller, addr64, old_size, addr64, new_size)
+            self.move_mappings(caller, addr64, old_size, addr64, new_size, growth)
                 .await?;
             return Ok(addr as i32);
         }
@@ -1461,7 +1475,7 @@ impl Kernel {
         let target = self.map_anywhere(caller, new_pages).await?;
         copy(caller.memory(), addr64, target, old_size).await?;
         mm.space().remap_flags(addr64, old_size, target, new_size);
-        self.move_mappings(caller, addr64, old_size, target, new_size)
+        self.move_mappings(caller, addr64, old_size, target, new_size, growth)
             .await?;
         mm.space().unmap(addr64, old_size);
         Ok(target as i32)
@@ -1483,9 +1497,8 @@ impl Kernel {
                 .is_shared()
                 .then(|| mapping.alias(remap.addr - mapping.start, target, remap.new_size))
         };
-        if alias(0).is_none() {
-            return Err(Errno::EINVAL.into());
-        }
+        let mut prepared = alias(0).ok_or(Errno::EINVAL)?;
+        prepared.materialize(&self.cred(caller).fs())?;
         let locked = self.check_lock_growth(caller, remap.addr, remap.new_size)?;
         // Growing a mapping of nothing in place never fits: `addr` itself is mapped.
         if !remap.may_move {
@@ -1497,10 +1510,12 @@ impl Kernel {
             false => self.map_anywhere(caller, pages).await?,
         };
         // A fixed target may have replaced the source (`vma_lookup` after `do_munmap`).
-        let Some(mut alias) = alias(target) else {
+        if alias(target).is_none() {
             mm.space().unmap(target, remap.new_size);
             return Err(Errno::EFAULT.into());
-        };
+        }
+        let mut alias = prepared;
+        alias.start = target;
         if let Err(errno) = alias.fill(caller.memory()).await {
             mm.space().unmap(target, remap.new_size);
             return Err(errno.into());
@@ -1545,6 +1560,7 @@ impl Kernel {
         old_len: u64,
         to: u64,
         new_len: u64,
+        growth: Option<Mapping>,
     ) -> Result<(), Errno> {
         let mm = self.mm(caller.task());
         let mut moved = mm.take_range(from, from + old_len);
@@ -1571,10 +1587,17 @@ impl Kernel {
             && let Some(last) = kept.last_mut()
             && last.end() == to + old_len
         {
-            result = result.and(
-                last.grow(caller.memory(), new_len - old_len, &self.cred(caller).fs())
-                    .await,
-            );
+            if let (
+                Source::Mapped(last),
+                Some(Mapping {
+                    source: Source::Mapped(prepared),
+                    ..
+                }),
+            ) = (&mut last.source, growth)
+            {
+                last.pages = prepared.pages;
+            }
+            result = result.and(last.grow(caller.memory(), new_len - old_len).await);
         }
         mm.restore(kept);
         result
