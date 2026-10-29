@@ -34624,6 +34624,311 @@ impl GuestLayout for NetlinkProtocolQ5 {
     }
 }
 
+/// SCTP sock_diag INET_DIAG_INFO payload (include/uapi/linux/sctp.h).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct SctpInfo {
+    pub sctpi_tag: u32,
+    pub sctpi_state: u32,
+    pub sctpi_rwnd: u32,
+    pub sctpi_unackdata: u16,
+    pub sctpi_penddata: u16,
+    pub sctpi_instrms: u16,
+    pub sctpi_outstrms: u16,
+    pub sctpi_fragmentation_point: u32,
+    pub sctpi_inqueue: u32,
+    pub sctpi_outqueue: u32,
+    pub sctpi_overall_error: u32,
+    pub sctpi_max_burst: u32,
+    pub sctpi_maxseg: u32,
+    pub sctpi_peer_rwnd: u32,
+    pub sctpi_peer_tag: u32,
+    pub sctpi_peer_capable: u8,
+    pub sctpi_peer_sack: u8,
+    pub reserved1: u16,
+    pub sctpi_isacks: u64,
+    pub sctpi_osacks: u64,
+    pub sctpi_opackets: u64,
+    pub sctpi_ipackets: u64,
+    pub sctpi_rtxchunks: u64,
+    pub sctpi_outofseqtsns: u64,
+    pub sctpi_idupchunks: u64,
+    pub sctpi_gapcnt: u64,
+    pub sctpi_ouodchunks: u64,
+    pub sctpi_iuodchunks: u64,
+    pub sctpi_oodchunks: u64,
+    pub sctpi_iodchunks: u64,
+    pub sctpi_octrlchunks: u64,
+    pub sctpi_ictrlchunks: u64,
+    pub sctpi_p_address: SockaddrStorage,
+    pub sctpi_p_state: i32,
+    pub sctpi_p_cwnd: u32,
+    pub sctpi_p_srtt: u32,
+    pub sctpi_p_rto: u32,
+    pub sctpi_p_hbinterval: u32,
+    pub sctpi_p_pathmaxrxt: u32,
+    pub sctpi_p_sackdelay: u32,
+    pub sctpi_p_sackfreq: u32,
+    pub sctpi_p_ssthresh: u32,
+    pub sctpi_p_partial_bytes_acked: u32,
+    pub sctpi_p_flight_size: u32,
+    pub sctpi_p_error: u16,
+    pub reserved2: u16,
+    pub sctpi_s_autoclose: u32,
+    pub sctpi_s_adaptation_ind: u32,
+    pub sctpi_s_pd_point: u32,
+    pub sctpi_s_nodelay: u8,
+    pub sctpi_s_disable_fragments: u8,
+    pub sctpi_s_v4mapped: u8,
+    pub sctpi_s_frag_interleave: u8,
+    pub sctpi_s_type: u32,
+    pub reserved3: u32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<SctpInfo>() == 368);
+    assert!(core::mem::align_of::<SctpInfo>() == 8);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_tag) == 0);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_state) == 4);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_rwnd) == 8);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_unackdata) == 12);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_penddata) == 14);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_instrms) == 16);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_outstrms) == 18);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_fragmentation_point) == 20);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_inqueue) == 24);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_outqueue) == 28);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_overall_error) == 32);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_max_burst) == 36);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_maxseg) == 40);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_peer_rwnd) == 44);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_peer_tag) == 48);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_peer_capable) == 52);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_peer_sack) == 53);
+    assert!(core::mem::offset_of!(SctpInfo, reserved1) == 54);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_isacks) == 56);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_osacks) == 64);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_opackets) == 72);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_ipackets) == 80);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_rtxchunks) == 88);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_outofseqtsns) == 96);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_idupchunks) == 104);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_gapcnt) == 112);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_ouodchunks) == 120);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_iuodchunks) == 128);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_oodchunks) == 136);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_iodchunks) == 144);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_octrlchunks) == 152);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_ictrlchunks) == 160);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_p_address) == 168);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_p_state) == 296);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_p_cwnd) == 300);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_p_srtt) == 304);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_p_rto) == 308);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_p_hbinterval) == 312);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_p_pathmaxrxt) == 316);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_p_sackdelay) == 320);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_p_sackfreq) == 324);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_p_ssthresh) == 328);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_p_partial_bytes_acked) == 332);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_p_flight_size) == 336);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_p_error) == 340);
+    assert!(core::mem::offset_of!(SctpInfo, reserved2) == 342);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_s_autoclose) == 344);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_s_adaptation_ind) == 348);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_s_pd_point) == 352);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_s_nodelay) == 356);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_s_disable_fragments) == 357);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_s_v4mapped) == 358);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_s_frag_interleave) == 359);
+    assert!(core::mem::offset_of!(SctpInfo, sctpi_s_type) == 360);
+    assert!(core::mem::offset_of!(SctpInfo, reserved3) == 364);
+};
+impl Default for SctpInfo {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for SctpInfo {
+    const SIZE: usize = 368;
+    const ALIGN: usize = 8;
+    const ZERO: Self = Self {
+        sctpi_tag: <u32 as GuestLayout>::ZERO,
+        sctpi_state: <u32 as GuestLayout>::ZERO,
+        sctpi_rwnd: <u32 as GuestLayout>::ZERO,
+        sctpi_unackdata: <u16 as GuestLayout>::ZERO,
+        sctpi_penddata: <u16 as GuestLayout>::ZERO,
+        sctpi_instrms: <u16 as GuestLayout>::ZERO,
+        sctpi_outstrms: <u16 as GuestLayout>::ZERO,
+        sctpi_fragmentation_point: <u32 as GuestLayout>::ZERO,
+        sctpi_inqueue: <u32 as GuestLayout>::ZERO,
+        sctpi_outqueue: <u32 as GuestLayout>::ZERO,
+        sctpi_overall_error: <u32 as GuestLayout>::ZERO,
+        sctpi_max_burst: <u32 as GuestLayout>::ZERO,
+        sctpi_maxseg: <u32 as GuestLayout>::ZERO,
+        sctpi_peer_rwnd: <u32 as GuestLayout>::ZERO,
+        sctpi_peer_tag: <u32 as GuestLayout>::ZERO,
+        sctpi_peer_capable: <u8 as GuestLayout>::ZERO,
+        sctpi_peer_sack: <u8 as GuestLayout>::ZERO,
+        reserved1: <u16 as GuestLayout>::ZERO,
+        sctpi_isacks: <u64 as GuestLayout>::ZERO,
+        sctpi_osacks: <u64 as GuestLayout>::ZERO,
+        sctpi_opackets: <u64 as GuestLayout>::ZERO,
+        sctpi_ipackets: <u64 as GuestLayout>::ZERO,
+        sctpi_rtxchunks: <u64 as GuestLayout>::ZERO,
+        sctpi_outofseqtsns: <u64 as GuestLayout>::ZERO,
+        sctpi_idupchunks: <u64 as GuestLayout>::ZERO,
+        sctpi_gapcnt: <u64 as GuestLayout>::ZERO,
+        sctpi_ouodchunks: <u64 as GuestLayout>::ZERO,
+        sctpi_iuodchunks: <u64 as GuestLayout>::ZERO,
+        sctpi_oodchunks: <u64 as GuestLayout>::ZERO,
+        sctpi_iodchunks: <u64 as GuestLayout>::ZERO,
+        sctpi_octrlchunks: <u64 as GuestLayout>::ZERO,
+        sctpi_ictrlchunks: <u64 as GuestLayout>::ZERO,
+        sctpi_p_address: <SockaddrStorage as GuestLayout>::ZERO,
+        sctpi_p_state: <i32 as GuestLayout>::ZERO,
+        sctpi_p_cwnd: <u32 as GuestLayout>::ZERO,
+        sctpi_p_srtt: <u32 as GuestLayout>::ZERO,
+        sctpi_p_rto: <u32 as GuestLayout>::ZERO,
+        sctpi_p_hbinterval: <u32 as GuestLayout>::ZERO,
+        sctpi_p_pathmaxrxt: <u32 as GuestLayout>::ZERO,
+        sctpi_p_sackdelay: <u32 as GuestLayout>::ZERO,
+        sctpi_p_sackfreq: <u32 as GuestLayout>::ZERO,
+        sctpi_p_ssthresh: <u32 as GuestLayout>::ZERO,
+        sctpi_p_partial_bytes_acked: <u32 as GuestLayout>::ZERO,
+        sctpi_p_flight_size: <u32 as GuestLayout>::ZERO,
+        sctpi_p_error: <u16 as GuestLayout>::ZERO,
+        reserved2: <u16 as GuestLayout>::ZERO,
+        sctpi_s_autoclose: <u32 as GuestLayout>::ZERO,
+        sctpi_s_adaptation_ind: <u32 as GuestLayout>::ZERO,
+        sctpi_s_pd_point: <u32 as GuestLayout>::ZERO,
+        sctpi_s_nodelay: <u8 as GuestLayout>::ZERO,
+        sctpi_s_disable_fragments: <u8 as GuestLayout>::ZERO,
+        sctpi_s_v4mapped: <u8 as GuestLayout>::ZERO,
+        sctpi_s_frag_interleave: <u8 as GuestLayout>::ZERO,
+        sctpi_s_type: <u32 as GuestLayout>::ZERO,
+        reserved3: <u32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            sctpi_tag: GuestLayout::read_from(&bytes[0..])?,
+            sctpi_state: GuestLayout::read_from(&bytes[4..])?,
+            sctpi_rwnd: GuestLayout::read_from(&bytes[8..])?,
+            sctpi_unackdata: GuestLayout::read_from(&bytes[12..])?,
+            sctpi_penddata: GuestLayout::read_from(&bytes[14..])?,
+            sctpi_instrms: GuestLayout::read_from(&bytes[16..])?,
+            sctpi_outstrms: GuestLayout::read_from(&bytes[18..])?,
+            sctpi_fragmentation_point: GuestLayout::read_from(&bytes[20..])?,
+            sctpi_inqueue: GuestLayout::read_from(&bytes[24..])?,
+            sctpi_outqueue: GuestLayout::read_from(&bytes[28..])?,
+            sctpi_overall_error: GuestLayout::read_from(&bytes[32..])?,
+            sctpi_max_burst: GuestLayout::read_from(&bytes[36..])?,
+            sctpi_maxseg: GuestLayout::read_from(&bytes[40..])?,
+            sctpi_peer_rwnd: GuestLayout::read_from(&bytes[44..])?,
+            sctpi_peer_tag: GuestLayout::read_from(&bytes[48..])?,
+            sctpi_peer_capable: GuestLayout::read_from(&bytes[52..])?,
+            sctpi_peer_sack: GuestLayout::read_from(&bytes[53..])?,
+            reserved1: GuestLayout::read_from(&bytes[54..])?,
+            sctpi_isacks: GuestLayout::read_from(&bytes[56..])?,
+            sctpi_osacks: GuestLayout::read_from(&bytes[64..])?,
+            sctpi_opackets: GuestLayout::read_from(&bytes[72..])?,
+            sctpi_ipackets: GuestLayout::read_from(&bytes[80..])?,
+            sctpi_rtxchunks: GuestLayout::read_from(&bytes[88..])?,
+            sctpi_outofseqtsns: GuestLayout::read_from(&bytes[96..])?,
+            sctpi_idupchunks: GuestLayout::read_from(&bytes[104..])?,
+            sctpi_gapcnt: GuestLayout::read_from(&bytes[112..])?,
+            sctpi_ouodchunks: GuestLayout::read_from(&bytes[120..])?,
+            sctpi_iuodchunks: GuestLayout::read_from(&bytes[128..])?,
+            sctpi_oodchunks: GuestLayout::read_from(&bytes[136..])?,
+            sctpi_iodchunks: GuestLayout::read_from(&bytes[144..])?,
+            sctpi_octrlchunks: GuestLayout::read_from(&bytes[152..])?,
+            sctpi_ictrlchunks: GuestLayout::read_from(&bytes[160..])?,
+            sctpi_p_address: GuestLayout::read_from(&bytes[168..])?,
+            sctpi_p_state: GuestLayout::read_from(&bytes[296..])?,
+            sctpi_p_cwnd: GuestLayout::read_from(&bytes[300..])?,
+            sctpi_p_srtt: GuestLayout::read_from(&bytes[304..])?,
+            sctpi_p_rto: GuestLayout::read_from(&bytes[308..])?,
+            sctpi_p_hbinterval: GuestLayout::read_from(&bytes[312..])?,
+            sctpi_p_pathmaxrxt: GuestLayout::read_from(&bytes[316..])?,
+            sctpi_p_sackdelay: GuestLayout::read_from(&bytes[320..])?,
+            sctpi_p_sackfreq: GuestLayout::read_from(&bytes[324..])?,
+            sctpi_p_ssthresh: GuestLayout::read_from(&bytes[328..])?,
+            sctpi_p_partial_bytes_acked: GuestLayout::read_from(&bytes[332..])?,
+            sctpi_p_flight_size: GuestLayout::read_from(&bytes[336..])?,
+            sctpi_p_error: GuestLayout::read_from(&bytes[340..])?,
+            reserved2: GuestLayout::read_from(&bytes[342..])?,
+            sctpi_s_autoclose: GuestLayout::read_from(&bytes[344..])?,
+            sctpi_s_adaptation_ind: GuestLayout::read_from(&bytes[348..])?,
+            sctpi_s_pd_point: GuestLayout::read_from(&bytes[352..])?,
+            sctpi_s_nodelay: GuestLayout::read_from(&bytes[356..])?,
+            sctpi_s_disable_fragments: GuestLayout::read_from(&bytes[357..])?,
+            sctpi_s_v4mapped: GuestLayout::read_from(&bytes[358..])?,
+            sctpi_s_frag_interleave: GuestLayout::read_from(&bytes[359..])?,
+            sctpi_s_type: GuestLayout::read_from(&bytes[360..])?,
+            reserved3: GuestLayout::read_from(&bytes[364..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.sctpi_tag.write_to(&mut out[0..]);
+        self.sctpi_state.write_to(&mut out[4..]);
+        self.sctpi_rwnd.write_to(&mut out[8..]);
+        self.sctpi_unackdata.write_to(&mut out[12..]);
+        self.sctpi_penddata.write_to(&mut out[14..]);
+        self.sctpi_instrms.write_to(&mut out[16..]);
+        self.sctpi_outstrms.write_to(&mut out[18..]);
+        self.sctpi_fragmentation_point.write_to(&mut out[20..]);
+        self.sctpi_inqueue.write_to(&mut out[24..]);
+        self.sctpi_outqueue.write_to(&mut out[28..]);
+        self.sctpi_overall_error.write_to(&mut out[32..]);
+        self.sctpi_max_burst.write_to(&mut out[36..]);
+        self.sctpi_maxseg.write_to(&mut out[40..]);
+        self.sctpi_peer_rwnd.write_to(&mut out[44..]);
+        self.sctpi_peer_tag.write_to(&mut out[48..]);
+        self.sctpi_peer_capable.write_to(&mut out[52..]);
+        self.sctpi_peer_sack.write_to(&mut out[53..]);
+        self.reserved1.write_to(&mut out[54..]);
+        self.sctpi_isacks.write_to(&mut out[56..]);
+        self.sctpi_osacks.write_to(&mut out[64..]);
+        self.sctpi_opackets.write_to(&mut out[72..]);
+        self.sctpi_ipackets.write_to(&mut out[80..]);
+        self.sctpi_rtxchunks.write_to(&mut out[88..]);
+        self.sctpi_outofseqtsns.write_to(&mut out[96..]);
+        self.sctpi_idupchunks.write_to(&mut out[104..]);
+        self.sctpi_gapcnt.write_to(&mut out[112..]);
+        self.sctpi_ouodchunks.write_to(&mut out[120..]);
+        self.sctpi_iuodchunks.write_to(&mut out[128..]);
+        self.sctpi_oodchunks.write_to(&mut out[136..]);
+        self.sctpi_iodchunks.write_to(&mut out[144..]);
+        self.sctpi_octrlchunks.write_to(&mut out[152..]);
+        self.sctpi_ictrlchunks.write_to(&mut out[160..]);
+        self.sctpi_p_address.write_to(&mut out[168..]);
+        self.sctpi_p_state.write_to(&mut out[296..]);
+        self.sctpi_p_cwnd.write_to(&mut out[300..]);
+        self.sctpi_p_srtt.write_to(&mut out[304..]);
+        self.sctpi_p_rto.write_to(&mut out[308..]);
+        self.sctpi_p_hbinterval.write_to(&mut out[312..]);
+        self.sctpi_p_pathmaxrxt.write_to(&mut out[316..]);
+        self.sctpi_p_sackdelay.write_to(&mut out[320..]);
+        self.sctpi_p_sackfreq.write_to(&mut out[324..]);
+        self.sctpi_p_ssthresh.write_to(&mut out[328..]);
+        self.sctpi_p_partial_bytes_acked.write_to(&mut out[332..]);
+        self.sctpi_p_flight_size.write_to(&mut out[336..]);
+        self.sctpi_p_error.write_to(&mut out[340..]);
+        self.reserved2.write_to(&mut out[342..]);
+        self.sctpi_s_autoclose.write_to(&mut out[344..]);
+        self.sctpi_s_adaptation_ind.write_to(&mut out[348..]);
+        self.sctpi_s_pd_point.write_to(&mut out[352..]);
+        self.sctpi_s_nodelay.write_to(&mut out[356..]);
+        self.sctpi_s_disable_fragments.write_to(&mut out[357..]);
+        self.sctpi_s_v4mapped.write_to(&mut out[358..]);
+        self.sctpi_s_frag_interleave.write_to(&mut out[359..]);
+        self.sctpi_s_type.write_to(&mut out[360..]);
+        self.reserved3.write_to(&mut out[364..]);
+    }
+}
+
 /// Wasm value type of an import param or result.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum ValType {
