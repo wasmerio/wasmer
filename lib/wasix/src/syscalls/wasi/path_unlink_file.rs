@@ -53,9 +53,6 @@ pub(crate) fn path_unlink_file_internal(
 
     let base_dir = wasi_try_ok!(state.fs.get_fd(fd));
     let inode = wasi_try_ok!(state.fs.get_inode_at_path(inodes, fd, path, false));
-    if matches!(inode.read().deref(), Kind::Dir { .. } | Kind::Root { .. }) {
-        return Ok(Errno::Isdir);
-    }
     let (parent_inode, owner, child_name) = wasi_try_ok!(state.fs.get_owned_parent_inode_at_path(
         inodes,
         fd,
