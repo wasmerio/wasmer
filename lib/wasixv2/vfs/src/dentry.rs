@@ -53,6 +53,19 @@ impl Dentry {
         dentry
     }
 
+    /// A dentry for an object found by its file handle with no dentry cached
+    /// (`d_obtain_alias`'s disconnected one): no parent, removed only if the object has no
+    /// links.
+    pub(crate) fn disconnected(
+        sb: &Arc<Superblock>,
+        node: Arc<dyn Node>,
+        linked: bool,
+    ) -> Arc<Self> {
+        let dentry = Self::new(sb.iget(node), b"/".to_vec(), None);
+        dentry.inner.lock().unwrap().unlinked = !linked;
+        dentry
+    }
+
     /// A dentry with a name but no parent, for an object of an internal mount
     /// (`d_alloc_pseudo`). It is never in a directory, so it counts as removed.
     pub(crate) fn pseudo(sb: &Arc<Superblock>, node: Arc<dyn Node>, name: &[u8]) -> Arc<Self> {
@@ -86,6 +99,7 @@ impl Dentry {
         if is_dir {
             dentry.inode.set_alias(&dentry);
         }
+        dentry.inode.set_last(&dentry);
         dentry
     }
 

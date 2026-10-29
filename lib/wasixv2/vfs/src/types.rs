@@ -310,5 +310,13 @@ pub struct FsInfo {
     pub stable: bool,
 }
 
+/// A file handle's filesystem part: the handle type (`enum fid_type`) and its body (`struct
+/// fid`), a whole number of 32-bit words, as `name_to_handle_at` returns them.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct FileId {
+    pub kind: i32,
+    pub data: Vec<u8>,
+}
+
 /// `TMPFS_MAGIC`.
 pub const TMPFS_MAGIC: u32 = 0x0102_1994;

@@ -55,6 +55,9 @@ struct State {
     linkable: bool,
     /// The one dentry of a directory (Linux keeps a single alias per directory).
     alias: Weak<Dentry>,
+    /// The dentry made last for the object, of any type (`d_find_any_alias`), so a file
+    /// handle decodes to a name the object has.
+    last: Weak<Dentry>,
     /// The kernel object bound to the inode: a FIFO's pipe (`i_pipe`) or a bound Unix socket.
     /// Weak: the object lives as long as its users (open FIFO ends, the bound socket, which in
     /// turn holds the inode through its path).
@@ -112,6 +115,17 @@ impl Inode {
 
     pub(crate) fn set_alias(&self, dentry: &Arc<Dentry>) {
         self.state.lock().unwrap().alias = Arc::downgrade(dentry);
+    }
+
+    /// A live dentry of the object, preferring one that still has its name.
+    pub(crate) fn any_alias(&self) -> Option<Arc<Dentry>> {
+        let state = self.state.lock().unwrap();
+        let alias = state.alias.upgrade().or_else(|| state.last.upgrade())?;
+        Some(alias)
+    }
+
+    pub(crate) fn set_last(&self, dentry: &Arc<Dentry>) {
+        self.state.lock().unwrap().last = Arc::downgrade(dentry);
     }
 
     /// The live kernel object bound to this inode, if any.

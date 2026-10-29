@@ -1,7 +1,7 @@
 //! Filesystem syscalls on open files and paths: `openat2` scoping, locks, allocation, copies,
 //! status flags and the generic ioctls.
 
-use wasixv2_abi::{EventfdFlags, ResolveFlags, SpliceFlags};
+use wasixv2_abi::{EventfdFlags, FileHandlePtr, ResolveFlags, S32Ptr, SpliceFlags};
 
 use super::ipc::{errno, get, machine, put};
 use super::*;
@@ -727,4 +727,80 @@ fn splice_between_a_socket_and_a_pipe() {
         Ok(4)
     );
     assert_eq!(t.read(a, 16), Ok(b"ping".to_vec()));
+}
+
+#[test]
+fn file_handles_encode_decode_and_go_stale() {
+    let (kernel, task, memory) = super::cred::machine_as(0, 0);
+    let t = T::new(&kernel, task, &memory);
+    t.mkdir("/d");
+    t.create("/d/f", b"data");
+    // `struct file_handle` at 0x3000, the mount id at 0x3100.
+    let to_handle = |at: &str, room: u32, flags: i32| {
+        put(&memory, 0x3000, &room.to_le_bytes());
+        let name = t.path(at);
+        let handle = FileHandlePtr::new(0x3000);
+        let call =
+            kernel.name_to_handle_at(&t.caller, CWD, name, handle, S32Ptr::new(0x3100), flags);
+        block_on(call)
+    };
+    let header = || {
+        let raw = get(&memory, 0x3000, 8);
+        let word = |i: usize| u32::from_le_bytes(raw[i..i + 4].try_into().unwrap());
+        (word(0), word(4) as i32)
+    };
+    let by_handle = |flags: OpenFlags| {
+        let open = kernel.open_by_handle_at(&t.caller, CWD, GuestPtr::new(0x3000), flags);
+        block_on(open)
+    };
+
+    // Too small: the size needed and `FILEID_INVALID`, and the mount id all the same.
+    assert_eq!(errno(to_handle("/d/f", 0, 0)), Errno::EOVERFLOW);
+    assert_eq!(header(), (12, 255));
+    assert_eq!(errno(to_handle("/d/f", 129, 0)), Errno::EINVAL);
+    assert_eq!(errno(to_handle("/d/f", 128, 0x4000_0000)), Errno::EINVAL);
+    // A connectable handle needs `fh_to_parent`, which tmpfs lacks.
+    assert_eq!(errno(to_handle("/d/f", 128, 0x2)), Errno::EOPNOTSUPP);
+    assert_eq!(errno(to_handle("/d/f", 128, 0x2 | 0x200)), Errno::EINVAL);
+
+    // tmpfs's own handles (`shmem_encode_fh`), for identifiers too.
+    assert_eq!(to_handle("/d/f", 128, 0x200), Ok(0));
+    assert_eq!(header(), (12, 1));
+    assert_eq!(to_handle("/d/f", 128, 0), Ok(0));
+    assert_eq!(header(), (12, 1));
+    let fd = by_handle(OpenFlags::O_RDONLY).unwrap();
+    assert_eq!(t.read(Fd(fd), 16), Ok(b"data".to_vec()));
+    t.close(Fd(fd));
+
+    // A unique mount id is 64 bits wide.
+    assert_eq!(to_handle("/d/f", 128, 0x1), Ok(0));
+    let unique = u64::from_le_bytes(get(&memory, 0x3100, 8).try_into().unwrap());
+    assert!(unique > 1 << 31);
+
+    // Malformed handles, then an unprivileged caller.
+    put(&memory, 0x3000, &0u32.to_le_bytes());
+    assert_eq!(errno(by_handle(OpenFlags::O_RDONLY)), Errno::EINVAL);
+    put(&memory, 0x3000, &12u32.to_le_bytes());
+    put(&memory, 0x3004, &(-1i32).to_le_bytes());
+    assert_eq!(errno(by_handle(OpenFlags::O_RDONLY)), Errno::EINVAL);
+    put(&memory, 0x3004, &1i32.to_le_bytes());
+
+    // Once the file is gone, its handle is stale.
+    let name = t.path("/d/f");
+    assert_eq!(
+        block_on(kernel.unlinkat(&t.caller, CWD, name, AtFlags(0))),
+        Ok(0)
+    );
+    assert_eq!(errno(by_handle(OpenFlags::O_RDONLY)), Errno::ESTALE);
+
+    // A directory's handle opens the directory, and only CAP_DAC_READ_SEARCH may decode.
+    assert_eq!(to_handle("/d", 128, 0), Ok(0));
+    let dir = by_handle(OpenFlags::O_RDONLY | OpenFlags::O_DIRECTORY).unwrap();
+    t.close(Fd(dir));
+    assert_eq!(block_on(kernel.setuid(&t.caller, 1000)), Ok(0));
+    assert_eq!(errno(by_handle(OpenFlags::O_RDONLY)), Errno::EPERM);
+    assert_eq!(
+        errno(by_handle(OpenFlags::O_RDONLY | OpenFlags::O_DIRECTORY)),
+        Errno::EPERM
+    );
 }

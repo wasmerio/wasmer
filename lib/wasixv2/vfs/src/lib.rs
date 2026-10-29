@@ -8,6 +8,7 @@
 mod cred;
 mod dentry;
 mod driver;
+mod export;
 mod file;
 mod inode;
 mod locks;
@@ -32,6 +33,7 @@ pub use cred::{
 };
 pub use dentry::Dentry;
 pub use driver::{Filesystem, Handle, Link, MAX_DIR_COOKIE, Node, SharedContents};
+pub use export::{HandleKind, MAX_HANDLE_SZ};
 pub use file::{DIR_POS_EOD, File};
 pub use inode::{Bound, Inode};
 pub use locks::{

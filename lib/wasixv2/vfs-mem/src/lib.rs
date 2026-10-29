@@ -29,9 +29,9 @@ use async_trait::async_trait;
 use wasixv2_abi::Errno;
 use wasixv2_pages::{Provider, SharedPages};
 use wasixv2_vfs::{
-    AllocMode, Attr, Clock, Device, DirEntry, DirSink, FileType, Filesystem, FsInfo, FsResult,
-    Handle, MAX_DIR_COOKIE, NAME_MAX, NewKind, NewNode, Node, OpenOptions, RenameMode, SeekHole,
-    SetAttr, StatFs, TMPFS_MAGIC, TimeSet, Timestamp, XattrSet,
+    AllocMode, Attr, Clock, Device, DirEntry, DirSink, FileId, FileType, Filesystem, FsInfo,
+    FsResult, Handle, MAX_DIR_COOKIE, NAME_MAX, NewKind, NewNode, Node, OpenOptions, RenameMode,
+    SeekHole, SetAttr, StatFs, TMPFS_MAGIC, TimeSet, Timestamp, XattrSet,
 };
 
 mod data;
@@ -41,6 +41,8 @@ use data::Data;
 const BLOCK: u64 = 4096;
 /// Largest file size, as Linux's `MAX_LFS_FILESIZE` on 64-bit.
 const MAX_SIZE: u64 = i64::MAX as u64;
+/// The handle type `shmem_encode_fh` gives (`FILEID_INO32_GEN`'s value, with three words).
+const FILEID_SHMEM: i32 = 1;
 /// tmpfs's `BOGO_DIRENT_SIZE`: what each entry adds to a directory's size.
 const DIRENT_SIZE: u64 = 20;
 /// tmpfs's `BOGO_INODE_SIZE`: the inode space an inode or an extra link takes.
@@ -104,6 +106,9 @@ struct Shared {
     /// The root's permission bits and owner as the filesystem was made with them
     /// (`shmem_sb_info`'s `mode`, `uid` and `gid`), which its options show.
     root_owner: (u32, u32, u32),
+    /// Every object that exists, by inode number, for file handles (the inode hash
+    /// `shmem_fh_to_dentry` looks in). Numbers are never reused, so the generation is 0.
+    nodes: Mutex<HashMap<u64, Weak<MemNode>>>,
 }
 
 impl Shared {
@@ -210,6 +215,7 @@ impl MemFs {
             space: Space::new(limits),
             pages: OnceLock::new(),
             root_owner: (mode & 0o7777, uid, gid),
+            nodes: Mutex::default(),
         });
         let root = NewNode {
             kind: NewKind::Directory,
@@ -277,6 +283,40 @@ impl Filesystem for MemFs {
 
     fn root(&self) -> Arc<dyn Node> {
         self.root.clone()
+    }
+
+    /// `shmem_encode_fh`: the generation, then the inode number's low and high words.
+    fn encode_fh(&self, node: &dyn Node) -> Option<FileId> {
+        let mut data = node.generation().to_le_bytes().to_vec();
+        data.extend_from_slice(&(node.ino() as u32).to_le_bytes());
+        data.extend_from_slice(&((node.ino() >> 32) as u32).to_le_bytes());
+        Some(FileId {
+            kind: FILEID_SHMEM,
+            data,
+        })
+    }
+
+    /// `shmem_fh_to_dentry`: the object while it exists, linked or held open.
+    async fn fh_to_node(&self, fid: &FileId) -> FsResult<Arc<dyn Node>> {
+        let word = |i: usize| -> Option<u32> {
+            let bytes = fid.data.get(i * 4..i * 4 + 4)?;
+            Some(u32::from_le_bytes(bytes.try_into().unwrap()))
+        };
+        let (Some(generation), Some(low), Some(high)) = (word(0), word(1), word(2)) else {
+            return Err(Errno::ESTALE);
+        };
+        let ino = u64::from(high) << 32 | u64::from(low);
+        let node = self
+            .shared
+            .nodes
+            .lock()
+            .unwrap()
+            .get(&ino)
+            .and_then(Weak::upgrade);
+        match node {
+            Some(node) if node.generation() == generation => Ok(node),
+            _ => Err(Errno::ESTALE),
+        }
     }
 
     /// As `shmem_statfs`: an unlimited size or inode count reports 0 for it.
@@ -411,8 +451,9 @@ impl MemNode {
             NewKind::CharDevice(dev) | NewKind::BlockDevice(dev) => (Content::Special, dev),
             NewKind::Fifo | NewKind::Socket => (Content::Special, Device::default()),
         };
-        Ok(Arc::new_cyclic(|this| Self {
-            ino: shared.next_ino.fetch_add(1, Ordering::Relaxed),
+        let ino = shared.next_ino.fetch_add(1, Ordering::Relaxed);
+        let node = Arc::new_cyclic(|this| Self {
+            ino,
             file_type: new.kind.file_type(),
             this: this.clone(),
             shared: shared.clone(),
@@ -429,7 +470,10 @@ impl MemNode {
                 xattrs: BTreeMap::new(),
             }),
             content,
-        }))
+        });
+        let weak = Arc::downgrade(&node);
+        shared.nodes.lock().unwrap().insert(ino, weak);
+        Ok(node)
     }
 
     fn arc(&self) -> Arc<MemNode> {
@@ -525,6 +569,7 @@ impl MemNode {
 
 impl Drop for MemNode {
     fn drop(&mut self) {
+        self.shared.nodes.lock().unwrap().remove(&self.ino);
         let space = &self.shared.space;
         space.release_blocks(self.allocated());
         let xattrs: u64 = self.meta().xattrs.iter().map(xattr_space).sum();
