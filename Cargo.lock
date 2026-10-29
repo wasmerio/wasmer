@@ -7220,6 +7220,7 @@ dependencies = [
  "wasixv2-abi",
  "wasixv2-pages",
  "wasixv2-vfs-mem",
+ "wasixv2-wait",
 ]
 
 [[package]]

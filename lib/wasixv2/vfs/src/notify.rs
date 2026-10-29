@@ -61,6 +61,12 @@ pub trait FsWatcher: Send + Sync {
         true
     }
 
+    /// Whether anything on the superblock `sb` is watched (its inode marks).
+    fn watches_sb(&self, sb: u64) -> bool {
+        let _ = sb;
+        self.watching()
+    }
+
     /// An object event (`Modify`, `Attrib`, `Access`, `Open`, `Close`) on an object whose
     /// name was removed while it stayed open (`d_unlinked`), for its own watches; inotify's
     /// `IN_EXCL_UNLINK` watches skip it. Takes the place of `event` for such a change.

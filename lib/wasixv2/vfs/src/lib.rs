@@ -287,6 +287,49 @@ impl Vfs {
         }
     }
 
+    /// Whether anything on an instance of the filesystems whose magic is `magic` is watched
+    /// (`fsnotify`'s early return when no mark exists): a driver may skip preparing events
+    /// while nothing is.
+    pub fn watched(&self, magic: u32) -> bool {
+        let Some(watcher) = self.watching() else {
+            return false;
+        };
+        let supers = self.supers.lock_or_recover();
+        supers
+            .iter()
+            .filter_map(std::sync::Weak::upgrade)
+            .any(|sb| sb.info.magic == magic && watcher.watches_sb(sb.id))
+    }
+
+    /// `kernfs_notify`'s `fsnotify` half, for a driver whose file contents change on their own:
+    /// `IN_MODIFY` for the object `ino`, first as its directory `dir` sees it under its name
+    /// there, on every instance of the filesystems whose magic is `magic`.
+    pub fn notify_modify(&self, magic: u32, ino: u64, dir: Option<(u64, &[u8])>) {
+        let Some(watcher) = self.watching() else {
+            return;
+        };
+        let supers: Vec<Arc<Superblock>> = self
+            .supers
+            .lock_or_recover()
+            .iter()
+            .filter_map(std::sync::Weak::upgrade)
+            .filter(|sb| sb.info.magic == magic)
+            .collect();
+        for sb in supers {
+            let event = FsEvent::Modify {
+                object: notify::Object { sb: sb.id, ino },
+            };
+            if let Some((dir, name)) = dir {
+                let dir = notify::Object {
+                    sb: sb.id,
+                    ino: dir,
+                };
+                watcher.child_event(dir, name, &event, false);
+            }
+            watcher.event(&event);
+        }
+    }
+
     /// Reports an event on the object `dentry` names, to its own watches and then to its
     /// parent directory's, with its name; for a removed name, the directory it was in
     /// (`fsnotify_parent` on a `d_unlinked` dentry).

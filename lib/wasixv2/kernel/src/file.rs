@@ -541,12 +541,12 @@ impl Drop for OpenFile {
 }
 
 impl Pollable for OpenFile {
-    /// `vfs_poll`. Inodes have no readiness of their own and are always ready, as Linux's
-    /// `DEFAULT_POLLMASK` for files without a poll operation.
+    /// `vfs_poll`: the object's readiness, or the filesystem driver's for an inode's, which is
+    /// Linux's `DEFAULT_POLLMASK` unless the driver has a poll operation.
     fn poll(&self, table: Option<&mut PollTable<'_>>) -> PollMask {
         match &self.backing {
             Backing::Stream(object, _) => object.poll(table),
-            Backing::Inode(_) => PollMask::DEFAULT,
+            Backing::Inode(file) => file.poll(table),
         }
     }
 }

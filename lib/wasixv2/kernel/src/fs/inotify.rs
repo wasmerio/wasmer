@@ -118,6 +118,10 @@ impl FsWatcher for Registry {
         self.watched.load(Ordering::Acquire)
     }
 
+    fn watches_sb(&self, sb: u64) -> bool {
+        self.watching() && self.watches.lock_or_recover().keys().any(|o| o.sb == sb)
+    }
+
     fn event(&self, event: &FsEvent<'_>) {
         let isdir = |is_dir: bool| if is_dir { IN_ISDIR } else { 0 };
         match *event {

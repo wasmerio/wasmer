@@ -110,6 +110,14 @@ impl File {
         }
     }
 
+    /// `vfs_poll`: the driver's readiness of the file; an `O_PATH` file is always ready.
+    pub fn poll(&self, table: Option<&mut wasixv2_wait::PollTable<'_>>) -> wasixv2_wait::PollMask {
+        match &self.handle {
+            Some(handle) => handle.poll(table),
+            None => wasixv2_wait::PollMask::DEFAULT,
+        }
+    }
+
     /// Reads at `offset` (`vfs_read` after the access-mode check).
     pub async fn read_at(&self, buf: &mut [u8], offset: u64) -> FsResult<usize> {
         let handle = self.handle()?;

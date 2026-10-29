@@ -339,6 +339,7 @@ impl Kernel {
         let banner = format!("Linux version {} {}", uname.release(), uname.version());
         printk.log(printk::Level::Notice, &banner);
         let cgroups = cgroup::Hierarchy::new(clock.clone(), printk.clone());
+        cgroups.start_notify(&timers, &vfs);
         Self {
             printk,
             acct: acct::Acct::default(),

@@ -3,10 +3,12 @@
 //! `/proc/cgroups` (`kernel/cgroup/{cgroup,pids,namespace}.c`).
 
 use wasixv2_abi::{
-    CloneArgs, CloneArgsSize, CloneFlags, Idtype, PidfdInfo, PidfdInfoMask, SiginfoPtr, WaitOptions,
+    CloneArgs, CloneArgsSize, CloneFlags, Idtype, PidfdInfo, PidfdInfoMask, RusagePtr, Siginfo,
+    SiginfoPtr, WaitOptions,
 };
 use wasixv2_syscalls::{read_value, write_value};
 use wasixv2_vfs::MountFlags;
+use wasixv2_wait::Interrupt as _;
 
 use super::{
     ipc::{errno, put},
@@ -701,4 +703,340 @@ fn pidfd_info_tells_the_cgroup() {
     let statx: wasixv2_abi::Statx = block_on(read_value(&p.memory, GuestPtr::new(0x3000))).unwrap();
     assert_eq!(info.cgroupid, statx.stx_ino);
     assert!(info.mask & PidfdInfoMask::PIDFD_INFO_CGROUPID.0 != 0);
+}
+
+/// Whether `task` waits in the freezer or a stop: its stop wait does not end yet.
+fn held(kernel: &Kernel, task: TaskId) -> bool {
+    use futures::FutureExt as _;
+    Box::pin(kernel.stop_wait(task)).now_or_never().is_none()
+}
+
+/// `waitid(P_PID, pid, WSTOPPED | WNOHANG)` by `p`: whether it reports anything.
+fn reports_stopped(kernel: &Kernel, p: &P, pid: Pid) -> bool {
+    let infop = SiginfoPtr::new(0x300);
+    let options = WaitOptions(WaitOptions::WSTOPPED.0 | WaitOptions::WNOHANG.0);
+    let caller = p.caller();
+    let wait = kernel.waitid(
+        &caller,
+        Idtype::P_PID,
+        pid,
+        infop,
+        options,
+        RusagePtr::new(0),
+    );
+    assert_eq!(block_on(wait), Ok(0));
+    let info: Siginfo = block_on(read_value(&p.memory, GuestPtr::new(0x300))).unwrap();
+    info.si_signo != 0
+}
+
+/// A child of `p` in the new cgroup `/cg/<name>`.
+fn child_in(kernel: &Kernel, p: &P, name: &str) -> (P, Pid) {
+    p.mkdir(kernel, &format!("/cg/{name}")).unwrap();
+    let (child, pid) = p.fork(kernel, 0).unwrap();
+    p.write(
+        kernel,
+        &format!("/cg/{name}/cgroup.procs"),
+        &pid.to_string(),
+    )
+    .unwrap();
+    (child, pid)
+}
+
+/// `cgroup_freeze` and `do_freezer_trap`: a frozen task waits on its way back to the guest
+/// until it is thawed; the cgroup reports `frozen 1` once every task is, and the parent sees
+/// no stop, nor does `/proc`.
+#[test]
+fn a_frozen_cgroup_holds_its_tasks_until_thawed() {
+    let (kernel, p) = machine();
+    let (child, pid) = child_in(&kernel, &p, "a");
+    assert_eq!(p.read(&kernel, "/cg/a/cgroup.freeze"), Ok("0\n".into()));
+
+    assert_eq!(p.write(&kernel, "/cg/a/cgroup.freeze", "1"), Ok(1));
+    assert_eq!(p.read(&kernel, "/cg/a/cgroup.freeze"), Ok("1\n".into()));
+    assert_eq!(
+        p.read(&kernel, "/cg/a/cgroup.events"),
+        Ok("populated 1\nfrozen 0\n".into()),
+        "the task has yet to reach the freezer"
+    );
+    assert!(
+        kernel.task_signals(child.task).pending(),
+        "it leaves its wait"
+    );
+    assert_eq!(kernel.take_pending(child.task), Some(GuestAction::Stopped));
+    assert!(held(&kernel, child.task));
+    assert_eq!(
+        p.read(&kernel, "/cg/a/cgroup.events"),
+        Ok("populated 1\nfrozen 1\n".into())
+    );
+    assert!(
+        !reports_stopped(&kernel, &p, pid),
+        "a frozen task is not stopped"
+    );
+    let status = p.read(&kernel, &format!("/proc/{pid}/status")).unwrap();
+    assert!(status.contains("State:\tS (sleeping)\n"), "{status}");
+    // A signal that does not kill waits for the thaw.
+    kernel.kill(child.task, Signal::SIGWINCH).unwrap();
+    assert!(held(&kernel, child.task));
+    assert_eq!(kernel.take_pending(child.task), Some(GuestAction::Stopped));
+
+    // A thaw is seen at once (`cgroup_do_freeze` clears `CGRP_FROZEN`).
+    assert_eq!(p.write(&kernel, "/cg/a/cgroup.freeze", "0"), Ok(1));
+    assert!(!held(&kernel, child.task));
+    assert_eq!(
+        p.read(&kernel, "/cg/a/cgroup.events"),
+        Ok("populated 1\nfrozen 0\n".into())
+    );
+    assert_eq!(
+        kernel.take_pending(child.task),
+        None,
+        "SIGWINCH is ignored now"
+    );
+    assert_eq!(
+        p.read(&kernel, "/cg/a/cgroup.events"),
+        Ok("populated 1\nfrozen 0\n".into())
+    );
+    assert_eq!(
+        errno(p.write(&kernel, "/cg/a/cgroup.freeze", "2")),
+        Errno::ERANGE
+    );
+    assert_eq!(errno(p.read(&kernel, "/cg/cgroup.freeze")), Errno::ENOENT);
+}
+
+/// A fatal signal ends the freeze of the task it kills (`get_signal`'s `fatal` with
+/// `cgroup_leave_frozen(true)`): SIGKILL, or one whose default action kills, which
+/// `complete_signal` makes a group exit as it is sent. The cgroup, empty, is frozen.
+#[test]
+fn fatal_signals_reach_a_frozen_task() {
+    for (sig, status) in [(Signal::SIGKILL, 128 + 9), (Signal::SIGTERM, 128 + 15)] {
+        fatal_signal_reaches_a_frozen_task(sig, status);
+    }
+}
+
+fn fatal_signal_reaches_a_frozen_task(sig: Signal, status: i32) {
+    let (kernel, p) = machine();
+    let (child, _) = child_in(&kernel, &p, "a");
+    p.write(&kernel, "/cg/a/cgroup.freeze", "1").unwrap();
+    assert_eq!(kernel.take_pending(child.task), Some(GuestAction::Stopped));
+
+    kernel.kill(child.task, sig).unwrap();
+
+    assert!(!held(&kernel, child.task));
+    assert_eq!(
+        kernel.take_pending(child.task),
+        Some(GuestAction::Exit(status))
+    );
+    block_on(kernel.exit_mm(&child.caller()));
+    assert_eq!(
+        p.read(&kernel, "/cg/a/cgroup.events"),
+        Ok("populated 0\nfrozen 1\n".into())
+    );
+}
+
+/// A cgroup made in a freezing one freezes, frozen at once while empty, though its own
+/// `cgroup.freeze` stays 0; a parent is frozen once its descendants are; a task forked or
+/// moved into a freezing cgroup freezes, one moved out thaws (`cgroup_post_fork`,
+/// `cgroup_freezer_migrate_task`).
+#[test]
+fn freezing_is_inherited_by_new_cgroups_and_tasks() {
+    let (kernel, p) = machine();
+    let (child, child_pid) = child_in(&kernel, &p, "a");
+    p.write(&kernel, "/cg/a/cgroup.freeze", "1").unwrap();
+    assert_eq!(kernel.take_pending(child.task), Some(GuestAction::Stopped));
+    assert_eq!(
+        p.read(&kernel, "/cg/a/cgroup.events"),
+        Ok("populated 1\nfrozen 1\n".into())
+    );
+
+    p.mkdir(&kernel, "/cg/a/b").unwrap();
+    assert_eq!(p.read(&kernel, "/cg/a/b/cgroup.freeze"), Ok("0\n".into()));
+    assert_eq!(
+        p.read(&kernel, "/cg/a/b/cgroup.events"),
+        Ok("populated 0\nfrozen 1\n".into())
+    );
+    assert_eq!(
+        p.read(&kernel, "/cg/a/cgroup.events"),
+        Ok("populated 1\nfrozen 1\n".into())
+    );
+
+    // Moved in: the parent's other child freezes in `b`, and `a` waits for it.
+    let (other, other_pid) = p.fork(&kernel, 0).unwrap();
+    p.write(&kernel, "/cg/a/b/cgroup.procs", &other_pid.to_string())
+        .unwrap();
+    assert_eq!(
+        p.read(&kernel, "/cg/a/b/cgroup.events"),
+        Ok("populated 1\nfrozen 0\n".into())
+    );
+    assert_eq!(
+        p.read(&kernel, "/cg/a/cgroup.events"),
+        Ok("populated 1\nfrozen 0\n".into())
+    );
+    assert_eq!(kernel.take_pending(other.task), Some(GuestAction::Stopped));
+    assert_eq!(
+        p.read(&kernel, "/cg/a/cgroup.events"),
+        Ok("populated 1\nfrozen 1\n".into())
+    );
+
+    // Moved out: it thaws, and its old cgroup stays frozen without it.
+    p.write(&kernel, "/cg/cgroup.procs", &other_pid.to_string())
+        .unwrap();
+    assert!(!held(&kernel, other.task));
+    assert_eq!(kernel.take_pending(other.task), None);
+    assert_eq!(
+        p.read(&kernel, "/cg/a/b/cgroup.events"),
+        Ok("populated 0\nfrozen 1\n".into())
+    );
+
+    // A thaw from above thaws the subtree.
+    p.write(&kernel, "/cg/a/cgroup.freeze", "0").unwrap();
+    assert_eq!(
+        p.read(&kernel, "/cg/a/b/cgroup.events"),
+        Ok("populated 0\nfrozen 0\n".into())
+    );
+    assert_eq!(kernel.take_pending(child.task), None);
+    let _ = child_pid;
+
+    // A child forked in a freezing cgroup freezes before it runs.
+    p.write(&kernel, "/cg/a/cgroup.freeze", "1").unwrap();
+    assert_eq!(kernel.take_pending(child.task), Some(GuestAction::Stopped));
+    let null = GuestPtrMut::NULL;
+    block_on(kernel.clone(&child.caller(), SIGCHLD, 0, null, 0, null)).unwrap();
+    // The parent, frozen, is held again once it took its fork's work.
+    let grandchild = loop {
+        match kernel.take_pending(child.task) {
+            Some(GuestAction::Fork { child, .. }) => break child,
+            Some(GuestAction::Stopped) | None => panic!("the fork left no child"),
+            Some(_) => {}
+        }
+    };
+    assert_eq!(kernel.take_pending(grandchild), Some(GuestAction::Stopped));
+    let stat_local = p.read(&kernel, "/cg/a/cgroup.stat.local").unwrap();
+    assert!(stat_local.starts_with("frozen_usec "), "{stat_local}");
+}
+
+/// A stopped task counts as frozen: a cgroup of stopped tasks freezes at once, and a stopped
+/// task stays stopped, reported to its parent, while its cgroup freezes.
+#[test]
+fn stopped_tasks_count_as_frozen() {
+    let (kernel, p) = machine();
+    let (child, pid) = child_in(&kernel, &p, "a");
+    kernel.kill(child.task, Signal::SIGSTOP).unwrap();
+    assert_eq!(kernel.take_pending(child.task), Some(GuestAction::Stopped));
+
+    p.write(&kernel, "/cg/a/cgroup.freeze", "1").unwrap();
+
+    assert_eq!(
+        p.read(&kernel, "/cg/a/cgroup.events"),
+        Ok("populated 1\nfrozen 1\n".into())
+    );
+    assert!(reports_stopped(&kernel, &p, pid));
+    kernel.kill(child.task, Signal::SIGCONT).unwrap();
+    assert!(held(&kernel, child.task), "the freezer holds it now");
+    assert_eq!(kernel.take_pending(child.task), Some(GuestAction::Stopped));
+    assert_eq!(
+        p.read(&kernel, "/cg/a/cgroup.events"),
+        Ok("populated 1\nfrozen 1\n".into())
+    );
+}
+
+/// `cgroup_file_notify` (`kernfs_notify`, `kernfs_generic_poll`): `cgroup.events` polls
+/// `POLLPRI | POLLERR` until read, and again when it changes; an inotify watch on it, and on its
+/// directory, hears `IN_MODIFY`. A refused fork notifies `pids.events` likewise.
+#[test]
+fn event_files_notify_pollers_and_inotify() {
+    use wasixv2_abi::{InotifyInitFlags, InotifyMask};
+    const PRI: u16 = 0x2;
+    const ERR: u16 = 0x8;
+    // The inotify half is delivered from the timer driver, which needs a host that runs it.
+    let host: Arc<dyn Host> = Arc::new(super::ptimer::RealHost(std::time::Instant::now()));
+    let root = MemFs::new(Arc::new(HostClock(host.clone())), 0o755, 0, 0);
+    let kernel = Kernel::new(host, Arc::new(root))
+        .with_credentials(Credentials::new(0, 0))
+        .with_init();
+    let stdin = Arc::new(Input(Mutex::new(Vec::new())));
+    let (kernel, task, _) = spawn_on(kernel, stdin, &[], &[]);
+    let vfs = kernel.vfs().clone();
+    block_on(vfs.mount(b"/cg", kernel.cgroupfs(), MountFlags::default(), true)).unwrap();
+    let p = P::new(task);
+    p.write(&kernel, "/cg/cgroup.subtree_control", "+pids")
+        .unwrap();
+    p.mkdir(&kernel, "/cg/a").unwrap();
+    let events = p
+        .open(&kernel, "/cg/a/cgroup.events", OpenFlags::O_RDONLY)
+        .unwrap();
+    let pids_events = p
+        .open(&kernel, "/cg/a/pids.events", OpenFlags::O_RDONLY)
+        .unwrap();
+    let poll = |fd: Fd| {
+        let fds = [(fd.0, PRI)];
+        super::ipc::ppoll(&kernel, &p.caller(), &p.memory.0, &fds, Some((0, 0))).1[0]
+    };
+    let read = |fd: Fd| {
+        let mut n = 0;
+        while let Ok(got @ 1..) =
+            block_on(kernel.pread64(&p.caller(), fd, UserSliceMut::new(0x4000, 4096), n))
+        {
+            n += got as i64;
+        }
+    };
+    assert_eq!(poll(events), PRI | ERR, "never read");
+    read(events);
+    assert_eq!(poll(events), 0);
+
+    let inotify =
+        block_on(kernel.inotify_init1(&p.caller(), InotifyInitFlags::IN_NONBLOCK)).unwrap();
+    let watch = |path: &str| {
+        let name = p.path(path);
+        block_on(kernel.inotify_add_watch(&p.caller(), inotify, name, InotifyMask::IN_MODIFY))
+            .unwrap()
+    };
+    let file_wd = watch("/cg/a/cgroup.events");
+    let dir_wd = watch("/cg/a");
+
+    let (child, pid) = p.fork(&kernel, 0).unwrap();
+    p.write(&kernel, "/cg/a/cgroup.procs", &pid.to_string())
+        .unwrap();
+
+    assert_eq!(poll(events), PRI | ERR, "populated");
+    read(events);
+    assert_eq!(poll(events), 0);
+    let modify = InotifyMask::IN_MODIFY.0;
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+    let mut seen: Vec<(i32, u32, String)> = Vec::new();
+    let file_event = (file_wd, modify, String::new());
+    while !seen.contains(&file_event) {
+        assert!(
+            std::time::Instant::now() < deadline,
+            "no inotify event: {seen:?}"
+        );
+        let buf = UserSliceMut::new(0x6000, 256);
+        let Ok(n) = block_on(kernel.read(&p.caller(), inotify, buf)) else {
+            std::thread::sleep(std::time::Duration::from_millis(5));
+            continue;
+        };
+        let queued = super::ipc::get(&p.memory.0, 0x6000, n as usize);
+        let mut at = 0;
+        while at + 16 <= queued.len() {
+            let word =
+                |i: usize| u32::from_le_bytes(queued[at + i..at + i + 4].try_into().unwrap());
+            let len = word(12) as usize;
+            let name = &queued[at + 16..at + 16 + len];
+            let name = String::from_utf8_lossy(name)
+                .trim_end_matches('\0')
+                .to_string();
+            seen.push((word(0) as i32, word(4), name));
+            at += 16 + len;
+        }
+    }
+    // `kernfs_notify_workfn`: the directory hears of it first, under the file's name.
+    let dir_event = (dir_wd, modify, "cgroup.events".to_string());
+    let at = |event| seen.iter().position(|e| *e == event).expect("an event");
+    assert!(at(dir_event) < at(file_event), "{seen:?}");
+
+    // `pids_event`.
+    read(pids_events);
+    assert_eq!(poll(pids_events), 0);
+    p.write(&kernel, "/cg/a/pids.max", "1").unwrap();
+    let refused = child.fork(&kernel, 0).map(|(_, pid)| pid);
+    assert_eq!(errno(refused), Errno::EAGAIN);
+    assert_eq!(poll(pids_events), PRI | ERR);
 }
