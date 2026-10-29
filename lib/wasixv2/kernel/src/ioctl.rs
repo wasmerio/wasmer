@@ -13,6 +13,24 @@ use crate::{
     tty::TtyFile,
 };
 
+/// `_IOC_DIR`, `_IOC_TYPE`, `_IOC_NR` and `_IOC_SIZE` (`asm-generic/ioctl.h`): the fields of
+/// a request number.
+pub(crate) fn ioc_dir(request: IoctlRequest) -> u32 {
+    request.0 >> 30
+}
+
+pub(crate) fn ioc_type(request: IoctlRequest) -> u32 {
+    (request.0 >> 8) & 0xff
+}
+
+pub(crate) fn ioc_nr(request: IoctlRequest) -> u32 {
+    request.0 & 0xff
+}
+
+pub(crate) fn ioc_size(request: IoctlRequest) -> u32 {
+    (request.0 >> 16) & 0x3fff
+}
+
 /// `FIGETBSZ` (`_IO(0x00, 2)`, `linux/fs.h`): the filesystem's block size. Not among the ABI's
 /// request names.
 const FIGETBSZ: IoctlRequest = IoctlRequest(2);
@@ -142,6 +160,9 @@ impl Kernel {
                 }
                 Some(_) if let Some(ns) = file.downcast::<NsFile>() => {
                     self.ns_ioctl(caller, ns, request, arg).await
+                }
+                Some(_) if let Some(pidfd) = file.downcast::<crate::process::PidFd>() => {
+                    self.pidfd_ioctl(caller, pidfd, request, arg).await
                 }
                 Some(object) => object.ioctl(caller, request, arg).await,
                 None => Err(Errno::ENOTTY.into()),

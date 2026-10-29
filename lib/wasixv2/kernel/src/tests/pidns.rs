@@ -2,8 +2,8 @@
 //! across namespaces, and `/proc` bound to a namespace.
 
 use wasixv2_abi::{
-    CloneArgs, CloneFlags, Idtype, KernelTimespec, MountFlags as MsFlags, RusagePtr, Siginfo,
-    SiginfoPtr, Signal, SigprocmaskHow, Sigset, WaitOptions,
+    CloneArgs, CloneFlags, Idtype, IoctlRequest, KernelTimespec, MountFlags as MsFlags, RusagePtr,
+    Siginfo, SiginfoPtr, Signal, SigprocmaskHow, Sigset, WaitOptions,
 };
 use wasixv2_syscalls::{read_value, write_value};
 use wasixv2_vfs::MountFlags;
@@ -831,4 +831,100 @@ fn an_init_whose_pids_could_not_all_be_made_is_no_init() {
         1,
         "and adopts the namespace's orphans"
     );
+}
+
+/// `PIDFD_GET_INFO` with a `struct pidfd_info` of `size` bytes at 0x500.
+fn pidfd_info(kernel: &Kernel, p: &P, pidfd: Fd, size: u32, mask: u64) -> SysResult<i32> {
+    put(&p.memory.0, 0x500, &mask.to_le_bytes());
+    let request = IoctlRequest((IoctlRequest::PIDFD_GET_INFO.0 & !(0x3fff << 16)) | (size << 16));
+    block_on(kernel.ioctl(&p.caller(), pidfd, request, 0x500))
+}
+
+/// The `struct pidfd_info` at 0x500.
+fn pidfd_info_at(p: &P) -> wasixv2_abi::PidfdInfo {
+    block_on(read_value(&p.memory, GuestPtr::new(0x500))).unwrap()
+}
+
+/// `PIDFD_GET_INFO` (`fs/pidfs.c` `pidfd_info`, LTP ioctl_pidfd02-06): the pid, thread group,
+/// parent and credentials of a process not yet reaped, as the caller's namespaces see them;
+/// its wait status, when asked for, once it is reaped, and nothing else then (`ESRCH`); no
+/// cgroup id; `EREMOTE` for a process outside the caller's pid namespace. The request takes
+/// any size from the first published struct on, and fills as much as both know.
+#[test]
+fn pidfd_get_info_tells_a_process_and_its_exit() {
+    use wasixv2_abi::PidfdInfoMask as M;
+    let (kernel, parent) = machine();
+    let (child, pid) = fork(&kernel, &parent, 0).unwrap();
+    let pidfd = block_on(kernel.pidfd_open(&parent.caller(), pid, 0)).unwrap();
+    let exit_asked = M::PIDFD_INFO_EXIT.0 | M::PIDFD_INFO_SUPPORTED_MASK.0;
+
+    assert_eq!(pidfd_info(&kernel, &parent, pidfd, 88, exit_asked), Ok(0));
+    let info = pidfd_info_at(&parent);
+    let filled = M::PIDFD_INFO_PID.0 | M::PIDFD_INFO_CREDS.0 | M::PIDFD_INFO_SUPPORTED_MASK.0;
+    assert_eq!(
+        info.mask, filled,
+        "no exit before it is reaped, no cgroup id"
+    );
+    assert_eq!((info.pid, info.tgid), (pid as u32, pid as u32));
+    assert_eq!(info.ppid, getpid(&kernel, &parent) as u32);
+    assert_eq!(
+        (info.ruid, info.euid, info.fsgid, info.exit_code),
+        (0, 0, 0, 0)
+    );
+    assert_eq!(info.cgroupid, 0);
+    assert_eq!(info.supported_mask, 0x2b);
+
+    // LTP's struct is the second published one, 72 bytes: nothing past it is written; one
+    // past ours gets zeroes.
+    put(&parent.memory.0, 0x500 + 72, &[0xee; 40]);
+    assert_eq!(pidfd_info(&kernel, &parent, pidfd, 72, 0), Ok(0));
+    assert_eq!(get(&parent.memory.0, 0x500 + 72, 16), [0xee; 16]);
+    assert_eq!(pidfd_info(&kernel, &parent, pidfd, 104, 0), Ok(0));
+    assert_eq!(get(&parent.memory.0, 0x500 + 72, 32), [0; 32]);
+    assert_eq!(get(&parent.memory.0, 0x500 + 104, 8), [0xee; 8]);
+    // Smaller than the first, or another request, is not this one (`pidfs_ioctl_valid`).
+    assert_eq!(
+        errno(pidfd_info(&kernel, &parent, pidfd, 4, 0)),
+        Errno::ENOTTY
+    );
+    let null = block_on(kernel.ioctl(&parent.caller(), pidfd, IoctlRequest::PIDFD_GET_INFO, 0));
+    assert_eq!(errno(null), Errno::EINVAL);
+
+    // A process in a pid namespace of its own cannot ask of its parent's.
+    let (init, _) = fork(&kernel, &parent, NEWPID).unwrap();
+    assert_eq!(
+        errno(pidfd_info(&kernel, &init, pidfd, 88, 0)),
+        Errno::EREMOTE
+    );
+
+    exit(&kernel, &child, 100);
+    assert_eq!(pidfd_info(&kernel, &parent, pidfd, 88, exit_asked), Ok(0));
+    assert_eq!(
+        pidfd_info_at(&parent).mask & M::PIDFD_INFO_EXIT.0,
+        0,
+        "a zombie"
+    );
+    assert_eq!(reap(&kernel, &parent, pid).unwrap(), Some((pid, 1, 100)));
+    assert_eq!(pidfd_info(&kernel, &parent, pidfd, 88, exit_asked), Ok(0));
+    let info = pidfd_info_at(&parent);
+    assert_eq!(
+        info.mask,
+        M::PIDFD_INFO_EXIT.0 | M::PIDFD_INFO_SUPPORTED_MASK.0
+    );
+    assert_eq!(info.exit_code, 100 << 8);
+    assert_eq!(
+        errno(pidfd_info(&kernel, &parent, pidfd, 88, 0)),
+        Errno::ESRCH,
+        "reaped, and the exit not asked for"
+    );
+
+    // One killed by a signal exits with it.
+    let (child, pid) = fork(&kernel, &parent, 0).unwrap();
+    let pidfd = block_on(kernel.pidfd_open(&parent.caller(), pid, 0)).unwrap();
+    assert_eq!(kill(&kernel, &parent, pid, Signal::SIGKILL), Ok(0));
+    assert!(dies(&kernel, &child));
+    assert!(reap(&kernel, &parent, pid).unwrap().is_some());
+    let exit = M::PIDFD_INFO_EXIT.0;
+    assert_eq!(pidfd_info(&kernel, &parent, pidfd, 88, exit), Ok(0));
+    assert_eq!(pidfd_info_at(&parent).exit_code, Signal::SIGKILL.0);
 }

@@ -131,7 +131,7 @@ The kernel is plain async Rust with no wasm engine, no async runtime and no reco
   A process is a thread group. Fork, vfork and thread creation are all the same operation with different flags.
 - **Process tree.**
   - Parent and child links, sessions, process groups and controlling terminals.
-  - Zombies and reaping, `wait` variants, pidfds.
+  - Zombies and reaping, `wait` variants, pidfds, which tell a process's ids and credentials, and its wait status once it is reaped (`PIDFD_GET_INFO`; no cgroup id).
   - Pid allocation per pid namespace, with reuse.
   - **Init.** The kernel boots with its own init as pid 1, and every program the embedder starts is its child, as on Linux. Init runs no guest code: it ignores SIGCHLD, so the orphans handed to it are reaped as they exit (`forget_original_parent`), and no signal it has no handler for reaches it, SIGKILL included (`SIGNAL_UNKILLABLE`). It is never killed or waited for when the machine shuts down. The embedder can boot without it; programs then start as pid 1 with no parent, and orphans are reaped as they exit. A guest init program can later take its place behind the same option.
 - **Credentials.** Real, effective and saved uid and gid, supplementary groups and capabilities. They are checked by the kernel, never by the host. Every id the kernel stores or compares is a kernel id (`Kuid`, `Kgid`: what the initial user namespace sees); the credentials name the user namespace their ids are seen through and their capabilities count in, and ids are translated only where they cross the syscall or `/proc` boundary (`make_kuid` in, `EINVAL` where unmapped; `from_kuid_munged` out, 65534 where unmapped), each reader seeing them through its own namespace.

@@ -11,13 +11,14 @@
 
 use std::{
     collections::HashMap,
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, OnceLock},
 };
 
 use wasixv2_abi::{
     AtFlags, CloneArgs, CloneArgsSize, CloneFlags, ConstCloneArgsPtr, ConstSiginfoPtr, Cstr,
-    CstrArray, GuestLayout, GuestPtr, GuestPtrMut, Idtype, OpenFlags, Pid, Rusage, RusagePtr,
-    S32Ptr, SiCode, Siginfo, SiginfoPtr, Signal, Ulong, Uptr, Usize, WaitOptions,
+    CstrArray, GuestLayout, GuestPtr, GuestPtrMut, Idtype, IoctlRequest, IoctlType, OpenFlags, Pid,
+    PidfdInfo, PidfdInfoMask, PidfdInfoSize, Rusage, RusagePtr, S32Ptr, SiCode, Siginfo,
+    SiginfoPtr, Signal, Ulong, Uptr, Usize, WaitOptions,
 };
 use wasixv2_syscalls::{
     BINPRM_BUF_SIZE, Binfmt, Caller, CpuAccount, CpuTimes, CstrError, Errno, Fd, GuestAction,
@@ -116,6 +117,9 @@ impl Tree {
     /// process group and session hold its pids no more.
     pub(crate) fn reap(&mut self, pid: u32) -> Option<Node> {
         let node = self.nodes.remove(&pid)?;
+        if let (Some(attr), Some(exit)) = (&node.pidfs, &node.exit) {
+            let _ = attr.exit.set(exit.wait_status());
+        }
         self.reaped = self.reaped.saturating_add(node.process.cpu.times());
         let (pgid, sid) = {
             let ident = node.process.ident.lock_or_recover();
@@ -173,6 +177,16 @@ pub(crate) struct Node {
     killed_by: Option<i32>,
     /// Set once the process exited; it is a zombie until reaped.
     exit: Option<Exit>,
+    /// What its pidfds read once it is reaped, made with its first pidfd
+    /// (`pidfs_register_pid`).
+    pidfs: Option<Arc<PidAttr>>,
+}
+
+/// What a process's pidfds learn of it when it is reaped (`struct pidfs_attr`): its wait
+/// status (`pidfs_exit`). Only a process that had a pidfd by then keeps it.
+#[derive(Default)]
+pub(crate) struct PidAttr {
+    exit: OnceLock<i32>,
 }
 
 impl Node {
@@ -203,6 +217,18 @@ struct Exit {
     status: i32,
     /// The process's real uid when it exited.
     uid: Kuid,
+}
+
+impl Exit {
+    /// The status `wait` reports for an exit (`exit_code`): the exit status above the low byte,
+    /// or the signal, with `0x80` for a core dump.
+    fn wait_status(&self) -> i32 {
+        match self.code {
+            SiCode::CLD_EXITED => (self.status & 0xff) << 8,
+            SiCode::CLD_DUMPED => self.status | 0x80,
+            _ => self.status,
+        }
+    }
 }
 
 impl Procs {
@@ -238,6 +264,7 @@ impl Procs {
                 did_exec: false,
                 killed_by: None,
                 exit: None,
+                pidfs: None,
             },
         );
     }
@@ -1114,9 +1141,15 @@ impl Kernel {
             Some(process) => process.pid_ns.clone(),
             None => self.init_ns.pid_for_children.clone(),
         };
+        let attr = {
+            let mut tree = self.procs.tree.lock_or_recover();
+            let node = tree.nodes.get_mut(&pid);
+            node.map(|node| node.pidfs.get_or_insert_with(Arc::default).clone())
+        };
         let object = PidFd {
             pid,
             pid_ns,
+            attr: attr.unwrap_or_default(),
             tree: self.procs.tree.clone(),
             changed: self.procs.changed.clone(),
         };
@@ -1974,16 +2007,124 @@ impl Kernel {
     }
 }
 
+/// `PIDFD_INFO_SUPPORTED`: what `PIDFD_GET_INFO` can fill here. Without cgroups there is no
+/// cgroup id (`CONFIG_CGROUPS`), and no process dumps core.
+const PIDFD_INFO_SUPPORTED: PidfdInfoMask = PidfdInfoMask(
+    PidfdInfoMask::PIDFD_INFO_PID.0
+        | PidfdInfoMask::PIDFD_INFO_CREDS.0
+        | PidfdInfoMask::PIDFD_INFO_EXIT.0
+        | PidfdInfoMask::PIDFD_INFO_SUPPORTED_MASK.0,
+);
+
+impl Kernel {
+    /// `pidfd_ioctl`: `PIDFD_GET_INFO` (`pidfd_info`), an extensible request that takes any
+    /// size of `struct pidfd_info` from the first published one on (`pidfs_ioctl_valid`), and
+    /// fills as much of it as both sides know (`copy_struct_to_user`). Anything else is
+    /// `ENOTTY`.
+    pub(crate) async fn pidfd_ioctl(
+        &self,
+        caller: &Caller<'_>,
+        pidfd: &PidFd,
+        request: IoctlRequest,
+        arg: u32,
+    ) -> SysResult<i32> {
+        let size = crate::ioctl::ioc_size(request);
+        let get_info = IoctlRequest::PIDFD_GET_INFO;
+        let extensible = crate::ioctl::ioc_dir(request) == crate::ioctl::ioc_dir(get_info)
+            && crate::ioctl::ioc_type(request) == IoctlType::PIDFS_IOCTL_MAGIC.0
+            && crate::ioctl::ioc_nr(request) == crate::ioctl::ioc_nr(get_info);
+        if !extensible || size < PidfdInfoSize::PIDFD_INFO_SIZE_VER0.0 {
+            return Err(Errno::ENOTTY.into());
+        }
+        if arg == 0 {
+            return Err(Errno::EINVAL.into());
+        }
+        let mask: u64 = read_value(caller.memory(), GuestPtr::new(arg)).await?;
+        let info = self.pidfd_info(caller, pidfd, PidfdInfoMask(mask))?;
+        let mut bytes = vec![0; (size as usize).max(PidfdInfo::SIZE)];
+        info.write_to(&mut bytes);
+        bytes.truncate(size as usize);
+        caller.memory().write(arg, &bytes).await?;
+        Ok(0)
+    }
+
+    /// `pidfd_info`'s answer for the mask `asked`: nothing for a process outside the caller's
+    /// pid namespace (`EREMOTE`); the exit status, if asked for, once the process is reaped;
+    /// and while it is not, its credentials as the caller's user namespace sees them and its
+    /// pid, thread group and parent as the caller's pid namespace does (`ESRCH` for a reaped
+    /// process unless the exit was asked for).
+    fn pidfd_info(
+        &self,
+        caller: &Caller<'_>,
+        pidfd: &PidFd,
+        asked: PidfdInfoMask,
+    ) -> Result<PidfdInfo, Errno> {
+        // `pid_in_current_pidns`.
+        let active = self.active_pid_ns(caller.task());
+        if !crate::ns::pid_ns_descends(&pidfd.pid_ns, &active) {
+            return Err(Errno::EREMOTE);
+        }
+        let mut info = PidfdInfo::default();
+        let mut mask = 0;
+        let wants = |flag: PidfdInfoMask| asked.0 & flag.0 != 0;
+        if wants(PidfdInfoMask::PIDFD_INFO_EXIT)
+            && let Some(&status) = pidfd.attr.exit.get()
+        {
+            mask |= PidfdInfoMask::PIDFD_INFO_EXIT.0;
+            info.exit_code = status;
+        }
+        let task = {
+            let tree = self.procs.tree.lock_or_recover();
+            let node = tree.nodes.get(&pidfd.pid);
+            node.map(|node| (node.process.cred(), node.parent))
+        };
+        match task {
+            None if !wants(PidfdInfoMask::PIDFD_INFO_EXIT) => return Err(Errno::ESRCH),
+            None => {}
+            Some((cred, parent)) => {
+                let ns = self.cred(caller).user_ns;
+                info.ruid = ns.munged_uid(cred.user.real);
+                info.euid = ns.munged_uid(cred.user.effective);
+                info.suid = ns.munged_uid(cred.user.saved);
+                info.fsuid = ns.munged_uid(cred.user.fs);
+                info.rgid = ns.munged_gid(cred.group.real);
+                info.egid = ns.munged_gid(cred.group.effective);
+                info.sgid = ns.munged_gid(cred.group.saved);
+                info.fsgid = ns.munged_gid(cred.group.fs);
+                mask |= PidfdInfoMask::PIDFD_INFO_CREDS.0;
+                info.ppid = match parent {
+                    0 => 0,
+                    parent => self.vnr(caller, parent) as u32,
+                };
+                info.tgid = self.vnr(caller, pidfd.pid) as u32;
+                info.pid = info.tgid;
+                mask |= PidfdInfoMask::PIDFD_INFO_PID.0;
+                if info.pid == 0 {
+                    return Err(Errno::ESRCH);
+                }
+            }
+        }
+        if wants(PidfdInfoMask::PIDFD_INFO_SUPPORTED_MASK) {
+            mask |= PidfdInfoMask::PIDFD_INFO_SUPPORTED_MASK.0;
+            info.supported_mask = PIDFD_INFO_SUPPORTED.0;
+        }
+        info.mask = mask;
+        Ok(info)
+    }
+}
+
 /// The process a pidfd refers to (`pidfd_pid`), if `file` is one.
 pub(crate) fn pidfd_target(file: &OpenFile) -> Option<u32> {
     file.downcast::<PidFd>().map(|pidfd| pidfd.pid)
 }
 
 /// A process descriptor (`pidfd_open`): readable once the process exited.
-struct PidFd {
+pub(crate) struct PidFd {
     pid: u32,
     /// The process's pid namespace (`ns_of_pid`), which outlives its pids.
     pid_ns: Arc<PidNs>,
+    /// What it learns of the process when it is reaped.
+    attr: Arc<PidAttr>,
     tree: Arc<Mutex<Tree>>,
     pub(crate) changed: Arc<WaitQueue>,
 }
