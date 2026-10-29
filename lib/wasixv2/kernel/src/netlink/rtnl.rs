@@ -38,6 +38,7 @@ pub(super) const RTM_NEWROUTE: u16 = 24;
 pub(super) const RTM_DELROUTE: u16 = 25;
 pub(super) const RTM_GETROUTE: u16 = 26;
 pub(super) const RTM_GETNEIGH: u16 = 30;
+pub(super) const RTM_GETRULE: u16 = 34;
 pub(super) const RTM_NEWNSID: u16 = 88;
 pub(super) const RTM_GETNSID: u16 = 90;
 
@@ -938,7 +939,7 @@ fn route_msg(route: &Route, seq: u32, port: u32, flags: u16, rtm_flags: u32) -> 
     ];
     p.extend(rtm_flags.to_le_bytes());
     rta(&mut p, RTA_TABLE, &route.table.to_le_bytes());
-    if route.prefix_len > 0 || v6 {
+    if route.prefix_len > 0 {
         rta(&mut p, RTA_DST, &octets(route.dst));
     }
     if v6 || route.metric != 0 {
@@ -1014,6 +1015,49 @@ pub(super) fn new_nsid(r: &Request<'_>, payload: &[u8]) -> Result<(), Errno> {
     let id = (id >= 0).then_some(id);
     r.network()?.assign_peer_id(&*peer, id).map(|_| ())
 }
+
+/// `RTM_GETRULE` (`fib_nl_dumprule`): the default rules, which are all there are, and which
+/// route lookups follow: local, then main, then (IPv4) default. Rules cannot change.
+pub(super) fn get_rule(r: &Request<'_>, payload: &[u8], dump: bool) -> Result<Vec<u8>, Errno> {
+    use wasixv2_vnet::iface::rt::{RT_TABLE_DEFAULT, RT_TABLE_MAIN};
+    const FRA_PRIORITY: u16 = 6;
+    const FRA_SUPPRESS_PREFIXLEN: u16 = 14;
+    const FRA_TABLE: u16 = 15;
+    const FRA_PROTOCOL: u16 = 21;
+    const FR_ACT_TO_TBL: u8 = 1;
+    if !dump {
+        return Err(Errno::EOPNOTSUPP);
+    }
+    let family = payload.first().copied().unwrap_or(0);
+    let mut msgs = Vec::new();
+    for (fam, v6) in [
+        (AddressFamily::AF_INET.0 as u8, false),
+        (AddressFamily::AF_INET6.0 as u8, true),
+    ] {
+        if family != 0 && family != fam {
+            continue;
+        }
+        let mut rules = vec![(0u32, RT_TABLE_LOCAL), (32766, RT_TABLE_MAIN)];
+        if !v6 {
+            rules.push((32767, RT_TABLE_DEFAULT));
+        }
+        for (pref, table) in rules {
+            let mut p = vec![fam, 0, 0, 0, table as u8, 0, 0, FR_ACT_TO_TBL];
+            p.extend(0u32.to_le_bytes());
+            rta(&mut p, FRA_TABLE, &table.to_le_bytes());
+            rta(&mut p, FRA_SUPPRESS_PREFIXLEN, &u32::MAX.to_le_bytes());
+            rta(&mut p, FRA_PROTOCOL, &[RTPROT_KERNEL]);
+            if pref != 0 {
+                rta(&mut p, FRA_PRIORITY, &pref.to_le_bytes());
+            }
+            msgs.push(nlmsg(RTM_NEWRULE, NLM_F_MULTI, r.seq, r.port, &p));
+        }
+    }
+    Ok(r.dump(msgs))
+}
+
+/// `RTM_NEWRULE`, which rule messages are.
+const RTM_NEWRULE: u16 = 32;
 
 /// `RTM_GETNEIGH`: no neighbour is ever resolved, so a dump is empty.
 pub(super) fn get_neigh(r: &Request<'_>, dump: bool) -> Result<Vec<u8>, Errno> {
