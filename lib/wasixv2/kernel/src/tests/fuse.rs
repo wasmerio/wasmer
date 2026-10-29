@@ -309,6 +309,7 @@ fn fuse_namespace_and_metadata_protocol() {
         (NewKind::Symlink(b"target"), 6),
     ] {
         let new = NewNode {
+            quota_exempt: false,
             kind,
             mode: 0o750,
             uid: 0,
@@ -1171,6 +1172,7 @@ fn fuse_create_open_directory_sync_statfs_and_mmap_policy() {
     let d = Daemon::new();
     d.init();
     let new = NewNode {
+        quota_exempt: false,
         kind: NewKind::Regular,
         mode: 0o640,
         uid: 0,
@@ -1354,6 +1356,7 @@ fn fuse_notify_delete_retires_an_open_directory() {
     assert!(node.unlinked_directory());
     assert_eq!(block_on(node.getattr()).unwrap().nlink, 0);
     let new = NewNode {
+        quota_exempt: false,
         kind: NewKind::Regular,
         mode: 0o600,
         uid: 0,
@@ -1371,6 +1374,7 @@ fn fuse_invalid_create_reply_releases_before_forgetting() {
     let d = Daemon::new();
     d.init();
     let new = NewNode {
+        quota_exempt: false,
         kind: NewKind::Regular,
         mode: 0o600,
         uid: 0,
@@ -1980,4 +1984,48 @@ fn fuse_background_limits_throttle_until_reply_or_control_update() {
         Err(SysErr::Errno(Errno::EINVAL))
     );
     d.reply(&second, 0, &[]).unwrap();
+}
+
+/// fs/fuse/dir.c:fuse_allow_current_process and dev.c:fuse_req_init_context use current_cred.
+#[test]
+fn fuse_uses_calling_threads_credentials_and_subjective_overrides() {
+    for allow_other in [false, true] {
+        let d = Daemon::with_mount("fuse", if allow_other { ",allow_other" } else { "" });
+        d.init();
+        let worker = TaskId(
+            block_on(d.kernel.thread_spawn(
+                &d.caller(),
+                0x10f00,
+                0,
+                GuestPtrMut::NULL,
+                0,
+                GuestPtrMut::NULL,
+            ))
+            .unwrap() as u32,
+        );
+        let caller = Caller::new(worker, &d.memory);
+        block_on(d.kernel.setresgid(&caller, 1000, 1000, 1000)).unwrap();
+        block_on(d.kernel.setresuid(&caller, 1000, 1000, 1000)).unwrap();
+        assert_eq!(block_on(d.kernel.getuid(&d.caller())), Ok(0));
+        let lookup = || d.root.lookup(b"thread");
+        if allow_other {
+            d.drive(worker, lookup(), |r| {
+                assert_eq!(n32(r, 24), 1000);
+                assert_eq!(n32(r, 28), 1000);
+                assert_eq!(n32(r, 32), worker.0);
+                (0, entry(2, FileType::Regular))
+            })
+            .unwrap();
+        } else {
+            assert!(matches!(now(as_task(worker, lookup())), Err(Errno::EACCES)));
+            let root = d.kernel.task_cred(d.task);
+            let _override = d.kernel.lend_cred(worker, (*root).clone());
+            d.drive(worker, lookup(), |r| {
+                assert_eq!(n32(r, 24), 0);
+                assert_eq!(n32(r, 28), 0);
+                (0, entry(2, FileType::Regular))
+            })
+            .unwrap();
+        }
+    }
 }

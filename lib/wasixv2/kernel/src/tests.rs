@@ -838,5 +838,5 @@ mod timerfd;
 mod tty;
 mod userns;
 
-mod watch_queue;
 mod fuse;
+mod watch_queue;

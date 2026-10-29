@@ -63,7 +63,8 @@ impl Connection {
         let Some(task) = state.tasks.get(&id) else {
             return (0, 0, 0, None);
         };
-        let cred = task.process.cred();
+        // include/linux/cred.h: current_cred includes temporary subjective overrides.
+        let cred = task.cred_override.as_ref().unwrap_or(&task.cred);
         (
             self.user_ns.munged_uid(cred.user.fs),
             self.user_ns.munged_gid(cred.group.fs),
@@ -81,7 +82,8 @@ impl Connection {
         let Some(task) = current_task().and_then(|id| state.tasks.get(&id)) else {
             return Ok(());
         };
-        let cred = task.process.cred();
+        // include/linux/cred.h: current_cred includes temporary subjective overrides.
+        let cred = task.cred_override.as_ref().unwrap_or(&task.cred);
         if self.options.allow_other {
             let mut ns = Some(&cred.user_ns);
             while let Some(at) = ns {
@@ -351,7 +353,7 @@ impl Kernel {
         Arc::new(Device {
             id: NEXT_DEVICE.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
             conn: Mutex::new(None),
-            user_ns: self.process(task).cred().user_ns,
+            user_ns: self.current_cred(task).user_ns.clone(),
             sync_init: std::sync::atomic::AtomicBool::new(false),
         })
     }

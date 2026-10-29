@@ -903,13 +903,16 @@ impl Kernel {
                     return Err(Errno::EBADF);
                 }
                 let file = self.file(caller.task(), Fd(sqe.fd))?;
-                Ok(Outcome::of(self.epoll_ctl_file(
-                    caller,
-                    file,
-                    wasixv2_abi::EpollCtlOp(sqe.len as i32),
-                    Fd(sqe.off as i32),
-                    req.epoll_event,
-                )))
+                Ok(Outcome::of(
+                    self.epoll_ctl_file(
+                        caller,
+                        file,
+                        wasixv2_abi::EpollCtlOp(sqe.len as i32),
+                        Fd(sqe.off as i32),
+                        req.epoll_event,
+                    )
+                    .await,
+                ))
             }
             IoUringOp::IORING_OP_EPOLL_WAIT => {
                 if sqe.off != 0 || sqe.op_flags != 0 || sqe.buf_index != 0 || sqe.splice_fd_in != 0

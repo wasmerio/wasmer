@@ -1877,7 +1877,7 @@ impl Kernel {
             .await;
             mm.retain_moved(addr64, old_size.min(new_size), target, async {
                 copy(caller.memory(), addr64, target, old_size.min(new_size)).await?;
-                mm.space().remap_flags(addr64, old_size, target, new_size, growth);
+                mm.space().remap_flags(addr64, old_size, target, new_size);
                 self.move_mappings(caller, addr64, old_size, target, new_size, growth)
                     .await
             })
@@ -1924,7 +1924,7 @@ impl Kernel {
         let target = self.map_anywhere(caller, new_pages).await?;
         mm.retain_moved(addr64, old_size, target, async {
             copy(caller.memory(), addr64, target, old_size).await?;
-            mm.space().remap_flags(addr64, old_size, target, new_size, growth);
+            mm.space().remap_flags(addr64, old_size, target, new_size);
             self.move_mappings(caller, addr64, old_size, target, new_size, growth)
                 .await
         })

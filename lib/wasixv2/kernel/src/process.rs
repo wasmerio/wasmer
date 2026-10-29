@@ -897,8 +897,8 @@ impl Kernel {
             (code as u32, flags, node.parent)
         };
         // Linux kernel/acct.c:acct_collect uses PF_SUPERPRIV, not uid == 0.
-        if process
-            .cred()
+        if self
+            .task_cred(process.pid)
             .privilege_used
             .load(std::sync::atomic::Ordering::Relaxed)
         {
@@ -1708,7 +1708,7 @@ impl Kernel {
                 false => Arc::new(task.mm.dup(id.0)),
             };
             let new = Task {
-                cred: Arc::new(cred),
+                cred: Arc::new(cred.for_process()),
                 cpu,
                 css,
                 syscall: Default::default(),
@@ -1951,7 +1951,8 @@ impl Kernel {
         let threads = self.take_group_futex_states(task);
         self.exit_futexes(caller, threads).await;
         self.mm_release(caller).await;
-        self.exec_commit(task, &name, args, env, image, (binary, handover)).await;
+        self.exec_commit(task, &name, args, env, image, (binary, handover))
+            .await;
         if task != leader {
             self.task_signals(leader)
                 .group()
@@ -2162,7 +2163,6 @@ impl Kernel {
         let readable = binary.readable && executable.as_ref().is_none_or(|(_, file)| file.readable);
         let dumpable = match readable
             && cred.user.effective == cred.user.real
-
             && cred.group.effective == cred.group.real
         {
             true => crate::ident::Dumpable::User,

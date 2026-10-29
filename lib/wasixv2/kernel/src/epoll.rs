@@ -573,10 +573,10 @@ impl Kernel {
             false => None,
         };
         let epfile = self.file(caller.task(), epfd)?;
-        self.epoll_ctl_file(caller, epfile, op, fd, event)
+        self.epoll_ctl_file(caller, epfile, op, fd, event).await
     }
 
-    pub(crate) fn epoll_ctl_file(
+    pub(crate) async fn epoll_ctl_file(
         &self,
         caller: &Caller<'_>,
         epfile: Arc<OpenFile>,

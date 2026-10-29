@@ -133,7 +133,7 @@ impl Kernel {
             .lock_or_recover()
             .retain(|_, page| page.strong_count() != 0);
         let limit = self.lock_limit(caller);
-        let uid = self.process(caller.task()).cred().user.real;
+        let uid = self.cred(caller).user.real;
         let mut records = Vec::new();
         for base in (u64::from(addr) / PAGE_SIZE..end.div_ceil(PAGE_SIZE)).map(|p| p * PAGE_SIZE) {
             // pin_user_pages(FOLL_WRITE | FOLL_LONGTERM) validates access without
