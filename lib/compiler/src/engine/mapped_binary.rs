@@ -559,6 +559,8 @@ impl MemoryMappedBinary {
         Ok(map)
     }
 
+    // Mach-O images use position-independent code (PIC), so relocations must be
+    // applied once the final mapping address is known.
     fn apply_chained_fixups<'a, Mach, R>(
         &self,
         image: &object::read::macho::MachOFile<'a, Mach, R>,
