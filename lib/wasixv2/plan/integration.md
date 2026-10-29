@@ -648,3 +648,86 @@ After the clock regression is fixed and validated, landing order is ABI -> libc2
 wasmer -> plan. Current candidate ranges: ABI `ce81dcf..47561c7`; libc2 `6b478da6..c39b9060`;
 tests `fdd63ba..a3f1f7d`; wasmer `f850deddc36..8f08d480859`. Only train16 branches and the
 fast-forward `wasixv2/plan` are pushed by this agent. **NO-GO: hold main/feat landing.**
+
+## 2026-10-29: merge train 17 — NO-GO
+
+Hold main/feat landing: `ltp/cve/cve-2015-7550` timed out in the sole full run and
+in its canonical 60-second targeted rerun. Integration, gates, one full suite,
+regression follow-up, smoke, shared sysroots and train branch publication are
+complete. The remaining regression stays unlisted. The orchestrator owns mains.
+
+Candidates: ABI `train17` **3c21183** on `47561c7`; tests `train17` **aace62f** on
+`c777afe`; libc2 `train17` **139386dc** on `c39b9060`; wasmer `wasixv2/train17`
+**599db214dbf** on `a687dcd8a06` (47 commits). Both consumers pin the same ABI
+and tests commits. Baseline is the orchestrator-landed train16 with
+clock_gettime01 explicitly listed: **3542 pass / 583 xfail / 737 ignored**.
+
+- Inputs: Q2 kernel miscellaneous interfaces (prctl, stable namespace IDs,
+  proc/security/core notes, accounting, Unix urgent signals); Q3 io_uring
+  NO_MMAP/registered-only rings, approved async task work, remaining opcodes,
+  packet pipes and AIO VM_DONTCOPY; Q4 mapped tmpfs accounting, executable write
+  denial, binfmt restrictions and notification pipes; Q5 inbound vsock backend,
+  SCTP, netlink and NTP discipline, with v1 clock offsets in the compat layer.
+  Applied Q4's KEYCTL_WATCH_KEY patch with its tests as a separate commit.
+- Selected only package-owned commits. Excluded replayed P4b/P5b/early train15
+  ancestors, WIP and per-package consumer pins. Five ABI additions form one
+  fast-forward chain; Rust consumers regenerated once and libc2 assertions
+  match the ABI golden. Layered forwards Control::run_task_work completely.
+  All 134 procfs STATIC paths were audited (keys 124, seccomp 130); exec keeps
+  train16 lifecycle/security behavior, auxv and per-mm/per-task prctl state.
+- Integration correction `6143fec42a2`: reject notification pipes through
+  io_uring's shared splice_files path as well as ordinary splice. Linux
+  fs/pipe.c:get_pipe_info(for_splice=true), io_uring/splice.c:io_splice.
+  The by-file unit regression reports EAGAIN instead of EINVAL before the fix.
+- Host panic fixed in `ab864d40e67`: a parent can reap after take_pending
+  selects an exit action, before exit_signals looks up its process. Use the
+  existing optional Process snapshot; Linux kernel/exit.c:do_exit runs this
+  cleanup before exit_notify/release_task. Deterministic unit red proof matches
+  the vsock smoke panic. Final 30 repeated vsock runs/60 loopbacks have no panic.
+- Gates: **1569 unique crate tests** covered, final kernel 954 and exec 51;
+  Makefile-flags all-target clippy, fmt, release and final CLI **59 pass /
+  12 ignored**, tty **6 pass**. Three integration fixtures were corrected for
+  executable writer exclusion, a live exit observer and mapped ring ownership;
+  their prior failing gates and focused reruns are retained in the train log.
+- Exactly ONE full suite, CPUs 0-3, runtime `ab864d40e67`, 3138 seconds. Raw
+  **3546 pass / 582 expected fail / 6 unexpected fail / 1 unexpected pass /
+  727 ignored**. No registration changes or pass-to-ignored regression. Four
+  other new failures did not pass baseline and were blessed without triage;
+  no new-pass triage. All **16 handwritten causes** were preserved.
+- Two regressions: fanotify11 reported the wrong event PID; cve-2015-7550 timed
+  out. fanotify11 passed alone, but its deterministic exit-before-read unit
+  exposed PID 0 instead of 2. Fixed in `c02326ab67a`: queued events retain the
+  existing PidRef and serialize its namespace number after exit, matching
+  fs/notify/fanotify/fanotify.c:fanotify_alloc_event's get_pid/put_pid lifetime.
+  Kernel/clippy/fmt/release/CLI, targeted fanotify11 and final smoke pass.
+- Remaining CVE: keyctl02 declares runtime 60 and LTP reports a 90-second overall
+  timeout; the runner allows 60 seconds including startup/teardown. Both the
+  full run and canonical targeted run timed out. A90-second diagnostic on the
+  original suite binary passed in 24 seconds: this shows timing/load sensitivity,
+  not proof that90 seconds is necessary or that the kernel hangs. Proposed
+  follow-up: reproduce under a controlled 60-second budget with three jobs and define a
+  metadata-aware runtime budget with headroom, using LTP's documented `-I`
+  override (lib/tst_test.c:parse_opts), with runner unit coverage. No timeout
+  constant tweak or suppression was made. Keep this regression unblessed.
+- Final observed outcomes after the targeted fanotify correction (pass / xfail /
+  unexpected fail / ignored): own **290/0/0/1**, libc **399/22/0/0**, POSIX
+  **1538/247/0/91**, LTP **1321/317/1/635**; total **3548/586/1/727**.
+  ef-corrected retains actual failures; ef-final intentionally omits the CVE.
+- Final smoke: sws classic/Linux 28/28 each, v1 eight plus known Python failure,
+  UDP 6/6, extras and userlands, C++ 9/9, pty 11/11 and no-tty. Ordinary/hand exit
+  sequences match train16. All 20 feature commands pass, including MDWE/AUXV,
+  listns 8 IDs, core NT_FILE/NT_AUXV readback, NO_MMAP task work completing on an
+  unrelated syscall return, ETXTBSY and exit release, key watch records, nlctrl
+  multipart dump, and adjtimex offset 1000->0us. Inbound host-to-guest vsock is
+  skipped because the CLI exposes no VsockConfig/UnixPrefix flag; the inbound
+  Unix bridge host-backend unit test passes. No new host panic remains observed.
+- Shared libc2 local main fast-forwarded to 139386dc, matching ABI/tests pins;
+  both shared sysroots and run.sh checks pass, MAKEFLAGS=, OMP_NUM_THREADS=3,
+  nice 19/CPUs 4-7. No remote main pushed. Only own targets were removed.
+  Logs, scripts, source metadata and both suite/final binaries are retained at
+  `~/wasixv2-orch/logs/train17/`.
+
+After the CVE timeout is resolved, land in dependency order: ABI `47561c7..3c21183`
+-> tests `c777afe..aace62f` -> libc2 `c39b9060..139386dc` -> wasmer
+`a687dcd8a06..599db214dbf` -> plan. Only train17 branches and the fast-forward
+`wasixv2/plan` are pushed by this agent. **NO-GO: hold main/feat landing.**
