@@ -407,3 +407,75 @@ fn signal_scope_keeps_signals_inside_the_domain() {
     assert_eq!(kill(&child_caller, child), Ok(0));
     assert_eq!(kill(&caller, child), Ok(0));
 }
+
+/// fs/open.c do_dentry_open calls security_file_open for fanotify's dentry_open_nonotify.
+/// A descriptor queued before confinement must not bypass the reader's current Landlock domain.
+#[test]
+fn fanotify_event_descriptors_obey_the_readers_landlock_domain() {
+    use wasixv2_abi::{FanotifyInitFlags as F, FanotifyMarkFlags as M, FanotifyMask as E};
+    for report_error in [false, true] {
+        let (kernel, task, memory) = super::cred::machine_as(0, 0);
+        let t = T::new(&kernel, task, &memory);
+        t.create("/allowed").unwrap();
+        t.create("/denied").unwrap();
+        let flags = F::FAN_NONBLOCK
+            | if report_error {
+                F::FAN_REPORT_FD_ERROR
+            } else {
+                F(0)
+            };
+        let group = Fd(block_on(kernel.fanotify_init(&t.caller, flags.0, 0)).unwrap());
+        for path in ["/allowed", "/denied"] {
+            let name = t.cstr(0x1000, path);
+            let mark = kernel.fanotify_mark(
+                &t.caller,
+                group,
+                M::FAN_MARK_ADD.0,
+                E::FAN_OPEN.0,
+                CWD,
+                name,
+            );
+            assert_eq!(block_on(mark), Ok(0));
+            let open = kernel.openat(&t.caller, CWD, name, OpenFlags::O_RDONLY, 0);
+            let fd = block_on(wasixv2_syscalls::as_task(task, open)).unwrap();
+            assert_eq!(block_on(kernel.close(&t.caller, fd)), Ok(0));
+        }
+        let ruleset = t.ruleset(READ_FILE, 0, 0).unwrap();
+        assert_eq!(t.allow_path(ruleset, "/allowed", READ_FILE), Ok(0));
+        t.prctl_nnp();
+        assert_eq!(t.restrict(ruleset), Ok(0));
+        let read = || block_on(kernel.read(&t.caller, group, UserSliceMut::new(0x4000, 24)));
+        let event_fd = || {
+            let raw = super::ipc::get(&memory, 0x4010, 4);
+            i32::from_ne_bytes(raw.try_into().unwrap())
+        };
+        assert_eq!(read(), Ok(24));
+        let fd = event_fd();
+        assert!(fd >= 0);
+        assert_eq!(block_on(kernel.close(&t.caller, Fd(fd))), Ok(0));
+        if report_error {
+            assert_eq!(read(), Ok(24));
+            assert_eq!(event_fd(), -Errno::EACCES.0);
+        } else {
+            assert_eq!(errno(read()), Errno::EACCES);
+        }
+        // Event opens remain non-notifying, including the successful allowed descriptor.
+        assert_eq!(errno(read()), Errno::EAGAIN);
+    }
+}
+
+#[test]
+fn landlock_checks_a_temporary_files_directory_when_it_is_opened() {
+    let (kernel, task, memory) = super::ipc::machine();
+    let t = T::new(&kernel, task, &memory);
+    t.mkdir("/allowed").unwrap();
+    t.mkdir("/denied").unwrap();
+    let ruleset = t.ruleset(WRITE_FILE, 0, 0).unwrap();
+    assert_eq!(t.allow_path(ruleset, "/allowed", WRITE_FILE), Ok(0));
+    t.prctl_nnp();
+    assert_eq!(t.restrict(ruleset), Ok(0));
+    let flags = OpenFlags::O_TMPFILE | OpenFlags::O_WRONLY;
+    let fd = t.open("/allowed", flags).unwrap();
+    assert_eq!(block_on(kernel.close(&t.caller, fd)), Ok(0));
+    assert_eq!(errno(t.open("/denied", flags)), Errno::EACCES);
+}

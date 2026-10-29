@@ -49,7 +49,9 @@ pub const FMODE_EXEC: OpenFlags = OpenFlags(0x20);
 
 /// How `finish_open` opens what the walk found.
 #[derive(Clone, Copy)]
-struct OpenMode {
+struct OpenMode<'a> {
+    /// An unnamed file has no parent dentry: its directory is the security lookup path.
+    security_path: Option<&'a Path>,
     flags: OpenFlags,
     writable: bool,
     truncate: bool,
@@ -265,16 +267,8 @@ impl Vfs {
         }
         self.may_open(cx, &target, acc_mode, flags).await?;
         let writable = access != OpenFlags::O_RDONLY;
-        // `security_file_open` (and `security_file_truncate` for `O_TRUNC`).
-        if let Some(security) = cx.security() {
-            let read = match access {
-                OpenFlags::O_WRONLY => 0,
-                _ => MAY_READ,
-            };
-            let write = if writable { MAY_WRITE } else { 0 };
-            security.file_open(&target, read | write, truncate)?;
-        }
         let mode = OpenMode {
+            security_path: None,
             flags,
             writable,
             truncate,
@@ -289,10 +283,11 @@ impl Vfs {
         self: &Arc<Self>,
         cx: &Ctx<'_>,
         target: Path,
-        mode: OpenMode,
+        mode: OpenMode<'_>,
         handle: Option<Box<dyn Handle>>,
     ) -> FsResult<File> {
         let OpenMode {
+            security_path,
             flags,
             writable,
             truncate,
@@ -317,6 +312,12 @@ impl Vfs {
             (false, true) => Some(OpenAccess::new(inode, false)),
             (false, false) => None,
         };
+        // fs/open.c do_dentry_open: FMODE_NONOTIFY skips events, never security_file_open.
+        if let Some(security) = cx.security() {
+            let read = if readable { MAY_READ } else { 0 };
+            let write = if writable { MAY_WRITE } else { 0 };
+            security.file_open(security_path.unwrap_or(&target), read | write, truncate)?;
+        }
         // A file this open made has no leases.
         if handle.is_none() && target.dentry.file_type() == FileType::Regular {
             let nonblock = flags.contains(OpenFlags::O_NONBLOCK);
@@ -377,7 +378,7 @@ impl Vfs {
     }
 
     /// `dentry_open_nonotify`: opens the object `path` names as the caller `cx`, with no
-    /// lookup and no permission check, and without telling the watches anything about the
+    /// lookup or inode permission check, but with the file security check, and without telling the watches anything about the
     /// open or about anything done through it (`FMODE_NONOTIFY`), as fanotify opens the
     /// descriptors of its events.
     pub async fn dentry_open_nonotify(
@@ -391,6 +392,7 @@ impl Vfs {
         }
         let access = flags & OpenFlags::O_ACCMODE;
         let mode = OpenMode {
+            security_path: None,
             flags,
             writable: access != OpenFlags::O_RDONLY,
             truncate: false,
@@ -499,14 +501,6 @@ impl Vfs {
         };
         let dir = self.lookup(cx, start, path, lookup).await?;
         self.permission(cx, &dir, MAY_WRITE | MAY_EXEC).await?;
-        // The file is made in `dir` (`d_tmpfile`), which is where a security module sees it.
-        if let Some(security) = cx.security() {
-            let mask = match how.flags & OpenFlags::O_ACCMODE {
-                OpenFlags::O_WRONLY => MAY_WRITE,
-                _ => MAY_READ | MAY_WRITE,
-            };
-            security.file_open(&dir, mask, false)?;
-        }
         // Held while the file is made (`mnt_want_write` in `do_o_tmpfile`); the open takes its
         // own.
         let _write = self.tree.get_write_access(&dir.mnt)?;
@@ -535,6 +529,7 @@ impl Vfs {
         self.may_open(cx, &target, acc_mode & !MAY_WRITE, how.flags)
             .await?;
         let mode = OpenMode {
+            security_path: Some(&dir),
             flags: how.flags,
             writable: true,
             truncate: false,
