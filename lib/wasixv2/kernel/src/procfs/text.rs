@@ -928,7 +928,7 @@ fn stat_line(source: &Source, scope: Scope, info: &super::ProcessInfo) -> Vec<u8
         Some(tty) => {
             let device = tty.device();
             let tty_nr = crate::tty::encode_dev(device.major, device.minor);
-            let tpgid = tty.pgrp().map_or(0, |pgrp| source.nr(pgrp));
+            let tpgid = tty.pgrp().map_or(0, |pgrp| pgrp.nr(&source.pid_ns));
             (i128::from(tty_nr), i128::from(tpgid))
         }
         None => (0, -1),

@@ -250,7 +250,7 @@ impl Kernel {
     pub fn console_signal(&self, sig: Signal) -> Result<bool, Errno> {
         let sig = crate::signal::check_signal(sig)?;
         let tty = self.console.as_ref().ok_or(Errno::ESRCH)?;
-        let pgrp = tty.pgrp().ok_or(Errno::ESRCH)?;
+        let pgrp = tty.pgrp().ok_or(Errno::ESRCH)?.id();
         if tty.jobs.pgrp_groups(pgrp).is_empty() {
             return Err(Errno::ESRCH);
         }
@@ -260,7 +260,12 @@ impl Kernel {
     /// Whether `sig` is pending, not yet taken, for a process of the console's foreground
     /// process group.
     pub fn console_signal_pending(&self, sig: Signal) -> bool {
-        let Some(pgrp) = self.console.as_ref().and_then(|tty| tty.pgrp()) else {
+        let Some(pgrp) = self
+            .console
+            .as_ref()
+            .and_then(|tty| tty.pgrp())
+            .map(|p| p.id())
+        else {
             return false;
         };
         self.jobs

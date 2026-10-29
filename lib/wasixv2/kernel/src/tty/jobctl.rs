@@ -11,6 +11,7 @@ use super::{Ctrl, Tty};
 use crate::{
     Kernel, Process, TaskTable,
     ident::Ident,
+    pid::{PidRef, Pids},
     process::Tree,
     signal::{Signals, TaskSignals},
     sync::MutexExt,
@@ -22,13 +23,16 @@ use crate::{
 pub(crate) struct Jobs {
     tasks: Weak<TaskTable>,
     tree: Weak<Mutex<Tree>>,
+    /// Where a terminal takes its references to a session and a group (`get_pid`).
+    pids: Arc<Pids>,
 }
 
 impl Jobs {
-    pub(crate) fn new(tasks: &Arc<TaskTable>, tree: &Arc<Mutex<Tree>>) -> Self {
+    pub(crate) fn new(tasks: &Arc<TaskTable>, tree: &Arc<Mutex<Tree>>, pids: &Arc<Pids>) -> Self {
         Self {
             tasks: Arc::downgrade(tasks),
             tree: Arc::downgrade(tree),
+            pids: pids.clone(),
         }
     }
 
@@ -170,7 +174,7 @@ impl Tty {
             }
             ident.pgid
         };
-        if self.pgrp().is_none_or(|pgrp| pgrp == pgid) {
+        if self.pgrp().is_none_or(|pgrp| pgrp.id() == pgid) {
             return Ok(());
         }
         let ignored = self
@@ -194,8 +198,8 @@ impl Tty {
     /// leads, with its group in the foreground.
     fn set_ctty(self: &Arc<Self>, ident: &mut Ident) {
         *self.ctrl.lock_or_recover() = Ctrl {
-            session: Some(ident.sid),
-            pgrp: Some(ident.pgid),
+            session: Some(self.jobs.pids.get(ident.sid)),
+            pgrp: Some(self.jobs.pids.get(ident.pgid)),
         };
         ident.tty = Some(self.clone());
     }
@@ -224,7 +228,7 @@ impl Tty {
             let ident = process.ident.lock_or_recover();
             (ident.sid == process.pid.0, ident.sid, ident.tty.is_some())
         };
-        let session = self.ctrl.lock_or_recover().session;
+        let session = self.session().map(|session| session.id());
         if leader && session == Some(sid) {
             return Ok(());
         }
@@ -249,7 +253,7 @@ impl Tty {
     pub(crate) fn set_pgrp(&self, process: &Process, pgrp: Option<u32>) -> Result<(), Errno> {
         let sid = {
             let ident = process.ident.lock_or_recover();
-            let session = self.ctrl.lock_or_recover().session;
+            let session = self.ctrl.lock_or_recover().session.as_ref().map(PidRef::id);
             if !self.controls(&ident) || session != Some(ident.sid) {
                 return Err(Errno::ENOTTY);
             }
@@ -260,15 +264,15 @@ impl Tty {
             None => Err(Errno::ESRCH),
             Some(other) if other != sid => Err(Errno::EPERM),
             Some(_) => {
-                self.ctrl.lock_or_recover().pgrp = Some(pgrp);
+                self.ctrl.lock_or_recover().pgrp = Some(self.jobs.pids.get(pgrp));
                 Ok(())
             }
         }
     }
 
     /// The session this terminal controls, for `TIOCGSID`.
-    pub(crate) fn session(&self) -> Option<u32> {
-        self.ctrl.lock_or_recover().session
+    pub(crate) fn session(&self) -> Option<PidRef> {
+        self.ctrl.lock_or_recover().session.clone()
     }
 
     /// Whether this is the controlling terminal of `process`.
@@ -279,8 +283,9 @@ impl Tty {
     /// `tty_signal_session_leader`: every process of the session loses the terminal, and its
     /// leader gets SIGHUP and SIGCONT. Returns the foreground group.
     pub(super) fn signal_session_leader(&self) -> Option<u32> {
-        let Ctrl { session, pgrp } = *self.ctrl.lock_or_recover();
-        let Some(sid) = session else {
+        let Ctrl { session, pgrp } = self.ctrl.lock_or_recover().clone();
+        let pgrp = pgrp.as_ref().map(PidRef::id);
+        let Some(sid) = session.as_ref().map(PidRef::id) else {
             return pgrp;
         };
         for process in self.jobs.members(|ident| ident.sid == sid) {
@@ -318,7 +323,7 @@ impl Kernel {
         };
         if on_exit && tty.driver.hangs_up_on_exit() {
             tty.hangup(true);
-        } else if let Some(pgrp) = tty.pgrp() {
+        } else if let Some(pgrp) = tty.pgrp().map(|pgrp| pgrp.id()) {
             self.jobs.kill_pgrp(pgrp, Signal::SIGHUP.0);
             if !on_exit {
                 self.jobs.kill_pgrp(pgrp, Signal::SIGCONT.0);

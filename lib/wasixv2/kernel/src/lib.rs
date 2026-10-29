@@ -311,7 +311,7 @@ impl Kernel {
             ..State::default()
         })));
         let procs = process::Procs::new(pids.clone());
-        let jobs = tty::Jobs::new(&state, &procs.tree);
+        let jobs = tty::Jobs::new(&state, &procs.tree, &pids);
         let timers = timer::Timers::new(host.clone());
         let sigio = fasync::Sigio::new(jobs.clone(), &timers);
         let inotify = Arc::new(fs::inotify::Registry::default());
