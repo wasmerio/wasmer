@@ -464,6 +464,12 @@ impl Sock {
         sock
     }
 
+    pub(crate) fn set_urgent_file(&self, file: &Arc<OpenFile>, sigio: &Arc<crate::fasync::Sigio>) {
+        if self.kind == Kind::Stream {
+            self.fasync.set_urgent_file(file, sigio);
+        }
+    }
+
     /// `sk_data_ready` (`sock_def_readable`): data, or a connection to accept, arrived.
     fn data_ready(&self) {
         self.wait.wake(PollMask::READABLE);
@@ -1031,7 +1037,11 @@ impl Sock {
             cred: anc.cred.clone().unwrap_or(cred),
         });
         drop(target);
-        peer.wait.wake(PollMask::READABLE | PollMask::PRI);
+        // Linux net/unix/af_unix.c:queue_oob: urgent ownership signals precede
+        // the data-ready signal, independently of O_ASYNC being enabled.
+        peer.fasync.send_urgent();
+        peer.wait.wake(PollMask::PRI);
+        peer.data_ready();
         Ok(1)
     }
 

@@ -1155,3 +1155,55 @@ fn a_blocking_open_waits_for_the_holder() {
     assert_eq!(getlease(&kernel, &p, r), F_UNLCK as i32);
     assert_eq!(fcntl(&kernel, &p, r, FcntlCmd::F_GETOWN, 0), Ok(0));
 }
+
+#[test]
+fn unix_oob_signals_sigurg_without_async_and_preserves_fsetsig_order() {
+    use wasixv2_abi::MsgFlags;
+    let (kernel, p) = machine();
+    block(&kernel, &p, &[Signal::SIGURG, SIGRTMIN, SIGIO]);
+    block_on(kernel.socketpair(
+        &p.caller(),
+        AddressFamily::AF_UNIX,
+        1,
+        0,
+        GuestPtrMut::new(0x100),
+    ))
+    .unwrap();
+    let [a, b]: [i32; 2] = block_on(read_value(&p.memory, GuestPtr::new(0x100))).unwrap();
+    let (a, b) = (Fd(a), Fd(b));
+    send(&kernel, &p, a, b"!", MsgFlags::MSG_OOB);
+    assert!(take(&kernel, &p, Signal::SIGURG).is_none(), "no owner");
+    fcntl(
+        &kernel,
+        &p,
+        b,
+        FcntlCmd::F_SETOWN,
+        getpid(&kernel, &p) as u32,
+    )
+    .unwrap();
+    send(&kernel, &p, a, b"plain", MsgFlags(0));
+    assert!(
+        take(&kernel, &p, Signal::SIGURG).is_none(),
+        "ordinary data is not urgent"
+    );
+    send(&kernel, &p, a, b"U", MsgFlags::MSG_OOB);
+    let info = take(&kernel, &p, Signal::SIGURG).expect("urgent owner, without O_ASYNC");
+    assert_eq!(info.si_code, wasixv2_abi::SiCode::SI_KERNEL.0);
+    assert!(take(&kernel, &p, SIGRTMIN).is_none());
+    let dup = Fd(fcntl(&kernel, &p, b, FcntlCmd::F_DUPFD, 0).unwrap());
+    block_on(kernel.close(&p.caller(), b)).unwrap();
+    fcntl(&kernel, &p, dup, FcntlCmd::F_SETSIG, SIGRTMIN.0 as u32).unwrap();
+    set_async(&kernel, &p, dup, true);
+    send(&kernel, &p, a, b"V", MsgFlags::MSG_OOB);
+    assert!(take(&kernel, &p, Signal::SIGURG).is_some());
+    let pri = take(&kernel, &p, SIGRTMIN).expect("urgent realtime notification");
+    assert_eq!(poll_info(&pri), (5, 0x82, dup.0));
+    let data = take(&kernel, &p, SIGRTMIN).expect("data-ready follows urgent");
+    assert_eq!(poll_info(&data), (1, POLLIN_BAND, dup.0));
+    fcntl(&kernel, &p, dup, FcntlCmd::F_SETOWN, 0).unwrap();
+    send(&kernel, &p, a, b"W", MsgFlags::MSG_OOB);
+    assert!(
+        take(&kernel, &p, Signal::SIGURG).is_none(),
+        "clearing the owner stops signals"
+    );
+}

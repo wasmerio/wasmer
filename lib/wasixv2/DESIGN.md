@@ -876,6 +876,10 @@ These limits are why full compatibility stays a goal rather than a state we reac
 
 ### Miscellaneous Linux interfaces
 
+AF_UNIX stream `MSG_OOB` sends `SIGURG` to the socket file's owner even without
+`O_ASYNC`, and with an async `F_SETSIG` handler sends `POLL_PRI` before the data's
+`POLL_IN` notification (`net/unix/af_unix.c:queue_oob`).
+
 `fchroot` shares the root and permission machinery of `chroot` and accepts ordinary
 filesystem descriptors, including `O_PATH`. The `FD_FAILFS_ROOT` special descriptor
 returns `EBADF` until the kernel has a failfs filesystem (`fs/open.c:sys_fchroot`).

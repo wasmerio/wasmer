@@ -154,7 +154,7 @@ impl Kernel {
         flags: SocketFlags,
     ) -> SysResult<Fd> {
         let owner = self.cred(caller).fs_owner();
-        let file = unix_file(sock, flags, self.pseudo.socket(owner));
+        let file = unix_file(sock, flags, self.pseudo.socket(owner), &self.sigio);
         let [fd] = self.install_files(caller, [file], flags.contains(SocketFlags::SOCK_CLOEXEC))?;
         Ok(fd)
     }
@@ -276,8 +276,8 @@ impl Kernel {
         unix::Sock::pair(&a, &b);
         let owner = self.cred(caller).fs_owner();
         let files = [
-            unix_file(a, flags, self.pseudo.socket(owner)),
-            unix_file(b, flags, self.pseudo.socket(owner)),
+            unix_file(a, flags, self.pseudo.socket(owner), &self.sigio),
+            unix_file(b, flags, self.pseudo.socket(owner), &self.sigio),
         ];
         let cloexec = flags.contains(SocketFlags::SOCK_CLOEXEC);
         self.install_pair(caller, usockvec, files, cloexec).await?;
@@ -398,8 +398,8 @@ impl Kernel {
                     let embryo = sock.try_accept()?;
                     let peer = embryo.peer_addr().unwrap_or_default();
                     let owner = self.cred(caller).fs_owner();
-                    let file = unix_file(embryo, flags, self.pseudo.socket(owner));
-                    Ok((Arc::new(file), peer))
+                    let file = unix_file(embryo, flags, self.pseudo.socket(owner), &self.sigio);
+                    Ok((file, peer))
                 })
                 .await?
             }
@@ -1773,13 +1773,23 @@ async fn peer_groups(
 }
 
 /// An open file for the Unix socket `sock`.
-fn unix_file(sock: Arc<unix::Sock>, flags: SocketFlags, path: Path) -> OpenFile {
+fn unix_file(
+    sock: Arc<unix::Sock>,
+    flags: SocketFlags,
+    path: Path,
+    sigio: &Arc<crate::fasync::Sigio>,
+) -> Arc<OpenFile> {
     sock.graft(path.dentry.node().ino());
     let mut status = OpenFlags::O_RDWR;
     if flags.contains(SocketFlags::SOCK_NONBLOCK) {
         status |= OpenFlags::O_NONBLOCK;
     }
-    OpenFile::new(Backing::Stream(Arc::new(UnixFile(sock)), path), status)
+    let file = Arc::new(OpenFile::new(
+        Backing::Stream(Arc::new(UnixFile(sock.clone())), path),
+        status,
+    ));
+    sock.set_urgent_file(&file, sigio);
+    file
 }
 
 /// Splits `socket`'s type argument into the type and the `SOCK_NONBLOCK`/`SOCK_CLOEXEC` flags.
