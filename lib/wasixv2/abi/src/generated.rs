@@ -19036,9 +19036,9 @@ impl GuestLayout for Winsize {
         self.ws_ypixel.write_to(&mut out[6..]);
     }
 }
-/// `ioctl` requests for terminals, sockets, timerfd and namespace files
+/// `ioctl` requests for terminals, sockets, timerfd, namespace files and pidfds
 /// (`asm-generic/ioctls.h`, `asm-generic/sockios.h`, `linux/sockios.h`, `linux/timerfd.h`,
-/// `linux/nsfs.h`).
+/// `linux/nsfs.h`, `linux/pidfd.h`).
 ///
 /// C: `unsigned`
 #[repr(transparent)]
@@ -19206,6 +19206,11 @@ impl IoctlRequest {
     pub const TIOCGPTLCK: Self = Self(2147767353);
     pub const TIOCGEXCL: Self = Self(2147767360);
     pub const TCGETS2: Self = Self(2150388778);
+    /// `_IOWR(PIDFS_IOCTL_MAGIC, 11, struct pidfd_info)` with the 88-byte `pidfd-info`
+    /// (`PIDFD_INFO_SIZE_VER3`). It is an extensible request: the kernel takes the same type and
+    /// number with any size from `PIDFD_INFO_SIZE_VER0` on, and fills as much of the caller's
+    /// structure as both know.
+    pub const PIDFD_GET_INFO: Self = Self(3227057931);
     /// All named values, in definition order (aliases included).
     pub const MEMBERS: &'static [(&'static str, Self)] = &[
         ("TCGETS", Self::TCGETS),
@@ -19369,6 +19374,7 @@ impl IoctlRequest {
         ("TIOCGPTLCK", Self::TIOCGPTLCK),
         ("TIOCGEXCL", Self::TIOCGEXCL),
         ("TCGETS2", Self::TCGETS2),
+        ("PIDFD_GET_INFO", Self::PIDFD_GET_INFO),
     ];
     /// Name of the first constant with this value, if any.
     pub const fn name(self) -> Option<&'static str> {
@@ -19533,6 +19539,7 @@ impl IoctlRequest {
             2147767353 => Some("TIOCGPTLCK"),
             2147767360 => Some("TIOCGEXCL"),
             2150388778 => Some("TCGETS2"),
+            3227057931 => Some("PIDFD_GET_INFO"),
             _ => None,
         }
     }
@@ -19565,13 +19572,18 @@ impl GuestLayout for IoctlRequest {
 pub struct IoctlType(pub u32);
 impl IoctlType {
     pub const EPOLL_IOC_TYPE: Self = Self(138);
+    /// pidfd requests (`linux/pidfd.h`).
+    pub const PIDFS_IOCTL_MAGIC: Self = Self(255);
     /// All named values, in definition order (aliases included).
-    pub const MEMBERS: &'static [(&'static str, Self)] =
-        &[("EPOLL_IOC_TYPE", Self::EPOLL_IOC_TYPE)];
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("EPOLL_IOC_TYPE", Self::EPOLL_IOC_TYPE),
+        ("PIDFS_IOCTL_MAGIC", Self::PIDFS_IOCTL_MAGIC),
+    ];
     /// Name of the first constant with this value, if any.
     pub const fn name(self) -> Option<&'static str> {
         match self.0 {
             138 => Some("EPOLL_IOC_TYPE"),
+            255 => Some("PIDFS_IOCTL_MAGIC"),
             _ => None,
         }
     }
@@ -19587,6 +19599,306 @@ impl fmt::Debug for IoctlType {
 }
 
 impl GuestLayout for IoctlType {
+    const SIZE: usize = <u32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// What `PIDFD_GET_INFO` fills of a process (`struct pidfd_info`, UAPI `linux/pidfd.h`).
+/// `mask` asks for fields on the way in, and says which were filled on the way out
+/// (`pidfd-info-mask`).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct PidfdInfo {
+    pub mask: u64,
+    pub cgroupid: u64,
+    pub pid: u32,
+    pub tgid: u32,
+    pub ppid: u32,
+    pub ruid: u32,
+    pub rgid: u32,
+    pub euid: u32,
+    pub egid: u32,
+    pub suid: u32,
+    pub sgid: u32,
+    pub fsuid: u32,
+    pub fsgid: u32,
+    /// The wait status the process exited with (`PIDFD_INFO_EXIT`).
+    pub exit_code: i32,
+    pub coredump_mask: u32,
+    pub coredump_signal: u32,
+    pub coredump_code: u32,
+    pub coredump_pad: u32,
+    /// The `pidfd-info-mask` flags the kernel knows (`PIDFD_INFO_SUPPORTED_MASK`).
+    pub supported_mask: u64,
+}
+const _: () = {
+    assert!(core::mem::size_of::<PidfdInfo>() == 88);
+    assert!(core::mem::align_of::<PidfdInfo>() == 8);
+    assert!(core::mem::offset_of!(PidfdInfo, mask) == 0);
+    assert!(core::mem::offset_of!(PidfdInfo, cgroupid) == 8);
+    assert!(core::mem::offset_of!(PidfdInfo, pid) == 16);
+    assert!(core::mem::offset_of!(PidfdInfo, tgid) == 20);
+    assert!(core::mem::offset_of!(PidfdInfo, ppid) == 24);
+    assert!(core::mem::offset_of!(PidfdInfo, ruid) == 28);
+    assert!(core::mem::offset_of!(PidfdInfo, rgid) == 32);
+    assert!(core::mem::offset_of!(PidfdInfo, euid) == 36);
+    assert!(core::mem::offset_of!(PidfdInfo, egid) == 40);
+    assert!(core::mem::offset_of!(PidfdInfo, suid) == 44);
+    assert!(core::mem::offset_of!(PidfdInfo, sgid) == 48);
+    assert!(core::mem::offset_of!(PidfdInfo, fsuid) == 52);
+    assert!(core::mem::offset_of!(PidfdInfo, fsgid) == 56);
+    assert!(core::mem::offset_of!(PidfdInfo, exit_code) == 60);
+    assert!(core::mem::offset_of!(PidfdInfo, coredump_mask) == 64);
+    assert!(core::mem::offset_of!(PidfdInfo, coredump_signal) == 68);
+    assert!(core::mem::offset_of!(PidfdInfo, coredump_code) == 72);
+    assert!(core::mem::offset_of!(PidfdInfo, coredump_pad) == 76);
+    assert!(core::mem::offset_of!(PidfdInfo, supported_mask) == 80);
+};
+impl Default for PidfdInfo {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for PidfdInfo {
+    const SIZE: usize = 88;
+    const ALIGN: usize = 8;
+    const ZERO: Self = Self {
+        mask: <u64 as GuestLayout>::ZERO,
+        cgroupid: <u64 as GuestLayout>::ZERO,
+        pid: <u32 as GuestLayout>::ZERO,
+        tgid: <u32 as GuestLayout>::ZERO,
+        ppid: <u32 as GuestLayout>::ZERO,
+        ruid: <u32 as GuestLayout>::ZERO,
+        rgid: <u32 as GuestLayout>::ZERO,
+        euid: <u32 as GuestLayout>::ZERO,
+        egid: <u32 as GuestLayout>::ZERO,
+        suid: <u32 as GuestLayout>::ZERO,
+        sgid: <u32 as GuestLayout>::ZERO,
+        fsuid: <u32 as GuestLayout>::ZERO,
+        fsgid: <u32 as GuestLayout>::ZERO,
+        exit_code: <i32 as GuestLayout>::ZERO,
+        coredump_mask: <u32 as GuestLayout>::ZERO,
+        coredump_signal: <u32 as GuestLayout>::ZERO,
+        coredump_code: <u32 as GuestLayout>::ZERO,
+        coredump_pad: <u32 as GuestLayout>::ZERO,
+        supported_mask: <u64 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            mask: GuestLayout::read_from(&bytes[0..])?,
+            cgroupid: GuestLayout::read_from(&bytes[8..])?,
+            pid: GuestLayout::read_from(&bytes[16..])?,
+            tgid: GuestLayout::read_from(&bytes[20..])?,
+            ppid: GuestLayout::read_from(&bytes[24..])?,
+            ruid: GuestLayout::read_from(&bytes[28..])?,
+            rgid: GuestLayout::read_from(&bytes[32..])?,
+            euid: GuestLayout::read_from(&bytes[36..])?,
+            egid: GuestLayout::read_from(&bytes[40..])?,
+            suid: GuestLayout::read_from(&bytes[44..])?,
+            sgid: GuestLayout::read_from(&bytes[48..])?,
+            fsuid: GuestLayout::read_from(&bytes[52..])?,
+            fsgid: GuestLayout::read_from(&bytes[56..])?,
+            exit_code: GuestLayout::read_from(&bytes[60..])?,
+            coredump_mask: GuestLayout::read_from(&bytes[64..])?,
+            coredump_signal: GuestLayout::read_from(&bytes[68..])?,
+            coredump_code: GuestLayout::read_from(&bytes[72..])?,
+            coredump_pad: GuestLayout::read_from(&bytes[76..])?,
+            supported_mask: GuestLayout::read_from(&bytes[80..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.mask.write_to(&mut out[0..]);
+        self.cgroupid.write_to(&mut out[8..]);
+        self.pid.write_to(&mut out[16..]);
+        self.tgid.write_to(&mut out[20..]);
+        self.ppid.write_to(&mut out[24..]);
+        self.ruid.write_to(&mut out[28..]);
+        self.rgid.write_to(&mut out[32..]);
+        self.euid.write_to(&mut out[36..]);
+        self.egid.write_to(&mut out[40..]);
+        self.suid.write_to(&mut out[44..]);
+        self.sgid.write_to(&mut out[48..]);
+        self.fsuid.write_to(&mut out[52..]);
+        self.fsgid.write_to(&mut out[56..]);
+        self.exit_code.write_to(&mut out[60..]);
+        self.coredump_mask.write_to(&mut out[64..]);
+        self.coredump_signal.write_to(&mut out[68..]);
+        self.coredump_code.write_to(&mut out[72..]);
+        self.coredump_pad.write_to(&mut out[76..]);
+        self.supported_mask.write_to(&mut out[80..]);
+    }
+}
+/// `pidfd_info.mask` (`PIDFD_INFO_*`, UAPI `linux/pidfd.h`).
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct PidfdInfoMask(pub u64);
+impl PidfdInfoMask {
+    pub const PIDFD_INFO_PID: Self = Self(0x1);
+    pub const PIDFD_INFO_CREDS: Self = Self(0x2);
+    pub const PIDFD_INFO_CGROUPID: Self = Self(0x4);
+    pub const PIDFD_INFO_EXIT: Self = Self(0x8);
+    pub const PIDFD_INFO_COREDUMP: Self = Self(0x10);
+    pub const PIDFD_INFO_SUPPORTED_MASK: Self = Self(0x20);
+    pub const PIDFD_INFO_COREDUMP_SIGNAL: Self = Self(0x40);
+    pub const PIDFD_INFO_COREDUMP_CODE: Self = Self(0x80);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("PIDFD_INFO_PID", Self::PIDFD_INFO_PID),
+        ("PIDFD_INFO_CREDS", Self::PIDFD_INFO_CREDS),
+        ("PIDFD_INFO_CGROUPID", Self::PIDFD_INFO_CGROUPID),
+        ("PIDFD_INFO_EXIT", Self::PIDFD_INFO_EXIT),
+        ("PIDFD_INFO_COREDUMP", Self::PIDFD_INFO_COREDUMP),
+        ("PIDFD_INFO_SUPPORTED_MASK", Self::PIDFD_INFO_SUPPORTED_MASK),
+        (
+            "PIDFD_INFO_COREDUMP_SIGNAL",
+            Self::PIDFD_INFO_COREDUMP_SIGNAL,
+        ),
+        ("PIDFD_INFO_COREDUMP_CODE", Self::PIDFD_INFO_COREDUMP_CODE),
+    ];
+
+    pub const fn empty() -> Self {
+        Self(0)
+    }
+    pub const fn bits(self) -> u64 {
+        self.0
+    }
+    pub const fn is_empty(self) -> bool {
+        self.0 == 0
+    }
+    /// Whether all bits of `other` are set.
+    pub const fn contains(self, other: Self) -> bool {
+        self.0 & other.0 == other.0
+    }
+    /// Whether any bit of `other` is set.
+    pub const fn intersects(self, other: Self) -> bool {
+        self.0 & other.0 != 0
+    }
+}
+
+impl fmt::Debug for PidfdInfoMask {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("PidfdInfoMask(")?;
+        let mut rest = self.0;
+        let mut first = true;
+        for (name, flag) in Self::MEMBERS {
+            if flag.0 != 0 && self.contains(*flag) && rest & flag.0 != 0 {
+                if !first {
+                    f.write_str(" | ")?;
+                }
+                f.write_str(name)?;
+                first = false;
+                rest &= !flag.0;
+            }
+        }
+        if rest != 0 || first {
+            if !first {
+                f.write_str(" | ")?;
+            }
+            write!(f, "{rest:#x}")?;
+        }
+        f.write_str(")")
+    }
+}
+impl core::ops::BitOr for PidfdInfoMask {
+    type Output = Self;
+    fn bitor(self, rhs: Self) -> Self {
+        Self(self.0 | rhs.0)
+    }
+}
+impl core::ops::BitAnd for PidfdInfoMask {
+    type Output = Self;
+    fn bitand(self, rhs: Self) -> Self {
+        Self(self.0 & rhs.0)
+    }
+}
+impl core::ops::BitXor for PidfdInfoMask {
+    type Output = Self;
+    fn bitxor(self, rhs: Self) -> Self {
+        Self(self.0 ^ rhs.0)
+    }
+}
+impl core::ops::Not for PidfdInfoMask {
+    type Output = Self;
+    fn not(self) -> Self {
+        Self(!self.0)
+    }
+}
+impl core::ops::BitOrAssign for PidfdInfoMask {
+    fn bitor_assign(&mut self, rhs: Self) {
+        self.0 |= rhs.0;
+    }
+}
+impl core::ops::BitAndAssign for PidfdInfoMask {
+    fn bitand_assign(&mut self, rhs: Self) {
+        self.0 &= rhs.0;
+    }
+}
+impl core::ops::BitXorAssign for PidfdInfoMask {
+    fn bitxor_assign(&mut self, rhs: Self) {
+        self.0 ^= rhs.0;
+    }
+}
+
+impl GuestLayout for PidfdInfoMask {
+    const SIZE: usize = <u64 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u64 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u64 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// The sizes `struct pidfd_info` had (`PIDFD_INFO_SIZE_VER*`, UAPI `linux/pidfd.h`).
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct PidfdInfoSize(pub u32);
+impl PidfdInfoSize {
+    pub const PIDFD_INFO_SIZE_VER0: Self = Self(64);
+    pub const PIDFD_INFO_SIZE_VER1: Self = Self(72);
+    pub const PIDFD_INFO_SIZE_VER2: Self = Self(80);
+    pub const PIDFD_INFO_SIZE_VER3: Self = Self(88);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("PIDFD_INFO_SIZE_VER0", Self::PIDFD_INFO_SIZE_VER0),
+        ("PIDFD_INFO_SIZE_VER1", Self::PIDFD_INFO_SIZE_VER1),
+        ("PIDFD_INFO_SIZE_VER2", Self::PIDFD_INFO_SIZE_VER2),
+        ("PIDFD_INFO_SIZE_VER3", Self::PIDFD_INFO_SIZE_VER3),
+    ];
+    /// Name of the first constant with this value, if any.
+    pub const fn name(self) -> Option<&'static str> {
+        match self.0 {
+            64 => Some("PIDFD_INFO_SIZE_VER0"),
+            72 => Some("PIDFD_INFO_SIZE_VER1"),
+            80 => Some("PIDFD_INFO_SIZE_VER2"),
+            88 => Some("PIDFD_INFO_SIZE_VER3"),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Debug for PidfdInfoSize {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.name() {
+            Some(name) => f.write_str(name),
+            None => write!(f, "PidfdInfoSize({})", self.0),
+        }
+    }
+}
+
+impl GuestLayout for PidfdInfoSize {
     const SIZE: usize = <u32 as GuestLayout>::SIZE;
     const ALIGN: usize = <u32 as GuestLayout>::ALIGN;
     const ZERO: Self = Self(0);
