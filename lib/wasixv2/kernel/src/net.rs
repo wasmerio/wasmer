@@ -826,12 +826,30 @@ impl Kernel {
     ) -> SysResult<usize> {
         let memory = caller.memory();
         let mut hdr: UserMsghdr = read_value(memory, GuestPtr::new(at)).await?;
-        let namelen = msg_namelen(&hdr)?;
         if hdr.msg_iovlen > UIO_MAXIOV {
             return Err(Errno::EMSGSIZE.into());
         }
         let dst = GuestIov::of(memory, &hdr).await?;
-        let got = self.recv_into(caller, sock, &dst, flags).await?;
+        let (result, _) = self
+            .recv_header(caller, sock, &mut hdr, &dst, flags)
+            .await?;
+        write_value(memory, GuestPtrMut::new(at), &hdr).await?;
+        Ok(result)
+    }
+
+    /// The common recvmsg payload/name/control/SCM_RIGHTS delivery, also used by
+    /// io_uring/net.c:io_recvmsg_multishot with its generated header.
+    async fn recv_header(
+        &self,
+        caller: &Caller<'_>,
+        sock: &AnySock,
+        hdr: &mut UserMsghdr,
+        dst: &GuestIov,
+        flags: MsgFlags,
+    ) -> SysResult<(usize, usize)> {
+        let memory = caller.memory();
+        let namelen = msg_namelen(hdr)?;
+        let got = self.recv_into(caller, sock, dst, flags).await?;
 
         // The name: as much as fits, with the real length reported.
         hdr.msg_namelen = 0;
@@ -841,17 +859,16 @@ impl Kernel {
             hdr.msg_namelen = raw.len() as i32;
         }
         let mut out_flags = got.flags;
-        let mut used = write_cmsgs(caller, &hdr, &got.controls, &mut out_flags).await?;
+        let mut used = write_cmsgs(caller, hdr, &got.controls, &mut out_flags).await?;
         if !got.rights.is_empty() {
             let cloexec = flags.contains(MsgFlags::MSG_CMSG_CLOEXEC);
             used += self
-                .write_rights(caller, &hdr, used, got.rights, cloexec, &mut out_flags)
+                .write_rights(caller, hdr, used, got.rights, cloexec, &mut out_flags)
                 .await?;
         }
         hdr.msg_controllen = used as u32;
         hdr.msg_flags = out_flags.0;
-        write_value(memory, GuestPtrMut::new(at), &hdr).await?;
-        Ok(got.result)
+        Ok((got.result, got.len))
     }
 
     /// `scm_detach_fds`: installs as many received files as the control buffer has room for
@@ -1163,6 +1180,62 @@ impl Kernel {
     ) -> SysResult<usize> {
         let sock = any_socket_file(file)?;
         self.recv_msghdr(caller, &sock, msg, flags).await
+    }
+
+    /// Selected receive (`io_uring/net.c:io_recvmsg`, io_recvmsg_multishot).
+    pub(crate) async fn uring_recvmsg_selected(
+        &self,
+        caller: &Caller<'_>,
+        file: Arc<OpenFile>,
+        (at, mut hdr): (u32, UserMsghdr),
+        (base, len): (u32, u32),
+        flags: MsgFlags,
+        multi: bool,
+    ) -> SysResult<(usize, bool)> {
+        let sock = any_socket_file(file)?;
+        let checked_name = msg_namelen(&hdr)?;
+        // io_recvmsg_mshot_prep reserves the original user length even when
+        // __copy_msghdr cleared the kernel name length for a NULL msg_name.
+        let name_capacity = if multi {
+            u32::try_from(hdr.msg_namelen).map_err(|_| Errno::EOVERFLOW)?
+        } else {
+            checked_name
+        };
+        let control_capacity = hdr.msg_controllen;
+        let prefix = if multi {
+            16u32
+                .checked_add(name_capacity)
+                .and_then(|n| n.checked_add(control_capacity))
+                .ok_or(Errno::EOVERFLOW)?
+        } else {
+            0
+        };
+        if len < prefix {
+            return Err(Errno::EFAULT.into());
+        }
+        let payload = base.checked_add(prefix).ok_or(Errno::EFAULT)?;
+        if multi {
+            hdr.msg_name = GuestPtrMut::new(base.checked_add(16).ok_or(Errno::EFAULT)?);
+            hdr.msg_control =
+                GuestPtrMut::new(base.checked_add(16 + name_capacity).ok_or(Errno::EFAULT)?);
+        }
+        let dst = GuestIov::single(payload, len - prefix);
+        let (result, copied) = self
+            .recv_header(caller, &sock, &mut hdr, &dst, flags)
+            .await?;
+        if multi {
+            let out = wasixv2_abi::IoUringRecvmsgOut {
+                namelen: hdr.msg_namelen as u32,
+                controllen: hdr.msg_controllen,
+                payloadlen: result as u32,
+                flags: hdr.msg_flags,
+            };
+            write_value(caller.memory(), GuestPtrMut::new(base), &out).await?;
+            Ok((prefix as usize + copied, result > 0))
+        } else {
+            write_value(caller.memory(), GuestPtrMut::new(at), &hdr).await?;
+            Ok((result, result > 0))
+        }
     }
 
     /// `io_accept`: `accept4` on the socket `file`, without waiting when `nonblock`.
