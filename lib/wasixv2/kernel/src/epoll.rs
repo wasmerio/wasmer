@@ -465,6 +465,16 @@ impl Pollable for Epoll {
 }
 
 impl Epoll {
+    /// `get_epoll_tfile_raw_ptr` (`ep_find_tfd`): the file of the `toff`-th item added with
+    /// descriptor `tfd`, items in the order of their keys.
+    pub(crate) fn target_file(&self, tfd: i32, toff: u32) -> Option<Arc<OpenFile>> {
+        let state = self.ep.state.lock_or_recover();
+        let mut keys: Vec<Key> = state.items.keys().copied().filter(|k| k.1 == tfd).collect();
+        keys.sort_unstable();
+        let key = keys.get(usize::try_from(toff).ok()?)?;
+        state.items[key].file.upgrade()
+    }
+
     /// The readiness part of `ep_eventpoll_poll`.
     fn ready_mask(&self) -> PollMask {
         let ready: Vec<Key> = self

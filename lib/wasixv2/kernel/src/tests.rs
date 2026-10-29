@@ -801,6 +801,7 @@ mod clocks;
 mod cred;
 mod fs;
 mod futex;
+mod introspect;
 mod io_uring;
 mod ipc;
 mod jobctl;

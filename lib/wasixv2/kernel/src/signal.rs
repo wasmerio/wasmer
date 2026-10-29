@@ -562,6 +562,12 @@ impl Signals {
         })
     }
 
+    /// The identity of the group's dispositions (`sighand_struct`), which `CLONE_SIGHAND`
+    /// shares.
+    pub(crate) fn sighand_id(&self) -> usize {
+        Arc::as_ptr(&self.state.lock_or_recover().sighand) as usize
+    }
+
     // ---- proc ----
     /// `copy_sighand` and `copy_signal` for a new process, whose queued signals `account` pays
     /// for: the dispositions, shared with `share_sighand` (`CLONE_SIGHAND`) and copied
