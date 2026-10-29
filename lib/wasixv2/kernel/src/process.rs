@@ -83,6 +83,8 @@ pub(crate) struct Procs {
     pub(crate) tree: Arc<Mutex<Tree>>,
     /// Woken whenever a process exits; waiters and pidfd pollers recheck (`wait_chldexit`).
     pub(crate) changed: Arc<WaitQueue>,
+    /// Woken whenever a fork child leaves [`Tree::fork_vforks`] (`complete_vfork_done`).
+    vfork_done: WaitQueue,
 }
 
 #[derive(Default)]
@@ -97,6 +99,9 @@ pub(crate) struct Tree {
     /// The pid each vfork child has as its parent sees it, which vfork returns there
     /// ([`VforkParent::pid`]), until the parent goes back to its instance.
     pub(crate) vfork_pids: HashMap<TaskId, i32>,
+    /// Fork children whose parent waits until they are done with their copy of its memory
+    /// (`CLONE_VFORK` without `CLONE_VM`, Linux's `vfork_done`), to that parent.
+    pub(crate) fork_vforks: HashMap<TaskId, TaskId>,
     /// The CPU time of every process reaped so far, which the machine's counts with the live
     /// ones' (`/proc/stat`).
     pub(crate) reaped: CpuTimes,
@@ -204,6 +209,7 @@ impl Procs {
                 ..Tree::default()
             })),
             changed: Arc::default(),
+            vfork_done: WaitQueue::default(),
         }
     }
 
@@ -430,6 +436,44 @@ impl Kernel {
         };
         if let Some(sig) = signals.and_then(|signals| signals.fatal_pending()) {
             self.force_fatal_signal(parent, sig);
+        }
+    }
+
+    /// `complete_vfork_done`, from `task`'s `mm_release`: a fork child that its parent waits
+    /// for (`CLONE_VFORK` without `CLONE_VM`) is done with the memory it was made with, as it
+    /// exits, its `execve` replaces the memory, or it never runs. The parent goes on.
+    pub(crate) fn complete_vfork_done(&self, task: TaskId) {
+        let parent = self.procs.tree.lock_or_recover().fork_vforks.remove(&task);
+        if parent.is_some() {
+            self.procs.vfork_done.wake(PollMask::empty());
+        }
+    }
+
+    /// `wait_for_vfork_done`, killable: after a fork with `CLONE_VFORK`, once the child runs,
+    /// `task` waits until the child is done with its copy of the memory
+    /// ([`Kernel::complete_vfork_done`]). A fatal signal ends the wait and the thread group,
+    /// and the child completes nothing for it any more.
+    pub(crate) async fn vfork_wait(&self, task: TaskId) {
+        let signals = self.task_signals(task);
+        let done = || {
+            let tree = self.procs.tree.lock_or_recover();
+            (!tree.fork_vforks.values().any(|&parent| parent == task)).then_some(())
+        };
+        if wait_event(&self.procs.vfork_done, done, &signals.killable())
+            .await
+            .is_ok()
+        {
+            return;
+        }
+        let fatal = signals.fatal_pending();
+        self.procs
+            .tree
+            .lock_or_recover()
+            .fork_vforks
+            .retain(|_, parent| *parent != task);
+        // `complete_signal`: a fatal signal ends the whole group as it arrives.
+        if let Some(sig) = fatal {
+            self.force_fatal_signal(task, sig);
         }
     }
 
@@ -1002,6 +1046,8 @@ impl Kernel {
     /// fork: `clone` without `CLONE_VM`. The child gets a copy of the address space, which the
     /// execution layer makes once the call returns ([`GuestAction::Fork`]); clone's writes to
     /// guest memory wait for that copy, so each lands only in the address space Linux writes.
+    /// With `CLONE_VFORK`, the parent then waits until the child is done with its copy
+    /// ([`Kernel::vfork_wait`]).
     async fn fork(
         &self,
         caller: &Caller<'_>,
@@ -1017,9 +1063,8 @@ impl Kernel {
             tls,
             child_tid,
         } = writes;
-        // The child cannot start on another stack (`newsp`), and nothing can block the parent
-        // until a child with its own memory execs (`CLONE_VFORK`).
-        if newsp != 0 || flags.contains(CloneFlags::CLONE_VFORK) {
+        // The child cannot start on another stack (`newsp`).
+        if newsp != 0 {
             return Err(Errno::EINVAL.into());
         }
         if !caller.memory().can_duplicate().await {
@@ -1033,6 +1078,12 @@ impl Kernel {
         });
         let set = |flag: CloneFlags, addr: u32| flags.contains(flag).then_some(addr);
         let pid = self.vnr(caller, child.0);
+        // `p->vfork_done`: the child's `mm_release` lets the parent go.
+        let vfork = flags.contains(CloneFlags::CLONE_VFORK);
+        if vfork {
+            let mut tree = self.procs.tree.lock_or_recover();
+            tree.fork_vforks.insert(child, parent_task);
+        }
         let fork = GuestAction::Fork {
             child,
             pid,
@@ -1041,6 +1092,7 @@ impl Kernel {
             pidfd,
             child_tid: set(CloneFlags::CLONE_CHILD_SETTID, child_tid),
             tls: set(CloneFlags::CLONE_SETTLS, tls),
+            vfork,
         };
         self.queue(parent_task, fork);
         Ok(pid)
@@ -1456,6 +1508,8 @@ impl Kernel {
             t.mm = Arc::default();
             t.thread = thread::ThreadState::default();
         });
+        // `exec_mm_release`: a parent that waits for the old memory goes on.
+        self.complete_vfork_done(task);
         if let Some(image) = image {
             self.hand_image(task, image);
         }

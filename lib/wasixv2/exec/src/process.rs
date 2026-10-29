@@ -585,7 +585,7 @@ mod tests {
     use wasixv2_host::{Executor, LocalFuture};
     use wasixv2_syscalls::{
         AtomicWait, AtomicWord, Caller, CpuTime, ExitMm, GroupStop, PidView, SharedMapping,
-        SharedMappings, SysResult, VforkParent,
+        SharedMappings, SysResult, VforkParent, VforkWait,
     };
 
     use super::*;
@@ -639,6 +639,12 @@ mod tests {
 
     impl GroupStop for Recorder {
         fn stop_wait(&self, _: TaskId) -> LocalFuture<'_, ()> {
+            Box::pin(async {})
+        }
+    }
+
+    impl VforkWait for Recorder {
+        fn vfork_wait(&self, _: TaskId) -> LocalFuture<'_, ()> {
             Box::pin(async {})
         }
     }

@@ -16,7 +16,7 @@ pub use caller::{Caller, TaskId};
 pub use control::{
     AtomicWait, AtomicWord, BINPRM_BUF_SIZE, Binfmt, Control, ExitMm, GroupStop, GuestAction,
     Image, ImageId, PidView, Resume, SharedMapping, SharedMappings, SignalFrame, VforkParent,
-    WorkFlag,
+    VforkWait, WorkFlag,
 };
 pub use cputime::{CpuAccount, CpuBase, CpuTime, CpuTimes, Expiry, GroupCpu};
 pub use generated::{Layer, Layered, Syscall, SyscallRet, Syscalls, dispatch};

@@ -6,6 +6,8 @@ use wasixv2_abi::{
 };
 use wasixv2_syscalls::{read_value, write_value};
 
+use futures::FutureExt as _;
+
 use super::{
     ipc::{errno, put},
     *,
@@ -88,6 +90,7 @@ fn fork_leaves_the_copy_and_tid_writes_to_the_execution_layer() {
             pidfd: None,
             child_tid: Some(16),
             tls: None,
+            vfork: false,
         })
     );
 }
@@ -119,21 +122,114 @@ fn a_forked_child_is_reaped_by_its_parent() {
 }
 
 #[test]
-fn fork_rejects_a_new_stack_and_clone_vfork() {
+fn fork_rejects_a_new_stack() {
     let (kernel, task, _) = setup(b"");
     let memory = forkable();
     let caller = Caller::new(task, &memory);
 
     let stack = clone(&kernel, &caller, SIGCHLD, 4096);
-    let blocking = clone(
-        &kernel,
-        &caller,
-        SIGCHLD | CloneFlags::CLONE_VFORK.0 as u32,
-        0,
-    );
 
     assert_eq!(stack, Err(SysErr::Errno(Errno::EINVAL)));
-    assert_eq!(blocking, Err(SysErr::Errno(Errno::EINVAL)));
+}
+
+/// fork with `CLONE_VFORK`: the parent's clone returns once the child is done with its copy
+/// of the memory (`wait_for_vfork_done`), here as it exits (`exit_mm`'s `mm_release`).
+#[test]
+fn a_vfork_without_clone_vm_waits_until_the_child_exits() {
+    let (kernel, task, _) = setup(b"");
+    let memory = forkable();
+    let caller = Caller::new(task, &memory);
+    let flags = SIGCHLD | CloneFlags::CLONE_VFORK.0 as u32;
+
+    let child = TaskId(clone(&kernel, &caller, flags, 0).expect("fork") as u32);
+
+    let Some(GuestAction::Fork { vfork, .. }) = kernel.take_pending(task) else {
+        panic!("fork left no child");
+    };
+    assert!(vfork);
+    let mut wait = Box::pin(kernel.vfork_wait(task));
+    assert!(wait.as_mut().now_or_never().is_none(), "the child runs");
+    let child_memory = forkable();
+    let child_caller = Caller::new(child, &child_memory);
+    assert_eq!(block_on(kernel.exit_group(&child_caller, 3)), Ok(()));
+    assert!(
+        wait.as_mut().now_or_never().is_some(),
+        "its exit lets the parent go"
+    );
+    // Waiting again finds nothing to wait for.
+    assert!(kernel.vfork_wait(task).now_or_never().is_some());
+}
+
+/// A vfork child with memory of its own lets its parent go once its `execve` replaced that
+/// memory (`exec_mm_release`), and runs on.
+#[test]
+fn a_vfork_without_clone_vm_waits_until_the_child_execs() {
+    let (kernel, task, _) = setup(b"");
+    let memory = forkable();
+    let caller = Caller::new(task, &memory);
+    let flags = SIGCHLD | CloneFlags::CLONE_VFORK.0 as u32;
+    let child = TaskId(clone(&kernel, &caller, flags, 0).expect("fork") as u32);
+    while kernel.take_pending(task).is_some() {}
+    let mut wait = Box::pin(kernel.vfork_wait(task));
+    let child_memory = FlatMemory(RefCell::new(vec![0; 65536]));
+    let child_caller = Caller::new(child, &child_memory);
+    super::task::install_prog(&kernel, &child_caller, &child_memory);
+    assert!(wait.as_mut().now_or_never().is_none());
+
+    assert_eq!(block_on(super::task::execve(&kernel, &child_caller)), Ok(0));
+
+    assert!(wait.as_mut().now_or_never().is_some());
+    let exec = GuestAction::Exec { vfork_parent: None };
+    assert_eq!(kernel.take_pending(child), Some(exec));
+}
+
+/// A fork child that never runs (the execution layer could not copy the memory) lets its
+/// vfork parent go as it is released.
+#[test]
+fn a_vfork_child_that_never_runs_lets_the_parent_go() {
+    let (kernel, task, _) = setup(b"");
+    let memory = forkable();
+    let caller = Caller::new(task, &memory);
+    let flags = SIGCHLD | CloneFlags::CLONE_VFORK.0 as u32;
+    let child = TaskId(clone(&kernel, &caller, flags, 0).expect("fork") as u32);
+    while kernel.take_pending(task).is_some() {}
+    let mut wait = Box::pin(kernel.vfork_wait(task));
+    assert!(wait.as_mut().now_or_never().is_none());
+
+    assert!(kernel.fault(child, Signal::SIGSEGV.0));
+    kernel.release(child);
+
+    assert!(wait.as_mut().now_or_never().is_some());
+}
+
+/// `wait_for_vfork_done` is killable: SIGKILL ends the parent's wait and its thread group,
+/// while the child goes on.
+#[test]
+fn a_vfork_parent_dies_of_sigkill_while_it_waits() {
+    let (kernel, task, _) = setup(b"");
+    let memory = forkable();
+    let caller = Caller::new(task, &memory);
+    let flags = SIGCHLD | CloneFlags::CLONE_VFORK.0 as u32;
+    let child = TaskId(clone(&kernel, &caller, flags, 0).expect("fork") as u32);
+    while kernel.take_pending(task).is_some() {}
+    let mut wait = Box::pin(kernel.vfork_wait(task));
+    assert!(wait.as_mut().now_or_never().is_none());
+
+    let child_memory = forkable();
+    let child_caller = Caller::new(child, &child_memory);
+    let pid = task.0 as Pid;
+    assert_eq!(
+        block_on(kernel.sys_kill(&child_caller, pid, Signal::SIGKILL)),
+        Ok(0)
+    );
+
+    assert!(wait.as_mut().now_or_never().is_some());
+    assert_eq!(
+        kernel.take_pending(task),
+        Some(GuestAction::Exit(128 + Signal::SIGKILL.0))
+    );
+    assert_eq!(kernel.take_pending(child), None, "the child goes on");
+    assert_eq!(block_on(kernel.exit_group(&child_caller, 0)), Ok(()));
 }
 
 #[test]
@@ -495,6 +591,7 @@ fn clone3_forks_as_clone_does() {
             pidfd: None,
             child_tid: None,
             tls: None,
+            vfork: false,
         })
     );
     let node = kernel.procs.tree.lock().unwrap().nodes[&child.0].exit_signal;
@@ -830,6 +927,7 @@ fn clone3_pidfd_gives_the_parent_a_pidfd_of_the_child() {
             pidfd: Some((0x100, 3)),
             child_tid: None,
             tls: None,
+            vfork: false,
         })
     );
     assert!(kernel.file(child, Fd(3)).is_err());

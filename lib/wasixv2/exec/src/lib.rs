@@ -946,9 +946,10 @@ pub async fn complete<S: Syscalls + Control + 'static, T>(
                 pidfd,
                 child_tid,
                 tls,
+                vfork,
             } => {
                 // The guest unwinds now; the import that forked resumes once it rewinds.
-                let parent = (pid, parent_tid, pidfd);
+                let parent = (pid, parent_tid, pidfd, vfork);
                 let child_side = (tid, child_tid, tls);
                 return match fork::start(env, syscalls, child, parent, child_side).await {
                     Ok(()) => Outcome::Unwinding,

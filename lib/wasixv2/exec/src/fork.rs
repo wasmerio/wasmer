@@ -28,6 +28,8 @@ struct Writes {
     pidfd: Option<(u32, i32)>,
     child_tid: Option<u32>,
     tls: Option<u32>,
+    /// `CLONE_VFORK`: the parent waits for the child before clone returns.
+    vfork: bool,
     /// The forking import's own data ([`asyncify::import::set_fork_payload`]).
     payload: Option<asyncify::Tag>,
 }
@@ -59,7 +61,11 @@ where
             let args = args.to_vec();
             async move {
                 if let Some(resume) = asyncify::resumed(&env).await? {
-                    return Ok(vec![Value::I32(fork_returned(&env, resume).await?)]);
+                    let ret = match fork_returned(&env, resume).await? {
+                        (ret, false) => ret,
+                        (pid, true) => vfork_returned(&env, pid).await?,
+                    };
+                    return Ok(vec![Value::I32(ret)]);
                 }
                 Ok(clone
                     .call_async(&env.as_store_async(), args)
@@ -90,7 +96,7 @@ pub(crate) async fn start<S: Syscalls + Control + 'static>(
     env: &AsyncFunctionEnvMut<ExecEnv<S>>,
     syscalls: &S,
     child: TaskId,
-    (pid, parent_tid, pidfd): (i32, Option<u32>, Option<(u32, i32)>),
+    (pid, parent_tid, pidfd, vfork): (i32, Option<u32>, Option<(u32, i32)>, bool),
     (tid, child_tid, tls): (i32, Option<u32>, Option<u32>),
 ) -> SysResult<()> {
     let payload = env.write().await.data_mut().fork_payload.take();
@@ -101,6 +107,7 @@ pub(crate) async fn start<S: Syscalls + Control + 'static>(
         pidfd,
         child_tid,
         tls,
+        vfork,
         payload,
     });
     let shared = syscalls.shared_mappings(child);
@@ -125,11 +132,11 @@ pub(crate) async fn start<S: Syscalls + Control + 'static>(
 
 /// What clone returns once the guest rewound into it: the child's pid in the parent, after
 /// `CLONE_PARENT_SETTID`'s and `CLONE_PIDFD`'s writes, and 0 in the child, after `CLONE_CHILD_SETTID`'s write and
-/// `CLONE_SETTLS`.
+/// `CLONE_SETTLS`; and whether the parent has yet to wait for its vfork child.
 async fn fork_returned<S: 'static>(
     env: &AsyncFunctionEnvMut<ExecEnv<S>>,
     resume: Resume,
-) -> Result<i32, RuntimeError> {
+) -> Result<(i32, bool), RuntimeError> {
     let Resume::Forked { child, tag } = resume else {
         return Err(RuntimeError::new(
             "clone resumed from something other than a fork",
@@ -148,7 +155,7 @@ async fn fork_returned<S: 'static>(
                 if let Some((addr, fd)) = writes.pidfd {
                     let _ = data.write_memory(&*store, addr, &fd.to_le_bytes());
                 }
-                Ok(writes.pid)
+                Ok((writes.pid, writes.vfork))
             }
             None => {
                 if let Some(addr) = writes.child_tid {
@@ -163,11 +170,30 @@ async fn fork_returned<S: 'static>(
                 if let (Some(tls), Some(global)) = (writes.tls, tls_base) {
                     global.set(store, Value::I32(tls as i32))?;
                 }
-                Ok(0)
+                Ok((0, false))
             }
         }
     })
     .await
+}
+
+/// The parent's end of a fork with `CLONE_VFORK`, once its child runs: clone returns `pid`
+/// only after the child is done with its copy of the memory, as `kernel_clone` waits in
+/// `wait_for_vfork_done`, and through the return-to-guest path, where a fatal signal that
+/// ended the wait takes the parent.
+async fn vfork_returned<S: Syscalls + Control + 'static>(
+    env: &AsyncFunctionEnvMut<ExecEnv<S>>,
+    pid: i32,
+) -> Result<i32, RuntimeError> {
+    let (syscalls, task) = {
+        let env = env.read().await;
+        let data = env.data();
+        (data.syscalls.clone(), data.task)
+    };
+    syscalls.vfork_wait(task).await;
+    crate::return_to_guest(env, &*syscalls, task, Ok(pid))
+        .await
+        .unwrap_or(Ok(pid))
 }
 
 /// `stack-snapshot`: the saved stack's slot, generation and level.

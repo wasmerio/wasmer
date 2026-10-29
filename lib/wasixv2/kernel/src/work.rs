@@ -222,6 +222,7 @@ mod tests {
             pidfd: None,
             child_tid: None,
             tls: None,
+            vfork: false,
         };
         assert_eq!(work.push(switch), vec![TaskId(2)]);
         assert_eq!(work.push(fork), vec![TaskId(3)]);

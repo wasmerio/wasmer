@@ -297,6 +297,7 @@ impl Kernel {
             }
         }
         let stopped = forget_task(&mut self.state.lock_or_recover(), child);
+        self.complete_vfork_done(child);
         self.report_group_stop(stopped);
         self.pid_ns_progress();
     }
@@ -453,6 +454,8 @@ impl Kernel {
     /// `release_task`: the execution layer is done with `task`, so it goes. A zombie process
     /// lives on in the process tree.
     pub(crate) fn release_task(&self, task: TaskId) {
+        // A fork child that never ran has no `exit_mm` to let its vfork parent go.
+        self.complete_vfork_done(task);
         let (process, stopped) = {
             let mut state = self.state.lock_or_recover();
             let (unstarted, process) = match state.tasks.get_mut(&task) {
@@ -832,9 +835,9 @@ impl Kernel {
     }
 
     /// `exit_mm` for the caller, which is done with its memory: `mm_release` hands on its
-    /// robust and PI futexes and, while another task still uses the memory (`mm_users > 1`: a
-    /// thread of its group, or a vfork relative), zeroes its `clear_child_tid` and wakes a
-    /// waiter there; then `mmput`, where the last task to leave the memory writes back its
+    /// robust and PI futexes, while another task still uses the memory (`mm_users > 1`: a
+    /// thread of its group, or a vfork relative) zeroes its `clear_child_tid` and wakes a
+    /// waiter there, and lets a parent waiting for it as a vfork child go on; then `mmput`, where the last task to leave the memory writes back its
     /// shared mappings and drops them (`exit_mmap`). Once per task and memory; a later call does
     /// nothing.
     pub(crate) async fn exit_mm(&self, caller: &Caller<'_>) {
@@ -852,6 +855,8 @@ impl Kernel {
         };
         let tid = self.own_tid(task) as u32;
         self.exit_thread(caller, tid, thread, users > 1).await;
+        // The end of `mm_release`.
+        self.complete_vfork_done(task);
         let (last, process) = {
             let mut state = self.state.lock_or_recover();
             let Some(entry) = state.tasks.get_mut(&task) else {
