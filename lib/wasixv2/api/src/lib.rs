@@ -228,7 +228,8 @@ impl MachineBuilder {
         } = self;
         let owner = (user.uid(), user.gid());
         let network = default_network();
-        let root = root.unwrap_or_else(|| default_root(&host, &network.resolv_conf(), &user));
+        let root = root
+            .unwrap_or_else(|| default_root(&host, &network.resolv_conf(), &user, uname.release()));
         #[cfg(feature = "wasix1")]
         let wasix1 = Wasix1Commands::default();
         let abis = Arc::new(abis(
@@ -1290,11 +1291,19 @@ impl Provider for HostPages {
 /// as a small Linux system. It has empty `/bin`, `/usr/bin` and `/usr/lib` for packages and
 /// mounts to fill, `/root` and the user's home `/home/user`, and in `/etc` `passwd` and `group`
 /// naming root, `nobody` and the user, `hostname`, `hosts` and, when there are name servers,
-/// `resolv.conf`. `/proc`, `/dev` and `/tmp` are mount points.
+/// `resolv.conf`. `/run` holds runtime state (`ip netns` keeps namespaces in `/run/netns`), and
+/// `/var/run` links to it, as on a Debian system. `/proc`, `/dev` and `/tmp` are mount points.
+///
+/// `/lib/modules/<release>` describes the kernel as its package installs it, `release` being
+/// what `uname -r` reports: `modules.builtin` names the drivers it has built in, the Linux
+/// modules whose interfaces it implements (`veth`, `dummy`, ...), and `modules.dep` is empty,
+/// since nothing is loadable. Programs that check for a driver, as LTP's
+/// `tst_require_drivers` does, look there.
 pub fn default_root(
     host: &Arc<dyn Host>,
     resolv_conf: &str,
     user: &Credentials,
+    release: &str,
 ) -> Arc<dyn Filesystem> {
     let (uid, gid) = (user.uid(), user.gid());
     let root: Arc<dyn Filesystem> = Arc::new(MemFs::new(
@@ -1313,6 +1322,7 @@ pub fn default_root(
         task: 0,
         leases: None,
     };
+    let modules = format!("/lib/modules/{release}");
     let layout = async {
         let dirs = [
             "/bin",
@@ -1323,21 +1333,31 @@ pub fn default_root(
             "/proc",
             "/dev",
             "/tmp",
+            "/run",
+            "/var",
+            &modules,
         ];
         for dir in dirs {
             vfs.mkdir_all(&cx, dir.as_bytes()).await?;
         }
         vfs.mkdir(&cx, &top, b"/root", 0o700).await?;
+        vfs.symlink(&cx, b"/run", &top, b"/var/run").await?;
         let home = vfs
             .lookup(&cx, &top, b"/home/user", LookupFlags::follow())
             .await?;
         vfs.chown(&cx, &home, Some(uid), Some(gid)).await?;
         let (passwd, group) = (passwd(uid, gid), group(gid));
+        let (builtin, dep) = (
+            format!("{modules}/modules.builtin"),
+            format!("{modules}/modules.dep"),
+        );
         let mut files = vec![
             ("/etc/passwd", passwd.as_str()),
             ("/etc/group", group.as_str()),
             ("/etc/hostname", HOSTNAME),
             ("/etc/hosts", HOSTS),
+            (builtin.as_str(), MODULES_BUILTIN),
+            (dep.as_str(), ""),
         ];
         if !resolv_conf.is_empty() {
             files.push(("/etc/resolv.conf", resolv_conf));
@@ -1356,6 +1376,15 @@ pub fn default_root(
     now(layout).expect("a new memory filesystem takes the default layout");
     root
 }
+
+/// `modules.builtin`: the Linux modules the kernel has built in, by their paths under
+/// `kernel/` as Linux's build lists them, for the interfaces it implements: dummy and veth
+/// links, IPv6, packet and Unix sockets.
+const MODULES_BUILTIN: &str = "kernel/drivers/net/dummy.ko\n\
+                               kernel/drivers/net/veth.ko\n\
+                               kernel/net/ipv6/ipv6.ko\n\
+                               kernel/net/packet/af_packet.ko\n\
+                               kernel/net/unix/unix.ko\n";
 
 /// musl's `_PATH_DEFPATH`, what `execvp` searches without a `PATH`.
 const DEFAULT_PATH: &str = "/usr/local/bin:/bin:/usr/bin";
