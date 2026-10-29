@@ -1,5 +1,7 @@
 //! `clock_res_get`, `clock_time_get`: Linux clocks in nanoseconds.
 
+use std::sync::Mutex;
+
 use wasixv2_abi::KernelTimespec;
 use wasixv2_syscalls::{Control, Syscalls};
 use wasmer::RuntimeError;
@@ -9,6 +11,34 @@ use crate::{
     errno::V1Result,
     shim::{self, Env, Frame},
 };
+
+/// V1 clock_time_set is an unprivileged per-process offset, including monotonic and
+/// CPU clocks. It is deliberately separate from Linux clock_settime (CAP_SYS_TIME).
+#[derive(Default)]
+pub(crate) struct State(Mutex<[i128; 4]>);
+
+impl State {
+    pub(crate) fn fork(&self) -> Self {
+        Self(Mutex::new(*self.0.lock().unwrap()))
+    }
+
+    fn index(id: Clockid) -> V1Result<usize> {
+        id.to_linux().ok_or(crate::errno::Error::V1(Errno::INVAL))?;
+        Ok(id.0 as usize)
+    }
+
+    fn set(&self, id: Clockid, raw: u64, target: u64) -> V1Result<()> {
+        let index = Self::index(id)?;
+        self.0.lock().unwrap()[index] = i128::from(target) - i128::from(raw);
+        Ok(())
+    }
+
+    pub(crate) fn read(&self, id: Clockid, raw: u64) -> V1Result<u64> {
+        let index = Self::index(id)?;
+        let value = i128::from(raw) + self.0.lock().unwrap()[index];
+        Ok(value.clamp(0, i128::from(u64::MAX)) as u64)
+    }
+}
 
 /// A timespec as v1's nanosecond timestamp, saturating instead of wrapping.
 fn nanos(ts: &KernelTimespec) -> u64 {
@@ -59,8 +89,27 @@ pub(crate) async fn clock_time_get<S: Syscalls + Control + 'static>(
     out: i32,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
-        let now = read_clock(frame, id, false).await?;
+        let raw = read_clock(frame, id, false).await?;
+        let now = frame.proc().await?.clocks.read(Clockid(id as u32), raw)?;
         frame.write(out as u32, &now).await
+    })
+    .await
+}
+
+/// V1 ABI semantics: lib/wasix/src/syscalls/wasi/clock_time_set.rs,
+/// clock_time_set_internal. Each set replaces the offset relative to the raw clock.
+pub(crate) async fn clock_time_set<S: Syscalls + Control + 'static>(
+    env: Env<S>,
+    id: i32,
+    time: i64,
+) -> Result<i32, RuntimeError> {
+    shim::errno(&env, async |frame| {
+        let raw = read_clock(frame, id, false).await?;
+        frame
+            .proc()
+            .await?
+            .clocks
+            .set(Clockid(id as u32), raw, time as u64)
     })
     .await
 }
@@ -81,5 +130,27 @@ mod tests {
             tv_nsec: 0,
         };
         assert_eq!(nanos(&huge), u64::MAX);
+    }
+    #[test]
+    fn offsets_are_per_clock_and_copied_at_fork() {
+        let parent = State::default();
+        parent.set(Clockid::REALTIME, 1_000, 200).unwrap();
+        assert_eq!(parent.read(Clockid::REALTIME, 1_100).unwrap(), 300);
+        assert_eq!(parent.read(Clockid::MONOTONIC, 1_100).unwrap(), 1_100);
+        let child = parent.fork();
+        child.set(Clockid::REALTIME, 1_100, 5_000).unwrap();
+        assert_eq!(child.read(Clockid::REALTIME, 1_200).unwrap(), 5_100);
+        assert_eq!(parent.read(Clockid::REALTIME, 1_200).unwrap(), 400);
+        assert_eq!(
+            State::default().read(Clockid::REALTIME, 1_200).unwrap(),
+            1_200
+        );
+        parent.set(Clockid::REALTIME, 1_200, 50).unwrap();
+        assert_eq!(
+            parent.read(Clockid::REALTIME, 1_200).unwrap(),
+            50,
+            "repeated sets replace the offset"
+        );
+        assert!(parent.set(Clockid(4), 0, 0).is_err());
     }
 }

@@ -18,6 +18,7 @@ pub struct ProcState {
     pub fs: calls::fs::State,
     pub net: calls::sock::State,
     pub proc: calls::proc::State,
+    pub(crate) clocks: calls::clock::State,
 }
 
 impl ProcState {
@@ -35,6 +36,7 @@ impl ProcState {
             fs: self.fs.fork(),
             net: self.net.fork(),
             proc: self.proc.fork(),
+            clocks: self.clocks.fork(),
         }
     }
 }

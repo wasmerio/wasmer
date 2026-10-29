@@ -137,7 +137,7 @@ table! {
     "thread-spawn" THREADS (I32) -> (I32) Shim;
 
     // ---- WASIX ----
-    "clock_time_set" WASIX (I32 I64) -> (I32) Pending;
+    "clock_time_set" WASIX (I32 I64) -> (I32) Shim;
     "fd_dup" WASIX (I32 I32) -> (I32) Shim;
     "fd_dup2" WASIX (I32 I32 I32 I32) -> (I32) Shim;
     "fd_event" WASIX (I64 I32 I32) -> (I32) Shim;
@@ -302,6 +302,7 @@ where
         "fd_prestat_dir_name" => f!(startup::fd_prestat_dir_name::<S>),
         "clock_res_get" => f!(clock::clock_res_get::<S>),
         "clock_time_get" => f!(clock::clock_time_get::<S>),
+        "clock_time_set" => f!(clock::clock_time_set::<S>),
         "random_get" => f!(random::random_get::<S>),
         "proc_exit" | "proc_exit2" => f!(exit::proc_exit::<S>),
         "thread_exit" => f!(exit::thread_exit::<S>),
