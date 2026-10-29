@@ -286,7 +286,7 @@ impl Kernel {
             .await;
         // `inc_syscr` and `add_rchar`.
         let read = *ret.as_ref().unwrap_or(&0);
-        self.process(caller.task()).ioac.account(false, read);
+        self.task_ref(caller.task(), |task| task.ioac.account(false, read));
         ret
     }
 
@@ -373,7 +373,7 @@ impl Kernel {
             .await;
         // `inc_syscw` and `add_wchar`.
         let written = *ret.as_ref().unwrap_or(&0);
-        self.process(caller.task()).ioac.account(true, written);
+        self.task_ref(caller.task(), |task| task.ioac.account(true, written));
         ret
     }
 

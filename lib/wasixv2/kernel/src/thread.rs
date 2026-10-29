@@ -274,6 +274,7 @@ impl Kernel {
                 cpu,
                 css,
                 syscall: Default::default(),
+                ioac: Default::default(),
                 process,
                 mm: task.mm.clone(),
                 files: task.files.clone(),
@@ -893,6 +894,9 @@ impl Kernel {
             };
             exchange_tasks(entry, old);
             std::mem::swap(&mut entry.syscall, &mut old.syscall);
+            // fs/exec.c de_thread retires the old leader and keeps the caller accounting.
+            process.ioac.add(entry.ioac.counts());
+            entry.ioac = std::mem::take(&mut old.ioac);
             if detached {
                 entry.work.detach_exec();
             }
@@ -1247,6 +1251,8 @@ pub(crate) fn forget_task(state: &mut State, task: TaskId) -> Option<Arc<Process
 /// live tasks with it. Returns its entry, and whether that completed a group stop.
 fn unhash_task(state: &mut State, task: TaskId) -> Option<(Task, bool)> {
     let entry = state.tasks.remove(&task)?;
+    // kernel/exit.c `__exit_signal`, under the same lock procfs uses to sum live tasks.
+    entry.process.ioac.add(entry.ioac.counts());
     state.pids.detach(task.0, crate::pid::PidType::Pid);
     let completed = entry.signals.detach();
     let group = &entry.process.group;

@@ -142,14 +142,43 @@ pub(super) fn syscall(task: &TaskInfo) -> Vec<u8> {
     }
 }
 
-/// `proc_tid_io_accounting`.
-pub(super) fn io(process: &crate::Process) -> Vec<u8> {
-    let [rchar, wchar, syscr, syscw] = process.ioac.counts();
-    format!(
+/// fs/proc/base.c `do_io_accounting`: process totals include retired and live threads;
+/// /proc/<pid>/task/<tid>/io shows just that thread.
+pub(super) fn io(
+    source: &Source,
+    scope: super::node::Scope,
+    process: &crate::Process,
+) -> wasixv2_vfs::FsResult<Vec<u8>> {
+    let state = source.state.upgrade().ok_or(wasixv2_vfs::Errno::ESRCH)?;
+    let state = state.read_or_recover();
+    let counts = match scope.tid {
+        Some(tid) => state
+            .tasks
+            .get(&wasixv2_syscalls::TaskId(tid))
+            .filter(|t| t.process.pid.0 == scope.pid)
+            .ok_or(wasixv2_vfs::Errno::ESRCH)?
+            .ioac
+            .counts(),
+        None => {
+            let mut counts = process.ioac.counts();
+            for task in state
+                .tasks
+                .values()
+                .filter(|t| t.process.pid.0 == scope.pid)
+            {
+                for (total, count) in counts.iter_mut().zip(task.ioac.counts()) {
+                    *total = total.wrapping_add(count);
+                }
+            }
+            counts
+        }
+    };
+    let [rchar, wchar, syscr, syscw] = counts;
+    Ok(format!(
         "rchar: {rchar}\nwchar: {wchar}\nsyscr: {syscr}\nsyscw: {syscw}\nread_bytes: 0\n\
          write_bytes: 0\ncancelled_write_bytes: 0\n"
     )
-    .into_bytes()
+    .into_bytes())
 }
 
 /// `show_mountstats` without filesystem statistics, which only network filesystems have.

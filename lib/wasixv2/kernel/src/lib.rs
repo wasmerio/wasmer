@@ -293,7 +293,7 @@ struct Process {
     /// The file the image was loaded from (`mm->exe_file`); `None` for a process the embedder
     /// started from bytes.
     exe: Mutex<Option<wasixv2_vfs::Path>>,
-    /// The process's I/O counts, as `/proc/<pid>/io` shows them (`signal->ioac`).
+    /// Retired threads' I/O counts (`signal->ioac`); procfs adds live tasks' counts.
     ioac: IoAccounting,
     /// The auxiliary vector the image started with, as `/proc/<pid>/auxv` shows it
     /// (`mm->saved_auxv`): pairs of words up to `AT_NULL`.
@@ -328,6 +328,8 @@ struct Process {
 struct Task {
     /// The active syscall for /proc/<pid>/syscall, cleared on return.
     syscall: entry::CallSlot,
+    /// Per-thread I/O counts (`task->ioac`).
+    ioac: Arc<IoAccounting>,
     process: Arc<Process>,
     /// The address space the task runs on (`task->mm`).
     mm: Arc<Mm>,
@@ -384,6 +386,17 @@ impl IoAccounting {
         };
         chars.fetch_add(u64::from(bytes), Relaxed);
         calls.fetch_add(1, Relaxed);
+    }
+
+    /// kernel/exit.c `__exit_signal`: retire a task's accounting into its signal group.
+    fn add(&self, counts: [u64; 4]) {
+        use std::sync::atomic::Ordering::Relaxed;
+        for (counter, count) in [&self.rchar, &self.wchar, &self.syscr, &self.syscw]
+            .into_iter()
+            .zip(counts)
+        {
+            counter.fetch_add(count, Relaxed);
+        }
     }
 
     /// `rchar`, `wchar`, `syscr`, `syscw`.
@@ -673,6 +686,7 @@ impl Kernel {
         let task = Task {
             css,
             syscall: Default::default(),
+            ioac: Default::default(),
             comm,
             sched: sched::Sched::default(),
             seccomp: seccomp::Seccomp::default(),

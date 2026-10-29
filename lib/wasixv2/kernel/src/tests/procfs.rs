@@ -1141,3 +1141,67 @@ fn syscall_file_shows_running_stopped_and_blocked_calls() {
         Errno::EPERM
     );
 }
+
+/// fs/proc/base.c `do_io_accounting` and kernel/exit.c `__exit_signal`: task files contain
+/// individual counts, the process sums live and retired threads, and fork starts at zero.
+#[test]
+fn io_files_distinguish_threads_and_keep_retired_counts() {
+    let (kernel, parent, _) = machine();
+    let memory = super::proc::ForkableMemory(memory());
+    let caller = Caller::new(parent, &memory);
+    let child = super::proc::fork_child(&kernel, &caller);
+    let child_memory = self::memory();
+    let child_caller = Caller::new(child, &child_memory);
+    let tid = block_on(kernel.thread_spawn(
+        &child_caller,
+        0x10f00,
+        0,
+        GuestPtrMut::NULL,
+        0,
+        GuestPtrMut::NULL,
+    ))
+    .unwrap();
+    let thread = TaskId(tid as u32);
+    while kernel.take_pending(child).is_some() {}
+    let thread_caller = Caller::new(thread, &child_memory);
+    put(&child_memory, 0x800, b"hello");
+    assert_eq!(
+        block_on(kernel.write(&child_caller, Fd(1), UserSlice::new(0x800, 2))),
+        Ok(2)
+    );
+    assert_eq!(
+        block_on(kernel.write(&thread_caller, Fd(1), UserSlice::new(0x800, 3))),
+        Ok(3)
+    );
+    let t = T::new(&kernel, parent, &memory.0);
+    let counts = |name: &str| {
+        let fd = t.open(name, OpenFlags::O_RDONLY).unwrap();
+        let data = t.read_all(fd);
+        let count = |key: &str| -> u64 {
+            data.lines()
+                .find_map(|line| line.strip_prefix(key))
+                .unwrap()
+                .trim()
+                .parse()
+                .unwrap()
+        };
+        (count("wchar:"), count("syscw:"))
+    };
+    let process_io = format!("/proc/{}/io", child.0);
+    assert_eq!(counts(&process_io), (5, 2));
+    assert_eq!(
+        counts(&format!("/proc/{}/task/{}/io", child.0, child.0)),
+        (2, 1)
+    );
+    assert_eq!(
+        counts(&format!("/proc/{}/task/{}/io", child.0, thread.0)),
+        (3, 1)
+    );
+    block_on(kernel.exit(&thread_caller, 0)).unwrap();
+    assert_eq!(kernel.take_pending(thread), Some(GuestAction::Exit(0)));
+    kernel.release(thread);
+    assert_eq!(counts(&process_io), (5, 2));
+    let fork_memory = super::proc::ForkableMemory(self::memory());
+    let grandchild = super::proc::fork_child(&kernel, &Caller::new(child, &fork_memory));
+    assert_eq!(counts(&format!("/proc/{}/io", grandchild.0)), (0, 0));
+}

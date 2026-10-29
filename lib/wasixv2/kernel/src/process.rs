@@ -1612,6 +1612,7 @@ impl Kernel {
                 cpu,
                 css,
                 syscall: Default::default(),
+                ioac: Default::default(),
                 process: process.clone(),
                 mm,
                 files,
