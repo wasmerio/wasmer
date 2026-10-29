@@ -396,7 +396,7 @@ impl NsProxy {
         Self {
             mnt: Ns::initial(NsKind::Mnt, owner.clone(), Mnt { tree: mnt }),
             uts: Ns::initial(NsKind::Uts, owner.clone(), Mutex::new(uname)),
-            ipc: Ns::initial(NsKind::Ipc, owner.clone(), ipc::Ipc::default()),
+            ipc: Ns::initial(NsKind::Ipc, owner.clone(), ipc::Ipc::new((0, 0))),
             net: Ns::initial(
                 NsKind::Net,
                 owner.clone(),
@@ -524,7 +524,8 @@ impl NsProxy {
             }
             NsKind::Ipc => {
                 let ucount = charge()?;
-                self.ipc = Ns::new(kind, owner, ipc::Ipc::default(), inums, ucount)?;
+                let ipc = ipc::Ipc::new(cred.fs_owner());
+                self.ipc = Ns::new(kind, owner, ipc, inums, ucount)?;
             }
             NsKind::Net => {
                 let ucount = charge()?;

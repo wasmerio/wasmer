@@ -216,6 +216,7 @@ impl MemFs {
             mode,
             uid,
             gid,
+            task: 0,
         };
         // The root's `..` is itself.
         let root = MemNode::new(&shared, &root).expect("an empty filesystem has room for its root");

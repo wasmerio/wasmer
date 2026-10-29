@@ -172,7 +172,14 @@ impl Vfs {
     /// name: those behind pipes, sockets and event descriptors. Their paths come from
     /// [`Mount::pseudo_path`].
     pub fn kern_mount(&self, fs: Arc<dyn Filesystem>) -> Arc<Mount> {
-        let (root, _) = self.fs_root(fs, initial_user_ns());
+        self.kern_mount_owned(fs, initial_user_ns())
+    }
+
+    /// [`Vfs::kern_mount`] of a filesystem that belongs to the user namespace `owner`
+    /// (`fc->user_ns`), as an IPC namespace's message queue filesystem belongs to the
+    /// namespace's owner.
+    pub fn kern_mount_owned(&self, fs: Arc<dyn Filesystem>, owner: Arc<dyn UserNs>) -> Arc<Mount> {
+        let (root, _) = self.fs_root(fs, owner);
         let devname = root.sb().info.name.as_bytes().to_vec();
         Arc::new(Mount::new(
             self.next_id(),

@@ -22,6 +22,7 @@ fn new(kind: NewKind<'_>) -> NewNode<'_> {
         mode: 0o644,
         uid: 1,
         gid: 1,
+        task: 0,
     }
 }
 

@@ -431,6 +431,7 @@ impl Vfs {
             mode,
             uid: cx.cred.fsuid,
             gid,
+            task: cx.task,
         })
     }
 

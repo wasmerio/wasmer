@@ -110,6 +110,7 @@ impl Kernel {
             mode,
             uid: cred.fsuid,
             gid: cred.fsgid,
+            task: caller.task().0,
         };
         self.vfs.open_unnamed(shm, name, &new, seals).await
     }

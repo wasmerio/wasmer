@@ -193,6 +193,10 @@ pub struct NewNode<'a> {
     pub mode: u32,
     pub uid: u32,
     pub gid: u32,
+    /// The creating task, as [`Ctx::task`](crate::Ctx::task) numbers it, for pseudo filesystems
+    /// whose objects depend on their creator, as Linux's `mqueue_create` reads `current` (a
+    /// message queue is charged to it); 0 for the embedder.
+    pub task: u32,
 }
 
 /// How `rename` treats an existing target.
