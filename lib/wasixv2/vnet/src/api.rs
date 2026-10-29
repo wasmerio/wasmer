@@ -20,7 +20,7 @@
 use std::{
     fmt,
     net::{IpAddr, SocketAddr},
-    sync::Arc,
+    sync::{Arc, Weak},
 };
 
 use wasixv2_abi::{Errno, MsgFlags, SoEeOrigin};
@@ -28,7 +28,7 @@ use wasixv2_wait::{PollTable, Pollable, WaitQueue};
 
 use crate::{
     iface::{AddMode, AddrMatch, IfAddr, Route, RouteDecision, RouteMatch},
-    net::{MovedLink, Rtnl},
+    net::{MovedLink, Net, Rtnl},
 };
 
 /// The address family of an IP socket. Unix sockets never reach this crate.
@@ -233,6 +233,30 @@ pub trait Network: Send + Sync {
     fn change_flags(&self, index: u32, flags: u32) -> Result<(), Errno> {
         let _ = (index, flags);
         Err(Errno::EOPNOTSUPP)
+    }
+
+    /// This namespace as a [`Net`], which namespace ids name.
+    fn net(&self) -> Option<Weak<Net>> {
+        None
+    }
+
+    /// `peernet2id`: the id this namespace knows `other` by, if it gave it one; `None` for
+    /// itself.
+    fn peer_id(&self, other: &dyn Network) -> Option<i32> {
+        let _ = other;
+        None
+    }
+
+    /// `rtnl_net_newid` (`ip netns set`): gives `other` the id `id`, or the lowest free one.
+    /// `EEXIST` if `other` has an id already or `id` is taken.
+    fn assign_peer_id(&self, other: &dyn Network, id: Option<i32>) -> Result<i32, Errno> {
+        let _ = (other, id);
+        Err(Errno::EOPNOTSUPP)
+    }
+
+    /// The ids given to other namespaces, for `RTM_GETNSID` dumps.
+    fn peer_ids(&self) -> Vec<i32> {
+        Vec::new()
     }
 
     /// The routes of every table, for `RTM_GETROUTE` dumps and `/proc/net/route`.

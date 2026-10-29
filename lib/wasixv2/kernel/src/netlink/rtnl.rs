@@ -38,6 +38,8 @@ pub(super) const RTM_NEWROUTE: u16 = 24;
 pub(super) const RTM_DELROUTE: u16 = 25;
 pub(super) const RTM_GETROUTE: u16 = 26;
 pub(super) const RTM_GETNEIGH: u16 = 30;
+pub(super) const RTM_NEWNSID: u16 = 88;
+pub(super) const RTM_GETNSID: u16 = 90;
 
 pub(super) const NLM_F_REPLACE: u16 = 0x100;
 pub(super) const NLM_F_EXCL: u16 = 0x200;
@@ -79,6 +81,15 @@ const IFA_BROADCAST: u16 = 4;
 const IFA_CACHEINFO: u16 = 6;
 const IFA_FLAGS: u16 = 8;
 const IFA_RT_PRIORITY: u16 = 9;
+
+const NETNSA_NSID: u16 = 1;
+const NETNSA_PID: u16 = 2;
+const NETNSA_FD: u16 = 3;
+const NETNSA_TARGET_NSID: u16 = 4;
+/// `NETNSA_NSID_NOT_ASSIGNED`.
+const NSID_NOT_ASSIGNED: i32 = -1;
+/// `NLMSG_ALIGN(sizeof(struct rtgenmsg))`.
+const RTGENMSG: usize = 4;
 
 pub(super) const RTA_DST: u16 = 1;
 pub(super) const RTA_OIF: u16 = 4;
@@ -946,6 +957,62 @@ fn route_msg(route: &Route, seq: u32, port: u32, flags: u16, rtm_flags: u32) -> 
         rta(&mut p, RTA_PREF, &[0]); // ICMPV6_ROUTER_PREF_MEDIUM
     }
     nlmsg(RTM_NEWROUTE, flags, seq, port, &p)
+}
+
+/// The namespace `NETNSA_PID` or `NETNSA_FD` names, if either does.
+fn nsid_peer(r: &Request<'_>, attrs: &Attrs<'_>) -> Result<Option<Arc<dyn Network>>, Errno> {
+    let peer = if let Some(pid) = attrs.u32(NETNSA_PID)? {
+        r.sender.net_of_pid(pid)?
+    } else if let Some(fd) = attrs.u32(NETNSA_FD)? {
+        r.sender.net_of_fd(fd as i32)?
+    } else {
+        return Ok(None);
+    };
+    peer.network.clone().map(Some).ok_or(Errno::EINVAL)
+}
+
+/// `RTM_NEWNSID` with the id.
+fn nsid_msg(id: i32, seq: u32, port: u32, flags: u16) -> Vec<u8> {
+    let mut p = vec![0; RTGENMSG];
+    rta(&mut p, NETNSA_NSID, &id.to_le_bytes());
+    nlmsg(RTM_NEWNSID, flags, seq, port, &p)
+}
+
+/// `RTM_GETNSID` (`rtnl_net_getid`, `rtnl_net_dumpid`): the id this namespace knows the one
+/// `NETNSA_PID` or `NETNSA_FD` names by (`NETNSA_NSID_NOT_ASSIGNED` if none), or every id.
+/// Asking another namespace (`NETNSA_TARGET_NSID`) is not supported.
+pub(super) fn get_nsid(r: &Request<'_>, payload: &[u8], dump: bool) -> Result<Vec<u8>, Errno> {
+    let attrs = Attrs::parse(payload.get(RTGENMSG..).unwrap_or_default());
+    if attrs.has(NETNSA_TARGET_NSID) {
+        return Err(Errno::EOPNOTSUPP);
+    }
+    let network = r.network()?;
+    if dump {
+        let msgs = network
+            .peer_ids()
+            .into_iter()
+            .map(|id| nsid_msg(id, r.seq, r.port, NLM_F_MULTI))
+            .collect();
+        return Ok(r.dump(msgs));
+    }
+    let id = match nsid_peer(r, &attrs)? {
+        Some(peer) => network.peer_id(&*peer).unwrap_or(NSID_NOT_ASSIGNED),
+        None => match attrs.u32(NETNSA_NSID)? {
+            Some(id) if network.peer_ids().contains(&(id as i32)) => id as i32,
+            Some(_) => NSID_NOT_ASSIGNED,
+            None => return Err(Errno::EINVAL),
+        },
+    };
+    Ok(nsid_msg(id, r.seq, r.port, 0))
+}
+
+/// `RTM_NEWNSID` (`rtnl_net_newid`, `ip netns set`): a negative id takes the lowest free one.
+pub(super) fn new_nsid(r: &Request<'_>, payload: &[u8]) -> Result<(), Errno> {
+    let attrs = Attrs::parse(payload.get(RTGENMSG..).unwrap_or_default());
+    let id = attrs.u32(NETNSA_NSID)?.ok_or(Errno::EINVAL)? as i32;
+    let peer = nsid_peer(r, &attrs)?.ok_or(Errno::EINVAL)?;
+    let id = (id >= 0).then_some(id);
+    r.network()?.assign_peer_id(&*peer, id).map(|_| ())
 }
 
 /// `RTM_GETNEIGH`: no neighbour is ever resolved, so a dump is empty.

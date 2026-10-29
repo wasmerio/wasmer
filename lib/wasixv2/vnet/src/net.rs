@@ -173,8 +173,8 @@ pub(crate) struct NetState {
     pub udp_pubs: Vec<UdpPublication>,
     pub ifaces: Interfaces,
     pub rng: PortRng,
-    /// The ids this namespace knows other namespaces by (`peernet2id_alloc`), by position.
-    pub nsids: Vec<Weak<Net>>,
+    /// The ids this namespace knows other namespaces by (`netns_ids`).
+    pub nsids: Vec<(i32, Weak<Net>)>,
 }
 
 /// A published UDP port: the backend endpoint bound to the host port, and the guest socket
@@ -243,8 +243,11 @@ impl Net {
                 .v6
                 .map(|(a, len, gw)| (a.into(), len, gw.map(IpAddr::from)));
             for (a, len, gw) in [v4, v6].into_iter().flatten() {
+                // As DHCP sets it up: with the subnet's broadcast address.
+                let mut addr = IfAddr::new(a, len);
+                addr.broadcast = addr.subnet_broadcast();
                 ifaces
-                    .add_addr(idx, IfAddr::new(a, len), AddMode::ADD)
+                    .add_addr(idx, addr, AddMode::ADD)
                     .expect("valid uplink address");
                 if let Some(gw) = gw {
                     let any = match a {
@@ -305,19 +308,29 @@ impl Net {
         self.state().ifaces.route(dst)
     }
 
-    /// The id this namespace knows `other` by (`peernet2id_alloc`); `None` for itself.
-    fn nsid(&self, st: &mut NetState, other: &Weak<Net>) -> Option<i32> {
+    /// The id this namespace knows `other` by (`peernet2id`), given one (`peernet2id_alloc`)
+    /// if `alloc`; `None` for itself.
+    fn nsid(&self, st: &mut NetState, other: &Weak<Net>, alloc: bool) -> Option<i32> {
         if Weak::ptr_eq(other, &self.me) {
             return None;
         }
-        let id = match st.nsids.iter().position(|n| Weak::ptr_eq(n, other)) {
-            Some(id) => id,
-            None => {
-                st.nsids.push(other.clone());
-                st.nsids.len() - 1
-            }
-        };
-        Some(id as i32)
+        st.nsids.retain(|(_, n)| n.strong_count() > 0);
+        if let Some((id, _)) = st.nsids.iter().find(|(_, n)| Weak::ptr_eq(n, other)) {
+            return Some(*id);
+        }
+        if !alloc {
+            return None;
+        }
+        let id = Self::free_nsid(st);
+        st.nsids.push((id, other.clone()));
+        Some(id)
+    }
+
+    /// `alloc_netid` without a wish: the lowest id not in use.
+    fn free_nsid(st: &NetState) -> i32 {
+        (0..)
+            .find(|i| st.nsids.iter().all(|(id, _)| id != i))
+            .expect("ids left")
     }
 
     /// `eth_random_addr`: a random, locally administered unicast address.
@@ -810,7 +823,7 @@ impl Network for Net {
                 peer: match &l.kind {
                     LinkKind::Veth(end) => {
                         let (net, index) = end.peer();
-                        Some((index, self.nsid(&mut st, &net)))
+                        Some((index, self.nsid(&mut st, &net, true)))
                     }
                     _ => None,
                 },
@@ -822,6 +835,41 @@ impl Network for Net {
     fn change_flags(&self, index: u32, flags: u32) -> Result<(), Errno> {
         let rtnl = rtnl();
         self.configure(&rtnl).ifaces.change_flags(index, flags)
+    }
+
+    fn net(&self) -> Option<Weak<Net>> {
+        Some(self.me.clone())
+    }
+
+    fn peer_id(&self, other: &dyn Network) -> Option<i32> {
+        let other = other.net()?;
+        self.nsid(&mut self.state(), &other, false)
+    }
+
+    /// `rtnl_net_newid`.
+    fn assign_peer_id(&self, other: &dyn Network, id: Option<i32>) -> Result<i32, Errno> {
+        let other = other.net().ok_or(Errno::EOPNOTSUPP)?;
+        let rtnl = rtnl();
+        let mut st = self.configure(&rtnl);
+        if self.nsid(&mut st, &other, false).is_some() || Weak::ptr_eq(&other, &self.me) {
+            return Err(Errno::EEXIST);
+        }
+        let id = match id {
+            Some(id) if id < 0 => return Err(Errno::EINVAL),
+            Some(id) if st.nsids.iter().any(|(used, _)| *used == id) => return Err(Errno::EEXIST),
+            Some(id) => id,
+            None => Self::free_nsid(&st),
+        };
+        st.nsids.push((id, other));
+        Ok(id)
+    }
+
+    fn peer_ids(&self) -> Vec<i32> {
+        let mut st = self.state();
+        st.nsids.retain(|(_, n)| n.strong_count() > 0);
+        let mut ids: Vec<i32> = st.nsids.iter().map(|(id, _)| *id).collect();
+        ids.sort_unstable();
+        ids
     }
 
     fn routes(&self) -> Vec<Route> {

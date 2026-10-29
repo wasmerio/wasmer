@@ -49,7 +49,8 @@ pub(crate) fn is_dev_ioctl(request: IoctlRequest) -> bool {
     use IoctlRequest as R;
     matches!(
         request,
-        R::SIOCGIFINDEX
+        R::SIOCGIFCONF
+            | R::SIOCGIFINDEX
             | R::SIOCGIFNAME
             | R::SIOCGIFFLAGS
             | R::SIOCSIFFLAGS
@@ -220,6 +221,9 @@ impl Kernel {
             _ => {}
         }
         let memory = caller.memory();
+        if request == IoctlRequest::SIOCGIFCONF {
+            return self.dev_ifconf(caller, net, arg).await;
+        }
         let mut ifr = [0u8; IFREQ];
         memory.read(arg, &mut ifr).await?;
         let interfaces = net
@@ -327,6 +331,47 @@ impl Kernel {
             }
         };
         memory.write(offset(arg, IFNAMSIZ)?, &value).await?;
+        Ok(0)
+    }
+
+    /// `dev_ifconf` with `inet_gifconf`: a `struct ifreq` (label, local address) for every IPv4
+    /// address into the `struct ifconf`'s buffer, as many whole ones as fit; with no buffer
+    /// only the length all would take.
+    async fn dev_ifconf(&self, caller: &Caller<'_>, net: &NetNs, arg: u32) -> SysResult<i32> {
+        let memory = caller.memory();
+        let mut ifc = [0u8; 8];
+        memory.read(arg, &mut ifc).await?;
+        let len = i32::from_le_bytes(ifc[..4].try_into().unwrap());
+        let buf = u32::from_le_bytes(ifc[4..].try_into().unwrap());
+        let interfaces = net
+            .network
+            .as_ref()
+            .map(|n| n.interfaces())
+            .unwrap_or_default();
+        let mut out = Vec::new();
+        for iface in &interfaces {
+            for a in iface.addresses.iter().filter(|a| a.addr.is_ipv4()) {
+                let mut ifr = [0u8; IFREQ];
+                let name = label(iface, a).as_bytes();
+                let n = name.len().min(IFNAMSIZ - 1);
+                ifr[..n].copy_from_slice(&name[..n]);
+                let IpAddr::V4(local) = a.addr else {
+                    continue;
+                };
+                let sin = sockaddr_in(local);
+                ifr[IFNAMSIZ..IFNAMSIZ + sin.len()].copy_from_slice(&sin);
+                out.push(ifr);
+            }
+        }
+        let total = if buf == 0 {
+            out.len() * IFREQ
+        } else {
+            let fit = (len.max(0) as usize / IFREQ).min(out.len());
+            let bytes: Vec<u8> = out[..fit].concat();
+            memory.write(buf, &bytes).await?;
+            bytes.len()
+        };
+        memory.write(arg, &(total as i32).to_le_bytes()).await?;
         Ok(0)
     }
 
