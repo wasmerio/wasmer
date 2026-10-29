@@ -688,27 +688,10 @@ impl Kernel {
         if flags.0 & !known != 0 {
             return Err(Errno::EINVAL.into());
         }
-        let env = self.env(caller);
-        // `wants_mount_setattr`.
-        const VER0: u32 = 32;
-        if usize > crate::mm::PAGE_SIZE as u32 {
-            return Err(Errno::E2BIG.into());
-        }
-        if usize < VER0 {
-            return Err(Errno::EINVAL.into());
-        }
-        self.may_mount(&env)?;
-        let mut bytes = vec![0; usize as usize];
-        caller.memory().read(uattr.addr(), &mut bytes).await?;
-        if bytes[VER0 as usize..].iter().any(|&b| b != 0) {
-            return Err(Errno::E2BIG.into());
-        }
-        let field = |at: usize| u64::from_le_bytes(bytes[at..at + 8].try_into().expect("8 bytes"));
-        let (set, clear, propagation, userns_fd) = (field(0), field(8), field(16), field(24));
-        if set == 0 && clear == 0 && propagation == 0 {
+        let Some(mut attr) = self.read_mount_attr(caller, uattr, usize).await? else {
             return Ok(0);
-        }
-        let mut attr = self.build_mount_kattr(caller, set, clear, propagation, userns_fd)?;
+        };
+        let env = self.env(caller);
         attr.recursive = flags.contains(AtFlags::AT_RECURSIVE);
         let path = read_path(caller.memory(), path).await?;
         let mut at = flags;
@@ -717,6 +700,39 @@ impl Kernel {
         let ns = self.ns(caller).mnt.tree.clone();
         self.vfs.mount_setattr(&ns, &target, &attr)?;
         Ok(0)
+    }
+
+    /// Linux `fs/namespace.c:wants_mount_setattr`, shared by both mount APIs.
+    async fn read_mount_attr(
+        &self,
+        caller: &Caller<'_>,
+        uattr: ConstMountAttrPtr,
+        usize: Usize,
+    ) -> Result<Option<MountAttr>, Errno> {
+        const VER0: u32 = 32;
+        if usize > crate::mm::PAGE_SIZE as u32 {
+            return Err(Errno::E2BIG);
+        }
+        if usize < VER0 {
+            return Err(Errno::EINVAL);
+        }
+        self.may_mount(&self.env(caller))?;
+        let mut bytes = vec![0; usize as usize];
+        caller
+            .memory()
+            .read(uattr.addr(), &mut bytes)
+            .await
+            .map_err(|_| Errno::EFAULT)?;
+        if bytes[VER0 as usize..].iter().any(|&b| b != 0) {
+            return Err(Errno::E2BIG);
+        }
+        let field = |at: usize| u64::from_le_bytes(bytes[at..at + 8].try_into().expect("8 bytes"));
+        let (set, clear, propagation, userns_fd) = (field(0), field(8), field(16), field(24));
+        if set == 0 && clear == 0 && propagation == 0 {
+            return Ok(None);
+        }
+        self.build_mount_kattr(caller, set, clear, propagation, userns_fd)
+            .map(Some)
     }
 
     /// `build_mount_kattr`: the change `mount_attr` asks for. The access-time setting is a
@@ -808,6 +824,24 @@ impl Kernel {
         filename: Cstr,
         flags: u32,
     ) -> SysResult<i32> {
+        self.sys_open_tree_attr(caller, dfd, filename, flags, ConstMountAttrPtr::NULL, 0)
+            .await
+    }
+
+    /// Linux `fs/namespace.c:sys_open_tree_attr`: apply attributes before publishing
+    /// the descriptor, so any error drops the unpublished detached mount too.
+    pub(crate) async fn sys_open_tree_attr(
+        &self,
+        caller: &Caller<'_>,
+        dfd: Fd,
+        filename: Cstr,
+        flags: u32,
+        uattr: ConstMountAttrPtr,
+        usize: Usize,
+    ) -> SysResult<i32> {
+        if uattr.is_null() && usize != 0 {
+            return Err(Errno::EINVAL.into());
+        }
         let clone = OpenTreeFlags::OPEN_TREE_CLONE.0;
         let recursive = AtFlags::AT_RECURSIVE.0;
         // `OPEN_TREE_NAMESPACE` (a new mount namespace around the copy) is not supported.
@@ -835,6 +869,13 @@ impl Kernel {
             }
             false => self.open_path(&env, &path).await?,
         };
+        if !uattr.is_null()
+            && let Some(mut attr) = self.read_mount_attr(caller, uattr, usize).await?
+        {
+            attr.recursive = flags & recursive != 0;
+            let ns = self.ns(caller).mnt.tree.clone();
+            self.vfs.mount_setattr(&ns, file.path(), &attr)?;
+        }
         let cloexec = flags & OpenFlags::O_CLOEXEC.0 != 0;
         let [fd] = self.install_files(caller, [file], cloexec)?;
         Ok(fd.0)

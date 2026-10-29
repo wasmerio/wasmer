@@ -1824,6 +1824,19 @@ impl Syscalls for Kernel {
             .await
     }
 
+    async fn open_tree_attr(
+        &self,
+        caller: &Caller<'_>,
+        dfd: Fd,
+        filename: Cstr,
+        flags: u32,
+        uattr: wasixv2_abi::ConstMountAttrPtr,
+        usize: Usize,
+    ) -> SysResult<i32> {
+        self.sys_open_tree_attr(caller, dfd, filename, flags, uattr, usize)
+            .await
+    }
+
     async fn open_tree(
         &self,
         caller: &Caller<'_>,

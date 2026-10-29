@@ -545,8 +545,13 @@ impl Vfs {
         if !path.is_mount_root() {
             return Err(Errno::EINVAL);
         }
-        if !check_mnt(&self.tree.lock(), ns, &path.mnt) {
-            return Err(Errno::EINVAL);
+        {
+            let state = self.tree.lock();
+            // Linux `fs/namespace.c:do_mount_setattr` also accepts an anonymous
+            // mount, as returned by open_tree(OPEN_TREE_CLONE) and fsmount.
+            if !check_mnt(&state, ns, &path.mnt) && !check_anonymous_mnt(&state, ns, &path.mnt) {
+                return Err(Errno::EINVAL);
+            }
         }
         self.change_type(path, attr.propagation, attr.recursive, Some(attr))
     }
