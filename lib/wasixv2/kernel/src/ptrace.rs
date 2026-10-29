@@ -337,6 +337,8 @@ pub(crate) struct TaskTrace {
     pub(crate) syscall: bool,
     /// The call the task is in while it is traced.
     pub(crate) call: Option<CallInfo>,
+    /// The tracer changed the current syscall's registers with SET_SYSCALL_INFO.
+    pub(crate) call_set: bool,
     /// The event stop a `clone` of the task owes its tracer once the child is made
     /// (`ptrace_event_pid`), with the child.
     pub(crate) clone_event: Option<(i32, TaskId)>,
@@ -360,6 +362,24 @@ pub(crate) enum SyncStop {
     Trap,
     /// `do_exit` is waiting for its exit event to be resumed.
     Exit,
+}
+
+impl TaskTrace {
+    /// kernel/ptrace.c `ptrace_get_syscall_info_op`.
+    fn syscall_info_op(&self) -> wasixv2_abi::PtraceArg {
+        use wasixv2_abi::{PtraceArg as A, PtraceEvent, Signal};
+        match self.last_siginfo.map(|i| i.si_code) {
+            Some(code) if code == Signal::SIGTRAP.0 | 0x80 => match A(self.message as u32) {
+                A::PTRACE_EVENTMSG_SYSCALL_ENTRY => A::PTRACE_SYSCALL_INFO_ENTRY,
+                A::PTRACE_EVENTMSG_SYSCALL_EXIT => A::PTRACE_SYSCALL_INFO_EXIT,
+                _ => A::PTRACE_SYSCALL_INFO_NONE,
+            },
+            Some(code) if code == Signal::SIGTRAP.0 | PtraceEvent::PTRACE_EVENT_SECCOMP.0 << 8 => {
+                A::PTRACE_SYSCALL_INFO_SECCOMP
+            }
+            _ => A::PTRACE_SYSCALL_INFO_NONE,
+        }
+    }
 }
 
 /// `PTRACE_EVENT_STOP`, the event of a seized tracee's trap stops.
@@ -597,6 +617,7 @@ impl Kernel {
         };
         let trace = signals.group().with_trace(task, |t| {
             t.call = Some(call);
+            t.call_set = false;
             t.syscall
         });
         if trace != Some(true) {
@@ -615,6 +636,7 @@ impl Kernel {
         };
         let signals = self.task_signals(task);
         let trace = signals.group().with_trace(task, |t| {
+            t.call_set = false;
             if let Some(call) = &mut t.call {
                 call.ret = Some(ret);
             }
@@ -790,6 +812,28 @@ impl Kernel {
                 self.ptrace_get_syscall_info(caller, child, addr, data)
                     .await
             }
+            R::PTRACE_SET_SYSCALL_INFO => {
+                self.ptrace_set_syscall_info(caller, child, addr, data)
+                    .await
+            }
+            R::PTRACE_SECCOMP_GET_FILTER => {
+                self.ptrace_seccomp_filter(caller, child, addr, data).await
+            }
+            R::PTRACE_SECCOMP_GET_METADATA => {
+                self.ptrace_seccomp_metadata(caller, child, addr, data)
+                    .await
+            }
+            R::PTRACE_GET_RSEQ_CONFIGURATION => {
+                // kernel/ptrace.c `ptrace_get_rseq_configuration`: sys_rseq is ENOSYS here,
+                // so no task can have registered an rseq area (CONFIG_RSEQ disabled).
+                let config = wasixv2_abi::PtraceRseqConfiguration::default();
+                let mut bytes = [0; wasixv2_abi::PtraceRseqConfiguration::SIZE];
+                config.write_to(&mut bytes);
+                memory
+                    .write(data, &bytes[..bytes.len().min(addr as usize)])
+                    .await?;
+                Ok(bytes.len() as i32)
+            }
             // No registers, no single-stepping: what an architecture without them answers.
             _ => Err(Errno::EIO.into()),
         }
@@ -961,6 +1005,64 @@ impl Kernel {
         Ok(copied as i32)
     }
 
+    /// kernel/ptrace.c `ptrace_set_syscall_info`, with riscv32 register ranges.
+    async fn ptrace_set_syscall_info(
+        &self,
+        caller: &wasixv2_syscalls::Caller<'_>,
+        child: TaskId,
+        size: u32,
+        data: u32,
+    ) -> wasixv2_syscalls::SysResult<i32> {
+        use wasixv2_abi::{Errno, PtraceArg as A, PtraceSyscallInfo};
+        if size < PtraceSyscallInfo::SIZE as u32 {
+            return Err(Errno::EINVAL.into());
+        }
+        let mut bytes = [0; PtraceSyscallInfo::SIZE];
+        caller.memory().read(data, &mut bytes).await?;
+        if bytes[1..4] != [0; 3] {
+            return Err(Errno::EINVAL.into());
+        }
+        let op = A(u32::from(bytes[0]));
+        let group = self.task_signals(child);
+        let result = group
+            .group()
+            .with_trace(child, |trace| {
+                if op != trace.syscall_info_op() {
+                    return Err(Errno::EINVAL);
+                }
+                let mut call = trace.call.unwrap_or_default();
+                let value = u64::from_le_bytes(bytes[24..32].try_into().unwrap());
+                match op {
+                    A::PTRACE_SYSCALL_INFO_ENTRY | A::PTRACE_SYSCALL_INFO_SECCOMP => {
+                        let nr = i32::try_from(value as i64).map_err(|_| Errno::ERANGE)?;
+                        let mut args = [0; 6];
+                        for (i, arg) in args.iter_mut().enumerate() {
+                            let raw = u64::from_le_bytes(
+                                bytes[32 + i * 8..40 + i * 8].try_into().unwrap(),
+                            );
+                            *arg = u64::from(u32::try_from(raw).map_err(|_| Errno::ERANGE)?);
+                        }
+                        call.nr = nr as u32;
+                        if nr != -1 {
+                            call.args = args;
+                        }
+                    }
+                    A::PTRACE_SYSCALL_INFO_EXIT => {
+                        let rval = i32::try_from(value as i64).map_err(|_| Errno::ERANGE)?;
+                        // arch/riscv/include/asm/syscall.h `syscall_set_return_value`: both
+                        // is_error forms put rval in a0; IS_ERR_VALUE decides its meaning.
+                        call.ret = Some(i64::from(rval));
+                    }
+                    _ => return Err(Errno::EINVAL),
+                }
+                trace.call = Some(call);
+                trace.call_set = true;
+                Ok(0)
+            })
+            .unwrap_or(Err(Errno::ESRCH));
+        Ok(result?)
+    }
+
     /// `ptrace_get_syscall_info`: the call the tracee stopped in, as much of it as fits in
     /// `size` bytes at `data`; returns the size of the whole.
     async fn ptrace_get_syscall_info(
@@ -970,35 +1072,18 @@ impl Kernel {
         size: u32,
         data: u32,
     ) -> wasixv2_syscalls::SysResult<i32> {
-        use wasixv2_abi::{AuditArch, PtraceArg, PtraceEvent, PtraceSyscallInfo, Signal};
+        use wasixv2_abi::{AuditArch, PtraceArg, PtraceSyscallInfo};
         let signals = self.task_signals(child);
-        let (code, message, call) = signals
+        let (op, call) = signals
             .group()
-            .with_trace(child, |t| {
-                (
-                    t.last_siginfo.map(|i| i.si_code),
-                    t.message,
-                    t.call.unwrap_or_default(),
-                )
-            })
+            .with_trace(child, |t| (t.syscall_info_op(), t.call.unwrap_or_default()))
             .unwrap_or_default();
-        let sysgood = Signal::SIGTRAP.0 | 0x80;
-        let seccomp = Signal::SIGTRAP.0 | PtraceEvent::PTRACE_EVENT_SECCOMP.0 << 8;
-        let op = match code {
-            Some(code) if code == sysgood => match PtraceArg(message as u32) {
-                PtraceArg::PTRACE_EVENTMSG_SYSCALL_ENTRY => PtraceArg::PTRACE_SYSCALL_INFO_ENTRY,
-                PtraceArg::PTRACE_EVENTMSG_SYSCALL_EXIT => PtraceArg::PTRACE_SYSCALL_INFO_EXIT,
-                _ => PtraceArg::PTRACE_SYSCALL_INFO_NONE,
-            },
-            Some(code) if code == seccomp => PtraceArg::PTRACE_SYSCALL_INFO_SECCOMP,
-            _ => PtraceArg::PTRACE_SYSCALL_INFO_NONE,
-        };
         let mut bytes = [0u8; PtraceSyscallInfo::SIZE];
         bytes[0] = op.0 as u8;
         bytes[4..8].copy_from_slice(&AuditArch::AUDIT_ARCH_RISCV32.0.to_le_bytes());
         bytes[16..24].copy_from_slice(&u64::from(call.sp).to_le_bytes());
         let nr_args = |bytes: &mut [u8]| {
-            bytes[24..32].copy_from_slice(&u64::from(call.nr).to_le_bytes());
+            bytes[24..32].copy_from_slice(&(call.nr as i32 as i64 as u64).to_le_bytes());
             for (i, arg) in call.args.iter().enumerate() {
                 bytes[32 + 8 * i..40 + 8 * i].copy_from_slice(&arg.to_le_bytes());
             }

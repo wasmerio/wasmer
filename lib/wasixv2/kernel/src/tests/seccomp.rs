@@ -3,6 +3,7 @@
 use wasixv2_abi::{GuestPtrMut, PrctlOption, SiCode, Signal, VoidPtr};
 use wasixv2_syscalls::{Layered, Syscalls};
 
+use super::ipc::get;
 use super::*;
 
 /// The flags `pthread_create` passes.
@@ -538,4 +539,137 @@ fn user_notifications_go_to_the_supervisor() {
 
     block_on(stack.inner.close(&sup, listener)).unwrap();
     assert_eq!(errno(block_on(stack.getuid(&caller))), Errno::ENOSYS);
+}
+
+/// kernel/seccomp.c `seccomp_get_filter`/`seccomp_get_metadata`: oldest first, privileged
+/// tracer outside seccomp, original cBPF and the log flag with prefix-sized metadata.
+#[test]
+fn ptrace_reads_seccomp_filters_and_metadata() {
+    use wasixv2_abi::{PtraceRequest as R, SeccompFilterFlags};
+    let (kernel, tracer, memory) = super::cred::machine_as(0, 0);
+    let stack = Layered::new(SyscallEntry(Dispatch), kernel);
+    let kernel = &stack.inner;
+    let caller = Caller::new(tracer, &memory);
+    let fork_memory = super::proc::ForkableMemory(FlatMemory(RefCell::new(vec![0; 65536])));
+    let child = super::proc::fork_child(kernel, &Caller::new(tracer, &fork_memory));
+    let child_caller = Caller::new(child, &fork_memory);
+    let first = filter_for(NR_GETUID, RET_ALLOW);
+    assert_eq!(
+        set_filter(
+            &stack,
+            &child_caller,
+            &fork_memory.0,
+            SeccompFilterFlags::SECCOMP_FILTER_FLAG_LOG.0,
+            &first
+        ),
+        Ok(0)
+    );
+    assert_eq!(
+        set_filter(
+            &stack,
+            &child_caller,
+            &fork_memory.0,
+            0,
+            &filter_for(NR_GETGID, RET_ALLOW)
+        ),
+        Ok(0)
+    );
+    let ptrace =
+        |request, addr, data| block_on(kernel.ptrace(&caller, request, child.0 as i32, addr, data));
+    assert_eq!(ptrace(R::PTRACE_ATTACH, 0, 0), Ok(0));
+    assert_eq!(kernel.take_pending(child), Some(GuestAction::Stopped));
+    assert_eq!(
+        ptrace(R::PTRACE_SECCOMP_GET_FILTER, 0, 0),
+        Ok(first.len() as i32)
+    );
+    assert_eq!(
+        ptrace(R::PTRACE_SECCOMP_GET_FILTER, 0, 0x2000),
+        Ok(first.len() as i32)
+    );
+    assert_eq!(get(&memory, 0x2000, first.len() * 8), first.concat());
+    assert_eq!(
+        errno(ptrace(R::PTRACE_SECCOMP_GET_FILTER, 2, 0)),
+        Errno::ENOENT
+    );
+    put(&memory, 0x2000, &[0; 16]);
+    assert_eq!(ptrace(R::PTRACE_SECCOMP_GET_METADATA, 16, 0x2000), Ok(16));
+    assert_eq!(
+        get(&memory, 0x2008, 8),
+        u64::from(SeccompFilterFlags::SECCOMP_FILTER_FLAG_LOG.0).to_le_bytes()
+    );
+    put(&memory, 0x2000, &1u64.to_le_bytes());
+    assert_eq!(ptrace(R::PTRACE_SECCOMP_GET_METADATA, 9, 0x2000), Ok(9));
+    assert_eq!(get(&memory, 0x2008, 1), [0]);
+    assert_eq!(
+        errno(ptrace(R::PTRACE_SECCOMP_GET_METADATA, 7, 0x2000)),
+        Errno::EINVAL
+    );
+    super::cred::set_caps(kernel, &caller, &memory, 0);
+    assert_eq!(
+        errno(ptrace(R::PTRACE_SECCOMP_GET_FILTER, 0, 0)),
+        Errno::EACCES
+    );
+    assert_eq!(
+        errno(ptrace(R::PTRACE_SECCOMP_GET_METADATA, 0, 0)),
+        Errno::EACCES
+    );
+}
+
+/// kernel/seccomp.c `__seccomp_filter`: a TRACE stop can rewrite the call, which is
+/// rechecked against the filter using the tracer's new nr/args.
+#[test]
+fn seccomp_trace_rechecks_the_tracers_changed_syscall() {
+    use futures::FutureExt as _;
+    use wasixv2_abi::{PtraceOptions, PtraceRequest as R};
+    for replacement in [NR_GETUID, 0x7fff_ffff] {
+        let (stack, tracer, memory) = machine();
+        let kernel = &stack.inner;
+        let caller = Caller::new(tracer, &memory);
+        let child_memory = super::proc::ForkableMemory(FlatMemory(RefCell::new(vec![0; 65536])));
+        let child = super::proc::fork_child(kernel, &Caller::new(tracer, &child_memory));
+        let child_caller = Caller::new(child, &child_memory);
+        no_new_privs(&stack, &child_caller);
+        let mut prog = vec![load(0)];
+        prog.extend(on(NR_GETPID, RET_TRACE | 42));
+        prog.extend(on(replacement, RET_ERRNO | Errno::EACCES.0 as u32));
+        prog.push(ret(RET_ALLOW));
+        assert_eq!(
+            set_filter(&stack, &child_caller, &child_memory.0, 0, &prog),
+            Ok(0)
+        );
+        assert_eq!(
+            block_on(kernel.ptrace(
+                &caller,
+                R::PTRACE_SEIZE,
+                child.0 as i32,
+                0,
+                PtraceOptions::PTRACE_O_TRACESECCOMP.0
+            )),
+            Ok(0)
+        );
+        let mut call = Box::pin(stack.getpid(&child_caller));
+        assert!(call.as_mut().now_or_never().is_none());
+        let mut info = [0; 88];
+        info[0] = 3; // PTRACE_SYSCALL_INFO_SECCOMP
+        info[24..32].copy_from_slice(&u64::from(replacement).to_le_bytes());
+        put(&memory, 0x2000, &info);
+        assert_eq!(
+            block_on(kernel.ptrace(
+                &caller,
+                R::PTRACE_SET_SYSCALL_INFO,
+                child.0 as i32,
+                88,
+                0x2000
+            )),
+            Ok(0)
+        );
+        assert_eq!(
+            block_on(kernel.ptrace(&caller, R::PTRACE_CONT, child.0 as i32, 0, 0)),
+            Ok(0)
+        );
+        assert_eq!(
+            call.as_mut().now_or_never(),
+            Some(Err(Errno::EACCES.into()))
+        );
+    }
 }
