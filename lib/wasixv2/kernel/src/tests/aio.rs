@@ -557,3 +557,62 @@ fn aio_rings_are_omitted_from_fork_and_the_parent_keeps_its_context() {
     assert_eq!(m.memory.get(BUF, 2), b"ok");
     block_on(m.kernel.io_destroy(&caller, ctx)).unwrap();
 }
+
+/// The execution layer lets reads through its low guard for clang's null va_list;
+/// Linux fs/aio.c:sys_io_cancel get_user(&iocb->aio_key) still faults there.
+struct Guarded<'a>(&'a MappedMemory, u32);
+
+impl UserMemory for Guarded<'_> {
+    fn read<'a>(&'a self, addr: u32, buf: &'a mut [u8]) -> LocalFuture<'a, Result<(), Fault>> {
+        self.0.read(addr, buf)
+    }
+
+    fn write<'a>(&'a self, addr: u32, data: &'a [u8]) -> LocalFuture<'a, Result<(), Fault>> {
+        match addr < self.1 {
+            true => Box::pin(async { Err(Fault) }),
+            false => self.0.write(addr, data),
+        }
+    }
+
+    fn size(&self) -> LocalFuture<'_, u64> {
+        self.0.size()
+    }
+
+    fn grow(&self, pages: u32) -> LocalFuture<'_, Option<u64>> {
+        self.0.grow(pages)
+    }
+
+    fn low_guard(&self) -> LocalFuture<'_, u32> {
+        let guard = self.1;
+        Box::pin(async move { guard })
+    }
+}
+
+#[test]
+fn io_cancel_faults_on_guarded_and_wrapped_key_addresses() {
+    let m = Machine::new();
+    let ctx = m.ctx();
+    let memory = Guarded(&m.memory, 0x100);
+    let caller = Caller::new(m.task, &memory);
+    for context in [ctx, 0] {
+        for addr in [0, 16, u32::MAX - 4] {
+            let ret = block_on(m.kernel.io_cancel(
+                &caller,
+                context,
+                GuestPtrMut::new(addr),
+                GuestPtrMut::NULL,
+            ));
+            assert_eq!(
+                errno(ret),
+                Errno::EFAULT,
+                "context={context:#x} iocb={addr:#x}"
+            );
+        }
+    }
+    // A readable request with no submitted key is still EINVAL.
+    let ret = block_on(
+        m.kernel
+            .io_cancel(&caller, ctx, GuestPtrMut::new(IOCB), GuestPtrMut::NULL),
+    );
+    assert_eq!(errno(ret), Errno::EINVAL);
+}

@@ -905,8 +905,13 @@ impl Kernel {
         iocb: IocbPtr,
         _result: IoEventPtr,
     ) -> SysResult<i32> {
-        let key = GuestPtr::<u32>::new(iocb.addr().wrapping_add(8));
-        let key = read_value(caller.memory(), key).await?;
+        // fs/aio.c:sys_io_cancel gets aio_key before looking up the context. The low
+        // guard reads as zeros for guest varargs, but Linux get_user faults there.
+        let key_addr = iocb.addr().checked_add(8).ok_or(Errno::EFAULT)?;
+        if key_addr < caller.memory().low_guard().await {
+            return Err(Errno::EFAULT.into());
+        }
+        let key = read_value(caller.memory(), GuestPtr::<u32>::new(key_addr)).await?;
         if key != KIOCB_KEY {
             return Err(Errno::EINVAL.into());
         }
