@@ -685,6 +685,9 @@ impl Kernel {
                 _ => return,
             }
         };
+        // kernel/exit.c `forget_original_parent` calls exit_ptrace before autoreap can
+        // release the tracer. A later take_pending may see only its DeadTask.
+        self.ptrace_exit_task(process.pid, status);
         self.exit_files(process);
         // `do_exit`'s `disassociate_ctty(1)` for a session leader, after its files closed.
         self.disassociate_ctty(process, true);
