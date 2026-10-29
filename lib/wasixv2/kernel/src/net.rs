@@ -193,15 +193,33 @@ impl Kernel {
         r#type: i32,
         protocol: i32,
     ) -> SysResult<Fd> {
+        self.socket_to(caller, family, r#type, protocol, crate::fs::FileDest::Table)
+            .await
+    }
+
+    pub(crate) async fn socket_to(
+        &self,
+        caller: &Caller<'_>,
+        family: AddressFamily,
+        r#type: i32,
+        protocol: i32,
+        dest: crate::fs::FileDest<'_>,
+    ) -> SysResult<Fd> {
         let (kind, flags) = socket_type(r#type)?;
         let domain = match family {
             AddressFamily::AF_INET => Domain::Inet,
             AddressFamily::AF_INET6 => Domain::Inet6,
             AddressFamily::AF_UNIX => {
                 let sock = self.unix_socket(caller, kind, protocol)?;
-                return self.install_unix(caller, sock, flags);
+                let owner = self.cred(caller).fs_owner();
+                let file = unix_file(sock, flags, self.pseudo.socket(owner));
+                return dest
+                    .reserve(self, caller, flags.contains(SocketFlags::SOCK_CLOEXEC))?
+                    .install(Arc::new(file));
             }
-            AddressFamily::AF_NETLINK => return self.netlink_socket(caller, kind, protocol, flags),
+            AddressFamily::AF_NETLINK => {
+                return self.netlink_socket(caller, kind, protocol, flags, dest);
+            }
             AddressFamily::AF_PACKET => return self.packet_socket(caller, kind, protocol, flags),
             AddressFamily::AF_VSOCK => return self.vsock_socket(caller, kind, protocol, flags),
             // Every other family (and anything past NPROTO) has no implementation.
@@ -238,8 +256,7 @@ impl Kernel {
         let socket = network.socket(domain, kind, protocol, uid)?;
         let file = self.socket_file(caller, socket, ns.net.clone(), flags);
         let cloexec = flags.contains(SocketFlags::SOCK_CLOEXEC);
-        let [slot] = self.reserve_fds::<1>(caller, cloexec)?;
-        Ok(slot.install(file))
+        dest.reserve(self, caller, cloexec)?.install(file)
     }
 
     /// `ping_init_sock`: an ICMP datagram socket is for the groups `ping_group_range` names,
@@ -358,8 +375,15 @@ impl Kernel {
             return Err(Errno::EINVAL.into());
         }
         let any = self.any_socket(caller, fd)?;
-        self.accept_on(caller, any, (addr, addrlen), flags, MsgFlags(0))
-            .await
+        self.accept_on(
+            caller,
+            any,
+            (addr, addrlen),
+            flags,
+            MsgFlags(0),
+            crate::fs::FileDest::Table,
+        )
+        .await
     }
 
     /// `do_accept` on the socket `any`; `MSG_DONTWAIT` in `wait` makes it non-blocking, as
@@ -371,9 +395,10 @@ impl Kernel {
         (addr, addrlen): (SockaddrPtr, SocklenPtr),
         flags: SocketFlags,
         wait: MsgFlags,
+        dest: crate::fs::FileDest<'_>,
     ) -> SysResult<Fd> {
         let cloexec = flags.contains(SocketFlags::SOCK_CLOEXEC);
-        let [slot] = self.reserve_fds::<1>(caller, cloexec)?;
+        let slot = dest.reserve(self, caller, cloexec)?;
         let interrupt = self.interrupt(caller);
         let io = Self::io(caller, &*interrupt, any.file());
         let (file, peer) = match &any {
@@ -417,7 +442,7 @@ impl Kernel {
         if !addr.is_null() {
             move_addr_to_user(caller, &peer, addr, addrlen).await?;
         }
-        Ok(slot.install(file))
+        slot.install(file)
     }
 
     /// `__sys_connect`, `inet_stream_connect` and `inet_dgram_connect`.
@@ -1606,6 +1631,7 @@ impl Kernel {
         (addr, addrlen): (u32, u32),
         flags: SocketFlags,
         nonblock: bool,
+        dest: crate::fs::FileDest<'_>,
     ) -> SysResult<Fd> {
         if !(flags & !(SocketFlags::SOCK_CLOEXEC | SocketFlags::SOCK_NONBLOCK)).is_empty() {
             return Err(Errno::EINVAL.into());
@@ -1613,7 +1639,7 @@ impl Kernel {
         let any = any_socket_file(file)?;
         let wait = dontwait(nonblock);
         let at = (GuestPtrMut::new(addr), GuestPtrMut::new(addrlen));
-        self.accept_on(caller, any, at, flags, wait).await
+        self.accept_on(caller, any, at, flags, wait, dest).await
     }
 
     /// `io_connect`: `connect` of the socket `file` to the address at `addr`, without waiting

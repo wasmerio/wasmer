@@ -1265,3 +1265,343 @@ fn a_single_issuer_ring_takes_submissions_from_its_creator_only() {
         Errno::EEXIST
     );
 }
+
+fn put_value<T: GuestLayout>(m: &Machine, at: u32, value: T) {
+    let mut bytes = vec![0; T::SIZE];
+    value.write_to(&mut bytes);
+    m.memory.put(at, &bytes);
+}
+
+fn register_resources(
+    ring: &Ring<'_>,
+    buffers: bool,
+    nr: u32,
+    data: u32,
+    tags: u32,
+) -> SysResult<i32> {
+    let rr = wasixv2_abi::IoUringRsrcRegister {
+        nr,
+        flags: u32::from(data == 0),
+        data: u64::from(data),
+        tags: u64::from(tags),
+        ..wasixv2_abi::IoUringRsrcRegister::ZERO
+    };
+    put_value(ring.m, SCRATCH, rr);
+    ring.register(
+        if buffers { 15 } else { 13 },
+        SCRATCH,
+        wasixv2_abi::IoUringRsrcRegister::SIZE as u32,
+    )
+}
+
+fn update_resources(
+    ring: &Ring<'_>,
+    buffers: bool,
+    offset: u32,
+    nr: u32,
+    data: u32,
+    tags: u32,
+) -> SysResult<i32> {
+    let up = wasixv2_abi::IoUringRsrcUpdate2 {
+        offset,
+        nr,
+        data: u64::from(data),
+        tags: u64::from(tags),
+        ..wasixv2_abi::IoUringRsrcUpdate2::ZERO
+    };
+    put_value(ring.m, SCRATCH, up);
+    ring.register(
+        if buffers { 16 } else { 14 },
+        SCRATCH,
+        wasixv2_abi::IoUringRsrcUpdate2::SIZE as u32,
+    )
+}
+
+#[test]
+fn resource_tags_wait_for_requests_using_the_removed_version() {
+    let m = Machine::new();
+    let ring = m.ring(8, 0);
+    let caller = m.caller();
+    let (r, w) = pipe(&m.kernel, &caller, OpenFlags(0));
+    let data = SCRATCH + 64;
+    let tags = SCRATCH + 96;
+    put_value(&m, data, r.0);
+    put_value(&m, tags, 101u64);
+    assert_eq!(register_resources(&ring, false, 1, data, tags), Ok(0));
+    put_value(
+        &m,
+        data,
+        wasixv2_abi::Iovec {
+            iov_base: BUF,
+            iov_len: 16,
+        },
+    );
+    put_value(&m, tags, 102u64);
+    assert_eq!(register_resources(&ring, true, 1, data, tags), Ok(0));
+    ring.push(IoUringSqe {
+        flags: IosqeFlags::IOSQE_FIXED_FILE.0,
+        addr: u64::from(BUF),
+        len: 4,
+        ..sqe(IoUringOp::IORING_OP_READ_FIXED, 0, 1)
+    });
+    assert_eq!(ring.submit(1), Ok(1));
+    assert!(ring.reap().is_empty());
+    put_value(&m, data, -1i32);
+    assert_eq!(update_resources(&ring, false, 0, 1, data, 0), Ok(1));
+    put_value(&m, data, wasixv2_abi::Iovec::ZERO);
+    assert_eq!(update_resources(&ring, true, 0, 1, data, 0), Ok(1));
+    assert!(ring.reap().is_empty(), "both versions are in use");
+    m.memory.put(BUF + 64, b"data");
+    block_on(m.kernel.write(&caller, w, UserSlice::new(BUF + 64, 4))).unwrap();
+    let mut cqes = ring.wait(3);
+    cqes.sort_by_key(|c| c.user_data);
+    assert_eq!(res(&cqes), [(1, 4), (101, 0), (102, 0)]);
+    assert_eq!(m.memory.get(BUF, 4), b"data");
+    assert_eq!(ring.register(3, 0, 0), Ok(0));
+    assert_eq!(ring.register(1, 0, 0), Ok(0));
+}
+
+#[test]
+fn sparse_resources_and_update_errors_follow_linux() {
+    let m = Machine::new();
+    let ring = m.ring(8, 0);
+    let data = SCRATCH + 64;
+    let tags = SCRATCH + 96;
+    put_value(&m, tags, 42u64);
+    assert_eq!(
+        errno(register_resources(&ring, false, 1, 0, tags)),
+        Errno::EINVAL
+    );
+    assert!(
+        ring.reap().is_empty(),
+        "a failed registration posts no tags"
+    );
+    assert_eq!(
+        errno(register_resources(&ring, false, (1 << 20) + 1, 0, 0)),
+        Errno::EMFILE
+    );
+    assert_eq!(register_resources(&ring, false, 2, 0, 0), Ok(0));
+    assert_eq!(register_resources(&ring, true, 2, 0, 0), Ok(0));
+    put_value(&m, data, -2i32);
+    assert_eq!(
+        errno(update_resources(&ring, false, 0, 1, data, tags)),
+        Errno::EINVAL
+    );
+    assert_eq!(
+        errno(update_resources(&ring, false, u32::MAX, 2, data, 0)),
+        Errno::EOVERFLOW
+    );
+    let fd = m.file("update", b"abc");
+    put_value(&m, data, fd.0);
+    put_value(&m, data + 4, -99i32);
+    assert_eq!(update_resources(&ring, false, 0, 2, data, tags), Ok(1));
+    assert_eq!(ring.register(3, 0, 0), Ok(0));
+    assert_eq!(res(&ring.reap()), [(42, 0)]);
+    put_value(
+        &m,
+        data,
+        wasixv2_abi::Iovec {
+            iov_base: BUF,
+            iov_len: 4,
+        },
+    );
+    assert_eq!(update_resources(&ring, true, 1, 1, data, tags), Ok(1));
+    ring.push(IoUringSqe {
+        addr: u64::from(BUF),
+        len: 3,
+        buf_index: 1,
+        ..sqe(IoUringOp::IORING_OP_READ_FIXED, fd.0, 1)
+    });
+    assert_eq!(ring.submit(1), Ok(1));
+    assert_eq!(res(&ring.reap()), [(1, 3)]);
+    assert_eq!(m.memory.get(BUF, 3), b"abc");
+    assert_eq!(ring.register(1, 0, 0), Ok(0));
+    assert_eq!(res(&ring.reap()), [(42, 0)]);
+}
+
+#[test]
+fn direct_open_file_allocation_range_and_fixed_fd_install() {
+    let m = Machine::new();
+    let ring = m.ring(8, 0);
+    let fd = m.file("direct", b"direct contents");
+    let caller = m.caller();
+    block_on(m.kernel.close(&caller, fd)).unwrap();
+    assert_eq!(register_resources(&ring, false, 3, 0, 0), Ok(0));
+    put_value(
+        &m,
+        SCRATCH,
+        wasixv2_abi::IoUringFileIndexRange {
+            off: 1,
+            len: 1,
+            resv: 0,
+        },
+    );
+    assert_eq!(ring.register(25, SCRATCH, 0), Ok(0));
+    m.memory.put(SCRATCH + 64, b"direct\0");
+    let open = IoUringSqe {
+        addr: u64::from(SCRATCH + 64),
+        splice_fd_in: -1,
+        ..sqe(IoUringOp::IORING_OP_OPENAT, -100, 1)
+    };
+    ring.push(open);
+    ring.push(IoUringSqe {
+        user_data: 2,
+        ..open
+    });
+    assert_eq!(ring.submit(2), Ok(2));
+    assert_eq!(res(&ring.reap()), [(1, 1), (2, -Errno::ENFILE.0)]);
+    ring.push(IoUringSqe {
+        flags: IosqeFlags::IOSQE_FIXED_FILE.0,
+        addr: u64::from(BUF),
+        len: 6,
+        ..sqe(READ, 1, 3)
+    });
+    ring.push(IoUringSqe {
+        flags: IosqeFlags::IOSQE_FIXED_FILE.0,
+        ..sqe(IoUringOp::IORING_OP_FIXED_FD_INSTALL, 1, 4)
+    });
+    assert_eq!(ring.submit(2), Ok(2));
+    let cqes = ring.reap();
+    assert_eq!(cqes[0].res, 6);
+    assert_eq!(m.memory.get(BUF, 6), b"direct");
+    let installed = Fd(cqes[1].res);
+    let getfd = wasixv2_abi::FcntlCmd::F_GETFD;
+    assert_eq!(
+        block_on(m.kernel.fcntl64(&caller, installed, getfd, 0)),
+        Ok(1)
+    );
+    ring.push(IoUringSqe {
+        splice_fd_in: 2,
+        ..sqe(IoUringOp::IORING_OP_CLOSE, 0, 5)
+    });
+    assert_eq!(ring.submit(1), Ok(1));
+    assert_eq!(res(&ring.reap()), [(5, 0)]);
+    // FILES_UPDATE with INDEX_ALLOC writes the zero based index over its fd.
+    put_value(&m, SCRATCH + 64, installed.0);
+    ring.push(IoUringSqe {
+        off: u64::from(u32::MAX),
+        addr: u64::from(SCRATCH + 64),
+        len: 1,
+        ..sqe(IoUringOp::IORING_OP_FILES_UPDATE, -1, 6)
+    });
+    assert_eq!(ring.submit(1), Ok(1));
+    assert_eq!(res(&ring.reap()), [(6, 1)]);
+    assert_eq!(m.get_word(SCRATCH + 64), 1);
+}
+
+#[test]
+fn direct_accept_installs_into_the_fixed_table() {
+    let m = Machine::new();
+    let ring = m.ring(8, 0);
+    let caller = m.caller();
+    assert_eq!(register_resources(&ring, false, 1, 0, 0), Ok(0));
+    let addr = [1u16.to_le_bytes().as_slice(), b"\0direct-accept"].concat();
+    m.memory.put(SCRATCH + 64, &addr);
+    let listener = block_on(m.kernel.socket(&caller, AddressFamily::AF_UNIX, 1, 0)).unwrap();
+    block_on(m.kernel.bind(
+        &caller,
+        listener,
+        GuestPtr::new(SCRATCH + 64),
+        addr.len() as u32,
+    ))
+    .unwrap();
+    block_on(m.kernel.listen(&caller, listener, 4)).unwrap();
+    let accept = IoUringSqe {
+        splice_fd_in: -1,
+        ..sqe(IoUringOp::IORING_OP_ACCEPT, listener.0, 1)
+    };
+    ring.push(IoUringSqe {
+        op_flags: wasixv2_abi::SocketFlags::SOCK_CLOEXEC.0,
+        ..accept
+    });
+    assert_eq!(ring.submit(1), Ok(1));
+    assert_eq!(res(&ring.reap()), [(1, EINVAL)]);
+    ring.push(accept);
+    assert_eq!(ring.submit(1), Ok(1));
+    assert!(ring.reap().is_empty());
+    let client = block_on(m.kernel.socket(&caller, AddressFamily::AF_UNIX, 1, 0)).unwrap();
+    block_on(m.kernel.connect(
+        &caller,
+        client,
+        GuestPtr::new(SCRATCH + 64),
+        addr.len() as u32,
+    ))
+    .unwrap();
+    assert_eq!(res(&ring.wait(1)), [(1, 0)]);
+    m.memory.put(BUF, b"accepted");
+    ring.push(IoUringSqe {
+        flags: IosqeFlags::IOSQE_FIXED_FILE.0,
+        addr: u64::from(BUF),
+        len: 8,
+        ..sqe(IoUringOp::IORING_OP_SEND, 0, 2)
+    });
+    assert_eq!(ring.submit(1), Ok(1));
+    assert_eq!(res(&ring.reap()), [(2, 8)]);
+    assert_eq!(
+        block_on(
+            m.kernel
+                .read(&caller, client, UserSliceMut::new(BUF + 64, 8))
+        ),
+        Ok(8)
+    );
+    assert_eq!(m.memory.get(BUF + 64, 8), b"accepted");
+}
+
+#[test]
+fn direct_openat2_replaces_slots_and_reports_table_errors() {
+    let m = Machine::new();
+    let ring = m.ring(8, 0);
+    m.file("direct2", b"x");
+    m.memory.put(SCRATCH + 64, b"direct2\0");
+    put_value(&m, SCRATCH + 128, wasixv2_abi::OpenHow::ZERO);
+    let open = IoUringSqe {
+        addr: u64::from(SCRATCH + 64),
+        off: u64::from(SCRATCH + 128),
+        len: wasixv2_abi::OpenHow::SIZE as u32,
+        splice_fd_in: 1,
+        ..sqe(IoUringOp::IORING_OP_OPENAT2, -100, 1)
+    };
+    ring.push(open);
+    assert_eq!(ring.submit(1), Ok(1));
+    assert_eq!(res(&ring.reap()), [(1, -Errno::ENXIO.0)]);
+    assert_eq!(register_resources(&ring, false, 1, 0, 0), Ok(0));
+    ring.push(IoUringSqe {
+        splice_fd_in: 2,
+        ..open
+    });
+    assert_eq!(ring.submit(1), Ok(1));
+    assert_eq!(res(&ring.reap()), [(1, EINVAL)]);
+    ring.push(open);
+    ring.push(open);
+    assert_eq!(ring.submit(2), Ok(2));
+    assert_eq!(res(&ring.reap()), [(1, 0), (1, 0)]);
+    put_value(
+        &m,
+        SCRATCH + 128,
+        wasixv2_abi::OpenHow {
+            flags: u64::from(OpenFlags::O_CLOEXEC.0),
+            ..wasixv2_abi::OpenHow::ZERO
+        },
+    );
+    ring.push(open);
+    assert_eq!(ring.submit(1), Ok(1));
+    assert_eq!(res(&ring.reap()), [(1, EINVAL)]);
+    // Fixed fd install requires FIXED_FILE and defaults to CLOEXEC unless asked otherwise.
+    ring.push(sqe(IoUringOp::IORING_OP_FIXED_FD_INSTALL, 0, 2));
+    assert_eq!(ring.submit(1), Ok(1));
+    assert_eq!(res(&ring.reap()), [(2, -Errno::EBADF.0)]);
+    ring.push(IoUringSqe {
+        flags: IosqeFlags::IOSQE_FIXED_FILE.0,
+        op_flags: 1,
+        ..sqe(IoUringOp::IORING_OP_FIXED_FD_INSTALL, 0, 3)
+    });
+    assert_eq!(ring.submit(1), Ok(1));
+    let installed = Fd(ring.reap()[0].res);
+    assert_eq!(
+        block_on(
+            m.kernel
+                .fcntl64(&m.caller(), installed, wasixv2_abi::FcntlCmd::F_GETFD, 0)
+        ),
+        Ok(0)
+    );
+}

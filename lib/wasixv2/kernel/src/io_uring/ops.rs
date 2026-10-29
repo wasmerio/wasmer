@@ -10,9 +10,9 @@ use std::{
 };
 
 use wasixv2_abi::{
-    AtFlags, FallocFlags, GuestPtr, GuestPtrMut, IoUringOp, IoUringSqe, IoringCqeFlags,
-    IoringOpFlags, IosqeFlags, Iovec, KernelTimespec, MsgFlags, OpenFlags, RwfFlags, ShutdownHow,
-    SocketFlags, StatxMask,
+    AtFlags, FallocFlags, GuestLayout, GuestPtr, GuestPtrMut, IoUringOp, IoUringSqe,
+    IoringCqeFlags, IoringOpFlags, IosqeFlags, Iovec, KernelTimespec, MsgFlags, OpenFlags,
+    RwfFlags, ShutdownHow, SocketFlags, StatxMask,
 };
 use wasixv2_syscalls::{Caller, Errno, Fd, SysErr, SysResult, TaskId, read_value};
 use wasixv2_wait::{PollMask, PollTable, WaitEntry, WaitQueue};
@@ -57,6 +57,8 @@ pub(crate) const SUPPORTED: &[IoUringOp] = &[
     IoUringOp::IORING_OP_PROVIDE_BUFFERS,
     IoUringOp::IORING_OP_REMOVE_BUFFERS,
     IoUringOp::IORING_OP_SHUTDOWN,
+    IoUringOp::IORING_OP_FILES_UPDATE,
+    IoUringOp::IORING_OP_FIXED_FD_INSTALL,
 ];
 
 /// `SQE_VALID_FLAGS`.
@@ -88,6 +90,8 @@ pub(crate) struct Req {
     creds: Option<Cred>,
     /// Its file, found at its first issue (`IORING_FEAT_LINKED_FILE`).
     file: Option<Arc<OpenFile>>,
+    file_node: Option<super::rsrc::FileNode>,
+    buffer_node: Option<super::rsrc::BufferNode>,
     /// The requests linked after it.
     link: VecDeque<Req>,
     /// The `IORING_OP_LINK_TIMEOUT` that guards it, and its timer once armed.
@@ -202,6 +206,8 @@ impl Req {
             task,
             creds: None,
             file: None,
+            file_node: None,
+            buffer_node: None,
             link: VecDeque::new(),
             link_timeout: None,
             failed: None,
@@ -626,7 +632,10 @@ impl Kernel {
                 let state = ctx.state.lock_or_recover();
                 let files = state.files.as_ref().ok_or(Errno::EBADF)?;
                 let slot = files.get(req.sqe.fd as u32 as usize).ok_or(Errno::EBADF)?;
-                slot.clone().ok_or(Errno::EBADF)?
+                let node = slot.clone().ok_or(Errno::EBADF)?;
+                let file = node.item.clone();
+                req.file_node = Some(node);
+                file
             }
             false => self.file(caller.task(), Fd(req.sqe.fd))?,
         };
@@ -644,6 +653,51 @@ impl Kernel {
         let sqe = req.sqe;
         match IoUringOp(sqe.opcode) {
             IoUringOp::IORING_OP_NOP => self.op_nop(caller, ctx, req),
+            IoUringOp::IORING_OP_FILES_UPDATE => {
+                if req.has(IosqeFlags::IOSQE_FIXED_FILE)
+                    || sqe.op_flags != 0
+                    || sqe.splice_fd_in != 0
+                    || sqe.len == 0
+                {
+                    return Err(Errno::EINVAL);
+                }
+                let done = if sqe.off as u32 == u32::MAX {
+                    self.alloc_file_indices(caller, ctx, sqe.addr, sqe.len)
+                        .await
+                } else {
+                    let up = wasixv2_abi::IoUringRsrcUpdate2 {
+                        offset: sqe.off as u32,
+                        data: sqe.addr,
+                        nr: sqe.len,
+                        ..wasixv2_abi::IoUringRsrcUpdate2::ZERO
+                    };
+                    self.update_resources(caller, ctx, up, false).await
+                };
+                Ok(Outcome::of(done))
+            }
+            IoUringOp::IORING_OP_FIXED_FD_INSTALL => {
+                if sqe.off != 0
+                    || sqe.addr != 0
+                    || sqe.len != 0
+                    || sqe.buf_index != 0
+                    || sqe.splice_fd_in != 0
+                    || sqe.addr3 != 0
+                    || sqe.op_flags & !1 != 0
+                {
+                    return Err(Errno::EINVAL);
+                }
+                if !req.has(IosqeFlags::IOSQE_FIXED_FILE) {
+                    return Err(Errno::EBADF);
+                }
+                if req.creds.is_some() {
+                    return Err(Errno::EPERM);
+                }
+                let file = self.req_file(caller, ctx, req)?;
+                let done = self
+                    .install(caller, file, sqe.op_flags & 1 == 0)
+                    .map(|fd| fd.0);
+                Ok(Outcome::of(done))
+            }
             IoUringOp::IORING_OP_READ
             | IoUringOp::IORING_OP_READV
             | IoUringOp::IORING_OP_READ_FIXED
@@ -702,7 +756,7 @@ impl Kernel {
                 Ok(Outcome::of(done))
             }
             IoUringOp::IORING_OP_OPENAT | IoUringOp::IORING_OP_OPENAT2 => {
-                self.op_openat(caller, req).await
+                self.op_openat(caller, ctx, req).await
             }
             IoUringOp::IORING_OP_CLOSE => self.op_close(caller, ctx, req),
             IoUringOp::IORING_OP_STATX => {
@@ -813,7 +867,7 @@ impl Kernel {
             (true, _, _) => {
                 read_iovecs(caller.memory(), GuestPtr::new(sqe.addr as u32), sqe.len).await?
             }
-            (_, true, _) => vec![fixed_buffer(ctx, &sqe)?],
+            (_, true, _) => vec![fixed_buffer(ctx, req)?],
             _ => {
                 let addr = u32::try_from(sqe.addr).map_err(|_| Errno::EFAULT)?;
                 vec![Iovec {
@@ -994,10 +1048,18 @@ impl Kernel {
         if iou & !(multishot | dontwait | poll_first) != 0 {
             return Err(Errno::EINVAL);
         }
-        // No direct descriptors.
-        if sqe.splice_fd_in != 0 {
+        let index = sqe.splice_fd_in as u32;
+        if index != 0 && sqe.op_flags & SocketFlags::SOCK_CLOEXEC.0 != 0 {
             return Err(Errno::EINVAL);
         }
+        if iou & multishot != 0 && index != 0 && index != u32::MAX {
+            return Err(Errno::EINVAL);
+        }
+        let dest = if index == 0 {
+            crate::fs::FileDest::Table
+        } else {
+            crate::fs::FileDest::Direct(ctx, index)
+        };
         let file = self.req_file(caller, ctx, req)?;
         if iou & poll_first != 0 && !req.retried {
             req.retried = true;
@@ -1005,7 +1067,7 @@ impl Kernel {
         }
         let at = (sqe.addr as u32, sqe.off as u32);
         let accepted = self
-            .uring_accept(caller, file, at, SocketFlags(sqe.op_flags), true)
+            .uring_accept(caller, file, at, SocketFlags(sqe.op_flags), true, dest)
             .await;
         match accepted {
             Err(SysErr::Errno(Errno::EAGAIN)) if iou & dontwait == 0 => {
@@ -1047,26 +1109,31 @@ impl Kernel {
         }
     }
 
-    /// `io_openat` and `io_openat2`: `openat` in the caller's descriptor table. No direct
-    /// descriptors.
-    async fn op_openat(&self, caller: &Caller<'_>, req: &Req) -> Result<Outcome, Errno> {
+    /// `io_openat` and `io_openat2` (`openclose.c`), including direct descriptors.
+    async fn op_openat(&self, caller: &Caller<'_>, ctx: &Ctx, req: &Req) -> Result<Outcome, Errno> {
         let sqe = req.sqe;
-        if sqe.buf_index != 0 || sqe.splice_fd_in != 0 {
+        if sqe.buf_index != 0 {
             return Err(Errno::EINVAL);
         }
         if req.has(IosqeFlags::IOSQE_FIXED_FILE) {
             return Err(Errno::EBADF);
         }
-        let path = GuestPtr::new(sqe.addr as u32);
+        let index = sqe.splice_fd_in as u32;
+        let dest = if index == 0 {
+            crate::fs::FileDest::Table
+        } else {
+            crate::fs::FileDest::Direct(ctx, index)
+        };
+        let path = GuestPtr::new(u32::try_from(sqe.addr).map_err(|_| Errno::EFAULT)?);
         let opened = match IoUringOp(sqe.opcode) {
             IoUringOp::IORING_OP_OPENAT => {
                 let flags = OpenFlags(sqe.op_flags) | OpenFlags::O_LARGEFILE;
-                self.sys_openat(caller, Fd(sqe.fd), path, flags, sqe.len)
+                self.openat_to(caller, Fd(sqe.fd), path, flags, sqe.len, dest)
                     .await
             }
             _ => {
                 let how = GuestPtr::new(sqe.off as u32);
-                self.sys_openat2(caller, Fd(sqe.fd), path, how, sqe.len)
+                self.openat2_to(caller, Fd(sqe.fd), path, how, sqe.len, dest)
                     .await
             }
         };
@@ -1089,13 +1156,7 @@ impl Kernel {
             if sqe.fd != 0 {
                 return Err(Errno::EINVAL);
             }
-            let taken = {
-                let mut state = ctx.state.lock_or_recover();
-                let files = state.files.as_mut().ok_or(Errno::ENXIO)?;
-                let entry = files.get_mut(slot as usize - 1).ok_or(Errno::EINVAL)?;
-                entry.take().ok_or(Errno::EBADF)?
-            };
-            drop(taken);
+            ctx.remove_direct(slot - 1)?;
             return Ok(Outcome::of(Ok(0)));
         }
         let file = self.file(caller.task(), Fd(sqe.fd))?;
@@ -1758,12 +1819,22 @@ fn buffer_flags(pbuf: Pbuf) -> u32 {
 
 /// `io_import_fixed`: the range `[addr, addr + len)` must lie in registered buffer
 /// `buf_index`.
-fn fixed_buffer(ctx: &Ctx, sqe: &IoUringSqe) -> Result<Iovec, Errno> {
-    let state = ctx.state.lock_or_recover();
-    let buffers = state.buffers.as_ref().ok_or(Errno::EFAULT)?;
-    let &(base, size) = buffers
-        .get(usize::from(sqe.buf_index))
-        .ok_or(Errno::EFAULT)?;
+fn fixed_buffer(ctx: &Ctx, req: &mut Req) -> Result<Iovec, Errno> {
+    let sqe = req.sqe;
+    let node = if let Some(node) = &req.buffer_node {
+        node.clone()
+    } else {
+        let state = ctx.state.lock_or_recover();
+        state
+            .buffers
+            .as_ref()
+            .ok_or(Errno::EFAULT)?
+            .get(usize::from(sqe.buf_index))
+            .and_then(Clone::clone)
+            .ok_or(Errno::EFAULT)?
+    };
+    let (base, size) = (node.item.iov_base, node.item.iov_len);
+    req.buffer_node = Some(node);
     let end = sqe
         .addr
         .checked_add(u64::from(sqe.len))
