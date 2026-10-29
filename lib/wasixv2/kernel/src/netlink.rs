@@ -181,6 +181,8 @@ impl NetlinkSocket {
             RTM_GETADDR => get_addr(&r, payload, dump),
             RTM_GETROUTE => get_route(&r, payload, dump),
             RTM_GETNEIGH => get_neigh(&r, dump),
+            RTM_GETNSID => get_nsid(&r, payload, dump),
+            RTM_NEWNSID => new_nsid(&r, payload).map(|()| Vec::new()),
             RTM_NEWLINK => new_link(&r, payload, false).map(|()| Vec::new()),
             RTM_SETLINK => new_link(&r, payload, true).map(|()| Vec::new()),
             RTM_DELLINK => del_link(&r, payload).map(|()| Vec::new()),
@@ -910,6 +912,32 @@ mod tests {
             attr(&links[1], IFINFOMSG, IFLA_LINK_NETNSID),
             Some(0i32.to_le_bytes().to_vec())
         );
+        // `RTM_GETNSID` finds the id the dump gave the namespace; `RTM_NEWNSID` cannot give
+        // it another.
+        let nsid = |kind, flags| {
+            let mut body = vec![0u8; 4];
+            rta(&mut body, 2 /* NETNSA_PID */, &42u32.to_le_bytes());
+            rta(&mut body, 1 /* NETNSA_NSID */, &5i32.to_le_bytes());
+            let mut data = header(0, kind, NLM_F_REQUEST | flags);
+            data.extend(body);
+            let len = data.len() as u32;
+            data[..4].copy_from_slice(&len.to_le_bytes());
+            data
+        };
+        let got = exchange(&nl, &nsid(RTM_GETNSID, 0), &to);
+        assert_eq!(attr(&got[0], 4, 1), Some(0i32.to_le_bytes().to_vec()));
+        assert_eq!(
+            change(&nl, &nsid(RTM_NEWNSID, NLM_F_ACK), &to),
+            -Errno::EEXIST.0
+        );
+        // A namespace without an id gets the one asked for; a dump lists both.
+        let third = To(net_ns());
+        assert_eq!(change(&nl, &nsid(RTM_NEWNSID, NLM_F_ACK), &third), 0);
+        let mut dump = header(20, RTM_GETNSID, NLM_F_REQUEST | NLM_F_DUMP);
+        dump.extend([0; 4]);
+        let ids = exchange(&nl, &dump, &to);
+        let ids: Vec<_> = ids[..2].iter().map(|m| attr(m, 4, 1).unwrap()).collect();
+        assert_eq!(ids, [0i32.to_le_bytes(), 5i32.to_le_bytes()]);
         // `lo` stays home; deleting it is not a request's.
         let mov_lo = msg(
             RTM_NEWLINK,

@@ -1122,6 +1122,21 @@ fn ifconfig_requests_change_addresses() {
     ifr(b"lo", [0; 4]);
     ioctl(&kernel, &caller, inet, IoctlRequest::SIOCGIFADDR).unwrap();
     assert_eq!(sin_addr(), [127, 0, 0, 1], "lo's own label");
+    // `struct ifconf`: no buffer asks for the length; a short one takes the whole entries
+    // that fit.
+    let ifconf = |len: i32, buf: u32| {
+        put(
+            &memory.0,
+            0x400,
+            &[len.to_le_bytes(), buf.to_le_bytes()].concat(),
+        );
+        ioctl(&kernel, &caller, unix, IoctlRequest::SIOCGIFCONF).unwrap();
+        i32::from_le_bytes(get(&memory.0, 0x400, 4).try_into().unwrap())
+    };
+    assert_eq!(ifconf(0, 0), 64, "lo and lo:1");
+    assert_eq!(ifconf(40, 0x800), 32);
+    assert_eq!(get(&memory.0, 0x800, 3), b"lo\0");
+    assert_eq!(get(&memory.0, 0x814, 4), [127, 0, 0, 1]);
     ifr(b"lo:1", [0; 4]);
     assert_eq!(
         ioctl(&kernel, &caller, inet, IoctlRequest::SIOCSIFFLAGS),
