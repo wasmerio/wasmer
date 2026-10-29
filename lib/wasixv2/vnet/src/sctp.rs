@@ -2468,6 +2468,15 @@ impl Socket for SctpSocket {
                 if level == SocketLevel::SOL_SOCKET.0 && name == So::SO_ACCEPTCONN.0 {
                     return Ok(opts::write_int(out, (g.state == SkState::Listening) as i32));
                 }
+                if name != wasixv2_abi::Ipv6Option::IPV6_ADDRFORM.0 {
+                    let peer = match g.state {
+                        SkState::Established | SkState::Closing => g.daddr.map(|p| p.ip()),
+                        _ => None,
+                    };
+                    if let Some(result) = g.opts.get_mtu(&self.net, peer, level, name, out) {
+                        return result;
+                    }
+                }
                 g.opts.get(level, name, out)
             }
         }
