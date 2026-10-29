@@ -38,7 +38,8 @@ pub enum Changed {
     Nothing,
     /// `SO_REUSEADDR`/`SO_REUSEPORT`: update the port table entry.
     Reuse,
-    /// `SO_SNDBUF`/`SO_RCVBUF`/`SO_RCVLOWAT`: buffers or readiness thresholds changed.
+    /// `SO_SNDBUF`/`SO_RCVBUF`/`SO_RCVLOWAT`/`SO_OOBINLINE`: buffers, readiness thresholds or
+    /// how urgent bytes are read changed.
     Buffers,
 }
 
@@ -125,6 +126,7 @@ const INT_OPTS: &[(i32, i32, i32, bool, bool)] = &[
 /// The integer options a backend stream acts on, in the order they are replayed: keepalive's
 /// parameters before keepalive itself.
 const BACKEND_INTS: &[(i32, i32)] = &[
+    (SOL_SOCKET, So::SO_OOBINLINE.0),
     (SOL_TCP, Tcp::TCP_NODELAY.0),
     (SOL_TCP, Tcp::TCP_KEEPIDLE.0),
     (SOL_TCP, Tcp::TCP_KEEPINTVL.0),
@@ -318,6 +320,10 @@ impl SockOpts {
             // TODO: the forcing variants, which ignore the maximum with CAP_NET_ADMIN.
             (SOL_SOCKET, n) if n == So::SO_SNDBUFFORCE.0 || n == So::SO_RCVBUFFORCE.0 => {
                 Err(Errno::EPERM)
+            }
+            (SOL_SOCKET, n) if n == So::SO_OOBINLINE.0 => {
+                self.ints.insert((level, name), (val != 0) as i32);
+                Ok(Changed::Buffers)
             }
             (SOL_SOCKET, n) if n == So::SO_RCVLOWAT.0 => {
                 self.rcvlowat = if val < 0 {

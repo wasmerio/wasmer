@@ -25,13 +25,18 @@ use mio::{
 use wasixv2_abi::{Errno, IpOption, Ipv6Option, SocketLevel, SocketOption, TcpOption};
 use wasixv2_vnet::{
     Backend, BackendDatagram, BackendStream, Domain, InboundSink, Publication, PublishedDatagram,
-    QueuedError, Room, Shutdown, StreamState as Phase,
+    QueuedError, RecvQueue, Room, Shutdown, StreamState as Phase,
 };
 use wasixv2_wait::{PollMask, PollTable, Pollable, WaitEntry, WaitQueue, WaitRegistration};
 
 use crate::errno_from_io;
 
 const WAKER: Token = Token(0);
+/// `SIOCATMARK` (`sockatmark`), which the libc crate has only for Apple's systems.
+#[cfg(any(target_os = "linux", target_os = "android"))]
+const SIOCATMARK: libc::c_ulong = 0x8905;
+#[cfg(not(any(target_os = "linux", target_os = "android")))]
+const SIOCATMARK: libc::c_ulong = libc::SIOCATMARK;
 /// Bytes buffered per direction of a stream.
 const STREAM_BUF: usize = 256 * 1024;
 /// Bytes of datagrams buffered for the guest.
@@ -215,11 +220,17 @@ struct StreamState {
     /// The connection attempt failed (`ERR`/`HUP` until the socket goes).
     failed: bool,
     err: Option<Errno>,
-    /// Host to guest.
-    rx: VecDeque<u8>,
+    /// Host to guest, with the host's urgent marks.
+    rx: RecvQueue,
     rx_eof: bool,
+    /// The guest's `SO_OOBINLINE`: how the guest reads urgent bytes. The host socket always
+    /// keeps them inline, so the reactor sees where each one is.
+    oobinline: bool,
     /// Guest to host.
     tx: VecDeque<u8>,
+    /// Where in `tx` the byte a guest `MSG_OOB` send made urgent is: the host gets it alone
+    /// with `MSG_OOB`, so the host marks it too.
+    tx_urgent: Option<usize>,
     /// Guest `shutdown(Write)`; the host socket is shut once `tx` drains.
     wr_shut: bool,
     host_wr_shut: bool,
@@ -346,15 +357,24 @@ impl StreamShared {
             // An orphan reads nothing more: what arrives after close is the host's to answer.
             while st.host_readable && !st.released && !st.rx_eof && st.rx.len() < STREAM_BUF {
                 let want = (STREAM_BUF - st.rx.len()).min(buf.len());
-                match (&self.sock).read(&mut buf[..want]) {
-                    Ok(0) => {
+                match self.read_host(&mut buf[..want]) {
+                    Ok(Some((0, _))) => {
                         st.rx_eof = true;
                         wake |= PollMask::IN | PollMask::RDHUP;
                     }
-                    Ok(n) => {
-                        st.rx.extend(&buf[..n]);
+                    Ok(Some((n, urgent))) => {
+                        if urgent {
+                            let inline = st.oobinline;
+                            st.rx.push_urgent(&buf[..1], inline);
+                            st.rx.push(&buf[1..n]);
+                            wake |= PollMask::PRI | PollMask::RDBAND;
+                        } else {
+                            st.rx.push(&buf[..n]);
+                        }
                         wake |= PollMask::IN | PollMask::RDNORM;
                     }
+                    // Data arrived since the host said there was none: look again.
+                    Ok(None) => {}
                     Err(e) if e.kind() == io::ErrorKind::WouldBlock => st.host_readable = false,
                     Err(e) if e.kind() == io::ErrorKind::Interrupted => {}
                     Err(e) => {
@@ -366,9 +386,15 @@ impl StreamShared {
             }
             while st.host_writable && !st.tx.is_empty() && !st.reset {
                 let (chunk, _) = st.tx.as_slices();
-                match (&self.sock).write(chunk) {
+                let sent = match st.tx_urgent {
+                    Some(0) => socket2::SockRef::from(&self.sock).send_out_of_band(&chunk[..1]),
+                    Some(at) => (&self.sock).write(&chunk[..chunk.len().min(at)]),
+                    None => (&self.sock).write(chunk),
+                };
+                match sent {
                     Ok(n) => {
                         st.tx.drain(..n);
+                        st.tx_urgent = st.tx_urgent.and_then(|at| at.checked_sub(n));
                         progress = true;
                         wake |= PollMask::OUT | PollMask::WRNORM;
                     }
@@ -412,6 +438,38 @@ impl StreamShared {
             self.wq.wake(wake);
         }
         false
+    }
+
+    /// Reads from the host socket, which keeps urgent bytes inline, as much as it holds now
+    /// and never past an urgent byte: a read stops in front of a mark, so only a read that
+    /// starts at one can hold an urgent byte, as its first. Returns the bytes read and whether
+    /// the first is urgent, or `None` when data arrived while the host said there was none.
+    fn read_host(&self, buf: &mut [u8]) -> io::Result<Option<(usize, bool)>> {
+        let fd = self.sock.as_raw_fd();
+        let mut queued: libc::c_int = 0;
+        // SAFETY: `FIONREAD` writes one int to the pointer, which points to one.
+        if unsafe { libc::ioctl(fd, libc::FIONREAD, &mut queued) } < 0 {
+            return Err(io::Error::last_os_error());
+        }
+        if queued <= 0 {
+            // A mark may come with the next byte: peek, for the end of the stream or an error.
+            let mut probe = [0u8];
+            return match self.sock.peek(&mut probe)? {
+                0 => Ok(Some((0, false))),
+                _ => Ok(None),
+            };
+        }
+        // Bytes already queued cannot gain a mark (`tcp_check_urg` ignores one behind
+        // `rcv_nxt`), so the mark seen now is the mark for them.
+        let mut at_mark: libc::c_int = 0;
+        // SAFETY: `SIOCATMARK` writes one int to the pointer, which points to one.
+        if unsafe { libc::ioctl(fd, SIOCATMARK as _, &mut at_mark) } < 0 {
+            return Err(io::Error::last_os_error());
+        }
+        let at_mark = at_mark != 0;
+        let want = buf.len().min(queued as usize);
+        let n = (&self.sock).read(&mut buf[..want])?;
+        Ok(Some((n, at_mark && n > 0)))
     }
 
     /// For an orphan: resets it once its deadline passed. Returns the deadline while it is
@@ -467,6 +525,7 @@ impl HostStream {
         connected: bool,
         wq: WaitQueue,
     ) -> io::Result<Arc<Self>> {
+        socket2::SockRef::from(&sock).set_out_of_band_inline(true)?;
         let token = backend.token();
         let shared = Arc::new(StreamShared {
             sock,
@@ -495,6 +554,25 @@ impl HostStream {
             return Err(e);
         }
         Ok(Arc::new(Self(shared)))
+    }
+}
+
+impl HostStream {
+    /// Queues what fits of `data` for the host, as `write` takes it.
+    fn queue(st: &mut StreamState, data: &[u8]) -> Result<usize, Errno> {
+        if st.err.is_some() || st.wr_shut || st.reset || st.failed {
+            return Err(st.err.take().unwrap_or(Errno::EPIPE));
+        }
+        if !st.connected {
+            return Err(Errno::EAGAIN);
+        }
+        let space = STREAM_BUF.saturating_sub(st.tx.len());
+        if space == 0 {
+            return Err(Errno::EAGAIN);
+        }
+        let n = space.min(data.len());
+        st.tx.extend(&data[..n]);
+        Ok(n)
     }
 }
 
@@ -536,11 +614,14 @@ impl Pollable for HostStream {
         if rcv_shut {
             m |= PollMask::IN | PollMask::RDNORM | PollMask::RDHUP;
         }
-        if !st.rx.is_empty() {
+        if st.rx.readable(1, st.oobinline) {
             m |= PollMask::IN | PollMask::RDNORM;
         }
         if snd_shut || st.tx.len() < STREAM_BUF {
             m |= PollMask::OUT | PollMask::WRNORM;
+        }
+        if st.rx.urgent() {
+            m |= PollMask::PRI;
         }
         m
     }
@@ -560,20 +641,15 @@ impl BackendStream for HostStream {
 
     fn read(&self, buf: &mut [u8], peek: bool) -> Result<usize, Errno> {
         let mut st = self.0.state();
-        if !st.rx.is_empty() {
-            let n = buf.len().min(st.rx.len());
-            let (a, b) = st.rx.as_slices();
-            let first = n.min(a.len());
-            buf[..first].copy_from_slice(&a[..first]);
-            buf[first..n].copy_from_slice(&b[..n - first]);
-            if !peek {
-                let free_before = STREAM_BUF.saturating_sub(st.rx.len());
-                st.rx.drain(..n);
-                drop(st);
-                if free_before < RX_REOPEN && free_before + n >= RX_REOPEN {
-                    self.0.kick();
-                }
-            }
+        let queued = st.rx.len();
+        let inline = st.oobinline;
+        let n = st.rx.read(buf, peek, inline);
+        let free_before = STREAM_BUF.saturating_sub(queued);
+        let free = STREAM_BUF.saturating_sub(st.rx.len());
+        if free_before < RX_REOPEN && free >= RX_REOPEN {
+            self.0.kick();
+        }
+        if n > 0 || (buf.is_empty() && queued > 0) {
             return Ok(n);
         }
         if st.rx_eof {
@@ -589,22 +665,32 @@ impl BackendStream for HostStream {
     }
 
     fn write(&self, data: &[u8]) -> Result<usize, Errno> {
+        let n = HostStream::queue(&mut self.0.state(), data)?;
+        self.0.kick();
+        Ok(n)
+    }
+
+    fn write_urgent(&self, data: &[u8]) -> Result<usize, Errno> {
         let mut st = self.0.state();
-        if st.err.is_some() || st.wr_shut || st.reset || st.failed {
-            return Err(st.err.take().unwrap_or(Errno::EPIPE));
+        let n = HostStream::queue(&mut st, data)?;
+        if n > 0 {
+            st.tx_urgent = Some(st.tx.len() - 1);
         }
-        if !st.connected {
-            return Err(Errno::EAGAIN);
-        }
-        let space = STREAM_BUF.saturating_sub(st.tx.len());
-        if space == 0 {
-            return Err(Errno::EAGAIN);
-        }
-        let n = space.min(data.len());
-        st.tx.extend(&data[..n]);
         drop(st);
         self.0.kick();
         Ok(n)
+    }
+
+    fn read_urgent(&self, peek: bool) -> Result<u8, Errno> {
+        let mut st = self.0.state();
+        // `TCP_CLOSE` without `SOCK_DONE`: reset or failed before the host peer's FIN.
+        let closed = (st.reset || st.failed) && !st.rx_eof;
+        let inline = st.oobinline;
+        st.rx.recv_urgent(peek, inline, closed)
+    }
+
+    fn at_mark(&self) -> bool {
+        self.0.state().rx.at_mark()
     }
 
     fn shutdown(&self, how: Shutdown) -> Result<(), Errno> {
@@ -630,7 +716,8 @@ impl BackendStream for HostStream {
     }
 
     fn input_len(&self) -> usize {
-        self.0.state().rx.len()
+        let st = self.0.state();
+        st.rx.inq(st.oobinline)
     }
 
     /// What the guest wrote that the host socket has not taken yet; what the host socket
@@ -649,7 +736,9 @@ impl BackendStream for HostStream {
         let (Some(v), sol_socket) = (int(0), level == SocketLevel::SOL_SOCKET.0) else {
             return Ok(());
         };
-        if sol_socket && name == SocketOption::SO_LINGER.0 {
+        if sol_socket && name == SocketOption::SO_OOBINLINE.0 {
+            self.0.state().oobinline = v != 0;
+        } else if sol_socket && name == SocketOption::SO_LINGER.0 {
             let secs = int(4);
             let mut st = self.0.state();
             st.abort = v != 0 && secs == Some(0);

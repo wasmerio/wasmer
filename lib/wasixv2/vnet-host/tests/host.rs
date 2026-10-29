@@ -98,6 +98,74 @@ fn outbound_connect_through_gateway_alias() {
     assert_eq!(s.recv(&mut buf, MsgFlags(0)).unwrap().len, 0);
 }
 
+fn send_oob(s: &dyn Socket, data: &[u8]) -> Result<usize, Errno> {
+    s.send(SendMsg {
+        data,
+        to: None,
+        flags: MsgFlags::MSG_OOB,
+        control: &[],
+        net_raw: false,
+    })
+}
+
+/// Urgent data crosses the host bridge both ways: a host `MSG_OOB` byte is the guest's urgent
+/// byte, out of its stream and polling `PRI` until `recv(MSG_OOB)` reads it, and the last byte
+/// of a guest `MSG_OOB` send is urgent for the host peer.
+#[test]
+fn urgent_data_crosses_the_bridge() {
+    use std::os::fd::AsRawFd;
+
+    let net = setup();
+    let host = TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = host.local_addr().unwrap().port();
+    let s = net.socket(Domain::Inet, SocketKind::Stream, 0, 1).unwrap();
+    let dst: SocketAddr = format!("10.0.2.2:{port}").parse().unwrap();
+    assert_eq!(s.connect(dst), Err(Errno::EINPROGRESS));
+    let (mut peer, _) = host.accept().unwrap();
+    assert!(wait_for(&*s, PollMask::OUT | PollMask::ERR).contains(PollMask::OUT));
+
+    peer.write_all(b"ab").unwrap();
+    socket2::SockRef::from(&peer)
+        .send_out_of_band(b"U")
+        .unwrap();
+    peer.write_all(b"cd").unwrap();
+    wait_for(&*s, PollMask::PRI);
+    assert_eq!(s.input_len(), Ok(2));
+    assert_eq!(s.at_mark(), Ok(false));
+    let mut buf = [0u8; 16];
+    assert_eq!(s.recv(&mut buf, MsgFlags(0)).unwrap().len, 2);
+    assert_eq!(&buf[..2], b"ab");
+    assert_eq!(s.at_mark(), Ok(true));
+    let r = s.recv(&mut buf, MsgFlags::MSG_OOB).unwrap();
+    assert_eq!((r.len, buf[0], r.flags), (1, b'U', MsgFlags::MSG_OOB));
+    assert!(!s.poll(None).contains(PollMask::PRI));
+    assert_eq!(recv_all(&*s, 2), b"cd");
+
+    assert_eq!(send(&*s, b"xy", None), Ok(2));
+    assert_eq!(send_oob(&*s, b"zW"), Ok(2));
+    let mut got = [0u8; 3];
+    peer.read_exact(&mut got).unwrap();
+    assert_eq!(&got, b"xyz");
+    let mut pfd = libc::pollfd {
+        fd: peer.as_raw_fd(),
+        events: libc::POLLPRI,
+        revents: 0,
+    };
+    // SAFETY: one valid pollfd.
+    assert_eq!(unsafe { libc::poll(&mut pfd, 1, 5000) }, 1);
+    let mut oob = 0u8;
+    // SAFETY: one writable byte.
+    let n = unsafe {
+        libc::recv(
+            peer.as_raw_fd(),
+            (&mut oob as *mut u8).cast(),
+            1,
+            libc::MSG_OOB,
+        )
+    };
+    assert_eq!((n, oob), (1, b'W'));
+}
+
 #[test]
 fn outbound_connect_refused() {
     let net = setup();

@@ -7,10 +7,11 @@
 //! sends its foreground group `^C`. Sockets of the IP network are the exception: their
 //! readiness is only seen from inside a wait-queue wakeup ([`SockAsync::watch`]), where no
 //! signal may be sent (see `WaitEntry`), so their signals wait in a queue ([`Sigio`]) that the
-//! timer driver empties right after.
+//! timer driver empties right after. That includes `SIGURG`, which a stream socket's owner
+//! gets for each new urgent mark whether or not the file is on a list (`sk_send_sigurg`).
 
 use std::sync::{
-    Arc, Mutex, Weak,
+    Arc, Mutex, OnceLock, Weak,
     atomic::{AtomicBool, Ordering},
 };
 
@@ -170,6 +171,16 @@ impl FasyncList {
         }
     }
 
+    /// `kill_fasync(list, SIGURG, POLL_PRI)`: only the files with an `F_SETSIG` signal, since
+    /// `SIGURG` itself went to the owner already (`send_sigurg`).
+    fn kill_urg(&self) {
+        for (file, fd, sigio) in self.files() {
+            if file.fown().signum != 0 {
+                sigio.send(&file, fd, SiCode::POLL_PRI);
+            }
+        }
+    }
+
     /// [`FasyncList::kill`] from where no signal may be sent: the signals go once the timer
     /// driver runs.
     /// The files are not taken from the list's references: the last one going here would
@@ -182,7 +193,7 @@ impl FasyncList {
                 .collect()
         };
         for (file, fd, sigio) in list {
-            sigio.queue(file, fd, band);
+            sigio.queue(Queued::Io(file, fd, band));
         }
     }
 
@@ -223,13 +234,20 @@ fn sig_specific_sicodes(sig: i32) -> bool {
     )
 }
 
+/// A signal waiting for the timer driver.
+enum Queued {
+    /// An I/O signal of a file for a band, naming a descriptor.
+    Io(Weak<OpenFile>, Fd, SiCode),
+    /// `sk_send_sigurg` of a socket.
+    Urg(Weak<SockAsync>),
+}
+
 /// Sends I/O signals to owners, now ([`Sigio::send`]) or once the timer driver runs
 /// ([`Sigio::queue`]). One per machine.
 pub(crate) struct Sigio {
     jobs: Jobs,
-    /// The signals waiting for the driver: each file, the descriptor its signal names, and
-    /// the band.
-    queued: Mutex<Vec<(Weak<OpenFile>, Fd, SiCode)>>,
+    /// The signals waiting for the driver, in order.
+    queued: Mutex<Vec<Queued>>,
     /// Fires at once when armed, to send what is queued.
     timer: Timer,
 }
@@ -252,11 +270,11 @@ impl Sigio {
         })
     }
 
-    /// Queues the signal of `file` for `band`, and arms the timer if nothing was queued.
-    fn queue(&self, file: Weak<OpenFile>, fd: Fd, band: SiCode) {
+    /// Queues a signal, and arms the timer if nothing was queued.
+    fn queue(&self, signal: Queued) {
         let first = {
             let mut queued = self.queued.lock_or_recover();
-            queued.push((file, fd, band));
+            queued.push(signal);
             queued.len() == 1
         };
         if first {
@@ -267,11 +285,49 @@ impl Sigio {
     /// Sends what is queued, from the timer driver with nothing locked.
     fn run(&self) {
         let queued = std::mem::take(&mut *self.queued.lock_or_recover());
-        for (file, fd, band) in queued {
-            if let Some(file) = file.upgrade() {
-                self.send(&file, fd, band);
+        for signal in queued {
+            match signal {
+                Queued::Io(file, fd, band) => {
+                    if let Some(file) = file.upgrade() {
+                        self.send(&file, fd, band);
+                    }
+                }
+                Queued::Urg(sock) => {
+                    if let Some(sock) = sock.upgrade() {
+                        sock.send_urg(self);
+                    }
+                }
             }
         }
+    }
+
+    /// `send_sigurg`: `SIGURG` to the owner of `file`, which has urgent data, as `send_sigio`
+    /// picks the receivers but without `F_SETSIG`'s signal. Returns whether the file has an
+    /// owner.
+    fn send_sigurg(&self, file: &OpenFile) -> bool {
+        let fown = file.fown();
+        let Some(pid) = fown.pid else {
+            return false;
+        };
+        let info = || kernel_info(Signal::SIGURG.0);
+        match fown.ty {
+            OwnerType::Thread | OwnerType::Process => {
+                if let Some((process, signals)) = self.jobs.live_task(pid)
+                    && sigio_perm(&process, &fown)
+                {
+                    let task = (fown.ty == OwnerType::Thread).then_some(TaskId(pid));
+                    let _ = signals.group().send_from(task, info(), false);
+                }
+            }
+            OwnerType::Group => {
+                for (process, signals) in self.jobs.pgrp_processes(pid) {
+                    if sigio_perm(&process, &fown) {
+                        let _ = signals.send_from(None, info(), false);
+                    }
+                }
+            }
+        }
+        true
     }
 
     /// `send_sigio`: `file`'s I/O signal for `band` to its owner, naming descriptor `fd`:
@@ -362,8 +418,11 @@ pub(crate) struct SockAsync {
     list: FasyncList,
     /// `SOCKWQ_ASYNC_NOSPACE`: a send found no room, so room appearing is a `POLL_OUT`.
     nospace: AtomicBool,
+    /// For a stream socket of the IP network, its open file (`sock->file`), whose owner
+    /// hears of urgent data, and what sends that.
+    urgent: OnceLock<(Weak<OpenFile>, Arc<Sigio>)>,
     /// The entry on the queue of a socket whose wakeups are watched ([`SockAsync::watch`]),
-    /// while its list has files.
+    /// while its list has files or it may have urgent data.
     watching: Mutex<Option<WaitRegistration>>,
 }
 
@@ -404,9 +463,29 @@ impl SockAsync {
         fasync: &Fasync<'_>,
     ) -> Result<(), Errno> {
         self.fasync(fasync)?;
+        self.rewatch(socket);
+        Ok(())
+    }
+
+    /// Makes `file`, the open file of `socket`, a stream socket of the IP network, hear of
+    /// urgent data for as long as it lives (`sk_send_sigurg` through `sk->sk_socket->file`).
+    pub(crate) fn watch_urgent(
+        self: &Arc<Self>,
+        socket: &dyn Pollable,
+        file: &Arc<OpenFile>,
+        sigio: &Arc<Sigio>,
+    ) {
+        let _ = self.urgent.set((Arc::downgrade(file), sigio.clone()));
+        self.rewatch(socket);
+    }
+
+    /// Puts the entry on the queues `socket` polls on while it has something to signal, and
+    /// takes it off otherwise.
+    fn rewatch(self: &Arc<Self>, socket: &dyn Pollable) {
         let mut watching = self.watching.lock_or_recover();
-        match (self.list.is_empty(), watching.is_some()) {
-            (false, false) => {
+        let wanted = !self.list.is_empty() || self.urgent.get().is_some();
+        match (wanted, watching.is_some()) {
+            (true, false) => {
                 let entry: Arc<dyn WaitEntry> = Arc::new(Watch(Arc::downgrade(self)));
                 let mut queue_proc = |queue: &wasixv2_wait::WaitQueue, _: PollMask| {
                     *watching = Some(queue.add(entry.clone()));
@@ -416,10 +495,20 @@ impl SockAsync {
                     &mut queue_proc,
                 )));
             }
-            (true, true) => *watching = None,
+            (false, true) => *watching = None,
             _ => {}
         }
-        Ok(())
+    }
+
+    /// `sk_send_sigurg`, from the timer driver: `SIGURG` to the file's owner, then, if it has
+    /// one, `sk_wake_async(SOCK_WAKE_URG, POLL_PRI)`.
+    fn send_urg(&self, sigio: &Sigio) {
+        let Some(file) = self.urgent.get().and_then(|(file, _)| file.upgrade()) else {
+            return;
+        };
+        if sigio.send_sigurg(&file) {
+            self.list.kill_urg();
+        }
     }
 }
 
@@ -427,13 +516,22 @@ impl SockAsync {
 struct Watch(Weak<SockAsync>);
 
 impl WaitEntry for Watch {
-    /// The socket callbacks a wakeup stands for: `sk_error_report` (`POLL_ERR`),
+    /// The socket callbacks a wakeup stands for: a new urgent mark wakes with `PRI`
+    /// (`sk_send_sigurg`, before the data it comes with); `sk_error_report` (`POLL_ERR`),
     /// `sk_data_ready` (`POLL_IN`) and `sk_write_space` (`POLL_OUT`) wake with their events;
     /// `sk_state_change` wakes with none and signals nothing.
     fn wake(&self, events: PollMask) -> bool {
         let Some(sock) = self.0.upgrade() else {
             return false;
         };
+        if events.contains(PollMask::PRI)
+            && let Some((_, sigio)) = sock.urgent.get()
+        {
+            sigio.queue(Queued::Urg(self.0.clone()));
+        }
+        if sock.list.is_empty() {
+            return false;
+        }
         let (how, band) = if events.intersects(PollMask::ERR) {
             (SockWake::Io, SiCode::POLL_ERR)
         } else if events.intersects(PollMask::IN) {
