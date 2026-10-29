@@ -214,6 +214,15 @@ pub(crate) struct Ident {
     /// The controlling terminal (`signal->tty`): a child inherits it, `execve` keeps it,
     /// `setsid` drops it.
     pub(crate) tty: Option<std::sync::Arc<crate::tty::Tty>>,
+    /// `signal->oom_score_adj` and `oom_score_adj_min`: what the OOM killer adds to the
+    /// process's badness, from -1000 (never) to 1000, and how low it may go without
+    /// `CAP_SYS_RESOURCE`. Inherited.
+    pub(crate) oom_score_adj: i32,
+    pub(crate) oom_score_adj_min: i32,
+    /// The audit login uid (`loginuid`), `None` unset, and session id (`sessionid`,
+    /// `AUDIT_SID_UNSET` unset). Inherited.
+    pub(crate) loginuid: Option<crate::uidgid::Kuid>,
+    pub(crate) sessionid: u32,
 }
 
 impl Ident {
@@ -228,6 +237,10 @@ impl Ident {
             personality: 0,
             secure_exec: false,
             tty: None,
+            oom_score_adj: 0,
+            oom_score_adj_min: 0,
+            loginuid: None,
+            sessionid: u32::MAX,
         }
     }
 }

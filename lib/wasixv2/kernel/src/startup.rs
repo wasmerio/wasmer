@@ -68,6 +68,15 @@ impl<'a> Startup<'a> {
         u32::try_from(size).map_err(|_| Errno::E2BIG)
     }
 
+    /// The auxiliary vector of `block`, which [`Startup::build`] made: its pairs of words up to
+    /// and with `AT_NULL`.
+    pub(crate) fn auxv(&self, block: &[u8]) -> Vec<u8> {
+        let pointers = 1 + self.args.len() + 1 + self.env.len() + 1;
+        let start = pointers * WORD;
+        let len = (AUXV.len() + AUXV_EXTRA) * 2 * WORD;
+        block.get(start..start + len).unwrap_or_default().to_vec()
+    }
+
     /// The block as it must appear at guest address `base`.
     pub(crate) fn build(&self, base: u32, random: [u8; RANDOM_LEN]) -> Result<Vec<u8>, Errno> {
         // A block that would wrap past the end of the address space is a bad pointer.

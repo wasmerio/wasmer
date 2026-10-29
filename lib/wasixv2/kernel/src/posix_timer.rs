@@ -78,6 +78,13 @@ impl Table {
         Err(Errno::EAGAIN)
     }
 
+    /// Every timer, by id (`/proc/<pid>/timers`).
+    pub(crate) fn all(&self) -> Vec<Arc<PosixTimer>> {
+        let mut timers: Vec<Arc<PosixTimer>> = self.timers.values().flatten().cloned().collect();
+        timers.sort_by_key(|timer| timer.id);
+        timers
+    }
+
     pub(crate) fn remove(&mut self, id: TimerId) {
         self.timers.remove(&id);
     }
@@ -165,6 +172,21 @@ fn overrun_to_int(overrun: i64) -> i32 {
 }
 
 impl PosixTimer {
+    /// What `show_timer` shows: the id, the clock, how it notifies (`None` for
+    /// `SIGEV_NONE`, whether to a thread), its signal, the value it carries, and the thread it
+    /// signals (`None` for the process).
+    pub(crate) fn proc_show(&self) -> (i32, i32, Option<bool>, i32, u32, Option<TaskId>) {
+        let notify = (!self.sigev_none).then_some(self.thread.is_some());
+        (
+            self.id,
+            self.clock_id.0,
+            notify,
+            self.signo,
+            u32::from_le_bytes(self.value.0),
+            self.thread,
+        )
+    }
+
     pub(crate) fn signo(&self) -> i32 {
         self.signo
     }
