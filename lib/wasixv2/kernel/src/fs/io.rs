@@ -16,7 +16,7 @@ use wasixv2_wait::Interrupt;
 
 use crate::{
     IO_CHUNK, Kernel, MAX_RW_COUNT,
-    file::{Backing, OpenFile, ReadSink, SeekBase, check_file_size, delivered},
+    file::{Backing, Io, OpenFile, ReadSink, SeekBase, check_file_size, delivered},
 };
 
 /// Most iovecs one `readv` or `writev` takes, as Linux's `UIO_MAXIOV`.
@@ -191,9 +191,12 @@ struct Target<'a> {
     start: u64,
     /// A stream write found the reading side gone ([`crate::file::Io::broken`]).
     broken: &'a Cell<bool>,
+    /// `RWF_NOWAIT` (`IOCB_NOWAIT`): a stream that would block fails with `EAGAIN`, as if
+    /// it were open with `O_NONBLOCK`.
+    nowait: bool,
 }
 
-impl Target<'_> {
+impl<'a> Target<'a> {
     /// Reads at most `buf.len()` bytes through `buf` to `to`; how many arrived. A file's
     /// position moves by what arrived, and a stream gives up only what arrived.
     async fn read_to(
@@ -205,9 +208,7 @@ impl Target<'_> {
         let inner = match &self.file.backing {
             Backing::Inode(inner) => inner,
             Backing::Stream(object, _) => {
-                return object
-                    .read_to(self.file.io(self.task, self.interrupt), buf, to)
-                    .await;
+                return object.read_to(self.io(None), buf, to).await;
             }
         };
         let offset = self.start + done as u64;
@@ -219,12 +220,22 @@ impl Target<'_> {
         delivered(n, copied)
     }
 
+    /// The call context for the object of a stream.
+    fn io(&self, broken: Option<&'a Cell<bool>>) -> Io<'a> {
+        let mut io = self.file.io(self.task, self.interrupt);
+        if self.nowait {
+            io.flags |= OpenFlags::O_NONBLOCK;
+        }
+        io.broken = broken;
+        io
+    }
+
     async fn write(&self, data: &[u8], done: usize) -> SysResult<usize> {
-        let Backing::Inode(inner) = &self.file.backing else {
-            return self
-                .file
-                .write(self.task, self.interrupt, self.broken, data)
-                .await;
+        let inner = match &self.file.backing {
+            Backing::Inode(inner) => inner,
+            Backing::Stream(object, _) => {
+                return object.write(self.io(Some(self.broken)), data).await;
+            }
         };
         if self.append {
             let (end, n) = inner.append(data).await?;
@@ -256,6 +267,20 @@ impl Kernel {
         iovecs: &[Iovec],
         at: At,
     ) -> SysResult<u32> {
+        self.read_into_iovecs_flags(caller, file, iovecs, at, RwfFlags(0))
+            .await
+    }
+
+    /// [`Kernel::read_into_iovecs`] with `preadv2`'s flags, of which only `RWF_NOWAIT` changes
+    /// a read.
+    pub(crate) async fn read_into_iovecs_flags(
+        &self,
+        caller: &Caller<'_>,
+        file: &OpenFile,
+        iovecs: &[Iovec],
+        at: At,
+        flags: RwfFlags,
+    ) -> SysResult<u32> {
         let total: usize = iovecs.iter().map(|iov| iov.iov_len as usize).sum();
         let interrupt = self.interrupt(caller);
         let _pos = match (at, &file.backing) {
@@ -273,6 +298,7 @@ impl Kernel {
                 At::Offset(offset) => offset,
             },
             broken: &Cell::new(false),
+            nowait: flags.contains(RwfFlags::RWF_NOWAIT),
         };
         let steps = file.fills_reads();
         let step = match steps {
@@ -357,6 +383,7 @@ impl Kernel {
                 At::Offset(offset) => offset,
             },
             broken,
+            nowait: flags.contains(RwfFlags::RWF_NOWAIT),
         };
         let step = if messages { total } else { total.min(IO_CHUNK) };
         let mut buf = Scratch::new(step);
@@ -515,7 +542,8 @@ impl Kernel {
         let at = self.rw_position(&file, pos)?;
         rw_flags(flags)?;
         let iovecs = read_iovecs(caller.memory(), vec, vlen).await?;
-        self.read_into_iovecs(caller, &file, &iovecs, at).await
+        self.read_into_iovecs_flags(caller, &file, &iovecs, at, flags)
+            .await
     }
 
     pub(crate) async fn sys_pwritev2(
@@ -852,21 +880,20 @@ impl Kernel {
         offset: i64,
         len: i64,
     ) -> SysResult<i32> {
-        if offset < 0 || len <= 0 {
-            return Err(Errno::EINVAL.into());
-        }
-        let keep = mode.contains(FallocFlags::FALLOC_FL_KEEP_SIZE);
-        let rest = mode & !FallocFlags::FALLOC_FL_KEEP_SIZE;
-        let alloc = match rest {
-            FallocFlags::FALLOC_FL_ALLOCATE_RANGE if keep => AllocMode::AllocateKeepSize,
-            FallocFlags::FALLOC_FL_ALLOCATE_RANGE => AllocMode::Allocate,
-            // Punching a hole must keep the size.
-            FallocFlags::FALLOC_FL_PUNCH_HOLE if keep => AllocMode::PunchHole,
-            FallocFlags::FALLOC_FL_PUNCH_HOLE => return Err(Errno::EOPNOTSUPP.into()),
-            FallocFlags::FALLOC_FL_ZERO_RANGE => AllocMode::ZeroRange { keep_size: keep },
-            _ => return Err(Errno::EOPNOTSUPP.into()),
-        };
+        let alloc = fallocate_mode(mode, offset, len)?;
         let file = self.io_file(caller, fd)?;
+        self.fallocate_file(caller, &file, alloc, offset, len).await
+    }
+
+    /// `vfs_fallocate` on `file`, once `mode` and the range were checked.
+    pub(crate) async fn fallocate_file(
+        &self,
+        caller: &Caller<'_>,
+        file: &OpenFile,
+        alloc: AllocMode,
+        offset: i64,
+        len: i64,
+    ) -> SysResult<i32> {
         file.check_writable()?;
         let Backing::Inode(inner) = &file.backing else {
             return Err(Errno::ESPIPE.into());
@@ -885,9 +912,9 @@ impl Kernel {
         }
         // Linux refuses all but plain allocation on an append-only inode (`IS_APPEND`, from
         // `chattr +a`), which no filesystem here has; an `O_APPEND` descriptor is no such thing.
-        self.sync_file_mappings(caller, &file).await;
+        self.sync_file_mappings(caller, file).await;
         let allocated = inner.allocate(alloc, offset as u64, len as u64).await;
-        self.sync_file_mappings(caller, &file).await;
+        self.sync_file_mappings(caller, file).await;
         allocated?;
         Ok(0)
     }
@@ -946,6 +973,24 @@ impl Kernel {
             _ => Err(Errno::EINVAL.into()),
         }
     }
+}
+
+/// `vfs_fallocate`'s checks of the range and `mode`, and what `mode` asks of the filesystem.
+pub(crate) fn fallocate_mode(mode: FallocFlags, offset: i64, len: i64) -> Result<AllocMode, Errno> {
+    if offset < 0 || len <= 0 {
+        return Err(Errno::EINVAL);
+    }
+    let keep = mode.contains(FallocFlags::FALLOC_FL_KEEP_SIZE);
+    let rest = mode & !FallocFlags::FALLOC_FL_KEEP_SIZE;
+    Ok(match rest {
+        FallocFlags::FALLOC_FL_ALLOCATE_RANGE if keep => AllocMode::AllocateKeepSize,
+        FallocFlags::FALLOC_FL_ALLOCATE_RANGE => AllocMode::Allocate,
+        // Punching a hole must keep the size.
+        FallocFlags::FALLOC_FL_PUNCH_HOLE if keep => AllocMode::PunchHole,
+        FallocFlags::FALLOC_FL_PUNCH_HOLE => return Err(Errno::EOPNOTSUPP),
+        FallocFlags::FALLOC_FL_ZERO_RANGE => AllocMode::ZeroRange { keep_size: keep },
+        _ => return Err(Errno::EOPNOTSUPP),
+    })
 }
 
 /// `*ptr`, or the file position for a NULL `ptr`.
