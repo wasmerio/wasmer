@@ -83,7 +83,7 @@ pub(crate) fn may_access(
         return true;
     }
     let dumpable = them.ident.lock_or_recover().dumpable == crate::ident::Dumpable::User;
-    if !cred.may_read_task(&tcred, dumpable, mode & MODE_FSCREDS != 0) {
+    if !cred.may_read_task(tcred, dumpable, mode & MODE_FSCREDS != 0) {
         return false;
     }
     // `cap_ptrace_access_check`: the target's permitted capabilities are the caller's in the
@@ -520,7 +520,7 @@ impl Kernel {
         // `delay_group_leader`: the leader's instance may be gone while another thread
         // finishes. Its process remains in the tree until the zombie is reaped.
         let tracee = self.task_process(task).or_else(|| self.procs.find(task.0));
-        let (Some(them), Some(me)) = (self.task_process(tracer), tracee) else {
+        let (Some(them), Some(_me)) = (self.task_process(tracer), tracee) else {
             return;
         };
         let Some(signals) = self.group_signals(them.pid.0) else {
@@ -532,7 +532,7 @@ impl Kernel {
         let exit = crate::process::Exit {
             code: why,
             status,
-            uid: self.task_cred(me.pid).user.real,
+            uid: self.task_cred(task).user.real,
         };
         let pid = self.pids.nr(&them.pid_ns, task.0);
         let sig = wasixv2_abi::Signal::SIGCHLD.0;
@@ -955,12 +955,9 @@ impl Kernel {
             return 0;
         };
         let dumpable = process.ident.lock_or_recover().dumpable;
-        let tracer = self
-            .tracees
-            .tracer_of(child)
-            .and_then(|t| self.task_process(t));
+        let tracer = self.tracees.tracer_of(child);
         let capable = tracer.is_some_and(|t| {
-            self.task_cred(t.pid)
+            self.task_cred(t)
                 .ns_capable(&self.task_cred(child).user_ns.clone(), Cap::SysPtrace)
         });
         if dumpable != crate::ident::Dumpable::User && !capable {
@@ -1489,14 +1486,10 @@ impl Kernel {
     /// unless the tracer has `CAP_SYS_PTRACE` over the task's user namespace
     /// (`ptracer_capable`).
     pub(crate) fn ptrace_unsafe_exec(&self, task: TaskId) -> bool {
-        let Some(tracer) = self
-            .tracees
-            .tracer_of(task)
-            .and_then(|t| self.task_process(t))
-        else {
+        let Some(tracer) = self.tracees.tracer_of(task) else {
             return false;
         };
         let ns = self.current_cred(task).user_ns.clone();
-        !self.task_cred(tracer.pid).ns_capable(&ns, Cap::SysPtrace)
+        !self.task_cred(tracer).ns_capable(&ns, Cap::SysPtrace)
     }
 }

@@ -793,7 +793,7 @@ impl ProcNode {
         mode: u32,
         mask: u32,
     ) -> FsResult<()> {
-        let Some(cred) = self.source.cred_of(task) else {
+        let Some(cred) = self.source.opener_cred(task) else {
             return Ok(());
         };
         let in_egroup = |gid| cred.group.effective == gid || cred.groups.contains(&gid);
@@ -834,7 +834,7 @@ impl ProcNode {
         if !Arc::ptr_eq(&caller.process, &target.process) {
             let dumpable =
                 target.process.ident.lock_or_recover().dumpable == crate::ident::Dumpable::User;
-            let cred = self.source.cred_of(cx.task).ok_or(Errno::ESRCH)?;
+            let cred = self.source.opener_cred(cx.task).ok_or(Errno::ESRCH)?;
             if !cred.may_read_task(&*task.cred, dumpable, true) {
                 return Err(Errno::EACCES);
             }
@@ -1139,7 +1139,7 @@ impl Node for ProcNode {
                 Static::File(file) => {
                     let ns = self.source.ns_of(options.task);
                     let pid_ns = self.source.pid_ns_of(options.task);
-                    let opener = self.source.cred_of(options.task);
+                    let opener = self.source.opener_cred(options.task);
                     let user_ns = self.source.user_ns_of(options.task);
                     let data = match file {
                         // What the opener may view, as its keyrings make it possess keys.
@@ -1311,7 +1311,7 @@ impl ProcNode {
             text::PerPid::Comm => return Ok(Some(Write::Comm(self.source.clone(), scope))),
             // Written with the opener's credentials (`file_ns_capable`).
             text::PerPid::TimensOffsets => {
-                let cred = self.source.cred_of(opener).ok_or(Errno::EPERM)?;
+                let cred = self.source.opener_cred(opener).ok_or(Errno::EPERM)?;
                 let target = (self.source.clone(), scope);
                 return Ok(Some(Write::TimensOffsets(
                     target,
@@ -1327,7 +1327,7 @@ impl ProcNode {
             text::PerPid::ProjidMap => MapKind::Projid,
             text::PerPid::Setgroups => {
                 let target = self.user_ns(scope)?;
-                let cred = self.source.cred_of(opener).ok_or(Errno::EACCES)?;
+                let cred = self.source.opener_cred(opener).ok_or(Errno::EACCES)?;
                 if !cred.ns_capable(&target, Cap::SysAdmin) {
                     return Err(Errno::EACCES);
                 }
@@ -1337,7 +1337,7 @@ impl ProcNode {
                 let info = self.source.process(scope.pid).ok_or(Errno::ESRCH)?;
                 let capable = self
                     .source
-                    .cred_of(opener)
+                    .opener_cred(opener)
                     .is_none_or(|cred| cred.capable_init(Cap::SysResource));
                 let legacy = file == text::PerPid::OomAdj;
                 return Ok(Some(Write::OomAdj(info.process, legacy, capable)));
@@ -1348,7 +1348,7 @@ impl ProcNode {
                     return Err(Errno::EPERM);
                 }
                 let info = self.source.process(scope.pid).ok_or(Errno::ESRCH)?;
-                let cred = self.source.cred_of(opener).ok_or(Errno::EPERM)?;
+                let cred = self.source.opener_cred(opener).ok_or(Errno::EPERM)?;
                 let sessions = self.source.audit_sessions.clone();
                 return Ok(Some(Write::Loginuid(
                     info.process,
@@ -1364,7 +1364,7 @@ impl ProcNode {
             _ => return Ok(None),
         };
         let target = self.user_ns(scope)?;
-        let cred = self.source.cred_of(opener).ok_or(Errno::EPERM)?;
+        let cred = self.source.opener_cred(opener).ok_or(Errno::EPERM)?;
         Ok(Some(Write::Map(target, map, Box::new((*cred).clone()))))
     }
 
@@ -1384,7 +1384,7 @@ impl ProcNode {
             P::Stack => {
                 let admin = self
                     .source
-                    .cred_of(opener)
+                    .opener_cred(opener)
                     .is_none_or(|cred| cred.capable_init(Cap::SysAdmin));
                 match (admin, may(MODE_ATTACH_FSCREDS)) {
                     (false, _) => Err(Errno::EACCES),
@@ -1396,7 +1396,7 @@ impl ProcNode {
                 let target = self.user_ns(scope)?;
                 let nice = self
                     .source
-                    .cred_of(opener)
+                    .opener_cred(opener)
                     .is_none_or(|cred| cred.ns_capable(&target, Cap::SysNice));
                 match nice {
                     true => Ok(()),
@@ -1415,20 +1415,23 @@ impl ProcNode {
         else {
             return false;
         };
-        let opener_cred = self.source.cred_of(opener);
+        let opener_cred = self.source.opener_cred(opener);
         let target_cred = self.source.cred_of(scope.tid.unwrap_or(scope.pid));
         let opener = self
             .source
             .tgid_of(opener)
             .and_then(|tgid| self.source.process(tgid));
         opener.is_none_or(|opener| {
+            let (Some(opener_cred), Some(target_cred)) = (&opener_cred, &target_cred) else {
+                return false;
+            };
             crate::ptrace::may_access(
                 &self.source.yama,
                 &tree,
                 &opener.process,
                 &target.process,
-                opener_cred.as_deref().expect("opener task"),
-                target_cred.as_deref().expect("target task"),
+                opener_cred,
+                target_cred,
                 mode,
             )
         })
@@ -1453,7 +1456,7 @@ impl ProcNode {
             .source
             .task(scope.pid, scope.tid)
             .ok_or(Errno::ENOENT)?;
-        let opener_cred = self.source.cred_of(opener);
+        let opener_cred = self.source.opener_cred(opener);
         let target_cred = self.source.cred_of(scope.tid.unwrap_or(scope.pid));
         let opener = self
             .source

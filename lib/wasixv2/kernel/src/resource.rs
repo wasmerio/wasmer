@@ -75,7 +75,12 @@ pub(crate) fn nproc_exceeded(state: &State, task: &crate::Task) -> bool {
         .tasks
         .values()
         .filter(|task| task.cred.clone().user.real == uid)
-        .count();
+        .count()
+        + state
+            .retired_creds
+            .values()
+            .filter(|cred| cred.user.real == uid)
+            .count();
     process.resources.lock_or_recover().nproc_reached(tasks)
 }
 
@@ -183,7 +188,7 @@ impl Kernel {
             .ok_or(Errno::EINVAL)?;
         let cred = self.cred(caller);
         if !std::ptr::eq(&*process, &*self.process(caller.task()))
-            && !cred.may_change_limits_of(&self.task_cred(process.pid))
+            && !cred.may_change_limits_of(self.pid_cred(caller, pid)?.as_ref())
         {
             return Err(Errno::EPERM.into());
         }
