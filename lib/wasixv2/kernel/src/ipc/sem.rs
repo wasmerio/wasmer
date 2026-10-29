@@ -317,7 +317,7 @@ impl Kernel {
         if !(0..=SEMMSL).contains(&nsems) {
             return Err(Errno::EINVAL.into());
         }
-        let cred = self.env(caller).cred;
+        let cred = self.ipc_cred(caller);
         let now = self.ipc_now();
         let ns = self.ns(caller);
         let sems = &ns.ipc.sem;
@@ -390,7 +390,7 @@ impl Kernel {
         let alter = sops.iter().any(|sop| sop.sem_op != 0);
         let nowait =
             |sop: &Sembuf| IpcFlags(sop.sem_flg as u16 as u32).contains(IpcFlags::IPC_NOWAIT);
-        let cred = self.env(caller).cred;
+        let cred = self.ipc_cred(caller);
         let pid = self.process(caller.task()).pid.0;
         let now = self.ipc_now();
         let set = self.ns(caller).ipc.sem.get(semid)?;
@@ -458,7 +458,7 @@ impl Kernel {
         if semid < 0 {
             return Err(Errno::EINVAL.into());
         }
-        let cred = self.env(caller).cred;
+        let cred = self.ipc_cred(caller);
         let now = self.ipc_now();
         let pid = self.process(caller.task()).pid.0;
         let ns = self.ns(caller);

@@ -431,7 +431,7 @@ impl Kernel {
         let pid_ns = self.init_ns.pid_for_children.clone();
         let mut state = self.state.lock_or_recover();
         let id = TaskId(state.last_id + 1);
-        state.pids.alloc(id.0, &pid_ns, &[], false)?;
+        state.pids.alloc(id.0, &pid_ns, &[], |_| false)?;
         state.last_id += 1;
         let name = args.first().map(String::as_bytes).unwrap_or_default();
         let comm = ident::Comm::from_path(name);

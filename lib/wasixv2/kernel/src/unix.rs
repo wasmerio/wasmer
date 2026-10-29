@@ -1469,14 +1469,16 @@ impl Kernel {
     }
 
     /// `scm_check_creds`: a process may claim its own pid and any of its real, effective or
-    /// saved ids, and others with `CAP_SYS_ADMIN`, `CAP_SETUID` and `CAP_SETGID`. `claim` has
+    /// saved ids, and others with `CAP_SYS_ADMIN` over its pid namespace's owner, `CAP_SETUID`
+    /// and `CAP_SETGID` over its own user namespace. `claim` has
     /// the guest's ids, which its user namespace must map (`EINVAL`); the kernel ids come back.
     fn may_claim(&self, caller: &Caller<'_>, claim: &Ucred) -> Result<(Kuid, Kgid), Errno> {
         let process = self.process(caller.task());
         let cred = process.cred();
         let uid = cred.user_ns.make_kuid(claim.uid).ok_or(Errno::EINVAL)?;
         let gid = cred.user_ns.make_kgid(claim.gid).ok_or(Errno::EINVAL)?;
-        let allowed = (claim.pid == self.pids.own_nr(process.pid.0) || cred.capable(Cap::SysAdmin))
+        let allowed = (claim.pid == self.pids.own_nr(process.pid.0)
+            || cred.ns_capable(process.pid_ns.user_ns(), Cap::SysAdmin))
             && (cred.user.holds(uid) || cred.capable(Cap::Setuid))
             && (cred.group.holds(gid) || cred.capable(Cap::Setgid));
         match allowed {
@@ -1707,14 +1709,15 @@ impl Kernel {
     }
 
     /// `too_many_unix_fds`: the sending user has more files in flight than the sender's
-    /// `RLIMIT_NOFILE`, and is not exempt through `CAP_SYS_RESOURCE` or `CAP_SYS_ADMIN`.
+    /// `RLIMIT_NOFILE`, and is not exempt through `CAP_SYS_RESOURCE` or `CAP_SYS_ADMIN` over
+    /// the initial user namespace.
     fn too_many_unix_fds(&self, caller: &Caller<'_>, uid: u32) -> bool {
         let limit = self.files(caller.task()).lock_or_recover().limit();
         if self.ns(caller).net.unix_names.inflight.user(uid) <= limit {
             return false;
         }
         let cred = self.process(caller.task()).cred();
-        !cred.capable(Cap::SysResource) && !cred.capable(Cap::SysAdmin)
+        !cred.capable_init(Cap::SysResource) && !cred.capable_init(Cap::SysAdmin)
     }
 
     /// `sk_getsockopt` for a Unix socket, the timeouts aside: what describes the socket, its

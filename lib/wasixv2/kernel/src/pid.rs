@@ -268,8 +268,8 @@ pub(crate) struct Pids {
 
 impl Pids {
     /// `alloc_pid` for the new task `id` in `ns`: a number there and in each ancestor, the
-    /// innermost ones as `set_tid` asks (`clone3`), which needs `may_set`
-    /// (`checkpoint_restore_ns_capable`, `EPERM`), attached to the task. `EINVAL` for more
+    /// innermost ones as `set_tid` asks (`clone3`), which needs `may_set` of each namespace
+    /// asked for (`checkpoint_restore_ns_capable` over its owner, `EPERM`), attached to the task. `EINVAL` for more
     /// numbers asked than there are levels or one out of range, `ENOMEM` once the namespace
     /// or an ancestor lost its init, `EAGAIN` when one has no number left, `EEXIST` for an
     /// asked number in use.
@@ -278,7 +278,7 @@ impl Pids {
         id: u32,
         ns: &Arc<PidNs>,
         set_tid: &[i32],
-        may_set: bool,
+        may_set: impl Fn(&Arc<PidNs>) -> bool,
     ) -> Result<(), Errno> {
         if set_tid.len() > ns.level + 1 {
             return Err(Errno::EINVAL);
@@ -295,7 +295,7 @@ impl Pids {
                 .ok()
                 .filter(|&tid| tid >= 1 && tid < space.pid_max());
             asked.push(tid.ok_or(Errno::EINVAL)?);
-            if !may_set {
+            if !may_set(space) {
                 return Err(Errno::EPERM);
             }
         }

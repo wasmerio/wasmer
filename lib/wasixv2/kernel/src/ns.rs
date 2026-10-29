@@ -3,9 +3,10 @@
 //! shares or copies, `unshare` replaces and `setns` changes, as Linux's `struct nsproxy`.
 //!
 //! The initial namespaces have the inode numbers Linux gives those (`linux/nsfs.h`); those made
-//! later get theirs from [`Inums`]. Mount, UTS, IPC, network and pid namespaces can be made; a
-//! request for a new one of a kind that cannot is refused with `EPERM`, as a container's policy
-//! refuses it. Code reaches every namespaced object through the caller's proxy ([`Kernel::ns`]),
+//! later get theirs from [`Inums`]. User, mount, UTS, IPC, network and pid namespaces can be
+//! made; a request for a new one of a kind that cannot is refused with `EPERM`, as a
+//! container's policy refuses it. Every namespace is owned by a user namespace, and acting on
+//! it takes the capability over its owner ([`Cred::ns_capable`]). Code reaches every namespaced object through the caller's proxy ([`Kernel::ns`]),
 //! never through the kernel, so a kind becomes real by making [`NsProxy::make`] create it.
 
 use std::{
@@ -20,7 +21,7 @@ use wasixv2_vfs::{Cap, Path};
 
 use crate::{
     Kernel, Process, cred::Cred, fs::FsContext, ipc, nsfs::NsFile, pid::PidSpace, sync::MutexExt,
-    unix,
+    unix, userns::Ucount,
 };
 
 /// `CLONE_NS_ALL`: the flags that ask for new namespaces.
@@ -116,6 +117,9 @@ pub(crate) struct Common {
     pub(crate) stashed: Mutex<Weak<dyn wasixv2_vfs::Node>>,
     /// Where `ino` goes back when the namespace is gone; none for an initial namespace.
     inums: Option<Arc<Inums>>,
+    /// The namespace's count against its creator's `max_*_namespaces`; none for an initial
+    /// namespace.
+    _ucount: Option<Ucount>,
 }
 
 impl Drop for Common {
@@ -183,18 +187,20 @@ impl<T> Ns<T> {
                 owner,
                 stashed: Mutex::new(Weak::<crate::nsfs::NsNode>::new()),
                 inums: None,
+                _ucount: None,
             },
             inner,
         })
     }
 
     /// A namespace of `kind` made after boot (`ns_common_init`), owned by `owner`, with an
-    /// inode number from `inums`.
+    /// inode number from `inums`, counted as `ucount`.
     pub(crate) fn new(
         kind: NsKind,
         owner: Arc<UserNs>,
         inner: T,
         inums: &Arc<Inums>,
+        ucount: Ucount,
     ) -> Result<Arc<Self>, Errno> {
         Ok(Arc::new(Self {
             common: Common {
@@ -203,6 +209,7 @@ impl<T> Ns<T> {
                 owner: Some(owner),
                 stashed: Mutex::new(Weak::<crate::nsfs::NsNode>::new()),
                 inums: Some(inums.clone()),
+                _ucount: Some(ucount),
             },
             inner,
         }))
@@ -214,6 +221,13 @@ impl<T> Ns<T> {
     /// parent.
     pub(crate) fn owner_ns(&self) -> Option<&Arc<UserNs>> {
         self.common.owner.as_ref()
+    }
+
+    /// The user namespace that owns a namespace of a kind other than user (`ns->user_ns`),
+    /// over which acting on it takes capabilities.
+    pub(crate) fn user_ns(&self) -> &Arc<UserNs> {
+        self.owner_ns()
+            .expect("only the initial user namespace has no owner")
     }
 }
 
@@ -399,12 +413,13 @@ impl NsProxy {
         }
     }
 
-    /// `copy_namespaces` for a process `clone` makes with `flags`, on behalf of a caller with
-    /// `cred` in the pid namespace `active_pid`: the caller's namespaces, or new ones where `flags` asks (`CAP_SYS_ADMIN`, or a
-    /// new user namespace, in which its creator holds every capability). `CLONE_NEWIPC` cannot
-    /// go with `CLONE_SYSVSEM`, which would share semaphore adjustments across namespaces. A
-    /// child with its own memory starts in the time namespace for children
-    /// (`timens_on_fork`).
+    /// `copy_namespaces` for a process `clone` makes with `flags`, with the child's credentials
+    /// `cred` (in a new user namespace for `CLONE_NEWUSER`, made before), on behalf of a caller
+    /// in the pid namespace `active_pid`: the caller's namespaces, or new ones where `flags`
+    /// asks, owned by `cred`'s user namespace (`CAP_SYS_ADMIN` there, which the creator of a
+    /// new user namespace holds). `CLONE_NEWIPC` cannot go with `CLONE_SYSVSEM`, which would
+    /// share semaphore adjustments across namespaces. A child with its own memory starts in
+    /// the time namespace for children (`timens_on_fork`).
     pub(crate) fn copy(
         self: &Arc<Self>,
         kernel: &Kernel,
@@ -422,9 +437,9 @@ impl NsProxy {
             new.time = new.time_for_children.clone();
             return Ok(Arc::new(new));
         }
-        let mut new = self.copy_user(flags)?;
+        let mut new = (**self).clone();
         if flags & CLONE_NS_ALL & !CloneFlags::CLONE_NEWUSER.0 != 0 {
-            if flags & CloneFlags::CLONE_NEWUSER.0 == 0 && !cred.capable(Cap::SysAdmin) {
+            if !cred.capable(Cap::SysAdmin) {
                 return Err(Errno::EPERM);
             }
             let ipc_sysvsem = CloneFlags::CLONE_NEWIPC.0 | CloneFlags::CLONE_SYSVSEM.0;
@@ -439,8 +454,10 @@ impl NsProxy {
         Ok(Arc::new(new))
     }
 
-    /// `unshare_userns` and `unshare_nsproxy_namespaces`: the namespaces of a caller in the pid
-    /// namespace `active_pid` with new ones where `flags` asks, or `None` if it asks for none.
+    /// `unshare_nsproxy_namespaces`: the namespaces of a caller in the pid namespace
+    /// `active_pid` with new ones where `flags` asks, owned by the user namespace of its
+    /// credentials `cred` (new ones for `CLONE_NEWUSER`, made before), or `None` if it asks for
+    /// none but a user namespace.
     pub(crate) fn unshare(
         &self,
         kernel: &Kernel,
@@ -449,26 +466,15 @@ impl NsProxy {
         active_pid: &Arc<PidNs>,
         fs: Option<&mut FsContext>,
     ) -> Result<Option<Self>, Errno> {
-        if flags & CLONE_NS_ALL == 0 {
+        if flags & CLONE_NS_ALL & !CloneFlags::CLONE_NEWUSER.0 == 0 {
             return Ok(None);
         }
-        let mut new = self.copy_user(flags)?;
-        if flags & CLONE_NS_ALL & !CloneFlags::CLONE_NEWUSER.0 != 0 {
-            if flags & CloneFlags::CLONE_NEWUSER.0 == 0 && !cred.capable(Cap::SysAdmin) {
-                return Err(Errno::EPERM);
-            }
-            new.create(kernel, flags, cred, active_pid, fs)?;
-        }
-        Ok(Some(new))
-    }
-
-    /// A copy of the proxy, in a new user namespace if `flags` asks (`copy_creds`,
-    /// `unshare_userns`).
-    fn copy_user(&self, flags: u64) -> Result<Self, Errno> {
-        if flags & CloneFlags::CLONE_NEWUSER.0 != 0 {
+        if !cred.capable(Cap::SysAdmin) {
             return Err(Errno::EPERM);
         }
-        Ok(self.clone())
+        let mut new = self.clone();
+        new.create(kernel, flags, cred, active_pid, fs)?;
+        Ok(Some(new))
     }
 
     /// `create_new_namespaces`: a new namespace of each kind `flags` asks for.
@@ -508,27 +514,35 @@ impl NsProxy {
     ) -> Result<(), Errno> {
         let inums = &kernel.ns_inums;
         let owner = cred.user_ns.clone();
+        // `inc_*_namespaces`: counted for the creator's effective uid.
+        let charge = || Ucount::charge(&owner, cred.user.effective, kind);
         match kind {
             NsKind::Uts => {
+                let ucount = charge()?;
                 let names = *self.uts.lock_or_recover();
-                self.uts = Ns::new(kind, owner, Mutex::new(names), inums)?;
+                self.uts = Ns::new(kind, owner, Mutex::new(names), inums, ucount)?;
             }
-            NsKind::Ipc => self.ipc = Ns::new(kind, owner, ipc::Ipc::default(), inums)?,
+            NsKind::Ipc => {
+                let ucount = charge()?;
+                self.ipc = Ns::new(kind, owner, ipc::Ipc::default(), inums, ucount)?;
+            }
             NsKind::Net => {
+                let ucount = charge()?;
                 let initial = kernel.init_ns.net.devconf.lock_or_recover().for_new_net();
                 let net = Net {
                     network: kernel.network_factory.as_ref().map(|make| make()),
                     unix_names: Arc::new(self.net.unix_names.for_new_net()),
                     devconf: Mutex::new(initial),
                 };
-                self.net = Ns::new(kind, owner, net, inums)?;
+                self.net = Ns::new(kind, owner, net, inums, ucount)?;
             }
             NsKind::Mnt => {
+                let ucount = charge()?;
                 let tree = match fs {
                     Some(fs) => self.mnt.tree.copy(&mut [&mut fs.root, &mut fs.cwd]),
                     None => self.mnt.tree.copy(&mut []),
                 };
-                self.mnt = Ns::new(kind, owner, Mnt { tree }, inums)?;
+                self.mnt = Ns::new(kind, owner, Mnt { tree }, inums, ucount)?;
             }
             NsKind::Pid => {
                 let parent = &self.pid_for_children;
@@ -536,8 +550,11 @@ impl NsProxy {
                     return Err(Errno::EINVAL);
                 }
                 let space = PidSpace::child_of(parent)?;
-                self.pid_for_children = Ns::new(kind, owner, space, inums)?;
+                let ucount = charge()?;
+                self.pid_for_children = Ns::new(kind, owner, space, inums, ucount)?;
             }
+            // A user namespace is made with the credentials, before the others
+            // (`UserNs::create`).
             NsKind::User | NsKind::Cgroup | NsKind::Time => {
                 return Err(Errno::EPERM);
             }
@@ -614,6 +631,22 @@ struct Nsset {
     proxy: NsProxy,
     /// The root and working directory entering a mount namespace gives.
     root: Option<Path>,
+    /// The credentials entering a user namespace gives (`nsset->cred`).
+    cred: Option<Cred>,
+}
+
+impl Nsset {
+    /// The user namespace the caller ends up in (`nsset->cred->user_ns`).
+    fn user_ns<'a>(&'a self, joiner: &'a Joiner<'_>) -> &'a Arc<UserNs> {
+        &self.cred.as_ref().unwrap_or(&joiner.cred).user_ns
+    }
+
+    /// The `*ns_install` check for a namespace owned by `owner`: the caller has
+    /// `CAP_SYS_ADMIN` over it and over the user namespace it ends up in.
+    fn may_enter(&self, joiner: &Joiner<'_>, owner: &Arc<UserNs>) -> bool {
+        joiner.cred.ns_capable(owner, Cap::SysAdmin)
+            && joiner.cred.ns_capable(self.user_ns(joiner), Cap::SysAdmin)
+    }
 }
 
 /// Who calls `setns`.
@@ -709,13 +742,20 @@ impl Kernel {
                 true => Some(Arc::new(Mutex::new(files.lock_or_recover().dup()?))),
                 false => None,
             };
-        let new_ns = ns.unshare(
-            self,
-            flags,
-            &process.cred(),
-            &process.pid_ns,
-            new_fs.as_mut(),
-        )?;
+        // `unshare_userns`: new credentials in a new user namespace, which owns the other new
+        // namespaces.
+        let new_cred = match flags & CloneFlags::CLONE_NEWUSER.0 != 0 {
+            true => {
+                let chrooted = fs.lock_or_recover().chrooted(&ns);
+                Some(UserNs::create(&process.cred(), chrooted, &self.ns_inums)?)
+            }
+            false => None,
+        };
+        let cred = new_cred.clone().unwrap_or_else(|| process.cred());
+        let new_ns = ns.unshare(self, flags, &cred, &process.pid_ns, new_fs.as_mut())?;
+        if let Some(cred) = new_cred {
+            process.commit_cred(cred);
+        }
         let ipc_or_sysvsem = CloneFlags::CLONE_NEWIPC.0 | CloneFlags::CLONE_SYSVSEM.0;
         if flags & ipc_or_sysvsem != 0 {
             self.exit_sem(&process);
@@ -778,12 +818,16 @@ impl Kernel {
             flags,
             proxy: (*ns).clone(),
             root: None,
+            cred: None,
         };
         match target {
             Target::One(ns) => self.install_ns(&mut set, &joiner, ns)?,
             Target::Process(pid) => self.install_ns_of(&mut set, &joiner, pid)?,
         }
-        // `commit_nsset`.
+        // `commit_nsset`: the credentials first.
+        if let Some(cred) = set.cred.take() {
+            process.commit_cred(cred);
+        }
         if let Some(root) = set.root.take() {
             let mut fs = fs.lock_or_recover();
             fs.cwd = root.clone();
@@ -846,25 +890,39 @@ impl Kernel {
         Ok(())
     }
 
-    /// `ns->ops->install`: puts `ns` in `set`, if the caller may enter it. Entering needs
-    /// `CAP_SYS_ADMIN` (every namespace is owned by the initial user namespace, where the
-    /// process's capabilities apply).
+    /// `ns->ops->install`: puts `ns` in `set`, if the caller may enter it: with
+    /// `CAP_SYS_ADMIN` over the user namespace that owns it, and over the one it ends up in
+    /// ([`Nsset::may_enter`]); a user namespace itself with `CAP_SYS_ADMIN` over it.
     fn install_ns(&self, set: &mut Nsset, joiner: &Joiner<'_>, ns: Namespace) -> Result<(), Errno> {
-        let admin = joiner.cred.capable(Cap::SysAdmin);
+        let owner = ns.common().owner.clone();
+        let may_enter = |set: &Nsset| {
+            let owner = owner.as_ref().expect("only a user namespace has no owner");
+            set.may_enter(joiner, owner)
+        };
         match ns {
-            // `userns_install`: entering one's own user namespace would regain capabilities.
+            // `userns_install`: entering one's own user namespace would regain capabilities,
+            // and a thread group shares one.
             Namespace::User(ns) => {
                 if Arc::ptr_eq(&ns, &joiner.cred.user_ns) || !joiner.alone || joiner.fs_shared {
                     return Err(Errno::EINVAL);
                 }
-                // No user namespace but the initial one can be made yet.
-                return Err(Errno::EPERM);
+                if !joiner.cred.ns_capable(&ns, Cap::SysAdmin) {
+                    return Err(Errno::EPERM);
+                }
+                let cred = set.cred.as_ref().unwrap_or(&joiner.cred);
+                set.cred = Some(cred.for_user_ns(ns));
             }
             // `mntns_install`: the root and working directory become the namespace's root. Only
             // a caller entering nothing else checks its own `fs_struct`; otherwise Linux checks
             // a private copy.
             Namespace::Mnt(ns) => {
-                if !admin || !joiner.cred.capable(Cap::SysChroot) {
+                let user_ns = set.user_ns(joiner);
+                if !joiner
+                    .cred
+                    .ns_capable(owner.as_ref().expect("owned"), Cap::SysAdmin)
+                    || !joiner.cred.ns_capable(user_ns, Cap::SysChroot)
+                    || !joiner.cred.ns_capable(user_ns, Cap::SysAdmin)
+                {
                     return Err(Errno::EPERM);
                 }
                 if set.flags == CloneFlags::CLONE_NEWNS.0 && joiner.fs_shared {
@@ -874,19 +932,19 @@ impl Kernel {
                 set.proxy.mnt = ns;
             }
             Namespace::Uts(ns) => {
-                if !admin {
+                if !may_enter(set) {
                     return Err(Errno::EPERM);
                 }
                 set.proxy.uts = ns;
             }
             Namespace::Ipc(ns) => {
-                if !admin {
+                if !may_enter(set) {
                     return Err(Errno::EPERM);
                 }
                 set.proxy.ipc = ns;
             }
             Namespace::Net(ns) => {
-                if !admin {
+                if !may_enter(set) {
                     return Err(Errno::EPERM);
                 }
                 set.proxy.net = ns;
@@ -894,7 +952,7 @@ impl Kernel {
             // `pidns_install`: only the caller's active pid namespace or one below it, so its
             // children stay visible to it.
             Namespace::Pid(ns) => {
-                if !admin {
+                if !may_enter(set) {
                     return Err(Errno::EPERM);
                 }
                 if !pid_ns_descends(&ns, &joiner.process.pid_ns) {
@@ -903,7 +961,7 @@ impl Kernel {
                 set.proxy.pid_for_children = ns;
             }
             Namespace::Cgroup(ns) => {
-                if !admin {
+                if !may_enter(set) {
                     return Err(Errno::EPERM);
                 }
                 set.proxy.cgroup = ns;
@@ -913,7 +971,7 @@ impl Kernel {
                 if !joiner.single {
                     return Err(Errno::EUSERS);
                 }
-                if !admin {
+                if !may_enter(set) {
                     return Err(Errno::EPERM);
                 }
                 set.proxy.time = ns.clone();

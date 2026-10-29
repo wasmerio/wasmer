@@ -7,15 +7,17 @@ use async_trait::async_trait;
 use wasixv2_abi::OpenFlags;
 use wasixv2_syscalls::{Errno, Fd};
 use wasixv2_vfs::{
-    Attr, Ctx, DirEntry, DirSink, FileType, FsResult, Handle, Link, Node, OpenOptions, SetAttr,
+    Attr, Cap, Ctx, DirEntry, DirSink, FileType, FsResult, Handle, Link, Node, OpenOptions, SetAttr,
 };
 
 use super::{Source, text};
 use crate::{
+    cred::Cred,
     devinet,
     file::NrOpen,
-    ns::{NetNs, NsLink, PidNs},
+    ns::{NetNs, NsKind, NsLink, PidNs, UserNs},
     sync::MutexExt,
+    userns::MapKind,
 };
 
 /// A directory, file or link of the process filesystem.
@@ -106,7 +108,25 @@ const STATIC: &[(usize, &str, Static)] = &[
     (11, "net", Static::Dir),
     (28, "ipv4", Static::Dir),
     (29, "conf", Static::Devconf),
+    // 31
+    (11, "user", Static::Dir),
+    (31, "max_user_namespaces", ucount(NsKind::User)),
+    (31, "max_pid_namespaces", ucount(NsKind::Pid)),
+    (31, "max_uts_namespaces", ucount(NsKind::Uts)),
+    (31, "max_ipc_namespaces", ucount(NsKind::Ipc)),
+    (31, "max_net_namespaces", ucount(NsKind::Net)),
+    (31, "max_mnt_namespaces", ucount(NsKind::Mnt)),
+    (31, "max_cgroup_namespaces", ucount(NsKind::Cgroup)),
+    (31, "max_time_namespaces", ucount(NsKind::Time)),
+    (13, "overflowuid", Static::File(text::Global::OverflowUid)),
+    (13, "overflowgid", Static::File(text::Global::OverflowGid)),
+    (13, "cap_last_cap", Static::File(text::Global::CapLastCap)),
 ];
+
+/// `/proc/sys/user/max_*_namespaces` for `kind`.
+const fn ucount(kind: NsKind) -> Static {
+    Static::File(text::Global::MaxNamespaces(kind))
+}
 
 /// What an entry of a process or thread directory is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -146,6 +166,10 @@ const PID_ENTRIES: &[(&str, PidEntry, u32)] = &[
     ("stat", PidEntry::File(text::PerPid::Stat), 0o444),
     ("statm", PidEntry::File(text::PerPid::Statm), 0o444),
     ("status", PidEntry::File(text::PerPid::Status), 0o444),
+    ("uid_map", PidEntry::File(text::PerPid::UidMap), 0o644),
+    ("gid_map", PidEntry::File(text::PerPid::GidMap), 0o644),
+    ("projid_map", PidEntry::File(text::PerPid::ProjidMap), 0o644),
+    ("setgroups", PidEntry::File(text::PerPid::Setgroups), 0o644),
 ];
 
 /// The files of `/proc/<pid>/net`, which show the task's network namespace.
@@ -663,12 +687,34 @@ impl Node for ProcNode {
                 Static::File(file) => {
                     let ns = self.source.ns_of(options.task);
                     let pid_ns = self.source.pid_ns_of(options.task);
-                    let data = text::global(&self.source, &ns, &pid_ns, file)?;
+                    let opener = self.source.cred_of(options.task);
+                    let user_ns = self.source.user_ns_of(options.task);
+                    let data = text::global(&self.source, &ns, &pid_ns, &user_ns, file)?;
                     let write = match file {
                         _ if !options.write => None,
-                        text::Global::PidMax => Some(Write::PidMax(pid_ns)),
+                        // `pid_table_root_permissions`: `CAP_SYS_ADMIN` over the pid
+                        // namespace's owner, or being its root.
+                        text::Global::PidMax => {
+                            let owner = pid_ns.user_ns();
+                            let may = opener.as_ref().is_none_or(|cred| {
+                                cred.ns_capable(owner, Cap::SysAdmin)
+                                    || owner.root_uid() == Some(cred.user.effective)
+                            });
+                            if !may {
+                                return Err(Errno::EACCES);
+                            }
+                            Some(Write::PidMax(pid_ns))
+                        }
+                        // `set_permissions`: `CAP_SYS_RESOURCE` over the opener's own user
+                        // namespace, whose limits these are.
+                        text::Global::MaxNamespaces(kind) => {
+                            if !opener.is_none_or(|cred| cred.capable(Cap::SysResource)) {
+                                return Err(Errno::EACCES);
+                            }
+                            Some(Write::Ucount(user_ns, kind))
+                        }
                         text::Global::NsLastPid => {
-                            let may = self.source.may_checkpoint_restore(options.task);
+                            let may = self.source.may_checkpoint_restore(options.task, &pid_ns);
                             Some(Write::NsLastPid(pid_ns, may))
                         }
                         text::Global::NrOpen => Some(Write::NrOpen(self.source.nr_open.clone())),
@@ -680,10 +726,13 @@ impl Node for ProcNode {
             },
             Entry::Pid(scope, index) => match PID_ENTRIES[index].1 {
                 PidEntry::File(file) => {
-                    let comm = (file == text::PerPid::Comm && options.write)
-                        .then(|| Write::Comm(self.source.clone(), scope));
                     let reader = self.source.user_ns_of(options.task);
-                    (text::per_pid(&self.source, scope, file, &reader)?, comm)
+                    let data = text::per_pid(&self.source, scope, file, &reader)?;
+                    let write = match options.write {
+                        true => self.per_pid_write(scope, file, options.task)?,
+                        false => None,
+                    };
+                    (data, write)
                 }
                 _ => return Err(Errno::ENXIO),
             },
@@ -729,6 +778,44 @@ impl Node for ProcNode {
     }
 }
 
+impl ProcNode {
+    /// What a write to the file `file` of a process's directory, which the task `opener`
+    /// opens to write, changes. The id maps are of the process's user namespace as the file
+    /// opens (`proc_id_map_open`), written with the opener's credentials (`f_cred`); opening
+    /// `setgroups` to write needs `CAP_SYS_ADMIN` over that namespace (`proc_setgroups_open`).
+    fn per_pid_write(
+        &self,
+        scope: Scope,
+        file: text::PerPid,
+        opener: u32,
+    ) -> FsResult<Option<Write>> {
+        let map = match file {
+            text::PerPid::Comm => return Ok(Some(Write::Comm(self.source.clone(), scope))),
+            text::PerPid::UidMap => MapKind::Uid,
+            text::PerPid::GidMap => MapKind::Gid,
+            text::PerPid::ProjidMap => MapKind::Projid,
+            text::PerPid::Setgroups => {
+                let target = self.user_ns(scope)?;
+                let cred = self.source.cred_of(opener).ok_or(Errno::EACCES)?;
+                if !cred.ns_capable(&target, Cap::SysAdmin) {
+                    return Err(Errno::EACCES);
+                }
+                return Ok(Some(Write::Setgroups(target)));
+            }
+            _ => return Ok(None),
+        };
+        let target = self.user_ns(scope)?;
+        let cred = self.source.cred_of(opener).ok_or(Errno::EPERM)?;
+        Ok(Some(Write::Map(target, map, Box::new(cred))))
+    }
+
+    /// The user namespace of the process whose directory `scope` is.
+    fn user_ns(&self, scope: Scope) -> FsResult<Arc<UserNs>> {
+        let info = self.source.process(scope.pid).ok_or(Errno::ESRCH)?;
+        Ok(info.process.cred().user_ns)
+    }
+}
+
 /// An open directory, listed afresh on every read as `proc_readdir` does.
 struct DirHandle(Arc<dyn Node>);
 
@@ -771,6 +858,12 @@ enum Write {
     NrOpen(Arc<NrOpen>),
     /// A value of `/proc/sys/net/ipv4/conf` in the opener's network namespace.
     Devconf(Arc<NetNs>, devinet::Scope, usize),
+    /// A map of a user namespace, written with the opener's credentials.
+    Map(Arc<UserNs>, MapKind, Box<Cred>),
+    /// Whether a user namespace allows `setgroups`.
+    Setgroups(Arc<UserNs>),
+    /// `user.max_*_namespaces` of the opener's user namespace.
+    Ucount(Arc<UserNs>, NsKind),
 }
 
 /// `proc_dointvec`'s parsing of one integer: blanks around it, nothing else.
@@ -796,9 +889,13 @@ impl Handle for FileHandle {
         Ok(n)
     }
 
-    /// `comm_write`: the new name, cut to fit; or a sysctl's new value.
-    async fn write_at(&self, data: &[u8], _: u64) -> FsResult<usize> {
+    /// `comm_write`: the new name, cut to fit; a user namespace's map or `setgroups`; or a
+    /// sysctl's new value.
+    async fn write_at(&self, data: &[u8], offset: u64) -> FsResult<usize> {
         match self.write.as_ref().ok_or(Errno::EINVAL)? {
+            Write::Map(ns, kind, cred) => return ns.write_map(*kind, cred, offset, data),
+            Write::Setgroups(ns) => return ns.write_setgroups(offset, data),
+            Write::Ucount(ns, kind) => ns.set_ucount_max(*kind, sysctl_int(data)?)?,
             Write::Comm(source, scope) => {
                 source
                     .set_comm(scope.pid, scope.tid, data)

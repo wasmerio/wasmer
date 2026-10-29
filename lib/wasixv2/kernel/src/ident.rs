@@ -430,7 +430,7 @@ impl Kernel {
         }
     }
 
-    /// `setgroups`: the privilege check comes before the size check, as in `may_setgroups`.
+    /// `setgroups`: the privilege check ([`Cred::may_setgroups`]) comes before the size check.
     pub(crate) async fn sys_setgroups(
         &self,
         caller: &Caller<'_>,
@@ -438,7 +438,7 @@ impl Kernel {
         list: ConstGidArray,
     ) -> SysResult<i32> {
         let process = self.process(caller.task());
-        if !process.cred().capable(Cap::Setgid) {
+        if !process.cred().may_setgroups() {
             return Err(Errno::EPERM.into());
         }
         let size = usize::try_from(size)
@@ -560,7 +560,8 @@ impl Kernel {
         Ok(0)
     }
 
-    /// `sethostname` or, with `domain`, `setdomainname`: needs `CAP_SYS_ADMIN`.
+    /// `sethostname` or, with `domain`, `setdomainname`: needs `CAP_SYS_ADMIN` over the UTS
+    /// namespace's owner.
     pub(crate) async fn sys_sethostname(
         &self,
         caller: &Caller<'_>,
@@ -568,7 +569,8 @@ impl Kernel {
         len: i32,
         domain: bool,
     ) -> SysResult<i32> {
-        if !self.cred(caller).capable(Cap::SysAdmin) {
+        let owner = self.ns(caller).uts.user_ns().clone();
+        if !self.cred(caller).ns_capable(&owner, Cap::SysAdmin) {
             return Err(Errno::EPERM.into());
         }
         let len = usize::try_from(len)
@@ -717,10 +719,10 @@ impl Kernel {
             PrctlOption::PR_GET_TIMING
             | PrctlOption::PR_GET_THP_DISABLE
             | PrctlOption::PR_GET_SECCOMP => return Ok(0),
-            // `prctl_set_mm` needs CAP_SYS_RESOURCE, and even then the wasm memory layout has
-            // nothing it could change.
+            // `prctl_set_mm` needs CAP_SYS_RESOURCE over the initial user namespace, and even
+            // then the wasm memory layout has nothing it could change.
             PrctlOption::PR_SET_MM => {
-                return match process.cred().capable(Cap::SysResource) {
+                return match process.cred().capable_init(Cap::SysResource) {
                     true => Err(Errno::EINVAL.into()),
                     false => Err(Errno::EPERM.into()),
                 };

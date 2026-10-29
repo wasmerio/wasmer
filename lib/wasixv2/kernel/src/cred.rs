@@ -341,8 +341,54 @@ impl Cred {
         }
     }
 
+    /// `ns_capable(current_user_ns(), cap)`: the capability over the process's own user
+    /// namespace and what it owns. Right for what acts on the caller itself (its ids, its
+    /// capability sets, its root) and for making namespaces.
     pub(crate) fn capable(&self, cap: Cap) -> bool {
         self.effective & cap.bit() != 0
+    }
+
+    /// `ns_capable` (`cap_capable_helper`): the capability over the user namespace `target`.
+    /// A process has its effective capabilities over its own user namespace and every one
+    /// below it, and every capability over a namespace whose creator it is, made in its own.
+    pub(crate) fn ns_capable(&self, target: &Arc<UserNs>, cap: Cap) -> bool {
+        let mine = &self.user_ns;
+        let mut ns = target;
+        loop {
+            if Arc::ptr_eq(ns, mine) {
+                return self.capable(cap);
+            }
+            if ns.level() <= mine.level() {
+                return false;
+            }
+            let parent = ns.parent().expect("a namespace above level 0 has a parent");
+            if Arc::ptr_eq(parent, mine) && ns.owner() == self.user.effective {
+                return true;
+            }
+            ns = parent;
+        }
+    }
+
+    /// `capable`: the capability over the initial user namespace, which only a process in it
+    /// can have. Right for what reaches beyond any namespace: devices, the machine's limits,
+    /// other users' terminals.
+    pub(crate) fn capable_init(&self, cap: Cap) -> bool {
+        self.user_ns.is_initial() && self.capable(cap)
+    }
+
+    /// `set_cred_user_ns`: these credentials moved into the user namespace `ns`, where they
+    /// hold every capability, which is useless outside it.
+    pub(crate) fn for_user_ns(&self, ns: Arc<UserNs>) -> Self {
+        Self {
+            securebits: 0,
+            inheritable: 0,
+            permitted: CAP_FULL,
+            effective: CAP_FULL,
+            ambient: 0,
+            bounding: CAP_FULL,
+            user_ns: ns,
+            ..self.clone()
+        }
     }
 
     pub(crate) fn secure(&self, bit: u32) -> bool {
@@ -402,13 +448,15 @@ impl Cred {
         (self.user.effective, self.group.effective)
     }
 
-    /// `kill_ok_by_cred`: whether this sender may signal a process with `target`'s ids.
+    /// `kill_ok_by_cred`: whether this sender may signal a process with `target`'s ids:
+    /// one of its uids is the target's real or saved uid, or it has `CAP_KILL` over the
+    /// target's user namespace.
     pub(crate) fn may_signal(&self, target: &Cred) -> bool {
-        let (sender, target) = (&self.user, &target.user);
+        let (sender, ids) = (&self.user, &target.user);
         [sender.effective, sender.real]
             .iter()
-            .any(|&id| id == target.saved || id == target.real)
-            || self.capable(Cap::Kill)
+            .any(|&id| id == ids.saved || id == ids.real)
+            || self.ns_capable(&target.user_ns, Cap::Kill)
     }
 
     /// `check_same_owner`: the caller's effective uid is the target's real or effective uid.
@@ -418,7 +466,7 @@ impl Cred {
     }
 
     /// `check_prlimit_permission`: the target's uids and gids all match the caller's real id,
-    /// or the caller has `CAP_SYS_RESOURCE`.
+    /// or the caller has `CAP_SYS_RESOURCE` over the target's user namespace.
     pub(crate) fn may_change_limits_of(&self, target: &Cred) -> bool {
         fn same<T: Copy + Eq>(caller: &Ids<T>, target: &Ids<T>) -> bool {
             [target.real, target.effective, target.saved]
@@ -426,13 +474,15 @@ impl Cred {
                 .all(|&id| id == caller.real)
         }
         (same(&self.user, &target.user) && same(&self.group, &target.group))
-            || self.capable(Cap::SysResource)
+            || self.ns_capable(&target.user_ns, Cap::SysResource)
     }
 
     /// `__ptrace_may_access` in a read mode, for a process outside the caller's thread group
     /// with `target`'s ids: its real, effective and saved uids and gids all are the caller's
     /// (its filesystem ids with `fscreds`, else its real ids), and it is `dumpable`; or the
-    /// caller has `CAP_SYS_PTRACE`.
+    /// caller has `CAP_SYS_PTRACE` over the target's user namespace (`ptrace_has_cap`, which
+    /// Linux checks over the image's, `mm->user_ns`, for a non-dumpable one: the same
+    /// namespace but for an image started before the target's last `setns`).
     pub(crate) fn may_read_task(&self, target: &Cred, dumpable: bool, fscreds: bool) -> bool {
         let (uid, gid) = match fscreds {
             true => (self.user.fs, self.group.fs),
@@ -443,7 +493,7 @@ impl Cred {
                 .iter()
                 .all(|&x| x == id)
         }
-        let ptrace = self.capable(Cap::SysPtrace);
+        let ptrace = self.ns_capable(&target.user_ns, Cap::SysPtrace);
         ptrace || (all(&target.user, uid) && all(&target.group, gid) && dumpable)
     }
 
@@ -510,9 +560,15 @@ impl Cred {
         }
     }
 
-    /// `setgroups`, with kernel ids: needs `CAP_SETGID`.
+    /// `may_setgroups`: `CAP_SETGID`, in a user namespace whose gid map is written and that
+    /// allows `setgroups` (`userns_may_setgroups`).
+    pub(crate) fn may_setgroups(&self) -> bool {
+        self.capable(Cap::Setgid) && self.user_ns.may_setgroups()
+    }
+
+    /// `setgroups`, with kernel ids ([`Cred::may_setgroups`]).
     pub(crate) fn set_groups(&self, mut groups: Vec<Kgid>) -> Result<Self, Errno> {
-        if !self.capable(Cap::Setgid) {
+        if !self.may_setgroups() {
             return Err(Errno::EPERM);
         }
         groups.sort_unstable();
@@ -613,7 +669,24 @@ impl Cred {
             || self.user.fs != old.user.fs
             || self.group.effective != old.group.effective
             || self.group.fs != old.group.fs
-            || self.permitted & !old.permitted != 0
+            || !self.caps_within(old)
+    }
+
+    /// `cred_cap_issubset(old, self)`: these permitted capabilities are within `old`'s. In
+    /// another user namespace, only if `old`'s is an ancestor of it whose euid made it or one
+    /// of the namespaces between: `old` held every capability there already.
+    fn caps_within(&self, old: &Self) -> bool {
+        if Arc::ptr_eq(&self.user_ns, &old.user_ns) {
+            return self.permitted & !old.permitted == 0;
+        }
+        let mut ns = &self.user_ns;
+        while let Some(parent) = ns.parent() {
+            if Arc::ptr_eq(parent, &old.user_ns) && ns.owner() == old.user.effective {
+                return true;
+            }
+            ns = parent;
+        }
+        false
     }
 }
 
@@ -623,12 +696,19 @@ mod tests {
 
     const SETUID_ROOT: u32 = 0o4755;
 
+    /// One initial user namespace for every test's credentials, as a machine has.
+    fn init() -> Arc<UserNs> {
+        static INIT: std::sync::LazyLock<Arc<UserNs>> =
+            std::sync::LazyLock::new(UserNs::initial_user);
+        INIT.clone()
+    }
+
     fn root() -> Cred {
-        Cred::new(&Credentials::new(0, 0), UserNs::initial_user())
+        Cred::new(&Credentials::new(0, 0), init())
     }
 
     fn user(uid: u32) -> Cred {
-        Cred::new(&Credentials::new(uid, uid), UserNs::initial_user())
+        Cred::new(&Credentials::new(uid, uid), init())
     }
 
     fn uids(cred: &Cred) -> [u32; 4] {

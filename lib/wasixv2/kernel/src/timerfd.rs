@@ -259,7 +259,7 @@ impl Kernel {
             // The alarm clocks need CAP_WAKE_ALARM. A machine never suspends, so they run as
             // their plain clocks do.
             ClockId::CLOCK_REALTIME_ALARM | ClockId::CLOCK_BOOTTIME_ALARM
-                if !self.cred(caller).capable(wasixv2_vfs::Cap::WakeAlarm) =>
+                if !self.cred(caller).capable_init(wasixv2_vfs::Cap::WakeAlarm) =>
             {
                 return Err(Errno::EPERM.into());
             }

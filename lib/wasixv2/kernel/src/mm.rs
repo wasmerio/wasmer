@@ -830,7 +830,8 @@ impl Kernel {
             .soft(wasixv2_abi::RlimitResource::RLIMIT_MEMLOCK);
         LockLimit {
             bytes,
-            exempt: process.cred().capable(Cap::IpcLock),
+            // `can_do_mlock`: `capable(CAP_IPC_LOCK)`.
+            exempt: process.cred().capable_init(Cap::IpcLock),
         }
     }
 

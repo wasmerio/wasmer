@@ -101,6 +101,12 @@ impl FsContext {
             umask: 0o022,
         }
     }
+
+    /// `current_chrooted`: the root is not the root of the mount namespace `ns` (what is
+    /// mounted on top of it, as entering the namespace gives).
+    pub(crate) fn chrooted(&self, ns: &crate::ns::NsProxy) -> bool {
+        self.root != ns.mnt.tree.entry_root()
+    }
 }
 
 /// What a filesystem syscall runs with: a snapshot of the caller's context and credentials.
@@ -601,7 +607,10 @@ impl Kernel {
             FcntlCmd::F_GETSIG => Ok(self.f_getsig(&file)),
             FcntlCmd::F_SETSIG => self.f_setsig(&file, arg),
             FcntlCmd::F_GETPIPE_SZ | FcntlCmd::F_SETPIPE_SZ => {
-                let privileged = self.cred(caller).capable(wasixv2_vfs::Cap::SysResource);
+                // `pipe_set_size`: `capable(CAP_SYS_RESOURCE)`.
+                let privileged = self
+                    .cred(caller)
+                    .capable_init(wasixv2_vfs::Cap::SysResource);
                 crate::pipe::fcntl(&file, cmd, arg, privileged)
             }
             FcntlCmd::F_ADD_SEALS | FcntlCmd::F_GET_SEALS => {

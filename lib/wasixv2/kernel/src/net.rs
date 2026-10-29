@@ -26,7 +26,6 @@ use wasixv2_wait::PollMask;
 
 use crate::{
     Kernel,
-    cred::Cred,
     file::{Backing, OpenFile, ReadSink},
     fs::read_iovecs,
     netlink,
@@ -105,6 +104,18 @@ struct Got {
 
 impl Kernel {
     /// `sockfd_lookup` for every family.
+    /// `ns_capable(net->user_ns, cap)` for the caller's network namespace, which Linux takes
+    /// from the socket (`sock_net`): the same one unless the socket came from another.
+    fn net_capable(&self, caller: &Caller<'_>, cap: Cap) -> bool {
+        let owner = self.ns(caller).net.user_ns().clone();
+        self.cred(caller).ns_capable(&owner, cap)
+    }
+
+    /// `CAP_NET_RAW` or `CAP_NET_ADMIN` over the network namespace's owner.
+    fn net_capable_any(&self, caller: &Caller<'_>) -> bool {
+        self.net_capable(caller, Cap::NetRaw) || self.net_capable(caller, Cap::NetAdmin)
+    }
+
     fn any_socket(&self, caller: &Caller<'_>, fd: Fd) -> SysResult<AnySock> {
         let file = self.file(caller.task(), fd)?;
         if let Some(unix) = file.downcast::<UnixFile>() {
@@ -183,9 +194,9 @@ impl Kernel {
         let kind = match kind {
             SocketType::SOCK_STREAM => SocketKind::Stream,
             SocketType::SOCK_DGRAM => SocketKind::Datagram,
-            // `inet_create` matches raw sockets, then wants CAP_NET_RAW. With it, they are
-            // still not implemented.
-            SocketType::SOCK_RAW if !self.cred(caller).capable(Cap::NetRaw) => {
+            // `inet_create` matches raw sockets, then wants CAP_NET_RAW over the network
+            // namespace's owner. With it, they are still not implemented.
+            SocketType::SOCK_RAW if !self.net_capable(caller, Cap::NetRaw) => {
                 return Err(Errno::EPERM.into());
             }
             _ => return Err(Errno::ESOCKTNOSUPPORT.into()),
@@ -251,7 +262,7 @@ impl Kernel {
         if socket::family(&raw)? == AddressFamily::AF_UNSPEC && !addr.ip().is_unspecified() {
             return Err(Errno::EAFNOSUPPORT.into());
         }
-        let privileged = self.cred(caller).capable(Cap::NetBindService);
+        let privileged = self.net_capable(caller, Cap::NetBindService);
         sock.socket.bind(addr, privileged)?;
         Ok(0)
     }
@@ -342,7 +353,9 @@ impl Kernel {
                 return self.unix_connect(caller, &file, &sock, &raw).await;
             }
             AnySock::Netlink(_, nl) => {
-                let net_admin = self.cred(caller).capable(Cap::NetAdmin);
+                let net_admin = self
+                    .cred(caller)
+                    .ns_capable(nl.net.user_ns(), Cap::NetAdmin);
                 nl.connect(&raw, net_admin)?;
                 return Ok(0);
             }
@@ -464,9 +477,8 @@ impl Kernel {
                     Some(raw) => self.destination(sock, raw)?,
                     None => None,
                 };
-                let cred = self.cred(caller);
-                let control = sock_cmsg_send(&cred, control)?;
-                let net_raw = cred.capable(Cap::NetRaw);
+                let control = sock_cmsg_send(self.net_capable_any(caller), control)?;
+                let net_raw = self.net_capable(caller, Cap::NetRaw);
                 let mut wait = sock.blocking(io, SND, flags);
                 let mut scratch = Scratch::default();
                 let stream = sock.socket.kind() == SocketKind::Stream;
@@ -537,7 +549,9 @@ impl Kernel {
             AnySock::Netlink(_, nl) => {
                 let mut data = vec![0; src.len.min(nl.max_request().saturating_add(1))];
                 src.copy_in(memory, 0, &mut data).await?;
-                let net_admin = self.cred(caller).capable(Cap::NetAdmin);
+                let net_admin = self
+                    .cred(caller)
+                    .ns_capable(nl.net.user_ns(), Cap::NetAdmin);
                 Ok(nl.send(&data, net_admin)?)
             }
         };
@@ -994,8 +1008,10 @@ impl Kernel {
             AnySock::Unix(..) if level != SocketLevel::SOL_SOCKET => {
                 return Err(Errno::EOPNOTSUPP.into());
             }
+            // `SO_SNDBUFFORCE` and `SO_RCVBUFFORCE`: `sockopt_capable(CAP_NET_ADMIN)`, over
+            // the initial user namespace.
             AnySock::Unix(_, sock) => {
-                let net_admin = self.cred(caller).capable(Cap::NetAdmin);
+                let net_admin = self.cred(caller).capable_init(Cap::NetAdmin);
                 sock.set_option(name, &value, net_admin)?
             }
             AnySock::Netlink(_, nl) if level == SocketLevel::SOL_SOCKET => {
@@ -1402,9 +1418,9 @@ async fn read_cmsgs(caller: &Caller<'_>, hdr: &UserMsghdr) -> SysResult<Vec<Cont
 /// `__sock_cmsg_send` for an IP socket: checks the `SOL_SOCKET` control messages every family
 /// shares and returns the others, which are the protocol's. `SCM_RIGHTS` and `SCM_CREDENTIALS`
 /// belong to Unix sockets and are ignored. What they ask for (a mark, a priority, transmit
-/// timestamps) has no effect without packets.
-fn sock_cmsg_send(cred: &Cred, controls: &[Control]) -> Result<Vec<Control>, Errno> {
-    let privileged = cred.capable(Cap::NetRaw) || cred.capable(Cap::NetAdmin);
+/// timestamps) has no effect without packets. `privileged` is `CAP_NET_RAW` or `CAP_NET_ADMIN`
+/// over the network namespace's owner, which `SO_MARK` needs.
+fn sock_cmsg_send(privileged: bool, controls: &[Control]) -> Result<Vec<Control>, Errno> {
     let mut rest = Vec::new();
     for c in controls {
         if c.level != SocketLevel::SOL_SOCKET.0 {
@@ -1634,7 +1650,7 @@ impl Kernel {
                 .unwrap_or(IFNAMSIZ - 1);
             let name = &ifr[..end];
             // Changes need `CAP_NET_ADMIN` before the interface is looked up.
-            if request == IoctlRequest::SIOCSIFFLAGS && !self.cred(caller).capable(Cap::NetAdmin) {
+            if request == IoctlRequest::SIOCSIFFLAGS && !self.net_capable(caller, Cap::NetAdmin) {
                 return Err(Errno::EPERM.into());
             }
             interfaces.iter().find(|i| i.name.as_bytes() == name)

@@ -15,9 +15,10 @@ use wasixv2_abi::{
     ConstMsgbufPtr, GuestPtr, GuestPtrMut, IpcCmd, IpcFlags, MsgbufPtr, MsgrcvFlags, Msqid64Ds,
 };
 use wasixv2_syscalls::{Caller, Errno, SysErr, SysResult, read_value, write_value};
+use wasixv2_vfs::Cap;
 use wasixv2_wait::{PollMask, WaitQueue, wait_event};
 
-use super::{CAP_SYS_RESOURCE, Ids, Object, Perm, READ, WRITE, capable, get_or_create};
+use super::{Ids, Object, Perm, READ, WRITE, get_or_create};
 use crate::Kernel;
 use crate::ns::UserNs;
 use crate::sync::MutexExt;
@@ -197,7 +198,7 @@ pub(crate) struct MsgInfo {
 
 impl Kernel {
     pub(crate) fn sys_msgget(&self, caller: &Caller<'_>, key: i32, msgflg: i32) -> SysResult<i32> {
-        let cred = self.env(caller).cred;
+        let cred = self.ipc_cred(caller);
         let now = self.ipc_now();
         let create = |perm| {
             Ok(MsgQueue {
@@ -244,7 +245,7 @@ impl Kernel {
         }
         let mut text = vec![0; msgsz as usize];
         caller.memory().read(mtext(msgp.addr())?, &mut text).await?;
-        let cred = self.env(caller).cred;
+        let cred = self.ipc_cred(caller);
         let pid = self.process(caller.task()).pid.0;
         let queue = self.ns(caller).ipc.msg.get(msqid)?;
         let nowait = IpcFlags(msgflg as u32).contains(IpcFlags::IPC_NOWAIT);
@@ -303,7 +304,7 @@ impl Kernel {
             n => Search::Equal(n),
         };
         let noerror = flags.contains(MsgrcvFlags::MSG_NOERROR);
-        let cred = self.env(caller).cred;
+        let cred = self.ipc_cred(caller);
         let pid = self.process(caller.task()).pid.0;
         let queue = self.ns(caller).ipc.msg.get(msqid)?;
         let receive = || -> Option<Result<Message, Errno>> {
@@ -364,7 +365,7 @@ impl Kernel {
         if msqid < 0 {
             return Err(Errno::EINVAL.into());
         }
-        let cred = self.env(caller).cred;
+        let cred = self.ipc_cred(caller);
         let ns = self.ns(caller);
         let queues = &ns.ipc.msg;
         match IpcCmd(cmd) {
@@ -431,7 +432,7 @@ impl Kernel {
                 let mut perm = queue.perm();
                 perm.check_owner(&cred)?;
                 let qbytes = ds.msg_qbytes as usize;
-                if qbytes > MSGMNB as usize && !capable(&cred, CAP_SYS_RESOURCE) {
+                if qbytes > MSGMNB as usize && !cred.capable_init(Cap::SysResource) {
                     return Err(Errno::EPERM.into());
                 }
                 perm.update(&ds.msg_perm, &self.cred(caller).user_ns)?;
