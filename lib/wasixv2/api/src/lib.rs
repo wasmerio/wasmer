@@ -1059,6 +1059,69 @@ fn default_network(_: Dns) -> Arc<Net> {
 
 /// The guest's `/etc/hosts`: `localhost` resolves without DNS, as on every Linux system.
 const HOSTS: &str = "127.0.0.1\tlocalhost\n::1\tlocalhost ip6-localhost ip6-loopback\n";
+/// The guest's `/etc/protocols`: the IP protocol numbers and names of IANA's registry, as a
+/// Linux system's (Debian's `netbase`) lists them, for `getprotobyname` of a libc that reads
+/// the file and for programs that parse it.
+const PROTOCOLS: &str = "\
+# Internet (IP) protocols, from IANA's protocol-numbers registry.
+ip\t0\tIP\t\t# internet protocol, pseudo protocol number
+hopopt\t0\tHOPOPT\t\t# IPv6 Hop-by-Hop Option [RFC1883]
+icmp\t1\tICMP\t\t# internet control message protocol
+igmp\t2\tIGMP\t\t# Internet Group Management
+ggp\t3\tGGP\t\t# gateway-gateway protocol
+ipencap\t4\tIP-ENCAP\t# IP encapsulated in IP (officially ``IP'')
+st\t5\tST\t\t# ST datagram mode
+tcp\t6\tTCP\t\t# transmission control protocol
+egp\t8\tEGP\t\t# exterior gateway protocol
+igp\t9\tIGP\t\t# any private interior gateway (Cisco)
+pup\t12\tPUP\t\t# PARC universal packet protocol
+udp\t17\tUDP\t\t# user datagram protocol
+hmp\t20\tHMP\t\t# host monitoring protocol
+xns-idp\t22\tXNS-IDP\t\t# Xerox NS IDP
+rdp\t27\tRDP\t\t# \"reliable datagram\" protocol
+iso-tp4\t29\tISO-TP4\t\t# ISO Transport Protocol class 4 [RFC905]
+dccp\t33\tDCCP\t\t# Datagram Congestion Control Prot. [RFC4340]
+xtp\t36\tXTP\t\t# Xpress Transfer Protocol
+ddp\t37\tDDP\t\t# Datagram Delivery Protocol
+idpr-cmtp 38\tIDPR-CMTP\t# IDPR Control Message Transport
+ipv6\t41\tIPv6\t\t# Internet Protocol, version 6
+ipv6-route 43\tIPv6-Route\t# Routing Header for IPv6
+ipv6-frag 44\tIPv6-Frag\t# Fragment Header for IPv6
+idrp\t45\tIDRP\t\t# Inter-Domain Routing Protocol
+rsvp\t46\tRSVP\t\t# Reservation Protocol
+gre\t47\tGRE\t\t# General Routing Encapsulation
+esp\t50\tIPSEC-ESP\t# Encap Security Payload [RFC2406]
+ah\t51\tIPSEC-AH\t# Authentication Header [RFC2402]
+skip\t57\tSKIP\t\t# SKIP
+ipv6-icmp 58\tIPv6-ICMP\t# ICMP for IPv6
+ipv6-nonxt 59\tIPv6-NoNxt\t# No Next Header for IPv6
+ipv6-opts 60\tIPv6-Opts\t# Destination Options for IPv6
+rspf\t73\tRSPF CPHB\t# Radio Shortest Path First (officially CPHB)
+vmtp\t81\tVMTP\t\t# Versatile Message Transport
+eigrp\t88\tEIGRP\t\t# Enhanced Interior Routing Protocol (Cisco)
+ospf\t89\tOSPFIGP\t\t# Open Shortest Path First IGP
+ax.25\t93\tAX.25\t\t# AX.25 frames
+ipip\t94\tIPIP\t\t# IP-within-IP Encapsulation Protocol
+etherip\t97\tETHERIP\t\t# Ethernet-within-IP Encapsulation [RFC3378]
+encap\t98\tENCAP\t\t# Yet Another IP encapsulation [RFC1241]
+pim\t103\tPIM\t\t# Protocol Independent Multicast
+ipcomp\t108\tIPCOMP\t\t# IP Payload Compression Protocol
+vrrp\t112\tVRRP\t\t# Virtual Router Redundancy Protocol [RFC5798]
+l2tp\t115\tL2TP\t\t# Layer Two Tunneling Protocol [RFC2661]
+isis\t124\tISIS\t\t# IS-IS over IPv4
+sctp\t132\tSCTP\t\t# Stream Control Transmission Protocol
+fc\t133\tFC\t\t# Fibre Channel
+mobility-header 135 Mobility-Header # Mobility Support for IPv6 [RFC3775]
+udplite\t136\tUDPLite\t\t# UDP-Lite [RFC3828]
+mpls-in-ip 137\tMPLS-in-IP\t# MPLS-in-IP [RFC4023]
+manet\t138\t\t\t# MANET Protocols [RFC5498]
+hip\t139\tHIP\t\t# Host Identity Protocol
+shim6\t140\tShim6\t\t# Shim6 Protocol [RFC5533]
+wesp\t141\tWESP\t\t# Wrapped Encapsulating Security Payload
+rohc\t142\tROHC\t\t# Robust Header Compression
+ethernet\t143\tEthernet\t# Ethernet encapsulation for SRv6 [RFC8986]
+mptcp\t262\tMPTCP\t\t# Multipath TCP connection
+";
 /// The kernel's nodename.
 const HOSTNAME: &str = "localhost\n";
 
@@ -1327,8 +1390,8 @@ impl Provider for HostPages {
 /// The default root filesystem: a memory filesystem whose top directory `user` owns, laid out
 /// as a small Linux system. It has empty `/bin`, `/usr/bin` and `/usr/lib` for packages and
 /// mounts to fill, `/root` and the user's home `/home/user`, and in `/etc` `passwd` and `group`
-/// naming root, `nobody` and the user, `hostname`, `hosts` and, when there are name servers,
-/// `resolv.conf`. `/run` holds runtime state (`ip netns` keeps namespaces in `/run/netns`), and
+/// naming root, `nobody` and the user, `hostname`, `hosts`, `protocols` and, when there are
+/// name servers, `resolv.conf`. `/run` holds runtime state (`ip netns` keeps namespaces in `/run/netns`), and
 /// `/var/run` links to it, as on a Debian system. `/proc`, `/dev` and `/tmp` are mount points.
 ///
 /// `/lib/modules/<release>` describes the kernel as its package installs it, `release` being
@@ -1395,6 +1458,7 @@ pub fn default_root(
             ("/etc/hosts", HOSTS),
             (builtin.as_str(), MODULES_BUILTIN),
             (dep.as_str(), ""),
+            ("/etc/protocols", PROTOCOLS),
         ];
         if !resolv_conf.is_empty() {
             files.push(("/etc/resolv.conf", resolv_conf));

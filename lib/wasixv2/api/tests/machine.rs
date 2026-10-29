@@ -246,6 +246,36 @@ async fn the_default_root_has_run_and_the_kernels_modules_list() {
     assert!(builtin.lines().any(|l| l == "kernel/drivers/net/dummy.ko"));
 }
 
+/// The default root lists the IP protocols in `/etc/protocols`, as a Linux system's `netbase`
+/// does, including the IPv6 extension headers RFC 3542 names.
+#[tokio::test]
+async fn the_default_root_lists_the_ip_protocols() {
+    let wat = ACCOUNTS_WAT
+        .replace(r#""/etc/passwd\00""#, r#""/etc/protocols\00""#)
+        .replace("(call $cat (i32.const 32))\n", "");
+    let (status, out) = run(Machine::new(), &wat).await;
+    assert_eq!(status, 0);
+    let out = String::from_utf8(out).unwrap();
+    let number = |name: &str| {
+        out.lines()
+            .filter(|line| !line.starts_with('#'))
+            .find_map(|line| {
+                let mut fields = line.split_whitespace();
+                (fields.next() == Some(name))
+                    .then(|| fields.next().unwrap().parse::<u32>().unwrap())
+            })
+    };
+    for (name, proto) in [
+        ("ip", 0),
+        ("hopopt", 0),
+        ("tcp", 6),
+        ("udp", 17),
+        ("ipv6-icmp", 58),
+    ] {
+        assert_eq!(number(name), Some(proto), "{name}");
+    }
+}
+
 /// Prints `ready`, then waits in `ppoll` with nothing to poll and no timeout, forever.
 const BLOCK_WAT: &str = r#"
   (module
@@ -332,7 +362,10 @@ async fn shutdown_ends_every_process() {
                 .expect("shutdown returned");
             assert_eq!(run.await.unwrap().unwrap(), 128 + 9);
             let (status, out) = run_on(&machine, UNAME_WAT).await;
-            assert_eq!((status, out.as_slice()), (1, &b"localhost 7.2.0-wasixv2"[..]));
+            assert_eq!(
+                (status, out.as_slice()),
+                (1, &b"localhost 7.2.0-wasixv2"[..])
+            );
         })
         .await;
 }
