@@ -898,7 +898,7 @@ impl IcmpSocket {
         let takes = g.local.is_none_or(|l| l == msg.dst)
             && g.peer.is_none_or(|p| p == msg.src)
             && (dev == 0 || dev == iif)
-            && (!msg.dst.is_multicast() || g.opts.mc.allows(msg.dst, iif))
+            && (!msg.dst.is_multicast() || g.opts.mc.allows(msg.dst, msg.src, iif))
             && msg.data.len() >= ICMP_HDR
             && !filtered(&g.filter, self.v6(), msg.data[0]);
         drop(g);
@@ -1520,7 +1520,10 @@ impl Socket for IcmpSocket {
             ttl,
             data,
         };
-        for (net, iif) in self.net.mc_receivers(dst, route.oif, looped, ttl) {
+        for (net, iif) in self
+            .net
+            .mc_receivers(dst, route.src, route.oif, looped, ttl)
+        {
             let back = Back {
                 net: self.net.clone(),
                 iif: route.oif,
@@ -1737,6 +1740,9 @@ impl Socket for IcmpSocket {
         }
         if level == SOL_SOCKET && name == SocketOption::SO_ACCEPTCONN.0 {
             return Ok(write_int(out, 0));
+        }
+        if crate::mcast::handles(level, name) {
+            return g.opts.get_mcast(&self.net, level, name, out);
         }
         g.opts.get(level, name, out)
     }

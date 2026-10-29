@@ -2267,3 +2267,226 @@ fn ipv6_echo_sysctls_stop_replies() {
     send_to(&*p6, &req, Some(all_nodes)).unwrap();
     assert_eq!(recv(&*p6, 64), Err(Errno::EAGAIN));
 }
+
+/// `struct ip_mreq_source`: group, interface address, source.
+fn mreq_source(group: &str, address: &str, source: &str) -> Vec<u8> {
+    let ip = |s: &str| s.parse::<std::net::Ipv4Addr>().unwrap().octets();
+    [ip(group), ip(address), ip(source)].concat()
+}
+
+/// A `sockaddr_storage` holding `ip`.
+fn storage(ip: &str) -> Vec<u8> {
+    let mut ss = vec![0u8; 128];
+    match ip.parse::<std::net::IpAddr>().unwrap() {
+        std::net::IpAddr::V4(v4) => {
+            ss[..2].copy_from_slice(&2u16.to_le_bytes());
+            ss[4..8].copy_from_slice(&v4.octets());
+        }
+        std::net::IpAddr::V6(v6) => {
+            ss[..2].copy_from_slice(&10u16.to_le_bytes());
+            ss[8..24].copy_from_slice(&v6.octets());
+        }
+    }
+    ss
+}
+
+/// `struct group_filter`: interface, group, mode, sources.
+fn group_filter(index: u32, group: &str, include: bool, sources: &[&str]) -> Vec<u8> {
+    let mut v = index.to_le_bytes().to_vec();
+    v.extend(storage(group));
+    v.extend(u32::from(include).to_le_bytes());
+    v.extend((sources.len() as u32).to_le_bytes());
+    for s in sources {
+        v.extend(storage(s));
+    }
+    v
+}
+
+/// Source filters (`ip_mc_source`, `ip_mc_msfilter`): a source-specific membership takes
+/// only its sources, a blocked source is kept out, and the interface lets in what some
+/// membership's filter allows, so a socket that only has `IP_MULTICAST_ALL` hears just that.
+#[test]
+fn multicast_source_filters_choose_the_senders() {
+    const IP_UNBLOCK_SOURCE: i32 = 37;
+    const IP_BLOCK_SOURCE: i32 = 38;
+    const IP_ADD_SOURCE_MEMBERSHIP: i32 = 39;
+    const IP_DROP_SOURCE_MEMBERSHIP: i32 = 40;
+    const IP_MSFILTER: i32 = 41;
+    let n = net();
+    let bound = |ip: &str, port: u16| {
+        let s = udp(&n);
+        s.set_option(SOL_SOCKET, SocketOption::SO_REUSEADDR.0, &int(1))
+            .unwrap();
+        s.bind(SocketAddr::new(ip.parse().unwrap(), port), false)
+            .unwrap();
+        s
+    };
+    let (ssm, all, blocker) = (
+        bound("0.0.0.0", 6100),
+        bound("0.0.0.0", 6100),
+        bound("0.0.0.0", 6100),
+    );
+    let (a1, a2) = (bound("127.0.0.1", 0), bound("127.0.0.2", 0));
+    for s in [&a1, &a2] {
+        s.set_option(SOL_IP, IpOption::IP_MULTICAST_IF.0, &[127, 0, 0, 1])
+            .unwrap();
+    }
+    let to = Some(a("239.2.2.2:6100"));
+    let req = |s: &str| mreq_source("239.2.2.2", "127.0.0.1", s);
+    // A filter needs a membership; a source membership makes one.
+    assert_eq!(
+        ssm.set_option(SOL_IP, IP_BLOCK_SOURCE, &req("127.0.0.2")),
+        Err(Errno::EINVAL)
+    );
+    assert_eq!(
+        ssm.set_option(SOL_IP, IP_ADD_SOURCE_MEMBERSHIP, &req("127.0.0.1")[..8]),
+        Err(Errno::EINVAL)
+    );
+    ssm.set_option(SOL_IP, IP_ADD_SOURCE_MEMBERSHIP, &req("127.0.0.1"))
+        .unwrap();
+    assert_eq!(
+        ssm.set_option(SOL_IP, IP_ADD_SOURCE_MEMBERSHIP, &req("127.0.0.1")),
+        Err(Errno::EADDRNOTAVAIL)
+    );
+    assert_eq!(
+        ssm.set_option(SOL_IP, IP_BLOCK_SOURCE, &req("127.0.0.2")),
+        Err(Errno::EINVAL)
+    );
+    send_to(&*a1, b"1", to).unwrap();
+    send_to(&*a2, b"2", to).unwrap();
+    assert_eq!(recv(&*ssm, 4).unwrap(), b"1");
+    assert_eq!(recv(&*ssm, 4), Err(Errno::EAGAIN));
+    // The interface takes only what the one filter allows.
+    assert_eq!(recv(&*all, 4).unwrap(), b"1");
+    assert_eq!(recv(&*all, 4), Err(Errno::EAGAIN));
+    assert_eq!(recv(&*blocker, 4).unwrap(), b"1");
+    let _ = recv(&*blocker, 4);
+
+    // An EXCLUDE membership blocking 127.0.0.2: still nobody hears it, until unblocked.
+    blocker
+        .set_option(
+            SOL_IP,
+            IpOption::IP_ADD_MEMBERSHIP.0,
+            &mreqn("239.2.2.2", "127.0.0.1", 0),
+        )
+        .unwrap();
+    blocker
+        .set_option(SOL_IP, IP_BLOCK_SOURCE, &req("127.0.0.2"))
+        .unwrap();
+    send_to(&*a2, b"2", to).unwrap();
+    assert_eq!(recv(&*all, 4), Err(Errno::EAGAIN));
+    blocker
+        .set_option(SOL_IP, IP_UNBLOCK_SOURCE, &req("127.0.0.2"))
+        .unwrap();
+    assert_eq!(
+        blocker.set_option(SOL_IP, IP_UNBLOCK_SOURCE, &req("127.0.0.2")),
+        Err(Errno::EADDRNOTAVAIL)
+    );
+    send_to(&*a2, b"2", to).unwrap();
+    assert_eq!(recv(&*blocker, 4).unwrap(), b"2");
+    assert_eq!(recv(&*all, 4).unwrap(), b"2");
+    assert_eq!(recv(&*ssm, 4), Err(Errno::EAGAIN));
+
+    // IP_MSFILTER reads back the filter, and sets one whole; igmp_max_msf is 10.
+    let mut msf = [&req("0.0.0.0")[..8], &[0; 4], &4u32.to_le_bytes(), &[0; 16]].concat();
+    let len = ssm.get_option(SOL_IP, IP_MSFILTER, &mut msf).unwrap();
+    assert_eq!(len, 20);
+    assert_eq!(&msf[8..20], &[1, 0, 0, 0, 1, 0, 0, 0, 127, 0, 0, 1]);
+    let many: Vec<u8> = (0..11u8).flat_map(|i| [10, 0, 0, i]).collect();
+    let set = |numsrc: u32, list: &[u8]| {
+        [
+            &req("0.0.0.0")[..8],
+            &1u32.to_le_bytes(),
+            &numsrc.to_le_bytes(),
+            list,
+        ]
+        .concat()
+    };
+    assert_eq!(
+        ssm.set_option(SOL_IP, IP_MSFILTER, &set(11, &many)),
+        Err(Errno::ENOBUFS)
+    );
+    assert_eq!(
+        ssm.set_option(SOL_IP, IP_MSFILTER, &set(2, &many[..4])),
+        Err(Errno::EINVAL)
+    );
+    ssm.set_option(SOL_IP, IP_MSFILTER, &set(2, &[127, 0, 0, 1, 127, 0, 0, 2]))
+        .unwrap();
+    send_to(&*a2, b"2", to).unwrap();
+    assert_eq!(recv(&*ssm, 4).unwrap(), b"2");
+    // Dropping every source of an INCLUDE filter leaves the group.
+    ssm.set_option(SOL_IP, IP_DROP_SOURCE_MEMBERSHIP, &req("127.0.0.1"))
+        .unwrap();
+    ssm.set_option(SOL_IP, IP_DROP_SOURCE_MEMBERSHIP, &req("127.0.0.2"))
+        .unwrap();
+    assert_eq!(
+        ssm.set_option(
+            SOL_IP,
+            IpOption::IP_DROP_MEMBERSHIP.0,
+            &mreqn("239.2.2.2", "127.0.0.1", 0)
+        ),
+        Err(Errno::EADDRNOTAVAIL)
+    );
+}
+
+/// IPv6 source filters through `MCAST_JOIN_SOURCE_GROUP` and `MCAST_MSFILTER`
+/// (`ip6_mc_source`, `ip6_mc_msfilter`, `inet6_mc_check`) across a veth.
+#[test]
+fn ipv6_source_filters_through_mcast_options() {
+    const MCAST_JOIN_SOURCE_GROUP: i32 = 46;
+    const MCAST_LEAVE_SOURCE_GROUP: i32 = 47;
+    const MCAST_MSFILTER: i32 = 48;
+    let (na, nb) = veth_pair(("10.31.0.1", "10.31.0.2"), ("fd00:31::1", "fd00:31::2"));
+    let (veth0, veth1) = (index_of(&na, "veth0"), index_of(&nb, "veth1"));
+    let rx = nb
+        .socket(Domain::Inet6, SocketKind::Datagram, 0, UID)
+        .unwrap();
+    rx.bind(a("[::]:6200"), false).unwrap();
+    let gsr = |source: &str| {
+        let mut v = veth1.to_le_bytes().to_vec();
+        v.extend(storage("ff05::31"));
+        v.extend(storage(source));
+        v
+    };
+    assert_eq!(
+        rx.set_option(SOL_IPV6, MCAST_JOIN_SOURCE_GROUP, &gsr("10.0.0.1")),
+        Err(Errno::EADDRNOTAVAIL)
+    );
+    rx.set_option(SOL_IPV6, MCAST_JOIN_SOURCE_GROUP, &gsr("fd00:31::9"))
+        .unwrap();
+    let tx = na
+        .socket(Domain::Inet6, SocketKind::Datagram, 0, UID)
+        .unwrap();
+    tx.bind(a("[fd00:31::1]:0"), false).unwrap();
+    tx.set_option(
+        SOL_IPV6,
+        Ipv6Option::IPV6_MULTICAST_IF.0,
+        &int(veth0 as i32),
+    )
+    .unwrap();
+    let to = Some(a("[ff05::31]:6200"));
+    send_to(&*tx, b"x", to).unwrap();
+    assert_eq!(recv(&*rx, 4), Err(Errno::EAGAIN));
+    // The whole filter at once; then read back.
+    let f = group_filter(veth1, "ff05::31", true, &["fd00:31::9", "fd00:31::1"]);
+    rx.set_option(SOL_IPV6, MCAST_MSFILTER, &f).unwrap();
+    send_to(&*tx, b"y", to).unwrap();
+    assert_eq!(recv(&*rx, 4).unwrap(), b"y");
+    let mut out = group_filter(veth1, "ff05::31", false, &["::", "::", "::"]);
+    let len = rx.get_option(SOL_IPV6, MCAST_MSFILTER, &mut out).unwrap();
+    assert_eq!(len, 140 + 2 * 128);
+    assert_eq!(&out[132..140], &[1, 0, 0, 0, 2, 0, 0, 0]);
+    assert_eq!(
+        &out[140 + 128 + 8..140 + 128 + 24],
+        &storage("fd00:31::1")[8..24]
+    );
+    // EXCLUDE that sender.
+    let f = group_filter(veth1, "ff05::31", false, &["fd00:31::1"]);
+    rx.set_option(SOL_IPV6, MCAST_MSFILTER, &f).unwrap();
+    send_to(&*tx, b"z", to).unwrap();
+    assert_eq!(recv(&*rx, 4), Err(Errno::EAGAIN));
+    assert_eq!(
+        rx.set_option(SOL_IPV6, MCAST_LEAVE_SOURCE_GROUP, &gsr("fd00:31::1")),
+        Err(Errno::EINVAL)
+    );
+}
