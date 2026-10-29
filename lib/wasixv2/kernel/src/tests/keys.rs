@@ -27,6 +27,7 @@ const SEARCH: i32 = 10;
 const READ: i32 = 11;
 const SET_TIMEOUT: i32 = 15;
 const INVALIDATE: i32 = 21;
+const MOVE: i32 = 30;
 const GET_SECURITY: i32 = 17;
 const GET_PERSISTENT: i32 = 22;
 const CAPABILITIES: i32 = 31;
@@ -494,6 +495,28 @@ fn get_security_without_view_returns_the_missing_auth_token_error() {
     assert_eq!(
         errno(t.keyctl(GET_SECURITY, key as u32, 0, 0, 0)),
         Errno::EKEYREVOKED
+    );
+}
+
+/// security/keys/keyring.c:key_move short-circuits identical rings, even with EXCL.
+#[test]
+fn moving_a_key_to_the_same_ring_is_a_noop() {
+    let (kernel, task, memory) = machine();
+    let t = T::new(&kernel, task, &memory);
+    let ring = t.add("keyring", "move", b"", SESSION).unwrap();
+    let key = t.add("user", "member", b"value", ring).unwrap();
+    for flags in [0, 1] {
+        assert_eq!(
+            t.keyctl(MOVE, key as u32, ring as u32, ring as u32, flags),
+            Ok(0)
+        );
+        assert_eq!(t.read(ring).unwrap(), key.to_le_bytes());
+    }
+    // Membership is not consulted in this case.
+    let other = t.add("user", "elsewhere", b"value", SESSION).unwrap();
+    assert_eq!(
+        t.keyctl(MOVE, other as u32, ring as u32, ring as u32, 1),
+        Ok(0)
     );
 }
 

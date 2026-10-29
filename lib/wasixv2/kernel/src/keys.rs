@@ -1336,6 +1336,11 @@ impl Kernel {
                 let key = found(self, &mut ctx, Lookup::default(), Need::Link)?.key;
                 let from = self.lookup_keyring(caller, &mut ctx, arg3 as i32, Need::Write)?;
                 let to = self.lookup_keyring(caller, &mut ctx, arg4 as i32, Need::Write)?;
+                // security/keys/keyring.c:key_move: identical rings are a successful
+                // no-op before membership and KEYCTL_MOVE_EXCL are considered.
+                if Arc::ptr_eq(&from.key, &to.key) {
+                    return Ok(0);
+                }
                 let held = from
                     .key
                     .st()
