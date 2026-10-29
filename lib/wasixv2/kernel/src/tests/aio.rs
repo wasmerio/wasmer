@@ -6,7 +6,7 @@ use std::time::Instant;
 
 use wasixv2_abi::{
     AioRingMisc, EventfdFlags, GuestLayout, IoEvent, Iocb, IocbCmd, IocbFlags, KernelTimespec,
-    OpenFlags,
+    MapFlags, MremapFlags, OpenFlags, ProtFlags,
 };
 use wasixv2_pages::{Memfd, SharedPages};
 use wasixv2_wait::PollMask;
@@ -459,4 +459,33 @@ fn io_destroy_ends_the_context_and_gives_its_requests_back() {
     );
     // The ring is unmapped.
     assert_eq!(m.word(ctx + 16), 0);
+}
+
+#[test]
+fn mremap_moves_a_whole_ring_and_its_context_id() {
+    let m = Machine::new();
+    let ctx = m.ctx();
+    let len = 32 + m.word(ctx + 4) * 32;
+    let caller = m.caller();
+    let mremap = |addr: u32, old: u32, new: u32, flags: MremapFlags, to: u32| {
+        block_on(m.kernel.mremap(&caller, addr, old, new, flags, to))
+    };
+    let may_move = MremapFlags::MREMAP_MAYMOVE;
+    // A ring never grows, stays behind or moves in part.
+    assert_eq!(errno(mremap(ctx, len, len * 2, may_move, 0)), Errno::EFAULT);
+    let dont_unmap = may_move | MremapFlags::MREMAP_DONTUNMAP;
+    assert_eq!(errno(mremap(ctx, len, len, dont_unmap, 0)), Errno::EINVAL);
+    let fixed = may_move | MremapFlags::MREMAP_FIXED;
+    let anon = MapFlags::MAP_PRIVATE | MapFlags::MAP_ANONYMOUS;
+    let mmap = m.kernel.mmap(&caller, 0, len, ProtFlags(3), anon, Fd(-1), 0);
+    let to = block_on(mmap).unwrap();
+    // The whole ring moves, and the context goes by its new address.
+    assert_eq!(mremap(ctx, len, len, fixed, to), Ok(to as i32));
+    assert_eq!(m.word(to + 16), AioRingMisc::AIO_RING_MAGIC.0);
+    let fd = m.file("moved", b"abc");
+    m.iocb(IOCB, IocbCmd::IOCB_CMD_PREAD, fd, (BUF, 3, 0));
+    assert_eq!(errno(m.submit(ctx, &[IOCB])), Errno::EINVAL);
+    assert_eq!(m.submit(to, &[IOCB]), Ok(1));
+    assert_eq!(m.word(to + 12), 1, "the event is on the moved ring");
+    assert_eq!(block_on(m.kernel.io_destroy(&caller, to)), Ok(0));
 }
