@@ -920,10 +920,15 @@ impl Kernel {
         plen: u32,
         ringid: i32,
     ) -> SysResult<i32> {
-        let kind = Kind::lookup(&read_type(caller, kind).await?)?;
-        let description = read_description(caller, description).await?;
+        // security/keys/keyctl.c sys_add_key checks size, copies the strings and
+        // reserves internal keyring names before resolving the type or destination.
         if plen > 1024 * 1024 - 1 {
             return Err(Errno::EINVAL.into());
+        }
+        let type_name = read_type(caller, kind).await?;
+        let description = read_description(caller, description).await?;
+        if type_name.starts_with(b"keyring") && description.starts_with(b".") {
+            return Err(Errno::EPERM.into());
         }
         let mut data = vec![0; plen as usize];
         if plen > 0 {
@@ -934,6 +939,7 @@ impl Kernel {
         }
         let mut ctx = self.key_ctx(caller);
         let ring = self.lookup_keyring(caller, &mut ctx, ringid, Need::Write)?;
+        let kind = Kind::lookup(&type_name)?;
         kind.check_payload(&data)?;
         kind.vet_description(&description)?;
         let _construction = self.keys.construction.lock_or_recover();
@@ -977,14 +983,14 @@ impl Kernel {
         callout: u32,
         dest: i32,
     ) -> SysResult<i32> {
-        let kind = Kind::lookup(&read_type(caller, kind).await?)?;
+        let type_name = read_type(caller, kind).await?;
         let description = read_description(caller, description).await?;
         if callout != 0 {
             // sys_request_key copies the callout even when the key is already cached.
             read_cstr(
                 caller.memory(),
                 wasixv2_abi::GuestPtr::new(callout),
-                MAX_DESC,
+                wasixv2_syscalls::WASM_PAGE_SIZE as usize,
             )
             .await
             .map_err(|error| match error {
@@ -997,6 +1003,9 @@ impl Kernel {
             0 => None,
             id => Some(self.lookup_keyring(caller, &mut ctx, id, Need::Write)?),
         };
+        // security/keys/keyctl.c sys_request_key resolves the type only after
+        // copying all user strings and looking up the destination keyring.
+        let kind = Kind::lookup(&type_name)?;
         let roots = ctx.search_roots(&self.keys);
         let _construction = self.keys.construction.lock_or_recover();
         match search(&ctx, &roots, true, kind, &description, true) {
@@ -1462,6 +1471,11 @@ impl Kernel {
             0 => self.new_keyring(ctx, b"_ses", SESSION_PERM)?,
             name => {
                 let name = read_description(caller, name).await?;
+                // security/keys/keyctl.c keyctl_join_session_keyring reserves
+                // dot-prefixed names for internal keyrings.
+                if name.starts_with(b".") {
+                    return Err(Errno::EPERM.into());
+                }
                 if ctx
                     .cred
                     .keys
@@ -1679,6 +1693,9 @@ fn search(
 async fn read_type(caller: &Caller<'_>, ptr: u32) -> Result<Vec<u8>, Errno> {
     match read_cstr(caller.memory(), wasixv2_abi::GuestPtr::new(ptr), MAX_TYPE).await {
         Ok(name) if name.is_empty() => Err(Errno::EINVAL),
+        // security/keys/keyctl.c key_get_type_from_user checks this before
+        // copying a description or callout, unlike key_type_lookup.
+        Ok(name) if name.starts_with(b".") => Err(Errno::EPERM),
         Ok(name) => Ok(name),
         Err(wasixv2_syscalls::CstrError::Fault) => Err(Errno::EFAULT),
         Err(wasixv2_syscalls::CstrError::TooLong) => Err(Errno::EINVAL),

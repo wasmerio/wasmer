@@ -748,3 +748,87 @@ fn session_to_parent_waits_for_the_parent_and_rejects_multithreaded_parents() {
     c.keyctl(JOIN_SESSION_KEYRING, 0, 0, 0, 0).unwrap();
     assert_eq!(errno(c.keyctl(18, 0, 0, 0, 0)), Errno::EPERM);
 }
+
+/// security/keys/keyctl.c sys_add_key reserves dot-prefixed keyring names before
+/// looking up the type, destination or payload. Ordinary user keys may use them.
+#[test]
+fn reserved_keyring_descriptions_are_rejected_before_lookup() {
+    let (kernel, task, _) = setup(&[]);
+    let memory = FlatMemory(RefCell::new(vec![0; 0x10000]));
+    let t = T::new(&kernel, task, &memory);
+    for kind in ["keyring", "keyring-extra"] {
+        assert_eq!(errno(t.add(kind, ".reserved", b"", 123456)), Errno::EPERM);
+    }
+    assert!(t.add("user", ".allowed", b"x", SESSION).is_ok());
+}
+
+/// security/keys/keyctl.c sys_request_key copies user strings and resolves the
+/// destination before key_type_lookup: a missing type must not hide EFAULT/ENOKEY.
+#[test]
+fn request_key_copies_arguments_before_type_lookup() {
+    let (kernel, task, _) = setup(&[]);
+    let memory = FlatMemory(RefCell::new(vec![0; 0x10000]));
+    let t = T::new(&kernel, task, &memory);
+    let kind = t.cstr(0x1000, "missing-type");
+    let desc = t.cstr(0x1100, "description");
+    for (desc, callout) in [
+        (GuestPtr::new(u32::MAX), GuestPtr::NULL),
+        (desc, GuestPtr::new(u32::MAX)),
+    ] {
+        assert_eq!(
+            errno(block_on(
+                kernel.request_key(&t.caller, kind, desc, callout, 0)
+            )),
+            Errno::EFAULT
+        );
+    }
+    assert_eq!(
+        errno(t.request("missing-type", "description", 123456)),
+        Errno::ENOKEY
+    );
+    assert_eq!(
+        errno(t.request("missing-type", "description", 0)),
+        Errno::ENODEV
+    );
+}
+
+#[test]
+fn session_keyring_names_cannot_use_internal_prefix() {
+    let (kernel, task, memory) = machine();
+    let t = T::new(&kernel, task, &memory);
+    let name = t.cstr(0x1100, ".reserved");
+    assert_eq!(
+        errno(t.keyctl(JOIN_SESSION_KEYRING, name.addr(), 0, 0, 0)),
+        Errno::EPERM
+    );
+}
+
+/// security/keys/keyctl.c key_get_type_from_user rejects internal type names
+/// before later user copies; sys_request_key allows a PAGE_SIZE callout string.
+#[test]
+fn request_key_validates_internal_types_and_page_sized_callouts() {
+    let (kernel, task, _) = setup(&[]);
+    let memory = FlatMemory(RefCell::new(vec![0; 0x20000]));
+    let t = T::new(&kernel, task, &memory);
+    let kind = t.cstr(0x1000, ".internal");
+    assert_eq!(
+        errno(block_on(kernel.request_key(
+            &t.caller,
+            kind,
+            GuestPtr::new(u32::MAX),
+            GuestPtr::NULL,
+            0
+        ))),
+        Errno::EPERM
+    );
+    let key = t.add("user", "cached", b"x", SESSION).unwrap();
+    let kind = t.cstr(0x1000, "user");
+    let desc = t.cstr(0x1100, "cached");
+    let mut callout = vec![b'x'; 6000];
+    callout.push(0);
+    put(&memory, 0x5000, &callout);
+    assert_eq!(
+        block_on(kernel.request_key(&t.caller, kind, desc, GuestPtr::new(0x5000), 0)),
+        Ok(key)
+    );
+}
