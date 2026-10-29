@@ -1392,4 +1392,7 @@ fn moving_an_interface_between_namespaces() {
     assert_eq!((moved.name.as_str(), moved.flags & IFF_UP), ("dummy0", 0));
     assert!(moved.addresses.is_empty());
     assert_eq!(na.interfaces().len(), 1);
+    // The move gave `c` an id in `na` (`peernet2id_alloc`).
+    assert_eq!(na.peer_id(&*c), Some(0));
+    assert_eq!(c.peer_id(&*na), None);
 }
