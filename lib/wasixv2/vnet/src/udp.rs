@@ -22,7 +22,7 @@ use crate::{
     addr::{canonical, canonical_ip, present, sockaddr_bytes, unbound},
     bpf::{Arrival, PACKET_HOST, PACKET_LOOPBACK, PACKET_MULTICAST, SockFilter},
     cmsg::{self, SendCtl},
-    icmp::{Back, IPPROTO_UDP, Quoted, UDP_HDR, udp_datagram},
+    icmp::{Back, IPPROTO_UDP, IPV4_HDR, IPV6_HDR, Quoted, UDP_HDR, udp_datagram},
     mcast::McRoute,
     net::{Net, Path, UdpRoute, serves},
     opts::{Changed, SockOpts},
@@ -426,6 +426,34 @@ impl UdpSocket {
         self.wq.wake(PollMask::ERR);
     }
 
+    /// `__ip_append_data` and `__ip6_append_data`'s size check: a datagram of `len` bytes
+    /// (UDP header included) that may not be fragmented and does not fit the `mtu` of the
+    /// link it leaves by is `EMSGSIZE`, and with `IP_RECVERR` (`IPV6_RECVERR`) a local error
+    /// naming the MTU is queued (`ip_local_error`, `ipv6_local_error`).
+    fn check_mtu(
+        g: &mut Inner,
+        dst: IpAddr,
+        mtu: Option<u32>,
+        len: usize,
+        dontfrag: Option<bool>,
+    ) -> NetResult<()> {
+        let v6 = dst.is_ipv6();
+        let Some(mtu) = mtu else {
+            return Ok(());
+        };
+        let header = if v6 { IPV6_HDR } else { IPV4_HDR };
+        if len + header <= mtu as usize || !g.opts.dont_fragment(v6, dontfrag) {
+            return Ok(());
+        }
+        if g.opts
+            .flag(RECVERR[usize::from(v6)].0, RECVERR[usize::from(v6)].1)
+        {
+            let port = g.peer.map_or(0, |p| p.port());
+            Self::queue_error(g, QueuedError::local(Errno::EMSGSIZE, mtu, dst, port));
+        }
+        Err(Errno::EMSGSIZE)
+    }
+
     /// `sock_queue_err_skb`: dropped when the receive buffer is full.
     fn queue_error(g: &mut Inner, e: QueuedError) {
         let size = e.payload.len() + DGRAM_OVERHEAD;
@@ -551,6 +579,9 @@ impl UdpSocket {
         }
         if let Some(size) = ctl.gso_size {
             cmsg::check_segments(data.len(), size)?;
+        } else {
+            let mtu = self.net.link_mtu(route.oif);
+            Self::check_mtu(&mut g, dst.ip(), mtu, data.len() + UDP_HDR, ctl.dontfrag)?;
         }
         if let Some(e) = Self::take_err(&mut g) {
             return Err(e);
@@ -750,7 +781,10 @@ impl Socket for UdpSocket {
             // `ip4_datagram_connect` routes a group by `IP_MULTICAST_IF`.
             true => {
                 let route = self.mc_route(&g, dst, scope_of(addr), None)?;
-                Path::Nowhere { src: route.src }
+                Path::Nowhere {
+                    src: route.src,
+                    unresolved: false,
+                }
             }
             false => self.net.path(dst, g.local.map(|l| l.ip()).or(g.saddr))?,
         };
@@ -883,6 +917,15 @@ impl Socket for UdpSocket {
         }
         if let Some(size) = ctl.gso_size {
             cmsg::check_segments(msg.data.len(), size)?;
+        } else {
+            let mtu = self.net.mtu_to(dst.ip());
+            Self::check_mtu(
+                &mut g,
+                dst.ip(),
+                mtu,
+                msg.data.len() + UDP_HDR,
+                ctl.dontfrag,
+            )?;
         }
         if let Some(e) = Self::take_err(&mut g) {
             return Err(e);
@@ -935,8 +978,17 @@ impl Socket for UdpSocket {
                 }
                 Ok(msg.data.len())
             }
-            // Lost on a link where nothing answers.
-            UdpRoute::Nowhere => Ok(msg.data.len()),
+            // Lost on a link where nothing answers; where no neighbour does, the sender hears
+            // of it.
+            UdpRoute::Nowhere { from, unresolved } => {
+                drop(g);
+                if unresolved {
+                    let udp = udp_datagram(from, dst, msg.data);
+                    self.net
+                        .neighbour_failed(from.ip(), dst.ip(), IPPROTO_UDP, &udp);
+                }
+                Ok(msg.data.len())
+            }
             UdpRoute::Backend { host_dst } => {
                 let b = self.backend_endpoint(&mut g)?;
                 drop(g);

@@ -210,16 +210,18 @@ pub(crate) enum Path {
         host_dst: SocketAddr,
     },
     /// Out an interface where nothing answers: a dummy, a veth without carrier, or one whose
-    /// peer does not hold the destination (there is no forwarding).
+    /// peer does not hold the destination (there is no forwarding). `unresolved` when
+    /// neighbour resolution of the next hop fails there.
     Nowhere {
         src: IpAddr,
+        unresolved: bool,
     },
 }
 
 impl Path {
     pub(crate) fn src(&self) -> IpAddr {
         match self {
-            Path::Local { src, .. } | Path::Backend { src, .. } | Path::Nowhere { src } => *src,
+            Path::Local { src, .. } | Path::Backend { src, .. } | Path::Nowhere { src, .. } => *src,
         }
     }
 }
@@ -227,11 +229,13 @@ impl Path {
 /// A route decision made under the namespace's lock, before the peer of a veth was asked.
 enum Hop {
     Done(Path),
-    /// Out the veth end `oif`.
+    /// Out the veth end `oif`, to the next hop `hop` (the route's gateway, else the
+    /// destination).
     Veth {
         src: IpAddr,
         end: VethEnd,
         oif: u32,
+        hop: IpAddr,
     },
 }
 
@@ -252,15 +256,16 @@ pub(crate) enum IpPath {
     },
     Nowhere {
         src: IpAddr,
+        unresolved: bool,
     },
 }
 
 impl IpPath {
     pub(crate) fn src(&self) -> IpAddr {
         match self {
-            IpPath::Local { src, .. } | IpPath::Backend { src, .. } | IpPath::Nowhere { src } => {
-                *src
-            }
+            IpPath::Local { src, .. }
+            | IpPath::Backend { src, .. }
+            | IpPath::Nowhere { src, .. } => *src,
         }
     }
 }
@@ -531,7 +536,7 @@ impl Net {
         let hop = self.hop(&self.state(), dst, bound)?;
         Ok(match hop {
             Hop::Done(path) => path,
-            Hop::Veth { src, end, .. } => across(src, &end, dst),
+            Hop::Veth { src, end, hop, .. } => across(src, &end, dst, hop),
         })
     }
 
@@ -541,6 +546,7 @@ impl Net {
         let src = bound
             .filter(|ip| !ip.is_unspecified())
             .unwrap_or(decision.src);
+        let hop = next_hop(&decision, dst.ip());
         Ok(match decision.via {
             Via::Local => Hop::Done(Path::Local { src, net: None }),
             Via::Uplink if self.backend.is_some() => Hop::Done(Path::Backend {
@@ -552,9 +558,22 @@ impl Net {
                 src,
                 end,
                 oif: decision.oif,
+                hop,
             },
-            Via::Nowhere => Hop::Done(Path::Nowhere { src }),
+            Via::Nowhere { unresolved } => Hop::Done(Path::Nowhere { src, unresolved }),
         })
+    }
+
+    /// The MTU of the interface `index` (`dst->dev->mtu`; no path MTU is ever learned).
+    pub(crate) fn link_mtu(&self, index: u32) -> Option<u32> {
+        self.state().ifaces.link(index).map(|l| l.mtu)
+    }
+
+    /// The MTU of the interface a packet to `dst` leaves by, `None` without a route.
+    pub(crate) fn mtu_to(&self, dst: IpAddr) -> Option<u32> {
+        let st = self.state();
+        let oif = st.ifaces.route(dst).ok()?.oif;
+        st.ifaces.link(oif).map(|l| l.mtu)
     }
 
     /// The uplink's interface index, 0 if the namespace has none.
@@ -712,8 +731,11 @@ impl Net {
                 back_iif: LOOPBACK_INDEX,
             },
             Hop::Done(Path::Backend { host_dst, .. }) => UdpRoute::Backend { host_dst },
-            Hop::Done(Path::Nowhere { .. }) => UdpRoute::Nowhere,
-            Hop::Veth { src, end, oif } => match across(src, &end, dst) {
+            Hop::Done(Path::Nowhere { src, unresolved }) => UdpRoute::Nowhere {
+                from: SocketAddr::new(src, local.port()),
+                unresolved,
+            },
+            Hop::Veth { src, end, oif, hop } => match across(src, &end, dst, hop) {
                 Path::Local {
                     src,
                     net: Some(peer),
@@ -727,7 +749,16 @@ impl Net {
                         back_iif: oif,
                     }
                 }
-                _ => UdpRoute::Nowhere,
+                path => UdpRoute::Nowhere {
+                    from: SocketAddr::new(src, local.port()),
+                    unresolved: matches!(
+                        path,
+                        Path::Nowhere {
+                            unresolved: true,
+                            ..
+                        }
+                    ),
+                },
             },
         })
     }
@@ -739,6 +770,7 @@ impl Net {
         let src = bound
             .filter(|ip| !ip.is_unspecified())
             .unwrap_or(decision.src);
+        let hop = next_hop(&decision, dst);
         Ok(match decision.via {
             Via::Local => IpPath::Local {
                 src,
@@ -761,10 +793,17 @@ impl Net {
                         iif,
                         back_iif: decision.oif,
                     },
-                    _ => IpPath::Nowhere { src },
+                    Some(net) => IpPath::Nowhere {
+                        src,
+                        unresolved: !net.state().ifaces.is_local(hop),
+                    },
+                    None => IpPath::Nowhere {
+                        src,
+                        unresolved: true,
+                    },
                 }
             }
-            Via::Nowhere => IpPath::Nowhere { src },
+            Via::Nowhere { unresolved } => IpPath::Nowhere { src, unresolved },
         })
     }
 }
@@ -783,16 +822,34 @@ fn udp_receiver(
         .lookup_one(dst, Some(from), live, from.port() as usize)
 }
 
+/// The neighbour a packet to `dst` goes to: the route's gateway, else `dst` itself.
+fn next_hop(decision: &RouteDecision, dst: IpAddr) -> IpAddr {
+    decision
+        .route
+        .as_ref()
+        .and_then(|r| r.gateway)
+        .unwrap_or(dst)
+}
+
 /// Across a veth: the peer's namespace if it holds `dst`, else nowhere, as Linux without
-/// forwarding drops what it receives for an address it does not have.
-fn across(src: IpAddr, end: &VethEnd, dst: SocketAddr) -> Path {
+/// forwarding drops what it receives for an address it does not have (`ip_error` sends no
+/// ICMP while forwarding is off). Neighbour resolution fails when the peer does not hold
+/// the next hop `hop` either.
+fn across(src: IpAddr, end: &VethEnd, dst: SocketAddr, hop: IpAddr) -> Path {
     let (net, _) = end.peer();
     match net.upgrade() {
         Some(net) if net.state().ifaces.is_local(dst.ip()) => Path::Local {
             src,
             net: Some(net),
         },
-        _ => Path::Nowhere { src },
+        Some(net) => Path::Nowhere {
+            src,
+            unresolved: !net.state().ifaces.is_local(hop),
+        },
+        None => Path::Nowhere {
+            src,
+            unresolved: true,
+        },
     }
 }
 
@@ -874,8 +931,9 @@ pub(crate) enum UdpRoute {
     },
     /// Out through the backend to `host_dst`.
     Backend { host_dst: SocketAddr },
-    /// Out an interface where nothing answers: the datagram is lost.
-    Nowhere,
+    /// Out an interface where nothing answers: the datagram is lost, from `from` (the
+    /// route's source and the socket's port); `unresolved` when neighbour resolution fails.
+    Nowhere { from: SocketAddr, unresolved: bool },
 }
 
 impl Network for Net {

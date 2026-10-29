@@ -2102,3 +2102,127 @@ fn icmp_socket_filters_see_what_raw_and_ping_sockets_get() {
     assert_eq!(recv(&*r6, 64).unwrap()[0], 129);
     assert_eq!(recv(&*r6, 64), Err(Errno::EAGAIN));
 }
+
+/// A datagram out a veth to an address nobody across holds fails neighbour resolution: the
+/// sender's own namespace answers it with a host unreachable from the sender's address
+/// (`arp_error_report`, `ip6_link_failure`), which the socket's error queue holds with
+/// `IP_RECVERR` and raw sockets see. Through a gateway the peer holds, the peer drops it
+/// silently, as Linux does without forwarding.
+#[test]
+fn unresolved_neighbours_answer_with_host_unreachable() {
+    use crate::iface::{AddMode, Route};
+    let (na, _nb) = veth_pair(("10.26.0.1", "10.26.0.2"), ("fd00:26::1", "fd00:26::2"));
+    let s = udp(&na);
+    s.set_option(SOL_IP, IpOption::IP_RECVERR.0, &int(1))
+        .unwrap();
+    let raw = raw_icmp(&na, Domain::Inet);
+    send_to(&*s, b"anyone?", Some(a("10.26.0.9:7"))).unwrap();
+    let (data, m) = recv_error(&*s, 64).unwrap();
+    assert_eq!(data, b"anyone?");
+    assert_eq!(m.from, Some(a("10.26.0.9:7")));
+    let (ee, offender) = extended_err(&m.control[0]);
+    assert_eq!(ee, (Errno::EHOSTUNREACH.0 as u32, 2, 3, 1));
+    assert_eq!(&offender[..8], &[2, 0, 0, 0, 10, 26, 0, 1]);
+    let seen = recv(&*raw, 256).unwrap();
+    assert_eq!(
+        (&seen[12..16], seen[20], seen[21]),
+        (&[10, 26, 0, 1][..], 3, 1)
+    );
+
+    // Through the peer as gateway: lost without a word.
+    let veth0 = index_of(&na, "veth0");
+    let gw = Route::unicast(
+        "192.0.2.0".parse().unwrap(),
+        24,
+        Some("10.26.0.2".parse().unwrap()),
+        veth0,
+    );
+    na.add_route(gw, AddMode::ADD).unwrap();
+    s.take_error();
+    send_to(&*s, b"routed", Some(a("192.0.2.1:7"))).unwrap();
+    assert_eq!(recv_error(&*s, 64).unwrap_err(), Errno::EAGAIN);
+    assert_eq!(recv(&*raw, 256), Err(Errno::EAGAIN));
+
+    // An IPv6 ping socket hears of its echo request as an address unreachable.
+    let p = ping_socket(&na, Domain::Inet6);
+    p.set_option(SOL_IPV6, Ipv6Option::IPV6_RECVERR.0, &int(1))
+        .unwrap();
+    send_to(&*p, &[128, 0, 0, 0, 0, 0, 0, 1], Some(a("[fd00:26::9]:0"))).unwrap();
+    let (_, m) = recv_error(&*p, 64).unwrap();
+    let (ee, _) = extended_err(&m.control[0]);
+    assert_eq!(ee, (Errno::EHOSTUNREACH.0 as u32, 3, 1, 3));
+}
+
+/// A datagram that may not be fragmented (`IP_PMTUDISC_DO`, `IPV6_DONTFRAG`) and does not fit
+/// the MTU of the link it leaves by is `EMSGSIZE`, and with `IP_RECVERR` a local error naming
+/// the MTU waits in the error queue (`ip_local_error`, `ipv6_local_error`); by default the
+/// stack would fragment it, so it goes.
+#[test]
+fn datagrams_over_the_mtu_with_df_are_emsgsize_and_a_local_error() {
+    let (na, nb) = veth_pair(("10.27.0.1", "10.27.0.2"), ("fd00:27::1", "fd00:27::2"));
+    let rx = udp(&nb);
+    rx.bind(a("0.0.0.0:7009"), false).unwrap();
+    let s = udp(&na);
+    let big = vec![7u8; 1473];
+    send_to(&*s, &big, Some(a("10.27.0.2:7009"))).unwrap();
+    assert_eq!(recv(&*rx, 2000).unwrap().len(), 1473);
+    assert_eq!(
+        s.set_option(SOL_IP, IpOption::IP_MTU_DISCOVER.0, &int(6)),
+        Err(Errno::EINVAL)
+    );
+    s.set_option(SOL_IP, IpOption::IP_MTU_DISCOVER.0, &int(2))
+        .unwrap();
+    s.set_option(SOL_IP, IpOption::IP_RECVERR.0, &int(1))
+        .unwrap();
+    assert_eq!(
+        send_to(&*s, &big, Some(a("10.27.0.2:7009"))),
+        Err(Errno::EMSGSIZE)
+    );
+    send_to(&*s, &big[..1472], Some(a("10.27.0.2:7009"))).unwrap();
+    let (data, m) = recv_error(&*s, 64).unwrap();
+    assert!(data.is_empty());
+    assert_eq!(m.from, Some(a("10.27.0.2:0")));
+    let c = &m.control[0];
+    let (ee, offender) = extended_err(c);
+    assert_eq!(ee, (Errno::EMSGSIZE.0 as u32, 1, 0, 0));
+    assert_eq!(u32::from_le_bytes(c.data[8..12].try_into().unwrap()), 1500);
+    // `SO_EE_OFFENDER` is AF_UNSPEC for a local error.
+    assert_eq!(&offender[..2], &[0, 0]);
+    // A local error is no pending error.
+    assert_eq!(s.take_error(), None);
+
+    let rx6 = n6_udp(&nb);
+    rx6.bind(a("[::]:7010"), false).unwrap();
+    let s6 = n6_udp(&na);
+    s6.set_option(SOL_IPV6, Ipv6Option::IPV6_RECVERR.0, &int(1))
+        .unwrap();
+    let to6 = Some(a("[fd00:27::2]:7010"));
+    send_to(&*s6, &big[..1453], to6).unwrap();
+    s6.set_option(SOL_IPV6, Ipv6Option::IPV6_DONTFRAG.0, &int(1))
+        .unwrap();
+    assert_eq!(send_to(&*s6, &big[..1453], to6), Err(Errno::EMSGSIZE));
+    send_to(&*s6, &big[..1452], to6).unwrap();
+    let (_, m) = recv_error(&*s6, 64).unwrap();
+    assert_eq!(
+        extended_err(&m.control[0]).0,
+        (Errno::EMSGSIZE.0 as u32, 1, 0, 0)
+    );
+
+    // A raw socket's own IP header is never fragmented.
+    let r = raw_icmp(&na, Domain::Inet);
+    r.set_option(SOL_IP, IpOption::IP_HDRINCL.0, &int(1))
+        .unwrap();
+    let mut packet = vec![
+        0x45, 0, 0, 0, 0, 0, 0, 0, 64, 1, 0, 0, 0, 0, 0, 0, 10, 27, 0, 2,
+    ];
+    packet.extend(echo4(1, 1, &[0; 1480]));
+    assert_eq!(
+        send_to(&*r, &packet, Some(a("10.27.0.2:0"))),
+        Err(Errno::EMSGSIZE)
+    );
+}
+
+fn n6_udp(n: &Net) -> Arc<dyn Socket> {
+    n.socket(Domain::Inet6, SocketKind::Datagram, 0, UID)
+        .unwrap()
+}
