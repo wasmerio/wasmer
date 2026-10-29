@@ -124,9 +124,11 @@ pub fn initial_user_ns() -> Arc<dyn UserNs> {
     INITIAL.clone()
 }
 
-/// Whether `a` and `b` are the same user namespace.
+/// Whether `a` and `b` are the same user namespace. There is one initial user namespace: the
+/// [`InitialUserNs`] the VFS gives what it makes before a kernel exists, and the kernel's own,
+/// are both it.
 pub fn same_user_ns(a: &Arc<dyn UserNs>, b: &Arc<dyn UserNs>) -> bool {
-    std::ptr::addr_eq(Arc::as_ptr(a), Arc::as_ptr(b))
+    std::ptr::addr_eq(Arc::as_ptr(a), Arc::as_ptr(b)) || a.is_initial() && b.is_initial()
 }
 
 /// The identity a filesystem operation runs as.

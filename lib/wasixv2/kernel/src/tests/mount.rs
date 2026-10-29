@@ -345,6 +345,50 @@ fn mountinfo_shows_propagation_and_per_mount_flags() {
     assert!(!line.contains("shared:"));
 }
 
+/// Root's new mount namespace belongs to the initial user namespace, as the one it copies
+/// does, so its copies keep their propagation (`copy_mnt_ns` makes shared mounts slaves only
+/// for another user namespace, `CL_SHARED_TO_SLAVE`): a shared mount stays in its peer group.
+#[test]
+fn root_s_new_mount_namespace_keeps_shared_mounts_shared() {
+    let m = Machine::as_uid(0);
+    let vfs = m.kernel.vfs().clone();
+    m.mkdir("/a");
+    let tmpfs = Arc::new(MemFs::new(
+        Arc::new(HostClock(Arc::new(TestHost) as Arc<dyn Host>)),
+        0o1777,
+        0,
+        0,
+    ));
+    block_on(vfs.mount(b"/a", tmpfs, MountFlags::default(), false)).unwrap();
+    let root = vfs.root();
+    let cx = Ctx {
+        cred: &Cred::root(),
+        root: &root,
+        umask: 0,
+        task: 0,
+        leases: None,
+    };
+    let a = block_on(vfs.lookup(&cx, &root, b"/a", LookupFlags::follow())).unwrap();
+    let shared = MountOp::Propagation {
+        kind: Propagation::Shared,
+        recursive: false,
+    };
+    vfs.do_mount(vfs.namespace(), &a, shared).unwrap();
+    let group = |line: &str| line.split(' ').nth(6).unwrap().to_string();
+    let ours = group(&m.mountinfo("/a").unwrap());
+    assert!(ours.starts_with("shared:"), "{ours}");
+
+    let child = vfork(&m.kernel, &m.caller(), 0);
+    let child_caller = Caller::new(child, &m.memory);
+    let unshare = m
+        .kernel
+        .unshare(&child_caller, CloneFlags::CLONE_NEWNS.0 as u32);
+    assert_eq!(block_on(unshare), Ok(0));
+    let theirs = m.cat(&format!("/proc/{}/mountinfo", child.0));
+    let line = theirs.lines().find(|l| l.split(' ').nth(4) == Some("/a"));
+    assert_eq!(line.map(group), Some(ours), "{theirs}");
+}
+
 #[test]
 fn another_namespace_shows_its_own_mounts() {
     let m = Machine::as_uid(0);
