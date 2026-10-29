@@ -14,12 +14,10 @@ signals, preemption, task lifetime), the exec `Abi` registry, the WASIX v1 compa
 waits on the kernel futexes, and the userland fixes. `wasmer run` runs WASIX v2, WASIX v1 and WASI
 modules on the v2 kernel. tests `main` = `6405893`, libc2 `main` = `c26931b5`.
 
-Suite on `feat/wasixv2` `0bd23caafbb` (merge train 9; wasixv2-tests `89a2785`, libc2 `449e092e`,
-abi `f9958c7`, wasixcc `7ab1ffb`): 3053 pass, 725 expected failures, 0 unexpected, 940 ignored.
-
-Per suite (train 9's suite #2, before the last six flaky entries; pass / expected failures /
-unexpected): Open POSIX 1519/272/0, LTP 897/432/1 (nice05), libc-test 397/22/1 (malloc-brk-fail, host
-OOM), wasixv2 243/0/0.
+Suite on `feat/wasixv2` `8e19e34e15e` (merge train 10; wasixv2-tests `eb945b2`, libc2 `1e68cf76`,
+abi `340b9f3`, wasixcc `7ab1ffb`, userland `userland-3`): 3233 pass, 662 expected failures, 835 ignored,
+and one unexpected failure in the suite's own `ptimer-abstime`, a test flaw fixed in `eb945b2` (0
+unexpected on a filtered recheck).
 
 Smoke tests pass: v2 static-web-server (28/28); through the v1 compat layer
 wasmer/static-web-server, phpix/phpix-85-32bit (CLI and `-S` server), coreutils, cowsay,
@@ -94,12 +92,20 @@ points), and wasixcc's clone3 asyncify fix. Flaky (with reasons): nice05, epoll_
 and setenv-oom (host memory; fixed on `wasixv2/vmfill-commit`), tgkill01 (LTP in-process heartbeat
 SIGUSR1; being fixed), fs_inod01 (timeout under load).
 
-Merge train 10 (next): UTS/IPC/net namespaces, mount(2) family + mount namespaces + the new mount
-API, copy-on-write fork, `userland-3` (util-linux mount, tar/gzip/cpio/unzip, procps, psmisc; host
-triplet linux-musl), follow-ups 7 and 8 (pidfd on /proc dirs, RLIMIT_MEMLOCK, socket-netns ioctls,
-/proc/net/unix, console drain, lo down in new netns, kernel copies honour page protections,
-CLONE_PIDFD), runner asyncify detection for raw clone, the vmfill host-memory fix, the tgkill fix.
-Then pid namespaces.
+Merge train 10 has landed (`8e19e34e15e`): UTS/IPC/net namespaces, mount(2)/umount2/pivot_root/
+mount_setattr, mount namespaces with propagation, the new mount API and statmount/listmount,
+copy-on-write fork (32 MiB data: 0.13 MiB host RSS per child), reused pages dropped instead of written
+(t_vmfill 4.2 GB to ~45 MB), pidfd on /proc dirs, RLIMIT_MEMLOCK, socket-netns ioctls, /proc/net/unix,
+console drain on exit, lo down in new netns (SIOCSIFFLAGS/RTM_NEWLINK), kernel copies honour page
+protections (EFAULT on PROT_NONE/unmapped), CLONE_PIDFD, the tgkill/heartbeat fix (per-task signal
+pending, complete_signal targeting), and the new userland (util-linux mount, tar/gzip/cpio/unzip,
+procps, psmisc; host triplet linux-musl). LTP's fs_bind shell tests (99) now run.
+
+Merge train 11 (next): pid namespaces (+ runner registers *_NS kconfig tests), signal-driven I/O
+(F_SETOWN/O_ASYNC/SIGIO), libc2 fork-style clone(), follow-ups 9 (nr_open, net conf, CLONE_VFORK without
+CLONE_VM; CLONE_VM processes in progress), follow-ups 10 (LTP guarded buffers, stack-aware mlock
+accounting, msync EBUSY on locked pages, umount busy check, listmount fault), follow-ups 11 (TCP urgent
+data/SIGURG, dnotify, leases; in progress).
 
 Open follow-ups: memory accounting (local branch, paused by the user), fork copy-on-write (memory
 design phase 2b), `mmap/24-1` peaks at 8 GB, mlockall ignores RLIMIT_MEMLOCK (mlockall03), no `ldd`
