@@ -1722,3 +1722,100 @@ fn ipv6_icmp_sysctls_stop_echo_replies() {
         "0\n"
     );
 }
+
+/// The ICMP rate-limit sysctls read back what was written, `icmp/ratemask` as
+/// `proc_do_large_bitmap` does, and reach the namespace: once `icmp_ratemask` names echo
+/// replies and `icmp_msgs_per_sec` is 0, even loopback gets none (`icmp_reply` checks the
+/// global limit there too).
+#[test]
+fn icmp_rate_limit_sysctls_reach_the_namespace() {
+    use wasixv2_abi::MsgFlags;
+    let (kernel, task, memory) = networked();
+    let caller = Caller::new(task, &memory);
+    let v4 = "/proc/sys/net/ipv4/";
+    for (name, default) in [
+        ("icmp_ratelimit", "1000"),
+        ("icmp_ratemask", "6168"),
+        ("icmp_msgs_per_sec", "10000"),
+        ("icmp_msgs_burst", "10000"),
+    ] {
+        let path = format!("{v4}{name}");
+        assert_eq!(read_text(&kernel, &caller, &path), format!("{default}\n"));
+        assert_eq!(write_file(&kernel, &caller, &path, "7\n"), Ok(2));
+        assert_eq!(read_text(&kernel, &caller, &path), "7\n");
+        assert_eq!(
+            write_file(&kernel, &caller, &path, default),
+            Ok(default.len() as u32)
+        );
+    }
+    for name in ["icmp_msgs_per_sec", "icmp_msgs_burst"] {
+        let path = format!("{v4}{name}");
+        assert_eq!(
+            errno(write_file(&kernel, &caller, &path, "-1")),
+            Errno::EINVAL
+        );
+    }
+    let v6 = "/proc/sys/net/ipv6/icmp/";
+    assert_eq!(
+        read_text(&kernel, &caller, &format!("{v6}ratelimit")),
+        "100\n"
+    );
+    let mask = format!("{v6}ratemask");
+    assert_eq!(read_text(&kernel, &caller, &mask), "0-1,3-127\n");
+    assert_eq!(write_file(&kernel, &caller, &mask, "0,2-4,255\n"), Ok(10));
+    assert_eq!(read_text(&kernel, &caller, &mask), "0,2-4,255\n");
+    for bad in ["4-2", "256", "1-x", "-1"] {
+        assert_eq!(
+            errno(write_file(&kernel, &caller, &mask, bad)),
+            Errno::EINVAL
+        );
+    }
+    assert_eq!(write_file(&kernel, &caller, &mask, "\n"), Ok(1));
+    assert_eq!(read_text(&kernel, &caller, &mask), "\n");
+
+    assert_eq!(
+        write_file(&kernel, &caller, &format!("{v4}ping_group_range"), "0 0"),
+        Ok(3)
+    );
+    let p = block_on(kernel.socket(&caller, AddressFamily::AF_INET, DGRAM, 1)).unwrap();
+    let to = std::net::SocketAddr::new(std::net::Ipv4Addr::LOCALHOST.into(), 0);
+    put(&memory.0, 0x900, &crate::socket::encode(to));
+    put(&memory.0, 0xa00, &[8, 0, 0, 0, 0, 1, 0, 1]);
+    let ping = || {
+        let sent = block_on(kernel.sendto(
+            &caller,
+            p,
+            UserSlice::new(0xa00, 8),
+            MsgFlags(0),
+            GuestPtr::new(0x900),
+            16,
+        ));
+        assert_eq!(sent, Ok(8));
+        block_on(kernel.recvfrom(
+            &caller,
+            p,
+            UserSliceMut::new(0xb00, 64),
+            MsgFlags::MSG_DONTWAIT,
+            GuestPtrMut::NULL,
+            GuestPtrMut::NULL,
+        ))
+    };
+    assert_eq!(ping(), Ok(8));
+    assert_eq!(
+        write_file(&kernel, &caller, &format!("{v4}icmp_msgs_burst"), "2"),
+        Ok(1)
+    );
+    assert_eq!(
+        write_file(&kernel, &caller, &format!("{v4}icmp_ratemask"), "1"),
+        Ok(1)
+    );
+    assert_eq!(ping(), Ok(8));
+    assert_eq!(
+        write_file(&kernel, &caller, &format!("{v4}icmp_msgs_per_sec"), "0"),
+        Ok(1)
+    );
+    // The credit the first limited reply refilled runs out; none comes back.
+    let answered = (0..100).take_while(|_| ping().is_ok()).count();
+    assert!(answered < 100, "{answered}");
+    assert_eq!(errno(ping()), Errno::EAGAIN);
+}
