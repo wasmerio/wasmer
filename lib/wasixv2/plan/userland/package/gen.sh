@@ -16,7 +16,7 @@ is_wasm() { [ "$(head -c 4 "$1" | od -An -tx1 | tr -d ' ')" = 0061736d ]; }
 [package]
 name = "wasix-org/userland-v2"
 version = "0.1.0"
-description = "GNU bash, coreutils, grep, sed, gawk, findutils, diffutils, which, gzip, tar, cpio, bzip2, Info-ZIP unzip, util-linux, procps-ng and psmisc programs for WASIX v2 (asyncify builds)"
+description = "GNU bash, coreutils, grep, sed, gawk, findutils, diffutils, which, gzip, tar, cpio, bzip2, Info-ZIP unzip, util-linux, procps-ng, psmisc, iproute2 and net-tools programs for WASIX v2 (asyncify builds)"
 license = "GPL-3.0-or-later AND GPL-2.0-or-later AND LGPL-2.1-or-later AND bzip2-1.0.6 AND Info-ZIP"
 entrypoint = "bash"
 H
