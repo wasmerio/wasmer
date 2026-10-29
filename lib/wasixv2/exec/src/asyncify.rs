@@ -811,6 +811,7 @@ mod tests {
                 work: Arc::new(wasixv2_syscalls::WorkFlag::always()),
                 memory: None,
                 low_guard: 0,
+                main_stack: 0..0,
                 read_only: Arc::default(),
                 base: None,
                 page_access: None,
