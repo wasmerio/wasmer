@@ -326,11 +326,11 @@ fn sockets(ns: &NetNs, kind: SocketKind, v6: bool) -> Vec<u8> {
         };
         let _ = writeln!(
             out,
-            "{sl:4}: {} {} {state:02X} 00000000:00000000 00:00000000 00000000 {:5}        0 0",
+            "{sl:4}: {} {} {state:02X} 00000000:00000000 00:00000000 00000000 {:5}        0 {}",
             hex_addr(port.local),
             hex_addr(peer),
-            // TODO: the socket inode's owner (`sock_i_uid`); ports do not say whose they are.
-            0,
+            port.uid,
+            port.inode,
         );
     }
     out.into_bytes()

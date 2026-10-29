@@ -1098,6 +1098,92 @@ fn proc_sys_net_ipv4_conf_is_the_readers_network_namespace() {
     assert_eq!(read(&caller, "lo/tag"), "1\n");
 }
 
+/// `/proc/net/tcp` and `/proc/net/udp` give each socket's owner and the inode of its file
+/// (`sock_i_uid`, `sock_i_ino`), which `/proc/<pid>/fd` names, so `ss -p` and `netstat -p`
+/// find the process: a connection nobody accepted yet has no file, so inode 0.
+#[test]
+fn proc_net_tcp_and_udp_name_the_socket_inodes() {
+    let (kernel, task, memory) = networked();
+    let caller = Caller::new(task, &memory);
+    let ino = |fd: Fd| {
+        let link = readlink(&kernel, &caller, &format!("/proc/self/fd/{}", fd.0)).unwrap();
+        link.trim_start_matches("socket:[")
+            .trim_end_matches(']')
+            .to_string()
+    };
+    let at = |port: u16| {
+        let addr = std::net::SocketAddr::new([127, 0, 0, 1].into(), port);
+        put(&memory.0, 0x900, &crate::socket::encode(addr));
+        GuestPtr::new(0x900)
+    };
+    let inet =
+        |r#type| block_on(kernel.socket(&caller, AddressFamily::AF_INET, r#type, 0)).unwrap();
+    let listener = inet(STREAM);
+    assert_eq!(
+        block_on(kernel.bind(&caller, listener, at(7000), 16)),
+        Ok(0)
+    );
+    assert_eq!(block_on(kernel.listen(&caller, listener, 4)), Ok(0));
+    let client = inet(STREAM);
+    assert_eq!(
+        block_on(kernel.connect(&caller, client, at(7000), 16)),
+        Ok(0)
+    );
+    let udp_fd = inet(DGRAM);
+    assert_eq!(block_on(kernel.bind(&caller, udp_fd, at(7001), 16)), Ok(0));
+
+    // (local address, state, uid, inode) of each row.
+    let rows = |file: &str| -> Vec<[String; 4]> {
+        let text = read_text(&kernel, &caller, file);
+        text.lines()
+            .skip(1)
+            .map(|line| {
+                let f: Vec<&str> = line.split_whitespace().collect();
+                [f[1], f[3], f[7], f[9]].map(String::from)
+            })
+            .collect()
+    };
+    let row = |local: &str, state: &str, ino: String| {
+        [local, state, "0"]
+            .map(String::from)
+            .into_iter()
+            .chain([ino])
+            .collect::<Vec<_>>()
+    };
+    let tcp = rows("/proc/net/tcp");
+    let has = |rows: &[[String; 4]], want: Vec<String>| rows.iter().any(|r| r[..] == want[..]);
+    // The listener, the client, and the server end of the connection, which has no file yet.
+    assert!(
+        has(&tcp, row("0100007F:1B58", "0A", ino(listener))),
+        "{tcp:?}"
+    );
+    assert!(
+        tcp.iter().any(|r| r[1] == "01" && r[3] == ino(client)),
+        "{tcp:?}"
+    );
+    assert!(has(&tcp, row("0100007F:1B58", "01", "0".into())), "{tcp:?}");
+    assert_eq!(tcp.len(), 3);
+    let accepted = block_on(kernel.accept4(
+        &caller,
+        listener,
+        GuestPtrMut::NULL,
+        GuestPtrMut::NULL,
+        wasixv2_abi::SocketFlags(0),
+    ))
+    .unwrap();
+    let tcp = rows("/proc/net/tcp");
+    assert!(
+        has(&tcp, row("0100007F:1B58", "01", ino(accepted))),
+        "{tcp:?}"
+    );
+    let udp = rows("/proc/net/udp");
+    assert_eq!(udp.len(), 1);
+    assert!(
+        has(&udp, row("0100007F:1B59", "07", ino(udp_fd))),
+        "{udp:?}"
+    );
+}
+
 /// `ifconfig lo:1 10.1.2.3 netmask 255.255.0.0`, `ifconfig lo:1 down`, `ifconfig lo mtu`, and
 /// `ifconfig lo inet6 add` / `del` through the `SIOC*` requests ifconfig makes.
 #[test]

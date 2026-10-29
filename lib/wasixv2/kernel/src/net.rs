@@ -176,14 +176,10 @@ impl Kernel {
         if flags.contains(SocketFlags::SOCK_NONBLOCK) {
             status |= OpenFlags::O_NONBLOCK;
         }
+        let path = self.pseudo.socket(self.cred(caller).fs_owner());
+        socket.graft(path.dentry.node().ino());
         let object = Arc::new(SocketFile::new(socket, net, self.host.clone()));
-        let file = Arc::new(OpenFile::new(
-            Backing::Stream(
-                object.clone(),
-                self.pseudo.socket(self.cred(caller).fs_owner()),
-            ),
-            status,
-        ));
+        let file = Arc::new(OpenFile::new(Backing::Stream(object.clone(), path), status));
         if object.socket.kind() == SocketKind::Stream {
             object
                 .fasync

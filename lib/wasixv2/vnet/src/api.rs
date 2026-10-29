@@ -162,6 +162,11 @@ pub struct PortEntry {
     pub local: SocketAddr,
     pub peer: Option<SocketAddr>,
     pub listening: bool,
+    /// `sk_uid`, the owner the socket was made for (`sock_i_uid`).
+    pub uid: u32,
+    /// The inode of the socket's file (`sock_i_ino`), 0 while it has none: a connection still
+    /// in the accept queue.
+    pub inode: u64,
 }
 
 /// A network interface as netlink, `SIOCGIF*`, `getifaddrs` and `/proc/net` show it.
@@ -447,6 +452,12 @@ pub trait Socket: Pollable {
     /// the guest's `optlen`, at most what the kernel copies back) and returns its length;
     /// Linux truncates most values to `optlen` rather than failing.
     fn get_option(&self, level: i32, name: i32, out: &mut [u8]) -> Result<usize, Errno>;
+
+    /// `sock_graft`: the kernel made the socket a file whose inode is `ino`, which the port
+    /// table reports ([`PortEntry::inode`]).
+    fn graft(&self, ino: u64) {
+        let _ = ino;
+    }
 }
 
 /// A published UDP port: the endpoint bound to it and the handle that keeps it published.

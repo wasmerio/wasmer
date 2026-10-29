@@ -4,7 +4,10 @@
 use std::{
     collections::VecDeque,
     net::{IpAddr, Ipv4Addr, SocketAddr},
-    sync::{Arc, Mutex, MutexGuard, Weak},
+    sync::{
+        Arc, Mutex, MutexGuard, Weak,
+        atomic::{AtomicU64, Ordering},
+    },
 };
 
 use wasixv2_abi::{
@@ -86,6 +89,8 @@ pub struct UdpSocket {
     domain: Domain,
     /// `sk_uid`, for `SO_REUSEPORT`.
     uid: u32,
+    /// `sock_i_ino`: the inode of the socket's file, 0 until it has one.
+    ino: AtomicU64,
     wq: WaitQueue,
     me: Weak<UdpSocket>,
     inner: Mutex<Inner>,
@@ -101,6 +106,7 @@ impl UdpSocket {
             id,
             domain,
             uid,
+            ino: AtomicU64::new(0),
             wq: WaitQueue::new(),
             me: me.clone(),
             inner: Mutex::new(Inner {
@@ -165,6 +171,8 @@ impl UdpSocket {
             local: present(self.domain, g.local?),
             peer: g.peer.map(|p| present(self.domain, p)),
             listening: false,
+            uid: self.uid,
+            inode: self.ino.load(Ordering::Relaxed),
         })
     }
 
@@ -804,6 +812,10 @@ impl Socket for UdpSocket {
             );
         }
         Ok(())
+    }
+
+    fn graft(&self, ino: u64) {
+        self.ino.store(ino, Ordering::Relaxed);
     }
 
     fn get_option(&self, level: i32, name: i32, out: &mut [u8]) -> NetResult<usize> {
