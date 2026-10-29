@@ -505,7 +505,10 @@ impl Kernel {
         status: i32,
         stop: bool,
     ) {
-        let (Some(them), Some(me)) = (self.task_process(tracer), self.task_process(task)) else {
+        // `delay_group_leader`: the leader's instance may be gone while another thread
+        // finishes. Its process remains in the tree until the zombie is reaped.
+        let tracee = self.task_process(task).or_else(|| self.procs.find(task.0));
+        let (Some(them), Some(me)) = (self.task_process(tracer), tracee) else {
             return;
         };
         let Some(signals) = self.group_signals(them.pid.0) else {
