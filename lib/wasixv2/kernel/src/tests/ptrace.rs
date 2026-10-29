@@ -1433,3 +1433,166 @@ fn a_released_leader_still_notifies_its_tracer_at_group_exit() {
     );
     assert_eq!(wait(kernel, &caller, leader, WALL).unwrap().1, 3);
 }
+
+#[test]
+fn forced_ptrace_copies_distinguish_holes_private_protection_and_shared_readonly() {
+    use wasixv2_abi::{MapFlags, ProtFlags};
+    let (stack, parent, memory) = machine();
+    let kernel = &stack.inner;
+    let caller = Caller::new(parent, &memory);
+    let child = fork_child(kernel, &caller);
+    let local = FlatMemory(RefCell::new(vec![0; 2 * 65536]));
+    let cc = Caller::new(child, &local);
+    let private = block_on(kernel.mmap(
+        &cc,
+        0,
+        65536,
+        ProtFlags(0),
+        MapFlags::MAP_PRIVATE | MapFlags::MAP_ANONYMOUS,
+        Fd(-1),
+        0,
+    ))
+    .unwrap();
+    let fd = super::mapping::open(
+        kernel,
+        &cc,
+        b"/remote-shared",
+        OpenFlags::O_CREAT | OpenFlags::O_RDWR,
+    );
+    let shared_at = block_on(kernel.mmap(
+        &cc,
+        0,
+        65536,
+        ProtFlags::PROT_READ,
+        MapFlags::MAP_SHARED,
+        fd,
+        0,
+    ))
+    .unwrap();
+    let remote = SyncMemory::new(block_on(local.size()) as usize, 0);
+    kernel.attach_memory(child, remote.clone());
+    assert_eq!(
+        ptrace(kernel, &caller, R::PTRACE_ATTACH, child, 0, 0),
+        Ok(0)
+    );
+    assert_eq!(kernel.take_pending(child), Some(GuestAction::Stopped));
+    // FOLL_FORCE permits access to private PROT_NONE pages, including COW writes.
+    assert_eq!(
+        ptrace(kernel, &caller, R::PTRACE_POKEDATA, child, private, 123),
+        Ok(0)
+    );
+    assert_eq!(
+        ptrace(kernel, &caller, R::PTRACE_PEEKDATA, child, private, 0x600),
+        Ok(0)
+    );
+    assert_eq!(get(&memory.0, 0x600, 4), 123u32.to_le_bytes());
+    assert_eq!(
+        errno(ptrace(
+            kernel,
+            &caller,
+            R::PTRACE_POKEDATA,
+            child,
+            shared_at,
+            123
+        )),
+        Errno::EIO,
+        "forced writes must not dirty a shared non-writable mapping"
+    );
+    assert_eq!(
+        block_on(kernel.mprotect(&cc, shared_at, 65536, ProtFlags(3))),
+        Ok(0)
+    );
+    assert_eq!(
+        ptrace(kernel, &caller, R::PTRACE_POKEDATA, child, shared_at, 456),
+        Ok(0)
+    );
+    assert_eq!(
+        block_on(kernel.mprotect(&cc, shared_at, 65536, ProtFlags(0))),
+        Ok(0)
+    );
+    assert_eq!(
+        ptrace(kernel, &caller, R::PTRACE_PEEKDATA, child, shared_at, 0x600),
+        Ok(0)
+    );
+    assert_eq!(
+        errno(ptrace(
+            kernel,
+            &caller,
+            R::PTRACE_POKEDATA,
+            child,
+            shared_at,
+            789
+        )),
+        Errno::EIO
+    );
+    assert_eq!(block_on(kernel.munmap(&cc, private, 65536)), Ok(0));
+    for request in [R::PTRACE_PEEKDATA, R::PTRACE_POKEDATA] {
+        assert_eq!(
+            errno(ptrace(kernel, &caller, request, child, private, 0x600)),
+            Errno::EIO,
+            "an unmapped hole"
+        );
+    }
+}
+
+#[test]
+fn proc_pid_mem_returns_eio_for_unmapped_holes() {
+    use wasixv2_abi::{MapFlags, ProtFlags};
+    let (stack, parent, memory) = machine();
+    let kernel = &stack.inner;
+    block_on(kernel.vfs().mount(
+        b"/proc",
+        kernel.procfs(),
+        wasixv2_vfs::MountFlags::default(),
+        true,
+    ))
+    .unwrap();
+    let caller = Caller::new(parent, &memory);
+    let child = fork_child(kernel, &caller);
+    let local = FlatMemory(RefCell::new(vec![0; 2 * 65536]));
+    let cc = Caller::new(child, &local);
+    let at = block_on(kernel.mmap(
+        &cc,
+        0,
+        65536,
+        ProtFlags(3),
+        MapFlags::MAP_PRIVATE | MapFlags::MAP_ANONYMOUS,
+        Fd(-1),
+        0,
+    ))
+    .unwrap();
+    let remote = SyncMemory::new(block_on(local.size()) as usize, 0);
+    kernel.attach_memory(child, remote);
+    put(
+        &memory.0,
+        0x2000,
+        format!("/proc/{}/mem\0", child.0).as_bytes(),
+    );
+    let fd = block_on(kernel.openat(
+        &caller,
+        Fd(-100),
+        GuestPtr::new(0x2000),
+        OpenFlags::O_RDWR,
+        0,
+    ))
+    .unwrap();
+    assert_eq!(block_on(kernel.munmap(&cc, at, 65536)), Ok(0));
+    assert_eq!(
+        errno(block_on(kernel.pread64(
+            &caller,
+            fd,
+            UserSliceMut::new(0x1000, 4),
+            at.into()
+        ))),
+        Errno::EIO
+    );
+    assert_eq!(
+        errno(block_on(kernel.pwrite64(
+            &caller,
+            fd,
+            UserSlice::new(0x1000, 4),
+            at.into()
+        ))),
+        Errno::EIO
+    );
+}
