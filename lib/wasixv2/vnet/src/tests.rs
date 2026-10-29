@@ -3514,3 +3514,78 @@ fn raw_ipv6_receive_options_and_legacy_control() {
         .unwrap();
     assert_eq!(out, [0; 4]);
 }
+
+#[test]
+fn tcp_dns_stream_honors_cork_and_flushes_on_fin() {
+    use crate::dns::tests::query;
+    let (n, resolver) = with_resolver(NetConfig::host_default());
+    let c = tcp(&n);
+    assert_eq!(c.connect(a(DNS)), Err(Errno::EINPROGRESS));
+    let q = query(7, "cork.example", TYPE_A, None);
+    let mut frame = (q.len() as u16).to_be_bytes().to_vec();
+    frame.extend(q);
+    c.send(SendMsg {
+        data: &frame,
+        to: None,
+        flags: MsgFlags::MSG_MORE,
+        control: &[],
+        net_raw: false,
+        now: Duration::ZERO,
+    })
+    .unwrap();
+    assert!(resolver.questions().is_empty());
+    c.cork_expire();
+    assert_eq!(resolver.questions().len(), 1);
+    resolver.answer(addrs("cork.example", &["1.2.3.4"], 30));
+    assert!(!recv(&*c, 512).unwrap().is_empty());
+    c.send(SendMsg {
+        data: &frame,
+        to: None,
+        flags: MsgFlags::MSG_MORE,
+        control: &[],
+        net_raw: false,
+        now: Duration::ZERO,
+    })
+    .unwrap();
+    assert!(resolver.questions().is_empty());
+    c.shutdown(Shutdown::Write).unwrap();
+    assert_eq!(resolver.questions().len(), 1);
+    resolver.answer(addrs("cork.example", &["1.2.3.4"], 30));
+    let c = tcp(&n);
+    assert_eq!(c.connect(a(DNS)), Err(Errno::EINPROGRESS));
+    c.send(SendMsg {
+        data: &frame,
+        to: None,
+        flags: MsgFlags::MSG_MORE,
+        control: &[],
+        net_raw: false,
+        now: Duration::ZERO,
+    })
+    .unwrap();
+    assert!(resolver.questions().is_empty());
+    drop(c);
+    assert_eq!(resolver.questions().len(), 1);
+    resolver.answer(addrs("cork.example", &["1.2.3.4"], 30));
+    let c = tcp(&n);
+    assert_eq!(c.connect(a(DNS)), Err(Errno::EINPROGRESS));
+    c.set_option(
+        1,  /* SOL_SOCKET */
+        13, /* SO_LINGER */
+        &[1, 0, 0, 0, 0, 0, 0, 0],
+    )
+    .unwrap();
+    c.send(SendMsg {
+        data: &frame,
+        to: None,
+        flags: MsgFlags::MSG_MORE,
+        control: &[],
+        net_raw: false,
+        now: Duration::ZERO,
+    })
+    .unwrap();
+    drop(c);
+    assert!(
+        resolver.questions().is_empty(),
+        "an abort discards corked bytes"
+    );
+}

@@ -684,6 +684,10 @@ struct ConnState {
     err: Option<Errno>,
     /// What the client sent of a query that is not whole yet.
     query: Vec<u8>,
+    /// Prefix delivered by TCP; bytes after it are still held by MSG_MORE/TCP_CORK.
+    ready: usize,
+    /// SO_LINGER zero requests reset rather than an orderly close.
+    abort: bool,
     /// Answers for the client, length prefixes included.
     out: VecDeque<u8>,
     pending: usize,
@@ -779,22 +783,47 @@ impl BackendStream for DnsStream {
 
     /// Takes what fits of a query and answers each query it completes.
     fn write(&self, data: &[u8]) -> NetResult<usize> {
+        self.write_more(data, false, 1460)
+    }
+
+    fn push(&self) {
+        let _ = self.write_more(&[], false, 1);
+    }
+
+    fn corked_len(&self) -> usize {
+        let st = self.0.st.lock_or_recover();
+        st.query.len() - st.ready
+    }
+
+    fn output_len(&self) -> usize {
+        self.corked_len()
+    }
+
+    /// tcp_push applies to this internal TCP peer too: parse only released bytes.
+    fn write_more(&self, data: &[u8], more: bool, mss: usize) -> NetResult<usize> {
         let (n, queries) = {
             let mut st = self.0.st.lock_or_recover();
             if st.refused || st.fin {
                 return Err(st.err.take().unwrap_or(Errno::EPIPE));
             }
-            if st.pending >= MAX_PENDING {
+            if st.pending >= MAX_PENDING && !data.is_empty() {
                 return Err(Errno::EAGAIN);
             }
             let n = data.len().min(FRAME_MAX - st.query.len());
             st.query.extend_from_slice(&data[..n]);
+            let held = st.query.len() - st.ready;
+            st.ready += if more {
+                held / mss.max(1) * mss.max(1)
+            } else {
+                held
+            };
             let mut queries = Vec::new();
             while let Some(len) = read_u16(&st.query, 0).map(usize::from)
-                && st.query.len() >= 2 + len
+                && st.ready >= 2 + len
             {
                 queries.push(st.query[2..2 + len].to_vec());
                 st.query.drain(..2 + len);
+                st.ready -= 2 + len;
             }
             st.pending += queries.len();
             (n, queries)
@@ -823,7 +852,10 @@ impl BackendStream for DnsStream {
             return Ok(0);
         };
         let n = match inband.is_empty() {
-            true => 0,
+            true => {
+                self.push();
+                0
+            }
             false => self.write(inband)?,
         };
         Ok(if n == inband.len() { n + 1 } else { n })
@@ -839,6 +871,9 @@ impl BackendStream for DnsStream {
     }
 
     fn shutdown(&self, how: Shutdown) -> NetResult<()> {
+        if how != Shutdown::Read {
+            self.push();
+        }
         let mut st = self.0.st.lock_or_recover();
         if how != Shutdown::Write {
             st.rd_shut = true;
@@ -860,8 +895,36 @@ impl BackendStream for DnsStream {
         self.0.peer
     }
 
+    fn set_option(&self, level: i32, name: i32, value: &[u8]) -> NetResult<()> {
+        if (level, name)
+            == (
+                wasixv2_abi::SocketLevel::SOL_SOCKET.0,
+                wasixv2_abi::SocketOption::SO_LINGER.0,
+            )
+        {
+            if value.len() < 8 {
+                return Err(Errno::EINVAL);
+            }
+            let on = crate::opts::read_int(value)?;
+            let secs = crate::opts::read_int(&value[4..])?;
+            self.0.st.lock_or_recover().abort = on != 0 && secs == 0;
+        }
+        Ok(())
+    }
+
     fn input_len(&self) -> usize {
         self.0.st.lock_or_recover().out.len()
+    }
+}
+
+impl Drop for DnsStream {
+    fn drop(&mut self) {
+        let st = self.0.st.lock_or_recover();
+        let abort = st.abort || !st.out.is_empty();
+        drop(st);
+        if !abort {
+            self.push();
+        }
     }
 }
 
