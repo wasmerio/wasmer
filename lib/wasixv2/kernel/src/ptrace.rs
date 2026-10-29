@@ -344,6 +344,8 @@ pub(crate) struct TaskTrace {
     pub(crate) vfork_done: Option<TaskId>,
     /// `do_exit` reports its exit event once, before leaving the mm.
     pub(crate) exit_reported: bool,
+    /// A non-leader exec reports its old tid when the leader starts the new image.
+    pub(crate) exec_event: Option<wasixv2_abi::Pid>,
 }
 
 /// A stop the return-to-guest path entered, which the execution layer waits in
@@ -1307,6 +1309,58 @@ impl Kernel {
                 .with_trace(parent, |trace| trace.vfork_done = Some(child));
             self.work_flag(parent).raise();
         }
+    }
+
+    /// fs/exec.c `de_thread`: the exec'ing thread keeps its ptrace relationship under the
+    /// leader's pid; the old leader disappears without an exit report.
+    pub(crate) fn ptrace_exec_leader(&self, task: TaskId, leader: TaskId) {
+        let signals = self.task_signals(leader);
+        let mut map = self.tracees.lock();
+        map.remove(&leader);
+        if let Some(mut tracee) = map.remove(&task) {
+            tracee.signals = signals;
+            map.insert(leader, tracee);
+        }
+        let detached: Vec<_> = map
+            .iter()
+            .filter(|(_, t)| t.tracer == leader)
+            .map(|(&id, _)| id)
+            .collect();
+        let detached: Vec<_> = detached
+            .into_iter()
+            .filter_map(|id| map.remove(&id).map(|t| (id, t)))
+            .collect();
+        for tracee in map.values_mut().filter(|t| t.tracer == task) {
+            tracee.tracer = leader;
+        }
+        // Each link is per tid, including tracees that are not their group's leader.
+        for (&id, tracee) in map.iter().filter(|(_, t)| t.tracer == leader) {
+            tracee.signals.group().with_trace(id, |t| {
+                if let Some(link) = &mut t.link {
+                    link.tracer = leader;
+                }
+            });
+        }
+        drop(map);
+        for (id, tracee) in detached {
+            let exitkill = tracee
+                .signals
+                .group()
+                .with_trace(id, |t| t.link)
+                .flatten()
+                .is_some_and(|l| l.has(wasixv2_abi::PtraceOptions::PTRACE_O_EXITKILL));
+            if exitkill {
+                tracee
+                    .signals
+                    .group()
+                    .send_task_kernel(id, wasixv2_abi::Signal::SIGKILL.0);
+            }
+            tracee.signals.group().ptrace_unlink(id, None);
+            if tracee.exit.is_some() && id == tracee.process.pid {
+                self.ptrace_notify_parent(id.0, None);
+            }
+        }
+        self.procs.changed.wake(wasixv2_wait::PollMask::empty());
     }
 
     /// What `execve` owes a traced caller once it committed (`exec_binprm`): with

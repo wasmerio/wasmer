@@ -863,6 +863,10 @@ impl Kernel {
             forget_task(&mut state, child);
         }
         process.group.state.lock_or_recover().live = 1;
+        drop(state);
+        if task != leader {
+            self.ptrace_exec_leader(task, leader);
+        }
         leader
     }
 
@@ -925,9 +929,20 @@ impl Kernel {
             });
             (!others).then_some(Ok(()))
         };
-        wait_event(&process.group.released, alone, &NoInterrupt)
+        let result = wait_event(&process.group.released, alone, &NoInterrupt)
             .await
-            .expect("NoInterrupt never interrupts")
+            .expect("NoInterrupt never interrupts");
+        if result.is_ok() {
+            let old_vpid = self
+                .task_signals(task)
+                .group()
+                .with_trace(task, |trace| trace.exec_event.take())
+                .flatten();
+            if let Some(old_vpid) = old_vpid {
+                self.ptrace_exec_event(task, old_vpid).await;
+            }
+        }
+        result
     }
 
     /// The futex state of every task of `task`'s thread group that has not exited, with its
