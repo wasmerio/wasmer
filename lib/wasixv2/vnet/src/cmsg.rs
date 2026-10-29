@@ -49,6 +49,8 @@ pub(crate) struct SendCtl {
     /// `IP_TTL` / `IPV6_HOPLIMIT`: the datagram's hop limit, if given (`ipc->ttl`,
     /// `ipc6->hlimit`).
     pub ttl: Option<u8>,
+    /// `IPV6_DONTFRAG` (`ipc6->dontfrag`), if given.
+    pub dontfrag: Option<bool>,
 }
 
 fn int(c: &Control) -> NetResult<i32> {
@@ -268,9 +270,11 @@ fn ip6(controls: &[Control], net_raw: bool) -> NetResult<SendCtl> {
                 }
             }
             k if k == Ipv6Option::IPV6_DONTFRAG.0 => {
-                if !(0..=1).contains(&int(c)?) {
+                let v = int(c)?;
+                if !(0..=1).contains(&v) {
                     return Err(Errno::EINVAL);
                 }
+                ctl.dontfrag = Some(v == 1);
             }
             _ => return Err(Errno::EINVAL),
         }

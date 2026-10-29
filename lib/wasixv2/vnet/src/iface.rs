@@ -579,8 +579,9 @@ pub(crate) enum Via {
     Uplink,
     /// A veth end, to the namespace at its other end.
     Veth(VethEnd),
-    /// A link where nothing answers: a dummy, or a veth without carrier.
-    Nowhere,
+    /// A link where nothing answers: a dummy, or a veth without carrier, where neighbour
+    /// resolution fails (`unresolved`; a dummy is `IFF_NOARP` and drops what it is given).
+    Nowhere { unresolved: bool },
 }
 
 /// What a route lookup decided for a destination.
@@ -1515,7 +1516,8 @@ impl Interfaces {
                 LinkKind::Loopback => Via::Local,
                 LinkKind::Uplink => Via::Uplink,
                 LinkKind::Veth(end) if link.carrier() => Via::Veth(end.clone()),
-                LinkKind::Veth(_) | LinkKind::Dummy => Via::Nowhere,
+                LinkKind::Veth(_) => Via::Nowhere { unresolved: true },
+                LinkKind::Dummy => Via::Nowhere { unresolved: false },
             };
             return Ok(RouteDecision {
                 oif: r.oif,

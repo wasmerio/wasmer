@@ -34,6 +34,7 @@ use crate::{
     addr::{canonical_ip, present, unbound},
     bpf::{Arrival, PACKET_HOST, PACKET_LOOPBACK, PACKET_MULTICAST, SockFilter},
     cmsg::{self, SendCtl},
+    iface::LOOPBACK_INDEX,
     net::{IpPath, Net},
     opts::{SockOpts, read_int, write_bytes, write_int},
     ports::SockId,
@@ -51,11 +52,13 @@ const ICMP_ECHO: u8 = 8;
 const ICMP_TIME_EXCEEDED: u8 = 11;
 const ICMP_PARAMETERPROB: u8 = 12;
 pub(crate) const ICMP_PORT_UNREACH: u8 = 3;
+const ICMP_HOST_UNREACH: u8 = 1;
 const ICMPV6_DEST_UNREACH: u8 = 1;
 const ICMPV6_PKT_TOOBIG: u8 = 2;
 const ICMPV6_TIME_EXCEED: u8 = 3;
 const ICMPV6_PARAMPROB: u8 = 4;
 pub(crate) const ICMPV6_PORT_UNREACH: u8 = 4;
+const ICMPV6_ADDR_UNREACH: u8 = 3;
 const ICMPV6_ECHO_REQUEST: u8 = 128;
 const ICMPV6_ECHO_REPLY: u8 = 129;
 
@@ -75,7 +78,7 @@ const DEFAULT_TTL: u8 = 64;
 const OVERHEAD: usize = 768;
 /// The ICMP header: type, code, checksum, and the identifier and sequence of an echo.
 const ICMP_HDR: usize = 8;
-const IPV4_HDR: usize = 20;
+pub(crate) const IPV4_HDR: usize = 20;
 pub(crate) const IPV6_HDR: usize = 40;
 pub(crate) const UDP_HDR: usize = 8;
 /// How much of the offending packet an ICMP error quotes (`icmp_send`: 576 bytes of error
@@ -334,38 +337,38 @@ pub(crate) fn udp_error(
     payload: &[u8],
 ) -> IcmpMsg {
     let udp = udp_datagram(src, dst, payload);
-    let udp_len = udp.len();
-    let (header, room): (Vec<u8>, usize) = match dst.ip() {
+    quote_error(type_, code, from, src.ip(), dst.ip(), IPPROTO_UDP, &udp)
+}
+
+/// The ICMP error `type_`/`code` sent from `from` about a packet of protocol `proto` from
+/// `src` to `dst` carrying `transport`, quoting its IP header and as much of the rest as
+/// fits.
+fn quote_error(
+    type_: u8,
+    code: u8,
+    from: IpAddr,
+    src: IpAddr,
+    dst: IpAddr,
+    proto: u8,
+    transport: &[u8],
+) -> IcmpMsg {
+    let len = transport.len();
+    let (header, room): (Vec<u8>, usize) = match dst {
         IpAddr::V4(_) => (
-            ipv4_header(
-                v4(src.ip()),
-                v4(dst.ip()),
-                IPPROTO_UDP,
-                DEFAULT_TTL,
-                udp_len,
-                0,
-            )
-            .to_vec(),
+            ipv4_header(v4(src), v4(dst), proto, DEFAULT_TTL, len, 0).to_vec(),
             ICMP_ERR_ROOM,
         ),
         IpAddr::V6(_) => (
-            ipv6_header(
-                v6(src.ip()),
-                v6(dst.ip()),
-                IPPROTO_UDP,
-                DEFAULT_TTL,
-                udp_len,
-            )
-            .to_vec(),
+            ipv6_header(v6(src), v6(dst), proto, DEFAULT_TTL, len).to_vec(),
             ICMP6_ERR_ROOM,
         ),
     };
     let mut data = vec![type_, code, 0, 0, 0, 0, 0, 0];
-    data.extend(header.iter().chain(&udp).take(room));
-    set_checksum(from, src.ip(), &mut data, 2);
+    data.extend(header.iter().chain(transport).take(room));
+    set_checksum(from, src, &mut data, 2);
     IcmpMsg {
         src: from,
-        dst: src.ip(),
+        dst: src,
         ttl: DEFAULT_TTL,
         data,
     }
@@ -607,15 +610,26 @@ impl Net {
 
     /// Sends an ICMP message along `path` (the route a socket looked up).
     fn icmp_deliver(&self, msg: IcmpMsg, path: IpPath) {
-        if let IpPath::Local {
-            net, iif, back_iif, ..
-        } = path
-        {
-            let back = Back {
-                net: self.arc(),
-                iif: back_iif,
-            };
-            net.icmp_input(msg, iif, back);
+        match path {
+            IpPath::Local {
+                net, iif, back_iif, ..
+            } => {
+                let back = Back {
+                    net: self.arc(),
+                    iif: back_iif,
+                };
+                net.icmp_input(msg, iif, back);
+            }
+            IpPath::Nowhere {
+                unresolved: true, ..
+            } => {
+                let proto = match msg.dst {
+                    IpAddr::V4(_) => IPPROTO_ICMP,
+                    IpAddr::V6(_) => IPPROTO_ICMPV6,
+                } as u8;
+                self.neighbour_failed(msg.src, msg.dst, proto, &msg.data);
+            }
+            _ => {}
         }
     }
 
@@ -647,6 +661,38 @@ impl Net {
         let socks = self.state().icmp.sockets();
         let socks: Vec<_> = socks.iter().filter_map(Weak::upgrade).collect();
         socks.iter().map(|s| s.entry()).collect()
+    }
+
+    /// `arp_error_report` and `ip6_link_failure`: a packet of protocol `proto` from `src`
+    /// to `dst` whose next hop no neighbour answers for comes back from the sender's own
+    /// address as a host (address) unreachable quoting it, through loopback. Linux sends it
+    /// once resolution gives up; here it comes at once. Never about an ICMP error
+    /// (`icmp_pointers[].error`, `is_ineligible`) or to a group.
+    pub(crate) fn neighbour_failed(&self, src: IpAddr, dst: IpAddr, proto: u8, transport: &[u8]) {
+        let v6 = dst.is_ipv6();
+        let icmp_error = match (v6, transport.first()) {
+            (false, Some(t)) if i32::from(proto) == IPPROTO_ICMP => {
+                matches!(
+                    *t,
+                    ICMP_DEST_UNREACH | 4 | 5 | ICMP_TIME_EXCEEDED | ICMP_PARAMETERPROB
+                )
+            }
+            (true, Some(t)) if i32::from(proto) == IPPROTO_ICMPV6 => *t < 128,
+            _ => false,
+        };
+        if icmp_error || dst.is_multicast() || src.is_unspecified() {
+            return;
+        }
+        let (type_, code) = match v6 {
+            false => (ICMP_DEST_UNREACH, ICMP_HOST_UNREACH),
+            true => (ICMPV6_DEST_UNREACH, ICMPV6_ADDR_UNREACH),
+        };
+        let msg = quote_error(type_, code, src, src, dst, proto, transport);
+        let back = Back {
+            net: self.arc(),
+            iif: LOOPBACK_INDEX,
+        };
+        self.icmp_input(msg, LOOPBACK_INDEX, back);
     }
 
     /// `net.ipv4.icmp_echo_ignore_all` (`broadcasts` false) or
@@ -943,6 +989,45 @@ impl IcmpSocket {
         g.err = Some(q.errno);
         drop(g);
         self.wq.wake(PollMask::ERR);
+    }
+
+    /// `__ip_append_data`/`__ip6_append_data`'s size check of a message of `len` bytes to
+    /// `dst` out a link of `mtu`: `EMSGSIZE` when it may not be fragmented and does not fit,
+    /// with a local error naming the MTU queued under `IP_RECVERR` (`ip_local_error`,
+    /// `ipv6_local_error`). What `IP_HDRINCL` sends is never fragmented and already holds its
+    /// IP header (`raw_send_hdrinc`).
+    fn check_mtu(
+        &self,
+        g: &mut Inner,
+        dst: IpAddr,
+        mtu: Option<u32>,
+        len: usize,
+        dontfrag: Option<bool>,
+    ) -> NetResult<()> {
+        let Some(mtu) = mtu.map(|m| m as usize) else {
+            return Ok(());
+        };
+        let v6 = self.v6();
+        let fits = match self.raw && g.hdrincl {
+            true => len <= mtu,
+            false => {
+                let header = if v6 { IPV6_HDR } else { IPV4_HDR };
+                len + header <= mtu || !g.opts.dont_fragment(v6, dontfrag)
+            }
+        };
+        if fits {
+            return Ok(());
+        }
+        let recverr = match v6 {
+            false => g.opts.flag(SOL_IP, IpOption::IP_RECVERR.0),
+            true => g.opts.flag(SOL_IPV6, Ipv6Option::IPV6_RECVERR.0),
+        };
+        if recverr && g.queued + OVERHEAD < g.opts.rcvbuf {
+            g.queued += OVERHEAD;
+            let e = QueuedError::local(Errno::EMSGSIZE, mtu as u32, dst, g.dport);
+            g.errqueue.push_back(e);
+        }
+        Err(Errno::EMSGSIZE)
     }
 
     /// The pending error, else the backend endpoint's.
@@ -1395,12 +1480,16 @@ impl Socket for IcmpSocket {
                 return Err(Errno::EACCES);
             }
             let path = self.net.ip_path(dst, src_wanted)?;
+            let mtu = self.net.mtu_to(dst);
+            self.check_mtu(&mut g, dst, mtu, msg.data.len(), ctl.dontfrag)?;
             let ttl = hdr_ttl.or(ctl.ttl).unwrap_or_else(|| self.unicast_ttl(&g));
             return self.send_unicast(g, data, dst, ttl, ident, path, msg.data.len());
         }
         let (mc_oif, mc_src) = g.opts.mc.interface(dst);
         let oif = if oif != 0 { oif } else { mc_oif };
         let route = self.net.mc_route(dst, oif, src_wanted.or(mc_src))?;
+        let mtu = self.net.link_mtu(route.oif);
+        self.check_mtu(&mut g, dst, mtu, msg.data.len(), ctl.dontfrag)?;
         let (ttl, looped) = g.opts.mc.ttl_loop(dst);
         let ttl = hdr_ttl.or(ctl.ttl).unwrap_or(ttl);
         if let Some(e) = Self::take_err(&mut g) {

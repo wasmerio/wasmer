@@ -36,6 +36,9 @@ const SOL_SOCKET: i32 = SocketLevel::SOL_SOCKET.0;
 const SOL_IP: i32 = SocketLevel::SOL_IP.0;
 const SOL_IPV6: i32 = SocketLevel::SOL_IPV6.0;
 const SOL_TCP: i32 = SocketLevel::SOL_TCP.0;
+/// `IP_PMTUDISC_DO` and `IP_PMTUDISC_OMIT`, which IPv6's `IPV6_PMTUDISC_*` share.
+const PMTUDISC_DO: i32 = 2;
+const PMTUDISC_OMIT: i32 = 5;
 
 /// What a successful `setsockopt` changed that the socket must act on.
 #[derive(Debug, PartialEq, Eq)]
@@ -254,6 +257,22 @@ impl SockOpts {
         self.int(level, name) != 0
     }
 
+    /// Whether a datagram to an address of the family `v6` leaves unfragmented, so that one
+    /// larger than its link's MTU is `EMSGSIZE`: `ip_sk_ignore_df` and `ip6_sk_ignore_df`
+    /// false (`IP_PMTUDISC_DO`, `PROBE`, `INTERFACE`), or for IPv6 `IPV6_DONTFRAG`, the
+    /// option or `dontfrag` from the control messages.
+    pub(crate) fn dont_fragment(&self, v6: bool, dontfrag: Option<bool>) -> bool {
+        let (level, name) = match v6 {
+            false => (SOL_IP, IpOption::IP_MTU_DISCOVER.0),
+            true => (SOL_IPV6, Ipv6Option::IPV6_MTU_DISCOVER.0),
+        };
+        let pmtudisc = self.int(level, name);
+        let df = pmtudisc >= PMTUDISC_DO && pmtudisc != PMTUDISC_OMIT;
+        let dontfrag =
+            v6 && dontfrag.unwrap_or_else(|| self.flag(SOL_IPV6, Ipv6Option::IPV6_DONTFRAG.0));
+        df || dontfrag
+    }
+
     /// The hop limit of a unicast packet: `IP_TTL`/`IPV6_UNICAST_HOPS`, else the default 64.
     pub(crate) fn unicast_ttl(&self, family: Domain) -> u8 {
         let key = match family {
@@ -388,6 +407,16 @@ impl SockOpts {
             }
             (SOL_IP, n) if n == IpOption::IP_TTL.0 => {
                 if val != -1 && !(1..=255).contains(&val) {
+                    return Err(Errno::EINVAL);
+                }
+                self.ints.insert((level, name), val);
+                Ok(Changed::Nothing)
+            }
+            // `IP_PMTUDISC_DONT` through `IP_PMTUDISC_OMIT`, and IPv6's.
+            key if key == (SOL_IP, IpOption::IP_MTU_DISCOVER.0)
+                || key == (SOL_IPV6, Ipv6Option::IPV6_MTU_DISCOVER.0) =>
+            {
+                if !(0..=PMTUDISC_OMIT).contains(&val) {
                     return Err(Errno::EINVAL);
                 }
                 self.ints.insert((level, name), val);

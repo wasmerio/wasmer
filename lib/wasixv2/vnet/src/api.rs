@@ -131,6 +131,22 @@ pub struct QueuedError {
 }
 
 impl QueuedError {
+    /// `ip_local_error`, `ipv6_local_error`: an error the socket's own stack found, about a
+    /// packet to `dst` (and the socket's `port`), with `info` (an MTU for `EMSGSIZE`).
+    pub fn local(errno: Errno, info: u32, dst: IpAddr, port: u16) -> Self {
+        Self {
+            errno,
+            origin: SoEeOrigin::SO_EE_ORIGIN_LOCAL,
+            type_: 0,
+            code: 0,
+            info,
+            data: 0,
+            offender: None,
+            dst: Some(SocketAddr::new(dst, port)),
+            payload: Vec::new(),
+        }
+    }
+
     /// `is_icmp_err_skb`: an entry that also stands for the socket's pending error.
     pub fn is_icmp(&self) -> bool {
         self.origin == SoEeOrigin::SO_EE_ORIGIN_ICMP
