@@ -14,6 +14,7 @@
 //! pages are touched, so its limits are kept and shown but not enforced. `cpu.stat` adds up the
 //! CPU time the tasks were charged while they were in the subtree.
 
+pub(crate) mod cpu;
 pub(crate) mod fs;
 mod tasks;
 
@@ -32,15 +33,22 @@ use wasixv2_vfs::{Clock, Timestamp};
 
 use crate::sync::MutexExt;
 
-/// The controllers of the default hierarchy, one bit each, in Linux's order (`SUBSYS`):
-/// `memory` before `pids`.
-pub(crate) const MEMORY: u16 = 1 << 0;
-pub(crate) const PIDS: u16 = 1 << 1;
-const CONTROLLERS: [(u16, &str); 2] = [(MEMORY, "memory"), (PIDS, "pids")];
+/// The controllers of the default hierarchy, one bit each, in Linux's order (`SUBSYS`).
+pub(crate) const CPU: u16 = 1 << 0;
+pub(crate) const IO: u16 = 1 << 1;
+pub(crate) const MEMORY: u16 = 1 << 2;
+pub(crate) const PIDS: u16 = 1 << 3;
+/// Each controller's name, and the name `/proc/cgroups` gives it (`legacy_name`).
+const CONTROLLERS: [(u16, &str, &str); 4] = [
+    (CPU, "cpu", "cpu"),
+    (IO, "io", "blkio"),
+    (MEMORY, "memory", "memory"),
+    (PIDS, "pids", "pids"),
+];
 /// Every controller the hierarchy has (`root->subsys_mask`).
-const ALL: u16 = MEMORY | PIDS;
+const ALL: u16 = CPU | IO | MEMORY | PIDS;
 /// The controllers that work inside a threaded subtree (`cgrp_dfl_threaded_ss_mask`).
-const THREADED: u16 = PIDS;
+const THREADED: u16 = CPU | PIDS;
 /// `INT_MAX`: no limit on `cgroup.max.depth` and `cgroup.max.descendants`.
 const UNLIMITED: u32 = i32::MAX as u32;
 /// `PIDS_MAX`: one more than the largest pid (`PID_MAX_LIMIT`).
@@ -105,6 +113,8 @@ pub(crate) struct Hierarchy {
     /// `/proc/<pid>/cgroup` show it.
     visible: AtomicBool,
     clock: Arc<dyn Clock>,
+    /// The monotonic clock, which CPU periods run on.
+    host: Arc<dyn wasixv2_host::Host>,
     /// The kernel log, which hears of refused forks.
     printk: Arc<crate::printk::Printk>,
     notify: Arc<Notify>,
@@ -322,6 +332,8 @@ struct State {
     pids_count: u64,
     pids: PidsState,
     memory: MemoryState,
+    cpu: cpu::Bandwidth,
+    io: cpu::Io,
     /// CPU time of tasks that left it, while they were in it.
     cpu_retired: Cpu,
     /// The directory's ownership and times, and each file's, by its index in [`fs::FILES`].
@@ -364,6 +376,8 @@ pub(crate) struct Tree {
     nodes: HashMap<u64, State>,
     /// When the tree was locked: the time of whatever changes while it is.
     now: Timestamp,
+    /// The same on the monotonic clock, which CPU periods run on.
+    mono: std::time::Duration,
     notify: Arc<Notify>,
 }
 
@@ -707,6 +721,61 @@ impl Tree {
         memory.peak
     }
 
+    /// The `cpu` controller's state of `cgroup`.
+    pub(crate) fn cpu(&self, cgroup: &Cgroup) -> &cpu::Bandwidth {
+        &self.node(cgroup).cpu
+    }
+
+    pub(crate) fn cpu_mut(&mut self, cgroup: &Cgroup) -> &mut cpu::Bandwidth {
+        &mut self.node_mut(cgroup).cpu
+    }
+
+    /// The monotonic time the tree was locked at.
+    pub(crate) fn mono(&self) -> std::time::Duration {
+        self.mono
+    }
+
+    /// `account_cfs_rq_runtime` up the hierarchy: a task of `cgroup` ran for `delta`, which
+    /// every cgroup with the controller and a quota, from `cgroup` up, pays for. Returns the
+    /// latest end of a period whose runtime ran out, for the task to be throttled until.
+    fn cfs_charge(
+        &mut self,
+        cgroup: &Arc<Cgroup>,
+        delta: std::time::Duration,
+    ) -> Option<std::time::Duration> {
+        let now = self.mono;
+        let charged: Vec<Arc<Cgroup>> = std::iter::once(cgroup)
+            .chain(cgroup.ancestors())
+            .filter(|c| c.parent.is_some() && self.has_css(c, CPU))
+            .cloned()
+            .collect();
+        charged
+            .iter()
+            .filter_map(|c| self.node_mut(c).cpu.charge(delta, now))
+            .max()
+    }
+
+    /// The `io` controller's state of `cgroup`.
+    pub(crate) fn io_mut(&mut self, cgroup: &Cgroup) -> &mut cpu::Io {
+        &mut self.node_mut(cgroup).io
+    }
+
+    pub(crate) fn io(&self, cgroup: &Cgroup) -> &cpu::Io {
+        &self.node(cgroup).io
+    }
+
+    /// `io.stat`: what the tasks of `cgroup`'s subtree read and wrote (`blkcg_rstat_flush`).
+    pub(crate) fn io_stat(&self, cgroup: &Arc<Cgroup>) -> String {
+        let mut total = BTreeMap::new();
+        let mut stack = vec![cgroup.clone()];
+        while let Some(at) = stack.pop() {
+            let node = self.node(&at);
+            node.io.sum_into(&mut total);
+            stack.extend(node.children.values().cloned());
+        }
+        cpu::show_stat(&total)
+    }
+
     /// `cgroup.stat`: live descendants, dying ones, and per controller how many cgroups of
     /// the subtree have its state.
     pub(crate) fn stat(&self, cgroup: &Arc<Cgroup>) -> Stat {
@@ -714,7 +783,7 @@ impl Tree {
         let mut subsys = [0u32; CONTROLLERS.len()];
         let mut stack = vec![cgroup.clone()];
         while let Some(at) = stack.pop() {
-            for (i, (ss, _)) in CONTROLLERS.iter().enumerate() {
+            for (i, (ss, _, _)) in CONTROLLERS.iter().enumerate() {
                 if self.has_css(&at, *ss) {
                     subsys[i] += 1;
                 }
@@ -757,7 +826,7 @@ impl Tree {
     ) -> Result<(), Errno> {
         let node = self.node(cgroup);
         let control = self.control(cgroup);
-        for (ss, _) in CONTROLLERS {
+        for (ss, _, _) in CONTROLLERS {
             if enable & ss != 0 {
                 if node.subtree_control & ss != 0 {
                     enable &= !ss;
@@ -791,6 +860,12 @@ impl Tree {
             }
             if disable & MEMORY != 0 {
                 node.memory = MemoryState::default();
+            }
+            if disable & CPU != 0 {
+                node.cpu = cpu::Bandwidth::default();
+            }
+            if disable & IO != 0 {
+                node.io.clear_max();
             }
         }
         Ok(())
@@ -1177,6 +1252,8 @@ impl State {
             pids_count: 0,
             pids: PidsState::default(),
             memory: MemoryState::default(),
+            cpu: cpu::Bandwidth::default(),
+            io: cpu::Io::default(),
             cpu_retired: Cpu::default(),
             dir: attr(mode & 0o7777),
             files: fs::FILES.iter().map(|file| attr(file.mode())).collect(),
@@ -1206,8 +1283,8 @@ pub(crate) struct Stat {
 pub(crate) fn mask_names(mask: u16) -> String {
     let names: Vec<&str> = CONTROLLERS
         .iter()
-        .filter(|(ss, _)| mask & ss != 0)
-        .map(|(_, name)| *name)
+        .filter(|(ss, _, _)| mask & ss != 0)
+        .map(|(_, name, _)| *name)
         .collect();
     names.join(" ")
 }
@@ -1216,18 +1293,27 @@ pub(crate) fn mask_names(mask: u16) -> String {
 pub(crate) fn controller(name: &[u8]) -> Option<u16> {
     CONTROLLERS
         .iter()
-        .find(|(_, known)| known.as_bytes() == name)
-        .map(|(ss, _)| *ss)
+        .find(|(_, known, _)| known.as_bytes() == name)
+        .map(|(ss, _, _)| *ss)
 }
 
-/// The controller names, for `cgroup.stat` and `/proc/cgroups`.
+/// The controller names, for `cgroup.stat`.
 pub(crate) fn controller_names() -> impl Iterator<Item = &'static str> {
-    CONTROLLERS.iter().map(|(_, name)| *name)
+    CONTROLLERS.iter().map(|(_, name, _)| *name)
+}
+
+/// The controller names `/proc/cgroups` shows (`legacy_name`).
+pub(crate) fn legacy_names() -> impl Iterator<Item = &'static str> {
+    CONTROLLERS.iter().map(|(_, _, name)| *name)
 }
 
 impl Hierarchy {
     /// The hierarchy with nothing but its root, owned by root (`cgroup_setup_root`).
-    pub(crate) fn new(clock: Arc<dyn Clock>, printk: Arc<crate::printk::Printk>) -> Arc<Self> {
+    pub(crate) fn new(
+        clock: Arc<dyn Clock>,
+        host: Arc<dyn wasixv2_host::Host>,
+        printk: Arc<crate::printk::Printk>,
+    ) -> Arc<Self> {
         let now = clock.now();
         let released = Released::default();
         let root = Arc::new(Cgroup {
@@ -1244,6 +1330,7 @@ impl Hierarchy {
                 flags: RootFlags::default(),
                 nodes,
                 now,
+                mono: host.monotonic(),
                 notify: notify.clone(),
             }),
             root,
@@ -1251,6 +1338,7 @@ impl Hierarchy {
             released,
             visible: AtomicBool::new(false),
             clock,
+            host,
             printk,
             notify,
         })
@@ -1289,6 +1377,7 @@ impl Hierarchy {
             tree.release(id);
         }
         tree.now = self.clock.now();
+        tree.mono = self.host.monotonic();
         tree
     }
 
@@ -1397,6 +1486,7 @@ impl Hierarchy {
         drop(tree);
         Ok(Css::new(CssState {
             base: cpu.times(),
+            bandwidth_seen: cpu.times().total(),
             cpu,
             cgroup,
             hierarchy: self.clone(),
@@ -1431,6 +1521,8 @@ struct CssState {
     base: CpuTimes,
     /// Whether the task's user time counts as niced (`task_nice > 0`) when retired.
     nice: bool,
+    /// The task's CPU time already charged to the runtime of its cgroups' quotas.
+    bandwidth_seen: std::time::Duration,
     /// `cgroup_exit` ran: the task no longer populates its cgroup.
     exited: bool,
 }
@@ -1487,6 +1579,31 @@ impl Css {
     pub(crate) fn freezing(&self) -> bool {
         let tree = self.hierarchy.lock();
         tree.freezing(&self.state().cgroup)
+    }
+
+    /// The scheduler tick's `account_cfs_rq_runtime`: the CPU time the task was charged with
+    /// since the last tick comes out of its cgroups' runtime. Returns when the task may run
+    /// again if a quota ran out.
+    pub(crate) fn cfs_tick(&self) -> Option<std::time::Duration> {
+        let mut tree = self.hierarchy.lock();
+        let mut state = self.state();
+        let total = state.cpu.times().total();
+        let delta = total.saturating_sub(state.bandwidth_seen);
+        state.bandwidth_seen = total;
+        if delta.is_zero() {
+            return None;
+        }
+        let cgroup = state.cgroup.clone();
+        drop(state);
+        tree.cfs_charge(&cgroup, delta)
+    }
+
+    /// A read (or write) of `bytes` through a file of the device `dev`, which `io.stat`
+    /// counts.
+    pub(crate) fn charge_io(&self, dev: cpu::Dev, bytes: u64, write: bool) {
+        let mut tree = self.hierarchy.lock();
+        let cgroup = self.state().cgroup.clone();
+        tree.io_mut(&cgroup).charge(dev, bytes, write);
     }
 
     /// `cgroup_enter_frozen`: the task, frozen or stopped, counts as frozen in its cgroup.
@@ -1621,6 +1738,46 @@ impl Drop for CssState {
 }
 
 impl crate::Kernel {
+    /// The scheduler tick's CFS bandwidth half for `task`: throttled once a quota of its
+    /// cgroups ran out, until that cgroup's period ends (`throttle_cfs_rq`).
+    pub(crate) fn cfs_tick(&self, task: wasixv2_syscalls::TaskId) {
+        let found = {
+            let state = self.state.read_or_recover();
+            let entry = state.tasks.get(&task);
+            entry.map(|t| (t.css.clone(), t.signals.clone()))
+        };
+        if let Some((css, signals)) = found
+            && let Some(until) = css.cfs_tick()
+        {
+            signals.throttle(until);
+        }
+    }
+
+    /// `io.stat`'s count of a read or write of `bytes` by `task` through `file`, when the file
+    /// is an inode's, by the device of its filesystem.
+    pub(crate) fn charge_io(
+        &self,
+        task: wasixv2_syscalls::TaskId,
+        file: &crate::file::OpenFile,
+        bytes: u32,
+        write: bool,
+    ) {
+        let crate::file::Backing::Inode(inner) = &file.backing else {
+            return;
+        };
+        if bytes == 0 {
+            return;
+        }
+        let dev = inner.path.dentry.sb().dev;
+        let css = {
+            let state = self.state.read_or_recover();
+            state.tasks.get(&task).map(|t| t.css.clone())
+        };
+        if let Some(css) = css {
+            css.charge_io((dev.major, dev.minor), u64::from(bytes), write);
+        }
+    }
+
     /// The cgroup whose directory the descriptor `fd` names, for `CLONE_INTO_CGROUP`
     /// (`fdget_raw`, `cgroup_get_from_file`): `EBADF` for no descriptor or one that is not a
     /// `cgroup2` directory.

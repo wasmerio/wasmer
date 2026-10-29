@@ -375,6 +375,9 @@ struct TaskState {
     /// Its cgroup freezes it (`JOBCTL_TRAP_FREEZE`): it leaves its blocking wait and, on its way
     /// back to the guest, waits in the freezer until thawed, unlike a stop unseen by its parent.
     trap_freeze: bool,
+    /// A quota of its cgroups ran out: it runs no guest code until then, the end of the
+    /// period (`throttle_cfs_rq`), unless a fatal signal comes.
+    throttled_until: Option<Duration>,
 }
 
 impl TaskState {
@@ -395,6 +398,7 @@ impl TaskState {
             stopped: false,
             ptrace: Default::default(),
             trap_freeze: false,
+            throttled_until: None,
         }
     }
 
@@ -1883,6 +1887,27 @@ impl TaskSignals {
         self.group.queue.wake(wasixv2_wait::PollMask::empty());
     }
 
+    /// The task's cgroup throttles it until `until` (`throttle_cfs_rq`): it waits on its way
+    /// back to the guest.
+    pub(crate) fn throttle(&self, until: Duration) {
+        let mut state = self.group.state.lock_or_recover();
+        if let Some(task) = state.tasks.get_mut(&self.task).filter(|t| !t.exiting) {
+            task.throttled_until = Some(until);
+            task.flag.raise();
+        }
+    }
+
+    /// Takes the end of the task's throttling, if it is throttled.
+    fn take_throttle(&self) -> Option<Duration> {
+        let mut state = self.group.state.lock_or_recover();
+        state.tasks.get_mut(&self.task)?.throttled_until.take()
+    }
+
+    fn throttled_until(&self) -> Option<Duration> {
+        let state = self.group.state.lock_or_recover();
+        state.tasks.get(&self.task)?.throttled_until
+    }
+
     /// What holds the task where it is: a stop until SIGCONT, or the freezer until it is thawed
     /// or a fatal signal comes, which it goes on to take.
     fn held(&self) -> bool {
@@ -2253,6 +2278,15 @@ impl Kernel {
                 css.enter_frozen();
                 return Some(GuestAction::Stopped);
             }
+            // Throttled: the task waits for its runtime, unless it dies.
+            let me = state.task(task);
+            if me.throttled_until.is_some() {
+                if !fatal {
+                    drop(state);
+                    return Some(GuestAction::Stopped);
+                }
+                me.throttled_until = None;
+            }
             // Leaving the frozen state: for good, or back into the freezer while the cgroup
             // still freezes (`cgroup_leave_frozen`). The tree comes before the signal state.
             if css.frozen() {
@@ -2538,6 +2572,19 @@ impl Kernel {
     /// (`wants_signal` passes stopped tasks by).
     pub(crate) async fn stop_wait(&self, task: TaskId) {
         let signals = self.task_signals(task);
+        // CFS bandwidth: until the period refills the runtime (`unthrottle_cfs_rq`), or a
+        // fatal signal.
+        if let Some(until) = signals.throttled_until() {
+            let waiter = Waiter::new();
+            let mut sleep = self.host.sleep_until(until);
+            while self.host.monotonic() < until && signals.fatal_pending().is_none() {
+                let killable = signals.killable();
+                if let Wakeup::TimedOut = waiter.sleep(&killable, Some(sleep.as_mut())).await {
+                    break;
+                }
+            }
+            signals.take_throttle();
+        }
         let continued = || (!signals.held()).then_some(());
         wait_event(signals.sent(), continued, &NoInterrupt)
             .await

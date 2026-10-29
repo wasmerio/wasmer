@@ -352,6 +352,7 @@ impl Kernel {
                 break;
             }
         }
+        self.charge_io(caller.task(), file, done as u32, false);
         Ok(done as u32)
     }
 
@@ -461,6 +462,7 @@ impl Kernel {
         {
             inner.sync(!flags.contains(RwfFlags::RWF_SYNC)).await?;
         }
+        self.charge_io(caller.task(), file, done as u32, true);
         Ok(done as u32)
     }
 

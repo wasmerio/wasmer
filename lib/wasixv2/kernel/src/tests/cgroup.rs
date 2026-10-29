@@ -150,7 +150,7 @@ fn the_root_lists_the_controllers_and_holds_every_process() {
 
     assert_eq!(
         p.read(&kernel, "/cg/cgroup.controllers"),
-        Ok("memory pids\n".into())
+        Ok("cpu io memory pids\n".into())
     );
     assert_eq!(
         p.read(&kernel, "/cg/cgroup.subtree_control"),
@@ -166,7 +166,8 @@ fn the_root_lists_the_controllers_and_holds_every_process() {
     assert_eq!(
         p.read(&kernel, "/proc/cgroups"),
         Ok(
-            "#subsys_name\thierarchy\tnum_cgroups\tenabled\nmemory\t0\t1\t1\npids\t0\t1\t1\n"
+            "#subsys_name\thierarchy\tnum_cgroups\tenabled\ncpu\t0\t1\t1\nblkio\t0\t1\t1\n\
+             memory\t0\t1\t1\npids\t0\t1\t1\n"
                 .into()
         )
     );
@@ -191,13 +192,14 @@ fn the_root_lists_the_controllers_and_holds_every_process() {
     assert_eq!(
         p.read(&kernel, "/cg/cgroup.stat"),
         Ok(
-            "nr_descendants 1\nnr_subsys_memory 2\nnr_subsys_pids 2\nnr_dying_descendants 0\n\
-            nr_dying_subsys_memory 0\nnr_dying_subsys_pids 0\n"
+            "nr_descendants 1\nnr_subsys_cpu 1\nnr_subsys_io 1\nnr_subsys_memory 2\n\
+             nr_subsys_pids 2\nnr_dying_descendants 0\nnr_dying_subsys_cpu 0\n\
+             nr_dying_subsys_io 0\nnr_dying_subsys_memory 0\nnr_dying_subsys_pids 0\n"
                 .into()
         )
     );
     assert_eq!(
-        errno(p.write(&kernel, "/cg/cgroup.subtree_control", "+cpu")),
+        errno(p.write(&kernel, "/cg/cgroup.subtree_control", "+cpuset")),
         Errno::EINVAL
     );
     assert_eq!(
@@ -1039,4 +1041,99 @@ fn event_files_notify_pollers_and_inotify() {
     let refused = child.fork(&kernel, 0).map(|(_, pid)| pid);
     assert_eq!(errno(refused), Errno::EAGAIN);
     assert_eq!(poll(pids_events), PRI | ERR);
+}
+
+/// The `cpu` controller: `cpu.weight` and `cpu.weight.nice` are two views of one weight;
+/// `cpu.max` throttles the subtree once its tasks used the quota of a period, until the period
+/// ends (`throttle_cfs_rq`), which `cpu.stat`, `cpu.stat.local` and `cpu.pressure` count.
+#[test]
+fn cpu_max_throttles_the_subtree() {
+    let (kernel, p) = machine();
+    p.write(&kernel, "/cg/cgroup.subtree_control", "+cpu")
+        .unwrap();
+    let (child, _) = child_in(&kernel, &p, "a");
+    assert_eq!(p.read(&kernel, "/cg/a/cpu.weight"), Ok("100\n".into()));
+    assert_eq!(p.write(&kernel, "/cg/a/cpu.weight.nice", "-20"), Ok(3));
+    assert_eq!(p.read(&kernel, "/cg/a/cpu.weight"), Ok("8668\n".into()));
+    assert_eq!(p.read(&kernel, "/cg/a/cpu.weight.nice"), Ok("-20\n".into()));
+    assert_eq!(
+        errno(p.write(&kernel, "/cg/a/cpu.weight", "0")),
+        Errno::ERANGE
+    );
+    assert_eq!(p.read(&kernel, "/cg/a/cpu.max"), Ok("max 100000\n".into()));
+    assert_eq!(
+        errno(p.write(&kernel, "/cg/a/cpu.max", "10")),
+        Errno::EINVAL
+    );
+    assert_eq!(errno(p.read(&kernel, "/cg/cpu.max")), Errno::ENOENT);
+
+    p.write(&kernel, "/cg/a/cpu.max", "1000 50000").unwrap();
+    assert_eq!(p.read(&kernel, "/cg/a/cpu.max"), Ok("1000 50000\n".into()));
+    let ms = std::time::Duration::from_millis;
+    let account = wasixv2_syscalls::CpuTime::cpu_account(&kernel, child.task);
+    account.charge(ms(2), ms(0));
+    wasixv2_syscalls::CpuTime::cpu_timers(&kernel, child.task);
+
+    assert_eq!(kernel.take_pending(child.task), Some(GuestAction::Stopped));
+    let stat = p.read(&kernel, "/cg/a/cpu.stat").unwrap();
+    assert!(
+        stat.contains("nr_throttled 1\nthrottled_usec 0\n"),
+        "{stat}"
+    );
+    assert_eq!(
+        p.read(&kernel, "/cg/a/cpu.stat.local"),
+        Ok("throttled_usec 0\n".into())
+    );
+    let pressure = p.read(&kernel, "/cg/a/cpu.pressure").unwrap();
+    assert!(pressure.starts_with("some avg10=0.00 "), "{pressure}");
+    assert!(pressure.contains("\nfull "), "{pressure}");
+    // The test host's clock stands still: the wait ends at once, and the task goes on.
+    assert!(!held(&kernel, child.task));
+    assert_eq!(kernel.take_pending(child.task), None);
+    assert_eq!(
+        errno(p.write(&kernel, "/cg/a/cpu.pressure", "some 150000 1000000")),
+        Errno::EOPNOTSUPP
+    );
+}
+
+/// The `io` controller: `io.stat` counts what the subtree read and wrote through files, by the
+/// device of their filesystem; `io.max` is kept per device.
+#[test]
+fn io_stat_counts_file_reads_and_writes() {
+    let (kernel, p) = machine();
+    p.write(&kernel, "/cg/cgroup.subtree_control", "+io")
+        .unwrap();
+    let (child, _) = child_in(&kernel, &p, "a");
+    assert_eq!(p.read(&kernel, "/cg/a/io.stat"), Ok(String::new()));
+    let fd = child
+        .open(&kernel, "/file", OpenFlags::O_CREAT | OpenFlags::O_RDWR)
+        .unwrap();
+    put(&child.memory.0, 0x5000, b"hello");
+    let wrote = block_on(kernel.write(&child.caller(), fd, UserSlice::new(0x5000, 5)));
+    assert_eq!(wrote, Ok(5));
+    let read = block_on(kernel.pread64(&child.caller(), fd, UserSliceMut::new(0x4000, 64), 0));
+    assert_eq!(read, Ok(5));
+
+    let stat = p.read(&kernel, "/cg/a/io.stat").unwrap();
+    assert!(
+        stat.ends_with(" rbytes=5 wbytes=5 rios=1 wios=1 dbytes=0 dios=0\n"),
+        "{stat}"
+    );
+    let root = p.read(&kernel, "/cg/io.stat").unwrap();
+    assert!(
+        root.contains(" rbytes=5 wbytes=5 "),
+        "the subtree counts: {root}"
+    );
+
+    assert_eq!(p.write(&kernel, "/cg/a/io.max", "8:0 wbps=1048576"), Ok(16));
+    assert_eq!(
+        p.read(&kernel, "/cg/a/io.max"),
+        Ok("8:0 rbps=max wbps=1048576 riops=max wiops=max\n".into())
+    );
+    assert_eq!(
+        p.read(&kernel, "/cg/a/io.pressure"),
+        Ok("some avg10=0.00 avg60=0.00 avg300=0.00 total=0\n\
+            full avg10=0.00 avg60=0.00 avg300=0.00 total=0\n"
+            .into())
+    );
 }

@@ -981,7 +981,7 @@ fn softirqs() -> Vec<u8> {
 fn cgroups(source: &Source) -> Vec<u8> {
     let count = source.cgroups.lock().nr_cgroups();
     let mut out = String::from("#subsys_name\thierarchy\tnum_cgroups\tenabled\n");
-    for name in crate::cgroup::controller_names() {
+    for name in crate::cgroup::legacy_names() {
         let _ = writeln!(out, "{name}\t0\t{count}\t1");
     }
     out.into_bytes()

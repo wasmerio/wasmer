@@ -24,7 +24,9 @@ use wasixv2_vfs::{
 };
 use wasixv2_wait::{PollMask, PollTable, poll_wait};
 
-use super::{Cgroup, Hierarchy, Kind, MEMORY, NodeAttr, PIDS, PIDS_MAX, UNLIMITED, tasks};
+use super::{
+    CPU, Cgroup, Hierarchy, IO, Kind, MEMORY, NodeAttr, PIDS, PIDS_MAX, UNLIMITED, cpu, tasks,
+};
 use crate::{TaskTable, sync::MutexExt};
 
 /// `CGROUP2_SUPER_MAGIC`.
@@ -94,7 +96,17 @@ pub(crate) const FILES: &[Cftype] = &[
     delegatable("cgroup.subtree_control"),
     delegatable("cgroup.threads"),
     cft("cgroup.type", 0, NotOnRoot, true, true),
+    cft("cpu.idle", CPU, NotOnRoot, true, true),
+    cft("cpu.max", CPU, NotOnRoot, true, true),
+    cft("cpu.max.burst", CPU, NotOnRoot, true, true),
+    cft("cpu.pressure", 0, Everywhere, true, true),
     cft("cpu.stat", 0, Everywhere, true, false),
+    cft("cpu.stat.local", 0, Everywhere, true, false),
+    cft("cpu.weight", CPU, NotOnRoot, true, true),
+    cft("cpu.weight.nice", CPU, NotOnRoot, true, true),
+    cft("io.max", IO, NotOnRoot, true, true),
+    cft("io.pressure", 0, Everywhere, true, true),
+    cft("io.stat", IO, Everywhere, true, false),
     cft("memory.current", MEMORY, NotOnRoot, true, false),
     cft("memory.events", MEMORY, NotOnRoot, true, false),
     cft("memory.events.local", MEMORY, NotOnRoot, true, false),
@@ -104,6 +116,7 @@ pub(crate) const FILES: &[Cftype] = &[
     cft("memory.min", MEMORY, NotOnRoot, true, true),
     cft("memory.oom.group", MEMORY, NotOnRoot, true, true),
     cft("memory.peak", MEMORY, NotOnRoot, true, false),
+    cft("memory.pressure", 0, Everywhere, true, true),
     cft("memory.stat", MEMORY, Everywhere, true, false),
     cft("pids.current", PIDS, NotOnRoot, true, false),
     cft("pids.events", PIDS, NotOnRoot, true, false),
@@ -634,13 +647,29 @@ impl FileHandle {
                     None => Default::default(),
                 };
                 let usec = |d: std::time::Duration| d.as_micros();
-                Ok(format!(
+                let mut out = format!(
                     "usage_usec {}\nuser_usec {}\nsystem_usec {}\nnice_usec {}\n",
                     usec(cpu.times.total()),
                     usec(cpu.times.user),
                     usec(cpu.times.system),
                     usec(cpu.nice),
-                ))
+                );
+                // `cpu_extra_stat_show`, for a cgroup below the root with the controller.
+                let mut tree = self.source.hierarchy.lock();
+                if cgroup.parent.is_some() && tree.has_css(cgroup, CPU) {
+                    let now = tree.mono();
+                    let stat = tree.cpu_mut(cgroup).stat(now);
+                    out += &format!(
+                        "nr_periods {}\nnr_throttled {}\nthrottled_usec {}\nnr_bursts {}\n\
+                         burst_usec {}\n",
+                        stat.nr_periods,
+                        stat.nr_throttled,
+                        usec(stat.throttled),
+                        stat.nr_bursts,
+                        usec(stat.burst),
+                    );
+                }
+                Ok(out)
             }
             "memory.current" | "memory.stat" | "memory.peak" => {
                 let current = match self.source.state.upgrade() {
@@ -661,8 +690,35 @@ impl FileHandle {
     /// The files whose contents are the hierarchy's alone.
     fn show_tree(&self, name: &str) -> String {
         let cgroup = &self.cgroup;
-        let tree = self.source.hierarchy.lock();
+        let mut tree = self.source.hierarchy.lock();
+        let now = tree.mono();
+        let root = cgroup.parent.is_none();
         match name {
+            "cpu.weight" => format!("{}\n", tree.cpu(cgroup).weight()),
+            "cpu.weight.nice" => format!("{}\n", tree.cpu(cgroup).weight_nice()),
+            "cpu.idle" => format!("{}\n", u8::from(tree.cpu(cgroup).idle())),
+            "cpu.max" => match tree.cpu(cgroup).max() {
+                (Some(quota), period) => format!("{quota} {period}\n"),
+                (None, period) => format!("max {period}\n"),
+            },
+            "cpu.max.burst" => format!("{}\n", tree.cpu(cgroup).burst_us()),
+            // `cpu_local_stat_show`: what throttled the cgroup itself.
+            "cpu.stat.local" => match !root && tree.has_css(cgroup, CPU) {
+                true => {
+                    let throttled = tree.cpu_mut(cgroup).stat(now).throttled;
+                    format!("throttled_usec {}\n", throttled.as_micros())
+                }
+                false => String::new(),
+            },
+            // The root's is the system's (`psi_system`), which nothing stalls.
+            "cpu.pressure" => match root {
+                true => cpu::no_pressure(),
+                false => tree.cpu_mut(cgroup).pressure(now),
+            },
+            // No I/O waits on a device, no memory is reclaimed.
+            "io.pressure" | "memory.pressure" => cpu::no_pressure(),
+            "io.stat" => tree.io_stat(cgroup),
+            "io.max" => tree.io(cgroup).show_max(),
             "cgroup.controllers" => line(super::mask_names(tree.control(cgroup))),
             "cgroup.subtree_control" => line(super::mask_names(tree.subtree_control(cgroup))),
             "cgroup.events" => format!(
@@ -803,6 +859,50 @@ impl FileHandle {
                 hierarchy.lock().set_pids_max(cgroup, limit);
                 Ok(())
             }
+            "cpu.weight" => {
+                let weight = parse_int(text)?;
+                hierarchy.lock().cpu_mut(cgroup).set_weight(weight)
+            }
+            "cpu.weight.nice" => {
+                let nice = parse_i32(text)?;
+                hierarchy.lock().cpu_mut(cgroup).set_weight_nice(nice)
+            }
+            // `sched_group_set_idle`.
+            "cpu.idle" => {
+                let idle = match parse_i32(text)? {
+                    0 => false,
+                    1 => true,
+                    _ => return Err(Errno::EINVAL),
+                };
+                hierarchy.lock().cpu_mut(cgroup).set_idle(idle);
+                Ok(())
+            }
+            // `cpu_max_write`: a quota or `max`, and optionally a period.
+            "cpu.max" => {
+                let mut tree = hierarchy.lock();
+                let bandwidth = tree.cpu_mut(cgroup);
+                let (_, mut period) = bandwidth.max();
+                let mut tokens = text.split_whitespace();
+                let quota = match tokens.next().ok_or(Errno::EINVAL)? {
+                    "max" => None,
+                    quota => Some(quota.parse::<u64>().map_err(|_| Errno::EINVAL)?),
+                };
+                if let Some(given) = tokens.next() {
+                    period = given.parse::<u64>().map_err(|_| Errno::EINVAL)?;
+                }
+                let burst = bandwidth.burst_us();
+                bandwidth.set_bandwidth(quota, period, burst)
+            }
+            "cpu.max.burst" => {
+                let burst = parse_int(text)?;
+                let mut tree = hierarchy.lock();
+                let bandwidth = tree.cpu_mut(cgroup);
+                let (quota, period) = bandwidth.max();
+                bandwidth.set_bandwidth(quota, period, burst)
+            }
+            "io.max" => hierarchy.lock().io_mut(cgroup).set_max(text),
+            // Triggers (`psi_trigger_create`) are not kept.
+            "cpu.pressure" | "io.pressure" | "memory.pressure" => Err(Errno::EOPNOTSUPP),
             "memory.high" | "memory.max" => {
                 let limit = parse_memory(text)?;
                 hierarchy.lock().set_memory(cgroup, |memory| match name {
