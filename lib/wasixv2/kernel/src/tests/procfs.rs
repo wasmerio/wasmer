@@ -596,6 +596,56 @@ fn nr_open_bounds_descriptor_tables_and_rlimit_nofile() {
     );
 }
 
+/// `kernel.tainted` reads 0, as nothing taints this kernel, and takes flags from a writer
+/// with `CAP_SYS_ADMIN` alone (`proc_taint`): each known flag written is added, none is
+/// cleared, and bits past `TAINT_FLAGS_COUNT` are ignored. Root without the capability
+/// opens it, as its mode lets root, and fails to write (`EPERM`); anyone else cannot open it
+/// to write.
+#[test]
+fn kernel_tainted_takes_flags_from_cap_sys_admin() {
+    let (kernel, task, _) = super::cred::machine_as(0, 0);
+    let vfs = kernel.vfs().clone();
+    block_on(vfs.mount(b"/proc", kernel.procfs(), MountFlags::default(), true)).unwrap();
+    let memory = memory();
+    let t = T::new(&kernel, task, &memory);
+    let tainted = "/proc/sys/kernel/tainted";
+    let set = |value: &str| {
+        let fd = t.open(tainted, OpenFlags::O_WRONLY)?;
+        let written = t.write(fd, value.as_bytes());
+        block_on(kernel.close(&t.caller, fd)).unwrap();
+        written
+    };
+    let get = || {
+        let fd = t.open(tainted, OpenFlags::O_RDONLY).unwrap();
+        t.read_all(fd)
+    };
+
+    assert_eq!(get(), "0\n");
+    let mode = t.stat(tainted, AtFlags::empty()).unwrap().stx_mode;
+    assert_eq!(mode & 0o7777, 0o644);
+    assert_eq!(set("4\n"), Ok(2));
+    assert_eq!(set("1"), Ok(1));
+    assert_eq!(get(), "5\n");
+    assert_eq!(set("0"), Ok(1), "nothing is cleared");
+    assert_eq!(set(&(1u32 << 21 | 1 << 9).to_string()), Ok(7));
+    assert_eq!(get(), "517\n", "only TAINT_FLAGS_COUNT flags are kept");
+    assert_eq!(set("-1"), Err(Errno::EINVAL.into()));
+    assert_eq!(set("W"), Err(Errno::EINVAL.into()));
+
+    let all = u64::MAX >> (63 - u64::from(wasixv2_vfs::Cap::LAST));
+    let sys_admin = wasixv2_vfs::Cap::SysAdmin.bit();
+    super::cred::set_caps(&kernel, &t.caller, &memory, all & !sys_admin);
+    assert_eq!(set("2"), Err(Errno::EPERM.into()));
+    assert_eq!(get(), "517\n");
+
+    block_on(kernel.setresuid(&t.caller, 1, 1, 1)).unwrap();
+    assert_eq!(
+        t.open(tainted, OpenFlags::O_WRONLY),
+        Err(Errno::EACCES.into())
+    );
+    assert_eq!(get(), "517\n");
+}
+
 /// Opening a proc file with `O_TRUNC`, as `fopen(path, "w")` and a shell's `>` do, succeeds
 /// and truncates nothing (`proc_setattr`, `proc_sys_setattr`); its mode and owner stay the
 /// kernel's (`EPERM`).

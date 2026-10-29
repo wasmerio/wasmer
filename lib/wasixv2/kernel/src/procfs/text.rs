@@ -53,6 +53,8 @@ pub(super) enum Global {
     OverflowGid,
     /// `kernel.cap_last_cap`.
     CapLastCap,
+    /// `kernel.tainted`.
+    Tainted,
     /// `user.max_*_namespaces` of the reader's user namespace, for the namespaces of a kind.
     MaxNamespaces(NsKind),
 }
@@ -87,7 +89,8 @@ impl Global {
             | Self::PipeMaxSize
             | Self::DirNotifyEnable
             | Self::LeasesEnable
-            | Self::LeaseBreakTime => 0o644,
+            | Self::LeaseBreakTime
+            | Self::Tainted => 0o644,
             // Writing these needs a capability over the namespace's owner instead (or, for
             // `pid_max`, being its root), as the permissions of their sysctl tables give.
             Self::NsLastPid | Self::PidMax | Self::MaxNamespaces(_) => 0o666,
@@ -170,6 +173,7 @@ pub(super) fn global(
         Global::LeaseBreakTime => line(&source.sysctls.lease_break_time().to_string()),
         Global::OverflowUid | Global::OverflowGid => line(&OVERFLOW_ID.to_string()),
         Global::CapLastCap => line(&wasixv2_vfs::Cap::LAST.to_string()),
+        Global::Tainted => line(&source.taint.get().to_string()),
         Global::MaxNamespaces(kind) => line(&user_ns.ucount_max(kind).to_string()),
     })
 }

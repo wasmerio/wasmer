@@ -36,6 +36,7 @@ use crate::{
     sched::Sched,
     signal::TaskSignals,
     sync::MutexExt,
+    taint::Taint,
 };
 
 /// `PROC_SUPER_MAGIC`.
@@ -66,6 +67,7 @@ impl Kernel {
             sysctls: self.sysctls.clone(),
             mounted,
             nr_open: self.nr_open.clone(),
+            taint: self.taint.clone(),
         };
         Arc::new(ProcFs {
             source: Arc::new(source),
@@ -141,6 +143,8 @@ struct Source {
     nr_open: Arc<NrOpen>,
     /// The interface names `/proc/sys/net` has met, which number its directories.
     sysnet_names: Mutex<sysnet::Names>,
+    /// `kernel.tainted`.
+    taint: Arc<Taint>,
 }
 
 /// A process as the tree has it.

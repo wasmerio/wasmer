@@ -16,6 +16,7 @@ use crate::{
     file::NrOpen,
     ns::{NsKind, NsLink, PidNs, UserNs},
     sync::MutexExt,
+    taint::Taint,
     userns::MapKind,
 };
 
@@ -128,6 +129,7 @@ const STATIC: &[(usize, &str, Static)] = &[
         "lease-break-time",
         Static::File(text::Global::LeaseBreakTime),
     ),
+    (13, "tainted", Static::File(text::Global::Tainted)),
 ];
 
 /// `/proc/sys/user/max_*_namespaces` for `kind`.
@@ -690,6 +692,11 @@ impl Node for ProcNode {
                         | text::Global::LeaseBreakTime => {
                             Some(Write::Fs(self.source.sysctls.clone(), file))
                         }
+                        // `proc_taint`: `capable(CAP_SYS_ADMIN)`, of the opener here.
+                        text::Global::Tainted => {
+                            let may = opener.is_none_or(|cred| cred.capable_init(Cap::SysAdmin));
+                            Some(Write::Taint(self.source.taint.clone(), may))
+                        }
                         _ => None,
                     };
                     (data, write)
@@ -803,6 +810,8 @@ enum Write {
     NsLastPid(Arc<PidNs>, bool),
     /// `fs.nr_open`.
     NrOpen(Arc<NrOpen>),
+    /// `kernel.tainted`, if the opener may add flags.
+    Taint(Arc<Taint>, bool),
     /// A map of a user namespace, written with the opener's credentials.
     Map(Arc<UserNs>, MapKind, Box<Cred>),
     /// Whether a user namespace allows `setgroups`.
@@ -853,6 +862,8 @@ impl Handle for FileHandle {
             Write::NsLastPid(_, false) => return Err(Errno::EPERM),
             Write::NsLastPid(ns, true) => ns.set_last_pid(sysctl_int(data)?)?,
             Write::NrOpen(nr_open) => nr_open.set(sysctl_int(data)?)?,
+            Write::Taint(_, false) => return Err(Errno::EPERM),
+            Write::Taint(taint, true) => taint.add(sysctl_int(data)?),
             Write::Fs(sysctls, file) => {
                 let value = sysctl_i32(data)?;
                 match file {

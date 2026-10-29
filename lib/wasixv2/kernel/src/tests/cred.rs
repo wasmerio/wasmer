@@ -41,6 +41,22 @@ pub(super) fn machine_as(uid: u32, gid: u32) -> (Kernel, TaskId, FlatMemory) {
     machine_with(|kernel| kernel.with_credentials(Credentials::new(uid, gid)))
 }
 
+/// `capset` of the caller: `caps` effective and permitted, nothing inheritable.
+pub(super) fn set_caps(kernel: &Kernel, caller: &Caller<'_>, memory: &FlatMemory, caps: u64) {
+    let low = (caps as u32).to_le_bytes();
+    let high = ((caps >> 32) as u32).to_le_bytes();
+    put(
+        memory,
+        CAP_DATA,
+        &[low, low, [0; 4], high, high, [0; 4]].concat(),
+    );
+    put(memory, CAP_HEADER, &CAPABILITY_V3.to_le_bytes());
+    put(memory, CAP_HEADER + 4, &0u32.to_le_bytes());
+    let header = UserCapHeaderPtr::new(CAP_HEADER);
+    let data = ConstUserCapDataArray::new(CAP_DATA);
+    assert_eq!(block_on(kernel.capset(caller, header, data)), Ok(0));
+}
+
 /// `capget` of the caller: (effective, permitted, inheritable), 64 bits each.
 fn capget(kernel: &Kernel, caller: &Caller<'_>, memory: &FlatMemory) -> [u64; 3] {
     put(memory, CAP_HEADER, &CAPABILITY_V3.to_le_bytes());
