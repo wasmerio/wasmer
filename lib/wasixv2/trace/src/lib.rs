@@ -6,13 +6,8 @@ use wasixv2_syscalls::{Caller, Layer, SysResult, Syscall, SyscallRet, Syscalls, 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Trace;
 
-impl Layer for Trace {
-    async fn call<S: Syscalls>(
-        &self,
-        caller: &Caller<'_>,
-        call: Syscall,
-        next: &S,
-    ) -> SysResult<SyscallRet> {
+impl<S: Syscalls> Layer<S> for Trace {
+    async fn call(&self, caller: &Caller<'_>, call: Syscall, next: &S) -> SysResult<SyscallRet> {
         let ret = dispatch(next, caller, call).await;
         tracing::trace!(task = caller.task().0, ?call, ?ret, "syscall");
         ret
