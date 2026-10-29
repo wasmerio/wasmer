@@ -26548,6 +26548,10 @@ impl GuestLayout for Winsize {
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
 pub struct IoctlRequest(pub u32);
 impl IoctlRequest {
+    /// `/dev/fuse` cloning (`fs/fuse/dev.c:fuse_dev_ioctl`).
+    pub const FUSE_DEV_IOC_CLONE: Self = Self(2147804416);
+    /// Require synchronous INIT before mount completes (`fs/fuse/dev.c:fuse_dev_ioctl_sync_init`).
+    pub const FUSE_DEV_IOC_SYNC_INIT: Self = Self(58627);
     pub const TCGETS: Self = Self(21505);
     pub const TCSETS: Self = Self(21506);
     pub const TCSETSW: Self = Self(21507);
@@ -26740,6 +26744,8 @@ impl IoctlRequest {
     pub const IOCTL_VM_SOCKETS_GET_LOCAL_CID: Self = Self(1977);
     /// All named values, in definition order (aliases included).
     pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("FUSE_DEV_IOC_CLONE", Self::FUSE_DEV_IOC_CLONE),
+        ("FUSE_DEV_IOC_SYNC_INIT", Self::FUSE_DEV_IOC_SYNC_INIT),
         ("TCGETS", Self::TCGETS),
         ("TCSETS", Self::TCSETS),
         ("TCSETSW", Self::TCSETSW),
@@ -26927,6 +26933,8 @@ impl IoctlRequest {
     /// Name of the first constant with this value, if any.
     pub const fn name(self) -> Option<&'static str> {
         match self.0 {
+            2147804416 => Some("FUSE_DEV_IOC_CLONE"),
+            58627 => Some("FUSE_DEV_IOC_SYNC_INIT"),
             21505 => Some("TCGETS"),
             21506 => Some("TCSETS"),
             21507 => Some("TCSETSW"),
