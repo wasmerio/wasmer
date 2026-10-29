@@ -215,9 +215,12 @@ impl SockOpts {
     }
 
     /// The option set an accepted socket inherits from its listener (`sk_clone_lock` copies
-    /// the whole sock).
+    /// the whole sock), but for the listener's multicast memberships.
     pub fn inherit(&self) -> Self {
-        self.clone()
+        Self {
+            mc: self.mc.inherit(),
+            ..self.clone()
+        }
     }
 
     /// The options a backend stream acts on (`TCP_NODELAY`, keepalive, `SO_LINGER`), as

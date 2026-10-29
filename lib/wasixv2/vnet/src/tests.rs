@@ -2570,3 +2570,47 @@ fn icmp_errors_through_a_veth_are_rate_limited() {
     send_at(&*u, b"x", a("10.32.0.2:9"), t + 30_000).unwrap();
     assert_eq!(drain(&*raw), 0);
 }
+
+/// On a stream socket only `IP_ADD_MEMBERSHIP`/`IP_DROP_MEMBERSHIP` (before their length) and
+/// `IPV6_ADD_MEMBERSHIP`/`IPV6_DROP_MEMBERSHIP` (after it) are `EPROTO`; `MCAST_JOIN_GROUP`
+/// joins as on any socket, the membership goes with the socket's close
+/// (`ip_mc_drop_socket`), and an accepted socket has none of its listener's.
+#[test]
+fn stream_sockets_refuse_only_the_old_membership_options() {
+    let n = net();
+    let lo_groups = |n: &Net| n.interfaces()[0].groups.clone();
+    let t = tcp(&n);
+    assert_eq!(
+        t.set_option(SOL_IP, IpOption::IP_ADD_MEMBERSHIP.0, &[0; 4]),
+        Err(Errno::EPROTO)
+    );
+    let t6 = n.socket(Domain::Inet6, SocketKind::Stream, 0, UID).unwrap();
+    let add6 = Ipv6Option::IPV6_ADD_MEMBERSHIP.0;
+    assert_eq!(t6.set_option(SOL_IPV6, add6, &[0; 4]), Err(Errno::EINVAL));
+    assert_eq!(
+        t6.set_option(SOL_IPV6, add6, &mreq6("ff05::7", 1)),
+        Err(Errno::EPROTO)
+    );
+
+    const MCAST_JOIN_GROUP: i32 = 42;
+    let group: std::net::IpAddr = "239.7.7.7".parse().unwrap();
+    let req = [&1u32.to_le_bytes()[..], &storage("239.7.7.7")].concat();
+    t.set_option(SOL_IP, MCAST_JOIN_GROUP, &req).unwrap();
+    assert!(lo_groups(&n).contains(&(group, 1)));
+    let req6 = [&1u32.to_le_bytes()[..], &storage("ff05::7")].concat();
+    t6.set_option(SOL_IPV6, MCAST_JOIN_GROUP, &req6).unwrap();
+    let group6: std::net::IpAddr = "ff05::7".parse().unwrap();
+    assert!(lo_groups(&n).contains(&(group6, 1)));
+    drop_socket(t6);
+    assert!(lo_groups(&n).iter().all(|(g, _)| *g != group6));
+
+    t.bind(a("127.0.0.1:0"), false).unwrap();
+    t.listen(1).unwrap();
+    let c = tcp(&n);
+    c.connect(t.local_addr().unwrap()).unwrap();
+    let accepted = t.accept().unwrap();
+    drop(accepted);
+    assert!(lo_groups(&n).contains(&(group, 1)));
+    drop_socket(t);
+    assert!(lo_groups(&n).iter().all(|(g, _)| *g != group));
+}

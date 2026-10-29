@@ -291,14 +291,17 @@ impl Mcast {
                 }
                 self.set_if4(net, bound_dev, value)?;
             }
+            // Only these and IPv6's two refuse a connection-oriented socket (`EPROTO`), before
+            // the length here, after it for IPv6 (`do_ip_setsockopt`, `do_ipv6_setsockopt`);
+            // the protocol-independent and source-specific ones join for any socket.
             (SOL_IP, n)
                 if n == IpOption::IP_ADD_MEMBERSHIP.0 || n == IpOption::IP_DROP_MEMBERSHIP.0 =>
             {
-                if value.len() < IP_MREQ_LEN {
-                    return Err(Errno::EINVAL);
-                }
                 if stream {
                     return Err(Errno::EPROTO);
+                }
+                if value.len() < IP_MREQ_LEN {
+                    return Err(Errno::EINVAL);
                 }
                 let ifindex = match value.len() >= IP_MREQN_LEN {
                     true => u32_at(value, 8),
@@ -313,9 +316,6 @@ impl Mcast {
             (SOL_IP | SOL_IPV6, MCAST_JOIN_GROUP | MCAST_LEAVE_GROUP) => {
                 if value.len() < GROUP_REQ_LEN {
                     return Err(Errno::EINVAL);
-                }
-                if stream {
-                    return Err(Errno::EPROTO);
                 }
                 let ifindex = u32_at(value, 0);
                 let family = u16::from_le_bytes([value[4], value[5]]);
@@ -839,6 +839,15 @@ impl Mcast {
     }
 
     /// `ip_mc_drop_socket`, `ipv6_sock_mc_close`: the socket's memberships end with it.
+    /// What a socket accepted from a listener starts with: its options, no memberships
+    /// (`inet_csk_clone_lock`, `tcp_v6_syn_recv_sock`).
+    pub(crate) fn inherit(&self) -> Self {
+        Self {
+            groups: Vec::new(),
+            ..self.clone()
+        }
+    }
+
     pub(crate) fn drop_all(&mut self, net: &Net) {
         if self.groups.is_empty() {
             return;

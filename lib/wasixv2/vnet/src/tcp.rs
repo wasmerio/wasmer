@@ -454,6 +454,8 @@ impl TcpSocket {
         if let Some(local) = g.local.take() {
             self.net.state().tcp.unbind(self.id, local.port());
         }
+        // `inet_release`: `ip_mc_drop_socket`, `ipv6_sock_mc_close`.
+        g.opts.mc.drop_all(&self.net);
     }
 
     /// A child for a connection to the listener `self`, sharing its port, with `wq` as its
