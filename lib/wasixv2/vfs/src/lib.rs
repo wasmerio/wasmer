@@ -10,6 +10,7 @@ mod dentry;
 mod driver;
 mod export;
 mod file;
+mod fileattr;
 mod inode;
 mod locks;
 mod mount;
@@ -35,6 +36,10 @@ pub use dentry::Dentry;
 pub use driver::{Filesystem, Handle, Link, MAX_DIR_COOKIE, Node, SharedContents};
 pub use export::{HandleKind, MAX_HANDLE_SZ};
 pub use file::{DIR_POS_EOD, File};
+pub use fileattr::{
+    FS_APPEND_FL, FS_IMMUTABLE_FL, FS_NOATIME_FL, FS_NODUMP_FL, FS_XFLAG_RDONLY_MASK,
+    FS_XFLAGS_MASK, FileKattr,
+};
 pub use inode::{Bound, Inode};
 pub use locks::{
     FlockOp, LeaseHolder, LeaseWait, LockKey, LockKind, LockManager, LockOwner, RangeLock,

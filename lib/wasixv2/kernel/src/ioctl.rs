@@ -69,6 +69,9 @@ impl Kernel {
             write_value(caller.memory(), GuestPtrMut::new(arg), &left).await?;
             return Ok(0);
         }
+        if let Some(result) = self.fileattr_ioctl(caller, &file, request, arg).await {
+            return result;
+        }
         match request {
             IoctlRequest::FIOCLEX | IoctlRequest::FIONCLEX => {
                 let cloexec = request == IoctlRequest::FIOCLEX;

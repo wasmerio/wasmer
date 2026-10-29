@@ -6,6 +6,7 @@ pub(crate) mod dnotify;
 pub(crate) mod fanotify;
 mod fhandle;
 mod fifo;
+mod fileattr;
 mod fsopen;
 pub(crate) mod inotify;
 mod io;
@@ -686,6 +687,13 @@ impl Kernel {
             _ if path_only => Err(Errno::EBADF.into()),
             FcntlCmd::F_SETFL => {
                 let flags = OpenFlags(arg);
+                // `setfl`: an append-only file stays `O_APPEND`.
+                if ((flags ^ file.flags()) & OpenFlags::O_APPEND).0 != 0
+                    && let Backing::Inode(inner) = &file.backing
+                    && inner.node().inode_flags() & wasixv2_vfs::FS_APPEND_FL != 0
+                {
+                    return Err(Errno::EPERM.into());
+                }
                 // `setfl`: O_NOATIME needs ownership, as at open.
                 if flags.contains(OpenFlags::O_NOATIME)
                     && !file.flags().contains(OpenFlags::O_NOATIME)

@@ -1030,3 +1030,182 @@ fn fanotify_permission_events_wait_for_an_answer() {
     let (opened, ()) = block_on(join(opener, listener));
     assert!(opened.is_ok());
 }
+
+#[test]
+fn inode_flags_make_files_append_only_or_immutable() {
+    use wasixv2_abi::{FsInodeFlags as Fl, IoctlRequest as R, StatxMask};
+    let (kernel, task, memory) = super::cred::machine_as(0, 0);
+    let t = T::new(&kernel, task, &memory);
+    t.mkdir("/d");
+    t.create("/d/f", b"data");
+    let at = |addr: u32, path: &str| {
+        let mut bytes = path.as_bytes().to_vec();
+        bytes.push(0);
+        put(&memory, addr, &bytes);
+        Cstr::new(addr)
+    };
+    let fd = t.open("/d/f", OpenFlags::O_RDONLY).unwrap();
+    let get_flags = |fd: Fd| {
+        let call = kernel.ioctl(&t.caller, fd, R::FS_IOC_GETFLAGS, 0x3000);
+        block_on(call).map(|_| u32::from_le_bytes(get(&memory, 0x3000, 4).try_into().unwrap()))
+    };
+    let set_flags = |fd: Fd, flags: u32| {
+        put(&memory, 0x3000, &flags.to_le_bytes());
+        block_on(kernel.ioctl(&t.caller, fd, R::FS_IOC_SETFLAGS, 0x3000))
+    };
+    assert_eq!(get_flags(fd), Ok(0));
+    // tmpfs keeps only immutable, append-only, nodump and noatime.
+    assert_eq!(errno(set_flags(fd, Fl::FS_COMPR_FL.0)), Errno::EOPNOTSUPP);
+
+    // Append-only: written only by appending, never truncated, removed or renamed.
+    assert_eq!(set_flags(fd, Fl::FS_APPEND_FL.0), Ok(0));
+    assert_eq!(get_flags(fd), Ok(Fl::FS_APPEND_FL.0));
+    assert_eq!(errno(t.open("/d/f", OpenFlags::O_WRONLY)), Errno::EPERM);
+    let trunc = OpenFlags::O_WRONLY | OpenFlags::O_APPEND | OpenFlags::O_TRUNC;
+    assert_eq!(errno(t.open("/d/f", trunc)), Errno::EPERM);
+    let appender = t
+        .open("/d/f", OpenFlags::O_WRONLY | OpenFlags::O_APPEND)
+        .unwrap();
+    assert_eq!(t.write(appender, b"+"), Ok(1));
+    let setfl = kernel.fcntl64(&t.caller, appender, FcntlCmd::F_SETFL, 0);
+    assert_eq!(errno(block_on(setfl)), Errno::EPERM);
+    assert_eq!(
+        errno(block_on(kernel.ftruncate64(&t.caller, appender, 0))),
+        Errno::EPERM
+    );
+    assert_eq!(
+        errno(block_on(kernel.truncate64(
+            &t.caller,
+            at(0x1000, "/d/f"),
+            0
+        ))),
+        Errno::EPERM
+    );
+    let unlink = kernel.unlinkat(&t.caller, CWD, at(0x1000, "/d/f"), AtFlags(0));
+    assert_eq!(errno(block_on(unlink)), Errno::EPERM);
+    // `statx` shows it.
+    let statx = kernel.statx(
+        &t.caller,
+        CWD,
+        at(0x1000, "/d/f"),
+        AtFlags(0),
+        StatxMask::STATX_BASIC_STATS,
+        GuestPtrMut::new(0x4000),
+    );
+    assert_eq!(block_on(statx), Ok(0));
+    let attributes = u64::from_le_bytes(get(&memory, 0x4008, 8).try_into().unwrap());
+    assert_eq!(attributes & 0x30, 0x20);
+    t.close(appender);
+
+    // Immutable: readable, nothing else.
+    assert_eq!(set_flags(fd, Fl::FS_IMMUTABLE_FL.0), Ok(0));
+    assert!(t.open("/d/f", OpenFlags::O_RDONLY).is_ok());
+    let append = OpenFlags::O_WRONLY | OpenFlags::O_APPEND;
+    assert_eq!(errno(t.open("/d/f", append)), Errno::EPERM);
+    let chmod = kernel.fchmodat(&t.caller, CWD, at(0x1000, "/d/f"), 0o600);
+    assert_eq!(errno(block_on(chmod)), Errno::EPERM);
+    let link = kernel.linkat(
+        &t.caller,
+        CWD,
+        at(0x1000, "/d/f"),
+        CWD,
+        at(0x1100, "/d/g"),
+        AtFlags(0),
+    );
+    assert_eq!(errno(block_on(link)), Errno::EPERM);
+    let rename = kernel.renameat2(
+        &t.caller,
+        CWD,
+        at(0x1000, "/d/f"),
+        CWD,
+        at(0x1100, "/d/g"),
+        wasixv2_abi::RenameFlags(0),
+    );
+    assert_eq!(errno(block_on(rename)), Errno::EPERM);
+    let touch = kernel.utimensat_time64(
+        &t.caller,
+        CWD,
+        at(0x1000, "/d/f"),
+        GuestPtr::new(0),
+        AtFlags(0),
+    );
+    assert_eq!(errno(block_on(touch)), Errno::EPERM);
+
+    // Only CAP_LINUX_IMMUTABLE changes those two; the owner sets the others.
+    assert_eq!(set_flags(fd, 0), Ok(0));
+    let name = t.path("/d/f");
+    assert_eq!(
+        block_on(kernel.fchownat(&t.caller, CWD, name, 1000, 1000, AtFlags(0))),
+        Ok(0)
+    );
+    assert_eq!(block_on(kernel.setuid(&t.caller, 1000)), Ok(0));
+    assert_eq!(errno(set_flags(fd, Fl::FS_APPEND_FL.0)), Errno::EPERM);
+    assert_eq!(set_flags(fd, Fl::FS_NODUMP_FL.0), Ok(0));
+    assert_eq!(get_flags(fd), Ok(Fl::FS_NODUMP_FL.0));
+}
+
+#[test]
+fn file_attrs_through_fsxattr_and_file_getattr() {
+    use wasixv2_abi::{FsInodeFlags as Fl, FsXflags as X, IoctlRequest as R};
+    let (kernel, task, memory) = super::cred::machine_as(0, 0);
+    let t = T::new(&kernel, task, &memory);
+    t.mkdir("/d");
+    let dir = t.open("/d", OpenFlags::O_RDONLY).unwrap();
+    // FS_IOC_FSSETXATTR with a flag tmpfs keeps, then with an extent size it does not.
+    let fsxattr = |xflags: u32, extsize: u32| {
+        let mut raw = [0u8; 28];
+        raw[..4].copy_from_slice(&xflags.to_le_bytes());
+        raw[4..8].copy_from_slice(&extsize.to_le_bytes());
+        put(&memory, 0x3000, &raw);
+        block_on(kernel.ioctl(&t.caller, dir, R::FS_IOC_FSSETXATTR, 0x3000))
+    };
+    assert_eq!(fsxattr(X::FS_XFLAG_NODUMP.0, 0), Ok(0));
+    assert_eq!(
+        errno(fsxattr(X::FS_XFLAG_NODUMP.0, 4096)),
+        Errno::EOPNOTSUPP
+    );
+    assert_eq!(errno(fsxattr(0x4000_0000, 0)), Errno::EOPNOTSUPP);
+    assert_eq!(
+        block_on(kernel.ioctl(&t.caller, dir, R::FS_IOC_FSGETXATTR, 0x3000)),
+        Ok(0)
+    );
+    assert_eq!(get(&memory, 0x3000, 4), X::FS_XFLAG_NODUMP.0.to_le_bytes());
+
+    // New objects inherit nodump; file_getattr reports it as an extended flag.
+    t.create("/d/x", b"");
+    let name = t.path("/d/x");
+    let getattr = |size: u32| {
+        let call = kernel.file_getattr(
+            &t.caller,
+            CWD,
+            name,
+            GuestPtrMut::new(0x3000),
+            size,
+            AtFlags(0),
+        );
+        block_on(call)
+    };
+    assert_eq!(errno(getattr(16)), Errno::EINVAL);
+    assert_eq!(errno(getattr(8192)), Errno::E2BIG);
+    put(&memory, 0x3000, &[0xff; 32]);
+    assert_eq!(getattr(32), Ok(0));
+    let raw = get(&memory, 0x3000, 32);
+    assert_eq!(
+        u64::from_le_bytes(raw[..8].try_into().unwrap()),
+        u64::from(X::FS_XFLAG_NODUMP.0)
+    );
+    assert!(raw[24..].iter().all(|&b| b == 0));
+
+    // file_setattr: append-only through the extended flags, which FS_IOC_GETFLAGS then shows.
+    let mut attr = [0u8; 24];
+    attr[..8].copy_from_slice(&u64::from(X::FS_XFLAG_APPEND.0).to_le_bytes());
+    put(&memory, 0x3400, &attr);
+    let setattr = kernel.file_setattr(&t.caller, CWD, name, GuestPtr::new(0x3400), 24, AtFlags(0));
+    assert_eq!(block_on(setattr), Ok(0));
+    let fd = t.open("/d/x", OpenFlags::O_RDONLY).unwrap();
+    assert_eq!(
+        block_on(kernel.ioctl(&t.caller, fd, R::FS_IOC_GETFLAGS, 0x3000)),
+        Ok(0)
+    );
+    assert_eq!(get(&memory, 0x3000, 4), Fl::FS_APPEND_FL.0.to_le_bytes());
+}

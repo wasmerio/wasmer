@@ -345,6 +345,13 @@ impl Kernel {
         if messages && total > MAX_MESSAGE {
             return Err(Errno::EMSGSIZE.into());
         }
+        // `kiocb_set_rw_flags`: an append-only file is only appended to.
+        if flags.contains(RwfFlags::RWF_NOAPPEND)
+            && let Backing::Inode(inner) = &file.backing
+            && inner.node().inode_flags() & wasixv2_vfs::FS_APPEND_FL != 0
+        {
+            return Err(Errno::EPERM.into());
+        }
         let interrupt = self.interrupt(caller);
         let _pos = match (at, &file.backing) {
             (At::Position, Backing::Inode(_)) => Some(file.lock_pos().await),
@@ -736,6 +743,9 @@ impl Kernel {
                 FileType::Directory => return Err(Errno::EISDIR.into()),
                 _ => return Err(Errno::EINVAL.into()),
             }
+        }
+        if dst.node().inode_flags() & wasixv2_vfs::FS_IMMUTABLE_FL != 0 {
+            return Err(Errno::EPERM.into());
         }
         let mut pos_in = read_offset(caller, off_in, &input).await?;
         let mut pos_out = read_offset(caller, off_out, &output).await?;

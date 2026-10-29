@@ -230,6 +230,18 @@ impl File {
 
     pub async fn allocate(&self, mode: crate::AllocMode, offset: u64, len: u64) -> FsResult<()> {
         let handle = self.handle()?;
+        // `vfs_fallocate`: only preallocation on an append-only file, nothing on an immutable
+        // one.
+        let keeps = matches!(
+            mode,
+            crate::AllocMode::Allocate | crate::AllocMode::AllocateKeepSize
+        );
+        if !keeps && crate::ops::append_only(&self.path.dentry) {
+            return Err(Errno::EPERM);
+        }
+        if crate::ops::immutable(&self.path.dentry) {
+            return Err(Errno::EPERM);
+        }
         let inode = self.path.dentry.inode();
         let _sealed = inode.seal_lock().await;
         inode.sealed_allocate(mode, offset, len).await?;
@@ -243,6 +255,10 @@ impl File {
     /// is a regular file opened for writing.
     pub async fn set_size(&self, size: u64) -> FsResult<()> {
         let handle = self.handle()?;
+        // `do_ftruncate`.
+        if crate::ops::append_only(&self.path.dentry) {
+            return Err(Errno::EPERM);
+        }
         let inode = self.path.dentry.inode();
         let _sealed = inode.seal_lock().await;
         let attr = crate::SetAttr {
