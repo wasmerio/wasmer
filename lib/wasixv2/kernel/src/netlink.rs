@@ -638,6 +638,7 @@ impl Kernel {
         kind: SocketType,
         protocol: i32,
         flags: SocketFlags,
+        dest: crate::fs::FileDest<'_>,
     ) -> SysResult<Fd> {
         if kind != SocketType::SOCK_RAW && kind != SocketType::SOCK_DGRAM {
             return Err(Errno::ESOCKTNOSUPPORT.into());
@@ -672,8 +673,8 @@ impl Kernel {
             ),
             status,
         );
-        let [fd] = self.install_files(caller, [file], flags.contains(SocketFlags::SOCK_CLOEXEC))?;
-        Ok(fd)
+        dest.reserve(self, caller, flags.contains(SocketFlags::SOCK_CLOEXEC))?
+            .install(Arc::new(file))
     }
 }
 

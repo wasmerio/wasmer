@@ -31,11 +31,12 @@
 //! `IORING_CQ_EVENTFD_DISABLED`, and wakes `io_uring_enter` waiters and pollers of the ring.
 //!
 //! Not supported: `IORING_SETUP_SQPOLL` and `IORING_SETUP_IOPOLL` (`EINVAL`), rings in user
-//! memory (`IORING_SETUP_NO_MMAP`), registered ring descriptors, personalities, provided
-//! buffer rings, direct descriptors (`file_index`), and the operations the probe leaves out.
+//! memory (`IORING_SETUP_NO_MMAP`), provided buffer rings, and the operations the probe
+//! leaves out.
 
 mod ops;
 mod register;
+mod rsrc;
 mod tctx;
 
 use std::{
@@ -47,8 +48,8 @@ use std::{
 use wasixv2_abi::{
     ConstSigsetPtr, GuestLayout, GuestPtr, IoCqringOffsets, IoSqringOffsets, IoUringCqe,
     IoUringGeteventsArg, IoUringParams, IoUringParamsPtr, IoUringSqe, IoringCqFlags,
-    IoringEnterFlags, IoringFeatFlags, IoringSetupFlags, IoringSqFlags, KernelTimespec, OpenFlags,
-    VoidPtr,
+    IoringEnterFlags, IoringFeatFlags, IoringSetupFlags, IoringSqFlags, Iovec, KernelTimespec,
+    OpenFlags, VoidPtr,
 };
 use wasixv2_host::Host;
 use wasixv2_pages::SharedPages;
@@ -227,9 +228,12 @@ struct State {
     /// Requests held back by a drain, in submission order.
     drain: VecDeque<Req>,
     /// `IORING_REGISTER_FILES`.
-    files: Option<Vec<Option<Arc<OpenFile>>>>,
+    files: Option<Vec<Option<rsrc::FileNode>>>,
+    file_alloc_start: u32,
+    file_alloc_end: u32,
+    file_alloc_hint: u32,
     /// `IORING_REGISTER_BUFFERS`: address and length of each.
-    buffers: Option<Vec<(u32, u32)>>,
+    buffers: Option<Vec<Option<rsrc::BufferNode>>>,
     /// `IORING_OP_PROVIDE_BUFFERS`' groups: address, length and id of each buffer.
     pbufs: HashMap<u16, VecDeque<Pbuf>>,
     /// `IORING_REGISTER_EVENTFD`, and whether only async completions signal it.
@@ -525,14 +529,20 @@ impl FileObject for IoRing {
         out += &format!("UserFiles:\t{}\n", files.map_or(0, Vec::len));
         for (i, file) in files.into_iter().flatten().enumerate() {
             if let Some(file) = file {
-                let name = String::from_utf8_lossy(&file.path().dentry.name()).into_owned();
+                let name = String::from_utf8_lossy(&file.item.path().dentry.name()).into_owned();
                 out += &format!("{i:5}: {name}\n");
             }
         }
         let buffers = state.buffers.as_ref();
         out += &format!("UserBufs:\t{}\n", buffers.map_or(0, Vec::len));
-        for (i, (addr, len)) in buffers.into_iter().flatten().enumerate() {
-            out += &format!("{i:5}: 0x{addr:x}/{len}\n");
+        for (i, buffer) in buffers.into_iter().flatten().enumerate() {
+            if let Some(buffer) = buffer {
+                let Iovec {
+                    iov_base: addr,
+                    iov_len: len,
+                } = buffer.item;
+                out += &format!("{i:5}: 0x{addr:x}/{len}\n");
+            }
         }
         out += "PollList:\n";
         for waiting in state.waiting.values() {

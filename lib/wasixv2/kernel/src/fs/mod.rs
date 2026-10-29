@@ -229,6 +229,19 @@ impl Kernel {
         flags: OpenFlags,
         mode: u32,
     ) -> SysResult<Fd> {
+        self.openat_to(caller, dfd, filename, flags, mode, FileDest::Table)
+            .await
+    }
+
+    pub(crate) async fn openat_to(
+        &self,
+        caller: &Caller<'_>,
+        dfd: Fd,
+        filename: Cstr,
+        flags: OpenFlags,
+        mode: u32,
+        dest: FileDest<'_>,
+    ) -> SysResult<Fd> {
         // `build_open_how`: unknown bits are ignored, O_PATH drops everything else.
         let mut flags = flags.0 & VALID_OPEN_FLAGS;
         if flags & OpenFlags::O_PATH.0 != 0 {
@@ -241,7 +254,7 @@ impl Kernel {
             mode: u64::from(mode),
             resolve: ResolveFlags(0),
         };
-        self.do_open(caller, dfd, filename, how).await
+        self.do_open(caller, dfd, filename, how, dest).await
     }
 
     pub(crate) async fn sys_openat2(
@@ -251,6 +264,19 @@ impl Kernel {
         filename: Cstr,
         how: ConstOpenHowPtr,
         size: u32,
+    ) -> SysResult<Fd> {
+        self.openat2_to(caller, dfd, filename, how, size, FileDest::Table)
+            .await
+    }
+
+    pub(crate) async fn openat2_to(
+        &self,
+        caller: &Caller<'_>,
+        dfd: Fd,
+        filename: Cstr,
+        how: ConstOpenHowPtr,
+        size: u32,
+        dest: FileDest<'_>,
     ) -> SysResult<Fd> {
         const VER0: u32 = 24;
         if size < VER0 {
@@ -272,7 +298,7 @@ impl Kernel {
                 return Err(Errno::E2BIG.into());
             }
         }
-        self.do_open(caller, dfd, filename, value).await
+        self.do_open(caller, dfd, filename, value, dest).await
     }
 
     /// `build_open_flags` + `do_file_open`.
@@ -282,6 +308,7 @@ impl Kernel {
         dfd: Fd,
         filename: Cstr,
         how: OpenHow,
+        dest: FileDest<'_>,
     ) -> SysResult<Fd> {
         let raw = how.flags;
         let strip = u64::from(OpenFlags::O_CLOEXEC.0);
@@ -354,10 +381,13 @@ impl Kernel {
         // `get_unused_fd_flags` before `do_filp_open`: at the limit, nothing is created,
         // truncated or waited for.
         let cloexec = flags.contains(OpenFlags::O_CLOEXEC);
-        let [fd] = self.reserve_fds(caller, cloexec)?;
+        if dest.is_direct() && cloexec {
+            return Err(Errno::EINVAL.into());
+        }
+        let fd = dest.reserve(self, caller, cloexec)?;
         let file = self.vfs.open(&env.cx(), &start, &path, &vfs_how).await?;
         let backing = self.attach(caller, file, flags).await?;
-        Ok(fd.install(Arc::new(OpenFile::new(backing, flags))))
+        fd.install(Arc::new(OpenFile::new(backing, flags)))
     }
 
     /// `do_dentry_open`'s `f_op->open`: a FIFO attaches to its pipe and a device node to its
@@ -621,6 +651,50 @@ impl Kernel {
                 self.memfd_fcntl(&file, cmd, arg).await
             }
             _ => self.fcntl_lock(caller, fd, &file, cmd, arg).await,
+        }
+    }
+}
+
+/// A new open file goes either into the process table or into an io_uring table.
+/// Linux io_uring/openclose.c:io_openat2 and net.c:io_accept skip ordinary fd
+/// reservation for a direct descriptor, installing it after the operation succeeds.
+#[derive(Clone, Copy)]
+pub(crate) enum FileDest<'a> {
+    Table,
+    Direct(&'a crate::io_uring::Ctx, u32),
+}
+
+impl<'a> FileDest<'a> {
+    pub(crate) fn is_direct(self) -> bool {
+        matches!(self, Self::Direct(..))
+    }
+
+    pub(crate) fn reserve(
+        self,
+        kernel: &Kernel,
+        caller: &Caller<'_>,
+        cloexec: bool,
+    ) -> Result<FileSlot<'a>, Errno> {
+        match self {
+            Self::Table => {
+                let [slot] = kernel.reserve_fds(caller, cloexec)?;
+                Ok(FileSlot::Table(slot))
+            }
+            Self::Direct(ctx, index) => Ok(FileSlot::Direct(ctx, index)),
+        }
+    }
+}
+
+pub(crate) enum FileSlot<'a> {
+    Table(FdReservation),
+    Direct(&'a crate::io_uring::Ctx, u32),
+}
+
+impl FileSlot<'_> {
+    pub(crate) fn install(self, file: Arc<OpenFile>) -> SysResult<Fd> {
+        match self {
+            Self::Table(slot) => Ok(slot.install(file)),
+            Self::Direct(ctx, index) => Ok(Fd(ctx.install_direct(file, index)?)),
         }
     }
 }
