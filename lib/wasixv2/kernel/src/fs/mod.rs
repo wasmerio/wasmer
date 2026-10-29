@@ -595,18 +595,20 @@ impl Kernel {
     pub(crate) fn closed_by(&self, pid: TaskId, file: &OpenFile) {
         // ---- ipc ----
         self.mq_flush(pid, file);
-        if let Backing::Inode(inner) = &file.backing
-            && !inner.path_only
-        {
-            let key = inner.lock_key();
-            let owner = wasixv2_vfs::LockOwner::Process(u64::from(pid.0));
-            self.vfs.locks.release_owner(key, owner);
-            let object = wasixv2_vfs::FsObject {
-                sb: key.0,
-                ino: key.1,
-            };
-            self.dnotify.flush(object, file, pid);
+        if matches!(&file.backing, Backing::Inode(inner) if inner.path_only) {
+            return;
         }
+        // fs/file_table.c:filp_flush -> fs/locks.c:locks_remove_posix applies
+        // to every inode, including pipes and sockets.
+        let path = file.path();
+        let key = (path.dentry.sb().id, path.dentry.node().ino());
+        let owner = wasixv2_vfs::LockOwner::Process(u64::from(pid.0));
+        self.vfs.locks.release_owner(key, owner);
+        let object = wasixv2_vfs::FsObject {
+            sb: key.0,
+            ino: key.1,
+        };
+        self.dnotify.flush(object, file, pid);
     }
 
     pub(crate) async fn sys_close(&self, caller: &Caller<'_>, fd: Fd) -> SysResult<i32> {

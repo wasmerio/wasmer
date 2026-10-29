@@ -557,10 +557,10 @@ impl Kernel {
         buf: UserSliceMut,
         pos: i64,
     ) -> SysResult<u32> {
-        let file = self.file(caller.task(), fd)?;
-        file.check_readable()?;
-        file.check_seekable()?;
         let pos = u64::try_from(pos).map_err(|_| Errno::EINVAL)?;
+        let file = self.io_file(caller, fd)?;
+        file.check_seekable()?;
+        file.check_readable()?;
         self.read_buf(caller, &file, buf, At::Offset(pos)).await
     }
 
@@ -571,10 +571,10 @@ impl Kernel {
         buf: UserSlice,
         pos: i64,
     ) -> SysResult<u32> {
-        let file = self.file(caller.task(), fd)?;
-        file.check_writable()?;
-        file.check_seekable()?;
         let pos = u64::try_from(pos).map_err(|_| Errno::EINVAL)?;
+        let file = self.io_file(caller, fd)?;
+        file.check_seekable()?;
+        file.check_writable()?;
         self.write_buf(caller, &file, buf, At::Offset(pos)).await
     }
 
@@ -592,9 +592,9 @@ impl Kernel {
         if pos < -1 {
             return Err(Errno::EINVAL.into());
         }
-        let file = self.file(caller.task(), fd)?;
-        file.check_readable()?;
+        let file = self.io_file(caller, fd)?;
         let at = self.rw_position(&file, pos)?;
+        file.check_readable()?;
         rw_flags(flags)?;
         let iovecs = read_iovecs(caller.memory(), vec, vlen).await?;
         self.read_into_iovecs_flags(caller, &file, &iovecs, at, flags)
@@ -614,9 +614,9 @@ impl Kernel {
         if pos < -1 {
             return Err(Errno::EINVAL.into());
         }
-        let file = self.file(caller.task(), fd)?;
-        file.check_writable()?;
+        let file = self.io_file(caller, fd)?;
         let at = self.rw_position(&file, pos)?;
+        file.check_writable()?;
         rw_flags(flags)?;
         let iovecs = read_iovecs(caller.memory(), vec, vlen).await?;
         self.write_from_iovecs(caller, &file, &iovecs, at, flags)
