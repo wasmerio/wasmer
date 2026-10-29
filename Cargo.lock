@@ -3295,7 +3295,6 @@ dependencies = [
  "yaml_serde",
  "zerocopy",
  "zlib-rs",
- "zstd",
 ]
 
 [[package]]
