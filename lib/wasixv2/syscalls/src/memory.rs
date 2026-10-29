@@ -83,6 +83,14 @@ pub trait UserMemory {
         Box::pin(async { 0 })
     }
 
+    /// The main thread's stack as the image laid it out: the bytes from the bottom of the
+    /// region the linker reserved for it up to where its `__stack_pointer` starts. Empty where
+    /// it is not known. The kernel accounts only the part a program used, as Linux's stack area
+    /// grows (DESIGN.md, "Locked memory").
+    fn main_stack(&self) -> LocalFuture<'_, Range<u32>> {
+        Box::pin(async { 0..0 })
+    }
+
     /// Bytes at the bottom of the address space the host keeps as the low guard, 0 for none:
     /// they stand for the pages below `mmap_min_addr` that Linux never maps. Writes there fail
     /// with [`Fault`]; reads go through, as the guest's own loads read zeros there (see

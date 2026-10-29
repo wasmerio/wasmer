@@ -284,10 +284,28 @@ pub(crate) struct AddressSpace {
     locked: PageFlags,
     /// `VM_LOCKED` in `def_flags`: every new mapping is locked (`mlockall(MCL_FUTURE)`).
     lock_future: bool,
+    /// The main thread's stack as Linux's stack area, from the first lock call that saw it.
+    stack: Option<StackArea>,
     /// Pages mapped `PROT_NONE`: no `VM_READ`, `VM_WRITE` or `VM_EXEC`.
     no_access: PageFlags,
     /// Pages mapped readable but not `PROT_WRITE`.
     read_only: PageFlags,
+}
+
+/// `setup_arg_pages`' `stack_expand`: how far below its top a new program's stack area reaches.
+const STACK_EXPAND: u64 = 128 << 10;
+
+/// The main thread's stack as Linux's stack area. The image reserves the whole stack, as
+/// `RLIMIT_STACK` bounds Linux's, but Linux's area starts as `stack_expand` below the top
+/// (`setup_arg_pages`) and grows down as far as the stack was used (`expand_stack`), never
+/// back. Here it grows to every stack pointer on it a lock call sees. The pages of the
+/// reservation below it are not in use for `total_vm` and locking (DESIGN.md, "Locked memory").
+#[derive(Clone, Copy)]
+struct StackArea {
+    /// The first page wholly inside the reservation.
+    first: u64,
+    /// The first page of the area.
+    low: u64,
 }
 
 /// A flag of each page from address 0, as far as any page has it: a `vm_flags` bit of the
@@ -379,6 +397,7 @@ impl AddressSpace {
             // `def_flags`: locks are not inherited.
             locked: PageFlags::default(),
             lock_future: false,
+            stack: self.stack,
             no_access: self.no_access.clone(),
             read_only: self.read_only.clone(),
         }
@@ -493,8 +512,31 @@ impl AddressSpace {
     /// `total_vm`: how many pages are in use below the end of memory, `mem_pages`.
     fn total_vm(&self, mem_pages: u64) -> u64 {
         (0..mem_pages)
-            .filter(|&page| self.page_mapped(page, mem_pages))
+            .filter(|&page| self.page_in_area(page, mem_pages))
             .count() as u64
+    }
+
+    /// `expand_stack` of the main stack area, the image's `stack` reservation, down to `sp`
+    /// when the caller runs on it: pages the area grows by take the lock of its lowest
+    /// (`acct_stack_growth`). The area starts `stack_expand` below the top.
+    fn expand_stack(&mut self, stack: Range<u32>, sp: u32) {
+        if stack.is_empty() {
+            return;
+        }
+        let first = u64::from(stack.start).div_ceil(PAGE_SIZE);
+        let area = *self.stack.get_or_insert(StackArea {
+            first,
+            low: (u64::from(stack.end).saturating_sub(STACK_EXPAND) / PAGE_SIZE).max(first),
+        });
+        if !stack.contains(&sp) {
+            return;
+        }
+        let low = (u64::from(sp) / PAGE_SIZE).max(area.first);
+        if low < area.low {
+            let locked = self.locked.get(area.low);
+            self.locked.set(low, area.low, locked);
+            self.stack = Some(StackArea { low, ..area });
+        }
     }
 
     /// `apply_mlockall_flags`: `MCL_FUTURE` locks the mappings to come, or no longer does;
@@ -509,9 +551,9 @@ impl AddressSpace {
         if flags.contains(MclFlags::MCL_CURRENT) {
             let mem_pages = self.seen / PAGE_SIZE;
             let mut pages = 0..mem_pages;
-            while let Some(first) = pages.find(|&page| self.page_mapped(page, mem_pages)) {
+            while let Some(first) = pages.find(|&page| self.page_in_area(page, mem_pages)) {
                 let end = pages
-                    .find(|&page| !self.page_mapped(page, mem_pages))
+                    .find(|&page| !self.page_in_area(page, mem_pages))
                     .unwrap_or(mem_pages);
                 self.locked.set(first, end, true);
             }
@@ -527,7 +569,7 @@ impl AddressSpace {
         lock: bool,
         mem_pages: u64,
     ) -> Result<(), Errno> {
-        let hole = (first..end).find(|&page| !self.page_mapped(page, mem_pages));
+        let hole = (first..end).find(|&page| !self.page_in_area(page, mem_pages));
         self.locked.set(first, hole.unwrap_or(end), lock);
         match hole {
             Some(_) => Err(Errno::ENOMEM),
@@ -542,6 +584,15 @@ impl AddressSpace {
         for page in first.max(base)..end {
             self.mapped[(page - base) as usize] = mapped;
         }
+    }
+
+    /// Whether `page` lies in an area Linux would have (a `vm_area_struct`): in use, and not
+    /// part of the main stack's reservation below the stack area.
+    fn page_in_area(&self, page: u64, mem_pages: u64) -> bool {
+        let unused_stack = self
+            .stack
+            .is_some_and(|stack| (stack.first..stack.low).contains(&page));
+        !unused_stack && self.page_mapped(page, mem_pages)
     }
 
     /// Whether `page` is in use: the image's pages, pages handed out, and pages grown by
@@ -652,6 +703,12 @@ pub(crate) fn pages(len: u32) -> Result<u64, Errno> {
         0 => Err(Errno::EINVAL),
         pages => Ok(pages),
     }
+}
+
+/// The caller's main stack and stack pointer, for [`AddressSpace::expand_stack`].
+async fn stack_seen(caller: &Caller<'_>) -> (Range<u32>, u32) {
+    let memory = caller.memory();
+    (memory.main_stack().await, memory.stack_pointer().await)
 }
 
 /// The pages `mlock` and `munlock` cover: from the one `start` is in through the one the last
@@ -1507,7 +1564,9 @@ impl Kernel {
         let mm = self.mm(caller.task());
         let _op = mm.op.lock().await;
         let mem_pages = self.mem_size(caller).await / PAGE_SIZE;
+        let (stack, sp) = stack_seen(caller).await;
         let mut space = mm.space();
+        space.expand_stack(stack, sp);
         let mut locked = end - first + space.locked_vm();
         if locked > limit.pages() && !limit.exempt {
             // Pages already locked in the range are not locked again.
@@ -1530,7 +1589,10 @@ impl Kernel {
         let mm = self.mm(caller.task());
         let _op = mm.op.lock().await;
         let mem_pages = self.mem_size(caller).await / PAGE_SIZE;
-        mm.space().lock_pages(first, end, false, mem_pages)?;
+        let (stack, sp) = stack_seen(caller).await;
+        let mut space = mm.space();
+        space.expand_stack(stack, sp);
+        space.lock_pages(first, end, false, mem_pages)?;
         Ok(0)
     }
 
@@ -1553,7 +1615,9 @@ impl Kernel {
         let mm = self.mm(caller.task());
         let _op = mm.op.lock().await;
         let mem_pages = self.mem_size(caller).await / PAGE_SIZE;
+        let (stack, sp) = stack_seen(caller).await;
         let mut space = mm.space();
+        space.expand_stack(stack, sp);
         let current = flags.contains(MclFlags::MCL_CURRENT);
         if current && space.total_vm(mem_pages) > limit.pages() && !limit.exempt {
             return Err(Errno::ENOMEM.into());

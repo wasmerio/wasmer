@@ -64,17 +64,38 @@ pub(crate) fn guardable_layout(stack_pointer: u32, data_end: u32) -> bool {
     stack_pointer <= data_end && stack_pointer >= MIN_GUARDED_STACK
 }
 
-/// Whether `instance`, before any of its code ran, has a layout that keeps the low guard free,
-/// from the `__stack_pointer` and `__data_end` it exports.
-pub(crate) fn guardable(instance: &Instance, store: &mut impl AsStoreMut) -> bool {
+/// The `__stack_pointer` and `__data_end` `instance` exports, read before any of its code ran.
+fn layout(instance: &Instance, store: &mut impl AsStoreMut) -> Option<(u32, u32)> {
     let mut value = |name: &str| {
         let global = instance.exports.get_global(name).ok()?;
         global.get(&mut *store).i32().map(|value| value as u32)
     };
-    match (value("__stack_pointer"), value("__data_end")) {
-        (Some(stack_pointer), Some(data_end)) => guardable_layout(stack_pointer, data_end),
-        _ => false,
+    Some((value("__stack_pointer")?, value("__data_end")?))
+}
+
+/// Whether `instance`, before any of its code ran, has a layout that keeps the low guard free,
+/// from the `__stack_pointer` and `__data_end` it exports.
+pub(crate) fn guardable(instance: &Instance, store: &mut impl AsStoreMut) -> bool {
+    layout(instance, store)
+        .is_some_and(|(stack_pointer, data_end)| guardable_layout(stack_pointer, data_end))
+}
+
+/// The main stack of a module whose `__stack_pointer` starts at `stack_pointer` and whose data
+/// ends at `data_end`: lld's stack-first layout puts it from 0 up to the data, data-first from
+/// the end of the data (`__stack_low`, aligned) up to the heap.
+pub(crate) fn stack_of_layout(stack_pointer: u32, data_end: u32) -> Range<u32> {
+    match stack_pointer <= data_end {
+        true => 0..stack_pointer,
+        false => data_end.next_multiple_of(16).min(stack_pointer)..stack_pointer,
     }
+}
+
+/// The main stack of `instance` ([`UserMemory::main_stack`]), from its exports before any of
+/// its code ran; empty for a module that does not export them.
+pub(crate) fn main_stack(instance: &Instance, store: &mut impl AsStoreMut) -> Range<u32> {
+    layout(instance, store).map_or(0..0, |(stack_pointer, data_end)| {
+        stack_of_layout(stack_pointer, data_end)
+    })
 }
 
 /// Makes the low guard of `memory` read-only, and returns its size: [`LOW_GUARD`], or 0 where
@@ -594,6 +615,10 @@ impl<S: 'static> UserMemory for GuestMemory<'_, S> {
         Box::pin(async move { self.env.read().await.data().low_guard })
     }
 
+    fn main_stack(&self) -> LocalFuture<'_, Range<u32>> {
+        Box::pin(async move { self.env.read().await.data().main_stack.clone() })
+    }
+
     /// An atomic compare-and-exchange on the memory itself, so guest threads running at the same
     /// time on other host threads see the futex word change as one step.
     #[cfg(feature = "sys")]
@@ -719,6 +744,10 @@ impl<S: Send + Sync + 'static> UserMemory for OutsideMemory<'_, '_, S> {
         Box::pin(self.cx.with(|data, _| data.low_guard))
     }
 
+    fn main_stack(&self) -> LocalFuture<'_, Range<u32>> {
+        Box::pin(self.cx.with(|data, _| data.main_stack.clone()))
+    }
+
     fn grow(&self, pages: u32) -> LocalFuture<'_, Option<u64>> {
         Box::pin(self.cx.with(move |data, store| {
             let previous = data.memory.as_ref()?.grow(store, pages).ok()?;
@@ -768,6 +797,13 @@ mod tests {
         // above it.
         assert!(!guardable_layout(73_536, 8_000));
         assert!(!guardable_layout(19_565_952, 11_177_340));
+    }
+
+    #[test]
+    fn the_main_stack_lies_below_the_data_or_above_it() {
+        assert_eq!(stack_of_layout(8 << 20, 8_410_324), 0..8 << 20);
+        assert_eq!(stack_of_layout(73_536, 8_000), 8_000..73_536);
+        assert_eq!(stack_of_layout(73_536, 7_995), 8_000..73_536);
     }
 
     #[test]

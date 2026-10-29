@@ -611,6 +611,91 @@ fn mlockall_locks_what_is_mapped_and_what_comes() {
     assert_eq!(block_on(kernel.munmap(&caller, at, 4 * PAGE)), Ok(0));
 }
 
+/// Memory laid out stack-first, with the main stack below `stack.end`, and the caller's
+/// stack pointer at `sp`.
+struct StackFirst {
+    memory: FlatMemory,
+    stack: std::ops::Range<u32>,
+    sp: std::cell::Cell<u32>,
+}
+
+impl UserMemory for StackFirst {
+    fn read<'a>(&'a self, addr: u32, buf: &'a mut [u8]) -> LocalFuture<'a, Result<(), Fault>> {
+        self.memory.read(addr, buf)
+    }
+
+    fn write<'a>(&'a self, addr: u32, data: &'a [u8]) -> LocalFuture<'a, Result<(), Fault>> {
+        self.memory.write(addr, data)
+    }
+
+    fn size(&self) -> LocalFuture<'_, u64> {
+        self.memory.size()
+    }
+
+    fn grow(&self, pages: u32) -> LocalFuture<'_, Option<u64>> {
+        self.memory.grow(pages)
+    }
+
+    fn main_stack(&self) -> LocalFuture<'_, std::ops::Range<u32>> {
+        let stack = self.stack.clone();
+        Box::pin(async move { stack })
+    }
+
+    fn stack_pointer(&self) -> LocalFuture<'_, u32> {
+        let sp = self.sp.get();
+        Box::pin(async move { sp })
+    }
+}
+
+/// The image's main stack counts as Linux's stack area: from 128 KiB below its top
+/// (`stack_expand`) down to the lowest stack pointer a lock call saw, never back, and taking
+/// the area's lock as it grows. The rest of the reservation is not in use, for `mlockall`'s
+/// `total_vm` (mlockall/8-1 under the default 8 MiB limit) and for `mlock`.
+#[test]
+fn the_main_stack_counts_as_far_as_it_was_used() {
+    let (kernel, task, _) = setup(b"");
+    // Six pages: the stack's four, then two of data.
+    let memory = StackFirst {
+        memory: FlatMemory(RefCell::new(vec![0; 6 * PAGE as usize])),
+        stack: 0..4 * PAGE,
+        sp: std::cell::Cell::new(4 * PAGE - 200),
+    };
+    let caller = Caller::new(task, &memory);
+    let mlockall = || block_on(kernel.mlockall(&caller, MclFlags::MCL_CURRENT));
+
+    // The area's two pages and the data's: four of six.
+    set_memlock(&kernel, &caller, 3);
+    assert_eq!(errno(mlockall()), Errno::ENOMEM);
+    set_memlock(&kernel, &caller, 4);
+    assert_eq!(mlockall(), Ok(0));
+    assert_eq!(locked(&kernel, task), 4);
+    assert_eq!(
+        errno(block_on(kernel.mlock(&caller, 0, PAGE))),
+        Errno::ENOMEM,
+        "below the area"
+    );
+
+    // The stack went a page deeper: the area takes it, locked as the area is.
+    memory.sp.set(PAGE + 100);
+    assert_eq!(block_on(kernel.munlock(&caller, 5 * PAGE, PAGE)), Ok(0));
+    assert_eq!(
+        locked(&kernel, task),
+        4,
+        "the new stack page, not the data page"
+    );
+    memory.sp.set(4 * PAGE - 200);
+    assert_eq!(errno(mlockall()), Errno::ENOMEM, "the area does not shrink");
+    set_memlock(&kernel, &caller, 5);
+    assert_eq!(mlockall(), Ok(0));
+    assert_eq!(locked(&kernel, task), 5);
+
+    // A stack pointer elsewhere (another thread's stack) leaves the area as it is.
+    memory.sp.set(5 * PAGE);
+    assert_eq!(block_on(kernel.munlockall(&caller)), Ok(0));
+    assert_eq!(mlockall(), Ok(0));
+    assert_eq!(locked(&kernel, task), 5);
+}
+
 /// `mremap` carries the lock along and grows it, within the limit (`resize_is_valid`); the
 /// source of an `MREMAP_DONTUNMAP` move is unlocked.
 #[test]

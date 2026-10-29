@@ -7,7 +7,7 @@
 //!
 //! [`GuestAction::StartThread`]: wasixv2_syscalls::GuestAction::StartThread
 
-use std::{io, sync::Arc};
+use std::{io, ops::Range, sync::Arc};
 
 use wasixv2_abi::Signal;
 use wasixv2_host::Host;
@@ -32,6 +32,8 @@ pub(crate) struct Image<S> {
     memory: SharedMemory,
     /// The low guard the process image protected in `memory` ([`crate::memory::LOW_GUARD`]).
     low_guard: u32,
+    /// The main thread's stack in `memory`.
+    main_stack: Range<u32>,
     /// The ranges of `memory` that show shared objects read-only, for every thread.
     read_only: Arc<ReadOnly>,
     /// The frozen image `memory` is a private view of ([`crate::base`]).
@@ -53,6 +55,7 @@ impl<S> Image<S> {
         module: &Module,
         memory: SharedMemory,
         (low_guard, read_only, base): (u32, Arc<ReadOnly>, Option<Arc<Base>>),
+        main_stack: Range<u32>,
         syscalls: Arc<S>,
         host: Arc<dyn Host>,
         abi: Arc<dyn Abi<S>>,
@@ -64,6 +67,7 @@ impl<S> Image<S> {
             module: module.clone(),
             memory,
             low_guard,
+            main_stack,
             read_only,
             base,
             syscalls,
@@ -189,6 +193,7 @@ where
         let data = env.as_mut(&mut store);
         data.memory = Some(memory);
         data.low_guard = self.low_guard;
+        data.main_stack = self.main_stack.clone();
         data.read_only = self.read_only.clone();
         data.base = self.base.clone();
         data.stack_pointer = crate::stack_pointer(&instance);

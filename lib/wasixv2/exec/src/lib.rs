@@ -98,6 +98,8 @@ pub struct ExecEnv<S> {
     /// Bytes at the bottom of `memory` that are read-only, where stores fault
     /// ([`memory::LOW_GUARD`]), or 0.
     low_guard: u32,
+    /// The main thread's stack in `memory` ([`wasixv2_syscalls::UserMemory::main_stack`]).
+    main_stack: std::ops::Range<u32>,
     /// The ranges of `memory` that show shared objects read-only, which every thread of the
     /// process shares.
     read_only: Arc<memory::ReadOnly>,
@@ -143,6 +145,7 @@ impl<S: Control> ExecEnv<S> {
             task,
             memory: None,
             low_guard: 0,
+            main_stack: 0..0,
             read_only: Arc::default(),
             base: None,
             stack_pointer: None,
@@ -555,6 +558,7 @@ where
     };
     // Decided from the module's own globals, before a fork child's copy replaces them.
     let guarded = abi.low_guard() && memory::guardable(&instance, &mut store);
+    let main_stack = memory::main_stack(&instance, &mut store);
     let mut asyncify = asyncify::Asyncify::new(&instance, &mut store)?;
     let read_only = Arc::<memory::ReadOnly>::default();
     // Before any guest code runs, and before the guard is protected: `MAP_FIXED` resets it.
@@ -578,13 +582,23 @@ where
     let threads = memory.as_shared(&store).map(|shared| {
         let protected = (low_guard, read_only.clone(), base.clone());
         let image = thread::Image::new(
-            &store, module, shared, protected, syscalls, host, abi, abis, handoff,
+            &store,
+            module,
+            shared,
+            protected,
+            main_stack.clone(),
+            syscalls,
+            host,
+            abi,
+            abis,
+            handoff,
         );
         image as Arc<dyn thread::Start>
     });
     let data = env.as_mut(&mut store);
     data.memory = Some(memory);
     data.low_guard = low_guard;
+    data.main_stack = main_stack;
     data.read_only = read_only;
     data.base = base;
     data.stack_pointer = stack_pointer(&instance);
