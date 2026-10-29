@@ -41,6 +41,8 @@ use wasixv2_vfs_mem::{Limits, MemFs};
 use wasixv2_vfs_overlay::{MAX_LOWERS, OverlayFs};
 use wasixv2_vfs_package::PackageFs;
 pub use wasixv2_vnet::{Net, NetConfig};
+#[cfg(all(feature = "host-network", unix))]
+pub use wasixv2_vnet_host::{VsockConfig, VsockRoute};
 #[cfg(feature = "wasix1")]
 pub use wasixv2_wasix1::{
     CommandDefaults, V1Flavor, is_wasix1_module, module_flavor as wasix1_module_flavor,
@@ -154,6 +156,8 @@ pub struct MachineBuilder {
     loader: Option<Arc<dyn Loader>>,
     console: Option<(Console, [bool; 3])>,
     dns: Dns,
+    #[cfg(all(feature = "host-network", unix))]
+    vsock: Option<VsockConfig>,
 }
 
 /// Where the machine's programs resolve names: what the guest's `/etc/resolv.conf` names, on
@@ -185,7 +189,18 @@ impl MachineBuilder {
             loader: None,
             console: None,
             dns: Dns::default(),
+            #[cfg(all(feature = "host-network", unix))]
+            vsock: None,
         }
+    }
+
+    /// Makes the host network also the machine's vsock host side: the machine is a vsock
+    /// guest with `vsock.cid`, and its connections to the host's CIDs go where `vsock` routes
+    /// them. Without it the machine has only vsock's loopback, as a Linux host does.
+    #[cfg(all(feature = "host-network", unix))]
+    pub fn vsock(mut self, vsock: VsockConfig) -> Self {
+        self.vsock = Some(vsock);
+        self
     }
 
     /// Where the machine's programs resolve names ([`Dns::Builtin`] by default).
@@ -263,11 +278,16 @@ impl MachineBuilder {
             loader,
             console,
             dns,
+            #[cfg(all(feature = "host-network", unix))]
+            vsock,
         } = self;
         let owner = (user.uid(), user.gid());
         // The machine's wall clock is its own: setting it leaves the embedder's alone.
         let time = Timekeeper::new(host);
         let host: Arc<dyn Host> = time.clone();
+        #[cfg(all(feature = "host-network", unix))]
+        let network = default_network(dns, vsock);
+        #[cfg(not(all(feature = "host-network", unix)))]
         let network = default_network(dns);
         let root = root
             .unwrap_or_else(|| default_root(&host, &network.resolv_conf(), &user, uname.release()));
@@ -1090,8 +1110,13 @@ impl Drop for Machine {
 }
 
 #[cfg(all(feature = "host-network", unix))]
-fn default_network(dns: Dns) -> Arc<Net> {
-    let backend = match wasixv2_vnet_host::HostBackend::new() {
+fn default_network(dns: Dns, vsock: Option<VsockConfig>) -> Arc<Net> {
+    let resolver = wasixv2_vnet_host::ResolverConfig::default();
+    let backend = match vsock {
+        Some(vsock) => wasixv2_vnet_host::HostBackend::with_vsock(resolver, vsock),
+        None => wasixv2_vnet_host::HostBackend::with_resolver(resolver),
+    };
+    let backend = match backend {
         Ok(backend) => backend,
         Err(err) => {
             tracing::warn!(%err, "no host network backend; the guest network is loopback-only");

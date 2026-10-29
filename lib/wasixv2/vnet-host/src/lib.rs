@@ -11,6 +11,10 @@
 //! host's blocking lookups (hosts file, `getaddrinfo`, `getnameinfo`, the host's name servers)
 //! on worker threads of its own and caches what they found briefly.
 //!
+//! With a [`VsockConfig`] the backend is also the machine's vsock g2h transport: streams to
+//! the host's CIDs go to host Unix sockets by firecracker's `<path>_<port>` convention, or to
+//! the host's own `AF_VSOCK`.
+//!
 //! [`BackendStream`]: wasixv2_vnet::BackendStream
 //! [`BackendDatagram`]: wasixv2_vnet::BackendDatagram
 
@@ -24,7 +28,7 @@ mod resolver;
 #[cfg(unix)]
 pub use errno::errno_from_io;
 #[cfg(unix)]
-pub use reactor::HostBackend;
+pub use reactor::{HostBackend, VsockConfig, VsockRoute};
 #[cfg(unix)]
 pub use resolver::ResolverConfig;
 

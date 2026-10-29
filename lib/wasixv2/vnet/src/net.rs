@@ -1009,6 +1009,22 @@ impl Network for Net {
         }
     }
 
+    fn vsock_cid(&self) -> Option<u32> {
+        self.backend.as_ref()?.vsock_cid()
+    }
+
+    fn vsock_connect(
+        &self,
+        cid: u32,
+        port: u32,
+        wq: WaitQueue,
+    ) -> Result<Arc<dyn BackendStream>, Errno> {
+        match &self.backend {
+            Some(backend) => backend.vsock_connect(cid, port, wq),
+            None => Err(Errno::ENODEV),
+        }
+    }
+
     fn ports(&self) -> Vec<PortEntry> {
         // Sockets lock themselves before the namespace, so the entries are read only after
         // the namespace lock is gone; the strong references, possibly the last ones, are also

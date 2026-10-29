@@ -26,11 +26,15 @@ use crate::{
 const MEM_MAJOR: u32 = 1;
 /// `TTYAUX_MAJOR`, with `/dev/tty` (and `/dev/console`, which has no driver here).
 const TTYAUX_MAJOR: u32 = 5;
+/// `MISC_MAJOR`, with `/dev/vsock` at the first dynamic minor (`misc_register` gives dynamic
+/// minors from 256 up).
+const MISC_MAJOR: u32 = 10;
+const VSOCK_MINOR: u32 = 256;
 /// The mode of a terminal's node once its user logged in on it (`login`'s `chmod 0620`).
 const TTY_MODE: u32 = 0o620;
 
 /// The device nodes `devtmpfs` would create for the drivers here: name, minor numbers, mode.
-const NODES: [(&str, Device, u32); 8] = [
+const NODES: [(&str, Device, u32); 9] = [
     ("null", dev(MEM_MAJOR, 3), 0o666),
     ("zero", dev(MEM_MAJOR, 5), 0o666),
     ("full", dev(MEM_MAJOR, 7), 0o666),
@@ -39,6 +43,7 @@ const NODES: [(&str, Device, u32); 8] = [
     ("kmsg", dev(MEM_MAJOR, 11), 0o644),
     ("tty", dev(TTYAUX_MAJOR, 0), 0o666),
     ("ptmx", crate::tty::PTMX, 0o666),
+    ("vsock", dev(MISC_MAJOR, VSOCK_MINOR), 0o666),
 ];
 
 const fn dev(major: u32, minor: u32) -> Device {
@@ -94,6 +99,9 @@ impl Kernel {
                 fasync: FasyncList::default(),
             }),
             (MEM_MAJOR, 11) => self.open_dev_kmsg(caller, file, flags)?,
+            (MISC_MAJOR, VSOCK_MINOR) => Arc::new(crate::net::vsock::VsockDevice {
+                transports: self.vsock_transports(),
+            }),
             _ => return Err(Errno::ENXIO.into()),
         };
         Ok(object)

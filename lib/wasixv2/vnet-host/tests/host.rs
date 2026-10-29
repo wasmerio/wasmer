@@ -10,9 +10,10 @@ use std::{
 
 use wasixv2_abi::{Errno, MsgFlags, SocketLevel, SocketOption, TcpOption};
 use wasixv2_vnet::{
-    Domain, Net, NetConfig, Network, PollMask, PollTable, SendMsg, Shutdown, Socket, SocketKind,
+    Backend, Domain, Net, NetConfig, Network, PollMask, PollTable, SendMsg, Shutdown, Socket,
+    SocketKind, StreamState,
 };
-use wasixv2_vnet_host::{HostBackend, ResolverConfig};
+use wasixv2_vnet_host::{HostBackend, ResolverConfig, VsockConfig, VsockRoute};
 use wasixv2_wait::{WaitEntry, WaitQueue, WaitRegistration};
 
 struct Signal(mpsc::Sender<()>);
@@ -774,5 +775,50 @@ fn the_dns_server_asks_the_hosts_file_and_the_host_name_servers() {
     // A name nobody has: NXDOMAIN, or SERVFAIL on a host without a working resolver.
     let a = ask(&*s, &dns_query(5, "nothing.invalid", 1));
     assert!(matches!(a[3] & 0xf, 2 | 3), "rcode {}", a[3] & 0xf);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// The vsock bridge by firecracker's convention: a connection to port P of a host CID is one to
+/// the host Unix socket `<prefix>_P`; nobody there is the host's reset.
+#[test]
+fn vsock_streams_reach_host_unix_sockets_by_port() {
+    let dir = std::env::temp_dir().join(format!("wasixv2-vsock-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let prefix = dir.join("v.sock");
+    let listener = std::os::unix::net::UnixListener::bind(dir.join("v.sock_5000")).unwrap();
+    let vsock = VsockConfig {
+        cid: 3,
+        routes: vec![(Some(2), VsockRoute::UnixPrefix(prefix))],
+    };
+    let backend = HostBackend::with_vsock(ResolverConfig::default(), vsock).unwrap();
+    assert_eq!(backend.vsock_cid(), Some(3));
+    let (tx, rx) = mpsc::channel();
+    let wq = WaitQueue::new();
+    let _reg = wq.add(Arc::new(Signal(tx)));
+    let stream = backend.vsock_connect(2, 5000, wq).unwrap();
+    let (mut host, _) = listener.accept().unwrap();
+    while stream.state() != StreamState::Established {
+        rx.recv_timeout(Duration::from_secs(5)).expect("connected");
+    }
+    assert_eq!(stream.write(b"ping"), Ok(4));
+    let mut buf = [0; 4];
+    host.read_exact(&mut buf).unwrap();
+    assert_eq!(&buf, b"ping");
+    host.write_all(b"pong").unwrap();
+    while stream.input_len() < 4 {
+        rx.recv_timeout(Duration::from_secs(5)).expect("data");
+    }
+    assert_eq!(stream.read(&mut buf, false), Ok(4));
+    assert_eq!(&buf, b"pong");
+    // No host socket for the port, and no route for the CID.
+    assert_eq!(
+        backend.vsock_connect(2, 5001, WaitQueue::new()).err(),
+        Some(Errno::ECONNRESET)
+    );
+    assert_eq!(
+        backend.vsock_connect(7, 5000, WaitQueue::new()).err(),
+        Some(Errno::ECONNRESET)
+    );
+    assert_eq!(HostBackend::new().unwrap().vsock_cid(), None);
     let _ = std::fs::remove_dir_all(&dir);
 }

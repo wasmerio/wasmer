@@ -314,6 +314,23 @@ pub trait Network: Send + Sync {
         Vec::new()
     }
 
+    /// The vsock g2h transport of the backend behind this namespace ([`Backend::vsock_cid`]).
+    fn vsock_cid(&self) -> Option<u32> {
+        None
+    }
+
+    /// [`Backend::vsock_connect`] through the backend behind this namespace; `ENODEV` without
+    /// one.
+    fn vsock_connect(
+        &self,
+        cid: u32,
+        port: u32,
+        wq: WaitQueue,
+    ) -> Result<Arc<dyn BackendStream>, Errno> {
+        let _ = (cid, port, wq);
+        Err(Errno::ENODEV)
+    }
+
     /// The namespace's interfaces; a fresh namespace has only loopback.
     fn interfaces(&self) -> Vec<Interface> {
         Vec::new()
@@ -606,6 +623,28 @@ pub trait Backend: Send + Sync {
         backlog: u32,
         sink: Arc<dyn InboundSink>,
     ) -> Result<Box<dyn Publication>, std::io::Error>;
+
+    /// The context id the host gives this machine as a vsock guest: its g2h transport
+    /// (virtio-vsock's guest side), or `None` for a backend that carries no `AF_VSOCK`. The
+    /// kernel then has only its loopback transport, as a Linux host does.
+    fn vsock_cid(&self) -> Option<u32> {
+        None
+    }
+
+    /// Starts a vsock stream connection to `port` of the host-side context `cid`, as the g2h
+    /// transport sends `VIRTIO_VSOCK_OP_REQUEST`: like [`Backend::connect`]'s stream, it
+    /// reports `OUT` once the host accepted and is [`StreamState::Closed`] with `ECONNRESET`
+    /// once the host refused (a reset), and wakes `wq` on every change. `ENODEV` without a
+    /// g2h transport ([`Backend::vsock_cid`] is `None`).
+    fn vsock_connect(
+        &self,
+        cid: u32,
+        port: u32,
+        wq: WaitQueue,
+    ) -> Result<Arc<dyn BackendStream>, Errno> {
+        let _ = (cid, port, wq);
+        Err(Errno::ENODEV)
+    }
 
     /// Asks the host's resolver, for the namespace's DNS server (`NetConfig::dns_server`), and
     /// returns at once: `done` gets the answer later, from the backend's own thread as

@@ -26,6 +26,7 @@ use wasixv2_wait::PollMask;
 
 mod if_ioctl;
 mod packet;
+pub(crate) mod vsock;
 
 pub(crate) use if_ioctl::is_dev_ioctl;
 
@@ -71,6 +72,7 @@ enum AnySock {
     Unix(Arc<OpenFile>, Arc<unix::Sock>),
     Netlink(Arc<OpenFile>, Arc<netlink::NetlinkSocket>),
     Packet(Arc<OpenFile>, Arc<packet::PacketSocket>),
+    Vsock(Arc<OpenFile>, Arc<vsock::VsockSock>),
 }
 
 impl AnySock {
@@ -79,7 +81,8 @@ impl AnySock {
             AnySock::Inet((file, _))
             | AnySock::Unix(file, _)
             | AnySock::Netlink(file, _)
-            | AnySock::Packet(file, _) => file,
+            | AnySock::Packet(file, _)
+            | AnySock::Vsock(file, _) => file,
         }
     }
 
@@ -89,6 +92,7 @@ impl AnySock {
             AnySock::Unix(_, sock) => &sock.timeouts,
             AnySock::Netlink(_, nl) => &nl.timeouts,
             AnySock::Packet(_, p) => &p.timeouts,
+            AnySock::Vsock(_, v) => &v.timeouts,
         }
     }
 
@@ -98,6 +102,8 @@ impl AnySock {
         match self {
             AnySock::Inet((_, sock)) => sock.socket.kind() == SocketKind::Stream,
             AnySock::Unix(_, sock) => sock.kind() == unix::Kind::Stream,
+            // `sk_stream_error` only for `SOCK_STREAM`.
+            AnySock::Vsock(_, v) => v.kind() == vsock::Kind::Stream,
             AnySock::Netlink(..) | AnySock::Packet(..) => false,
         }
     }
@@ -188,6 +194,7 @@ impl Kernel {
             }
             AddressFamily::AF_NETLINK => return self.netlink_socket(caller, kind, protocol, flags),
             AddressFamily::AF_PACKET => return self.packet_socket(caller, kind, protocol, flags),
+            AddressFamily::AF_VSOCK => return self.vsock_socket(caller, kind, protocol, flags),
             // Every other family (and anything past NPROTO) has no implementation.
             _ => return Err(Errno::EAFNOSUPPORT.into()),
         };
@@ -277,6 +284,7 @@ impl Kernel {
             AnySock::Unix(_, sock) => return self.unix_bind(caller, &sock, &raw).await,
             AnySock::Netlink(_, nl) => return Ok(nl.bind(&raw)?),
             AnySock::Packet(_, p) => return Ok(p.bind(&raw)?),
+            AnySock::Vsock(_, v) => return self.vsock_bind(caller, &v, &raw),
         };
         let domain = sock.socket.domain();
         // `security_socket_bind`.
@@ -307,6 +315,7 @@ impl Kernel {
         match self.any_socket(caller, fd)? {
             AnySock::Inet((_, sock)) => sock.socket.listen(backlog)?,
             AnySock::Unix(_, sock) => sock.listen(backlog, self.peer_cred(caller))?,
+            AnySock::Vsock(_, v) => v.listen(backlog)?,
             AnySock::Netlink(..) | AnySock::Packet(..) => return Err(Errno::EOPNOTSUPP.into()),
         }
         Ok(0)
@@ -374,6 +383,15 @@ impl Kernel {
                 })
                 .await?
             }
+            AnySock::Vsock(_, v) => {
+                let mut wait = v.blocking(io, RCV, MsgFlags(0));
+                wait.wait(WaitOn::Queue(v.queue()), PollMask::READABLE, || {
+                    let child = v.try_accept()?;
+                    let peer = child.peer_addr().unwrap_or_default();
+                    Ok((self.vsock_file(caller, child, flags), peer))
+                })
+                .await?
+            }
             AnySock::Netlink(..) | AnySock::Packet(..) => return Err(Errno::EOPNOTSUPP.into()),
         };
         if !addr.is_null() {
@@ -419,6 +437,7 @@ impl Kernel {
             }
             // `sock_no_connect`.
             AnySock::Packet(..) => return Err(Errno::EOPNOTSUPP.into()),
+            AnySock::Vsock(file, v) => return self.vsock_connect(caller, &file, &v, &raw).await,
         };
         // `security_socket_connect`.
         if let Some(landlock) = self.landlock(caller) {
@@ -490,6 +509,7 @@ impl Kernel {
             AnySock::Unix(_, sock) => sock.local_addr(),
             AnySock::Netlink(_, nl) => nl.local_addr(),
             AnySock::Packet(_, p) => p.local_addr(),
+            AnySock::Vsock(_, v) => v.local_addr(),
         };
         move_addr_to_user(caller, &raw, addr, addrlen).await?;
         Ok(0)
@@ -507,6 +527,7 @@ impl Kernel {
             AnySock::Inet((_, sock)) => socket::encode(sock.socket.peer_addr()?),
             AnySock::Unix(_, sock) => sock.peer_addr()?,
             AnySock::Netlink(_, nl) => nl.peer_addr(),
+            AnySock::Vsock(_, v) => v.peer_addr()?,
             AnySock::Packet(..) => return Err(Errno::EOPNOTSUPP.into()),
         };
         move_addr_to_user(caller, &raw, addr, addrlen).await?;
@@ -657,6 +678,38 @@ impl Kernel {
                 Ok(nl.send(&data, net_admin, &sender)?)
             }
             AnySock::Packet(_, p) => Ok(p.send(to)?),
+            AnySock::Vsock(_, v) => {
+                let mut wait = v.blocking(io, SND, flags);
+                let flags = flags & !(MsgFlags::MSG_DONTWAIT | MsgFlags::MSG_NOSIGNAL);
+                let to = to.is_some_and(|raw| !raw.is_empty());
+                match v.kind() {
+                    vsock::Kind::SeqPacket => {
+                        let mut data = vec![0; src.len.min(v.max_record())];
+                        src.copy_in(memory, 0, &mut data).await?;
+                        vsock::send(v, &mut wait, &data, flags, to).await
+                    }
+                    vsock::Kind::Stream => {
+                        let mut sent = 0;
+                        loop {
+                            let mut data = vec![0; (src.len - sent).min(SOCK_CHUNK)];
+                            let n = data.len();
+                            if let Err(err) = src.copy_in(memory, sent, &mut data).await {
+                                break if sent > 0 { Ok(sent) } else { Err(err) };
+                            }
+                            match vsock::send(v, &mut wait, &data, flags, to).await {
+                                Ok(k) => {
+                                    sent += k;
+                                    if k < n || sent >= src.len {
+                                        break Ok(sent);
+                                    }
+                                }
+                                Err(_) if sent > 0 => break Ok(sent),
+                                Err(err) => break Err(err),
+                            }
+                        }
+                    }
+                }
+            }
         };
         match sock.raises_sigpipe() && !flags.contains(MsgFlags::MSG_NOSIGNAL) {
             true => self.sigpipe(caller, result),
@@ -842,6 +895,44 @@ impl Kernel {
                     controls: Vec::new(),
                     rights: Vec::new(),
                 })
+            }
+            AnySock::Vsock(_, v) => {
+                let mut wait = v.blocking(io, RCV, flags);
+                let stream = v.kind() == vsock::Kind::Stream;
+                let mut buf = vec![0; dst.len.min(SOCK_CHUNK)];
+                let (n, len, cut) = vsock::recv(v, &mut wait, &mut buf, flags).await?;
+                dst.copy_out(memory, 0, &buf[..n]).await?;
+                let mut got = Got {
+                    len: n,
+                    // `__vsock_seqpacket_recvmsg`: the real length with `MSG_TRUNC`.
+                    result: match flags.contains(MsgFlags::MSG_TRUNC) && !stream {
+                        true => len,
+                        false => n,
+                    },
+                    from: None,
+                    flags: match cut {
+                        true => MsgFlags::MSG_TRUNC,
+                        false => MsgFlags(0),
+                    },
+                    controls: Vec::new(),
+                    rights: Vec::new(),
+                };
+                while stream && waitall && got.len > 0 && got.len < dst.len {
+                    let want = (dst.len - got.len).min(SOCK_CHUNK);
+                    match vsock::recv(v, &mut wait, &mut buf[..want], flags).await {
+                        Ok((more, _, _)) if more > 0 => {
+                            if dst.copy_out(memory, got.len, &buf[..more]).await.is_err() {
+                                break;
+                            }
+                            got.len += more;
+                        }
+                        _ => break,
+                    }
+                }
+                if stream {
+                    got.result = got.len;
+                }
+                Ok(got)
             }
             AnySock::Packet(_, p) => {
                 let mut wait = p.blocking(io, RCV, flags);
@@ -1140,6 +1231,13 @@ impl Kernel {
                 p.setsockopt(name, &value)?
             }
             AnySock::Packet(..) => return Err(Errno::ENOPROTOOPT.into()),
+            AnySock::Vsock(_, v) if level == SocketLevel::SOL_SOCKET => {
+                v.set_option(name, &value)?
+            }
+            AnySock::Vsock(_, v) if level.0 == AddressFamily::AF_VSOCK.0 => {
+                v.set_vsock_option(name, &value)?
+            }
+            AnySock::Vsock(..) => return Err(Errno::ENOPROTOOPT.into()),
         }
         Ok(0)
     }
@@ -1193,6 +1291,7 @@ impl Kernel {
             AnySock::Unix(_, sock) => self.unix_getsockopt(caller, sock, name),
             AnySock::Packet(_, p) => p.getsockopt(name),
             AnySock::Netlink(_, nl) => nl.getsockopt(name),
+            AnySock::Vsock(_, v) => v.getsockopt(name),
         };
         value.is_ok_and(|v| v.iter().any(|b| *b != 0))
     }
@@ -1232,6 +1331,16 @@ impl Kernel {
                 Some(nl.getsockopt(name)?)
             }
             AnySock::Packet(_, p) if level == SocketLevel::SOL_SOCKET => Some(p.getsockopt(name)?),
+            AnySock::Vsock(_, v) if level == SocketLevel::SOL_SOCKET => Some(v.getsockopt(name)?),
+            // `vsock_connectible_getsockopt`: a value shorter than the option is `EINVAL`.
+            AnySock::Vsock(_, v) if level.0 == AddressFamily::AF_VSOCK.0 => {
+                let value = v.vsock_option(name)?;
+                if len < value.len() {
+                    return Err(Errno::EINVAL.into());
+                }
+                Some(value)
+            }
+            AnySock::Vsock(..) => return Err(Errno::ENOPROTOOPT.into()),
             _ => return Err(Errno::EOPNOTSUPP.into()),
         };
         let (out, n) = match (fixed, &any) {
@@ -1272,6 +1381,7 @@ impl Kernel {
             AnySock::Unix(_, sock) => self.unix_getsockopt(caller, sock, name),
             AnySock::Packet(_, p) => p.getsockopt(name),
             AnySock::Netlink(_, nl) => nl.getsockopt(name),
+            AnySock::Vsock(_, v) => v.getsockopt(name),
         }
     }
 
@@ -1460,6 +1570,10 @@ fn shutdown_on(any: AnySock, how: ShutdownHow) -> SysResult<i32> {
         AnySock::Inet((_, sock)) => sock,
         AnySock::Unix(_, sock) => {
             sock.shutdown(unix::shutdown_mode(how.0)?);
+            return Ok(0);
+        }
+        AnySock::Vsock(_, v) => {
+            v.shutdown(how.0)?;
             return Ok(0);
         }
         // `sock_no_shutdown`.
