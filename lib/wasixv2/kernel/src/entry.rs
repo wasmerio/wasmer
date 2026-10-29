@@ -99,7 +99,7 @@ impl Kernel {
     /// on its way out (an `exit`, a fatal signal), as Linux never returns from those.
     async fn syscall_exit(&self, caller: &Caller<'_>, ret: &SysResult<SyscallRet>) {
         let task = caller.task();
-        if self.trace_link(task).is_none() || self.exiting_task(task) {
+        if self.exiting_task(task) || self.trace_link(task).is_none() {
             return;
         }
         let raw = match ret {

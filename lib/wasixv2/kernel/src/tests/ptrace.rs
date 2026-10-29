@@ -822,3 +822,18 @@ fn proc_pid_mem_reads_and_writes_the_address_space() {
     let sibling_caller = Caller::new(sibling, &sibling_memory);
     assert_eq!(errno(open(&sibling_caller, &sibling_memory)), Errno::EACCES);
 }
+
+/// kernel/exit.c `do_exit` never reaches syscall-exit tracing. The layer may see
+/// an unparented tracer already reaped when `exit_group` returns internally.
+#[test]
+fn syscall_exit_does_not_inspect_a_reaped_tracer() {
+    let (stack, tracer, memory) = machine();
+    let caller = Caller::new(tracer, &memory);
+    let child = fork_child(&stack.inner, &caller);
+    assert_eq!(
+        ptrace(&stack.inner, &caller, R::PTRACE_SEIZE, child, 0, 0),
+        Ok(0)
+    );
+    assert_eq!(block_on(stack.exit_group(&caller, 0)), Ok(()));
+    assert!(stack.inner.task_process(tracer).is_none());
+}
