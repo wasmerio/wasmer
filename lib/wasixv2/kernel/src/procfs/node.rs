@@ -12,8 +12,9 @@ use wasixv2_vfs::{
 
 use super::{Source, text};
 use crate::{
+    devinet,
     file::NrOpen,
-    ns::{NsLink, PidNs},
+    ns::{NetNs, NsLink, PidNs},
     sync::MutexExt,
 };
 
@@ -35,6 +36,10 @@ pub(super) enum Entry {
     Ns(Scope, usize),
     /// `net/<name>`, one of [`NET_ENTRIES`] by index.
     Net(Scope, usize),
+    /// `/proc/sys/net/ipv4/conf/<scope>`.
+    Devconf(devinet::Scope),
+    /// A value there, one of [`devinet::VARS`] by index.
+    DevconfVar(devinet::Scope, usize),
 }
 
 /// Whose directory: a process (`/proc/<pid>`) or one of its threads
@@ -56,6 +61,8 @@ enum Static {
     SelfLink,
     /// `thread-self`: the caller's thread.
     ThreadSelf,
+    /// `/proc/sys/net/ipv4/conf`, whose directories are `all`, `default` and the interfaces.
+    Devconf,
 }
 
 /// The fixed part of the tree: parent index, name, kind. Index 0's parent is the root.
@@ -95,6 +102,10 @@ const STATIC: &[(usize, &str, Static)] = &[
     (15, "file-max", Static::File(text::Global::FileMax)),
     (15, "nr_open", Static::File(text::Global::NrOpen)),
     (15, "pipe-max-size", Static::File(text::Global::PipeMaxSize)),
+    // 28
+    (11, "net", Static::Dir),
+    (28, "ipv4", Static::Dir),
+    (29, "conf", Static::Devconf),
 ];
 
 /// What an entry of a process or thread directory is.
@@ -201,6 +212,11 @@ impl ProcNode {
                         out.push((index as u64, name.as_bytes().to_vec(), Entry::Static(index)));
                     }
                 }
+                if let Entry::Static(index) = self.entry
+                    && matches!(STATIC[index].2, Static::Devconf)
+                {
+                    out.extend(self.devconf_dirs());
+                }
                 if self.entry == Entry::Root {
                     for (nr, pid) in self.source.pids() {
                         let scope = Scope { pid, tid: None };
@@ -274,11 +290,42 @@ impl ProcNode {
                 }
                 _ => return Err(Errno::ENOTDIR),
             },
-            Entry::Fd(..) | Entry::FdInfo(..) | Entry::Ns(..) | Entry::Net(..) => {
+            Entry::Devconf(scope) => {
+                for (index, var) in devinet::VARS.iter().enumerate() {
+                    let name = var.name.as_bytes().to_vec();
+                    out.push((index as u64, name, Entry::DevconfVar(scope, index)));
+                }
+            }
+            Entry::Fd(..)
+            | Entry::FdInfo(..)
+            | Entry::Ns(..)
+            | Entry::Net(..)
+            | Entry::DevconfVar(..) => {
                 return Err(Errno::ENOTDIR);
             }
         }
         Ok(out)
+    }
+
+    /// The directories of `/proc/sys/net/ipv4/conf`: `all`, `default` and one per interface.
+    /// Nodes are looked up without the caller, so the interfaces are those of the initial
+    /// network namespace; every namespace has the loopback interface, and each file shows
+    /// the opener's namespace ([`ProcNode::open`]).
+    fn devconf_dirs(&self) -> Vec<(u64, Vec<u8>, Entry)> {
+        let mut out = vec![
+            (0, b"all".to_vec(), Entry::Devconf(devinet::Scope::All)),
+            (
+                1,
+                b"default".to_vec(),
+                Entry::Devconf(devinet::Scope::Default),
+            ),
+        ];
+        let network = self.source.ns.net.network.as_deref();
+        for dev in devinet::devices(network) {
+            let entry = Entry::Devconf(devinet::Scope::Dev(dev.index));
+            out.push((2 + u64::from(dev.index), dev.name.into_bytes(), entry));
+        }
+        out
     }
 
     /// The open file behind `fd/<n>` or `fdinfo/<n>`, with its close-on-exec flag.
@@ -297,12 +344,17 @@ impl ProcNode {
         match self.entry {
             Entry::Root | Entry::Dir(_) => 0o555,
             Entry::Static(index) => match STATIC[index].2 {
-                Static::Dir => 0o555,
+                Static::Dir | Static::Devconf => 0o555,
                 Static::File(file) => file.mode(),
                 Static::Link(_) | Static::SelfLink | Static::ThreadSelf => 0o777,
             },
             Entry::Pid(_, index) => PID_ENTRIES[index].2,
             Entry::FdInfo(..) | Entry::Net(..) => 0o444,
+            Entry::Devconf(_) => 0o555,
+            Entry::DevconfVar(_, var) => match devinet::VARS[var].writable {
+                true => 0o644,
+                false => 0o444,
+            },
             Entry::Ns(..) => 0o777,
             Entry::Fd(scope, fd) => {
                 // The link's mode shows how the file is open (`tid_fd_update_inode`).
@@ -322,7 +374,9 @@ impl ProcNode {
     /// uid and gid, or root's once it is not dumpable (`task_dump_owner`).
     fn owner(&self) -> (u32, u32) {
         let scope = match self.entry {
-            Entry::Root | Entry::Static(_) => return (0, 0),
+            Entry::Root | Entry::Static(_) | Entry::Devconf(_) | Entry::DevconfVar(..) => {
+                return (0, 0);
+            }
             Entry::Dir(scope)
             | Entry::Pid(scope, _)
             | Entry::Fd(scope, _)
@@ -369,6 +423,15 @@ impl ProcNode {
 /// Inode numbers. Static nodes count from 1; a process or thread directory and everything in
 /// it carry the pid or tid above bit 30, with the entry below.
 fn ino(entry: Entry) -> u64 {
+    // `/proc/sys/net/ipv4/conf`'s nodes carry their scope above bit 8 under bit 62.
+    let devconf = |scope: devinet::Scope, sub: u64| {
+        let key = match scope {
+            devinet::Scope::All => 0,
+            devinet::Scope::Default => 1,
+            devinet::Scope::Dev(index) => 2 + u64::from(index),
+        };
+        (1 << 62) | (key << 8) | sub
+    };
     let scoped = |scope: Scope, sub: u64| {
         let key = match scope.tid {
             None => u64::from(scope.pid),
@@ -385,6 +448,8 @@ fn ino(entry: Entry) -> u64 {
         Entry::FdInfo(scope, fd) => scoped(scope, (1 << 28) | u64::from(fd)),
         Entry::Ns(scope, index) => scoped(scope, (1 << 27) | index as u64),
         Entry::Net(scope, index) => scoped(scope, (1 << 26) | index as u64),
+        Entry::Devconf(scope) => devconf(scope, 0),
+        Entry::DevconfVar(scope, var) => devconf(scope, 1 + var as u64),
     }
 }
 
@@ -392,7 +457,7 @@ fn file_type(entry: Entry) -> FileType {
     match entry {
         Entry::Root | Entry::Dir(_) => FileType::Directory,
         Entry::Static(index) => match STATIC[index].2 {
-            Static::Dir => FileType::Directory,
+            Static::Dir | Static::Devconf => FileType::Directory,
             Static::File(_) => FileType::Regular,
             Static::Link(_) | Static::SelfLink | Static::ThreadSelf => FileType::Symlink,
         },
@@ -406,7 +471,8 @@ fn file_type(entry: Entry) -> FileType {
             PidEntry::File(_) => FileType::Regular,
         },
         Entry::Fd(..) | Entry::Ns(..) => FileType::Symlink,
-        Entry::FdInfo(..) | Entry::Net(..) => FileType::Regular,
+        Entry::FdInfo(..) | Entry::Net(..) | Entry::DevconfVar(..) => FileType::Regular,
+        Entry::Devconf(_) => FileType::Directory,
     }
 }
 
@@ -616,6 +682,31 @@ impl Node for ProcNode {
                     .ok_or(Errno::ENOENT)?;
                 (text::net(&task.ns.net, NET_ENTRIES[index].1), None)
             }
+            // The opener's network namespace, as `net_ctl_header_lookup` takes `current`'s.
+            Entry::DevconfVar(scope, var) => {
+                // `proc_sys_permission`: root does not override a read-only sysctl's mode.
+                if options.write && !devinet::VARS[var].writable {
+                    return Err(Errno::EACCES);
+                }
+                let net = self.source.ns_of(options.task).net.clone();
+                let value = {
+                    let devs = devinet::devices(net.network.as_deref());
+                    let dev = match scope {
+                        devinet::Scope::Dev(index) => {
+                            Some(devs.into_iter().find(|dev| dev.index == index))
+                        }
+                        _ => None,
+                    };
+                    // An interface the opener's namespace does not have.
+                    if dev.as_ref().is_some_and(Option::is_none) {
+                        return Err(Errno::ENOENT);
+                    }
+                    let devconf = net.devconf.lock_or_recover();
+                    devconf.get(scope, var, dev.flatten().as_ref())
+                };
+                let write = options.write.then_some(Write::Devconf(net, scope, var));
+                (format!("{value}\n").into_bytes(), write)
+            }
             _ => return Err(Errno::ENXIO),
         };
         Ok(Box::new(FileHandle { data, write: comm }))
@@ -662,10 +753,18 @@ enum Write {
     NsLastPid(Arc<PidNs>, bool),
     /// `fs.nr_open`.
     NrOpen(Arc<NrOpen>),
+    /// A value of `/proc/sys/net/ipv4/conf` in the opener's network namespace.
+    Devconf(Arc<NetNs>, devinet::Scope, usize),
 }
 
 /// `proc_dointvec`'s parsing of one integer: blanks around it, nothing else.
 fn sysctl_int(data: &[u8]) -> Result<u32, Errno> {
+    let text = std::str::from_utf8(data).map_err(|_| Errno::EINVAL)?;
+    text.trim().parse().map_err(|_| Errno::EINVAL)
+}
+
+/// [`sysctl_int`] for a signed `int`.
+fn sysctl_i32(data: &[u8]) -> Result<i32, Errno> {
     let text = std::str::from_utf8(data).map_err(|_| Errno::EINVAL)?;
     text.trim().parse().map_err(|_| Errno::EINVAL)
 }
@@ -694,6 +793,10 @@ impl Handle for FileHandle {
             Write::NsLastPid(_, false) => return Err(Errno::EPERM),
             Write::NsLastPid(ns, true) => ns.set_last_pid(sysctl_int(data)?)?,
             Write::NrOpen(nr_open) => nr_open.set(sysctl_int(data)?)?,
+            Write::Devconf(net, scope, var) => {
+                let value = sysctl_i32(data)?;
+                net.devconf.lock_or_recover().set(*scope, *var, value)?;
+            }
         }
         Ok(data.len())
     }

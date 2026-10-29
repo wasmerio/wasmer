@@ -1728,6 +1728,7 @@ mod tests {
             crate::ns::Net {
                 network: None,
                 unix_names: names,
+                devconf: Default::default(),
             },
         )
     }

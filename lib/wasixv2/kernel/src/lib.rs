@@ -7,6 +7,7 @@
 mod chrdev;
 mod cputime;
 mod cred;
+mod devinet;
 mod epoll;
 mod eventfd;
 mod file;
