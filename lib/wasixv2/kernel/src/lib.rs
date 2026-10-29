@@ -1429,6 +1429,57 @@ impl Syscalls for Kernel {
         self.sys_futex(caller, uaddr, op, val, utime, uaddr2, val3)
             .await
     }
+
+    async fn futex_waitv(
+        &self,
+        caller: &Caller<'_>,
+        waiters: wasixv2_abi::ConstFutexWaitvArray,
+        nr_futexes: u32,
+        flags: u32,
+        timeout: KernelTimespecPtr,
+        clockid: wasixv2_abi::ClockId,
+    ) -> SysResult<i32> {
+        self.sys_futex_waitv(caller, waiters, nr_futexes, flags, timeout, clockid)
+            .await
+    }
+
+    async fn futex_wake(
+        &self,
+        caller: &Caller<'_>,
+        uaddr: U32Ptr,
+        mask: Ulong,
+        nr: i32,
+        flags: wasixv2_abi::Futex2Flags,
+    ) -> SysResult<i32> {
+        self.sys_futex_wake(caller, uaddr, mask, nr, flags).await
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    async fn futex_wait(
+        &self,
+        caller: &Caller<'_>,
+        uaddr: U32Ptr,
+        val: Ulong,
+        mask: Ulong,
+        flags: wasixv2_abi::Futex2Flags,
+        timeout: KernelTimespecPtr,
+        clockid: wasixv2_abi::ClockId,
+    ) -> SysResult<i32> {
+        self.sys_futex_wait(caller, uaddr, val, mask, flags, timeout, clockid)
+            .await
+    }
+
+    async fn futex_requeue(
+        &self,
+        caller: &Caller<'_>,
+        waiters: wasixv2_abi::ConstFutexWaitvArray,
+        flags: u32,
+        nr_wake: i32,
+        nr_requeue: i32,
+    ) -> SysResult<i32> {
+        self.sys_futex_requeue(caller, waiters, flags, nr_wake, nr_requeue)
+            .await
+    }
     // ---- end thr ----
 
     // ---- proc ----
