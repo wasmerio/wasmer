@@ -602,6 +602,8 @@ mod tests {
         /// The tasks that left their memory and the ones that faulted, in order.
         ended: Mutex<Vec<(&'static str, TaskId)>>,
         memory_task_work: bool,
+        exit_from_final_drain: bool,
+        task_work_calls: std::sync::atomic::AtomicUsize,
         resume_flag: Option<Arc<wasixv2_syscalls::WorkFlag>>,
     }
 
@@ -631,6 +633,14 @@ mod tests {
 
         fn run_task_work<'a>(&'a self, caller: &'a Caller<'_>) -> LocalFuture<'a, ()> {
             Box::pin(async move {
+                if self.exit_from_final_drain
+                    && self
+                        .task_work_calls
+                        .fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+                        == 1
+                {
+                    self.queue(caller.task(), GuestAction::Exit(42));
+                }
                 if self.memory_task_work {
                     caller
                         .memory()
@@ -809,6 +819,30 @@ mod tests {
                 "raised={raised}"
             );
         }
+    }
+
+    #[cfg(feature = "sys")]
+    #[test]
+    fn actions_generated_by_the_final_task_work_drain_precede_guest_resume() {
+        let wasm = wat::parse_str(
+            r#"(module
+            (import "wasixv2" "sched_yield" (func $yield (result i32)))
+            (memory (export "memory") 1)
+            (func (export "_start") (drop (call $yield)) unreachable))"#,
+        )
+        .unwrap();
+        let store = Store::default();
+        let module = wasmer::Module::new(&store, wasm).unwrap();
+        let control = Arc::new(Recorder {
+            exit_from_final_drain: true,
+            ..Recorder::default()
+        });
+        let run = crate::run(store, &module, control.clone(), PARENT, Arc::new(NoThreads));
+        assert_eq!(futures::executor::block_on(run).unwrap(), 42);
+        assert!(
+            control.faulted.lock().unwrap().is_empty(),
+            "guest resumed before final-drain action delivery"
+        );
     }
 
     #[test]

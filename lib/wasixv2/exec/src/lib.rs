@@ -929,11 +929,18 @@ pub async fn complete<S: Syscalls + Control + 'static, T>(
         loop {
             let memory = GuestMemory { env };
             syscalls.run_task_work(&Caller::new(task, &memory)).await;
-            let Some(action) = syscalls.take_pending(task) else {
-                // A producer may have queued work just before take_pending cleared its flag.
-                // Drain once more after that clear; later producers leave the flag raised.
-                syscalls.run_task_work(&Caller::new(task, &memory)).await;
-                break;
+            let action = match syscalls.take_pending(task) {
+                Some(action) => action,
+                None => {
+                    // kernel/entry/common.c:exit_to_user_mode_loop rechecks work
+                    // after draining it. This drain can itself raise SIGPIPE,
+                    // SIGXFSZ or an action: deliver it before the guest resumes.
+                    syscalls.run_task_work(&Caller::new(task, &memory)).await;
+                    match syscalls.take_pending(task) {
+                        Some(action) => action,
+                        None => break,
+                    }
+                }
             };
             match action {
                 GuestAction::Exit(status) => {
