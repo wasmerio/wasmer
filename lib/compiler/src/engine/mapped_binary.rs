@@ -384,7 +384,13 @@ impl MemoryMappedBinary {
 
         // Mmap individual load segments
         for load_segment in &segments {
-            // The virtual offset does not need to start at a page boundary.
+            #[cfg(target_os = "macos")]
+            if !load_segment.mem_address.is_multiple_of(page_size) {
+                return Err(format!(
+                    "Load segment virtual address 0x{:x} is not aligned to host page size 0x{:x}",
+                    load_segment.mem_address, page_size
+                ));
+            }
             if load_segment.file_address % page_size != load_segment.mem_address % page_size {
                 return Err(format!(
                     "Load segment file offset 0x{:x} and virtual address 0x{:x} have incompatible page alignment",
