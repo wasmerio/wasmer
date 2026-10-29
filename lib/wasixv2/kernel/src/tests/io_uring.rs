@@ -4129,3 +4129,106 @@ fn retained_write_during_mremap_copy_follows_the_move() {
     assert_eq!(block_on(write), Ok(()));
     assert_eq!(m.memory.get(target, 4), b"race");
 }
+
+#[test]
+fn inherited_ring_uses_registrants_buffers_or_faults_without_foreign_memory() {
+    use super::introspect::SyncMemory;
+    for foreign in [false, true] {
+        let mut m = Machine::new();
+        m.memory = super::mapped::MappedMemory::new(2, true);
+        let ring = m.ring(8, 0);
+        let addr = anonymous(&m, 1, false);
+        let pbuf = anonymous(&m, 1, false);
+        let input = m.file("inherited-input", b"read");
+        let output = m.file("inherited-output", b"");
+        m.memory.put(addr, b"old!");
+        pbuf_descriptor(&m, pbuf, 0, BUF, 8, 42);
+        m.memory.put(pbuf + 14, &1u16.to_le_bytes());
+        let owner = SyncMemory::new(block_on(m.memory.size()) as usize, 0);
+        owner.put(addr, b"old!");
+        owner.put(pbuf, &m.memory.get(pbuf, 32));
+        if foreign {
+            m.kernel.attach_memory(m.task, owner.clone());
+        }
+        put_value(
+            &m,
+            SCRATCH + 64,
+            Iovec {
+                iov_base: addr,
+                iov_len: 4,
+            },
+        );
+        assert_eq!(register_resources(&ring, true, 1, SCRATCH + 64, 0), Ok(0));
+        assert_eq!(pbuf_register(&ring, pbuf, 2, 1), Ok(0));
+        let child = super::proc::fork_child(&m.kernel, &m.caller());
+        let child_memory = m.memory.fork(&m.kernel.shared_mappings(child));
+        let child_caller = Caller::new(child, &child_memory);
+        child_memory.put(addr, b"kid!");
+        child_memory.put(pbuf + 14, &0u16.to_le_bytes());
+        // Post-registration parent stores must be visible through the original pins.
+        owner.put(addr, b"live");
+        let submit = |sqe| {
+            ring.push(sqe);
+            assert_eq!(
+                block_on(m.kernel.io_uring_enter(
+                    &child_caller,
+                    ring.fd,
+                    1,
+                    0,
+                    0,
+                    GuestPtr::NULL,
+                    0
+                )),
+                Ok(1)
+            );
+            ring.reap()[0].res
+        };
+        let fixed = IoUringSqe {
+            addr: addr.into(),
+            len: 4,
+            ..sqe(IoUringOp::IORING_OP_WRITE_FIXED, output.0, 1)
+        };
+        assert_eq!(submit(fixed), if foreign { 4 } else { -Errno::EFAULT.0 });
+        if foreign {
+            block_on(
+                m.kernel
+                    .pread64(&m.caller(), output, UserSliceMut::new(BUF, 4), 0),
+            )
+            .unwrap();
+            assert_eq!(m.memory.get(BUF, 4), b"live");
+        }
+        assert_eq!(
+            submit(IoUringSqe {
+                fd: input.0,
+                opcode: IoUringOp::IORING_OP_READ_FIXED.0,
+                ..fixed
+            }),
+            if foreign { 4 } else { -Errno::EFAULT.0 }
+        );
+        assert_eq!(child_memory.get(addr, 4), b"kid!");
+        if foreign {
+            assert_eq!(owner.get(addr, 4), b"read");
+        }
+        let selected = IoUringSqe {
+            addr: 0,
+            len: 4,
+            buf_index: 7,
+            flags: IosqeFlags::IOSQE_BUFFER_SELECT.0,
+            ..sqe(READ, input.0, 3)
+        };
+        assert_eq!(submit(selected), if foreign { 4 } else { -Errno::EFAULT.0 });
+        if foreign {
+            assert_eq!(
+                child_memory.get(BUF, 4),
+                b"read",
+                "selected payload belongs to the issuer"
+            );
+            assert_eq!(
+                owner.get(pbuf + 8, 4),
+                4u32.to_le_bytes(),
+                "INC updates registering ring metadata"
+            );
+            assert_eq!(child_memory.get(pbuf + 8, 4), 8u32.to_le_bytes());
+        }
+    }
+}
