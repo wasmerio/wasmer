@@ -630,7 +630,8 @@ impl Kernel {
     /// starts its first task: a process that runs no guest code, every spawned process is a
     /// child of and orphans are handed to. It ignores SIGCHLD, so whatever it inherits is reaped
     /// as it exits, and no signal kills it (`SIGNAL_UNKILLABLE`). It runs as the credentials
-    /// given so far, so [`Kernel::with_credentials`] comes first. Without one, spawned processes
+    /// of root (`init/init_task.c INIT_CRED`). Spawned processes use the configured
+    /// credentials. Without an init, spawned processes
     /// have no parent (`getppid` is 0) and orphans no reaper.
     pub fn with_init(mut self) -> Self {
         assert!(
@@ -638,7 +639,13 @@ impl Kernel {
             "init is the first process"
         );
         let init = self
-            .new_process(vec!["init".to_string()], Vec::new(), self.fd_table(), 0)
+            .new_process_as(
+                &Credentials::new(0, 0),
+                vec!["init".to_string()],
+                Vec::new(),
+                self.fd_table(),
+                0,
+            )
             .expect("the first process gets pid 1");
         self.task_signals(init).group().make_init();
         self.init = Some(init);

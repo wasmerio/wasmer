@@ -1515,3 +1515,16 @@ fn a_group_signal_the_leader_blocks_goes_to_one_thread_and_on_when_it_exits() {
         other => panic!("expected the handler on the second thread, got {other:?}"),
     }
 }
+
+/// init/init_task.c init_task uses INIT_CRED (uid 0); kernel/signal.c
+/// kill_ok_by_cred must deny an ordinary user signalling that init, even if ignored.
+#[test]
+fn pidfd_signals_to_init_require_privilege() {
+    let (kernel, task, memory) = super::cred::machine_with(|kernel| kernel.with_init());
+    let caller = Caller::new(task, &memory);
+    let fd = block_on(kernel.pidfd_open(&caller, 1, 0)).unwrap();
+    assert_eq!(
+        block_on(kernel.pidfd_send_signal(&caller, fd, Signal::SIGUSR1, GuestPtr::NULL, 0)),
+        err(Errno::EPERM)
+    );
+}
