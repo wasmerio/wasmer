@@ -295,7 +295,8 @@ impl Mm {
 
     /// Holds `memory` as how other tasks reach the address space.
     pub(crate) fn attach_foreign(&self, memory: Arc<dyn UserMemory + Send + Sync>) {
-        *self.foreign.lock_or_recover() = Some(memory);
+        // First instantiation wins; threads/vfork cannot replace the image handle.
+        self.foreign.lock_or_recover().get_or_insert(memory);
     }
 
     /// `get_task_mm` for memory access from outside: the memory while it is there, `None` for
