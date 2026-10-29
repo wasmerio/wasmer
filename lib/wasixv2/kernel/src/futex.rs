@@ -121,13 +121,22 @@ struct Entry {
     /// onto a PI futex, or the waiter leaving (`plist_node_empty`).
     queued: AtomicBool,
     /// The sleeping task (`futex_q::task`).
-    task: WakeHandle,
+    task: WakeTarget,
     /// For `FUTEX_WAIT_REQUEUE_PI`: the PI futex it may be moved to (`rt_waiter`).
     requeue: Option<Arc<Requeue>>,
 }
 
 impl Entry {
     fn new(key: Key, bitset: u32, task: WakeHandle, requeue: Option<Arc<Requeue>>) -> Arc<Self> {
+        Self::with_target(key, bitset, WakeTarget::Task(task), requeue)
+    }
+
+    fn with_target(
+        key: Key,
+        bitset: u32,
+        task: WakeTarget,
+        requeue: Option<Arc<Requeue>>,
+    ) -> Arc<Self> {
         let (space, word) = key.parts();
         Arc::new(Self {
             space: AtomicU64::new(space),
@@ -157,6 +166,84 @@ impl Entry {
     fn wake(&self) {
         self.queued.store(false, Ordering::Release);
         self.task.wake();
+    }
+}
+
+/// io_uring/futex.c:io_futex_wake_fn/io_futex_wakev_fn use the same hash queues.
+enum WakeTarget {
+    Task(WakeHandle),
+    Uring {
+        ctx: std::sync::Weak<crate::io_uring::Ctx>,
+        id: u64,
+        result: Arc<std::sync::atomic::AtomicI32>,
+        index: i32,
+    },
+}
+impl WakeTarget {
+    fn wake(&self) {
+        match self {
+            Self::Task(task) => {
+                task.wake();
+            }
+            Self::Uring {
+                ctx,
+                id,
+                result,
+                index,
+            } => {
+                if result
+                    .compare_exchange(-1, *index, Ordering::AcqRel, Ordering::Acquire)
+                    .is_ok()
+                    && let Some(ctx) = ctx.upgrade()
+                {
+                    ctx.woken(*id);
+                }
+            }
+        }
+    }
+}
+
+pub(crate) struct UringWait {
+    futexes: Arc<Futexes>,
+    entries: Vec<Arc<Entry>>,
+    result: Arc<std::sync::atomic::AtomicI32>,
+}
+impl UringWait {
+    fn new(futexes: Arc<Futexes>) -> Self {
+        Self {
+            futexes,
+            entries: Vec::new(),
+            result: Arc::new(std::sync::atomic::AtomicI32::new(-1)),
+        }
+    }
+    fn queue(
+        &mut self,
+        key: Key,
+        mask: u32,
+        ctx: std::sync::Weak<crate::io_uring::Ctx>,
+        id: u64,
+        index: i32,
+    ) {
+        let task = WakeTarget::Uring {
+            ctx,
+            id,
+            result: self.result.clone(),
+            index,
+        };
+        let entry = Entry::with_target(key, mask, task, None);
+        self.futexes.enqueue(&entry);
+        self.entries.push(entry);
+    }
+    pub(crate) fn ready(&self) -> Option<i32> {
+        let result = self.result.load(Ordering::Acquire);
+        (result >= 0).then_some(result)
+    }
+}
+impl Drop for UringWait {
+    fn drop(&mut self) {
+        for entry in &self.entries {
+            self.futexes.dequeue(entry);
+        }
     }
 }
 

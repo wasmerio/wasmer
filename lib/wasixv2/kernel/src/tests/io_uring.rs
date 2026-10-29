@@ -287,7 +287,7 @@ fn nops_reads_and_writes_complete_on_the_cq_ring() {
         opcode: 200,
         ..sqe(NOP, -1, 7)
     });
-    ring.push(sqe(IoUringOp::IORING_OP_URING_CMD, -1, 8));
+    ring.push(sqe(IoUringOp::IORING_OP_EPOLL_CTL, -1, 8));
     ring.push(sqe(READ, 99, 9));
     assert_eq!(ring.submit(3), Ok(1));
     assert_eq!(ring.submit(2), Ok(1));
@@ -2683,4 +2683,230 @@ fn copying_zero_copy_sends_post_notifications_even_on_failure() {
     assert_eq!(res(&cqes), [(2, -Errno::EOPNOTSUPP.0), (2, 0)]);
     assert_eq!(cqes[0].flags, IoringCqeFlags::IORING_CQE_F_MORE.0);
     assert_eq!(cqes[1].flags, IoringCqeFlags::IORING_CQE_F_NOTIF.0);
+}
+
+#[test]
+fn uring_futex_waits_interoperate_with_futex_wake_and_cancel() {
+    let m = Machine::new();
+    let ring = m.ring(8, 0);
+    let flags =
+        wasixv2_abi::Futex2Flags::FUTEX2_SIZE_U32 | wasixv2_abi::Futex2Flags::FUTEX2_PRIVATE;
+    put_value(&m, BUF, 7u32);
+    let wait = IoUringSqe {
+        addr: u64::from(BUF),
+        off: 7,
+        addr3: 1,
+        ..sqe(IoUringOp::IORING_OP_FUTEX_WAIT, flags.0 as i32, 1)
+    };
+    ring.push(wait);
+    assert_eq!(ring.submit(1), Ok(1));
+    assert!(ring.reap().is_empty());
+    assert_eq!(
+        run_sqe(
+            &ring,
+            IoUringSqe {
+                opcode: IoUringOp::IORING_OP_FUTEX_WAKE.0,
+                off: 0,
+                user_data: 2,
+                ..wait
+            }
+        ),
+        0
+    );
+    assert_eq!(
+        block_on(
+            m.kernel
+                .futex_wake(&m.caller(), GuestPtrMut::new(BUF), 1, 1, flags)
+        ),
+        Ok(1)
+    );
+    assert_eq!(res(&ring.wait(1)), [(1, 0)]);
+    assert_eq!(
+        run_sqe(&ring, IoUringSqe { off: 8, ..wait }),
+        -Errno::EAGAIN.0
+    );
+    ring.push(wait);
+    assert_eq!(ring.submit(1), Ok(1));
+    ring.push(IoUringSqe {
+        addr: 1,
+        ..sqe(IoUringOp::IORING_OP_ASYNC_CANCEL, -1, 3)
+    });
+    assert_eq!(ring.submit(1), Ok(1));
+    assert_eq!(res(&ring.reap()), [(1, -Errno::ECANCELED.0), (3, 0)]);
+    assert_eq!(
+        block_on(
+            m.kernel
+                .futex_wake(&m.caller(), GuestPtrMut::new(BUF), 1, 1, flags)
+        ),
+        Ok(0)
+    );
+    // The io_uring wake uses the same queue as ordinary waiters; here it wakes an uring waiter.
+    ring.push(wait);
+    assert_eq!(ring.submit(1), Ok(1));
+    ring.push(IoUringSqe {
+        opcode: IoUringOp::IORING_OP_FUTEX_WAKE.0,
+        off: 1,
+        user_data: 4,
+        ..wait
+    });
+    assert_eq!(ring.submit(1), Ok(1));
+    let mut cqes = ring.wait(2);
+    cqes.sort_by_key(|c| c.user_data);
+    assert_eq!(res(&cqes), [(1, 0), (4, 1)]);
+}
+
+#[test]
+fn uring_futex_waitv_reports_the_index_and_dequeues_its_other_entries() {
+    let m = Machine::new();
+    let ring = m.ring(8, 0);
+    let flags =
+        wasixv2_abi::Futex2Flags::FUTEX2_SIZE_U32 | wasixv2_abi::Futex2Flags::FUTEX2_PRIVATE;
+    for i in 0..2 {
+        put_value(&m, BUF + i * 4, 1u32);
+        put_value(
+            &m,
+            SCRATCH + i * 24,
+            wasixv2_abi::FutexWaitv {
+                val: 1,
+                uaddr: u64::from(BUF + i * 4),
+                flags,
+                reserved: 0,
+            },
+        );
+    }
+    ring.push(IoUringSqe {
+        addr: u64::from(SCRATCH),
+        len: 2,
+        ..sqe(IoUringOp::IORING_OP_FUTEX_WAITV, 0, 1)
+    });
+    assert_eq!(ring.submit(1), Ok(1));
+    assert!(ring.reap().is_empty());
+    assert_eq!(
+        block_on(
+            m.kernel
+                .futex_wake(&m.caller(), GuestPtrMut::new(BUF + 4), u32::MAX, 1, flags)
+        ),
+        Ok(1)
+    );
+    assert_eq!(res(&ring.wait(1)), [(1, 1)]);
+    assert_eq!(
+        block_on(
+            m.kernel
+                .futex_wake(&m.caller(), GuestPtrMut::new(BUF), u32::MAX, 1, flags)
+        ),
+        Ok(0)
+    );
+}
+
+#[test]
+fn uring_waitid_waits_without_clobbering_siginfo_then_reaps_the_child() {
+    let mut m = Machine::new();
+    m.memory = super::mapped::MappedMemory::new(2, true);
+    let none = GuestPtrMut::NULL;
+    let child = block_on(m.kernel.clone(
+        &m.caller(),
+        wasixv2_abi::Signal::SIGCHLD.0 as u32,
+        0,
+        none,
+        0,
+        none,
+    ))
+    .unwrap();
+    while m.kernel.take_pending(m.task).is_some() {}
+    let ring = m.ring(8, 0);
+    m.memory.put(BUF, &[0xa5; 128]);
+    let wait = IoUringSqe {
+        off: u64::from(BUF),
+        len: wasixv2_abi::Idtype::P_PID.0 as u32,
+        splice_fd_in: wasixv2_abi::WaitOptions::WEXITED.0 as i32,
+        ..sqe(IoUringOp::IORING_OP_WAITID, child, 1)
+    };
+    ring.push(wait);
+    assert_eq!(ring.submit(1), Ok(1));
+    assert!(ring.reap().is_empty());
+    assert_eq!(m.memory.get(BUF, 128), [0xa5; 128]);
+    let child_caller = Caller::new(TaskId(child as u32), &m.memory);
+    block_on(m.kernel.exit_group(&child_caller, 42)).unwrap();
+    assert_eq!(res(&ring.wait(1)), [(1, 0)]);
+    let info = wasixv2_abi::Siginfo::read_from(&m.memory.get(BUF, 128)).unwrap();
+    assert_eq!(info.si_signo, wasixv2_abi::Signal::SIGCHLD.0);
+    assert_eq!(run_sqe(&ring, wait), -Errno::ECHILD.0);
+}
+
+#[test]
+fn socket_uring_commands_return_lengths_and_reuse_socket_options() {
+    let m = Machine::configured(|kernel| kernel.with_network(super::net::FakeNet::new()));
+    let ring = m.ring(8, 0);
+    let (a, _) = unix_pair(&m, 1);
+    let socket = block_on(m.kernel.socket(&m.caller(), AddressFamily::AF_INET, 2, 0)).unwrap();
+    let query = |fd: Fd, cmd: u32, addr: u64, len: i32, value: u64| IoUringSqe {
+        off: u64::from(cmd),
+        addr,
+        splice_fd_in: len,
+        addr3: value,
+        ..sqe(IoUringOp::IORING_OP_URING_CMD, fd.0, 1)
+    };
+    let option = |name: wasixv2_abi::SocketOption| {
+        u64::from(wasixv2_abi::SocketLevel::SOL_SOCKET.0 as u32) | ((name.0 as u32 as u64) << 32)
+    };
+    assert_eq!(
+        run_sqe(
+            &ring,
+            query(
+                a,
+                2,
+                option(wasixv2_abi::SocketOption::SO_TYPE),
+                4,
+                u64::from(BUF)
+            )
+        ),
+        4
+    );
+    assert_eq!(m.get_word(BUF), 1);
+    put_value(&m, BUF, 1u32);
+    assert_eq!(
+        run_sqe(
+            &ring,
+            query(
+                a,
+                3,
+                option(wasixv2_abi::SocketOption::SO_PASSCRED),
+                4,
+                u64::from(BUF)
+            )
+        ),
+        0
+    );
+    put_value(&m, BUF, 0u32);
+    assert_eq!(
+        run_sqe(
+            &ring,
+            query(
+                a,
+                2,
+                option(wasixv2_abi::SocketOption::SO_PASSCRED),
+                4,
+                u64::from(BUF)
+            )
+        ),
+        4
+    );
+    assert_eq!(m.get_word(BUF), 1);
+    assert_eq!(run_sqe(&ring, query(socket, 0, 0, 0, 0)), 0);
+    assert_eq!(run_sqe(&ring, query(socket, 1, 0, 0, 0)), 0);
+    assert_eq!(run_sqe(&ring, query(a, 0, 0, 0, 0)), -Errno::EOPNOTSUPP.0);
+    put_value(&m, SCRATCH, 128u32);
+    assert_eq!(
+        run_sqe(&ring, query(a, 5, u64::from(BUF), 0, u64::from(SCRATCH))),
+        0
+    );
+    assert_eq!(m.get_word(SCRATCH), 2);
+    assert_eq!(m.memory.get(BUF, 2), [1, 0]);
+    assert_eq!(
+        run_sqe(&ring, query(a, 2, 0, 4, u64::from(BUF))),
+        -Errno::EOPNOTSUPP.0
+    );
+    assert_eq!(run_sqe(&ring, query(a, 999, 0, 0, 0)), -Errno::EOPNOTSUPP.0);
+    let fd = m.file("no-uring-cmd", b"");
+    assert_eq!(run_sqe(&ring, query(fd, 0, 0, 0, 0)), -Errno::EOPNOTSUPP.0);
 }

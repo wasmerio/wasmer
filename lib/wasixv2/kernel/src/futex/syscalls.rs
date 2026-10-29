@@ -59,6 +59,68 @@ struct Waitv {
 }
 
 impl Kernel {
+    /// io_uring/futex.c:io_futex_wait/worker setup: enqueue before testing each value,
+    /// just as the blocking futex paths do, and retain the queue until completion/cancel.
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) async fn uring_futex_wait(
+        &self,
+        caller: &Caller<'_>,
+        ctx: std::sync::Weak<crate::io_uring::Ctx>,
+        id: u64,
+        addr: u32,
+        val: u32,
+        mask: u32,
+        flags: u32,
+    ) -> SysResult<super::UringWait> {
+        let flags = futex2_flags(flags)?;
+        if mask == 0 {
+            return Err(Errno::EINVAL.into());
+        }
+        let word = self.futex2_word(caller, addr, flags, true).await?;
+        let mut queued = super::UringWait::new(self.futexes.clone());
+        queued.queue(word.key, mask, ctx, id, 0);
+        if !holds(caller.memory(), word.addr, AtomicWord::U32(val)).await?
+            && queued.ready().is_none()
+        {
+            return Err(Errno::EAGAIN.into());
+        }
+        Ok(queued)
+    }
+
+    pub(crate) async fn uring_futex_waitv(
+        &self,
+        caller: &Caller<'_>,
+        ctx: std::sync::Weak<crate::io_uring::Ctx>,
+        id: u64,
+        addr: u32,
+        nr: u32,
+    ) -> SysResult<super::UringWait> {
+        if nr == 0 || nr > 128 || addr == 0 {
+            return Err(Errno::EINVAL.into());
+        }
+        let futexes = self
+            .futex_parse_waitv(caller, GuestPtr::new(addr), nr)
+            .await?;
+        let mut words = Vec::with_capacity(futexes.len());
+        for futex in &futexes {
+            words.push(
+                self.futex2_word(caller, futex.addr, futex.flags, true)
+                    .await?,
+            );
+        }
+        let mut queued = super::UringWait::new(self.futexes.clone());
+        for (index, (futex, word)) in futexes.iter().zip(words).enumerate() {
+            queued.queue(word.key, u32::MAX, ctx.clone(), id, index as i32);
+            if !holds(caller.memory(), word.addr, AtomicWord::U32(futex.val)).await? {
+                if queued.ready().is_some() {
+                    break;
+                }
+                return Err(Errno::EAGAIN.into());
+            }
+        }
+        Ok(queued)
+    }
+
     /// `futex2_setup_timeout`: the absolute deadline `timeout` names on `clockid`.
     async fn futex2_timeout(
         &self,
