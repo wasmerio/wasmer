@@ -985,6 +985,9 @@ impl Socket for TcpSocket {
 
     fn get_option(&self, level: i32, name: i32, out: &mut [u8]) -> NetResult<usize> {
         let mut g = self.lock();
+        if crate::mcast::handles(level, name) {
+            return g.opts.get_mcast(&self.net, level, name, out);
+        }
         if level == SocketLevel::SOL_SOCKET.0 && name == SocketOption::SO_ACCEPTCONN.0 {
             return Ok(opts::write_int(
                 out,

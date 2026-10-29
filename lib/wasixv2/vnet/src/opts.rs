@@ -7,12 +7,7 @@ use std::collections::BTreeMap;
 
 use wasixv2_abi::{Errno, IpOption, Ipv6Option, SocketLevel, SocketOption as So, TcpOption as Tcp};
 
-use crate::{
-    Domain, NetResult, SocketKind,
-    bpf::SockFilter,
-    mcast::{self, Mcast},
-    net::Net,
-};
+use crate::{Domain, NetResult, SocketKind, bpf::SockFilter, mcast::Mcast, net::Net};
 
 /// `IPV6_V6ONLY`; missing from the generated ABI constants.
 pub const IPV6_V6ONLY: i32 = 26;
@@ -293,7 +288,20 @@ impl SockOpts {
         }
     }
 
-    /// `setsockopt` of a multicast option ([`mcast::handles`]), which needs the namespace's
+    /// `getsockopt` of a multicast option ([`crate::mcast::handles`]); `out` holds what the caller
+    /// passed, which the filter options read their request from.
+    pub(crate) fn get_mcast(
+        &self,
+        net: &Net,
+        level: i32,
+        name: i32,
+        out: &mut [u8],
+    ) -> NetResult<usize> {
+        self.check_level(level)?;
+        self.mc.get(net, self.ty, level, name, out)
+    }
+
+    /// `setsockopt` of a multicast option ([`crate::mcast::handles`]), which needs the namespace's
     /// interfaces.
     pub(crate) fn set_mcast(
         &mut self,
@@ -473,9 +481,6 @@ impl SockOpts {
     /// `TCP_INFO`, ...) are answered by the socket first.
     pub fn get(&self, level: i32, name: i32, out: &mut [u8]) -> NetResult<usize> {
         self.check_level(level)?;
-        if mcast::handles(level, name) {
-            return self.mc.get(self.ty, level, name, out);
-        }
         let v = match (level, name) {
             (SOL_SOCKET, n) if SockFilter::handles(n) => return self.filter.get(n, out),
             (SOL_SOCKET, n) if n == So::SO_LINGER.0 => {

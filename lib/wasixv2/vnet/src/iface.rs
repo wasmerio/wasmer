@@ -362,6 +362,27 @@ pub struct Link {
     /// them, with how many memberships hold each. The kernel's own (see
     /// [`Link::groups`]) are not kept here.
     pub joined: Vec<(IpAddr, u32)>,
+    /// Each membership's source filter (`ip_mc_add_src`, `ip6_mc_add_src`), which together
+    /// decide what sources the interface receives from.
+    pub filters: Vec<SourceFilter>,
+}
+
+/// One membership's source filter, as the interface keeps it: what `ip_mc_add_src` counts in
+/// `sfcount` and `sf_count` per source.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SourceFilter {
+    /// The membership's, unique among all.
+    pub id: u64,
+    pub group: IpAddr,
+    /// `MCAST_INCLUDE` (only `sources`), else `MCAST_EXCLUDE` (all but `sources`).
+    pub include: bool,
+    pub sources: Vec<IpAddr>,
+}
+
+impl SourceFilter {
+    pub fn allows(&self, src: IpAddr) -> bool {
+        self.include == self.sources.contains(&src)
+    }
 }
 
 impl Link {
@@ -433,10 +454,20 @@ impl Link {
         groups
     }
 
-    /// `ip_check_mc_rcu`, `ipv6_chk_mcast_addr`: the interface receives what is sent to
-    /// `group`.
+    /// The interface is in `group`.
     pub fn in_group(&self, group: IpAddr) -> bool {
         self.joined.iter().any(|(g, _)| *g == group) || self.own_groups().contains(&group)
+    }
+
+    /// `ip_check_mc_rcu`, `ipv6_chk_mcast_addr`: the interface receives what `src` sends to
+    /// `group`: some membership's filter lets it through (a source an `INCLUDE` filter names,
+    /// one an `EXCLUDE` filter does not), and every group the kernel joins itself takes all.
+    pub fn accepts(&self, group: IpAddr, src: IpAddr) -> bool {
+        self.own_groups().contains(&group)
+            || self
+                .filters
+                .iter()
+                .any(|f| f.group == group && f.allows(src))
     }
 }
 
@@ -708,6 +739,7 @@ impl Interfaces {
                 addrs: Vec::new(),
                 ipv6_disabled: false,
                 joined: Vec::new(),
+                filters: Vec::new(),
             }],
             routes: Vec::new(),
             last_index: LOOPBACK_INDEX,
@@ -802,6 +834,7 @@ impl Interfaces {
             addrs: Vec::new(),
             ipv6_disabled: false,
             joined: Vec::new(),
+            filters: Vec::new(),
         });
         Ok(index)
     }
@@ -1370,23 +1403,36 @@ impl Interfaces {
             .map(|l| l.index)
     }
 
-    /// A membership of `group` on interface `index` (`ip_mc_inc_group`,
-    /// `__ipv6_dev_mc_inc`): the first makes the interface join, at the head of its list.
-    pub(crate) fn join_group(&mut self, index: u32, group: IpAddr) -> NetResult<()> {
+    /// A membership of `filter`'s group on interface `index` (`ip_mc_inc_group`,
+    /// `__ipv6_dev_mc_inc`), with its source filter: the first makes the interface join, at
+    /// the head of its list.
+    pub(crate) fn join_group(&mut self, index: u32, filter: SourceFilter) -> NetResult<()> {
         let link = self.link_mut(index)?;
+        let group = filter.group;
         match link.joined.iter_mut().find(|(g, _)| *g == group) {
             Some((_, users)) => *users += 1,
             None => link.joined.insert(0, (group, 1)),
         }
+        link.filters.push(filter);
         Ok(())
+    }
+
+    /// A membership's new source filter (`ip_mc_add_src` and `ip_mc_del_src` of the change).
+    pub(crate) fn set_source_filter(&mut self, index: u32, filter: SourceFilter) {
+        if let Ok(link) = self.link_mut(index)
+            && let Some(f) = link.filters.iter_mut().find(|f| f.id == filter.id)
+        {
+            *f = filter;
+        }
     }
 
     /// The end of a membership (`ip_mc_dec_group`, `__ipv6_dev_mc_dec`): the last takes the
     /// interface out of the group. An interface that is gone has left every group already.
-    pub(crate) fn leave_group(&mut self, index: u32, group: IpAddr) {
+    pub(crate) fn leave_group(&mut self, index: u32, group: IpAddr, id: u64) {
         let Ok(link) = self.link_mut(index) else {
             return;
         };
+        link.filters.retain(|f| f.id != id);
         if let Some(i) = link.joined.iter().position(|(g, _)| *g == group) {
             link.joined[i].1 -= 1;
             if link.joined[i].1 == 0 {

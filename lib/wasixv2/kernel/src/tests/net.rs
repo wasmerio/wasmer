@@ -1613,3 +1613,46 @@ fn packet_sockets_keep_their_filter() {
     assert_eq!(detach(), Ok(0));
     assert_eq!(errno(detach()), Errno::ENOENT);
 }
+
+/// `getsockopt(IP_MSFILTER)` reads its request (the group and interface, how many sources to
+/// return) from the caller's value, and writes the filter back over it.
+#[test]
+fn ip_msfilter_reads_its_request_from_the_value() {
+    let vnet = wasixv2_vnet::Net::new(wasixv2_vnet::NetConfig::default(), None);
+    let (kernel, task, memory) = super::cred::machine_with(|kernel| kernel.with_network(vnet));
+    let caller = Caller::new(task, &memory);
+    let udp = socket(&kernel, &caller, DGRAM);
+    // ip_mreq_source: 239.3.3.3 on 127.0.0.1, from 127.0.0.5.
+    put(&memory, 0x200, &[239, 3, 3, 3, 127, 0, 0, 1, 127, 0, 0, 5]);
+    let add = block_on(kernel.setsockopt(
+        &caller,
+        udp,
+        SocketLevel::SOL_IP,
+        39, // IP_ADD_SOURCE_MEMBERSHIP
+        UserSlice::new(0x200, 12),
+    ));
+    assert_eq!(add, Ok(0));
+    // ip_msfilter asking for one source.
+    put(
+        &memory,
+        0x300,
+        &[
+            239, 3, 3, 3, 127, 0, 0, 1, 9, 9, 9, 9, 1, 0, 0, 0, 0, 0, 0, 0,
+        ],
+    );
+    put(&memory, 0x2f0, &20u32.to_le_bytes());
+    let got = block_on(kernel.getsockopt(
+        &caller,
+        udp,
+        SocketLevel::SOL_IP,
+        41, // IP_MSFILTER
+        GuestPtrMut::new(0x300),
+        GuestPtrMut::new(0x2f0),
+    ));
+    assert_eq!(got, Ok(0));
+    assert_eq!(get(&memory, 0x2f0, 4), 20u32.to_le_bytes());
+    assert_eq!(
+        get(&memory, 0x308, 12),
+        [1, 0, 0, 0, 1, 0, 0, 0, 127, 0, 0, 5]
+    );
+}

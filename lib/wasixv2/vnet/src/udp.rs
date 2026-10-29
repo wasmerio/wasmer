@@ -594,7 +594,10 @@ impl UdpSocket {
         drop(g);
         let from = SocketAddr::new(route.src, local.port());
         let segment = ctl.gso_size.unwrap_or(usize::MAX).max(1);
-        for (net, iif) in self.net.mc_receivers(dst.ip(), route.oif, looped, ttl) {
+        for (net, iif) in self
+            .net
+            .mc_receivers(dst.ip(), route.src, route.oif, looped, ttl)
+        {
             // The sender's own namespace gets the looped-back copy (`dev_loopback_xmit`).
             let at = Arrival {
                 src: from.ip(),
@@ -630,7 +633,7 @@ impl UdpSocket {
         let takes = serves(local, g.opts.v6only, dst)
             && g.peer.is_none_or(|p| p == from)
             && (dev == 0 || dev == iif)
-            && g.opts.mc.allows(dst.ip(), iif);
+            && g.opts.mc.allows(dst.ip(), from.ip(), iif);
         drop(g);
         if takes {
             self.deliver(data, from, at);
@@ -1124,6 +1127,9 @@ impl Socket for UdpSocket {
         }
         if level == SocketLevel::SOL_SOCKET.0 && name == SocketOption::SO_ACCEPTCONN.0 {
             return Ok(crate::opts::write_int(out, 0));
+        }
+        if crate::mcast::handles(level, name) {
+            return g.opts.get_mcast(&self.net, level, name, out);
         }
         g.opts.get(level, name, out)
     }

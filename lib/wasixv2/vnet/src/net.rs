@@ -1101,6 +1101,7 @@ impl Network for Net {
                 addrs: Vec::new(),
                 ipv6_disabled: false,
                 joined: Vec::new(),
+                filters: Vec::new(),
             })
         };
         match spec.kind {
@@ -1223,6 +1224,7 @@ impl Network for Net {
         let mut link = st.ifaces.remove(index)?;
         // `ip_mc_destroy_dev`: an interface leaves its groups as it leaves the namespace.
         link.joined.clear();
+        link.filters.clear();
         Ok(MovedLink {
             link: Box::new(link),
         })

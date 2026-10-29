@@ -52,7 +52,8 @@ const SOCK_MAX: i32 = 11;
 /// `sizeof(struct cmsghdr)` and its alignment on wasm32 (`CMSG_ALIGN`, `sizeof(long)`).
 const CMSG_HDR: usize = 12;
 const CMSG_ALIGN: usize = 4;
-/// `net.core.optmem_max`: the most control data one `sendmsg` may hand in.
+/// `net.core.optmem_max`: the most control data one `sendmsg` may hand in, and the most of a
+/// `setsockopt` value that is read.
 const OPTMEM_MAX: usize = 128 * 1024;
 /// `MAX_RW_COUNT`: the most one call transfers.
 const MAX_RW_COUNT: u32 = 0x7fff_f000;
@@ -1016,7 +1017,8 @@ impl Kernel {
         name: i32,
         value: UserSlice,
     ) -> SysResult<i32> {
-        let mut value = value.copy_in(caller.memory(), 4096).await?;
+        // `optmem_max`, as far as anything reads (a `struct group_filter` of 64 sources).
+        let mut value = value.copy_in(caller.memory(), OPTMEM_MAX).await?;
         let any = self.any_socket(caller, fd)?;
         if level == SocketLevel::SOL_SOCKET {
             match SocketOption(name) {
@@ -1161,6 +1163,12 @@ impl Kernel {
             }
             (None, AnySock::Inet((_, sock))) => {
                 let mut out = vec![0; len];
+                if source_filter_option(level, name) {
+                    // In and out: the request is the caller's value, and the sources go as
+                    // far as it asks, past `optlen` (`ip_mc_msfget`, `ip_mc_gsfget`).
+                    caller.memory().read(optval.addr(), &mut out).await?;
+                    out.resize(len.max(MSFILTER_OUT), 0);
+                }
                 let n = sock.socket.get_option(level.0, name, &mut out)?;
                 (out, n)
             }
@@ -1233,6 +1241,22 @@ impl Kernel {
         }
     }
 }
+
+/// `IP_MSFILTER` and `MCAST_MSFILTER`, the options whose `getsockopt` reads a request from
+/// the value.
+fn source_filter_option(level: SocketLevel, name: i32) -> bool {
+    const IP_MSFILTER: i32 = 41;
+    const MCAST_MSFILTER: i32 = 48;
+    matches!(
+        (level, name),
+        (SocketLevel::SOL_IP, IP_MSFILTER | MCAST_MSFILTER)
+            | (SocketLevel::SOL_IPV6, MCAST_MSFILTER)
+    )
+}
+
+/// The most a source filter's `getsockopt` writes: a `struct group_filter` with
+/// `sysctl_mld_max_msf` (64) sources.
+const MSFILTER_OUT: usize = 140 + 64 * 128;
 
 /// `sk_get_filter`: the attached program, whose length (`optlen`) counts instructions: 0
 /// without a filter, the count for a length of 0, `EINVAL` for a length below it, else the
