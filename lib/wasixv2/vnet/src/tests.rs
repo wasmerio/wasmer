@@ -1798,3 +1798,32 @@ fn echo_requests_leave_through_the_backend() {
     assert_eq!(u16::from_be_bytes([buf[4], buf[5]]), ident);
     assert_eq!(csum(&buf[..got.len]), 0);
 }
+
+/// `IPV6_PKTINFO` as an option (`ping -I <interface>`) gives sends the interface (and source)
+/// they name none of: a link-local destination is reachable through it.
+#[test]
+fn sticky_pktinfo_names_the_interface_of_sends() {
+    let (na, _nb) = veth_pair(("10.26.0.1", "10.26.0.2"), ("fd00:26::1", "fd00:26::2"));
+    let p = ping_socket(&na, Domain::Inet6);
+    assert_eq!(
+        p.set_option(SOL_IPV6, Ipv6Option::IPV6_PKTINFO.0, &[0; 19]),
+        Err(Errno::EINVAL)
+    );
+    let req = [128, 0, 0, 0, 0, 1, 0, 1];
+    // Link-local all-nodes: needs an interface.
+    assert_eq!(
+        send_to(&*p, &req, Some(a("[fe80::1]:0"))),
+        Err(Errno::EINVAL)
+    );
+    let mut pktinfo = [0u8; 20];
+    pktinfo[16..].copy_from_slice(&index_of(&na, "veth0").to_le_bytes());
+    p.set_option(SOL_IPV6, Ipv6Option::IPV6_PKTINFO.0, &pktinfo)
+        .unwrap();
+    assert_eq!(send_to(&*p, &req, Some(a("[fe80::1]:0"))), Ok(8));
+    send_to(&*p, &req, Some(a("[fd00:26::2]:0"))).unwrap();
+    let mut buf = [0; 16];
+    assert_eq!(
+        p.recv(&mut buf, MsgFlags(0)).unwrap().from.unwrap(),
+        a("[fd00:26::2]:0")
+    );
+}

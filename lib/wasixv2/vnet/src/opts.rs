@@ -63,6 +63,9 @@ pub struct SockOpts {
     pub bind_device: Vec<u8>,
     pub congestion: Vec<u8>,
     pub user_mss: i32,
+    /// `IPV6_PKTINFO` set as an option (`sticky_pktinfo`): the source address and interface
+    /// of IPv6 sends that name none.
+    pub sticky_pktinfo: (std::net::Ipv6Addr, u32),
     /// Multicast options and memberships.
     pub(crate) mc: Mcast,
     /// Plain integer options keyed by (level, name).
@@ -189,6 +192,7 @@ impl SockOpts {
             bind_device: Vec::new(),
             congestion: b"cubic".to_vec(),
             user_mss: 0,
+            sticky_pktinfo: (std::net::Ipv6Addr::UNSPECIFIED, 0),
             mc: Mcast::default(),
             ints: BTreeMap::new(),
         }
@@ -287,6 +291,16 @@ impl SockOpts {
             (SOL_SOCKET, n) if n == So::SO_BINDTODEVICE.0 => {
                 let name = value.split(|b| *b == 0).next().unwrap_or_default();
                 self.bind_device = name.to_vec();
+                return Ok(Changed::Nothing);
+            }
+            (SOL_IPV6, n) if n == Ipv6Option::IPV6_PKTINFO.0 => {
+                // `struct in6_pktinfo`: the address, then the interface index.
+                if value.len() < 20 {
+                    return Err(Errno::EINVAL);
+                }
+                let addr = <[u8; 16]>::try_from(&value[..16]).expect("16 bytes");
+                let index = u32::from_le_bytes(value[16..20].try_into().expect("4 bytes"));
+                self.sticky_pktinfo = (addr.into(), index);
                 return Ok(Changed::Nothing);
             }
             (SOL_TCP, n) if n == Tcp::TCP_CONGESTION.0 => {

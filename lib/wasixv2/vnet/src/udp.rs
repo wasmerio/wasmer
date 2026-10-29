@@ -421,10 +421,15 @@ impl UdpSocket {
         let group = dst.ip();
         let (mc_oif, mc_src) = g.opts.mc.interface(group);
         let ctl_oif = ctl.map_or(0, |c| c.oif);
+        let sticky_oif = match group {
+            IpAddr::V6(_) => g.opts.sticky_pktinfo.1,
+            IpAddr::V4(_) => 0,
+        };
         let oif = [
             ctl_oif,
             scope,
             self.net.device_index(&g.opts.bind_device),
+            sticky_oif,
             mc_oif,
         ]
         .into_iter()
