@@ -313,6 +313,23 @@ impl Mm {
         self.id
     }
 
+    fn fork_omissions(&self) -> Vec<Range<u64>> {
+        let space = self.space();
+        let mut ranges = space.wipe_on_fork.ranges();
+        ranges.extend(space.dont_copy.ranges());
+        ranges.sort_by_key(|range| range.start);
+        // mm/memory.c:copy_page_range skips VM_DONTCOPY/VM_WIPEONFORK.
+        // Exec requires their union lowest first and apart, even across flags.
+        let mut merged: Vec<Range<u64>> = Vec::with_capacity(ranges.len());
+        for range in ranges {
+            match merged.last_mut() {
+                Some(last) if range.start <= last.end => last.end = last.end.max(range.end),
+                _ => merged.push(range),
+            }
+        }
+        merged
+    }
+
     /// mm/gup.c:gup_vma_lookup/check_vma_flags: FOLL_FORCE still requires
     /// a VMA and cannot force a write into a shared !VM_WRITE mapping.
     /// Caller holds op across this check and its memory access.
@@ -2451,11 +2468,7 @@ impl Kernel {
                 None => return Vec::new(),
             }
         };
-        let space = mm.space();
-        let mut ranges = space.wipe_on_fork.ranges();
-        ranges.extend(space.dont_copy.ranges());
-        ranges.sort_by_key(|range| range.start);
-        ranges
+        mm.fork_omissions()
     }
 
     /// `do_mlock` for `mlock` and `mlock2`. Memory is never paged out, so locking only
@@ -2972,5 +2985,22 @@ mod tests {
         space.unmap(13 * PAGE_SIZE, PAGE_SIZE);
         assert!(matches!(space.place(1), Ok(Placement::Reuse(a)) if a == 13 * PAGE_SIZE));
         assert!(matches!(space.place(1), Ok(Placement::Grow(1))));
+    }
+    #[test]
+    fn review_fork_omissions_coalesce_adjacent_and_overlapping_flags() {
+        let mm = Mm::default();
+        {
+            let mut space = mm.space();
+            space.wipe_on_fork.set(1, 3, true);
+            space.dont_copy.set(3, 4, true);
+        }
+        let adjacent = PAGE_SIZE..4 * PAGE_SIZE;
+        assert_eq!(mm.fork_omissions(), [adjacent]);
+        mm.space().dont_copy.set(2, 5, true);
+        mm.space().wipe_on_fork.set(7, 8, true);
+        assert_eq!(
+            mm.fork_omissions(),
+            [PAGE_SIZE..5 * PAGE_SIZE, 7 * PAGE_SIZE..8 * PAGE_SIZE]
+        );
     }
 }
