@@ -337,6 +337,24 @@ impl Mm {
         self.space().regions()
     }
 
+    /// Snapshot file-backed VMAs for Linux fs/binfmt_elf.c:fill_files_note.
+    pub(crate) fn file_regions(&self) -> Vec<FileRegion> {
+        let space = self.space();
+        space
+            .regions()
+            .into_iter()
+            .filter_map(|region| {
+                let mapping = space.mappings.containing(region.start)?;
+                let (file, offset) = mapping.file()?;
+                Some(FileRegion {
+                    range: region.start..region.end,
+                    file: file.clone(),
+                    offset: offset + region.start - mapping.start,
+                })
+            })
+            .collect()
+    }
+
     /// The futex key of the word at `addr` when it lies in a mapping of a shared object: the
     /// object and the word's offset in it (`get_futex_key`'s inode-based key).
     pub(crate) fn shared_futex_key(&self, addr: u32) -> Option<crate::futex::Key> {
@@ -391,6 +409,12 @@ impl Mm {
         self.shared
             .store(space.mappings.any_shared(), Ordering::Release);
     }
+}
+
+pub(crate) struct FileRegion {
+    pub(crate) range: Range<u64>,
+    pub(crate) file: Arc<OpenFile>,
+    pub(crate) offset: u64,
 }
 
 /// An area of the address space (a `vm_area_struct`), for `/proc/<pid>/maps`.
@@ -1547,6 +1571,7 @@ impl Kernel {
     fn shared_anonymous(&self, pages: u64) -> Result<Option<Source>, Errno> {
         match self.host.shared_pages(pages * PAGE_SIZE) {
             Ok(pages) => Ok(Some(Source::Mapped(Mapped {
+                file: None,
                 pages,
                 offset: 0,
                 segment: None,
@@ -1581,6 +1606,7 @@ impl Kernel {
             start,
             len: npages * PAGE_SIZE,
             source: Source::Mapped(Mapped {
+                file: None,
                 pages,
                 offset: 0,
                 segment: None,
@@ -2688,6 +2714,7 @@ fn check_file_mapping(
     {
         let (pages, offset) = found?;
         return Ok(Source::Mapped(Mapped {
+            file: Some(file.clone()),
             pages,
             offset,
             segment: None,
@@ -2722,6 +2749,7 @@ fn check_file_mapping(
     // that is, so the host never faults where Linux would raise SIGBUS: the pages read zero.
     if let Some(pages) = inode.node().shared_pages(offset + pages * PAGE_SIZE)? {
         return Ok(Source::Mapped(Mapped {
+            file: Some(file.clone()),
             pages,
             offset,
             segment: None,

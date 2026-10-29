@@ -268,6 +268,15 @@ pub(crate) struct CoreInfo {
     pub(crate) nice: i8,
     pub(crate) comm: [u8; 16],
     pub(crate) args: Vec<u8>,
+    pub(crate) auxv: Vec<u8>,
+    pub(crate) files: Vec<CoreFile>,
+}
+
+pub(crate) struct CoreFile {
+    start: u32,
+    end: u32,
+    page_offset: u32,
+    name: Vec<u8>,
 }
 
 const ET_CORE: u16 = 4;
@@ -278,6 +287,8 @@ const PF_W: u32 = 2;
 const PF_R: u32 = 4;
 const NT_PRSTATUS: u32 = 1;
 const NT_PRPSINFO: u32 = 3;
+const NT_AUXV: u32 = 6;
+const NT_FILE: u32 = 0x4649_4c45;
 const NT_SIGINFO: u32 = 0x5349_4749;
 const EHDR_SIZE: usize = 52;
 const PHDR_SIZE: usize = 32;
@@ -304,7 +315,7 @@ fn timeval(d: std::time::Duration) -> [u8; 8] {
 impl ElfCore {
     /// `elf_core_dump` for an address space of `memory_size` bytes: an `ET_CORE` ELF32
     /// little-endian file with no machine (`EM_NONE`), a `PT_NOTE` of `NT_PRSTATUS` (no
-    /// registers), `NT_PRPSINFO` and `NT_SIGINFO`, then one `PT_LOAD` of the whole linear
+    /// registers), `NT_PRPSINFO`, `NT_SIGINFO`, `NT_AUXV` and `NT_FILE`, then one `PT_LOAD` of the whole linear
     /// memory at address 0, page-aligned in the file.
     pub(crate) fn new(core: &CoreInfo, memory_size: u64, filter: u32) -> Self {
         let mut prstatus = Vec::new();
@@ -343,10 +354,38 @@ impl ElfCore {
         }
         siginfo.extend(info.sifields);
 
+        // Linux fs/binfmt_elf.c:fill_auxv_note copies through AT_NULL, including
+        // the terminator rather than the unused part of saved_auxv.
+        let mut auxv = Vec::new();
+        for pair in core.auxv.chunks_exact(8) {
+            auxv.extend(pair);
+            if pair[..4] == [0; 4] {
+                break;
+            }
+        }
+        if auxv.is_empty() || auxv[auxv.len() - 8..auxv.len() - 4] != [0; 4] {
+            auxv.extend([0; 8]);
+        }
+        // Linux fill_files_note: longs are 32-bit on this ELF32 ABI, page offsets
+        // use the guest's PAGE_SIZE, and filenames are unescaped NUL-terminated bytes.
+        let mut files = Vec::new();
+        files.extend((core.files.len() as u32).to_le_bytes());
+        files.extend((crate::mm::PAGE_SIZE as u32).to_le_bytes());
+        for file in &core.files {
+            for word in [file.start, file.end, file.page_offset] {
+                files.extend(word.to_le_bytes());
+            }
+        }
+        for file in &core.files {
+            files.extend(&file.name);
+            files.push(0);
+        }
         let notes = [
             note(NT_PRSTATUS, &prstatus),
             note(NT_PRPSINFO, &prpsinfo),
             note(NT_SIGINFO, &siginfo),
+            note(NT_AUXV, &auxv),
+            note(NT_FILE, &files),
         ]
         .concat();
         let notes_offset = (EHDR_SIZE + 2 * PHDR_SIZE) as u64;
@@ -740,6 +779,25 @@ impl Kernel {
         let args = process.args.lock_or_recover();
         let mut psargs: Vec<u8> = args.join(&b' ');
         psargs.truncate(80);
+        let root = self.task_ref(task, |t| t.fs.lock_or_recover().root.clone());
+        let files = self
+            .mm(task)
+            .file_regions()
+            .into_iter()
+            .map(|region| {
+                let path = region.file.path();
+                let mut name = self.vfs.d_path(path, &root);
+                if path.dentry.is_unlinked() {
+                    name.extend(b" (deleted)");
+                }
+                CoreFile {
+                    start: region.range.start as u32,
+                    end: region.range.end as u32,
+                    page_offset: (region.offset / crate::mm::PAGE_SIZE) as u32,
+                    name,
+                }
+            })
+            .collect();
         CoreInfo {
             info,
             pid: nr(process.pid.0),
@@ -755,6 +813,8 @@ impl Kernel {
             nice,
             comm: name,
             args: psargs,
+            auxv: process.auxv.lock_or_recover().clone(),
+            files,
         }
     }
 
@@ -850,6 +910,8 @@ mod tests {
             nice: 0,
             comm: *b"prog\0\0\0\0\0\0\0\0\0\0\0\0",
             args: b"prog -x".to_vec(),
+            auxv: Vec::new(),
+            files: Vec::new(),
         };
         let elf = ElfCore::new(&core, 1 << 20, COREDUMP_FILTER_DEFAULT);
         assert_eq!(&elf.head[..4], b"\x7fELF");

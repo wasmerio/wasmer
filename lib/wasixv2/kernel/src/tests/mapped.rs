@@ -840,3 +840,32 @@ fn memory_that_cannot_show_pages_copies_a_memfd_mapping() {
     block_on(memory.read(at, &mut buf)).unwrap();
     assert_eq!(&buf, b"back");
 }
+
+#[test]
+fn host_mapped_files_retain_core_note_provenance_after_splitting() {
+    let (kernel, task) = shared_machine();
+    let memory = MappedMemory::new(2, true);
+    let caller = Caller::new(task, &memory);
+    memory.put(0x100, b"core-file\0");
+    let fd = block_on(kernel.memfd_create(&caller, Cstr::new(0x100), MemfdFlags(0))).unwrap();
+    block_on(kernel.ftruncate64(&caller, fd, i64::from(3 * PAGE))).unwrap();
+    let addr = block_on(kernel.mmap(
+        &caller,
+        0,
+        2 * PAGE,
+        RW,
+        MapFlags::MAP_SHARED,
+        fd,
+        i64::from(PAGE),
+    ))
+    .unwrap();
+    block_on(kernel.munmap(&caller, addr, PAGE)).unwrap();
+    let files = kernel.mm(task).file_regions();
+    assert_eq!(files.len(), 1);
+    assert_eq!(
+        files[0].range,
+        u64::from(addr + PAGE)..u64::from(addr + 2 * PAGE)
+    );
+    assert_eq!(files[0].offset, u64::from(2 * PAGE));
+    assert!(Arc::ptr_eq(&files[0].file, &kernel.file(task, fd).unwrap()));
+}
