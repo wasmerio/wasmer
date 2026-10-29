@@ -453,6 +453,7 @@ fn new_superblock(
     let info = fs.info();
     let dev = info.dev.unwrap_or_else(|| anon_dev(next_anon));
     Arc::new(Superblock {
+        mounts: std::sync::atomic::AtomicUsize::new(0),
         id,
         dev,
         fs,

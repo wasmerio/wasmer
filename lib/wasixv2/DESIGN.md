@@ -495,6 +495,53 @@ dnotify follows `fs/notify/dnotify/dnotify.c` (kernel `fs/dnotify.rs`): `F_NOTIF
 - **Locking.** One overlay-wide lock serialises namespace changes and copy-ups for metadata changes. Opening a file for writing copies its data into an unnamed file without it and takes it only to link the copy in; a per-object lock makes one copy. Data I/O and metadata changes of objects already in the upper layer do not take it.
 - **Reporting.** A merged directory reports `nlink` 1. `statfs` comes from the upper layer, or from the top lower layer when there is no upper.
 
+### FUSE
+
+`fuse` and `fuse.NAME` mount a userspace server through `/dev/fuse` (character
+device 10:229). The byte protocol is negotiated at INIT, from 7.23 through 7.46;
+wire records stay private to the kernel. Only the device ioctls are ABI items.
+`fuseblk` returns `ENODEV`, and `blksize=` is rejected for `fuse`, as Linux accepts
+that option only for block-backed FUSE mounts.
+
+Mount options include `fd=`, `rootmode=`, `user_id=`, `group_id=`, `allow_other`,
+`default_permissions`, `max_read=` and `subtype=`. The device must have been opened
+in the mounting user namespace. FUSE permits mounts by namespace root; a
+`fusermount3` helper can perform the root mount syscall inside the machine.
+Without `allow_other`, all real, effective and saved uid/gid values must match
+the mount owner. `default_permissions` adds local DAC checks; negotiated
+`POSIX_ACL` also enables those checks and translates ACL ids through the
+connection's user namespace.
+
+Each connection owns pending and processing requests, unique ids, interrupts,
+batched forgets and wait queues. Connection/cache mutexes are released before
+waiting for the daemon; the VFS retains its ordinary async inode serialization.
+Entry and attribute timeouts control revalidation. Positive cached entries hold
+weak inode references; active dentries, files and requests retain lookup counts.
+READDIRPLUS accounts for entries even when the caller's buffer fills. Each open
+directory translates opaque 64-bit daemon offsets into VFS directory cookies.
+Invalidation, deletion and poll notifications update those caches and wake the
+existing poll/select/epoll/AIO wait queues.
+
+Reads and writes go directly to the daemon without a page cache, including
+`direct_io` opens. INIT does not offer writeback caching, splice, passthrough or
+DAX. Private mmap uses the kernel's copied mapping model, including direct-I/O
+files. Shared mmap returns `ENODEV`: the copied shared-page model cannot maintain
+coherence with daemon invalidations. No claim is made that shared mapped FUSE
+files have Linux page-cache semantics.
+
+Normal close and exit await FLUSH; fatal/fault synchronous teardown queues an
+interrupted FLUSH with no waiter, followed by background RELEASE. RELEASE keeps
+the inode alive until its reply so FORGET cannot precede it. This follows
+`fs/fuse/dev.c:request_wait_answer` and `fs/fuse/file.c:fuse_flush,fuse_file_put`.
+The last normal unmount awaits DESTROY; lazy unmount retains the instance until
+its final reference and then queues DESTROY. Mounting `fusectl` at
+`/sys/fs/fuse/connections` exposes each connection's `waiting` and `abort` files;
+writing `abort` disconnects it and wakes blocked callers.
+
+Device-driven kernel unit tests cover the protocol and lifecycle without a host
+FUSE dependency. Running real sshfs, rclone, squashfuse and fuse-overlayfs remains
+an integration validation step.
+
 ## Networking
 
 The kernel implements networking at the socket layer and has no TCP/IP stack. A guest can only observe sockets (ports, `bind` conflicts, accept queues, addresses, options, errno), and in-memory streams plus host sockets cover all of that.

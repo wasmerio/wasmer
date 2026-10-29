@@ -35,6 +35,23 @@ pub trait Filesystem: Send + Sync {
     /// The root directory. Available as soon as the filesystem is, so mounting needs no I/O.
     fn root(&self) -> Arc<dyn Node>;
 
+    /// Optional filesystem subtype, as Linux's s_subtype appends to the type in mount reports.
+    fn subtype(&self) -> Option<&[u8]> {
+        None
+    }
+    fn type_name(&self) -> Vec<u8> {
+        let mut name = self.info().name.as_bytes().to_vec();
+        if let Some(subtype) = self.subtype() {
+            name.push(b'.');
+            name.extend_from_slice(subtype);
+        }
+        name
+    }
+    /// Last normal unmount, after namespace locks and busy checks have completed.
+    async fn shutdown(&self) {}
+    /// MNT_FORCE's umount_begin, before detach/busy checks.
+    fn umount_begin(&self) {}
+
     async fn statfs(&self) -> FsResult<StatFs>;
 
     /// Finishes any handshake that the filesystem requires before the mount is attached.
@@ -115,6 +132,15 @@ pub trait Node: Send + Sync + Any {
 
     fn as_any(&self) -> &dyn Any;
 
+    /// Whether access ACLs participate in generic permission checks.
+    fn acl_permissions(&self) -> bool {
+        true
+    }
+    /// Remote invalidations can discard the VFS's memoized ACLs.
+    fn acl_version(&self) -> u64 {
+        0
+    }
+
     /// The `FS_*_FL` flags of the object the VFS enforces (`i_flags`' `S_IMMUTABLE` and
     /// `S_APPEND`), as [`Node::fileattr_get`] reports them. None by default.
     fn inode_flags(&self) -> u32 {
@@ -174,6 +200,11 @@ pub trait Node: Send + Sync + Any {
 
     /// Nothing may be mounted on this object, as procfs refuses mounts on the descriptor links
     /// of `/proc/<pid>/fd` (`proc_splice_unmountable`): mounting there fails with `ENOENT`.
+    /// Remote deletion of a directory, like S_DEAD, blocks new children through old paths.
+    fn unlinked_directory(&self) -> bool {
+        false
+    }
+
     fn unmountable(&self) -> bool {
         false
     }

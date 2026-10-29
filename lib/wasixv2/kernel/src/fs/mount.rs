@@ -43,6 +43,10 @@ pub struct FsParam<'a> {
 /// A kind of filesystem `mount` can make (`struct file_system_type` with its `fs_context`
 /// operations).
 pub trait FilesystemType: Send + Sync {
+    fn supports_subtype(&self) -> bool {
+        false
+    }
+
     /// An instance made from `source` with the options `params`, for a caller with `cred`
     /// (`parse_param` then `get_tree`). An option the type does not take is `EINVAL`.
     fn mount(
@@ -73,6 +77,36 @@ pub trait FilesystemType: Send + Sync {
             true => Ok(()),
             false => Err(Errno::EINVAL),
         }
+    }
+}
+
+/// get_fs_type's FS_HAS_SUB_TYPE handling keeps subtype parsing in the type's factory.
+struct SubtypeType {
+    inner: Arc<dyn FilesystemType>,
+    name: Vec<u8>,
+}
+impl FilesystemType for SubtypeType {
+    fn mount(
+        &self,
+        source: &[u8],
+        params: &[FsParam<'_>],
+        cred: &Cred,
+    ) -> Result<Arc<dyn Filesystem>, Errno> {
+        let mut params = params.to_vec();
+        params.push(FsParam {
+            key: b"subtype",
+            value: Some(&self.name),
+        });
+        self.inner.mount(source, &params, cred)
+    }
+    fn userns_mount(&self) -> bool {
+        self.inner.userns_mount()
+    }
+    fn parse_param(&self, p: &FsParam<'_>) -> Result<(), Errno> {
+        self.inner.parse_param(p)
+    }
+    fn reconfigure(&self, fs: &Arc<dyn Filesystem>, params: &[FsParam<'_>]) -> Result<(), Errno> {
+        self.inner.reconfigure(fs, params)
     }
 }
 
@@ -138,10 +172,23 @@ impl Registry {
 
     pub(super) fn get(&self, name: &[u8]) -> Option<FsType> {
         let types = self.types.lock_or_recover();
-        types
+        if let Some((_, ty)) = types.iter().find(|(known, _)| known.as_bytes() == name) {
+            return Some(ty.clone());
+        }
+        let dot = name.iter().position(|b| *b == b'.')?;
+        let (_, FsType::Other(inner)) = types
             .iter()
-            .find(|(known, _)| known.as_bytes() == name)
-            .map(|(_, ty)| ty.clone())
+            .find(|(known, _)| known.as_bytes() == &name[..dot])?
+        else {
+            return None;
+        };
+        if !inner.supports_subtype() || dot + 1 == name.len() {
+            return None;
+        }
+        Some(FsType::Other(Arc::new(SubtypeType {
+            inner: inner.clone(),
+            name: name[dot + 1..].to_vec(),
+        })))
     }
 
     /// An instance of the registered type `name` that takes no options, as the embedder
@@ -626,7 +673,13 @@ impl Kernel {
             expire: has(UmountFlagBits::MNT_EXPIRE),
         };
         let ns = self.ns(caller).mnt.tree.clone();
+        if flags.force {
+            path.mnt.sb().fs.umount_begin();
+        }
         self.vfs.do_umount(&ns, &env.fs.root, &path, flags)?;
+        if !flags.detach && path.mnt.sb().mount_count() == 1 {
+            path.mnt.sb().fs.shutdown().await;
+        }
         Ok(0)
     }
 

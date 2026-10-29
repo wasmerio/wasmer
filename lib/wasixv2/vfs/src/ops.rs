@@ -104,7 +104,10 @@ impl Vfs {
         }
         // `acl_permission_check`: the access ACL counts for all but the owner while the group
         // class has any permission.
-        let acl = match cx.cred.fsuid != attr.uid && attr.mode & 0o070 != 0 {
+        let acl = match path.dentry.node().acl_permissions()
+            && cx.cred.fsuid != attr.uid
+            && attr.mode & 0o070 != 0
+        {
             true => self.access_acl(&path.dentry).await?,
             false => None,
         };

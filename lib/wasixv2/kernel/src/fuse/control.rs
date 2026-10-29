@@ -32,6 +32,9 @@ impl Registry {
             .insert(id, Arc::downgrade(conn));
         id
     }
+    pub(super) fn remove(&self, id: u64) {
+        self.connections.lock_or_recover().remove(&id);
+    }
     fn list(&self) -> Vec<u64> {
         let mut connections = self.connections.lock_or_recover();
         connections.retain(|_, conn| conn.strong_count() > 0);
@@ -131,7 +134,9 @@ impl Node for ControlNode {
         Ok(Attr {
             ino: self.ino(),
             file_type: self.file_type(),
-            mode: self.file.map_or(0o500, |f| FILES[f].1),
+            mode: self
+                .file
+                .map_or(if self.id == 0 { 0o755 } else { 0o500 }, |f| FILES[f].1),
             uid,
             gid,
             nlink: if self.file.is_some() { 1 } else { 2 },

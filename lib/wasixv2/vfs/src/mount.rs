@@ -28,6 +28,7 @@ use crate::{
 
 /// One filesystem instance, however many times it is mounted.
 pub struct Superblock {
+    pub(crate) mounts: AtomicUsize,
     pub id: u64,
     /// `st_dev` of its objects unless a driver reports one per object.
     pub dev: Device,
@@ -57,6 +58,9 @@ pub struct Superblock {
 }
 
 impl Superblock {
+    pub fn mount_count(&self) -> usize {
+        self.mounts.load(Ordering::Acquire)
+    }
     /// `sb_rdonly`.
     pub fn is_read_only(&self) -> bool {
         self.read_only.load(Ordering::Relaxed)
@@ -134,8 +138,15 @@ pub struct Mount {
     pub(crate) lock: RwLock<MountLock>,
 }
 
+impl Drop for Mount {
+    fn drop(&mut self) {
+        self.root.sb().mounts.fetch_sub(1, Ordering::AcqRel);
+    }
+}
+
 impl Mount {
     pub(crate) fn new(id: u64, root: Arc<Dentry>, flags: MountFlags, devname: Vec<u8>) -> Self {
+        root.sb().mounts.fetch_add(1, Ordering::AcqRel);
         Self {
             id,
             root,

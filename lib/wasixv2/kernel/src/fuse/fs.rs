@@ -10,15 +10,15 @@ use std::{
     collections::{BTreeMap, BTreeSet},
     sync::{
         Arc, Mutex, Weak,
-        atomic::{AtomicU64, Ordering},
+        atomic::{AtomicBool, AtomicU64, Ordering},
     },
     time::Duration,
 };
 use wasixv2_syscalls::Errno;
 use wasixv2_vfs::{
-    AllocMode, Attr, Cred, Device, DirEntry, DirSink, FileType, Filesystem, FsInfo, FsResult,
-    Handle, NewKind, NewNode, Node, OpenOptions, PosixAcl, RenameMode, SeekHole, SetAttr, StatFs,
-    TimeSet, Timestamp, XattrSet,
+    AclKind, AllocMode, Attr, Cred, Device, DirEntry, DirSink, FileType, Filesystem, FsInfo,
+    FsResult, Handle, NewKind, NewNode, Node, OpenOptions, PosixAcl, RenameMode, SeekHole, SetAttr,
+    StatFs, TimeSet, Timestamp, XattrSet,
 };
 
 pub(super) struct FuseFs {
@@ -55,6 +55,8 @@ impl FuseFs {
             )),
             entries: Mutex::new(BTreeMap::new()),
             nlookup: AtomicU64::new(0),
+            acl_epoch: AtomicU64::new(0),
+            deleted: AtomicBool::new(false),
             data_lock: futures_util::lock::Mutex::new(()),
         });
         conn.nodes
@@ -67,12 +69,7 @@ impl Drop for FuseFs {
     fn drop(&mut self) {
         // fuse_put_super/fuse_send_destroy: queued after all open files stop holding the sb.
         // No user code runs from Drop; the daemon completes this background request.
-        let q = self.conn.queue.lock_or_recover();
-        let destroy = q.initialized && !q.init_error;
-        drop(q);
-        if destroy {
-            self.conn.enqueue(DESTROY, 0, Vec::new(), 0, 0);
-        }
+        self.conn.destroy();
     }
 }
 #[async_trait(?Send)]
@@ -88,6 +85,31 @@ impl Filesystem for FuseFs {
             stable: false,
         }
     }
+    fn subtype(&self) -> Option<&[u8]> {
+        self.conn.options.subtype.as_deref()
+    }
+    fn umount_begin(&self) {
+        self.conn.abort();
+    }
+    async fn shutdown(&self) {
+        if let Some(req) = self.conn.destroy() {
+            let _ = wasixv2_wait::wait_event(
+                &req.wait,
+                || req.reply.lock_or_recover().take(),
+                &wasixv2_wait::NoInterrupt,
+            )
+            .await;
+        }
+    }
+    async fn sync(&self) -> FsResult<()> {
+        if self.conn.queue.lock_or_recover().minor < 36 {
+            return Ok(());
+        }
+        match self.conn.optional(50, 1, vec![0; 8], 0, 0).await {
+            Ok(_) | Err(Errno::ENOSYS) => Ok(()),
+            Err(e) => Err(e),
+        }
+    }
     fn root(&self) -> Arc<dyn Node> {
         self.root.clone()
     }
@@ -99,6 +121,9 @@ impl Filesystem for FuseFs {
         }
     }
     async fn statfs(&self) -> FsResult<StatFs> {
+        if self.conn.allowed().is_err() {
+            return Ok(StatFs::default());
+        }
         let out = self.conn.request(17, 1, Vec::new(), 80, 80).await?;
         Ok(StatFs {
             blocks: u64_at(&out, 0)?,
@@ -121,7 +146,7 @@ impl Filesystem for FuseFs {
             )
             .as_bytes(),
         );
-        if o.default_permissions {
+        if self.conn.default_permissions() {
             out.extend_from_slice(b",default_permissions");
         }
         if o.allow_other {
@@ -145,6 +170,8 @@ pub(super) struct FuseNode {
     attr: Mutex<(Attr, Duration)>,
     entries: Mutex<BTreeMap<Vec<u8>, CachedEntry>>,
     nlookup: AtomicU64,
+    acl_epoch: AtomicU64,
+    deleted: AtomicBool,
     data_lock: futures_util::lock::Mutex<()>,
 }
 impl Drop for FuseNode {
@@ -158,13 +185,40 @@ impl Drop for FuseNode {
 impl FuseNode {
     pub(super) fn invalidate(&self) {
         self.attr.lock_or_recover().1 = Duration::ZERO;
+        self.acl_epoch.fetch_add(1, Ordering::Release);
     }
     pub(super) fn invalidate_entry(&self, name: &[u8]) {
         self.entries.lock_or_recover().remove(name);
         self.invalidate();
     }
+    pub(super) fn notify_entry(&self, name: &[u8], child: u64) -> FsResult<()> {
+        if self.kind != FileType::Directory {
+            return Err(Errno::ENOTDIR);
+        }
+        let entry = self
+            .entries
+            .lock_or_recover()
+            .remove(name)
+            .ok_or(Errno::ENOENT)?;
+        self.invalidate();
+        if child != 0
+            && let Some(node) = entry.node.and_then(|node| node.upgrade())
+        {
+            if node.id != child {
+                return Err(Errno::ENOENT);
+            }
+            if node.kind == FileType::Directory {
+                node.deleted.store(true, Ordering::Release);
+            }
+            node.attr.lock_or_recover().0.nlink = 0;
+        }
+        Ok(())
+    }
     fn decode_attr(conn: &Connection, out: &[u8]) -> FsResult<Attr> {
         if out.len() < 88 {
+            return Err(Errno::EIO);
+        }
+        if u64_at(out, 8)? > i64::MAX as u64 {
             return Err(Errno::EIO);
         }
         let mode = u32_at(out, 60)?;
@@ -189,13 +243,11 @@ impl FuseNode {
             uid: conn
                 .user_ns
                 .make_kuid(u32_at(out, 68)?)
-                .ok_or(Errno::EIO)?
-                .0,
+                .map_or(u32::MAX, |id| id.0),
             gid: conn
                 .user_ns
                 .make_kgid(u32_at(out, 72)?)
-                .ok_or(Errno::EIO)?
-                .0,
+                .map_or(u32::MAX, |id| id.0),
             rdev: Device::from_dev_t(u32_at(out, 76)?),
             blksize: u32_at(out, 80)?,
             btime: None,
@@ -208,6 +260,7 @@ impl FuseNode {
             return Err(Errno::EIO);
         }
         *self.attr.lock_or_recover() = (attr.clone(), self.conn.deadline(secs, nanos));
+        self.acl_epoch.fetch_add(1, Ordering::Release);
         Ok(attr)
     }
     /// fuse_iget: wire nodeid is identity, attr.ino is the stat number the daemon supplies.
@@ -246,6 +299,7 @@ impl FuseNode {
                     return Err(Errno::EIO);
                 }
                 *node.attr.lock_or_recover() = (attr, attr_until);
+                node.acl_epoch.fetch_add(1, Ordering::Release);
                 node.nlookup.fetch_add(1, Ordering::Relaxed);
                 node
             } else {
@@ -257,6 +311,8 @@ impl FuseNode {
                     attr: Mutex::new((attr, attr_until)),
                     entries: Mutex::new(BTreeMap::new()),
                     nlookup: AtomicU64::new(1),
+                    acl_epoch: AtomicU64::new(0),
+                    deleted: AtomicBool::new(false),
                     data_lock: futures_util::lock::Mutex::new(()),
                 });
                 nodes.insert(id, Arc::downgrade(&node));
@@ -381,6 +437,15 @@ impl FuseNode {
 }
 #[async_trait(?Send)]
 impl Node for FuseNode {
+    fn unlinked_directory(&self) -> bool {
+        self.deleted.load(Ordering::Acquire)
+    }
+    fn acl_permissions(&self) -> bool {
+        self.conn.queue.lock_or_recover().flags & (1 << 20) != 0
+    }
+    fn acl_version(&self) -> u64 {
+        self.acl_epoch.load(Ordering::Acquire)
+    }
     fn ino(&self) -> u64 {
         self.id
     }
@@ -402,7 +467,7 @@ impl Node for FuseNode {
         mask: u32,
     ) -> FsResult<()> {
         self.conn.allowed()?;
-        if self.conn.options.default_permissions {
+        if self.conn.default_permissions() {
             wasixv2_vfs::generic_permission_acl(cred, attr, acl, mask)
         } else if mask & wasixv2_vfs::MAY_EXEC != 0
             && self.kind == FileType::Regular
@@ -422,7 +487,7 @@ impl Node for FuseNode {
         mask: u32,
     ) -> FsResult<()> {
         let result = self.permission(cred, task, attr, acl, mask);
-        if self.conn.options.default_permissions {
+        if self.conn.default_permissions() {
             if result == Err(Errno::EACCES) {
                 let attr = self.refresh().await?;
                 return self.permission(cred, task, &attr, acl, mask);
@@ -431,7 +496,7 @@ impl Node for FuseNode {
         }
         result?;
         // fuse_permission sends ACCESS only for access(2)/chdir, not each path component.
-        if mask & 0x10 != 0 {
+        if mask & (0x10 | 0x40) != 0 {
             match self
                 .conn
                 .optional(34, self.id, words32(&[mask & 7, 0]), 0, 0)
@@ -480,6 +545,9 @@ impl Node for FuseNode {
         Ok(self.entry(name, &out)?)
     }
     async fn create(&self, name: &[u8], new: &NewNode<'_>) -> FsResult<Arc<dyn Node>> {
+        if self.deleted.load(Ordering::Acquire) {
+            return Err(Errno::ENOENT);
+        }
         let (opcode, mut body) = match new.kind {
             NewKind::Directory => (9, words32(&[new.mode | self.kind.mode_bits(), 0])),
             NewKind::Symlink(_) => (6, Vec::new()),
@@ -515,7 +583,24 @@ impl Node for FuseNode {
         super::wire::name(&mut body, name);
         match self.conn.optional(35, self.id, body, 144, 144).await {
             Ok(out) => {
-                let node = self.entry(name, &out[..128])?;
+                let node = match self.link_entry(name, &out[..128]) {
+                    Ok(node) => node,
+                    Err(error) => {
+                        let id = u64_at(&out, 0)?;
+                        let mut body = words64(&[u64_at(&out, 128)?]);
+                        body.extend(words32(&[flags, 0]));
+                        body.extend(words64(&[0]));
+                        self.conn.enqueue_completion(
+                            18,
+                            id,
+                            body,
+                            0,
+                            0,
+                            super::dev::Completion::Forget(id),
+                        );
+                        return Err(error);
+                    }
+                };
                 self.invalidate();
                 let fh = u64_at(&out, 128)?;
                 let open_flags = u32_at(&out, 136)?;
@@ -591,9 +676,14 @@ impl Node for FuseNode {
         Ok(Box::new(self.open_handle(options).await?))
     }
     async fn getxattr(&self, name: &[u8]) -> FsResult<Vec<u8>> {
+        let acl = AclKind::of_xattr(name).is_some();
+        if acl && !self.acl_permissions() && !self.conn.user_ns.is_initial() {
+            return Err(Errno::EOPNOTSUPP);
+        }
         let mut body = words32(&[65536, 0]);
         super::wire::name(&mut body, name);
-        self.conn
+        let value = self
+            .conn
             .optional(22, self.id, body, 0, 65536)
             .await
             .map_err(|e| {
@@ -602,7 +692,24 @@ impl Node for FuseNode {
                 } else {
                     e
                 }
-            })
+            })?;
+        if acl {
+            // fs/fuse/acl.c:__fuse_get_acl decodes ids in fc->user_ns. Drivers store
+            // kernel ids for the VFS, which maps them to each syscall's user namespace.
+            let value = if value.is_empty() {
+                2u32.to_le_bytes().to_vec()
+            } else {
+                value
+            };
+            Ok(PosixAcl::from_xattr(
+                &value,
+                |id| self.conn.user_ns.make_kuid(id).map(|id| id.0),
+                |id| self.conn.user_ns.make_kgid(id).map(|id| id.0),
+            )?
+            .map_or_else(|| 2u32.to_le_bytes().to_vec(), |a| a.to_stored()))
+        } else {
+            Ok(value)
+        }
     }
     async fn listxattr(&self) -> FsResult<Vec<Vec<u8>>> {
         let out = self
@@ -626,6 +733,24 @@ impl Node for FuseNode {
             .collect())
     }
     async fn setxattr(&self, name: &[u8], value: &[u8], how: XattrSet) -> FsResult<()> {
+        let encoded;
+        let value = if AclKind::of_xattr(name).is_some() {
+            if !self.acl_permissions() && !self.conn.user_ns.is_initial() {
+                return Err(Errno::EOPNOTSUPP);
+            }
+            encoded = PosixAcl::from_stored(value)?.map_or_else(
+                || 2u32.to_le_bytes().to_vec(),
+                |a| {
+                    a.to_xattr(
+                        |id| self.conn.user_ns.map_kuid(Kuid(id)),
+                        |id| self.conn.user_ns.map_kgid(Kgid(id)),
+                    )
+                },
+            );
+            &encoded
+        } else {
+            value
+        };
         let flags = match how {
             XattrSet::Any => 0,
             XattrSet::Create => 1,
@@ -710,7 +835,9 @@ impl Drop for FuseHandle {
             .polls
             .lock_or_recover()
             .remove(&self.poll.key);
-        if !self.no_open {
+        // fs/fuse/file.c:fuse_file_open still allocates release_args for no_open
+        // regular files; only no_opendir suppresses RELEASEDIR.
+        if !self.no_open || !self.dir {
             self.node.conn.enqueue(
                 if self.dir { 29 } else { 18 },
                 self.node.id,
@@ -744,13 +871,13 @@ impl FuseHandle {
         }
         let mut body = words64(&[self.fh, self.poll.key]);
         body.extend(words32(&[1, self.poll.events.load(Ordering::Acquire)]));
-        self.node.conn.enqueue_poll(
+        self.node.conn.enqueue_completion(
             40,
             self.node.id,
             body,
             8,
             8,
-            Some((Arc::downgrade(&self.poll), epoch)),
+            super::dev::Completion::Poll(Arc::downgrade(&self.poll), epoch),
         );
     }
     fn rw(&self, offset: u64, size: usize) -> Vec<u8> {
@@ -823,11 +950,7 @@ impl Handle for FuseHandle {
     fn mmap(&self, shared: bool) -> FsResult<()> {
         // fuse_file_mmap rejects shared direct_io mappings without DIRECT_IO_ALLOW_MMAP.
         // The kernel's copied shared-file mappings cannot track daemon invalidations.
-        if shared || self.open_flags & 1 != 0 {
-            Err(Errno::ENODEV)
-        } else {
-            Ok(())
-        }
+        if shared { Err(Errno::ENODEV) } else { Ok(()) }
     }
     fn flush_fatal(&self, owner: u64) {
         if !self.dir && self.open_flags & (1 << 5) == 0 {
@@ -878,34 +1001,59 @@ impl Handle for FuseHandle {
     }
 
     async fn read_at(&self, buf: &mut [u8], offset: u64) -> FsResult<usize> {
-        let len = buf
-            .len()
-            .min(self.node.conn.options.max_read.unwrap_or(MAX_IO as u32) as usize)
-            .min(MAX_IO);
-        let out = self
-            .node
-            .conn
-            .request(15, self.node.id, self.rw(offset, len), 0, len)
-            .await?;
+        let max = (self.node.conn.options.max_read.unwrap_or(MAX_IO as u32) as usize).min(MAX_IO);
+        let mut done = 0;
+        while done < buf.len() {
+            let len = (buf.len() - done).min(max);
+            let out = match self
+                .node
+                .conn
+                .request(15, self.node.id, self.rw(offset + done as u64, len), 0, len)
+                .await
+            {
+                Ok(out) => out,
+                Err(_) if done != 0 => break,
+                Err(e) => return Err(e),
+            };
+            buf[done..done + out.len()].copy_from_slice(&out);
+            done += out.len();
+            if out.len() < len {
+                break;
+            }
+        }
         self.poll.notify();
-        buf[..out.len()].copy_from_slice(&out);
-        Ok(out.len())
+        Ok(done)
     }
     async fn write_at(&self, data: &[u8], offset: u64) -> FsResult<usize> {
         self.node.conn.ready().await?;
-        let len = data
-            .len()
-            .min(self.node.conn.queue.lock_or_recover().max_write);
-        let mut body = self.rw(offset, len);
-        body.extend_from_slice(&data[..len]);
-        let out = self.node.conn.request(16, self.node.id, body, 8, 8).await?;
-        let n = u32_at(&out, 0)? as usize;
-        if n > len {
-            return Err(Errno::EIO);
+        let max = self.node.conn.queue.lock_or_recover().max_write;
+        let mut done = 0;
+        while done < data.len() {
+            let len = (data.len() - done).min(max);
+            let mut body = self.rw(offset + done as u64, len);
+            body.extend_from_slice(&data[done..done + len]);
+            let out = match self.node.conn.request(16, self.node.id, body, 8, 8).await {
+                Ok(out) => out,
+                Err(_) if done != 0 => break,
+                Err(e) => return Err(e),
+            };
+            let n = u32_at(&out, 0)? as usize;
+            if n > len {
+                if done != 0 {
+                    break;
+                }
+                return Err(Errno::EIO);
+            }
+            done += n;
+            if n < len {
+                break;
+            }
         }
-        self.node.invalidate();
-        self.poll.notify();
-        Ok(n)
+        if done != 0 {
+            self.node.invalidate();
+            self.poll.notify();
+        }
+        Ok(done)
     }
     async fn append(&self, data: &[u8]) -> FsResult<(u64, usize)> {
         let _lock = self.node.data_lock.lock().await;

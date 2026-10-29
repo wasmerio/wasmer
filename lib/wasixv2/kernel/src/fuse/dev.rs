@@ -16,12 +16,33 @@ use wasixv2_abi::IoctlRequest;
 use wasixv2_syscalls::{Caller, Errno, LocalFuture, SysResult};
 use wasixv2_wait::{NoInterrupt, PollMask, PollTable, Pollable, WaitQueue, poll_wait, wait_event};
 
+pub(super) enum Completion {
+    Reply,
+    Poll(Weak<super::poll::PollState>, u64),
+    Forget(u64),
+}
+
+struct Waiting<'a> {
+    conn: &'a Connection,
+    req: Arc<Request>,
+    done: bool,
+}
+impl Drop for Waiting<'_> {
+    fn drop(&mut self) {
+        if !self.done {
+            self.conn.cancel_request(&self.req);
+        }
+    }
+}
+
 pub(super) struct Request {
     pub(super) unique: u64,
     pub(super) opcode: u32,
     bytes: Vec<u8>,
     device: AtomicU64,
-    poll: Option<(Weak<super::poll::PollState>, u64)>,
+    completion: Completion,
+    abandoned: AtomicBool,
+    _inode: Option<Arc<super::fs::FuseNode>>,
     pub(super) reply: Mutex<Option<Result<Vec<u8>, Errno>>>,
     pub(super) wait: WaitQueue,
     /// Inclusive payload size range; fuse_copy_out_args validates it before completing.
@@ -33,6 +54,7 @@ pub(super) struct Queue {
     pub(super) connected: bool,
     pub(super) initialized: bool,
     pub(super) init_error: bool,
+    pub(super) destroy_sent: bool,
     pub(super) minor: u32,
     pub(super) max_write: usize,
     pub(super) flags: u32,
@@ -52,6 +74,7 @@ impl Default for Queue {
             connected: true,
             initialized: false,
             init_error: false,
+            destroy_sent: false,
             minor: 0,
             max_write: 4096,
             max_background: 12,
@@ -84,18 +107,27 @@ impl Connection {
         min: usize,
         max: usize,
     ) -> Arc<Request> {
-        self.enqueue_poll(opcode, node, body, min, max, None)
+        self.enqueue_completion(opcode, node, body, min, max, Completion::Reply)
     }
-    pub(super) fn enqueue_poll(
+    pub(super) fn enqueue_completion(
         &self,
         opcode: u32,
         node: u64,
         body: Vec<u8>,
         min: usize,
         max: usize,
-        poll: Option<(Weak<super::poll::PollState>, u64)>,
+        completion: Completion,
     ) -> Arc<Request> {
-        let (uid, gid, pid, _) = self.current();
+        let (uid, gid, pid, _) = if opcode == DESTROY {
+            (0, 0, 0, None)
+        } else {
+            self.current()
+        };
+        let inode = self
+            .nodes
+            .lock_or_recover()
+            .get(&node)
+            .and_then(Weak::upgrade);
         let (req, queued) = {
             let mut q = self.queue.lock_or_recover();
             q.next += 2;
@@ -114,7 +146,9 @@ impl Connection {
                 opcode,
                 bytes,
                 device: AtomicU64::new(0),
-                poll,
+                completion,
+                abandoned: AtomicBool::new(false),
+                _inode: inode,
                 reply: Mutex::new(None),
                 wait: WaitQueue::new(),
                 min,
@@ -142,7 +176,7 @@ impl Connection {
             &self.changed,
             || {
                 let q = self.queue.lock_or_recover();
-                if !q.connected {
+                if !q.connected || q.destroy_sent {
                     Some(Err(Errno::ENOTCONN))
                 } else if q.init_error {
                     Some(Err(Errno::ECONNREFUSED))
@@ -168,6 +202,11 @@ impl Connection {
     ) -> Result<Vec<u8>, Errno> {
         self.ready().await?;
         let req = self.enqueue(opcode, node, body, min, max);
+        let mut waiting = Waiting {
+            conn: self,
+            req: req.clone(),
+            done: false,
+        };
         let (_, _, _, signals) = self.current();
         let no = NoInterrupt;
         let interrupt: &dyn wasixv2_wait::Interrupt = signals
@@ -178,6 +217,7 @@ impl Connection {
         // restart an already-delivered mutation merely because a signal arrived.
         if !self.queue.lock_or_recover().no_interrupt {
             if let Ok(result) = wait_event(&req.wait, answer, interrupt).await {
+                waiting.done = true;
                 return result;
             }
             let mut q = self.queue.lock_or_recover();
@@ -190,6 +230,7 @@ impl Connection {
         }
         if let Some(signals) = &signals {
             if let Ok(result) = wait_event(&req.wait, answer, &signals.killable()).await {
+                waiting.done = true;
                 return result;
             }
             // A fatal signal may cancel a request only before userspace has received it.
@@ -203,7 +244,103 @@ impl Connection {
             // without a waiter (request_wait_answer); the eventual reply retires it.
             return Err(Errno::EINTR);
         }
-        wait_event(&req.wait, answer, &NoInterrupt).await.unwrap()
+        let result = wait_event(&req.wait, answer, &NoInterrupt).await.unwrap();
+        waiting.done = true;
+        result
+    }
+
+    fn cancel_request(&self, req: &Request) {
+        req.abandoned.store(true, Ordering::Release);
+        let reply = req.reply.lock_or_recover().take();
+        if let Some(Ok(body)) = reply {
+            self.discard_reply(req, &body);
+        }
+        let mut q = self.queue.lock_or_recover();
+        if let Some(at) = q.pending.iter().position(|r| r.unique == req.unique) {
+            q.pending.remove(at);
+            q.interrupted.remove(&req.unique);
+            q.interrupts.retain(|id| *id != req.unique);
+        } else if q.processing.contains_key(&req.unique)
+            && !q.no_interrupt
+            && q.interrupted.insert(req.unique)
+        {
+            q.interrupts.push_back(req.unique);
+        }
+        drop(q);
+        self.readable.wake(PollMask::READABLE);
+    }
+
+    fn discard_reply(&self, req: &Request, body: &[u8]) {
+        // fuse_lookup_name/fuse_atomic_open retire entry and handle references when
+        // a delivered operation cannot install its inode or file.
+        let mut entry = None;
+        let mut opened = None;
+        match req.opcode {
+            1 | 6 | 8 | 9 | 13 => entry = u64_at(body, 0).ok(),
+            35 => {
+                entry = u64_at(body, 0).ok();
+                opened = u64_at(body, 128)
+                    .ok()
+                    .map(|fh| (18, entry.unwrap_or(0), fh));
+            }
+            14 | 27 => {
+                opened = u64_at(body, 0).ok().map(|fh| {
+                    (
+                        if req.opcode == 27 { 29 } else { 18 },
+                        u64_at(&req.bytes, 16).unwrap_or(0),
+                        fh,
+                    )
+                })
+            }
+            44 => {
+                let mut at = 0;
+                while body.len() - at >= 152 {
+                    let len = u32_at(body, at + 144).unwrap_or(0) as usize;
+                    let size = (152 + len + 7) & !7;
+                    if len == 0 || size > body.len() - at {
+                        break;
+                    }
+                    let name = &body[at + 152..at + 152 + len];
+                    if name != b"."
+                        && name != b".."
+                        && let Ok(id) = u64_at(body, at)
+                        && id > 1
+                    {
+                        self.forget(id, 1);
+                    }
+                    at += size;
+                }
+            }
+            _ => {}
+        }
+        if let Some((opcode, id, fh)) = opened {
+            let mut input = words64(&[fh]);
+            input.extend(words32(&[u32_at(&req.bytes, HEADER).unwrap_or(0), 0]));
+            input.extend(words64(&[0]));
+            let completion = entry.take().map_or(Completion::Reply, Completion::Forget);
+            self.enqueue_completion(opcode, id, input, 0, 0, completion);
+        }
+        if let Some(id) = entry
+            && id > 1
+        {
+            self.forget(id, 1);
+        }
+    }
+
+    pub(super) fn destroy(&self) -> Option<Arc<Request>> {
+        let mut q = self.queue.lock_or_recover();
+        if q.destroy_sent {
+            return None;
+        }
+        q.destroy_sent = true;
+        let send = q.connected && !q.init_error;
+        drop(q);
+        if send {
+            Some(self.enqueue(DESTROY, 0, Vec::new(), 0, 0))
+        } else {
+            self.remove_control();
+            None
+        }
     }
 
     pub(super) fn detached_flush(&self, node: u64, body: Vec<u8>) {
@@ -223,10 +360,14 @@ impl Connection {
     }
 
     fn finish(&self, req: &Request, result: Result<Vec<u8>, Errno>) {
+        if req.opcode == DESTROY {
+            self.abort();
+            self.remove_control();
+        }
         if req.opcode == INIT {
             self.finish_init(result.clone());
         }
-        if let Some((poll, epoch)) = &req.poll
+        if let Completion::Poll(poll, epoch) = &req.completion
             && let Some(poll) = poll.upgrade()
         {
             let mask = match &result {
@@ -239,7 +380,21 @@ impl Connection {
             };
             poll.complete(*epoch, mask);
         }
-        *req.reply.lock_or_recover() = Some(result);
+        if let Completion::Forget(id) = req.completion
+            && id > 1
+        {
+            self.forget(id, 1);
+        }
+        let mut slot = req.reply.lock_or_recover();
+        if req.abandoned.load(Ordering::Acquire) {
+            drop(slot);
+            if let Ok(body) = &result {
+                self.discard_reply(req, body);
+            }
+        } else {
+            *slot = Some(result);
+            drop(slot);
+        }
         req.wait.wake(PollMask::IN);
     }
 
@@ -367,6 +522,7 @@ impl Connection {
                         Errno::EIO
                     }),
                 );
+                drop(req);
                 q = self.queue.lock_or_recover();
                 continue;
             }

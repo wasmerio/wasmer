@@ -29,12 +29,14 @@ use wasixv2_vfs::{Cred, FileType, Filesystem};
 use wasixv2_wait::WaitQueue;
 use wire::*;
 
-// BIG_WRITES and DO_READDIRPLUS. In particular no WRITEBACK_CACHE, POSIX_ACL,
+// BIG_WRITES, DO_READDIRPLUS and POSIX_ACL. In particular no WRITEBACK_CACHE,
 // passthrough, splice, DAX, or mmap of direct I/O files (fuse_send_init).
-const INIT_FLAGS: u32 = (1 << 5) | (1 << 13);
+const INIT_FLAGS: u32 = (1 << 5) | (1 << 13) | (1 << 20);
 
 pub(super) struct Connection {
     sync_init: bool,
+    registry: Weak<Registry>,
+    id: AtomicU64,
     queue: Mutex<dev::Queue>,
     readable: WaitQueue,
     changed: WaitQueue,
@@ -55,14 +57,17 @@ impl Connection {
             return (0, 0, 0, None);
         };
         let state = state.read_or_recover();
-        let Some(task) = current_task().and_then(|id| state.tasks.get(&id)) else {
+        let Some(id) = current_task() else {
+            return (0, 0, 0, None);
+        };
+        let Some(task) = state.tasks.get(&id) else {
             return (0, 0, 0, None);
         };
         let cred = task.process.cred();
         (
             self.user_ns.munged_uid(cred.user.fs),
             self.user_ns.munged_gid(cred.group.fs),
-            state.pids.nr(&self.pid_ns, task.process.pid.0) as u32,
+            state.pids.nr(&self.pid_ns, id.0) as u32,
             Some(task.signals.clone()),
         )
     }
@@ -96,23 +101,21 @@ impl Connection {
         }
         Err(Errno::EACCES)
     }
+    fn default_permissions(&self) -> bool {
+        self.options.default_permissions || self.queue.lock_or_recover().flags & (1 << 20) != 0
+    }
+    fn remove_control(&self) {
+        if let Some(registry) = self.registry.upgrade() {
+            registry.remove(self.id.load(std::sync::atomic::Ordering::Relaxed));
+        }
+    }
     fn deadline(&self, secs: u64, nanos: u32) -> Duration {
         self.host
             .monotonic()
             .saturating_add(Duration::new(secs, nanos.min(999_999_999)))
     }
-    fn invalidate(&self, nodeid: u64) {
-        if let Some(node) = self
-            .nodes
-            .lock_or_recover()
-            .get(&nodeid)
-            .and_then(Weak::upgrade)
-        {
-            node.invalidate();
-        }
-    }
     fn notify(&self, code: i32, body: &[u8]) -> Result<(), Errno> {
-        // fs/fuse/dev.c:fuse_notify: positive error with unique zero is a notification.
+        // fs/fuse/notify.c:fuse_notify dispatches only initialized, connected messages.
         match code {
             1 if body.len() == 8 => {
                 if let Some(poll) = self
@@ -126,27 +129,34 @@ impl Connection {
                 Ok(())
             }
             2 if body.len() == 24 => {
-                self.invalidate(u64_at(body, 0)?);
+                let node = self
+                    .nodes
+                    .lock_or_recover()
+                    .get(&u64_at(body, 0)?)
+                    .and_then(Weak::upgrade)
+                    .ok_or(Errno::ENOENT)?;
+                node.invalidate();
                 Ok(())
             }
             3 | 6 => {
                 let start = if code == 6 { 24 } else { 16 };
                 let len = u32_at(body, if code == 6 { 16 } else { 8 })? as usize;
-                if body.len() != start + len + 1 || body.last() != Some(&0) {
+                if len > 255 {
+                    return Err(Errno::ENAMETOOLONG);
+                }
+                if body.len() != start + len + 1 {
                     return Err(Errno::EINVAL);
                 }
-                if let Some(node) = self
+                let parent = self
                     .nodes
                     .lock_or_recover()
                     .get(&u64_at(body, 0)?)
                     .and_then(Weak::upgrade)
-                {
-                    node.invalidate_entry(&body[start..start + len]);
-                }
-                if code == 6 {
-                    self.invalidate(u64_at(body, 8)?);
-                }
-                Ok(())
+                    .ok_or(Errno::ENOENT)?;
+                parent.notify_entry(
+                    &body[start..start + len],
+                    if code == 6 { u64_at(body, 8)? } else { 0 },
+                )
             }
             _ => Err(Errno::EINVAL),
         }
@@ -235,6 +245,9 @@ pub(crate) struct FuseType {
     pub(crate) registry: Arc<Registry>,
 }
 impl FilesystemType for FuseType {
+    fn supports_subtype(&self) -> bool {
+        true
+    }
     fn userns_mount(&self) -> bool {
         true
     }
@@ -245,7 +258,7 @@ impl FilesystemType for FuseType {
         &self,
         _: &[u8],
         params: &[FsParam<'_>],
-        _: &Cred,
+        cred: &Cred,
     ) -> Result<Arc<dyn Filesystem>, Errno> {
         let mut options = Options::default();
         for param in params {
@@ -255,7 +268,7 @@ impl FilesystemType for FuseType {
             return Err(Errno::EINVAL);
         }
         let table = self.state.upgrade().ok_or(Errno::ENODEV)?;
-        let (file, user_ns, pid_ns) = {
+        let (file, pid_ns) = {
             let state = table.read_or_recover();
             let task = state
                 .tasks
@@ -266,9 +279,10 @@ impl FilesystemType for FuseType {
                 .lock_or_recover()
                 .get(wasixv2_syscalls::Fd(options.fd.ok_or(Errno::EINVAL)? as i32))
                 .ok_or(Errno::EBADF)?;
-            let user_ns = task.process.cred().user_ns;
-            (file, user_ns, task.process.pid_ns.clone())
+            (file, task.process.pid_ns.clone())
         };
+        let owner: Arc<dyn std::any::Any + Send + Sync> = cred.user_ns.clone();
+        let user_ns = owner.downcast::<UserNs>().map_err(|_| Errno::EINVAL)?;
         let device = file.downcast::<Device>().ok_or(Errno::EINVAL)?;
         if !Arc::ptr_eq(&user_ns, &device.user_ns) {
             return Err(Errno::EINVAL);
@@ -277,9 +291,11 @@ impl FilesystemType for FuseType {
         options.gid = user_ns.make_kgid(options.gid).ok_or(Errno::EINVAL)?.0;
         let mut bound = device.conn.lock_or_recover();
         if bound.is_some() {
-            return Err(Errno::EBUSY);
+            return Err(Errno::EINVAL);
         }
         let conn = Arc::new(Connection {
+            registry: Arc::downgrade(&self.registry),
+            id: AtomicU64::new(0),
             sync_init: device.sync_init.load(std::sync::atomic::Ordering::Acquire),
             queue: Mutex::new(dev::Queue::default()),
             readable: WaitQueue::new(),
@@ -295,7 +311,8 @@ impl FilesystemType for FuseType {
             polls: Mutex::new(BTreeMap::new()),
             next_poll: AtomicU64::new(1),
         });
-        self.registry.add(&conn);
+        let id = self.registry.add(&conn);
+        conn.id.store(id, std::sync::atomic::Ordering::Relaxed);
         let fs = fs::FuseFs::new(conn.clone());
         let mut init = vec![0; 64];
         put32(&mut init, 0, 7);
