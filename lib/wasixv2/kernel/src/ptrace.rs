@@ -58,7 +58,10 @@ impl Kernel {
     /// `yama_ptrace_traceme`: whether `parent` may become the tracer of `me` through
     /// `PTRACE_TRACEME`, and Landlock's `hook_ptrace_traceme`.
     pub(crate) fn may_traceme(&self, me: TaskId, parent: &Process) -> bool {
-        let (cred, pcred) = (self.task_cred(me), self.task_cred(parent.pid));
+        let cred = self.task_cred(me);
+        let Some(pcred) = self.find_task_cred(parent.pid) else {
+            return false;
+        };
         let yama = match self.yama.scope() {
             yama::SCOPE_CAPABILITY => pcred.ns_capable(&cred.user_ns, Cap::SysPtrace),
             yama::SCOPE_NO_ATTACH => false,
@@ -511,8 +514,13 @@ impl Kernel {
     ) {
         // `delay_group_leader`: the leader's instance may be gone while another thread
         // finishes. Its process remains in the tree until the zombie is reaped.
-        let tracee = self.task_process(task).or_else(|| self.procs.find(task.0));
-        let (Some(them), Some(_me)) = (self.task_process(tracer), tracee) else {
+        let Some(cred) = self.find_task_cred(task) else {
+            return;
+        };
+        let Some(them) = self.task_process(tracer) else {
+            return;
+        };
+        let Some(tracer_cred) = self.find_task_cred(tracer) else {
             return;
         };
         let Some(signals) = self.group_signals(them.pid.0) else {
@@ -524,11 +532,11 @@ impl Kernel {
         let exit = crate::process::Exit {
             code: why,
             status,
-            uid: self.task_cred(task).user.real,
+            uid: cred.user.real,
         };
         let pid = self.pids.nr(&them.pid_ns, task.0);
         let sig = wasixv2_abi::Signal::SIGCHLD.0;
-        let info = crate::process::child_info(sig, pid, exit, &self.task_cred(them.pid).user_ns);
+        let info = crate::process::child_info(sig, pid, exit, &tracer_cred.user_ns);
         let _ = signals.send_group(info);
     }
 
@@ -948,10 +956,11 @@ impl Kernel {
         };
         let dumpable = process.ident.lock_or_recover().dumpable;
         let tracer = self.tracees.tracer_of(child);
-        let capable = tracer.is_some_and(|t| {
-            self.task_cred(t)
-                .ns_capable(&self.task_cred(child).user_ns.clone(), Cap::SysPtrace)
-        });
+        let target_cred = self.find_task_cred(child);
+        let capable = tracer
+            .and_then(|id| self.find_task_cred(id))
+            .zip(target_cred)
+            .is_some_and(|(tracer, target)| tracer.ns_capable(&target.user_ns, Cap::SysPtrace));
         if dumpable != crate::ident::Dumpable::User && !capable {
             return 0;
         }
@@ -1244,10 +1253,11 @@ impl Kernel {
                     .signals
                     .group()
                     .ptrace_report(id, nowait)
-                    .map(|code| crate::process::Exit {
+                    .zip(signals.group().cred(Some(id)))
+                    .map(|(code, cred)| crate::process::Exit {
                         code: wasixv2_abi::SiCode::CLD_TRAPPED,
                         status: code,
-                        uid: self.task_cred(id).user.real,
+                        uid: cred.user.real,
                     }),
             };
             if let Some(report) = report {
@@ -1482,6 +1492,7 @@ impl Kernel {
             return false;
         };
         let ns = self.current_cred(task).user_ns.clone();
-        !self.task_cred(tracer).ns_capable(&ns, Cap::SysPtrace)
+        self.find_task_cred(tracer)
+            .is_none_or(|cred| !cred.ns_capable(&ns, Cap::SysPtrace))
     }
 }

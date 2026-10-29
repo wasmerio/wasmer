@@ -2597,9 +2597,8 @@ impl Kernel {
             return Some(info);
         }
         // The tracer's pid in the tracee's namespace and its uid as the tracee sees it.
-        let (pid, uid) = match tracer.and_then(|t| self.task_process(t).map(|p| (t, p))) {
-            Some((tracer, _them)) => {
-                let cred = self.task_cred(tracer);
+        let (pid, uid) = match tracer.and_then(|t| self.find_task_cred(t).map(|cred| (t, cred))) {
+            Some((tracer, cred)) => {
                 let uid = self.task_cred(task).user_ns.munged_uid(cred.user.real);
                 (self.pids.nr(&process.pid_ns, tracer.0), uid)
             }
