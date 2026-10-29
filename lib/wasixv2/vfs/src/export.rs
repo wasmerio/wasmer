@@ -76,13 +76,15 @@ impl Vfs {
     /// does not decode is `ESTALE` (`do_handle_to_path`). `dir_only` takes only directories
     /// (`EXPORT_FH_DIR_ONLY`); `check` is the caller of the relaxed permission model
     /// (`HANDLE_CHECK_PERMS`), whose user namespace must map the owner of the object and of
-    /// every directory above it (`vfs_dentry_acceptable`).
+    /// every directory above it (`vfs_dentry_acceptable`). `check_subtree` additionally
+    /// requires that the ancestry reaches the supplied root (`HANDLE_CHECK_SUBTREE`).
     pub async fn decode_fh(
         &self,
         root: &Path,
         fid: &FileId,
         dir_only: bool,
         check: Option<&Cred>,
+        check_subtree: bool,
     ) -> FsResult<Path> {
         let sb = root.dentry.sb();
         let node = sb.fs.fh_to_node(fid).await.map_err(|errno| match errno {
@@ -102,7 +104,7 @@ impl Vfs {
             }
         };
         if let Some(cred) = check {
-            acceptable(cred, &dentry, &root.dentry).await?;
+            acceptable(cred, &dentry, &root.dentry, check_subtree).await?;
         }
         Ok(Path {
             mnt: root.mnt.clone(),
@@ -111,9 +113,14 @@ impl Vfs {
     }
 }
 
-/// `vfs_dentry_acceptable` without `HANDLE_CHECK_SUBTREE`: no object between `dentry` and
-/// `root` (or its filesystem's root) is owned by ids `cred`'s user namespace cannot name.
-async fn acceptable(cred: &Cred, dentry: &Arc<Dentry>, root: &Arc<Dentry>) -> FsResult<()> {
+/// fs/fhandle.c: vfs_dentry_acceptable. Check mapped ids along the ancestry; the
+/// mount-namespace-owner variant must reach root, including for the root itself.
+async fn acceptable(
+    cred: &Cred,
+    dentry: &Arc<Dentry>,
+    root: &Arc<Dentry>,
+    subtree: bool,
+) -> FsResult<()> {
     let mut at = dentry.clone();
     loop {
         let attr = at.node().getattr().await?;
@@ -125,7 +132,7 @@ async fn acceptable(cred: &Cred, dentry: &Arc<Dentry>, root: &Arc<Dentry>) -> Fs
         }
         match at.parent() {
             Some(parent) => at = parent,
-            None => return Ok(()),
+            None => return if subtree { Err(Errno::ESTALE) } else { Ok(()) },
         }
     }
 }

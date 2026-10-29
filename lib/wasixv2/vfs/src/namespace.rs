@@ -713,6 +713,28 @@ impl Vfs {
         })
     }
 
+    /// fs/fhandle.c: subtree_unobstructed. Check namespace ownership and covering locks
+    /// in one tree-lock snapshot; anonymous/detached mounts do not qualify.
+    pub fn subtree_unobstructed(
+        &self,
+        root: &Path,
+        capable: impl FnOnce(&Arc<dyn UserNs>) -> bool,
+    ) -> bool {
+        let state = self.tree.lock();
+        let Some(namespace) = state
+            .ns_of(root.mnt.id)
+            .and_then(|id| state.namespaces.get(&id))
+            .and_then(std::sync::Weak::upgrade)
+        else {
+            return false;
+        };
+        let allowed =
+            capable(namespace.owner()) && !state.has_locked_children(&root.mnt, &root.dentry);
+        // Dropping the last namespace reference may take the tree lock itself.
+        drop(state);
+        allowed
+    }
+
     /// The namespace `mount` is attached in (`mnt_ns`), if any.
     pub fn ns_of(&self, mount: &Mount) -> Option<u64> {
         self.tree.lock().ns_of(mount.id)

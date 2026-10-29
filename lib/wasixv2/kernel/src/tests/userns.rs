@@ -1115,3 +1115,83 @@ fn binfmt_misc_has_an_instance_per_user_namespace_that_mounts_it() {
         Errno::ENOENT
     );
 }
+
+#[test]
+fn mount_namespace_owner_decodes_only_unobstructed_mapped_directory_subtrees() {
+    use wasixv2_abi::{FileHandlePtr, S32Ptr};
+    use wasixv2_vfs::Cap;
+    let (kernel, root, user) = mounting_machine();
+    for dir in [
+        "/mnt/tree",
+        "/mnt/tree/inside",
+        "/mnt/tree/inside/child",
+        "/mnt/tree/blocked",
+        "/mnt/sibling",
+    ] {
+        assert_eq!(mkdir(&kernel, &user, dir), Ok(0));
+    }
+    // This mount becomes locked when copied into the less privileged namespace.
+    assert_eq!(mount(&kernel, &root, "/mnt/tree/blocked", "tmpfs"), Ok(0));
+    become_root(&kernel, &user, CloneFlags(0));
+    let handle = |name: &str| {
+        block_on(write_value(&user.memory, GuestPtrMut::new(0x3000), &128u32)).unwrap();
+        let path = path(&user, name);
+        assert_eq!(
+            block_on(kernel.name_to_handle_at(
+                &user.caller(),
+                CWD,
+                path,
+                FileHandlePtr::new(0x3000),
+                S32Ptr::new(0x3100),
+                0
+            )),
+            Ok(0)
+        );
+    };
+    let open_handle = |fd| {
+        block_on(kernel.open_by_handle_at(
+            &user.caller(),
+            fd,
+            GuestPtr::new(0x3000),
+            OpenFlags::O_RDONLY | OpenFlags::O_DIRECTORY,
+        ))
+    };
+    let anchor = open(&kernel, &user, "/mnt/tree/inside", OpenFlags::O_PATH).unwrap();
+    handle("/mnt/tree/inside");
+    assert_eq!(
+        errno(open_handle(anchor)),
+        Errno::EPERM,
+        "does not own the initial mount namespace"
+    );
+    assert_eq!(unshare(&kernel, &user, CloneFlags::CLONE_NEWNS), Ok(0));
+    let anchor = open(&kernel, &user, "/mnt/tree/inside", OpenFlags::O_PATH).unwrap();
+    let _child = open(&kernel, &user, "/mnt/tree/inside/child", OpenFlags::O_PATH).unwrap();
+    handle("/mnt/tree/inside/child");
+    let decoded = open_handle(anchor).unwrap();
+    block_on(kernel.close(&user.caller(), Fd(decoded))).unwrap();
+    handle("/mnt/tree/inside");
+    let decoded = open_handle(anchor).unwrap();
+    block_on(kernel.close(&user.caller(), Fd(decoded))).unwrap();
+    let _sibling = open(&kernel, &user, "/mnt/sibling", OpenFlags::O_PATH).unwrap();
+    handle("/mnt/sibling");
+    assert_eq!(
+        errno(open_handle(anchor)),
+        Errno::ESTALE,
+        "cannot escape the supplied subtree"
+    );
+    handle("/mnt/tree/inside/child");
+    let obstructed = open(&kernel, &user, "/mnt/tree", OpenFlags::O_PATH).unwrap();
+    assert_eq!(
+        errno(open_handle(obstructed)),
+        Errno::EPERM,
+        "locked child hides part of this subtree"
+    );
+    // Even the namespace owner still needs DAC_READ_SEARCH in its own user namespace.
+    super::cred::set_caps(
+        &kernel,
+        &user.caller(),
+        &user.memory.0,
+        crate::cred::CAP_FULL & !Cap::DacReadSearch.bit(),
+    );
+    assert_eq!(errno(open_handle(anchor)), Errno::EPERM);
+}

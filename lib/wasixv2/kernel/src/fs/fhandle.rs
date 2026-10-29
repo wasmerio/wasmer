@@ -20,6 +20,13 @@ const FILEID_VALID_USER_FLAGS: i32 =
 /// Where the handle body starts in `struct file_handle`.
 const HANDLE_BODY: u32 = 8;
 
+/// fs/fhandle.c's HANDLE_CHECK_PERMS and HANDLE_CHECK_SUBTREE models.
+enum DecodePermission {
+    Global,
+    Filesystem,
+    Subtree,
+}
+
 impl Kernel {
     /// `sys_name_to_handle_at`.
     pub(crate) async fn sys_name_to_handle_at(
@@ -145,9 +152,19 @@ impl Kernel {
             kind: header.handle_type & !FILEID_USER_FLAGS_MASK,
             data,
         };
-        let dir_only = check || user_flags & FileHandleMisc::FILEID_IS_DIR.0 != 0;
-        let cred = check.then_some(&env.cred);
-        let path = self.vfs.decode_fh(&root, &fid, dir_only, cred).await?;
+        let dir_only = !matches!(check, DecodePermission::Global)
+            || user_flags & FileHandleMisc::FILEID_IS_DIR.0 != 0;
+        let cred = (!matches!(check, DecodePermission::Global)).then_some(&env.cred);
+        let path = self
+            .vfs
+            .decode_fh(
+                &root,
+                &fid,
+                dir_only,
+                cred,
+                matches!(check, DecodePermission::Subtree),
+            )
+            .await?;
         let how = build_open_how(flags, 0);
         let (flags, lookup) = build_open_flags(&how)?;
         let lookup = wasixv2_vfs::LookupFlags {
@@ -174,28 +191,36 @@ impl Kernel {
     /// `may_decode_fh`: `CAP_DAC_READ_SEARCH` decodes anything; otherwise only a directory
     /// (`O_DIRECTORY`), for a caller that could mount the filesystem (`CAP_SYS_ADMIN` over its
     /// user namespace) and override read and search permissions, and only along objects its
-    /// user namespace maps (`true`: `HANDLE_CHECK_PERMS`). The bind-mount variant, which needs
-    /// the mount namespace's owner and no locked mounts on the way, is not offered.
+    /// user namespace maps (`HANDLE_CHECK_PERMS`). A caller who owns only the mount
+    /// namespace also needs an unobstructed subtree, and may decode only below root
+    /// (`HANDLE_CHECK_SUBTREE`), matching fs/fhandle.c may_decode_fh.
     fn may_decode_fh(
         &self,
         caller: &Caller<'_>,
         env: &Env,
         root: &Path,
         flags: OpenFlags,
-    ) -> Result<bool, Errno> {
+    ) -> Result<DecodePermission, Errno> {
         let cred = self.process(caller.task()).cred();
         if cred.capable_init(Cap::DacReadSearch) {
-            return Ok(false);
+            return Ok(DecodePermission::Global);
         }
         if !flags.contains(OpenFlags::O_DIRECTORY) {
             return Err(Errno::EPERM);
         }
-        if !cred.ns_capable(&self.sb_owner(root.dentry.sb()), Cap::SysAdmin) {
+        let check = if cred.ns_capable(&self.sb_owner(root.dentry.sb()), Cap::SysAdmin) {
+            DecodePermission::Filesystem
+        } else if self.vfs.subtree_unobstructed(root, |owner| {
+            let owner = crate::userns::kernel_user_ns(owner, &self.init_user_ns);
+            cred.ns_capable(&owner, Cap::SysAdmin)
+        }) {
+            DecodePermission::Subtree
+        } else {
             return Err(Errno::EPERM);
-        }
+        };
         if !env.cred.capable(Cap::DacReadSearch) {
             return Err(Errno::EPERM);
         }
-        Ok(true)
+        Ok(check)
     }
 }
