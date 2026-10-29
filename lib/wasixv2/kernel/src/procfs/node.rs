@@ -461,9 +461,13 @@ impl Node for ProcNode {
         })
     }
 
-    /// `proc_setattr`: modes and owners are the kernel's.
-    async fn setattr(&self, _: &SetAttr) -> FsResult<Attr> {
-        Err(Errno::EPERM)
+    /// `proc_setattr`: modes and owners are the kernel's; the truncation of an `O_TRUNC`
+    /// open (and times) are taken and change nothing.
+    async fn setattr(&self, attr: &SetAttr) -> FsResult<Attr> {
+        if attr.mode.is_some() || attr.uid.is_some() || attr.gid.is_some() {
+            return Err(Errno::EPERM);
+        }
+        self.getattr().await
     }
 
     async fn lookup(&self, name: &[u8]) -> FsResult<Arc<dyn Node>> {
