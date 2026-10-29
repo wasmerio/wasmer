@@ -534,6 +534,7 @@ The execution crate is the only layer below the facade that knows about the wasm
 - **Tasks and instances.**
   - A process image is one instance.
   - A thread created with a shared address space is another instance on the same shared memory.
+  - So is a process that shares its creator's memory (`clone` with `CLONE_VM` but neither `CLONE_THREAD` nor `CLONE_VFORK`), which starts through `thread-spawn` at the thread entry point, as it cannot return twice either: the kernel makes it a thread group of its own on the creator's address space, and its instance runs as that process until it exits, or its `execve` starts the new image on memory and an instance of its own.
   - Each task runs on a host thread or a coroutine, chosen by the host crate.
 - **Suspension.** Syscall methods are async. A pending call suspends the guest with stack switching, which every wasmer backend we target supports. It works the same in every build configuration.
 - **Build configurations.** All three work from day one:

@@ -155,7 +155,8 @@ const THREAD_OPTIONAL: CloneFlags = CloneFlags(
 
 impl Kernel {
     /// `copy_process` for a thread: validates `flags`, creates the task in the caller's thread
-    /// group, writes its tid where asked, and leaves the start to the execution layer.
+    /// group, writes its tid where asked, and leaves the start to the execution layer. Without
+    /// `CLONE_THREAD`, the task is a new process on the caller's memory ([`Kernel::kernel_clone`]).
     pub(crate) async fn sys_thread_spawn(
         &self,
         caller: &Caller<'_>,
@@ -166,6 +167,24 @@ impl Kernel {
         child_tid: S32Ptr,
     ) -> SysResult<i32> {
         let flags = CloneFlags(flags.into());
+        // Without `CLONE_THREAD`, a process on the caller's memory, which `clone` makes.
+        if !flags.contains(CloneFlags::CLONE_THREAD) {
+            if !flags.contains(CloneFlags::CLONE_VM) {
+                return Err(Errno::EINVAL.into());
+            }
+            let args = crate::process::KernelClone {
+                flags: CloneFlags(flags.0 & !CloneFlags::CSIGNAL.0),
+                exit_signal: flags.0 & CloneFlags::CSIGNAL.0,
+                pidfd: parent_tid.addr(),
+                parent_tid: parent_tid.addr(),
+                child_tid: child_tid.addr(),
+                stack: 0,
+                tls,
+                set_tid: Vec::new(),
+                start_arg: Some(start_arg),
+            };
+            return self.kernel_clone(caller, args).await;
+        }
         // copy_process's checks, in its order.
         if flags.contains(CloneFlags::CLONE_THREAD) && !flags.contains(CloneFlags::CLONE_SIGHAND) {
             return Err(Errno::EINVAL.into());
@@ -495,13 +514,19 @@ impl Kernel {
             .map(|t| t.signals.group().clone())
     }
 
-    /// `thread-spawn` made `task`, but its thread never started.
+    /// `thread-spawn` made `task`, but its thread never started. The first task of a process
+    /// on the caller's memory takes its process with it, as `copy_process` undoes a child.
     pub(crate) fn abort_thread(&self, task: TaskId) {
         let (process, stopped) = {
             let mut state = self.state.lock_or_recover();
             let Some(process) = state.tasks.get(&task).map(|t| t.process.clone()) else {
                 return;
             };
+            if process.pid == task {
+                drop(state);
+                self.abort_unstarted(task);
+                return;
+            }
             (process, forget_task(&mut state, task))
         };
         self.report_group_stop(stopped);

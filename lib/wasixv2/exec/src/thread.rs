@@ -1,5 +1,8 @@
 //! Guest threads. A thread created with a shared address space is another instance of the
-//! process's module on the same shared memory; the host's executor decides where it runs.
+//! process's module on the same shared memory; the host's executor decides where it runs. So
+//! is the first task of a process that shares its creator's memory (`thread-spawn` without
+//! `CLONE_THREAD`), whose instance runs as that process until it exits or its `execve` starts
+//! the new image on an instance of its own.
 //!
 //! The kernel creates the task in `thread-spawn` and asks for the start on the return-to-guest
 //! path ([`GuestAction::StartThread`]), where the calling instance's [`ExecEnv`] holds the image
@@ -79,6 +82,10 @@ impl<S> Image<S> {
 pub(crate) trait Start: Send + Sync {
     /// Starts the thread `task`, whose tid is `tid`, with `start_arg`.
     fn start(self: Arc<Self>, task: TaskId, tid: i32, start_arg: u32) -> io::Result<()>;
+
+    /// The image of a new process on the same memory: its threads instantiate the same module,
+    /// but its run is its own, with a handoff of its own ([`process::Handoff`]).
+    fn for_process(&self) -> Arc<dyn Start>;
 }
 
 impl<S> Start for Image<S>
@@ -89,6 +96,22 @@ where
         let host = self.host.clone();
         host.executor()
             .spawn_thread(Box::new(move || Box::pin(self.run(task, tid, start_arg))))
+    }
+
+    fn for_process(&self) -> Arc<dyn Start> {
+        Arc::new(Self {
+            engine: self.engine.clone(),
+            module: self.module.clone(),
+            memory: self.memory.clone(),
+            low_guard: self.low_guard,
+            read_only: self.read_only.clone(),
+            base: self.base.clone(),
+            syscalls: self.syscalls.clone(),
+            host: self.host.clone(),
+            abi: self.abi.clone(),
+            abis: self.abis.clone(),
+            handoff: Arc::default(),
+        })
     }
 }
 
@@ -103,7 +126,10 @@ pub(crate) async fn start<S: Control + 'static>(
     start_arg: u32,
 ) -> bool {
     let image = env.read().await.data().threads.clone();
+    // The first task of a new process on this memory leads a thread group of its own.
+    let process = syscalls.tgid(child) == child;
     let started = match image {
+        Some(image) if process => image.for_process().start(child, tid, start_arg),
         Some(image) => image.start(child, tid, start_arg),
         // The process has no shared memory to start threads on.
         None => Err(io::ErrorKind::Unsupported.into()),
@@ -123,6 +149,7 @@ where
     /// the thread group with its signal; then the kernel forgets the task.
     async fn run(self: Arc<Self>, task: TaskId, tid: i32, start_arg: u32) {
         let (syscalls, host) = (self.syscalls.clone(), self.host.clone());
+        let (engine, abis) = (self.engine.clone(), self.abis.clone());
         match crate::catch_panic(self.call_entry(task, tid, start_arg)).await {
             Ok(Ok(Ended::Exited(_))) => syscalls.release(task),
             Ok(Ok(Ended::Fault {
@@ -141,11 +168,11 @@ where
             Ok(Ok(Ended::Detached(_))) => {
                 tracing::warn!(tid = task.0, "a thread's instance ended without its task");
             }
-            // A thread never runs `execve`'s image: the kernel hands it to the leader.
-            Ok(Ok(Ended::Exec(_))) => {
-                tracing::warn!(tid = task.0, "a thread was given a process image");
-                process::fault(&*syscalls, task, Signal::SIGSEGV.0);
-                syscalls.release(task);
+            // Only a leader gets `execve`'s image (the kernel hands a thread's to it): the first
+            // task of a process on its creator's memory, whose new image runs on its own
+            // memory, in an instance of its own, as the process's run from now on.
+            Ok(Ok(Ended::Exec(image))) => {
+                process::spawner(engine, syscalls, host, abis).spawn(task, image);
             }
             Ok(Err(err)) => {
                 tracing::warn!(tid = task.0, %err, "cannot start a guest thread's instance");
