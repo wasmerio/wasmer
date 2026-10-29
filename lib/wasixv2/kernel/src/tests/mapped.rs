@@ -934,3 +934,33 @@ fn tmpfs_mapping_quota_covers_mremap_growth_and_duplicates_before_changing_memor
     assert_eq!(memory.get(alias + PAGE, 5), b"grown");
     assert_eq!(shm.get(0, 1).unwrap().dqb_curspace, u64::from(2 * PAGE));
 }
+
+#[test]
+fn shmdt_detaches_retained_pages_before_address_reuse() {
+    for mapped in [false, true] {
+        let (kernel, task) = shared_machine();
+        let memory: Box<dyn UserMemory> = if mapped {
+            Box::new(MappedMemory::new(2, false))
+        } else {
+            Box::new(FlatMemory(RefCell::new(vec![0; 2 * PAGE as usize])))
+        };
+        let caller = Caller::new(task, &*memory);
+        let id = block_on(kernel.shmget(&caller, 0, PAGE, CREATE)).unwrap();
+        let at = block_on(kernel.shmat(&caller, id, 0, 0)).unwrap() as u32;
+        block_on(memory.write(at, b"old!")).unwrap();
+        let retained = block_on(kernel.retain_pages(&caller, at, 4)).unwrap();
+        assert_eq!(block_on(kernel.shmdt(&caller, at)), Ok(0));
+        let flags = MapFlags::MAP_ANONYMOUS | MapFlags::MAP_PRIVATE | MapFlags::MAP_FIXED;
+        assert_eq!(
+            block_on(kernel.mmap(&caller, at, PAGE, RW, flags, Fd(-1), 0)),
+            Ok(at)
+        );
+        block_on(memory.write(at, b"new!")).unwrap();
+        let replacement = block_on(kernel.retain_pages(&caller, at, 4)).unwrap();
+        let mut bytes = [0; 4];
+        block_on(retained.read(&*memory, 0, &mut bytes)).unwrap();
+        assert_eq!(&bytes, b"old!", "detached mapped={mapped}");
+        block_on(replacement.read(&*memory, 0, &mut bytes)).unwrap();
+        assert_eq!(&bytes, b"new!", "replacement mapped={mapped}");
+    }
+}

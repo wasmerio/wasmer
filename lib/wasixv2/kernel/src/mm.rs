@@ -2715,6 +2715,10 @@ impl Kernel {
         };
         let parts = mm.space().take_mappings_where(same);
         for mut part in parts {
+            // ipc/shm.c:ksys_shmdt uses do_vmi_munmap: pins survive detachment,
+            // and a later mapping at this address must get fresh page records.
+            mm.retain_unmapped(caller.memory(), part.start, part.start + part.len)
+                .await;
             let _ = part.release(caller.memory()).await;
             mm.space().unmap(part.start, part.len);
         }
