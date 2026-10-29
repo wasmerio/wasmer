@@ -965,6 +965,20 @@ mod epoll {
         }
     }
 
+    /// fs/pipe.c pipe_read only wakes writers after releasing a buffer
+    /// from a full pipe; reads of an already writable pipe create no OUT edge.
+    #[test]
+    fn reading_a_writable_pipe_does_not_repeat_an_edge() {
+        let t = Fixture::new();
+        let (r, w) = pipe(&t.kernel, &t.caller(), OpenFlags::O_NONBLOCK);
+        t.write(w, 8);
+        let ep = t.create();
+        t.add(ep, w, OUT | ET);
+        assert_eq!(t.wait(ep, 0).len(), 1);
+        assert_eq!(t.read(r, 4), Ok(4));
+        assert!(t.wait(ep, 0).is_empty());
+    }
+
     #[test]
     fn closing_the_epoll_unregisters_its_items() {
         let t = Fixture::new();
