@@ -17913,6 +17913,858 @@ impl GuestLayout for TcpZerocopyFlags {
     }
 }
 
+/// `AF_VSOCK` socket address (`struct sockaddr_vm`, UAPI `linux/vm_sockets.h`, which musl
+/// does not have).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct SockaddrVm {
+    pub svm_family: SaFamily,
+    pub svm_reserved1: u16,
+    pub svm_port: u32,
+    pub svm_cid: u32,
+    /// `vmaddr-flags`.
+    pub svm_flags: u8,
+    pub svm_zero: [u8; 3],
+}
+const _: () = {
+    assert!(core::mem::size_of::<SockaddrVm>() == 16);
+    assert!(core::mem::align_of::<SockaddrVm>() == 4);
+    assert!(core::mem::offset_of!(SockaddrVm, svm_family) == 0);
+    assert!(core::mem::offset_of!(SockaddrVm, svm_reserved1) == 2);
+    assert!(core::mem::offset_of!(SockaddrVm, svm_port) == 4);
+    assert!(core::mem::offset_of!(SockaddrVm, svm_cid) == 8);
+    assert!(core::mem::offset_of!(SockaddrVm, svm_flags) == 12);
+    assert!(core::mem::offset_of!(SockaddrVm, svm_zero) == 13);
+};
+impl Default for SockaddrVm {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for SockaddrVm {
+    const SIZE: usize = 16;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        svm_family: <SaFamily as GuestLayout>::ZERO,
+        svm_reserved1: <u16 as GuestLayout>::ZERO,
+        svm_port: <u32 as GuestLayout>::ZERO,
+        svm_cid: <u32 as GuestLayout>::ZERO,
+        svm_flags: <u8 as GuestLayout>::ZERO,
+        svm_zero: <[u8; 3] as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            svm_family: GuestLayout::read_from(&bytes[0..])?,
+            svm_reserved1: GuestLayout::read_from(&bytes[2..])?,
+            svm_port: GuestLayout::read_from(&bytes[4..])?,
+            svm_cid: GuestLayout::read_from(&bytes[8..])?,
+            svm_flags: GuestLayout::read_from(&bytes[12..])?,
+            svm_zero: GuestLayout::read_from(&bytes[13..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.svm_family.write_to(&mut out[0..]);
+        self.svm_reserved1.write_to(&mut out[2..]);
+        self.svm_port.write_to(&mut out[4..]);
+        self.svm_cid.write_to(&mut out[8..]);
+        self.svm_flags.write_to(&mut out[12..]);
+        self.svm_zero.write_to(&mut out[13..]);
+    }
+}
+/// Well-known vsock context identifiers and ports (`VMADDR_*`).
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct Vmaddr(pub u32);
+impl Vmaddr {
+    pub const VMADDR_CID_HYPERVISOR: Self = Self(0);
+    pub const VMADDR_CID_LOCAL: Self = Self(1);
+    pub const VMADDR_CID_HOST: Self = Self(2);
+    pub const VMADDR_CID_ANY: Self = Self(4294967295);
+    pub const VMADDR_PORT_ANY: Self = Self(4294967295);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("VMADDR_CID_HYPERVISOR", Self::VMADDR_CID_HYPERVISOR),
+        ("VMADDR_CID_LOCAL", Self::VMADDR_CID_LOCAL),
+        ("VMADDR_CID_HOST", Self::VMADDR_CID_HOST),
+        ("VMADDR_CID_ANY", Self::VMADDR_CID_ANY),
+        ("VMADDR_PORT_ANY", Self::VMADDR_PORT_ANY),
+    ];
+    /// Name of the first constant with this value, if any.
+    pub const fn name(self) -> Option<&'static str> {
+        match self.0 {
+            0 => Some("VMADDR_CID_HYPERVISOR"),
+            1 => Some("VMADDR_CID_LOCAL"),
+            2 => Some("VMADDR_CID_HOST"),
+            4294967295 => Some("VMADDR_CID_ANY"),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Debug for Vmaddr {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.name() {
+            Some(name) => f.write_str(name),
+            None => write!(f, "Vmaddr({})", self.0),
+        }
+    }
+}
+
+impl GuestLayout for Vmaddr {
+    const SIZE: usize = <u32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// `svm_flags` bits.
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct VmaddrFlags(pub u8);
+impl VmaddrFlags {
+    pub const VMADDR_FLAG_TO_HOST: Self = Self(0x1);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] =
+        &[("VMADDR_FLAG_TO_HOST", Self::VMADDR_FLAG_TO_HOST)];
+
+    pub const fn empty() -> Self {
+        Self(0)
+    }
+    pub const fn bits(self) -> u8 {
+        self.0
+    }
+    pub const fn is_empty(self) -> bool {
+        self.0 == 0
+    }
+    /// Whether all bits of `other` are set.
+    pub const fn contains(self, other: Self) -> bool {
+        self.0 & other.0 == other.0
+    }
+    /// Whether any bit of `other` is set.
+    pub const fn intersects(self, other: Self) -> bool {
+        self.0 & other.0 != 0
+    }
+}
+
+impl fmt::Debug for VmaddrFlags {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("VmaddrFlags(")?;
+        let mut rest = self.0;
+        let mut first = true;
+        for (name, flag) in Self::MEMBERS {
+            if flag.0 != 0 && self.contains(*flag) && rest & flag.0 != 0 {
+                if !first {
+                    f.write_str(" | ")?;
+                }
+                f.write_str(name)?;
+                first = false;
+                rest &= !flag.0;
+            }
+        }
+        if rest != 0 || first {
+            if !first {
+                f.write_str(" | ")?;
+            }
+            write!(f, "{rest:#x}")?;
+        }
+        f.write_str(")")
+    }
+}
+impl core::ops::BitOr for VmaddrFlags {
+    type Output = Self;
+    fn bitor(self, rhs: Self) -> Self {
+        Self(self.0 | rhs.0)
+    }
+}
+impl core::ops::BitAnd for VmaddrFlags {
+    type Output = Self;
+    fn bitand(self, rhs: Self) -> Self {
+        Self(self.0 & rhs.0)
+    }
+}
+impl core::ops::BitXor for VmaddrFlags {
+    type Output = Self;
+    fn bitxor(self, rhs: Self) -> Self {
+        Self(self.0 ^ rhs.0)
+    }
+}
+impl core::ops::Not for VmaddrFlags {
+    type Output = Self;
+    fn not(self) -> Self {
+        Self(!self.0)
+    }
+}
+impl core::ops::BitOrAssign for VmaddrFlags {
+    fn bitor_assign(&mut self, rhs: Self) {
+        self.0 |= rhs.0;
+    }
+}
+impl core::ops::BitAndAssign for VmaddrFlags {
+    fn bitand_assign(&mut self, rhs: Self) {
+        self.0 &= rhs.0;
+    }
+}
+impl core::ops::BitXorAssign for VmaddrFlags {
+    fn bitxor_assign(&mut self, rhs: Self) {
+        self.0 ^= rhs.0;
+    }
+}
+
+impl GuestLayout for VmaddrFlags {
+    const SIZE: usize = <u8 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u8 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u8 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// `AF_VSOCK`-level socket options (`SO_VM_SOCKETS_*`).
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct VsockOption(pub i32);
+impl VsockOption {
+    pub const SO_VM_SOCKETS_BUFFER_SIZE: Self = Self(0);
+    pub const SO_VM_SOCKETS_BUFFER_MIN_SIZE: Self = Self(1);
+    pub const SO_VM_SOCKETS_BUFFER_MAX_SIZE: Self = Self(2);
+    pub const SO_VM_SOCKETS_PEER_HOST_VM_ID: Self = Self(3);
+    pub const SO_VM_SOCKETS_TRUSTED: Self = Self(5);
+    pub const SO_VM_SOCKETS_CONNECT_TIMEOUT_OLD: Self = Self(6);
+    pub const SO_VM_SOCKETS_NONBLOCK_TXRX: Self = Self(7);
+    pub const SO_VM_SOCKETS_CONNECT_TIMEOUT_NEW: Self = Self(8);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("SO_VM_SOCKETS_BUFFER_SIZE", Self::SO_VM_SOCKETS_BUFFER_SIZE),
+        (
+            "SO_VM_SOCKETS_BUFFER_MIN_SIZE",
+            Self::SO_VM_SOCKETS_BUFFER_MIN_SIZE,
+        ),
+        (
+            "SO_VM_SOCKETS_BUFFER_MAX_SIZE",
+            Self::SO_VM_SOCKETS_BUFFER_MAX_SIZE,
+        ),
+        (
+            "SO_VM_SOCKETS_PEER_HOST_VM_ID",
+            Self::SO_VM_SOCKETS_PEER_HOST_VM_ID,
+        ),
+        ("SO_VM_SOCKETS_TRUSTED", Self::SO_VM_SOCKETS_TRUSTED),
+        (
+            "SO_VM_SOCKETS_CONNECT_TIMEOUT_OLD",
+            Self::SO_VM_SOCKETS_CONNECT_TIMEOUT_OLD,
+        ),
+        (
+            "SO_VM_SOCKETS_NONBLOCK_TXRX",
+            Self::SO_VM_SOCKETS_NONBLOCK_TXRX,
+        ),
+        (
+            "SO_VM_SOCKETS_CONNECT_TIMEOUT_NEW",
+            Self::SO_VM_SOCKETS_CONNECT_TIMEOUT_NEW,
+        ),
+    ];
+    /// Name of the first constant with this value, if any.
+    pub const fn name(self) -> Option<&'static str> {
+        match self.0 {
+            0 => Some("SO_VM_SOCKETS_BUFFER_SIZE"),
+            1 => Some("SO_VM_SOCKETS_BUFFER_MIN_SIZE"),
+            2 => Some("SO_VM_SOCKETS_BUFFER_MAX_SIZE"),
+            3 => Some("SO_VM_SOCKETS_PEER_HOST_VM_ID"),
+            5 => Some("SO_VM_SOCKETS_TRUSTED"),
+            6 => Some("SO_VM_SOCKETS_CONNECT_TIMEOUT_OLD"),
+            7 => Some("SO_VM_SOCKETS_NONBLOCK_TXRX"),
+            8 => Some("SO_VM_SOCKETS_CONNECT_TIMEOUT_NEW"),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Debug for VsockOption {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.name() {
+            Some(name) => f.write_str(name),
+            None => write!(f, "VsockOption({})", self.0),
+        }
+    }
+}
+
+impl GuestLayout for VsockOption {
+    const SIZE: usize = <i32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <i32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <i32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// `sock_diag` request header (`struct sock_diag_req`, UAPI `linux/sock_diag.h`).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct SockDiagReq {
+    pub sdiag_family: u8,
+    pub sdiag_protocol: u8,
+}
+const _: () = {
+    assert!(core::mem::size_of::<SockDiagReq>() == 2);
+    assert!(core::mem::align_of::<SockDiagReq>() == 1);
+    assert!(core::mem::offset_of!(SockDiagReq, sdiag_family) == 0);
+    assert!(core::mem::offset_of!(SockDiagReq, sdiag_protocol) == 1);
+};
+impl Default for SockDiagReq {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for SockDiagReq {
+    const SIZE: usize = 2;
+    const ALIGN: usize = 1;
+    const ZERO: Self = Self {
+        sdiag_family: <u8 as GuestLayout>::ZERO,
+        sdiag_protocol: <u8 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            sdiag_family: GuestLayout::read_from(&bytes[0..])?,
+            sdiag_protocol: GuestLayout::read_from(&bytes[1..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.sdiag_family.write_to(&mut out[0..]);
+        self.sdiag_protocol.write_to(&mut out[1..]);
+    }
+}
+/// A socket's identity in `inet_diag` (`struct inet_diag_sockid`, UAPI `linux/inet_diag.h`).
+/// Ports and addresses are big-endian; an IPv4 address takes the first word of its array.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct InetDiagSockid {
+    pub idiag_sport: u16,
+    pub idiag_dport: u16,
+    pub idiag_src: [u32; 4],
+    pub idiag_dst: [u32; 4],
+    pub idiag_if: u32,
+    pub idiag_cookie: [u32; 2],
+}
+const _: () = {
+    assert!(core::mem::size_of::<InetDiagSockid>() == 48);
+    assert!(core::mem::align_of::<InetDiagSockid>() == 4);
+    assert!(core::mem::offset_of!(InetDiagSockid, idiag_sport) == 0);
+    assert!(core::mem::offset_of!(InetDiagSockid, idiag_dport) == 2);
+    assert!(core::mem::offset_of!(InetDiagSockid, idiag_src) == 4);
+    assert!(core::mem::offset_of!(InetDiagSockid, idiag_dst) == 20);
+    assert!(core::mem::offset_of!(InetDiagSockid, idiag_if) == 36);
+    assert!(core::mem::offset_of!(InetDiagSockid, idiag_cookie) == 40);
+};
+impl Default for InetDiagSockid {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for InetDiagSockid {
+    const SIZE: usize = 48;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        idiag_sport: <u16 as GuestLayout>::ZERO,
+        idiag_dport: <u16 as GuestLayout>::ZERO,
+        idiag_src: <[u32; 4] as GuestLayout>::ZERO,
+        idiag_dst: <[u32; 4] as GuestLayout>::ZERO,
+        idiag_if: <u32 as GuestLayout>::ZERO,
+        idiag_cookie: <[u32; 2] as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            idiag_sport: GuestLayout::read_from(&bytes[0..])?,
+            idiag_dport: GuestLayout::read_from(&bytes[2..])?,
+            idiag_src: GuestLayout::read_from(&bytes[4..])?,
+            idiag_dst: GuestLayout::read_from(&bytes[20..])?,
+            idiag_if: GuestLayout::read_from(&bytes[36..])?,
+            idiag_cookie: GuestLayout::read_from(&bytes[40..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.idiag_sport.write_to(&mut out[0..]);
+        self.idiag_dport.write_to(&mut out[2..]);
+        self.idiag_src.write_to(&mut out[4..]);
+        self.idiag_dst.write_to(&mut out[20..]);
+        self.idiag_if.write_to(&mut out[36..]);
+        self.idiag_cookie.write_to(&mut out[40..]);
+    }
+}
+/// `SOCK_DIAG_BY_FAMILY` request for `AF_INET`/`AF_INET6` (`struct inet_diag_req_v2`).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct InetDiagReqV2 {
+    pub sdiag_family: u8,
+    pub sdiag_protocol: u8,
+    /// Bits `1 << (INET_DIAG_* - 1)` of the attributes to add.
+    pub idiag_ext: u8,
+    pub pad: u8,
+    /// Bits `1 << TCP_*` of the states to dump.
+    pub idiag_states: u32,
+    pub id: InetDiagSockid,
+}
+const _: () = {
+    assert!(core::mem::size_of::<InetDiagReqV2>() == 56);
+    assert!(core::mem::align_of::<InetDiagReqV2>() == 4);
+    assert!(core::mem::offset_of!(InetDiagReqV2, sdiag_family) == 0);
+    assert!(core::mem::offset_of!(InetDiagReqV2, sdiag_protocol) == 1);
+    assert!(core::mem::offset_of!(InetDiagReqV2, idiag_ext) == 2);
+    assert!(core::mem::offset_of!(InetDiagReqV2, pad) == 3);
+    assert!(core::mem::offset_of!(InetDiagReqV2, idiag_states) == 4);
+    assert!(core::mem::offset_of!(InetDiagReqV2, id) == 8);
+};
+impl Default for InetDiagReqV2 {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for InetDiagReqV2 {
+    const SIZE: usize = 56;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        sdiag_family: <u8 as GuestLayout>::ZERO,
+        sdiag_protocol: <u8 as GuestLayout>::ZERO,
+        idiag_ext: <u8 as GuestLayout>::ZERO,
+        pad: <u8 as GuestLayout>::ZERO,
+        idiag_states: <u32 as GuestLayout>::ZERO,
+        id: <InetDiagSockid as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            sdiag_family: GuestLayout::read_from(&bytes[0..])?,
+            sdiag_protocol: GuestLayout::read_from(&bytes[1..])?,
+            idiag_ext: GuestLayout::read_from(&bytes[2..])?,
+            pad: GuestLayout::read_from(&bytes[3..])?,
+            idiag_states: GuestLayout::read_from(&bytes[4..])?,
+            id: GuestLayout::read_from(&bytes[8..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.sdiag_family.write_to(&mut out[0..]);
+        self.sdiag_protocol.write_to(&mut out[1..]);
+        self.idiag_ext.write_to(&mut out[2..]);
+        self.pad.write_to(&mut out[3..]);
+        self.idiag_states.write_to(&mut out[4..]);
+        self.id.write_to(&mut out[8..]);
+    }
+}
+/// The legacy `TCPDIAG_GETSOCK`/`DCCPDIAG_GETSOCK` request (`struct inet_diag_req`).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct InetDiagReq {
+    pub idiag_family: u8,
+    pub idiag_src_len: u8,
+    pub idiag_dst_len: u8,
+    pub idiag_ext: u8,
+    pub id: InetDiagSockid,
+    pub idiag_states: u32,
+    pub idiag_dbs: u32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<InetDiagReq>() == 60);
+    assert!(core::mem::align_of::<InetDiagReq>() == 4);
+    assert!(core::mem::offset_of!(InetDiagReq, idiag_family) == 0);
+    assert!(core::mem::offset_of!(InetDiagReq, idiag_src_len) == 1);
+    assert!(core::mem::offset_of!(InetDiagReq, idiag_dst_len) == 2);
+    assert!(core::mem::offset_of!(InetDiagReq, idiag_ext) == 3);
+    assert!(core::mem::offset_of!(InetDiagReq, id) == 4);
+    assert!(core::mem::offset_of!(InetDiagReq, idiag_states) == 52);
+    assert!(core::mem::offset_of!(InetDiagReq, idiag_dbs) == 56);
+};
+impl Default for InetDiagReq {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for InetDiagReq {
+    const SIZE: usize = 60;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        idiag_family: <u8 as GuestLayout>::ZERO,
+        idiag_src_len: <u8 as GuestLayout>::ZERO,
+        idiag_dst_len: <u8 as GuestLayout>::ZERO,
+        idiag_ext: <u8 as GuestLayout>::ZERO,
+        id: <InetDiagSockid as GuestLayout>::ZERO,
+        idiag_states: <u32 as GuestLayout>::ZERO,
+        idiag_dbs: <u32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            idiag_family: GuestLayout::read_from(&bytes[0..])?,
+            idiag_src_len: GuestLayout::read_from(&bytes[1..])?,
+            idiag_dst_len: GuestLayout::read_from(&bytes[2..])?,
+            idiag_ext: GuestLayout::read_from(&bytes[3..])?,
+            id: GuestLayout::read_from(&bytes[4..])?,
+            idiag_states: GuestLayout::read_from(&bytes[52..])?,
+            idiag_dbs: GuestLayout::read_from(&bytes[56..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.idiag_family.write_to(&mut out[0..]);
+        self.idiag_src_len.write_to(&mut out[1..]);
+        self.idiag_dst_len.write_to(&mut out[2..]);
+        self.idiag_ext.write_to(&mut out[3..]);
+        self.id.write_to(&mut out[4..]);
+        self.idiag_states.write_to(&mut out[52..]);
+        self.idiag_dbs.write_to(&mut out[56..]);
+    }
+}
+/// One socket of an `inet_diag` dump (`struct inet_diag_msg`).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct InetDiagMsg {
+    pub idiag_family: u8,
+    pub idiag_state: u8,
+    pub idiag_timer: u8,
+    pub idiag_retrans: u8,
+    pub id: InetDiagSockid,
+    pub idiag_expires: u32,
+    pub idiag_rqueue: u32,
+    pub idiag_wqueue: u32,
+    pub idiag_uid: u32,
+    pub idiag_inode: u32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<InetDiagMsg>() == 72);
+    assert!(core::mem::align_of::<InetDiagMsg>() == 4);
+    assert!(core::mem::offset_of!(InetDiagMsg, idiag_family) == 0);
+    assert!(core::mem::offset_of!(InetDiagMsg, idiag_state) == 1);
+    assert!(core::mem::offset_of!(InetDiagMsg, idiag_timer) == 2);
+    assert!(core::mem::offset_of!(InetDiagMsg, idiag_retrans) == 3);
+    assert!(core::mem::offset_of!(InetDiagMsg, id) == 4);
+    assert!(core::mem::offset_of!(InetDiagMsg, idiag_expires) == 52);
+    assert!(core::mem::offset_of!(InetDiagMsg, idiag_rqueue) == 56);
+    assert!(core::mem::offset_of!(InetDiagMsg, idiag_wqueue) == 60);
+    assert!(core::mem::offset_of!(InetDiagMsg, idiag_uid) == 64);
+    assert!(core::mem::offset_of!(InetDiagMsg, idiag_inode) == 68);
+};
+impl Default for InetDiagMsg {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for InetDiagMsg {
+    const SIZE: usize = 72;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        idiag_family: <u8 as GuestLayout>::ZERO,
+        idiag_state: <u8 as GuestLayout>::ZERO,
+        idiag_timer: <u8 as GuestLayout>::ZERO,
+        idiag_retrans: <u8 as GuestLayout>::ZERO,
+        id: <InetDiagSockid as GuestLayout>::ZERO,
+        idiag_expires: <u32 as GuestLayout>::ZERO,
+        idiag_rqueue: <u32 as GuestLayout>::ZERO,
+        idiag_wqueue: <u32 as GuestLayout>::ZERO,
+        idiag_uid: <u32 as GuestLayout>::ZERO,
+        idiag_inode: <u32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            idiag_family: GuestLayout::read_from(&bytes[0..])?,
+            idiag_state: GuestLayout::read_from(&bytes[1..])?,
+            idiag_timer: GuestLayout::read_from(&bytes[2..])?,
+            idiag_retrans: GuestLayout::read_from(&bytes[3..])?,
+            id: GuestLayout::read_from(&bytes[4..])?,
+            idiag_expires: GuestLayout::read_from(&bytes[52..])?,
+            idiag_rqueue: GuestLayout::read_from(&bytes[56..])?,
+            idiag_wqueue: GuestLayout::read_from(&bytes[60..])?,
+            idiag_uid: GuestLayout::read_from(&bytes[64..])?,
+            idiag_inode: GuestLayout::read_from(&bytes[68..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.idiag_family.write_to(&mut out[0..]);
+        self.idiag_state.write_to(&mut out[1..]);
+        self.idiag_timer.write_to(&mut out[2..]);
+        self.idiag_retrans.write_to(&mut out[3..]);
+        self.id.write_to(&mut out[4..]);
+        self.idiag_expires.write_to(&mut out[52..]);
+        self.idiag_rqueue.write_to(&mut out[56..]);
+        self.idiag_wqueue.write_to(&mut out[60..]);
+        self.idiag_uid.write_to(&mut out[64..]);
+        self.idiag_inode.write_to(&mut out[68..]);
+    }
+}
+/// `INET_DIAG_MEMINFO` attribute (`struct inet_diag_meminfo`).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct InetDiagMeminfo {
+    pub idiag_rmem: u32,
+    pub idiag_wmem: u32,
+    pub idiag_fmem: u32,
+    pub idiag_tmem: u32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<InetDiagMeminfo>() == 16);
+    assert!(core::mem::align_of::<InetDiagMeminfo>() == 4);
+    assert!(core::mem::offset_of!(InetDiagMeminfo, idiag_rmem) == 0);
+    assert!(core::mem::offset_of!(InetDiagMeminfo, idiag_wmem) == 4);
+    assert!(core::mem::offset_of!(InetDiagMeminfo, idiag_fmem) == 8);
+    assert!(core::mem::offset_of!(InetDiagMeminfo, idiag_tmem) == 12);
+};
+impl Default for InetDiagMeminfo {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for InetDiagMeminfo {
+    const SIZE: usize = 16;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        idiag_rmem: <u32 as GuestLayout>::ZERO,
+        idiag_wmem: <u32 as GuestLayout>::ZERO,
+        idiag_fmem: <u32 as GuestLayout>::ZERO,
+        idiag_tmem: <u32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            idiag_rmem: GuestLayout::read_from(&bytes[0..])?,
+            idiag_wmem: GuestLayout::read_from(&bytes[4..])?,
+            idiag_fmem: GuestLayout::read_from(&bytes[8..])?,
+            idiag_tmem: GuestLayout::read_from(&bytes[12..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.idiag_rmem.write_to(&mut out[0..]);
+        self.idiag_wmem.write_to(&mut out[4..]);
+        self.idiag_fmem.write_to(&mut out[8..]);
+        self.idiag_tmem.write_to(&mut out[12..]);
+    }
+}
+/// `SOCK_DIAG_BY_FAMILY` request for `AF_UNIX` (`struct unix_diag_req`, UAPI
+/// `linux/unix_diag.h`).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct UnixDiagReq {
+    pub sdiag_family: u8,
+    pub sdiag_protocol: u8,
+    pub pad: u16,
+    /// Bits `1 << TCP_*` of the states to dump.
+    pub udiag_states: u32,
+    pub udiag_ino: u32,
+    /// `UDIAG_SHOW_*` bits.
+    pub udiag_show: u32,
+    pub udiag_cookie: [u32; 2],
+}
+const _: () = {
+    assert!(core::mem::size_of::<UnixDiagReq>() == 24);
+    assert!(core::mem::align_of::<UnixDiagReq>() == 4);
+    assert!(core::mem::offset_of!(UnixDiagReq, sdiag_family) == 0);
+    assert!(core::mem::offset_of!(UnixDiagReq, sdiag_protocol) == 1);
+    assert!(core::mem::offset_of!(UnixDiagReq, pad) == 2);
+    assert!(core::mem::offset_of!(UnixDiagReq, udiag_states) == 4);
+    assert!(core::mem::offset_of!(UnixDiagReq, udiag_ino) == 8);
+    assert!(core::mem::offset_of!(UnixDiagReq, udiag_show) == 12);
+    assert!(core::mem::offset_of!(UnixDiagReq, udiag_cookie) == 16);
+};
+impl Default for UnixDiagReq {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for UnixDiagReq {
+    const SIZE: usize = 24;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        sdiag_family: <u8 as GuestLayout>::ZERO,
+        sdiag_protocol: <u8 as GuestLayout>::ZERO,
+        pad: <u16 as GuestLayout>::ZERO,
+        udiag_states: <u32 as GuestLayout>::ZERO,
+        udiag_ino: <u32 as GuestLayout>::ZERO,
+        udiag_show: <u32 as GuestLayout>::ZERO,
+        udiag_cookie: <[u32; 2] as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            sdiag_family: GuestLayout::read_from(&bytes[0..])?,
+            sdiag_protocol: GuestLayout::read_from(&bytes[1..])?,
+            pad: GuestLayout::read_from(&bytes[2..])?,
+            udiag_states: GuestLayout::read_from(&bytes[4..])?,
+            udiag_ino: GuestLayout::read_from(&bytes[8..])?,
+            udiag_show: GuestLayout::read_from(&bytes[12..])?,
+            udiag_cookie: GuestLayout::read_from(&bytes[16..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.sdiag_family.write_to(&mut out[0..]);
+        self.sdiag_protocol.write_to(&mut out[1..]);
+        self.pad.write_to(&mut out[2..]);
+        self.udiag_states.write_to(&mut out[4..]);
+        self.udiag_ino.write_to(&mut out[8..]);
+        self.udiag_show.write_to(&mut out[12..]);
+        self.udiag_cookie.write_to(&mut out[16..]);
+    }
+}
+/// One socket of a `unix_diag` dump (`struct unix_diag_msg`).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct UnixDiagMsg {
+    pub udiag_family: u8,
+    pub udiag_type: u8,
+    pub udiag_state: u8,
+    pub pad: u8,
+    pub udiag_ino: u32,
+    pub udiag_cookie: [u32; 2],
+}
+const _: () = {
+    assert!(core::mem::size_of::<UnixDiagMsg>() == 16);
+    assert!(core::mem::align_of::<UnixDiagMsg>() == 4);
+    assert!(core::mem::offset_of!(UnixDiagMsg, udiag_family) == 0);
+    assert!(core::mem::offset_of!(UnixDiagMsg, udiag_type) == 1);
+    assert!(core::mem::offset_of!(UnixDiagMsg, udiag_state) == 2);
+    assert!(core::mem::offset_of!(UnixDiagMsg, pad) == 3);
+    assert!(core::mem::offset_of!(UnixDiagMsg, udiag_ino) == 4);
+    assert!(core::mem::offset_of!(UnixDiagMsg, udiag_cookie) == 8);
+};
+impl Default for UnixDiagMsg {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for UnixDiagMsg {
+    const SIZE: usize = 16;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        udiag_family: <u8 as GuestLayout>::ZERO,
+        udiag_type: <u8 as GuestLayout>::ZERO,
+        udiag_state: <u8 as GuestLayout>::ZERO,
+        pad: <u8 as GuestLayout>::ZERO,
+        udiag_ino: <u32 as GuestLayout>::ZERO,
+        udiag_cookie: <[u32; 2] as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            udiag_family: GuestLayout::read_from(&bytes[0..])?,
+            udiag_type: GuestLayout::read_from(&bytes[1..])?,
+            udiag_state: GuestLayout::read_from(&bytes[2..])?,
+            pad: GuestLayout::read_from(&bytes[3..])?,
+            udiag_ino: GuestLayout::read_from(&bytes[4..])?,
+            udiag_cookie: GuestLayout::read_from(&bytes[8..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.udiag_family.write_to(&mut out[0..]);
+        self.udiag_type.write_to(&mut out[1..]);
+        self.udiag_state.write_to(&mut out[2..]);
+        self.pad.write_to(&mut out[3..]);
+        self.udiag_ino.write_to(&mut out[4..]);
+        self.udiag_cookie.write_to(&mut out[8..]);
+    }
+}
+/// `UNIX_DIAG_RQLEN` attribute (`struct unix_diag_rqlen`).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct UnixDiagRqlen {
+    pub udiag_rqueue: u32,
+    pub udiag_wqueue: u32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<UnixDiagRqlen>() == 8);
+    assert!(core::mem::align_of::<UnixDiagRqlen>() == 4);
+    assert!(core::mem::offset_of!(UnixDiagRqlen, udiag_rqueue) == 0);
+    assert!(core::mem::offset_of!(UnixDiagRqlen, udiag_wqueue) == 4);
+};
+impl Default for UnixDiagRqlen {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for UnixDiagRqlen {
+    const SIZE: usize = 8;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        udiag_rqueue: <u32 as GuestLayout>::ZERO,
+        udiag_wqueue: <u32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            udiag_rqueue: GuestLayout::read_from(&bytes[0..])?,
+            udiag_wqueue: GuestLayout::read_from(&bytes[4..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.udiag_rqueue.write_to(&mut out[0..]);
+        self.udiag_wqueue.write_to(&mut out[4..]);
+    }
+}
+/// `UNIX_DIAG_VFS` attribute (`struct unix_diag_vfs`).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct UnixDiagVfs {
+    pub udiag_vfs_ino: u32,
+    pub udiag_vfs_dev: u32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<UnixDiagVfs>() == 8);
+    assert!(core::mem::align_of::<UnixDiagVfs>() == 4);
+    assert!(core::mem::offset_of!(UnixDiagVfs, udiag_vfs_ino) == 0);
+    assert!(core::mem::offset_of!(UnixDiagVfs, udiag_vfs_dev) == 4);
+};
+impl Default for UnixDiagVfs {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for UnixDiagVfs {
+    const SIZE: usize = 8;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        udiag_vfs_ino: <u32 as GuestLayout>::ZERO,
+        udiag_vfs_dev: <u32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            udiag_vfs_ino: GuestLayout::read_from(&bytes[0..])?,
+            udiag_vfs_dev: GuestLayout::read_from(&bytes[4..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.udiag_vfs_ino.write_to(&mut out[0..]);
+        self.udiag_vfs_dev.write_to(&mut out[4..]);
+    }
+}
 /// IPC permissions (asm-generic `struct ipc64_perm`). The zero-length `__pad1` is omitted.
 ///
 /// C: `struct ipc_perm`
@@ -19681,6 +20533,8 @@ impl IoctlRequest {
     /// number with any size from `PIDFD_INFO_SIZE_VER0` on, and fills as much of the caller's
     /// structure as both know.
     pub const PIDFD_GET_INFO: Self = Self(3227057931);
+    /// `/dev/vsock`: the local CID (`_IO(7, 0xb9)`).
+    pub const IOCTL_VM_SOCKETS_GET_LOCAL_CID: Self = Self(1977);
     /// All named values, in definition order (aliases included).
     pub const MEMBERS: &'static [(&'static str, Self)] = &[
         ("TCGETS", Self::TCGETS),
@@ -19845,6 +20699,10 @@ impl IoctlRequest {
         ("TIOCGEXCL", Self::TIOCGEXCL),
         ("TCGETS2", Self::TCGETS2),
         ("PIDFD_GET_INFO", Self::PIDFD_GET_INFO),
+        (
+            "IOCTL_VM_SOCKETS_GET_LOCAL_CID",
+            Self::IOCTL_VM_SOCKETS_GET_LOCAL_CID,
+        ),
     ];
     /// Name of the first constant with this value, if any.
     pub const fn name(self) -> Option<&'static str> {
@@ -20010,6 +20868,7 @@ impl IoctlRequest {
             2147767360 => Some("TIOCGEXCL"),
             2150388778 => Some("TCGETS2"),
             3227057931 => Some("PIDFD_GET_INFO"),
+            1977 => Some("IOCTL_VM_SOCKETS_GET_LOCAL_CID"),
             _ => None,
         }
     }
