@@ -186,7 +186,7 @@ pub(crate) enum Waiting {
 }
 
 impl Waiting {
-    fn req(&self) -> &Req {
+    pub(super) fn req(&self) -> &Req {
         match self {
             Waiting::Futex { req, .. }
             | Waiting::Armed { req, .. }
@@ -486,7 +486,7 @@ pub(crate) fn expired_timeouts(state: &mut State) -> Vec<Waiting> {
         .collect()
 }
 
-/// From the timer driver: a waiting request's file woke it. An armed request becomes task
+/// From the owning task: a waiting request's file woke it. An armed request becomes task
 /// work; a poll that finds its events completes, or, multishot, posts and waits on.
 pub(crate) fn handle_wakeup(ctx: &Ctx, id: u64) {
     let futex = {

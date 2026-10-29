@@ -72,7 +72,10 @@ impl Machine {
     }
 
     pub(super) fn configured(configure: impl FnOnce(Kernel) -> Kernel) -> Self {
-        let host: Arc<dyn Host> = Arc::new(AioHost(RealHost(Instant::now())));
+        Self::on_host(Arc::new(AioHost(RealHost(Instant::now()))), configure)
+    }
+
+    pub(super) fn on_host(host: Arc<dyn Host>, configure: impl FnOnce(Kernel) -> Kernel) -> Self {
         let root = MemFs::new(Arc::new(HostClock(host.clone())), 0o755, 1, 1);
         let kernel = configure(Kernel::new(host, Arc::new(root)));
         let stdin = Arc::new(Input(Mutex::new(Vec::new())));
