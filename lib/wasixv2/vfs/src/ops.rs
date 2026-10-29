@@ -11,7 +11,8 @@ use crate::{
     dentry::Dentry,
     driver::{Handle, Link, Node},
     file::File,
-    inode::DirLock,
+    inode::{DirLock, OpenAccess},
+    locks::{Break, LeaseWait, LockKey},
     mount::{Mount, Path},
     namei::{Last, LookupFlags, Walk, lookup_one},
     notify::{FsEvent, Object},
@@ -29,6 +30,9 @@ pub struct Ctx<'a> {
     /// The calling task, as the kernel numbers it, for pseudo filesystems whose answers depend
     /// on who asks (`/proc/self`); 0 for the embedder, which is no task.
     pub task: u32,
+    /// How the caller waits for leases its opens and truncations break; `None` for a caller
+    /// that cannot wait (the embedder), which breaks none.
+    pub leases: Option<&'a dyn LeaseWait>,
 }
 
 /// What to open (`struct open_how`, after `build_open_flags` validated it).
@@ -218,21 +222,22 @@ impl Vfs {
         }
         self.may_open(cx.cred, &target, acc_mode, flags).await?;
         let writable = access != OpenFlags::O_RDONLY;
-        self.finish_open(cx.task, target, flags, writable, truncate, created)
+        self.finish_open(cx, target, flags, writable, truncate, created)
             .await
     }
 
-    /// Opens `target` for `task`, or takes the handle its creation returned, and builds the open
-    /// file.
+    /// Opens `target` for the caller, or takes the handle its creation returned, and builds the
+    /// open file (`do_dentry_open`).
     async fn finish_open(
         self: &Arc<Self>,
-        task: u32,
+        cx: &Ctx<'_>,
         target: Path,
         flags: OpenFlags,
         writable: bool,
         truncate: bool,
         handle: Option<Box<dyn Handle>>,
     ) -> FsResult<File> {
+        let task = cx.task;
         let access = flags & OpenFlags::O_ACCMODE;
         let readable = access != OpenFlags::O_WRONLY;
         // `do_dentry_open` takes write access only for what a read-only mount protects
@@ -245,6 +250,18 @@ impl Vfs {
             true => Some(self.tree.get_write_access(&target.mnt)?),
             false => None,
         };
+        let inode = target.dentry.inode();
+        let counted = match (write.is_some(), readable && !writable) {
+            (true, _) => Some(OpenAccess::new(inode, true)),
+            (false, true) => Some(OpenAccess::new(inode, false)),
+            (false, false) => None,
+        };
+        // A file this open made has no leases.
+        if handle.is_none() && target.dentry.file_type() == FileType::Regular {
+            let nonblock = flags.contains(OpenFlags::O_NONBLOCK);
+            self.break_lease(cx, Self::lock_key(&target.dentry), writable, nonblock)
+                .await?;
+        }
         let handle = match (handle, target.dentry.file_type()) {
             (Some(handle), _) => Some(handle),
             (None, FileType::Regular | FileType::Directory) => {
@@ -286,7 +303,47 @@ impl Vfs {
             write,
             writable,
             false,
-        ))
+        )
+        .with_access(counted))
+    }
+
+    /// `break_lease`: an open of the regular file `key` names, for writing with `write`, or a
+    /// truncation of it, tells the holders of the leases in its way and waits until they gave
+    /// way or their time was up; `EWOULDBLOCK` instead with `nonblock` (`O_NONBLOCK`). A
+    /// caller that cannot wait ([`Ctx::leases`]) breaks no leases.
+    async fn break_lease(
+        &self,
+        cx: &Ctx<'_>,
+        key: LockKey,
+        write: bool,
+        nonblock: bool,
+    ) -> FsResult<()> {
+        let Some(wait) = cx.leases else {
+            return Ok(());
+        };
+        if !self.locks.any_leases() {
+            return Ok(());
+        }
+        loop {
+            match self
+                .locks
+                .break_leases(key, write, wait.now(), wait.break_time())
+            {
+                Break::Done => return Ok(()),
+                Break::Wait { .. } if nonblock => return Err(Errno::EWOULDBLOCK),
+                Break::Wait {
+                    deadline,
+                    generation,
+                } => {
+                    let changed = Box::pin(self.locks.changed_since(key, generation));
+                    wait.wait(changed, deadline).await?;
+                }
+            }
+        }
+    }
+
+    fn lock_key(dentry: &Dentry) -> LockKey {
+        (dentry.sb().id, dentry.node().ino())
     }
 
     /// `may_open`.
@@ -363,7 +420,7 @@ impl Vfs {
             .set_linkable(!how.flags.contains(OpenFlags::O_EXCL));
         self.may_open(cx.cred, &target, acc_mode & !MAY_WRITE, how.flags)
             .await?;
-        self.finish_open(cx.task, target, how.flags, true, false, Some(handle))
+        self.finish_open(cx, target, how.flags, true, false, Some(handle))
             .await
     }
 
@@ -390,6 +447,7 @@ impl Vfs {
         let (node, handle) = mnt.root.node().create_unnamed(new, options).await?;
         let path = mnt.pseudo_path(node, name);
         path.dentry.inode().init_seals(seals);
+        let access = OpenAccess::new(path.dentry.inode(), true);
         Ok(File::new(
             self.clone(),
             path,
@@ -398,7 +456,8 @@ impl Vfs {
             Some(write),
             true,
             false,
-        ))
+        )
+        .with_access(Some(access)))
     }
 
     /// Ownership and permission bits of a new object in `dir`: the umask applied, the group from
@@ -1059,6 +1118,10 @@ impl Vfs {
             return Err(Errno::EROFS);
         }
         self.permission(cx.cred, path, MAY_WRITE).await?;
+        // Write access while it truncates, so that no read lease is taken meanwhile.
+        let _write = OpenAccess::new(path.dentry.inode(), true);
+        self.break_lease(cx, Self::lock_key(&path.dentry), true, false)
+            .await?;
         self.set_size(path, size).await
     }
 

@@ -42,6 +42,7 @@ impl World {
             root: &self.root,
             umask: 0o022,
             task: 0,
+            leases: None,
         }
     }
 
@@ -196,6 +197,7 @@ fn permissions_apply_to_an_unprivileged_user() {
         root: &w.root,
         umask: 0,
         task: 0,
+        leases: None,
     };
     assert_eq!(
         block_on(w.vfs.chmod(&cx, &locked, 0o777)),
@@ -432,6 +434,7 @@ fn chown_to_the_current_ids_needs_ownership() {
         root: &w.root,
         umask: 0o022,
         task: 0,
+        leases: None,
     };
 
     assert_eq!(

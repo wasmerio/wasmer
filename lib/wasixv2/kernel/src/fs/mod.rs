@@ -16,10 +16,18 @@ mod statmount;
 pub(crate) use fifo::FifoFile;
 pub(crate) use io::{At, read_iovecs};
 
-use std::sync::{
-    Arc, Mutex,
-    atomic::{AtomicI32, Ordering},
+use std::{
+    cell::Cell,
+    future::Future,
+    pin::Pin,
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicI32, Ordering},
+    },
+    time::Duration,
 };
+
+use async_trait::async_trait;
 
 use wasixv2_abi::{
     AtFd, AtFlags, CloseRangeFlags, ConstOpenHowPtr, Cstr, FcntlCmd, FdFlags, OpenFlags, OpenHow,
@@ -27,13 +35,17 @@ use wasixv2_abi::{
 };
 use wasixv2_host::Host;
 use wasixv2_syscalls::{
-    Caller, CstrError, Errno, Fd, SysResult, TaskId, UserMemory, read_cstr, read_value,
+    Caller, CstrError, Errno, Fd, SysErr, SysResult, TaskId, UserMemory, read_cstr, read_value,
 };
-use wasixv2_vfs::{Clock, Cred, Ctx, LookupFlags, MODE_PERM, PATH_MAX, Path, Timestamp};
+use wasixv2_vfs::{
+    Clock, Cred, Ctx, FsResult, LeaseWait, LookupFlags, MODE_PERM, PATH_MAX, Path, Timestamp,
+};
+use wasixv2_wait::{Interrupted, interruptible};
 
 use crate::{
     Kernel,
     file::{Backing, FdTable, OpenFile},
+    signal::TaskSignals,
     sync::MutexExt,
 };
 
@@ -42,6 +54,10 @@ use crate::{
 pub(crate) struct FsSysctls {
     /// `fs.dir-notify-enable`: whether `F_NOTIFY` works.
     dir_notify_enable: AtomicI32,
+    /// `fs.leases-enable`: whether `F_SETLEASE` gives new leases.
+    leases_enable: AtomicI32,
+    /// `fs.lease-break-time`: the seconds a lease holder has to give way; none at most 0.
+    lease_break_time: AtomicI32,
 }
 
 impl Default for FsSysctls {
@@ -49,6 +65,8 @@ impl Default for FsSysctls {
     fn default() -> Self {
         Self {
             dir_notify_enable: AtomicI32::new(1),
+            leases_enable: AtomicI32::new(1),
+            lease_break_time: AtomicI32::new(45),
         }
     }
 }
@@ -60,6 +78,67 @@ impl FsSysctls {
 
     pub(crate) fn set_dir_notify_enable(&self, value: i32) {
         self.dir_notify_enable.store(value, Ordering::Relaxed);
+    }
+
+    pub(crate) fn leases_enable(&self) -> i32 {
+        self.leases_enable.load(Ordering::Relaxed)
+    }
+
+    pub(crate) fn set_leases_enable(&self, value: i32) {
+        self.leases_enable.store(value, Ordering::Relaxed);
+    }
+
+    pub(crate) fn lease_break_time(&self) -> i32 {
+        self.lease_break_time.load(Ordering::Relaxed)
+    }
+
+    pub(crate) fn set_lease_break_time(&self, value: i32) {
+        self.lease_break_time.store(value, Ordering::Relaxed);
+    }
+}
+
+/// How a task's opens and truncations wait for the leases they break: on the host's
+/// monotonic clock, at most `fs.lease-break-time` per holder, until a signal for the task.
+pub(crate) struct LeaseWaiter {
+    host: Arc<dyn Host>,
+    sysctls: Arc<FsSysctls>,
+    signals: Arc<TaskSignals>,
+    /// A signal ended a wait: the call restarts (`-ERESTARTSYS` from `__break_lease`).
+    interrupted: Cell<bool>,
+}
+
+#[async_trait(?Send)]
+impl LeaseWait for LeaseWaiter {
+    fn now(&self) -> Duration {
+        self.host.monotonic()
+    }
+
+    fn break_time(&self) -> Option<Duration> {
+        let secs = self.sysctls.lease_break_time();
+        (secs > 0).then(|| Duration::from_secs(secs as u64))
+    }
+
+    async fn wait<'a>(
+        &'a self,
+        changed: Pin<Box<dyn Future<Output = ()> + 'a>>,
+        deadline: Option<Duration>,
+    ) -> FsResult<()> {
+        let wait = async {
+            match deadline {
+                Some(deadline) => {
+                    let timer = self.host.sleep_until(deadline);
+                    futures_util::future::select(changed, timer).await;
+                }
+                None => changed.await,
+            }
+        };
+        match interruptible(wait, &*self.signals).await {
+            Ok(()) => Ok(()),
+            Err(Interrupted) => {
+                self.interrupted.set(true);
+                Err(Errno::EINTR)
+            }
+        }
     }
 }
 
@@ -138,6 +217,7 @@ pub(crate) struct Env {
     pub(crate) fs: FsContext,
     pub(crate) cred: Cred,
     pub(crate) task: u32,
+    leases: LeaseWaiter,
 }
 
 impl Env {
@@ -147,6 +227,16 @@ impl Env {
             root: &self.fs.root,
             umask: self.fs.umask,
             task: self.task,
+            leases: Some(&self.leases),
+        }
+    }
+
+    /// The error of a VFS call made with [`Env::cx`]: a restart when a signal ended its wait
+    /// for leases.
+    pub(crate) fn error(&self, errno: Errno) -> SysErr {
+        match self.leases.interrupted.get() {
+            true => SysErr::Restart,
+            false => errno.into(),
         }
     }
 }
@@ -157,13 +247,20 @@ impl Kernel {
     }
 
     pub(crate) fn task_env(&self, task: TaskId) -> Env {
-        let (fs, process) = self.task_ref(task, |task| {
-            (task.fs.lock_or_recover().clone(), task.process.clone())
+        let (fs, process, signals) = self.task_ref(task, |task| {
+            let fs = task.fs.lock_or_recover().clone();
+            (fs, task.process.clone(), task.signals.clone())
         });
         Env {
             fs,
             cred: process.cred().fs(),
             task: task.0,
+            leases: LeaseWaiter {
+                host: self.host.clone(),
+                sysctls: self.sysctls.clone(),
+                signals,
+                interrupted: Cell::new(false),
+            },
         }
     }
 
@@ -381,7 +478,11 @@ impl Kernel {
         // truncated or waited for.
         let cloexec = flags.contains(OpenFlags::O_CLOEXEC);
         let [fd] = self.reserve_fds(caller, cloexec)?;
-        let file = self.vfs.open(&env.cx(), &start, &path, &vfs_how).await?;
+        let file = self
+            .vfs
+            .open(&env.cx(), &start, &path, &vfs_how)
+            .await
+            .map_err(|errno| env.error(errno))?;
         let backing = self.attach(caller, file, flags).await?;
         Ok(fd.install(Arc::new(OpenFile::new(backing, flags))))
     }
@@ -644,6 +745,8 @@ impl Kernel {
                 self.memfd_fcntl(&file, cmd, arg).await
             }
             FcntlCmd::F_NOTIFY => self.fcntl_dirnotify(caller, fd, &file, arg),
+            FcntlCmd::F_SETLEASE => self.fcntl_setlease(caller, fd, &file, arg).await,
+            FcntlCmd::F_GETLEASE => Ok(self.fcntl_getlease(&file)),
             _ => self.fcntl_lock(caller, fd, &file, cmd, arg).await,
         }
     }

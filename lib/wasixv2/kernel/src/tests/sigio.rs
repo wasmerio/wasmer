@@ -952,3 +952,206 @@ fn dnotify_needs_a_directory_and_dir_notify_enable() {
         Errno::EINVAL
     );
 }
+
+// ---- leases ----
+
+const F_RDLCK: u32 = 0;
+const F_WRLCK: u32 = 1;
+const F_UNLCK: u32 = 2;
+
+/// A machine whose clock runs, so that lease breaks can wait and time out, with init and
+/// one process run as root, and the file `/f` it owns.
+fn lease_machine() -> (Kernel, P) {
+    let host: Arc<dyn Host> = Arc::new(super::ptimer::RealHost(std::time::Instant::now()));
+    let root = MemFs::new(Arc::new(HostClock(host.clone())), 0o755, 0, 0);
+    let kernel = Kernel::new(host, Arc::new(root))
+        .with_credentials(Credentials::new(0, 0))
+        .with_init();
+    let stdin = Arc::new(Input(Mutex::new(Vec::new())));
+    let (kernel, task, _) = spawn_on(kernel, stdin, &[], &[]);
+    let p = P::new(task);
+    create(&kernel, &p, "/f");
+    (kernel, p)
+}
+
+fn setlease(kernel: &Kernel, p: &P, fd: Fd, arg: u32) -> SysResult<i32> {
+    fcntl(kernel, p, fd, FcntlCmd::F_SETLEASE, arg)
+}
+
+fn getlease(kernel: &Kernel, p: &P, fd: Fd) -> i32 {
+    fcntl(kernel, p, fd, FcntlCmd::F_GETLEASE, 0).unwrap()
+}
+
+/// `generic_add_lease`'s checks: a read lease needs the file open for writing nowhere, a write
+/// lease no open but the holder's (`lease_open_conflict`), and no other lease; only regular
+/// files, of the caller's own unless it has `CAP_LEASE`; `F_UNLCK` without a lease is `EAGAIN`;
+/// a new lease needs `fs.leases-enable`.
+#[test]
+fn a_lease_needs_no_conflicting_open() {
+    let (kernel, p) = lease_machine();
+    let r = open(&kernel, &p, "/f", OpenFlags::O_RDONLY).unwrap();
+    assert_eq!(getlease(&kernel, &p, r), F_UNLCK as i32);
+    assert_eq!(setlease(&kernel, &p, r, F_RDLCK), Ok(0));
+    assert_eq!(getlease(&kernel, &p, r), F_RDLCK as i32);
+    let pid = getpid(&kernel, &p);
+    assert_eq!(fcntl(&kernel, &p, r, FcntlCmd::F_GETOWN, 0), Ok(pid));
+    // Another read lease may join; a write lease may not, nor may a writer's read lease.
+    let r2 = open(&kernel, &p, "/f", OpenFlags::O_RDONLY).unwrap();
+    assert_eq!(setlease(&kernel, &p, r2, F_RDLCK), Ok(0));
+    assert_eq!(errno(setlease(&kernel, &p, r2, F_WRLCK)), Errno::EAGAIN);
+    assert_eq!(setlease(&kernel, &p, r2, F_UNLCK), Ok(0));
+    assert_eq!(errno(setlease(&kernel, &p, r2, F_UNLCK)), Errno::EAGAIN);
+    assert_eq!(setlease(&kernel, &p, r, F_UNLCK), Ok(0));
+    assert_eq!(
+        fcntl(&kernel, &p, r, FcntlCmd::F_GETOWN, 0),
+        Ok(0),
+        "f_delown"
+    );
+    // `r2` is open too, so no write lease for `r`.
+    assert_eq!(errno(setlease(&kernel, &p, r, F_WRLCK)), Errno::EAGAIN);
+    close(&kernel, &p, r2);
+    assert_eq!(setlease(&kernel, &p, r, F_WRLCK), Ok(0));
+    assert_eq!(getlease(&kernel, &p, r), F_WRLCK as i32);
+    assert_eq!(setlease(&kernel, &p, r, F_UNLCK), Ok(0));
+
+    let w = open(&kernel, &p, "/f", OpenFlags::O_WRONLY).unwrap();
+    assert_eq!(errno(setlease(&kernel, &p, w, F_RDLCK)), Errno::EAGAIN);
+    assert_eq!(errno(setlease(&kernel, &p, r, F_RDLCK)), Errno::EAGAIN);
+    assert_eq!(errno(setlease(&kernel, &p, w, 7)), Errno::EINVAL);
+    close(&kernel, &p, w);
+
+    mkdir(&kernel, &p, "/d");
+    let d = open(&kernel, &p, "/d", OpenFlags::O_RDONLY).unwrap();
+    assert_eq!(errno(setlease(&kernel, &p, d, F_RDLCK)), Errno::EINVAL);
+    let (pr, _pw) = pipe(&kernel, &p.caller(), OpenFlags(0));
+    assert_eq!(errno(setlease(&kernel, &p, pr, F_RDLCK)), Errno::EINVAL);
+    assert_eq!(getlease(&kernel, &p, pr), F_UNLCK as i32);
+
+    let procfs = kernel.procfs();
+    let mount = kernel
+        .vfs()
+        .mount(b"/proc", procfs, MountFlags::default(), true);
+    block_on(mount).unwrap();
+    let status = open(&kernel, &p, "/proc/self/status", OpenFlags::O_RDONLY).unwrap();
+    assert_eq!(errno(setlease(&kernel, &p, status, F_RDLCK)), Errno::EINVAL);
+
+    kernel.sysctls.set_leases_enable(0);
+    assert_eq!(errno(setlease(&kernel, &p, r, F_RDLCK)), Errno::EINVAL);
+    kernel.sysctls.set_leases_enable(1);
+
+    // Someone else's file needs `CAP_LEASE`, which a uid of 1 has not.
+    let caller = p.caller();
+    let set = kernel.setresuid(&caller, 1, 1, 1);
+    assert_eq!(block_on(set), Ok(0));
+    assert_eq!(errno(setlease(&kernel, &p, r, F_RDLCK)), Errno::EACCES);
+}
+
+/// An open that conflicts with a lease tells the holder, by its `F_SETSIG` signal with
+/// `POLL_MSG` and the lease's descriptor, and with `O_NONBLOCK` fails with `EWOULDBLOCK`. A
+/// reader only wants a write lease made a read lease (`F_GETLEASE` says what the lease is to
+/// become); a writer wants it gone.
+#[test]
+fn a_conflicting_open_breaks_the_lease() {
+    let (kernel, p) = lease_machine();
+    block(&kernel, &p, &[SIGRTMIN]);
+    let r = open(&kernel, &p, "/f", OpenFlags::O_RDONLY).unwrap();
+    let rt = SIGRTMIN.0 as u32;
+    assert_eq!(fcntl(&kernel, &p, r, FcntlCmd::F_SETSIG, rt), Ok(0));
+    assert_eq!(setlease(&kernel, &p, r, F_WRLCK), Ok(0));
+    let nonblock = OpenFlags::O_NONBLOCK;
+    let opened = open(&kernel, &p, "/f", OpenFlags::O_RDONLY | nonblock);
+    assert_eq!(errno(opened), Errno::EWOULDBLOCK);
+    let info = take(&kernel, &p, SIGRTMIN).expect("the break");
+    assert_eq!(poll_info(&info), (3, POLLMSG_BAND, r.0));
+    assert_eq!(getlease(&kernel, &p, r), F_RDLCK as i32);
+    // Told once per break.
+    let opened = open(&kernel, &p, "/f", OpenFlags::O_RDONLY | nonblock);
+    assert_eq!(errno(opened), Errno::EWOULDBLOCK);
+    assert!(take(&kernel, &p, SIGRTMIN).is_none());
+    assert_eq!(setlease(&kernel, &p, r, F_RDLCK), Ok(0));
+    let reader = open(&kernel, &p, "/f", OpenFlags::O_RDONLY | nonblock).unwrap();
+    close(&kernel, &p, reader);
+
+    let opened = open(&kernel, &p, "/f", OpenFlags::O_WRONLY | nonblock);
+    assert_eq!(errno(opened), Errno::EWOULDBLOCK);
+    assert!(take(&kernel, &p, SIGRTMIN).is_some());
+    assert_eq!(getlease(&kernel, &p, r), F_UNLCK as i32);
+    // A lease being broken for a writer keeps new leases away.
+    let r2 = open(&kernel, &p, "/f", OpenFlags::O_RDONLY).unwrap();
+    assert_eq!(errno(setlease(&kernel, &p, r2, F_RDLCK)), Errno::EAGAIN);
+    // The last close takes the lease.
+    close(&kernel, &p, r);
+    let writer = open(&kernel, &p, "/f", OpenFlags::O_WRONLY | nonblock).unwrap();
+    close(&kernel, &p, writer);
+
+    // A downgrade not made in time is made for the holder (`time_out_leases`).
+    kernel.sysctls.set_lease_break_time(1);
+    close(&kernel, &p, r2);
+    let r = open(&kernel, &p, "/f", OpenFlags::O_RDONLY).unwrap();
+    assert_eq!(setlease(&kernel, &p, r, F_WRLCK), Ok(0));
+    let opened = open(&kernel, &p, "/f", OpenFlags::O_RDONLY | nonblock);
+    assert_eq!(errno(opened), Errno::EWOULDBLOCK);
+    std::thread::sleep(Duration::from_millis(1100));
+    assert_eq!(getlease(&kernel, &p, r), F_RDLCK as i32);
+    let reader = open(&kernel, &p, "/f", OpenFlags::O_RDONLY | nonblock);
+    assert!(reader.is_ok());
+}
+
+/// A blocking open or truncation waits for the holder: a writer counts as open for writing
+/// meanwhile, so the holder cannot make its lease a read lease, only give it up; a signal
+/// ends the wait with a restart; and once `fs.lease-break-time` is up the lease goes, with the
+/// file's owner.
+#[test]
+fn a_blocking_open_waits_for_the_holder() {
+    let (kernel, p) = lease_machine();
+    block(&kernel, &p, &[SIGIO]);
+    let r = open(&kernel, &p, "/f", OpenFlags::O_RDONLY).unwrap();
+    assert_eq!(setlease(&kernel, &p, r, F_WRLCK), Ok(0));
+    let (child, _) = fork(&kernel, &p, 0);
+    let child_task = child.task;
+    std::thread::scope(|scope| {
+        let opener = scope.spawn(|| {
+            let child = child;
+            let opened = open(&kernel, &child, "/f", OpenFlags::O_WRONLY);
+            (child, opened)
+        });
+        let deadline = std::time::Instant::now() + Duration::from_secs(10);
+        while take(&kernel, &p, SIGIO).is_none() {
+            assert!(std::time::Instant::now() < deadline, "no SIGIO");
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        assert_eq!(errno(setlease(&kernel, &p, r, F_RDLCK)), Errno::EAGAIN);
+        assert!(!opener.is_finished());
+        assert_eq!(setlease(&kernel, &p, r, F_UNLCK), Ok(0));
+        let (child, opened) = opener.join().unwrap();
+        assert!(opened.is_ok());
+        close(&kernel, &child, opened.unwrap());
+
+        // A truncation waits too, until a signal for the waiter.
+        assert_eq!(setlease(&kernel, &p, r, F_WRLCK), Ok(0));
+        let kernel = &kernel;
+        let truncater = scope.spawn(move || {
+            let name = path_at(&child, 0x800, "/f");
+            let caller = child.caller();
+            block_on(kernel.truncate64(&caller, name, 0))
+        });
+        while take(kernel, &p, SIGIO).is_none() {
+            assert!(std::time::Instant::now() < deadline, "no SIGIO");
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        kernel.kill(child_task, Signal::SIGUSR1).unwrap();
+        assert_eq!(truncater.join().unwrap(), Err(SysErr::Restart));
+    });
+
+    // Its time up, the lease goes without the holder. A break keeps the time it was given.
+    assert_eq!(setlease(&kernel, &p, r, F_UNLCK), Ok(0));
+    kernel.sysctls.set_lease_break_time(1);
+    assert_eq!(setlease(&kernel, &p, r, F_WRLCK), Ok(0));
+    let (child, _) = fork(&kernel, &p, 0);
+    let started = std::time::Instant::now();
+    let opened = open(&kernel, &child, "/f", OpenFlags::O_RDWR);
+    assert!(opened.is_ok());
+    assert!(started.elapsed() >= Duration::from_secs(1));
+    assert_eq!(getlease(&kernel, &p, r), F_UNLCK as i32);
+    assert_eq!(fcntl(&kernel, &p, r, FcntlCmd::F_GETOWN, 0), Ok(0));
+}

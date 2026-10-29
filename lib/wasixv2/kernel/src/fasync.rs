@@ -84,6 +84,15 @@ impl OpenFile {
             (fown.uid, fown.euid) = cred;
         }
     }
+
+    /// What removing a lease does to its file (`lease_modify` with `F_UNLCK`): no owner
+    /// (`f_delown`) and no `F_SETSIG` signal.
+    pub(crate) fn delown(&self) {
+        let mut fown = self.fown.lock_or_recover();
+        fown.pid = None;
+        fown.ty = OwnerType::Process;
+        fown.signum = 0;
+    }
 }
 
 /// What an object's `fasync` gets: the open file, and with `on`, what puts it on a list.

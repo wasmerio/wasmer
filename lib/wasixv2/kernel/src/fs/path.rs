@@ -275,7 +275,10 @@ impl Kernel {
             .vfs
             .lookup(&env.cx(), &start, &path, LookupFlags::follow())
             .await?;
-        self.vfs.truncate(&env.cx(), &target, length as u64).await?;
+        self.vfs
+            .truncate(&env.cx(), &target, length as u64)
+            .await
+            .map_err(|errno| env.error(errno))?;
         Ok(0)
     }
 }

@@ -462,6 +462,7 @@ impl Machine {
             root: &top,
             umask: 0,
             task: 0,
+            leases: None,
         };
         let mut table = wasixv2_wasix1::Commands::default();
         for (name, defaults) in names {
@@ -1296,6 +1297,7 @@ pub fn default_root(
         root: &top,
         umask: 0,
         task: 0,
+        leases: None,
     };
     let layout = async {
         let dirs = [
@@ -1419,6 +1421,7 @@ async fn mount_kernel_filesystems(kernel: &Kernel, host: &Arc<dyn Host>) {
         root: &top,
         umask: 0,
         task: 0,
+        leases: None,
     };
     let mount = |at: &'static str, fs, flags| async move {
         match vfs.mount(at.as_bytes(), fs, flags, true).await {

@@ -10,7 +10,7 @@ use std::{
     any::Any,
     sync::{
         Arc, Mutex, Weak,
-        atomic::{AtomicI32, AtomicU32},
+        atomic::{AtomicI32, AtomicU32, Ordering},
     },
 };
 
@@ -41,6 +41,10 @@ pub struct Inode {
     /// Writable shared mappings of the file, or below zero once `F_SEAL_WRITE` denies them
     /// (`i_mmap_writable`).
     pub(crate) mmap_writable: AtomicI32,
+    /// Open files and truncations that write the file (`i_writecount`).
+    writecount: AtomicI32,
+    /// Open files that only read it (`i_readcount`).
+    readcount: AtomicI32,
 }
 
 #[derive(Default)]
@@ -138,6 +142,52 @@ impl Inode {
     }
 }
 
+impl Inode {
+    /// Whether anything has the file open for writing (`inode_is_open_for_write`).
+    pub(crate) fn open_for_write(&self) -> bool {
+        self.writecount.load(Ordering::SeqCst) > 0
+    }
+
+    /// `i_writecount` and `i_readcount`.
+    pub(crate) fn open_counts(&self) -> (i32, i32) {
+        (
+            self.writecount.load(Ordering::SeqCst),
+            self.readcount.load(Ordering::SeqCst),
+        )
+    }
+}
+
+/// What an open file, or a truncation while it runs, counts on its inode: write access
+/// (`get_write_access`) or a read-only open (`i_readcount_inc`). Given back when dropped.
+pub(crate) struct OpenAccess {
+    inode: Arc<Inode>,
+    write: bool,
+}
+
+impl OpenAccess {
+    pub(crate) fn new(inode: &Arc<Inode>, write: bool) -> Self {
+        let count = match write {
+            true => &inode.writecount,
+            false => &inode.readcount,
+        };
+        count.fetch_add(1, Ordering::SeqCst);
+        Self {
+            inode: inode.clone(),
+            write,
+        }
+    }
+}
+
+impl Drop for OpenAccess {
+    fn drop(&mut self) {
+        let count = match self.write {
+            true => &self.inode.writecount,
+            false => &self.inode.readcount,
+        };
+        count.fetch_sub(1, Ordering::SeqCst);
+    }
+}
+
 impl Drop for Inode {
     fn drop(&mut self) {
         let mut inodes = self.sb.inodes.lock().unwrap();
@@ -168,6 +218,8 @@ impl Superblock {
             sealable,
             seals: AtomicU32::new(SealFlags::F_SEAL_SEAL.0),
             mmap_writable: AtomicI32::new(0),
+            writecount: AtomicI32::new(0),
+            readcount: AtomicI32::new(0),
         });
         inodes.insert(ino, Arc::downgrade(&inode));
         inode

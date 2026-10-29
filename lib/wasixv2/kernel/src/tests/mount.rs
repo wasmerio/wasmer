@@ -299,6 +299,7 @@ fn mountinfo_shows_propagation_and_per_mount_flags() {
             root: &a,
             umask: 0,
             task: 0,
+            leases: None,
         },
         &a,
         b"/a",

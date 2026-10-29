@@ -37,7 +37,7 @@ use crate::{
 };
 
 /// `PROC_SUPER_MAGIC`.
-const PROC_SUPER_MAGIC: u32 = 0x9fa0;
+pub(crate) const PROC_SUPER_MAGIC: u32 = 0x9fa0;
 
 impl Kernel {
     /// A process filesystem for this kernel, to mount at `/proc`, showing the initial pid

@@ -111,6 +111,16 @@ const STATIC: &[(usize, &str, Static)] = &[
         "dir-notify-enable",
         Static::File(text::Global::DirNotifyEnable),
     ),
+    (
+        15,
+        "leases-enable",
+        Static::File(text::Global::LeasesEnable),
+    ),
+    (
+        15,
+        "lease-break-time",
+        Static::File(text::Global::LeaseBreakTime),
+    ),
 ];
 
 /// What an entry of a process or thread directory is.
@@ -667,7 +677,9 @@ impl Node for ProcNode {
                             Some(Write::NsLastPid(pid_ns, may))
                         }
                         text::Global::NrOpen => Some(Write::NrOpen(self.source.nr_open.clone())),
-                        text::Global::DirNotifyEnable => {
+                        text::Global::DirNotifyEnable
+                        | text::Global::LeasesEnable
+                        | text::Global::LeaseBreakTime => {
                             Some(Write::Fs(self.source.sysctls.clone(), file))
                         }
                         _ => None,
@@ -816,6 +828,8 @@ impl Handle for FileHandle {
                 let value = sysctl_i32(data)?;
                 match file {
                     text::Global::DirNotifyEnable => sysctls.set_dir_notify_enable(value),
+                    text::Global::LeasesEnable => sysctls.set_leases_enable(value),
+                    text::Global::LeaseBreakTime => sysctls.set_lease_break_time(value),
                     _ => return Err(Errno::EINVAL),
                 }
             }
