@@ -51,7 +51,7 @@ const OPTMEM_MAX: usize = 128 * 1024;
 /// `MAX_RW_COUNT`: the most one call transfers.
 const MAX_RW_COUNT: u32 = 0x7fff_f000;
 /// What a stream send or receive moves through kernel memory per step.
-const SOCK_CHUNK: usize = 256 * 1024;
+pub(crate) const SOCK_CHUNK: usize = 256 * 1024;
 /// The largest IP datagram payload. A send copies one byte more, so the protocol sees an
 /// oversized datagram and reports `EMSGSIZE` in its own order.
 const IP_MAX_DATAGRAM: usize = 65535;
@@ -513,8 +513,10 @@ impl Kernel {
             }
             AnySock::Unix(_, sock) => {
                 let to = self.unix_destination(caller, sock, to).await?;
-                let anc = self.unix_ancillary(caller, control)?;
-                let cred = self.ucred(caller);
+                let mut anc = self.unix_ancillary(caller, control)?;
+                // `unix_scm_to_skb`: the credentials, claimed or the caller's, go with every
+                // part of a stream send; the files only with the first.
+                let cred = anc.cred.take().unwrap_or_else(|| self.ucred(caller));
                 let mut wait = sock.blocking(io, SND, flags);
                 match sock.max_record() {
                     Some(max) => {
