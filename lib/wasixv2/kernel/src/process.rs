@@ -916,9 +916,8 @@ impl Kernel {
         if flags.contains(CloneFlags::CLONE_INTO_CGROUP) {
             return Err(Errno::EBADF.into());
         }
-        // Threads start through `thread-spawn`, which makes them itself; a process sharing
-        // handlers is not supported.
-        if flags.contains(CloneFlags::CLONE_THREAD) || flags.contains(CloneFlags::CLONE_SIGHAND) {
+        // Threads start through `thread-spawn`, which makes them itself.
+        if flags.contains(CloneFlags::CLONE_THREAD) {
             return Err(Errno::EINVAL.into());
         }
         // No child is reaped without its parent.
@@ -1245,7 +1244,8 @@ impl Kernel {
             };
             let flag = Arc::new(WorkFlag::default());
             let account = crate::signal::Account::new(self.sigqueue_users.clone(), &process);
-            let group = task.signals.group().fork(account);
+            let sighand = flags.contains(CloneFlags::CLONE_SIGHAND);
+            let group = task.signals.group().fork(account, sighand);
             if flags.contains(CloneFlags::CLONE_CLEAR_SIGHAND) {
                 group.flush_handlers();
             }
