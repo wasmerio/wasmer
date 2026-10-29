@@ -376,6 +376,41 @@ const STATIC: &[(usize, &str, Static)] = &[
         Static::File(text::Global::SeccompActionsLogged),
     ),
     (13, "acct", Static::File(text::Global::Acct)),
+    // Append to preserve positional indices: mqueue directory is index 134.
+    (15, "mqueue", Static::Dir),
+    (
+        134,
+        "queues_max",
+        Static::File(text::Global::Mqueue(
+            crate::ipc::mqueue::MqSysctl::QueuesMax,
+        )),
+    ),
+    (
+        134,
+        "msg_max",
+        Static::File(text::Global::Mqueue(crate::ipc::mqueue::MqSysctl::MsgMax)),
+    ),
+    (
+        134,
+        "msgsize_max",
+        Static::File(text::Global::Mqueue(
+            crate::ipc::mqueue::MqSysctl::MsgsizeMax,
+        )),
+    ),
+    (
+        134,
+        "msg_default",
+        Static::File(text::Global::Mqueue(
+            crate::ipc::mqueue::MqSysctl::MsgDefault,
+        )),
+    ),
+    (
+        134,
+        "msgsize_default",
+        Static::File(text::Global::Mqueue(
+            crate::ipc::mqueue::MqSysctl::MsgsizeDefault,
+        )),
+    ),
 ];
 
 /// The file of an integer sysctl.
@@ -798,6 +833,17 @@ impl ProcNode {
         };
         let in_egroup = |gid| cred.group.effective == gid || cred.groups.contains(&gid);
         let bits = match file {
+            text::Global::Mqueue(_) => {
+                // ipc/mq_sysctl.c mq_permissions uses the IPC namespace root's ids.
+                let owner = self.source.ns_of(task).ipc.user_ns().clone();
+                if owner.root_uid().unwrap_or(Kuid(0)) == cred.user.effective {
+                    (mode >> 6) & 7
+                } else if in_egroup(owner.root_gid().unwrap_or(Kgid(0))) {
+                    (mode >> 3) & 7
+                } else {
+                    mode & 7
+                }
+            }
             text::Global::PidMax => {
                 let owner = self.source.pid_ns_of(task).user_ns().clone();
                 if cred.ns_capable(&owner, Cap::SysAdmin)
@@ -941,9 +987,11 @@ impl Node for ProcNode {
     ) -> FsResult<()> {
         match self.entry {
             Entry::Static(index) => match STATIC[index].2 {
-                Static::File(file @ (text::Global::PidMax | text::Global::Ucount(_))) => {
-                    self.sysctl_root_permission(task, file, attr.mode, mask)
-                }
+                Static::File(
+                    file @ (text::Global::PidMax
+                    | text::Global::Ucount(_)
+                    | text::Global::Mqueue(_)),
+                ) => self.sysctl_root_permission(task, file, attr.mode, mask),
                 _ => wasixv2_vfs::generic_permission_acl(cred, attr, acl, mask),
             },
             _ => wasixv2_vfs::generic_permission_acl(cred, attr, acl, mask),
@@ -1183,6 +1231,9 @@ impl Node for ProcNode {
                         text::Global::AioMaxNr => Some(Write::AioMaxNr(self.source.aio.clone())),
                         text::Global::KeySysctl(entry) => {
                             Some(Write::Keys(self.source.keys.clone(), entry))
+                        }
+                        text::Global::Mqueue(entry) => {
+                            Some(Write::Mqueue(ns.ipc.mq.clone(), entry))
                         }
                         text::Global::PipeMaxSize => {
                             Some(Write::PipeMaxSize(self.source.pipe_max_size.clone()))
@@ -1614,6 +1665,10 @@ enum Write {
     NrOpen(Arc<NrOpen>),
     /// `fs.pipe-max-size`.
     PipeMaxSize(Arc<PipeMaxSize>),
+    Mqueue(
+        Arc<crate::ipc::mqueue::Mqueues>,
+        crate::ipc::mqueue::MqSysctl,
+    ),
     /// `fs.aio-max-nr`.
     AioMaxNr(Arc<AioSysctl>),
     Keys(Arc<crate::keys::Keys>, crate::keys::KeySysctl),
@@ -1891,6 +1946,7 @@ impl Handle for FileHandle {
             Write::NsLastPid(_, false) => return Err(Errno::EPERM),
             Write::NsLastPid(ns, true) => ns.set_last_pid(sysctl_int(data)?)?,
             Write::NrOpen(nr_open) => nr_open.set(sysctl_int(data)?)?,
+            Write::Mqueue(queues, entry) => queues.set_sysctl(*entry, sysctl_i32(data)?)?,
             Write::PipeMaxSize(max) => max.set(sysctl_int(data)?)?,
             Write::AioMaxNr(aio) => aio.set_max(sysctl_int(data)?),
             Write::Keys(keys, entry) => keys.set_sysctl(*entry, sysctl_int(data)?)?,

@@ -54,6 +54,7 @@ pub(super) enum Global {
     FileMax,
     NrOpen,
     PipeMaxSize,
+    Mqueue(crate::ipc::mqueue::MqSysctl),
     DirNotifyEnable,
     LeasesEnable,
     LeaseBreakTime,
@@ -168,6 +169,7 @@ impl Global {
             | Self::FileMax
             | Self::NrOpen
             | Self::PipeMaxSize
+            | Self::Mqueue(_)
             | Self::DirNotifyEnable
             | Self::LeasesEnable
             | Self::LeaseBreakTime
@@ -298,6 +300,7 @@ pub(super) fn global(
         Global::MmapMinAddr => line(&crate::mm::MMAP_MIN_ADDR.to_string()),
         Global::FileMax => line(&i64::MAX.to_string()),
         Global::NrOpen => line(&source.nr_open.get().to_string()),
+        Global::Mqueue(entry) => line(&ns.ipc.mq.sysctl(entry).to_string()),
         Global::PipeMaxSize => line(&source.pipe_max_size.get().to_string()),
         Global::DirNotifyEnable => line(&source.sysctls.dir_notify_enable().to_string()),
         Global::LeasesEnable => line(&source.sysctls.leases_enable().to_string()),
