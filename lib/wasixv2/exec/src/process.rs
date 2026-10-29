@@ -353,9 +353,10 @@ where
             Ended::Fault {
                 task: at,
                 signal,
+                killed,
                 report,
                 handoff,
-            } => match fault_in(&*syscalls, &*host, task, at, signal, &report) {
+            } => match fault_in(&*syscalls, &*host, task, at, (signal, killed), &report) {
                 Some(status) => break status,
                 // The trap was the vfork child's whose parent went on elsewhere.
                 None => {
@@ -387,6 +388,7 @@ where
                     task,
                     handoff: None,
                     signal: Signal::SIGSEGV.0,
+                    killed: None,
                     report: format!(
                         "wasixv2: cannot start the image process {} loaded with execve, \
                          killing it with SIGSEGV: {err}",
@@ -399,6 +401,7 @@ where
                 task,
                 handoff: None,
                 signal: Signal::SIGSEGV.0,
+                killed: None,
                 report: format!(
                     "wasixv2: process {} loaded a module with execve that does not compile, \
                      killing it with SIGSEGV: {err}",
@@ -463,10 +466,10 @@ pub(crate) fn fault_in<S: Control>(
     host: &dyn Host,
     task: TaskId,
     at: TaskId,
-    signal: i32,
+    (signal, killed): (i32, Option<bool>),
     report: &str,
 ) -> Option<i32> {
-    if syscalls.fault(at, signal) {
+    if killed.unwrap_or_else(|| syscalls.fault(at, signal)) {
         host.report(report);
     }
     if at == task {
@@ -720,13 +723,13 @@ mod tests {
     /// A trap of a vfork child whose parent's image went on in another instance ends the child
     /// alone: the parent is neither killed nor released here, as the run that took it over
     /// owns it.
-    /// A trap kills the task as any fatal signal does on Linux, whose `do_exit` runs `exit_mm`
-    /// (`mm_release`: the robust futex list, `clear_child_tid` and its futex wake) for every
-    /// exit: the instance hands the kernel the task's memory, still there, before the fault
-    /// ends the group.
+    /// A trap kills the task as any fatal signal does on Linux (`force_sig_fault`, whose
+    /// `get_signal` dumps core), then `do_exit` runs `exit_mm` (`mm_release`: the robust futex
+    /// list, `clear_child_tid` and its futex wake), as for every exit: the kernel hears of the
+    /// fault first, then the instance hands it the task's memory, still there.
     #[cfg(feature = "sys")]
     #[test]
-    fn a_trapped_task_leaves_its_memory_before_its_fault_kills_the_group() {
+    fn a_trapped_task_faults_before_it_leaves_its_memory() {
         let wasm = wat::parse_str(
             r#"(module
                 (import "wasixv2" "sched_yield" (func (result i32)))
@@ -741,7 +744,7 @@ mod tests {
         let status = futures::executor::block_on(run).unwrap();
         assert_eq!(status, 128 + Signal::SIGILL.0);
         let ended = control.ended.lock().unwrap();
-        assert_eq!(ended[..2], [("exit_mm", PARENT), ("fault", PARENT)]);
+        assert_eq!(ended[..2], [("fault", PARENT), ("exit_mm", PARENT)]);
     }
 
     #[test]
@@ -760,7 +763,7 @@ mod tests {
             },
         );
         let sigill = Signal::SIGILL.0;
-        let ended = fault_in(&control, &NoThreads, PARENT, CHILD, sigill, "trap");
+        let ended = fault_in(&control, &NoThreads, PARENT, CHILD, (sigill, None), "trap");
         assert_eq!(ended, None);
         assert_eq!(*control.faulted.lock().unwrap(), [(CHILD, sigill)]);
         assert_eq!(*control.released.lock().unwrap(), [CHILD]);
@@ -778,7 +781,7 @@ mod tests {
                 child: CHILD,
             },
         );
-        let ended = fault_in(&control, &NoThreads, PARENT, CHILD, sigill, "trap");
+        let ended = fault_in(&control, &NoThreads, PARENT, CHILD, (sigill, None), "trap");
         assert_eq!(ended, Some(128 + Signal::SIGSEGV.0));
     }
 
