@@ -1677,9 +1677,25 @@ fn executing_and_writing_a_file_are_mutually_exclusive_and_exit_releases_it() {
         block_on(kernel.truncate64(&caller, GuestPtr::new(0x2000), 0)),
         Err(SysErr::Errno(Errno::ETXTBSY))
     );
+    let observer = kernel
+        .spawn(crate::ProcessConfig {
+            args: Vec::new(),
+            env: Vec::new(),
+            stdio: crate::Stdio::from_fns(|_| {}, |_| {}),
+        })
+        .unwrap();
     block_on(kernel.exit_group(&caller, 0)).unwrap();
-    // A zombie retains its proc identity, but no longer denies writes.
-    assert!(open(OpenFlags::O_WRONLY).is_ok());
+    // kernel/exit.c:exit_mm releases the executable; a live process checks access.
+    assert!(
+        block_on(kernel.openat(
+            &Caller::new(observer, &memory),
+            Fd(-100),
+            GuestPtr::new(0x2000),
+            OpenFlags::O_WRONLY,
+            0,
+        ))
+        .is_ok()
+    );
 }
 
 #[test]

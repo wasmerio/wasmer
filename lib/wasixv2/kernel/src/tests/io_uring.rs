@@ -923,10 +923,19 @@ fn a_threads_exit_cancels_its_requests_that_hold_a_ring() {
     let caller = m.caller();
     let file = Arc::downgrade(&m.kernel.file(m.task, ring.fd).unwrap());
     assert_eq!(block_on(m.kernel.close(&caller, ring.fd)), Ok(0));
+    // mm/vma.c:__mmap_new_file_vma takes a file reference; io_uring/memmap.c:io_uring_mmap
+    // keeps it. Remove the VMAs before checking the poll's independent reference.
+    block_on(m.kernel.munmap(&caller, ring.rings, 65536)).unwrap();
+    block_on(m.kernel.munmap(&caller, ring.sqes, 65536)).unwrap();
     assert!(file.upgrade().is_some(), "the poll holds the ring");
     let other_caller = Caller::new(other, &m.memory);
     block_on(m.kernel.exit_mm(&other_caller));
-    assert!(file.upgrade().is_none(), "the exit let it go");
+    // A deferred poll callback can still hold its transient file clone after cancellation.
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while file.upgrade().is_some() {
+        assert!(Instant::now() < deadline, "the exit let it go");
+        std::thread::sleep(Duration::from_millis(1));
+    }
 }
 
 #[test]

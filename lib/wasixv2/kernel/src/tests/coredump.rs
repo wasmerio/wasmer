@@ -325,6 +325,8 @@ fn a_pipe_pattern_feeds_the_core_to_its_helper() {
     let caller = p.caller();
     let chmod = kernel.fchmodat(&caller, CWD, p.path("/bin/catch"), 0o755);
     block_on(chmod).unwrap();
+    // fs/exec.c:do_open_execat refuses a helper still open for writing.
+    block_on(kernel.close(&caller, fd)).unwrap();
     p.write(
         &kernel,
         "/proc/sys/kernel/core_pattern",
