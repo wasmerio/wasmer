@@ -61,6 +61,10 @@ pub(crate) struct Cred {
     /// The filesystem ids, which own what the caller makes and are checked for access.
     pub(crate) fsuid: u32,
     pub(crate) fsgid: u32,
+    /// SysV IPC uses effective ids (`ipc_addid`, `ipcperms`, `ipcctl_obtain_check`),
+    /// while POSIX mqueue inode operations use the filesystem ids above.
+    euid: u32,
+    egid: u32,
     /// The real uid, which message queues are charged to.
     pub(crate) uid: u32,
     cred: Arc<TaskCred>,
@@ -100,6 +104,8 @@ impl Kernel {
         Cred {
             fsuid,
             fsgid,
+            euid: cred.user.effective.0,
+            egid: cred.group.effective.0,
             uid: cred.user.real.0,
             owner: self.ns(caller).ipc.user_ns().clone(),
             cred,
@@ -147,10 +153,10 @@ impl Perm {
     pub(crate) fn new(key: i32, cred: &Cred, flags: i32) -> Self {
         Self {
             key,
-            uid: cred.fsuid,
-            gid: cred.fsgid,
-            cuid: cred.fsuid,
-            cgid: cred.fsgid,
+            uid: cred.euid,
+            gid: cred.egid,
+            cuid: cred.euid,
+            cgid: cred.egid,
             mode: flags as u32 & MODE_BITS,
             seq: 0,
         }
@@ -159,7 +165,7 @@ impl Perm {
     /// `ipcperms`: whether `cred` has every access bit `flag` asks for.
     pub(crate) fn permits(&self, cred: &Cred, flag: u32) -> bool {
         let requested = (flag >> 6) | (flag >> 3) | flag;
-        let granted = if cred.fsuid == self.cuid || cred.fsuid == self.uid {
+        let granted = if cred.euid == self.cuid || cred.euid == self.uid {
             self.mode >> 6
         } else if cred.in_group(self.cgid) || cred.in_group(self.gid) {
             self.mode >> 3
@@ -181,7 +187,7 @@ impl Perm {
     /// `CAP_SYS_ADMIN` over the IPC namespace's owner.
     pub(crate) fn check_owner(&self, cred: &Cred) -> Result<(), Errno> {
         let admin = || cred.ns_capable(Cap::SysAdmin);
-        match cred.fsuid == self.cuid || cred.fsuid == self.uid || admin() {
+        match cred.euid == self.cuid || cred.euid == self.uid || admin() {
             true => Ok(()),
             false => Err(Errno::EPERM),
         }
