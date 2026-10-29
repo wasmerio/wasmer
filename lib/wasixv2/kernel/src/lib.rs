@@ -33,6 +33,7 @@ mod procfs;
 mod pseudo;
 mod resource;
 mod restart;
+mod rseq;
 mod sched;
 mod signal;
 mod signalfd;
@@ -2516,6 +2517,17 @@ impl Syscalls for Kernel {
         flags: wasixv2_abi::EventfdFlags,
     ) -> SysResult<Fd> {
         self.sys_eventfd2(caller, count, flags).await
+    }
+
+    async fn rseq(
+        &self,
+        caller: &Caller<'_>,
+        rseq: wasixv2_abi::VoidPtr,
+        rseq_len: u32,
+        flags: i32,
+        sig: u32,
+    ) -> SysResult<i32> {
+        self.sys_rseq(caller, rseq, rseq_len, flags, sig).await
     }
 
     // ---- aio ----
