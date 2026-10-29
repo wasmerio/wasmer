@@ -592,6 +592,8 @@ where
             read_only.clone(),
             syscalls.page_access(task),
         );
+        #[cfg(all(target_os = "linux", feature = "sys"))]
+        let foreign = foreign.with_base(base.clone());
         syscalls.attach_memory(task, Arc::new(foreign));
     }
     // ---- thr ----

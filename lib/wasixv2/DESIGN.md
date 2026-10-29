@@ -871,6 +871,20 @@ These limits are why full compatibility stays a goal rather than a state we reac
 | Executable memory, JIT | Wasm code cannot be generated at runtime inside the guest | `PROT_EXEC` mappings fail |
 | Native binaries | Only wasm is executable | `execve` of an ELF file returns ENOEXEC unless a registered format handles it |
 
+### Miscellaneous Linux interfaces
+
+`fchroot` shares the root and permission machinery of `chroot` and accepts ordinary
+filesystem descriptors, including `O_PATH`. The `FD_FAILFS_ROOT` special descriptor
+returns `EBADF` until the kernel has a failfs filesystem (`fs/open.c:sys_fchroot`).
+
+`process_mrelease` discards the private pages of an exiting address space through
+the existing memory page-discard hook (`mm/oom_kill.c:__oom_reap_task_mm`). It keeps
+shared mappings for normal exit writeback, and refuses live users or a pending
+or active core dump. A remote address space without an attached memory handle
+returns `EAGAIN`; the kernel cannot safely access a non-shared wasm memory from
+another task. Frozen image pages retain their backing view and are cleared;
+anonymous host pages above it are discarded where the host supports that.
+
 ## Crate structure
 
 The new crates live under `lib/wasixv2/`, use `wasixv2-` package names, and start unpublished. Only `wasixv2-exec`, `wasixv2-dylink` and `wasixv2` depend on the wasm engine.
@@ -985,9 +999,3 @@ The new crates live under `lib/wasixv2/`, use `wasixv2-` package names, and star
 | 2026-10-14 | Typed import per syscall | Link-time failure on version skew, wasm-level type checks, no dispatch switch |
 | 2026-10-14 | Syscall trait with stacked layers over the kernel | One choke point for tracing, recording and policy; kernel testable without wasm |
 | 2026-10-14 | Target is full Linux userspace compatibility; current `lib/wasix` is not a reference | Existing design is not worth preserving |
-
-### Miscellaneous Linux interfaces
-
-`fchroot` shares the root and permission machinery of `chroot` and accepts ordinary
-filesystem descriptors, including `O_PATH`. The `FD_FAILFS_ROOT` special descriptor
-returns `EBADF` until the kernel has a failfs filesystem (`fs/open.c:sys_fchroot`).
