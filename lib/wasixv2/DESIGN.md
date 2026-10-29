@@ -572,7 +572,9 @@ The execution crate is the only layer below the facade that knows about the wasm
   Pages `MADV_WIPEONFORK` marked read zero in the child, as `dup_mmap` copies no pages of a `VM_WIPEONFORK` area: the kernel keeps the flag per page of private anonymous memory (a file or shared mapping refuses it with `EINVAL`; `MADV_KEEPONFORK` clears it), moves it with `mremap` as Linux's areas carry their flags, drops it with `munmap`, copies it into a fork child and starts an `execve` without it, and hands the ranges to the execution layer with the shared mappings (`SharedMappings::wipe_on_fork`), which leaves them out of a sparse copy and zeroes them in a full one, and where the image holds data under them, in the child after it mapped the image.
   5. The child has only the thread that forked, which may be any thread of the parent: it rewinds into that thread's entry point (`_start` or `wasixv2_thread_start`).
 
-  Not supported: a new stack (`newsp`) and `CLONE_VFORK` without `CLONE_VM` are `EINVAL`, and fork from a signal handler is `ENOSYS`, since host frames separate the handler from the stack below it.
+  With `CLONE_VFORK` (and no `CLONE_VM`), the parent's clone returns only once the child is done with its copy of the memory, as its exit or `execve` releases it (`mm_release`'s `complete_vfork_done`): the parent waits, killable, after the rewind (`VforkWait`, Linux's `wait_for_vfork_done`), then goes through the return-to-guest path, where a fatal signal that ended the wait takes it.
+
+  Not supported: a new stack (`newsp`) is `EINVAL`, and fork from a signal handler is `ENOSYS`, since host frames separate the handler from the stack below it.
 - **Vfork.** This is salvaged from wasixv1's setjmp-based vfork and works in all three configurations:
   1. libc's `vfork` is a macro that calls `setjmp` in the caller's frame, then calls clone with CLONE\_VM | CLONE\_VFORK, which returns 0.
   2. The kernel creates the child with a shared address space and blocks the parent task, as `CLONE_VFORK` does on Linux.

@@ -54,7 +54,9 @@ pub enum GuestAction {
     /// parent's new pidfd, the second value, at the first in this one too (`CLONE_PIDFD`, which
     /// the kernel checked can be written), and the child's tid as it sees it, `tid`, at
     /// `child_tid` in the child's (`CLONE_CHILD_SETTID`), whose thread pointer becomes `tls`
-    /// (`CLONE_SETTLS`). The two differ for the first process of a pid namespace.
+    /// (`CLONE_SETTLS`). The two differ for the first process of a pid namespace. With
+    /// `vfork` (`CLONE_VFORK`), once the child runs, the parent's clone returns only after
+    /// [`VforkWait::vfork_wait`].
     Fork {
         child: TaskId,
         pid: i32,
@@ -63,6 +65,7 @@ pub enum GuestAction {
         pidfd: Option<(u32, i32)>,
         child_tid: Option<u32>,
         tls: Option<u32>,
+        vfork: bool,
     },
     /// The vfork child `child`, running in its parent's instance, ended: the instance runs as
     /// `parent` again, and the guest's `wasixv2_vfork_return(child)` export unwinds to the
@@ -194,7 +197,9 @@ impl WorkFlag {
 
 /// The return-to-guest interface. The execution layer asks after every syscall and at every
 /// preemption point, and reports what becomes of the instances it runs tasks on.
-pub trait Control: AtomicWait + CpuTime + ExitMm + GroupStop + PidView + SharedMappings {
+pub trait Control:
+    AtomicWait + CpuTime + ExitMm + GroupStop + PidView + SharedMappings + VforkWait
+{
     /// The next thing to do for `task`: an exit, a thread to start, a signal handler to run, or
     /// nothing.
     fn take_pending(&self, task: TaskId) -> Option<GuestAction>;
@@ -290,6 +295,16 @@ pub trait GroupStop {
     /// SIGCONT continues its thread group or SIGKILL, an exit or an `execve` of the group ends
     /// the stop.
     fn stop_wait(&self, task: TaskId) -> LocalFuture<'_, ()>;
+}
+
+/// The kernel's part of a vfork whose child has memory of its own (`clone` with
+/// `CLONE_VFORK` but not `CLONE_VM`) that the execution layer waits in.
+pub trait VforkWait {
+    /// After a [`GuestAction::Fork`] with `vfork`, once the child runs and before the parent's
+    /// clone returns: waits until the child exits or its `execve` replaced its memory
+    /// (`wait_for_vfork_done`). A fatal signal ends the wait, and the parent's next return to
+    /// the guest takes it.
+    fn vfork_wait(&self, task: TaskId) -> LocalFuture<'_, ()>;
 }
 
 /// A range of a process's memory that shows a shared object ([`UserMemory::map_shared`]).
@@ -488,6 +503,14 @@ impl<L, S: PidView> PidView for Layered<L, S> {
 
     fn pid_in(&self, viewer: TaskId, task: TaskId) -> i32 {
         self.inner.pid_in(viewer, task)
+    }
+}
+
+// By hand rather than generated with the rest of `Layered`: the layers see syscalls, and this
+// is not one.
+impl<L, S: VforkWait> VforkWait for Layered<L, S> {
+    fn vfork_wait(&self, task: TaskId) -> LocalFuture<'_, ()> {
+        self.inner.vfork_wait(task)
     }
 }
 

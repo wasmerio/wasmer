@@ -81,7 +81,7 @@ pub use wasixv2_host::{Console, Stdio, WindowSize};
 use wasixv2_syscalls::{
     AtomicWait, AtomicWord, Binfmt, Caller, Control, CpuAccount, CpuTime, Errno, ExitMm, Fd,
     GroupCpu, GroupStop, GuestAction, Image, LocalFuture, PidView, SharedMapping, SharedMappings,
-    SysResult, Syscalls, TaskId, UserSlice, UserSliceMut, WorkFlag,
+    SysResult, Syscalls, TaskId, UserSlice, UserSliceMut, VforkWait, WorkFlag,
 };
 use wasixv2_vfs::{Filesystem, Mount, Vfs};
 
@@ -2784,6 +2784,12 @@ impl PidView for Kernel {
 impl GroupStop for Kernel {
     fn stop_wait(&self, task: TaskId) -> LocalFuture<'_, ()> {
         Box::pin(Kernel::stop_wait(self, task))
+    }
+}
+
+impl VforkWait for Kernel {
+    fn vfork_wait(&self, task: TaskId) -> LocalFuture<'_, ()> {
+        Box::pin(Kernel::vfork_wait(self, task))
     }
 }
 
