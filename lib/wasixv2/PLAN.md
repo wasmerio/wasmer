@@ -14,10 +14,10 @@ signals, preemption, task lifetime), the exec `Abi` registry, the WASIX v1 compa
 waits on the kernel futexes, and the userland fixes. `wasmer run` runs WASIX v2, WASIX v1 and WASI
 modules on the v2 kernel. tests `main` = `6405893`, libc2 `main` = `c26931b5`.
 
-Suite on `feat/wasixv2` `f850deddc36` (merge train 15; wasixv2-tests `fdd63ba`, libc2 `6b478da6`,
-abi `ce81dcf`, wasixcc `7ab1ffb`, userland `userland-4`): 3528 pass, 598 expected failures, 736 ignored
-(one suite run, regressions-only check). Per suite (pass / expected failures / ignored): Open POSIX
-1538/247/91, LTP 1302/328/644, libc-test 399/22/0, wasixv2 289/1/1.
+Suite on `feat/wasixv2` `f6e45f62643` (merge train 17; wasixv2-tests `189d40f`, libc2 `139386dc`,
+abi `3c21183`, userland `userland-4`): 3548 pass, 586 expected failures, 727 ignored (one suite run,
+regressions-only check; cve-2015-7550 is flaky under load). Per suite (pass / expected failures /
+ignored): Open POSIX 1538/247/91, LTP 1321/317/635, libc-test 399/22/0, wasixv2 290/0/1.
 
 Smoke tests pass: v2 static-web-server (28/28); through the v1 compat layer
 wasmer/static-web-server, phpix/phpix-85-32bit (CLI and `-S` server), coreutils, cowsay,
@@ -136,10 +136,17 @@ pidfd_getfd, Yama, ioprio, mseal and more /proc/<pid>; cgroup v2 (pids, cpu, io,
 the kernel log, acct(2), core dumps, more /proc and /proc/sys; vsock, sock_diag, raw sockets, unix OOB,
 SCTP. From 2026-10-29 implementation runs on GPT-6.1-Sol (high) through the codex CLI; Opus reviews.
 
-Merge train 16 (next): train 14 fixes (vfork sibling exec, fanotify pid, request_key construction, key
-sysctls), ptrace extras, io_uring extras (buffer rings, page retention, opcodes), filesystem extras
-(binfmt_misc O/C/T, fanotify mount events, host file handles, tmpfs quotas). In progress: Q2 kernel
-misc, Q4 filesystem rest, Q5 network/time rest; then Q3 io_uring rest, FUSE, Q1 per-thread credentials.
+Merge trains 16 and 17 have landed (`a687dcd8a06`, `f6e45f62643`): train 14 fixes, ptrace extras
+(VFORK_DONE, exit events, reap order, SET_SYSCALL_INFO, /proc/<pid>/syscall), io_uring extras (page
+retention, buffer rings, direct descriptors, the remaining opcodes, task work on return to user via
+`Control::run_task_work`, NO_MMAP rings), filesystem extras (binfmt_misc O/C/T, fanotify mount and
+pre-access events, host file handles, tmpfs quotas, ETXTBSY, notification pipes and key watches), kernel
+misc (fchroot, listns, open_tree_attr, process_mrelease, prctl options, seccomp sysctls, core-dump
+notes), vsock host connections, SCTP timers and diag, generic/uevent/usersock netlink, NTP slewing.
+
+Merge train 18 (next, last feature train): review fixes (retained-page RLIMIT_MEMLOCK accounting and
+six major findings), tick-sampled CPU accounting, FUSE, per-thread credentials. After it: validation
+phase (deferred by the user until feature completeness).
 
 Open follow-ups: memory accounting (local branch, paused by the user), fork copy-on-write (memory
 design phase 2b), `mmap/24-1` peaks at 8 GB, mlockall ignores RLIMIT_MEMLOCK (mlockall03), no `ldd`
