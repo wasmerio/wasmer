@@ -24,8 +24,9 @@ use crate::{
 #[derive(Clone, Copy, Default)]
 pub(crate) struct TaskPrctl {
     io_flusher: bool,
-    /// PF_MCE_PROCESS/PF_MCE_EARLY: None selects the system default.
-    mce_early: Option<bool>,
+    /// PF_MCE_PROCESS and PF_MCE_EARLY are independent: CLEAR leaves EARLY set.
+    mce_process: bool,
+    mce_early: bool,
 }
 
 /// Linux mm flags and private-futex hash tuning. The hash size is advisory:
@@ -38,7 +39,7 @@ pub(crate) struct MmPrctl {
 }
 
 impl MmPrctl {
-    pub(crate) fn for_fork(&self) -> Self {
+    pub(crate) fn for_new_mm(&self) -> Self {
         Self {
             mdwe: if self.mdwe & PrctlArg::PR_MDWE_NO_INHERIT.0 != 0 {
                 0
@@ -46,7 +47,7 @@ impl MmPrctl {
                 self.mdwe
             },
             thp_disable: self.thp_disable,
-            // Linux futex_hash_init_mm clears the child's custom hash.
+            // Linux mm_init/futex_hash_init_mm clear the new mm's custom hash.
             futex_slots: None,
         }
     }
@@ -867,29 +868,36 @@ impl Kernel {
                 if arg2 | arg3 | arg4 | arg5 != 0 {
                     return Err(Errno::EINVAL.into());
                 }
-                return Ok(self
-                    .task_ref(caller.task(), |t| t.prctl.mce_early)
-                    .map_or(PrctlArg::PR_MCE_KILL_DEFAULT.0 as i32, i32::from));
+                return Ok(self.task_ref(caller.task(), |t| {
+                    if t.prctl.mce_process {
+                        i32::from(t.prctl.mce_early)
+                    } else {
+                        PrctlArg::PR_MCE_KILL_DEFAULT.0 as i32
+                    }
+                }));
             }
             PrctlOption::PR_MCE_KILL => {
                 if arg4 | arg5 != 0 {
                     return Err(Errno::EINVAL.into());
                 }
                 match arg2 {
-                    0 if arg3 == 0 => self.with_task(caller.task(), |t| t.prctl.mce_early = None),
+                    0 if arg3 == 0 => {
+                        self.with_task(caller.task(), |t| t.prctl.mce_process = false)
+                    }
                     1 => {
-                        // Linux sets PF_MCE_PROCESS before validating arg3, including
-                        // on EINVAL; preserve that observable state transition.
-                        self.with_task(caller.task(), |t| {
-                            t.prctl.mce_early = Some(t.prctl.mce_early.unwrap_or(false))
-                        });
-                        let policy = match arg3 {
-                            0 => Some(false),
-                            1 => Some(true),
-                            2 => None,
+                        // Linux sets PF_MCE_PROCESS before validating arg3. CLEAR
+                        // leaves PF_MCE_EARLY intact, including across a later bad SET.
+                        self.with_task(caller.task(), |t| t.prctl.mce_process = true);
+                        match arg3 {
+                            0 | 1 => {
+                                self.with_task(caller.task(), |t| t.prctl.mce_early = arg3 == 1)
+                            }
+                            2 => self.with_task(caller.task(), |t| {
+                                t.prctl.mce_process = false;
+                                t.prctl.mce_early = false;
+                            }),
                             _ => return Err(Errno::EINVAL.into()),
-                        };
-                        self.with_task(caller.task(), |t| t.prctl.mce_early = policy);
+                        }
                     }
                     _ => return Err(Errno::EINVAL.into()),
                 }
