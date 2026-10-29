@@ -193,6 +193,11 @@ impl Comm {
         Self::new(path.rsplit(|&b| b == b'/').next().unwrap_or_default())
     }
 
+    /// The name, NUL-padded to `TASK_COMM_LEN`.
+    pub(crate) fn bytes(&self) -> [u8; COMM_LEN] {
+        self.0
+    }
+
     /// The name without its NUL padding.
     pub(crate) fn name(&self) -> &[u8] {
         let n = self.0.iter().position(|&b| b == 0).unwrap_or(COMM_LEN);
@@ -223,6 +228,8 @@ pub(crate) struct Ident {
     /// `AUDIT_SID_UNSET` unset). Inherited.
     pub(crate) loginuid: Option<crate::uidgid::Kuid>,
     pub(crate) sessionid: u32,
+    /// The process dumped core (`PF_DUMPCORE`), which its accounting record tells.
+    pub(crate) dumped_core: bool,
 }
 
 impl Ident {
@@ -241,6 +248,7 @@ impl Ident {
             oom_score_adj_min: 0,
             loginuid: None,
             sessionid: u32::MAX,
+            dumped_core: false,
         }
     }
 }
@@ -268,6 +276,7 @@ impl Ident {
         Self {
             pdeathsig: 0,
             child_subreaper: false,
+            dumped_core: false,
             ..self.clone()
         }
     }

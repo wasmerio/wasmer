@@ -248,6 +248,10 @@ One cgroup v2 hierarchy (`kernel/src/cgroup`, `kernel/cgroup/cgroup.c`) with the
 
 `kernel/src/printk.rs` follows `kernel/printk/printk.c`: a ring of records (`log_buf_len` 128 KiB, the newest kept) with sequence numbers, facility, level and time since boot. The kernel logs its banner at boot and its messages where Linux prints them (a refused fork in a cgroup, ...); the embedder adds its warnings about the machine (`Kernel::printk`). `syslog(2)` has every action of `do_syslog`, `/proc/kmsg` reads as `SYSLOG_ACTION_READ` does, and `/dev/kmsg` (1:11) reads one record per read in its `prio,seq,usec,flags;text` form (`EPIPE` once a reader was overtaken), seeks as `devkmsg_llseek` and takes userspace's records, rate-limited per open file as `printk_devkmsg=ratelimit` does. `kernel.dmesg_restrict`, `kernel.printk` and `kernel.printk_devkmsg` are sysctls. There is no console: the console levels are kept but nothing is printed.
 
+### Process accounting
+
+`acct(2)` (`kernel/src/acct.rs`, `kernel/acct.c` with `CONFIG_BSD_PROCESS_ACCT_V3`) names a regular file per pid namespace, outside procfs and sysfs, with `CAP_SYS_PACCT`. When a process's last task is done and before it is a zombie, an `acct_v3` record (64 bytes, little-endian, `AHZ` 100) is made for each pid namespace from its own up that accounts: flags (`AFORK`, `ACORE`, `AXSIG`; `ASU` is not tracked), terminal, exit code as `wait` reports it, real ids as the file's opener sees them, pids in that namespace, start, elapsed, user and system time and the address space's size. Records are appended with the file's credentials by the exit's `exit_mm`, or by a `waitid` before it reports the process; the free space of the file's filesystem is not watched.
+
 ### Pipes and splice
 
 A pipe holds bytes rather than page buffers (`kernel/src/pipe.rs`), so `splice`, `tee` and `vmsplice` (`fs/splice.rs`) copy where Linux moves or lends pages; what they take, give and return follows `fs/splice.c`.

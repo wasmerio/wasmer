@@ -533,6 +533,8 @@ impl Kernel {
                 "process {} is a zombie before its tasks left their memory",
                 process.pid.0
             );
+            // `acct_process`, after the last task's `exit_mm`.
+            self.acct_exit(process, status);
             self.process_exited(process, status);
         }
     }
@@ -1056,6 +1058,8 @@ impl Kernel {
             self.exit_notify(&process);
             process.group.released.wake(PollMask::empty());
         }
+        // The accounting records of the exit, while the task can still wait.
+        self.acct_flush().await;
     }
 
     /// The vfork parent of `child`, the task its instance runs as, if that parent died while

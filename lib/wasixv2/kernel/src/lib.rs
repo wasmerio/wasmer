@@ -8,6 +8,7 @@
 // filesystems); proving it `Send` and `Sync` for the VFS's traits goes past the default depth.
 #![recursion_limit = "256"]
 
+mod acct;
 mod aio;
 mod binfmt_misc;
 mod cgroup;
@@ -189,6 +190,8 @@ pub struct Kernel {
     cgroups: Arc<cgroup::Hierarchy>,
     /// The kernel log.
     printk: Arc<printk::Printk>,
+    /// BSD process accounting.
+    acct: acct::Acct,
     // ---- thr ----
     futexes: futex::Futexes,
     // ---- proc ----
@@ -424,6 +427,7 @@ impl Kernel {
         let cgroups = cgroup::Hierarchy::new(clock.clone(), printk.clone());
         Self {
             printk,
+            acct: acct::Acct::default(),
             ptys: tty::Ptys::new(clock.clone()),
             pseudo: pseudo::Pseudo::new(&vfs, clock),
             nr_open: Arc::default(),
@@ -653,7 +657,7 @@ impl Kernel {
         state.tasks.insert(id, task);
         drop(state);
         // ---- proc ----
-        self.procs.add(process, parent, Signal::SIGCHLD.0);
+        self.procs.add(process, parent, Signal::SIGCHLD.0, false);
         Ok(id)
     }
 
@@ -1671,6 +1675,10 @@ impl Syscalls for Kernel {
 
     async fn unshare(&self, caller: &Caller<'_>, unshare_flags: Ulong) -> SysResult<i32> {
         self.sys_unshare(caller, unshare_flags)
+    }
+
+    async fn acct(&self, caller: &Caller<'_>, name: Cstr) -> SysResult<i32> {
+        self.sys_acct(caller, name).await
     }
 
     async fn syslog(&self, caller: &Caller<'_>, r#type: i32, buf: Buf, len: i32) -> SysResult<i32> {

@@ -195,6 +195,8 @@ pub(crate) struct Node {
     pub(crate) exit_signal: i32,
     /// For `setpgid`'s `EACCES`.
     did_exec: bool,
+    /// Made by `fork`, so a child that never called `execve` is accounted with `AFORK`.
+    forked: bool,
     /// The signal whose default action killed the process.
     killed_by: Option<i32>,
     /// Set once the process exited; it is a zombie until reaped.
@@ -269,8 +271,9 @@ impl Procs {
     }
 
     /// Enters `process` into the tree under `parent` (0 for none), where it holds the pids of
-    /// its thread group, process group and session.
-    pub(crate) fn add(&self, process: Arc<Process>, parent: u32, exit_signal: i32) {
+    /// its thread group, process group and session; `forked` for a child of `fork`
+    /// (`PF_FORKNOEXEC`).
+    pub(crate) fn add(&self, process: Arc<Process>, parent: u32, exit_signal: i32, forked: bool) {
         let pid = process.pid.0;
         let (pgid, sid) = {
             let ident = process.ident.lock_or_recover();
@@ -287,6 +290,7 @@ impl Procs {
                 parent,
                 exit_signal,
                 did_exec: false,
+                forked,
                 killed_by: None,
                 exit: None,
                 pidfs: None,
@@ -806,6 +810,59 @@ impl Kernel {
         self.procs.changed.wake(PollMask::empty());
         self.unhash_reaped();
         self.pid_ns_progress();
+    }
+
+    /// `acct_collect` and `acct_process` for `process`, whose last task is done and whose
+    /// group exited with `status`, before it is seen to exit.
+    pub(crate) fn acct_exit(&self, process: &Arc<Process>, status: i32) {
+        let (exit_code, mut flags, parent) = {
+            let tree = self.procs.tree.lock_or_recover();
+            // Once, before it is a zombie.
+            let Some(node) = tree.nodes.get(&process.pid.0).filter(|n| n.exit.is_none()) else {
+                return;
+            };
+            let (code, flags) = match node.killed_by {
+                Some(sig) => (sig, crate::acct::AXSIG),
+                None => ((status & 0xff) << 8, 0),
+            };
+            let afork = node.forked && !node.did_exec;
+            let flags = flags | if afork { crate::acct::AFORK } else { 0 };
+            (code as u32, flags, node.parent)
+        };
+        if process.ident.lock_or_recover().dumped_core {
+            flags |= crate::acct::ACORE;
+        }
+        let (comm, mem) = {
+            let state = self.state.read_or_recover();
+            let leader = state.tasks.get(&process.pid);
+            let any = || {
+                state
+                    .tasks
+                    .values()
+                    .find(|t| Arc::ptr_eq(&t.process, process))
+            };
+            leader
+                .or_else(any)
+                .map_or((Default::default(), 0), |t| (t.comm.bytes(), t.mm.size()))
+        };
+        let tty = process
+            .ident
+            .lock_or_recover()
+            .tty
+            .as_ref()
+            .map_or(0, |tty| {
+                let dev = tty.device();
+                ((dev.major << 8) | (dev.minor & 0xff)) as u16
+            });
+        let pacct = crate::acct::Pacct {
+            exit_code,
+            flags,
+            mem_kb: mem / 1024,
+            comm,
+            tty,
+            parent,
+        };
+        self.acct_process(process, pacct);
     }
 
     /// `kill_orphaned_pgrp`'s end: the process group `pgid` was just orphaned, and if one of its
@@ -1506,7 +1563,7 @@ impl Kernel {
         };
         // It inherits `RLIMIT_CPU`, and with it the expiry it sets (`posix_cputimers_group_init`).
         process.rlimit_cpu_changed();
-        self.procs.add(process, parent, exit_signal);
+        self.procs.add(process, parent, exit_signal, true);
         self.ptrace_init_task(parent_task, id, flags, exit_signal);
         Ok(id)
     }
@@ -1912,6 +1969,8 @@ impl Kernel {
         )
         .await
         .map_err(|_| SysErr::Restart)??;
+        // A child's accounting record is written before its exit is reported.
+        self.acct_flush().await;
         // The child the wait reaped leaves the task table (`release_task`), and may leave a
         // pid namespace's dying init nothing to wait for.
         self.unhash_reaped();
