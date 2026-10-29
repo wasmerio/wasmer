@@ -5,7 +5,7 @@
 use std::sync::Arc;
 
 use wasixv2_abi::GuestLayout as _;
-use wasixv2_syscalls::TaskId;
+use wasixv2_syscalls::{Control as _, TaskId};
 
 use wasixv2_vfs::Cap;
 
@@ -340,6 +340,8 @@ pub(crate) struct TaskTrace {
     /// The event stop a `clone` of the task owes its tracer once the child is made
     /// (`ptrace_event_pid`), with the child.
     pub(crate) clone_event: Option<(i32, TaskId)>,
+    /// `kernel_clone` reports this after `wait_for_vfork_done` succeeds.
+    pub(crate) vfork_done: Option<TaskId>,
 }
 
 /// A stop the return-to-guest path entered, which the execution layer waits in
@@ -1215,6 +1217,20 @@ impl Kernel {
         let message = tracer.map_or(0, |tracer| self.pids.nr(&tracer.pid_ns, child.0));
         let event = wasixv2_abi::PtraceEvent(event);
         self.ptrace_event(task, event, message as u32 as u64).await;
+    }
+
+    /// Linux kernel/fork.c `kernel_clone`: a successful `wait_for_vfork_done` reports the
+    /// child before the parent returns to userspace.
+    pub(crate) fn ptrace_vfork_done(&self, parent: TaskId, child: TaskId) {
+        let Some(link) = self.trace_link(parent) else {
+            return;
+        };
+        if link.has(wasixv2_abi::PtraceOptions::PTRACE_O_TRACEVFORKDONE) {
+            self.task_signals(parent)
+                .group()
+                .with_trace(parent, |trace| trace.vfork_done = Some(child));
+            self.work_flag(parent).raise();
+        }
     }
 
     /// What `execve` owes a traced caller once it committed (`exec_binprm`): with

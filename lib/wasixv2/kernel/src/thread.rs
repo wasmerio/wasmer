@@ -872,6 +872,7 @@ impl Kernel {
         if let Some(parent) = vfork_parent
             && parent.resumes != Resume::Gone
         {
+            self.ptrace_vfork_done(parent.task, task);
             self.vfork_done(parent.task);
         }
         let (process, signals) = {

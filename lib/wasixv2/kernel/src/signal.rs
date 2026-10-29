@@ -2191,6 +2191,35 @@ impl Kernel {
             None => {}
         }
         loop {
+            // kernel/fork.c `kernel_clone`: VFORK_DONE precedes the parent's return.
+            let trace = &state.task(task).ptrace;
+            if trace.link.is_some()
+                && trace.vfork_done.is_some()
+                && !state.sigkill_pending(task)
+                && state.fatal(task).is_none()
+            {
+                let child = state.task(task).ptrace.vfork_done.take().unwrap();
+                let tracer = state.task(task).ptrace.link.map(|link| link.tracer);
+                drop(state);
+                let message = tracer
+                    .and_then(|tracer| self.task_process(tracer))
+                    .map_or(0, |tracer| self.pids.nr(&tracer.pid_ns, child.0));
+                state = signals.group.state.lock_or_recover();
+                let code =
+                    Signal::SIGTRAP.0 | wasixv2_abi::PtraceEvent::PTRACE_EVENT_VFORK_DONE.0 << 8;
+                let stop = TraceStop {
+                    exit_code: code,
+                    why: SiCode::CLD_TRAPPED,
+                    message: message as u32 as u64,
+                    info: Some(self.ptrace_trap_info(&process, task, Signal::SIGTRAP.0, code)),
+                    sync: Some(crate::ptrace::SyncStop::Trap),
+                };
+                if state.enter_trace_stop(task, stop).is_some() {
+                    drop(state);
+                    self.ptrace_notify_tracer(task, SiCode::CLD_TRAPPED, Signal::SIGTRAP.0);
+                    return Some(GuestAction::Stopped);
+                }
+            }
             // `do_jobctl_trap`: a trap stop is due.
             let trace = &state.task(task).ptrace;
             if trace.link.is_some()
