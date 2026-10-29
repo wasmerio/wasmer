@@ -810,6 +810,7 @@ mod procfs;
 mod ptimer;
 mod pty;
 mod sched;
+mod sigio;
 mod signal;
 mod stdio;
 mod sysvipc;

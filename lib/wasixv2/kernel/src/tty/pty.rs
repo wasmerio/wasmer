@@ -163,7 +163,7 @@ impl Pty {
         if taken > 0
             && let Some(sender) = self.side(to.other())
         {
-            sender.write_wait.wake(PollMask::WRITABLE);
+            sender.wakeup();
         }
     }
 
@@ -174,7 +174,7 @@ impl Pty {
             self.push(side, &tty);
         }
         if let Some(sender) = self.side(side.other()) {
-            sender.write_wait.wake(PollMask::WRITABLE);
+            sender.wakeup();
         }
     }
 
@@ -186,7 +186,7 @@ impl Pty {
             self.packet_status(TiocpktFlags::TIOCPKT_FLUSHWRITE.0 as u8, 0);
         }
         if let Some(sender) = self.side(from) {
-            sender.write_wait.wake(PollMask::WRITABLE);
+            sender.wakeup();
         }
     }
 
@@ -194,7 +194,7 @@ impl Pty {
     pub(super) fn flush_incoming(&self, side: Side) {
         self.buffer(side).lock_or_recover().clear();
         if let Some(sender) = self.side(side.other()) {
-            sender.write_wait.wake(PollMask::WRITABLE);
+            sender.wakeup();
         }
     }
 

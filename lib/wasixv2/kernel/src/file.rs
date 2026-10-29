@@ -14,6 +14,8 @@ use wasixv2_vfs::{File, FileType, LockKey, Path, SeekHole, Vfs};
 use wasixv2_wait::{Interrupt, NoInterrupt, PollMask, PollTable, Pollable};
 
 use crate::epoll::EpollLink;
+use crate::fasync::{Fasync, Fown};
+use crate::fs::FASYNC;
 use crate::sync::MutexExt;
 
 /// What an object needs to know about the call it serves: the open file's status flags as the
@@ -149,6 +151,15 @@ pub trait FileObject: Pollable + Any {
         let _ = (pos, base, offset);
         Err(Errno::ESPIPE)
     }
+
+    /// `f_op->fasync`: puts the open file on the object's lists of files whose owners hear
+    /// when it becomes ready, or takes it off ([`Fasync`]), which sets or clears its
+    /// `O_ASYNC`. `None` for an object that signals nobody (the default): `O_ASYNC` then stays
+    /// as it is and `FIOASYNC` fails with `ENOTTY`.
+    fn fasync(&self, fasync: &Fasync<'_>) -> Option<Result<(), Errno>> {
+        let _ = fasync;
+        None
+    }
 }
 
 /// What a read that had `n` bytes returns once `copied` of them arrived: the count, or `EFAULT`
@@ -211,6 +222,8 @@ pub(crate) struct OpenFile {
     pub(crate) epoll_links: Mutex<Vec<EpollLink>>,
     /// A stream's `flock` identity, made by its first `flock`.
     stream_flock: OnceLock<StreamFlock>,
+    /// Whom I/O signals go to (`f_owner`).
+    pub(crate) fown: Mutex<Fown>,
 }
 
 /// What a stream (pipe, socket) is `flock`ed as: its pseudo inode, and an owner of its own as
@@ -236,6 +249,7 @@ impl OpenFile {
             pos_lock: futures_util::lock::Mutex::new(()),
             epoll_links: Mutex::default(),
             stream_flock: OnceLock::new(),
+            fown: Mutex::default(),
         }
     }
 
@@ -267,6 +281,15 @@ impl OpenFile {
             Backing::Inode(file) => file.file_type() == FileType::Regular,
             Backing::Stream(_, path) => path.dentry.file_type() == FileType::Fifo,
         }
+    }
+
+    /// `O_ASYNC`, which only an object's `fasync` changes, as it puts the file on a list or
+    /// takes it off.
+    pub(crate) fn set_fasync(&self, on: bool) {
+        match on {
+            true => self.flags.fetch_or(FASYNC, Ordering::Relaxed),
+            false => self.flags.fetch_and(!FASYNC, Ordering::Relaxed),
+        };
     }
 
     pub(crate) fn set_status_flags(&self, flags: OpenFlags) {
@@ -501,10 +524,19 @@ impl OpenFile {
 }
 
 impl Drop for OpenFile {
-    /// `eventpoll_release`: the last reference is gone, so no epoll watches the file any more.
+    /// `__fput`: the last reference is gone, so no epoll watches the file any more
+    /// (`eventpoll_release`), and it comes off its object's lists of files to signal.
     fn drop(&mut self) {
         let links = std::mem::take(self.epoll_links.get_mut_or_recover());
         crate::epoll::release(self, links);
+        if self.flags().0 & FASYNC != 0
+            && let Some(object) = self.object()
+        {
+            object.fasync(&Fasync {
+                file: self,
+                on: None,
+            });
+        }
     }
 }
 

@@ -528,8 +528,8 @@ impl Kernel {
         Ok(new)
     }
 
-    /// `fcntl`: descriptor flags, status flags, duplication, record locks, pipe sizes and
-    /// seals.
+    /// `fcntl`: descriptor flags, status flags, duplication, record locks, owners and signals
+    /// of signal-driven I/O, pipe sizes and seals.
     pub(crate) async fn sys_fcntl(
         &self,
         caller: &Caller<'_>,
@@ -582,9 +582,22 @@ impl Kernel {
                 if flags.contains(OpenFlags::O_DIRECT) && !file.can_direct() {
                     return Err(Errno::EINVAL.into());
                 }
+                // The object's `fasync` changes `O_ASYNC`; without one it stays as it is.
+                if (flags.0 ^ file.flags().0) & FASYNC != 0
+                    && let Some(result) = self.fasync(caller, fd, &file, flags.0 & FASYNC != 0)
+                {
+                    result?;
+                }
                 file.set_status_flags(flags);
                 Ok(0)
             }
+            FcntlCmd::F_GETOWN => Ok(self.f_getown(caller, &file)),
+            FcntlCmd::F_SETOWN => self.f_setown(caller, &file, arg as i32),
+            FcntlCmd::F_GETOWN_EX => self.f_getown_ex(caller, &file, arg).await,
+            FcntlCmd::F_SETOWN_EX => self.f_setown_ex(caller, &file, arg).await,
+            FcntlCmd::F_GETOWNER_UIDS => self.f_getowner_uids(caller, &file, arg).await,
+            FcntlCmd::F_GETSIG => Ok(self.f_getsig(&file)),
+            FcntlCmd::F_SETSIG => self.f_setsig(&file, arg),
             FcntlCmd::F_GETPIPE_SZ | FcntlCmd::F_SETPIPE_SZ => {
                 let privileged = self.cred(caller).capable(wasixv2_vfs::Cap::SysResource);
                 crate::pipe::fcntl(&file, cmd, arg, privileged)

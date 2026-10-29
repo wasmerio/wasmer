@@ -16,6 +16,7 @@ use wasixv2_vnet::{Domain, RecvMsg, SendMsg, Socket, SocketKind};
 use wasixv2_wait::{PollMask, PollTable, PollWaiter, Pollable, WaitQueue, Wakeup};
 
 use crate::{
+    fasync::{Fasync, SockAsync},
     file::{FileObject, Io, ReadSink, delivered, taken},
     ns::NetNs,
     sync::MutexExt,
@@ -168,6 +169,8 @@ pub(crate) struct SocketFile {
     /// `tcp_recvmsg`), so what it leaves behind on a fault is still first.
     /// Never held while waiting for data.
     io_lock: futures_util::lock::Mutex<()>,
+    /// The files that get I/O signals, which the socket's wakeups send.
+    pub(crate) fasync: Arc<SockAsync>,
 }
 
 impl SocketFile {
@@ -178,6 +181,7 @@ impl SocketFile {
             host,
             timeouts: Timeouts::default(),
             io_lock: futures_util::lock::Mutex::new(()),
+            fasync: Arc::default(),
         }
     }
 
@@ -261,10 +265,16 @@ impl SocketFile {
                 flags,
                 ..msg
             };
+            // A send that finds no room has room appearing signal (`SOCKWQ_ASYNC_NOSPACE`).
+            let send = || {
+                let sent = socket.send(part);
+                if sent == Err(Errno::EAGAIN) {
+                    self.fasync.set_nospace();
+                }
+                sent
+            };
             match wait
-                .wait(WaitOn::Object(&**socket), PollMask::WRITABLE, || {
-                    socket.send(part)
-                })
+                .wait(WaitOn::Object(&**socket), PollMask::WRITABLE, send)
                 .await
             {
                 Ok(n) => sent += n,
@@ -329,6 +339,11 @@ impl FileObject for SocketFile {
 
     fn buffered(&self) -> usize {
         self.socket.input_len().unwrap_or(0)
+    }
+
+    /// `sock_fasync`: the network's socket signals through its wakeups.
+    fn fasync(&self, fasync: &Fasync<'_>) -> Option<Result<(), Errno>> {
+        Some(self.fasync.watch(&*self.socket, fasync))
     }
 
     /// `sock_splice_read`.

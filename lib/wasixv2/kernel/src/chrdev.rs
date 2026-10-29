@@ -16,6 +16,7 @@ use wasixv2_wait::{PollMask, PollTable, Pollable};
 
 use crate::{
     Kernel,
+    fasync::{Fasync, FasyncList},
     file::{FileObject, Io, SeekBase},
     sync::MutexExt,
 };
@@ -60,6 +61,9 @@ struct MemDevice {
 struct RandomDevice {
     host: Arc<dyn Host>,
     _file: File,
+    /// The files that asked for I/O signals (`random_fasync`). Linux signals them once, when
+    /// the pool becomes ready, which it is here from the start.
+    fasync: FasyncList,
 }
 
 impl Kernel {
@@ -85,6 +89,7 @@ impl Kernel {
             (MEM_MAJOR, 8 | 9) => Arc::new(RandomDevice {
                 host: self.host.clone(),
                 _file: file,
+                fasync: FasyncList::default(),
             }),
             _ => return Err(Errno::ENXIO.into()),
         };
@@ -294,6 +299,12 @@ impl FileObject for RandomDevice {
 
     fn fills_reads(&self) -> bool {
         true
+    }
+
+    /// `random_fasync`.
+    fn fasync(&self, fasync: &Fasync<'_>) -> Option<Result<(), Errno>> {
+        self.fasync.helper(fasync);
+        Some(Ok(()))
     }
 
     /// `copy_splice_read`.

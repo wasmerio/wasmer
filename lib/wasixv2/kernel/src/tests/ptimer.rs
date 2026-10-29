@@ -26,7 +26,8 @@ const INFO: u32 = 0x400;
 const TIMEOUT: u32 = 0x500;
 const ACTION: u32 = 0x540;
 
-struct RealHost(Instant);
+/// Real clocks and threads, so the kernel's timer driver runs.
+pub(super) struct RealHost(pub(super) Instant);
 
 impl Host for RealHost {
     fn realtime(&self) -> Duration {

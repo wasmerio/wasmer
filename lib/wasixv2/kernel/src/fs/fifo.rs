@@ -10,6 +10,7 @@ use wasixv2_vfs::File;
 use wasixv2_wait::{Interrupt, PollMask, PollTable, Pollable};
 
 use crate::{
+    fasync::Fasync,
     file::{FileObject, Io, ReadSink},
     pipe::{Pipe, PipeEnd, fifo_pipe},
     pseudo::PIPEFS_MAGIC,
@@ -127,6 +128,13 @@ impl FileObject for FifoFile {
 
     fn buffered(&self) -> usize {
         self.read.as_ref().map_or(0, |end| end.buffered())
+    }
+
+    /// `pipe_fasync`: on the readers' list with a read end, the writers' with a write end.
+    fn fasync(&self, fasync: &Fasync<'_>) -> Option<Result<(), Errno>> {
+        let (read, write) = (self.read.is_some(), self.write.is_some());
+        self.pipe.fasync(fasync, read, write);
+        Some(Ok(()))
     }
 
     fn ioctl<'a>(

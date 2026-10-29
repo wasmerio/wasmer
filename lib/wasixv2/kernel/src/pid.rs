@@ -356,6 +356,14 @@ impl Pids {
         }
     }
 
+    /// Whether something of kind `ty` is attached to `id` (`pid_task(pid, type)` is not
+    /// `NULL`): the task with the id, the thread group it leads, a process in the group or
+    /// session it names.
+    pub(crate) fn attached(&self, id: u32, ty: PidType) -> bool {
+        let table = self.table.read_or_recover();
+        table.get(&id).is_some_and(|e| e.users[ty as usize] > 0)
+    }
+
     /// `pid_nr_ns`: the number `id` has in `ns`, 0 when it has none there.
     pub(crate) fn nr(&self, ns: &PidNs, id: u32) -> Pid {
         let table = self.table.read_or_recover();

@@ -58,15 +58,17 @@ impl Kernel {
                 files.lock_or_recover().set_cloexec(fd, cloexec);
                 Ok(0)
             }
-            // `ioctl_fioasync`: no object here has `fasync`, so turning it on (or off, once
-            // `O_ASYNC` came from open) is ENOTTY, and asking for what is already so is 0.
+            // `ioctl_fioasync`: a change goes to the object's `fasync`, and is ENOTTY for an
+            // object without one; asking for what is already so is 0.
             IoctlRequest::FIOASYNC => {
                 let on: i32 = read_value(caller.memory(), GuestPtr::new(arg)).await?;
                 let flag = if on != 0 { FASYNC } else { 0 };
-                match (flag ^ file.flags().0) & FASYNC {
-                    0 => Ok(0),
-                    _ => Err(Errno::ENOTTY.into()),
+                if (flag ^ file.flags().0) & FASYNC == 0 {
+                    return Ok(0);
                 }
+                self.fasync(caller, fd, &file, on != 0)
+                    .unwrap_or(Err(Errno::ENOTTY))?;
+                Ok(0)
             }
             // `inode_get_bytes` of a directory, regular file or symlink.
             IoctlRequest::FIOQSIZE => {
@@ -115,6 +117,20 @@ impl Kernel {
                 Ok(0)
             }
             // ---- net ----
+            // `sock_ioctl`: a socket's owner.
+            IoctlRequest::FIOSETOWN | IoctlRequest::SIOCSPGRP
+                if self.socket_net(&file).is_some() =>
+            {
+                let who: i32 = read_value(caller.memory(), GuestPtr::new(arg)).await?;
+                self.f_setown(caller, &file, who)
+            }
+            IoctlRequest::FIOGETOWN | IoctlRequest::SIOCGPGRP
+                if self.socket_net(&file).is_some() =>
+            {
+                let who = self.f_getown(caller, &file);
+                write_value(caller.memory(), GuestPtrMut::new(arg), &who).await?;
+                Ok(0)
+            }
             _ if crate::net::is_dev_ioctl(request)
                 && let Some(net) = self.socket_net(&file) =>
             {
