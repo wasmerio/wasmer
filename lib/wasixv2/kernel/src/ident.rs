@@ -7,7 +7,7 @@ use std::fmt;
 
 use wasixv2_abi::{
     ConstBuf, ConstGidArray, ConstUserCapDataArray, Gid, GidArray, GuestPtr, GuestPtrMut,
-    NewUtsname, NewUtsnamePtr, Pid, PrctlOption, Uid, UidPtr, Ulong, UserCapDataArray,
+    NewUtsname, NewUtsnamePtr, Pid, PrctlArg, PrctlOption, Uid, UidPtr, Ulong, UserCapDataArray,
     UserCapDataStruct, UserCapHeaderPtr, UserCapHeaderStruct,
 };
 use wasixv2_syscalls::{Caller, Errno, SysErr, SysResult, read_value, write_value};
@@ -19,6 +19,38 @@ use crate::{
     startup::Identity,
     sync::MutexExt,
 };
+
+/// Linux task flags controlled by prctl; copied on clone and preserved on exec.
+#[derive(Clone, Copy, Default)]
+pub(crate) struct TaskPrctl {
+    io_flusher: bool,
+    /// PF_MCE_PROCESS/PF_MCE_EARLY: None selects the system default.
+    mce_early: Option<bool>,
+}
+
+/// Linux mm flags and private-futex hash tuning. The hash size is advisory:
+/// the kernel's own futex buckets remain an implementation detail.
+#[derive(Clone, Copy, Default)]
+pub(crate) struct MmPrctl {
+    mdwe: u32,
+    thp_disable: u32,
+    futex_slots: Option<u32>,
+}
+
+impl MmPrctl {
+    pub(crate) fn for_fork(&self) -> Self {
+        Self {
+            mdwe: if self.mdwe & PrctlArg::PR_MDWE_NO_INHERIT.0 != 0 {
+                0
+            } else {
+                self.mdwe
+            },
+            thp_disable: self.thp_disable,
+            // Linux futex_hash_init_mm clears the child's custom hash.
+            futex_slots: None,
+        }
+    }
+}
 
 /// `TASK_COMM_LEN`.
 const COMM_LEN: usize = 16;
@@ -799,7 +831,86 @@ impl Kernel {
             PrctlOption::PR_SET_SECCOMP => {
                 return self.prctl_set_seccomp(caller, arg2, arg3).await;
             }
-            PrctlOption::PR_GET_TIMING | PrctlOption::PR_GET_THP_DISABLE => return Ok(0),
+            PrctlOption::PR_SET_IO_FLUSHER | PrctlOption::PR_GET_IO_FLUSHER => {
+                // Linux kernel/sys.c:sys_prctl checks capable() before arguments.
+                if !self.cred(caller).capable_init(Cap::SysResource) {
+                    return Err(Errno::EPERM.into());
+                }
+                if arg3 | arg4 | arg5 != 0
+                    || (option == PrctlOption::PR_GET_IO_FLUSHER && arg2 != 0)
+                {
+                    return Err(Errno::EINVAL.into());
+                }
+                if option == PrctlOption::PR_GET_IO_FLUSHER {
+                    return Ok(self.task_ref(caller.task(), |t| t.prctl.io_flusher) as i32);
+                }
+                let value = flag(arg2)?;
+                self.with_task(caller.task(), |t| t.prctl.io_flusher = value);
+            }
+            PrctlOption::PR_GET_AUXV => {
+                if arg4 | arg5 != 0 {
+                    return Err(Errno::EINVAL.into());
+                }
+                let mut auxv = process.auxv.lock_or_recover().clone();
+                auxv.resize(crate::startup::SAVED_AUXV_SIZE, 0);
+                let size = auxv.len().min(arg3 as usize);
+                if size != 0 {
+                    memory.write(arg2, &auxv[..size]).await?;
+                }
+                return Ok(auxv.len() as i32);
+            }
+            PrctlOption::PR_GET_TID_ADDRESS => {
+                let addr = self.task_ref(caller.task(), |t| t.thread.tid_address());
+                put_int(addr).await?;
+            }
+            PrctlOption::PR_MCE_KILL_GET => {
+                if arg2 | arg3 | arg4 | arg5 != 0 {
+                    return Err(Errno::EINVAL.into());
+                }
+                return Ok(self
+                    .task_ref(caller.task(), |t| t.prctl.mce_early)
+                    .map_or(PrctlArg::PR_MCE_KILL_DEFAULT.0 as i32, i32::from));
+            }
+            PrctlOption::PR_MCE_KILL => {
+                if arg4 | arg5 != 0 {
+                    return Err(Errno::EINVAL.into());
+                }
+                match arg2 {
+                    0 if arg3 == 0 => self.with_task(caller.task(), |t| t.prctl.mce_early = None),
+                    1 => {
+                        // Linux sets PF_MCE_PROCESS before validating arg3, including
+                        // on EINVAL; preserve that observable state transition.
+                        self.with_task(caller.task(), |t| {
+                            t.prctl.mce_early = Some(t.prctl.mce_early.unwrap_or(false))
+                        });
+                        let policy = match arg3 {
+                            0 => Some(false),
+                            1 => Some(true),
+                            2 => None,
+                            _ => return Err(Errno::EINVAL.into()),
+                        };
+                        self.with_task(caller.task(), |t| t.prctl.mce_early = policy);
+                    }
+                    _ => return Err(Errno::EINVAL.into()),
+                }
+            }
+            PrctlOption::PR_SET_MDWE
+            | PrctlOption::PR_GET_MDWE
+            | PrctlOption::PR_FUTEX_HASH
+            | PrctlOption::PR_SET_THP_DISABLE
+            | PrctlOption::PR_GET_THP_DISABLE => {
+                return self.mm_prctl(caller, option, [arg2, arg3, arg4, arg5]);
+            }
+            PrctlOption::PR_GET_TIMING => return Ok(0),
+            PrctlOption::PR_SET_TIMING => {
+                if arg2 != PrctlArg::PR_TIMING_STATISTICAL.0 {
+                    return Err(Errno::EINVAL.into());
+                }
+            }
+            // Linux include/linux/syscall_user_dispatch.h:set_syscall_user_dispatch
+            // returns EINVAL with the feature disabled. Wasm has no syscall PC for
+            // checking the permitted code range; see DESIGN.md's limits table.
+            PrctlOption::PR_SET_SYSCALL_USER_DISPATCH => return Err(Errno::EINVAL.into()),
             // `prctl_set_mm` needs CAP_SYS_RESOURCE over the initial user namespace, and even
             // then the wasm memory layout has nothing it could change.
             PrctlOption::PR_SET_MM => {
@@ -808,12 +919,74 @@ impl Kernel {
                     false => Err(Errno::EPERM.into()),
                 };
             }
-            PrctlOption::PR_SET_THP_DISABLE | PR_SET_VMA => {}
+            PR_SET_VMA => {}
             PrctlOption::PR_SET_PTRACER => return self.yama_set_ptracer(caller, arg2),
             // No preemptive slice extensions on wasm; see DESIGN.md. The prctl
             // is deliberately unsupported while rseq_slice_yield returns zero.
             PrctlOption::PR_RSEQ_SLICE_EXTENSION => return Err(Errno::EINVAL.into()),
             _ => return Err(Errno::EINVAL.into()),
+        }
+        Ok(0)
+    }
+}
+
+impl Kernel {
+    /// Linux kernel/sys.c:prctl_{set,get}_mdwe, prctl_{set,get}_thp_disable
+    /// and kernel/futex/core.c:futex_hash_prctl/futex_hash_allocate.
+    fn mm_prctl(
+        &self,
+        caller: &Caller<'_>,
+        op: PrctlOption,
+        [arg2, arg3, arg4, arg5]: [u32; 4],
+    ) -> SysResult<i32> {
+        let mm = self.mm(caller.task());
+        let mut state = mm.prctl.lock_or_recover();
+        match op {
+            PrctlOption::PR_GET_MDWE | PrctlOption::PR_GET_THP_DISABLE => {
+                if arg2 | arg3 | arg4 | arg5 != 0 {
+                    return Err(Errno::EINVAL.into());
+                }
+                return Ok(if op == PrctlOption::PR_GET_MDWE {
+                    state.mdwe
+                } else {
+                    state.thp_disable
+                } as i32);
+            }
+            PrctlOption::PR_SET_MDWE => {
+                let refuse = PrctlArg::PR_MDWE_REFUSE_EXEC_GAIN.0;
+                let no_inherit = PrctlArg::PR_MDWE_NO_INHERIT.0;
+                if arg3 | arg4 | arg5 != 0
+                    || arg2 & !(refuse | no_inherit) != 0
+                    || (arg2 & no_inherit != 0 && arg2 & refuse == 0)
+                {
+                    return Err(Errno::EINVAL.into());
+                }
+                if state.mdwe != 0 && state.mdwe != arg2 {
+                    return Err(Errno::EPERM.into());
+                }
+                state.mdwe = arg2;
+            }
+            PrctlOption::PR_SET_THP_DISABLE => {
+                let except = PrctlArg::PR_THP_DISABLE_EXCEPT_ADVISED.0;
+                if arg4 | arg5 != 0 || arg3 & !except != 0 || (arg2 == 0 && arg3 != 0) {
+                    return Err(Errno::EINVAL.into());
+                }
+                state.thp_disable = if arg2 == 0 { 0 } else { 1 | arg3 };
+            }
+            PrctlOption::PR_FUTEX_HASH => match arg2 {
+                1 => {
+                    if arg4 != 0 || (arg3 != 0 && (arg3 == 1 || !arg3.is_power_of_two())) {
+                        return Err(Errno::EINVAL.into());
+                    }
+                    if state.futex_slots == Some(0) {
+                        return Err(Errno::EBUSY.into());
+                    }
+                    state.futex_slots = Some(arg3);
+                }
+                2 => return Ok(state.futex_slots.unwrap_or(0) as i32),
+                _ => return Err(Errno::EINVAL.into()),
+            },
+            _ => unreachable!("only mm prctls are forwarded"),
         }
         Ok(0)
     }

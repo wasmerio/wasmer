@@ -343,6 +343,7 @@ struct Task {
     comm: ident::Comm,
     /// Policy, priorities, affinity and timer slack: all per thread, as on Linux.
     sched: sched::Sched,
+    prctl: ident::TaskPrctl,
     /// Seccomp mode and filters, and `no_new_privs`.
     seccomp: seccomp::Seccomp,
     /// The thread keyring (`cred->thread_keyring`), which a new task starts without.
@@ -671,6 +672,7 @@ impl Kernel {
             css,
             comm,
             sched: sched::Sched::default(),
+            prctl: ident::TaskPrctl::default(),
             seccomp: seccomp::Seccomp::default(),
             thread_keyring: None,
             io: None,

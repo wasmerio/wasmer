@@ -1564,6 +1564,7 @@ impl Kernel {
                 restart: None,
                 comm: task.comm,
                 sched,
+                prctl: task.prctl,
                 seccomp,
                 thread_keyring: None,
                 io: crate::sched::copy_io(task.io.as_ref(), flags.contains(CloneFlags::CLONE_IO)),

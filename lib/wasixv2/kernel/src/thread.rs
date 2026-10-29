@@ -104,6 +104,10 @@ pub(crate) struct ThreadState {
 }
 
 impl ThreadState {
+    pub(crate) fn tid_address(&self) -> u32 {
+        self.clear_child_tid
+    }
+
     /// The task called `exit` or was killed with its thread.
     pub(crate) fn exited(&self) -> bool {
         self.exited
@@ -282,6 +286,7 @@ impl Kernel {
                 restart: None,
                 comm: task.comm,
                 sched,
+                prctl: task.prctl,
                 seccomp: task.seccomp.clone(),
                 thread_keyring: None,
                 io: crate::sched::copy_io(task.io.as_ref(), flags.contains(CloneFlags::CLONE_IO)),
@@ -883,8 +888,10 @@ impl Kernel {
             unstarted.extend(entry.work.push(GuestAction::Exit(0)));
             // The caller goes on as the leader: with its seccomp state, not the old leader's.
             let seccomp = entry.seccomp.clone();
+            let prctl = entry.prctl;
             let entry = state.tasks.get_mut(&leader).expect("the leader is listed");
             entry.seccomp = seccomp;
+            entry.prctl = prctl;
             if detached {
                 entry.work.detach_exec();
             }
