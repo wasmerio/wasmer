@@ -580,3 +580,71 @@ tests `train15` `fdd63ba` (SCTP fixture, runner config fix, re-bless).
 Land in order: ABI `main` `d0187cb..ce81dcf`; libc2 `main` `5e03a9fe..6b478da6`; tests `main`
 `cabce84..fdd63ba`; wasmer `feat/wasixv2` `f9c8b36bad6..f850deddc36`; plan. Only the train branches
 and `wasixv2/plan` are pushed by the integration agent; the orchestrator lands the mains.
+
+## 2026-10-29: merge train 16 — NO-GO
+
+Do not land this train until `ltp/syscalls/clock_gettime01` is resolved. Integration, gates,
+one full suite, regression-only follow-up, smoke and shared sysroots are complete. The remaining
+regression is deliberately unblessed. The orchestrator owns remote main/feat landing.
+
+Candidates: ABI `train16` **47561c7** on `ce81dcf`; libc2 `train16` **c39b9060** on `6b478da6`;
+tests `train16` **a3f1f7d** on `fdd63ba`; wasmer `wasixv2/train16` **8f08d480859** on
+`f850deddc36` (40 commits). Both consumers pin ABI 47561c7 and the same tests head.
+
+- Inputs: fix14's six fixes, P2b ptrace/lifecycle/syscall editing/introspection, P4b io_uring
+  retention/provided rings/resources/opcodes, P5b binfmt handovers/quotas/fanotify/overlay/handles.
+  Package ancestors already landed under other hashes were excluded using cherry/patch and
+  package-log audits. WIP changes were folded into their conventional completion commits;
+  individual ABI/test pins, P2b's P1 merge and redundant Yama change were omitted. Five ABI
+  additions form one chain; Wasmer regenerated once, libc2 assertions match its golden file.
+- Integration retains task namespaces, syscall context, per-thread I/O accounting and cgroups
+  across non-leader exec; syscall entry retains current-task scope and train15's exit liveness
+  guard. By-file descriptor destinations share existing open/socket checks, including Landlock,
+  net capabilities, SCTP, packet and vsock. Key sysctls use parent 124 in the combined proc table.
+- Small runtime fix `c5c49e45e04`: queued VFORK_DONE keeps a PidRef until delivery. Linux
+  `kernel/fork.c:kernel_clone` holds get_task_pid through wait_for_vfork_done/ptrace_event_pid.
+  The new test reports PID 0 instead of 3 before the fix, including child autoreap; the hand
+  tracer now gets VFORK_DONE and signal EXIT once each and exits cleanly.
+- Gates: all 23 crate test invocations passed (1487 tests initially), then kernel 889 after
+  the PID fix and 890 after the key fix (1489 unique crate tests covered). Makefile-flags
+  all-target clippy, fmt and release passed; final CLI 59 passed / 12 ignored, tty 6 passed.
+- Exactly ONE full suite, CPUs 0-3, runtime source c5c49e45e04: raw **3526 passed / 582 expected
+  failures / 2 unexpected failures / 15 unexpected passes / 737 ignored**. No new registrations,
+  no pass-to-ignored regressions, no non-regression new failures. No new-pass triage or second
+  full suite. Two targeted regressions were rerun unblessed.
+- Fixed regression `request_key02` in `303055f1026`: an unrelated expired nested keyring must
+  not replace a searchable miss with EKEYEXPIRED. Linux `security/keys/keyring.c` separates
+  search_nested_keyrings traversal from keyring_search_iterator candidate validation. Its new
+  unit test fails before the fix; it also covers live contents of an expired ring and explicit
+  destination validation. Targeted request_key02 passes afterward.
+- Remaining regression: `clock_gettime01` repeats exit 137 from LTP's own 30-second watchdog.
+  Setup spins on `/proc/self/stat` until utime becomes nonzero, before any clock assertions.
+  Targeted trace shows the open/read/lseek/close loop; no host panic was observed. The executor
+  CpuSample estimates every syscall's system cost from each 256th call; periodic workloads can
+  alias an expensive sample and leave user time at zero (inference from code and this trace).
+  Proposed follow-up: design user/system attribution using observed guest/kernel boundaries
+  or independent mode sampling, following Linux `kernel/sched/cputime.c:account_process_tick`,
+  with a deterministic mixed-cost syscall-loop regression. No sampling constant tweak or
+  kernel/exec contract change was made. Logs and archived repro: `~/wasixv2-orch/logs/train16/`.
+- Final observed outcomes after the targeted key correction (pass / xfail / unexpected fail /
+  ignored): own **290/0/0/1**, libc-test **399/22/0/0**, POSIX **1538/247/0/91**, LTP
+  **1315/313/1/645**; total **3542/582/1/737**. `ef-corrected` records actual outcomes;
+  `ef-final` expectations intentionally leave clock_gettime01 unlisted. All 15 remaining
+  handwritten causes were preserved; the three repaired handwritten cases and fanotify11
+  were removed as requested.
+- Final smoke: sws classic/Linux 28/28 each; v1 eight plus known Python expected failure;
+  UDP 6/6; extras and all userlands; C++ 9/9; pty bash 11/11 and no-tty. Exit sequences match
+  train15. All 13 feature commands pass: prior seven plus VFORK_DONE/signal EXIT, provided-buffer
+  ring RECV and SPLICE, binfmt O interpreter with AT_EXECFD script contents, fanotify mount
+  attach/detach IDs, tmpfs EDQUOT and request_key negative caching. Final runtime 303055f1026
+  and full-suite runtime c5c49e45e04 are archived outside repositories.
+- Shared libc2 local main fast-forwarded 6b478da6..c39b9060; both shared sysroots rebuilt with
+  MAKEFLAGS= and OMP_NUM_THREADS=3, nice19/CPUs4-7; both run.sh checks EXIT 0. No remote main pushed.
+- Carry package limitations: exact mmap fault quota accounting/SIGBUS needs an agreed kernel/exec
+  contract; host handle decode requires host CAP_DAC_READ_SEARCH and native bodies over 116 bytes
+  remain unsupported; io_uring SQPOLL, IOPOLL, NO_MMAP and REGISTERED_FD_ONLY remain unsupported.
+
+After the clock regression is fixed and validated, landing order is ABI -> libc2 -> tests ->
+wasmer -> plan. Current candidate ranges: ABI `ce81dcf..47561c7`; libc2 `6b478da6..c39b9060`;
+tests `fdd63ba..a3f1f7d`; wasmer `f850deddc36..8f08d480859`. Only train16 branches and the
+fast-forward `wasixv2/plan` are pushed by this agent. **NO-GO: hold main/feat landing.**
