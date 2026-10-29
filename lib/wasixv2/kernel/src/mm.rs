@@ -1450,6 +1450,12 @@ impl Kernel {
         let mm = self.mm(caller.task());
         let _op = mm.op.lock().await;
         self.check_mapped(caller, start, len).await?;
+        // `MS_INVALIDATE` cannot drop locked pages (`VM_LOCKED`). Linux finds that at the first
+        // locked area, after flushing the areas before it; here nothing is synchronised then.
+        let (first, end) = (start / PAGE_SIZE, (start + len) / PAGE_SIZE);
+        if flags.contains(MsyncFlags::MS_INVALIDATE) && mm.space().locked.count(first, end) > 0 {
+            return Err(Errno::EBUSY.into());
+        }
         let mut mappings = mm.take_range(start, start + len);
         let mut result = Ok(());
         for mapping in &mut mappings {
