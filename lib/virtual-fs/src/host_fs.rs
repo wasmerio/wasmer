@@ -215,9 +215,9 @@ impl crate::FileSystem for FileSystem {
             if !to_parent.exists() {
                 return Err(FsError::EntryNotFound);
             }
-            let result = fs::rename(&from, &to).map_err(Into::into);
+            fs::rename(&from, &to).map_err(FsError::from)?;
             let _ = set_file_mtime(&to, FileTime::now()).map(|_| ());
-            result
+            Ok(())
         })
     }
 
@@ -1194,6 +1194,35 @@ mod tests {
         assert!(
             bar_realpath.join("baz/world2.txt").exists(),
             "world2.txt was moved to the correct place"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_rename_across_directories_preserves_hard_links() {
+        let temp = TempDir::new().unwrap();
+        let fs = FileSystem::new(Handle::current(), temp.path()).unwrap();
+        let from = temp.path().join("from");
+        let to = temp.path().join("dir/to");
+        std::fs::create_dir(temp.path().join("dir")).unwrap();
+        std::fs::write(&from, b"new").unwrap();
+        std::fs::write(&to, b"old").unwrap();
+        std::fs::hard_link(&from, temp.path().join("source_alias")).unwrap();
+        std::fs::hard_link(&to, temp.path().join("destination_alias")).unwrap();
+
+        fs.rename(Path::new("from"), Path::new("dir/to"))
+            .await
+            .unwrap();
+
+        assert!(!from.exists());
+        assert_eq!(std::fs::read(&to).unwrap(), b"new");
+        assert_eq!(
+            std::fs::read(temp.path().join("destination_alias")).unwrap(),
+            b"old",
+        );
+        std::fs::write(&to, b"updated").unwrap();
+        assert_eq!(
+            std::fs::read(temp.path().join("source_alias")).unwrap(),
+            b"updated",
         );
     }
 

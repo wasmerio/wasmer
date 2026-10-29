@@ -2975,6 +2975,7 @@ pub fn fs_error_from_wasi_err(err: Errno) -> FsError {
         Errno::Connaborted => FsError::ConnectionAborted,
         Errno::Connrefused => FsError::ConnectionRefused,
         Errno::Connreset => FsError::ConnectionReset,
+        Errno::Xdev => FsError::CrossesDevices,
         Errno::Intr => FsError::Interrupted,
         Errno::Inval => FsError::InvalidInput,
         Errno::Notconn => FsError::NotConnected,
@@ -3000,6 +3001,7 @@ pub fn fs_error_into_wasi_err(fs_error: FsError) -> Errno {
         FsError::ConnectionAborted => Errno::Connaborted,
         FsError::ConnectionRefused => Errno::Connrefused,
         FsError::ConnectionReset => Errno::Connreset,
+        FsError::CrossesDevices => Errno::Xdev,
         FsError::Interrupted => Errno::Intr,
         FsError::InvalidData => Errno::Io,
         FsError::InvalidFd => Errno::Badf,
@@ -3032,6 +3034,14 @@ mod tests {
 
     use crate::WasiEnvBuilder;
     use crate::bin_factory::{BinaryPackage, BinaryPackageMount, BinaryPackageMounts};
+
+    #[test]
+    fn cross_device_errors_preserve_wasi_errno() {
+        let error = FsError::from(std::io::Error::from(std::io::ErrorKind::CrossesDevices));
+        assert_eq!(fs_error_into_wasi_err(error), Errno::Xdev);
+        let error: std::io::Error = fs_error_from_wasi_err(Errno::Xdev).into();
+        assert_eq!(error.kind(), std::io::ErrorKind::CrossesDevices);
+    }
 
     #[tokio::test]
     async fn dup2_preserves_active_stdio_rights() {
