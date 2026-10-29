@@ -5,6 +5,8 @@
 //! `MAX_NUMNODES` 1) takes node 0 or `FUTEX_NO_NODE`, which it replaces with 0
 //! (`get_futex_key`). Timeouts are absolute, on `CLOCK_MONOTONIC` or `CLOCK_REALTIME`.
 
+use std::time::Duration;
+
 use wasixv2_abi::{
     ClockId, ConstFutexWaitvArray, ConstKernelTimespecPtr, Futex2Flags, FutexMisc, FutexWaitv,
     GuestLayout, GuestPtr, GuestPtrMut, KernelTimespecPtr, U32Ptr, Ulong,
@@ -249,8 +251,15 @@ impl Kernel {
             return Err(Errno::EINVAL.into());
         }
         let word = self.futex2_word(caller, uaddr.addr(), flags, true).await?;
-        self.do_futex_wait(caller, word, AtomicWord::U32(val), mask, timeout)
-            .await
+        self.do_futex_wait(
+            caller,
+            word,
+            AtomicWord::U32(val),
+            mask,
+            timeout,
+            Duration::ZERO,
+        )
+        .await
     }
 
     /// `futex_waitv`: waits on up to `FUTEX_WAITV_MAX` futexes at once, until one is woken;
@@ -314,7 +323,7 @@ impl Kernel {
                 }
             }
         }
-        let mut timer = self.futex_timer(timeout);
+        let mut timer = self.futex_timer(timeout, Duration::ZERO);
         loop {
             if queued.iter().any(Queued::taken) || sleeper.exiting() {
                 return Ok(unqueue_multiple(&queued).unwrap_or(0) as i32);

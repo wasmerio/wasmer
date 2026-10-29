@@ -945,7 +945,7 @@ fn an_interrupted_nanosleep_writes_the_time_left_and_restarts_with_it() {
 
     assert_eq!(sleep(), Err(SysErr::RestartBlock));
     let left: KernelTimespec = block_on(read_value(&memory, GuestPtr::new(0x200))).unwrap();
-    assert_eq!((left.tv_sec, left.tv_nsec), (5, 0));
+    assert_eq!((left.tv_sec, left.tv_nsec), (5, 50_000));
     // Without a handler, the call goes on through `restart_syscall`; with the signal blocked
     // now, it sleeps to the end.
     kernel.task_signals(task).replace_blocked(1 << 9);

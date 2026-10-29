@@ -252,6 +252,16 @@ impl Timekeeper {
 
     /// [`Timekeeper::sleep_until_realtime`] on `CLOCK_TAI` with `tai`.
     pub(crate) fn sleep_until(&self, at: Duration, tai: bool) -> LocalFuture<'_, ()> {
+        self.sleep_until_with_slack(at, tai, Duration::ZERO)
+    }
+
+    /// A wall-clock expiry range, rearmed with the same slack after a clock set.
+    pub(crate) fn sleep_until_with_slack(
+        &self,
+        at: Duration,
+        tai: bool,
+        slack: Duration,
+    ) -> LocalFuture<'_, ()> {
         Box::pin(async move {
             let waiter = Waiter::new();
             let _registration = waiter.register(&self.was_set, PollMask::empty());
@@ -263,7 +273,8 @@ impl Timekeeper {
                 if now >= at {
                     return;
                 }
-                let mut sleep = self.host.sleep(at - now);
+                let deadline = self.host.monotonic().saturating_add(at - now);
+                let mut sleep = self.host.sleep_until_range(deadline, slack);
                 waiter.sleep(&NoInterrupt, Some(sleep.as_mut())).await;
             }
         })
@@ -285,6 +296,10 @@ impl Host for Timekeeper {
 
     fn sleep_until(&self, deadline: Duration) -> LocalFuture<'_, ()> {
         self.host.sleep_until(deadline)
+    }
+
+    fn sleep_until_range(&self, deadline: Duration, slack: Duration) -> LocalFuture<'_, ()> {
+        self.host.sleep_until_range(deadline, slack)
     }
 
     fn thread_cpu_time(&self) -> Option<Duration> {

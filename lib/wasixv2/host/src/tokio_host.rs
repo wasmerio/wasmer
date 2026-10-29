@@ -1,7 +1,7 @@
 use std::{
     io,
-    sync::Arc,
-    time::{Duration, SystemTime},
+    sync::{Arc, OnceLock},
+    time::{Duration, Instant, SystemTime},
 };
 
 use tokio::{
@@ -9,31 +9,32 @@ use tokio::{
     runtime::{Handle, RuntimeFlavor},
     sync::Mutex,
     task::LocalSet,
-    time::Instant,
 };
 
 use crate::{BlockingSource, ByteSink, Executor, Host, LocalFuture, Stdio, ThreadStart};
 
-/// The host on a tokio runtime with timers enabled: system clocks, tokio timers, the OS entropy
+/// The host on a tokio runtime: system clocks, native deadline timers, the OS entropy
 /// source, and tokio as the executor.
 ///
 /// [`Executor::spawn_local`] uses `tokio::task::spawn_local`, so the kernel must be driven inside
 /// a `tokio::task::LocalSet` (for example `LocalSet::block_on`). Blocking work runs on tokio's
 /// blocking pool. Each guest thread gets its own OS thread with a `LocalSet` of its own, since
 /// the futures that run guests are not `Send`, driven on the runtime of the thread that started
-/// it when that is a multi-thread runtime, whose workers drive its timers and I/O for every
-/// thread, so all guest threads share one runtime, its timers, I/O driver and blocking pool. A
+/// it when that is a multi-thread runtime, whose workers drive I/O for every
+/// thread, so all guest threads share one runtime, its I/O driver and blocking pool. A
 /// current-thread runtime drives them only while its own thread waits in it, so on one (or
 /// outside any runtime) a guest thread gets a current-thread runtime of its own.
 pub struct TokioHost {
-    // tokio's clock, so sleeps and `monotonic` agree, also when tests pause time.
+    // Native timers and the monotonic clock use the same real clock.
     start: Instant,
+    timers: OnceLock<crate::timer::Timers>,
 }
 
 impl Default for TokioHost {
     fn default() -> Self {
         Self {
             start: Instant::now(),
+            timers: OnceLock::new(),
         }
     }
 }
@@ -51,15 +52,26 @@ impl Host for TokioHost {
     }
 
     fn sleep(&self, duration: Duration) -> LocalFuture<'_, ()> {
-        Box::pin(tokio::time::sleep(duration))
+        self.sleep_until(self.monotonic().saturating_add(duration))
     }
 
     fn sleep_until(&self, deadline: Duration) -> LocalFuture<'_, ()> {
-        // A deadline too far out to represent never arrives.
-        match self.start.checked_add(deadline) {
-            Some(deadline) => Box::pin(tokio::time::sleep_until(deadline)),
-            None => Box::pin(std::future::pending()),
-        }
+        self.sleep_until_range(deadline, Duration::ZERO)
+    }
+
+    fn sleep_until_range(&self, deadline: Duration, slack: Duration) -> LocalFuture<'_, ()> {
+        Box::pin(async move {
+            // A deadline too far out to represent never arrives.
+            match self.start.checked_add(deadline) {
+                Some(deadline) => {
+                    self.timers
+                        .get_or_init(crate::timer::Timers::new)
+                        .sleep(deadline, slack)
+                        .await
+                }
+                None => std::future::pending().await,
+            }
+        })
     }
 
     #[cfg(unix)]
@@ -197,12 +209,85 @@ mod tests {
 
     use super::*;
 
-    #[tokio::test(start_paused = true)]
+    #[tokio::test]
     async fn sleep_until_waits_for_the_monotonic_deadline() {
         let host = TokioHost::default();
-        let deadline = host.monotonic() + Duration::from_secs(3);
+        let deadline = host.monotonic() + Duration::from_millis(3);
         host.sleep_until(deadline).await;
         assert!(host.monotonic() >= deadline);
+    }
+
+    /// LTP tst_timer_test permits 400 us plus the default 50 us task slack.
+    #[tokio::test]
+    async fn sleeps_do_not_add_a_millisecond_tick() {
+        let host = TokioHost::default();
+        let mut overshoot = Vec::new();
+        for _ in 0..64 {
+            let deadline = host.monotonic() + Duration::from_millis(1);
+            host.sleep_until(deadline).await;
+            let now = host.monotonic();
+            assert!(now >= deadline);
+            overshoot.push(now - deadline);
+        }
+        overshoot.sort();
+        assert!(
+            overshoot[32] < Duration::from_micros(450),
+            "median overshoot: {:?}",
+            overshoot[32]
+        );
+    }
+
+    /// Run explicitly to compare precision, total process CPU and idle context switches.
+    #[cfg(unix)]
+    #[tokio::test]
+    #[ignore = "timer measurement, run alone with --nocapture"]
+    async fn measure_timers() {
+        fn usage() -> libc::rusage {
+            let mut usage = std::mem::MaybeUninit::uninit();
+            // SAFETY: getrusage writes the entire object on success.
+            assert_eq!(
+                unsafe { libc::getrusage(libc::RUSAGE_SELF, usage.as_mut_ptr()) },
+                0
+            );
+            unsafe { usage.assume_init() }
+        }
+        fn cpu(usage: &libc::rusage) -> f64 {
+            let seconds = usage.ru_utime.tv_sec + usage.ru_stime.tv_sec;
+            let micros = usage.ru_utime.tv_usec + usage.ru_stime.tv_usec;
+            seconds as f64 + micros as f64 / 1e6
+        }
+        let host = TokioHost::default();
+        for us in [100, 1000, 10000] {
+            let before = usage();
+            let start = std::time::Instant::now();
+            let mut overshoot = Vec::new();
+            for _ in 0..200 {
+                let deadline = host.monotonic() + Duration::from_micros(us);
+                host.sleep_until(deadline).await;
+                overshoot.push(host.monotonic().saturating_sub(deadline).as_nanos());
+            }
+            let after = usage();
+            overshoot.sort();
+            eprintln!(
+                "sleep_us={us} n=200 overshoot_ns p50={} p95={} max={} wall_s={:.6} cpu_s={:.6} voluntary_cs={} involuntary_cs={}",
+                overshoot[100],
+                overshoot[190],
+                overshoot[199],
+                start.elapsed().as_secs_f64(),
+                cpu(&after) - cpu(&before),
+                after.ru_nvcsw - before.ru_nvcsw,
+                after.ru_nivcsw - before.ru_nivcsw
+            );
+        }
+        let before = usage();
+        std::thread::sleep(Duration::from_secs(2));
+        let after = usage();
+        eprintln!(
+            "idle_s=2 cpu_s={:.6} voluntary_cs={} involuntary_cs={}",
+            cpu(&after) - cpu(&before),
+            after.ru_nvcsw - before.ru_nvcsw,
+            after.ru_nivcsw - before.ru_nivcsw
+        );
     }
 
     #[tokio::test]
