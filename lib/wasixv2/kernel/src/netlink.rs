@@ -4,7 +4,10 @@
 //! requests. Requests are parsed as `netlink_rcv_skb` and `rtnetlink_rcv_msg` do, and replies
 //! are queued when the request is sent, so a non-blocking `recv` right after the `send` finds
 //! them, as on Linux. The queue is bounded by `SO_RCVBUF`: a reply that finds it full is
-//! dropped and the next receive fails with `ENOBUFS` (`netlink_overrun`).
+//! dropped and the next receive fails with `ENOBUFS` (`netlink_overrun`). A classic BPF
+//! filter the socket has attached (`SO_ATTACH_FILTER`) runs over each reply first, as
+//! `netlink_unicast` and `netlink_dump` run `sk_filter`: it sees the netlink messages with no
+//! device, and may drop the reply or cut it short.
 //!
 //! Not yet: multicast groups (no change is announced), neighbours, rules, traffic control and
 //! namespace ids (`EOPNOTSUPP`, after the `CAP_NET_ADMIN` check every change makes), and other
@@ -23,6 +26,7 @@ use wasixv2_abi::{
 use wasixv2_host::Host;
 use wasixv2_syscalls::{Caller, Errno, Fd, LocalFuture, SysResult};
 use wasixv2_vfs::Cap;
+use wasixv2_vnet::bpf::SockFilter;
 use wasixv2_wait::{PollMask, PollTable, Pollable, WaitQueue, poll_wait};
 
 pub(crate) use rtnl::{NoNamespaces, Sender};
@@ -91,6 +95,8 @@ pub(crate) struct NetlinkSocket {
     port: u32,
     pub(crate) timeouts: Timeouts,
     host: Arc<dyn Host>,
+    /// `SO_ATTACH_FILTER`'s program and `SO_LOCK_FILTER`.
+    filter: Mutex<SockFilter>,
 }
 
 /// One request's header.
@@ -211,9 +217,20 @@ impl NetlinkSocket {
         rtnl::interfaces_of(&self.net)
     }
 
-    /// `netlink_unicast` to this socket: queued unless the queue is over `SO_RCVBUF`, which
-    /// drops the reply and leaves `ENOBUFS` for the next receive (`netlink_overrun`).
-    fn reply(&self, reply: Vec<u8>) {
+    /// `netlink_unicast` (and `netlink_dump`) to this socket: what the socket's filter keeps
+    /// of the reply (`sk_filter`), queued as [`Self::queue_datagram`] queues it.
+    fn reply(&self, mut reply: Vec<u8>) {
+        match self.filter.lock_or_recover().trim_message(&reply) {
+            Some(len) => reply.truncate(len),
+            None => return,
+        }
+        self.queue_datagram(reply);
+    }
+
+    /// `__netlink_sendskb` after `netlink_attachskb`: queued unless the queue is over
+    /// `SO_RCVBUF`, which drops the datagram and leaves `ENOBUFS` for the next receive
+    /// (`netlink_overrun`).
+    fn queue_datagram(&self, reply: Vec<u8>) {
         let mut q = self.queue();
         if q.queued > q.rcvbuf {
             if q.err.is_none() {
@@ -259,9 +276,9 @@ impl NetlinkSocket {
     }
 
     /// `netlink_sendskb`: queues a datagram the kernel sends on its own, such as the cookie of
-    /// a `SIGEV_THREAD` message queue notification.
+    /// a `SIGEV_THREAD` message queue notification, which no filter sees.
     pub(crate) fn deliver(&self, datagram: Vec<u8>) {
-        self.reply(datagram);
+        self.queue_datagram(datagram);
         self.data_ready();
     }
 
@@ -326,6 +343,12 @@ impl NetlinkSocket {
 
     pub(crate) fn getsockopt(&self, name: i32) -> Result<Vec<u8>, Errno> {
         let int = |v: i32| Ok(v.to_le_bytes().to_vec());
+        if SockFilter::handles(name) {
+            let mut out = vec![0; wasixv2_vnet::bpf::MAX_PROGRAM_LEN];
+            let n = self.filter.lock_or_recover().get(name, &mut out)?;
+            out.truncate(n);
+            return Ok(out);
+        }
         match SocketOption(name) {
             SocketOption::SO_TYPE => int(SocketType::SOCK_RAW.0),
             SocketOption::SO_PROTOCOL => int(NETLINK_ROUTE),
@@ -337,8 +360,12 @@ impl NetlinkSocket {
         }
     }
 
-    /// The `SOL_SOCKET` options a netlink socket keeps; others are accepted without effect.
+    /// The `SOL_SOCKET` options a netlink socket keeps, its filter's among them; others are
+    /// accepted without effect.
     pub(crate) fn set_option(&self, name: i32, value: &[u8]) -> Result<(), Errno> {
+        if SockFilter::handles(name) {
+            return self.filter.lock_or_recover().set(name, value);
+        }
         let int = || {
             value
                 .get(..4)
@@ -513,6 +540,7 @@ impl Kernel {
             port: self.pids.own_nr(self.process(caller.task()).pid.0) as u32,
             timeouts: Timeouts::default(),
             host: self.host.clone(),
+            filter: Mutex::new(SockFilter::default()),
         };
         let mut status = OpenFlags::O_RDWR;
         if flags.contains(SocketFlags::SOCK_NONBLOCK) {
@@ -570,6 +598,7 @@ mod tests {
             port: 7,
             timeouts: Timeouts::default(),
             host: Arc::new(crate::tests::TestHost),
+            filter: Mutex::new(SockFilter::default()),
         }
     }
 
@@ -764,6 +793,43 @@ mod tests {
         assert_eq!(refused(new_link(1, 1, 1, 0, &[(IFLA_MTU, &mtu)])), 0);
         assert_eq!(nl.interfaces()[0].mtu, 9000);
         assert_eq!(refused(new_link(1, 1, 1, 0, &[(IFLA_IFNAME, b"lo\0")])), 0);
+    }
+
+    /// `BPF_RET | BPF_K` with `k`.
+    fn ret(k: u32) -> Vec<u8> {
+        [&0x06u16.to_le_bytes()[..], &[0, 0], &k.to_le_bytes()].concat()
+    }
+
+    /// An attached filter runs over each reply (`sk_filter` in `netlink_unicast`): 0 drops
+    /// it, a smaller length cuts it short; what the kernel sends on its own
+    /// (`netlink_sendskb`) passes. It reads back with `SO_GET_FILTER` and comes off with
+    /// `SO_DETACH_FILTER`.
+    #[test]
+    fn attached_filters_drop_and_trim_replies() {
+        let nl = socket();
+        let mut getlink = header(32, RTM_GETLINK, NLM_F_REQUEST | NLM_F_DUMP);
+        getlink.extend([0; 16]);
+        let attach = SocketOption::SO_ATTACH_FILTER.0;
+        nl.set_option(attach, &ret(0)).unwrap();
+        assert_eq!(nl.getsockopt(attach).unwrap(), ret(0));
+        nl.send(&getlink, true, &NoNamespaces).unwrap();
+        assert!(replies(&nl).is_empty());
+        nl.deliver(vec![1, 2, 3]);
+        assert_eq!(replies(&nl), [vec![1, 2, 3]]);
+
+        nl.set_option(attach, &ret(20)).unwrap();
+        nl.send(&getlink, true, &NoNamespaces).unwrap();
+        let got = replies(&nl);
+        assert!(
+            !got.is_empty() && got.iter().all(|r| r.len() == 20),
+            "{got:?}"
+        );
+
+        nl.set_option(SocketOption::SO_DETACH_FILTER.0, &0i32.to_le_bytes())
+            .unwrap();
+        assert!(nl.getsockopt(attach).unwrap().is_empty());
+        nl.send(&getlink, true, &NoNamespaces).unwrap();
+        assert!(replies(&nl).iter().any(|r| r.len() > 20));
     }
 
     #[test]

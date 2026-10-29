@@ -1148,7 +1148,7 @@ impl Kernel {
             }
             AnySock::Unix(_, sock) => self.unix_getsockopt(caller, sock, name),
             AnySock::Packet(_, p) => p.getsockopt(name),
-            AnySock::Netlink(..) => return false,
+            AnySock::Netlink(_, nl) => nl.getsockopt(name),
         };
         value.is_ok_and(|v| v.iter().any(|b| *b != 0))
     }
@@ -1227,7 +1227,7 @@ impl Kernel {
             }
             AnySock::Unix(_, sock) => self.unix_getsockopt(caller, sock, name),
             AnySock::Packet(_, p) => p.getsockopt(name),
-            AnySock::Netlink(..) => Ok(Vec::new()),
+            AnySock::Netlink(_, nl) => nl.getsockopt(name),
         }
     }
 
