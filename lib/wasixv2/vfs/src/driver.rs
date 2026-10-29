@@ -16,6 +16,7 @@ use wasixv2_pages::SharedPages;
 
 use crate::{
     cred::Cred,
+    fileattr::FileKattr,
     mount::Path,
     ops::Ctx,
     types::{
@@ -106,6 +107,24 @@ pub trait Node: Send + Sync + Any {
     fn file_type(&self) -> FileType;
 
     fn as_any(&self) -> &dyn Any;
+
+    /// The `FS_*_FL` flags of the object the VFS enforces (`i_flags`' `S_IMMUTABLE` and
+    /// `S_APPEND`), as [`Node::fileattr_get`] reports them. None by default.
+    fn inode_flags(&self) -> u32 {
+        0
+    }
+
+    /// `i_op->fileattr_get`: the object's miscellaneous attributes. `ENOTTY` (Linux's
+    /// `ENOIOCTLCMD`) for a filesystem without them.
+    async fn fileattr_get(&self) -> FsResult<FileKattr> {
+        Err(Errno::ENOTTY)
+    }
+
+    /// `i_op->fileattr_set`: stores `fa`, which the VFS checked and completed from the
+    /// current values; `EOPNOTSUPP` for what the filesystem cannot keep. Stamps `ctime`.
+    async fn fileattr_set(&self, _fa: &FileKattr) -> FsResult<()> {
+        Err(Errno::ENOTTY)
+    }
 
     /// `i_generation`: tells apart objects that had the same inode number at different
     /// times, for file handles and `FS_IOC_GETVERSION`. 0 for a filesystem that never reuses

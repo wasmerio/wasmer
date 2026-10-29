@@ -16,9 +16,9 @@ use async_trait::async_trait;
 use wasixv2_abi::Errno;
 use wasixv2_host::Host;
 use wasixv2_vfs::{
-    AllocMode, Attr, Device, DirEntry, DirSink, FileType, Filesystem, FsInfo, FsResult, Handle,
-    MAX_DIR_COOKIE, NAME_MAX, NewKind, NewNode, Node, OpenOptions, RenameMode, SeekHole, SetAttr,
-    StatFs, TimeSet, Timestamp, XattrSet,
+    AllocMode, Attr, Device, DirEntry, DirSink, FileKattr, FileType, Filesystem, FsInfo, FsResult,
+    Handle, MAX_DIR_COOKIE, NAME_MAX, NewKind, NewNode, Node, OpenOptions, RenameMode, SeekHole,
+    SetAttr, StatFs, TimeSet, Timestamp, XattrSet,
 };
 
 use crate::Options;
@@ -404,6 +404,21 @@ impl HostNode {
     }
 }
 
+/// `FS_IOC_FSGETXATTR` and `FS_IOC_FSSETXATTR`, which do not depend on the host's `long`.
+const FS_IOC_FSGETXATTR: libc::Ioctl = 0x801c_581f;
+const FS_IOC_FSSETXATTR: libc::Ioctl = 0x401c_5820;
+
+/// The object behind `/proc/self/fd` path `path`, opened for an inode-flag request: read-only,
+/// never blocking on a FIFO, never a controlling terminal. A symbolic link cannot be opened,
+/// so it has no flags (`ENOTTY`, as Linux has no file to ask).
+fn open_ioctl(path: &CString) -> FsResult<OwnedFd> {
+    let flags = libc::O_RDONLY | libc::O_NONBLOCK | libc::O_NOCTTY;
+    match open_at(libc::AT_FDCWD, path, flags, 0) {
+        Err(Errno::ELOOP) => Err(Errno::ENOTTY),
+        result => result,
+    }
+}
+
 fn timespec(time: Option<TimeSet>) -> libc::timespec {
     match time {
         None => libc::timespec {
@@ -718,6 +733,57 @@ impl Node for HostNode {
             })
             .await?;
         Ok(self.handle(file))
+    }
+
+    /// The host file's flags (`FS_IOC_GETFLAGS`) and extended fields (`FS_IOC_FSGETXATTR`,
+    /// where the host filesystem has them).
+    async fn fileattr_get(&self) -> FsResult<FileKattr> {
+        self.via_proc(|path| {
+            let file = open_ioctl(path)?;
+            let mut flags: libc::c_int = 0;
+            // SAFETY: `flags` is the `int` the request writes.
+            cvt(unsafe { libc::ioctl(file.as_raw_fd(), libc::FS_IOC_GETFLAGS, &mut flags) })?;
+            let mut fa = FileKattr::from_flags(flags as u32);
+            let mut xfa = [0u32; 7];
+            // SAFETY: `xfa` has the 28 bytes of `struct fsxattr`.
+            let got = unsafe { libc::ioctl(file.as_raw_fd(), FS_IOC_FSGETXATTR, xfa.as_mut_ptr()) };
+            if got == 0 {
+                fa.xflags |= xfa[0];
+                (fa.extsize, fa.nextents, fa.projid, fa.cowextsize) =
+                    (xfa[1], xfa[2], xfa[3], xfa[4]);
+            }
+            Ok(fa)
+        })
+        .await
+    }
+
+    /// Sets the host file's flags, or its extended fields when the caller set those; the
+    /// host decides what it keeps (and who may make a file immutable there).
+    async fn fileattr_set(&self, fa: &FileKattr) -> FsResult<()> {
+        self.shared.writable()?;
+        let fa = *fa;
+        self.via_proc(move |path| {
+            let file = open_ioctl(path)?;
+            let raw = file.as_raw_fd();
+            if fa.fsx_valid {
+                let xfa = [
+                    fa.xflags,
+                    fa.extsize,
+                    fa.nextents,
+                    fa.projid,
+                    fa.cowextsize,
+                    0,
+                    0,
+                ];
+                // SAFETY: `xfa` has the 28 bytes of `struct fsxattr`.
+                cvt(unsafe { libc::ioctl(raw, FS_IOC_FSSETXATTR, xfa.as_ptr()) }).map(drop)
+            } else {
+                let flags = fa.flags as libc::c_int;
+                // SAFETY: `flags` is the `int` the request reads.
+                cvt(unsafe { libc::ioctl(raw, libc::FS_IOC_SETFLAGS, &flags) }).map(drop)
+            }
+        })
+        .await
     }
 
     async fn getxattr(&self, name: &[u8]) -> FsResult<Vec<u8>> {

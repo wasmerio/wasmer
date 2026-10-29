@@ -26,12 +26,13 @@ use std::{
 };
 
 use async_trait::async_trait;
-use wasixv2_abi::Errno;
+use wasixv2_abi::{Errno, FsInodeFlags};
 use wasixv2_pages::{Provider, SharedPages};
 use wasixv2_vfs::{
-    AllocMode, Attr, Clock, Device, DirEntry, DirSink, FileId, FileType, Filesystem, FsInfo,
-    FsResult, Handle, MAX_DIR_COOKIE, NAME_MAX, NewKind, NewNode, Node, OpenOptions, RenameMode,
-    SeekHole, SetAttr, StatFs, TMPFS_MAGIC, TimeSet, Timestamp, XattrSet,
+    AllocMode, Attr, Clock, Device, DirEntry, DirSink, FS_APPEND_FL, FS_IMMUTABLE_FL,
+    FS_NOATIME_FL, FS_NODUMP_FL, FileId, FileKattr, FileType, Filesystem, FsInfo, FsResult, Handle,
+    MAX_DIR_COOKIE, NAME_MAX, NewKind, NewNode, Node, OpenOptions, RenameMode, SeekHole, SetAttr,
+    StatFs, TMPFS_MAGIC, TimeSet, Timestamp, XattrSet,
 };
 
 mod data;
@@ -43,6 +44,11 @@ const BLOCK: u64 = 4096;
 const MAX_SIZE: u64 = i64::MAX as u64;
 /// The handle type `shmem_encode_fh` gives (`FILEID_INO32_GEN`'s value, with three words).
 const FILEID_SHMEM: i32 = 1;
+/// The inode flags tmpfs shows, keeps, and hands to new objects (`SHMEM_FL_USER_VISIBLE`,
+/// `SHMEM_FL_USER_MODIFIABLE`, `SHMEM_FL_INHERITED`); case folding is not offered.
+const SHMEM_FL_USER_VISIBLE: u32 = FsInodeFlags::FS_FL_USER_VISIBLE.0;
+const SHMEM_FL_USER_MODIFIABLE: u32 = FS_IMMUTABLE_FL | FS_APPEND_FL | FS_NODUMP_FL | FS_NOATIME_FL;
+const SHMEM_FL_INHERITED: u32 = FS_NODUMP_FL | FS_NOATIME_FL;
 /// tmpfs's `BOGO_DIRENT_SIZE`: what each entry adds to a directory's size.
 const DIRENT_SIZE: u64 = 20;
 /// tmpfs's `BOGO_INODE_SIZE`: the inode space an inode or an extra link takes.
@@ -386,6 +392,8 @@ struct Meta {
     ctime: Timestamp,
     btime: Timestamp,
     xattrs: BTreeMap<Vec<u8>, Vec<u8>>,
+    /// The inode flags (`shmem_inode_info`'s `fsflags`).
+    fsflags: u32,
 }
 
 enum Content {
@@ -468,12 +476,20 @@ impl MemNode {
                 ctime: now,
                 btime: now,
                 xattrs: BTreeMap::new(),
+                fsflags: 0,
             }),
             content,
         });
         let weak = Arc::downgrade(&node);
         shared.nodes.lock().unwrap().insert(ino, weak);
         Ok(node)
+    }
+
+    /// `__shmem_get_inode`: a new object takes the flags of its directory that are inherited
+    /// (`SHMEM_FL_INHERITED`).
+    fn inherit_flags(&self, dir: &MemNode) {
+        let inherited = dir.meta().fsflags & SHMEM_FL_INHERITED;
+        self.meta().fsflags = inherited;
     }
 
     fn arc(&self) -> Arc<MemNode> {
@@ -516,6 +532,10 @@ impl MemNode {
     fn accessed(&self) {
         let now = self.shared.now();
         let mut meta = self.meta();
+        // `touch_atime`: `S_NOATIME`.
+        if meta.fsflags & FS_NOATIME_FL != 0 {
+            return;
+        }
         if meta.atime <= meta.mtime
             || meta.atime <= meta.ctime
             || now.sec - meta.atime.sec >= RELATIME_SECS
@@ -611,6 +631,30 @@ impl Node for MemNode {
         self
     }
 
+    fn inode_flags(&self) -> u32 {
+        self.meta().fsflags
+    }
+
+    /// `shmem_fileattr_get`.
+    async fn fileattr_get(&self) -> FsResult<FileKattr> {
+        Ok(FileKattr::from_flags(
+            self.meta().fsflags & SHMEM_FL_USER_VISIBLE,
+        ))
+    }
+
+    /// `shmem_fileattr_set`: only the flags tmpfs keeps.
+    async fn fileattr_set(&self, fa: &FileKattr) -> FsResult<()> {
+        if fa.has_fsx() || fa.flags & !SHMEM_FL_USER_MODIFIABLE != 0 {
+            return Err(Errno::EOPNOTSUPP);
+        }
+        let now = self.shared.now();
+        let mut meta = self.meta();
+        meta.fsflags =
+            (meta.fsflags & !SHMEM_FL_USER_MODIFIABLE) | (fa.flags & SHMEM_FL_USER_MODIFIABLE);
+        meta.ctime = now;
+        Ok(())
+    }
+
     async fn getattr(&self) -> FsResult<Attr> {
         let size = self.size();
         let blocks = self.blocks() * (BLOCK / 512);
@@ -677,6 +721,7 @@ impl Node for MemNode {
             return Err(Errno::EEXIST);
         }
         let node = MemNode::new(&self.shared, new)?;
+        node.inherit_flags(self);
         dir.insert(name, node.clone())?;
         drop(dir);
         if new.kind == NewKind::Directory {
@@ -694,6 +739,7 @@ impl Node for MemNode {
     ) -> FsResult<(Arc<dyn Node>, Box<dyn Handle>)> {
         drop(self.dir()?);
         let node = MemNode::new(&self.shared, new)?;
+        node.inherit_flags(self);
         node.meta().nlink = 0;
         let handle = node.open(options).await?;
         Ok((node, handle))

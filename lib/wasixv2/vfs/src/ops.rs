@@ -97,6 +97,10 @@ impl Vfs {
         {
             return Err(Errno::EROFS);
         }
+        // Nobody gets write access to an immutable file.
+        if mask & MAY_WRITE != 0 && immutable(&path.dentry) {
+            return Err(Errno::EPERM);
+        }
         path.dentry.node().permission(cx.cred, cx.task, &attr, mask)
     }
 
@@ -115,7 +119,7 @@ impl Vfs {
         path.dentry.sb().fs.statfs().await
     }
 
-    fn object(dentry: &Dentry) -> Object {
+    pub(crate) fn object(dentry: &Dentry) -> Object {
         Object {
             sb: dentry.sb().id,
             ino: dentry.node().ino(),
@@ -444,6 +448,16 @@ impl Vfs {
         if acc_mode != 0 {
             self.permission(cx, path, acc_mode).await?;
         }
+        // An append-only file is opened for writing only to append.
+        if append_only(&path.dentry) {
+            let access = flags & OpenFlags::O_ACCMODE;
+            if access != OpenFlags::O_RDONLY && !flags.contains(OpenFlags::O_APPEND) {
+                return Err(Errno::EPERM);
+            }
+            if flags.contains(OpenFlags::O_TRUNC) {
+                return Err(Errno::EPERM);
+            }
+        }
         if flags.contains(OpenFlags::O_NOATIME) {
             let attr = path.dentry.node().getattr().await?;
             if !cred.owns(&attr) {
@@ -761,6 +775,10 @@ impl Vfs {
             security.path_link(&source, &dir)?;
         }
         self.may_create(cx, &dir).await?;
+        // A link to an append-only or immutable file cannot be made.
+        if append_only(&source.dentry) || immutable(&source.dentry) {
+            return Err(Errno::EPERM);
+        }
         if source.dentry.file_type() == FileType::Directory {
             return Err(Errno::EPERM);
         }
@@ -798,9 +816,15 @@ impl Vfs {
     ) -> FsResult<()> {
         let cred = cx.cred;
         self.permission(cx, dir, MAY_WRITE | MAY_EXEC).await?;
+        if append_only(&dir.dentry) {
+            return Err(Errno::EPERM);
+        }
         let dir_attr = dir.dentry.node().getattr().await?;
         let victim_attr = victim.dentry.node().getattr().await?;
-        if sticky_denies(cred, &dir_attr, &victim_attr) {
+        if sticky_denies(cred, &dir_attr, &victim_attr)
+            || append_only(&victim.dentry)
+            || immutable(&victim.dentry)
+        {
             return Err(Errno::EPERM);
         }
         match (is_dir, victim.dentry.is_dir()) {
@@ -1132,6 +1156,7 @@ impl Vfs {
         if path.mnt.is_read_only() {
             return Err(Errno::EROFS);
         }
+        may_setattr(&path.dentry)?;
         let attr = path.dentry.node().getattr().await?;
         if !cx.cred.owns(&attr) {
             return Err(Errno::EPERM);
@@ -1160,6 +1185,9 @@ impl Vfs {
     ) -> FsResult<()> {
         if path.mnt.is_read_only() {
             return Err(Errno::EROFS);
+        }
+        if uid.is_some() || gid.is_some() {
+            may_setattr(&path.dentry)?;
         }
         let attr = path.dentry.node().getattr().await?;
         let cred = cx.cred;
@@ -1211,9 +1239,15 @@ impl Vfs {
         if path.mnt.is_read_only() {
             return Err(Errno::EROFS);
         }
-        let attr = path.dentry.node().getattr().await?;
         let explicit =
             matches!(atime, Some(TimeSet::At(_))) || matches!(mtime, Some(TimeSet::At(_)));
+        // `may_setattr`: set times on neither, the current time not on an immutable file.
+        match explicit || atime.is_none() || mtime.is_none() {
+            true => may_setattr(&path.dentry)?,
+            false if immutable(&path.dentry) => return Err(Errno::EPERM),
+            false => {}
+        }
+        let attr = path.dentry.node().getattr().await?;
         if !cx.cred.owns(&attr) {
             if explicit || atime.is_none() || mtime.is_none() {
                 return Err(Errno::EPERM);
@@ -1241,6 +1275,9 @@ impl Vfs {
             return Err(Errno::EROFS);
         }
         self.permission(cx, path, MAY_WRITE).await?;
+        if append_only(&path.dentry) {
+            return Err(Errno::EPERM);
+        }
         // Write access while it truncates, so that no read lease is taken meanwhile.
         let _write = OpenAccess::new(path.dentry.inode(), true);
         self.break_lease(cx, Self::lock_key(&path.dentry), true, false)
@@ -1341,6 +1378,10 @@ impl Vfs {
         }
         if mask & MAY_WRITE != 0 && path.mnt.is_read_only() {
             return Err(Errno::EROFS);
+        }
+        // `may_write_xattr`.
+        if mask & MAY_WRITE != 0 && (immutable(&path.dentry) || append_only(&path.dentry)) {
+            return Err(Errno::EPERM);
         }
         let denied = if mask & MAY_WRITE != 0 {
             Errno::EPERM
@@ -1476,6 +1517,24 @@ fn open_options(flags: OpenFlags, at: &Path, task: u32) -> OpenOptions {
         sync: flags.contains(OpenFlags::O_DSYNC),
         truncate: false,
         task,
+    }
+}
+
+/// `IS_IMMUTABLE`.
+pub(crate) fn immutable(dentry: &Dentry) -> bool {
+    dentry.node().inode_flags() & crate::FS_IMMUTABLE_FL != 0
+}
+
+/// `IS_APPEND`.
+pub(crate) fn append_only(dentry: &Dentry) -> bool {
+    dentry.node().inode_flags() & crate::FS_APPEND_FL != 0
+}
+
+/// `may_setattr` for a change of mode, owner or explicit times.
+fn may_setattr(dentry: &Dentry) -> FsResult<()> {
+    match immutable(dentry) || append_only(dentry) {
+        true => Err(Errno::EPERM),
+        false => Ok(()),
     }
 }
 

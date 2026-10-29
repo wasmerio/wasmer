@@ -2393,6 +2393,13 @@ fn check_file_mapping(
             if prot.contains(ProtFlags::PROT_WRITE) && !writable {
                 return Err(Errno::EACCES);
             }
+            // No shared mapping writes an append-only file.
+            if writable
+                && let Ok(inode) = file.inode()
+                && inode.node().inode_flags() & wasixv2_vfs::FS_APPEND_FL != 0
+            {
+                return Err(Errno::EACCES);
+            }
             true
         }
         MapFlags::MAP_PRIVATE => false,

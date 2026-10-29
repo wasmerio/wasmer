@@ -32,9 +32,9 @@ use async_trait::async_trait;
 use futures::lock::Mutex as AsyncMutex;
 use wasixv2_abi::Errno;
 use wasixv2_vfs::{
-    AllocMode, Attr, Device, DirEntry, DirSink, FileType, Filesystem, FsInfo, FsResult, Handle,
-    NewKind, NewNode, Node, OpenOptions, RenameMode, SeekHole, SetAttr, SharedContents, StatFs,
-    TimeSet, XattrSet,
+    AllocMode, Attr, Device, DirEntry, DirSink, FileKattr, FileType, Filesystem, FsInfo, FsResult,
+    Handle, NewKind, NewNode, Node, OpenOptions, RenameMode, SeekHole, SetAttr, SharedContents,
+    StatFs, TimeSet, XattrSet,
 };
 
 /// `OVERLAYFS_SUPER_MAGIC`.
@@ -1169,6 +1169,21 @@ impl Node for OverlayNode {
             options,
             real: Mutex::new((in_upper, Arc::from(handle))),
         }))
+    }
+
+    /// `ovl_fileattr_get`: the real object's.
+    fn inode_flags(&self) -> u32 {
+        self.real().inode_flags()
+    }
+
+    async fn fileattr_get(&self) -> FsResult<FileKattr> {
+        self.real().fileattr_get().await
+    }
+
+    /// `ovl_fileattr_set`: on the object copied up.
+    async fn fileattr_set(&self, fa: &FileKattr) -> FsResult<()> {
+        let upper = self.upper_for_change().await?;
+        upper.fileattr_set(fa).await
     }
 
     async fn getxattr(&self, name: &[u8]) -> FsResult<Vec<u8>> {

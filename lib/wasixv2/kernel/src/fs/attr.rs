@@ -544,6 +544,33 @@ fn statx(path: &Path, attr: &Attr, request: StatxMask, ns: &UserNs) -> Statx {
     if path.is_mount_root() {
         attributes = StatxAttributes(StatxAttributes::STATX_ATTR_MOUNT_ROOT.0);
     }
+    // `generic_fill_statx_attr`, and tmpfs's `STATX_ATTR_NODUMP`.
+    let flags = path.dentry.node().inode_flags();
+    let mut attributes_mask = StatxAttributes::STATX_ATTR_MOUNT_ROOT.0
+        | StatxAttributes::STATX_ATTR_AUTOMOUNT.0
+        | StatxAttributes::STATX_ATTR_IMMUTABLE.0
+        | StatxAttributes::STATX_ATTR_APPEND.0;
+    if path.dentry.sb().info.magic == wasixv2_vfs::TMPFS_MAGIC {
+        attributes_mask |= StatxAttributes::STATX_ATTR_NODUMP.0;
+    }
+    for (flag, attribute) in [
+        (
+            wasixv2_vfs::FS_IMMUTABLE_FL,
+            StatxAttributes::STATX_ATTR_IMMUTABLE,
+        ),
+        (
+            wasixv2_vfs::FS_APPEND_FL,
+            StatxAttributes::STATX_ATTR_APPEND,
+        ),
+        (
+            wasixv2_vfs::FS_NODUMP_FL,
+            StatxAttributes::STATX_ATTR_NODUMP,
+        ),
+    ] {
+        if flags & flag != 0 {
+            attributes.0 |= attribute.0;
+        }
+    }
     Statx {
         stx_mask: mask,
         stx_blksize: attr.blksize,
@@ -555,9 +582,7 @@ fn statx(path: &Path, attr: &Attr, request: StatxMask, ns: &UserNs) -> Statx {
         stx_ino: attr.ino,
         stx_size: attr.size,
         stx_blocks: attr.blocks,
-        stx_attributes_mask: StatxAttributes(
-            StatxAttributes::STATX_ATTR_MOUNT_ROOT.0 | StatxAttributes::STATX_ATTR_AUTOMOUNT.0,
-        ),
+        stx_attributes_mask: StatxAttributes(attributes_mask),
         stx_atime: timestamp(attr.atime),
         stx_btime: attr.btime.map(timestamp).unwrap_or_default(),
         stx_ctime: timestamp(attr.ctime),

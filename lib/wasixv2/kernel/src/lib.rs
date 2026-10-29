@@ -1166,6 +1166,32 @@ impl Syscalls for Kernel {
             .await
     }
 
+    async fn file_getattr(
+        &self,
+        caller: &Caller<'_>,
+        dfd: Fd,
+        filename: Cstr,
+        ufattr: wasixv2_abi::FileAttrPtr,
+        usize: Usize,
+        at_flags: AtFlags,
+    ) -> SysResult<i32> {
+        self.sys_file_getattr(caller, dfd, filename, ufattr, usize, at_flags)
+            .await
+    }
+
+    async fn file_setattr(
+        &self,
+        caller: &Caller<'_>,
+        dfd: Fd,
+        filename: Cstr,
+        ufattr: wasixv2_abi::ConstFileAttrPtr,
+        usize: Usize,
+        at_flags: AtFlags,
+    ) -> SysResult<i32> {
+        self.sys_file_setattr(caller, dfd, filename, ufattr, usize, at_flags)
+            .await
+    }
+
     async fn name_to_handle_at(
         &self,
         caller: &Caller<'_>,
