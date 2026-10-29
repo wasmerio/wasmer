@@ -19,6 +19,8 @@
 use std::{
     any::Any,
     collections::{BTreeMap, HashMap},
+    io,
+    ops::Range,
     sync::{
         Arc, Mutex, MutexGuard, OnceLock, Weak,
         atomic::{AtomicU64, Ordering},
@@ -29,7 +31,7 @@ use async_trait::async_trait;
 use wasixv2_abi::{Errno, FsInodeFlags};
 use wasixv2_pages::{Provider, SharedPages};
 use wasixv2_vfs::{
-    AllocMode, Attr, Clock, Device, DirEntry, DirSink, FS_APPEND_FL, FS_IMMUTABLE_FL,
+    AllocMode, Attr, Clock, Cred, Device, DirEntry, DirSink, FS_APPEND_FL, FS_IMMUTABLE_FL,
     FS_NOATIME_FL, FS_NODUMP_FL, FileId, FileKattr, FileType, Filesystem, FsInfo, FsResult, Handle,
     MAX_DIR_COOKIE, NAME_MAX, NewKind, NewNode, Node, OpenOptions, RenameMode, SeekHole, SetAttr,
     StatFs, TMPFS_MAGIC, TimeSet, Timestamp, XattrSet,
@@ -922,11 +924,29 @@ impl Node for MemNode {
         }
     }
 
-    fn shared_pages(&self, end: u64) -> FsResult<Option<Arc<dyn SharedPages>>> {
-        match &self.content {
-            Content::File(_) => self.data()?.shared_pages(end),
-            _ => Ok(None),
+    fn shared_pages(
+        &self,
+        range: Range<u64>,
+        cred: &Cred,
+    ) -> FsResult<Option<Arc<dyn SharedPages>>> {
+        if !matches!(self.content, Content::File(_)) {
+            return Ok(None);
         }
+        let owner = self.quota_owner.lock().unwrap();
+        let charge = Charge {
+            shared: &self.shared,
+            owner: *owner,
+            exempt: cred.capable_init(wasixv2_vfs::Cap::SysResource),
+        };
+        let range = Arc::new(range);
+        let pages = self.data()?.shared_pages(&charge, &range)?;
+        Ok(pages.map(|pages| {
+            Arc::new(MappedPages {
+                pages,
+                range,
+                _node: self.arc(),
+            }) as Arc<dyn SharedPages>
+        }))
     }
 
     async fn getxattr(&self, name: &[u8]) -> FsResult<Vec<u8>> {
@@ -1073,6 +1093,44 @@ impl MemNode {
             new_parent.touch();
         }
         Ok(())
+    }
+}
+
+/// Keeps a materialized range charged while any mapping can allocate its host pages.
+struct MappedPages {
+    pages: Arc<dyn SharedPages>,
+    range: Arc<Range<u64>>,
+    _node: Arc<MemNode>,
+}
+
+impl SharedPages for MappedPages {
+    fn id(&self) -> u64 {
+        self.pages.id()
+    }
+    fn size(&self) -> u64 {
+        self.range.end
+    }
+    fn resize(&self, _size: u64) -> io::Result<()> {
+        Err(io::ErrorKind::Unsupported.into())
+    }
+    fn read_at(&self, buf: &mut [u8], offset: u64) -> io::Result<()> {
+        self.pages.read_at(buf, offset)
+    }
+    fn write_at(&self, data: &[u8], offset: u64) -> io::Result<()> {
+        self.pages.write_at(data, offset)
+    }
+    fn punch_hole(&self, offset: u64, len: u64) -> io::Result<()> {
+        self.pages.punch_hole(offset, len)
+    }
+    fn allocated(&self) -> u64 {
+        self.pages.allocated()
+    }
+    fn seek(&self, offset: u64, which: wasixv2_pages::Seek) -> io::Result<Option<u64>> {
+        self.pages.seek(offset, which)
+    }
+    #[cfg(unix)]
+    fn fd(&self) -> Option<std::os::fd::BorrowedFd<'_>> {
+        self.pages.fd()
     }
 }
 

@@ -381,7 +381,7 @@ mod shared {
     }
 
     fn object(file: &Arc<dyn Node>, end: u64) -> Arc<dyn SharedPages> {
-        file.shared_pages(end)
+        file.shared_pages(0..end, &wasixv2_vfs::Cred::user(1, 1))
             .unwrap()
             .expect("a file in shared memory")
     }
@@ -421,7 +421,10 @@ mod shared {
         pages.read_at(&mut buf, 0).unwrap();
         assert_eq!(buf, [7, 0]);
         let attr = block_on(file.getattr()).unwrap();
-        assert_eq!((attr.size, attr.blocks), (1, BLOCK / 512));
+        assert_eq!((attr.size, attr.blocks), (1, 16 * BLOCK / 512));
+        drop(pages);
+        block_on(handle.allocate(AllocMode::PunchHole, BLOCK, 15 * BLOCK)).unwrap();
+        assert_eq!(block_on(file.getattr()).unwrap().blocks, BLOCK / 512);
     }
 
     #[test]
@@ -500,12 +503,83 @@ mod shared {
     }
 
     #[test]
+    fn mappings_charge_quota_atomically_and_keep_holes_reserved_until_unmapped() {
+        use wasixv2_vfs::{Cred, QuotaOps};
+        let fs = quota_fs(
+            Arc::new(FixedClock),
+            QuotaLimits {
+                types: 3,
+                block_hard: [4 * BLOCK, 2 * BLOCK],
+                ..QuotaLimits::default()
+            },
+        )
+        .with_shared_pages(Arc::new(Memfds));
+        let (file, handle) = open_file(&fs, b"mapped");
+        let cred = Cred::user(1, 1);
+        block_on(handle.set_size(4 * BLOCK)).unwrap();
+        assert!(matches!(
+            file.shared_pages(BLOCK..4 * BLOCK, &cred),
+            Err(Errno::EDQUOT)
+        ));
+        assert_eq!(fs.get(0, 1).unwrap().dqb_curspace, 0);
+        let pages = file.shared_pages(BLOCK..3 * BLOCK, &cred).unwrap().unwrap();
+        assert_eq!(fs.get(0, 1).unwrap().dqb_curspace, 2 * BLOCK);
+        let overlap = file
+            .shared_pages(2 * BLOCK..3 * BLOCK, &cred)
+            .unwrap()
+            .unwrap();
+        assert_eq!(fs.get(0, 1).unwrap().dqb_curspace, 2 * BLOCK);
+        block_on(handle.allocate(AllocMode::PunchHole, BLOCK, 2 * BLOCK)).unwrap();
+        block_on(handle.set_size(0)).unwrap();
+        pages.write_at(b"store", BLOCK).unwrap();
+        assert_eq!(fs.get(1, 1).unwrap().dqb_curspace, 2 * BLOCK);
+        assert_eq!(block_on(handle.write_at(b"over", 0)), Err(Errno::EDQUOT));
+        drop(pages);
+        drop(overlap);
+        block_on(handle.allocate(AllocMode::PunchHole, BLOCK, 2 * BLOCK)).unwrap();
+        assert_eq!(fs.get(0, 1).unwrap().dqb_curspace, 0);
+        // Mappings keep unlinked inodes and their quota alive.
+        let pages = file.shared_pages(0..BLOCK, &cred).unwrap().unwrap();
+        block_on(fs.root().unlink(b"mapped")).unwrap();
+        drop(file);
+        drop(handle);
+        assert_eq!(fs.get(0, 1).unwrap().dqb_curspace, BLOCK);
+        drop(pages);
+        assert_eq!(fs.get(0, 1).unwrap().dqb_curspace, 0);
+    }
+
+    #[test]
+    fn mapping_materialization_enforces_the_filesystem_size_limit() {
+        let fs = limited(Limits {
+            max_bytes: Some(BLOCK),
+            max_inodes: None,
+        })
+        .with_shared_pages(Arc::new(Memfds));
+        let (file, _) = open_file(&fs, b"f");
+        let cred = wasixv2_vfs::Cred::user(1, 1);
+        assert!(matches!(
+            file.shared_pages(0..2 * BLOCK, &cred),
+            Err(Errno::ENOSPC)
+        ));
+        assert_eq!(block_on(file.getattr()).unwrap().blocks, 0);
+        assert!(
+            file.shared_pages(BLOCK..2 * BLOCK, &cred)
+                .unwrap()
+                .is_some()
+        );
+    }
+
+    #[test]
     fn a_file_without_an_object_stays_on_the_heap() {
         let fs = fs().with_shared_pages(Arc::new(Unsupported));
         let (file, handle) = open_file(&fs, b"f");
         block_on(handle.write_at(b"heap", 0)).unwrap();
 
-        assert!(file.shared_pages(BLOCK).unwrap().is_none());
+        assert!(
+            file.shared_pages(0..BLOCK, &wasixv2_vfs::Cred::user(1, 1))
+                .unwrap()
+                .is_none()
+        );
         let mut buf = [0; 4];
         block_on(handle.read_at(&mut buf, 0)).unwrap();
         assert_eq!(&buf, b"heap");
@@ -515,10 +589,18 @@ mod shared {
     fn only_regular_files_have_objects() {
         let fs = shared_fs();
         let dir = block_on(fs.root().create(b"d", &new(NewKind::Directory))).unwrap();
-        assert!(dir.shared_pages(BLOCK).unwrap().is_none());
+        assert!(
+            dir.shared_pages(0..BLOCK, &wasixv2_vfs::Cred::user(1, 1))
+                .unwrap()
+                .is_none()
+        );
         // Nor do files of a filesystem without shared memory.
         let (file, _) = open_file(&super::fs(), b"f");
-        assert!(file.shared_pages(BLOCK).unwrap().is_none());
+        assert!(
+            file.shared_pages(0..BLOCK, &wasixv2_vfs::Cred::user(1, 1))
+                .unwrap()
+                .is_none()
+        );
     }
 }
 
