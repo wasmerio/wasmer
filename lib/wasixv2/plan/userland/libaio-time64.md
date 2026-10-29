@@ -59,7 +59,7 @@ This requires no kernel/exec contract change and should not be Wasm-specific.
 ## Narrow setup harness
 
 The upstream harness Makefile documents `LIBAIO` as a link-input override.
-`userland-5.sh libaio-setup` builds the real `src/io_setup.ol` and links unmodified
+`userland-5.sh libaio-setup` archives the real `src/io_setup.ol` in a standard `.a` and links unmodified
 `harness/cases/2.t` against it. This tests invalid context addresses, invalid
 counts, context creation and already initialized contexts. There is no substitute
 library or implementation, and no implication that AIO event waiting is ported.

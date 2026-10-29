@@ -51,7 +51,8 @@ build_aio_setup() {
     export WASIXCC_LLVM_LOCATION=$LIBAIO_LLVM_LOCATION
   fi
   make -B -C src -j"$JOBS" CC="$CC" io_setup.ol
-  make -B -C harness -j"$JOBS" CC="$CC" LIBAIO=../src/io_setup.ol cases/2.p
+  "$AR" rcs "$ROOT/libaio-setup.a" src/io_setup.ol
+  make -B -C harness -j"$JOBS" CC="$CC" LIBAIO="$ROOT/libaio-setup.a" cases/2.p
 }
 
 build_keys() {
@@ -63,14 +64,33 @@ build_keys() {
 }
 
 build_strace() {
-  # wasm32 still needs a real architecture/scalar-slot port; see strace-wasm32.md.
-  checkout strace https://github.com/strace/strace.git 9d7b4d1a59a20171bfad65a4eea883190ddd3791
+  local strace_url=https://github.com/wasix-org/strace.git
+  local strace_rev=c7f71a82bde664c55281702de964f7579f7353ee
+  # Older kits cloned upstream; fetch this port without replacing that checkout.
+  if [ -d "$ROOT/strace-src/.git" ]; then
+    git -C "$ROOT/strace-src" fetch "$strace_url" "$strace_rev"
+  fi
+  checkout strace "$strace_url" "$strace_rev"
+  checkout strace-abi https://github.com/wasix-org/wasixv2-abi.git 07cd32edb66b0cf9f97e276b85e0398c899daa5c
   cd "$ROOT/strace-src"
+  # The table follows codegen's actual ptrace slot order, including split i64
+  # parameters. A direct lseek/mmap slot is independent of ILP32 memory words.
+  export WASIXV2_WIT="$ROOT/strace-abi-src/wit" CARGO_INCREMENTAL=0
+  cargo test -j"$JOBS" --locked -p strace-wasixv2-syscalls \
+    --manifest-path maint/wasixv2-syscalls/Cargo.toml
+  cargo run -j"$JOBS" --locked -p strace-wasixv2-syscalls \
+    --manifest-path maint/wasixv2-syscalls/Cargo.toml -- "$WASIXV2_WIT" \
+    > "$ROOT/strace-syscallent.h"
+  cmp "$ROOT/strace-syscallent.h" src/linux/wasm32/syscallent.h
   ./bootstrap
   ./configure --host="$HOST" --build="$BUILD" --disable-shared --enable-static \
-    --without-libunwind --without-libdw --disable-mpers
+    --without-libunwind --without-libdw --disable-mpers CFLAGS='-O2 -g'
   make -j"$JOBS" CC="$CC"
   install_wasm src/strace strace
+  for helper in disable_ptrace_getregset disable_ptrace_get_syscall_info; do
+    install_wasm "src/$helper" "$helper"
+  done
+  "$CC" -O2 -g tests/wasm32-slots.c -o "$OUT/bin/strace-slots"
 }
 
 build_util() {
