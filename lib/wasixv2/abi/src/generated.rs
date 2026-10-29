@@ -26697,6 +26697,9 @@ impl IoctlRequest {
     pub const NS_GET_PARENT: Self = Self(46850);
     pub const NS_GET_NSTYPE: Self = Self(46851);
     pub const NS_GET_OWNER_UID: Self = Self(46852);
+    /// Q2 KERNEL-MISC: Linux include/uapi/linux/nsfs.h namespace identifiers.
+    pub const NS_GET_MNTNS_ID: Self = Self(2148054789);
+    pub const NS_GET_ID: Self = Self(2148054797);
     pub const TIOCSPTLCK: Self = Self(1074025521);
     pub const TIOCSIG: Self = Self(1074025526);
     /// `FS_IOC_SETFLAGS` (`_IOW('f', 2, long)`, 32-bit `long`).
@@ -26889,6 +26892,8 @@ impl IoctlRequest {
         ("NS_GET_PARENT", Self::NS_GET_PARENT),
         ("NS_GET_NSTYPE", Self::NS_GET_NSTYPE),
         ("NS_GET_OWNER_UID", Self::NS_GET_OWNER_UID),
+        ("NS_GET_MNTNS_ID", Self::NS_GET_MNTNS_ID),
+        ("NS_GET_ID", Self::NS_GET_ID),
         ("TIOCSPTLCK", Self::TIOCSPTLCK),
         ("TIOCSIG", Self::TIOCSIG),
         ("FS_IOC_SETFLAGS", Self::FS_IOC_SETFLAGS),
@@ -27075,6 +27080,8 @@ impl IoctlRequest {
             46850 => Some("NS_GET_PARENT"),
             46851 => Some("NS_GET_NSTYPE"),
             46852 => Some("NS_GET_OWNER_UID"),
+            2148054789 => Some("NS_GET_MNTNS_ID"),
+            2148054797 => Some("NS_GET_ID"),
             1074025521 => Some("TIOCSPTLCK"),
             1074025526 => Some("TIOCSIG"),
             1074030082 => Some("FS_IOC_SETFLAGS"),
@@ -29114,6 +29121,46 @@ impl GuestLayout for Statmount {
         self.spare2.write_to(&mut out[168..]);
     }
 }
+/// Q2 KERNEL-MISC (Linux include/uapi/linux/nsfs.h).
+/// Special user namespace selector for `listns`.
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct ListnsUserNs(pub u64);
+impl ListnsUserNs {
+    pub const LISTNS_CURRENT_USER: Self = Self(18446744073709551615);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] =
+        &[("LISTNS_CURRENT_USER", Self::LISTNS_CURRENT_USER)];
+    /// Name of the first constant with this value, if any.
+    pub const fn name(self) -> Option<&'static str> {
+        match self.0 {
+            18446744073709551615 => Some("LISTNS_CURRENT_USER"),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Debug for ListnsUserNs {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.name() {
+            Some(name) => f.write_str(name),
+            None => write!(f, "ListnsUserNs({})", self.0),
+        }
+    }
+}
+
+impl GuestLayout for ListnsUserNs {
+    const SIZE: usize = <u64 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u64 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u64 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
 /// `listns` request (`struct ns_id_req`).
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
