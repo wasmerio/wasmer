@@ -370,6 +370,9 @@ impl Kernel {
         let task = caller.task();
         // `do_exit`'s `ptrace_event(PTRACE_EVENT_EXIT, code)`, with the status as wait has it.
         let event = wasixv2_abi::PtraceEvent::PTRACE_EVENT_EXIT;
+        self.task_signals(task)
+            .group()
+            .with_trace(task, |t| t.exit_reported = true);
         self.ptrace_event(task, event, ((status & 0xff) << 8) as u64)
             .await;
         let process = self.process(task);
@@ -423,6 +426,9 @@ impl Kernel {
     /// released too.
     pub(crate) async fn sys_exit_group(&self, caller: &Caller<'_>, status: i32) -> SysResult<()> {
         let event = wasixv2_abi::PtraceEvent::PTRACE_EVENT_EXIT;
+        self.task_signals(caller.task())
+            .group()
+            .with_trace(caller.task(), |t| t.exit_reported = true);
         self.ptrace_event(caller.task(), event, ((status & 0xff) << 8) as u64)
             .await;
         self.do_group_exit(caller.task(), status);

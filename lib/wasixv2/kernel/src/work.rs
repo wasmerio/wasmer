@@ -86,6 +86,11 @@ impl Work {
     }
 
     /// The oldest queued action.
+    pub(crate) fn peek(&self) -> Option<&GuestAction> {
+        self.queue.front()
+    }
+
+    /// The oldest queued action.
     pub(crate) fn take(&mut self) -> Option<GuestAction> {
         self.queue.pop_front()
     }
