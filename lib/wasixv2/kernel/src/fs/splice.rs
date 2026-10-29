@@ -54,6 +54,12 @@ impl Kernel {
         }
         let input = self.io_file(caller, fd_in)?;
         let output = self.io_file(caller, fd_out)?;
+        // fs/pipe.c get_pipe_info(for_splice=true) excludes watch queues.
+        if pipe_info(&input).is_some_and(|p| p.is_notification())
+            || pipe_info(&output).is_some_and(|p| p.is_notification())
+        {
+            return Err(Errno::EINVAL.into());
+        }
         // `__do_splice`: a pipe has no offset; then the offsets are read, the output's first.
         let ipipe = pipe_info(&input);
         let opipe = pipe_info(&output);
@@ -129,6 +135,12 @@ impl Kernel {
         }
         let input = self.io_file(caller, fd_in)?;
         let output = self.io_file(caller, fd_out)?;
+        // fs/pipe.c get_pipe_info(for_splice=true) excludes watch queues.
+        if pipe_info(&input).is_some_and(|p| p.is_notification())
+            || pipe_info(&output).is_some_and(|p| p.is_notification())
+        {
+            return Err(Errno::EINVAL.into());
+        }
         // `do_tee`.
         input.check_readable()?;
         output.check_writable()?;
@@ -181,7 +193,9 @@ impl Kernel {
         if total == 0 {
             return Ok(0);
         }
-        let pipe = pipe_info(&file).ok_or(Errno::EBADF)?;
+        let pipe = pipe_info(&file)
+            .filter(|p| !p.is_notification())
+            .ok_or(Errno::EBADF)?;
         let nonblock = flags.contains(SpliceFlags::SPLICE_F_NONBLOCK);
         let n = match to_pipe {
             true => {

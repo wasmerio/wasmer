@@ -3,7 +3,7 @@
 use std::{
     collections::VecDeque,
     sync::{
-        Arc, Mutex, MutexGuard,
+        Arc, Mutex, MutexGuard, Weak,
         atomic::{AtomicU32, Ordering},
     },
 };
@@ -73,6 +73,7 @@ fn round_pipe_size(size: u32) -> Option<usize> {
 }
 
 pub(crate) struct Pipe {
+    notification: bool,
     state: Mutex<State>,
     /// Held by a reader from looking at the data until it consumed it (`pipe->mutex` around
     /// `copy_page_to_iter`), so what it leaves behind on a fault is still first. Never held while waiting: readers wait on `rd_wait` first.
@@ -88,6 +89,7 @@ pub(crate) struct Pipe {
 }
 
 struct State {
+    watch: Option<crate::watch_queue::Queue>,
     buf: VecDeque<u8>,
     capacity: usize,
     /// Room promised to a splice into the pipe that is still reading its input
@@ -102,6 +104,16 @@ struct State {
 }
 
 impl State {
+    fn readable(&self) -> bool {
+        self.watch
+            .as_ref()
+            .map_or(!self.buf.is_empty(), |q| q.readable())
+    }
+
+    fn input_len(&self) -> usize {
+        self.watch.as_ref().map_or(self.buf.len(), |q| q.len())
+    }
+
     fn free(&self) -> usize {
         self.capacity.saturating_sub(self.buf.len() + self.reserved)
     }
@@ -139,9 +151,11 @@ impl Drop for PipeEnd {
 }
 
 /// A pipe with no ends yet that holds `capacity` bytes (`alloc_pipe_info`).
-fn new_pipe(capacity: usize) -> Arc<Pipe> {
+fn new_pipe(capacity: usize, notification: bool) -> Arc<Pipe> {
     Arc::new(Pipe {
+        notification,
         state: Mutex::new(State {
+            watch: notification.then(crate::watch_queue::Queue::default),
             buf: VecDeque::new(),
             capacity,
             reserved: 0,
@@ -159,8 +173,8 @@ fn new_pipe(capacity: usize) -> Arc<Pipe> {
 }
 
 /// A new pipe's read and write ends, holding `capacity` bytes.
-pub(crate) fn pipe(capacity: usize) -> (PipeEnd, PipeEnd) {
-    let pipe = new_pipe(capacity);
+fn pipe(capacity: usize, notification: bool) -> (PipeEnd, PipeEnd) {
+    let pipe = new_pipe(capacity, notification);
     let (read, _) = PipeEnd::attach(&pipe, false);
     let (write, _) = PipeEnd::attach(&pipe, true);
     (read, write)
@@ -170,7 +184,7 @@ pub(crate) fn pipe(capacity: usize) -> (PipeEnd, PipeEnd) {
 
 /// A pipe with no ends yet holding `capacity` bytes, for a FIFO inode's first open.
 pub(crate) fn fifo_pipe(capacity: usize) -> Arc<Pipe> {
-    new_pipe(capacity)
+    new_pipe(capacity, false)
 }
 
 /// The other side of a pipe as an end was attached: how many ends it had open, and how many it
@@ -182,6 +196,30 @@ pub(crate) struct Partner {
 }
 
 impl Pipe {
+    pub(crate) fn is_notification(&self) -> bool {
+        self.notification
+    }
+
+    pub(crate) fn add_notification_watch(&self, watch: Weak<crate::watch_queue::Watch>) {
+        if let Some(queue) = &mut self.state.lock_or_recover().watch {
+            queue.watches.retain(|w| w.strong_count() != 0);
+            queue.watches.push(watch);
+        }
+    }
+
+    pub(crate) fn post_notification(&self, bytes: Vec<u8>, filtered: bool) {
+        let posted = self
+            .state
+            .lock_or_recover()
+            .watch
+            .as_mut()
+            .is_some_and(|q| q.post(bytes, filtered));
+        if posted {
+            self.rd_wait.wake(PollMask::READABLE);
+            self.signal_readers();
+        }
+    }
+
     /// `pipe_fasync` for a file with a read end (`read`), a write end, or both.
     pub(crate) fn fasync(&self, fasync: &Fasync<'_>, read: bool, write: bool) {
         if read {
@@ -321,7 +359,7 @@ impl Pipe {
     ) -> SysResult<()> {
         let ready = || {
             let state = self.state.lock_or_recover();
-            if !state.buf.is_empty() || state.writers == 0 {
+            if state.readable() || state.writers == 0 {
                 return Some(Ok(()));
             }
             nonblock.then_some(Err(Errno::EAGAIN))
@@ -381,6 +419,11 @@ impl Pipe {
         if buf.is_empty() {
             return Ok(0);
         }
+        if self.notification {
+            return self
+                .consume_notifications(nonblock, interrupt, buf, out)
+                .await;
+        }
         loop {
             self.wait_readable(nonblock, interrupt).await?;
             let _io = self.io_lock.lock().await;
@@ -405,6 +448,59 @@ impl Pipe {
                 self.signal_writers();
             }
             return Ok(n);
+        }
+    }
+
+    /// fs/pipe.c pipe_read: PIPE_BUF_FLAG_WHOLE records are never split or consumed
+    /// on a short copy. A loss notification follows the buffer that recorded the overflow.
+    async fn consume_notifications(
+        &self,
+        nonblock: bool,
+        interrupt: &dyn Interrupt,
+        buf: &mut [u8],
+        out: &mut dyn Consumer,
+    ) -> SysResult<usize> {
+        loop {
+            self.wait_readable(nonblock, interrupt).await?;
+            let _io = self.io_lock.lock().await;
+            let mut done = 0;
+            loop {
+                let note = self
+                    .state
+                    .lock_or_recover()
+                    .watch
+                    .as_ref()
+                    .and_then(|q| q.front());
+                let Some(note) = note else {
+                    break;
+                };
+                if note.len() > buf.len() - done {
+                    return if done > 0 {
+                        Ok(done)
+                    } else {
+                        Err(Errno::ENOBUFS.into())
+                    };
+                }
+                let end = done + note.len();
+                buf[done..end].copy_from_slice(&note);
+                let copied = out.take(&buf[done..end]).await;
+                match copied {
+                    Ok(n) if n == note.len() => {}
+                    _ if done > 0 => return Ok(done),
+                    _ => return Err(Errno::EFAULT.into()),
+                }
+                self.state.lock_or_recover().watch.as_mut().unwrap().pop();
+                done = end;
+                if done == buf.len() {
+                    break;
+                }
+            }
+            if done > 0 {
+                return Ok(done);
+            }
+            if self.state.lock_or_recover().writers == 0 {
+                return Ok(0);
+            }
         }
     }
 
@@ -570,6 +666,10 @@ impl PipeEnd {
     /// `SIGPIPE` whenever `!pipe->readers`. Readers' owners hear of it however it ends, and
     /// before it waits for room again.
     async fn write_bytes(&self, io: Io<'_>, data: &[u8]) -> SysResult<usize> {
+        // fs/pipe.c anon_pipe_write checks watch queues even for a zero-length write.
+        if self.pipe.notification {
+            return Err(Errno::EXDEV.into());
+        }
         if data.is_empty() {
             return Ok(0);
         }
@@ -619,12 +719,15 @@ impl PipeEnd {
     }
 
     fn input_len(&self) -> usize {
-        self.pipe.state.lock_or_recover().buf.len()
+        self.pipe.state.lock_or_recover().input_len()
     }
 
     /// `pipe_set_size` with `round_pipe_size`: growing past `max`, `fs.pipe-max-size`, takes
     /// `CAP_SYS_RESOURCE` (`privileged`); shrinking is always allowed.
     fn set_size(&self, size: u32, max: u32, privileged: bool) -> Result<usize, Errno> {
+        if self.pipe.notification {
+            return Err(Errno::EBUSY);
+        }
         let size = round_pipe_size(size).ok_or(Errno::EINVAL)?;
         let mut state = self.pipe.state.lock_or_recover();
         if size > state.capacity && size > max as usize && !privileged {
@@ -648,7 +751,7 @@ impl Pollable for PipeEnd {
         let state = self.pipe.state.lock_or_recover();
         let mut mask = PollMask::empty();
         if !self.writer {
-            if !state.buf.is_empty() {
+            if state.readable() {
                 mask |= PollMask::READABLE;
             }
             if state.writers == 0 && state.w_counter != self.hup_unless {
@@ -701,6 +804,26 @@ impl FileObject for PipeEnd {
         arg: u32,
     ) -> LocalFuture<'a, SysResult<i32>> {
         Box::pin(async move {
+            if request == IoctlRequest::IOC_WATCH_QUEUE_SET_SIZE {
+                let mut state = self.pipe.state.lock_or_recover();
+                let capacity = state.watch.as_mut().ok_or(Errno::ENODEV)?.set_size(arg)?;
+                state.capacity = capacity;
+                return Ok(0);
+            }
+            if request == IoctlRequest::IOC_WATCH_QUEUE_SET_FILTER {
+                if !self.pipe.notification {
+                    return Err(Errno::ENODEV.into());
+                }
+                let filter = crate::watch_queue::read_filter(caller, arg).await?;
+                self.pipe
+                    .state
+                    .lock_or_recover()
+                    .watch
+                    .as_mut()
+                    .unwrap()
+                    .set_filter(filter);
+                return Ok(0);
+            }
             if request != IoctlRequest::FIONREAD {
                 return Err(Errno::ENOTTY.into());
             }
@@ -738,11 +861,17 @@ impl Kernel {
         fildes: FdPair,
         flags: OpenFlags,
     ) -> SysResult<i32> {
-        let allowed = OpenFlags::O_CLOEXEC | OpenFlags::O_NONBLOCK | OpenFlags::O_DIRECT;
+        let allowed = OpenFlags::O_CLOEXEC
+            | OpenFlags::O_NONBLOCK
+            | OpenFlags::O_DIRECT
+            | OpenFlags::O_NOTIFICATION_PIPE;
         if !(flags & !allowed).is_empty() {
             return Err(Errno::EINVAL.into());
         }
-        let (read, write) = pipe(self.new_pipe_size(caller));
+        let (read, write) = pipe(
+            self.new_pipe_size(caller),
+            flags.contains(OpenFlags::O_NOTIFICATION_PIPE),
+        );
         // The pipe hangs off its inode, as a FIFO's does, so `/proc/<pid>/fd/<n>` reopens it.
         let path = self.pseudo.pipe(self.cred(caller).fs_owner());
         let pipe: Bound = read.pipe.clone();

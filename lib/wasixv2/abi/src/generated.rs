@@ -1829,6 +1829,8 @@ impl OpenFlags {
     pub const O_ACCMODE: Self = Self(0x3);
     pub const O_CREAT: Self = Self(0x40);
     pub const O_EXCL: Self = Self(0x80);
+    /// Notification pipe selection (linux/watch_queue.h); aliases O_EXCL for pipe2 only.
+    pub const O_NOTIFICATION_PIPE: Self = Self(0x80);
     pub const O_NOCTTY: Self = Self(0x100);
     pub const O_TRUNC: Self = Self(0x200);
     pub const O_APPEND: Self = Self(0x400);
@@ -1857,6 +1859,7 @@ impl OpenFlags {
         ("O_ACCMODE", Self::O_ACCMODE),
         ("O_CREAT", Self::O_CREAT),
         ("O_EXCL", Self::O_EXCL),
+        ("O_NOTIFICATION_PIPE", Self::O_NOTIFICATION_PIPE),
         ("O_NOCTTY", Self::O_NOCTTY),
         ("O_TRUNC", Self::O_TRUNC),
         ("O_APPEND", Self::O_APPEND),
@@ -7146,6 +7149,489 @@ impl GuestLayout for FanotifyMisc {
     const ZERO: Self = Self(0);
     fn read_from(bytes: &[u8]) -> Option<Self> {
         <i32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// Packed Linux watch_notification header: low 24 bits are type, high 8 bits subtype.
+///
+/// C: `struct watch_notification`
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct WatchNotification {
+    pub type_subtype: u32,
+    pub info: u32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<WatchNotification>() == 8);
+    assert!(core::mem::align_of::<WatchNotification>() == 4);
+    assert!(core::mem::offset_of!(WatchNotification, type_subtype) == 0);
+    assert!(core::mem::offset_of!(WatchNotification, info) == 4);
+};
+impl Default for WatchNotification {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for WatchNotification {
+    const SIZE: usize = 8;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        type_subtype: <u32 as GuestLayout>::ZERO,
+        info: <u32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            type_subtype: GuestLayout::read_from(&bytes[0..])?,
+            info: GuestLayout::read_from(&bytes[4..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.type_subtype.write_to(&mut out[0..]);
+        self.info.write_to(&mut out[4..]);
+    }
+}
+/// A filter's Linux UAPI layout; unknown types are ignored.
+///
+/// C: `struct watch_notification_type_filter`
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct WatchNotificationTypeFilter {
+    pub r#type: u32,
+    pub info_filter: u32,
+    pub info_mask: u32,
+    pub subtype_filter: [u32; 8],
+}
+const _: () = {
+    assert!(core::mem::size_of::<WatchNotificationTypeFilter>() == 44);
+    assert!(core::mem::align_of::<WatchNotificationTypeFilter>() == 4);
+    assert!(core::mem::offset_of!(WatchNotificationTypeFilter, r#type) == 0);
+    assert!(core::mem::offset_of!(WatchNotificationTypeFilter, info_filter) == 4);
+    assert!(core::mem::offset_of!(WatchNotificationTypeFilter, info_mask) == 8);
+    assert!(core::mem::offset_of!(WatchNotificationTypeFilter, subtype_filter) == 12);
+};
+impl Default for WatchNotificationTypeFilter {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for WatchNotificationTypeFilter {
+    const SIZE: usize = 44;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        r#type: <u32 as GuestLayout>::ZERO,
+        info_filter: <u32 as GuestLayout>::ZERO,
+        info_mask: <u32 as GuestLayout>::ZERO,
+        subtype_filter: <[u32; 8] as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            r#type: GuestLayout::read_from(&bytes[0..])?,
+            info_filter: GuestLayout::read_from(&bytes[4..])?,
+            info_mask: GuestLayout::read_from(&bytes[8..])?,
+            subtype_filter: GuestLayout::read_from(&bytes[12..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.r#type.write_to(&mut out[0..]);
+        self.info_filter.write_to(&mut out[4..]);
+        self.info_mask.write_to(&mut out[8..]);
+        self.subtype_filter.write_to(&mut out[12..]);
+    }
+}
+/// Fixed header; nr_filters watch-notification-type-filter records follow it.
+///
+/// C: `struct watch_notification_filter`
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct WatchNotificationFilter {
+    pub nr_filters: u32,
+    pub reserved: u32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<WatchNotificationFilter>() == 8);
+    assert!(core::mem::align_of::<WatchNotificationFilter>() == 4);
+    assert!(core::mem::offset_of!(WatchNotificationFilter, nr_filters) == 0);
+    assert!(core::mem::offset_of!(WatchNotificationFilter, reserved) == 4);
+};
+impl Default for WatchNotificationFilter {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for WatchNotificationFilter {
+    const SIZE: usize = 8;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        nr_filters: <u32 as GuestLayout>::ZERO,
+        reserved: <u32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            nr_filters: GuestLayout::read_from(&bytes[0..])?,
+            reserved: GuestLayout::read_from(&bytes[4..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.nr_filters.write_to(&mut out[0..]);
+        self.reserved.write_to(&mut out[4..]);
+    }
+}
+/// Removal of a watched object, bypassing notification filters.
+///
+/// C: `struct watch_notification_removal`
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct WatchNotificationRemoval {
+    pub watch: WatchNotification,
+    pub id: u64,
+}
+const _: () = {
+    assert!(core::mem::size_of::<WatchNotificationRemoval>() == 16);
+    assert!(core::mem::align_of::<WatchNotificationRemoval>() == 8);
+    assert!(core::mem::offset_of!(WatchNotificationRemoval, watch) == 0);
+    assert!(core::mem::offset_of!(WatchNotificationRemoval, id) == 8);
+};
+impl Default for WatchNotificationRemoval {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for WatchNotificationRemoval {
+    const SIZE: usize = 16;
+    const ALIGN: usize = 8;
+    const ZERO: Self = Self {
+        watch: <WatchNotification as GuestLayout>::ZERO,
+        id: <u64 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            watch: GuestLayout::read_from(&bytes[0..])?,
+            id: GuestLayout::read_from(&bytes[8..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.watch.write_to(&mut out[0..]);
+        self.id.write_to(&mut out[8..]);
+    }
+}
+/// Key change event; aux is the linked/unlinked key serial or the attribute value.
+///
+/// C: `struct key_notification`
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct KeyNotification {
+    pub watch: WatchNotification,
+    pub key_id: u32,
+    pub aux: u32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<KeyNotification>() == 16);
+    assert!(core::mem::align_of::<KeyNotification>() == 4);
+    assert!(core::mem::offset_of!(KeyNotification, watch) == 0);
+    assert!(core::mem::offset_of!(KeyNotification, key_id) == 8);
+    assert!(core::mem::offset_of!(KeyNotification, aux) == 12);
+};
+impl Default for KeyNotification {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for KeyNotification {
+    const SIZE: usize = 16;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        watch: <WatchNotification as GuestLayout>::ZERO,
+        key_id: <u32 as GuestLayout>::ZERO,
+        aux: <u32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            watch: GuestLayout::read_from(&bytes[0..])?,
+            key_id: GuestLayout::read_from(&bytes[8..])?,
+            aux: GuestLayout::read_from(&bytes[12..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.watch.write_to(&mut out[0..]);
+        self.key_id.write_to(&mut out[8..]);
+        self.aux.write_to(&mut out[12..]);
+    }
+}
+/// C: `unsigned`
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct WatchNotificationType(pub u32);
+impl WatchNotificationType {
+    pub const WATCH_TYPE_META: Self = Self(0);
+    pub const WATCH_TYPE_KEY_NOTIFY: Self = Self(1);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("WATCH_TYPE_META", Self::WATCH_TYPE_META),
+        ("WATCH_TYPE_KEY_NOTIFY", Self::WATCH_TYPE_KEY_NOTIFY),
+    ];
+    /// Name of the first constant with this value, if any.
+    pub const fn name(self) -> Option<&'static str> {
+        match self.0 {
+            0 => Some("WATCH_TYPE_META"),
+            1 => Some("WATCH_TYPE_KEY_NOTIFY"),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Debug for WatchNotificationType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.name() {
+            Some(name) => f.write_str(name),
+            None => write!(f, "WatchNotificationType({})", self.0),
+        }
+    }
+}
+
+impl GuestLayout for WatchNotificationType {
+    const SIZE: usize = <u32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// C: `unsigned`
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct WatchMetaNotificationSubtype(pub u32);
+impl WatchMetaNotificationSubtype {
+    pub const WATCH_META_REMOVAL_NOTIFICATION: Self = Self(0);
+    pub const WATCH_META_LOSS_NOTIFICATION: Self = Self(1);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        (
+            "WATCH_META_REMOVAL_NOTIFICATION",
+            Self::WATCH_META_REMOVAL_NOTIFICATION,
+        ),
+        (
+            "WATCH_META_LOSS_NOTIFICATION",
+            Self::WATCH_META_LOSS_NOTIFICATION,
+        ),
+    ];
+    /// Name of the first constant with this value, if any.
+    pub const fn name(self) -> Option<&'static str> {
+        match self.0 {
+            0 => Some("WATCH_META_REMOVAL_NOTIFICATION"),
+            1 => Some("WATCH_META_LOSS_NOTIFICATION"),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Debug for WatchMetaNotificationSubtype {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.name() {
+            Some(name) => f.write_str(name),
+            None => write!(f, "WatchMetaNotificationSubtype({})", self.0),
+        }
+    }
+}
+
+impl GuestLayout for WatchMetaNotificationSubtype {
+    const SIZE: usize = <u32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// C: `unsigned`
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct KeyNotificationSubtype(pub u32);
+impl KeyNotificationSubtype {
+    pub const NOTIFY_KEY_INSTANTIATED: Self = Self(0);
+    pub const NOTIFY_KEY_UPDATED: Self = Self(1);
+    pub const NOTIFY_KEY_LINKED: Self = Self(2);
+    pub const NOTIFY_KEY_UNLINKED: Self = Self(3);
+    pub const NOTIFY_KEY_CLEARED: Self = Self(4);
+    pub const NOTIFY_KEY_REVOKED: Self = Self(5);
+    pub const NOTIFY_KEY_INVALIDATED: Self = Self(6);
+    pub const NOTIFY_KEY_SETATTR: Self = Self(7);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("NOTIFY_KEY_INSTANTIATED", Self::NOTIFY_KEY_INSTANTIATED),
+        ("NOTIFY_KEY_UPDATED", Self::NOTIFY_KEY_UPDATED),
+        ("NOTIFY_KEY_LINKED", Self::NOTIFY_KEY_LINKED),
+        ("NOTIFY_KEY_UNLINKED", Self::NOTIFY_KEY_UNLINKED),
+        ("NOTIFY_KEY_CLEARED", Self::NOTIFY_KEY_CLEARED),
+        ("NOTIFY_KEY_REVOKED", Self::NOTIFY_KEY_REVOKED),
+        ("NOTIFY_KEY_INVALIDATED", Self::NOTIFY_KEY_INVALIDATED),
+        ("NOTIFY_KEY_SETATTR", Self::NOTIFY_KEY_SETATTR),
+    ];
+    /// Name of the first constant with this value, if any.
+    pub const fn name(self) -> Option<&'static str> {
+        match self.0 {
+            0 => Some("NOTIFY_KEY_INSTANTIATED"),
+            1 => Some("NOTIFY_KEY_UPDATED"),
+            2 => Some("NOTIFY_KEY_LINKED"),
+            3 => Some("NOTIFY_KEY_UNLINKED"),
+            4 => Some("NOTIFY_KEY_CLEARED"),
+            5 => Some("NOTIFY_KEY_REVOKED"),
+            6 => Some("NOTIFY_KEY_INVALIDATED"),
+            7 => Some("NOTIFY_KEY_SETATTR"),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Debug for KeyNotificationSubtype {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.name() {
+            Some(name) => f.write_str(name),
+            None => write!(f, "KeyNotificationSubtype({})", self.0),
+        }
+    }
+}
+
+impl GuestLayout for KeyNotificationSubtype {
+    const SIZE: usize = <u32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// C: `unsigned`
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct WatchInfo(pub u32);
+impl WatchInfo {
+    pub const WATCH_INFO_LENGTH: Self = Self(0x7f);
+    pub const WATCH_INFO_ID: Self = Self(0xff00);
+    pub const WATCH_INFO_TYPE_INFO: Self = Self(0xffff0000);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("WATCH_INFO_LENGTH", Self::WATCH_INFO_LENGTH),
+        ("WATCH_INFO_ID", Self::WATCH_INFO_ID),
+        ("WATCH_INFO_TYPE_INFO", Self::WATCH_INFO_TYPE_INFO),
+    ];
+
+    pub const fn empty() -> Self {
+        Self(0)
+    }
+    pub const fn bits(self) -> u32 {
+        self.0
+    }
+    pub const fn is_empty(self) -> bool {
+        self.0 == 0
+    }
+    /// Whether all bits of `other` are set.
+    pub const fn contains(self, other: Self) -> bool {
+        self.0 & other.0 == other.0
+    }
+    /// Whether any bit of `other` is set.
+    pub const fn intersects(self, other: Self) -> bool {
+        self.0 & other.0 != 0
+    }
+}
+
+impl fmt::Debug for WatchInfo {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("WatchInfo(")?;
+        let mut rest = self.0;
+        let mut first = true;
+        for (name, flag) in Self::MEMBERS {
+            if flag.0 != 0 && self.contains(*flag) && rest & flag.0 != 0 {
+                if !first {
+                    f.write_str(" | ")?;
+                }
+                f.write_str(name)?;
+                first = false;
+                rest &= !flag.0;
+            }
+        }
+        if rest != 0 || first {
+            if !first {
+                f.write_str(" | ")?;
+            }
+            write!(f, "{rest:#x}")?;
+        }
+        f.write_str(")")
+    }
+}
+impl core::ops::BitOr for WatchInfo {
+    type Output = Self;
+    fn bitor(self, rhs: Self) -> Self {
+        Self(self.0 | rhs.0)
+    }
+}
+impl core::ops::BitAnd for WatchInfo {
+    type Output = Self;
+    fn bitand(self, rhs: Self) -> Self {
+        Self(self.0 & rhs.0)
+    }
+}
+impl core::ops::BitXor for WatchInfo {
+    type Output = Self;
+    fn bitxor(self, rhs: Self) -> Self {
+        Self(self.0 ^ rhs.0)
+    }
+}
+impl core::ops::Not for WatchInfo {
+    type Output = Self;
+    fn not(self) -> Self {
+        Self(!self.0)
+    }
+}
+impl core::ops::BitOrAssign for WatchInfo {
+    fn bitor_assign(&mut self, rhs: Self) {
+        self.0 |= rhs.0;
+    }
+}
+impl core::ops::BitAndAssign for WatchInfo {
+    fn bitand_assign(&mut self, rhs: Self) {
+        self.0 &= rhs.0;
+    }
+}
+impl core::ops::BitXorAssign for WatchInfo {
+    fn bitxor_assign(&mut self, rhs: Self) {
+        self.0 ^= rhs.0;
+    }
+}
+
+impl GuestLayout for WatchInfo {
+    const SIZE: usize = <u32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <u32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <u32 as GuestLayout>::read_from(bytes).map(Self)
     }
     fn write_to(&self, out: &mut [u8]) {
         self.0.write_to(out);
@@ -21449,6 +21935,8 @@ impl GuestLayout for Winsize {
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
 pub struct IoctlRequest(pub u32);
 impl IoctlRequest {
+    pub const IOC_WATCH_QUEUE_SET_SIZE: Self = Self(22368);
+    pub const IOC_WATCH_QUEUE_SET_FILTER: Self = Self(22369);
     pub const TCGETS: Self = Self(21505);
     pub const TCSETS: Self = Self(21506);
     pub const TCSETSW: Self = Self(21507);
@@ -21629,6 +22117,11 @@ impl IoctlRequest {
     pub const PIDFD_GET_INFO: Self = Self(3227057931);
     /// All named values, in definition order (aliases included).
     pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("IOC_WATCH_QUEUE_SET_SIZE", Self::IOC_WATCH_QUEUE_SET_SIZE),
+        (
+            "IOC_WATCH_QUEUE_SET_FILTER",
+            Self::IOC_WATCH_QUEUE_SET_FILTER,
+        ),
         ("TCGETS", Self::TCGETS),
         ("TCSETS", Self::TCSETS),
         ("TCSETSW", Self::TCSETSW),
@@ -21801,6 +22294,8 @@ impl IoctlRequest {
     /// Name of the first constant with this value, if any.
     pub const fn name(self) -> Option<&'static str> {
         match self.0 {
+            22368 => Some("IOC_WATCH_QUEUE_SET_SIZE"),
+            22369 => Some("IOC_WATCH_QUEUE_SET_FILTER"),
             21505 => Some("TCGETS"),
             21506 => Some("TCSETS"),
             21507 => Some("TCSETSW"),
