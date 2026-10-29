@@ -1515,6 +1515,16 @@ fn fanotify_pre_access_reports_aligned_ranges_and_mediates_io_and_mmap() {
         )),
         Ok(0)
     );
+    // include/linux/fs.h exe_file_deny_write_access exempts HSM files. Capture the
+    // decision at open; removing the mark later must not return an unowned writecount.
+    let path = kernel
+        .io_file(&t.caller, file)
+        .unwrap()
+        .inode()
+        .unwrap()
+        .path
+        .clone();
+    assert!(kernel.vfs.exec_access(&path).unwrap().is_none());
     async fn answer(t: &T<'_>, group: Fd, offset: u64, count: u64, response: u32) {
         let events = fanotify_read(t, group).await;
         assert_eq!(events.len(), 1);

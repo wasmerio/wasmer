@@ -103,6 +103,7 @@ pub(crate) struct Entry {
     flags: u32,
     /// `F`: the interpreter as resolved at registration.
     interp_file: Option<Path>,
+    interp_access: Option<Arc<wasixv2_vfs::ExecAccess>>,
 }
 
 impl Entry {
@@ -168,6 +169,7 @@ fn hex(bytes: &[u8]) -> String {
 pub(crate) struct Handover {
     pub(crate) interpreter: Vec<u8>,
     pub(crate) interp_file: Option<Path>,
+    _interp_access: Option<Arc<wasixv2_vfs::ExecAccess>>,
     pub(crate) flags: u32,
 }
 
@@ -217,6 +219,7 @@ impl BinfmtMisc {
         Some(Handover {
             interpreter: entry.interpreter.clone(),
             interp_file: entry.interp_file.clone(),
+            _interp_access: entry.interp_access.clone(),
             flags: entry.flags,
         })
     }
@@ -231,7 +234,9 @@ impl BinfmtMisc {
     async fn register(&self, data: &[u8], task: u32) -> FsResult<usize> {
         let mut entry = create_entry(data, self.next_ino.fetch_add(1, Ordering::Relaxed))?;
         if entry.flags & OPEN_FILE != 0 {
-            entry.interp_file = Some(self.resolve_interpreter(&entry.interpreter, task).await?);
+            let (path, access) = self.resolve_interpreter(&entry.interpreter, task).await?;
+            entry.interp_file = Some(path);
+            entry.interp_access = access;
         }
         let mut entries = self.entries.lock_or_recover();
         if entries.iter().any(|e| e.name == entry.name) {
@@ -243,7 +248,11 @@ impl BinfmtMisc {
 
     /// `open_exec` of the interpreter in the writer's context: an executable regular file on
     /// a mount that allows execution.
-    async fn resolve_interpreter(&self, path: &[u8], task: u32) -> FsResult<Path> {
+    async fn resolve_interpreter(
+        &self,
+        path: &[u8],
+        task: u32,
+    ) -> FsResult<(Path, Option<Arc<wasixv2_vfs::ExecAccess>>)> {
         let (tasks, vfs) = match (self.tasks.upgrade(), self.vfs.upgrade()) {
             (Some(tasks), Some(vfs)) => (tasks, vfs),
             _ => return Err(Errno::ENOENT),
@@ -270,7 +279,10 @@ impl BinfmtMisc {
             return Err(Errno::EACCES);
         }
         vfs.permission(&cx, &target, MAY_EXEC).await?;
-        Ok(target)
+        // fs/binfmt_misc.c open_interp_file/close_interp_file retain open_exec's denial
+        // for the registration's lifetime, including lookup handover to a new exec.
+        let access = vfs.exec_access(&target)?;
+        Ok((target, access))
     }
 
     /// `bm_status_write` and `bm_entry_write`: `1`, `0` or `-1` for `entry`, or for the whole
@@ -390,6 +402,7 @@ fn create_entry(data: &[u8], ino: u64) -> FsResult<Entry> {
         interpreter: interpreter.to_vec(),
         flags: bits & !DISABLED,
         interp_file: None,
+        interp_access: None,
     })
 }
 
