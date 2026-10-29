@@ -24,7 +24,7 @@ use wasixv2_syscalls::{
     Image, LocalFuture, Resume, SysErr, SysResult, TaskId, VforkParent, WorkFlag, read_cstr,
     read_value, write_value,
 };
-use wasixv2_vfs::{Cap, FileType, LookupFlags, MAY_EXEC, OpenHow};
+use wasixv2_vfs::{Cap, FileType, LookupFlags, MAY_EXEC, OpenHow, Path};
 use wasixv2_wait::{PollMask, PollTable, Pollable, WaitQueue, poll_wait, wait_event};
 
 use crate::{
@@ -187,8 +187,11 @@ struct Binary {
     path: wasixv2_vfs::Path,
     mode: u32,
     owner: (Kuid, Kgid),
-    /// On a `nosuid` mount, whose set-user-ID and set-group-ID bits do not apply.
-    nosuid: bool,
+    /// Whether its set-user-ID and set-group-ID bits may apply: not on a `nosuid` mount, one
+    /// outside the caller's mount namespace, or one of a filesystem whose user namespace is not
+    /// the caller's or above it (`mnt_may_suid`), and not with an owner the caller's user
+    /// namespace does not map (`bprm_fill_uid`).
+    may_setid: bool,
     /// Its size when it was opened.
     size: u64,
 }
@@ -1457,6 +1460,15 @@ impl Kernel {
         Ok(0)
     }
 
+    /// `mnt_may_suid`: set-user-ID bits apply on the mount of `path` for the task `task` with
+    /// `cred`: it is not `nosuid`, it is in the task's mount namespace, and the filesystem's
+    /// user namespace is the task's or an ancestor of it (`current_in_userns`).
+    fn mnt_may_suid(&self, task: TaskId, cred: &crate::cred::Cred, path: &Path) -> bool {
+        !path.mnt.flags().nosuid
+            && self.task_ns(task).mnt.tree.contains(&path.mnt)
+            && cred.user_ns.descends_from(&self.sb_owner(path.mnt.sb()))
+    }
+
     /// `do_open_execat`: the file must be a regular file with an execute bit the caller may
     /// use, on a mount that allows execution. Returns it open for reading, and the binary.
     async fn open_exec(
@@ -1492,10 +1504,15 @@ impl Kernel {
             },
         };
         let file = self.vfs.open(&env.cx(), &target, b"", &how).await?;
+        let owner = (Kuid(attr.uid), Kgid(attr.gid));
+        let cred = self.cred(caller);
+        let may_setid = self.mnt_may_suid(caller.task(), &cred, &target)
+            && cred.user_ns.has_uid(owner.0)
+            && cred.user_ns.has_gid(owner.1);
         let binary = Binary {
             mode: attr.mode,
-            owner: (Kuid(attr.uid), Kgid(attr.gid)),
-            nosuid: target.mnt.flags().nosuid,
+            owner,
+            may_setid,
             size: attr.size,
             path: target,
         };
@@ -1572,7 +1589,7 @@ impl Kernel {
         let (cred, secure) = old.exec(
             binary.mode,
             binary.owner,
-            !binary.nosuid && !no_new_privs,
+            binary.may_setid && !no_new_privs,
             no_new_privs,
         );
         let dumpable =

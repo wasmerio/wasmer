@@ -21,7 +21,9 @@ use wasixv2_wait::{PollMask, PollTable, Pollable};
 use super::mount::{FsParam, FsType};
 use crate::{
     Kernel,
+    cred::Cred as TaskCred,
     file::{Backing, FileObject, Io, OpenFile},
+    ns::UserNs,
     sync::MutexExt,
 };
 
@@ -59,10 +61,13 @@ struct Context {
     fs: Option<Arc<dyn Filesystem>>,
     /// The mount `fspick` picked, whose filesystem a reconfiguration changes.
     picked: Option<Path>,
-    /// The credentials of the opener (`fc->cred`).
+    /// The credentials of the opener (`fc->cred`), as the filesystem and the kernel see them.
     cred: Cred,
+    task_cred: TaskCred,
     /// The opener's pid namespace, which a proc instance shows (`proc_init_fs_context`).
     pid_ns: Arc<crate::ns::PidNs>,
+    /// The user namespace a new instance is for (`fc->user_ns`).
+    user_ns: Arc<UserNs>,
 }
 
 /// An open filesystem context (`fscontext_fops`).
@@ -98,8 +103,10 @@ enum Value {
 }
 
 impl Context {
-    fn new(ty: FsType, phase: Phase, cred: Cred, pid_ns: Arc<crate::ns::PidNs>) -> Self {
+    fn new(ty: FsType, phase: Phase, kernel: &Kernel, env: super::Env) -> Self {
+        let task = TaskId(env.task);
         Self {
+            user_ns: kernel.fc_user_ns(&ty, task),
             ty,
             phase,
             source: None,
@@ -107,8 +114,9 @@ impl Context {
             read_only: None,
             fs: None,
             picked: None,
-            cred,
-            pid_ns,
+            cred: env.cred,
+            task_cred: kernel.process(task).cred(),
+            pid_ns: kernel.active_pid_ns(task),
         }
     }
 
@@ -194,14 +202,13 @@ impl Kernel {
         flags: u32,
     ) -> SysResult<i32> {
         let env = self.env(caller);
-        Self::may_mount(&env)?;
+        self.may_mount(&env)?;
         if flags & !FsopenFlags::FSOPEN_CLOEXEC.0 != 0 {
             return Err(Errno::EINVAL.into());
         }
         let name = copy_string(caller, fs_name, crate::mm::PAGE_SIZE as usize).await?;
         let ty = self.filesystems.get(&name).ok_or(Errno::ENODEV)?;
-        let pid_ns = self.active_pid_ns(TaskId(env.task));
-        let context = Context::new(ty, Phase::CreateParams, env.cred, pid_ns);
+        let context = Context::new(ty, Phase::CreateParams, self, env);
         let cloexec = flags & FsopenFlags::FSOPEN_CLOEXEC.0 != 0;
         self.install_context(caller, context, cloexec)
     }
@@ -215,7 +222,7 @@ impl Kernel {
         flags: u32,
     ) -> SysResult<i32> {
         let env = self.env(caller);
-        Self::may_mount(&env)?;
+        self.may_mount(&env)?;
         let known = FspickFlags::FSPICK_CLOEXEC.0
             | FspickFlags::FSPICK_SYMLINK_NOFOLLOW.0
             | FspickFlags::FSPICK_NO_AUTOMOUNT.0
@@ -241,8 +248,7 @@ impl Kernel {
             .filesystems
             .get(sb.info.name.as_bytes())
             .ok_or(Errno::EINVAL)?;
-        let pid_ns = self.active_pid_ns(TaskId(env.task));
-        let mut context = Context::new(ty, Phase::ReconfParams, env.cred, pid_ns);
+        let mut context = Context::new(ty, Phase::ReconfParams, self, env);
         context.fs = Some(sb.fs.clone());
         context.picked = Some(target);
         let cloexec = has(FspickFlags::FSPICK_CLOEXEC);
@@ -342,8 +348,7 @@ impl Kernel {
         if context.phase != Phase::CreateParams {
             return Err(Errno::EBUSY);
         }
-        // `mount_capable`.
-        if !context.cred.capable(Cap::SysAdmin) {
+        if !Self::mount_capable(&context.ty, &context.task_cred, &context.user_ns) {
             return Err(Errno::EPERM);
         }
         let made = match &context.ty {
@@ -367,12 +372,17 @@ impl Kernel {
     }
 
     /// `vfs_cmd_reconfigure`: the parameters given applied to the instance
-    /// (`reconfigure_super`).
+    /// (`reconfigure_super`), with `CAP_SYS_ADMIN` over the user namespace it belongs to.
     fn fs_reconfigure(&self, context: &mut Context, env: &super::Env) -> Result<(), Errno> {
         if context.phase != Phase::ReconfParams {
             return Err(Errno::EBUSY);
         }
-        if !env.cred.capable(Cap::SysAdmin) {
+        let owner = context
+            .picked
+            .as_ref()
+            .map(|picked| self.sb_owner(picked.mnt.sb()));
+        let cred = self.process(TaskId(env.task)).cred();
+        if !owner.is_some_and(|owner| cred.ns_capable(&owner, Cap::SysAdmin)) {
             context.phase = Phase::Failed;
             return Err(Errno::EPERM);
         }
@@ -413,7 +423,7 @@ impl Kernel {
             return Err(Errno::EINVAL.into());
         }
         let env = self.env(caller);
-        Self::may_mount(&env)?;
+        self.may_mount(&env)?;
         let attr = u64::from(attr_flags);
         let valid = MountAttrFlags::MOUNT_ATTR_RDONLY.0
             | MountAttrFlags::MOUNT_ATTR_NOSUID.0
@@ -442,7 +452,10 @@ impl Kernel {
             }
             let source = context.source.clone().unwrap_or_else(|| b"none".to_vec());
             let read_only = context.read_only.unwrap_or(false);
-            let mounted = self.vfs.create_mount(fs, source, mount_flags, read_only);
+            let owner = context.user_ns.clone();
+            let mounted = self
+                .vfs
+                .create_mount(fs, source, mount_flags, read_only, owner);
             context.picked = Some(mounted.path.clone());
             context.clean();
             mounted

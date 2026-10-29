@@ -3,8 +3,11 @@
 //! with the option parsing of `fs/fs_context.c`).
 //!
 //! The kernel resolves paths in the caller's context, checks that it may mount (`may_mount`:
-//! `CAP_SYS_ADMIN`) at the point Linux does, and leaves the change itself to the VFS, which
-//! checks it against the caller's mount namespace.
+//! `CAP_SYS_ADMIN` over the user namespace that owns its mount namespace) at the point Linux
+//! does, and leaves the change itself to the VFS, which checks it against the caller's mount
+//! namespace. A new instance of a type that a user namespace may mount (`FS_USERNS_MOUNT`)
+//! takes `CAP_SYS_ADMIN` over the user namespace it is for, of any other type over the initial
+//! one (`mount_capable`), and belongs to that user namespace (`s_user_ns`).
 
 use std::sync::{Arc, Mutex};
 
@@ -21,9 +24,12 @@ use wasixv2_vfs::{
 use super::{Env, read_path};
 use crate::{
     Kernel,
+    cred::Cred as TaskCred,
     file::{Backing, OpenFile},
+    ns::UserNs,
     nsfs::NsFile,
     sync::MutexExt,
+    userns::kernel_user_ns,
 };
 
 /// One `key[=value]` of a mount's options (`struct fs_parameter`), after the options every
@@ -53,6 +59,13 @@ pub trait FilesystemType: Send + Sync {
         Ok(())
     }
 
+    /// Whether the root of a user namespace may make instances (`FS_USERNS_MOUNT`): only for a
+    /// type whose instances show nothing beyond what its mounter may see already, as an empty
+    /// memory filesystem. By default not, as for a filesystem over the host's files.
+    fn userns_mount(&self) -> bool {
+        false
+    }
+
     /// Changes `fs`, an instance of this type, as a remount's `params` say (`reconfigure`).
     /// By default a type takes no options on remount.
     fn reconfigure(&self, _fs: &Arc<dyn Filesystem>, params: &[FsParam<'_>]) -> Result<(), Errno> {
@@ -69,6 +82,16 @@ pub(super) enum FsType {
     /// procfs: every mount is a new instance over the same kernel.
     Proc,
     Other(Arc<dyn FilesystemType>),
+}
+
+impl FsType {
+    /// `FS_USERNS_MOUNT`: procfs is.
+    pub(super) fn userns_mount(&self) -> bool {
+        match self {
+            FsType::Proc => true,
+            FsType::Other(ty) => ty.userns_mount(),
+        }
+    }
 }
 
 /// The filesystem types `mount` knows (`file_systems`), in the order they were registered.
@@ -268,13 +291,39 @@ impl Kernel {
         Ok(())
     }
 
-    /// `may_mount`: `CAP_SYS_ADMIN` (in the user namespace that owns the caller's mount
-    /// namespace, which is always the initial one).
-    pub(super) fn may_mount(env: &Env) -> Result<(), Errno> {
-        match env.cred.capable(Cap::SysAdmin) {
+    /// `may_mount`: `CAP_SYS_ADMIN` over the user namespace that owns the caller's mount
+    /// namespace.
+    pub(super) fn may_mount(&self, env: &Env) -> Result<(), Errno> {
+        let task = TaskId(env.task);
+        let owner = self.task_ns(task).mnt.user_ns().clone();
+        match self.process(task).cred().ns_capable(&owner, Cap::SysAdmin) {
             true => Ok(()),
             false => Err(Errno::EPERM),
         }
+    }
+
+    /// `mount_capable`: whether `cred` may make an instance of `ty` for the user namespace
+    /// `user_ns` (`fc->user_ns`).
+    pub(super) fn mount_capable(ty: &FsType, cred: &TaskCred, user_ns: &Arc<UserNs>) -> bool {
+        match ty.userns_mount() {
+            true => cred.ns_capable(user_ns, Cap::SysAdmin),
+            false => cred.capable_init(Cap::SysAdmin),
+        }
+    }
+
+    /// The user namespace a new instance of `ty` that the task `task` makes is for
+    /// (`fc->user_ns`): the pid namespace's owner for procfs (`proc_init_fs_context`), the
+    /// mounter's own for any other.
+    pub(super) fn fc_user_ns(&self, ty: &FsType, task: TaskId) -> Arc<UserNs> {
+        match ty {
+            FsType::Proc => self.active_pid_ns(task).user_ns().clone(),
+            FsType::Other(_) => self.process(task).cred().user_ns,
+        }
+    }
+
+    /// The user namespace a superblock belongs to (`s_user_ns`).
+    pub(crate) fn sb_owner(&self, sb: &wasixv2_vfs::Superblock) -> Arc<UserNs> {
+        kernel_user_ns(&sb.owner, &self.init_user_ns)
     }
 
     /// `mount`.
@@ -326,7 +375,7 @@ impl Kernel {
         if flags & MsFlags::MS_NOUSER.0 != 0 {
             return Err(Errno::EINVAL);
         }
-        Self::may_mount(env)?;
+        self.may_mount(env)?;
         let ns = self.ns(caller).mnt.tree.clone();
         let has = |flag: MsFlags| flags & flag.0 != 0;
         let remount_bind = MsFlags::MS_REMOUNT.0 | MsFlags::MS_BIND.0;
@@ -337,7 +386,7 @@ impl Kernel {
                 .do_mount(&ns, target, MountOp::Reconfigure { flags });
         }
         if has(MsFlags::MS_REMOUNT) {
-            return self.remount(&ns, target, flags, &data);
+            return self.remount(env, &ns, target, flags, &data);
         }
         if has(MsFlags::MS_BIND) {
             let source = self.old_path(env, dev_name).await?;
@@ -390,12 +439,17 @@ impl Kernel {
         let mut read_only = flags & MsFlags::MS_RDONLY.0 != 0;
         let mut source = dev_name;
         let params = parse_options(data, &mut read_only, &mut source)?;
+        let task = TaskId(env.task);
+        let user_ns = self.fc_user_ns(&ty, task);
+        if matches!(ty, FsType::Proc) && !params.is_empty() {
+            return Err(Errno::EINVAL);
+        }
+        if !Self::mount_capable(&ty, &self.process(task).cred(), &user_ns) {
+            return Err(Errno::EPERM);
+        }
         let fs = match ty {
             // `proc_init_fs_context`: the instance shows the mounter's pid namespace.
-            FsType::Proc => match params.is_empty() {
-                true => self.procfs_in(self.active_pid_ns(TaskId(env.task))),
-                false => return Err(Errno::EINVAL),
-            },
+            FsType::Proc => self.procfs_in(self.active_pid_ns(task)),
             FsType::Other(ty) => ty.mount(source.as_deref().unwrap_or(b""), &params, &env.cred)?,
         };
         let op = MountOp::New {
@@ -403,13 +457,16 @@ impl Kernel {
             source: source.unwrap_or_else(|| b"none".to_vec()),
             flags: mount_flags(flags, None),
             sb_read_only: read_only,
+            owner: user_ns,
         };
         self.vfs.do_mount(ns, target, op)
     }
 
-    /// `do_remount`: the filesystem's options and read-only state, and the mount's flags.
+    /// `do_remount`: the filesystem's options and read-only state, and the mount's flags, with
+    /// `CAP_SYS_ADMIN` over the user namespace the filesystem belongs to.
     fn remount(
         &self,
+        env: &Env,
         ns: &wasixv2_vfs::MntNs,
         target: &Path,
         flags: u32,
@@ -426,6 +483,10 @@ impl Kernel {
             return Err(Errno::EINVAL);
         }
         let sb = target.mnt.sb();
+        let cred = self.process(TaskId(env.task)).cred();
+        if !cred.ns_capable(&self.sb_owner(sb), Cap::SysAdmin) {
+            return Err(Errno::EPERM);
+        }
         match self.filesystems.get(sb.info.name.as_bytes()) {
             Some(FsType::Other(ty)) => ty.reconfigure(&sb.fs, &params)?,
             _ if params.is_empty() => {}
@@ -464,7 +525,7 @@ impl Kernel {
             .lookup(&env.cx(), &env.fs.cwd, &name, lookup)
             .await?;
         // `can_umount`.
-        Self::may_mount(&env)?;
+        self.may_mount(&env)?;
         let flags = UmountFlags {
             force: has(UmountFlagBits::MNT_FORCE),
             detach: has(UmountFlagBits::MNT_DETACH),
@@ -495,7 +556,7 @@ impl Kernel {
         let cx = env.cx();
         let new = self.vfs.lookup(&cx, &env.fs.cwd, &new_root, lookup).await?;
         let old = self.vfs.lookup(&cx, &env.fs.cwd, &put_old, lookup).await?;
-        Self::may_mount(&env)?;
+        self.may_mount(&env)?;
         let ns = self.ns(caller).mnt.tree.clone();
         let root = env.fs.root.clone();
         self.vfs.pivot_root(&ns, &root, &new, &old)?;
@@ -543,7 +604,7 @@ impl Kernel {
         if usize < VER0 {
             return Err(Errno::EINVAL.into());
         }
-        Self::may_mount(&env)?;
+        self.may_mount(&env)?;
         let mut bytes = vec![0; usize as usize];
         caller.memory().read(uattr.addr(), &mut bytes).await?;
         if bytes[VER0 as usize..].iter().any(|&b| b != 0) {
@@ -668,7 +729,7 @@ impl Kernel {
         }
         let env = self.env(caller);
         if flags & clone != 0 {
-            Self::may_mount(&env)?;
+            self.may_mount(&env)?;
         }
         let name = read_path(caller.memory(), filename).await?;
         let at = AtFlags(flags & (AtFlags::AT_EMPTY_PATH.0 | AtFlags::AT_SYMLINK_NOFOLLOW.0));
@@ -700,7 +761,7 @@ impl Kernel {
         flags: u32,
     ) -> SysResult<i32> {
         let env = self.env(caller);
-        Self::may_mount(&env)?;
+        self.may_mount(&env)?;
         let has = |flag: MoveMountFlags| flags & flag.0 != 0;
         if flags & !MoveMountFlags::MOVE_MOUNT__MASK.0 != 0 {
             return Err(Errno::EINVAL.into());

@@ -1110,8 +1110,9 @@ impl Tmpfs {
 
     /// A new instance as `options` say, from the defaults: half the machine's memory and an
     /// inode per two of its pages, and a sticky world-writable root owned by the mounter
-    /// (`shmem_init_fs_context`).
-    fn make(&self, options: &TmpfsOptions, cred: &Cred) -> Arc<MemFs> {
+    /// (`shmem_init_fs_context`). The ids of `uid=` and `gid=` are the mounter's user
+    /// namespace's, which must map them (`EINVAL`).
+    fn make(&self, options: &TmpfsOptions, cred: &Cred) -> Result<Arc<MemFs>, Errno> {
         let defaults = Limits::for_memory(Limits::DEFAULT_MEMORY);
         let limits = Limits {
             max_bytes: options.max_bytes.or(defaults.max_bytes),
@@ -1119,15 +1120,22 @@ impl Tmpfs {
         };
         let clock = Arc::new(HostClock(self.host.clone()));
         let mode = options.mode.unwrap_or(0o1777);
-        let uid = options.uid.unwrap_or(cred.fsuid);
-        let gid = options.gid.unwrap_or(cred.fsgid);
+        let ns = &cred.user_ns;
+        let uid = match options.uid {
+            Some(uid) => ns.make_kuid(uid).ok_or(Errno::EINVAL)?,
+            None => cred.fsuid,
+        };
+        let gid = match options.gid {
+            Some(gid) => ns.make_kgid(gid).ok_or(Errno::EINVAL)?,
+            None => cred.fsgid,
+        };
         let mut fs = MemFs::with_limits(clock, mode, uid, gid, limits);
         if cfg!(any(target_os = "linux", target_os = "android")) {
             fs = fs.with_shared_pages(Arc::new(HostPages(self.host.clone())));
         }
         let fs = Arc::new(fs);
         self.adopt(&fs);
-        fs
+        Ok(fs)
     }
 
     /// Counts `fs`, a memory filesystem made elsewhere, as an instance, so that a remount can
@@ -1150,7 +1158,13 @@ impl FilesystemType for Tmpfs {
         cred: &Cred,
     ) -> Result<Arc<dyn Filesystem>, Errno> {
         let options = Self::options(params)?;
-        Ok(self.make(&options, cred))
+        let fs = self.make(&options, cred)?;
+        Ok(fs)
+    }
+
+    /// tmpfs is `FS_USERNS_MOUNT`: an empty memory filesystem shows nothing of the machine.
+    fn userns_mount(&self) -> bool {
+        true
     }
 
     /// `shmem_parse_one`.
@@ -1520,7 +1534,8 @@ mod tests {
     #[test]
     fn tmpfs_options_are_shmems() {
         let cred = Cred::user(5, 6);
-        let defaults: Arc<dyn Filesystem> = tmpfs().make(&Tmpfs::options(&[]).unwrap(), &cred);
+        let defaults: Arc<dyn Filesystem> =
+            tmpfs().make(&Tmpfs::options(&[]).unwrap(), &cred).unwrap();
         let root = now(defaults.root().getattr()).unwrap();
         assert_eq!((root.mode & 0o7777, root.uid, root.gid), (0o1777, 5, 6));
         assert_eq!(
@@ -1571,8 +1586,8 @@ mod tests {
         let tmpfs = tmpfs();
         let cred = Cred::root();
         let options = Tmpfs::options(&params(&[("size", Some("1m"))])).unwrap();
-        let fs: Arc<dyn Filesystem> = tmpfs.make(&options, &cred);
-        let other: Arc<dyn Filesystem> = tmpfs.make(&options, &cred);
+        let fs: Arc<dyn Filesystem> = tmpfs.make(&options, &cred).unwrap();
+        let other: Arc<dyn Filesystem> = tmpfs.make(&options, &cred).unwrap();
         let resize = params(&[("size", Some("2m")), ("mode", Some("0700"))]);
         assert_eq!(tmpfs.reconfigure(&fs, &resize), Ok(()));
         assert_eq!(size(&fs), 2 << 20);

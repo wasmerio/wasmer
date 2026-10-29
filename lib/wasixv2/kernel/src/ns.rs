@@ -538,9 +538,13 @@ impl NsProxy {
             }
             NsKind::Mnt => {
                 let ucount = charge()?;
+                let tree_owner: Arc<dyn wasixv2_vfs::UserNs> = owner.clone();
                 let tree = match fs {
-                    Some(fs) => self.mnt.tree.copy(&mut [&mut fs.root, &mut fs.cwd]),
-                    None => self.mnt.tree.copy(&mut []),
+                    Some(fs) => self
+                        .mnt
+                        .tree
+                        .copy(tree_owner, &mut [&mut fs.root, &mut fs.cwd]),
+                    None => self.mnt.tree.copy(tree_owner, &mut []),
                 };
                 self.mnt = Ns::new(kind, owner, Mnt { tree }, inums, ucount)?;
             }

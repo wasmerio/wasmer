@@ -7,7 +7,7 @@ use futures::executor::block_on;
 use wasixv2_abi::OpenFlags;
 use wasixv2_vfs::{
     Clock, Cred, Ctx, Errno, File, LookupFlags, MntNs, MountAttr, MountFlags, MountOp, OpenHow,
-    Path, Propagation, Timestamp, UmountFlags, Vfs,
+    Path, Propagation, Timestamp, UmountFlags, Vfs, initial_user_ns,
 };
 use wasixv2_vfs_mem::MemFs;
 
@@ -44,7 +44,9 @@ impl View {
     /// `unshare(CLONE_NEWNS)`: a copy of this view's namespace, its root moved along.
     fn unshare(&self) -> Self {
         let mut root = self.root.clone();
-        let ns = self.vfs.copy_mnt_ns(&self.ns, &mut [&mut root]);
+        let ns = self
+            .vfs
+            .copy_mnt_ns(&self.ns, initial_user_ns(), &mut [&mut root]);
         Self {
             vfs: self.vfs.clone(),
             ns,
@@ -103,6 +105,7 @@ impl View {
             source: b"none".to_vec(),
             flags: MountFlags::default(),
             sb_read_only: false,
+            owner: initial_user_ns(),
         };
         self.op(at, op).unwrap();
     }
@@ -674,9 +677,10 @@ fn move_mount_attaches_a_detached_tree_which_then_moves_as_any_mount() {
     drop(other);
 
     // A new mount made detached, as `fsmount` makes one.
+    let flags = MountFlags::default();
     let fs = v
         .vfs
-        .create_mount(tmpfs(), b"made".to_vec(), MountFlags::default(), false);
+        .create_mount(tmpfs(), b"made".to_vec(), flags, false, initial_user_ns());
     assert_eq!(v.mount_count(), 3);
     v.move_mount(&fs.path, "/other", false).unwrap();
     assert_eq!(v.path("/other").unwrap().mnt.devname(), b"made");

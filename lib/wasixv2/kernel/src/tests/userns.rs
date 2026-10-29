@@ -271,6 +271,13 @@ fn the_parent_maps_a_childs_range_and_each_level_sees_its_own_ids() {
     assert_eq!(block_on(kernel.setgid(&child.caller(), 0)), Ok(0));
     assert_eq!(block_on(kernel.setuid(&child.caller(), 0)), Ok(0));
     assert_eq!(getuid(&kernel, &child), 0);
+    // Changing its ids made it non-dumpable, and its /proc files root's, as on Linux until
+    // an `execve`.
+    let dumpable = wasixv2_abi::PrctlOption::PR_SET_DUMPABLE;
+    assert_eq!(
+        block_on(kernel.prctl(&child.caller(), dumpable, 1, 0, 0, 0)),
+        Ok(0)
+    );
     let status_at = at("status");
     let seen = read_text(&kernel, &parent, &status_at);
     assert!(
@@ -452,4 +459,181 @@ fn a_user_namespaces_root_cannot_raise_limits_or_tune_the_machine() {
     assert_eq!(limit(Some(max - 1)), Ok(max), "lowering needs nothing");
     let at = "/proc/sys/kernel/pid_max";
     assert_eq!(errno(write_text(&kernel, &p, at, "4096")), Errno::EACCES);
+}
+
+/// A tmpfs a user namespace's root may mount (`FS_USERNS_MOUNT`), or, as `hostfs`, one only the
+/// initial namespace's root may, as a filesystem over the host's files.
+struct TestFs {
+    userns_mount: bool,
+}
+
+impl FilesystemType for TestFs {
+    fn mount(
+        &self,
+        _source: &[u8],
+        _params: &[FsParam<'_>],
+        cred: &wasixv2_vfs::Cred,
+    ) -> Result<Arc<dyn Filesystem>, Errno> {
+        let clock = Arc::new(HostClock(Arc::new(TestHost) as Arc<dyn Host>));
+        Ok(Arc::new(MemFs::new(clock, 0o1777, cred.fsuid, cred.fsgid)))
+    }
+
+    fn userns_mount(&self) -> bool {
+        self.userns_mount
+    }
+}
+
+/// A machine run as root with `tmpfs` and `hostfs` to mount, a sticky world-writable `/mnt`
+/// whose `secret` only root may read, and a child running as uid and gid 1000.
+fn mounting_machine() -> (Kernel, P, P) {
+    let (kernel, root) = machine_as(0);
+    for (name, userns_mount) in [("tmpfs", true), ("hostfs", false)] {
+        let ty = Arc::new(TestFs { userns_mount });
+        kernel.register_filesystem(name, ty).unwrap();
+    }
+    let clock = Arc::new(HostClock(Arc::new(TestHost) as Arc<dyn Host>));
+    let mnt = Arc::new(MemFs::new(clock, 0o1777, 0, 0));
+    let vfs = kernel.vfs().clone();
+    block_on(vfs.mount(b"/mnt", mnt, MountFlags::default(), true)).unwrap();
+    let secret = open_mode(&kernel, &root, "/mnt/secret", 0o600);
+    assert!(secret.is_ok());
+    let user = fork(&kernel, &root, CloneFlags(0)).unwrap();
+    assert_eq!(block_on(kernel.setgid(&user.caller(), 1000)), Ok(0));
+    assert_eq!(block_on(kernel.setuid(&user.caller(), 1000)), Ok(0));
+    // Dumpable again, as the `execve` after a login program's `setuid` makes it.
+    let dumpable = wasixv2_abi::PrctlOption::PR_SET_DUMPABLE;
+    assert_eq!(
+        block_on(kernel.prctl(&user.caller(), dumpable, 1, 0, 0, 0)),
+        Ok(0)
+    );
+    (kernel, root, user)
+}
+
+/// Creates the file `at` with `mode`.
+fn open_mode(kernel: &Kernel, p: &P, at: &str, mode: u32) -> SysResult<Fd> {
+    let flags = OpenFlags::O_CREAT | OpenFlags::O_WRONLY;
+    block_on(kernel.openat(&p.caller(), CWD, path(p, at), flags, mode))
+}
+
+fn mount(kernel: &Kernel, p: &P, at: &str, fstype: &str) -> SysResult<i32> {
+    block_on(p.memory.write(0x1800, b"none\0")).unwrap();
+    let ty = format!("{fstype}\0");
+    block_on(p.memory.write(0x1900, ty.as_bytes())).unwrap();
+    let target = path(p, at);
+    let none = wasixv2_abi::MountFlags(0);
+    let caller = p.caller();
+    let mount = kernel.mount(
+        &caller,
+        GuestPtr::new(0x1800),
+        target,
+        GuestPtr::new(0x1900),
+        none,
+        GuestPtr::NULL,
+    );
+    block_on(mount)
+}
+
+fn mkdir(kernel: &Kernel, p: &P, at: &str) -> SysResult<i32> {
+    block_on(kernel.mkdirat(&p.caller(), CWD, path(p, at), 0o755))
+}
+
+/// The owner of `at` as `p` sees it, by `statx`.
+fn owner(kernel: &Kernel, p: &P, at: &str) -> (u32, u32) {
+    let out = GuestPtrMut::new(0x3000);
+    let mask = wasixv2_abi::StatxMask(0x7ff);
+    let caller = p.caller();
+    let stat = kernel.statx(&caller, CWD, path(p, at), AtFlags(0), mask, out);
+    assert_eq!(block_on(stat), Ok(0));
+    let stat: wasixv2_abi::Statx = block_on(read_value(&p.memory, GuestPtr::new(0x3000))).unwrap();
+    (stat.stx_uid, stat.stx_gid)
+}
+
+/// The root of a user namespace mounts a tmpfs in a mount namespace it owns, but nothing in
+/// the initial mount namespace, and no filesystem that is not `FS_USERNS_MOUNT`.
+#[test]
+fn a_user_namespaces_root_mounts_a_tmpfs_in_a_mount_namespace_it_owns() {
+    let (kernel, _root, user) = mounting_machine();
+    assert_eq!(mkdir(&kernel, &user, "/mnt/t"), Ok(0));
+    become_root(&kernel, &user, CloneFlags(0));
+    assert_eq!(
+        errno(mount(&kernel, &user, "/mnt/t", "tmpfs")),
+        Errno::EPERM
+    );
+
+    assert_eq!(unshare(&kernel, &user, CloneFlags::CLONE_NEWNS), Ok(0));
+    assert_eq!(mount(&kernel, &user, "/mnt/t", "tmpfs"), Ok(0));
+    assert_eq!(
+        owner(&kernel, &user, "/mnt/t"),
+        (0, 0),
+        "its root, as it sees itself"
+    );
+    assert_eq!(
+        errno(mount(&kernel, &user, "/mnt/t", "hostfs")),
+        Errno::EPERM
+    );
+}
+
+/// What the root of a user namespace cannot do to files it has no mapping for, or to devices:
+/// the capabilities apply over inodes whose owner its namespace maps.
+#[test]
+fn a_user_namespaces_root_has_no_power_over_unmapped_owners_or_devices() {
+    let (kernel, root, user) = mounting_machine();
+    become_root(&kernel, &user, CloneFlags::CLONE_NEWNS);
+
+    assert_eq!(owner(&kernel, &user, "/mnt/secret"), (65534, 65534));
+    let read = open(&kernel, &user, "/mnt/secret", OpenFlags::O_RDONLY);
+    assert_eq!(
+        errno(read),
+        Errno::EACCES,
+        "no CAP_DAC_OVERRIDE over root's file"
+    );
+    let chown = |at: &str, uid: u32| {
+        let caller = user.caller();
+        block_on(kernel.fchownat(&caller, CWD, path(&user, at), uid, u32::MAX, AtFlags(0)))
+    };
+    assert_eq!(errno(chown("/mnt/secret", 0)), Errno::EPERM, "not its file");
+    assert_eq!(
+        open_mode(&kernel, &user, "/mnt/mine", 0o644).map(|_| ()),
+        Ok(())
+    );
+    assert_eq!(owner(&kernel, &user, "/mnt/mine"), (0, 0));
+    assert_eq!(
+        owner(&kernel, &root, "/mnt/mine"),
+        (1000, 1000),
+        "its kernel id outside"
+    );
+    assert_eq!(
+        errno(chown("/mnt/mine", 5)),
+        Errno::EINVAL,
+        "an unmapped id"
+    );
+    assert_eq!(chown("/mnt/mine", 0), Ok(0));
+
+    let mknod = |at: &str, mode: u32| {
+        let caller = user.caller();
+        block_on(kernel.mknodat(&caller, CWD, path(&user, at), mode, 0x0103))
+    };
+    assert_eq!(
+        errno(mknod("/mnt/null", 0o020666)),
+        Errno::EPERM,
+        "a device"
+    );
+    assert_eq!(mknod("/mnt/fifo", 0o010600), Ok(0));
+}
+
+/// What is made on a filesystem is owned by ids its user namespace maps (`EOVERFLOW`): root,
+/// unmapped in a user namespace's tmpfs, cannot create there.
+#[test]
+fn nothing_is_made_on_a_filesystem_whose_user_namespace_cannot_name_its_owner() {
+    let (kernel, root, user) = mounting_machine();
+    assert_eq!(mkdir(&kernel, &user, "/mnt/t"), Ok(0));
+    become_root(&kernel, &user, CloneFlags::CLONE_NEWNS);
+    assert_eq!(mount(&kernel, &user, "/mnt/t", "tmpfs"), Ok(0));
+    let inside = format!("/proc/{}/root/mnt/t/made", pid_of(&kernel, &user));
+
+    assert_eq!(
+        errno(open_mode(&kernel, &root, &inside, 0o644)),
+        Errno::EOVERFLOW
+    );
+    assert!(open_mode(&kernel, &user, "/mnt/t/made", 0o644).is_ok());
 }

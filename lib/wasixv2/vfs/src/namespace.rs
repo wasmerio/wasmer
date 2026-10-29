@@ -11,6 +11,7 @@ use wasixv2_abi::Errno;
 
 use crate::{
     Vfs,
+    cred::UserNs,
     dentry::Dentry,
     driver::Filesystem,
     file::File,
@@ -22,12 +23,14 @@ use crate::{
 /// What `mount(2)` does to its target (`path_mount`'s dispatch).
 pub enum MountOp {
     /// Mounts `fs`, made from `source` (`do_new_mount`), read-only as a filesystem if
-    /// `sb_read_only` (`SB_RDONLY`) and it is not mounted already.
+    /// `sb_read_only` (`SB_RDONLY`) and it is not mounted already, when it belongs to the user
+    /// namespace `owner` (`fc->user_ns`).
     New {
         fs: Arc<dyn Filesystem>,
         source: Vec<u8>,
         flags: MountFlags,
         sb_read_only: bool,
+        owner: Arc<dyn UserNs>,
     },
     /// Mounts the tree at `source` again, with what is mounted below it if `recursive`
     /// (`do_loopback`, `MS_BIND` and `MS_REC`).
@@ -146,7 +149,8 @@ impl Vfs {
                 source,
                 flags,
                 sb_read_only,
-            } => self.new_mount(ns, target, fs, source, flags, sb_read_only),
+                owner,
+            } => self.new_mount(ns, target, fs, source, flags, sb_read_only, owner),
             MountOp::Bind { source, recursive } => self.loopback(ns, target, &source, recursive),
             MountOp::Move { source } => self.move_mount(ns, &source, target, false),
             MountOp::Remount { read_only, flags } => {
@@ -175,6 +179,7 @@ impl Vfs {
     }
 
     /// `do_new_mount_fc` and `do_add_mount`.
+    #[allow(clippy::too_many_arguments)]
     fn new_mount(
         &self,
         ns: &MntNs,
@@ -183,8 +188,9 @@ impl Vfs {
         source: Vec<u8>,
         flags: MountFlags,
         sb_read_only: bool,
+        owner: Arc<dyn UserNs>,
     ) -> FsResult<()> {
-        let (root, new) = self.fs_root(fs);
+        let (root, new) = self.fs_root(fs, owner);
         if new {
             root.sb().set_read_only(sb_read_only);
         }
@@ -438,7 +444,8 @@ impl Vfs {
                 None => 0,
             };
             let mount = self.copy_for_loopback(&mut state, ns, path, recursive)?;
-            let anon = MntNs::new(&self.tree, &mut state, mount.clone(), Some(origin));
+            let owner = ns.owner().clone();
+            let anon = MntNs::new(&self.tree, &mut state, mount.clone(), Some(origin), owner);
             let tree = state.subtree(&mount);
             state.set_ns(&tree, anon.id());
             anon
@@ -448,22 +455,26 @@ impl Vfs {
 
     /// `fsmount`: a new mount of `fs` made from `source`, with `flags`, as the only mount of an
     /// anonymous namespace, as an `O_PATH` file at its root (see [`Vfs::open_tree`]). The
-    /// filesystem is read-only if `sb_read_only` and it is not mounted already.
+    /// filesystem is read-only if `sb_read_only` and it is not mounted already, when it
+    /// belongs to the user namespace `owner`.
     pub fn create_mount(
         self: &Arc<Self>,
         fs: Arc<dyn Filesystem>,
         source: Vec<u8>,
         flags: MountFlags,
         sb_read_only: bool,
+        owner: Arc<dyn UserNs>,
     ) -> File {
-        let (root, new) = self.fs_root(fs);
+        let (root, new) = self.fs_root(fs, owner.clone());
         if new {
             root.sb().set_read_only(sb_read_only);
         }
         let mount = Arc::new(Mount::new(self.tree.next_id(), root, flags, source));
         let detached = {
             let mut state = self.tree.lock();
-            let anon = MntNs::new(&self.tree, &mut state, mount.clone(), Some(0));
+            // Linux's `fsmount` gives the namespace its caller's mount namespace's owner; the
+            // filesystem's is the same but for an instance of the initial namespace's types.
+            let anon = MntNs::new(&self.tree, &mut state, mount.clone(), Some(0), owner);
             state.add_link(&mount, anon.id());
             anon
         };
@@ -620,8 +631,13 @@ impl Vfs {
     }
 
     /// `copy_mnt_ns`: see [`MntNs::copy`].
-    pub fn copy_mnt_ns(&self, from: &MntNs, paths: &mut [&mut Path]) -> Arc<MntNs> {
-        from.copy(paths)
+    pub fn copy_mnt_ns(
+        &self,
+        from: &MntNs,
+        owner: Arc<dyn UserNs>,
+        paths: &mut [&mut Path],
+    ) -> Arc<MntNs> {
+        from.copy(owner, paths)
     }
 
     /// The mounts of `ns`, oldest first, with their propagation as seen from `root`.
@@ -800,9 +816,9 @@ fn recalc_flags(old: MountFlags, attr: &MountAttr) -> MountFlags {
 
 impl MntNs {
     /// `copy_mnt_ns`: a new namespace holding a copy of every mount of this one, shared mounts
-    /// joining their originals' peer groups and slaves their masters. Each of `paths` (the new
-    /// root and working directory) moves to the copy of its mount.
-    pub fn copy(&self, paths: &mut [&mut Path]) -> Arc<MntNs> {
+    /// joining their originals' peer groups and slaves their masters, owned by `owner`. Each of
+    /// `paths` (the new root and working directory) moves to the copy of its mount.
+    pub fn copy(&self, owner: Arc<dyn UserNs>, paths: &mut [&mut Path]) -> Arc<MntNs> {
         let mut state = self.tree.lock();
         let flags = CopyFlags {
             copy_unbindable: true,
@@ -812,7 +828,7 @@ impl MntNs {
         let (root, copies) = state
             .copy_tree(&self.tree.next_id, &source, &source.root, flags)
             .expect("copying unbindable mounts too, a whole tree copies");
-        let ns = MntNs::new(&self.tree, &mut state, root, None);
+        let ns = MntNs::new(&self.tree, &mut state, root, None, owner);
         let copied: Vec<_> = copies.iter().map(|(_, copy)| copy.clone()).collect();
         state.set_ns(&copied, ns.id());
         for path in paths {
