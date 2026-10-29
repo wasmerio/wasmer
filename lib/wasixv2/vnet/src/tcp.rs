@@ -71,10 +71,25 @@ impl Transport {
         }
     }
 
-    fn write(&self, data: &[u8]) -> NetResult<usize> {
+    fn write(&self, data: &[u8], urgent: bool) -> NetResult<usize> {
         match self {
-            Self::Local(c, side) => c.write(*side, data),
+            Self::Local(c, side) => c.write(*side, data, urgent),
+            Self::Remote(s) if urgent => s.write_urgent(data),
             Self::Remote(s) => s.write(data),
+        }
+    }
+
+    fn read_urgent(&self, peek: bool) -> NetResult<u8> {
+        match self {
+            Self::Local(c, side) => c.read_urgent(*side, peek),
+            Self::Remote(s) => s.read_urgent(peek),
+        }
+    }
+
+    fn at_mark(&self) -> bool {
+        match self {
+            Self::Local(c, side) => c.at_mark(*side),
+            Self::Remote(s) => s.at_mark(),
         }
     }
 
@@ -212,6 +227,7 @@ fn bufs(o: &SockOpts) -> Buffers {
         sndbuf: o.sndbuf,
         rcvbuf: o.rcvbuf,
         rcvlowat: o.rcvlowat,
+        urginline: o.flag(SocketLevel::SOL_SOCKET.0, SocketOption::SO_OOBINLINE.0),
     }
 }
 
@@ -820,10 +836,6 @@ impl Socket for TcpSocket {
     }
 
     fn send(&self, msg: SendMsg<'_>) -> NetResult<usize> {
-        if msg.flags.0 & MsgFlags::MSG_OOB.0 != 0 {
-            // TODO: urgent data is not supported.
-            return Err(Errno::EOPNOTSUPP);
-        }
         // Linux's TCP ignores a destination address on a connected socket.
         let mut g = self.lock();
         let t = match &g.state {
@@ -834,12 +846,12 @@ impl Socket for TcpSocket {
             }
         };
         drop(g);
-        t.write(msg.data)
+        t.write(msg.data, msg.flags.contains(MsgFlags::MSG_OOB))
     }
 
     fn recv(&self, buf: &mut [u8], flags: MsgFlags) -> NetResult<RecvMsg> {
         if flags.0 & MsgFlags::MSG_OOB.0 != 0 {
-            return Err(Errno::EINVAL);
+            return self.recv_urgent(buf, flags);
         }
         if flags.0 & MsgFlags::MSG_ERRQUEUE.0 != 0 {
             return Err(Errno::EAGAIN);
@@ -903,6 +915,14 @@ impl Socket for TcpSocket {
             State::Listening(_) => Err(Errno::EINVAL),
             State::Connected(t, _) | State::Connecting(t, _) => Ok(t.input_len()),
             State::Closed => Ok(0),
+        }
+    }
+
+    fn at_mark(&self) -> NetResult<bool> {
+        let g = self.lock();
+        match &g.state {
+            State::Connected(t, _) | State::Connecting(t, _) => Ok(t.at_mark()),
+            _ => Ok(false),
         }
     }
 
@@ -994,6 +1014,39 @@ impl Socket for TcpSocket {
 const TCP_INFO_LEN: usize = 248;
 
 impl TcpSocket {
+    /// `tcp_recvmsg` with `MSG_OOB` (`tcp_recv_urg`): the urgent byte, which `MSG_TRUNC` takes
+    /// without copying and an empty buffer leaves with `MSG_TRUNC` set.
+    fn recv_urgent(&self, buf: &mut [u8], flags: MsgFlags) -> NetResult<RecvMsg> {
+        let g = self.lock();
+        let t = match &g.state {
+            State::Listening(_) => return Err(Errno::ENOTCONN),
+            State::Connected(t, _) | State::Connecting(t, _) => t.clone(),
+            // `tcp_disconnect` forgets the mark; a socket never connected has none.
+            State::Closed => return Err(Errno::EINVAL),
+        };
+        drop(g);
+        let byte = t.read_urgent(flags.contains(MsgFlags::MSG_PEEK))?;
+        let mut out = MsgFlags::MSG_OOB;
+        let len = match buf.first_mut() {
+            Some(first) => {
+                if !flags.contains(MsgFlags::MSG_TRUNC) {
+                    *first = byte;
+                }
+                1
+            }
+            None => {
+                out |= MsgFlags::MSG_TRUNC;
+                0
+            }
+        };
+        Ok(RecvMsg {
+            len,
+            full_len: len,
+            flags: out,
+            ..RecvMsg::default()
+        })
+    }
+
     /// Auto-publishing: mirror a non-loopback listener on the host. Failure is logged only.
     fn auto_publish(&self, l: &Listener, local: SocketAddr, backlog: u32) {
         let (Some(host_ip), Some(backend)) =

@@ -192,7 +192,8 @@ impl SocketFile {
 
     /// One receive into `buf`, waiting for data unless non-blocking. `MSG_WAITALL` is the
     /// caller's to loop on. `MSG_ERRQUEUE` never waits: it reads the error queue or fails
-    /// with `EAGAIN` (`ip_recv_error` is called before `__skb_recv_udp`'s wait).
+    /// with `EAGAIN` (`ip_recv_error` is called before `__skb_recv_udp`'s wait). Nor does
+    /// `MSG_OOB`, whatever the socket's blocking (`tcp_recv_urg`).
     pub(crate) async fn recv(
         &self,
         wait: &mut Blocking<'_>,
@@ -201,7 +202,7 @@ impl SocketFile {
     ) -> SysResult<RecvMsg> {
         let socket = &self.socket;
         let proto_flags = flags & !(MsgFlags::MSG_WAITALL | MsgFlags::MSG_DONTWAIT);
-        if flags.contains(MsgFlags::MSG_ERRQUEUE) {
+        if flags.intersects(MsgFlags::MSG_ERRQUEUE | MsgFlags::MSG_OOB) {
             return Ok(socket.recv(buf, proto_flags)?);
         }
         wait.wait(WaitOn::Object(&**socket), PollMask::READABLE, || {
@@ -356,7 +357,7 @@ impl FileObject for SocketFile {
         true
     }
 
-    /// `SIOCINQ` (`FIONREAD`) and `SIOCOUTQ` (`TIOCOUTQ`).
+    /// `SIOCINQ` (`FIONREAD`), `SIOCOUTQ` (`TIOCOUTQ`) and `SIOCATMARK`.
     fn ioctl<'a>(
         &'a self,
         caller: &'a Caller<'a>,
@@ -364,12 +365,13 @@ impl FileObject for SocketFile {
         arg: u32,
     ) -> LocalFuture<'a, SysResult<i32>> {
         Box::pin(async move {
-            let len = match request {
-                IoctlRequest::FIONREAD => self.socket.input_len()?,
-                IoctlRequest::TIOCOUTQ => self.socket.output_len()?,
+            let value = match request {
+                IoctlRequest::FIONREAD => self.socket.input_len()? as i32,
+                IoctlRequest::TIOCOUTQ => self.socket.output_len()? as i32,
+                IoctlRequest::SIOCATMARK => self.socket.at_mark()? as i32,
                 _ => return Err(Errno::ENOTTY.into()),
             };
-            write_value(caller.memory(), GuestPtrMut::new(arg), &(len as i32)).await?;
+            write_value(caller.memory(), GuestPtrMut::new(arg), &value).await?;
             Ok(0)
         })
     }

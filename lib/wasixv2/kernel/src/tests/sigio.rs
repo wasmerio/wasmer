@@ -593,3 +593,162 @@ fn a_udp_socket_signals_a_datagram_once_the_timer_driver_ran() {
     };
     assert_eq!(poll_info(&info), (1, POLLIN_BAND, socket.0), "POLL_IN");
 }
+
+// ---- urgent data ----
+
+/// A machine on a network of its own, and a connected TCP pair in its one process: the
+/// connecting socket and the accepted one, `port` on 127.0.0.1.
+fn tcp_pair(port: u16) -> (Kernel, P, Fd, Fd) {
+    let host: Arc<dyn Host> = Arc::new(super::ptimer::RealHost(std::time::Instant::now()));
+    let root = MemFs::new(Arc::new(HostClock(host.clone())), 0o755, 0, 0);
+    let network = wasixv2_vnet::Net::new(wasixv2_vnet::NetConfig::default(), None);
+    let kernel = Kernel::new(host, Arc::new(root)).with_network(network);
+    let stdin = Arc::new(Input(Mutex::new(Vec::new())));
+    let (kernel, task, _) = spawn_on(kernel, stdin, &[], &[]);
+    let p = P::new(task);
+    let caller = p.caller();
+    let stream =
+        |kernel: &Kernel| block_on(kernel.socket(&caller, AddressFamily::AF_INET, 1, 0)).unwrap();
+    let listener = stream(&kernel);
+    let [hi, lo] = port.to_be_bytes();
+    put(
+        &p.memory.0,
+        0x500,
+        &[2, 0, hi, lo, 127, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0],
+    );
+    let addr = GuestPtr::new(0x500);
+    assert_eq!(block_on(kernel.bind(&caller, listener, addr, 16)), Ok(0));
+    assert_eq!(block_on(kernel.listen(&caller, listener, 1)), Ok(0));
+    let client = stream(&kernel);
+    assert_eq!(block_on(kernel.connect(&caller, client, addr, 16)), Ok(0));
+    let (null, nolen) = (GuestPtrMut::NULL, GuestPtrMut::NULL);
+    let flags = wasixv2_abi::SocketFlags::SOCK_NONBLOCK;
+    let server = block_on(kernel.accept4(&caller, listener, null, nolen, flags)).unwrap();
+    (kernel, p, client, server)
+}
+
+fn send(kernel: &Kernel, p: &P, fd: Fd, data: &[u8], flags: wasixv2_abi::MsgFlags) {
+    put(&p.memory.0, 0x400, data);
+    let len = data.len() as u32;
+    let caller = p.caller();
+    let sent = kernel.sendto(
+        &caller,
+        fd,
+        UserSlice::new(0x400, len),
+        flags,
+        GuestPtr::NULL,
+        0,
+    );
+    assert_eq!(block_on(sent), Ok(len));
+}
+
+fn recv(
+    kernel: &Kernel,
+    p: &P,
+    fd: Fd,
+    len: u32,
+    flags: wasixv2_abi::MsgFlags,
+) -> SysResult<Vec<u8>> {
+    let (null, nolen) = (GuestPtrMut::NULL, GuestPtrMut::NULL);
+    let caller = p.caller();
+    let got = kernel.recvfrom(
+        &caller,
+        fd,
+        UserSliceMut::new(0x600, len),
+        flags,
+        null,
+        nolen,
+    );
+    let n = block_on(got)?;
+    Ok(super::ipc::get(&p.memory.0, 0x600, n as usize))
+}
+
+/// Waits for `sig`, which the timer driver sends.
+fn wait_for(kernel: &Kernel, p: &P, sig: Signal) -> Siginfo {
+    let deadline = std::time::Instant::now() + Duration::from_secs(10);
+    loop {
+        if let Some(info) = take(kernel, p, sig) {
+            return info;
+        }
+        assert!(std::time::Instant::now() < deadline, "no {sig:?}");
+        std::thread::sleep(Duration::from_millis(5));
+    }
+}
+
+/// A new urgent mark sends `SIGURG` to the socket's owner, `O_ASYNC` or not (`sk_send_sigurg`),
+/// and to files with an `F_SETSIG` signal on the socket's list that signal with `POLL_PRI` too,
+/// before the data's `POLL_IN`. A socket without an owner signals nobody.
+#[test]
+fn urgent_data_signals_sigurg_to_the_socket_owner() {
+    let oob = wasixv2_abi::MsgFlags::MSG_OOB;
+    let (kernel, p, client, server) = tcp_pair(4300);
+    block(&kernel, &p, &[Signal::SIGURG, SIGRTMIN, SIGIO]);
+    send(&kernel, &p, client, b"!", oob);
+    std::thread::sleep(Duration::from_millis(50));
+    assert!(take(&kernel, &p, Signal::SIGURG).is_none(), "no owner");
+
+    let pid = getpid(&kernel, &p) as u32;
+    assert_eq!(fcntl(&kernel, &p, server, FcntlCmd::F_SETOWN, pid), Ok(0));
+    send(&kernel, &p, client, b"xU", oob);
+    let info = wait_for(&kernel, &p, Signal::SIGURG);
+    assert_eq!(info.si_code, wasixv2_abi::SiCode::SI_KERNEL.0);
+    assert!(take(&kernel, &p, SIGRTMIN).is_none(), "not on the list");
+
+    let rt = SIGRTMIN.0 as u32;
+    assert_eq!(fcntl(&kernel, &p, server, FcntlCmd::F_SETSIG, rt), Ok(0));
+    set_async(&kernel, &p, server, true);
+    send(&kernel, &p, client, b"V", oob);
+    wait_for(&kernel, &p, Signal::SIGURG);
+    let pri = wait_for(&kernel, &p, SIGRTMIN);
+    assert_eq!(poll_info(&pri), (5, 0x82, server.0), "POLL_PRI");
+    let data = wait_for(&kernel, &p, SIGRTMIN);
+    assert_eq!(poll_info(&data), (1, POLLIN_BAND, server.0), "POLL_IN");
+}
+
+/// What the reader sees of urgent data: `POLLPRI` until `recv(MSG_OOB)` takes the byte, reads
+/// that stop at the mark, `SIOCATMARK`, and `MSG_OOB` that never blocks.
+#[test]
+fn urgent_data_reaches_recv_ioctl_and_poll() {
+    let (oob, peek) = (
+        wasixv2_abi::MsgFlags::MSG_OOB,
+        wasixv2_abi::MsgFlags::MSG_PEEK,
+    );
+    let none = wasixv2_abi::MsgFlags(0);
+    let (kernel, p, client, server) = tcp_pair(4301);
+    let at_mark = |fd| {
+        let got = block_on(kernel.ioctl(&p.caller(), fd, IoctlRequest::SIOCATMARK, 0x60));
+        assert_eq!(got, Ok(0));
+        i32::from_le_bytes(super::ipc::get(&p.memory.0, 0x60, 4).try_into().unwrap())
+    };
+    let pollpri = |fd: Fd| {
+        let (_, revents) = super::ipc::ppoll(
+            &kernel,
+            &p.caller(),
+            &p.memory.0,
+            &[(fd.0, 2)],
+            Some((0, 0)),
+        );
+        revents[0] & 2 != 0
+    };
+    // A blocking socket: `MSG_OOB` with nothing urgent fails at once.
+    assert_eq!(errno(recv(&kernel, &p, client, 1, oob)), Errno::EINVAL);
+    send(&kernel, &p, client, b"ab", none);
+    send(&kernel, &p, client, b"cU", oob);
+    send(&kernel, &p, client, b"de", none);
+    assert!(pollpri(server));
+    assert_eq!(at_mark(server), 0);
+    let fionread = block_on(kernel.ioctl(&p.caller(), server, IoctlRequest::FIONREAD, 0x60));
+    assert_eq!(fionread, Ok(0));
+    assert_eq!(super::ipc::get(&p.memory.0, 0x60, 4), 3i32.to_le_bytes());
+    assert_eq!(recv(&kernel, &p, server, 16, none), Ok(b"abc".to_vec()));
+    assert_eq!(at_mark(server), 1);
+    assert_eq!(recv(&kernel, &p, server, 16, oob | peek), Ok(b"U".to_vec()));
+    assert_eq!(recv(&kernel, &p, server, 16, oob), Ok(b"U".to_vec()));
+    assert!(!pollpri(server));
+    assert_eq!(errno(recv(&kernel, &p, server, 16, oob)), Errno::EINVAL);
+    assert_eq!(recv(&kernel, &p, server, 16, none), Ok(b"de".to_vec()));
+    assert_eq!(at_mark(server), 0);
+    let (r, _w) = pipe(&kernel, &p.caller(), OpenFlags(0));
+    let pipe_mark = block_on(kernel.ioctl(&p.caller(), r, IoctlRequest::SIOCATMARK, 0x60));
+    assert_eq!(errno(pipe_mark), Errno::ENOTTY);
+}

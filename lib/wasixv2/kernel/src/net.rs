@@ -138,26 +138,34 @@ impl Kernel {
         Ok((file, socket))
     }
 
-    /// An open file for the IP socket `socket` of the network namespace `net`.
+    /// An open file for the IP socket `socket` of the network namespace `net`. A stream
+    /// socket's urgent data signals the file's owner from the start (`sock_alloc_file` makes
+    /// the file `sk_send_sigurg` finds).
     fn socket_file(
         &self,
         caller: &Caller<'_>,
         socket: Arc<dyn wasixv2_vnet::Socket>,
         net: Arc<NetNs>,
         flags: SocketFlags,
-    ) -> OpenFile {
+    ) -> Arc<OpenFile> {
         let mut status = OpenFlags::O_RDWR;
         if flags.contains(SocketFlags::SOCK_NONBLOCK) {
             status |= OpenFlags::O_NONBLOCK;
         }
-        let object = SocketFile::new(socket, net, self.host.clone());
-        OpenFile::new(
+        let object = Arc::new(SocketFile::new(socket, net, self.host.clone()));
+        let file = Arc::new(OpenFile::new(
             Backing::Stream(
-                Arc::new(object),
+                object.clone(),
                 self.pseudo.socket(self.cred(caller).fs_owner()),
             ),
             status,
-        )
+        ));
+        if object.socket.kind() == SocketKind::Stream {
+            object
+                .fasync
+                .watch_urgent(&*object.socket, &file, &self.sigio);
+        }
+        file
     }
 
     /// `__sys_socket` and `__sock_create`.
@@ -197,8 +205,8 @@ impl Kernel {
         let socket = network.socket(domain, kind, protocol, uid)?;
         let file = self.socket_file(caller, socket, ns.net.clone(), flags);
         let cloexec = flags.contains(SocketFlags::SOCK_CLOEXEC);
-        let [fd] = self.install_files(caller, [file], cloexec)?;
-        Ok(fd)
+        let [slot] = self.reserve_fds::<1>(caller, cloexec)?;
+        Ok(slot.install(file))
     }
 
     /// `__sys_socketpair`. Only Unix sockets have pairs.
@@ -315,7 +323,8 @@ impl Kernel {
                     let embryo = sock.try_accept()?;
                     let peer = embryo.peer_addr().unwrap_or_default();
                     let owner = self.cred(caller).fs_owner();
-                    Ok((unix_file(embryo, flags, self.pseudo.socket(owner)), peer))
+                    let file = unix_file(embryo, flags, self.pseudo.socket(owner));
+                    Ok((Arc::new(file), peer))
                 })
                 .await?
             }
@@ -324,7 +333,7 @@ impl Kernel {
         if !addr.is_null() {
             move_addr_to_user(caller, &peer, addr, addrlen).await?;
         }
-        Ok(slot.install(Arc::new(file)))
+        Ok(slot.install(file))
     }
 
     /// `__sys_connect`, `inet_stream_connect` and `inet_dgram_connect`.
@@ -588,7 +597,9 @@ impl Kernel {
         let memory = caller.memory();
         let interrupt = self.interrupt(caller);
         let io = Self::io(caller, &*interrupt, sock.file());
-        let waitall = flags.contains(MsgFlags::MSG_WAITALL) && !flags.contains(MsgFlags::MSG_PEEK);
+        // `MSG_OOB` reads one urgent byte, whatever else is asked (`tcp_recv_urg`).
+        let waitall = flags.contains(MsgFlags::MSG_WAITALL)
+            && !flags.intersects(MsgFlags::MSG_PEEK | MsgFlags::MSG_OOB);
         match sock {
             AnySock::Inet((_, sock)) => {
                 let stream = sock.socket.kind() == SocketKind::Stream;

@@ -101,6 +101,138 @@ fn loopback_tcp_lifecycle() {
     assert_eq!(recv(&*c, 16).unwrap(), b"");
 }
 
+/// A connected pair on loopback port `port`: (client, accepted).
+fn tcp_pair(n: &Net, port: u16) -> (Arc<dyn Socket>, Arc<dyn Socket>) {
+    let addr = SocketAddr::from(([127, 0, 0, 1], port));
+    let l = tcp(n);
+    l.bind(addr, false).unwrap();
+    l.listen(1).unwrap();
+    let c = tcp(n);
+    c.connect(addr).unwrap();
+    let s = l.accept().unwrap().socket;
+    (c, s)
+}
+
+fn send_oob(s: &dyn Socket, data: &[u8]) -> Result<usize, Errno> {
+    s.send(SendMsg {
+        data,
+        to: None,
+        flags: MsgFlags::MSG_OOB,
+        control: &[],
+        net_raw: false,
+    })
+}
+
+fn recv_flags(s: &dyn Socket, n: usize, flags: MsgFlags) -> Result<(Vec<u8>, MsgFlags), Errno> {
+    let mut buf = vec![0; n];
+    let r = s.recv(&mut buf, flags)?;
+    buf.truncate(r.len);
+    Ok((buf, r.flags))
+}
+
+/// Records the events of every wakeup of a socket's queue.
+struct Wakeups(std::sync::Mutex<Vec<PollMask>>);
+
+impl wasixv2_wait::WaitEntry for Wakeups {
+    fn wake(&self, events: PollMask) -> bool {
+        self.0.lock().unwrap().push(events);
+        false
+    }
+}
+
+/// `MSG_OOB` makes the last byte sent urgent: the reader's stream stops in front of it and
+/// steps over it, `recv(MSG_OOB)` reads it once, `SIOCATMARK` says when the stream is there,
+/// and the reader polls `PRI` until it is read (`tcp_recvmsg`, `tcp_recv_urg`, `tcp_poll`).
+#[test]
+fn tcp_urgent_byte_leaves_the_stream() {
+    let n = net();
+    let (c, s) = tcp_pair(&n, 9100);
+    let seen = Arc::new(Wakeups(Default::default()));
+    let mut queue = None;
+    s.poll(Some(&mut wasixv2_wait::PollTable::new(
+        PollMask::empty(),
+        &mut |q: &wasixv2_wait::WaitQueue, _| queue = Some(q.add(seen.clone())),
+    )));
+    assert_eq!(recv_flags(&*s, 1, MsgFlags::MSG_OOB), Err(Errno::EINVAL));
+    assert_eq!(send(&*c, b"ab"), Ok(2));
+    assert_eq!(send_oob(&*c, b"cU"), Ok(2));
+    assert_eq!(send(&*c, b"de"), Ok(2));
+    // The wakeup of the urgent send says a new mark arrived; the others do not.
+    let events = seen.0.lock().unwrap().clone();
+    assert_eq!(
+        events.iter().filter(|e| e.contains(PollMask::PRI)).count(),
+        1
+    );
+    assert!(s.poll(None).contains(PollMask::PRI | PollMask::IN));
+    assert_eq!(s.input_len(), Ok(3));
+    assert_eq!(s.at_mark(), Ok(false));
+    assert_eq!(recv(&*s, 16).unwrap(), b"abc");
+    assert_eq!(s.at_mark(), Ok(true));
+    assert_eq!(
+        recv_flags(&*s, 4, MsgFlags::MSG_OOB | MsgFlags::MSG_PEEK),
+        Ok((b"U".to_vec(), MsgFlags::MSG_OOB))
+    );
+    assert_eq!(
+        recv_flags(&*s, 0, MsgFlags::MSG_OOB),
+        Ok((Vec::new(), MsgFlags::MSG_OOB | MsgFlags::MSG_TRUNC))
+    );
+    assert_eq!(recv_flags(&*s, 1, MsgFlags::MSG_OOB), Err(Errno::EINVAL));
+    assert!(!s.poll(None).contains(PollMask::PRI));
+    assert_eq!(recv(&*s, 16).unwrap(), b"de");
+    assert_eq!(s.at_mark(), Ok(false));
+    // The sender had none.
+    assert_eq!(recv_flags(&*c, 1, MsgFlags::MSG_OOB), Err(Errno::EINVAL));
+    drop(queue);
+}
+
+/// With `SO_OOBINLINE` the urgent byte stays in the stream and `MSG_OOB` finds nothing.
+#[test]
+fn tcp_urgent_byte_inline() {
+    let n = net();
+    let (c, s) = tcp_pair(&n, 9101);
+    let on = 1i32.to_le_bytes();
+    s.set_option(
+        wasixv2_abi::SocketLevel::SOL_SOCKET.0,
+        wasixv2_abi::SocketOption::SO_OOBINLINE.0,
+        &on,
+    )
+    .unwrap();
+    send(&*c, b"a").unwrap();
+    send_oob(&*c, b"U").unwrap();
+    send(&*c, b"b").unwrap();
+    assert_eq!(s.input_len(), Ok(3));
+    assert_eq!(recv_flags(&*s, 1, MsgFlags::MSG_OOB), Err(Errno::EINVAL));
+    assert_eq!(recv(&*s, 16).unwrap(), b"a");
+    assert_eq!(s.at_mark(), Ok(true));
+    assert_eq!(recv(&*s, 16).unwrap(), b"Ub");
+}
+
+/// A listener's `recv(MSG_OOB)` is `ENOTCONN`; a socket reset before it read its urgent byte
+/// gets `ENOTCONN` too, one that saw the FIN gets the byte.
+#[test]
+fn tcp_urgent_byte_errors() {
+    let n = net();
+    let l = tcp(&n);
+    l.bind(a("127.0.0.1:9102"), false).unwrap();
+    l.listen(1).unwrap();
+    assert_eq!(recv_flags(&*l, 1, MsgFlags::MSG_OOB), Err(Errno::ENOTCONN));
+    drop(l);
+
+    let (c, s) = tcp_pair(&n, 9103);
+    send_oob(&*s, b"U").unwrap();
+    send(&*c, b"unread").unwrap();
+    drop(s);
+    assert_eq!(recv_flags(&*c, 1, MsgFlags::MSG_OOB), Err(Errno::ENOTCONN));
+
+    let (c, s) = tcp_pair(&n, 9104);
+    send_oob(&*s, b"U").unwrap();
+    drop(s);
+    assert_eq!(
+        recv_flags(&*c, 1, MsgFlags::MSG_OOB),
+        Ok((b"U".to_vec(), MsgFlags::MSG_OOB))
+    );
+}
+
 #[test]
 fn close_with_unread_data_resets_and_epipe_follows() {
     let n = net();
@@ -369,6 +501,15 @@ impl BackendStream for FakeStream {
     }
     fn write(&self, data: &[u8]) -> Result<usize, Errno> {
         Ok(data.len())
+    }
+    fn write_urgent(&self, data: &[u8]) -> Result<usize, Errno> {
+        Ok(data.len())
+    }
+    fn read_urgent(&self, _: bool) -> Result<u8, Errno> {
+        Err(Errno::EINVAL)
+    }
+    fn at_mark(&self) -> bool {
+        false
     }
     fn shutdown(&self, _: Shutdown) -> Result<(), Errno> {
         Ok(())

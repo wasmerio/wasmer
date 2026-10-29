@@ -533,7 +533,7 @@ fn eventfd_counts_and_semaphores() {
 }
 
 /// Writes pollfds at 0x400 and runs ppoll with the timespec at 0x500 (`None`: no timeout).
-fn ppoll(
+pub(super) fn ppoll(
     kernel: &Kernel,
     caller: &Caller<'_>,
     memory: &FlatMemory,

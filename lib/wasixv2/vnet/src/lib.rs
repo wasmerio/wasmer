@@ -11,6 +11,7 @@ pub mod iface;
 mod net;
 pub mod opts;
 pub mod ports;
+mod recvq;
 mod stream;
 mod tcp;
 mod udp;
@@ -24,6 +25,7 @@ pub use api::{
     Shutdown, Socket, SocketKind, StreamState,
 };
 pub use net::{Net, NetConfig, Uplink};
+pub use recvq::RecvQueue;
 pub use tcp::TcpSocket;
 pub use udp::UdpSocket;
 pub use wasixv2_wait::{PollMask, PollTable, Pollable, WaitQueue};

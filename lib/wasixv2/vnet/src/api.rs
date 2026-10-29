@@ -16,6 +16,10 @@
 //! retrying, as Linux's `sk_wait_event` does.
 //!
 //! Errors are guest-visible `Errno` values with Linux's meaning and precedence.
+//!
+//! A wakeup whose events hold `PRI` says that a new urgent mark arrived (`sk_send_sigurg`, then
+//! `sk_data_ready` once the urgent byte is in): the kernel sends `SIGURG` to the socket's owner
+//! on it, so nothing else wakes a socket with `PRI`.
 
 use std::{fmt, net::SocketAddr, sync::Arc};
 
@@ -202,8 +206,8 @@ pub trait Network: Send + Sync {
 /// An IP socket. The kernel wraps it as an open-file object; `poll` must report exactly what
 /// Linux's `tcp_poll` and `udp_poll` would (a fresh stream socket is `OUT | WRNORM | HUP`, a
 /// listener is `IN | RDNORM` while connections are queued, `RDHUP` after the peer shut down,
-/// `ERR` while an error is pending), and every state change must wake the queues `poll`
-/// registered with the matching events.
+/// `ERR` while an error is pending, `PRI` while an urgent byte waits for `MSG_OOB`), and every
+/// state change must wake the queues `poll` registered with the matching events.
 pub trait Socket: Pollable {
     fn domain(&self) -> Domain;
     fn kind(&self) -> SocketKind;
@@ -244,13 +248,15 @@ pub trait Socket: Pollable {
     /// stream's data. `EAGAIN` when nothing fits, `EPIPE` after `shutdown(Write)` or a reset
     /// (the kernel raises `SIGPIPE`), `EDESTADDRREQ` unconnected without `to`, `EMSGSIZE`
     /// for an oversized datagram. The kernel never passes `to` to a stream socket: TCP
-    /// ignores the address.
+    /// ignores the address. On a stream, `MSG_OOB` makes the last byte taken urgent.
     fn send(&self, msg: SendMsg<'_>) -> Result<usize, Errno>;
 
     /// Receives into `buf` without blocking. `flags` may hold `MSG_PEEK`, `MSG_TRUNC`,
     /// `MSG_OOB`, `MSG_ERRQUEUE`; the kernel handles `MSG_WAITALL` and `MSG_DONTWAIT`. Returns
     /// `len == 0` at end of stream; `EAGAIN` when nothing is queued; `ENOTCONN` for an
-    /// unconnected stream.
+    /// unconnected stream. A stream read stops in front of an urgent byte and steps over it
+    /// unless `SO_OOBINLINE` is set; `MSG_OOB` reads that byte alone, never waits, and fails
+    /// as `tcp_recv_urg` does (`EINVAL` without one to read).
     fn recv(&self, buf: &mut [u8], flags: MsgFlags) -> Result<RecvMsg, Errno>;
 
     /// `getsockname`: the bound address, or the unspecified address and port 0 if unbound.
@@ -262,9 +268,15 @@ pub trait Socket: Pollable {
     /// `sock_error`: takes the pending asynchronous error (`SO_ERROR`), clearing it.
     fn take_error(&self) -> Option<Errno>;
 
-    /// `SIOCINQ`/`FIONREAD`: bytes queued for a stream, the next datagram's size for a
-    /// datagram socket; `EINVAL` for a listener.
+    /// `SIOCINQ`/`FIONREAD`: bytes queued for a stream (up to an urgent byte not read inline),
+    /// the next datagram's size for a datagram socket; `EINVAL` for a listener.
     fn input_len(&self) -> Result<usize, Errno>;
+
+    /// `SIOCATMARK`: whether a stream's next byte is urgent. `ENOTTY` for protocols without
+    /// urgent data.
+    fn at_mark(&self) -> Result<bool, Errno> {
+        Err(Errno::ENOTTY)
+    }
 
     /// `SIOCOUTQ`: bytes sent but not yet taken by the peer.
     fn output_len(&self) -> Result<usize, Errno> {
@@ -343,7 +355,10 @@ pub enum StreamState {
 
 /// A stream through the backend, non-blocking like a guest socket. `poll` reports what
 /// `tcp_poll` would for the guest socket it carries; it registers nothing, since the stream
-/// wakes the guest socket's queue (see [`Backend`]).
+/// wakes the guest socket's queue (see [`Backend`]), with `PRI` for a new urgent mark.
+///
+/// Urgent data follows `tcp_recvmsg` and `tcp_recv_urg` as [`crate::RecvQueue`] keeps them,
+/// with the guest's `SO_OOBINLINE`, which arrives through `set_option`.
 pub trait BackendStream: Pollable {
     /// Where the connection stands.
     fn state(&self) -> StreamState;
@@ -351,12 +366,18 @@ pub trait BackendStream: Pollable {
     fn read(&self, buf: &mut [u8], peek: bool) -> Result<usize, Errno>;
     /// `EAGAIN` when nothing fits.
     fn write(&self, data: &[u8]) -> Result<usize, Errno>;
+    /// [`BackendStream::write`] with `MSG_OOB`: the last byte taken is urgent.
+    fn write_urgent(&self, data: &[u8]) -> Result<usize, Errno>;
+    /// `tcp_recv_urg`: the urgent byte, left in place with `peek`.
+    fn read_urgent(&self, peek: bool) -> Result<u8, Errno>;
+    /// `SIOCATMARK`.
+    fn at_mark(&self) -> bool;
     fn shutdown(&self, how: Shutdown) -> Result<(), Errno>;
     /// The asynchronous error (a refused connection, a reset), cleared by the call.
     fn take_error(&self) -> Option<Errno>;
     /// The real peer, which `getpeername` reports.
     fn peer_addr(&self) -> SocketAddr;
-    /// Bytes buffered for reading.
+    /// Bytes buffered for reading, up to an urgent byte not read inline (`SIOCINQ`).
     fn input_len(&self) -> usize;
     /// `SIOCOUTQ`: bytes written but not yet taken by the peer, as far as the backend knows.
     fn output_len(&self) -> usize {
