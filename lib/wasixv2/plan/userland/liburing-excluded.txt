@@ -1,0 +1,5 @@
+# liburing e907d6a342e80b70874f93abd440b92b8a40b7bc (2.12).
+# Excluded from the passing-only liburing-supported workflow; raw liburing and
+# liburing-followups workflows still run them and expose their setup failures.
+read-write.t # Requires IORING_SETUP_SQPOLL; no submission polling kernel thread backend. t_create_ring_params does not skip EINVAL.
+socket.t # Includes mandatory SQPOLL combinations; t_create_ring_params skips EPERM only for non-root, which is a permission failure we must not fabricate.

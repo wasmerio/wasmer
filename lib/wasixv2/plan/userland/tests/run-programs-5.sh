@@ -40,6 +40,12 @@ case $workflow in
     exec timeout -k 5 180 nice -n19 taskset -c 4-7 "$WASMER" "${args[@]}" \
       "$ROOT/bin/bash" -- -c 'cd /uring/test; exec bash ./runtests.sh nop.t read-write.t poll.t timeout.t eventfd.t socket.t open-close.t statx.t unlink.t mkdir.t'
     ;;
+  liburing-supported)
+    cat "$TESTS/../liburing-excluded.txt"
+    args+=(--volume "$ROOT/liburing-src:/uring")
+    exec timeout -k 5 180 nice -n19 taskset -c 4-7 "$WASMER" "${args[@]}" \
+      "$ROOT/bin/bash" -- -c 'cd /uring/test; exec bash ./runtests.sh poll.t statx.t unlink.t mkdir.t'
+    ;;
   liburing-followups)
     args+=(--volume "$ROOT/liburing-src:/uring")
     exec timeout -k 5 180 nice -n19 taskset -c 4-7 "$WASMER" "${args[@]}" \
@@ -58,7 +64,7 @@ case $workflow in
   libaio)
     args+=(--volume "$ROOT/libaio-src:/aio")
     exec timeout -k 5 120 nice -n19 taskset -c 4-7 "$WASMER" "${args[@]}" \
-      "$ROOT/bin/bash" -- -c 'cd /aio/harness; mkdir -p testdir; echo test > testdir/rofile; echo test > testdir/wofile; echo test > testdir/rwfile; chmod 400 testdir/rofile; chmod 200 testdir/wofile; exec bash ./runtests.sh cases/2.p cases/3.p cases/4.p cases/5.p cases/12.p cases/15.p cases/22.p'
+      "$ROOT/bin/bash" -- -c 'cd /aio/harness; mkdir -p testdir; echo test > testdir/rofile; echo test > testdir/wofile; echo test > testdir/rwfile; chmod 400 testdir/rofile; chmod 200 testdir/wofile; exec bash ./runtests.sh cases/2.p cases/3.p cases/4.p cases/5.p cases/12.p cases/15.p cases/22.p cases/24.p cases/25.p'
     ;;
   seccomp)
     exec timeout -k 5 120 nice -n19 taskset -c 4-7 "$WASMER" "${args[@]}" \

@@ -1,74 +1,77 @@
-# libaio validation: static aliases and time64-only AIO
+# libaio validation on time64-only Linux targets
 
-The pinned upstream libaio is `b8eadc9f89e8f7ab0338eacda9f98a6caea76883`.
-No libaio sources have been edited. `userland-5.sh libaio` remains the full
-static-library plus selected harness build; it currently fails for the second
-reason below. `libaio-setup` is a separately labeled, narrower validation.
+The kit pins upstream libaio `b8eadc9f89e8f7ab0338eacda9f98a6caea76883`.
+Its upstream master still has no time64-only port. The Debian maintainer's
+separate time64 series was also inspected; it still assumes a legacy
+io_getevents wrapper and disables its time64 syscall path, so it does not solve
+this target's build.
 
-## Fixed: Wasm assembler rejects .symver
+## Generic source port
 
-Use wasix-org/llvm-project branch `wasixv2/wasm-symver`, commit `568452b96`.
-Wasm object emission now retains defined-symbol version-qualified names as
-ordinary static aliases, and `@@` adds an unqualified alias for the default.
-Function signatures, binding and visibility are retained after forward
-symbols have been defined. Undefined sources and removal forms are rejected
-explicitly. This adds no dynamic loader or runtime symbol-version lookup.
+[patches/libaio/time64-only.patch](patches/libaio/time64-only.patch) is a
+Linux port selected by syscall availability, with no WASIX architecture test or
+invented syscall number. On a target without legacy `__NR_io_getevents`, the
+public wrapper calls `io_pgetevents` with a NULL signal mask. When only
+`__NR_io_pgetevents_time64` exists, that wrapper explicitly converts public
+`struct timespec` fields to two signed 64-bit kernel fields, packages the
+signal mask normally, and preserves libaio's negative-errno convention.
+Existing legacy-syscall wrappers remain in use where available. This is a
+port for time64-only targets, rather than a general dual-ABI glibc time64 port.
 
-Build the branch normally with clang/lld and the WebAssembly target enabled,
-then select that installation for this package only:
+The generic syscall helper must not invent legacy syscall 4 when libc omits
+it (for example riscv32). A compile regression checks this. Linux
+`fs/aio.c:do_io_getevents`, `SYSCALL_DEFINE6(io_pgetevents)` and
+`kernel/time/time.c:get_timespec64` define the corresponding behavior.
+
+New upstream-style cases 24 and 25 check invalid min_nr, noncanonical
+nanoseconds, seconds above INT32_MAX, unchanged timeout storage and errno;
+case 24 also checks pending-signal EINTR and temporary-mask restoration.
+Linux AIO normalizes nanoseconds through timespec64_to_ktime; it does not
+reject tv_nsec=1000000000. The fixtures preserve that distinction.
+
+The patch also makes the complete old harness build on modern musl/Clang:
+standard C99 field designators, poll.h, eventfd2 feature detection and standard
+large-file interfaces with _FILE_OFFSET_BITS=64. These are source-portability
+changes; existing test assertions are unchanged. `userland-5.sh libaio` builds
+the entire static library and all 23 harness binaries, including the new two.
+The run workflow selects nine cases (2, 3, 4, 5, 12, 15, 22, 24, 25), never the
+full suite. Repeated builds verify the already-applied patch without resetting
+other source edits.
+
+## Toolchain
+
+Static Wasm aliases for libaio's existing .symver directives require
+wasix-org/llvm-project branch `wasixv2/wasm-symver`, commit `568452b96`.
+That earlier LLVM change retains defined-symbol version-qualified names as
+ordinary static aliases; @@ also adds the unqualified default. No symbol
+version directive is changed by this port, and no runtime linker work is added.
+
+Build and run in an owned output directory, under the shared-machine limits:
 
 ```sh
-LIBAIO_LLVM_LOCATION=/absolute/path/to/llvm/build \
+USERLAND5=/absolute/owned/output \
+LIBAIO_LLVM_LOCATION=/absolute/path/to/patched/llvm \
   bash userland-5.sh libaio
+USERLAND5=/absolute/owned/output \
+  bash tests/run-programs-5.sh /absolute/path/to/wasmer libaio
 ```
 
-Focused failing-first MC tests check old/default function indices, data sizes,
-default-name linking, diagnostics and existing alias/weak-alias behavior. The
-actual unmodified `io_queue_wait.c` also assembles with its public alias.
-No LLVM release or tag was published; existing shared branches stay unchanged.
+## Evidence and dependencies
 
-## Still blocked: libaio assumes the legacy io_getevents syscall
+The original full library failed on missing __NR_io_getevents. An independently
+linked old io_pgetevents wrapper fails case 24 with ENOSYS instead of Linux's
+EINVAL for invalid min_nr. With the port, both new cases pass on native Linux
+and inside WASIX. The complete static library and all harness binaries build,
+and the second build succeeds without reapplying or discarding source edits.
 
-`src/io_getevents.c` unconditionally expands `__NR_io_getevents`. In Linux
-`include/uapi/asm-generic/unistd.h`, syscall 4 exists only for architectures
-requesting time32 syscalls, or with a non-32-bit kernel-long ABI. WASIX v2 is
-32-bit/time64-only: its generated headers and ABI expose
-`io_pgetevents_time64` (416), without legacy syscall 4.
+Case 4's NULL write buffer also needs the ordinary kernel-copy guard fix from
+V1 (wasmer 5266fa8f3c5). A CLI still based on train 18 passes eight selected
+cases but fails that independent guard assertion. The final V1+V7 composition (0027b4fe8a1, including the concurrent-exit fix)
+passes all nine selected cases with zero failures/skips/host panics. The same
+source passes complete LTP mprotect01 and truncate03/_64; the preceding V1+V7
+composition passed each five times too. No per-test pointer exception or ABI
+workaround belongs in libaio.
 
-This is independent of `.symver`. The full build now reaches the missing
-`__NR_io_getevents` compile error. Defining it to 416 is incorrect: the old
-wrapper supplies five arguments, whereas the time64 syscall takes six,
-including a signal-set pointer; the timeout layouts also differ. Adding an
-invented number/import would change the ABI unnecessarily. No such alias,
-preprocessor rewrite, fake architecture macro or syscall change is used.
-
-Debian maintainer source `0ba8950f65b15381267552c732b7d12a9dd8adae` was also
-inspected. Its time64 patch series still unconditionally builds the legacy
-wrapper, and the full series disables the time64 syscall path. It is not a
-ready no-source-change solution for a time64-only architecture.
-
-The proper follow-up is an upstream Linux time64-only libaio port: use
-`io_pgetevents_time64` for `io_getevents` with a NULL signal-set argument, convert
-public timespec fields explicitly into `struct __kernel_timespec`, preserve
-signal-mask and negative-errno behavior, and compile legacy fallbacks only when
-their syscall numbers exist. Linux `fs/aio.c:SYSCALL_DEFINE6(io_pgetevents)` and
-`do_io_getevents` define those semantics. Add a harness test with seconds above
-INT32_MAX, invalid nanoseconds and signal-mask restoration before implementation.
-This requires no kernel/exec contract change and should not be Wasm-specific.
-
-## Narrow setup harness
-
-The upstream harness Makefile documents `LIBAIO` as a link-input override.
-`userland-5.sh libaio-setup` archives the real `src/io_setup.ol` in a standard `.a` and links unmodified
-`harness/cases/2.t` against it. This tests invalid context addresses, invalid
-counts, context creation and already initialized contexts. There is no substitute
-library or implementation, and no implication that AIO event waiting is ported.
-
-Run the official harness inside the guest with:
-
-```sh
-bash tests/run-programs-5.sh /absolute/path/to/wasmer libaio-setup
-```
-
-The full `libaio` workflow remains available for use after the upstream time64
-port. Its broader selected harness cases have not been claimed as passing.
+The older `libaio-setup` workflow remains as a separately labeled narrow probe:
+it links the real upstream io_setup object through the documented LIBAIO link
+input, without implying broader event-wait coverage.
