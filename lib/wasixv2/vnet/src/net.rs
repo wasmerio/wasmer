@@ -71,7 +71,16 @@ pub fn move_link(from: &dyn Network, index: u32, to: &dyn Network) -> NetResult<
     }
     let link = from.take_link(&rtnl, index)?;
     match to.adopt_link(&rtnl, link) {
-        Ok(index) => Ok(index),
+        Ok(index) => {
+            drop(rtnl);
+            // The notification of the move names the new namespace by an id
+            // (`peernet2id_alloc`), which it gets if it had none.
+            match from.assign_peer_id(to, None) {
+                Ok(_) | Err(Errno::EEXIST | Errno::EOPNOTSUPP) => {}
+                Err(e) => tracing::warn!(?e, "no id for the namespace an interface moved to"),
+            }
+            Ok(index)
+        }
         Err((e, link)) => {
             if let Err((back, _)) = from.adopt_link(&rtnl, link) {
                 tracing::warn!(?back, "an interface that could not move is lost");
