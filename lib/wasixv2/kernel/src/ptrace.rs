@@ -386,7 +386,9 @@ pub(crate) struct Tracees {
 }
 
 impl Tracees {
-    fn lock(&self) -> std::sync::MutexGuard<'_, std::collections::HashMap<TaskId, Tracee>> {
+    pub(crate) fn lock(
+        &self,
+    ) -> std::sync::MutexGuard<'_, std::collections::HashMap<TaskId, Tracee>> {
         self.map.lock_or_recover()
     }
 
@@ -454,6 +456,9 @@ impl Kernel {
         let tracee = self.tracees.lock().remove(&task);
         if let Some(tracee) = tracee {
             tracee.signals.group().ptrace_unlink(task, exit_code);
+            if tracee.exit.is_some() && task == tracee.process.pid {
+                self.ptrace_notify_parent(task.0, None);
+            }
         }
         self.procs.changed.wake(wasixv2_wait::PollMask::empty());
     }
@@ -470,7 +475,7 @@ impl Kernel {
 
     /// SIGCHLD to `tracer` about `task`, as `si_pid` the task's tid in the tracer's
     /// namespace; `stop` honours the tracer's `SA_NOCLDSTOP`.
-    fn signal_tracer(
+    pub(crate) fn signal_tracer(
         &self,
         task: TaskId,
         tracer: TaskId,
@@ -1133,6 +1138,7 @@ impl Kernel {
         for id in ids {
             let tracee = &map[&id];
             let process = tracee.process.clone();
+            let signals = tracee.signals.clone();
             let report = match tracee.exit {
                 Some(exit) if options & WaitOptions::WEXITED.0 != 0 => {
                     if !nowait {
@@ -1153,6 +1159,13 @@ impl Kernel {
             };
             if let Some(report) = report {
                 let nr = self.pids.nr(&me.pid_ns, id.0);
+                if !nowait && !map.contains_key(&id) {
+                    drop(map);
+                    signals.group().ptrace_unlink(id, None);
+                    if id == process.pid {
+                        self.ptrace_notify_parent(id.0, Some(me));
+                    }
+                }
                 return (true, Some((nr, report, process)));
             }
         }
@@ -1189,14 +1202,15 @@ impl Kernel {
         let Some(process) = self.task_process(task) else {
             return;
         };
-        let (tracer, tracer_pid) = match self.tracees.lock().get(&task) {
-            Some(t) if t.exit.is_none() => (t.tracer, t.tracer_pid),
-            _ => return,
-        };
-        if task == process.pid && self.is_parent_of(tracer_pid, process.pid.0) {
-            self.tracees.lock().remove(&task);
+        // Leaders are reported only by process_exited, once all threads and the mm are gone
+        // (kernel/exit.c `delay_group_leader`).
+        if task == process.pid {
             return;
         }
+        let tracer = match self.tracees.lock().get(&task) {
+            Some(t) if t.exit.is_none() => t.tracer,
+            _ => return,
+        };
         let exit = match self.killed_by(process.pid.0) {
             Some(sig) => crate::process::Exit {
                 code: wasixv2_abi::SiCode::CLD_KILLED,

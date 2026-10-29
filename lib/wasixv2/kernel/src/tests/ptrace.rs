@@ -944,3 +944,74 @@ fn fatal_signal_reports_exit_before_teardown() {
         assert_eq!(kernel.take_pending(child), None);
     }
 }
+
+/// kernel/exit.c `wait_task_zombie`: a non-parent tracer consumes EXIT_TRACE first.
+#[test]
+fn tracer_reaps_before_the_real_parent() {
+    for tracer_exits in [false, true] {
+        let (stack, parent, memory) = machine();
+        let kernel = &stack.inner;
+        let caller = Caller::new(parent, &memory);
+        kernel.yama.set_scope(0).unwrap();
+        let tracer = fork_child(kernel, &caller);
+        let child = fork_child(kernel, &caller);
+        let tracer_memory = flat();
+        let tracer_caller = Caller::new(tracer, &tracer_memory);
+        assert_eq!(
+            ptrace(kernel, &tracer_caller, R::PTRACE_SEIZE, child, 0, 0),
+            Ok(0)
+        );
+        let child_memory = flat();
+        block_on(kernel.exit_group(&Caller::new(child, &child_memory), 7)).unwrap();
+        assert_eq!(kernel.take_pending(child), Some(GuestAction::Exit(7)));
+        assert_eq!(
+            wait(kernel, &caller, child, 0),
+            None,
+            "hidden zombie still counts as a child"
+        );
+        if tracer_exits {
+            block_on(kernel.exit_group(&tracer_caller, 0)).unwrap();
+            assert_eq!(kernel.take_pending(tracer), Some(GuestAction::Exit(0)));
+        } else {
+            assert_eq!(
+                wait(kernel, &tracer_caller, child, WALL | WaitOptions::WNOWAIT.0)
+                    .unwrap()
+                    .1,
+                7
+            );
+            assert_eq!(wait(kernel, &caller, child, 0), None);
+            assert_eq!(wait(kernel, &tracer_caller, child, WALL).unwrap().1, 7);
+        }
+        assert_eq!(wait(kernel, &caller, child, 0).unwrap().1, 7);
+    }
+}
+
+/// kernel/exit.c `exit_notify`: tracing prevents autoreap even with SIGCHLD ignored.
+#[test]
+fn a_parent_tracer_can_reap_with_sigchld_ignored() {
+    let (stack, parent, memory) = machine();
+    let kernel = &stack.inner;
+    let caller = Caller::new(parent, &memory);
+    let child = fork_child(kernel, &caller);
+    assert_eq!(ptrace(kernel, &caller, R::PTRACE_SEIZE, child, 0, 0), Ok(0));
+    let mut action = wasixv2_abi::Sigaction::default();
+    action.sa_handler = wasixv2_abi::SignalHandler::SIG_IGN.0 as u32;
+    block_on(wasixv2_syscalls::write_value(
+        &memory,
+        GuestPtrMut::new(0x900),
+        &action,
+    ))
+    .unwrap();
+    block_on(kernel.rt_sigaction(
+        &caller,
+        Signal::SIGCHLD,
+        GuestPtr::new(0x900),
+        GuestPtrMut::NULL,
+        8,
+    ))
+    .unwrap();
+    let child_memory = flat();
+    block_on(kernel.exit_group(&Caller::new(child, &child_memory), 5)).unwrap();
+    assert_eq!(kernel.take_pending(child), Some(GuestAction::Exit(5)));
+    assert_eq!(wait(kernel, &caller, child, WALL).unwrap().1, 5);
+}

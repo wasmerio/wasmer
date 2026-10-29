@@ -201,6 +201,8 @@ pub(crate) struct Node {
     killed_by: Option<i32>,
     /// Set once the process exited; it is a zombie until reaped.
     exit: Option<Exit>,
+    /// `EXIT_TRACE`: only the ptracer may consume this zombie until it detaches/reaps.
+    ptrace_hidden: bool,
     /// What its pidfds read once it is reaped, made with its first pidfd
     /// (`pidfs_register_pid`).
     pidfs: Option<Arc<PidAttr>>,
@@ -295,6 +297,7 @@ impl Procs {
                 forked,
                 killed_by: None,
                 exit: None,
+                ptrace_hidden: false,
                 pidfs: None,
                 css: None,
             },
@@ -634,14 +637,6 @@ impl Kernel {
         tree.nodes.get(&pid).and_then(|node| node.killed_by)
     }
 
-    /// Whether the process `pid`'s parent is the process `parent`.
-    pub(crate) fn is_parent_of(&self, parent: u32, pid: u32) -> bool {
-        let tree = self.procs.tree.lock_or_recover();
-        tree.nodes
-            .get(&pid)
-            .is_some_and(|node| node.parent == parent)
-    }
-
     /// Records that a signal's default action is killing the process `task` belongs to, so its
     /// parent sees `WIFSIGNALED`.
     pub(crate) fn note_killed(&self, task: TaskId, sig: i32) {
@@ -707,6 +702,10 @@ impl Kernel {
             Some(signals) => Some(signals.child_reaping()),
             None => (reaper != 0).then_some((true, true)),
         };
+        // kernel/exit.c `exit_notify`: ptraced leaders never autoreap. Publish their
+        // zombie and tracer report together (`delay_group_leader` has finished).
+        let mut tracees = self.tracees.lock();
+        let tracer = tracees.get(&process.pid).map(|tracee| tracee.tracer);
         let (exit, exit_signal, orphans, inherited, orphaned_pgrps) = {
             let mut tree = self.procs.tree.lock_or_recover();
             // A reaper that went meanwhile is replaced, and it is not known how the new one
@@ -741,13 +740,14 @@ impl Kernel {
             };
             node.exit = Some(exit);
             node.css = css;
+            node.ptrace_hidden = tracer.is_some();
             let exit_signal = node.exit_signal;
             // `do_notify_parent`: the pid as the parent sees it, before the pid can go.
             let pid_for_parent = tree.nr_for(parent, pid);
             let father = tree.pgrp_sid(pid);
             let autoreap = parent_signals.is_none()
                 || (exit_signal == Signal::SIGCHLD.0 && (ignored || nocldwait));
-            if autoreap {
+            if autoreap && tracer.is_none() {
                 tree.reap(pid);
             }
             // `forget_original_parent`: the children go to the reaper, and those that asked for
@@ -766,6 +766,9 @@ impl Kernel {
                 // "We don't want people slaying init."
                 node.exit_signal = Signal::SIGCHLD.0;
                 let pdeathsig = node.process.ident.lock_or_recover().pdeathsig();
+                if node.ptrace_hidden {
+                    continue;
+                }
                 match (node.exit, reaper_reaps) {
                     (Some(_), _) if reaper == 0 => drop(tree.reap(child)),
                     (Some(_), Some((true, _) | (_, true))) => drop(tree.reap(child)),
@@ -797,6 +800,10 @@ impl Kernel {
                 orphaned_pgrps,
             )
         };
+        if let Some(tracee) = tracees.get_mut(&process.pid) {
+            tracee.exit = Some(exit);
+        }
+        drop(tracees);
         let (exit_signal, pid_for_parent) = exit_signal;
         for pgid in orphaned_pgrps {
             self.kill_orphaned_pgrp(pgid);
@@ -816,7 +823,11 @@ impl Kernel {
                 let _ = signals.send_from(None, info, parent_pid == 0);
             }
         }
+        if let Some(tracer) = tracer {
+            self.signal_tracer(process.pid, tracer, exit.code, exit.status, false);
+        }
         if let Some(signals) = parent_signals
+            && tracer.is_none()
             && exit_signal != 0
             && !ignored
         {
@@ -880,6 +891,49 @@ impl Kernel {
             parent,
         };
         self.acct_process(process, pacct);
+    }
+
+    /// kernel/exit.c `wait_task_zombie` (EXIT_TRACE), kernel/ptrace.c `__ptrace_detach`:
+    /// the real parent learns of the zombie only after the tracer has finished with it.
+    pub(crate) fn ptrace_notify_parent(&self, pid: u32, reaper: Option<&Process>) {
+        let parent = {
+            let tree = self.procs.tree.lock_or_recover();
+            let Some(node) = tree.nodes.get(&pid).filter(|n| n.ptrace_hidden) else {
+                return;
+            };
+            node.parent
+        };
+        let signals = self.group_signals(parent);
+        let (ignored, nocldwait) = signals.as_ref().map_or((true, true), |s| s.child_reaping());
+        let report = {
+            let mut tree = self.procs.tree.lock_or_recover();
+            let nr = tree.nr_for(parent, pid);
+            let Some(node) = tree.nodes.get_mut(&pid).filter(|n| n.ptrace_hidden) else {
+                return;
+            };
+            node.ptrace_hidden = false;
+            let Some(exit) = node.exit else {
+                return;
+            };
+            let sig = node.exit_signal;
+            let own_child = reaper.is_some_and(|r| r.pid.0 == parent);
+            if own_child {
+                reaper.unwrap().add_child_usage(&node.process);
+            }
+            if own_child
+                || signals.is_none()
+                || (sig == Signal::SIGCHLD.0 && (ignored || nocldwait))
+            {
+                tree.reap(pid);
+            }
+            (!own_child && !ignored && sig != 0).then_some((nr, sig, exit))
+        };
+        if let (Some(signals), Some((nr, sig, exit))) = (signals, report) {
+            let _ = signals.send_group(child_info(sig, nr, exit, &self.user_ns_of(parent)));
+        }
+        self.procs.changed.wake(PollMask::empty());
+        self.unhash_reaped();
+        self.pid_ns_progress();
     }
 
     /// `kill_orphaned_pgrp`'s end: the process group `pgid` was just orphaned, and if one of its
@@ -2064,6 +2118,9 @@ impl Kernel {
                 continue;
             }
             any = true;
+            if node.ptrace_hidden {
+                continue;
+            }
             match node.exit {
                 Some(exit) if options & WaitOptions::WEXITED.0 != 0 => {
                     ready = Some((pid, exit, node.process.clone()));
