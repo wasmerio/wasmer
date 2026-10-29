@@ -186,6 +186,11 @@ impl Comm {
         Self::new(path.rsplit(|&b| b == b'/').next().unwrap_or_default())
     }
 
+    /// The name, NUL-padded to `TASK_COMM_LEN`.
+    pub(crate) fn bytes(&self) -> [u8; COMM_LEN] {
+        self.0
+    }
+
     /// The name without its NUL padding.
     pub(crate) fn name(&self) -> &[u8] {
         let n = self.0.iter().position(|&b| b == 0).unwrap_or(COMM_LEN);
@@ -208,6 +213,8 @@ pub(crate) struct Ident {
     /// The controlling terminal (`signal->tty`): a child inherits it, `execve` keeps it,
     /// `setsid` drops it.
     pub(crate) tty: Option<std::sync::Arc<crate::tty::Tty>>,
+    /// The process dumped core (`PF_DUMPCORE`), which its accounting record tells.
+    pub(crate) dumped_core: bool,
 }
 
 impl Ident {
@@ -223,6 +230,7 @@ impl Ident {
             personality: 0,
             secure_exec: false,
             tty: None,
+            dumped_core: false,
         }
     }
 }
@@ -250,6 +258,7 @@ impl Ident {
         Self {
             pdeathsig: 0,
             child_subreaper: false,
+            dumped_core: false,
             ..self.clone()
         }
     }
