@@ -1318,7 +1318,12 @@ impl Kernel {
                 Ok(0)
             }
             KeyctlOp::KEYCTL_GET_SECURITY => {
-                found(self, &mut ctx, partial, Need::View)?;
+                // security/keys/keyctl.c:keyctl_get_security retries EACCES through
+                // key_get_instantiation_authkey; without a request-key token that is ENOKEY.
+                found(self, &mut ctx, partial, Need::View).map_err(|error| match error {
+                    Errno::EACCES => Errno::ENOKEY,
+                    other => other,
+                })?;
                 // No LSM labels keys: an empty string.
                 put_out(caller, arg3, arg4, b"\0", true).await
             }
