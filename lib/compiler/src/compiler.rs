@@ -24,7 +24,7 @@ use libwild::{
     Args, FileSystem, FileType, InputFileData, Linker, OutputFileData, OutputOptions, error,
 };
 use object::write::{
-    Relocation, StandardSection, StandardSegment, Symbol as ObjSymbol, SymbolSection,
+    Relocation, StandardSegment, Symbol as ObjSymbol, SymbolSection,
 };
 use object::{
     RelocationEncoding, RelocationFlags, RelocationKind, SectionFlags, SectionKind, SymbolFlags,
@@ -457,22 +457,6 @@ fn emit_wasmer_meta_object(
     let mut obj = get_object_for_target(target.triple())
         .map_err(|e| format!("failed to create Wasmer meta object: {e}"))?;
 
-    if obj.format() == object::BinaryFormat::MachO {
-        let section_id = obj.section_id(StandardSection::Text);
-        // Mach-O links require an entry symbol, but Wasmer never calls it.
-        // TODO: remove in the future and switch to dylib
-        obj.add_symbol(ObjSymbol {
-            name: b"main".to_vec(),
-            value: 0,
-            size: 0,
-            kind: SymbolKind::Text,
-            scope: SymbolScope::Linkage,
-            weak: true,
-            section: SymbolSection::Section(section_id),
-            flags: SymbolFlags::None,
-        });
-    }
-
     let section_id = obj.add_section(
         obj.segment_name(StandardSegment::Data).to_vec(),
         crate::WASMER_MODULE_INFO_SECTION_NAME.to_vec(),
@@ -773,6 +757,7 @@ pub fn emit_metadata_and_link(
                     "ld".to_string(),
                     "-flavor".to_string(),
                     "darwin".to_string(),
+                    "-dylib".to_string(),
                     "-o".to_string(),
                     WASMER_IMAGE_FILENAME.to_string(),
                 ]
