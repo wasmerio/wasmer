@@ -562,3 +562,30 @@ fn nr_open_bounds_descriptor_tables_and_rlimit_nofile() {
         Err(Errno::EACCES.into())
     );
 }
+
+/// Opening a proc file with `O_TRUNC`, as `fopen(path, "w")` and a shell's `>` do, succeeds
+/// and truncates nothing (`proc_setattr`, `proc_sys_setattr`); its mode and owner stay the
+/// kernel's (`EPERM`).
+#[test]
+fn a_proc_file_opens_with_o_trunc_and_keeps_its_mode() {
+    let (kernel, task, _) = machine();
+    let memory = memory();
+    let t = T::new(&kernel, task, &memory);
+    let truncating = OpenFlags::O_WRONLY | OpenFlags::O_CREAT | OpenFlags::O_TRUNC;
+
+    let fd = t.open("/proc/self/comm", truncating).unwrap();
+    assert_eq!(t.write(fd, b"renamed"), Ok(7));
+    block_on(kernel.close(&t.caller, fd)).unwrap();
+    let fd = t.open("/proc/self/comm", OpenFlags::O_RDONLY).unwrap();
+    assert_eq!(t.read_all(fd), "renamed\n");
+
+    let name = path(&memory, "/proc/self/comm");
+    assert_eq!(
+        block_on(kernel.fchmodat(&t.caller, CWD, name, 0o666)),
+        Err(Errno::EPERM.into())
+    );
+    assert_eq!(
+        t.stat("/proc/self/comm", AtFlags(0)).unwrap().stx_mode & 0o777,
+        0o644
+    );
+}
