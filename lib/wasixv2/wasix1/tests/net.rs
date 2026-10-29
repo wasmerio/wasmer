@@ -513,6 +513,20 @@ fn resolve_hosts_and_numeric() {
     assert_eq!(run(data, body).0, 0);
 }
 
+/// By default `/etc/resolv.conf` names the machine's DNS server, which answers the names
+/// under `localhost` itself (RFC 6761): their A and then their AAAA record.
+#[test]
+fn resolve_through_the_machine_dns_server() {
+    let data = r#"(data (i32.const 100) "dns-test.localhost")"#;
+    let body = r#"
+    (call $ok (call $resolve (i32.const 100) (i32.const 18) (i32.const 0) (i32.const 1000) (i32.const 4) (i32.const 8)) (i32.const 1))
+    (call $assert (i32.eq (i32.load (i32.const 8)) (i32.const 2)) (i32.const 2))
+    (call $assert (i32.eq (i32.load (i32.const 1002)) (i32.const 0x0100007f)) (i32.const 3))
+    (call $assert (i32.eq (i32.load8_u (i32.const 1035)) (i32.const 1)) (i32.const 4))
+    "#;
+    assert_eq!(run(data, body).0, 0);
+}
+
 /// Without name servers in `/etc/resolv.conf`, `resolve` asks the local host, as libc
 /// resolvers do; nothing listens there, so the refused queries end the lookup at once
 /// instead of after each try's timeout.

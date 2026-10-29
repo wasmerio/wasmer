@@ -31,6 +31,15 @@ use crate::{
     },
 };
 
+/// What `--dns` picks (see [`Wasi::dns`]).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, clap::ValueEnum)]
+pub(crate) enum DnsMode {
+    #[default]
+    Builtin,
+    Host,
+    None,
+}
+
 #[derive(Debug, Parser, Clone, Default)]
 /// WASI Options
 pub struct Wasi {
@@ -116,6 +125,13 @@ pub struct Wasi {
         value_parser = parse_publish
     )]
     pub(crate) publish: Vec<PublishedPort>,
+
+    /// Where programs on the WASIX v2 kernel resolve names: `builtin`, the machine's own DNS
+    /// server at 10.0.2.3, which answers from the host's resolver (its hosts file and name
+    /// servers, a local stub resolver included); `host`, the host's name servers asked
+    /// directly; `none`, only the guest's `/etc/hosts`.
+    #[clap(long = "dns", value_enum, default_value_t = DnsMode::Builtin)]
+    pub(crate) dns: DnsMode,
 
     /// Run the guest as `UID[:GID]` (numeric; the gid defaults to the uid), which also owns
     /// the guest's filesystems. uid 0 is root and holds every capability, so permission checks
