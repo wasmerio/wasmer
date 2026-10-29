@@ -123,7 +123,9 @@ impl FsWatcher for Registry {
     fn event(&self, event: &FsEvent<'_>) {
         let isdir = |is_dir: bool| if is_dir { IN_ISDIR } else { 0 };
         match *event {
-            FsEvent::Create { dir, name, is_dir } => self.deliver(
+            FsEvent::Create {
+                dir, name, is_dir, ..
+            } => self.deliver(
                 dir,
                 InotifyMask::IN_CREATE.0 | isdir(is_dir),
                 0,
@@ -197,7 +199,7 @@ fn object_event(event: &FsEvent<'_>) -> Option<(FsObject, u32)> {
         FsEvent::Modify { object } => (object, InotifyMask::IN_MODIFY.0),
         FsEvent::Attrib { object } => (object, InotifyMask::IN_ATTRIB.0),
         FsEvent::Access { object } => (object, InotifyMask::IN_ACCESS.0),
-        FsEvent::Open { object } => (object, InotifyMask::IN_OPEN.0),
+        FsEvent::Open { object, .. } => (object, InotifyMask::IN_OPEN.0),
         FsEvent::Close { object, wrote } => (
             object,
             match wrote {

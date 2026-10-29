@@ -156,6 +156,12 @@ pub trait FileObject: Pollable + Any {
     /// when it becomes ready, or takes it off ([`Fasync`]), which sets or clears its
     /// `O_ASYNC`. `None` for an object that signals nobody (the default): `O_ASYNC` then stays
     /// as it is and `FIOASYNC` fails with `ENOTTY`.
+    /// What `/proc/<pid>/fdinfo/<n>` shows of the object after the lines every file has
+    /// (`show_fdinfo`). Nothing by default.
+    fn fdinfo(&self) -> Vec<u8> {
+        Vec::new()
+    }
+
     fn fasync(&self, fasync: &Fasync<'_>) -> Option<Result<(), Errno>> {
         let _ = fasync;
         None

@@ -3,6 +3,7 @@
 
 mod attr;
 pub(crate) mod dnotify;
+pub(crate) mod fanotify;
 mod fhandle;
 mod fifo;
 mod fsopen;
@@ -135,6 +136,19 @@ impl LeaseWait for LeaseWaiter {
         };
         match interruptible(wait, &*self.signals).await {
             Ok(()) => Ok(()),
+            Err(Interrupted) => {
+                self.interrupted.set(true);
+                Err(Errno::EINTR)
+            }
+        }
+    }
+
+    async fn wait_killable<'a>(
+        &'a self,
+        answer: Pin<Box<dyn Future<Output = FsResult<()>> + 'a>>,
+    ) -> FsResult<()> {
+        match interruptible(answer, &self.signals.killable()).await {
+            Ok(result) => result,
             Err(Interrupted) => {
                 self.interrupted.set(true);
                 Err(Errno::EINTR)
@@ -747,6 +761,11 @@ impl Drop for FdReservation {
             table.lock_or_recover().release(self.fd);
         }
     }
+}
+
+/// `__kernel_fsid_t` of a filesystem on `dev`, as `statfs` and fanotify report it.
+pub(crate) fn fsid(dev: wasixv2_vfs::Device) -> [i32; 2] {
+    [(dev.major << 20 | dev.minor) as i32, 0]
 }
 
 /// `build_open_how`: unknown bits are ignored, `O_PATH` drops everything else, and the mode

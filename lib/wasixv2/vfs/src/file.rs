@@ -34,6 +34,8 @@ pub struct File {
     _write: Option<WriteAccess>,
     /// What the file counts on its inode: write access, or a read-only open.
     _access: Option<OpenAccess>,
+    /// `FMODE_NONOTIFY`: nothing done through the file is reported to watches.
+    nonotify: bool,
     /// The anonymous namespace of the detached tree whose root this is (`FMODE_NEED_UNMOUNT`):
     /// the last close unmounts the tree unless it was attached somewhere since
     /// (`dissolve_on_fput`).
@@ -60,7 +62,26 @@ impl File {
             vfs,
             _write: write,
             _access: None,
+            nonotify: false,
             detached: None,
+        }
+    }
+
+    /// The file with nothing done through it reported (`FMODE_NONOTIFY`).
+    pub(crate) fn with_nonotify(mut self, nonotify: bool) -> Self {
+        self.nonotify = nonotify;
+        self
+    }
+
+    /// Whether nothing done through the file is reported (`FMODE_NONOTIFY`).
+    pub fn nonotify(&self) -> bool {
+        self.nonotify
+    }
+
+    /// Reports a data-access event, unless the file is `FMODE_NONOTIFY`.
+    fn notify(&self, event: FsEvent<'_>) {
+        if !self.nonotify {
+            self.vfs.notify_path(&self.path, event);
         }
     }
 
@@ -114,12 +135,9 @@ impl File {
     pub async fn read_at(&self, buf: &mut [u8], offset: u64) -> FsResult<usize> {
         let handle = self.handle()?;
         let n = handle.read_at(buf, offset).await?;
-        self.vfs.notify_object(
-            &self.path.dentry,
-            FsEvent::Access {
-                object: self.object(),
-            },
-        );
+        self.notify(FsEvent::Access {
+            object: self.object(),
+        });
         Ok(n)
     }
 
@@ -127,12 +145,9 @@ impl File {
     /// a read of the whole file without a copy.
     pub async fn shared_contents(&self) -> Option<SharedContents> {
         let contents = self.handle().ok()?.shared_contents().await?;
-        self.vfs.notify_object(
-            &self.path.dentry,
-            FsEvent::Access {
-                object: self.object(),
-            },
-        );
+        self.notify(FsEvent::Access {
+            object: self.object(),
+        });
         Some(contents)
     }
 
@@ -200,12 +215,9 @@ impl File {
 
     fn modified(&self, n: usize) {
         if n > 0 {
-            self.vfs.notify_object(
-                &self.path.dentry,
-                FsEvent::Modify {
-                    object: self.object(),
-                },
-            );
+            self.notify(FsEvent::Modify {
+                object: self.object(),
+            });
         }
     }
 
@@ -341,12 +353,9 @@ impl Drop for File {
             return;
         }
         self.vfs.locks.release_file(self.lock_key(), self.id);
-        self.vfs.notify_object(
-            &self.path.dentry,
-            FsEvent::Close {
-                object: self.object(),
-                wrote: self.writable,
-            },
-        );
+        self.notify(FsEvent::Close {
+            object: self.object(),
+            wrote: self.writable,
+        });
     }
 }

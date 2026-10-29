@@ -150,6 +150,8 @@ pub struct Kernel {
     /// inotify watches and dnotify registrations, fed by the VFS's change notifications.
     inotify: Arc<fs::inotify::Registry>,
     dnotify: Arc<fs::dnotify::Dnotify>,
+    /// fanotify groups and their marks, fed the same way.
+    fanotify: Arc<fs::fanotify::Registry>,
     /// The `fs.*` tunables the kernel acts on.
     sysctls: Arc<fs::FsSysctls>,
     /// The filesystem types `mount` makes instances of.
@@ -302,7 +304,9 @@ impl Kernel {
         let sigio = fasync::Sigio::new(jobs.clone(), &timers);
         let inotify = Arc::new(fs::inotify::Registry::default());
         let dnotify = Arc::new(fs::dnotify::Dnotify::new(sigio.clone()));
-        fs::dnotify::Notify::install(&vfs, inotify.clone(), dnotify.clone());
+        let fanotify = Arc::new(fs::fanotify::Registry::default());
+        fanotify.bind(&state, &vfs);
+        fs::dnotify::Notify::install(&vfs, inotify.clone(), dnotify.clone(), fanotify.clone());
         let init_user_ns = ns::UserNs::initial_user();
         Self {
             ptys: tty::Ptys::new(clock.clone()),
@@ -326,6 +330,7 @@ impl Kernel {
             network_factory: None,
             inotify,
             dnotify,
+            fanotify,
             sysctls: Arc::default(),
             filesystems: fs::mount::Registry::new(),
             shm: None,
@@ -1103,6 +1108,28 @@ impl Syscalls for Kernel {
         flags: AtFlags,
     ) -> SysResult<i32> {
         self.sys_utimensat(caller, dfd, filename, utimes, flags)
+            .await
+    }
+
+    async fn fanotify_init(
+        &self,
+        caller: &Caller<'_>,
+        flags: u32,
+        event_f_flags: u32,
+    ) -> SysResult<i32> {
+        self.sys_fanotify_init(caller, flags, event_f_flags)
+    }
+
+    async fn fanotify_mark(
+        &self,
+        caller: &Caller<'_>,
+        fanotify_fd: Fd,
+        flags: u32,
+        mask: u64,
+        dfd: Fd,
+        pathname: Cstr,
+    ) -> SysResult<i32> {
+        self.sys_fanotify_mark(caller, fanotify_fd, flags, mask, dfd, pathname)
             .await
     }
 

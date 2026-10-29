@@ -115,6 +115,14 @@ pub trait LeaseWait {
         changed: Pin<Box<dyn Future<Output = ()> + 'a>>,
         deadline: Option<Duration>,
     ) -> FsResult<()>;
+    /// Waits for `answer` (a permission event's), ended early only by a fatal signal
+    /// (`TASK_KILLABLE`), which restarts the call. By default it is not ended at all.
+    async fn wait_killable<'a>(
+        &'a self,
+        answer: Pin<Box<dyn Future<Output = FsResult<()>> + 'a>>,
+    ) -> FsResult<()> {
+        answer.await
+    }
 }
 
 /// One lease (`file_lease` with `FL_LEASE`), held by an open file.

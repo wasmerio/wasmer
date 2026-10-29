@@ -804,3 +804,229 @@ fn file_handles_encode_decode_and_go_stale() {
         Errno::EPERM
     );
 }
+
+/// fanotify's events read from `fd`: `(mask, fd, pid, info records)` each.
+fn fanotify_events(t: &T<'_>, fd: Fd) -> Vec<(u64, i32, i32, Vec<u8>)> {
+    block_on(fanotify_read(t, fd))
+}
+
+async fn fanotify_read(t: &T<'_>, fd: Fd) -> Vec<(u64, i32, i32, Vec<u8>)> {
+    let buf = UserSliceMut::new(0x2000, 4096);
+    let Ok(n) = t.kernel.read(&t.caller, fd, buf).await else {
+        return Vec::new();
+    };
+    parse_fanotify(&get(t.memory, 0x2000, n as usize))
+}
+
+fn parse_fanotify(raw: &[u8]) -> Vec<(u64, i32, i32, Vec<u8>)> {
+    let mut events = Vec::new();
+    let mut at = 0;
+    while at < raw.len() {
+        let len = u32::from_ne_bytes(raw[at..at + 4].try_into().unwrap()) as usize;
+        assert_eq!(raw[at + 4], 3, "FANOTIFY_METADATA_VERSION");
+        let mask = u64::from_ne_bytes(raw[at + 8..at + 16].try_into().unwrap());
+        let fd = i32::from_ne_bytes(raw[at + 16..at + 20].try_into().unwrap());
+        let pid = i32::from_ne_bytes(raw[at + 20..at + 24].try_into().unwrap());
+        events.push((mask, fd, pid, raw[at + 24..at + len].to_vec()));
+        at += len;
+    }
+    events
+}
+
+#[test]
+fn fanotify_init_checks_flags_and_privilege() {
+    use wasixv2_abi::FanotifyInitFlags as F;
+    let (kernel, task, memory) = super::cred::machine_as(0, 0);
+    let t = T::new(&kernel, task, &memory);
+    let init = |flags: F, f_flags: u32| block_on(kernel.fanotify_init(&t.caller, flags.0, f_flags));
+
+    assert_eq!(errno(init(F(0x8000_0000), 0)), Errno::EINVAL);
+    assert_eq!(errno(init(F::FAN_CLASS_NOTIF, 3)), Errno::EINVAL);
+    assert_eq!(
+        errno(init(F::FAN_CLASS_CONTENT | F::FAN_REPORT_FID, 0)),
+        Errno::EINVAL
+    );
+    assert_eq!(errno(init(F::FAN_REPORT_NAME, 0)), Errno::EINVAL);
+    assert_eq!(
+        errno(init(F::FAN_REPORT_TARGET_FID | F::FAN_REPORT_DFID_NAME, 0)),
+        Errno::EINVAL
+    );
+    assert_eq!(errno(init(F::FAN_REPORT_MNT, 0)), Errno::EINVAL);
+    assert!(init(F::FAN_CLASS_CONTENT, 0).is_ok());
+
+    // Without CAP_SYS_ADMIN, only identifier groups, and no marks on mounts.
+    assert_eq!(block_on(kernel.setuid(&t.caller, 1000)), Ok(0));
+    assert_eq!(errno(init(F::FAN_CLASS_NOTIF, 0)), Errno::EPERM);
+    assert_eq!(
+        errno(init(F::FAN_REPORT_FID | F::FAN_UNLIMITED_QUEUE, 0)),
+        Errno::EPERM
+    );
+    let fd = Fd(init(F::FAN_REPORT_FID, 0).unwrap());
+    let name = t.path("/");
+    let mark = kernel.fanotify_mark(&t.caller, fd, 0x11, 0x2, CWD, name);
+    assert_eq!(errno(block_on(mark)), Errno::EPERM);
+}
+
+#[test]
+fn fanotify_reports_opens_writes_and_closes_with_a_descriptor() {
+    use wasixv2_abi::{FanotifyMarkFlags as M, FanotifyMask as E};
+    let (kernel, task, memory) = super::cred::machine_as(0, 0);
+    let t = T::new(&kernel, task, &memory);
+    t.mkdir("/d");
+    t.create("/d/f", b"x");
+    let group = Fd(block_on(kernel.fanotify_init(&t.caller, 0x2, 0)).unwrap());
+    let mark = |flags: M, mask: E, at: &str| {
+        let name = t.path(at);
+        block_on(kernel.fanotify_mark(&t.caller, group, flags.0, mask.0, CWD, name))
+    };
+    let wanted = E::FAN_OPEN | E::FAN_MODIFY | E::FAN_CLOSE_WRITE;
+    // Inode events need identifiers; a mask of nothing is EINVAL; removing nothing is ENOENT.
+    assert_eq!(
+        errno(mark(M::FAN_MARK_ADD, E::FAN_CREATE, "/d")),
+        Errno::EINVAL
+    );
+    assert_eq!(errno(mark(M::FAN_MARK_ADD, E(0), "/d/f")), Errno::EINVAL);
+    assert_eq!(
+        errno(mark(M::FAN_MARK_REMOVE, wanted, "/d/f")),
+        Errno::ENOENT
+    );
+    assert_eq!(mark(M::FAN_MARK_ADD, wanted, "/d/f"), Ok(0));
+
+    let me = block_on(kernel.getpid(&t.caller)).unwrap();
+    let name = t.path("/d/f");
+    put(&memory, 0x2000, b"y");
+    block_on(wasixv2_syscalls::as_task(task, async {
+        let open = kernel.openat(&t.caller, CWD, name, OpenFlags::O_WRONLY, 0);
+        let fd = open.await.unwrap();
+        let write = kernel.write(&t.caller, fd, UserSlice::new(0x2000, 1));
+        assert_eq!(write.await, Ok(1));
+        assert_eq!(kernel.close(&t.caller, fd).await, Ok(0));
+    }));
+    // One event: same file, same process, merged (`fanotify_merge`).
+    let events = fanotify_events(&t, group);
+    assert_eq!(events.len(), 1);
+    let (mask, fd, pid, info) = &events[0];
+    assert_eq!(*mask, wanted.0);
+    assert_eq!(*pid, me);
+    assert!(info.is_empty());
+    // The descriptor reads the file, and makes no events of its own.
+    assert_eq!(t.read(Fd(*fd), 8), Ok(b"y".to_vec()));
+    t.close(Fd(*fd));
+    assert_eq!(fanotify_events(&t, group), []);
+
+    // A mount mark hears of every file on the mount; the file's own mark of its opens.
+    assert_eq!(
+        mark(M::FAN_MARK_MOUNT | M::FAN_MARK_ADD, E::FAN_ACCESS, "/"),
+        Ok(0)
+    );
+    let fd = t.open("/d/f", OpenFlags::O_RDONLY).unwrap();
+    assert_eq!(t.read(fd, 8), Ok(b"y".to_vec()));
+    let events = fanotify_events(&t, group);
+    let masks: Vec<u64> = events.iter().map(|e| e.0).collect();
+    assert_eq!(masks, [(E::FAN_OPEN | E::FAN_ACCESS).0]);
+    t.close(Fd(events[0].1));
+    t.close(fd);
+    let flush = M::FAN_MARK_MOUNT | M::FAN_MARK_FLUSH;
+    let name = t.path("/");
+    let call = kernel.fanotify_mark(&t.caller, group, flush.0, 0, CWD, name);
+    assert_eq!(block_on(call), Ok(0));
+}
+
+#[test]
+fn fanotify_reports_directory_entries_by_handle_and_name() {
+    use wasixv2_abi::{FanotifyInitFlags as F, FanotifyMarkFlags as M, FanotifyMask as E};
+    let (kernel, task, memory) = super::cred::machine_as(0, 0);
+    let t = T::new(&kernel, task, &memory);
+    t.mkdir("/d");
+    let flags = F::FAN_REPORT_DFID_NAME | F::FAN_NONBLOCK;
+    let group = Fd(block_on(kernel.fanotify_init(&t.caller, flags.0, 0)).unwrap());
+    let mask = E::FAN_CREATE | E::FAN_DELETE | E::FAN_ONDIR;
+    let name = t.path("/d");
+    let add = kernel.fanotify_mark(&t.caller, group, M::FAN_MARK_ADD.0, mask.0, CWD, name);
+    assert_eq!(block_on(add), Ok(0));
+    // The directory's handle, to compare with what the events report.
+    put(&memory, 0x3000, &128u32.to_le_bytes());
+    let name = t.path("/d");
+    let handle = FileHandlePtr::new(0x3000);
+    let call = kernel.name_to_handle_at(&t.caller, CWD, name, handle, S32Ptr::new(0x3100), 0);
+    assert_eq!(block_on(call), Ok(0));
+    let dir_handle = get(&memory, 0x3000, 8 + 12);
+
+    t.create("/d/x", b"");
+    t.mkdir("/d/sub");
+    let events = fanotify_events(&t, group);
+    let masks: Vec<u64> = events.iter().map(|e| e.0).collect();
+    assert_eq!(masks, [E::FAN_CREATE.0, (E::FAN_CREATE | E::FAN_ONDIR).0]);
+    // One `FAN_EVENT_INFO_TYPE_DFID_NAME` record: header, fsid, the handle, "x\0", padded.
+    let (_, fd, _, info) = &events[0];
+    assert_eq!(*fd, -1);
+    assert_eq!(info[0], 2);
+    assert_eq!(u16::from_ne_bytes([info[2], info[3]]) as usize, info.len());
+    assert_eq!(info.len(), (12 + 8 + 12 + 2usize).next_multiple_of(4));
+    assert_eq!(&info[12..32], &dir_handle[..]);
+    assert_eq!(&info[32..34], b"x\0");
+    assert_eq!(&events[1].3[32..36], b"sub\0");
+}
+
+#[test]
+fn fanotify_permission_events_wait_for_an_answer() {
+    use futures::future::join;
+    use wasixv2_abi::{FanotifyInitFlags as F, FanotifyMarkFlags as M, FanotifyMask as E};
+    let (kernel, task, memory) = super::cred::machine_as(0, 0);
+    let t = T::new(&kernel, task, &memory);
+    t.create("/f", b"x");
+    let flags = F::FAN_CLASS_CONTENT | F::FAN_NONBLOCK;
+    let group = Fd(block_on(kernel.fanotify_init(&t.caller, flags.0, 0)).unwrap());
+    let name = t.path("/f");
+    let add = kernel.fanotify_mark(
+        &t.caller,
+        group,
+        M::FAN_MARK_ADD.0,
+        E::FAN_OPEN_PERM.0,
+        CWD,
+        name,
+    );
+    assert_eq!(block_on(add), Ok(0));
+    let respond_async = |fd: i32, response: u32| {
+        let mut raw = fd.to_ne_bytes().to_vec();
+        raw.extend_from_slice(&response.to_ne_bytes());
+        put(&memory, 0x2800, &raw);
+        kernel.write(&t.caller, group, UserSlice::new(0x2800, 8))
+    };
+    let respond = |fd: i32, response: u32| block_on(respond_async(fd, response));
+    // Answers are checked before they are looked up.
+    assert_eq!(errno(respond(3, 0x4)), Errno::EINVAL);
+    assert_eq!(errno(respond(3, 0x1 | 0x10)), Errno::EINVAL);
+    assert_eq!(errno(respond(77, 0x1)), Errno::ENOENT);
+
+    // Denied: the open fails with EPERM once the listener says so.
+    let name = t.path("/f");
+    let opener = wasixv2_syscalls::as_task(task, async {
+        kernel
+            .openat(&t.caller, CWD, name, OpenFlags::O_RDONLY, 0)
+            .await
+    });
+    let listener = async {
+        let events = fanotify_read(&t, group).await;
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].0, E::FAN_OPEN_PERM.0);
+        let fd = events[0].1;
+        assert_eq!(respond_async(fd, 0x2).await, Ok(8));
+        assert_eq!(errno(respond_async(fd, 0x2).await), Errno::ENOENT);
+        assert_eq!(kernel.close(&t.caller, Fd(fd)).await, Ok(0));
+    };
+    let (opened, ()) = block_on(join(opener, listener));
+    assert_eq!(errno(opened), Errno::EPERM);
+
+    // Allowed, and closing the group lets everything waiting through.
+    let name = t.path("/f");
+    let opener = kernel.openat(&t.caller, CWD, name, OpenFlags::O_RDONLY, 0);
+    let listener = async {
+        let events = fanotify_read(&t, group).await;
+        assert_eq!(events.len(), 1);
+        assert_eq!(kernel.close(&t.caller, Fd(events[0].1)).await, Ok(0));
+        assert_eq!(kernel.close(&t.caller, group).await, Ok(0));
+    };
+    let (opened, ()) = block_on(join(opener, listener));
+    assert!(opened.is_ok());
+}

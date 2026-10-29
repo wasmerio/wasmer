@@ -256,6 +256,12 @@ impl Kernel {
         iovecs: &[Iovec],
         at: At,
     ) -> SysResult<u32> {
+        // fanotify's events come with descriptors, which only the kernel can make.
+        if let Some(group) = file.downcast::<super::fanotify::FanotifyFile>() {
+            return self.fanotify_readv(caller, file, group, iovecs).await;
+        }
+        // `rw_verify_area`'s permission event.
+        self.access_permission(caller, file).await?;
         let total: usize = iovecs.iter().map(|iov| iov.iov_len as usize).sum();
         let interrupt = self.interrupt(caller);
         let _pos = match (at, &file.backing) {
@@ -586,6 +592,8 @@ impl Kernel {
             too_small: false,
         };
         let _pos = file.lock_pos().await;
+        // `iterate_dir`'s permission event.
+        self.access_permission(caller, &file).await?;
         let pos = inner.readdir(file.pos(), &mut sink).await?;
         if sink.out.is_empty() && sink.too_small {
             return Err(Errno::EINVAL.into());
@@ -642,6 +650,7 @@ impl Kernel {
         count: u32,
         broken: &Cell<bool>,
     ) -> SysResult<i32> {
+        self.access_permission(caller, input).await?;
         let stream = input.check_seekable().is_err();
         let mut pos = match offset.is_null() {
             true => input.pos(),
@@ -717,6 +726,7 @@ impl Kernel {
         if output.flags().contains(OpenFlags::O_APPEND) {
             return Err(Errno::EBADF.into());
         }
+        self.access_permission(caller, &input).await?;
         let (Backing::Inode(src), Backing::Inode(dst)) = (&input.backing, &output.backing) else {
             return Err(Errno::EINVAL.into());
         };

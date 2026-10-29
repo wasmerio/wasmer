@@ -221,23 +221,45 @@ impl FsWatcher for Dnotify {
     }
 }
 
-/// The VFS's one watcher: inotify's and dnotify's registrations both hear every change
-/// (`fsnotify`'s groups).
+/// The VFS's one watcher: inotify's, dnotify's and fanotify's registrations all hear every
+/// change (`fsnotify`'s groups).
 pub(crate) struct Notify {
     inotify: Arc<Registry>,
     dnotify: Arc<Dnotify>,
+    fanotify: Arc<super::fanotify::Registry>,
 }
 
 impl Notify {
-    /// Feeds `inotify` and `dnotify` from `vfs`'s change notifications.
-    pub(crate) fn install(vfs: &Vfs, inotify: Arc<Registry>, dnotify: Arc<Dnotify>) {
-        vfs.set_watcher(Arc::new(Self { inotify, dnotify }));
+    /// Feeds `inotify`, `dnotify` and `fanotify` from `vfs`'s change notifications.
+    pub(crate) fn install(
+        vfs: &Vfs,
+        inotify: Arc<Registry>,
+        dnotify: Arc<Dnotify>,
+        fanotify: Arc<super::fanotify::Registry>,
+    ) {
+        vfs.set_watcher(Arc::new(Self {
+            inotify,
+            dnotify,
+            fanotify,
+        }));
     }
 }
 
 impl FsWatcher for Notify {
     fn watching(&self) -> bool {
-        self.inotify.watching() || self.dnotify.watching()
+        self.inotify.watching() || self.dnotify.watching() || self.fanotify.watching()
+    }
+
+    fn fsnotify(&self, event: &FsEvent<'_>, info: &wasixv2_vfs::EventInfo<'_>) {
+        self.fanotify.fsnotify(event, info);
+    }
+
+    fn permission(
+        &self,
+        path: &wasixv2_vfs::Path,
+        perm: wasixv2_vfs::Perm,
+    ) -> Option<wasixv2_vfs::PermAnswer> {
+        self.fanotify.permission(path, perm)
     }
 
     fn event(&self, event: &FsEvent<'_>) {

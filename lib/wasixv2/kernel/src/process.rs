@@ -1141,7 +1141,7 @@ impl Kernel {
     }
 
     /// The parent's pidfd of the process `pid` (`pidfd_prepare`).
-    fn pidfd_file(&self, pid: u32, status: OpenFlags) -> OpenFile {
+    pub(crate) fn pidfd_file(&self, pid: u32, status: OpenFlags) -> OpenFile {
         let pid_ns = match self.procs.find(pid) {
             Some(process) => process.pid_ns.clone(),
             None => self.init_ns.pid_for_children.clone(),
@@ -1553,7 +1553,7 @@ impl Kernel {
         }
         self.vfs.permission(&env.cx(), &target, MAY_EXEC).await?;
         let how = OpenHow {
-            flags: OpenFlags::O_RDONLY,
+            flags: OpenFlags::O_RDONLY | wasixv2_vfs::FMODE_EXEC,
             mode: 0,
             lookup: LookupFlags {
                 empty: true,
