@@ -1691,6 +1691,9 @@ impl Kernel {
         if new_size > old_size {
             self.check_lock_growth(caller, addr64, new_size - old_size)?;
         }
+        let sizes = (addr64, old_size, new_size);
+        let moves = remap.implies_new_addr();
+        let ring = mm.aio.ring_mremap(sizes, moves, remap.dont_unmap)?;
         if remap.implies_new_addr() {
             let target = match remap.fixed {
                 true => u64::from(self.map_fixed(caller, new_addr, new_pages, false).await?),
@@ -1714,6 +1717,9 @@ impl Kernel {
                     self.refault(caller, addr64, old_size, stay).await?
                 }
                 false => mm.space().unmap(addr64, old_size),
+            }
+            if let Some(ctx) = ring {
+                ctx.moved_to(target);
             }
             return Ok(target as i32);
         }

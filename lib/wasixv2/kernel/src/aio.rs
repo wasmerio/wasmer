@@ -17,13 +17,15 @@
 //!
 //! A fork child's memory still shows its parent's rings, which Linux leaves out of the child
 //! (`VM_DONTCOPY`); the child has no contexts of its own, so every call on one of them fails.
+//! `mremap` may move a whole ring, which moves its context's id with it, but never grow it
+//! (`VM_DONTEXPAND`, `aio_ring_mremap`).
 //!
 //! [`Host::shared_pages`]: wasixv2_host::Host::shared_pages
 
 use std::{
     sync::{
         Arc, Mutex, Weak,
-        atomic::{AtomicU64, Ordering},
+        atomic::{AtomicU32, AtomicU64, Ordering},
     },
     time::Duration,
 };
@@ -138,7 +140,7 @@ impl IoctxTable {
         table
             .iter()
             .flatten()
-            .find(|ctx| ctx.user_id == ctx_id)
+            .find(|ctx| ctx.user_id() == ctx_id)
             .filter(|ctx| {
                 let id = ctx.read_word(RING_ID).ok();
                 id.and_then(|id| table.get(id as usize))
@@ -157,6 +159,46 @@ impl IoctxTable {
         slot.is_some_and(|slot| slot.take().is_some())
     }
 
+    /// The context whose ring the range `[addr, addr + len)` overlaps.
+    fn ring_in(&self, addr: u64, len: u64) -> Option<Arc<Kioctx>> {
+        let table = self.0.lock_or_recover();
+        let overlaps = |ctx: &&Arc<Kioctx>| {
+            let start = u64::from(ctx.user_id());
+            start < addr + len && addr < start + ctx.mmap_size
+        };
+        table.iter().flatten().find(overlaps).cloned()
+    }
+
+    /// `mremap` of `[addr, addr + old_len)` to `new_len` bytes, which `moves` to another
+    /// address, as far as it touches a ring: a ring never grows (`VM_DONTEXPAND`: `EFAULT`)
+    /// nor stays mapped where it was (`MREMAP_DONTUNMAP`: `EINVAL`), and only a whole ring of
+    /// a live context moves (`aio_ring_mremap`: `EINVAL`). Returns the context whose id the
+    /// move changes.
+    pub(crate) fn ring_mremap(
+        &self,
+        (addr, old_len, new_len): (u64, u64, u64),
+        moves: bool,
+        dont_unmap: bool,
+    ) -> Result<Option<Arc<Kioctx>>, Errno> {
+        let Some(ctx) = self.ring_in(addr, old_len) else {
+            return Ok(None);
+        };
+        if dont_unmap {
+            return Err(Errno::EINVAL);
+        }
+        if new_len > old_len {
+            return Err(Errno::EFAULT);
+        }
+        if !moves {
+            return Ok(None);
+        }
+        let whole = addr == u64::from(ctx.user_id()) && new_len == ctx.mmap_size;
+        if !whole || ctx.is_dead() {
+            return Err(Errno::EINVAL);
+        }
+        Ok(Some(ctx))
+    }
+
     fn take_all(&self) -> Vec<Arc<Kioctx>> {
         let mut table = self.0.lock_or_recover();
         table.drain(..).flatten().collect()
@@ -165,8 +207,9 @@ impl IoctxTable {
 
 /// A context (`struct kioctx`).
 pub(crate) struct Kioctx {
-    /// The ring's address in the memory, which names the context (`user_id`).
-    user_id: AioContext,
+    /// The ring's address in the memory, which names the context (`user_id`); `mremap`
+    /// moves it.
+    user_id: AtomicU32,
     /// Bytes of the ring's mapping.
     mmap_size: u64,
     pages: Arc<dyn SharedPages>,
@@ -199,6 +242,15 @@ struct CtxState {
 }
 
 impl Kioctx {
+    fn user_id(&self) -> AioContext {
+        self.user_id.load(Ordering::Acquire)
+    }
+
+    /// `aio_ring_mremap`: the ring moved to `addr`, which names the context from now on.
+    pub(crate) fn moved_to(&self, addr: u64) {
+        self.user_id.store(addr as AioContext, Ordering::Release);
+    }
+
     fn read_word(&self, offset: u64) -> Result<u32, Errno> {
         let mut word = [0; 4];
         self.pages
@@ -509,7 +561,7 @@ impl Kernel {
             return Err(Errno::EINVAL.into());
         }
         let ctx = self.ioctx_alloc(caller, nr_events).await?;
-        if write_value(caller.memory(), ctxp, &ctx.user_id)
+        if write_value(caller.memory(), ctxp, &ctx.user_id())
             .await
             .is_err()
         {
@@ -581,7 +633,7 @@ impl Kernel {
         }
         ctx.kill();
         let _ = self
-            .sys_munmap(caller, ctx.user_id, ctx.mmap_size as u32)
+            .sys_munmap(caller, ctx.user_id(), ctx.mmap_size as u32)
             .await;
         let drained = || (ctx.state.lock_or_recover().inflight == 0).then_some(());
         let _ = wait_event(&ctx.wait, drained, &NoInterrupt).await;
@@ -975,7 +1027,7 @@ impl Kioctx {
                 None
             }));
             Self {
-                user_id,
+                user_id: AtomicU32::new(user_id),
                 mmap_size,
                 pages,
                 nr_events,
