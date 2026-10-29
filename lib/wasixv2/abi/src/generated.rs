@@ -570,6 +570,8 @@ pub type ConstFileHandlePtr = GuestPtr<FileHandle>;
 pub type ConstOpenHowPtr = GuestPtr<OpenHow>;
 /// Guest pointer to an array of `iovec`.
 pub type ConstIovecArray = GuestPtr<Iovec>;
+/// Guest pointer to an array of `sock-filter`.
+pub type ConstSockFilterArray = GuestPtr<SockFilter>;
 /// Guest pointer to a `xattr-args`.
 pub type XattrArgsPtr = GuestPtrMut<XattrArgs>;
 /// Guest pointer to a `xattr-args`.
@@ -14999,6 +15001,474 @@ impl GuestLayout for Ipv6Mreq {
         out.fill(0);
         self.ipv6mr_multiaddr.write_to(&mut out[0..]);
         self.ipv6mr_ifindex.write_to(&mut out[16..]);
+    }
+}
+/// `IP_ADD_SOURCE_MEMBERSHIP`, `IP_DROP_SOURCE_MEMBERSHIP`, `IP_BLOCK_SOURCE` and
+/// `IP_UNBLOCK_SOURCE` payload (`struct ip_mreq_source`).
+///
+/// C: `struct ip_mreq_source`
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct IpMreqSource {
+    pub imr_multiaddr: InAddr,
+    pub imr_interface: InAddr,
+    pub imr_sourceaddr: InAddr,
+}
+const _: () = {
+    assert!(core::mem::size_of::<IpMreqSource>() == 12);
+    assert!(core::mem::align_of::<IpMreqSource>() == 4);
+    assert!(core::mem::offset_of!(IpMreqSource, imr_multiaddr) == 0);
+    assert!(core::mem::offset_of!(IpMreqSource, imr_interface) == 4);
+    assert!(core::mem::offset_of!(IpMreqSource, imr_sourceaddr) == 8);
+};
+impl Default for IpMreqSource {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for IpMreqSource {
+    const SIZE: usize = 12;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        imr_multiaddr: <InAddr as GuestLayout>::ZERO,
+        imr_interface: <InAddr as GuestLayout>::ZERO,
+        imr_sourceaddr: <InAddr as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            imr_multiaddr: GuestLayout::read_from(&bytes[0..])?,
+            imr_interface: GuestLayout::read_from(&bytes[4..])?,
+            imr_sourceaddr: GuestLayout::read_from(&bytes[8..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.imr_multiaddr.write_to(&mut out[0..]);
+        self.imr_interface.write_to(&mut out[4..]);
+        self.imr_sourceaddr.write_to(&mut out[8..]);
+    }
+}
+/// `IP_MSFILTER` payload (`struct ip_msfilter`): `imsf-numsrc` sources follow from offset 16
+/// (`IP_MSFILTER_SIZE`); the kernel's flexible array shares `imsf-slist`'s place.
+///
+/// C: `struct ip_msfilter`
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct IpMsfilter {
+    pub imsf_multiaddr: InAddr,
+    pub imsf_interface: InAddr,
+    /// `MCAST_INCLUDE` (1) or `MCAST_EXCLUDE` (0).
+    pub imsf_fmode: u32,
+    pub imsf_numsrc: u32,
+    pub imsf_slist: [InAddr; 1],
+}
+const _: () = {
+    assert!(core::mem::size_of::<IpMsfilter>() == 20);
+    assert!(core::mem::align_of::<IpMsfilter>() == 4);
+    assert!(core::mem::offset_of!(IpMsfilter, imsf_multiaddr) == 0);
+    assert!(core::mem::offset_of!(IpMsfilter, imsf_interface) == 4);
+    assert!(core::mem::offset_of!(IpMsfilter, imsf_fmode) == 8);
+    assert!(core::mem::offset_of!(IpMsfilter, imsf_numsrc) == 12);
+    assert!(core::mem::offset_of!(IpMsfilter, imsf_slist) == 16);
+};
+impl Default for IpMsfilter {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for IpMsfilter {
+    const SIZE: usize = 20;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        imsf_multiaddr: <InAddr as GuestLayout>::ZERO,
+        imsf_interface: <InAddr as GuestLayout>::ZERO,
+        imsf_fmode: <u32 as GuestLayout>::ZERO,
+        imsf_numsrc: <u32 as GuestLayout>::ZERO,
+        imsf_slist: <[InAddr; 1] as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            imsf_multiaddr: GuestLayout::read_from(&bytes[0..])?,
+            imsf_interface: GuestLayout::read_from(&bytes[4..])?,
+            imsf_fmode: GuestLayout::read_from(&bytes[8..])?,
+            imsf_numsrc: GuestLayout::read_from(&bytes[12..])?,
+            imsf_slist: GuestLayout::read_from(&bytes[16..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.imsf_multiaddr.write_to(&mut out[0..]);
+        self.imsf_interface.write_to(&mut out[4..]);
+        self.imsf_fmode.write_to(&mut out[8..]);
+        self.imsf_numsrc.write_to(&mut out[12..]);
+        self.imsf_slist.write_to(&mut out[16..]);
+    }
+}
+/// `MCAST_JOIN_GROUP`/`MCAST_LEAVE_GROUP` payload (`struct group_req`).
+///
+/// C: `struct group_req`
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct GroupReq {
+    pub gr_interface: u32,
+    pub gr_group: SockaddrStorage,
+}
+const _: () = {
+    assert!(core::mem::size_of::<GroupReq>() == 132);
+    assert!(core::mem::align_of::<GroupReq>() == 4);
+    assert!(core::mem::offset_of!(GroupReq, gr_interface) == 0);
+    assert!(core::mem::offset_of!(GroupReq, gr_group) == 4);
+};
+impl Default for GroupReq {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for GroupReq {
+    const SIZE: usize = 132;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        gr_interface: <u32 as GuestLayout>::ZERO,
+        gr_group: <SockaddrStorage as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            gr_interface: GuestLayout::read_from(&bytes[0..])?,
+            gr_group: GuestLayout::read_from(&bytes[4..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.gr_interface.write_to(&mut out[0..]);
+        self.gr_group.write_to(&mut out[4..]);
+    }
+}
+/// `MCAST_JOIN_SOURCE_GROUP`, `MCAST_LEAVE_SOURCE_GROUP`, `MCAST_BLOCK_SOURCE` and
+/// `MCAST_UNBLOCK_SOURCE` payload (`struct group_source_req`).
+///
+/// C: `struct group_source_req`
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct GroupSourceReq {
+    pub gsr_interface: u32,
+    pub gsr_group: SockaddrStorage,
+    pub gsr_source: SockaddrStorage,
+}
+const _: () = {
+    assert!(core::mem::size_of::<GroupSourceReq>() == 260);
+    assert!(core::mem::align_of::<GroupSourceReq>() == 4);
+    assert!(core::mem::offset_of!(GroupSourceReq, gsr_interface) == 0);
+    assert!(core::mem::offset_of!(GroupSourceReq, gsr_group) == 4);
+    assert!(core::mem::offset_of!(GroupSourceReq, gsr_source) == 132);
+};
+impl Default for GroupSourceReq {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for GroupSourceReq {
+    const SIZE: usize = 260;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        gsr_interface: <u32 as GuestLayout>::ZERO,
+        gsr_group: <SockaddrStorage as GuestLayout>::ZERO,
+        gsr_source: <SockaddrStorage as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            gsr_interface: GuestLayout::read_from(&bytes[0..])?,
+            gsr_group: GuestLayout::read_from(&bytes[4..])?,
+            gsr_source: GuestLayout::read_from(&bytes[132..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.gsr_interface.write_to(&mut out[0..]);
+        self.gsr_group.write_to(&mut out[4..]);
+        self.gsr_source.write_to(&mut out[132..]);
+    }
+}
+/// `MCAST_MSFILTER` payload (`struct group_filter`): `gf-numsrc` sources follow from offset
+/// 140 (`GROUP_FILTER_SIZE`); the kernel's flexible array shares `gf-slist`'s place.
+///
+/// C: `struct group_filter`
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct GroupFilter {
+    pub gf_interface: u32,
+    pub gf_group: SockaddrStorage,
+    /// `MCAST_INCLUDE` (1) or `MCAST_EXCLUDE` (0).
+    pub gf_fmode: u32,
+    pub gf_numsrc: u32,
+    pub gf_slist: [SockaddrStorage; 1],
+}
+const _: () = {
+    assert!(core::mem::size_of::<GroupFilter>() == 268);
+    assert!(core::mem::align_of::<GroupFilter>() == 4);
+    assert!(core::mem::offset_of!(GroupFilter, gf_interface) == 0);
+    assert!(core::mem::offset_of!(GroupFilter, gf_group) == 4);
+    assert!(core::mem::offset_of!(GroupFilter, gf_fmode) == 132);
+    assert!(core::mem::offset_of!(GroupFilter, gf_numsrc) == 136);
+    assert!(core::mem::offset_of!(GroupFilter, gf_slist) == 140);
+};
+impl Default for GroupFilter {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for GroupFilter {
+    const SIZE: usize = 268;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        gf_interface: <u32 as GuestLayout>::ZERO,
+        gf_group: <SockaddrStorage as GuestLayout>::ZERO,
+        gf_fmode: <u32 as GuestLayout>::ZERO,
+        gf_numsrc: <u32 as GuestLayout>::ZERO,
+        gf_slist: <[SockaddrStorage; 1] as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            gf_interface: GuestLayout::read_from(&bytes[0..])?,
+            gf_group: GuestLayout::read_from(&bytes[4..])?,
+            gf_fmode: GuestLayout::read_from(&bytes[132..])?,
+            gf_numsrc: GuestLayout::read_from(&bytes[136..])?,
+            gf_slist: GuestLayout::read_from(&bytes[140..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.gf_interface.write_to(&mut out[0..]);
+        self.gf_group.write_to(&mut out[4..]);
+        self.gf_fmode.write_to(&mut out[132..]);
+        self.gf_numsrc.write_to(&mut out[136..]);
+        self.gf_slist.write_to(&mut out[140..]);
+    }
+}
+/// `IP_PKTINFO` control message and option payload (`struct in_pktinfo`).
+///
+/// C: `struct in_pktinfo`
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct InPktinfo {
+    pub ipi_ifindex: i32,
+    pub ipi_spec_dst: InAddr,
+    pub ipi_addr: InAddr,
+}
+const _: () = {
+    assert!(core::mem::size_of::<InPktinfo>() == 12);
+    assert!(core::mem::align_of::<InPktinfo>() == 4);
+    assert!(core::mem::offset_of!(InPktinfo, ipi_ifindex) == 0);
+    assert!(core::mem::offset_of!(InPktinfo, ipi_spec_dst) == 4);
+    assert!(core::mem::offset_of!(InPktinfo, ipi_addr) == 8);
+};
+impl Default for InPktinfo {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for InPktinfo {
+    const SIZE: usize = 12;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        ipi_ifindex: <i32 as GuestLayout>::ZERO,
+        ipi_spec_dst: <InAddr as GuestLayout>::ZERO,
+        ipi_addr: <InAddr as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            ipi_ifindex: GuestLayout::read_from(&bytes[0..])?,
+            ipi_spec_dst: GuestLayout::read_from(&bytes[4..])?,
+            ipi_addr: GuestLayout::read_from(&bytes[8..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.ipi_ifindex.write_to(&mut out[0..]);
+        self.ipi_spec_dst.write_to(&mut out[4..]);
+        self.ipi_addr.write_to(&mut out[8..]);
+    }
+}
+/// `IPV6_PKTINFO` control message and option payload (`struct in6_pktinfo`).
+///
+/// C: `struct in6_pktinfo`
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct In6Pktinfo {
+    pub ipi6_addr: In6Addr,
+    pub ipi6_ifindex: i32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<In6Pktinfo>() == 20);
+    assert!(core::mem::align_of::<In6Pktinfo>() == 4);
+    assert!(core::mem::offset_of!(In6Pktinfo, ipi6_addr) == 0);
+    assert!(core::mem::offset_of!(In6Pktinfo, ipi6_ifindex) == 16);
+};
+impl Default for In6Pktinfo {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for In6Pktinfo {
+    const SIZE: usize = 20;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        ipi6_addr: <In6Addr as GuestLayout>::ZERO,
+        ipi6_ifindex: <i32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            ipi6_addr: GuestLayout::read_from(&bytes[0..])?,
+            ipi6_ifindex: GuestLayout::read_from(&bytes[16..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.ipi6_addr.write_to(&mut out[0..]);
+        self.ipi6_ifindex.write_to(&mut out[16..]);
+    }
+}
+/// `IPV6_PATHMTU` control message and option payload (`struct ip6_mtuinfo`).
+///
+/// C: `struct ip6_mtuinfo`
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct Ip6Mtuinfo {
+    pub ip6m_addr: SockaddrIn6,
+    pub ip6m_mtu: u32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<Ip6Mtuinfo>() == 32);
+    assert!(core::mem::align_of::<Ip6Mtuinfo>() == 4);
+    assert!(core::mem::offset_of!(Ip6Mtuinfo, ip6m_addr) == 0);
+    assert!(core::mem::offset_of!(Ip6Mtuinfo, ip6m_mtu) == 28);
+};
+impl Default for Ip6Mtuinfo {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for Ip6Mtuinfo {
+    const SIZE: usize = 32;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        ip6m_addr: <SockaddrIn6 as GuestLayout>::ZERO,
+        ip6m_mtu: <u32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            ip6m_addr: GuestLayout::read_from(&bytes[0..])?,
+            ip6m_mtu: GuestLayout::read_from(&bytes[28..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.ip6m_addr.write_to(&mut out[0..]);
+        self.ip6m_mtu.write_to(&mut out[28..]);
+    }
+}
+/// One classic BPF instruction (`struct sock_filter`, UAPI `linux/filter.h`).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct SockFilter {
+    pub code: u16,
+    pub jt: u8,
+    pub jf: u8,
+    pub k: u32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<SockFilter>() == 8);
+    assert!(core::mem::align_of::<SockFilter>() == 4);
+    assert!(core::mem::offset_of!(SockFilter, code) == 0);
+    assert!(core::mem::offset_of!(SockFilter, jt) == 2);
+    assert!(core::mem::offset_of!(SockFilter, jf) == 3);
+    assert!(core::mem::offset_of!(SockFilter, k) == 4);
+};
+impl Default for SockFilter {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for SockFilter {
+    const SIZE: usize = 8;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        code: <u16 as GuestLayout>::ZERO,
+        jt: <u8 as GuestLayout>::ZERO,
+        jf: <u8 as GuestLayout>::ZERO,
+        k: <u32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            code: GuestLayout::read_from(&bytes[0..])?,
+            jt: GuestLayout::read_from(&bytes[2..])?,
+            jf: GuestLayout::read_from(&bytes[3..])?,
+            k: GuestLayout::read_from(&bytes[4..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.code.write_to(&mut out[0..]);
+        self.jt.write_to(&mut out[2..]);
+        self.jf.write_to(&mut out[3..]);
+        self.k.write_to(&mut out[4..]);
+    }
+}
+/// `SO_ATTACH_FILTER`/`SO_ATTACH_REUSEPORT_CBPF` payload (`struct sock_fprog`, UAPI
+/// `linux/filter.h`): `len` instructions at `filter`.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct SockFprog {
+    pub len: u16,
+    pub filter: ConstSockFilterArray,
+}
+const _: () = {
+    assert!(core::mem::size_of::<SockFprog>() == 8);
+    assert!(core::mem::align_of::<SockFprog>() == 4);
+    assert!(core::mem::offset_of!(SockFprog, len) == 0);
+    assert!(core::mem::offset_of!(SockFprog, filter) == 4);
+};
+impl Default for SockFprog {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for SockFprog {
+    const SIZE: usize = 8;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        len: <u16 as GuestLayout>::ZERO,
+        filter: <ConstSockFilterArray as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            len: GuestLayout::read_from(&bytes[0..])?,
+            filter: GuestLayout::read_from(&bytes[4..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.len.write_to(&mut out[0..]);
+        self.filter.write_to(&mut out[4..]);
     }
 }
 /// An error-queue entry (`struct sock_extended_err`, UAPI `linux/errqueue.h`): the payload of
