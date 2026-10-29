@@ -27,6 +27,7 @@ const SEARCH: i32 = 10;
 const READ: i32 = 11;
 const SET_TIMEOUT: i32 = 15;
 const INVALIDATE: i32 = 21;
+const RESTRICT: i32 = 29;
 const MOVE: i32 = 30;
 const GET_SECURITY: i32 = 17;
 const GET_PERSISTENT: i32 = 22;
@@ -466,7 +467,7 @@ fn capabilities_and_unconfigured_operations() {
     let (kernel, task, memory) = machine();
     let t = T::new(&kernel, task, &memory);
     assert_eq!(t.keyctl(CAPABILITIES, 0x3000, 2, 0, 0), Ok(2));
-    assert_eq!(get(&memory, 0x3000, 2), [0xa1, 4]);
+    assert_eq!(get(&memory, 0x3000, 2), [0xe1, 4]);
     assert_eq!(
         errno(t.keyctl(GET_PERSISTENT, 0, 0, 0, 0)),
         Errno::EOPNOTSUPP
@@ -517,6 +518,83 @@ fn moving_a_key_to_the_same_ring_is_a_noop() {
     assert_eq!(
         t.keyctl(MOVE, other as u32, ring as u32, ring as u32, 1),
         Ok(0)
+    );
+}
+
+/// security/keys/keyring.c:keyring_restrict and key.c:__key_create_or_update.
+#[test]
+fn reject_all_keyring_restrictions_cover_link_move_and_add_update() {
+    let (kernel, task, memory) = machine();
+    let t = T::new(&kernel, task, &memory);
+    let ring = t.add("keyring", "restricted", b"", SESSION).unwrap();
+    let key = t.add("user", "existing", b"old", ring).unwrap();
+    let other = t.add("user", "other", b"value", SESSION).unwrap();
+    assert_eq!(t.keyctl(RESTRICT, ring as u32, 0, 0, 0), Ok(0));
+    assert_eq!(
+        errno(t.keyctl(RESTRICT, ring as u32, 0, 0, 0)),
+        Errno::EEXIST
+    );
+    for member in [key, other] {
+        assert_eq!(
+            errno(t.keyctl(LINK, member as u32, ring as u32, 0, 0)),
+            Errno::EPERM
+        );
+    }
+    assert_eq!(errno(t.add("user", "new", b"value", ring)), Errno::EPERM);
+    assert_eq!(errno(t.add("user", "existing", b"new", ring)), Errno::EPERM);
+    assert_eq!(t.read(key).unwrap(), b"old");
+    assert_eq!(
+        errno(t.keyctl(MOVE, other as u32, SESSION as u32, ring as u32, 0)),
+        Errno::EPERM
+    );
+    assert_eq!(t.read(other).unwrap(), b"value");
+    // Explicit updates and unlink/clear are still allowed; clearing preserves the restriction.
+    put(&memory, 0x2000, b"new");
+    assert_eq!(t.keyctl(UPDATE, key as u32, 0x2000, 3, 0), Ok(0));
+    assert_eq!(t.keyctl(CLEAR, ring as u32, 0, 0, 0), Ok(0));
+    assert_eq!(
+        errno(t.keyctl(LINK, other as u32, ring as u32, 0, 0)),
+        Errno::EPERM
+    );
+}
+
+#[test]
+fn keyring_restrictions_validate_permissions_arguments_and_type() {
+    let (kernel, task, memory) = machine();
+    let t = T::new(&kernel, task, &memory);
+    let ring = t
+        .add("keyring", "restriction-errors", b"", SESSION)
+        .unwrap();
+    let key = t.add("user", "not-a-ring", b"value", SESSION).unwrap();
+    t.cstr(0x1000, "user");
+    t.cstr(0x1100, "whatever");
+    for (id, kind, restriction, expected) in [
+        (ring, 0, 0x1100, Errno::EINVAL),
+        (ring, 0x1000, 0, Errno::EINVAL),
+        (key, 0, 0, Errno::ENOTDIR),
+        (ring, 0x1000, 0x1100, Errno::ENOENT),
+        (ring, 0x10000, 0x1100, Errno::EFAULT),
+        (ring, 0x1000, 0x10000, Errno::EFAULT),
+    ] {
+        assert_eq!(
+            errno(t.keyctl(RESTRICT, id as u32, kind, restriction, 0)),
+            expected
+        );
+    }
+    t.cstr(0x1000, "unknown");
+    assert_eq!(
+        errno(t.keyctl(RESTRICT, ring as u32, 0x1000, 0x1100, 0)),
+        Errno::ENOKEY
+    );
+    t.cstr(0x1000, ".internal");
+    assert_eq!(
+        errno(t.keyctl(RESTRICT, ring as u32, 0x1000, 0x1100, 0)),
+        Errno::EPERM
+    );
+    assert_eq!(t.keyctl(SETPERM, ring as u32, 0x1f1f0000, 0, 0), Ok(0));
+    assert_eq!(
+        errno(t.keyctl(RESTRICT, ring as u32, 0x10000, 0, 0)),
+        Errno::EACCES
     );
 }
 
