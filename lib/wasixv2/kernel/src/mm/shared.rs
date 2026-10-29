@@ -520,6 +520,17 @@ impl Mappings {
             .collect()
     }
 
+    /// Where the mapping `addr` lies in starts, and whether it is shared, if `addr` lies in
+    /// one: [`Mappings::spans`] for one address, found by halving.
+    pub(crate) fn span_at(&self, addr: u64) -> Option<(u64, bool)> {
+        let at = self
+            .list
+            .partition_point(|m| m.start <= addr)
+            .checked_sub(1)?;
+        let mapping = &self.list[at];
+        (addr < mapping.end()).then(|| (mapping.start, mapping.is_shared()))
+    }
+
     pub(crate) fn insert(&mut self, mapping: Mapping) {
         let at = self.list.partition_point(|m| m.start < mapping.start);
         self.list.insert(at, mapping);
@@ -555,13 +566,6 @@ impl Mappings {
         let (taken, kept) = self.list.drain(..).partition(|m| pick(m));
         self.list = kept;
         taken
-    }
-
-    /// Puts back mappings taken out, at their (unchanged) addresses.
-    pub(crate) fn restore(&mut self, mappings: Vec<Mapping>) {
-        for mapping in mappings {
-            self.insert(mapping);
-        }
     }
 
     /// Whether a shared mapping that may never be written (`VM_MAYWRITE` clear: its file is not
