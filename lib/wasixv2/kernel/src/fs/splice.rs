@@ -348,6 +348,8 @@ impl Kernel {
         }
         let interrupt = self.interrupt(caller);
         let broken = Cell::new(false);
+        self.pre_content_permission(caller, output, Some(at.pos), len as u64)
+            .await?;
         let mut out = SpliceOut {
             cred: self.env(caller).cred,
             task: caller.task(),
@@ -393,6 +395,9 @@ impl Kernel {
                 continue;
             }
             let mut buf = vec![0; room.len()];
+            self.pre_content_permission(caller, input, Some(at.pos), len as u64)
+                .await?;
+            self.access_permission(caller, input).await?;
             self.sync_file_mappings(caller, input).await;
             let n = match (inode, positional) {
                 (Some(file), _) => file.read_at(&mut buf, at.pos).await?,

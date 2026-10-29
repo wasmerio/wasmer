@@ -303,8 +303,6 @@ impl Kernel {
         if let Some(group) = file.downcast::<super::fanotify::FanotifyFile>() {
             return self.fanotify_readv(caller, file, group, iovecs).await;
         }
-        // `rw_verify_area`'s permission event.
-        self.access_permission(caller, file).await?;
         let total: usize = iovecs.iter().map(|iov| iov.iov_len as usize).sum();
         let interrupt = self.interrupt(caller);
         let _pos = match (at, &file.backing) {
@@ -325,6 +323,9 @@ impl Kernel {
             broken: &Cell::new(false),
             nowait: flags.contains(RwfFlags::RWF_NOWAIT),
         };
+        self.pre_content_permission(caller, file, Some(target.start), total as u64)
+            .await?;
+        self.access_permission(caller, file).await?;
         let steps = file.fills_reads();
         let step = match steps {
             true => IO_CHUNK,
@@ -436,6 +437,8 @@ impl Kernel {
             broken,
             nowait: flags.contains(RwfFlags::RWF_NOWAIT),
         };
+        self.pre_content_permission(caller, file, Some(target.start), total as u64)
+            .await?;
         let step = if messages { total } else { total.min(IO_CHUNK) };
         let mut buf = Scratch::new(step);
         let mut cursor = Cursor::new(iovecs);
@@ -724,7 +727,6 @@ impl Kernel {
         count: u32,
         broken: &Cell<bool>,
     ) -> SysResult<i32> {
-        self.access_permission(caller, input).await?;
         let stream = input.check_seekable().is_err();
         let mut pos = match offset.is_null() {
             true => input.pos(),
@@ -733,6 +735,11 @@ impl Kernel {
                 u64::try_from(pos).map_err(|_| Errno::EINVAL)?
             }
         };
+        self.pre_content_permission(caller, input, Some(pos), u64::from(count))
+            .await?;
+        self.access_permission(caller, input).await?;
+        self.pre_content_permission(caller, output, Some(output.pos()), u64::from(count))
+            .await?;
         let count = (count as usize).min(MAX_RW_COUNT);
         let interrupt = self.interrupt(caller);
         let mut done = 0;
@@ -806,7 +813,6 @@ impl Kernel {
         if output.flags().contains(OpenFlags::O_APPEND) {
             return Err(Errno::EBADF.into());
         }
-        self.access_permission(caller, &input).await?;
         let (Backing::Inode(src), Backing::Inode(dst)) = (&input.backing, &output.backing) else {
             return Err(Errno::EINVAL.into());
         };
@@ -828,6 +834,11 @@ impl Kernel {
         if pos_in.checked_add(len).is_none() || pos_out.checked_add(len).is_none() {
             return Err(Errno::EOVERFLOW.into());
         }
+        self.pre_content_permission(caller, &input, Some(pos_in), len)
+            .await?;
+        self.access_permission(caller, &input).await?;
+        self.pre_content_permission(caller, &output, Some(pos_out), len)
+            .await?;
         let size_in = src.node().getattr().await?.size;
         let len = len.min(size_in.saturating_sub(pos_in));
         let max_size = i64::MAX as u64;
@@ -980,6 +991,8 @@ impl Kernel {
         // Linux refuses all but plain allocation on an append-only inode (`IS_APPEND`, from
         // `chattr +a`), which no filesystem here has; an `O_APPEND` descriptor is no such thing.
         self.sync_file_mappings(caller, file).await;
+        self.pre_content_permission(caller, file, Some(offset as u64), len as u64)
+            .await?;
         let allocated = inner
             .allocate_as(alloc, offset as u64, len as u64, &self.env(caller).cred)
             .await;
@@ -1022,6 +1035,8 @@ impl Kernel {
             return Err(Errno::EACCES.into());
         }
         self.sync_file_mappings(caller, file).await;
+        self.pre_content_permission(caller, file, Some(length as u64), 0)
+            .await?;
         let resized = inner.set_size(length as u64).await;
         self.sync_file_mappings(caller, file).await;
         resized?;

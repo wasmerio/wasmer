@@ -254,6 +254,14 @@ impl FsWatcher for Notify {
         self.inotify.watching() || self.dnotify.watching() || self.fanotify.watching()
     }
 
+    fn mount_event(&self, event: wasixv2_vfs::MountEvent) {
+        self.fanotify.mount_event(event);
+    }
+
+    fn mount_namespace_deleted(&self, namespace: u64) {
+        self.fanotify.mount_namespace_deleted(namespace);
+    }
+
     fn fsnotify(&self, event: &FsEvent<'_>, info: &wasixv2_vfs::EventInfo<'_>) {
         self.fanotify.fsnotify(event, info);
     }

@@ -78,6 +78,18 @@ pub enum Perm {
     OpenExec,
     /// `FS_ACCESS_PERM`: a read.
     Access,
+    /// `FS_PRE_ACCESS` before accessing a file range. No offset means an unknown range.
+    PreAccess { offset: Option<u64>, count: u64 },
+}
+
+/// A committed mount-tree change (`fs/namespace.c: mnt_notify`). The mount id is
+/// the unique id reported by statmount, not the reusable legacy mount id.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct MountEvent {
+    pub namespace: u64,
+    pub mount_id: u64,
+    pub attach: bool,
+    pub detach: bool,
 }
 
 /// The answer to a permission event, once its listeners gave it: `Ok` to go on, or the error
@@ -87,6 +99,12 @@ pub type PermAnswer = Pin<Box<dyn Future<Output = FsResult<()>>>>;
 /// Receives change notifications. Called synchronously from the operation; must not block.
 pub trait FsWatcher: Send + Sync {
     fn event(&self, event: &FsEvent<'_>);
+
+    /// Delivered after releasing the mount-tree lock, as namespace_unlock does.
+    fn mount_event(&self, _event: MountEvent) {}
+
+    /// The namespace has gone; remove marks on it (`fsnotify_mntns_delete`).
+    fn mount_namespace_deleted(&self, _namespace: u64) {}
 
     /// Whether any watch exists. While none does, the VFS builds no events at all, so this must
     /// be cheap (an atomic load) and become true before the first watch can see an event.

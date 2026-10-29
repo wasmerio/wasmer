@@ -1474,6 +1474,13 @@ impl Kernel {
         if map_locked && !self.lock_limit(caller).can_lock() {
             return Err(Errno::EPERM.into());
         }
+        if let Some(file) = &file {
+            if offset < 0 {
+                return Err(Errno::EOVERFLOW.into());
+            }
+            self.pre_content_permission(caller, file, Some(offset as u64), u64::from(len))
+                .await?;
+        }
         let mm = self.mm(caller.task());
         let _op = mm.op.lock().await;
         let locked = self.check_lock_new(caller, map_locked, pages * PAGE_SIZE)?;

@@ -882,7 +882,7 @@ fn fanotify_init_checks_flags_and_privilege() {
         errno(init(F::FAN_REPORT_TARGET_FID | F::FAN_REPORT_DFID_NAME, 0)),
         Errno::EINVAL
     );
-    assert_eq!(errno(init(F::FAN_REPORT_MNT, 0)), Errno::EINVAL);
+    assert!(init(F::FAN_REPORT_MNT, 0).is_ok());
     assert!(init(F::FAN_CLASS_CONTENT, 0).is_ok());
 
     // Without CAP_SYS_ADMIN, only identifier groups, and no marks on mounts.
@@ -1554,5 +1554,121 @@ fn tmpfs_quotactl_fd_controls_limits_and_checks_permissions() {
             GuestPtrMut::new(0)
         ))),
         Errno::ENOTBLK
+    );
+}
+
+#[test]
+fn fanotify_pre_access_reports_aligned_ranges_and_mediates_io_and_mmap() {
+    use futures::future::join;
+    use wasixv2_abi::{
+        FanotifyInitFlags as F, FanotifyMarkFlags as M, FanotifyMask as E, MapFlags, ProtFlags,
+    };
+    use wasixv2_vfs::{FsResult, MountFlags, Node, StatFs};
+    struct HsmFs(MemFs);
+    #[async_trait::async_trait(?Send)]
+    impl Filesystem for HsmFs {
+        fn info(&self) -> wasixv2_vfs::FsInfo {
+            self.0.info()
+        }
+        fn root(&self) -> Arc<dyn Node> {
+            self.0.root()
+        }
+        fn allow_hsm(&self) -> bool {
+            true
+        }
+        async fn statfs(&self) -> FsResult<StatFs> {
+            self.0.statfs().await
+        }
+    }
+    let (kernel, task, memory) = super::cred::machine_as(0, 0);
+    let t = T::new(&kernel, task, &memory);
+    t.mkdir("/hsm");
+    let fs = Arc::new(HsmFs(MemFs::new(
+        Arc::new(HostClock(Arc::new(TestHost))),
+        0o777,
+        0,
+        0,
+    )));
+    block_on(kernel.vfs.mount(b"/hsm", fs, MountFlags::default(), false)).unwrap();
+    t.create("/hsm/f", b"old");
+    let file = t.open("/hsm/f", OpenFlags::O_RDWR).unwrap();
+    let group = Fd(block_on(kernel.fanotify_init(
+        &t.caller,
+        (F::FAN_CLASS_PRE_CONTENT | F::FAN_NONBLOCK).0,
+        0,
+    ))
+    .unwrap());
+    let name = t.path("/hsm/f");
+    assert_eq!(
+        block_on(kernel.fanotify_mark(
+            &t.caller,
+            group,
+            M::FAN_MARK_ADD.0,
+            E::FAN_PRE_ACCESS.0,
+            CWD,
+            name
+        )),
+        Ok(0)
+    );
+    async fn answer(t: &T<'_>, group: Fd, offset: u64, count: u64, response: u32) {
+        let events = fanotify_read(t, group).await;
+        assert_eq!(events.len(), 1);
+        let (mask, fd, _, info) = &events[0];
+        assert_eq!(*mask, wasixv2_abi::FanotifyMask::FAN_PRE_ACCESS.0);
+        assert_eq!(info.len(), 24);
+        assert_eq!(info[0], 6); // FAN_EVENT_INFO_TYPE_RANGE
+        assert_eq!(u64::from_ne_bytes(info[8..16].try_into().unwrap()), offset);
+        assert_eq!(u64::from_ne_bytes(info[16..24].try_into().unwrap()), count);
+        let raw = [fd.to_ne_bytes(), response.to_ne_bytes()].concat();
+        put(t.memory, 0x2800, &raw);
+        assert_eq!(
+            t.kernel
+                .write(&t.caller, group, UserSlice::new(0x2800, 8))
+                .await,
+            Ok(8)
+        );
+        assert_eq!(t.kernel.close(&t.caller, Fd(*fd)).await, Ok(0));
+    }
+    put(&memory, 0x2000, b"new");
+    let write = || kernel.pwrite64(&t.caller, file, UserSlice::new(0x2000, 3), 0);
+    let (written, ()) = block_on(join(write(), answer(&t, group, 0, WASM_PAGE_SIZE, 2)));
+    assert_eq!(errno(written), Errno::EPERM);
+    let (written, ()) = block_on(join(write(), answer(&t, group, 0, WASM_PAGE_SIZE, 1)));
+    assert_eq!(written, Ok(3));
+    let read = kernel.pread64(
+        &t.caller,
+        file,
+        UserSliceMut::new(0x2000, 2),
+        WASM_PAGE_SIZE as i64 - 1,
+    );
+    let (read, ()) = block_on(join(read, answer(&t, group, 0, 2 * WASM_PAGE_SIZE, 1)));
+    assert_eq!(read, Ok(0));
+    let trunc = kernel.ftruncate64(&t.caller, file, 123);
+    let (truncated, ()) = block_on(join(trunc, answer(&t, group, 0, WASM_PAGE_SIZE, 1)));
+    assert_eq!(truncated, Ok(0));
+    let mmap = kernel.mmap(
+        &t.caller,
+        0,
+        WASM_PAGE_SIZE as u32,
+        ProtFlags::PROT_READ,
+        MapFlags::MAP_PRIVATE,
+        file,
+        0,
+    );
+    let (mapped, ()) = block_on(join(mmap, answer(&t, group, 0, WASM_PAGE_SIZE, 2)));
+    assert_eq!(errno(mapped), Errno::EPERM);
+    // tmpfs remains opted out, matching Linux's absence of SB_I_ALLOW_HSM there.
+    t.create("/plain", b"");
+    let name = t.path("/plain");
+    assert_eq!(
+        errno(block_on(kernel.fanotify_mark(
+            &t.caller,
+            group,
+            M::FAN_MARK_ADD.0,
+            E::FAN_PRE_ACCESS.0,
+            CWD,
+            name
+        ))),
+        Errno::EOPNOTSUPP
     );
 }
