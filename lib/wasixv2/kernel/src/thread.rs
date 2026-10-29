@@ -440,8 +440,8 @@ impl Kernel {
             return;
         };
         let waiting = self.vfork_parents();
-        let vfork_child = self.vfork_child(process.pid);
-        let (others, leader_runs) = {
+        let vfork_parent = self.procs.tree.lock_or_recover().vfork_parent(process.pid);
+        let (others, leader_runs, hand_back) = {
             let state = self.state.lock_or_recover();
             let gone = |id: &TaskId, t: &Task| gone_in_vfork(&waiting, *id, t);
             let others = state.tasks.iter().any(|(id, t)| {
@@ -451,11 +451,29 @@ impl Kernel {
                 if waiting.contains(&process.pid) {
                     !gone(&process.pid, t)
                 } else {
-                    Arc::ptr_eq(&t.process, process) && !t.thread.left_mm && !vfork_child
+                    Arc::ptr_eq(&t.process, process) && !t.thread.left_mm
                 }
             });
-            (others, leader_runs)
+            // A vfork child's leader that is done but for leaving the memory hands its parent's
+            // instance back, once, so the instance runs its `exit_mm` (and so its
+            // `complete_vfork_done`) there before it can be a zombie.
+            let hand_back = vfork_parent.filter(|_| {
+                !others
+                    && state.tasks.get(&process.pid).is_some_and(|t| {
+                        Arc::ptr_eq(&t.process, process)
+                            && !t.thread.left_mm
+                            && !t.work.has_vfork_return()
+                    })
+            });
+            (others, leader_runs, hand_back)
         };
+        if let Some(parent) = hand_back {
+            let action = GuestAction::VforkReturn {
+                parent,
+                child: process.pid,
+            };
+            self.queue(process.pid, action);
+        }
         if !others && !leader_runs {
             // ---- ns ----
             // A pid namespace's init is a zombie only once the namespace is empty.
@@ -466,7 +484,19 @@ impl Kernel {
             // `exit_sem`, by the group's last task.
             self.ipc_process_exited(process);
             // ---- proc ----
-            self.process_exited(process, process.pid, status);
+            // `exit_notify` comes after every task's `exit_mm` (`do_exit`): a zombie is done
+            // with its memory, a vfork child's `complete_vfork_done` included.
+            debug_assert!(
+                self.state
+                    .read_or_recover()
+                    .tasks
+                    .values()
+                    .filter(|t| Arc::ptr_eq(&t.process, process))
+                    .all(|t| t.thread.left_mm),
+                "process {} is a zombie before its tasks left their memory",
+                process.pid.0
+            );
+            self.process_exited(process, status);
         }
     }
 
