@@ -204,13 +204,17 @@ impl Kernel {
     pub(crate) fn sys_msgget(&self, caller: &Caller<'_>, key: i32, msgflg: i32) -> SysResult<i32> {
         let cred = self.ipc_cred(caller);
         let now = self.ipc_now();
-        let create = |perm| {
+        let ns = self.ns(caller);
+        let limits = *ns.ipc.limits.lock_or_recover();
+        let limit = limits.msgmni as usize;
+        let create = |perm, ids: &Ids<MsgQueue>| {
+            ids.check_capacity(limit)?;
             Ok(MsgQueue {
                 state: Mutex::new(State {
                     removed: false,
                     messages: VecDeque::new(),
                     cbytes: 0,
-                    qbytes: MSGMNB as usize,
+                    qbytes: limits.msgmnb as usize,
                     lspid: None,
                     lrpid: None,
                     stime: 0,
@@ -221,9 +225,7 @@ impl Kernel {
                 queue: WaitQueue::new(),
             })
         };
-        let ns = self.ns(caller);
         let ids = &ns.ipc.msg.ids;
-        let limit = MSGMNI as usize;
         Ok(get_or_create(
             ids,
             key,
@@ -244,7 +246,8 @@ impl Kernel {
         msgflg: i32,
     ) -> SysResult<i32> {
         let mtype: i32 = read_value(caller.memory(), GuestPtr::new(msgp.addr())).await?;
-        if msgsz > MSGMAX as u32 || msqid < 0 || mtype < 1 {
+        let ns = self.ns(caller);
+        if msgsz > ns.ipc.limits.lock_or_recover().msgmax || msqid < 0 || mtype < 1 {
             return Err(Errno::EINVAL.into());
         }
         let mut text = vec![0; msgsz as usize];
@@ -372,6 +375,7 @@ impl Kernel {
         let cred = self.ipc_cred(caller);
         let ns = self.ns(caller);
         let queues = &ns.ipc.msg;
+        let limits = *ns.ipc.limits.lock_or_recover();
         match IpcCmd(cmd) {
             IpcCmd::IPC_INFO | IpcCmd::MSG_INFO => {
                 let ((pool, map, tql), max) = {
@@ -389,7 +393,15 @@ impl Kernel {
                     };
                     (totals, ids.max_index())
                 };
-                let ints = [pool, map, MSGMAX, MSGMNB, MSGMNI, MSGSSZ, tql];
+                let ints = [
+                    pool,
+                    map,
+                    limits.msgmax as i32,
+                    limits.msgmnb as i32,
+                    limits.msgmni as i32,
+                    MSGSSZ,
+                    tql,
+                ];
                 let mut bytes: Vec<u8> = ints.iter().flat_map(|v| v.to_le_bytes()).collect();
                 bytes.extend(MSGSEG.to_le_bytes());
                 bytes.extend([0, 0]);
@@ -432,7 +444,7 @@ impl Kernel {
                 let mut perm = queue.perm();
                 perm.check_owner(&cred)?;
                 let qbytes = ds.msg_qbytes as usize;
-                if qbytes > MSGMNB as usize && !cred.capable_init(Cap::SysResource) {
+                if qbytes > limits.msgmnb as usize && !cred.capable_init(Cap::SysResource) {
                     return Err(Errno::EPERM.into());
                 }
                 perm.update(&ds.msg_perm, &self.cred(caller).user_ns)?;

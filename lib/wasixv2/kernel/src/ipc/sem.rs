@@ -229,22 +229,13 @@ impl Drop for Queued<'_> {
 }
 
 /// `struct seminfo`, ten `int`s.
-fn seminfo(sets: i32, sems: i32, info: bool) -> [i32; 10] {
+fn seminfo(sets: i32, sems: i32, info: bool, limits: [i32; 4]) -> [i32; 10] {
     let (semusz, semaem) = match info {
         true => (sets, sems),
         false => (SEMUSZ, SEMAEM),
     };
     [
-        SEMMAP,
-        SEMMNI,
-        SEMMNS,
-        SEMMNU,
-        SEMMSL,
-        SEMOPM as i32,
-        SEMUME,
-        semusz,
-        SEMVMX,
-        semaem,
+        SEMMAP, limits[3], limits[1], SEMMNU, limits[0], limits[2], SEMUME, semusz, SEMVMX, semaem,
     ]
 }
 
@@ -324,31 +315,32 @@ impl Kernel {
         nsems: i32,
         semflg: i32,
     ) -> SysResult<i32> {
-        if !(0..=SEMMSL).contains(&nsems) {
-            return Err(Errno::EINVAL.into());
-        }
         let cred = self.ipc_cred(caller);
         let now = self.ipc_now();
         let ns = self.ns(caller);
+        let limits = ns.ipc.limits.lock_or_recover().sem;
+        if !(0..=limits[0]).contains(&nsems) {
+            return Err(Errno::EINVAL.into());
+        }
         let sems = &ns.ipc.sem;
-        let used: i32 = sems
-            .ids
-            .lock_or_recover()
-            .all()
-            .iter()
-            .map(|(_, set)| set.state().sems.len() as i32)
-            .sum();
+        let limit = limits[3] as usize;
         let check = |set: &SemSet| match nsems as usize > set.state().sems.len() {
             true => Err(Errno::EINVAL),
             false => Ok(()),
         };
-        let create = |perm| {
+        let create = |perm, ids: &Ids<SemSet>| {
             if nsems == 0 {
                 return Err(Errno::EINVAL);
             }
-            if used + nsems > SEMMNS {
+            let used: i64 = ids
+                .all()
+                .iter()
+                .map(|(_, set)| set.state().sems.len() as i64)
+                .sum();
+            if used + i64::from(nsems) > i64::from(limits[1]) {
                 return Err(Errno::ENOSPC);
             }
+            ids.check_capacity(limit)?;
             Ok(SemSet {
                 state: Mutex::new(State {
                     removed: false,
@@ -362,7 +354,6 @@ impl Kernel {
                 queue: WaitQueue::new(),
             })
         };
-        let limit = SEMMNI as usize;
         Ok(get_or_create(
             &sems.ids, key, semflg, &cred, limit, check, create,
         )?)
@@ -380,7 +371,8 @@ impl Kernel {
             true => None,
             false => Some(read_value(caller.memory(), timeout).await?),
         };
-        if nsops > SEMOPM {
+        let limits = self.ns(caller).ipc.limits.lock_or_recover().sem;
+        if nsops > limits[2] as u32 {
             return Err(Errno::E2BIG.into());
         }
         if nsops < 1 {
@@ -480,7 +472,8 @@ impl Kernel {
                     let all = ids.all();
                     let used = all.iter().map(|(_, s)| s.state().sems.len() as i32).sum();
                     let sets = ids.in_use() as i32;
-                    let info = seminfo(sets, used, IpcCmd(cmd) == IpcCmd::SEM_INFO);
+                    let limits = ns.ipc.limits.lock_or_recover().sem;
+                    let info = seminfo(sets, used, IpcCmd(cmd) == IpcCmd::SEM_INFO, limits);
                     (info, ids.max_index())
                 };
                 write_ints(caller, arg, &info).await?;

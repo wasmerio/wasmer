@@ -129,6 +129,7 @@ pub(super) enum Global {
     SysvipcMsg,
     SysvipcSem,
     SysvipcShm,
+    IpcSysctl(crate::ipc::sysctl::Sysctl),
 }
 
 /// The files of a network namespace (`/proc/<pid>/net`).
@@ -175,6 +176,7 @@ impl Global {
             | Self::LeasesEnable
             | Self::LeaseBreakTime
             | Self::KeySysctl(_)
+            | Self::IpcSysctl(_)
             | Self::AioMaxNr
             | Self::Printk
             | Self::DmesgRestrict
@@ -306,6 +308,7 @@ pub(super) fn global(
         Global::AioNr => line(&source.aio.nr().to_string()),
         Global::AioMaxNr => line(&source.aio.max().to_string()),
         Global::KeySysctl(entry) => line(&source.keys.sysctl(entry).to_string()),
+        Global::IpcSysctl(which) => line(&ns.ipc.limits.lock_or_recover().text(which)),
         // Linux ipc/{msg,sem,shm}.c:sysvipc_*_proc_show. The IPC namespace is
         // the opener's, pids belong to this procfs instance, and ids to the reader.
         Global::SysvipcMsg => {

@@ -207,6 +207,113 @@ fn sysvipc_lists_all_three_object_types_with_linux_columns() {
 }
 
 #[test]
+fn ipc_sysctls_enforce_limits_and_new_namespaces_start_with_defaults() {
+    let (kernel, task, memory) = super::cred::machine_as(0, 0);
+    block_on(
+        kernel
+            .vfs()
+            .mount(b"/proc", kernel.procfs(), MountFlags::default(), true),
+    )
+    .unwrap();
+    let t = T::new(&kernel, task, &memory);
+    let set = |name: &str, value: &[u8]| {
+        let fd = t
+            .open(&format!("/proc/sys/kernel/{name}"), OpenFlags::O_WRONLY)
+            .unwrap();
+        assert_eq!(t.write(fd, value), Ok(value.len() as u32));
+        block_on(kernel.close(&t.caller, fd)).unwrap();
+    };
+    let create = wasixv2_abi::IpcFlags::IPC_CREAT.0 as i32 | 0o600;
+    set("shmmni", b"1");
+    set("shmmax", b"65536");
+    set("shmall", b"2");
+    let shm = block_on(kernel.shmget(&t.caller, 0, 1, create)).unwrap();
+    assert_eq!(
+        errno(block_on(kernel.shmget(&t.caller, 0, 65537, create))),
+        Errno::EINVAL
+    );
+    assert_eq!(
+        errno(block_on(kernel.shmget(&t.caller, 0, 1, create))),
+        Errno::ENOSPC
+    );
+    // ipc/shm.c:newseg only charges shm_tot after successful ipc_addid.
+    block_on(kernel.shmctl(
+        &t.caller,
+        0,
+        wasixv2_abi::IpcCmd::SHM_INFO.0,
+        GuestPtrMut::new(0x200),
+    ))
+    .unwrap();
+    assert_eq!(
+        u32::from_le_bytes(get(&memory, 0x204, 4).try_into().unwrap()),
+        1
+    );
+    block_on(kernel.shmctl(
+        &t.caller,
+        shm,
+        wasixv2_abi::IpcCmd::IPC_RMID.0,
+        GuestPtrMut::NULL,
+    ))
+    .unwrap();
+    assert!(block_on(kernel.shmget(&t.caller, 0, 1, create)).is_ok());
+
+    set("msgmni", b"1");
+    set("msgmax", b"2");
+    set("msgmnb", b"3");
+    let msg = block_on(kernel.msgget(&t.caller, 0, create)).unwrap();
+    assert_eq!(
+        errno(block_on(kernel.msgget(&t.caller, 0, create))),
+        Errno::ENOSPC
+    );
+    put(&memory, 0x200, &[1, 0, 0, 0, b'a', b'b', b'c']);
+    let send = |n| {
+        block_on(kernel.msgsnd(
+            &t.caller,
+            msg,
+            GuestPtr::new(0x200),
+            n,
+            wasixv2_abi::IpcFlags::IPC_NOWAIT.0 as i32,
+        ))
+    };
+    assert_eq!(errno(send(3)), Errno::EINVAL);
+    assert_eq!(send(2), Ok(0));
+    assert_eq!(errno(send(2)), Errno::EAGAIN);
+
+    set("sem", b"2 3 1 1");
+    let sem = block_on(kernel.semget(&t.caller, 0, 2, create)).unwrap();
+    assert_eq!(
+        errno(block_on(kernel.semget(&t.caller, 0, 3, create))),
+        Errno::EINVAL
+    );
+    assert_eq!(
+        errno(block_on(kernel.semget(&t.caller, 0, 1, create))),
+        Errno::ENOSPC
+    );
+    put(&memory, 0x200, &[0; 12]);
+    assert_eq!(
+        errno(block_on(kernel.semop(
+            &t.caller,
+            sem,
+            GuestPtr::new(0x200),
+            2
+        ))),
+        Errno::E2BIG
+    );
+
+    let old = t
+        .open("/proc/sys/kernel/shmmni", OpenFlags::O_WRONLY)
+        .unwrap();
+    block_on(kernel.unshare(&t.caller, wasixv2_abi::CloneFlags::CLONE_NEWIPC.0 as u32)).unwrap();
+    assert_eq!(t.write(old, b"2"), Ok(1));
+    block_on(kernel.close(&t.caller, old)).unwrap();
+    let new = t
+        .open("/proc/sys/kernel/shmmni", OpenFlags::O_RDONLY)
+        .unwrap();
+    assert_eq!(t.read_all(new).trim(), "4096");
+    block_on(kernel.close(&t.caller, new)).unwrap();
+}
+
+#[test]
 fn self_names_the_callers_process() {
     let (kernel, task, _) = machine();
     let memory = memory();
