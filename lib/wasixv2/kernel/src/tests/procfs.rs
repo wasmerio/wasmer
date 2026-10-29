@@ -1096,3 +1096,64 @@ fn system_files_and_inotify_limits() {
         "the count went with it"
     );
 }
+
+#[test]
+fn proc_lsm_attributes_exist_but_have_no_label_provider() {
+    let (kernel, task, _) = machine();
+    let memory = memory();
+    let t = T::new(&kernel, task, &memory);
+    let attrs = t.stat("/proc/self/attr", AtFlags(0)).unwrap();
+    assert_eq!(attrs.stx_mode & 0o170000, 0o040000);
+    for name in [
+        "current",
+        "prev",
+        "exec",
+        "fscreate",
+        "keycreate",
+        "sockcreate",
+    ] {
+        let path = format!("/proc/self/attr/{name}");
+        let stat = t.stat(&path, AtFlags(0)).unwrap();
+        assert_eq!(
+            stat.stx_mode & 0o777,
+            if name == "prev" { 0o444 } else { 0o666 }
+        );
+        let fd = t.open(&path, OpenFlags::O_RDONLY).unwrap();
+        assert_eq!(errno(t.read(fd, 32)), Errno::EINVAL);
+        block_on(kernel.close(&t.caller, fd)).unwrap();
+        let path = format!("/proc/self/task/{}/attr/{name}", task.0);
+        assert!(t.open(&path, OpenFlags::O_RDONLY).is_ok());
+        if name != "prev" {
+            let fd = t.open(&path, OpenFlags::O_WRONLY).unwrap();
+            put(&memory, 0x4000, b"label");
+            assert_eq!(
+                errno(block_on(kernel.write(
+                    &t.caller,
+                    fd,
+                    UserSlice::new(0x4000, 5)
+                ))),
+                Errno::EINVAL
+            );
+        }
+    }
+    assert_eq!(
+        errno(t.open("/proc/self/attr/unknown", OpenFlags::O_RDONLY)),
+        Errno::ENOENT
+    );
+    // Opening another task's attributes is allowed; writing them is not.
+    let other = super::mapping::another_process(&kernel);
+    let fd = t
+        .open(
+            &format!("/proc/{}/attr/current", other.0),
+            OpenFlags::O_WRONLY,
+        )
+        .unwrap();
+    assert_eq!(
+        errno(block_on(kernel.write(
+            &t.caller,
+            fd,
+            UserSlice::new(0x4000, 5)
+        ))),
+        Errno::EACCES
+    );
+}
