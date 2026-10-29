@@ -1373,6 +1373,22 @@ impl IcmpSocket {
                 if g.opts.flag(SOL_IPV6, Ipv6Option::IPV6_RECVHOPLIMIT.0) {
                     out.push(int(SOL_IPV6, Ipv6Option::IPV6_HOPLIMIT.0, i32::from(r.ttl)));
                 }
+                // net/ipv6/datagram.c ip6_datagram_recv_common_ctl: RFC2292
+                // uses its own receive bits and ancillary types.
+                if g.opts.flag(SOL_IPV6, crate::opts::IPV6_2292PKTINFO) {
+                    out.push(Control {
+                        level: SOL_IPV6,
+                        kind: crate::opts::IPV6_2292PKTINFO,
+                        data: cmsg::in6_pktinfo(v6(r.dst), r.iif),
+                    });
+                }
+                if g.opts.flag(SOL_IPV6, crate::opts::IPV6_2292HOPLIMIT) {
+                    out.push(int(
+                        SOL_IPV6,
+                        crate::opts::IPV6_2292HOPLIMIT,
+                        i32::from(r.ttl),
+                    ));
+                }
                 if g.opts.flag(SOL_IPV6, Ipv6Option::IPV6_RECVTCLASS.0) {
                     out.push(int(SOL_IPV6, Ipv6Option::IPV6_TCLASS.0, 0));
                 }

@@ -3473,3 +3473,44 @@ fn tcp_cork_timer_push_and_closed_peer_reset() {
     assert_eq!(c.take_error(), Some(Errno::EPIPE));
     assert_eq!(c.output_len(), Ok(0));
 }
+
+/// net/ipv6/ipv6_sockglue.c do_ipv6_setsockopt and datagram.c
+/// ip6_datagram_recv_common_ctl: RFC 2292 receive bits are independent of RFC 3542.
+#[test]
+fn raw_ipv6_receive_options_and_legacy_control() {
+    use wasixv2_abi::{Ipv6Option, SocketLevel};
+    let n = net();
+    let r = n.socket(Domain::Inet6, SocketKind::Raw, 253, UID).unwrap();
+    r.bind(a("[::1]:0"), false).unwrap();
+    let level = SocketLevel::SOL_IPV6.0;
+    let mut out = [0; 4];
+    for name in [
+        Ipv6Option::IPV6_RECVRTHDR.0,
+        Ipv6Option::IPV6_RECVHOPOPTS.0,
+        Ipv6Option::IPV6_RECVDSTOPTS.0,
+        2, /* IPV6_2292PKTINFO */
+        3,
+        4,
+        5,
+        8,
+    ] {
+        assert_eq!(r.get_option(level, name, &mut out), Ok(4));
+        assert_eq!(out, [0; 4]);
+        assert_eq!(r.set_option(level, name, &[0; 3]), Err(Errno::EINVAL));
+        r.set_option(level, name, &(-1i32).to_le_bytes()).unwrap();
+        r.get_option(level, name, &mut out).unwrap();
+        assert_eq!(i32::from_le_bytes(out), 1);
+    }
+    let sender = n.socket(Domain::Inet6, SocketKind::Raw, 253, UID).unwrap();
+    send_to(&*sender, b"raw", Some(a("[::1]:0"))).unwrap();
+    let mut data = [0; 16];
+    let msg = r.recv(&mut data, MsgFlags(0)).unwrap();
+    assert_eq!(&data[..msg.len], b"raw");
+    assert!(msg.control.iter().any(|c| c.level == level && c.kind == 2));
+    assert!(msg.control.iter().any(|c| c.level == level && c.kind == 8));
+    // No IPv6 extension headers were sent; enabling their receipt invents none.
+    assert_eq!(msg.control.len(), 2);
+    r.get_option(level, Ipv6Option::IPV6_RECVPKTINFO.0, &mut out)
+        .unwrap();
+    assert_eq!(out, [0; 4]);
+}
