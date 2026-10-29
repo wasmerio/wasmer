@@ -406,15 +406,23 @@ impl VirtualFile for FileHandle {
         let inode = fs.storage.get_mut(self.inode);
         match inode {
             Some(Node::File(node)) => {
-                let remaining = node.file.buffer.len().saturating_sub(self.cursor as usize);
+                let remaining = node
+                    .file
+                    .buffer
+                    .len()
+                    .saturating_sub(usize::try_from(self.cursor).unwrap_or(usize::MAX));
                 Poll::Ready(Ok(remaining))
             }
             Some(Node::OffloadedFile(node)) => {
-                let remaining = (node.file.len() as usize).saturating_sub(self.cursor as usize);
-                Poll::Ready(Ok(remaining))
+                let remaining = node.file.len().saturating_sub(self.cursor);
+                Poll::Ready(Ok(usize::try_from(remaining).unwrap_or(usize::MAX)))
             }
             Some(Node::ReadOnlyFile(node)) => {
-                let remaining = node.file.buffer.len().saturating_sub(self.cursor as usize);
+                let remaining = node
+                    .file
+                    .buffer
+                    .len()
+                    .saturating_sub(usize::try_from(self.cursor).unwrap_or(usize::MAX));
                 Poll::Ready(Ok(remaining))
             }
             Some(Node::CustomFile(node)) => {
@@ -861,20 +869,21 @@ mod test_virtual_file {
             .expect("failed to create a new file");
         file.write_all(b"hello").await.expect("failed to write");
 
-        // POSIX allows seeking past the end of a file.
-        file.seek(io::SeekFrom::Start(4096))
-            .await
-            .expect("failed to seek past the end");
-
         let waker = Waker::noop();
         let mut cx = Context::from_waker(waker);
 
-        // No bytes are readable at or past the end, so the count of readable
-        // bytes must be 0 rather than underflowing.
-        assert!(matches!(
-            Pin::new(file.as_mut()).poll_read_ready(&mut cx),
-            Poll::Ready(Ok(0))
-        ));
+        // Include a cursor that cannot fit in usize on 32-bit targets.
+        for position in [5, 4096, 1u64 << 32] {
+            file.seek(io::SeekFrom::Start(position))
+                .await
+                .expect("failed to seek to or past the end");
+
+            assert!(matches!(
+                Pin::new(file.as_mut()).poll_read_ready(&mut cx),
+                Poll::Ready(Ok(0))
+            ));
+            assert_eq!(file.stream_position().await.unwrap(), position);
+        }
     }
 }
 
