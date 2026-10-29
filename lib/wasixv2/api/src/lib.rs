@@ -1670,7 +1670,8 @@ async fn mount_kernel_filesystems(kernel: &Kernel, host: &Arc<dyn Host>) {
         tmpfs_type.adopt(&fs);
         fs
     };
-    let tmpfs = |mode| adopt(MemFs::new(Arc::new(HostClock(host.clone())), mode, 0, 0));
+    // mm/shmem.c shmem_mmap_prepare: every tmpfs mount supplies shared pages, including /tmp.
+    let tmpfs = |mode| adopt(shared_tmpfs(host, mode));
     let flags = |nodev, noexec| MountFlags {
         nosuid: true,
         nodev,
@@ -1776,6 +1777,43 @@ mod tests {
 
     fn tmpfs() -> Tmpfs {
         Tmpfs::new(Arc::new(TokioHost::default()))
+    }
+
+    /// Linux mm/shmem.c shmem_mmap_prepare: the boot-time tmpfs mounts use the same shared
+    /// backing as a guest-mounted tmpfs, so stores and futexes cross fork.
+    #[cfg(any(target_os = "linux", target_os = "android"))]
+    #[tokio::test]
+    async fn default_tmpfs_files_have_shared_pages() {
+        let machine = Machine::new();
+        let vfs = machine.vfs();
+        let root = vfs.root();
+        let cred = Cred::root();
+        let cx = Ctx {
+            cred: &cred,
+            root: &root,
+            umask: 0,
+            task: 0,
+            leases: None,
+        };
+        let how = wasixv2_vfs::OpenHow {
+            flags: wasixv2_abi::OpenFlags::O_CREAT | wasixv2_abi::OpenFlags::O_RDWR,
+            mode: 0o600,
+            lookup: LookupFlags::follow(),
+        };
+        for name in [
+            b"/tmp/shared".as_slice(),
+            b"/dev/shared",
+            b"/dev/shm/shared",
+        ] {
+            let file = vfs.open(&cx, &root, name, &how).await.unwrap();
+            let pages = file
+                .path
+                .dentry
+                .node()
+                .shared_pages(0..65536, &cred)
+                .unwrap();
+            assert!(pages.is_some(), "{}", String::from_utf8_lossy(name));
+        }
     }
 
     /// The bytes `fs` may hold.
