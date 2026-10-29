@@ -875,8 +875,9 @@ fn pidfd_info_at(p: &P) -> wasixv2_abi::PidfdInfo {
 
 /// `PIDFD_GET_INFO` (`fs/pidfs.c` `pidfd_info`, LTP ioctl_pidfd02-06): the pid, thread group,
 /// parent and credentials of a process not yet reaped, as the caller's namespaces see them;
-/// its wait status, when asked for, once it is reaped, and nothing else then (`ESRCH`); no
-/// cgroup id; `EREMOTE` for a process outside the caller's pid namespace. The request takes
+/// its wait status, when asked for, once it is reaped, and nothing else then (`ESRCH`) but the
+/// cgroup it exited in; its cgroup's id; `EREMOTE` for a process outside the caller's pid
+/// namespace. The request takes
 /// any size from the first published struct on, and fills as much as both know.
 #[test]
 fn pidfd_get_info_tells_a_process_and_its_exit() {
@@ -888,19 +889,19 @@ fn pidfd_get_info_tells_a_process_and_its_exit() {
 
     assert_eq!(pidfd_info(&kernel, &parent, pidfd, 88, exit_asked), Ok(0));
     let info = pidfd_info_at(&parent);
-    let filled = M::PIDFD_INFO_PID.0 | M::PIDFD_INFO_CREDS.0 | M::PIDFD_INFO_SUPPORTED_MASK.0;
-    assert_eq!(
-        info.mask, filled,
-        "no exit before it is reaped, no cgroup id"
-    );
+    let filled = M::PIDFD_INFO_PID.0
+        | M::PIDFD_INFO_CREDS.0
+        | M::PIDFD_INFO_CGROUPID.0
+        | M::PIDFD_INFO_SUPPORTED_MASK.0;
+    assert_eq!(info.mask, filled, "no exit before it is reaped");
     assert_eq!((info.pid, info.tgid), (pid as u32, pid as u32));
     assert_eq!(info.ppid, getpid(&kernel, &parent) as u32);
     assert_eq!(
         (info.ruid, info.euid, info.fsgid, info.exit_code),
         (0, 0, 0, 0)
     );
-    assert_eq!(info.cgroupid, 0);
-    assert_eq!(info.supported_mask, 0x2b);
+    assert_eq!(info.cgroupid, 1, "the root cgroup");
+    assert_eq!(info.supported_mask, 0x2f);
 
     // LTP's struct is the second published one, 72 bytes: nothing past it is written; one
     // past ours gets zeroes.
@@ -937,9 +938,10 @@ fn pidfd_get_info_tells_a_process_and_its_exit() {
     let info = pidfd_info_at(&parent);
     assert_eq!(
         info.mask,
-        M::PIDFD_INFO_EXIT.0 | M::PIDFD_INFO_SUPPORTED_MASK.0
+        M::PIDFD_INFO_EXIT.0 | M::PIDFD_INFO_CGROUPID.0 | M::PIDFD_INFO_SUPPORTED_MASK.0
     );
     assert_eq!(info.exit_code, 100 << 8);
+    assert_eq!(info.cgroupid, 1);
     assert_eq!(
         errno(pidfd_info(&kernel, &parent, pidfd, 88, 0)),
         Errno::ESRCH,

@@ -71,6 +71,7 @@ impl Kernel {
             taint: self.taint.clone(),
             pipe_max_size: self.pipe_max_size.clone(),
             vm: self.vm.clone(),
+            cgroups: self.cgroups.clone(),
         };
         Arc::new(ProcFs {
             source: Arc::new(source),
@@ -152,6 +153,8 @@ struct Source {
     pipe_max_size: Arc<PipeMaxSize>,
     /// The `vm` tunables.
     vm: Arc<VmSysctls>,
+    /// The cgroup hierarchy, which `/proc/<pid>/cgroup` and `/proc/cgroups` show.
+    cgroups: Arc<crate::cgroup::Hierarchy>,
 }
 
 /// A process as the tree has it.
@@ -160,6 +163,8 @@ struct ProcessInfo {
     parent: u32,
     exit_signal: i32,
     zombie: bool,
+    /// A zombie's cgroup.
+    cgroup: Option<Arc<crate::cgroup::Cgroup>>,
 }
 
 /// A task's shared parts.
@@ -174,6 +179,8 @@ struct TaskInfo {
     /// `None` once the task is done (`task->nsproxy` is `NULL`).
     ns: Option<Arc<NsProxy>>,
     cpu: CpuTimes,
+    /// Its cgroup (`task_dfl_cgroup`).
+    cgroup: Arc<crate::cgroup::Cgroup>,
 }
 
 impl Source {
@@ -186,6 +193,7 @@ impl Source {
             parent: node.parent,
             exit_signal: node.exit_signal,
             zombie: node.is_zombie(),
+            cgroup: node.css.as_ref().map(|css| css.cgroup()),
         })
     }
 
@@ -268,6 +276,7 @@ impl Source {
             sched: task.sched.clone(),
             ns: task.ns.clone(),
             cpu: task.cpu.times(),
+            cgroup: task.css.cgroup(),
         })
     }
 

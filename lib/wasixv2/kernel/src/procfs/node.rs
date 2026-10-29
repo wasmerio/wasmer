@@ -143,6 +143,7 @@ const STATIC: &[(usize, &str, Static)] = &[
         Static::File(text::Global::OvercommitKbytes),
     ),
     (14, "max_map_count", Static::File(text::Global::MaxMapCount)),
+    (ROOT, "cgroups", Static::File(text::Global::Cgroups)),
 ];
 
 /// `/proc/sys/user/max_*_namespaces` for `kind`.
@@ -192,6 +193,7 @@ const PID_ENTRIES: &[(&str, PidEntry, u32)] = &[
     ("gid_map", PidEntry::File(text::PerPid::GidMap), 0o644),
     ("projid_map", PidEntry::File(text::PerPid::ProjidMap), 0o644),
     ("setgroups", PidEntry::File(text::PerPid::Setgroups), 0o644),
+    ("cgroup", PidEntry::File(text::PerPid::Cgroup), 0o444),
 ];
 
 /// The files of `/proc/<pid>/net`, which show the task's network namespace.
@@ -730,7 +732,8 @@ impl Node for ProcNode {
             Entry::Pid(scope, index) => match PID_ENTRIES[index].1 {
                 PidEntry::File(file) => {
                     let reader = self.source.user_ns_of(options.task);
-                    let data = text::per_pid(&self.source, scope, file, &reader)?;
+                    let viewer = self.source.ns_of(options.task);
+                    let data = text::per_pid(&self.source, scope, file, &reader, &viewer)?;
                     let write = match options.write {
                         true => self.per_pid_write(scope, file, options.task)?,
                         false => None,

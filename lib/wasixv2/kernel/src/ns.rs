@@ -258,8 +258,11 @@ pub(crate) struct Net {
     pub(crate) sysctl: Mutex<crate::procfs::NetSysctl>,
 }
 
-/// A cgroup namespace. There is one, and no cgroup hierarchy behind it.
-pub(crate) struct Cgroup;
+/// A cgroup namespace (`struct cgroup_namespace`): the cgroup its tasks see as the root
+/// (`root_cset`), the cgroup its maker was in.
+pub(crate) struct Cgroup {
+    pub(crate) root: Arc<crate::cgroup::Cgroup>,
+}
 
 /// A time namespace. There is one, with no clock offsets.
 pub(crate) struct Time;
@@ -392,6 +395,7 @@ impl NsProxy {
         mnt: Arc<wasixv2_vfs::MntNs>,
         uname: NewUtsname,
         network: Option<Arc<dyn wasixv2_vnet::Network>>,
+        cgroup_root: Arc<crate::cgroup::Cgroup>,
     ) -> Self {
         let owner = Some(user.clone());
         let time = Ns::initial(NsKind::Time, owner.clone(), Time);
@@ -410,7 +414,7 @@ impl NsProxy {
                 },
             ),
             pid_for_children: Ns::initial(NsKind::Pid, owner.clone(), PidSpace::initial()),
-            cgroup: Ns::initial(NsKind::Cgroup, owner, Cgroup),
+            cgroup: Ns::initial(NsKind::Cgroup, owner, Cgroup { root: cgroup_root }),
             time_for_children: time.clone(),
             time,
         }
@@ -422,7 +426,8 @@ impl NsProxy {
     /// asks, owned by `cred`'s user namespace (`CAP_SYS_ADMIN` there, which the creator of a
     /// new user namespace holds). `CLONE_NEWIPC` cannot go with `CLONE_SYSVSEM`, which would
     /// share semaphore adjustments across namespaces. A child with its own memory starts in
-    /// the time namespace for children (`timens_on_fork`).
+    /// the time namespace for children (`timens_on_fork`). A new cgroup namespace is rooted at
+    /// `cgroup`, the caller's cgroup.
     pub(crate) fn copy(
         self: &Arc<Self>,
         kernel: &Kernel,
@@ -430,6 +435,7 @@ impl NsProxy {
         cred: &Cred,
         active_pid: &Arc<PidNs>,
         fs: Option<&mut FsContext>,
+        cgroup: &Arc<crate::cgroup::Cgroup>,
     ) -> Result<Arc<Self>, Errno> {
         let vm = flags & CloneFlags::CLONE_VM.0 != 0;
         if flags & CLONE_NS_ALL == 0 {
@@ -449,7 +455,7 @@ impl NsProxy {
             if flags & ipc_sysvsem == ipc_sysvsem {
                 return Err(Errno::EINVAL);
             }
-            new.create(kernel, flags, cred, active_pid, fs)?;
+            new.create(kernel, flags, cred, active_pid, fs, cgroup)?;
         }
         if !vm {
             new.time = new.time_for_children.clone();
@@ -460,7 +466,7 @@ impl NsProxy {
     /// `unshare_nsproxy_namespaces`: the namespaces of a caller in the pid namespace
     /// `active_pid` with new ones where `flags` asks, owned by the user namespace of its
     /// credentials `cred` (new ones for `CLONE_NEWUSER`, made before), or `None` if it asks for
-    /// none but a user namespace.
+    /// none but a user namespace. A new cgroup namespace is rooted at the caller's `cgroup`.
     pub(crate) fn unshare(
         &self,
         kernel: &Kernel,
@@ -468,6 +474,7 @@ impl NsProxy {
         cred: &Cred,
         active_pid: &Arc<PidNs>,
         fs: Option<&mut FsContext>,
+        cgroup: &Arc<crate::cgroup::Cgroup>,
     ) -> Result<Option<Self>, Errno> {
         if flags & CLONE_NS_ALL & !CloneFlags::CLONE_NEWUSER.0 == 0 {
             return Ok(None);
@@ -476,7 +483,7 @@ impl NsProxy {
             return Err(Errno::EPERM);
         }
         let mut new = self.clone();
-        new.create(kernel, flags, cred, active_pid, fs)?;
+        new.create(kernel, flags, cred, active_pid, fs, cgroup)?;
         Ok(Some(new))
     }
 
@@ -488,10 +495,11 @@ impl NsProxy {
         cred: &Cred,
         active_pid: &Arc<PidNs>,
         mut fs: Option<&mut FsContext>,
+        cgroup: &Arc<crate::cgroup::Cgroup>,
     ) -> Result<(), Errno> {
         for kind in NsKind::PROXIED {
             if flags & kind.flag() != 0 {
-                self.make(kernel, kind, cred, active_pid, fs.as_deref_mut())?;
+                self.make(kernel, kind, cred, active_pid, fs.as_deref_mut(), cgroup)?;
             }
         }
         Ok(())
@@ -505,8 +513,9 @@ impl NsProxy {
     /// with a copy of the names (`clone_uts_ns`), a new IPC namespace empty (`create_ipc_ns`),
     /// a new network namespace with the network the kernel's factory makes and no abstract Unix
     /// names (`setup_net`). A new pid namespace goes below the one for children, which must be
-    /// the maker's own, `active_pid` (`copy_pid_ns`), and is for the children only. Cgroup
-    /// and time namespaces cannot be made yet.
+    /// the maker's own, `active_pid` (`copy_pid_ns`), and is for the children only. A new
+    /// cgroup namespace is rooted at the maker's cgroup, `cgroup` (`copy_cgroup_ns`). Time
+    /// namespaces cannot be made yet.
     fn make(
         &mut self,
         kernel: &Kernel,
@@ -514,6 +523,7 @@ impl NsProxy {
         cred: &Cred,
         active_pid: &Arc<PidNs>,
         fs: Option<&mut FsContext>,
+        cgroup: &Arc<crate::cgroup::Cgroup>,
     ) -> Result<(), Errno> {
         let inums = &kernel.ns_inums;
         let owner = cred.user_ns.clone();
@@ -562,9 +572,14 @@ impl NsProxy {
                 let ucount = charge()?;
                 self.pid_for_children = Ns::new(kind, owner, space, inums, ucount)?;
             }
+            NsKind::Cgroup => {
+                let ucount = charge()?;
+                let root = cgroup.clone();
+                self.cgroup = Ns::new(kind, owner, Cgroup { root }, inums, ucount)?;
+            }
             // A user namespace is made with the credentials, before the others
             // (`UserNs::create`).
-            NsKind::User | NsKind::Cgroup | NsKind::Time => {
+            NsKind::User | NsKind::Time => {
                 return Err(Errno::EPERM);
             }
         }
@@ -722,12 +737,13 @@ impl Kernel {
             return Err(Errno::EINVAL.into());
         }
         let task = caller.task();
-        let (process, files, fs, ns) = self.task_ref(task, |t| {
+        let (process, files, fs, ns, cgroup) = self.task_ref(task, |t| {
             (
                 t.process.clone(),
                 t.files.clone(),
                 t.fs.clone(),
                 t.live_ns().clone(),
+                t.css.cgroup().clone(),
             )
         });
         let thread_group =
@@ -762,7 +778,14 @@ impl Kernel {
             false => None,
         };
         let cred = new_cred.clone().unwrap_or_else(|| process.cred());
-        let new_ns = ns.unshare(self, flags, &cred, &process.pid_ns, new_fs.as_mut())?;
+        let new_ns = ns.unshare(
+            self,
+            flags,
+            &cred,
+            &process.pid_ns,
+            new_fs.as_mut(),
+            &cgroup,
+        )?;
         if let Some(cred) = new_cred {
             process.commit_cred(cred);
         }

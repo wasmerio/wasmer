@@ -59,6 +59,8 @@ pub(super) enum Global {
     Tainted,
     /// `user.max_*_namespaces` of the reader's user namespace, for the namespaces of a kind.
     MaxNamespaces(NsKind),
+    /// `/proc/cgroups`.
+    Cgroups,
 }
 
 /// The files of a network namespace (`/proc/<pid>/net`).
@@ -122,6 +124,8 @@ pub(super) enum PerPid {
     GidMap,
     ProjidMap,
     Setgroups,
+    /// `cgroup`.
+    Cgroup,
 }
 
 /// A system file as a reader in the namespaces `ns`, the pid namespace `pid_ns` and the user
@@ -182,6 +186,7 @@ pub(super) fn global(
         Global::CapLastCap => line(&wasixv2_vfs::Cap::LAST.to_string()),
         Global::Tainted => line(&source.taint.get().to_string()),
         Global::MaxNamespaces(kind) => line(&user_ns.ucount_max(kind).to_string()),
+        Global::Cgroups => cgroups(source),
     })
 }
 
@@ -619,12 +624,25 @@ fn net_igmp6(ns: &NetNs) -> Vec<u8> {
     out.into_bytes()
 }
 
-/// A file of a process's directory, as a reader in the user namespace `reader` sees it.
+/// `proc_cgroupstats_show`: every controller, none of them on a v1 hierarchy (hierarchy 0),
+/// with the default hierarchy's count of cgroups.
+fn cgroups(source: &Source) -> Vec<u8> {
+    let count = source.cgroups.lock().nr_cgroups();
+    let mut out = String::from("#subsys_name\thierarchy\tnum_cgroups\tenabled\n");
+    for name in crate::cgroup::controller_names() {
+        let _ = writeln!(out, "{name}\t0\t{count}\t1");
+    }
+    out.into_bytes()
+}
+
+/// A file of a process's directory, as a reader in the user namespace `reader` and the
+/// namespaces `viewer` sees it.
 pub(super) fn per_pid(
     source: &Source,
     scope: Scope,
     file: PerPid,
     reader: &Arc<UserNs>,
+    viewer: &NsProxy,
 ) -> FsResult<Vec<u8>> {
     let info = source.process(scope.pid).ok_or(Errno::ESRCH)?;
     let process = &info.process;
@@ -656,6 +674,14 @@ pub(super) fn per_pid(
         PerPid::GidMap => process.cred().user_ns.show_map(MapKind::Gid, reader),
         PerPid::ProjidMap => process.cred().user_ns.show_map(MapKind::Projid, reader),
         PerPid::Setgroups => process.cred().user_ns.show_setgroups(),
+        // `proc_cgroup_show`: the path as seen from the reader's cgroup namespace; a zombie's
+        // is the one it exited in.
+        PerPid::Cgroup => {
+            let task = source.task(scope.pid, scope.tid).map(|task| task.cgroup);
+            let cgroup = task.or(info.cgroup.clone()).ok_or(Errno::ESRCH)?;
+            let root = &viewer.cgroup.root;
+            source.cgroups.proc_line(&cgroup, root).unwrap_or_default()
+        }
     })
 }
 

@@ -21,15 +21,16 @@ use wasixv2_abi::{
     SiginfoPtr, Signal, Ulong, Uptr, Usize, WaitOptions,
 };
 use wasixv2_syscalls::{
-    BINPRM_BUF_SIZE, Binfmt, Caller, CpuAccount, CpuTimes, CstrError, Errno, Fd, GuestAction,
-    Image, LocalFuture, Resume, SysErr, SysResult, TaskId, VforkParent, WorkFlag, read_cstr,
-    read_value, write_value,
+    BINPRM_BUF_SIZE, Binfmt, Caller, CpuAccount, CpuTimes, CstrError, Errno, Fd, GroupCpu,
+    GuestAction, Image, LocalFuture, Resume, SysErr, SysResult, TaskId, VforkParent, WorkFlag,
+    read_cstr, read_value, write_value,
 };
 use wasixv2_vfs::{Cap, FileType, LookupFlags, MAY_EXEC, OpenHow, Path};
 use wasixv2_wait::{PollMask, PollTable, Pollable, WaitQueue, poll_wait, wait_event};
 
 use crate::{
     Kernel, Process, State, Task,
+    cgroup::Cgroup,
     file::{Backing, FdTable, FileObject, Io, OpenFile},
     fs::FdReservation,
     ident::{Comm, Ident},
@@ -125,7 +126,8 @@ impl Tree {
     pub(crate) fn reap(&mut self, pid: u32) -> Option<Node> {
         let node = self.nodes.remove(&pid)?;
         if let (Some(attr), Some(exit)) = (&node.pidfs, &node.exit) {
-            let _ = attr.exit.set(exit.wait_status());
+            let cgroup = node.css.as_ref().map_or(0, |css| css.cgroup().id);
+            let _ = attr.exit.set((exit.wait_status(), cgroup));
         }
         self.reaped = self.reaped.saturating_add(node.process.cpu.times());
         let (pgid, sid) = {
@@ -200,13 +202,16 @@ pub(crate) struct Node {
     /// What its pidfds read once it is reaped, made with its first pidfd
     /// (`pidfs_register_pid`).
     pidfs: Option<Arc<PidAttr>>,
+    /// A zombie's place in the cgroup hierarchy, which it holds until it is reaped.
+    pub(crate) css: Option<crate::cgroup::Css>,
 }
 
 /// What a process's pidfds learn of it when it is reaped (`struct pidfs_attr`): its wait
 /// status (`pidfs_exit`). Only a process that had a pidfd by then keeps it.
 #[derive(Default)]
 pub(crate) struct PidAttr {
-    exit: OnceLock<i32>,
+    /// The wait status, and the id of the cgroup the process exited in.
+    exit: OnceLock<(i32, u64)>,
 }
 
 impl Node {
@@ -285,6 +290,7 @@ impl Procs {
                 killed_by: None,
                 exit: None,
                 pidfs: None,
+                css: None,
             },
         );
     }
@@ -623,6 +629,19 @@ impl Kernel {
     /// before, at the child's `exit_mm` ([`Kernel::complete_vfork_done`]).
     pub(crate) fn process_exited(&self, process: &Arc<Process>, status: i32) {
         let pid = process.pid.0;
+        // The zombie keeps its leader's place in the cgroup hierarchy until it is reaped (a
+        // thread's once the leader is gone), which `pidfs_exit` then reports.
+        let css = {
+            let state = self.state.read_or_recover();
+            let leader = state.tasks.get(&process.pid);
+            let any = || {
+                state
+                    .tasks
+                    .values()
+                    .find(|t| Arc::ptr_eq(&t.process, process))
+            };
+            leader.or_else(any).map(|task| task.css.clone())
+        };
         let (parent, reaper) = {
             let tree = self.procs.tree.lock_or_recover();
             match tree.nodes.get(&pid) {
@@ -675,6 +694,7 @@ impl Kernel {
                 },
             };
             node.exit = Some(exit);
+            node.css = css;
             let exit_signal = node.exit_signal;
             // `do_notify_parent`: the pid as the parent sees it, before the pid can go.
             let pid_for_parent = tree.nr_for(parent, pid);
@@ -864,6 +884,7 @@ impl Kernel {
             tls,
             set_tid: Vec::new(),
             start_arg: None,
+            cgroup: 0,
         };
         self.kernel_clone(caller, args).await
     }
@@ -925,6 +946,7 @@ impl Kernel {
             tls,
             set_tid,
             start_arg: None,
+            cgroup: args.cgroup as u32,
         };
         self.kernel_clone(caller, args).await
     }
@@ -994,11 +1016,11 @@ impl Kernel {
         {
             return Err(Errno::EINVAL.into());
         }
-        // `cgroup_css_set_fork`: there is no cgroup filesystem, so no descriptor is a cgroup
-        // directory.
-        if flags.contains(CloneFlags::CLONE_INTO_CGROUP) {
-            return Err(Errno::EBADF.into());
-        }
+        // `cgroup_css_set_fork`'s `fdget_raw` and `cgroup_get_from_file`: the cgroup is looked up
+        // now and checked where Linux checks it, in `copy_process`.
+        let into = flags
+            .contains(CloneFlags::CLONE_INTO_CGROUP)
+            .then(|| self.cgroup_of_fd(caller, args.cgroup));
         // Threads start through `thread-spawn`, which makes them itself.
         if flags.contains(CloneFlags::CLONE_THREAD) {
             return Err(Errno::EINVAL.into());
@@ -1024,12 +1046,23 @@ impl Kernel {
                 child_tid,
             };
             return self
-                .fork(caller, flags, exit_signal, newsp, writes, &args.set_tid)
+                .fork(
+                    caller,
+                    flags,
+                    exit_signal,
+                    newsp,
+                    writes,
+                    &args.set_tid,
+                    into,
+                )
                 .await;
         }
         if !flags.contains(CloneFlags::CLONE_VFORK) {
             return match args.start_arg {
-                Some(start_arg) => self.clone_vm(caller, args, exit_signal, start_arg).await,
+                Some(start_arg) => {
+                    self.clone_vm(caller, args, exit_signal, start_arg, into)
+                        .await
+                }
                 None => Err(Errno::EINVAL.into()),
             };
         }
@@ -1050,6 +1083,7 @@ impl Kernel {
             child_tid,
             &args.set_tid,
             true,
+            into,
         )?;
         if let Some((reservation, _)) = pidfd {
             reservation.install(Arc::new(self.pidfd_file(child.0, OpenFlags::O_RDWR)));
@@ -1092,6 +1126,7 @@ impl Kernel {
         args: KernelClone,
         exit_signal: i32,
         start_arg: u32,
+        into: Option<Result<Arc<Cgroup>, Errno>>,
     ) -> SysResult<i32> {
         let flags = args.flags;
         let pidfd = match flags.contains(CloneFlags::CLONE_PIDFD) {
@@ -1107,6 +1142,7 @@ impl Kernel {
             args.child_tid,
             &args.set_tid,
             true,
+            into,
         )?;
         if let Some((reservation, _)) = pidfd {
             reservation.install(Arc::new(self.pidfd_file(child.0, OpenFlags::O_RDWR)));
@@ -1203,6 +1239,7 @@ impl Kernel {
     /// guest memory wait for that copy, so each lands only in the address space Linux writes.
     /// With `CLONE_VFORK`, the parent then waits until the child is done with its copy
     /// ([`Kernel::vfork_wait`]).
+    #[allow(clippy::too_many_arguments)]
     async fn fork(
         &self,
         caller: &Caller<'_>,
@@ -1211,6 +1248,7 @@ impl Kernel {
         newsp: Uptr,
         writes: ForkWrites,
         set_tid: &[i32],
+        into: Option<Result<Arc<Cgroup>, Errno>>,
     ) -> SysResult<i32> {
         let ForkWrites {
             parent_tid,
@@ -1232,6 +1270,7 @@ impl Kernel {
             child_tid,
             set_tid,
             duplicate,
+            into,
         )?;
         let pidfd = pidfd.map(|(reservation, at)| {
             let file = self.pidfd_file(child.0, OpenFlags::O_RDWR);
@@ -1279,6 +1318,7 @@ impl Kernel {
         child_tid: u32,
         set_tid: &[i32],
         duplicate: bool,
+        into: Option<Result<Arc<Cgroup>, Errno>>,
     ) -> Result<TaskId, Errno> {
         let (id, process, parent_pid) = {
             let mut state = self.state.lock_or_recover();
@@ -1314,9 +1354,14 @@ impl Kernel {
                 }
                 false => parent.cred(),
             };
-            let ns = task
-                .live_ns()
-                .copy(self, flags.0, &cred, &parent.pid_ns, own_fs.as_mut())?;
+            let ns = task.live_ns().copy(
+                self,
+                flags.0,
+                &cred,
+                &parent.pid_ns,
+                own_fs.as_mut(),
+                &task.css.cgroup(),
+            )?;
             let mut ident = parent.ident.lock_or_recover().for_child();
             if flags.contains(CloneFlags::CLONE_NNP) {
                 ident.no_new_privs = true;
@@ -1332,7 +1377,19 @@ impl Kernel {
             state
                 .pids
                 .alloc(id.0, &ns.pid_for_children, set_tid, may_set)?;
+            // `cgroup_can_fork`: the child's cgroup, its parent's or the one asked for, takes it.
+            let group_cpu: Arc<GroupCpu> = Arc::default();
+            let cpu = Arc::new(CpuAccount::new(group_cpu.clone()));
+            let nice = sched.nice() > 0;
+            let css = match self.cgroup_can_fork(task, &caller, into, cpu.clone(), nice) {
+                Ok(css) => css,
+                Err(errno) => {
+                    state.pids.free_unused(id.0, &ns.pid_for_children);
+                    return Err(errno);
+                }
+            };
             if !duplicate {
+                drop(css);
                 state.pids.free_unused(id.0, &ns.pid_for_children);
                 return Err(Errno::ENOSYS);
             }
@@ -1344,7 +1401,7 @@ impl Kernel {
                 group: thread::Group::new(),
                 start: self.host.monotonic(),
                 // A child's times start at zero, and it inherits no interval timers.
-                cpu: Arc::default(),
+                cpu: group_cpu,
                 children: Mutex::default(),
                 maxrss: Default::default(),
                 cpu_timers: Default::default(),
@@ -1378,7 +1435,8 @@ impl Kernel {
                 false => Arc::new(task.mm.dup(id.0)),
             };
             let new = Task {
-                cpu: Arc::new(CpuAccount::new(process.cpu.clone())),
+                cpu,
+                css,
                 process: process.clone(),
                 mm,
                 files,
@@ -2052,11 +2110,11 @@ impl Kernel {
     }
 }
 
-/// `PIDFD_INFO_SUPPORTED`: what `PIDFD_GET_INFO` can fill here. Without cgroups there is no
-/// cgroup id (`CONFIG_CGROUPS`), and no process dumps core.
+/// `PIDFD_INFO_SUPPORTED`: what `PIDFD_GET_INFO` can fill here. No process dumps core.
 const PIDFD_INFO_SUPPORTED: PidfdInfoMask = PidfdInfoMask(
     PidfdInfoMask::PIDFD_INFO_PID.0
         | PidfdInfoMask::PIDFD_INFO_CREDS.0
+        | PidfdInfoMask::PIDFD_INFO_CGROUPID.0
         | PidfdInfoMask::PIDFD_INFO_EXIT.0
         | PidfdInfoMask::PIDFD_INFO_SUPPORTED_MASK.0,
 );
@@ -2113,10 +2171,11 @@ impl Kernel {
         let mut mask = 0;
         let wants = |flag: PidfdInfoMask| asked.0 & flag.0 != 0;
         if wants(PidfdInfoMask::PIDFD_INFO_EXIT)
-            && let Some(&status) = pidfd.attr.exit.get()
+            && let Some(&(status, cgroup)) = pidfd.attr.exit.get()
         {
-            mask |= PidfdInfoMask::PIDFD_INFO_EXIT.0;
+            mask |= PidfdInfoMask::PIDFD_INFO_EXIT.0 | PidfdInfoMask::PIDFD_INFO_CGROUPID.0;
             info.exit_code = status;
+            info.cgroupid = cgroup;
         }
         let task = {
             let tree = self.procs.tree.lock_or_recover();
@@ -2141,6 +2200,13 @@ impl Kernel {
                     0 => 0,
                     parent => self.vnr(caller, parent) as u32,
                 };
+                // `task_dfl_cgroup`, unless the exit told it already.
+                if info.cgroupid == 0 {
+                    let state = self.state.read_or_recover();
+                    let task = state.tasks.get(&TaskId(pidfd.pid));
+                    info.cgroupid = task.map_or(0, |task| task.css.cgroup().id);
+                    mask |= PidfdInfoMask::PIDFD_INFO_CGROUPID.0;
+                }
                 info.tgid = self.vnr(caller, pidfd.pid) as u32;
                 info.pid = info.tgid;
                 mask |= PidfdInfoMask::PIDFD_INFO_PID.0;
@@ -2224,6 +2290,8 @@ pub(crate) struct KernelClone {
     /// `thread-spawn`'s argument for the thread entry point, where a process on the caller's
     /// memory starts; `None` for `clone` and `clone3`.
     pub(crate) start_arg: Option<u32>,
+    /// The descriptor of the cgroup to start the child in (`CLONE_INTO_CGROUP`).
+    pub(crate) cgroup: u32,
 }
 
 /// `copy_clone_args_from_user`: a `struct clone_args` of `size` bytes, and the pids its

@@ -60,6 +60,8 @@ const DIRS: &[(usize, &str)] = &[
     (1, "virtual"),
     // 6
     (5, "net"),
+    // 7: where the cgroup hierarchy is mounted (`sysfs_create_mount_point(fs_kobj, "cgroup")`).
+    (3, "cgroup"),
 ];
 const CLASS_NET: usize = 4;
 const VIRTUAL_NET: usize = 6;

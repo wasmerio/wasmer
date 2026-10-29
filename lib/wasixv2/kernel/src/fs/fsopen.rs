@@ -72,6 +72,9 @@ struct Context {
     /// The opener's IPC namespace, whose queues an mqueue instance holds
     /// (`mqueue_init_fs_context`).
     ipc: Arc<crate::ns::IpcNs>,
+    /// The opener's cgroup namespace (`ctx->ns`), from whose root a cgroup2 instance shows
+    /// the hierarchy.
+    cgroup: Arc<crate::ns::CgroupNs>,
     /// The user namespace a new instance is for (`fc->user_ns`).
     user_ns: Arc<UserNs>,
 }
@@ -125,6 +128,7 @@ impl Context {
             task_cred: kernel.process(task).cred(),
             pid_ns: kernel.active_pid_ns(task),
             ipc: kernel.task_ns(task).ipc.clone(),
+            cgroup: kernel.task_ns(task).cgroup.clone(),
         }
     }
 
@@ -184,6 +188,9 @@ impl Context {
         };
         match &self.ty {
             FsType::Proc | FsType::Sys | FsType::Mqueue => return Err(Errno::EINVAL),
+            FsType::Cgroup2 => {
+                crate::cgroup::RootFlags::default().parse(param.key, param.value)?;
+            }
             FsType::Other(ty) => ty.parse_param(&param)?,
         }
         self.params.push((key, string));
@@ -363,6 +370,8 @@ impl Kernel {
             FsType::Proc => Ok(self.procfs_in(context.pid_ns.clone())),
             FsType::Sys => Ok(self.sysfs_of(context.net.clone())),
             FsType::Mqueue => Ok(self.mqueue_sb(&context.ipc).1.clone() as Arc<dyn Filesystem>),
+            FsType::Cgroup2 => super::mount::cgroup_flags(&context.params())
+                .map(|flags| self.cgroup_fs(&context.cgroup, flags)),
             FsType::Other(ty) => {
                 let source = context.source.clone().unwrap_or_default();
                 ty.mount(&source, &context.params(), &context.cred)
@@ -400,6 +409,10 @@ impl Kernel {
         let result = (|| {
             if let FsType::Other(ty) = &context.ty {
                 ty.reconfigure(&fs, &context.params())?;
+            } else if let FsType::Cgroup2 = &context.ty {
+                let flags = super::mount::cgroup_flags(&context.params())?;
+                // `cgroup_reconfigure`.
+                self.apply_cgroup_root_flags(&self.task_ns(TaskId(env.task)).cgroup, flags);
             } else if !context.params.is_empty() {
                 return Err(Errno::EINVAL);
             }

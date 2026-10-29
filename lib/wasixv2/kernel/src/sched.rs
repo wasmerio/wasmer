@@ -706,7 +706,11 @@ impl Kernel {
     ) -> Result<R, Errno> {
         let mut state = self.state.lock_or_recover();
         let id = self.find_task(&state, caller, pid)?;
-        Ok(f(&mut state.tasks.get_mut(&id).expect("found above").sched))
+        let task = state.tasks.get_mut(&id).expect("found above");
+        let result = f(&mut task.sched);
+        // `cpu.stat`'s `nice_usec` counts the user time of niced tasks.
+        task.css.set_nice(task.sched.nice > 0);
+        Ok(result)
     }
 
     /// Applies a `sched_setscheduler`, `sched_setparam` or `sched_setattr` request to the task
@@ -1075,6 +1079,7 @@ impl Kernel {
                 error = None;
             }
             task.sched.nice = nice;
+            task.css.set_nice(nice > 0);
         }
         match error {
             Some(errno) => Err(errno.into()),

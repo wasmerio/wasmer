@@ -182,6 +182,7 @@ impl Kernel {
                 tls,
                 set_tid: Vec::new(),
                 start_arg: Some(start_arg),
+                cgroup: 0,
             };
             return self.kernel_clone(caller, args).await;
         }
@@ -214,6 +215,19 @@ impl Kernel {
             let sched = task.sched.for_child()?;
             let id = TaskId(state.last_id + 1);
             state.pids.alloc(id.0, &process.pid_ns, &[], |_| false)?;
+            // `cgroup_can_fork`: a thread starts in its creator's cgroup.
+            let cpu = Arc::new(CpuAccount::new(process.cpu.clone()));
+            let nice = sched.nice() > 0;
+            let css = match self
+                .cgroups
+                .fork(task.css.cgroup().clone(), cpu.clone(), nice)
+            {
+                Ok(css) => css,
+                Err(errno) => {
+                    state.pids.detach(id.0, crate::pid::PidType::Pid);
+                    return Err(errno.into());
+                }
+            };
             {
                 let mut group = process.group.state.lock_or_recover();
                 // A group on its way out, or in an `execve`, starts nothing (Linux:
@@ -240,7 +254,8 @@ impl Kernel {
             };
             let flag = Arc::new(WorkFlag::default());
             let new = Task {
-                cpu: Arc::new(CpuAccount::new(process.cpu.clone())),
+                cpu,
+                css,
                 process,
                 mm: task.mm.clone(),
                 files: task.files.clone(),
@@ -829,6 +844,9 @@ impl Kernel {
             unstarted.extend(entry.work.take_unstarted());
             entry.thread.exited = false;
             entry.restart = None;
+            // The survivor keeps its place in the cgroup hierarchy, as it keeps its `css_set`
+            // when Linux exchanges the two tasks' pids.
+            crate::cgroup::Css::exchange(&state.tasks[&task].css, &state.tasks[&leader].css);
         }
         for child in unstarted {
             forget_task(&mut state, child);
@@ -981,6 +999,8 @@ impl Kernel {
             // `exit_task_namespaces`, after `exit_mm`: a task that is done holds no namespace,
             // which goes with its last task before the process is seen to exit.
             let ns = entry.ns.take();
+            // `cgroup_exit`: it populates its cgroup no more.
+            entry.css.exit();
             let process = entry.process.clone();
             let last = mm_users(&state, task) == 0;
             drop(state);
