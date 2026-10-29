@@ -187,7 +187,7 @@ impl Daemon {
             assert_eq!(n32(&req, 24), 0);
             let (error, body) = answer(&req);
             self.reply(&req, error, &body).unwrap();
-            future.await
+            now(future)
         }))
     }
     fn lookup(&self, id: u64, kind: FileType) -> Arc<dyn Node> {
@@ -639,4 +639,159 @@ fn fuse_invalid_lookup_attributes_are_forgotten() {
     assert_eq!(n32(&out, 4), 42);
     assert_eq!(n64(&out, 48), 9);
     assert_eq!(n64(&out, 56), 1);
+}
+
+#[test]
+fn fuse_poll_supports_synchronous_readiness_consumers_and_notifications() {
+    use wasixv2_wait::{PollMask, PollTable};
+    let d = Daemon::new();
+    d.init();
+    let node = d.lookup(2, FileType::Regular);
+    let handle = d
+        .exchange(
+            node.open(OpenOptions {
+                read: true,
+                ..OpenOptions::default()
+            }),
+            14,
+            |_| (0, vec![0; 16]),
+        )
+        .unwrap();
+    let mut registered = false;
+    let mut register = |_: &wasixv2_wait::WaitQueue, _: PollMask| {
+        registered = true;
+    };
+    assert!(
+        handle
+            .poll(Some(&mut PollTable::new(PollMask::IN, &mut register)))
+            .is_empty()
+    );
+    assert!(registered);
+    let req = d.read();
+    assert_eq!(n32(&req, 4), 40);
+    let key = n64(&req, 48);
+    assert_eq!(n32(&req, 56), 1);
+    let mut out = vec![0; 8];
+    p32(&mut out, 0, PollMask::IN.0);
+    d.reply(&req, 0, &out).unwrap();
+    assert!(handle.poll(None).contains(PollMask::IN));
+    d.notify(1, &key.to_le_bytes());
+    assert!(handle.poll(None).is_empty());
+    let req = d.read();
+    assert_eq!(n32(&req, 4), 40);
+    p32(&mut out, 0, 0);
+    d.reply(&req, 0, &out).unwrap();
+    assert!(handle.poll(None).is_empty());
+    // The async preflight shares this same queue, including ENOSYS's permanent fallback.
+    d.notify(1, &key.to_le_bytes());
+    d.exchange(handle.prepare_poll(PollMask::IN.0), 40, |_| {
+        (-Errno::ENOSYS.0, Vec::new())
+    });
+    assert_eq!(handle.poll(None), PollMask::DEFAULT);
+    d.notify(1, &key.to_le_bytes());
+    assert_eq!(handle.poll(None), PollMask::DEFAULT);
+}
+
+#[test]
+fn fuse_large_xattr_request_is_delivered_as_one_device_record() {
+    let d = Daemon::new();
+    d.init();
+    let node = d.lookup(2, FileType::Regular);
+    let value = vec![0x51; 65536];
+    block_on(as_task(d.task, async {
+        let future = node.setxattr(b"user.large", &value, XattrSet::Any);
+        let mut future = std::pin::pin!(future);
+        assert!(futures::poll!(&mut future).is_pending());
+        let n = d
+            .kernel
+            .read(&d.caller(), d.fd, UserSliceMut::new(BUF, 100000))
+            .await
+            .unwrap();
+        assert!(n > 65536);
+        let req = get(&d.memory, BUF, n as usize);
+        assert_eq!(n32(&req, 4), 21);
+        assert_eq!(&req[59..], &value);
+        d.reply(&req, 0, &[]).unwrap();
+        assert_eq!(now(future), Ok(()));
+    }));
+}
+
+#[test]
+fn fuse_device_copy_fault_finishes_the_request() {
+    let d = Daemon::new();
+    d.init();
+    block_on(as_task(d.task, async {
+        let future = d.root.lookup(b"fault");
+        let mut future = std::pin::pin!(future);
+        assert!(futures::poll!(&mut future).is_pending());
+        assert_eq!(
+            d.kernel
+                .read(&d.caller(), d.fd, UserSliceMut::new(256 * 1024 - 8, 65536))
+                .await,
+            Err(SysErr::Errno(Errno::EFAULT))
+        );
+        assert!(matches!(now(future), Err(Errno::EIO)));
+    }));
+}
+
+#[test]
+fn fuse_init_retries_a_newer_protocol_major() {
+    let d = Daemon::new();
+    let req = d.read();
+    let mut out = vec![0; 8];
+    p32(&mut out, 0, 8);
+    d.reply(&req, 0, &out).unwrap();
+    d.init();
+    let node = d.lookup(2, FileType::Regular);
+    assert_eq!(block_on(node.getattr()).unwrap().ino, 2);
+}
+
+#[test]
+fn fuse_cloned_devices_keep_separate_processing_lists() {
+    let d = Daemon::new();
+    d.init();
+    put(&d.memory, 0x100, b"/dev/fuse\0");
+    let cloned = block_on(d.kernel.openat(
+        &d.caller(),
+        CWD,
+        GuestPtr::new(0x100),
+        OpenFlags::O_RDWR | OpenFlags::O_NONBLOCK,
+        0,
+    ))
+    .unwrap();
+    put(&d.memory, 0x200, &d.fd.0.to_le_bytes());
+    block_on(
+        d.kernel
+            .ioctl(&d.caller(), cloned, IoctlRequest::FUSE_DEV_IOC_CLONE, 0x200),
+    )
+    .unwrap();
+    block_on(as_task(d.task, async {
+        let future = d.root.lookup(b"separate");
+        let mut future = std::pin::pin!(future);
+        assert!(futures::poll!(&mut future).is_pending());
+        let req = d.read();
+        let body = entry(2, FileType::Regular);
+        let mut reply = vec![0; 16];
+        p32(&mut reply, 0, 144);
+        p64(&mut reply, 8, n64(&req, 8));
+        reply.extend(body);
+        put(&d.memory, BUF, &reply);
+        assert_eq!(
+            d.kernel
+                .write(&d.caller(), cloned, UserSlice::new(BUF, 144))
+                .await,
+            Err(SysErr::Errno(Errno::ENOENT))
+        );
+        d.reply(&req, 0, &entry(2, FileType::Regular)).unwrap();
+        let _node = now(future).unwrap();
+        let future = d.root.lookup(b"closing");
+        let mut future = std::pin::pin!(future);
+        assert!(futures::poll!(&mut future).is_pending());
+        d.kernel
+            .read(&d.caller(), cloned, UserSliceMut::new(BUF, 65536))
+            .await
+            .unwrap();
+        d.kernel.close(&d.caller(), cloned).await.unwrap();
+        assert!(matches!(now(future), Err(Errno::ECONNABORTED)));
+    }));
 }

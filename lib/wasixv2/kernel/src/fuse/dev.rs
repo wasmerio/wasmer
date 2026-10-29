@@ -8,8 +8,8 @@ use crate::{
 use std::{
     collections::{BTreeMap, BTreeSet, VecDeque},
     sync::{
-        Arc, Mutex,
-        atomic::{AtomicBool, Ordering},
+        Arc, Mutex, Weak,
+        atomic::{AtomicBool, AtomicU64, Ordering},
     },
 };
 use wasixv2_abi::IoctlRequest;
@@ -20,6 +20,8 @@ pub(super) struct Request {
     pub(super) unique: u64,
     pub(super) opcode: u32,
     bytes: Vec<u8>,
+    device: AtomicU64,
+    poll: Option<(Weak<super::poll::PollState>, u64)>,
     pub(super) reply: Mutex<Option<Result<Vec<u8>, Errno>>>,
     pub(super) wait: WaitQueue,
     /// Inclusive payload size range; fuse_copy_out_args validates it before completing.
@@ -82,8 +84,19 @@ impl Connection {
         min: usize,
         max: usize,
     ) -> Arc<Request> {
+        self.enqueue_poll(opcode, node, body, min, max, None)
+    }
+    pub(super) fn enqueue_poll(
+        &self,
+        opcode: u32,
+        node: u64,
+        body: Vec<u8>,
+        min: usize,
+        max: usize,
+        poll: Option<(Weak<super::poll::PollState>, u64)>,
+    ) -> Arc<Request> {
         let (uid, gid, pid, _) = self.current();
-        let req = {
+        let (req, queued) = {
             let mut q = self.queue.lock_or_recover();
             q.next += 2;
             let unique = q.next;
@@ -100,6 +113,8 @@ impl Connection {
                 unique,
                 opcode,
                 bytes,
+                device: AtomicU64::new(0),
+                poll,
                 reply: Mutex::new(None),
                 wait: WaitQueue::new(),
                 min,
@@ -107,11 +122,12 @@ impl Connection {
             });
             if q.connected {
                 q.pending.push_back(req.clone());
-            } else {
-                *req.reply.lock_or_recover() = Some(Err(Errno::ENOTCONN));
             }
-            req
+            (req, q.connected)
         };
+        if !queued {
+            self.finish(&req, Err(Errno::ENOTCONN));
+        }
         self.readable.wake(PollMask::IN);
         req
     }
@@ -151,7 +167,6 @@ impl Connection {
         max: usize,
     ) -> Result<Vec<u8>, Errno> {
         self.ready().await?;
-        self.allowed()?;
         let req = self.enqueue(opcode, node, body, min, max);
         let (_, _, _, signals) = self.current();
         let no = NoInterrupt;
@@ -207,6 +222,51 @@ impl Connection {
         self.readable.wake(PollMask::READABLE);
     }
 
+    fn finish(&self, req: &Request, result: Result<Vec<u8>, Errno>) {
+        if req.opcode == INIT {
+            self.finish_init(result.clone());
+        }
+        if let Some((poll, epoch)) = &req.poll
+            && let Some(poll) = poll.upgrade()
+        {
+            let mask = match &result {
+                Ok(body) => u32_at(body, 0).unwrap_or(PollMask::ERR.0),
+                Err(Errno::ENOSYS) => {
+                    self.unsupported.lock_or_recover().insert(40);
+                    PollMask::DEFAULT.0
+                }
+                Err(_) => PollMask::ERR.0,
+            };
+            poll.complete(*epoch, mask);
+        }
+        *req.reply.lock_or_recover() = Some(result);
+        req.wait.wake(PollMask::IN);
+    }
+
+    fn release_device(&self, device: u64) {
+        let requests = {
+            let mut q = self.queue.lock_or_recover();
+            let ids: Vec<_> = q
+                .processing
+                .iter()
+                .filter(|(_, r)| r.device.load(Ordering::Acquire) == device)
+                .map(|(&id, _)| id)
+                .collect();
+            let requests: Vec<_> = ids
+                .iter()
+                .filter_map(|id| q.processing.remove(id))
+                .collect();
+            for id in ids {
+                q.interrupted.remove(&id);
+                q.interrupts.retain(|n| *n != id);
+            }
+            requests
+        };
+        for req in requests {
+            self.finish(&req, Err(Errno::ECONNABORTED));
+        }
+    }
+
     pub(super) fn forget(&self, node: u64, nlookup: u64) {
         let mut q = self.queue.lock_or_recover();
         if q.connected {
@@ -226,8 +286,7 @@ impl Connection {
             requests
         };
         for req in requests {
-            *req.reply.lock_or_recover() = Some(Err(Errno::ECONNABORTED));
-            req.wait.wake(PollMask::ERR);
+            self.finish(&req, Err(Errno::ECONNABORTED));
         }
         let polls: Vec<_> = self
             .polls
@@ -243,7 +302,7 @@ impl Connection {
         self.readable.wake(PollMask::ERR);
     }
 
-    fn read_request(&self, buf: &mut [u8]) -> Option<Result<usize, Errno>> {
+    fn read_request(&self, device: u64, buf: &mut [u8]) -> Option<Result<usize, Errno>> {
         let mut q = self.queue.lock_or_recover();
         if !q.connected {
             return Some(Err(Errno::ENODEV));
@@ -293,26 +352,35 @@ impl Connection {
             buf[HEADER..HEADER + body.len()].copy_from_slice(&body);
             return Some(Ok(HEADER + body.len()));
         }
-        let req = q.pending.pop_front()?;
-        let len = req.bytes.len();
-        if len > buf.len() {
-            *req.reply.lock_or_recover() = Some(Err(if req.opcode == 25 {
-                Errno::E2BIG
-            } else {
-                Errno::EIO
-            }));
-            req.wait.wake(PollMask::ERR);
-            return Some(Err(Errno::EINVAL));
+        loop {
+            let req = q.pending.pop_front()?;
+            let len = req.bytes.len();
+            if len > buf.len() {
+                // fuse_dev_do_read restarts after retiring an oversized request. SETXATTR
+                // is special because its caller may retry with a smaller value.
+                drop(q);
+                self.finish(
+                    &req,
+                    Err(if req.opcode == 21 {
+                        Errno::E2BIG
+                    } else {
+                        Errno::EIO
+                    }),
+                );
+                q = self.queue.lock_or_recover();
+                continue;
+            }
+            buf[..len].copy_from_slice(&req.bytes);
+            req.device.store(device, Ordering::Release);
+            if q.interrupted.contains(&req.unique) {
+                q.interrupts.push_back(req.unique);
+            }
+            q.processing.insert(req.unique, req);
+            return Some(Ok(len));
         }
-        buf[..len].copy_from_slice(&req.bytes);
-        if q.interrupted.contains(&req.unique) {
-            q.interrupts.push_back(req.unique);
-        }
-        q.processing.insert(req.unique, req);
-        Some(Ok(len))
     }
 
-    fn write_reply(&self, data: &[u8]) -> Result<usize, Errno> {
+    fn write_reply(&self, device: u64, data: &[u8]) -> Result<usize, Errno> {
         if data.len() < OUT_HEADER || u32_at(data, 0)? as usize != data.len() {
             return Err(Errno::EINVAL);
         }
@@ -332,6 +400,13 @@ impl Connection {
         }
         let req = {
             let mut q = self.queue.lock_or_recover();
+            if !q.connected
+                || q.processing
+                    .get(&(unique & !1))
+                    .is_none_or(|r| r.device.load(Ordering::Acquire) != device)
+            {
+                return Err(Errno::ENOENT);
+            }
             if unique & 1 != 0 {
                 if !q.processing.contains_key(&(unique & !1)) {
                     return Err(Errno::ENOENT);
@@ -366,11 +441,7 @@ impl Connection {
         } else {
             Ok(body.to_vec())
         };
-        if req.opcode == INIT {
-            self.finish_init(result.clone());
-        }
-        *req.reply.lock_or_recover() = Some(result);
-        req.wait.wake(PollMask::IN);
+        self.finish(&req, result);
         if !valid {
             Err(Errno::EINVAL)
         } else {
@@ -379,6 +450,16 @@ impl Connection {
     }
 
     fn finish_init(&self, result: Result<Vec<u8>, Errno>) {
+        if let Ok(body) = &result
+            && u32_at(body, 0).is_ok_and(|major| major > 7)
+        {
+            let mut init = vec![0; 64];
+            put32(&mut init, 0, 7);
+            put32(&mut init, 4, MINOR);
+            put32(&mut init, 12, super::INIT_FLAGS | (1 << 30));
+            self.enqueue(INIT, 0, init, 8, 64);
+            return;
+        }
         let mut q = self.queue.lock_or_recover();
         match result {
             Ok(body)
@@ -399,6 +480,7 @@ impl Connection {
 
 /// A device is unbound until fuse_get_tree attaches a connection; clones share its queues.
 pub(crate) struct Device {
+    pub(super) id: u64,
     pub(super) conn: Mutex<Option<Arc<Connection>>>,
     pub(super) user_ns: Arc<UserNs>,
     pub(super) sync_init: AtomicBool,
@@ -414,9 +496,11 @@ impl Drop for Device {
             .conn
             .get_mut()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
-            && conn.devices.fetch_sub(1, Ordering::AcqRel) == 1
         {
-            conn.abort();
+            conn.release_device(self.id);
+            if conn.devices.fetch_sub(1, Ordering::AcqRel) == 1 {
+                conn.abort();
+            }
         }
     }
 }
@@ -437,23 +521,55 @@ impl Pollable for Device {
     }
 }
 impl FileObject for Device {
+    fn read_size(&self) -> usize {
+        MAX_IO + HEADER + 16 + 256
+    }
+    fn read_to<'a>(
+        &'a self,
+        io: Io<'a>,
+        buf: &'a mut [u8],
+        to: &'a mut dyn crate::file::ReadSink,
+    ) -> LocalFuture<'a, SysResult<usize>> {
+        Box::pin(async move {
+            let n = self.read(io, buf).await?;
+            if to.copy_out(&buf[..n]).await != n {
+                let unique = u64_at(buf, 8)?;
+                let conn = self.connection()?;
+                let req = { conn.queue.lock_or_recover().processing.remove(&unique) };
+                if let Some(req) = req {
+                    conn.finish(&req, Err(Errno::EIO));
+                }
+                return Err(Errno::EFAULT.into());
+            }
+            Ok(n)
+        })
+    }
+
     fn read<'a>(&'a self, io: Io<'a>, buf: &'a mut [u8]) -> LocalFuture<'a, SysResult<usize>> {
         Box::pin(async move {
             let conn = self.connection()?;
             if io.nonblocking() {
                 return conn
-                    .read_request(buf)
+                    .read_request(self.id, buf)
                     .unwrap_or(Err(Errno::EAGAIN))
                     .map_err(Into::into);
             }
-            wait_event(&conn.readable, || conn.read_request(buf), io.interrupt)
-                .await
-                .map_err(|_| wasixv2_syscalls::SysErr::Restart)?
-                .map_err(Into::into)
+            wait_event(
+                &conn.readable,
+                || conn.read_request(self.id, buf),
+                io.interrupt,
+            )
+            .await
+            .map_err(|_| wasixv2_syscalls::SysErr::Restart)?
+            .map_err(Into::into)
         })
     }
     fn write<'a>(&'a self, _: Io<'a>, data: &'a [u8]) -> LocalFuture<'a, SysResult<usize>> {
-        Box::pin(async move { self.connection()?.write_reply(data).map_err(Into::into) })
+        Box::pin(async move {
+            self.connection()?
+                .write_reply(self.id, data)
+                .map_err(Into::into)
+        })
     }
     fn messages(&self) -> bool {
         true

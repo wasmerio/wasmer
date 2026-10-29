@@ -301,7 +301,7 @@ impl FilesystemType for FuseType {
         put32(&mut init, 0, 7);
         put32(&mut init, 4, MINOR);
         put32(&mut init, 12, INIT_FLAGS | (1 << 30));
-        conn.enqueue(INIT, 0, init, 24, 64);
+        conn.enqueue(INIT, 0, init, 8, 64);
         *bound = Some(conn);
         Ok(Arc::new(fs))
     }
@@ -330,7 +330,9 @@ impl Kernel {
         Ok(0)
     }
     pub(crate) fn open_fuse(&self, task: TaskId) -> Arc<Device> {
+        static NEXT_DEVICE: AtomicU64 = AtomicU64::new(1);
         Arc::new(Device {
+            id: NEXT_DEVICE.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
             conn: Mutex::new(None),
             user_ns: self.process(task).cred().user_ns,
             sync_init: std::sync::atomic::AtomicBool::new(false),

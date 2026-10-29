@@ -727,6 +727,32 @@ impl Drop for FuseHandle {
     }
 }
 impl FuseHandle {
+    fn poll_request(&self) {
+        if !self.poll.stale()
+            || self
+                .poll
+                .in_flight
+                .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+                .is_err()
+        {
+            return;
+        }
+        let epoch = self.poll.epoch.load(Ordering::Acquire);
+        if self.node.conn.unsupported.lock_or_recover().contains(&40) {
+            self.poll.complete(epoch, wasixv2_wait::PollMask::DEFAULT.0);
+            return;
+        }
+        let mut body = words64(&[self.fh, self.poll.key]);
+        body.extend(words32(&[1, self.poll.events.load(Ordering::Acquire)]));
+        self.node.conn.enqueue_poll(
+            40,
+            self.node.id,
+            body,
+            8,
+            8,
+            Some((Arc::downgrade(&self.poll), epoch)),
+        );
+    }
     fn rw(&self, offset: u64, size: usize) -> Vec<u8> {
         let mut body = words64(&[self.fh, offset]);
         body.extend(words32(&[size as u32, 0]));
@@ -744,25 +770,48 @@ impl Handle for FuseHandle {
         if self.dir {
             return;
         }
+        self.poll.interest(events);
+        let (_, _, _, signals) = self.node.conn.current();
+        let no = wasixv2_wait::NoInterrupt;
+        let interrupt: &dyn wasixv2_wait::Interrupt = signals.as_ref().map_or(&no, |s| &**s);
         loop {
-            let epoch = self.poll.epoch.load(Ordering::Acquire);
-            let mut body = words64(&[self.fh, self.poll.key]);
-            body.extend(words32(&[1, events]));
-            let mask = match self.node.conn.optional(40, self.node.id, body, 8, 8).await {
-                Ok(out) => u32_at(&out, 0).unwrap_or(wasixv2_wait::PollMask::ERR.0),
-                Err(Errno::ENOSYS) => wasixv2_wait::PollMask::DEFAULT.0,
-                Err(_) => wasixv2_wait::PollMask::ERR.0,
-            };
-            self.poll.ready.store(mask, Ordering::Release);
-            if epoch == self.poll.epoch.load(Ordering::Acquire) {
-                break;
+            self.poll_request();
+            if !self.poll.stale() && !self.poll.in_flight.load(Ordering::Acquire) {
+                return;
+            }
+            let epoch = self.poll.completed.load(Ordering::Acquire);
+            if wasixv2_wait::wait_event(
+                &self.poll.wait,
+                || {
+                    (!self.poll.in_flight.load(Ordering::Acquire)
+                        || self.poll.completed.load(Ordering::Acquire) != epoch)
+                        .then_some(())
+                },
+                interrupt,
+            )
+            .await
+            .is_err()
+            {
+                self.poll
+                    .ready
+                    .store(wasixv2_wait::PollMask::ERR.0, Ordering::Release);
+                return;
             }
         }
     }
     fn poll(&self, mut table: Option<&mut wasixv2_wait::PollTable<'_>>) -> wasixv2_wait::PollMask {
-        wasixv2_wait::poll_wait(&mut table, &self.poll.wait);
         if self.dir {
-            wasixv2_wait::PollMask::DEFAULT
+            return wasixv2_wait::PollMask::DEFAULT;
+        }
+        let events = table
+            .as_ref()
+            .map_or(self.poll.events.load(Ordering::Acquire), |t| t.key().0);
+        self.poll
+            .interest(if events == 0 { u16::MAX as u32 } else { events });
+        wasixv2_wait::poll_wait(&mut table, &self.poll.wait);
+        self.poll_request();
+        if self.poll.stale() {
+            wasixv2_wait::PollMask::empty()
         } else {
             wasixv2_wait::PollMask(self.poll.ready.load(Ordering::Acquire))
         }
@@ -781,7 +830,7 @@ impl Handle for FuseHandle {
         }
     }
     fn flush_fatal(&self, owner: u64) {
-        if !self.dir {
+        if !self.dir && self.open_flags & (1 << 5) == 0 {
             let mut body = words64(&[self.fh]);
             body.extend(words32(&[0, 0]));
             body.extend(words64(&[owner]));
@@ -789,7 +838,7 @@ impl Handle for FuseHandle {
         }
     }
     async fn flush(&self, owner: u64) -> FsResult<()> {
-        if self.dir {
+        if self.dir || self.open_flags & (1 << 5) != 0 {
             return Ok(());
         }
         let mut body = words64(&[self.fh]);
@@ -838,6 +887,7 @@ impl Handle for FuseHandle {
             .conn
             .request(15, self.node.id, self.rw(offset, len), 0, len)
             .await?;
+        self.poll.notify();
         buf[..out.len()].copy_from_slice(&out);
         Ok(out.len())
     }
@@ -854,6 +904,7 @@ impl Handle for FuseHandle {
             return Err(Errno::EIO);
         }
         self.node.invalidate();
+        self.poll.notify();
         Ok(n)
     }
     async fn append(&self, data: &[u8]) -> FsResult<(u64, usize)> {
