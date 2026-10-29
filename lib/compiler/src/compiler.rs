@@ -711,11 +711,11 @@ static WASMER_LIBRARY_TBD: LazyLock<String> = LazyLock::new(|| {
     format!(
         r#"--- !tapi-tbd
  tbd-version: 4
- targets: [  arm64e-macos ]
+ targets: [  arm64-macos, arm64e-macos ]
  install-name: 'libwasmer.dylib'
  current-version: 1
  exports:
-   - targets: [ arm64e-macos ]
+   - targets: [ arm64-macos, arm64e-macos ]
      symbols: [ {symbols} ]
 ...
 "#
