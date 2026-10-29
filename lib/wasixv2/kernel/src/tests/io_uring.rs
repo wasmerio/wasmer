@@ -860,3 +860,190 @@ fn fdinfo_shows_the_rings() {
     assert!(info.contains("CqMask:\t0x7\n"), "{info}");
     assert!(info.contains("UserFiles:\t0\n"), "{info}");
 }
+
+fn set_wall(m: &Machine, at: Duration) {
+    m.kernel.time.settime(at).unwrap();
+    m.kernel.clock_was_set();
+}
+
+/// io_uring/timeout.c initializes hrtimers on the selected clock; clock_was_set retriggers
+/// CLOCK_REALTIME bases, while backward and incomplete forward steps must not fire them.
+#[test]
+fn absolute_realtime_timeouts_rearm_after_clock_sets() {
+    let hour = Duration::from_secs(3600);
+    for linked in [false, true] {
+        let m = Machine::new();
+        let ring = m.ring(8, 0);
+        let now = m.kernel.host.realtime();
+        let (r, _w) = pipe(&m.kernel, &m.caller(), OpenFlags(0));
+        if linked {
+            ring.push(IoUringSqe {
+                flags: IosqeFlags::IOSQE_IO_LINK.0,
+                addr: u64::from(BUF),
+                len: 1,
+                ..sqe(READ, r.0, 1)
+            });
+        }
+        write_ts(&m, TS, now + hour);
+        ring.push(IoUringSqe {
+            addr: u64::from(TS),
+            len: 1,
+            op_flags: IoringOpFlags::IORING_TIMEOUT_ABS.0
+                | IoringOpFlags::IORING_TIMEOUT_REALTIME.0,
+            ..sqe(
+                if linked {
+                    IoUringOp::IORING_OP_LINK_TIMEOUT
+                } else {
+                    IoUringOp::IORING_OP_TIMEOUT
+                },
+                -1,
+                2,
+            )
+        });
+        assert_eq!(
+            ring.submit(if linked { 2 } else { 1 }),
+            Ok(if linked { 2 } else { 1 })
+        );
+        set_wall(&m, now - hour);
+        assert!(ring.reap().is_empty());
+        set_wall(&m, now + hour / 2);
+        assert!(ring.reap().is_empty());
+        set_wall(&m, now + 2 * hour);
+        let mut cqes = ring.reap();
+        cqes.sort_by_key(|cqe| cqe.user_data);
+        let expected = if linked {
+            vec![(1, -Errno::ECANCELED.0), (2, -Errno::ETIME.0)]
+        } else {
+            vec![(2, -Errno::ETIME.0)]
+        };
+        assert_eq!(res(&cqes), expected);
+    }
+}
+
+/// io_timeout_update and io_linked_timeout_update keep the original timeout's clock.
+#[test]
+fn realtime_timeout_updates_keep_the_original_clock() {
+    let hour = Duration::from_secs(3600);
+    for linked in [false, true] {
+        let m = Machine::new();
+        let ring = m.ring(8, 0);
+        let now = m.kernel.host.realtime();
+        let (r, _w) = pipe(&m.kernel, &m.caller(), OpenFlags(0));
+        if linked {
+            ring.push(IoUringSqe {
+                flags: IosqeFlags::IOSQE_IO_LINK.0,
+                addr: u64::from(BUF),
+                len: 1,
+                ..sqe(READ, r.0, 1)
+            });
+        }
+        write_ts(&m, TS, 10 * hour);
+        ring.push(IoUringSqe {
+            addr: u64::from(TS),
+            len: 1,
+            op_flags: IoringOpFlags::IORING_TIMEOUT_REALTIME.0,
+            ..sqe(
+                if linked {
+                    IoUringOp::IORING_OP_LINK_TIMEOUT
+                } else {
+                    IoUringOp::IORING_OP_TIMEOUT
+                },
+                -1,
+                2,
+            )
+        });
+        assert_eq!(
+            ring.submit(if linked { 2 } else { 1 }),
+            Ok(if linked { 2 } else { 1 })
+        );
+        write_ts(&m, SCRATCH, now + hour);
+        let update = IoUringSqe {
+            addr: 2,
+            off: u64::from(SCRATCH),
+            op_flags: IoringOpFlags::IORING_TIMEOUT_ABS.0
+                | if linked {
+                    IoringOpFlags::IORING_LINK_TIMEOUT_UPDATE.0
+                } else {
+                    IoringOpFlags::IORING_TIMEOUT_UPDATE.0
+                },
+            ..sqe(IoUringOp::IORING_OP_TIMEOUT_REMOVE, -1, 9)
+        };
+        // The update cannot change clocks; it must use the timer's original clock.
+        ring.push(IoUringSqe {
+            op_flags: update.op_flags | IoringOpFlags::IORING_TIMEOUT_REALTIME.0,
+            ..update
+        });
+        assert_eq!(ring.submit(1), Ok(1));
+        assert_eq!(res(&ring.reap()), [(9, -Errno::EINVAL.0)]);
+        ring.push(update);
+        assert_eq!(ring.submit(1), Ok(1));
+        assert_eq!(res(&ring.reap()), [(9, 0)]);
+        set_wall(&m, now + 2 * hour);
+        let mut cqes = ring.reap();
+        cqes.sort_by_key(|cqe| cqe.user_data);
+        let expected = if linked {
+            vec![(1, -Errno::ECANCELED.0), (2, -Errno::ETIME.0)]
+        } else {
+            vec![(2, -Errno::ETIME.0)]
+        };
+        assert_eq!(res(&cqes), expected);
+    }
+}
+
+#[test]
+fn relative_realtime_timeouts_ignore_wall_clock_sets() {
+    for clock in [
+        0,
+        IoringOpFlags::IORING_TIMEOUT_REALTIME.0,
+        IoringOpFlags::IORING_TIMEOUT_BOOTTIME.0,
+    ] {
+        let m = Machine::new();
+        let ring = m.ring(8, 0);
+        write_ts(&m, TS, Duration::from_secs(3600));
+        ring.push(IoUringSqe {
+            addr: u64::from(TS),
+            len: 1,
+            op_flags: clock,
+            ..sqe(IoUringOp::IORING_OP_TIMEOUT, -1, 1)
+        });
+        assert_eq!(ring.submit(1), Ok(1));
+        set_wall(&m, m.kernel.host.realtime() + Duration::from_secs(7200));
+        assert!(ring.reap().is_empty());
+        ring.push(IoUringSqe {
+            addr: 1,
+            ..sqe(IoUringOp::IORING_OP_TIMEOUT_REMOVE, -1, 2)
+        });
+        assert_eq!(ring.submit(1), Ok(1));
+        assert_eq!(res(&ring.reap()), [(1, -Errno::ECANCELED.0), (2, 0)]);
+    }
+}
+
+#[test]
+fn already_past_realtime_timeouts_are_published_before_they_are_armed() {
+    let m = Machine::new();
+    let ring = m.ring(8, 0);
+    write_ts(&m, TS, m.kernel.host.realtime() - Duration::from_secs(1));
+    ring.push(IoUringSqe {
+        addr: u64::from(TS),
+        len: 1,
+        op_flags: IoringOpFlags::IORING_TIMEOUT_ABS.0 | IoringOpFlags::IORING_TIMEOUT_REALTIME.0,
+        ..sqe(IoUringOp::IORING_OP_TIMEOUT, -1, 1)
+    });
+    assert_eq!(ring.submit(1), Ok(1));
+    let caller = m.caller();
+    let wait = m.kernel.io_uring_enter(
+        &caller,
+        ring.fd,
+        0,
+        1,
+        IoringEnterFlags::IORING_ENTER_GETEVENTS.0,
+        GuestPtr::NULL,
+        0,
+    );
+    let timeout = m.kernel.host.sleep(Duration::from_secs(2));
+    assert!(matches!(
+        block_on(futures::future::select(Box::pin(wait), timeout)),
+        futures::future::Either::Left((Ok(0), _))
+    ));
+    assert_eq!(res(&ring.reap()), [(1, -Errno::ETIME.0)]);
+}
