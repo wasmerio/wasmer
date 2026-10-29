@@ -135,6 +135,7 @@ pub(crate) struct Req {
     /// The provided buffer it took (`REQ_F_BUFFER_SELECTED`).
     pbuf: Option<Pbuf>,
     msg_header: Option<wasixv2_abi::UserMsghdr>,
+    timeout_period: Duration,
     msg_len: u32,
     zc_notif: Option<(u64, bool)>,
     queue_noticed: Option<Arc<std::sync::atomic::AtomicBool>>,
@@ -169,6 +170,7 @@ pub(crate) enum Waiting {
     Timeout {
         req: Req,
         _timer: Timer,
+        deadline: Duration,
         target: Option<u64>,
         /// Firings left for a multishot timeout; 0 for an endless one.
         repeats: Option<u32>,
@@ -256,6 +258,7 @@ impl Req {
             connecting: false,
             pbuf: None,
             msg_header: None,
+            timeout_period: Duration::ZERO,
             msg_len: 0,
             zc_notif: None,
             queue_noticed: None,
@@ -534,10 +537,22 @@ fn timeout_fired(ctx: &Ctx, id: u64) -> Option<Duration> {
         if *left > 1 {
             *left -= 1;
         }
-        if !last {
+        if !last
+            && state.overflow.is_empty()
+            && ctx.fill_cqe(
+                &mut state,
+                super::Cqe {
+                    user_data,
+                    res: -Errno::ETIME.0,
+                    flags: IoringCqeFlags::IORING_CQE_F_MORE.0,
+                    extra: [0; 2],
+                },
+            )
+        {
+            // timeout.c:io_timeout_complete: an auxiliary shot cannot overflow.
+            // Hold the state lock through publication to order a racing cancellation.
             drop(state);
-            let more = IoringCqeFlags::IORING_CQE_F_MORE.0;
-            ctx.post(user_data, -Errno::ETIME.0, more, true);
+            ctx.notify(true);
             return Some(ctx.host().monotonic().saturating_add(interval));
         }
     }
@@ -555,7 +570,7 @@ fn timeout_fired(ctx: &Ctx, id: u64) -> Option<Duration> {
 /// A multishot timeout's period: its relative timeout.
 fn timeout_interval(req: &Req) -> Option<Duration> {
     let multishot = req.sqe.op_flags & IoringOpFlags::IORING_TIMEOUT_MULTISHOT.0 != 0;
-    multishot.then(|| Duration::from_nanos(req.sqe.addr3))
+    multishot.then_some(req.timeout_period)
 }
 
 /// `io_link_timeout_fn`: a link timeout fired before the request it guards completed, which is
@@ -602,7 +617,7 @@ impl Kernel {
             // `io_link_timeout_prep`: the timeout is read now; its timer starts once the
             // request it guards waits.
             match self.timeout_prep(caller, &sqe, true).await {
-                Ok(at) => req.sqe.addr3 = at.interval.as_nanos() as u64,
+                Ok(at) => req.timeout_period = at.interval,
                 Err(errno) => init = Err(errno),
             }
         }
@@ -1988,18 +2003,17 @@ impl Kernel {
             (count, false) => Some(ctx.state.lock_or_recover().seq + count),
         };
         let repeats = multishot.then_some(sqe.off as u32);
-        // A multishot timeout's period, kept where the SQE has room.
-        req.sqe.addr3 = at.interval.as_nanos() as u64;
+        req.timeout_period = at.interval;
         let id = req.id;
         let weak = ctx.me.clone();
         let timer = ctx.timers().timer(Box::new(move || {
             weak.upgrade().and_then(|ctx| timeout_fired(&ctx, id))
         }));
-        timer.start(at.deadline);
         let req = std::mem::replace(req, req.taken());
         Ok(Outcome::Wait(Box::new(Waiting::Timeout {
             req,
             _timer: timer,
+            deadline: at.deadline,
             target,
             repeats,
         })))
@@ -2012,7 +2026,12 @@ impl Kernel {
         sqe: &IoUringSqe,
         link: bool,
     ) -> Result<Deadline, Errno> {
-        if sqe.buf_index != 0 || sqe.len != 1 || sqe.splice_fd_in != 0 {
+        if sqe.buf_index != 0
+            || sqe.len != 1
+            || sqe.splice_fd_in != 0
+            || sqe.addr3 != 0
+            || sqe.pad2 != 0
+        {
             return Err(Errno::EINVAL);
         }
         let flags = sqe.op_flags;
@@ -2118,23 +2137,52 @@ impl Kernel {
         if flags & IoringOpFlags::IORING_LINK_TIMEOUT_UPDATE.0 != 0 {
             return Ok(Outcome::of(Err(Errno::ENOENT.into())));
         }
-        let addr = u32::try_from(sqe.off).map_err(|_| Errno::EFAULT)?;
-        let ts: KernelTimespec = read_value(caller.memory(), GuestPtr::new(addr))
-            .await
-            .map_err(|_| Errno::EFAULT)?;
-        let ts = crate::time::from_timespec(ts)?;
+        let allowed = update_mask
+            | IoringOpFlags::IORING_TIMEOUT_ABS.0
+            | IoringOpFlags::IORING_TIMEOUT_IMMEDIATE_ARG.0;
+        if flags & !allowed != 0 || sqe.addr3 != 0 || sqe.pad2 != 0 {
+            return Err(Errno::EINVAL);
+        }
+        let ts = if flags & IoringOpFlags::IORING_TIMEOUT_IMMEDIATE_ARG.0 != 0 {
+            Duration::from_nanos(sqe.off)
+        } else {
+            let addr = u32::try_from(sqe.off).map_err(|_| Errno::EFAULT)?;
+            let ts: KernelTimespec = read_value(caller.memory(), GuestPtr::new(addr))
+                .await
+                .map_err(|_| Errno::EFAULT)?;
+            crate::time::from_timespec(ts)?
+        };
         let abs = flags & IoringOpFlags::IORING_TIMEOUT_ABS.0 != 0;
-        let clock = flags & IoringOpFlags::IORING_TIMEOUT_CLOCK_MASK.0;
-        let at = self.timeout_deadline(caller, ts, abs, clock);
-        let state = ctx.state.lock_or_recover();
-        let timer = state.waiting.values().find_map(|w| match w {
-            Waiting::Timeout { req, _timer, .. } if req.sqe.user_data == target => Some(_timer),
-            _ => None,
-        });
-        let Some(timer) = timer else {
+        let mut state = ctx.state.lock_or_recover();
+        let waiting = state
+            .waiting
+            .values_mut()
+            .find(|w| matches!(w, Waiting::Timeout { req, .. } if req.sqe.user_data == target));
+        let Some(Waiting::Timeout {
+            req,
+            _timer,
+            target,
+            deadline,
+            ..
+        }) = waiting
+        else {
             return Ok(Outcome::of(Err(Errno::ENOENT.into())));
         };
-        timer.start(at.deadline);
+        let multi = req.sqe.op_flags & IoringOpFlags::IORING_TIMEOUT_MULTISHOT.0 != 0;
+        if multi && abs {
+            return Err(Errno::EINVAL);
+        }
+        // timeout.c:io_timeout_update retains the original clock/repeat count,
+        // replaces the period, and removes a single-shot completion-count target.
+        let clock = req.sqe.op_flags & IoringOpFlags::IORING_TIMEOUT_CLOCK_MASK.0;
+        let at = self.timeout_deadline(caller, ts, abs, clock);
+        if multi {
+            req.timeout_period = ts;
+        } else {
+            *target = None;
+        }
+        *deadline = at.deadline;
+        _timer.start(at.deadline);
         Ok(Outcome::of(Ok(0)))
     }
 
@@ -2352,6 +2400,13 @@ fn wait(ctx: &Arc<Ctx>, mut waiting: Waiting) {
     let fired = {
         let mut state = ctx.state.lock_or_recover();
         state.waiting.insert(id, waiting);
+        // timeout.c:io_timeout: publish under timeout_lock before starting the timer.
+        if let Some(Waiting::Timeout {
+            _timer, deadline, ..
+        }) = state.waiting.get(&id)
+        {
+            _timer.start(*deadline);
+        }
         // A count already reached.
         expired_timeouts(&mut state)
     };
@@ -2373,7 +2428,7 @@ fn arm_link_timeout(ctx: &Arc<Ctx>, req: &mut Req) {
         return;
     }
     let sqe = lt.req.sqe;
-    let ts = Duration::from_nanos(sqe.addr3);
+    let ts = lt.req.timeout_period;
     let abs = sqe.op_flags & IoringOpFlags::IORING_TIMEOUT_ABS.0 != 0;
     let deadline = match abs {
         true => ts,
