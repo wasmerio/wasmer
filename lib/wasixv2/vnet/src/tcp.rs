@@ -95,6 +95,13 @@ impl Transport {
         }
     }
 
+    fn tcp_established(&self) -> bool {
+        match self {
+            Self::Local(c, side) => c.tcp_established(*side),
+            Self::Remote(s) => s.tcp_established(),
+        }
+    }
+
     fn read_urgent(&self, peek: bool) -> NetResult<u8> {
         match self {
             Self::Local(c, side) => c.read_urgent(*side, peek),
@@ -317,6 +324,14 @@ impl TcpSocket {
         let mut g = self.inner.lock().unwrap();
         self.refresh(&mut g);
         g
+    }
+
+    /// ipv6_sockglue.c requires TCP_ESTABLISHED for IPV6_ADDRFORM.
+    fn addrform_peer(g: &Inner) -> Option<std::net::IpAddr> {
+        match &g.state {
+            State::Connected(t, peer) if t.tcp_established() => Some(peer.ip()),
+            _ => None,
+        }
     }
 
     fn spec(&self, o: &SockOpts, ip: std::net::IpAddr) -> BindSpec {
@@ -1053,10 +1068,7 @@ impl Socket for TcpSocket {
                 wasixv2_abi::Ipv6Option::IPV6_ADDRFORM.0,
             )
         {
-            let peer = match &g.state {
-                State::Connected(t, peer) if !t.is_done() => Some(peer.ip()),
-                _ => None,
-            };
+            let peer = Self::addrform_peer(&g);
             g.opts.addrform(&self.net, value, peer, false)?;
             if let Some(local) = g.local {
                 self.net
@@ -1134,9 +1146,17 @@ impl Socket for TcpSocket {
             };
             return Ok(opts::write_int(out, err.map_or(0, |e| e.0)));
         }
-        let peer = match &g.state {
-            State::Connected(t, peer) if !t.is_done() => Some(peer.ip()),
-            _ => None,
+        let peer = if (level, name)
+            == (
+                SocketLevel::SOL_IPV6.0,
+                wasixv2_abi::Ipv6Option::IPV6_ADDRFORM.0,
+            ) {
+            Self::addrform_peer(&g)
+        } else {
+            match &g.state {
+                State::Connected(t, peer) if !t.is_done() => Some(peer.ip()),
+                _ => None,
+            }
         };
         if let Some(result) = g.opts.get_mtu(&self.net, peer, level, name, out) {
             return result;

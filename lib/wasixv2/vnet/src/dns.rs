@@ -753,6 +753,11 @@ impl Pollable for DnsStream {
 }
 
 impl BackendStream for DnsStream {
+    fn tcp_established(&self) -> bool {
+        let st = self.0.st.lock_or_recover();
+        !st.refused && !st.fin
+    }
+
     fn state(&self) -> StreamState {
         match self.0.st.lock_or_recover().refused {
             true => StreamState::Closed,
