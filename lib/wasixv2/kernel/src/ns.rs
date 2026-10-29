@@ -681,8 +681,9 @@ impl Kernel {
     /// adjustments: they apply now, unless another of its tasks still shares them
     /// (`sem_undo_list.refcnt`).
     fn exit_sem(&self, process: &Process) {
-        if process.group.single_threaded() {
-            let ipc = process.sysvsem.lock_or_recover().clone();
+        if process.group.single_threaded()
+            && let Some(ipc) = process.sysvsem.lock_or_recover().clone()
+        {
             ipc.sem.exit(process.pid.0, self.ipc_now());
         }
     }
@@ -768,7 +769,7 @@ impl Kernel {
         if let Some(new) = &new_ns
             && flags & CloneFlags::CLONE_NEWIPC.0 != 0
         {
-            *process.sysvsem.lock_or_recover() = new.ipc.clone();
+            *process.sysvsem.lock_or_recover() = Some(new.ipc.clone());
         }
         self.with_task(task, |t| {
             if let Some(fs) = new_fs {
@@ -840,7 +841,7 @@ impl Kernel {
         }
         if flags & CloneFlags::CLONE_NEWIPC.0 != 0 {
             self.exit_sem(&process);
-            *process.sysvsem.lock_or_recover() = set.proxy.ipc.clone();
+            *process.sysvsem.lock_or_recover() = Some(set.proxy.ipc.clone());
         }
         let proxy = Arc::new(set.proxy);
         self.with_task(task, |t| t.ns = proxy);

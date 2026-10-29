@@ -1313,7 +1313,7 @@ impl Kernel {
                 cred: Mutex::new(cred),
                 resources: Mutex::new(parent.resources.lock_or_recover().clone()),
                 pid_ns: ns.pid_for_children.clone(),
-                sysvsem: Mutex::new(ns.ipc.clone()),
+                sysvsem: Mutex::new(Some(ns.ipc.clone())),
             });
             let fs = match own_fs {
                 None => task.fs.clone(),

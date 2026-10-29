@@ -1,9 +1,9 @@
 //! Mount namespaces, the `mount` family of syscalls and `/proc/<pid>/mountinfo`.
 
 use wasixv2_abi::{
-    CloneFlags, FsconfigCommand, FsopenFlags, GuestLayout, ListmountMntId, MntIdReq,
-    MountAttrFlags, MountFlags as MsFlags, MoveMountFlags, OpenTreeFlags, Statmount, StatmountMask,
-    Statx, StatxMask, UmountFlags as UmountBits,
+    CloneFlags, FsconfigCommand, FsopenFlags, GuestLayout, Idtype, ListmountMntId, MntIdReq,
+    MountAttrFlags, MountFlags as MsFlags, MoveMountFlags, OpenTreeFlags, RusagePtr, SiginfoPtr,
+    Signal, Statmount, StatmountMask, Statx, StatxMask, UmountFlags as UmountBits, WaitOptions,
 };
 use wasixv2_syscalls::read_value;
 use wasixv2_vfs::{Cred, Ctx, LookupFlags, MNT_UNIQUE_ID_OFFSET, MountFlags, MountOp, Propagation};
@@ -1285,4 +1285,50 @@ fn an_mqueue_mount_shows_its_ipc_namespaces_queues() {
         Errno::ENOENT,
         "not the new namespace's"
     );
+}
+
+/// mqns_04: a child in a new IPC namespace mounts its queues and exits; once it is gone, the
+/// namespace is too, even while something still holds the process, and the mount the parent
+/// sees shows the queue but makes none (`EACCES`).
+#[test]
+fn an_mqueue_mount_outlives_the_process_whose_namespace_it_shows() {
+    let m = Machine::as_uid(0);
+    m.mkdir("/mnt");
+    let null = GuestPtrMut::NULL;
+    let flags = Signal::SIGCHLD.0 as u32 | CloneFlags::CLONE_NEWIPC.0 as u32;
+    let pid = block_on(m.kernel.clone(&m.caller(), flags, 0, null, 0, null)).unwrap();
+    let Some(GuestAction::Fork { child, .. }) = m.kernel.take_pending(m.task) else {
+        panic!("no child");
+    };
+    let held = m.kernel.procs.find(child.0);
+    let memory = ForkableMemory(FlatMemory(RefCell::new(vec![0; 65536])));
+    let caller = Caller::new(child, &memory);
+    let q = mq_open(&m, &caller, "MQ1", OpenFlags::O_CREAT).unwrap();
+    assert_eq!(block_on(m.kernel.close(&caller, Fd(q))), Ok(0));
+    put(&memory.0, 0x1100, b"mqueue\0");
+    put(&memory.0, 0x1200, b"/mnt\0");
+    let mount = m.kernel.mount(
+        &caller,
+        GuestPtr::new(0x1100),
+        GuestPtr::new(0x1200),
+        GuestPtr::new(0x1100),
+        MsFlags(0),
+        GuestPtr::NULL,
+    );
+    assert_eq!(block_on(mount), Ok(0));
+    assert!(m.exists("/mnt/MQ1"));
+    assert_eq!(block_on(m.kernel.exit_group(&caller, 0)), Ok(()));
+    block_on(m.kernel.exit_mm(&caller));
+    m.kernel.release(child);
+    let options = WaitOptions(WaitOptions::WEXITED.0);
+    let info = SiginfoPtr::new(0x300);
+    let parent = m.caller();
+    let wait = m
+        .kernel
+        .waitid(&parent, Idtype::P_PID, pid, info, options, RusagePtr::NULL);
+    assert_eq!(block_on(wait), Ok(0));
+
+    assert!(held.is_some());
+    assert!(m.exists("/mnt/MQ1"));
+    assert_eq!(errno(m.create("/mnt/MQ2")), Errno::EACCES);
 }
