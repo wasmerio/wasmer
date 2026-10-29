@@ -3138,3 +3138,46 @@ fn raw_ipv6_sockets_compute_the_checksum_ipv6_checksum_asks_for() {
     );
     assert_eq!(r.set_option(58, 1, &[0; 32]), Err(Errno::EOPNOTSUPP));
 }
+
+/// Sticky IPv6 extension headers (`ipv6_set_opt_hdr`): LTP's segment routing header of 640
+/// bytes is taken and read back; a routing header of another type, a length that is not
+/// whole 8-byte units, or one shorter than the header says are `EINVAL`; empty removes it.
+#[test]
+fn ipv6_sticky_routing_headers_are_checked_and_kept() {
+    let n = net();
+    let s = n
+        .socket(Domain::Inet6, SocketKind::Datagram, 0, UID)
+        .unwrap();
+    let rthdr = 57;
+    let size = 640;
+    let segments = (size - 8) / 16;
+    let mut srh = vec![0u8; size];
+    srh[1] = ((size - 8) / 8) as u8;
+    srh[2] = 4;
+    srh[3] = (segments - 1) as u8;
+    srh[4] = srh[3];
+    for i in 0..segments {
+        srh[8 + 16 * i..24 + 16 * i].copy_from_slice(&std::net::Ipv6Addr::LOCALHOST.octets());
+    }
+    let padding = size - 8 - 16 * segments;
+    if padding > 0 {
+        srh[9 + 16 * segments] = (padding - 2) as u8;
+    }
+    s.set_option(41, rthdr, &srh).unwrap();
+    let mut out = vec![0; 1024];
+    assert_eq!(s.get_option(41, rthdr, &mut out), Ok(size));
+    assert_eq!(&out[..size], &srh[..]);
+    let mut type0 = srh.clone();
+    type0[2] = 0;
+    assert_eq!(s.set_option(41, rthdr, &type0), Err(Errno::EINVAL));
+    assert_eq!(s.set_option(41, rthdr, &srh[..12]), Err(Errno::EINVAL));
+    assert_eq!(s.set_option(41, rthdr, &srh[..16]), Err(Errno::EINVAL));
+    s.set_option(41, rthdr, &[]).unwrap();
+    assert_eq!(s.get_option(41, rthdr, &mut out), Ok(0));
+    // A destination options header is not checked further.
+    s.set_option(41, 59, &[17, 0, 1, 4, 0, 0, 0, 0]).unwrap();
+    let v4 = n
+        .socket(Domain::Inet, SocketKind::Datagram, 0, UID)
+        .unwrap();
+    assert_eq!(v4.set_option(41, rthdr, &srh), Err(Errno::ENOPROTOOPT));
+}

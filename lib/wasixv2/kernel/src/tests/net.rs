@@ -1849,6 +1849,31 @@ fn packet_sockets_keep_their_filter() {
     };
     assert_eq!(detach(), Ok(0));
     assert_eq!(errno(detach()), Errno::ENOENT);
+    // PACKET_VERSION: the formats with rings of their own are refused, as unsupported.
+    let version = |v: i32| {
+        put(&memory, 0x500, &v.to_le_bytes());
+        block_on(kernel.setsockopt(
+            &caller,
+            fd,
+            SocketLevel::SOL_PACKET,
+            10,
+            UserSlice::new(0x500, 4),
+        ))
+    };
+    assert_eq!(errno(version(2)), Errno::EINVAL);
+    assert_eq!(errno(version(1)), Errno::EINVAL);
+    assert_eq!(version(0), Ok(0));
+    put(&memory, 0x5f0, &4u32.to_le_bytes());
+    let got = block_on(kernel.getsockopt(
+        &caller,
+        fd,
+        SocketLevel::SOL_PACKET,
+        10,
+        GuestPtrMut::new(0x600),
+        GuestPtrMut::new(0x5f0),
+    ));
+    assert_eq!(got, Ok(0));
+    assert_eq!(get(&memory, 0x600, 4), 0i32.to_le_bytes());
 }
 
 /// `getsockopt(IP_MSFILTER)` reads its request (the group and interface, how many sources to
