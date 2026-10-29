@@ -224,6 +224,28 @@ fn a_stopped_task_shows_as_stopped() {
     assert!(t.read_all(fd).contains("State:\tS (sleeping)\n"));
 }
 
+/// `task_seccomp`: status shows the task's `no_new_privs`, seccomp mode and filter count.
+#[test]
+fn status_shows_no_new_privs_and_seccomp() {
+    let (kernel, task, _) = machine();
+    let memory = memory();
+    let t = T::new(&kernel, task, &memory);
+    let caller = Caller::new(task, &memory);
+    let fd = t.open("/proc/self/status", OpenFlags::O_RDONLY).unwrap();
+    assert!(
+        t.read_all(fd)
+            .contains("NoNewPrivs:\t0\nSeccomp:\t0\nSeccomp_filters:\t0\n")
+    );
+    let prctl = |option, arg2| block_on(kernel.prctl(&caller, option, arg2, 0, 0, 0));
+    assert_eq!(prctl(PrctlOption::PR_SET_NO_NEW_PRIVS, 1), Ok(0));
+    assert_eq!(prctl(PrctlOption::PR_SET_SECCOMP, 1), Ok(0));
+    let fd = t.open("/proc/self/status", OpenFlags::O_RDONLY).unwrap();
+    assert!(
+        t.read_all(fd)
+            .contains("NoNewPrivs:\t1\nSeccomp:\t1\nSeccomp_filters:\t0\n")
+    );
+}
+
 #[test]
 fn fd_links_name_files_and_pseudo_inodes() {
     let (kernel, task, _) = machine();

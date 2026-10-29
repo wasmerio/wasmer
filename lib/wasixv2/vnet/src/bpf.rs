@@ -3,6 +3,9 @@
 //! (`sk_filter_trim_cap`): 0 drops the packet, a smaller length cuts it short. There is no
 //! eBPF (`SO_ATTACH_BPF`).
 //!
+//! The same programs filter syscalls (`kernel/seccomp.c`): [`Program::seccomp`] checks one as
+//! `seccomp_check_filter` does, and it runs over the [`Input`] that is a `seccomp_data`.
+//!
 //! There are still no packets: a socket builds what its `sk_buff` would hold ([`Packet`]),
 //! the IP header and transport header in front of the data, and a link-layer header made up
 //! from the receiving interface (its address as the destination, a group's for multicast, no
@@ -224,6 +227,41 @@ impl Program {
         Ok(Self { insns })
     }
 
+    /// [`Program::new`] for a seccomp filter over a `seccomp_data` of `data_len` bytes, with
+    /// `seccomp_check_filter`'s further checks: the only loads from the data are aligned words
+    /// inside it (no ancillary or packet-relative loads), a length load reads `data_len`, and
+    /// `BPF_MOD`, `BPF_IND` and `BPF_MSH` are refused, all with `EINVAL`.
+    pub fn seccomp(raw: &[u8], data_len: u32) -> NetResult<Self> {
+        let program = Self::new(raw)?;
+        for i in &program.insns {
+            let ok = match i.code {
+                c if c == LD | W | ABS => i.k < data_len && i.k & 3 == 0,
+                c if c == LD | W | LEN || c == LDX | W | LEN => true,
+                c if c & 0x07 == ALU => c & 0xf0 != MOD,
+                c => {
+                    [
+                        RET | K,
+                        RET | RVAL_A,
+                        LD | IMM,
+                        LDX | IMM,
+                        MISC | TAX,
+                        MISC | TXA,
+                        LD | MEM,
+                        LDX | MEM,
+                        ST,
+                        STX,
+                    ]
+                    .contains(&c)
+                        || c & 0x07 == JMP
+                }
+            };
+            if !ok {
+                return Err(Errno::EINVAL);
+            }
+        }
+        Ok(program)
+    }
+
     /// The program as attached, `struct sock_filter` after `struct sock_filter`.
     pub fn raw(&self) -> Vec<u8> {
         self.insns
@@ -248,7 +286,7 @@ impl Program {
     /// Runs the program over `p` as the eBPF it converts to does (`bpf_convert_filter`): A
     /// and X start at 0, a load out of the packet ends the program with 0, as does a
     /// division by an X of 0; an ancillary load of the device without one ends it with A.
-    pub fn run(&self, p: &Packet<'_>) -> u32 {
+    pub fn run<I: Input + ?Sized>(&self, p: &I) -> u32 {
         let (mut a, mut x) = (0u32, 0u32);
         let mut mem = [0u32; MEMWORDS as usize];
         let mut pc = 0;
@@ -270,7 +308,7 @@ impl Program {
                     let v = match mode {
                         IMM => i.k,
                         MEM => mem[i.k as usize],
-                        LEN => p.len() as u32,
+                        LEN => p.data_len() as u32,
                         ABS if ancillary(i.k) => match p.ancillary(i.k as i32 - SKF_AD_OFF, a, x) {
                             Some(v) => v,
                             None => return a,
@@ -368,6 +406,33 @@ fn check_load_and_stores(insns: &[Insn]) -> NetResult<()> {
         }
     }
     Ok(())
+}
+
+/// What a program runs over: a packet, or a `seccomp_data`.
+pub trait Input {
+    /// `skb->len`: what `BPF_LEN` loads.
+    fn data_len(&self) -> usize;
+
+    /// The `size`-byte value at `k` (`BPF_ABS`, `BPF_IND`, `BPF_MSH`), `None` outside.
+    fn load(&self, k: i32, size: usize) -> Option<u32>;
+
+    /// The ancillary load `which` (an offset from `SKF_AD_OFF`) with A and X as they are;
+    /// `None` ends the program with A.
+    fn ancillary(&self, which: i32, a: u32, x: u32) -> Option<u32>;
+}
+
+impl Input for Packet<'_> {
+    fn data_len(&self) -> usize {
+        Packet::len(self)
+    }
+
+    fn load(&self, k: i32, size: usize) -> Option<u32> {
+        Packet::load(self, k, size)
+    }
+
+    fn ancillary(&self, which: i32, a: u32, x: u32) -> Option<u32> {
+        Packet::ancillary(self, which, a, x)
+    }
 }
 
 /// The device a packet arrived on, as the ancillary loads read it.

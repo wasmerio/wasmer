@@ -207,7 +207,6 @@ pub(crate) struct Ident {
     pub(crate) sid: u32,
     pub(crate) dumpable: bool,
     pdeathsig: u32,
-    pub(crate) no_new_privs: bool,
     child_subreaper: bool,
     pub(crate) personality: u32,
     /// Whether the current image was started privilege-elevating (`AT_SECURE`).
@@ -225,7 +224,6 @@ impl Ident {
             sid: pid,
             dumpable: true,
             pdeathsig: 0,
-            no_new_privs: false,
             child_subreaper: false,
             personality: 0,
             secure_exec: false,
@@ -665,13 +663,13 @@ impl Kernel {
                 if arg2 != 1 || arg3 | arg4 | arg5 != 0 {
                     return Err(Errno::EINVAL.into());
                 }
-                process.ident.lock_or_recover().no_new_privs = true;
+                self.set_no_new_privs(caller);
             }
             PrctlOption::PR_GET_NO_NEW_PRIVS => {
                 if arg2 | arg3 | arg4 | arg5 != 0 {
                     return Err(Errno::EINVAL.into());
                 }
-                return Ok(process.ident.lock_or_recover().no_new_privs as i32);
+                return Ok(self.no_new_privs(caller) as i32);
             }
             PrctlOption::PR_SET_TIMERSLACK => {
                 self.with_task(caller.task(), |t| t.sched.set_timer_slack(arg2.into()));
@@ -730,9 +728,11 @@ impl Kernel {
                 });
             }
             PR_CAP_AMBIENT => return ambient(&process, arg2, arg3, arg4 | arg5),
-            PrctlOption::PR_GET_TIMING
-            | PrctlOption::PR_GET_THP_DISABLE
-            | PrctlOption::PR_GET_SECCOMP => return Ok(0),
+            PrctlOption::PR_GET_SECCOMP => return Ok(self.prctl_get_seccomp(caller)),
+            PrctlOption::PR_SET_SECCOMP => {
+                return self.prctl_set_seccomp(caller, arg2, arg3).await;
+            }
+            PrctlOption::PR_GET_TIMING | PrctlOption::PR_GET_THP_DISABLE => return Ok(0),
             // `prctl_set_mm` needs CAP_SYS_RESOURCE over the initial user namespace, and even
             // then the wasm memory layout has nothing it could change.
             PrctlOption::PR_SET_MM => {

@@ -8,6 +8,7 @@ mod chrdev;
 mod cputime;
 mod cred;
 mod devinet;
+mod entry;
 mod epoll;
 mod eventfd;
 mod fasync;
@@ -34,6 +35,7 @@ mod reboot;
 mod resource;
 mod restart;
 mod sched;
+mod seccomp;
 mod signal;
 mod signalfd;
 mod socket;
@@ -60,6 +62,7 @@ use std::{
 };
 
 pub use cred::Credentials;
+pub use entry::{Dispatch, SyscallEntry};
 pub use file::{FileObject, Io, SeekBase};
 pub use fs::{
     HostClock,
@@ -175,6 +178,9 @@ pub struct Kernel {
     sigqueue_users: Arc<signal::SigqueueUsers>,
     /// Sends the I/O signals of files with `O_ASYNC` to their owners.
     sigio: Arc<fasync::Sigio>,
+    /// A task entered seccomp once: from then on, every syscall entry looks at its task's
+    /// mode (`TIF_SECCOMP` for everyone, until the first).
+    seccomp_used: std::sync::atomic::AtomicBool,
     // ---- base ----
     /// What [`Kernel::spawn`]ed processes run as.
     credentials: Credentials,
@@ -273,6 +279,8 @@ struct Task {
     comm: ident::Comm,
     /// Policy, priorities, affinity and timer slack: all per thread, as on Linux.
     sched: sched::Sched,
+    /// Seccomp mode and filters, and `no_new_privs`.
+    seccomp: seccomp::Seccomp,
     // ---- thr ----
     thread: thread::ThreadState,
     // ---- sig ----
@@ -343,6 +351,7 @@ impl Kernel {
             binfmt: Arc::new(process::WasmMagic),
             epoll_nesting: Mutex::default(),
             sigqueue_users: Arc::default(),
+            seccomp_used: Default::default(),
             credentials: Credentials::default(),
             init: None,
             reboot: Default::default(),
@@ -498,6 +507,7 @@ impl Kernel {
         let task = Task {
             comm,
             sched: sched::Sched::default(),
+            seccomp: seccomp::Seccomp::default(),
             process,
             mm: Arc::default(),
             files: Arc::new(Mutex::new(files)),
@@ -1942,6 +1952,17 @@ impl Syscalls for Kernel {
     ) -> SysResult<i32> {
         self.sys_prctl(caller, option, a2, a3, a4, a5).await
     }
+
+    async fn seccomp(
+        &self,
+        caller: &Caller<'_>,
+        op: u32,
+        flags: u32,
+        uargs: VoidPtr,
+    ) -> SysResult<i32> {
+        self.sys_seccomp(caller, op, flags, uargs).await
+    }
+
     async fn prlimit64(
         &self,
         caller: &Caller<'_>,

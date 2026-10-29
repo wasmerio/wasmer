@@ -1335,6 +1335,28 @@ impl TaskSignals {
         f(state.task(self.task))
     }
 
+    /// `force_sig_info_to_task` with `HANDLER_CURRENT`: a synchronous signal for the task that
+    /// it cannot block or ignore. Blocked or ignored, it goes back to its default action and
+    /// is unblocked; with the default action, a namespace's init is killable by it.
+    pub(crate) fn force(&self, info: Siginfo) {
+        let sig = info.si_signo;
+        {
+            let mut state = self.group.state.lock_or_recover();
+            let action = state.sighand.get(sig);
+            let blocked = state.task(self.task).blocked & bit(sig) != 0;
+            if blocked || action.is_ignore() {
+                let handler = SignalHandler::SIG_DFL.0 as u32;
+                state.sighand.set(sig, Action { handler, ..action });
+                state.task(self.task).blocked &= !bit(sig);
+            }
+            if state.sighand.get(sig).is_default() {
+                state.unkillable = false;
+            }
+        }
+        // The task's own signal: no queue limit stops it.
+        let _ = self.group.send(Some(self.task), info);
+    }
+
     /// `sigprocmask`'s `set_current_blocked`: SIGKILL and SIGSTOP are never blocked. Returns the
     /// previous mask. A signal it unblocks is delivered on the way back to the guest
     /// (`recalc_sigpending`).

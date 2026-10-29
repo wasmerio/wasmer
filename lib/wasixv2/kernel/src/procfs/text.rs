@@ -1158,6 +1158,7 @@ fn status(source: &Source, scope: Scope, info: &super::ProcessInfo, reader: &Use
         .iter()
         .map(|&gid| format!("{} ", reader.munged_gid(gid)))
         .collect();
+    let seccomp = task.as_ref().map_or((false, 0, 0), |task| task.seccomp);
     let cpus = cpus();
     let mut out = String::new();
     let _ = write!(
@@ -1169,7 +1170,7 @@ fn status(source: &Source, scope: Scope, info: &super::ProcessInfo, reader: &Use
          RssAnon:\t{kb:8} kB\nRssFile:\t       0 kB\nRssShmem:\t       0 kB\nVmData:\t{kb:8} kB\nVmStk:\t       0 kB\nVmExe:\t       0 kB\nVmLib:\t       0 kB\nVmPTE:\t       0 kB\nVmSwap:\t       0 kB\n\
          Threads:\t{threads}\nSigQ:\t0/4096\nSigPnd:\t{:016x}\nShdPnd:\t{:016x}\nSigBlk:\t{:016x}\nSigIgn:\t{:016x}\nSigCgt:\t{:016x}\n\
          CapInh:\t{:016x}\nCapPrm:\t{:016x}\nCapEff:\t{:016x}\nCapBnd:\t{:016x}\nCapAmb:\t{:016x}\n\
-         NoNewPrivs:\t{}\nSeccomp:\t0\nCpus_allowed:\t{}\nCpus_allowed_list:\t{}\n\
+         NoNewPrivs:\t{}\nSeccomp:\t{}\nSeccomp_filters:\t{}\nCpus_allowed:\t{}\nCpus_allowed_list:\t{}\n\
          voluntary_ctxt_switches:\t0\nnonvoluntary_ctxt_switches:\t0\n",
         String::from_utf8_lossy(&comm),
         source.nr(scope.pid),
@@ -1196,7 +1197,9 @@ fn status(source: &Source, scope: Scope, info: &super::ProcessInfo, reader: &Use
         cred.effective,
         cred.bounding,
         cred.ambient,
-        u8::from(ident.no_new_privs),
+        u8::from(seccomp.0),
+        seccomp.1,
+        seccomp.2,
         cpu_mask(&affinity, cpus),
         cpu_list(&affinity),
     );
