@@ -39,6 +39,7 @@
 mod shared;
 
 use std::{
+    collections::BTreeMap,
     io,
     ops::{Deref, DerefMut, Range},
     sync::{
@@ -227,13 +228,27 @@ impl DerefMut for Space<'_> {
     }
 }
 
+#[cfg(test)]
+use std::cell::Cell;
+
 impl Drop for Space<'_> {
     fn drop(&mut self) {
+        // Only the pages that changed are looked at again.
+        if let Some(pages) = self.space.dirty.take() {
+            let ranges = self.space.restricted_pages(pages.start, pages.end);
+            let (start, end) = (pages.start * PAGE_SIZE, pages.end * PAGE_SIZE);
+            self.access.update(start, end, ranges);
+        }
+        // Every change keeps the count of areas, the free runs and what copies may do as
+        // looking at every page would find them.
+        #[cfg(test)]
         if self.changed {
-            self.access.set(self.space.restricted());
-            // Every change keeps the count of areas as counting them would find it.
-            #[cfg(test)]
+            let looked = (tests::KEYS.with(Cell::get), tests::PAGES.with(Cell::get));
             assert_eq!(self.space.map_count, self.space.areas().len());
+            assert_eq!(self.access.ranges(), self.space.restricted());
+            assert_eq!(self.space.free, self.space.free_runs());
+            tests::KEYS.with(|keys| keys.set(looked.0));
+            tests::PAGES.with(|pages| pages.set(looked.1));
         }
     }
 }
@@ -245,10 +260,11 @@ impl Default for Mm {
 }
 
 impl Mm {
-    fn with_space(space: AddressSpace) -> Self {
+    fn with_space(mut space: AddressSpace) -> Self {
         static NEXT_ID: AtomicU64 = AtomicU64::new(1);
         let access = PageAccess::default();
         access.set(space.restricted());
+        space.dirty = None;
         Self {
             id: NEXT_ID.fetch_add(1, Ordering::Relaxed),
             op: Default::default(),
@@ -412,6 +428,11 @@ pub(crate) struct AddressSpace {
     /// `mm->map_count`: how many areas [`AddressSpace::areas`] has, kept up to date by every
     /// change of what they are made of ([`AddressSpace::recount`]) rather than counted.
     map_count: usize,
+    /// The runs of pages from `base` that are not mapped, by first and end index into
+    /// `mapped`, apart and never touching: the gaps `vm_unmapped_area` searches.
+    free: BTreeMap<usize, usize>,
+    /// The pages changed since the [`PageAccess`] was last brought up to date.
+    dirty: Option<Range<u64>>,
 }
 
 /// `setup_arg_pages`' `stack_expand`: how far below its top a new program's stack area reaches.
@@ -523,6 +544,8 @@ impl AddressSpace {
             no_access: self.no_access.clone(),
             read_only: self.read_only.clone(),
             map_count: 0,
+            free: self.free.clone(),
+            dirty: None,
         };
         // Without the locks, areas that differed only in them are one again.
         child.recount_all();
@@ -546,12 +569,20 @@ impl AddressSpace {
     /// missing. Pages nobody handed out, which the guest grew itself, and the image's are
     /// readable and writable unless `mprotect` said otherwise.
     fn restricted(&self) -> Vec<Restricted> {
+        self.restricted_pages(0, u64::MAX)
+    }
+
+    /// [`AddressSpace::restricted`] for the pages `[first, end)`.
+    fn restricted_pages(&self, first: u64, end: u64) -> Vec<Restricted> {
         let tracked = self.base.map_or(0, |base| base + self.mapped.len() as u64);
         let end = tracked
             .max(self.no_access.0.len() as u64)
-            .max(self.read_only.0.len() as u64);
+            .max(self.read_only.0.len() as u64)
+            .min(end);
         let mut out: Vec<Restricted> = Vec::new();
-        for page in 0..end {
+        for page in first..end {
+            #[cfg(test)]
+            tests::PAGES.with(|pages| pages.set(pages.get() + 1));
             let mapped = match self.base {
                 Some(base) if page >= base => self
                     .mapped
@@ -588,7 +619,7 @@ impl AddressSpace {
             let base = self.base.expect("pages are tracked only after a growth");
             let first = base + index as u64;
             self.recount(first, first + pages, |space| {
-                space.mapped[index..][..pages as usize].fill(true);
+                space.set_mapped(index, index + pages as usize, true);
             });
             return Ok(Placement::Reuse(first * PAGE_SIZE));
         }
@@ -623,7 +654,48 @@ impl AddressSpace {
         if self.mapped.len() < end {
             self.mapped.resize(end, true);
         }
-        self.mapped[index..end].fill(true);
+        self.set_mapped(index, end, true);
+    }
+
+    /// Marks the allocator's pages `[from, to)`, as indices into `mapped`, mapped or free, and
+    /// the free runs with them.
+    fn set_mapped(&mut self, from: usize, to: usize, mapped: bool) {
+        if from >= to {
+            return;
+        }
+        self.mapped[from..to].fill(mapped);
+        // The runs that overlap `[from, to)` lose that part.
+        let overlapping: Vec<(usize, usize)> = self
+            .free
+            .range(..to)
+            .rev()
+            .take_while(|&(_, &end)| end > from)
+            .map(|(&start, &end)| (start, end))
+            .collect();
+        for (start, end) in overlapping {
+            self.free.remove(&start);
+            if start < from {
+                self.free.insert(start, from);
+            }
+            if end > to {
+                self.free.insert(to, end);
+            }
+        }
+        if mapped {
+            return;
+        }
+        // A new run joins the ones it touches.
+        let mut run = from..to;
+        if let Some((&start, &end)) = self.free.range(..from).next_back()
+            && end == from
+        {
+            self.free.remove(&start);
+            run.start = start;
+        }
+        if let Some(end) = self.free.remove(&to) {
+            run.end = end;
+        }
+        self.free.insert(run.start, run.end);
     }
 
     /// Unmaps the pages of `[addr, addr + len)` that the allocator handed out. Whatever comes
@@ -735,8 +807,9 @@ impl AddressSpace {
     fn mark_pages(&mut self, first: u64, end: u64, mapped: bool) {
         let Some(base) = self.base else { return };
         let end = end.min(base + self.mapped.len() as u64);
-        for page in first.max(base)..end {
-            self.mapped[(page - base) as usize] = mapped;
+        let first = first.max(base);
+        if first < end {
+            self.set_mapped((first - base) as usize, (end - base) as usize, mapped);
         }
     }
 
@@ -871,6 +944,10 @@ impl AddressSpace {
     fn recount<R>(&mut self, first: u64, end: u64, change: impl FnOnce(&mut Self) -> R) -> R {
         let before = self.area_starts(first, end);
         let out = change(self);
+        self.dirty = Some(match self.dirty.take() {
+            Some(dirty) => dirty.start.min(first)..dirty.end.max(end),
+            None => first..end,
+        });
         self.map_count = self.map_count.saturating_sub(before) + self.area_starts(first, end);
         out
     }
@@ -888,14 +965,11 @@ impl AddressSpace {
         let image_end = self.base.unwrap_or(mem_pages).min(mem_pages);
         let mut starts = usize::from(first == 0 && image_end > 0);
         let first = first.max(image_end);
-        let key = |page: u64| {
-            let mapping = self.mappings.span_at(page * PAGE_SIZE);
-            self.page_mapped(page, mem_pages)
-                .then(|| self.area_key(page, mapping))
-        };
-        let mut before = (first > image_end).then(|| key(first - 1)).flatten();
+        let mut before = (first > image_end)
+            .then(|| self.page_area_key(first - 1))
+            .flatten();
         for page in first..end.saturating_add(1).min(mem_pages) {
-            let here = key(page);
+            let here = self.page_area_key(page);
             if here.is_some() && here != before {
                 starts += 1;
             }
@@ -970,27 +1044,40 @@ impl AddressSpace {
 
     /// How many areas a change of the pages `[first, end)` splits off (`split_vma`), each of the
     /// one or two areas it starts or ends inside that `changes` says it changes. An area that
-    /// starts before `first` and ends after `end` splits twice.
+    /// starts before `first` and ends after `end` splits twice. Only the areas at the two
+    /// edges can split, so only the pages beside them are looked at.
     fn splits(&self, first: u64, end: u64, changes: impl Fn(&AreaKey) -> bool) -> usize {
-        let (from, to) = (first * PAGE_SIZE, end * PAGE_SIZE);
-        let mut splits = 0;
-        for (region, key) in self.areas() {
-            let Some(key) = key else { continue };
-            if region.end <= from || region.start >= to || !changes(&key) {
-                continue;
-            }
-            splits += usize::from(region.start < from) + usize::from(region.end > to);
-        }
-        splits
+        // The area of page `inside` goes on to page `outside`, and the change changes it.
+        let splits_at = |inside: u64, outside: u64| {
+            self.page_area_key(inside)
+                .is_some_and(|key| self.page_area_key(outside) == Some(key) && changes(&key))
+        };
+        let before = first
+            .checked_sub(1)
+            .is_some_and(|left| splits_at(first, left));
+        let after = end.checked_sub(1).is_some_and(|last| splits_at(last, end));
+        usize::from(before) + usize::from(after)
     }
 
     /// Whether the pages `[first, end)` lie inside one area above the image that goes on past
     /// them on both sides.
     fn inside_one_area(&self, first: u64, end: u64) -> bool {
-        let (from, to) = (first * PAGE_SIZE, end * PAGE_SIZE);
-        self.areas()
-            .into_iter()
-            .any(|(region, key)| key.is_some() && region.start < from && region.end > to)
+        let Some(left) = first.checked_sub(1) else {
+            return false;
+        };
+        let Some(key) = self.page_area_key(left) else {
+            return false;
+        };
+        (first..=end).all(|page| self.page_area_key(page) == Some(key))
+    }
+
+    /// The key of the area `page` lies in, if it is in use above the image.
+    fn page_area_key(&self, page: u64) -> Option<AreaKey> {
+        let mem_pages = self.seen.div_ceil(PAGE_SIZE);
+        let image_end = self.base.unwrap_or(mem_pages).min(mem_pages);
+        let mapping = self.mappings.span_at(page * PAGE_SIZE);
+        (page >= image_end && self.page_mapped(page, mem_pages))
+            .then(|| self.area_key(page, mapping))
     }
 
     /// The `max_map_count` check of each split [`AddressSpace::splits`] counts: `ENOMEM` unless
@@ -1003,16 +1090,37 @@ impl AddressSpace {
         }
     }
 
+    /// The lowest free run of at least `pages` pages, as an index into `mapped`: the bottom-up
+    /// gap search of `vm_unmapped_area` (mm/vma.c, `unmapped_area`), over the gaps rather
+    /// than every page.
     fn free_run(&self, pages: u64) -> Option<usize> {
         let pages = usize::try_from(pages).ok()?;
-        let mut run = 0;
+        self.free.iter().find_map(|(&start, &end)| {
+            #[cfg(test)]
+            tests::PAGES.with(|looked| looked.set(looked.get() + 1));
+            (end - start >= pages).then_some(start)
+        })
+    }
+
+    /// The free runs, found by looking at every page, which [`AddressSpace::free`] keeps.
+    #[cfg(test)]
+    fn free_runs(&self) -> BTreeMap<usize, usize> {
+        let mut runs = BTreeMap::new();
+        let mut start = None;
         for (index, &mapped) in self.mapped.iter().enumerate() {
-            run = if mapped { 0 } else { run + 1 };
-            if run == pages {
-                return Some(index + 1 - pages);
+            match (mapped, start) {
+                (false, None) => start = Some(index),
+                (true, Some(from)) => {
+                    runs.insert(from, index);
+                    start = None;
+                }
+                _ => {}
             }
         }
-        None
+        if let Some(from) = start {
+            runs.insert(from, self.mapped.len());
+        }
+        runs
     }
 }
 
@@ -2289,13 +2397,13 @@ fn check_file_mapping(
 
 #[cfg(test)]
 mod tests {
-    use std::cell::Cell;
-
     use super::*;
 
     thread_local! {
         /// How many pages' [`AreaKey`]s this thread worked out.
         pub(super) static KEYS: Cell<usize> = const { Cell::new(0) };
+        /// How many pages, or free runs, a look at the page access or for free pages took.
+        pub(super) static PAGES: Cell<usize> = const { Cell::new(0) };
     }
 
     /// `mm->map_count` is kept, not counted: a change of one page looks at the pages around it
@@ -2322,6 +2430,65 @@ mod tests {
         );
         assert_eq!(count, 10_001);
         assert_eq!(count, space.areas().len());
+    }
+
+    /// 20 000 pages handed out, every other one free again after the first 10 000, and a
+    /// count of the pages and keys looked at from now on.
+    fn holey() -> Mm {
+        let mut space = AddressSpace::default();
+        space.grown(PAGE_SIZE, 20_000);
+        space.set_seen(20_001 * PAGE_SIZE);
+        for page in (10_001..20_001).step_by(2) {
+            space.unmap(page * PAGE_SIZE, PAGE_SIZE);
+        }
+        let mm = Mm::with_space(space);
+        KEYS.with(|keys| keys.set(0));
+        PAGES.with(|pages| pages.set(0));
+        mm
+    }
+
+    /// A placement takes the lowest free run that fits, found among the runs rather than
+    /// the pages (`vm_unmapped_area`).
+    #[test]
+    fn a_placement_searches_the_free_runs() {
+        let mm = holey();
+        let mut space = mm.space();
+        let Ok(Placement::Reuse(at)) = space.place(1) else {
+            panic!("a free page is there");
+        };
+        assert_eq!(at, 10_001 * PAGE_SIZE);
+        assert!(matches!(space.place(2), Ok(Placement::Grow(2))));
+        drop(space);
+        let looked = PAGES.with(Cell::get);
+        assert!(looked < 10_000, "a scan: {looked} pages");
+    }
+
+    /// A change brings the page access up to date for its own pages only.
+    #[test]
+    fn a_change_updates_the_page_access_of_its_pages() {
+        let mm = holey();
+        mm.space().set_prot(5, 6, ProtFlags::PROT_READ);
+        let looked = PAGES.with(Cell::get);
+        assert!(looked < 16, "a scan: {looked} pages");
+        let readable = Restricted {
+            range: 5 * PAGE_SIZE..6 * PAGE_SIZE,
+            readable: true,
+        };
+        assert_eq!(mm.access().ranges()[0], readable);
+    }
+
+    /// Whether an `mprotect` splits areas, or lies inside one, is a question about its edges.
+    #[test]
+    fn splits_look_at_the_edges_only() {
+        let mm = holey();
+        let space = mm.space();
+        let read_only = |key: &AreaKey| key.write;
+        assert_eq!(space.splits(5, 6, read_only), 2);
+        assert_eq!(space.splits(1, 6, read_only), 1);
+        assert!(space.inside_one_area(5, 6));
+        assert!(!space.inside_one_area(10_001, 10_002));
+        let looked = KEYS.with(Cell::get);
+        assert!(looked < 32, "a scan: {looked} keys");
     }
 
     #[test]
