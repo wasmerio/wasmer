@@ -60,6 +60,8 @@ const DIRS: &[(usize, &str)] = &[
     (1, "virtual"),
     // 6
     (5, "net"),
+    // `/sys/kernel/security`, where securityfs is mounted.
+    (2, "security"),
 ];
 const CLASS_NET: usize = 4;
 const VIRTUAL_NET: usize = 6;

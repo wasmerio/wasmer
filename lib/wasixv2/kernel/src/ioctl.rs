@@ -174,6 +174,10 @@ impl Kernel {
                 Some(_) if let Some(pidfd) = file.downcast::<crate::process::PidFd>() => {
                     self.pidfd_ioctl(caller, pidfd, request, arg).await
                 }
+                Some(_) if let Some(listener) = file.downcast::<crate::seccomp::Listener>() => {
+                    self.seccomp_notify_ioctl(caller, listener, request, arg)
+                        .await
+                }
                 Some(object) => object.ioctl(caller, request, arg).await,
                 None => Err(Errno::ENOTTY.into()),
             },
