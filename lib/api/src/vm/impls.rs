@@ -72,15 +72,7 @@ impl VMSharedMemory {
     pub(crate) fn host_data(&self) -> Option<(*mut u8, u64)> {
         match self {
             #[cfg(feature = "sys")]
-            Self::Sys(s) => {
-                use wasmer_vm::LinearMemory as _;
-                // The size first: it only grows, under the memory's lock, and the base of a
-                // shared memory never moves.
-                let size = s.size().bytes().0 as u64;
-                // SAFETY: the definition lives as long as the memory, which `self` holds.
-                let base = unsafe { s.vmmemory().as_ref().base };
-                Some((base, size))
-            }
+            Self::Sys(s) => s.host_data(),
             #[allow(unreachable_patterns)]
             _ => None,
         }
