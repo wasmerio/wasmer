@@ -810,7 +810,7 @@ fn unmounting_a_tree_takes_its_copies_and_what_is_on_a_copy_takes_its_place() {
 }
 
 /// Runs one of LTP's `fs_bind` shell tests in a private sandbox at `/s`: each line is a
-/// command of the script (`mount --bind`, `--rbind`, `--make-*`, `umount`, `mkdir`, and
+/// command of the script (`mount --bind`, `--rbind`, `--move`, `--make-*`, `umount`, `mkdir`, and
 /// `fs_bind_makedir` as `make-TYPE dir`), all of which must pass, and at the end nothing but
 /// the sandbox is mounted (`_fs_bind_cleanup_test`).
 fn fs_bind(script: &str) {
@@ -846,6 +846,10 @@ fn fs_bind(script: &str) {
             }
             "bind" => v.bind(&at(1), &at(2), false),
             "rbind" => v.bind(&at(1), &at(2), true),
+            "move" => {
+                let source = v.path(&at(1)).unwrap();
+                v.op(&at(2), MountOp::Move { source })
+            }
             "umount" => v.umount(&at(1), UmountFlags::default()),
             make if make.starts_with("make-") => {
                 let name = &make["make-".len()..];
@@ -1041,5 +1045,79 @@ fn fs_bind_rbind02_shared_child_to_private_parent() {
         umount share1
         umount parent2
         umount parent1",
+    );
+}
+
+#[test]
+fn fs_bind_move21_shared_tree_within_a_tree_it_is_bound_to() {
+    fs_bind(
+        "mkdir parent1
+        mkdir parent2
+        bind disk1 parent1
+        set rshared parent1
+        bind parent1 parent2
+        move parent1 parent2/a
+        bind disk2 parent2/b
+        bind disk3 parent2/a/c
+        umount parent2/a/a/c
+        umount parent2/b
+        umount parent2/a/a
+        umount parent2",
+    );
+}
+
+#[test]
+fn fs_bind_move22_shared_tree_within_itself_then_into_another_shared_tree() {
+    fs_bind(
+        "make-rshared parent1
+        mkdir parent1/a
+        mkdir parent2
+        bind parent1 parent2
+        move parent1 parent2/a
+        make-rshared tmp1
+        mkdir tmp2
+        mkdir tmp1/1
+        bind tmp1 tmp2
+        move parent2 tmp1/1
+        umount tmp1/1/a/a
+        umount tmp1/1
+        umount tmp1
+        umount tmp2",
+    );
+}
+
+#[test]
+fn fs_bind_rbind34_rbind_within_the_same_tree_root_to_shared_child() {
+    fs_bind(
+        "make-rshared parent
+        make-rshared parent/child1
+        make-rshared parent/child2
+        rbind disk3 parent/child1
+        rbind parent parent/child2
+        umount parent/child2/child1
+        umount parent/child1
+        rbind disk4 parent/child2/child1
+        umount parent/child1
+        umount parent/child2/child2
+        umount parent/child2
+        umount parent",
+    );
+}
+
+#[test]
+fn fs_bind_rbind36_rbind_within_the_same_tree_root_to_unbindable_child() {
+    fs_bind(
+        "make-rshared parent
+        make-runbindable parent/child1
+        make-rshared parent/child2
+        rbind disk3 parent/child1
+        rbind parent parent/child2
+        umount parent/child1
+        rbind disk4 parent/child2/child1
+        umount parent/child2/child1
+        umount parent/child2/child2
+        umount parent/child1
+        umount parent/child2
+        umount parent",
     );
 }
