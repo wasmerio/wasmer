@@ -85,6 +85,8 @@ pub(crate) const SUPPORTED: &[IoUringOp] = &[
     IoUringOp::IORING_OP_FUTEX_WAITV,
     IoUringOp::IORING_OP_WAITID,
     IoUringOp::IORING_OP_URING_CMD,
+    IoUringOp::IORING_OP_NOP128,
+    IoUringOp::IORING_OP_URING_CMD128,
 ];
 
 /// `SQE_VALID_FLAGS`.
@@ -135,6 +137,7 @@ pub(crate) struct Req {
     msg_len: u32,
     zc_notif: Option<(u64, bool)>,
     queue_noticed: Option<Arc<std::sync::atomic::AtomicBool>>,
+    cqe_extra: Option<[u64; 2]>,
 }
 
 /// A link timeout and its armed timer.
@@ -254,6 +257,7 @@ impl Req {
             msg_len: 0,
             zc_notif: None,
             queue_noticed: None,
+            cqe_extra: None,
         }
     }
 
@@ -352,7 +356,20 @@ impl Ctx {
                 0
             };
         if !skip {
-            self.post(req.sqe.user_data, res, flags, req.is_timeout());
+            if let Some(extra) = req.cqe_extra {
+                let flags = flags
+                    | if self
+                        .shape
+                        .has(wasixv2_abi::IoringSetupFlags::IORING_SETUP_CQE_MIXED)
+                    {
+                        IoringCqeFlags::IORING_CQE_F_32.0
+                    } else {
+                        0
+                    };
+                self.post_extended(req.sqe.user_data, res, flags, req.is_timeout(), extra);
+            } else {
+                self.post(req.sqe.user_data, res, flags, req.is_timeout());
+            }
         }
         // io_uring/net.c:io_send_zc_cleanup, notif.c:io_notif_tw_complete:
         // copying has relinquished the buffer already, including on failure.
@@ -569,11 +586,15 @@ impl Kernel {
         caller: &Caller<'_>,
         ctx: &Arc<Ctx>,
         mm: u64,
-        sqe: IoUringSqe,
+        submission: (IoUringSqe, Option<Errno>),
         link: &mut Option<Req>,
     ) -> bool {
+        let (sqe, prep_error) = submission;
         let mut req = Req::new(ctx.next_id(), sqe, (mm, caller.task()));
-        let mut init = init_req(ctx, &mut req);
+        let mut init = match prep_error {
+            Some(err) => Err(err),
+            None => init_req(ctx, &mut req),
+        };
         if init.is_ok() && req.opcode() == op(IoUringOp::IORING_OP_LINK_TIMEOUT) {
             // `io_link_timeout_prep`: the timeout is read now; its timer starts once the
             // request it guards waits.
@@ -738,7 +759,7 @@ impl Kernel {
             IoUringOp::IORING_OP_SPLICE | IoUringOp::IORING_OP_TEE => {
                 self.op_splice(caller, ctx, req).await
             }
-            IoUringOp::IORING_OP_NOP => self.op_nop(caller, ctx, req),
+            IoUringOp::IORING_OP_NOP | IoUringOp::IORING_OP_NOP128 => self.op_nop(caller, ctx, req),
             IoUringOp::IORING_OP_FILES_UPDATE => {
                 if req.has(IosqeFlags::IOSQE_FIXED_FILE)
                     || sqe.op_flags != 0
@@ -1285,7 +1306,7 @@ impl Kernel {
                     .map(|n| n as i32)
                 }
             }
-            IoUringOp::IORING_OP_URING_CMD => {
+            IoUringOp::IORING_OP_URING_CMD | IoUringOp::IORING_OP_URING_CMD128 => {
                 let file = self.req_file(caller, ctx, req)?;
                 self.uring_socket_cmd(caller, file, &s).await
             }
@@ -1352,15 +1373,40 @@ impl Kernel {
         let known = IoringOpFlags::IORING_NOP_INJECT_RESULT.0
             | IoringOpFlags::IORING_NOP_FILE.0
             | IoringOpFlags::IORING_NOP_FIXED_FILE.0
-            | IoringOpFlags::IORING_NOP_TW.0;
+            | IoringOpFlags::IORING_NOP_TW.0
+            | IoringOpFlags::IORING_NOP_FIXED_BUFFER.0
+            | IoringOpFlags::IORING_NOP_CQE32.0;
         if flags & !known != 0 {
             return Err(Errno::EINVAL);
+        }
+        if flags & IoringOpFlags::IORING_NOP_CQE32.0 != 0 {
+            if !ctx
+                .shape
+                .has(wasixv2_abi::IoringSetupFlags::IORING_SETUP_CQE32)
+                && !ctx
+                    .shape
+                    .has(wasixv2_abi::IoringSetupFlags::IORING_SETUP_CQE_MIXED)
+            {
+                return Err(Errno::EINVAL);
+            }
+            req.cqe_extra = Some([req.sqe.off, req.sqe.addr]);
         }
         if flags & IoringOpFlags::IORING_NOP_FILE.0 != 0 {
             if flags & IoringOpFlags::IORING_NOP_FIXED_FILE.0 != 0 {
                 req.sqe.flags |= IosqeFlags::IOSQE_FIXED_FILE.0;
             }
             self.req_file(caller, ctx, req)?;
+        }
+        if flags & IoringOpFlags::IORING_NOP_FIXED_BUFFER.0 != 0 {
+            req.buffer_node = Some(
+                ctx.state
+                    .lock_or_recover()
+                    .buffers
+                    .as_ref()
+                    .and_then(|table| table.get(usize::from(req.sqe.buf_index)))
+                    .and_then(Clone::clone)
+                    .ok_or(Errno::EFAULT)?,
+            );
         }
         let res = match flags & IoringOpFlags::IORING_NOP_INJECT_RESULT.0 != 0 {
             true => req.sqe.len as i32,
