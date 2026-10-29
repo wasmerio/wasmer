@@ -4,6 +4,8 @@
 
 use std::time::Instant;
 
+use futures::FutureExt as _;
+
 use wasixv2_abi::{
     AioRingMisc, EventfdFlags, GuestLayout, IoEvent, Iocb, IocbCmd, IocbFlags, KernelTimespec,
     MapFlags, MremapFlags, OpenFlags, ProtFlags,
@@ -615,4 +617,31 @@ fn io_cancel_faults_on_guarded_and_wrapped_key_addresses() {
             .io_cancel(&caller, ctx, GuestPtrMut::new(IOCB), GuestPtrMut::NULL),
     );
     assert_eq!(errno(ret), Errno::EINVAL);
+}
+
+/// fs/aio.c:aio_prep_rw passes RWF_NOWAIT through kiocb_set_rw_flags; pipe_read
+/// returns EAGAIN rather than parking the submitting task (LTP io_submit04).
+#[test]
+fn nowait_aio_reads_complete_instead_of_waiting_for_a_pipe() {
+    let m = Machine::new();
+    let ctx = m.ctx();
+    let (r, _w) = pipe(&m.kernel, &m.caller(), OpenFlags(0));
+    m.memory.put(IOVECS, &BUF.to_le_bytes());
+    m.memory.put(IOVECS + 4, &1u32.to_le_bytes());
+    for (cmd, buf) in [
+        (IocbCmd::IOCB_CMD_PREAD, BUF),
+        (IocbCmd::IOCB_CMD_PREADV, IOVECS),
+    ] {
+        m.iocb(IOCB, cmd, r, (buf, 1, 0));
+        let mut iocb = m.read_iocb(IOCB);
+        iocb.aio_rw_flags = wasixv2_abi::RwfFlags::RWF_NOWAIT.0 as i32;
+        m.put_iocb(IOCB, &iocb);
+        m.memory.put(IOCBS, &IOCB.to_le_bytes());
+        let caller = m.caller();
+        let submitted = m.kernel.io_submit(&caller, ctx, 1, GuestPtr::new(IOCBS));
+        assert_eq!(submitted.now_or_never(), Some(Ok(1)), "{cmd:?} blocked");
+        let events = m.getevents(ctx, 1, 1, Some(Duration::ZERO));
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].res, -i64::from(Errno::EAGAIN.0));
+    }
 }

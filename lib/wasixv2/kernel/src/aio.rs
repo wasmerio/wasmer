@@ -806,7 +806,10 @@ impl Kernel {
                 self.write_from_iovecs(caller, &req.file, &iovecs, at, rw_flags)
                     .await
             }
-            false => self.read_into_iovecs(caller, &req.file, &iovecs, at).await,
+            false => {
+                self.read_into_iovecs_flags(caller, &req.file, &iovecs, at, rw_flags)
+                    .await
+            }
         };
         let event = IoEvent {
             res: event_result(done),
