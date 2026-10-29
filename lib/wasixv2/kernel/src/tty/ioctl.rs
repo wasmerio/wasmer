@@ -194,7 +194,7 @@ impl Kernel {
                 };
                 if started {
                     tty.driver.flow(false);
-                    tty.write_wait.wake(wasixv2_wait::PollMask::WRITABLE);
+                    tty.wakeup();
                     tty.flush_echoes().await;
                 }
                 Ok(0)

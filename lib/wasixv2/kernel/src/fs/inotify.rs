@@ -19,6 +19,7 @@ use wasixv2_wait::{PollMask, PollTable, Pollable, WaitQueue, poll_wait, wait_eve
 use super::read_path;
 use crate::{
     Kernel,
+    fasync::{Fasync, FasyncList},
     file::{Backing, FileObject, Io, OpenFile},
     sync::MutexExt,
 };
@@ -245,6 +246,8 @@ pub(crate) struct Inotify {
 struct Instance {
     state: Mutex<State>,
     wait: WaitQueue,
+    /// The files that get I/O signals (`fsn_fa`).
+    fasync: FasyncList,
 }
 
 impl Instance {
@@ -316,6 +319,7 @@ impl Instance {
             state.queue.push_back(record);
         }
         self.wait.wake(PollMask::READABLE);
+        self.fasync.kill(wasixv2_abi::SiCode::POLL_IN);
     }
 
     /// `inotify_read`: whole events only; `EINVAL` if the first does not fit.
@@ -392,6 +396,12 @@ impl FileObject for Inotify {
         Box::pin(async { Err(Errno::EINVAL.into()) })
     }
 
+    /// `fsnotify_fasync`.
+    fn fasync(&self, fasync: &Fasync<'_>) -> Option<Result<(), Errno>> {
+        self.inner.fasync.helper(fasync);
+        Some(Ok(()))
+    }
+
     fn ioctl<'a>(
         &'a self,
         caller: &'a Caller<'a>,
@@ -423,6 +433,7 @@ impl Kernel {
             inner: Arc::new(Instance {
                 state: Mutex::default(),
                 wait: WaitQueue::new(),
+                fasync: FasyncList::default(),
             }),
             registry: self.inotify.clone(),
         };

@@ -65,6 +65,31 @@ impl Jobs {
             .collect()
     }
 
+    /// `pid_task(pid, PIDTYPE_PID)`: the task `id` with its process, unless it is a thread that
+    /// exited (a zombie leader stays until its group ends).
+    pub(crate) fn live_task(&self, id: u32) -> Option<(Arc<Process>, Arc<TaskSignals>)> {
+        let tasks = self.tasks.upgrade()?;
+        let state = tasks.read_or_recover();
+        let task = state.tasks.get(&TaskId(id))?;
+        if task.thread.exited() && task.process.pid.0 != id {
+            return None;
+        }
+        Some((task.process.clone(), task.signals.clone()))
+    }
+
+    /// The processes of process group `pgid` that have not exited, with their signals
+    /// (`do_each_pid_task(pgrp, PIDTYPE_PGID)`).
+    pub(crate) fn pgrp_processes(&self, pgid: u32) -> Vec<(Arc<Process>, Arc<Signals>)> {
+        let members = self.members(|ident| ident.pgid == pgid);
+        members
+            .into_iter()
+            .filter_map(|process| {
+                let signals = self.group_signals(process.pid.0)?;
+                Some((process, signals))
+            })
+            .collect()
+    }
+
     /// The live processes whose identity `select` picks.
     fn members(&self, select: impl Fn(&Ident) -> bool) -> Vec<Arc<Process>> {
         let Some(tree) = self.tree.upgrade() else {

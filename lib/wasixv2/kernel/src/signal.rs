@@ -493,7 +493,7 @@ fn default_action(sig: i32) -> DefaultAction {
 }
 
 /// A `siginfo` with only the signal number and `SI_KERNEL`.
-fn kernel_info(sig: i32) -> Siginfo {
+pub(crate) fn kernel_info(sig: i32) -> Siginfo {
     Siginfo {
         si_signo: sig,
         si_errno: 0,

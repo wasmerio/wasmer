@@ -5,13 +5,14 @@ use std::{
     sync::{Arc, Mutex, MutexGuard},
 };
 
-use wasixv2_abi::{FcntlCmd, FdPair, GuestPtrMut, IoctlRequest, OpenFlags};
+use wasixv2_abi::{FcntlCmd, FdPair, GuestPtrMut, IoctlRequest, OpenFlags, SiCode};
 use wasixv2_syscalls::{Caller, Errno, Fd, LocalFuture, SysErr, SysResult, write_value};
 use wasixv2_vfs::Bound;
 use wasixv2_wait::{Interrupt, PollMask, PollTable, Pollable, WaitQueue, poll_wait, wait_event};
 
 use crate::{
     Kernel,
+    fasync::{Fasync, FasyncList},
     file::{Backing, FileObject, Io, OpenFile, ReadSink, taken},
     sync::MutexExt,
 };
@@ -35,6 +36,10 @@ pub(crate) struct Pipe {
     rd_wait: WaitQueue,
     /// Writers wait here for room or the last reader to leave.
     wr_wait: WaitQueue,
+    /// The files open for reading, and for writing, that get I/O signals (`fasync_readers`,
+    /// `fasync_writers`).
+    fasync_readers: FasyncList,
+    fasync_writers: FasyncList,
 }
 
 struct State {
@@ -68,17 +73,23 @@ pub(crate) struct PipeEnd {
 }
 
 impl Drop for PipeEnd {
-    /// `pipe_release`: wakes everybody, so they see EOF or EPIPE.
+    /// `pipe_release`: wakes everybody, so they see EOF or EPIPE, and the last end of one
+    /// side signals the other side's.
     fn drop(&mut self) {
-        {
+        let alone = {
             let mut state = self.pipe.state.lock_or_recover();
             match self.writer {
                 true => state.writers -= 1,
                 false => state.readers -= 1,
             }
-        }
+            (state.readers == 0) != (state.writers == 0)
+        };
         self.pipe.rd_wait.wake(PollMask::empty());
         self.pipe.wr_wait.wake(PollMask::empty());
+        if alone {
+            self.pipe.signal_readers();
+            self.pipe.signal_writers();
+        }
     }
 }
 
@@ -97,6 +108,8 @@ fn new_pipe() -> Arc<Pipe> {
         io_lock: futures_util::lock::Mutex::new(()),
         rd_wait: WaitQueue::new(),
         wr_wait: WaitQueue::new(),
+        fasync_readers: FasyncList::default(),
+        fasync_writers: FasyncList::default(),
     })
 }
 
@@ -124,6 +137,26 @@ pub(crate) struct Partner {
 }
 
 impl Pipe {
+    /// `pipe_fasync` for a file with a read end (`read`), a write end, or both.
+    pub(crate) fn fasync(&self, fasync: &Fasync<'_>, read: bool, write: bool) {
+        if read {
+            self.fasync_readers.helper(fasync);
+        }
+        if write {
+            self.fasync_writers.helper(fasync);
+        }
+    }
+
+    /// `kill_fasync(&pipe->fasync_readers, SIGIO, POLL_IN)`.
+    fn signal_readers(&self) {
+        self.fasync_readers.kill(SiCode::POLL_IN);
+    }
+
+    /// `kill_fasync(&pipe->fasync_writers, SIGIO, POLL_OUT)`.
+    fn signal_writers(&self) {
+        self.fasync_writers.kill(SiCode::POLL_OUT);
+    }
+
     /// The number of open read ends.
     pub(crate) fn readers(&self) -> usize {
         self.state.lock_or_recover().readers
@@ -324,6 +357,7 @@ impl Pipe {
             if n > 0 {
                 self.state.lock_or_recover().buf.drain(..n);
                 self.wr_wait.wake(PollMask::WRITABLE);
+                self.signal_writers();
             }
             return Ok(n);
         }
@@ -362,9 +396,12 @@ impl Pipe {
             input.buf.drain(..n);
         }
         drop((input, output));
+        // `wakeup_pipe_readers` and `wakeup_pipe_writers`.
         out.rd_wait.wake(PollMask::READABLE);
+        out.signal_readers();
         if consume {
             self.wr_wait.wake(PollMask::WRITABLE);
+            self.signal_writers();
         }
         Moved::Bytes(n)
     }
@@ -413,7 +450,9 @@ impl Reservation {
         }
         self.len = 0;
         if !data.is_empty() {
+            // `wakeup_pipe_readers`.
             self.pipe.rd_wait.wake(PollMask::READABLE);
+            self.pipe.signal_readers();
         }
         self.pipe.wr_wait.wake(PollMask::WRITABLE);
     }
@@ -441,7 +480,24 @@ pub(crate) fn pipe_info(file: &OpenFile) -> Option<Arc<Pipe>> {
 
 impl PipeEnd {
     /// `pipe_read`: at most `buf.len()` bytes, into `to` or into `buf` itself without one.
+    /// Writers' owners hear of it however it ends but interrupted while waiting: with room
+    /// made, or with nothing to read.
     async fn read_bytes(
+        &self,
+        io: Io<'_>,
+        buf: &mut [u8],
+        to: Option<&mut dyn ReadSink>,
+    ) -> SysResult<usize> {
+        let read = self.consume_into(io, buf, to).await;
+        // A read that consumed data signalled as it did; one interrupted while waiting returns
+        // without a signal.
+        if !buf.is_empty() && !matches!(read, Ok(1..) | Err(SysErr::Restart)) {
+            self.pipe.signal_writers();
+        }
+        read
+    }
+
+    async fn consume_into(
         &self,
         io: Io<'_>,
         buf: &mut [u8],
@@ -466,11 +522,18 @@ impl PipeEnd {
     /// `pipe_write`. Writes of at most `PIPE_BUF` bytes go in whole or wait; larger ones go in
     /// as room appears and return early only when non-blocking or interrupted. Finding no
     /// reader is `EPIPE`, or the count so far, and is reported to `io` either way: Linux sends
-    /// `SIGPIPE` whenever `!pipe->readers`.
+    /// `SIGPIPE` whenever `!pipe->readers`. Readers' owners hear of it however it ends, and
+    /// before it waits for room again.
     async fn write_bytes(&self, io: Io<'_>, data: &[u8]) -> SysResult<usize> {
         if data.is_empty() {
             return Ok(0);
         }
+        let written = self.write_steps(io, data).await;
+        self.pipe.signal_readers();
+        written
+    }
+
+    async fn write_steps(&self, io: Io<'_>, data: &[u8]) -> SysResult<usize> {
         let pipe = &self.pipe;
         let atomic = data.len() <= PIPE_BUF;
         let mut written = 0;
@@ -502,6 +565,7 @@ impl PipeEnd {
                     if written == data.len() {
                         return Ok(written);
                     }
+                    pipe.signal_readers();
                 }
                 Err(_) if written > 0 => return Ok(written),
                 Err(errno) => return Err(errno.into()),
@@ -583,6 +647,11 @@ impl FileObject for PipeEnd {
 
     fn buffered(&self) -> usize {
         self.input_len()
+    }
+
+    fn fasync(&self, fasync: &Fasync<'_>) -> Option<Result<(), Errno>> {
+        self.pipe.fasync(fasync, !self.writer, self.writer);
+        Some(Ok(()))
     }
 
     fn ioctl<'a>(

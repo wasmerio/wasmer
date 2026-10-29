@@ -16,7 +16,9 @@ use std::{
     sync::{Arc, Mutex, MutexGuard},
 };
 
-use wasixv2_abi::{AddressFamily, MsgFlags, OpenFlags, SocketFlags, SocketOption, SocketType};
+use wasixv2_abi::{
+    AddressFamily, MsgFlags, OpenFlags, SiCode, SocketFlags, SocketOption, SocketType,
+};
 use wasixv2_host::Host;
 use wasixv2_syscalls::{Caller, Errno, Fd, LocalFuture, SysResult};
 use wasixv2_vfs::Cap;
@@ -25,6 +27,7 @@ use wasixv2_wait::{PollMask, PollTable, Pollable, WaitQueue, poll_wait};
 
 use crate::{
     Kernel,
+    fasync::{Fasync, SockAsync, SockWake},
     file::{Backing, FileObject, Io, OpenFile},
     ns::NetNs,
     socket::{Blocking, RCV, Timeouts, WaitOn},
@@ -94,6 +97,8 @@ struct Queue {
 pub(crate) struct NetlinkSocket {
     queue: Mutex<Queue>,
     wait: WaitQueue,
+    /// The files that get I/O signals.
+    fasync: SockAsync,
     /// Whether the socket's opener had `CAP_NET_ADMIN` (`file_ns_capable` on its file), which
     /// a change asks of the sending socket besides of the sender.
     opener_net_admin: bool,
@@ -153,7 +158,7 @@ impl NetlinkSocket {
             let step = header.len.next_multiple_of(NLMSG_ALIGNTO).min(rest.len());
             rest = &rest[step..];
         }
-        self.wait.wake(PollMask::READABLE);
+        self.data_ready();
         Ok(data.len())
     }
 
@@ -289,7 +294,9 @@ impl NetlinkSocket {
             if q.err.is_none() {
                 q.err = Some(Errno::ENOBUFS);
                 drop(q);
+                // `sk_error_report`.
                 self.wait.wake(PollMask::ERR);
+                self.fasync.wake(SockWake::Io, SiCode::POLL_ERR);
             }
             return;
         }
@@ -330,7 +337,13 @@ impl NetlinkSocket {
     /// a `SIGEV_THREAD` message queue notification.
     pub(crate) fn deliver(&self, datagram: Vec<u8>) {
         self.reply(datagram);
+        self.data_ready();
+    }
+
+    /// `sk_data_ready` (`sock_def_readable`).
+    fn data_ready(&self) {
         self.wait.wake(PollMask::READABLE);
+        self.fasync.wake(SockWake::WaitData, SiCode::POLL_IN);
     }
 
     pub(crate) fn bind(&self, raw: &[u8]) -> Result<i32, Errno> {
@@ -585,6 +598,11 @@ impl FileObject for NetlinkSocket {
         true
     }
 
+    /// `sock_fasync`.
+    fn fasync(&self, fasync: &Fasync<'_>) -> Option<Result<(), Errno>> {
+        Some(self.fasync.fasync(fasync))
+    }
+
     /// `sock_splice_read`.
     fn splice_read(&self) -> bool {
         true
@@ -635,6 +653,7 @@ impl Kernel {
                 ..Queue::default()
             }),
             wait: WaitQueue::new(),
+            fasync: SockAsync::default(),
             opener_net_admin: self.cred(caller).capable(Cap::NetAdmin),
             net,
             // `netlink_autobind`: the process's pid as it sees it.
@@ -672,6 +691,7 @@ mod tests {
                 ..Queue::default()
             }),
             wait: WaitQueue::new(),
+            fasync: SockAsync::default(),
             opener_net_admin: true,
             net: crate::ns::Ns::initial(
                 crate::ns::NsKind::Net,

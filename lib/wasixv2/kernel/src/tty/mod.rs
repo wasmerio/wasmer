@@ -29,13 +29,14 @@ pub(crate) use ioctl::encode_dev;
 pub(crate) use jobctl::Jobs;
 pub(crate) use pty::{PTMX, PTY_SLAVE_MAJOR};
 use pty::{Pty, Side};
-use wasixv2_abi::{Signal, Termios, TermiosCflag, TiocpktFlags, Winsize};
+use wasixv2_abi::{SiCode, Signal, Termios, TermiosCflag, TiocpktFlags, Winsize};
 use wasixv2_host::Host;
 use wasixv2_syscalls::{Errno, LocalFuture, SysErr, SysResult};
 use wasixv2_vfs::Device;
 use wasixv2_wait::{PollMask, PollTable, Pollable, WaitQueue, Waiter, Wakeup};
 
 use crate::{
+    fasync::{Fasync, FasyncList, OwnerType},
     file::{FileObject, Io},
     sync::MutexExt,
 };
@@ -63,6 +64,11 @@ pub(crate) struct Tty {
     read_wait: WaitQueue,
     /// Writers wait here for stopped output to go on.
     write_wait: WaitQueue,
+    /// The open files that get I/O signals (`tty->fasync`).
+    fasync: FasyncList,
+    /// A write left with bytes unwritten while files were on [`Tty::fasync`], so room for
+    /// more is worth a `POLL_OUT` (`TTY_DO_WRITE_WAKEUP`).
+    do_write_wakeup: AtomicBool,
     /// Serialises reads (`atomic_read_lock`).
     read_lock: futures_util::lock::Mutex<()>,
     /// Serialises writers, through their waits for stopped output (`atomic_write_lock`).
@@ -234,6 +240,8 @@ impl Tty {
             exclusive: AtomicBool::new(false),
             read_wait: WaitQueue::new(),
             write_wait: WaitQueue::new(),
+            fasync: FasyncList::default(),
+            do_write_wakeup: AtomicBool::new(false),
             read_lock: futures_util::lock::Mutex::new(()),
             write_lock: futures_util::lock::Mutex::new(()),
             output: futures_util::lock::Mutex::new(()),
@@ -296,11 +304,21 @@ impl Tty {
             self.driver.flow(stopped);
         }
         if received.readable {
+            self.fasync.kill(SiCode::POLL_IN);
             self.read_wait.wake(PollMask::READABLE);
         }
         if received.started {
-            self.write_wait.wake(PollMask::WRITABLE);
+            self.wakeup();
         }
+    }
+
+    /// `tty_wakeup`: the device has room for more, or output went on. A write that left
+    /// bytes unwritten has the owners of the files hear of it (`n_tty_write_wakeup`).
+    pub(crate) fn wakeup(&self) {
+        if self.do_write_wakeup.swap(false, Ordering::Relaxed) {
+            self.fasync.kill(SiCode::POLL_OUT);
+        }
+        self.write_wait.wake(PollMask::WRITABLE);
     }
 
     /// `n_tty_flush_buffer` with `tty_buffer_flush`: the unread input is gone, and what the
@@ -515,6 +533,9 @@ impl Tty {
             }
             waiter.sleep(io.interrupt, None).await;
         }
+        if !self.fasync.is_empty() {
+            self.do_write_wakeup.store(true, Ordering::Relaxed);
+        }
         match done {
             0 if file.hung_up() || self.driver.link_gone() => Err(Errno::EIO.into()),
             0 if io.nonblocking() => Err(Errno::EAGAIN.into()),
@@ -596,6 +617,8 @@ impl Tty {
         self.driver.input_flushed();
         self.driver.flush_buffer();
         *self.ctrl.lock_or_recover() = Ctrl::default();
+        // The files hung up signal nobody any more.
+        self.fasync.clear();
         let hup = PollMask(PollMask::HUP.0 | PollMask::ERR.0);
         self.read_wait.wake(hup);
         self.write_wait.wake(hup);
@@ -681,5 +704,24 @@ impl FileObject for TtyFile {
 
     fn write<'a>(&'a self, io: Io<'a>, data: &'a [u8]) -> LocalFuture<'a, SysResult<usize>> {
         Box::pin(self.tty.write(self, io, data))
+    }
+
+    /// `tty_fasync`: `ENOTTY` once hung up. A file put on the list gets the foreground process
+    /// group as its owner, or else the caller's process, unless it has one.
+    fn fasync(&self, fasync: &Fasync<'_>) -> Option<Result<(), Errno>> {
+        if self.hung_up() {
+            return Some(Err(Errno::ENOTTY));
+        }
+        let added = self.tty.fasync.helper(fasync);
+        if let Some(on) = &fasync.on
+            && added
+        {
+            let (pid, ty) = match self.tty.pgrp() {
+                Some(pgrp) => (pgrp, OwnerType::Group),
+                None => (on.task.0, OwnerType::Process),
+            };
+            fasync.file.set_owner(Some(pid), ty, on.cred, false);
+        }
+        Some(Ok(()))
     }
 }

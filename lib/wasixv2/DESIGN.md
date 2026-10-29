@@ -256,6 +256,16 @@ These follow `fs/select.c` and `fs/eventpoll.c`.
   - `reverse_path_check`'s wakeup-path limits.
   - `max_user_watches`.
 
+### Signal-driven I/O
+
+`O_ASYNC` follows `fs/fcntl.c` (kernel `fasync.rs`).
+
+- **Owner.** An open file has an owner (`fown_struct`): a thread, a process or a process group, set with `F_SETOWN` (a negative number for a group), `F_SETOWN_EX` and, on sockets, `FIOSETOWN` and `SIOCSPGRP`. It is kept as the kernel's id (`struct pid`), not as a number, so it is translated into the asker's pid namespace each time (`F_GETOWN`, `F_GETOWN_EX`) and reads as 0 once nothing of its kind is left. The uid and euid of whoever set it are kept for `sigio_perm` (`F_GETOWNER_UIDS`), and `F_SETSIG` picks the signal.
+- **Lists.** An object that signals has lists of the open files that asked (`fasync_struct`), which its `FileObject::fasync` puts a file on or takes it off; that is what sets and clears `O_ASYNC`. `F_SETFL` and `FIOASYNC` call it when the flag changes, and the file's last close takes it off. An object without `fasync` keeps `O_ASYNC` as it is, and `FIOASYNC` there is `ENOTTY`. As on Linux, `O_ASYNC` given to `open` is kept in the flags but puts the file on no list, and sticks.
+- **Signals.** `kill_fasync` goes where Linux's goes, after the object's own locks are released: pipes and FIFOs (readers `POLL_IN`, writers `POLL_OUT`, the last end of one side closing), terminals and ptys (input; room once a write was cut short, `TTY_DO_WRITE_WAKEUP`; a hangup takes every file off), Unix and netlink sockets (`sk_data_ready`, `sk_write_space` once a send found no room, `sk_error_report`, a peer's close or shutdown), inotify (each queued event) and the random devices (ready from the start, so never). `send_sigio` sends the `F_SETSIG` signal with `si_code`, `si_band` and `si_fd`, or plain `SIGIO`, also when a realtime signal finds no room.
+- **IP sockets.** Their readiness reaches the kernel only in the network's wakeups, where nothing may be sent (see [Readiness and wait queues](#readiness-and-wait-queues)). While a file is on such a socket's list, an entry on its queue turns each wakeup into what the socket callbacks would signal (events `ERR`, `IN`, `OUT`; none for a state change) and queues it; a kernel timer armed to fire at once sends the queue from the timer driver.
+- **Not yet:** `SIGURG`, as the network has no urgent data. `SOCKWQ_ASYNC_WAITDATA` (no `POLL_IN` while a reader waits). Leases and `F_NOTIFY`.
+
 ## Filesystems
 
 There is one VFS. It owns all path and permission semantics, and filesystem drivers only store data.

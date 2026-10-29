@@ -363,7 +363,12 @@ impl Kernel {
         let mut wait = sock.blocking(Self::io(caller, &*interrupt, &file), SND, MsgFlags(0));
         // `__inet_stream_connect`: a blocking socket waits for a connection under way, its
         // own or one a restarted call left (`EALREADY`); a non-blocking one reports it.
-        match socket.connect(addr) {
+        let started = socket.connect(addr);
+        // The connection's completion signals (`tcp_finish_connect`'s `POLL_OUT`).
+        if started == Err(Errno::EINPROGRESS) {
+            sock.fasync.set_nospace();
+        }
+        match started {
             Err(Errno::EINPROGRESS | Errno::EALREADY) if !wait.nonblocking() => {}
             result => return Ok(result.map(|()| 0)?),
         }

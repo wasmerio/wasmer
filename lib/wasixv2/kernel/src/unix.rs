@@ -24,7 +24,8 @@ use std::{
 };
 
 use wasixv2_abi::{
-    AddressFamily, GuestPtrMut, IoctlRequest, MsgFlags, SocketLevel, SocketOption, SocketType,
+    AddressFamily, GuestPtrMut, IoctlRequest, MsgFlags, SiCode, SocketLevel, SocketOption,
+    SocketType,
 };
 use wasixv2_host::Host;
 use wasixv2_syscalls::{Caller, Errno, LocalFuture, SysResult, write_value};
@@ -37,6 +38,7 @@ use wasixv2_wait::{PollMask, PollTable, Pollable, WaitQueue, poll_wait};
 
 use crate::{
     Kernel,
+    fasync::{Fasync, SockAsync, SockWake},
     file::{FileObject, Io, OpenFile, ReadSink, delivered, taken},
     ns::NetNs,
     socket::{Blocking, RCV, SND, Timeouts, WaitOn},
@@ -265,6 +267,8 @@ pub(crate) struct Sock {
     inner: Mutex<Inner>,
     /// Woken when data arrives, room appears at the peer, or the state changes.
     wait: WaitQueue,
+    /// The files that get I/O signals.
+    fasync: SockAsync,
     /// The network namespace the socket was made in (`sock_net`).
     net: Arc<NetNs>,
     /// The credentials of the task that created the socket.
@@ -355,6 +359,7 @@ impl Sock {
                 opts: SockOpts::unix(ty),
             }),
             wait: WaitQueue::new(),
+            fasync: SockAsync::default(),
             net,
             owner,
             timeouts: Timeouts::default(),
@@ -366,6 +371,18 @@ impl Sock {
         sockets.insert(id, Arc::downgrade(&sock));
         drop(sockets);
         sock
+    }
+
+    /// `sk_data_ready` (`sock_def_readable`): data, or a connection to accept, arrived.
+    fn data_ready(&self) {
+        self.wait.wake(PollMask::READABLE);
+        self.fasync.wake(SockWake::WaitData, SiCode::POLL_IN);
+    }
+
+    /// `sk_write_space` (`unix_write_space`): what this socket sent was taken.
+    fn write_space(&self) {
+        self.wait.wake(PollMask::WRITABLE);
+        self.fasync.wake(SockWake::Space, SiCode::POLL_OUT);
     }
 
     /// Takes the socket off its namespace's list (`unix_remove_socket`).
@@ -503,6 +520,9 @@ impl Sock {
                 }
             }
             peer.wait.wake(PollMask::empty());
+            if self.kind.connection() {
+                peer.fasync.wake(SockWake::WaitData, SiCode::POLL_HUP);
+            }
         }
         // Connections nobody accepted go with the listener.
         for embryo in accept {
@@ -654,7 +674,7 @@ impl Sock {
         inner.peer = Some(Arc::downgrade(&embryo));
         inner.peer_cred = listener_cred;
         drop(inner);
-        target.wait.wake(PollMask::READABLE);
+        target.data_ready();
         Ok(())
     }
 
@@ -758,6 +778,7 @@ impl Sock {
             return Err(Errno::EPIPE);
         }
         if !self.room_at(sndbuf, &target) {
+            self.fasync.set_nospace();
             return Err(Errno::EAGAIN);
         }
         let (n, bytes) = match self.kind {
@@ -783,7 +804,7 @@ impl Sock {
             cred: anc.cred.unwrap_or(cred),
         });
         drop(target);
-        peer.wait.wake(PollMask::READABLE);
+        peer.data_ready();
         Ok(n)
     }
 
@@ -831,6 +852,7 @@ impl Sock {
             return Err(Errno::EPIPE);
         }
         if !self.room_at(sndbuf, &other) {
+            self.fasync.set_nospace();
             return Err(Errno::EAGAIN);
         }
         let len = data.len();
@@ -847,7 +869,7 @@ impl Sock {
             cred: anc.cred.unwrap_or(cred),
         });
         drop(other);
-        target.wait.wake(PollMask::READABLE);
+        target.data_ready();
         Ok(len)
     }
 
@@ -900,7 +922,7 @@ impl Sock {
             // Room at this socket: wake senders waiting on it or on their own queue.
             self.wait.wake(PollMask::WRITABLE);
             if let Some(peer) = peer {
-                peer.wait.wake(PollMask::WRITABLE);
+                peer.write_space();
             }
         }
         let mut out = out;
@@ -949,6 +971,11 @@ impl Sock {
             }
             peer.lock().shutdown |= mirrored;
             peer.wait.wake(PollMask::empty());
+            if mirrored == RCV_SHUTDOWN | SEND_SHUTDOWN {
+                peer.fasync.wake(SockWake::WaitData, SiCode::POLL_HUP);
+            } else if mirrored & RCV_SHUTDOWN != 0 {
+                peer.fasync.wake(SockWake::WaitData, SiCode::POLL_IN);
+            }
         }
         self.wait.wake(PollMask::empty());
     }
@@ -982,7 +1009,7 @@ impl Sock {
         drop(inner);
         if changed == Changed::Buffers {
             // More room may be there now.
-            self.wait.wake(PollMask::WRITABLE);
+            self.write_space();
         }
         Ok(())
     }
@@ -1264,6 +1291,11 @@ impl FileObject for UnixFile {
 
     fn buffered(&self) -> usize {
         self.0.input_len()
+    }
+
+    /// `sock_fasync`.
+    fn fasync(&self, fasync: &Fasync<'_>) -> Option<Result<(), Errno>> {
+        Some(self.0.fasync.fasync(fasync))
     }
 
     /// `sock_splice_read`.

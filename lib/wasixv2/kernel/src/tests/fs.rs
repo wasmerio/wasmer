@@ -391,7 +391,7 @@ fn generic_ioctls_give_block_size_bytes_used_and_refuse_async() {
     .unwrap();
     let blocks = block_on(path.dentry.node().getattr()).unwrap().blocks;
     assert_eq!(bytes, blocks as i64 * 512);
-    // No file here has `fasync`: asking for what is already so is fine, a change is not.
+    // A regular file has no `fasync`: asking for what is already so is fine, a change is not.
     put(&memory, 0x3000, &0i32.to_le_bytes());
     assert_eq!(ioctl(IoctlRequest::FIOASYNC, 0x3000), Ok(0));
     put(&memory, 0x3000, &1i32.to_le_bytes());

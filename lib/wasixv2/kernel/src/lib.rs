@@ -9,6 +9,7 @@ mod cputime;
 mod cred;
 mod epoll;
 mod eventfd;
+mod fasync;
 mod file;
 mod fs;
 mod futex;
@@ -151,6 +152,8 @@ pub struct Kernel {
     // ---- sig ----
     /// The signals queued for each user, against `RLIMIT_SIGPENDING`.
     sigqueue_users: Arc<signal::SigqueueUsers>,
+    /// Sends the I/O signals of files with `O_ASYNC` to their owners.
+    sigio: Arc<fasync::Sigio>,
     // ---- base ----
     /// What [`Kernel::spawn`]ed processes run as.
     credentials: Credentials,
@@ -264,10 +267,12 @@ impl Kernel {
         })));
         let procs = process::Procs::new(pids.clone());
         let jobs = tty::Jobs::new(&state, &procs.tree);
+        let timers = timer::Timers::new(host.clone());
         Self {
             ptys: tty::Ptys::new(clock.clone()),
             pseudo: pseudo::Pseudo::new(&vfs, clock),
-            timers: timer::Timers::new(host.clone()),
+            sigio: fasync::Sigio::new(jobs.clone(), &timers),
+            timers,
             host,
             state,
             init_ns: Arc::new(ns::NsProxy::initial(
