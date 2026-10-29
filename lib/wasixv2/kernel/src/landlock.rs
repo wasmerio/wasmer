@@ -11,8 +11,8 @@
 //! [`Security`]; the socket layer through [`Domain::check_net`]; signals and abstract Unix
 //! sockets through [`Domain::scoped`].
 //!
-//! The credentials are the process's here, so `landlock_restrict_self` restricts every thread,
-//! as `LANDLOCK_RESTRICT_SELF_TSYNC` does. There is no audit subsystem: the logging flags and
+//! Credentials are per task: `landlock_restrict_self` restricts the caller, and
+//! `LANDLOCK_RESTRICT_SELF_TSYNC` synchronizes its domain across the thread group. There is no audit subsystem: the logging flags and
 //! quiet masks are checked and kept, and change nothing.
 
 use std::{
@@ -712,27 +712,63 @@ impl Kernel {
         let all = LandlockRestrictSelfFlags::LANDLOCK_RESTRICT_SELF_LOG_SAME_EXEC_OFF
             | LandlockRestrictSelfFlags::LANDLOCK_RESTRICT_SELF_LOG_NEW_EXEC_ON
             | LandlockRestrictSelfFlags::LANDLOCK_RESTRICT_SELF_LOG_SUBDOMAINS_OFF
-            | LandlockRestrictSelfFlags::LANDLOCK_RESTRICT_SELF_TSYNC;
+            | LandlockRestrictSelfFlags::LANDLOCK_RESTRICT_SELF_TSYNC
+            | LandlockRestrictSelfFlags::LANDLOCK_RESTRICT_SELF_NO_NEW_PRIVS;
         if flags & !all.0 != 0 {
             return Err(Errno::EINVAL.into());
         }
+        let set_nnp = flags & LandlockRestrictSelfFlags::LANDLOCK_RESTRICT_SELF_NO_NEW_PRIVS.0 != 0;
         let cred = self.cred(caller);
-        if !self.no_new_privs(caller) && !cred.ns_capable(&cred.user_ns, Cap::SysAdmin) {
+        if !set_nnp && !self.no_new_privs(caller) && !cred.ns_capable(&cred.user_ns, Cap::SysAdmin)
+        {
             return Err(Errno::EPERM.into());
         }
-        let tsync = LandlockRestrictSelfFlags::LANDLOCK_RESTRICT_SELF_TSYNC.0;
+        let tsync = flags & LandlockRestrictSelfFlags::LANDLOCK_RESTRICT_SELF_TSYNC.0 != 0;
         let subdomains_off = LandlockRestrictSelfFlags::LANDLOCK_RESTRICT_SELF_LOG_SUBDOMAINS_OFF.0;
-        if ruleset_fd.0 == -1 && flags & !tsync == subdomains_off {
-            return Ok(0);
+        let flags_only = ruleset_fd.0 == -1
+            && flags & !LandlockRestrictSelfFlags::LANDLOCK_RESTRICT_SELF_TSYNC.0 == subdomains_off;
+        let file = if flags_only {
+            None
+        } else {
+            Some(self.ruleset(caller, ruleset_fd)?)
+        };
+        let mut state = self.state.lock_or_recover();
+        let task = &state.tasks[&caller.task()];
+        assert!(task.cred_override.is_none(), "commit during override_creds");
+        let old = task.cred.clone();
+        let mut prepared = (*old).clone();
+        if let Some(file) = &file {
+            let ruleset = file.downcast::<Ruleset>().expect("checked");
+            prepared.landlock = Some(Arc::new(Domain::merge(
+                prepared.landlock.as_ref(),
+                ruleset,
+            )?));
         }
-        let file = self.ruleset(caller, ruleset_fd)?;
-        let ruleset = file.downcast::<Ruleset>().expect("checked");
-        self.update_cred(caller.task(), |cred| {
-            let domain = Domain::merge(cred.landlock.as_ref(), ruleset)?;
-            let mut new = cred.clone();
-            new.landlock = Some(Arc::new(domain));
-            Ok(new)
-        })
+        let new = Arc::new(prepared);
+        let process = task.process.clone();
+        let sync_nnp = set_nnp || task.seccomp.no_new_privs;
+        // security/landlock/tsync.c `restrict_one_thread`: copy the caller's prepared
+        // Landlock security state into each sibling while retaining its other credentials.
+        // The task-table lock also excludes clone and concurrent credential commits.
+        for (id, task) in &mut state.tasks {
+            let current = *id == caller.task();
+            if !current && (!tsync || !Arc::ptr_eq(&task.process, &process) || task.thread.exited())
+            {
+                continue;
+            }
+            task.cred = if current || Arc::ptr_eq(&task.cred, &old) {
+                new.clone()
+            } else {
+                let mut cred = (*task.cred).clone();
+                cred.landlock = new.landlock.clone();
+                Arc::new(cred)
+            };
+            if (current && set_nnp) || (!current && sync_nnp) {
+                task.seccomp.no_new_privs = true;
+            }
+            task.signals.publish_cred(task.cred.clone());
+        }
+        Ok(0)
     }
 
     /// `hook_sb_mount`, `hook_sb_umount`, `hook_move_mount`, `hook_sb_pivotroot`: a process

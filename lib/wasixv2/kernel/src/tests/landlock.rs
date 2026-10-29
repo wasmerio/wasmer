@@ -479,3 +479,77 @@ fn landlock_checks_a_temporary_files_directory_when_it_is_opened() {
     assert_eq!(block_on(kernel.close(&t.caller, fd)), Ok(0));
     assert_eq!(errno(t.open("/denied", flags)), Errno::EACCES);
 }
+
+/// security/landlock/syscalls.c `landlock_restrict_self` defaults to current only;
+/// tsync.c `restrict_one_thread` copies the prepared domain and propagates NNP.
+#[test]
+fn restrictions_are_thread_local_until_tsync_and_preserve_sibling_ids() {
+    use wasixv2_abi::LandlockRestrictSelfFlags as Flags;
+    let (kernel, leader, memory) = super::cred::machine_as(0, 0);
+    let main = T::new(&kernel, leader, &memory);
+    main.create("/file").unwrap();
+    let worker = TaskId(
+        block_on(kernel.thread_spawn(
+            &main.caller,
+            0x10f00,
+            0,
+            GuestPtrMut::NULL,
+            0,
+            GuestPtrMut::NULL,
+        ))
+        .unwrap() as u32,
+    );
+    let thread = T::new(&kernel, worker, &memory);
+    let rules = main.ruleset(WRITE_FILE, 0, 0).unwrap();
+    assert_eq!(thread.restrict(rules), Ok(0));
+    assert_eq!(
+        errno(thread.open("/file", OpenFlags::O_WRONLY)),
+        Errno::EACCES
+    );
+    assert!(main.open("/file", OpenFlags::O_WRONLY).is_ok());
+    // Give the caller a different filesystem identity, with the same effective root.
+    assert_eq!(block_on(kernel.setfsuid(&thread.caller, 1000)), Ok(0));
+    let flags = Flags::LANDLOCK_RESTRICT_SELF_TSYNC | Flags::LANDLOCK_RESTRICT_SELF_NO_NEW_PRIVS;
+    assert_eq!(
+        block_on(kernel.landlock_restrict_self(&thread.caller, Fd(rules), flags.0)),
+        Ok(0)
+    );
+    assert_eq!(
+        errno(main.open("/file", OpenFlags::O_WRONLY)),
+        Errno::EACCES
+    );
+    assert_eq!(kernel.cred(&main.caller).user.fs.0, 0);
+    assert_eq!(kernel.cred(&thread.caller).user.fs.0, 1000);
+    assert!(kernel.no_new_privs(&main.caller));
+    assert!(kernel.no_new_privs(&thread.caller));
+    assert!(Arc::ptr_eq(
+        kernel.cred(&main.caller).landlock.as_ref().unwrap(),
+        kernel.cred(&thread.caller).landlock.as_ref().unwrap()
+    ));
+}
+
+/// NO_NEW_PRIVS satisfies the unprivileged prerequisite but is committed only after
+/// validation, as in security/landlock/syscalls.c `landlock_restrict_self`.
+#[test]
+fn restrict_self_no_new_privs_is_committed_only_on_success() {
+    use wasixv2_abi::LandlockRestrictSelfFlags as Flags;
+    let (kernel, task, memory) = super::cred::machine_as(1000, 1000);
+    let t = T::new(&kernel, task, &memory);
+    let flags = Flags::LANDLOCK_RESTRICT_SELF_NO_NEW_PRIVS.0;
+    assert_eq!(
+        errno(block_on(kernel.landlock_restrict_self(
+            &t.caller,
+            Fd(-1),
+            flags
+        ))),
+        Errno::EBADF
+    );
+    assert!(!kernel.no_new_privs(&t.caller));
+    let rules = t.ruleset(READ_FILE, 0, 0).unwrap();
+    assert_eq!(errno(t.restrict(rules)), Errno::EPERM);
+    assert_eq!(
+        block_on(kernel.landlock_restrict_self(&t.caller, Fd(rules), flags)),
+        Ok(0)
+    );
+    assert!(kernel.no_new_privs(&t.caller));
+}
