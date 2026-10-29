@@ -274,6 +274,14 @@ impl Sems {
         }
     }
 
+    /// Whether process `pid` has adjustments in some set: whether it has a `sem_undo_list`,
+    /// as `kcmp(KCMP_SYSVSEM)` compares them.
+    pub(crate) fn has_undo(&self, pid: u32) -> bool {
+        let sets = self.ids.lock_or_recover().all();
+        sets.iter()
+            .any(|(_, set)| set.state().undo.contains_key(&pid))
+    }
+
     /// Rows of `/proc/sysvipc/sem`: id, permissions, number of semaphores, times.
     #[allow(
         dead_code,

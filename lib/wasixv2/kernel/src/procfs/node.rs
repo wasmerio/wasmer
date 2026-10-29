@@ -145,6 +145,9 @@ const STATIC: &[(usize, &str, Static)] = &[
     (14, "max_map_count", Static::File(text::Global::MaxMapCount)),
     (ROOT, "keys", Static::File(text::Global::Keys)),
     (ROOT, "key-users", Static::File(text::Global::KeyUsers)),
+    // 50
+    (13, "yama", Static::Dir),
+    (50, "ptrace_scope", Static::File(text::Global::PtraceScope)),
 ];
 
 /// `/proc/sys/user/max_*_namespaces` for `kind`.
@@ -728,6 +731,11 @@ impl Node for ProcNode {
                             let may = opener.is_none_or(|cred| cred.capable_init(Cap::SysAdmin));
                             Some(Write::Taint(self.source.taint.clone(), may))
                         }
+                        // `yama_dointvec_minmax`: `capable(CAP_SYS_PTRACE)`, of the opener here.
+                        text::Global::PtraceScope => {
+                            let may = opener.is_none_or(|cred| cred.capable_init(Cap::SysPtrace));
+                            Some(Write::Yama(self.source.yama.clone(), may))
+                        }
                         _ => None,
                     };
                     (data, write)
@@ -848,6 +856,8 @@ enum Write {
     Vm(Arc<VmSysctls>, text::Global),
     /// `kernel.tainted`, if the opener may add flags.
     Taint(Arc<Taint>, bool),
+    /// `kernel.yama.ptrace_scope`, if the opener may change it.
+    Yama(Arc<crate::yama::Yama>, bool),
     /// A map of a user namespace, written with the opener's credentials.
     Map(Arc<UserNs>, MapKind, Box<Cred>),
     /// Whether a user namespace allows `setgroups`.
@@ -907,6 +917,8 @@ impl Handle for FileHandle {
             },
             Write::Taint(_, false) => return Err(Errno::EPERM),
             Write::Taint(taint, true) => taint.add(sysctl_int(data)?),
+            Write::Yama(_, false) => return Err(Errno::EPERM),
+            Write::Yama(yama, true) => yama.set_scope(sysctl_i32(data)?)?,
             Write::Fs(sysctls, file) => {
                 let value = sysctl_i32(data)?;
                 match file {

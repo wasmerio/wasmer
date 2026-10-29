@@ -878,3 +878,41 @@ fn a_proc_file_opens_with_o_trunc_and_keeps_its_mode() {
         0o644
     );
 }
+
+/// `kernel.yama.ptrace_scope` starts at Yama's 1, takes 0 to 3 from a writer with
+/// `CAP_SYS_PTRACE` (`yama_dointvec_minmax`), and once 3 keeps it.
+#[test]
+fn yama_ptrace_scope_takes_0_to_3_and_locks_at_3() {
+    let (kernel, task, _) = super::cred::machine_as(0, 0);
+    let vfs = kernel.vfs().clone();
+    block_on(vfs.mount(b"/proc", kernel.procfs(), MountFlags::default(), true)).unwrap();
+    let memory = memory();
+    let t = T::new(&kernel, task, &memory);
+    let scope = "/proc/sys/kernel/yama/ptrace_scope";
+    let set = |value: &str| {
+        let fd = t.open(scope, OpenFlags::O_WRONLY)?;
+        let written = t.write(fd, value.as_bytes());
+        block_on(kernel.close(&t.caller, fd)).unwrap();
+        written
+    };
+    let get = || {
+        let fd = t.open(scope, OpenFlags::O_RDONLY).unwrap();
+        t.read_all(fd)
+    };
+
+    assert_eq!(get(), "1\n");
+    let mode = t.stat(scope, AtFlags::empty()).unwrap().stx_mode;
+    assert_eq!(mode & 0o7777, 0o644);
+    assert_eq!(set("0\n"), Ok(2));
+    assert_eq!(get(), "0\n");
+    assert_eq!(set("4"), Err(Errno::EINVAL.into()));
+
+    assert_eq!(set("3"), Ok(1));
+    assert_eq!(set("1"), Err(Errno::EINVAL.into()));
+    assert_eq!(get(), "3\n");
+
+    let all = u64::MAX >> (63 - u64::from(wasixv2_vfs::Cap::LAST));
+    let sys_ptrace = wasixv2_vfs::Cap::SysPtrace.bit();
+    super::cred::set_caps(&kernel, &t.caller, &memory, all & !sys_ptrace);
+    assert_eq!(set("3"), Err(Errno::EPERM.into()));
+}

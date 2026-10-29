@@ -1394,6 +1394,7 @@ impl Kernel {
                 sched,
                 seccomp,
                 thread_keyring: None,
+                io: crate::sched::copy_io(task.io.as_ref(), flags.contains(CloneFlags::CLONE_IO)),
                 thread: task.thread.for_process(flags, tls, child_tid),
                 signals,
             };
@@ -2013,7 +2014,7 @@ impl Kernel {
     }
 
     /// `pidfd_get_pid`: the process of the pidfd `fd`; `EBADF` for any other file.
-    fn pidfd_pid(&self, caller: &Caller<'_>, fd: Fd) -> Result<u32, Errno> {
+    pub(crate) fn pidfd_pid(&self, caller: &Caller<'_>, fd: Fd) -> Result<u32, Errno> {
         let file = self.io_file(caller, fd)?;
         pidfd_target(&file).ok_or(Errno::EBADF)
     }
@@ -2062,6 +2063,40 @@ impl Kernel {
         let sender = self.process(caller.task());
         self.send_to_group(Some(&sender), pid, info)?;
         Ok(0)
+    }
+}
+
+impl Kernel {
+    /// `pidfd_getfd` (kernel/pid.c): a duplicate, close-on-exec, of the file `fd` of the
+    /// process of `pidfd`, for a caller that may attach to it
+    /// (`PTRACE_MODE_ATTACH_REALCREDS`, else `EPERM`). A process that is gone is `ESRCH`; one
+    /// that left its files on its way out has none (`EBADF`).
+    pub(crate) fn sys_pidfd_getfd(
+        &self,
+        caller: &Caller<'_>,
+        pidfd: Fd,
+        fd: Fd,
+        flags: u32,
+    ) -> SysResult<i32> {
+        if flags != 0 {
+            return Err(Errno::EINVAL.into());
+        }
+        let pid = self.pidfd_pid(caller, pidfd)?;
+        // `get_pid_task(pid, PIDTYPE_TGID)`: the thread group's leader.
+        let leader = TaskId(pid);
+        let files = {
+            let state = self.state.read_or_recover();
+            let task = state.tasks.get(&leader).ok_or(Errno::ESRCH)?;
+            (!task.thread.exited()).then(|| task.files.clone())
+        };
+        if !self.ptrace_may_access(caller.task(), leader, crate::ptrace::MODE_ATTACH_REALCREDS) {
+            return Err(Errno::EPERM.into());
+        }
+        let file = files.and_then(|files| files.lock_or_recover().get(fd));
+        let file = file.ok_or(Errno::EBADF)?;
+        // `receive_fd(file, NULL, O_CLOEXEC)`.
+        let [reserved] = self.reserve_fds::<1>(caller, true)?;
+        Ok(reserved.install(file).0)
     }
 }
 

@@ -57,6 +57,8 @@ pub(super) enum Global {
     CapLastCap,
     /// `kernel.tainted`.
     Tainted,
+    /// `kernel.yama.ptrace_scope`.
+    PtraceScope,
     /// `user.max_*_namespaces` of the reader's user namespace, for the namespaces of a kind.
     MaxNamespaces(NsKind),
     /// `/proc/keys`, `/proc/key-users`, which the node renders for its opener.
@@ -98,7 +100,8 @@ impl Global {
             | Self::DirNotifyEnable
             | Self::LeasesEnable
             | Self::LeaseBreakTime
-            | Self::Tainted => 0o644,
+            | Self::Tainted
+            | Self::PtraceScope => 0o644,
             // Writing these needs a capability over the namespace's owner instead (or, for
             // `pid_max`, being its root), as the permissions of their sysctl tables give.
             Self::NsLastPid | Self::PidMax | Self::MaxNamespaces(_) => 0o666,
@@ -184,6 +187,7 @@ pub(super) fn global(
         Global::OverflowUid | Global::OverflowGid => line(&OVERFLOW_ID.to_string()),
         Global::CapLastCap => line(&wasixv2_vfs::Cap::LAST.to_string()),
         Global::Tainted => line(&source.taint.get().to_string()),
+        Global::PtraceScope => line(&source.yama.scope().to_string()),
         Global::MaxNamespaces(kind) => line(&user_ns.ucount_max(kind).to_string()),
         // The node renders them for its opener.
         Global::Keys | Global::KeyUsers => unreachable!("rendered for the opener"),

@@ -306,6 +306,21 @@ impl Tty {
 }
 
 impl Kernel {
+    /// `vhangup` (fs/open.c): with `CAP_SYS_TTY_CONFIG`, hangs up the caller's controlling
+    /// terminal, if it has one (`tty_vhangup_self`), as `login` and `agetty` do before they
+    /// hand a terminal on.
+    pub(crate) fn sys_vhangup(&self, task: TaskId) -> SysResult<i32> {
+        let process = self.process(task);
+        if !process.cred().capable_init(wasixv2_vfs::Cap::SysTtyConfig) {
+            return Err(Errno::EPERM.into());
+        }
+        let tty = process.ident.lock_or_recover().tty.clone();
+        if let Some(tty) = tty {
+            tty.hangup(false);
+        }
+        Ok(0)
+    }
+
     /// `disassociate_ctty`: a session leader gives up its controlling terminal, as it exits
     /// (`on_exit`) or with `TIOCNOTTY`. On exit the terminal is hung up, unless it is a pty
     /// slave, whose foreground group only gets SIGHUP; otherwise the foreground group gets

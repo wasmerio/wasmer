@@ -36,6 +36,8 @@
 //!
 //! [`Host::shared_pages`]: wasixv2_host::Host::shared_pages
 
+mod cachestat;
+mod mseal;
 mod shared;
 
 use std::{
@@ -1894,6 +1896,72 @@ impl Kernel {
             _ => {}
         }
         Ok(0)
+    }
+
+    /// `process_madvise`: the advice `behavior` on each range of `vec` in the address space of
+    /// the process of `pidfd`, which the caller may read (`PTRACE_MODE_READ_FSCREDS`). On another
+    /// process's memory only the hints that keep its data are allowed (`MADV_COLD`,
+    /// `MADV_PAGEOUT`, `MADV_WILLNEED`, `MADV_COLLAPSE`), with `CAP_SYS_NICE`; they change
+    /// nothing here, where all memory is resident, but the ranges must be mapped. Returns the
+    /// bytes advised, or the first error if none were.
+    pub(crate) async fn sys_process_madvise(
+        &self,
+        caller: &Caller<'_>,
+        pidfd: Fd,
+        vec: wasixv2_abi::ConstIovecArray,
+        vlen: Usize,
+        behavior: MadviseAdvice,
+        flags: u32,
+    ) -> SysResult<i32> {
+        if flags != 0 {
+            return Err(Errno::EINVAL.into());
+        }
+        let iovecs = crate::fs::read_iovecs(caller.memory(), vec, vlen).await?;
+        let task = self.pidfd_get_task(caller, pidfd)?;
+        let mm = self.mm_access(caller.task(), task, crate::ptrace::MODE_READ_FSCREDS)?;
+        if !advice_valid(behavior) {
+            return Err(Errno::EINVAL.into());
+        }
+        let remote = !Arc::ptr_eq(&mm, &self.mm(caller.task()));
+        let hint = matches!(
+            behavior,
+            MadviseAdvice::MADV_COLD
+                | MadviseAdvice::MADV_PAGEOUT
+                | MadviseAdvice::MADV_WILLNEED
+                | MadviseAdvice::MADV_COLLAPSE
+        );
+        if remote && !hint {
+            return Err(Errno::EINVAL.into());
+        }
+        if remote && !self.cred(caller).capable_init(Cap::SysNice) {
+            return Err(Errno::EPERM.into());
+        }
+        // `vector_madvise`.
+        let mut done = 0u32;
+        for iov in iovecs {
+            let result = match (iov.iov_base, iov.iov_len) {
+                (start, _) if check_aligned(start).is_err() => Err(Errno::EINVAL.into()),
+                (start, len) if start.checked_add(len).is_none() => Err(Errno::EINVAL.into()),
+                (_, 0) => Ok(0),
+                (start, len) if remote => {
+                    let len = u64::from(len).div_ceil(PAGE_SIZE) * PAGE_SIZE;
+                    let size = mm.space().seen;
+                    match mm.space().range_mapped(start.into(), len, size) {
+                        true => Ok(0),
+                        false => Err(Errno::ENOMEM.into()),
+                    }
+                }
+                (start, len) => self.sys_madvise(caller, start, len, behavior).await,
+            };
+            if let Err(err) = result {
+                return match done {
+                    0 => Err(err),
+                    done => Ok(done as i32),
+                };
+            }
+            done += iov.iov_len;
+        }
+        Ok(done as i32)
     }
 
     /// Every mapped page is resident.

@@ -737,7 +737,8 @@ impl Kernel {
                     false => Err(Errno::EPERM.into()),
                 };
             }
-            PrctlOption::PR_SET_THP_DISABLE | PR_SET_VMA | PrctlOption::PR_SET_PTRACER => {}
+            PrctlOption::PR_SET_THP_DISABLE | PR_SET_VMA => {}
+            PrctlOption::PR_SET_PTRACER => return self.yama_set_ptracer(caller, arg2),
             _ => return Err(Errno::EINVAL.into()),
         }
         Ok(0)

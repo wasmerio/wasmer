@@ -9,12 +9,20 @@
 //! exactly as Linux does, under Linux's permission (`CAP_SYS_NICE`, `RLIMIT_NICE`,
 //! `RLIMIT_RTPRIO`) and deadline admission rules.
 
-use std::{future::poll_fn, task::Poll, time::Duration};
+use std::{
+    future::poll_fn,
+    sync::{
+        Arc,
+        atomic::{AtomicU16, Ordering},
+    },
+    task::Poll,
+    time::Duration,
+};
 
 use wasixv2_abi::{
-    ConstSchedParamPtr, GuestLayout, KernelTimespecPtr, Pid, PrioWhich, RlimitResource, SchedAttr,
-    SchedAttrPtr, SchedFlags, SchedGetattrFlags, SchedParam, SchedParamPtr, SchedPolicy, U32Ptr,
-    UlongArray,
+    ConstSchedParamPtr, GuestLayout, IoprioClass, IoprioWho, KernelTimespecPtr, Pid, PrioWhich,
+    RlimitResource, SchedAttr, SchedAttrPtr, SchedFlags, SchedGetattrFlags, SchedParam,
+    SchedParamPtr, SchedPolicy, U32Ptr, UlongArray,
 };
 use wasixv2_syscalls::{Caller, Errno, SysResult, TaskId, read_value, write_value};
 use wasixv2_vfs::Cap;
@@ -252,6 +260,17 @@ fn in_ticks(ns: u64) -> Duration {
 }
 
 impl Sched {
+    /// `IOPRIO_PRIO_VALUE(task_nice_ioclass(p), task_nice_ioprio(p))`: the I/O priority a task
+    /// that set none has, from its policy and nice value.
+    fn nice_ioprio(&self) -> u16 {
+        let class = match self.policy {
+            SchedPolicy::SCHED_IDLE => IoprioClass::IOPRIO_CLASS_IDLE,
+            _ if self.rt() || self.dl() => IoprioClass::IOPRIO_CLASS_RT,
+            _ => IoprioClass::IOPRIO_CLASS_BE,
+        };
+        ioprio_value(class.0 as u16, ((self.nice + 20) / 5) as u16)
+    }
+
     fn rt(&self) -> bool {
         is_rt(self.policy)
     }
@@ -1368,5 +1387,140 @@ mod tests {
         assert_eq!(child.set(&fifo, false, &privileged()), Ok(()));
         child.set_timer_slack(5);
         assert_eq!(child.timer_slack(), 0);
+    }
+}
+
+// ---- I/O priorities (block/ioprio.c, block/blk-ioc.c) ----
+
+/// `IOPRIO_CLASS_SHIFT`: the class sits above 13 bits of level and hint.
+const IOPRIO_CLASS_SHIFT: u16 = 13;
+/// `IOPRIO_LEVEL_MASK`.
+const IOPRIO_LEVEL_MASK: u16 = 7;
+
+/// `IOPRIO_PRIO_VALUE` without a hint.
+fn ioprio_value(class: u16, level: u16) -> u16 {
+    class << IOPRIO_CLASS_SHIFT | level
+}
+
+/// `IOPRIO_PRIO_CLASS`.
+fn ioprio_class(ioprio: u16) -> i32 {
+    i32::from(ioprio >> IOPRIO_CLASS_SHIFT & 7)
+}
+
+/// `ioprio_valid`: a class that is set.
+fn ioprio_valid(ioprio: u16) -> bool {
+    let class = ioprio_class(ioprio);
+    class > IoprioClass::IOPRIO_CLASS_NONE.0 && class <= IoprioClass::IOPRIO_CLASS_IDLE.0
+}
+
+/// `struct io_context`: the I/O priority a task set, which the tasks it creates with `CLONE_IO`
+/// share. A task gets one on its first `ioprio_set`; with no block devices, nothing else makes
+/// one.
+#[derive(Debug, Default)]
+pub(crate) struct IoContext {
+    ioprio: AtomicU16,
+}
+
+impl IoContext {
+    fn ioprio(&self) -> u16 {
+        self.ioprio.load(Ordering::Relaxed)
+    }
+}
+
+/// `copy_io`: a new task shares its creator's context with `CLONE_IO`; otherwise it gets one of
+/// its own only for a priority that was set.
+pub(crate) fn copy_io(parent: Option<&Arc<IoContext>>, clone_io: bool) -> Option<Arc<IoContext>> {
+    let ioc = parent?;
+    if clone_io {
+        return Some(ioc.clone());
+    }
+    let ioprio = ioc.ioprio();
+    ioprio_valid(ioprio).then(|| {
+        Arc::new(IoContext {
+            ioprio: AtomicU16::new(ioprio),
+        })
+    })
+}
+
+/// The `PRIO_*` selector that names the same targets as an `IOPRIO_WHO_*` one.
+fn ioprio_which(which: i32) -> PrioWhich {
+    match IoprioWho(which) {
+        IoprioWho::IOPRIO_WHO_PROCESS => PrioWhich::PRIO_PROCESS,
+        IoprioWho::IOPRIO_WHO_PGRP => PrioWhich::PRIO_PGRP,
+        IoprioWho::IOPRIO_WHO_USER => PrioWhich::PRIO_USER,
+        _ => PrioWhich(-1),
+    }
+}
+
+impl Kernel {
+    /// `ioprio_set`: checks the priority (`ioprio_check_cap`: the real-time class needs
+    /// `CAP_SYS_ADMIN` or `CAP_SYS_NICE`), then sets it on every target in turn
+    /// (`set_task_ioprio`): a target owned by another user needs `CAP_SYS_NICE`, and the first
+    /// refusal ends the call.
+    pub(crate) fn sys_ioprio_set(
+        &self,
+        caller: &Caller<'_>,
+        which: i32,
+        who: i32,
+        ioprio: i32,
+    ) -> SysResult<i32> {
+        let cred = self.cred(caller);
+        // `io_context.ioprio` is an `unsigned short`.
+        let raw = ioprio as u16;
+        let level = raw & IOPRIO_LEVEL_MASK;
+        match IoprioClass(ioprio_class(raw)) {
+            IoprioClass::IOPRIO_CLASS_RT => {
+                if !cred.capable_init(Cap::SysAdmin) && !cred.capable_init(Cap::SysNice) {
+                    return Err(Errno::EPERM.into());
+                }
+            }
+            IoprioClass::IOPRIO_CLASS_BE | IoprioClass::IOPRIO_CLASS_IDLE => {}
+            IoprioClass::IOPRIO_CLASS_NONE if level == 0 => {}
+            _ => return Err(Errno::EINVAL.into()),
+        }
+        let mut state = self.state.lock_or_recover();
+        let targets = self.priority_targets(&state, caller, ioprio_which(which), who)?;
+        if targets.is_empty() {
+            return Err(Errno::ESRCH.into());
+        }
+        for id in targets {
+            let task = state.tasks.get_mut(&id).expect("listed above");
+            let target = task.process.cred();
+            if target.user.real != cred.user.effective
+                && target.user.real != cred.user.real
+                && !cred.capable_init(Cap::SysNice)
+            {
+                return Err(Errno::EPERM.into());
+            }
+            let ioc = task.io.get_or_insert_with(Arc::default);
+            ioc.ioprio.store(raw, Ordering::Relaxed);
+        }
+        Ok(0)
+    }
+
+    /// `ioprio_get`: a process's priority as set (`get_task_raw_ioprio`, `IOPRIO_DEFAULT` when
+    /// none was), or the best (lowest) of a group's or a user's tasks, each with what its
+    /// policy and nice value give when it set none (`__get_task_ioprio`).
+    pub(crate) fn sys_ioprio_get(
+        &self,
+        caller: &Caller<'_>,
+        which: i32,
+        who: i32,
+    ) -> SysResult<i32> {
+        let state = self.state.lock_or_recover();
+        let which = ioprio_which(which);
+        let targets = self.priority_targets(&state, caller, which, who)?;
+        let prio = |id: &TaskId| {
+            let task = &state.tasks[id];
+            let set = task.io.as_ref().map(|ioc| ioc.ioprio());
+            match which {
+                PrioWhich::PRIO_PROCESS => set.unwrap_or(0),
+                _ => set
+                    .filter(|&prio| ioprio_class(prio) != IoprioClass::IOPRIO_CLASS_NONE.0)
+                    .unwrap_or_else(|| task.sched.nice_ioprio()),
+            }
+        };
+        let best = targets.iter().map(prio).min();
+        Ok(i32::from(best.ok_or(Errno::ESRCH)?))
     }
 }

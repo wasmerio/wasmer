@@ -18,6 +18,7 @@ mod futex;
 mod ident;
 mod ioctl;
 mod ipc;
+mod kcmp;
 mod keys;
 mod landlock;
 mod memfd;
@@ -33,6 +34,7 @@ mod posix_timer;
 mod process;
 mod procfs;
 mod pseudo;
+mod ptrace;
 mod resource;
 mod restart;
 mod sched;
@@ -54,6 +56,7 @@ mod uidgid;
 mod unix;
 mod userns;
 mod work;
+mod yama;
 
 use std::{
     collections::HashMap,
@@ -183,6 +186,10 @@ pub struct Kernel {
     seccomp_used: std::sync::atomic::AtomicBool,
     /// Every key, by serial, and each user's (`key_serial_tree`, `key_user_tree`).
     keys: Arc<keys::Keys>,
+    /// Yama's `ptrace_scope` and the `PR_SET_PTRACER` exceptions.
+    yama: Arc<yama::Yama>,
+    /// What hides the order of the resources `kcmp` compares, made at its first use.
+    kcmp: std::sync::OnceLock<kcmp::Cookies>,
     // ---- base ----
     /// What [`Kernel::spawn`]ed processes run as.
     credentials: Credentials,
@@ -283,6 +290,8 @@ struct Task {
     seccomp: seccomp::Seccomp,
     /// The thread keyring (`cred->thread_keyring`), which a new task starts without.
     thread_keyring: Option<Arc<keys::Key>>,
+    /// The I/O priority it set (`io_context`), shared with `CLONE_IO`.
+    io: Option<Arc<sched::IoContext>>,
     // ---- thr ----
     thread: thread::ThreadState,
     // ---- sig ----
@@ -355,6 +364,8 @@ impl Kernel {
             sigqueue_users: Arc::default(),
             seccomp_used: Default::default(),
             keys: Arc::default(),
+            yama: Arc::default(),
+            kcmp: std::sync::OnceLock::new(),
             credentials: Credentials::default(),
             init: None,
             jobs,
@@ -511,6 +522,7 @@ impl Kernel {
             sched: sched::Sched::default(),
             seccomp: seccomp::Seccomp::default(),
             thread_keyring: None,
+            io: None,
             process,
             mm: Arc::default(),
             files: Arc::new(Mutex::new(files)),
@@ -1610,6 +1622,28 @@ impl Syscalls for Kernel {
             .await
     }
 
+    async fn kcmp(
+        &self,
+        caller: &Caller<'_>,
+        pid1: Pid,
+        pid2: Pid,
+        r#type: i32,
+        idx1: Ulong,
+        idx2: Ulong,
+    ) -> SysResult<i32> {
+        self.sys_kcmp(caller, pid1, pid2, r#type, idx1, idx2).await
+    }
+
+    async fn pidfd_getfd(
+        &self,
+        caller: &Caller<'_>,
+        pidfd: Fd,
+        fd: Fd,
+        flags: u32,
+    ) -> SysResult<i32> {
+        self.sys_pidfd_getfd(caller, pidfd, fd, flags)
+    }
+
     async fn pidfd_open(&self, caller: &Caller<'_>, pid: Pid, flags: u32) -> SysResult<Fd> {
         self.sys_pidfd_open(caller, pid, flags)
     }
@@ -2154,6 +2188,18 @@ impl Syscalls for Kernel {
     ) -> SysResult<i32> {
         self.sys_getcpu(caller, cpu, node).await
     }
+    async fn ioprio_set(
+        &self,
+        caller: &Caller<'_>,
+        which: i32,
+        who: i32,
+        ioprio: i32,
+    ) -> SysResult<i32> {
+        self.sys_ioprio_set(caller, which, who, ioprio)
+    }
+    async fn ioprio_get(&self, caller: &Caller<'_>, which: i32, who: i32) -> SysResult<i32> {
+        self.sys_ioprio_get(caller, which, who)
+    }
     async fn getpriority(&self, caller: &Caller<'_>, which: PrioWhich, who: i32) -> SysResult<i32> {
         self.sys_getpriority(caller, which, who)
     }
@@ -2223,6 +2269,41 @@ impl Syscalls for Kernel {
         advice: MadviseAdvice,
     ) -> SysResult<i32> {
         self.sys_madvise(caller, start, len, advice).await
+    }
+    async fn vhangup(&self, caller: &Caller<'_>) -> SysResult<i32> {
+        self.sys_vhangup(caller.task())
+    }
+    async fn mseal(
+        &self,
+        caller: &Caller<'_>,
+        start: Uptr,
+        len: Usize,
+        flags: Ulong,
+    ) -> SysResult<i32> {
+        self.sys_mseal(caller, start, len, flags).await
+    }
+    async fn process_madvise(
+        &self,
+        caller: &Caller<'_>,
+        pidfd: Fd,
+        vec: wasixv2_abi::ConstIovecArray,
+        vlen: Usize,
+        behavior: MadviseAdvice,
+        flags: u32,
+    ) -> SysResult<i32> {
+        self.sys_process_madvise(caller, pidfd, vec, vlen, behavior, flags)
+            .await
+    }
+    async fn cachestat(
+        &self,
+        caller: &Caller<'_>,
+        fd: Fd,
+        cstat_range: wasixv2_abi::ConstCachestatRangePtr,
+        cstat: wasixv2_abi::CachestatPtr,
+        flags: u32,
+    ) -> SysResult<i32> {
+        self.sys_cachestat(caller, fd, cstat_range, cstat, flags)
+            .await
     }
     async fn mincore(
         &self,

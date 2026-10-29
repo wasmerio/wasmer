@@ -107,6 +107,11 @@ impl ThreadState {
         self.exited
     }
 
+    /// Whether the task is done with its memory (Linux's `tsk->mm == NULL`).
+    pub(crate) fn left_mm(&self) -> bool {
+        self.left_mm
+    }
+
     /// The thread state of a new process's first task, made from the caller's (`copy_process`):
     /// no robust list, the caller's thread pointer unless `CLONE_SETTLS` gives `tls`, and
     /// `CLONE_CHILD_CLEARTID`'s `child_tid`.
@@ -252,6 +257,7 @@ impl Kernel {
                 sched,
                 seccomp: task.seccomp.clone(),
                 thread_keyring: None,
+                io: crate::sched::copy_io(task.io.as_ref(), flags.contains(CloneFlags::CLONE_IO)),
                 thread,
                 signals: task
                     .signals
@@ -534,6 +540,9 @@ impl Kernel {
         }
         // What the tasks held goes with the table unlocked.
         drop(gone);
+        for pid in reaped {
+            self.yama.task_free(pid);
+        }
     }
 
     /// `release_task`: the execution layer is done with `task`, so it goes. A zombie process

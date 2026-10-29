@@ -69,6 +69,7 @@ impl Kernel {
             mounted,
             nr_open: self.nr_open.clone(),
             taint: self.taint.clone(),
+            yama: self.yama.clone(),
             pipe_max_size: self.pipe_max_size.clone(),
             vm: self.vm.clone(),
             keys: self.keys.clone(),
@@ -149,6 +150,8 @@ struct Source {
     sysnet_names: Mutex<sysnet::Names>,
     /// `kernel.tainted`.
     taint: Arc<Taint>,
+    /// `kernel.yama.ptrace_scope`.
+    yama: Arc<crate::yama::Yama>,
     /// `fs.pipe-max-size`.
     pipe_max_size: Arc<PipeMaxSize>,
     /// The `vm` tunables.

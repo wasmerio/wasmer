@@ -416,6 +416,23 @@ impl Domain {
         false
     }
 
+    /// `domain_scope_le` (security/landlock/task.c), for `hook_ptrace_access_check` and
+    /// `hook_ptrace_traceme`: a task of `parent`'s domain may trace one of `child`'s only if
+    /// `child`'s domain is `parent`'s or nested in it. No domain is above every domain.
+    pub(crate) fn may_ptrace(parent: Option<&Arc<Domain>>, child: Option<&Arc<Domain>>) -> bool {
+        let Some(parent) = parent else {
+            return true;
+        };
+        let mut walker = child;
+        while let Some(domain) = walker {
+            if Arc::ptr_eq(domain, parent) {
+                return true;
+            }
+            walker = domain.parent.as_ref();
+        }
+        false
+    }
+
     /// `hook_unix_find`: `LANDLOCK_ACCESS_FS_RESOLVE_UNIX` to reach the socket at `path`, which
     /// a process in `server`'s domain bound: what a layer denies is let through when the server
     /// is within that layer's domain.
