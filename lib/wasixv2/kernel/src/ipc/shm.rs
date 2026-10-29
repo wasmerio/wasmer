@@ -241,17 +241,18 @@ impl Attachment {
 
     /// The same attachment in the fork child `pid` (`shm_open` from `dup_mmap`).
     pub(crate) fn dup(&self, pid: u32) -> Arc<Attachment> {
+        let pid = self.pid.of(pid);
         {
             let mut state = self.segment.state();
             state.nattch += 1;
             state.atime = self.host.realtime().as_secs();
-            state.lpid = Some(self.pid.clone());
+            state.lpid = Some(pid.clone());
         }
         Arc::new(Attachment {
             segment: self.segment.clone(),
             id: self.id,
             table: self.table.clone(),
-            pid: self.pid.of(pid),
+            pid,
             host: self.host.clone(),
         })
     }
