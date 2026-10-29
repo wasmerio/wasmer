@@ -24,12 +24,15 @@ use mio::{
 };
 use wasixv2_abi::{Errno, IpOption, Ipv6Option, SocketLevel, SocketOption, TcpOption};
 use wasixv2_vnet::{
-    Backend, BackendDatagram, BackendStream, Domain, InboundSink, Publication, PublishedDatagram,
-    QueuedError, Room, Shutdown, StreamState as Phase,
+    Backend, BackendDatagram, BackendStream, Domain, InboundSink, Lookup, LookupDone, Publication,
+    PublishedDatagram, QueuedError, Room, Shutdown, StreamState as Phase,
 };
 use wasixv2_wait::{PollMask, PollTable, Pollable, WaitEntry, WaitQueue, WaitRegistration};
 
-use crate::errno_from_io;
+use crate::{
+    errno_from_io,
+    resolver::{Resolver, ResolverConfig},
+};
 
 const WAKER: Token = Token(0);
 /// Bytes buffered per direction of a stream.
@@ -99,10 +102,17 @@ impl Shared {
 pub struct HostBackend {
     shared: Arc<Shared>,
     thread: Option<thread::JoinHandle<()>>,
+    resolver: Resolver,
 }
 
 impl HostBackend {
+    /// A backend whose resolver reads the host's own configuration.
     pub fn new() -> io::Result<Arc<Self>> {
+        Self::with_resolver(ResolverConfig::default())
+    }
+
+    /// A backend whose resolver reads the host files `resolver` names.
+    pub fn with_resolver(resolver: ResolverConfig) -> io::Result<Arc<Self>> {
         let poll = Poll::new()?;
         let registry = poll.registry().try_clone()?;
         let waker = Waker::new(poll.registry(), WAKER)?;
@@ -124,6 +134,7 @@ impl HostBackend {
         Ok(Arc::new(Self {
             shared,
             thread: Some(thread),
+            resolver: Resolver::new(resolver),
         }))
     }
 }
@@ -1163,6 +1174,11 @@ impl Backend for HostBackend {
             .register_datagram(sock, Some(wq), strip)
             .map_err(|e| errno_from_io(&e))?;
         Ok(d)
+    }
+
+    /// The host's resolver, on worker threads of its own (see [`ResolverConfig`]).
+    fn lookup(&self, lookup: Lookup, done: LookupDone) {
+        self.resolver.lookup(lookup, done);
     }
 
     fn publish_datagram(&self, host: SocketAddr) -> io::Result<PublishedDatagram> {
