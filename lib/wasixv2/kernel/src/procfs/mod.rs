@@ -387,7 +387,6 @@ impl Source {
         };
         let ctx = crate::keys::Ctx {
             cred: task.cred.clone(),
-            thread: task.thread_keyring.clone(),
             now: self.host.realtime().as_secs(),
         };
         drop(state);

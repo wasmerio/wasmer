@@ -1664,7 +1664,6 @@ impl Kernel {
                 comm: task.comm,
                 sched,
                 seccomp,
-                thread_keyring: None,
                 io: crate::sched::copy_io(task.io.as_ref(), flags.contains(CloneFlags::CLONE_IO)),
                 thread: task.thread.for_process(flags, tls, child_tid),
                 signals,
@@ -2084,7 +2083,7 @@ impl Kernel {
         );
         // `prepare_exec_creds`: no thread keyring, a new process keyring when asked for.
         cred.keys.process = None;
-        self.with_task(task, |t| t.thread_keyring = None);
+        cred.keys.thread = None;
         // `begin_new_exec`: an image run with other ids dumps as `fs.suid_dumpable` says.
         let dumpable = match cred.user.effective == cred.user.real
             && cred.group.effective == cred.group.real

@@ -547,3 +547,52 @@ fn key_sysctls_gc_delay_controls_expired_revoked_and_invalidated_links() {
     kernel.clock_was_set();
     assert!(t.read(PROCESS).unwrap().is_empty());
 }
+
+/// kernel/cred.c `copy_creds` and security/keys/process_keys.c
+/// `install_session_keyring_to_cred`: keyring references belong to each task's cred.
+#[test]
+fn thread_credentials_own_keyrings_and_join_session_affects_only_the_caller() {
+    let (kernel, leader, memory) = machine();
+    let main = T::new(&kernel, leader, &memory);
+    let thread_ring = main.id(THREAD, true).unwrap();
+    let process_ring = main.id(PROCESS, true).unwrap();
+    let old_session = main.keyctl(JOIN_SESSION_KEYRING, 0, 0, 0, 0).unwrap();
+    main.add("user", "private", b"secret", THREAD).unwrap();
+    let child = TaskId(
+        block_on(kernel.thread_spawn(
+            &main.caller,
+            0x10f00,
+            0,
+            GuestPtrMut::NULL,
+            0,
+            GuestPtrMut::NULL,
+        ))
+        .unwrap() as u32,
+    );
+    let worker = T::new(&kernel, child, &memory);
+    let child_thread_ring = worker.id(THREAD, false).unwrap();
+    assert_ne!(child_thread_ring, thread_ring);
+    assert_eq!(worker.read(child_thread_ring).unwrap(), b"");
+    assert_eq!(worker.id(PROCESS, false), Ok(process_ring));
+    assert_eq!(worker.id(SESSION, false), Ok(old_session));
+    let joined = worker.keyctl(JOIN_SESSION_KEYRING, 0, 0, 0, 0).unwrap();
+    assert_ne!(joined, old_session);
+    assert_eq!(main.id(SESSION, false), Ok(old_session));
+    assert_eq!(worker.id(SESSION, false), Ok(joined));
+    assert!(kernel.task_cred(child).keys.thread.is_some());
+    // A fork inherits the calling thread's session, and neither thread/process keyring.
+    let fork_memory = ForkableMemory(FlatMemory(RefCell::new(vec![0; 65536])));
+    let pid = block_on(kernel.clone(
+        &Caller::new(child, &fork_memory),
+        Signal::SIGCHLD.0 as u32,
+        0,
+        GuestPtrMut::NULL,
+        0,
+        GuestPtrMut::NULL,
+    ))
+    .unwrap();
+    let fork = T::new(&kernel, TaskId(pid as u32), &memory);
+    assert_eq!(fork.id(SESSION, false), Ok(joined));
+    assert_eq!(errno(fork.id(THREAD, false)), Errno::ENOKEY);
+    assert_eq!(errno(fork.id(PROCESS, false)), Errno::ENOKEY);
+}
