@@ -86,7 +86,7 @@ fn no_new_privs(stack: &Layered<SyscallEntry, Kernel>, caller: &Caller<'_>) {
 
 fn machine() -> (Layered<SyscallEntry, Kernel>, TaskId, FlatMemory) {
     let (kernel, task, memory) = super::ipc::machine();
-    (Layered::new(SyscallEntry, kernel), task, memory)
+    (Layered::new(SyscallEntry(Dispatch), kernel), task, memory)
 }
 
 fn spawn_thread(kernel: &Kernel, caller: &Caller<'_>) -> TaskId {
