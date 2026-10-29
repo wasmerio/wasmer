@@ -288,6 +288,13 @@ fn the_pids_controller_limits_forks() {
     );
     assert_eq!(p.read(&kernel, "/cg/a/b/pids.events"), Ok("max 0\n".into()));
     assert_eq!(p.read(&kernel, "/cg/a/b/pids.current"), Ok("2\n".into()));
+    // The first refusal in a cgroup is logged (`pids_event`).
+    let log = block_on(kernel.syslog(&p.caller(), 3, GuestPtrMut::new(0x4000), 4096)).unwrap();
+    let log = String::from_utf8(super::ipc::get(&p.memory.0, 0x4000, log as usize)).unwrap();
+    assert!(
+        log.ends_with("] cgroup: fork rejected by pids controller in /a/b\n"),
+        "{log}"
+    );
     // Moving in is not limited (`pids_can_attach`).
     p.mkdir(&kernel, "/cg/c").unwrap();
     p.write(&kernel, "/cg/c/pids.max", "0").unwrap();

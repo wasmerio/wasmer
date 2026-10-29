@@ -144,6 +144,18 @@ const STATIC: &[(usize, &str, Static)] = &[
     ),
     (14, "max_map_count", Static::File(text::Global::MaxMapCount)),
     (ROOT, "cgroups", Static::File(text::Global::Cgroups)),
+    (ROOT, "kmsg", Static::File(text::Global::Kmsg)),
+    (13, "printk", Static::File(text::Global::Printk)),
+    (
+        13,
+        "dmesg_restrict",
+        Static::File(text::Global::DmesgRestrict),
+    ),
+    (
+        13,
+        "printk_devkmsg",
+        Static::File(text::Global::PrintkDevkmsg),
+    ),
 ];
 
 /// `/proc/sys/user/max_*_namespaces` for `kind`.
@@ -225,6 +237,11 @@ impl ProcNode {
             source,
             entry: Entry::Root,
         })
+    }
+
+    /// Whether this is `/proc/kmsg`.
+    pub(super) fn is_kmsg(&self) -> bool {
+        matches!(self.entry, Entry::Static(index) if matches!(STATIC[index].2, Static::File(text::Global::Kmsg)))
     }
 
     /// The process of a `/proc/<pid>` directory.
@@ -718,6 +735,16 @@ impl Node for ProcNode {
                         | text::Global::MaxMapCount => {
                             Some(Write::Vm(self.source.vm.clone(), file))
                         }
+                        text::Global::Printk | text::Global::PrintkDevkmsg => {
+                            Some(Write::Printk(self.source.printk.clone(), file, true))
+                        }
+                        // `proc_dointvec_minmax_sysadmin`: `capable(CAP_SYS_ADMIN)`.
+                        text::Global::DmesgRestrict => {
+                            let may = opener
+                                .as_ref()
+                                .is_none_or(|cred| cred.capable_init(Cap::SysAdmin));
+                            Some(Write::Printk(self.source.printk.clone(), file, may))
+                        }
                         // `proc_taint`: `capable(CAP_SYS_ADMIN)`, of the opener here.
                         text::Global::Tainted => {
                             let may = opener.is_none_or(|cred| cred.capable_init(Cap::SysAdmin));
@@ -852,6 +879,8 @@ enum Write {
     Ucount(Arc<UserNs>, NsKind),
     /// One of the machine's `fs.*` integers.
     Fs(Arc<crate::fs::FsSysctls>, text::Global),
+    /// One of the kernel log's tunables, if the opener may set it.
+    Printk(Arc<crate::printk::Printk>, text::Global, bool),
 }
 
 /// `proc_dointvec`'s parsing of one integer: blanks around it, nothing else.
@@ -864,6 +893,38 @@ fn sysctl_int(data: &[u8]) -> Result<u32, Errno> {
 fn sysctl_i32(data: &[u8]) -> Result<i32, Errno> {
     let text = std::str::from_utf8(data).map_err(|_| Errno::EINVAL)?;
     text.trim().parse().map_err(|_| Errno::EINVAL)
+}
+
+/// Sets one of the kernel log's tunables: `kernel.printk` takes up to four levels
+/// (`proc_dointvec`), `kernel.dmesg_restrict` 0 or 1 (`proc_dointvec_minmax`),
+/// `kernel.printk_devkmsg` `on`, `off` or `ratelimit` (`devkmsg_sysctl_set_loglvl`).
+fn write_printk(printk: &crate::printk::Printk, file: text::Global, data: &[u8]) -> FsResult<()> {
+    let text = std::str::from_utf8(data).map_err(|_| Errno::EINVAL)?;
+    match file {
+        text::Global::Printk => {
+            let levels: Vec<i32> = text
+                .split_whitespace()
+                .take(4)
+                .map(str::parse)
+                .collect::<Result<_, _>>()
+                .map_err(|_| Errno::EINVAL)?;
+            printk.set_levels(&levels);
+        }
+        text::Global::DmesgRestrict => match sysctl_int(data)? {
+            restrict @ (0 | 1) => printk.set_dmesg_restrict(restrict == 1),
+            _ => return Err(Errno::EINVAL),
+        },
+        _ => {
+            let mode = match text.trim_end_matches(['\n', '\0']) {
+                "on" => crate::printk::Devkmsg::On,
+                "off" => crate::printk::Devkmsg::Off,
+                "ratelimit" => crate::printk::Devkmsg::Ratelimit,
+                _ => return Err(Errno::EINVAL),
+            };
+            printk.set_devkmsg(mode);
+        }
+    }
+    Ok(())
 }
 
 #[async_trait(?Send)]
@@ -901,6 +962,8 @@ impl Handle for FileHandle {
                 text::Global::OvercommitKbytes => vm.set_overcommit_kbytes(sysctl_int(data)?),
                 _ => vm.set_max_map_count(sysctl_i32(data)?)?,
             },
+            Write::Printk(_, _, false) => return Err(Errno::EPERM),
+            Write::Printk(printk, file, true) => write_printk(printk, *file, data)?,
             Write::Taint(_, false) => return Err(Errno::EPERM),
             Write::Taint(taint, true) => taint.add(sysctl_int(data)?),
             Write::Fs(sysctls, file) => {

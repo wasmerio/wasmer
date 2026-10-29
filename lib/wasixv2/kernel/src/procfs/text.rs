@@ -61,6 +61,12 @@ pub(super) enum Global {
     MaxNamespaces(NsKind),
     /// `/proc/cgroups`.
     Cgroups,
+    /// `/proc/kmsg`, which opens as the kernel log.
+    Kmsg,
+    /// `kernel.printk`, `kernel.dmesg_restrict` and `kernel.printk_devkmsg`.
+    Printk,
+    DmesgRestrict,
+    PrintkDevkmsg,
 }
 
 /// The files of a network namespace (`/proc/<pid>/net`).
@@ -97,7 +103,11 @@ impl Global {
             | Self::DirNotifyEnable
             | Self::LeasesEnable
             | Self::LeaseBreakTime
-            | Self::Tainted => 0o644,
+            | Self::Tainted
+            | Self::Printk
+            | Self::DmesgRestrict
+            | Self::PrintkDevkmsg => 0o644,
+            Self::Kmsg => 0o400,
             // Writing these needs a capability over the namespace's owner instead (or, for
             // `pid_max`, being its root), as the permissions of their sysctl tables give.
             Self::NsLastPid | Self::PidMax | Self::MaxNamespaces(_) => 0o666,
@@ -187,6 +197,17 @@ pub(super) fn global(
         Global::Tainted => line(&source.taint.get().to_string()),
         Global::MaxNamespaces(kind) => line(&user_ns.ucount_max(kind).to_string()),
         Global::Cgroups => cgroups(source),
+        Global::Kmsg => Vec::new(),
+        Global::Printk => {
+            let [console, message, minimum, default] = source.printk.levels();
+            line(&format!("{console}\t{message}\t{minimum}\t{default}"))
+        }
+        Global::DmesgRestrict => line(&u8::from(source.printk.dmesg_restrict()).to_string()),
+        Global::PrintkDevkmsg => line(match source.printk.devkmsg() {
+            crate::printk::Devkmsg::On => "on",
+            crate::printk::Devkmsg::Off => "off",
+            crate::printk::Devkmsg::Ratelimit => "ratelimit",
+        }),
     })
 }
 

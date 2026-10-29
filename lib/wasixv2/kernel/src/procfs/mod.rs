@@ -72,11 +72,22 @@ impl Kernel {
             pipe_max_size: self.pipe_max_size.clone(),
             vm: self.vm.clone(),
             cgroups: self.cgroups.clone(),
+            printk: self.printk.clone(),
         };
         Arc::new(ProcFs {
             source: Arc::new(source),
         })
     }
+}
+
+/// Whether `path` is `/proc/kmsg`, which opens as the kernel log (`proc_kmsg_operations`).
+pub(crate) fn is_kmsg(path: &Path) -> bool {
+    if path.dentry.sb().info.magic != PROC_SUPER_MAGIC {
+        return false;
+    }
+    let node = path.dentry.node();
+    let node: Option<&node::ProcNode> = node.as_any().downcast_ref();
+    node.is_some_and(|node| node.is_kmsg())
 }
 
 /// The process whose `/proc/<pid>` directory `path` is, if it is one (`tgid_pidfd_to_pid`):
@@ -155,6 +166,8 @@ struct Source {
     vm: Arc<VmSysctls>,
     /// The cgroup hierarchy, which `/proc/<pid>/cgroup` and `/proc/cgroups` show.
     cgroups: Arc<crate::cgroup::Hierarchy>,
+    /// The kernel log's tunables.
+    printk: Arc<crate::printk::Printk>,
 }
 
 /// A process as the tree has it.

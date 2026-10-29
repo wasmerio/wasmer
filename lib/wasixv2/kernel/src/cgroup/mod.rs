@@ -105,6 +105,8 @@ pub(crate) struct Hierarchy {
     /// `/proc/<pid>/cgroup` show it.
     visible: AtomicBool,
     clock: Arc<dyn Clock>,
+    /// The kernel log, which hears of refused forks.
+    printk: Arc<crate::printk::Printk>,
 }
 
 /// A cgroup: its id (`cgroup_id`, the inode number of its directory), its parent and its
@@ -516,9 +518,10 @@ impl Tree {
     }
 
     /// `pids_can_fork`: charges a new task to `cgroup` unless that takes a cgroup with the
-    /// controller, from its `pids` state up, past its `pids.max` (`EAGAIN`), which counts as an
-    /// event there and above (`pids_event`).
-    fn pids_try_charge(&mut self, cgroup: &Arc<Cgroup>) -> Result<(), Errno> {
+    /// controller, from its `pids` state up, past its `pids.max`, which counts as an event
+    /// there and above (`pids_event`). The refusal names the cgroup whose fork it refused the
+    /// first time one is.
+    fn pids_try_charge(&mut self, cgroup: &Arc<Cgroup>) -> Result<(), Option<Arc<Cgroup>>> {
         let forking = self.pids_css(cgroup).clone();
         let over = std::iter::once(&forking)
             .chain(forking.ancestors())
@@ -534,7 +537,9 @@ impl Tree {
             self.pids_charge(cgroup, 1);
             return Ok(());
         };
-        self.node_mut(&forking).pids.local_forkfail += 1;
+        let forkfail = &mut self.node_mut(&forking).pids.local_forkfail;
+        *forkfail += 1;
+        let first = *forkfail == 1;
         if !self.flags.pids_localevents {
             self.node_mut(&over).pids.local_max += 1;
             let mut at = Some(&over);
@@ -543,7 +548,7 @@ impl Tree {
                 at = cgroup.parent.as_ref();
             }
         }
-        Err(Errno::EAGAIN)
+        Err(first.then_some(forking))
     }
 
     /// `pids.current`, `pids.peak`, `pids.max` and the two event files' counts.
@@ -982,7 +987,7 @@ pub(crate) fn controller_names() -> impl Iterator<Item = &'static str> {
 
 impl Hierarchy {
     /// The hierarchy with nothing but its root, owned by root (`cgroup_setup_root`).
-    pub(crate) fn new(clock: Arc<dyn Clock>) -> Arc<Self> {
+    pub(crate) fn new(clock: Arc<dyn Clock>, printk: Arc<crate::printk::Printk>) -> Arc<Self> {
         let now = clock.now();
         let released = Released::default();
         let root = Arc::new(Cgroup {
@@ -1004,6 +1009,7 @@ impl Hierarchy {
             released,
             visible: AtomicBool::new(false),
             clock,
+            printk,
         })
     }
 
@@ -1114,7 +1120,17 @@ impl Hierarchy {
         if tree.is_dead(&cgroup) {
             return Err(Errno::ENODEV);
         }
-        tree.pids_try_charge(&cgroup)?;
+        if let Err(first) = tree.pids_try_charge(&cgroup) {
+            drop(tree);
+            // `pids_event`: said once per cgroup.
+            if let Some(forking) = first {
+                let path =
+                    String::from_utf8_lossy(&self.path_from(&forking, &self.root)).into_owned();
+                let text = format!("cgroup: fork rejected by pids controller in {path}");
+                self.printk.log(crate::printk::Level::Info, &text);
+            }
+            return Err(Errno::EAGAIN);
+        }
         tree.update_populated(&cgroup, 1);
         drop(tree);
         Ok(Css::new(CssState {

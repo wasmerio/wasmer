@@ -1476,6 +1476,8 @@ async fn mount_kernel_filesystems(kernel: &Kernel, host: &Arc<dyn Host>) {
                     ?errno,
                     "cannot mount a kernel filesystem; it is left out"
                 );
+                let text = format!("cannot mount a kernel filesystem at {at}: {errno:?}");
+                kernel.printk(wasixv2_kernel::LogLevel::Warning, &text);
                 false
             }
         }
