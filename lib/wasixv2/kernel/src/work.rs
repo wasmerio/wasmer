@@ -15,6 +15,9 @@ pub(crate) struct Work {
     /// The image of the queued [`GuestAction::Exec`], until the execution layer takes it. It
     /// goes with the task when the exec never runs (`bprm` freed with the exiting task).
     image: Option<Image>,
+    /// A [`GuestAction::VforkReturn`] was queued: a vfork child hands its parent's instance
+    /// back once.
+    vfork_returned: bool,
 }
 
 impl Work {
@@ -23,7 +26,13 @@ impl Work {
             queue: VecDeque::new(),
             flag,
             image: None,
+            vfork_returned: false,
         }
+    }
+
+    /// Whether the task, a vfork child, was given its [`GuestAction::VforkReturn`].
+    pub(crate) fn has_vfork_return(&self) -> bool {
+        self.vfork_returned
     }
 
     pub(crate) fn flag(&self) -> &Arc<WorkFlag> {
@@ -61,6 +70,7 @@ impl Work {
             // A vfork child's end runs in its parent's instance, which its exit must not unwind:
             // resuming the parent is all that is left to do.
             GuestAction::VforkReturn { .. } => {
+                self.vfork_returned = true;
                 self.queue
                     .retain(|action| !matches!(action, GuestAction::Exit(_)));
                 self.queue.push_back(action);

@@ -152,6 +152,17 @@ impl Tree {
     /// The vfork child `child` is done with its parent's instance: the parent the instance
     /// goes back to, which returns from vfork unless [`vfork_parent_resumes`] finds its image
     /// ended, or is gone from the instance.
+    /// The parent the vfork child `child` runs in the instance of, if it does: [`Tree::end_vfork`]
+    /// without ending it.
+    pub(crate) fn vfork_parent(&self, child: TaskId) -> Option<VforkParent> {
+        let (task, resumes) = match self.vforks.get(&child) {
+            Some(&task) => (task, Resume::Returns),
+            None => (*self.detached.get(&child)?, Resume::Gone),
+        };
+        let pid = self.vfork_pids.get(&child).copied().unwrap_or_default();
+        Some(VforkParent { task, resumes, pid })
+    }
+
     pub(crate) fn end_vfork(&mut self, child: TaskId) -> Option<VforkParent> {
         let (task, resumes) = match self.vforks.remove(&child) {
             Some(task) => (task, Resume::Returns),
@@ -475,10 +486,27 @@ impl Kernel {
         }
     }
 
-    /// `complete_vfork_done`, from `task`'s `mm_release`: a fork child that its parent waits
-    /// for (`CLONE_VFORK` without `CLONE_VM`) is done with the memory it was made with, as it
-    /// exits, its `execve` replaces the memory, or it never runs. The parent goes on.
+    /// `complete_vfork_done`, from `task`'s `mm_release` (kernel/fork.c), before the task can be
+    /// a zombie: a vfork child is done with the memory it was made with, as it exits, its
+    /// `execve` replaces the memory, or it never runs. The parent goes on: a fork child's
+    /// (`CLONE_VFORK` without `CLONE_VM`) leaves its wait, and a child running in its
+    /// parent's instance no longer counts as running there.
     pub(crate) fn complete_vfork_done(&self, task: TaskId) {
+        self.fork_vfork_done(task);
+        let vfork_parent = self.procs.tree.lock_or_recover().end_vfork(task);
+        // A parent gone from the instance waits for nothing.
+        if let Some(parent) = vfork_parent
+            && parent.resumes != Resume::Gone
+        {
+            self.vfork_done(parent.task);
+        }
+    }
+
+    /// [`Kernel::complete_vfork_done`] for a fork child (`CLONE_VFORK` without `CLONE_VM`)
+    /// only: its parent leaves its wait. An `execve` does this part at its `exec_mm_release`,
+    /// and hands a child running in its parent's instance back with the image
+    /// ([`Kernel::hand_image`]).
+    pub(crate) fn fork_vfork_done(&self, task: TaskId) {
         let parent = self.procs.tree.lock_or_recover().fork_vforks.remove(&task);
         if parent.is_some() {
             self.procs.vfork_done.wake(PollMask::empty());
@@ -525,13 +553,6 @@ impl Kernel {
         tree.vforks.values().any(|&parent| parent == task)
     }
 
-    /// Whether `task` is a vfork child running in the instance of its parent, which waits or
-    /// went on elsewhere.
-    pub(crate) fn vfork_child(&self, task: TaskId) -> bool {
-        let tree = self.procs.tree.lock_or_recover();
-        tree.vforks.contains_key(&task) || tree.detached.contains_key(&task)
-    }
-
     /// Makes the vfork child that `parent` waits for, which runs in `parent`'s instance, leave
     /// an interruptible wait for kernel work: `parent` died, and its instance has its
     /// `exit_mm` to run ([`GuestAction::ExitMm`]).
@@ -575,8 +596,9 @@ impl Kernel {
     }
 
     /// `exit_notify`, once per process, when its thread group's exit is decided: makes it a
-    /// zombie, hands its children to a reaper, tells the parent, and releases a vfork parent.
-    pub(crate) fn process_exited(&self, process: &Arc<Process>, task: TaskId, status: i32) {
+    /// zombie, hands its children to a reaper and tells the parent. A vfork parent was let go
+    /// before, at the child's `exit_mm` ([`Kernel::complete_vfork_done`]).
+    pub(crate) fn process_exited(&self, process: &Arc<Process>, status: i32) {
         let pid = process.pid.0;
         let (parent, reaper) = {
             let tree = self.procs.tree.lock_or_recover();
@@ -602,7 +624,7 @@ impl Kernel {
             Some(signals) => Some(signals.child_reaping()),
             None => (reaper != 0).then_some((true, true)),
         };
-        let (exit, exit_signal, vfork_parent, orphans, inherited, orphaned_pgrps) = {
+        let (exit, exit_signal, orphans, inherited, orphaned_pgrps) = {
             let mut tree = self.procs.tree.lock_or_recover();
             // A reaper that went meanwhile is replaced, and it is not known how the new one
             // treats SIGCHLD: its zombies stay, as a parent that waits keeps them.
@@ -681,7 +703,6 @@ impl Kernel {
             (
                 exit,
                 (exit_signal, pid_for_parent),
-                tree.end_vfork(task),
                 orphans,
                 inherited,
                 orphaned_pgrps,
@@ -705,17 +726,6 @@ impl Kernel {
                 let info = user_info(sig, SiCode::SI_USER, parent_pid, uid);
                 let _ = signals.send_from(None, info, parent_pid == 0);
             }
-        }
-        if let Some(parent) = vfork_parent {
-            // A parent gone from the instance waits for nothing.
-            if parent.resumes != Resume::Gone {
-                self.vfork_done(parent.task);
-            }
-            let action = GuestAction::VforkReturn {
-                parent,
-                child: task,
-            };
-            self.queue(task, action);
         }
         if let Some(signals) = parent_signals
             && exit_signal != 0
@@ -1687,7 +1697,7 @@ impl Kernel {
             t.thread = thread::ThreadState::default();
         });
         // `exec_mm_release`: a parent that waits for the old memory goes on.
-        self.complete_vfork_done(task);
+        self.fork_vfork_done(task);
         if let Some(image) = image {
             self.hand_image(task, image);
         }

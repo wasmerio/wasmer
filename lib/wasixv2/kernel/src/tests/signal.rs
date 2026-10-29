@@ -728,6 +728,66 @@ fn a_vfork_parent_with_no_exit_pending_returns_from_vfork() {
     );
 }
 
+impl Vforked {
+    /// The parent's other thread kills the child with SIGKILL, which the child takes on its
+    /// next return to the guest: its instance is handed back to run its `exit_mm` there.
+    fn kill_child(&self) {
+        let caller = Caller::new(self.thread, &self.memory);
+        let kill = self
+            .kernel
+            .sys_kill(&caller, self.child.0 as Pid, Signal::SIGKILL);
+        assert_eq!(block_on(kill), Ok(0));
+        assert!(matches!(
+            self.kernel.take_pending(self.child),
+            Some(GuestAction::VforkReturn { .. })
+        ));
+    }
+}
+
+/// `do_exit` order: a vfork child's `exit_mm`, and with it `complete_vfork_done`, comes before
+/// `exit_notify`. A child killed by a signal hands the instance back (once) without being a
+/// zombie, so the parent's other thread cannot reap it until the instance ran its `exit_mm`.
+#[test]
+fn a_vfork_child_is_a_zombie_only_after_its_exit_mm() {
+    let vforked = Vforked::new();
+    let (kernel, child) = (&vforked.kernel, vforked.child);
+    vforked.kill_child();
+    let sibling = Caller::new(vforked.thread, &vforked.memory);
+    assert_eq!(reap(kernel, &sibling, child), None, "not a zombie yet");
+
+    block_on(kernel.exit_mm(&Caller::new(child, &vforked.memory)));
+    assert_eq!(kernel.take_pending(child), None, "handed back once");
+    assert_eq!(
+        reap(kernel, &sibling, child),
+        Some(Signal::SIGKILL.0 as u32)
+    );
+    kernel.release(child);
+}
+
+/// With SIGCHLD ignored a child is reaped as it becomes a zombie (`exit_notify`'s autoreap),
+/// which for a vfork child comes after its `exit_mm`: killed, it stays in the tree until the
+/// instance ran its `exit_mm`, and its pid goes then.
+#[test]
+fn a_vfork_child_whose_parent_ignores_sigchld_is_reaped_after_its_exit_mm() {
+    let vforked = Vforked::new();
+    let (kernel, child) = (&vforked.kernel, vforked.child);
+    let sibling = Caller::new(vforked.thread, &vforked.memory);
+    ignore(kernel, &sibling, Signal::SIGCHLD);
+    let in_tree = || {
+        let tree = kernel.procs.tree.lock_or_recover();
+        tree.nodes.get(&child.0).map(|node| node.is_zombie())
+    };
+    vforked.kill_child();
+    assert_eq!(in_tree(), Some(false), "still there, and no zombie");
+
+    block_on(kernel.exit_mm(&Caller::new(child, &vforked.memory)));
+    assert_eq!(in_tree(), None, "reaped");
+    let kill = kernel.sys_kill(&sibling, child.0 as Pid, Signal(0));
+    assert_eq!(super::ipc::errno(block_on(kill)), Errno::ESRCH);
+    assert_eq!(kernel.take_pending(child), None, "handed back once");
+    kernel.release(child);
+}
+
 /// A vfork child that a signal kills hands the instance back to its parent, as its exit does:
 /// the kill must not unwind the parent's stack, which the child runs on. Its process is seen to
 /// exit at once, as its memory is the parent's.
