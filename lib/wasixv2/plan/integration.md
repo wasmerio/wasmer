@@ -488,3 +488,47 @@ data files, network tests as root, a procdev-proc-maps fix, the re-bless), libc2
   root; userns06 resource copy; wait403 (ESRCH for INT_MIN); IPV6_ADDRFORM, IPV6_RTHDR,
   PACKET_VERSION; devconf ownership (`net_ctl_set_ownership`); max_map_count's O(n) area scan;
   fcntl35's privileged half.
+
+## 2026-10-29: merge train 14
+
+Light landing protocol (one suite run, regressions only). abi `train14` `d0187cb` (P1's codegen
+`Layer<S>` and `Syscall::nr/args/ret_from_raw` and its seccomp, Landlock, keyctl and LSM types; P4's
+AIO, io_uring and rseq types; P5's file handles, inode flags, ACLs, quotas and fanotify types; picks
+on `e7bb953`), wasmer `wasixv2/train14` (22 commits on `908423d1510`: one ABI bump, P1 sandbox 6, P4
+async I/O 6, P5 filesystem 6, P6 time 1, one integration fix, the tests bump), tests `train14` (the
+re-bless), libc2 `train14` (abi pin with the asserts regenerated, tests).
+
+- Dropped: P1's cherry-pick of netfu2's BPF and its compile fix (feat has both), every branch's own
+  ABI bump, P4's base (fu13, in feat under other hashes).
+- Conflicts: procfs's static table and modes (aio-nr/aio-max-nr, `/proc/keys`, dnotify and leases;
+  aio-max-nr 0644 with train 13's sysctl modes); io_uring's by-file socket calls vs the packet
+  sockets; `finish_open` (P5's `OpenMode`, permission events and `dentry_open_nonotify` around
+  Landlock's `security_file_open` and train 13's `F_CREATED`); fanotify's read path in P4's
+  `read_into_iovecs_flags`; P6's `Timekeeper` with the DNS modes in the api.
+- Integration: one `f_op->show_fdinfo` hook (P4's `show_fdinfo() -> String`; P5's `fdinfo()` went);
+  procfs's `ProcNode::permission` takes P5's ACL; futex2, io_uring_enter's `ABS_TIMER` and io_uring's
+  absolute timeouts go through P6's time namespaces (`timens_ktime_to_host`).
+- Gates: crate tests 1287, clippy, fmt, release, CLI 59/0/12, run_tty 6/6.
+- Suite (copy, vs train 13's): 3471/595/15/19/761 (posix, libc-test, own unchanged). 19 LTP tests off
+  the lists (file handles, clock_settime/settimeofday/stime/adjtimex/clock_adjtime01/leapsec01/
+  cve-2018-11508, alarm timers, setxattr03); 12 newly run and listed (keyctl08/17/19/22,
+  request_key04/06, cve-2016-9604, cve-2017-17807, fanotify02/04/11, landlock02); 3 regressions,
+  blessed with their causes and reported: keyctl07 and cve-2017-12192 (request_key constructs no
+  negative key; they passed while keyctl was ENOSYS), proc-vfork-sibling-exec (a host panic: the
+  dead vfork leader's deferred `exit_mm` drops the namespaces of the leader task the thread's new
+  image runs as, and `clock_gettime` now reads the time namespace). 245 LTP AIO tests are TCONF
+  "requires libaio": the LTP build has no libaio, so P4's AIO is not yet covered by the suite.
+- Smoke: as train 13 (sws-v2 28/28 classic and `__linux__`, v1 8 + python expected-fail, UDP 6/6,
+  extras, userland-linux/-3/-4, C++ 9/9, pty bash 11/11, `--no-tty`, the train 13 hand checks); by
+  hand a seccomp ERRNO filter (and KILL_PROCESS in a child), a Landlock ruleset denying a write,
+  keyctl add/read/request/update/revoke and `/proc/keys`, io_uring NOP + READ and an armed pipe read,
+  fanotify on a directory, clock_settime as root (the guest moves a day, the host does not; EPERM
+  unprivileged), `unshare -T --monotonic --boottime` (timens_offsets, uptime; EACCES once entered).
+- Follow-ups: fanotify events report pid 0 in CLI runs (`current_task()` unset; set it at the
+  syscall entry layer instead of the executor); negative keys and key construction; the vfork-leader
+  exec namespace drop; `/proc/sys/kernel/keys/*`; Landlock's `security_file_open` is in `Vfs::open`,
+  not `finish_open` (fanotify's event descriptors skip it); io_uring REALTIME absolute timeouts do not
+  re-arm on clock_settime; libaio in the LTP build.
+
+Land in order: abi `main` `e7bb953..d0187cb`; libc2 `main` `b69aa1d3..5e03a9fe`; tests `main`
+`5e21625..cabce84`; wasmer `feat/wasixv2` `908423d1510..f9c8b36bad6`; plan.
