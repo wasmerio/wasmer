@@ -4,7 +4,10 @@
 use std::{
     collections::VecDeque,
     net::SocketAddr,
-    sync::{Arc, Mutex, MutexGuard, Weak},
+    sync::{
+        Arc, Mutex, MutexGuard, Weak,
+        atomic::{AtomicU64, Ordering},
+    },
 };
 
 use wasixv2_abi::{Errno, MsgFlags, SocketLevel, SocketOption, TcpOption};
@@ -175,6 +178,8 @@ pub struct TcpSocket {
     domain: Domain,
     /// `sk_uid`, for `SO_REUSEPORT`.
     uid: u32,
+    /// `sock_i_ino`: the inode of the socket's file, 0 until it has one.
+    ino: AtomicU64,
     wq: WaitQueue,
     me: Weak<TcpSocket>,
     /// The listener while listening; a leaf lock so lookups under the network lock can reach
@@ -255,6 +260,7 @@ impl TcpSocket {
             id,
             domain,
             uid,
+            ino: AtomicU64::new(0),
             wq,
             me: me.clone(),
             listener: Mutex::new(None),
@@ -356,6 +362,8 @@ impl TcpSocket {
             local,
             peer,
             listening,
+            uid: self.uid,
+            inode: self.ino.load(Ordering::Relaxed),
         })
     }
 
@@ -966,6 +974,10 @@ impl Socket for TcpSocket {
             s.set_option(level, name, value)?;
         }
         Ok(())
+    }
+
+    fn graft(&self, ino: u64) {
+        self.ino.store(ino, Ordering::Relaxed);
     }
 
     fn get_option(&self, level: i32, name: i32, out: &mut [u8]) -> NetResult<usize> {
