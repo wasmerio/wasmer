@@ -38,6 +38,7 @@ use wasixv2_wait::{PollMask, PollTable, Pollable, WaitQueue, Waiter, Wakeup};
 use crate::{
     fasync::{Fasync, FasyncList, OwnerType},
     file::{FileObject, Io},
+    pid::PidRef,
     sync::MutexExt,
 };
 use ldisc::{Ldisc, Received};
@@ -81,12 +82,13 @@ pub(crate) struct Tty {
     host: Arc<dyn Host>,
 }
 
-/// The session the terminal controls and its foreground process group (`tty->ctrl`). The
+/// The session the terminal controls and its foreground process group (`tty->ctrl`), held as
+/// Linux holds their `struct pid`s: a group that emptied still reads as its number. The
 /// innermost lock: taken under a process's identity, never the other way round.
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Default)]
 pub(crate) struct Ctrl {
-    pub(crate) session: Option<u32>,
-    pub(crate) pgrp: Option<u32>,
+    pub(crate) session: Option<PidRef>,
+    pub(crate) pgrp: Option<PidRef>,
 }
 
 /// The device under the terminal (`tty_driver` and `tty_operations`).
@@ -256,8 +258,8 @@ impl Tty {
     }
 
     /// The foreground process group, if any (`tty_get_pgrp`).
-    pub(crate) fn pgrp(&self) -> Option<u32> {
-        self.ctrl.lock_or_recover().pgrp
+    pub(crate) fn pgrp(&self) -> Option<PidRef> {
+        self.ctrl.lock_or_recover().pgrp.clone()
     }
 
     /// `tty_open` once the device is found: a new open file, unless the terminal is exclusive
@@ -334,7 +336,7 @@ impl Tty {
     /// process has it pending now.
     pub(crate) fn signal_pgrp(&self, sig: i32) -> bool {
         self.pgrp()
-            .is_some_and(|pgrp| self.jobs.kill_pgrp(pgrp, sig))
+            .is_some_and(|pgrp| self.jobs.kill_pgrp(pgrp.id(), sig))
     }
 
     /// Writes the pending echoes, unless output is stopped (`process_echoes`).
@@ -717,7 +719,7 @@ impl FileObject for TtyFile {
             && added
         {
             let (pid, ty) = match self.tty.pgrp() {
-                Some(pgrp) => (pgrp, OwnerType::Group),
+                Some(pgrp) => (pgrp.id(), OwnerType::Group),
                 None => (on.task.0, OwnerType::Process),
             };
             fasync.file.set_owner(Some(pid), ty, on.cred, false);
