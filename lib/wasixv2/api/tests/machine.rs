@@ -196,6 +196,56 @@ async fn the_default_root_names_root_nobody_and_the_user() {
     assert_eq!((status, String::from_utf8(out).unwrap()), (0, expected));
 }
 
+/// Prints the target of `/var/run`, a newline, then `/lib/modules/6.1.0/modules.builtin`;
+/// exits with the errno of a call that fails.
+const KERNEL_FILES_WAT: &str = r#"
+  (module
+    (import "wasixv2" "readlinkat" (func $readlinkat (param i32 i32 i32 i32) (result i32)))
+    (import "wasixv2" "openat" (func $openat (param i32 i32 i32 i32) (result i32)))
+    (import "wasixv2" "read" (func $read (param i32 i32 i32) (result i32)))
+    (import "wasixv2" "write" (func $write (param i32 i32 i32) (result i32)))
+    (import "wasixv2" "exit_group" (func $exit_group (param i32)))
+    (memory (export "memory") 1)
+    (data (i32.const 16) "/var/run\00")
+    (data (i32.const 32) "/lib/modules/6.1.0/modules.builtin\00")
+    (data (i32.const 96) "\n")
+
+    (func $check (param $v i32) (result i32)
+      (if (i32.lt_s (local.get $v) (i32.const 0))
+        (then (call $exit_group (i32.sub (i32.const 0) (local.get $v))) unreachable))
+      (local.get $v))
+
+    (func (export "_start") (local $fd i32) (local $n i32)
+      (local.set $n (call $check (call $readlinkat (i32.const -100) (i32.const 16) (i32.const 1024) (i32.const 64))))
+      (drop (call $write (i32.const 1) (i32.const 1024) (local.get $n)))
+      (drop (call $write (i32.const 1) (i32.const 96) (i32.const 1)))
+      (local.set $fd (call $check (call $openat (i32.const -100) (i32.const 32) (i32.const 0) (i32.const 0))))
+      (loop $more
+        (local.set $n (call $check (call $read (local.get $fd) (i32.const 1024) (i32.const 4096))))
+        (if (i32.gt_s (local.get $n) (i32.const 0))
+          (then
+            (drop (call $write (i32.const 1) (i32.const 1024) (local.get $n)))
+            (br $more))))
+      (call $exit_group (i32.const 0))
+      unreachable))
+"#;
+
+/// The default root links `/var/run` to `/run` and describes the kernel in
+/// `/lib/modules/<release>`, for the release `uname` reports: the drivers it has built in.
+#[tokio::test]
+async fn the_default_root_has_run_and_the_kernels_modules_list() {
+    let machine = Machine::builder()
+        .uname(Uname::default().with_release("6.1.0").unwrap())
+        .build();
+    let (status, out) = run(machine, KERNEL_FILES_WAT).await;
+    let out = String::from_utf8(out).unwrap();
+    assert_eq!(status, 0, "{out}");
+    let (link, builtin) = out.split_once('\n').unwrap();
+    assert_eq!(link, "/run");
+    assert!(builtin.lines().any(|l| l == "kernel/drivers/net/veth.ko"));
+    assert!(builtin.lines().any(|l| l == "kernel/drivers/net/dummy.ko"));
+}
+
 /// Prints `ready`, then waits in `ppoll` with nothing to poll and no timeout, forever.
 const BLOCK_WAT: &str = r#"
   (module
