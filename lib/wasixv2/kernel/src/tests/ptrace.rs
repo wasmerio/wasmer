@@ -1072,3 +1072,151 @@ fn non_leader_exec_moves_the_trace_link_and_reports_old_tid() {
     assert_eq!(kernel.task_signals(leader).tracer(), Some(tracer));
     assert!(!kernel.tracees.lock().contains_key(&thread));
 }
+
+fn syscall_info(memory: &FlatMemory, op: u8, value: u64, args: [u64; 6]) {
+    let mut info = [0; 88];
+    info[0] = op;
+    info[24..32].copy_from_slice(&value.to_le_bytes());
+    for (i, arg) in args.into_iter().enumerate() {
+        info[32 + i * 8..40 + i * 8].copy_from_slice(&arg.to_le_bytes());
+    }
+    put(memory, 0x700, &info);
+}
+
+/// kernel/ptrace.c `ptrace_set_syscall_info`: change nr/arguments at entry, rval at exit,
+/// and skip with -1. Typed import return variants must survive a different syscall.
+#[test]
+fn set_syscall_info_edits_entry_exit_and_skips_calls() {
+    let (stack, tracer, memory) = machine();
+    let kernel = &stack.inner;
+    let caller = Caller::new(tracer, &memory);
+    let child_memory = flat();
+    let child = traced_child(kernel, &caller, &child_memory);
+    let child_caller = Caller::new(child, &child_memory);
+    assert_eq!(
+        ptrace(
+            kernel,
+            &caller,
+            R::PTRACE_SETOPTIONS,
+            child,
+            0,
+            PtraceOptions::PTRACE_O_TRACESYSGOOD.0
+        ),
+        Ok(0)
+    );
+    assert_eq!(
+        ptrace(kernel, &caller, R::PTRACE_SYSCALL, child, 0, 0),
+        Ok(0)
+    );
+    assert_eq!(kernel.take_pending(child), None);
+    let mut call = Box::pin(stack.getpid(&child_caller));
+    assert!(call.as_mut().now_or_never().is_none());
+    let set = |size| {
+        ptrace(
+            kernel,
+            &caller,
+            R::PTRACE_SET_SYSCALL_INFO,
+            child,
+            size,
+            0x700,
+        )
+    };
+    syscall_info(&memory.0, 1, 173, [0; 6]); // getppid
+    assert_eq!(errno(set(87)), Errno::EINVAL);
+    put(&memory.0, 0x701, &[1]);
+    assert_eq!(errno(set(88)), Errno::EINVAL);
+    syscall_info(&memory.0, 2, 0, [0; 6]);
+    assert_eq!(errno(set(88)), Errno::EINVAL);
+    syscall_info(&memory.0, 1, 1 << 32, [0; 6]);
+    assert_eq!(errno(set(88)), Errno::ERANGE);
+    syscall_info(&memory.0, 1, 173, [1 << 32; 6]);
+    assert_eq!(errno(set(88)), Errno::ERANGE);
+    syscall_info(&memory.0, 1, 173, [0; 6]);
+    assert_eq!(set(88), Ok(0));
+    assert_eq!(
+        ptrace(kernel, &caller, R::PTRACE_SYSCALL, child, 0, 0),
+        Ok(0)
+    );
+    assert!(call.as_mut().now_or_never().is_none());
+    assert_eq!(
+        ptrace(
+            kernel,
+            &caller,
+            R::PTRACE_GET_SYSCALL_INFO,
+            child,
+            88,
+            0x700
+        ),
+        Ok(33)
+    );
+    assert_eq!(get(&memory.0, 0x718, 8), u64::from(tracer.0).to_le_bytes());
+    syscall_info(&memory.0, 2, (-(Errno::EPERM.0 as i64)) as u64, [0; 6]);
+    assert_eq!(set(88), Ok(0));
+    assert_eq!(
+        ptrace(kernel, &caller, R::PTRACE_SYSCALL, child, 0, 0),
+        Ok(0)
+    );
+    assert_eq!(call.as_mut().now_or_never(), Some(Err(Errno::EPERM.into())));
+    drop(call);
+    let mut call = Box::pin(stack.getpid(&child_caller));
+    assert!(call.as_mut().now_or_never().is_none());
+    syscall_info(&memory.0, 1, u64::MAX, [7; 6]);
+    assert_eq!(set(88), Ok(0));
+    assert_eq!(
+        ptrace(
+            kernel,
+            &caller,
+            R::PTRACE_GET_SYSCALL_INFO,
+            child,
+            88,
+            0x700
+        ),
+        Ok(80)
+    );
+    assert_eq!(get(&memory.0, 0x718, 8), u64::MAX.to_le_bytes());
+    assert_eq!(
+        get(&memory.0, 0x720, 8),
+        0u64.to_le_bytes(),
+        "-1 keeps arguments"
+    );
+    assert_eq!(ptrace(kernel, &caller, R::PTRACE_CONT, child, 0, 0), Ok(0));
+    assert_eq!(
+        call.as_mut().now_or_never(),
+        Some(Err(Errno::ENOSYS.into()))
+    );
+}
+
+/// No registered rseq exists while sys_rseq returns ENOSYS. Linux copies only the prefix.
+#[test]
+fn get_rseq_configuration_reports_no_registration() {
+    let (stack, tracer, memory) = machine();
+    let kernel = &stack.inner;
+    let caller = Caller::new(tracer, &memory);
+    let child_memory = flat();
+    let child = traced_child(kernel, &caller, &child_memory);
+    put(&memory.0, 0x700, &[0xaa; 32]);
+    assert_eq!(
+        ptrace(
+            kernel,
+            &caller,
+            R::PTRACE_GET_RSEQ_CONFIGURATION,
+            child,
+            9,
+            0x700
+        ),
+        Ok(24)
+    );
+    assert_eq!(get(&memory.0, 0x700, 10), [vec![0; 9], vec![0xaa]].concat());
+    assert_eq!(
+        ptrace(
+            kernel,
+            &caller,
+            R::PTRACE_GET_RSEQ_CONFIGURATION,
+            child,
+            32,
+            0x700
+        ),
+        Ok(24)
+    );
+    assert_eq!(get(&memory.0, 0x700, 24), vec![0; 24]);
+}

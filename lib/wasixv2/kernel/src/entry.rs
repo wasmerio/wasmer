@@ -30,13 +30,16 @@ impl<L: Layer<Kernel>> Layer<Kernel> for SyscallEntry<L> {
         wasixv2_syscalls::as_task(caller.task(), async {
             let traced = next.tracees.used();
             let ret = match next.syscall_entry(caller, &call).await {
-                Some(ret) => ret,
-                None => self.0.call(caller, call, next).await,
+                Entry::Done(ret) => ret,
+                Entry::Run(changed) => self.0.call(caller, changed, next).await,
             };
-            if traced {
-                next.syscall_exit(caller, &ret).await;
-            }
-            ret
+            let ret = if traced {
+                next.syscall_exit(caller, &call, ret).await
+            } else {
+                ret
+            };
+            // The typed wasm import keeps its return type even if ptrace changed the syscall.
+            ret.map(|ret| call.ret_from_raw(ret.to_raw()))
         })
         .await
     }
@@ -52,18 +55,30 @@ impl<S: Syscalls> Layer<S> for Dispatch {
     }
 }
 
+enum Entry {
+    Run(Syscall),
+    Done(SysResult<SyscallRet>),
+}
+
 impl Kernel {
-    /// What happens to `call` before it runs: `None` runs it; otherwise it is skipped, and the
-    /// result is what the caller sees, or the caller was killed.
+    /// The syscall registers after a tracer stop (kernel/entry/common.c syscall_trace_enter).
+    fn ptrace_regs(&self, task: wasixv2_syscalls::TaskId) -> Option<crate::ptrace::CallInfo> {
+        if !self.tracees.used() {
+            return None;
+        }
+        self.task_signals(task)
+            .group()
+            .with_trace(task, |t| t.call.filter(|_| t.call_set))
+            .flatten()
+    }
+
+    /// Syscall entry after Linux's syscall_trace_enter: the tracer can replace or skip the
+    /// call, then seccomp sees its new registers, and can stop it for another tracer edit.
     ///
     /// The call is seen as riscv32 makes it: the table's number and its six registers. The
     /// extensions that are no syscall on Linux pass, but `thread_spawn`, which is `clone` with
     /// `CLONE_VM`, is seen as `clone` (its start argument where the stack would be).
-    pub(crate) async fn syscall_entry(
-        &self,
-        caller: &Caller<'_>,
-        call: &Syscall,
-    ) -> Option<SysResult<SyscallRet>> {
+    async fn syscall_entry(&self, caller: &Caller<'_>, call: &Syscall) -> Entry {
         let (nr, args) = match *call {
             Syscall::ThreadSpawn {
                 flags,
@@ -82,30 +97,52 @@ impl Kernel {
                     0,
                 ],
             ),
-            _ => (call.nr()?, call.args()),
+            _ => match call.nr() {
+                Some(nr) => (nr, call.args()),
+                None => return Entry::Run(*call),
+            },
         };
         // `syscall_trace_enter`: the tracer sees the call first, then seccomp filters it,
         // unless the tracer suspended seccomp (`PTRACE_O_SUSPEND_SECCOMP`).
         if self.ptrace_syscall_entry(caller, nr, args).await {
-            return Some(Err(Errno::ENOSYS.into()));
+            return Entry::Done(Err(Errno::ENOSYS.into()));
+        }
+        let (nr, args) = self
+            .ptrace_regs(caller.task())
+            .map_or((nr, args), |r| (r.nr, r.args));
+        if nr == u32::MAX {
+            return Entry::Done(Err(Errno::ENOSYS.into()));
         }
         let suspended = self
             .trace_link(caller.task())
             .is_some_and(|link| link.has(wasixv2_abi::PtraceOptions::PTRACE_O_SUSPEND_SECCOMP));
-        if suspended {
-            return None;
+        if !suspended && let Some(ret) = self.secure_computing(caller, call, nr, args).await {
+            return Entry::Done(ret);
         }
-        self.secure_computing(caller, call, nr, args).await
+        // Decode after filtering: seccomp also sees unknown syscall numbers and may deny
+        // them with its own errno before dispatch would return ENOSYS.
+        match self.ptrace_regs(caller.task()) {
+            Some(regs) => match Syscall::from_regs(regs.nr, regs.args) {
+                Some(call) => Entry::Run(call),
+                None => Entry::Done(Err(Errno::ENOSYS.into())),
+            },
+            None => Entry::Run(*call),
+        }
     }
 
     /// `syscall_exit_work`: a traced task's tracer sees the call's end, unless the task is
     /// on its way out (an `exit`, a fatal signal), as Linux never returns from those.
-    async fn syscall_exit(&self, caller: &Caller<'_>, ret: &SysResult<SyscallRet>) {
+    async fn syscall_exit(
+        &self,
+        caller: &Caller<'_>,
+        call: &Syscall,
+        ret: SysResult<SyscallRet>,
+    ) -> SysResult<SyscallRet> {
         let task = caller.task();
         if self.exiting_task(task) || self.trace_link(task).is_none() {
-            return;
+            return ret;
         }
-        let raw = match ret {
+        let raw = match &ret {
             Ok(ret) => ret.to_raw(),
             Err(SysErr::Errno(errno)) => -i64::from(errno.0),
             // The `-ERESTART*` codes a tracer sees for an interrupted call.
@@ -115,5 +152,17 @@ impl Kernel {
             Err(SysErr::RestartBlock) => -516,
         };
         self.ptrace_syscall_exit(task, raw).await;
+        let changed = self
+            .task_signals(task)
+            .group()
+            .with_trace(task, |t| {
+                t.call.filter(|_| t.call_set).and_then(|call| call.ret)
+            })
+            .flatten();
+        match changed {
+            Some(raw) if (-4095..0).contains(&raw) => Err(Errno(-raw as i32).into()),
+            Some(raw) => Ok(call.ret_from_raw(raw)),
+            None => ret,
+        }
     }
 }

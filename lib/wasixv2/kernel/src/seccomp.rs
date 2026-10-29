@@ -55,6 +55,8 @@ pub(crate) struct Filter {
     prev: Option<Arc<Filter>>,
     /// Its user notifications, if installed with `SECCOMP_FILTER_FLAG_NEW_LISTENER`.
     notif: Option<Arc<notify::Notif>>,
+    /// `SECCOMP_FILTER_FLAG_LOG`, exposed by seccomp_get_metadata.
+    log: bool,
 }
 
 impl Filter {
@@ -130,6 +132,86 @@ enum Verdict {
 }
 
 impl Kernel {
+    /// kernel/seccomp.c `get_nth_filter`: filter 0 is the oldest attached filter.
+    fn ptrace_filter(
+        &self,
+        caller: &Caller<'_>,
+        child: wasixv2_syscalls::TaskId,
+        off: u64,
+    ) -> Result<Arc<Filter>, Errno> {
+        if !self.cred(caller).capable_init(Cap::SysAdmin)
+            || self.task_ref(caller.task(), |t| t.seccomp.mode) != 0
+        {
+            return Err(Errno::EACCES);
+        }
+        let (mode, mut walker) =
+            self.task_ref(child, |t| (t.seccomp.mode, t.seccomp.filter.clone()));
+        if mode != SeccompMode::SECCOMP_MODE_FILTER.0 {
+            return Err(Errno::EINVAL);
+        }
+        let mut filters = Vec::new();
+        while let Some(filter) = walker {
+            walker = filter.prev.clone();
+            filters.push(filter);
+        }
+        let index = usize::try_from(off)
+            .ok()
+            .and_then(|off| {
+                off.checked_add(1)
+                    .and_then(|off| filters.len().checked_sub(off))
+            })
+            .ok_or(Errno::ENOENT)?;
+        Ok(filters.swap_remove(index))
+    }
+
+    /// kernel/seccomp.c `seccomp_get_filter`: return the original cBPF instructions.
+    pub(crate) async fn ptrace_seccomp_filter(
+        &self,
+        caller: &Caller<'_>,
+        child: wasixv2_syscalls::TaskId,
+        off: u32,
+        data: u32,
+    ) -> SysResult<i32> {
+        let filter = self.ptrace_filter(caller, child, u64::from(off))?;
+        let bytes = filter.prog.raw();
+        if data != 0 {
+            caller.memory().write(data, &bytes).await?;
+        }
+        Ok((bytes.len() / wasixv2_abi::SockFilter::SIZE) as i32)
+    }
+
+    /// kernel/seccomp.c `seccomp_get_metadata`: copy the requested prefix, at least filter_off.
+    pub(crate) async fn ptrace_seccomp_metadata(
+        &self,
+        caller: &Caller<'_>,
+        child: wasixv2_syscalls::TaskId,
+        size: u32,
+        data: u32,
+    ) -> SysResult<i32> {
+        // Permission checks precede size/pointer checks in Linux.
+        if !self.cred(caller).capable_init(Cap::SysAdmin)
+            || self.task_ref(caller.task(), |t| t.seccomp.mode) != 0
+        {
+            return Err(Errno::EACCES.into());
+        }
+        let size = (size as usize).min(wasixv2_abi::SeccompMetadata::SIZE);
+        if size < 8 {
+            return Err(Errno::EINVAL.into());
+        }
+        let mut bytes = [0; wasixv2_abi::SeccompMetadata::SIZE];
+        caller.memory().read(data, &mut bytes[..8]).await?;
+        let off = u64::from_le_bytes(bytes[..8].try_into().unwrap());
+        let filter = self.ptrace_filter(caller, child, off)?;
+        let flags = if filter.log {
+            u64::from(SeccompFilterFlags::SECCOMP_FILTER_FLAG_LOG.0)
+        } else {
+            0
+        };
+        bytes[8..16].copy_from_slice(&flags.to_le_bytes());
+        caller.memory().write(data, &bytes[..size]).await?;
+        Ok(size as i32)
+    }
+
     /// `secure_computing` for `call`, which riscv32 would make as the syscall `nr` with
     /// `args`: `None` runs it; otherwise the call is skipped and the result is what the caller
     /// sees, or the caller was killed.
@@ -254,6 +336,16 @@ impl Kernel {
         let event = wasixv2_abi::PtraceEvent::PTRACE_EVENT_SECCOMP;
         self.ptrace_event(task, event, u64::from(data)).await;
         if signals.group().sigkill_pending_for(task) {
+            return enosys;
+        }
+        // kernel/seccomp.c `__seccomp_filter`: re-read the tracer's registers before
+        // rechecking the filters, with -1 skipping the syscall without a second check.
+        let (nr, args) = signals
+            .group()
+            .with_trace(task, |t| t.call)
+            .flatten()
+            .map_or((nr, args), |call| (call.nr, call.args));
+        if nr == u32::MAX {
             return enosys;
         }
         match self.run_filters(caller, filter, nr, args) {
@@ -479,6 +571,7 @@ impl Kernel {
             prog,
             prev: me.seccomp.filter.take(),
             notif: listener.as_ref().map(|(_, n)| n.clone()),
+            log: flags.contains(SeccompFilterFlags::SECCOMP_FILTER_FLAG_LOG),
         });
         if let Some((_, notif)) = &listener {
             notif.set_filter(&filter);
