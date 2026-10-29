@@ -1423,3 +1423,62 @@ fn fchroot_uses_fd_permissions_and_leaves_cwd() {
     );
 }
 
+#[test]
+fn open_tree_attr_changes_detached_mount_before_publication() {
+    let m = Machine::as_uid(0);
+    m.mkdir("/source");
+    m.mkdir("/target");
+    m.tmpfs("/source");
+    m.close(m.create("/source/file").unwrap());
+    let attr = 0x5000;
+    let mut bytes = vec![0; 40];
+    bytes[..8].copy_from_slice(&MountAttrFlags::MOUNT_ATTR_RDONLY.0.to_le_bytes());
+    put(&m.memory.0, attr, &bytes);
+    let call = |name: &str, flags, ptr, size| {
+        block_on(m.kernel.open_tree_attr(
+            &m.caller(),
+            CWD,
+            m.cstr(0x1000, name),
+            flags,
+            GuestPtr::new(ptr),
+            size,
+        ))
+    };
+    assert_eq!(errno(call("/source", 0, 0, 32)), Errno::EINVAL);
+    assert_eq!(errno(call("/missing", 0, attr, 1)), Errno::ENOENT);
+    assert_eq!(
+        errno(call("/source", OPEN_TREE_CLONE, attr, 31)),
+        Errno::EINVAL
+    );
+    let fd = Fd(call(
+        "/source",
+        OPEN_TREE_CLONE | OpenFlags::O_CLOEXEC.0,
+        attr,
+        40,
+    )
+    .unwrap());
+    assert_eq!(
+        m.move_mount(
+            (fd, ""),
+            (CWD, "/target"),
+            MoveMountFlags::MOVE_MOUNT_F_EMPTY_PATH.0
+        ),
+        Ok(0)
+    );
+    assert_eq!(errno(m.create("/target/new")), Errno::EROFS);
+    m.close(m.create("/source/new").unwrap());
+    m.close(fd);
+
+    // A failed attribute copy must not leave any new descriptor installed.
+    let before = m.open_path("/");
+    m.close(before);
+    assert_eq!(
+        errno(call("/source", OPEN_TREE_CLONE, 0xfffffff0, 32)),
+        Errno::EFAULT
+    );
+    let after = m.open_path("/");
+    assert_eq!(after, before);
+    m.close(after);
+    let plain = Fd(call("/source", 0, 0, 0).unwrap());
+    m.close(plain);
+}
