@@ -1220,17 +1220,17 @@ const HOSTNAME: &str = "localhost\n";
 /// and like Linux's internal mount it has no size limit of its own. Its files live in host
 /// shared memory, as `/dev/shm`'s do.
 fn shm_filesystem(host: &Arc<dyn Host>) -> Arc<dyn Filesystem> {
-    Arc::new(shared_tmpfs(host, 0o1777))
+    Arc::new(shared_tmpfs(host, 0o1777, 0, 0))
 }
 
-/// A memory filesystem whose files processes share by mapping them, `/dev/shm` and the memfd
-/// filesystem: its regular files live in the host's shared memory objects
+/// A tmpfs whose files processes share by mapping them: its regular files live in the host's
+/// shared memory objects
 /// ([`Host::shared_pages`]), so every `MAP_SHARED` mapping of one shows the same pages, as
 /// tmpfs keeps its files in shmem. Only on Linux, where an object can change its size: a macOS
 /// object's size is fixed once set, so there the files stay in the filesystem's own memory and
 /// their mappings are copies kept in sync at syscalls.
-fn shared_tmpfs(host: &Arc<dyn Host>, mode: u32) -> MemFs {
-    let fs = MemFs::new(Arc::new(HostClock(host.clone())), mode, 0, 0);
+fn shared_tmpfs(host: &Arc<dyn Host>, mode: u32, uid: u32, gid: u32) -> MemFs {
+    let fs = MemFs::new(Arc::new(HostClock(host.clone())), mode, uid, gid);
     if cfg!(any(target_os = "linux", target_os = "android")) {
         return fs.with_shared_pages(Arc::new(HostPages(host.clone())));
     }
@@ -1524,12 +1524,8 @@ pub fn default_root(
     release: &str,
 ) -> Arc<dyn Filesystem> {
     let (uid, gid) = (user.uid(), user.gid());
-    let root: Arc<dyn Filesystem> = Arc::new(MemFs::new(
-        Arc::new(HostClock(host.clone())),
-        0o755,
-        uid,
-        gid,
-    ));
+    // mm/shmem.c shmem_mmap_prepare: root tmpfs files share their pages across fork too.
+    let root: Arc<dyn Filesystem> = Arc::new(shared_tmpfs(host, 0o755, uid, gid));
     let vfs = Vfs::new(root.clone());
     let cred = Cred::root();
     let top = vfs.root();
@@ -1671,7 +1667,7 @@ async fn mount_kernel_filesystems(kernel: &Kernel, host: &Arc<dyn Host>) {
         fs
     };
     // mm/shmem.c shmem_mmap_prepare: every tmpfs mount supplies shared pages, including /tmp.
-    let tmpfs = |mode| adopt(shared_tmpfs(host, mode));
+    let tmpfs = |mode| adopt(shared_tmpfs(host, mode, 0, 0));
     let flags = |nodev, noexec| MountFlags {
         nosuid: true,
         nodev,
@@ -1729,7 +1725,7 @@ async fn mount_kernel_filesystems(kernel: &Kernel, host: &Arc<dyn Host>) {
                 vfs.symlink(&cx, target.as_bytes(), &top, link.as_bytes())
                     .await?;
             }
-            let shm = adopt(shared_tmpfs(host, 0o1777));
+            let shm = adopt(shared_tmpfs(host, 0o1777, 0, 0));
             mount("/dev/shm", shm, flags(true, false)).await;
             mount("/dev/pts", kernel.devpts(), flags(false, true)).await;
         }
@@ -1784,9 +1780,11 @@ mod tests {
     #[cfg(any(target_os = "linux", target_os = "android"))]
     #[tokio::test]
     async fn default_tmpfs_files_have_shared_pages() {
-        let machine = Machine::new();
+        let machine = Machine::builder().user(Credentials::new(42, 43)).build();
         let vfs = machine.vfs();
         let root = vfs.root();
+        let attr = root.dentry.node().getattr().await.unwrap();
+        assert_eq!((attr.mode & 0o7777, attr.uid, attr.gid), (0o755, 42, 43));
         let cred = Cred::root();
         let cx = Ctx {
             cred: &cred,
@@ -1801,6 +1799,7 @@ mod tests {
             lookup: LookupFlags::follow(),
         };
         for name in [
+            b"/shared".as_slice(),
             b"/tmp/shared".as_slice(),
             b"/dev/shared",
             b"/dev/shm/shared",
