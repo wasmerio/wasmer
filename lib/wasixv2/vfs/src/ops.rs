@@ -775,6 +775,7 @@ impl Vfs {
             return Err(Errno::EROFS);
         }
         self.may_create(cx, &dir).await?;
+        let attr = source.dentry.node().getattr().await?;
         // A link to an append-only or immutable file cannot be made.
         if append_only(&source.dentry) || immutable(&source.dentry) {
             return Err(Errno::EPERM);
@@ -782,7 +783,6 @@ impl Vfs {
         if source.dentry.file_type() == FileType::Directory {
             return Err(Errno::EPERM);
         }
-        let attr = source.dentry.node().getattr().await?;
         // A removed file cannot get a name back, except an O_TMPFILE one (`I_LINKABLE`).
         let inode = source.dentry.inode();
         if attr.nlink == 0 && !inode.is_linkable() {
@@ -1147,8 +1147,8 @@ impl Vfs {
         if path.mnt.is_read_only() {
             return Err(Errno::EROFS);
         }
-        may_setattr(&path.dentry)?;
         let attr = path.dentry.node().getattr().await?;
+        may_setattr(&path.dentry)?;
         if !cx.cred.owns(&attr) {
             return Err(Errno::EPERM);
         }
@@ -1177,10 +1177,10 @@ impl Vfs {
         if path.mnt.is_read_only() {
             return Err(Errno::EROFS);
         }
+        let attr = path.dentry.node().getattr().await?;
         if uid.is_some() || gid.is_some() {
             may_setattr(&path.dentry)?;
         }
-        let attr = path.dentry.node().getattr().await?;
         let cred = cx.cred;
         // `chown_ok` and `chgrp_ok`: only the owner may even "change" to the current ids.
         let owner = cred.fsuid == attr.uid;
@@ -1231,6 +1231,7 @@ impl Vfs {
         if path.mnt.is_read_only() {
             return Err(Errno::EROFS);
         }
+        let attr = path.dentry.node().getattr().await?;
         let explicit =
             matches!(atime, Some(TimeSet::At(_))) || matches!(mtime, Some(TimeSet::At(_)));
         // `may_setattr`: set times on neither, the current time not on an immutable file.
@@ -1239,7 +1240,6 @@ impl Vfs {
             false if immutable(&path.dentry) => return Err(Errno::EPERM),
             false => {}
         }
-        let attr = path.dentry.node().getattr().await?;
         if !cx.cred.owns(&attr) {
             if explicit || atime.is_none() || mtime.is_none() {
                 return Err(Errno::EPERM);
@@ -1379,9 +1379,13 @@ impl Vfs {
         if mask & MAY_WRITE != 0 && path.mnt.is_read_only() {
             return Err(Errno::EROFS);
         }
-        // `may_write_xattr`.
-        if mask & MAY_WRITE != 0 && (immutable(&path.dentry) || append_only(&path.dentry)) {
-            return Err(Errno::EPERM);
+        // Load the driver's metadata before consulting cached inode flags, as
+        // may_write_xattr does with Linux's already initialized inode.
+        if mask & MAY_WRITE != 0 {
+            path.dentry.node().getattr().await?;
+            if immutable(&path.dentry) || append_only(&path.dentry) {
+                return Err(Errno::EPERM);
+            }
         }
         let denied = if mask & MAY_WRITE != 0 {
             Errno::EPERM

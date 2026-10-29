@@ -417,6 +417,7 @@ impl Vfs {
         }
         let dentry = &path.dentry;
         let _lock = dentry.inode().lock().await;
+        let attr = dentry.node().getattr().await?;
         if crate::ops::immutable(dentry) || crate::ops::append_only(dentry) {
             return Err(Errno::EPERM);
         }
@@ -426,7 +427,6 @@ impl Vfs {
             Err(errno) => return Err(errno),
             Ok(_) => {}
         }
-        let attr = dentry.node().getattr().await?;
         if kind == AclKind::Default && attr.file_type != FileType::Directory {
             return match acl {
                 Some(_) => Err(Errno::EACCES),

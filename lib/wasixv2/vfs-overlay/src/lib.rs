@@ -128,7 +128,10 @@ impl OverlayFs {
     }
 
     fn top(&self) -> &Arc<dyn Filesystem> {
-        self.shared.upper.as_ref().unwrap_or(&self.shared.lowers[0])
+        self.shared
+            .upper
+            .as_ref()
+            .unwrap_or_else(|| &self.shared.lowers[0])
     }
 }
 
