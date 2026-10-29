@@ -97,7 +97,7 @@ const STATIC: &[(usize, &str, Static)] = &[
     (13, "domainname", Static::File(text::Global::Domainname)),
     (13, "ostype", Static::File(text::Global::Ostype)),
     (13, "osrelease", Static::File(text::Global::Osrelease)),
-    (13, "version", Static::File(text::Global::Version)),
+    (13, "version", Static::File(text::Global::KernelVersion)),
     (13, "pid_max", Static::File(text::Global::PidMax)),
     (13, "ns_last_pid", Static::File(text::Global::NsLastPid)),
     (
