@@ -2038,3 +2038,147 @@ fn icmp_rate_limit_sysctls_reach_the_namespace() {
     assert!(answered < 100, "{answered}");
     assert_eq!(errno(ping()), Errno::EAGAIN);
 }
+
+/// Use the public request layout, as listmount's sibling tests do.
+fn listns(
+    kernel: &Kernel,
+    caller: &Caller<'_>,
+    last: u64,
+    kinds: u32,
+    owner: u64,
+) -> SysResult<Vec<u64>> {
+    let req = wasixv2_abi::NsIdReq {
+        size: 32,
+        spare: 0,
+        ns_id: last,
+        ns_type: kinds,
+        spare2: 0,
+        user_ns_id: owner,
+    };
+    block_on(wasixv2_syscalls::write_value(
+        caller.memory(),
+        GuestPtrMut::new(0x5000),
+        &req,
+    ))?;
+    let n = block_on(kernel.listns(
+        caller,
+        GuestPtr::new(0x5000),
+        GuestPtrMut::new(0x6000),
+        64,
+        0,
+    ))?;
+    let mut ids = Vec::new();
+    for i in 0..n as u32 {
+        ids.push(block_on(read_value(
+            caller.memory(),
+            GuestPtr::new(0x6000 + i * 8),
+        ))?);
+    }
+    Ok(ids)
+}
+
+fn namespace_id(kernel: &Kernel, caller: &Caller<'_>, fd: Fd) -> u64 {
+    ioctl(kernel, caller, fd, IoctlRequest::NS_GET_ID).unwrap();
+    block_on(read_value(caller.memory(), GuestPtr::new(0x400))).unwrap()
+}
+
+#[test]
+fn listns_ids_outlive_tasks_and_do_not_reuse_inums() {
+    let (kernel, task, memory) = machine_as(0);
+    let caller = Caller::new(task, &memory);
+    assert_eq!(
+        listns(&kernel, &caller, 0, 0, 0).unwrap(),
+        (1..=8).collect::<Vec<_>>()
+    );
+    let uts = CloneFlags::CLONE_NEWUTS.0 as u32;
+    block_on(kernel.unshare(&caller, uts)).unwrap();
+    let fd = open(&kernel, &caller, "/proc/self/ns/uts").unwrap();
+    let id = namespace_id(&kernel, &caller, fd);
+    assert!(id > 8);
+    assert_eq!(listns(&kernel, &caller, 0, uts, 0).unwrap(), vec![2, id]);
+    block_on(kernel.unshare(&caller, uts)).unwrap();
+    let fd2 = open(&kernel, &caller, "/proc/self/ns/uts").unwrap();
+    let id2 = namespace_id(&kernel, &caller, fd2);
+    assert!(id2 > id);
+    assert_eq!(
+        listns(&kernel, &caller, id - 1, uts, 0).unwrap(),
+        vec![id, id2]
+    );
+    assert_eq!(errno(listns(&kernel, &caller, id2, uts, 0)), Errno::ENOENT);
+    block_on(kernel.close(&caller, fd)).unwrap();
+    assert_eq!(listns(&kernel, &caller, 0, uts, 0).unwrap(), vec![2, id2]);
+    block_on(kernel.unshare(&caller, uts)).unwrap();
+    let fd3 = open(&kernel, &caller, "/proc/self/ns/uts").unwrap();
+    assert!(namespace_id(&kernel, &caller, fd3) > id2);
+    // A mount's ioctl reports the same ID as the listns mount-kind entry.
+    let mnt = open(&kernel, &caller, "/proc/self/ns/mnt").unwrap();
+    ioctl(&kernel, &caller, mnt, IoctlRequest::NS_GET_MNTNS_ID).unwrap();
+    let id: u64 = block_on(read_value(caller.memory(), GuestPtr::new(0x400))).unwrap();
+    assert_eq!(id, 8);
+    assert_eq!(
+        errno(ioctl(&kernel, &caller, fd2, IoctlRequest::NS_GET_MNTNS_ID)),
+        Errno::EINVAL
+    );
+}
+
+#[test]
+fn listns_owner_type_and_visibility_filters() {
+    let (kernel, task, memory) = machine_as(1);
+    let caller = Caller::new(task, &memory);
+    assert_eq!(listns(&kernel, &caller, 0, 0, 0).unwrap().len(), 8);
+    // Initial userns owns every initial namespace except itself.
+    let current = wasixv2_abi::ListnsUserNs::LISTNS_CURRENT_USER.0;
+    assert_eq!(
+        listns(&kernel, &caller, 0, 0, current).unwrap(),
+        vec![1, 2, 4, 5, 6, 7, 8]
+    );
+    assert_eq!(errno(listns(&kernel, &caller, 0, 0, 2)), Errno::EINVAL);
+    let uts = CloneFlags::CLONE_NEWUTS.0 as u32;
+    block_on(kernel.unshare(&caller, (CloneFlags::CLONE_NEWUSER.0 as u32) | uts)).unwrap();
+    let user = open(&kernel, &caller, "/proc/self/ns/user").unwrap();
+    let owner = namespace_id(&kernel, &caller, user);
+    let fd = open(&kernel, &caller, "/proc/self/ns/uts").unwrap();
+    let uts_id = namespace_id(&kernel, &caller, fd);
+    assert_eq!(listns(&kernel, &caller, 0, uts, 0).unwrap(), vec![uts_id]);
+    assert_eq!(
+        listns(&kernel, &caller, 0, 0, current).unwrap(),
+        vec![uts_id]
+    );
+    assert_eq!(listns(&kernel, &caller, 0, 0, owner).unwrap(), vec![uts_id]);
+    // Owned by the initial userns: only the caller's current namespaces are visible.
+    assert_eq!(
+        listns(&kernel, &caller, 0, uts, 3).unwrap(),
+        Vec::<u64>::new()
+    );
+    assert_eq!(errno(listns(&kernel, &caller, 0, 1, 0)), Errno::EOPNOTSUPP);
+}
+
+#[test]
+fn listns_validates_flags_count_and_extensible_request() {
+    let (kernel, task, memory) = machine_as(0);
+    let caller = Caller::new(task, &memory);
+    let invoke = |req, count, flags| {
+        block_on(kernel.listns(
+            &caller,
+            GuestPtr::new(req),
+            GuestPtrMut::new(0x6000),
+            count,
+            flags,
+        ))
+    };
+    assert_eq!(errno(invoke(0xfffffff0, 0, 1)), Errno::EINVAL);
+    assert_eq!(errno(invoke(0xfffffff0, 1_000_001, 0)), Errno::EOVERFLOW);
+    assert_eq!(errno(invoke(0xfffffff0, 0, 0)), Errno::EFAULT);
+    for (size, expected) in [(31u32, Errno::EINVAL), (65537, Errno::E2BIG)] {
+        put(&memory.0, 0x5000, &size.to_le_bytes());
+        assert_eq!(errno(invoke(0x5000, 0, 0)), expected);
+    }
+    put(&memory.0, 0x5000, &[0; 40]);
+    put(&memory.0, 0x5000, &40u32.to_le_bytes());
+    assert_eq!(invoke(0x5000, 0, 0), Ok(0));
+    put(&memory.0, 0x5020, &[1]);
+    assert_eq!(errno(invoke(0x5000, 0, 0)), Errno::E2BIG);
+    put(&memory.0, 0x5020, &[0]);
+    put(&memory.0, 0x5004, &[1]);
+    assert_eq!(errno(invoke(0x5000, 0, 0)), Errno::EINVAL);
+}

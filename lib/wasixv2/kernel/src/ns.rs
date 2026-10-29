@@ -10,7 +10,7 @@
 //! never through the kernel, so a kind becomes real by making [`NsProxy::make`] create it.
 
 use std::{
-    collections::BTreeSet,
+    collections::{BTreeMap, BTreeSet},
     ops::Deref,
     sync::{
         Arc, Mutex, Weak,
@@ -92,6 +92,20 @@ impl NsKind {
         }
     }
 
+    /// Linux `include/uapi/linux/nsfs.h:enum init_ns_id`.
+    fn initial_id(self) -> u64 {
+        match self {
+            Self::Ipc => 1,
+            Self::Uts => 2,
+            Self::User => 3,
+            Self::Pid => 4,
+            Self::Cgroup => 5,
+            Self::Time => 6,
+            Self::Net => 7,
+            Self::Mnt => 8,
+        }
+    }
+
     /// The inode number of the initial namespace of the kind (`enum init_ns_ino`).
     fn initial_ino(self) -> u32 {
         match self {
@@ -112,6 +126,8 @@ pub(crate) struct Common {
     kind: NsKind,
     /// The inode number nsfs gives it (`inum`).
     ino: u32,
+    /// `ns_common::ns_id`: never reused, unlike the nsfs inode number.
+    ns_id: u64,
     /// The user namespace that owns it (`ns->ops->owner`): for a user namespace its parent,
     /// which the initial one does not have.
     owner: Option<Arc<UserNs>>,
@@ -131,6 +147,7 @@ impl Drop for Common {
     fn drop(&mut self) {
         if let Some(inums) = &self.inums {
             inums.free(self.ino);
+            inums.namespaces.lock_or_recover().remove(&self.ns_id);
         }
     }
 }
@@ -143,6 +160,9 @@ const DYNAMIC_FIRST: u32 = 0xF000_0000;
 #[derive(Default)]
 pub(crate) struct Inums {
     state: Mutex<InumState>,
+    /// Linux `kernel/nstree.c:ns_unified_root`, weak so lookup does not pin a namespace.
+    namespaces: Mutex<BTreeMap<u64, Weak<dyn RegisteredNs>>>,
+    next_id: std::sync::atomic::AtomicU64,
 }
 
 #[derive(Default)]
@@ -175,6 +195,22 @@ impl Inums {
     }
 }
 
+/// The registry retains the namespace itself during a lookup, not just its
+/// metadata. nsfs uses the same type erasure for its inode-backed handles.
+trait RegisteredNs: Send + Sync {
+    fn common(&self) -> &Common;
+    fn as_any(&self) -> &dyn std::any::Any;
+}
+
+impl<T: Send + Sync + 'static> RegisteredNs for Ns<T> {
+    fn common(&self) -> &Common {
+        &self.common
+    }
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+}
+
 /// A namespace: what nsfs knows of it, and the objects it holds.
 pub(crate) struct Ns<T> {
     common: Common,
@@ -188,6 +224,7 @@ impl<T> Ns<T> {
             common: Common {
                 kind,
                 ino: kind.initial_ino(),
+                ns_id: kind.initial_id(),
                 owner,
                 stashed: Mutex::new(Weak::<crate::nsfs::NsNode>::new()),
                 inums: None,
@@ -205,18 +242,35 @@ impl<T> Ns<T> {
         inner: T,
         inums: &Arc<Inums>,
         ucount: Ucount,
-    ) -> Result<Arc<Self>, Errno> {
-        Ok(Arc::new(Self {
-            common: Common {
-                kind,
-                ino: inums.alloc()?,
-                owner: Some(owner),
-                stashed: Mutex::new(Weak::<crate::nsfs::NsNode>::new()),
-                inums: Some(inums.clone()),
-                _ucount: Some(ucount),
-            },
-            inner,
-        }))
+    ) -> Result<Arc<Self>, Errno>
+    where
+        T: Send + Sync + 'static,
+    {
+        // Linux `kernel/nstree.c:__ns_tree_gen_id`: one monotonic ID space for
+        // every kind; the first dynamic ID is NS_LAST_INIT_ID + 2 (10).
+        let ns_id = inums
+            .next_id
+            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |id| {
+                (id < u64::MAX - 10).then_some(id + 1)
+            })
+            .map_err(|_| Errno::ENOSPC)?
+            + 10;
+        let common = Common {
+            kind,
+            ino: inums.alloc()?,
+            ns_id,
+            owner: Some(owner),
+            stashed: Mutex::new(Weak::<crate::nsfs::NsNode>::new()),
+            inums: Some(inums.clone()),
+            _ucount: Some(ucount),
+        };
+        let ns = Arc::new(Self { common, inner });
+        let registered: Arc<dyn RegisteredNs> = ns.clone();
+        inums
+            .namespaces
+            .lock_or_recover()
+            .insert(ns_id, Arc::downgrade(&registered));
+        Ok(ns)
     }
 }
 
@@ -391,6 +445,10 @@ impl Namespace {
         self.common().ino
     }
 
+    pub(crate) fn ns_id(&self) -> u64 {
+        self.common().ns_id
+    }
+
     /// `ns_get_owner`: the user namespace that owns this one, if the caller, in the user
     /// namespace `mine`, can see it: it must be `mine` or one of its ancestors (`EPERM`).
     pub(crate) fn owner(&self, mine: &Arc<UserNs>) -> Result<Arc<UserNs>, Errno> {
@@ -498,6 +556,19 @@ impl NsProxy {
             time_for_children: time.clone(),
             time,
         }
+    }
+
+    fn common_namespaces(&self) -> Vec<&Common> {
+        vec![
+            &self.mnt.common,
+            &self.uts.common,
+            &self.ipc.common,
+            &self.net.common,
+            &self.pid_for_children.common,
+            &self.cgroup.common,
+            &self.time.common,
+            &self.time_for_children.common,
+        ]
     }
 
     /// `copy_namespaces` for a process `clone` makes with `flags`, with the child's credentials
@@ -1131,5 +1202,170 @@ impl Kernel {
             }
         }
         Ok(())
+    }
+}
+
+impl Kernel {
+    /// Linux `kernel/nstree.c:sys_listns`, `copy_ns_id_req`, `do_listns{,_userns}`.
+    pub(crate) async fn sys_listns(
+        &self,
+        caller: &Caller<'_>,
+        req: wasixv2_abi::ConstNsIdReqPtr,
+        ns_ids: wasixv2_abi::U64Array,
+        count: u32,
+        flags: u32,
+    ) -> SysResult<i32> {
+        use wasixv2_abi::{GuestLayout, GuestPtr, GuestPtrMut, ListnsUserNs, NsIdReq};
+        use wasixv2_syscalls::{read_value, write_value};
+        if flags != 0 {
+            return Err(Errno::EINVAL.into());
+        }
+        if count > 1_000_000 {
+            return Err(Errno::EOVERFLOW.into());
+        }
+        if u64::from(ns_ids.addr()) + u64::from(count) * 8 > (1u64 << 32) {
+            return Err(Errno::EFAULT.into());
+        }
+        // Linux get_user rejects the low guard even though guest loads may read it.
+        if req.addr() < caller.memory().low_guard().await {
+            return Err(Errno::EFAULT.into());
+        }
+        let size: u32 = read_value(caller.memory(), GuestPtr::new(req.addr())).await?;
+        if size > crate::mm::PAGE_SIZE as u32 {
+            return Err(Errno::E2BIG.into());
+        }
+        if size < NsIdReq::SIZE as u32 {
+            return Err(Errno::EINVAL.into());
+        }
+        let mut bytes = vec![0; size as usize];
+        caller.memory().read(req.addr(), &mut bytes).await?;
+        if bytes[NsIdReq::SIZE..].iter().any(|&byte| byte != 0) {
+            return Err(Errno::E2BIG.into());
+        }
+        let req = NsIdReq::read_from(&bytes).expect("checked request size");
+        if req.spare != 0 {
+            return Err(Errno::EINVAL.into());
+        }
+        if u64::from(req.ns_type) & !CLONE_NS_ALL != 0 {
+            return Err(Errno::EOPNOTSUPP.into());
+        }
+        let process = self.process(caller.task());
+        let cred = self.cred(caller);
+        let proxy = self.ns(caller);
+        // `may_see_all_namespaces`: init pid namespace AND CAP_SYS_ADMIN in its owner.
+        let see_all = Arc::ptr_eq(&process.pid_ns, &self.init_ns.pid_for_children)
+            && cred.capable_init(Cap::SysAdmin);
+        let mut all = BTreeMap::new();
+        for ns in self
+            .init_ns
+            .common_namespaces()
+            .into_iter()
+            .chain([&self.init_user_ns.common])
+        {
+            all.insert(ns.ns_id, ns);
+        }
+        // Release the registry lock before any namespace reference can be dropped:
+        // a namespace can own another namespace, whose last put unregisters it.
+        let registered: Vec<_> = self
+            .ns_inums
+            .namespaces
+            .lock_or_recover()
+            .values()
+            .filter_map(Weak::upgrade)
+            .collect();
+        for ns in &registered {
+            all.insert(ns.common().ns_id, ns.common());
+        }
+        let owner_id = if req.user_ns_id == ListnsUserNs::LISTNS_CURRENT_USER.0 {
+            cred.user_ns.common.ns_id
+        } else {
+            req.user_ns_id
+        };
+        if owner_id != 0 && !all.get(&owner_id).is_some_and(|ns| ns.kind == NsKind::User) {
+            return Err(Errno::EINVAL.into());
+        }
+        // Linux starts at the next ID in the selected tree BEFORE applying visibility
+        // and, for a multi-kind mask, the type filter. An exhausted cursor is ENOENT.
+        let single_kind = req.ns_type.count_ones() == 1;
+        let in_tree = |ns: &Common| {
+            if owner_id != 0 {
+                ns.owner
+                    .as_ref()
+                    .is_some_and(|owner| owner.common.ns_id == owner_id)
+            } else {
+                !single_kind || ns.kind.flag() == u64::from(req.ns_type)
+            }
+        };
+        let from = if req.ns_id == 0 {
+            0
+        } else {
+            req.ns_id.wrapping_add(1)
+        };
+        if req.ns_id != 0 && !all.range(from..).any(|(_, ns)| in_tree(ns)) {
+            return Err(Errno::ENOENT.into());
+        }
+        let mut current: BTreeSet<_> = proxy
+            .common_namespaces()
+            .into_iter()
+            .map(|ns| ns.ns_id)
+            .collect();
+        current.insert(cred.user_ns.common.ns_id);
+        current.insert(process.pid_ns.common.ns_id);
+        let mut done = 0;
+        for (&id, ns) in all.range(from..) {
+            if done == count {
+                break;
+            }
+            if !in_tree(ns)
+                || (req.ns_type != 0 && ns.kind.flag() & u64::from(req.ns_type) == 0)
+                || (!see_all && !current.contains(&id))
+            {
+                continue;
+            }
+            write_value(
+                caller.memory(),
+                GuestPtrMut::new(ns_ids.addr() + done * 8),
+                &id,
+            )
+            .await?;
+            done += 1;
+        }
+        Ok(done as i32)
+    }
+}
+
+impl Kernel {
+    /// The VFS tree of a namespace ID from listns/NS_GET_ID, including an nsfs-only
+    /// namespace. Linux `fs/namespace.c:grab_requested_mnt_ns` uses the same ns_id.
+    pub(crate) fn mount_ns_by_id(&self, id: u64) -> Option<Arc<wasixv2_vfs::MntNs>> {
+        if id == self.init_ns.mnt.common.ns_id {
+            return Some(self.init_ns.mnt.tree.clone());
+        }
+        let ns = self
+            .ns_inums
+            .namespaces
+            .lock_or_recover()
+            .get(&id)?
+            .upgrade()?;
+        ns.as_any()
+            .downcast_ref::<MntNs>()
+            .map(|ns| ns.tree.clone())
+    }
+
+    pub(crate) fn mount_ns_id(&self, tree: &wasixv2_vfs::MntNs) -> Option<u64> {
+        if tree.id() == self.init_ns.mnt.tree.id() {
+            return Some(self.init_ns.mnt.common.ns_id);
+        }
+        let registered: Vec<_> = self
+            .ns_inums
+            .namespaces
+            .lock_or_recover()
+            .values()
+            .filter_map(Weak::upgrade)
+            .collect();
+        registered.iter().find_map(|ns| {
+            let mnt = ns.as_any().downcast_ref::<MntNs>()?;
+            (mnt.tree.id() == tree.id()).then_some(mnt.common.ns_id)
+        })
     }
 }

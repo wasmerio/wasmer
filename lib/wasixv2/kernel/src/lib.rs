@@ -1782,6 +1782,17 @@ impl Syscalls for Kernel {
             .await
     }
 
+    async fn listns(
+        &self,
+        caller: &Caller<'_>,
+        req: wasixv2_abi::ConstNsIdReqPtr,
+        ns_ids: wasixv2_abi::U64Array,
+        nr_ns_ids: Usize,
+        flags: u32,
+    ) -> SysResult<i32> {
+        self.sys_listns(caller, req, ns_ids, nr_ns_ids, flags).await
+    }
+
     async fn open_tree(
         &self,
         caller: &Caller<'_>,

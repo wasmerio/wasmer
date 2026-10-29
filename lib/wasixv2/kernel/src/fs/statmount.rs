@@ -185,7 +185,7 @@ impl Kernel {
     /// `grab_requested_mnt_ns`: the namespace by id, by an nsfs file, or the caller's.
     fn requested_ns(&self, caller: &Caller<'_>, req: &MntIdReq) -> Result<Arc<MntNs>, Errno> {
         if req.mnt_ns_id != 0 {
-            return self.vfs.lookup_ns(req.mnt_ns_id).ok_or(Errno::ENOENT);
+            return self.mount_ns_by_id(req.mnt_ns_id).ok_or(Errno::ENOENT);
         }
         if req.mnt_ns_fd != 0 {
             let file = self.file(caller.task(), Fd(req.mnt_ns_fd as i32))?;
@@ -396,7 +396,7 @@ impl Kernel {
             && let Some(ns) = &target.ns
         {
             b.sm.mask |= StatmountMask::STATMOUNT_MNT_NS_ID.0;
-            b.sm.mnt_ns_id = ns.id();
+            b.sm.mnt_ns_id = self.mount_ns_id(ns).ok_or(Errno::ENOENT)?;
         }
         if want(StatmountMask::STATMOUNT_SUPPORTED_MASK) {
             b.sm.mask |= StatmountMask::STATMOUNT_SUPPORTED_MASK.0;
