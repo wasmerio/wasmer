@@ -2220,3 +2220,68 @@ fn traceme_denies_a_parent_reaped_after_its_metadata_was_obtained() {
     assert!(kernel.procs.find(parent.0).is_none());
     assert!(!kernel.may_traceme(child, &metadata));
 }
+
+/// kernel/exit.c:do_exit completes exit_mm/mmput before exit_notify. A sibling's
+/// release must not make the leader reapable while its exit_mmap is suspended.
+#[test]
+fn group_reaping_waits_for_exit_mmap_to_complete() {
+    let (kernel, leader, memory) = machine();
+    let caller = Caller::new(leader, &memory);
+    let worker = spawn_thread(&kernel, &caller);
+    assert!(matches!(
+        kernel.take_pending(leader),
+        Some(GuestAction::StartThread { .. })
+    ));
+    block_on(kernel.exit(&Caller::new(worker, &memory), 0)).unwrap();
+    let mm = kernel.mm(leader);
+    let operation = block_on(mm.op.lock());
+    let mut exiting = Box::pin(kernel.exit_group(&caller, 0));
+    assert!(exiting.as_mut().now_or_never().is_none());
+    kernel.release(worker);
+    assert!(
+        live(&kernel, leader),
+        "exit_mmap is pending: the leader must remain in the task table"
+    );
+    assert!(kernel.procs.find(leader.0).is_some());
+    drop(operation);
+    assert_eq!(block_on(exiting), Ok(()));
+    assert!(
+        !live(&kernel, leader),
+        "cleanup completed: autoreap is safe"
+    );
+    kernel.release(leader);
+    assert!(kernel.state.lock_or_recover().dead.is_empty());
+}
+
+/// kernel/fork.c:__put_task_struct calls exit_creds after release_task unhashed
+/// the task. Reaping hides the pid while the execution owner's task still has its cred.
+#[test]
+fn reaped_task_keeps_its_credentials_until_the_execution_owner_releases_it() {
+    let (kernel, leader, memory) = super::cred::machine_as(0, 0);
+    let caller = Caller::new(leader, &memory);
+    let worker = spawn_thread(&kernel, &caller);
+    assert!(matches!(
+        kernel.take_pending(leader),
+        Some(GuestAction::StartThread { .. })
+    ));
+    assert_eq!(
+        block_on(kernel.setuid(&Caller::new(worker, &memory), 1000)),
+        Ok(0)
+    );
+    let leader_cred = Arc::downgrade(&kernel.task_cred(leader));
+    let worker_cred = Arc::downgrade(&kernel.task_cred(worker));
+    block_on(kernel.exit_group(&caller, 0)).unwrap();
+    block_on(kernel.exit_mm(&Caller::new(worker, &memory)));
+    kernel.release(worker);
+    assert!(kernel.procs.find(leader.0).is_none());
+    assert!(!live(&kernel, leader));
+    assert!(
+        kernel.find_task_cred(leader).is_none(),
+        "pid lookups see no task"
+    );
+    assert_eq!(kernel.task_cred(leader).user.real.0, 0);
+    assert!(leader_cred.upgrade().is_some());
+    assert!(worker_cred.upgrade().is_none());
+    kernel.release(leader);
+    assert!(leader_cred.upgrade().is_none());
+}

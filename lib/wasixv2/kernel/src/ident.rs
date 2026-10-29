@@ -451,6 +451,13 @@ impl Kernel {
     /// Objective credentials (`include/linux/cred.h: __task_cred`), ignoring overrides.
     pub(crate) fn task_cred(&self, task: wasixv2_syscalls::TaskId) -> std::sync::Arc<Cred> {
         self.find_task_cred(task)
+            .or_else(|| {
+                self.state
+                    .read_or_recover()
+                    .dead
+                    .get(&task)
+                    .map(|t| t.cred.clone())
+            })
             .expect("credentials of an unknown task")
     }
 

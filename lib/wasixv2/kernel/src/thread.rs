@@ -100,6 +100,8 @@ pub(crate) struct ThreadState {
     /// The task is done with its memory ([`Kernel::exit_mm`]; Linux clears `tsk->mm`), so it
     /// no longer counts among the memory's users.
     left_mm: bool,
+    /// `mmput` and its asynchronous `exit_mmap` finished; only then may exit_notify reap us.
+    exit_mm_done: bool,
     /// The task died while it waited for its vfork child, and its `exit_mm` went to the
     /// instance the child runs in ([`GuestAction::ExitMm`]); it goes there once.
     exit_mm_handed: bool,
@@ -141,6 +143,7 @@ impl ThreadState {
             },
             exited: false,
             left_mm: false,
+            exit_mm_done: false,
             exit_mm_handed: false,
         }
     }
@@ -276,6 +279,7 @@ impl Kernel {
                 rseq: None,
                 exited: false,
                 left_mm: false,
+                exit_mm_done: false,
                 exit_mm_handed: false,
             };
             let flag = Arc::new(WorkFlag::default());
@@ -521,7 +525,7 @@ impl Kernel {
                 if waiting.contains(&process.pid) {
                     !gone(&process.pid, t)
                 } else {
-                    Arc::ptr_eq(&t.process, process) && !t.thread.left_mm
+                    Arc::ptr_eq(&t.process, process) && !t.thread.exit_mm_done
                 }
             });
             // A vfork child's leader that is done but for leaving the memory hands its parent's
@@ -570,7 +574,7 @@ impl Kernel {
                     .tasks
                     .values()
                     .filter(|t| Arc::ptr_eq(&t.process, process))
-                    .all(|t| t.thread.left_mm),
+                    .all(|t| t.thread.exit_mm_done),
                 "process {} is a zombie before its tasks left their memory",
                 process.pid.0
             );
@@ -611,6 +615,7 @@ impl Kernel {
                     work: std::mem::replace(&mut entry.work, Work::new(flag)),
                     signals: entry.signals.clone(),
                     cpu: entry.cpu.clone(),
+                    cred: entry.cred.clone(),
                     process: Arc::downgrade(&entry.process),
                 };
                 state.dead.insert(id, dead);
@@ -882,7 +887,7 @@ impl Kernel {
             let left = state
                 .tasks
                 .get(&leader)
-                .is_some_and(|t| t.thread.left_mm && !t.work.exec_resumes_vfork_parent());
+                .is_some_and(|t| t.thread.exit_mm_done && !t.work.exec_resumes_vfork_parent());
             let dead_in_vfork = left && self.vfork_waits(leader);
             let group = process.group.state.lock_or_recover();
             let parked = task == leader
@@ -1136,6 +1141,10 @@ impl Kernel {
         if last {
             self.exit_mmap(caller).await;
         }
+        // kernel/exit.c:do_exit completes exit_mm (including mmput) before exit_notify.
+        // Clearing the mm-user count alone must not let a sibling's release reap this task
+        // while note_rss or exit_mmap still uses its task-table state.
+        self.with_task(task, |t| t.thread.exit_mm_done = true);
         // A leader whose group exited was all its exit waited for, and so was a task that
         // died waiting for its vfork child, whose instance runs on.
         if task == process.pid || self.vfork_waits(task) {
@@ -1287,7 +1296,7 @@ fn mm_users(state: &State, task: TaskId) -> usize {
 /// its memory there ([`GuestAction::ExitMm`]), as Linux's killable `wait_for_vfork_done` lets
 /// it exit. The instance goes back to it only to unwind it, once the child is done.
 fn gone_in_vfork(waiting: &[TaskId], id: TaskId, t: &Task) -> bool {
-    waiting.contains(&id) && t.work.ends_image() && t.thread.left_mm
+    waiting.contains(&id) && t.work.ends_image() && t.thread.exit_mm_done
 }
 
 /// Removes `task` from the kernel, counting it out of its thread group if it was still alive.
@@ -1323,6 +1332,9 @@ pub(crate) struct DeadTask {
     pub(crate) work: Work,
     pub(crate) signals: Arc<crate::signal::TaskSignals>,
     pub(crate) cpu: Arc<CpuAccount>,
+    /// kernel/fork.c:__put_task_struct releases objective credentials in exit_creds,
+    /// after release_task unhashed the task; retain this task's own final snapshot.
+    pub(crate) cred: Arc<crate::cred::Cred>,
     /// Its process while anyone else holds it, for [`Kernel::terminate`]'s wait.
     process: std::sync::Weak<Process>,
 }
