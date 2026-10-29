@@ -611,6 +611,29 @@ fn mlockall_locks_what_is_mapped_and_what_comes() {
     assert_eq!(block_on(kernel.munmap(&caller, at, 4 * PAGE)), Ok(0));
 }
 
+/// `msync` with `MS_INVALIDATE` over a locked page fails with `EBUSY` (mlockall/3-6, 3-7);
+/// without it, or past the lock, it syncs as ever.
+#[test]
+fn msync_cannot_invalidate_locked_pages() {
+    let (kernel, task, memory) = unprivileged(1);
+    let caller = Caller::new(task, &memory);
+    set_memlock(&kernel, &caller, 1);
+    let at = mmap(&kernel, &caller, 2 * PAGE, ANON, Fd(-1)).unwrap();
+    assert_eq!(block_on(kernel.mlock(&caller, at + PAGE, PAGE)), Ok(0));
+    let msync =
+        |at: u32, len: u32, flags: MsyncFlags| block_on(kernel.msync(&caller, at, len, flags));
+    let invalidate = MsyncFlags::MS_INVALIDATE;
+    assert_eq!(errno(msync(at, 2 * PAGE, invalidate)), Errno::EBUSY);
+    assert_eq!(
+        errno(msync(at + PAGE, 1, invalidate | MsyncFlags::MS_SYNC)),
+        Errno::EBUSY
+    );
+    assert_eq!(msync(at, PAGE, invalidate), Ok(0));
+    assert_eq!(msync(at, 2 * PAGE, MsyncFlags::MS_SYNC), Ok(0));
+    assert_eq!(block_on(kernel.munlock(&caller, at + PAGE, PAGE)), Ok(0));
+    assert_eq!(msync(at, 2 * PAGE, invalidate), Ok(0));
+}
+
 /// Memory laid out stack-first, with the main stack below `stack.end`, and the caller's
 /// stack pointer at `sp`.
 struct StackFirst {
