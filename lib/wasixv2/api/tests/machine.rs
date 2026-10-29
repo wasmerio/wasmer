@@ -76,7 +76,7 @@ async fn uname_and_user_come_from_the_machine_configuration() {
     assert_eq!(run(machine, UNAME_WAT).await, (42, b"box 6.1.0".to_vec()));
     assert_eq!(
         run(Machine::new(), UNAME_WAT).await,
-        (1, b"localhost 7.2.0".to_vec())
+        (1, b"localhost 7.2.0-wasixv2".to_vec())
     );
 }
 
@@ -282,7 +282,7 @@ async fn shutdown_ends_every_process() {
                 .expect("shutdown returned");
             assert_eq!(run.await.unwrap().unwrap(), 128 + 9);
             let (status, out) = run_on(&machine, UNAME_WAT).await;
-            assert_eq!((status, out.as_slice()), (1, &b"localhost 7.2.0"[..]));
+            assert_eq!((status, out.as_slice()), (1, &b"localhost 7.2.0-wasixv2"[..]));
         })
         .await;
 }

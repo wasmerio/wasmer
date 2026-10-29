@@ -36,16 +36,20 @@ const CAPABILITY_V3: u32 = 0x2008_0522;
 
 /// The names `uname` reports (`struct new_utsname`).
 ///
-/// The defaults are `wasixv2` `localhost` `7.2.0` `#1 SMP wasixv2 2.0.0` `wasm32`, with the
-/// domain name `(none)`. The release is the Linux version of the UAPI headers libc2 ships
-/// ([`Uname::LINUX_RELEASE`]): programs built against them, with `__linux__`, compare it with
-/// the versions those headers document, so an older one sends them down workarounds for old
-/// kernels, and a newer one would claim interfaces their headers do not have. What the kernel
-/// does not implement is `ENOSYS`, as on a Linux built without it. The version names the
-/// wasixv2 ABI, so a program can still tell. An embedder that runs programs which insist on
-/// another release can report one. The system name is always `wasixv2`. A guest with
+/// The defaults are `Linux` `localhost` `7.2.0-wasixv2` `#1 SMP wasixv2 2.0.0` `wasm32`, with
+/// the domain name `(none)`. Programs are built for Linux (`__linux__`), so the system name is
+/// Linux's: configure scripts and programs that pick their code by `uname -s` take the Linux
+/// paths. The release is the Linux version of the UAPI headers libc2 ships
+/// ([`Uname::LINUX_RELEASE`]) with a `-wasixv2` suffix, as a distribution kernel names its
+/// flavour (`6.8.0-117-generic`): programs compare the version part with the versions those
+/// headers document, so an older one sends them down workarounds for old kernels, and a newer
+/// one would claim interfaces their headers do not have. What the kernel does not implement
+/// is `ENOSYS`, as on a Linux built without it. The suffix and the version, which names the
+/// wasixv2 ABI, let a program still tell. An embedder that runs programs which insist on
+/// another release can report one. The system name is always `Linux`. A guest with
 /// `CAP_SYS_ADMIN` can change the node and domain names with `sethostname` and
-/// `setdomainname`.
+/// `setdomainname`. WASIX v1 programs never ask the kernel: their libc answers `uname`
+/// itself.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Uname {
     nodename: String,
@@ -59,7 +63,7 @@ impl Default for Uname {
     fn default() -> Self {
         Self {
             nodename: "localhost".into(),
-            release: Self::LINUX_RELEASE.into(),
+            release: Self::RELEASE.into(),
             version: Self::VERSION.into(),
             machine: "wasm32".into(),
             domainname: "(none)".into(),
@@ -94,12 +98,15 @@ fn uts_value(field: &'static str, value: String) -> Result<String, UnameError> {
 }
 
 impl Uname {
-    /// The system name, which is always `wasixv2`.
-    pub const SYSNAME: &str = "wasixv2";
+    /// The system name, which is always `Linux`.
+    pub const SYSNAME: &str = "Linux";
 
-    /// The default release: the Linux version of the UAPI headers in libc2's sysroot
-    /// (`LINUX_VERSION_CODE` in `linux/version.h`).
+    /// The Linux version of the UAPI headers in libc2's sysroot (`LINUX_VERSION_CODE` in
+    /// `linux/version.h`).
     pub const LINUX_RELEASE: &str = "7.2.0";
+
+    /// The default release: [`Uname::LINUX_RELEASE`] with the wasixv2 flavour.
+    pub const RELEASE: &str = "7.2.0-wasixv2";
 
     /// The default version: a build number and `SMP` as Linux's, then the wasixv2 ABI
     /// version.
