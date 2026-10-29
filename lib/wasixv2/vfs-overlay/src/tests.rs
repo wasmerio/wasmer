@@ -361,17 +361,7 @@ fn whiteouts_replacing_upper_entries_leave_no_temporary_names() {
     assert_eq!(list(&lookup(&upper.root(), b"d").unwrap()), [b"f".to_vec()]);
 }
 
-#[test]
-fn copy_up_preserves_file_flags_protection_and_posix_acls() {
-    use wasixv2_vfs::{
-        XATTR_NAME_POSIX_ACL_ACCESS as ACCESS, XATTR_NAME_POSIX_ACL_DEFAULT as DEFAULT,
-    };
-    let (overlay, upper, lower) = setup();
-    let lower_dir = lookup(&lower.root(), b"d").unwrap();
-    let lower_file = lookup(&lower_dir, b"f").unwrap();
-    let flags = Fl::FS_NOATIME_FL.0 | Fl::FS_NODUMP_FL.0 | PROT_FLAGS;
-    block_on(lower_file.fileattr_set(&FileKattr::from_flags(flags))).unwrap();
-    block_on(lower_dir.fileattr_set(&FileKattr::from_flags(Fl::FS_NOATIME_FL.0))).unwrap();
+fn named_acl() -> Vec<u8> {
     let mut acl = 2u32.to_le_bytes().to_vec();
     for (tag, perm, id) in [
         (1u16, 6u16, u32::MAX),
@@ -384,6 +374,21 @@ fn copy_up_preserves_file_flags_protection_and_posix_acls() {
         acl.extend_from_slice(&perm.to_le_bytes());
         acl.extend_from_slice(&id.to_le_bytes());
     }
+    acl
+}
+
+#[test]
+fn copy_up_preserves_file_flags_protection_and_posix_acls() {
+    use wasixv2_vfs::{
+        XATTR_NAME_POSIX_ACL_ACCESS as ACCESS, XATTR_NAME_POSIX_ACL_DEFAULT as DEFAULT,
+    };
+    let (overlay, upper, lower) = setup();
+    let lower_dir = lookup(&lower.root(), b"d").unwrap();
+    let lower_file = lookup(&lower_dir, b"f").unwrap();
+    let flags = Fl::FS_NOATIME_FL.0 | Fl::FS_NODUMP_FL.0 | PROT_FLAGS;
+    block_on(lower_file.fileattr_set(&FileKattr::from_flags(flags))).unwrap();
+    block_on(lower_dir.fileattr_set(&FileKattr::from_flags(Fl::FS_NOATIME_FL.0))).unwrap();
+    let acl = named_acl();
     block_on(lower_file.setxattr(ACCESS, &acl, XattrSet::Any)).unwrap();
     block_on(lower_dir.setxattr(DEFAULT, &acl, XattrSet::Any)).unwrap();
     let dir = lookup(&overlay.root(), b"d").unwrap();
@@ -469,9 +474,82 @@ fn copy_up_requires_posix_acls_even_when_upper_ignores_unknown_xattrs() {
     assert_eq!(block_on(copy_xattrs(&file, &upper)), Ok(()));
     block_on(file.setxattr(
         wasixv2_vfs::XATTR_NAME_POSIX_ACL_ACCESS,
-        &[2, 0, 0, 0],
+        &named_acl(),
         XattrSet::Any,
     ))
     .unwrap();
     assert_eq!(block_on(copy_xattrs(&file, &upper)), Err(Errno::EOPNOTSUPP));
+}
+
+#[test]
+fn persisted_root_protection_applies_to_the_first_metadata_change() {
+    use wasixv2_vfs::{Cred, Ctx, Vfs};
+    // Each operation starts with a fresh synchronous root, before any getattr or lookup
+    // has initialized its persisted overlay.protattr state.
+    for value in [b"i".as_slice(), b"a".as_slice()] {
+        for operation in 0..5 {
+            let upper = mem();
+            block_on(
+                upper
+                    .root()
+                    .setxattr(b"trusted.overlay.protattr", value, XattrSet::Any),
+            )
+            .unwrap();
+            let fs = OverlayFs::new(Some(upper), vec![]);
+            let vfs = Vfs::new(fs);
+            let root = vfs.root();
+            let cred = Cred::root();
+            let cx = Ctx {
+                cred: &cred,
+                root: &root,
+                umask: 0,
+                task: 0,
+                leases: None,
+            };
+            let result = match operation {
+                0 => block_on(vfs.chmod(&cx, &root, 0o700)),
+                1 => block_on(vfs.chown(&cx, &root, Some(2), Some(2))),
+                2 => {
+                    block_on(vfs.utimes(&cx, &root, Some(TimeSet::At(Timestamp::default())), None))
+                }
+                3 => block_on(vfs.setxattr(&cx, &root, b"user.test", b"x", XattrSet::Any)),
+                _ => block_on(vfs.setxattr(
+                    &cx,
+                    &root,
+                    wasixv2_vfs::XATTR_NAME_POSIX_ACL_ACCESS,
+                    &named_acl(),
+                    XattrSet::Any,
+                )),
+            };
+            assert_eq!(
+                result,
+                Err(Errno::EPERM),
+                "protection {value:?}, operation {operation}"
+            );
+        }
+    }
+}
+
+#[test]
+fn persisted_file_protection_blocks_link_before_any_getattr() {
+    use wasixv2_vfs::{Cred, Ctx, LookupFlags, Vfs};
+    for value in [b"i".as_slice(), b"a".as_slice()] {
+        let upper = mem();
+        let file = write(&upper.root(), b"f", b"data");
+        block_on(file.setxattr(b"trusted.overlay.protattr", value, XattrSet::Any)).unwrap();
+        let vfs = Vfs::new(OverlayFs::new(Some(upper), vec![]));
+        let root = vfs.root();
+        let cred = Cred::root();
+        let cx = Ctx {
+            cred: &cred,
+            root: &root,
+            umask: 0,
+            task: 0,
+            leases: None,
+        };
+        assert_eq!(
+            block_on(vfs.link(&cx, &root, b"f", LookupFlags::follow(), &root, b"alias")),
+            Err(Errno::EPERM)
+        );
+    }
 }
