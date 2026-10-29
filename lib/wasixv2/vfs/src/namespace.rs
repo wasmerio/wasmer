@@ -290,9 +290,9 @@ impl Vfs {
     }
 
     /// `__do_loopback`: a copy of the tree at `source` (with what is mounted below it if
-    /// `recursive`), attached nowhere. The source must be bindable, a mount of the caller's
-    /// namespace or of a detached tree it may use (`may_copy_tree`), and not an object without
-    /// a name.
+    /// `recursive`), attached nowhere. The source must be bindable, and a mount of the caller's
+    /// namespace or of a detached tree it may use, not an object without a name, or an object of
+    /// a filesystem whose objects bind (`may_copy_tree`).
     fn copy_for_loopback(
         &self,
         state: &mut TreeState,
@@ -301,7 +301,11 @@ impl Vfs {
         recursive: bool,
     ) -> FsResult<Arc<Mount>> {
         let old = &source.mnt;
-        if state.is_unbindable(old) || !may_use_mount(state, ns, old) || source.dentry.is_pseudo() {
+        let may_copy = match source.dentry.is_pseudo() {
+            true => old.sb().fs.binds_objects(),
+            false => may_use_mount(state, ns, old),
+        };
+        if state.is_unbindable(old) || !may_copy {
             return Err(Errno::EINVAL);
         }
         // What is below a mount no longer in any tree is not known.
