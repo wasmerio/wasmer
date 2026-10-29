@@ -219,10 +219,12 @@ pub(crate) fn attach(
     text: &str,
     threadgroup: bool,
 ) -> Result<(), Errno> {
-    let nr: i32 = match text.parse() {
-        Ok(nr) if nr >= 0 => nr,
-        _ => return Err(Errno::EINVAL),
-    };
+    // Linux kernel/cgroup/cgroup.c:cgroup_procs_write_start uses kstrtoint
+    // with base 0; lookup stays in the pid namespace captured by cgroup_file_open.
+    let nr = super::fs::parse_i32(text)? as i32;
+    if nr < 0 {
+        return Err(Errno::EINVAL);
+    }
     let hierarchy = &source.hierarchy;
     let state = state.lock_or_recover();
     let target = match nr {

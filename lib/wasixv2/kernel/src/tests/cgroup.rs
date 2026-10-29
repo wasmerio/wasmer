@@ -1137,3 +1137,51 @@ fn io_stat_counts_file_reads_and_writes() {
             .into())
     );
 }
+
+#[test]
+fn cgroup_migration_pids_use_the_openers_namespace_even_when_fd_is_shared() {
+    let (kernel, root) = machine();
+    root.mkdir(&kernel, "/cg/a").unwrap();
+    root.mkdir(&kernel, "/cg/a/t").unwrap();
+    root.write(&kernel, "/cg/a/t/cgroup.type", "threaded")
+        .unwrap();
+    let (opener, _) = root
+        .fork(&kernel, CloneFlags::CLONE_NEWPID.0 as u32)
+        .unwrap();
+    assert_eq!(opener.pid(&kernel), 1);
+    let (target, _) = opener.fork(&kernel, 0).unwrap();
+    assert_eq!(target.pid(&kernel), 2);
+    let share = |at| {
+        let fd = opener.open(&kernel, at, OpenFlags::O_WRONLY).unwrap();
+        let file = kernel.file(opener.task, fd).unwrap();
+        let [slot] = kernel.reserve_fds::<1>(&root.caller(), false).unwrap();
+        slot.install(file)
+    };
+    let write = |fd, text: &str| {
+        put(&root.memory.0, 0x5000, text.as_bytes());
+        block_on(kernel.write(
+            &root.caller(),
+            fd,
+            UserSlice::new(0x5000, text.len() as u32),
+        ))
+    };
+    let procs = share("/cg/a/cgroup.procs");
+    assert_eq!(
+        write(procs, "0x2"),
+        Ok(3),
+        "kstrtoint base 0 and the opener's pid 2"
+    );
+    let target_path = format!("/proc/{}/cgroup", target.task.0);
+    assert_eq!(root.read(&kernel, &target_path).unwrap(), "0::/a\n");
+    assert_eq!(
+        root.read(&kernel, "/proc/self/cgroup").unwrap(),
+        "0::/\n",
+        "global pid 2 must not be migrated"
+    );
+    let threads = share("/cg/a/t/cgroup.threads");
+    assert_eq!(write(threads, "02"), Ok(2));
+    assert_eq!(root.read(&kernel, &target_path).unwrap(), "0::/a/t\n");
+    assert_eq!(errno(write(procs, "9999")), Errno::ESRCH);
+    assert_eq!(errno(write(procs, "2147483648")), Errno::ERANGE);
+    assert_eq!(errno(write(procs, "-1")), Errno::EINVAL);
+}

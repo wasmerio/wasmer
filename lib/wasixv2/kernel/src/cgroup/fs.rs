@@ -564,7 +564,7 @@ fn parse_int(text: &str) -> Result<u64, Errno> {
 }
 
 /// A signed `kstrtoint`: `ERANGE` past `i32`.
-fn parse_i32(text: &str) -> Result<i64, Errno> {
+pub(super) fn parse_i32(text: &str) -> Result<i64, Errno> {
     let (negative, digits) = match text.strip_prefix('-') {
         Some(rest) => (true, rest),
         None => (false, text),
