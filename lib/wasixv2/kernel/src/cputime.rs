@@ -382,5 +382,6 @@ impl Kernel {
         if fired.wake {
             process.cpu_timers.woken.wake(PollMask::empty());
         }
+        self.cfs_tick(task);
     }
 }
