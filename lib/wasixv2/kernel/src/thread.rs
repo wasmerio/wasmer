@@ -273,6 +273,7 @@ impl Kernel {
             let new = Task {
                 cpu,
                 css,
+                syscall: Default::default(),
                 process,
                 mm: task.mm.clone(),
                 files: task.files.clone(),
@@ -891,6 +892,7 @@ impl Kernel {
                 unreachable!("the leader and the caller are listed");
             };
             exchange_tasks(entry, old);
+            std::mem::swap(&mut entry.syscall, &mut old.syscall);
             if detached {
                 entry.work.detach_exec();
             }

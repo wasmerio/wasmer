@@ -1096,3 +1096,48 @@ fn system_files_and_inotify_limits() {
         "the count went with it"
     );
 }
+
+/// fs/proc/base.c `proc_pid_syscall`: show blocked syscall arguments and ptrace access rules.
+#[test]
+fn syscall_file_shows_running_stopped_and_blocked_calls() {
+    let (kernel, parent, _) = machine();
+    let memory = super::proc::ForkableMemory(memory());
+    let caller = Caller::new(parent, &memory);
+    let child = super::proc::fork_child(&kernel, &caller);
+    let child_memory = self::memory();
+    let child_caller = Caller::new(child, &child_memory);
+    let t = T::new(&kernel, parent, &memory.0);
+    let name = format!("/proc/{}/syscall", child.0);
+    let read = || {
+        let fd = t.open(&name, OpenFlags::O_RDONLY).unwrap();
+        t.read_all(fd)
+    };
+    assert_eq!(read(), "running\n");
+    let (r, _) = pipe(&kernel, &child_caller, OpenFlags(0));
+    let stack = wasixv2_syscalls::Layered::new(SyscallEntry(Dispatch), kernel);
+    let mut blocked = Box::pin(stack.read(&child_caller, r, UserSliceMut::new(0x800, 3)));
+    assert!(blocked.as_mut().now_or_never().is_none());
+    let t = T::new(&stack.inner, parent, &memory.0);
+    let fd = t.open(&name, OpenFlags::O_RDONLY).unwrap();
+    assert_eq!(
+        t.read_all(fd),
+        format!("63 0x{:x} 0x800 0x3 0x0 0x0 0x0 0x0 0x0\n", r.0)
+    );
+    drop(blocked);
+    let fd = t.open(&name, OpenFlags::O_RDONLY).unwrap();
+    assert_eq!(t.read_all(fd), "running\n");
+    stack
+        .inner
+        .kill(child, wasixv2_abi::Signal::SIGSTOP)
+        .unwrap();
+    assert_eq!(stack.inner.take_pending(child), Some(GuestAction::Stopped));
+    let fd = t.open(&name, OpenFlags::O_RDONLY).unwrap();
+    assert_eq!(t.read_all(fd), "-1 0x0 0x0\n");
+    let sibling = super::proc::fork_child(&stack.inner, &caller);
+    let sibling_memory = self::memory();
+    let sibling_t = T::new(&stack.inner, sibling, &sibling_memory);
+    assert_eq!(
+        errno(sibling_t.open(&name, OpenFlags::O_RDONLY)),
+        Errno::EPERM
+    );
+}

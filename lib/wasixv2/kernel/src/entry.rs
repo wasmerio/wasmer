@@ -4,7 +4,42 @@
 use wasixv2_abi::Errno;
 use wasixv2_syscalls::{Caller, Layer, SysErr, SysResult, Syscall, SyscallRet, Syscalls, dispatch};
 
-use crate::Kernel;
+use crate::{Kernel, ptrace::CallInfo, sync::MutexExt as _};
+use std::sync::{Arc, Mutex};
+
+/// The syscall visible through /proc, even for an untraced task.
+pub(crate) type CallSlot = Arc<Mutex<Option<CallInfo>>>;
+
+struct CurrentCall(CallSlot);
+
+impl Drop for CurrentCall {
+    fn drop(&mut self) {
+        *self.0.lock_or_recover() = None;
+    }
+}
+
+fn call_regs(call: &Syscall) -> Option<(u32, [u64; 6])> {
+    match *call {
+        Syscall::ThreadSpawn {
+            flags,
+            start_arg,
+            parent_tid,
+            tls,
+            child_tid,
+        } => Some((
+            NR_CLONE,
+            [
+                u64::from(flags),
+                u64::from(start_arg),
+                u64::from(parent_tid.addr()),
+                u64::from(tls),
+                u64::from(child_tid.addr()),
+                0,
+            ],
+        )),
+        _ => Some((call.nr()?, call.args())),
+    }
+}
 
 /// `clone`'s riscv32 number, which `thread_spawn` is seen as.
 const NR_CLONE: u32 = 220;
@@ -28,6 +63,15 @@ impl<L: Layer<Kernel>> Layer<Kernel> for SyscallEntry<L> {
         next: &Kernel,
     ) -> SysResult<SyscallRet> {
         wasixv2_syscalls::as_task(caller.task(), async {
+            // fs/proc/base.c `proc_pid_syscall`: retain the call while suspended, including
+            // syscall-exit tracing. Drop clears it on both completion and cancellation.
+            let slot = next.task_ref(caller.task(), |t| t.syscall.clone());
+            *slot.lock_or_recover() = call_regs(&call).map(|(nr, args)| CallInfo {
+                nr,
+                args,
+                ..Default::default()
+            });
+            let _current = CurrentCall(slot);
             let traced = next.tracees.used();
             let ret = match next.syscall_entry(caller, &call).await {
                 Entry::Done(ret) => ret,
@@ -79,28 +123,8 @@ impl Kernel {
     /// extensions that are no syscall on Linux pass, but `thread_spawn`, which is `clone` with
     /// `CLONE_VM`, is seen as `clone` (its start argument where the stack would be).
     async fn syscall_entry(&self, caller: &Caller<'_>, call: &Syscall) -> Entry {
-        let (nr, args) = match *call {
-            Syscall::ThreadSpawn {
-                flags,
-                start_arg,
-                parent_tid,
-                tls,
-                child_tid,
-            } => (
-                NR_CLONE,
-                [
-                    u64::from(flags),
-                    u64::from(start_arg),
-                    u64::from(parent_tid.addr()),
-                    u64::from(tls),
-                    u64::from(child_tid.addr()),
-                    0,
-                ],
-            ),
-            _ => match call.nr() {
-                Some(nr) => (nr, call.args()),
-                None => return Entry::Run(*call),
-            },
+        let Some((nr, args)) = call_regs(call) else {
+            return Entry::Run(*call);
         };
         // `syscall_trace_enter`: the tracer sees the call first, then seccomp filters it,
         // unless the tracer suspended seccomp (`PTRACE_O_SUSPEND_SECCOMP`).

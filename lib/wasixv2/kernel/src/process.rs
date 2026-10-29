@@ -1611,6 +1611,7 @@ impl Kernel {
             let new = Task {
                 cpu,
                 css,
+                syscall: Default::default(),
                 process: process.clone(),
                 mm,
                 files,

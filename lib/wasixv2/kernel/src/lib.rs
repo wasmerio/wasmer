@@ -326,6 +326,8 @@ struct Process {
 }
 
 struct Task {
+    /// The active syscall for /proc/<pid>/syscall, cleared on return.
+    syscall: entry::CallSlot,
     process: Arc<Process>,
     /// The address space the task runs on (`task->mm`).
     mm: Arc<Mm>,
@@ -670,6 +672,7 @@ impl Kernel {
             .expect("the root cgroup takes every task");
         let task = Task {
             css,
+            syscall: Default::default(),
             comm,
             sched: sched::Sched::default(),
             seccomp: seccomp::Seccomp::default(),
