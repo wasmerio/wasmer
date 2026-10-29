@@ -1387,3 +1387,23 @@ fn proc_sys_net_is_the_readers_network_namespace() {
     assert_eq!(write_file(&kernel, &caller, disable, "0"), Ok(1));
     assert_eq!(lo6().lines().count(), 1);
 }
+
+/// `/proc/net/igmp` and `igmp6` list the groups the kernel joins on its own for an up
+/// interface (`ip_mc_up`, all-nodes), which `netstat -g` and `ip maddr` read.
+#[test]
+fn proc_net_igmp_lists_the_kernels_own_groups() {
+    let (kernel, task, memory) = networked();
+    let caller = Caller::new(task, &memory);
+    let igmp = read_text(&kernel, &caller, "/proc/net/igmp");
+    assert_eq!(
+        igmp,
+        "Idx\tDevice    : Count Querier\tGroup    Users Timer\tReporter\n\
+         1\tlo        :     1      V3\n\t\t\t\t010000E0     1 0:00000000\t\t0\n"
+    );
+    let igmp6 = read_text(&kernel, &caller, "/proc/net/igmp6");
+    assert_eq!(
+        igmp6.lines().next(),
+        Some("1    lo              ff020000000000000000000000000001     1 0000000C 0")
+    );
+    assert_eq!(igmp6.lines().count(), 2);
+}
