@@ -3028,6 +3028,22 @@ impl Kernel {
         }
     }
 
+    /// `kill_pid_info_type(sig, info, task_pid(current), PIDTYPE_PID)`: `info` to the calling
+    /// task `task` alone, as `pidfd_send_signal(PIDFD_SELF_THREAD)` sends it.
+    pub(crate) fn send_to_self(
+        &self,
+        sender: &Process,
+        task: TaskId,
+        info: Siginfo,
+    ) -> Result<(), Errno> {
+        check_sendable(info.si_signo)?;
+        let group = self.task_signals(task).group().clone();
+        match info.si_signo {
+            0 => Ok(()),
+            _ => self.deliver(Some(sender), sender.pid.0, &group, Some(task), info),
+        }
+    }
+
     pub(crate) async fn sys_kill(
         &self,
         caller: &Caller<'_>,

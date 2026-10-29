@@ -2268,20 +2268,14 @@ impl Kernel {
         if flags != 0 {
             return Err(Errno::EINVAL.into());
         }
-        // `pidfd_to_pid`: a `/proc/<pid>` directory stands for its process here, and only here.
-        let file = self.io_file(caller, pidfd)?;
-        let pid = pidfd_target(&file)
-            .or_else(|| crate::procfs::tgid_dir(file.path()))
-            .ok_or(Errno::EBADF)?;
-        // `access_pidfd_pidns`: only a process in the caller's pid namespace or below.
-        let target_ns = match file.downcast::<PidFd>() {
-            Some(pidfd) => Some(pidfd.pid_ns.clone()),
-            None => self.procs.find(pid).map(|process| process.pid_ns.clone()),
+        let sender = self.process(caller.task());
+        // `PIDFD_SELF_THREAD` signals the caller alone (`PIDTYPE_PID`), `PIDFD_SELF_THREAD_GROUP`
+        // its thread group.
+        let (pid, thread) = match wasixv2_abi::PidfdSelf(pidfd.0) {
+            wasixv2_abi::PidfdSelf::PIDFD_SELF_THREAD => (caller.task().0, Some(caller.task())),
+            wasixv2_abi::PidfdSelf::PIDFD_SELF_THREAD_GROUP => (sender.pid.0, None),
+            _ => (self.pidfd_signal_target(caller, pidfd)?, None),
         };
-        let active = self.active_pid_ns(caller.task());
-        if target_ns.is_some_and(|ns| !crate::ns::pid_ns_descends(&ns, &active)) {
-            return Err(Errno::EINVAL.into());
-        }
         // `kill_pid_info_type`: a zombie takes the signal and does nothing with it; a reaped
         // process is `ESRCH`.
         let info = match info.is_null() {
@@ -2298,9 +2292,30 @@ impl Kernel {
                 info
             }
         };
-        let sender = self.process(caller.task());
-        self.send_to_group(Some(&sender), pid, info)?;
+        match thread {
+            Some(task) => self.send_to_self(&sender, task, info)?,
+            None => self.send_to_group(Some(&sender), pid, info)?,
+        }
         Ok(0)
+    }
+
+    /// The process a pidfd (or a `/proc/<pid>` directory, here and only here) names for
+    /// `pidfd_send_signal` (`pidfd_to_pid`), in the caller's pid namespace or below
+    /// (`access_pidfd_pidns`, `EINVAL` otherwise).
+    fn pidfd_signal_target(&self, caller: &Caller<'_>, pidfd: Fd) -> Result<u32, Errno> {
+        let file = self.io_file(caller, pidfd)?;
+        let pid = pidfd_target(&file)
+            .or_else(|| crate::procfs::tgid_dir(file.path()))
+            .ok_or(Errno::EBADF)?;
+        let target_ns = match file.downcast::<PidFd>() {
+            Some(pidfd) => Some(pidfd.pid_ns.clone()),
+            None => self.procs.find(pid).map(|process| process.pid_ns.clone()),
+        };
+        let active = self.active_pid_ns(caller.task());
+        if target_ns.is_some_and(|ns| !crate::ns::pid_ns_descends(&ns, &active)) {
+            return Err(Errno::EINVAL);
+        }
+        Ok(pid)
     }
 }
 

@@ -1247,6 +1247,38 @@ fn pidfd_send_signal_passes_its_siginfo_and_reaches_a_zombie() {
     assert_eq!(send(Signal::SIGTERM.0, 0), err(Errno::ESRCH), "reaped");
 }
 
+/// `PIDFD_SELF_THREAD` signals the calling thread alone, `PIDFD_SELF_THREAD_GROUP` its thread
+/// group, where another thread takes it.
+#[test]
+fn pidfd_send_signal_to_pidfd_self() {
+    use wasixv2_abi::PidfdSelf;
+    let (kernel, task, _) = machine();
+    let memory = forkable();
+    let caller = Caller::new(task, &memory);
+    let sigusr1 = Signal::SIGUSR1.0;
+    block(&kernel, &caller, 1 << (sigusr1 - 1));
+    let thread = spawn_thread(&kernel, &caller);
+    let thread_memory = forkable();
+    let thread_caller = Caller::new(thread, &thread_memory);
+    let send = |pidfd: PidfdSelf| {
+        let info = ConstSiginfoPtr::NULL;
+        let send = kernel.pidfd_send_signal(&thread_caller, Fd(pidfd.0), Signal(sigusr1), info, 0);
+        block_on(send)
+    };
+
+    assert_eq!(send(PidfdSelf::PIDFD_SELF_THREAD), Ok(0));
+    assert_eq!(
+        take(&kernel, &caller, sigusr1),
+        None,
+        "not the other thread's"
+    );
+    let got = take(&kernel, &thread_caller, sigusr1).expect("the caller's own");
+    assert_eq!(got.si_code, wasixv2_abi::SiCode::SI_USER.0);
+
+    assert_eq!(send(PidfdSelf::PIDFD_SELF_THREAD_GROUP), Ok(0));
+    assert!(take(&kernel, &caller, sigusr1).is_some(), "the group's");
+}
+
 /// Makes the caller's process ignore `sig`.
 pub(super) fn ignore(kernel: &Kernel, caller: &Caller<'_>, sig: Signal) {
     let act = Sigaction {
