@@ -627,6 +627,8 @@ impl Cred {
         if setid && mode & (S_ISGID | S_IXGRP) == S_ISGID | S_IXGRP {
             new.group.effective = owner.1;
         }
+        // `get_file_caps`: without file capabilities the file grants nothing.
+        new.permitted = 0;
         // `handle_privileged_root`: root gets its bounding set back on every exec.
         let mut raise_effective = false;
         if !self.secure(secure::NOROOT) {
@@ -754,6 +756,23 @@ mod tests {
             .change_uids(IdChange::Res(None, Some(u(0)), None))
             .unwrap();
         assert_eq!(restored.effective, CAP_FULL);
+    }
+
+    /// `get_file_caps` clears the permitted set; only root gets it back
+    /// (`handle_privileged_root`). A process that is not root keeps no capability across
+    /// `execve` of a file without file capabilities, whatever it held (LTP userns06: the
+    /// creator of a user namespace, with every capability in it, as uid 200 there).
+    #[test]
+    fn execve_drops_the_capabilities_of_a_process_that_is_not_root() {
+        let mut cred = user(1000);
+        cred.permitted = CAP_FULL;
+        cred.effective = CAP_FULL;
+
+        let (new, _) = cred.exec(0o755, (u(0), Kgid(0)), true, false);
+
+        assert_eq!((new.permitted, new.effective), (0, 0));
+        let (root, _) = root().exec(0o755, (u(0), Kgid(0)), true, false);
+        assert_eq!((root.permitted, root.effective), (CAP_FULL, CAP_FULL));
     }
 
     #[test]
