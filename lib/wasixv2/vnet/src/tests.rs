@@ -3589,3 +3589,47 @@ fn tcp_dns_stream_honors_cork_and_flushes_on_fin() {
         "an abort discards corked bytes"
     );
 }
+
+/// net/core/sock.c sk_clone_lock clears SOCK_BINDPORT_LOCK while inheriting
+/// SOCK_BINDADDR_LOCK; disconnecting an accepted child makes its port reusable.
+#[test]
+fn accepted_tcp_child_inherits_address_lock_but_not_port_lock() {
+    use wasixv2_abi::{Ipv6Option, SocketLevel};
+    for domain in [Domain::Inet, Domain::Inet6] {
+        for specific in [false, true] {
+            let n = net();
+            let listener = n.socket(domain, SocketKind::Stream, 0, UID).unwrap();
+            let bind = if domain == Domain::Inet {
+                if specific {
+                    "127.0.0.1:19011"
+                } else {
+                    "0.0.0.0:19011"
+                }
+            } else if specific {
+                "[::ffff:127.0.0.1]:19011"
+            } else {
+                "[::]:19011"
+            };
+            listener.bind(a(bind), false).unwrap();
+            listener.listen(1).unwrap();
+            let client = tcp(&n);
+            client.connect(a("127.0.0.1:19011")).unwrap();
+            let child = listener.accept().unwrap().socket;
+            if domain == Domain::Inet6 {
+                child
+                    .set_option(
+                        SocketLevel::SOL_IPV6.0,
+                        Ipv6Option::IPV6_ADDRFORM.0,
+                        &2i32.to_le_bytes(),
+                    )
+                    .unwrap();
+            }
+            child.disconnect().unwrap();
+            let local = child.local_addr().unwrap();
+            assert_eq!(local.ip().is_unspecified(), !specific);
+            child.bind(a("0.0.0.0:0"), false).unwrap();
+            child.listen(1).unwrap();
+            assert!(child.local_addr().unwrap().port() != 0);
+        }
+    }
+}

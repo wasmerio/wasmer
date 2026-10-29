@@ -300,8 +300,8 @@ impl TcpSocket {
                 cork_timer: None,
                 cork_armed: false,
                 local,
-                port_locked: local.is_some(),
-                addr_locked: local.is_some(),
+                port_locked: false,
+                addr_locked: false,
                 put_back: None,
                 saddr: None,
                 state,
@@ -497,7 +497,10 @@ impl TcpSocket {
         wq: WaitQueue,
         transport: impl FnOnce(&WaitQueue, &SockOpts) -> Transport,
     ) -> Arc<TcpSocket> {
-        let opts = self.inner.lock().unwrap().opts.inherit();
+        let (opts, addr_locked) = {
+            let g = self.inner.lock().unwrap();
+            (g.opts.inherit(), g.addr_locked)
+        };
         let child = Self::with_state(
             self.net.clone(),
             self.domain(),
@@ -508,7 +511,13 @@ impl TcpSocket {
             wq,
         );
         let t = transport(&child.wq, &opts);
-        child.inner.lock().unwrap().state = State::Connected(t, peer);
+        {
+            let mut g = child.inner.lock().unwrap();
+            // net/core/sock.c sk_clone_lock inherits the address lock, but
+            // clears SOCK_BINDPORT_LOCK even when the listener chose its port.
+            g.addr_locked = addr_locked;
+            g.state = State::Connected(t, peer);
+        }
         self.net.state().tcp.inherit(
             child.id,
             self.spec(&opts, local.ip()),
