@@ -2,6 +2,7 @@
 //! datagrams for other destinations go through a backend datagram endpoint.
 
 use std::{
+    borrow::Cow,
     collections::VecDeque,
     net::{IpAddr, Ipv4Addr, SocketAddr},
     sync::{
@@ -51,8 +52,20 @@ struct Datagram {
     from: SocketAddr,
 }
 
+/// udp_sock::pending and the first send's cork metadata (udp_sendmsg/udpv6_sendmsg).
+struct Pending {
+    data: Vec<u8>,
+    local: SocketAddr,
+    dst: SocketAddr,
+    scope: u32,
+    ctl: SendCtl,
+    now: std::time::Duration,
+}
+
 struct Inner {
     opts: SockOpts,
+    cork: bool,
+    pending: Option<Pending>,
     local: Option<SocketAddr>,
     /// `inet_rcv_saddr` of a bind that took no port (`IP_BIND_ADDRESS_NO_PORT`): the address
     /// the port taken later by `connect` or a send goes with.
@@ -105,6 +118,8 @@ impl UdpSocket {
             me: me.clone(),
             inner: Mutex::new(Inner {
                 opts: SockOpts::new(SocketKind::Datagram, domain),
+                cork: false,
+                pending: None,
                 local: None,
                 saddr: None,
                 addr_locked: false,
@@ -590,6 +605,220 @@ impl UdpSocket {
         self.net.mc_route(group, oif, src)
     }
 
+    /// `inet_sendmsg` and `udp_sendmsg`/`udpv6_sendmsg`, failing in their order: autobind,
+    /// the size and flags, the destination, the control messages, the route, the payload
+    /// limit, then (`sock_alloc_send_pskb`) a pending error and a shut down sender.
+    fn send_locked(&self, mut g: MutexGuard<'_, Inner>, msg: SendMsg<'_>) -> NetResult<usize> {
+        // `inet_send_prepare`: an unbound socket is bound first, `EAGAIN` if that fails.
+        let local = self.autobind(&mut g).map_err(|_| Errno::EAGAIN)?;
+        if msg.data.len() > MAX_SEND {
+            return Err(Errno::EMSGSIZE);
+        }
+        if msg.flags.0 & MsgFlags::MSG_OOB.0 != 0 {
+            return Err(Errno::EOPNOTSUPP);
+        }
+        if self.domain() == Domain::Inet6
+            && g.pending.as_ref().is_some_and(|p| p.dst.is_ipv6())
+            && msg.to.is_some_and(|to| canonical(to).is_ipv4())
+        {
+            // udpv6_sendmsg delegates mapped IPv4 to udp_sendmsg, which
+            // rejects a pending AF_INET6 cork without consuming it.
+            return Err(if g.opts.v6only {
+                Errno::ENETUNREACH
+            } else {
+                Errno::EINVAL
+            });
+        }
+        // Appends skip the new destination and ancillary data, using the first send's
+        // flow (net/ipv4/udp.c udp_sendmsg, do_append_data).
+        let (local, dst, scope, ctl, data) = match g.pending.take() {
+            Some(mut pending) => {
+                let max = if pending.dst.is_ipv4() {
+                    MAX_V4_PAYLOAD
+                } else {
+                    MAX_V6_PAYLOAD
+                };
+                if pending.data.len() + msg.data.len() > max {
+                    return Err(Errno::EMSGSIZE);
+                }
+                pending.data.extend_from_slice(msg.data);
+                (
+                    pending.local,
+                    pending.dst,
+                    pending.scope,
+                    pending.ctl,
+                    Cow::Owned(pending.data),
+                )
+            }
+            None => {
+                let dst = match msg.to.map(canonical) {
+                    Some(d) if d.port() == 0 => return Err(Errno::EINVAL),
+                    Some(d) => d,
+                    None => g.peer.ok_or(Errno::EDESTADDRREQ)?,
+                };
+                if self.domain() == Domain::Inet6 && dst.is_ipv4() && g.opts.v6only {
+                    return Err(Errno::ENETUNREACH);
+                }
+                let mut ctl = cmsg::udp(msg.control, self.domain(), dst.is_ipv4(), msg.net_raw)?;
+                let default_ttl = if dst.ip().is_multicast() {
+                    g.opts.mc.ttl_loop(dst.ip()).0
+                } else {
+                    g.opts.unicast_ttl(self.domain())
+                };
+                ctl.ttl = Some(ctl.ttl.unwrap_or(default_ttl));
+                (
+                    local,
+                    dst,
+                    msg.to.map_or(0, scope_of),
+                    ctl,
+                    Cow::Borrowed(msg.data),
+                )
+            }
+        };
+        let msg = SendMsg { data: &data, ..msg };
+        let cork = g.cork || msg.flags.contains(MsgFlags::MSG_MORE);
+        if let IpAddr::V4(v4) = dst.ip()
+            && v4.is_broadcast()
+        {
+            // Broadcast is not carried (TODO); Linux still checks SO_BROADCAST.
+            if !g
+                .opts
+                .flag(SocketLevel::SOL_SOCKET.0, SocketOption::SO_BROADCAST.0)
+            {
+                return Err(Errno::EACCES);
+            }
+            if msg.data.len() > MAX_V4_PAYLOAD {
+                return Err(Errno::EMSGSIZE);
+            }
+            if cork {
+                g.pending = Some(Pending {
+                    data: msg.data.to_vec(),
+                    local,
+                    dst,
+                    scope,
+                    ctl,
+                    now: msg.now,
+                });
+            }
+            return Ok(msg.data.len());
+        }
+        if dst.ip().is_multicast() {
+            return self.send_multicast(g, local, dst, scope, &ctl, msg);
+        }
+        let route = self.net.udp_route(local, dst, &ctl)?;
+        let max = if dst.is_ipv4() {
+            MAX_V4_PAYLOAD
+        } else {
+            MAX_V6_PAYLOAD
+        };
+        if msg.data.len() > max {
+            return Err(Errno::EMSGSIZE);
+        }
+        if let Some(size) = ctl.gso_size {
+            cmsg::check_segments(msg.data.len(), size)?;
+        } else {
+            let mtu = self.net.mtu_to(dst.ip());
+            let oif = self.flow_oif(&g, Some(dst), scope, &ctl);
+            let len = msg.data.len() + UDP_HDR;
+            Self::check_mtu(&mut g, dst.ip(), oif, mtu, len, ctl.dontfrag)?;
+        }
+        if let Some(e) = Self::take_err(&mut g) {
+            return Err(e);
+        }
+        if g.wr_shut {
+            return Err(Errno::EPIPE);
+        }
+        if cork {
+            g.pending = Some(Pending {
+                data: msg.data.to_vec(),
+                local,
+                dst,
+                scope,
+                ctl,
+                now: msg.now,
+            });
+            return Ok(msg.data.len());
+        }
+        // `UDP_SEGMENT`: the payload leaves as datagrams of the segment size.
+        let segment = ctl.gso_size.unwrap_or(usize::MAX).max(1);
+        let ttl = ctl.ttl.unwrap_or_else(|| g.opts.unicast_ttl(self.domain()));
+        match route {
+            UdpRoute::Local {
+                from,
+                to,
+                at,
+                iif,
+                back_iif,
+            } => {
+                drop(g);
+                let arrival = Arrival {
+                    src: from.ip(),
+                    dst: dst.ip(),
+                    ttl,
+                    iif,
+                    pkttype: PACKET_HOST,
+                };
+                let back = Back {
+                    net: self.net.clone(),
+                    iif: back_iif,
+                };
+                // Each segment is a datagram of its own; raw UDP sockets there see it first.
+                // Nobody taking it there, the namespace answers with a port unreachable.
+                let arrive = |data: &[u8]| {
+                    at.raw_udp_copy(from, dst, &arrival, data);
+                    match &to {
+                        Some(target) => target.deliver(data, from, &arrival),
+                        None => at.udp_unreachable(from, dst, data, iif, back.clone(), msg.now),
+                    }
+                };
+                if msg.data.is_empty() {
+                    arrive(msg.data);
+                }
+                msg.data.chunks(segment).for_each(arrive);
+                Ok(msg.data.len())
+            }
+            // Lost on a link where nothing answers; where no neighbour does, the sender hears
+            // of it.
+            UdpRoute::Nowhere { from, unresolved } => {
+                drop(g);
+                if unresolved {
+                    let udp = udp_datagram(from, dst, msg.data);
+                    self.net
+                        .neighbour_failed(from.ip(), dst.ip(), IPPROTO_UDP, &udp, msg.now);
+                }
+                Ok(msg.data.len())
+            }
+            // The namespace's DNS server takes each segment as a datagram of its own.
+            UdpRoute::Dns { from } => {
+                drop(g);
+                if msg.data.is_empty() {
+                    self.net.dns_datagram(from, dst, msg.data, msg.now);
+                }
+                for chunk in msg.data.chunks(segment) {
+                    self.net.dns_datagram(from, dst, chunk, msg.now);
+                }
+                Ok(msg.data.len())
+            }
+            UdpRoute::Backend { host_dst } => {
+                let b = self.backend_endpoint(&mut g)?;
+                drop(g);
+                if msg.data.len() <= segment {
+                    return b.send_to(msg.data, host_dst);
+                }
+                // One GSO send is one skb on Linux: it fails whole or goes out whole.
+                for (i, chunk) in msg.data.chunks(segment).enumerate() {
+                    match b.send_to(chunk, host_dst) {
+                        Ok(_) => {}
+                        Err(e) if i == 0 => return Err(e),
+                        // The rest is lost on the way, as segments may be.
+                        Err(_) => break,
+                    }
+                }
+                Ok(msg.data.len())
+            }
+        }
+    }
+
     /// A send to the group `dst`, which each socket of the namespaces it reaches that is
     /// bound to the port and allows the group gets a copy of (`__udp4_lib_mcast_deliver`,
     /// `__udp6_lib_mcast_deliver`).
@@ -600,8 +829,10 @@ impl UdpSocket {
         dst: SocketAddr,
         scope: u32,
         ctl: &SendCtl,
-        data: &[u8],
+        msg: SendMsg<'_>,
     ) -> NetResult<usize> {
+        let data = msg.data;
+        let cork = g.cork || msg.flags.contains(MsgFlags::MSG_MORE);
         let route = self.mc_route(&g, dst, scope, Some(ctl))?;
         let max = match dst.is_ipv4() {
             true => MAX_V4_PAYLOAD,
@@ -623,6 +854,17 @@ impl UdpSocket {
         }
         if g.wr_shut {
             return Err(Errno::EPIPE);
+        }
+        if cork {
+            g.pending = Some(Pending {
+                data: data.to_vec(),
+                local,
+                dst,
+                scope,
+                ctl: *ctl,
+                now: msg.now,
+            });
+            return Ok(data.len());
         }
         let (ttl, looped) = g.opts.mc.ttl_loop(dst.ip());
         let ttl = ctl.ttl.unwrap_or(ttl);
@@ -911,146 +1153,9 @@ impl Socket for UdpSocket {
         }
     }
 
-    /// `inet_sendmsg` and `udp_sendmsg`/`udpv6_sendmsg`, failing in their order: autobind,
-    /// the size and flags, the destination, the control messages, the route, the payload
-    /// limit, then (`sock_alloc_send_pskb`) a pending error and a shut down sender.
     fn send(&self, msg: SendMsg<'_>) -> NetResult<usize> {
-        let mut g = self.lock();
-        // `inet_send_prepare`: an unbound socket is bound first, `EAGAIN` if that fails.
-        let local = self.autobind(&mut g).map_err(|_| Errno::EAGAIN)?;
-        if msg.data.len() > MAX_SEND {
-            return Err(Errno::EMSGSIZE);
-        }
-        if msg.flags.0 & MsgFlags::MSG_OOB.0 != 0 {
-            return Err(Errno::EOPNOTSUPP);
-        }
-        let dst = match msg.to.map(canonical) {
-            Some(d) if d.port() == 0 => return Err(Errno::EINVAL),
-            Some(d) => d,
-            None => g.peer.ok_or(Errno::EDESTADDRREQ)?,
-        };
-        // `udpv6_sendmsg`: an IPv4 destination needs a dual-stack socket.
-        if self.domain() == Domain::Inet6 && dst.is_ipv4() && g.opts.v6only {
-            return Err(Errno::ENETUNREACH);
-        }
-        let ctl = cmsg::udp(msg.control, self.domain(), dst.is_ipv4(), msg.net_raw)?;
-        if let IpAddr::V4(v4) = dst.ip()
-            && v4.is_broadcast()
-        {
-            // Broadcast is not carried (TODO); Linux still checks SO_BROADCAST.
-            if !g
-                .opts
-                .flag(SocketLevel::SOL_SOCKET.0, SocketOption::SO_BROADCAST.0)
-            {
-                return Err(Errno::EACCES);
-            }
-            return Ok(msg.data.len());
-        }
-        if dst.ip().is_multicast() {
-            let scope = msg.to.map_or(0, scope_of);
-            return self.send_multicast(g, local, dst, scope, &ctl, msg.data);
-        }
-        let route = self.net.udp_route(local, dst, &ctl)?;
-        let max = if dst.is_ipv4() {
-            MAX_V4_PAYLOAD
-        } else {
-            MAX_V6_PAYLOAD
-        };
-        if msg.data.len() > max {
-            return Err(Errno::EMSGSIZE);
-        }
-        if let Some(size) = ctl.gso_size {
-            cmsg::check_segments(msg.data.len(), size)?;
-        } else {
-            let mtu = self.net.mtu_to(dst.ip());
-            let oif = self.flow_oif(&g, Some(dst), msg.to.map_or(0, scope_of), &ctl);
-            let len = msg.data.len() + UDP_HDR;
-            Self::check_mtu(&mut g, dst.ip(), oif, mtu, len, ctl.dontfrag)?;
-        }
-        if let Some(e) = Self::take_err(&mut g) {
-            return Err(e);
-        }
-        if g.wr_shut {
-            return Err(Errno::EPIPE);
-        }
-        // `UDP_SEGMENT`: the payload leaves as datagrams of the segment size.
-        let segment = ctl.gso_size.unwrap_or(usize::MAX).max(1);
-        let ttl = ctl.ttl.unwrap_or_else(|| g.opts.unicast_ttl(self.domain()));
-        match route {
-            UdpRoute::Local {
-                from,
-                to,
-                at,
-                iif,
-                back_iif,
-            } => {
-                drop(g);
-                let arrival = Arrival {
-                    src: from.ip(),
-                    dst: dst.ip(),
-                    ttl,
-                    iif,
-                    pkttype: PACKET_HOST,
-                };
-                let back = Back {
-                    net: self.net.clone(),
-                    iif: back_iif,
-                };
-                // Each segment is a datagram of its own; raw UDP sockets there see it first.
-                // Nobody taking it there, the namespace answers with a port unreachable.
-                let arrive = |data: &[u8]| {
-                    at.raw_udp_copy(from, dst, &arrival, data);
-                    match &to {
-                        Some(target) => target.deliver(data, from, &arrival),
-                        None => at.udp_unreachable(from, dst, data, iif, back.clone(), msg.now),
-                    }
-                };
-                if msg.data.is_empty() {
-                    arrive(msg.data);
-                }
-                msg.data.chunks(segment).for_each(arrive);
-                Ok(msg.data.len())
-            }
-            // Lost on a link where nothing answers; where no neighbour does, the sender hears
-            // of it.
-            UdpRoute::Nowhere { from, unresolved } => {
-                drop(g);
-                if unresolved {
-                    let udp = udp_datagram(from, dst, msg.data);
-                    self.net
-                        .neighbour_failed(from.ip(), dst.ip(), IPPROTO_UDP, &udp, msg.now);
-                }
-                Ok(msg.data.len())
-            }
-            // The namespace's DNS server takes each segment as a datagram of its own.
-            UdpRoute::Dns { from } => {
-                drop(g);
-                if msg.data.is_empty() {
-                    self.net.dns_datagram(from, dst, msg.data, msg.now);
-                }
-                for chunk in msg.data.chunks(segment) {
-                    self.net.dns_datagram(from, dst, chunk, msg.now);
-                }
-                Ok(msg.data.len())
-            }
-            UdpRoute::Backend { host_dst } => {
-                let b = self.backend_endpoint(&mut g)?;
-                drop(g);
-                if msg.data.len() <= segment {
-                    return b.send_to(msg.data, host_dst);
-                }
-                // One GSO send is one skb on Linux: it fails whole or goes out whole.
-                for (i, chunk) in msg.data.chunks(segment).enumerate() {
-                    match b.send_to(chunk, host_dst) {
-                        Ok(_) => {}
-                        Err(e) if i == 0 => return Err(e),
-                        // The rest is lost on the way, as segments may be.
-                        Err(_) => break,
-                    }
-                }
-                Ok(msg.data.len())
-            }
-        }
+        let len = msg.data.len();
+        self.send_locked(self.lock(), msg).map(|_| len)
     }
 
     fn recv(&self, buf: &mut [u8], flags: MsgFlags) -> NetResult<RecvMsg> {
@@ -1125,6 +1230,27 @@ impl Socket for UdpSocket {
 
     fn set_option(&self, level: i32, name: i32, value: &[u8]) -> NetResult<()> {
         let mut g = self.lock();
+        if (level, name) == (17, 1 /* UDP_CORK */) {
+            g.cork = crate::opts::read_int(value)? != 0;
+            if !g.cork
+                && let Some(pending) = &g.pending
+            {
+                let now = pending.now;
+                // udp_lib_setsockopt ignores push errors; the cork is still cleared.
+                let _ = self.send_locked(
+                    g,
+                    SendMsg {
+                        data: &[],
+                        to: None,
+                        control: &[],
+                        flags: MsgFlags(0),
+                        net_raw: false,
+                        now,
+                    },
+                );
+            }
+            return Ok(());
+        }
         if (level, name)
             == (
                 SocketLevel::SOL_IPV6.0,
@@ -1132,7 +1258,8 @@ impl Socket for UdpSocket {
             )
         {
             let peer = g.peer.map(|p| p.ip());
-            g.opts.addrform(&self.net, value, peer, false)?;
+            let pending_v6 = g.pending.as_ref().is_some_and(|p| p.dst.is_ipv6());
+            g.opts.addrform(&self.net, value, peer, pending_v6)?;
             if let Some(local) = g.local {
                 self.net
                     .state()
@@ -1182,6 +1309,9 @@ impl Socket for UdpSocket {
 
     fn get_option(&self, level: i32, name: i32, out: &mut [u8]) -> NetResult<usize> {
         let mut g = self.lock();
+        if (level, name) == (17, 1 /* UDP_CORK */) {
+            return Ok(crate::opts::write_int(out, i32::from(g.cork)));
+        }
         if level == SocketLevel::SOL_SOCKET.0 && name == SocketOption::SO_ERROR.0 {
             let e = Self::take_err(&mut g).map_or(0, |e| e.0);
             return Ok(crate::opts::write_int(out, e));
