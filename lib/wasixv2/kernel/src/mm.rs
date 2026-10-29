@@ -1381,7 +1381,8 @@ impl Remap {
 fn advice_valid(advice: MadviseAdvice) -> bool {
     // `MADV_HWPOISON` and `MADV_SOFT_OFFLINE` (100, 101) poison or offline a page, which needs
     // `CONFIG_MEMORY_FAILURE`: without it Linux does not know them (`madvise_behavior_valid`).
-    matches!(advice.0, 0..=4 | 8..=25 | 102..=103)
+    // KSM is also absent, so MADV_MERGEABLE/UNMERGEABLE (12, 13) are invalid.
+    matches!(advice.0, 0..=4 | 8..=11 | 14..=25 | 102..=103)
 }
 
 /// What a caller may lock: its soft `RLIMIT_MEMLOCK`, and whether `CAP_IPC_LOCK` lifts it.
@@ -2133,6 +2134,38 @@ impl Kernel {
         }
         let len = u64::from(len).div_ceil(PAGE_SIZE) * PAGE_SIZE;
         self.check_mapped(caller, start.into(), len).await?;
+        // mm/madvise.c madvise_dontneed_free_valid_vma and
+        // madvise_free_single_vma reject locked ranges and non-anonymous FREE.
+        {
+            let mm = self.mm(caller.task());
+            let _op = mm.op.lock().await;
+            let space = mm.space();
+            let end = u64::from(start) + len;
+            if advice == MadviseAdvice::MADV_FREE
+                && space
+                    .locked
+                    .count(u64::from(start) / PAGE_SIZE, end / PAGE_SIZE)
+                    != 0
+            {
+                return Err(Errno::EINVAL.into());
+            }
+            if advice == MadviseAdvice::MADV_FREE
+                && space.mappings.first_in(start.into(), end).is_some()
+            {
+                return Err(Errno::EINVAL.into());
+            }
+            // madvise_willneed returns EBADF for anonymous VMAs without CONFIG_SWAP.
+            if advice == MadviseAdvice::MADV_WILLNEED
+                && (u64::from(start) / PAGE_SIZE..end / PAGE_SIZE).any(|page| {
+                    !space
+                        .mappings
+                        .first_in(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
+                        .is_some_and(|mapping| mapping.file().is_some() || mapping.is_shared())
+                })
+            {
+                return Err(Errno::EBADF.into());
+            }
+        }
         match advice {
             MadviseAdvice::MADV_DONTNEED => self.drop_pages(caller, start.into(), len).await?,
             MadviseAdvice::MADV_REMOVE => return Err(Errno::EINVAL.into()),
@@ -2434,6 +2467,16 @@ impl Kernel {
     async fn drop_pages(&self, caller: &Caller<'_>, start: u64, len: u64) -> Result<(), Errno> {
         let mm = self.mm(caller.task());
         let _op = mm.op.lock().await;
+        // mm/madvise.c madvise_dontneed_free_valid_vma checks VM_LOCKED
+        // while holding mmap_lock; keep that check under the operation lock.
+        if mm
+            .space()
+            .locked
+            .count(start / PAGE_SIZE, (start + len) / PAGE_SIZE)
+            != 0
+        {
+            return Err(Errno::EINVAL);
+        }
         mm.retain_unmapped(caller.memory(), start, start + len)
             .await;
         let mut mappings = mm.take_range(start, start + len);
