@@ -2012,6 +2012,52 @@ impl GuestLayout for AtFd {
     }
 }
 
+/// Special pidfd values that name the caller (`linux/fcntl.h`), for the calls that take a
+/// pidfd (`pidfd_send_signal`, `pidfd_getfd`, `process_madvise`, ...).
+///
+/// C: `int`
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct PidfdSelf(pub i32);
+impl PidfdSelf {
+    pub const PIDFD_SELF_THREAD: Self = Self(-10000);
+    pub const PIDFD_SELF_THREAD_GROUP: Self = Self(-10001);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("PIDFD_SELF_THREAD", Self::PIDFD_SELF_THREAD),
+        ("PIDFD_SELF_THREAD_GROUP", Self::PIDFD_SELF_THREAD_GROUP),
+    ];
+    /// Name of the first constant with this value, if any.
+    pub const fn name(self) -> Option<&'static str> {
+        match self.0 {
+            -10000 => Some("PIDFD_SELF_THREAD"),
+            -10001 => Some("PIDFD_SELF_THREAD_GROUP"),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Debug for PidfdSelf {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.name() {
+            Some(name) => f.write_str(name),
+            None => write!(f, "PidfdSelf({})", self.0),
+        }
+    }
+}
+
+impl GuestLayout for PidfdSelf {
+    const SIZE: usize = <i32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <i32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <i32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
 /// `AT_*` flags for `*at` syscalls (`linux/fcntl.h`).
 /// Some bits are reused with different meanings by individual syscalls (`AT_EACCESS` == `AT_REMOVEDIR`).
 ///
@@ -26762,6 +26808,100 @@ impl GuestLayout for PtracePeeksiginfoArgs {
         self.off.write_to(&mut out[0..]);
         self.flags.write_to(&mut out[8..]);
         self.nr.write_to(&mut out[12..]);
+    }
+}
+/// `PTRACE_SECCOMP_GET_METADATA` argument and result (`struct seccomp_metadata`): the
+/// filter's index, oldest first, in; its `SECCOMP_FILTER_FLAG_*` flags out.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct SeccompMetadata {
+    pub filter_off: u64,
+    pub flags: u64,
+}
+const _: () = {
+    assert!(core::mem::size_of::<SeccompMetadata>() == 16);
+    assert!(core::mem::align_of::<SeccompMetadata>() == 8);
+    assert!(core::mem::offset_of!(SeccompMetadata, filter_off) == 0);
+    assert!(core::mem::offset_of!(SeccompMetadata, flags) == 8);
+};
+impl Default for SeccompMetadata {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for SeccompMetadata {
+    const SIZE: usize = 16;
+    const ALIGN: usize = 8;
+    const ZERO: Self = Self {
+        filter_off: <u64 as GuestLayout>::ZERO,
+        flags: <u64 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            filter_off: GuestLayout::read_from(&bytes[0..])?,
+            flags: GuestLayout::read_from(&bytes[8..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.filter_off.write_to(&mut out[0..]);
+        self.flags.write_to(&mut out[8..]);
+    }
+}
+/// `PTRACE_GET_RSEQ_CONFIGURATION` result (`struct ptrace_rseq_configuration`).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct PtraceRseqConfiguration {
+    pub rseq_abi_pointer: u64,
+    pub rseq_abi_size: u32,
+    pub signature: u32,
+    pub flags: u32,
+    pub pad: u32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<PtraceRseqConfiguration>() == 24);
+    assert!(core::mem::align_of::<PtraceRseqConfiguration>() == 8);
+    assert!(core::mem::offset_of!(PtraceRseqConfiguration, rseq_abi_pointer) == 0);
+    assert!(core::mem::offset_of!(PtraceRseqConfiguration, rseq_abi_size) == 8);
+    assert!(core::mem::offset_of!(PtraceRseqConfiguration, signature) == 12);
+    assert!(core::mem::offset_of!(PtraceRseqConfiguration, flags) == 16);
+    assert!(core::mem::offset_of!(PtraceRseqConfiguration, pad) == 20);
+};
+impl Default for PtraceRseqConfiguration {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for PtraceRseqConfiguration {
+    const SIZE: usize = 24;
+    const ALIGN: usize = 8;
+    const ZERO: Self = Self {
+        rseq_abi_pointer: <u64 as GuestLayout>::ZERO,
+        rseq_abi_size: <u32 as GuestLayout>::ZERO,
+        signature: <u32 as GuestLayout>::ZERO,
+        flags: <u32 as GuestLayout>::ZERO,
+        pad: <u32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            rseq_abi_pointer: GuestLayout::read_from(&bytes[0..])?,
+            rseq_abi_size: GuestLayout::read_from(&bytes[8..])?,
+            signature: GuestLayout::read_from(&bytes[12..])?,
+            flags: GuestLayout::read_from(&bytes[16..])?,
+            pad: GuestLayout::read_from(&bytes[20..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.rseq_abi_pointer.write_to(&mut out[0..]);
+        self.rseq_abi_size.write_to(&mut out[8..]);
+        self.signature.write_to(&mut out[12..]);
+        self.flags.write_to(&mut out[16..]);
+        self.pad.write_to(&mut out[20..]);
     }
 }
 /// `kcmp` comparison types (`enum kcmp_type`, `linux/kcmp.h`).
