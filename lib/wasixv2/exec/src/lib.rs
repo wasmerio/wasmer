@@ -578,8 +578,18 @@ where
         false => 0,
     };
     let bound = abi.bind(&instance, &mut store, task, Role::Process)?;
+    let shared = memory.as_shared(&store);
+    if let Some(shared) = &shared {
+        let foreign = memory::ForeignMemory::new(
+            shared.clone(),
+            low_guard,
+            read_only.clone(),
+            syscalls.page_access(task),
+        );
+        syscalls.attach_memory(task, Arc::new(foreign));
+    }
     // ---- thr ----
-    let threads = memory.as_shared(&store).map(|shared| {
+    let threads = shared.map(|shared| {
         let protected = (low_guard, read_only.clone(), base.clone());
         let image = thread::Image::new(
             &store,

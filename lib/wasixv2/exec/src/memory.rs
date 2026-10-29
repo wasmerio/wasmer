@@ -29,16 +29,17 @@
 
 use std::{
     ops::Range,
-    sync::{PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard},
+    sync::{Arc, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
 
 #[cfg(all(unix, feature = "sys"))]
 use wasixv2_pages::SharedPages;
 #[cfg(all(unix, feature = "sys"))]
 use wasixv2_syscalls::Errno;
-use wasixv2_syscalls::{Fault, LocalFuture, UserMemory, copied};
+use wasixv2_syscalls::{Fault, LocalFuture, PageAccess, UserMemory, copied};
 use wasmer::{
     AsStoreMut, AsStoreRef, AsyncFunctionEnvHandle, AsyncFunctionEnvMut, Instance, Memory,
+    SharedMemory,
 };
 
 #[cfg(all(unix, feature = "sys"))]
@@ -778,6 +779,156 @@ impl<S: Send + Sync + 'static> UserMemory for OutsideMemory<'_, '_, S> {
     }
 }
 
+/// A process's linear memory as other tasks reach it, from any host thread: the kernel's hold on
+/// an address space for `access_process_vm` (ptrace's `PEEKDATA`, `process_vm_readv`,
+/// `/proc/<pid>/mem`). Only a shared memory has one: it is not bound to the store of the
+/// thread that runs the guest, and copies through it run on the caller's host thread while the
+/// guest runs on its own.
+///
+/// The copies use the memory's host address directly, which is sound because:
+/// - the memory is one host mapping reserved to its maximum that never moves (a shared
+///   memory's static reservation), whose base and current size [`SharedMemory::host_data`]
+///   reads anew for every copy;
+/// - a shared memory never shrinks, so a range inside the size read before a copy stays inside
+///   the memory during it, and every copy is checked against that size first;
+/// - this handle holds the [`SharedMemory`], so the mapping outlives every copy through it;
+/// - writes stay out of the low guard and the read-only views, which the host may not write,
+///   holding the views' lock across the copy as [`write`] does.
+///
+/// The guest's threads may access the bytes at the same time, as they do each other's; Linux's
+/// `access_process_vm` gives no atomicity either.
+pub(crate) struct ForeignMemory {
+    memory: SharedMemory,
+    low_guard: u32,
+    read_only: Arc<ReadOnly>,
+    /// What copies that are not forced may do with each page, as for the guest's own.
+    page_access: Option<Arc<PageAccess>>,
+}
+
+impl ForeignMemory {
+    pub(crate) fn new(
+        memory: SharedMemory,
+        low_guard: u32,
+        read_only: Arc<ReadOnly>,
+        page_access: Option<Arc<PageAccess>>,
+    ) -> Self {
+        Self {
+            memory,
+            low_guard,
+            read_only,
+            page_access,
+        }
+    }
+
+    /// The host address of `[addr, addr + len)`, which lies inside the memory.
+    fn at(&self, addr: u32, len: usize) -> Result<*mut u8, Fault> {
+        let (base, size) = self.memory.host_data().ok_or(Fault)?;
+        if u64::from(addr) + len as u64 > size {
+            return Err(Fault);
+        }
+        // SAFETY: inside the memory's current size, which stays mapped (see the type's docs).
+        Ok(unsafe { base.add(addr as usize) })
+    }
+
+    fn check(&self, addr: u32, len: usize, write: bool, force: bool) -> Result<(), Fault> {
+        match (&self.page_access, force) {
+            (Some(access), false) => access.check(addr, len, write),
+            _ => Ok(()),
+        }
+    }
+
+    fn copy_out(&self, addr: u32, buf: &mut [u8], force: bool) -> Result<(), Fault> {
+        self.check(addr, buf.len(), false, force)?;
+        let src = self.at(addr, buf.len())?;
+        // SAFETY: `src` holds `buf.len()` bytes of the memory, which does not overlap `buf`.
+        unsafe { std::ptr::copy_nonoverlapping(src, buf.as_mut_ptr(), buf.len()) };
+        Ok(())
+    }
+
+    fn copy_in(&self, addr: u32, bytes: &[u8], force: bool) -> Result<(), Fault> {
+        self.check(addr, bytes.len(), true, force)?;
+        if in_guard(self.low_guard, addr, bytes.len()) {
+            return Err(Fault);
+        }
+        let read_only = self.read_only.ranges();
+        if in_read_only(&read_only, addr, bytes.len()) {
+            return Err(Fault);
+        }
+        let dst = self.at(addr, bytes.len())?;
+        // SAFETY: `dst` holds `bytes.len()` writable bytes of the memory (not the guard, not a
+        // read-only view while `read_only` is held), which do not overlap `bytes`.
+        unsafe { std::ptr::copy_nonoverlapping(bytes.as_ptr(), dst, bytes.len()) };
+        Ok(())
+    }
+}
+
+impl UserMemory for ForeignMemory {
+    fn read<'a>(&'a self, addr: u32, buf: &'a mut [u8]) -> LocalFuture<'a, Result<(), Fault>> {
+        copied(self.copy_out(addr, buf, false))
+    }
+
+    fn write<'a>(&'a self, addr: u32, data: &'a [u8]) -> LocalFuture<'a, Result<(), Fault>> {
+        copied(self.copy_in(addr, data, false))
+    }
+
+    fn force_read<'a>(
+        &'a self,
+        addr: u32,
+        buf: &'a mut [u8],
+    ) -> LocalFuture<'a, Result<(), Fault>> {
+        copied(self.copy_out(addr, buf, true))
+    }
+
+    fn force_write<'a>(&'a self, addr: u32, data: &'a [u8]) -> LocalFuture<'a, Result<(), Fault>> {
+        copied(self.copy_in(addr, data, true))
+    }
+
+    fn size(&self) -> LocalFuture<'_, u64> {
+        let size = self.memory.host_data().map_or(0, |(_, size)| size);
+        Box::pin(async move { size })
+    }
+
+    /// Another process's memory grows only by its own hand.
+    fn grow(&self, _: u32) -> LocalFuture<'_, Option<u64>> {
+        Box::pin(async { None })
+    }
+
+    fn low_guard(&self) -> LocalFuture<'_, u32> {
+        let guard = self.low_guard;
+        Box::pin(async move { guard })
+    }
+
+    /// Atomic, as the guest's threads use the word at the same time.
+    fn compare_exchange_u32(
+        &self,
+        addr: u32,
+        expected: u32,
+        new: u32,
+    ) -> LocalFuture<'_, Result<u32, Fault>> {
+        use std::sync::atomic::{AtomicU32, Ordering};
+        let result = (|| {
+            self.check(addr, 4, true, false)?;
+            let read_only = self.read_only.ranges();
+            let protected = in_guard(self.low_guard, addr, 4) || in_read_only(&read_only, addr, 4);
+            if !addr.is_multiple_of(4) || protected {
+                return Err(Fault);
+            }
+            let ptr = self.at(addr, 4)?;
+            // SAFETY: an aligned, writable word inside the memory (see `copy_in`); the guest's
+            // threads only race with this through atomics.
+            let word = unsafe { AtomicU32::from_ptr(ptr.cast()) };
+            let current = word.compare_exchange(expected, new, Ordering::SeqCst, Ordering::SeqCst);
+            Ok(current.unwrap_or_else(|actual| actual))
+        })();
+        copied_value(result)
+    }
+}
+
+/// A finished computation's result as a future.
+fn copied_value<T: 'static>(result: T) -> LocalFuture<'static, T> {
+    Box::pin(std::future::ready(result))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1091,5 +1242,64 @@ mod tests {
         assert!(!in_guard(LOW_GUARD, 0, 0));
         // Without a guard nothing faults here.
         assert!(!in_guard(0, 0, 4));
+    }
+
+    /// The foreign handle on a shared memory copies from any thread, within the memory's
+    /// current size, never into the guard or a read-only view, and checks the page map unless
+    /// forced.
+    #[cfg(feature = "sys")]
+    #[test]
+    fn a_foreign_memory_copies_from_another_thread_within_bounds() {
+        use futures::executor::block_on;
+        use wasmer::{MemoryType, Store};
+
+        const PAGE: u32 = 65536;
+        let mut store = Store::default();
+        let memory = Memory::new(&mut store, MemoryType::new(2, Some(4), true)).unwrap();
+        let shared = memory.as_shared(&store).unwrap();
+        let read_only = Arc::<ReadOnly>::default();
+        read_only
+            .ranges_mut()
+            .push(u64::from(PAGE + 0x100)..u64::from(PAGE + 0x200));
+        let access = Arc::new(PageAccess::default());
+        let foreign = Arc::new(ForeignMemory::new(shared, 0x1000, read_only, Some(access)));
+        memory.view(&store).write(0x2000, b"guest").unwrap();
+
+        let remote = foreign.clone();
+        let read = std::thread::spawn(move || {
+            let mut buf = [0; 5];
+            block_on(remote.read(0x2000, &mut buf)).map(|()| buf)
+        });
+        assert_eq!(read.join().unwrap(), Ok(*b"guest"));
+
+        assert_eq!(block_on(foreign.write(0x3000, b"poke")), Ok(()));
+        let mut back = [0; 4];
+        memory.view(&store).read(0x3000, &mut back).unwrap();
+        assert_eq!(&back, b"poke");
+
+        let mut buf = [0; 8];
+        let end = 2 * PAGE - 4;
+        assert_eq!(
+            block_on(foreign.read(end, &mut buf)),
+            Err(Fault),
+            "past the end"
+        );
+        assert_eq!(block_on(foreign.size()), u64::from(2 * PAGE));
+        assert_eq!(block_on(foreign.write(0x10, b"x")), Err(Fault), "the guard");
+        assert_eq!(
+            block_on(foreign.force_write(PAGE + 0x180, b"x")),
+            Err(Fault),
+            "read-only view"
+        );
+        assert_eq!(
+            block_on(foreign.read(0x10, &mut buf)),
+            Ok(()),
+            "the guard reads"
+        );
+        assert_eq!(block_on(foreign.grow(1)), None);
+
+        // Growing shows the new pages to the handle.
+        memory.grow(&mut store, 1).unwrap();
+        assert_eq!(block_on(foreign.read(end, &mut buf)), Ok(()));
     }
 }

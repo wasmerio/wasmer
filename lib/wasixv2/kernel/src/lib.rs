@@ -3076,6 +3076,20 @@ impl SharedMappings for Kernel {
         let state = self.state.read_or_recover();
         state.tasks.get(&task).map(|t| t.mm.access().clone())
     }
+
+    fn attach_memory(
+        &self,
+        task: TaskId,
+        memory: Arc<dyn wasixv2_syscalls::UserMemory + Send + Sync>,
+    ) {
+        let mm = {
+            let state = self.state.read_or_recover();
+            state.tasks.get(&task).map(|t| t.mm.clone())
+        };
+        if let Some(mm) = mm {
+            mm.attach_foreign(memory);
+        }
+    }
 }
 
 impl AtomicWait for Kernel {
