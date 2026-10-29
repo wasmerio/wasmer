@@ -201,6 +201,9 @@ pub struct Kernel {
 struct State {
     last_id: u32,
     tasks: HashMap<TaskId, Task>,
+    /// The tasks of reaped processes whose instances still unwind: out of the table
+    /// (`release_task`), until the execution layer lets them go (`put_task_struct`).
+    dead: HashMap<TaskId, thread::DeadTask>,
     /// The kernel's [`Kernel::pids`], which a task leaving the table detaches from.
     pids: Arc<pid::Pids>,
 }
@@ -2855,34 +2858,46 @@ impl Control for Kernel {
             self.task_signals(task).group().clear_notify(task);
             return Some(GuestAction::ExitMm { task: parent });
         }
-        let (action, signals) = {
-            let mut state = self.state.lock_or_recover();
+        let (action, signals, dead) = {
+            let mut guard = self.state.lock_or_recover();
+            let state = &mut *guard;
             // ---- proc ----
-            // A reaped process's task, still unwinding.
-            let entry = state.tasks.get_mut(&task)?;
-            entry.work.flag().clear();
-            let (action, signals) = (entry.work.take(), entry.signals.clone());
-            let action = action.map(|action| process::vfork_parent_resumes(&state, action));
-            (action, signals)
+            // A reaped process's task, still unwinding, takes what was left for it: its exit,
+            // or a vfork child's hand-back of the instance.
+            let (work, signals, dead) = match state.tasks.get_mut(&task) {
+                Some(entry) => (&mut entry.work, entry.signals.clone(), false),
+                None => {
+                    let dead = state.dead.get_mut(&task)?;
+                    (&mut dead.work, dead.signals.clone(), true)
+                }
+            };
+            work.flag().clear();
+            let action = work.take();
+            let action = action.map(|action| process::vfork_parent_resumes(state, action));
+            (action, signals, dead)
         };
         match action {
             // What made the task leave its wait is here.
             Some(action) => {
                 signals.group().clear_notify(task);
-                if let GuestAction::Exit(_) = action {
+                if let GuestAction::Exit(_) = action
+                    && !dead
+                {
                     self.exit_signals(task, &signals);
                 }
                 Some(action)
             }
+            None if dead => None,
             None => self.take_signal(task, &signals),
         }
     }
 
     fn work_flag(&self, task: TaskId) -> Arc<WorkFlag> {
         let state = self.state.lock_or_recover();
-        match state.tasks.get(&task) {
-            Some(task) => task.work.flag().clone(),
-            None => Arc::new(WorkFlag::always()),
+        match (state.tasks.get(&task), state.dead.get(&task)) {
+            (Some(task), _) => task.work.flag().clone(),
+            (None, Some(dead)) => dead.work.flag().clone(),
+            (None, None) => Arc::new(WorkFlag::always()),
         }
     }
 
@@ -2894,6 +2909,7 @@ impl Control for Kernel {
         self.force_fatal_signal(task, signal)
     }
 
+    /// `put_task_struct`, or `release_task` for a task its reaper has not unhashed.
     fn release(&self, task: TaskId) {
         self.release_task(task);
     }
@@ -2920,7 +2936,10 @@ impl Control for Kernel {
 impl CpuTime for Kernel {
     fn cpu_account(&self, task: TaskId) -> Arc<CpuAccount> {
         let state = self.state.read_or_recover();
-        let account = state.tasks.get(&task).map(|t| t.cpu.clone());
+        let account = match (state.tasks.get(&task), state.dead.get(&task)) {
+            (Some(t), _) => Some(t.cpu.clone()),
+            (None, dead) => dead.map(|dead| dead.cpu.clone()),
+        };
         account.unwrap_or_else(|| Arc::new(CpuAccount::detached()))
     }
 
@@ -2973,7 +2992,8 @@ impl SharedMappings for Kernel {
     }
 
     fn page_access(&self, task: TaskId) -> Option<Arc<wasixv2_syscalls::PageAccess>> {
-        Some(self.mm(task).access().clone())
+        let state = self.state.read_or_recover();
+        state.tasks.get(&task).map(|t| t.mm.access().clone())
     }
 }
 

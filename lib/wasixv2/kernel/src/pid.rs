@@ -571,6 +571,7 @@ impl Kernel {
                     }
                 }
             }
+            self.unhash_reaped();
             // `group_send_sig_info(SIGKILL, SEND_SIG_PRIV)` to every task of the namespace.
             for (_, id) in ns.members() {
                 if id == init {

@@ -248,7 +248,11 @@ pub trait Control:
     }
 
     /// The execution layer is done with `task`: its instance ended, or the vfork child stopped
-    /// using its parent's (`release_task`). Nothing is asked about the task after this.
+    /// using its parent's. Nothing is asked about the task after this. For a task of a process
+    /// its parent reaped already, this is `put_task_struct`: the reap took the task out of
+    /// the kernel (`release_task`), and until this call it only answers the calls its
+    /// instance makes on its way out ([`Control::take_pending`] gives its exit, work flags and
+    /// CPU accounts stay); every other call on it does nothing.
     fn release(&self, task: TaskId) {
         let _ = task;
     }
