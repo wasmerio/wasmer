@@ -657,7 +657,7 @@ impl Kernel {
             IoUringOp::IORING_OP_OPENAT | IoUringOp::IORING_OP_OPENAT2 => {
                 self.op_openat(caller, req).await
             }
-            IoUringOp::IORING_OP_CLOSE => self.op_close(caller, ctx, req),
+            IoUringOp::IORING_OP_CLOSE => self.op_close(caller, ctx, req).await,
             IoUringOp::IORING_OP_STATX => {
                 if sqe.buf_index != 0 || sqe.splice_fd_in != 0 {
                     return Err(Errno::EINVAL);
@@ -1028,7 +1028,7 @@ impl Kernel {
 
     /// `io_close`: closes a descriptor of the caller, or empties a registered file's slot
     /// (`file_index`). A ring cannot be closed this way (`EBADF`).
-    fn op_close(&self, caller: &Caller<'_>, ctx: &Ctx, req: &Req) -> Result<Outcome, Errno> {
+    async fn op_close(&self, caller: &Caller<'_>, ctx: &Ctx, req: &Req) -> Result<Outcome, Errno> {
         let sqe = req.sqe;
         if sqe.off != 0 || sqe.addr != 0 || sqe.len != 0 || sqe.op_flags != 0 || sqe.buf_index != 0
         {
@@ -1056,7 +1056,7 @@ impl Kernel {
             return Err(Errno::EBADF);
         }
         drop(file);
-        Ok(Outcome::of(self.sys_close(caller, Fd(sqe.fd))))
+        Ok(Outcome::of(self.sys_close(caller, Fd(sqe.fd)).await))
     }
 
     /// `io_poll_add`: completes at once if the file is ready; else waits, once or, with

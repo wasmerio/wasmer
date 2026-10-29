@@ -142,6 +142,16 @@ impl File {
         }
     }
 
+    pub async fn prepare_poll(&self, events: u32) {
+        if let Some(handle) = &self.handle {
+            handle.prepare_poll(events).await;
+        }
+    }
+
+    pub fn can_poll(&self) -> bool {
+        self.handle.as_ref().is_some_and(|h| h.can_poll())
+    }
+
     /// Reads at `offset` (`vfs_read` after the access-mode check).
     pub async fn read_at(&self, buf: &mut [u8], offset: u64) -> FsResult<usize> {
         let handle = self.handle()?;
@@ -230,6 +240,34 @@ impl File {
                 object: self.object(),
             });
         }
+    }
+
+    /// Per-descriptor close, distinct from the last reference's release.
+    pub async fn flush(&self, owner: u64) -> FsResult<()> {
+        match &self.handle {
+            Some(handle) => handle.flush(owner).await,
+            None => Ok(()),
+        }
+    }
+
+    pub fn mmap(&self, shared: bool) -> FsResult<()> {
+        self.handle()?.mmap(shared)
+    }
+
+    pub async fn copy_range(
+        &self,
+        offset: u64,
+        output: &File,
+        output_offset: u64,
+        len: u64,
+    ) -> FsResult<Option<u64>> {
+        // Sealable files use the write path, whose per-inode lock enforces their seals.
+        if output.path.dentry.inode().sealable {
+            return Ok(None);
+        }
+        self.handle()?
+            .copy_range(offset, output.handle()?, output_offset, len)
+            .await
     }
 
     pub async fn sync(&self, data_only: bool) -> FsResult<()> {

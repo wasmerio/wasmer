@@ -171,6 +171,21 @@ impl WaitEntry for ItemEntry {
 }
 
 impl Ep {
+    async fn prepare_poll(&self) {
+        let items: Vec<_> = self
+            .state
+            .lock_or_recover()
+            .items
+            .values()
+            .cloned()
+            .collect();
+        for item in items {
+            if let Some(file) = item.file.upgrade() {
+                file.prepare_poll(item.events() & !PRIVATE_BITS).await;
+            }
+        }
+    }
+
     fn new() -> Arc<Self> {
         Arc::new(Self {
             state: Mutex::default(),
@@ -508,6 +523,10 @@ impl Epoll {
 }
 
 impl FileObject for Epoll {
+    fn prepare_poll(&self, _: u32) -> LocalFuture<'_, ()> {
+        Box::pin(self.ep.prepare_poll())
+    }
+
     // An epoll descriptor has no read or write operation.
     fn read<'a>(&'a self, _: Io<'a>, _: &'a mut [u8]) -> LocalFuture<'a, SysResult<usize>> {
         Box::pin(async { Err(Errno::EINVAL.into()) })
@@ -598,7 +617,7 @@ impl Kernel {
         let key = (Arc::as_ptr(&target) as usize, fd.0);
         let always = EpollEvents::EPOLLERR | EpollEvents::EPOLLHUP;
         let found = ep.find(key);
-        match (op, found, event) {
+        let result = match (op, found, event) {
             (EpollCtlOp::EPOLL_CTL_ADD, Some(_), _) => Err(Errno::EEXIST.into()),
             (EpollCtlOp::EPOLL_CTL_ADD, None, Some(event)) => {
                 ep.insert(key, &target, ((event.events | always).0, event.data));
@@ -619,7 +638,19 @@ impl Kernel {
                 Err(Errno::ENOENT.into())
             }
             _ => Err(Errno::EINVAL.into()),
+        };
+        drop(_nesting);
+        if result.is_ok()
+            && op != EpollCtlOp::EPOLL_CTL_DEL
+            && let Some(item) = ep.find(key)
+        {
+            target.prepare_poll(item.events() & !PRIVATE_BITS).await;
+            if !Ep::item_poll(&item, false).is_empty() {
+                ep.queue_ready(&[key]);
+                ep.wake();
+            }
         }
+        result
     }
 
     /// `epoll_pwait`: a timeout in milliseconds, negative for none.
@@ -724,6 +755,7 @@ impl Kernel {
         let mut timer = self.timer(deadline);
         let mut timed_out = deadline == Deadline::Now;
         let events = loop {
+            ep.prepare_poll().await;
             let events = ep.send_events(maxevents as usize);
             if !events.is_empty() || timed_out {
                 break events;

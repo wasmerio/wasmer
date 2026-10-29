@@ -109,7 +109,8 @@ impl Vfs {
             false => None,
         };
         let node = path.dentry.node();
-        node.permission(cx.cred, cx.task, &attr, acl.as_deref(), mask)
+        node.check_permission(cx.cred, cx.task, &attr, acl.as_deref(), mask)
+            .await
     }
 
     /// `getattr` with the device filled in from the filesystem.
@@ -1181,9 +1182,6 @@ impl Vfs {
     /// `faccessat2`: `mask` is a `MAY_*` combination; `cx.cred` is already the right identity
     /// (real ids unless `AT_EACCESS`).
     pub async fn access(&self, cx: &Ctx<'_>, path: &Path, mask: u32) -> FsResult<()> {
-        if mask == 0 {
-            return Ok(());
-        }
         if mask & MAY_WRITE != 0
             && path.mnt.is_read_only()
             && matches!(
@@ -1193,7 +1191,7 @@ impl Vfs {
         {
             return Err(Errno::EROFS);
         }
-        self.permission(cx, path, mask).await
+        self.permission(cx, path, mask | 0x10).await
     }
 
     async fn setattr(&self, path: &Path, attr: SetAttr) -> FsResult<()> {

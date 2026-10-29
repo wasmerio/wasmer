@@ -71,6 +71,8 @@ const DIRS: &[(usize, &str)] = &[
     (2, "mm"),
     // 10: `cgroup_sysfs_init`.
     (2, "cgroup"),
+    (3, "fuse"),
+    (11, "connections"),
 ];
 
 /// The fixed files: parent directory, name, contents.

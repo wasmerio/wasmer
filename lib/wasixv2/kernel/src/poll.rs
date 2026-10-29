@@ -156,7 +156,15 @@ impl Kernel {
         let count = loop {
             let mut count = 0;
             for pollfd in &mut fds {
-                let mask = do_pollfd(&files, pollfd, &mut waiter, register);
+                let file = { files.lock_or_recover().get(pollfd.fd) };
+                if let Some(file) = file {
+                    let key = PollMask(pollfd.events.0 as u32) | PollMask::ERR | PollMask::HUP;
+                    if register {
+                        let _ = waiter.poll(&*file, key, true);
+                    }
+                    file.prepare_poll(key.0).await;
+                }
+                let mask = do_pollfd(&files, pollfd, &mut waiter, false);
                 if !mask.is_empty() {
                     count += 1;
                     register = false;
@@ -263,7 +271,11 @@ impl Kernel {
                 let key = (0..3)
                     .filter(|&i| want[i])
                     .fold(PollMask::empty(), |key, i| key | keys[i]);
-                let mask = waiter.poll(&*file, key, register);
+                if register {
+                    let _ = waiter.poll(&*file, key, true);
+                }
+                file.prepare_poll(key.0).await;
+                let mask = waiter.poll(&*file, key, false);
                 for i in 0..3 {
                     if want[i] && mask.intersects(keys[i]) {
                         result[i][fd / 8] |= 1 << (fd % 8);

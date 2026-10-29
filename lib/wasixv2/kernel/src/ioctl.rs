@@ -69,6 +69,11 @@ impl Kernel {
         {
             return Err(Errno::EACCES.into());
         }
+        if request == IoctlRequest::FUSE_DEV_IOC_CLONE
+            && let Some(device) = file.downcast::<crate::fuse::Device>()
+        {
+            return self.clone_fuse(caller, device, arg).await;
+        }
         // Regular files answer FIONREAD generically; other files ask their object.
         if request == IoctlRequest::FIONREAD
             && let Backing::Inode(inode) = &file.backing

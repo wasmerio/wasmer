@@ -1,0 +1,465 @@
+//! Request transport: fs/fuse/dev.c, fuse_dev_do_read/write and request_wait_answer.
+use super::{Connection, wire::*};
+use crate::{
+    file::{FileObject, Io},
+    ns::UserNs,
+    sync::MutexExt,
+};
+use std::{
+    collections::{BTreeMap, BTreeSet, VecDeque},
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicBool, Ordering},
+    },
+};
+use wasixv2_abi::IoctlRequest;
+use wasixv2_syscalls::{Caller, Errno, LocalFuture, SysResult};
+use wasixv2_wait::{NoInterrupt, PollMask, PollTable, Pollable, WaitQueue, poll_wait, wait_event};
+
+pub(super) struct Request {
+    pub(super) unique: u64,
+    pub(super) opcode: u32,
+    bytes: Vec<u8>,
+    pub(super) reply: Mutex<Option<Result<Vec<u8>, Errno>>>,
+    pub(super) wait: WaitQueue,
+    /// Inclusive payload size range; fuse_copy_out_args validates it before completing.
+    min: usize,
+    max: usize,
+}
+
+pub(super) struct Queue {
+    pub(super) connected: bool,
+    pub(super) initialized: bool,
+    pub(super) init_error: bool,
+    pub(super) minor: u32,
+    pub(super) max_write: usize,
+    pub(super) flags: u32,
+    pub(super) max_background: u16,
+    pub(super) congestion_threshold: u16,
+    next: u64,
+    pending: VecDeque<Arc<Request>>,
+    processing: BTreeMap<u64, Arc<Request>>,
+    forgets: BTreeMap<u64, u64>,
+    no_interrupt: bool,
+    interrupted: BTreeSet<u64>,
+    interrupts: VecDeque<u64>,
+}
+impl Default for Queue {
+    fn default() -> Self {
+        Self {
+            connected: true,
+            initialized: false,
+            init_error: false,
+            minor: 0,
+            max_write: 4096,
+            max_background: 12,
+            congestion_threshold: 9,
+            flags: 0,
+            next: 0,
+            pending: VecDeque::new(),
+            processing: BTreeMap::new(),
+            forgets: BTreeMap::new(),
+            no_interrupt: false,
+            interrupted: BTreeSet::new(),
+            interrupts: VecDeque::new(),
+        }
+    }
+}
+
+impl Queue {
+    pub(super) fn waiting(&self) -> usize {
+        self.pending.len() + self.processing.len()
+    }
+}
+
+impl Connection {
+    /// fs/fuse/dev.c:fuse_request_assign_unique. Bit zero is reserved for INTERRUPT.
+    pub(super) fn enqueue(
+        &self,
+        opcode: u32,
+        node: u64,
+        body: Vec<u8>,
+        min: usize,
+        max: usize,
+    ) -> Arc<Request> {
+        let (uid, gid, pid, _) = self.current();
+        let req = {
+            let mut q = self.queue.lock_or_recover();
+            q.next += 2;
+            let unique = q.next;
+            let mut bytes = vec![0; HEADER];
+            put32(&mut bytes, 0, (HEADER + body.len()) as u32);
+            put32(&mut bytes, 4, opcode);
+            put64(&mut bytes, 8, unique);
+            put64(&mut bytes, 16, node);
+            put32(&mut bytes, 24, uid);
+            put32(&mut bytes, 28, gid);
+            put32(&mut bytes, 32, pid);
+            bytes.extend(body);
+            let req = Arc::new(Request {
+                unique,
+                opcode,
+                bytes,
+                reply: Mutex::new(None),
+                wait: WaitQueue::new(),
+                min,
+                max,
+            });
+            if q.connected {
+                q.pending.push_back(req.clone());
+            } else {
+                *req.reply.lock_or_recover() = Some(Err(Errno::ENOTCONN));
+            }
+            req
+        };
+        self.readable.wake(PollMask::IN);
+        req
+    }
+
+    pub(super) async fn ready(&self) -> Result<(), Errno> {
+        let (_, _, _, signals) = self.current();
+        let no = NoInterrupt;
+        let interrupt: &dyn wasixv2_wait::Interrupt = signals
+            .as_ref()
+            .map_or(&no, |s| &**s as &dyn wasixv2_wait::Interrupt);
+        wait_event(
+            &self.changed,
+            || {
+                let q = self.queue.lock_or_recover();
+                if !q.connected {
+                    Some(Err(Errno::ENOTCONN))
+                } else if q.init_error {
+                    Some(Err(Errno::ECONNREFUSED))
+                } else if q.initialized {
+                    Some(Ok(()))
+                } else {
+                    None
+                }
+            },
+            interrupt,
+        )
+        .await
+        .map_err(|_| Errno::EINTR)?
+    }
+
+    pub(super) async fn request(
+        &self,
+        opcode: u32,
+        node: u64,
+        body: Vec<u8>,
+        min: usize,
+        max: usize,
+    ) -> Result<Vec<u8>, Errno> {
+        self.ready().await?;
+        self.allowed()?;
+        let req = self.enqueue(opcode, node, body, min, max);
+        let (_, _, _, signals) = self.current();
+        let no = NoInterrupt;
+        let interrupt: &dyn wasixv2_wait::Interrupt = signals
+            .as_ref()
+            .map_or(&no, |s| &**s as &dyn wasixv2_wait::Interrupt);
+        let answer = || req.reply.lock_or_recover().take();
+        // request_wait_answer sends INTERRUPT, then waits for the original reply. Never
+        // restart an already-delivered mutation merely because a signal arrived.
+        if !self.queue.lock_or_recover().no_interrupt {
+            if let Ok(result) = wait_event(&req.wait, answer, interrupt).await {
+                return result;
+            }
+            let mut q = self.queue.lock_or_recover();
+            q.interrupted.insert(req.unique);
+            if q.processing.contains_key(&req.unique) {
+                q.interrupts.push_back(req.unique);
+            }
+            drop(q);
+            self.readable.wake(PollMask::READABLE);
+        }
+        if let Some(signals) = &signals {
+            if let Ok(result) = wait_event(&req.wait, answer, &signals.killable()).await {
+                return result;
+            }
+            // A fatal signal may cancel a request only before userspace has received it.
+            let mut q = self.queue.lock_or_recover();
+            if let Some(at) = q.pending.iter().position(|r| r.unique == req.unique) {
+                q.pending.remove(at);
+                q.interrupted.remove(&req.unique);
+                return Err(Errno::EINTR);
+            }
+        }
+        wait_event(&req.wait, answer, &NoInterrupt).await.unwrap()
+    }
+
+    pub(super) fn forget(&self, node: u64, nlookup: u64) {
+        let mut q = self.queue.lock_or_recover();
+        if q.connected {
+            *q.forgets.entry(node).or_default() += nlookup;
+        }
+        drop(q);
+        self.readable.wake(PollMask::IN);
+    }
+
+    pub(super) fn abort(&self) {
+        let requests = {
+            let mut q = self.queue.lock_or_recover();
+            q.connected = false;
+            q.forgets.clear();
+            let mut requests: Vec<_> = q.pending.drain(..).collect();
+            requests.extend(std::mem::take(&mut q.processing).into_values());
+            requests
+        };
+        for req in requests {
+            *req.reply.lock_or_recover() = Some(Err(Errno::ECONNABORTED));
+            req.wait.wake(PollMask::ERR);
+        }
+        let polls: Vec<_> = self
+            .polls
+            .lock_or_recover()
+            .values()
+            .filter_map(std::sync::Weak::upgrade)
+            .collect();
+        for poll in polls {
+            poll.ready.store(PollMask::ERR.0, Ordering::Release);
+            poll.notify();
+        }
+        self.changed.wake(PollMask::ERR);
+        self.readable.wake(PollMask::ERR);
+    }
+
+    fn read_request(&self, buf: &mut [u8]) -> Option<Result<usize, Errno>> {
+        let mut q = self.queue.lock_or_recover();
+        if !q.connected {
+            return Some(Err(Errno::ENODEV));
+        }
+        if buf.len() < MIN_READ.max(HEADER + 40 + q.max_write) {
+            return Some(Err(Errno::EINVAL));
+        }
+        while let Some(unique) = q.interrupts.pop_front() {
+            if !q.processing.contains_key(&unique) {
+                continue;
+            }
+            buf[..HEADER + 8].fill(0);
+            put32(buf, 0, (HEADER + 8) as u32);
+            put32(buf, 4, INTERRUPT);
+            put64(buf, 8, unique | 1);
+            put64(buf, HEADER, unique);
+            return Some(Ok(HEADER + 8));
+        }
+        // fuse_read_batch_forget: all forgets fit as many records as this read can hold.
+        if !q.forgets.is_empty() {
+            let batch = q.minor >= 16;
+            let count = if batch {
+                ((buf.len() - HEADER - 8) / 16).min(q.forgets.len())
+            } else {
+                1
+            };
+            let mut body = if batch {
+                words32(&[count as u32, 0])
+            } else {
+                Vec::new()
+            };
+            let mut nodeid = 0;
+            for _ in 0..count {
+                let (node, nlookup) = q.forgets.pop_first().unwrap();
+                nodeid = node;
+                if batch {
+                    body.extend(words64(&[node]));
+                }
+                body.extend(words64(&[nlookup]));
+            }
+            q.next += 2;
+            buf[..HEADER].fill(0);
+            put32(buf, 0, (HEADER + body.len()) as u32);
+            put32(buf, 4, if batch { BATCH_FORGET } else { FORGET });
+            put64(buf, 8, q.next);
+            put64(buf, 16, if batch { 0 } else { nodeid });
+            buf[HEADER..HEADER + body.len()].copy_from_slice(&body);
+            return Some(Ok(HEADER + body.len()));
+        }
+        let req = q.pending.pop_front()?;
+        let len = req.bytes.len();
+        if len > buf.len() {
+            *req.reply.lock_or_recover() = Some(Err(if req.opcode == 25 {
+                Errno::E2BIG
+            } else {
+                Errno::EIO
+            }));
+            req.wait.wake(PollMask::ERR);
+            return Some(Err(Errno::EINVAL));
+        }
+        buf[..len].copy_from_slice(&req.bytes);
+        if q.interrupted.contains(&req.unique) {
+            q.interrupts.push_back(req.unique);
+        }
+        q.processing.insert(req.unique, req);
+        Some(Ok(len))
+    }
+
+    fn write_reply(&self, data: &[u8]) -> Result<usize, Errno> {
+        if data.len() < OUT_HEADER || u32_at(data, 0)? as usize != data.len() {
+            return Err(Errno::EINVAL);
+        }
+        let error = u32_at(data, 4)? as i32;
+        let unique = u64_at(data, 8)?;
+        if unique == 0 {
+            let q = self.queue.lock_or_recover();
+            if !q.initialized || !q.connected || q.init_error {
+                return Err(Errno::EINVAL);
+            }
+            drop(q);
+            self.notify(error, &data[OUT_HEADER..])?;
+            return Ok(data.len());
+        }
+        if error > 0 || error <= -512 {
+            return Err(Errno::EINVAL);
+        }
+        let req = {
+            let mut q = self.queue.lock_or_recover();
+            if unique & 1 != 0 {
+                if !q.processing.contains_key(&(unique & !1)) {
+                    return Err(Errno::ENOENT);
+                }
+                if data.len() != OUT_HEADER {
+                    return Err(Errno::EINVAL);
+                }
+                if error == -Errno::ENOSYS.0 {
+                    q.no_interrupt = true;
+                }
+                if error == -Errno::EAGAIN.0 {
+                    q.interrupts.push_back(unique & !1);
+                }
+                drop(q);
+                self.readable.wake(PollMask::READABLE);
+                return Ok(data.len());
+            }
+            q.interrupted.remove(&unique);
+            q.interrupts.retain(|id| *id != unique);
+            q.processing.remove(&unique).ok_or(Errno::ENOENT)?
+        };
+        let body = &data[OUT_HEADER..];
+        let valid = if error != 0 {
+            body.is_empty()
+        } else {
+            body.len() >= req.min && body.len() <= req.max
+        };
+        let result = if !valid {
+            Err(Errno::EIO)
+        } else if error != 0 {
+            Err(Errno(-error))
+        } else {
+            Ok(body.to_vec())
+        };
+        if req.opcode == INIT {
+            self.finish_init(result.clone());
+        }
+        *req.reply.lock_or_recover() = Some(result);
+        req.wait.wake(PollMask::IN);
+        if !valid {
+            Err(Errno::EINVAL)
+        } else {
+            Ok(data.len())
+        }
+    }
+
+    fn finish_init(&self, result: Result<Vec<u8>, Errno>) {
+        let mut q = self.queue.lock_or_recover();
+        match result {
+            Ok(body)
+                if u32_at(&body, 0) == Ok(7) && u32_at(&body, 4).is_ok_and(|minor| minor >= 23) =>
+            {
+                q.minor = u32_at(&body, 4).unwrap().min(MINOR);
+                q.flags = u32_at(&body, 12).unwrap_or(0) & super::INIT_FLAGS;
+                q.max_write =
+                    (u32_at(&body, 20).unwrap_or(4096) as usize).clamp(4096, MAX_IO - HEADER - 40);
+            }
+            _ => q.init_error = true,
+        }
+        q.initialized = true;
+        drop(q);
+        self.changed.wake(PollMask::IN);
+    }
+}
+
+/// A device is unbound until fuse_get_tree attaches a connection; clones share its queues.
+pub(crate) struct Device {
+    pub(super) conn: Mutex<Option<Arc<Connection>>>,
+    pub(super) user_ns: Arc<UserNs>,
+    pub(super) sync_init: AtomicBool,
+}
+impl Device {
+    fn connection(&self) -> Result<Arc<Connection>, Errno> {
+        self.conn.lock_or_recover().clone().ok_or(Errno::EPERM)
+    }
+}
+impl Drop for Device {
+    fn drop(&mut self) {
+        if let Some(conn) = self
+            .conn
+            .get_mut()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            && conn.devices.fetch_sub(1, Ordering::AcqRel) == 1
+        {
+            conn.abort();
+        }
+    }
+}
+impl Pollable for Device {
+    fn poll(&self, mut table: Option<&mut PollTable<'_>>) -> PollMask {
+        let Ok(conn) = self.connection() else {
+            return PollMask::ERR;
+        };
+        poll_wait(&mut table, &conn.readable);
+        let q = conn.queue.lock_or_recover();
+        if !q.connected {
+            PollMask::ERR
+        } else if !q.pending.is_empty() || !q.forgets.is_empty() || !q.interrupts.is_empty() {
+            PollMask::READABLE | PollMask::WRITABLE
+        } else {
+            PollMask::WRITABLE
+        }
+    }
+}
+impl FileObject for Device {
+    fn read<'a>(&'a self, io: Io<'a>, buf: &'a mut [u8]) -> LocalFuture<'a, SysResult<usize>> {
+        Box::pin(async move {
+            let conn = self.connection()?;
+            if io.nonblocking() {
+                return conn
+                    .read_request(buf)
+                    .unwrap_or(Err(Errno::EAGAIN))
+                    .map_err(Into::into);
+            }
+            wait_event(&conn.readable, || conn.read_request(buf), io.interrupt)
+                .await
+                .map_err(|_| wasixv2_syscalls::SysErr::Restart)?
+                .map_err(Into::into)
+        })
+    }
+    fn write<'a>(&'a self, _: Io<'a>, data: &'a [u8]) -> LocalFuture<'a, SysResult<usize>> {
+        Box::pin(async move { self.connection()?.write_reply(data).map_err(Into::into) })
+    }
+    fn messages(&self) -> bool {
+        true
+    }
+    fn ioctl<'a>(
+        &'a self,
+        caller: &'a Caller<'a>,
+        request: IoctlRequest,
+        arg: u32,
+    ) -> LocalFuture<'a, SysResult<i32>> {
+        Box::pin(async move {
+            match request {
+                IoctlRequest::FUSE_DEV_IOC_SYNC_INIT => {
+                    let bound = self.conn.lock_or_recover();
+                    if bound.is_some() {
+                        return Err(Errno::EINVAL.into());
+                    }
+                    self.sync_init.store(true, Ordering::Release);
+                    Ok(0)
+                }
+                _ => {
+                    let _ = (caller, arg);
+                    Err(Errno::ENOTTY.into())
+                }
+            }
+        })
+    }
+}

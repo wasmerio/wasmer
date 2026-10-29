@@ -568,14 +568,19 @@ impl Kernel {
         }
     }
 
-    pub(crate) fn sys_close(&self, caller: &Caller<'_>, fd: Fd) -> SysResult<i32> {
+    pub(crate) async fn sys_close(&self, caller: &Caller<'_>, fd: Fd) -> SysResult<i32> {
         let files = self.files(caller.task());
         let file = files.lock_or_recover().remove(fd).ok_or(Errno::EBADF)?;
         self.closed(caller, &file);
+        if let Backing::Inode(inode) = &file.backing {
+            inode
+                .flush(u64::from(self.process(caller.task()).pid.0))
+                .await?;
+        }
         Ok(0)
     }
 
-    pub(crate) fn sys_close_range(
+    pub(crate) async fn sys_close_range(
         &self,
         caller: &Caller<'_>,
         first: u32,
@@ -610,6 +615,11 @@ impl Kernel {
         };
         for file in &closed {
             self.closed(caller, file);
+            if let Backing::Inode(inode) = &file.backing {
+                let _ = inode
+                    .flush(u64::from(self.process(caller.task()).pid.0))
+                    .await;
+            }
         }
         Ok(0)
     }
@@ -619,7 +629,7 @@ impl Kernel {
         self.install(caller, file, false)
     }
 
-    pub(crate) fn sys_dup3(
+    pub(crate) async fn sys_dup3(
         &self,
         caller: &Caller<'_>,
         old: Fd,
@@ -635,23 +645,29 @@ impl Kernel {
         // `do_dup2` under `file_lock`: the lookup and the install are one step, so a
         // concurrent close of `old` cannot be undone.
         let files = self.files(caller.task());
-        let mut table = files.lock_or_recover();
-        if new.0 < 0 || new.0 as usize >= table.limit() {
-            return Err(Errno::EBADF.into());
-        }
-        let file = table.get(old).ok_or(Errno::EBADF)?;
-        // `expand_files`: a table that cannot grow to `new` is `EBADF` here, not `EMFILE`.
-        if table.expand(new.0 as usize).is_err() {
-            return Err(Errno::EBADF.into());
-        }
-        // A descriptor reserved by an open still in progress.
-        if table.is_reserved(new) {
-            return Err(Errno::EBUSY.into());
-        }
-        let replaced = table.install_at(new, file, flags.contains(OpenFlags::O_CLOEXEC));
-        drop(table);
+        let replaced = {
+            let mut table = files.lock_or_recover();
+            if new.0 < 0 || new.0 as usize >= table.limit() {
+                return Err(Errno::EBADF.into());
+            }
+            let file = table.get(old).ok_or(Errno::EBADF)?;
+            // `expand_files`: a table that cannot grow to `new` is `EBADF` here, not `EMFILE`.
+            if table.expand(new.0 as usize).is_err() {
+                return Err(Errno::EBADF.into());
+            }
+            // A descriptor reserved by an open still in progress.
+            if table.is_reserved(new) {
+                return Err(Errno::EBUSY.into());
+            }
+            table.install_at(new, file, flags.contains(OpenFlags::O_CLOEXEC))
+        };
         if let Some(replaced) = replaced {
             self.closed(caller, &replaced);
+            if let Backing::Inode(inode) = &replaced.backing {
+                let _ = inode
+                    .flush(u64::from(self.process(caller.task()).pid.0))
+                    .await;
+            }
         }
         Ok(new)
     }

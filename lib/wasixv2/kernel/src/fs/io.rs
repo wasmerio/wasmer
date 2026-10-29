@@ -835,6 +835,14 @@ impl Kernel {
         let mut buf = Scratch::new((len as usize).min(IO_CHUNK));
         self.sync_file_mappings(caller, &input).await;
         self.sync_file_mappings(caller, &output).await;
+        if let Some(n) = src.copy_range(pos_in, dst, pos_out, len).await? {
+            if n > len {
+                return Err(Errno::EIO.into());
+            }
+            done = n;
+            pos_in += n;
+            pos_out += n;
+        }
         while done < len {
             let want = ((len - done) as usize).min(buf.len());
             let n = src.read_at(&mut buf[..want], pos_in).await?;

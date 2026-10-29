@@ -1755,7 +1755,8 @@ impl Kernel {
         let threads = self.take_group_futex_states(task);
         self.exit_futexes(caller, threads).await;
         self.mm_release(caller).await;
-        self.exec_commit(task, &name, args, env, image, binary);
+        self.exec_commit(task, &name, args, env, image, binary)
+            .await;
         // The `execve` is done, and the leader's new image may start.
         drop(exec);
         // `exec_binprm`'s `ptrace_event(PTRACE_EVENT_EXEC, old_vpid)`, by the task the new
@@ -1848,7 +1849,7 @@ impl Kernel {
     /// caught signals reset, the new image's arguments, environment and memory replace the old
     /// ones, and the credentials become what `binary` grants. `image` goes to the leader now,
     /// unless it has it already; a vfork parent resumes once the image starts.
-    fn exec_commit(
+    async fn exec_commit(
         &self,
         caller: TaskId,
         name: &[u8],
@@ -1899,6 +1900,9 @@ impl Kernel {
         let caller = Caller::new(task, &memory);
         for file in closing {
             self.closed(&caller, &file);
+            if let Backing::Inode(inode) = &file.backing {
+                let _ = inode.flush(u64::from(process.pid.0)).await;
+            }
         }
         // `exit_itimers` and `flush_itimer_signals`: POSIX timers belong to the old image;
         // interval timers stay.

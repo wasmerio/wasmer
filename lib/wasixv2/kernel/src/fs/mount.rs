@@ -485,6 +485,7 @@ impl Kernel {
             return self.vfs.do_mount(&ns, target, MountOp::Move { source });
         }
         self.new_mount(env, &ns, target, fstype, dev_name, flags, &data)
+            .await
     }
 
     /// The source of a bind or move: a non-empty path, resolved from the working directory
@@ -499,7 +500,7 @@ impl Kernel {
     /// `do_new_mount`: an instance of the type `fstype` (`ENODEV` if there is none such)
     /// made from `dev_name` and the options in `data`.
     #[allow(clippy::too_many_arguments)]
-    fn new_mount(
+    async fn new_mount(
         &self,
         env: &Env,
         ns: &wasixv2_vfs::MntNs,
@@ -535,6 +536,7 @@ impl Kernel {
             }
             FsType::Other(ty) => ty.mount(source.as_deref().unwrap_or(b""), &params, &env.cred)?,
         };
+        fs.initialize().await?;
         // `do_new_mount_fc`.
         if self.mount_too_revealing(task, &ty, &mnt_flags) {
             return Err(Errno::EPERM);

@@ -1457,6 +1457,11 @@ impl Kernel {
             true => None,
             false => Some(self.mmap_file(caller, fd)?),
         };
+        if let Some(file) = &file
+            && let crate::file::Backing::Inode(inode) = &file.backing
+        {
+            inode.mmap(flags.contains(MapFlags::MAP_SHARED))?;
+        }
         if prot.contains(ProtFlags::PROT_EXEC) {
             return Err(Errno::EACCES.into());
         }

@@ -23,6 +23,7 @@ mod eventfd;
 mod fasync;
 mod file;
 mod fs;
+mod fuse;
 mod futex;
 mod ident;
 mod io_uring;
@@ -431,6 +432,19 @@ impl Kernel {
         let init_user_ns = ns::UserNs::initial_user();
         let binfmt_misc = binfmt_misc::BinfmtMisc::new(clock.clone(), &state, &vfs);
         let filesystems = fs::mount::Registry::new();
+        let fuse_connections = Arc::new(fuse::Registry::default());
+        filesystems.add(
+            "fusectl",
+            Arc::new(fuse::ControlType(fuse_connections.clone())),
+        );
+        filesystems.add(
+            "fuse",
+            Arc::new(fuse::FuseType {
+                state: Arc::downgrade(&state),
+                host: host.clone(),
+                registry: fuse_connections,
+            }),
+        );
         let misc_type = Arc::new(binfmt_misc::BinfmtMiscType(binfmt_misc.clone()));
         filesystems.add("binfmt_misc", misc_type);
         let printk = Arc::new(printk::Printk::new(host.clone()));
@@ -795,7 +809,7 @@ impl Syscalls for Kernel {
     }
 
     async fn close(&self, caller: &Caller<'_>, fd: Fd) -> SysResult<i32> {
-        self.sys_close(caller, fd)
+        self.sys_close(caller, fd).await
     }
 
     async fn close_range(
@@ -805,7 +819,7 @@ impl Syscalls for Kernel {
         max_fd: u32,
         flags: CloseRangeFlags,
     ) -> SysResult<i32> {
-        self.sys_close_range(caller, fd, max_fd, flags)
+        self.sys_close_range(caller, fd, max_fd, flags).await
     }
 
     async fn dup(&self, caller: &Caller<'_>, fildes: Fd) -> SysResult<Fd> {
@@ -819,7 +833,7 @@ impl Syscalls for Kernel {
         newfd: Fd,
         flags: OpenFlags,
     ) -> SysResult<Fd> {
-        self.sys_dup3(caller, oldfd, newfd, flags)
+        self.sys_dup3(caller, oldfd, newfd, flags).await
     }
 
     async fn fcntl64(
