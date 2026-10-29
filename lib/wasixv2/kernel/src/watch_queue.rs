@@ -92,6 +92,10 @@ impl Queue {
         self.note_loss || !self.notes.is_empty()
     }
 
+    pub(crate) fn slots(&self) -> usize {
+        self.notes.len()
+    }
+
     pub(crate) fn len(&self) -> usize {
         self.notes.iter().map(|n| n.bytes.len()).sum()
     }
@@ -134,13 +138,18 @@ pub(crate) async fn read_filter(
     if !(1..=16).contains(&header.nr_filters) || header.reserved != 0 {
         return Err(Errno::EINVAL.into());
     }
-    let mut filters = Vec::new();
+    // watch_queue_set_filter memdup_array_user copies the entire array before validation.
+    let mut entries = Vec::new();
     for i in 0..header.nr_filters {
         let offset = addr
             .checked_add(8 + i * WatchNotificationTypeFilter::SIZE as u32)
             .ok_or(Errno::EFAULT)?;
         let filter: WatchNotificationTypeFilter =
             read_value(caller.memory(), GuestPtr::new(offset)).await?;
+        entries.push(filter);
+    }
+    let mut filters = Vec::new();
+    for filter in entries {
         if filter.info_filter & !filter.info_mask != 0 || filter.info_mask & 0x7f != 0 {
             return Err(Errno::EINVAL.into());
         }

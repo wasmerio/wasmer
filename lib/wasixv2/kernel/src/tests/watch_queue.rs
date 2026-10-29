@@ -5,6 +5,7 @@ use wasixv2_abi::{
     WatchNotification, WatchNotificationFilter, WatchNotificationTypeFilter,
 };
 use wasixv2_syscalls::{read_value, write_value};
+use wasixv2_wait::{PollMask, Pollable};
 
 use super::{
     ipc::{errno, get, machine, pipe, put},
@@ -137,7 +138,7 @@ fn notification_pipes_validate_configuration_and_reject_user_writes_and_splice()
 fn notification_reads_preserve_records_on_small_buffers_and_faults_and_report_loss_in_order() {
     let (kernel, task, memory) = machine();
     let caller = Caller::new(task, &memory);
-    let (r, _w) = pipe(
+    let (r, w) = pipe(
         &kernel,
         &caller,
         OpenFlags::O_NOTIFICATION_PIPE | OpenFlags::O_NONBLOCK,
@@ -152,12 +153,15 @@ fn notification_reads_preserve_records_on_small_buffers_and_faults_and_report_lo
         ),
         Ok(0)
     );
+    let writer = kernel.io_file(&caller, w).unwrap();
+    assert!(writer.poll(None).contains(PollMask::WRITABLE));
     let list = WatchList::default();
     assert_eq!(list.watch(&kernel, &caller, 42, r, 23), Ok(()));
     assert_eq!(list.watch(&kernel, &caller, 42, r, 24), Err(Errno::EBUSY));
     for i in 0..33 {
         list.post(42, &note(1, 42, i));
     }
+    assert!(!writer.poll(None).contains(PollMask::WRITABLE));
     assert_eq!(
         ioctl(&kernel, &caller, r, IoctlRequest::FIONREAD, 0x200),
         Ok(0)
@@ -178,6 +182,7 @@ fn notification_reads_preserve_records_on_small_buffers_and_faults_and_report_lo
         block_on(kernel.read(&caller, r, UserSliceMut::new(0x300, 32 * 16 + 8))),
         Ok(32 * 16 + 8)
     );
+    assert!(writer.poll(None).contains(PollMask::WRITABLE));
     for i in 0..32 {
         let actual: KeyNotification =
             block_on(read_value(&memory, GuestPtr::new(0x300 + i * 16))).unwrap();
@@ -389,4 +394,56 @@ fn notification_watch_limits_are_per_user_and_return_on_last_pipe_close() {
     assert_eq!(other.watch(&kernel, &caller, 2, r2, 0), Err(Errno::EAGAIN));
     block_on(kernel.close(&caller, w)).unwrap();
     assert_eq!(other.watch(&kernel, &caller, 2, r2, 0), Ok(()));
+}
+
+#[test]
+fn filter_copy_faults_precede_invalid_entry_errors() {
+    let (kernel, task, memory) = machine();
+    let caller = Caller::new(task, &memory);
+    let (r, _) = pipe(&kernel, &caller, OpenFlags::O_NOTIFICATION_PIPE);
+    let address = 65536 - 8 - WatchNotificationTypeFilter::SIZE as u32;
+    let header = WatchNotificationFilter {
+        nr_filters: 2,
+        reserved: 0,
+    };
+    let invalid = WatchNotificationTypeFilter {
+        info_mask: 1,
+        ..WatchNotificationTypeFilter::default()
+    };
+    block_on(write_value(&memory, GuestPtrMut::new(address), &header)).unwrap();
+    block_on(write_value(
+        &memory,
+        GuestPtrMut::new(address + 8),
+        &invalid,
+    ))
+    .unwrap();
+    assert_eq!(
+        ioctl(
+            &kernel,
+            &caller,
+            r,
+            IoctlRequest::IOC_WATCH_QUEUE_SET_FILTER,
+            address
+        ),
+        Err(SysErr::Errno(Errno::EFAULT))
+    );
+    block_on(write_value(
+        &memory,
+        GuestPtrMut::new(address),
+        &WatchNotificationFilter {
+            nr_filters: 1,
+            ..header
+        },
+    ))
+    .unwrap();
+    assert_eq!(
+        ioctl(
+            &kernel,
+            &caller,
+            r,
+            IoctlRequest::IOC_WATCH_QUEUE_SET_FILTER,
+            address
+        ),
+        Err(SysErr::Errno(Errno::EINVAL))
+    );
 }
