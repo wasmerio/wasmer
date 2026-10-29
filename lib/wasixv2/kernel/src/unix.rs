@@ -41,6 +41,7 @@ use crate::{
     fasync::{Fasync, SockAsync, SockWake},
     file::{FileObject, Io, OpenFile, ReadSink, delivered, taken},
     ns::NetNs,
+    pid::PidRef,
     socket::{Blocking, RCV, SND, Timeouts, WaitOn},
     sync::MutexExt,
     uidgid::{Kgid, Kuid},
@@ -84,16 +85,41 @@ impl Kind {
     }
 }
 
-/// `struct ucred`, with the kernel's id of the process (`struct pid`) and kernel ids: each
-/// reader sees its own pid and ids for them ([`Kernel::ucred_bytes`]).
-#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+/// The credentials a socket keeps of a process: its `struct pid`, held as Linux's
+/// `sk_peer_pid` and `UNIXCB(skb).pid` hold it, so a reaped process still shows its number,
+/// and kernel ids. Each reader sees its own pid and ids for them ([`Kernel::ucred_bytes`]).
+#[derive(Clone, PartialEq, Eq, Debug, Default)]
 pub(crate) struct Ucred {
-    pub(crate) pid: i32,
+    pub(crate) pid: Option<PidRef>,
     pub(crate) uid: u32,
     pub(crate) gid: u32,
 }
 
 impl Ucred {
+    /// `cred_to_ucred` without a peer: pid 0 and the invalid ids.
+    pub(crate) const NONE: Self = Self {
+        pid: None,
+        uid: u32::MAX,
+        gid: u32::MAX,
+    };
+}
+
+/// `struct ucred` as the guest reads and writes it: a pid and ids of its namespaces.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(crate) struct RawUcred {
+    pub(crate) pid: i32,
+    pub(crate) uid: u32,
+    pub(crate) gid: u32,
+}
+
+impl RawUcred {
+    /// `cred_to_ucred` without a peer: pid 0 and the invalid ids.
+    pub(crate) const NONE: Self = Self {
+        pid: 0,
+        uid: u32::MAX,
+        gid: u32::MAX,
+    };
+
     pub(crate) fn to_bytes(self) -> Vec<u8> {
         let mut raw = Vec::with_capacity(12);
         raw.extend(self.pid.to_le_bytes());
@@ -101,13 +127,6 @@ impl Ucred {
         raw.extend(self.gid.to_le_bytes());
         raw
     }
-
-    /// `cred_to_ucred` without a peer: pid 0 and the invalid ids.
-    pub(crate) const NONE: Self = Self {
-        pid: 0,
-        uid: u32::MAX,
-        gid: u32::MAX,
-    };
 
     fn from_bytes(raw: &[u8]) -> Option<Self> {
         let word = |i: usize| raw.get(i..i + 4).map(|b| b.try_into().unwrap());
@@ -743,7 +762,7 @@ impl Sock {
         &self,
         data: &mut Vec<u8>,
         anc: &mut Ancillary,
-        cred: Ucred,
+        cred: &Ucred,
     ) -> Result<usize, Errno> {
         let (peer, shutdown, err, sndbuf, from) = {
             let mut inner = self.lock();
@@ -815,7 +834,7 @@ impl Sock {
                 anc.uid,
                 &self.names().inflight,
             ),
-            cred: anc.cred.unwrap_or(cred),
+            cred: anc.cred.as_ref().unwrap_or(cred).clone(),
         });
         drop(target);
         peer.data_ready();
@@ -829,7 +848,7 @@ impl Sock {
         target: &Arc<Sock>,
         data: &mut Vec<u8>,
         anc: &mut Ancillary,
-        cred: Ucred,
+        cred: &Ucred,
     ) -> Result<usize, Errno> {
         let (from, sndbuf) = {
             let inner = self.lock();
@@ -885,7 +904,7 @@ impl Sock {
                 anc.uid,
                 &self.names().inflight,
             ),
-            cred: anc.cred.unwrap_or(cred),
+            cred: anc.cred.as_ref().unwrap_or(cred).clone(),
         });
         drop(other);
         target.data_ready();
@@ -898,7 +917,7 @@ impl Sock {
         &self,
         max: usize,
         flags: MsgFlags,
-        writer: Option<Ucred>,
+        writer: Option<&Ucred>,
     ) -> Result<Received, Errno> {
         let take = match flags.contains(MsgFlags::MSG_PEEK) {
             true => Take::Peek,
@@ -907,7 +926,7 @@ impl Sock {
         self.try_take(max, take, writer)
     }
 
-    fn try_take(&self, max: usize, take: Take, writer: Option<Ucred>) -> Result<Received, Errno> {
+    fn try_take(&self, max: usize, take: Take, writer: Option<&Ucred>) -> Result<Received, Errno> {
         let mut inner = self.lock();
         if self.kind == Kind::Stream && inner.state == State::Listening {
             return Err(Errno::EINVAL);
@@ -1076,21 +1095,23 @@ enum Take {
 /// `SO_PASSCRED` it never glues messages of different writers, the first of them being
 /// `writer` when the read continues one (`MSG_WAITALL`). A whole unread message moves out
 /// without a copy.
-fn stream_take(inner: &mut Inner, max: usize, take: Take, writer: Option<Ucred>) -> Received {
+fn stream_take(inner: &mut Inner, max: usize, take: Take, writer: Option<&Ucred>) -> Received {
     let check_creds = inner.passcred();
-    let mut writer = writer;
+    let mut writer = writer.cloned();
     let mut out = Received::eof();
     let mut index = 0;
     while out.data.len() < max && index < inner.rx.len() {
         let msg = &mut inner.rx[index];
         if check_creds {
-            match writer {
-                Some(w) if w != msg.cred => break,
+            match &writer {
+                Some(w) if *w != msg.cred => break,
                 Some(_) => {}
-                None => writer = Some(msg.cred),
+                None => writer = Some(msg.cred.clone()),
             }
         }
-        out.cred.get_or_insert(msg.cred);
+        if out.cred.is_none() {
+            out.cred = Some(msg.cred.clone());
+        }
         let had_rights = !msg.rights.is_empty();
         let avail = msg.data.len() - msg.read;
         let n = avail.min(max - out.data.len());
@@ -1127,7 +1148,12 @@ fn record_take(inner: &mut Inner, max: usize, peek: bool) -> Received {
         let msg = inner.rx.front().expect("checked non-empty");
         let n = msg.data.len().min(max);
         let data = msg.data[..n].to_vec();
-        (data, msg.from.clone(), msg.rights.files.clone(), msg.cred)
+        (
+            data,
+            msg.from.clone(),
+            msg.rights.files.clone(),
+            msg.cred.clone(),
+        )
     } else {
         let mut msg = inner.rx.pop_front().expect("checked non-empty");
         inner.rx_bytes -= msg.data.len();
@@ -1136,7 +1162,7 @@ fn record_take(inner: &mut Inner, max: usize, peek: bool) -> Received {
             std::mem::take(&mut msg.data),
             msg.from.take(),
             rights,
-            msg.cred,
+            std::mem::take(&mut msg.cred),
         )
     };
     let full_len = match peek {
@@ -1301,7 +1327,7 @@ impl FileObject for UnixFile {
 
     fn write<'a>(&'a self, io: Io<'a>, data: &'a [u8]) -> LocalFuture<'a, SysResult<usize>> {
         Box::pin(async move {
-            let owner = self.0.owner.ucred;
+            let owner = self.0.owner.ucred.clone();
             let mut wait = self.0.blocking(io, SND, MsgFlags(0));
             let anc = Ancillary::default();
             send(&self.0, &mut wait, data.to_vec(), None, anc, owner).await
@@ -1362,7 +1388,7 @@ pub(crate) async fn recv(
     wait: &mut Blocking<'_>,
     max: usize,
     flags: MsgFlags,
-    writer: Option<Ucred>,
+    writer: Option<&Ucred>,
 ) -> SysResult<Received> {
     wait.wait(WaitOn::Queue(&sock.wait), PollMask::READABLE, || {
         sock.try_recv(max, flags, writer)
@@ -1379,7 +1405,7 @@ pub(crate) async fn recv_stream_to(
     sock: &Sock,
     wait: &mut Blocking<'_>,
     max: usize,
-    writer: Option<Ucred>,
+    writer: Option<&Ucred>,
     to: &mut dyn ReadSink,
 ) -> SysResult<Received> {
     loop {
@@ -1426,7 +1452,7 @@ pub(crate) async fn send(
         let queue = &target.wait;
         return wait
             .wait(WaitOn::Queue(queue), PollMask::WRITABLE, || {
-                sock.try_send_dgram(&target, &mut data, &mut anc, cred)
+                sock.try_send_dgram(&target, &mut data, &mut anc, &cred)
             })
             .await;
     }
@@ -1435,7 +1461,7 @@ pub(crate) async fn send(
     loop {
         let n = match wait
             .wait(WaitOn::Queue(&sock.wait), PollMask::WRITABLE, || {
-                sock.try_send_connected(&mut data, &mut anc, cred)
+                sock.try_send_connected(&mut data, &mut anc, &cred)
             })
             .await
         {
@@ -1458,23 +1484,24 @@ impl Kernel {
         let process = self.process(caller.task());
         let (uid, gid) = process.cred().ucred_ids();
         Ucred {
-            pid: process.pid.0 as i32,
+            pid: Some(self.pids.get(process.pid.0)),
             uid: uid.0,
             gid: gid.0,
         }
     }
 
     /// `cred_to_ucred` and `scm_recv`'s `pid_vnr`: `cred` as the caller reads it, with the pid
-    /// it sees for the process (0 outside its pid namespace) and the ids its user namespace
-    /// sees for them; the invalid ids of no peer stay.
-    pub(crate) fn ucred_bytes(&self, caller: &Caller<'_>, cred: Ucred) -> Vec<u8> {
-        let pid = self.vnr(caller, cred.pid as u32);
+    /// it sees for the process (0 outside its pid namespace; still its number once it was
+    /// reaped) and the ids its user namespace sees for them; the invalid ids of no peer stay.
+    pub(crate) fn ucred_bytes(&self, caller: &Caller<'_>, cred: &Ucred) -> Vec<u8> {
+        let ns = self.active_pid_ns(caller.task());
+        let pid = cred.pid.as_ref().map_or(0, |pid| pid.nr(&ns));
         let ns = self.cred(caller).user_ns;
         let (uid, gid) = match cred.uid == Ucred::NONE.uid {
             true => (cred.uid, cred.gid),
             false => (ns.munged_uid(Kuid(cred.uid)), ns.munged_gid(Kgid(cred.gid))),
         };
-        Ucred { pid, uid, gid }.to_bytes()
+        RawUcred { pid, uid, gid }.to_bytes()
     }
 
     /// The caller as a socket's peer: what `SO_PEERCRED` and `SO_PEERGROUPS` report
@@ -1490,7 +1517,7 @@ impl Kernel {
     /// saved ids, and others with `CAP_SYS_ADMIN` over its pid namespace's owner, `CAP_SETUID`
     /// and `CAP_SETGID` over its own user namespace. `claim` has
     /// the guest's ids, which its user namespace must map (`EINVAL`); the kernel ids come back.
-    fn may_claim(&self, caller: &Caller<'_>, claim: &Ucred) -> Result<(Kuid, Kgid), Errno> {
+    fn may_claim(&self, caller: &Caller<'_>, claim: &RawUcred) -> Result<(Kuid, Kgid), Errno> {
         let process = self.process(caller.task());
         let cred = process.cred();
         let uid = cred.user_ns.make_kuid(claim.uid).ok_or(Errno::EINVAL)?;
@@ -1696,14 +1723,14 @@ impl Kernel {
                     }
                 }
                 SCM_CREDENTIALS => {
-                    let cred = Ucred::from_bytes(&control.data)
+                    let cred = RawUcred::from_bytes(&control.data)
                         .filter(|_| control.data.len() == 12)
                         .ok_or(Errno::EINVAL)?;
                     let (uid, gid) = self.may_claim(caller, &cred)?;
                     // `find_get_pid`: the claimed process, in the caller's pid namespace.
                     let pid = self.find_vpid(caller, cred.pid).ok_or(Errno::ESRCH)?;
                     anc.cred = Some(Ucred {
-                        pid: pid as i32,
+                        pid: Some(self.pids.get(pid)),
                         uid: uid.0,
                         gid: gid.0,
                     });
@@ -1757,7 +1784,7 @@ impl Kernel {
             // `cred_to_ucred`: without a peer, pid 0 and the invalid ids.
             SocketOption::SO_PEERCRED => {
                 let peer = sock.peer_cred().map_or(Ucred::NONE, |peer| peer.ucred);
-                Ok(self.ucred_bytes(caller, peer))
+                Ok(self.ucred_bytes(caller, &peer))
             }
             // `SO_PEERGROUPS` is answered by the socket layer, which may need `ERANGE`.
             _ => {
@@ -1814,9 +1841,9 @@ mod tests {
         (a, b)
     }
 
-    fn cred(pid: i32) -> Ucred {
+    fn cred(pids: &Arc<crate::pid::Pids>, pid: u32) -> Ucred {
         Ucred {
-            pid,
+            pid: Some(pids.get(pid)),
             uid: 1,
             gid: 1,
         }
@@ -1825,10 +1852,12 @@ mod tests {
     #[test]
     fn stream_reads_never_glue_writers_with_so_passcred() {
         let (a, b) = pair(Kind::Stream);
+        let pids = Arc::default();
+        let cred = |pid| cred(&pids, pid);
         let send = |data: &[u8], pid| {
             let mut data = data.to_vec();
             let mut anc = Ancillary::default();
-            a.try_send_connected(&mut data, &mut anc, cred(pid))
+            a.try_send_connected(&mut data, &mut anc, &cred(pid))
                 .unwrap()
         };
         send(b"ab", 10);
@@ -1842,11 +1871,11 @@ mod tests {
             .unwrap();
         let first = b.try_recv(16, MsgFlags(0), None).unwrap();
         assert_eq!(
-            (first.data.as_slice(), first.cred),
-            (&b"ab"[..], Some(cred(10)))
+            (first.data.as_slice(), &first.cred),
+            (&b"ab"[..], &Some(cred(10)))
         );
         // `MSG_WAITALL` going on from the first writer stops at the second's data.
-        let more = b.try_recv(16, MsgFlags(0), first.cred).unwrap();
+        let more = b.try_recv(16, MsgFlags(0), first.cred.as_ref()).unwrap();
         assert_eq!(more.len(), 0);
         let second = b.try_recv(16, MsgFlags(0), None).unwrap();
         assert_eq!(
@@ -1861,7 +1890,7 @@ mod tests {
         let file = a.clone();
         let mut anc = Ancillary::default();
         assert_eq!(
-            a.try_send_connected(&mut Vec::new(), &mut anc, Ucred::default()),
+            a.try_send_connected(&mut Vec::new(), &mut anc, &Ucred::default()),
             Ok(0)
         );
         assert_eq!(b.try_recv(16, MsgFlags(0), None).err(), Some(Errno::EAGAIN));
@@ -1874,7 +1903,7 @@ mod tests {
         let mut anc = Ancillary::default();
         let mut data = vec![7u8; 100_000];
         assert_eq!(
-            a.try_send_connected(&mut data, &mut anc, Ucred::default()),
+            a.try_send_connected(&mut data, &mut anc, &Ucred::default()),
             Ok(100_000)
         );
         assert!(data.is_empty(), "the record moved into the queue");
@@ -1892,11 +1921,11 @@ mod tests {
         // `wmem_default` less the skb's share.
         let limit = opts::UDP_BUF_DEFAULT - RECORD_OVERHEAD;
         let mut data = vec![0u8; limit + 1];
-        let sent = a.try_send_dgram(&b, &mut data, &mut anc, Ucred::default());
+        let sent = a.try_send_dgram(&b, &mut data, &mut anc, &Ucred::default());
         assert_eq!(sent, Err(Errno::EMSGSIZE));
         let mut data = vec![0u8; limit];
         assert_eq!(
-            a.try_send_dgram(&b, &mut data, &mut anc, Ucred::default()),
+            a.try_send_dgram(&b, &mut data, &mut anc, &Ucred::default()),
             Ok(limit)
         );
     }

@@ -579,7 +579,7 @@ impl Kernel {
                                 break if sent > 0 { Ok(sent) } else { Err(err) };
                             }
                             let anc = anc.take().unwrap_or_default();
-                            match unix::send(sock, &mut wait, data, None, anc, cred).await {
+                            match unix::send(sock, &mut wait, data, None, anc, cred.clone()).await {
                                 Ok(k) => {
                                     sent += k;
                                     if k < n || sent >= src.len {
@@ -735,6 +735,7 @@ impl Kernel {
                 };
                 let controls = msg
                     .cred
+                    .as_ref()
                     .map(|cred| Control {
                         level: SocketLevel::SOL_SOCKET.0,
                         kind: unix::SCM_CREDENTIALS,
@@ -753,7 +754,7 @@ impl Kernel {
                 };
                 // `unix_stream_read_generic` keeps waiting, but never past files and, with
                 // `SO_PASSCRED`, never into another writer's data.
-                let writer = msg.cred;
+                let writer = msg.cred.as_ref();
                 while stream && waitall && got.len > 0 && got.len < dst.len && got.rights.is_empty()
                 {
                     let max = (dst.len - got.len).min(SOCK_CHUNK);
@@ -1256,7 +1257,7 @@ impl Kernel {
             }),
             SocketOption::SO_ERROR => int(socket.take_error().map_or(0, |errno| errno.0)),
             // `cred_to_ucred` without peer credentials, which only Unix sockets have.
-            SocketOption::SO_PEERCRED => Ok(Some(unix::Ucred::NONE.to_bytes())),
+            SocketOption::SO_PEERCRED => Ok(Some(unix::RawUcred::NONE.to_bytes())),
             _ => Ok(None),
         }
     }
