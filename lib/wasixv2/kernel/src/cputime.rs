@@ -44,6 +44,23 @@ impl CpuClock {
         self.times().on(self.base)
     }
 
+    /// Samples with the current task's account resolved before taking a timer's lock.
+    /// Callers holding a timer lock can then read time without taking the kernel state lock.
+    pub(crate) fn sample(
+        &self,
+        host: &dyn wasixv2_host::Host,
+        current: Option<&CpuAccount>,
+    ) -> Duration {
+        let charged = self.now();
+        let Some(account) = current else {
+            return charged;
+        };
+        match (host.thread_cpu_time(), account.sampled()) {
+            (Some(now), Some(sampled)) => charged.saturating_add(now.saturating_sub(sampled)),
+            _ => charged,
+        }
+    }
+
     fn times(&self) -> CpuTimes {
         match &self.thread {
             Some((_, account)) => account.times(),
@@ -339,23 +356,25 @@ impl Kernel {
     /// process's on `CPUCLOCK_PROF`, as Linux's `cpu_clock_sample` includes the running task's
     /// time not yet accounted. Others' time is counted as of their last charge.
     pub(crate) fn cpu_clock_now(&self, task: TaskId, clock: &CpuClock) -> Duration {
-        let charged = clock.now();
+        let account = self.cpu_clock_account(task, clock);
+        clock.sample(&*self.host, account.as_deref())
+    }
+
+    /// The calling task's account when its unaccounted CPU belongs to this clock.
+    pub(crate) fn cpu_clock_account(
+        &self,
+        task: TaskId,
+        clock: &CpuClock,
+    ) -> Option<Arc<CpuAccount>> {
         if clock.base != CpuBase::Prof {
-            return charged;
+            return None;
         }
-        let account = match &clock.thread {
-            Some((thread, account)) if *thread == task => account.clone(),
-            Some(_) => return charged,
-            None => match self.task_ref(task, |t| {
+        match &clock.thread {
+            Some((thread, account)) if *thread == task => Some(account.clone()),
+            Some(_) => None,
+            None => self.task_ref(task, |t| {
                 Arc::ptr_eq(&t.process, &clock.process).then(|| t.cpu.clone())
-            }) {
-                Some(account) => account,
-                None => return charged,
-            },
-        };
-        match (self.host.thread_cpu_time(), account.sampled()) {
-            (Some(now), Some(sampled)) => charged.saturating_add(now.saturating_sub(sampled)),
-            _ => charged,
+            }),
         }
     }
 

@@ -10,6 +10,7 @@ use super::{ipc::errno, *};
 #[derive(Default)]
 struct RecordingHost {
     now: AtomicU64,
+    cpu: AtomicU64,
     ranges: Mutex<Vec<(Duration, Duration)>>,
 }
 
@@ -36,6 +37,10 @@ impl Host for RecordingHost {
             self.now
                 .fetch_max((deadline + slack).as_nanos() as u64, Ordering::Relaxed);
         })
+    }
+
+    fn thread_cpu_time(&self) -> Option<Duration> {
+        Some(Duration::from_nanos(self.cpu.load(Ordering::Relaxed)))
     }
 
     fn random(&self, _: &mut [u8]) {}
@@ -332,4 +337,135 @@ fn alarm_and_futex2_waits_do_not_inherit_nanosleep_slack() {
     ));
     assert_eq!(errno(result), Errno::ETIMEDOUT);
     assert_eq!(f.last_slack(), Duration::ZERO);
+}
+
+/// kernel/time/posix-cpu-timers.c posix_cpu_timer_set samples the clock when arming;
+/// relative expiry must include CPU time accrued since the last accounting tick.
+#[test]
+fn relative_cpu_timer_does_not_expire_before_its_full_requested_cpu_time() {
+    use wasixv2_syscalls::CpuTime;
+    let f = Fixture::new();
+    let caller = f.caller();
+    let ms = Duration::from_millis;
+    f.host.cpu.store(10_000_000, Ordering::Relaxed);
+    let account = f.kernel.cpu_account(f.task);
+    account.set_sampled(Duration::ZERO);
+    assert_eq!(
+        block_on(f.kernel.timer_create(
+            &caller,
+            ClockId::CLOCK_PROCESS_CPUTIME_ID,
+            GuestPtr::NULL,
+            GuestPtrMut::new(0x2000)
+        )),
+        Ok(0)
+    );
+    let id = block_on(wasixv2_syscalls::read_value::<i32>(
+        &f.memory,
+        GuestPtr::new(0x2000),
+    ))
+    .unwrap();
+    let setting = wasixv2_abi::KernelItimerspec {
+        it_interval: time::to_timespec(Duration::ZERO),
+        it_value: time::to_timespec(ms(50)),
+    };
+    block_on(wasixv2_syscalls::write_value(
+        &f.memory,
+        GuestPtrMut::new(0x3000),
+        &setting,
+    ))
+    .unwrap();
+    assert_eq!(
+        block_on(f.kernel.timer_settime64(
+            &caller,
+            id,
+            TimerFlags(0),
+            GuestPtr::new(0x3000),
+            GuestPtrMut::NULL
+        )),
+        Ok(0)
+    );
+    assert!(
+        !account.charge(ms(55), Duration::ZERO),
+        "10 ms already used + 50 ms requested expires at 60 ms, not 50 ms"
+    );
+    assert!(account.charge(ms(5), Duration::ZERO));
+}
+
+#[test]
+fn cpu_timer_gettime_and_old_setting_include_cpu_since_the_last_tick() {
+    use wasixv2_syscalls::CpuTime;
+    for clock in [
+        ClockId::CLOCK_PROCESS_CPUTIME_ID,
+        ClockId::CLOCK_THREAD_CPUTIME_ID,
+    ] {
+        let f = Fixture::new();
+        let caller = f.caller();
+        let ms = Duration::from_millis;
+        f.host.cpu.store(10_000_000, Ordering::Relaxed);
+        f.kernel.cpu_account(f.task).set_sampled(Duration::ZERO);
+        assert_eq!(
+            block_on(f.kernel.timer_create(
+                &caller,
+                clock,
+                GuestPtr::NULL,
+                GuestPtrMut::new(0x2000)
+            )),
+            Ok(0)
+        );
+        let id = block_on(wasixv2_syscalls::read_value::<i32>(
+            &f.memory,
+            GuestPtr::new(0x2000),
+        ))
+        .unwrap();
+        let setting = wasixv2_abi::KernelItimerspec {
+            it_interval: time::to_timespec(Duration::ZERO),
+            it_value: time::to_timespec(ms(50)),
+        };
+        block_on(wasixv2_syscalls::write_value(
+            &f.memory,
+            GuestPtrMut::new(0x3000),
+            &setting,
+        ))
+        .unwrap();
+        assert_eq!(
+            block_on(f.kernel.timer_settime64(
+                &caller,
+                id,
+                TimerFlags(0),
+                GuestPtr::new(0x3000),
+                GuestPtrMut::NULL
+            )),
+            Ok(0)
+        );
+        f.host.cpu.store(15_000_000, Ordering::Relaxed);
+        assert_eq!(
+            block_on(
+                f.kernel
+                    .timer_gettime64(&caller, id, GuestPtrMut::new(0x4000))
+            ),
+            Ok(0)
+        );
+        let got: wasixv2_abi::KernelItimerspec = block_on(wasixv2_syscalls::read_value(
+            &f.memory,
+            GuestPtr::new(0x4000),
+        ))
+        .unwrap();
+        assert_eq!(time::from_timespec(got.it_value).unwrap(), ms(45));
+        assert_eq!(
+            block_on(f.kernel.timer_settime64(
+                &caller,
+                id,
+                TimerFlags(0),
+                GuestPtr::new(0x3000),
+                GuestPtrMut::new(0x4000)
+            )),
+            Ok(0)
+        );
+        let old: wasixv2_abi::KernelItimerspec = block_on(wasixv2_syscalls::read_value(
+            &f.memory,
+            GuestPtr::new(0x4000),
+        ))
+        .unwrap();
+        assert_eq!(time::from_timespec(old.it_value).unwrap(), ms(45));
+    }
 }
