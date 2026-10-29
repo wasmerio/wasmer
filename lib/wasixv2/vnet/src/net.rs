@@ -17,9 +17,10 @@ use crate::{
     NewLink, NewLinkKind, PortEntry, Publication, Room, Socket, SocketKind,
     addr::{canonical, canonical_ip},
     cmsg::SendCtl,
+    icmp::{IPPROTO_ICMP, IPPROTO_ICMPV6, IcmpSocket, IcmpTables},
     iface::{
-        AddMode, AddrMatch, IfAddr, Interfaces, Link, LinkKind, Route, RouteDecision, RouteMatch,
-        VethEnd, Via, valid_mac,
+        AddMode, AddrMatch, IfAddr, Interfaces, LOOPBACK_INDEX, Link, LinkKind, Route,
+        RouteDecision, RouteMatch, VethEnd, Via, valid_mac,
     },
     ports::{BindSpec, PortRange, PortRng, PortTable, Proto, SockId},
     sync::MutexExt,
@@ -184,6 +185,7 @@ pub(crate) struct NetState {
     pub rng: PortRng,
     /// The ids this namespace knows other namespaces by (`netns_ids`).
     pub nsids: Vec<(i32, Weak<Net>)>,
+    pub icmp: IcmpTables,
 }
 
 /// A published UDP port: the backend endpoint bound to the host port, and the guest socket
@@ -225,7 +227,42 @@ impl Path {
 /// A route decision made under the namespace's lock, before the peer of a veth was asked.
 enum Hop {
     Done(Path),
-    Veth { src: IpAddr, end: VethEnd },
+    /// Out the veth end `oif`.
+    Veth {
+        src: IpAddr,
+        end: VethEnd,
+        oif: u32,
+    },
+}
+
+/// Where an IP packet to an address goes, with the interfaces it arrives on and an answer
+/// comes back in on.
+pub(crate) enum IpPath {
+    /// To the namespace `net` that holds the address (this one, or the one across a veth),
+    /// arriving on `iif` there; an answer comes back in on `back_iif` here.
+    Local {
+        src: IpAddr,
+        net: Arc<Net>,
+        iif: u32,
+        back_iif: u32,
+    },
+    Backend {
+        src: IpAddr,
+        host_dst: SocketAddr,
+    },
+    Nowhere {
+        src: IpAddr,
+    },
+}
+
+impl IpPath {
+    pub(crate) fn src(&self) -> IpAddr {
+        match self {
+            IpPath::Local { src, .. } | IpPath::Backend { src, .. } | IpPath::Nowhere { src } => {
+                *src
+            }
+        }
+    }
 }
 
 /// One network namespace. Implements [`Network`].
@@ -278,6 +315,7 @@ impl Net {
                 ifaces,
                 rng: PortRng::new(seed),
                 nsids: Vec::new(),
+                icmp: IcmpTables::default(),
             }),
             backend,
             config,
@@ -493,7 +531,7 @@ impl Net {
         let hop = self.hop(&self.state(), dst, bound)?;
         Ok(match hop {
             Hop::Done(path) => path,
-            Hop::Veth { src, end } => across(src, &end, dst),
+            Hop::Veth { src, end, .. } => across(src, &end, dst),
         })
     }
 
@@ -510,7 +548,11 @@ impl Net {
                 host_dst: self.host_view(dst),
             }),
             Via::Uplink => return Err(Errno::ENETUNREACH),
-            Via::Veth(end) => Hop::Veth { src, end },
+            Via::Veth(end) => Hop::Veth {
+                src,
+                end,
+                oif: decision.oif,
+            },
             Via::Nowhere => Hop::Done(Path::Nowhere { src }),
         })
     }
@@ -655,10 +697,12 @@ impl Net {
             Hop::Done(Path::Local { src, .. }) => UdpRoute::Local {
                 from: SocketAddr::new(src, local.port()),
                 to: to.and_then(|w| w.upgrade()),
+                at: self.arc(),
+                back_iif: LOOPBACK_INDEX,
             },
             Hop::Done(Path::Backend { host_dst, .. }) => UdpRoute::Backend { host_dst },
             Hop::Done(Path::Nowhere { .. }) => UdpRoute::Nowhere,
-            Hop::Veth { src, end } => match across(src, &end, dst) {
+            Hop::Veth { src, end, oif } => match across(src, &end, dst) {
                 Path::Local {
                     src,
                     net: Some(peer),
@@ -667,10 +711,48 @@ impl Net {
                     UdpRoute::Local {
                         from: SocketAddr::new(src, local.port()),
                         to: to.and_then(|w| w.upgrade()),
+                        at: peer,
+                        back_iif: oif,
                     }
                 }
                 _ => UdpRoute::Nowhere,
             },
+        })
+    }
+
+    /// Where a packet to `dst` from a socket bound to `bound` goes ([`IpPath`]).
+    pub(crate) fn ip_path(&self, dst: IpAddr, bound: Option<IpAddr>) -> NetResult<IpPath> {
+        let st = self.state();
+        let decision = st.ifaces.route(dst)?;
+        let src = bound
+            .filter(|ip| !ip.is_unspecified())
+            .unwrap_or(decision.src);
+        Ok(match decision.via {
+            Via::Local => IpPath::Local {
+                src,
+                net: self.arc(),
+                iif: LOOPBACK_INDEX,
+                back_iif: LOOPBACK_INDEX,
+            },
+            Via::Uplink if self.backend.is_some() => IpPath::Backend {
+                src,
+                host_dst: self.host_view(SocketAddr::new(dst, 0)),
+            },
+            Via::Uplink => return Err(Errno::ENETUNREACH),
+            Via::Veth(end) => {
+                drop(st);
+                let (peer, iif) = end.peer();
+                match peer.upgrade() {
+                    Some(net) if net.state().ifaces.is_local(dst) => IpPath::Local {
+                        src,
+                        net,
+                        iif,
+                        back_iif: decision.oif,
+                    },
+                    _ => IpPath::Nowhere { src },
+                }
+            }
+            Via::Nowhere => IpPath::Nowhere { src },
         })
     }
 }
@@ -771,6 +853,10 @@ pub(crate) enum UdpRoute {
     Local {
         from: SocketAddr,
         to: Option<Arc<UdpSocket>>,
+        /// The namespace holding the destination, which answers a datagram nobody takes
+        /// with a port unreachable that comes back in on `back_iif`.
+        at: Arc<Net>,
+        back_iif: u32,
     },
     /// Out through the backend to `host_dst`.
     Backend { host_dst: SocketAddr },
@@ -786,10 +872,22 @@ impl Network for Net {
         protocol: i32,
         uid: u32,
     ) -> Result<Arc<dyn Socket>, Errno> {
-        // `inet_create`: 0 means the default; IPPROTO_TCP=6, IPPROTO_UDP=17.
+        // `inet_create`: 0 means the default; IPPROTO_TCP=6, IPPROTO_UDP=17, and ICMP's
+        // datagram (ping) and raw sockets of the family's ICMP. Raw sockets of other
+        // protocols carry nothing here.
+        let icmp = match domain {
+            Domain::Inet => IPPROTO_ICMP,
+            Domain::Inet6 => IPPROTO_ICMPV6,
+        };
         match (kind, protocol) {
             (SocketKind::Stream, 0 | 6) => Ok(TcpSocket::new(self.arc(), domain, uid)),
             (SocketKind::Datagram, 0 | 17) => Ok(UdpSocket::new(self.arc(), domain, uid)),
+            (SocketKind::Datagram, p) if p == icmp => {
+                Ok(IcmpSocket::new(self.arc(), domain, false))
+            }
+            (SocketKind::Raw, p) if p == icmp => Ok(IcmpSocket::new(self.arc(), domain, true)),
+            (SocketKind::Raw, 0) => Err(Errno::EPROTONOSUPPORT),
+            (SocketKind::Raw, _) => Err(Errno::ESOCKTNOSUPPORT),
             _ => Err(Errno::EPROTONOSUPPORT),
         }
     }
@@ -841,6 +939,11 @@ impl Network for Net {
                 groups: l.groups(),
             })
             .collect()
+    }
+
+    fn set_icmp_echo_ignore(&self, broadcasts: bool, ignore: bool) -> Result<(), Errno> {
+        self.set_echo_ignore(broadcasts, ignore);
+        Ok(())
     }
 
     fn set_ipv6_disabled(&self, index: u32, disabled: bool) -> Result<(), Errno> {

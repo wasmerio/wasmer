@@ -946,6 +946,9 @@ struct DgramShared {
     v6: bool,
     /// Bound to a published port, and attached to guest sockets as they come and go.
     published: bool,
+    /// An ICMP socket whose host hands back IPv4 messages behind their IP header, which the
+    /// guest's ping socket does not see (BSD ping sockets).
+    strip_ip_header: bool,
     /// The guest socket's queue; a published endpoint's changes when it is attached.
     wq: Mutex<WaitQueue>,
     st: Mutex<DgramState>,
@@ -1027,11 +1030,15 @@ impl DgramShared {
             match self.sock.recv_from(buf) {
                 Ok((n, from)) => {
                     failed = false;
+                    let start = match self.strip_ip_header {
+                        true => usize::from(buf.first().map_or(0, |b| b & 0x0f) * 4).min(n),
+                        false => 0,
+                    };
                     let mut st = self.state();
                     // Like a full SO_RCVBUF, or no socket at all: dropped.
                     if st.attached && st.queued <= DGRAM_BUF {
-                        st.queued += n;
-                        st.queue.push_back((buf[..n].to_vec(), from));
+                        st.queued += n - start;
+                        st.queue.push_back((buf[start..n].to_vec(), from));
                         wake |= PollMask::IN | PollMask::RDNORM;
                     }
                 }
@@ -1225,6 +1232,28 @@ impl Backend for HostBackend {
         Ok(d)
     }
 
+    /// A host ICMP datagram socket (`SOCK_DGRAM`, `IPPROTO_ICMP`/`IPPROTO_ICMPV6`), which an
+    /// unprivileged process may open where the host allows it (Linux's `ping_group_range`,
+    /// macOS); the host gives echo requests its own identifier and computes their checksum.
+    /// Where it refuses, the error is the host's (`EACCES` on Linux).
+    fn ping(&self, domain: Domain, wq: WaitQueue) -> Result<Arc<dyn BackendDatagram>, Errno> {
+        let (family, proto) = match domain {
+            Domain::Inet => (socket2::Domain::IPV4, socket2::Protocol::ICMPV4),
+            Domain::Inet6 => (socket2::Domain::IPV6, socket2::Protocol::ICMPV6),
+        };
+        let open = || -> io::Result<UdpSocket> {
+            let sock = socket2::Socket::new(family, socket2::Type::DGRAM, Some(proto))?;
+            sock.set_nonblocking(true)?;
+            Ok(UdpSocket::from_std(std::net::UdpSocket::from(sock)))
+        };
+        let sock = open().map_err(|e| errno_from_io(&e))?;
+        let strip = cfg!(any(target_os = "macos", target_os = "ios")) && domain == Domain::Inet;
+        let d = self
+            .register_datagram(sock, Some(wq), strip)
+            .map_err(|e| errno_from_io(&e))?;
+        Ok(d)
+    }
+
     fn publish_datagram(&self, host: SocketAddr) -> io::Result<PublishedDatagram> {
         let d = self.datagram_on(host, None)?;
         let addr = d.0.sock.local_addr()?;
@@ -1280,6 +1309,16 @@ impl HostBackend {
     ) -> io::Result<Arc<HostDatagram>> {
         // No SO_REUSEADDR: a published port another host socket holds stays its own.
         let sock = UdpSocket::bind(addr)?;
+        self.register_datagram(sock, wq, false)
+    }
+
+    /// Serves `sock` to the guest socket whose queue is `wq` (see [`HostBackend::datagram_on`]).
+    fn register_datagram(
+        &self,
+        sock: UdpSocket,
+        wq: Option<WaitQueue>,
+        strip_ip_header: bool,
+    ) -> io::Result<Arc<HostDatagram>> {
         let v6 = sock.local_addr()?.is_ipv6();
         let token = self.shared.token();
         let published = wq.is_none();
@@ -1288,6 +1327,7 @@ impl HostBackend {
             token,
             v6,
             published,
+            strip_ip_header,
             wq: Mutex::new(wq.unwrap_or_default()),
             st: Mutex::new(DgramState::new(!published)),
             backend: Arc::downgrade(&self.shared),
@@ -1570,6 +1610,7 @@ mod tests {
             token: Token(1),
             v6: false,
             published: false,
+            strip_ip_header: false,
             wq: Mutex::new(WaitQueue::new()),
             st: Mutex::new(DgramState {
                 connected: Some("127.0.0.1:9".parse().unwrap()),

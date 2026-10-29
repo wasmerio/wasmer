@@ -12,7 +12,9 @@
 //! (`net_ctl_permissions`), so the root of a user namespace writes the values of a network
 //! namespace it made. IPv4's `conf` values are
 //! [`devinet`]'s (`devinet_sysctl_register`), which knows their defaults, modes and how a
-//! write propagates. `disable_ipv6` acts (`addrconf_disable_ipv6`); the rest
+//! write propagates. `disable_ipv6` acts (`addrconf_disable_ipv6`), and so do the ICMP ones:
+//! `ping_group_range` decides who may open ICMP datagram sockets, `icmp_echo_ignore_all` and
+//! `icmp_echo_ignore_broadcasts` whether the namespace answers echo requests. The rest
 //! describe what packets would do and have no effect, since nothing is turned into packets.
 //! `ip_local_port_range`, `ip_unprivileged_port_start` and `somaxconn` show the values the
 //! namespace uses and are read-only here.
@@ -31,7 +33,7 @@ use super::Source;
 use crate::{
     cred::Cred,
     devinet,
-    ns::NetNs,
+    ns::{NetNs, UserNs},
     sync::MutexExt,
     uidgid::{Kgid, Kuid},
 };
@@ -49,6 +51,21 @@ pub(crate) enum Dev {
 pub(crate) struct NetSysctl {
     /// Keyed by (IPv6?, interfaces, name); the flat ones under [`Dev::All`] of IPv4.
     values: BTreeMap<(bool, Dev, &'static str), i64>,
+    /// `net.ipv4.ping_group_range`, once set, as kernel ids.
+    ping_group_range: Option<(Kgid, Kgid)>,
+}
+
+/// `net.ipv4.ping_group_range`'s default: no group, so ICMP datagram sockets are nobody's
+/// (`inet_init_net`).
+const PING_GROUP_RANGE: (Kgid, Kgid) = (Kgid(1), Kgid(0));
+/// `GID_T_MAX`, the largest group `ping_group_range` takes.
+const GID_T_MAX: u32 = u32::MAX - 1;
+
+impl NetSysctl {
+    /// `inet_get_ping_group_range_net`: the groups that may open ICMP datagram sockets.
+    pub(crate) fn ping_group_range(&self) -> (Kgid, Kgid) {
+        self.ping_group_range.unwrap_or(PING_GROUP_RANGE)
+    }
 }
 
 /// Interface names as the tree has met them, by number: a directory's inode number is its
@@ -100,10 +117,12 @@ const fn fixed(name: &'static str, default: i64) -> Key {
 const CORE: &[Key] = &[fixed("somaxconn", 4096)];
 /// `net.ipv4.*` (`ipv4_net_table`); the port range is shown by [`flat_value`].
 const IPV4: &[Key] = &[
+    key("icmp_echo_ignore_all", 0),
     key("icmp_echo_ignore_broadcasts", 1),
     key("ip_forward", 0),
     fixed("ip_local_port_range", 0),
     fixed("ip_unprivileged_port_start", 1024),
+    key("ping_group_range", 0),
     key("tcp_fastopen", 1),
     key("tcp_syn_retries", 6),
 ];
@@ -281,10 +300,16 @@ fn dev_value(net: &NetNs, v6: bool, dev: Dev, key: &Key) -> i64 {
 }
 
 /// A value of `core` or `ipv4`, as text.
-fn flat_value(net: &NetNs, core: bool, key: &Key) -> String {
+fn flat_value(net: &NetNs, core: bool, key: &Key, reader: Option<&UserNs>) -> String {
     if key.name == "ip_local_port_range" {
         // `inet_get_local_port_range`: the range the namespace's port tables use.
         return "32768\t60999".into();
+    }
+    if key.name == "ping_group_range" {
+        // `from_kgid_munged` in the reader's user namespace.
+        let (low, high) = net.sysctl.lock_or_recover().ping_group_range();
+        let shown = |gid: Kgid| reader.map_or(gid.0, |ns| ns.munged_gid(gid));
+        return format!("{}\t{}", shown(low), shown(high));
     }
     let values = &net.sysctl.lock_or_recover().values;
     values
@@ -304,9 +329,44 @@ fn parse_int(data: &[u8]) -> Result<i64, Errno> {
         .map_err(|_| Errno::EINVAL)
 }
 
+/// `ipv4_ping_group_range`: two groups (`proc_douintvec_minmax` up to `GID_T_MAX`); a range
+/// whose end comes before its start is the default, no group. The groups are the writer's
+/// user namespace's (`make_kgid`, `EINVAL` where it maps none).
+fn write_ping_group_range(net: &NetNs, data: &[u8], writer: Option<&UserNs>) -> Result<(), Errno> {
+    let text = std::str::from_utf8(data).map_err(|_| Errno::EINVAL)?;
+    let mut ids = text.split_whitespace().map(|v| match v.parse::<u32>() {
+        Ok(id) if id <= GID_T_MAX => Ok(id),
+        _ => Err(Errno::EINVAL),
+    });
+    let (low, high) = match (ids.next(), ids.next(), ids.next()) {
+        (Some(low), Some(high), None) => (low?, high?),
+        _ => return Err(Errno::EINVAL),
+    };
+    let kgid = |gid: u32| match writer {
+        Some(ns) => ns.make_kgid(gid).ok_or(Errno::EINVAL),
+        None => Ok(Kgid(gid)),
+    };
+    let (klow, khigh) = (kgid(low)?, kgid(high)?);
+    let range = match high < low || khigh < klow {
+        true => PING_GROUP_RANGE,
+        false => (klow, khigh),
+    };
+    net.sysctl.lock_or_recover().ping_group_range = Some(range);
+    Ok(())
+}
+
 /// Writes a value of `dev` (IPv4's flat ones under `Dev::All`), with what Linux does on the
 /// change.
 fn write_value(net: &NetNs, v6: bool, dev: Dev, key: &Key, value: i64) -> Result<(), Errno> {
+    if let name @ ("icmp_echo_ignore_all" | "icmp_echo_ignore_broadcasts") = key.name {
+        // `proc_dou8vec_minmax` from 0 to 1.
+        if !(0..=1).contains(&value) {
+            return Err(Errno::EINVAL);
+        }
+        if let Some(network) = &net.network {
+            network.set_icmp_echo_ignore(name == "icmp_echo_ignore_broadcasts", value != 0)?;
+        }
+    }
     if v6 && key.name == "disable_ipv6" {
         // `addrconf_disable_ipv6`: `all` applies to every interface and to `default`.
         let network = net.network.as_ref().ok_or(Errno::ENODEV)?;
@@ -427,7 +487,7 @@ impl SysNetNode {
     }
 
     /// A value's text in namespace `net`, and where it is kept.
-    fn value(&self, net: &NetNs) -> FsResult<(String, bool, Dev)> {
+    fn value(&self, net: &NetNs, reader: Option<&UserNs>) -> FsResult<(String, bool, Dev)> {
         Ok(match (self.entry, self.entry.value()) {
             (Entry::DevKey { which, .. }, Some(Value::Devinet(var))) => {
                 let dev = self.dev(net, which)?;
@@ -438,7 +498,7 @@ impl SysNetNode {
                 (dev_value(net, v6, dev, key).to_string() + "\n", v6, dev)
             }
             (Entry::Flat { core, .. }, Some(Value::Key(key))) => {
-                (flat_value(net, core, key) + "\n", false, Dev::All)
+                (flat_value(net, core, key, reader) + "\n", false, Dev::All)
             }
             _ => return Err(Errno::EISDIR),
         })
@@ -570,13 +630,13 @@ impl Node for SysNetNode {
             return Ok(Box::new(DirHandle(children)));
         }
         let value = self.entry.value().ok_or(Errno::EISDIR)?;
-        let (text, v6, dev) = self.value(&net)?;
-        let net_admin = self
-            .source
-            .cred_of(options.task)
-            .is_none_or(|cred| net_admin(&cred, &net));
+        let cred = self.source.cred_of(options.task);
+        let opener_ns = cred.as_ref().map(|cred| cred.user_ns.clone());
+        let (text, v6, dev) = self.value(&net, opener_ns.as_deref())?;
+        let net_admin = cred.is_none_or(|cred| net_admin(&cred, &net));
         Ok(Box::new(ValueHandle {
             net_admin,
+            opener_ns,
             data: text.into_bytes(),
             net,
             v6,
@@ -619,6 +679,8 @@ struct ValueHandle {
     writable: bool,
     /// Whether the opener has `CAP_NET_ADMIN` over the namespace's owner.
     net_admin: bool,
+    /// The opener's user namespace (`current_user_ns`), if not the embedder's.
+    opener_ns: Option<Arc<UserNs>>,
 }
 
 #[async_trait(?Send)]
@@ -635,6 +697,12 @@ impl Handle for ValueHandle {
     async fn write_at(&self, data: &[u8], _: u64) -> FsResult<usize> {
         if !self.writable || !self.value.writable() {
             return Err(Errno::EACCES);
+        }
+        if let Value::Key(key) = self.value
+            && key.name == "ping_group_range"
+        {
+            write_ping_group_range(&self.net, data, self.opener_ns.as_deref())?;
+            return Ok(data.len());
         }
         let value = parse_int(data)?;
         match self.value {

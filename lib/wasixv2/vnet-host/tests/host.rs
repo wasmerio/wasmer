@@ -624,3 +624,40 @@ fn published_connection_without_a_guest_listener_is_reset() {
     let got = client.read(&mut buf).map_err(|e| e.kind());
     assert_eq!(got, Err(std::io::ErrorKind::ConnectionReset));
 }
+
+/// A guest ping socket's echo request to a host address leaves through a host ICMP datagram
+/// socket where the host allows one (Linux's `ping_group_range`), and the reply comes back
+/// with the guest's identifier; where the host refuses, the send fails with `EPERM`.
+#[test]
+fn echo_requests_through_the_host() {
+    let net = setup();
+    let p = net
+        .socket(Domain::Inet, SocketKind::Datagram, 1, 1)
+        .unwrap();
+    let mut req = vec![8, 0, 0, 0, 0, 0, 0, 3];
+    req.extend(b"wasixv2");
+    let dst: SocketAddr = "10.0.2.2:0".parse().unwrap();
+    let host_allows = std::fs::read_to_string("/proc/sys/net/ipv4/ping_group_range")
+        .ok()
+        .and_then(|r| {
+            let mut it = r.split_whitespace().map(|v| v.parse::<u64>().ok());
+            Some((it.next()??, it.next()??))
+        })
+        .is_none_or(|(lo, hi)| {
+            // SAFETY: getegid has no preconditions.
+            let gid = u64::from(unsafe { libc::getegid() });
+            lo <= gid && gid <= hi
+        });
+    match send(&*p, &req, Some(dst)) {
+        Err(Errno::EPERM) if !host_allows => return,
+        sent => assert_eq!(sent, Ok(req.len())),
+    }
+    wait_for(&*p, PollMask::IN);
+    let mut buf = [0u8; 64];
+    let r = p.recv(&mut buf, MsgFlags(0)).unwrap();
+    assert_eq!(r.from, Some(dst));
+    assert_eq!(buf[0], 0);
+    let ident = p.local_addr().unwrap().port();
+    assert_eq!(u16::from_be_bytes([buf[4], buf[5]]), ident);
+    assert_eq!(&buf[8..r.len], b"wasixv2");
+}

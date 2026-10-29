@@ -666,6 +666,8 @@ struct Recorder {
     published: Mutex<Vec<Published>>,
     /// Each UDP publication's host address and endpoint.
     published_dgrams: Mutex<Vec<(SocketAddr, Arc<FakeDgram>)>>,
+    /// Each ICMP endpoint.
+    pings: Mutex<Vec<Arc<FakeDgram>>>,
 }
 
 impl Backend for Recorder {
@@ -677,6 +679,11 @@ impl Backend for Recorder {
     fn datagram(&self, _: Domain, wq: WaitQueue) -> Result<Arc<dyn BackendDatagram>, Errno> {
         let d = FakeDgram::new(wq, false);
         self.dgrams.lock().unwrap().push(d.clone());
+        Ok(d)
+    }
+    fn ping(&self, _: Domain, wq: WaitQueue) -> Result<Arc<dyn BackendDatagram>, Errno> {
+        let d = FakeDgram::new(wq, false);
+        self.pings.lock().unwrap().push(d.clone());
         Ok(d)
     }
     fn publish_datagram(
@@ -1710,4 +1717,225 @@ fn multicast_crosses_a_veth_to_member_interfaces() {
     assert!(
         matches!(got.from.unwrap().ip(), std::net::IpAddr::V6(v6) if v6.is_unicast_link_local())
     );
+}
+
+// ---- ICMP ----
+
+fn ping_socket(n: &Net, domain: Domain) -> Arc<dyn Socket> {
+    let proto = match domain {
+        Domain::Inet => 1,
+        Domain::Inet6 => 58,
+    };
+    n.socket(domain, SocketKind::Datagram, proto, UID).unwrap()
+}
+
+fn raw_icmp(n: &Net, domain: Domain) -> Arc<dyn Socket> {
+    let proto = match domain {
+        Domain::Inet => 1,
+        Domain::Inet6 => 58,
+    };
+    n.socket(domain, SocketKind::Raw, proto, UID).unwrap()
+}
+
+/// An ICMP checksum (RFC 1071) over `data`.
+fn csum(data: &[u8]) -> u16 {
+    let mut sum: u32 = data
+        .chunks(2)
+        .map(|c| u32::from(u16::from_be_bytes([c[0], *c.get(1).unwrap_or(&0)])))
+        .sum();
+    while sum > 0xffff {
+        sum = (sum & 0xffff) + (sum >> 16);
+    }
+    !(sum as u16)
+}
+
+/// An IPv4 echo request with identifier `id`, sequence `seq` and `payload`, checksummed.
+fn echo4(id: u16, seq: u16, payload: &[u8]) -> Vec<u8> {
+    let mut m = vec![8, 0, 0, 0];
+    m.extend(id.to_be_bytes());
+    m.extend(seq.to_be_bytes());
+    m.extend_from_slice(payload);
+    let c = csum(&m);
+    m[2..4].copy_from_slice(&c.to_be_bytes());
+    m
+}
+
+/// `socket(AF_INET, SOCK_DGRAM, IPPROTO_ICMP)` and its IPv6 kin: an echo request gets the
+/// socket's identifier and comes back from the address it was sent to, as the kernel of the
+/// namespace answers it; anything but an echo request is `EINVAL`.
+#[test]
+fn ping_sockets_get_echo_replies_inside_the_namespace() {
+    let n = net();
+    let p = ping_socket(&n, Domain::Inet);
+    assert_eq!(
+        send_to(&*p, &[0; 8], Some(a("127.0.0.1:0"))),
+        Err(Errno::EINVAL)
+    );
+    assert_eq!(
+        send_to(&*p, &[8, 0, 0], Some(a("127.0.0.1:0"))),
+        Err(Errno::EINVAL)
+    );
+    assert_eq!(
+        send_to(&*p, &echo4(0x1234, 1, b"hello"), None),
+        Err(Errno::EDESTADDRREQ)
+    );
+    send_to(&*p, &echo4(0x1234, 7, b"hello"), Some(a("127.0.0.1:0"))).unwrap();
+    let ident = p.local_addr().unwrap().port();
+    assert_ne!(ident, 0);
+    let mut buf = [0; 64];
+    let r = p.recv(&mut buf, MsgFlags(0)).unwrap();
+    assert_eq!(r.from.unwrap(), a("127.0.0.1:0"));
+    let reply = &buf[..r.len];
+    assert_eq!(reply[0], 0);
+    assert_eq!(u16::from_be_bytes([reply[4], reply[5]]), ident);
+    assert_eq!(u16::from_be_bytes([reply[6], reply[7]]), 7);
+    assert_eq!(&reply[8..], b"hello");
+    assert_eq!(csum(reply), 0);
+    // The identifier is the socket's port: taken once, unless both share it.
+    let q = ping_socket(&n, Domain::Inet);
+    q.bind(a("0.0.0.0:4242"), false).unwrap();
+    assert_eq!(q.local_addr().unwrap(), a("0.0.0.0:4242"));
+    assert_eq!(
+        ping_socket(&n, Domain::Inet).bind(a("0.0.0.0:4242"), false),
+        Err(Errno::EADDRINUSE)
+    );
+    assert_eq!(q.bind(a("0.0.0.0:4243"), false), Err(Errno::EINVAL));
+
+    let p6 = ping_socket(&n, Domain::Inet6);
+    let mut req = vec![128, 0, 0, 0, 0, 1, 0, 2];
+    req.extend(b"six");
+    send_to(&*p6, &req, Some(a("[::1]:0"))).unwrap();
+    let r = p6.recv(&mut buf, MsgFlags(0)).unwrap();
+    assert_eq!(r.from.unwrap(), a("[::1]:0"));
+    assert_eq!(buf[0], 129);
+    assert_eq!(&buf[8..r.len], b"six");
+    assert_eq!(
+        send_to(&*p6, &req, Some(a("127.0.0.1:0"))),
+        Err(Errno::EAFNOSUPPORT)
+    );
+}
+
+/// A raw ICMP socket sees every ICMP message arriving in its namespace, behind an IPv4
+/// header: its own echo request on loopback and the reply. `ICMP_FILTER` keeps types out,
+/// and a request with a bad checksum gets no answer.
+#[test]
+fn raw_icmp_sockets_see_what_arrives() {
+    let n = net();
+    let r = raw_icmp(&n, Domain::Inet);
+    send_to(&*r, &echo4(77, 1, b"x"), Some(a("127.0.0.1:0"))).unwrap();
+    let mut buf = [0; 64];
+    let types: Vec<u8> = (0..2)
+        .map(|_| {
+            let got = r.recv(&mut buf, MsgFlags(0)).unwrap();
+            assert_eq!(got.len, 20 + 9);
+            assert_eq!(buf[0], 0x45);
+            assert_eq!(buf[9], 1);
+            buf[20]
+        })
+        .collect();
+    assert_eq!(types, [8, 0]);
+    // The reply keeps the identifier a raw socket chose.
+    assert_eq!(u16::from_be_bytes([buf[24], buf[25]]), 77);
+    assert_eq!(recv(&*r, 64), Err(Errno::EAGAIN));
+
+    r.set_option(255, 1, &(1u32 << 8).to_le_bytes()).unwrap();
+    let mut out = [0; 4];
+    assert_eq!(r.get_option(255, 1, &mut out), Ok(4));
+    assert_eq!(u32::from_le_bytes(out), 1 << 8);
+    send_to(&*r, &echo4(77, 2, b"x"), Some(a("127.0.0.1:0"))).unwrap();
+    r.recv(&mut buf, MsgFlags(0)).unwrap();
+    assert_eq!(buf[20], 0);
+    assert_eq!(recv(&*r, 64), Err(Errno::EAGAIN));
+    let mut bad = echo4(77, 3, b"x");
+    bad[2] ^= 0xff;
+    send_to(&*r, &bad, Some(a("127.0.0.1:0"))).unwrap();
+    assert_eq!(recv(&*r, 64), Err(Errno::EAGAIN));
+}
+
+/// Echo requests cross a veth to the namespace holding the address, which answers unless
+/// `icmp_echo_ignore_all`; to the all-hosts group, both the sender's own namespace (looped
+/// back) and the peer's answer from an address of the interface it arrived on, once
+/// `icmp_echo_ignore_broadcasts` is off.
+#[test]
+fn echo_requests_cross_a_veth_and_reach_groups() {
+    let (na, nb) = veth_pair(("10.25.0.1", "10.25.0.2"), ("fd00:25::1", "fd00:25::2"));
+    let p = ping_socket(&na, Domain::Inet);
+    let mut buf = [0; 64];
+    send_to(&*p, &echo4(1, 1, b"a"), Some(a("10.25.0.2:0"))).unwrap();
+    assert_eq!(
+        p.recv(&mut buf, MsgFlags(0)).unwrap().from.unwrap(),
+        a("10.25.0.2:0")
+    );
+    nb.set_icmp_echo_ignore(false, true).unwrap();
+    send_to(&*p, &echo4(1, 2, b"a"), Some(a("10.25.0.2:0"))).unwrap();
+    assert_eq!(recv(&*p, 64), Err(Errno::EAGAIN));
+    nb.set_icmp_echo_ignore(false, false).unwrap();
+
+    p.set_option(SOL_IP, IpOption::IP_MULTICAST_IF.0, &[10, 25, 0, 1])
+        .unwrap();
+    send_to(&*p, &echo4(1, 3, b"g"), Some(a("224.0.0.1:0"))).unwrap();
+    assert_eq!(recv(&*p, 64), Err(Errno::EAGAIN));
+    na.set_icmp_echo_ignore(true, false).unwrap();
+    nb.set_icmp_echo_ignore(true, false).unwrap();
+    send_to(&*p, &echo4(1, 4, b"g"), Some(a("224.0.0.1:0"))).unwrap();
+    let mut from: Vec<SocketAddr> = (0..2)
+        .map(|_| p.recv(&mut buf, MsgFlags(0)).unwrap().from.unwrap())
+        .collect();
+    from.sort();
+    assert_eq!(from, [a("10.25.0.1:0"), a("10.25.0.2:0")]);
+
+    let p6 = ping_socket(&na, Domain::Inet6);
+    let req = [128, 0, 0, 0, 0, 1, 0, 1];
+    send_to(&*p6, &req, Some(a("[fd00:25::2]:0"))).unwrap();
+    assert_eq!(
+        p6.recv(&mut buf, MsgFlags(0)).unwrap().from.unwrap(),
+        a("[fd00:25::2]:0")
+    );
+}
+
+/// A datagram to a port nobody holds is answered with a real ICMP port unreachable: raw
+/// sockets see it quoting the datagram's IP and UDP headers, and the sender learns of it.
+#[test]
+fn port_unreachables_are_icmp_messages() {
+    let n = net();
+    let r = raw_icmp(&n, Domain::Inet);
+    let u = udp(&n);
+    u.connect(a("127.0.0.1:9")).unwrap();
+    send(&*u, b"data").unwrap();
+    assert_eq!(u.take_error(), Some(Errno::ECONNREFUSED));
+    let mut buf = [0; 128];
+    let got = r.recv(&mut buf, MsgFlags(0)).unwrap();
+    let icmp = &buf[20..got.len];
+    assert_eq!((icmp[0], icmp[1]), (3, 3));
+    assert_eq!(csum(icmp), 0);
+    // The quoted IPv4 header, the UDP header to port 9, and the payload.
+    assert_eq!(icmp[8] >> 4, 4);
+    assert_eq!(icmp[8 + 9], 17);
+    assert_eq!(u16::from_be_bytes([icmp[30], icmp[31]]), 9);
+    assert_eq!(&icmp[36..], b"data");
+}
+
+/// Echo requests to the uplink go through the backend's ICMP endpoint, and its replies come
+/// back with the identifier the guest socket has.
+#[test]
+fn echo_requests_leave_through_the_backend() {
+    let (n, rec) = backed();
+    let p = ping_socket(&n, Domain::Inet);
+    send_to(&*p, &echo4(9, 5, b"out"), Some(a("192.0.2.7:0"))).unwrap();
+    let ident = p.local_addr().unwrap().port();
+    let d = rec.pings.lock().unwrap()[0].clone();
+    let (sent, to) = d.sent.lock().unwrap()[0].clone();
+    assert_eq!(to, a("192.0.2.7:0"));
+    assert_eq!(u16::from_be_bytes([sent[4], sent[5]]), ident);
+    // The host's own identifier comes back, and the guest sees its own.
+    let mut reply = sent.clone();
+    reply[0] = 0;
+    reply[4..6].copy_from_slice(&999u16.to_be_bytes());
+    d.arrive(&reply, a("192.0.2.7:0"));
+    assert!(p.poll(None).contains(PollMask::IN));
+    let mut buf = [0; 64];
+    let got = p.recv(&mut buf, MsgFlags(0)).unwrap();
+    assert_eq!(got.from.unwrap(), a("192.0.2.7:0"));
+    assert_eq!(u16::from_be_bytes([buf[4], buf[5]]), ident);
+    assert_eq!(csum(&buf[..got.len]), 0);
 }

@@ -92,6 +92,20 @@ pub(crate) fn udp(
     Ok(ctl)
 }
 
+/// The IP family's checks of a send without a transport level of its own (ping and raw
+/// sockets): `ip_cmsg_send` for an IPv4 destination, `ip6_datagram_send_ctl` for IPv6.
+pub(crate) fn inet(
+    controls: &[Control],
+    domain: Domain,
+    v4_dst: bool,
+    net_raw: bool,
+) -> NetResult<SendCtl> {
+    match v4_dst {
+        true => ip(controls, domain == Domain::Inet6),
+        false => ip6(controls, net_raw),
+    }
+}
+
 /// `udp_send_skb`'s segmentation checks: at most `UDP_MAX_SEGMENTS` segments.
 pub(crate) fn check_segments(len: usize, gso_size: usize) -> NetResult<()> {
     match len > gso_size * UDP_MAX_SEGMENTS {

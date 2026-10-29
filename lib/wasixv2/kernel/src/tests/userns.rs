@@ -780,6 +780,28 @@ fn interface_requests_and_packet_sockets_ask_the_network_namespaces_owner() {
     assert!(socket(AddressFamily::AF_PACKET, raw).is_ok());
 }
 
+/// `ping_group_range` holds kernel groups: the writer's user namespace maps what it writes in
+/// (`make_kgid`, `EINVAL` for a group it does not map) and a reader's maps them out, so the
+/// root of a user namespace that writes `0 0` lets its own group open ICMP datagram sockets
+/// (`ipv4_ping_group_range`, `ping_init_sock`).
+#[test]
+fn ping_group_range_is_in_the_writers_user_namespace() {
+    use wasixv2_abi::AddressFamily;
+    let range = "/proc/sys/net/ipv4/ping_group_range";
+    let (kernel, p) = networked_as(1000);
+    become_root(&kernel, &p, CloneFlags::CLONE_NEWNET);
+    let ping = || block_on(kernel.socket(&p.caller(), AddressFamily::AF_INET, 2, 1));
+    assert_eq!(errno(ping()), Errno::EACCES, "no group by default");
+    assert_eq!(
+        write_text(&kernel, &p, range, "5 5"),
+        Err(Errno::EINVAL.into()),
+        "an unmapped group"
+    );
+    assert_eq!(write_text(&kernel, &p, range, "0 0"), Ok(3));
+    assert_eq!(read_text(&kernel, &p, range), "0\t0\n");
+    assert!(ping().is_ok());
+}
+
 /// sysfs shows the whole machine too (`FS_USERNS_MOUNT_RESTRICTED`): a user namespace's root
 /// mounts it for a network namespace it owns only where a whole sysfs is visible already,
 /// and not at all for the initial network namespace.

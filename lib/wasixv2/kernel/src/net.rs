@@ -212,15 +212,24 @@ impl Kernel {
         let kind = match kind {
             SocketType::SOCK_STREAM => SocketKind::Stream,
             SocketType::SOCK_DGRAM => SocketKind::Datagram,
-            // `inet_create` matches raw sockets, then wants CAP_NET_RAW over the network
-            // namespace's owner. With it, they are still not implemented.
+            // `inet_create`: a raw socket names its protocol, and needs CAP_NET_RAW over the
+            // network namespace's owner.
+            SocketType::SOCK_RAW if protocol == 0 => return Err(Errno::EPROTONOSUPPORT.into()),
             SocketType::SOCK_RAW if !self.net_capable(caller, Cap::NetRaw) => {
                 return Err(Errno::EPERM.into());
             }
+            SocketType::SOCK_RAW => SocketKind::Raw,
             _ => return Err(Errno::ESOCKTNOSUPPORT.into()),
         };
         let ns = self.ns(caller);
         let network = ns.net.network.as_ref().ok_or(Errno::EAFNOSUPPORT)?;
+        let icmp = match domain {
+            Domain::Inet => wasixv2_abi::IpProtocol::IPPROTO_ICMP.0,
+            Domain::Inet6 => wasixv2_abi::IpProtocol::IPPROTO_ICMPV6.0,
+        };
+        if kind == SocketKind::Datagram && protocol == icmp {
+            self.ping_allowed(caller, &ns.net)?;
+        }
         // `sk_uid`: the inode owner `sock_alloc` gives the socket.
         let (uid, _) = self.cred(caller).fs_owner();
         let socket = network.socket(domain, kind, protocol, uid)?;
@@ -228,6 +237,18 @@ impl Kernel {
         let cloexec = flags.contains(SocketFlags::SOCK_CLOEXEC);
         let [slot] = self.reserve_fds::<1>(caller, cloexec)?;
         Ok(slot.install(file))
+    }
+
+    /// `ping_init_sock`: an ICMP datagram socket is for the groups `ping_group_range` names,
+    /// the effective group or a supplementary one; `EACCES` otherwise, root included.
+    fn ping_allowed(&self, caller: &Caller<'_>, net: &NetNs) -> Result<(), Errno> {
+        let (low, high) = net.sysctl.lock_or_recover().ping_group_range();
+        let cred = self.cred(caller);
+        let allowed = |gid: &crate::uidgid::Kgid| (low..=high).contains(gid);
+        match allowed(&cred.group.effective) || cred.groups.iter().any(allowed) {
+            true => Ok(()),
+            false => Err(Errno::EACCES),
+        }
     }
 
     /// `__sys_socketpair`. Only Unix sockets have pairs.
@@ -389,7 +410,7 @@ impl Kernel {
         let socket = &sock.socket;
         let addr = match socket.kind() {
             // `ip6_datagram_connect` takes an IPv4 address too.
-            SocketKind::Datagram => {
+            SocketKind::Datagram | SocketKind::Raw => {
                 socket::decode_dest(socket.domain(), &raw)?.ok_or(Errno::EAFNOSUPPORT)?
             }
             SocketKind::Stream => socket::decode(socket.domain(), &raw, false)?,
@@ -1137,6 +1158,7 @@ impl Kernel {
             SocketOption::SO_TYPE => int(match socket.kind() {
                 SocketKind::Stream => SocketType::SOCK_STREAM.0,
                 SocketKind::Datagram => SocketType::SOCK_DGRAM.0,
+                SocketKind::Raw => SocketType::SOCK_RAW.0,
             }),
             SocketOption::SO_PROTOCOL => int(socket.protocol()),
             SocketOption::SO_DOMAIN => int(match socket.domain() {

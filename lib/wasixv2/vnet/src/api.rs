@@ -51,6 +51,8 @@ pub enum SocketKind {
     Stream,
     /// `SOCK_DGRAM`
     Datagram,
+    /// `SOCK_RAW`
+    Raw,
 }
 
 /// `shutdown`'s `how`.
@@ -220,7 +222,9 @@ pub trait Network: Send + Sync {
     /// Linux's `inet_create`/`inet6_create`: a new, unbound socket. `protocol` is the guest's
     /// third `socket` argument: 0 picks the default; an unsupported value is
     /// `EPROTONOSUPPORT`, an unsupported kind/protocol pair `ESOCKTNOSUPPORT` or
-    /// `EPROTONOSUPPORT` as Linux decides. `SOCK_RAW` never gets here. `uid` owns the socket
+    /// `EPROTONOSUPPORT` as Linux decides. The kernel has checked what creating the socket
+    /// needs: `CAP_NET_RAW` for `SOCK_RAW`, `ping_group_range` for an ICMP datagram (ping)
+    /// socket. `uid` owns the socket
     /// (`sk_uid`, the creator's filesystem uid, which accepted sockets inherit): sockets only
     /// share a port through `SO_REUSEPORT` with sockets of the same owner.
     fn socket(
@@ -271,6 +275,13 @@ pub trait Network: Send + Sync {
     /// The ids given to other namespaces, for `RTM_GETNSID` dumps.
     fn peer_ids(&self) -> Vec<i32> {
         Vec::new()
+    }
+
+    /// `net.ipv4.icmp_echo_ignore_broadcasts` (`broadcasts`) or `icmp_echo_ignore_all`, which
+    /// the namespace's ICMP heeds answering echo requests.
+    fn set_icmp_echo_ignore(&self, broadcasts: bool, ignore: bool) -> Result<(), Errno> {
+        let _ = (broadcasts, ignore);
+        Err(Errno::EOPNOTSUPP)
     }
 
     /// `net.ipv6.conf.<name>.disable_ipv6` (`addrconf_disable_ipv6`).
@@ -483,6 +494,16 @@ pub trait Backend: Send + Sync {
     /// A datagram endpoint for traffic to outside addresses, of the given family. It wakes
     /// `wq`, the guest socket's queue, when datagrams or errors arrive.
     fn datagram(&self, domain: Domain, wq: WaitQueue) -> Result<Arc<dyn BackendDatagram>, Errno>;
+
+    /// An ICMP endpoint for echo requests to outside addresses, of the given family: a host
+    /// ICMP datagram socket. `send_to` takes an echo request and the address (port 0), which
+    /// the host may give an identifier of its own; `recv_from` returns the echo replies, ICMP
+    /// header first. It wakes `wq` as [`Backend::datagram`]'s does. The default carries no
+    /// ICMP (`EPERM`).
+    fn ping(&self, domain: Domain, wq: WaitQueue) -> Result<Arc<dyn BackendDatagram>, Errno> {
+        let _ = (domain, wq);
+        Err(Errno::EPERM)
+    }
 
     /// Publishing a UDP port: a datagram endpoint bound to `host`, so replies leave from the
     /// published port. It serves no guest socket until [`BackendDatagram::attach`]ed, and drops
