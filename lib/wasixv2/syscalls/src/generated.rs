@@ -72,22 +72,29 @@ pub trait Syscalls {
         Err(Errno::ENOSYS.into())
     }
 
-    /// Starts a new thread: `clone` for the thread case, which cannot return twice in wasm.
+    /// Starts a task that shares the caller's memory on an instance of its own: `clone` with
+    /// `CLONE_VM` and without `CLONE_VFORK`, which cannot return twice in wasm.
     ///
     /// The kernel validates `flags` and creates the task as `clone(flags, newsp, parent-tid, tls,
     /// child-tid)` does on Linux, so `CLONE_PARENT_SETTID`, `CLONE_CHILD_SETTID`,
-    /// `CLONE_CHILD_CLEARTID` and the sharing flags mean the same. `flags` must contain `CLONE_VM`,
-    /// `CLONE_FS`, `CLONE_FILES`, `CLONE_SIGHAND` and `CLONE_THREAD`; other forms are `-EINVAL`, and
-    /// forks go through `clone`. `CLONE_SETTLS` records `tls` as the thread pointer the new thread
-    /// starts with.
+    /// `CLONE_CHILD_CLEARTID` and the sharing flags mean the same. `flags` must contain `CLONE_VM`.
+    /// With `CLONE_THREAD`, which needs `CLONE_FS`, `CLONE_FILES` and `CLONE_SIGHAND` too, the task
+    /// is a thread of the caller's thread group. Without it, the task is the first of a new process
+    /// that shares the caller's memory: a child of the caller's process (of its parent with
+    /// `CLONE_PARENT`) that reports its end with the signal in the low byte of `flags`
+    /// (`CSIGNAL`), and shares with the caller what the other flags say (`CLONE_SIGHAND`: the
+    /// signal handlers). `CLONE_VFORK` and the forms `clone` refuses are `-EINVAL`; vfork and fork
+    /// go through `clone`. `CLONE_SETTLS` records `tls` as the thread pointer the new task starts
+    /// with; without it, it starts with the caller's.
     ///
     /// The host then instantiates the module again on the same shared memory and calls its export
-    /// `wasixv2_thread_start(tid: s32, start-arg: uptr)` in the new thread. That entry point runs
-    /// before any guest state is set up: it must point `__stack_pointer` at the new thread's stack
-    /// and set up TLS before it touches either, all from what `start-arg` points to, which the
-    /// guest defines. The thread ends when it calls `exit` or `exit_group`; the entry point must
-    /// not return. A thread that returns from it or traps ends its thread group, as a fault does.
-    /// Returns the new thread id or `-errno`.
+    /// `wasixv2_thread_start(tid: s32, start-arg: uptr)` as the new task, with its id as it sees
+    /// it. That entry point runs before any guest state is set up: it must point
+    /// `__stack_pointer` at the new task's stack and set up TLS before it touches either, all from
+    /// what `start-arg` points to, which the guest defines. The task ends when it calls `exit` or
+    /// `exit_group`, or replaces its image with `execve`; the entry point must not return. A task
+    /// that returns from it or traps ends its thread group, as a fault does. Returns the new
+    /// task's id (a new process's pid) as the caller sees it, or `-errno`.
     ///
     /// Wasm import `wasixv2.thread_spawn`.
     async fn thread_spawn(
@@ -1912,9 +1919,12 @@ pub trait Syscalls {
     ///
     /// fork (no `CLONE_VM`) works only in the asyncify build configuration. The host unwinds the stack
     /// into linear memory, copies the memory for the child and rewinds both, so the call returns the
-    /// child's pid in the parent and 0 in the child.
+    /// child's pid in the parent and 0 in the child. With `CLONE_VFORK`, the parent's call returns
+    /// once the child exited or its `execve` replaced its memory.
     ///
-    /// Threads use `thread-spawn` instead, since the new thread needs its own entry point.
+    /// Threads, and processes that share the caller's memory without being its vfork child
+    /// (`CLONE_VM` without `CLONE_VFORK`), use `thread-spawn` instead, since the new task needs its
+    /// own entry point.
     ///
     /// Wasm import `wasixv2.clone` (riscv32 nr 220).
     async fn clone(
