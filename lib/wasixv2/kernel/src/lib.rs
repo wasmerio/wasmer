@@ -20,6 +20,7 @@ mod ioctl;
 mod ipc;
 mod keys;
 mod landlock;
+mod lsm;
 mod memfd;
 mod mm;
 mod net;
@@ -2023,6 +2024,41 @@ impl Syscalls for Kernel {
         arg5: Ulong,
     ) -> SysResult<i32> {
         self.sys_keyctl(caller, option, arg2, arg3, arg4, arg5)
+            .await
+    }
+
+    async fn lsm_get_self_attr(
+        &self,
+        caller: &Caller<'_>,
+        attr: u32,
+        ctx: wasixv2_abi::LsmCtxPtr,
+        size: U32Ptr,
+        flags: u32,
+    ) -> SysResult<i32> {
+        self.sys_lsm_get_self_attr(caller, attr, ctx.addr(), size, flags)
+            .await
+    }
+
+    async fn lsm_set_self_attr(
+        &self,
+        caller: &Caller<'_>,
+        attr: u32,
+        ctx: wasixv2_abi::ConstLsmCtxPtr,
+        size: u32,
+        flags: u32,
+    ) -> SysResult<i32> {
+        self.sys_lsm_set_self_attr(caller, attr, ctx.addr(), size, flags)
+            .await
+    }
+
+    async fn lsm_list_modules(
+        &self,
+        caller: &Caller<'_>,
+        ids: wasixv2_abi::U64Array,
+        size: U32Ptr,
+        flags: u32,
+    ) -> SysResult<i32> {
+        self.sys_lsm_list_modules(caller, ids.addr(), size, flags)
             .await
     }
 
