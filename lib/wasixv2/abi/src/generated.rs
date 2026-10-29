@@ -28036,6 +28036,10 @@ pub struct IoctlRequest(pub u32);
 impl IoctlRequest {
     pub const IOC_WATCH_QUEUE_SET_SIZE: Self = Self(22368);
     pub const IOC_WATCH_QUEUE_SET_FILTER: Self = Self(22369);
+    /// `/dev/fuse` cloning (`fs/fuse/dev.c:fuse_dev_ioctl`).
+    pub const FUSE_DEV_IOC_CLONE: Self = Self(2147804416);
+    /// Require synchronous INIT before mount completes (`fs/fuse/dev.c:fuse_dev_ioctl_sync_init`).
+    pub const FUSE_DEV_IOC_SYNC_INIT: Self = Self(58627);
     pub const TCGETS: Self = Self(21505);
     pub const TCSETS: Self = Self(21506);
     pub const TCSETSW: Self = Self(21507);
@@ -28236,6 +28240,8 @@ impl IoctlRequest {
             "IOC_WATCH_QUEUE_SET_FILTER",
             Self::IOC_WATCH_QUEUE_SET_FILTER,
         ),
+        ("FUSE_DEV_IOC_CLONE", Self::FUSE_DEV_IOC_CLONE),
+        ("FUSE_DEV_IOC_SYNC_INIT", Self::FUSE_DEV_IOC_SYNC_INIT),
         ("TCGETS", Self::TCGETS),
         ("TCSETS", Self::TCSETS),
         ("TCSETSW", Self::TCSETSW),
@@ -28427,6 +28433,8 @@ impl IoctlRequest {
         match self.0 {
             22368 => Some("IOC_WATCH_QUEUE_SET_SIZE"),
             22369 => Some("IOC_WATCH_QUEUE_SET_FILTER"),
+            2147804416 => Some("FUSE_DEV_IOC_CLONE"),
+            58627 => Some("FUSE_DEV_IOC_SYNC_INIT"),
             21505 => Some("TCGETS"),
             21506 => Some("TCSETS"),
             21507 => Some("TCSETSW"),
@@ -33587,6 +33595,7 @@ impl LandlockRestrictSelfFlags {
     pub const LANDLOCK_RESTRICT_SELF_LOG_NEW_EXEC_ON: Self = Self(0x2);
     pub const LANDLOCK_RESTRICT_SELF_LOG_SUBDOMAINS_OFF: Self = Self(0x4);
     pub const LANDLOCK_RESTRICT_SELF_TSYNC: Self = Self(0x8);
+    pub const LANDLOCK_RESTRICT_SELF_NO_NEW_PRIVS: Self = Self(0x10);
     /// All named values, in definition order (aliases included).
     pub const MEMBERS: &'static [(&'static str, Self)] = &[
         (
@@ -33604,6 +33613,10 @@ impl LandlockRestrictSelfFlags {
         (
             "LANDLOCK_RESTRICT_SELF_TSYNC",
             Self::LANDLOCK_RESTRICT_SELF_TSYNC,
+        ),
+        (
+            "LANDLOCK_RESTRICT_SELF_NO_NEW_PRIVS",
+            Self::LANDLOCK_RESTRICT_SELF_NO_NEW_PRIVS,
         ),
     ];
 
