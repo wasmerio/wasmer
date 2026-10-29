@@ -286,6 +286,7 @@ impl Kernel {
                 ns: task.ns.clone(),
                 work: Work::new(flag.clone()),
                 restart: None,
+                session_keyring_work: None,
                 comm: task.comm,
                 sched,
                 seccomp: task.seccomp.clone(),
@@ -1235,6 +1236,10 @@ fn take_futex_state(task: &mut Task) -> ThreadState {
 /// at its `exit_mm` already: they belong to the task that exits, never to its id.
 fn exchange_tasks(leader: &mut Task, caller: &mut Task) {
     std::mem::swap(&mut leader.cred, &mut caller.cred);
+    std::mem::swap(
+        &mut leader.session_keyring_work,
+        &mut caller.session_keyring_work,
+    );
     std::mem::swap(&mut leader.ns, &mut caller.ns);
     std::mem::swap(&mut leader.fs, &mut caller.fs);
     std::mem::swap(&mut leader.files, &mut caller.files);

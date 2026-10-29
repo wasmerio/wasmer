@@ -1426,7 +1426,7 @@ impl Kernel {
             Lookup::default(),
             Need::Link,
         )?;
-        let session = ctx.cred.keys.session.clone();
+        let session = ctx.cred.keys.session.clone().expect("session installed");
         let me = self.process(caller.task());
         let parent = self
             .procs
@@ -1434,19 +1434,70 @@ impl Kernel {
             .lock_or_recover()
             .nodes
             .get(&me.pid.0)
-            .map(|n| n.parent);
-        let parent = parent
-            .filter(|&p| p > 1)
-            .and_then(|p| self.procs.find(p))
+            .map(|n| n.parent)
+            .filter(|&pid| pid > 1)
             .ok_or(Errno::EPERM)?;
-        let (mine, theirs) = (self.task_cred(caller.task()), self.task_cred(parent.pid));
-        if mine.user != theirs.user || mine.group.real != theirs.group.real {
+        let mut state = self.state.lock_or_recover();
+        let parent = state
+            .tasks
+            .get_mut(&wasixv2_syscalls::TaskId(parent))
+            .ok_or(Errno::EPERM)?;
+        // security/keys/keyctl.c `keyctl_session_to_parent`: the parent must be
+        // single threaded, with an mm, and have the child's effective ownership.
+        if parent.thread.left_mm() || !parent.process.group.single_threaded() {
             return Err(Errno::EPERM.into());
         }
-        let mut new = (*theirs).clone();
-        new.keys.session = session;
-        self.commit_cred(parent.pid, new);
+        let (mine, theirs) = (&ctx.cred, &parent.cred);
+        if theirs
+            .keys
+            .session
+            .as_ref()
+            .is_some_and(|ring| Arc::ptr_eq(ring, &session))
+        {
+            return Ok(0);
+        }
+        if [theirs.user.real, theirs.user.effective, theirs.user.saved]
+            .iter()
+            .any(|&id| id != mine.user.effective)
+            || [
+                theirs.group.real,
+                theirs.group.effective,
+                theirs.group.saved,
+            ]
+            .iter()
+            .any(|&id| id != mine.group.effective)
+            || session.st().uid != mine.user.effective
+            || theirs
+                .keys
+                .session
+                .as_ref()
+                .is_some_and(|ring| ring.st().uid != mine.user.effective)
+        {
+            return Err(Errno::EPERM.into());
+        }
+        parent.session_keyring_work = Some(session);
+        parent.work.flag().raise();
         Ok(0)
+    }
+
+    /// security/keys/process_keys.c `key_change_session_keyring`: replace only the
+    /// session ring in the parent's credentials at its own return to userspace.
+    pub(crate) fn key_session_task_work(&self, task: wasixv2_syscalls::TaskId) {
+        let mut state = self.state.lock_or_recover();
+        let Some(task) = state.tasks.get_mut(&task) else {
+            return;
+        };
+        let Some(ring) = task.session_keyring_work.take() else {
+            return;
+        };
+        if task.thread.exited() || task.work.exit().is_some() {
+            return;
+        }
+        assert!(task.cred_override.is_none(), "commit during override_creds");
+        let mut cred = (*task.cred).clone();
+        cred.keys.session = Some(ring);
+        task.cred = Arc::new(cred);
+        task.signals.publish_cred(task.cred.clone());
     }
 }
 

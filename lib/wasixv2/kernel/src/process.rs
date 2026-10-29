@@ -1661,6 +1661,7 @@ impl Kernel {
                 ns: Some(ns),
                 work: Work::new(flag),
                 restart: None,
+                session_keyring_work: None,
                 comm: task.comm,
                 sched,
                 seccomp,
