@@ -293,6 +293,9 @@ pub(crate) struct Sock {
     net: Arc<NetNs>,
     /// The credentials of the task that created the socket.
     owner: PeerCred,
+    /// Its creator's Landlock domain (that of the socket file's `f_cred`), which scoped
+    /// domains compare with theirs.
+    landlock: std::sync::OnceLock<Arc<crate::landlock::Domain>>,
     /// `SO_RCVTIMEO`/`SO_SNDTIMEO`.
     pub(crate) timeouts: Timeouts,
     host: Arc<dyn Host>,
@@ -382,6 +385,7 @@ impl Sock {
             fasync: SockAsync::default(),
             net,
             owner,
+            landlock: std::sync::OnceLock::new(),
             timeouts: Timeouts::default(),
             host,
             me: me.clone(),
@@ -1534,12 +1538,16 @@ impl Kernel {
             SocketType::SOCK_SEQPACKET => Kind::SeqPacket,
             _ => return Err(Errno::ESOCKTNOSUPPORT),
         };
-        Ok(Sock::new(
+        let sock = Sock::new(
             kind,
             self.ns(caller).net.clone(),
             self.peer_cred(caller),
             self.host.clone(),
-        ))
+        );
+        if let Some(domain) = self.landlock(caller) {
+            let _ = sock.landlock.set(domain);
+        }
+        Ok(sock)
     }
 
     /// Finds the socket a name refers to for `sock` (`unix_find_other`): an abstract name in
@@ -1550,11 +1558,25 @@ impl Kernel {
         sock: &Sock,
         name: &Name,
     ) -> SysResult<Arc<Sock>> {
+        let landlock = self.landlock(caller);
         match name {
-            Name::Abstract(name) => Ok(sock
-                .names()
-                .find(&Key::Abstract(name.clone()))
-                .ok_or(Errno::ECONNREFUSED)?),
+            Name::Abstract(name) => {
+                let other = sock
+                    .names()
+                    .find(&Key::Abstract(name.clone()))
+                    .ok_or(Errno::ECONNREFUSED)?;
+                // `hook_unix_stream_connect`, `hook_unix_may_send`: only a pathname socket
+                // reaches out of a domain that scopes abstract sockets.
+                if let Some(landlock) = &landlock
+                    && landlock.scoped(
+                        other.landlock.get(),
+                        crate::landlock::SCOPE_ABSTRACT_UNIX_SOCKET,
+                    )
+                {
+                    return Err(Errno::EPERM.into());
+                }
+                Ok(other)
+            }
             Name::Path(path) => {
                 let env = self.env(caller);
                 let start = self.start(caller, &env, wasixv2_syscalls::Fd(-100), path)?;
@@ -1567,7 +1589,12 @@ impl Kernel {
                     return Err(Errno::ECONNREFUSED.into());
                 }
                 let key = Key::Inode(found.dentry.sb().id, found.dentry.node().ino());
-                Ok(sock.names().find(&key).ok_or(Errno::ECONNREFUSED)?)
+                let other = sock.names().find(&key).ok_or(Errno::ECONNREFUSED)?;
+                // `security_unix_find`.
+                if let Some(landlock) = &landlock {
+                    landlock.check_unix_find(&found, other.landlock.get())?;
+                }
+                Ok(other)
             }
         }
     }

@@ -283,6 +283,8 @@ pub(crate) struct Cred {
     /// The user namespace the capabilities count in, and the ids are seen through
     /// (`cred->user_ns`).
     pub(crate) user_ns: Arc<UserNs>,
+    /// The Landlock domain the process is confined to (`landlock_cred(cred)->domain`).
+    pub(crate) landlock: Option<Arc<crate::landlock::Domain>>,
 }
 
 impl PartialEq for Cred {
@@ -297,6 +299,11 @@ impl PartialEq for Cred {
             && self.ambient == other.ambient
             && self.securebits == other.securebits
             && Arc::ptr_eq(&self.user_ns, &other.user_ns)
+            && match (&self.landlock, &other.landlock) {
+                (None, None) => true,
+                (Some(a), Some(b)) => Arc::ptr_eq(a, b),
+                _ => false,
+            }
     }
 }
 
@@ -338,6 +345,7 @@ impl Cred {
             ambient: 0,
             securebits: 0,
             user_ns,
+            landlock: None,
         }
     }
 
@@ -426,6 +434,7 @@ impl Cred {
             groups: self.groups.iter().map(|gid| gid.0).collect(),
             caps: self.effective,
             user_ns: self.user_ns.clone(),
+            security: crate::landlock::fs_security(&self.landlock),
         }
     }
 

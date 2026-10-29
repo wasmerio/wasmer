@@ -2263,6 +2263,17 @@ impl Kernel {
         let (Some(sender), Some(target)) = (sender, self.procs.find(target)) else {
             return true;
         };
+        // `security_task_kill`: Landlock's signal scope, which never holds within a thread
+        // group.
+        if let Some(domain) = &sender.cred().landlock
+            && sender.pid != target.pid
+            && domain.scoped(
+                target.cred().landlock.as_ref(),
+                crate::landlock::SCOPE_SIGNAL,
+            )
+        {
+            return false;
+        }
         if sender.cred().may_signal(&target.cred()) {
             return true;
         }

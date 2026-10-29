@@ -33,7 +33,7 @@ pub(crate) fn ioc_size(request: IoctlRequest) -> u32 {
 
 /// `FIGETBSZ` (`_IO(0x00, 2)`, `linux/fs.h`): the filesystem's block size. Not among the ABI's
 /// request names.
-const FIGETBSZ: IoctlRequest = IoctlRequest(2);
+pub(crate) const FIGETBSZ: IoctlRequest = IoctlRequest(2);
 /// `FICLONE` (`_IOW(0x94, 9, int)`), `FICLONERANGE` (`_IOW(0x94, 13, struct
 /// file_clone_range)`) and `FIDEDUPERANGE` (`_IOWR(0x94, 54, struct file_dedupe_range)`),
 /// from `linux/fs.h`; not among the ABI's request names.
@@ -59,6 +59,16 @@ impl Kernel {
     ) -> SysResult<i32> {
         // `fdget`: an `O_PATH` descriptor has no operations.
         let file = self.io_file(caller, fd)?;
+        // `security_file_ioctl`: Landlock's `LANDLOCK_ACCESS_FS_IOCTL_DEV`.
+        if !file.landlock_allows(crate::landlock::IOCTL_DEV)
+            && matches!(
+                file.path().dentry.file_type(),
+                FileType::CharDevice | FileType::BlockDevice
+            )
+            && !crate::landlock::device_ioctl_masked(request)
+        {
+            return Err(Errno::EACCES.into());
+        }
         // Regular files answer FIONREAD generically; other files ask their object.
         if request == IoctlRequest::FIONREAD
             && let Backing::Inode(inode) = &file.backing

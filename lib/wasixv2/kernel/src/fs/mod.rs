@@ -489,8 +489,14 @@ impl Kernel {
             .open(&env.cx(), &start, &path, &vfs_how)
             .await
             .map_err(|errno| env.error(errno))?;
+        // `hook_file_open`'s `allowed_access`, kept for ftruncate and ioctl.
+        let rights = match file.path_only {
+            true => None,
+            false => self.landlock(caller).map(|d| d.file_rights(&file.path)),
+        };
         let backing = self.attach(caller, file, flags).await?;
-        Ok(fd.install(Arc::new(OpenFile::new(backing, flags))))
+        let file = OpenFile::new(backing, flags).with_landlock(rights);
+        Ok(fd.install(Arc::new(file)))
     }
 
     /// `do_dentry_open`'s `f_op->open`: a FIFO attaches to its pipe and a device node to its
