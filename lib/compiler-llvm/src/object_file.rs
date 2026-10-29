@@ -230,7 +230,7 @@ where
 
                 elf_section_to_target(index);
             }
-            ".data.DW.ref.wasmer_eh_personality" => {
+            ".data.DW.ref.wasmer_eh_personality" | ".data.DW.ref.__gxx_personality_v0" => {
                 worklist.push(index);
                 data_dw_ref_personality_section_indices.push(index);
 
