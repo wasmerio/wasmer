@@ -23,6 +23,7 @@ use wasixv2_wait::NoInterrupt;
 use crate::{
     Kernel, Process,
     file::{Backing, OpenFile},
+    ident::Dumpable,
     printk::Level,
     sync::MutexExt,
 };
@@ -44,6 +45,16 @@ const MMF_DUMP_ANON_PRIVATE: u32 = 1 << 0;
 pub(crate) const PIDFD_COREDUMPED: u32 = 1 << 0;
 pub(crate) const PIDFD_COREDUMP_SKIP: u32 = 1 << 1;
 pub(crate) const PIDFD_COREDUMP_USER: u32 = 1 << 2;
+pub(crate) const PIDFD_COREDUMP_ROOT: u32 = 1 << 3;
+
+/// `pidfs_coredump_mask`: how a process `dumpable` so would dump, none for one that is gone.
+pub(crate) fn pidfd_mask(dumpable: Option<Dumpable>) -> u32 {
+    match dumpable {
+        Some(Dumpable::User) => PIDFD_COREDUMP_USER,
+        Some(Dumpable::Root) => PIDFD_COREDUMP_ROOT,
+        Some(Dumpable::Disable) | None => PIDFD_COREDUMP_SKIP,
+    }
+}
 
 /// Starts the processes the kernel makes to run a program for it (`call_usermodehelper`): a
 /// core dump's pipe helper. The embedder runs `image` as `task` on an instance of its own and
@@ -482,10 +493,12 @@ impl Kernel {
             (ident.dumpable, ident.coredump_filter)
         };
         let comm = self.task_ref(task, |t| t.comm.name().to_vec());
-        if !dumpable {
+        if dumpable == Dumpable::Disable {
             self.note_coredump(&process, PIDFD_COREDUMP_SKIP, &info);
             return;
         }
+        // `SUID_DUMP_ROOT`: the core is root's, and only goes to a full path or a helper.
+        let as_root = dumpable == Dumpable::Root;
         let limit = process
             .resources
             .lock_or_recover()
@@ -496,7 +509,12 @@ impl Kernel {
             return self.coredump_failure(&process, &comm, "format_corename failed, aborting core");
         };
         let (file, limit, piped) = match target {
-            Target::File(name) => match self.core_file(caller, &name, limit).await {
+            Target::File(name) if as_root && !name.starts_with(b"/") => {
+                let why =
+                    "this process can only dump core to a fully qualified path, skipping core dump";
+                return self.coredump_failure(&process, &comm, why);
+            }
+            Target::File(name) => match self.core_file(caller, &name, limit, as_root).await {
                 Some(file) => (file, limit, false),
                 None => return,
             },
@@ -506,7 +524,8 @@ impl Kernel {
             },
         };
         process.ident.lock_or_recover().dumped_core = true;
-        self.note_coredump(&process, PIDFD_COREDUMPED | PIDFD_COREDUMP_USER, &info);
+        let how = pidfd_mask(Some(dumpable));
+        self.note_coredump(&process, PIDFD_COREDUMPED | how, &info);
         let core = self.core_info(task, &process, info, &comm);
         let size = caller.memory().size().await;
         let elf = ElfCore::new(&core, size, filter);
@@ -544,11 +563,21 @@ impl Kernel {
     /// `coredump_file`: the core file, made afresh with mode `0600` in the dumping task's
     /// working directory; none if it is too small to hold a core under `limit`, or the file
     /// made is not a regular file of the dumper's with that mode and one link.
-    async fn core_file(&self, caller: &Caller<'_>, name: &[u8], limit: u64) -> Option<OpenFile> {
+    async fn core_file(
+        &self,
+        caller: &Caller<'_>,
+        name: &[u8],
+        limit: u64,
+        as_root: bool,
+    ) -> Option<OpenFile> {
         if limit < MIN_COREDUMP {
             return None;
         }
-        let env = self.env(caller);
+        let mut env = self.env(caller);
+        // `cred->fsuid = GLOBAL_ROOT_UID`.
+        if as_root {
+            env.cred.fsuid = 0;
+        }
         let _ = self.vfs.unlink(&env.cx(), &env.fs.cwd, name).await;
         let how = OpenHow {
             flags: OpenFlags::O_CREAT

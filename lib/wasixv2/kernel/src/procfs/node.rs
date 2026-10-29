@@ -7,7 +7,8 @@ use async_trait::async_trait;
 use wasixv2_abi::OpenFlags;
 use wasixv2_syscalls::{Errno, Fd};
 use wasixv2_vfs::{
-    Attr, Cap, Ctx, DirEntry, DirSink, FileType, FsResult, Handle, Link, Node, OpenOptions, SetAttr,
+    Attr, Cap, Ctx, DirEntry, DirSink, FileType, FsResult, Handle, Link, Node, OpenOptions,
+    Protection, SetAttr,
 };
 
 use super::{Source, text};
@@ -21,6 +22,7 @@ use crate::{
     sync::MutexExt,
     taint::Taint,
     userns::MapKind,
+    userns::UcountKind,
 };
 
 /// A directory, file or link of the process filesystem.
@@ -106,14 +108,46 @@ const STATIC: &[(usize, &str, Static)] = &[
     (11, "net", Static::SysNet),
     // 29
     (11, "user", Static::Dir),
-    (29, "max_user_namespaces", ucount(NsKind::User)),
-    (29, "max_pid_namespaces", ucount(NsKind::Pid)),
-    (29, "max_uts_namespaces", ucount(NsKind::Uts)),
-    (29, "max_ipc_namespaces", ucount(NsKind::Ipc)),
-    (29, "max_net_namespaces", ucount(NsKind::Net)),
-    (29, "max_mnt_namespaces", ucount(NsKind::Mnt)),
-    (29, "max_cgroup_namespaces", ucount(NsKind::Cgroup)),
-    (29, "max_time_namespaces", ucount(NsKind::Time)),
+    (
+        29,
+        "max_user_namespaces",
+        ucount(UcountKind::Ns(NsKind::User)),
+    ),
+    (
+        29,
+        "max_pid_namespaces",
+        ucount(UcountKind::Ns(NsKind::Pid)),
+    ),
+    (
+        29,
+        "max_uts_namespaces",
+        ucount(UcountKind::Ns(NsKind::Uts)),
+    ),
+    (
+        29,
+        "max_ipc_namespaces",
+        ucount(UcountKind::Ns(NsKind::Ipc)),
+    ),
+    (
+        29,
+        "max_net_namespaces",
+        ucount(UcountKind::Ns(NsKind::Net)),
+    ),
+    (
+        29,
+        "max_mnt_namespaces",
+        ucount(UcountKind::Ns(NsKind::Mnt)),
+    ),
+    (
+        29,
+        "max_cgroup_namespaces",
+        ucount(UcountKind::Ns(NsKind::Cgroup)),
+    ),
+    (
+        29,
+        "max_time_namespaces",
+        ucount(UcountKind::Ns(NsKind::Time)),
+    ),
     (13, "overflowuid", Static::File(text::Global::OverflowUid)),
     (13, "overflowgid", Static::File(text::Global::OverflowGid)),
     (13, "cap_last_cap", Static::File(text::Global::CapLastCap)),
@@ -264,6 +298,42 @@ const STATIC: &[(usize, &str, Static)] = &[
     (ROOT, "vmstat", Static::File(text::Global::Vmstat)),
     (ROOT, "interrupts", Static::File(text::Global::Interrupts)),
     (ROOT, "softirqs", Static::File(text::Global::Softirqs)),
+    // 99
+    (ROOT, "pressure", Static::Dir),
+    (99, "cpu", Static::File(text::Global::Pressure)),
+    (99, "io", Static::File(text::Global::Pressure)),
+    (99, "memory", Static::File(text::Global::Pressure)),
+    (
+        29,
+        "max_inotify_instances",
+        ucount(UcountKind::InotifyInstances),
+    ),
+    (
+        29,
+        "max_inotify_watches",
+        ucount(UcountKind::InotifyWatches),
+    ),
+    (
+        57,
+        "max_user_instances",
+        Static::File(text::Global::InitUcount(UcountKind::InotifyInstances)),
+    ),
+    (
+        57,
+        "max_user_watches",
+        Static::File(text::Global::InitUcount(UcountKind::InotifyWatches)),
+    ),
+    (15, "protected_symlinks", protected(Protection::Symlinks)),
+    (15, "protected_hardlinks", protected(Protection::Hardlinks)),
+    (15, "protected_fifos", protected(Protection::Fifos)),
+    (15, "protected_regular", protected(Protection::Regular)),
+    (15, "suid_dumpable", tunable(Tunable::SuidDumpable)),
+    (ROOT, "modules", Static::File(text::Global::Modules)),
+    (ROOT, "kallsyms", Static::File(text::Global::Kallsyms)),
+    (ROOT, "timer_list", Static::File(text::Global::TimerList)),
+    (ROOT, "buddyinfo", Static::File(text::Global::Buddyinfo)),
+    (ROOT, "zoneinfo", Static::File(text::Global::Zoneinfo)),
+    (ROOT, "crypto", Static::File(text::Global::Crypto)),
 ];
 
 /// The file of an integer sysctl.
@@ -271,9 +341,14 @@ const fn tunable(tunable: Tunable) -> Static {
     Static::File(text::Global::Tunable(tunable))
 }
 
-/// `/proc/sys/user/max_*_namespaces` for `kind`.
-const fn ucount(kind: NsKind) -> Static {
-    Static::File(text::Global::MaxNamespaces(kind))
+/// `/proc/sys/user/max_*` for `kind`.
+const fn ucount(kind: UcountKind) -> Static {
+    Static::File(text::Global::Ucount(kind))
+}
+
+/// `fs.protected_*` for `which`.
+const fn protected(which: Protection) -> Static {
+    Static::File(text::Global::Protected(which))
 }
 
 /// What an entry of a process or thread directory is.
@@ -535,7 +610,7 @@ impl ProcNode {
         };
         let process = info.process;
         let cred = process.cred();
-        if !process.ident.lock_or_recover().dumpable {
+        if process.ident.lock_or_recover().dumpable != crate::ident::Dumpable::User {
             // The root of the user namespace the image runs in (`mm->user_ns`), or the global
             // root without one.
             let ns = &cred.user_ns;
@@ -561,7 +636,8 @@ impl ProcNode {
             .and_then(|tgid| self.source.process(tgid))
             .ok_or(Errno::EACCES)?;
         if !Arc::ptr_eq(&caller.process, &target.process) {
-            let dumpable = target.process.ident.lock_or_recover().dumpable;
+            let dumpable =
+                target.process.ident.lock_or_recover().dumpable == crate::ident::Dumpable::User;
             let cred = caller.process.cred();
             if !cred.may_read_task(&target.process.cred(), dumpable, true) {
                 return Err(Errno::EACCES);
@@ -828,7 +904,7 @@ impl Node for ProcNode {
                         }
                         // `set_permissions`: `CAP_SYS_RESOURCE` over the opener's own user
                         // namespace, whose limits these are.
-                        text::Global::MaxNamespaces(kind) => {
+                        text::Global::Ucount(kind) => {
                             if !opener.is_none_or(|cred| cred.capable(Cap::SysResource)) {
                                 return Err(Errno::EACCES);
                             }
@@ -876,6 +952,18 @@ impl Node for ProcNode {
                                 .is_none_or(|cred| cred.capable_init(Cap::SysAdmin));
                             Some(Write::Printk(self.source.printk.clone(), file, may))
                         }
+                        // The initial namespace's limits, root's by the mode.
+                        text::Global::InitUcount(kind) => {
+                            let mut init = user_ns.clone();
+                            while let Some(parent) = init.parent().cloned() {
+                                init = parent;
+                            }
+                            Some(Write::Ucount(init, kind))
+                        }
+                        text::Global::Protected(which) => {
+                            Some(Write::Protected(self.source.vfs.clone(), which))
+                        }
+                        text::Global::Pressure => Some(Write::Pressure),
                         // `proc_taint`: `capable(CAP_SYS_ADMIN)`, of the opener here.
                         text::Global::Tainted => {
                             let may = opener.is_none_or(|cred| cred.capable_init(Cap::SysAdmin));
@@ -1010,8 +1098,13 @@ enum Write {
     Map(Arc<UserNs>, MapKind, Box<Cred>),
     /// Whether a user namespace allows `setgroups`.
     Setgroups(Arc<UserNs>),
-    /// `user.max_*_namespaces` of the opener's user namespace.
-    Ucount(Arc<UserNs>, NsKind),
+    /// `user.max_*` of the opener's user namespace, or `fs.inotify.max_user_*` of the initial
+    /// one.
+    Ucount(Arc<UserNs>, UcountKind),
+    /// One of `fs.protected_*`.
+    Protected(std::sync::Weak<wasixv2_vfs::Vfs>, Protection),
+    /// `/proc/pressure/*`, whose triggers (`psi_trigger_create`) are not kept.
+    Pressure,
     /// One of the machine's `fs.*` integers.
     Fs(Arc<crate::fs::FsSysctls>, text::Global),
     /// One of the kernel log's tunables, if the opener may set it.
@@ -1090,6 +1183,11 @@ impl Handle for FileHandle {
             Write::Map(ns, kind, cred) => return ns.write_map(*kind, cred, offset, data),
             Write::Setgroups(ns) => return ns.write_setgroups(offset, data),
             Write::Ucount(ns, kind) => ns.set_ucount_max(*kind, sysctl_int(data)?)?,
+            Write::Protected(vfs, which) => {
+                let vfs = vfs.upgrade().ok_or(Errno::ENODEV)?;
+                vfs.set_protected(*which, i64::from(sysctl_i32(data)?))?;
+            }
+            Write::Pressure => return Err(Errno::EOPNOTSUPP),
             Write::Comm(source, scope) => {
                 source
                     .set_comm(scope.pid, scope.tid, data)

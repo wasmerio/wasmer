@@ -139,6 +139,8 @@ impl Vfs {
         let creating = flags.contains(OpenFlags::O_CREAT);
         let excl = flags.contains(OpenFlags::O_EXCL);
         let mut created = None;
+        // The directory an existing file was found in with O_CREAT (`nd->dir_mode`).
+        let mut found_in = None;
         let target = if path.is_empty() {
             start.clone()
         } else {
@@ -197,6 +199,7 @@ impl Vfs {
                     break found;
                 }
                 drop(lock);
+                found_in = Some(walk.path.clone());
                 match walk.step_into(found).await? {
                     Some(found) => break found,
                     None => continue,
@@ -208,6 +211,9 @@ impl Vfs {
         let file_type = target.dentry.file_type();
         if creating && file_type == FileType::Directory {
             return Err(Errno::EISDIR);
+        }
+        if let Some(dir) = found_in.filter(|_| created.is_none()) {
+            self.may_create_in_sticky(cx, &dir, &target).await?;
         }
         if walk.flags.directory && file_type != FileType::Directory {
             return Err(Errno::ENOTDIR);
@@ -663,6 +669,7 @@ impl Vfs {
         if dir.mnt.is_read_only() {
             return Err(Errno::EROFS);
         }
+        self.may_linkat(cx, &source).await?;
         self.may_create(cx, &dir).await?;
         if source.dentry.file_type() == FileType::Directory {
             return Err(Errno::EPERM);
@@ -688,6 +695,39 @@ impl Vfs {
         );
         dir.dentry.child(&name, source.dentry.node().clone());
         Ok(())
+    }
+
+    /// `may_linkat`: with `fs.protected_hardlinks`, only the owner of `source` (or one with
+    /// `CAP_FOWNER` over it) links to it, unless it is a safe source: a regular file that is
+    /// not set-user-ID, not executable set-group-ID, and that the caller may read and write.
+    async fn may_linkat(&self, cx: &Ctx<'_>, source: &Path) -> FsResult<()> {
+        if self.protected(crate::Protection::Hardlinks) == 0 {
+            return Ok(());
+        }
+        let attr = source.dentry.node().getattr().await?;
+        let readable_writable = self
+            .permission(cx, source, MAY_READ | MAY_WRITE)
+            .await
+            .is_ok();
+        if crate::cred::safe_hardlink_source(&attr, readable_writable) || cx.cred.owns(&attr) {
+            return Ok(());
+        }
+        Err(Errno::EPERM)
+    }
+
+    /// `may_create_in_sticky` for `target`, an existing file opened with `O_CREAT` in `dir`.
+    async fn may_create_in_sticky(&self, cx: &Ctx<'_>, dir: &Path, target: &Path) -> FsResult<()> {
+        let fifos = self.protected(crate::Protection::Fifos);
+        let regular = self.protected(crate::Protection::Regular);
+        if fifos == 0 && regular == 0 {
+            return Ok(());
+        }
+        let dir = dir.dentry.node().getattr().await?;
+        let inode = target.dentry.node().getattr().await?;
+        match crate::cred::may_create_in_sticky(cx.cred, &dir, &inode, fifos, regular) {
+            true => Ok(()),
+            false => Err(Errno::EACCES),
+        }
     }
 
     /// `may_delete_dentry` for `victim` in `dir`.

@@ -22,6 +22,7 @@ use crate::{
     fasync::{Fasync, FasyncList},
     file::{Backing, FileObject, Io, OpenFile},
     sync::MutexExt,
+    userns::{Ucount, UcountKind},
 };
 
 const IN_ISDIR: u32 = 0x4000_0000;
@@ -218,6 +219,8 @@ struct Watch {
     /// number stays its own while the watch lasts. Not the mount: a watch does not keep a
     /// filesystem from being unmounted.
     _pin: Arc<Dentry>,
+    /// Counted against `max_inotify_watches` of the instance's creator (`inc_inotify_watches`).
+    _ucount: Ucount,
 }
 
 #[derive(Default)]
@@ -241,6 +244,9 @@ pub(crate) struct Inotify {
 struct Instance {
     /// The most events its queue holds (`max_events`), past which it overflows.
     max_events: usize,
+    /// Counted against `max_inotify_instances` of its creator, whose watches count against
+    /// `max_inotify_watches` (`inotify_data.ucounts`).
+    ucount: Ucount,
     state: Mutex<State>,
     wait: WaitQueue,
     /// The files that get I/O signals (`fsn_fa`).
@@ -430,9 +436,18 @@ impl Kernel {
         let max_events = self
             .tunables
             .get(crate::sysctl::Tunable::InotifyMaxQueuedEvents);
+        // `inc_ucount(current_user_ns(), current_euid(), UCOUNT_INOTIFY_INSTANCES)`.
+        let cred = self.process(caller.task()).cred();
+        let ucount = Ucount::charge(
+            &cred.user_ns,
+            cred.user.effective,
+            UcountKind::InotifyInstances,
+        )
+        .map_err(|_| Errno::EMFILE)?;
         let inotify = Inotify {
             inner: Arc::new(Instance {
                 max_events: max_events as usize,
+                ucount,
                 state: Mutex::default(),
                 wait: WaitQueue::new(),
                 fasync: FasyncList::default(),
@@ -505,12 +520,15 @@ impl Kernel {
             };
             return Ok(wd);
         }
+        // `inotify_new_watch`: ENOSPC past `max_inotify_watches`.
+        let ucount = inotify.ucount.charge_another(UcountKind::InotifyWatches)?;
         state.last_wd += 1;
         let wd = state.last_wd;
         let watch = Watch {
             object,
             mask,
             _pin: target.dentry,
+            _ucount: ucount,
         };
         state.watches.insert(wd, watch);
         drop(state);

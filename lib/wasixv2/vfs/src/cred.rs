@@ -263,6 +263,76 @@ pub fn generic_permission(cred: &Cred, attr: &Attr, mask: u32) -> FsResult<()> {
     Err(Errno::EACCES)
 }
 
+/// The protections of `fs.protected_*` (`fs/namei.c`): who may follow a symlink, make a hard
+/// link, or open an existing FIFO or regular file with `O_CREAT`, in places other users write.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Protection {
+    Symlinks,
+    Hardlinks,
+    Fifos,
+    Regular,
+}
+
+impl Protection {
+    pub const ALL: [Protection; 4] = [
+        Protection::Symlinks,
+        Protection::Hardlinks,
+        Protection::Fifos,
+        Protection::Regular,
+    ];
+
+    /// The highest setting (`proc_dointvec_minmax`'s `extra2`): 1, or 2 for the open checks,
+    /// which also cover group-writable directories then.
+    pub fn max(self) -> u8 {
+        match self {
+            Protection::Symlinks | Protection::Hardlinks => 1,
+            Protection::Fifos | Protection::Regular => 2,
+        }
+    }
+}
+
+/// `may_follow_link`: with `fs.protected_symlinks`, a symlink `link` in a sticky world-writable
+/// directory `dir` is followed only by its owner, or when the directory's owner owns it.
+pub fn may_follow_link(cred: &Cred, dir: &Attr, link: &Attr) -> bool {
+    use crate::types::S_ISVTX;
+    cred.fsuid == link.uid
+        || dir.mode & (S_ISVTX | 0o002) != (S_ISVTX | 0o002)
+        || dir.uid == link.uid
+}
+
+/// `safe_hardlink_source` past its permission check (`readable_writable`): a regular file
+/// that is neither set-user-ID nor executable set-group-ID.
+pub fn safe_hardlink_source(attr: &Attr, readable_writable: bool) -> bool {
+    use crate::types::{S_ISGID, S_ISUID, S_IXGRP};
+    attr.file_type == FileType::Regular
+        && attr.mode & S_ISUID == 0
+        && attr.mode & (S_ISGID | S_IXGRP) != (S_ISGID | S_IXGRP)
+        && readable_writable
+}
+
+/// `may_create_in_sticky`: with `fs.protected_fifos` (`fifos`) or `fs.protected_regular`
+/// (`regular`), an existing FIFO or regular file `inode` in the sticky directory `dir` that
+/// neither the opener nor the directory's owner owns is not opened with `O_CREAT`, if the
+/// directory is world-writable, or at setting 2 group-writable.
+pub fn may_create_in_sticky(cred: &Cred, dir: &Attr, inode: &Attr, fifos: u8, regular: u8) -> bool {
+    use crate::types::S_ISVTX;
+    if dir.mode & S_ISVTX == 0 {
+        return true;
+    }
+    let level = match inode.file_type {
+        FileType::Regular => regular,
+        FileType::Fifo => fifos,
+        _ => return true,
+    };
+    if level == 0 || inode.uid == dir.uid || inode.uid == cred.fsuid {
+        return true;
+    }
+    if dir.mode & 0o002 != 0 {
+        return false;
+    }
+    !(dir.mode & 0o020 != 0 && level >= 2)
+}
+
 /// `check_sticky`: whether removing or renaming `victim` out of the sticky directory `dir` is
 /// denied.
 pub fn sticky_denies(cred: &Cred, dir: &Attr, victim: &Attr) -> bool {
@@ -295,6 +365,53 @@ mod tests {
             btime: None,
             dev: None,
         }
+    }
+
+    /// `may_follow_link`, `safe_hardlink_source` and `may_create_in_sticky`.
+    #[test]
+    fn the_protected_checks_follow_namei() {
+        let user = Cred::user(2, 2);
+        let tmp = attr(FileType::Directory, 0o1777, 0, 0);
+        let link = attr(FileType::Symlink, 0o777, 1, 1);
+        assert!(!may_follow_link(&user, &tmp, &link));
+        assert!(may_follow_link(
+            &user,
+            &attr(FileType::Directory, 0o777, 0, 0),
+            &link
+        ));
+        assert!(may_follow_link(&Cred::user(1, 1), &tmp, &link), "its owner");
+        assert!(may_follow_link(
+            &user,
+            &attr(FileType::Directory, 0o1777, 1, 1),
+            &link
+        ));
+
+        let plain = attr(FileType::Regular, 0o644, 1, 1);
+        assert!(safe_hardlink_source(&plain, true));
+        assert!(!safe_hardlink_source(&plain, false));
+        assert!(!safe_hardlink_source(
+            &attr(FileType::Regular, 0o4755, 1, 1),
+            true
+        ));
+        assert!(!safe_hardlink_source(
+            &attr(FileType::Regular, 0o2750, 1, 1),
+            true
+        ));
+        assert!(!safe_hardlink_source(
+            &attr(FileType::Fifo, 0o666, 1, 1),
+            true
+        ));
+
+        let fifo = attr(FileType::Fifo, 0o666, 1, 1);
+        assert!(!may_create_in_sticky(&user, &tmp, &fifo, 1, 0));
+        assert!(may_create_in_sticky(&user, &tmp, &fifo, 0, 2), "fifos off");
+        let group_tmp = attr(FileType::Directory, 0o1770, 0, 0);
+        assert!(may_create_in_sticky(&user, &group_tmp, &plain, 0, 1));
+        assert!(!may_create_in_sticky(&user, &group_tmp, &plain, 0, 2));
+        assert!(
+            may_create_in_sticky(&Cred::user(1, 1), &tmp, &plain, 2, 2),
+            "its owner"
+        );
     }
 
     #[test]

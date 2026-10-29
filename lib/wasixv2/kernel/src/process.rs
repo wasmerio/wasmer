@@ -1486,6 +1486,7 @@ impl Kernel {
                 resources: Mutex::new(parent.resources.lock_or_recover().clone()),
                 pid_ns: ns.pid_for_children.clone(),
                 sysvsem: Mutex::new(Some(ns.ipc.clone())),
+                tunables: self.tunables.clone(),
             });
             let fs = match own_fs {
                 None => task.fs.clone(),
@@ -1825,8 +1826,13 @@ impl Kernel {
             binary.may_setid && !no_new_privs,
             no_new_privs,
         );
-        let dumpable =
-            cred.user.effective == cred.user.real && cred.group.effective == cred.group.real;
+        // `begin_new_exec`: an image run with other ids dumps as `fs.suid_dumpable` says.
+        let dumpable = match cred.user.effective == cred.user.real
+            && cred.group.effective == cred.group.real
+        {
+            true => crate::ident::Dumpable::User,
+            false => crate::ident::Dumpable::suid(&self.tunables),
+        };
         let privileged = secure || cred.drops_dumpable(&old);
         *process.cred.lock_or_recover() = cred;
         *process.exe.lock_or_recover() = Some(binary.path);
@@ -2300,11 +2306,8 @@ impl Kernel {
                     let dumpable = self
                         .procs
                         .find(pidfd.pid)
-                        .is_some_and(|p| p.ident.lock_or_recover().dumpable);
-                    info.coredump_mask = match dumpable {
-                        true => crate::coredump::PIDFD_COREDUMP_USER,
-                        false => crate::coredump::PIDFD_COREDUMP_SKIP,
-                    };
+                        .map(|p| p.ident.lock_or_recover().dumpable);
+                    info.coredump_mask = crate::coredump::pidfd_mask(dumpable);
                     mask |= PidfdInfoMask::PIDFD_INFO_COREDUMP.0;
                 }
                 // `task_dfl_cgroup`, unless the exit told it already.

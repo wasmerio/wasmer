@@ -856,3 +856,79 @@ fn a_proc_file_opens_with_o_trunc_and_keeps_its_mode() {
         0o644
     );
 }
+
+/// `/proc/pressure`, `modules`, `kallsyms`, `timer_list`, `buddyinfo`, `zoneinfo` and `crypto`,
+/// and the inotify limits: `fs.inotify.max_user_*` are the initial namespace's
+/// `user.max_inotify_*`, which `inotify_init1` (`EMFILE`) and `inotify_add_watch` (`ENOSPC`)
+/// enforce.
+#[test]
+fn system_files_and_inotify_limits() {
+    let (kernel, task, _) =
+        super::cred::machine_with(|kernel| kernel.with_credentials(Credentials::new(0, 0)));
+    let procfs = kernel.procfs();
+    let mount = kernel
+        .vfs()
+        .mount(b"/proc", procfs, MountFlags::default(), true);
+    block_on(mount).unwrap();
+    let memory = memory();
+    let t = T::new(&kernel, task, &memory);
+    let read = |at: &str| {
+        let fd = t.open(at, OpenFlags::O_RDONLY).unwrap();
+        t.read_all(fd)
+    };
+    let none = "some avg10=0.00 avg60=0.00 avg300=0.00 total=0\n\
+                full avg10=0.00 avg60=0.00 avg300=0.00 total=0\n";
+    for kind in ["cpu", "io", "memory"] {
+        assert_eq!(read(&format!("/proc/pressure/{kind}")), none);
+    }
+    assert_eq!(read("/proc/modules"), "");
+    assert_eq!(read("/proc/kallsyms"), "");
+    assert!(read("/proc/timer_list").starts_with("Timer List Version: v0.10\n"));
+    let buddy = read("/proc/buddyinfo");
+    assert!(buddy.starts_with("Node 0, zone   Normal "), "{buddy}");
+    assert_eq!(buddy.split_whitespace().count(), 4 + 11, "{buddy}");
+    assert!(read("/proc/zoneinfo").contains("  pages free     "));
+    assert!(read("/proc/crypto").contains("driver       : sha256-generic\n"));
+
+    assert_eq!(read("/proc/sys/fs/inotify/max_user_instances"), "128\n");
+    assert_eq!(read("/proc/sys/user/max_inotify_instances"), "128\n");
+    let watches: u32 = read("/proc/sys/fs/inotify/max_user_watches")
+        .trim()
+        .parse()
+        .unwrap();
+    assert!((8192..=1_048_576).contains(&watches), "{watches}");
+    let fd = t
+        .open(
+            "/proc/sys/fs/inotify/max_user_instances",
+            OpenFlags::O_WRONLY,
+        )
+        .unwrap();
+    assert_eq!(t.write(fd, b"1\n"), Ok(2));
+    let fd = t
+        .open("/proc/sys/fs/inotify/max_user_watches", OpenFlags::O_WRONLY)
+        .unwrap();
+    assert_eq!(t.write(fd, b"1\n"), Ok(2));
+    let caller = Caller::new(task, &memory);
+    let flags = wasixv2_abi::InotifyInitFlags(0);
+    let inotify = block_on(kernel.inotify_init1(&caller, flags)).unwrap();
+    assert_eq!(
+        errno(block_on(kernel.inotify_init1(&caller, flags))),
+        Errno::EMFILE
+    );
+    let watch = |at: &str| {
+        let at = path(&memory, at);
+        block_on(kernel.inotify_add_watch(
+            &caller,
+            inotify,
+            at,
+            wasixv2_abi::InotifyMask::IN_MODIFY,
+        ))
+    };
+    assert!(watch("/proc").is_ok());
+    assert_eq!(errno(watch("/")), Errno::ENOSPC);
+    block_on(kernel.close(&caller, inotify)).unwrap();
+    assert!(
+        block_on(kernel.inotify_init1(&caller, flags)).is_ok(),
+        "the count went with it"
+    );
+}

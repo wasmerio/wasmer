@@ -198,12 +198,40 @@ impl Comm {
     }
 }
 
+/// `get_dumpable` (`SUID_DUMP_*`): whether the process dumps core, as its user or as root, and
+/// whether its `/proc` files and its memory are its user's to look at (only `User`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Dumpable {
+    Disable,
+    User,
+    Root,
+}
+
+impl Dumpable {
+    /// What `fs.suid_dumpable` makes a process that changed its credentials.
+    pub(crate) fn suid(tunables: &crate::sysctl::Tunables) -> Self {
+        match tunables.get(crate::sysctl::Tunable::SuidDumpable) {
+            1 => Dumpable::User,
+            2 => Dumpable::Root,
+            _ => Dumpable::Disable,
+        }
+    }
+
+    pub(crate) fn value(self) -> i32 {
+        match self {
+            Dumpable::Disable => 0,
+            Dumpable::User => 1,
+            Dumpable::Root => 2,
+        }
+    }
+}
+
 /// What `prctl` and friends keep per process.
 #[derive(Clone)]
 pub(crate) struct Ident {
     pub(crate) pgid: u32,
     pub(crate) sid: u32,
-    pub(crate) dumpable: bool,
+    pub(crate) dumpable: Dumpable,
     pdeathsig: u32,
     pub(crate) no_new_privs: bool,
     child_subreaper: bool,
@@ -228,7 +256,7 @@ impl Ident {
         Self {
             pgid: pid,
             sid: pid,
-            dumpable: true,
+            dumpable: Dumpable::User,
             pdeathsig: 0,
             no_new_privs: false,
             child_subreaper: false,
@@ -289,14 +317,14 @@ impl Process {
         self.cred.lock_or_recover().clone()
     }
 
-    /// `commit_creds`: installs `new`, and makes the process non-dumpable and forgets its
-    /// parent-death signal if that changed its effective or filesystem ids or gave it
-    /// capabilities.
+    /// `commit_creds`: installs `new`, and makes the process as dumpable as `fs.suid_dumpable`
+    /// says and forgets its parent-death signal if that changed its effective or filesystem
+    /// ids or gave it capabilities.
     pub(crate) fn commit_cred(&self, new: Cred) {
         let mut cred = self.cred.lock_or_recover();
         if new.drops_dumpable(&cred) {
             let mut ident = self.ident.lock_or_recover();
-            ident.dumpable = false;
+            ident.dumpable = Dumpable::suid(&self.tunables);
             ident.clear_pdeathsig();
         }
         *cred = new;
@@ -658,9 +686,15 @@ impl Kernel {
                 memory.write(arg2, &comm).await?;
             }
             PrctlOption::PR_GET_DUMPABLE => {
-                return Ok(process.ident.lock_or_recover().dumpable as i32);
+                return Ok(process.ident.lock_or_recover().dumpable.value());
             }
-            PrctlOption::PR_SET_DUMPABLE => process.ident.lock_or_recover().dumpable = flag(arg2)?,
+            // Only `SUID_DUMP_DISABLE` or `SUID_DUMP_USER`.
+            PrctlOption::PR_SET_DUMPABLE => {
+                process.ident.lock_or_recover().dumpable = match flag(arg2)? {
+                    true => Dumpable::User,
+                    false => Dumpable::Disable,
+                }
+            }
             PrctlOption::PR_SET_PDEATHSIG => {
                 if arg2 > NSIG {
                     return Err(Errno::EINVAL.into());

@@ -261,6 +261,14 @@ impl<'a> Walk<'a> {
         if self.flags.no_symlinks || link.mnt.flags().nosymfollow {
             return Err(Errno::ELOOP);
         }
+        // `may_follow_link`: the walk is in the link's directory.
+        if self.vfs.protected(crate::Protection::Symlinks) != 0 {
+            let dir = self.path.dentry.node().getattr().await?;
+            let attr = link.dentry.node().getattr().await?;
+            if !crate::cred::may_follow_link(self.cx.cred, &dir, &attr) {
+                return Err(Errno::EACCES);
+            }
+        }
         let body = match link.dentry.node().get_link(self.cx).await? {
             Link::Body(body) => body,
             Link::Jump(target) => return self.jump(target),

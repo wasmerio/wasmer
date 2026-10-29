@@ -422,3 +422,114 @@ fn scheduling_another_users_task_needs_cap_sys_nice() {
     let set = kernel.sched_setscheduler(&a_caller, 0, policy, param);
     assert_eq!(block_on(set), Ok(0));
 }
+
+/// `fs.protected_*` (`fs/namei.c`): with `protected_symlinks`, a symlink in a sticky
+/// world-writable directory is followed only by its owner or when the directory's owner owns it,
+/// root included; with `protected_regular`, an existing file of another user there does not
+/// open with `O_CREAT`; with `protected_hardlinks`, only a file's owner links to a file it may
+/// not read and write. The settings take 0 or 1, or up to 2 for the open checks.
+#[test]
+fn protected_links_and_files_in_sticky_directories() {
+    let (kernel, task, memory) = machine_as(0, 0);
+    let caller = Caller::new(task, &memory);
+    let vfs = kernel.vfs().clone();
+    let procfs = vfs.mount(
+        b"/proc",
+        kernel.procfs(),
+        wasixv2_vfs::MountFlags::default(),
+        true,
+    );
+    block_on(procfs).unwrap();
+    let cwd = Fd(-100);
+    let path = |at: u32, text: &str| {
+        put(&memory, at, format!("{text}\0").as_bytes());
+        Cstr::new(at)
+    };
+    let sysctl = |name: &str, value: &str| {
+        let file = format!("/proc/sys/fs/{name}");
+        let fd = block_on(kernel.openat(&caller, cwd, path(0x600, &file), OpenFlags::O_WRONLY, 0))
+            .unwrap();
+        put(&memory, 0x700, value.as_bytes());
+        let wrote = block_on(kernel.write(&caller, fd, UserSlice::new(0x700, value.len() as u32)));
+        block_on(kernel.close(&caller, fd)).unwrap();
+        wrote
+    };
+    let open = |at: &str, flags: OpenFlags| {
+        let fd = block_on(kernel.openat(&caller, cwd, path(0x800, at), flags, 0o666))?;
+        block_on(kernel.close(&caller, fd)).unwrap();
+        Ok::<_, SysErr>(())
+    };
+    block_on(kernel.mkdirat(&caller, cwd, path(0x400, "/tmp"), 0o777)).unwrap();
+    block_on(kernel.fchmodat(&caller, cwd, path(0x400, "/tmp"), 0o1777)).unwrap();
+    open("/tmp/target", OpenFlags::O_CREAT | OpenFlags::O_WRONLY).unwrap();
+    open("/tmp/theirs", OpenFlags::O_CREAT | OpenFlags::O_WRONLY).unwrap();
+    let link = block_on(kernel.symlinkat(
+        &caller,
+        path(0x400, "/tmp/target"),
+        cwd,
+        path(0x500, "/tmp/link"),
+    ));
+    assert_eq!(link, Ok(0));
+    let nofollow = AtFlags::AT_SYMLINK_NOFOLLOW;
+    let chown =
+        |at: &str| block_on(kernel.fchownat(&caller, cwd, path(0x400, at), 1000, 1000, nofollow));
+    assert_eq!(chown("/tmp/link"), Ok(0));
+    assert_eq!(chown("/tmp/theirs"), Ok(0));
+
+    assert!(
+        open("/tmp/link", OpenFlags::O_RDONLY).is_ok(),
+        "off by default"
+    );
+    assert_eq!(sysctl("protected_symlinks", "2"), Err(Errno::EINVAL.into()));
+    assert_eq!(sysctl("protected_symlinks", "1"), Ok(1));
+    assert_eq!(errno(open("/tmp/link", OpenFlags::O_RDONLY)), Errno::EACCES);
+
+    let creat = OpenFlags::O_CREAT | OpenFlags::O_RDWR;
+    assert!(open("/tmp/theirs", creat).is_ok(), "off by default");
+    assert_eq!(sysctl("protected_regular", "1"), Ok(1));
+    assert_eq!(errno(open("/tmp/theirs", creat)), Errno::EACCES);
+    assert!(
+        open("/tmp/theirs", OpenFlags::O_RDWR).is_ok(),
+        "without O_CREAT"
+    );
+    assert_eq!(sysctl("protected_regular", "3"), Err(Errno::EINVAL.into()));
+
+    assert_eq!(sysctl("protected_hardlinks", "1"), Ok(1));
+    let hardlink = |name: &str| {
+        let old = path(0x400, "/tmp/target");
+        let new = path(0x500, name);
+        block_on(kernel.linkat(&caller, cwd, old, cwd, new, AtFlags(0)))
+    };
+    assert_eq!(hardlink("/tmp/mine"), Ok(0), "root has CAP_FOWNER");
+    assert_eq!(block_on(kernel.setresuid(&caller, 1001, 1001, 1001)), Ok(0));
+    assert_eq!(errno(hardlink("/tmp/stolen")), Errno::EPERM);
+}
+
+/// `fs.suid_dumpable`: a process whose credentials changed is as dumpable as it says,
+/// `PR_GET_DUMPABLE` reports the three states and `PR_SET_DUMPABLE` takes only 0 and 1.
+#[test]
+fn suid_dumpable_decides_what_a_credential_change_leaves() {
+    let (kernel, task, memory) = machine_as(0, 0);
+    let caller = Caller::new(task, &memory);
+    let dumpable = || block_on(kernel.prctl(&caller, PrctlOption::PR_GET_DUMPABLE, 0, 0, 0, 0));
+    assert_eq!(dumpable(), Ok(1));
+    kernel
+        .tunables
+        .set(crate::sysctl::Tunable::SuidDumpable, 2)
+        .unwrap();
+    assert_eq!(
+        block_on(kernel.setresuid(&caller, UNCHANGED, 1000, UNCHANGED)),
+        Ok(0)
+    );
+    assert_eq!(dumpable(), Ok(2), "SUID_DUMP_ROOT");
+    let set = |value| block_on(kernel.prctl(&caller, PrctlOption::PR_SET_DUMPABLE, value, 0, 0, 0));
+    assert_eq!(errno(set(2)), Errno::EINVAL);
+    assert_eq!(set(0), Ok(0));
+    assert_eq!(dumpable(), Ok(0));
+    assert!(
+        kernel
+            .tunables
+            .set(crate::sysctl::Tunable::SuidDumpable, 3)
+            .is_err()
+    );
+}
