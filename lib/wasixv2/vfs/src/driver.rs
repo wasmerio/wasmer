@@ -317,6 +317,10 @@ pub trait Handle: Send + Sync {
         Ok(())
     }
 
+    /// Closing after fatal teardown cannot sleep; a remote filesystem may enqueue its
+    /// interrupted flush without a waiter. Normal closes use `flush`.
+    fn flush_fatal(&self, _owner: u64) {}
+
     /// Validates a file mapping before allocating its pages (`file_operations.mmap`).
     fn mmap(&self, _shared: bool) -> FsResult<()> {
         Ok(())

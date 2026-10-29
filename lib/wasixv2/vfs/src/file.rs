@@ -250,6 +250,12 @@ impl File {
         }
     }
 
+    pub fn flush_fatal(&self, owner: u64) {
+        if let Some(handle) = &self.handle {
+            handle.flush_fatal(owner);
+        }
+    }
+
     pub fn mmap(&self, shared: bool) -> FsResult<()> {
         self.handle()?.mmap(shared)
     }

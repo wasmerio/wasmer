@@ -184,8 +184,27 @@ impl Connection {
                 q.interrupted.remove(&req.unique);
                 return Err(Errno::EINTR);
             }
+            // The daemon owns a delivered request. Fatal teardown leaves it interrupted
+            // without a waiter (request_wait_answer); the eventual reply retires it.
+            return Err(Errno::EINTR);
         }
         wait_event(&req.wait, answer, &NoInterrupt).await.unwrap()
+    }
+
+    pub(super) fn detached_flush(&self, node: u64, body: Vec<u8>) {
+        // fs/fuse/file.c:fuse_flush; dev.c:request_wait_answer. The fatal caller cannot
+        // sleep. Keep the background exchange owned by the connection, not its task.
+        if self.unsupported.lock_or_recover().contains(&25) {
+            return;
+        }
+        let req = self.enqueue(25, node, body, 0, 0);
+        let mut q = self.queue.lock_or_recover();
+        q.interrupted.insert(req.unique);
+        if q.processing.contains_key(&req.unique) {
+            q.interrupts.push_back(req.unique);
+        }
+        drop(q);
+        self.readable.wake(PollMask::READABLE);
     }
 
     pub(super) fn forget(&self, node: u64, nlookup: u64) {

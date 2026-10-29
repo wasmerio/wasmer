@@ -927,6 +927,52 @@ impl Kernel {
         self.procs.changed.wake(PollMask::empty());
     }
 
+    /// Detach this task's files (`exit_files`). Only the last owner closes a shared table.
+    pub(crate) fn take_exit_files(&self, task: TaskId) -> Option<(TaskId, Vec<Arc<OpenFile>>)> {
+        let (pid, files) = {
+            let mut state = self.state.lock_or_recover();
+            let entry = state.tasks.get_mut(&task)?;
+            let empty = Arc::new(Mutex::new(FdTable::new(self.nr_open.clone())));
+            (
+                entry.process.pid,
+                std::mem::replace(&mut entry.files, empty),
+            )
+        };
+        let Ok(files) = Arc::try_unwrap(files) else {
+            return Some((pid, Vec::new()));
+        };
+        let mut files = files.into_inner_or_recover();
+        let closed = (0..files.end())
+            .rev()
+            .filter_map(|fd| files.remove(Fd(fd as i32)))
+            .collect();
+        Some((pid, closed))
+    }
+
+    pub(crate) async fn exit_files_async(&self, caller: &Caller<'_>) {
+        let Some((pid, files)) = self.take_exit_files(caller.task()) else {
+            return;
+        };
+        for file in files {
+            if let Backing::Inode(inode) = &file.backing {
+                let _ = inode.flush(u64::from(pid.0)).await;
+            }
+            self.closed_by(pid, &file);
+        }
+    }
+
+    pub(crate) fn exit_files_fatal(&self, task: TaskId) {
+        let Some((pid, files)) = self.take_exit_files(task) else {
+            return;
+        };
+        for file in files {
+            if let Backing::Inode(inode) = &file.backing {
+                inode.flush_fatal(u64::from(pid.0));
+            }
+            self.closed_by(pid, &file);
+        }
+    }
+
     /// `exit_files`: the process's tasks let go of their descriptor tables, closing every file
     /// no one else holds.
     pub(crate) fn exit_files(&self, process: &Arc<Process>) {
@@ -951,6 +997,9 @@ impl Kernel {
             let mut table = table.into_inner_or_recover();
             for fd in (0..table.end()).map(|fd| Fd(fd as i32)) {
                 if let Some(file) = table.remove(fd) {
+                    if let Backing::Inode(inode) = &file.backing {
+                        inode.flush_fatal(u64::from(process.pid.0));
+                    }
                     self.closed_by(process.pid, &file);
                 }
             }

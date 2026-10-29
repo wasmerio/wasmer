@@ -452,3 +452,78 @@ fn fuse_clone_and_last_device_close_abort_waiters() {
         assert!(matches!(future.await, Err(Errno::ECONNABORTED)));
     }));
 }
+
+impl Daemon {
+    fn client_file(&self) -> (TaskId, Fd) {
+        self.exchange(self.root.getattr(), 3, |_| {
+            (0, attr_out(1, FileType::Directory))
+        })
+        .unwrap();
+        self.lookup(2, FileType::Regular);
+        let task = self
+            .kernel
+            .spawn(ProcessConfig {
+                args: vec!["client".into()],
+                env: Vec::new(),
+                stdio: Stdio {
+                    stdin: Arc::new(Input(Mutex::new(Vec::new()))),
+                    stdout: Arc::new(Capture::default()),
+                    stderr: Arc::new(Capture::default()),
+                },
+            })
+            .unwrap();
+        put(&self.memory, 0x100, b"/mnt/file\0");
+        let caller = Caller::new(task, &self.memory);
+        let fd = self
+            .exchange(
+                as_task(
+                    task,
+                    self.kernel
+                        .openat(&caller, CWD, GuestPtr::new(0x100), OpenFlags::O_RDWR, 0),
+                ),
+                14,
+                |_| {
+                    let mut out = vec![0; 16];
+                    p64(&mut out, 0, 77);
+                    (0, out)
+                },
+            )
+            .unwrap();
+        (task, fd)
+    }
+}
+
+#[test]
+fn fuse_normal_exit_waits_for_flush_then_queues_release() {
+    let d = Daemon::new();
+    d.init();
+    let (task, _fd) = d.client_file();
+    let caller = Caller::new(task, &d.memory);
+    d.exchange(as_task(task, d.kernel.exit_group(&caller, 0)), 25, |req| {
+        assert_eq!(n64(req, 40), 77);
+        (0, Vec::new())
+    })
+    .unwrap();
+    let release = d.read();
+    assert_eq!(n32(&release, 4), 18);
+    d.reply(&release, 0, &[]).unwrap();
+    d.kernel.release(task);
+}
+
+#[test]
+fn fuse_fatal_release_does_not_wait_for_flush() {
+    let d = Daemon::new();
+    d.init();
+    let (task, _fd) = d.client_file();
+    d.kernel.fault(task, wasixv2_abi::Signal::SIGSEGV.0);
+    let _ = d.kernel.take_pending(task);
+    d.kernel.release(task);
+    let flush = d.read();
+    assert_eq!(n32(&flush, 4), 25);
+    // The interrupted exchange has no task waiter; completion still retires it safely.
+    d.reply(&flush, 0, &[]).unwrap();
+    let release = d.read();
+    assert_eq!(n32(&release, 4), 18);
+    d.reply(&release, 0, &[]).unwrap();
+    assert!(!d.kernel.state.read_or_recover().tasks.contains_key(&task));
+}

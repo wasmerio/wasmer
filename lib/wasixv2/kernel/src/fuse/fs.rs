@@ -736,6 +736,14 @@ impl Handle for FuseHandle {
             Ok(())
         }
     }
+    fn flush_fatal(&self, owner: u64) {
+        if !self.dir {
+            let mut body = words64(&[self.fh]);
+            body.extend(words32(&[0, 0]));
+            body.extend(words64(&[owner]));
+            self.node.conn.detached_flush(self.node.id, body);
+        }
+    }
     async fn flush(&self, owner: u64) -> FsResult<()> {
         if self.dir {
             return Ok(());
