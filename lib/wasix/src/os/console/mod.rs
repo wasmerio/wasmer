@@ -277,7 +277,7 @@ impl Console {
 
         // Build the config
         // Run the binary
-        let process = block_on(spawn_exec(pkg, prog, env, &self.runtime))?;
+        let process = block_on(spawn_exec(pkg.into(), prog, env, &self.runtime))?;
 
         // Return the process
         Ok((process, wasi_process))

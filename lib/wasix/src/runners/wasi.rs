@@ -523,7 +523,7 @@ impl WasiRunner {
         let exit_code = tasks.spawn_and_block_on(
             async move {
                 let mut task_handle =
-                    crate::bin_factory::spawn_exec(pkg, &command_name, env, &runtime)
+                    crate::bin_factory::spawn_exec(pkg.into(), &command_name, env, &runtime)
                         .await
                         .context("Spawn failed")?;
 
