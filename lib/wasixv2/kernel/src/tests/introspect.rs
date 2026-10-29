@@ -525,3 +525,101 @@ fn vhangup_needs_cap_sys_tty_config() {
     let caller = Caller::new(root, &memory);
     assert_eq!(block_on(kernel.vhangup(&caller)), Ok(0));
 }
+
+/// Memory other tasks may reach from any thread, as the execution layer hands over a shared
+/// memory ([`SharedMappings::attach_memory`]): `len` bytes, the first `guard` of them not
+/// writable.
+pub(super) struct SyncMemory {
+    bytes: Mutex<Vec<u8>>,
+    guard: u32,
+}
+
+impl SyncMemory {
+    pub(super) fn new(len: usize, guard: u32) -> Arc<Self> {
+        Arc::new(Self {
+            bytes: Mutex::new(vec![0; len]),
+            guard,
+        })
+    }
+
+    pub(super) fn put(&self, addr: u32, data: &[u8]) {
+        self.bytes.lock().unwrap()[addr as usize..][..data.len()].copy_from_slice(data);
+    }
+
+    pub(super) fn get(&self, addr: u32, len: usize) -> Vec<u8> {
+        self.bytes.lock().unwrap()[addr as usize..][..len].to_vec()
+    }
+}
+
+impl UserMemory for SyncMemory {
+    fn read<'a>(&'a self, addr: u32, buf: &'a mut [u8]) -> LocalFuture<'a, Result<(), Fault>> {
+        let bytes = self.bytes.lock().unwrap();
+        let src = bytes.get(addr as usize..addr as usize + buf.len());
+        let result = src.map(|src| buf.copy_from_slice(src)).ok_or(Fault);
+        Box::pin(async move { result })
+    }
+
+    fn write<'a>(&'a self, addr: u32, data: &'a [u8]) -> LocalFuture<'a, Result<(), Fault>> {
+        let mut bytes = self.bytes.lock().unwrap();
+        let result = match addr < self.guard {
+            true => Err(Fault),
+            false => bytes
+                .get_mut(addr as usize..addr as usize + data.len())
+                .map(|dst| dst.copy_from_slice(data))
+                .ok_or(Fault),
+        };
+        Box::pin(async move { result })
+    }
+
+    fn size(&self) -> LocalFuture<'_, u64> {
+        let size = self.bytes.lock().unwrap().len() as u64;
+        Box::pin(async move { size })
+    }
+
+    fn grow(&self, _: u32) -> LocalFuture<'_, Option<u64>> {
+        Box::pin(async { None })
+    }
+}
+
+/// `access_remote_vm` copies through the memory the execution layer handed over, a page at a
+/// time up to the first fault, and nothing once the last task left the memory.
+#[test]
+fn remote_access_goes_through_the_attached_memory_until_mmput() {
+    let (kernel, task, _) = setup(b"");
+    let memory = memory_flat();
+    let caller = Caller::new(task, &memory);
+    let page = crate::mm::PAGE_SIZE as u32;
+    let mm = kernel.mm(task);
+    let mut buf = [0; 4];
+    let read = |mm: &crate::mm::Mm, addr: u32, buf: &mut [u8]| {
+        block_on(crate::ptrace::access_remote_vm(
+            mm,
+            addr,
+            crate::ptrace::Access::Read(buf),
+            true,
+        ))
+    };
+    assert_eq!(read(&mm, 0, &mut buf), 0, "nothing attached");
+
+    let shared = SyncMemory::new(2 * page as usize, 16);
+    shared.put(page - 2, b"abcd");
+    kernel.attach_memory(task, shared.clone());
+    assert_eq!(read(&mm, page - 2, &mut buf), 4);
+    assert_eq!(&buf, b"abcd");
+    let mut long = vec![0; 8];
+    assert_eq!(read(&mm, 2 * page - 4, &mut long), 4, "up to the end");
+    let write = crate::ptrace::Access::Write(b"wxyz");
+    assert_eq!(
+        block_on(crate::ptrace::access_remote_vm(&mm, 0x100, write, true)),
+        4
+    );
+    assert_eq!(shared.get(0x100, 4), b"wxyz");
+    let guard = crate::ptrace::Access::Write(b"z");
+    assert_eq!(
+        block_on(crate::ptrace::access_remote_vm(&mm, 0, guard, true)),
+        0
+    );
+
+    block_on(kernel.exit_mmap(&caller));
+    assert_eq!(read(&mm, page - 2, &mut buf), 0, "the last user left");
+}

@@ -219,3 +219,51 @@ impl Kernel {
         }
     }
 }
+
+/// What [`access_remote_vm`] copies: out of the address space into the buffer, or into it.
+pub(crate) enum Access<'a> {
+    Read(&'a mut [u8]),
+    Write(&'a [u8]),
+}
+
+/// `access_remote_vm`: copies between `buf` and the address space `mm` from `addr`, a page at a
+/// time, up to the first page that faults, and returns how many bytes it copied: 0 for an
+/// address space nobody else can reach (its memory is not shared, or its last user left it).
+/// With `force` (`FOLL_FORCE`, as ptrace and `/proc/<pid>/mem` copy) the pages' protection does
+/// not count, but what the host may not write (the low guard, read-only shared views) still
+/// faults.
+pub(crate) async fn access_remote_vm(
+    mm: &crate::mm::Mm,
+    addr: u32,
+    buf: Access<'_>,
+    force: bool,
+) -> usize {
+    let Some(memory) = mm.foreign() else {
+        return 0;
+    };
+    let page = crate::mm::PAGE_SIZE;
+    let len = match &buf {
+        Access::Read(buf) => buf.len(),
+        Access::Write(buf) => buf.len(),
+    };
+    let mut done = 0;
+    let mut buf = buf;
+    while done < len {
+        let at = u64::from(addr) + done as u64;
+        let Ok(at32) = u32::try_from(at) else {
+            break;
+        };
+        let n = ((page - at % page) as usize).min(len - done);
+        let copied = match (&mut buf, force) {
+            (Access::Read(buf), false) => memory.read(at32, &mut buf[done..done + n]).await,
+            (Access::Read(buf), true) => memory.force_read(at32, &mut buf[done..done + n]).await,
+            (Access::Write(buf), false) => memory.write(at32, &buf[done..done + n]).await,
+            (Access::Write(buf), true) => memory.force_write(at32, &buf[done..done + n]).await,
+        };
+        if copied.is_err() {
+            break;
+        }
+        done += n;
+    }
+    done
+}

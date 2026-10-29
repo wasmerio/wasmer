@@ -368,6 +368,19 @@ pub trait SharedMappings {
         let _ = task;
         None
     }
+
+    /// The memory of the instance that starts as `task` (a process, a fork child, a new
+    /// image), as other tasks reach it from any thread: the kernel's hold on the address space
+    /// for `access_process_vm` (ptrace's `PEEKDATA`, `process_vm_readv`, `/proc/<pid>/mem`),
+    /// which it lets go when the last task leaves the memory. Its copies check the address
+    /// space's [`PageAccess`] unless forced. Only memory the execution layer can reach from
+    /// another thread is handed over (a shared memory); without it, the address space has no
+    /// pages for anyone else.
+    ///
+    /// [`PageAccess`]: crate::PageAccess
+    fn attach_memory(&self, task: TaskId, memory: Arc<dyn crate::UserMemory + Send + Sync>) {
+        let _ = (task, memory);
+    }
 }
 
 /// The word a wasm `memory.atomic.wait32` or `memory.atomic.wait64` expects at its address.
@@ -539,6 +552,10 @@ impl<L, S: SharedMappings> SharedMappings for Layered<L, S> {
 
     fn page_access(&self, task: TaskId) -> Option<Arc<PageAccess>> {
         self.inner.page_access(task)
+    }
+
+    fn attach_memory(&self, task: TaskId, memory: Arc<dyn crate::UserMemory + Send + Sync>) {
+        self.inner.attach_memory(task, memory);
     }
 }
 

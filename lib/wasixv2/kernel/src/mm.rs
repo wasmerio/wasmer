@@ -208,6 +208,11 @@ pub(crate) struct Mm {
     /// The Linux AIO contexts made on the address space (`ioctx_table`); a fork child's
     /// starts empty.
     pub(crate) aio: crate::aio::IoctxTable,
+    /// The memory as other tasks reach it ([`SharedMappings::attach_memory`]), from the start
+    /// of the image until the last user leaves it.
+    ///
+    /// [`SharedMappings::attach_memory`]: wasixv2_syscalls::SharedMappings::attach_memory
+    foreign: Mutex<Option<Arc<dyn UserMemory + Send + Sync>>>,
 }
 
 /// The page map, locked. A change through it reaches the address space's [`PageAccess`] when
@@ -277,7 +282,19 @@ impl Mm {
             space: Mutex::new(space),
             aio: Default::default(),
             access: Arc::new(access),
+            foreign: Mutex::new(None),
         }
+    }
+
+    /// Holds `memory` as how other tasks reach the address space.
+    pub(crate) fn attach_foreign(&self, memory: Arc<dyn UserMemory + Send + Sync>) {
+        *self.foreign.lock_or_recover() = Some(memory);
+    }
+
+    /// `get_task_mm` for memory access from outside: the memory while it is there, `None` for
+    /// memory nobody else can reach or that its last user left.
+    pub(crate) fn foreign(&self) -> Option<Arc<dyn UserMemory + Send + Sync>> {
+        self.foreign.lock_or_recover().clone()
     }
 
     /// What the kernel's copies may do with each page of the address space.
@@ -2335,6 +2352,8 @@ impl Kernel {
             let _ = mapping.write_back(caller.memory()).await;
         }
         mm.shared.store(false, Ordering::Release);
+        // `mmput`: nobody reaches the memory any more.
+        mm.foreign.lock_or_recover().take();
     }
 
     /// Maps a SysV segment attachment of `len` bytes at `addr`, or anywhere for 0, replacing
