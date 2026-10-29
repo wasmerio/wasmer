@@ -145,8 +145,15 @@ impl Ring<'_> {
 
     /// Waits for `n` completions and takes them.
     fn wait(&self, n: u32) -> Vec<IoUringCqe> {
-        assert_eq!(self.submit_and_wait(0, n), Ok(0));
-        self.reap()
+        let mut cqes = Vec::new();
+        loop {
+            assert_eq!(self.submit_and_wait(0, n - cqes.len() as u32), Ok(0));
+            cqes.extend(self.reap());
+            if cqes.len() >= n as usize {
+                return cqes;
+            }
+            // Linux io_should_wake permits a short return on timeout expiry.
+        }
     }
 
     fn sq_flags(&self) -> u32 {
@@ -416,6 +423,75 @@ fn links_run_in_order_and_a_failure_cancels_the_rest() {
     ring.push(sqe(NOP, -1, 9));
     assert_eq!(ring.submit(2), Ok(2));
     assert_eq!(res(&ring.reap()), [(9, 0)]);
+}
+
+#[test]
+fn timeout_expiry_wakes_a_cq_wait_below_its_minimum() {
+    use std::{
+        future::Future,
+        task::{Context, Poll},
+    };
+    let m = Machine::new();
+    let ring = m.ring(8, 0);
+    write_ts(&m, TS, Duration::from_millis(20));
+    ring.push(IoUringSqe {
+        addr: u64::from(TS),
+        len: 1,
+        ..sqe(IoUringOp::IORING_OP_TIMEOUT, -1, 1)
+    });
+    assert_eq!(ring.submit(1), Ok(1));
+    let caller = m.caller();
+    let wait = || {
+        Box::pin(m.kernel.io_uring_enter(
+            &caller,
+            ring.fd,
+            0,
+            4,
+            IoringEnterFlags::IORING_ENTER_GETEVENTS.0,
+            GuestPtr::NULL,
+            0,
+        ))
+    };
+    let mut waiting = wait();
+    let mut cx = Context::from_waker(std::task::Waker::noop());
+    assert!(waiting.as_mut().poll(&mut cx).is_pending());
+    let deadline = Instant::now() + Duration::from_secs(2);
+    while m.get_word(ring.rings + ring.p.cq_off.tail) == 0 {
+        assert!(Instant::now() < deadline, "timeout did not complete");
+        std::thread::sleep(Duration::from_millis(1));
+    }
+    // Linux io_uring/io_uring.h:io_should_wake returns on a changed
+    // cq_timeouts even when fewer than min_complete CQEs are available.
+    assert_eq!(waiting.as_mut().poll(&mut cx), Poll::Ready(Ok(0)));
+    drop(waiting);
+
+    // A timeout from before this wait must not satisfy the new wait, nor
+    // may an ordinary completion below its minimum.
+    let mut waiting = wait();
+    assert!(waiting.as_mut().poll(&mut cx).is_pending());
+    ring.push(sqe(NOP, -1, 2));
+    assert_eq!(ring.submit(1), Ok(1));
+    assert!(waiting.as_mut().poll(&mut cx).is_pending());
+    drop(waiting);
+    assert_eq!(res(&ring.reap()), [(1, -Errno::ETIME.0), (2, 0)]);
+
+    write_ts(&m, TS, Duration::from_secs(30));
+    ring.push(IoUringSqe {
+        addr: u64::from(TS),
+        len: 1,
+        ..sqe(IoUringOp::IORING_OP_TIMEOUT, -1, 3)
+    });
+    assert_eq!(ring.submit(1), Ok(1));
+    let mut waiting = wait();
+    assert!(waiting.as_mut().poll(&mut cx).is_pending());
+    ring.push(IoUringSqe {
+        addr: 3,
+        ..sqe(IoUringOp::IORING_OP_TIMEOUT_REMOVE, -1, 4)
+    });
+    assert_eq!(ring.submit(1), Ok(1));
+    assert!(waiting.as_mut().poll(&mut cx).is_pending());
+    drop(waiting);
+    assert_eq!(res(&ring.reap()), [(3, -Errno::ECANCELED.0), (4, 0)]);
 }
 
 #[test]
@@ -4088,7 +4164,7 @@ fn updating_a_multishot_timeout_changes_its_period_and_rejects_absolute_updates(
     ring.push(update);
     ring.submit(1).unwrap();
     assert_eq!(res(&ring.reap()), [(2, 0)]);
-    // An enter timeout bounds both shots. The old 5s period must not survive the update.
+    // Bound each wait. The old 5s period must not survive the update.
     let end = SCRATCH + 256;
     write_ts(&m, end, Duration::from_secs(1));
     put_value(
@@ -4099,19 +4175,23 @@ fn updating_a_multishot_timeout_changes_its_period_and_rejects_absolute_updates(
             ..wasixv2_abi::IoUringGeteventsArg::ZERO
         },
     );
-    assert_eq!(
-        block_on(m.kernel.io_uring_enter(
-            &m.caller(),
-            ring.fd,
-            0,
-            2,
-            IoringEnterFlags::IORING_ENTER_GETEVENTS.0 | IoringEnterFlags::IORING_ENTER_EXT_ARG.0,
-            GuestPtr::new(SCRATCH),
-            wasixv2_abi::IoUringGeteventsArg::SIZE as u32
-        )),
-        Ok(0)
-    );
-    let shots = ring.reap();
+    let mut shots = Vec::new();
+    while shots.len() < 2 {
+        assert_eq!(
+            block_on(m.kernel.io_uring_enter(
+                &m.caller(),
+                ring.fd,
+                0,
+                2 - shots.len() as u32,
+                IoringEnterFlags::IORING_ENTER_GETEVENTS.0
+                    | IoringEnterFlags::IORING_ENTER_EXT_ARG.0,
+                GuestPtr::new(SCRATCH),
+                wasixv2_abi::IoUringGeteventsArg::SIZE as u32
+            )),
+            Ok(0)
+        );
+        shots.extend(ring.reap());
+    }
     assert_eq!(res(&shots), [(1, -Errno::ETIME.0); 2]);
     assert_ne!(shots[0].flags & IoringCqeFlags::IORING_CQE_F_MORE.0, 0);
     assert_eq!(shots[1].flags & IoringCqeFlags::IORING_CQE_F_MORE.0, 0);
