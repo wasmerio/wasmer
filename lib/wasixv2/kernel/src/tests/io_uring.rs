@@ -2635,6 +2635,16 @@ fn copying_zero_copy_sends_post_notifications_even_on_failure() {
             ..wasixv2_abi::UserMsghdr::ZERO
         },
     );
+    put_value(
+        &m,
+        SCRATCH + 192,
+        wasixv2_abi::Iovec {
+            iov_base: BUF,
+            iov_len: 16,
+        },
+    );
+    assert_eq!(register_resources(&ring, true, 1, SCRATCH + 192, 0), Ok(0));
+    let fixed = IoringOpFlags::IORING_RECVSEND_FIXED_BUF.0 as u16;
     for entry in [
         IoUringSqe {
             addr: u64::from(BUF),
@@ -2656,6 +2666,26 @@ fn copying_zero_copy_sends_post_notifications_even_on_failure() {
             addr3: 99,
             ..sqe(IoUringOp::IORING_OP_SEND_ZC, sender.0, 1)
         },
+        IoUringSqe {
+            addr: u64::from(BUF),
+            len: 4,
+            ioprio: report | fixed,
+            addr3: 99,
+            ..sqe(IoUringOp::IORING_OP_SEND_ZC, sender.0, 1)
+        },
+        IoUringSqe {
+            addr: u64::from(SCRATCH + 64),
+            len: 1,
+            ioprio: report | fixed | IoringOpFlags::IORING_SEND_VECTORIZED.0 as u16,
+            addr3: 99,
+            ..sqe(IoUringOp::IORING_OP_SEND_ZC, sender.0, 1)
+        },
+        IoUringSqe {
+            addr: u64::from(SCRATCH + 128),
+            ioprio: report | fixed,
+            addr3: 99,
+            ..sqe(IoUringOp::IORING_OP_SENDMSG_ZC, sender.0, 1)
+        },
     ] {
         ring.push(entry);
         assert_eq!(ring.submit(1), Ok(1));
@@ -2672,6 +2702,42 @@ fn copying_zero_copy_sends_post_notifications_even_on_failure() {
         );
         assert_eq!(m.memory.get(BUF + 64, 4), b"copy");
     }
+    // The address in addr2 permits a send on an unconnected datagram socket.
+    let unconnected = block_on(m.kernel.socket(&m.caller(), AddressFamily::AF_INET, 2, 0)).unwrap();
+    m.memory.put(SCRATCH + 256, &raw);
+    ring.push(IoUringSqe {
+        addr: u64::from(BUF),
+        len: 4,
+        off: u64::from(SCRATCH + 256),
+        splice_fd_in: raw.len() as i32,
+        ..sqe(IoUringOp::IORING_OP_SEND_ZC, unconnected.0, 6)
+    });
+    assert_eq!(ring.submit(1), Ok(1));
+    assert_eq!(res(&ring.reap()), [(6, 4), (6, 0)]);
+    assert_eq!(
+        block_on(
+            m.kernel
+                .read(&m.caller(), receiver, UserSliceMut::new(BUF + 64, 4))
+        ),
+        Ok(4)
+    );
+    // An out-of-range registered iovec fails and still releases its notification.
+    put_value(
+        &m,
+        SCRATCH + 64,
+        wasixv2_abi::Iovec {
+            iov_base: BUF,
+            iov_len: 17,
+        },
+    );
+    ring.push(IoUringSqe {
+        addr: u64::from(SCRATCH + 64),
+        len: 1,
+        ioprio: fixed | IoringOpFlags::IORING_SEND_VECTORIZED.0 as u16,
+        ..sqe(IoUringOp::IORING_OP_SEND_ZC, sender.0, 7)
+    });
+    assert_eq!(ring.submit(1), Ok(1));
+    assert_eq!(res(&ring.reap()), [(7, -Errno::EFAULT.0), (7, 0)]);
     let (unix, _) = unix_pair(&m, 1);
     ring.push(IoUringSqe {
         addr: u64::from(BUF),

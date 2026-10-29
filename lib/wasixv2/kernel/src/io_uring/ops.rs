@@ -1642,22 +1642,11 @@ impl Kernel {
         {
             return Err(Errno::EINVAL);
         }
-        if zc
-            && msg
-            && (sqe.off != 0
-                || sqe.splice_fd_in != 0
-                || iou
-                    & (IoringOpFlags::IORING_RECVSEND_FIXED_BUF.0
-                        | IoringOpFlags::IORING_SEND_VECTORIZED.0)
-                    != 0)
-        {
+        if zc && msg && (sqe.off != 0 || sqe.splice_fd_in != 0) {
             return Err(Errno::EINVAL);
         }
         let fixed_send = zc && iou & IoringOpFlags::IORING_RECVSEND_FIXED_BUF.0 != 0;
-        let vector_send = zc && iou & IoringOpFlags::IORING_SEND_VECTORIZED.0 != 0;
-        if fixed_send && vector_send {
-            return Err(Errno::EINVAL);
-        }
+        let vector_send = zc && !msg && iou & IoringOpFlags::IORING_SEND_VECTORIZED.0 != 0;
         let file = self.req_file(caller, ctx, req)?;
         if zc && file.downcast::<crate::socket::SocketFile>().is_none() {
             return Err(Errno::EOPNOTSUPP);
@@ -1706,7 +1695,10 @@ impl Kernel {
         } else {
             sqe.len
         };
-        let (addr, len) = if fixed_send {
+        if fixed_send && (vector_send || msg) {
+            fixed_node(ctx, req)?;
+        }
+        let (addr, len) = if fixed_send && !vector_send && !msg {
             let iov = fixed_buffer(ctx, req)?;
             (iov.iov_base, iov.iov_len)
         } else {
@@ -1725,21 +1717,23 @@ impl Kernel {
                 false => (sqe.addr as u32, sqe.len),
             }
         };
-        let memory = req
-            .buffer_node
-            .as_ref()
-            .map(|node| crate::mm::RetainedMemory {
-                memory: caller.memory(),
-                range: &node.item,
-            });
-        let redirected = memory
-            .as_ref()
-            .map(|memory| Caller::new(caller.task(), memory));
-        let io_caller = redirected.as_ref().unwrap_or(caller);
+        let destination = if send && !msg && sqe.off != 0 {
+            Some((
+                u32::try_from(sqe.off).map_err(|_| Errno::EFAULT)?,
+                sqe.splice_fd_in as u32,
+            ))
+        } else {
+            None
+        };
         let mut more_payload = true;
-        let done = if vector_send {
+        let done = if fixed_send && msg {
+            let node = req.buffer_node.as_ref().expect("fixed buffer imported");
+            self.uring_sendmsg_fixed(caller, file.clone(), addr, flags, &node.item)
+                .await
+        } else if vector_send {
             let iovecs = read_iovecs(caller.memory(), GuestPtr::new(addr), len).await?;
-            self.uring_send_vectors(caller, file.clone(), iovecs, flags)
+            let fixed = req.buffer_node.as_ref().map(|node| &*node.item);
+            self.uring_send_vectors(caller, file.clone(), iovecs, flags, destination, fixed)
                 .await
         } else if let Some(hdr) = selected_header {
             self.uring_recvmsg_selected(
@@ -1758,8 +1752,19 @@ impl Kernel {
         } else {
             match opcode {
                 IoUringOp::IORING_OP_SEND => {
-                    self.uring_send(io_caller, file.clone(), (addr, len), flags)
-                        .await
+                    let fixed = req.buffer_node.as_ref().map(|node| &*node.item);
+                    self.uring_send_vectors(
+                        caller,
+                        file.clone(),
+                        vec![Iovec {
+                            iov_base: addr,
+                            iov_len: len,
+                        }],
+                        flags,
+                        destination,
+                        fixed,
+                    )
+                    .await
                 }
                 IoUringOp::IORING_OP_RECV => {
                     self.uring_recv(caller, file.clone(), (addr, len), flags)
@@ -2547,9 +2552,8 @@ fn op_poll_remove(ctx: &Arc<Ctx>, sqe: &IoUringSqe) -> Result<Outcome, Errno> {
     Ok(Outcome::of(Ok(0)))
 }
 
-/// `io_import_fixed`: the range `[addr, addr + len)` must lie in registered buffer
-/// `buf_index`.
-fn fixed_buffer(ctx: &Ctx, req: &mut Req) -> Result<Iovec, Errno> {
+/// `io_find_buf_node`: retain the registered buffer version on first import.
+fn fixed_node(ctx: &Ctx, req: &mut Req) -> Result<super::rsrc::BufferNode, Errno> {
     let sqe = req.sqe;
     let node = if let Some(node) = &req.buffer_node {
         node.clone()
@@ -2563,8 +2567,15 @@ fn fixed_buffer(ctx: &Ctx, req: &mut Req) -> Result<Iovec, Errno> {
             .and_then(Clone::clone)
             .ok_or(Errno::EFAULT)?
     };
+    req.buffer_node = Some(node.clone());
+    Ok(node)
+}
+
+/// `io_import_fixed`: `[addr, addr + len)` must lie in registered buffer `buf_index`.
+fn fixed_buffer(ctx: &Ctx, req: &mut Req) -> Result<Iovec, Errno> {
+    let sqe = req.sqe;
+    let node = fixed_node(ctx, req)?;
     let (base, size) = (node.item.addr, node.item.len);
-    req.buffer_node = Some(node);
     let end = sqe
         .addr
         .checked_add(u64::from(sqe.len))

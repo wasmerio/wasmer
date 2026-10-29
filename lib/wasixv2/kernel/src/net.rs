@@ -1162,6 +1162,17 @@ impl Kernel {
         hdr: &UserMsghdr,
         flags: MsgFlags,
     ) -> SysResult<usize> {
+        self.send_msghdr_fixed(caller, sock, hdr, flags, None).await
+    }
+
+    async fn send_msghdr_fixed(
+        &self,
+        caller: &Caller<'_>,
+        sock: &AnySock,
+        hdr: &UserMsghdr,
+        flags: MsgFlags,
+        fixed: Option<&crate::mm::Retained>,
+    ) -> SysResult<usize> {
         let namelen = msg_namelen(hdr)?;
         if hdr.msg_iovlen > UIO_MAXIOV {
             return Err(Errno::EMSGSIZE.into());
@@ -1173,8 +1184,26 @@ impl Kernel {
             ),
         };
         let src = GuestIov::of(caller.memory(), hdr).await?;
+        if let Some(range) = fixed {
+            for iov in &src.iovecs {
+                if iov.iov_base < range.addr
+                    || u64::from(iov.iov_base) + u64::from(iov.iov_len)
+                        > u64::from(range.addr) + u64::from(range.len)
+                {
+                    return Err(Errno::EFAULT.into());
+                }
+            }
+        }
         let control = read_cmsgs(caller, hdr).await?;
-        self.send_from(caller, sock, &src, raw_to.as_deref(), &control, flags)
+        let memory = fixed.map(|range| crate::mm::RetainedMemory {
+            memory: caller.memory(),
+            range,
+        });
+        let redirected = memory
+            .as_ref()
+            .map(|memory| Caller::new(caller.task(), memory));
+        let io_caller = redirected.as_ref().unwrap_or(caller);
+        self.send_from(io_caller, sock, &src, raw_to.as_deref(), &control, flags)
             .await
     }
 
@@ -1696,19 +1725,6 @@ impl Kernel {
         }
     }
 
-    /// `io_send`: `send` from one buffer on the socket `file`.
-    pub(crate) async fn uring_send(
-        &self,
-        caller: &Caller<'_>,
-        file: Arc<OpenFile>,
-        (addr, len): (u32, u32),
-        flags: MsgFlags,
-    ) -> SysResult<usize> {
-        let sock = any_socket_file(file)?;
-        let src = GuestIov::single(addr, len);
-        self.send_from(caller, &sock, &src, None, &[], flags).await
-    }
-
     /// `io_recv`: `recv` into one buffer on the socket `file`.
     pub(crate) async fn uring_recv(
         &self,
@@ -1728,11 +1744,41 @@ impl Kernel {
         file: Arc<OpenFile>,
         iovecs: Vec<wasixv2_abi::Iovec>,
         flags: MsgFlags,
+        destination: Option<(u32, u32)>,
+        fixed: Option<&crate::mm::Retained>,
     ) -> SysResult<usize> {
         let sock = any_socket_file(file)?;
+        let to = match destination {
+            Some((addr, len)) => Some(move_addr_to_kernel(caller, GuestPtr::new(addr), len).await?),
+            None => None,
+        };
+        if let Some(range) = fixed {
+            for iov in &iovecs {
+                if iov.iov_base < range.addr
+                    || u64::from(iov.iov_base) + u64::from(iov.iov_len)
+                        > u64::from(range.addr) + u64::from(range.len)
+                {
+                    return Err(Errno::EFAULT.into());
+                }
+            }
+        }
         let len = iovecs.iter().map(|iov| iov.iov_len as usize).sum();
-        self.send_from(caller, &sock, &GuestIov { iovecs, len }, None, &[], flags)
-            .await
+        let memory = fixed.map(|range| crate::mm::RetainedMemory {
+            memory: caller.memory(),
+            range,
+        });
+        let redirected = memory
+            .as_ref()
+            .map(|memory| Caller::new(caller.task(), memory));
+        self.send_from(
+            redirected.as_ref().unwrap_or(caller),
+            &sock,
+            &GuestIov { iovecs, len },
+            to.as_deref(),
+            &[],
+            flags,
+        )
+        .await
     }
 
     /// io_uring/cmd_net.c:io_uring_cmd_sock. Socket option lengths are values in
@@ -1829,6 +1875,20 @@ impl Kernel {
     ) -> SysResult<usize> {
         let sock = any_socket_file(file)?;
         self.recv_msghdr(caller, &sock, msg, flags).await
+    }
+
+    pub(crate) async fn uring_sendmsg_fixed(
+        &self,
+        caller: &Caller<'_>,
+        file: Arc<OpenFile>,
+        msg: u32,
+        flags: MsgFlags,
+        range: &crate::mm::Retained,
+    ) -> SysResult<usize> {
+        let sock = any_socket_file(file)?;
+        let hdr = read_value(caller.memory(), GuestPtr::new(msg)).await?;
+        self.send_msghdr_fixed(caller, &sock, &hdr, flags, Some(range))
+            .await
     }
 
     /// Selected receive (`io_uring/net.c:io_recvmsg`, io_recvmsg_multishot).
