@@ -561,7 +561,62 @@ impl Kernel {
                     }
                 }
             }
+            AnySock::Unix(_, sock) if flags.contains(MsgFlags::MSG_OOB) => {
+                // `unix_stream_sendmsg`: all but the last byte as data, that one out of band;
+                // other types and an empty send have none (`EOPNOTSUPP`).
+                if sock.kind() != unix::Kind::Stream || src.len == 0 {
+                    return Err(Errno::EOPNOTSUPP.into());
+                }
+                self.unix_destination(caller, sock, to).await?;
+                let mut anc = Some(self.unix_ancillary(caller, control)?);
+                let cred = self.ucred(caller);
+                let mut wait = sock.blocking(io, SND, flags);
+                let mut sent = 0;
+                let mut failed = None;
+                while sent < src.len - 1 {
+                    let mut data = vec![0; (src.len - 1 - sent).min(SOCK_CHUNK)];
+                    let n = data.len();
+                    if let Err(err) = src.copy_in(memory, sent, &mut data).await {
+                        failed = Some(err);
+                        break;
+                    }
+                    let anc = anc.take().unwrap_or_default();
+                    match unix::send(sock, &mut wait, data, None, anc, cred).await {
+                        Ok(k) => sent += k,
+                        Err(err) => {
+                            failed = Some(err);
+                            break;
+                        }
+                    }
+                    if sent < src.len - 1 && n > 0 && wait.nonblocking() {
+                        break;
+                    }
+                }
+                let result = match failed {
+                    None if sent == src.len - 1 => {
+                        let mut byte = [0];
+                        match src.copy_in(memory, sent, &mut byte).await {
+                            Ok(()) => {
+                                let anc = anc.take().unwrap_or_default();
+                                unix::send_oob(sock, &mut wait, byte[0], anc, cred)
+                                    .await
+                                    .map(|n| sent + n)
+                            }
+                            Err(err) => Err(err),
+                        }
+                    }
+                    None => Ok(sent),
+                    Some(err) => Err(err),
+                };
+                match result {
+                    Err(_) if sent > 0 => Ok(sent),
+                    result => result,
+                }
+            }
             AnySock::Unix(_, sock) => {
+                if sock.kind() != unix::Kind::Stream {
+                    sock.autobind_for_creds()?;
+                }
                 let to = self.unix_destination(caller, sock, to).await?;
                 let anc = self.unix_ancillary(caller, control)?;
                 let cred = self.ucred(caller);
@@ -743,6 +798,22 @@ impl Kernel {
                     got.result = got.len;
                 }
                 Ok(got)
+            }
+            AnySock::Unix(_, sock) if flags.contains(MsgFlags::MSG_OOB) => {
+                if sock.kind() != unix::Kind::Stream {
+                    return Err(Errno::EOPNOTSUPP.into());
+                }
+                let msg = sock.recv_urg(flags.contains(MsgFlags::MSG_PEEK))?;
+                let len = msg.len().min(dst.len);
+                dst.copy_out(memory, 0, &msg.data[..len]).await?;
+                Ok(Got {
+                    len,
+                    result: len,
+                    from: Some(Vec::new()),
+                    flags: msg.flags,
+                    controls: Vec::new(),
+                    rights: Vec::new(),
+                })
             }
             AnySock::Unix(_, sock) => {
                 let stream = sock.kind() == unix::Kind::Stream;

@@ -1735,3 +1735,48 @@ fn vsock_loopback_streams_through_the_socket_calls() {
     );
     assert_eq!(get(&memory, 0x700, 8), 4096u64.to_le_bytes());
 }
+
+/// `send(MSG_OOB)` on a Unix stream: the last byte is out of band, read with
+/// `recv(MSG_OOB)` and found by `SIOCATMARK`; other types refuse the flag.
+#[test]
+fn unix_streams_carry_an_out_of_band_byte() {
+    let (kernel, task, memory) = machine();
+    let caller = Caller::new(task, &memory);
+    let (a, b) = unix_pair(&kernel, &caller, &memory, STREAM);
+    put(&memory, 0x400, b"hey");
+    assert_eq!(
+        send_bytes(&kernel, &caller, a, 0x400, 3, MsgFlags::MSG_OOB),
+        Ok(3)
+    );
+    assert_eq!(
+        errno(send_bytes(&kernel, &caller, a, 0x400, 0, MsgFlags::MSG_OOB)),
+        Errno::EOPNOTSUPP
+    );
+    let recv = |flags| {
+        block_on(kernel.recvfrom(
+            &caller,
+            b,
+            UserSliceMut::new(0x500, 16),
+            flags,
+            GuestPtrMut::NULL,
+            GuestPtrMut::NULL,
+        ))
+    };
+    let at_mark = || {
+        let r = block_on(kernel.ioctl(&caller, b, wasixv2_abi::IoctlRequest::SIOCATMARK, 0x600));
+        assert_eq!(r, Ok(0));
+        get(&memory, 0x600, 4)[0]
+    };
+    assert_eq!(at_mark(), 0);
+    assert_eq!(recv(MsgFlags(0)), Ok(2));
+    assert_eq!(get(&memory, 0x500, 2), b"he");
+    assert_eq!(at_mark(), 1);
+    assert_eq!(recv(MsgFlags::MSG_OOB), Ok(1));
+    assert_eq!(get(&memory, 0x500, 1), b"y");
+    assert_eq!(errno(recv(MsgFlags::MSG_OOB)), Errno::EINVAL);
+    let (d, _) = unix_pair(&kernel, &caller, &memory, DGRAM);
+    assert_eq!(
+        errno(send_bytes(&kernel, &caller, d, 0x400, 3, MsgFlags::MSG_OOB)),
+        Errno::EOPNOTSUPP
+    );
+}

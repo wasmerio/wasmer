@@ -11,7 +11,14 @@
 //! - Files in flight are charged to the sending user, and sockets that only messages in flight
 //!   keep alive are collected (`gc`).
 //!
-//! Not yet: `MSG_OOB`, `SO_PEEK_OFF`, and autobind on `SO_PASSCRED`.
+//! - `MSG_OOB` on stream sockets (`CONFIG_AF_UNIX_OOB`): the last byte of such a send is the
+//!   receiver's out-of-band byte, which `recv(MSG_OOB)` takes, `SIOCATMARK` and `POLLPRI`
+//!   report, and ordinary reads stop at and skip unless `SO_OOBINLINE`.
+//! - `SO_PEEK_OFF`: `MSG_PEEK` reads from an offset that peeking advances and reading takes
+//!   back.
+//! - With `SO_PASSCRED` an unbound socket autobinds before it connects or sends.
+//!
+//! Not yet: `SIGURG` for the out-of-band byte (no `F_SETOWN` delivery).
 
 mod gc;
 
@@ -206,8 +213,20 @@ impl Names {
     }
 }
 
+/// Whether a message is the out-of-band byte of a stream.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum Urg {
+    /// Ordinary data.
+    None,
+    /// The out-of-band byte (`u->oob_skb`).
+    Mark,
+    /// An out-of-band byte `recv(MSG_OOB)` took: empty, it still marks where it was.
+    Spent,
+}
+
 /// One queued message (Linux's skb on `sk_receive_queue`).
 struct Msg {
+    urg: Urg,
     data: Vec<u8>,
     /// Bytes of `data` already read, for streams.
     read: usize,
@@ -249,12 +268,32 @@ struct Inner {
     /// The `SOL_SOCKET` options. `sk_sndbuf` bounds what this socket may have queued at its
     /// peer and a record's size; `SO_PASSCRED` asks for the sender's credentials.
     opts: SockOpts,
+    /// `SO_PEEK_OFF` (`sk_peek_off`): where `MSG_PEEK` reads from, -1 for the start.
+    peek_off: i32,
 }
 
 impl Inner {
     fn passcred(&self) -> bool {
         self.opts
             .flag(SocketLevel::SOL_SOCKET.0, SocketOption::SO_PASSCRED.0)
+    }
+
+    /// `SOCK_URGINLINE`.
+    fn oob_inline(&self) -> bool {
+        self.opts
+            .flag(SocketLevel::SOL_SOCKET.0, SocketOption::SO_OOBINLINE.0)
+    }
+
+    /// `u->oob_skb`: whether an out-of-band byte is waiting.
+    fn has_oob(&self) -> bool {
+        self.rx.iter().any(|m| m.urg == Urg::Mark)
+    }
+
+    /// `sk_peek_offset_fwd` (`n` positive) and `sk_peek_offset_bwd` (negative).
+    fn move_peek_off(&mut self, n: isize) {
+        if self.peek_off >= 0 {
+            self.peek_off = (self.peek_off as isize + n).clamp(0, i32::MAX as isize) as i32;
+        }
     }
 }
 
@@ -379,6 +418,7 @@ impl Sock {
                 ino: 0,
                 vfs: None,
                 opts: SockOpts::unix(ty),
+                peek_off: -1,
             }),
             wait: WaitQueue::new(),
             net,
@@ -888,6 +928,7 @@ impl Sock {
         };
         target.rx_bytes += bytes.len();
         target.rx.push_back(Msg {
+            urg: Urg::None,
             data: bytes,
             read: 0,
             from,
@@ -901,6 +942,94 @@ impl Sock {
         drop(target);
         peer.wait.wake(PollMask::READABLE);
         Ok(n)
+    }
+
+    /// `queue_oob`: one attempt to queue `byte` at the peer as its out-of-band byte, which
+    /// leaves an earlier one ordinary data. The files not yet sent go with it.
+    fn try_send_oob(&self, byte: u8, anc: &mut Ancillary, cred: Ucred) -> Result<usize, Errno> {
+        let (peer, sndbuf, from) = {
+            let mut inner = self.lock();
+            if inner.state != State::Connected {
+                return Err(Errno::ENOTCONN);
+            }
+            if let Some(err) = inner.err.take() {
+                return Err(err);
+            }
+            if inner.shutdown & SEND_SHUTDOWN != 0 {
+                return Err(Errno::EPIPE);
+            }
+            (inner.peer.clone(), inner.opts.sndbuf, inner.addr.clone())
+        };
+        let peer = peer.and_then(|p| p.upgrade()).ok_or(Errno::EPIPE)?;
+        let mut target = peer.lock();
+        if target.released || target.shutdown & RCV_SHUTDOWN != 0 {
+            return Err(Errno::EPIPE);
+        }
+        if !self.room_at(sndbuf, &target) {
+            return Err(Errno::EAGAIN);
+        }
+        for msg in target.rx.iter_mut().filter(|m| m.urg == Urg::Mark) {
+            msg.urg = Urg::None;
+        }
+        target.rx_bytes += 1;
+        target.rx.push_back(Msg {
+            urg: Urg::Mark,
+            data: vec![byte],
+            read: 0,
+            from,
+            rights: InFlight::new(
+                std::mem::take(&mut anc.rights),
+                anc.uid,
+                &self.names().inflight,
+            ),
+            cred: anc.cred.unwrap_or(cred),
+        });
+        drop(target);
+        peer.wait.wake(PollMask::READABLE | PollMask::PRI);
+        Ok(1)
+    }
+
+    /// `recv(MSG_OOB)` on a stream (`unix_stream_recv_urg`), never waiting: `EINVAL` unless
+    /// connected and an out-of-band byte waits.
+    pub(crate) fn recv_urg(&self, peek: bool) -> Result<Received, Errno> {
+        let mut inner = self.lock();
+        if inner.state != State::Connected {
+            return Err(Errno::EINVAL);
+        }
+        let out = take_urg(&mut inner, peek)?;
+        let peer = inner.peer.as_ref().and_then(Weak::upgrade);
+        let passcred = inner.passcred();
+        drop(inner);
+        if !peek && let Some(peer) = peer {
+            peer.wait.wake(PollMask::WRITABLE);
+        }
+        Ok(Received {
+            cred: out.cred.filter(|_| passcred),
+            ..out
+        })
+    }
+
+    /// `SIOCATMARK`: whether the next byte read is the out-of-band one's place: the byte
+    /// itself, or a spent mark with no other byte waiting or one right after it.
+    fn at_mark(&self) -> Result<bool, Errno> {
+        if self.kind != Kind::Stream {
+            return Err(Errno::EOPNOTSUPP);
+        }
+        let inner = self.lock();
+        let Some(head) = inner.rx.front() else {
+            return Ok(false);
+        };
+        let next_is_mark = inner.rx.get(1).is_some_and(|m| m.urg == Urg::Mark);
+        Ok(head.urg == Urg::Mark || (head.urg == Urg::Spent && (!inner.has_oob() || next_is_mark)))
+    }
+
+    /// `unix_may_passcred` then `unix_autobind`: a socket that asks for credentials gets a
+    /// name before it connects or sends, so its peer can tell who it is.
+    pub(crate) fn autobind_for_creds(&self) -> Result<(), Errno> {
+        if self.lock().passcred() && !self.is_bound() {
+            return self.autobind();
+        }
+        Ok(())
     }
 
     /// One attempt to queue a datagram at `target` (`unix_dgram_sendmsg`). The datagram moves
@@ -957,6 +1086,7 @@ impl Sock {
         data.truncate(keep);
         other.rx_bytes += keep;
         other.rx.push_back(Msg {
+            urg: Urg::None,
             data: std::mem::take(data),
             read: 0,
             from,
@@ -1010,6 +1140,17 @@ impl Sock {
         let out = match self.kind {
             Kind::Stream => stream_take(&mut inner, max, take, writer),
             _ => record_take(&mut inner, max, take != Take::Consume),
+        };
+        // Nothing past the peek offset, or only out-of-band bytes the read skips: the read
+        // waits as for an empty queue (`unix_stream_read_generic`'s `again`).
+        let Some(out) = out else {
+            if let Some(err) = inner.err.take() {
+                return Err(err);
+            }
+            if inner.shutdown & RCV_SHUTDOWN != 0 {
+                return Ok(Received::eof());
+            }
+            return Err(Errno::EAGAIN);
         };
         let peer = inner.peer.as_ref().and_then(Weak::upgrade);
         let passcred = inner.passcred();
@@ -1081,6 +1222,11 @@ impl Sock {
         let level = SocketLevel::SOL_SOCKET.0;
         let mut inner = self.lock();
         let changed = match SocketOption(name) {
+            // `unix_set_peek_off`.
+            SocketOption::SO_PEEK_OFF => {
+                inner.peek_off = opts::read_int(value)?;
+                Changed::Nothing
+            }
             // `SO_SNDBUFFORCE`/`SO_RCVBUFFORCE` skip the `wmem_max`/`rmem_max` clamp.
             SocketOption::SO_SNDBUFFORCE | SocketOption::SO_RCVBUFFORCE => {
                 if !net_admin {
@@ -1150,14 +1296,66 @@ enum Take {
 /// (`unix_stream_read_generic`): it ends after a message that carried files, and with
 /// `SO_PASSCRED` it never glues messages of different writers, the first of them being
 /// `writer` when the read continues one (`MSG_WAITALL`). A whole unread message moves out
-/// without a copy.
-fn stream_take(inner: &mut Inner, max: usize, take: Take, writer: Option<Ucred>) -> Received {
+/// without a copy. A peek starts `SO_PEEK_OFF` bytes in. The out-of-band byte ends a read that
+/// has data, and at the start of one is skipped, dropped by a read that takes, unless
+/// `SO_OOBINLINE` makes it data (`manage_oob`); a spent one ends a read too, unless another
+/// waits. `None` when nothing was there to read.
+fn stream_take(
+    inner: &mut Inner,
+    max: usize,
+    take: Take,
+    writer: Option<Ucred>,
+) -> Option<Received> {
+    if max == 0 {
+        // Whether a read would find anything, for a reader about to wait.
+        return stream_take(inner, 1, Take::Look, writer).map(|_| Received::eof());
+    }
     let check_creds = inner.passcred();
+    let inline = inner.oob_inline();
+    let mut skip = match take {
+        Take::Peek => inner.peek_off.max(0) as usize,
+        _ => 0,
+    };
     let mut writer = writer;
     let mut out = Received::eof();
     let mut index = 0;
+    let mut any = false;
     while out.data.len() < max && index < inner.rx.len() {
+        let copied = !out.data.is_empty();
+        match inner.rx[index].urg {
+            Urg::Spent => {
+                if copied && !inner.has_oob() {
+                    break;
+                }
+                match take {
+                    Take::Consume => drop(inner.rx.remove(index)),
+                    _ => index += 1,
+                }
+                continue;
+            }
+            Urg::Mark if copied => break,
+            Urg::Mark if take == Take::Consume => {
+                inner.rx[index].urg = Urg::None;
+                if !inline {
+                    let msg = inner.rx.remove(index).expect("in range");
+                    inner.rx_bytes -= msg.data.len() - msg.read;
+                    continue;
+                }
+            }
+            Urg::Mark if !inline => {
+                index += 1;
+                continue;
+            }
+            Urg::Mark | Urg::None => {}
+        }
         let msg = &mut inner.rx[index];
+        let avail = msg.data.len() - msg.read;
+        if skip >= avail && avail > 0 {
+            skip -= avail;
+            index += 1;
+            continue;
+        }
+        any = true;
         if check_creds {
             match writer {
                 Some(w) if w != msg.cred => break,
@@ -1167,13 +1365,14 @@ fn stream_take(inner: &mut Inner, max: usize, take: Take, writer: Option<Ucred>)
         }
         out.cred.get_or_insert(msg.cred);
         let had_rights = !msg.rights.is_empty();
-        let avail = msg.data.len() - msg.read;
-        let n = avail.min(max - out.data.len());
+        let n = (avail - skip).min(max - out.data.len());
         if take != Take::Consume {
-            out.data.extend(&msg.data[msg.read..msg.read + n]);
+            let at = msg.read + skip;
+            out.data.extend(&msg.data[at..at + n]);
             if take == Take::Peek {
                 out.rights.extend(msg.rights.files.iter().cloned());
             }
+            skip = 0;
             index += 1;
         } else {
             out.rights.append(&mut msg.rights.take());
@@ -1192,45 +1391,101 @@ fn stream_take(inner: &mut Inner, max: usize, take: Take, writer: Option<Ucred>)
             break;
         }
     }
+    match take {
+        Take::Peek => inner.move_peek_off(out.data.len() as isize),
+        Take::Consume => inner.move_peek_off(-(out.data.len() as isize)),
+        Take::Look => {}
+    }
     out.full_len = out.data.len();
-    out
+    any.then_some(out)
 }
 
-/// A datagram or seqpacket read: one whole message, truncated to `max`.
-fn record_take(inner: &mut Inner, max: usize, peek: bool) -> Received {
-    let (mut data, from, rights, cred) = if peek {
-        let msg = inner.rx.front().expect("checked non-empty");
-        let n = msg.data.len().min(max);
-        let data = msg.data[..n].to_vec();
-        (data, msg.from.clone(), msg.rights.files.clone(), msg.cred)
-    } else {
-        let mut msg = inner.rx.pop_front().expect("checked non-empty");
-        inner.rx_bytes -= msg.data.len();
-        let rights = msg.rights.take();
-        (
-            std::mem::take(&mut msg.data),
-            msg.from.take(),
-            rights,
-            msg.cred,
-        )
-    };
-    let full_len = match peek {
-        true => inner.rx.front().map_or(0, |m| m.data.len()),
-        false => data.len(),
-    };
+/// `unix_stream_recv_urg`: the out-of-band byte, with `MSG_OOB`; `EINVAL` without one or
+/// with `SO_OOBINLINE`. Taking it leaves its place marked, and drops a spent mark before it.
+fn take_urg(inner: &mut Inner, peek: bool) -> Result<Received, Errno> {
+    if inner.oob_inline() {
+        return Err(Errno::EINVAL);
+    }
+    let index = inner
+        .rx
+        .iter()
+        .position(|m| m.urg == Urg::Mark)
+        .ok_or(Errno::EINVAL)?;
+    let msg = &mut inner.rx[index];
+    let byte = msg.data[msg.read..].to_vec();
+    let cred = msg.cred;
+    if !peek {
+        msg.urg = Urg::Spent;
+        msg.data.clear();
+        msg.read = 0;
+        inner.rx_bytes -= byte.len();
+        if index > 0 && inner.rx[index - 1].urg == Urg::Spent {
+            inner.rx.remove(index - 1);
+        }
+    }
+    Ok(Received {
+        full_len: byte.len(),
+        data: byte,
+        from: None,
+        flags: MsgFlags::MSG_OOB,
+        rights: Vec::new(),
+        cred: Some(cred),
+    })
+}
+
+/// A datagram or seqpacket read: one whole message, truncated to `max`. A peek with
+/// `SO_PEEK_OFF` reads from that far into the queue, past whole messages and into one
+/// (`__skb_try_recv_from_queue`); `None` when the offset is past them all.
+fn record_take(inner: &mut Inner, max: usize, peek: bool) -> Option<Received> {
+    if peek {
+        let mut off = inner.peek_off.max(0) as usize;
+        let mut found = None;
+        for (i, msg) in inner.rx.iter().enumerate() {
+            let len = msg.data.len();
+            if off >= len && (len > 0 || off > 0) {
+                off -= len;
+                continue;
+            }
+            found = Some(i);
+            break;
+        }
+        let msg = &inner.rx[found?];
+        let full_len = msg.data.len() - off;
+        let data = msg.data[off..off + full_len.min(max)].to_vec();
+        let mut flags = MsgFlags(0);
+        if data.len() < full_len {
+            flags |= MsgFlags::MSG_TRUNC;
+        }
+        let out = Received {
+            full_len,
+            from: msg.from.clone(),
+            flags,
+            rights: msg.rights.files.clone(),
+            cred: Some(msg.cred),
+            data,
+        };
+        inner.move_peek_off(out.data.len() as isize);
+        return Some(out);
+    }
+    let mut msg = inner.rx.pop_front()?;
+    inner.rx_bytes -= msg.data.len();
+    inner.move_peek_off(-(msg.data.len() as isize));
+    let rights = msg.rights.take();
+    let mut data = std::mem::take(&mut msg.data);
+    let full_len = data.len();
     data.truncate(max);
     let mut flags = MsgFlags(0);
     if data.len() < full_len {
         flags |= MsgFlags::MSG_TRUNC;
     }
-    Received {
+    Some(Received {
         data,
         full_len,
-        from,
+        from: msg.from.take(),
         flags,
         rights,
-        cred: Some(cred),
-    }
+        cred: Some(msg.cred),
+    })
 }
 
 /// The address of an unnamed socket: just the family.
@@ -1314,6 +1569,9 @@ impl Pollable for UnixFile {
         }
         if !inner.rx.is_empty() || !inner.accept.is_empty() {
             mask |= PollMask::READABLE;
+        }
+        if inner.has_oob() {
+            mask |= PollMask::PRI;
         }
         if sock.kind.connection() && inner.state == State::Unconnected {
             mask |= PollMask::HUP;
@@ -1416,6 +1674,7 @@ impl FileObject for UnixFile {
                     Some(peer) => peer.lock().rx_bytes,
                     None => 0,
                 },
+                IoctlRequest::SIOCATMARK => usize::from(self.0.at_mark()?),
                 _ => return Err(Errno::ENOTTY.into()),
             };
             write_value(caller.memory(), GuestPtrMut::new(arg), &(len as i32)).await?;
@@ -1520,6 +1779,20 @@ pub(crate) async fn send(
         // A part was queued as a copy; what is left stays.
         data.drain(..n);
     }
+}
+
+/// Sends `byte` as the stream's out-of-band byte, waiting for room unless non-blocking.
+pub(crate) async fn send_oob(
+    sock: &Sock,
+    wait: &mut Blocking<'_>,
+    byte: u8,
+    mut anc: Ancillary,
+    cred: Ucred,
+) -> SysResult<usize> {
+    wait.wait(WaitOn::Queue(&sock.wait), PollMask::WRITABLE, || {
+        sock.try_send_oob(byte, &mut anc, cred)
+    })
+    .await
 }
 
 impl Kernel {
@@ -1671,6 +1944,7 @@ impl Kernel {
             return Ok(0);
         }
         let name = Name::decode(raw)?.ok_or(Errno::EINVAL)?;
+        sock.autobind_for_creds()?;
         let target = self.unix_find(caller, sock, &name).await?;
         if sock.kind == Kind::Dgram {
             sock.connect_dgram(Some(target))?;
@@ -1793,6 +2067,7 @@ impl Kernel {
             SocketOption::SO_DOMAIN => int(AddressFamily::AF_UNIX.0),
             SocketOption::SO_ERROR => int(sock.take_error().map_or(0, |e| e.0)),
             SocketOption::SO_ACCEPTCONN => int(sock.is_listening() as i32),
+            SocketOption::SO_PEEK_OFF => int(sock.lock().peek_off),
             // `cred_to_ucred`: without a peer, pid 0 and the invalid ids.
             SocketOption::SO_PEERCRED => Ok(sock
                 .peer_cred()
@@ -2013,5 +2288,125 @@ mod tests {
         );
         assert!(listener.try_accept().is_ok());
         assert_eq!(listener.try_accept().err(), Some(Errno::EAGAIN));
+    }
+
+    fn send(from: &Sock, data: &[u8]) {
+        let mut data = data.to_vec();
+        let mut anc = Ancillary::default();
+        from.try_send_connected(&mut data, &mut anc, cred(1))
+            .unwrap();
+    }
+
+    fn send_oob(from: &Sock, byte: u8) {
+        let mut anc = Ancillary::default();
+        assert_eq!(from.try_send_oob(byte, &mut anc, cred(1)), Ok(1));
+    }
+
+    fn set(sock: &Sock, name: SocketOption, value: i32) {
+        sock.set_option(name.0, &value.to_le_bytes(), false)
+            .unwrap();
+    }
+
+    /// `send(MSG_OOB)` of "abc" on a stream: "ab" is data, "c" the out-of-band byte, which
+    /// reads stop before, `recv(MSG_OOB)` takes, `SIOCATMARK` and `POLLPRI` report, and a
+    /// read at the mark skips.
+    #[test]
+    fn stream_out_of_band_bytes_mark_the_stream() {
+        let (a, b) = pair(Kind::Stream);
+        send(&a, b"ab");
+        send_oob(&a, b'c');
+        send(&a, b"de");
+        let file = UnixFile(b.clone());
+        assert!(file.poll(None).contains(PollMask::PRI));
+        assert_eq!(b.at_mark(), Ok(false));
+        let got = b.try_recv(16, MsgFlags(0), None).unwrap();
+        assert_eq!(got.data, b"ab", "a read stops at the mark");
+        assert_eq!(b.at_mark(), Ok(true));
+        let oob = b.recv_urg(true).unwrap();
+        assert_eq!(
+            (oob.data.as_slice(), oob.flags),
+            (&b"c"[..], MsgFlags::MSG_OOB)
+        );
+        let oob = b.recv_urg(false).unwrap();
+        assert_eq!(oob.data, b"c");
+        assert!(!file.poll(None).contains(PollMask::PRI));
+        assert_eq!(b.recv_urg(false).err(), Some(Errno::EINVAL));
+        assert_eq!(b.at_mark(), Ok(true), "the spent mark is still the place");
+        assert_eq!(b.try_recv(16, MsgFlags(0), None).unwrap().data, b"de");
+        assert_eq!(b.at_mark(), Ok(false));
+
+        // Unread, the byte is dropped by a read that reaches it, unless SO_OOBINLINE.
+        send_oob(&a, b'x');
+        send(&a, b"yz");
+        assert_eq!(
+            b.try_recv(16, MsgFlags::MSG_PEEK, None).unwrap().data,
+            b"yz"
+        );
+        assert_eq!(b.try_recv(16, MsgFlags(0), None).unwrap().data, b"yz");
+        assert_eq!(b.try_recv(16, MsgFlags(0), None).err(), Some(Errno::EAGAIN));
+        set(&b, SocketOption::SO_OOBINLINE, 1);
+        send_oob(&a, b'q');
+        assert_eq!(b.recv_urg(false).err(), Some(Errno::EINVAL));
+        assert_eq!(b.try_recv(16, MsgFlags(0), None).unwrap().data, b"q");
+        // A newer byte leaves an older one ordinary data.
+        set(&b, SocketOption::SO_OOBINLINE, 0);
+        send_oob(&a, b'1');
+        send_oob(&a, b'2');
+        assert_eq!(b.try_recv(16, MsgFlags(0), None).unwrap().data, b"1");
+        assert_eq!(b.recv_urg(false).unwrap().data, b"2");
+        drop(file);
+        let (d, _) = pair(Kind::Dgram);
+        assert_eq!(d.at_mark(), Err(Errno::EOPNOTSUPP));
+    }
+
+    /// `SO_PEEK_OFF`: peeking reads on from where the last peek stopped, reading takes the
+    /// offset back; a datagram peek goes past whole datagrams and into one.
+    #[test]
+    fn peek_offsets_move_with_peeks_and_reads() {
+        let (a, b) = pair(Kind::Stream);
+        assert_eq!(b.lock().peek_off, -1);
+        set(&b, SocketOption::SO_PEEK_OFF, 0);
+        send(&a, b"abc");
+        send(&a, b"def");
+        let peek = |n| b.try_recv(n, MsgFlags::MSG_PEEK, None).map(|r| r.data);
+        assert_eq!(peek(2).unwrap(), b"ab");
+        assert_eq!(peek(2).unwrap(), b"cd");
+        assert_eq!(b.lock().peek_off, 4);
+        assert_eq!(b.try_recv(3, MsgFlags(0), None).unwrap().data, b"abc");
+        assert_eq!(b.lock().peek_off, 1);
+        assert_eq!(peek(8).unwrap(), b"ef");
+        assert_eq!(
+            peek(8).err(),
+            Some(Errno::EAGAIN),
+            "nothing past the offset"
+        );
+
+        let (x, y) = pair(Kind::Dgram);
+        set(&y, SocketOption::SO_PEEK_OFF, 0);
+        for d in [&b"one"[..], b"two"] {
+            let mut data = d.to_vec();
+            x.try_send_dgram(&y, &mut data, &mut Ancillary::default(), cred(1))
+                .unwrap();
+        }
+        let dpeek = |n| y.try_recv(n, MsgFlags::MSG_PEEK, None).unwrap().data;
+        assert_eq!(dpeek(2), b"on");
+        assert_eq!(dpeek(8), b"e");
+        assert_eq!(dpeek(8), b"two");
+        assert_eq!(y.try_recv(8, MsgFlags(0), None).unwrap().data, b"one");
+        assert_eq!(y.lock().peek_off, 3);
+    }
+
+    /// With `SO_PASSCRED`, an unbound socket gets an abstract name before it connects or
+    /// sends (`unix_may_passcred`).
+    #[test]
+    fn so_passcred_autobinds() {
+        let (a, _) = pair(Kind::Dgram);
+        a.autobind_for_creds().unwrap();
+        assert!(!a.is_bound());
+        set(&a, SocketOption::SO_PASSCRED, 1);
+        a.autobind_for_creds().unwrap();
+        let addr = a.local_addr();
+        assert_eq!(addr.len(), SUN_PATH + 6);
+        assert_eq!(addr[SUN_PATH], 0, "an abstract name");
     }
 }
