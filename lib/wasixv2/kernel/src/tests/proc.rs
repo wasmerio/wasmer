@@ -1268,3 +1268,108 @@ fn clone_sighand_shares_the_handlers_between_processes() {
     );
     assert_eq!(handler(&kernel, &caller, Signal::SIGUSR2), 4);
 }
+
+/// kernel/exit.c kernel_waitid_prepare/kernel_waitid: O_NONBLOCK supplies WNOHANG,
+/// but only an implicit WNOHANG reports EAGAIN. No ready child leaves rusage untouched.
+#[test]
+fn waitid_honors_pidfd_nonblock_and_only_copies_ready_rusage() {
+    let (kernel, task, _) = setup(b"");
+    let memory = ForkableMemory(FlatMemory(RefCell::new(vec![0; 4096])));
+    let caller = Caller::new(task, &memory);
+    let child = fork_child(&kernel, &caller);
+    let fd = block_on(kernel.pidfd_open(&caller, child.0 as Pid, OpenFlags::O_NONBLOCK.0)).unwrap();
+    put(&memory.0, 0x100, &[0xaa; 128]);
+    put(&memory.0, 0x200, &[0xaa; 144]);
+    let wait = kernel.waitid(
+        &caller,
+        Idtype::P_PIDFD,
+        fd.0,
+        SiginfoPtr::new(0x100),
+        WaitOptions::WEXITED,
+        RusagePtr::new(0x200),
+    );
+    assert_eq!(wait.now_or_never(), Some(Err(SysErr::Errno(Errno::EAGAIN))));
+    assert_eq!(word(&memory.0, 0x100), 0, "si_signo");
+    assert_eq!(super::ipc::get(&memory.0, 0x200, 144), vec![0xaa; 144]);
+    assert_eq!(
+        block_on(kernel.waitid(
+            &caller,
+            Idtype::P_PIDFD,
+            fd.0,
+            SiginfoPtr::new(0xffff_ffff),
+            WaitOptions::WEXITED,
+            RusagePtr::NULL,
+        )),
+        Err(SysErr::Errno(Errno::EFAULT)),
+        "siginfo copy faults override EAGAIN"
+    );
+    assert_eq!(
+        block_on(kernel.waitid(
+            &caller,
+            Idtype::P_PIDFD,
+            -1,
+            SiginfoPtr::NULL,
+            WaitOptions::WEXITED,
+            RusagePtr::NULL,
+        )),
+        Err(SysErr::Errno(Errno::EINVAL))
+    );
+    let wait = kernel.waitid(
+        &caller,
+        Idtype::P_PIDFD,
+        fd.0,
+        SiginfoPtr::new(0x100),
+        WaitOptions::WEXITED | WaitOptions::WNOHANG,
+        RusagePtr::new(0xffff_ffff),
+    );
+    assert_eq!(
+        block_on(wait),
+        Ok(0),
+        "rusage is not accessed without an event"
+    );
+    assert_eq!(
+        block_on(kernel.fcntl64(&caller, fd, wasixv2_abi::FcntlCmd::F_SETFL, 0)),
+        Ok(0)
+    );
+    let wait = kernel.waitid(
+        &caller,
+        Idtype::P_PIDFD,
+        fd.0,
+        SiginfoPtr::new(0x100),
+        WaitOptions::WEXITED,
+        RusagePtr::NULL,
+    );
+    assert!(
+        wait.now_or_never().is_none(),
+        "F_SETFL changed the live file flags"
+    );
+    assert_eq!(
+        block_on(kernel.fcntl64(
+            &caller,
+            fd,
+            wasixv2_abi::FcntlCmd::F_SETFL,
+            OpenFlags::O_NONBLOCK.0
+        )),
+        Ok(0)
+    );
+    let child_memory = forkable();
+    assert_eq!(
+        block_on(kernel.exit_group(&Caller::new(child, &child_memory), 7)),
+        Ok(())
+    );
+    assert_eq!(
+        block_on(kernel.waitid(
+            &caller,
+            Idtype::P_PIDFD,
+            fd.0,
+            SiginfoPtr::new(0x100),
+            WaitOptions::WEXITED,
+            RusagePtr::new(0x200)
+        )),
+        Ok(0)
+    );
+    assert_eq!(word(&memory.0, 0x100), Signal::SIGCHLD.0 as u32);
+    assert_eq!(word(&memory.0, 0x100 + 12), child.0);
+    assert_eq!(word(&memory.0, 0x100 + 20), 7);
+    assert_ne!(super::ipc::get(&memory.0, 0x200, 144), vec![0xaa; 144]);
+}
