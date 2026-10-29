@@ -2472,6 +2472,32 @@ impl Syscalls for Kernel {
     async fn vhangup(&self, caller: &Caller<'_>) -> SysResult<i32> {
         self.sys_vhangup(caller.task())
     }
+    async fn process_vm_readv(
+        &self,
+        caller: &Caller<'_>,
+        pid: Pid,
+        lvec: wasixv2_abi::ConstIovecArray,
+        liovcnt: Ulong,
+        rvec: wasixv2_abi::ConstIovecArray,
+        riovcnt: Ulong,
+        flags: Ulong,
+    ) -> SysResult<i32> {
+        self.sys_process_vm_rw(caller, pid, lvec, liovcnt, rvec, riovcnt, flags, false)
+            .await
+    }
+    async fn process_vm_writev(
+        &self,
+        caller: &Caller<'_>,
+        pid: Pid,
+        lvec: wasixv2_abi::ConstIovecArray,
+        liovcnt: Ulong,
+        rvec: wasixv2_abi::ConstIovecArray,
+        riovcnt: Ulong,
+        flags: Ulong,
+    ) -> SysResult<i32> {
+        self.sys_process_vm_rw(caller, pid, lvec, liovcnt, rvec, riovcnt, flags, true)
+            .await
+    }
     async fn mseal(
         &self,
         caller: &Caller<'_>,

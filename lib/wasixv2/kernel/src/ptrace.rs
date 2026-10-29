@@ -49,45 +49,7 @@ impl Kernel {
         them: &Arc<Process>,
         mode: u32,
     ) -> bool {
-        if Arc::ptr_eq(me, them) {
-            return true;
-        }
-        let (cred, tcred) = (me.cred(), them.cred());
-        let dumpable = them.ident.lock_or_recover().dumpable;
-        if !cred.may_read_task(&tcred, dumpable, mode & MODE_FSCREDS != 0) {
-            return false;
-        }
-        // `cap_ptrace_access_check`: the target's permitted capabilities are the caller's in
-        // the same user namespace, or the caller has `CAP_SYS_PTRACE` over the target's.
-        let caller_caps = match mode & MODE_FSCREDS != 0 {
-            true => cred.effective,
-            false => cred.permitted,
-        };
-        let subset =
-            Arc::ptr_eq(&cred.user_ns, &tcred.user_ns) && tcred.permitted & !caller_caps == 0;
-        let ptrace_cap = cred.ns_capable(&tcred.user_ns, Cap::SysPtrace);
-        if !subset && !ptrace_cap {
-            return false;
-        }
-        if mode & MODE_ATTACH != 0 && !self.yama_may_attach(me, them, ptrace_cap) {
-            return false;
-        }
-        Domain::may_ptrace(cred.landlock.as_ref(), tcred.landlock.as_ref())
-    }
-
-    /// `yama_ptrace_access_check` for an attach of `me` to `them`; `ptrace_cap` is whether `me`
-    /// has `CAP_SYS_PTRACE` over `them`'s user namespace.
-    fn yama_may_attach(&self, me: &Process, them: &Process, ptrace_cap: bool) -> bool {
-        match self.yama.scope() {
-            yama::SCOPE_DISABLED => true,
-            yama::SCOPE_RELATIONAL => {
-                ptrace_cap
-                    || self.is_descendant(me.pid.0, them.pid.0)
-                    || self.ptracer_exception_found(me.pid.0, them.pid.0)
-            }
-            yama::SCOPE_CAPABILITY => ptrace_cap,
-            _ => false,
-        }
+        may_access(&self.yama, &self.procs.tree, me, them, mode)
     }
 
     /// `yama_ptrace_traceme`: whether `parent` may become the tracer of `me` through
@@ -101,30 +63,79 @@ impl Kernel {
         };
         yama && Domain::may_ptrace(pcred.landlock.as_ref(), cred.landlock.as_ref())
     }
+}
 
-    /// `task_is_descendant`: whether the process `child` is `ancestor` or below it, by its
-    /// parents.
-    pub(crate) fn is_descendant(&self, ancestor: u32, child: u32) -> bool {
-        let tree = self.procs.tree.lock_or_recover();
-        let mut walker = child;
-        while walker != 0 {
-            if walker == ancestor {
-                return true;
-            }
-            walker = tree.nodes.get(&walker).map_or(0, |node| node.parent);
-        }
-        false
+/// `ptrace_may_access` between processes, for the kernel and for `/proc`: see
+/// [`Kernel::ptrace_may_access`].
+pub(crate) fn may_access(
+    yama: &yama::Yama,
+    tree: &std::sync::Mutex<crate::process::Tree>,
+    me: &Arc<Process>,
+    them: &Arc<Process>,
+    mode: u32,
+) -> bool {
+    if Arc::ptr_eq(me, them) {
+        return true;
     }
+    let (cred, tcred) = (me.cred(), them.cred());
+    let dumpable = them.ident.lock_or_recover().dumpable;
+    if !cred.may_read_task(&tcred, dumpable, mode & MODE_FSCREDS != 0) {
+        return false;
+    }
+    // `cap_ptrace_access_check`: the target's permitted capabilities are the caller's in the
+    // same user namespace, or the caller has `CAP_SYS_PTRACE` over the target's.
+    let caller_caps = match mode & MODE_FSCREDS != 0 {
+        true => cred.effective,
+        false => cred.permitted,
+    };
+    let subset = Arc::ptr_eq(&cred.user_ns, &tcred.user_ns) && tcred.permitted & !caller_caps == 0;
+    let ptrace_cap = cred.ns_capable(&tcred.user_ns, Cap::SysPtrace);
+    if !subset && !ptrace_cap {
+        return false;
+    }
+    if mode & MODE_ATTACH != 0 && !yama_may_attach(yama, tree, me.pid.0, them.pid.0, ptrace_cap) {
+        return false;
+    }
+    Domain::may_ptrace(cred.landlock.as_ref(), tcred.landlock.as_ref())
+}
 
-    /// `ptracer_exception_found`: whether `tracee` named `tracer`, or one of its ancestors, or
-    /// anyone, with `PR_SET_PTRACER`.
-    fn ptracer_exception_found(&self, tracer: u32, tracee: u32) -> bool {
-        match self.yama.exception(tracee) {
-            Some(None) => true,
-            Some(Some(allowed)) => self.is_descendant(allowed, tracer),
-            None => false,
+/// `yama_ptrace_access_check` for an attach of the process `me` to `them`; `ptrace_cap` is
+/// whether `me` has `CAP_SYS_PTRACE` over `them`'s user namespace.
+fn yama_may_attach(
+    yama: &yama::Yama,
+    tree: &std::sync::Mutex<crate::process::Tree>,
+    me: u32,
+    them: u32,
+    ptrace_cap: bool,
+) -> bool {
+    let tree = tree.lock_or_recover();
+    match yama.scope() {
+        yama::SCOPE_DISABLED => true,
+        yama::SCOPE_RELATIONAL => {
+            // `ptracer_exception_found`: `them` named `me`, one of its ancestors, or anyone.
+            let excepted = match yama.exception(them) {
+                Some(None) => true,
+                Some(Some(allowed)) => is_descendant(&tree, allowed, me),
+                None => false,
+            };
+            ptrace_cap || is_descendant(&tree, me, them) || excepted
         }
+        yama::SCOPE_CAPABILITY => ptrace_cap,
+        _ => false,
     }
+}
+
+/// `task_is_descendant`: whether the process `child` is `ancestor` or below it, by its
+/// parents.
+fn is_descendant(tree: &crate::process::Tree, ancestor: u32, child: u32) -> bool {
+    let mut walker = child;
+    while walker != 0 {
+        if walker == ancestor {
+            return true;
+        }
+        walker = tree.nodes.get(&walker).map_or(0, |node| node.parent);
+    }
+    false
 }
 
 impl Kernel {

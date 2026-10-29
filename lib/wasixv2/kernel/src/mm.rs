@@ -38,6 +38,7 @@
 
 mod cachestat;
 mod mseal;
+mod process_vm;
 mod shared;
 
 use std::{
