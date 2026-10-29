@@ -419,3 +419,37 @@ re-bless, flakes), libc2 `train9` (abi pin), wasixcc `train9` (clone3 asyncify),
 Landed, fast-forward: abi `main` `832bb78..f9958c7`; libc2 `main` `2c3c3d4f..449e092e`; tests `main`
 `e08d138..89a2785`; wasixcc `feat/wasixv2` `d6373e5..7ab1ffb`; wasmer `feat/wasixv2`
 `b75d9d49205..0bd23caafbb`; plan `50acb462dc9..043df85f084`.
+
+## 2026-10-29: merge train 10
+
+abi `train10` (statmount, 340b9f3), wasmer `wasixv2/train10` (34 commits on `0bd23caafbb`: gap D UTS/IPC/net
+namespaces, gap C mounts and mounts phase 2 (mount namespaces, mount syscalls, new mount API,
+statmount/listmount), one ABI bump, fork-cow, vmfill, follow-ups 7 and 8 (incl. kernel copies that fault
+on unmapped and PROT_NONE pages, CLONE_PIDFD), the console ^C test fix, the tgkill race fix
+(complete_signal targeting), the tests bump), tests `train10` (fixtures, mounts bench, the runner's
+fork detection for stackless clone, `upstream/ltp` -> `wasixv2-heartbeat` 4f386da55, flaky.txt
+-tgkill01/malloc-brk-fail/setenv-oom, the re-bless, ptimer-abstime), libc2 `train10` (abi pin, tests),
+plan (userland-3).
+
+- Conflicts: the branches predate train 9's lock sweep (resolve.py); ns.rs: gap C and gap D merged onto
+  one per-kernel inode allocator (`Inums`) and `make(kernel, kind, fs)`; vmfill vs fork-cow:
+  `zero_pages` takes the layout and `Base::clear`s inside the frozen image, drops past it (new exec
+  test); PROT_NONE vs vmfill: `zero_pages` is a kernel fill (default via `force_write`).
+- Gates: crate tests 974, clippy, fmt, release, CLI 59/0/12, run_tty 6/6.
+- Suite #1: 77 off the lists (about 40 EFAULT tests, mount/ns tests, containers, mlock, close_range02),
+  111 newly run and passing (99 fs_bind, tar01, cpio01, gzip01, unzip01, statmount08, listmount03,
+  tgkill01, malloc-brk-fail, setenv-oom, 13 fixtures), 8 newly run and failing (6 fs_bind umount EBUSY
+  timeouts, unshare01_sh, listmount04), 6 regressions approved as expected failures: 5 LTP tests use
+  guarded buffers the LTP fork's in-process mode freed (EFAULT now), posix mlockall/8-1
+  (RLIMIT_MEMLOCK counts the whole linear memory).
+- Suite #2: 3233/662/1/0/835; the one, ptimer-abstime, a load flake of the test (also on train 9's
+  binary), fixed in the test. Filtered recheck 0 unexpected.
+- Smoke: sws-v2 28/28 (classic, `__linux__`), v1 8 + python expected-fail, UDP 6/6, extras (classic,
+  userland-3), C++ 9/9, pty bash 11/11; fork-cow 0.13 MiB host RSS per child (32 MiB data, 32
+  children); vmfill tests 42-44 MB (were 4.2 GB); tgkill01 `-i 20` stress 0/320.
+- Follow-ups: LTP fork keeps guarded buffers in the in-process mode; RLIMIT_MEMLOCK accounting of the
+  stack; fs_bind umount EBUSY on self-propagated mounts; shared propagation back from a new mount
+  namespace; listmount04 error order and flags.
+
+Land in order: abi `main` `f9958c7..340b9f3`; libc2 `main` `449e092e..1e68cf76`; tests `main`
+`89a2785..eb945b2`; wasmer `feat/wasixv2` `0bd23caafbb..8e19e34e15e`; plan.
