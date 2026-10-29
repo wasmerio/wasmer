@@ -214,6 +214,8 @@ pub(crate) struct Node {
 pub(crate) struct PidAttr {
     /// The wait status, and the id of the cgroup the process exited in.
     exit: OnceLock<(i32, u64)>,
+    /// How it dumped core: `coredump_mask`, the signal and its code (`pidfs_coredump`).
+    coredump: OnceLock<(u32, u32, u32)>,
 }
 
 impl Node {
@@ -297,6 +299,14 @@ impl Procs {
                 css: None,
             },
         );
+    }
+
+    /// `pidfs_coredump`: the pidfds of `pid`, if it has any, tell how it dumped core.
+    pub(crate) fn note_coredump(&self, pid: u32, how: (u32, u32, u32)) {
+        let tree = self.tree.lock_or_recover();
+        if let Some(attr) = tree.nodes.get(&pid).and_then(|node| node.pidfs.as_ref()) {
+            let _ = attr.coredump.set(how);
+        }
     }
 
     /// The process `pid`, zombies included.
@@ -685,9 +695,14 @@ impl Kernel {
                 return;
             }
             let uid = process.cred().user.real;
+            // `coredump_finish`: a dump that started shows in the status (`WCOREDUMP`).
+            let dumped = process.ident.lock_or_recover().dumped_core;
             let exit = match node.killed_by {
                 Some(sig) => Exit {
-                    code: SiCode::CLD_KILLED,
+                    code: match dumped {
+                        true => SiCode::CLD_DUMPED,
+                        false => SiCode::CLD_KILLED,
+                    },
                     status: sig,
                     uid,
                 },
@@ -2169,11 +2184,14 @@ impl Kernel {
     }
 }
 
-/// `PIDFD_INFO_SUPPORTED`: what `PIDFD_GET_INFO` can fill here. No process dumps core.
+/// `PIDFD_INFO_SUPPORTED`: what `PIDFD_GET_INFO` can fill here.
 const PIDFD_INFO_SUPPORTED: PidfdInfoMask = PidfdInfoMask(
     PidfdInfoMask::PIDFD_INFO_PID.0
         | PidfdInfoMask::PIDFD_INFO_CREDS.0
         | PidfdInfoMask::PIDFD_INFO_CGROUPID.0
+        | PidfdInfoMask::PIDFD_INFO_COREDUMP.0
+        | PidfdInfoMask::PIDFD_INFO_COREDUMP_SIGNAL.0
+        | PidfdInfoMask::PIDFD_INFO_COREDUMP_CODE.0
         | PidfdInfoMask::PIDFD_INFO_EXIT.0
         | PidfdInfoMask::PIDFD_INFO_SUPPORTED_MASK.0,
 );
@@ -2236,6 +2254,16 @@ impl Kernel {
             info.exit_code = status;
             info.cgroupid = cgroup;
         }
+        if wants(PidfdInfoMask::PIDFD_INFO_COREDUMP)
+            && let Some(&(how, signal, code)) = pidfd.attr.coredump.get()
+        {
+            mask |= PidfdInfoMask::PIDFD_INFO_COREDUMP.0
+                | PidfdInfoMask::PIDFD_INFO_COREDUMP_SIGNAL.0
+                | PidfdInfoMask::PIDFD_INFO_COREDUMP_CODE.0;
+            info.coredump_mask = how;
+            info.coredump_signal = signal;
+            info.coredump_code = code;
+        }
         let task = {
             let tree = self.procs.tree.lock_or_recover();
             let node = tree.nodes.get(&pidfd.pid);
@@ -2259,6 +2287,18 @@ impl Kernel {
                     0 => 0,
                     parent => self.vnr(caller, parent) as u32,
                 };
+                // No dump yet: whether one would be made (`pidfs_coredump_mask`).
+                if wants(PidfdInfoMask::PIDFD_INFO_COREDUMP) && info.coredump_mask == 0 {
+                    let dumpable = self
+                        .procs
+                        .find(pidfd.pid)
+                        .is_some_and(|p| p.ident.lock_or_recover().dumpable);
+                    info.coredump_mask = match dumpable {
+                        true => crate::coredump::PIDFD_COREDUMP_USER,
+                        false => crate::coredump::PIDFD_COREDUMP_SKIP,
+                    };
+                    mask |= PidfdInfoMask::PIDFD_INFO_COREDUMP.0;
+                }
                 // `task_dfl_cgroup`, unless the exit told it already.
                 if info.cgroupid == 0 {
                     let state = self.state.read_or_recover();

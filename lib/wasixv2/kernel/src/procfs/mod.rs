@@ -73,6 +73,7 @@ impl Kernel {
             vm: self.vm.clone(),
             cgroups: self.cgroups.clone(),
             printk: self.printk.clone(),
+            coredump: self.coredump.clone(),
         };
         Arc::new(ProcFs {
             source: Arc::new(source),
@@ -168,6 +169,8 @@ struct Source {
     cgroups: Arc<crate::cgroup::Hierarchy>,
     /// The kernel log's tunables.
     printk: Arc<crate::printk::Printk>,
+    /// The core dump tunables.
+    coredump: Arc<crate::coredump::Coredump>,
 }
 
 /// A process as the tree has it.

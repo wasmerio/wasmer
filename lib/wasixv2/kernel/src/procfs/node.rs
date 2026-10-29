@@ -156,6 +156,13 @@ const STATIC: &[(usize, &str, Static)] = &[
         "printk_devkmsg",
         Static::File(text::Global::PrintkDevkmsg),
     ),
+    (13, "core_pattern", Static::File(text::Global::CorePattern)),
+    (13, "core_uses_pid", Static::File(text::Global::CoreUsesPid)),
+    (
+        13,
+        "core_pipe_limit",
+        Static::File(text::Global::CorePipeLimit),
+    ),
 ];
 
 /// `/proc/sys/user/max_*_namespaces` for `kind`.
@@ -206,6 +213,11 @@ const PID_ENTRIES: &[(&str, PidEntry, u32)] = &[
     ("projid_map", PidEntry::File(text::PerPid::ProjidMap), 0o644),
     ("setgroups", PidEntry::File(text::PerPid::Setgroups), 0o644),
     ("cgroup", PidEntry::File(text::PerPid::Cgroup), 0o444),
+    (
+        "coredump_filter",
+        PidEntry::File(text::PerPid::CoredumpFilter),
+        0o644,
+    ),
 ];
 
 /// The files of `/proc/<pid>/net`, which show the task's network namespace.
@@ -735,6 +747,12 @@ impl Node for ProcNode {
                         | text::Global::MaxMapCount => {
                             Some(Write::Vm(self.source.vm.clone(), file))
                         }
+                        // `proc_dostring_coredump` and `proc_dointvec`: root's, by the mode.
+                        text::Global::CorePattern
+                        | text::Global::CoreUsesPid
+                        | text::Global::CorePipeLimit => {
+                            Some(Write::Core(self.source.coredump.clone(), file))
+                        }
                         text::Global::Printk | text::Global::PrintkDevkmsg => {
                             Some(Write::Printk(self.source.printk.clone(), file, true))
                         }
@@ -800,6 +818,10 @@ impl ProcNode {
     ) -> FsResult<Option<Write>> {
         let map = match file {
             text::PerPid::Comm => return Ok(Some(Write::Comm(self.source.clone(), scope))),
+            text::PerPid::CoredumpFilter => {
+                let info = self.source.process(scope.pid).ok_or(Errno::ESRCH)?;
+                return Ok(Some(Write::CoredumpFilter(info.process)));
+            }
             text::PerPid::UidMap => MapKind::Uid,
             text::PerPid::GidMap => MapKind::Gid,
             text::PerPid::ProjidMap => MapKind::Projid,
@@ -881,6 +903,10 @@ enum Write {
     Fs(Arc<crate::fs::FsSysctls>, text::Global),
     /// One of the kernel log's tunables, if the opener may set it.
     Printk(Arc<crate::printk::Printk>, text::Global, bool),
+    /// One of the core dump tunables.
+    Core(Arc<crate::coredump::Coredump>, text::Global),
+    /// A process's `coredump_filter`.
+    CoredumpFilter(Arc<crate::Process>),
 }
 
 /// `proc_dointvec`'s parsing of one integer: blanks around it, nothing else.
@@ -962,6 +988,25 @@ impl Handle for FileHandle {
                 text::Global::OvercommitKbytes => vm.set_overcommit_kbytes(sysctl_int(data)?),
                 _ => vm.set_max_map_count(sysctl_i32(data)?)?,
             },
+            Write::Core(core, file) => match file {
+                text::Global::CorePattern => core.set_pattern(data)?,
+                text::Global::CoreUsesPid => core.set_uses_pid(sysctl_int(data)? != 0),
+                _ => core.set_pipe_limit(sysctl_int(data)?),
+            },
+            // `proc_coredump_filter_write`: the bits a filter has, from any base.
+            Write::CoredumpFilter(process) => {
+                let text = std::str::from_utf8(data).map_err(|_| Errno::EINVAL)?.trim();
+                let value = match text.strip_prefix("0x").or_else(|| text.strip_prefix("0X")) {
+                    Some(hex) => u32::from_str_radix(hex, 16),
+                    None if text.len() > 1 && text.starts_with('0') => {
+                        u32::from_str_radix(&text[1..], 8)
+                    }
+                    None => text.parse(),
+                }
+                .map_err(|_| Errno::EINVAL)?;
+                let mask = crate::coredump::COREDUMP_FILTER_MASK;
+                process.ident.lock_or_recover().coredump_filter = value & mask;
+            }
             Write::Printk(_, _, false) => return Err(Errno::EPERM),
             Write::Printk(printk, file, true) => write_printk(printk, *file, data)?,
             Write::Taint(_, false) => return Err(Errno::EPERM),

@@ -1875,6 +1875,10 @@ impl Kernel {
                     }
                     DefaultAction::Terminate => {
                         drop(state);
+                        // `do_coredump`, which the task does on its way out.
+                        if crate::coredump::dumps_core(sig) {
+                            self.coredump_request(task, info);
+                        }
                         self.force_fatal_signal(task, sig);
                         return self.with_task(task, |t| t.work.take());
                     }

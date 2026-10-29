@@ -67,6 +67,10 @@ pub(super) enum Global {
     Printk,
     DmesgRestrict,
     PrintkDevkmsg,
+    /// `kernel.core_pattern`, `kernel.core_uses_pid` and `kernel.core_pipe_limit`.
+    CorePattern,
+    CoreUsesPid,
+    CorePipeLimit,
 }
 
 /// The files of a network namespace (`/proc/<pid>/net`).
@@ -106,7 +110,10 @@ impl Global {
             | Self::Tainted
             | Self::Printk
             | Self::DmesgRestrict
-            | Self::PrintkDevkmsg => 0o644,
+            | Self::PrintkDevkmsg
+            | Self::CorePattern
+            | Self::CoreUsesPid
+            | Self::CorePipeLimit => 0o644,
             Self::Kmsg => 0o400,
             // Writing these needs a capability over the namespace's owner instead (or, for
             // `pid_max`, being its root), as the permissions of their sysctl tables give.
@@ -136,6 +143,8 @@ pub(super) enum PerPid {
     Setgroups,
     /// `cgroup`.
     Cgroup,
+    /// `coredump_filter`.
+    CoredumpFilter,
 }
 
 /// A system file as a reader in the namespaces `ns`, the pid namespace `pid_ns` and the user
@@ -203,6 +212,9 @@ pub(super) fn global(
             line(&format!("{console}\t{message}\t{minimum}\t{default}"))
         }
         Global::DmesgRestrict => line(&u8::from(source.printk.dmesg_restrict()).to_string()),
+        Global::CorePattern => [source.coredump.pattern(), b"\n".to_vec()].concat(),
+        Global::CoreUsesPid => line(&u8::from(source.coredump.uses_pid()).to_string()),
+        Global::CorePipeLimit => line(&source.coredump.pipe_limit().to_string()),
         Global::PrintkDevkmsg => line(match source.printk.devkmsg() {
             crate::printk::Devkmsg::On => "on",
             crate::printk::Devkmsg::Off => "off",
@@ -695,6 +707,11 @@ pub(super) fn per_pid(
         PerPid::GidMap => process.cred().user_ns.show_map(MapKind::Gid, reader),
         PerPid::ProjidMap => process.cred().user_ns.show_map(MapKind::Projid, reader),
         PerPid::Setgroups => process.cred().user_ns.show_setgroups(),
+        // `proc_coredump_filter_read`.
+        PerPid::CoredumpFilter => {
+            let filter = process.ident.lock_or_recover().coredump_filter;
+            format!("{filter:08x}\n").into_bytes()
+        }
         // `proc_cgroup_show`: the path as seen from the reader's cgroup namespace; a zombie's
         // is the one it exited in.
         PerPid::Cgroup => {
