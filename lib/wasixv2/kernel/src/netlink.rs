@@ -182,6 +182,7 @@ impl NetlinkSocket {
             RTM_GETROUTE => get_route(&r, payload, dump),
             RTM_GETNEIGH => get_neigh(&r, dump),
             RTM_GETNSID => get_nsid(&r, payload, dump),
+            RTM_GETRULE => get_rule(&r, payload, dump),
             RTM_NEWNSID => new_nsid(&r, payload).map(|()| Vec::new()),
             RTM_NEWLINK => new_link(&r, payload, false).map(|()| Vec::new()),
             RTM_SETLINK => new_link(&r, payload, true).map(|()| Vec::new()),
@@ -1066,5 +1067,55 @@ mod tests {
             change(&nl, &addr(RTM_DELADDR, 0), &us),
             -Errno::EADDRNOTAVAIL.0
         );
+    }
+
+    /// `ip rule`: Linux's default rules, the only ones; an IPv6 default route has no
+    /// `RTA_DST` (`rt6_fill_node` puts one only with a prefix).
+    #[test]
+    fn the_default_rules_and_a_default_route_without_a_destination() {
+        let nl = socket();
+        let us = NoNamespaces;
+        let mut dump = header(0, RTM_GETRULE, NLM_F_REQUEST | NLM_F_DUMP);
+        dump.extend([0u8; 12]);
+        let len = dump.len() as u32;
+        dump[..4].copy_from_slice(&len.to_le_bytes());
+        let rules = exchange(&nl, &dump, &us);
+        // local, main and default for IPv4, local and main for IPv6, then NLMSG_DONE.
+        assert_eq!(rules.len(), 6);
+        assert_eq!(attr(&rules[0], 12, 15), Some(255u32.to_le_bytes().to_vec()));
+        assert_eq!(
+            attr(&rules[1], 12, 6),
+            Some(32766u32.to_le_bytes().to_vec())
+        );
+
+        let mut info = Vec::new();
+        rta(&mut info, IFLA_INFO_KIND, b"dummy\0");
+        let up = wasixv2_vnet::iface::flags::IFF_UP;
+        let add = msg(
+            RTM_NEWLINK,
+            NLM_F_ACK | NLM_F_CREATE | NLM_F_EXCL,
+            &ifinfo(0, up, up),
+            &[(IFLA_IFNAME, name("dummy0")), (IFLA_LINKINFO, info)],
+        );
+        assert_eq!(change(&nl, &add, &us), 0);
+        let index = nl.interfaces()[1].index as i32;
+        let inet6 = AddressFamily::AF_INET6.0;
+        let route = msg(
+            RTM_NEWROUTE,
+            NLM_F_ACK | NLM_F_CREATE | NLM_F_EXCL,
+            &rtmsg(inet6, 0, 0, 1),
+            &[(RTA_OIF, index.to_le_bytes().to_vec())],
+        );
+        assert_eq!(change(&nl, &route, &us), 0);
+        let mut dump = header(0, RTM_GETROUTE, NLM_F_REQUEST | NLM_F_DUMP);
+        dump.extend(rtmsg(inet6, 0, 0, 0));
+        let len = dump.len() as u32;
+        dump[..4].copy_from_slice(&len.to_le_bytes());
+        let routes = exchange(&nl, &dump, &us);
+        let default = routes
+            .iter()
+            .find(|m| m.get(NLMSG_HDR + 1) == Some(&0))
+            .unwrap();
+        assert_eq!(attr(default, 12, RTA_DST), None);
     }
 }
