@@ -82,6 +82,19 @@ impl SharedMemory {
         Ok(Memory::new_from_existing(store, memory))
     }
 
+    /// The host address of the memory's first byte and its current size in bytes, read
+    /// without a store, or `None` where the backend does not keep the memory in host memory
+    /// that never moves (only `sys` does).
+    ///
+    /// A shared memory never shrinks and its base never moves, so the first `size` bytes stay
+    /// valid for as long as this handle keeps the memory alive. Other threads may access them
+    /// at any time: reads and writes through the pointer race with the guest as its own
+    /// threads do with each other.
+    #[doc(hidden)]
+    pub fn host_data(&self) -> Option<(*mut u8, u64)> {
+        self.memory.host_data()
+    }
+
     /// Create an operations handle that does not keep the underlying memory alive.
     pub fn ops(&self) -> MemoryOps {
         MemoryOps {
