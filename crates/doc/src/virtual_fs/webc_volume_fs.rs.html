@@ -354,675 +354,678 @@
 <a href=#354 id=354 data-nosnippet>354</a>        <span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
 <a href=#355 id=355 data-nosnippet>355</a>        _cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">'_</span>&gt;,
 <a href=#356 id=356 data-nosnippet>356</a>    ) -&gt; Poll&lt;std::io::Result&lt;usize&gt;&gt; {
-<a href=#357 id=357 data-nosnippet>357</a>        <span class="kw">let </span>bytes_remaining =
-<a href=#358 id=358 data-nosnippet>358</a>            <span class="self">self</span>.content.get_ref().len() - usize::try_from(<span class="self">self</span>.content.position()).unwrap();
-<a href=#359 id=359 data-nosnippet>359</a>        Poll::Ready(<span class="prelude-val">Ok</span>(bytes_remaining))
-<a href=#360 id=360 data-nosnippet>360</a>    }
-<a href=#361 id=361 data-nosnippet>361</a>
-<a href=#362 id=362 data-nosnippet>362</a>    <span class="kw">fn </span>poll_write_ready(
-<a href=#363 id=363 data-nosnippet>363</a>        <span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
-<a href=#364 id=364 data-nosnippet>364</a>        _cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">'_</span>&gt;,
-<a href=#365 id=365 data-nosnippet>365</a>    ) -&gt; Poll&lt;std::io::Result&lt;usize&gt;&gt; {
-<a href=#366 id=366 data-nosnippet>366</a>        Poll::Ready(<span class="prelude-val">Err</span>(std::io::ErrorKind::PermissionDenied.into()))
-<a href=#367 id=367 data-nosnippet>367</a>    }
-<a href=#368 id=368 data-nosnippet>368</a>
-<a href=#369 id=369 data-nosnippet>369</a>    <span class="kw">fn </span>as_owned_buffer(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;SharedBytes&gt; {
-<a href=#370 id=370 data-nosnippet>370</a>        <span class="prelude-val">Some</span>(<span class="self">self</span>.content.get_ref().clone())
-<a href=#371 id=371 data-nosnippet>371</a>    }
-<a href=#372 id=372 data-nosnippet>372</a>}
-<a href=#373 id=373 data-nosnippet>373</a>
-<a href=#374 id=374 data-nosnippet>374</a><span class="kw">impl </span>AsyncRead <span class="kw">for </span>File {
-<a href=#375 id=375 data-nosnippet>375</a>    <span class="kw">fn </span>poll_read(
-<a href=#376 id=376 data-nosnippet>376</a>        <span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
-<a href=#377 id=377 data-nosnippet>377</a>        cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">'_</span>&gt;,
-<a href=#378 id=378 data-nosnippet>378</a>        buf: <span class="kw-2">&amp;mut </span>tokio::io::ReadBuf&lt;<span class="lifetime">'_</span>&gt;,
-<a href=#379 id=379 data-nosnippet>379</a>    ) -&gt; Poll&lt;std::io::Result&lt;()&gt;&gt; {
-<a href=#380 id=380 data-nosnippet>380</a>        AsyncRead::poll_read(Pin::new(<span class="kw-2">&amp;mut </span><span class="self">self</span>.content), cx, buf)
-<a href=#381 id=381 data-nosnippet>381</a>    }
-<a href=#382 id=382 data-nosnippet>382</a>}
-<a href=#383 id=383 data-nosnippet>383</a>
-<a href=#384 id=384 data-nosnippet>384</a><span class="kw">impl </span>AsyncSeek <span class="kw">for </span>File {
-<a href=#385 id=385 data-nosnippet>385</a>    <span class="kw">fn </span>start_seek(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, position: std::io::SeekFrom) -&gt; std::io::Result&lt;()&gt; {
-<a href=#386 id=386 data-nosnippet>386</a>        AsyncSeek::start_seek(Pin::new(<span class="kw-2">&amp;mut </span><span class="self">self</span>.content), position)
-<a href=#387 id=387 data-nosnippet>387</a>    }
-<a href=#388 id=388 data-nosnippet>388</a>
-<a href=#389 id=389 data-nosnippet>389</a>    <span class="kw">fn </span>poll_complete(
-<a href=#390 id=390 data-nosnippet>390</a>        <span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
-<a href=#391 id=391 data-nosnippet>391</a>        cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">'_</span>&gt;,
-<a href=#392 id=392 data-nosnippet>392</a>    ) -&gt; Poll&lt;std::io::Result&lt;u64&gt;&gt; {
-<a href=#393 id=393 data-nosnippet>393</a>        AsyncSeek::poll_complete(Pin::new(<span class="kw-2">&amp;mut </span><span class="self">self</span>.content), cx)
-<a href=#394 id=394 data-nosnippet>394</a>    }
-<a href=#395 id=395 data-nosnippet>395</a>}
-<a href=#396 id=396 data-nosnippet>396</a>
-<a href=#397 id=397 data-nosnippet>397</a><span class="kw">impl </span>AsyncWrite <span class="kw">for </span>File {
-<a href=#398 id=398 data-nosnippet>398</a>    <span class="kw">fn </span>poll_write(
-<a href=#399 id=399 data-nosnippet>399</a>        <span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
-<a href=#400 id=400 data-nosnippet>400</a>        _cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">'_</span>&gt;,
-<a href=#401 id=401 data-nosnippet>401</a>        _buf: <span class="kw-2">&amp;</span>[u8],
-<a href=#402 id=402 data-nosnippet>402</a>    ) -&gt; Poll&lt;<span class="prelude-ty">Result</span>&lt;usize, std::io::Error&gt;&gt; {
-<a href=#403 id=403 data-nosnippet>403</a>        Poll::Ready(<span class="prelude-val">Err</span>(std::io::ErrorKind::PermissionDenied.into()))
-<a href=#404 id=404 data-nosnippet>404</a>    }
-<a href=#405 id=405 data-nosnippet>405</a>
-<a href=#406 id=406 data-nosnippet>406</a>    <span class="kw">fn </span>poll_flush(
-<a href=#407 id=407 data-nosnippet>407</a>        <span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
-<a href=#408 id=408 data-nosnippet>408</a>        _cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">'_</span>&gt;,
-<a href=#409 id=409 data-nosnippet>409</a>    ) -&gt; Poll&lt;<span class="prelude-ty">Result</span>&lt;(), std::io::Error&gt;&gt; {
-<a href=#410 id=410 data-nosnippet>410</a>        Poll::Ready(<span class="prelude-val">Err</span>(std::io::ErrorKind::PermissionDenied.into()))
-<a href=#411 id=411 data-nosnippet>411</a>    }
-<a href=#412 id=412 data-nosnippet>412</a>
-<a href=#413 id=413 data-nosnippet>413</a>    <span class="kw">fn </span>poll_shutdown(
-<a href=#414 id=414 data-nosnippet>414</a>        <span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
-<a href=#415 id=415 data-nosnippet>415</a>        _cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">'_</span>&gt;,
-<a href=#416 id=416 data-nosnippet>416</a>    ) -&gt; Poll&lt;<span class="prelude-ty">Result</span>&lt;(), std::io::Error&gt;&gt; {
-<a href=#417 id=417 data-nosnippet>417</a>        Poll::Ready(<span class="prelude-val">Err</span>(std::io::ErrorKind::PermissionDenied.into()))
-<a href=#418 id=418 data-nosnippet>418</a>    }
-<a href=#419 id=419 data-nosnippet>419</a>}
-<a href=#420 id=420 data-nosnippet>420</a>
-<a href=#421 id=421 data-nosnippet>421</a><span class="comment">// HACK: WebC v2 doesn't have timestamps, and WebC v3 files sometimes
-<a href=#422 id=422 data-nosnippet>422</a>// have directories with a zero timestamp as well. Since some programs
-<a href=#423 id=423 data-nosnippet>423</a>// interpret a zero timestamp as the absence of a value, we return
-<a href=#424 id=424 data-nosnippet>424</a>// 1 second past epoch instead.
-<a href=#425 id=425 data-nosnippet>425</a></span><span class="kw">fn </span>get_modified(timestamps: <span class="prelude-ty">Option</span>&lt;webc::Timestamps&gt;) -&gt; u64 {
-<a href=#426 id=426 data-nosnippet>426</a>    <span class="kw">let </span>modified = timestamps.map(|t| t.modified()).unwrap_or_default();
-<a href=#427 id=427 data-nosnippet>427</a>    <span class="comment">// 1 billion nanoseconds = 1 second
-<a href=#428 id=428 data-nosnippet>428</a>    </span>modified.max(<span class="number">1_000_000_000</span>)
-<a href=#429 id=429 data-nosnippet>429</a>}
-<a href=#430 id=430 data-nosnippet>430</a>
-<a href=#431 id=431 data-nosnippet>431</a><span class="kw">fn </span>compat_meta(meta: WebcMetadata) -&gt; Metadata {
-<a href=#432 id=432 data-nosnippet>432</a>    <span class="kw">match </span>meta {
-<a href=#433 id=433 data-nosnippet>433</a>        WebcMetadata::Dir { timestamps } =&gt; Metadata {
-<a href=#434 id=434 data-nosnippet>434</a>            ft: FileType {
-<a href=#435 id=435 data-nosnippet>435</a>                dir: <span class="bool-val">true</span>,
-<a href=#436 id=436 data-nosnippet>436</a>                ..Default::default()
-<a href=#437 id=437 data-nosnippet>437</a>            },
-<a href=#438 id=438 data-nosnippet>438</a>            modified: get_modified(timestamps),
-<a href=#439 id=439 data-nosnippet>439</a>            ..Default::default()
-<a href=#440 id=440 data-nosnippet>440</a>        },
-<a href=#441 id=441 data-nosnippet>441</a>        WebcMetadata::File {
-<a href=#442 id=442 data-nosnippet>442</a>            length, timestamps, ..
-<a href=#443 id=443 data-nosnippet>443</a>        } =&gt; Metadata {
-<a href=#444 id=444 data-nosnippet>444</a>            ft: FileType {
-<a href=#445 id=445 data-nosnippet>445</a>                file: <span class="bool-val">true</span>,
-<a href=#446 id=446 data-nosnippet>446</a>                ..Default::default()
-<a href=#447 id=447 data-nosnippet>447</a>            },
-<a href=#448 id=448 data-nosnippet>448</a>            len: length.try_into().unwrap(),
-<a href=#449 id=449 data-nosnippet>449</a>            modified: get_modified(timestamps),
-<a href=#450 id=450 data-nosnippet>450</a>            ..Default::default()
-<a href=#451 id=451 data-nosnippet>451</a>        },
-<a href=#452 id=452 data-nosnippet>452</a>        WebcMetadata::Symlink {
-<a href=#453 id=453 data-nosnippet>453</a>            target_length,
-<a href=#454 id=454 data-nosnippet>454</a>            timestamps,
-<a href=#455 id=455 data-nosnippet>455</a>        } =&gt; Metadata {
-<a href=#456 id=456 data-nosnippet>456</a>            ft: FileType {
-<a href=#457 id=457 data-nosnippet>457</a>                symlink: <span class="bool-val">true</span>,
-<a href=#458 id=458 data-nosnippet>458</a>                ..Default::default()
-<a href=#459 id=459 data-nosnippet>459</a>            },
-<a href=#460 id=460 data-nosnippet>460</a>            len: target_length.try_into().unwrap(),
-<a href=#461 id=461 data-nosnippet>461</a>            modified: get_modified(timestamps),
-<a href=#462 id=462 data-nosnippet>462</a>            ..Default::default()
-<a href=#463 id=463 data-nosnippet>463</a>        },
-<a href=#464 id=464 data-nosnippet>464</a>    }
-<a href=#465 id=465 data-nosnippet>465</a>}
-<a href=#466 id=466 data-nosnippet>466</a>
-<a href=#467 id=467 data-nosnippet>467</a><span class="doccomment">/// Normalize a [`Path`] into a [`PathSegments`], dealing with things like `..`
-<a href=#468 id=468 data-nosnippet>468</a>/// and skipping `.`'s.
-<a href=#469 id=469 data-nosnippet>469</a></span><span class="kw">fn </span>normalize(path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;PathSegments, PathSegmentError&gt; {
-<a href=#470 id=470 data-nosnippet>470</a>    <span class="comment">// normalization is handled by the ToPathSegments impl for Path
-<a href=#471 id=471 data-nosnippet>471</a>    </span><span class="kw">let </span>result = path.to_path_segments();
-<a href=#472 id=472 data-nosnippet>472</a>
-<a href=#473 id=473 data-nosnippet>473</a>    <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="kw-2">&amp;</span>result {
-<a href=#474 id=474 data-nosnippet>474</a>        <span class="macro">tracing::debug!</span>(
-<a href=#475 id=475 data-nosnippet>475</a>            error = e <span class="kw">as </span><span class="kw-2">&amp;</span><span class="kw">dyn </span>std::error::Error,
-<a href=#476 id=476 data-nosnippet>476</a>            path=%path.display(),
-<a href=#477 id=477 data-nosnippet>477</a>            <span class="string">"Unable to normalize a path"</span>,
-<a href=#478 id=478 data-nosnippet>478</a>        );
-<a href=#479 id=479 data-nosnippet>479</a>    }
-<a href=#480 id=480 data-nosnippet>480</a>
-<a href=#481 id=481 data-nosnippet>481</a>    result
-<a href=#482 id=482 data-nosnippet>482</a>}
+<a href=#357 id=357 data-nosnippet>357</a>        <span class="kw">let </span>bytes_remaining = <span class="self">self
+<a href=#358 id=358 data-nosnippet>358</a>            </span>.content
+<a href=#359 id=359 data-nosnippet>359</a>            .get_ref()
+<a href=#360 id=360 data-nosnippet>360</a>            .len()
+<a href=#361 id=361 data-nosnippet>361</a>            .saturating_sub(usize::try_from(<span class="self">self</span>.content.position()).unwrap_or(usize::MAX));
+<a href=#362 id=362 data-nosnippet>362</a>        Poll::Ready(<span class="prelude-val">Ok</span>(bytes_remaining))
+<a href=#363 id=363 data-nosnippet>363</a>    }
+<a href=#364 id=364 data-nosnippet>364</a>
+<a href=#365 id=365 data-nosnippet>365</a>    <span class="kw">fn </span>poll_write_ready(
+<a href=#366 id=366 data-nosnippet>366</a>        <span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
+<a href=#367 id=367 data-nosnippet>367</a>        _cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">'_</span>&gt;,
+<a href=#368 id=368 data-nosnippet>368</a>    ) -&gt; Poll&lt;std::io::Result&lt;usize&gt;&gt; {
+<a href=#369 id=369 data-nosnippet>369</a>        Poll::Ready(<span class="prelude-val">Err</span>(std::io::ErrorKind::PermissionDenied.into()))
+<a href=#370 id=370 data-nosnippet>370</a>    }
+<a href=#371 id=371 data-nosnippet>371</a>
+<a href=#372 id=372 data-nosnippet>372</a>    <span class="kw">fn </span>as_owned_buffer(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;SharedBytes&gt; {
+<a href=#373 id=373 data-nosnippet>373</a>        <span class="prelude-val">Some</span>(<span class="self">self</span>.content.get_ref().clone())
+<a href=#374 id=374 data-nosnippet>374</a>    }
+<a href=#375 id=375 data-nosnippet>375</a>}
+<a href=#376 id=376 data-nosnippet>376</a>
+<a href=#377 id=377 data-nosnippet>377</a><span class="kw">impl </span>AsyncRead <span class="kw">for </span>File {
+<a href=#378 id=378 data-nosnippet>378</a>    <span class="kw">fn </span>poll_read(
+<a href=#379 id=379 data-nosnippet>379</a>        <span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
+<a href=#380 id=380 data-nosnippet>380</a>        cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">'_</span>&gt;,
+<a href=#381 id=381 data-nosnippet>381</a>        buf: <span class="kw-2">&amp;mut </span>tokio::io::ReadBuf&lt;<span class="lifetime">'_</span>&gt;,
+<a href=#382 id=382 data-nosnippet>382</a>    ) -&gt; Poll&lt;std::io::Result&lt;()&gt;&gt; {
+<a href=#383 id=383 data-nosnippet>383</a>        AsyncRead::poll_read(Pin::new(<span class="kw-2">&amp;mut </span><span class="self">self</span>.content), cx, buf)
+<a href=#384 id=384 data-nosnippet>384</a>    }
+<a href=#385 id=385 data-nosnippet>385</a>}
+<a href=#386 id=386 data-nosnippet>386</a>
+<a href=#387 id=387 data-nosnippet>387</a><span class="kw">impl </span>AsyncSeek <span class="kw">for </span>File {
+<a href=#388 id=388 data-nosnippet>388</a>    <span class="kw">fn </span>start_seek(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, position: std::io::SeekFrom) -&gt; std::io::Result&lt;()&gt; {
+<a href=#389 id=389 data-nosnippet>389</a>        AsyncSeek::start_seek(Pin::new(<span class="kw-2">&amp;mut </span><span class="self">self</span>.content), position)
+<a href=#390 id=390 data-nosnippet>390</a>    }
+<a href=#391 id=391 data-nosnippet>391</a>
+<a href=#392 id=392 data-nosnippet>392</a>    <span class="kw">fn </span>poll_complete(
+<a href=#393 id=393 data-nosnippet>393</a>        <span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
+<a href=#394 id=394 data-nosnippet>394</a>        cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">'_</span>&gt;,
+<a href=#395 id=395 data-nosnippet>395</a>    ) -&gt; Poll&lt;std::io::Result&lt;u64&gt;&gt; {
+<a href=#396 id=396 data-nosnippet>396</a>        AsyncSeek::poll_complete(Pin::new(<span class="kw-2">&amp;mut </span><span class="self">self</span>.content), cx)
+<a href=#397 id=397 data-nosnippet>397</a>    }
+<a href=#398 id=398 data-nosnippet>398</a>}
+<a href=#399 id=399 data-nosnippet>399</a>
+<a href=#400 id=400 data-nosnippet>400</a><span class="kw">impl </span>AsyncWrite <span class="kw">for </span>File {
+<a href=#401 id=401 data-nosnippet>401</a>    <span class="kw">fn </span>poll_write(
+<a href=#402 id=402 data-nosnippet>402</a>        <span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
+<a href=#403 id=403 data-nosnippet>403</a>        _cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">'_</span>&gt;,
+<a href=#404 id=404 data-nosnippet>404</a>        _buf: <span class="kw-2">&amp;</span>[u8],
+<a href=#405 id=405 data-nosnippet>405</a>    ) -&gt; Poll&lt;<span class="prelude-ty">Result</span>&lt;usize, std::io::Error&gt;&gt; {
+<a href=#406 id=406 data-nosnippet>406</a>        Poll::Ready(<span class="prelude-val">Err</span>(std::io::ErrorKind::PermissionDenied.into()))
+<a href=#407 id=407 data-nosnippet>407</a>    }
+<a href=#408 id=408 data-nosnippet>408</a>
+<a href=#409 id=409 data-nosnippet>409</a>    <span class="kw">fn </span>poll_flush(
+<a href=#410 id=410 data-nosnippet>410</a>        <span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
+<a href=#411 id=411 data-nosnippet>411</a>        _cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">'_</span>&gt;,
+<a href=#412 id=412 data-nosnippet>412</a>    ) -&gt; Poll&lt;<span class="prelude-ty">Result</span>&lt;(), std::io::Error&gt;&gt; {
+<a href=#413 id=413 data-nosnippet>413</a>        Poll::Ready(<span class="prelude-val">Err</span>(std::io::ErrorKind::PermissionDenied.into()))
+<a href=#414 id=414 data-nosnippet>414</a>    }
+<a href=#415 id=415 data-nosnippet>415</a>
+<a href=#416 id=416 data-nosnippet>416</a>    <span class="kw">fn </span>poll_shutdown(
+<a href=#417 id=417 data-nosnippet>417</a>        <span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
+<a href=#418 id=418 data-nosnippet>418</a>        _cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">'_</span>&gt;,
+<a href=#419 id=419 data-nosnippet>419</a>    ) -&gt; Poll&lt;<span class="prelude-ty">Result</span>&lt;(), std::io::Error&gt;&gt; {
+<a href=#420 id=420 data-nosnippet>420</a>        Poll::Ready(<span class="prelude-val">Err</span>(std::io::ErrorKind::PermissionDenied.into()))
+<a href=#421 id=421 data-nosnippet>421</a>    }
+<a href=#422 id=422 data-nosnippet>422</a>}
+<a href=#423 id=423 data-nosnippet>423</a>
+<a href=#424 id=424 data-nosnippet>424</a><span class="comment">// HACK: WebC v2 doesn't have timestamps, and WebC v3 files sometimes
+<a href=#425 id=425 data-nosnippet>425</a>// have directories with a zero timestamp as well. Since some programs
+<a href=#426 id=426 data-nosnippet>426</a>// interpret a zero timestamp as the absence of a value, we return
+<a href=#427 id=427 data-nosnippet>427</a>// 1 second past epoch instead.
+<a href=#428 id=428 data-nosnippet>428</a></span><span class="kw">fn </span>get_modified(timestamps: <span class="prelude-ty">Option</span>&lt;webc::Timestamps&gt;) -&gt; u64 {
+<a href=#429 id=429 data-nosnippet>429</a>    <span class="kw">let </span>modified = timestamps.map(|t| t.modified()).unwrap_or_default();
+<a href=#430 id=430 data-nosnippet>430</a>    <span class="comment">// 1 billion nanoseconds = 1 second
+<a href=#431 id=431 data-nosnippet>431</a>    </span>modified.max(<span class="number">1_000_000_000</span>)
+<a href=#432 id=432 data-nosnippet>432</a>}
+<a href=#433 id=433 data-nosnippet>433</a>
+<a href=#434 id=434 data-nosnippet>434</a><span class="kw">fn </span>compat_meta(meta: WebcMetadata) -&gt; Metadata {
+<a href=#435 id=435 data-nosnippet>435</a>    <span class="kw">match </span>meta {
+<a href=#436 id=436 data-nosnippet>436</a>        WebcMetadata::Dir { timestamps } =&gt; Metadata {
+<a href=#437 id=437 data-nosnippet>437</a>            ft: FileType {
+<a href=#438 id=438 data-nosnippet>438</a>                dir: <span class="bool-val">true</span>,
+<a href=#439 id=439 data-nosnippet>439</a>                ..Default::default()
+<a href=#440 id=440 data-nosnippet>440</a>            },
+<a href=#441 id=441 data-nosnippet>441</a>            modified: get_modified(timestamps),
+<a href=#442 id=442 data-nosnippet>442</a>            ..Default::default()
+<a href=#443 id=443 data-nosnippet>443</a>        },
+<a href=#444 id=444 data-nosnippet>444</a>        WebcMetadata::File {
+<a href=#445 id=445 data-nosnippet>445</a>            length, timestamps, ..
+<a href=#446 id=446 data-nosnippet>446</a>        } =&gt; Metadata {
+<a href=#447 id=447 data-nosnippet>447</a>            ft: FileType {
+<a href=#448 id=448 data-nosnippet>448</a>                file: <span class="bool-val">true</span>,
+<a href=#449 id=449 data-nosnippet>449</a>                ..Default::default()
+<a href=#450 id=450 data-nosnippet>450</a>            },
+<a href=#451 id=451 data-nosnippet>451</a>            len: length.try_into().unwrap(),
+<a href=#452 id=452 data-nosnippet>452</a>            modified: get_modified(timestamps),
+<a href=#453 id=453 data-nosnippet>453</a>            ..Default::default()
+<a href=#454 id=454 data-nosnippet>454</a>        },
+<a href=#455 id=455 data-nosnippet>455</a>        WebcMetadata::Symlink {
+<a href=#456 id=456 data-nosnippet>456</a>            target_length,
+<a href=#457 id=457 data-nosnippet>457</a>            timestamps,
+<a href=#458 id=458 data-nosnippet>458</a>        } =&gt; Metadata {
+<a href=#459 id=459 data-nosnippet>459</a>            ft: FileType {
+<a href=#460 id=460 data-nosnippet>460</a>                symlink: <span class="bool-val">true</span>,
+<a href=#461 id=461 data-nosnippet>461</a>                ..Default::default()
+<a href=#462 id=462 data-nosnippet>462</a>            },
+<a href=#463 id=463 data-nosnippet>463</a>            len: target_length.try_into().unwrap(),
+<a href=#464 id=464 data-nosnippet>464</a>            modified: get_modified(timestamps),
+<a href=#465 id=465 data-nosnippet>465</a>            ..Default::default()
+<a href=#466 id=466 data-nosnippet>466</a>        },
+<a href=#467 id=467 data-nosnippet>467</a>    }
+<a href=#468 id=468 data-nosnippet>468</a>}
+<a href=#469 id=469 data-nosnippet>469</a>
+<a href=#470 id=470 data-nosnippet>470</a><span class="doccomment">/// Normalize a [`Path`] into a [`PathSegments`], dealing with things like `..`
+<a href=#471 id=471 data-nosnippet>471</a>/// and skipping `.`'s.
+<a href=#472 id=472 data-nosnippet>472</a></span><span class="kw">fn </span>normalize(path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;PathSegments, PathSegmentError&gt; {
+<a href=#473 id=473 data-nosnippet>473</a>    <span class="comment">// normalization is handled by the ToPathSegments impl for Path
+<a href=#474 id=474 data-nosnippet>474</a>    </span><span class="kw">let </span>result = path.to_path_segments();
+<a href=#475 id=475 data-nosnippet>475</a>
+<a href=#476 id=476 data-nosnippet>476</a>    <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="kw-2">&amp;</span>result {
+<a href=#477 id=477 data-nosnippet>477</a>        <span class="macro">tracing::debug!</span>(
+<a href=#478 id=478 data-nosnippet>478</a>            error = e <span class="kw">as </span><span class="kw-2">&amp;</span><span class="kw">dyn </span>std::error::Error,
+<a href=#479 id=479 data-nosnippet>479</a>            path=%path.display(),
+<a href=#480 id=480 data-nosnippet>480</a>            <span class="string">"Unable to normalize a path"</span>,
+<a href=#481 id=481 data-nosnippet>481</a>        );
+<a href=#482 id=482 data-nosnippet>482</a>    }
 <a href=#483 id=483 data-nosnippet>483</a>
-<a href=#484 id=484 data-nosnippet>484</a><span class="attr">#[cfg(test)]
-<a href=#485 id=485 data-nosnippet>485</a></span><span class="kw">mod </span>tests {
-<a href=#486 id=486 data-nosnippet>486</a>    <span class="kw">use </span>super::<span class="kw-2">*</span>;
-<a href=#487 id=487 data-nosnippet>487</a>    <span class="kw">use </span>std::collections::BTreeMap;
-<a href=#488 id=488 data-nosnippet>488</a>    <span class="kw">use </span>std::convert::TryFrom;
-<a href=#489 id=489 data-nosnippet>489</a>    <span class="kw">use </span>tokio::io::AsyncReadExt;
-<a href=#490 id=490 data-nosnippet>490</a>    <span class="kw">use </span>wasmer_package::utils::from_bytes;
-<a href=#491 id=491 data-nosnippet>491</a>    <span class="kw">use </span>webc::PathSegment;
-<a href=#492 id=492 data-nosnippet>492</a>
-<a href=#493 id=493 data-nosnippet>493</a>    <span class="kw">const </span>PYTHON_WEBC: <span class="kw-2">&amp;</span>[u8] =
-<a href=#494 id=494 data-nosnippet>494</a>        <span class="macro">include_bytes!</span>(<span class="string">"../../../wasmer-test-files/examples/python--python@3.13.5.webc"</span>);
+<a href=#484 id=484 data-nosnippet>484</a>    result
+<a href=#485 id=485 data-nosnippet>485</a>}
+<a href=#486 id=486 data-nosnippet>486</a>
+<a href=#487 id=487 data-nosnippet>487</a><span class="attr">#[cfg(test)]
+<a href=#488 id=488 data-nosnippet>488</a></span><span class="kw">mod </span>tests {
+<a href=#489 id=489 data-nosnippet>489</a>    <span class="kw">use </span>super::<span class="kw-2">*</span>;
+<a href=#490 id=490 data-nosnippet>490</a>    <span class="kw">use </span>std::collections::BTreeMap;
+<a href=#491 id=491 data-nosnippet>491</a>    <span class="kw">use </span>std::convert::TryFrom;
+<a href=#492 id=492 data-nosnippet>492</a>    <span class="kw">use </span>tokio::io::AsyncReadExt;
+<a href=#493 id=493 data-nosnippet>493</a>    <span class="kw">use </span>wasmer_package::utils::from_bytes;
+<a href=#494 id=494 data-nosnippet>494</a>    <span class="kw">use </span>webc::PathSegment;
 <a href=#495 id=495 data-nosnippet>495</a>
-<a href=#496 id=496 data-nosnippet>496</a>    <span class="kw">fn </span>symlink_fs() -&gt; WebcVolumeFileSystem {
-<a href=#497 id=497 data-nosnippet>497</a>        <span class="kw">let </span>timestamps = webc::v3::Timestamps::default();
-<a href=#498 id=498 data-nosnippet>498</a>        <span class="kw">let </span>dir = webc::v3::write::Directory::new(
-<a href=#499 id=499 data-nosnippet>499</a>            BTreeMap::from_iter([
-<a href=#500 id=500 data-nosnippet>500</a>                (
-<a href=#501 id=501 data-nosnippet>501</a>                    PathSegment::parse(<span class="string">"target.txt"</span>).unwrap(),
-<a href=#502 id=502 data-nosnippet>502</a>                    webc::v3::write::DirEntry::File(webc::v3::write::FileEntry::borrowed(
-<a href=#503 id=503 data-nosnippet>503</a>                        <span class="string">b"target"</span>, timestamps,
-<a href=#504 id=504 data-nosnippet>504</a>                    )),
-<a href=#505 id=505 data-nosnippet>505</a>                ),
-<a href=#506 id=506 data-nosnippet>506</a>                (
-<a href=#507 id=507 data-nosnippet>507</a>                    PathSegment::parse(<span class="string">"link"</span>).unwrap(),
-<a href=#508 id=508 data-nosnippet>508</a>                    webc::v3::write::DirEntry::Symlink(webc::v3::write::SymlinkEntry::borrowed(
-<a href=#509 id=509 data-nosnippet>509</a>                        <span class="string">"target.txt"</span>,
-<a href=#510 id=510 data-nosnippet>510</a>                        timestamps,
-<a href=#511 id=511 data-nosnippet>511</a>                    )),
-<a href=#512 id=512 data-nosnippet>512</a>                ),
-<a href=#513 id=513 data-nosnippet>513</a>            ]),
-<a href=#514 id=514 data-nosnippet>514</a>            timestamps,
-<a href=#515 id=515 data-nosnippet>515</a>        );
-<a href=#516 id=516 data-nosnippet>516</a>        <span class="kw">let </span>manifest = webc::metadata::Manifest::default();
-<a href=#517 id=517 data-nosnippet>517</a>        <span class="kw">let </span><span class="kw-2">mut </span>writer = webc::v3::write::Writer::new(webc::v3::ChecksumAlgorithm::Sha256)
-<a href=#518 id=518 data-nosnippet>518</a>            .write_manifest(<span class="kw-2">&amp;</span>manifest)
-<a href=#519 id=519 data-nosnippet>519</a>            .unwrap()
-<a href=#520 id=520 data-nosnippet>520</a>            .write_atoms(BTreeMap::new())
-<a href=#521 id=521 data-nosnippet>521</a>            .unwrap();
-<a href=#522 id=522 data-nosnippet>522</a>        writer.write_volume(<span class="string">"atom"</span>, dir).unwrap();
-<a href=#523 id=523 data-nosnippet>523</a>        <span class="kw">let </span>webc = writer.finish(webc::v3::SignatureAlgorithm::None).unwrap();
-<a href=#524 id=524 data-nosnippet>524</a>        <span class="kw">let </span>container = from_bytes(webc).unwrap();
-<a href=#525 id=525 data-nosnippet>525</a>        <span class="kw">let </span>volume = container.volumes()[<span class="string">"atom"</span>].clone();
-<a href=#526 id=526 data-nosnippet>526</a>
-<a href=#527 id=527 data-nosnippet>527</a>        WebcVolumeFileSystem::new(volume)
-<a href=#528 id=528 data-nosnippet>528</a>    }
+<a href=#496 id=496 data-nosnippet>496</a>    <span class="kw">const </span>PYTHON_WEBC: <span class="kw-2">&amp;</span>[u8] =
+<a href=#497 id=497 data-nosnippet>497</a>        <span class="macro">include_bytes!</span>(<span class="string">"../../../wasmer-test-files/examples/python--python@3.13.5.webc"</span>);
+<a href=#498 id=498 data-nosnippet>498</a>
+<a href=#499 id=499 data-nosnippet>499</a>    <span class="kw">fn </span>symlink_fs() -&gt; WebcVolumeFileSystem {
+<a href=#500 id=500 data-nosnippet>500</a>        <span class="kw">let </span>timestamps = webc::v3::Timestamps::default();
+<a href=#501 id=501 data-nosnippet>501</a>        <span class="kw">let </span>dir = webc::v3::write::Directory::new(
+<a href=#502 id=502 data-nosnippet>502</a>            BTreeMap::from_iter([
+<a href=#503 id=503 data-nosnippet>503</a>                (
+<a href=#504 id=504 data-nosnippet>504</a>                    PathSegment::parse(<span class="string">"target.txt"</span>).unwrap(),
+<a href=#505 id=505 data-nosnippet>505</a>                    webc::v3::write::DirEntry::File(webc::v3::write::FileEntry::borrowed(
+<a href=#506 id=506 data-nosnippet>506</a>                        <span class="string">b"target"</span>, timestamps,
+<a href=#507 id=507 data-nosnippet>507</a>                    )),
+<a href=#508 id=508 data-nosnippet>508</a>                ),
+<a href=#509 id=509 data-nosnippet>509</a>                (
+<a href=#510 id=510 data-nosnippet>510</a>                    PathSegment::parse(<span class="string">"link"</span>).unwrap(),
+<a href=#511 id=511 data-nosnippet>511</a>                    webc::v3::write::DirEntry::Symlink(webc::v3::write::SymlinkEntry::borrowed(
+<a href=#512 id=512 data-nosnippet>512</a>                        <span class="string">"target.txt"</span>,
+<a href=#513 id=513 data-nosnippet>513</a>                        timestamps,
+<a href=#514 id=514 data-nosnippet>514</a>                    )),
+<a href=#515 id=515 data-nosnippet>515</a>                ),
+<a href=#516 id=516 data-nosnippet>516</a>            ]),
+<a href=#517 id=517 data-nosnippet>517</a>            timestamps,
+<a href=#518 id=518 data-nosnippet>518</a>        );
+<a href=#519 id=519 data-nosnippet>519</a>        <span class="kw">let </span>manifest = webc::metadata::Manifest::default();
+<a href=#520 id=520 data-nosnippet>520</a>        <span class="kw">let </span><span class="kw-2">mut </span>writer = webc::v3::write::Writer::new(webc::v3::ChecksumAlgorithm::Sha256)
+<a href=#521 id=521 data-nosnippet>521</a>            .write_manifest(<span class="kw-2">&amp;</span>manifest)
+<a href=#522 id=522 data-nosnippet>522</a>            .unwrap()
+<a href=#523 id=523 data-nosnippet>523</a>            .write_atoms(BTreeMap::new())
+<a href=#524 id=524 data-nosnippet>524</a>            .unwrap();
+<a href=#525 id=525 data-nosnippet>525</a>        writer.write_volume(<span class="string">"atom"</span>, dir).unwrap();
+<a href=#526 id=526 data-nosnippet>526</a>        <span class="kw">let </span>webc = writer.finish(webc::v3::SignatureAlgorithm::None).unwrap();
+<a href=#527 id=527 data-nosnippet>527</a>        <span class="kw">let </span>container = from_bytes(webc).unwrap();
+<a href=#528 id=528 data-nosnippet>528</a>        <span class="kw">let </span>volume = container.volumes()[<span class="string">"atom"</span>].clone();
 <a href=#529 id=529 data-nosnippet>529</a>
-<a href=#530 id=530 data-nosnippet>530</a>    <span class="attr">#[test]
-<a href=#531 id=531 data-nosnippet>531</a>    </span><span class="kw">fn </span>normalize_paths() {
-<a href=#532 id=532 data-nosnippet>532</a>        <span class="kw">let </span>inputs: Vec&lt;(<span class="kw-2">&amp;</span>str, <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>str])&gt; = <span class="macro">vec!</span>[
-<a href=#533 id=533 data-nosnippet>533</a>            (<span class="string">"/"</span>, <span class="kw-2">&amp;</span>[]),
-<a href=#534 id=534 data-nosnippet>534</a>            (<span class="string">"/path/to/"</span>, <span class="kw-2">&amp;</span>[<span class="string">"path"</span>, <span class="string">"to"</span>]),
-<a href=#535 id=535 data-nosnippet>535</a>            (<span class="string">"/path/to/file.txt"</span>, <span class="kw-2">&amp;</span>[<span class="string">"path"</span>, <span class="string">"to"</span>, <span class="string">"file.txt"</span>]),
-<a href=#536 id=536 data-nosnippet>536</a>            (<span class="string">"/folder/.."</span>, <span class="kw-2">&amp;</span>[]),
-<a href=#537 id=537 data-nosnippet>537</a>            (<span class="string">"/.hidden"</span>, <span class="kw-2">&amp;</span>[<span class="string">".hidden"</span>]),
-<a href=#538 id=538 data-nosnippet>538</a>            (<span class="string">"/folder/../../../../../../../file.txt"</span>, <span class="kw-2">&amp;</span>[<span class="string">"file.txt"</span>]),
-<a href=#539 id=539 data-nosnippet>539</a>            <span class="attr">#[cfg(windows)]
-<a href=#540 id=540 data-nosnippet>540</a>            </span>(<span class="string">r"C:\path\to\file.txt"</span>, <span class="kw-2">&amp;</span>[<span class="string">"path"</span>, <span class="string">"to"</span>, <span class="string">"file.txt"</span>]),
-<a href=#541 id=541 data-nosnippet>541</a>        ];
-<a href=#542 id=542 data-nosnippet>542</a>
-<a href=#543 id=543 data-nosnippet>543</a>        <span class="kw">for </span>(path, expected) <span class="kw">in </span>inputs {
-<a href=#544 id=544 data-nosnippet>544</a>            <span class="kw">let </span>normalized = normalize(path.as_ref()).unwrap();
-<a href=#545 id=545 data-nosnippet>545</a>            <span class="macro">assert_eq!</span>(normalized, expected.to_path_segments().unwrap());
-<a href=#546 id=546 data-nosnippet>546</a>        }
-<a href=#547 id=547 data-nosnippet>547</a>    }
-<a href=#548 id=548 data-nosnippet>548</a>
-<a href=#549 id=549 data-nosnippet>549</a>    <span class="attr">#[test]
-<a href=#550 id=550 data-nosnippet>550</a>    #[cfg_attr(not(windows), ignore = <span class="string">"Only works with PathBuf's Windows logic"</span>)]
-<a href=#551 id=551 data-nosnippet>551</a>    </span><span class="kw">fn </span>normalize_windows_paths() {
-<a href=#552 id=552 data-nosnippet>552</a>        <span class="kw">let </span>inputs: Vec&lt;(<span class="kw-2">&amp;</span>str, <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>str])&gt; = <span class="macro">vec!</span>[
-<a href=#553 id=553 data-nosnippet>553</a>            (<span class="string">r"C:\path\to\file.txt"</span>, <span class="kw-2">&amp;</span>[<span class="string">"path"</span>, <span class="string">"to"</span>, <span class="string">"file.txt"</span>]),
-<a href=#554 id=554 data-nosnippet>554</a>            (<span class="string">r"C:/path/to/file.txt"</span>, <span class="kw-2">&amp;</span>[<span class="string">"path"</span>, <span class="string">"to"</span>, <span class="string">"file.txt"</span>]),
-<a href=#555 id=555 data-nosnippet>555</a>            (<span class="string">r"\\system07\C$\"</span>, <span class="kw-2">&amp;</span>[]),
-<a href=#556 id=556 data-nosnippet>556</a>            (<span class="string">r"c:\temp\test-file.txt"</span>, <span class="kw-2">&amp;</span>[<span class="string">"temp"</span>, <span class="string">"test-file.txt"</span>]),
-<a href=#557 id=557 data-nosnippet>557</a>            (
-<a href=#558 id=558 data-nosnippet>558</a>                <span class="string">r"\\127.0.0.1\c$\temp\test-file.txt"</span>,
-<a href=#559 id=559 data-nosnippet>559</a>                <span class="kw-2">&amp;</span>[<span class="string">"temp"</span>, <span class="string">"test-file.txt"</span>],
-<a href=#560 id=560 data-nosnippet>560</a>            ),
-<a href=#561 id=561 data-nosnippet>561</a>            (<span class="string">r"\\.\c:\temp\test-file.txt"</span>, <span class="kw-2">&amp;</span>[<span class="string">"temp"</span>, <span class="string">"test-file.txt"</span>]),
-<a href=#562 id=562 data-nosnippet>562</a>            (<span class="string">r"\\?\c:\temp\test-file.txt"</span>, <span class="kw-2">&amp;</span>[<span class="string">"temp"</span>, <span class="string">"test-file.txt"</span>]),
-<a href=#563 id=563 data-nosnippet>563</a>            (
-<a href=#564 id=564 data-nosnippet>564</a>                <span class="string">r"\\127.0.0.1\c$\temp\test-file.txt"</span>,
-<a href=#565 id=565 data-nosnippet>565</a>                <span class="kw-2">&amp;</span>[<span class="string">"temp"</span>, <span class="string">"test-file.txt"</span>],
-<a href=#566 id=566 data-nosnippet>566</a>            ),
-<a href=#567 id=567 data-nosnippet>567</a>            (
-<a href=#568 id=568 data-nosnippet>568</a>                <span class="string">r"\\.\Volume{b75e2c83-0000-0000-0000-602f00000000}\temp\test-file.txt"</span>,
-<a href=#569 id=569 data-nosnippet>569</a>                <span class="kw-2">&amp;</span>[<span class="string">"temp"</span>, <span class="string">"test-file.txt"</span>],
-<a href=#570 id=570 data-nosnippet>570</a>            ),
-<a href=#571 id=571 data-nosnippet>571</a>        ];
-<a href=#572 id=572 data-nosnippet>572</a>
-<a href=#573 id=573 data-nosnippet>573</a>        <span class="kw">for </span>(path, expected) <span class="kw">in </span>inputs {
-<a href=#574 id=574 data-nosnippet>574</a>            <span class="kw">let </span>normalized = normalize(path.as_ref()).unwrap();
-<a href=#575 id=575 data-nosnippet>575</a>            <span class="macro">assert_eq!</span>(normalized, expected.to_path_segments().unwrap(), <span class="string">"{}"</span>, path);
-<a href=#576 id=576 data-nosnippet>576</a>        }
-<a href=#577 id=577 data-nosnippet>577</a>    }
-<a href=#578 id=578 data-nosnippet>578</a>
-<a href=#579 id=579 data-nosnippet>579</a>    <span class="attr">#[test]
-<a href=#580 id=580 data-nosnippet>580</a>    </span><span class="kw">fn </span>invalid_paths() {
-<a href=#581 id=581 data-nosnippet>581</a>        <span class="kw">let </span>paths = [<span class="string">"."</span>, <span class="string">".."</span>, <span class="string">"./file.txt"</span>, <span class="string">""</span>];
-<a href=#582 id=582 data-nosnippet>582</a>
-<a href=#583 id=583 data-nosnippet>583</a>        <span class="kw">for </span>path <span class="kw">in </span>paths {
-<a href=#584 id=584 data-nosnippet>584</a>            <span class="macro">assert!</span>(normalize(path.as_ref()).is_err(), <span class="string">"{}"</span>, path);
-<a href=#585 id=585 data-nosnippet>585</a>        }
-<a href=#586 id=586 data-nosnippet>586</a>    }
-<a href=#587 id=587 data-nosnippet>587</a>
-<a href=#588 id=588 data-nosnippet>588</a>    <span class="attr">#[test]
-<a href=#589 id=589 data-nosnippet>589</a>    </span><span class="kw">fn </span>symlink_metadata_and_readlink() {
-<a href=#590 id=590 data-nosnippet>590</a>        <span class="kw">let </span>fs = symlink_fs();
-<a href=#591 id=591 data-nosnippet>591</a>
-<a href=#592 id=592 data-nosnippet>592</a>        <span class="kw">let </span>link = fs.symlink_metadata(<span class="string">"/link"</span>.as_ref()).unwrap();
-<a href=#593 id=593 data-nosnippet>593</a>        <span class="macro">assert!</span>(link.ft.is_symlink());
-<a href=#594 id=594 data-nosnippet>594</a>        <span class="macro">assert_eq!</span>(link.len(), <span class="string">"target.txt"</span>.len() <span class="kw">as </span>u64);
-<a href=#595 id=595 data-nosnippet>595</a>        <span class="macro">assert_eq!</span>(
-<a href=#596 id=596 data-nosnippet>596</a>            fs.readlink(<span class="string">"/link"</span>.as_ref()).unwrap(),
-<a href=#597 id=597 data-nosnippet>597</a>            Path::new(<span class="string">"target.txt"</span>)
-<a href=#598 id=598 data-nosnippet>598</a>        );
-<a href=#599 id=599 data-nosnippet>599</a>        <span class="comment">// open() follows the symlink to its target (unlike symlink_metadata),
-<a href=#600 id=600 data-nosnippet>600</a>        // so opening the link succeeds and yields the target file.
-<a href=#601 id=601 data-nosnippet>601</a>        </span><span class="macro">assert!</span>(
-<a href=#602 id=602 data-nosnippet>602</a>            fs.new_open_options().read(<span class="bool-val">true</span>).open(<span class="string">"/link"</span>).is_ok(),
-<a href=#603 id=603 data-nosnippet>603</a>            <span class="string">"open() should follow the symlink to its target file"</span>,
-<a href=#604 id=604 data-nosnippet>604</a>        );
-<a href=#605 id=605 data-nosnippet>605</a>
-<a href=#606 id=606 data-nosnippet>606</a>        <span class="kw">let </span>entries: Vec&lt;<span class="kw">_</span>&gt; = fs
-<a href=#607 id=607 data-nosnippet>607</a>            .read_dir(<span class="string">"/"</span>.as_ref())
-<a href=#608 id=608 data-nosnippet>608</a>            .unwrap()
-<a href=#609 id=609 data-nosnippet>609</a>            .map(|entry| entry.unwrap())
-<a href=#610 id=610 data-nosnippet>610</a>            .collect();
-<a href=#611 id=611 data-nosnippet>611</a>        <span class="kw">let </span>link_entry = entries
-<a href=#612 id=612 data-nosnippet>612</a>            .iter()
-<a href=#613 id=613 data-nosnippet>613</a>            .find(|entry| entry.path == Path::new(<span class="string">"/link"</span>))
-<a href=#614 id=614 data-nosnippet>614</a>            .unwrap();
-<a href=#615 id=615 data-nosnippet>615</a>        <span class="macro">assert!</span>(link_entry.metadata().unwrap().ft.is_symlink());
-<a href=#616 id=616 data-nosnippet>616</a>
-<a href=#617 id=617 data-nosnippet>617</a>        <span class="macro">assert_eq!</span>(
-<a href=#618 id=618 data-nosnippet>618</a>            fs.readlink(<span class="string">"/target.txt"</span>.as_ref()).unwrap_err(),
-<a href=#619 id=619 data-nosnippet>619</a>            FsError::InvalidInput
-<a href=#620 id=620 data-nosnippet>620</a>        );
-<a href=#621 id=621 data-nosnippet>621</a>        <span class="macro">assert_eq!</span>(
-<a href=#622 id=622 data-nosnippet>622</a>            fs.readlink(<span class="string">"/missing"</span>.as_ref()).unwrap_err(),
-<a href=#623 id=623 data-nosnippet>623</a>            FsError::EntryNotFound
-<a href=#624 id=624 data-nosnippet>624</a>        );
-<a href=#625 id=625 data-nosnippet>625</a>    }
-<a href=#626 id=626 data-nosnippet>626</a>
-<a href=#627 id=627 data-nosnippet>627</a>    <span class="doccomment">/// A volume exercising the various symlink shapes `resolve_symlinks` handles:
-<a href=#628 id=628 data-nosnippet>628</a>    /// relative, multi-hop, absolute, `..`-relative, a symlinked intermediate
-<a href=#629 id=629 data-nosnippet>629</a>    /// directory, and a loop.
-<a href=#630 id=630 data-nosnippet>630</a>    ///
-<a href=#631 id=631 data-nosnippet>631</a>    /// ```text
-<a href=#632 id=632 data-nosnippet>632</a>    /// /a.txt                       "content-a"
-<a href=#633 id=633 data-nosnippet>633</a>    /// /rel    -&gt; a.txt             (relative, single hop)
-<a href=#634 id=634 data-nosnippet>634</a>    /// /hop1   -&gt; hop2 -&gt; a.txt     (relative, two hops)
-<a href=#635 id=635 data-nosnippet>635</a>    /// /loop1  -&gt; loop2 -&gt; loop1    (cycle)
-<a href=#636 id=636 data-nosnippet>636</a>    /// /bin/real.wasm               "\0asm-real"
-<a href=#637 id=637 data-nosnippet>637</a>    /// /libexec/git-core/git -&gt; ../../bin/real.wasm
-<a href=#638 id=638 data-nosnippet>638</a>    /// /bindir -&gt; bin              (symlinked directory)
-<a href=#639 id=639 data-nosnippet>639</a>    /// ```
-<a href=#640 id=640 data-nosnippet>640</a>    </span><span class="kw">fn </span>follow_symlinks_fs() -&gt; WebcVolumeFileSystem {
-<a href=#641 id=641 data-nosnippet>641</a>        <span class="kw">use </span>webc::v3::write::{DirEntry, Directory, FileEntry, SymlinkEntry};
-<a href=#642 id=642 data-nosnippet>642</a>
-<a href=#643 id=643 data-nosnippet>643</a>        <span class="kw">let </span>ts = webc::v3::Timestamps::default();
-<a href=#644 id=644 data-nosnippet>644</a>        <span class="kw">let </span>file = |bytes: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>[u8]| DirEntry::File(FileEntry::borrowed(bytes, ts));
-<a href=#645 id=645 data-nosnippet>645</a>        <span class="kw">let </span>link = |target: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str| DirEntry::Symlink(SymlinkEntry::borrowed(target, ts));
-<a href=#646 id=646 data-nosnippet>646</a>        <span class="kw">let </span>seg = |s: <span class="kw-2">&amp;</span>str| PathSegment::parse(s).unwrap();
-<a href=#647 id=647 data-nosnippet>647</a>
-<a href=#648 id=648 data-nosnippet>648</a>        <span class="kw">let </span>git_core = Directory::new(
-<a href=#649 id=649 data-nosnippet>649</a>            BTreeMap::from_iter([(seg(<span class="string">"git"</span>), link(<span class="string">"../../bin/real.wasm"</span>))]),
-<a href=#650 id=650 data-nosnippet>650</a>            ts,
-<a href=#651 id=651 data-nosnippet>651</a>        );
-<a href=#652 id=652 data-nosnippet>652</a>        <span class="kw">let </span>libexec = Directory::new(
-<a href=#653 id=653 data-nosnippet>653</a>            BTreeMap::from_iter([(seg(<span class="string">"git-core"</span>), DirEntry::Dir(git_core))]),
-<a href=#654 id=654 data-nosnippet>654</a>            ts,
-<a href=#655 id=655 data-nosnippet>655</a>        );
-<a href=#656 id=656 data-nosnippet>656</a>        <span class="kw">let </span>bin = Directory::new(
-<a href=#657 id=657 data-nosnippet>657</a>            BTreeMap::from_iter([(seg(<span class="string">"real.wasm"</span>), file(<span class="string">b"\0asm-real"</span>))]),
-<a href=#658 id=658 data-nosnippet>658</a>            ts,
-<a href=#659 id=659 data-nosnippet>659</a>        );
-<a href=#660 id=660 data-nosnippet>660</a>        <span class="kw">let </span>root = Directory::new(
-<a href=#661 id=661 data-nosnippet>661</a>            BTreeMap::from_iter([
-<a href=#662 id=662 data-nosnippet>662</a>                (seg(<span class="string">"a.txt"</span>), file(<span class="string">b"content-a"</span>)),
-<a href=#663 id=663 data-nosnippet>663</a>                (seg(<span class="string">"rel"</span>), link(<span class="string">"a.txt"</span>)),
-<a href=#664 id=664 data-nosnippet>664</a>                (seg(<span class="string">"hop1"</span>), link(<span class="string">"hop2"</span>)),
-<a href=#665 id=665 data-nosnippet>665</a>                (seg(<span class="string">"hop2"</span>), link(<span class="string">"a.txt"</span>)),
-<a href=#666 id=666 data-nosnippet>666</a>                (seg(<span class="string">"loop1"</span>), link(<span class="string">"loop2"</span>)),
-<a href=#667 id=667 data-nosnippet>667</a>                (seg(<span class="string">"loop2"</span>), link(<span class="string">"loop1"</span>)),
-<a href=#668 id=668 data-nosnippet>668</a>                (seg(<span class="string">"bin"</span>), DirEntry::Dir(bin)),
-<a href=#669 id=669 data-nosnippet>669</a>                (seg(<span class="string">"libexec"</span>), DirEntry::Dir(libexec)),
-<a href=#670 id=670 data-nosnippet>670</a>                (seg(<span class="string">"bindir"</span>), link(<span class="string">"bin"</span>)),
-<a href=#671 id=671 data-nosnippet>671</a>            ]),
-<a href=#672 id=672 data-nosnippet>672</a>            ts,
-<a href=#673 id=673 data-nosnippet>673</a>        );
-<a href=#674 id=674 data-nosnippet>674</a>
-<a href=#675 id=675 data-nosnippet>675</a>        <span class="kw">let </span>manifest = webc::metadata::Manifest::default();
-<a href=#676 id=676 data-nosnippet>676</a>        <span class="kw">let </span><span class="kw-2">mut </span>writer = webc::v3::write::Writer::new(webc::v3::ChecksumAlgorithm::Sha256)
-<a href=#677 id=677 data-nosnippet>677</a>            .write_manifest(<span class="kw-2">&amp;</span>manifest)
-<a href=#678 id=678 data-nosnippet>678</a>            .unwrap()
-<a href=#679 id=679 data-nosnippet>679</a>            .write_atoms(BTreeMap::new())
-<a href=#680 id=680 data-nosnippet>680</a>            .unwrap();
-<a href=#681 id=681 data-nosnippet>681</a>        writer.write_volume(<span class="string">"atom"</span>, root).unwrap();
-<a href=#682 id=682 data-nosnippet>682</a>        <span class="kw">let </span>webc = writer.finish(webc::v3::SignatureAlgorithm::None).unwrap();
-<a href=#683 id=683 data-nosnippet>683</a>        <span class="kw">let </span>container = from_bytes(webc).unwrap();
-<a href=#684 id=684 data-nosnippet>684</a>        <span class="kw">let </span>volume = container.volumes()[<span class="string">"atom"</span>].clone();
-<a href=#685 id=685 data-nosnippet>685</a>
-<a href=#686 id=686 data-nosnippet>686</a>        WebcVolumeFileSystem::new(volume)
-<a href=#687 id=687 data-nosnippet>687</a>    }
+<a href=#530 id=530 data-nosnippet>530</a>        WebcVolumeFileSystem::new(volume)
+<a href=#531 id=531 data-nosnippet>531</a>    }
+<a href=#532 id=532 data-nosnippet>532</a>
+<a href=#533 id=533 data-nosnippet>533</a>    <span class="attr">#[test]
+<a href=#534 id=534 data-nosnippet>534</a>    </span><span class="kw">fn </span>normalize_paths() {
+<a href=#535 id=535 data-nosnippet>535</a>        <span class="kw">let </span>inputs: Vec&lt;(<span class="kw-2">&amp;</span>str, <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>str])&gt; = <span class="macro">vec!</span>[
+<a href=#536 id=536 data-nosnippet>536</a>            (<span class="string">"/"</span>, <span class="kw-2">&amp;</span>[]),
+<a href=#537 id=537 data-nosnippet>537</a>            (<span class="string">"/path/to/"</span>, <span class="kw-2">&amp;</span>[<span class="string">"path"</span>, <span class="string">"to"</span>]),
+<a href=#538 id=538 data-nosnippet>538</a>            (<span class="string">"/path/to/file.txt"</span>, <span class="kw-2">&amp;</span>[<span class="string">"path"</span>, <span class="string">"to"</span>, <span class="string">"file.txt"</span>]),
+<a href=#539 id=539 data-nosnippet>539</a>            (<span class="string">"/folder/.."</span>, <span class="kw-2">&amp;</span>[]),
+<a href=#540 id=540 data-nosnippet>540</a>            (<span class="string">"/.hidden"</span>, <span class="kw-2">&amp;</span>[<span class="string">".hidden"</span>]),
+<a href=#541 id=541 data-nosnippet>541</a>            (<span class="string">"/folder/../../../../../../../file.txt"</span>, <span class="kw-2">&amp;</span>[<span class="string">"file.txt"</span>]),
+<a href=#542 id=542 data-nosnippet>542</a>            <span class="attr">#[cfg(windows)]
+<a href=#543 id=543 data-nosnippet>543</a>            </span>(<span class="string">r"C:\path\to\file.txt"</span>, <span class="kw-2">&amp;</span>[<span class="string">"path"</span>, <span class="string">"to"</span>, <span class="string">"file.txt"</span>]),
+<a href=#544 id=544 data-nosnippet>544</a>        ];
+<a href=#545 id=545 data-nosnippet>545</a>
+<a href=#546 id=546 data-nosnippet>546</a>        <span class="kw">for </span>(path, expected) <span class="kw">in </span>inputs {
+<a href=#547 id=547 data-nosnippet>547</a>            <span class="kw">let </span>normalized = normalize(path.as_ref()).unwrap();
+<a href=#548 id=548 data-nosnippet>548</a>            <span class="macro">assert_eq!</span>(normalized, expected.to_path_segments().unwrap());
+<a href=#549 id=549 data-nosnippet>549</a>        }
+<a href=#550 id=550 data-nosnippet>550</a>    }
+<a href=#551 id=551 data-nosnippet>551</a>
+<a href=#552 id=552 data-nosnippet>552</a>    <span class="attr">#[test]
+<a href=#553 id=553 data-nosnippet>553</a>    #[cfg_attr(not(windows), ignore = <span class="string">"Only works with PathBuf's Windows logic"</span>)]
+<a href=#554 id=554 data-nosnippet>554</a>    </span><span class="kw">fn </span>normalize_windows_paths() {
+<a href=#555 id=555 data-nosnippet>555</a>        <span class="kw">let </span>inputs: Vec&lt;(<span class="kw-2">&amp;</span>str, <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>str])&gt; = <span class="macro">vec!</span>[
+<a href=#556 id=556 data-nosnippet>556</a>            (<span class="string">r"C:\path\to\file.txt"</span>, <span class="kw-2">&amp;</span>[<span class="string">"path"</span>, <span class="string">"to"</span>, <span class="string">"file.txt"</span>]),
+<a href=#557 id=557 data-nosnippet>557</a>            (<span class="string">r"C:/path/to/file.txt"</span>, <span class="kw-2">&amp;</span>[<span class="string">"path"</span>, <span class="string">"to"</span>, <span class="string">"file.txt"</span>]),
+<a href=#558 id=558 data-nosnippet>558</a>            (<span class="string">r"\\system07\C$\"</span>, <span class="kw-2">&amp;</span>[]),
+<a href=#559 id=559 data-nosnippet>559</a>            (<span class="string">r"c:\temp\test-file.txt"</span>, <span class="kw-2">&amp;</span>[<span class="string">"temp"</span>, <span class="string">"test-file.txt"</span>]),
+<a href=#560 id=560 data-nosnippet>560</a>            (
+<a href=#561 id=561 data-nosnippet>561</a>                <span class="string">r"\\127.0.0.1\c$\temp\test-file.txt"</span>,
+<a href=#562 id=562 data-nosnippet>562</a>                <span class="kw-2">&amp;</span>[<span class="string">"temp"</span>, <span class="string">"test-file.txt"</span>],
+<a href=#563 id=563 data-nosnippet>563</a>            ),
+<a href=#564 id=564 data-nosnippet>564</a>            (<span class="string">r"\\.\c:\temp\test-file.txt"</span>, <span class="kw-2">&amp;</span>[<span class="string">"temp"</span>, <span class="string">"test-file.txt"</span>]),
+<a href=#565 id=565 data-nosnippet>565</a>            (<span class="string">r"\\?\c:\temp\test-file.txt"</span>, <span class="kw-2">&amp;</span>[<span class="string">"temp"</span>, <span class="string">"test-file.txt"</span>]),
+<a href=#566 id=566 data-nosnippet>566</a>            (
+<a href=#567 id=567 data-nosnippet>567</a>                <span class="string">r"\\127.0.0.1\c$\temp\test-file.txt"</span>,
+<a href=#568 id=568 data-nosnippet>568</a>                <span class="kw-2">&amp;</span>[<span class="string">"temp"</span>, <span class="string">"test-file.txt"</span>],
+<a href=#569 id=569 data-nosnippet>569</a>            ),
+<a href=#570 id=570 data-nosnippet>570</a>            (
+<a href=#571 id=571 data-nosnippet>571</a>                <span class="string">r"\\.\Volume{b75e2c83-0000-0000-0000-602f00000000}\temp\test-file.txt"</span>,
+<a href=#572 id=572 data-nosnippet>572</a>                <span class="kw-2">&amp;</span>[<span class="string">"temp"</span>, <span class="string">"test-file.txt"</span>],
+<a href=#573 id=573 data-nosnippet>573</a>            ),
+<a href=#574 id=574 data-nosnippet>574</a>        ];
+<a href=#575 id=575 data-nosnippet>575</a>
+<a href=#576 id=576 data-nosnippet>576</a>        <span class="kw">for </span>(path, expected) <span class="kw">in </span>inputs {
+<a href=#577 id=577 data-nosnippet>577</a>            <span class="kw">let </span>normalized = normalize(path.as_ref()).unwrap();
+<a href=#578 id=578 data-nosnippet>578</a>            <span class="macro">assert_eq!</span>(normalized, expected.to_path_segments().unwrap(), <span class="string">"{}"</span>, path);
+<a href=#579 id=579 data-nosnippet>579</a>        }
+<a href=#580 id=580 data-nosnippet>580</a>    }
+<a href=#581 id=581 data-nosnippet>581</a>
+<a href=#582 id=582 data-nosnippet>582</a>    <span class="attr">#[test]
+<a href=#583 id=583 data-nosnippet>583</a>    </span><span class="kw">fn </span>invalid_paths() {
+<a href=#584 id=584 data-nosnippet>584</a>        <span class="kw">let </span>paths = [<span class="string">"."</span>, <span class="string">".."</span>, <span class="string">"./file.txt"</span>, <span class="string">""</span>];
+<a href=#585 id=585 data-nosnippet>585</a>
+<a href=#586 id=586 data-nosnippet>586</a>        <span class="kw">for </span>path <span class="kw">in </span>paths {
+<a href=#587 id=587 data-nosnippet>587</a>            <span class="macro">assert!</span>(normalize(path.as_ref()).is_err(), <span class="string">"{}"</span>, path);
+<a href=#588 id=588 data-nosnippet>588</a>        }
+<a href=#589 id=589 data-nosnippet>589</a>    }
+<a href=#590 id=590 data-nosnippet>590</a>
+<a href=#591 id=591 data-nosnippet>591</a>    <span class="attr">#[test]
+<a href=#592 id=592 data-nosnippet>592</a>    </span><span class="kw">fn </span>symlink_metadata_and_readlink() {
+<a href=#593 id=593 data-nosnippet>593</a>        <span class="kw">let </span>fs = symlink_fs();
+<a href=#594 id=594 data-nosnippet>594</a>
+<a href=#595 id=595 data-nosnippet>595</a>        <span class="kw">let </span>link = fs.symlink_metadata(<span class="string">"/link"</span>.as_ref()).unwrap();
+<a href=#596 id=596 data-nosnippet>596</a>        <span class="macro">assert!</span>(link.ft.is_symlink());
+<a href=#597 id=597 data-nosnippet>597</a>        <span class="macro">assert_eq!</span>(link.len(), <span class="string">"target.txt"</span>.len() <span class="kw">as </span>u64);
+<a href=#598 id=598 data-nosnippet>598</a>        <span class="macro">assert_eq!</span>(
+<a href=#599 id=599 data-nosnippet>599</a>            fs.readlink(<span class="string">"/link"</span>.as_ref()).unwrap(),
+<a href=#600 id=600 data-nosnippet>600</a>            Path::new(<span class="string">"target.txt"</span>)
+<a href=#601 id=601 data-nosnippet>601</a>        );
+<a href=#602 id=602 data-nosnippet>602</a>        <span class="comment">// open() follows the symlink to its target (unlike symlink_metadata),
+<a href=#603 id=603 data-nosnippet>603</a>        // so opening the link succeeds and yields the target file.
+<a href=#604 id=604 data-nosnippet>604</a>        </span><span class="macro">assert!</span>(
+<a href=#605 id=605 data-nosnippet>605</a>            fs.new_open_options().read(<span class="bool-val">true</span>).open(<span class="string">"/link"</span>).is_ok(),
+<a href=#606 id=606 data-nosnippet>606</a>            <span class="string">"open() should follow the symlink to its target file"</span>,
+<a href=#607 id=607 data-nosnippet>607</a>        );
+<a href=#608 id=608 data-nosnippet>608</a>
+<a href=#609 id=609 data-nosnippet>609</a>        <span class="kw">let </span>entries: Vec&lt;<span class="kw">_</span>&gt; = fs
+<a href=#610 id=610 data-nosnippet>610</a>            .read_dir(<span class="string">"/"</span>.as_ref())
+<a href=#611 id=611 data-nosnippet>611</a>            .unwrap()
+<a href=#612 id=612 data-nosnippet>612</a>            .map(|entry| entry.unwrap())
+<a href=#613 id=613 data-nosnippet>613</a>            .collect();
+<a href=#614 id=614 data-nosnippet>614</a>        <span class="kw">let </span>link_entry = entries
+<a href=#615 id=615 data-nosnippet>615</a>            .iter()
+<a href=#616 id=616 data-nosnippet>616</a>            .find(|entry| entry.path == Path::new(<span class="string">"/link"</span>))
+<a href=#617 id=617 data-nosnippet>617</a>            .unwrap();
+<a href=#618 id=618 data-nosnippet>618</a>        <span class="macro">assert!</span>(link_entry.metadata().unwrap().ft.is_symlink());
+<a href=#619 id=619 data-nosnippet>619</a>
+<a href=#620 id=620 data-nosnippet>620</a>        <span class="macro">assert_eq!</span>(
+<a href=#621 id=621 data-nosnippet>621</a>            fs.readlink(<span class="string">"/target.txt"</span>.as_ref()).unwrap_err(),
+<a href=#622 id=622 data-nosnippet>622</a>            FsError::InvalidInput
+<a href=#623 id=623 data-nosnippet>623</a>        );
+<a href=#624 id=624 data-nosnippet>624</a>        <span class="macro">assert_eq!</span>(
+<a href=#625 id=625 data-nosnippet>625</a>            fs.readlink(<span class="string">"/missing"</span>.as_ref()).unwrap_err(),
+<a href=#626 id=626 data-nosnippet>626</a>            FsError::EntryNotFound
+<a href=#627 id=627 data-nosnippet>627</a>        );
+<a href=#628 id=628 data-nosnippet>628</a>    }
+<a href=#629 id=629 data-nosnippet>629</a>
+<a href=#630 id=630 data-nosnippet>630</a>    <span class="doccomment">/// A volume exercising the various symlink shapes `resolve_symlinks` handles:
+<a href=#631 id=631 data-nosnippet>631</a>    /// relative, multi-hop, absolute, `..`-relative, a symlinked intermediate
+<a href=#632 id=632 data-nosnippet>632</a>    /// directory, and a loop.
+<a href=#633 id=633 data-nosnippet>633</a>    ///
+<a href=#634 id=634 data-nosnippet>634</a>    /// ```text
+<a href=#635 id=635 data-nosnippet>635</a>    /// /a.txt                       "content-a"
+<a href=#636 id=636 data-nosnippet>636</a>    /// /rel    -&gt; a.txt             (relative, single hop)
+<a href=#637 id=637 data-nosnippet>637</a>    /// /hop1   -&gt; hop2 -&gt; a.txt     (relative, two hops)
+<a href=#638 id=638 data-nosnippet>638</a>    /// /loop1  -&gt; loop2 -&gt; loop1    (cycle)
+<a href=#639 id=639 data-nosnippet>639</a>    /// /bin/real.wasm               "\0asm-real"
+<a href=#640 id=640 data-nosnippet>640</a>    /// /libexec/git-core/git -&gt; ../../bin/real.wasm
+<a href=#641 id=641 data-nosnippet>641</a>    /// /bindir -&gt; bin              (symlinked directory)
+<a href=#642 id=642 data-nosnippet>642</a>    /// ```
+<a href=#643 id=643 data-nosnippet>643</a>    </span><span class="kw">fn </span>follow_symlinks_fs() -&gt; WebcVolumeFileSystem {
+<a href=#644 id=644 data-nosnippet>644</a>        <span class="kw">use </span>webc::v3::write::{DirEntry, Directory, FileEntry, SymlinkEntry};
+<a href=#645 id=645 data-nosnippet>645</a>
+<a href=#646 id=646 data-nosnippet>646</a>        <span class="kw">let </span>ts = webc::v3::Timestamps::default();
+<a href=#647 id=647 data-nosnippet>647</a>        <span class="kw">let </span>file = |bytes: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>[u8]| DirEntry::File(FileEntry::borrowed(bytes, ts));
+<a href=#648 id=648 data-nosnippet>648</a>        <span class="kw">let </span>link = |target: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str| DirEntry::Symlink(SymlinkEntry::borrowed(target, ts));
+<a href=#649 id=649 data-nosnippet>649</a>        <span class="kw">let </span>seg = |s: <span class="kw-2">&amp;</span>str| PathSegment::parse(s).unwrap();
+<a href=#650 id=650 data-nosnippet>650</a>
+<a href=#651 id=651 data-nosnippet>651</a>        <span class="kw">let </span>git_core = Directory::new(
+<a href=#652 id=652 data-nosnippet>652</a>            BTreeMap::from_iter([(seg(<span class="string">"git"</span>), link(<span class="string">"../../bin/real.wasm"</span>))]),
+<a href=#653 id=653 data-nosnippet>653</a>            ts,
+<a href=#654 id=654 data-nosnippet>654</a>        );
+<a href=#655 id=655 data-nosnippet>655</a>        <span class="kw">let </span>libexec = Directory::new(
+<a href=#656 id=656 data-nosnippet>656</a>            BTreeMap::from_iter([(seg(<span class="string">"git-core"</span>), DirEntry::Dir(git_core))]),
+<a href=#657 id=657 data-nosnippet>657</a>            ts,
+<a href=#658 id=658 data-nosnippet>658</a>        );
+<a href=#659 id=659 data-nosnippet>659</a>        <span class="kw">let </span>bin = Directory::new(
+<a href=#660 id=660 data-nosnippet>660</a>            BTreeMap::from_iter([(seg(<span class="string">"real.wasm"</span>), file(<span class="string">b"\0asm-real"</span>))]),
+<a href=#661 id=661 data-nosnippet>661</a>            ts,
+<a href=#662 id=662 data-nosnippet>662</a>        );
+<a href=#663 id=663 data-nosnippet>663</a>        <span class="kw">let </span>root = Directory::new(
+<a href=#664 id=664 data-nosnippet>664</a>            BTreeMap::from_iter([
+<a href=#665 id=665 data-nosnippet>665</a>                (seg(<span class="string">"a.txt"</span>), file(<span class="string">b"content-a"</span>)),
+<a href=#666 id=666 data-nosnippet>666</a>                (seg(<span class="string">"rel"</span>), link(<span class="string">"a.txt"</span>)),
+<a href=#667 id=667 data-nosnippet>667</a>                (seg(<span class="string">"hop1"</span>), link(<span class="string">"hop2"</span>)),
+<a href=#668 id=668 data-nosnippet>668</a>                (seg(<span class="string">"hop2"</span>), link(<span class="string">"a.txt"</span>)),
+<a href=#669 id=669 data-nosnippet>669</a>                (seg(<span class="string">"loop1"</span>), link(<span class="string">"loop2"</span>)),
+<a href=#670 id=670 data-nosnippet>670</a>                (seg(<span class="string">"loop2"</span>), link(<span class="string">"loop1"</span>)),
+<a href=#671 id=671 data-nosnippet>671</a>                (seg(<span class="string">"bin"</span>), DirEntry::Dir(bin)),
+<a href=#672 id=672 data-nosnippet>672</a>                (seg(<span class="string">"libexec"</span>), DirEntry::Dir(libexec)),
+<a href=#673 id=673 data-nosnippet>673</a>                (seg(<span class="string">"bindir"</span>), link(<span class="string">"bin"</span>)),
+<a href=#674 id=674 data-nosnippet>674</a>            ]),
+<a href=#675 id=675 data-nosnippet>675</a>            ts,
+<a href=#676 id=676 data-nosnippet>676</a>        );
+<a href=#677 id=677 data-nosnippet>677</a>
+<a href=#678 id=678 data-nosnippet>678</a>        <span class="kw">let </span>manifest = webc::metadata::Manifest::default();
+<a href=#679 id=679 data-nosnippet>679</a>        <span class="kw">let </span><span class="kw-2">mut </span>writer = webc::v3::write::Writer::new(webc::v3::ChecksumAlgorithm::Sha256)
+<a href=#680 id=680 data-nosnippet>680</a>            .write_manifest(<span class="kw-2">&amp;</span>manifest)
+<a href=#681 id=681 data-nosnippet>681</a>            .unwrap()
+<a href=#682 id=682 data-nosnippet>682</a>            .write_atoms(BTreeMap::new())
+<a href=#683 id=683 data-nosnippet>683</a>            .unwrap();
+<a href=#684 id=684 data-nosnippet>684</a>        writer.write_volume(<span class="string">"atom"</span>, root).unwrap();
+<a href=#685 id=685 data-nosnippet>685</a>        <span class="kw">let </span>webc = writer.finish(webc::v3::SignatureAlgorithm::None).unwrap();
+<a href=#686 id=686 data-nosnippet>686</a>        <span class="kw">let </span>container = from_bytes(webc).unwrap();
+<a href=#687 id=687 data-nosnippet>687</a>        <span class="kw">let </span>volume = container.volumes()[<span class="string">"atom"</span>].clone();
 <a href=#688 id=688 data-nosnippet>688</a>
-<a href=#689 id=689 data-nosnippet>689</a>    <span class="attr">#[tokio::test]
-<a href=#690 id=690 data-nosnippet>690</a>    </span><span class="kw">async fn </span>open_follows_symlinks() {
-<a href=#691 id=691 data-nosnippet>691</a>        <span class="kw">let </span>fs = follow_symlinks_fs();
-<a href=#692 id=692 data-nosnippet>692</a>
-<a href=#693 id=693 data-nosnippet>693</a>        <span class="kw">async fn </span>read(fs: <span class="kw-2">&amp;</span>WebcVolumeFileSystem, path: <span class="kw-2">&amp;</span>str) -&gt; Vec&lt;u8&gt; {
-<a href=#694 id=694 data-nosnippet>694</a>            <span class="kw">let </span><span class="kw-2">mut </span>f = fs
-<a href=#695 id=695 data-nosnippet>695</a>                .new_open_options()
-<a href=#696 id=696 data-nosnippet>696</a>                .read(<span class="bool-val">true</span>)
-<a href=#697 id=697 data-nosnippet>697</a>                .open(path)
-<a href=#698 id=698 data-nosnippet>698</a>                .unwrap_or_else(|e| <span class="macro">panic!</span>(<span class="string">"opening {path}: {e:?}"</span>));
-<a href=#699 id=699 data-nosnippet>699</a>            <span class="kw">let </span><span class="kw-2">mut </span>buffer = Vec::new();
-<a href=#700 id=700 data-nosnippet>700</a>            f.read_to_end(<span class="kw-2">&amp;mut </span>buffer).<span class="kw">await</span>.unwrap();
-<a href=#701 id=701 data-nosnippet>701</a>            buffer
-<a href=#702 id=702 data-nosnippet>702</a>        }
-<a href=#703 id=703 data-nosnippet>703</a>
-<a href=#704 id=704 data-nosnippet>704</a>        <span class="comment">// Relative single-hop and multi-hop chains resolve to the same file.
-<a href=#705 id=705 data-nosnippet>705</a>        </span><span class="macro">assert_eq!</span>(read(<span class="kw-2">&amp;</span>fs, <span class="string">"/rel"</span>).<span class="kw">await</span>, <span class="string">b"content-a"</span>);
-<a href=#706 id=706 data-nosnippet>706</a>        <span class="macro">assert_eq!</span>(read(<span class="kw-2">&amp;</span>fs, <span class="string">"/hop1"</span>).<span class="kw">await</span>, <span class="string">b"content-a"</span>);
-<a href=#707 id=707 data-nosnippet>707</a>        <span class="comment">// The motivating case: a `..`-relative link deep in the tree.
-<a href=#708 id=708 data-nosnippet>708</a>        </span><span class="macro">assert_eq!</span>(read(<span class="kw-2">&amp;</span>fs, <span class="string">"/libexec/git-core/git"</span>).<span class="kw">await</span>, <span class="string">b"\0asm-real"</span>);
-<a href=#709 id=709 data-nosnippet>709</a>        <span class="comment">// A symlink in an intermediate directory component is followed too.
-<a href=#710 id=710 data-nosnippet>710</a>        </span><span class="macro">assert_eq!</span>(read(<span class="kw-2">&amp;</span>fs, <span class="string">"/bindir/real.wasm"</span>).<span class="kw">await</span>, <span class="string">b"\0asm-real"</span>);
-<a href=#711 id=711 data-nosnippet>711</a>    }
-<a href=#712 id=712 data-nosnippet>712</a>
-<a href=#713 id=713 data-nosnippet>713</a>    <span class="attr">#[test]
-<a href=#714 id=714 data-nosnippet>714</a>    </span><span class="kw">fn </span>open_symlink_loop_fails() {
-<a href=#715 id=715 data-nosnippet>715</a>        <span class="kw">let </span>fs = follow_symlinks_fs();
-<a href=#716 id=716 data-nosnippet>716</a>
-<a href=#717 id=717 data-nosnippet>717</a>        <span class="macro">assert_eq!</span>(
-<a href=#718 id=718 data-nosnippet>718</a>            fs.new_open_options().read(<span class="bool-val">true</span>).open(<span class="string">"/loop1"</span>).unwrap_err(),
-<a href=#719 id=719 data-nosnippet>719</a>            FsError::InvalidInput,
-<a href=#720 id=720 data-nosnippet>720</a>        );
-<a href=#721 id=721 data-nosnippet>721</a>    }
-<a href=#722 id=722 data-nosnippet>722</a>
-<a href=#723 id=723 data-nosnippet>723</a>    <span class="attr">#[test]
-<a href=#724 id=724 data-nosnippet>724</a>    </span><span class="kw">fn </span>open_symlink_chain_respects_max_depth() {
-<a href=#725 id=725 data-nosnippet>725</a>        <span class="kw">use </span>webc::v3::write::{DirEntry, Directory, FileEntry, SymlinkEntry};
-<a href=#726 id=726 data-nosnippet>726</a>
-<a href=#727 id=727 data-nosnippet>727</a>        <span class="comment">// A volume with `link0 -&gt; link1 -&gt; ... -&gt; link{n-1} -&gt; target.txt`, i.e.
-<a href=#728 id=728 data-nosnippet>728</a>        // `n` symlinks to follow before reaching the file.
-<a href=#729 id=729 data-nosnippet>729</a>        </span><span class="kw">fn </span>chain_fs(n: usize) -&gt; WebcVolumeFileSystem {
-<a href=#730 id=730 data-nosnippet>730</a>            <span class="kw">let </span>ts = webc::v3::Timestamps::default();
-<a href=#731 id=731 data-nosnippet>731</a>            <span class="kw">let </span>seg = |s: <span class="kw-2">&amp;</span>str| PathSegment::parse(s).unwrap();
-<a href=#732 id=732 data-nosnippet>732</a>
-<a href=#733 id=733 data-nosnippet>733</a>            <span class="kw">let </span><span class="kw-2">mut </span>children = BTreeMap::new();
-<a href=#734 id=734 data-nosnippet>734</a>            children.insert(
-<a href=#735 id=735 data-nosnippet>735</a>                seg(<span class="string">"target.txt"</span>),
-<a href=#736 id=736 data-nosnippet>736</a>                DirEntry::File(FileEntry::borrowed(<span class="string">b"target"</span>, ts)),
-<a href=#737 id=737 data-nosnippet>737</a>            );
-<a href=#738 id=738 data-nosnippet>738</a>            <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..n {
-<a href=#739 id=739 data-nosnippet>739</a>                <span class="kw">let </span>target = <span class="kw">if </span>i + <span class="number">1 </span>== n {
-<a href=#740 id=740 data-nosnippet>740</a>                    <span class="string">"target.txt"</span>.to_string()
-<a href=#741 id=741 data-nosnippet>741</a>                } <span class="kw">else </span>{
-<a href=#742 id=742 data-nosnippet>742</a>                    <span class="macro">format!</span>(<span class="string">"link{}"</span>, i + <span class="number">1</span>)
-<a href=#743 id=743 data-nosnippet>743</a>                };
-<a href=#744 id=744 data-nosnippet>744</a>                children.insert(
-<a href=#745 id=745 data-nosnippet>745</a>                    seg(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"link{i}"</span>)),
-<a href=#746 id=746 data-nosnippet>746</a>                    DirEntry::Symlink(SymlinkEntry::owned(target, ts)),
-<a href=#747 id=747 data-nosnippet>747</a>                );
-<a href=#748 id=748 data-nosnippet>748</a>            }
-<a href=#749 id=749 data-nosnippet>749</a>
-<a href=#750 id=750 data-nosnippet>750</a>            <span class="kw">let </span>manifest = webc::metadata::Manifest::default();
-<a href=#751 id=751 data-nosnippet>751</a>            <span class="kw">let </span><span class="kw-2">mut </span>writer = webc::v3::write::Writer::new(webc::v3::ChecksumAlgorithm::Sha256)
-<a href=#752 id=752 data-nosnippet>752</a>                .write_manifest(<span class="kw-2">&amp;</span>manifest)
-<a href=#753 id=753 data-nosnippet>753</a>                .unwrap()
-<a href=#754 id=754 data-nosnippet>754</a>                .write_atoms(BTreeMap::new())
-<a href=#755 id=755 data-nosnippet>755</a>                .unwrap();
-<a href=#756 id=756 data-nosnippet>756</a>            writer
-<a href=#757 id=757 data-nosnippet>757</a>                .write_volume(<span class="string">"atom"</span>, Directory::new(children, ts))
+<a href=#689 id=689 data-nosnippet>689</a>        WebcVolumeFileSystem::new(volume)
+<a href=#690 id=690 data-nosnippet>690</a>    }
+<a href=#691 id=691 data-nosnippet>691</a>
+<a href=#692 id=692 data-nosnippet>692</a>    <span class="attr">#[tokio::test]
+<a href=#693 id=693 data-nosnippet>693</a>    </span><span class="kw">async fn </span>open_follows_symlinks() {
+<a href=#694 id=694 data-nosnippet>694</a>        <span class="kw">let </span>fs = follow_symlinks_fs();
+<a href=#695 id=695 data-nosnippet>695</a>
+<a href=#696 id=696 data-nosnippet>696</a>        <span class="kw">async fn </span>read(fs: <span class="kw-2">&amp;</span>WebcVolumeFileSystem, path: <span class="kw-2">&amp;</span>str) -&gt; Vec&lt;u8&gt; {
+<a href=#697 id=697 data-nosnippet>697</a>            <span class="kw">let </span><span class="kw-2">mut </span>f = fs
+<a href=#698 id=698 data-nosnippet>698</a>                .new_open_options()
+<a href=#699 id=699 data-nosnippet>699</a>                .read(<span class="bool-val">true</span>)
+<a href=#700 id=700 data-nosnippet>700</a>                .open(path)
+<a href=#701 id=701 data-nosnippet>701</a>                .unwrap_or_else(|e| <span class="macro">panic!</span>(<span class="string">"opening {path}: {e:?}"</span>));
+<a href=#702 id=702 data-nosnippet>702</a>            <span class="kw">let </span><span class="kw-2">mut </span>buffer = Vec::new();
+<a href=#703 id=703 data-nosnippet>703</a>            f.read_to_end(<span class="kw-2">&amp;mut </span>buffer).<span class="kw">await</span>.unwrap();
+<a href=#704 id=704 data-nosnippet>704</a>            buffer
+<a href=#705 id=705 data-nosnippet>705</a>        }
+<a href=#706 id=706 data-nosnippet>706</a>
+<a href=#707 id=707 data-nosnippet>707</a>        <span class="comment">// Relative single-hop and multi-hop chains resolve to the same file.
+<a href=#708 id=708 data-nosnippet>708</a>        </span><span class="macro">assert_eq!</span>(read(<span class="kw-2">&amp;</span>fs, <span class="string">"/rel"</span>).<span class="kw">await</span>, <span class="string">b"content-a"</span>);
+<a href=#709 id=709 data-nosnippet>709</a>        <span class="macro">assert_eq!</span>(read(<span class="kw-2">&amp;</span>fs, <span class="string">"/hop1"</span>).<span class="kw">await</span>, <span class="string">b"content-a"</span>);
+<a href=#710 id=710 data-nosnippet>710</a>        <span class="comment">// The motivating case: a `..`-relative link deep in the tree.
+<a href=#711 id=711 data-nosnippet>711</a>        </span><span class="macro">assert_eq!</span>(read(<span class="kw-2">&amp;</span>fs, <span class="string">"/libexec/git-core/git"</span>).<span class="kw">await</span>, <span class="string">b"\0asm-real"</span>);
+<a href=#712 id=712 data-nosnippet>712</a>        <span class="comment">// A symlink in an intermediate directory component is followed too.
+<a href=#713 id=713 data-nosnippet>713</a>        </span><span class="macro">assert_eq!</span>(read(<span class="kw-2">&amp;</span>fs, <span class="string">"/bindir/real.wasm"</span>).<span class="kw">await</span>, <span class="string">b"\0asm-real"</span>);
+<a href=#714 id=714 data-nosnippet>714</a>    }
+<a href=#715 id=715 data-nosnippet>715</a>
+<a href=#716 id=716 data-nosnippet>716</a>    <span class="attr">#[test]
+<a href=#717 id=717 data-nosnippet>717</a>    </span><span class="kw">fn </span>open_symlink_loop_fails() {
+<a href=#718 id=718 data-nosnippet>718</a>        <span class="kw">let </span>fs = follow_symlinks_fs();
+<a href=#719 id=719 data-nosnippet>719</a>
+<a href=#720 id=720 data-nosnippet>720</a>        <span class="macro">assert_eq!</span>(
+<a href=#721 id=721 data-nosnippet>721</a>            fs.new_open_options().read(<span class="bool-val">true</span>).open(<span class="string">"/loop1"</span>).unwrap_err(),
+<a href=#722 id=722 data-nosnippet>722</a>            FsError::InvalidInput,
+<a href=#723 id=723 data-nosnippet>723</a>        );
+<a href=#724 id=724 data-nosnippet>724</a>    }
+<a href=#725 id=725 data-nosnippet>725</a>
+<a href=#726 id=726 data-nosnippet>726</a>    <span class="attr">#[test]
+<a href=#727 id=727 data-nosnippet>727</a>    </span><span class="kw">fn </span>open_symlink_chain_respects_max_depth() {
+<a href=#728 id=728 data-nosnippet>728</a>        <span class="kw">use </span>webc::v3::write::{DirEntry, Directory, FileEntry, SymlinkEntry};
+<a href=#729 id=729 data-nosnippet>729</a>
+<a href=#730 id=730 data-nosnippet>730</a>        <span class="comment">// A volume with `link0 -&gt; link1 -&gt; ... -&gt; link{n-1} -&gt; target.txt`, i.e.
+<a href=#731 id=731 data-nosnippet>731</a>        // `n` symlinks to follow before reaching the file.
+<a href=#732 id=732 data-nosnippet>732</a>        </span><span class="kw">fn </span>chain_fs(n: usize) -&gt; WebcVolumeFileSystem {
+<a href=#733 id=733 data-nosnippet>733</a>            <span class="kw">let </span>ts = webc::v3::Timestamps::default();
+<a href=#734 id=734 data-nosnippet>734</a>            <span class="kw">let </span>seg = |s: <span class="kw-2">&amp;</span>str| PathSegment::parse(s).unwrap();
+<a href=#735 id=735 data-nosnippet>735</a>
+<a href=#736 id=736 data-nosnippet>736</a>            <span class="kw">let </span><span class="kw-2">mut </span>children = BTreeMap::new();
+<a href=#737 id=737 data-nosnippet>737</a>            children.insert(
+<a href=#738 id=738 data-nosnippet>738</a>                seg(<span class="string">"target.txt"</span>),
+<a href=#739 id=739 data-nosnippet>739</a>                DirEntry::File(FileEntry::borrowed(<span class="string">b"target"</span>, ts)),
+<a href=#740 id=740 data-nosnippet>740</a>            );
+<a href=#741 id=741 data-nosnippet>741</a>            <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..n {
+<a href=#742 id=742 data-nosnippet>742</a>                <span class="kw">let </span>target = <span class="kw">if </span>i + <span class="number">1 </span>== n {
+<a href=#743 id=743 data-nosnippet>743</a>                    <span class="string">"target.txt"</span>.to_string()
+<a href=#744 id=744 data-nosnippet>744</a>                } <span class="kw">else </span>{
+<a href=#745 id=745 data-nosnippet>745</a>                    <span class="macro">format!</span>(<span class="string">"link{}"</span>, i + <span class="number">1</span>)
+<a href=#746 id=746 data-nosnippet>746</a>                };
+<a href=#747 id=747 data-nosnippet>747</a>                children.insert(
+<a href=#748 id=748 data-nosnippet>748</a>                    seg(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"link{i}"</span>)),
+<a href=#749 id=749 data-nosnippet>749</a>                    DirEntry::Symlink(SymlinkEntry::owned(target, ts)),
+<a href=#750 id=750 data-nosnippet>750</a>                );
+<a href=#751 id=751 data-nosnippet>751</a>            }
+<a href=#752 id=752 data-nosnippet>752</a>
+<a href=#753 id=753 data-nosnippet>753</a>            <span class="kw">let </span>manifest = webc::metadata::Manifest::default();
+<a href=#754 id=754 data-nosnippet>754</a>            <span class="kw">let </span><span class="kw-2">mut </span>writer = webc::v3::write::Writer::new(webc::v3::ChecksumAlgorithm::Sha256)
+<a href=#755 id=755 data-nosnippet>755</a>                .write_manifest(<span class="kw-2">&amp;</span>manifest)
+<a href=#756 id=756 data-nosnippet>756</a>                .unwrap()
+<a href=#757 id=757 data-nosnippet>757</a>                .write_atoms(BTreeMap::new())
 <a href=#758 id=758 data-nosnippet>758</a>                .unwrap();
-<a href=#759 id=759 data-nosnippet>759</a>            <span class="kw">let </span>webc = writer.finish(webc::v3::SignatureAlgorithm::None).unwrap();
-<a href=#760 id=760 data-nosnippet>760</a>            <span class="kw">let </span>container = from_bytes(webc).unwrap();
-<a href=#761 id=761 data-nosnippet>761</a>            WebcVolumeFileSystem::new(container.volumes()[<span class="string">"atom"</span>].clone())
-<a href=#762 id=762 data-nosnippet>762</a>        }
-<a href=#763 id=763 data-nosnippet>763</a>
-<a href=#764 id=764 data-nosnippet>764</a>        <span class="comment">// A chain of MAX_SYMLINK_DEPTH (40) links resolves (matches Linux
-<a href=#765 id=765 data-nosnippet>765</a>        // MAXSYMLINKS)...
-<a href=#766 id=766 data-nosnippet>766</a>        </span><span class="macro">assert!</span>(
-<a href=#767 id=767 data-nosnippet>767</a>            chain_fs(<span class="number">40</span>)
-<a href=#768 id=768 data-nosnippet>768</a>                .new_open_options()
-<a href=#769 id=769 data-nosnippet>769</a>                .read(<span class="bool-val">true</span>)
-<a href=#770 id=770 data-nosnippet>770</a>                .open(<span class="string">"/link0"</span>)
-<a href=#771 id=771 data-nosnippet>771</a>                .is_ok(),
-<a href=#772 id=772 data-nosnippet>772</a>            <span class="string">"a 40-link chain should resolve"</span>,
-<a href=#773 id=773 data-nosnippet>773</a>        );
-<a href=#774 id=774 data-nosnippet>774</a>
-<a href=#775 id=775 data-nosnippet>775</a>        <span class="comment">// ...but one more link is too many.
-<a href=#776 id=776 data-nosnippet>776</a>        </span><span class="macro">assert_eq!</span>(
-<a href=#777 id=777 data-nosnippet>777</a>            chain_fs(<span class="number">41</span>)
-<a href=#778 id=778 data-nosnippet>778</a>                .new_open_options()
-<a href=#779 id=779 data-nosnippet>779</a>                .read(<span class="bool-val">true</span>)
-<a href=#780 id=780 data-nosnippet>780</a>                .open(<span class="string">"/link0"</span>)
-<a href=#781 id=781 data-nosnippet>781</a>                .unwrap_err(),
-<a href=#782 id=782 data-nosnippet>782</a>            FsError::InvalidInput,
-<a href=#783 id=783 data-nosnippet>783</a>        );
-<a href=#784 id=784 data-nosnippet>784</a>    }
-<a href=#785 id=785 data-nosnippet>785</a>
-<a href=#786 id=786 data-nosnippet>786</a>    <span class="attr">#[test]
-<a href=#787 id=787 data-nosnippet>787</a>    </span><span class="kw">fn </span>metadata_follows_symlinks() {
-<a href=#788 id=788 data-nosnippet>788</a>        <span class="kw">let </span>fs = symlink_fs();
-<a href=#789 id=789 data-nosnippet>789</a>
-<a href=#790 id=790 data-nosnippet>790</a>        <span class="comment">// metadata() follows the link to its target file (stat semantics)...
-<a href=#791 id=791 data-nosnippet>791</a>        </span><span class="kw">let </span>target = fs.metadata(<span class="string">"/link"</span>.as_ref()).unwrap();
-<a href=#792 id=792 data-nosnippet>792</a>        <span class="macro">assert!</span>(target.is_file());
-<a href=#793 id=793 data-nosnippet>793</a>        <span class="macro">assert_eq!</span>(target.len(), <span class="string">"target"</span>.len() <span class="kw">as </span>u64);
-<a href=#794 id=794 data-nosnippet>794</a>
-<a href=#795 id=795 data-nosnippet>795</a>        <span class="comment">// ...while symlink_metadata() reports the link itself (lstat semantics).
-<a href=#796 id=796 data-nosnippet>796</a>        </span><span class="kw">let </span>link = fs.symlink_metadata(<span class="string">"/link"</span>.as_ref()).unwrap();
-<a href=#797 id=797 data-nosnippet>797</a>        <span class="macro">assert!</span>(link.ft.is_symlink());
-<a href=#798 id=798 data-nosnippet>798</a>        <span class="macro">assert_eq!</span>(link.len(), <span class="string">"target.txt"</span>.len() <span class="kw">as </span>u64);
-<a href=#799 id=799 data-nosnippet>799</a>    }
-<a href=#800 id=800 data-nosnippet>800</a>
-<a href=#801 id=801 data-nosnippet>801</a>    <span class="attr">#[test]
-<a href=#802 id=802 data-nosnippet>802</a>    </span><span class="kw">fn </span>read_dir_follows_symlinked_directory() {
-<a href=#803 id=803 data-nosnippet>803</a>        <span class="kw">let </span>fs = follow_symlinks_fs();
-<a href=#804 id=804 data-nosnippet>804</a>
-<a href=#805 id=805 data-nosnippet>805</a>        <span class="comment">// /bindir -&gt; bin, so stat sees a directory...
-<a href=#806 id=806 data-nosnippet>806</a>        </span><span class="macro">assert!</span>(fs.metadata(<span class="string">"/bindir"</span>.as_ref()).unwrap().is_dir());
+<a href=#759 id=759 data-nosnippet>759</a>            writer
+<a href=#760 id=760 data-nosnippet>760</a>                .write_volume(<span class="string">"atom"</span>, Directory::new(children, ts))
+<a href=#761 id=761 data-nosnippet>761</a>                .unwrap();
+<a href=#762 id=762 data-nosnippet>762</a>            <span class="kw">let </span>webc = writer.finish(webc::v3::SignatureAlgorithm::None).unwrap();
+<a href=#763 id=763 data-nosnippet>763</a>            <span class="kw">let </span>container = from_bytes(webc).unwrap();
+<a href=#764 id=764 data-nosnippet>764</a>            WebcVolumeFileSystem::new(container.volumes()[<span class="string">"atom"</span>].clone())
+<a href=#765 id=765 data-nosnippet>765</a>        }
+<a href=#766 id=766 data-nosnippet>766</a>
+<a href=#767 id=767 data-nosnippet>767</a>        <span class="comment">// A chain of MAX_SYMLINK_DEPTH (40) links resolves (matches Linux
+<a href=#768 id=768 data-nosnippet>768</a>        // MAXSYMLINKS)...
+<a href=#769 id=769 data-nosnippet>769</a>        </span><span class="macro">assert!</span>(
+<a href=#770 id=770 data-nosnippet>770</a>            chain_fs(<span class="number">40</span>)
+<a href=#771 id=771 data-nosnippet>771</a>                .new_open_options()
+<a href=#772 id=772 data-nosnippet>772</a>                .read(<span class="bool-val">true</span>)
+<a href=#773 id=773 data-nosnippet>773</a>                .open(<span class="string">"/link0"</span>)
+<a href=#774 id=774 data-nosnippet>774</a>                .is_ok(),
+<a href=#775 id=775 data-nosnippet>775</a>            <span class="string">"a 40-link chain should resolve"</span>,
+<a href=#776 id=776 data-nosnippet>776</a>        );
+<a href=#777 id=777 data-nosnippet>777</a>
+<a href=#778 id=778 data-nosnippet>778</a>        <span class="comment">// ...but one more link is too many.
+<a href=#779 id=779 data-nosnippet>779</a>        </span><span class="macro">assert_eq!</span>(
+<a href=#780 id=780 data-nosnippet>780</a>            chain_fs(<span class="number">41</span>)
+<a href=#781 id=781 data-nosnippet>781</a>                .new_open_options()
+<a href=#782 id=782 data-nosnippet>782</a>                .read(<span class="bool-val">true</span>)
+<a href=#783 id=783 data-nosnippet>783</a>                .open(<span class="string">"/link0"</span>)
+<a href=#784 id=784 data-nosnippet>784</a>                .unwrap_err(),
+<a href=#785 id=785 data-nosnippet>785</a>            FsError::InvalidInput,
+<a href=#786 id=786 data-nosnippet>786</a>        );
+<a href=#787 id=787 data-nosnippet>787</a>    }
+<a href=#788 id=788 data-nosnippet>788</a>
+<a href=#789 id=789 data-nosnippet>789</a>    <span class="attr">#[test]
+<a href=#790 id=790 data-nosnippet>790</a>    </span><span class="kw">fn </span>metadata_follows_symlinks() {
+<a href=#791 id=791 data-nosnippet>791</a>        <span class="kw">let </span>fs = symlink_fs();
+<a href=#792 id=792 data-nosnippet>792</a>
+<a href=#793 id=793 data-nosnippet>793</a>        <span class="comment">// metadata() follows the link to its target file (stat semantics)...
+<a href=#794 id=794 data-nosnippet>794</a>        </span><span class="kw">let </span>target = fs.metadata(<span class="string">"/link"</span>.as_ref()).unwrap();
+<a href=#795 id=795 data-nosnippet>795</a>        <span class="macro">assert!</span>(target.is_file());
+<a href=#796 id=796 data-nosnippet>796</a>        <span class="macro">assert_eq!</span>(target.len(), <span class="string">"target"</span>.len() <span class="kw">as </span>u64);
+<a href=#797 id=797 data-nosnippet>797</a>
+<a href=#798 id=798 data-nosnippet>798</a>        <span class="comment">// ...while symlink_metadata() reports the link itself (lstat semantics).
+<a href=#799 id=799 data-nosnippet>799</a>        </span><span class="kw">let </span>link = fs.symlink_metadata(<span class="string">"/link"</span>.as_ref()).unwrap();
+<a href=#800 id=800 data-nosnippet>800</a>        <span class="macro">assert!</span>(link.ft.is_symlink());
+<a href=#801 id=801 data-nosnippet>801</a>        <span class="macro">assert_eq!</span>(link.len(), <span class="string">"target.txt"</span>.len() <span class="kw">as </span>u64);
+<a href=#802 id=802 data-nosnippet>802</a>    }
+<a href=#803 id=803 data-nosnippet>803</a>
+<a href=#804 id=804 data-nosnippet>804</a>    <span class="attr">#[test]
+<a href=#805 id=805 data-nosnippet>805</a>    </span><span class="kw">fn </span>read_dir_follows_symlinked_directory() {
+<a href=#806 id=806 data-nosnippet>806</a>        <span class="kw">let </span>fs = follow_symlinks_fs();
 <a href=#807 id=807 data-nosnippet>807</a>
-<a href=#808 id=808 data-nosnippet>808</a>        <span class="comment">// ...and read_dir() lists the target's contents, keeping the caller's
-<a href=#809 id=809 data-nosnippet>809</a>        // path as the prefix.
-<a href=#810 id=810 data-nosnippet>810</a>        </span><span class="kw">let </span>entries: Vec&lt;<span class="kw">_</span>&gt; = fs
-<a href=#811 id=811 data-nosnippet>811</a>            .read_dir(<span class="string">"/bindir"</span>.as_ref())
-<a href=#812 id=812 data-nosnippet>812</a>            .unwrap()
-<a href=#813 id=813 data-nosnippet>813</a>            .map(|entry| entry.unwrap().path)
-<a href=#814 id=814 data-nosnippet>814</a>            .collect();
-<a href=#815 id=815 data-nosnippet>815</a>        <span class="macro">assert_eq!</span>(entries, <span class="macro">vec!</span>[PathBuf::from(<span class="string">"/bindir/real.wasm"</span>)]);
-<a href=#816 id=816 data-nosnippet>816</a>    }
-<a href=#817 id=817 data-nosnippet>817</a>
-<a href=#818 id=818 data-nosnippet>818</a>    <span class="attr">#[test]
-<a href=#819 id=819 data-nosnippet>819</a>    </span><span class="kw">fn </span>symlink_metadata_follows_intermediate_symlinks() {
-<a href=#820 id=820 data-nosnippet>820</a>        <span class="kw">let </span>fs = follow_symlinks_fs();
-<a href=#821 id=821 data-nosnippet>821</a>
-<a href=#822 id=822 data-nosnippet>822</a>        <span class="comment">// /bindir -&gt; bin, so lstat resolves the intermediate link and finds the file...
-<a href=#823 id=823 data-nosnippet>823</a>        </span><span class="kw">let </span>meta = fs.symlink_metadata(<span class="string">"/bindir/real.wasm"</span>.as_ref()).unwrap();
-<a href=#824 id=824 data-nosnippet>824</a>        <span class="macro">assert!</span>(meta.is_file());
-<a href=#825 id=825 data-nosnippet>825</a>        <span class="macro">assert_eq!</span>(meta.len(), <span class="string">b"\0asm-real"</span>.len() <span class="kw">as </span>u64);
-<a href=#826 id=826 data-nosnippet>826</a>
-<a href=#827 id=827 data-nosnippet>827</a>        <span class="comment">// ...but a trailing symlink is reported as-is, not followed.
-<a href=#828 id=828 data-nosnippet>828</a>        </span><span class="macro">assert!</span>(
-<a href=#829 id=829 data-nosnippet>829</a>            fs.symlink_metadata(<span class="string">"/bindir"</span>.as_ref())
-<a href=#830 id=830 data-nosnippet>830</a>                .unwrap()
-<a href=#831 id=831 data-nosnippet>831</a>                .ft
-<a href=#832 id=832 data-nosnippet>832</a>                .is_symlink()
-<a href=#833 id=833 data-nosnippet>833</a>        );
-<a href=#834 id=834 data-nosnippet>834</a>    }
-<a href=#835 id=835 data-nosnippet>835</a>
-<a href=#836 id=836 data-nosnippet>836</a>    <span class="attr">#[tokio::test]
-<a href=#837 id=837 data-nosnippet>837</a>    </span><span class="kw">async fn </span>write_ops_reach_permission_denied_through_symlinked_parent() {
-<a href=#838 id=838 data-nosnippet>838</a>        <span class="kw">let </span>fs = follow_symlinks_fs();
-<a href=#839 id=839 data-nosnippet>839</a>
-<a href=#840 id=840 data-nosnippet>840</a>        <span class="comment">// /bindir -&gt; bin is a valid parent, so these should resolve it and reach
-<a href=#841 id=841 data-nosnippet>841</a>        // the readonly rejection, not mistake the symlink for a non-directory.
-<a href=#842 id=842 data-nosnippet>842</a>        </span><span class="macro">assert_eq!</span>(
-<a href=#843 id=843 data-nosnippet>843</a>            fs.create_dir(<span class="string">"/bindir/new"</span>.as_ref()).unwrap_err(),
-<a href=#844 id=844 data-nosnippet>844</a>            FsError::PermissionDenied,
-<a href=#845 id=845 data-nosnippet>845</a>        );
-<a href=#846 id=846 data-nosnippet>846</a>        <span class="macro">assert_eq!</span>(
-<a href=#847 id=847 data-nosnippet>847</a>            fs.rename(<span class="string">"/bin/real.wasm"</span>.as_ref(), <span class="string">"/bindir/new.wasm"</span>.as_ref())
-<a href=#848 id=848 data-nosnippet>848</a>                .<span class="kw">await
-<a href=#849 id=849 data-nosnippet>849</a>                </span>.unwrap_err(),
-<a href=#850 id=850 data-nosnippet>850</a>            FsError::PermissionDenied,
-<a href=#851 id=851 data-nosnippet>851</a>        );
-<a href=#852 id=852 data-nosnippet>852</a>    }
-<a href=#853 id=853 data-nosnippet>853</a>
-<a href=#854 id=854 data-nosnippet>854</a>    <span class="attr">#[test]
-<a href=#855 id=855 data-nosnippet>855</a>    </span><span class="kw">fn </span>mount_all_volumes_in_python() {
-<a href=#856 id=856 data-nosnippet>856</a>        <span class="kw">let </span>container = from_bytes(PYTHON_WEBC).unwrap();
-<a href=#857 id=857 data-nosnippet>857</a>
-<a href=#858 id=858 data-nosnippet>858</a>        <span class="kw">let </span>fs = WebcVolumeFileSystem::mount_all(<span class="kw-2">&amp;</span>container);
-<a href=#859 id=859 data-nosnippet>859</a>
-<a href=#860 id=860 data-nosnippet>860</a>        <span class="comment">// We should now have access to the python directory
-<a href=#861 id=861 data-nosnippet>861</a>        </span><span class="kw">let </span>lib_meta = fs.metadata(<span class="string">"/lib/python3.13/"</span>.as_ref()).unwrap();
-<a href=#862 id=862 data-nosnippet>862</a>        <span class="macro">assert!</span>(lib_meta.is_dir());
-<a href=#863 id=863 data-nosnippet>863</a>    }
-<a href=#864 id=864 data-nosnippet>864</a>
-<a href=#865 id=865 data-nosnippet>865</a>    <span class="attr">#[test]
-<a href=#866 id=866 data-nosnippet>866</a>    </span><span class="kw">fn </span>read_dir() {
-<a href=#867 id=867 data-nosnippet>867</a>        <span class="kw">let </span>container = from_bytes(PYTHON_WEBC).unwrap();
-<a href=#868 id=868 data-nosnippet>868</a>        <span class="kw">let </span>volume = container.volumes()[<span class="string">"/root/usr/local"</span>].clone();
-<a href=#869 id=869 data-nosnippet>869</a>        <span class="kw">let </span>fs = WebcVolumeFileSystem::new(volume);
-<a href=#870 id=870 data-nosnippet>870</a>
-<a href=#871 id=871 data-nosnippet>871</a>        <span class="kw">let </span>entries: Vec&lt;<span class="kw">_</span>&gt; = fs
-<a href=#872 id=872 data-nosnippet>872</a>            .read_dir(<span class="string">"/lib"</span>.as_ref())
-<a href=#873 id=873 data-nosnippet>873</a>            .unwrap()
-<a href=#874 id=874 data-nosnippet>874</a>            .map(|r| r.unwrap())
-<a href=#875 id=875 data-nosnippet>875</a>            .collect();
-<a href=#876 id=876 data-nosnippet>876</a>
-<a href=#877 id=877 data-nosnippet>877</a>        <span class="macro">assert_eq!</span>(
-<a href=#878 id=878 data-nosnippet>878</a>            entries
-<a href=#879 id=879 data-nosnippet>879</a>                .iter()
-<a href=#880 id=880 data-nosnippet>880</a>                .map(|entry| entry.path.as_path())
-<a href=#881 id=881 data-nosnippet>881</a>                .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
-<a href=#882 id=882 data-nosnippet>882</a>            [Path::new(<span class="string">"/lib/python3.13"</span>), Path::new(<span class="string">"/lib/wasm32-wasi"</span>),],
-<a href=#883 id=883 data-nosnippet>883</a>        );
-<a href=#884 id=884 data-nosnippet>884</a>        <span class="macro">assert!</span>(
-<a href=#885 id=885 data-nosnippet>885</a>            entries
-<a href=#886 id=886 data-nosnippet>886</a>                .iter()
-<a href=#887 id=887 data-nosnippet>887</a>                .all(|entry| entry.metadata().unwrap().is_dir())
-<a href=#888 id=888 data-nosnippet>888</a>        );
-<a href=#889 id=889 data-nosnippet>889</a>    }
-<a href=#890 id=890 data-nosnippet>890</a>
-<a href=#891 id=891 data-nosnippet>891</a>    <span class="attr">#[tokio::test]
-<a href=#892 id=892 data-nosnippet>892</a>    </span><span class="kw">async fn </span>file_opener() {
-<a href=#893 id=893 data-nosnippet>893</a>        <span class="kw">let </span>container = from_bytes(PYTHON_WEBC).unwrap();
-<a href=#894 id=894 data-nosnippet>894</a>        <span class="kw">let </span>volumes = container.volumes();
-<a href=#895 id=895 data-nosnippet>895</a>        <span class="kw">let </span>volume = volumes[<span class="string">"/root/usr/local"</span>].clone();
-<a href=#896 id=896 data-nosnippet>896</a>
-<a href=#897 id=897 data-nosnippet>897</a>        <span class="kw">let </span>fs = WebcVolumeFileSystem::new(volume);
-<a href=#898 id=898 data-nosnippet>898</a>
-<a href=#899 id=899 data-nosnippet>899</a>        <span class="macro">assert_eq!</span>(
-<a href=#900 id=900 data-nosnippet>900</a>            fs.new_open_options()
-<a href=#901 id=901 data-nosnippet>901</a>                .create(<span class="bool-val">true</span>)
-<a href=#902 id=902 data-nosnippet>902</a>                .write(<span class="bool-val">true</span>)
-<a href=#903 id=903 data-nosnippet>903</a>                .open(<span class="string">"/file.txt"</span>)
-<a href=#904 id=904 data-nosnippet>904</a>                .unwrap_err(),
-<a href=#905 id=905 data-nosnippet>905</a>            FsError::PermissionDenied,
-<a href=#906 id=906 data-nosnippet>906</a>        );
-<a href=#907 id=907 data-nosnippet>907</a>        <span class="macro">assert_eq!</span>(
-<a href=#908 id=908 data-nosnippet>908</a>            fs.new_open_options().read(<span class="bool-val">true</span>).open(<span class="string">"/lib"</span>).unwrap_err(),
-<a href=#909 id=909 data-nosnippet>909</a>            FsError::NotAFile,
-<a href=#910 id=910 data-nosnippet>910</a>        );
-<a href=#911 id=911 data-nosnippet>911</a>        <span class="macro">assert_eq!</span>(
-<a href=#912 id=912 data-nosnippet>912</a>            fs.new_open_options()
-<a href=#913 id=913 data-nosnippet>913</a>                .read(<span class="bool-val">true</span>)
-<a href=#914 id=914 data-nosnippet>914</a>                .open(<span class="string">"/this/does/not/exist.txt"</span>)
-<a href=#915 id=915 data-nosnippet>915</a>                .unwrap_err(),
-<a href=#916 id=916 data-nosnippet>916</a>            FsError::EntryNotFound,
-<a href=#917 id=917 data-nosnippet>917</a>        );
-<a href=#918 id=918 data-nosnippet>918</a>
-<a href=#919 id=919 data-nosnippet>919</a>        <span class="comment">// We should be able to actually read the file
-<a href=#920 id=920 data-nosnippet>920</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>f = fs
-<a href=#921 id=921 data-nosnippet>921</a>            .new_open_options()
-<a href=#922 id=922 data-nosnippet>922</a>            .read(<span class="bool-val">true</span>)
-<a href=#923 id=923 data-nosnippet>923</a>            .open(<span class="string">"/bin/python3.wasm"</span>)
-<a href=#924 id=924 data-nosnippet>924</a>            .unwrap();
-<a href=#925 id=925 data-nosnippet>925</a>        <span class="kw">let </span><span class="kw-2">mut </span>buffer = Vec::new();
-<a href=#926 id=926 data-nosnippet>926</a>        f.read_to_end(<span class="kw-2">&amp;mut </span>buffer).<span class="kw">await</span>.unwrap();
-<a href=#927 id=927 data-nosnippet>927</a>        <span class="macro">assert!</span>(buffer.starts_with(<span class="string">b"\0asm"</span>));
-<a href=#928 id=928 data-nosnippet>928</a>        <span class="macro">assert_eq!</span>(
-<a href=#929 id=929 data-nosnippet>929</a>            fs.metadata(<span class="string">"/bin/python3.wasm"</span>.as_ref()).unwrap().len(),
-<a href=#930 id=930 data-nosnippet>930</a>            u64::try_from(buffer.len()).unwrap(),
-<a href=#931 id=931 data-nosnippet>931</a>        );
-<a href=#932 id=932 data-nosnippet>932</a>    }
-<a href=#933 id=933 data-nosnippet>933</a>
-<a href=#934 id=934 data-nosnippet>934</a>    <span class="attr">#[test]
-<a href=#935 id=935 data-nosnippet>935</a>    </span><span class="kw">fn </span>remove_dir_is_not_allowed() {
-<a href=#936 id=936 data-nosnippet>936</a>        <span class="kw">let </span>container = from_bytes(PYTHON_WEBC).unwrap();
-<a href=#937 id=937 data-nosnippet>937</a>        <span class="kw">let </span>volumes = container.volumes();
-<a href=#938 id=938 data-nosnippet>938</a>        <span class="kw">let </span>volume = volumes[<span class="string">"/root/usr/local"</span>].clone();
-<a href=#939 id=939 data-nosnippet>939</a>
-<a href=#940 id=940 data-nosnippet>940</a>        <span class="kw">let </span>fs = WebcVolumeFileSystem::new(volume);
-<a href=#941 id=941 data-nosnippet>941</a>
-<a href=#942 id=942 data-nosnippet>942</a>        <span class="macro">assert_eq!</span>(
-<a href=#943 id=943 data-nosnippet>943</a>            fs.remove_dir(<span class="string">"/lib"</span>.as_ref()).unwrap_err(),
-<a href=#944 id=944 data-nosnippet>944</a>            FsError::PermissionDenied,
-<a href=#945 id=945 data-nosnippet>945</a>        );
-<a href=#946 id=946 data-nosnippet>946</a>        <span class="macro">assert_eq!</span>(
-<a href=#947 id=947 data-nosnippet>947</a>            fs.remove_dir(<span class="string">"/this/does/not/exist"</span>.as_ref()).unwrap_err(),
-<a href=#948 id=948 data-nosnippet>948</a>            FsError::EntryNotFound,
-<a href=#949 id=949 data-nosnippet>949</a>        );
-<a href=#950 id=950 data-nosnippet>950</a>        <span class="macro">assert_eq!</span>(
-<a href=#951 id=951 data-nosnippet>951</a>            fs.remove_dir(<span class="string">"/bin/python3.wasm"</span>.as_ref()).unwrap_err(),
-<a href=#952 id=952 data-nosnippet>952</a>            FsError::BaseNotDirectory,
-<a href=#953 id=953 data-nosnippet>953</a>        );
-<a href=#954 id=954 data-nosnippet>954</a>    }
-<a href=#955 id=955 data-nosnippet>955</a>
-<a href=#956 id=956 data-nosnippet>956</a>    <span class="attr">#[test]
-<a href=#957 id=957 data-nosnippet>957</a>    </span><span class="kw">fn </span>remove_file_is_not_allowed() {
-<a href=#958 id=958 data-nosnippet>958</a>        <span class="kw">let </span>container = from_bytes(PYTHON_WEBC).unwrap();
-<a href=#959 id=959 data-nosnippet>959</a>        <span class="kw">let </span>volumes = container.volumes();
-<a href=#960 id=960 data-nosnippet>960</a>        <span class="kw">let </span>volume = volumes[<span class="string">"/root/usr/local"</span>].clone();
-<a href=#961 id=961 data-nosnippet>961</a>
-<a href=#962 id=962 data-nosnippet>962</a>        <span class="kw">let </span>fs = WebcVolumeFileSystem::new(volume);
-<a href=#963 id=963 data-nosnippet>963</a>
-<a href=#964 id=964 data-nosnippet>964</a>        <span class="macro">assert_eq!</span>(
-<a href=#965 id=965 data-nosnippet>965</a>            fs.remove_file(<span class="string">"/lib"</span>.as_ref()).unwrap_err(),
-<a href=#966 id=966 data-nosnippet>966</a>            FsError::NotAFile,
-<a href=#967 id=967 data-nosnippet>967</a>        );
-<a href=#968 id=968 data-nosnippet>968</a>        <span class="macro">assert_eq!</span>(
-<a href=#969 id=969 data-nosnippet>969</a>            fs.remove_file(<span class="string">"/this/does/not/exist"</span>.as_ref()).unwrap_err(),
-<a href=#970 id=970 data-nosnippet>970</a>            FsError::EntryNotFound,
-<a href=#971 id=971 data-nosnippet>971</a>        );
-<a href=#972 id=972 data-nosnippet>972</a>        <span class="macro">assert_eq!</span>(
-<a href=#973 id=973 data-nosnippet>973</a>            fs.remove_file(<span class="string">"/bin/python3.wasm"</span>.as_ref()).unwrap_err(),
-<a href=#974 id=974 data-nosnippet>974</a>            FsError::PermissionDenied,
-<a href=#975 id=975 data-nosnippet>975</a>        );
-<a href=#976 id=976 data-nosnippet>976</a>    }
-<a href=#977 id=977 data-nosnippet>977</a>
-<a href=#978 id=978 data-nosnippet>978</a>    <span class="attr">#[test]
-<a href=#979 id=979 data-nosnippet>979</a>    </span><span class="kw">fn </span>create_dir_is_not_allowed() {
-<a href=#980 id=980 data-nosnippet>980</a>        <span class="kw">let </span>container = from_bytes(PYTHON_WEBC).unwrap();
-<a href=#981 id=981 data-nosnippet>981</a>        <span class="kw">let </span>volumes = container.volumes();
-<a href=#982 id=982 data-nosnippet>982</a>        <span class="kw">let </span>volume = volumes[<span class="string">"/root/usr/local"</span>].clone();
-<a href=#983 id=983 data-nosnippet>983</a>
-<a href=#984 id=984 data-nosnippet>984</a>        <span class="kw">let </span>fs = WebcVolumeFileSystem::new(volume);
-<a href=#985 id=985 data-nosnippet>985</a>
-<a href=#986 id=986 data-nosnippet>986</a>        <span class="macro">assert_eq!</span>(
-<a href=#987 id=987 data-nosnippet>987</a>            fs.create_dir(<span class="string">"/lib"</span>.as_ref()).unwrap_err(),
-<a href=#988 id=988 data-nosnippet>988</a>            FsError::AlreadyExists,
-<a href=#989 id=989 data-nosnippet>989</a>        );
-<a href=#990 id=990 data-nosnippet>990</a>        <span class="macro">assert_eq!</span>(
-<a href=#991 id=991 data-nosnippet>991</a>            fs.create_dir(<span class="string">"/this/does/not/exist"</span>.as_ref()).unwrap_err(),
-<a href=#992 id=992 data-nosnippet>992</a>            FsError::BaseNotDirectory,
-<a href=#993 id=993 data-nosnippet>993</a>        );
-<a href=#994 id=994 data-nosnippet>994</a>        <span class="macro">assert_eq!</span>(
-<a href=#995 id=995 data-nosnippet>995</a>            fs.create_dir(<span class="string">"/lib/nested/"</span>.as_ref()).unwrap_err(),
-<a href=#996 id=996 data-nosnippet>996</a>            FsError::PermissionDenied,
-<a href=#997 id=997 data-nosnippet>997</a>        );
-<a href=#998 id=998 data-nosnippet>998</a>    }
-<a href=#999 id=999 data-nosnippet>999</a>
-<a href=#1000 id=1000 data-nosnippet>1000</a>    <span class="attr">#[tokio::test]
-<a href=#1001 id=1001 data-nosnippet>1001</a>    </span><span class="kw">async fn </span>rename_is_not_allowed() {
-<a href=#1002 id=1002 data-nosnippet>1002</a>        <span class="kw">let </span>container = from_bytes(PYTHON_WEBC).unwrap();
-<a href=#1003 id=1003 data-nosnippet>1003</a>        <span class="kw">let </span>volumes = container.volumes();
-<a href=#1004 id=1004 data-nosnippet>1004</a>        <span class="kw">let </span>volume = volumes[<span class="string">"/root/usr/local"</span>].clone();
-<a href=#1005 id=1005 data-nosnippet>1005</a>
-<a href=#1006 id=1006 data-nosnippet>1006</a>        <span class="kw">let </span>fs = WebcVolumeFileSystem::new(volume);
-<a href=#1007 id=1007 data-nosnippet>1007</a>
-<a href=#1008 id=1008 data-nosnippet>1008</a>        <span class="macro">assert_eq!</span>(
-<a href=#1009 id=1009 data-nosnippet>1009</a>            fs.rename(<span class="string">"/lib"</span>.as_ref(), <span class="string">"/other"</span>.as_ref())
-<a href=#1010 id=1010 data-nosnippet>1010</a>                .<span class="kw">await
-<a href=#1011 id=1011 data-nosnippet>1011</a>                </span>.unwrap_err(),
-<a href=#1012 id=1012 data-nosnippet>1012</a>            FsError::PermissionDenied,
-<a href=#1013 id=1013 data-nosnippet>1013</a>        );
-<a href=#1014 id=1014 data-nosnippet>1014</a>        <span class="macro">assert_eq!</span>(
-<a href=#1015 id=1015 data-nosnippet>1015</a>            fs.rename(<span class="string">"/this/does/not/exist"</span>.as_ref(), <span class="string">"/another"</span>.as_ref())
-<a href=#1016 id=1016 data-nosnippet>1016</a>                .<span class="kw">await
-<a href=#1017 id=1017 data-nosnippet>1017</a>                </span>.unwrap_err(),
-<a href=#1018 id=1018 data-nosnippet>1018</a>            FsError::EntryNotFound,
-<a href=#1019 id=1019 data-nosnippet>1019</a>        );
-<a href=#1020 id=1020 data-nosnippet>1020</a>        <span class="macro">assert_eq!</span>(
-<a href=#1021 id=1021 data-nosnippet>1021</a>            fs.rename(<span class="string">"/bin/python3.wasm"</span>.as_ref(), <span class="string">"/lib/another.wasm"</span>.as_ref())
-<a href=#1022 id=1022 data-nosnippet>1022</a>                .<span class="kw">await
-<a href=#1023 id=1023 data-nosnippet>1023</a>                </span>.unwrap_err(),
-<a href=#1024 id=1024 data-nosnippet>1024</a>            FsError::PermissionDenied,
-<a href=#1025 id=1025 data-nosnippet>1025</a>        );
-<a href=#1026 id=1026 data-nosnippet>1026</a>    }
-<a href=#1027 id=1027 data-nosnippet>1027</a>}
+<a href=#808 id=808 data-nosnippet>808</a>        <span class="comment">// /bindir -&gt; bin, so stat sees a directory...
+<a href=#809 id=809 data-nosnippet>809</a>        </span><span class="macro">assert!</span>(fs.metadata(<span class="string">"/bindir"</span>.as_ref()).unwrap().is_dir());
+<a href=#810 id=810 data-nosnippet>810</a>
+<a href=#811 id=811 data-nosnippet>811</a>        <span class="comment">// ...and read_dir() lists the target's contents, keeping the caller's
+<a href=#812 id=812 data-nosnippet>812</a>        // path as the prefix.
+<a href=#813 id=813 data-nosnippet>813</a>        </span><span class="kw">let </span>entries: Vec&lt;<span class="kw">_</span>&gt; = fs
+<a href=#814 id=814 data-nosnippet>814</a>            .read_dir(<span class="string">"/bindir"</span>.as_ref())
+<a href=#815 id=815 data-nosnippet>815</a>            .unwrap()
+<a href=#816 id=816 data-nosnippet>816</a>            .map(|entry| entry.unwrap().path)
+<a href=#817 id=817 data-nosnippet>817</a>            .collect();
+<a href=#818 id=818 data-nosnippet>818</a>        <span class="macro">assert_eq!</span>(entries, <span class="macro">vec!</span>[PathBuf::from(<span class="string">"/bindir/real.wasm"</span>)]);
+<a href=#819 id=819 data-nosnippet>819</a>    }
+<a href=#820 id=820 data-nosnippet>820</a>
+<a href=#821 id=821 data-nosnippet>821</a>    <span class="attr">#[test]
+<a href=#822 id=822 data-nosnippet>822</a>    </span><span class="kw">fn </span>symlink_metadata_follows_intermediate_symlinks() {
+<a href=#823 id=823 data-nosnippet>823</a>        <span class="kw">let </span>fs = follow_symlinks_fs();
+<a href=#824 id=824 data-nosnippet>824</a>
+<a href=#825 id=825 data-nosnippet>825</a>        <span class="comment">// /bindir -&gt; bin, so lstat resolves the intermediate link and finds the file...
+<a href=#826 id=826 data-nosnippet>826</a>        </span><span class="kw">let </span>meta = fs.symlink_metadata(<span class="string">"/bindir/real.wasm"</span>.as_ref()).unwrap();
+<a href=#827 id=827 data-nosnippet>827</a>        <span class="macro">assert!</span>(meta.is_file());
+<a href=#828 id=828 data-nosnippet>828</a>        <span class="macro">assert_eq!</span>(meta.len(), <span class="string">b"\0asm-real"</span>.len() <span class="kw">as </span>u64);
+<a href=#829 id=829 data-nosnippet>829</a>
+<a href=#830 id=830 data-nosnippet>830</a>        <span class="comment">// ...but a trailing symlink is reported as-is, not followed.
+<a href=#831 id=831 data-nosnippet>831</a>        </span><span class="macro">assert!</span>(
+<a href=#832 id=832 data-nosnippet>832</a>            fs.symlink_metadata(<span class="string">"/bindir"</span>.as_ref())
+<a href=#833 id=833 data-nosnippet>833</a>                .unwrap()
+<a href=#834 id=834 data-nosnippet>834</a>                .ft
+<a href=#835 id=835 data-nosnippet>835</a>                .is_symlink()
+<a href=#836 id=836 data-nosnippet>836</a>        );
+<a href=#837 id=837 data-nosnippet>837</a>    }
+<a href=#838 id=838 data-nosnippet>838</a>
+<a href=#839 id=839 data-nosnippet>839</a>    <span class="attr">#[tokio::test]
+<a href=#840 id=840 data-nosnippet>840</a>    </span><span class="kw">async fn </span>write_ops_reach_permission_denied_through_symlinked_parent() {
+<a href=#841 id=841 data-nosnippet>841</a>        <span class="kw">let </span>fs = follow_symlinks_fs();
+<a href=#842 id=842 data-nosnippet>842</a>
+<a href=#843 id=843 data-nosnippet>843</a>        <span class="comment">// /bindir -&gt; bin is a valid parent, so these should resolve it and reach
+<a href=#844 id=844 data-nosnippet>844</a>        // the readonly rejection, not mistake the symlink for a non-directory.
+<a href=#845 id=845 data-nosnippet>845</a>        </span><span class="macro">assert_eq!</span>(
+<a href=#846 id=846 data-nosnippet>846</a>            fs.create_dir(<span class="string">"/bindir/new"</span>.as_ref()).unwrap_err(),
+<a href=#847 id=847 data-nosnippet>847</a>            FsError::PermissionDenied,
+<a href=#848 id=848 data-nosnippet>848</a>        );
+<a href=#849 id=849 data-nosnippet>849</a>        <span class="macro">assert_eq!</span>(
+<a href=#850 id=850 data-nosnippet>850</a>            fs.rename(<span class="string">"/bin/real.wasm"</span>.as_ref(), <span class="string">"/bindir/new.wasm"</span>.as_ref())
+<a href=#851 id=851 data-nosnippet>851</a>                .<span class="kw">await
+<a href=#852 id=852 data-nosnippet>852</a>                </span>.unwrap_err(),
+<a href=#853 id=853 data-nosnippet>853</a>            FsError::PermissionDenied,
+<a href=#854 id=854 data-nosnippet>854</a>        );
+<a href=#855 id=855 data-nosnippet>855</a>    }
+<a href=#856 id=856 data-nosnippet>856</a>
+<a href=#857 id=857 data-nosnippet>857</a>    <span class="attr">#[test]
+<a href=#858 id=858 data-nosnippet>858</a>    </span><span class="kw">fn </span>mount_all_volumes_in_python() {
+<a href=#859 id=859 data-nosnippet>859</a>        <span class="kw">let </span>container = from_bytes(PYTHON_WEBC).unwrap();
+<a href=#860 id=860 data-nosnippet>860</a>
+<a href=#861 id=861 data-nosnippet>861</a>        <span class="kw">let </span>fs = WebcVolumeFileSystem::mount_all(<span class="kw-2">&amp;</span>container);
+<a href=#862 id=862 data-nosnippet>862</a>
+<a href=#863 id=863 data-nosnippet>863</a>        <span class="comment">// We should now have access to the python directory
+<a href=#864 id=864 data-nosnippet>864</a>        </span><span class="kw">let </span>lib_meta = fs.metadata(<span class="string">"/lib/python3.13/"</span>.as_ref()).unwrap();
+<a href=#865 id=865 data-nosnippet>865</a>        <span class="macro">assert!</span>(lib_meta.is_dir());
+<a href=#866 id=866 data-nosnippet>866</a>    }
+<a href=#867 id=867 data-nosnippet>867</a>
+<a href=#868 id=868 data-nosnippet>868</a>    <span class="attr">#[test]
+<a href=#869 id=869 data-nosnippet>869</a>    </span><span class="kw">fn </span>read_dir() {
+<a href=#870 id=870 data-nosnippet>870</a>        <span class="kw">let </span>container = from_bytes(PYTHON_WEBC).unwrap();
+<a href=#871 id=871 data-nosnippet>871</a>        <span class="kw">let </span>volume = container.volumes()[<span class="string">"/root/usr/local"</span>].clone();
+<a href=#872 id=872 data-nosnippet>872</a>        <span class="kw">let </span>fs = WebcVolumeFileSystem::new(volume);
+<a href=#873 id=873 data-nosnippet>873</a>
+<a href=#874 id=874 data-nosnippet>874</a>        <span class="kw">let </span>entries: Vec&lt;<span class="kw">_</span>&gt; = fs
+<a href=#875 id=875 data-nosnippet>875</a>            .read_dir(<span class="string">"/lib"</span>.as_ref())
+<a href=#876 id=876 data-nosnippet>876</a>            .unwrap()
+<a href=#877 id=877 data-nosnippet>877</a>            .map(|r| r.unwrap())
+<a href=#878 id=878 data-nosnippet>878</a>            .collect();
+<a href=#879 id=879 data-nosnippet>879</a>
+<a href=#880 id=880 data-nosnippet>880</a>        <span class="macro">assert_eq!</span>(
+<a href=#881 id=881 data-nosnippet>881</a>            entries
+<a href=#882 id=882 data-nosnippet>882</a>                .iter()
+<a href=#883 id=883 data-nosnippet>883</a>                .map(|entry| entry.path.as_path())
+<a href=#884 id=884 data-nosnippet>884</a>                .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
+<a href=#885 id=885 data-nosnippet>885</a>            [Path::new(<span class="string">"/lib/python3.13"</span>), Path::new(<span class="string">"/lib/wasm32-wasi"</span>),],
+<a href=#886 id=886 data-nosnippet>886</a>        );
+<a href=#887 id=887 data-nosnippet>887</a>        <span class="macro">assert!</span>(
+<a href=#888 id=888 data-nosnippet>888</a>            entries
+<a href=#889 id=889 data-nosnippet>889</a>                .iter()
+<a href=#890 id=890 data-nosnippet>890</a>                .all(|entry| entry.metadata().unwrap().is_dir())
+<a href=#891 id=891 data-nosnippet>891</a>        );
+<a href=#892 id=892 data-nosnippet>892</a>    }
+<a href=#893 id=893 data-nosnippet>893</a>
+<a href=#894 id=894 data-nosnippet>894</a>    <span class="attr">#[tokio::test]
+<a href=#895 id=895 data-nosnippet>895</a>    </span><span class="kw">async fn </span>file_opener() {
+<a href=#896 id=896 data-nosnippet>896</a>        <span class="kw">let </span>container = from_bytes(PYTHON_WEBC).unwrap();
+<a href=#897 id=897 data-nosnippet>897</a>        <span class="kw">let </span>volumes = container.volumes();
+<a href=#898 id=898 data-nosnippet>898</a>        <span class="kw">let </span>volume = volumes[<span class="string">"/root/usr/local"</span>].clone();
+<a href=#899 id=899 data-nosnippet>899</a>
+<a href=#900 id=900 data-nosnippet>900</a>        <span class="kw">let </span>fs = WebcVolumeFileSystem::new(volume);
+<a href=#901 id=901 data-nosnippet>901</a>
+<a href=#902 id=902 data-nosnippet>902</a>        <span class="macro">assert_eq!</span>(
+<a href=#903 id=903 data-nosnippet>903</a>            fs.new_open_options()
+<a href=#904 id=904 data-nosnippet>904</a>                .create(<span class="bool-val">true</span>)
+<a href=#905 id=905 data-nosnippet>905</a>                .write(<span class="bool-val">true</span>)
+<a href=#906 id=906 data-nosnippet>906</a>                .open(<span class="string">"/file.txt"</span>)
+<a href=#907 id=907 data-nosnippet>907</a>                .unwrap_err(),
+<a href=#908 id=908 data-nosnippet>908</a>            FsError::PermissionDenied,
+<a href=#909 id=909 data-nosnippet>909</a>        );
+<a href=#910 id=910 data-nosnippet>910</a>        <span class="macro">assert_eq!</span>(
+<a href=#911 id=911 data-nosnippet>911</a>            fs.new_open_options().read(<span class="bool-val">true</span>).open(<span class="string">"/lib"</span>).unwrap_err(),
+<a href=#912 id=912 data-nosnippet>912</a>            FsError::NotAFile,
+<a href=#913 id=913 data-nosnippet>913</a>        );
+<a href=#914 id=914 data-nosnippet>914</a>        <span class="macro">assert_eq!</span>(
+<a href=#915 id=915 data-nosnippet>915</a>            fs.new_open_options()
+<a href=#916 id=916 data-nosnippet>916</a>                .read(<span class="bool-val">true</span>)
+<a href=#917 id=917 data-nosnippet>917</a>                .open(<span class="string">"/this/does/not/exist.txt"</span>)
+<a href=#918 id=918 data-nosnippet>918</a>                .unwrap_err(),
+<a href=#919 id=919 data-nosnippet>919</a>            FsError::EntryNotFound,
+<a href=#920 id=920 data-nosnippet>920</a>        );
+<a href=#921 id=921 data-nosnippet>921</a>
+<a href=#922 id=922 data-nosnippet>922</a>        <span class="comment">// We should be able to actually read the file
+<a href=#923 id=923 data-nosnippet>923</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>f = fs
+<a href=#924 id=924 data-nosnippet>924</a>            .new_open_options()
+<a href=#925 id=925 data-nosnippet>925</a>            .read(<span class="bool-val">true</span>)
+<a href=#926 id=926 data-nosnippet>926</a>            .open(<span class="string">"/bin/python3.wasm"</span>)
+<a href=#927 id=927 data-nosnippet>927</a>            .unwrap();
+<a href=#928 id=928 data-nosnippet>928</a>        <span class="kw">let </span><span class="kw-2">mut </span>buffer = Vec::new();
+<a href=#929 id=929 data-nosnippet>929</a>        f.read_to_end(<span class="kw-2">&amp;mut </span>buffer).<span class="kw">await</span>.unwrap();
+<a href=#930 id=930 data-nosnippet>930</a>        <span class="macro">assert!</span>(buffer.starts_with(<span class="string">b"\0asm"</span>));
+<a href=#931 id=931 data-nosnippet>931</a>        <span class="macro">assert_eq!</span>(
+<a href=#932 id=932 data-nosnippet>932</a>            fs.metadata(<span class="string">"/bin/python3.wasm"</span>.as_ref()).unwrap().len(),
+<a href=#933 id=933 data-nosnippet>933</a>            u64::try_from(buffer.len()).unwrap(),
+<a href=#934 id=934 data-nosnippet>934</a>        );
+<a href=#935 id=935 data-nosnippet>935</a>    }
+<a href=#936 id=936 data-nosnippet>936</a>
+<a href=#937 id=937 data-nosnippet>937</a>    <span class="attr">#[test]
+<a href=#938 id=938 data-nosnippet>938</a>    </span><span class="kw">fn </span>remove_dir_is_not_allowed() {
+<a href=#939 id=939 data-nosnippet>939</a>        <span class="kw">let </span>container = from_bytes(PYTHON_WEBC).unwrap();
+<a href=#940 id=940 data-nosnippet>940</a>        <span class="kw">let </span>volumes = container.volumes();
+<a href=#941 id=941 data-nosnippet>941</a>        <span class="kw">let </span>volume = volumes[<span class="string">"/root/usr/local"</span>].clone();
+<a href=#942 id=942 data-nosnippet>942</a>
+<a href=#943 id=943 data-nosnippet>943</a>        <span class="kw">let </span>fs = WebcVolumeFileSystem::new(volume);
+<a href=#944 id=944 data-nosnippet>944</a>
+<a href=#945 id=945 data-nosnippet>945</a>        <span class="macro">assert_eq!</span>(
+<a href=#946 id=946 data-nosnippet>946</a>            fs.remove_dir(<span class="string">"/lib"</span>.as_ref()).unwrap_err(),
+<a href=#947 id=947 data-nosnippet>947</a>            FsError::PermissionDenied,
+<a href=#948 id=948 data-nosnippet>948</a>        );
+<a href=#949 id=949 data-nosnippet>949</a>        <span class="macro">assert_eq!</span>(
+<a href=#950 id=950 data-nosnippet>950</a>            fs.remove_dir(<span class="string">"/this/does/not/exist"</span>.as_ref()).unwrap_err(),
+<a href=#951 id=951 data-nosnippet>951</a>            FsError::EntryNotFound,
+<a href=#952 id=952 data-nosnippet>952</a>        );
+<a href=#953 id=953 data-nosnippet>953</a>        <span class="macro">assert_eq!</span>(
+<a href=#954 id=954 data-nosnippet>954</a>            fs.remove_dir(<span class="string">"/bin/python3.wasm"</span>.as_ref()).unwrap_err(),
+<a href=#955 id=955 data-nosnippet>955</a>            FsError::BaseNotDirectory,
+<a href=#956 id=956 data-nosnippet>956</a>        );
+<a href=#957 id=957 data-nosnippet>957</a>    }
+<a href=#958 id=958 data-nosnippet>958</a>
+<a href=#959 id=959 data-nosnippet>959</a>    <span class="attr">#[test]
+<a href=#960 id=960 data-nosnippet>960</a>    </span><span class="kw">fn </span>remove_file_is_not_allowed() {
+<a href=#961 id=961 data-nosnippet>961</a>        <span class="kw">let </span>container = from_bytes(PYTHON_WEBC).unwrap();
+<a href=#962 id=962 data-nosnippet>962</a>        <span class="kw">let </span>volumes = container.volumes();
+<a href=#963 id=963 data-nosnippet>963</a>        <span class="kw">let </span>volume = volumes[<span class="string">"/root/usr/local"</span>].clone();
+<a href=#964 id=964 data-nosnippet>964</a>
+<a href=#965 id=965 data-nosnippet>965</a>        <span class="kw">let </span>fs = WebcVolumeFileSystem::new(volume);
+<a href=#966 id=966 data-nosnippet>966</a>
+<a href=#967 id=967 data-nosnippet>967</a>        <span class="macro">assert_eq!</span>(
+<a href=#968 id=968 data-nosnippet>968</a>            fs.remove_file(<span class="string">"/lib"</span>.as_ref()).unwrap_err(),
+<a href=#969 id=969 data-nosnippet>969</a>            FsError::NotAFile,
+<a href=#970 id=970 data-nosnippet>970</a>        );
+<a href=#971 id=971 data-nosnippet>971</a>        <span class="macro">assert_eq!</span>(
+<a href=#972 id=972 data-nosnippet>972</a>            fs.remove_file(<span class="string">"/this/does/not/exist"</span>.as_ref()).unwrap_err(),
+<a href=#973 id=973 data-nosnippet>973</a>            FsError::EntryNotFound,
+<a href=#974 id=974 data-nosnippet>974</a>        );
+<a href=#975 id=975 data-nosnippet>975</a>        <span class="macro">assert_eq!</span>(
+<a href=#976 id=976 data-nosnippet>976</a>            fs.remove_file(<span class="string">"/bin/python3.wasm"</span>.as_ref()).unwrap_err(),
+<a href=#977 id=977 data-nosnippet>977</a>            FsError::PermissionDenied,
+<a href=#978 id=978 data-nosnippet>978</a>        );
+<a href=#979 id=979 data-nosnippet>979</a>    }
+<a href=#980 id=980 data-nosnippet>980</a>
+<a href=#981 id=981 data-nosnippet>981</a>    <span class="attr">#[test]
+<a href=#982 id=982 data-nosnippet>982</a>    </span><span class="kw">fn </span>create_dir_is_not_allowed() {
+<a href=#983 id=983 data-nosnippet>983</a>        <span class="kw">let </span>container = from_bytes(PYTHON_WEBC).unwrap();
+<a href=#984 id=984 data-nosnippet>984</a>        <span class="kw">let </span>volumes = container.volumes();
+<a href=#985 id=985 data-nosnippet>985</a>        <span class="kw">let </span>volume = volumes[<span class="string">"/root/usr/local"</span>].clone();
+<a href=#986 id=986 data-nosnippet>986</a>
+<a href=#987 id=987 data-nosnippet>987</a>        <span class="kw">let </span>fs = WebcVolumeFileSystem::new(volume);
+<a href=#988 id=988 data-nosnippet>988</a>
+<a href=#989 id=989 data-nosnippet>989</a>        <span class="macro">assert_eq!</span>(
+<a href=#990 id=990 data-nosnippet>990</a>            fs.create_dir(<span class="string">"/lib"</span>.as_ref()).unwrap_err(),
+<a href=#991 id=991 data-nosnippet>991</a>            FsError::AlreadyExists,
+<a href=#992 id=992 data-nosnippet>992</a>        );
+<a href=#993 id=993 data-nosnippet>993</a>        <span class="macro">assert_eq!</span>(
+<a href=#994 id=994 data-nosnippet>994</a>            fs.create_dir(<span class="string">"/this/does/not/exist"</span>.as_ref()).unwrap_err(),
+<a href=#995 id=995 data-nosnippet>995</a>            FsError::BaseNotDirectory,
+<a href=#996 id=996 data-nosnippet>996</a>        );
+<a href=#997 id=997 data-nosnippet>997</a>        <span class="macro">assert_eq!</span>(
+<a href=#998 id=998 data-nosnippet>998</a>            fs.create_dir(<span class="string">"/lib/nested/"</span>.as_ref()).unwrap_err(),
+<a href=#999 id=999 data-nosnippet>999</a>            FsError::PermissionDenied,
+<a href=#1000 id=1000 data-nosnippet>1000</a>        );
+<a href=#1001 id=1001 data-nosnippet>1001</a>    }
+<a href=#1002 id=1002 data-nosnippet>1002</a>
+<a href=#1003 id=1003 data-nosnippet>1003</a>    <span class="attr">#[tokio::test]
+<a href=#1004 id=1004 data-nosnippet>1004</a>    </span><span class="kw">async fn </span>rename_is_not_allowed() {
+<a href=#1005 id=1005 data-nosnippet>1005</a>        <span class="kw">let </span>container = from_bytes(PYTHON_WEBC).unwrap();
+<a href=#1006 id=1006 data-nosnippet>1006</a>        <span class="kw">let </span>volumes = container.volumes();
+<a href=#1007 id=1007 data-nosnippet>1007</a>        <span class="kw">let </span>volume = volumes[<span class="string">"/root/usr/local"</span>].clone();
+<a href=#1008 id=1008 data-nosnippet>1008</a>
+<a href=#1009 id=1009 data-nosnippet>1009</a>        <span class="kw">let </span>fs = WebcVolumeFileSystem::new(volume);
+<a href=#1010 id=1010 data-nosnippet>1010</a>
+<a href=#1011 id=1011 data-nosnippet>1011</a>        <span class="macro">assert_eq!</span>(
+<a href=#1012 id=1012 data-nosnippet>1012</a>            fs.rename(<span class="string">"/lib"</span>.as_ref(), <span class="string">"/other"</span>.as_ref())
+<a href=#1013 id=1013 data-nosnippet>1013</a>                .<span class="kw">await
+<a href=#1014 id=1014 data-nosnippet>1014</a>                </span>.unwrap_err(),
+<a href=#1015 id=1015 data-nosnippet>1015</a>            FsError::PermissionDenied,
+<a href=#1016 id=1016 data-nosnippet>1016</a>        );
+<a href=#1017 id=1017 data-nosnippet>1017</a>        <span class="macro">assert_eq!</span>(
+<a href=#1018 id=1018 data-nosnippet>1018</a>            fs.rename(<span class="string">"/this/does/not/exist"</span>.as_ref(), <span class="string">"/another"</span>.as_ref())
+<a href=#1019 id=1019 data-nosnippet>1019</a>                .<span class="kw">await
+<a href=#1020 id=1020 data-nosnippet>1020</a>                </span>.unwrap_err(),
+<a href=#1021 id=1021 data-nosnippet>1021</a>            FsError::EntryNotFound,
+<a href=#1022 id=1022 data-nosnippet>1022</a>        );
+<a href=#1023 id=1023 data-nosnippet>1023</a>        <span class="macro">assert_eq!</span>(
+<a href=#1024 id=1024 data-nosnippet>1024</a>            fs.rename(<span class="string">"/bin/python3.wasm"</span>.as_ref(), <span class="string">"/lib/another.wasm"</span>.as_ref())
+<a href=#1025 id=1025 data-nosnippet>1025</a>                .<span class="kw">await
+<a href=#1026 id=1026 data-nosnippet>1026</a>                </span>.unwrap_err(),
+<a href=#1027 id=1027 data-nosnippet>1027</a>            FsError::PermissionDenied,
+<a href=#1028 id=1028 data-nosnippet>1028</a>        );
+<a href=#1029 id=1029 data-nosnippet>1029</a>    }
+<a href=#1030 id=1030 data-nosnippet>1030</a>}
 </code></pre></div></section></main></body></html>
