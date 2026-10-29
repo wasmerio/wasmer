@@ -557,6 +557,16 @@ impl Net {
         })
     }
 
+    /// The uplink's interface index, 0 if the namespace has none.
+    pub(crate) fn uplink_index(&self) -> u32 {
+        let st = self.state();
+        st.ifaces
+            .links()
+            .iter()
+            .find(|l| matches!(l.kind, LinkKind::Uplink))
+            .map_or(0, |l| l.index)
+    }
+
     /// Gateway alias: the alias address means the host's loopback.
     pub(crate) fn host_view(&self, dst: SocketAddr) -> SocketAddr {
         match self.config.host_loopback_alias {
@@ -698,6 +708,7 @@ impl Net {
                 from: SocketAddr::new(src, local.port()),
                 to: to.and_then(|w| w.upgrade()),
                 at: self.arc(),
+                iif: LOOPBACK_INDEX,
                 back_iif: LOOPBACK_INDEX,
             },
             Hop::Done(Path::Backend { host_dst, .. }) => UdpRoute::Backend { host_dst },
@@ -712,6 +723,7 @@ impl Net {
                         from: SocketAddr::new(src, local.port()),
                         to: to.and_then(|w| w.upgrade()),
                         at: peer,
+                        iif: end.peer().1,
                         back_iif: oif,
                     }
                 }
@@ -856,6 +868,8 @@ pub(crate) enum UdpRoute {
         /// The namespace holding the destination, which answers a datagram nobody takes
         /// with a port unreachable that comes back in on `back_iif`.
         at: Arc<Net>,
+        /// The interface it arrives on there.
+        iif: u32,
         back_iif: u32,
     },
     /// Out through the backend to `host_dst`.

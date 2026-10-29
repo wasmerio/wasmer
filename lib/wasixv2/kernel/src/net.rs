@@ -21,7 +21,7 @@ use wasixv2_syscalls::{
     read_value, write_value,
 };
 use wasixv2_vfs::{Cap, Path};
-use wasixv2_vnet::{Control, Domain, SendMsg, Shutdown, SocketKind};
+use wasixv2_vnet::{Control, Domain, SendMsg, Shutdown, SocketKind, bpf};
 use wasixv2_wait::PollMask;
 
 mod if_ioctl;
@@ -58,6 +58,8 @@ const OPTMEM_MAX: usize = 128 * 1024;
 const MAX_RW_COUNT: u32 = 0x7fff_f000;
 /// What a stream send or receive moves through kernel memory per step.
 const SOCK_CHUNK: usize = 256 * 1024;
+/// `sizeof(struct sock_fprog)` on wasm32: `len`, padding, the `filter` pointer.
+const SOCK_FPROG: usize = 8;
 /// The largest IP datagram payload. A send copies one byte more, so the protocol sees an
 /// oversized datagram and reports `EMSGSIZE` in its own order.
 const IP_MAX_DATAGRAM: usize = 65535;
@@ -1014,10 +1016,13 @@ impl Kernel {
         name: i32,
         value: UserSlice,
     ) -> SysResult<i32> {
-        let value = value.copy_in(caller.memory(), 4096).await?;
+        let mut value = value.copy_in(caller.memory(), 4096).await?;
         let any = self.any_socket(caller, fd)?;
         if level == SocketLevel::SOL_SOCKET {
             match SocketOption(name) {
+                SocketOption::SO_ATTACH_FILTER => {
+                    value = self.filter_program(caller, &any, &value).await?;
+                }
                 SocketOption::SO_RCVTIMEO_OLD | SocketOption::SO_RCVTIMEO_NEW => {
                     any.timeouts().set(RCV, parse_timeout(name, &value)?);
                     return Ok(0);
@@ -1052,10 +1057,65 @@ impl Kernel {
             AnySock::Netlink(..) => {}
             // The `SOL_SOCKET` options that only describe the descriptor; `SOL_PACKET` ones
             // (memberships, rings, fanout) are about frames, which never come.
-            AnySock::Packet(..) if level == SocketLevel::SOL_SOCKET => {}
+            AnySock::Packet(_, p) if level == SocketLevel::SOL_SOCKET => {
+                p.setsockopt(name, &value)?
+            }
             AnySock::Packet(..) => return Err(Errno::ENOPROTOOPT.into()),
         }
         Ok(0)
+    }
+
+    /// `SO_ATTACH_FILTER`'s `struct sock_fprog` (`copy_bpf_fprog_from_user`, `__get_filter`):
+    /// the program it points to, which the socket checks once it has refused a locked filter.
+    /// A TCP socket needs `CAP_NET_ADMIN`; a value of another size is `EINVAL`; a null
+    /// program or a length out of range gives the socket no instructions, which it fails as
+    /// `bpf_check_basics_ok` does; one the guest cannot read is `EFAULT`.
+    async fn filter_program(
+        &self,
+        caller: &Caller<'_>,
+        any: &AnySock,
+        raw: &[u8],
+    ) -> SysResult<Vec<u8>> {
+        if let AnySock::Inet((_, sock)) = any
+            && sock.socket.kind() == SocketKind::Stream
+            && !self.cred(caller).capable(Cap::NetAdmin)
+        {
+            return Err(Errno::EPERM.into());
+        }
+        if raw.len() != SOCK_FPROG {
+            return Err(Errno::EINVAL.into());
+        }
+        let len = usize::from(u16::from_le_bytes([raw[0], raw[1]]));
+        let filter = u32::from_le_bytes(raw[4..8].try_into().expect("4 bytes"));
+        if filter == 0 || len == 0 || len * bpf::INSN_LEN > bpf::MAX_PROGRAM_LEN {
+            return Ok(Vec::new());
+        }
+        let mut program = vec![0; len * bpf::INSN_LEN];
+        if caller.memory().read(filter, &mut program).await.is_err() {
+            return Err(match self.filter_locked(any) {
+                true => Errno::EPERM,
+                false => Errno::EFAULT,
+            }
+            .into());
+        }
+        Ok(program)
+    }
+
+    /// `SOCK_FILTER_LOCKED`.
+    fn filter_locked(&self, any: &AnySock) -> bool {
+        let name = SocketOption::SO_LOCK_FILTER.0;
+        let value = match any {
+            AnySock::Inet((_, sock)) => {
+                let mut out = vec![0; 4];
+                sock.socket
+                    .get_option(SocketLevel::SOL_SOCKET.0, name, &mut out)
+                    .map(|_| out)
+            }
+            AnySock::Unix(_, sock) => self.unix_getsockopt(sock, name),
+            AnySock::Packet(_, p) => p.getsockopt(name),
+            AnySock::Netlink(..) => return false,
+        };
+        value.is_ok_and(|v| v.iter().any(|b| *b != 0))
     }
 
     /// `do_sock_getsockopt`: values are truncated to the guest's `optlen`, and the length
@@ -1074,6 +1134,10 @@ impl Kernel {
         let len = usize::try_from(len).map_err(|_| Errno::EINVAL)?;
         if level == SocketLevel::SOL_SOCKET && SocketOption(name) == SocketOption::SO_PEERGROUPS {
             return peer_groups(caller, &any, len, optval, optlen).await;
+        }
+        if level == SocketLevel::SOL_SOCKET && name == bpf::SO_GET_FILTER {
+            let program = self.attached_filter(&any)?;
+            return get_filter(caller, &program, len, optval, optlen).await;
         }
         let len = len.min(4096);
         let fixed = match &any {
@@ -1105,6 +1169,24 @@ impl Kernel {
         caller.memory().write(optval.addr(), &out[..n]).await?;
         write_value(caller.memory(), optlen, &(n as u32)).await?;
         Ok(0)
+    }
+
+    /// The program `SO_ATTACH_FILTER` attached to a socket, empty for none.
+    fn attached_filter(&self, any: &AnySock) -> Result<Vec<u8>, Errno> {
+        let name = bpf::SO_GET_FILTER;
+        match any {
+            AnySock::Inet((_, sock)) => {
+                let mut out = vec![0; bpf::MAX_PROGRAM_LEN];
+                let n = sock
+                    .socket
+                    .get_option(SocketLevel::SOL_SOCKET.0, name, &mut out)?;
+                out.truncate(n);
+                Ok(out)
+            }
+            AnySock::Unix(_, sock) => self.unix_getsockopt(sock, name),
+            AnySock::Packet(_, p) => p.getsockopt(name),
+            AnySock::Netlink(..) => Ok(Vec::new()),
+        }
     }
 
     /// The `SOL_SOCKET` options the socket layer answers itself for an IP socket.
@@ -1150,6 +1232,27 @@ impl Kernel {
             broken: None,
         }
     }
+}
+
+/// `sk_get_filter`: the attached program, whose length (`optlen`) counts instructions: 0
+/// without a filter, the count for a length of 0, `EINVAL` for a length below it, else the
+/// instructions.
+async fn get_filter(
+    caller: &Caller<'_>,
+    program: &[u8],
+    len: usize,
+    optval: Buf,
+    optlen: SocklenPtr,
+) -> SysResult<i32> {
+    let count = program.len() / bpf::INSN_LEN;
+    if count != 0 && len != 0 {
+        if len < count {
+            return Err(Errno::EINVAL.into());
+        }
+        caller.memory().write(optval.addr(), program).await?;
+    }
+    write_value(caller.memory(), optlen, &(count as u32)).await?;
+    Ok(0)
 }
 
 /// `SO_PEERGROUPS`: the supplementary groups of a socket's peer, `ENODATA` without one (only

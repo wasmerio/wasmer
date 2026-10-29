@@ -10,7 +10,10 @@ use wasixv2_abi::{AddressFamily, MsgFlags, OpenFlags, SocketFlags, SocketOption,
 use wasixv2_host::Host;
 use wasixv2_syscalls::{Caller, Errno, Fd, LocalFuture, SysResult};
 use wasixv2_vfs::Cap;
-use wasixv2_vnet::iface::flags::{IFF_LOOPBACK, IFF_UP};
+use wasixv2_vnet::{
+    bpf::SockFilter,
+    iface::flags::{IFF_LOOPBACK, IFF_UP},
+};
 use wasixv2_wait::{PollMask, PollTable, Pollable, WaitQueue, poll_wait};
 
 use crate::{
@@ -38,6 +41,8 @@ pub(crate) struct PacketSocket {
     /// Woken by nothing: no frame arrives.
     wait: WaitQueue,
     pub(crate) timeouts: Timeouts,
+    /// `SO_ATTACH_FILTER`'s program, which no frame ever runs through.
+    filter: Mutex<SockFilter>,
     host: Arc<dyn Host>,
 }
 
@@ -126,9 +131,24 @@ impl PacketSocket {
         Blocking::new(&*self.host, io, flags, self.timeouts.get(dir))
     }
 
+    /// `sk_setsockopt` for this socket: the filter's options; the rest only describe the
+    /// descriptor or frames, which never come.
+    pub(crate) fn setsockopt(&self, name: i32, value: &[u8]) -> Result<(), Errno> {
+        match SockFilter::handles(name) {
+            true => self.filter.lock_or_recover().set(name, value),
+            false => Ok(()),
+        }
+    }
+
     /// `SOL_SOCKET` options as `sock_getsockopt` answers them for this socket.
     pub(crate) fn getsockopt(&self, name: i32) -> Result<Vec<u8>, Errno> {
         let int = |v: i32| Ok(v.to_le_bytes().to_vec());
+        if SockFilter::handles(name) {
+            let mut out = vec![0; wasixv2_vnet::bpf::MAX_PROGRAM_LEN];
+            let n = self.filter.lock_or_recover().get(name, &mut out)?;
+            out.truncate(n);
+            return Ok(out);
+        }
         match SocketOption(name) {
             SocketOption::SO_TYPE => int(self.kind.0),
             SocketOption::SO_PROTOCOL => int(i32::from(self.bound.lock_or_recover().0)),
@@ -193,6 +213,7 @@ impl Kernel {
             bound: Mutex::new((protocol, 0)),
             wait: WaitQueue::new(),
             timeouts: Timeouts::default(),
+            filter: Mutex::new(SockFilter::default()),
             host: self.host.clone(),
         };
         let mut status = OpenFlags::O_RDWR;

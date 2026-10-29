@@ -1827,3 +1827,137 @@ fn sticky_pktinfo_names_the_interface_of_sends() {
         a("[fd00:26::2]:0")
     );
 }
+
+/// One `struct sock_filter`.
+fn bpf(code: u16, jt: u8, jf: u8, k: u32) -> Vec<u8> {
+    let mut b = code.to_le_bytes().to_vec();
+    b.extend([jt, jf]);
+    b.extend(k.to_le_bytes());
+    b
+}
+
+const SO_ATTACH_FILTER: i32 = 26;
+const SO_DETACH_FILTER: i32 = 27;
+const SO_LOCK_FILTER: i32 = 44;
+const SKF_NET_OFF: i32 = -0x100000;
+
+/// A UDP socket's filter sees the UDP header and payload, the IP header below it
+/// (`SKF_NET_OFF`): 0 drops a datagram, less than its length cuts the payload, never the
+/// header (`sk_filter_trim_cap` with `sizeof(struct udphdr)`).
+#[test]
+fn udp_socket_filters_drop_and_trim() {
+    let n = net();
+    let rx = udp(&n);
+    rx.bind(a("127.0.0.1:7100"), false).unwrap();
+    let tx = udp(&n);
+    // A = TTL; if A == 9 { A = P[8]; if A == 'k' return 8 + 3 } return 0; and a short
+    // return keeps the header.
+    let prog = [
+        bpf(0x30, 0, 0, (SKF_NET_OFF + 8) as u32),
+        bpf(0x15, 0, 3, 9),
+        bpf(0x30, 0, 0, 8),
+        bpf(0x15, 0, 1, u32::from(b'k')),
+        bpf(0x06, 0, 0, 8 + 3),
+        bpf(0x06, 0, 0, 0),
+    ]
+    .concat();
+    rx.set_option(SOL_SOCKET, SO_ATTACH_FILTER, &prog).unwrap();
+    let mut out = vec![0; prog.len()];
+    assert_eq!(
+        rx.get_option(SOL_SOCKET, SO_ATTACH_FILTER, &mut out),
+        Ok(prog.len())
+    );
+    assert_eq!(out, prog);
+    send_to(&*tx, b"kept long", Some(a("127.0.0.1:7100"))).unwrap();
+    assert_eq!(recv(&*rx, 64), Err(Errno::EAGAIN));
+    tx.set_option(0, 2 /* IP_TTL */, &9i32.to_le_bytes())
+        .unwrap();
+    send_to(&*tx, b"dropped", Some(a("127.0.0.1:7100"))).unwrap();
+    send_to(&*tx, b"kept long", Some(a("127.0.0.1:7100"))).unwrap();
+    assert_eq!(recv(&*rx, 64).unwrap(), b"kep");
+    assert_eq!(recv(&*rx, 64), Err(Errno::EAGAIN));
+    let one_byte = bpf(0x06, 0, 0, 1);
+    rx.set_option(SOL_SOCKET, SO_ATTACH_FILTER, &one_byte)
+        .unwrap();
+    send_to(&*tx, b"whole header", Some(a("127.0.0.1:7100"))).unwrap();
+    assert_eq!(recv(&*rx, 64).unwrap(), b"");
+    // Detached, everything comes through; locked, the filter stays.
+    rx.set_option(SOL_SOCKET, SO_DETACH_FILTER, &0i32.to_le_bytes())
+        .unwrap();
+    assert_eq!(
+        rx.set_option(SOL_SOCKET, SO_DETACH_FILTER, &0i32.to_le_bytes()),
+        Err(Errno::ENOENT)
+    );
+    send_to(&*tx, b"all", Some(a("127.0.0.1:7100"))).unwrap();
+    assert_eq!(recv(&*rx, 64).unwrap(), b"all");
+    rx.set_option(SOL_SOCKET, SO_ATTACH_FILTER, &one_byte)
+        .unwrap();
+    rx.set_option(SOL_SOCKET, SO_LOCK_FILTER, &1i32.to_le_bytes())
+        .unwrap();
+    assert_eq!(
+        rx.set_option(SOL_SOCKET, SO_DETACH_FILTER, &0i32.to_le_bytes()),
+        Err(Errno::EPERM)
+    );
+    assert_eq!(
+        rx.set_option(SOL_SOCKET, SO_LOCK_FILTER, &0i32.to_le_bytes()),
+        Err(Errno::EPERM)
+    );
+    assert_eq!(
+        getopt(&*rx, SOL_SOCKET, SO_LOCK_FILTER, 4).unwrap(),
+        1i32.to_le_bytes()
+    );
+    // An invalid program: no return at the end.
+    let tcp_sock = tcp(&n);
+    assert_eq!(
+        tcp_sock.set_option(SOL_SOCKET, SO_ATTACH_FILTER, &bpf(0x00, 0, 0, 0)),
+        Err(Errno::EINVAL)
+    );
+}
+
+/// iputils ping's filter on a raw socket: only echo replies of its identifier pass, read
+/// past the IP header the raw IPv4 socket's data starts with (`BPF_MSH`, indirect loads).
+/// A ping socket's filter sees the ICMP message and can cut it short.
+#[test]
+fn icmp_socket_filters_see_what_raw_and_ping_sockets_get() {
+    let n = net();
+    let r = raw_icmp(&n, Domain::Inet);
+    let prog = [
+        bpf(0xb1, 0, 0, 0),        // ldxb 4*([0]&0xf)
+        bpf(0x48, 0, 0, 4),        // ldh [x + 4]
+        bpf(0x15, 0, 3, 77),       // jeq #77
+        bpf(0x50, 0, 0, 0),        // ldb [x + 0]
+        bpf(0x15, 0, 1, 0),        // jeq #ECHOREPLY
+        bpf(0x06, 0, 0, u32::MAX), // ret #~0
+        bpf(0x06, 0, 0, 0),        // ret #0
+    ]
+    .concat();
+    r.set_option(SOL_SOCKET, SO_ATTACH_FILTER, &prog).unwrap();
+    send_to(&*r, &echo4(78, 1, b"x"), Some(a("127.0.0.1:0"))).unwrap();
+    assert_eq!(recv(&*r, 64), Err(Errno::EAGAIN));
+    send_to(&*r, &echo4(77, 1, b"x"), Some(a("127.0.0.1:0"))).unwrap();
+    let got = recv(&*r, 64).unwrap();
+    assert_eq!((got.len(), got[20]), (20 + 9, 0));
+    assert_eq!(recv(&*r, 64), Err(Errno::EAGAIN));
+
+    let p = ping_socket(&n, Domain::Inet);
+    p.set_option(SOL_SOCKET, SO_ATTACH_FILTER, &bpf(0x06, 0, 0, 4))
+        .unwrap();
+    send_to(&*p, &echo4(0, 1, b"hello"), Some(a("127.0.0.1:0"))).unwrap();
+    let reply = recv(&*p, 64).unwrap();
+    assert_eq!((reply.len(), reply[0]), (4, 0));
+
+    // A raw IPv6 socket's data, and so its filter's, starts at the ICMPv6 header.
+    let r6 = raw_icmp(&n, Domain::Inet6);
+    let replies = [
+        bpf(0x30, 0, 0, 0),
+        bpf(0x15, 0, 1, 129),
+        bpf(0x06, 0, 0, 0xffff),
+        bpf(0x06, 0, 0, 0),
+    ]
+    .concat();
+    r6.set_option(SOL_SOCKET, SO_ATTACH_FILTER, &replies)
+        .unwrap();
+    send_to(&*r6, &[128, 0, 0, 0, 0, 9, 0, 1], Some(a("[::1]:0"))).unwrap();
+    assert_eq!(recv(&*r6, 64).unwrap()[0], 129);
+    assert_eq!(recv(&*r6, 64), Err(Errno::EAGAIN));
+}

@@ -9,6 +9,7 @@ use wasixv2_abi::{Errno, IpOption, Ipv6Option, SocketLevel, SocketOption as So, 
 
 use crate::{
     Domain, NetResult, SocketKind,
+    bpf::SockFilter,
     mcast::{self, Mcast},
     net::Net,
 };
@@ -68,6 +69,8 @@ pub struct SockOpts {
     pub sticky_pktinfo: (std::net::Ipv6Addr, u32),
     /// Multicast options and memberships.
     pub(crate) mc: Mcast,
+    /// `SO_ATTACH_FILTER`'s program and `SO_LOCK_FILTER`.
+    pub filter: SockFilter,
     /// Plain integer options keyed by (level, name).
     ints: BTreeMap<(i32, i32), i32>,
 }
@@ -194,6 +197,7 @@ impl SockOpts {
             user_mss: 0,
             sticky_pktinfo: (std::net::Ipv6Addr::UNSPECIFIED, 0),
             mc: Mcast::default(),
+            filter: SockFilter::default(),
             ints: BTreeMap::new(),
         }
     }
@@ -250,6 +254,16 @@ impl SockOpts {
         self.int(level, name) != 0
     }
 
+    /// The hop limit of a unicast packet: `IP_TTL`/`IPV6_UNICAST_HOPS`, else the default 64.
+    pub(crate) fn unicast_ttl(&self, family: Domain) -> u8 {
+        let key = match family {
+            Domain::Inet => (SOL_IP, IpOption::IP_TTL.0),
+            Domain::Inet6 => (SOL_IPV6, Ipv6Option::IPV6_UNICAST_HOPS.0),
+        };
+        let v = self.ints.get(&key).copied().unwrap_or(-1);
+        u8::try_from(v).ok().filter(|&t| t > 0).unwrap_or(64)
+    }
+
     /// Checks that `level` applies to this socket at all.
     fn check_level(&self, level: i32) -> NetResult<()> {
         match (level, self.family) {
@@ -279,6 +293,10 @@ impl SockOpts {
     pub fn set(&mut self, level: i32, name: i32, value: &[u8], bound: bool) -> NetResult<Changed> {
         self.check_level(level)?;
         match (level, name) {
+            (SOL_SOCKET, n) if SockFilter::handles(n) => {
+                self.filter.set(n, value)?;
+                return Ok(Changed::Nothing);
+            }
             (SOL_SOCKET, n) if n == So::SO_LINGER.0 => {
                 if value.len() < 8 {
                     return Err(Errno::EINVAL);
@@ -430,6 +448,7 @@ impl SockOpts {
             return self.mc.get(self.ty, level, name, out);
         }
         let v = match (level, name) {
+            (SOL_SOCKET, n) if SockFilter::handles(n) => return self.filter.get(n, out),
             (SOL_SOCKET, n) if n == So::SO_LINGER.0 => {
                 let mut buf = [0u8; 8];
                 buf[..4].copy_from_slice(&(self.linger.is_some() as i32).to_le_bytes());
