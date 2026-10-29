@@ -33045,6 +33045,7 @@ impl LandlockRestrictSelfFlags {
     pub const LANDLOCK_RESTRICT_SELF_LOG_NEW_EXEC_ON: Self = Self(0x2);
     pub const LANDLOCK_RESTRICT_SELF_LOG_SUBDOMAINS_OFF: Self = Self(0x4);
     pub const LANDLOCK_RESTRICT_SELF_TSYNC: Self = Self(0x8);
+    pub const LANDLOCK_RESTRICT_SELF_NO_NEW_PRIVS: Self = Self(0x10);
     /// All named values, in definition order (aliases included).
     pub const MEMBERS: &'static [(&'static str, Self)] = &[
         (
@@ -33062,6 +33063,10 @@ impl LandlockRestrictSelfFlags {
         (
             "LANDLOCK_RESTRICT_SELF_TSYNC",
             Self::LANDLOCK_RESTRICT_SELF_TSYNC,
+        ),
+        (
+            "LANDLOCK_RESTRICT_SELF_NO_NEW_PRIVS",
+            Self::LANDLOCK_RESTRICT_SELF_NO_NEW_PRIVS,
         ),
     ];
 
