@@ -1692,3 +1692,38 @@ fn fanotify_pre_access_reports_aligned_ranges_and_mediates_io_and_mmap() {
         Errno::EOPNOTSUPP
     );
 }
+
+/// fs/xattr.c xattr_permission allows user.* on sockets since Linux 7.1,
+/// in addition to regular files/directories; FIFOs still fail with EPERM.
+#[test]
+fn user_xattrs_are_supported_on_socket_inodes() {
+    let (kernel, task, memory) = machine();
+    let t = T::new(&kernel, task, &memory);
+    let name = t.path("/sock");
+    assert_eq!(
+        block_on(kernel.mknodat(&t.caller, CWD, name, 0o140600, 0)),
+        Ok(0)
+    );
+    put(&memory, 0x1400, b"user.test\0");
+    put(&memory, 0x2000, b"value");
+    assert_eq!(
+        block_on(kernel.setxattr(
+            &t.caller,
+            name,
+            GuestPtr::new(0x1400),
+            UserSlice::new(0x2000, 5),
+            wasixv2_abi::XattrFlags(0)
+        )),
+        Ok(0)
+    );
+    assert_eq!(
+        block_on(kernel.getxattr(
+            &t.caller,
+            name,
+            GuestPtr::new(0x1400),
+            UserSliceMut::new(0x3000, 5)
+        )),
+        Ok(5)
+    );
+    assert_eq!(get(&memory, 0x3000, 5), b"value");
+}

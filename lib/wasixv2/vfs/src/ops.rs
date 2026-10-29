@@ -1501,7 +1501,9 @@ impl Vfs {
         } else if name.starts_with(b"user.") {
             let attr = path.dentry.node().getattr().await?;
             match attr.file_type {
-                FileType::Regular => {}
+                // Linux fs/xattr.c xattr_permission allows user.* on sockets
+                // as well as regular files since dc0876b9846d (Linux 7.1).
+                FileType::Regular | FileType::Socket => {}
                 FileType::Directory => {
                     if attr.mode & S_ISVTX != 0 && mask & MAY_WRITE != 0 && !cx.cred.owns(&attr) {
                         return Err(Errno::EPERM);
