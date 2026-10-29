@@ -8,7 +8,7 @@
 //! Everything is async so a driver can sit on the host's filesystem or the network. Futures are
 //! not `Send`, like the syscalls that drive them.
 
-use std::{any::Any, sync::Arc};
+use std::{any::Any, ops::Range, sync::Arc};
 
 use async_trait::async_trait;
 use wasixv2_abi::Errno;
@@ -258,11 +258,16 @@ pub trait Node: Send + Sync + Any {
 
     /// The shared memory object that holds this regular file's data, so that a `MAP_SHARED`
     /// mapping can show its pages instead of a copy, as every mapping of a tmpfs file shows the
-    /// file's shmem pages (`shmem_mmap`). The object is made at least `end` bytes long and
+    /// file's shmem pages (`shmem_mmap`). The object is made at least `range.end` bytes long and
     /// never shrinks below that while the node lives, whatever the file's size becomes, so a
-    /// mapping up to `end` never reaches past it. `None` where the data lives elsewhere: such
+    /// mapping up to `range.end` never reaches past it. Drivers charge materialized pages
+    /// before returning them, using the current caller for quota enforcement. `None` where the data lives elsewhere: such
     /// a file's mappings are copies.
-    fn shared_pages(&self, _end: u64) -> FsResult<Option<Arc<dyn SharedPages>>> {
+    fn shared_pages(
+        &self,
+        _range: Range<u64>,
+        _cred: &Cred,
+    ) -> FsResult<Option<Arc<dyn SharedPages>>> {
         Ok(None)
     }
 

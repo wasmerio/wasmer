@@ -12,14 +12,16 @@
 //! tmpfs keeps every file in shmem (`mm/shmem.c`). The object then knows which pages hold data
 //! (`SEEK_DATA`/`SEEK_HOLE` ask it), and its length is a high-water mark of the file's size and
 //! of every mapping's end: it never shrinks, so no mapping reaches past it on the host, and
-//! truncation frees the pages past the new size instead (`shmem_truncate_range`). Writes
-//! through a mapping are not charged to the filesystem's space, as there is no page fault to
-//! charge them at.
+//! truncation frees the pages past the new size instead (`shmem_truncate_range`). Mappings
+//! materialize and charge their entire range eagerly: the host cannot report guest faults.
+//! Live mappings retain their charge across hole punching and truncation, since stores can
+//! refill those pages without calling the kernel.
 
 use std::{
     collections::{BTreeMap, btree_map::Entry},
     io,
-    sync::Arc,
+    ops::Range,
+    sync::{Arc, Weak},
 };
 
 use wasixv2_abi::Errno;
@@ -34,6 +36,7 @@ pub(crate) struct Data {
     store: Store,
     /// Blocks charged to the filesystem's space: written ones and those `fallocate` reserved.
     alloc: Ranges,
+    mapped: Vec<Weak<Range<u64>>>,
     /// Makes the shared memory object the file moves to when it first holds data.
     provider: Option<Arc<dyn Provider>>,
 }
@@ -66,6 +69,7 @@ impl Data {
             size: 0,
             store: Store::Heap(BTreeMap::new()),
             alloc: Ranges::default(),
+            mapped: Vec::new(),
             provider,
         }
     }
@@ -75,8 +79,7 @@ impl Data {
         self.alloc.total
     }
 
-    /// Blocks of memory the file holds, for `st_blocks`: those charged, or those the shared
-    /// object holds if more, as pages written through a mapping are never charged.
+    /// Materialized blocks for `st_blocks`, including eagerly charged mapped pages.
     pub(crate) fn blocks(&self) -> u64 {
         match &self.store {
             Store::Heap(_) => self.alloc.total,
@@ -100,14 +103,39 @@ impl Data {
         }
     }
 
-    /// The shared memory object holding the file, at least `end` bytes long, if it has one.
-    pub(crate) fn shared_pages(&mut self, end: u64) -> FsResult<Option<Arc<dyn SharedPages>>> {
+    /// Materialize a mapping before its pages can be allocated by an invisible host fault.
+    /// Linux charges in mm/shmem.c shmem_get_folio_gfp/shmem_inode_acct_blocks instead.
+    pub(crate) fn shared_pages(
+        &mut self,
+        space: &Charge<'_>,
+        range: &Arc<Range<u64>>,
+    ) -> FsResult<Option<Arc<dyn SharedPages>>> {
         self.promote();
         let Store::Shared(pages) = &self.store else {
             return Ok(None);
         };
-        reach(&**pages, end)?;
-        Ok(Some(pages.clone()))
+        let pages = pages.clone();
+        reach(&*pages, range.end)?;
+        self.allocate(space, range.start, range.end, false)?;
+        self.mapped.retain(|range| range.strong_count() != 0);
+        self.mapped.push(Arc::downgrade(range));
+        Ok(Some(pages))
+    }
+
+    /// Free allocations except pages a live mapping can refill without a visible fault.
+    fn free(&mut self, start: u64, end: u64) -> u64 {
+        let before = self.alloc.total;
+        self.alloc.remove(start, end);
+        self.mapped.retain(|range| {
+            if let Some(range) = range.upgrade() {
+                self.alloc
+                    .insert(range.start / BLOCK, range.end.div_ceil(BLOCK));
+                true
+            } else {
+                false
+            }
+        });
+        before - self.alloc.total
     }
 
     pub(crate) fn read(&self, buf: &mut [u8], offset: u64) -> FsResult<usize> {
@@ -249,7 +277,7 @@ impl Data {
             return Ok(());
         }
         let first_gone = size.div_ceil(BLOCK);
-        space.release_blocks(self.alloc.remove(first_gone, u64::MAX));
+        space.release_blocks(self.free(first_gone, u64::MAX));
         match &mut self.store {
             Store::Heap(blocks) => {
                 drop(blocks.split_off(&first_gone));
@@ -300,7 +328,7 @@ impl Data {
         }
         let (first_whole, last_whole) = (start.div_ceil(BLOCK), end / BLOCK);
         if first_whole < last_whole {
-            space.release_blocks(self.alloc.remove(first_whole, last_whole));
+            space.release_blocks(self.free(first_whole, last_whole));
         }
         let blocks = match &mut self.store {
             Store::Heap(blocks) => blocks,

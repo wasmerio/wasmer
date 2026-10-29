@@ -449,6 +449,7 @@ impl Kernel {
         let source = match segment.host_pages() {
             Some(pages) => Source::Mapped(Mapped {
                 pages,
+                file: None,
                 offset: 0,
                 segment: Some(attachment),
                 writable: !readonly,

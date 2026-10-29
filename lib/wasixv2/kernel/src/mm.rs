@@ -1198,7 +1198,14 @@ impl Kernel {
                 MapFlags::MAP_PRIVATE => None,
                 _ => return Err(Errno::EINVAL.into()),
             },
-            Some(file) => Some(check_file_mapping(file, offset, pages, prot, flags)?),
+            Some(file) => Some(check_file_mapping(
+                file,
+                offset,
+                pages,
+                prot,
+                flags,
+                &self.cred(caller).fs(),
+            )?),
         };
         let start = if flags.intersects(MapFlags::MAP_FIXED | MapFlags::MAP_FIXED_NOREPLACE) {
             let noreplace = !flags.contains(MapFlags::MAP_FIXED);
@@ -1251,6 +1258,7 @@ impl Kernel {
         match self.host.shared_pages(pages * PAGE_SIZE) {
             Ok(pages) => Ok(Some(Source::Mapped(Mapped {
                 pages,
+                file: None,
                 offset: 0,
                 segment: None,
                 writable: true,
@@ -1563,7 +1571,10 @@ impl Kernel {
             && let Some(last) = kept.last_mut()
             && last.end() == to + old_len
         {
-            result = result.and(last.grow(caller.memory(), new_len - old_len).await);
+            result = result.and(
+                last.grow(caller.memory(), new_len - old_len, &self.cred(caller).fs())
+                    .await,
+            );
         }
         mm.restore(kept);
         result
@@ -2084,6 +2095,7 @@ fn check_file_mapping(
     pages: u64,
     prot: ProtFlags,
     flags: MapFlags,
+    cred: &wasixv2_vfs::Cred,
 ) -> Result<Source, Errno> {
     // `file_mmap_ok`: the range must fit below the largest file offset.
     let offset = u64::try_from(offset).map_err(|_| Errno::EOVERFLOW)?;
@@ -2143,9 +2155,13 @@ fn check_file_mapping(
     };
     // The object reaches past the end of the mapping, however far past the end of the file
     // that is, so the host never faults where Linux would raise SIGBUS: the pages read zero.
-    if let Some(pages) = inode.node().shared_pages(offset + pages * PAGE_SIZE)? {
+    if let Some(pages) = inode
+        .node()
+        .shared_pages(offset..offset + pages * PAGE_SIZE, cred)?
+    {
         return Ok(Source::Mapped(Mapped {
             pages,
+            file: Some(file.clone()),
             offset,
             segment: None,
             writable,

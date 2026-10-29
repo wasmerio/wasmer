@@ -69,6 +69,8 @@ pub(crate) enum Source {
 #[derive(Clone)]
 pub(crate) struct Mapped {
     pub(crate) pages: Arc<dyn SharedPages>,
+    /// File whose newly materialized ranges must be charged on growth.
+    pub(crate) file: Option<Arc<OpenFile>>,
     /// Where in the object the mapping starts.
     pub(crate) offset: u64,
     /// For a SysV segment attachment, the attachment it is a part of.
@@ -481,7 +483,24 @@ impl Mapping {
     /// Grows the mapping by `extra` bytes at its end, which `mremap` already took, and fills
     /// them from the source. A mapped object grows only as far as the object reaches: the
     /// pages past its end stay anonymous memory that reads zero, where Linux raises `SIGBUS`.
-    pub(crate) async fn grow(&mut self, memory: &dyn UserMemory, extra: u64) -> Result<(), Errno> {
+    pub(crate) async fn grow(
+        &mut self,
+        memory: &dyn UserMemory,
+        extra: u64,
+        cred: &wasixv2_vfs::Cred,
+    ) -> Result<(), Errno> {
+        if let Source::Mapped(mapped) = &mut self.source
+            && let Some(file) = &mapped.file
+        {
+            let end = mapped.offset + self.len + extra;
+            if let Some(pages) = file
+                .inode()?
+                .node()
+                .shared_pages(mapped.offset..end, cred)?
+            {
+                mapped.pages = pages;
+            }
+        }
         let extra = match &self.source {
             Source::Mapped(mapped) => {
                 let left = mapped.pages.size().saturating_sub(mapped.offset + self.len);
