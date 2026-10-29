@@ -328,6 +328,26 @@ impl Kernel {
         }
     }
 
+    /// `mount_too_revealing`: a new procfs mount with `flags`, which shows the whole machine
+    /// (`SB_I_USERNS_VISIBLE`), in a mount namespace a user namespace owns, unless a mount
+    /// there shows it all already ([`wasixv2_vfs::Vfs::already_visible`]).
+    pub(super) fn mount_too_revealing(
+        &self,
+        task: TaskId,
+        ty: &FsType,
+        flags: &MountFlags,
+    ) -> bool {
+        if !matches!(ty, FsType::Proc) {
+            return false;
+        }
+        let ns = self.task_ns(task);
+        if ns.mnt.user_ns().is_initial() {
+            return false;
+        }
+        let magic = crate::procfs::PROC_SUPER_MAGIC;
+        !self.vfs.already_visible(&ns.mnt.tree, magic, flags)
+    }
+
     /// The user namespace a superblock belongs to (`s_user_ns`).
     pub(crate) fn sb_owner(&self, sb: &wasixv2_vfs::Superblock) -> Arc<UserNs> {
         kernel_user_ns(&sb.owner, &self.init_user_ns)
@@ -454,16 +474,21 @@ impl Kernel {
         if !Self::mount_capable(&ty, &self.process(task).cred(), &user_ns) {
             return Err(Errno::EPERM);
         }
-        let fs = match ty {
+        let mnt_flags = mount_flags(flags, None);
+        let fs = match &ty {
             // `proc_init_fs_context`: the instance shows the mounter's pid namespace.
             FsType::Proc => self.procfs_in(self.active_pid_ns(task)),
             FsType::Sys => self.sysfs_of(self.task_ref(task, |t| t.ns.net.clone())),
             FsType::Other(ty) => ty.mount(source.as_deref().unwrap_or(b""), &params, &env.cred)?,
         };
+        // `do_new_mount_fc`.
+        if self.mount_too_revealing(task, &ty, &mnt_flags) {
+            return Err(Errno::EPERM);
+        }
         let op = MountOp::New {
             fs,
             source: source.unwrap_or_else(|| b"none".to_vec()),
-            flags: mount_flags(flags, None),
+            flags: mnt_flags,
             sb_read_only: read_only,
             owner: user_ns,
         };
