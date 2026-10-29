@@ -1637,6 +1637,112 @@ fn proc_net_igmp_lists_the_kernels_own_groups() {
     assert_eq!(igmp6.lines().count(), 2);
 }
 
+/// `/proc/net/mcfilter` and `mcfilter6` list each group's sources with how many memberships
+/// include and exclude them (`igmp_mcf_seq_show`, `igmp6_mcf_seq_show`), starting at the
+/// first interface whose newest group has sources (`igmp_mcf_get_first`).
+#[test]
+fn proc_net_mcfilter_lists_the_sources_of_groups() {
+    let (kernel, task, memory) = networked();
+    let caller = Caller::new(task, &memory);
+    let head4 = "Idx Device        MCA        SRC    INC    EXC\n";
+    let head6 = "Idx Device                Multicast Address                   Source Address    INC    EXC\n";
+    assert_eq!(read_text(&kernel, &caller, "/proc/net/mcfilter"), head4);
+    assert_eq!(read_text(&kernel, &caller, "/proc/net/mcfilter6"), head6);
+    let set = |fd, level, name, at: u32, len: u32| {
+        block_on(kernel.setsockopt(&caller, fd, level, name, UserSlice::new(at, len)))
+    };
+    let socket = |family| block_on(kernel.socket(&caller, family, DGRAM, 0)).unwrap();
+    use wasixv2_abi::{IpOption, SocketLevel};
+    // `struct ip_mreq_source`: 239.1.2.3 on 127.0.0.1 from 10.0.0.1, then from 10.0.0.2.
+    put(&memory.0, 0x600, &[239, 1, 2, 3, 127, 0, 0, 1, 10, 0, 0, 1]);
+    put(&memory.0, 0x610, &[239, 1, 2, 3, 127, 0, 0, 1, 10, 0, 0, 2]);
+    let (a, b) = (
+        socket(AddressFamily::AF_INET),
+        socket(AddressFamily::AF_INET),
+    );
+    let add = IpOption::IP_ADD_SOURCE_MEMBERSHIP.0;
+    assert_eq!(set(a, SocketLevel::SOL_IP, add, 0x600, 12), Ok(0));
+    assert_eq!(set(a, SocketLevel::SOL_IP, add, 0x610, 12), Ok(0));
+    assert_eq!(set(b, SocketLevel::SOL_IP, add, 0x600, 12), Ok(0));
+    // A third socket joins everyone but 10.0.0.2.
+    let c = socket(AddressFamily::AF_INET);
+    put(&memory.0, 0x620, &[239, 1, 2, 3, 127, 0, 0, 1]);
+    assert_eq!(
+        set(
+            c,
+            SocketLevel::SOL_IP,
+            IpOption::IP_ADD_MEMBERSHIP.0,
+            0x620,
+            8
+        ),
+        Ok(0)
+    );
+    assert_eq!(
+        set(
+            c,
+            SocketLevel::SOL_IP,
+            IpOption::IP_BLOCK_SOURCE.0,
+            0x610,
+            12
+        ),
+        Ok(0)
+    );
+    assert_eq!(
+        read_text(&kernel, &caller, "/proc/net/mcfilter"),
+        format!(
+            "{head4}  1     lo 0xef010203 0x0a000001      2      0\n\
+             \x20 1     lo 0xef010203 0x0a000002      1      1\n"
+        )
+    );
+    // `struct group_source_req` for ff05::9 on lo from fd00::1.
+    let mut gsr = vec![0u8; 260];
+    gsr[..4].copy_from_slice(&1u32.to_le_bytes());
+    for (at, last) in [(4, 9u8), (132, 1)] {
+        gsr[at..at + 2].copy_from_slice(&10u16.to_le_bytes());
+        let mut addr = [0u8; 16];
+        addr[..2].copy_from_slice(if last == 9 {
+            &[0xff, 0x05]
+        } else {
+            &[0xfd, 0x00]
+        });
+        addr[15] = last;
+        gsr[at + 8..at + 24].copy_from_slice(&addr);
+    }
+    put(&memory.0, 0x700, &gsr);
+    let s6 = socket(AddressFamily::AF_INET6);
+    const MCAST_JOIN_SOURCE_GROUP: i32 = 46;
+    assert_eq!(
+        set(
+            s6,
+            SocketLevel::SOL_IPV6,
+            MCAST_JOIN_SOURCE_GROUP,
+            0x700,
+            260
+        ),
+        Ok(0)
+    );
+    assert_eq!(
+        read_text(&kernel, &caller, "/proc/net/mcfilter6"),
+        format!(
+            "{head6}  1     lo ff050000000000000000000000000009 \
+             fd000000000000000000000000000001      1      0\n"
+        )
+    );
+    // A newer group without sources hides the interface's rows from the first one on.
+    put(&memory.0, 0x630, &[239, 9, 9, 9, 127, 0, 0, 1]);
+    assert_eq!(
+        set(
+            c,
+            SocketLevel::SOL_IP,
+            IpOption::IP_ADD_MEMBERSHIP.0,
+            0x630,
+            8
+        ),
+        Ok(0)
+    );
+    assert_eq!(read_text(&kernel, &caller, "/proc/net/mcfilter"), head4);
+}
+
 /// `ping_group_range` decides who may open an ICMP datagram socket, root included
 /// (`ping_init_sock`): nobody by default, the range written once set, and nobody again for a
 /// range that ends before it starts. The echo sysctls take 0 or 1.

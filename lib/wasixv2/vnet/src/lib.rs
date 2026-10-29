@@ -25,8 +25,8 @@ mod udp;
 mod tests;
 
 pub use api::{
-    Accepted, Backend, BackendDatagram, BackendStream, Control, Domain, EchoIgnore, IcmpEntry,
-    InboundSink, Interface, Network, NewLink, NewLinkKind, PortEntry, Publication,
+    Accepted, Backend, BackendDatagram, BackendStream, Control, Domain, EchoIgnore, GroupSources,
+    IcmpEntry, InboundSink, Interface, Network, NewLink, NewLinkKind, PortEntry, Publication,
     PublishedDatagram, QueuedError, RecvMsg, Room, SendMsg, Shutdown, Socket, SocketKind,
     StreamState,
 };
