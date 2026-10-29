@@ -863,3 +863,52 @@ fn vfork_done_reports_the_child_before_the_parent_resumes() {
         assert_eq!(kernel.take_pending(parent), None);
     }
 }
+
+/// kernel/exit.c `do_exit` reports EXIT for a fatal signal, including SIGKILL.
+#[test]
+fn fatal_signal_reports_exit_before_teardown() {
+    for sig in [Signal::SIGKILL, Signal::SIGTERM] {
+        let (stack, tracer, memory) = machine();
+        let kernel = &stack.inner;
+        let caller = Caller::new(tracer, &memory);
+        let child = fork_child(kernel, &caller);
+        assert_eq!(
+            ptrace(
+                kernel,
+                &caller,
+                R::PTRACE_SEIZE,
+                child,
+                0,
+                PtraceOptions::PTRACE_O_TRACEEXIT.0
+            ),
+            Ok(0)
+        );
+        kernel.kill(child, sig).unwrap();
+        assert_eq!(kernel.take_pending(child), Some(GuestAction::Stopped));
+        if sig != Signal::SIGKILL {
+            assert_eq!(wait(kernel, &caller, child, WALL).unwrap().1, sig.0);
+            assert_eq!(
+                ptrace(kernel, &caller, R::PTRACE_CONT, child, 0, sig.0 as u32),
+                Ok(0)
+            );
+            assert_eq!(kernel.take_pending(child), Some(GuestAction::Stopped));
+        }
+        assert_eq!(
+            wait(kernel, &caller, child, WALL).unwrap().1,
+            SIGTRAP | PtraceEvent::PTRACE_EVENT_EXIT.0 << 8
+        );
+        assert_eq!(
+            ptrace(kernel, &caller, R::PTRACE_GETEVENTMSG, child, 0, 0x680),
+            Ok(0)
+        );
+        assert_eq!(get(&memory.0, 0x680, 4), (sig.0 as u32).to_le_bytes());
+        assert_eq!(kernel.take_pending(child), Some(GuestAction::Stopped));
+        assert!(waits_stopped(kernel, child));
+        assert_eq!(ptrace(kernel, &caller, R::PTRACE_CONT, child, 0, 0), Ok(0));
+        assert_eq!(
+            kernel.take_pending(child),
+            Some(GuestAction::Exit(128 + sig.0))
+        );
+        assert_eq!(kernel.take_pending(child), None);
+    }
+}

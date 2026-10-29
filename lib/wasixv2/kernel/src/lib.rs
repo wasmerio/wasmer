@@ -3068,6 +3068,20 @@ impl Control for Kernel {
             self.task_signals(task).group().clear_notify(task);
             return Some(GuestAction::ExitMm { task: parent });
         }
+        let exit =
+            self.state
+                .read_or_recover()
+                .tasks
+                .get(&task)
+                .and_then(|t| match t.work.peek() {
+                    Some(GuestAction::Exit(code)) => Some(*code),
+                    _ => None,
+                });
+        if let Some(code) = exit
+            && self.ptrace_pending_exit(task, code)
+        {
+            return Some(GuestAction::Stopped);
+        }
         let (action, signals, dead) = {
             let mut guard = self.state.lock_or_recover();
             let state = &mut *guard;

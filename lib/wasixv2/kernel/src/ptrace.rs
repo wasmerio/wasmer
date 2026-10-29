@@ -342,6 +342,8 @@ pub(crate) struct TaskTrace {
     pub(crate) clone_event: Option<(i32, TaskId)>,
     /// `kernel_clone` reports this after `wait_for_vfork_done` succeeds.
     pub(crate) vfork_done: Option<TaskId>,
+    /// `do_exit` reports its exit event once, before leaving the mm.
+    pub(crate) exit_reported: bool,
 }
 
 /// A stop the return-to-guest path entered, which the execution layer waits in
@@ -354,6 +356,8 @@ pub(crate) enum SyncStop {
     Signal,
     /// A trap stop (`do_jobctl_trap`): nothing follows.
     Trap,
+    /// `do_exit` is waiting for its exit event to be resumed.
+    Exit,
 }
 
 /// `PTRACE_EVENT_STOP`, the event of a seized tracee's trap stops.
@@ -1032,6 +1036,64 @@ impl Kernel {
 // ---- wait, exit and clone ----
 
 impl Kernel {
+    /// kernel/exit.c `do_exit`: even signal deaths report EXIT before teardown. The queued
+    /// exit stays in Work while the tracer inspects the task and resumes it.
+    pub(crate) fn ptrace_pending_exit(&self, task: TaskId, status: i32) -> bool {
+        if !self.tracees.used() {
+            return false;
+        }
+        let signals = self.task_signals(task);
+        let group = signals.group();
+        let decision = group.with_trace(task, |trace| {
+            if trace.sync_stop == Some(SyncStop::Exit) {
+                return if trace.traced { 1 } else { 2 };
+            }
+            if trace.exit_reported {
+                return 0;
+            }
+            trace.exit_reported = true;
+            if trace
+                .link
+                .is_some_and(|l| l.has(wasixv2_abi::PtraceOptions::PTRACE_O_TRACEEXIT))
+            {
+                3
+            } else {
+                0
+            }
+        });
+        match decision {
+            Some(1) => return true,
+            Some(2) => {
+                group.leave_trace_stop(task);
+                return false;
+            }
+            Some(3) => {}
+            _ => return false,
+        }
+        let process = self.process(task);
+        let message = self
+            .killed_by(process.pid.0)
+            .unwrap_or((status & 0xff) << 8) as u64;
+        let code =
+            wasixv2_abi::Signal::SIGTRAP.0 | wasixv2_abi::PtraceEvent::PTRACE_EVENT_EXIT.0 << 8;
+        let stop = crate::signal::TraceStop {
+            exit_code: code,
+            why: wasixv2_abi::SiCode::CLD_TRAPPED,
+            message,
+            info: Some(self.ptrace_trap_info(&process, task, wasixv2_abi::Signal::SIGTRAP.0, code)),
+            sync: Some(SyncStop::Exit),
+        };
+        if group.enter_exit_stop(task, stop).is_none() {
+            return false;
+        }
+        self.ptrace_notify_tracer(
+            task,
+            wasixv2_abi::SiCode::CLD_TRAPPED,
+            wasixv2_abi::Signal::SIGTRAP.0,
+        );
+        true
+    }
+
     /// `ptrace_do_wait` for every task of `me`: the first tracee `which` names, by tid, that
     /// ended and was not waited for (with `WEXITED`), or sits in a ptrace stop not reported
     /// yet (`wait_task_stopped` with `ptrace`, which needs no `WSTOPPED`). `WNOWAIT` leaves it

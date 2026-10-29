@@ -1585,6 +1585,14 @@ impl Signals {
         self.state.lock_or_recover().enter_trace_stop(task, stop)
     }
 
+    /// kernel/signal.c `get_signal` dequeues the fatal signal before kernel/exit.c
+    /// `do_exit` reports PTRACE_EVENT_EXIT. Group exit already queued every task's exit.
+    pub(crate) fn enter_exit_stop(&self, task: TaskId, stop: TraceStop) -> Option<bool> {
+        let mut state = self.state.lock_or_recover();
+        while state.dequeue(task, bit(Signal::SIGKILL.0)).is_some() {}
+        state.enter_trace_stop(task, stop)
+    }
+
     /// `ptrace_stop`'s second half for a stop outside [`Kernel::take_signal`].
     pub(crate) fn leave_trace_stop(&self, task: TaskId) -> (i32, Option<Siginfo>) {
         self.state.lock_or_recover().leave_trace_stop(task)
@@ -2333,7 +2341,7 @@ impl Kernel {
                     DefaultAction::Terminate => {
                         drop(state);
                         self.force_fatal_signal(task, sig);
-                        return self.with_task(task, |t| t.work.take());
+                        return wasixv2_syscalls::Control::take_pending(self, task);
                     }
                 }
             };
