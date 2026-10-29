@@ -779,3 +779,23 @@ fn cap_ipc_lock_lifts_the_limit_and_locks_are_not_inherited() {
     assert_eq!(block_on(super::task::execve(&kernel, &caller)), Ok(0));
     assert_eq!(locked(&kernel, task), 0);
 }
+
+/// mm/mmap.c do_mmap checks pgoff + page count in unsigned long before
+/// choosing an address, including for anonymous mappings.
+#[test]
+fn mmap_rejects_page_offset_overflow_before_allocating() {
+    let (kernel, task, memory, fd) = with_file(b"");
+    let caller = Caller::new(task, &memory);
+    let offset = i64::from(u32::MAX) * i64::from(PAGE);
+    for flags in [
+        MapFlags::MAP_SHARED,
+        MapFlags::MAP_PRIVATE | MapFlags::MAP_ANONYMOUS,
+    ] {
+        assert_eq!(
+            errno(block_on(
+                kernel.mmap(&caller, 0, PAGE, RW, flags, fd, offset)
+            )),
+            Errno::EOVERFLOW
+        );
+    }
+}
