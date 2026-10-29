@@ -255,8 +255,9 @@ struct Task {
     files: Arc<Mutex<FdTable>>,
     /// Root, working directory and umask (`fs_struct`).
     fs: Arc<Mutex<FsContext>>,
-    /// The namespaces the task is in (`nsproxy`).
-    ns: Arc<ns::NsProxy>,
+    /// The namespaces the task is in (`nsproxy`), until it is done with its memory on its
+    /// way out (`exit_task_namespaces`), so a task that is gone holds none.
+    ns: Option<Arc<ns::NsProxy>>,
     /// What the execution layer does on the task's next return to the guest.
     work: work::Work,
     /// How an interrupted call goes on through `restart_syscall` (`restart_block`).
@@ -273,6 +274,15 @@ struct Task {
     // ---- base ----
     /// The CPU time the execution layer charges the task with.
     cpu: Arc<CpuAccount>,
+}
+
+impl Task {
+    /// The namespaces of a task that runs, as every syscall's caller does.
+    fn live_ns(&self) -> &Arc<ns::NsProxy> {
+        self.ns
+            .as_ref()
+            .expect("a task that runs has its namespaces")
+    }
 }
 
 impl Kernel {
@@ -484,7 +494,7 @@ impl Kernel {
             mm: Arc::default(),
             files: Arc::new(Mutex::new(files)),
             fs: Arc::new(Mutex::new(FsContext::new(self.vfs.root()))),
-            ns: self.init_ns.clone(),
+            ns: Some(self.init_ns.clone()),
             work: work::Work::new(flag.clone()),
             restart: None,
             thread: thread::ThreadState::default(),

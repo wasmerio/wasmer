@@ -1289,8 +1289,9 @@ fn an_mqueue_mount_shows_its_ipc_namespaces_queues() {
 }
 
 /// mqns_04: a child in a new IPC namespace mounts its queues and exits; once it is gone, the
-/// namespace is too, even while something still holds the process, and the mount the parent
-/// sees shows the queue but makes none (`EACCES`).
+/// namespace is too (`exit_task_namespaces`, `exit_sem`), even while something still holds the
+/// process and before the execution layer lets its task go, and the mount the parent sees
+/// shows the queue but makes none (`EACCES`).
 #[test]
 fn an_mqueue_mount_outlives_the_process_whose_namespace_it_shows() {
     let m = Machine::as_uid(0);
@@ -1320,7 +1321,6 @@ fn an_mqueue_mount_outlives_the_process_whose_namespace_it_shows() {
     assert!(m.exists("/mnt/MQ1"));
     assert_eq!(block_on(m.kernel.exit_group(&caller, 0)), Ok(()));
     block_on(m.kernel.exit_mm(&caller));
-    m.kernel.release(child);
     let options = WaitOptions(WaitOptions::WEXITED.0);
     let info = SiginfoPtr::new(0x300);
     let parent = m.caller();
@@ -1332,4 +1332,6 @@ fn an_mqueue_mount_outlives_the_process_whose_namespace_it_shows() {
     assert!(held.is_some());
     assert!(m.exists("/mnt/MQ1"));
     assert_eq!(errno(m.create("/mnt/MQ2")), Errno::EACCES);
+    // The execution layer lets the task go only now.
+    m.kernel.release(child);
 }

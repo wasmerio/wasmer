@@ -113,7 +113,7 @@ impl Context {
         let task = TaskId(env.task);
         Self {
             user_ns: kernel.fc_user_ns(&ty, task),
-            net: kernel.task_ref(task, |t| t.ns.net.clone()),
+            net: kernel.task_ns(task).net.clone(),
             ty,
             phase,
             source: None,

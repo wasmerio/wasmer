@@ -430,8 +430,10 @@ impl ProcNode {
                 return Err(Errno::EACCES);
             }
         }
+        // `ns_get_path`: a task that is done has none.
+        let task_ns = task.ns.as_ref().ok_or(Errno::ENOENT)?;
         let ns = link.get(
-            &task.ns,
+            task_ns,
             &target.process.pid_ns,
             &target.process.cred().user_ns,
         );
@@ -746,7 +748,8 @@ impl Node for ProcNode {
                     .source
                     .task(scope.pid, scope.tid)
                     .ok_or(Errno::ENOENT)?;
-                (text::net(&task.ns.net, NET_ENTRIES[index].1), None)
+                let ns = task.ns.as_ref().ok_or(Errno::ENOENT)?;
+                (text::net(&ns.net, NET_ENTRIES[index].1), None)
             }
             _ => return Err(Errno::ENXIO),
         };

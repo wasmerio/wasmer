@@ -171,7 +171,8 @@ struct TaskInfo {
     mm: Arc<Mm>,
     comm: Comm,
     sched: Sched,
-    ns: Arc<NsProxy>,
+    /// `None` once the task is done (`task->nsproxy` is `NULL`).
+    ns: Option<Arc<NsProxy>>,
     cpu: CpuTimes,
 }
 
@@ -307,7 +308,7 @@ impl Source {
     fn ns_of(&self, tid: u32) -> Arc<NsProxy> {
         let ns = self.state.upgrade().and_then(|state| {
             let state = state.read_or_recover();
-            Some(state.tasks.get(&TaskId(tid))?.ns.clone())
+            state.tasks.get(&TaskId(tid))?.ns.clone()
         });
         ns.unwrap_or_else(|| self.ns.clone())
     }

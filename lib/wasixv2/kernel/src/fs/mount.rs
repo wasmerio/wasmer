@@ -332,7 +332,7 @@ impl Kernel {
     pub(super) fn fc_user_ns(&self, ty: &FsType, task: TaskId) -> Arc<UserNs> {
         match ty {
             FsType::Proc => self.active_pid_ns(task).user_ns().clone(),
-            FsType::Sys => self.task_ref(task, |t| t.ns.net.user_ns().clone()),
+            FsType::Sys => self.task_ns(task).net.user_ns().clone(),
             FsType::Mqueue => self.task_ns(task).ipc.user_ns().clone(),
             FsType::Other(_) => self.process(task).cred().user_ns,
         }
@@ -490,7 +490,7 @@ impl Kernel {
         let fs = match &ty {
             // `proc_init_fs_context`: the instance shows the mounter's pid namespace.
             FsType::Proc => self.procfs_in(self.active_pid_ns(task)),
-            FsType::Sys => self.sysfs_of(self.task_ref(task, |t| t.ns.net.clone())),
+            FsType::Sys => self.sysfs_of(self.task_ns(task).net.clone()),
             // `mqueue_init_fs_context`: the mounter's IPC namespace's instance.
             FsType::Mqueue => self.mqueue_sb(&self.task_ns(task).ipc).1.clone(),
             FsType::Other(ty) => ty.mount(source.as_deref().unwrap_or(b""), &params, &env.cred)?,
