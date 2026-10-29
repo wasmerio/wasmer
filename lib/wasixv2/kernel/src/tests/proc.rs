@@ -63,6 +63,49 @@ fn fork_needs_an_address_space_that_can_be_duplicated() {
     assert!(kernel.procs.find(task.0 + 1).is_none());
 }
 
+/// Where the memory cannot be copied, fork's `ENOSYS` comes only after the checks Linux makes
+/// in `copy_process`, so a caller that may not fork at all hears why: no namespace without
+/// `CAP_SYS_ADMIN` (`EPERM`). What a failed fork made is undone: the first process of a pid
+/// namespace that a failed fork would have started is still pid 1 there.
+#[test]
+fn a_fork_that_cannot_copy_memory_reports_copy_processs_errors_first() {
+    let (kernel, task, memory) = super::cred::machine_as(0, 0);
+    let caller = Caller::new(task, &memory);
+    let newpid = CloneFlags::CLONE_NEWPID.0 as u32;
+
+    assert_eq!(
+        block_on(kernel.unshare(&caller, newpid)),
+        Ok(0),
+        "children start in a new pid namespace"
+    );
+    assert_eq!(
+        clone(&kernel, &caller, SIGCHLD, 0),
+        Err(SysErr::Errno(Errno::ENOSYS))
+    );
+    assert_eq!(kernel.take_pending(task), None);
+    let forkable = forkable();
+    let forker = Caller::new(task, &forkable);
+    assert!(clone(&kernel, &forker, SIGCHLD, 0).is_ok());
+    let Some(GuestAction::Fork { child, .. }) = kernel.take_pending(task) else {
+        panic!("fork left no child");
+    };
+    assert_eq!(kernel.own_tid(child), 1, "the namespace's init");
+
+    let (kernel, task, memory) = super::cred::machine_as(1, 1);
+    let caller = Caller::new(task, &memory);
+    for flag in [CloneFlags::CLONE_NEWNS, CloneFlags::CLONE_NEWPID] {
+        assert_eq!(
+            clone(&kernel, &caller, SIGCHLD | flag.0 as u32, 0),
+            Err(SysErr::Errno(Errno::EPERM)),
+            "{flag:?}"
+        );
+    }
+    assert_eq!(
+        clone(&kernel, &caller, SIGCHLD, 0),
+        Err(SysErr::Errno(Errno::ENOSYS))
+    );
+}
+
 #[test]
 fn fork_leaves_the_copy_and_tid_writes_to_the_execution_layer() {
     let (kernel, task, _) = setup(b"");
