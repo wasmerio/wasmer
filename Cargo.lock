@@ -7162,6 +7162,7 @@ dependencies = [
  "futures",
  "futures-util",
  "libc",
+ "tracing",
  "wasixv2-abi",
  "wasixv2-host",
  "wasixv2-pages",
