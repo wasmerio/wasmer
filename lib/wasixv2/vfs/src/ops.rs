@@ -1234,7 +1234,11 @@ impl Vfs {
     /// the driver.
     async fn notify_change(dentry: &Dentry, attr: &SetAttr) -> FsResult<()> {
         let inode = dentry.inode();
-        let _sealed = inode.seal_lock().await;
+        let _sealed = if attr.size.is_some() {
+            Some(inode.lock().await)
+        } else {
+            inode.seal_lock().await
+        };
         inode.sealed_setattr(attr).await?;
         dentry.node().setattr(attr).await?;
         Ok(())
@@ -1356,6 +1360,18 @@ impl Vfs {
     /// `vfs_truncate` for `truncate(path)`; `ftruncate` checks the open file instead and calls
     /// `set_size`.
     pub async fn truncate(&self, cx: &Ctx<'_>, path: &Path, size: u64) -> FsResult<()> {
+        self.truncate_checked(cx, path, size, |_| Ok(())).await
+    }
+
+    /// Truncates after the caller's size policy, following the normal permission
+    /// checks (`do_truncate`/`inode_newsize_ok`).
+    pub async fn truncate_checked(
+        &self,
+        cx: &Ctx<'_>,
+        path: &Path,
+        size: u64,
+        check: impl FnOnce(u64) -> FsResult<()>,
+    ) -> FsResult<()> {
         match path.dentry.file_type() {
             FileType::Directory => return Err(Errno::EISDIR),
             FileType::Regular => {}
@@ -1386,11 +1402,20 @@ impl Vfs {
             )
             .await?;
         }
-        self.set_size(path, size).await
+        self.set_size_checked(path, size, check).await
     }
 
     /// `do_truncate`: sets the size and stamps `mtime` and `ctime`.
     pub async fn set_size(&self, path: &Path, size: u64) -> FsResult<()> {
+        self.set_size_checked(path, size, |_| Ok(())).await
+    }
+
+    async fn set_size_checked(
+        &self,
+        path: &Path,
+        size: u64,
+        check: impl FnOnce(u64) -> FsResult<()>,
+    ) -> FsResult<()> {
         let _write = OpenAccess::new(path.dentry.inode(), true)?;
         let set = SetAttr {
             size: Some(size),
@@ -1398,7 +1423,11 @@ impl Vfs {
             ctime: Some(TimeSet::Now),
             ..SetAttr::default()
         };
-        Self::notify_change(&path.dentry, &set).await?;
+        let inode = path.dentry.inode();
+        let _lock = inode.lock().await;
+        check(path.dentry.node().getattr().await?.size)?;
+        inode.sealed_setattr(&set).await?;
+        path.dentry.node().setattr(&set).await?;
         let object = Self::object(&path.dentry);
         self.notify_path(path, FsEvent::Modify { object });
         Ok(())

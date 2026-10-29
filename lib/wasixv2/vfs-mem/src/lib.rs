@@ -311,6 +311,10 @@ impl MemFs {
 
 #[async_trait(?Send)]
 impl Filesystem for MemFs {
+    fn limits_file_size(&self) -> bool {
+        true
+    }
+
     fn quota(&self) -> Option<&dyn wasixv2_vfs::QuotaOps> {
         (self.shared.quotas.defaults.types != 0).then_some(self)
     }

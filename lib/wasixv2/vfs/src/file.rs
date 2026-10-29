@@ -45,7 +45,52 @@ pub struct File {
     detached: Option<Arc<MntNs>>,
 }
 
+/// Holds the inode's write lock across size checks, user copies and writes
+/// (`generic_file_write_iter`). It also serializes with truncation and seals.
+pub struct FileWriteGuard<'a> {
+    file: &'a File,
+    _lock: crate::inode::DirLock,
+}
+
+impl FileWriteGuard<'_> {
+    pub async fn size(&self) -> FsResult<u64> {
+        Ok(self.file.node().getattr().await?.size)
+    }
+
+    pub async fn write_at_as(
+        &self,
+        data: &[u8],
+        offset: u64,
+        cred: &crate::Cred,
+    ) -> FsResult<usize> {
+        let inode = self.file.path.dentry.inode();
+        let data = inode.sealed_write(data, Some(offset)).await?;
+        let n = self.file.handle()?.write_at_as(data, offset, cred).await?;
+        self.file.modified(n);
+        Ok(n)
+    }
+
+    pub async fn append_as(&self, data: &[u8], cred: &crate::Cred) -> FsResult<(u64, usize)> {
+        let inode = self.file.path.dentry.inode();
+        let data = inode.sealed_write(data, None).await?;
+        let (at, n) = self.file.handle()?.append_as(data, cred).await?;
+        self.file.modified(n);
+        Ok((at + n as u64, n))
+    }
+}
+
 impl File {
+    pub fn limits_file_size(&self) -> bool {
+        self.file_type() == FileType::Regular && self.path.dentry.sb().fs.limits_file_size()
+    }
+
+    pub async fn write_guard(&self) -> FsResult<FileWriteGuard<'_>> {
+        self.handle()?;
+        Ok(FileWriteGuard {
+            file: self,
+            _lock: self.path.dentry.inode().lock().await,
+        })
+    }
     pub(crate) fn new(
         vfs: Arc<Vfs>,
         path: Path,
@@ -185,13 +230,10 @@ impl File {
         offset: u64,
         cred: &crate::Cred,
     ) -> FsResult<usize> {
-        let handle = self.handle()?;
-        let inode = self.path.dentry.inode();
-        let _sealed = inode.seal_lock().await;
-        let data = inode.sealed_write(data, Some(offset)).await?;
-        let n = handle.write_at_as(data, offset, cred).await?;
-        self.modified(n);
-        Ok(n)
+        self.write_guard()
+            .await?
+            .write_at_as(data, offset, cred)
+            .await
     }
 
     /// Writes at the end of the file (`O_APPEND`). Returns the offset after the data.
@@ -200,13 +242,7 @@ impl File {
     }
 
     pub async fn append_as(&self, data: &[u8], cred: &crate::Cred) -> FsResult<(u64, usize)> {
-        let handle = self.handle()?;
-        let inode = self.path.dentry.inode();
-        let _sealed = inode.seal_lock().await;
-        let data = inode.sealed_write(data, None).await?;
-        let (at, n) = handle.append_as(data, cred).await?;
-        self.modified(n);
-        Ok((at + n as u64, n))
+        self.write_guard().await?.append_as(data, cred).await
     }
 
     /// `F_SETLEASE` with `F_RDLCK` or `F_WRLCK` (`generic_add_lease`): takes or changes the
@@ -350,7 +386,7 @@ impl File {
             return Err(Errno::EPERM);
         }
         let inode = self.path.dentry.inode();
-        let _sealed = inode.seal_lock().await;
+        let _sealed = inode.lock().await;
         inode.sealed_allocate(mode, offset, len).await?;
         handle.allocate_as(mode, offset, len, cred).await?;
         self.modified(1);
@@ -361,13 +397,22 @@ impl File {
     /// only its write access counts, never the permission bits. The caller has checked that it
     /// is a regular file opened for writing.
     pub async fn set_size(&self, size: u64) -> FsResult<()> {
+        self.set_size_checked(size, |_| Ok(())).await
+    }
+
+    pub async fn set_size_checked(
+        &self,
+        size: u64,
+        check: impl FnOnce(u64) -> FsResult<()>,
+    ) -> FsResult<()> {
         let handle = self.handle()?;
         // `do_ftruncate`.
         if crate::ops::append_only(&self.path.dentry) {
             return Err(Errno::EPERM);
         }
         let inode = self.path.dentry.inode();
-        let _sealed = inode.seal_lock().await;
+        let _sealed = inode.lock().await;
+        check(self.node().getattr().await?.size)?;
         let attr = crate::SetAttr {
             size: Some(size),
             ..crate::SetAttr::default()

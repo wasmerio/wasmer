@@ -38,7 +38,7 @@ pub use cred::{
 pub use dentry::Dentry;
 pub use driver::{Filesystem, Handle, Link, MAX_DIR_COOKIE, Node, SharedContents};
 pub use export::{HandleKind, MAX_HANDLE_SZ};
-pub use file::{DIR_POS_EOD, File};
+pub use file::{DIR_POS_EOD, File, FileWriteGuard};
 pub use fileattr::{
     FS_APPEND_FL, FS_IMMUTABLE_FL, FS_NOATIME_FL, FS_NODUMP_FL, FS_XFLAG_RDONLY_MASK,
     FS_XFLAGS_MASK, FileKattr,

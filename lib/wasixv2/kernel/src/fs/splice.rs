@@ -370,7 +370,20 @@ impl Kernel {
         let broken = Cell::new(false);
         self.pre_content_permission(caller, output, Some(at.pos), len as u64)
             .await?;
+        self.sync_file_mappings(caller, output).await;
+        let guard = match &output.backing {
+            Backing::Inode(file) if file.limits_file_size() => Some(file.write_guard().await?),
+            _ => None,
+        };
+        // fs/splice.c:iter_file_splice_write checks write limits before
+        // consuming pipe buffers through generic_file_write_iter.
+        let len = if guard.is_some() {
+            self.file_write_count(caller, at.pos, len)?
+        } else {
+            len
+        };
         let mut out = SpliceOut {
+            guard: guard.as_ref(),
             cred: self.env(caller).cred,
             task: caller.task(),
             output,
@@ -379,10 +392,10 @@ impl Kernel {
             broken: &broken,
         };
         let mut buf = vec![0; len.min(ipipe.capacity())];
-        self.sync_file_mappings(caller, output).await;
         let spliced = ipipe
             .consume(nonblock, &*interrupt, &mut buf, &mut out, false)
             .await;
+        drop(guard);
         self.sync_file_mappings(caller, output).await;
         self.epipe(caller, output, spliced, broken.get())
     }
@@ -505,6 +518,7 @@ async fn user_offset(caller: &Caller<'_>, ptr: LoffPtr) -> Result<Option<i64>, E
 /// A splice's output as a pipe consumer: a regular file written at `pos`, which moves, or a
 /// socket or device written as `write` does (`iter_file_splice_write`, `splice_to_socket`).
 struct SpliceOut<'a> {
+    guard: Option<&'a wasixv2_vfs::FileWriteGuard<'a>>,
     cred: wasixv2_vfs::Cred,
     task: TaskId,
     output: &'a OpenFile,
@@ -523,7 +537,10 @@ impl Consumer for SpliceOut<'_> {
                     .await;
             };
             check_file_size(*self.pos, data.len())?;
-            let n = file.write_at_as(data, *self.pos, &self.cred).await?;
+            let n = match self.guard {
+                Some(guard) => guard.write_at_as(data, *self.pos, &self.cred).await?,
+                None => file.write_at_as(data, *self.pos, &self.cred).await?,
+            };
             *self.pos += n as u64;
             Ok(n)
         })

@@ -30,6 +30,12 @@ use crate::{
 /// A mounted filesystem instance (Linux's `super_block`).
 #[async_trait(?Send)]
 pub trait Filesystem: Send + Sync {
+    /// Regular stored files use Linux generic file-size checks. Control and
+    /// pseudo filesystems leave these checks to their own handlers.
+    fn limits_file_size(&self) -> bool {
+        false
+    }
+
     fn info(&self) -> FsInfo;
 
     /// The root directory. Available as soon as the filesystem is, so mounting needs no I/O.

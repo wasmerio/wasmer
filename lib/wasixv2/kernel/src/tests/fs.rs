@@ -103,6 +103,276 @@ impl<'a> T<'a> {
 }
 
 #[test]
+fn file_size_limits_clip_writes_and_signal_only_when_starting_at_the_limit() {
+    let (kernel, task, memory) = super::cred::machine_as(0, 0);
+    let t = T::new(&kernel, task, &memory);
+    let fd = t
+        .open("/limited", OpenFlags::O_CREAT | OpenFlags::O_RDWR)
+        .unwrap();
+    let bit = 1u64 << (Signal::SIGXFSZ.0 - 1);
+    put(&memory, 0x1800, &bit.to_le_bytes());
+    block_on(kernel.rt_sigprocmask(
+        &t.caller,
+        wasixv2_abi::SigprocmaskHow::SIG_BLOCK,
+        GuestPtr::new(0x1800),
+        GuestPtrMut::NULL,
+        8,
+    ))
+    .unwrap();
+    put(
+        &memory,
+        0x1800,
+        &[4u64.to_le_bytes(), u64::MAX.to_le_bytes()].concat(),
+    );
+    block_on(kernel.prlimit64(
+        &t.caller,
+        0,
+        wasixv2_abi::RlimitResource::RLIMIT_FSIZE,
+        GuestPtr::new(0x1800),
+        GuestPtrMut::NULL,
+    ))
+    .unwrap();
+    assert_eq!(t.write(fd, b"abcdef"), Ok(4));
+    assert!(!kernel.task_signals(task).has_pending(bit));
+    // Linux fs/read_write.c:generic_write_check_limits runs before copying bytes.
+    assert_eq!(
+        errno(block_on(kernel.write(
+            &t.caller,
+            fd,
+            UserSlice::new(u32::MAX, 1)
+        ))),
+        Errno::EFBIG
+    );
+    assert!(kernel.task_signals(task).has_pending(bit));
+    assert_eq!(t.write(fd, b""), Ok(0));
+    assert_eq!(
+        errno(block_on(kernel.ftruncate64(&t.caller, fd, 5))),
+        Errno::EFBIG
+    );
+    let name = t.path("/limited");
+    assert_eq!(
+        errno(block_on(kernel.truncate64(&t.caller, name, 5))),
+        Errno::EFBIG
+    );
+    assert_eq!(block_on(kernel.ftruncate64(&t.caller, fd, 2)), Ok(0));
+    let append = t
+        .open("/limited", OpenFlags::O_WRONLY | OpenFlags::O_APPEND)
+        .unwrap();
+    assert_eq!(t.write(append, b"wxyz"), Ok(2));
+    assert_eq!(errno(t.write(append, b"q")), Errno::EFBIG);
+    assert_eq!(
+        block_on(kernel.lseek(&t.caller, fd, 0, SeekWhence::SEEK_END)),
+        Ok(4)
+    );
+    let (_read, write) = super::ipc::pipe(&kernel, &t.caller, OpenFlags::O_NONBLOCK);
+    assert_eq!(t.write(write, b"unlimited pipe"), Ok(14));
+    assert_eq!(block_on(kernel.ftruncate64(&t.caller, fd, 0)), Ok(0));
+    put(
+        &memory,
+        0x1800,
+        &[40_000u64.to_le_bytes(), u64::MAX.to_le_bytes()].concat(),
+    );
+    block_on(kernel.prlimit64(
+        &t.caller,
+        0,
+        wasixv2_abi::RlimitResource::RLIMIT_FSIZE,
+        GuestPtr::new(0x1800),
+        GuestPtrMut::NULL,
+    ))
+    .unwrap();
+    assert_eq!(
+        block_on(kernel.pwrite64(&t.caller, fd, UserSlice::new(0, 60_000), 0)),
+        Ok(40_000)
+    );
+    assert_eq!(
+        block_on(kernel.lseek(&t.caller, fd, 0, SeekWhence::SEEK_END)),
+        Ok(40_000)
+    );
+    // A proc control file uses its own write handler, not generic_write_checks.
+    block_on(kernel.vfs().mount(
+        b"/proc",
+        kernel.procfs(),
+        wasixv2_vfs::MountFlags::default(),
+        true,
+    ))
+    .unwrap();
+    put(
+        &memory,
+        0x1800,
+        &[0u64.to_le_bytes(), u64::MAX.to_le_bytes()].concat(),
+    );
+    block_on(kernel.prlimit64(
+        &t.caller,
+        0,
+        wasixv2_abi::RlimitResource::RLIMIT_FSIZE,
+        GuestPtr::new(0x1800),
+        GuestPtrMut::NULL,
+    ))
+    .unwrap();
+    assert_eq!(block_on(kernel.ftruncate64(&t.caller, fd, 30_000)), Ok(0));
+    assert_eq!(
+        errno(block_on(kernel.ftruncate64(&t.caller, fd, 31_000))),
+        Errno::EFBIG
+    );
+    let sysctl = t
+        .open("/proc/sys/kernel/msgmax", OpenFlags::O_WRONLY)
+        .unwrap();
+    assert_eq!(t.write(sysctl, b"1"), Ok(1));
+}
+
+fn file_transfer_limit(operation: u32) {
+    use wasixv2_abi::{LoffPtr, RlimitResource};
+    let (kernel, task, memory) = machine();
+    let t = T::new(&kernel, task, &memory);
+    t.create("/input", b"abcdefgh");
+    let input = t.open("/input", OpenFlags::O_RDONLY).unwrap();
+    let output = t
+        .open("/output", OpenFlags::O_CREAT | OpenFlags::O_RDWR)
+        .unwrap();
+    put(
+        &memory,
+        0x1800,
+        &[4u64.to_le_bytes(), u64::MAX.to_le_bytes()].concat(),
+    );
+    block_on(kernel.prlimit64(
+        &t.caller,
+        0,
+        RlimitResource::RLIMIT_FSIZE,
+        GuestPtr::new(0x1800),
+        GuestPtrMut::NULL,
+    ))
+    .unwrap();
+    let (r, w) = super::ipc::pipe(&kernel, &t.caller, OpenFlags(0));
+    assert_eq!(t.write(w, b"abcdefgh"), Ok(8));
+    let transfer = || match operation {
+        0 => block_on(kernel.sendfile64(&t.caller, output, input, LoffPtr::NULL, 8)),
+        1 => block_on(kernel.copy_file_range(
+            &t.caller,
+            input,
+            LoffPtr::NULL,
+            output,
+            LoffPtr::NULL,
+            8,
+            0,
+        )),
+        _ => block_on(kernel.splice(
+            &t.caller,
+            r,
+            LoffPtr::NULL,
+            output,
+            LoffPtr::NULL,
+            8,
+            SpliceFlags(0),
+        )),
+    };
+    assert_eq!(
+        transfer(),
+        Ok(4),
+        "transfer {operation} clips at RLIMIT_FSIZE"
+    );
+    assert_eq!(
+        errno(transfer()),
+        Errno::EFBIG,
+        "transfer {operation} at the limit"
+    );
+    let fd = t.open("/output", OpenFlags::O_RDONLY).unwrap();
+    assert_eq!(t.read(fd, 16), Ok(b"abcd".to_vec()));
+    if operation == 2 {
+        assert_eq!(t.read(r, 16), Ok(b"efgh".to_vec()));
+    }
+}
+
+#[test]
+fn file_transfer_limits_sendfile() {
+    file_transfer_limit(0);
+}
+#[test]
+fn file_transfer_limits_copy_file_range() {
+    file_transfer_limit(1);
+}
+#[test]
+fn file_transfer_limits_splice() {
+    file_transfer_limit(2);
+}
+
+#[test]
+fn concurrent_appends_check_the_size_limit_under_the_same_inode_lock() {
+    use futures::FutureExt as _;
+    use std::sync::mpsc;
+
+    struct PausedCopy {
+        memory: FlatMemory,
+        entered: mpsc::Sender<()>,
+        release: mpsc::Receiver<()>,
+    }
+    impl UserMemory for PausedCopy {
+        fn read<'a>(&'a self, addr: u32, buf: &'a mut [u8]) -> LocalFuture<'a, Result<(), Fault>> {
+            Box::pin(async move {
+                if addr == 0x2000 {
+                    self.entered.send(()).unwrap();
+                    self.release.recv().unwrap();
+                }
+                self.memory.read(addr, buf).await
+            })
+        }
+        fn write<'a>(&'a self, addr: u32, bytes: &'a [u8]) -> LocalFuture<'a, Result<(), Fault>> {
+            self.memory.write(addr, bytes)
+        }
+        fn size(&self) -> LocalFuture<'_, u64> {
+            self.memory.size()
+        }
+        fn grow(&self, pages: u32) -> LocalFuture<'_, Option<u64>> {
+            self.memory.grow(pages)
+        }
+    }
+
+    let (kernel, task, memory) = machine();
+    let t = T::new(&kernel, task, &memory);
+    let a = t
+        .open(
+            "/append",
+            OpenFlags::O_CREAT | OpenFlags::O_WRONLY | OpenFlags::O_APPEND,
+        )
+        .unwrap();
+    let b = t
+        .open("/append", OpenFlags::O_WRONLY | OpenFlags::O_APPEND)
+        .unwrap();
+    put(&memory, 0x1800, &[4u64.to_le_bytes(); 2].concat());
+    block_on(kernel.prlimit64(
+        &t.caller,
+        0,
+        wasixv2_abi::RlimitResource::RLIMIT_FSIZE,
+        GuestPtr::new(0x1800),
+        GuestPtrMut::NULL,
+    ))
+    .unwrap();
+    let (entered, ready) = mpsc::channel();
+    let (release, wait) = mpsc::channel();
+    std::thread::scope(|scope| {
+        let kernel = &kernel;
+        let first = scope.spawn(move || {
+            let memory = FlatMemory(RefCell::new(vec![0; 65536]));
+            put(&memory, 0x2000, b"aaa");
+            let memory = PausedCopy {
+                memory,
+                entered,
+                release: wait,
+            };
+            block_on(kernel.write(&Caller::new(task, &memory), a, UserSlice::new(0x2000, 3)))
+        });
+        ready.recv_timeout(Duration::from_secs(10)).unwrap();
+        put(&memory, 0x2000, b"bbb");
+        let mut second = Box::pin(kernel.write(&t.caller, b, UserSlice::new(0x2000, 3)));
+        let early = second.as_mut().now_or_never();
+        // Release before asserting, so even a broken implementation cannot hang the worker.
+        release.send(()).unwrap();
+        assert_eq!(first.join().unwrap(), Ok(3));
+        assert_eq!(early, None);
+        assert_eq!(block_on(second), Ok(1));
+    });
+}
+
+#[test]
 fn positional_io_checks_stream_support_before_descriptor_access_mode() {
     let (kernel, task, memory) = machine();
     let caller = Caller::new(task, &memory);

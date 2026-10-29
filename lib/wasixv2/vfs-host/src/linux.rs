@@ -397,6 +397,10 @@ impl HostFs {
 
 #[async_trait(?Send)]
 impl Filesystem for HostFs {
+    fn limits_file_size(&self) -> bool {
+        true
+    }
+
     fn allow_hsm(&self) -> bool {
         self.shared.allow_hsm
     }
