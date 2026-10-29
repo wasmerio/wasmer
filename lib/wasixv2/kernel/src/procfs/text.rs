@@ -725,7 +725,7 @@ pub(super) fn per_pid(
         }
         PerPid::Smaps => introspect::smaps(source.mm(scope).as_deref(), false),
         PerPid::SmapsRollup => introspect::smaps(source.mm(scope).as_deref(), true),
-        PerPid::Io => introspect::io(process),
+        PerPid::Io => introspect::io(source, scope, process)?,
         PerPid::Syscall => {
             let task = source.task(scope.pid, scope.tid).ok_or(Errno::ESRCH)?;
             introspect::syscall(&task)

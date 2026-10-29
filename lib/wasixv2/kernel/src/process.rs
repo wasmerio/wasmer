@@ -1465,6 +1465,7 @@ impl Kernel {
             };
             let new = Task {
                 syscall: Default::default(),
+                ioac: Default::default(),
                 cpu: Arc::new(CpuAccount::new(process.cpu.clone())),
                 process: process.clone(),
                 mm,

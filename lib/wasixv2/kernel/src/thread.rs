@@ -246,6 +246,7 @@ impl Kernel {
             let flag = Arc::new(WorkFlag::default());
             let new = Task {
                 syscall: Default::default(),
+                ioac: Default::default(),
                 cpu: Arc::new(CpuAccount::new(process.cpu.clone())),
                 process,
                 mm: task.mm.clone(),
@@ -852,9 +853,13 @@ impl Kernel {
             // The caller goes on as the leader: with its seccomp state, not the old leader's.
             let seccomp = entry.seccomp.clone();
             let syscall = std::mem::take(&mut entry.syscall);
+            let ioac = std::mem::take(&mut entry.ioac);
             let entry = state.tasks.get_mut(&leader).expect("the leader is listed");
             entry.seccomp = seccomp;
             entry.syscall = syscall;
+            // fs/exec.c `de_thread` releases the old leader and keeps the caller's ioac.
+            process.ioac.add(entry.ioac.counts());
+            entry.ioac = ioac;
             if detached {
                 entry.work.detach_exec();
             }
@@ -1186,6 +1191,8 @@ pub(crate) fn forget_task(state: &mut State, task: TaskId) -> Option<Arc<Process
 /// live tasks with it. Returns its entry, and whether that completed a group stop.
 fn unhash_task(state: &mut State, task: TaskId) -> Option<(Task, bool)> {
     let entry = state.tasks.remove(&task)?;
+    // kernel/exit.c `__exit_signal`, under the same lock procfs uses to sum live tasks.
+    entry.process.ioac.add(entry.ioac.counts());
     state.pids.detach(task.0, crate::pid::PidType::Pid);
     let completed = entry.signals.detach();
     let group = &entry.process.group;
