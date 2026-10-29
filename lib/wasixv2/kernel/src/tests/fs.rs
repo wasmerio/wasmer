@@ -1759,3 +1759,26 @@ fn legacy_fanotify_directory_events_contain_only_event_bits() {
     t.close(fd);
     assert!(fanotify_events(&t, group).is_empty());
 }
+
+/// fs/namei.c do_o_tmpfile calls may_open with acc_mode=0 for the newly
+/// created inode; its mode does not restrict the creating open description.
+#[test]
+fn tmpfile_creation_does_not_recheck_the_new_inode_mode() {
+    let (kernel, task, memory) = machine();
+    let t = T::new(&kernel, task, &memory);
+    t.mkdir("/dir");
+    let dir = t
+        .open("/dir", OpenFlags::O_PATH | OpenFlags::O_DIRECTORY)
+        .unwrap();
+    for mode in [0, 0o200, 0o400] {
+        let name = t.path(".");
+        let flags = OpenFlags::__O_TMPFILE | OpenFlags::O_DIRECTORY | OpenFlags::O_RDWR;
+        let fd = block_on(kernel.openat(&t.caller, dir, name, flags, mode)).unwrap();
+        assert_eq!(t.write(fd, b"x"), Ok(1));
+        assert_eq!(
+            block_on(kernel.pread64(&t.caller, fd, UserSliceMut::new(0x3000, 1), 0)),
+            Ok(1)
+        );
+        t.close(fd);
+    }
+}
