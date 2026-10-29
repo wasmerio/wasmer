@@ -361,6 +361,13 @@ struct Task {
     // ---- base ----
     /// The CPU time the execution layer charges the task with.
     cpu: Arc<CpuAccount>,
+    /// The credentials an io_uring request's personality lends the task while it is issued
+    /// (`override_creds`), which its own calls use instead of the process's.
+    cred_override: Option<cred::Cred>,
+    // ---- ipc ----
+    /// The rings the task submitted to and its registered ring descriptors
+    /// (`task->io_uring`).
+    uring: Arc<io_uring::Tctx>,
     // ---- cgroup ----
     /// The task's place in the cgroup hierarchy (`task->cgroups`).
     css: cgroup::Css,
@@ -706,6 +713,8 @@ impl Kernel {
                 flag,
             ),
             cpu,
+            cred_override: None,
+            uring: Arc::default(),
         };
         let process = task.process.clone();
         state.tasks.insert(id, task);

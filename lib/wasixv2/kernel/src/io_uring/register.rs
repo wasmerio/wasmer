@@ -5,12 +5,12 @@ use std::sync::Arc;
 
 use wasixv2_abi::{
     GuestLayout, GuestPtr, IoUringFilesUpdate, IoUringMisc, IoUringOp, IoUringProbe,
-    IoUringProbeOp, IoUringRegisterOp, Iovec,
+    IoUringProbeOp, IoUringRegisterOp, IoringSetupFlags, Iovec,
 };
 use wasixv2_syscalls::{Caller, Errno, Fd, SysResult, read_value};
 
 use super::{Ctx, is_ring, ops::SUPPORTED};
-use crate::{Kernel, file::OpenFile, sync::MutexExt};
+use crate::{Kernel, cred::Cred, file::OpenFile, sync::MutexExt};
 
 /// `IORING_MAX_FIXED_FILES`.
 const MAX_FIXED_FILES: u32 = 1 << 20;
@@ -93,14 +93,49 @@ impl Kernel {
                 eventfd.ok_or(Errno::ENXIO)?;
                 Ok(0)
             }
-            IoUringRegisterOp::IORING_REGISTER_PROBE => self.probe(caller, arg, nr_args).await,
+            IoUringRegisterOp::IORING_REGISTER_PROBE => {
+                if arg == 0 || nr_args > 256 {
+                    return Err(Errno::EINVAL.into());
+                }
+                self.probe(caller, arg, nr_args).await
+            }
+            IoUringRegisterOp::IORING_REGISTER_PERSONALITY => {
+                if arg != 0 || nr_args != 0 {
+                    return Err(Errno::EINVAL.into());
+                }
+                let cred = self.cred(caller);
+                Ok(ctx.register_personality(cred)?)
+            }
+            IoUringRegisterOp::IORING_UNREGISTER_PERSONALITY => {
+                if arg != 0 {
+                    return Err(Errno::EINVAL.into());
+                }
+                let id = u16::try_from(nr_args).map_err(|_| Errno::EINVAL)?;
+                let creds = ctx.state.lock_or_recover().personalities.remove(&id);
+                creds.ok_or(Errno::EINVAL)?;
+                Ok(0)
+            }
             IoUringRegisterOp::IORING_REGISTER_ENABLE_RINGS => {
+                if arg != 0 || nr_args != 0 {
+                    return Err(Errno::EINVAL.into());
+                }
+                // `io_register_enable_rings`: the single issuer is whoever enables the ring.
+                let single = ctx.shape.has(IoringSetupFlags::IORING_SETUP_SINGLE_ISSUER);
                 let mut state = ctx.state.lock_or_recover();
                 if !state.disabled {
                     return Err(Errno::EBADFD.into());
                 }
+                if single {
+                    state.submitter = Some(caller.task());
+                }
                 state.disabled = false;
                 Ok(0)
+            }
+            IoUringRegisterOp::IORING_REGISTER_RING_FDS => {
+                self.ringfd_register(caller, ctx, arg, nr_args).await
+            }
+            IoUringRegisterOp::IORING_UNREGISTER_RING_FDS => {
+                self.ringfd_unregister(caller, arg, nr_args).await
             }
             _ => Err(Errno::EINVAL.into()),
         }
@@ -266,4 +301,20 @@ async fn read_buffers(caller: &Caller<'_>, arg: u32, nr: u32) -> SysResult<Vec<(
         buffers.push((iov.iov_base, iov.iov_len));
     }
     Ok(buffers)
+}
+
+impl Ctx {
+    /// `io_register_personality`: the caller's credentials under the next free id, cyclically
+    /// from 1 up to `USHRT_MAX` (`xa_alloc_cyclic`); `EBUSY` once every id is taken.
+    fn register_personality(&self, cred: Cred) -> Result<i32, Errno> {
+        let mut state = self.state.lock_or_recover();
+        let start = state.pers_next.max(1);
+        let free = (start..=u16::MAX)
+            .chain(1..start)
+            .find(|id| !state.personalities.contains_key(id));
+        let id = free.ok_or(Errno::EBUSY)?;
+        state.personalities.insert(id, cred);
+        state.pers_next = id.wrapping_add(1);
+        Ok(i32::from(id))
+    }
 }

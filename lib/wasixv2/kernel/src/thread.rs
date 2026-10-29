@@ -292,6 +292,8 @@ impl Kernel {
                     .signals
                     .group()
                     .attach(id, task.signals.inherit(THREAD), flag),
+                cred_override: None,
+                uring: Arc::default(),
             };
             // `cgroup_post_fork`: a task made in a freezing cgroup is frozen before it runs.
             if new.css.freezing() {
@@ -1063,6 +1065,8 @@ impl Kernel {
             let thread = take_futex_state(entry);
             (thread, mm_users(&state, task))
         };
+        // `do_exit`'s `io_uring_files_cancel`, while the requests' memory is still there.
+        self.io_uring_files_cancel(task);
         let tid = self.own_tid(task) as u32;
         self.exit_thread(caller, tid, thread, users > 1).await;
         // The end of `mm_release`.

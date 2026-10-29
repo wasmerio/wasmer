@@ -329,6 +329,21 @@ fn cap_valid(cap: Ulong) -> bool {
     cap <= Cap::LAST
 }
 
+/// Credentials lent to a task ([`Kernel::lend_cred`]), until dropped.
+pub(crate) struct LentCred<'a> {
+    kernel: &'a Kernel,
+    task: wasixv2_syscalls::TaskId,
+    saved: Option<Cred>,
+}
+
+impl Drop for LentCred<'_> {
+    fn drop(&mut self) {
+        let saved = self.saved.take();
+        self.kernel
+            .with_task(self.task, |t| t.cred_override = saved);
+    }
+}
+
 impl Process {
     /// A snapshot of the process's credentials.
     pub(crate) fn cred(&self) -> Cred {
@@ -403,9 +418,26 @@ impl Kernel {
         }
     }
 
-    /// The caller's credentials.
+    /// The caller's credentials (`current_cred`): an io_uring personality's while the caller
+    /// issues a request under it, else the process's.
     pub(crate) fn cred(&self, caller: &Caller<'_>) -> Cred {
-        self.process(caller.task()).cred()
+        self.current_cred(caller.task())
+    }
+
+    /// `override_creds`: `task`'s calls run as `cred` until the guard goes (`revert_creds`).
+    pub(crate) fn lend_cred(&self, task: wasixv2_syscalls::TaskId, cred: Cred) -> LentCred<'_> {
+        let saved = self.with_task(task, |t| t.cred_override.replace(cred));
+        LentCred {
+            kernel: self,
+            task,
+            saved,
+        }
+    }
+
+    /// [`Kernel::cred`] for the task `task`.
+    pub(crate) fn current_cred(&self, task: wasixv2_syscalls::TaskId) -> Cred {
+        let (process, lent) = self.task_ref(task, |t| (t.process.clone(), t.cred_override.clone()));
+        lent.unwrap_or_else(|| process.cred())
     }
 
     /// `setuid`, `setreuid`, `setresuid` and their gid twins, with the guest's ids, which must
