@@ -231,6 +231,9 @@ impl Drop for Space<'_> {
     fn drop(&mut self) {
         if self.changed {
             self.access.set(self.space.restricted());
+            // Every change keeps the count of areas as counting them would find it.
+            #[cfg(test)]
+            assert_eq!(self.space.map_count, self.space.areas().len());
         }
     }
 }
@@ -321,14 +324,14 @@ impl Mm {
 
     fn insert(&self, mapping: Mapping) {
         let mut space = self.space();
-        space.mappings.insert(mapping);
+        space.insert_mapping(mapping);
         self.shared
             .store(space.mappings.any_shared(), Ordering::Release);
     }
 
     fn take_range(&self, start: u64, end: u64) -> Vec<Mapping> {
         let mut space = self.space();
-        let taken = space.mappings.take_range(start, end);
+        let taken = space.take_mappings(start, end);
         self.shared
             .store(space.mappings.any_shared(), Ordering::Release);
         taken
@@ -336,7 +339,7 @@ impl Mm {
 
     fn restore(&self, mappings: Vec<Mapping>) {
         let mut space = self.space();
-        space.mappings.restore(mappings);
+        space.restore_mappings(mappings);
         self.shared
             .store(space.mappings.any_shared(), Ordering::Release);
     }
@@ -406,6 +409,9 @@ pub(crate) struct AddressSpace {
     no_access: PageFlags,
     /// Pages mapped readable but not `PROT_WRITE`.
     read_only: PageFlags,
+    /// `mm->map_count`: how many areas [`AddressSpace::areas`] has, kept up to date by every
+    /// change of what they are made of ([`AddressSpace::recount`]) rather than counted.
+    map_count: usize,
 }
 
 /// `setup_arg_pages`' `stack_expand`: how far below its top a new program's stack area reaches.
@@ -502,7 +508,7 @@ pub(crate) enum Placement {
 impl AddressSpace {
     /// A copy for the fork child `pid`.
     fn dup(&self, pid: u32) -> Self {
-        Self {
+        let mut child = Self {
             base: self.base,
             mapped: self.mapped.clone(),
             brk: self.brk,
@@ -516,7 +522,11 @@ impl AddressSpace {
             stack: self.stack,
             no_access: self.no_access.clone(),
             read_only: self.read_only.clone(),
-        }
+            map_count: 0,
+        };
+        // Without the locks, areas that differed only in them are one again.
+        child.recount_all();
+        child
     }
 
     /// Gives the pages `[first, end)` the protection `prot` (`vm_flags`' `VM_READ` and
@@ -525,8 +535,10 @@ impl AddressSpace {
     pub(crate) fn set_prot(&mut self, first: u64, end: u64, prot: ProtFlags) {
         let write = prot.contains(ProtFlags::PROT_WRITE);
         let read = write || prot.contains(ProtFlags::PROT_READ);
-        self.no_access.set(first, end, !read);
-        self.read_only.set(first, end, read && !write);
+        self.recount(first, end, |space| {
+            space.no_access.set(first, end, !read);
+            space.read_only.set(first, end, read && !write);
+        });
     }
 
     /// What the kernel's copies may not do, lowest first: nothing on the allocator's pages
@@ -573,9 +585,12 @@ impl AddressSpace {
     /// Picks the first unmapped run of `pages` pages, marking it mapped.
     pub(crate) fn place(&mut self, pages: u64) -> Result<Placement, Errno> {
         if let Some(index) = self.free_run(pages) {
-            self.mapped[index..][..pages as usize].fill(true);
             let base = self.base.expect("pages are tracked only after a growth");
-            return Ok(Placement::Reuse((base + index as u64) * PAGE_SIZE));
+            let first = base + index as u64;
+            self.recount(first, first + pages, |space| {
+                space.mapped[index..][..pages as usize].fill(true);
+            });
+            return Ok(Placement::Reuse(first * PAGE_SIZE));
         }
         let pages = u32::try_from(pages).map_err(|_| Errno::ENOMEM)?;
         Ok(Placement::Grow(pages))
@@ -587,6 +602,17 @@ impl AddressSpace {
     /// kernel. Pages someone else grew count as mapped, so they are never handed out; a growth
     /// below `base` stays the image's.
     pub(crate) fn grown(&mut self, previous: u64, pages: u32) {
+        let first = previous / PAGE_SIZE;
+        let end = previous.div_ceil(PAGE_SIZE) + u64::from(pages);
+        let seen = self.seen.div_ceil(PAGE_SIZE);
+        // The new pages, and those an earlier growth recorded out of order hands back from the
+        // image.
+        self.recount(first.min(seen), end.max(seen), |space| {
+            space.record_growth(previous, pages)
+        });
+    }
+
+    fn record_growth(&mut self, previous: u64, pages: u32) {
         self.seen = self.seen.max(previous + u64::from(pages) * PAGE_SIZE);
         let first = previous / PAGE_SIZE;
         let base = *self.base.get_or_insert(first);
@@ -604,20 +630,25 @@ impl AddressSpace {
     /// there next is a new mapping, without the flags of the old one.
     pub(crate) fn unmap(&mut self, addr: u64, len: u64) {
         let (first, end) = (addr / PAGE_SIZE, (addr + len).div_ceil(PAGE_SIZE));
-        self.set_pages(first, end, false);
-        self.wipe_on_fork.set(first, end, false);
-        self.locked.set(first, end, false);
-        self.no_access.set(first, end, false);
-        self.read_only.set(first, end, false);
+        self.recount(first, end, |space| {
+            space.mark_pages(first, end, false);
+            space.wipe_on_fork.set(first, end, false);
+            space.locked.set(first, end, false);
+            space.no_access.set(first, end, false);
+            space.read_only.set(first, end, false);
+        });
     }
 
     /// `mremap`'s flags: the `new_len` bytes at `to` take those of the `old_len` bytes at
     /// `from` (see [`PageFlags::remap`]).
     fn remap_flags(&mut self, from: u64, old_len: u64, to: u64, new_len: u64) {
-        self.wipe_on_fork.remap(from, old_len, to, new_len);
-        self.locked.remap(from, old_len, to, new_len);
-        self.no_access.remap(from, old_len, to, new_len);
-        self.read_only.remap(from, old_len, to, new_len);
+        let (first, end) = (to / PAGE_SIZE, (to + new_len).div_ceil(PAGE_SIZE));
+        self.recount(first, end, |space| {
+            space.wipe_on_fork.remap(from, old_len, to, new_len);
+            space.locked.remap(from, old_len, to, new_len);
+            space.no_access.remap(from, old_len, to, new_len);
+            space.read_only.remap(from, old_len, to, new_len);
+        });
     }
 
     /// `locked_vm`: how many pages are locked.
@@ -650,7 +681,7 @@ impl AddressSpace {
         let low = (u64::from(sp) / PAGE_SIZE).max(area.first);
         if low < area.low {
             let locked = self.locked.get(area.low);
-            self.locked.set(low, area.low, locked);
+            self.set_locked(low, area.low, locked);
             self.stack = Some(StackArea { low, ..area });
         }
     }
@@ -674,6 +705,8 @@ impl AddressSpace {
                 self.locked.set(first, end, true);
             }
         }
+        // Every area changed, as `mlockall` visits each one (`apply_mlockall_flags`).
+        self.recount_all();
     }
 
     /// `apply_vma_lock_flags`: locks or unlocks the pages `[first, end)` in order, up to the
@@ -686,7 +719,7 @@ impl AddressSpace {
         mem_pages: u64,
     ) -> Result<(), Errno> {
         let hole = (first..end).find(|&page| !self.page_in_area(page, mem_pages));
-        self.locked.set(first, hole.unwrap_or(end), lock);
+        self.set_locked(first, hole.unwrap_or(end), lock);
         match hole {
             Some(_) => Err(Errno::ENOMEM),
             None => Ok(()),
@@ -695,6 +728,11 @@ impl AddressSpace {
 
     /// Marks the allocator's pages in `[first, end)` as mapped or not.
     fn set_pages(&mut self, first: u64, end: u64, mapped: bool) {
+        self.recount(first, end, |space| space.mark_pages(first, end, mapped));
+    }
+
+    /// [`AddressSpace::set_pages`] inside a change that counts the areas itself.
+    fn mark_pages(&mut self, first: u64, end: u64, mapped: bool) {
         let Some(base) = self.base else { return };
         let end = end.min(base + self.mapped.len() as u64);
         for page in first.max(base)..end {
@@ -800,6 +838,8 @@ impl AddressSpace {
 
     /// The key of `page`, in use above the image, which lies in `mapping` if any.
     fn area_key(&self, page: u64, mapping: Option<(u64, bool)>) -> AreaKey {
+        #[cfg(test)]
+        tests::KEYS.with(|keys| keys.set(keys.get() + 1));
         let heap = self
             .brk
             .map(|(start, end)| start / PAGE_SIZE..end.div_ceil(PAGE_SIZE));
@@ -820,7 +860,112 @@ impl AddressSpace {
 
     /// `mm->map_count`: how many areas the address space has.
     pub(crate) fn map_count(&self) -> usize {
-        self.areas().len()
+        self.map_count
+    }
+
+    /// Makes `change` to the pages `[first, end)`, and the areas it splits, merges, makes or
+    /// removes to the count, as `vma_complete`, `vma_link` and `vms_complete_munmap_vmas`
+    /// change `mm->map_count` (mm/vma.c): whether an area starts at a page depends on that
+    /// page and the one before only, so the change can only make or remove areas starting in
+    /// `[first, end]`.
+    fn recount<R>(&mut self, first: u64, end: u64, change: impl FnOnce(&mut Self) -> R) -> R {
+        let before = self.area_starts(first, end);
+        let out = change(self);
+        self.map_count = self.map_count.saturating_sub(before) + self.area_starts(first, end);
+        out
+    }
+
+    /// Counts the areas again, for a change all over the address space.
+    fn recount_all(&mut self) {
+        self.map_count = self.area_starts(0, u64::MAX);
+    }
+
+    /// How many areas start at the pages `[first, end]`: the image's at page 0, if there is
+    /// one, and above it each page in use after one that is not, after the image's last, or
+    /// after one with another [`AreaKey`] (where [`AddressSpace::areas`] starts one).
+    fn area_starts(&self, first: u64, end: u64) -> usize {
+        let mem_pages = self.seen.div_ceil(PAGE_SIZE);
+        let image_end = self.base.unwrap_or(mem_pages).min(mem_pages);
+        let mut starts = usize::from(first == 0 && image_end > 0);
+        let first = first.max(image_end);
+        let key = |page: u64| {
+            let mapping = self.mappings.span_at(page * PAGE_SIZE);
+            self.page_mapped(page, mem_pages)
+                .then(|| self.area_key(page, mapping))
+        };
+        let mut before = (first > image_end).then(|| key(first - 1)).flatten();
+        for page in first..end.saturating_add(1).min(mem_pages) {
+            let here = key(page);
+            if here.is_some() && here != before {
+                starts += 1;
+            }
+            before = here;
+        }
+        starts
+    }
+
+    /// `VM_WIPEONFORK` on or off for the pages `[first, end)`.
+    fn set_wipe_on_fork(&mut self, first: u64, end: u64, on: bool) {
+        self.recount(first, end, |space| space.wipe_on_fork.set(first, end, on));
+    }
+
+    /// `VM_LOCKED` on or off for the pages `[first, end)`.
+    fn set_locked(&mut self, first: u64, end: u64, on: bool) {
+        self.recount(first, end, |space| space.locked.set(first, end, on));
+    }
+
+    /// The size of memory a memory call saw.
+    fn set_seen(&mut self, size: u64) {
+        let (old, new) = (self.seen.div_ceil(PAGE_SIZE), size.div_ceil(PAGE_SIZE));
+        self.recount(old.min(new), old.max(new), |space| space.seen = size);
+    }
+
+    /// Moves the program break: the pages between the old and the new end change area.
+    fn set_brk(&mut self, start: u64, end: u64) {
+        let heap = |(start, end): (u64, u64)| (start / PAGE_SIZE, end.div_ceil(PAGE_SIZE));
+        let (first, last) = heap((start, end));
+        let (first, last) = match self.brk.map(heap) {
+            Some((old_first, old_last)) => (first.min(old_first), last.max(old_last)),
+            None => (first, last),
+        };
+        self.recount(first, last, |space| space.brk = Some((start, end)));
+    }
+
+    /// The pages of `[start, end)`, the bytes of a mapping.
+    fn pages_of(start: u64, end: u64) -> (u64, u64) {
+        (start / PAGE_SIZE, end.div_ceil(PAGE_SIZE))
+    }
+
+    fn insert_mapping(&mut self, mapping: Mapping) {
+        let (first, end) = Self::pages_of(mapping.start, mapping.end());
+        self.recount(first, end, |space| space.mappings.insert(mapping));
+    }
+
+    fn take_mappings(&mut self, start: u64, end: u64) -> Vec<Mapping> {
+        let (first, end_page) = Self::pages_of(start, end);
+        self.recount(first, end_page, |space| {
+            space.mappings.take_range(start, end)
+        })
+    }
+
+    /// Puts back mappings taken out, at their (unchanged) addresses.
+    fn restore_mappings(&mut self, mappings: Vec<Mapping>) {
+        for mapping in mappings {
+            self.insert_mapping(mapping);
+        }
+    }
+
+    /// Takes out every mapping `pick` selects; their pages change area.
+    fn take_mappings_where(&mut self, pick: impl FnMut(&Mapping) -> bool) -> Vec<Mapping> {
+        let taken = self.mappings.take_where(pick);
+        self.recount_all();
+        taken
+    }
+
+    fn clear_mappings(&mut self) -> Vec<Mapping> {
+        let taken = self.mappings.clear();
+        self.recount_all();
+        taken
     }
 
     /// How many areas a change of the pages `[first, end)` splits off (`split_vma`), each of the
@@ -1070,7 +1215,7 @@ impl Kernel {
 
     pub(crate) async fn mem_size(&self, caller: &Caller<'_>) -> u64 {
         let size = caller.memory().size().await;
-        self.mm(caller.task()).space().seen = size;
+        self.mm(caller.task()).space().set_seen(size);
         size
     }
 
@@ -1122,7 +1267,11 @@ impl Kernel {
         let mm = self.mm(caller.task());
         let _op = mm.op.lock().await;
         let size = self.mem_size(caller).await;
-        let (start, current) = *mm.space().brk.get_or_insert((size, size));
+        let heap = mm.space().brk;
+        let (start, current) = heap.unwrap_or_else(|| {
+            mm.space().set_brk(size, size);
+            (size, size)
+        });
         let new = u64::from(brk);
         if new < start {
             return Ok(current as i32);
@@ -1140,12 +1289,12 @@ impl Kernel {
             if !free || too_many || self.take_pages(caller, old_end, new_end).await.is_err() {
                 return Ok(current as i32);
             }
-            mm.space().locked.set(old_end, new_end, locked);
+            mm.space().set_locked(old_end, new_end, locked);
         } else {
             let (from, to) = (new_end * PAGE_SIZE, old_end * PAGE_SIZE);
             mm.space().unmap(from, to - from);
         }
-        mm.space().brk = Some((start, new));
+        mm.space().set_brk(start, new);
         Ok(new as i32)
     }
 
@@ -1202,7 +1351,7 @@ impl Kernel {
         let first = u64::from(start) / PAGE_SIZE;
         {
             let mut space = mm.space();
-            space.locked.set(first, first + pages, locked);
+            space.set_locked(first, first + pages, locked);
             space.set_prot(first, first + pages, prot);
         }
         let Some(source) = source else {
@@ -1411,8 +1560,7 @@ impl Kernel {
                     // `dontunmap_complete`: the source is never locked after the move.
                     let first = addr64 / PAGE_SIZE;
                     mm.space()
-                        .locked
-                        .set(first, first + old_size / PAGE_SIZE, false);
+                        .set_locked(first, first + old_size / PAGE_SIZE, false);
                     self.refault(caller, addr64, old_size, stay).await?
                 }
                 false => mm.space().unmap(addr64, old_size),
@@ -1493,8 +1641,7 @@ impl Kernel {
         mm.insert(alias);
         let first = target / PAGE_SIZE;
         mm.space()
-            .locked
-            .set(first, first + remap.new_size / PAGE_SIZE, locked);
+            .set_locked(first, first + remap.new_size / PAGE_SIZE, locked);
         Ok(target as i32)
     }
 
@@ -1752,9 +1899,7 @@ impl Kernel {
             false => None,
         };
         let marked_end = refused.unwrap_or(end);
-        space
-            .wipe_on_fork
-            .set(start / PAGE_SIZE, marked_end / PAGE_SIZE, wipe);
+        space.set_wipe_on_fork(start / PAGE_SIZE, marked_end / PAGE_SIZE, wipe);
         match refused {
             Some(_) => Err(Errno::EINVAL),
             None => Ok(()),
@@ -1903,7 +2048,7 @@ impl Kernel {
     async fn sync_where(&self, caller: &Caller<'_>, pick: impl FnMut(&Mapping) -> bool) {
         let mm = self.mm(caller.task());
         let _op = mm.op.lock().await;
-        let mut mappings = mm.space().mappings.take_where(pick);
+        let mut mappings = mm.space().take_mappings_where(pick);
         for mapping in &mut mappings {
             // Nothing to report to: the syscall that got here is about something else.
             let _ = mapping.sync(caller.memory()).await;
@@ -1965,7 +2110,7 @@ impl Kernel {
     pub(crate) async fn exit_mmap(&self, caller: &Caller<'_>) {
         let mm = self.mm(caller.task());
         let _op = mm.op.lock().await;
-        let mappings = mm.space().mappings.clear();
+        let mappings = mm.space().clear_mappings();
         for mut mapping in mappings {
             let _ = mapping.write_back(caller.memory()).await;
         }
@@ -2034,7 +2179,7 @@ impl Kernel {
         mm.insert(mapping);
         let first = u64::from(start) / PAGE_SIZE;
         let mut space = mm.space();
-        space.locked.set(first, first + pages, locked);
+        space.set_locked(first, first + pages, locked);
         space.set_prot(first, first + pages, prot);
         Ok(start)
     }
@@ -2057,7 +2202,7 @@ impl Kernel {
                 .attachment()
                 .is_some_and(|other| Arc::ptr_eq(other, &attachment))
         };
-        let parts = mm.space().mappings.take_where(same);
+        let parts = mm.space().take_mappings_where(same);
         for mut part in parts {
             let _ = part.release(caller.memory()).await;
             mm.space().unmap(part.start, part.len);
@@ -2144,7 +2289,40 @@ fn check_file_mapping(
 
 #[cfg(test)]
 mod tests {
+    use std::cell::Cell;
+
     use super::*;
+
+    thread_local! {
+        /// How many pages' [`AreaKey`]s this thread worked out.
+        pub(super) static KEYS: Cell<usize> = const { Cell::new(0) };
+    }
+
+    /// `mm->map_count` is kept, not counted: a change of one page looks at the pages around it
+    /// only, however many areas there are, and the count stays what counting finds.
+    #[test]
+    fn the_map_count_follows_each_change_without_a_scan() {
+        let mut space = AddressSpace::default();
+        space.grown(PAGE_SIZE, 20_000);
+        space.set_seen(20_001 * PAGE_SIZE);
+        // Every other page goes: 10 000 areas above the image's.
+        for page in (2..20_001).step_by(2) {
+            space.unmap(page * PAGE_SIZE, PAGE_SIZE);
+        }
+        assert_eq!(space.map_count(), 10_001);
+        KEYS.with(|keys| keys.set(0));
+        // Taking a hole back merges the areas on its sides; mprotect splits one off again.
+        space.set_pages(2, 3, true);
+        space.set_prot(3, 4, ProtFlags::PROT_READ);
+        let count = space.map_count();
+        assert!(
+            KEYS.with(Cell::get) < 16,
+            "a scan: {} keys",
+            KEYS.with(Cell::get)
+        );
+        assert_eq!(count, 10_001);
+        assert_eq!(count, space.areas().len());
+    }
 
     #[test]
     fn growths_recorded_out_of_order() {
