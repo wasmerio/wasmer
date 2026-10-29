@@ -468,11 +468,7 @@ impl Kernel {
             (others, leader_runs, hand_back)
         };
         if let Some(parent) = hand_back {
-            let action = GuestAction::VforkReturn {
-                parent,
-                child: process.pid,
-            };
-            self.queue(process.pid, action);
+            self.hand_back(process.pid, parent);
         }
         if !others && !leader_runs {
             // ---- ns ----
