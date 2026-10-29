@@ -1601,7 +1601,7 @@ impl Kernel {
         let threads = self.take_group_futex_states(task);
         self.exit_futexes(caller, threads).await;
         self.mm_release(caller).await;
-        self.exec_commit(task, &name, args, env, image, binary, handover);
+        self.exec_commit(task, &name, args, env, image, (binary, handover));
         // The `execve` is done, and the leader's new image may start.
         drop(exec);
         Ok(0)
@@ -1709,9 +1709,9 @@ impl Kernel {
         args: Vec<Vec<u8>>,
         env: Vec<Vec<u8>>,
         image: Option<Image>,
-        binary: Binary,
-        mut handover: ExecHandover,
+        binary: (Binary, ExecHandover),
     ) {
+        let (binary, mut handover) = binary;
         let task = self.exec_leader(caller);
         let process = self.process(task);
         {
