@@ -7,6 +7,7 @@
 mod addr;
 mod api;
 mod cmsg;
+mod icmp;
 pub mod iface;
 mod mcast;
 mod net;
@@ -25,6 +26,7 @@ pub use api::{
     Network, NewLink, NewLinkKind, PortEntry, Publication, PublishedDatagram, QueuedError, RecvMsg,
     Room, SendMsg, Shutdown, Socket, SocketKind, StreamState,
 };
+pub use icmp::IcmpSocket;
 pub use net::{MovedLink, Net, NetConfig, Rtnl, Uplink, move_link, rtnl};
 pub use tcp::TcpSocket;
 pub use udp::UdpSocket;

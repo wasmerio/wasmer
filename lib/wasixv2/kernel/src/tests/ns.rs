@@ -1523,3 +1523,40 @@ fn proc_net_igmp_lists_the_kernels_own_groups() {
     );
     assert_eq!(igmp6.lines().count(), 2);
 }
+
+/// `ping_group_range` decides who may open an ICMP datagram socket, root included
+/// (`ping_init_sock`): nobody by default, the range written once set, and nobody again for a
+/// range that ends before it starts. The echo sysctls take 0 or 1.
+#[test]
+fn ping_sockets_follow_ping_group_range() {
+    let (kernel, task, memory) = networked();
+    let caller = Caller::new(task, &memory);
+    let range = "/proc/sys/net/ipv4/ping_group_range";
+    let ping = || block_on(kernel.socket(&caller, AddressFamily::AF_INET, DGRAM, 1));
+    let ping6 = || block_on(kernel.socket(&caller, AddressFamily::AF_INET6, DGRAM, 58));
+    assert_eq!(read_text(&kernel, &caller, range), "1\t0\n");
+    assert_eq!(errno(ping()), Errno::EACCES);
+    assert_eq!(write_file(&kernel, &caller, range, "0 0\n"), Ok(4));
+    assert_eq!(read_text(&kernel, &caller, range), "0\t0\n");
+    assert!(ping().is_ok());
+    assert!(ping6().is_ok());
+    assert_eq!(
+        errno(write_file(&kernel, &caller, range, "0 x")),
+        Errno::EINVAL
+    );
+    assert_eq!(write_file(&kernel, &caller, range, "5 2"), Ok(3));
+    assert_eq!(read_text(&kernel, &caller, range), "1\t0\n");
+    assert_eq!(errno(ping6()), Errno::EACCES);
+    // ICMP of the wrong family is no ping socket.
+    let wrong = block_on(kernel.socket(&caller, AddressFamily::AF_INET6, DGRAM, 1));
+    assert_eq!(errno(wrong), Errno::EPROTONOSUPPORT);
+
+    let ignore = "/proc/sys/net/ipv4/icmp_echo_ignore_all";
+    assert_eq!(read_text(&kernel, &caller, ignore), "0\n");
+    assert_eq!(
+        errno(write_file(&kernel, &caller, ignore, "2")),
+        Errno::EINVAL
+    );
+    assert_eq!(write_file(&kernel, &caller, ignore, "1"), Ok(1));
+    assert_eq!(read_text(&kernel, &caller, ignore), "1\n");
+}

@@ -21,6 +21,7 @@ use crate::{
     RecvMsg, SendMsg, Shutdown, Socket, SocketKind,
     addr::{canonical, canonical_ip, present, sockaddr_bytes, unbound},
     cmsg::{self, SendCtl},
+    icmp::{Back, Quoted},
     mcast::McRoute,
     net::{Net, Path, UdpRoute, serves},
     opts::{Changed, SockOpts},
@@ -37,15 +38,6 @@ const MAX_SEND: usize = 0xFFFF;
 const MAX_V4_PAYLOAD: usize = 65507;
 const MAX_V6_PAYLOAD: usize = 65527;
 
-/// How much of a refused datagram's payload a port unreachable quotes. `icmp_send` quotes at
-/// most 576 bytes of IP packet less its own IP and ICMP headers, of which the quoted IP and UDP
-/// headers take 28; `icmp6_send` quotes up to the IPv6 minimum MTU less its 48 bytes of
-/// headers, of which the quoted ones take another 48.
-const ICMP_QUOTE: usize = 576 - 20 - 8 - 20 - 8;
-const ICMP6_QUOTE: usize = 1280 - 40 - 8 - 40 - 8;
-/// `ICMP_DEST_UNREACH`/`ICMP_PORT_UNREACH` and `ICMPV6_DEST_UNREACH`/`ICMPV6_PORT_UNREACH`.
-const ICMP_PORT_UNREACH: (u8, u8) = (3, 3);
-const ICMPV6_PORT_UNREACH: (u8, u8) = (1, 4);
 /// The options that make ICMP errors queue (`inet->recverr`, `np->recverr`).
 const RECVERR: [(i32, i32); 2] = [
     (SocketLevel::SOL_IP.0, IpOption::IP_RECVERR.0),
@@ -324,44 +316,33 @@ impl UdpSocket {
         }
     }
 
-    /// An ICMP port unreachable for a datagram sent inside the namespace to `dst`, where no
-    /// socket is bound (`__udp4_lib_err`, `__udp6_lib_err`): with `IP_RECVERR` (or
-    /// `IPV6_RECVERR` for an IPv6 destination) it is queued and becomes the pending error;
-    /// without, only a connected socket hears of it.
-    fn port_unreachable(&self, dst: SocketAddr, payload: &[u8]) {
+    /// An ICMP error quoting a datagram the socket sent to `dst` (`__udp4_lib_err`,
+    /// `__udp6_lib_err`): with `IP_RECVERR` (or `IPV6_RECVERR` for an IPv6 destination) it is
+    /// queued and becomes the pending error; without, only a hard error to a connected socket
+    /// is reported.
+    pub(crate) fn icmp_error(&self, q: &Quoted<'_>, dst: SocketAddr, payload: &[u8]) {
         let mut g = self.lock();
-        let (level_name, origin, (type_, code), quote) = match dst {
-            SocketAddr::V4(_) => (
-                RECVERR[0],
-                SoEeOrigin::SO_EE_ORIGIN_ICMP,
-                ICMP_PORT_UNREACH,
-                ICMP_QUOTE,
-            ),
-            SocketAddr::V6(_) => (
-                RECVERR[1],
-                SoEeOrigin::SO_EE_ORIGIN_ICMP6,
-                ICMPV6_PORT_UNREACH,
-                ICMP6_QUOTE,
-            ),
+        let (level_name, origin) = match dst {
+            SocketAddr::V4(_) => (RECVERR[0], SoEeOrigin::SO_EE_ORIGIN_ICMP),
+            SocketAddr::V6(_) => (RECVERR[1], SoEeOrigin::SO_EE_ORIGIN_ICMP6),
         };
         if g.opts.flag(level_name.0, level_name.1) {
             let e = QueuedError {
-                errno: Errno::ECONNREFUSED,
+                errno: q.errno,
                 origin,
-                type_,
-                code,
-                info: 0,
+                type_: q.type_,
+                code: q.code,
+                info: q.info,
                 data: 0,
-                // The destination itself answers.
-                offender: Some(SocketAddr::new(dst.ip(), 0)),
+                offender: Some(SocketAddr::new(q.offender, 0)),
                 dst: Some(dst),
-                payload: payload[..payload.len().min(quote)].to_vec(),
+                payload: payload.to_vec(),
             };
             Self::queue_error(&mut g, e);
-        } else if g.peer.is_none() {
+        } else if !q.hard || g.peer.is_none() {
             return;
         }
-        g.err = Some(Errno::ECONNREFUSED);
+        g.err = Some(q.errno);
         drop(g);
         self.wq.wake(PollMask::ERR);
     }
@@ -816,7 +797,12 @@ impl Socket for UdpSocket {
         // `UDP_SEGMENT`: the payload leaves as datagrams of the segment size.
         let segment = ctl.gso_size.unwrap_or(usize::MAX).max(1);
         match route {
-            UdpRoute::Local { from, to } => {
+            UdpRoute::Local {
+                from,
+                to,
+                at,
+                back_iif,
+            } => {
                 drop(g);
                 match to {
                     Some(target) => {
@@ -827,11 +813,18 @@ impl Socket for UdpSocket {
                             target.deliver(chunk, from);
                         }
                     }
-                    // Each segment is a datagram of its own, and refused on its own.
-                    None if msg.data.is_empty() => self.port_unreachable(dst, msg.data),
+                    // Nobody takes it there: the namespace answers with a port unreachable,
+                    // each segment being a datagram of its own.
                     None => {
+                        let back = Back {
+                            net: self.net.clone(),
+                            iif: back_iif,
+                        };
+                        if msg.data.is_empty() {
+                            at.udp_unreachable(from, dst, msg.data, back.clone());
+                        }
                         for chunk in msg.data.chunks(segment) {
-                            self.port_unreachable(dst, chunk);
+                            at.udp_unreachable(from, dst, chunk, back.clone());
                         }
                     }
                 }
@@ -982,7 +975,7 @@ impl Socket for UdpSocket {
 /// with `MSG_TRUNC` but its copied length returned even with `MSG_TRUNC` asked for, the
 /// quoted datagram's destination as the sender, and the extended error with its offender in
 /// the socket family's control message.
-fn error_result(domain: Domain, e: &QueuedError, buf: &mut [u8]) -> RecvMsg {
+pub(crate) fn error_result(domain: Domain, e: &QueuedError, buf: &mut [u8]) -> RecvMsg {
     let len = buf.len().min(e.payload.len());
     buf[..len].copy_from_slice(&e.payload[..len]);
     let mut flags = MsgFlags::MSG_ERRQUEUE;

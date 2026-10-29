@@ -1429,6 +1429,36 @@ impl Interfaces {
         }
     }
 
+    /// An address of interface `index` to answer `peer` from (`inet_select_addr(dev, peer,
+    /// scope)`, a simplified `ipv6_dev_get_saddr`): IPv4, a primary address in `peer`'s
+    /// subnet, else the first primary; IPv6, the link-local address for a link-local peer,
+    /// else one of wider scope, else any.
+    pub(crate) fn source_on(&self, index: u32, peer: IpAddr) -> Option<IpAddr> {
+        let link = self.link(index)?;
+        match peer {
+            IpAddr::V4(_) => {
+                let primaries: Vec<&IfAddr> = link
+                    .addrs
+                    .iter()
+                    .filter(|a| a.addr.is_ipv4() && !a.is_secondary())
+                    .collect();
+                primaries
+                    .iter()
+                    .find(|a| in_prefix(peer, a.prefix_addr(), a.prefix_len))
+                    .or(primaries.first())
+                    .map(|a| a.addr)
+            }
+            IpAddr::V6(p) => {
+                let v6: Vec<&IfAddr> = link.addrs.iter().filter(|a| a.addr.is_ipv6()).collect();
+                let link_local = p.is_unicast_link_local();
+                v6.iter()
+                    .find(|a| (a.scope == RT_SCOPE_LINK) == link_local)
+                    .or(v6.first())
+                    .map(|a| a.addr)
+            }
+        }
+    }
+
     /// The interface an IPv6 multicast datagram leaves by when nothing names one: the first
     /// up interface with IPv6 but loopback, through the `ff00::/8` route `addrconf` gives each
     /// (`addrconf_add_mroute`), which the tables here leave out.

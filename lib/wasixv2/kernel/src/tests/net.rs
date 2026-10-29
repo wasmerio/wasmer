@@ -149,6 +149,7 @@ impl Socket for FakeSocket {
         match self.kind {
             SocketKind::Stream => 6,
             SocketKind::Datagram => 17,
+            SocketKind::Raw => 255,
         }
     }
 
@@ -223,11 +224,11 @@ impl Socket for FakeSocket {
         };
         let target = match (self.kind, msg.to.or(peer)) {
             (SocketKind::Stream, _) => peer_socket.ok_or(Errno::ENOTCONN)?,
-            (SocketKind::Datagram, Some(to)) => match self.net().lookup(to) {
+            (SocketKind::Datagram | SocketKind::Raw, Some(to)) => match self.net().lookup(to) {
                 Some(target) => target,
                 None => return Ok(msg.data.len()),
             },
-            (SocketKind::Datagram, None) => return Err(Errno::EDESTADDRREQ),
+            (SocketKind::Datagram | SocketKind::Raw, None) => return Err(Errno::EDESTADDRREQ),
         };
         target.deliver(msg.data, from);
         Ok(msg.data.len())
@@ -321,7 +322,8 @@ fn socket_checks_type_flags_and_families() {
         Errno::EINVAL
     );
     assert_eq!(create(AddressFamily::AF_INET, 12), Errno::EINVAL);
-    assert_eq!(create(AddressFamily::AF_INET, 3), Errno::EPERM);
+    // A raw socket of protocol 0 is none (`inet_create`), before the capability check.
+    assert_eq!(create(AddressFamily::AF_INET, 3), Errno::EPROTONOSUPPORT);
     assert_eq!(create(AddressFamily::AF_INET, 5), Errno::ESOCKTNOSUPPORT);
     assert_eq!(create(AddressFamily(99), STREAM), Errno::EAFNOSUPPORT);
     let bad_protocol = block_on(kernel.socket(&caller, AddressFamily::AF_INET, STREAM, 99));
@@ -361,12 +363,24 @@ fn root_binds_privileged_ports_and_raw_sockets_need_cap_net_raw() {
         block_on(kernel.bind(&caller, fd, GuestPtr::new(0x200), 16)),
         Ok(0)
     );
-    let raw = block_on(kernel.socket(&caller, AddressFamily::AF_INET, 3, 1));
-    assert_eq!(errno(raw), Errno::ESOCKTNOSUPPORT);
+    // A raw ICMP socket for root; raw sockets of other protocols carry nothing, and one of
+    // protocol 0 is none (`inet_create`).
+    let vnet = wasixv2_vnet::Net::new(wasixv2_vnet::NetConfig::default(), None);
+    let (kernel, task, memory) = super::cred::machine_with(|kernel| {
+        kernel
+            .with_credentials(Credentials::new(0, 0))
+            .with_network(vnet)
+    });
+    let caller = Caller::new(task, &memory);
+    let raw = |protocol| block_on(kernel.socket(&caller, AddressFamily::AF_INET, 3, protocol));
+    assert!(raw(1).is_ok());
+    assert_eq!(errno(raw(17)), Errno::ESOCKTNOSUPPORT);
+    assert_eq!(errno(raw(0)), Errno::EPROTONOSUPPORT);
     let (kernel, task, memory) = networked();
     let caller = Caller::new(task, &memory);
-    let raw = block_on(kernel.socket(&caller, AddressFamily::AF_INET, 3, 1));
-    assert_eq!(errno(raw), Errno::EPERM);
+    let raw = |protocol| block_on(kernel.socket(&caller, AddressFamily::AF_INET, 3, protocol));
+    assert_eq!(errno(raw(1)), Errno::EPERM);
+    assert_eq!(errno(raw(0)), Errno::EPROTONOSUPPORT);
 }
 
 #[test]

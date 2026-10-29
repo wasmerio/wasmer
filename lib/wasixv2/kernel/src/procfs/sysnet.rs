@@ -7,9 +7,12 @@
 //! (`ENOENT`), where Linux fails the lookup already.
 //!
 //! Values are kept per namespace and per interface, writable by root. `disable_ipv6` acts
-//! (`addrconf_disable_ipv6`); the rest describe what packets would do and have no effect,
-//! since nothing is turned into packets. `ip_local_port_range`, `ip_unprivileged_port_start`
-//! and `somaxconn` show the values the namespace uses and are read-only here.
+//! (`addrconf_disable_ipv6`), and so do the ICMP ones: `ping_group_range` decides who may
+//! open ICMP datagram sockets, `icmp_echo_ignore_all` and `icmp_echo_ignore_broadcasts`
+//! whether the namespace answers echo requests. The rest describe what packets would do and
+//! have no effect, since nothing is turned into packets. `ip_local_port_range`,
+//! `ip_unprivileged_port_start` and `somaxconn` show the values the namespace uses and are
+//! read-only here.
 
 use std::{any::Any, collections::BTreeMap, sync::Arc};
 
@@ -36,6 +39,21 @@ pub(crate) enum Dev {
 pub(crate) struct NetSysctl {
     /// Keyed by (IPv6?, interfaces, name); the flat ones under [`Dev::All`] of IPv4.
     values: BTreeMap<(bool, Dev, &'static str), i64>,
+    /// `net.ipv4.ping_group_range`, once set.
+    ping_group_range: Option<(u32, u32)>,
+}
+
+/// `net.ipv4.ping_group_range`'s default: no group, so ICMP datagram sockets are nobody's
+/// (`inet_init_net`).
+const PING_GROUP_RANGE: (u32, u32) = (1, 0);
+/// `GID_T_MAX`, the largest group `ping_group_range` takes.
+const GID_T_MAX: u32 = u32::MAX - 1;
+
+impl NetSysctl {
+    /// `inet_get_ping_group_range_net`: the groups that may open ICMP datagram sockets.
+    pub(crate) fn ping_group_range(&self) -> (u32, u32) {
+        self.ping_group_range.unwrap_or(PING_GROUP_RANGE)
+    }
 }
 
 /// Interface names as the tree has met them, by number: a directory's inode number is its
@@ -87,10 +105,12 @@ const fn fixed(name: &'static str, default: i64) -> Key {
 const CORE: &[Key] = &[fixed("somaxconn", 4096)];
 /// `net.ipv4.*` (`ipv4_net_table`); the port range is shown by [`flat_value`].
 const IPV4: &[Key] = &[
+    key("icmp_echo_ignore_all", 0),
     key("icmp_echo_ignore_broadcasts", 1),
     key("ip_forward", 0),
     fixed("ip_local_port_range", 0),
     fixed("ip_unprivileged_port_start", 1024),
+    key("ping_group_range", 0),
     key("tcp_fastopen", 1),
     key("tcp_syn_retries", 6),
 ];
@@ -235,6 +255,10 @@ fn flat_value(net: &NetNs, core: bool, key: &Key) -> String {
         // `inet_get_local_port_range`: the range the namespace's port tables use.
         return "32768\t60999".into();
     }
+    if key.name == "ping_group_range" {
+        let (low, high) = net.sysctl.lock_or_recover().ping_group_range();
+        return format!("{low}\t{high}");
+    }
     let values = &net.sysctl.lock_or_recover().values;
     values
         .get(&(false, Dev::All, key.name))
@@ -253,9 +277,38 @@ fn parse_int(data: &[u8]) -> Result<i64, Errno> {
         .map_err(|_| Errno::EINVAL)
 }
 
+/// `ipv4_ping_group_range`: two groups (`proc_douintvec_minmax` up to `GID_T_MAX`); a range
+/// whose end comes before its start is the default, no group.
+fn write_ping_group_range(net: &NetNs, data: &[u8]) -> Result<(), Errno> {
+    let text = std::str::from_utf8(data).map_err(|_| Errno::EINVAL)?;
+    let mut ids = text.split_whitespace().map(|v| match v.parse::<u32>() {
+        Ok(id) if id <= GID_T_MAX => Ok(id),
+        _ => Err(Errno::EINVAL),
+    });
+    let (low, high) = match (ids.next(), ids.next(), ids.next()) {
+        (Some(low), Some(high), None) => (low?, high?),
+        _ => return Err(Errno::EINVAL),
+    };
+    let range = match high < low {
+        true => PING_GROUP_RANGE,
+        false => (low, high),
+    };
+    net.sysctl.lock_or_recover().ping_group_range = Some(range);
+    Ok(())
+}
+
 /// Writes a value of `dev` (IPv4's flat ones under `Dev::All`), with what Linux does on the
 /// change.
 fn write_value(net: &NetNs, v6: bool, dev: Dev, key: &Key, value: i64) -> Result<(), Errno> {
+    if let name @ ("icmp_echo_ignore_all" | "icmp_echo_ignore_broadcasts") = key.name {
+        // `proc_dou8vec_minmax` from 0 to 1.
+        if !(0..=1).contains(&value) {
+            return Err(Errno::EINVAL);
+        }
+        if let Some(network) = &net.network {
+            network.set_icmp_echo_ignore(name == "icmp_echo_ignore_broadcasts", value != 0)?;
+        }
+    }
     if v6 && key.name == "disable_ipv6" {
         // `addrconf_disable_ipv6`: `all` applies to every interface and to `default`.
         let network = net.network.as_ref().ok_or(Errno::ENODEV)?;
@@ -535,6 +588,10 @@ impl Handle for ValueHandle {
     async fn write_at(&self, data: &[u8], _: u64) -> FsResult<usize> {
         if !self.writable || !self.key.writable {
             return Err(Errno::EACCES);
+        }
+        if self.key.name == "ping_group_range" {
+            write_ping_group_range(&self.net, data)?;
+            return Ok(data.len());
         }
         write_value(&self.net, self.v6, self.dev, self.key, parse_int(data)?)?;
         Ok(data.len())
