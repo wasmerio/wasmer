@@ -916,6 +916,82 @@ fn a_vfork_parent_killed_while_its_child_runs_dies_at_once() {
     kernel.release(parent);
 }
 
+/// The reap is `release_task`: the child's task leaves the table and its process goes, though
+/// its instance has yet to unwind; what the instance takes, its exit, waits for the execution
+/// layer's release (`put_task_struct`), after which nothing is left.
+#[test]
+fn a_reaped_childs_task_leaves_the_table_and_its_exit_waits_for_the_release() {
+    let (kernel, init, _) = machine();
+    let init_memory = forkable();
+    let init_caller = Caller::new(init, &init_memory);
+    let child = fork(&kernel, &init_caller);
+    let memory = FlatMemory(RefCell::new(vec![0; 0x1000]));
+    let process = Arc::downgrade(&kernel.process(child));
+    assert_eq!(
+        block_on(kernel.exit_group(&Caller::new(child, &memory), 5)),
+        Ok(())
+    );
+    assert_eq!(reap(&kernel, &init_caller, child), Some(5));
+
+    assert!(!kernel.state.read_or_recover().tasks.contains_key(&child));
+    assert!(
+        process.upgrade().is_none(),
+        "the process went with the reap"
+    );
+    assert_eq!(kernel.take_pending(child), Some(GuestAction::Exit(5)));
+    kernel.release(child);
+    assert!(kernel.state.read_or_recover().dead.is_empty());
+    kernel.release(child);
+}
+
+/// A vfork parent killed while it waits, and reaped while its child runs, is out of the table
+/// and its process gone; the child's end still finds it dead (`Resume::Dies`), and the
+/// instance takes its exit and releases it.
+#[test]
+fn a_reaped_vfork_parent_still_dies_at_its_childs_end() {
+    let parked = Parked::new();
+    let (kernel, parent, child) = (&parked.kernel, parked.parent, parked.child);
+    let process = Arc::downgrade(&kernel.process(parent));
+    let init_caller = parked.init_caller();
+    let kill = kernel.sys_kill(&init_caller, parent.0 as Pid, Signal::SIGKILL);
+    assert_eq!(block_on(kill), Ok(0));
+    let dead = GuestAction::ExitMm { task: parent };
+    assert_eq!(kernel.take_pending(child), Some(dead));
+    block_on(kernel.exit_mm(&Caller::new(parent, &parked.memory)));
+    assert!(parked.reap_parent().is_some());
+    {
+        let state = kernel.state.read_or_recover();
+        assert!(!state.tasks.contains_key(&parent));
+        assert!(state.dead.contains_key(&parent));
+    }
+    assert!(
+        process.upgrade().is_none(),
+        "the process went with the reap"
+    );
+
+    let child_caller = Caller::new(child, &parked.memory);
+    assert_eq!(block_on(kernel.exit_group(&child_caller, 0)), Ok(()));
+    let exited = VforkParent {
+        task: parent,
+        resumes: Resume::Dies,
+        pid: child.0 as i32,
+    };
+    assert_eq!(
+        kernel.take_pending(child),
+        Some(GuestAction::VforkReturn {
+            parent: exited,
+            child
+        })
+    );
+    kernel.release(child);
+    assert_eq!(
+        kernel.take_pending(parent),
+        Some(GuestAction::Exit(128 + 9))
+    );
+    kernel.release(parent);
+    assert!(kernel.state.read_or_recover().dead.is_empty());
+}
+
 /// A vfork parent killed while its child runs leaves its memory there and then, as Linux's
 /// does in its own `do_exit` (`exit_mm`), on the memory the child goes on running on: its
 /// robust futexes go to their waiters, and its `clear_child_tid` is zeroed, since the child

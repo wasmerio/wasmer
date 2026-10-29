@@ -107,6 +107,9 @@ pub(crate) struct Tree {
     /// The CPU time of every process reaped so far, which the machine's counts with the live
     /// ones' (`/proc/stat`).
     pub(crate) reaped: CpuTimes,
+    /// The processes reaped whose tasks are still in the task table, for
+    /// [`Kernel::unhash_reaped`] once the tree is unlocked.
+    pub(crate) unhash: Vec<u32>,
     /// The kernel's pid numbers, which a process in the tree holds for its thread group,
     /// process group and session.
     pub(crate) pids: Arc<Pids>,
@@ -133,6 +136,7 @@ impl Tree {
         self.pids.detach(pid, PidType::Tgid);
         self.pids.detach(pgid, PidType::Pgid);
         self.pids.detach(sid, PidType::Sid);
+        self.unhash.push(pid);
         Some(node)
     }
 
@@ -390,7 +394,11 @@ impl Tree {
 ///
 /// [`Control::take_pending`]: wasixv2_syscalls::Control::take_pending
 pub(crate) fn vfork_parent_resumes(state: &State, action: GuestAction) -> GuestAction {
-    let ended = |task: TaskId| state.tasks.get(&task).is_some_and(|t| t.work.ends_image());
+    // A parent its reaper unhashed is dead: only its exit is left for it.
+    let ended = |task: TaskId| {
+        state.dead.contains_key(&task)
+            || state.tasks.get(&task).is_some_and(|t| t.work.ends_image())
+    };
     let resumes = |parent: VforkParent| VforkParent {
         resumes: match parent.resumes {
             Resume::Gone => Resume::Gone,
@@ -736,6 +744,7 @@ impl Kernel {
             let _ = signals.send_group(child_info(exit_signal, pid_for_parent, exit, &ns));
         }
         self.procs.changed.wake(PollMask::empty());
+        self.unhash_reaped();
         self.pid_ns_progress();
     }
 
@@ -1729,7 +1738,9 @@ impl Kernel {
         )
         .await
         .map_err(|_| SysErr::Restart)??;
-        // A child the wait reaped may leave a pid namespace's dying init nothing to wait for.
+        // The child the wait reaped leaves the task table (`release_task`), and may leave a
+        // pid namespace's dying init nothing to wait for.
+        self.unhash_reaped();
         self.pid_ns_progress();
         let (info, usage) = match found {
             Some((pid, exit, child)) => {

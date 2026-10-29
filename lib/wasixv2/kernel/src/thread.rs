@@ -500,9 +500,61 @@ impl Kernel {
         }
     }
 
+    /// `release_task` for the processes reaped since the last call (`__exit_signal`,
+    /// `__unhash_process`, kernel/exit.c): their tasks leave the task table, so nothing finds
+    /// them, and what they held, their process first, goes; what the execution layer still
+    /// asks of their instances stays as [`DeadTask`]s until it releases them. Called once the
+    /// process tree is unlocked, as the task table comes first.
+    pub(crate) fn unhash_reaped(&self) {
+        let reaped = std::mem::take(&mut self.procs.tree.lock_or_recover().unhash);
+        if reaped.is_empty() {
+            return;
+        }
+        let mut gone = Vec::new();
+        {
+            let mut state = self.state.lock_or_recover();
+            let ids: Vec<TaskId> = state
+                .tasks
+                .iter()
+                .filter(|(_, t)| reaped.contains(&t.process.pid.0))
+                .map(|(&id, _)| id)
+                .collect();
+            for id in ids {
+                let Some((mut entry, _)) = unhash_task(&mut state, id) else {
+                    continue;
+                };
+                let flag = entry.work.flag().clone();
+                let dead = DeadTask {
+                    work: std::mem::replace(&mut entry.work, Work::new(flag)),
+                    signals: entry.signals.clone(),
+                    cpu: entry.cpu.clone(),
+                    process: Arc::downgrade(&entry.process),
+                };
+                state.dead.insert(id, dead);
+                gone.push(entry);
+            }
+        }
+        // What the tasks held goes with the table unlocked.
+        drop(gone);
+    }
+
     /// `release_task`: the execution layer is done with `task`, so it goes. A zombie process
-    /// lives on in the process tree.
+    /// lives on in the process tree. For a task its reaper took out of the table already, this
+    /// is `put_task_struct`: what was left of it goes.
     pub(crate) fn release_task(&self, task: TaskId) {
+        let dead = self.state.lock_or_recover().dead.remove(&task);
+        if let Some(mut dead) = dead {
+            let unstarted = dead.work.take_unstarted();
+            let mut state = self.state.lock_or_recover();
+            for child in unstarted {
+                forget_task(&mut state, child);
+            }
+            drop(state);
+            if let Some(process) = dead.process.upgrade() {
+                process.group.released.wake(PollMask::empty());
+            }
+            return;
+        }
         // A fork child that never ran has no `exit_mm` to let its vfork parent go.
         self.complete_vfork_done(task);
         let (process, stopped) = {
@@ -587,10 +639,15 @@ impl Kernel {
             for (process, _) in processes {
                 let gone = || {
                     let state = self.state.lock_or_recover();
+                    // A reaped process's tasks count until their instances are released.
                     let left = state
                         .tasks
                         .values()
-                        .any(|t| Arc::ptr_eq(&t.process, &process));
+                        .any(|t| Arc::ptr_eq(&t.process, &process))
+                        || state
+                            .dead
+                            .values()
+                            .any(|d| std::ptr::eq(d.process.as_ptr(), Arc::as_ptr(&process)));
                     (!left).then_some(())
                 };
                 wait_event(&process.group.released, gone, &NoInterrupt)
@@ -618,7 +675,14 @@ impl Kernel {
 
     /// Waits until `task` is the only task of its thread group.
     pub(crate) async fn group_wait(&self, task: TaskId) {
-        let process = self.process(task);
+        // A task its reaper took out of the table was its group's last.
+        let process = {
+            let state = self.state.read_or_recover();
+            match state.tasks.get(&task) {
+                Some(entry) => entry.process.clone(),
+                None => return,
+            }
+        };
         let alone = || {
             let state = self.state.lock_or_recover();
             let others = state
@@ -1070,6 +1134,13 @@ fn gone_in_vfork(waiting: &[TaskId], id: TaskId, t: &Task) -> bool {
 /// thread that never started), which the caller reports once it unlocked the task table
 /// ([`Kernel::report_group_stop`]).
 pub(crate) fn forget_task(state: &mut State, task: TaskId) -> Option<Arc<Process>> {
+    let (entry, completed) = unhash_task(state, task)?;
+    completed.then_some(entry.process)
+}
+
+/// Takes `task` out of the table, its pid and its part in its group's signals and count of
+/// live tasks with it. Returns its entry, and whether that completed a group stop.
+fn unhash_task(state: &mut State, task: TaskId) -> Option<(Task, bool)> {
     let entry = state.tasks.remove(&task)?;
     state.pids.detach(task.0, crate::pid::PidType::Pid);
     let completed = entry.signals.detach();
@@ -1078,5 +1149,17 @@ pub(crate) fn forget_task(state: &mut State, task: TaskId) -> Option<Arc<Process
         group.state.lock_or_recover().live -= 1;
     }
     group.released.wake(PollMask::empty());
-    completed.then_some(entry.process)
+    Some((entry, completed))
+}
+
+/// What is left of a task of a reaped process once its reaper took it out of the task table
+/// (`release_task`), until the execution layer lets it go (`put_task_struct`): what its
+/// instance takes on its way out. Its process, memory, files and the rest went with the reap.
+pub(crate) struct DeadTask {
+    /// Its exit, or a vfork parent's, which its instance unwinds through.
+    pub(crate) work: Work,
+    pub(crate) signals: Arc<crate::signal::TaskSignals>,
+    pub(crate) cpu: Arc<CpuAccount>,
+    /// Its process while anyone else holds it, for [`Kernel::terminate`]'s wait.
+    process: std::sync::Weak<Process>,
 }
