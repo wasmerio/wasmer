@@ -36,6 +36,7 @@
 
 mod ops;
 mod register;
+mod tctx;
 
 use std::{
     collections::{HashMap, VecDeque},
@@ -52,7 +53,7 @@ use wasixv2_abi::{
 use wasixv2_host::Host;
 use wasixv2_pages::SharedPages;
 use wasixv2_syscalls::{
-    Caller, Errno, Fd, LocalFuture, SysErr, SysResult, read_value, write_value,
+    Caller, Errno, Fd, LocalFuture, SysErr, SysResult, TaskId, read_value, write_value,
 };
 use wasixv2_wait::{
     PollMask, PollTable, Pollable, WaitQueue, WaitRegistration, poll_wait, wait_event,
@@ -61,6 +62,7 @@ use wasixv2_wait::{
 
 use crate::{
     Kernel,
+    cred::Cred,
     eventfd::EventFd,
     file::{Backing, FileObject, Io, MappedPages, OpenFile},
     mm::PAGE_SIZE,
@@ -69,6 +71,7 @@ use crate::{
 };
 
 pub(crate) use ops::Req;
+pub(crate) use tctx::{Cancel, Tctx};
 
 /// `IORING_MAX_ENTRIES` and `IORING_MAX_CQ_ENTRIES`.
 const MAX_ENTRIES: u32 = 32768;
@@ -94,6 +97,7 @@ const FEATURES: u32 = IoringFeatFlags::IORING_FEAT_SINGLE_MMAP.0
     | IoringFeatFlags::IORING_FEAT_NODROP.0
     | IoringFeatFlags::IORING_FEAT_SUBMIT_STABLE.0
     | IoringFeatFlags::IORING_FEAT_RW_CUR_POS.0
+    | IoringFeatFlags::IORING_FEAT_CUR_PERSONALITY.0
     | IoringFeatFlags::IORING_FEAT_FAST_POLL.0
     | IoringFeatFlags::IORING_FEAT_POLL_32BITS.0
     | IoringFeatFlags::IORING_FEAT_EXT_ARG.0
@@ -230,6 +234,13 @@ struct State {
     pbufs: HashMap<u16, VecDeque<Pbuf>>,
     /// `IORING_REGISTER_EVENTFD`, and whether only async completions signal it.
     eventfd: Option<(Arc<OpenFile>, bool)>,
+    /// `IORING_REGISTER_PERSONALITY`'s credentials, by id from 1 (`ctx->personalities`),
+    /// and the id to try next.
+    personalities: std::collections::BTreeMap<u16, Cred>,
+    pers_next: u16,
+    /// `IORING_SETUP_SINGLE_ISSUER`'s one submitter (`submitter_task`), set by setup or by
+    /// enabling a disabled ring.
+    submitter: Option<TaskId>,
 }
 
 /// A provided buffer (`struct io_buffer`).
@@ -409,6 +420,21 @@ impl Ctx {
         &self.timers
     }
 
+    /// `io_allowed_run_tw`: a deferred ring's task work is its submitter's alone.
+    fn allowed_run_tw(&self, task: TaskId) -> bool {
+        !self.shape.has(IoringSetupFlags::IORING_SETUP_DEFER_TASKRUN)
+            || self.state.lock_or_recover().submitter == Some(task)
+    }
+
+    /// `io_uring_try_cancel_requests` for the task `task`: its requests that `how` takes
+    /// complete with `ECANCELED`.
+    fn cancel_task(&self, task: TaskId, how: Cancel) {
+        let cancelled = ops::cancel(self, |req| req.task == task && how.matches(req), true);
+        for req in cancelled {
+            self.finish(req, -Errno::ECANCELED.0, 0, true);
+        }
+    }
+
     fn host(&self) -> &Arc<dyn Host> {
         &self.host
     }
@@ -555,8 +581,16 @@ impl Kernel {
         }
         let shape = io_uring_sizes(&p, entries)?;
         let setup = p.flags;
-        if setup & IoringSetupFlags::IORING_SETUP_DEFER_TASKRUN.0 != 0
-            && setup & IoringSetupFlags::IORING_SETUP_SINGLE_ISSUER.0 == 0
+        // `io_uring_sanitise_params`.
+        let has = |flag: IoringSetupFlags| setup & flag.0 != 0;
+        if has(IoringSetupFlags::IORING_SETUP_DEFER_TASKRUN)
+            && !has(IoringSetupFlags::IORING_SETUP_SINGLE_ISSUER)
+        {
+            return Err(Errno::EINVAL.into());
+        }
+        if has(IoringSetupFlags::IORING_SETUP_TASKRUN_FLAG)
+            && !has(IoringSetupFlags::IORING_SETUP_COOP_TASKRUN)
+            && !has(IoringSetupFlags::IORING_SETUP_DEFER_TASKRUN)
         {
             return Err(Errno::EINVAL.into());
         }
@@ -602,6 +636,11 @@ impl Kernel {
             user_addr: 0,
         };
         let ctx = Ctx::new(shape, (rings, sqes), self.timers.clone(), self.host.clone());
+        if ctx.shape.has(IoringSetupFlags::IORING_SETUP_SINGLE_ISSUER)
+            && !ctx.shape.has(IoringSetupFlags::IORING_SETUP_R_DISABLED)
+        {
+            ctx.state.lock_or_recover().submitter = Some(caller.task());
+        }
         write_value(caller.memory(), params, &p).await?;
         let file = OpenFile::new(
             Backing::Stream(Arc::new(IoRing(ctx)), self.pseudo.anon("[io_uring]")),
@@ -628,18 +667,26 @@ impl Kernel {
         if flags & !ENTER_FLAGS != 0 {
             return Err(Errno::EINVAL.into());
         }
-        // No registered ring descriptors (`IORING_REGISTER_RING_FDS`).
-        if flags & IoringEnterFlags::IORING_ENTER_REGISTERED_RING.0 != 0 {
-            return Err(Errno::EINVAL.into());
-        }
-        let file = self.file(caller.task(), fd)?;
+        let registered = flags & IoringEnterFlags::IORING_ENTER_REGISTERED_RING.0 != 0;
+        let file = self.ring_ctx_file(caller, fd, registered)?;
         let ctx = ring_of(&file)?;
-        if ctx.state.lock_or_recover().disabled {
+        let (disabled, submitter) = {
+            let state = ctx.state.lock_or_recover();
+            (state.disabled, state.submitter)
+        };
+        if disabled {
             return Err(Errno::EBADFD.into());
         }
         let mm = self.mm(caller.task()).id();
         let mut ret = 0;
         if to_submit > 0 {
+            // `__io_uring_add_tctx_node_from_submit`.
+            if ctx.shape.has(IoringSetupFlags::IORING_SETUP_SINGLE_ISSUER)
+                && submitter != Some(caller.task())
+            {
+                return Err(Errno::EEXIST.into());
+            }
+            self.tctx(caller.task()).add(&ctx);
             let _submit = ctx.submit.lock().await;
             self.run_task_work(caller, &ctx, mm).await;
             ret = self.submit_sqes(caller, &ctx, mm, to_submit).await?;
@@ -654,7 +701,7 @@ impl Kernel {
             if ret == 0 {
                 return waited;
             }
-        } else if to_submit == 0 {
+        } else if to_submit == 0 && ctx.allowed_run_tw(caller.task()) {
             let _submit = ctx.submit.lock().await;
             self.run_task_work(caller, &ctx, mm).await;
         }
@@ -747,6 +794,10 @@ impl Kernel {
         (argp, argsz): (wasixv2_abi::ConstVoidPtr, u32),
     ) -> SysResult<i32> {
         let (sigmask, sigsz, ts) = self.ext_arg(caller, flags, argp, argsz).await?;
+        // Only the submitter runs a deferred ring's task work.
+        if !ctx.allowed_run_tw(caller.task()) {
+            return Err(Errno::EEXIST.into());
+        }
         let deadline = match ts {
             None => None,
             Some(ts) => {
@@ -833,13 +884,19 @@ impl Kernel {
         arg: VoidPtr,
         nr_args: u32,
     ) -> SysResult<i32> {
-        // No registered ring descriptors.
-        if opcode & wasixv2_abi::IoUringRegisterOp::IORING_REGISTER_USE_REGISTERED_RING.0 != 0 {
+        let use_registered = wasixv2_abi::IoUringRegisterOp::IORING_REGISTER_USE_REGISTERED_RING.0;
+        let registered = opcode & use_registered != 0;
+        let opcode = opcode & !use_registered;
+        if opcode >= wasixv2_abi::IoUringRegisterOp::IORING_REGISTER_LAST.0 {
             return Err(Errno::EINVAL.into());
         }
-        let file = self.file(caller.task(), fd)?;
+        let file = self.ring_ctx_file(caller, fd, registered)?;
         let ctx = ring_of(&file)?;
         let _submit = ctx.submit.lock().await;
+        let submitter = ctx.state.lock_or_recover().submitter;
+        if submitter.is_some_and(|task| task != caller.task()) {
+            return Err(Errno::EEXIST.into());
+        }
         self.register(caller, &ctx, opcode, arg.addr(), nr_args)
             .await
     }

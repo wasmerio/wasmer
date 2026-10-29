@@ -1390,6 +1390,8 @@ impl Kernel {
                 sched,
                 thread: task.thread.for_process(flags, tls, child_tid),
                 signals,
+                cred_override: None,
+                uring: Arc::default(),
             };
             state.last_id += 1;
             state.tasks.insert(id, new);
@@ -1529,6 +1531,9 @@ impl Kernel {
         // back.
         let task = caller.task();
         let exec = self.zap_threads(task)?;
+        // Past the point of no return: the old image's io_uring requests go
+        // (`io_uring_task_cancel`).
+        self.io_uring_cancel(task, crate::io_uring::Cancel::All);
         let leader = self.process(task).pid;
         // The leader leaves its old image for the new one, which runs once committed.
         let image = match task == leader {

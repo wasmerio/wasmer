@@ -76,7 +76,7 @@ impl Group {
         self.state.lock_or_recover().live <= 1
     }
 
-    fn status(&self) -> Option<i32> {
+    pub(crate) fn status(&self) -> Option<i32> {
         self.state.lock_or_recover().exit
     }
 }
@@ -264,6 +264,8 @@ impl Kernel {
                     .signals
                     .group()
                     .attach(id, task.signals.inherit(THREAD), flag),
+                cred_override: None,
+                uring: Arc::default(),
             };
             state.last_id += 1;
             state.tasks.insert(id, new);
@@ -977,6 +979,8 @@ impl Kernel {
             let thread = take_futex_state(entry);
             (thread, mm_users(&state, task))
         };
+        // `do_exit`'s `io_uring_files_cancel`, while the requests' memory is still there.
+        self.io_uring_files_cancel(task);
         let tid = self.own_tid(task) as u32;
         self.exit_thread(caller, tid, thread, users > 1).await;
         // The end of `mm_release`.

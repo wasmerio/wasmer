@@ -133,12 +133,10 @@ impl Kernel {
     }
 
     pub(crate) fn task_env(&self, task: TaskId) -> Env {
-        let (fs, process) = self.task_ref(task, |task| {
-            (task.fs.lock_or_recover().clone(), task.process.clone())
-        });
+        let fs = self.task_ref(task, |task| task.fs.lock_or_recover().clone());
         Env {
             fs,
-            cred: process.cred().fs(),
+            cred: self.current_cred(task).fs(),
             task: task.0,
         }
     }
