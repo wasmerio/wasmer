@@ -858,6 +858,9 @@ impl Kernel {
             }
             PrctlOption::PR_SET_THP_DISABLE | PR_SET_VMA => {}
             PrctlOption::PR_SET_PTRACER => return self.yama_set_ptracer(caller, arg2),
+            // No preemptive slice extensions on wasm; see DESIGN.md. The prctl
+            // is deliberately unsupported while rseq_slice_yield returns zero.
+            PrctlOption::PR_RSEQ_SLICE_EXTENSION => return Err(Errno::EINVAL.into()),
             _ => return Err(Errno::EINVAL.into()),
         }
         Ok(0)

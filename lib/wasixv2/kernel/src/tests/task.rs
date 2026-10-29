@@ -1364,3 +1364,44 @@ fn binfmt_misc_takes_credentials_from_the_binary_with_c() {
     assert_eq!(m.exec(b"/x.csu", &[b"c"]), Ok(0));
     assert_eq!(euid(), 1000);
 }
+
+#[test]
+fn rseq_slice_yield_has_no_extension_to_relinquish() {
+    use wasixv2_abi::{PrctlArg, PrctlOption, RseqFlags};
+    let (kernel, task, memory) = machine();
+    let caller = Caller::new(task, &memory);
+    assert_eq!(block_on(kernel.rseq_slice_yield(&caller)), Ok(0));
+    assert_eq!(
+        block_on(kernel.rseq(
+            &caller,
+            GuestPtrMut::new(0x1040),
+            64,
+            RseqFlags::RSEQ_FLAG_SLICE_EXT_DEFAULT_ON.0,
+            0x53053053
+        )),
+        Ok(0)
+    );
+    for op in [
+        PrctlArg::PR_RSEQ_SLICE_EXTENSION_GET,
+        PrctlArg::PR_RSEQ_SLICE_EXTENSION_SET,
+    ] {
+        assert_eq!(
+            errno(block_on(kernel.prctl(
+                &caller,
+                PrctlOption::PR_RSEQ_SLICE_EXTENSION,
+                op.0,
+                1,
+                0,
+                0
+            ))),
+            Errno::EINVAL
+        );
+    }
+    assert_eq!(block_on(kernel.rseq_slice_yield(&caller)), Ok(0));
+    assert_eq!(block_on(kernel.rseq_slice_yield(&caller)), Ok(0));
+    assert_eq!(
+        super::ipc::get(&memory, 0x1050, 4),
+        [0; 4],
+        "no feature flags enabled"
+    );
+}
