@@ -14,6 +14,46 @@ const CREATE: i32 = IpcFlags::IPC_CREAT.0 as i32 | 0o600;
 const NOWAIT: i16 = IpcFlags::IPC_NOWAIT.0 as i16;
 const UNDO: i16 = 0x1000;
 
+#[test]
+fn sysv_ownership_uses_effective_ids_and_access_ignores_fsuid() {
+    let (kernel, task, memory) = super::cred::machine_as(0, 0);
+    let caller = Caller::new(task, &memory);
+    let keep = u32::MAX;
+    assert_eq!(block_on(kernel.setresgid(&caller, keep, 100, keep)), Ok(0));
+    assert_eq!(block_on(kernel.setfsgid(&caller, 0)), Ok(100));
+    assert_eq!(block_on(kernel.setresuid(&caller, keep, 1000, keep)), Ok(0));
+    assert_eq!(block_on(kernel.setfsuid(&caller, 0)), Ok(1000));
+
+    let msg = block_on(kernel.msgget(&caller, 0, CREATE)).unwrap();
+    let sem = block_on(kernel.semget(&caller, 0, 1, CREATE)).unwrap();
+    let shm = block_on(kernel.shmget(&caller, 0, 1, CREATE)).unwrap();
+    // Linux ipc/util.c:ipc_addid uses current_euid/current_egid, not the VFS ids.
+    block_on(kernel.msgctl(&caller, msg, IpcCmd::IPC_STAT.0, GuestPtrMut::new(0x200))).unwrap();
+    let ds: Msqid64Ds = block_on(read_value(&memory, GuestPtr::new(0x200))).unwrap();
+    assert_eq!((ds.msg_perm.uid, ds.msg_perm.gid), (1000, 100));
+    assert_eq!((ds.msg_perm.cuid, ds.msg_perm.cgid), (1000, 100));
+    semctl(&kernel, &caller, sem, 0, IpcCmd::IPC_STAT, 0x200).unwrap();
+    let ds: Semid64Ds = block_on(read_value(&memory, GuestPtr::new(0x200))).unwrap();
+    assert_eq!((ds.sem_perm.uid, ds.sem_perm.gid), (1000, 100));
+    block_on(kernel.shmctl(&caller, shm, IpcCmd::IPC_STAT.0, GuestPtrMut::new(0x200))).unwrap();
+    let ds: Shmid64Ds = block_on(read_value(&memory, GuestPtr::new(0x200))).unwrap();
+    assert_eq!((ds.shm_perm.uid, ds.shm_perm.gid), (1000, 100));
+
+    // Changing only fsuid neither loses access nor ownership (ipcperms/ ipcctl_obtain_check).
+    assert_eq!(block_on(kernel.setfsuid(&caller, 1000)), Ok(0));
+    assert_eq!(msgsnd(&kernel, &caller, msg, 1, b"x", 0), Ok(0));
+    assert_eq!(semop(&kernel, &caller, sem, &[(0, 1, 0)]), Ok(0));
+    assert_eq!(
+        block_on(kernel.msgctl(&caller, msg, IpcCmd::IPC_RMID.0, GuestPtrMut::NULL)),
+        Ok(0)
+    );
+    assert_eq!(semctl(&kernel, &caller, sem, 0, IpcCmd::IPC_RMID, 0), Ok(0));
+    assert_eq!(
+        block_on(kernel.shmctl(&caller, shm, IpcCmd::IPC_RMID.0, GuestPtrMut::NULL)),
+        Ok(0)
+    );
+}
+
 fn memory() -> FlatMemory {
     FlatMemory(RefCell::new(vec![0; 2 * WASM_PAGE_SIZE as usize]))
 }

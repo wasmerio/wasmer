@@ -568,7 +568,7 @@ impl Kernel {
                 }
                 let mut perm = segment.perm();
                 if !cred.ns_capable(Cap::IpcLock) {
-                    if cred.fsuid != perm.uid && cred.fsuid != perm.cuid {
+                    if cred.euid != perm.uid && cred.euid != perm.cuid {
                         return Err(Errno::EPERM.into());
                     }
                     let memlock = self
