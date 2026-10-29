@@ -277,6 +277,7 @@ impl Kernel {
             state.tasks.insert(id, new);
             id
         };
+        self.ptrace_init_task(parent, child, flags, 0);
         // A thread is in its group's pid namespace, the caller's.
         let tid = self.own_tid(child);
         // Linux ignores faults on both writes.
@@ -292,6 +293,7 @@ impl Kernel {
             start_arg,
         };
         self.queue(parent, start);
+        self.ptrace_clone_event(parent).await;
         Ok(tid)
     }
 
@@ -344,6 +346,10 @@ impl Kernel {
     /// process.
     pub(crate) async fn sys_exit(&self, caller: &Caller<'_>, status: i32) -> SysResult<()> {
         let task = caller.task();
+        // `do_exit`'s `ptrace_event(PTRACE_EVENT_EXIT, code)`, with the status as wait has it.
+        let event = wasixv2_abi::PtraceEvent::PTRACE_EVENT_EXIT;
+        self.ptrace_event(task, event, ((status & 0xff) << 8) as u64)
+            .await;
         let process = self.process(task);
         self.exit_mm(caller).await;
         let last = {
@@ -394,6 +400,9 @@ impl Kernel {
     /// in its own exit, once it stopped running, so a robust lock one takes after the call is
     /// released too.
     pub(crate) async fn sys_exit_group(&self, caller: &Caller<'_>, status: i32) -> SysResult<()> {
+        let event = wasixv2_abi::PtraceEvent::PTRACE_EVENT_EXIT;
+        self.ptrace_event(caller.task(), event, ((status & 0xff) << 8) as u64)
+            .await;
         self.do_group_exit(caller.task(), status);
         self.exit_mm(caller).await;
         Ok(())

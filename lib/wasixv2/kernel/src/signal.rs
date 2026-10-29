@@ -279,6 +279,11 @@ impl Pending {
         });
     }
 
+    /// The queued signals, oldest first (`pending->list`).
+    fn list(&self) -> impl Iterator<Item = Siginfo> + '_ {
+        self.queue.iter().map(|queued| queued.info)
+    }
+
     fn has_timer(&self, timer: &Arc<PosixTimer>) -> bool {
         self.queue
             .iter()
@@ -365,6 +370,8 @@ struct TaskState {
     /// The task stopped and runs no guest code until it is continued (`JOBCTL_STOPPED`,
     /// `TASK_STOPPED`).
     stopped: bool,
+    /// Whether and how the task is traced, and its ptrace stops (see `ptrace.rs`).
+    ptrace: crate::ptrace::TaskTrace,
 }
 
 impl TaskState {
@@ -383,6 +390,7 @@ impl TaskState {
             stop_pending: false,
             stop_dequeued: false,
             stopped: false,
+            ptrace: Default::default(),
         }
     }
 
@@ -976,7 +984,18 @@ impl GroupState {
                 .is_some_and(|t| t.blocked & bit(sig) != 0),
             None => self.tasks.values().all(|t| t.blocked & bit(sig) != 0),
         };
-        blocked || !self.ignores(sig, force)
+        // `sig_ignored`: a traced task's tracer sees even an ignored signal.
+        let traced = match task {
+            Some(task) => self
+                .tasks
+                .get(&task)
+                .is_some_and(|t| t.ptrace.link.is_some()),
+            None => self
+                .leader
+                .and_then(|l| self.tasks.get(&l))
+                .is_some_and(|t| t.ptrace.link.is_some()),
+        };
+        blocked || (traced && sig != Signal::SIGKILL.0) || !self.ignores(sig, force)
     }
 
     /// `prepare_signal`'s SIGCONT: every task goes on, and a group that was stopped, or was
@@ -1058,6 +1077,8 @@ impl GroupState {
     fn cancel_stop(&mut self, dying: bool) {
         for task in self.tasks.values_mut() {
             (task.stop_pending, task.stop_dequeued, task.stopped) = (false, false, false);
+            // A fatal signal ends ptrace stops too (`signal_wake_up(t, 1)` wakes `__TASK_TRACED`).
+            task.ptrace.traced = false;
         }
         self.jobctl.group_stop_count = 0;
         if dying {
@@ -1325,6 +1346,292 @@ impl GroupState {
     }
 }
 
+// ---- ptrace ----
+
+/// A ptrace stop to enter (`ptrace_stop`'s arguments).
+pub(crate) struct TraceStop {
+    pub(crate) exit_code: i32,
+    /// `CLD_TRAPPED`, or `CLD_STOPPED` for a stop that takes part in a group stop.
+    pub(crate) why: SiCode,
+    pub(crate) message: u64,
+    pub(crate) info: Option<Siginfo>,
+    pub(crate) sync: Option<crate::ptrace::SyncStop>,
+}
+
+impl GroupState {
+    /// `__fatal_signal_pending`: SIGKILL waits for `task`.
+    fn sigkill_pending(&self, task: TaskId) -> bool {
+        let own = self.tasks.get(&task).map_or(0, |t| t.pending.set);
+        (own | self.shared.set) & bit(Signal::SIGKILL.0) != 0
+    }
+
+    /// `ptrace_stop`'s first half: `task` enters a ptrace stop, unless it is not traced or
+    /// SIGKILL is pending. Returns whether that completed a group stop it took part in.
+    fn enter_trace_stop(&mut self, task: TaskId, stop: TraceStop) -> Option<bool> {
+        let killed = self.sigkill_pending(task);
+        let me = self.tasks.get_mut(&task)?;
+        if me.ptrace.link.is_none() || killed {
+            return None;
+        }
+        let trace = &mut me.ptrace;
+        trace.traced = true;
+        (trace.message, trace.exit_code) = (stop.message, stop.exit_code);
+        trace.sync_stop = stop.sync;
+        trace.trap_stop = false;
+        if stop
+            .info
+            .is_some_and(|info| info.si_code >> 8 == crate::ptrace::EVENT_STOP)
+        {
+            trace.trap_notify = false;
+        }
+        trace.last_siginfo = stop.info;
+        let pending = me.stop_pending;
+        Some(stop.why == SiCode::CLD_STOPPED && pending && self.participate(task))
+    }
+
+    /// `ptrace_stop`'s second half, once the task is woken: what the tracer resumed it with,
+    /// and the signal information of the stop as the tracer left it.
+    fn leave_trace_stop(&mut self, task: TaskId) -> (i32, Option<Siginfo>) {
+        let Some(me) = self.tasks.get_mut(&task) else {
+            return (0, None);
+        };
+        let trace = &mut me.ptrace;
+        let code = std::mem::take(&mut trace.exit_code);
+        let info = trace.last_siginfo.take();
+        (
+            trace.message,
+            trace.listening,
+            trace.traced,
+            trace.sync_stop,
+        ) = (0, false, false, None);
+        self.recalc_sigpending(task);
+        (code, info)
+    }
+}
+
+impl Signals {
+    /// `send_sig(sig, task, 1)`: `sig` from the kernel, to `task` alone.
+    pub(crate) fn send_task_kernel(&self, task: TaskId, sig: i32) {
+        let _ = self.send(Some(task), kernel_info(sig));
+    }
+
+    /// `fatal_signal_pending` for `task`.
+    pub(crate) fn sigkill_pending_for(&self, task: TaskId) -> bool {
+        self.state.lock_or_recover().sigkill_pending(task)
+    }
+
+    /// Runs `f` on `task`'s ptrace state, if the task is in the group.
+    pub(crate) fn with_trace<R>(
+        &self,
+        task: TaskId,
+        f: impl FnOnce(&mut crate::ptrace::TaskTrace) -> R,
+    ) -> Option<R> {
+        let mut state = self.state.lock_or_recover();
+        state.tasks.get_mut(&task).map(|t| f(&mut t.ptrace))
+    }
+
+    /// `ptrace_link` and `ptrace_set_stopped` (`PTRACE_ATTACH`, `PTRACE_SEIZE`,
+    /// `PTRACE_TRACEME` and a traced parent's new child): `EPERM` for a task that is exiting or
+    /// traced already. An attach that does not seize sends SIGSTOP (`with_sigstop`); a task in
+    /// a group stop leaves it for a trap stop, which its tracer is told of.
+    pub(crate) fn ptrace_link(
+        &self,
+        task: TaskId,
+        link: crate::ptrace::Link,
+        with_sigstop: bool,
+    ) -> Result<(), Errno> {
+        let mut state = self.state.lock_or_recover();
+        let me = state.tasks.get_mut(&task).ok_or(Errno::EPERM)?;
+        if me.exiting || me.ptrace.link.is_some() {
+            return Err(Errno::EPERM);
+        }
+        me.ptrace = crate::ptrace::TaskTrace {
+            link: Some(link),
+            ..Default::default()
+        };
+        if with_sigstop {
+            let info = kernel_info(Signal::SIGSTOP.0);
+            let _ = state.pending(Some(task)).add(info, Ok(None));
+            state.complete(Some(task), Signal::SIGSTOP.0);
+        }
+        let me = state.task(task);
+        if me.stopped {
+            me.stopped = false;
+            me.ptrace.trap_stop = true;
+            me.signal_wake_up();
+        }
+        drop(state);
+        self.queue.wake(wasixv2_wait::PollMask::empty());
+        Ok(())
+    }
+
+    /// `__ptrace_unlink`: `task` is traced no more. It goes on with `exit_code` if it was in
+    /// a ptrace stop (`PTRACE_DETACH`'s signal), and back into a group stop under way or done.
+    pub(crate) fn ptrace_unlink(&self, task: TaskId, exit_code: Option<i32>) {
+        let mut state = self.state.lock_or_recover();
+        let group_stop = state.jobctl.stopped || state.jobctl.group_stop_count != 0;
+        let Some(me) = state.tasks.get_mut(&task) else {
+            return;
+        };
+        let was_traced = me.ptrace.traced;
+        let resume = me.ptrace.sync_stop;
+        me.ptrace = crate::ptrace::TaskTrace {
+            exit_code: exit_code.unwrap_or(me.ptrace.exit_code),
+            last_siginfo: me.ptrace.last_siginfo,
+            // A stop the task still has to come back from keeps what it needs for that.
+            sync_stop: resume,
+            ..Default::default()
+        };
+        if !me.exiting && group_stop {
+            me.stop_pending = true;
+        }
+        if me.stop_pending || was_traced {
+            me.signal_wake_up();
+        }
+        drop(state);
+        self.queue.wake(wasixv2_wait::PollMask::empty());
+    }
+
+    /// `ptrace_check_attach` (with `ptrace_freeze_traced`): `task` is traced by `tracer` and,
+    /// unless `any_state`, sits in a ptrace stop it is not listening in, with no SIGKILL
+    /// pending; `ESRCH` otherwise.
+    pub(crate) fn ptrace_check(
+        &self,
+        task: TaskId,
+        tracer: TaskId,
+        any_state: bool,
+    ) -> Result<crate::ptrace::Link, Errno> {
+        let state = self.state.lock_or_recover();
+        let me = state.tasks.get(&task).ok_or(Errno::ESRCH)?;
+        let link = me.ptrace.link.filter(|link| link.tracer == tracer);
+        let link = link.ok_or(Errno::ESRCH)?;
+        let stopped = me.ptrace.traced && !me.ptrace.listening && !state.sigkill_pending(task);
+        match any_state || stopped {
+            true => Ok(link),
+            false => Err(Errno::ESRCH),
+        }
+    }
+
+    /// `ptrace_resume`: `task` leaves its ptrace stop with `data`, stopping at syscalls from
+    /// now on with `syscall` (`PTRACE_SYSCALL`).
+    pub(crate) fn ptrace_resume(&self, task: TaskId, syscall: bool, data: i32) {
+        let mut state = self.state.lock_or_recover();
+        if let Some(me) = state.tasks.get_mut(&task) {
+            me.ptrace.syscall = syscall;
+            me.ptrace.exit_code = data;
+            me.ptrace.traced = false;
+            me.flag.raise();
+        }
+        drop(state);
+        self.queue.wake(wasixv2_wait::PollMask::empty());
+    }
+
+    /// `PTRACE_INTERRUPT`: a trap stop is due (`JOBCTL_TRAP_STOP`); a listening task leaves
+    /// its stop to take it.
+    pub(crate) fn ptrace_interrupt(&self, task: TaskId) {
+        let mut state = self.state.lock_or_recover();
+        let Some(me) = state.tasks.get_mut(&task) else {
+            return;
+        };
+        me.ptrace.trap_stop = true;
+        if me.ptrace.listening {
+            me.ptrace.traced = false;
+        }
+        me.signal_wake_up();
+        drop(state);
+        self.queue.wake(wasixv2_wait::PollMask::empty());
+    }
+
+    /// `PTRACE_LISTEN`: in a `PTRACE_EVENT_STOP` trap stop, the task listens: a wait does not
+    /// report it, and a notification (`JOBCTL_TRAP_NOTIFY`) traps it again. `EIO` in any other
+    /// stop.
+    pub(crate) fn ptrace_listen(&self, task: TaskId) -> Result<(), Errno> {
+        let mut state = self.state.lock_or_recover();
+        let me = state.tasks.get_mut(&task).ok_or(Errno::EIO)?;
+        let event_stop = me
+            .ptrace
+            .last_siginfo
+            .is_some_and(|info| info.si_code >> 8 == crate::ptrace::EVENT_STOP);
+        if !event_stop {
+            return Err(Errno::EIO);
+        }
+        me.ptrace.listening = true;
+        if me.ptrace.trap_notify {
+            me.ptrace.traced = false;
+            me.signal_wake_up();
+        }
+        drop(state);
+        self.queue.wake(wasixv2_wait::PollMask::empty());
+        Ok(())
+    }
+
+    /// `task_stopped_code(p, ptrace=1)` for a tracer's `wait`: the code of `task`'s ptrace
+    /// stop that no wait reported yet, which a wait without `nowait` takes.
+    pub(crate) fn ptrace_report(&self, task: TaskId, nowait: bool) -> Option<i32> {
+        let mut state = self.state.lock_or_recover();
+        let trace = &mut state.tasks.get_mut(&task)?.ptrace;
+        if !trace.traced || trace.listening || trace.exit_code == 0 {
+            return None;
+        }
+        let code = trace.exit_code;
+        if !nowait {
+            trace.exit_code = 0;
+        }
+        Some(code)
+    }
+
+    /// `ptrace_stop`'s first half for a stop outside [`Kernel::take_signal`].
+    pub(crate) fn enter_trace_stop(&self, task: TaskId, stop: TraceStop) -> Option<bool> {
+        self.state.lock_or_recover().enter_trace_stop(task, stop)
+    }
+
+    /// `ptrace_stop`'s second half for a stop outside [`Kernel::take_signal`].
+    pub(crate) fn leave_trace_stop(&self, task: TaskId) -> (i32, Option<Siginfo>) {
+        self.state.lock_or_recover().leave_trace_stop(task)
+    }
+
+    /// `ptrace_peek_siginfo`: up to `nr` signals queued for `task` (or the group, `shared`)
+    /// from the `off`-th on.
+    pub(crate) fn peek_siginfo(
+        &self,
+        task: TaskId,
+        shared: bool,
+        off: u64,
+        nr: usize,
+    ) -> Vec<Siginfo> {
+        let state = self.state.lock_or_recover();
+        let pending = match shared {
+            true => &state.shared,
+            false => match state.tasks.get(&task) {
+                Some(t) => &t.pending,
+                None => return Vec::new(),
+            },
+        };
+        let skip = usize::try_from(off).unwrap_or(usize::MAX);
+        pending.list().skip(skip).take(nr).collect()
+    }
+
+    /// The mask `PTRACE_GETSIGMASK` reads: a `sigsuspend`'s saved one while it lasts.
+    pub(crate) fn trace_sigmask(&self, task: TaskId) -> Option<u64> {
+        let state = self.state.lock_or_recover();
+        let me = state.tasks.get(&task)?;
+        Some(me.saved.unwrap_or(me.blocked))
+    }
+
+    /// `PTRACE_SETSIGMASK`: the mask, minus SIGKILL and SIGSTOP, with any saved one forgotten.
+    pub(crate) fn set_trace_sigmask(&self, task: TaskId, mask: u64) {
+        let mut state = self.state.lock_or_recover();
+        if state.tasks.contains_key(&task) {
+            state.task(task).saved = None;
+            let woke = state.set_blocked(task, mask);
+            drop(state);
+            if woke {
+                self.queue.wake(wasixv2_wait::PollMask::empty());
+            }
+        }
+    }
+}
+
 /// One task's view of its group's signals: Linux's `signal_pending` for blocking waits.
 pub(crate) struct TaskSignals {
     group: Arc<Signals>,
@@ -1531,10 +1838,31 @@ impl TaskSignals {
         completed
     }
 
-    /// The task is stopped (`TASK_STOPPED`), as `/proc` shows it and its stop wait waits on.
+    /// The task is stopped (`TASK_STOPPED`) or in a ptrace stop (`TASK_TRACED`), as its stop
+    /// wait waits on.
     pub(crate) fn is_stopped(&self) -> bool {
         let state = self.group.state.lock_or_recover();
-        state.tasks.get(&self.task).is_some_and(|t| t.stopped)
+        state
+            .tasks
+            .get(&self.task)
+            .is_some_and(|t| t.stopped || t.ptrace.traced)
+    }
+
+    /// The task tracing this one (`ptrace_parent`).
+    pub(crate) fn tracer(&self) -> Option<TaskId> {
+        let state = self.group.state.lock_or_recover();
+        state
+            .tasks
+            .get(&self.task)?
+            .ptrace
+            .link
+            .map(|link| link.tracer)
+    }
+
+    /// The task is in a ptrace stop (`TASK_TRACED`), as `/proc` shows it (`t`).
+    pub(crate) fn is_traced(&self) -> bool {
+        let state = self.group.state.lock_or_recover();
+        state.tasks.get(&self.task).is_some_and(|t| t.ptrace.traced)
     }
 
     // ---- ipc: signalfd ----
@@ -1827,24 +2155,95 @@ impl Kernel {
             self.notify_parent_cldstop(&process, why, status);
             state = signals.group.state.lock_or_recover();
         }
+        // ---- ptrace ----
+        // Back from a ptrace stop this function entered: a signal-delivery stop delivers what
+        // the tracer chose (`ptrace_signal`).
+        let mut from_tracer = None;
+        let (sync_stop, traced) = {
+            let trace = &state.tasks.get(&task)?.ptrace;
+            (trace.sync_stop, trace.traced)
+        };
+        match sync_stop {
+            Some(_) if traced => return Some(GuestAction::Stopped),
+            Some(kind) => {
+                let tracer = state.task(task).ptrace.link.map(|link| link.tracer);
+                let (code, info) = state.leave_trace_stop(task);
+                if kind == crate::ptrace::SyncStop::Signal {
+                    drop(state);
+                    let info =
+                        info.map(|info| self.ptrace_signal_info(&process, tracer, code, info));
+                    state = signals.group.state.lock_or_recover();
+                    if !state.tasks.contains_key(&task) {
+                        return None;
+                    }
+                    from_tracer = info.flatten();
+                    // Blocked, or SIGKILL comes first: it waits in the queue.
+                    if let Some(info) = from_tracer
+                        && (state.task(task).blocked & bit(info.si_signo) != 0
+                            || state.sigkill_pending(task))
+                    {
+                        let _ = state.pending(Some(task)).add(info, Ok(None));
+                        state.recalc_sigpending(task);
+                        from_tracer = None;
+                    }
+                }
+            }
+            None => {}
+        }
         loop {
+            // `do_jobctl_trap`: a trap stop is due.
+            let trace = &state.task(task).ptrace;
+            if trace.link.is_some()
+                && (trace.trap_stop || trace.trap_notify)
+                && !state.sigkill_pending(task)
+                && state.fatal(task).is_none()
+            {
+                let stop = self.jobctl_trap(&process, task, &state);
+                let sig = stop.exit_code & 0x7f;
+                if state.enter_trace_stop(task, stop).is_some() {
+                    drop(state);
+                    self.ptrace_notify_tracer(task, SiCode::CLD_STOPPED, sig);
+                    return Some(GuestAction::Stopped);
+                }
+            }
             // A pending fatal signal comes before a stop, as Linux's `complete_signal` makes it
             // a group exit as it is sent.
             if state.task(task).stop_pending && state.fatal(task).is_none() {
                 // Lock order: the signal state, then the thread group's.
                 let exiting = process.group.signal_group_exit();
                 if let Some(completed) = state.do_signal_stop(task, 0, exiting) {
-                    drop(state);
-                    return Some(self.stopped(&process, signals, completed));
+                    return Some(self.stopped_traced(&process, signals, state, task, completed));
                 }
             }
             let me = state.task(task);
             let (blocked, sigpending) = (me.blocked, me.sigpending);
             // Only a task a signal waits for dequeues (`get_signal` runs on `TIF_SIGPENDING`):
             // one woken for another reason leaves the group's signals to the task picked.
-            let mut info = None;
-            if sigpending {
+            let mut info = from_tracer.take();
+            let tracer_chose = info.is_some();
+            if sigpending && info.is_none() {
                 (state, info) = signals.group.dequeue(state, task, !blocked);
+            }
+            // `ptrace_signal`: a traced task stops for each signal but SIGKILL, and goes on
+            // with what its tracer chose.
+            if let Some(info) = info
+                && !tracer_chose
+                && info.si_signo != Signal::SIGKILL.0
+                && state.task(task).ptrace.link.is_some()
+            {
+                state.task(task).stop_dequeued = true;
+                let stop = TraceStop {
+                    exit_code: info.si_signo,
+                    why: SiCode::CLD_TRAPPED,
+                    message: 0,
+                    info: Some(info),
+                    sync: Some(crate::ptrace::SyncStop::Signal),
+                };
+                if state.enter_trace_stop(task, stop).is_some() {
+                    drop(state);
+                    self.ptrace_notify_tracer(task, SiCode::CLD_TRAPPED, info.si_signo);
+                    return Some(GuestAction::Stopped);
+                }
             }
             let Some(info) = info else {
                 // `restore_saved_sigmask`: no handler took the temporary mask's signal. What the
@@ -1859,7 +2258,7 @@ impl Kernel {
                 return None;
             };
             let sig = info.si_signo;
-            if STOP_SIGNALS & bit(sig) != 0 {
+            if STOP_SIGNALS & bit(sig) != 0 && !tracer_chose {
                 state.task(task).stop_dequeued = true;
             }
             let action = state.sighand.get(sig);
@@ -1894,8 +2293,9 @@ impl Kernel {
                         let exiting = process.group.signal_group_exit();
                         match state.do_signal_stop(task, sig, exiting) {
                             Some(completed) => {
-                                drop(state);
-                                return Some(self.stopped(&process, signals, completed));
+                                return Some(
+                                    self.stopped_traced(&process, signals, state, task, completed),
+                                );
                             }
                             // SIGCONT came first, or the group is on its way out.
                             None => continue,
@@ -1946,6 +2346,123 @@ impl Kernel {
                 altstack: (alt.sp, alt.flags as i32, alt.size),
             }));
         }
+    }
+
+    // ---- ptrace ----
+
+    /// `do_jobctl_trap`'s stop for `task`: a seized tracee reports a `PTRACE_EVENT_STOP` with
+    /// the group stop's signal, or SIGTRAP outside one; another its group stop's signal.
+    fn jobctl_trap(&self, process: &Process, task: TaskId, state: &GroupState) -> TraceStop {
+        let seized = state.tasks[&task]
+            .ptrace
+            .link
+            .is_some_and(|link| link.seized);
+        let in_group_stop = state.jobctl.group_stop_count != 0 || state.jobctl.stopped;
+        let mut sig = match state.jobctl.stop_code & 0x7f {
+            0 => Signal::SIGSTOP.0,
+            sig => sig,
+        };
+        if !seized {
+            return TraceStop {
+                exit_code: sig,
+                why: SiCode::CLD_STOPPED,
+                message: 0,
+                info: None,
+                sync: Some(crate::ptrace::SyncStop::Trap),
+            };
+        }
+        if !in_group_stop {
+            sig = Signal::SIGTRAP.0;
+        }
+        let exit_code = sig | crate::ptrace::EVENT_STOP << 8;
+        TraceStop {
+            exit_code,
+            why: SiCode::CLD_STOPPED,
+            message: 0,
+            info: Some(self.ptrace_trap_info(process, task, sig, exit_code)),
+            sync: Some(crate::ptrace::SyncStop::Trap),
+        }
+    }
+
+    /// `ptrace_do_notify`'s `siginfo`: `sig` with `code`, from the task itself.
+    pub(crate) fn ptrace_trap_info(
+        &self,
+        process: &Process,
+        task: TaskId,
+        sig: i32,
+        code: i32,
+    ) -> Siginfo {
+        let cred = process.cred();
+        let uid = cred.user_ns.munged_uid(cred.user.real);
+        let mut info = user_info(sig, SiCode(code), self.pids.own_nr(task.0), uid);
+        info.si_code = code;
+        info
+    }
+
+    /// `ptrace_signal`'s tail: what a traced task delivers once its tracer resumed it from a
+    /// signal-delivery stop with `code`: nothing for 0, the signal as it was (or as
+    /// `PTRACE_SETSIGINFO` left it) for its own number, else `code` as sent by the tracer.
+    fn ptrace_signal_info(
+        &self,
+        process: &Process,
+        tracer: Option<TaskId>,
+        code: i32,
+        info: Siginfo,
+    ) -> Option<Siginfo> {
+        if code == 0 || code > NSIG as i32 {
+            return None;
+        }
+        if code == info.si_signo {
+            return Some(info);
+        }
+        // The tracer's pid in the tracee's namespace and its uid as the tracee sees it.
+        let (pid, uid) = match tracer.and_then(|t| self.task_process(t).map(|p| (t, p))) {
+            Some((tracer, them)) => {
+                let cred = them.cred();
+                let uid = process.cred().user_ns.munged_uid(cred.user.real);
+                (self.pids.nr(&process.pid_ns, tracer.0), uid)
+            }
+            None => (0, 0),
+        };
+        Some(user_info(code, SiCode::SI_USER, pid, uid))
+    }
+
+    /// The task's part in a group stop is taken: a traced task goes into a trap stop for its
+    /// tracer instead of `TASK_STOPPED` (`do_signal_stop` with `current->ptrace`); either way
+    /// the parent hears of a group stop it completed.
+    fn stopped_traced(
+        &self,
+        process: &Process,
+        signals: &TaskSignals,
+        mut state: std::sync::MutexGuard<'_, GroupState>,
+        task: TaskId,
+        completed: bool,
+    ) -> GuestAction {
+        let link = state.task(task).ptrace.link;
+        let Some(link) = link else {
+            drop(state);
+            return self.stopped(process, signals, completed);
+        };
+        state.task(task).stopped = false;
+        let stop = self.jobctl_trap(process, task, &state);
+        let sig = stop.exit_code & 0x7f;
+        let entered = state.enter_trace_stop(task, stop).is_some();
+        drop(state);
+        signals.group.queue.wake(wasixv2_wait::PollMask::empty());
+        if entered {
+            self.ptrace_notify_tracer(task, SiCode::CLD_STOPPED, sig);
+        }
+        // `ptrace_reparented`: a parent that is not the tracer hears of the group stop too.
+        let tracer_is_parent = self.task_process(link.tracer).is_some_and(|tracer| {
+            let tree = self.procs.tree.lock_or_recover();
+            tree.nodes
+                .get(&process.pid.0)
+                .is_some_and(|node| node.parent == tracer.pid.0)
+        });
+        if completed && !tracer_is_parent {
+            self.notify_parent_cldstop(process, SiCode::CLD_STOPPED, signals.group.stop_status());
+        }
+        GuestAction::Stopped
     }
 
     /// The task just stopped: the group's other tasks, whose part in the stop is pending, leave

@@ -1050,11 +1050,12 @@ fn escape(path: &[u8]) -> Vec<u8> {
     out
 }
 
-/// The task's state letter: a zombie, stopped by a stop signal, or sleeping (a task reading
-/// its own state is running, but a file does not know who reads it).
+/// The task's state letter: a zombie, in a ptrace stop, stopped by a stop signal, or sleeping
+/// (a task reading its own state is running, but a file does not know who reads it).
 fn state(info: &super::ProcessInfo, task: Option<&super::TaskInfo>) -> (char, &'static str) {
     match info.zombie {
         true => ('Z', "zombie"),
+        false if task.is_some_and(|task| task.signals.is_traced()) => ('t', "tracing stop"),
         false if task.is_some_and(|task| task.signals.is_stopped()) => ('T', "stopped"),
         false => ('S', "sleeping"),
     }
@@ -1207,11 +1208,16 @@ fn status(source: &Source, scope: Scope, info: &super::ProcessInfo, reader: &Use
         .map(|&gid| format!("{} ", reader.munged_gid(gid)))
         .collect();
     let seccomp = task.as_ref().map_or((false, 0, 0), |task| task.seccomp);
+    // `ptrace_parent`: the tracing task, by its pid in the reader's namespace.
+    let tracer = task
+        .as_ref()
+        .and_then(|task| task.signals.tracer())
+        .map_or(0, |tracer| source.nr(tracer.0));
     let cpus = cpus();
     let mut out = String::new();
     let _ = write!(
         out,
-        "Name:\t{}\nUmask:\t{umask:04o}\nState:\t{letter} ({state_name})\nTgid:\t{}\nNgid:\t0\nPid:\t{pid}\nPPid:\t{}\nTracerPid:\t0\n\
+        "Name:\t{}\nUmask:\t{umask:04o}\nState:\t{letter} ({state_name})\nTgid:\t{}\nNgid:\t0\nPid:\t{pid}\nPPid:\t{}\nTracerPid:\t{tracer}\n\
          Uid:\t{}\t{}\t{}\t{}\nGid:\t{}\t{}\t{}\t{}\nFDSize:\t{fd_size}\nGroups:\t{groups}\n\
          NStgid:\t{}\nNSpid:\t{}\nNSpgid:\t{}\nNSsid:\t{}\n\
          VmPeak:\t{kb:8} kB\nVmSize:\t{kb:8} kB\nVmLck:\t{locked_kb:8} kB\nVmPin:\t       0 kB\nVmHWM:\t{kb:8} kB\nVmRSS:\t{kb:8} kB\n\

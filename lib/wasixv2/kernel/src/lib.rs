@@ -206,6 +206,8 @@ pub struct Kernel {
     keys: Arc<keys::Keys>,
     /// Yama's `ptrace_scope` and the `PR_SET_PTRACER` exceptions.
     yama: Arc<yama::Yama>,
+    /// Who traces whom (`ptrace`).
+    tracees: Arc<ptrace::Tracees>,
     /// What hides the order of the resources `kcmp` compares, made at its first use.
     kcmp: std::sync::OnceLock<kcmp::Cookies>,
     // ---- base ----
@@ -404,6 +406,7 @@ impl Kernel {
             keys: Arc::default(),
             yama: Arc::default(),
             kcmp: std::sync::OnceLock::new(),
+            tracees: Default::default(),
             credentials: Credentials::default(),
             init: None,
             reboot: Default::default(),
@@ -1760,6 +1763,17 @@ impl Syscalls for Kernel {
     ) -> SysResult<i32> {
         self.sys_waitid(caller, which, upid, infop, options, ru)
             .await
+    }
+
+    async fn ptrace(
+        &self,
+        caller: &Caller<'_>,
+        request: wasixv2_abi::PtraceRequest,
+        pid: Pid,
+        addr: Uptr,
+        data: Ulong,
+    ) -> SysResult<i32> {
+        self.sys_ptrace(caller, request, pid, addr, data).await
     }
 
     async fn kcmp(
@@ -3254,10 +3268,11 @@ impl Control for Kernel {
             // What made the task leave its wait is here.
             Some(action) => {
                 signals.group().clear_notify(task);
-                if let GuestAction::Exit(_) = action
+                if let GuestAction::Exit(code) = action
                     && !dead
                 {
                     self.exit_signals(task, &signals);
+                    self.ptrace_exit_task(task, code);
                 }
                 Some(action)
             }

@@ -819,6 +819,7 @@ mod pidns;
 mod proc;
 mod procfs;
 mod ptimer;
+mod ptrace;
 mod pty;
 mod sched;
 mod seccomp;
