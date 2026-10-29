@@ -2538,6 +2538,19 @@ impl Syscalls for Kernel {
         self.sys_process_vm_rw(caller, pid, lvec, liovcnt, rvec, riovcnt, flags, true)
             .await
     }
+    async fn remap_file_pages(
+        &self,
+        caller: &Caller<'_>,
+        start: Uptr,
+        size: Ulong,
+        prot: Ulong,
+        pgoff: Ulong,
+        _flags: Ulong,
+    ) -> SysResult<i32> {
+        // `flags` are ignored but for `MAP_NONBLOCK`, which changes nothing here.
+        self.sys_remap_file_pages(caller, start, size, prot, pgoff)
+            .await
+    }
     async fn mseal(
         &self,
         caller: &Caller<'_>,

@@ -2031,6 +2031,74 @@ impl Kernel {
         Ok(done as i32)
     }
 
+    /// `remap_file_pages` (mm/mmap.c), the deprecated call Linux emulates with a new mapping:
+    /// `[start, start + size)`, inside one shared mapping, shows the same object from page
+    /// `pgoff` on (`do_mmap` of the area's file with `MAP_SHARED | MAP_FIXED`), with the area's
+    /// protection. `EINVAL` for a `prot`, a range that wraps or is empty, a private or unmapped
+    /// area, and here also for one that reaches past the mapping or past an object the memory
+    /// shows itself.
+    pub(crate) async fn sys_remap_file_pages(
+        &self,
+        caller: &Caller<'_>,
+        start: Uptr,
+        size: Ulong,
+        prot: Ulong,
+        pgoff: Ulong,
+    ) -> SysResult<i32> {
+        if prot != 0 {
+            return Err(Errno::EINVAL.into());
+        }
+        let page = PAGE_SIZE as u32;
+        let (start, size) = (
+            u64::from(start & !(page - 1)),
+            u64::from(size & !(page - 1)),
+        );
+        let end = start + size;
+        if end <= start || end > u64::from(u32::MAX) + 1 {
+            return Err(Errno::EINVAL.into());
+        }
+        let offset = u64::from(pgoff)
+            .checked_mul(PAGE_SIZE)
+            .ok_or(Errno::EINVAL)?;
+        let mm = self.mm(caller.task());
+        let _op = mm.op.lock().await;
+        let region = mm
+            .regions()
+            .into_iter()
+            .find(|r| r.start <= start && start < r.end)
+            .ok_or(Errno::EINVAL)?;
+        let alias = {
+            let space = mm.space();
+            let mapping = space.mappings.containing(start).ok_or(Errno::EINVAL)?;
+            if !mapping.is_shared() || mapping.end() < end {
+                return Err(Errno::EINVAL.into());
+            }
+            mapping.alias_object(offset, start, size)
+        };
+        let mut alias = alias.ok_or(Errno::EINVAL)?;
+        let mut prot = ProtFlags::empty();
+        if region.read {
+            prot |= ProtFlags::PROT_READ;
+        }
+        if region.write {
+            prot |= ProtFlags::PROT_WRITE;
+        }
+        let pages = size / PAGE_SIZE;
+        self.map_fixed(caller, start as u32, pages, false).await?;
+        let first = start / PAGE_SIZE;
+        {
+            let mut space = mm.space();
+            space.set_locked(first, first + pages, region.locked);
+            space.set_prot(first, first + pages, prot);
+        }
+        if let Err(errno) = alias.fill(caller.memory()).await {
+            mm.space().unmap(start, size);
+            return Err(errno.into());
+        }
+        mm.insert(alias);
+        Ok(0)
+    }
+
     /// Every mapped page is resident.
     pub(crate) async fn sys_mincore(
         &self,
