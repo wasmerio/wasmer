@@ -53,6 +53,9 @@ pub const WASMER_FUNCTION_OFFSETS_SECTION_NAME: &[u8] = b".w.fn_offsets";
 pub const WASMER_TRAP_FUNCTION_OFFSETS_SECTION_NAME: &[u8] = b".w.trap_fnoffs";
 /// Name of the section used for serialization of function trap information.
 pub const WASMER_TRAPS_SECTION_NAME: &[u8] = b".w.traps";
+/// Compact-unwind encoding flag indicating language-specific exception handling data.
+pub const UNWIND_HAS_LSDA: u32 = 0x4000_0000;
+
 /// ELF's EH frame section name.
 pub const EH_FRAME_SECTION_NAME: &[u8] = b".eh_frame";
 /// Name of the section containing exception handling tags.

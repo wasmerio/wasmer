@@ -1,6 +1,7 @@
 /// Data types and functions to read and represent entries in the `__compact_unwind` section.
 mod cu_entry;
 
+use crate::UNWIND_HAS_LSDA;
 use core::ops::Range;
 pub(crate) use cu_entry::CompactUnwindEntry;
 use rangemap::RangeMap;
@@ -159,7 +160,6 @@ impl CompactUnwindManager {
     const NUM_RECORDS_PER_SECOND_LEVEL_PAGE: usize = (Self::SECOND_LEVEL_PAGE_SIZE
         - Self::SECOND_LEVEL_PAGE_HEADER_SIZE)
         / Self::SECOND_LEVEL_PAGE_ENTRY_SIZE;
-    const UNWIND_HAS_LSDA: u32 = 0x4000_0000;
 
     /// Publish an already-linked `__unwind_info` section without copying or rebuilding it.
     /// The image and section must remain mapped until this manager is deregistered.
@@ -289,7 +289,7 @@ impl CompactUnwindManager {
             }
 
             if entry.lsda_addr != 0 {
-                entry.compact_encoding |= Self::UNWIND_HAS_LSDA;
+                entry.compact_encoding |= UNWIND_HAS_LSDA;
                 self.num_lsdas += 1;
             }
         }
