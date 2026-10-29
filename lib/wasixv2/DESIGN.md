@@ -508,7 +508,7 @@ The kernel implements networking at the socket layer and has no TCP/IP stack. A 
 
 **Not supported:**
 
-- raw and packet sockets
+- raw sockets, and frames: a packet socket (`AF_PACKET`, with `CAP_NET_RAW`) exists, binds to an interface and answers interface requests, but no frame ever reaches it, and a send that passes Linux's checks (`ENXIO`, `ENETDOWN`) fails with `EOPNOTSUPP`
 - ICMP datagram sockets (`SOCK_DGRAM` with `IPPROTO_ICMP`), so `ping` does not work
 - netfilter
 - MTU and fragmentation behaviour

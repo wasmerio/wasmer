@@ -1345,3 +1345,70 @@ fn a_namespace_file_binds_onto_a_file_and_setns_enters_it() {
     );
     assert_eq!(ns_ino(&kernel, &caller, "net"), theirs);
 }
+
+/// An `AF_PACKET` socket, as `tst_ns_ifmove` opens one for `SIOCGIFINDEX`: `CAP_NET_RAW`, a
+/// `sockaddr_ll` to bind and name it; no frame ever comes or goes.
+#[test]
+fn packet_sockets_answer_interface_requests_and_carry_no_frames() {
+    use wasixv2_syscalls::{UserSlice, UserSliceMut};
+    let (kernel, task, memory) = networked();
+    let caller = Caller::new(task, &memory);
+    let packet = |caller: &Caller<'_>, kind| {
+        block_on(kernel.socket(caller, AddressFamily::AF_PACKET, kind, 0x0300))
+    };
+    assert_eq!(
+        errno(packet(&caller, 1 /* SOCK_STREAM */)),
+        Errno::ESOCKTNOSUPPORT
+    );
+    let fd = packet(&caller, 3 /* SOCK_RAW */ | 0x800 /* SOCK_NONBLOCK */).unwrap();
+    put(&memory.0, 0x400, b"lo\0");
+    assert_eq!(
+        ioctl(&kernel, &caller, fd, IoctlRequest::SIOCGIFINDEX),
+        Ok(0)
+    );
+    assert_eq!(get(&memory.0, 0x410, 4), 1i32.to_le_bytes());
+
+    let sll = |index: i32| {
+        let mut raw = (AddressFamily::AF_PACKET.0 as u16).to_le_bytes().to_vec();
+        raw.extend([0, 0]);
+        raw.extend(index.to_le_bytes());
+        raw.resize(20, 0);
+        put(&memory.0, 0x700, &raw);
+        block_on(kernel.bind(&caller, fd, GuestPtr::new(0x700), 20))
+    };
+    assert_eq!(errno(sll(9)), Errno::ENODEV);
+    assert_eq!(sll(1), Ok(0));
+    put(&memory.0, 0x2f0, &20u32.to_le_bytes());
+    let name = kernel.getsockname(
+        &caller,
+        fd,
+        GuestPtrMut::new(0x300),
+        GuestPtrMut::new(0x2f0),
+    );
+    assert_eq!(block_on(name), Ok(0));
+    assert_eq!(
+        get(&memory.0, 0x2f0, 4),
+        18u32.to_le_bytes(),
+        "sll_addr plus the MAC"
+    );
+    assert_eq!(
+        get(&memory.0, 0x300, 10),
+        [17, 0, 0, 3, 1, 0, 0, 0, 0x04, 0x03]
+    );
+    let recv = kernel.read(&caller, fd, UserSliceMut::new(0x500, 64));
+    assert_eq!(errno(block_on(recv)), Errno::EAGAIN);
+    let sent = kernel.sendto(
+        &caller,
+        fd,
+        UserSlice::new(0x500, 14),
+        wasixv2_abi::MsgFlags(0),
+        GuestPtr::NULL,
+        0,
+    );
+    assert_eq!(errno(block_on(sent)), Errno::EOPNOTSUPP);
+
+    let user = fork(&kernel, &caller, CloneFlags(0));
+    let user_caller = Caller::new(user, &memory);
+    block_on(kernel.setuid(&user_caller, 1)).unwrap();
+    assert_eq!(errno(packet(&user_caller, 3)), Errno::EPERM);
+}
