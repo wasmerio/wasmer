@@ -2207,10 +2207,9 @@ impl Kernel {
             });
         }
         if !mask.is_empty() {
-            // The inline result consumes wakes observed by the initial probe.
-            noticed.store(false, std::sync::atomic::Ordering::Release);
-            let more = IoringCqeFlags::IORING_CQE_F_MORE.0;
-            ctx.post(sqe.user_data, mask.0 as i32, more, false);
+            // Linux poll.c:__io_arm_poll_handler queues initial multishot
+            // readiness through __io_poll_execute, including deferred rings.
+            noticed.store(true, std::sync::atomic::Ordering::Release);
         }
         req.queue_noticed = Some(noticed);
         let req = std::mem::replace(req, req.taken());

@@ -4831,3 +4831,34 @@ fn arming_an_idle_poll_does_not_advertise_pending_work() {
         assert!(ring.reap().is_empty());
     }
 }
+
+/// Linux io_uring/poll.c:__io_arm_poll_handler queues initial multishot readiness.
+#[test]
+fn deferred_multishot_initial_readiness_waits_for_task_work() {
+    let m = Machine::on_host(Arc::new(PausedHost), |kernel| kernel);
+    let ring = m.ring(
+        8,
+        IoringSetupFlags::IORING_SETUP_SINGLE_ISSUER.0
+            | IoringSetupFlags::IORING_SETUP_DEFER_TASKRUN.0,
+    );
+    let caller = m.caller();
+    let fd = block_on(m.kernel.eventfd2(&caller, 0, EventfdFlags(0))).unwrap();
+    ring.push(IoUringSqe {
+        op_flags: (PollMask::READABLE | PollMask::WRITABLE).0,
+        len: IoringOpFlags::IORING_POLL_ADD_MULTI.0,
+        ..sqe(IoUringOp::IORING_OP_POLL_ADD, fd.0, 92)
+    });
+    assert_eq!(ring.submit(1), Ok(1));
+    assert!(
+        ring.reap().is_empty(),
+        "initial multishot completion is task work"
+    );
+    m.memory.put(BUF, &1u64.to_le_bytes());
+    block_on(m.kernel.write(&caller, fd, UserSlice::new(BUF, 8))).unwrap();
+    block_on(m.kernel.run_task_work(&caller));
+    assert!(ring.reap().is_empty(), "deferred work requires enter");
+    let cqes = ring.wait(1);
+    assert_eq!(cqes.len(), 1);
+    assert_eq!(cqes[0].res as u32 & 5, 5, "both POLLIN and POLLOUT");
+    assert_ne!(cqes[0].flags & IoringCqeFlags::IORING_CQE_F_MORE.0, 0);
+}
