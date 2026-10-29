@@ -1140,3 +1140,88 @@ fn a_clone_vm_child_that_never_starts_leaves_no_process() {
     ));
     assert_eq!(waited, Err(Errno::ECHILD.into()));
 }
+
+/// The handler of `sig` in the caller's process, as `rt_sigaction` reports it.
+fn handler(kernel: &Kernel, caller: &Caller<'_>, sig: Signal) -> u32 {
+    let old = GuestPtrMut::new(0x200);
+    assert_eq!(
+        block_on(kernel.rt_sigaction(caller, sig, GuestPtr::NULL, old, 8)),
+        Ok(0)
+    );
+    block_on(read_value::<Sigaction>(
+        caller.memory(),
+        GuestPtr::new(0x200),
+    ))
+    .unwrap()
+    .sa_handler
+}
+
+/// Sets the handler of `sig` in the caller's process.
+fn set_handler(kernel: &Kernel, caller: &Caller<'_>, sig: Signal, handler: u32) {
+    let act = Sigaction {
+        sa_handler: handler,
+        sa_flags: 0,
+        sa_mask: Sigset { sig: [0; 2] },
+    };
+    block_on(write_value(caller.memory(), GuestPtrMut::new(0x140), &act)).unwrap();
+    let set = kernel.rt_sigaction(caller, sig, GuestPtr::new(0x140), GuestPtrMut::NULL, 8);
+    assert_eq!(block_on(set), Ok(0));
+}
+
+/// `CLONE_SIGHAND` without `CLONE_THREAD` shares the signal handlers between the two
+/// processes (`sighand_struct`): a `sigaction` of either changes them for both, while their
+/// pending signals and masks stay their own. Without it the child has a copy. An `execve`
+/// gives its process handlers of its own again (`unshare_sighand`).
+#[test]
+fn clone_sighand_shares_the_handlers_between_processes() {
+    let (kernel, task, _) = setup(b"");
+    let memory = big_forkable();
+    let caller = Caller::new(task, &memory);
+    assert_eq!(block_on(kernel.signal_callback_register(&caller, 3)), Ok(0));
+    set_handler(&kernel, &caller, Signal::SIGUSR1, 7);
+    let shared = VM | SIGCHLD | CloneFlags::CLONE_SIGHAND.0 as u32;
+    let child = TaskId(spawn(&kernel, &caller, shared).unwrap() as u32);
+    let copied = TaskId(spawn(&kernel, &caller, VM | SIGCHLD).unwrap() as u32);
+    while kernel.take_pending(task).is_some() {}
+    let (child, copied) = (Caller::new(child, &memory), Caller::new(copied, &memory));
+
+    assert_eq!(handler(&kernel, &child, Signal::SIGUSR1), 7);
+    set_handler(&kernel, &child, Signal::SIGUSR2, 9);
+    assert_eq!(
+        handler(&kernel, &caller, Signal::SIGUSR2),
+        9,
+        "the parent's too"
+    );
+    set_handler(&kernel, &caller, Signal::SIGUSR1, 1);
+    assert_eq!(handler(&kernel, &child, Signal::SIGUSR1), 1);
+    assert_eq!(handler(&kernel, &copied, Signal::SIGUSR1), 7, "a copy");
+    assert_eq!(handler(&kernel, &copied, Signal::SIGUSR2), 0);
+    // Their pending signals are their own.
+    assert_eq!(
+        block_on(kernel.sys_kill(&caller, child.task().0 as Pid, Signal::SIGUSR2)),
+        Ok(0)
+    );
+    assert!(
+        kernel
+            .task_signals(child.task())
+            .has_pending(1 << (Signal::SIGUSR2.0 - 1))
+    );
+    assert!(
+        !kernel
+            .task_signals(task)
+            .has_pending(1 << (Signal::SIGUSR2.0 - 1))
+    );
+
+    let child_memory = FlatMemory(RefCell::new(vec![0; 65536]));
+    let execing = Caller::new(child.task(), &child_memory);
+    super::task::install_prog(&kernel, &execing, &child_memory);
+    while kernel.take_pending(child.task()).is_some() {}
+    assert_eq!(block_on(super::task::execve(&kernel, &execing)), Ok(0));
+    set_handler(&kernel, &caller, Signal::SIGUSR2, 4);
+    assert_eq!(
+        handler(&kernel, &execing, Signal::SIGUSR2),
+        0,
+        "its own, reset"
+    );
+    assert_eq!(handler(&kernel, &caller, Signal::SIGUSR2), 4);
+}

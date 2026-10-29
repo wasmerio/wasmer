@@ -50,7 +50,38 @@ const fn bit(sig: i32) -> u64 {
     1 << (sig - 1)
 }
 
-/// The signal state of one thread group: dispositions (`sighand_struct`), the shared pending
+/// The signal dispositions (`sighand_struct`): a thread group's own, or shared with the
+/// processes made with `CLONE_SIGHAND` (which needs `CLONE_VM`), whose `sigaction` changes
+/// them for all. Locked after the group's state and briefly, so a lock of it never waits for
+/// another group.
+pub(crate) struct Sighand(Mutex<[Action; NSIG as usize]>);
+
+impl Default for Sighand {
+    fn default() -> Self {
+        Self(Mutex::new([Action::default(); NSIG as usize]))
+    }
+}
+
+impl Sighand {
+    fn get(&self, sig: i32) -> Action {
+        self.0.lock_or_recover()[sig as usize - 1]
+    }
+
+    fn set(&self, sig: i32, action: Action) {
+        self.0.lock_or_recover()[sig as usize - 1] = action;
+    }
+
+    fn all(&self) -> [Action; NSIG as usize] {
+        *self.0.lock_or_recover()
+    }
+
+    /// A table of its own with the same dispositions (`copy_sighand`).
+    fn copy(&self) -> Arc<Self> {
+        Arc::new(Self(Mutex::new(self.all())))
+    }
+}
+
+/// The signal state of one thread group: the dispositions ([`Sighand`]), the shared pending
 /// set and timers (`signal_struct`), and the per-task masks and pending sets, under one lock.
 pub(crate) struct Signals {
     state: Mutex<GroupState>,
@@ -123,8 +154,9 @@ impl Account {
     }
 }
 
+#[derive(Default)]
 struct GroupState {
-    actions: [Action; NSIG as usize],
+    sighand: Arc<Sighand>,
     /// The guest's trampoline (`signal-callback-register`).
     trampoline: Option<u32>,
     shared: Pending,
@@ -167,25 +199,6 @@ struct JobCtl {
     /// What the next task through [`Kernel::take_signal`] tells the parent after a SIGCONT
     /// (`SIGNAL_CLD_MASK`): `CLD_CONTINUED`, or `CLD_STOPPED` for a stop it cut short.
     report: Option<SiCode>,
-}
-
-impl Default for GroupState {
-    fn default() -> Self {
-        Self {
-            actions: [Action::default(); NSIG as usize],
-            trampoline: None,
-            shared: Pending::default(),
-            tasks: HashMap::new(),
-            leader: None,
-            curr_target: None,
-            real_timer: RealTimer::default(),
-            posix_timers: posix_timer::Table::default(),
-            ignored_timers: Vec::new(),
-            unkillable: false,
-            global_init: false,
-            jobctl: JobCtl::default(),
-        }
-    }
 }
 
 #[derive(Clone, Copy, Default)]
@@ -550,13 +563,17 @@ impl Signals {
 
     // ---- proc ----
     /// `copy_sighand` and `copy_signal` for a new process, whose queued signals `account` pays
-    /// for: the dispositions and the trampoline, with nothing pending and no timers.
-    pub(crate) fn fork(&self, account: Account) -> Arc<Self> {
+    /// for: the dispositions, shared with `share_sighand` (`CLONE_SIGHAND`) and copied
+    /// otherwise, and the trampoline, with nothing pending and no timers.
+    pub(crate) fn fork(&self, account: Account, share_sighand: bool) -> Arc<Self> {
         let new = Self::new(Some(account));
         {
             let state = self.state.lock_or_recover();
             let mut copy = new.state.lock_or_recover();
-            copy.actions = state.actions;
+            copy.sighand = match share_sighand {
+                true => state.sighand.clone(),
+                false => state.sighand.copy(),
+            };
             copy.trampoline = state.trampoline;
         }
         new
@@ -565,8 +582,9 @@ impl Signals {
     /// `flush_signal_handlers`: caught signals go back to their default action and ignored
     /// ones stay ignored, as at `execve` and for a `CLONE_CLEAR_SIGHAND` child.
     pub(crate) fn flush_handlers(&self) {
-        let mut state = self.state.lock_or_recover();
-        for action in state.actions.iter_mut() {
+        let state = self.state.lock_or_recover();
+        let mut actions = state.sighand.0.lock_or_recover();
+        for action in actions.iter_mut() {
             *action = match action.is_ignore() {
                 true => Action {
                     handler: action.handler,
@@ -582,6 +600,13 @@ impl Signals {
     /// belonged to the old image. Masks and pending signals stay; a temporary mask's end
     /// (`sigsuspend`, `ppoll`) and a wakeup for kernel work were the old image's, and go.
     pub(crate) fn exec_reset(&self) {
+        // `unshare_sighand`: dispositions shared with other processes stay theirs.
+        {
+            let mut state = self.state.lock_or_recover();
+            if Arc::strong_count(&state.sighand) > 1 {
+                state.sighand = state.sighand.copy();
+            }
+        }
         self.flush_handlers();
         let mut state = self.state.lock_or_recover();
         state.trampoline = None;
@@ -597,7 +622,7 @@ impl Signals {
     /// `SA_NOCLDWAIT` is set.
     pub(crate) fn child_reaping(&self) -> (bool, bool) {
         let state = self.state.lock_or_recover();
-        let action = state.actions[Signal::SIGCHLD.0 as usize - 1];
+        let action = state.sighand.get(Signal::SIGCHLD.0);
         (
             action.is_ignore(),
             action.flags & SaFlags::SA_NOCLDWAIT.0 != 0,
@@ -608,7 +633,9 @@ impl Signals {
     /// they exit, and no signal with the default action reaches it.
     pub(crate) fn make_init(&self) {
         let mut state = self.state.lock_or_recover();
-        state.actions[Signal::SIGCHLD.0 as usize - 1].handler = SignalHandler::SIG_IGN.0 as u32;
+        let mut sigchld = state.sighand.get(Signal::SIGCHLD.0);
+        sigchld.handler = SignalHandler::SIG_IGN.0 as u32;
+        state.sighand.set(Signal::SIGCHLD.0, sigchld);
         state.unkillable = true;
         state.global_init = true;
     }
@@ -627,11 +654,12 @@ impl Signals {
     /// `zap_pid_ns_processes`: the dying init of a pid namespace ignores SIGCHLD, so its
     /// children are reaped as they exit.
     pub(crate) fn ignore_sigchld(&self) {
-        let mut state = self.state.lock_or_recover();
-        state.actions[Signal::SIGCHLD.0 as usize - 1] = Action {
+        let state = self.state.lock_or_recover();
+        let ignore = Action {
             handler: SignalHandler::SIG_IGN.0 as u32,
             ..Action::default()
         };
+        state.sighand.set(Signal::SIGCHLD.0, ignore);
     }
 
     /// Queues `info` for the whole group (`__group_send_sig_info`).
@@ -645,7 +673,7 @@ impl Signals {
     /// SIGCHLD, or set `SA_NOCLDSTOP` (`do_notify_parent_cldstop`).
     pub(crate) fn nocldstop(&self) -> bool {
         let state = self.state.lock_or_recover();
-        let action = state.actions[Signal::SIGCHLD.0 as usize - 1];
+        let action = state.sighand.get(Signal::SIGCHLD.0);
         action.is_ignore() || action.flags & SaFlags::SA_NOCLDSTOP.0 != 0
     }
 
@@ -1110,7 +1138,7 @@ impl GroupState {
 
     /// `sig_fatal`: the default action of `sig` kills the group.
     fn kills_group(&self, sig: i32) -> bool {
-        let action = self.actions[sig as usize - 1];
+        let action = self.sighand.get(sig);
         sig == Signal::SIGKILL.0
             || (action.is_default() && matches!(default_action(sig), DefaultAction::Terminate))
     }
@@ -1167,7 +1195,7 @@ impl GroupState {
     /// `None`: those of the tasks it kills while they wait for them, as a fatal signal ends a
     /// killable wait.
     fn killed_vfork_children(&self, task: Option<TaskId>, sig: i32) -> Vec<(Arc<Signals>, TaskId)> {
-        let action = self.actions[sig as usize - 1];
+        let action = self.sighand.get(sig);
         if !action.is_default() || !matches!(default_action(sig), DefaultAction::Terminate) {
             return Vec::new();
         }
@@ -1200,7 +1228,7 @@ impl GroupState {
     /// but for an init, which takes only the signals it has handlers for, and SIGKILL and
     /// SIGSTOP when they are `force`d on a namespace's init.
     fn ignores(&self, sig: i32, force: bool) -> bool {
-        let action = &self.actions[sig as usize - 1];
+        let action = self.sighand.get(sig);
         let kernel_only = UNBLOCKABLE & bit(sig) != 0;
         if self.global_init && kernel_only {
             return true;
@@ -1221,7 +1249,7 @@ impl GroupState {
         let mut pending = (me.pending.set | self.shared.set) & !me.blocked;
         while pending != 0 {
             let sig = pending.trailing_zeros() as i32 + 1;
-            let action = self.actions[sig as usize - 1];
+            let action = self.sighand.get(sig);
             let kills = !self.unkillable || UNBLOCKABLE & bit(sig) != 0;
             if action.is_default()
                 && kills
@@ -1348,7 +1376,7 @@ impl TaskSignals {
     /// `is_ignored` of `tty_jobctrl.c`: the task blocks `sig`, or its group ignores it.
     pub(crate) fn ignores_or_blocks(&self, sig: i32) -> bool {
         let mut state = self.group.state.lock_or_recover();
-        let ignored = state.actions[sig as usize - 1].is_ignore();
+        let ignored = state.sighand.get(sig).is_ignore();
         ignored || state.task(self.task).blocked & bit(sig) != 0
     }
 
@@ -1375,7 +1403,7 @@ impl TaskSignals {
         let (pending, blocked) = task.map_or((0, 0), |task| (task.pending.set, task.blocked));
         let mut ignored = 0;
         let mut caught = 0;
-        for (index, action) in state.actions.iter().enumerate() {
+        for (index, action) in state.sighand.all().iter().enumerate() {
             let mask = 1 << index;
             if action.is_ignore() {
                 ignored |= mask;
@@ -1791,7 +1819,7 @@ impl Kernel {
             if STOP_SIGNALS & bit(sig) != 0 {
                 state.task(task).stop_dequeued = true;
             }
-            let action = state.actions[sig as usize - 1];
+            let action = state.sighand.get(sig);
             if action.is_ignore() {
                 continue;
             }
@@ -1856,7 +1884,11 @@ impl Kernel {
             let woke = state.set_blocked(task, blocked);
             // `SA_ONESHOT` resets only the handler; the flags and mask stay.
             if action.flags & SaFlags::SA_RESETHAND.0 != 0 {
-                state.actions[sig as usize - 1].handler = SignalHandler::SIG_DFL.0 as u32;
+                let reset = Action {
+                    handler: SignalHandler::SIG_DFL.0 as u32,
+                    ..action
+                };
+                state.sighand.set(sig, reset);
             }
             drop(state);
             if woke {
@@ -1989,17 +2021,18 @@ impl Kernel {
         let signals = self.task_signals(caller.task());
         let old = {
             let mut state = signals.group.state.lock_or_recover();
-            let old = state.actions[sig as usize - 1];
+            let old = state.sighand.get(sig);
             if let Some(new) = new {
-                state.actions[sig as usize - 1] = Action {
+                let action = Action {
                     handler: new.sa_handler,
                     flags: new.sa_flags,
                     mask: sigset_bits(new.sa_mask) & !UNBLOCKABLE,
                 };
+                state.sighand.set(sig, action);
                 // POSIX: setting a disposition to ignore discards the pending signal.
                 if state.ignores(sig, false) {
                     if state.take_first(caller.task(), bit(sig)) {
-                        state.actions[sig as usize - 1] = old;
+                        state.sighand.set(sig, old);
                         return Err(SysErr::RestartNoIntr);
                     }
                     state.flush(bit(sig));
