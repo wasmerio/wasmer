@@ -28,15 +28,15 @@ std::thread_local! {
     static CURRENT: std::cell::Cell<Option<TaskId>> = const { std::cell::Cell::new(None) };
 }
 
-/// The task whose run is being polled on this thread (Linux's `current`), for what learns of
+/// The task whose syscall is being polled on this thread (Linux's `current`), for what learns of
 /// a change far below the syscall that made it: fanotify reports who caused an event. `None`
-/// outside any task's run, as for work the kernel does on its own.
+/// outside any task's syscall, as for work the kernel does on its own.
 pub fn current_task() -> Option<TaskId> {
     CURRENT.with(std::cell::Cell::get)
 }
 
-/// `future` run as `task`'s: while it is polled, [`current_task`] is `task`. The executor of
-/// a task's run wraps it once.
+/// `future` run as `task`'s: while it is polled, [`current_task`] is `task`. The kernel's
+/// syscall entry scopes each call, including calls from a vfork child on its parent's instance.
 pub fn as_task<F: std::future::Future>(task: TaskId, future: F) -> AsTask<F> {
     AsTask {
         task,

@@ -215,10 +215,7 @@ where
         R: FnOnce() -> F + Send + 'static,
         F: Future<Output = ()> + 'static,
     {
-        let start = Box::new(move || {
-            Box::pin(wasixv2_syscalls::as_task(task, run()))
-                as wasixv2_host::LocalFuture<'static, ()>
-        });
+        let start = Box::new(move || Box::pin(run()) as wasixv2_host::LocalFuture<'static, ()>);
         if let Err(err) = self.host.executor().spawn_thread(start) {
             tracing::warn!(%err, "cannot start a process on a thread of its own");
             let status = fault(&*self.syscalls, task, Signal::SIGSEGV.0);
