@@ -453,3 +453,38 @@ plan (userland-3).
 
 Land in order: abi `main` `f9958c7..340b9f3`; libc2 `main` `449e092e..1e68cf76`; tests `main`
 `89a2785..eb945b2`; wasmer `feat/wasixv2` `0bd23caafbb..8e19e34e15e`; plan.
+
+## 2026-10-29: merge train 12
+
+wasmer `wasixv2/train12` (42 commits on `55f0180df02`: follow-ups 11, net-config, user namespaces,
+follow-ups 12 with its ABI bump, net follow-ups, three integration commits, the tests bump), tests
+`train12` (fixtures, LTP with libcap and the user-namespace, dnotify and taint kconfigs, the network
+data files, network tests as root, a procdev-proc-maps fix, the re-bless), libc2 `train12` (abi pin
+`f410936`, tests), abi `pidfd-info` `f410936`, plan (userland-4: iproute2, net-tools, iputils).
+
+- Conflicts: the branches predate train 11 (pid namespaces, SIGIO, `PidRef`) and each other. procfs's
+  static table and `Write` (nr_open, devconf, dnotify/leases, `/proc/sys/user`, tainted, vm and pipe
+  sysctls); `fsopen` contexts (pid namespace, network namespace, user namespace, IPC namespace) and
+  the filesystem types (proc, sysfs, mqueue); SysV `to_abi` with both the pid and the user namespace;
+  net-config's interface ioctls moved to `net/if_ioctl.rs`; `task.ns` became an `Option`.
+- Integration: one `/proc/sys/net` (net-config's `sysnet.rs`), its IPv4 `conf` values train 11's
+  `devinet::Devconf`, and follow-ups 12's `net_ctl_permissions` for the whole tree; net-config's
+  capability checks over the network namespace's owner (`dev_ioctl`, `packet_create`,
+  `rtnl_link_get_net_capable`), sysfs `FS_USERNS_MOUNT(_RESTRICTED)`; raw sockets and
+  `ping_group_range` (kernel gids) under user namespaces; the VFS's initial user namespace is the
+  kernel's (`copy_mnt_ns` made root's copies slaves: fs_bind_cloneNS regressions).
+- Gates: crate tests 1125, clippy, fmt, release, CLI 59/0/12, run_tty 6/6.
+- Suite #1 (vs train 11's #3): 13 off the lists (leases, vm sysctls, ioctl_ns06, socket01,
+  sched_setaffinity01, cve-2018-5803), 89 newly registered, 7 regressions fixed (5 fs_bind_cloneNS,
+  procdev-proc-maps: maps shows mallocng's PROT_NONE guard, a test fix; cve-2014-0196 flaky).
+- Suite #3 (check): 3385/654/0/0/811; posix 1521/270/85, ltp 1187/362/725, libc-test 399/22/0,
+  own 279/0/1. sendfile01/601, ping01/601, netstat01 pass as root.
+- Smoke: sws-v2 28/28 (classic, `__linux__`), v1 8 + python expected-fail, UDP 6/6, extras,
+  userland-linux/-3/-4, C++ 9/9, pty bash 11/11; by hand pid-ns container, `unshare -r`/`-rn`, ip
+  (link/addr/route/rule/dummy), ping 127.0.0.1 and ::1, unprivileged ping with `ping_group_range`,
+  a veth pair between namespaces pinging both ways.
+- Follow-ups: `/proc/sys/user/max_*_namespaces` and `pid_max` show 0666 where Linux has 0644 with
+  `set_permissions`/`pid_table_root_permissions` (16 LTP tests); mc_commo/mc_member time out as
+  root; userns06 resource copy; wait403 (ESRCH for INT_MIN); IPV6_ADDRFORM, IPV6_RTHDR,
+  PACKET_VERSION; devconf ownership (`net_ctl_set_ownership`); max_map_count's O(n) area scan;
+  fcntl35's privileged half.
