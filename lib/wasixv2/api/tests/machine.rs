@@ -1,6 +1,8 @@
 //! Machine configuration through the whole stack: the user processes run as and what `uname`
 //! reports, seen by hand-written guests.
 
+#![recursion_limit = "256"]
+
 use std::{
     io,
     sync::{Arc, Mutex},

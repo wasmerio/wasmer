@@ -408,7 +408,7 @@ impl Kernel {
                 wait.wait(WaitOn::Queue(v.queue()), PollMask::READABLE, || {
                     let child = v.try_accept()?;
                     let peer = child.peer_addr().unwrap_or_default();
-                    Ok((self.vsock_file(caller, child, flags), peer))
+                    Ok((Arc::new(self.vsock_file(caller, child, flags)), peer))
                 })
                 .await?
             }
@@ -671,7 +671,7 @@ impl Kernel {
                         break;
                     }
                     let anc = anc.take().unwrap_or_default();
-                    match unix::send(sock, &mut wait, data, None, anc, cred).await {
+                    match unix::send(sock, &mut wait, data, None, anc, cred.clone()).await {
                         Ok(k) => sent += k,
                         Err(err) => {
                             failed = Some(err);
@@ -1732,6 +1732,9 @@ fn any_socket_file(file: Arc<OpenFile>) -> SysResult<AnySock> {
     }
     if let Some(p) = file.object().cloned().and_then(packet::downcast) {
         return Ok(AnySock::Packet(file, p));
+    }
+    if let Some(v) = file.object().cloned().and_then(vsock::downcast) {
+        return Ok(AnySock::Vsock(file, v));
     }
     let object = file.object().ok_or(Errno::ENOTSOCK)?.clone();
     let any: Arc<dyn std::any::Any + Send + Sync> = object;

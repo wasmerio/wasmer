@@ -1,6 +1,8 @@
 //! Networking through the whole stack: a hand-written guest's socket syscalls reach the
 //! machine's vnet namespace.
 
+#![recursion_limit = "256"]
+
 use std::{
     io,
     sync::{Arc, Mutex},

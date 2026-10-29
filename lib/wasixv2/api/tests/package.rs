@@ -1,5 +1,7 @@
 //! Package volumes mounted with `Machine::mount_package_volume`, read by hand-written guests.
 
+#![recursion_limit = "256"]
+
 use std::{
     collections::BTreeMap,
     io,

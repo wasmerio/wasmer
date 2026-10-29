@@ -1,5 +1,7 @@
 //! First vertical slice: hand-written guests with no libc, run through the whole stack.
 
+#![recursion_limit = "256"]
+
 use std::{
     io,
     sync::{

@@ -1451,6 +1451,7 @@ mod tests {
                 network: None,
                 unix_names: Arc::default(),
                 sysctl: Default::default(),
+                devconf: Default::default(),
             },
         );
         VsockSock::new(

@@ -6,6 +6,8 @@
 //! `c_loopback` also builds and runs a C program against wasix-libc when a v1 compiler is
 //! configured (see there).
 
+#![recursion_limit = "256"]
+
 use std::{
     io,
     path::PathBuf,

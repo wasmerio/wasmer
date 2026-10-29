@@ -253,6 +253,23 @@ fn attach_peeks_and_pokes_the_tracees_memory() {
         Ok(0)
     );
     assert_eq!(shared.get(0x2004, 4), 0xdead_beefu32.to_le_bytes());
+    // kernel/ptrace.c ptrace_access_vm: SUID_DUMP_ROOT permits a privileged core
+    // dump, but only SUID_DUMP_USER permits an unprivileged tracer to read memory.
+    let process = kernel.process(child);
+    process.ident.lock_or_recover().dumpable = crate::ident::Dumpable::Root;
+    assert_eq!(
+        errno(ptrace(
+            kernel,
+            &caller,
+            R::PTRACE_PEEKDATA,
+            child,
+            0x2000,
+            0x600
+        )),
+        Errno::EIO
+    );
+    assert!(!kernel.ptrace_may_access(parent, child, crate::ptrace::MODE_ATTACH_REALCREDS));
+    process.ident.lock_or_recover().dumpable = crate::ident::Dumpable::User;
     let end = 2 * 65536 - 2;
     assert_eq!(
         errno(ptrace(

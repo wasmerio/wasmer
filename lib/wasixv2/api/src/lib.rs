@@ -1,6 +1,8 @@
 //! Embedding facade: assembles the kernel, filesystem drivers, network backends, layers and the
 //! execution engine into a machine, and boots it.
 
+#![recursion_limit = "256"]
+
 use std::{
     collections::HashSet,
     future::Future,
@@ -1031,17 +1033,13 @@ fn killed(kernel: &Kernel, task: TaskId) -> Option<i32> {
 /// helper: each runs as a program's image does, compiled on a default engine, and nothing
 /// waits for it.
 struct Helpers {
-    syscalls: std::sync::Weak<Layered<Trace, Kernel>>,
-    abis: Arc<Abis<Layered<Trace, Kernel>>>,
+    syscalls: std::sync::Weak<Stack>,
+    abis: Arc<Abis<Stack>>,
     host: Arc<dyn Host>,
 }
 
 impl Helpers {
-    fn install(
-        syscalls: &Arc<Layered<Trace, Kernel>>,
-        abis: &Arc<Abis<Layered<Trace, Kernel>>>,
-        host: &Arc<dyn Host>,
-    ) {
+    fn install(syscalls: &Arc<Stack>, abis: &Arc<Abis<Stack>>, host: &Arc<dyn Host>) {
         let helpers = Helpers {
             syscalls: Arc::downgrade(syscalls),
             abis: abis.clone(),

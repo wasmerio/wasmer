@@ -536,7 +536,7 @@ impl StreamShared {
         }
         if queued <= 0 {
             // A mark may come with the next byte: peek, for the end of the stream or an error.
-            let mut probe = [0u8];
+            let mut probe = [std::mem::MaybeUninit::uninit()];
             return match self.sock.peek(&mut probe)? {
                 0 => Ok(Some((0, false))),
                 _ => Ok(None),
@@ -608,10 +608,11 @@ impl HostStream {
         connected: bool,
         wq: WaitQueue,
     ) -> io::Result<Arc<Self>> {
+        let sock = sock.into();
         socket2::SockRef::from(&sock).set_out_of_band_inline(true)?;
         let token = backend.token();
         let shared = Arc::new(StreamShared {
-            sock: sock.into(),
+            sock,
             token,
             peer,
             wq,

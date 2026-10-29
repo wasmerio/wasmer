@@ -82,7 +82,7 @@ fn syslog_reads_the_log_as_its_actions_say() {
     );
     let all = syslog_in(&kernel, &memory, task, 3, 4096).unwrap();
     assert!(
-        all.starts_with("<5>[    1.500000] Linux version 7.2.0 "),
+        all.starts_with("<5>[    1.500000] Linux version 7.2.0-wasixv2 "),
         "{all}"
     );
     assert!(all.ends_with('\n'), "{all}");

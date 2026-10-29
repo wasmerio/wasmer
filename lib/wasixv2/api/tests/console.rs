@@ -1,6 +1,8 @@
 //! A machine with the host's console: programs read what is typed through the kernel's line
 //! discipline, and `^C` interrupts the console's foreground process group.
 
+#![recursion_limit = "256"]
+
 use std::{
     io,
     sync::{Arc, Mutex},

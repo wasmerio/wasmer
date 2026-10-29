@@ -78,7 +78,7 @@ pub(crate) fn may_access(
         return true;
     }
     let (cred, tcred) = (me.cred(), them.cred());
-    let dumpable = them.ident.lock_or_recover().dumpable;
+    let dumpable = them.ident.lock_or_recover().dumpable == crate::ident::Dumpable::User;
     if !cred.may_read_task(&tcred, dumpable, mode & MODE_FSCREDS != 0) {
         return false;
     }
@@ -893,7 +893,7 @@ impl Kernel {
             .and_then(|t| self.task_process(t));
         let capable =
             tracer.is_some_and(|t| t.cred().ns_capable(&process.cred().user_ns, Cap::SysPtrace));
-        if !dumpable && !capable {
+        if dumpable != crate::ident::Dumpable::User && !capable {
             return 0;
         }
         let mm = {

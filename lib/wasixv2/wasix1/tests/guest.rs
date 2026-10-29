@@ -1,5 +1,7 @@
 //! WASIX v1 guests, hand-written in WAT, run on a `wasixv2::Machine`.
 
+#![recursion_limit = "256"]
+
 use std::{
     io,
     sync::{Arc, Mutex},

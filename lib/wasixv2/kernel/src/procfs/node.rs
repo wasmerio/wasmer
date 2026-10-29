@@ -207,7 +207,7 @@ const STATIC: &[(usize, &str, Static)] = &[
         "core_pipe_limit",
         Static::File(text::Global::CorePipeLimit),
     ),
-    // 56
+    // 62
     (13, "random", Static::Dir),
     (15, "inotify", Static::Dir),
     (13, "threads-max", tunable(Tunable::ThreadsMax)),
@@ -231,17 +231,17 @@ const STATIC: &[(usize, &str, Static)] = &[
         tunable(Tunable::SchedRtRuntimeUs),
     ),
     (
-        56,
+        62,
         "write_wakeup_threshold",
         tunable(Tunable::RandomWriteWakeupThreshold),
     ),
     (
-        56,
+        62,
         "urandom_min_reseed_secs",
         tunable(Tunable::RandomUrandomMinReseedSecs),
     ),
     (
-        57,
+        63,
         "max_queued_events",
         tunable(Tunable::InotifyMaxQueuedEvents),
     ),
@@ -284,14 +284,14 @@ const STATIC: &[(usize, &str, Static)] = &[
         "user_reserve_kbytes",
         tunable(Tunable::UserReserveKbytes),
     ),
-    (56, "boot_id", Static::File(text::Global::BootId)),
-    (56, "uuid", Static::File(text::Global::Uuid)),
+    (62, "boot_id", Static::File(text::Global::BootId)),
+    (62, "uuid", Static::File(text::Global::Uuid)),
     (
-        56,
+        62,
         "entropy_avail",
         Static::File(text::Global::EntropyAvail),
     ),
-    (56, "poolsize", Static::File(text::Global::Poolsize)),
+    (62, "poolsize", Static::File(text::Global::Poolsize)),
     (15, "file-nr", Static::File(text::Global::FileNr)),
     (14, "drop_caches", Static::File(text::Global::DropCaches)),
     (
@@ -307,11 +307,11 @@ const STATIC: &[(usize, &str, Static)] = &[
     (ROOT, "vmstat", Static::File(text::Global::Vmstat)),
     (ROOT, "interrupts", Static::File(text::Global::Interrupts)),
     (ROOT, "softirqs", Static::File(text::Global::Softirqs)),
-    // 99
+    // 105
     (ROOT, "pressure", Static::Dir),
-    (99, "cpu", Static::File(text::Global::Pressure)),
-    (99, "io", Static::File(text::Global::Pressure)),
-    (99, "memory", Static::File(text::Global::Pressure)),
+    (105, "cpu", Static::File(text::Global::Pressure)),
+    (105, "io", Static::File(text::Global::Pressure)),
+    (105, "memory", Static::File(text::Global::Pressure)),
     (
         29,
         "max_inotify_instances",
@@ -323,12 +323,12 @@ const STATIC: &[(usize, &str, Static)] = &[
         ucount(UcountKind::InotifyWatches),
     ),
     (
-        57,
+        63,
         "max_user_instances",
         Static::File(text::Global::InitUcount(UcountKind::InotifyInstances)),
     ),
     (
-        57,
+        63,
         "max_user_watches",
         Static::File(text::Global::InitUcount(UcountKind::InotifyWatches)),
     ),
@@ -876,7 +876,7 @@ impl Node for ProcNode {
     ) -> FsResult<()> {
         match self.entry {
             Entry::Static(index) => match STATIC[index].2 {
-                Static::File(file @ (text::Global::PidMax | text::Global::MaxNamespaces(_))) => {
+                Static::File(file @ (text::Global::PidMax | text::Global::Ucount(_))) => {
                     self.sysctl_root_permission(task, file, attr.mode, mask)
                 }
                 _ => wasixv2_vfs::generic_permission_acl(cred, attr, acl, mask),

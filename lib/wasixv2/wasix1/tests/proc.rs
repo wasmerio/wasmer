@@ -2,6 +2,8 @@
 //! WAT, run on a `wasixv2::Machine`. Each guest reports through its exit status: 0, or the
 //! number of the check that failed.
 
+#![recursion_limit = "256"]
+
 use std::{
     io,
     path::{Path, PathBuf},

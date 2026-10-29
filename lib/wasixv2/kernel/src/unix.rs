@@ -39,7 +39,7 @@ use wasixv2_syscalls::{Caller, Errno, LocalFuture, SysResult, write_value};
 use wasixv2_vfs::{Cap, FileType, LookupFlags, MAY_WRITE};
 use wasixv2_vnet::{
     SocketKind,
-    opts::{Changed, SockOpts},
+    opts::{self, Changed, SockOpts},
 };
 use wasixv2_wait::{PollMask, PollTable, Pollable, WaitQueue, poll_wait};
 
@@ -1028,7 +1028,7 @@ impl Sock {
                 anc.uid,
                 &self.names().inflight,
             ),
-            cred: anc.cred.unwrap_or(cred),
+            cred: anc.cred.clone().unwrap_or(cred),
         });
         drop(target);
         peer.wait.wake(PollMask::READABLE | PollMask::PRI);
@@ -1185,7 +1185,7 @@ impl Sock {
             return Err(Errno::EAGAIN);
         }
         let out = match self.kind {
-            Kind::Stream => stream_take(&mut inner, max, take, writer),
+            Kind::Stream => stream_take(&mut inner, max, take, writer.cloned()),
             _ => record_take(&mut inner, max, take != Take::Consume),
         };
         // Nothing past the peek offset, or only out-of-band bytes the read skips: the read
@@ -1837,7 +1837,7 @@ pub(crate) async fn send_oob(
     cred: Ucred,
 ) -> SysResult<usize> {
     wait.wait(WaitOn::Queue(&sock.wait), PollMask::WRITABLE, || {
-        sock.try_send_oob(byte, &mut anc, cred)
+        sock.try_send_oob(byte, &mut anc, cred.clone())
     })
     .await
 }
@@ -2409,13 +2409,16 @@ mod tests {
     fn send(from: &Sock, data: &[u8]) {
         let mut data = data.to_vec();
         let mut anc = Ancillary::default();
-        from.try_send_connected(&mut data, &mut anc, cred(1))
+        from.try_send_connected(&mut data, &mut anc, &cred(&Arc::default(), 1))
             .unwrap();
     }
 
     fn send_oob(from: &Sock, byte: u8) {
         let mut anc = Ancillary::default();
-        assert_eq!(from.try_send_oob(byte, &mut anc, cred(1)), Ok(1));
+        assert_eq!(
+            from.try_send_oob(byte, &mut anc, cred(&Arc::default(), 1)),
+            Ok(1)
+        );
     }
 
     fn set(sock: &Sock, name: SocketOption, value: i32) {
@@ -2501,8 +2504,13 @@ mod tests {
         set(&y, SocketOption::SO_PEEK_OFF, 0);
         for d in [&b"one"[..], b"two"] {
             let mut data = d.to_vec();
-            x.try_send_dgram(&y, &mut data, &mut Ancillary::default(), cred(1))
-                .unwrap();
+            x.try_send_dgram(
+                &y,
+                &mut data,
+                &mut Ancillary::default(),
+                &cred(&Arc::default(), 1),
+            )
+            .unwrap();
         }
         let dpeek = |n| y.try_recv(n, MsgFlags::MSG_PEEK, None).unwrap().data;
         assert_eq!(dpeek(2), b"on");

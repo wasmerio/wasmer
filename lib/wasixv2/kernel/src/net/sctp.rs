@@ -173,7 +173,7 @@ impl Kernel {
         value.write_to(&mut raw);
         write_value(caller.memory(), optlen, &(T::SIZE as u32)).await?;
         caller.memory().write(optval.addr(), &raw).await?;
-        Ok(slot.install(Arc::new(file)).0)
+        Ok(slot.install(file).0)
     }
 }
 

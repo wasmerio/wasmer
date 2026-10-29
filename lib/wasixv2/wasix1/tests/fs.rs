@@ -4,6 +4,8 @@
 //! Each WAT guest checks its own results and exits with the number of the first check that
 //! failed, or 0.
 
+#![recursion_limit = "256"]
+
 use std::{
     io,
     path::Path,

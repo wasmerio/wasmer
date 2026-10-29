@@ -67,9 +67,9 @@ const DIRS: &[(usize, &str)] = &[
     (2, "security"),
     // 8: where the cgroup hierarchy is mounted (`sysfs_create_mount_point(fs_kobj, "cgroup")`).
     (3, "cgroup"),
-    // 8: `mm_kobj`, empty without huge pages, KSM or swap.
+    // 9: `mm_kobj`, empty without huge pages, KSM or swap.
     (2, "mm"),
-    // 9: `cgroup_sysfs_init`.
+    // 10: `cgroup_sysfs_init`.
     (2, "cgroup"),
 ];
 
@@ -77,13 +77,13 @@ const DIRS: &[(usize, &str)] = &[
 const FILES: &[(usize, &str, &str)] = &[
     // `delegate_show`: the files a delegated cgroup's owner gets (`CFTYPE_NS_DELEGATABLE`).
     (
-        9,
+        10,
         "delegate",
         "cgroup.procs\ncgroup.threads\ncgroup.subtree_control\n",
     ),
     // `features_show`: the mount options cgroup2 takes.
     (
-        9,
+        10,
         "features",
         "nsdelegate\nfavordynmods\nmemory_localevents\nmemory_recursiveprot\n\
          memory_hugetlb_accounting\npids_localevents\n",

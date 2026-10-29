@@ -1,6 +1,8 @@
 //! A package tree's commands, installed with `Machine::install_commands` and started with
 //! `Machine::run_file` or `execve`, as hand-written guests.
 
+#![recursion_limit = "256"]
+
 use std::{
     collections::BTreeMap,
     io,
