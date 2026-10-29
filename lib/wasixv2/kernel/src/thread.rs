@@ -231,6 +231,9 @@ impl Kernel {
             if state.tasks.len() as i64 >= self.tunables.get(crate::sysctl::Tunable::ThreadsMax) {
                 return Err(Errno::EAGAIN.into());
             }
+            let cred = self
+                .keys
+                .copy_thread_creds(task.cred_override.as_ref().unwrap_or(&task.cred))?;
             let sched = task.sched.for_child()?;
             let id = TaskId(state.last_id + 1);
             state.pids.alloc(id.0, &process.pid_ns, &[], |_| false)?;
@@ -275,7 +278,7 @@ impl Kernel {
             };
             let flag = Arc::new(WorkFlag::default());
             let new = Task {
-                cred: task.cred_override.as_ref().unwrap_or(&task.cred).clone(),
+                cred,
                 cpu,
                 css,
                 syscall: Default::default(),
@@ -291,7 +294,6 @@ impl Kernel {
                 sched,
                 prctl: task.prctl,
                 seccomp: task.seccomp.clone(),
-                thread_keyring: None,
                 io: crate::sched::copy_io(task.io.as_ref(), flags.contains(CloneFlags::CLONE_IO)),
                 thread,
                 signals: task

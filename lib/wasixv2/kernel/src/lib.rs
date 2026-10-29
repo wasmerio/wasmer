@@ -360,8 +360,6 @@ struct Task {
     prctl: ident::TaskPrctl,
     /// Seccomp mode and filters, and `no_new_privs`.
     seccomp: seccomp::Seccomp,
-    /// The thread keyring (`cred->thread_keyring`), which a new task starts without.
-    thread_keyring: Option<Arc<keys::Key>>,
     /// The I/O priority it set (`io_context`), shared with `CLONE_IO`.
     io: Option<Arc<sched::IoContext>>,
     // ---- thr ----
@@ -730,7 +728,6 @@ impl Kernel {
             sched: sched::Sched::default(),
             prctl: ident::TaskPrctl::default(),
             seccomp: seccomp::Seccomp::default(),
-            thread_keyring: None,
             io: None,
             process,
             mm: Arc::default(),

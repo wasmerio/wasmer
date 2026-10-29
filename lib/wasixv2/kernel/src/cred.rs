@@ -293,7 +293,7 @@ pub(crate) struct Cred {
     pub(crate) user_ns: Arc<UserNs>,
     /// The Landlock domain the task is confined to (`landlock_cred(cred)->domain`).
     pub(crate) landlock: Option<Arc<crate::landlock::Domain>>,
-    /// The session and process keyrings, and the default `request_key` keyring.
+    /// The thread, process and session keyrings, and the default `request_key` keyring.
     pub(crate) keys: crate::keys::CredKeys,
 }
 

@@ -1726,7 +1726,6 @@ impl Kernel {
                 sched,
                 prctl: task.prctl,
                 seccomp,
-                thread_keyring: None,
                 io: crate::sched::copy_io(task.io.as_ref(), flags.contains(CloneFlags::CLONE_IO)),
                 thread: task.thread.for_process(flags, tls, child_tid),
                 signals,
@@ -2159,11 +2158,12 @@ impl Kernel {
         );
         // `prepare_exec_creds`: no thread keyring, a new process keyring when asked for.
         cred.keys.process = None;
-        self.with_task(task, |t| t.thread_keyring = None);
+        cred.keys.thread = None;
         // fs/exec.c:begin_new_exec/would_dump: unreadable or privileged images use suid_dumpable.
         let readable = binary.readable && executable.as_ref().is_none_or(|(_, file)| file.readable);
         let dumpable = match readable
             && cred.user.effective == cred.user.real
+
             && cred.group.effective == cred.group.real
         {
             true => crate::ident::Dumpable::User,

@@ -327,7 +327,6 @@ struct KeyTable {
 /// What a lookup works with: the caller's credentials and keyrings (`struct cred`'s keys).
 pub(crate) struct Ctx {
     pub(crate) cred: Arc<Cred>,
-    pub(crate) thread: Option<Arc<Key>>,
     /// The realtime clock, in seconds.
     pub(crate) now: u64,
 }
@@ -336,7 +335,7 @@ impl Ctx {
     /// The keyrings a process searches (`search_cred_keyrings_rcu`): thread, process, and the
     /// session keyring, or the user's session keyring without one.
     fn search_roots(&self, keys: &Keys) -> Vec<Arc<Key>> {
-        let mut roots: Vec<Arc<Key>> = self.thread.iter().cloned().collect();
+        let mut roots: Vec<Arc<Key>> = self.cred.keys.thread.iter().cloned().collect();
         roots.extend(self.cred.keys.process.iter().cloned());
         match &self.cred.keys.session {
             Some(session) => roots.push(session.clone()),
@@ -371,6 +370,29 @@ impl Ctx {
 }
 
 impl Keys {
+    /// security/keys/process_keys.c `install_thread_keyring_to_cred`.
+    fn new_thread_keyring(&self, cred: &Cred) -> Result<Arc<Key>, Errno> {
+        self.alloc(
+            Kind::Keyring,
+            b"_tid",
+            (cred.user.real, cred.group.real),
+            POS_ALL | KeyPerm::KEY_USR_VIEW.0,
+            Vec::new(),
+            true,
+        )
+    }
+
+    /// kernel/cred.c `copy_creds`: share unchanged credentials unless a thread
+    /// keyring exists, in which case the child receives a fresh, empty one.
+    pub(crate) fn copy_thread_creds(&self, cred: &Arc<Cred>) -> Result<Arc<Cred>, Errno> {
+        if cred.keys.thread.is_none() {
+            return Ok(cred.clone());
+        }
+        let mut new = (**cred).clone();
+        new.keys.thread = Some(self.new_thread_keyring(cred)?);
+        Ok(Arc::new(new))
+    }
+
     pub(crate) fn new(
         host: Arc<dyn wasixv2_host::Host>,
         timers: &crate::timer::Timers,
@@ -683,6 +705,7 @@ impl Keys {
 /// `process_keyring`, `jit_keyring`).
 #[derive(Clone, Default)]
 pub(crate) struct CredKeys {
+    pub(crate) thread: Option<Arc<Key>>,
     pub(crate) session: Option<Arc<Key>>,
     pub(crate) process: Option<Arc<Key>>,
     /// `KEYCTL_SET_REQKEY_KEYRING`'s default (`KEY_REQKEY_DEFL_*`).
@@ -696,16 +719,18 @@ impl PartialEq for CredKeys {
             (Some(a), Some(b)) => Arc::ptr_eq(a, b),
             _ => false,
         };
-        same(&self.session, &other.session)
+        same(&self.thread, &other.thread)
+            && same(&self.session, &other.session)
             && same(&self.process, &other.process)
             && self.reqkey == other.reqkey
     }
 }
 
 impl CredKeys {
-    /// `copy_creds` for a new process: no process keyring, the rest inherited.
+    /// kernel/cred.c `copy_creds`: fork inherits neither thread nor process keyrings.
     pub(crate) fn for_child(&self) -> Self {
         Self {
+            thread: None,
             process: None,
             ..self.clone()
         }
@@ -750,10 +775,8 @@ const SESSION_PERM: u32 =
 impl Kernel {
     /// The caller's key context: its credentials, thread keyring and the time.
     fn key_ctx(&self, caller: &Caller<'_>) -> Ctx {
-        let thread = self.task_ref(caller.task(), |t| t.thread_keyring.clone());
         Ctx {
             cred: self.cred(caller),
-            thread,
             now: self.host.realtime().as_secs(),
         }
     }
@@ -784,16 +807,16 @@ impl Kernel {
     ) -> Result<Found, Errno> {
         let found = match KeySpec(id) {
             KeySpec::KEY_SPEC_THREAD_KEYRING => {
-                if ctx.thread.is_none() {
+                if ctx.cred.keys.thread.is_none() {
                     if !lookup.create {
                         return Err(Errno::ENOKEY);
                     }
-                    let ring = self.new_keyring(ctx, b"_tid", POS_ALL | KeyPerm::KEY_USR_VIEW.0)?;
-                    self.with_task(caller.task(), |t| t.thread_keyring = Some(ring.clone()));
-                    ctx.thread = Some(ring);
+                    let ring = self.keys.new_thread_keyring(&ctx.cred)?;
+                    self.set_cred_keys(caller, |keys| keys.thread = Some(ring.clone()));
+                    Arc::make_mut(&mut ctx.cred).keys.thread = Some(ring);
                 }
                 Found {
-                    key: ctx.thread.clone().expect("installed"),
+                    key: ctx.cred.keys.thread.clone().expect("installed"),
                     possessed: true,
                 }
             }
@@ -1021,7 +1044,9 @@ impl Kernel {
     fn request_key_destination(&self, ctx: &Ctx) -> Result<Arc<Key>, Errno> {
         let default = ctx.cred.keys.reqkey;
         let ring = match default {
-            0 | 1 | 7 if ctx.thread.is_some() => ctx.thread.clone().expect("checked"),
+            0 | 1 | 7 if ctx.cred.keys.thread.is_some() => {
+                ctx.cred.keys.thread.clone().expect("checked")
+            }
             0..=2 | 7 if ctx.cred.keys.process.is_some() => {
                 ctx.cred.keys.process.clone().expect("checked")
             }
