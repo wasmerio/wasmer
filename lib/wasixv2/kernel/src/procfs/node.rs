@@ -11,6 +11,7 @@ use wasixv2_vfs::{
 };
 
 use super::{Source, text};
+use crate::sysctl::Tunable;
 use crate::{
     cred::Cred,
     file::NrOpen,
@@ -163,7 +164,112 @@ const STATIC: &[(usize, &str, Static)] = &[
         "core_pipe_limit",
         Static::File(text::Global::CorePipeLimit),
     ),
+    // 56
+    (13, "random", Static::Dir),
+    (15, "inotify", Static::Dir),
+    (13, "threads-max", tunable(Tunable::ThreadsMax)),
+    (13, "sysrq", tunable(Tunable::Sysrq)),
+    (13, "panic", tunable(Tunable::Panic)),
+    (13, "panic_on_oops", tunable(Tunable::PanicOnOops)),
+    (
+        13,
+        "sched_child_runs_first",
+        tunable(Tunable::SchedChildRunsFirst),
+    ),
+    (
+        13,
+        "sched_rr_timeslice_ms",
+        tunable(Tunable::SchedRrTimesliceMs),
+    ),
+    (13, "sched_rt_period_us", tunable(Tunable::SchedRtPeriodUs)),
+    (
+        13,
+        "sched_rt_runtime_us",
+        tunable(Tunable::SchedRtRuntimeUs),
+    ),
+    (
+        56,
+        "write_wakeup_threshold",
+        tunable(Tunable::RandomWriteWakeupThreshold),
+    ),
+    (
+        56,
+        "urandom_min_reseed_secs",
+        tunable(Tunable::RandomUrandomMinReseedSecs),
+    ),
+    (
+        57,
+        "max_queued_events",
+        tunable(Tunable::InotifyMaxQueuedEvents),
+    ),
+    (14, "swappiness", tunable(Tunable::Swappiness)),
+    (14, "dirty_ratio", tunable(Tunable::DirtyRatio)),
+    (
+        14,
+        "dirty_background_ratio",
+        tunable(Tunable::DirtyBackgroundRatio),
+    ),
+    (
+        14,
+        "dirty_expire_centisecs",
+        tunable(Tunable::DirtyExpireCentisecs),
+    ),
+    (
+        14,
+        "dirty_writeback_centisecs",
+        tunable(Tunable::DirtyWritebackCentisecs),
+    ),
+    (14, "vfs_cache_pressure", tunable(Tunable::VfsCachePressure)),
+    (14, "min_free_kbytes", tunable(Tunable::MinFreeKbytes)),
+    (14, "panic_on_oom", tunable(Tunable::PanicOnOom)),
+    (
+        14,
+        "oom_kill_allocating_task",
+        tunable(Tunable::OomKillAllocatingTask),
+    ),
+    (14, "oom_dump_tasks", tunable(Tunable::OomDumpTasks)),
+    (14, "page-cluster", tunable(Tunable::PageCluster)),
+    (14, "stat_interval", tunable(Tunable::StatInterval)),
+    (14, "laptop_mode", tunable(Tunable::LaptopMode)),
+    (
+        14,
+        "admin_reserve_kbytes",
+        tunable(Tunable::AdminReserveKbytes),
+    ),
+    (
+        14,
+        "user_reserve_kbytes",
+        tunable(Tunable::UserReserveKbytes),
+    ),
+    (56, "boot_id", Static::File(text::Global::BootId)),
+    (56, "uuid", Static::File(text::Global::Uuid)),
+    (
+        56,
+        "entropy_avail",
+        Static::File(text::Global::EntropyAvail),
+    ),
+    (56, "poolsize", Static::File(text::Global::Poolsize)),
+    (15, "file-nr", Static::File(text::Global::FileNr)),
+    (14, "drop_caches", Static::File(text::Global::DropCaches)),
+    (
+        ROOT,
+        "sysrq-trigger",
+        Static::File(text::Global::SysrqTrigger),
+    ),
+    (ROOT, "swaps", Static::File(text::Global::Swaps)),
+    (ROOT, "partitions", Static::File(text::Global::Partitions)),
+    (ROOT, "diskstats", Static::File(text::Global::Diskstats)),
+    (ROOT, "devices", Static::File(text::Global::Devices)),
+    (ROOT, "consoles", Static::File(text::Global::Consoles)),
+    (ROOT, "vmstat", Static::File(text::Global::Vmstat)),
+    (ROOT, "interrupts", Static::File(text::Global::Interrupts)),
+    (ROOT, "softirqs", Static::File(text::Global::Softirqs)),
 ];
+
+/// The file of an integer sysctl.
+const fn tunable(tunable: Tunable) -> Static {
+    Static::File(text::Global::Tunable(tunable))
+}
 
 /// `/proc/sys/user/max_*_namespaces` for `kind`.
 const fn ucount(kind: NsKind) -> Static {
@@ -747,6 +853,13 @@ impl Node for ProcNode {
                         | text::Global::MaxMapCount => {
                             Some(Write::Vm(self.source.vm.clone(), file))
                         }
+                        text::Global::Tunable(tunable) => {
+                            Some(Write::Tunable(self.source.tunables.clone(), tunable))
+                        }
+                        text::Global::SysrqTrigger => Some(Write::Sysrq(self.source.clone())),
+                        text::Global::DropCaches => {
+                            Some(Write::DropCaches(self.source.clone(), options.task))
+                        }
                         // `proc_dostring_coredump` and `proc_dointvec`: root's, by the mode.
                         text::Global::CorePattern
                         | text::Global::CoreUsesPid
@@ -907,6 +1020,12 @@ enum Write {
     Core(Arc<crate::coredump::Coredump>, text::Global),
     /// A process's `coredump_filter`.
     CoredumpFilter(Arc<crate::Process>),
+    /// One of the integer sysctls.
+    Tunable(Arc<crate::sysctl::Tunables>, Tunable),
+    /// `/proc/sysrq-trigger`.
+    Sysrq(Arc<Source>),
+    /// `vm.drop_caches`, by the task that opened it.
+    DropCaches(Arc<Source>, u32),
 }
 
 /// `proc_dointvec`'s parsing of one integer: blanks around it, nothing else.
@@ -1007,6 +1126,25 @@ impl Handle for FileHandle {
                 let mask = crate::coredump::COREDUMP_FILTER_MASK;
                 process.ident.lock_or_recover().coredump_filter = value & mask;
             }
+            Write::Tunable(tunables, tunable) => {
+                let value: i64 = std::str::from_utf8(data)
+                    .map_err(|_| Errno::EINVAL)?
+                    .trim()
+                    .parse()
+                    .map_err(|_| Errno::EINVAL)?;
+                tunables.set(*tunable, value)?;
+            }
+            // `write_sysrq_trigger`: every key written, whatever `kernel.sysrq` allows.
+            Write::Sysrq(source) => {
+                for &key in data {
+                    source.sysrq(key).await;
+                }
+            }
+            // `drop_caches_sysctl_handler`: there is no page cache to drop.
+            Write::DropCaches(source, opener) => match sysctl_int(data)? {
+                value @ 1..=4 => source.drop_caches(*opener, value),
+                _ => return Err(Errno::EINVAL),
+            },
             Write::Printk(_, _, false) => return Err(Errno::EPERM),
             Write::Printk(printk, file, true) => write_printk(printk, *file, data)?,
             Write::Taint(_, false) => return Err(Errno::EPERM),

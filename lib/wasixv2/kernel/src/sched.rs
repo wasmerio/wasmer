@@ -872,7 +872,17 @@ impl Kernel {
         if pid < 0 {
             return Err(Errno::EINVAL.into());
         }
-        let slice = self.with_sched(caller, pid, |sched| sched.rr_interval())?;
+        let (policy, slice) = self.with_sched(caller, pid, |s| (s.policy, s.rr_interval()))?;
+        // `sched_rr_timeslice`, which `kernel.sched_rr_timeslice_ms` sets in jiffies.
+        let slice = match policy {
+            SchedPolicy::SCHED_RR => {
+                let ms = self
+                    .tunables
+                    .get(crate::sysctl::Tunable::SchedRrTimesliceMs);
+                Duration::from_millis((ms as u64).div_ceil(10) * 10)
+            }
+            _ => slice,
+        };
         // Linux never maps page 0; wasm memory starts there.
         if interval.is_null() {
             return Err(Errno::EFAULT.into());

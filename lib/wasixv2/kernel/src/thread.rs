@@ -212,6 +212,9 @@ impl Kernel {
             if crate::resource::nproc_exceeded(&state, &process) {
                 return Err(Errno::EAGAIN.into());
             }
+            if state.tasks.len() as i64 >= self.tunables.get(crate::sysctl::Tunable::ThreadsMax) {
+                return Err(Errno::EAGAIN.into());
+            }
             let sched = task.sched.for_child()?;
             let id = TaskId(state.last_id + 1);
             state.pids.alloc(id.0, &process.pid_ns, &[], |_| false)?;

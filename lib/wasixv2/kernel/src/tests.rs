@@ -817,6 +817,7 @@ mod sched;
 mod sigio;
 mod signal;
 mod stdio;
+mod sysctl;
 mod sysvipc;
 mod task;
 mod timerfd;

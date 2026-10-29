@@ -71,6 +71,29 @@ pub(super) enum Global {
     CorePattern,
     CoreUsesPid,
     CorePipeLimit,
+    /// One of the integer sysctls of [`crate::sysctl::Tunable`].
+    Tunable(crate::sysctl::Tunable),
+    /// `kernel.random.boot_id`, `uuid`, `entropy_avail` and `poolsize`.
+    BootId,
+    Uuid,
+    EntropyAvail,
+    Poolsize,
+    /// `fs.file-nr`.
+    FileNr,
+    /// `vm.drop_caches`.
+    DropCaches,
+    /// `/proc/sysrq-trigger`.
+    SysrqTrigger,
+    /// `/proc/swaps`, `partitions`, `diskstats`, `devices`, `consoles`, `vmstat`,
+    /// `interrupts` and `softirqs`.
+    Swaps,
+    Partitions,
+    Diskstats,
+    Devices,
+    Consoles,
+    Vmstat,
+    Interrupts,
+    Softirqs,
 }
 
 /// The files of a network namespace (`/proc/<pid>/net`).
@@ -113,7 +136,9 @@ impl Global {
             | Self::PrintkDevkmsg
             | Self::CorePattern
             | Self::CoreUsesPid
-            | Self::CorePipeLimit => 0o644,
+            | Self::CorePipeLimit
+            | Self::Tunable(_) => 0o644,
+            Self::DropCaches | Self::SysrqTrigger => 0o200,
             Self::Kmsg => 0o400,
             // Writing these needs a capability over the namespace's owner instead (or, for
             // `pid_max`, being its root), as the permissions of their sysctl tables give.
@@ -213,6 +238,28 @@ pub(super) fn global(
         }
         Global::DmesgRestrict => line(&u8::from(source.printk.dmesg_restrict()).to_string()),
         Global::CorePattern => [source.coredump.pattern(), b"\n".to_vec()].concat(),
+        Global::Tunable(tunable) => line(&source.tunables.get(tunable).to_string()),
+        Global::BootId => line(&uuid_text(&source.boot_id)),
+        Global::Uuid => {
+            let mut id = [0; 16];
+            source.host.random(&mut id);
+            line(&uuid_text(&super::uuid_v4(id)))
+        }
+        // The host's entropy never runs out: the pool is always full.
+        Global::EntropyAvail | Global::Poolsize => line("256"),
+        // `proc_nr_files`: open files, none free, the maximum.
+        Global::FileNr => line(&format!("{}\t0\t{}", source.nr_files(), i64::MAX)),
+        Global::DropCaches | Global::SysrqTrigger => Vec::new(),
+        // No swap, no block devices.
+        Global::Swaps => b"Filename\t\t\t\tType\t\tSize\t\tUsed\t\tPriority\n".to_vec(),
+        Global::Partitions => b"major minor  #blocks  name\n\n".to_vec(),
+        Global::Diskstats => Vec::new(),
+        Global::Devices => devices(),
+        // No console prints the kernel log.
+        Global::Consoles => Vec::new(),
+        Global::Vmstat => vmstat(source),
+        Global::Interrupts => interrupts(),
+        Global::Softirqs => softirqs(),
         Global::CoreUsesPid => line(&u8::from(source.coredump.uses_pid()).to_string()),
         Global::CorePipeLimit => line(&source.coredump.pipe_limit().to_string()),
         Global::PrintkDevkmsg => line(match source.printk.devkmsg() {
@@ -257,7 +304,7 @@ fn cpuinfo() -> Vec<u8> {
 
 /// Memory is the 4 GiB a wasm32 guest can address, less what the processes use, as `sysinfo`
 /// counts it.
-fn meminfo(source: &Source) -> Vec<u8> {
+pub(super) fn meminfo(source: &Source) -> Vec<u8> {
     let used: u64 = source
         .all_pids()
         .into_iter()
@@ -653,6 +700,113 @@ fn net_igmp6(ns: &NetNs) -> Vec<u8> {
                 u128::from(group),
             );
         }
+    }
+    out.into_bytes()
+}
+
+/// `%pU`: a UUID in its lowercase text form.
+fn uuid_text(id: &[u8; 16]) -> String {
+    let hex: Vec<String> = id.iter().map(|b| format!("{b:02x}")).collect();
+    let hex = hex.concat();
+    format!(
+        "{}-{}-{}-{}-{}",
+        &hex[..8],
+        &hex[8..12],
+        &hex[12..16],
+        &hex[16..20],
+        &hex[20..]
+    )
+}
+
+/// `chrdev_show` and `blkdev_show`: the drivers' majors.
+fn devices() -> Vec<u8> {
+    let mut out = String::from("Character devices:\n");
+    for (major, name) in [
+        (1, "mem"),
+        (5, "/dev/tty"),
+        (5, "/dev/ptmx"),
+        (136, "pts"),
+        (229, "hvc"),
+    ] {
+        let _ = writeln!(out, "{major:3} {name}");
+    }
+    out.push_str("\nBlock devices:\n");
+    out.into_bytes()
+}
+
+/// `vmstat_show`: the memory of `meminfo` in pages; there is no page cache, swap or reclaim,
+/// and the guest's memory never faults.
+fn vmstat(source: &Source) -> Vec<u8> {
+    let used: u64 = source
+        .all_pids()
+        .into_iter()
+        .filter_map(|pid| source.mm(Scope { pid, tid: None }))
+        .map(|mm| mm.size())
+        .sum();
+    let page = 4096;
+    let free = ADDRESS_SPACE.saturating_sub(used) / page;
+    let anon = used / page;
+    let mut out = String::new();
+    for (name, value) in [
+        ("nr_free_pages", free),
+        ("nr_zone_inactive_anon", 0),
+        ("nr_zone_active_anon", anon),
+        ("nr_zone_inactive_file", 0),
+        ("nr_zone_active_file", 0),
+        ("nr_zone_unevictable", 0),
+        ("nr_mlock", 0),
+        ("nr_inactive_anon", 0),
+        ("nr_active_anon", anon),
+        ("nr_inactive_file", 0),
+        ("nr_active_file", 0),
+        ("nr_unevictable", 0),
+        ("nr_anon_pages", anon),
+        ("nr_mapped", 0),
+        ("nr_file_pages", 0),
+        ("nr_dirty", 0),
+        ("nr_writeback", 0),
+        ("nr_shmem", 0),
+        ("nr_dirty_threshold", 0),
+        ("nr_dirty_background_threshold", 0),
+        ("pgpgin", 0),
+        ("pgpgout", 0),
+        ("pswpin", 0),
+        ("pswpout", 0),
+        ("pgfault", 0),
+        ("pgmajfault", 0),
+        ("oom_kill", 0),
+    ] {
+        let _ = writeln!(out, "{name} {value}");
+    }
+    out.into_bytes()
+}
+
+/// The `CPU0 CPU1 ...` header of `interrupts` and `softirqs`, after `indent` blanks.
+fn cpu_header(indent: usize) -> String {
+    let mut out = " ".repeat(indent);
+    for cpu in 0..cpus() {
+        let _ = write!(out, "CPU{cpu:<8}");
+    }
+    out.trim_end().to_string() + "\n"
+}
+
+/// `show_interrupts`: the CPUs, and no interrupt lines; the host takes them all.
+fn interrupts() -> Vec<u8> {
+    cpu_header(11).into_bytes()
+}
+
+/// `show_softirqs`: every kind, none raised.
+fn softirqs() -> Vec<u8> {
+    let mut out = cpu_header(20);
+    for name in [
+        "HI", "TIMER", "NET_TX", "NET_RX", "BLOCK", "IRQ_POLL", "TASKLET", "SCHED", "HRTIMER",
+        "RCU",
+    ] {
+        let _ = write!(out, "{name:>12}:");
+        for _ in 0..cpus() {
+            out.push_str(&format!(" {:>10}", 0));
+        }
+        out.push('\n');
     }
     out.into_bytes()
 }

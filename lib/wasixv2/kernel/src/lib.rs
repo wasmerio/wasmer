@@ -47,6 +47,7 @@ mod socket;
 mod startup;
 mod stdio;
 mod sync;
+mod sysctl;
 mod sysfs;
 mod taint;
 mod thread;
@@ -172,6 +173,10 @@ pub struct Kernel {
     acct: acct::Acct,
     /// Where core dumps go.
     coredump: Arc<coredump::Coredump>,
+    /// The integer sysctls of [`sysctl::Tunable`].
+    tunables: Arc<sysctl::Tunables>,
+    /// `kernel.random.boot_id`.
+    boot_id: [u8; 16],
     // ---- thr ----
     futexes: futex::Futexes,
     // ---- proc ----
@@ -338,6 +343,12 @@ impl Kernel {
             printk,
             acct: acct::Acct::default(),
             coredump: Arc::default(),
+            tunables: Arc::default(),
+            boot_id: {
+                let mut id = [0; 16];
+                host.random(&mut id);
+                procfs::uuid_v4(id)
+            },
             ptys: tty::Ptys::new(clock.clone()),
             pseudo: pseudo::Pseudo::new(&vfs, clock),
             nr_open: Arc::default(),

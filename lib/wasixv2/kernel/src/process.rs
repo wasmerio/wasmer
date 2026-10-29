@@ -1404,6 +1404,10 @@ impl Kernel {
             if crate::resource::nproc_exceeded(&state, &parent) {
                 return Err(Errno::EAGAIN);
             }
+            // `max_threads` (`kernel.threads-max`), for everyone.
+            if state.tasks.len() as i64 >= self.tunables.get(crate::sysctl::Tunable::ThreadsMax) {
+                return Err(Errno::EAGAIN);
+            }
             // `fatal_signal_pending`: a group on its way out, or whose `execve` is killing its
             // threads, starts nothing.
             if parent.group.signal_group_exit() {
