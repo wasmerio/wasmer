@@ -127,6 +127,8 @@ pub struct Kernel {
     vfs: Arc<Vfs>,
     /// The inodes of pipes, sockets and anonymous files.
     pseudo: pseudo::Pseudo,
+    /// `fs.nr_open`, which every descriptor table reads.
+    nr_open: Arc<file::NrOpen>,
     /// The internal shmem filesystem behind `memfd_create` (`shm_mnt`); without one,
     /// `memfd_create` fails with `ENOSYS`.
     shm: Option<Arc<Mount>>,
@@ -267,6 +269,7 @@ impl Kernel {
         Self {
             ptys: tty::Ptys::new(clock.clone()),
             pseudo: pseudo::Pseudo::new(&vfs, clock),
+            nr_open: Arc::default(),
             timers: timer::Timers::new(host.clone()),
             host,
             state,
@@ -369,11 +372,16 @@ impl Kernel {
             "init is the first process"
         );
         let init = self
-            .new_process(vec!["init".to_string()], Vec::new(), FdTable::default(), 0)
+            .new_process(vec!["init".to_string()], Vec::new(), self.fd_table(), 0)
             .expect("the first process gets pid 1");
         self.task_signals(init).group().make_init();
         self.init = Some(init);
         self
+    }
+
+    /// An empty descriptor table, bounded by the machine's `fs.nr_open`.
+    fn fd_table(&self) -> FdTable {
+        FdTable::new(self.nr_open.clone())
     }
 
     /// Starts a process with a single task whose descriptors 0, 1 and 2 are `config.stdio`,
@@ -381,7 +389,7 @@ impl Kernel {
     /// the initial namespaces. `EAGAIN` when the initial pid namespace has no pid left.
     pub fn spawn(&self, config: ProcessConfig) -> Result<TaskId, Errno> {
         let cred = cred::Cred::new(&self.credentials);
-        let mut files = FdTable::default();
+        let mut files = self.fd_table();
         for file in stdio::open_files(config.stdio, &self.pseudo, cred.fs_owner()) {
             files
                 .install(Arc::new(file), false)

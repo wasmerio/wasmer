@@ -12,13 +12,11 @@ use wasixv2_syscalls::{Caller, CpuTimes, Errno, SysResult, UserSliceMut, read_va
 
 use wasixv2_vfs::Cap;
 
-use crate::{Kernel, Process, State, mm::PAGE_SIZE, sync::MutexExt};
+use crate::{Kernel, Process, State, file::NrOpen, mm::PAGE_SIZE, sync::MutexExt};
 
 const INFINITY: u64 = u64::MAX;
 /// `RLIM_NLIMITS`.
 const NLIMITS: usize = 16;
-/// `fs.nr_open`: the most `RLIMIT_NOFILE` can be raised to.
-const NR_OPEN: u64 = 1 << 20;
 /// Clock ticks per second (`USER_HZ`).
 pub(crate) const TICKS: u128 = 100;
 /// The address space a wasm32 guest can grow into.
@@ -103,7 +101,7 @@ impl Resources {
     pub(crate) fn nofile(&self) -> usize {
         self.limits[RlimitResource::RLIMIT_NOFILE.0 as usize]
             .rlim_cur
-            .min(NR_OPEN) as usize
+            .min(u64::from(NrOpen::MAX)) as usize
     }
 
     pub(crate) fn sigpending(&self) -> u64 {
@@ -194,7 +192,8 @@ impl Kernel {
                 }
                 let nofile = resource == RlimitResource::RLIMIT_NOFILE;
                 let raises = new.rlim_max > previous.rlim_max && !cred.capable(Cap::SysResource);
-                if raises || (nofile && new.rlim_max > NR_OPEN) {
+                // `fs.nr_open` bounds the hard limit, even for a caller that may raise it.
+                if raises || (nofile && new.rlim_max > u64::from(self.nr_open.get())) {
                     return Err(Errno::EPERM.into());
                 }
                 resources.limits[index] = new;

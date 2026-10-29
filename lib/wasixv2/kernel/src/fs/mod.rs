@@ -464,9 +464,7 @@ impl Kernel {
         // `unshare_fd`: a table shared with other tasks is copied first, so only the
         // caller's descriptors close. The task and this function hold one reference each.
         if flags.contains(CloseRangeFlags::CLOSE_RANGE_UNSHARE) && Arc::strong_count(&files) > 2 {
-            let copy = Arc::new(Mutex::new(crate::process::copy_files(
-                &files.lock_or_recover(),
-            )));
+            let copy = Arc::new(Mutex::new(files.lock_or_recover().dup()?));
             self.with_task(caller.task(), |task| task.files = copy.clone());
             files = copy;
         }
@@ -516,6 +514,10 @@ impl Kernel {
             return Err(Errno::EBADF.into());
         }
         let file = table.get(old).ok_or(Errno::EBADF)?;
+        // `expand_files`: a table that cannot grow to `new` is `EBADF` here, not `EMFILE`.
+        if table.expand(new.0 as usize).is_err() {
+            return Err(Errno::EBADF.into());
+        }
         // A descriptor reserved by an open still in progress.
         if table.is_reserved(new) {
             return Err(Errno::EBUSY.into());
