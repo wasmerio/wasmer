@@ -1213,6 +1213,45 @@ rohc\t142\tROHC\t\t# Robust Header Compression
 ethernet\t143\tEthernet\t# Ethernet encapsulation for SRv6 [RFC8986]
 mptcp\t262\tMPTCP\t\t# Multipath TCP connection
 ";
+/// Conventional Internet service names, as /etc/services on Linux. musl's
+/// service lookup reads this file (RFC 862 echo, RFC 1035 DNS, etc.).
+const SERVICES: &str = "\
+echo 7/tcp
+echo 7/udp
+discard 9/tcp
+discard 9/udp
+daytime 13/tcp
+daytime 13/udp
+chargen 19/tcp
+chargen 19/udp
+ftp-data 20/tcp
+ftp 21/tcp
+ssh 22/tcp
+telnet 23/tcp
+smtp 25/tcp mail
+time 37/tcp
+time 37/udp
+domain 53/tcp
+domain 53/udp
+bootps 67/udp
+bootpc 68/udp
+tftp 69/udp
+http 80/tcp www
+kerberos 88/tcp
+kerberos 88/udp
+pop3 110/tcp
+sunrpc 111/tcp
+sunrpc 111/udp
+ntp 123/udp
+imap 143/tcp
+snmp 161/udp
+ldap 389/tcp
+https 443/tcp
+https 443/udp
+submission 587/tcp
+imaps 993/tcp
+pop3s 995/tcp
+";
 /// The kernel's nodename.
 const HOSTNAME: &str = "localhost\n";
 
@@ -1573,6 +1612,7 @@ pub fn default_root(
             (builtin.as_str(), MODULES_BUILTIN),
             (dep.as_str(), ""),
             ("/etc/protocols", PROTOCOLS),
+            ("/etc/services", SERVICES),
         ];
         if !resolv_conf.is_empty() {
             files.push(("/etc/resolv.conf", resolv_conf));
