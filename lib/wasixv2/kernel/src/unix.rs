@@ -775,6 +775,15 @@ impl Sock {
         }
         let peer = peer.and_then(|p| p.upgrade()).ok_or(Errno::EPIPE)?;
         let mut target = peer.lock();
+        // A record goes through the receiver's filter first (`unix_dgram_sendmsg`); one it
+        // drops is lost, and the send succeeds.
+        let keep = match self.kind {
+            Kind::Stream => data.len(),
+            _ => match target.opts.filter.trim_message(data) {
+                Some(keep) => keep,
+                None => return Ok(data.len()),
+            },
+        };
         if target.released || target.shutdown & RCV_SHUTDOWN != 0 {
             return Err(Errno::EPIPE);
         }
@@ -790,9 +799,13 @@ impl Sock {
                     false => (n, data[..n].to_vec()),
                 }
             }
-            _ => (data.len(), std::mem::take(data)),
+            _ => {
+                let n = data.len();
+                data.truncate(keep);
+                (n, std::mem::take(data))
+            }
         };
-        target.rx_bytes += n;
+        target.rx_bytes += bytes.len();
         target.rx.push_back(Msg {
             data: bytes,
             read: 0,
@@ -829,6 +842,10 @@ impl Sock {
             return Err(Errno::EMSGSIZE);
         }
         let mut other = target.lock();
+        // The receiver's filter comes first; what it drops is lost, and the send succeeds.
+        let Some(keep) = other.opts.filter.trim_message(data) else {
+            return Ok(data.len());
+        };
         if other.released {
             drop(other);
             // A dead peer is forgotten (`unix_dgram_disconnected`).
@@ -857,7 +874,8 @@ impl Sock {
             return Err(Errno::EAGAIN);
         }
         let len = data.len();
-        other.rx_bytes += len;
+        data.truncate(keep);
+        other.rx_bytes += keep;
         other.rx.push_back(Msg {
             data: std::mem::take(data),
             read: 0,
@@ -1743,7 +1761,12 @@ impl Kernel {
             }
             // `SO_PEERGROUPS` is answered by the socket layer, which may need `ERANGE`.
             _ => {
-                let mut out = [0u8; 64];
+                // `SO_GET_FILTER` writes the whole program.
+                let size = match name == wasixv2_vnet::bpf::SO_GET_FILTER {
+                    true => wasixv2_vnet::bpf::MAX_PROGRAM_LEN,
+                    false => 64,
+                };
+                let mut out = vec![0u8; size];
                 let n = sock
                     .lock()
                     .opts

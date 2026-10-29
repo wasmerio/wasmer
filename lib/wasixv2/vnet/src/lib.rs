@@ -6,6 +6,7 @@
 
 mod addr;
 mod api;
+pub mod bpf;
 mod cmsg;
 mod icmp;
 pub mod iface;
