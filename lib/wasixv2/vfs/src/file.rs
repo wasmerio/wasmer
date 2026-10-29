@@ -394,13 +394,16 @@ struct Shifted<'a> {
 
 impl DirSink for Shifted<'_> {
     fn push(&mut self, entry: DirEntry<'_>) -> bool {
+        self.push_type(entry, entry.file_type.dirent_type())
+    }
+    fn push_type(&mut self, entry: DirEntry<'_>, dtype: u8) -> bool {
         // A name no lookup could reach would corrupt the listing (`..`, `a/b`, or one longer
         // than a record can say): a driver's bad entry is skipped.
         if !is_entry_name(entry.name) {
             return true;
         }
         let next = (entry.next + 2).min(DIR_POS_EOD - 1);
-        if !self.inner.push(DirEntry { next, ..entry }) {
+        if !self.inner.push_type(DirEntry { next, ..entry }, dtype) {
             self.full = true;
             return false;
         }

@@ -223,6 +223,11 @@ pub struct DirEntry<'a> {
 
 /// Receives `readdir` entries; returns `false` when it is full and wants no more.
 pub trait DirSink {
+    /// A driver's raw d_type, including DT_UNKNOWN for remote directory entries.
+    fn push_type(&mut self, entry: DirEntry<'_>, _dtype: u8) -> bool {
+        self.push(entry)
+    }
+
     fn push(&mut self, entry: DirEntry<'_>) -> bool;
 }
 

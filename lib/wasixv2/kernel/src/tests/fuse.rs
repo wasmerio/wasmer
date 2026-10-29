@@ -459,7 +459,7 @@ impl Daemon {
             (0, attr_out(1, FileType::Directory))
         })
         .unwrap();
-        self.lookup(2, FileType::Regular);
+        let _node = self.lookup(2, FileType::Regular);
         let task = self
             .kernel
             .spawn(ProcessConfig {
@@ -526,4 +526,117 @@ fn fuse_fatal_release_does_not_wait_for_flush() {
     assert_eq!(n32(&release, 4), 18);
     d.reply(&release, 0, &[]).unwrap();
     assert!(!d.kernel.state.read_or_recover().tasks.contains_key(&task));
+}
+
+#[derive(Default)]
+struct Listing {
+    limit: usize,
+    entries: Vec<(Vec<u8>, u64, u8)>,
+}
+impl wasixv2_vfs::DirSink for Listing {
+    fn push(&mut self, e: wasixv2_vfs::DirEntry<'_>) -> bool {
+        self.push_type(e, e.file_type.dirent_type())
+    }
+    fn push_type(&mut self, e: wasixv2_vfs::DirEntry<'_>, dtype: u8) -> bool {
+        if self.entries.len() == self.limit {
+            return false;
+        }
+        self.entries.push((e.name.to_vec(), e.next, dtype));
+        true
+    }
+}
+fn dirent(name: &[u8], id: u64, next: u64, dtype: u32, plus: bool) -> Vec<u8> {
+    let mut out = if plus {
+        entry(id, FileType::Regular)
+    } else {
+        Vec::new()
+    };
+    let start = out.len();
+    out.resize(start + 24, 0);
+    p64(&mut out, start, id);
+    p64(&mut out, start + 8, next);
+    p32(&mut out, start + 16, name.len() as u32);
+    p32(&mut out, start + 20, dtype);
+    out.extend(name);
+    out.resize(out.len().next_multiple_of(8), 0);
+    out
+}
+#[test]
+fn fuse_readdir_paginates_and_maps_large_cookies() {
+    let d = Daemon::new();
+    d.init();
+    let dir = d.lookup(2, FileType::Directory);
+    let handle = d
+        .exchange(
+            dir.open(OpenOptions {
+                read: true,
+                ..OpenOptions::default()
+            }),
+            27,
+            |_| (0, vec![0; 16]),
+        )
+        .unwrap();
+    let mut sink = Listing {
+        limit: 1,
+        ..Listing::default()
+    };
+    let large = 1u64 << 55;
+    d.exchange(handle.readdir(0, &mut sink), 44, |_| {
+        let mut a = dirent(b"one", 3, large, 0, true);
+        a.extend(dirent(b"two", 4, large + 1, 8, true));
+        (0, a)
+    })
+    .unwrap();
+    assert_eq!(sink.entries[0].0, b"one");
+    assert_eq!(sink.entries[0].2, 0);
+    let cookie = sink.entries[0].1;
+    assert!(cookie < 100);
+    // Both lookup references from the full reply must be forgotten, including "two".
+    let n = now(d
+        .kernel
+        .read(&d.caller(), d.fd, UserSliceMut::new(BUF, 65536)))
+    .unwrap();
+    let forget = get(&d.memory, BUF, n as usize);
+    assert_eq!(n32(&forget, 4), 42);
+    assert_eq!(n32(&forget, 40), 2);
+    let mut sink = Listing {
+        limit: 10,
+        ..Listing::default()
+    };
+    block_on(as_task(d.task, async {
+        let future = handle.readdir(cookie, &mut sink);
+        let mut future = std::pin::pin!(future);
+        assert!(futures::poll!(&mut future).is_pending());
+        let req = d.read();
+        assert_eq!(n64(&req, 48), large);
+        d.reply(&req, 0, &dirent(b"two", 0, large + 1, 8, true))
+            .unwrap();
+        assert!(futures::poll!(&mut future).is_pending());
+        let req = d.read();
+        assert_eq!(n64(&req, 48), large + 1);
+        d.reply(&req, 0, &[]).unwrap();
+        future.await.unwrap();
+    }));
+    assert_eq!(sink.entries.len(), 1);
+    assert_eq!(sink.entries[0].0, b"two");
+}
+
+#[test]
+fn fuse_invalid_lookup_attributes_are_forgotten() {
+    let d = Daemon::new();
+    d.init();
+    let result = d.exchange(d.root.lookup(b"invalid"), 1, |_| {
+        let mut out = entry(9, FileType::Regular);
+        p32(&mut out, 100, 0);
+        (0, out)
+    });
+    assert!(matches!(result, Err(Errno::EIO)));
+    let n = now(d
+        .kernel
+        .read(&d.caller(), d.fd, UserSliceMut::new(BUF, 65536)))
+    .unwrap();
+    let out = get(&d.memory, BUF, n as usize);
+    assert_eq!(n32(&out, 4), 42);
+    assert_eq!(n64(&out, 48), 9);
+    assert_eq!(n64(&out, 56), 1);
 }

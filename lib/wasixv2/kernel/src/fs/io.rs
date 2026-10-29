@@ -1084,6 +1084,9 @@ struct Dirents {
 
 impl DirSink for Dirents {
     fn push(&mut self, entry: DirEntry<'_>) -> bool {
+        self.push_type(entry, entry.file_type.dirent_type())
+    }
+    fn push_type(&mut self, entry: DirEntry<'_>, dtype: u8) -> bool {
         const NAME_OFFSET: usize = 19;
         let reclen = (NAME_OFFSET + entry.name.len() + 1).next_multiple_of(8);
         if self.out.len() + reclen > self.limit {
@@ -1094,7 +1097,7 @@ impl DirSink for Dirents {
             d_ino: entry.ino,
             d_off: entry.next as i64,
             d_reclen: reclen as u16,
-            d_type: entry.file_type.dirent_type(),
+            d_type: dtype,
         };
         let start = self.out.len();
         self.out.resize(start + reclen, 0);
