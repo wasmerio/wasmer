@@ -252,6 +252,13 @@ impl<F: Fn(&[u8]) + Send + Sync> ByteSink for FnSink<F> {
     }
 }
 
+/// A captured host thread CPU clock, readable from another thread. Reads must stop before
+/// the captured thread exits, since a host may reuse its clock identifier.
+pub trait ThreadCpuClock: Send + Sync {
+    /// CPU time used by the captured thread, excluding sleep and descheduling.
+    fn read(&self) -> Option<Duration>;
+}
+
 /// Clocks, timers, entropy, shared memory and the executor that runs host work.
 pub trait Host: Send + Sync {
     /// Time since the Unix epoch, for `CLOCK_REALTIME`.
@@ -279,6 +286,11 @@ pub trait Host: Send + Sync {
     /// `None` by default, and from hosts without such a clock, whose guests are charged with the
     /// wall-clock time they run instead.
     fn thread_cpu_time(&self) -> Option<Duration> {
+        None
+    }
+    /// Captures the calling thread's CPU clock for periodic accounting on another thread.
+    /// Hosts without cross-thread CPU clocks use boundary accounting instead.
+    fn thread_cpu_clock(&self) -> Option<Arc<dyn ThreadCpuClock>> {
         None
     }
     /// Fills `buf` with cryptographically secure random bytes.

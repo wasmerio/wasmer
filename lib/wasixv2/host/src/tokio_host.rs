@@ -73,6 +73,15 @@ impl Host for TokioHost {
         (ret == 0).then(|| Duration::new(ts.tv_sec as u64, ts.tv_nsec as u32))
     }
 
+    #[cfg(any(target_os = "linux", target_os = "android"))]
+    fn thread_cpu_clock(&self) -> Option<Arc<dyn crate::ThreadCpuClock>> {
+        let mut id = 0;
+        // SAFETY: pthread_self names this live thread and id is writable. Only the captured
+        // clock id crosses threads; no pthread_t is dereferenced after capture.
+        let ret = unsafe { libc::pthread_getcpuclockid(libc::pthread_self(), &mut id) };
+        (ret == 0).then(|| Arc::new(CpuClock(id)) as Arc<dyn crate::ThreadCpuClock>)
+    }
+
     fn random(&self, buf: &mut [u8]) {
         getrandom::fill(buf).expect("the host entropy source failed");
     }
@@ -86,6 +95,23 @@ impl Host for TokioHost {
     #[cfg(any(target_os = "linux", target_os = "android", target_os = "macos"))]
     fn shared_pages(&self, size: u64) -> io::Result<Arc<dyn wasixv2_pages::SharedPages>> {
         Ok(Arc::new(wasixv2_pages::Memfd::new(size)?))
+    }
+}
+
+#[cfg(any(target_os = "linux", target_os = "android"))]
+struct CpuClock(libc::clockid_t);
+
+#[cfg(any(target_os = "linux", target_os = "android"))]
+impl crate::ThreadCpuClock for CpuClock {
+    fn read(&self) -> Option<Duration> {
+        let mut ts = libc::timespec {
+            tv_sec: 0,
+            tv_nsec: 0,
+        };
+        // SAFETY: this is a CPU clock id captured while its owning thread was alive, and ts
+        // is writable. The caller stops reading before that thread exits.
+        let ret = unsafe { libc::clock_gettime(self.0, &mut ts) };
+        (ret == 0).then(|| Duration::new(ts.tv_sec as u64, ts.tv_nsec as u32))
     }
 }
 
@@ -236,6 +262,43 @@ mod tests {
         .unwrap();
         let flavor = tokio::time::timeout(Duration::from_secs(10), rx).await;
         assert_eq!(flavor.unwrap().unwrap(), RuntimeFlavor::MultiThread);
+    }
+
+    /// Another thread's clock excludes the sampler's CPU and advances when its owner runs.
+    #[cfg(any(target_os = "linux", target_os = "android"))]
+    #[test]
+    fn captured_cpu_clock_reads_the_target_thread_not_the_sampler() {
+        use std::sync::mpsc;
+        let (send_clock, recv_clock) = mpsc::channel();
+        let (send_cpu, recv_cpu) = mpsc::channel();
+        let (release, wait) = mpsc::channel();
+        let worker = std::thread::spawn(move || {
+            let host = TokioHost::default();
+            send_clock.send(host.thread_cpu_clock().unwrap()).unwrap();
+            wait.recv().unwrap();
+            let start = host.thread_cpu_time().unwrap();
+            while host.thread_cpu_time().unwrap() - start < Duration::from_millis(5) {
+                std::hint::spin_loop();
+            }
+            send_cpu.send(host.thread_cpu_time().unwrap()).unwrap();
+            wait.recv().unwrap();
+        });
+        let clock = recv_clock.recv().unwrap();
+        let before = clock.read().unwrap();
+        let main = TokioHost::default();
+        let start = main.thread_cpu_time().unwrap();
+        while main.thread_cpu_time().unwrap() - start < Duration::from_millis(30) {
+            std::hint::spin_loop();
+        }
+        assert!(clock.read().unwrap() - before < Duration::from_millis(10));
+        release.send(()).unwrap();
+        let after = recv_cpu.recv().unwrap();
+        assert!(after - before >= Duration::from_millis(5));
+        assert!(clock.read().unwrap() >= after);
+        // Stop reading before allowing the target thread's clock id to be reused.
+        drop(clock);
+        release.send(()).unwrap();
+        worker.join().unwrap();
     }
 
     /// The thread CPU clock advances while the thread computes, and hardly while it sleeps.

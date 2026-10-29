@@ -291,6 +291,10 @@ impl Host for Timekeeper {
         self.host.thread_cpu_time()
     }
 
+    fn thread_cpu_clock(&self) -> Option<Arc<dyn wasixv2_host::ThreadCpuClock>> {
+        self.host.thread_cpu_clock()
+    }
+
     fn random(&self, buf: &mut [u8]) {
         self.host.random(buf)
     }
@@ -350,6 +354,10 @@ mod tests {
             Duration::from_nanos(self.mono.load(Ordering::SeqCst))
         }
 
+        fn thread_cpu_clock(&self) -> Option<Arc<dyn wasixv2_host::ThreadCpuClock>> {
+            Some(Arc::new(ManualCpuClock))
+        }
+
         fn sleep(&self, _: Duration) -> LocalFuture<'_, ()> {
             Box::pin(futures_util::future::pending())
         }
@@ -361,6 +369,25 @@ mod tests {
         fn executor(&self) -> &dyn Executor {
             self
         }
+    }
+
+    struct ManualCpuClock;
+
+    impl wasixv2_host::ThreadCpuClock for ManualCpuClock {
+        fn read(&self) -> Option<Duration> {
+            Some(Duration::from_micros(7))
+        }
+    }
+
+    #[test]
+    fn wall_clock_adjustment_preserves_the_captured_thread_cpu_clock() {
+        let (host, time) = keeper(BEFORE_MIDNIGHT);
+        let clock = time
+            .thread_cpu_clock()
+            .expect("the host's clock capability");
+        time.settime(BEFORE_MIDNIGHT + SECOND).unwrap();
+        host.advance(SECOND);
+        assert_eq!(clock.read(), Some(Duration::from_micros(7)));
     }
 
     impl Executor for ManualHost {
