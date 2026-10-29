@@ -1771,3 +1771,319 @@ fn fixed_buffers_follow_mremap_and_retain_shared_aliases() {
         assert_eq!(m.memory.get(BUF, 4), if shared { b"alia" } else { b"move" });
     }
 }
+
+fn pbuf_register(ring: &Ring<'_>, addr: u32, flags: u16, min_left: u32) -> SysResult<i32> {
+    put_value(
+        ring.m,
+        SCRATCH,
+        wasixv2_abi::IoUringBufReg {
+            ring_addr: u64::from(addr),
+            ring_entries: 2,
+            bgid: 7,
+            flags,
+            min_left,
+            resv: [0; 5],
+        },
+    );
+    ring.register(22, SCRATCH, 1)
+}
+
+fn pbuf_head(ring: &Ring<'_>) -> u32 {
+    put_value(
+        ring.m,
+        SCRATCH,
+        wasixv2_abi::IoUringBufStatus {
+            buf_group: 7,
+            ..wasixv2_abi::IoUringBufStatus::ZERO
+        },
+    );
+    assert_eq!(ring.register(26, SCRATCH, 1), Ok(0));
+    ring.m.get_word(SCRATCH + 4)
+}
+
+fn pbuf_descriptor(m: &Machine, ring_addr: u32, index: u32, addr: u32, len: u32, bid: u16) {
+    put_value(
+        m,
+        ring_addr + index * 16,
+        wasixv2_abi::IoUringBuf {
+            addr: u64::from(addr),
+            len,
+            bid,
+            resv: 0,
+        },
+    );
+}
+
+#[test]
+fn mmap_buffer_rings_increment_and_honor_min_left() {
+    let m = Machine::new();
+    let ring = m.ring(8, 0);
+    assert_eq!(errno(pbuf_register(&ring, 0, 1, 1)), Errno::EINVAL);
+    assert_eq!(pbuf_register(&ring, 0, 3, 6), Ok(0));
+    assert_eq!(errno(pbuf_register(&ring, 0, 3, 6)), Errno::EEXIST);
+    let at = block_on(m.kernel.mmap(
+        &m.caller(),
+        0,
+        65536,
+        ProtFlags(3),
+        MapFlags::MAP_SHARED,
+        ring.fd,
+        0x8000_0000 | (7 << 16),
+    ))
+    .unwrap();
+    pbuf_descriptor(&m, at, 0, BUF, 10, 42);
+    m.memory.put(at + 14, &1u16.to_le_bytes());
+    let fd = m.file("incremental", b"abc");
+    let read = IoUringSqe {
+        flags: IosqeFlags::IOSQE_BUFFER_SELECT.0,
+        len: 3,
+        buf_index: 7,
+        ..sqe(READ, fd.0, 1)
+    };
+    ring.push(read);
+    assert_eq!(ring.submit(1), Ok(1));
+    let cqe = ring.reap()[0];
+    assert_eq!(cqe.res, 3);
+    assert_ne!(cqe.flags & IoringCqeFlags::IORING_CQE_F_BUF_MORE.0, 0);
+    assert_eq!(cqe.flags >> 16, 42);
+    assert_eq!(pbuf_head(&ring), 0);
+    let descriptor = wasixv2_abi::IoUringBuf::read_from(&m.memory.get(at, 16)).unwrap();
+    assert_eq!(
+        (descriptor.addr, descriptor.len, descriptor.resv),
+        (u64::from(BUF + 3), 7, 1)
+    );
+    ring.push(read);
+    assert_eq!(ring.submit(1), Ok(1));
+    let cqe = ring.reap()[0];
+    assert_eq!(cqe.res, 3);
+    assert_eq!(cqe.flags & IoringCqeFlags::IORING_CQE_F_BUF_MORE.0, 0);
+    assert_eq!(pbuf_head(&ring), 1);
+    assert_eq!(m.memory.get(BUF, 6), b"abcabc");
+    assert_eq!(m.get_word(at + 8), 0);
+    ring.push(sqe(IoUringOp::IORING_OP_PROVIDE_BUFFERS, 1, 2));
+    assert_eq!(ring.submit(1), Ok(1));
+    assert_eq!(res(&ring.reap()), [(2, EINVAL)]);
+    put_value(
+        &m,
+        SCRATCH,
+        wasixv2_abi::IoUringBufReg {
+            bgid: 7,
+            ..wasixv2_abi::IoUringBufReg::ZERO
+        },
+    );
+    assert_eq!(ring.register(23, SCRATCH, 1), Ok(0));
+    assert_eq!(errno(ring.register(23, SCRATCH, 1)), Errno::ENOENT);
+}
+
+#[test]
+fn user_buffer_rings_retain_pages_and_recycle_on_eagain() {
+    let m = Machine::new();
+    let ring = m.ring(8, 0);
+    let at = anonymous(&m, 1, false);
+    pbuf_descriptor(&m, at, 0, BUF, 16, 9);
+    m.memory.put(at + 14, &1u16.to_le_bytes());
+    assert_eq!(pbuf_register(&ring, at, 0, 0), Ok(0));
+    // MAP_FIXED replaces the ring without an explicit munmap first.
+    let flags = MapFlags::MAP_ANONYMOUS | MapFlags::MAP_PRIVATE | MapFlags::MAP_FIXED;
+    block_on(
+        m.kernel
+            .mmap(&m.caller(), at, 65536, ProtFlags(3), flags, Fd(-1), 0),
+    )
+    .unwrap();
+    let (r, w) = pipe(&m.kernel, &m.caller(), OpenFlags(0));
+    ring.push(IoUringSqe {
+        flags: IosqeFlags::IOSQE_BUFFER_SELECT.0,
+        len: 16,
+        buf_index: 7,
+        ..sqe(READ, r.0, 1)
+    });
+    assert_eq!(ring.submit(1), Ok(1));
+    assert!(ring.reap().is_empty());
+    assert_eq!(pbuf_head(&ring), 0);
+    m.memory.put(BUF + 64, b"ready");
+    block_on(m.kernel.write(&m.caller(), w, UserSlice::new(BUF + 64, 5))).unwrap();
+    let cqe = ring.wait(1)[0];
+    assert_eq!(cqe.res, 5);
+    assert_eq!(cqe.flags >> 16, 9);
+    assert_eq!(pbuf_head(&ring), 1);
+    assert_eq!(m.memory.get(BUF, 5), b"ready");
+}
+
+fn unix_pair(m: &Machine, kind: i32) -> (Fd, Fd) {
+    block_on(m.kernel.socketpair(
+        &m.caller(),
+        AddressFamily::AF_UNIX,
+        kind,
+        0,
+        FdPair::new(SCRATCH),
+    ))
+    .unwrap();
+    (
+        Fd(m.get_word(SCRATCH) as i32),
+        Fd(m.get_word(SCRATCH + 4) as i32),
+    )
+}
+
+#[test]
+fn selected_recvmsg_replaces_the_iovec_and_preserves_message_outputs() {
+    let m = Machine::new();
+    let ring = m.ring(8, 0);
+    let (a, b) = unix_pair(&m, 2);
+    ring.push(IoUringSqe {
+        addr: u64::from(BUF),
+        len: 16,
+        off: 10,
+        buf_index: 7,
+        ..sqe(IoUringOp::IORING_OP_PROVIDE_BUFFERS, 1, 1)
+    });
+    assert_eq!(ring.submit(1), Ok(1));
+    ring.reap();
+    let hdr_at = SCRATCH + 64;
+    let iov_at = SCRATCH + 128;
+    put_value(
+        &m,
+        iov_at,
+        wasixv2_abi::Iovec {
+            iov_base: u32::MAX,
+            iov_len: 3,
+        },
+    );
+    put_value(
+        &m,
+        hdr_at,
+        wasixv2_abi::UserMsghdr {
+            msg_iov: GuestPtr::new(iov_at),
+            msg_iovlen: 1,
+            ..wasixv2_abi::UserMsghdr::ZERO
+        },
+    );
+    ring.push(IoUringSqe {
+        addr: u64::from(hdr_at),
+        flags: IosqeFlags::IOSQE_BUFFER_SELECT.0,
+        buf_index: 7,
+        ..sqe(IoUringOp::IORING_OP_RECVMSG, b.0, 2)
+    });
+    assert_eq!(ring.submit(1), Ok(1));
+    assert!(ring.reap().is_empty());
+    m.memory.put(BUF + 128, b"abcd");
+    block_on(m.kernel.write(&m.caller(), a, UserSlice::new(BUF + 128, 4))).unwrap();
+    let cqe = ring.wait(1)[0];
+    assert_eq!(cqe.res, 3);
+    assert_eq!(cqe.flags >> 16, 10);
+    assert_eq!(m.memory.get(BUF, 3), b"abc");
+    let hdr = wasixv2_abi::UserMsghdr::read_from(&m.memory.get(hdr_at, 28)).unwrap();
+    assert_ne!(hdr.msg_flags & wasixv2_abi::MsgFlags::MSG_TRUNC.0, 0);
+    assert_eq!(hdr.msg_controllen, 0);
+}
+
+#[test]
+fn multishot_recvmsg_places_header_name_control_and_payload_in_each_buffer() {
+    let m = Machine::new();
+    let ring = m.ring(8, 0);
+    let (a, b) = unix_pair(&m, 2);
+    put_value(&m, SCRATCH + 192, 1u32);
+    block_on(m.kernel.setsockopt(
+        &m.caller(),
+        b,
+        wasixv2_abi::SocketLevel::SOL_SOCKET,
+        wasixv2_abi::SocketOption::SO_PASSCRED.0,
+        UserSlice::new(SCRATCH + 192, 4),
+    ))
+    .unwrap();
+    assert_eq!(pbuf_register(&ring, 0, 1, 0), Ok(0));
+    let at = block_on(m.kernel.mmap(
+        &m.caller(),
+        0,
+        65536,
+        ProtFlags(3),
+        MapFlags::MAP_SHARED,
+        ring.fd,
+        0x8000_0000 | (7 << 16),
+    ))
+    .unwrap();
+    pbuf_descriptor(&m, at, 0, BUF, 128, 20);
+    pbuf_descriptor(&m, at, 1, BUF + 256, 128, 21);
+    m.memory.put(at + 14, &2u16.to_le_bytes());
+    let hdr_at = SCRATCH + 64;
+    let hdr = wasixv2_abi::UserMsghdr {
+        msg_namelen: 8,
+        msg_controllen: 32,
+        ..wasixv2_abi::UserMsghdr::ZERO
+    };
+    put_value(&m, hdr_at, hdr);
+    m.memory.put(BUF + 512, b"shot");
+    for _ in 0..2 {
+        block_on(m.kernel.write(&m.caller(), a, UserSlice::new(BUF + 512, 4))).unwrap();
+    }
+    ring.push(IoUringSqe {
+        addr: u64::from(hdr_at),
+        ioprio: IoringOpFlags::IORING_RECV_MULTISHOT.0 as u16,
+        flags: IosqeFlags::IOSQE_BUFFER_SELECT.0,
+        buf_index: 7,
+        ..sqe(IoUringOp::IORING_OP_RECVMSG, b.0, 1)
+    });
+    assert_eq!(ring.submit(1), Ok(1));
+    let cqes = ring.reap();
+    assert_eq!(res(&cqes), [(1, 60), (1, 60), (1, -Errno::ENOBUFS.0)]);
+    for (i, addr) in [BUF, BUF + 256].into_iter().enumerate() {
+        let out = wasixv2_abi::IoUringRecvmsgOut::read_from(&m.memory.get(addr, 16)).unwrap();
+        assert_eq!((out.payloadlen, out.controllen), (4, 24));
+        assert_eq!(m.memory.get(addr + 56, 4), b"shot");
+        assert_ne!(cqes[i].flags & IoringCqeFlags::IORING_CQE_F_MORE.0, 0);
+        assert_eq!(cqes[i].flags >> 16, 20 + i as u32);
+    }
+    assert_eq!(
+        wasixv2_abi::UserMsghdr::read_from(&m.memory.get(hdr_at, 28)).unwrap(),
+        hdr
+    );
+    assert_eq!(pbuf_head(&ring), 2);
+}
+
+#[test]
+fn multishot_read_rearms_and_rejects_nonpollable_files() {
+    let m = Machine::new();
+    let ring = m.ring(8, 0);
+    let (r, w) = pipe(&m.kernel, &m.caller(), OpenFlags(0));
+    assert_eq!(pbuf_register(&ring, 0, 1, 0), Ok(0));
+    let at = block_on(m.kernel.mmap(
+        &m.caller(),
+        0,
+        65536,
+        ProtFlags(3),
+        MapFlags::MAP_SHARED,
+        ring.fd,
+        0x8000_0000 | (7 << 16),
+    ))
+    .unwrap();
+    pbuf_descriptor(&m, at, 0, BUF, 8, 1);
+    pbuf_descriptor(&m, at, 1, BUF + 64, 8, 2);
+    m.memory.put(at + 14, &2u16.to_le_bytes());
+    let read = IoUringSqe {
+        flags: IosqeFlags::IOSQE_BUFFER_SELECT.0,
+        buf_index: 7,
+        ..sqe(IoUringOp::IORING_OP_READ_MULTISHOT, r.0, 1)
+    };
+    ring.push(read);
+    assert_eq!(ring.submit(1), Ok(1));
+    assert!(ring.reap().is_empty());
+    for expected in [1, 2] {
+        m.memory.put(BUF + 128, b"more");
+        block_on(m.kernel.write(&m.caller(), w, UserSlice::new(BUF + 128, 4))).unwrap();
+        let cqe = ring.wait(1)[0];
+        assert_eq!(cqe.res, 4);
+        assert_ne!(cqe.flags & IoringCqeFlags::IORING_CQE_F_MORE.0, 0);
+        assert_eq!(cqe.flags >> 16, expected);
+        assert_eq!(ring.enter(0, 0, 0), Ok(0));
+        assert!(ring.reap().is_empty());
+    }
+    ring.push(IoUringSqe {
+        addr: 1,
+        ..sqe(IoUringOp::IORING_OP_ASYNC_CANCEL, -1, 2)
+    });
+    assert_eq!(ring.submit(1), Ok(1));
+    assert_eq!(res(&ring.reap()), [(1, -Errno::ECANCELED.0), (2, 0)]);
+    let fd = m.file("not-pollable", b"x");
+    ring.push(IoUringSqe { fd: fd.0, ..read });
+    assert_eq!(ring.submit(1), Ok(1));
+    assert_eq!(res(&ring.reap()), [(1, -Errno::EBADFD.0)]);
+}

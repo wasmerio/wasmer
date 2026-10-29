@@ -59,6 +59,7 @@ pub(crate) const SUPPORTED: &[IoUringOp] = &[
     IoUringOp::IORING_OP_SHUTDOWN,
     IoUringOp::IORING_OP_FILES_UPDATE,
     IoUringOp::IORING_OP_FIXED_FD_INSTALL,
+    IoUringOp::IORING_OP_READ_MULTISHOT,
 ];
 
 /// `SQE_VALID_FLAGS`.
@@ -103,6 +104,8 @@ pub(crate) struct Req {
     connecting: bool,
     /// The provided buffer it took (`REQ_F_BUFFER_SELECTED`).
     pbuf: Option<Pbuf>,
+    msg_header: Option<wasixv2_abi::UserMsghdr>,
+    msg_len: u32,
 }
 
 /// A link timeout and its armed timer.
@@ -212,6 +215,8 @@ impl Req {
             retried: false,
             connecting: false,
             pbuf: None,
+            msg_header: None,
+            msg_len: 0,
         }
     }
 
@@ -597,8 +602,17 @@ impl Kernel {
                     return;
                 }
                 Outcome::More { res, flags } => {
+                    if ctx.cq_ready() >= ctx.shape.cq_entries {
+                        // io_uring/rw.c:io_read_mshot: overflow ends multishot.
+                        ctx.finish(req, res, flags, false);
+                        return;
+                    }
                     let more = flags | IoringCqeFlags::IORING_CQE_F_MORE.0;
                     ctx.post(req.sqe.user_data, res, more, false);
+                    if req.opcode() == op(IoUringOp::IORING_OP_READ_MULTISHOT) {
+                        arm(ctx, req, PollMask::READABLE);
+                        return;
+                    }
                 }
                 Outcome::Again(events) => {
                     arm(ctx, req, events);
@@ -699,7 +713,8 @@ impl Kernel {
             | IoUringOp::IORING_OP_READ_FIXED
             | IoUringOp::IORING_OP_WRITE
             | IoUringOp::IORING_OP_WRITEV
-            | IoUringOp::IORING_OP_WRITE_FIXED => self.op_rw(caller, ctx, req).await,
+            | IoUringOp::IORING_OP_WRITE_FIXED
+            | IoUringOp::IORING_OP_READ_MULTISHOT => self.op_rw(caller, ctx, req).await,
             IoUringOp::IORING_OP_FSYNC => {
                 if sqe.addr != 0 || sqe.buf_index != 0 || sqe.splice_fd_in != 0 {
                     return Err(Errno::EINVAL);
@@ -769,8 +784,12 @@ impl Kernel {
                     self.sys_statx(caller, Fd(sqe.fd), path, flags, StatxMask(sqe.len), buffer);
                 Ok(Outcome::of(statx.await))
             }
-            IoUringOp::IORING_OP_PROVIDE_BUFFERS => Ok(Outcome::of(kbuf::provide(ctx, &sqe).map_err(SysErr::from))),
-            IoUringOp::IORING_OP_REMOVE_BUFFERS => Ok(Outcome::of(kbuf::remove(ctx, &sqe).map_err(SysErr::from))),
+            IoUringOp::IORING_OP_PROVIDE_BUFFERS => {
+                Ok(Outcome::of(kbuf::provide(ctx, &sqe).map_err(SysErr::from)))
+            }
+            IoUringOp::IORING_OP_REMOVE_BUFFERS => {
+                Ok(Outcome::of(kbuf::remove(ctx, &sqe).map_err(SysErr::from)))
+            }
             _ => Err(Errno::EOPNOTSUPP),
         }
     }
@@ -829,10 +848,17 @@ impl Kernel {
         let flags = RwfFlags(sqe.op_flags);
         rw_flags(flags)?;
         let select = req.has(IosqeFlags::IOSQE_BUFFER_SELECT);
+        let multi = opcode == IoUringOp::IORING_OP_READ_MULTISHOT;
+        if multi && (!select || sqe.addr != 0 || sqe.len != 0) {
+            return Err(Errno::EINVAL);
+        }
         if select && (write || fixed || (vectored && sqe.len != 1)) {
             return Err(Errno::EINVAL);
         }
         let file = self.req_file(caller, ctx, req)?;
+        if multi && !file.can_poll() {
+            return Err(Errno::EBADFD);
+        }
         match write {
             true => file.check_writable()?,
             false => file.check_readable()?,
@@ -906,7 +932,7 @@ impl Kernel {
             false => PollMask::READABLE,
         };
         match done {
-            Err(SysErr::Errno(Errno::EAGAIN)) if !flags.contains(RwfFlags::RWF_NOWAIT) => {
+            Err(SysErr::Errno(Errno::EAGAIN)) if multi || !flags.contains(RwfFlags::RWF_NOWAIT) => {
                 if let Some(pbuf) = req.pbuf.take() {
                     ctx.recycle(req, pbuf);
                 }
@@ -916,8 +942,27 @@ impl Kernel {
                 Err(Errno::EAGAIN)
             }
             Ok(n) => {
-                let flags = match req.pbuf.take() { Some(pbuf) => kbuf::complete(caller, pbuf, n).await?, None => 0 };
-                Ok(Outcome::Done { res: n as i32, flags, fail: u64::from(n) < wanted })
+                if multi && n == 0 {
+                    if let Some(pbuf) = req.pbuf.take() {
+                        ctx.recycle(req, pbuf);
+                    }
+                    return Ok(Outcome::of(Ok(0)));
+                }
+                let flags = match req.pbuf.take() {
+                    Some(pbuf) => kbuf::complete(caller, pbuf, n).await?,
+                    None => 0,
+                };
+                if multi {
+                    return Ok(Outcome::More {
+                        res: n as i32,
+                        flags,
+                    });
+                }
+                Ok(Outcome::Done {
+                    res: n as i32,
+                    flags,
+                    fail: u64::from(n) < wanted,
+                })
             }
             Err(err) => Ok(Outcome::of(Err(err))),
         }
@@ -952,11 +997,15 @@ impl Kernel {
             return Err(Errno::EINVAL);
         }
         let select = req.has(IosqeFlags::IOSQE_BUFFER_SELECT);
-        if select && (send || msg) {
+        if select && send {
             return Err(Errno::EINVAL);
         }
         let multishot = iou & multishot != 0;
-        if multishot && (!select || req.has(IosqeFlags::IOSQE_CQE_SKIP_SUCCESS)) {
+        if multishot
+            && (!select
+                || req.has(IosqeFlags::IOSQE_CQE_SKIP_SUCCESS)
+                || sqe.op_flags & MsgFlags::MSG_WAITALL.0 != 0)
+        {
             return Err(Errno::EINVAL);
         }
         let file = self.req_file(caller, ctx, req)?;
@@ -976,12 +1025,40 @@ impl Kernel {
         if send {
             flags |= MsgFlags::MSG_NOSIGNAL;
         }
+        let selected_header = if select && msg {
+            if req.msg_header.is_none() {
+                let hdr: wasixv2_abi::UserMsghdr =
+                    read_value(caller.memory(), GuestPtr::new(sqe.addr as u32))
+                        .await
+                        .map_err(|_| Errno::EFAULT)?;
+                if hdr.msg_iovlen > 1 {
+                    return Err(Errno::EINVAL);
+                }
+                req.msg_len = if hdr.msg_iovlen == 0 {
+                    0
+                } else {
+                    let iov: Iovec = read_value(caller.memory(), GuestPtr::new(hdr.msg_iov.addr()))
+                        .await
+                        .map_err(|_| Errno::EFAULT)?;
+                    iov.iov_len
+                };
+                req.msg_header = Some(hdr);
+            }
+            req.msg_header
+        } else {
+            None
+        };
+        let select_len = if selected_header.is_some() {
+            req.msg_len
+        } else {
+            sqe.len
+        };
         let (addr, len) = match select {
             true => {
                 let pbuf = match req.pbuf.clone() {
                     Some(pbuf) => pbuf,
                     None => {
-                        let pbuf = kbuf::select(caller, ctx, sqe.buf_index, sqe.len).await?;
+                        let pbuf = kbuf::select(caller, ctx, sqe.buf_index, select_len).await?;
                         req.pbuf = Some(pbuf.clone());
                         pbuf
                     }
@@ -990,19 +1067,36 @@ impl Kernel {
             }
             false => (sqe.addr as u32, sqe.len),
         };
-        let done = match opcode {
-            IoUringOp::IORING_OP_SEND => {
-                self.uring_send(caller, file.clone(), (addr, len), flags)
-                    .await
+        let mut more_payload = true;
+        let done = if let Some(hdr) = selected_header {
+            self.uring_recvmsg_selected(
+                caller,
+                file.clone(),
+                (sqe.addr as u32, hdr),
+                (addr, len),
+                flags,
+                multishot,
+            )
+            .await
+            .map(|(n, more)| {
+                more_payload = more;
+                n
+            })
+        } else {
+            match opcode {
+                IoUringOp::IORING_OP_SEND => {
+                    self.uring_send(caller, file.clone(), (addr, len), flags)
+                        .await
+                }
+                IoUringOp::IORING_OP_RECV => {
+                    self.uring_recv(caller, file.clone(), (addr, len), flags)
+                        .await
+                }
+                IoUringOp::IORING_OP_SENDMSG => {
+                    self.uring_sendmsg(caller, file.clone(), addr, flags).await
+                }
+                _ => self.uring_recvmsg(caller, file.clone(), addr, flags).await,
             }
-            IoUringOp::IORING_OP_RECV => {
-                self.uring_recv(caller, file.clone(), (addr, len), flags)
-                    .await
-            }
-            IoUringOp::IORING_OP_SENDMSG => {
-                self.uring_sendmsg(caller, file.clone(), addr, flags).await
-            }
-            _ => self.uring_recvmsg(caller, file.clone(), addr, flags).await,
         };
         let events = if send {
             PollMask::WRITABLE
@@ -1017,9 +1111,12 @@ impl Kernel {
                 Ok(Outcome::Again(events))
             }
             Ok(n) => {
-                let flags = match req.pbuf.take() { Some(pbuf) => kbuf::complete(caller, pbuf, n as u32).await?, None => 0 };
+                let flags = match req.pbuf.take() {
+                    Some(pbuf) => kbuf::complete(caller, pbuf, n as u32).await?,
+                    None => 0,
+                };
                 // A stream's end ends a multishot receive.
-                if multishot && n > 0 {
+                if multishot && n > 0 && more_payload {
                     return Ok(Outcome::More {
                         res: n as i32,
                         flags,
@@ -1521,6 +1618,7 @@ fn init_req(ctx: &Ctx, req: &mut Req) -> Result<(), Errno> {
         req.creds = Some(creds.ok_or(Errno::EINVAL)?.clone());
     }
     let selects = [
+        IoUringOp::IORING_OP_READ_MULTISHOT,
         IoUringOp::IORING_OP_READ,
         IoUringOp::IORING_OP_READV,
         IoUringOp::IORING_OP_RECV,
