@@ -242,8 +242,8 @@ pub(crate) struct Ctx {
     poll_wq: WaitQueue,
     timers: Timers,
     host: Arc<dyn Host>,
-    /// Fires at once when armed, to handle the wakeups of armed requests and polls with
-    /// nothing locked (Linux runs them as task work).
+    /// Notifies ring pollers outside a file wake callback, whose queue lock is held.
+    /// Request wakeups themselves run on the owning task, never on this timer.
     deferred: Timer,
 }
 
@@ -265,7 +265,7 @@ struct State {
     waiting: HashMap<u64, ops::Waiting>,
     /// Requests to issue in a call on their memory (task work).
     ready: VecDeque<Req>,
-    /// Waiting requests whose file woke them, for the deferred timer.
+    /// Waiting requests whose file woke them, for their owning task to process.
     woken: Vec<u64>,
     /// Requests submitted and not completed, for `IOSQE_IO_DRAIN`.
     inflight: u32,
@@ -321,15 +321,21 @@ impl Ctx {
         self.read_word(SQ_TAIL).wrapping_sub(head) == self.shape.sq_entries
     }
 
-    /// Whether task work waits for a call on memory `mm`.
-    fn has_work(&self, mm: Option<u64>) -> bool {
+    /// Whether task work waits for the given task (or any task for ring polling).
+    fn has_work(&self, task: Option<TaskId>) -> bool {
         let state = self.state.lock_or_recover();
         let overflow = !state.overflow.is_empty();
         overflow
+            || state.woken.iter().any(|id| {
+                state
+                    .waiting
+                    .get(id)
+                    .is_some_and(|waiting| task.is_none_or(|task| waiting.req().task == task))
+            })
             || state
                 .ready
                 .iter()
-                .any(|req| mm.is_none_or(|mm| req.mm == mm))
+                .any(|req| task.is_none_or(|task| req.task == task))
     }
 
     /// Keeps the SQ ring's flags word in step: `IORING_SQ_CQ_OVERFLOW` while completions wait
@@ -339,7 +345,9 @@ impl Ctx {
         if !state.overflow.is_empty() {
             flags |= IoringSqFlags::IORING_SQ_CQ_OVERFLOW.0;
         }
-        if self.shape.has(IoringSetupFlags::IORING_SETUP_TASKRUN_FLAG) && !state.ready.is_empty() {
+        if self.shape.has(IoringSetupFlags::IORING_SETUP_TASKRUN_FLAG)
+            && (!state.ready.is_empty() || !state.woken.is_empty())
+        {
             flags |= IoringSqFlags::IORING_SQ_TASKRUN.0;
         }
         self.write_word(SQ_FLAGS, flags);
@@ -505,24 +513,56 @@ impl Ctx {
         self.notify(false);
     }
 
-    /// A waiting request's file woke it: the deferred timer looks at it.
+    /// Linux io_uring/poll.c:io_poll_wake queues io_poll_task_func before the
+    /// submitter returns to userspace. The callback holds the file's wait-queue
+    /// lock, so only queue work here; querying the file belongs to task context.
     pub(crate) fn woken(&self, id: u64) {
-        let first = {
+        let (first, task_work) = {
             let mut state = self.state.lock_or_recover();
+            let task_work = match state.waiting.get(&id) {
+                Some(waiting) => waiting.req().task_work.clone(),
+                None => return, // wait() rechecks wakeups before publication.
+            };
+            if state.woken.contains(&id) {
+                return;
+            }
             state.woken.push(id);
-            state.woken.len() == 1
+            self.update_sq_flags(&state);
+            (state.woken.len() == 1, task_work)
         };
+        if !self.shape.has(IoringSetupFlags::IORING_SETUP_DEFER_TASKRUN)
+            && let Some(task_work) = task_work
+        {
+            task_work.notify();
+        }
+        self.cq_wait.wake(PollMask::READABLE);
         if first {
+            // A ring can poll itself: never wake poll_wq under a file callback.
             self.deferred.start(Duration::ZERO);
         }
     }
 
-    /// From the timer driver: handles the wakeups of armed requests and polls.
-    fn run_woken(&self) {
-        let woken = std::mem::take(&mut self.state.lock_or_recover().woken);
+    /// Processes this task's queued wakes, with no file wait-queue lock held.
+    fn run_woken(&self, task: TaskId) -> bool {
+        let woken = {
+            let mut state = self.state.lock_or_recover();
+            let pending = std::mem::take(&mut state.woken);
+            let mut woken = Vec::new();
+            for id in pending {
+                match state.waiting.get(&id) {
+                    Some(waiting) if waiting.req().task == task => woken.push(id),
+                    Some(_) => state.woken.push(id),
+                    None => {}
+                }
+            }
+            self.update_sq_flags(&state);
+            woken
+        };
+        let ran = !woken.is_empty();
         for id in woken {
             ops::handle_wakeup(self, id);
         }
+        ran
     }
 
     fn timers(&self) -> &Timers {
@@ -926,6 +966,7 @@ impl Kernel {
     async fn run_task_work(&self, caller: &Caller<'_>, ctx: &Arc<Ctx>, mm: u64) {
         ctx.flush_overflow();
         loop {
+            let woke = ctx.run_woken(caller.task());
             let req = {
                 let mut state = ctx.state.lock_or_recover();
                 let at = state
@@ -936,8 +977,11 @@ impl Kernel {
                 ctx.update_sq_flags(&state);
                 req
             };
-            let Some(req) = req else { break };
-            self.issue(caller, ctx, req).await;
+            match req {
+                Some(req) => self.issue(caller, ctx, req).await,
+                None if woke => continue,
+                None => break,
+            }
         }
     }
 
@@ -1077,8 +1121,10 @@ impl Kernel {
             if min == 0 || ctx.cq_ready() >= min || expired() {
                 break Ok(0);
             }
-            let ready =
-                || (ctx.cq_ready() >= min || expired() || ctx.has_work(Some(mm))).then_some(());
+            let ready = || {
+                (ctx.cq_ready() >= min || expired() || ctx.has_work(Some(caller.task())))
+                    .then_some(())
+            };
             let waited = match deadline {
                 None => wait_event(&ctx.cq_wait, ready, &*interrupt).await.map(Some),
                 Some(at) => {
@@ -1210,7 +1256,7 @@ impl Ctx {
             let weak = me.clone();
             let deferred = timers.timer(Box::new(move || {
                 if let Some(ctx) = weak.upgrade() {
-                    ctx.run_woken();
+                    ctx.poll_wq.wake(PollMask::READABLE);
                 }
                 None
             }));

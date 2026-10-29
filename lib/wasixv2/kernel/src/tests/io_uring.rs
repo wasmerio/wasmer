@@ -3445,6 +3445,81 @@ fn registered_only_setup_installs_only_a_task_ring_slot() {
     );
 }
 
+/// A host that queues no background work: a syscall return cannot depend on a timer turn.
+struct PausedHost;
+
+impl Host for PausedHost {
+    fn realtime(&self) -> Duration {
+        TestHost.realtime()
+    }
+    fn monotonic(&self) -> Duration {
+        TestHost.monotonic()
+    }
+    fn sleep(&self, _: Duration) -> LocalFuture<'_, ()> {
+        Box::pin(std::future::pending())
+    }
+    fn random(&self, buf: &mut [u8]) {
+        TestHost.random(buf)
+    }
+    fn executor(&self) -> &dyn Executor {
+        self
+    }
+    fn shared_pages(&self, size: u64) -> io::Result<Arc<dyn wasixv2_pages::SharedPages>> {
+        mapped::SharedHost.shared_pages(size)
+    }
+}
+
+impl Executor for PausedHost {
+    fn spawn_local(&self, _: LocalFuture<'static, ()>) {}
+    fn spawn_blocking(&self, work: Box<dyn FnOnce() + Send>) -> LocalFuture<'static, ()> {
+        Box::pin(async move { work() })
+    }
+}
+
+/// Linux io_uring/poll.c:io_poll_wake queues io_poll_task_func on the submitting task.
+#[test]
+fn poll_wake_runs_on_syscall_return_without_a_timer_turn() {
+    for early_poll in [false, true] {
+        let m = Machine::on_host(Arc::new(PausedHost), |kernel| kernel);
+        let target = m.ring(
+            8,
+            IoringSetupFlags::IORING_SETUP_SINGLE_ISSUER.0
+                | IoringSetupFlags::IORING_SETUP_DEFER_TASKRUN.0
+                | IoringSetupFlags::IORING_SETUP_R_DISABLED.0,
+        );
+        let ring = m.ring(
+            8,
+            IoringSetupFlags::IORING_SETUP_TASKRUN_FLAG.0
+                | IoringSetupFlags::IORING_SETUP_COOP_TASKRUN.0,
+        );
+        let arm = || {
+            ring.push(IoUringSqe {
+                op_flags: PollMask::READABLE.0,
+                ..sqe(IoUringOp::IORING_OP_POLL_ADD, target.fd.0, 71)
+            });
+            assert_eq!(ring.submit(1), Ok(1));
+            block_on(m.kernel.run_task_work(&m.caller()));
+            assert!(ring.reap().is_empty());
+        };
+        if early_poll {
+            arm();
+        }
+        assert_eq!(target.register(12, 0, 0), Ok(0)); // IORING_REGISTER_ENABLE_RINGS
+        if !early_poll {
+            arm();
+        }
+        target.push(sqe(NOP, -1, 72));
+        assert_eq!(target.submit(1), Ok(1));
+        // Another task in the same mm cannot complete this task's poll.
+        let other = thread(&m);
+        block_on(m.kernel.run_task_work(&Caller::new(other, &m.memory)));
+        assert!(ring.reap().is_empty());
+        block_on(m.kernel.run_task_work(&m.caller()));
+        assert_eq!(res(&ring.reap()), [(71, PollMask::READABLE.0 as i32)]);
+        assert_eq!(ring.sq_flags() & IoringSqFlags::IORING_SQ_TASKRUN.0, 0);
+    }
+}
+
 /// kernel/task_work.c:task_work_add(TWA_SIGNAL), io_uring/tw.c:tctx_task_work_run.
 #[test]
 fn task_work_wakes_another_syscall_and_layered_resume_completes_the_read() {
