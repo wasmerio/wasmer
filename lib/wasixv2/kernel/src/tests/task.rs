@@ -1488,6 +1488,14 @@ fn prctl_io_flusher_and_mce_policy_are_per_task_and_inherited() {
     assert_eq!(pr(&other, P::PR_MCE_KILL, 1, 0), Ok(0));
     assert_eq!(pr(&caller, P::PR_GET_IO_FLUSHER, 0, 0), Ok(1));
     assert_eq!(pr(&caller, P::PR_MCE_KILL_GET, 0, 0), Ok(1));
+    assert_eq!(pr(&caller, P::PR_MCE_KILL, 0, 0), Ok(0));
+    assert_eq!(pr(&caller, P::PR_MCE_KILL_GET, 0, 0), Ok(2));
+    assert_eq!(errno(pr(&caller, P::PR_MCE_KILL, 1, 99)), Errno::EINVAL);
+    assert_eq!(
+        pr(&caller, P::PR_MCE_KILL_GET, 0, 0),
+        Ok(1),
+        "CLEAR retained PF_MCE_EARLY"
+    );
     assert_eq!(
         errno(pr(&caller, P::PR_SET_IO_FLUSHER, 2, 0)),
         Errno::EINVAL
@@ -1610,4 +1618,30 @@ fn prctl_mm_flags_share_with_threads_and_obey_fork_no_inherit() {
     }
     assert_eq!(pr(&caller, P::PR_FUTEX_HASH, 1, 0), Ok(0));
     assert_eq!(errno(pr(&caller, P::PR_FUTEX_HASH, 1, 4)), Errno::EBUSY);
+}
+
+#[test]
+fn prctl_exec_keeps_task_flags_and_inherits_new_mm_flags() {
+    use wasixv2_abi::PrctlOption as P;
+    for mdwe in [1, 3] {
+        let (kernel, task, memory) = super::cred::machine_as(0, 0);
+        let caller = Caller::new(task, &memory);
+        install_prog(&kernel, &caller, &memory);
+        let pr = |op, a, b| block_on(kernel.prctl(&caller, op, a, b, 0, 0));
+        assert_eq!(pr(P::PR_SET_MDWE, mdwe, 0), Ok(0));
+        assert_eq!(pr(P::PR_SET_THP_DISABLE, 1, 2), Ok(0));
+        assert_eq!(pr(P::PR_FUTEX_HASH, 1, 8), Ok(0));
+        assert_eq!(pr(P::PR_SET_IO_FLUSHER, 1, 0), Ok(0));
+        assert_eq!(pr(P::PR_MCE_KILL, 1, 1), Ok(0));
+        block_on(kernel.set_tid_address(&caller, GuestPtrMut::new(0x400))).unwrap();
+        assert_eq!(block_on(execve(&kernel, &caller)), Ok(0));
+        assert_eq!(pr(P::PR_GET_MDWE, 0, 0), Ok(if mdwe == 3 { 0 } else { 1 }));
+        assert_eq!(pr(P::PR_GET_THP_DISABLE, 0, 0), Ok(3));
+        assert_eq!(pr(P::PR_FUTEX_HASH, 2, 0), Ok(0));
+        assert_eq!(pr(P::PR_GET_IO_FLUSHER, 0, 0), Ok(1));
+        assert_eq!(pr(P::PR_MCE_KILL_GET, 0, 0), Ok(1));
+        assert_eq!(pr(P::PR_GET_TID_ADDRESS, 0x500, 0), Ok(0));
+        let address: u32 = block_on(read_value(&memory, GuestPtr::new(0x500))).unwrap();
+        assert_eq!(address, 0);
+    }
 }

@@ -2132,7 +2132,11 @@ impl Kernel {
             t.comm = Comm::from_path(name);
             // `exec_mmap`: the new image gets its own address space. A vfork child leaves its
             // parent's untouched.
+            // Linux kernel/fork.c:mm_init also initializes exec's mm from the
+            // current mm's inheritable flags (MDWE_NO_INHERIT is honored here).
+            let inherited = t.mm.prctl.lock_or_recover().for_new_mm();
             t.mm = Arc::default();
+            *t.mm.prctl.lock_or_recover() = inherited;
             t.thread = thread::ThreadState::default();
             // `exec_task_namespaces`: the new image runs in the time namespace for children.
             if let Some(ns) = &t.ns

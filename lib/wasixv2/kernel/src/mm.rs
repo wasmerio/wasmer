@@ -317,7 +317,7 @@ impl Mm {
     /// memory. Its file mappings and segment attachments are its own from then on.
     pub(crate) fn dup(&self, pid: u32) -> Self {
         let mm = Self::with_space(self.space().dup(pid));
-        *mm.prctl.lock_or_recover() = self.prctl.lock_or_recover().for_fork();
+        *mm.prctl.lock_or_recover() = self.prctl.lock_or_recover().for_new_mm();
         mm
     }
 
