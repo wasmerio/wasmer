@@ -26,10 +26,11 @@ use crate::{
     file::{FdTable, NrOpen},
     fs::{FsContext, HostClock},
     ident::Comm,
-    mm::Mm,
+    mm::{Mm, VmSysctls},
     ns::{NsProxy, PidNs, UserNs},
     nsfs::Nsfs,
     pid::{Pids, Upid},
+    pipe::PipeMaxSize,
     process::Tree,
     sched::Sched,
     signal::TaskSignals,
@@ -63,6 +64,8 @@ impl Kernel {
             mounted: HostClock(self.host.clone()).now(),
             nr_open: self.nr_open.clone(),
             taint: self.taint.clone(),
+            pipe_max_size: self.pipe_max_size.clone(),
+            vm: self.vm.clone(),
         };
         Arc::new(ProcFs {
             source: Arc::new(source),
@@ -136,6 +139,10 @@ struct Source {
     nr_open: Arc<NrOpen>,
     /// `kernel.tainted`.
     taint: Arc<Taint>,
+    /// `fs.pipe-max-size`.
+    pipe_max_size: Arc<PipeMaxSize>,
+    /// The `vm` tunables.
+    vm: Arc<VmSysctls>,
 }
 
 /// A process as the tree has it.

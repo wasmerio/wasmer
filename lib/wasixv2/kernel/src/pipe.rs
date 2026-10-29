@@ -2,7 +2,10 @@
 
 use std::{
     collections::VecDeque,
-    sync::{Arc, Mutex, MutexGuard},
+    sync::{
+        Arc, Mutex, MutexGuard,
+        atomic::{AtomicU32, Ordering},
+    },
 };
 
 use wasixv2_abi::{FcntlCmd, FdPair, GuestPtrMut, IoctlRequest, OpenFlags, SiCode};
@@ -22,10 +25,52 @@ pub(crate) const PIPE_BUF: usize = 4096;
 /// The page size pipe sizes are rounded to. Linux's, not the guest's 64 KiB, so the sizes
 /// programs expect (`F_GETPIPE_SZ` = 65536) stay the same.
 const PIPE_PAGE: usize = 4096;
-/// Linux's default: 16 pages.
+/// Linux's default: 16 pages (`PIPE_DEF_BUFFERS`).
 const DEFAULT_SIZE: usize = 16 * PIPE_PAGE;
-/// `/proc/sys/fs/pipe-max-size`; unprivileged callers cannot go above it.
-const MAX_SIZE: usize = 1024 * 1024;
+
+/// `fs.pipe-max-size` (`pipe_max_size`, `fs/pipe.c`): no caller without `CAP_SYS_RESOURCE`
+/// makes a pipe larger, and a new pipe it makes holds at most this much. One for the machine.
+pub(crate) struct PipeMaxSize(AtomicU32);
+
+impl PipeMaxSize {
+    /// Linux's default, 1 MiB.
+    const DEFAULT: u32 = 1 << 20;
+
+    pub(crate) fn get(&self) -> u32 {
+        self.0.load(Ordering::Relaxed)
+    }
+
+    /// `proc_dopipe_max_size`'s write: the value rounded as a pipe's size is
+    /// (`round_pipe_size`), `ERANGE` for one past 2 GiB, which rounds to nothing.
+    pub(crate) fn set(&self, value: u32) -> Result<(), Errno> {
+        let size = round_pipe_size(value).ok_or(Errno::ERANGE)?;
+        self.0.store(size as u32, Ordering::Relaxed);
+        Ok(())
+    }
+
+    /// `alloc_pipe_info`'s size: the default, or the limit if that is smaller and the maker
+    /// lacks `CAP_SYS_RESOURCE` (`privileged`).
+    pub(crate) fn new_pipe_size(&self, privileged: bool) -> usize {
+        match privileged {
+            true => DEFAULT_SIZE,
+            false => DEFAULT_SIZE.min(self.get() as usize),
+        }
+    }
+}
+
+impl Default for PipeMaxSize {
+    fn default() -> Self {
+        Self(AtomicU32::new(Self::DEFAULT))
+    }
+}
+
+/// `round_pipe_size`: at least a page, rounded up to a power of two; `None` past 2 GiB.
+fn round_pipe_size(size: u32) -> Option<usize> {
+    match size {
+        _ if size > 1 << 31 => None,
+        _ => Some((size as usize).max(PIPE_PAGE).next_power_of_two()),
+    }
+}
 
 pub(crate) struct Pipe {
     state: Mutex<State>,
@@ -93,12 +138,12 @@ impl Drop for PipeEnd {
     }
 }
 
-/// A pipe with no ends yet (`alloc_pipe_info`).
-fn new_pipe() -> Arc<Pipe> {
+/// A pipe with no ends yet that holds `capacity` bytes (`alloc_pipe_info`).
+fn new_pipe(capacity: usize) -> Arc<Pipe> {
     Arc::new(Pipe {
         state: Mutex::new(State {
             buf: VecDeque::new(),
-            capacity: DEFAULT_SIZE,
+            capacity,
             reserved: 0,
             readers: 0,
             writers: 0,
@@ -113,9 +158,9 @@ fn new_pipe() -> Arc<Pipe> {
     })
 }
 
-/// A new pipe's read and write ends.
-pub(crate) fn pipe() -> (PipeEnd, PipeEnd) {
-    let pipe = new_pipe();
+/// A new pipe's read and write ends, holding `capacity` bytes.
+pub(crate) fn pipe(capacity: usize) -> (PipeEnd, PipeEnd) {
+    let pipe = new_pipe(capacity);
     let (read, _) = PipeEnd::attach(&pipe, false);
     let (write, _) = PipeEnd::attach(&pipe, true);
     (read, write)
@@ -123,9 +168,9 @@ pub(crate) fn pipe() -> (PipeEnd, PipeEnd) {
 
 // ---- fs: FIFOs (`fs/fifo.rs`) ----
 
-/// A pipe with no ends yet, for a FIFO inode's first open.
-pub(crate) fn fifo_pipe() -> Arc<Pipe> {
-    new_pipe()
+/// A pipe with no ends yet holding `capacity` bytes, for a FIFO inode's first open.
+pub(crate) fn fifo_pipe(capacity: usize) -> Arc<Pipe> {
+    new_pipe(capacity)
 }
 
 /// The other side of a pipe as an end was attached: how many ends it had open, and how many it
@@ -577,19 +622,14 @@ impl PipeEnd {
         self.pipe.state.lock_or_recover().buf.len()
     }
 
-    /// `pipe_set_size` with `round_pipe_size`.
-    fn set_size(&self, size: u32, privileged: bool) -> Result<usize, Errno> {
-        let size = size as usize;
-        let size = match size {
-            0 => return Err(Errno::EINVAL),
-            _ if size > 1 << 31 => return Err(Errno::EINVAL),
-            _ => size.max(PIPE_PAGE).next_power_of_two(),
-        };
-        // CAP_SYS_RESOURCE lifts the limit.
-        if size > MAX_SIZE && !privileged {
+    /// `pipe_set_size` with `round_pipe_size`: growing past `max`, `fs.pipe-max-size`, takes
+    /// `CAP_SYS_RESOURCE` (`privileged`); shrinking is always allowed.
+    fn set_size(&self, size: u32, max: u32, privileged: bool) -> Result<usize, Errno> {
+        let size = round_pipe_size(size).ok_or(Errno::EINVAL)?;
+        let mut state = self.pipe.state.lock_or_recover();
+        if size > state.capacity && size > max as usize && !privileged {
             return Err(Errno::EPERM);
         }
-        let mut state = self.pipe.state.lock_or_recover();
         if state.buf.len() > size {
             return Err(Errno::EBUSY);
         }
@@ -672,12 +712,19 @@ impl FileObject for PipeEnd {
 }
 
 /// `pipe_fcntl`: `F_GETPIPE_SZ` and `F_SETPIPE_SZ`; `EBADF` for anything but a pipe.
-/// `privileged` is whether the caller has `CAP_SYS_RESOURCE`, which lifts the size limit.
-pub(crate) fn fcntl(file: &OpenFile, cmd: FcntlCmd, arg: u32, privileged: bool) -> SysResult<i32> {
+/// `privileged` is whether the caller has `CAP_SYS_RESOURCE`, which lifts `max`, the
+/// machine's `fs.pipe-max-size`.
+pub(crate) fn fcntl(
+    file: &OpenFile,
+    cmd: FcntlCmd,
+    arg: u32,
+    max: u32,
+    privileged: bool,
+) -> SysResult<i32> {
     let end = file.downcast::<PipeEnd>().ok_or(Errno::EBADF)?;
     let size = match cmd {
         FcntlCmd::F_GETPIPE_SZ => end.pipe.state.lock_or_recover().capacity,
-        _ => end.set_size(arg, privileged)?,
+        _ => end.set_size(arg, max, privileged)?,
     };
     Ok(size as i32)
 }
@@ -695,7 +742,7 @@ impl Kernel {
         if !(flags & !allowed).is_empty() {
             return Err(Errno::EINVAL.into());
         }
-        let (read, write) = pipe();
+        let (read, write) = pipe(self.new_pipe_size(caller));
         // The pipe hangs off its inode, as a FIFO's does, so `/proc/<pid>/fd/<n>` reopens it.
         let path = self.pseudo.pipe(self.cred(caller).fs_owner());
         let pipe: Bound = read.pipe.clone();
@@ -713,6 +760,15 @@ impl Kernel {
         self.install_pair(caller, fildes, [read, write], cloexec)
             .await?;
         Ok(0)
+    }
+
+    /// How much a pipe the caller makes holds (`alloc_pipe_info`): `fs.pipe-max-size` bounds
+    /// it unless the caller has `CAP_SYS_RESOURCE`.
+    pub(crate) fn new_pipe_size(&self, caller: &Caller<'_>) -> usize {
+        let privileged = self
+            .cred(caller)
+            .capable_init(wasixv2_vfs::Cap::SysResource);
+        self.pipe_max_size.new_pipe_size(privileged)
     }
 
     /// Installs `files` at the lowest free descriptors: all of them, or none with `EMFILE`.

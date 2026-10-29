@@ -15,7 +15,9 @@ use crate::{
     cred::Cred,
     devinet,
     file::NrOpen,
+    mm::VmSysctls,
     ns::{NetNs, NsKind, NsLink, PidNs, UserNs},
+    pipe::PipeMaxSize,
     sync::MutexExt,
     taint::Taint,
     userns::MapKind,
@@ -123,6 +125,17 @@ const STATIC: &[(usize, &str, Static)] = &[
     (13, "overflowgid", Static::File(text::Global::OverflowGid)),
     (13, "cap_last_cap", Static::File(text::Global::CapLastCap)),
     (13, "tainted", Static::File(text::Global::Tainted)),
+    (
+        14,
+        "overcommit_ratio",
+        Static::File(text::Global::OvercommitRatio),
+    ),
+    (
+        14,
+        "overcommit_kbytes",
+        Static::File(text::Global::OvercommitKbytes),
+    ),
+    (14, "max_map_count", Static::File(text::Global::MaxMapCount)),
 ];
 
 /// `/proc/sys/user/max_*_namespaces` for `kind`.
@@ -720,6 +733,15 @@ impl Node for ProcNode {
                             Some(Write::NsLastPid(pid_ns, may))
                         }
                         text::Global::NrOpen => Some(Write::NrOpen(self.source.nr_open.clone())),
+                        text::Global::PipeMaxSize => {
+                            Some(Write::PipeMaxSize(self.source.pipe_max_size.clone()))
+                        }
+                        text::Global::Overcommit
+                        | text::Global::OvercommitRatio
+                        | text::Global::OvercommitKbytes
+                        | text::Global::MaxMapCount => {
+                            Some(Write::Vm(self.source.vm.clone(), file))
+                        }
                         // `proc_taint`: `capable(CAP_SYS_ADMIN)`, of the opener here.
                         text::Global::Tainted => {
                             let may = opener.is_none_or(|cred| cred.capable_init(Cap::SysAdmin));
@@ -863,6 +885,10 @@ enum Write {
     NsLastPid(Arc<PidNs>, bool),
     /// `fs.nr_open`.
     NrOpen(Arc<NrOpen>),
+    /// `fs.pipe-max-size`.
+    PipeMaxSize(Arc<PipeMaxSize>),
+    /// One of the `vm` tunables.
+    Vm(Arc<VmSysctls>, text::Global),
     /// `kernel.tainted`, if the opener may add flags.
     Taint(Arc<Taint>, bool),
     /// A value of `/proc/sys/net/ipv4/conf` in the opener's network namespace.
@@ -915,6 +941,13 @@ impl Handle for FileHandle {
             Write::NsLastPid(_, false) => return Err(Errno::EPERM),
             Write::NsLastPid(ns, true) => ns.set_last_pid(sysctl_int(data)?)?,
             Write::NrOpen(nr_open) => nr_open.set(sysctl_int(data)?)?,
+            Write::PipeMaxSize(max) => max.set(sysctl_int(data)?)?,
+            Write::Vm(vm, file) => match file {
+                text::Global::Overcommit => vm.set_overcommit_memory(sysctl_i32(data)?)?,
+                text::Global::OvercommitRatio => vm.set_overcommit_ratio(sysctl_i32(data)?),
+                text::Global::OvercommitKbytes => vm.set_overcommit_kbytes(sysctl_int(data)?),
+                _ => vm.set_max_map_count(sysctl_i32(data)?)?,
+            },
             Write::Taint(_, false) => return Err(Errno::EPERM),
             Write::Taint(taint, true) => taint.add(sysctl_int(data)?),
             Write::Devconf(net, scope, var) => {

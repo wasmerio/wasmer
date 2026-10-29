@@ -43,7 +43,7 @@ use std::{
     ops::{Deref, DerefMut, Range},
     sync::{
         Arc, Mutex, MutexGuard,
-        atomic::{AtomicBool, AtomicU64, Ordering},
+        atomic::{AtomicBool, AtomicI32, AtomicU32, AtomicU64, Ordering},
     },
 };
 
@@ -87,6 +87,103 @@ const LEGACY_MAP_MASK: MapFlags = MapFlags(
         | MapFlags::MAP_STACK.0
         | MapFlags::MAP_HUGETLB.0,
 );
+
+/// The machine's memory tunables (`mm/util.c`, `mm/mmap.c`): `vm.overcommit_memory`,
+/// `vm.overcommit_ratio`, `vm.overcommit_kbytes` and `vm.max_map_count`.
+///
+/// Memory is not committed here: a mapping takes pages of linear memory as it is made, and
+/// `Committed_AS` counts what the processes use. So the overcommit policy is kept, and
+/// `/proc/meminfo`'s `CommitLimit` follows the ratio or the size as `vm_commit_limit` does,
+/// but `OVERCOMMIT_NEVER` refuses nothing past that limit; `OVERCOMMIT_GUESS` refuses no
+/// single mapping a 4 GiB memory could hold, which is all of them. `max_map_count` bounds the
+/// areas of each address space as Linux counts them ([`AddressSpace::map_count`]).
+pub(crate) struct VmSysctls {
+    overcommit_memory: AtomicI32,
+    overcommit_ratio: AtomicI32,
+    /// An `unsigned long` of a 32-bit kernel.
+    overcommit_kbytes: AtomicU32,
+    max_map_count: AtomicI32,
+}
+
+impl Default for VmSysctls {
+    fn default() -> Self {
+        Self {
+            // `OVERCOMMIT_GUESS`.
+            overcommit_memory: AtomicI32::new(0),
+            overcommit_ratio: AtomicI32::new(50),
+            overcommit_kbytes: AtomicU32::new(0),
+            // `DEFAULT_MAX_MAP_COUNT`: `USHRT_MAX - MAPCOUNT_ELF_CORE_MARGIN`.
+            max_map_count: AtomicI32::new(65530),
+        }
+    }
+}
+
+impl VmSysctls {
+    pub(crate) fn overcommit_memory(&self) -> i32 {
+        self.overcommit_memory.load(Ordering::Relaxed)
+    }
+
+    /// `overcommit_policy_handler`: one of `OVERCOMMIT_GUESS`, `OVERCOMMIT_ALWAYS` and
+    /// `OVERCOMMIT_NEVER` (0 to 2, `proc_dointvec_minmax`), `EINVAL` for anything else.
+    pub(crate) fn set_overcommit_memory(&self, policy: i32) -> Result<(), Errno> {
+        if !(0..=2).contains(&policy) {
+            return Err(Errno::EINVAL);
+        }
+        self.overcommit_memory.store(policy, Ordering::Relaxed);
+        Ok(())
+    }
+
+    pub(crate) fn overcommit_ratio(&self) -> i32 {
+        self.overcommit_ratio.load(Ordering::Relaxed)
+    }
+
+    /// `overcommit_ratio_handler`: any `int`; the size in kilobytes no longer counts.
+    pub(crate) fn set_overcommit_ratio(&self, ratio: i32) {
+        self.overcommit_ratio.store(ratio, Ordering::Relaxed);
+        self.overcommit_kbytes.store(0, Ordering::Relaxed);
+    }
+
+    pub(crate) fn overcommit_kbytes(&self) -> u32 {
+        self.overcommit_kbytes.load(Ordering::Relaxed)
+    }
+
+    /// `overcommit_kbytes_handler`: the ratio no longer counts.
+    pub(crate) fn set_overcommit_kbytes(&self, kbytes: u32) {
+        self.overcommit_kbytes.store(kbytes, Ordering::Relaxed);
+        self.overcommit_ratio.store(0, Ordering::Relaxed);
+    }
+
+    /// `vm_commit_limit` in kilobytes, for memory of `total` bytes and no swap: the size, if one
+    /// is set, else the ratio of the memory's 4 KiB pages.
+    pub(crate) fn commit_limit_kb(&self, total: u64) -> u64 {
+        const PAGE_KB: u64 = 4;
+        match self.overcommit_kbytes() {
+            0 => {
+                let ratio = u64::try_from(self.overcommit_ratio()).unwrap_or(0);
+                total / 1024 / PAGE_KB * ratio / 100 * PAGE_KB
+            }
+            kbytes => u64::from(kbytes) / PAGE_KB * PAGE_KB,
+        }
+    }
+
+    pub(crate) fn max_map_count(&self) -> i32 {
+        self.max_map_count.load(Ordering::Relaxed)
+    }
+
+    /// `proc_dointvec_minmax` with `SYSCTL_ZERO`: `EINVAL` below 0.
+    pub(crate) fn set_max_map_count(&self, count: i32) -> Result<(), Errno> {
+        if count < 0 {
+            return Err(Errno::EINVAL);
+        }
+        self.max_map_count.store(count, Ordering::Relaxed);
+        Ok(())
+    }
+
+    /// `max_map_count` as a count of areas.
+    fn map_limit(&self) -> usize {
+        self.max_map_count() as usize
+    }
+}
 
 /// An address space and the lock that orders changes to it (`mm_struct`). Every task on the
 /// same linear memory shares one: the threads of a group, and a vfork child while it runs in its
@@ -245,12 +342,31 @@ impl Mm {
     }
 }
 
-/// A run of pages in use, for `/proc/<pid>/maps`.
+/// An area of the address space (a `vm_area_struct`), for `/proc/<pid>/maps`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct Region {
     pub(crate) start: u64,
     pub(crate) end: u64,
     pub(crate) kind: RegionKind,
+    /// Its protection, `VM_READ` and `VM_WRITE`.
+    pub(crate) read: bool,
+    pub(crate) write: bool,
+    /// A mapping of a shared object (`VM_SHARED`, or `VM_MAYSHARE` for a read-only one).
+    pub(crate) shared: bool,
+}
+
+/// What sets an area above the image apart from its neighbours: two next to each other are one
+/// only where all of it agrees (`is_mergeable_vma`), and each mapping of a file or shared
+/// object is an area of its own.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct AreaKey {
+    kind: RegionKind,
+    /// The mapping the page lies in, by where it starts, and whether it is shared.
+    mapping: Option<(u64, bool)>,
+    read: bool,
+    write: bool,
+    locked: bool,
+    wipe_on_fork: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -625,35 +741,121 @@ impl AddressSpace {
         (first..end).all(|page| movable(page) && !self.page_mapped(page, mem_pages))
     }
 
+    /// The areas Linux would have, lowest first, as far as memory was seen: the image's pages as
+    /// one, then each run of pages in use above it whose [`AreaKey`] agrees.
     fn regions(&self) -> Vec<Region> {
+        self.areas().into_iter().map(|(region, _)| region).collect()
+    }
+
+    /// [`AddressSpace::regions`] with the key of each area above the image.
+    fn areas(&self) -> Vec<(Region, Option<AreaKey>)> {
         let mem_pages = self.seen.div_ceil(PAGE_SIZE);
         let image_end = self.base.unwrap_or(mem_pages).min(mem_pages);
-        let mut regions = Vec::new();
+        let mut areas: Vec<(Region, Option<AreaKey>)> = Vec::new();
         if image_end > 0 {
-            regions.push(Region {
+            let image = Region {
                 start: 0,
                 end: image_end * PAGE_SIZE,
                 kind: RegionKind::Image,
-            });
+                read: true,
+                write: true,
+                shared: false,
+            };
+            areas.push((image, None));
         }
-        let heap = self
-            .brk
-            .map(|(start, end)| (start / PAGE_SIZE, end.div_ceil(PAGE_SIZE)));
-        let kind = |page: u64| match heap {
-            Some((start, end)) if (start..end).contains(&page) => RegionKind::Heap,
-            _ => RegionKind::Anon,
-        };
+        let spans = self.mappings.spans();
+        let mut next = 0;
         for page in image_end..mem_pages {
             if !self.page_mapped(page, mem_pages) {
                 continue;
             }
-            let (start, end, kind) = (page * PAGE_SIZE, (page + 1) * PAGE_SIZE, kind(page));
-            match regions.last_mut() {
-                Some(last) if last.end == start && last.kind == kind => last.end = end,
-                _ => regions.push(Region { start, end, kind }),
+            let (start, end) = (page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+            while spans.get(next).is_some_and(|&(_, end, _)| end <= start) {
+                next += 1;
+            }
+            let mapping = spans
+                .get(next)
+                .filter(|&&(from, ..)| from <= start)
+                .map(|&(from, _, shared)| (from, shared));
+            let key = self.area_key(page, mapping);
+            match areas.last_mut() {
+                Some((last, Some(last_key))) if last.end == start && *last_key == key => {
+                    last.end = end;
+                }
+                _ => {
+                    let region = Region {
+                        start,
+                        end,
+                        kind: key.kind,
+                        read: key.read,
+                        write: key.write,
+                        shared: mapping.is_some_and(|(_, shared)| shared),
+                    };
+                    areas.push((region, Some(key)));
+                }
             }
         }
-        regions
+        areas
+    }
+
+    /// The key of `page`, in use above the image, which lies in `mapping` if any.
+    fn area_key(&self, page: u64, mapping: Option<(u64, bool)>) -> AreaKey {
+        let heap = self
+            .brk
+            .map(|(start, end)| start / PAGE_SIZE..end.div_ceil(PAGE_SIZE));
+        let kind = match heap {
+            Some(heap) if heap.contains(&page) => RegionKind::Heap,
+            _ => RegionKind::Anon,
+        };
+        let read = !self.no_access.get(page);
+        AreaKey {
+            kind,
+            mapping,
+            read,
+            write: read && !self.read_only.get(page),
+            locked: self.locked.get(page),
+            wipe_on_fork: self.wipe_on_fork.get(page),
+        }
+    }
+
+    /// `mm->map_count`: how many areas the address space has.
+    pub(crate) fn map_count(&self) -> usize {
+        self.areas().len()
+    }
+
+    /// How many areas a change of the pages `[first, end)` splits off (`split_vma`), each of the
+    /// one or two areas it starts or ends inside that `changes` says it changes. An area that
+    /// starts before `first` and ends after `end` splits twice.
+    fn splits(&self, first: u64, end: u64, changes: impl Fn(&AreaKey) -> bool) -> usize {
+        let (from, to) = (first * PAGE_SIZE, end * PAGE_SIZE);
+        let mut splits = 0;
+        for (region, key) in self.areas() {
+            let Some(key) = key else { continue };
+            if region.end <= from || region.start >= to || !changes(&key) {
+                continue;
+            }
+            splits += usize::from(region.start < from) + usize::from(region.end > to);
+        }
+        splits
+    }
+
+    /// Whether the pages `[first, end)` lie inside one area above the image that goes on past
+    /// them on both sides.
+    fn inside_one_area(&self, first: u64, end: u64) -> bool {
+        let (from, to) = (first * PAGE_SIZE, end * PAGE_SIZE);
+        self.areas()
+            .into_iter()
+            .any(|(region, key)| key.is_some() && region.start < from && region.end > to)
+    }
+
+    /// The `max_map_count` check of each split [`AddressSpace::splits`] counts: `ENOMEM` unless
+    /// every split leaves at most `limit` areas, as `split_vma` refuses one at `limit`.
+    fn check_splits(&self, splits: usize, limit: usize) -> Result<(), Errno> {
+        match splits {
+            0 => Ok(()),
+            _ if self.map_count() + splits > limit => Err(Errno::ENOMEM),
+            _ => Ok(()),
+        }
     }
 
     fn free_run(&self, pages: u64) -> Option<usize> {
@@ -933,7 +1135,9 @@ impl Kernel {
             let Ok(locked) = self.check_lock_new(caller, false, len) else {
                 return Ok(current as i32);
             };
-            if !free || self.take_pages(caller, old_end, new_end).await.is_err() {
+            // `do_brk_flags`: too many mappings?
+            let too_many = mm.space().map_count() > self.vm.map_limit();
+            if !free || too_many || self.take_pages(caller, old_end, new_end).await.is_err() {
                 return Ok(current as i32);
             }
             mm.space().locked.set(old_end, new_end, locked);
@@ -969,6 +1173,10 @@ impl Kernel {
             return Err(Errno::EACCES.into());
         }
         let pages = pages(len)?;
+        // Too many mappings?
+        if self.mm(caller.task()).space().map_count() > self.vm.map_limit() {
+            return Err(Errno::ENOMEM.into());
+        }
         let map_locked = flags.contains(MapFlags::MAP_LOCKED);
         if map_locked && !self.lock_limit(caller).can_lock() {
             return Err(Errno::EPERM.into());
@@ -1147,6 +1355,15 @@ impl Kernel {
         let end = (start + u64::from(len)).div_ceil(PAGE_SIZE) * PAGE_SIZE;
         let mm = self.mm(caller.task());
         let _op = mm.op.lock().await;
+        // `vms_gather_munmap_vmas`: a hole in the middle of an area splits it, which
+        // `max_map_count` must allow; the other splits are checked by nothing.
+        {
+            let space = mm.space();
+            let (first, last) = (start / PAGE_SIZE, end / PAGE_SIZE);
+            if space.inside_one_area(first, last) {
+                space.check_splits(1, self.vm.map_limit())?;
+            }
+        }
         self.unmap_range(caller, start, end).await;
         Ok(0)
     }
@@ -1377,7 +1594,14 @@ impl Kernel {
         if prot.contains(ProtFlags::PROT_WRITE) && space.mappings.read_only_shared_in(start, end) {
             return Err(Errno::EACCES.into());
         }
-        space.set_prot(start / PAGE_SIZE, end.div_ceil(PAGE_SIZE), prot);
+        let (first, last) = (start / PAGE_SIZE, end.div_ceil(PAGE_SIZE));
+        // `mprotect_fixup`: an area whose protection changes splits where the range starts or
+        // ends inside it, each split checked against `max_map_count`.
+        let write = prot.contains(ProtFlags::PROT_WRITE);
+        let read = write || prot.contains(ProtFlags::PROT_READ);
+        let splits = space.splits(first, last, |key| (key.read, key.write) != (read, write));
+        space.check_splits(splits, self.vm.map_limit())?;
+        space.set_prot(first, last, prot);
         Ok(0)
     }
 

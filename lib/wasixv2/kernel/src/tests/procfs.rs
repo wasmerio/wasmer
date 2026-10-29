@@ -3,8 +3,8 @@
 
 use futures::FutureExt as _;
 use wasixv2_abi::{
-    ConstRlimit64Ptr, EventfdFlags, FcntlCmd, ResolveFlags, Rlimit64, Rlimit64Ptr, RlimitResource,
-    Statx,
+    ConstRlimit64Ptr, EventfdFlags, FcntlCmd, MapFlags, ProtFlags, ResolveFlags, Rlimit64,
+    Rlimit64Ptr, RlimitResource, Statx,
 };
 use wasixv2_syscalls::{read_value, write_value};
 use wasixv2_vfs::{FileType, MountFlags};
@@ -611,6 +611,190 @@ fn kernel_tainted_takes_flags_from_cap_sys_admin() {
         Err(Errno::EACCES.into())
     );
     assert_eq!(get(), "517\n");
+}
+
+/// A sysctl's value as root writes it, through `t`.
+fn sysctl_set(t: &T<'_>, at: &str, value: &str) -> SysResult<u32> {
+    let fd = t.open(at, OpenFlags::O_WRONLY)?;
+    let written = t.write(fd, value.as_bytes());
+    block_on(t.kernel.close(&t.caller, fd)).unwrap();
+    written
+}
+
+fn sysctl_get(t: &T<'_>, at: &str) -> String {
+    let fd = t.open(at, OpenFlags::O_RDONLY).unwrap();
+    t.read_all(fd)
+}
+
+/// `fs.pipe-max-size` takes a size and keeps it rounded as a pipe's (`proc_dopipe_max_size`,
+/// `round_pipe_size`), and bounds callers without `CAP_SYS_RESOURCE` as `fs/pipe.c` does: a
+/// new pipe holds at most that much (`alloc_pipe_info`, which LTP fcntl35 checks), and
+/// `F_SETPIPE_SZ` grows none past it (`EPERM`) but always shrinks. With the capability,
+/// neither applies.
+#[test]
+fn pipe_max_size_bounds_unprivileged_pipes() {
+    let (kernel, task, _) = super::cred::machine_as(0, 0);
+    let vfs = kernel.vfs().clone();
+    block_on(vfs.mount(b"/proc", kernel.procfs(), MountFlags::default(), true)).unwrap();
+    let memory = memory();
+    let t = T::new(&kernel, task, &memory);
+    let max = "/proc/sys/fs/pipe-max-size";
+    let size = |fd: Fd, cmd: FcntlCmd, arg: u32| block_on(kernel.fcntl64(&t.caller, fd, cmd, arg));
+
+    assert_eq!(sysctl_get(&t, max), "1048576\n");
+    assert_eq!(sysctl_set(&t, max, "4097"), Ok(4));
+    assert_eq!(sysctl_get(&t, max), "8192\n");
+    assert_eq!(sysctl_set(&t, max, "2147483649"), Err(Errno::ERANGE.into()));
+    assert_eq!(sysctl_set(&t, max, "-1"), Err(Errno::EINVAL.into()));
+    assert_eq!(sysctl_get(&t, max), "8192\n");
+
+    let (_, privileged) = pipe(&kernel, &t.caller, OpenFlags::empty());
+    assert_eq!(size(privileged, FcntlCmd::F_GETPIPE_SZ, 0), Ok(65536));
+    assert_eq!(
+        size(privileged, FcntlCmd::F_SETPIPE_SZ, 1 << 21),
+        Ok(1 << 21)
+    );
+
+    let all = u64::MAX >> (63 - u64::from(wasixv2_vfs::Cap::LAST));
+    let resource = wasixv2_vfs::Cap::SysResource.bit();
+    super::cred::set_caps(&kernel, &t.caller, &memory, all & !resource);
+    let (_, fd) = pipe(&kernel, &t.caller, OpenFlags::empty());
+    assert_eq!(size(fd, FcntlCmd::F_GETPIPE_SZ, 0), Ok(8192));
+    assert_eq!(
+        size(fd, FcntlCmd::F_SETPIPE_SZ, 8193),
+        Err(Errno::EPERM.into())
+    );
+    assert_eq!(size(fd, FcntlCmd::F_SETPIPE_SZ, 0), Ok(4096));
+    assert_eq!(size(fd, FcntlCmd::F_SETPIPE_SZ, 8192), Ok(8192));
+    // A pipe already past the limit may stay there, and shrink.
+    assert_eq!(
+        size(privileged, FcntlCmd::F_SETPIPE_SZ, 1 << 21),
+        Ok(1 << 21)
+    );
+    assert_eq!(
+        size(privileged, FcntlCmd::F_SETPIPE_SZ, 1 << 20),
+        Ok(1 << 20)
+    );
+}
+
+/// The `vm.overcommit_*` values are kept as `mm/util.c` takes them, and `CommitLimit` follows
+/// them as `vm_commit_limit` does: the ratio of memory, or the size once one is set, which
+/// a later ratio clears again.
+#[test]
+fn overcommit_sysctls_are_kept_and_set_the_commit_limit() {
+    let (kernel, task, _) = super::cred::machine_as(0, 0);
+    let vfs = kernel.vfs().clone();
+    block_on(vfs.mount(b"/proc", kernel.procfs(), MountFlags::default(), true)).unwrap();
+    let memory = memory();
+    let t = T::new(&kernel, task, &memory);
+    let vm = |name: &str| format!("/proc/sys/vm/{name}");
+    let commit_limit = || {
+        let meminfo = sysctl_get(&t, "/proc/meminfo");
+        let line = meminfo.lines().find(|l| l.starts_with("CommitLimit:"));
+        line.unwrap().split_whitespace().nth(1).unwrap().to_string()
+    };
+
+    assert_eq!(sysctl_get(&t, &vm("overcommit_memory")), "0\n");
+    assert_eq!(sysctl_get(&t, &vm("overcommit_ratio")), "50\n");
+    assert_eq!(sysctl_get(&t, &vm("overcommit_kbytes")), "0\n");
+    assert_eq!(commit_limit(), "2097152");
+
+    assert_eq!(
+        sysctl_set(&t, &vm("overcommit_memory"), "3"),
+        Err(Errno::EINVAL.into())
+    );
+    assert_eq!(
+        sysctl_set(&t, &vm("overcommit_memory"), "-1"),
+        Err(Errno::EINVAL.into())
+    );
+    assert_eq!(sysctl_set(&t, &vm("overcommit_memory"), "2\n"), Ok(2));
+    assert_eq!(sysctl_get(&t, &vm("overcommit_memory")), "2\n");
+
+    assert_eq!(sysctl_set(&t, &vm("overcommit_ratio"), "25"), Ok(2));
+    assert_eq!(commit_limit(), "1048576");
+    assert_eq!(sysctl_set(&t, &vm("overcommit_kbytes"), "1001"), Ok(4));
+    assert_eq!(sysctl_get(&t, &vm("overcommit_ratio")), "0\n");
+    assert_eq!(commit_limit(), "1000");
+    assert_eq!(sysctl_set(&t, &vm("overcommit_ratio"), "10"), Ok(2));
+    assert_eq!(sysctl_get(&t, &vm("overcommit_kbytes")), "0\n");
+    assert_eq!(commit_limit(), "419428");
+
+    block_on(kernel.setresuid(&t.caller, 1, 1, 1)).unwrap();
+    let write = OpenFlags::O_WRONLY;
+    assert_eq!(
+        t.open(&vm("overcommit_memory"), write),
+        Err(Errno::EACCES.into())
+    );
+}
+
+/// `vm.max_map_count` bounds the areas of an address space as `mm/mmap.c` and `mm/vma.c` do:
+/// `mmap` and the break fail with `ENOMEM` once the count is past it, so it ends one past it
+/// (as LTP max_map_count expects, counting `/proc/<pid>/maps`), and a `munmap` or `mprotect`
+/// that splits an area fails where a split would leave the count at it (`split_vma`).
+#[test]
+fn max_map_count_bounds_the_areas_of_an_address_space() {
+    let (kernel, task, _) = super::cred::machine_as(0, 0);
+    let vfs = kernel.vfs().clone();
+    block_on(vfs.mount(b"/proc", kernel.procfs(), MountFlags::default(), true)).unwrap();
+    let memory = memory();
+    let t = T::new(&kernel, task, &memory);
+    let limit = "/proc/sys/vm/max_map_count";
+    let page = wasixv2_syscalls::WASM_PAGE_SIZE as u32;
+    let anon = MapFlags::MAP_PRIVATE | MapFlags::MAP_ANONYMOUS;
+    let (read, write) = (
+        ProtFlags::PROT_READ,
+        ProtFlags::PROT_READ | ProtFlags::PROT_WRITE,
+    );
+    let mmap =
+        |len: u32, prot: ProtFlags| block_on(kernel.mmap(&t.caller, 0, len, prot, anon, Fd(-1), 0));
+    let maps = || sysctl_get(&t, "/proc/self/maps");
+    let count = || maps().lines().count();
+
+    assert_eq!(sysctl_get(&t, limit), "65530\n");
+    assert_eq!(sysctl_set(&t, limit, "-1"), Err(Errno::EINVAL.into()));
+
+    // Neighbours with other protections are areas of their own.
+    assert_eq!(sysctl_set(&t, limit, "4"), Ok(1));
+    let mut made = 0;
+    while mmap(page, if made % 2 == 0 { read } else { write }).is_ok() {
+        made += 1;
+    }
+    assert_eq!(count(), 5, "{}", maps());
+    assert_eq!(mmap(page, read), Err(Errno::ENOMEM.into()));
+    assert!(maps().contains(" r--p "), "{}", maps());
+
+    // A hole in the middle of an area splits it in two.
+    assert_eq!(sysctl_set(&t, limit, "100"), Ok(3));
+    let three = mmap(3 * page, read).unwrap();
+    assert_eq!(count(), 6, "{}", maps());
+    assert_eq!(sysctl_set(&t, limit, "6"), Ok(1));
+    let munmap = |at: u32| block_on(kernel.munmap(&t.caller, at, page));
+    assert_eq!(munmap(three + page), Err(Errno::ENOMEM.into()));
+    assert_eq!(sysctl_set(&t, limit, "7"), Ok(1));
+    assert_eq!(munmap(three + page), Ok(0));
+    assert_eq!(count(), 7, "{}", maps());
+
+    // Changing the protection inside an area splits it twice; the same protection splits
+    // nothing.
+    assert_eq!(sysctl_set(&t, limit, "100"), Ok(3));
+    let other = mmap(3 * page, write).unwrap();
+    assert_eq!(count(), 8, "{}", maps());
+    assert_eq!(sysctl_set(&t, limit, "9"), Ok(1));
+    let mprotect = |prot: ProtFlags| block_on(kernel.mprotect(&t.caller, other + page, page, prot));
+    assert_eq!(mprotect(read), Err(Errno::ENOMEM.into()));
+    assert_eq!(mprotect(write), Ok(0));
+    assert_eq!(sysctl_set(&t, limit, "10"), Ok(2));
+    assert_eq!(mprotect(read), Ok(0));
+    assert_eq!(count(), 10, "{}", maps());
+
+    // The break makes no new area past the limit either.
+    assert_eq!(sysctl_set(&t, limit, "9"), Ok(1));
+    let brk = |at: u32| block_on(kernel.brk(&t.caller, at)).unwrap() as u32;
+    let start = brk(0);
+    assert_eq!(brk(start + page), start);
+    assert_eq!(sysctl_set(&t, limit, "10"), Ok(2));
+    assert_eq!(brk(start + page), start + page);
+    assert_eq!(count(), 11, "{}", maps());
 }
 
 /// Opening a proc file with `O_TRUNC`, as `fopen(path, "w")` and a shell's `>` do, succeeds
