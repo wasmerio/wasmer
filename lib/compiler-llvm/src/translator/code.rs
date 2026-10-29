@@ -244,72 +244,73 @@ impl FuncTranslator {
             .set_alignment(super::FUNCTION_ALIGNMENT);
 
         // TODO: support dSYM debug info file creation and loading in the future
-        let debug_info = if matches!(target.binary_format, BinaryFormat::Elf) {
-            let source_location = self.source_map.first_in_function(function_body);
-            let debug_metadata_version = self
-                .ctx
-                .i32_type()
-                .const_int(inkwell::debug_info::debug_metadata_version().into(), false);
-            module.add_basic_value_flag(
-                "Debug Info Version",
-                FlagBehavior::Warning,
-                debug_metadata_version,
-            );
-            module.add_basic_value_flag(
-                "Dwarf Version",
-                FlagBehavior::Warning,
-                self.ctx.i32_type().const_int(4, false),
-            );
+        let debug_info =
+            if config.experimental_artifact && matches!(target.binary_format, BinaryFormat::Elf) {
+                let source_location = self.source_map.first_in_function(function_body);
+                let debug_metadata_version = self
+                    .ctx
+                    .i32_type()
+                    .const_int(inkwell::debug_info::debug_metadata_version().into(), false);
+                module.add_basic_value_flag(
+                    "Debug Info Version",
+                    FlagBehavior::Warning,
+                    debug_metadata_version,
+                );
+                module.add_basic_value_flag(
+                    "Dwarf Version",
+                    FlagBehavior::Warning,
+                    self.ctx.i32_type().const_int(4, false),
+                );
 
-            let fallback_source_file = wasm_module.name();
-            let (source_file, source_directory) = source_location
-                .map(|location| (location.file.as_str(), location.directory.as_str()))
-                .unwrap_or((&fallback_source_file, "."));
-            let (dibuilder, compile_unit) = module.create_debug_info_builder(
-                true,
-                DWARFSourceLanguage::C,
-                source_file,
-                source_directory,
-                "wasmer",
-                true,
-                "",
-                0,
-                "",
-                DWARFEmissionKind::Full,
-                0,
-                false,
-                false,
-                "",
-                "",
-            );
-            let subroutine_type = dibuilder.create_subroutine_type(
-                compile_unit.get_file(),
-                None,
-                &[],
-                DIFlags::PUBLIC,
-            );
-            let function_name = wasm_module.get_function_name(func_index);
-            let start_line = source_location
-                .map(|location| location.line)
-                .unwrap_or_else(|| (function_body.module_offset as u32).saturating_add(1));
-            let subprogram = dibuilder.create_function(
-                compile_unit.as_debug_info_scope(),
-                &function_name,
-                None,
-                compile_unit.get_file(),
-                start_line,
-                subroutine_type,
-                false,
-                true,
-                start_line,
-                DIFlags::PUBLIC,
-                true,
-            );
-            func.set_subprogram(subprogram);
-            Some((dibuilder, subprogram))
-        } else {
-            None
-        };
+                let fallback_source_file = wasm_module.name();
+                let (source_file, source_directory) = source_location
+                    .map(|location| (location.file.as_str(), location.directory.as_str()))
+                    .unwrap_or((&fallback_source_file, "."));
+                let (dibuilder, compile_unit) = module.create_debug_info_builder(
+                    true,
+                    DWARFSourceLanguage::C,
+                    source_file,
+                    source_directory,
+                    "wasmer",
+                    true,
+                    "",
+                    0,
+                    "",
+                    DWARFEmissionKind::Full,
+                    0,
+                    false,
+                    false,
+                    "",
+                    "",
+                );
+                let subroutine_type = dibuilder.create_subroutine_type(
+                    compile_unit.get_file(),
+                    None,
+                    &[],
+                    DIFlags::PUBLIC,
+                );
+                let function_name = wasm_module.get_function_name(func_index);
+                let start_line = source_location
+                    .map(|location| location.line)
+                    .unwrap_or_else(|| (function_body.module_offset as u32).saturating_add(1));
+                let subprogram = dibuilder.create_function(
+                    compile_unit.as_debug_info_scope(),
+                    &function_name,
+                    None,
+                    compile_unit.get_file(),
+                    start_line,
+                    subroutine_type,
+                    false,
+                    true,
+                    start_line,
+                    DIFlags::PUBLIC,
+                    true,
+                );
+                func.set_subprogram(subprogram);
+                Some((dibuilder, subprogram))
+            } else {
+                None
+            };
         for (attr, attr_loc) in &func_attrs {
             func.add_attribute(*attr_loc, *attr);
         }
