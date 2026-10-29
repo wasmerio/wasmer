@@ -215,6 +215,7 @@ struct ProcessInfo {
 
 /// A task's shared parts.
 struct TaskInfo {
+    exited: bool,
     cred: Arc<crate::cred::Cred>,
     id: TaskId,
     syscall: crate::entry::CallSlot,
@@ -319,6 +320,7 @@ impl Source {
             return None;
         }
         Some(TaskInfo {
+            exited: task.thread.exited(),
             cred: task.cred.clone(),
             id: TaskId(tid),
             syscall: task.syscall.clone(),

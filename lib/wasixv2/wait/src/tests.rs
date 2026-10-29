@@ -397,3 +397,138 @@ fn a_handle_wakes_its_waiter_and_a_watched_interrupt_registers_once() {
     drop(watched);
     assert!(!signals.queue.is_active());
 }
+
+#[test]
+fn task_status_changes_on_sleep_wake_and_cancellation() {
+    use std::cell::RefCell;
+    for state in [
+        TaskState::Interruptible,
+        TaskState::Uninterruptible,
+        TaskState::Idle,
+    ] {
+        let status = TaskStatus::default();
+        let waker = RefCell::new(None);
+        let future = std::future::poll_fn(|cx| {
+            assert_eq!(status.state(), TaskState::Running, "executing kernel code");
+            *waker.borrow_mut() = Some(cx.waker().clone());
+            Poll::<()>::Pending
+        });
+        let mut wait = Box::pin(status.during(state, future));
+        assert!(poll_once(wait.as_mut()).is_pending());
+        assert_eq!(status.state(), state);
+        waker.borrow().as_ref().unwrap().wake_by_ref();
+        assert_eq!(
+            status.state(),
+            TaskState::Running,
+            "runnable before polling"
+        );
+        assert!(poll_once(wait.as_mut()).is_pending());
+        assert_eq!(status.state(), state, "slept again after a spurious wake");
+        drop(wait);
+        assert_eq!(status.state(), TaskState::Running);
+    }
+}
+
+#[test]
+fn task_status_preserves_a_wakeup_during_poll() {
+    let status = TaskStatus::default();
+    let mut first = true;
+    let future = std::future::poll_fn(|cx| {
+        assert_eq!(status.state(), TaskState::Running);
+        if std::mem::take(&mut first) {
+            cx.waker().wake_by_ref();
+            Poll::Pending
+        } else {
+            Poll::Ready(42)
+        }
+    });
+    let mut wait = Box::pin(status.during(TaskState::Uninterruptible, future));
+    assert!(poll_once(wait.as_mut()).is_pending());
+    assert_eq!(
+        status.state(),
+        TaskState::Running,
+        "sched_yield stays runnable"
+    );
+    assert_eq!(poll_once(wait.as_mut()), Poll::Ready(42));
+    assert_eq!(status.state(), TaskState::Running);
+}
+
+#[test]
+fn nested_waits_choose_their_own_task_state() {
+    for state in [TaskState::Interruptible, TaskState::Running] {
+        let status = TaskStatus::default();
+        let inner = status.during(state, std::future::pending::<()>());
+        let mut outer = Box::pin(status.during(TaskState::Uninterruptible, inner));
+        assert!(poll_once(outer.as_mut()).is_pending());
+        assert_eq!(status.state(), state);
+        drop(outer);
+        assert_eq!(status.state(), TaskState::Running);
+    }
+}
+
+#[test]
+fn completed_waits_release_the_executor_waker() {
+    struct Executor(AtomicUsize);
+    impl std::task::Wake for Executor {
+        fn wake(self: Arc<Self>) {
+            self.0.fetch_add(1, Ordering::SeqCst);
+        }
+    }
+    let executor = Arc::new(Executor(AtomicUsize::new(0)));
+    let waker = std::task::Waker::from(executor.clone());
+    let status = TaskStatus::default();
+    let mut wait = Box::pin(status.during(TaskState::Interruptible, async {}));
+    assert!(
+        wait.as_mut()
+            .poll(&mut Context::from_waker(&waker))
+            .is_ready()
+    );
+    assert_eq!(
+        Arc::strong_count(&executor),
+        2,
+        "no task/executor reference cycle"
+    );
+}
+
+#[test]
+fn nested_task_waits_preserve_intermediate_waker_forwarding() {
+    struct Forward {
+        parent: std::task::Waker,
+        calls: Arc<AtomicUsize>,
+    }
+    impl std::task::Wake for Forward {
+        fn wake(self: Arc<Self>) {
+            self.wake_by_ref();
+        }
+        fn wake_by_ref(self: &Arc<Self>) {
+            assert!(
+                self.calls.fetch_add(1, Ordering::SeqCst) < 2,
+                "recursive task waker"
+            );
+            self.parent.wake_by_ref();
+        }
+    }
+    let status = TaskStatus::default();
+    let calls = Arc::new(AtomicUsize::new(0));
+    let captured = std::cell::RefCell::new(None);
+    let mut inner = Box::pin(status.during(
+        TaskState::Interruptible,
+        std::future::poll_fn(|cx| {
+            *captured.borrow_mut() = Some(cx.waker().clone());
+            Poll::<()>::Pending
+        }),
+    ));
+    let future = std::future::poll_fn(|cx| {
+        let forwarding = std::task::Waker::from(Arc::new(Forward {
+            parent: cx.waker().clone(),
+            calls: calls.clone(),
+        }));
+        inner.as_mut().poll(&mut Context::from_waker(&forwarding))
+    });
+    let mut outer = Box::pin(status.during(TaskState::Uninterruptible, future));
+    assert!(poll_once(outer.as_mut()).is_pending());
+    assert_eq!(status.state(), TaskState::Interruptible);
+    captured.borrow().as_ref().unwrap().wake_by_ref();
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+    assert_eq!(status.state(), TaskState::Running);
+}
