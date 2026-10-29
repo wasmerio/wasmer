@@ -4862,3 +4862,57 @@ fn deferred_multishot_initial_readiness_waits_for_task_work() {
     assert_eq!(cqes[0].res as u32 & 5, 5, "both POLLIN and POLLOUT");
     assert_ne!(cqes[0].flags & IoringCqeFlags::IORING_CQE_F_MORE.0, 0);
 }
+
+/// Linux io_uring/poll.c:io_poll_wake removes EPOLLONESHOT before queuing task work.
+#[test]
+fn oneshot_poll_detaches_its_wait_entries_on_the_first_wake() {
+    for multishot in [false, true] {
+        let m = Machine::on_host(Arc::new(PausedHost), |kernel| kernel);
+        let ring = m.ring(8, 0);
+        let caller = m.caller();
+        let (r, w) = pipe(&m.kernel, &caller, OpenFlags(0));
+        let file = m.kernel.file(m.task, r).unwrap();
+        let mut queues = Vec::new();
+        let mut capture = |queue: &wasixv2_wait::WaitQueue, _: PollMask| queues.push(queue.clone());
+        wasixv2_wait::Pollable::poll(
+            &*file,
+            Some(&mut wasixv2_wait::PollTable::new(
+                PollMask::READABLE,
+                &mut capture,
+            )),
+        );
+        assert!(!queues.is_empty());
+        assert!(queues.iter().all(|queue| !queue.is_active()));
+        ring.push(IoUringSqe {
+            op_flags: PollMask::READABLE.0,
+            len: if multishot {
+                IoringOpFlags::IORING_POLL_ADD_MULTI.0
+            } else {
+                0
+            },
+            ..sqe(IoUringOp::IORING_OP_POLL_ADD, r.0, 93)
+        });
+        ring.submit(1).unwrap();
+        assert!(queues.iter().any(|queue| queue.is_active()));
+        // A spurious wake must rearm a detached one-shot without a CQE.
+        queues
+            .iter()
+            .find(|queue| queue.is_active())
+            .unwrap()
+            .wake(PollMask::READABLE);
+        assert_eq!(queues.iter().any(|queue| queue.is_active()), multishot);
+        block_on(m.kernel.run_task_work(&caller));
+        assert!(ring.reap().is_empty());
+        assert!(queues.iter().any(|queue| queue.is_active()));
+        m.memory.put(BUF, b"x");
+        block_on(m.kernel.write(&caller, w, UserSlice::new(BUF, 1))).unwrap();
+        assert_eq!(
+            queues.iter().any(|queue| queue.is_active()),
+            multishot,
+            "one-shot entries must leave the file queue before task work"
+        );
+        assert!(ring.reap().is_empty());
+        block_on(m.kernel.run_task_work(&caller));
+        assert_eq!(ring.reap().len(), 1);
+    }
+}

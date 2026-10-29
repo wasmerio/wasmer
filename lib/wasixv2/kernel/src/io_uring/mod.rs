@@ -517,19 +517,30 @@ impl Ctx {
     /// submitter returns to userspace. The callback holds the file's wait-queue
     /// lock, so only queue work here; querying the file belongs to task context.
     pub(crate) fn woken(&self, id: u64) {
-        let (first, task_work) = {
+        let (first, task_work, registrations) = {
             let mut state = self.state.lock_or_recover();
-            let task_work = match state.waiting.get(&id) {
-                Some(waiting) => waiting.req().task_work.clone(),
-                None => return, // wait() rechecks wakeups before publication.
-            };
             if state.woken.contains(&id) {
                 return;
             }
+            let Some(waiting) = state.waiting.get_mut(&id) else {
+                return; // wait() retains callbacks racing publication.
+            };
+            let task_work = waiting.req().task_work.clone();
+            let registrations = match waiting {
+                ops::Waiting::Poll {
+                    multishot: false,
+                    _registrations,
+                    ..
+                } => std::mem::take(_registrations),
+                _ => Vec::new(),
+            };
             state.woken.push(id);
             self.update_sq_flags(&state);
-            (state.woken.len() == 1, task_work)
+            (state.woken.len() == 1, task_work, registrations)
         };
+        // Linux poll.c:io_poll_wake removes EPOLLONESHOT at the first wake.
+        // WaitRegistration supports removal under a wake; drop outside state.
+        drop(registrations);
         if !self.shape.has(IoringSetupFlags::IORING_SETUP_DEFER_TASKRUN)
             && let Some(task_work) = task_work
         {
