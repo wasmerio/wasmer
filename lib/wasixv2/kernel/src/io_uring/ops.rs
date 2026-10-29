@@ -17,7 +17,7 @@ use wasixv2_abi::{
 use wasixv2_syscalls::{Caller, Errno, Fd, SysErr, SysResult, TaskId, read_value};
 use wasixv2_wait::{PollMask, PollTable, WaitEntry, WaitQueue};
 
-use super::{Ctx, Pbuf, Registrations, State, cqe_res, is_ring};
+use super::{Ctx, Pbuf, Registrations, State, cqe_res, is_ring, kbuf};
 use crate::{
     Kernel,
     cred::Cred,
@@ -59,6 +59,7 @@ pub(crate) const SUPPORTED: &[IoUringOp] = &[
     IoUringOp::IORING_OP_SHUTDOWN,
     IoUringOp::IORING_OP_FILES_UPDATE,
     IoUringOp::IORING_OP_FIXED_FD_INSTALL,
+    IoUringOp::IORING_OP_READ_MULTISHOT,
 ];
 
 /// `SQE_VALID_FLAGS`.
@@ -70,8 +71,6 @@ const SQE_VALID_FLAGS: u8 = IosqeFlags::IOSQE_FIXED_FILE.0
     | IosqeFlags::IOSQE_BUFFER_SELECT.0
     | IosqeFlags::IOSQE_CQE_SKIP_SUCCESS.0;
 const LINK_FLAGS: u8 = IosqeFlags::IOSQE_IO_LINK.0 | IosqeFlags::IOSQE_IO_HARDLINK.0;
-/// `MAX_BIDS_PER_BGID`.
-const MAX_BIDS_PER_BGID: u32 = 1 << 16;
 
 const fn op(op: IoUringOp) -> u8 {
     op.0
@@ -105,6 +104,8 @@ pub(crate) struct Req {
     connecting: bool,
     /// The provided buffer it took (`REQ_F_BUFFER_SELECTED`).
     pbuf: Option<Pbuf>,
+    msg_header: Option<wasixv2_abi::UserMsghdr>,
+    msg_len: u32,
 }
 
 /// A link timeout and its armed timer.
@@ -204,6 +205,8 @@ impl Req {
             retried: false,
             connecting: false,
             pbuf: None,
+            msg_header: None,
+            msg_len: 0,
         }
     }
 
@@ -329,9 +332,7 @@ impl Ctx {
 
     /// Gives a provided buffer back to its group's head (`io_kbuf_recycle_legacy`).
     fn recycle(&self, req: &Req, pbuf: Pbuf) {
-        let mut state = self.state.lock_or_recover();
-        let group = state.pbufs.entry(req.sqe.buf_index).or_default();
-        group.push_front(pbuf);
+        kbuf::recycle(self, req.sqe.buf_index, pbuf);
     }
 
     /// Removes the waiting request `id`.
@@ -579,8 +580,17 @@ impl Kernel {
                     return;
                 }
                 Outcome::More { res, flags } => {
+                    if ctx.cq_ready() >= ctx.shape.cq_entries {
+                        // io_uring/rw.c:io_read_mshot: overflow ends multishot.
+                        ctx.finish(req, res, flags, false);
+                        return;
+                    }
                     let more = flags | IoringCqeFlags::IORING_CQE_F_MORE.0;
                     ctx.post(req.sqe.user_data, res, more, false);
+                    if req.opcode() == op(IoUringOp::IORING_OP_READ_MULTISHOT) {
+                        arm(ctx, req, PollMask::READABLE);
+                        return;
+                    }
                 }
                 Outcome::Again(events) => {
                     arm(ctx, req, events);
@@ -681,7 +691,8 @@ impl Kernel {
             | IoUringOp::IORING_OP_READ_FIXED
             | IoUringOp::IORING_OP_WRITE
             | IoUringOp::IORING_OP_WRITEV
-            | IoUringOp::IORING_OP_WRITE_FIXED => self.op_rw(caller, ctx, req).await,
+            | IoUringOp::IORING_OP_WRITE_FIXED
+            | IoUringOp::IORING_OP_READ_MULTISHOT => self.op_rw(caller, ctx, req).await,
             IoUringOp::IORING_OP_FSYNC => {
                 if sqe.addr != 0 || sqe.buf_index != 0 || sqe.splice_fd_in != 0 {
                     return Err(Errno::EINVAL);
@@ -751,8 +762,12 @@ impl Kernel {
                     self.sys_statx(caller, Fd(sqe.fd), path, flags, StatxMask(sqe.len), buffer);
                 Ok(Outcome::of(statx.await))
             }
-            IoUringOp::IORING_OP_PROVIDE_BUFFERS => op_provide_buffers(ctx, &sqe),
-            IoUringOp::IORING_OP_REMOVE_BUFFERS => op_remove_buffers(ctx, &sqe),
+            IoUringOp::IORING_OP_PROVIDE_BUFFERS => {
+                Ok(Outcome::of(kbuf::provide(ctx, &sqe).map_err(SysErr::from)))
+            }
+            IoUringOp::IORING_OP_REMOVE_BUFFERS => {
+                Ok(Outcome::of(kbuf::remove(ctx, &sqe).map_err(SysErr::from)))
+            }
             _ => Err(Errno::EOPNOTSUPP),
         }
     }
@@ -811,17 +826,24 @@ impl Kernel {
         let flags = RwfFlags(sqe.op_flags);
         rw_flags(flags)?;
         let select = req.has(IosqeFlags::IOSQE_BUFFER_SELECT);
+        let multi = opcode == IoUringOp::IORING_OP_READ_MULTISHOT;
+        if multi && (!select || sqe.addr != 0 || sqe.len != 0) {
+            return Err(Errno::EINVAL);
+        }
         if select && (write || fixed || (vectored && sqe.len != 1)) {
             return Err(Errno::EINVAL);
         }
         let file = self.req_file(caller, ctx, req)?;
+        if multi && !file.can_poll() {
+            return Err(Errno::EBADFD);
+        }
         match write {
             true => file.check_writable()?,
             false => file.check_readable()?,
         }
         let iovecs = match (vectored, fixed, select) {
             (_, _, true) => {
-                let pbuf = match req.pbuf {
+                let pbuf = match req.pbuf.clone() {
                     Some(pbuf) => pbuf,
                     None => {
                         let len = match vectored {
@@ -832,8 +854,8 @@ impl Kernel {
                             }
                             false => sqe.len,
                         };
-                        let pbuf = select_buffer(ctx, sqe.buf_index, len)?;
-                        req.pbuf = Some(pbuf);
+                        let pbuf = kbuf::select(caller, ctx, sqe.buf_index, len).await?;
+                        req.pbuf = Some(pbuf.clone());
                         pbuf
                     }
                 };
@@ -862,13 +884,24 @@ impl Kernel {
             off => At::Offset(u64::try_from(off).map_err(|_| Errno::EINVAL)?),
         };
         let nowait = flags | RwfFlags::RWF_NOWAIT;
+        let retained = req
+            .buffer_node
+            .as_ref()
+            .map(|node| crate::mm::RetainedMemory {
+                memory: caller.memory(),
+                range: &node.item,
+            });
+        let redirected = retained
+            .as_ref()
+            .map(|memory| Caller::new(caller.task(), memory));
+        let io_caller = redirected.as_ref().unwrap_or(caller);
         let done = match write {
             true => {
-                self.write_from_iovecs(caller, &file, &iovecs, at, nowait)
+                self.write_from_iovecs(io_caller, &file, &iovecs, at, nowait)
                     .await
             }
             false => {
-                self.read_into_iovecs_flags(caller, &file, &iovecs, at, nowait)
+                self.read_into_iovecs_flags(io_caller, &file, &iovecs, at, nowait)
                     .await
             }
         };
@@ -877,7 +910,7 @@ impl Kernel {
             false => PollMask::READABLE,
         };
         match done {
-            Err(SysErr::Errno(Errno::EAGAIN)) if !flags.contains(RwfFlags::RWF_NOWAIT) => {
+            Err(SysErr::Errno(Errno::EAGAIN)) if multi || !flags.contains(RwfFlags::RWF_NOWAIT) => {
                 if let Some(pbuf) = req.pbuf.take() {
                     ctx.recycle(req, pbuf);
                 }
@@ -886,11 +919,29 @@ impl Kernel {
                 }
                 Err(Errno::EAGAIN)
             }
-            Ok(n) => Ok(Outcome::Done {
-                res: n as i32,
-                flags: req.pbuf.take().map_or(0, buffer_flags),
-                fail: u64::from(n) < wanted,
-            }),
+            Ok(n) => {
+                if multi && n == 0 {
+                    if let Some(pbuf) = req.pbuf.take() {
+                        ctx.recycle(req, pbuf);
+                    }
+                    return Ok(Outcome::of(Ok(0)));
+                }
+                let flags = match req.pbuf.take() {
+                    Some(pbuf) => kbuf::complete(caller, pbuf, n).await?,
+                    None => 0,
+                };
+                if multi {
+                    return Ok(Outcome::More {
+                        res: n as i32,
+                        flags,
+                    });
+                }
+                Ok(Outcome::Done {
+                    res: n as i32,
+                    flags,
+                    fail: u64::from(n) < wanted,
+                })
+            }
             Err(err) => Ok(Outcome::of(Err(err))),
         }
     }
@@ -924,11 +975,15 @@ impl Kernel {
             return Err(Errno::EINVAL);
         }
         let select = req.has(IosqeFlags::IOSQE_BUFFER_SELECT);
-        if select && (send || msg) {
+        if select && send {
             return Err(Errno::EINVAL);
         }
         let multishot = iou & multishot != 0;
-        if multishot && (!select || req.has(IosqeFlags::IOSQE_CQE_SKIP_SUCCESS)) {
+        if multishot
+            && (!select
+                || req.has(IosqeFlags::IOSQE_CQE_SKIP_SUCCESS)
+                || sqe.op_flags & MsgFlags::MSG_WAITALL.0 != 0)
+        {
             return Err(Errno::EINVAL);
         }
         let file = self.req_file(caller, ctx, req)?;
@@ -948,13 +1003,41 @@ impl Kernel {
         if send {
             flags |= MsgFlags::MSG_NOSIGNAL;
         }
+        let selected_header = if select && msg {
+            if req.msg_header.is_none() {
+                let hdr: wasixv2_abi::UserMsghdr =
+                    read_value(caller.memory(), GuestPtr::new(sqe.addr as u32))
+                        .await
+                        .map_err(|_| Errno::EFAULT)?;
+                if hdr.msg_iovlen > 1 {
+                    return Err(Errno::EINVAL);
+                }
+                req.msg_len = if hdr.msg_iovlen == 0 {
+                    0
+                } else {
+                    let iov: Iovec = read_value(caller.memory(), GuestPtr::new(hdr.msg_iov.addr()))
+                        .await
+                        .map_err(|_| Errno::EFAULT)?;
+                    iov.iov_len
+                };
+                req.msg_header = Some(hdr);
+            }
+            req.msg_header
+        } else {
+            None
+        };
+        let select_len = if selected_header.is_some() {
+            req.msg_len
+        } else {
+            sqe.len
+        };
         let (addr, len) = match select {
             true => {
-                let pbuf = match req.pbuf {
+                let pbuf = match req.pbuf.clone() {
                     Some(pbuf) => pbuf,
                     None => {
-                        let pbuf = select_buffer(ctx, sqe.buf_index, sqe.len)?;
-                        req.pbuf = Some(pbuf);
+                        let pbuf = kbuf::select(caller, ctx, sqe.buf_index, select_len).await?;
+                        req.pbuf = Some(pbuf.clone());
                         pbuf
                     }
                 };
@@ -962,19 +1045,36 @@ impl Kernel {
             }
             false => (sqe.addr as u32, sqe.len),
         };
-        let done = match opcode {
-            IoUringOp::IORING_OP_SEND => {
-                self.uring_send(caller, file.clone(), (addr, len), flags)
-                    .await
+        let mut more_payload = true;
+        let done = if let Some(hdr) = selected_header {
+            self.uring_recvmsg_selected(
+                caller,
+                file.clone(),
+                (sqe.addr as u32, hdr),
+                (addr, len),
+                flags,
+                multishot,
+            )
+            .await
+            .map(|(n, more)| {
+                more_payload = more;
+                n
+            })
+        } else {
+            match opcode {
+                IoUringOp::IORING_OP_SEND => {
+                    self.uring_send(caller, file.clone(), (addr, len), flags)
+                        .await
+                }
+                IoUringOp::IORING_OP_RECV => {
+                    self.uring_recv(caller, file.clone(), (addr, len), flags)
+                        .await
+                }
+                IoUringOp::IORING_OP_SENDMSG => {
+                    self.uring_sendmsg(caller, file.clone(), addr, flags).await
+                }
+                _ => self.uring_recvmsg(caller, file.clone(), addr, flags).await,
             }
-            IoUringOp::IORING_OP_RECV => {
-                self.uring_recv(caller, file.clone(), (addr, len), flags)
-                    .await
-            }
-            IoUringOp::IORING_OP_SENDMSG => {
-                self.uring_sendmsg(caller, file.clone(), addr, flags).await
-            }
-            _ => self.uring_recvmsg(caller, file.clone(), addr, flags).await,
         };
         let events = if send {
             PollMask::WRITABLE
@@ -989,9 +1089,12 @@ impl Kernel {
                 Ok(Outcome::Again(events))
             }
             Ok(n) => {
-                let flags = req.pbuf.take().map_or(0, buffer_flags);
+                let flags = match req.pbuf.take() {
+                    Some(pbuf) => kbuf::complete(caller, pbuf, n as u32).await?,
+                    None => 0,
+                };
                 // A stream's end ends a multishot receive.
-                if multishot && n > 0 {
+                if multishot && n > 0 && more_payload {
                     return Ok(Outcome::More {
                         res: n as i32,
                         flags,
@@ -1436,6 +1539,7 @@ fn init_req(ctx: &Ctx, req: &mut Req) -> Result<(), Errno> {
         req.creds = Some(creds.ok_or(Errno::EINVAL)?.clone());
     }
     let selects = [
+        IoUringOp::IORING_OP_READ_MULTISHOT,
         IoUringOp::IORING_OP_READ,
         IoUringOp::IORING_OP_READV,
         IoUringOp::IORING_OP_RECV,
@@ -1660,85 +1764,6 @@ fn op_poll_remove(ctx: &Arc<Ctx>, sqe: &IoUringSqe) -> Result<Outcome, Errno> {
     Ok(Outcome::of(Ok(0)))
 }
 
-/// `io_provide_buffers`: `nbufs` buffers of `len` bytes from `addr`, with ids from `off`, to
-/// group `buf_group`.
-fn op_provide_buffers(ctx: &Ctx, sqe: &IoUringSqe) -> Result<Outcome, Errno> {
-    if sqe.op_flags != 0 || sqe.splice_fd_in != 0 {
-        return Err(Errno::EINVAL);
-    }
-    let nbufs = sqe.fd as u32;
-    if nbufs == 0 || nbufs > MAX_BIDS_PER_BGID {
-        return Err(Errno::E2BIG);
-    }
-    if sqe.len == 0 {
-        return Err(Errno::EINVAL);
-    }
-    let size = u64::from(sqe.len) * u64::from(nbufs);
-    let end = sqe.addr.checked_add(size).ok_or(Errno::EOVERFLOW)?;
-    if end > 1 << 32 {
-        return Err(Errno::EFAULT);
-    }
-    if sqe.off > u64::from(u16::MAX) {
-        return Err(Errno::E2BIG);
-    }
-    if sqe.off + u64::from(nbufs) > u64::from(MAX_BIDS_PER_BGID) {
-        return Err(Errno::EINVAL);
-    }
-    let mut state = ctx.state.lock_or_recover();
-    let group = state.pbufs.entry(sqe.buf_index).or_default();
-    let mut added = 0;
-    for i in 0..nbufs {
-        if group.len() as u32 == MAX_BIDS_PER_BGID {
-            break;
-        }
-        group.push_back(Pbuf {
-            addr: (sqe.addr + u64::from(i) * u64::from(sqe.len)) as u32,
-            len: sqe.len.min(crate::MAX_RW_COUNT as u32),
-            bid: (sqe.off + u64::from(i)) as u16,
-        });
-        added += 1;
-    }
-    Ok(Outcome::of(match added {
-        0 => Err(Errno::EOVERFLOW.into()),
-        _ => Ok(0),
-    }))
-}
-
-/// `io_remove_buffers`: up to `nbufs` buffers of group `buf_group`; how many went.
-fn op_remove_buffers(ctx: &Ctx, sqe: &IoUringSqe) -> Result<Outcome, Errno> {
-    if sqe.op_flags != 0 || sqe.addr != 0 || sqe.len != 0 || sqe.off != 0 || sqe.splice_fd_in != 0 {
-        return Err(Errno::EINVAL);
-    }
-    let nbufs = sqe.fd as u32;
-    if nbufs == 0 || nbufs > MAX_BIDS_PER_BGID {
-        return Err(Errno::EINVAL);
-    }
-    let mut state = ctx.state.lock_or_recover();
-    let Some(group) = state.pbufs.get_mut(&sqe.buf_index) else {
-        return Ok(Outcome::of(Err(Errno::ENOENT.into())));
-    };
-    let n = (nbufs as usize).min(group.len());
-    group.drain(..n);
-    Ok(Outcome::of(Ok(n as i32)))
-}
-
-/// `io_buffer_select`: the first buffer of group `bgid`, cut to `len` if that is less;
-/// `ENOBUFS` if the group has none.
-fn select_buffer(ctx: &Ctx, bgid: u16, len: u32) -> Result<Pbuf, Errno> {
-    let mut state = ctx.state.lock_or_recover();
-    let group = state.pbufs.get_mut(&bgid).ok_or(Errno::ENOBUFS)?;
-    let mut pbuf = group.pop_front().ok_or(Errno::ENOBUFS)?;
-    if len != 0 && len < pbuf.len {
-        pbuf.len = len;
-    }
-    Ok(pbuf)
-}
-
-/// The CQE flags of a completion that used a provided buffer.
-fn buffer_flags(pbuf: Pbuf) -> u32 {
-    IoringCqeFlags::IORING_CQE_F_BUFFER.0 | (u32::from(pbuf.bid) << 16)
-}
-
 /// `io_import_fixed`: the range `[addr, addr + len)` must lie in registered buffer
 /// `buf_index`.
 fn fixed_buffer(ctx: &Ctx, req: &mut Req) -> Result<Iovec, Errno> {
@@ -1755,7 +1780,7 @@ fn fixed_buffer(ctx: &Ctx, req: &mut Req) -> Result<Iovec, Errno> {
             .and_then(Clone::clone)
             .ok_or(Errno::EFAULT)?
     };
-    let (base, size) = (node.item.iov_base, node.item.iov_len);
+    let (base, size) = (node.item.addr, node.item.len);
     req.buffer_node = Some(node);
     let end = sqe
         .addr
