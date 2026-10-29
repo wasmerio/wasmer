@@ -478,6 +478,30 @@ impl Mapping {
         Mapping { start, len, source }
     }
 
+    /// A mapping of the object this shared one shows, from byte `offset` of the object on, at
+    /// `start` for `len` bytes, not filled yet: what `remap_file_pages` maps there. `None` for a
+    /// private mapping, and for an object that does not reach that far, whose pages the memory
+    /// cannot show.
+    pub(crate) fn alias_object(&self, offset: u64, start: u64, len: u64) -> Option<Mapping> {
+        let source = match &self.source {
+            Source::Private { .. } => return None,
+            Source::Shared(shared) => Source::Shared(Shared::new(
+                shared.object.clone(),
+                offset,
+                shared.writable,
+                shared.writer.clone(),
+            )),
+            Source::Mapped(mapped) if offset.checked_add(len)? <= mapped.pages.size() => {
+                Source::Mapped(Mapped {
+                    offset,
+                    ..mapped.clone()
+                })
+            }
+            Source::Mapped(_) => return None,
+        };
+        Some(Mapping { start, len, source })
+    }
+
     /// Grows the mapping by `extra` bytes at its end, which `mremap` already took, and fills
     /// them from the source. A mapped object grows only as far as the object reaches: the
     /// pages past its end stay anonymous memory that reads zero, where Linux raises `SIGBUS`.

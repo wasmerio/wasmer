@@ -2409,7 +2409,7 @@ impl Kernel {
         code: i32,
         info: Siginfo,
     ) -> Option<Siginfo> {
-        if code == 0 || code > NSIG as i32 {
+        if code == 0 || code > NSIG {
             return None;
         }
         if code == info.si_signo {

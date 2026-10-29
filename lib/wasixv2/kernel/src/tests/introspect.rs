@@ -623,3 +623,49 @@ fn remote_access_goes_through_the_attached_memory_until_mmput() {
     block_on(kernel.exit_mmap(&caller));
     assert_eq!(read(&mm, page - 2, &mut buf), 0, "the last user left");
 }
+
+/// `remap_file_pages`: a page of a shared file mapping shows another page of the file; a
+/// private mapping, a `prot` or an empty range are `EINVAL`.
+#[test]
+fn remap_file_pages_shows_another_page_of_the_file() {
+    let (kernel, task, _) = setup(b"");
+    let memory = FlatMemory(RefCell::new(vec![0; 4 * 65536]));
+    let caller = Caller::new(task, &memory);
+    let page = crate::mm::PAGE_SIZE as u32;
+    let fd = super::mapping::open(
+        &kernel,
+        &caller,
+        b"/f",
+        OpenFlags::O_CREAT | OpenFlags::O_RDWR,
+    );
+    for (i, byte) in [b'a', b'b', b'c'].into_iter().enumerate() {
+        put(&memory, 0x100, &vec![byte; page as usize]);
+        let write = kernel.pwrite64(
+            &caller,
+            fd,
+            UserSlice::new(0x100, page),
+            i64::from(page) * i as i64,
+        );
+        assert_eq!(block_on(write), Ok(page));
+    }
+    let rw = ProtFlags::PROT_READ | ProtFlags::PROT_WRITE;
+    let shared = MapFlags::MAP_SHARED;
+    let addr = block_on(kernel.mmap(&caller, 0, 2 * page, rw, shared, fd, 0)).unwrap();
+    assert_eq!(get_flat(&memory, addr + page, 1), b"b");
+
+    let remap = |start: u32, size: u32, prot: u32, pgoff: u32| {
+        block_on(kernel.remap_file_pages(&caller, start, size, prot, pgoff, 0))
+    };
+    assert_eq!(remap(addr + page, page, 0, 2), Ok(0));
+    assert_eq!(get_flat(&memory, addr + page, 1), b"c");
+    assert_eq!(get_flat(&memory, addr, 1), b"a", "the rest stays");
+    assert_eq!(errno(remap(addr, page, 1, 2)), Errno::EINVAL);
+    assert_eq!(errno(remap(addr, 0, 0, 2)), Errno::EINVAL);
+    let private = MapFlags::MAP_PRIVATE;
+    let other = block_on(kernel.mmap(&caller, 0, page, rw, private, fd, 0)).unwrap();
+    assert_eq!(errno(remap(other, page, 0, 1)), Errno::EINVAL);
+}
+
+fn get_flat(memory: &FlatMemory, addr: u32, len: usize) -> Vec<u8> {
+    super::ipc::get(memory, addr, len)
+}
