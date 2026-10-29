@@ -245,6 +245,7 @@ impl Kernel {
             };
             let flag = Arc::new(WorkFlag::default());
             let new = Task {
+                syscall: Default::default(),
                 cpu: Arc::new(CpuAccount::new(process.cpu.clone())),
                 process,
                 mm: task.mm.clone(),
@@ -850,8 +851,10 @@ impl Kernel {
             unstarted.extend(entry.work.push(GuestAction::Exit(0)));
             // The caller goes on as the leader: with its seccomp state, not the old leader's.
             let seccomp = entry.seccomp.clone();
+            let syscall = std::mem::take(&mut entry.syscall);
             let entry = state.tasks.get_mut(&leader).expect("the leader is listed");
             entry.seccomp = seccomp;
+            entry.syscall = syscall;
             if detached {
                 entry.work.detach_exec();
             }

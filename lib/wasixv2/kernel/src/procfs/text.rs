@@ -143,6 +143,7 @@ pub(super) enum PerPid {
     Smaps,
     SmapsRollup,
     Io,
+    Syscall,
     Auxv,
     Timers,
 }
@@ -725,6 +726,10 @@ pub(super) fn per_pid(
         PerPid::Smaps => introspect::smaps(source.mm(scope).as_deref(), false),
         PerPid::SmapsRollup => introspect::smaps(source.mm(scope).as_deref(), true),
         PerPid::Io => introspect::io(process),
+        PerPid::Syscall => {
+            let task = source.task(scope.pid, scope.tid).ok_or(Errno::ESRCH)?;
+            introspect::syscall(&task)
+        }
         PerPid::Auxv => process.auxv.lock_or_recover().clone(),
         PerPid::Timers => {
             let task = source.task(scope.pid, scope.tid).ok_or(Errno::ESRCH)?;

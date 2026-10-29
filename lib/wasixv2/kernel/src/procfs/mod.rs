@@ -174,6 +174,8 @@ struct ProcessInfo {
 
 /// A task's shared parts.
 struct TaskInfo {
+    id: TaskId,
+    syscall: crate::entry::CallSlot,
     files: Arc<Mutex<FdTable>>,
     fs: Arc<Mutex<FsContext>>,
     signals: Arc<TaskSignals>,
@@ -272,6 +274,8 @@ impl Source {
             return None;
         }
         Some(TaskInfo {
+            id: TaskId(tid),
+            syscall: task.syscall.clone(),
             files: task.files.clone(),
             fs: task.fs.clone(),
             signals: task.signals.clone(),

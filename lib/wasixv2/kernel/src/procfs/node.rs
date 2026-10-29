@@ -214,6 +214,7 @@ const PID_ENTRIES: &[(&str, PidEntry, u32)] = &[
     ),
     ("wchan", PidEntry::File(text::PerPid::Wchan), 0o444),
     ("stack", PidEntry::File(text::PerPid::Stack), 0o400),
+    ("syscall", PidEntry::File(text::PerPid::Syscall), 0o400),
     (
         "timerslack_ns",
         PidEntry::File(text::PerPid::TimerslackNs),
@@ -889,7 +890,7 @@ impl ProcNode {
             P::Io | P::Auxv | P::Smaps | P::SmapsRollup if !may(MODE_READ_FSCREDS) => {
                 Err(Errno::EACCES)
             }
-            P::Personality if !may(MODE_ATTACH_FSCREDS) => Err(Errno::EPERM),
+            P::Personality | P::Syscall if !may(MODE_ATTACH_FSCREDS) => Err(Errno::EPERM),
             P::Stack => {
                 let admin = self
                     .source

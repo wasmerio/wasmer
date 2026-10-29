@@ -1464,6 +1464,7 @@ impl Kernel {
                 false => Arc::new(task.mm.dup(id.0)),
             };
             let new = Task {
+                syscall: Default::default(),
                 cpu: Arc::new(CpuAccount::new(process.cpu.clone())),
                 process: process.clone(),
                 mm,

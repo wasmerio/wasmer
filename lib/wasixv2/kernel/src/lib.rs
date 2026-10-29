@@ -279,6 +279,8 @@ struct Process {
 }
 
 struct Task {
+    /// The active syscall for /proc/<pid>/syscall, cleared on return.
+    syscall: entry::CallSlot,
     process: Arc<Process>,
     /// The address space the task runs on (`task->mm`).
     mm: Arc<Mm>,
@@ -561,6 +563,7 @@ impl Kernel {
         let account = signal::Account::new(self.sigqueue_users.clone(), &process);
         let cpu = Arc::new(CpuAccount::new(process.cpu.clone()));
         let task = Task {
+            syscall: Default::default(),
             comm,
             sched: sched::Sched::default(),
             seccomp: seccomp::Seccomp::default(),

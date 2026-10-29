@@ -113,6 +113,35 @@ pub(super) fn sessionid(process: &crate::Process) -> Vec<u8> {
         .into_bytes()
 }
 
+/// fs/proc/base.c `proc_pid_syscall`: the blocked call's registers, or the task's state.
+/// Wasm has no instruction pointer; an untraced call has no sampled shadow stack pointer.
+pub(super) fn syscall(task: &TaskInfo) -> Vec<u8> {
+    let current = *task.syscall.lock_or_recover();
+    if let Some(call) = current {
+        let call = task
+            .signals
+            .group()
+            .with_trace(task.id, |t| t.call)
+            .flatten()
+            .unwrap_or(call);
+        let nr = call.nr as i32;
+        if nr < 0 {
+            return format!("{nr} 0x{:x} 0x0\n", call.sp).into_bytes();
+        }
+        let [a, b, c, d, e, f] = call.args;
+        return format!(
+            "{nr} 0x{a:x} 0x{b:x} 0x{c:x} 0x{d:x} 0x{e:x} 0x{f:x} 0x{:x} 0x0\n",
+            call.sp
+        )
+        .into_bytes();
+    }
+    if task.signals.is_stopped() {
+        b"-1 0x0 0x0\n".to_vec()
+    } else {
+        b"running\n".to_vec()
+    }
+}
+
 /// `proc_tid_io_accounting`.
 pub(super) fn io(process: &crate::Process) -> Vec<u8> {
     let [rchar, wchar, syscr, syscw] = process.ioac.counts();
