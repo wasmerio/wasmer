@@ -812,3 +812,107 @@ After both regressions are resolved, land in dependency order: ABI
 `3c21183..07cd32e` -> tests `189d40f..43ebe22` -> libc2 `139386dc..1df9bb80`
 -> wasmer `f6e45f62643..307ba591a2e` -> plan. Only train18 branches and the
 fast-forward `wasixv2/plan` are pushed by this agent. **NO-GO: hold mains.**
+
+## 2026-10-29: validation train 19 — NO-GO
+
+Hold main/feat landing. Integration, all gates, exactly one full suite, focused
+regression checks, usual/new-runner/real-program smoke, and classified expectations
+are complete. Two mmap timestamp regressions remain unblessed. Five nominally
+passing suite invocations contain real host panics in task teardown; neither
+passing exit status nor the reported suite pass count clears those blockers.
+The orchestrator owns remote mains.
+
+Candidates: wasmer `wasixv2/train19` **d5fc82a3d20** on `21587f4e504` (13 commits),
+tests `train19` **f6aee33** on `9d39c70` (20, including both input merges), libc2
+`train19` **3b6a3e31** on `1df9bb80` (5). ABI **07cd32e** is unchanged in both
+consumers. Tests pin the published wasix-org LTP **733f1688a**. V3 made no tests
+changes; its committed `wasixv2/plan-userland5` kit through **af59975dfb6** is a
+clean fast-forward from plan **ba3df552c9c**. Live uncommitted edits in the shared
+plan worktree were preserved by using an isolated plan worktree.
+
+- Integrated V1 sync/task state/shared tmpfs/pidfd/approved low-guard copying,
+  V2 runner/root POSIX/upstream LTP forking/typed callbacks/libaio and AIO fixes,
+  and V3's two io_uring timeout fixes. Replayed source changes, omitted superseded
+  consumer test pins, merged the two actual tests branches, and pinned their
+  combined result in both consumers. No ABI regeneration was needed.
+- Small runtime seam `017bee556b1`: Linux kernel/signal.c:do_freezer_trap sleeps
+  with TASK_INTERRUPTIBLE|TASK_FREEZABLE. The existing stop_wait now reports S;
+  job-control/ptrace state precedence remains intact. The cgroup fixture retains
+  its wait future and checks S while frozen and immediate R on thaw. The stronger
+  regression fails with D before the fix and passes afterward.
+- Gates: all 25 crate invocations, **1888 passing cases including doctests**
+  (kernel1035, exec60, host11, VM56, API160); three all-target/Makefile-flags
+  clippy gates; workspace fmt; release CLI **10m18s**; CLI **59 pass/12 ignored**
+  and tty **6 pass**. Runner **16 pass/2 toolchain probes ignored**, both probes
+  explicitly passed (EH+asyncify libaio API/ABI/NOWAIT and time64 bound), plus
+  standalone strict clippy/fmt. Both private sysroots and run.sh passed.
+- Exactly ONE full suite, **3606s**, runtime017bee556b1, three threads/CPUs0-3,
+  canonical60s budget. Raw **3704 pass/245 xfail/10 unexpected fail/221 unexpected
+  pass/606 ignored**; normalized **3925 pass/255 fail/606 ignored**. LTP EH and
+  asyncify both have libaio/libcap;1816 programs detected as forking were rebuilt.
+- Classification: **250 prior failures now pass,126 prior skips now pass,10 new
+  registrations pass**. Four newly running failures: brk01/brk02 reach raw-syscall
+  variants after the libc variant's TCONF; growth collides with the new LTP
+  child's adjacent mmap pages. semctl09 in two lists reaches its libc variant,
+  then dereferences an unchecked NULL fopen result for missing /proc/sysvipc/sem.
+  These are listed with source-based causes. **88 registrations were excluded**
+  by the input policy (86 old failures, nice05 previously ignored, and the prior
+  pass sched_setparam/25-1, optional sporadic scheduling not advertised by musl).
+  Five old failures now skip. One pass now skips: lseek11 reports TCONF for the
+  shared backend's generic SEEK_DATA/SEEK_HOLE behavior.
+- Six raw regressions, four cleared with focused proof: `mem-low-efault/default`
+  still expected a kernel read from the low guard to succeed; tests **5b9d035**
+  corrects that assertion to the approved EFAULT contract, and the exact fixture
+  passes. `pthread_cond_init/4-1`, `gf15`, and `min_free_kbytes` were killed by the
+  new2GiB per-test safety cap (six primary/trace scopes confirmed oom-kill in the
+  journal); all three pass individually with train18's10GiB limit. The cond test
+  also exposes the existing missing RLIMIT_AS/DATA enforcement: its1MiB limits
+  do not stop brk growth. No kernel limit or timeout workaround was added.
+- Remaining regressions: POSIX `mmap/13-1` and `mmap/14-1` lose atime and
+  ctime/mtime updates when V1's shared tmpfs pages bypass the old copied mapping
+  read/writeback path. Linux mm/shmem.c:shmem_mmap and
+  mm/filemap.c:generic_file_mmap use file_accessed; mapped write faults update
+  times through filemap_page_mkwrite/file_update_time. Correct access/dirty
+  notification, noatime and failed-mapping ordering need comprehensive coverage;
+  no timestamp guess, forced copy, or unapproved kernel/exec contract was added.
+- Real host panics occurred in **exec-exit-with-threads/default, POSIX
+  aio_cancel/1-1, LTP cve-2017-17052, sctp01, tgkill03**, all nominal exit0.
+  Backtraces show **exit_notify -> task_cred** after credential retirement and
+  **exit_mm -> exit_mmap -> mm** after task unhash. Concurrent finalizers can
+  publish/reap while another is still accounting or cleaning mappings;
+  thread.left_mm is published before asynchronous exit_mmap finishes. Linux
+  kernel/exit.c:do_exit/exit_mm/release_task retain the necessary lifetimes
+  through cleanup. A dedicated fix needs retained snapshots and once-only,
+  completed-exit publication with deterministic interleaving regressions. Do not
+  suppress the panic or substitute default credentials. **NO-GO**.
+- Final observed outcomes including the four targeted corrections (pass/xfail/
+  unexpected fail/ignored): own **293/0/0/1**, libc **403/15/0/0**, POSIX
+  **1721/37/2/81**, LTP **1512/197/0/524**; total **3929/249/2/606**. The five
+  host-panic cases are still included in those nominal pass counts, explicitly
+  blocking landing. All13 surviving handwritten causes were retained; no
+  additional flaky entries or global timeout changes. No second full suite.
+- Baseline inventory correction: applying landed9d39c70's pthread_kill flaky
+  policy to the train18 evidence gives **3547/586/729**, one ignored registration
+  above the supplied3547/586/728. Baseline per suite: own290/0/1, libc399/22/0,
+  POSIX1536/248/92, LTP1322/316/636. Classification uses per-name evidence.
+- Smoke: sws classic/Linux **28/28** each, v1 eight plus known Python dynamic
+  linking failure, UDP **6/6**, C++ **9/9**, pty **11/11** and no-tty; all12 usual
+  and35 hand exit statuses match train18. All25 carried feature commands pass.
+  New runner probes: root POSIX mq_receive1-1, libaio io_setup01, new-API getpid01
+  each1/1; source-built LTP fork-isolation **8/8**. V3's liburing timeout and exec
+  helper, namespaces, privileges, keys, seccomp, network, independent core reader,
+  and squashfuse workflows all pass. No host panic in smoke output.
+- Validation instrumentation retained bounded per-invocation output, exposing
+  the otherwise hidden panics. Early cleanup of three existing timeout cases
+  was delayed because killing the outer watchdog left children holding pipes;
+  an independent child watchdog fixed this, with a red/green pipe-lifetime
+  regression. The same suite invocation continued;60s outcomes were unchanged.
+  Missing CLI fixture initialization was repaired before the suite, and its
+  first failed gate is retained. Logs, artifacts, sources, counts and complete
+  commit inventories are in `~/wasixv2-orch/logs/train19/`.
+
+Shared libc2 is fast-forwarded locally to3b6a3e31 and both shared sysroots/run.sh
+are rebuilt before publication. Only train19 branches and the fast-forward plan
+are pushed by this agent; no remote main/feat push. After the lifecycle and mmap
+blockers are fixed, landing order is **tests -> libc2 -> wasmer -> plan**, with
+ABI07cd32e unchanged and LTP733f1688a already published/pinned. **Hold mains.**
