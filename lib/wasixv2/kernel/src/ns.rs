@@ -1080,16 +1080,14 @@ impl Kernel {
                 .tasks
                 .get(&TaskId(pid))
                 .filter(|t| t.process.pid.0 == pid && !t.thread.exited())
-                .and_then(|t| Some((t.process.clone(), t.ns.clone()?)))
+                .and_then(|t| Some((t.process.clone(), t.ns.clone()?, t.cred.clone())))
         };
-        let (process, ns) = target.ok_or(Errno::ESRCH)?;
+        let (process, ns, cred) = target.ok_or(Errno::ESRCH)?;
         let dumpable = process.ident.lock_or_recover().dumpable;
         if !std::ptr::eq(&*process, joiner.process)
-            && !joiner.cred.may_read_task(
-                &self.task_cred(TaskId(pid)),
-                dumpable == crate::ident::Dumpable::User,
-                false,
-            )
+            && !joiner
+                .cred
+                .may_read_task(&cred, dumpable == crate::ident::Dumpable::User, false)
         {
             return Err(Errno::EPERM);
         }
@@ -1113,7 +1111,7 @@ impl Kernel {
                 NsKind::Ipc => Namespace::Ipc(ns.ipc.clone()),
                 NsKind::Net => Namespace::Net(ns.net.clone()),
                 NsKind::Pid => Namespace::Pid(process.pid_ns.clone()),
-                NsKind::User => Namespace::User(self.task_cred(TaskId(pid)).user_ns.clone()),
+                NsKind::User => Namespace::User(cred.user_ns.clone()),
                 NsKind::Cgroup => Namespace::Cgroup(ns.cgroup.clone()),
                 NsKind::Time => Namespace::Time(ns.time.clone()),
             };

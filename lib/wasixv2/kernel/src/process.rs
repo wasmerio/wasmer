@@ -663,10 +663,8 @@ impl Kernel {
     /// The user namespace of the process `pid` (`task_cred_xxx(p, user_ns)`); the initial one
     /// once it is gone.
     fn user_ns_of(&self, pid: u32) -> Arc<UserNs> {
-        self.procs.find(pid).map_or_else(
-            || self.init_user_ns.clone(),
-            |process| self.task_cred(process.pid).user_ns.clone(),
-        )
+        self.find_task_cred(TaskId(pid))
+            .map_or_else(|| self.init_user_ns.clone(), |cred| cred.user_ns.clone())
     }
 
     /// The signal whose default action killed the process `pid`, if one did.
@@ -1843,7 +1841,7 @@ impl Kernel {
         // `bprm->interp`: the name a script is passed to its interpreter by.
         let mut script = name.clone();
         let mut rewrites = 0;
-        let misc_registry = self.binfmt_misc.current(&self.cred(caller).user_ns.clone());
+        let misc_registry = self.binfmt_misc.current(&self.cred(caller).user_ns);
         // What a binfmt_misc format asked for (`have_execfd`, `execfd_creds`, `interp_flags`),
         // and the binary it hands over (`bprm->executable`).
         let mut handover = ExecHandover::default();
@@ -2728,15 +2726,22 @@ impl Kernel {
             info.coredump_code = code;
         }
         let task = {
+            let state = self.state.read_or_recover();
             let tree = self.procs.tree.lock_or_recover();
-            let node = tree.nodes.get(&pidfd.pid);
-            node.map(|node| (node.process.clone(), node.parent))
+            tree.nodes.get(&pidfd.pid).and_then(|node| {
+                let id = TaskId(pidfd.pid);
+                let cred = state
+                    .tasks
+                    .get(&id)
+                    .map(|t| t.cred.clone())
+                    .or_else(|| state.retired_creds.get(&id).cloned())?;
+                Some((cred, node.parent))
+            })
         };
         match task {
             None if !wants(PidfdInfoMask::PIDFD_INFO_EXIT) => return Err(Errno::ESRCH),
             None => {}
-            Some((process, parent)) => {
-                let cred = self.task_cred(process.pid);
+            Some((cred, parent)) => {
                 let ns = self.cred(caller).user_ns.clone();
                 info.ruid = ns.munged_uid(cred.user.real);
                 info.euid = ns.munged_uid(cred.user.effective);

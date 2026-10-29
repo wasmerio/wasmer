@@ -2135,3 +2135,37 @@ fn broadcasting_raw_setids_converges_all_threads() {
     }
     assert_eq!(*kernel.task_cred(leader), *kernel.task_cred(worker));
 }
+
+/// A metadata reference can survive reaping between target lookup and credential access.
+/// kernel/cred.c get_task_cred retains the snapshot; an already gone target is denied here.
+#[test]
+fn traceme_denies_a_parent_reaped_after_its_metadata_was_obtained() {
+    let (kernel, root, flat) = super::cred::machine_as(0, 0);
+    let memory = super::proc::ForkableMemory(flat);
+    let fork = |task| {
+        TaskId(
+            block_on(kernel.clone(
+                &Caller::new(task, &memory),
+                Signal::SIGCHLD.0 as u32,
+                0,
+                GuestPtrMut::NULL,
+                0,
+                GuestPtrMut::NULL,
+            ))
+            .unwrap() as u32,
+        )
+    };
+    let parent = fork(root);
+    while kernel.take_pending(root).is_some() {}
+    let child = fork(parent);
+    while kernel.take_pending(parent).is_some() {}
+    let metadata = kernel.process(parent);
+    assert_eq!(
+        block_on(kernel.exit_group(&Caller::new(parent, &memory), 0)),
+        Ok(())
+    );
+    kernel.release(parent);
+    assert_eq!(block_on(kernel.waitid(&Caller::new(root, &memory), wasixv2_abi::Idtype::P_PID, parent.0 as i32, GuestPtrMut::new(0x600), wasixv2_abi::WaitOptions::WEXITED, GuestPtrMut::NULL)), Ok(0));
+    assert!(kernel.procs.find(parent.0).is_none());
+    assert!(!kernel.may_traceme(child, &metadata));
+}

@@ -701,7 +701,7 @@ impl Keys {
     }
 }
 
-/// The keyrings a process's credentials hold (`cred->session_keyring`,
+/// The keyrings a task's credentials hold (`cred->thread_keyring`, `session_keyring`,
 /// `process_keyring`, `jit_keyring`).
 #[derive(Clone, Default)]
 pub(crate) struct CredKeys {

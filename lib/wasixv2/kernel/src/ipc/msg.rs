@@ -417,7 +417,7 @@ impl Kernel {
                     }
                     // The last sender and receiver as the caller sees them (`pid_vnr`).
                     let pid_ns = self.active_pid_ns(caller.task());
-                    state.to_abi(&perm, &pid_ns, &self.cred(caller).user_ns.clone())
+                    state.to_abi(&perm, &pid_ns, &self.cred(caller).user_ns)
                 };
                 write_value(caller.memory(), GuestPtrMut::new(buf), &ds).await?;
                 Ok(match IpcCmd(cmd) {
@@ -435,7 +435,7 @@ impl Kernel {
                 if qbytes > MSGMNB as usize && !cred.capable_init(Cap::SysResource) {
                     return Err(Errno::EPERM.into());
                 }
-                perm.update(&ds.msg_perm, &self.cred(caller).user_ns.clone())?;
+                perm.update(&ds.msg_perm, &self.cred(caller).user_ns)?;
                 state.qbytes = qbytes;
                 state.ctime = self.ipc_now();
                 drop((perm, state));

@@ -454,7 +454,10 @@ impl Kernel {
             .expect("credentials of an unknown task")
     }
 
-    fn find_task_cred(&self, task: wasixv2_syscalls::TaskId) -> Option<std::sync::Arc<Cred>> {
+    pub(crate) fn find_task_cred(
+        &self,
+        task: wasixv2_syscalls::TaskId,
+    ) -> Option<std::sync::Arc<Cred>> {
         let state = self.state.read_or_recover();
         state
             .tasks
