@@ -209,12 +209,17 @@ pub trait Control:
     /// raised, with the current instance's memory, and repeats after task switches/handlers.
     /// Notifications may wake an interruptible syscall without delivering a user signal;
     /// the existing syscall restart policy then applies. Deferred io_uring work is excluded.
+    ///
+    /// Wrappers MUST forward this method together with `work_flag` and `take_pending`;
+    /// otherwise notified I/O can remain queued forever while a guest waits on the ring fd.
+    /// The no-op default is only for implementations that provide no queued task work.
     fn run_task_work<'a>(&'a self, caller: &'a Caller<'_>) -> LocalFuture<'a, ()> {
         let _ = caller;
         Box::pin(async {})
     }
 
     /// The flag that says whether [`Control::take_pending`] may have something for `task`.
+    /// Wrappers forwarding this flag must also forward [`Control::run_task_work`].
     fn work_flag(&self, task: TaskId) -> Arc<WorkFlag> {
         let _ = task;
         Arc::new(WorkFlag::always())
