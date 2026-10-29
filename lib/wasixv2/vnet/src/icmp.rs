@@ -115,7 +115,7 @@ pub(crate) struct IcmpTables {
     ping: Vec<(u16, SockId, bool, Weak<IcmpSocket>)>,
     /// `ping_port_rover`: the last identifier given out.
     rover: u16,
-    raw: Vec<Weak<IcmpSocket>>,
+    pub(crate) raw: Vec<Weak<IcmpSocket>>,
     /// `net.ipv4.icmp_echo_ignore_all`, `net.ipv4.icmp_echo_ignore_broadcasts`.
     pub echo_ignore_all: bool,
     pub echo_ignore_broadcasts: bool,
@@ -251,8 +251,31 @@ fn icmp_checksum(src: IpAddr, dst: IpAddr, data: &[u8]) -> u16 {
     }
 }
 
+/// Writes the upper-layer checksum of a packet of `proto` at `offset`, over the pseudo header
+/// (`csum_ipv6_magic`), as a raw IPv6 socket with `IPV6_CHECKSUM` has it.
+pub(crate) fn set_transport_checksum(
+    src: IpAddr,
+    dst: IpAddr,
+    proto: u8,
+    data: &mut [u8],
+    offset: usize,
+) {
+    data[offset..offset + 2].fill(0);
+    let csum = fold(pseudo_sum(src, dst, proto, data.len()) + sum16(data));
+    data[offset..offset + 2].copy_from_slice(&csum.to_be_bytes());
+}
+
+/// Whether a UDP datagram's checksum holds; 0 is none (IPv4 only, RFC 768).
+pub(crate) fn udp_checksum_ok(src: IpAddr, dst: IpAddr, udp: &[u8]) -> bool {
+    let stored = u16::from_be_bytes([udp[6], udp[7]]);
+    if stored == 0 {
+        return src.is_ipv4();
+    }
+    fold(pseudo_sum(src, dst, IPPROTO_UDP, udp.len()) + sum16(udp)) == 0
+}
+
 /// Writes the message's checksum (`csum_ipv6_magic`, `ip_compute_csum`) at `offset`.
-fn set_checksum(src: IpAddr, dst: IpAddr, data: &mut [u8], offset: usize) {
+pub(crate) fn set_checksum(src: IpAddr, dst: IpAddr, data: &mut [u8], offset: usize) {
     data[offset..offset + 2].fill(0);
     let csum = icmp_checksum(src, dst, data);
     data[offset..offset + 2].copy_from_slice(&csum.to_be_bytes());
@@ -352,7 +375,7 @@ pub(crate) fn udp_error(
 /// The ICMP error `type_`/`code` sent from `from` about a packet of protocol `proto` from
 /// `src` to `dst` carrying `transport`, quoting its IP header and as much of the rest as
 /// fits.
-fn quote_error(
+pub(crate) fn quote_error(
     type_: u8,
     code: u8,
     from: IpAddr,
@@ -490,20 +513,20 @@ impl Net {
     /// An ICMP message arrived on interface `iif` from the namespace `back` names
     /// (`icmp_rcv`, `icmpv6_rcv`), at `now` on the kernel's monotonic clock.
     pub(crate) fn icmp_input(&self, msg: IcmpMsg, iif: u32, back: Back, now: Duration) {
-        let raws: Vec<_> = {
-            let mut st = self.state();
-            st.icmp.raw.retain(|w| w.strong_count() > 0);
-            st.icmp.raw.clone()
-        };
-        // What a group's message arrives as: the sender's own looped-back copy, or one
-        // received from another namespace.
-        let pkttype = match msg.dst.is_multicast() {
-            false => PACKET_HOST,
-            true if self.is(&back.net) => PACKET_LOOPBACK,
-            true => PACKET_MULTICAST,
-        };
-        for raw in raws.iter().filter_map(Weak::upgrade) {
-            raw.raw_input(&msg, iif, pkttype);
+        let pkttype = self.pkttype(msg.dst, &back);
+        let proto = match msg.dst {
+            IpAddr::V4(_) => IPPROTO_ICMP,
+            IpAddr::V6(_) => IPPROTO_ICMPV6,
+        } as u8;
+        if self.has_raw(proto) {
+            let packet = crate::raw::Packet {
+                src: msg.src,
+                dst: msg.dst,
+                ttl: msg.ttl,
+                proto,
+                data: msg.data.clone(),
+            };
+            self.raw_input(&packet, iif, pkttype);
         }
         if msg.data.len() < ICMP_HDR || !checksum_ok(&msg) {
             return;
@@ -582,13 +605,23 @@ impl Net {
         back.net.icmp_input(reply, back.iif, me, now);
     }
 
+    /// What a packet to `dst` arrives as: a group's is the sender's own looped-back copy, or
+    /// one received from another namespace.
+    pub(crate) fn pkttype(&self, dst: IpAddr, back: &Back) -> u8 {
+        match dst.is_multicast() {
+            false => PACKET_HOST,
+            true if self.is(&back.net) => PACKET_LOOPBACK,
+            true => PACKET_MULTICAST,
+        }
+    }
+
     /// Whether `net` is this namespace, where a message goes through loopback.
-    fn is(&self, net: &Arc<Net>) -> bool {
+    pub(crate) fn is(&self, net: &Arc<Net>) -> bool {
         std::ptr::eq(Arc::as_ptr(net), self)
     }
 
     /// Whether the rate limits let an error about a packet go (`__icmp_send`, `icmp6_send`).
-    fn error_allowed(
+    pub(crate) fn error_allowed(
         &self,
         msg: &IcmpMsg,
         in_loopback: bool,
@@ -878,12 +911,15 @@ struct Inner {
     echo_id: u16,
 }
 
-/// A ping socket (`SOCK_DGRAM`) or raw ICMP socket (`SOCK_RAW`) of a [`Net`].
+/// A ping socket (`SOCK_DGRAM`) or a raw socket (`SOCK_RAW`, of ICMP or any other protocol,
+/// see [`crate::raw`]) of a [`Net`].
 pub struct IcmpSocket {
     net: Arc<Net>,
     id: SockId,
     domain: Domain,
     raw: bool,
+    /// The protocol a raw socket takes and sends (`inet_num`); ICMP's for a ping socket.
+    proto: u8,
     /// `sk_uid`.
     uid: u32,
     ino: AtomicU64,
@@ -894,6 +930,21 @@ pub struct IcmpSocket {
 
 impl IcmpSocket {
     pub(crate) fn new(net: Arc<Net>, domain: Domain, raw: bool, uid: u32) -> Arc<Self> {
+        let icmp = match domain {
+            Domain::Inet => IPPROTO_ICMP,
+            Domain::Inet6 => IPPROTO_ICMPV6,
+        } as u8;
+        Self::with_protocol(net, domain, raw, icmp, uid)
+    }
+
+    /// A raw socket of `proto` (`inet_create`, `inet6_create`): `IPPROTO_RAW` sends with
+    /// `IP_HDRINCL`; on IPv6, ICMPv6 and Mobility Header sockets have their checksum computed
+    /// (`rawv6_init_sk`).
+    pub(crate) fn raw(net: Arc<Net>, domain: Domain, proto: u8, uid: u32) -> Arc<Self> {
+        Self::with_protocol(net, domain, true, proto, uid)
+    }
+
+    fn with_protocol(net: Arc<Net>, domain: Domain, raw: bool, proto: u8, uid: u32) -> Arc<Self> {
         let id = net.next_id();
         let kind = match raw {
             true => SocketKind::Raw,
@@ -904,6 +955,7 @@ impl IcmpSocket {
             id,
             domain,
             raw,
+            proto,
             uid,
             ino: AtomicU64::new(0),
             wq: WaitQueue::new(),
@@ -921,9 +973,12 @@ impl IcmpSocket {
                 err: None,
                 errqueue: VecDeque::new(),
                 filter: [0; 8],
-                // `rawv6_init_sk`: ICMPv6 always has its checksum computed, at offset 2.
-                csum_offset: (raw && domain == Domain::Inet6).then_some(2),
-                hdrincl: false,
+                csum_offset: match (raw, domain, proto) {
+                    (true, Domain::Inet6, p) if i32::from(p) == IPPROTO_ICMPV6 => Some(2),
+                    (true, Domain::Inet6, crate::raw::IPPROTO_MH) => Some(4),
+                    _ => None,
+                },
+                hdrincl: raw && proto == crate::raw::IPPROTO_RAW,
                 rd_shut: false,
                 wr_shut: false,
                 backend: None,
@@ -999,34 +1054,44 @@ impl IcmpSocket {
             && (dev == 0 || iif == 0 || dev == iif)
     }
 
-    /// `raw_v4_input`/`ipv6_raw_deliver` with `raw_rcv`: a copy of every ICMP message of the
-    /// socket's family to its bound address, from its peer, on its device, of a group it
-    /// allows, that its filter passes.
-    fn raw_input(&self, msg: &IcmpMsg, iif: u32, pkttype: u8) {
-        if msg.dst.is_ipv6() != self.v6() {
-            return;
+    /// `raw_v4_input`/`ipv6_raw_deliver` with `raw_rcv`: a copy of every packet of the
+    /// socket's family and protocol to its bound address, from its peer, on its device, of a
+    /// group it allows, that its ICMP filter passes (`raw_v4_match`, `icmp_filter`,
+    /// `icmpv6_filter`). An IPv4 socket gets the IP header too. Returns whether it matched
+    /// (`raw_v4_input`'s `delivered`), whatever its receive buffer then made of it.
+    pub(crate) fn raw_input(&self, p: &crate::raw::Packet, iif: u32, pkttype: u8) -> bool {
+        if !self.raw || p.dst.is_ipv6() != self.v6() || p.proto != self.proto {
+            return false;
         }
+        let icmp = i32::from(self.proto) == IPPROTO_ICMP || i32::from(self.proto) == IPPROTO_ICMPV6;
         let g = self.lock();
         let dev = self.device(&g);
-        let takes = g.local.is_none_or(|l| l == msg.dst)
-            && g.peer.is_none_or(|p| p == msg.src)
+        let matches = g.local.is_none_or(|l| l == p.dst)
+            && g.peer.is_none_or(|peer| peer == p.src)
             && (dev == 0 || dev == iif)
-            && (!msg.dst.is_multicast() || g.opts.mc.allows(msg.dst, msg.src, iif))
-            && msg.data.len() >= ICMP_HDR
-            && !filtered(&g.filter, self.v6(), msg.data[0]);
+            && (!p.dst.is_multicast() || g.opts.mc.allows(p.dst, p.src, iif));
+        let filtered =
+            icmp && (p.data.len() < ICMP_HDR || filtered(&g.filter, self.v6(), p.data[0]));
         drop(g);
-        if !takes {
-            return;
+        if !matches || filtered {
+            return matches;
         }
-        let data = match (msg.src, msg.dst) {
+        let data = match (p.src, p.dst) {
             (IpAddr::V4(s), IpAddr::V4(d)) => {
                 let id = self.net.state().icmp.next_ip_id();
-                let h = ipv4_header(s, d, IPPROTO_ICMP as u8, msg.ttl, msg.data.len(), id);
-                [&h[..], &msg.data].concat()
+                let h = ipv4_header(s, d, p.proto, p.ttl, p.data.len(), id);
+                [&h[..], &p.data].concat()
             }
-            _ => msg.data.clone(),
+            _ => p.data.clone(),
         };
-        self.queue(data, msg, iif, pkttype);
+        let msg = IcmpMsg {
+            src: p.src,
+            dst: p.dst,
+            ttl: p.ttl,
+            data: Vec::new(),
+        };
+        self.queue(data, &msg, iif, pkttype);
+        true
     }
 
     /// `sk_filter`: whether the socket's filter keeps `data`, a message that arrived as `at`
@@ -1354,10 +1419,18 @@ impl IcmpSocket {
         Ok(error_result(self.domain, &e, buf))
     }
 
-    /// `raw_send_hdrinc`: a raw IPv4 socket with `IP_HDRINCL` sends the IP header it is given:
-    /// its source (if any), TTL and protocol, and the ICMP message after it. Another protocol
-    /// is not carried. `EINVAL` for a short or malformed header.
-    fn strip_header(data: &[u8]) -> NetResult<(Option<IpAddr>, u8, u8, &[u8])> {
+    /// `raw_send_hdrinc`, `rawv6_send_hdrinc`: a raw socket with `IP_HDRINCL` (`IPV6_HDRINCL`)
+    /// sends the IP header it is given: its source (if any), TTL and protocol, and what
+    /// follows. `EINVAL` for a short or malformed header.
+    fn strip_header(domain: Domain, data: &[u8]) -> NetResult<(Option<IpAddr>, u8, u8, &[u8])> {
+        if domain == Domain::Inet6 {
+            if data.len() < IPV6_HDR {
+                return Err(Errno::EINVAL);
+            }
+            let src = Ipv6Addr::from(<[u8; 16]>::try_from(&data[8..24]).expect("16 bytes"));
+            let src = (!src.is_unspecified()).then_some(IpAddr::V6(src));
+            return Ok((src, data[7], data[6], &data[IPV6_HDR..]));
+        }
         let ihl = usize::from(*data.first().ok_or(Errno::EINVAL)? & 0x0f) * 4;
         if data.len() < IPV4_HDR || ihl < IPV4_HDR || ihl > data.len() {
             return Err(Errno::EINVAL);
@@ -1432,10 +1505,7 @@ impl Socket for IcmpSocket {
     }
 
     fn protocol(&self) -> i32 {
-        match self.domain {
-            Domain::Inet => IPPROTO_ICMP,
-            Domain::Inet6 => IPPROTO_ICMPV6,
-        }
+        i32::from(self.proto)
     }
 
     /// `ping_bind` (`ping_check_bind_addr`, `ping_get_port` with the port as identifier),
@@ -1572,16 +1642,18 @@ impl Socket for IcmpSocket {
         }
         let (dst, scope) = self.destination(&g, msg.to)?;
         let ctl: SendCtl = cmsg::inet(msg.control, self.domain, dst.is_ipv4(), msg.net_raw)?;
-        let (mut data, hdr_src, hdr_ttl) = match self.raw && g.hdrincl {
+        let hdrincl = self.raw && g.hdrincl;
+        let (mut data, hdr_src, hdr_ttl, proto) = match hdrincl {
             true => {
-                let (src, ttl, proto, rest) = Self::strip_header(msg.data)?;
-                if i32::from(proto) != IPPROTO_ICMP {
-                    return Ok(msg.data.len());
-                }
-                (rest.to_vec(), src, Some(ttl))
+                let (src, ttl, proto, rest) = Self::strip_header(self.domain, msg.data)?;
+                (rest.to_vec(), src, Some(ttl), proto)
             }
-            false => (msg.data.to_vec(), None, None),
+            false => (msg.data.to_vec(), None, None, self.proto),
         };
+        let icmp = match self.domain {
+            Domain::Inet => IPPROTO_ICMP,
+            Domain::Inet6 => IPPROTO_ICMPV6,
+        } as u8;
         // `ping_v6_sendmsg`: a link-local destination needs an interface.
         let (sticky_src, sticky_oif) = match self.domain {
             Domain::Inet6 => g.opts.sticky_pktinfo,
@@ -1613,6 +1685,16 @@ impl Socket for IcmpSocket {
             let mtu = self.net.mtu_to(dst);
             self.check_mtu(&mut g, dst, oif, mtu, msg.data.len(), ctl.dontfrag)?;
             let ttl = hdr_ttl.or(ctl.ttl).unwrap_or_else(|| self.unicast_ttl(&g));
+            if proto != icmp {
+                let p = crate::raw::Packet {
+                    src: path.src(),
+                    dst,
+                    ttl,
+                    proto,
+                    data,
+                };
+                return self.send_packet(g, p, hdrincl, path, msg.data.len(), msg.now);
+            }
             return self.send_unicast(g, data, dst, ttl, ident, path, msg.data.len(), msg.now);
         }
         let (mc_oif, mc_src) = g.opts.mc.interface(dst);
@@ -1627,6 +1709,28 @@ impl Socket for IcmpSocket {
         }
         if g.wr_shut {
             return Err(Errno::EPIPE);
+        }
+        if proto != icmp {
+            self.raw_checksum(&g, &mut data, route.src, dst, proto, hdrincl)?;
+            drop(g);
+            let packet = crate::raw::Packet {
+                src: route.src,
+                dst,
+                ttl,
+                proto,
+                data,
+            };
+            for (net, iif) in self
+                .net
+                .mc_receivers(dst, route.src, route.oif, looped, ttl)
+            {
+                let back = Back {
+                    net: self.net.clone(),
+                    iif: route.oif,
+                };
+                net.ip_input(packet.clone(), iif, back, msg.now);
+            }
+            return Ok(msg.data.len());
         }
         self.finish(&g, &mut data, route.src, dst, ident)?;
         drop(g);
@@ -1756,7 +1860,13 @@ impl Socket for IcmpSocket {
     /// `rawv6_seticmpfilter` (`ICMP6_FILTER`), `IP_HDRINCL`, then the IP options.
     fn set_option(&self, level: i32, name: i32, value: &[u8]) -> NetResult<()> {
         let mut g = self.lock();
+        let icmp = i32::from(self.proto) == IPPROTO_ICMP;
+        let icmpv6 = i32::from(self.proto) == IPPROTO_ICMPV6;
+        let hdrincl6 = Ipv6Option::IPV6_HDRINCL.0;
         match (level, self.raw, self.domain) {
+            // `raw_seticmpfilter`, `rawv6_seticmpfilter`: for ICMP sockets only.
+            (SOL_RAW, true, Domain::Inet) if !icmp => return Err(Errno::EOPNOTSUPP),
+            (SOL_ICMPV6, true, Domain::Inet6) if !icmpv6 => return Err(Errno::EOPNOTSUPP),
             (SOL_RAW, true, Domain::Inet) => {
                 if name != ICMP_FILTER {
                     return Err(Errno::ENOPROTOOPT);
@@ -1768,15 +1878,26 @@ impl Socket for IcmpSocket {
                 g.filter[0] = u32::from_le_bytes(bytes);
                 return Ok(());
             }
-            (SOL_RAW, true, Domain::Inet6) => {
+            // `do_rawv6_setsockopt`, reached at `SOL_IPV6` too for these two options; RFC 3542
+            // keeps an ICMPv6 socket's checksum to `SOL_RAW`.
+            (SOL_RAW, true, Domain::Inet6) | (SOL_IPV6, true, Domain::Inet6)
+                if level == SOL_RAW || name == IPV6_CHECKSUM || name == hdrincl6 =>
+            {
+                if value.len() < 4 {
+                    return Err(Errno::EINVAL);
+                }
                 let val = read_int(value)?;
                 return match name {
+                    IPV6_CHECKSUM if icmpv6 && level == SOL_IPV6 => Err(Errno::EINVAL),
                     IPV6_CHECKSUM if val > 0 && val & 1 != 0 => Err(Errno::EINVAL),
                     IPV6_CHECKSUM => {
                         g.csum_offset = usize::try_from(val).ok();
                         Ok(())
                     }
-                    n if n == Ipv6Option::IPV6_HDRINCL.0 => Ok(()),
+                    n if n == hdrincl6 => {
+                        g.hdrincl = val != 0;
+                        Ok(())
+                    }
                     _ => Err(Errno::ENOPROTOOPT),
                 };
             }
@@ -1796,10 +1917,8 @@ impl Socket for IcmpSocket {
                 return Ok(());
             }
             (SOL_RAW | SOL_ICMPV6, ..) => return Err(Errno::ENOPROTOOPT),
-            // A raw IPv6 socket has no IPv4 options; ICMPv6's checksum is not the IPv6
-            // level's to change.
+            // A raw IPv6 socket has no IPv4 options.
             (SOL_IP, true, Domain::Inet6) => return Err(Errno::ENOPROTOOPT),
-            (SOL_IPV6, true, Domain::Inet6) if name == IPV6_CHECKSUM => return Err(Errno::EINVAL),
             (SOL_IP, true, Domain::Inet) if name == IpOption::IP_HDRINCL.0 => {
                 g.hdrincl = match value.len() {
                     0 => false,
@@ -1838,13 +1957,21 @@ impl Socket for IcmpSocket {
 
     fn get_option(&self, level: i32, name: i32, out: &mut [u8]) -> NetResult<usize> {
         let mut g = self.lock();
+        let icmp = i32::from(self.proto) == IPPROTO_ICMP;
+        let icmpv6 = i32::from(self.proto) == IPPROTO_ICMPV6;
+        let hdrincl6 = Ipv6Option::IPV6_HDRINCL.0;
         match (level, self.raw, self.domain) {
+            (SOL_RAW, true, Domain::Inet) if !icmp => return Err(Errno::EOPNOTSUPP),
+            (SOL_ICMPV6, true, Domain::Inet6) if !icmpv6 => return Err(Errno::EOPNOTSUPP),
             (SOL_RAW, true, Domain::Inet) if name == ICMP_FILTER => {
                 return Ok(write_bytes(out, &g.filter[0].to_le_bytes()));
             }
-            (SOL_RAW, true, Domain::Inet6) if name == IPV6_CHECKSUM => {
+            (SOL_RAW | SOL_IPV6, true, Domain::Inet6) if name == IPV6_CHECKSUM => {
                 let v = g.csum_offset.map_or(-1, |o| o as i32);
                 return Ok(write_int(out, v));
+            }
+            (SOL_RAW | SOL_IPV6, true, Domain::Inet6) if name == hdrincl6 => {
+                return Ok(write_int(out, i32::from(g.hdrincl)));
             }
             (SOL_ICMPV6, true, Domain::Inet6) if name == ICMP6_FILTER => {
                 let bytes: Vec<u8> = g.filter.iter().flat_map(|w| w.to_le_bytes()).collect();
@@ -1903,6 +2030,66 @@ impl IcmpSocket {
             set_checksum(src, dst, data, offset);
         }
         Ok(())
+    }
+
+    /// The checksum a raw IPv6 socket's `IPV6_CHECKSUM` asks for, over a packet of `proto`
+    /// it did not write the header of (`rawv6_push_pending_frames`).
+    fn raw_checksum(
+        &self,
+        g: &Inner,
+        data: &mut [u8],
+        src: IpAddr,
+        dst: IpAddr,
+        proto: u8,
+        hdrincl: bool,
+    ) -> NetResult<()> {
+        if let (Domain::Inet6, Some(offset), false) = (self.domain, g.csum_offset, hdrincl) {
+            if offset + 1 >= data.len() {
+                return Err(Errno::EINVAL);
+            }
+            set_transport_checksum(src, dst, proto, data, offset);
+        }
+        Ok(())
+    }
+
+    /// A raw packet of a protocol other than ICMP along `path`, of the `len` bytes the guest
+    /// sent at `now`: to the namespace that holds its destination, where raw sockets and the
+    /// protocol take it ([`Net::ip_input`]); nothing raw leaves for the host.
+    fn send_packet(
+        &self,
+        mut g: MutexGuard<'_, Inner>,
+        mut p: crate::raw::Packet,
+        hdrincl: bool,
+        path: IpPath,
+        len: usize,
+        now: Duration,
+    ) -> NetResult<usize> {
+        if let Some(e) = Self::take_err(&mut g) {
+            return Err(e);
+        }
+        if g.wr_shut {
+            return Err(Errno::EPIPE);
+        }
+        self.raw_checksum(&g, &mut p.data, p.src, p.dst, p.proto, hdrincl)?;
+        drop(g);
+        match path {
+            IpPath::Local {
+                net, iif, back_iif, ..
+            } => {
+                let back = Back {
+                    net: self.net.clone(),
+                    iif: back_iif,
+                };
+                net.ip_input(p, iif, back, now);
+            }
+            IpPath::Nowhere {
+                unresolved: true, ..
+            } => self
+                .net
+                .neighbour_failed(p.src, p.dst, p.proto, &p.data, now),
+            _ => {}
+        }
+        Ok(len)
     }
 
     /// A unicast send along `path`, from its source, of the `len` bytes the guest sent at

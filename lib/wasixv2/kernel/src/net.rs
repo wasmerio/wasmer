@@ -44,6 +44,8 @@ use crate::{
 
 /// `/proc/sys/net/core/somaxconn`.
 const SOMAXCONN: u32 = 4096;
+/// `IPPROTO_MAX`.
+const IPPROTO_MAX: i32 = 263;
 /// `UIO_MAXIOV`, also the most messages one `sendmmsg` or `recvmmsg` handles.
 const UIO_MAXIOV: u32 = 1024;
 /// `SOCK_TYPE_MASK`: the type bits of `socket`'s type argument.
@@ -201,6 +203,10 @@ impl Kernel {
             // Every other family (and anything past NPROTO) has no implementation.
             _ => return Err(Errno::EAFNOSUPPORT.into()),
         };
+        // `inet_create`: `IPPROTO_MAX` bounds the protocol whatever the type.
+        if !(0..IPPROTO_MAX).contains(&protocol) {
+            return Err(Errno::EINVAL.into());
+        }
         let kind = match kind {
             SocketType::SOCK_STREAM => SocketKind::Stream,
             SocketType::SOCK_DGRAM => SocketKind::Datagram,
