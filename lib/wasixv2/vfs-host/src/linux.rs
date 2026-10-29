@@ -3,7 +3,7 @@
 
 use std::{
     any::Any,
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     ffi::CString,
     io,
     mem::MaybeUninit,
@@ -218,6 +218,29 @@ fn contained_handle(root: RawFd, decoded: RawFd) -> FsResult<OwnedFd> {
     Ok(contained)
 }
 
+/// The host equivalent of SB_POSIXACL (fs/posix_acl.c: get_acl). Host mappings can
+/// cross mountpoints, so an unsupported filesystem must not disable ACLs on another device.
+#[derive(Default)]
+struct AclSupport(Mutex<HashSet<libc::dev_t>>);
+
+impl AclSupport {
+    async fn operation<T>(
+        &self,
+        dev: libc::dev_t,
+        acl: bool,
+        work: impl std::future::Future<Output = FsResult<T>>,
+    ) -> FsResult<T> {
+        if acl && self.0.lock().unwrap().contains(&dev) {
+            return Err(Errno::EOPNOTSUPP);
+        }
+        let result = work.await;
+        if acl && matches!(result, Err(Errno::EOPNOTSUPP)) {
+            self.0.lock().unwrap().insert(dev);
+        }
+        result
+    }
+}
+
 struct Shared {
     host: Arc<dyn Host>,
     options: Options,
@@ -233,6 +256,7 @@ struct Shared {
     /// One mount anchor per underlying host filesystem. Sequential child lookup sees its
     /// mount root first; exported ordinary inodes are never pinned by their handles.
     export_mounts: Mutex<HashMap<libc::dev_t, Arc<OwnedFd>>>,
+    acls: AclSupport,
 }
 
 impl Shared {
@@ -364,6 +388,7 @@ impl HostFs {
             other_devs: Mutex::default(),
             overflow: Mutex::default(),
             export_mounts: Mutex::default(),
+            acls: AclSupport::default(),
         });
         let root = HostNode::new(&shared, fd, &st);
         Ok(Self { shared, root })
@@ -998,13 +1023,17 @@ impl Node for HostNode {
     async fn getxattr(&self, name: &[u8]) -> FsResult<Vec<u8>> {
         let acl = AclKind::of_xattr(name).is_some();
         let name = cstring(name)?;
-        let value = self
-            .via_proc(move |path| {
-                // SAFETY: `buf` is writable for its length (none for the size probe).
-                read_sized(|buf, len| unsafe {
-                    libc::getxattr(path.as_ptr(), name.as_ptr(), buf.cast(), len)
-                })
+        let work = self.via_proc(move |path| {
+            // SAFETY: `buf` is writable for its length (none for the size probe).
+            read_sized(|buf, len| unsafe {
+                libc::getxattr(path.as_ptr(), name.as_ptr(), buf.cast(), len)
             })
+        });
+        let cache_acl = acl && matches!(self.file_type, FileType::Regular | FileType::Directory);
+        let value = self
+            .shared
+            .acls
+            .operation(self.dev, cache_acl, work)
             .await?;
         // A POSIX ACL names host users; the guest sees the user running the machine as its
         // owner, as for file owners.
@@ -1021,6 +1050,8 @@ impl Node for HostNode {
 
     async fn setxattr(&self, name: &[u8], value: &[u8], how: XattrSet) -> FsResult<()> {
         self.shared.writable()?;
+        let cache_acl = AclKind::of_xattr(name).is_some()
+            && matches!(self.file_type, FileType::Regular | FileType::Directory);
         let value = match AclKind::of_xattr(name) {
             Some(_) => {
                 let shared = &self.shared;
@@ -1036,7 +1067,7 @@ impl Node for HostNode {
             XattrSet::Create => libc::XATTR_CREATE,
             XattrSet::Replace => libc::XATTR_REPLACE,
         };
-        self.via_proc(move |path| {
+        let work = self.via_proc(move |path| {
             // SAFETY: `value` is readable for its length.
             cvt(unsafe {
                 libc::setxattr(
@@ -1048,8 +1079,8 @@ impl Node for HostNode {
                 )
             })
             .map(drop)
-        })
-        .await
+        });
+        self.shared.acls.operation(self.dev, cache_acl, work).await
     }
 
     async fn listxattr(&self) -> FsResult<Vec<Vec<u8>>> {
@@ -1068,12 +1099,14 @@ impl Node for HostNode {
 
     async fn removexattr(&self, name: &[u8]) -> FsResult<()> {
         self.shared.writable()?;
+        let cache_acl = AclKind::of_xattr(name).is_some()
+            && matches!(self.file_type, FileType::Regular | FileType::Directory);
         let name = cstring(name)?;
-        self.via_proc(move |path| {
+        let work = self.via_proc(move |path| {
             // SAFETY: plain syscall.
             cvt(unsafe { libc::removexattr(path.as_ptr(), name.as_ptr()) }).map(drop)
-        })
-        .await
+        });
+        self.shared.acls.operation(self.dev, cache_acl, work).await
     }
 }
 
@@ -1399,6 +1432,54 @@ mod tests {
     fn pinned(path: &Path) -> OwnedFd {
         let name = CString::new(path.as_os_str().as_encoded_bytes()).unwrap();
         open_at(libc::AT_FDCWD, &name, libc::O_PATH | libc::O_NOFOLLOW, 0).unwrap()
+    }
+
+    #[test]
+    fn acl_support_is_memoized_per_filesystem_only_after_unsupported_acl_operations() {
+        let support = AclSupport::default();
+        let calls = std::cell::Cell::new(0);
+        let probe = |dev, acl, result| {
+            futures::executor::block_on(support.operation(dev, acl, async {
+                calls.set(calls.get() + 1);
+                result
+            }))
+        };
+        assert_eq!(
+            probe(1, true, Err::<(), _>(Errno::ENODATA)),
+            Err(Errno::ENODATA)
+        );
+        assert_eq!(probe(1, true, Ok(())), Ok(()));
+        assert_eq!(
+            probe(1, false, Err(Errno::EOPNOTSUPP)),
+            Err(Errno::EOPNOTSUPP)
+        );
+        assert_eq!(
+            probe(1, true, Ok(())),
+            Ok(()),
+            "ordinary xattr errors do not disable ACLs"
+        );
+        assert_eq!(calls.get(), 4);
+        assert_eq!(
+            probe(1, true, Err(Errno::EOPNOTSUPP)),
+            Err(Errno::EOPNOTSUPP)
+        );
+        assert_eq!(
+            probe(1, true, Ok(())),
+            Err(Errno::EOPNOTSUPP),
+            "next inode skips host IO"
+        );
+        assert_eq!(calls.get(), 5);
+        assert_eq!(
+            probe(2, true, Ok(())),
+            Ok(()),
+            "other host mounts retain ACL support"
+        );
+        assert_eq!(
+            probe(1, false, Ok(())),
+            Ok(()),
+            "non-ACL operations still reach the host"
+        );
+        assert_eq!(calls.get(), 7);
     }
 
     #[test]
