@@ -13,7 +13,10 @@ use std::{
 
 use wasixv2_abi::Errno;
 
-use crate::types::{Attr, FileType, FsResult, S_IXUGO};
+use crate::{
+    posix_acl::PosixAcl,
+    types::{Attr, FileType, FsResult, S_IXUGO},
+};
 
 /// `MAY_*` masks of `inode_permission`.
 pub const MAY_EXEC: u32 = 1;
@@ -88,6 +91,10 @@ pub trait UserNs: Any + Send + Sync {
     fn make_kuid(&self, uid: u32) -> Option<u32>;
     /// `make_kgid`.
     fn make_kgid(&self, gid: u32) -> Option<u32>;
+    /// `from_kuid`: the namespace's uid for the kernel uid `kuid`, if it maps it.
+    fn ns_uid(&self, kuid: u32) -> Option<u32>;
+    /// `from_kgid`.
+    fn ns_gid(&self, kgid: u32) -> Option<u32>;
     /// Whether this is the initial user namespace (`init_user_ns`), which maps every id.
     fn is_initial(&self) -> bool;
 }
@@ -111,6 +118,14 @@ impl UserNs for InitialUserNs {
 
     fn make_kgid(&self, gid: u32) -> Option<u32> {
         (gid != u32::MAX).then_some(gid)
+    }
+
+    fn ns_uid(&self, kuid: u32) -> Option<u32> {
+        (kuid != u32::MAX).then_some(kuid)
+    }
+
+    fn ns_gid(&self, kgid: u32) -> Option<u32> {
+        (kgid != u32::MAX).then_some(kgid)
     }
 
     fn is_initial(&self) -> bool {
@@ -240,15 +255,35 @@ impl Cred {
 
 /// `generic_permission`: owner, group or other bits, then the DAC-override capabilities.
 pub fn generic_permission(cred: &Cred, attr: &Attr, mask: u32) -> FsResult<()> {
+    generic_permission_acl(cred, attr, None, mask)
+}
+
+/// `generic_permission` of an object with the access ACL `acl`, which decides for all but the
+/// owner while the group class has a permission (`acl_permission_check`); then the
+/// DAC-override capabilities.
+pub fn generic_permission_acl(
+    cred: &Cred,
+    attr: &Attr,
+    acl: Option<&PosixAcl>,
+    mask: u32,
+) -> FsResult<()> {
     let mask = mask & (MAY_READ | MAY_WRITE | MAY_EXEC);
-    let bits = if cred.fsuid == attr.uid {
-        attr.mode >> 6
-    } else if cred.in_group(attr.gid) {
-        attr.mode >> 3
-    } else {
-        attr.mode
-    } & 7;
-    if mask & !bits == 0 {
+    let granted = match acl {
+        Some(acl) if cred.fsuid != attr.uid && attr.mode & 0o070 != 0 => {
+            acl.permission(cred, attr, mask).is_ok()
+        }
+        _ => {
+            let bits = if cred.fsuid == attr.uid {
+                attr.mode >> 6
+            } else if cred.in_group(attr.gid) {
+                attr.mode >> 3
+            } else {
+                attr.mode
+            } & 7;
+            mask & !bits == 0
+        }
+    };
+    if granted {
         return Ok(());
     }
     if attr.file_type == FileType::Directory {

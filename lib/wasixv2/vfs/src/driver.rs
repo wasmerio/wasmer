@@ -19,6 +19,7 @@ use crate::{
     fileattr::FileKattr,
     mount::Path,
     ops::Ctx,
+    posix_acl::PosixAcl,
     types::{
         AllocMode, Attr, DirSink, FileId, FileType, FsInfo, FsResult, NewNode, OpenOptions,
         RenameMode, SeekHole, SetAttr, StatFs, XattrSet,
@@ -134,14 +135,22 @@ pub trait Node: Send + Sync + Any {
     }
 
     /// `inode->i_op->permission`: whether `cred`, of the task `task` (as [`Ctx::task`] numbers
-    /// it), may access the object as `mask` asks, its metadata being `attr`. By default the
-    /// mode bits decide (`generic_permission`); a pseudo filesystem whose files are checked
+    /// it), may access the object as `mask` asks, its metadata being `attr` and its access ACL
+    /// `acl` (given for all but the owner while the group class has a permission). By default
+    /// the mode bits and the ACL decide (`generic_permission`); a pseudo filesystem whose files are checked
     /// against the caller rather than their owner (procfs's sysctl files,
     /// `proc_sys_permission`) decides itself.
     ///
     /// [`Ctx::task`]: crate::Ctx::task
-    fn permission(&self, cred: &Cred, _task: u32, attr: &Attr, mask: u32) -> FsResult<()> {
-        crate::generic_permission(cred, attr, mask)
+    fn permission(
+        &self,
+        cred: &Cred,
+        _task: u32,
+        attr: &Attr,
+        acl: Option<&PosixAcl>,
+        mask: u32,
+    ) -> FsResult<()> {
+        crate::generic_permission_acl(cred, attr, acl, mask)
     }
 
     /// Nothing may be mounted on this object, as procfs refuses mounts on the descriptor links

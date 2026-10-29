@@ -1240,3 +1240,140 @@ fn file_attrs_through_fsxattr_and_file_getattr() {
     );
     assert_eq!(get(&memory, 0x3000, 4), Fl::FS_APPEND_FL.0.to_le_bytes());
 }
+
+/// A POSIX ACL value: `(tag, perm, id)` entries after the version 2 header.
+fn acl_value(entries: &[(u16, u16, u32)]) -> Vec<u8> {
+    let mut out = 2u32.to_le_bytes().to_vec();
+    for &(tag, perm, id) in entries {
+        out.extend_from_slice(&tag.to_le_bytes());
+        out.extend_from_slice(&perm.to_le_bytes());
+        out.extend_from_slice(&id.to_le_bytes());
+    }
+    out
+}
+
+#[test]
+fn posix_acls_grant_inherit_and_follow_chmod() {
+    use wasixv2_abi::{StatxMask, XattrFlags};
+    const U: u32 = u32::MAX;
+    let (kernel, task, memory) = super::cred::machine_as(0, 0);
+    let t = T::new(&kernel, task, &memory);
+    let at = |addr: u32, s: &str| {
+        let mut bytes = s.as_bytes().to_vec();
+        bytes.push(0);
+        put(&memory, addr, &bytes);
+        Cstr::new(addr)
+    };
+    let set = |path: &str, name: &str, value: &[u8]| {
+        put(&memory, 0x3000, value);
+        let call = kernel.setxattr(
+            &t.caller,
+            at(0x1000, path),
+            at(0x1200, name),
+            UserSlice::new(0x3000, value.len() as u32),
+            XattrFlags(0),
+        );
+        block_on(call)
+    };
+    let get = |path: &str, name: &str| {
+        let call = kernel.getxattr(
+            &t.caller,
+            at(0x1000, path),
+            at(0x1200, name),
+            UserSliceMut::new(0x3800, 256),
+        );
+        block_on(call).map(|n| super::ipc::get(&memory, 0x3800, n as usize))
+    };
+    let mode = |path: &str| {
+        let call = kernel.statx(
+            &t.caller,
+            CWD,
+            at(0x1000, path),
+            AtFlags(0),
+            StatxMask::STATX_BASIC_STATS,
+            GuestPtrMut::new(0x4000),
+        );
+        assert_eq!(block_on(call), Ok(0));
+        u16::from_le_bytes(get_bytes(&memory, 0x4000 + 28)) & 0o7777
+    };
+    fn get_bytes(memory: &FlatMemory, addr: u32) -> [u8; 2] {
+        super::ipc::get(memory, addr, 2).try_into().unwrap()
+    }
+    let access = "system.posix_acl_access";
+    let default = "system.posix_acl_default";
+
+    t.create("/f", b"secret");
+    assert_eq!(
+        block_on(kernel.fchmodat(&t.caller, CWD, at(0x1000, "/f"), 0o600)),
+        Ok(0)
+    );
+    // u::rw-, u:2000:rw-, g::r--, m::rw-, o::---: the mask becomes the group bits.
+    let grant = acl_value(&[
+        (1, 6, U),
+        (2, 6, 2000),
+        (4, 4, U),
+        (0x10, 6, U),
+        (0x20, 0, U),
+    ]);
+    assert_eq!(set("/f", access, &grant), Ok(0));
+    assert_eq!(mode("/f"), 0o660);
+    assert_eq!(get("/f", access), Ok(grant.clone()));
+    // Malformed or invalid: a named user needs a mask; only a directory has a default ACL.
+    let no_mask = acl_value(&[(1, 6, U), (2, 6, 2000), (4, 4, U), (0x20, 0, U)]);
+    assert_eq!(errno(set("/f", access, &no_mask)), Errno::EINVAL);
+    assert_eq!(errno(set("/f", access, &[3, 0, 0, 0])), Errno::EOPNOTSUPP);
+    assert_eq!(errno(set("/f", default, &grant)), Errno::EACCES);
+
+    // An ACL a mode can say is that mode, and no ACL.
+    t.create("/plain", b"");
+    let equiv = acl_value(&[(1, 7, U), (4, 5, U), (0x20, 5, U)]);
+    assert_eq!(set("/plain", access, &equiv), Ok(0));
+    assert_eq!(mode("/plain"), 0o755);
+    assert_eq!(errno(get("/plain", access)), Errno::ENODATA);
+
+    // A directory's default ACL is what is made in it gets, the umask aside.
+    t.mkdir("/d");
+    let inherit = acl_value(&[
+        (1, 7, U),
+        (2, 7, 2000),
+        (4, 5, U),
+        (0x10, 7, U),
+        (0x20, 0, U),
+    ]);
+    assert_eq!(set("/d", default, &inherit), Ok(0));
+    // Made with 0644 under a 022 umask: the ACL limits it to 0640, and itself to the mode.
+    t.create("/d/x", b"");
+    assert_eq!(mode("/d/x"), 0o640);
+    let made = acl_value(&[
+        (1, 6, U),
+        (2, 7, 2000),
+        (4, 5, U),
+        (0x10, 4, U),
+        (0x20, 0, U),
+    ]);
+    assert_eq!(get("/d/x", access), Ok(made));
+    t.mkdir("/d/sub");
+    assert_eq!(get("/d/sub", default), Ok(inherit.clone()));
+
+    // chmod rewrites the mask, so the named user loses what it was given.
+    t.create("/g", b"");
+    assert_eq!(set("/g", access, &grant), Ok(0));
+    assert_eq!(
+        block_on(kernel.fchmodat(&t.caller, CWD, at(0x1000, "/g"), 0o600)),
+        Ok(0)
+    );
+    let masked = acl_value(&[
+        (1, 6, U),
+        (2, 6, 2000),
+        (4, 4, U),
+        (0x10, 0, U),
+        (0x20, 0, U),
+    ]);
+    assert_eq!(get("/g", access), Ok(masked));
+
+    // User 2000, neither owner nor in the group, reads and writes /f through its entry.
+    assert_eq!(block_on(kernel.setuid(&t.caller, 2000)), Ok(0));
+    assert!(t.open("/f", OpenFlags::O_RDWR).is_ok());
+    assert_eq!(errno(t.open("/g", OpenFlags::O_RDONLY)), Errno::EACCES);
+    assert_eq!(errno(set("/f", access, &grant)), Errno::EPERM);
+}

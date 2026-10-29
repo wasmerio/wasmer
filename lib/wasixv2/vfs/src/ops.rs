@@ -16,6 +16,7 @@ use crate::{
     mount::{Mount, Path},
     namei::{Last, LookupFlags, Walk, lookup_one},
     notify::{FsEvent, Object, Perm},
+    posix_acl::{AclKind, InitAcls},
     types::{
         Attr, Device, FileType, FsResult, MODE_PERM, NewKind, NewNode, OpenOptions, RenameMode,
         S_ISGID, S_ISUID, S_ISVTX, S_IXGRP, SetAttr, StatFs, TimeSet, XattrSet,
@@ -101,7 +102,14 @@ impl Vfs {
         if mask & MAY_WRITE != 0 && immutable(&path.dentry) {
             return Err(Errno::EPERM);
         }
-        path.dentry.node().permission(cx.cred, cx.task, &attr, mask)
+        // `acl_permission_check`: the access ACL counts for all but the owner while the group
+        // class has any permission.
+        let acl = match cx.cred.fsuid != attr.uid && attr.mode & 0o070 != 0 {
+            true => self.access_acl(&path.dentry).await?,
+            false => None,
+        };
+        let node = path.dentry.node();
+        node.permission(cx.cred, cx.task, &attr, acl.as_deref(), mask)
     }
 
     /// `getattr` with the device filled in from the filesystem.
@@ -197,15 +205,18 @@ impl Vfs {
                         break found;
                     }
                     let dir = walk.path.clone();
+                    let mode = how.mode & MODE_PERM;
+                    let (attrs, acls) = self
+                        .new_node_attrs(cx, &dir, mode, FileType::Regular)
+                        .await?;
                     let new = NewNode {
                         kind: NewKind::Regular,
-                        ..self
-                            .new_node_attrs(cx, &dir, how.mode & MODE_PERM, false)
-                            .await?
+                        ..attrs
                     };
                     let options = open_options(flags, &dir, cx.task);
                     match self.create_open(cx, &dir, &name, &new, options).await {
                         Ok((dentry, handle)) => {
+                            self.init_acls(&dentry, acls).await?;
                             created = Some(handle);
                             break Path {
                                 mnt: dir.mnt,
@@ -493,11 +504,13 @@ impl Vfs {
         // Held while the file is made (`mnt_want_write` in `do_o_tmpfile`); the open takes its
         // own.
         let _write = self.tree.get_write_access(&dir.mnt)?;
+        let mode = how.mode & MODE_PERM;
+        let (attrs, acls) = self
+            .new_node_attrs(cx, &dir, mode, FileType::Regular)
+            .await?;
         let new = NewNode {
             kind: NewKind::Regular,
-            ..self
-                .new_node_attrs(cx, &dir, how.mode & MODE_PERM, false)
-                .await?
+            ..attrs
         };
         let options = OpenOptions {
             write: true,
@@ -508,6 +521,7 @@ impl Vfs {
             mnt: dir.mnt.clone(),
             dentry: Dentry::anonymous(dir.dentry.sb(), node),
         };
+        self.init_acls(&target.dentry, acls).await?;
         target
             .dentry
             .inode()
@@ -562,17 +576,23 @@ impl Vfs {
         .with_access(Some(access)))
     }
 
-    /// Ownership and permission bits of a new object in `dir`: the umask applied, the group from
-    /// the directory if it is set-gid (`inode_init_owner`, `mode_strip_umask`).
+    /// Ownership and permission bits of a new object of type `file_type` in `dir`: the umask
+    /// applied, or the directory's default ACL instead, with the ACLs that gives the object;
+    /// the group from the directory if it is set-gid (`inode_init_owner`, `mode_strip_umask`,
+    /// `posix_acl_create`).
     async fn new_node_attrs(
         &self,
         cx: &Ctx<'_>,
         dir: &Path,
         mode: u32,
-        is_dir: bool,
-    ) -> FsResult<NewNode<'static>> {
+        file_type: FileType,
+    ) -> FsResult<(NewNode<'static>, Option<InitAcls>)> {
+        let is_dir = file_type == FileType::Directory;
         let dir_attr = dir.dentry.node().getattr().await?;
-        let mut mode = mode & !cx.umask;
+        let mut mode = mode;
+        let acls = self
+            .posix_acl_create(&dir.dentry, file_type, &mut mode, cx.umask)
+            .await?;
         let gid = if dir_attr.mode & S_ISGID != 0 {
             if is_dir {
                 mode |= S_ISGID;
@@ -585,13 +605,14 @@ impl Vfs {
         if !is_dir && mode & S_ISGID != 0 && !cx.cred.in_group_or_capable(&dir_attr, gid) {
             mode &= !S_ISGID;
         }
-        Ok(NewNode {
+        let new = NewNode {
             kind: NewKind::Regular,
             mode,
             uid: cx.cred.fsuid,
             gid,
             task: cx.task,
-        })
+        };
+        Ok((new, acls))
     }
 
     /// `may_create` and the driver call; `dir` is locked.
@@ -695,13 +716,16 @@ impl Vfs {
 
     pub async fn mkdir(&self, cx: &Ctx<'_>, start: &Path, path: &[u8], mode: u32) -> FsResult<()> {
         let (dir, name, _lock) = self.prepare_create(cx, start, path, true).await?;
+        let mode = mode & (0o777 | S_ISVTX);
+        let (attrs, acls) = self
+            .new_node_attrs(cx, &dir, mode, FileType::Directory)
+            .await?;
         let new = NewNode {
             kind: NewKind::Directory,
-            ..self
-                .new_node_attrs(cx, &dir, mode & (0o777 | S_ISVTX), true)
-                .await?
+            ..attrs
         };
-        self.create(cx, &dir, &name, &new).await.map(drop)
+        let dentry = self.create(cx, &dir, &name, &new).await?;
+        self.init_acls(&dentry, acls).await
     }
 
     /// `mknodat`; `mode` includes the type bits.
@@ -724,13 +748,12 @@ impl Vfs {
             _ => return Err(Errno::EINVAL),
         };
         let (dir, name, _lock) = self.prepare_create(cx, start, path, false).await?;
-        let new = NewNode {
-            kind,
-            ..self
-                .new_node_attrs(cx, &dir, mode & MODE_PERM, false)
-                .await?
-        };
-        self.create(cx, &dir, &name, &new).await.map(drop)
+        let (attrs, acls) = self
+            .new_node_attrs(cx, &dir, mode & MODE_PERM, kind.file_type())
+            .await?;
+        let new = NewNode { kind, ..attrs };
+        let dentry = self.create(cx, &dir, &name, &new).await?;
+        self.init_acls(&dentry, acls).await
     }
 
     pub async fn symlink(
@@ -744,9 +767,12 @@ impl Vfs {
             return Err(Errno::ENOENT);
         }
         let (dir, name, _lock) = self.prepare_create(cx, start, path, false).await?;
+        let (attrs, _) = self
+            .new_node_attrs(cx, &dir, 0o777, FileType::Symlink)
+            .await?;
         let new = NewNode {
             kind: NewKind::Symlink(target),
-            ..self.new_node_attrs(cx, &dir, 0o777, false).await?
+            ..attrs
         };
         // Symlinks are always 0777; the umask does not apply.
         let new = NewNode { mode: 0o777, ..new };
@@ -1132,6 +1158,9 @@ impl Vfs {
 
     async fn setattr(&self, path: &Path, attr: SetAttr) -> FsResult<()> {
         Self::notify_change(&path.dentry, &attr).await?;
+        if let Some(mode) = attr.mode {
+            self.acl_chmod(&path.dentry, mode).await?;
+        }
         self.notify_object(
             &path.dentry,
             FsEvent::Attrib {
@@ -1404,7 +1433,8 @@ impl Vfs {
                 _ => return Err(denied),
             }
         } else if !name.starts_with(b"security.") {
-            // `system.` (POSIX ACLs) is not supported, and there are no other namespaces.
+            // `system.` holds only the POSIX ACLs, which have their own rules; there are no
+            // other namespaces.
             return Err(Errno::EOPNOTSUPP);
         }
         if name.starts_with(b"security.") && mask & MAY_WRITE == 0 {
@@ -1414,6 +1444,9 @@ impl Vfs {
     }
 
     pub async fn getxattr(&self, cx: &Ctx<'_>, path: &Path, name: &[u8]) -> FsResult<Vec<u8>> {
+        if let Some(kind) = AclKind::of_xattr(name) {
+            return self.getxattr_acl(cx, path, kind).await;
+        }
         self.xattr_permission(cx, path, name, MAY_READ).await?;
         path.dentry.node().getxattr(name).await
     }
@@ -1429,6 +1462,10 @@ impl Vfs {
         if value.len() > XATTR_SIZE_MAX {
             return Err(Errno::E2BIG);
         }
+        // `do_set_acl`: the ACL's own rules instead of the namespace's.
+        if let Some(kind) = AclKind::of_xattr(name) {
+            return self.setxattr_acl(cx, path, kind, Some(value)).await;
+        }
         self.xattr_permission(cx, path, name, MAY_WRITE).await?;
         path.dentry.node().setxattr(name, value, how).await?;
         self.notify_object(
@@ -1441,6 +1478,9 @@ impl Vfs {
     }
 
     pub async fn removexattr(&self, cx: &Ctx<'_>, path: &Path, name: &[u8]) -> FsResult<()> {
+        if let Some(kind) = AclKind::of_xattr(name) {
+            return self.setxattr_acl(cx, path, kind, None).await;
+        }
         self.xattr_permission(cx, path, name, MAY_WRITE).await?;
         path.dentry.node().removexattr(name).await?;
         self.notify_object(

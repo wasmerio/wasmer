@@ -726,7 +726,14 @@ impl Node for SysNetNode {
     /// `CAP_NET_ADMIN` over the owner of the caller's network namespace) and `test_perm` (the
     /// owner's bits for the initial namespace's root, the group's for its group, else the
     /// others'). The inode's owner and the DAC capabilities do not count.
-    fn permission(&self, _: &wasixv2_vfs::Cred, task: u32, _: &Attr, mask: u32) -> FsResult<()> {
+    fn permission(
+        &self,
+        _: &wasixv2_vfs::Cred,
+        task: u32,
+        _: &Attr,
+        _: Option<&wasixv2_vfs::PosixAcl>,
+        mask: u32,
+    ) -> FsResult<()> {
         let mask = mask & (MAY_READ | MAY_WRITE | MAY_EXEC);
         let Some(value) = self.entry.value() else {
             return match mask & MAY_WRITE {

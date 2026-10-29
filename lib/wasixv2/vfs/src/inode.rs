@@ -22,6 +22,7 @@ use crate::{
     dentry::Dentry,
     driver::Node,
     mount::Superblock,
+    posix_acl::{AclKind, CachedAcl},
     types::{FileType, TMPFS_MAGIC},
 };
 
@@ -58,6 +59,8 @@ struct State {
     /// The dentry made last for the object, of any type (`d_find_any_alias`), so a file
     /// handle decodes to a name the object has.
     last: Weak<Dentry>,
+    /// The access and default ACLs as last read or set (`i_acl`, `i_default_acl`).
+    acls: [CachedAcl; 2],
     /// The kernel object bound to the inode: a FIFO's pipe (`i_pipe`) or a bound Unix socket.
     /// Weak: the object lives as long as its users (open FIFO ends, the bound socket, which in
     /// turn holds the inode through its path).
@@ -122,6 +125,14 @@ impl Inode {
         let state = self.state.lock().unwrap();
         let alias = state.alias.upgrade().or_else(|| state.last.upgrade())?;
         Some(alias)
+    }
+
+    pub(crate) fn cached_acl(&self, kind: AclKind) -> CachedAcl {
+        self.state.lock().unwrap().acls[kind.index()].clone()
+    }
+
+    pub(crate) fn cache_acl(&self, kind: AclKind, acl: CachedAcl) {
+        self.state.lock().unwrap().acls[kind.index()] = acl;
     }
 
     pub(crate) fn set_last(&self, dentry: &Arc<Dentry>) {

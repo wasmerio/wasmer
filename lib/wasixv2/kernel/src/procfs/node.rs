@@ -578,6 +578,7 @@ impl Node for ProcNode {
         cred: &wasixv2_vfs::Cred,
         task: u32,
         attr: &Attr,
+        acl: Option<&wasixv2_vfs::PosixAcl>,
         mask: u32,
     ) -> FsResult<()> {
         match self.entry {
@@ -585,9 +586,9 @@ impl Node for ProcNode {
                 Static::File(file @ (text::Global::PidMax | text::Global::MaxNamespaces(_))) => {
                     self.sysctl_root_permission(task, file, attr.mode, mask)
                 }
-                _ => wasixv2_vfs::generic_permission(cred, attr, mask),
+                _ => wasixv2_vfs::generic_permission_acl(cred, attr, acl, mask),
             },
-            _ => wasixv2_vfs::generic_permission(cred, attr, mask),
+            _ => wasixv2_vfs::generic_permission_acl(cred, attr, acl, mask),
         }
     }
 

@@ -16,9 +16,9 @@ use async_trait::async_trait;
 use wasixv2_abi::Errno;
 use wasixv2_host::Host;
 use wasixv2_vfs::{
-    AllocMode, Attr, Device, DirEntry, DirSink, FileKattr, FileType, Filesystem, FsInfo, FsResult,
-    Handle, MAX_DIR_COOKIE, NAME_MAX, NewKind, NewNode, Node, OpenOptions, RenameMode, SeekHole,
-    SetAttr, StatFs, TimeSet, Timestamp, XattrSet,
+    AclKind, AllocMode, Attr, Device, DirEntry, DirSink, FileKattr, FileType, Filesystem, FsInfo,
+    FsResult, Handle, MAX_DIR_COOKIE, NAME_MAX, NewKind, NewNode, Node, OpenOptions, PosixAcl,
+    RenameMode, SeekHole, SetAttr, StatFs, TimeSet, Timestamp, XattrSet,
 };
 
 use crate::Options;
@@ -404,6 +404,18 @@ impl HostNode {
     }
 }
 
+/// A POSIX ACL value with its user and group ids mapped.
+fn map_acl(
+    value: &[u8],
+    uid: impl Fn(u32) -> Option<u32>,
+    gid: impl Fn(u32) -> Option<u32>,
+) -> FsResult<Vec<u8>> {
+    Ok(match PosixAcl::from_xattr(value, uid, gid)? {
+        Some(acl) => acl.to_stored(),
+        None => value.to_vec(),
+    })
+}
+
 /// `FS_IOC_FSGETXATTR` and `FS_IOC_FSSETXATTR`, which do not depend on the host's `long`.
 const FS_IOC_FSGETXATTR: libc::Ioctl = 0x801c_581f;
 const FS_IOC_FSSETXATTR: libc::Ioctl = 0x401c_5820;
@@ -787,20 +799,41 @@ impl Node for HostNode {
     }
 
     async fn getxattr(&self, name: &[u8]) -> FsResult<Vec<u8>> {
+        let acl = AclKind::of_xattr(name).is_some();
         let name = cstring(name)?;
-        self.via_proc(move |path| {
-            // SAFETY: `buf` is writable for its length (none for the size probe).
-            read_sized(|buf, len| unsafe {
-                libc::getxattr(path.as_ptr(), name.as_ptr(), buf.cast(), len)
+        let value = self
+            .via_proc(move |path| {
+                // SAFETY: `buf` is writable for its length (none for the size probe).
+                read_sized(|buf, len| unsafe {
+                    libc::getxattr(path.as_ptr(), name.as_ptr(), buf.cast(), len)
+                })
             })
-        })
-        .await
+            .await?;
+        // A POSIX ACL names host users; the guest sees the user running the machine as its
+        // owner, as for file owners.
+        match acl {
+            true => {
+                let shared = &self.shared;
+                let uid = |id| Some(shared.to_guest(id, u32::MAX).0);
+                let gid = |id| Some(shared.to_guest(u32::MAX, id).1);
+                map_acl(&value, uid, gid)
+            }
+            false => Ok(value),
+        }
     }
 
     async fn setxattr(&self, name: &[u8], value: &[u8], how: XattrSet) -> FsResult<()> {
         self.shared.writable()?;
+        let value = match AclKind::of_xattr(name) {
+            Some(_) => {
+                let shared = &self.shared;
+                let uid = |id| Some(shared.to_host(Some(id), None).0);
+                let gid = |id| Some(shared.to_host(None, Some(id)).1);
+                map_acl(value, uid, gid)?
+            }
+            None => value.to_vec(),
+        };
         let name = cstring(name)?;
-        let value = value.to_vec();
         let flags = match how {
             XattrSet::Any => 0,
             XattrSet::Create => libc::XATTR_CREATE,

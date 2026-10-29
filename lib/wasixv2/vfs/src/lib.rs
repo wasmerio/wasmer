@@ -19,6 +19,7 @@ mod namespace;
 mod notify;
 mod ops;
 mod pnode;
+mod posix_acl;
 mod seals;
 mod security;
 mod sync;
@@ -31,7 +32,7 @@ use std::sync::{
 
 pub use cred::{
     Cap, Cred, InitialUserNs, MAY_EXEC, MAY_READ, MAY_WRITE, UserNs, generic_permission,
-    initial_user_ns, same_user_ns,
+    generic_permission_acl, initial_user_ns, same_user_ns,
 };
 pub use dentry::Dentry;
 pub use driver::{Filesystem, Handle, Link, MAX_DIR_COOKIE, Node, SharedContents};
@@ -52,6 +53,9 @@ pub use namespace::{MountAttr, MountInfo, MountOp, UmountFlags};
 pub use notify::{EventInfo, FsEvent, FsWatcher, Object as FsObject, Perm, PermAnswer};
 pub use ops::{Ctx, FMODE_EXEC, OpenHow, XATTR_NAME_MAX, XATTR_SIZE_MAX};
 pub use pnode::Propagation;
+pub use posix_acl::{
+    AclEntry, AclKind, PosixAcl, XATTR_NAME_POSIX_ACL_ACCESS, XATTR_NAME_POSIX_ACL_DEFAULT,
+};
 pub use seals::WRITE_SEALS;
 pub use security::Security;
 use sync::MutexExt;
