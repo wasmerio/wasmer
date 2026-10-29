@@ -4806,3 +4806,28 @@ fn path_operations_fault_on_readable_low_guard_addresses() {
         "images without a guard keep their valid low addresses"
     );
 }
+
+/// Linux io_uring/poll.c:io_arm_poll_handler only queues work for a real wake.
+#[test]
+fn arming_an_idle_poll_does_not_advertise_pending_work() {
+    for defer in [false, true] {
+        let m = Machine::on_host(Arc::new(PausedHost), |kernel| kernel);
+        let mode = if defer {
+            IoringSetupFlags::IORING_SETUP_SINGLE_ISSUER.0
+                | IoringSetupFlags::IORING_SETUP_DEFER_TASKRUN.0
+        } else {
+            IoringSetupFlags::IORING_SETUP_COOP_TASKRUN.0
+        };
+        let ring = m.ring(8, mode | IoringSetupFlags::IORING_SETUP_TASKRUN_FLAG.0);
+        let (r, _) = pipe(&m.kernel, &m.caller(), OpenFlags(0));
+        ring.push(IoUringSqe {
+            op_flags: PollMask::READABLE.0,
+            ..sqe(IoUringOp::IORING_OP_POLL_ADD, r.0, 91)
+        });
+        assert_eq!(ring.submit(1), Ok(1));
+        assert_eq!(ring.sq_flags() & IoringSqFlags::IORING_SQ_TASKRUN.0, 0);
+        let file = m.kernel.file(m.task, ring.fd).unwrap();
+        assert!(!wasixv2_wait::Pollable::poll(&*file, None).contains(PollMask::READABLE));
+        assert!(ring.reap().is_empty());
+    }
+}

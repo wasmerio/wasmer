@@ -337,14 +337,20 @@ impl WaitEntry for Entry {
 
 /// Registers an entry for request `id` on the queues of `file`, for `events`; returns the
 /// file's readiness and the registrations.
-fn register(ctx: &Ctx, file: &OpenFile, id: u64, events: PollMask) -> (PollMask, Registrations) {
+fn register(
+    ctx: &Ctx,
+    file: &OpenFile,
+    id: u64,
+    events: PollMask,
+    noticed: Option<Arc<std::sync::atomic::AtomicBool>>,
+) -> (PollMask, Registrations) {
     let mut registrations = Vec::new();
     let mut queue_proc = |queue: &WaitQueue, _: PollMask| {
         let entry = Entry {
             ctx: ctx.me.clone(),
             id,
             events,
-            noticed: None,
+            noticed: noticed.clone(),
         };
         registrations.push(queue.add(Arc::new(entry)));
     };
@@ -2191,7 +2197,8 @@ impl Kernel {
         let file = self.req_file(caller, ctx, req)?;
         // `io_poll_parse_events`: the POLL bits are the EPOLL ones here.
         let events = PollMask(sqe.op_flags & 0xffff) | PollMask::ERR | PollMask::HUP;
-        let (mask, registrations) = register(ctx, &file, req.id, events);
+        let noticed = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let (mask, registrations) = register(ctx, &file, req.id, events, Some(noticed.clone()));
         if !mask.is_empty() && !multishot {
             return Ok(Outcome::Done {
                 res: mask.0 as i32,
@@ -2200,9 +2207,12 @@ impl Kernel {
             });
         }
         if !mask.is_empty() {
+            // The inline result consumes wakes observed by the initial probe.
+            noticed.store(false, std::sync::atomic::Ordering::Release);
             let more = IoringCqeFlags::IORING_CQE_F_MORE.0;
             ctx.post(sqe.user_data, mask.0 as i32, more, false);
         }
+        req.queue_noticed = Some(noticed);
         let req = std::mem::replace(req, req.taken());
         Ok(Outcome::Wait(Box::new(Waiting::Poll {
             req,
@@ -2622,7 +2632,7 @@ fn arm_on(ctx: &Arc<Ctx>, mut req: Req, targets: Vec<(Arc<OpenFile>, PollMask)>)
     let mut ready = true;
     for (file, events) in targets {
         let events = events | PollMask::ERR | PollMask::HUP;
-        let (mask, entries) = register(ctx, &file, id, events);
+        let (mask, entries) = register(ctx, &file, id, events, None);
         ready &= !mask.is_empty();
         registrations.extend(entries);
     }
@@ -2658,7 +2668,7 @@ fn arm_on(ctx: &Arc<Ctx>, mut req: Req, targets: Vec<(Arc<OpenFile>, PollMask)>)
 fn wait(ctx: &Arc<Ctx>, waiting: Waiting) {
     let id = waiting.req().id;
     let noticed = waiting.req().queue_noticed.clone();
-    let poll = matches!(waiting, Waiting::Poll { .. } | Waiting::Futex { .. });
+    let futex = matches!(waiting, Waiting::Futex { .. });
     let fired = {
         let mut state = ctx.state.lock_or_recover();
         state.waiting.insert(id, waiting);
@@ -2674,8 +2684,11 @@ fn wait(ctx: &Arc<Ctx>, waiting: Waiting) {
     for waiting in fired {
         ctx.finish_waiting(waiting, 0);
     }
-    // A wakeup before the poll was in the table found nothing: look again.
-    if poll || noticed.is_some_and(|flag| flag.load(std::sync::atomic::Ordering::Acquire)) {
+    // Linux io_uring/poll.c:io_arm_poll_handler closes the publication race
+    // with actual wake ownership, not an unconditional task-work notification.
+    if futex {
+        handle_wakeup(ctx, id);
+    } else if noticed.is_some_and(|flag| flag.load(std::sync::atomic::Ordering::Acquire)) {
         ctx.woken(id);
     }
 }
