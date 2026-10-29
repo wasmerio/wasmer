@@ -3,6 +3,7 @@
 use wasixv2_abi::{GuestPtrMut, PrctlOption, SiCode, Signal, VoidPtr};
 use wasixv2_syscalls::{Layered, Syscalls};
 
+use super::ipc::get;
 use super::*;
 
 /// The flags `pthread_create` passes.
@@ -538,4 +539,185 @@ fn user_notifications_go_to_the_supervisor() {
 
     block_on(stack.inner.close(&sup, listener)).unwrap();
     assert_eq!(errno(block_on(stack.getuid(&caller))), Errno::ENOSYS);
+}
+
+fn logging_machine() -> (Layered<SyscallEntry, Kernel>, TaskId, FlatMemory) {
+    let (kernel, task, memory) = super::cred::machine_as(0, 0);
+    block_on(kernel.vfs.mount(
+        b"/proc",
+        kernel.procfs(),
+        wasixv2_vfs::MountFlags::default(),
+        true,
+    ))
+    .unwrap();
+    (Layered::new(SyscallEntry(Dispatch), kernel), task, memory)
+}
+
+fn action_file(
+    kernel: &Kernel,
+    caller: &Caller<'_>,
+    memory: &FlatMemory,
+    name: &str,
+    flags: OpenFlags,
+) -> Fd {
+    put(
+        memory,
+        0x400,
+        format!("/proc/sys/kernel/seccomp/{name}\0").as_bytes(),
+    );
+    block_on(kernel.openat(caller, Fd(-100), GuestPtr::new(0x400), flags, 0)).unwrap()
+}
+
+fn action_write(
+    kernel: &Kernel,
+    caller: &Caller<'_>,
+    memory: &FlatMemory,
+    text: &str,
+) -> SysResult<u32> {
+    let fd = action_file(
+        kernel,
+        caller,
+        memory,
+        "actions_logged",
+        OpenFlags::O_WRONLY,
+    );
+    put(memory, 0x400, text.as_bytes());
+    let ret = block_on(kernel.write(caller, fd, UserSlice::new(0x400, text.len() as u32)));
+    block_on(kernel.close(caller, fd)).unwrap();
+    ret
+}
+
+fn action_read(kernel: &Kernel, caller: &Caller<'_>, memory: &FlatMemory, fd: Fd) -> String {
+    let n = block_on(kernel.pread64(caller, fd, UserSliceMut::new(0x4000, 256), 0)).unwrap();
+    String::from_utf8(get(memory, 0x4000, n as usize)).unwrap()
+}
+
+fn kernel_log(kernel: &Kernel, caller: &Caller<'_>, memory: &FlatMemory) -> String {
+    let n = block_on(kernel.syslog(caller, 3, GuestPtrMut::new(0x4000), 8192)).unwrap();
+    String::from_utf8(get(memory, 0x4000, n as usize)).unwrap()
+}
+
+#[test]
+fn seccomp_action_sysctls_validate_and_log_final_filter_verdicts() {
+    let (stack, task, memory) = logging_machine();
+    let kernel = &stack.inner;
+    let caller = Caller::new(task, &memory);
+    let avail = action_file(
+        kernel,
+        &caller,
+        &memory,
+        "actions_avail",
+        OpenFlags::O_RDONLY,
+    );
+    assert_eq!(
+        action_read(kernel, &caller, &memory, avail),
+        "kill_process kill_thread trap errno user_notif trace log allow\n"
+    );
+    let logged = action_file(
+        kernel,
+        &caller,
+        &memory,
+        "actions_logged",
+        OpenFlags::O_RDONLY,
+    );
+    assert_eq!(
+        action_read(kernel, &caller, &memory, logged),
+        "kill_process kill_thread trap errno user_notif trace log\n"
+    );
+    no_new_privs(&stack, &caller);
+    set_filter(
+        &stack,
+        &caller,
+        &memory,
+        0,
+        &filter_for(NR_GETPID, 0x7ffc0000),
+    )
+    .unwrap();
+    assert_eq!(block_on(stack.getpid(&caller)), Ok(task.0 as i32));
+    assert!(
+        kernel_log(kernel, &caller, &memory)
+            .contains("syscall=172 arch=0x400000f3 action=log sig=0")
+    );
+    block_on(kernel.syslog(&caller, 5, GuestPtrMut::NULL, 0)).unwrap();
+    assert_eq!(action_write(kernel, &caller, &memory, "errno\n"), Ok(6));
+    assert_eq!(
+        action_read(kernel, &caller, &memory, logged),
+        "errno\n",
+        "an already-open reader sees changes"
+    );
+    for bad in ["allow\n", "unknown\n", "errno\tlog\n"] {
+        assert_eq!(
+            errno(action_write(kernel, &caller, &memory, bad)),
+            Errno::EINVAL
+        );
+    }
+    assert_eq!(block_on(stack.getpid(&caller)), Ok(task.0 as i32));
+    assert!(!kernel_log(kernel, &caller, &memory).contains("action=log"));
+    set_filter(
+        &stack,
+        &caller,
+        &memory,
+        2,
+        &filter_for(NR_GETUID, RET_ERRNO | 1),
+    )
+    .unwrap();
+    assert_eq!(errno(block_on(stack.getuid(&caller))), Errno::EPERM);
+    assert!(
+        kernel_log(kernel, &caller, &memory).contains("syscall=174 arch=0x400000f3 action=errno")
+    );
+    // A more restrictive unlogged filter wins over an older logged filter.
+    block_on(kernel.syslog(&caller, 5, GuestPtrMut::NULL, 0)).unwrap();
+    set_filter(
+        &stack,
+        &caller,
+        &memory,
+        0,
+        &filter_for(NR_GETUID, RET_ERRNO | 2),
+    )
+    .unwrap();
+    assert_eq!(errno(block_on(stack.getuid(&caller))), Errno::ENOENT);
+    assert!(!kernel_log(kernel, &caller, &memory).contains("action=errno"));
+}
+
+#[test]
+fn seccomp_kill_actions_log_without_filter_log_flag_and_respect_mask() {
+    for (action, name) in [
+        (RET_KILL_PROCESS, "kill_process"),
+        (RET_KILL_THREAD, "kill_thread"),
+        (0x12340000, "kill_process"),
+    ] {
+        let (stack, task, memory) = logging_machine();
+        let caller = Caller::new(task, &memory);
+        no_new_privs(&stack, &caller);
+        set_filter(&stack, &caller, &memory, 0, &filter_for(NR_GETPID, action)).unwrap();
+        assert_eq!(errno(block_on(stack.getpid(&caller))), Errno::ENOSYS);
+        assert!(
+            kernel_log(&stack.inner, &caller, &memory).contains(&format!("action={name} sig=31"))
+        );
+    }
+    let (stack, task, memory) = logging_machine();
+    let caller = Caller::new(task, &memory);
+    action_write(&stack.inner, &caller, &memory, "\n").unwrap();
+    no_new_privs(&stack, &caller);
+    set_filter(
+        &stack,
+        &caller,
+        &memory,
+        0,
+        &filter_for(NR_GETPID, RET_KILL_PROCESS),
+    )
+    .unwrap();
+    assert_eq!(errno(block_on(stack.getpid(&caller))), Errno::ENOSYS);
+    assert!(!kernel_log(&stack.inner, &caller, &memory).contains("seccomp:"));
+}
+
+#[test]
+fn seccomp_actions_logged_requires_initial_sys_admin() {
+    let (stack, task, memory) = logging_machine();
+    let caller = Caller::new(task, &memory);
+    super::cred::set_caps(&stack.inner, &caller, &memory, 0);
+    assert_eq!(
+        errno(action_write(&stack.inner, &caller, &memory, "log\n")),
+        Errno::EPERM
+    );
 }

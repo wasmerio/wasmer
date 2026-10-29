@@ -6,7 +6,10 @@
 //! thread of its group. A filter sees the call as riscv32 makes it (`seccomp_data`): the
 //! table's number and its six registers, as [`Kernel::syscall_entry`] makes them.
 
-use std::sync::{Arc, atomic::Ordering};
+use std::sync::{
+    Arc,
+    atomic::{AtomicU32, Ordering},
+};
 
 use wasixv2_abi::{
     AuditArch, Errno, GuestLayout, GuestPtr, GuestPtrMut, SeccompData, SeccompFilterFlags,
@@ -26,6 +29,76 @@ use crate::{
 mod notify;
 
 pub(crate) use notify::Listener;
+
+/// Linux kernel/seccomp.c:seccomp_log_names, in decreasing action precedence.
+const ACTIONS: &[(SeccompRet, &str)] = &[
+    (SeccompRet::SECCOMP_RET_KILL_PROCESS, "kill_process"),
+    (SeccompRet::SECCOMP_RET_KILL_THREAD, "kill_thread"),
+    (SeccompRet::SECCOMP_RET_TRAP, "trap"),
+    (SeccompRet::SECCOMP_RET_ERRNO, "errno"),
+    (SeccompRet::SECCOMP_RET_USER_NOTIF, "user_notif"),
+    (SeccompRet::SECCOMP_RET_TRACE, "trace"),
+    (SeccompRet::SECCOMP_RET_LOG, "log"),
+    (SeccompRet::SECCOMP_RET_ALLOW, "allow"),
+];
+
+pub(crate) struct Logging(AtomicU32);
+
+impl Default for Logging {
+    fn default() -> Self {
+        Self(AtomicU32::new((1 << (ACTIONS.len() - 1)) - 1))
+    }
+}
+
+impl Logging {
+    pub(crate) fn available() -> String {
+        ACTIONS
+            .iter()
+            .map(|(_, name)| *name)
+            .collect::<Vec<_>>()
+            .join(" ")
+    }
+
+    pub(crate) fn names(&self) -> String {
+        let mask = self.0.load(Ordering::Relaxed);
+        ACTIONS
+            .iter()
+            .enumerate()
+            .filter(|(i, _)| mask & (1 << i) != 0)
+            .map(|(_, (_, name))| *name)
+            .collect::<Vec<_>>()
+            .join(" ")
+    }
+
+    /// Linux write_actions_logged/proc_dostring: a fresh, bounded string buffer;
+    /// parsing stops at the first empty space-delimited token, not arbitrary whitespace.
+    pub(crate) fn set_names(&self, data: &[u8], offset: u64) -> Result<(), Errno> {
+        let limit = Self::available().len();
+        let data = if offset == 0 {
+            &data[..data.len().min(limit)]
+        } else {
+            &[]
+        };
+        let end = data
+            .iter()
+            .position(|&b| b == 0 || b == b'\n')
+            .unwrap_or(data.len());
+        let names = std::str::from_utf8(&data[..end]).map_err(|_| Errno::EINVAL)?;
+        let mut mask = 0;
+        for name in names.split(' ').take_while(|name| !name.is_empty()) {
+            let i = ACTIONS
+                .iter()
+                .position(|(_, candidate)| *candidate == name)
+                .ok_or(Errno::EINVAL)?;
+            if ACTIONS[i].0 == SeccompRet::SECCOMP_RET_ALLOW {
+                return Err(Errno::EINVAL);
+            }
+            mask |= 1 << i;
+        }
+        self.0.store(mask, Ordering::Relaxed);
+        Ok(())
+    }
+}
 
 /// `MAX_INSNS_PER_PATH`: the most instructions the filters of a task may hold, counting four
 /// more for each filter.
@@ -52,6 +125,7 @@ const FILTER_FLAGS: u32 = SeccompFilterFlags::SECCOMP_FILTER_FLAG_TSYNC.0
 /// One attached filter (`struct seccomp_filter`), with the filters attached before it.
 pub(crate) struct Filter {
     prog: bpf::Program,
+    log: bool,
     prev: Option<Arc<Filter>>,
     /// Its user notifications, if installed with `SECCOMP_FILTER_FLAG_NEW_LISTENER`.
     notif: Option<Arc<notify::Notif>>,
@@ -126,10 +200,49 @@ enum Verdict {
     /// `SECCOMP_RET_USER_NOTIF` from `filter`, for the call `data` describes.
     Notify(Arc<Filter>, SeccompData),
     /// `SECCOMP_RET_TRACE` with its data, for the tracer to decide.
-    Trace(u32),
+    Trace(u32, bool),
 }
 
 impl Kernel {
+    /// Linux kernel/seccomp.c:seccomp_log: KILL/LOG need no per-filter request;
+    /// other non-ALLOW actions do. Printk is the machine's logging sink.
+    fn seccomp_log(
+        &self,
+        caller: &Caller<'_>,
+        nr: u32,
+        sig: i32,
+        action: SeccompRet,
+        requested: bool,
+    ) {
+        let i = ACTIONS
+            .iter()
+            .position(|(known, _)| *known == action)
+            .unwrap_or(0);
+        if action == SeccompRet::SECCOMP_RET_ALLOW
+            || self.seccomp_logging.0.load(Ordering::Relaxed) & (1 << i) == 0
+        {
+            return;
+        }
+        if !requested && !matches!(i, 0 | 1 | 6) {
+            return;
+        }
+        let name = self.task_ref(caller.task(), |t| {
+            String::from_utf8_lossy(t.comm.name()).into_owned()
+        });
+        self.printk(
+            crate::printk::Level::Notice,
+            &format!(
+                "seccomp: pid={} comm=\"{}\" syscall={} arch={:#x} action={} sig={}",
+                self.own_tid(caller.task()),
+                name,
+                nr,
+                AuditArch::AUDIT_ARCH_RISCV32.0,
+                ACTIONS[i].1,
+                sig
+            ),
+        );
+    }
+
     /// `secure_computing` for `call`, which riscv32 would make as the syscall `nr` with
     /// `args`: `None` runs it; otherwise the call is skipped and the result is what the caller
     /// sees, or the caller was killed.
@@ -150,27 +263,49 @@ impl Kernel {
             0 => return None,
             1 if MODE1_SYSCALLS.contains(&nr) => Verdict::Allow,
             // `__secure_computing_strict`: `do_exit(SIGKILL)`.
-            1 => Verdict::KillThread(Signal::SIGKILL.0),
+            1 => {
+                self.seccomp_log(
+                    caller,
+                    nr,
+                    Signal::SIGKILL.0,
+                    SeccompRet::SECCOMP_RET_KILL_THREAD,
+                    true,
+                );
+                Verdict::KillThread(Signal::SIGKILL.0)
+            }
             2 => self.run_filters(caller, filter.clone()?, nr, args),
             _ => Verdict::KillThread(Signal::SIGKILL.0),
         };
         let verdict = match verdict {
-            Verdict::Trace(data) => self.seccomp_trace(caller, filter?, nr, args, data).await,
+            Verdict::Trace(data, log) => {
+                self.seccomp_trace(caller, filter?, nr, args, data, log)
+                    .await
+            }
             verdict => verdict,
         };
         Some(match verdict {
-            Verdict::Allow | Verdict::Trace(_) => return None,
+            Verdict::Allow | Verdict::Trace(..) => return None,
             Verdict::Skip(raw) => skipped(call, raw),
             Verdict::KillThread(sig) => self.seccomp_kill(caller, sig, false).await,
             Verdict::KillProcess(sig) => self.seccomp_kill(caller, sig, true).await,
-            Verdict::Notify(filter, data) => match &filter.notif {
-                None => skipped(call, -i64::from(Errno::ENOSYS.0)),
-                Some(notif) => match self.seccomp_notify(caller, notif, data).await {
-                    Ok(notify::Outcome::Run) => return None,
-                    Ok(notify::Outcome::Return(raw)) => skipped(call, raw),
-                    Err(err) => Err(err),
-                },
-            },
+            Verdict::Notify(filter, data) => {
+                let outcome = match &filter.notif {
+                    None => skipped(call, -i64::from(Errno::ENOSYS.0)),
+                    Some(notif) => match self.seccomp_notify(caller, notif, data).await {
+                        Ok(notify::Outcome::Run) => return None,
+                        Ok(notify::Outcome::Return(raw)) => skipped(call, raw),
+                        Err(err) => Err(err),
+                    },
+                };
+                self.seccomp_log(
+                    caller,
+                    nr,
+                    0,
+                    SeccompRet::SECCOMP_RET_USER_NOTIF,
+                    filter.log,
+                );
+                outcome
+            }
         })
     }
 
@@ -198,8 +333,18 @@ impl Kernel {
         }
         let action = ret & SeccompRet::SECCOMP_RET_ACTION_FULL.0;
         let data = ret & SeccompRet::SECCOMP_RET_DATA.0;
-        // `seccomp_log` and `SECCOMP_FILTER_FLAG_LOG` record actions with the audit
-        // subsystem, which there is none of: they go nowhere, as with audit disabled.
+        if action != SeccompRet::SECCOMP_RET_TRACE.0
+            && action != SeccompRet::SECCOMP_RET_USER_NOTIF.0
+        {
+            let sig = match SeccompRet(action) {
+                SeccompRet::SECCOMP_RET_ALLOW
+                | SeccompRet::SECCOMP_RET_LOG
+                | SeccompRet::SECCOMP_RET_ERRNO
+                | SeccompRet::SECCOMP_RET_TRAP => 0,
+                _ => Signal::SIGSYS.0,
+            };
+            self.seccomp_log(caller, nr, sig, SeccompRet(action), matched.log);
+        }
         match SeccompRet(action) {
             SeccompRet::SECCOMP_RET_ERRNO => Verdict::Skip(-i64::from(data.min(MAX_ERRNO))),
             SeccompRet::SECCOMP_RET_TRAP => {
@@ -217,7 +362,7 @@ impl Kernel {
             SeccompRet::SECCOMP_RET_USER_NOTIF => {
                 Verdict::Notify(matched.clone(), data_of(nr, args))
             }
-            SeccompRet::SECCOMP_RET_TRACE => Verdict::Trace(data),
+            SeccompRet::SECCOMP_RET_TRACE => Verdict::Trace(data, matched.log),
             SeccompRet::SECCOMP_RET_LOG | SeccompRet::SECCOMP_RET_ALLOW => Verdict::Allow,
             SeccompRet::SECCOMP_RET_KILL_THREAD => Verdict::KillThread(Signal::SIGSYS.0),
             // `SECCOMP_RET_KILL_PROCESS`, and every action Linux does not know.
@@ -236,6 +381,7 @@ impl Kernel {
         nr: u32,
         args: [u64; 6],
         data: u32,
+        log: bool,
     ) -> Verdict {
         let task = caller.task();
         let enabled = self
@@ -243,6 +389,7 @@ impl Kernel {
             .is_some_and(|link| link.has(wasixv2_abi::PtraceOptions::PTRACE_O_TRACESECCOMP));
         let enosys = Verdict::Skip(-i64::from(Errno::ENOSYS.0));
         if !enabled {
+            self.seccomp_log(caller, nr, 0, SeccompRet::SECCOMP_RET_TRACE, log);
             return enosys;
         }
         let signals = self.task_signals(task);
@@ -254,10 +401,11 @@ impl Kernel {
         let event = wasixv2_abi::PtraceEvent::PTRACE_EVENT_SECCOMP;
         self.ptrace_event(task, event, u64::from(data)).await;
         if signals.group().sigkill_pending_for(task) {
+            self.seccomp_log(caller, nr, 0, SeccompRet::SECCOMP_RET_TRACE, log);
             return enosys;
         }
         match self.run_filters(caller, filter, nr, args) {
-            Verdict::Trace(_) => Verdict::Allow,
+            Verdict::Trace(..) => Verdict::Allow,
             verdict => verdict,
         }
     }
@@ -477,6 +625,7 @@ impl Kernel {
         }
         let filter = Arc::new(Filter {
             prog,
+            log: flags.contains(SeccompFilterFlags::SECCOMP_FILTER_FLAG_LOG),
             prev: me.seccomp.filter.take(),
             notif: listener.as_ref().map(|(_, n)| n.clone()),
         });
