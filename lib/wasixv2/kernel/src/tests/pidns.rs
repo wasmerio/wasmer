@@ -901,7 +901,7 @@ fn pidfd_get_info_tells_a_process_and_its_exit() {
         (0, 0, 0, 0)
     );
     assert_eq!(info.cgroupid, 1, "the root cgroup");
-    assert_eq!(info.supported_mask, 0x2f);
+    assert_eq!(info.supported_mask, 0xff);
 
     // LTP's struct is the second published one, 72 bytes: nothing past it is written; one
     // past ours gets zeroes.

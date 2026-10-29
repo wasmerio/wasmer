@@ -800,6 +800,7 @@ mod acct;
 mod aio;
 mod cgroup;
 mod clocks;
+mod coredump;
 mod cred;
 mod fs;
 mod futex;

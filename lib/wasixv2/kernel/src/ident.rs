@@ -230,6 +230,11 @@ pub(crate) struct Ident {
     pub(crate) sessionid: u32,
     /// The process dumped core (`PF_DUMPCORE`), which its accounting record tells.
     pub(crate) dumped_core: bool,
+    /// The task that took a signal that dumps core, which dumps on its way out, and the
+    /// signal.
+    pub(crate) core_dumper: Option<(wasixv2_syscalls::TaskId, wasixv2_abi::Siginfo)>,
+    /// `coredump_filter` (`mm->flags`' dump bits): a child inherits it, `execve` keeps it.
+    pub(crate) coredump_filter: u32,
 }
 
 impl Ident {
@@ -249,6 +254,8 @@ impl Ident {
             loginuid: None,
             sessionid: u32::MAX,
             dumped_core: false,
+            core_dumper: None,
+            coredump_filter: crate::coredump::COREDUMP_FILTER_DEFAULT,
         }
     }
 }
@@ -277,6 +284,7 @@ impl Ident {
             pdeathsig: 0,
             child_subreaper: false,
             dumped_core: false,
+            core_dumper: None,
             ..self.clone()
         }
     }

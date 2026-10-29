@@ -289,8 +289,10 @@ impl MachineBuilder {
             abis.clone(),
         );
         now(mount_kernel_filesystems(&kernel, &host));
+        let syscalls = Arc::new(stack(kernel));
+        Helpers::install(&syscalls, &abis, &host);
         Machine {
-            syscalls: Arc::new(stack(kernel)),
+            syscalls,
             abis,
             #[cfg(feature = "wasix1")]
             wasix1,
@@ -437,6 +439,7 @@ impl Machine {
         );
         mount_kernel_filesystems(&kernel, &self.host).await;
         self.syscalls = Arc::new(stack(kernel));
+        Helpers::install(&self.syscalls, &self.abis, &self.host);
         Ok(())
     }
 
@@ -1002,6 +1005,45 @@ fn killed(kernel: &Kernel, task: TaskId) -> Option<i32> {
         }
     }
     status.inspect(|_| kernel.release(task))
+}
+
+/// Starts the programs the kernel runs itself (`call_usermodehelper`), as a core dump's pipe
+/// helper: each runs as a program's image does, compiled on a default engine, and nothing
+/// waits for it.
+struct Helpers {
+    syscalls: std::sync::Weak<Layered<Trace, Kernel>>,
+    abis: Arc<Abis<Layered<Trace, Kernel>>>,
+    host: Arc<dyn Host>,
+}
+
+impl Helpers {
+    fn install(
+        syscalls: &Arc<Layered<Trace, Kernel>>,
+        abis: &Arc<Abis<Layered<Trace, Kernel>>>,
+        host: &Arc<dyn Host>,
+    ) {
+        let helpers = Helpers {
+            syscalls: Arc::downgrade(syscalls),
+            abis: abis.clone(),
+            host: host.clone(),
+        };
+        syscalls.inner.set_usermode_helper(Arc::new(helpers));
+    }
+}
+
+impl wasixv2_kernel::UsermodeHelper for Helpers {
+    fn start(&self, task: TaskId, image: Image) {
+        let Some(syscalls) = self.syscalls.upgrade() else {
+            return;
+        };
+        let (abis, host) = (self.abis.clone(), self.host.clone());
+        let run = async move {
+            let engine = Engine::default();
+            // The helper's end is its own; a failure to start kills it as any image's does.
+            let _ = wasixv2_exec::run_exec(engine, image, syscalls, task, host, abis).await;
+        };
+        self.host.executor().spawn_local(Box::pin(run));
+    }
 }
 
 /// Ends `task`, a process whose image no longer runs, with SIGKILL, and lets it go.

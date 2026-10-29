@@ -26,7 +26,7 @@ pub(crate) const PIPE_BUF: usize = 4096;
 /// programs expect (`F_GETPIPE_SZ` = 65536) stay the same.
 const PIPE_PAGE: usize = 4096;
 /// Linux's default: 16 pages (`PIPE_DEF_BUFFERS`).
-const DEFAULT_SIZE: usize = 16 * PIPE_PAGE;
+pub(crate) const DEFAULT_SIZE: usize = 16 * PIPE_PAGE;
 
 /// `fs.pipe-max-size` (`pipe_max_size`, `fs/pipe.c`): no caller without `CAP_SYS_RESOURCE`
 /// makes a pipe larger, and a new pipe it makes holds at most this much. One for the machine.
@@ -742,12 +742,28 @@ impl Kernel {
         if !(flags & !allowed).is_empty() {
             return Err(Errno::EINVAL.into());
         }
-        let (read, write) = pipe(self.new_pipe_size(caller));
+        let owner = self.cred(caller).fs_owner();
+        let status = flags & OpenFlags::O_NONBLOCK;
+        let [read, write] = self.pipe_files(self.new_pipe_size(caller), owner, status);
+        let cloexec = flags.contains(OpenFlags::O_CLOEXEC);
+        self.install_pair(caller, fildes, [read, write], cloexec)
+            .await?;
+        Ok(0)
+    }
+
+    /// A new pipe of `size` bytes as its two open files, with the status flags `status`, on a
+    /// pipefs inode owned by `owner`.
+    pub(crate) fn pipe_files(
+        &self,
+        size: usize,
+        owner: (u32, u32),
+        status: OpenFlags,
+    ) -> [OpenFile; 2] {
+        let (read, write) = pipe(size);
         // The pipe hangs off its inode, as a FIFO's does, so `/proc/<pid>/fd/<n>` reopens it.
-        let path = self.pseudo.pipe(self.cred(caller).fs_owner());
+        let path = self.pseudo.pipe(owner);
         let pipe: Bound = read.pipe.clone();
         path.dentry.inode().bind(&pipe);
-        let status = flags & OpenFlags::O_NONBLOCK;
         let read = OpenFile::new(
             Backing::Stream(Arc::new(read), path.clone()),
             OpenFlags::O_RDONLY | status,
@@ -756,10 +772,7 @@ impl Kernel {
             Backing::Stream(Arc::new(write), path),
             OpenFlags::O_WRONLY | status,
         );
-        let cloexec = flags.contains(OpenFlags::O_CLOEXEC);
-        self.install_pair(caller, fildes, [read, write], cloexec)
-            .await?;
-        Ok(0)
+        [read, write]
     }
 
     /// How much a pipe the caller makes holds (`alloc_pipe_info`): `fs.pipe-max-size` bounds

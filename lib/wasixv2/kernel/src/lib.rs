@@ -13,6 +13,7 @@ mod aio;
 mod binfmt_misc;
 mod cgroup;
 mod chrdev;
+mod coredump;
 mod cputime;
 mod cred;
 mod devinet;
@@ -80,6 +81,7 @@ use std::{
     time::Duration,
 };
 
+pub use coredump::UsermodeHelper;
 pub use cred::Credentials;
 pub use entry::{Dispatch, SyscallEntry};
 pub use file::{FileObject, Io, SeekBase};
@@ -192,6 +194,8 @@ pub struct Kernel {
     printk: Arc<printk::Printk>,
     /// BSD process accounting.
     acct: acct::Acct,
+    /// Where core dumps go.
+    coredump: Arc<coredump::Coredump>,
     // ---- thr ----
     futexes: futex::Futexes,
     // ---- proc ----
@@ -428,6 +432,7 @@ impl Kernel {
         Self {
             printk,
             acct: acct::Acct::default(),
+            coredump: Arc::default(),
             ptys: tty::Ptys::new(clock.clone()),
             pseudo: pseudo::Pseudo::new(&vfs, clock),
             nr_open: Arc::default(),
@@ -596,7 +601,19 @@ impl Kernel {
         files: FdTable,
         parent: u32,
     ) -> Result<TaskId, Errno> {
-        let cred = cred::Cred::new(&self.credentials, self.init_user_ns.clone());
+        self.new_process_as(&self.credentials, args, env, files, parent)
+    }
+
+    /// [`Kernel::new_process`] running as `credentials`.
+    fn new_process_as(
+        &self,
+        credentials: &Credentials,
+        args: Vec<String>,
+        env: Vec<String>,
+        files: FdTable,
+        parent: u32,
+    ) -> Result<TaskId, Errno> {
+        let cred = cred::Cred::new(credentials, self.init_user_ns.clone());
         let pid_ns = self.init_ns.pid_for_children.clone();
         let mut state = self.state.lock_or_recover();
         let id = TaskId(state.last_id + 1);

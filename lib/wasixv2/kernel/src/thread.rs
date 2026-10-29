@@ -1015,6 +1015,8 @@ impl Kernel {
     /// nothing.
     pub(crate) async fn exit_mm(&self, caller: &Caller<'_>) {
         let task = caller.task();
+        // A task that took a signal that dumps core dumps while the memory is still there.
+        self.coredump_if_dumper(caller).await;
         let (thread, users) = {
             let mut state = self.state.lock_or_recover();
             let Some(entry) = state.tasks.get_mut(&task) else {
