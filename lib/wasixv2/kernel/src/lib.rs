@@ -30,6 +30,7 @@ mod posix_timer;
 mod process;
 mod procfs;
 mod pseudo;
+mod reboot;
 mod resource;
 mod restart;
 mod sched;
@@ -61,6 +62,7 @@ pub use fs::{
     mount::{FilesystemType, FsParam},
 };
 pub use ident::{Uname, UnameError};
+pub use reboot::PowerRequest;
 use wasixv2_abi::{
     AccessMode, AtFlags, Buf, ClockId, CloseRangeFlags, ConstBuf, ConstFileHandlePtr,
     ConstGidArray, ConstIovecArray, ConstKernelItimerspecPtr, ConstKernelTimespecArray,
@@ -162,6 +164,8 @@ pub struct Kernel {
     credentials: Credentials,
     /// The kernel's own init, pid 1, which [`Kernel::spawn`]ed processes are children of.
     init: Option<TaskId>,
+    /// Ctrl-Alt-Del and what `reboot` asked the machine to do.
+    reboot: reboot::Reboot,
     // ---- tty ----
     /// Process groups and sessions, as terminals and the kernel signal them.
     jobs: tty::Jobs,
@@ -298,6 +302,7 @@ impl Kernel {
             sigqueue_users: Arc::default(),
             credentials: Credentials::default(),
             init: None,
+            reboot: Default::default(),
             jobs,
             console: None,
         }
@@ -1846,6 +1851,16 @@ impl Syscalls for Kernel {
     }
     async fn uname(&self, caller: &Caller<'_>, name: NewUtsnamePtr) -> SysResult<i32> {
         self.sys_uname(caller, name).await
+    }
+    async fn reboot(
+        &self,
+        caller: &Caller<'_>,
+        magic1: i32,
+        magic2: i32,
+        cmd: wasixv2_abi::RebootCmd,
+        arg: wasixv2_abi::VoidPtr,
+    ) -> SysResult<i32> {
+        self.sys_reboot(caller, magic1, magic2, cmd, arg)
     }
     async fn sethostname(&self, caller: &Caller<'_>, name: ConstBuf, len: i32) -> SysResult<i32> {
         self.sys_sethostname(caller, name, len, false).await

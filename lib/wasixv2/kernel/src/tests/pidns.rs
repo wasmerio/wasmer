@@ -860,3 +860,88 @@ fn an_init_whose_pids_could_not_all_be_made_is_no_init() {
         "and adopts the namespace's orphans"
     );
 }
+
+/// `reboot(LINUX_REBOOT_MAGIC1, LINUX_REBOOT_MAGIC2, cmd, NULL)`.
+fn reboot(kernel: &Kernel, p: &P, cmd: wasixv2_abi::RebootCmd) -> SysResult<i32> {
+    use wasixv2_abi::RebootMagic;
+    let (magic1, magic2) = (
+        RebootMagic::LINUX_REBOOT_MAGIC1,
+        RebootMagic::LINUX_REBOOT_MAGIC2,
+    );
+    let null = wasixv2_abi::VoidPtr::NULL;
+    block_on(kernel.reboot(&p.caller(), magic1.0 as i32, magic2.0 as i32, cmd, null))
+}
+
+/// `reboot_pid_ns`: in a child pid namespace, a restart, halt or power-off kills the
+/// namespace's init, which its parent sees killed by SIGHUP or SIGINT; the machine goes on.
+#[test]
+fn reboot_in_a_pid_namespace_ends_it_with_the_signal_of_the_command() {
+    use wasixv2_abi::RebootCmd;
+    let commands = [
+        (RebootCmd::LINUX_REBOOT_CMD_RESTART, Signal::SIGHUP),
+        (RebootCmd::LINUX_REBOOT_CMD_RESTART2, Signal::SIGHUP),
+        (RebootCmd::LINUX_REBOOT_CMD_HALT, Signal::SIGINT),
+        (RebootCmd::LINUX_REBOOT_CMD_POWER_OFF, Signal::SIGINT),
+    ];
+    for (cmd, sig) in commands {
+        let (kernel, parent) = machine();
+        let (init, pid) = fork(&kernel, &parent, NEWPID).unwrap();
+        let (child, _) = fork(&kernel, &init, 0).unwrap();
+        // Only the commands that end the namespace.
+        let cad = reboot(&kernel, &child, RebootCmd::LINUX_REBOOT_CMD_CAD_OFF);
+        assert_eq!(errno(cad), Errno::EINVAL);
+        assert!(kernel.ctrl_alt_del());
+
+        assert_eq!(reboot(&kernel, &child, cmd), Ok(0));
+        assert!(dies(&kernel, &init));
+        assert!(dies(&kernel, &child));
+        let killed = wasixv2_abi::SiCode::CLD_KILLED.0;
+        assert_eq!(reap(&kernel, &parent, pid), Ok(Some((pid, killed, sig.0))));
+        assert_eq!(kernel.power_request(), None);
+        assert!(!dies(&kernel, &parent));
+    }
+}
+
+/// In the initial pid namespace, `reboot` needs CAP_SYS_BOOT and the magic numbers; Ctrl-Alt-Del
+/// toggles, and a power-off ends every process of the machine and is left for the embedder.
+#[test]
+fn reboot_in_the_initial_pid_namespace_powers_the_machine_off() {
+    use wasixv2_abi::{RebootCmd, RebootMagic};
+    let (kernel, task, memory) = super::cred::machine_with(|kernel| kernel.with_init());
+    let user = Caller::new(task, &memory);
+    let null = wasixv2_abi::VoidPtr::NULL;
+    let (magic1, magic2) = (RebootMagic::LINUX_REBOOT_MAGIC1.0 as i32, 0x2812_1969);
+    let off = RebootCmd::LINUX_REBOOT_CMD_POWER_OFF;
+    assert_eq!(
+        errno(block_on(kernel.reboot(&user, magic1, magic2, off, null))),
+        Errno::EPERM
+    );
+
+    let (kernel, root) = machine();
+    let caller = root.caller();
+    let bad = block_on(kernel.reboot(&caller, magic1, 1, off, null));
+    assert_eq!(errno(bad), Errno::EINVAL);
+    for cmd in [
+        RebootCmd::LINUX_REBOOT_CMD_KEXEC,
+        RebootCmd::LINUX_REBOOT_CMD_SW_SUSPEND,
+    ] {
+        assert_eq!(errno(reboot(&kernel, &root, cmd)), Errno::EINVAL);
+    }
+    assert_eq!(
+        reboot(&kernel, &root, RebootCmd::LINUX_REBOOT_CMD_CAD_OFF),
+        Ok(0)
+    );
+    assert!(!kernel.ctrl_alt_del());
+    assert_eq!(
+        reboot(&kernel, &root, RebootCmd::LINUX_REBOOT_CMD_CAD_ON),
+        Ok(0)
+    );
+    assert!(kernel.ctrl_alt_del());
+    assert_eq!(kernel.power_request(), None);
+
+    let (child, _) = fork(&kernel, &root, 0).unwrap();
+    assert_eq!(reboot(&kernel, &child, off), Ok(0));
+    assert_eq!(kernel.power_request(), Some(crate::PowerRequest::PowerOff));
+    assert!(dies(&kernel, &child));
+    assert!(dies(&kernel, &root));
+}
