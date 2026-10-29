@@ -1596,3 +1596,57 @@ fn proc_pid_mem_returns_eio_for_unmapped_holes() {
         Errno::EIO
     );
 }
+
+/// kernel/signal.c `prepare_signal` and `ptrace_trap_notify`: SIGCONT is a sticky
+/// notification to a seized tracer, including when it arrives before PTRACE_LISTEN.
+#[test]
+fn sigcont_notifies_a_seized_group_stop_before_or_after_listen() {
+    for before_listen in [true, false] {
+        let (stack, parent, memory) = machine();
+        let kernel = &stack.inner;
+        let caller = Caller::new(parent, &memory);
+        let child = fork_child(kernel, &caller);
+        kernel.kill(child, Signal::SIGSTOP).unwrap();
+        assert_eq!(kernel.take_pending(child), Some(GuestAction::Stopped));
+        assert!(wait(kernel, &caller, child, WALL | WaitOptions::WSTOPPED.0).is_some());
+        assert_eq!(ptrace(kernel, &caller, R::PTRACE_SEIZE, child, 0, 0), Ok(0));
+        assert_eq!(
+            ptrace(kernel, &caller, R::PTRACE_INTERRUPT, child, 0, 0),
+            Ok(0)
+        );
+        assert_eq!(kernel.take_pending(child), Some(GuestAction::Stopped));
+        let event = PtraceEvent::PTRACE_EVENT_STOP.0 << 8;
+        assert_eq!(
+            wait(kernel, &caller, child, WALL).unwrap().1,
+            event | Signal::SIGSTOP.0
+        );
+        if before_listen {
+            kernel.kill(child, Signal::SIGCONT).unwrap();
+        }
+        assert_eq!(
+            ptrace(kernel, &caller, R::PTRACE_LISTEN, child, 0, 0),
+            Ok(0)
+        );
+        if !before_listen {
+            assert!(waits_stopped(kernel, child));
+            kernel.kill(child, Signal::SIGCONT).unwrap();
+        }
+        assert_eq!(kernel.take_pending(child), Some(GuestAction::Stopped));
+        assert_eq!(
+            wait(kernel, &caller, child, WALL).map(|(_, status, _)| status),
+            Some(event | SIGTRAP),
+            "SIGCONT must retrap (before_listen={before_listen})"
+        );
+        assert_eq!(ptrace(kernel, &caller, R::PTRACE_CONT, child, 0, 0), Ok(0));
+        // Deliver or suppress the separate SIGCONT signal-delivery stop.
+        if kernel.take_pending(child) == Some(GuestAction::Stopped) {
+            assert_eq!(
+                wait(kernel, &caller, child, WALL).unwrap().1,
+                Signal::SIGCONT.0
+            );
+            assert_eq!(ptrace(kernel, &caller, R::PTRACE_CONT, child, 0, 0), Ok(0));
+            assert_eq!(kernel.take_pending(child), None);
+        }
+        assert!(!waits_stopped(kernel, child));
+    }
+}

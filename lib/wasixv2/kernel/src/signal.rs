@@ -1062,6 +1062,15 @@ impl GroupState {
     fn continue_group(&mut self) {
         for task in self.tasks.values_mut() {
             (task.stop_pending, task.stop_dequeued, task.stopped) = (false, false, false);
+            // kernel/signal.c `prepare_signal`, `ptrace_trap_notify`: SIGCONT
+            // schedules a sticky notification even before the tracer starts LISTEN.
+            if task.ptrace.link.is_some_and(|link| link.seized) {
+                task.ptrace.trap_notify = true;
+                if task.ptrace.listening {
+                    task.ptrace.traced = false;
+                }
+                task.signal_wake_up();
+            }
         }
         let report = match (self.jobctl.stopped, self.jobctl.group_stop_count) {
             (true, _) => SiCode::CLD_CONTINUED,
