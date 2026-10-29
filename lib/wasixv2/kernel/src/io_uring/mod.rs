@@ -370,6 +370,32 @@ impl Ctx {
         }
     }
 
+    /// Auxiliary CQEs (MSG_RING) may not use the overflow list.
+    fn post_aux(&self, data: u64, res: i32, flags: u32) -> bool {
+        let expired = {
+            let mut state = self.state.lock_or_recover();
+            if !state.overflow.is_empty()
+                || !self.fill_cqe(
+                    &mut state,
+                    Cqe {
+                        user_data: data,
+                        res,
+                        flags,
+                    },
+                )
+            {
+                return false;
+            }
+            state.seq += 1;
+            ops::expired_timeouts(&mut state)
+        };
+        self.notify(true);
+        for waiting in expired {
+            self.finish_waiting(waiting, 0);
+        }
+        true
+    }
+
     /// Signals the eventfd, wakes `io_uring_enter` waiters and the ring's pollers.
     fn notify(&self, completed: bool) {
         let eventfd = self.state.lock_or_recover().eventfd.clone();
