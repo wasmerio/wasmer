@@ -267,6 +267,7 @@ impl FsWatcher for Notify {
     }
 
     fn fsnotify(&self, event: &FsEvent<'_>, info: &wasixv2_vfs::EventInfo<'_>) {
+        self.inotify.fsnotify(event, info);
         self.fanotify.fsnotify(event, info);
     }
 

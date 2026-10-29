@@ -103,6 +103,63 @@ impl<'a> T<'a> {
 }
 
 #[test]
+fn inotify_directory_attributes_notify_parent_first_and_unlink_reports_attrib() {
+    use wasixv2_abi::{InotifyInitFlags, InotifyMask as M};
+    let (kernel, task, memory) = machine();
+    let t = T::new(&kernel, task, &memory);
+    t.mkdir("/dir");
+    t.create("/file", b"");
+    let fd = block_on(kernel.inotify_init1(&t.caller, InotifyInitFlags::IN_NONBLOCK)).unwrap();
+    let add = |name: &str, mask| {
+        block_on(kernel.inotify_add_watch(&t.caller, fd, t.path(name), mask)).unwrap()
+    };
+    let parent = add("/", M::IN_ATTRIB);
+    let child = add("/dir", M::IN_ATTRIB);
+    let file = add("/file", M::IN_ATTRIB | M::IN_DELETE_SELF);
+    block_on(kernel.fchmodat(&t.caller, CWD, t.path("/dir"), 0o700)).unwrap();
+    let attrib_dir = M::IN_ATTRIB.0 | 0x4000_0000;
+    assert_eq!(
+        inotify_events(&t, fd),
+        [
+            (parent, attrib_dir, "dir".to_owned()),
+            (child, attrib_dir, String::new())
+        ]
+    );
+    block_on(kernel.unlinkat(&t.caller, CWD, t.path("/file"), AtFlags(0))).unwrap();
+    assert_eq!(
+        inotify_events(&t, fd),
+        [
+            (file, M::IN_ATTRIB.0, String::new()),
+            (file, M::IN_DELETE_SELF.0, String::new()),
+            (file, M::IN_IGNORED.0, String::new())
+        ]
+    );
+}
+
+#[test]
+fn inotify_fdinfo_includes_the_requested_watch_mask() {
+    use wasixv2_abi::{InotifyInitFlags, InotifyMask};
+    let (kernel, task, memory) = machine();
+    block_on(kernel.vfs().mount(
+        b"/proc",
+        kernel.procfs(),
+        wasixv2_vfs::MountFlags::default(),
+        true,
+    ))
+    .unwrap();
+    let t = T::new(&kernel, task, &memory);
+    let fd = block_on(kernel.inotify_init1(&t.caller, InotifyInitFlags::IN_NONBLOCK)).unwrap();
+    let mask = InotifyMask(InotifyMask::IN_MODIFY.0 | 0x0400_0000);
+    let wd = block_on(kernel.inotify_add_watch(&t.caller, fd, t.path("/"), mask)).unwrap();
+    let info = t
+        .open(&format!("/proc/self/fdinfo/{}", fd.0), OpenFlags::O_RDONLY)
+        .unwrap();
+    let text = String::from_utf8(t.read(info, 4096).unwrap()).unwrap();
+    assert!(text.contains(&format!("inotify wd:{wd:x} ino:")), "{text}");
+    assert!(text.contains(&format!(" mask:{:x} ", mask.0)), "{text}");
+}
+
+#[test]
 fn resolve_in_root_walks_absolute_paths_and_dotdot_from_dfd() {
     let (kernel, task, memory) = machine();
     let t = T::new(&kernel, task, &memory);

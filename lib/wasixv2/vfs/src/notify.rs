@@ -66,6 +66,8 @@ pub struct EventInfo<'a> {
     pub path: Option<&'a Path>,
     /// The object of an object event is a directory.
     pub is_dir: bool,
+    /// The name has been removed (`d_unlinked`), for IN_EXCL_UNLINK filtering.
+    pub unlinked: bool,
 }
 
 /// A permission event (`fsnotify_open_perm`, `fsnotify_file_area_perm`): asked before the

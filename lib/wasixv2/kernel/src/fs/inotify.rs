@@ -95,13 +95,6 @@ impl Registry {
         }
     }
 
-    /// An object event for the object's own watches.
-    fn unlinked_or_not(&self, event: &FsEvent<'_>, unlinked: bool) {
-        if let Some((object, mask)) = object_event(event) {
-            self.deliver(object, mask, 0, b"", unlinked);
-        }
-    }
-
     fn unwatch(&self, object: FsObject, inotify: &Instance, wd: i32) {
         self.update(|watches| {
             if let Some(list) = watches.get_mut(&object) {
@@ -142,7 +135,9 @@ impl FsWatcher for Registry {
                 object,
                 gone,
             } => {
-                if !gone {
+                // include/linux/fsnotify.h:fsnotify_link_count reports the
+                // unlink's attribute change before the final inode deletion.
+                if !is_dir {
                     self.deliver(object, InotifyMask::IN_ATTRIB.0, 0, b"", false);
                 }
                 self.deliver(
@@ -182,17 +177,19 @@ impl FsWatcher for Registry {
                 );
                 self.deliver(object, InotifyMask::IN_MOVE_SELF.0, 0, b"", false);
             }
-            _ => self.unlinked_or_not(event, false),
+            _ => {}
         }
     }
 
-    fn unlinked_event(&self, event: &FsEvent<'_>) {
-        self.unlinked_or_not(event, true);
-    }
-
-    fn child_event(&self, dir: FsObject, name: &[u8], event: &FsEvent<'_>, unlinked: bool) {
-        if let Some((_, mask)) = object_event(event) {
-            self.deliver(dir, mask, 0, name, unlinked);
+    fn fsnotify(&self, event: &FsEvent<'_>, info: &wasixv2_vfs::EventInfo<'_>) {
+        if let Some((object, mask)) = object_event(event) {
+            let mask = mask | if info.is_dir { IN_ISDIR } else { 0 };
+            // fsnotify_change/fsnotify_file report the named child to its
+            // parent before reporting the inode to its own marks.
+            if let Some((dir, name)) = info.parent {
+                self.deliver(dir, mask, 0, name, info.unlinked);
+            }
+            self.deliver(object, mask, 0, b"", info.unlinked);
         }
     }
 }
@@ -393,6 +390,23 @@ impl Pollable for Inotify {
 }
 
 impl FileObject for Inotify {
+    /// Linux fs/notify/fdinfo.c:inotify_fdinfo, including the special mask flags.
+    fn show_fdinfo(&self) -> String {
+        let state = self.inner.state.lock_or_recover();
+        let mut watches: Vec<_> = state.watches.iter().collect();
+        watches.sort_by_key(|(wd, _)| **wd);
+        let mut out = String::new();
+        for (wd, watch) in watches {
+            let dev = watch._pin.sb().dev;
+            let sdev = (u64::from(dev.major) << 20) | u64::from(dev.minor);
+            out.push_str(&format!(
+                "inotify wd:{wd:x} ino:{:x} sdev:{sdev:x} mask:{:x} ignored_mask:0\n",
+                watch.object.ino, watch.mask
+            ));
+        }
+        out
+    }
+
     fn read<'a>(&'a self, io: Io<'a>, buf: &'a mut [u8]) -> LocalFuture<'a, SysResult<usize>> {
         Box::pin(self.inner.read_events(io, buf))
     }
