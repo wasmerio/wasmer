@@ -550,12 +550,24 @@ fn timeout_fired(ctx: &Ctx, id: u64) -> Option<Duration> {
         if *left > 1 {
             *left -= 1;
         }
-        if !last {
-            let next = ctx.host().monotonic().saturating_add(at.interval);
-            at.deadline = next;
+        let next = ctx.host().monotonic().saturating_add(at.interval);
+        at.deadline = next;
+        if !last
+            && state.overflow.is_empty()
+            && ctx.fill_cqe(
+                &mut state,
+                super::Cqe {
+                    user_data,
+                    res: -Errno::ETIME.0,
+                    flags: IoringCqeFlags::IORING_CQE_F_MORE.0,
+                    extra: [0; 2],
+                },
+            )
+        {
+            // timeout.c:io_timeout_complete: an auxiliary shot cannot overflow.
+            // Publish under the state lock to order a racing cancellation.
             drop(state);
-            let more = IoringCqeFlags::IORING_CQE_F_MORE.0;
-            ctx.post(user_data, -Errno::ETIME.0, more, true);
+            ctx.notify(true);
             return Some(next);
         }
     }
@@ -2035,7 +2047,12 @@ impl Kernel {
         sqe: &IoUringSqe,
         link: bool,
     ) -> Result<Deadline, Errno> {
-        if sqe.buf_index != 0 || sqe.len != 1 || sqe.splice_fd_in != 0 {
+        if sqe.buf_index != 0
+            || sqe.len != 1
+            || sqe.splice_fd_in != 0
+            || sqe.addr3 != 0
+            || sqe.pad2 != 0
+        {
             return Err(Errno::EINVAL);
         }
         let flags = sqe.op_flags;
@@ -2139,7 +2156,11 @@ impl Kernel {
         let known = update_mask
             | IoringOpFlags::IORING_TIMEOUT_ABS.0
             | IoringOpFlags::IORING_TIMEOUT_IMMEDIATE_ARG.0;
-        if (flags & update_mask).count_ones() > 1 || flags & !known != 0 {
+        if (flags & update_mask).count_ones() > 1
+            || flags & !known != 0
+            || sqe.addr3 != 0
+            || sqe.pad2 != 0
+        {
             return Err(Errno::EINVAL);
         }
         let ts = if flags & IoringOpFlags::IORING_TIMEOUT_IMMEDIATE_ARG.0 != 0 {

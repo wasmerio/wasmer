@@ -3448,3 +3448,144 @@ fn cooperative_task_work_runs_on_resume_and_deferred_work_waits_for_enter() {
     }
 }
 
+
+#[test]
+fn multishot_timeouts_count_shots_cancel_and_end_when_the_cq_is_full() {
+    let m = Machine::new();
+    let ring = m.ring(8, 0);
+    write_ts(&m, TS, Duration::from_millis(2));
+    let timer = IoUringSqe {
+        addr: TS.into(),
+        len: 1,
+        off: 3,
+        op_flags: IoringOpFlags::IORING_TIMEOUT_MULTISHOT.0,
+        ..sqe(IoUringOp::IORING_OP_TIMEOUT, -1, 1)
+    };
+    ring.push(timer);
+    ring.submit(1).unwrap();
+    let shots = ring.wait(3);
+    assert_eq!(res(&shots), [(1, -Errno::ETIME.0); 3]);
+    assert_eq!(
+        shots
+            .iter()
+            .map(|c| c.flags & IoringCqeFlags::IORING_CQE_F_MORE.0 != 0)
+            .collect::<Vec<_>>(),
+        [true, true, false]
+    );
+    ring.push(IoUringSqe {
+        off: 0,
+        user_data: 2,
+        ..timer
+    });
+    ring.submit(1).unwrap();
+    assert!(
+        ring.wait(1)
+            .iter()
+            .all(|c| c.flags & IoringCqeFlags::IORING_CQE_F_MORE.0 != 0)
+    );
+    ring.push(IoUringSqe {
+        addr: 2,
+        ..sqe(IoUringOp::IORING_OP_TIMEOUT_REMOVE, -1, 3)
+    });
+    ring.submit(1).unwrap();
+    let completions = ring.reap();
+    assert!(res(&completions).contains(&(2, -Errno::ECANCELED.0)));
+    assert!(res(&completions).contains(&(3, 0)));
+    ring.push(IoUringSqe {
+        op_flags: timer.op_flags | IoringOpFlags::IORING_TIMEOUT_ABS.0,
+        user_data: 4,
+        ..timer
+    });
+    ring.submit(1).unwrap();
+    assert_eq!(res(&ring.reap()), [(4, EINVAL)]);
+    let full = m.ring(1, 0);
+    for id in [10, 11] {
+        full.push(sqe(NOP, -1, id));
+        full.submit(1).unwrap();
+    }
+    write_ts(&m, TS, Duration::from_millis(10));
+    full.push(IoUringSqe {
+        off: 0,
+        user_data: 12,
+        ..timer
+    });
+    full.submit(1).unwrap();
+    let deadline = Instant::now() + Duration::from_secs(2);
+    while full.sq_flags() & IoringSqFlags::IORING_SQ_CQ_OVERFLOW.0 == 0 {
+        assert!(Instant::now() < deadline);
+        std::thread::yield_now();
+    }
+    assert_eq!(res(&full.reap()), [(10, 0), (11, 0)]);
+    let last = full.wait(1);
+    assert_eq!(res(&last), [(12, -Errno::ETIME.0)]);
+    assert_eq!(last[0].flags & IoringCqeFlags::IORING_CQE_F_MORE.0, 0);
+}
+
+#[test]
+fn updating_a_multishot_timeout_changes_its_period_and_rejects_absolute_updates() {
+    let m = Machine::new();
+    let ring = m.ring(8, 0);
+    write_ts(&m, TS, Duration::from_secs(5));
+    ring.push(IoUringSqe {
+        addr: TS.into(),
+        off: 2,
+        len: 1,
+        op_flags: IoringOpFlags::IORING_TIMEOUT_MULTISHOT.0,
+        ..sqe(IoUringOp::IORING_OP_TIMEOUT, -1, 1)
+    });
+    ring.submit(1).unwrap();
+    write_ts(&m, TS, Duration::from_millis(5));
+    let update = IoUringSqe {
+        addr: 1,
+        off: TS.into(),
+        op_flags: IoringOpFlags::IORING_TIMEOUT_UPDATE.0,
+        ..sqe(IoUringOp::IORING_OP_TIMEOUT_REMOVE, -1, 2)
+    };
+    ring.push(IoUringSqe {
+        op_flags: update.op_flags | IoringOpFlags::IORING_TIMEOUT_ABS.0,
+        user_data: 3,
+        ..update
+    });
+    ring.submit(1).unwrap();
+    assert_eq!(res(&ring.reap()), [(3, EINVAL)]);
+    ring.push(update);
+    ring.submit(1).unwrap();
+    assert_eq!(res(&ring.reap()), [(2, 0)]);
+    // An enter timeout bounds both shots. The old 5s period must not survive the update.
+    let end = SCRATCH + 256;
+    write_ts(&m, end, Duration::from_secs(1));
+    put_value(
+        &m,
+        SCRATCH,
+        wasixv2_abi::IoUringGeteventsArg {
+            ts: end.into(),
+            ..wasixv2_abi::IoUringGeteventsArg::ZERO
+        },
+    );
+    assert_eq!(
+        block_on(m.kernel.io_uring_enter(
+            &m.caller(),
+            ring.fd,
+            0,
+            2,
+            IoringEnterFlags::IORING_ENTER_GETEVENTS.0 | IoringEnterFlags::IORING_ENTER_EXT_ARG.0,
+            GuestPtr::new(SCRATCH),
+            wasixv2_abi::IoUringGeteventsArg::SIZE as u32
+        )),
+        Ok(0)
+    );
+    let shots = ring.reap();
+    assert_eq!(res(&shots), [(1, -Errno::ETIME.0); 2]);
+    assert_ne!(shots[0].flags & IoringCqeFlags::IORING_CQE_F_MORE.0, 0);
+    assert_eq!(shots[1].flags & IoringCqeFlags::IORING_CQE_F_MORE.0, 0);
+    ring.push(IoUringSqe {
+        addr: 0,
+        off: 3,
+        len: 1,
+        op_flags: IoringOpFlags::IORING_TIMEOUT_MULTISHOT.0
+            | IoringOpFlags::IORING_TIMEOUT_IMMEDIATE_ARG.0,
+        ..sqe(IoUringOp::IORING_OP_TIMEOUT, -1, 4)
+    });
+    ring.submit(1).unwrap();
+    assert_eq!(res(&ring.wait(3)), [(4, -Errno::ETIME.0); 3]);
+}
