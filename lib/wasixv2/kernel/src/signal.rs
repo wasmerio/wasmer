@@ -1977,7 +1977,15 @@ impl Kernel {
     /// `wasmer run` reports the death as the shell does: 128 + signal.
     /// False when the group was on its way out already, which the signal does not change.
     pub(crate) fn force_fatal_signal(&self, task: TaskId, sig: i32) -> bool {
-        if self.process(task).group.exiting() {
+        // A reaped process's task traps only while it unwinds: part of its teardown.
+        let process = {
+            let state = self.state.read_or_recover();
+            state.tasks.get(&task).map(|t| t.process.clone())
+        };
+        let Some(process) = process else {
+            return false;
+        };
+        if process.group.exiting() {
             // The exit is pending on every task; `task` unwinds through it.
             return false;
         }
