@@ -433,6 +433,61 @@ fn a_sibling_execve_does_not_wait_for_the_leaders_vfork_child() {
     assert_eq!(kernel.take_pending(child), Some(back));
 }
 
+/// The leader that died in vfork let its namespaces go at its `exit_mm`; the new image runs as
+/// the leader in the exec'ing thread's (`de_thread`'s `exchange_tids`), and reads its clocks
+/// through them, which once panicked the host.
+#[test]
+fn a_sibling_execve_while_the_leader_is_in_vfork_runs_in_the_threads_namespaces() {
+    let t = LeaderInVfork::new();
+    let (kernel, leader, execing) = (&t.kernel, t.leader, t.execing);
+    let ns = kernel.task_ns(execing);
+    let thread = t.caller(execing);
+    let mut exec = Box::pin(execve(kernel, &thread));
+    assert_eq!(exec.as_mut().now_or_never(), None);
+    t.leave_leaders_memory();
+    assert_eq!(exec.as_mut().now_or_never(), Some(Ok(0)));
+
+    assert!(Arc::ptr_eq(&kernel.task_ns(leader), &ns));
+    let new_image = t.caller(leader);
+    let now = kernel.clock_gettime64(
+        &new_image,
+        wasixv2_abi::ClockId::CLOCK_MONOTONIC,
+        GuestPtrMut::new(0x3000),
+    );
+    assert_eq!(block_on(now), Ok(0));
+}
+
+/// Without vfork too, the new image takes the exec'ing thread's namespaces, not the old
+/// leader's: those go as the old leader exits.
+#[test]
+fn a_sibling_execve_takes_the_threads_namespaces_into_the_new_image() {
+    let (kernel, leader, memory) = machine();
+    let caller = Caller::new(leader, &memory);
+    install_prog(&kernel, &caller, &memory);
+    let execing = spawn_thread(&kernel, &caller);
+    while kernel.take_pending(leader).is_some() {}
+    let thread = Caller::new(execing, &memory);
+    let unshare = kernel.unshare(&thread, CloneFlags::CLONE_NEWUTS.0 as u32);
+    assert_eq!(block_on(unshare), Ok(0));
+    let (old, ns) = (kernel.task_ns(leader), kernel.task_ns(execing));
+    assert!(!Arc::ptr_eq(&old.uts, &ns.uts));
+
+    let mut exec = Box::pin(execve(&kernel, &thread));
+    assert_eq!(exec.as_mut().now_or_never(), None);
+    let handed = GuestAction::Exec { vfork_parent: None };
+    assert_eq!(kernel.take_pending(leader), Some(handed));
+    let mut wait = Box::pin(kernel.exec_wait(leader));
+    assert_eq!(wait.as_mut().now_or_never(), None);
+    assert_eq!(exec.as_mut().now_or_never(), Some(Ok(0)));
+
+    assert!(Arc::ptr_eq(&kernel.task_ns(leader), &ns));
+    assert_eq!(kernel.take_pending(execing), Some(GuestAction::Exit(0)));
+    block_on(kernel.exit_mm(&thread));
+    kernel.release(execing);
+    assert_eq!(wait.as_mut().now_or_never(), Some(Ok(())));
+    assert_eq!(Arc::strong_count(&old), 1, "the old leader's went with it");
+}
+
 /// The same for a child that `execve`s after the leader's image went on: its new image runs on
 /// its own, and the old instance ends.
 #[test]

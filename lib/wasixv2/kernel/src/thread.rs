@@ -839,10 +839,10 @@ impl Kernel {
                 unstarted.extend(entry.work.push(GuestAction::StartImage { task: leader }));
             }
             unstarted.extend(entry.work.push(GuestAction::Exit(0)));
-            // The caller goes on as the leader: with its seccomp state, not the old leader's.
-            let seccomp = entry.seccomp.clone();
-            let entry = state.tasks.get_mut(&leader).expect("the leader is listed");
-            entry.seccomp = seccomp;
+            let [Some(entry), Some(old)] = state.tasks.get_disjoint_mut([&leader, &task]) else {
+                unreachable!("the leader and the caller are listed");
+            };
+            exchange_tasks(entry, old);
             if detached {
                 entry.work.detach_exec();
             }
@@ -1125,6 +1125,20 @@ fn take_futex_state(task: &mut Task) -> ThreadState {
     let thread = task.thread;
     (task.thread.robust_list, task.thread.clear_child_tid) = (0, 0);
     thread
+}
+
+/// `de_thread`'s `exchange_tids` for a task table that keeps the leader's id: `leader` is the
+/// exec'ing thread's task from now on, which carries its namespaces, filesystem context,
+/// descriptor table, scheduling and seccomp state into the new image, and `caller`, which
+/// exits, is the old leader's, whose `exit_files`, `exit_fs` and `exit_task_namespaces` let
+/// the old leader's go. A leader that died waiting for its vfork child let its namespaces go
+/// at its `exit_mm` already: they belong to the task that exits, never to its id.
+fn exchange_tasks(leader: &mut Task, caller: &mut Task) {
+    std::mem::swap(&mut leader.ns, &mut caller.ns);
+    std::mem::swap(&mut leader.fs, &mut caller.fs);
+    std::mem::swap(&mut leader.files, &mut caller.files);
+    std::mem::swap(&mut leader.sched, &mut caller.sched);
+    std::mem::swap(&mut leader.seccomp, &mut caller.seccomp);
 }
 
 /// `mm_users` of `task`'s memory: the tasks on it, of any process, that have not left it.
