@@ -25,6 +25,7 @@ use wasixv2_vnet::{Control, Domain, SendMsg, Shutdown, SocketKind};
 use wasixv2_wait::PollMask;
 
 mod if_ioctl;
+mod packet;
 
 pub(crate) use if_ioctl::is_dev_ioctl;
 
@@ -69,12 +70,16 @@ enum AnySock {
     Inet(Sock),
     Unix(Arc<OpenFile>, Arc<unix::Sock>),
     Netlink(Arc<OpenFile>, Arc<netlink::NetlinkSocket>),
+    Packet(Arc<OpenFile>, Arc<packet::PacketSocket>),
 }
 
 impl AnySock {
     fn file(&self) -> &OpenFile {
         match self {
-            AnySock::Inet((file, _)) | AnySock::Unix(file, _) | AnySock::Netlink(file, _) => file,
+            AnySock::Inet((file, _))
+            | AnySock::Unix(file, _)
+            | AnySock::Netlink(file, _)
+            | AnySock::Packet(file, _) => file,
         }
     }
 
@@ -83,6 +88,7 @@ impl AnySock {
             AnySock::Inet((_, sock)) => &sock.timeouts,
             AnySock::Unix(_, sock) => &sock.timeouts,
             AnySock::Netlink(_, nl) => &nl.timeouts,
+            AnySock::Packet(_, p) => &p.timeouts,
         }
     }
 
@@ -92,7 +98,7 @@ impl AnySock {
         match self {
             AnySock::Inet((_, sock)) => sock.socket.kind() == SocketKind::Stream,
             AnySock::Unix(_, sock) => sock.kind() == unix::Kind::Stream,
-            AnySock::Netlink(..) => false,
+            AnySock::Netlink(..) | AnySock::Packet(..) => false,
         }
     }
 }
@@ -117,6 +123,9 @@ impl Kernel {
         }
         if let Some(nl) = file.object().cloned().and_then(netlink::downcast) {
             return Ok(AnySock::Netlink(file, nl));
+        }
+        if let Some(p) = file.object().cloned().and_then(packet::downcast) {
+            return Ok(AnySock::Packet(file, p));
         }
         self.socket_fd(caller, fd).map(AnySock::Inet)
     }
@@ -181,6 +190,7 @@ impl Kernel {
                 return self.install_unix(caller, sock, flags);
             }
             AddressFamily::AF_NETLINK => return self.netlink_socket(caller, kind, protocol, flags),
+            AddressFamily::AF_PACKET => return self.packet_socket(caller, kind, protocol, flags),
             // Every other family (and anything past NPROTO) has no implementation.
             _ => return Err(Errno::EAFNOSUPPORT.into()),
         };
@@ -248,6 +258,7 @@ impl Kernel {
             AnySock::Inet((_, sock)) => sock,
             AnySock::Unix(_, sock) => return self.unix_bind(caller, &sock, &raw).await,
             AnySock::Netlink(_, nl) => return Ok(nl.bind(&raw)?),
+            AnySock::Packet(_, p) => return Ok(p.bind(&raw)?),
         };
         let domain = sock.socket.domain();
         let addr = socket::decode(domain, &raw, true)?;
@@ -271,7 +282,7 @@ impl Kernel {
         match self.any_socket(caller, fd)? {
             AnySock::Inet((_, sock)) => sock.socket.listen(backlog)?,
             AnySock::Unix(_, sock) => sock.listen(backlog, self.peer_cred(caller))?,
-            AnySock::Netlink(..) => return Err(Errno::EOPNOTSUPP.into()),
+            AnySock::Netlink(..) | AnySock::Packet(..) => return Err(Errno::EOPNOTSUPP.into()),
         }
         Ok(0)
     }
@@ -323,7 +334,7 @@ impl Kernel {
                 })
                 .await?
             }
-            AnySock::Netlink(..) => return Err(Errno::EOPNOTSUPP.into()),
+            AnySock::Netlink(..) | AnySock::Packet(..) => return Err(Errno::EOPNOTSUPP.into()),
         };
         if !addr.is_null() {
             move_addr_to_user(caller, &peer, addr, addrlen).await?;
@@ -350,6 +361,8 @@ impl Kernel {
                 nl.connect(&raw, net_admin)?;
                 return Ok(0);
             }
+            // `sock_no_connect`.
+            AnySock::Packet(..) => return Err(Errno::EOPNOTSUPP.into()),
         };
         if socket::family(&raw)? == AddressFamily::AF_UNSPEC {
             sock.socket.disconnect()?;
@@ -398,6 +411,7 @@ impl Kernel {
             AnySock::Inet((_, sock)) => socket::encode(sock.socket.local_addr()?),
             AnySock::Unix(_, sock) => sock.local_addr(),
             AnySock::Netlink(_, nl) => nl.local_addr(),
+            AnySock::Packet(_, p) => p.local_addr(),
         };
         move_addr_to_user(caller, &raw, addr, addrlen).await?;
         Ok(0)
@@ -415,6 +429,7 @@ impl Kernel {
             AnySock::Inet((_, sock)) => socket::encode(sock.socket.peer_addr()?),
             AnySock::Unix(_, sock) => sock.peer_addr()?,
             AnySock::Netlink(_, nl) => nl.peer_addr(),
+            AnySock::Packet(..) => return Err(Errno::EOPNOTSUPP.into()),
         };
         move_addr_to_user(caller, &raw, addr, addrlen).await?;
         Ok(0)
@@ -543,6 +558,7 @@ impl Kernel {
                 };
                 Ok(nl.send(&data, net_admin, &sender)?)
             }
+            AnySock::Packet(_, p) => Ok(p.send(to)?),
         };
         match sock.raises_sigpipe() && !flags.contains(MsgFlags::MSG_NOSIGNAL) {
             true => self.sigpipe(caller, result),
@@ -722,6 +738,18 @@ impl Kernel {
                     },
                     from: Some(netlink::kernel_addr()),
                     flags: out,
+                    controls: Vec::new(),
+                    rights: Vec::new(),
+                })
+            }
+            AnySock::Packet(_, p) => {
+                let mut wait = p.blocking(io, RCV, flags);
+                let frame = p.recv(&mut wait).await?;
+                Ok(Got {
+                    len: frame.len(),
+                    result: frame.len(),
+                    from: None,
+                    flags: MsgFlags(0),
                     controls: Vec::new(),
                     rights: Vec::new(),
                 })
@@ -948,7 +976,7 @@ impl Kernel {
                 return Ok(0);
             }
             // `sock_no_shutdown`.
-            AnySock::Netlink(..) => return Err(Errno::EOPNOTSUPP.into()),
+            AnySock::Netlink(..) | AnySock::Packet(..) => return Err(Errno::EOPNOTSUPP.into()),
         };
         let how = match how {
             ShutdownHow::SHUT_RD => Shutdown::Read,
@@ -1006,6 +1034,10 @@ impl Kernel {
             }
             // `SOL_NETLINK` options (groups, strict checking) are accepted as no-ops.
             AnySock::Netlink(..) => {}
+            // The `SOL_SOCKET` options that only describe the descriptor; `SOL_PACKET` ones
+            // (memberships, rings, fanout) are about frames, which never come.
+            AnySock::Packet(..) if level == SocketLevel::SOL_SOCKET => {}
+            AnySock::Packet(..) => return Err(Errno::ENOPROTOOPT.into()),
         }
         Ok(0)
     }
@@ -1039,6 +1071,7 @@ impl Kernel {
             AnySock::Netlink(_, nl) if level == SocketLevel::SOL_SOCKET => {
                 Some(nl.getsockopt(name)?)
             }
+            AnySock::Packet(_, p) if level == SocketLevel::SOL_SOCKET => Some(p.getsockopt(name)?),
             _ => return Err(Errno::EOPNOTSUPP.into()),
         };
         let (out, n) = match (fixed, &any) {
@@ -1607,6 +1640,9 @@ impl Kernel {
         }
         if let Some(unix) = file.downcast::<UnixFile>() {
             return Some(unix.0.net().clone());
+        }
+        if let Some(p) = file.object().cloned().and_then(packet::downcast) {
+            return Some(p.net.clone());
         }
         let netlink = file.object().cloned().and_then(netlink::downcast)?;
         Some(netlink.net.clone())
