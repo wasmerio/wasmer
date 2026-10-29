@@ -1347,6 +1347,8 @@ fn proc_sys_net_is_the_readers_network_namespace() {
     let (kernel, task, memory) = networked();
     let caller = Caller::new(task, &memory);
     let read = |caller: &Caller<'_>, at: &str| read_text(&kernel, caller, at);
+    // A directory, as procps's sysctl checks with realpath that a key is under /proc/sys.
+    assert_eq!(errno(readlink(&kernel, &caller, "/proc/sys/net")), Errno::EINVAL);
     let dad = "/proc/sys/net/ipv6/conf/lo/accept_dad";
     assert_eq!(read(&caller, dad), "1\n");
     assert_eq!(write_file(&kernel, &caller, dad, "0\n"), Ok(2));

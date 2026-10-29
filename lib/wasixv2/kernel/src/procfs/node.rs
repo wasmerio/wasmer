@@ -52,7 +52,7 @@ enum Static {
     SelfLink,
     /// `thread-self`: the caller's thread.
     ThreadSelf,
-    /// `sys/net`: the sysctls of the caller's network namespace.
+    /// `sys/net`: the sysctls of the opener's network namespace.
     SysNet,
 }
 
@@ -302,7 +302,8 @@ impl ProcNode {
             Entry::Static(index) => match STATIC[index].2 {
                 Static::Dir => 0o555,
                 Static::File(file) => file.mode(),
-                Static::Link(_) | Static::SelfLink | Static::ThreadSelf | Static::SysNet => 0o777,
+                Static::SysNet => 0o555,
+                Static::Link(_) | Static::SelfLink | Static::ThreadSelf => 0o777,
             },
             Entry::Pid(_, index) => PID_ENTRIES[index].2,
             Entry::FdInfo(..) | Entry::Net(..) => 0o444,
@@ -381,6 +382,9 @@ fn ino(entry: Entry) -> u64 {
     };
     match entry {
         Entry::Root => 1,
+        Entry::Static(index) if matches!(STATIC[index].2, Static::SysNet) => {
+            super::sysnet::ROOT_INO
+        }
         Entry::Static(index) => 2 + index as u64,
         Entry::Dir(scope) => scoped(scope, 0),
         Entry::Pid(scope, index) => scoped(scope, 1 + index as u64),
@@ -397,9 +401,8 @@ fn file_type(entry: Entry) -> FileType {
         Entry::Static(index) => match STATIC[index].2 {
             Static::Dir => FileType::Directory,
             Static::File(_) => FileType::Regular,
-            Static::Link(_) | Static::SelfLink | Static::ThreadSelf | Static::SysNet => {
-                FileType::Symlink
-            }
+            Static::SysNet => FileType::Directory,
+            Static::Link(_) | Static::SelfLink | Static::ThreadSelf => FileType::Symlink,
         },
         Entry::Pid(_, index) => match PID_ENTRIES[index].1 {
             PidEntry::Fds
@@ -511,6 +514,11 @@ impl Node for ProcNode {
             .into_iter()
             .find(|(_, child, _)| child == name)
             .ok_or(Errno::ENOENT)?;
+        if let Entry::Static(index) = found.2
+            && let Static::SysNet = STATIC[index].2
+        {
+            return Ok(super::sysnet::SysNetNode::root(self.source.clone()));
+        }
         Ok(self.node(found.2))
     }
 
@@ -538,11 +546,6 @@ impl Node for ProcNode {
                     let tgid = self.source.tgid_of(cx.task).ok_or(Errno::ENOENT)?;
                     let body = format!("{tgid}/task/{}", cx.task);
                     return Ok(Link::Body(body.into_bytes()));
-                }
-                Static::SysNet => {
-                    let net = self.source.ns_of(cx.task).net.clone();
-                    let root = super::sysnet::SysNetNode::root(net, self.source.mounted);
-                    return Ok(Link::Jump(self.source.sysnet.pseudo_path(root, b"net")));
                 }
                 _ => return Err(Errno::EINVAL),
             },

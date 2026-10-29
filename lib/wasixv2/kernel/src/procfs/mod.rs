@@ -45,9 +45,7 @@ impl Kernel {
     pub fn procfs(&self) -> Arc<dyn Filesystem> {
         let mounted = HostClock(self.host.clone()).now();
         let source = Source {
-            sysnet: self
-                .vfs
-                .kern_mount(Arc::new(sysnet::SysNetFs::new(mounted))),
+            sysnet_names: Mutex::default(),
             state: Arc::downgrade(&self.state),
             tree: Arc::downgrade(&self.procs.tree),
             vfs: Arc::downgrade(&self.vfs),
@@ -122,8 +120,8 @@ struct Source {
     filesystems: Arc<crate::fs::mount::Registry>,
     /// Every node's timestamps: when the filesystem was made.
     mounted: Timestamp,
-    /// Where `/proc/sys/net` leads: the trees of the network namespaces' sysctls.
-    sysnet: Arc<wasixv2_vfs::Mount>,
+    /// The interface names `/proc/sys/net` has met, which number its directories.
+    sysnet_names: Mutex<sysnet::Names>,
 }
 
 /// A process as the tree has it.
