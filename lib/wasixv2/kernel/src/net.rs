@@ -170,7 +170,8 @@ impl Kernel {
                 None
             }));
             let host = self.host.clone();
-            // net/ipv4/tcp_output.c tcp_check_probe_timer, TCP_DELACK_MAX.
+            // tcp_write_xmit -> tcp_check_probe_timer (net/ipv4/tcp_output.c,
+            // include/net/tcp.h): a corked segment is probed at TCP_RTO_MIN.
             socket.set_cork_timer(Box::new(move |on| {
                 if on {
                     timer.start(host.monotonic() + Duration::from_millis(200));
