@@ -24,6 +24,8 @@ const AUXV: &[(AuxvType, u32)] = &[
 ];
 /// The identity entries, `AT_FLAGS`, the random bytes and `AT_NULL`.
 const AUXV_EXTRA: usize = 8;
+/// The wasm architecture's fixed mm->saved_auxv storage (kernel/sys.c:prctl_get_auxv).
+pub(crate) const SAVED_AUXV_SIZE: usize = (AUXV.len() + AUXV_EXTRA) * 2 * WORD;
 
 /// Who the process runs as: `AT_UID`, `AT_EUID`, `AT_GID`, `AT_EGID` and `AT_SECURE`.
 #[derive(Clone, Copy)]

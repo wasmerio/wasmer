@@ -197,6 +197,7 @@ impl VmSysctls {
 pub(crate) struct Mm {
     /// Names the address space in futex keys; never reused.
     id: u64,
+    pub(crate) prctl: Mutex<crate::ident::MmPrctl>,
     /// Held by every call that reads the size of memory, grows it, or takes pages, from the
     /// first look at the page map to the last update, and by every synchronisation of a
     /// mapping. Each thread runs its own instance on the shared memory, so without it two
@@ -281,6 +282,7 @@ impl Mm {
         space.dirty = None;
         Self {
             id: NEXT_ID.fetch_add(1, Ordering::Relaxed),
+            prctl: Mutex::default(),
             op: Default::default(),
             shared: AtomicBool::new(space.mappings.any_shared()),
             space: Mutex::new(space),
@@ -314,7 +316,9 @@ impl Mm {
     /// `dup_mmap`: a new address space with the same mappings, for the child `pid` that copies
     /// memory. Its file mappings and segment attachments are its own from then on.
     pub(crate) fn dup(&self, pid: u32) -> Self {
-        Self::with_space(self.space().dup(pid))
+        let mm = Self::with_space(self.space().dup(pid));
+        *mm.prctl.lock_or_recover() = self.prctl.lock_or_recover().for_fork();
+        mm
     }
 
     /// The page map. A panic elsewhere while it was held must not wedge every other thread of

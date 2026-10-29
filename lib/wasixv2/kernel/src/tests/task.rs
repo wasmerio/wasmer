@@ -1405,3 +1405,209 @@ fn rseq_slice_yield_has_no_extension_to_relinquish() {
         "no feature flags enabled"
     );
 }
+
+#[test]
+fn prctl_syscall_user_dispatch_and_config_disabled_controls_are_einval() {
+    use wasixv2_abi::PrctlOption as P;
+    let (kernel, task, memory) = machine();
+    let caller = Caller::new(task, &memory);
+    for mode in [0, 1, 2, u32::MAX] {
+        assert_eq!(
+            errno(block_on(kernel.prctl(
+                &caller,
+                P::PR_SET_SYSCALL_USER_DISPATCH,
+                mode,
+                0x1000,
+                0x100,
+                0xfffffff0
+            ))),
+            Errno::EINVAL
+        );
+    }
+    for op in [
+        P::PR_GET_UNALIGN,
+        P::PR_SET_UNALIGN,
+        P::PR_GET_FPEMU,
+        P::PR_SET_FPEMU,
+        P::PR_GET_FPEXC,
+        P::PR_SET_FPEXC,
+        P::PR_GET_ENDIAN,
+        P::PR_SET_ENDIAN,
+        P::PR_GET_TSC,
+        P::PR_SET_TSC,
+        P::PR_GET_FP_MODE,
+        P::PR_SET_FP_MODE,
+        P::PR_SVE_GET_VL,
+        P::PR_SVE_SET_VL,
+        P::PR_SME_GET_VL,
+        P::PR_SME_SET_VL,
+        P::PR_PAC_RESET_KEYS,
+        P::PR_PAC_GET_ENABLED_KEYS,
+        P::PR_PAC_SET_ENABLED_KEYS,
+        P::PR_GET_TAGGED_ADDR_CTRL,
+        P::PR_SET_TAGGED_ADDR_CTRL,
+        P::PR_GET_SPECULATION_CTRL,
+        P::PR_SET_SPECULATION_CTRL,
+        P::PR_SCHED_CORE,
+        P::PR_GET_MEMORY_MERGE,
+        P::PR_SET_MEMORY_MERGE,
+        P::PR_GET_SHADOW_STACK_STATUS,
+        P::PR_SET_SHADOW_STACK_STATUS,
+        P::PR_LOCK_SHADOW_STACK_STATUS,
+        P::PR_GET_CFI,
+        P::PR_SET_CFI,
+        P::PR_RISCV_V_GET_CONTROL,
+        P::PR_RISCV_V_SET_CONTROL,
+        P::PR_RISCV_SET_ICACHE_FLUSH_CTX,
+        P::PR_PPC_GET_DEXCR,
+        P::PR_PPC_SET_DEXCR,
+    ] {
+        assert_eq!(
+            errno(block_on(kernel.prctl(&caller, op, 0, 0, 0, 0))),
+            Errno::EINVAL,
+            "{op:?}"
+        );
+    }
+}
+
+#[test]
+fn prctl_io_flusher_and_mce_policy_are_per_task_and_inherited() {
+    use wasixv2_abi::PrctlOption as P;
+    let (kernel, task, memory) = super::cred::machine_as(0, 0);
+    let caller = Caller::new(task, &memory);
+    let pr = |caller: &Caller<'_>, op, a, b| block_on(kernel.prctl(caller, op, a, b, 0, 0));
+    assert_eq!(pr(&caller, P::PR_GET_IO_FLUSHER, 0, 0), Ok(0));
+    assert_eq!(pr(&caller, P::PR_SET_IO_FLUSHER, 1, 0), Ok(0));
+    assert_eq!(pr(&caller, P::PR_MCE_KILL_GET, 0, 0), Ok(2));
+    assert_eq!(pr(&caller, P::PR_MCE_KILL, 1, 1), Ok(0));
+    let thread = spawn_thread(&kernel, &caller);
+    let other = Caller::new(thread, &memory);
+    assert_eq!(pr(&other, P::PR_GET_IO_FLUSHER, 0, 0), Ok(1));
+    assert_eq!(pr(&other, P::PR_MCE_KILL_GET, 0, 0), Ok(1));
+    assert_eq!(pr(&other, P::PR_SET_IO_FLUSHER, 0, 0), Ok(0));
+    assert_eq!(pr(&other, P::PR_MCE_KILL, 1, 0), Ok(0));
+    assert_eq!(pr(&caller, P::PR_GET_IO_FLUSHER, 0, 0), Ok(1));
+    assert_eq!(pr(&caller, P::PR_MCE_KILL_GET, 0, 0), Ok(1));
+    assert_eq!(
+        errno(pr(&caller, P::PR_SET_IO_FLUSHER, 2, 0)),
+        Errno::EINVAL
+    );
+    assert_eq!(
+        errno(pr(&caller, P::PR_GET_IO_FLUSHER, 1, 0)),
+        Errno::EINVAL
+    );
+    assert_eq!(pr(&other, P::PR_MCE_KILL, 0, 0), Ok(0));
+    assert_eq!(errno(pr(&other, P::PR_MCE_KILL, 1, 99)), Errno::EINVAL);
+    assert_eq!(
+        pr(&other, P::PR_MCE_KILL_GET, 0, 0),
+        Ok(0),
+        "Linux sets PF_MCE_PROCESS before rejecting arg3"
+    );
+    assert_eq!(errno(pr(&other, P::PR_MCE_KILL, 0, 1)), Errno::EINVAL);
+    super::cred::set_caps(&kernel, &caller, &memory, 0);
+    assert_eq!(
+        errno(pr(&caller, P::PR_SET_IO_FLUSHER, 99, 99)),
+        Errno::EPERM
+    );
+    assert_eq!(errno(pr(&caller, P::PR_GET_IO_FLUSHER, 0, 0)), Errno::EPERM);
+}
+
+#[test]
+fn prctl_auxv_returns_full_size_and_tid_address_is_per_thread() {
+    use wasixv2_abi::PrctlOption as P;
+    let (kernel, task, memory) = machine();
+    let caller = Caller::new(task, &memory);
+    let auxv = [6u32.to_le_bytes(), 65536u32.to_le_bytes(), [0; 4], [0; 4]].concat();
+    *kernel.process(task).auxv.lock_or_recover() = auxv.clone();
+    let full = crate::startup::SAVED_AUXV_SIZE as i32;
+    assert_eq!(
+        block_on(kernel.prctl(&caller, P::PR_GET_AUXV, u32::MAX, 0, 0, 0)),
+        Ok(full)
+    );
+    assert_eq!(
+        block_on(kernel.prctl(&caller, P::PR_GET_AUXV, 0x400, 7, 0, 0)),
+        Ok(full)
+    );
+    assert_eq!(super::ipc::get(&memory, 0x400, 7), auxv[..7]);
+    assert_eq!(
+        errno(block_on(kernel.prctl(
+            &caller,
+            P::PR_GET_AUXV,
+            u32::MAX,
+            1,
+            0,
+            0
+        ))),
+        Errno::EFAULT
+    );
+    assert_eq!(
+        errno(block_on(kernel.prctl(
+            &caller,
+            P::PR_GET_AUXV,
+            u32::MAX,
+            1,
+            1,
+            0
+        ))),
+        Errno::EINVAL
+    );
+    block_on(kernel.set_tid_address(&caller, GuestPtrMut::new(0x1234))).unwrap();
+    block_on(kernel.prctl(&caller, P::PR_GET_TID_ADDRESS, 0x400, 99, 99, 99)).unwrap();
+    let addr: u32 = block_on(read_value(&memory, GuestPtr::new(0x400))).unwrap();
+    assert_eq!(addr, 0x1234);
+    let tid = spawn_thread(&kernel, &caller);
+    block_on(kernel.prctl(
+        &Caller::new(tid, &memory),
+        P::PR_GET_TID_ADDRESS,
+        0x400,
+        0,
+        0,
+        0,
+    ))
+    .unwrap();
+    let addr: u32 = block_on(read_value(&memory, GuestPtr::new(0x400))).unwrap();
+    assert_eq!(addr, 0);
+}
+
+#[test]
+fn prctl_mm_flags_share_with_threads_and_obey_fork_no_inherit() {
+    use wasixv2_abi::PrctlOption as P;
+    let (kernel, task, flat) = machine();
+    let memory = super::proc::ForkableMemory(flat);
+    let caller = Caller::new(task, &memory);
+    let pr = |caller: &Caller<'_>, op, a, b| block_on(kernel.prctl(caller, op, a, b, 0, 0));
+    assert_eq!(errno(pr(&caller, P::PR_SET_MDWE, 2, 0)), Errno::EINVAL);
+    assert_eq!(errno(pr(&caller, P::PR_SET_MDWE, 4, 0)), Errno::EINVAL);
+    assert_eq!(pr(&caller, P::PR_SET_MDWE, 3, 0), Ok(0));
+    assert_eq!(errno(pr(&caller, P::PR_SET_MDWE, 1, 0)), Errno::EPERM);
+    let tid = spawn_thread(&kernel, &caller);
+    let other = Caller::new(tid, &memory);
+    assert_eq!(pr(&other, P::PR_GET_MDWE, 0, 0), Ok(3));
+    assert_eq!(pr(&other, P::PR_SET_THP_DISABLE, 1, 2), Ok(0));
+    assert_eq!(pr(&caller, P::PR_GET_THP_DISABLE, 0, 0), Ok(3));
+    assert_eq!(
+        errno(pr(&caller, P::PR_SET_THP_DISABLE, 0, 2)),
+        Errno::EINVAL
+    );
+    assert_eq!(pr(&caller, P::PR_FUTEX_HASH, 1, 4), Ok(0));
+    assert_eq!(pr(&other, P::PR_FUTEX_HASH, 2, 99), Ok(4));
+    let child = super::proc::fork_child(&kernel, &caller);
+    let child_caller = Caller::new(child, &memory);
+    assert_eq!(pr(&child_caller, P::PR_GET_MDWE, 0, 0), Ok(0));
+    assert_eq!(pr(&child_caller, P::PR_GET_THP_DISABLE, 0, 0), Ok(3));
+    assert_eq!(pr(&child_caller, P::PR_FUTEX_HASH, 2, 0), Ok(0));
+    assert_eq!(pr(&child_caller, P::PR_SET_MDWE, 1, 0), Ok(0));
+    let grandchild = super::proc::fork_child(&kernel, &child_caller);
+    assert_eq!(
+        pr(&Caller::new(grandchild, &memory), P::PR_GET_MDWE, 0, 0),
+        Ok(1)
+    );
+    for slots in [1, 3, 7] {
+        assert_eq!(
+            errno(pr(&caller, P::PR_FUTEX_HASH, 1, slots)),
+            Errno::EINVAL
+        );
+    }
+    assert_eq!(pr(&caller, P::PR_FUTEX_HASH, 1, 0), Ok(0));
+    assert_eq!(errno(pr(&caller, P::PR_FUTEX_HASH, 1, 4)), Errno::EBUSY);
+}

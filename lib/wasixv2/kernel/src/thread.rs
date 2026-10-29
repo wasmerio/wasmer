@@ -104,6 +104,10 @@ pub(crate) struct ThreadState {
 }
 
 impl ThreadState {
+    pub(crate) fn tid_address(&self) -> u32 {
+        self.clear_child_tid
+    }
+
     /// The task called `exit` or was killed with its thread.
     pub(crate) fn exited(&self) -> bool {
         self.exited
@@ -284,6 +288,7 @@ impl Kernel {
                 restart: None,
                 comm: task.comm,
                 sched,
+                prctl: task.prctl,
                 seccomp: task.seccomp.clone(),
                 thread_keyring: None,
                 io: crate::sched::copy_io(task.io.as_ref(), flags.contains(CloneFlags::CLONE_IO)),
@@ -899,6 +904,7 @@ impl Kernel {
             // fs/exec.c de_thread retires the old leader and keeps the caller accounting.
             process.ioac.add(entry.ioac.counts());
             entry.ioac = std::mem::take(&mut old.ioac);
+            std::mem::swap(&mut entry.prctl, &mut old.prctl);
             if detached {
                 entry.work.detach_exec();
             }
