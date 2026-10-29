@@ -6,7 +6,7 @@ use std::{
     net::{IpAddr, Ipv4Addr, SocketAddr},
     sync::{
         Arc, Mutex, MutexGuard, Weak,
-        atomic::{AtomicU64, Ordering},
+        atomic::{AtomicU8, AtomicU64, Ordering},
     },
 };
 
@@ -80,7 +80,7 @@ struct Inner {
 pub struct UdpSocket {
     net: Arc<Net>,
     id: SockId,
-    domain: Domain,
+    domain: AtomicU8,
     /// `sk_uid`, for `SO_REUSEPORT`.
     uid: u32,
     /// `sock_i_ino`: the inode of the socket's file, 0 until it has one.
@@ -98,7 +98,7 @@ impl UdpSocket {
         Arc::new_cyclic(|me| Self {
             net,
             id,
-            domain,
+            domain: AtomicU8::new(domain as u8),
             uid,
             ino: AtomicU64::new(0),
             wq: WaitQueue::new(),
@@ -129,7 +129,7 @@ impl UdpSocket {
 
     fn spec(&self, o: &SockOpts, ip: IpAddr) -> BindSpec {
         BindSpec {
-            family: self.domain,
+            family: self.domain(),
             addr: ip,
             v6only: o.v6only,
             reuseaddr: o.reuseaddr,
@@ -139,7 +139,7 @@ impl UdpSocket {
     }
 
     fn any(&self) -> IpAddr {
-        match self.domain {
+        match self.domain() {
             Domain::Inet => Ipv4Addr::UNSPECIFIED.into(),
             Domain::Inet6 => std::net::Ipv6Addr::UNSPECIFIED.into(),
         }
@@ -162,8 +162,8 @@ impl UdpSocket {
         let g = self.lock();
         Some(PortEntry {
             kind: SocketKind::Datagram,
-            local: present(self.domain, g.local?),
-            peer: g.peer.map(|p| present(self.domain, p)),
+            local: present(self.domain(), g.local?),
+            peer: g.peer.map(|p| present(self.domain(), p)),
             listening: false,
             uid: self.uid,
             inode: self.ino.load(Ordering::Relaxed),
@@ -281,7 +281,7 @@ impl UdpSocket {
             return Ok(ep);
         }
         let backend = self.net.backend.as_ref().ok_or(Errno::ENETUNREACH)?;
-        let b = backend.datagram(self.domain, self.wq.clone())?;
+        let b = backend.datagram(self.domain(), self.wq.clone())?;
         Self::forward_options(&g.opts, &*b);
         g.backend = Some(b.clone());
         Ok(b)
@@ -512,7 +512,7 @@ impl UdpSocket {
                 e
             }
         };
-        Ok(error_result(self.domain, &e, buf))
+        Ok(error_result(self.domain(), &e, buf))
     }
 
     /// `sock_error`: the socket's pending error, else the backend endpoint's.
@@ -757,7 +757,11 @@ impl Pollable for UdpSocket {
 
 impl Socket for UdpSocket {
     fn domain(&self) -> Domain {
-        self.domain
+        if self.domain.load(Ordering::Acquire) == Domain::Inet6 as u8 {
+            Domain::Inet6
+        } else {
+            Domain::Inet
+        }
     }
 
     fn kind(&self) -> SocketKind {
@@ -926,10 +930,10 @@ impl Socket for UdpSocket {
             None => g.peer.ok_or(Errno::EDESTADDRREQ)?,
         };
         // `udpv6_sendmsg`: an IPv4 destination needs a dual-stack socket.
-        if self.domain == Domain::Inet6 && dst.is_ipv4() && g.opts.v6only {
+        if self.domain() == Domain::Inet6 && dst.is_ipv4() && g.opts.v6only {
             return Err(Errno::ENETUNREACH);
         }
-        let ctl = cmsg::udp(msg.control, self.domain, dst.is_ipv4(), msg.net_raw)?;
+        let ctl = cmsg::udp(msg.control, self.domain(), dst.is_ipv4(), msg.net_raw)?;
         if let IpAddr::V4(v4) = dst.ip()
             && v4.is_broadcast()
         {
@@ -971,7 +975,7 @@ impl Socket for UdpSocket {
         }
         // `UDP_SEGMENT`: the payload leaves as datagrams of the segment size.
         let segment = ctl.gso_size.unwrap_or(usize::MAX).max(1);
-        let ttl = ctl.ttl.unwrap_or_else(|| g.opts.unicast_ttl(self.domain));
+        let ttl = ctl.ttl.unwrap_or_else(|| g.opts.unicast_ttl(self.domain()));
         match route {
             UdpRoute::Local {
                 from,
@@ -1071,7 +1075,7 @@ impl Socket for UdpSocket {
                 g.queue.pop_front();
                 g.queued -= full + DGRAM_OVERHEAD;
             }
-            return Ok(dgram_result(self.domain, len, full, from));
+            return Ok(dgram_result(self.domain(), len, full, from));
         }
         let backend = g.backend.clone();
         let rd_shut = g.rd_shut;
@@ -1081,7 +1085,7 @@ impl Socket for UdpSocket {
             match self.backend_recv(&*b, buf, peek, &filter) {
                 Ok((len, full_len, from)) => {
                     let from = self.net.guest_view(from);
-                    return Ok(dgram_result(self.domain, len, full_len, from));
+                    return Ok(dgram_result(self.domain(), len, full_len, from));
                 }
                 Err(Errno::EAGAIN) => {}
                 Err(e) => return Err(e),
@@ -1097,13 +1101,13 @@ impl Socket for UdpSocket {
         let g = self.lock();
         Ok(g.local
             .or(g.saddr.map(|ip| SocketAddr::new(ip, 0)))
-            .map_or(unbound(self.domain), |a| present(self.domain, a)))
+            .map_or(unbound(self.domain()), |a| present(self.domain(), a)))
     }
 
     fn peer_addr(&self) -> NetResult<SocketAddr> {
         let g = self.lock();
         g.peer
-            .map(|p| present(self.domain, p))
+            .map(|p| present(self.domain(), p))
             .ok_or(Errno::ENOTCONN)
     }
 
@@ -1121,6 +1125,23 @@ impl Socket for UdpSocket {
 
     fn set_option(&self, level: i32, name: i32, value: &[u8]) -> NetResult<()> {
         let mut g = self.lock();
+        if (level, name)
+            == (
+                SocketLevel::SOL_IPV6.0,
+                wasixv2_abi::Ipv6Option::IPV6_ADDRFORM.0,
+            )
+        {
+            let peer = g.peer.map(|p| p.ip());
+            g.opts.addrform(&self.net, value, peer, false)?;
+            if let Some(local) = g.local {
+                self.net
+                    .state()
+                    .udp
+                    .set_family(self.id, local.port(), Domain::Inet);
+            }
+            self.domain.store(Domain::Inet as u8, Ordering::Release);
+            return Ok(());
+        }
         if crate::mcast::handles(level, name) {
             return g.opts.set_mcast(&self.net, level, name, value);
         }

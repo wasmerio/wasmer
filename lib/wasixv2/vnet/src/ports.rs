@@ -297,6 +297,13 @@ impl<T: Clone> PortTable<T> {
         }
     }
 
+    /// IPV6_ADDRFORM changes IPv4 lookup precedence without changing the binding.
+    pub(crate) fn set_family(&mut self, id: SockId, port: u16, family: Domain) {
+        if let Some(e) = self.entry_mut(id, port) {
+            e.spec.family = family;
+        }
+    }
+
     pub fn unbind(&mut self, id: SockId, port: u16) {
         if let Some(bucket) = self.buckets.get_mut(&port) {
             bucket.retain(|e| e.id != id);

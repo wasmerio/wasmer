@@ -3242,3 +3242,57 @@ fn ipv6_mtu_limits_unfragmented_datagrams() {
     assert_eq!(send(&*s, &vec![0; 1232]), Ok(1232));
     assert_eq!(recv(&*s, 2000).unwrap().len(), 1232);
 }
+
+/// Linux v6.12 net/ipv6/ipv6_sockglue.c do_ipv6_setsockopt:
+/// only an established IPv4-mapped TCP/UDP socket can become AF_INET.
+#[test]
+fn ipv6_addrform_converts_mapped_connections() {
+    use wasixv2_abi::{AddressFamily, Ipv6Option, SocketLevel};
+    let level = SocketLevel::SOL_IPV6.0;
+    let name = Ipv6Option::IPV6_ADDRFORM.0;
+    let inet = AddressFamily::AF_INET.0.to_le_bytes();
+    let n = net();
+    for kind in [SocketKind::Stream, SocketKind::Datagram] {
+        let s = n.socket(Domain::Inet6, kind, 0, UID).unwrap();
+        assert_eq!(s.set_option(level, name, &[0; 3]), Err(Errno::EINVAL));
+        assert_eq!(s.set_option(level, name, &inet), Err(Errno::ENOTCONN));
+        assert_eq!(
+            s.set_option(level, name, &10i32.to_le_bytes()),
+            Err(Errno::EINVAL)
+        );
+        let receiver = n.socket(Domain::Inet, kind, 0, UID).unwrap();
+        receiver.bind(a("127.0.0.1:19004"), false).unwrap();
+        if kind == SocketKind::Stream {
+            receiver.listen(1).unwrap();
+        }
+        s.connect(a("[::ffff:127.0.0.1]:19004")).unwrap();
+        let peer = if kind == SocketKind::Stream {
+            receiver.accept().unwrap().socket
+        } else {
+            receiver.clone()
+        };
+        s.set_option(level, name, &inet).unwrap();
+        assert_eq!(s.domain(), Domain::Inet);
+        assert!(s.local_addr().unwrap().is_ipv4());
+        assert!(s.peer_addr().unwrap().is_ipv4());
+        assert_eq!(s.set_option(level, name, &inet), Err(Errno::ENOPROTOOPT));
+        send(&*s, b"converted").unwrap();
+        assert_eq!(recv(&*peer, 64).unwrap(), b"converted");
+        s.disconnect().unwrap();
+        if kind == SocketKind::Stream {
+            // LTP connect02's converted socket is reusable as an IPv4 listener.
+            s.bind(a("127.0.0.1:0"), false).unwrap();
+            s.listen(1).unwrap();
+            let client = tcp(&n);
+            client.connect(s.local_addr().unwrap()).unwrap();
+            assert_eq!(s.accept().unwrap().socket.domain(), Domain::Inet);
+        }
+    }
+    let s = n
+        .socket(Domain::Inet6, SocketKind::Datagram, 0, UID)
+        .unwrap();
+    s.connect(a("[::1]:19005")).unwrap();
+    assert_eq!(s.set_option(level, name, &inet), Err(Errno::EADDRNOTAVAIL));
+    let raw = n.socket(Domain::Inet6, SocketKind::Raw, 253, UID).unwrap();
+    assert_eq!(raw.set_option(level, name, &inet), Err(Errno::ENOPROTOOPT));
+}

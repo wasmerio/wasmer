@@ -874,6 +874,20 @@ impl Mcast {
         }
     }
 
+    /// IPV6_ADDRFORM releases only IPv6 memberships (__ipv6_sock_mc_close).
+    pub(crate) fn drop_ipv6(&mut self, net: &Net) {
+        net.update_interfaces(|ifs| {
+            self.groups.retain(|m| {
+                if m.group.is_ipv6() {
+                    ifs.leave_group(m.ifindex, m.group, m.id);
+                    false
+                } else {
+                    true
+                }
+            });
+        });
+    }
+
     pub(crate) fn drop_all(&mut self, net: &Net) {
         if self.groups.is_empty() {
             return;
