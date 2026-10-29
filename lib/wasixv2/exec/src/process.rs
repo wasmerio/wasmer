@@ -596,6 +596,8 @@ mod tests {
         pending: Mutex<HashMap<TaskId, VecDeque<GuestAction>>>,
         faulted: Mutex<Vec<(TaskId, i32)>>,
         released: Mutex<Vec<TaskId>>,
+        /// The tasks that left their memory and the ones that faulted, in order.
+        ended: Mutex<Vec<(&'static str, TaskId)>>,
     }
 
     impl Recorder {
@@ -617,6 +619,7 @@ mod tests {
         }
 
         fn fault(&self, task: TaskId, signal: i32) -> bool {
+            self.ended.lock().unwrap().push(("fault", task));
             self.faulted.lock().unwrap().push((task, signal));
             self.queue(task, GuestAction::Exit(128 + signal));
             true
@@ -632,7 +635,8 @@ mod tests {
     impl PidView for Recorder {}
 
     impl ExitMm for Recorder {
-        fn exit_mm<'a>(&'a self, _: &'a Caller<'a>) -> LocalFuture<'a, ()> {
+        fn exit_mm<'a>(&'a self, caller: &'a Caller<'a>) -> LocalFuture<'a, ()> {
+            self.ended.lock().unwrap().push(("exit_mm", caller.task()));
             Box::pin(async {})
         }
     }
@@ -716,6 +720,30 @@ mod tests {
     /// A trap of a vfork child whose parent's image went on in another instance ends the child
     /// alone: the parent is neither killed nor released here, as the run that took it over
     /// owns it.
+    /// A trap kills the task as any fatal signal does on Linux, whose `do_exit` runs `exit_mm`
+    /// (`mm_release`: the robust futex list, `clear_child_tid` and its futex wake) for every
+    /// exit: the instance hands the kernel the task's memory, still there, before the fault
+    /// ends the group.
+    #[cfg(feature = "sys")]
+    #[test]
+    fn a_trapped_task_leaves_its_memory_before_its_fault_kills_the_group() {
+        let wasm = wat::parse_str(
+            r#"(module
+                (import "wasixv2" "sched_yield" (func (result i32)))
+                (memory (export "memory") 1)
+                (func (export "_start") unreachable))"#,
+        )
+        .unwrap();
+        let store = Store::default();
+        let module = wasmer::Module::new(&store, wasm).unwrap();
+        let control = Arc::new(Recorder::default());
+        let run = crate::run(store, &module, control.clone(), PARENT, Arc::new(NoThreads));
+        let status = futures::executor::block_on(run).unwrap();
+        assert_eq!(status, 128 + Signal::SIGILL.0);
+        let ended = control.ended.lock().unwrap();
+        assert_eq!(ended[..2], [("exit_mm", PARENT), ("fault", PARENT)]);
+    }
+
     #[test]
     fn a_trap_of_a_detached_vfork_child_leaves_its_parent_alone() {
         let control = Recorder::default();
