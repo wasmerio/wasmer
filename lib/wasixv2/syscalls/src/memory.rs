@@ -41,7 +41,8 @@ impl<const OK: bool> Future for Copied<OK> {
 }
 
 /// The calling task's address space, read and written the way Linux's `copy_{from,to}_user` do:
-/// a copy that touches a page its address space's [`PageAccess`] keeps from it faults.
+/// a copy that touches the low guard or a page its address space's [`PageAccess`] keeps from
+/// it faults. This is independent of the guest's own loads, which may read the low guard.
 pub trait UserMemory {
     fn read<'a>(&'a self, addr: u32, buf: &'a mut [u8]) -> LocalFuture<'a, Result<(), Fault>>;
     fn write<'a>(&'a self, addr: u32, data: &'a [u8]) -> LocalFuture<'a, Result<(), Fault>>;
@@ -92,10 +93,9 @@ pub trait UserMemory {
     }
 
     /// Bytes at the bottom of the address space the host keeps as the low guard, 0 for none:
-    /// they stand for the pages below `mmap_min_addr` that Linux never maps. Writes there fail
-    /// with [`Fault`]; reads go through, as the guest's own loads read zeros there (see
-    /// DESIGN.md, "Guard page at 0"), so a kernel path that Linux would fault on a read checks
-    /// this itself.
+    /// they stand for the pages below `mmap_min_addr` that Linux never maps. Ordinary reads
+    /// and writes there fail with [`Fault`]. The guest's own loads can still read zeros there
+    /// for LLVM's null-va_list compatibility (DESIGN.md, "Guard page at 0").
     fn low_guard(&self) -> LocalFuture<'_, u32> {
         Box::pin(async { 0 })
     }
