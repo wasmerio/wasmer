@@ -68,6 +68,8 @@ pub trait FilesystemType: Send + Sync {
 pub(super) enum FsType {
     /// procfs: every mount is a new instance over the same kernel.
     Proc,
+    /// sysfs: every mount shows the network namespace of whoever mounted it.
+    Sys,
     Other(Arc<dyn FilesystemType>),
 }
 
@@ -80,7 +82,10 @@ impl Registry {
     /// The kernel's own mountable types.
     pub(crate) fn new() -> Arc<Self> {
         Arc::new(Self {
-            types: Mutex::new(vec![("proc".into(), FsType::Proc)]),
+            types: Mutex::new(vec![
+                ("proc".into(), FsType::Proc),
+                ("sysfs".into(), FsType::Sys),
+            ]),
         })
     }
 
@@ -394,6 +399,10 @@ impl Kernel {
             // `proc_init_fs_context`: the instance shows the mounter's pid namespace.
             FsType::Proc => match params.is_empty() {
                 true => self.procfs_in(self.active_pid_ns(TaskId(env.task))),
+                false => return Err(Errno::EINVAL),
+            },
+            FsType::Sys => match params.is_empty() {
+                true => self.sysfs_of(self.task_ref(TaskId(env.task), |t| t.ns.net.clone())),
                 false => return Err(Errno::EINVAL),
             },
             FsType::Other(ty) => ty.mount(source.as_deref().unwrap_or(b""), &params, &env.cred)?,

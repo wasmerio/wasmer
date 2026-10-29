@@ -39,6 +39,7 @@ mod socket;
 mod startup;
 mod stdio;
 mod sync;
+mod sysfs;
 mod thread;
 mod time;
 mod timer;

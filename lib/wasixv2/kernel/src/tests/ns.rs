@@ -1225,3 +1225,65 @@ fn route_requests_change_the_routing_table() {
         Errno::EAFNOSUPPORT
     );
 }
+
+/// A sysfs mount shows the network namespace of whoever mounted it (`sysfs_get_tree`): the
+/// boot one the initial namespace's, one made after `unshare(CLONE_NEWNET | CLONE_NEWNS)` the
+/// new namespace's, as `ip netns exec` remounts `/sys` for.
+#[test]
+fn sysfs_shows_the_network_namespace_of_its_mount() {
+    let (kernel, task, memory) = networked();
+    let vfs = kernel.vfs().clone();
+    block_on(vfs.mount(b"/sys", kernel.sysfs(), MountFlags::default(), true)).unwrap();
+    let caller = Caller::new(task, &memory);
+    let read = |caller: &Caller<'_>, at: &str| read_text(&kernel, caller, at);
+    assert_eq!(read(&caller, "/sys/class/net/lo/ifindex"), "1\n");
+    assert_eq!(read(&caller, "/sys/class/net/lo/flags"), "0x9\n");
+    assert_eq!(read(&caller, "/sys/class/net/lo/operstate"), "unknown\n");
+    assert_eq!(
+        readlink(&kernel, &caller, "/sys/class/net/lo").unwrap(),
+        "../../devices/virtual/net/lo"
+    );
+
+    let child = fork(&kernel, &caller, CloneFlags(0));
+    let child_caller = Caller::new(child, &memory);
+    let flags = CloneFlags::CLONE_NEWNET | CloneFlags::CLONE_NEWNS;
+    assert_eq!(unshare(&kernel, &child_caller, flags), Ok(0));
+    assert_eq!(
+        read(&child_caller, "/sys/class/net/lo/flags"),
+        "0x9\n",
+        "still the old mount"
+    );
+    let cstr = |addr: u32, s: &str| {
+        put(&memory.0, addr, format!("{s}\0").as_bytes());
+        GuestPtr::new(addr)
+    };
+    let (source, target, fstype) = (
+        cstr(0x1100, "none"),
+        cstr(0x1200, "/sys"),
+        cstr(0x1300, "sysfs"),
+    );
+    let mount = kernel.mount(
+        &child_caller,
+        source,
+        target,
+        fstype,
+        wasixv2_abi::MountFlags(0),
+        GuestPtr::NULL,
+    );
+    assert_eq!(block_on(mount), Ok(0));
+    assert_eq!(read(&child_caller, "/sys/class/net/lo/flags"), "0x8\n");
+    assert_eq!(
+        errno(
+            open(&kernel, &child_caller, "/sys/class/net/lo/carrier").and_then(|fd| {
+                block_on(kernel.read(&child_caller, fd, UserSliceMut::new(0x5000, 64)))
+            })
+        ),
+        Errno::EINVAL,
+        "carrier_show of a down interface"
+    );
+    assert_eq!(
+        read(&caller, "/sys/class/net/lo/flags"),
+        "0x9\n",
+        "the parent's own"
+    );
+}
