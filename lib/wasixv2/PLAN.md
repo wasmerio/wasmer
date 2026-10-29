@@ -462,10 +462,19 @@ They build against the asyncify sysroot for the host `wasm32-unknown-linux-musl`
 CLI, `tar01`, `cpio01`, `unzip01` and `gzip01` pass as well; `fs_bind*` need the mount syscalls
 (branch `wasixv2/mounts`), `unshare01` new namespaces, and `killall` `pidfd_send_signal` on a
 `/proc/<pid>` directory.
+iproute2 7.3.0 (`ip`, `ss`) and net-tools 2.10 (`ifconfig`, `route`, `netstat`, `arp`,
+`hostname`) are built too, for the network tests, which configure interfaces, addresses, routes,
+veth pairs and namespaces (wasmer branch `wasixv2/net-config`). By hand on that branch (root, a
+`/lib/modules/<release>/modules.builtin` naming veth and dummy, `KCONFIG_PATH`): `netns_sysfs`,
+`netstat01` and, over a veth pair between namespaces, the TCP runs of `dccp01`/`sctp01` (both
+families) pass; tst_net.sh's two-namespace setup works for every net.* test. Still missing: `ping`
+(ICMP sockets; 16 netns tests and the ping tests skip, and `netns_breakns` passes once a `ping`
+exists), `tc` (not built: no queueing disciplines), the other link kinds (vxlan, vlan, gre, ...),
+multicast memberships, `IP_BIND_ADDRESS_NO_PORT`, socket inodes in `/proc/net/tcp` for `ss -p`,
+CONFIG_TUN, and the tools tcp_cmds names (arping, tcpdump, telnet, traceroute, lsmod, ...). The
+runner needs `/var/run` in the guest (`ip netns`), the modules file and `KCONFIG_PATH`.
 Not built: binutils and file (`file01`, `nm01`, `ld01` inspect ELF objects and `/bin/sh`, which
-are wasm modules here), iproute2 and net-tools (the network tests configure interfaces,
-addresses and namespaces, which the kernel's netlink does not change yet), `ldd` (no dynamic
-loader). With train 5, LTP's
+are wasm modules here), `ldd` (no dynamic loader). With train 5, LTP's
 `tst_test.sh` runs: du01, ln, mkdir, wc01, which01, tst_errexit and timeout01/02 pass; cp/mv pass
 but need the exec image cache (WP2).
 
