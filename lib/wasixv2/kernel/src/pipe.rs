@@ -967,7 +967,8 @@ impl Kernel {
             return Err(Errno::EINVAL.into());
         }
         let owner = self.cred(caller).fs_owner();
-        let status = flags & (OpenFlags::O_NONBLOCK | OpenFlags::O_DIRECT | OpenFlags::O_NOTIFICATION_PIPE);
+        let status =
+            flags & (OpenFlags::O_NONBLOCK | OpenFlags::O_DIRECT | OpenFlags::O_NOTIFICATION_PIPE);
         let [read, write] = self.pipe_files(self.new_pipe_size(caller), owner, status);
         let cloexec = flags.contains(OpenFlags::O_CLOEXEC);
         self.install_pair(caller, fildes, [read, write], cloexec)

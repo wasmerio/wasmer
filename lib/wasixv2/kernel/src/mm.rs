@@ -1600,7 +1600,6 @@ impl Kernel {
             Ok(pages) => Ok(Some(Source::Mapped(Mapped {
                 file: None,
                 pages,
-                file: None,
                 offset: 0,
                 segment: None,
                 writable: true,
@@ -2815,7 +2814,6 @@ fn check_file_mapping(
         return Ok(Source::Mapped(Mapped {
             file: Some(file.clone()),
             pages,
-            file: Some(file.clone()),
             offset,
             segment: None,
             writable,

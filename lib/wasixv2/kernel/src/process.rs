@@ -2105,7 +2105,8 @@ impl Kernel {
         self.with_task(task, |t| t.thread_keyring = None);
         // fs/exec.c:begin_new_exec/would_dump: unreadable or privileged images use suid_dumpable.
         let readable = binary.readable && executable.as_ref().is_none_or(|(_, file)| file.readable);
-        let dumpable = match readable && cred.user.effective == cred.user.real
+        let dumpable = match readable
+            && cred.user.effective == cred.user.real
             && cred.group.effective == cred.group.real
         {
             true => crate::ident::Dumpable::User,

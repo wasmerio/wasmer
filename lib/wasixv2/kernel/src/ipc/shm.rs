@@ -450,7 +450,6 @@ impl Kernel {
             Some(pages) => Source::Mapped(Mapped {
                 file: None,
                 pages,
-                file: None,
                 offset: 0,
                 segment: Some(attachment),
                 writable: !readonly,

@@ -218,7 +218,12 @@ impl Kernel {
             AddressFamily::AF_UNIX => {
                 let sock = self.unix_socket(caller, kind, protocol)?;
                 let owner = self.cred(caller).fs_owner();
-                return Ok(unix_file(sock, flags, self.pseudo.socket(owner), &self.sigio));
+                return Ok(unix_file(
+                    sock,
+                    flags,
+                    self.pseudo.socket(owner),
+                    &self.sigio,
+                ));
             }
             AddressFamily::AF_NETLINK => {
                 return self

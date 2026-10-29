@@ -68,11 +68,9 @@ pub(crate) enum Source {
 /// A mapping of a shared object's pages ([`UserMemory::map_shared`]).
 #[derive(Clone)]
 pub(crate) struct Mapped {
-    /// File provenance for proc/core VMA metadata, absent for anonymous/SysV objects.
+    /// File provenance for proc/core VMA metadata and growth accounting, absent for anonymous/SysV objects.
     pub(crate) file: Option<Arc<OpenFile>>,
     pub(crate) pages: Arc<dyn SharedPages>,
-    /// File whose newly materialized ranges must be charged on growth.
-    pub(crate) file: Option<Arc<OpenFile>>,
     /// Where in the object the mapping starts.
     pub(crate) offset: u64,
     /// For a SysV segment attachment, the attachment it is a part of.

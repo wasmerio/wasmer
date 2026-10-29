@@ -125,7 +125,6 @@ const FILTER_FLAGS: u32 = SeccompFilterFlags::SECCOMP_FILTER_FLAG_TSYNC.0
 /// One attached filter (`struct seccomp_filter`), with the filters attached before it.
 pub(crate) struct Filter {
     prog: bpf::Program,
-    log: bool,
     prev: Option<Arc<Filter>>,
     /// Its user notifications, if installed with `SECCOMP_FILTER_FLAG_NEW_LISTENER`.
     notif: Option<Arc<notify::Notif>>,
@@ -717,7 +716,6 @@ impl Kernel {
         }
         let filter = Arc::new(Filter {
             prog,
-            log: flags.contains(SeccompFilterFlags::SECCOMP_FILTER_FLAG_LOG),
             prev: me.seccomp.filter.take(),
             notif: listener.as_ref().map(|(_, n)| n.clone()),
             log: flags.contains(SeccompFilterFlags::SECCOMP_FILTER_FLAG_LOG),
