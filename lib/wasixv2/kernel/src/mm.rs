@@ -2075,6 +2075,10 @@ impl Kernel {
         if len == 0 {
             return Ok(0);
         }
+        // mm/mprotect.c do_mprotect_pkey: the unmapped NULL range has no VMA to protect.
+        if start < caller.memory().low_guard().await {
+            return Err(Errno::ENOMEM.into());
+        }
         let mm = self.mm(caller.task());
         let _op = mm.op.lock().await;
         self.check_mapped(caller, start.into(), len.into()).await?;
