@@ -27,6 +27,7 @@ const SEARCH: i32 = 10;
 const READ: i32 = 11;
 const SET_TIMEOUT: i32 = 15;
 const INVALIDATE: i32 = 21;
+const GET_SECURITY: i32 = 17;
 const GET_PERSISTENT: i32 = 22;
 const CAPABILITIES: i32 = 31;
 
@@ -470,6 +471,30 @@ fn capabilities_and_unconfigured_operations() {
         Errno::EOPNOTSUPP
     );
     assert_eq!(errno(t.keyctl(99, 0, 0, 0, 0)), Errno::EOPNOTSUPP);
+}
+
+/// security/keys/keyctl.c:keyctl_get_security falls back to the request-key auth token.
+#[test]
+fn get_security_without_view_returns_the_missing_auth_token_error() {
+    let (kernel, task, memory) = machine();
+    let t = T::new(&kernel, task, &memory);
+    let key = t.add("user", "security", b"value", SESSION).unwrap();
+    assert_eq!(t.keyctl(GET_SECURITY, key as u32, 0x3000, 1, 0), Ok(1));
+    assert_eq!(get(&memory, 0x3000, 1), [0]);
+    assert_eq!(t.keyctl(SETPERM, key as u32, 0x3e3e0000, 0, 0), Ok(0));
+    assert_eq!(
+        errno(t.keyctl(GET_SECURITY, key as u32, 0x3000, 1, 0)),
+        Errno::ENOKEY
+    );
+    assert_eq!(
+        errno(t.keyctl(GET_SECURITY, i32::MAX as u32, 0, 0, 0)),
+        Errno::ENOKEY
+    );
+    assert_eq!(t.keyctl(REVOKE, key as u32, 0, 0, 0), Ok(0));
+    assert_eq!(
+        errno(t.keyctl(GET_SECURITY, key as u32, 0, 0, 0)),
+        Errno::EKEYREVOKED
+    );
 }
 
 /// Linux security/keys/sysctl.c exposes the configured tunables as global 0644 integers.
