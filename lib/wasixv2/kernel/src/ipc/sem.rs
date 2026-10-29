@@ -619,8 +619,9 @@ impl Kernel {
 
     /// `exit_sem` for a process that is gone, in the IPC namespace its adjustments are in.
     pub(crate) fn ipc_process_exited(&self, process: &Process) {
-        let ipc = process.sysvsem.lock_or_recover().clone();
-        ipc.sem.exit(&self.pids.get(process.pid.0), self.ipc_now());
+        if let Some(ipc) = process.sysvsem.lock_or_recover().take() {
+            ipc.sem.exit(&self.pids.get(process.pid.0), self.ipc_now());
+        }
     }
 }
 

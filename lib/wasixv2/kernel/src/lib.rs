@@ -242,8 +242,10 @@ struct Process {
     // ---- ns ----
     /// The pid namespace the process is in (`task_active_pid_ns`), for its whole life.
     pid_ns: Arc<ns::PidNs>,
-    /// The IPC namespace whose semaphores the process's adjustments are for (`sysvsem`).
-    sysvsem: Mutex<Arc<ns::IpcNs>>,
+    /// The IPC namespace whose semaphores the process's adjustments are for (`sysvsem`), until
+    /// its last task applied them on its way out (`exit_sem`), so a process that is gone holds
+    /// no namespace, as Linux's `exit_task_namespaces` lets it go.
+    sysvsem: Mutex<Option<Arc<ns::IpcNs>>>,
 }
 
 struct Task {
@@ -466,7 +468,7 @@ impl Kernel {
             cred: Mutex::new(cred),
             resources: Mutex::default(),
             pid_ns,
-            sysvsem: Mutex::new(self.init_ns.ipc.clone()),
+            sysvsem: Mutex::new(Some(self.init_ns.ipc.clone())),
             args: Mutex::new(args.into_iter().map(String::into_bytes).collect()),
             env: Mutex::new(env.into_iter().map(String::into_bytes).collect()),
             exe: Mutex::new(None),
