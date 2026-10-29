@@ -417,13 +417,31 @@ impl Kernel {
 
     /// Objective credentials (`include/linux/cred.h: __task_cred`), ignoring overrides.
     pub(crate) fn task_cred(&self, task: wasixv2_syscalls::TaskId) -> std::sync::Arc<Cred> {
+        self.find_task_cred(task)
+            .expect("credentials of an unknown task")
+    }
+
+    fn find_task_cred(&self, task: wasixv2_syscalls::TaskId) -> Option<std::sync::Arc<Cred>> {
         let state = self.state.read_or_recover();
         state
             .tasks
             .get(&task)
             .map(|t| t.cred.clone())
             .or_else(|| state.retired_creds.get(&task).cloned())
-            .expect("credentials of an unknown task")
+    }
+
+    /// `find_task_by_vpid` + `get_task_cred`, including an unreaped zombie leader.
+    pub(crate) fn pid_cred(
+        &self,
+        caller: &Caller<'_>,
+        pid: Pid,
+    ) -> Result<std::sync::Arc<Cred>, Errno> {
+        let task = if pid == 0 {
+            caller.task()
+        } else {
+            wasixv2_syscalls::TaskId(self.find_vpid(caller, pid).ok_or(Errno::ESRCH)?)
+        };
+        self.find_task_cred(task).ok_or(Errno::ESRCH)
     }
 
     /// Linux kernel/cred.c `commit_creds`: publish a prepared immutable snapshot.
@@ -606,12 +624,7 @@ impl Kernel {
         if hdr.pid < 0 {
             return Err(Errno::EINVAL.into());
         }
-        let target = if hdr.pid == 0 {
-            caller.task()
-        } else {
-            wasixv2_syscalls::TaskId(self.find_vpid(caller, hdr.pid).ok_or(Errno::ESRCH)?)
-        };
-        let cred = self.task_cred(target);
+        let cred = self.pid_cred(caller, hdr.pid)?;
         for word in 0..words {
             let shift = 32 * word;
             let set = UserCapDataStruct {

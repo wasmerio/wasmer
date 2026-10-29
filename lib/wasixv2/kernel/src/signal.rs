@@ -2286,8 +2286,8 @@ impl Kernel {
                 let (code, info) = state.leave_trace_stop(task);
                 if kind == crate::ptrace::SyncStop::Signal {
                     drop(state);
-                    let info =
-                        info.map(|info| self.ptrace_signal_info(&process, tracer, code, info));
+                    let info = info
+                        .map(|info| self.ptrace_signal_info(task, &process, tracer, code, info));
                     state = signals.group.state.lock_or_recover();
                     if !state.tasks.contains_key(&task) {
                         return None;
@@ -2584,6 +2584,7 @@ impl Kernel {
     /// `PTRACE_SETSIGINFO` left it) for its own number, else `code` as sent by the tracer.
     fn ptrace_signal_info(
         &self,
+        task: TaskId,
         process: &Process,
         tracer: Option<TaskId>,
         code: i32,
@@ -2597,12 +2598,9 @@ impl Kernel {
         }
         // The tracer's pid in the tracee's namespace and its uid as the tracee sees it.
         let (pid, uid) = match tracer.and_then(|t| self.task_process(t).map(|p| (t, p))) {
-            Some((tracer, them)) => {
-                let cred = self.task_cred(them.pid);
-                let uid = self
-                    .task_cred(process.pid)
-                    .user_ns
-                    .munged_uid(cred.user.real);
+            Some((tracer, _them)) => {
+                let cred = self.task_cred(tracer);
+                let uid = self.task_cred(task).user_ns.munged_uid(cred.user.real);
                 (self.pids.nr(&process.pid_ns, tracer.0), uid)
             }
             None => (0, 0),
@@ -2991,7 +2989,11 @@ impl Kernel {
     fn may_signal(&self, sender: Option<&Sender>, target: u32, sig: i32) -> bool {
         let target_cred = {
             let state = self.state.read_or_recover();
-            state.tasks.get(&TaskId(target)).map(|t| t.cred.clone())
+            state
+                .tasks
+                .get(&TaskId(target))
+                .map(|t| t.cred.clone())
+                .or_else(|| state.retired_creds.get(&TaskId(target)).cloned())
         };
         let (Some(sender), Some(target)) = (
             sender,
@@ -3055,7 +3057,7 @@ impl Kernel {
             return Err(Errno::ESRCH);
         };
         check_sendable(info.si_signo)?;
-        if !self.may_signal(sender, *leader, info.si_signo) {
+        if !self.may_signal(sender, pid, info.si_signo) {
             return Err(Errno::EPERM);
         }
         match info.si_signo {
@@ -3193,7 +3195,15 @@ impl Kernel {
         let sender = self.signal_sender(caller.task());
         let mut sent = false;
         for (target, group) in targets {
-            if !self.may_signal(Some(&sender), target, sig.0) {
+            if !self.may_signal(
+                Some(&sender),
+                if pid > 0 {
+                    ns.find(pid).unwrap_or(target)
+                } else {
+                    target
+                },
+                sig.0,
+            ) {
                 continue;
             }
             sent = true;

@@ -533,3 +533,28 @@ fn suid_dumpable_decides_what_a_credential_change_leaves() {
             .is_err()
     );
 }
+
+/// kernel/capability.c cap_get_target_pid names a task, including a nonleader tid.
+#[test]
+fn capget_of_a_tid_reads_that_threads_credentials() {
+    let (kernel, task, memory) = machine_as(0, 0);
+    let caller = Caller::new(task, &memory);
+    let tid =
+        block_on(kernel.thread_spawn(&caller, 0x10f00, 0, GuestPtrMut::NULL, 0, GuestPtrMut::NULL))
+            .unwrap();
+    let worker = Caller::new(TaskId(tid as u32), &memory);
+    assert_eq!(block_on(kernel.setuid(&worker, 1000)), Ok(0));
+    put(&memory, CAP_HEADER, &CAPABILITY_V3.to_le_bytes());
+    put(&memory, CAP_HEADER + 4, &tid.to_le_bytes());
+    assert_eq!(
+        block_on(kernel.capget(
+            &caller,
+            UserCapHeaderPtr::new(CAP_HEADER),
+            UserCapDataArray::new(CAP_DATA)
+        )),
+        Ok(0)
+    );
+    assert_eq!(word(&memory, CAP_DATA), 0);
+    assert_eq!(word(&memory, CAP_DATA + 4), 0);
+    assert_eq!(block_on(kernel.getuid(&caller)), Ok(0));
+}

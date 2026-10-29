@@ -386,7 +386,7 @@ impl Source {
             return Vec::new();
         };
         let ctx = crate::keys::Ctx {
-            cred: task.cred.clone(),
+            cred: task.cred_override.as_ref().unwrap_or(&task.cred).clone(),
             now: self.host.realtime().as_secs(),
         };
         drop(state);
@@ -403,10 +403,18 @@ impl Source {
             .or_else(|| state.retired_creds.get(&TaskId(tid)).cloned())
     }
 
+    /// `current_cred` for an opener; targets use `cred_of` (`__task_cred`).
+    fn opener_cred(&self, tid: u32) -> Option<Arc<crate::cred::Cred>> {
+        let state = self.state.upgrade()?;
+        let state = state.read_or_recover();
+        let task = state.tasks.get(&TaskId(tid))?;
+        Some(task.cred_override.as_ref().unwrap_or(&task.cred).clone())
+    }
+
     /// The user namespace of the task `tid`, which opens a file and sees its ids through it
     /// (`seq_user_ns`); without the task, the one that owns the instance's pid namespace.
     fn user_ns_of(&self, tid: u32) -> Arc<UserNs> {
-        let ns = self.cred_of(tid).map(|cred| cred.user_ns.clone());
+        let ns = self.opener_cred(tid).map(|cred| cred.user_ns.clone());
         ns.unwrap_or_else(|| {
             self.pid_ns
                 .owner_ns()

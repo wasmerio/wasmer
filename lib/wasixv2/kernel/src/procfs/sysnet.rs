@@ -745,7 +745,7 @@ impl Node for SysNetNode {
             return Err(Errno::EACCES);
         }
         // The embedder has every capability.
-        let Some(cred) = self.source.cred_of(task) else {
+        let Some(cred) = self.source.opener_cred(task) else {
             return Ok(());
         };
         let mut mode = value.mode();
@@ -803,7 +803,7 @@ impl Node for SysNetNode {
             return Ok(Box::new(DirHandle(children)));
         }
         let value = self.entry.value().ok_or(Errno::EISDIR)?;
-        let cred = self.source.cred_of(options.task);
+        let cred = self.source.opener_cred(options.task);
         let opener_ns = cred.as_ref().map(|cred| cred.user_ns.clone());
         let (text, v6, dev) = self.value(&net, opener_ns.as_deref())?;
         let net_admin = cred.is_none_or(|cred| net_admin(&cred, &net));

@@ -1466,3 +1466,92 @@ fn a_nonleader_exec_keeps_its_credentials_on_the_surviving_leader() {
         1000
     );
 }
+
+/// Linux copy_creds inherits current, and permission checks use the named target task.
+#[test]
+fn worker_forks_and_signal_ptrace_checks_use_the_named_tasks_credentials() {
+    let (kernel, leader, flat) = super::cred::machine_as(0, 0);
+    let memory = super::proc::ForkableMemory(flat);
+    let main = Caller::new(leader, &memory);
+    let worker = spawn_thread(&kernel, &main);
+    let thread = Caller::new(worker, &memory);
+    assert_eq!(block_on(kernel.setgid(&thread, 100)), Ok(0));
+    assert_eq!(block_on(kernel.setuid(&thread, 1000)), Ok(0));
+    let fork = block_on(kernel.clone(
+        &thread,
+        Signal::SIGCHLD.0 as u32,
+        0,
+        GuestPtrMut::NULL,
+        0,
+        GuestPtrMut::NULL,
+    ))
+    .unwrap();
+    let child = Caller::new(TaskId(fork as u32), &memory);
+    assert_eq!(block_on(kernel.getuid(&child)), Ok(1000));
+    assert_eq!(block_on(kernel.getgid(&child)), Ok(100));
+    assert_eq!(block_on(kernel.getuid(&main)), Ok(0));
+    assert_eq!(
+        block_on(kernel.prctl(&main, PrctlOption::PR_SET_DUMPABLE, 1, 0, 0, 0)),
+        Ok(0)
+    );
+    assert_eq!(
+        block_on(kernel.sys_kill(&child, kernel.own_tid(worker), Signal(0))),
+        Ok(0)
+    );
+    assert_eq!(
+        errno(block_on(kernel.sys_kill(
+            &child,
+            kernel.own_tid(leader),
+            Signal(0)
+        ))),
+        Errno::EPERM
+    );
+    assert!(kernel.ptrace_may_access(child.task(), worker, crate::ptrace::MODE_READ_REALCREDS));
+    assert!(!kernel.ptrace_may_access(child.task(), leader, crate::ptrace::MODE_READ_REALCREDS));
+}
+
+/// kernel/fork.c copy_process counts tasks by each task's real uid against RLIMIT_NPROC.
+#[test]
+fn nproc_counts_each_threads_real_uid() {
+    let (kernel, leader, memory) = super::cred::machine_as(0, 0);
+    let main = Caller::new(leader, &memory);
+    let worker = spawn_thread(&kernel, &main);
+    let thread = Caller::new(worker, &memory);
+    let limit = wasixv2_abi::Rlimit64 {
+        rlim_cur: 2,
+        rlim_max: 2,
+    };
+    block_on(write_value(&memory, GuestPtrMut::new(0x400), &limit)).unwrap();
+    assert_eq!(
+        block_on(kernel.prlimit64(
+            &main,
+            0,
+            wasixv2_abi::RlimitResource::RLIMIT_NPROC,
+            GuestPtr::new(0x400),
+            GuestPtrMut::NULL
+        )),
+        Ok(0)
+    );
+    assert_eq!(block_on(kernel.setuid(&thread, 1000)), Ok(0));
+    let child = spawn_thread(&kernel, &thread);
+    assert_eq!(
+        block_on(kernel.getuid(&Caller::new(child, &memory))),
+        Ok(1000)
+    );
+    let third = kernel.thread_spawn(&thread, THREAD, 0, GuestPtrMut::NULL, 0, GuestPtrMut::NULL);
+    assert_eq!(errno(block_on(third)), Errno::EAGAIN);
+}
+
+/// libc2 __setxid uses __synccall to issue the same raw syscall on each thread.
+#[test]
+fn broadcasting_raw_setids_converges_all_threads() {
+    let (kernel, leader, memory) = super::cred::machine_as(0, 0);
+    let main = Caller::new(leader, &memory);
+    let worker = spawn_thread(&kernel, &main);
+    for task in [worker, leader] {
+        let caller = Caller::new(task, &memory);
+        assert_eq!(block_on(kernel.setgid(&caller, 100)), Ok(0));
+        assert_eq!(block_on(kernel.setuid(&caller, 1000)), Ok(0));
+    }
+    assert_eq!(*kernel.task_cred(leader), *kernel.task_cred(worker));
+}

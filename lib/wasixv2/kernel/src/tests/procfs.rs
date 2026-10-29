@@ -1205,3 +1205,58 @@ fn io_files_distinguish_threads_and_keep_retired_counts() {
     let grandchild = super::proc::fork_child(&kernel, &Caller::new(child, &fork_memory));
     assert_eq!(counts(&format!("/proc/{}/io", grandchild.0)), (0, 0));
 }
+
+/// fs/proc/array.c task_state uses __task_cred; base.c task_dump_owner uses that task too.
+#[test]
+fn status_and_directory_owners_use_the_named_threads_credentials() {
+    let (kernel, leader, memory) = super::cred::machine_as(0, 0);
+    block_on(
+        kernel
+            .vfs()
+            .mount(b"/proc", kernel.procfs(), MountFlags::default(), true),
+    )
+    .unwrap();
+    let main = T::new(&kernel, leader, &memory);
+    let worker = TaskId(
+        block_on(kernel.thread_spawn(
+            &main.caller,
+            0x10f00,
+            0,
+            GuestPtrMut::NULL,
+            0,
+            GuestPtrMut::NULL,
+        ))
+        .unwrap() as u32,
+    );
+    let caller = Caller::new(worker, &memory);
+    put(
+        &memory,
+        0x400,
+        &[22u32.to_le_bytes(), 33u32.to_le_bytes()].concat(),
+    );
+    assert_eq!(
+        block_on(kernel.setgroups(&caller, 2, GuestPtr::new(0x400))),
+        Ok(0)
+    );
+    assert_eq!(block_on(kernel.setresgid(&caller, 100, 101, 102)), Ok(0));
+    assert_eq!(block_on(kernel.setresuid(&caller, 1000, 1001, 1002)), Ok(0));
+    assert_eq!(
+        block_on(kernel.prctl(&main.caller, PrctlOption::PR_SET_DUMPABLE, 1, 0, 0, 0)),
+        Ok(0)
+    );
+    let dir = format!("/proc/{}/task/{}", leader.0, worker.0);
+    let fd = main
+        .open(&format!("{dir}/status"), OpenFlags::O_RDONLY)
+        .unwrap();
+    let text = main.read_all(fd);
+    assert!(text.contains("Uid:\t1000\t1001\t1002\t1001\n"), "{text}");
+    assert!(text.contains("Gid:\t100\t101\t102\t101\n"), "{text}");
+    assert!(text.contains("Groups:\t22 33 \n"), "{text}");
+    assert!(text.contains("CapEff:\t0000000000000000\n"), "{text}");
+    let attr = main.stat(&dir, AtFlags(0)).unwrap();
+    assert_eq!((attr.stx_uid, attr.stx_gid), (1001, 101));
+    let fd = main.open("/proc/self/status", OpenFlags::O_RDONLY).unwrap();
+    assert!(main.read_all(fd).contains("Uid:\t0\t0\t0\t0\n"));
+    let attr = main.stat("/proc/self", AtFlags(0)).unwrap();
+    assert_eq!((attr.stx_uid, attr.stx_gid), (0, 0));
+}
