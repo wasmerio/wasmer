@@ -229,6 +229,7 @@ struct Process {
     /// The file the image was loaded from (`mm->exe_file`); `None` for a process the embedder
     /// started from bytes.
     exe: Mutex<Option<wasixv2_vfs::Path>>,
+    exe_write_access: Mutex<Option<Arc<wasixv2_vfs::ExecAccess>>>,
     // ---- thr ----
     group: thread::Group,
     // ---- base ----
@@ -501,6 +502,7 @@ impl Kernel {
             args: Mutex::new(args.into_iter().map(String::into_bytes).collect()),
             env: Mutex::new(env.into_iter().map(String::into_bytes).collect()),
             exe: Mutex::new(None),
+            exe_write_access: Mutex::new(None),
             group: thread::Group::new(),
         });
         let flag = Arc::new(WorkFlag::default());

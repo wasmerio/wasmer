@@ -42,7 +42,7 @@ pub use fileattr::{
     FS_APPEND_FL, FS_IMMUTABLE_FL, FS_NOATIME_FL, FS_NODUMP_FL, FS_XFLAG_RDONLY_MASK,
     FS_XFLAGS_MASK, FileKattr,
 };
-pub use inode::{Bound, Inode};
+pub use inode::{Bound, ExecAccess, Inode};
 pub use locks::{
     FlockOp, LeaseHolder, LeaseWait, LockKey, LockKind, LockManager, LockOwner, RangeLock,
 };
@@ -301,6 +301,18 @@ impl Vfs {
             .unwrap()
             .entry(dev)
             .or_insert_with(|| anon_dev(&self.next_anon))
+    }
+
+    /// include/linux/fs.h exe_file_deny_write_access exempts pre-content-watched files.
+    /// Capture that decision once at executable open, so later mark changes do not alter
+    /// which writecount reference must be returned.
+    pub fn exec_access(&self, path: &Path) -> Result<Option<Arc<ExecAccess>>, Errno> {
+        if path.dentry.sb().fs.allow_hsm()
+            && self.watching().is_some_and(|w| w.pre_content_watch(path))
+        {
+            return Ok(None);
+        }
+        path.dentry.inode().deny_write_access().map(Some)
     }
 
     /// The watcher, if it watches anything: reads and writes of unwatched files then cost no

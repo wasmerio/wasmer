@@ -627,3 +627,37 @@ fn a_rename_during_a_scoped_walk_makes_dotdot_fail_with_eagain() {
 
     assert!(matches!(poll(), Poll::Ready(Err(Errno::EAGAIN))));
 }
+
+/// include/linux/fs.h get_write_access/deny_write_access: positive writers and negative
+/// executable users exclude each other across opens and path truncation.
+#[test]
+fn executable_write_denials_exclude_writers_and_truncation() {
+    let w = World::new();
+    let writer = w.create(b"/prog");
+    let inode = writer.path.dentry.inode().clone();
+    assert!(matches!(inode.deny_write_access(), Err(Errno::ETXTBSY)));
+    drop(writer);
+    let exec = inode.deny_write_access().unwrap();
+    let other = inode.deny_write_access().unwrap();
+    for flags in [
+        OpenFlags::O_WRONLY,
+        OpenFlags::O_RDWR,
+        OpenFlags::O_RDONLY | OpenFlags::O_TRUNC,
+    ] {
+        assert_eq!(w.open(b"/prog", flags, true).err(), Some(Errno::ETXTBSY));
+    }
+    let path = w.lookup(b"/prog", LookupFlags::follow()).unwrap();
+    assert_eq!(
+        block_on(w.vfs.truncate(&w.cx(), &path, 0)),
+        Err(Errno::ETXTBSY)
+    );
+    assert!(w.open(b"/prog", OpenFlags::O_RDONLY, true).is_ok());
+    drop(exec);
+    assert_eq!(
+        w.open(b"/prog", OpenFlags::O_WRONLY, true).err(),
+        Some(Errno::ETXTBSY)
+    );
+    drop(other);
+    assert!(w.open(b"/prog", OpenFlags::O_WRONLY, true).is_ok());
+    assert_eq!(block_on(w.vfs.truncate(&w.cx(), &path, 0)), Ok(()));
+}

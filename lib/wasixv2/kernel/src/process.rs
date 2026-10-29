@@ -211,6 +211,7 @@ struct Binary {
     /// the caller's or above it (`mnt_may_suid`), and not with an owner the caller's user
     /// namespace does not map (`bprm_fill_uid`).
     may_setid: bool,
+    write_denial: Option<Arc<wasixv2_vfs::ExecAccess>>,
     /// Its size when it was opened.
     size: u64,
 }
@@ -1342,6 +1343,7 @@ impl Kernel {
                 args: Mutex::new(parent.args.lock_or_recover().clone()),
                 env: Mutex::new(parent.env.lock_or_recover().clone()),
                 exe: Mutex::new(parent.exe.lock_or_recover().clone()),
+                exe_write_access: Mutex::new(parent.exe_write_access.lock_or_recover().clone()),
                 group: thread::Group::new(),
                 start: self.host.monotonic(),
                 // A child's times start at zero, and it inherits no interval timers.
@@ -1669,6 +1671,8 @@ impl Kernel {
             return Err(Errno::EACCES.into());
         }
         self.vfs.permission(&env.cx(), &target, MAY_EXEC).await?;
+        // fs/exec.c do_open_execat: deny writers before reading any executable bytes.
+        let write_denial = self.vfs.exec_access(&target)?;
         let how = OpenHow {
             flags: OpenFlags::O_RDONLY | wasixv2_vfs::FMODE_EXEC,
             mode: 0,
@@ -1691,6 +1695,7 @@ impl Kernel {
             mode: attr.mode,
             owner,
             may_setid,
+            write_denial,
             size: attr.size,
             path: target,
         };
@@ -1783,10 +1788,13 @@ impl Kernel {
         let privileged = secure || cred.drops_dumpable(&old);
         *process.cred.lock_or_recover() = cred;
         let transparent = handover.at_flags() == AtFlagsBits::AT_FLAGS_TRANSPARENT_INTERP.0;
-        let exe = match &executable {
-            Some((_, executable)) if transparent => executable.path.clone(),
-            _ => binary.path,
+        let identity = match &executable {
+            Some((_, executable)) if transparent => executable,
+            _ => &binary,
         };
+        let exe = identity.path.clone();
+        // kernel/fork.c set_mm_exe_file: keep denial for the mm executable's lifetime.
+        *process.exe_write_access.lock_or_recover() = identity.write_denial.clone();
         *process.exe.lock_or_recover() = Some(exe);
         // `begin_new_exec`'s last step: the binary handed over goes in at the lowest free
         // descriptor, kept across a later `execve`. A table that has none fails the exec past

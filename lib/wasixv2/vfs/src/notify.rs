@@ -100,6 +100,11 @@ pub type PermAnswer = Pin<Box<dyn Future<Output = FsResult<()>>>>;
 pub trait FsWatcher: Send + Sync {
     fn event(&self, event: &FsEvent<'_>);
 
+    /// Whether opening this file sets FMODE_FSNOTIFY_HSM (fsnotify_open).
+    fn pre_content_watch(&self, _path: &Path) -> bool {
+        false
+    }
+
     /// Delivered after releasing the mount-tree lock, as namespace_unlock does.
     fn mount_event(&self, _event: MountEvent) {}
 

@@ -1246,3 +1246,96 @@ fn binfmt_misc_takes_credentials_from_the_binary_with_c() {
     assert_eq!(m.exec(b"/x.csu", &[b"c"]), Ok(0));
     assert_eq!(euid(), 1000);
 }
+
+#[test]
+fn executing_and_writing_a_file_are_mutually_exclusive_and_exit_releases_it() {
+    let (kernel, task, memory) = machine();
+    let caller = Caller::new(task, &memory);
+    install_prog(&kernel, &caller, &memory);
+    let open = |flags| block_on(kernel.openat(&caller, Fd(-100), GuestPtr::new(0x2000), flags, 0));
+    let writer = open(OpenFlags::O_WRONLY).unwrap();
+    let duplicate = block_on(kernel.dup(&caller, writer)).unwrap();
+    assert_eq!(
+        block_on(execve(&kernel, &caller)),
+        Err(SysErr::Errno(Errno::ETXTBSY))
+    );
+    block_on(kernel.close(&caller, writer)).unwrap();
+    assert_eq!(
+        block_on(execve(&kernel, &caller)),
+        Err(SysErr::Errno(Errno::ETXTBSY))
+    );
+    block_on(kernel.close(&caller, duplicate)).unwrap();
+    assert_eq!(block_on(execve(&kernel, &caller)), Ok(0));
+    assert_eq!(
+        open(OpenFlags::O_WRONLY),
+        Err(SysErr::Errno(Errno::ETXTBSY))
+    );
+    assert_eq!(
+        open(OpenFlags::O_RDONLY | OpenFlags::O_TRUNC),
+        Err(SysErr::Errno(Errno::ETXTBSY))
+    );
+    assert_eq!(
+        block_on(kernel.truncate64(&caller, GuestPtr::new(0x2000), 0)),
+        Err(SysErr::Errno(Errno::ETXTBSY))
+    );
+    block_on(kernel.exit_group(&caller, 0)).unwrap();
+    // A zombie retains its proc identity, but no longer denies writes.
+    assert!(open(OpenFlags::O_WRONLY).is_ok());
+}
+
+#[test]
+fn failed_exec_releases_write_denial_and_successful_reexec_releases_the_old_file() {
+    let (kernel, task, memory) = machine();
+    let caller = Caller::new(task, &memory);
+    install_prog(&kernel, &caller, &memory);
+    put(&memory, 0x3000, b"/bad\0");
+    let fd = block_on(kernel.openat(
+        &caller,
+        Fd(-100),
+        GuestPtr::new(0x3000),
+        OpenFlags::O_CREAT | OpenFlags::O_WRONLY,
+        0o755,
+    ))
+    .unwrap();
+    block_on(kernel.close(&caller, fd)).unwrap();
+    assert_eq!(
+        block_on(kernel.execve(
+            &caller,
+            GuestPtr::new(0x3000),
+            GuestPtr::new(0x2010),
+            GuestPtr::new(0x2018)
+        )),
+        Err(SysErr::Errno(Errno::ENOEXEC))
+    );
+    let fd = block_on(kernel.openat(
+        &caller,
+        Fd(-100),
+        GuestPtr::new(0x3000),
+        OpenFlags::O_WRONLY,
+        0,
+    ))
+    .unwrap();
+    put(&memory, 0x3100, IMAGE);
+    block_on(kernel.write(&caller, fd, UserSlice::new(0x3100, IMAGE.len() as u32))).unwrap();
+    block_on(kernel.close(&caller, fd)).unwrap();
+    assert_eq!(block_on(execve(&kernel, &caller)), Ok(0));
+    assert_eq!(
+        block_on(kernel.execve(
+            &caller,
+            GuestPtr::new(0x3000),
+            GuestPtr::new(0x2010),
+            GuestPtr::new(0x2018)
+        )),
+        Ok(0)
+    );
+    assert!(
+        block_on(kernel.openat(
+            &caller,
+            Fd(-100),
+            GuestPtr::new(0x2000),
+            OpenFlags::O_WRONLY,
+            0
+        ))
+        .is_ok()
+    );
+}
