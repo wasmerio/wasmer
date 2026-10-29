@@ -57,6 +57,10 @@ impl<P> VirtualFile for SecondaryFile<P>
 where
     P: FileSystem + 'static,
 {
+    fn poll_sync_data(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        Pin::new(self.inner.as_mut()).poll_sync_data(cx)
+    }
+
     fn last_accessed(&self) -> u64 {
         self.inner.last_accessed()
     }
@@ -1049,6 +1053,17 @@ where
     where
         P: FileSystem + 'static,
     {
+        fn poll_sync_data(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+            match self.poll_copy_progress(cx) {
+                Poll::Ready(Ok(())) => {}
+                p => return p,
+            }
+            match self.state {
+                CowState::ReadOnly(_) => Poll::Ready(Ok(())),
+                _ => Pin::new(self.state.as_mut()).poll_sync_data(cx),
+            }
+        }
+
         fn last_accessed(&self) -> u64 {
             self.state.as_ref().last_accessed()
         }
