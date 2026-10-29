@@ -311,6 +311,7 @@ pub(crate) type NetworkFactory = Arc<dyn Fn() -> Arc<dyn wasixv2_vnet::Network> 
 pub(crate) struct Net {
     pub(crate) network: Option<Arc<dyn wasixv2_vnet::Network>>,
     pub(crate) unix_names: Arc<unix::Names>,
+    pub(crate) netlink: crate::netlink::Registry,
     pub(crate) devconf: Mutex<crate::devinet::Devconf>,
     /// What `/proc/sys/net` was set to.
     pub(crate) sysctl: Mutex<crate::procfs::NetSysctl>,
@@ -547,6 +548,7 @@ impl NsProxy {
                 Net {
                     network,
                     unix_names: Arc::default(),
+                    netlink: Default::default(),
                     devconf: Mutex::default(),
                     sysctl: Default::default(),
                 },
@@ -708,6 +710,7 @@ impl NsProxy {
                 let net = Net {
                     network: kernel.network_factory.as_ref().map(|make| make()),
                     unix_names: Arc::new(self.net.unix_names.for_new_net()),
+                    netlink: Default::default(),
                     devconf: Mutex::new(initial),
                     sysctl: Default::default(),
                 };
