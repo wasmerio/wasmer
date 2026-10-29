@@ -13,7 +13,7 @@ use wasixv2_abi::{
     AtFd, AtFlags, Cstr, GuestPtrMut, InotifyInitFlags, InotifyMask, IoctlRequest, OpenFlags,
 };
 use wasixv2_syscalls::{Caller, Errno, Fd, LocalFuture, SysErr, SysResult, write_value};
-use wasixv2_vfs::{Dentry, FileType, FsEvent, FsObject, FsWatcher, MAY_READ, Vfs};
+use wasixv2_vfs::{Dentry, FileType, FsEvent, FsObject, FsWatcher, MAY_READ};
 use wasixv2_wait::{PollMask, PollTable, Pollable, WaitQueue, poll_wait, wait_event};
 
 use super::read_path;
@@ -59,13 +59,6 @@ pub(crate) struct Registry {
 }
 
 impl Registry {
-    /// A registry fed by `vfs`'s change notifications.
-    pub(crate) fn install(vfs: &Vfs) -> Arc<Self> {
-        let registry = Arc::new(Self::default());
-        vfs.set_watcher(registry.clone());
-        registry
-    }
-
     /// Changes the watch table, keeping `watched` in step.
     fn update<R>(&self, f: impl FnOnce(&mut HashMap<FsObject, Watchers>) -> R) -> R {
         let mut watches = self.watches.lock_or_recover();

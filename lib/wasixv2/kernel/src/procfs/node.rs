@@ -106,6 +106,11 @@ const STATIC: &[(usize, &str, Static)] = &[
     (11, "net", Static::Dir),
     (28, "ipv4", Static::Dir),
     (29, "conf", Static::Devconf),
+    (
+        15,
+        "dir-notify-enable",
+        Static::File(text::Global::DirNotifyEnable),
+    ),
 ];
 
 /// What an entry of a process or thread directory is.
@@ -662,6 +667,9 @@ impl Node for ProcNode {
                             Some(Write::NsLastPid(pid_ns, may))
                         }
                         text::Global::NrOpen => Some(Write::NrOpen(self.source.nr_open.clone())),
+                        text::Global::DirNotifyEnable => {
+                            Some(Write::Fs(self.source.sysctls.clone(), file))
+                        }
                         _ => None,
                     };
                     (data, write)
@@ -760,6 +768,8 @@ enum Write {
     NrOpen(Arc<NrOpen>),
     /// A value of `/proc/sys/net/ipv4/conf` in the opener's network namespace.
     Devconf(Arc<NetNs>, devinet::Scope, usize),
+    /// One of the machine's `fs.*` integers.
+    Fs(Arc<crate::fs::FsSysctls>, text::Global),
 }
 
 /// `proc_dointvec`'s parsing of one integer: blanks around it, nothing else.
@@ -801,6 +811,13 @@ impl Handle for FileHandle {
             Write::Devconf(net, scope, var) => {
                 let value = sysctl_i32(data)?;
                 net.devconf.lock_or_recover().set(*scope, *var, value)?;
+            }
+            Write::Fs(sysctls, file) => {
+                let value = sysctl_i32(data)?;
+                match file {
+                    text::Global::DirNotifyEnable => sysctls.set_dir_notify_enable(value),
+                    _ => return Err(Errno::EINVAL),
+                }
             }
         }
         Ok(data.len())

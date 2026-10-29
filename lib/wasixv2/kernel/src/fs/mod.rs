@@ -2,6 +2,7 @@
 //! decides every path and permission question.
 
 mod attr;
+pub(crate) mod dnotify;
 mod fifo;
 mod fsopen;
 pub(crate) mod inotify;
@@ -15,7 +16,10 @@ mod statmount;
 pub(crate) use fifo::FifoFile;
 pub(crate) use io::{At, read_iovecs};
 
-use std::sync::{Arc, Mutex};
+use std::sync::{
+    Arc, Mutex,
+    atomic::{AtomicI32, Ordering},
+};
 
 use wasixv2_abi::{
     AtFd, AtFlags, CloseRangeFlags, ConstOpenHowPtr, Cstr, FcntlCmd, FdFlags, OpenFlags, OpenHow,
@@ -32,6 +36,32 @@ use crate::{
     file::{Backing, FdTable, OpenFile},
     sync::MutexExt,
 };
+
+/// The `fs.*` tunables of `/proc/sys/fs` that the kernel acts on, `proc_dointvec` integers.
+#[derive(Debug)]
+pub(crate) struct FsSysctls {
+    /// `fs.dir-notify-enable`: whether `F_NOTIFY` works.
+    dir_notify_enable: AtomicI32,
+}
+
+impl Default for FsSysctls {
+    /// Linux's defaults.
+    fn default() -> Self {
+        Self {
+            dir_notify_enable: AtomicI32::new(1),
+        }
+    }
+}
+
+impl FsSysctls {
+    pub(crate) fn dir_notify_enable(&self) -> i32 {
+        self.dir_notify_enable.load(Ordering::Relaxed)
+    }
+
+    pub(crate) fn set_dir_notify_enable(&self, value: i32) {
+        self.dir_notify_enable.store(value, Ordering::Relaxed);
+    }
+}
 
 /// The soft `RLIMIT_NOFILE` every process has until resource limits exist.
 pub(crate) const NOFILE: usize = 1024;
@@ -434,11 +464,17 @@ impl Kernel {
     pub(crate) fn closed_by(&self, pid: TaskId, file: &OpenFile) {
         // ---- ipc ----
         self.mq_flush(pid, file);
-        if let Backing::Inode(file) = &file.backing
-            && !file.path_only
+        if let Backing::Inode(inner) = &file.backing
+            && !inner.path_only
         {
+            let key = inner.lock_key();
             let owner = wasixv2_vfs::LockOwner::Process(u64::from(pid.0));
-            self.vfs.locks.release_owner(file.lock_key(), owner);
+            self.vfs.locks.release_owner(key, owner);
+            let object = wasixv2_vfs::FsObject {
+                sb: key.0,
+                ino: key.1,
+            };
+            self.dnotify.flush(object, file, pid);
         }
     }
 
@@ -607,6 +643,7 @@ impl Kernel {
             FcntlCmd::F_ADD_SEALS | FcntlCmd::F_GET_SEALS => {
                 self.memfd_fcntl(&file, cmd, arg).await
             }
+            FcntlCmd::F_NOTIFY => self.fcntl_dirnotify(caller, fd, &file, arg),
             _ => self.fcntl_lock(caller, fd, &file, cmd, arg).await,
         }
     }
