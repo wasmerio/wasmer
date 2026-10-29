@@ -1518,7 +1518,7 @@ impl Kernel {
         if target.mnt.flags().noexec {
             return Err(Errno::EACCES.into());
         }
-        self.vfs.permission(&env.cred, &target, MAY_EXEC).await?;
+        self.vfs.permission(&env.cx(), &target, MAY_EXEC).await?;
         let how = OpenHow {
             flags: OpenFlags::O_RDONLY,
             mode: 0,

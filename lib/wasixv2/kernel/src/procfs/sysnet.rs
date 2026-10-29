@@ -6,9 +6,13 @@
 //! A name no interface of the reader's namespace has can be looked up, but not opened
 //! (`ENOENT`), where Linux fails the lookup already.
 //!
-//! Values are kept per namespace and per interface, writable by root. IPv4's `conf` values are
-//! [`devinet`]'s (`devinet_sysctl_register`), which knows their defaults, what an interface
-//! inherits and which may be written. `disable_ipv6` acts (`addrconf_disable_ipv6`); the rest
+//! Values are kept per namespace and per interface. Who may open one is decided against the
+//! caller, not the file's owner (`proc_sys_permission`): the initial namespace's root gets the
+//! owner's bits, and so does whoever has `CAP_NET_ADMIN` over the namespace's owner
+//! (`net_ctl_permissions`), so the root of a user namespace writes the values of a network
+//! namespace it made. IPv4's `conf` values are
+//! [`devinet`]'s (`devinet_sysctl_register`), which knows their defaults, modes and how a
+//! write propagates. `disable_ipv6` acts (`addrconf_disable_ipv6`); the rest
 //! describe what packets would do and have no effect, since nothing is turned into packets.
 //! `ip_local_port_range`, `ip_unprivileged_port_start` and `somaxconn` show the values the
 //! namespace uses and are read-only here.
@@ -18,12 +22,19 @@ use std::{any::Any, collections::BTreeMap, sync::Arc};
 use async_trait::async_trait;
 use wasixv2_syscalls::Errno;
 use wasixv2_vfs::{
-    Attr, DirEntry, DirSink, FileType, FsResult, Handle, Node, OpenOptions, SetAttr,
+    Attr, DirEntry, DirSink, FileType, FsResult, Handle, MAY_EXEC, MAY_READ, MAY_WRITE, Node,
+    OpenOptions, SetAttr,
 };
 use wasixv2_vnet::{Interface, iface::valid_name};
 
 use super::Source;
-use crate::{devinet, ns::NetNs, sync::MutexExt};
+use crate::{
+    cred::Cred,
+    devinet,
+    ns::NetNs,
+    sync::MutexExt,
+    uidgid::{Kgid, Kuid},
+};
 
 /// Which interfaces' values a `conf` directory holds.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -199,11 +210,17 @@ enum Value {
 }
 
 impl Value {
-    fn writable(self) -> bool {
+    /// The file's mode, as its table gives it.
+    fn mode(self) -> u32 {
         match self {
-            Value::Key(key) => key.writable,
-            Value::Devinet(var) => devinet::VARS[var].writable,
+            Value::Key(key) if key.writable => 0o644,
+            Value::Key(_) => 0o444,
+            Value::Devinet(var) => devinet::VARS[var].mode,
         }
+    }
+
+    fn writable(self) -> bool {
+        self.mode() & 0o200 != 0
     }
 }
 
@@ -233,6 +250,11 @@ fn devinet_value(net: &NetNs, dev: Dev, var: usize) -> i32 {
     };
     let scope = devinet_scope(dev);
     net.devconf.lock_or_recover().get(scope, var, found)
+}
+
+/// Whether `cred` has `CAP_NET_ADMIN` over the owner of `net`.
+fn net_admin(cred: &Cred, net: &NetNs) -> bool {
+    cred.ns_capable(net.user_ns(), wasixv2_vfs::Cap::NetAdmin)
 }
 
 fn interfaces(net: &NetNs) -> Vec<Interface> {
@@ -439,11 +461,7 @@ impl Node for SysNetNode {
 
     async fn getattr(&self) -> FsResult<Attr> {
         let file_type = self.file_type();
-        let mode = match self.entry.value() {
-            Some(value) if value.writable() => 0o644,
-            Some(_) => 0o444,
-            None => 0o555,
-        };
+        let mode = self.entry.value().map_or(0o555, Value::mode);
         let time = self.source.mounted;
         Ok(Attr {
             ino: self.ino(),
@@ -465,6 +483,44 @@ impl Node for SysNetNode {
             btime: None,
             dev: None,
         })
+    }
+
+    /// `proc_sys_permission`: no execution of a value, no writes to a directory; a value by
+    /// `sysctl_perm` with `net_ctl_permissions` (the owner's bits for whoever has
+    /// `CAP_NET_ADMIN` over the owner of the caller's network namespace) and `test_perm` (the
+    /// owner's bits for the initial namespace's root, the group's for its group, else the
+    /// others'). The inode's owner and the DAC capabilities do not count.
+    fn permission(&self, _: &wasixv2_vfs::Cred, task: u32, _: &Attr, mask: u32) -> FsResult<()> {
+        let mask = mask & (MAY_READ | MAY_WRITE | MAY_EXEC);
+        let Some(value) = self.entry.value() else {
+            return match mask & MAY_WRITE {
+                0 => Ok(()),
+                _ => Err(Errno::EACCES),
+            };
+        };
+        if mask & MAY_EXEC != 0 {
+            return Err(Errno::EACCES);
+        }
+        // The embedder has every capability.
+        let Some(cred) = self.source.cred_of(task) else {
+            return Ok(());
+        };
+        let mut mode = value.mode();
+        if net_admin(&cred, &self.source.ns_of(task).net) {
+            let owner = (mode >> 6) & 7;
+            mode = (owner << 6) | (owner << 3) | owner;
+        }
+        let bits = if cred.user.effective == Kuid(0) {
+            mode >> 6
+        } else if cred.group.effective == Kgid(0) || cred.groups.contains(&Kgid(0)) {
+            mode >> 3
+        } else {
+            mode
+        } & 7;
+        match mask & !bits {
+            0 => Ok(()),
+            _ => Err(Errno::EACCES),
+        }
     }
 
     /// `proc_sys_setattr`: no mode or owner changes; a truncation (an `O_TRUNC` open) is
@@ -515,7 +571,12 @@ impl Node for SysNetNode {
         }
         let value = self.entry.value().ok_or(Errno::EISDIR)?;
         let (text, v6, dev) = self.value(&net)?;
+        let net_admin = self
+            .source
+            .cred_of(options.task)
+            .is_none_or(|cred| net_admin(&cred, &net));
         Ok(Box::new(ValueHandle {
+            net_admin,
             data: text.into_bytes(),
             net,
             v6,
@@ -556,6 +617,8 @@ struct ValueHandle {
     dev: Dev,
     value: Value,
     writable: bool,
+    /// Whether the opener has `CAP_NET_ADMIN` over the namespace's owner.
+    net_admin: bool,
 }
 
 #[async_trait(?Send)]
@@ -580,7 +643,9 @@ impl Handle for ValueHandle {
                 let scope = devinet_scope(self.dev);
                 // `parse_int` keeps to an `int`.
                 let value = value as i32;
-                self.net.devconf.lock_or_recover().set(scope, var, value)?;
+                let devs = devinet::devices(self.net.network.as_deref());
+                let mut devconf = self.net.devconf.lock_or_recover();
+                devconf.set(scope, var, value, &devs, self.net_admin)?;
             }
         }
         Ok(data.len())

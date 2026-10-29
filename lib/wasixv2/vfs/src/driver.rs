@@ -15,6 +15,7 @@ use wasixv2_abi::Errno;
 use wasixv2_pages::SharedPages;
 
 use crate::{
+    cred::Cred,
     mount::Path,
     ops::Ctx,
     types::{
@@ -90,6 +91,17 @@ pub trait Node: Send + Sync + Any {
     fn file_type(&self) -> FileType;
 
     fn as_any(&self) -> &dyn Any;
+
+    /// `inode->i_op->permission`: whether `cred`, of the task `task` (as [`Ctx::task`] numbers
+    /// it), may access the object as `mask` asks, its metadata being `attr`. By default the
+    /// mode bits decide (`generic_permission`); a pseudo filesystem whose files are checked
+    /// against the caller rather than their owner (procfs's sysctl files,
+    /// `proc_sys_permission`) decides itself.
+    ///
+    /// [`Ctx::task`]: crate::Ctx::task
+    fn permission(&self, cred: &Cred, _task: u32, attr: &Attr, mask: u32) -> FsResult<()> {
+        crate::generic_permission(cred, attr, mask)
+    }
 
     /// Nothing may be mounted on this object, as procfs refuses mounts on the descriptor links
     /// of `/proc/<pid>/fd` (`proc_splice_unmountable`): mounting there fails with `ENOENT`.

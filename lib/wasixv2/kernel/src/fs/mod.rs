@@ -344,7 +344,7 @@ impl Kernel {
             .lookup(&env.cx(), &env.fs.cwd, path, lookup)
             .await?;
         self.vfs
-            .permission(&env.cred, &dir, wasixv2_vfs::MAY_EXEC)
+            .permission(&env.cx(), &dir, wasixv2_vfs::MAY_EXEC)
             .await?;
         self.with_task(task, |task| task.fs.lock_or_recover().cwd = dir);
         Ok(())
