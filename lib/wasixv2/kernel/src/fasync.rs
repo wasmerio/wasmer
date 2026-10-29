@@ -434,7 +434,7 @@ pub(crate) struct SockAsync {
     list: FasyncList,
     /// `SOCKWQ_ASYNC_NOSPACE`: a send found no room, so room appearing is a `POLL_OUT`.
     nospace: AtomicBool,
-    /// For a stream socket of the IP network, its open file (`sock->file`), whose owner
+    /// For a stream socket, its open file (`sock->file`), whose owner
     /// hears of urgent data, and what sends that.
     urgent: OnceLock<(Weak<OpenFile>, Arc<Sigio>)>,
     /// The entry on the queue of a socket whose wakeups are watched ([`SockAsync::watch`]),
@@ -483,6 +483,18 @@ impl SockAsync {
         Ok(())
     }
 
+    /// `sock->file`: stream sockets send urgent signals even without O_ASYNC.
+    pub(crate) fn set_urgent_file(&self, file: &Arc<OpenFile>, sigio: &Arc<Sigio>) {
+        let _ = self.urgent.set((Arc::downgrade(file), sigio.clone()));
+    }
+
+    /// Linux net/unix/af_unix.c:queue_oob calls sk_send_sigurg before data_ready.
+    pub(crate) fn send_urgent(&self) {
+        if let Some((_, sigio)) = self.urgent.get() {
+            self.send_urg(sigio);
+        }
+    }
+
     /// Makes `file`, the open file of `socket`, a stream socket of the IP network, hear of
     /// urgent data for as long as it lives (`sk_send_sigurg` through `sk->sk_socket->file`).
     pub(crate) fn watch_urgent(
@@ -491,7 +503,7 @@ impl SockAsync {
         file: &Arc<OpenFile>,
         sigio: &Arc<Sigio>,
     ) {
-        let _ = self.urgent.set((Arc::downgrade(file), sigio.clone()));
+        self.set_urgent_file(file, sigio);
         self.rewatch(socket);
     }
 

@@ -788,12 +788,12 @@ impl Kernel {
     pub(crate) fn install_files<const N: usize>(
         &self,
         caller: &Caller<'_>,
-        files: [OpenFile; N],
+        files: [impl Into<Arc<OpenFile>>; N],
         cloexec: bool,
     ) -> Result<[Fd; N], Errno> {
         let fds = self.reserve_fds::<N>(caller, cloexec)?;
         let mut files = files.into_iter();
-        Ok(fds.map(|fd| fd.install(Arc::new(files.next().expect("one file per fd")))))
+        Ok(fds.map(|fd| fd.install(files.next().expect("one file per fd").into())))
     }
 
     /// Installs a new pair of files and writes their descriptors to the guest, as `do_pipe2`
@@ -803,7 +803,7 @@ impl Kernel {
         &self,
         caller: &Caller<'_>,
         out: FdPair,
-        files: [OpenFile; 2],
+        files: [impl Into<Arc<OpenFile>>; 2],
         cloexec: bool,
     ) -> SysResult<()> {
         let fds = self.reserve_fds::<2>(caller, cloexec)?;
@@ -813,8 +813,8 @@ impl Kernel {
             .map_err(|_| Errno::EFAULT)?;
         let [read, write] = files;
         let [rfd, wfd] = fds;
-        rfd.install(Arc::new(read));
-        wfd.install(Arc::new(write));
+        rfd.install(read.into());
+        wfd.install(write.into());
         Ok(())
     }
 }
