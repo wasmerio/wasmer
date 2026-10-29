@@ -1,12 +1,17 @@
 //! The contents of the process filesystem's files, in the formats of `fs/proc` and
 //! `Documentation/filesystems/proc.rst`.
 
-use std::{fmt::Write as _, net::SocketAddr, sync::Arc, time::Duration};
+use std::{
+    fmt::Write as _,
+    net::{IpAddr, SocketAddr},
+    sync::Arc,
+    time::Duration,
+};
 
 use wasixv2_abi::OpenFlags;
 use wasixv2_syscalls::Errno;
 use wasixv2_vfs::{FsResult, MntNs, Mount, MountFlags, Path};
-use wasixv2_vnet::SocketKind;
+use wasixv2_vnet::{Domain, IcmpEntry, SocketKind};
 
 use super::{Source, node::Scope};
 use crate::{
@@ -67,6 +72,9 @@ pub(super) enum Net {
     /// `tcp`, or `tcp6`.
     Tcp(bool),
     Udp(bool),
+    /// `icmp`/`icmp6` (ping sockets) and `raw`/`raw6`.
+    Icmp(bool),
+    Raw(bool),
     Unix,
     Dev,
     /// `route`, `ipv6_route` and `if_inet6`.
@@ -190,6 +198,8 @@ pub(super) fn net(ns: &NetNs, file: Net) -> Vec<u8> {
     match file {
         Net::Tcp(v6) => sockets(ns, SocketKind::Stream, v6),
         Net::Udp(v6) => sockets(ns, SocketKind::Datagram, v6),
+        Net::Icmp(v6) => icmp_sockets(ns, false, v6),
+        Net::Raw(v6) => icmp_sockets(ns, true, v6),
         Net::Unix => unix_sockets(ns),
         Net::Dev => net_dev(ns),
         Net::Route => net_route(ns),
@@ -332,6 +342,75 @@ fn sockets(ns: &NetNs, kind: SocketKind, v6: bool) -> Vec<u8> {
             port.uid,
             port.inode,
         );
+    }
+    out.into_bytes()
+}
+
+/// `ping_v4_seq_show`, `raw_seq_show` and their IPv6 forms (`ip6_dgram_sock_seq_show`): the
+/// namespace's ping or raw ICMP sockets of one family by hash bucket, each chain newest
+/// first. The buckets are those of a namespace whose `hash_mix` is 0: a ping socket's is its
+/// identifier's low 6 bits (`ping_hashfn`), a raw socket's `hash_32` of its protocol
+/// (`raw_hashfunc`). Every socket here is hashed once, so its `sk_refcnt` is 2.
+fn icmp_sockets(ns: &NetNs, raw: bool, v6: bool) -> Vec<u8> {
+    let domain = if v6 { Domain::Inet6 } else { Domain::Inet };
+    let mut entries: Vec<_> = ns
+        .network
+        .as_ref()
+        .map(|net| net.icmp_sockets())
+        .unwrap_or_default()
+        .into_iter()
+        .filter(|e| e.raw == raw && e.domain == domain)
+        .collect();
+    let bucket = |e: &IcmpEntry| match raw {
+        true => u32::from(e.num).wrapping_mul(0x61C8_8647) >> 24,
+        false => u32::from(e.num) & 63,
+    };
+    entries.sort_by_key(bucket);
+    let header = match v6 {
+        false => {
+            "  sl  local_address rem_address   st tx_queue rx_queue tr tm->when retrnsmt   uid  timeout inode ref pointer drops"
+        }
+        true => {
+            "  sl  local_address                         remote_address                        st tx_queue rx_queue tr tm->when retrnsmt   uid  timeout inode ref pointer drops"
+        }
+    };
+    // Only `/proc/net/icmp` pads its lines (`seq_setwidth(seq, 127)`, `seq_pad`).
+    let pad = !raw && !v6;
+    let mut out = String::new();
+    let mut line = |text: String| match pad {
+        true => {
+            let _ = writeln!(out, "{text:<127}");
+        }
+        false => {
+            let _ = writeln!(out, "{text}");
+        }
+    };
+    line(header.to_string());
+    for e in &entries {
+        let any = match domain {
+            Domain::Inet => IpAddr::from([0u8; 4]),
+            Domain::Inet6 => IpAddr::from([0u16; 8]),
+        };
+        let local = SocketAddr::new(e.local.unwrap_or(any), e.num);
+        // A raw socket's remote port is always 0.
+        let (peer, dport) = e.peer.unwrap_or((any, 0));
+        let remote = SocketAddr::new(peer, if raw { 0 } else { dport });
+        // TCP_ESTABLISHED once connected, else TCP_CLOSE.
+        let state = if e.peer.is_some() { 0x01 } else { 0x07 };
+        let sl = match (raw, v6) {
+            (true, false) => format!("{:4}", bucket(e)),
+            _ => format!("{:5}", bucket(e)),
+        };
+        line(format!(
+            "{sl}: {} {} {state:02X} 00000000:{:08X} 00:00000000 00000000 {:5} {:8} {} 2 0 {}",
+            hex_addr(local),
+            hex_addr(remote),
+            e.rx_queue,
+            e.uid,
+            0,
+            e.inode,
+            e.drops,
+        ));
     }
     out.into_bytes()
 }

@@ -13,8 +13,8 @@ use wasixv2_abi::Errno;
 use wasixv2_wait::{PollTable, WaitQueue};
 
 use crate::{
-    Backend, BackendDatagram, BackendStream, Domain, InboundSink, Interface, NetResult, Network,
-    NewLink, NewLinkKind, PortEntry, Publication, Room, Socket, SocketKind,
+    Backend, BackendDatagram, BackendStream, Domain, IcmpEntry, InboundSink, Interface, NetResult,
+    Network, NewLink, NewLinkKind, PortEntry, Publication, Room, Socket, SocketKind,
     addr::{canonical, canonical_ip},
     cmsg::SendCtl,
     icmp::{IPPROTO_ICMP, IPPROTO_ICMPV6, IcmpSocket, IcmpTables},
@@ -897,9 +897,9 @@ impl Network for Net {
             (SocketKind::Stream, 0 | 6) => Ok(TcpSocket::new(self.arc(), domain, uid)),
             (SocketKind::Datagram, 0 | 17) => Ok(UdpSocket::new(self.arc(), domain, uid)),
             (SocketKind::Datagram, p) if p == icmp => {
-                Ok(IcmpSocket::new(self.arc(), domain, false))
+                Ok(IcmpSocket::new(self.arc(), domain, false, uid))
             }
-            (SocketKind::Raw, p) if p == icmp => Ok(IcmpSocket::new(self.arc(), domain, true)),
+            (SocketKind::Raw, p) if p == icmp => Ok(IcmpSocket::new(self.arc(), domain, true, uid)),
             (SocketKind::Raw, 0) => Err(Errno::EPROTONOSUPPORT),
             (SocketKind::Raw, _) => Err(Errno::ESOCKTNOSUPPORT),
             _ => Err(Errno::EPROTONOSUPPORT),
@@ -926,6 +926,10 @@ impl Network for Net {
             .filter_map(Weak::upgrade)
             .filter_map(|s| s.port_entry());
         tcp.chain(udp).collect()
+    }
+
+    fn icmp_sockets(&self) -> Vec<IcmpEntry> {
+        self.icmp_entries()
     }
 
     fn interfaces(&self) -> Vec<Interface> {

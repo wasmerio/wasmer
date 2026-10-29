@@ -29,8 +29,8 @@ use wasixv2_abi::{Errno, IpOption, Ipv6Option, MsgFlags, SoEeOrigin, SocketLevel
 use wasixv2_wait::{PollMask, PollTable, Pollable, WaitQueue, poll_wait};
 
 use crate::{
-    Accepted, BackendDatagram, Control, Domain, NetResult, QueuedError, RecvMsg, SendMsg, Shutdown,
-    Socket, SocketKind,
+    Accepted, BackendDatagram, Control, Domain, IcmpEntry, NetResult, QueuedError, RecvMsg,
+    SendMsg, Shutdown, Socket, SocketKind,
     addr::{canonical_ip, present, unbound},
     bpf::{Arrival, PACKET_HOST, PACKET_LOOPBACK, PACKET_MULTICAST, SockFilter},
     cmsg::{self, SendCtl},
@@ -132,6 +132,12 @@ impl Default for IcmpTables {
 }
 
 impl IcmpTables {
+    /// The bound ping sockets and the raw sockets, newest first.
+    fn sockets(&self) -> Vec<Weak<IcmpSocket>> {
+        let pings = self.ping.iter().rev().map(|e| e.3.clone());
+        pings.chain(self.raw.iter().rev().cloned()).collect()
+    }
+
     /// `ping_get_port`: `ident`, unless a socket holds it and not both set `SO_REUSEADDR`;
     /// 0 takes the next free identifier after the last given out, never 0. `EADDRINUSE`
     /// when taken or none is free.
@@ -635,6 +641,14 @@ impl Net {
         back.net.icmp_input(msg, back.iif, me);
     }
 
+    /// The namespace's ping and raw ICMP sockets ([`crate::Network::icmp_sockets`]); read
+    /// once the namespace's lock is gone, as sockets lock themselves first.
+    pub(crate) fn icmp_entries(&self) -> Vec<IcmpEntry> {
+        let socks = self.state().icmp.sockets();
+        let socks: Vec<_> = socks.iter().filter_map(Weak::upgrade).collect();
+        socks.iter().map(|s| s.entry()).collect()
+    }
+
     /// `net.ipv4.icmp_echo_ignore_all` (`broadcasts` false) or
     /// `icmp_echo_ignore_broadcasts`.
     pub(crate) fn set_echo_ignore(&self, broadcasts: bool, ignore: bool) {
@@ -667,8 +681,12 @@ struct Inner {
     /// `SOCK_BINDADDR_LOCK`.
     addr_locked: bool,
     peer: Option<IpAddr>,
+    /// `inet_dport`: the port a ping socket connected with.
+    dport: u16,
     queue: VecDeque<Received>,
     queued: usize,
+    /// `sk_drops`.
+    drops: u32,
     err: Option<Errno>,
     errqueue: VecDeque<QueuedError>,
     /// `ICMP_FILTER` (the first word) and `ICMP6_FILTER`: types not to deliver.
@@ -693,6 +711,8 @@ pub struct IcmpSocket {
     id: SockId,
     domain: Domain,
     raw: bool,
+    /// `sk_uid`.
+    uid: u32,
     ino: AtomicU64,
     wq: WaitQueue,
     me: Weak<IcmpSocket>,
@@ -700,7 +720,7 @@ pub struct IcmpSocket {
 }
 
 impl IcmpSocket {
-    pub(crate) fn new(net: Arc<Net>, domain: Domain, raw: bool) -> Arc<Self> {
+    pub(crate) fn new(net: Arc<Net>, domain: Domain, raw: bool, uid: u32) -> Arc<Self> {
         let id = net.next_id();
         let kind = match raw {
             true => SocketKind::Raw,
@@ -711,6 +731,7 @@ impl IcmpSocket {
             id,
             domain,
             raw,
+            uid,
             ino: AtomicU64::new(0),
             wq: WaitQueue::new(),
             me: me.clone(),
@@ -720,8 +741,10 @@ impl IcmpSocket {
                 ident: None,
                 addr_locked: false,
                 peer: None,
+                dport: 0,
                 queue: VecDeque::new(),
                 queued: 0,
+                drops: 0,
                 err: None,
                 errqueue: VecDeque::new(),
                 filter: [0; 8],
@@ -742,6 +765,25 @@ impl IcmpSocket {
 
     fn lock(&self) -> MutexGuard<'_, Inner> {
         self.inner.lock_or_recover()
+    }
+
+    /// The socket as `ping_v4_format_sock` and `raw_sock_seq_show` read it.
+    fn entry(&self) -> IcmpEntry {
+        let g = self.lock();
+        IcmpEntry {
+            domain: self.domain,
+            raw: self.raw,
+            local: g.local,
+            num: match self.raw {
+                true => self.protocol() as u16,
+                false => g.ident.unwrap_or(0),
+            },
+            peer: g.peer.map(|p| (p, g.dport)),
+            rx_queue: g.queued,
+            uid: self.uid,
+            inode: self.ino.load(Ordering::Relaxed),
+            drops: g.drops,
+        }
     }
 
     fn v6(&self) -> bool {
@@ -852,6 +894,7 @@ impl IcmpSocket {
         }
         let mut g = self.lock();
         if g.queued > g.opts.rcvbuf {
+            g.drops = g.drops.wrapping_add(1);
             return;
         }
         g.queued += data.len() + OVERHEAD;
@@ -1262,12 +1305,14 @@ impl Socket for IcmpSocket {
             g.local = Some(src);
         }
         g.peer = Some(dst);
+        g.dport = addr.port();
         Ok(())
     }
 
     fn disconnect(&self) -> NetResult<()> {
         let mut g = self.lock();
         g.peer = None;
+        g.dport = 0;
         if !g.addr_locked {
             g.local = None;
         }
