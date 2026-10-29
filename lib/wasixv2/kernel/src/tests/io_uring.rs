@@ -2723,3 +2723,150 @@ fn socket_uring_commands_return_lengths_and_reuse_socket_options() {
     let fd = m.file("no-uring-cmd", b"");
     assert_eq!(run_sqe(&ring, query(fd, 0, 0, 0, 0)), -Errno::EOPNOTSUPP.0);
 }
+
+#[test]
+fn sq_rewind_reuses_index_zero_without_reading_tail_or_writing_head() {
+    let m = Machine::new();
+    let rewind = IoringSetupFlags::IORING_SETUP_SQ_REWIND.0;
+    assert_eq!(
+        errno(m.setup_ring(
+            4,
+            IoUringParams {
+                flags: rewind,
+                ..IoUringParams::ZERO
+            }
+        )),
+        Errno::EINVAL
+    );
+    let ring = m.ring(4, rewind | IoringSetupFlags::IORING_SETUP_NO_SQARRAY.0);
+    m.put_word(ring.rings + ring.p.sq_off.head, 123);
+    for data in [10, 20] {
+        put_value(&m, ring.sqes, sqe(NOP, -1, data));
+        assert_eq!(ring.submit(1), Ok(1));
+        assert_eq!(res(&ring.reap()), [(data, 0)]);
+        assert_eq!(m.get_word(ring.rings + ring.p.sq_off.head), 123);
+    }
+}
+
+#[test]
+fn mixed_sqes_consume_two_contiguous_slots_for_128_byte_operations() {
+    let m = Machine::new();
+    let mixed = IoringSetupFlags::IORING_SETUP_SQE_MIXED.0;
+    assert_eq!(
+        errno(m.setup_ring(
+            1,
+            IoUringParams {
+                flags: mixed,
+                ..IoUringParams::ZERO
+            }
+        )),
+        Errno::EOVERFLOW
+    );
+    let ring = m.ring(4, mixed);
+    ring.push(IoUringSqe {
+        op_flags: IoringOpFlags::IORING_NOP_INJECT_RESULT.0,
+        len: 37,
+        ..sqe(IoUringOp::IORING_OP_NOP128, -1, 1)
+    });
+    m.put_word(ring.rings + ring.p.sq_off.tail, 2);
+    ring.push(sqe(NOP, -1, 2));
+    assert_eq!(ring.submit(3), Ok(3));
+    assert_eq!(res(&ring.reap()), [(1, 37), (2, 0)]);
+    assert_eq!(m.get_word(ring.rings + ring.p.sq_off.head), 3);
+    ring.push(sqe(IoUringOp::IORING_OP_NOP128, -1, 3));
+    assert_eq!(ring.submit(1), Ok(1));
+    assert_eq!(res(&ring.reap()), [(3, EINVAL)]);
+    let (socket, _) = unix_pair(&m, 1);
+    ring.push(IoUringSqe {
+        off: 2,
+        addr: wasixv2_abi::SocketLevel::SOL_SOCKET.0 as u64
+            | ((wasixv2_abi::SocketOption::SO_TYPE.0 as u64) << 32),
+        splice_fd_in: 4,
+        addr3: u64::from(BUF),
+        ..sqe(IoUringOp::IORING_OP_URING_CMD128, socket.0, 5)
+    });
+    m.put_word(ring.rings + ring.p.sq_off.tail, 6);
+    assert_eq!(ring.submit(2), Ok(2));
+    assert_eq!(res(&ring.reap()), [(5, 4)]);
+    assert_eq!(m.get_word(BUF), 1);
+    let ordinary = m.ring(4, 0);
+    assert_eq!(
+        run_sqe(&ordinary, sqe(IoUringOp::IORING_OP_NOP128, -1, 4)),
+        EINVAL
+    );
+}
+
+#[test]
+fn mixed_cqes_pad_before_wrap_and_preserve_the_extra_words() {
+    let m = Machine::new();
+    let mixed = IoringSetupFlags::IORING_SETUP_CQE_MIXED.0;
+    assert_eq!(
+        errno(m.setup_ring(
+            4,
+            IoUringParams {
+                flags: mixed | IoringSetupFlags::IORING_SETUP_CQE32.0,
+                ..IoUringParams::ZERO
+            }
+        )),
+        Errno::EINVAL
+    );
+    let ring = m.ring(2, mixed);
+    for data in 0..3 {
+        assert_eq!(run_sqe(&ring, sqe(NOP, -1, data)), 0);
+    }
+    let nop = IoUringSqe {
+        off: 0x1234_5678_90ab_cdef,
+        addr: 0xfedc_ba09_8765_4321,
+        op_flags: IoringOpFlags::IORING_NOP_CQE32.0,
+        ..sqe(NOP, -1, 10)
+    };
+    ring.push(nop);
+    assert_eq!(ring.submit(1), Ok(1));
+    let at = ring.rings + ring.p.cq_off.cqes;
+    let padding = IoUringCqe::read_from(&m.memory.get(at + 3 * 16, 16)).unwrap();
+    assert_eq!(padding.flags, IoringCqeFlags::IORING_CQE_F_SKIP.0);
+    let big = IoUringCqe::read_from(&m.memory.get(at, 16)).unwrap();
+    assert_eq!(
+        (big.user_data, big.res, big.flags),
+        (10, 0, IoringCqeFlags::IORING_CQE_F_32.0)
+    );
+    assert_eq!(m.memory.get(at + 16, 8), nop.off.to_le_bytes());
+    assert_eq!(m.memory.get(at + 24, 8), nop.addr.to_le_bytes());
+    assert_eq!(m.get_word(ring.rings + ring.p.cq_off.tail), 6);
+    m.put_word(ring.rings + ring.p.cq_off.head, 6);
+    // Fill the ring, overflow another wide CQE, then make room and flush it.
+    ring.push(nop);
+    assert_eq!(ring.submit(1), Ok(1));
+    for data in 11..13 {
+        ring.push(sqe(NOP, -1, data));
+    }
+    assert_eq!(ring.submit(2), Ok(2));
+    ring.push(nop);
+    assert_eq!(ring.submit(1), Ok(1));
+    assert_ne!(ring.sq_flags() & IoringSqFlags::IORING_SQ_CQ_OVERFLOW.0, 0);
+    m.put_word(ring.rings + ring.p.cq_off.head, 10);
+    assert_eq!(ring.submit(0), Ok(0));
+    assert_eq!(m.get_word(ring.rings + ring.p.cq_off.tail), 12);
+    assert_eq!(m.memory.get(at + 2 * 16 + 16, 8), nop.off.to_le_bytes());
+}
+
+#[test]
+fn nop_can_hold_a_fixed_buffer_without_importing_a_transfer_range() {
+    let m = Machine::new();
+    let ring = m.ring(4, 0);
+    let nop = IoUringSqe {
+        op_flags: IoringOpFlags::IORING_NOP_FIXED_BUFFER.0,
+        ..sqe(NOP, -1, 1)
+    };
+    assert_eq!(run_sqe(&ring, nop), -Errno::EFAULT.0);
+    put_value(
+        &m,
+        SCRATCH + 64,
+        wasixv2_abi::Iovec {
+            iov_base: BUF,
+            iov_len: 16,
+        },
+    );
+    assert_eq!(register_resources(&ring, true, 1, SCRATCH + 64, 0), Ok(0));
+    assert_eq!(run_sqe(&ring, nop), 0);
+}
