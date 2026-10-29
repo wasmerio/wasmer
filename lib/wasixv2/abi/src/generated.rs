@@ -26459,6 +26459,522 @@ impl GuestLayout for LsmFlags {
     }
 }
 
+/// `PTRACE_GET_SYSCALL_INFO` at a syscall-entry stop (`linux/ptrace.h`).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct PtraceSyscallInfoEntry {
+    pub nr: u64,
+    pub args: [u64; 6],
+}
+const _: () = {
+    assert!(core::mem::size_of::<PtraceSyscallInfoEntry>() == 56);
+    assert!(core::mem::align_of::<PtraceSyscallInfoEntry>() == 8);
+    assert!(core::mem::offset_of!(PtraceSyscallInfoEntry, nr) == 0);
+    assert!(core::mem::offset_of!(PtraceSyscallInfoEntry, args) == 8);
+};
+impl Default for PtraceSyscallInfoEntry {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for PtraceSyscallInfoEntry {
+    const SIZE: usize = 56;
+    const ALIGN: usize = 8;
+    const ZERO: Self = Self {
+        nr: <u64 as GuestLayout>::ZERO,
+        args: <[u64; 6] as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            nr: GuestLayout::read_from(&bytes[0..])?,
+            args: GuestLayout::read_from(&bytes[8..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.nr.write_to(&mut out[0..]);
+        self.args.write_to(&mut out[8..]);
+    }
+}
+/// `PTRACE_GET_SYSCALL_INFO` at a syscall-exit stop (`linux/ptrace.h`).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct PtraceSyscallInfoExit {
+    pub rval: i64,
+    pub is_error: u8,
+    pub reserved: [u8; 7],
+}
+const _: () = {
+    assert!(core::mem::size_of::<PtraceSyscallInfoExit>() == 16);
+    assert!(core::mem::align_of::<PtraceSyscallInfoExit>() == 8);
+    assert!(core::mem::offset_of!(PtraceSyscallInfoExit, rval) == 0);
+    assert!(core::mem::offset_of!(PtraceSyscallInfoExit, is_error) == 8);
+    assert!(core::mem::offset_of!(PtraceSyscallInfoExit, reserved) == 9);
+};
+impl Default for PtraceSyscallInfoExit {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for PtraceSyscallInfoExit {
+    const SIZE: usize = 16;
+    const ALIGN: usize = 8;
+    const ZERO: Self = Self {
+        rval: <i64 as GuestLayout>::ZERO,
+        is_error: <u8 as GuestLayout>::ZERO,
+        reserved: <[u8; 7] as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            rval: GuestLayout::read_from(&bytes[0..])?,
+            is_error: GuestLayout::read_from(&bytes[8..])?,
+            reserved: GuestLayout::read_from(&bytes[9..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.rval.write_to(&mut out[0..]);
+        self.is_error.write_to(&mut out[8..]);
+        self.reserved.write_to(&mut out[9..]);
+    }
+}
+/// `PTRACE_GET_SYSCALL_INFO` at a `PTRACE_EVENT_SECCOMP` stop (`linux/ptrace.h`).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct PtraceSyscallInfoSeccomp {
+    pub nr: u64,
+    pub args: [u64; 6],
+    pub ret_data: u32,
+    pub reserved2: u32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<PtraceSyscallInfoSeccomp>() == 64);
+    assert!(core::mem::align_of::<PtraceSyscallInfoSeccomp>() == 8);
+    assert!(core::mem::offset_of!(PtraceSyscallInfoSeccomp, nr) == 0);
+    assert!(core::mem::offset_of!(PtraceSyscallInfoSeccomp, args) == 8);
+    assert!(core::mem::offset_of!(PtraceSyscallInfoSeccomp, ret_data) == 56);
+    assert!(core::mem::offset_of!(PtraceSyscallInfoSeccomp, reserved2) == 60);
+};
+impl Default for PtraceSyscallInfoSeccomp {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for PtraceSyscallInfoSeccomp {
+    const SIZE: usize = 64;
+    const ALIGN: usize = 8;
+    const ZERO: Self = Self {
+        nr: <u64 as GuestLayout>::ZERO,
+        args: <[u64; 6] as GuestLayout>::ZERO,
+        ret_data: <u32 as GuestLayout>::ZERO,
+        reserved2: <u32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            nr: GuestLayout::read_from(&bytes[0..])?,
+            args: GuestLayout::read_from(&bytes[8..])?,
+            ret_data: GuestLayout::read_from(&bytes[56..])?,
+            reserved2: GuestLayout::read_from(&bytes[60..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.nr.write_to(&mut out[0..]);
+        self.args.write_to(&mut out[8..]);
+        self.ret_data.write_to(&mut out[56..]);
+        self.reserved2.write_to(&mut out[60..]);
+    }
+}
+/// What `ptrace_syscall_info` holds for its `op`.
+///
+/// C union stored as raw bytes; members are accessed by (de)serializing.
+#[repr(C, align(8))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct PtraceSyscallInfoData(pub [u8; 64]);
+const _: () = {
+    assert!(core::mem::size_of::<PtraceSyscallInfoData>() == 64);
+    assert!(core::mem::align_of::<PtraceSyscallInfoData>() == 8);
+};
+impl Default for PtraceSyscallInfoData {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl PtraceSyscallInfoData {
+    pub fn entry(&self) -> PtraceSyscallInfoEntry {
+        <PtraceSyscallInfoEntry as GuestLayout>::read_from(&self.0)
+            .unwrap_or(<PtraceSyscallInfoEntry as GuestLayout>::ZERO)
+    }
+    pub fn set_entry(&mut self, value: PtraceSyscallInfoEntry) {
+        value.write_to(&mut self.0);
+    }
+    pub fn from_entry(value: PtraceSyscallInfoEntry) -> Self {
+        let mut v = <Self as GuestLayout>::ZERO;
+        v.set_entry(value);
+        v
+    }
+    pub fn exit(&self) -> PtraceSyscallInfoExit {
+        <PtraceSyscallInfoExit as GuestLayout>::read_from(&self.0)
+            .unwrap_or(<PtraceSyscallInfoExit as GuestLayout>::ZERO)
+    }
+    pub fn set_exit(&mut self, value: PtraceSyscallInfoExit) {
+        value.write_to(&mut self.0);
+    }
+    pub fn from_exit(value: PtraceSyscallInfoExit) -> Self {
+        let mut v = <Self as GuestLayout>::ZERO;
+        v.set_exit(value);
+        v
+    }
+    pub fn seccomp(&self) -> PtraceSyscallInfoSeccomp {
+        <PtraceSyscallInfoSeccomp as GuestLayout>::read_from(&self.0)
+            .unwrap_or(<PtraceSyscallInfoSeccomp as GuestLayout>::ZERO)
+    }
+    pub fn set_seccomp(&mut self, value: PtraceSyscallInfoSeccomp) {
+        value.write_to(&mut self.0);
+    }
+    pub fn from_seccomp(value: PtraceSyscallInfoSeccomp) -> Self {
+        let mut v = <Self as GuestLayout>::ZERO;
+        v.set_seccomp(value);
+        v
+    }
+}
+impl GuestLayout for PtraceSyscallInfoData {
+    const SIZE: usize = 64;
+    const ALIGN: usize = 8;
+    const ZERO: Self = Self([0; 64]);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        Some(Self(GuestLayout::read_from(bytes)?))
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+/// `PTRACE_GET_SYSCALL_INFO` result (`struct ptrace_syscall_info`). wasm has no program
+/// counter: `instruction-pointer` is 0, `stack-pointer` the shadow stack pointer.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct PtraceSyscallInfo {
+    pub op: u8,
+    pub reserved: u8,
+    pub flags: u16,
+    pub arch: u32,
+    pub instruction_pointer: u64,
+    pub stack_pointer: u64,
+    pub data: PtraceSyscallInfoData,
+}
+const _: () = {
+    assert!(core::mem::size_of::<PtraceSyscallInfo>() == 88);
+    assert!(core::mem::align_of::<PtraceSyscallInfo>() == 8);
+    assert!(core::mem::offset_of!(PtraceSyscallInfo, op) == 0);
+    assert!(core::mem::offset_of!(PtraceSyscallInfo, reserved) == 1);
+    assert!(core::mem::offset_of!(PtraceSyscallInfo, flags) == 2);
+    assert!(core::mem::offset_of!(PtraceSyscallInfo, arch) == 4);
+    assert!(core::mem::offset_of!(PtraceSyscallInfo, instruction_pointer) == 8);
+    assert!(core::mem::offset_of!(PtraceSyscallInfo, stack_pointer) == 16);
+    assert!(core::mem::offset_of!(PtraceSyscallInfo, data) == 24);
+};
+impl Default for PtraceSyscallInfo {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for PtraceSyscallInfo {
+    const SIZE: usize = 88;
+    const ALIGN: usize = 8;
+    const ZERO: Self = Self {
+        op: <u8 as GuestLayout>::ZERO,
+        reserved: <u8 as GuestLayout>::ZERO,
+        flags: <u16 as GuestLayout>::ZERO,
+        arch: <u32 as GuestLayout>::ZERO,
+        instruction_pointer: <u64 as GuestLayout>::ZERO,
+        stack_pointer: <u64 as GuestLayout>::ZERO,
+        data: <PtraceSyscallInfoData as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            op: GuestLayout::read_from(&bytes[0..])?,
+            reserved: GuestLayout::read_from(&bytes[1..])?,
+            flags: GuestLayout::read_from(&bytes[2..])?,
+            arch: GuestLayout::read_from(&bytes[4..])?,
+            instruction_pointer: GuestLayout::read_from(&bytes[8..])?,
+            stack_pointer: GuestLayout::read_from(&bytes[16..])?,
+            data: GuestLayout::read_from(&bytes[24..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.op.write_to(&mut out[0..]);
+        self.reserved.write_to(&mut out[1..]);
+        self.flags.write_to(&mut out[2..]);
+        self.arch.write_to(&mut out[4..]);
+        self.instruction_pointer.write_to(&mut out[8..]);
+        self.stack_pointer.write_to(&mut out[16..]);
+        self.data.write_to(&mut out[24..]);
+    }
+}
+/// `PTRACE_PEEKSIGINFO` arguments (`struct ptrace_peeksiginfo_args`).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct PtracePeeksiginfoArgs {
+    pub off: u64,
+    pub flags: u32,
+    pub nr: i32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<PtracePeeksiginfoArgs>() == 16);
+    assert!(core::mem::align_of::<PtracePeeksiginfoArgs>() == 8);
+    assert!(core::mem::offset_of!(PtracePeeksiginfoArgs, off) == 0);
+    assert!(core::mem::offset_of!(PtracePeeksiginfoArgs, flags) == 8);
+    assert!(core::mem::offset_of!(PtracePeeksiginfoArgs, nr) == 12);
+};
+impl Default for PtracePeeksiginfoArgs {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for PtracePeeksiginfoArgs {
+    const SIZE: usize = 16;
+    const ALIGN: usize = 8;
+    const ZERO: Self = Self {
+        off: <u64 as GuestLayout>::ZERO,
+        flags: <u32 as GuestLayout>::ZERO,
+        nr: <i32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            off: GuestLayout::read_from(&bytes[0..])?,
+            flags: GuestLayout::read_from(&bytes[8..])?,
+            nr: GuestLayout::read_from(&bytes[12..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.off.write_to(&mut out[0..]);
+        self.flags.write_to(&mut out[8..]);
+        self.nr.write_to(&mut out[12..]);
+    }
+}
+/// `kcmp` comparison types (`enum kcmp_type`, `linux/kcmp.h`).
+///
+/// C: `int`
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct KcmpType(pub i32);
+impl KcmpType {
+    pub const KCMP_FILE: Self = Self(0);
+    pub const KCMP_VM: Self = Self(1);
+    pub const KCMP_FILES: Self = Self(2);
+    pub const KCMP_FS: Self = Self(3);
+    pub const KCMP_SIGHAND: Self = Self(4);
+    pub const KCMP_IO: Self = Self(5);
+    pub const KCMP_SYSVSEM: Self = Self(6);
+    pub const KCMP_EPOLL_TFD: Self = Self(7);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("KCMP_FILE", Self::KCMP_FILE),
+        ("KCMP_VM", Self::KCMP_VM),
+        ("KCMP_FILES", Self::KCMP_FILES),
+        ("KCMP_FS", Self::KCMP_FS),
+        ("KCMP_SIGHAND", Self::KCMP_SIGHAND),
+        ("KCMP_IO", Self::KCMP_IO),
+        ("KCMP_SYSVSEM", Self::KCMP_SYSVSEM),
+        ("KCMP_EPOLL_TFD", Self::KCMP_EPOLL_TFD),
+    ];
+    /// Name of the first constant with this value, if any.
+    pub const fn name(self) -> Option<&'static str> {
+        match self.0 {
+            0 => Some("KCMP_FILE"),
+            1 => Some("KCMP_VM"),
+            2 => Some("KCMP_FILES"),
+            3 => Some("KCMP_FS"),
+            4 => Some("KCMP_SIGHAND"),
+            5 => Some("KCMP_IO"),
+            6 => Some("KCMP_SYSVSEM"),
+            7 => Some("KCMP_EPOLL_TFD"),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Debug for KcmpType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.name() {
+            Some(name) => f.write_str(name),
+            None => write!(f, "KcmpType({})", self.0),
+        }
+    }
+}
+
+impl GuestLayout for KcmpType {
+    const SIZE: usize = <i32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <i32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <i32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// `KCMP_EPOLL_TFD` slot (`struct kcmp_epoll_slot`, `linux/kcmp.h`).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct KcmpEpollSlot {
+    pub efd: u32,
+    pub tfd: u32,
+    pub toff: u32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<KcmpEpollSlot>() == 12);
+    assert!(core::mem::align_of::<KcmpEpollSlot>() == 4);
+    assert!(core::mem::offset_of!(KcmpEpollSlot, efd) == 0);
+    assert!(core::mem::offset_of!(KcmpEpollSlot, tfd) == 4);
+    assert!(core::mem::offset_of!(KcmpEpollSlot, toff) == 8);
+};
+impl Default for KcmpEpollSlot {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for KcmpEpollSlot {
+    const SIZE: usize = 12;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        efd: <u32 as GuestLayout>::ZERO,
+        tfd: <u32 as GuestLayout>::ZERO,
+        toff: <u32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            efd: GuestLayout::read_from(&bytes[0..])?,
+            tfd: GuestLayout::read_from(&bytes[4..])?,
+            toff: GuestLayout::read_from(&bytes[8..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.efd.write_to(&mut out[0..]);
+        self.tfd.write_to(&mut out[4..]);
+        self.toff.write_to(&mut out[8..]);
+    }
+}
+/// Guest pointer to a `kcmp-epoll-slot`.
+pub type ConstKcmpEpollSlotPtr = GuestPtr<KcmpEpollSlot>;
+/// I/O scheduling classes (`IOPRIO_CLASS_*`, `linux/ioprio.h`).
+///
+/// C: `int`
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct IoprioClass(pub i32);
+impl IoprioClass {
+    pub const IOPRIO_CLASS_NONE: Self = Self(0);
+    pub const IOPRIO_CLASS_RT: Self = Self(1);
+    pub const IOPRIO_CLASS_BE: Self = Self(2);
+    pub const IOPRIO_CLASS_IDLE: Self = Self(3);
+    pub const IOPRIO_CLASS_INVALID: Self = Self(7);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("IOPRIO_CLASS_NONE", Self::IOPRIO_CLASS_NONE),
+        ("IOPRIO_CLASS_RT", Self::IOPRIO_CLASS_RT),
+        ("IOPRIO_CLASS_BE", Self::IOPRIO_CLASS_BE),
+        ("IOPRIO_CLASS_IDLE", Self::IOPRIO_CLASS_IDLE),
+        ("IOPRIO_CLASS_INVALID", Self::IOPRIO_CLASS_INVALID),
+    ];
+    /// Name of the first constant with this value, if any.
+    pub const fn name(self) -> Option<&'static str> {
+        match self.0 {
+            0 => Some("IOPRIO_CLASS_NONE"),
+            1 => Some("IOPRIO_CLASS_RT"),
+            2 => Some("IOPRIO_CLASS_BE"),
+            3 => Some("IOPRIO_CLASS_IDLE"),
+            7 => Some("IOPRIO_CLASS_INVALID"),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Debug for IoprioClass {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.name() {
+            Some(name) => f.write_str(name),
+            None => write!(f, "IoprioClass({})", self.0),
+        }
+    }
+}
+
+impl GuestLayout for IoprioClass {
+    const SIZE: usize = <i32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <i32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <i32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// `ioprio_get`/`ioprio_set` targets (`IOPRIO_WHO_*`, `linux/ioprio.h`).
+///
+/// C: `int`
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct IoprioWho(pub i32);
+impl IoprioWho {
+    pub const IOPRIO_WHO_PROCESS: Self = Self(1);
+    pub const IOPRIO_WHO_PGRP: Self = Self(2);
+    pub const IOPRIO_WHO_USER: Self = Self(3);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("IOPRIO_WHO_PROCESS", Self::IOPRIO_WHO_PROCESS),
+        ("IOPRIO_WHO_PGRP", Self::IOPRIO_WHO_PGRP),
+        ("IOPRIO_WHO_USER", Self::IOPRIO_WHO_USER),
+    ];
+    /// Name of the first constant with this value, if any.
+    pub const fn name(self) -> Option<&'static str> {
+        match self.0 {
+            1 => Some("IOPRIO_WHO_PROCESS"),
+            2 => Some("IOPRIO_WHO_PGRP"),
+            3 => Some("IOPRIO_WHO_USER"),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Debug for IoprioWho {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.name() {
+            Some(name) => f.write_str(name),
+            None => write!(f, "IoprioWho({})", self.0),
+        }
+    }
+}
+
+impl GuestLayout for IoprioWho {
+    const SIZE: usize = <i32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <i32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <i32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
 /// What `stack-save` records for `stack-restore` (v1's `__wasi_stack_snapshot_t` layout).
 /// Opaque to the guest: the host fills it in.
 #[repr(C)]
