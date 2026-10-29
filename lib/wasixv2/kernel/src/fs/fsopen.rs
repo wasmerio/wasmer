@@ -19,6 +19,7 @@ use wasixv2_vfs::{Cap, Cred, Filesystem, LookupFlags, OpenHow, Path};
 use wasixv2_wait::{PollMask, PollTable, Pollable};
 
 use super::mount::{FsParam, FsType};
+use crate::ns::NetNs;
 use crate::{
     Kernel,
     file::{Backing, FileObject, Io, OpenFile},
@@ -61,6 +62,8 @@ struct Context {
     picked: Option<Path>,
     /// The credentials of the opener (`fc->cred`).
     cred: Cred,
+    /// The opener's network namespace (`fc->net_ns`), which a sysfs instance shows.
+    net: Arc<NetNs>,
 }
 
 /// An open filesystem context (`fscontext_fops`).
@@ -96,8 +99,9 @@ enum Value {
 }
 
 impl Context {
-    fn new(ty: FsType, phase: Phase, cred: Cred) -> Self {
+    fn new(ty: FsType, phase: Phase, cred: Cred, net: Arc<NetNs>) -> Self {
         Self {
+            net,
             ty,
             phase,
             source: None,
@@ -164,7 +168,7 @@ impl Context {
             value: string.as_deref(),
         };
         match &self.ty {
-            FsType::Proc => return Err(Errno::EINVAL),
+            FsType::Proc | FsType::Sys => return Err(Errno::EINVAL),
             FsType::Other(ty) => ty.parse_param(&param)?,
         }
         self.params.push((key, string));
@@ -197,7 +201,8 @@ impl Kernel {
         }
         let name = copy_string(caller, fs_name, crate::mm::PAGE_SIZE as usize).await?;
         let ty = self.filesystems.get(&name).ok_or(Errno::ENODEV)?;
-        let context = Context::new(ty, Phase::CreateParams, env.cred);
+        let net = self.task_ref(caller.task(), |t| t.ns.net.clone());
+        let context = Context::new(ty, Phase::CreateParams, env.cred, net);
         let cloexec = flags & FsopenFlags::FSOPEN_CLOEXEC.0 != 0;
         self.install_context(caller, context, cloexec)
     }
@@ -237,7 +242,8 @@ impl Kernel {
             .filesystems
             .get(sb.info.name.as_bytes())
             .ok_or(Errno::EINVAL)?;
-        let mut context = Context::new(ty, Phase::ReconfParams, env.cred);
+        let net = self.task_ref(caller.task(), |t| t.ns.net.clone());
+        let mut context = Context::new(ty, Phase::ReconfParams, env.cred, net);
         context.fs = Some(sb.fs.clone());
         context.picked = Some(target);
         let cloexec = has(FspickFlags::FSPICK_CLOEXEC);
@@ -343,6 +349,7 @@ impl Kernel {
         }
         let made = match &context.ty {
             FsType::Proc => Ok(self.procfs()),
+            FsType::Sys => Ok(self.sysfs_of(context.net.clone())),
             FsType::Other(ty) => {
                 let source = context.source.clone().unwrap_or_default();
                 ty.mount(&source, &context.params(), &context.cred)

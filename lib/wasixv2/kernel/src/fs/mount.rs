@@ -12,7 +12,7 @@ use wasixv2_abi::{
     AtFlags, ConstMountAttrPtr, ConstVoidPtr, Cstr, MountAttrFlags, MountFlags as MsFlags,
     MoveMountFlags, OpenFlags, OpenTreeFlags, UmountFlags as UmountFlagBits, Usize,
 };
-use wasixv2_syscalls::{Caller, CstrError, Errno, Fd, SysResult, read_cstr};
+use wasixv2_syscalls::{Caller, CstrError, Errno, Fd, SysResult, TaskId, read_cstr};
 use wasixv2_vfs::{
     Cap, Cred, Filesystem, LookupFlags, MountAttr, MountFlags, MountOp, PATH_MAX, Path,
     Propagation, UmountFlags,
@@ -68,6 +68,8 @@ pub trait FilesystemType: Send + Sync {
 pub(super) enum FsType {
     /// procfs: every mount is a new instance over the same kernel.
     Proc,
+    /// sysfs: every mount shows the network namespace of whoever mounted it.
+    Sys,
     Other(Arc<dyn FilesystemType>),
 }
 
@@ -80,7 +82,10 @@ impl Registry {
     /// The kernel's own mountable types.
     pub(crate) fn new() -> Arc<Self> {
         Arc::new(Self {
-            types: Mutex::new(vec![("proc".into(), FsType::Proc)]),
+            types: Mutex::new(vec![
+                ("proc".into(), FsType::Proc),
+                ("sysfs".into(), FsType::Sys),
+            ]),
         })
     }
 
@@ -393,6 +398,10 @@ impl Kernel {
         let fs = match ty {
             FsType::Proc => match params.is_empty() {
                 true => self.procfs(),
+                false => return Err(Errno::EINVAL),
+            },
+            FsType::Sys => match params.is_empty() {
+                true => self.sysfs_of(self.task_ref(TaskId(env.task), |t| t.ns.net.clone())),
                 false => return Err(Errno::EINVAL),
             },
             FsType::Other(ty) => ty.mount(source.as_deref().unwrap_or(b""), &params, &env.cred)?,
