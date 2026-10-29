@@ -14,10 +14,10 @@ signals, preemption, task lifetime), the exec `Abi` registry, the WASIX v1 compa
 waits on the kernel futexes, and the userland fixes. `wasmer run` runs WASIX v2, WASIX v1 and WASI
 modules on the v2 kernel. tests `main` = `6405893`, libc2 `main` = `c26931b5`.
 
-Suite on `feat/wasixv2` `8e19e34e15e` (merge train 10; wasixv2-tests `eb945b2`, libc2 `1e68cf76`,
-abi `340b9f3`, wasixcc `7ab1ffb`, userland `userland-3`): 3233 pass, 662 expected failures, 835 ignored,
-and one unexpected failure in the suite's own `ptimer-abstime`, a test flaw fixed in `eb945b2` (0
-unexpected on a filtered recheck).
+Suite on `feat/wasixv2` `55f0180df02` (merge train 11; wasixv2-tests `9a451f7`, libc2 `df2ac269`,
+abi `4b9e022`, wasixcc `7ab1ffb`, userland `userland-3`): 3292 pass, 635 expected failures, 0 unexpected,
+834 ignored. Per suite (pass / expected failures / ignored): Open POSIX 1521/270/85, LTP 1106/343/748,
+libc-test 399/22/0, wasixv2 266/0/1.
 
 Smoke tests pass: v2 static-web-server (28/28); through the v1 compat layer
 wasmer/static-web-server, phpix/phpix-85-32bit (CLI and `-S` server), coreutils, cowsay,
@@ -101,11 +101,18 @@ protections (EFAULT on PROT_NONE/unmapped), CLONE_PIDFD, the tgkill/heartbeat fi
 pending, complete_signal targeting), and the new userland (util-linux mount, tar/gzip/cpio/unzip,
 procps, psmisc; host triplet linux-musl). LTP's fs_bind shell tests (99) now run.
 
-Merge train 11 (next): pid namespaces (+ runner registers *_NS kconfig tests), signal-driven I/O
-(F_SETOWN/O_ASYNC/SIGIO), libc2 fork-style clone(), follow-ups 9 (nr_open, net conf, CLONE_VFORK without
-CLONE_VM; CLONE_VM processes in progress), follow-ups 10 (LTP guarded buffers, stack-aware mlock
-accounting, msync EBUSY on locked pages, umount busy check, listmount fault), follow-ups 11 (TCP urgent
-data/SIGURG, dnotify, leases; in progress).
+Merge train 11 has landed (`55f0180df02`): pid namespaces (runner registers the `*_NS` kconfig tests),
+signal-driven I/O (F_SETOWN/O_ASYNC/SIGIO), libc2 fork-style clone() and CLONE_VM processes, nr_open,
+CLONE_VFORK without CLONE_VM, LTP guarded buffers, stack-aware mlock accounting, msync EBUSY on locked
+pages, umount busy check, listmount fault, reap detaches the pid, and struct-pid reference counting
+(`PidRef`) for SysV sem/shm/msg pids.
+
+Merge train 12 (next): follow-ups 11 (TCP urgent data/SIGURG, dnotify, leases), network configuration
+(netlink, veth, iproute2/net-tools, `userland-4`), user namespaces, net follow-ups (ICMP/ping,
+multicast, IP_BIND_ADDRESS_NO_PORT, /proc/net socket inodes), follow-ups 12 (tainted, mqueue fs,
+PIDFD_GET_INFO, pipe-max-size/overcommit/max_map_count sysctls, fork error order, netns devconf
+permissions, libcap). Remaining read-after-reap pids: SO_PEERCRED/SCM_CREDENTIALS of a reaped peer,
+TIOCGPGRP of an emptied foreground group.
 
 Open follow-ups: memory accounting (local branch, paused by the user), fork copy-on-write (memory
 design phase 2b), `mmap/24-1` peaks at 8 GB, mlockall ignores RLIMIT_MEMLOCK (mlockall03), no `ldd`
