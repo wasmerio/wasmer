@@ -797,6 +797,7 @@ mod fs;
 mod futex;
 mod ipc;
 mod jobctl;
+mod keys;
 mod landlock;
 #[cfg(any(target_os = "linux", target_os = "android", target_os = "macos"))]
 mod mapped;

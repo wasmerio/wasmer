@@ -71,6 +71,7 @@ impl Kernel {
             taint: self.taint.clone(),
             pipe_max_size: self.pipe_max_size.clone(),
             vm: self.vm.clone(),
+            keys: self.keys.clone(),
         };
         Arc::new(ProcFs {
             source: Arc::new(source),
@@ -152,6 +153,8 @@ struct Source {
     pipe_max_size: Arc<PipeMaxSize>,
     /// The `vm` tunables.
     vm: Arc<VmSysctls>,
+    /// What `/proc/keys` and `/proc/key-users` show.
+    keys: Arc<crate::keys::Keys>,
 }
 
 /// A process as the tree has it.
@@ -318,6 +321,25 @@ impl Source {
 
     /// The credentials of the task `tid`, which opens a file (`f_cred`); none for the embedder
     /// or a task gone meanwhile.
+    /// `/proc/keys` as the task `tid` sees it: the keys it may view, its keyrings making it
+    /// possess some; nothing for the embedder, which has no keyrings.
+    fn proc_keys(&self, tid: u32, user_ns: &UserNs) -> Vec<u8> {
+        let Some(state) = self.state.upgrade() else {
+            return Vec::new();
+        };
+        let state = state.read_or_recover();
+        let Some(task) = state.tasks.get(&TaskId(tid)) else {
+            return Vec::new();
+        };
+        let ctx = crate::keys::Ctx {
+            cred: task.process.cred(),
+            thread: task.thread_keyring.clone(),
+            now: self.host.realtime().as_secs(),
+        };
+        drop(state);
+        self.keys.proc_keys(&ctx, user_ns)
+    }
+
     fn cred_of(&self, tid: u32) -> Option<crate::cred::Cred> {
         let state = self.state.upgrade()?;
         let state = state.read_or_recover();

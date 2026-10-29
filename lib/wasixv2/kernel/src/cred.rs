@@ -285,6 +285,8 @@ pub(crate) struct Cred {
     pub(crate) user_ns: Arc<UserNs>,
     /// The Landlock domain the process is confined to (`landlock_cred(cred)->domain`).
     pub(crate) landlock: Option<Arc<crate::landlock::Domain>>,
+    /// The session and process keyrings, and the default `request_key` keyring.
+    pub(crate) keys: crate::keys::CredKeys,
 }
 
 impl PartialEq for Cred {
@@ -304,6 +306,7 @@ impl PartialEq for Cred {
                 (Some(a), Some(b)) => Arc::ptr_eq(a, b),
                 _ => false,
             }
+            && self.keys == other.keys
     }
 }
 
@@ -346,6 +349,7 @@ impl Cred {
             securebits: 0,
             user_ns,
             landlock: None,
+            keys: Default::default(),
         }
     }
 

@@ -59,6 +59,9 @@ pub(super) enum Global {
     Tainted,
     /// `user.max_*_namespaces` of the reader's user namespace, for the namespaces of a kind.
     MaxNamespaces(NsKind),
+    /// `/proc/keys`, `/proc/key-users`, which the node renders for its opener.
+    Keys,
+    KeyUsers,
 }
 
 /// The files of a network namespace (`/proc/<pid>/net`).
@@ -182,6 +185,8 @@ pub(super) fn global(
         Global::CapLastCap => line(&wasixv2_vfs::Cap::LAST.to_string()),
         Global::Tainted => line(&source.taint.get().to_string()),
         Global::MaxNamespaces(kind) => line(&user_ns.ucount_max(kind).to_string()),
+        // The node renders them for its opener.
+        Global::Keys | Global::KeyUsers => unreachable!("rendered for the opener"),
     })
 }
 
