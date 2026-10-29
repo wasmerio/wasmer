@@ -72,6 +72,10 @@ pub(super) enum Net {
     Igmp6,
     /// `mcfilter` and `mcfilter6`.
     Mcfilter(bool),
+    /// `sctp/assocs`, `sctp/eps` and `sctp/snmp`.
+    SctpAssocs,
+    SctpEps,
+    SctpSnmp,
 }
 
 impl Global {
@@ -163,7 +167,134 @@ pub(super) fn net(ns: &NetNs, file: Net) -> Vec<u8> {
         Net::Igmp => net_igmp(ns),
         Net::Igmp6 => net_igmp6(ns),
         Net::Mcfilter(v6) => net_mcfilter(ns, v6),
+        Net::SctpAssocs => sctp_assocs(ns),
+        Net::SctpEps => sctp_eps(ns),
+        Net::SctpSnmp => sctp_snmp(ns),
     }
+}
+
+/// `sctp_v4_seq_dump_addr` and `sctp_v6_seq_dump_addr` (`%pI4 `, `%pI6 `).
+fn sctp_addr(out: &mut String, ip: IpAddr) {
+    let _ = match ip {
+        IpAddr::V4(v4) => write!(out, "{v4} "),
+        IpAddr::V6(v6) => {
+            let groups: Vec<String> = v6.segments().iter().map(|g| format!("{g:04x}")).collect();
+            write!(out, "{} ", groups.join(":"))
+        }
+    };
+}
+
+/// `sctp_ep_hashfn`: the port into 64 buckets, `net_hash_mix` being 0.
+fn sctp_bucket(port: u16) -> u16 {
+    port & 63
+}
+
+/// `/proc/net/sctp/eps` (`sctp_eps_seq_show`): the listening endpoints by hash bucket, the
+/// newest of a bucket first.
+fn sctp_eps(ns: &NetNs) -> Vec<u8> {
+    let mut eps = ns
+        .network
+        .as_ref()
+        .map(|n| n.sctp_endpoints())
+        .unwrap_or_default();
+    eps.reverse();
+    eps.sort_by_key(|e| sctp_bucket(e.port));
+    let mut out = String::from(" ENDPT     SOCK   STY SST HBKT LPORT   UID INODE LADDRS\n");
+    for e in &eps {
+        let _ = write!(
+            out,
+            "{:8} {:8} {:<3} {:<3} {:<4} {:<5} {:5} {:5} ",
+            0,
+            0,
+            e.style,
+            e.state,
+            sctp_bucket(e.port),
+            e.port,
+            e.uid,
+            e.inode
+        );
+        for ip in &e.addrs {
+            sctp_addr(&mut out, *ip);
+        }
+        out.push('\n');
+    }
+    out.into_bytes()
+}
+
+/// `/proc/net/sctp/assocs` (`sctp_assocs_seq_show`).
+fn sctp_assocs(ns: &NetNs) -> Vec<u8> {
+    let assocs = ns
+        .network
+        .as_ref()
+        .map(|n| n.sctp_assocs())
+        .unwrap_or_default();
+    let mut out = String::from(
+        " ASSOC     SOCK   STY SST ST HBKT ASSOC-ID TX_QUEUE RX_QUEUE UID INODE LPORT RPORT LADDRS <-> RADDRS HBINT INS OUTS MAXRT T1X T2X RTXC wmema wmemq sndbuf rcvbuf\n",
+    );
+    for a in &assocs {
+        let _ = write!(
+            out,
+            "{:8} {:8} {:<3} {:<3} {:<2} {:<4} {:4} {:8} {:8} {:7} {:5} {:<5} {:5} ",
+            0,
+            0,
+            a.style,
+            a.sk_state,
+            a.state,
+            0,
+            a.id,
+            a.tx_queue,
+            a.rx_queue,
+            a.uid,
+            a.inode,
+            a.lport,
+            a.rport
+        );
+        out.push(' ');
+        for ip in &a.laddrs {
+            if Some(*ip) == a.primary_src {
+                out.push('*');
+            }
+            sctp_addr(&mut out, *ip);
+        }
+        out.push_str("<-> ");
+        for ip in &a.paddrs {
+            if Some(*ip) == a.primary {
+                out.push('*');
+            }
+            sctp_addr(&mut out, *ip);
+        }
+        // `sk_wmem_alloc` holds one reference of the socket's own.
+        let _ = writeln!(
+            out,
+            "\t{:8} {:5} {:5} {:4} {:4} {:4} {:8} {:8} {:8} {:8} {:8}",
+            a.hbinterval,
+            a.incnt,
+            a.outcnt,
+            a.max_retrans,
+            0,
+            0,
+            0,
+            1,
+            a.tx_queue,
+            a.sndbuf,
+            a.rcvbuf
+        );
+    }
+    out.into_bytes()
+}
+
+/// `/proc/net/sctp/snmp` (`sctp_snmp_seq_show`).
+fn sctp_snmp(ns: &NetNs) -> Vec<u8> {
+    let counters = ns
+        .network
+        .as_ref()
+        .map(|n| n.sctp_snmp())
+        .unwrap_or_default();
+    let mut out = String::new();
+    for (name, value) in counters {
+        let _ = writeln!(out, "{name:<32}\t{value}");
+    }
+    out.into_bytes()
 }
 
 /// Seconds with two decimals, as `uptime` shows them.

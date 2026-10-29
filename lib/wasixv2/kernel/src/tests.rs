@@ -805,6 +805,7 @@ mod procfs;
 mod ptimer;
 mod pty;
 mod sched;
+mod sctp;
 mod signal;
 mod stdio;
 mod sysvipc;

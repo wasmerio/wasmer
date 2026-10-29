@@ -278,7 +278,9 @@ impl SockOpts {
     pub fn new(ty: SocketKind, family: Domain) -> Self {
         let (sndbuf, rcvbuf) = match ty {
             SocketKind::Stream => (TCP_SNDBUF_DEFAULT, TCP_RCVBUF_DEFAULT),
-            SocketKind::Datagram | SocketKind::Raw => (UDP_BUF_DEFAULT, UDP_BUF_DEFAULT),
+            SocketKind::Datagram | SocketKind::Raw | SocketKind::SeqPacket => {
+                (UDP_BUF_DEFAULT, UDP_BUF_DEFAULT)
+            }
         };
         Self {
             ty,
@@ -679,6 +681,7 @@ impl SockOpts {
                 SocketKind::Stream => 1,
                 SocketKind::Datagram => 2,
                 SocketKind::Raw => 3,
+                SocketKind::SeqPacket => 5,
             },
             (SOL_SOCKET, n) if n == So::SO_PROTOCOL.0 => match (self.family, self.ty) {
                 (None, _) => 0,
@@ -686,6 +689,7 @@ impl SockOpts {
                 (Some(_), SocketKind::Datagram) => 17,
                 // The socket's own protocol, which the kernel reports before asking.
                 (Some(_), SocketKind::Raw) => 255,
+                (Some(_), SocketKind::SeqPacket) => crate::sctp::IPPROTO_SCTP,
             },
             (SOL_SOCKET, n) if n == So::SO_DOMAIN.0 => self.family.map_or(1, Domain::raw),
             (SOL_IP, n) if n == IpOption::IP_TTL.0 => match self.int(level, name) {
