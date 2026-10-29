@@ -1,0 +1,305 @@
+diff --git a/harness/Makefile b/harness/Makefile
+index 4f225d3..ee073bf 100644
+--- a/harness/Makefile
++++ b/harness/Makefile
+@@ -18,7 +18,13 @@ cases/3.p:	CFLAGS+=-Wno-stringop-overflow
+ # make LIBAIO=-laio partcheck
+ LIBAIO?=../src/libaio.a
+ 
+-all: $(PROGS)
++all: $(PROGS) check-syscall-headers
++
++.PHONY: check-syscall-headers
++check-syscall-headers: syscall-generic-time64.o
++
++syscall-generic-time64.o: syscall-generic-time64.c ../src/syscall-generic.h
++	$(CC) $(CFLAGS) -c -o $@ $<
+ 
+ $(PROGS): %.p: %.t $(HARNESS_SRCS)
+ 	$(CC) $(CFLAGS) -DTEST_NAME=\"$<\" -o $@ main.c $(LIBAIO) -lpthread
+diff --git a/harness/cases/13.t b/harness/cases/13.t
+index 5f18005..8e2c49d 100644
+--- a/harness/cases/13.t
++++ b/harness/cases/13.t
+@@ -35,7 +35,7 @@ int test_main(void)
+ 	status |= attempt_io_submit(io_ctx, IOS, iocb_list, IOS);
+ 
+ 	for (i=0; i<IOS; i++) {
+-		struct timespec ts = { tv_sec: 30, tv_nsec: 0 };
++		struct timespec ts = { .tv_sec = 30, .tv_nsec = 0 };
+ 		struct io_event event;
+ 		struct iocb *iocb;
+ 
+diff --git a/harness/cases/16.t b/harness/cases/16.t
+index 4d24b04..bcdb4d1 100644
+--- a/harness/cases/16.t
++++ b/harness/cases/16.t
+@@ -6,7 +6,10 @@
+ #include <sys/syscall.h>   /* For SYS_xxx definitions */
+ 
+ #ifndef SYS_eventfd
+-#if defined(__i386__)
++#if defined(SYS_eventfd2)
++/* New Linux architectures expose eventfd2 without the legacy eventfd call. */
++#define USE_EVENTFD2
++#elif defined(__i386__)
+ #define SYS_eventfd 323
+ #elif defined(__x86_64__)
+ #define SYS_eventfd 284
+diff --git a/harness/cases/22.t b/harness/cases/22.t
+index d6a8986..deb87b9 100644
+--- a/harness/cases/22.t
++++ b/harness/cases/22.t
+@@ -11,7 +11,7 @@
+ #include <signal.h>
+ #include <stdio.h>
+ #include <unistd.h>
+-#include <sys/poll.h>
++#include <poll.h>
+ #include <sys/wait.h>
+ #include <stdlib.h>
+ 
+diff --git a/harness/cases/23.t b/harness/cases/23.t
+index 9bbb05c..cc5a8a1 100644
+--- a/harness/cases/23.t
++++ b/harness/cases/23.t
+@@ -72,7 +72,7 @@ static void fail_errno(const char *format, ...)
+ static void *thrproc2(void *arg)
+ {
+ 	for (;;) {
+-		off64_t offset = 0;
++		off_t offset = 0;
+ 
+ 		pthread_barrier_wait(&barrier);
+ 		if (exiting)
+@@ -92,7 +92,7 @@ static void *thrproc3(void *arg)
+ {
+ 	for (;;) {
+ 		char c;
+-		off64_t offset = 0;
++		off_t offset = 0;
+ 
+ 		pthread_barrier_wait(&barrier);
+ 		if (exiting)
+diff --git a/harness/cases/24.t b/harness/cases/24.t
+new file mode 100644
+index 0000000..7e7851b
+--- /dev/null
++++ b/harness/cases/24.t
+@@ -0,0 +1,60 @@
++// SPDX-License-Identifier: LGPL-2.1+
++/* Time64-only Linux AIO: fs/aio.c:SYSCALL_DEFINE6(io_pgetevents_time64).
++ * Exercise public timespec conversion and restoration of the temporary mask.
++ */
++#include <limits.h>
++#include <signal.h>
++#include <stdint.h>
++#include <time.h>
++
++static volatile sig_atomic_t handled;
++static void handler(int sig) { handled = sig; }
++
++int test_main(void)
++{
++	io_context_t ctx = 0;
++	struct io_event event;
++	struct timespec timeout = { 0, 1000000000 };
++	struct sigaction action = { .sa_handler = handler };
++	sigset_t blocked, empty, saved;
++	int ret;
++
++	assert(io_setup(1, &ctx) == 0);
++	errno = EDOM;
++	ret = io_pgetevents(ctx, -1, 1, &event, &timeout, NULL);
++	if (ret != -EINVAL) {
++		fprintf(stderr, "io_pgetevents invalid min_nr: %d, expected %d\n", ret, -EINVAL);
++		return 1;
++	}
++	assert(errno == EDOM);
++	/* fs/aio.c:do_io_getevents normalizes the timespec, rather than
++	 * rejecting a nanosecond field of 1000000000. min_nr=0 never waits. */
++	assert(io_pgetevents(ctx, 0, 1, &event, &timeout, NULL) == 0);
++	assert(timeout.tv_nsec == 1000000000);
++	if (sizeof(time_t) > 4) {
++		timeout.tv_sec = (time_t)((int64_t)INT32_MAX + 1);
++		timeout.tv_nsec = 123;
++		assert(io_pgetevents(ctx, 0, 1, &event, &timeout, NULL) == 0);
++		assert(timeout.tv_sec == (int64_t)INT32_MAX + 1);
++		assert(timeout.tv_nsec == 123);
++	}
++
++	sigemptyset(&action.sa_mask);
++	assert(sigaction(SIGUSR1, &action, NULL) == 0);
++	sigemptyset(&blocked);
++	sigaddset(&blocked, SIGUSR1);
++	sigemptyset(&empty);
++	assert(sigprocmask(SIG_BLOCK, &blocked, &saved) == 0);
++	assert(kill(getpid(), SIGUSR1) == 0);
++	timeout.tv_sec = 1;
++	timeout.tv_nsec = 0;
++	errno = EDOM;
++	assert(io_pgetevents(ctx, 1, 1, &event, &timeout, &empty) == -EINTR);
++	assert(errno == EDOM);
++	assert(handled == SIGUSR1);
++	assert(sigprocmask(SIG_SETMASK, NULL, &blocked) == 0);
++	assert(sigismember(&blocked, SIGUSR1) == 1);
++	assert(sigprocmask(SIG_SETMASK, &saved, NULL) == 0);
++	assert(io_destroy(ctx) == 0);
++	return 0;
++}
+diff --git a/harness/cases/25.t b/harness/cases/25.t
+new file mode 100644
+index 0000000..f0e7094
+--- /dev/null
++++ b/harness/cases/25.t
+@@ -0,0 +1,28 @@
++// SPDX-License-Identifier: LGPL-2.1+
++/* io_getevents must work without legacy __NR_io_getevents on time64-only Linux. */
++#include <limits.h>
++#include <stdint.h>
++#include <time.h>
++
++int test_main(void)
++{
++	io_context_t ctx = 0;
++	struct io_event event;
++	struct timespec timeout = { 0, 1000000000 };
++
++	assert(io_setup(1, &ctx) == 0);
++	errno = EDOM;
++	assert(io_getevents(ctx, -1, 1, &event, &timeout) == -EINVAL);
++	assert(errno == EDOM);
++	assert(io_getevents(ctx, 0, 1, &event, &timeout) == 0);
++	assert(timeout.tv_nsec == 1000000000);
++	if (sizeof(time_t) > 4) {
++		timeout.tv_sec = (time_t)((int64_t)INT32_MAX + 1);
++		timeout.tv_nsec = 123;
++		assert(io_getevents(ctx, 0, 1, &event, &timeout) == 0);
++		assert(timeout.tv_sec == (int64_t)INT32_MAX + 1);
++		assert(timeout.tv_nsec == 123);
++	}
++	assert(io_destroy(ctx) == 0);
++	return 0;
++}
+diff --git a/harness/cases/8.t b/harness/cases/8.t
+index dbcf044..a63292f 100644
+--- a/harness/cases/8.t
++++ b/harness/cases/8.t
+@@ -12,7 +12,7 @@ long long get_fs_limit(int fd)
+ 	int ret;
+ 
+ 	while (max - min > 1) {
+-		if (pwrite64(fd, &c, 1, (min + max) / 2) == -1)
++		if (pwrite(fd, &c, 1, (min + max) / 2) == -1)
+ 			max = (min + max) / 2;
+ 		else {
+ 			ret = ftruncate(fd, 0);
+diff --git a/harness/main.c b/harness/main.c
+index 82e9c69..a1397a3 100644
+--- a/harness/main.c
++++ b/harness/main.c
+@@ -1,3 +1,4 @@
++#define _FILE_OFFSET_BITS 64
+ #define _GNU_SOURCE
+ #include <stdio.h>
+ #include <errno.h>
+diff --git a/harness/syscall-generic-time64.c b/harness/syscall-generic-time64.c
+new file mode 100644
+index 0000000..8d23d80
+--- /dev/null
++++ b/harness/syscall-generic-time64.c
+@@ -0,0 +1,6 @@
++/* A libc on a time64-only architecture omits __NR_io_getevents. */
++#include "syscall-generic.h"
++#ifdef __NR_io_getevents
++#error generic syscall definitions invented a legacy io_getevents number
++#endif
++int main(void) { return 0; }
+diff --git a/src/io_getevents.c b/src/io_getevents.c
+index 90d6081..0095865 100644
+--- a/src/io_getevents.c
++++ b/src/io_getevents.c
+@@ -23,8 +23,20 @@
+ #include "syscall.h"
+ #include "aio_ring.h"
+ 
++#ifdef __NR_io_getevents
+ io_syscall5(int, __io_getevents_0_4, io_getevents, io_context_t, ctx, long, min_nr, long, nr, struct io_event *, events, struct timespec *, timeout)
+ 
++#else
++/* Linux fs/aio.c:io_pgetevents_time64 has the same event-wait semantics
++ * as io_getevents, with an optional signal mask. Time64-only architectures
++ * have no legacy io_getevents syscall. */
++static int __io_getevents_0_4(io_context_t ctx, long min_nr, long nr,
++		struct io_event *events, struct timespec *timeout)
++{
++	return io_pgetevents(ctx, min_nr, nr, events, timeout, NULL);
++}
++#endif
++
+ int io_getevents_0_4(io_context_t ctx, long min_nr, long nr, struct io_event * events, struct timespec * timeout)
+ {
+ 	if (aio_ring_is_empty(ctx, timeout))
+diff --git a/src/io_pgetevents.c b/src/io_pgetevents.c
+index e6b0614..f54f077 100644
+--- a/src/io_pgetevents.c
++++ b/src/io_pgetevents.c
+@@ -21,10 +21,46 @@
+ #include <stdlib.h>
+ #include <time.h>
+ #include <signal.h>
++#include <stdint.h>
+ #include "syscall.h"
+ #include "aio_ring.h"
+ 
+-#ifdef __NR_io_pgetevents
++#if !defined(__NR_io_pgetevents) && defined(__NR_io_pgetevents_time64)
++/* A kernel timespec always has two signed 64-bit fields. The public
++ * timespec may have 32-bit seconds or nanoseconds/padding: never pass it
++ * directly to the time64 syscall (Linux kernel/time/time.c:get_timespec64).
++ */
++struct aio_timespec64 {
++	int64_t tv_sec;
++	int64_t tv_nsec;
++};
++
++io_syscall6(int, __io_pgetevents_time64, io_pgetevents_time64, io_context_t,
++		ctx, long, min_nr, long, nr, struct io_event *, events,
++		struct aio_timespec64 *, timeout, void *, sigmask);
++
++int io_pgetevents(io_context_t ctx, long min_nr, long nr,
++		struct io_event *events, struct timespec *timeout,
++		sigset_t *sigmask)
++{
++	struct aio_timespec64 ts;
++	struct {
++		unsigned long ss;
++		unsigned long ss_len;
++	} data;
++
++	if (aio_ring_is_empty(ctx, timeout))
++		return 0;
++	if (timeout) {
++		ts.tv_sec = timeout->tv_sec;
++		ts.tv_nsec = timeout->tv_nsec;
++	}
++	data.ss = (unsigned long)sigmask;
++	data.ss_len = _NSIG / 8;
++	return __io_pgetevents_time64(ctx, min_nr, nr, events,
++			timeout ? &ts : NULL, &data);
++}
++#elif defined(__NR_io_pgetevents)
+ io_syscall6(int, __io_pgetevents, io_pgetevents, io_context_t, ctx, long,
+ 		min_nr, long, nr, struct io_event *, events,
+ 		struct timespec *, timeout, void *, sigmask);
+diff --git a/src/syscall-generic.h b/src/syscall-generic.h
+index b217b53..869d327 100644
+--- a/src/syscall-generic.h
++++ b/src/syscall-generic.h
+@@ -8,4 +8,5 @@
+ #define __NR_io_destroy			1
+ #define __NR_io_submit			2
+ #define __NR_io_cancel			3
+-#define __NR_io_getevents		4
++/* syscall.h already includes sys/syscall.h. Only use io_getevents when
++ * libc provides its number: time64-only architectures have no syscall 4. */

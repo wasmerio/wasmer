@@ -30,15 +30,27 @@ build_uring() {
 build_aio() {
   checkout libaio https://pagure.io/libaio.git b8eadc9f89e8f7ab0338eacda9f98a6caea76883
   cd "$ROOT/libaio-src"
+  # Generic Linux time64-only port, including its two upstream-style regressions.
+  # Accept exactly our already-applied patch on a repeated build; preserve other edits.
+  local time64_patch=$USERLAND/patches/libaio/time64-only.patch
+  if git apply --check "$time64_patch" 2>/dev/null; then
+    git apply "$time64_patch"
+  elif ! git apply --reverse --check "$time64_patch" 2>/dev/null; then
+    echo 'libaio sources do not match the pinned time64 patch' >&2
+    return 1
+  fi
   # Static Wasm aliases for libaio's .symver directives require LLVM branch
-  # wasix-org/llvm-project:wasixv2/wasm-symver. No libaio source patch is used.
+  # wasix-org/llvm-project:wasixv2/wasm-symver. The time64 port leaves
+  # libaio's symbol-version directives unchanged.
   # Select an isolated build without changing the compiler for other packages.
   if [ -n "${LIBAIO_LLVM_LOCATION:-}" ]; then
     export WASIXCC_LLVM_LOCATION=$LIBAIO_LLVM_LOCATION
   fi
   make -C src -j"$JOBS" CC="$CC" AR="$AR" RANLIB="$RANLIB" ENABLE_SHARED=0
-  make -C harness -j"$JOBS" CC="$CC" cases/2.p cases/3.p cases/4.p \
-    cases/5.p cases/12.p cases/15.p cases/22.p
+  # Supply Clang's harness flags explicitly; case 3's GCC-only warning
+  # switch is unnecessary here. Keep all enabled diagnostics as errors.
+  make -C harness -j"$JOBS" CC="$CC" \
+    CFLAGS='-Wall -Werror -I../src -g -O2' all
 }
 
 # A narrow upstream harness target usable while time64-only AIO waiting is
