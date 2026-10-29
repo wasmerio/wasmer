@@ -117,6 +117,10 @@ impl Registry {
                 ("proc".into(), FsType::Proc),
                 ("sysfs".into(), FsType::Sys),
                 ("mqueue".into(), FsType::Mqueue),
+                (
+                    "securityfs".into(),
+                    FsType::Other(Arc::new(crate::lsm::SecurityFsType::default())),
+                ),
             ]),
         })
     }
@@ -127,6 +131,15 @@ impl Registry {
             .iter()
             .find(|(known, _)| known.as_bytes() == name)
             .map(|(_, ty)| ty.clone())
+    }
+
+    /// An instance of the registered type `name` that takes no options, as the embedder
+    /// mounts it; `None` for an unknown type or one of the kernel's namespace-bound ones.
+    pub(crate) fn mount_option_less(&self, name: &[u8]) -> Option<Arc<dyn Filesystem>> {
+        match self.get(name)? {
+            FsType::Other(ty) => ty.mount(b"", &[], &wasixv2_vfs::Cred::root()).ok(),
+            _ => None,
+        }
     }
 
     /// The names, for `/proc/filesystems`.
