@@ -49,6 +49,13 @@ pub trait Filesystem: Send + Sync {
     fn dname(&self, _name: &[u8], _node: &dyn Node) -> Option<Vec<u8>> {
         None
     }
+
+    /// Whether the objects of this filesystem, which is mounted nowhere, may be bind-mounted
+    /// although they have no name (`may_copy_tree` makes the exception for nsfs and pidfs):
+    /// binding a namespace file keeps the namespace, as `ip netns add` does. By default not.
+    fn binds_objects(&self) -> bool {
+        false
+    }
 }
 
 /// Where following a symbolic link leads.

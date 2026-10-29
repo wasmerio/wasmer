@@ -1287,3 +1287,46 @@ fn sysfs_shows_the_network_namespace_of_its_mount() {
         "the parent's own"
     );
 }
+
+/// `ip netns add`: a bind mount of `/proc/self/ns/net` onto a file keeps the namespace, and
+/// `ip netns exec` opens the file and enters it (`may_copy_tree` lets nsfs objects bind).
+#[test]
+fn a_namespace_file_binds_onto_a_file_and_setns_enters_it() {
+    let (kernel, task, memory) = networked();
+    let caller = Caller::new(task, &memory);
+    let child = fork(&kernel, &caller, CloneFlags(0));
+    let child_caller = Caller::new(child, &memory);
+    assert_eq!(
+        unshare(&kernel, &child_caller, CloneFlags::CLONE_NEWNET),
+        Ok(0)
+    );
+    let theirs = ns_ino(&kernel, &child_caller, "net");
+    let name = path(&memory, "/netns-a");
+    let flags = OpenFlags::O_CREAT | OpenFlags::O_RDONLY;
+    let fd = block_on(kernel.openat(&caller, CWD, name, flags, 0o444)).unwrap();
+    assert_eq!(block_on(kernel.close(&caller, fd)), Ok(0));
+    let cstr = |addr: u32, s: &str| {
+        put(&memory.0, addr, format!("{s}\0").as_bytes());
+        GuestPtr::new(addr)
+    };
+    let source = cstr(0x1100, &format!("/proc/{}/ns/net", child.0));
+    let target = cstr(0x1200, "/netns-a");
+    let bind = wasixv2_abi::MountFlags::MS_BIND;
+    let mount = kernel.mount(
+        &caller,
+        source,
+        target,
+        GuestPtr::NULL,
+        bind,
+        GuestPtr::NULL,
+    );
+    assert_eq!(block_on(mount), Ok(0));
+
+    let file = open(&kernel, &caller, "/netns-a").unwrap();
+    assert_ne!(ns_ino(&kernel, &caller, "net"), theirs);
+    assert_eq!(
+        setns(&kernel, &caller, file, CloneFlags::CLONE_NEWNET),
+        Ok(0)
+    );
+    assert_eq!(ns_ino(&kernel, &caller, "net"), theirs);
+}

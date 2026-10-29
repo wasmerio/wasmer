@@ -117,6 +117,11 @@ impl Filesystem for NsFs {
         self.root.clone()
     }
 
+    /// `ns_dentry_operations`: a namespace file binds, which keeps its namespace.
+    fn binds_objects(&self) -> bool {
+        true
+    }
+
     async fn statfs(&self) -> FsResult<StatFs> {
         Ok(StatFs {
             block_size: 4096,
