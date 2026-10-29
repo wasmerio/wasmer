@@ -130,7 +130,8 @@ impl Kernel {
             }
             _ => return Ok(None),
         };
-        let admin = self.cred(caller).capable(Cap::SysAdmin);
+        // `tty_reopen`: `capable(CAP_SYS_ADMIN)`.
+        let admin = self.cred(caller).capable_init(Cap::SysAdmin);
         let file = tty.open(admin)?;
         if !noctty {
             let readable = matches!(

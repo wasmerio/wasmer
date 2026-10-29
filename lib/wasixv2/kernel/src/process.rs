@@ -1221,21 +1221,29 @@ impl Kernel {
             // (`copy_fs` before `copy_namespaces`); `CLONE_NEWNS` never goes with `CLONE_FS`.
             let mut own_fs =
                 (!flags.contains(CloneFlags::CLONE_FS)).then(|| task.fs.lock_or_recover().clone());
-            let ns = task.ns.copy(
-                self,
-                flags.0,
-                &parent.cred(),
-                &parent.pid_ns,
-                own_fs.as_mut(),
-            )?;
+            // `copy_creds`: a new user namespace comes first, and owns the other new ones.
+            let cred = match flags.contains(CloneFlags::CLONE_NEWUSER) {
+                true => {
+                    let chrooted = task.fs.lock_or_recover().chrooted(&task.ns);
+                    UserNs::create(&parent.cred(), chrooted, &self.ns_inums)?
+                }
+                false => parent.cred(),
+            };
+            let ns = task
+                .ns
+                .copy(self, flags.0, &cred, &parent.pid_ns, own_fs.as_mut())?;
             let mut ident = parent.ident.lock_or_recover().for_child();
             if flags.contains(CloneFlags::CLONE_NNP) {
                 ident.no_new_privs = true;
             }
             let id = TaskId(state.last_id + 1);
-            // `checkpoint_restore_ns_capable`.
-            let cred = parent.cred();
-            let may_set = cred.capable(Cap::CheckpointRestore) || cred.capable(Cap::SysAdmin);
+            // `checkpoint_restore_ns_capable` over each pid namespace's owner, for the caller.
+            let caller = parent.cred();
+            let may_set = |pid_ns: &Arc<PidNs>| {
+                let owner = pid_ns.owner_ns().expect("a pid namespace has an owner");
+                caller.ns_capable(owner, Cap::CheckpointRestore)
+                    || caller.ns_capable(owner, Cap::SysAdmin)
+            };
             state
                 .pids
                 .alloc(id.0, &ns.pid_for_children, set_tid, may_set)?;
@@ -1252,7 +1260,7 @@ impl Kernel {
                 maxrss: Default::default(),
                 cpu_timers: Default::default(),
                 ident: Mutex::new(ident),
-                cred: Mutex::new(parent.cred()),
+                cred: Mutex::new(cred),
                 resources: Mutex::new(parent.resources.lock_or_recover().clone()),
                 pid_ns: ns.pid_for_children.clone(),
                 sysvsem: Mutex::new(ns.ipc.clone()),

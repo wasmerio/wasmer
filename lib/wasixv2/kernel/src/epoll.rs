@@ -548,9 +548,12 @@ impl Kernel {
         if !target.can_poll() {
             return Err(Errno::EPERM.into());
         }
-        // EPOLLWAKEUP needs CAP_BLOCK_SUSPEND; without it Linux drops the flag silently.
+        // EPOLLWAKEUP needs CAP_BLOCK_SUSPEND over the initial user namespace; without it Linux
+        // drops the flag silently (`ep_take_care_of_epollwakeup`).
         if let Some(event) = &mut event
-            && !self.cred(caller).capable(wasixv2_vfs::Cap::BlockSuspend)
+            && !self
+                .cred(caller)
+                .capable_init(wasixv2_vfs::Cap::BlockSuspend)
         {
             event.events &= !EpollEvents::EPOLLWAKEUP;
         }

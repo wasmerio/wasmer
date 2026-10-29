@@ -1,0 +1,455 @@
+//! User namespaces: making them, their id maps through `/proc`, ids as each namespace sees
+//! them, and capabilities that count only over what a namespace owns.
+
+use wasixv2_abi::{
+    CloneFlags, ConstRlimit64Ptr, IoctlRequest, Rlimit64, Rlimit64Ptr, RlimitResource, Signal,
+};
+use wasixv2_syscalls::{read_value, write_value};
+use wasixv2_vfs::MountFlags;
+
+use super::{ipc::errno, proc::ForkableMemory, *};
+
+const CWD: Fd = Fd(-100);
+const SIGCHLD: u32 = Signal::SIGCHLD.0 as u32;
+const NEWUSER: CloneFlags = CloneFlags::CLONE_NEWUSER;
+/// `CapEff` of a process with every capability.
+const ALL_CAPS: &str = "000001ffffffffff";
+
+/// A process of the test: its first task and its memory.
+struct P {
+    task: TaskId,
+    memory: ForkableMemory,
+}
+
+impl P {
+    fn new(task: TaskId) -> Self {
+        Self {
+            task,
+            memory: ForkableMemory(FlatMemory(RefCell::new(vec![0; 65536]))),
+        }
+    }
+
+    fn caller(&self) -> Caller<'_> {
+        Caller::new(self.task, &self.memory)
+    }
+}
+
+/// A kernel with its init and `/proc`, and one process running as `uid` and gid `uid`.
+fn machine_as(uid: u32) -> (Kernel, P) {
+    let (kernel, task, _) = super::cred::machine_with(|kernel| {
+        kernel
+            .with_credentials(Credentials::new(uid, uid))
+            .with_init()
+    });
+    let vfs = kernel.vfs().clone();
+    block_on(vfs.mount(b"/proc", kernel.procfs(), MountFlags::default(), true)).unwrap();
+    (kernel, P::new(task))
+}
+
+/// `clone` with `flags` and SIGCHLD: the child.
+fn fork(kernel: &Kernel, parent: &P, flags: CloneFlags) -> SysResult<P> {
+    let null = GuestPtrMut::NULL;
+    let flags = flags.0 as u32 | SIGCHLD;
+    block_on(kernel.clone(&parent.caller(), flags, 0, null, 0, null))?;
+    let mut child = None;
+    while let Some(action) = kernel.take_pending(parent.task) {
+        if let GuestAction::Fork { child: task, .. } = action {
+            child = Some(task);
+        }
+    }
+    Ok(P::new(child.expect("fork left the child")))
+}
+
+fn unshare(kernel: &Kernel, p: &P, flags: CloneFlags) -> SysResult<i32> {
+    block_on(kernel.unshare(&p.caller(), flags.0 as u32))
+}
+
+/// Puts `text` NUL-terminated at 0x1000.
+fn path(p: &P, text: &str) -> Cstr {
+    let mut bytes = text.as_bytes().to_vec();
+    bytes.push(0);
+    block_on(p.memory.write(0x1000, &bytes)).unwrap();
+    GuestPtr::new(0x1000)
+}
+
+fn open(kernel: &Kernel, p: &P, at: &str, flags: OpenFlags) -> SysResult<Fd> {
+    block_on(kernel.openat(&p.caller(), CWD, path(p, at), flags, 0))
+}
+
+/// The contents of the file `at`, read whole.
+fn read_text(kernel: &Kernel, p: &P, at: &str) -> String {
+    let caller = p.caller();
+    let fd = open(kernel, p, at, OpenFlags::O_RDONLY).unwrap();
+    let mut out = Vec::new();
+    loop {
+        let n = block_on(kernel.read(&caller, fd, UserSliceMut::new(0x5000, 4096))).unwrap();
+        if n == 0 {
+            break;
+        }
+        let mut chunk = vec![0; n as usize];
+        block_on(p.memory.read(0x5000, &mut chunk)).unwrap();
+        out.extend(chunk);
+    }
+    assert_eq!(block_on(kernel.close(&caller, fd)), Ok(0));
+    String::from_utf8(out).unwrap()
+}
+
+/// Writes `text` to the file `at` in one write.
+fn write_text(kernel: &Kernel, p: &P, at: &str, text: &str) -> SysResult<u32> {
+    let caller = p.caller();
+    let fd = open(kernel, p, at, OpenFlags::O_WRONLY)?;
+    block_on(p.memory.write(0x5000, text.as_bytes())).unwrap();
+    let written = block_on(kernel.write(&caller, fd, UserSlice::new(0x5000, text.len() as u32)));
+    assert_eq!(block_on(kernel.close(&caller, fd)), Ok(0));
+    written
+}
+
+/// The value of the line `key` of `/proc/self/status`.
+fn status(kernel: &Kernel, p: &P, key: &str) -> String {
+    let text = read_text(kernel, p, "/proc/self/status");
+    let line = text
+        .lines()
+        .find_map(|line| line.strip_prefix(&format!("{key}:\t")))
+        .unwrap_or_else(|| panic!("no {key} in {text}"));
+    line.to_string()
+}
+
+fn getuid(kernel: &Kernel, p: &P) -> i32 {
+    block_on(kernel.getuid(&p.caller())).unwrap()
+}
+
+fn getgid(kernel: &Kernel, p: &P) -> i32 {
+    block_on(kernel.getgid(&p.caller())).unwrap()
+}
+
+/// The pid of `p`, as it sees itself.
+fn pid_of(kernel: &Kernel, p: &P) -> i32 {
+    block_on(kernel.getpid(&p.caller())).unwrap()
+}
+
+/// `unshare(CLONE_NEWUSER)` and `0 <uid> 1` written to both maps, as `unshare -r` does:
+/// `setgroups` denied first, so an unprivileged process may map its gid.
+fn become_root(kernel: &Kernel, p: &P, extra: CloneFlags) {
+    let (uid, gid) = (getuid(kernel, p), getgid(kernel, p));
+    assert_eq!(unshare(kernel, p, NEWUSER | extra), Ok(0));
+    let map = |id: i32| format!("0 {id} 1\n");
+    assert_eq!(write_text(kernel, p, "/proc/self/setgroups", "deny"), Ok(4));
+    let uid_map = map(uid);
+    assert_eq!(
+        write_text(kernel, p, "/proc/self/uid_map", &uid_map),
+        Ok(uid_map.len() as u32)
+    );
+    let gid_map = map(gid);
+    assert_eq!(
+        write_text(kernel, p, "/proc/self/gid_map", &gid_map),
+        Ok(gid_map.len() as u32)
+    );
+}
+
+/// `NS_GET_OWNER_UID` of the caller's own user namespace.
+fn owner_uid(kernel: &Kernel, p: &P) -> u32 {
+    let caller = p.caller();
+    let fd = open(kernel, p, "/proc/self/ns/user", OpenFlags::O_RDONLY).unwrap();
+    let ioctl = kernel.ioctl(&caller, fd, IoctlRequest::NS_GET_OWNER_UID, 0x400);
+    assert_eq!(block_on(ioctl), Ok(0));
+    block_on(read_value(&p.memory, GuestPtr::<u32>::new(0x400))).unwrap()
+}
+
+/// LTP userns01: an unprivileged process in a new user namespace is the overflow uid and gid
+/// with every capability, and the namespace's owner is itself, as it sees it once mapped.
+#[test]
+fn an_unprivileged_new_user_namespace_has_every_capability_and_no_ids_yet() {
+    let (kernel, p) = machine_as(1000);
+    assert_eq!(status(&kernel, &p, "CapEff"), "0000000000000000");
+
+    assert_eq!(unshare(&kernel, &p, NEWUSER), Ok(0));
+
+    assert_eq!((getuid(&kernel, &p), getgid(&kernel, &p)), (65534, 65534));
+    assert_eq!(status(&kernel, &p, "Uid"), "65534\t65534\t65534\t65534");
+    assert_eq!(status(&kernel, &p, "CapEff"), ALL_CAPS);
+    assert_eq!(
+        owner_uid(&kernel, &p),
+        65534,
+        "its creator is not mapped yet"
+    );
+    assert_eq!(read_text(&kernel, &p, "/proc/self/uid_map"), "");
+    assert_eq!(read_text(&kernel, &p, "/proc/self/setgroups"), "allow\n");
+
+    become_root_maps(&kernel, &p, 1000);
+    assert_eq!((getuid(&kernel, &p), getgid(&kernel, &p)), (0, 0));
+    assert_eq!(owner_uid(&kernel, &p), 0);
+    assert_eq!(
+        read_text(&kernel, &p, "/proc/self/uid_map"),
+        "         0       1000          1\n"
+    );
+}
+
+/// The maps of a namespace `p` already is in.
+fn become_root_maps(kernel: &Kernel, p: &P, id: u32) {
+    let map = format!("0 {id} 1");
+    assert_eq!(
+        write_text(kernel, p, "/proc/self/setgroups", "deny\n"),
+        Ok(5)
+    );
+    assert_eq!(
+        write_text(kernel, p, "/proc/self/uid_map", &map),
+        Ok(map.len() as u32)
+    );
+    assert_eq!(
+        write_text(kernel, p, "/proc/self/gid_map", &map),
+        Ok(map.len() as u32)
+    );
+}
+
+/// LTP userns05/06/07 rules for writing a map from inside: once, its own id only, never a
+/// malformed or overlapping one, and the gid only after `setgroups` is denied.
+#[test]
+fn a_map_is_written_once_with_the_writers_own_ids() {
+    let (kernel, p) = machine_as(1000);
+    assert_eq!(unshare(&kernel, &p, NEWUSER), Ok(0));
+    let write = |at: &str, text: &str| errno(write_text(&kernel, &p, at, text));
+
+    assert_eq!(write("/proc/self/uid_map", "0 1001 1"), Errno::EPERM);
+    assert_eq!(write("/proc/self/uid_map", "0 1000 2"), Errno::EPERM);
+    assert_eq!(write("/proc/self/uid_map", "0 1000"), Errno::EINVAL);
+    assert_eq!(write("/proc/self/uid_map", "0 1000 0"), Errno::EINVAL);
+    assert_eq!(
+        write("/proc/self/uid_map", "4294967295 1000 1"),
+        Errno::EINVAL
+    );
+    assert_eq!(
+        write("/proc/self/uid_map", "0 1000 1\n0 1001 1"),
+        Errno::EINVAL,
+        "overlapping"
+    );
+    assert_eq!(write("/proc/self/gid_map", "0 1000 1"), Errno::EPERM);
+    assert_eq!(
+        write_text(&kernel, &p, "/proc/self/uid_map", "0 1000 1"),
+        Ok(8)
+    );
+    assert_eq!(write("/proc/self/uid_map", "0 1000 1"), Errno::EPERM);
+    assert_eq!(write("/proc/self/setgroups", "maybe"), Errno::EINVAL);
+    assert_eq!(
+        write_text(&kernel, &p, "/proc/self/setgroups", "deny"),
+        Ok(4)
+    );
+    assert_eq!(write("/proc/self/setgroups", "allow"), Errno::EPERM);
+    assert_eq!(
+        write_text(&kernel, &p, "/proc/self/gid_map", "0 1000 1"),
+        Ok(8)
+    );
+    assert_eq!(
+        write("/proc/self/setgroups", "deny"),
+        Errno::EPERM,
+        "after gid_map"
+    );
+    assert_eq!(read_text(&kernel, &p, "/proc/self/setgroups"), "deny\n");
+    // setgroups(2) stays denied in the namespace, even for its root.
+    let caller = p.caller();
+    let groups = kernel.setgroups(&caller, 0, wasixv2_abi::ConstGidArray::new(0));
+    assert_eq!(errno(block_on(groups)), Errno::EPERM);
+}
+
+/// A namespace made by `clone(CLONE_NEWUSER)`: its creator, root here, writes a range of
+/// ids into the child's map from outside, as `newuidmap` does; each reader of the child's
+/// map sees the lower ids in its own namespace.
+#[test]
+fn the_parent_maps_a_childs_range_and_each_level_sees_its_own_ids() {
+    let (kernel, parent) = machine_as(0);
+    let child = fork(&kernel, &parent, NEWUSER).unwrap();
+    let at = |what: &str| format!("/proc/{}/{what}", pid_of(&kernel, &child));
+    assert_eq!(getuid(&kernel, &child), 65534);
+
+    for map in ["uid_map", "gid_map"] {
+        let range = "0 100000 65536\n";
+        assert_eq!(write_text(&kernel, &parent, &at(map), range), Ok(15));
+    }
+
+    // Root's kernel uid is not in the range: the child takes the namespace's root with the
+    // capabilities it has there, and is the range's first id outside.
+    assert_eq!(getuid(&kernel, &child), 65534);
+    assert_eq!(block_on(kernel.setgid(&child.caller(), 0)), Ok(0));
+    assert_eq!(block_on(kernel.setuid(&child.caller(), 0)), Ok(0));
+    assert_eq!(getuid(&kernel, &child), 0);
+    let status_at = at("status");
+    let seen = read_text(&kernel, &parent, &status_at);
+    assert!(
+        seen.contains("Uid:\t100000\t100000\t100000\t100000\n"),
+        "{seen}"
+    );
+    assert_eq!(status(&kernel, &child, "CapEff"), ALL_CAPS);
+    assert_eq!(
+        read_text(&kernel, &parent, &at("uid_map")),
+        "         0     100000      65536\n"
+    );
+    // The child's root makes a namespace of its own and maps part of its range.
+    let grandchild = fork(&kernel, &child, NEWUSER).unwrap();
+    let grand = format!("/proc/{}/uid_map", pid_of(&kernel, &grandchild));
+    assert_eq!(write_text(&kernel, &child, &grand, "0 1000 10"), Ok(9));
+    assert_eq!(
+        read_text(&kernel, &child, &grand),
+        "         0       1000         10\n"
+    );
+    assert_eq!(
+        read_text(&kernel, &parent, &grand),
+        "         0     101000         10\n"
+    );
+    assert_eq!(
+        read_text(&kernel, &grandchild, "/proc/self/uid_map"),
+        "         0       1000         10\n",
+        "inside, the parent namespace's ids"
+    );
+    assert_eq!(block_on(kernel.setuid(&grandchild.caller(), 0)), Ok(0));
+    assert_eq!(status(&kernel, &grandchild, "Uid"), "0\t0\t0\t0");
+    let outside = format!("/proc/{}/status", pid_of(&kernel, &grandchild));
+    let seen = read_text(&kernel, &parent, &outside);
+    assert!(
+        seen.contains("Uid:\t101000\t101000\t101000\t101000\n"),
+        "{seen}"
+    );
+    assert_eq!(
+        errno(write_text(
+            &kernel,
+            &parent,
+            &grand.replace("uid", "gid"),
+            "0 0 1"
+        )),
+        Errno::EPERM,
+        "two levels up"
+    );
+}
+
+/// `clone(CLONE_NEWUSER)` cannot share the root and working directory or the thread group.
+#[test]
+fn a_new_user_namespace_shares_neither_fs_nor_thread_group() {
+    let (kernel, p) = machine_as(1000);
+    let null = GuestPtrMut::NULL;
+    for flags in [
+        NEWUSER | CloneFlags::CLONE_FS,
+        NEWUSER | CloneFlags::CLONE_THREAD | CloneFlags::CLONE_SIGHAND | CloneFlags::CLONE_VM,
+    ] {
+        let caller = p.caller();
+        let clone = kernel.clone(&caller, flags.0 as u32, 0, null, 0, null);
+        assert_eq!(errno(block_on(clone)), Errno::EINVAL, "{flags:?}");
+    }
+}
+
+/// The root of a user namespace has every capability over what the namespace owns: a UTS
+/// namespace made with it, not the one it came from.
+#[test]
+fn sethostname_needs_a_uts_namespace_the_user_namespace_owns() {
+    let (kernel, p) = machine_as(1000);
+    let sethostname = |name: &str| {
+        block_on(p.memory.write(0x800, name.as_bytes())).unwrap();
+        let name_ptr = wasixv2_abi::ConstBuf::new(0x800);
+        block_on(kernel.sethostname(&p.caller(), name_ptr, name.len() as i32))
+    };
+    become_root(&kernel, &p, CloneFlags(0));
+    assert_eq!(
+        errno(sethostname("inside")),
+        Errno::EPERM,
+        "the initial one"
+    );
+
+    assert_eq!(unshare(&kernel, &p, CloneFlags::CLONE_NEWUTS), Ok(0));
+    assert_eq!(sethostname("inside"), Ok(0));
+    assert_eq!(
+        read_text(&kernel, &p, "/proc/sys/kernel/hostname"),
+        "inside\n"
+    );
+}
+
+/// LTP userns04: setns into a user namespace needs `CAP_SYS_ADMIN` over it, which its creator
+/// has and a sibling namespace's root does not.
+#[test]
+fn setns_enters_a_user_namespace_only_with_power_over_it() {
+    let (kernel, parent) = machine_as(1000);
+    let a = fork(&kernel, &parent, NEWUSER).unwrap();
+    let b = fork(&kernel, &parent, NEWUSER).unwrap();
+    let ns_of = |p: &P| format!("/proc/{}/ns/user", pid_of(&kernel, p));
+    let b_ns = open(&kernel, &a, &ns_of(&b), OpenFlags::O_RDONLY).unwrap();
+    let setns = |p: &P, fd: Fd| block_on(kernel.setns(&p.caller(), fd, NEWUSER.0 as i32));
+
+    assert_eq!(
+        errno(setns(&a, b_ns)),
+        Errno::EPERM,
+        "a sibling's namespace"
+    );
+
+    let a_ns = open(&kernel, &parent, &ns_of(&a), OpenFlags::O_RDONLY).unwrap();
+    assert_eq!(status(&kernel, &parent, "CapEff"), "0000000000000000");
+    assert_eq!(setns(&parent, a_ns), Ok(0), "the creator's");
+    assert_eq!(status(&kernel, &parent, "CapEff"), ALL_CAPS);
+    let own = open(&kernel, &parent, "/proc/self/ns/user", OpenFlags::O_RDONLY).unwrap();
+    assert_eq!(errno(setns(&parent, own)), Errno::EINVAL, "its own again");
+}
+
+/// `max_user_namespaces` bounds how many each user makes; 0 makes none (`ENOSPC`). It is a
+/// limit of the reader's user namespace, which only `CAP_SYS_RESOURCE` there may change.
+#[test]
+fn max_user_namespaces_of_zero_makes_unshare_fail() {
+    let (kernel, root) = machine_as(0);
+    let at = "/proc/sys/user/max_user_namespaces";
+    assert_eq!(read_text(&kernel, &root, at), "16384\n");
+    let user = fork(&kernel, &root, CloneFlags(0)).unwrap();
+    assert_eq!(block_on(kernel.setuid(&user.caller(), 1000)), Ok(0));
+    assert_eq!(errno(write_text(&kernel, &user, at, "5")), Errno::EACCES);
+
+    assert_eq!(write_text(&kernel, &root, at, "0\n"), Ok(2));
+
+    assert_eq!(errno(unshare(&kernel, &user, NEWUSER)), Errno::ENOSPC);
+    assert_eq!(
+        fork(&kernel, &user, NEWUSER).err(),
+        Some(Errno::ENOSPC.into())
+    );
+    assert_eq!(write_text(&kernel, &root, at, "1"), Ok(1));
+    assert_eq!(unshare(&kernel, &user, NEWUSER), Ok(0));
+    // The new namespace has a limit of its own, which its root may lower.
+    assert_eq!(read_text(&kernel, &user, at), "2147483647\n");
+    assert_eq!(write_text(&kernel, &user, at, "7"), Ok(1));
+    assert_eq!(read_text(&kernel, &root, at), "1\n");
+}
+
+/// A chrooted process cannot make a user namespace (`current_chrooted`).
+#[test]
+fn a_chrooted_process_makes_no_user_namespace() {
+    let (kernel, p) = machine_as(0);
+    let caller = p.caller();
+    let chroot = kernel.chroot(&caller, path(&p, "/proc"));
+    assert_eq!(block_on(chroot), Ok(0));
+
+    assert_eq!(errno(unshare(&kernel, &p, NEWUSER)), Errno::EPERM);
+}
+
+/// The negative set: root of a user namespace cannot raise a hard limit or write the initial
+/// pid namespace's `pid_max`, which only the initial namespace's capabilities allow.
+#[test]
+fn a_user_namespaces_root_cannot_raise_limits_or_tune_the_machine() {
+    let (kernel, p) = machine_as(1000);
+    become_root(&kernel, &p, CloneFlags(0));
+    let caller = p.caller();
+    let limit = |new: Option<u64>| {
+        let old = Rlimit64Ptr::new(0x600);
+        let ptr = match new {
+            Some(max) => {
+                let value = Rlimit64 {
+                    rlim_cur: 64,
+                    rlim_max: max,
+                };
+                block_on(write_value(&p.memory, Rlimit64Ptr::new(0x700), &value)).unwrap();
+                ConstRlimit64Ptr::new(0x700)
+            }
+            None => ConstRlimit64Ptr::NULL,
+        };
+        let res = RlimitResource::RLIMIT_NOFILE;
+        block_on(kernel.prlimit64(&caller, 0, res, ptr, old))?;
+        let old: Rlimit64 = block_on(read_value(&p.memory, GuestPtr::new(0x600))).unwrap();
+        Ok::<_, SysErr>(old.rlim_max)
+    };
+    let max = limit(None).unwrap();
+
+    assert_eq!(errno(limit(Some(max + 1))), Errno::EPERM);
+    assert_eq!(limit(Some(max - 1)), Ok(max), "lowering needs nothing");
+    let at = "/proc/sys/kernel/pid_max";
+    assert_eq!(errno(write_text(&kernel, &p, at, "4096")), Errno::EACCES);
+}

@@ -26,12 +26,12 @@ use wasixv2_syscalls::{
     Caller, CstrError, Errno, Fd, LocalFuture, SysErr, SysResult, TaskId, read_cstr, read_value,
     write_value,
 };
-use wasixv2_vfs::{Cap, Cred, MAY_READ, MAY_WRITE, Node};
+use wasixv2_vfs::{Cap, MAY_READ, MAY_WRITE, Node};
 use wasixv2_wait::{
     PollMask, PollTable, Pollable, WaitQueue, poll_wait, wait_event, wait_event_timeout,
 };
 
-use super::{CAP_SYS_RESOURCE, capable};
+use super::Cred;
 use crate::{
     Kernel,
     file::{Backing, FileObject, Io, OpenFile},
@@ -161,7 +161,7 @@ impl Mqueue {
         } else {
             self.mode
         } & 7;
-        mask & !bits == 0 || cred.capable(Cap::DacOverride)
+        mask & !bits == 0 || cred.capable_wrt(self.uid, self.gid, Cap::DacOverride)
     }
 }
 
@@ -314,7 +314,7 @@ impl Kernel {
         }
         check_name(&name)?;
         let env = self.env(caller);
-        let cred = &env.cred;
+        let cred = &self.ipc_cred(caller);
         let ns = self.ns(caller);
         let mqueues = &ns.ipc.mq;
         let queue = {
@@ -371,7 +371,7 @@ impl Kernel {
         attr: Option<MqAttr>,
         limit: u64,
     ) -> Result<Arc<Mqueue>, Errno> {
-        let resource = capable(cred, CAP_SYS_RESOURCE);
+        let resource = cred.capable_init(Cap::SysResource);
         let mut count = mqueues.count.lock_or_recover();
         if *count >= QUEUES_MAX && !resource {
             return Err(Errno::ENOSPC);
@@ -424,13 +424,14 @@ impl Kernel {
     pub(crate) async fn sys_mq_unlink(&self, caller: &Caller<'_>, name: Cstr) -> SysResult<i32> {
         let name = read_name(caller, name).await?;
         check_name(&name)?;
-        let cred = self.env(caller).cred;
+        let cred = self.ipc_cred(caller);
         let ns = self.ns(caller);
         let mut names = ns.ipc.mq.names.lock_or_recover();
         let queue = names.get(&name).ok_or(Errno::ENOENT)?;
         // `may_delete` in the mqueue root, which is root's and sticky (`S_ISVTX`): only the
         // queue's owner, root or `CAP_FOWNER` may remove a queue.
-        if cred.fsuid != queue.uid && cred.fsuid != 0 && !cred.capable(Cap::Fowner) {
+        let fowner = cred.capable_wrt(queue.uid, queue.gid, Cap::Fowner);
+        if cred.fsuid != queue.uid && cred.fsuid != 0 && !fowner {
             return Err(Errno::EPERM.into());
         }
         names.remove(&name);

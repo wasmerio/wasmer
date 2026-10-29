@@ -504,7 +504,7 @@ impl Kernel {
             }),
             wait: WaitQueue::new(),
             fasync: SockAsync::default(),
-            opener_net_admin: self.cred(caller).capable(Cap::NetAdmin),
+            opener_net_admin: self.cred(caller).ns_capable(net.user_ns(), Cap::NetAdmin),
             net,
             // `netlink_autobind`: the process's pid as it sees it.
             port: self.pids.own_nr(self.process(caller.task()).pid.0) as u32,

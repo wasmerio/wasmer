@@ -64,7 +64,10 @@ impl Default for Resources {
 pub(crate) fn nproc_exceeded(state: &State, process: &Process) -> bool {
     let cred = process.cred();
     let uid = cred.user.real;
-    if uid == Kuid::GLOBAL_ROOT || cred.capable(Cap::SysResource) || cred.capable(Cap::SysAdmin) {
+    if uid == Kuid::GLOBAL_ROOT
+        || cred.capable_init(Cap::SysResource)
+        || cred.capable_init(Cap::SysAdmin)
+    {
         return false;
     }
     let tasks = state
@@ -191,7 +194,9 @@ impl Kernel {
                     return Err(Errno::EINVAL.into());
                 }
                 let nofile = resource == RlimitResource::RLIMIT_NOFILE;
-                let raises = new.rlim_max > previous.rlim_max && !cred.capable(Cap::SysResource);
+                // `do_prlimit`: `capable(CAP_SYS_RESOURCE)`.
+                let raises =
+                    new.rlim_max > previous.rlim_max && !cred.capable_init(Cap::SysResource);
                 // `fs.nr_open` bounds the hard limit, even for a caller that may raise it.
                 if raises || (nofile && new.rlim_max > u64::from(self.nr_open.get())) {
                     return Err(Errno::EPERM.into());

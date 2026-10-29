@@ -734,7 +734,8 @@ impl Kernel {
             Admission {
                 nice_limit: resources.soft(RlimitResource::RLIMIT_NICE),
                 rtprio_limit: resources.soft(RlimitResource::RLIMIT_RTPRIO),
-                capable: cred.capable(Cap::SysNice),
+                // `user_check_sched_setscheduler`: `capable(CAP_SYS_NICE)`.
+                capable: cred.capable_init(Cap::SysNice),
                 same_owner: cred.same_owner(&task.process.cred()),
                 dl_others,
                 now: self.host.monotonic(),
@@ -1036,13 +1037,16 @@ impl Kernel {
     ) -> SysResult<i32> {
         let nice = nice.clamp(MIN_NICE, MAX_NICE);
         let cred = self.cred(caller);
-        let capable = cred.capable(Cap::SysNice);
+        // `can_nice`: `capable(CAP_SYS_NICE)`.
+        let can_nice = cred.capable_init(Cap::SysNice);
         let mut state = self.state.lock_or_recover();
         let targets = self.priority_targets(&state, caller, which, who)?;
         let mut error = Some(Errno::ESRCH);
         for id in targets {
             let task = state.tasks.get_mut(&id).expect("listed above");
-            if !cred.same_owner(&task.process.cred()) && !capable {
+            // `set_one_prio_perm`: `CAP_SYS_NICE` over the target's user namespace.
+            let target = task.process.cred();
+            if !cred.same_owner(&target) && !cred.ns_capable(&target.user_ns, Cap::SysNice) {
                 error = Some(Errno::EPERM);
                 continue;
             }
@@ -1051,7 +1055,7 @@ impl Kernel {
                 .resources
                 .lock_or_recover()
                 .soft(RlimitResource::RLIMIT_NICE);
-            if nice < task.sched.nice && !nice_allowed(nice, limit) && !capable {
+            if nice < task.sched.nice && !nice_allowed(nice, limit) && !can_nice {
                 error = Some(Errno::EACCES);
                 continue;
             }

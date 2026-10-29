@@ -213,7 +213,7 @@ impl Kernel {
             }
             let sched = task.sched.for_child()?;
             let id = TaskId(state.last_id + 1);
-            state.pids.alloc(id.0, &process.pid_ns, &[], false)?;
+            state.pids.alloc(id.0, &process.pid_ns, &[], |_| false)?;
             {
                 let mut group = process.group.state.lock_or_recover();
                 // A group on its way out, or in an `execve`, starts nothing (Linux:

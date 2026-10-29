@@ -38,8 +38,9 @@ use wasixv2_abi::{GuestPtr, GuestPtrMut, IpcCmd, RlimitResource, ShmFlags, Shmid
 use wasixv2_host::Host;
 use wasixv2_pages::SharedPages;
 use wasixv2_syscalls::{Caller, Errno, SysResult, read_value, write_value};
+use wasixv2_vfs::Cap;
 
-use super::{CAP_IPC_LOCK, Ids, Object, Perm, READ, WRITE, capable, get_or_create};
+use super::{Ids, Object, Perm, READ, WRITE, get_or_create};
 use crate::{
     Kernel,
     mm::{self, Mapped, PAGE_SIZE, Shared, Source},
@@ -341,7 +342,7 @@ impl Kernel {
         size: u32,
         shmflg: i32,
     ) -> SysResult<i32> {
-        let cred = self.env(caller).cred;
+        let cred = self.ipc_cred(caller);
         let now = self.ipc_now();
         let pid = self.pids.get(self.process(caller.task()).pid.0);
         let ns = self.ns(caller);
@@ -423,7 +424,7 @@ impl Kernel {
         if flags.contains(ShmFlags::SHM_EXEC) {
             access |= 0o111;
         }
-        let cred = self.env(caller).cred;
+        let cred = self.ipc_cred(caller);
         let pid = self.pids.get(self.process(caller.task()).pid.0);
         let segment = self.ns(caller).ipc.shm.get(shmid)?;
         {
@@ -485,7 +486,7 @@ impl Kernel {
         if cmd < 0 || shmid < 0 {
             return Err(Errno::EINVAL.into());
         }
-        let cred = self.env(caller).cred;
+        let cred = self.ipc_cred(caller);
         let ns = self.ns(caller);
         let segments = &ns.ipc.shm;
         match IpcCmd(cmd) {
@@ -565,7 +566,7 @@ impl Kernel {
                     return Err(Errno::EIDRM.into());
                 }
                 let mut perm = segment.perm();
-                if !capable(&cred, CAP_IPC_LOCK) {
+                if !cred.ns_capable(Cap::IpcLock) {
                     if cred.fsuid != perm.uid && cred.fsuid != perm.cuid {
                         return Err(Errno::EPERM.into());
                     }

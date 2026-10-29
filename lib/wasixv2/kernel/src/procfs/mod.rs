@@ -295,13 +295,18 @@ impl Source {
         ns.unwrap_or_else(|| self.ns.clone())
     }
 
+    /// The credentials of the task `tid`, which opens a file (`f_cred`); none for the embedder
+    /// or a task gone meanwhile.
+    fn cred_of(&self, tid: u32) -> Option<crate::cred::Cred> {
+        let state = self.state.upgrade()?;
+        let state = state.read_or_recover();
+        Some(state.tasks.get(&TaskId(tid))?.process.cred())
+    }
+
     /// The user namespace of the task `tid`, which opens a file and sees its ids through it
     /// (`seq_user_ns`); without the task, the one that owns the instance's pid namespace.
     fn user_ns_of(&self, tid: u32) -> Arc<UserNs> {
-        let ns = self.state.upgrade().and_then(|state| {
-            let state = state.read_or_recover();
-            Some(state.tasks.get(&TaskId(tid))?.process.cred().user_ns)
-        });
+        let ns = self.cred_of(tid).map(|cred| cred.user_ns);
         ns.unwrap_or_else(|| {
             self.pid_ns
                 .owner_ns()
@@ -310,17 +315,17 @@ impl Source {
         })
     }
 
-    /// Whether the task `tid` may set where its pid namespace's next pid search starts
-    /// (`checkpoint_restore_ns_capable`).
-    fn may_checkpoint_restore(&self, tid: u32) -> bool {
+    /// Whether the task `tid` may set where the pid namespace `ns`'s next pid search starts
+    /// (`checkpoint_restore_ns_capable` over its owner).
+    fn may_checkpoint_restore(&self, tid: u32, ns: &PidNs) -> bool {
         let Some(state) = self.state.upgrade() else {
             return false;
         };
         let state = state.read_or_recover();
         state.tasks.get(&TaskId(tid)).is_some_and(|task| {
             let cred = task.process.cred();
-            cred.capable(wasixv2_vfs::Cap::SysAdmin)
-                || cred.capable(wasixv2_vfs::Cap::CheckpointRestore)
+            cred.ns_capable(ns.user_ns(), wasixv2_vfs::Cap::SysAdmin)
+                || cred.ns_capable(ns.user_ns(), wasixv2_vfs::Cap::CheckpointRestore)
         })
     }
 

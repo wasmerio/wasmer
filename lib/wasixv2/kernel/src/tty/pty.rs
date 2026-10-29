@@ -413,7 +413,8 @@ impl Kernel {
     /// taken.
     pub(crate) fn open_ptmx(&self, caller: &Caller<'_>) -> Result<TtyFile, Errno> {
         let cred = self.cred(caller);
-        let admin = cred.capable(Cap::SysAdmin);
+        // `tty_reopen`: `capable(CAP_SYS_ADMIN)`.
+        let admin = cred.capable_init(Cap::SysAdmin);
         let index = self.ptys.new_index()?;
         let pty = Arc::new(Pty {
             index,

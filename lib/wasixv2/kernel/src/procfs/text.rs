@@ -12,10 +12,12 @@ use super::{Source, node::Scope};
 use crate::{
     file::OpenFile,
     mm::{Mm, PAGE_SIZE, RegionKind},
-    ns::{NetNs, NsProxy, PidNs, UserNs},
+    ns::{NetNs, NsKind, NsProxy, PidNs, UserNs},
     resource::{ADDRESS_SPACE, TICKS},
     sched::cpus,
     sync::MutexExt,
+    uidgid::OVERFLOW_ID,
+    userns::MapKind,
 };
 
 /// `fs.pipe-max-size`, Linux's default.
@@ -46,6 +48,13 @@ pub(super) enum Global {
     DirNotifyEnable,
     LeasesEnable,
     LeaseBreakTime,
+    /// `kernel.overflowuid`, `kernel.overflowgid`.
+    OverflowUid,
+    OverflowGid,
+    /// `kernel.cap_last_cap`.
+    CapLastCap,
+    /// `user.max_*_namespaces` of the reader's user namespace, for the namespaces of a kind.
+    MaxNamespaces(NsKind),
 }
 
 /// The files of a network namespace (`/proc/<pid>/net`).
@@ -68,7 +77,6 @@ impl Global {
         match self {
             Self::Hostname
             | Self::Domainname
-            | Self::PidMax
             | Self::Overcommit
             | Self::MmapMinAddr
             | Self::FileMax
@@ -77,8 +85,9 @@ impl Global {
             | Self::DirNotifyEnable
             | Self::LeasesEnable
             | Self::LeaseBreakTime => 0o644,
-            // Writing it needs `CAP_CHECKPOINT_RESTORE` instead.
-            Self::NsLastPid => 0o666,
+            // Writing these needs a capability over the namespace's owner instead (or, for
+            // `pid_max`, being its root), as the permissions of their sysctl tables give.
+            Self::NsLastPid | Self::PidMax | Self::MaxNamespaces(_) => 0o666,
             _ => 0o444,
         }
     }
@@ -97,13 +106,20 @@ pub(super) enum PerPid {
     Stat,
     Statm,
     Status,
+    /// The maps of the process's user namespace (`proc_uid_map_operations` and its twins).
+    UidMap,
+    GidMap,
+    ProjidMap,
+    Setgroups,
 }
 
-/// A system file as a reader in the namespaces `ns`, and the pid namespace `pid_ns`, sees it.
+/// A system file as a reader in the namespaces `ns`, the pid namespace `pid_ns` and the user
+/// namespace `user_ns` sees it.
 pub(super) fn global(
     source: &Source,
     ns: &NsProxy,
     pid_ns: &PidNs,
+    user_ns: &UserNs,
     file: Global,
 ) -> FsResult<Vec<u8>> {
     let line = |s: &str| format!("{s}\n").into_bytes();
@@ -149,6 +165,9 @@ pub(super) fn global(
         Global::DirNotifyEnable => line(&source.sysctls.dir_notify_enable().to_string()),
         Global::LeasesEnable => line(&source.sysctls.leases_enable().to_string()),
         Global::LeaseBreakTime => line(&source.sysctls.lease_break_time().to_string()),
+        Global::OverflowUid | Global::OverflowGid => line(&OVERFLOW_ID.to_string()),
+        Global::CapLastCap => line(&wasixv2_vfs::Cap::LAST.to_string()),
+        Global::MaxNamespaces(kind) => line(&user_ns.ucount_max(kind).to_string()),
     })
 }
 
@@ -510,7 +529,7 @@ pub(super) fn per_pid(
     source: &Source,
     scope: Scope,
     file: PerPid,
-    reader: &UserNs,
+    reader: &Arc<UserNs>,
 ) -> FsResult<Vec<u8>> {
     let info = source.process(scope.pid).ok_or(Errno::ESRCH)?;
     let process = &info.process;
@@ -536,6 +555,10 @@ pub(super) fn per_pid(
             format!("{pages} {pages} 0 0 0 {pages} 0\n").into_bytes()
         }
         PerPid::Status => status(source, scope, &info, reader),
+        PerPid::UidMap => process.cred().user_ns.show_map(MapKind::Uid, reader),
+        PerPid::GidMap => process.cred().user_ns.show_map(MapKind::Gid, reader),
+        PerPid::ProjidMap => process.cred().user_ns.show_map(MapKind::Projid, reader),
+        PerPid::Setgroups => process.cred().user_ns.show_setgroups(),
     })
 }
 

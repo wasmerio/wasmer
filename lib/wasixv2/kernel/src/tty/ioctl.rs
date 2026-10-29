@@ -51,7 +51,9 @@ impl Kernel {
         let memory = caller.memory();
         let task = caller.task();
         let process = self.process(task);
-        let admin = || self.cred(caller).capable(Cap::SysAdmin);
+        // `TIOCSTI`, `TIOCCONS`, `TIOCSCTTY`'s steal: `capable(CAP_SYS_ADMIN)`, never a user
+        // namespace's root.
+        let admin = || self.cred(caller).capable_init(Cap::SysAdmin);
         let put_int = async |value: i32| -> SysResult<i32> {
             write_value(memory, GuestPtrMut::new(arg), &value).await?;
             Ok(0)

@@ -21,10 +21,13 @@ use std::{
 };
 
 use wasixv2_abi::{Ipc64Perm, IpcCmd, IpcFlags, IpcKey};
+use wasixv2_syscalls::Caller;
 use wasixv2_syscalls::Errno;
-use wasixv2_vfs::Cred;
+use wasixv2_vfs::Cap;
 
 use crate::{
+    Kernel,
+    cred::Cred as TaskCred,
     ns::UserNs,
     sync::MutexExt,
     uidgid::{Kgid, Kuid},
@@ -50,14 +53,57 @@ pub(crate) const MSG_STAT_ANY: IpcCmd = IpcCmd(13);
 pub(crate) const SHM_STAT_ANY: IpcCmd = IpcCmd(15);
 pub(crate) const SEM_STAT_ANY: IpcCmd = IpcCmd(20);
 
-/// Capability bit numbers the IPC code checks.
-pub(crate) const CAP_IPC_LOCK: u32 = 14;
-pub(crate) const CAP_IPC_OWNER: u32 = 15;
-pub(crate) const CAP_SYS_ADMIN: u32 = 21;
-pub(crate) const CAP_SYS_RESOURCE: u32 = 24;
+/// Who acts on an IPC object: the caller's credentials, by kernel ids, and the user namespace
+/// that owns its IPC namespace, over which `CAP_IPC_OWNER`, `CAP_SYS_ADMIN` and `CAP_IPC_LOCK`
+/// count (`ns->user_ns`).
+pub(crate) struct Cred {
+    /// The filesystem ids, which own what the caller makes and are checked for access.
+    pub(crate) fsuid: u32,
+    pub(crate) fsgid: u32,
+    /// The real uid, which message queues are charged to.
+    pub(crate) uid: u32,
+    cred: TaskCred,
+    owner: Arc<UserNs>,
+}
 
-pub(crate) fn capable(cred: &Cred, cap: u32) -> bool {
-    cred.caps & (1 << cap) != 0
+impl Cred {
+    /// `in_group_p`.
+    pub(crate) fn in_group(&self, gid: u32) -> bool {
+        self.cred.in_group(Kgid(gid))
+    }
+
+    /// `ns_capable(ns->user_ns, cap)`: the capability over the IPC namespace's owner.
+    pub(crate) fn ns_capable(&self, cap: Cap) -> bool {
+        self.cred.ns_capable(&self.owner, cap)
+    }
+
+    /// `capable(cap)`: the capability over the initial user namespace, for the machine's
+    /// limits.
+    pub(crate) fn capable_init(&self, cap: Cap) -> bool {
+        self.cred.capable_init(cap)
+    }
+
+    /// `capable_wrt_inode_uidgid`: the capability over the caller's user namespace, which
+    /// maps `uid` and `gid`, for an object that is an inode.
+    pub(crate) fn capable_wrt(&self, uid: u32, gid: u32, cap: Cap) -> bool {
+        let ns = &self.cred.user_ns;
+        self.cred.capable(cap) && ns.has_uid(Kuid(uid)) && ns.has_gid(Kgid(gid))
+    }
+}
+
+impl Kernel {
+    /// The caller as IPC checks it.
+    pub(crate) fn ipc_cred(&self, caller: &Caller<'_>) -> Cred {
+        let cred = self.cred(caller);
+        let (fsuid, fsgid) = cred.fs_owner();
+        Cred {
+            fsuid,
+            fsgid,
+            uid: cred.user.real.0,
+            owner: self.ns(caller).ipc.user_ns().clone(),
+            cred,
+        }
+    }
 }
 
 /// What an IPC namespace holds ([`crate::ns::IpcNs`]): its SysV objects and POSIX message
@@ -107,7 +153,7 @@ impl Perm {
         } else {
             self.mode
         };
-        requested & !granted & 0o7 == 0 || capable(cred, CAP_IPC_OWNER)
+        requested & !granted & 0o7 == 0 || cred.ns_capable(Cap::IpcOwner)
     }
 
     /// `ipcperms` as an errno.
@@ -119,9 +165,10 @@ impl Perm {
     }
 
     /// `ipcctl_obtain_check`: `IPC_SET` and `IPC_RMID` need the creator, the owner or
-    /// `CAP_SYS_ADMIN`.
+    /// `CAP_SYS_ADMIN` over the IPC namespace's owner.
     pub(crate) fn check_owner(&self, cred: &Cred) -> Result<(), Errno> {
-        match cred.fsuid == self.cuid || cred.fsuid == self.uid || capable(cred, CAP_SYS_ADMIN) {
+        let admin = || cred.ns_capable(Cap::SysAdmin);
+        match cred.fsuid == self.cuid || cred.fsuid == self.uid || admin() {
             true => Ok(()),
             false => Err(Errno::EPERM),
         }
