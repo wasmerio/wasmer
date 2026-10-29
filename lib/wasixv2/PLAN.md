@@ -467,12 +467,17 @@ iproute2 7.3.0 (`ip`, `ss`) and net-tools 2.10 (`ifconfig`, `route`, `netstat`, 
 veth pairs and namespaces (wasmer branch `wasixv2/net-config`). By hand on that branch (root, a
 `/lib/modules/<release>/modules.builtin` naming veth and dummy, `KCONFIG_PATH`): `netns_sysfs`,
 `netstat01` and, over a veth pair between namespaces, the TCP runs of `dccp01`/`sctp01` (both
-families) pass; tst_net.sh's two-namespace setup works for every net.* test. Still missing: `ping`
-(ICMP sockets; 16 netns tests and the ping tests skip, and `netns_breakns` passes once a `ping`
-exists), `tc` (not built: no queueing disciplines), the other link kinds (vxlan, vlan, gre, ...),
-multicast memberships, `IP_BIND_ADDRESS_NO_PORT`, socket inodes in `/proc/net/tcp` for `ss -p`,
-CONFIG_TUN, and the tools tcp_cmds names (arping, tcpdump, telnet, traceroute, lsmod, ...). The
-runner needs `/var/run` in the guest (`ip netns`), the modules file and `KCONFIG_PATH`.
+families) pass; tst_net.sh's two-namespace setup works for every net.* test. iputils 20240905's
+`ping` (and `ping6`) is built too (needs meson on the host), for the ICMP sockets of wasmer branch
+`wasixv2/net-followups`, which also has multicast memberships, `IP_BIND_ADDRESS_NO_PORT`, socket
+inodes in `/proc/net/tcp` and, in the default root, `/var/run` and `/lib/modules/<release>`. By
+hand there (root, `KCONFIG_PATH`): all 16 `netns_breakns`/`netns_comm` tests and `netns_sysfs`,
+all of net.multicast (`mc_cmds`, `mc_commo`, `mc_member`, `mc_opts`), `ping601`/`ping602` and
+`bind_noport01` (both families) pass. Still missing: `ipneigh01` (puts `-I` after the target,
+which musl's getopt does not permute), `sendfile01`/`sendfile601` (LTP's `datafiles` are not in
+the suite's install; `ss -ltp` now finds the server), `tc` (not built: no queueing disciplines),
+the other link kinds (vxlan, vlan, gre, ...), CONFIG_TUN, and the tools tcp_cmds names (arping,
+tcpdump, telnet, traceroute, lsmod, ...). The runner needs `KCONFIG_PATH`.
 Not built: binutils and file (`file01`, `nm01`, `ld01` inspect ELF objects and `/bin/sh`, which
 are wasm modules here), `ldd` (no dynamic loader). With train 5, LTP's
 `tst_test.sh` runs: du01, ln, mkdir, wc01, which01, tst_errexit and timeout01/02 pass; cp/mv pass
