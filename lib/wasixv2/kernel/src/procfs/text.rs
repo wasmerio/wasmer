@@ -94,6 +94,8 @@ pub(super) enum Global {
     Printk,
     DmesgRestrict,
     PrintkDevkmsg,
+    SeccompActionsAvail,
+    SeccompActionsLogged,
     /// `kernel.core_pattern`, `kernel.core_uses_pid` and `kernel.core_pipe_limit`.
     CorePattern,
     CoreUsesPid,
@@ -172,6 +174,7 @@ impl Global {
             | Self::Printk
             | Self::DmesgRestrict
             | Self::PrintkDevkmsg
+            | Self::SeccompActionsLogged
             | Self::CorePattern
             | Self::CoreUsesPid
             | Self::CorePipeLimit
@@ -318,6 +321,8 @@ pub(super) fn global(
         Global::Crypto => crypto(),
         Global::Cgroups => cgroups(source),
         Global::Kmsg => Vec::new(),
+        Global::SeccompActionsAvail => line(&crate::seccomp::Logging::available()),
+        Global::SeccompActionsLogged => line(&source.seccomp_logging.names()),
         Global::Printk => {
             let [console, message, minimum, default] = source.printk.levels();
             line(&format!("{console}\t{message}\t{minimum}\t{default}"))

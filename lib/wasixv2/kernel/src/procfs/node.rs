@@ -361,6 +361,18 @@ const STATIC: &[(usize, &str, Static)] = &[
         key_sysctl(crate::keys::KeySysctl::RootMaxBytes),
     ),
     (124, "gc_delay", key_sysctl(crate::keys::KeySysctl::GcDelay)),
+    // Q2 seccomp sysctls; append to preserve the existing positional indices.
+    (13, "seccomp", Static::Dir),
+    (
+        130,
+        "actions_avail",
+        Static::File(text::Global::SeccompActionsAvail),
+    ),
+    (
+        130,
+        "actions_logged",
+        Static::File(text::Global::SeccompActionsLogged),
+    ),
 ];
 
 /// The file of an integer sysctl.
@@ -1148,6 +1160,12 @@ impl Node for ProcNode {
                         | text::Global::CorePipeLimit => {
                             Some(Write::Core(self.source.coredump.clone(), file))
                         }
+                        text::Global::SeccompActionsLogged => {
+                            let may = opener
+                                .as_ref()
+                                .is_none_or(|cred| cred.capable_init(Cap::SysAdmin));
+                            Some(Write::Seccomp(self.source.seccomp_logging.clone(), may))
+                        }
                         text::Global::Printk | text::Global::PrintkDevkmsg => {
                             Some(Write::Printk(self.source.printk.clone(), file, true))
                         }
@@ -1215,7 +1233,22 @@ impl Node for ProcNode {
             }
             _ => return Err(Errno::ENXIO),
         };
-        Ok(Box::new(FileHandle { data, write: comm }))
+        let seccomp = match self.entry {
+            Entry::Static(index)
+                if matches!(
+                    STATIC[index].2,
+                    Static::File(text::Global::SeccompActionsLogged)
+                ) =>
+            {
+                Some(self.source.seccomp_logging.clone())
+            }
+            _ => None,
+        };
+        Ok(Box::new(FileHandle {
+            data,
+            write: comm,
+            seccomp,
+        }))
     }
 }
 
@@ -1453,11 +1486,13 @@ impl Handle for DirHandle {
 /// An open file: its contents as they were at open, and what a write to it changes.
 struct FileHandle {
     data: Vec<u8>,
+    seccomp: Option<Arc<crate::seccomp::Logging>>,
     write: Option<Write>,
 }
 
 /// What a writable file sets.
 enum Write {
+    Seccomp(Arc<crate::seccomp::Logging>, bool),
     /// A task's name.
     Comm(Arc<Source>, Scope),
     /// `kernel.pid_max` of the opener's pid namespace.
@@ -1670,11 +1705,16 @@ fn write_printk(printk: &crate::printk::Printk, file: text::Global, data: &[u8])
 #[async_trait(?Send)]
 impl Handle for FileHandle {
     async fn read_at(&self, buf: &mut [u8], offset: u64) -> FsResult<usize> {
+        let current = self
+            .seccomp
+            .as_ref()
+            .map(|log| format!("{}\n", log.names()).into_bytes());
+        let data = current.as_ref().unwrap_or(&self.data);
         let start = usize::try_from(offset)
             .unwrap_or(usize::MAX)
-            .min(self.data.len());
-        let n = buf.len().min(self.data.len() - start);
-        buf[..n].copy_from_slice(&self.data[start..start + n]);
+            .min(data.len());
+        let n = buf.len().min(data.len() - start);
+        buf[..n].copy_from_slice(&data[start..start + n]);
         Ok(n)
     }
 
@@ -1682,6 +1722,8 @@ impl Handle for FileHandle {
     /// sysctl's new value.
     async fn write_at(&self, data: &[u8], offset: u64) -> FsResult<usize> {
         match self.write.as_ref().ok_or(Errno::EINVAL)? {
+            Write::Seccomp(_, false) => return Err(Errno::EPERM),
+            Write::Seccomp(log, true) => log.set_names(data, offset)?,
             Write::Map(ns, kind, cred) => return ns.write_map(*kind, cred, offset, data),
             Write::Setgroups(ns) => return ns.write_setgroups(offset, data),
             // `timens_offsets_write` and `proc_timens_set_offset`.

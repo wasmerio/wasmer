@@ -229,6 +229,7 @@ pub struct Kernel {
     /// A task entered seccomp once: from then on, every syscall entry looks at its task's
     /// mode (`TIF_SECCOMP` for everyone, until the first).
     seccomp_used: std::sync::atomic::AtomicBool,
+    seccomp_logging: Arc<seccomp::Logging>,
     /// Every key, by serial, and each user's (`key_serial_tree`, `key_user_tree`).
     keys: Arc<keys::Keys>,
     /// Yama's `ptrace_scope` and the `PR_SET_PTRACER` exceptions.
@@ -520,6 +521,7 @@ impl Kernel {
             sigqueue_users: Arc::default(),
             seccomp_used: Default::default(),
             keys,
+            seccomp_logging: Arc::default(),
             yama: Arc::default(),
             kcmp: std::sync::OnceLock::new(),
             tracees: Default::default(),
