@@ -499,3 +499,61 @@ fn mremap_moves_a_whole_ring_and_its_context_id() {
     assert_eq!(m.word(to + 12), 1, "the event is on the moved ring");
     assert_eq!(block_on(m.kernel.io_destroy(&caller, to)), Ok(0));
 }
+
+/// fs/aio.c:aio_setup_ring sets VM_DONTCOPY; mm/mmap.c:dup_mmap skips that VMA.
+#[test]
+fn aio_rings_are_omitted_from_fork_and_the_parent_keeps_its_context() {
+    let mut m = Machine::new();
+    m.memory = MappedMemory::new(2, true);
+    let ctx = m.ctx();
+    let parent_mm = m.kernel.mm(m.task);
+    assert!(
+        parent_mm
+            .regions()
+            .iter()
+            .any(|r| r.start == u64::from(ctx) && r.dont_copy)
+    );
+    let caller = m.caller();
+    let child_pid = block_on(m.kernel.clone(
+        &caller,
+        wasixv2_abi::Signal::SIGCHLD.0 as u32,
+        0,
+        GuestPtrMut::NULL,
+        0,
+        GuestPtrMut::NULL,
+    ))
+    .unwrap();
+    let child = match m.kernel.take_pending(m.task).unwrap() {
+        GuestAction::Fork { child, .. } => child,
+        action => panic!("expected fork, got {action:?}"),
+    };
+    assert!(child_pid > 0);
+    let omitted = m.kernel.wipe_on_fork(child);
+    assert!(omitted.iter().any(|r| r.contains(&u64::from(ctx))));
+    assert!(m.kernel.shared_mappings(child).iter().all(|mapping| {
+        !(u64::from(mapping.addr)..u64::from(mapping.addr) + mapping.len).contains(&u64::from(ctx))
+    }));
+    assert!(
+        m.kernel
+            .mm(child)
+            .regions()
+            .iter()
+            .all(|r| !(r.start..r.end).contains(&u64::from(ctx)))
+    );
+    assert_eq!(
+        m.kernel.page_access(child).unwrap().check(ctx, 1, false),
+        Err(Fault)
+    );
+    assert_eq!(
+        errno(block_on(
+            m.kernel.io_destroy(&Caller::new(child, &m.memory), ctx)
+        )),
+        Errno::EINVAL
+    );
+    let fd = m.file("parent-aio", b"ok");
+    m.iocb(IOCB, IocbCmd::IOCB_CMD_PREAD, fd, (BUF, 2, 0));
+    assert_eq!(m.submit(ctx, &[IOCB]), Ok(1));
+    assert_eq!(m.getevents(ctx, 1, 1, None)[0].res, 2);
+    assert_eq!(m.memory.get(BUF, 2), b"ok");
+    block_on(m.kernel.io_destroy(&caller, ctx)).unwrap();
+}

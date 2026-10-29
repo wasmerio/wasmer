@@ -431,6 +431,7 @@ pub(crate) struct Region {
     /// `VM_LOCKED` and `VM_WIPEONFORK`.
     pub(crate) locked: bool,
     pub(crate) wipe_on_fork: bool,
+    pub(crate) dont_copy: bool,
 }
 
 /// What sets an area above the image apart from its neighbours: two next to each other are one
@@ -445,6 +446,7 @@ struct AreaKey {
     write: bool,
     locked: bool,
     wipe_on_fork: bool,
+    dont_copy: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -473,6 +475,8 @@ pub(crate) struct AddressSpace {
     /// `VM_WIPEONFORK`: the private anonymous pages `MADV_WIPEONFORK` marked, which a fork
     /// child gets zeroed.
     wipe_on_fork: PageFlags,
+    /// VM_DONTCOPY: AIO rings are omitted by dup_mmap.
+    dont_copy: PageFlags,
     /// `VM_LOCKED`: the pages `mlock`, `mlockall` and `MAP_LOCKED` locked, which `locked_vm`
     /// counts. Memory is never paged out, so locking changes nothing else.
     locked: PageFlags,
@@ -595,6 +599,7 @@ impl AddressSpace {
             seen: self.seen,
             mappings: self.mappings.dup(pid),
             wipe_on_fork: self.wipe_on_fork.clone(),
+            dont_copy: self.dont_copy.clone(),
             // `dup_mmap` clears `VM_LOCKED_MASK`, and `mm_init` keeps no `VM_LOCKED` of
             // `def_flags`: locks are not inherited.
             locked: PageFlags::default(),
@@ -606,6 +611,12 @@ impl AddressSpace {
             free: self.free.clone(),
             dirty: None,
         };
+        // mm/mmap.c:dup_mmap skips VM_DONTCOPY, set by fs/aio.c:aio_setup_ring.
+        // Keep the omitted ranges for exec's existing copy-skip interface.
+        for range in self.dont_copy.ranges() {
+            drop(child.mappings.take_range(range.start, range.end));
+            child.mark_pages(range.start / PAGE_SIZE, range.end / PAGE_SIZE, false);
+        }
         // Without the locks, areas that differed only in them are one again.
         child.recount_all();
         child
@@ -723,6 +734,10 @@ impl AddressSpace {
             return;
         }
         self.mapped[from..to].fill(mapped);
+        if mapped && let Some(base) = self.base {
+            self.dont_copy
+                .set(base + from as u64, base + to as u64, false);
+        }
         // The runs that overlap `[from, to)` lose that part.
         let overlapping: Vec<(usize, usize)> = self
             .free
@@ -764,6 +779,7 @@ impl AddressSpace {
         self.recount(first, end, |space| {
             space.mark_pages(first, end, false);
             space.wipe_on_fork.set(first, end, false);
+            space.dont_copy.set(first, end, false);
             space.locked.set(first, end, false);
             space.no_access.set(first, end, false);
             space.read_only.set(first, end, false);
@@ -776,6 +792,7 @@ impl AddressSpace {
         let (first, end) = (to / PAGE_SIZE, (to + new_len).div_ceil(PAGE_SIZE));
         self.recount(first, end, |space| {
             space.wipe_on_fork.remap(from, old_len, to, new_len);
+            space.dont_copy.remap(from, old_len, to, new_len);
             space.locked.remap(from, old_len, to, new_len);
             space.no_access.remap(from, old_len, to, new_len);
             space.read_only.remap(from, old_len, to, new_len);
@@ -932,6 +949,7 @@ impl AddressSpace {
                 shared: false,
                 locked: false,
                 wipe_on_fork: false,
+                dont_copy: false,
             };
             areas.push((image, None));
         }
@@ -964,6 +982,7 @@ impl AddressSpace {
                         shared: mapping.is_some_and(|(_, shared)| shared),
                         locked: key.locked,
                         wipe_on_fork: key.wipe_on_fork,
+                        dont_copy: key.dont_copy,
                     };
                     areas.push((region, Some(key)));
                 }
@@ -991,6 +1010,7 @@ impl AddressSpace {
             write: read && !self.read_only.get(page),
             locked: self.locked.get(page),
             wipe_on_fork: self.wipe_on_fork.get(page),
+            dont_copy: self.dont_copy.get(page),
         }
     }
 
@@ -1619,6 +1639,9 @@ impl Kernel {
             return Err(Errno::ENOMEM);
         }
         mm.insert(mapping);
+        mm.space().recount(first, first + npages, |space| {
+            space.dont_copy.set(first, first + npages, true)
+        });
         Ok(start as Uptr)
     }
 
@@ -2364,7 +2387,10 @@ impl Kernel {
             }
         };
         let space = mm.space();
-        space.wipe_on_fork.ranges()
+        let mut ranges = space.wipe_on_fork.ranges();
+        ranges.extend(space.dont_copy.ranges());
+        ranges.sort_by_key(|range| range.start);
+        ranges
     }
 
     /// `do_mlock` for `mlock` and `mlock2`. Memory is never paged out, so locking only
