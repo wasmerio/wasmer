@@ -553,3 +553,21 @@ fn proc_net_sctp_lists_endpoints_and_associations() {
     assert!(snmp.starts_with("SctpCurrEstab                   \t2\n"));
     assert_eq!(snmp.lines().count(), 32);
 }
+
+#[test]
+fn nonblocking_unconnected_one_to_many_recv_returns_eagain() {
+    let (kernel, task, memory) = machine();
+    let caller = Caller::new(task, &memory);
+    let fd = socket(&kernel, &caller, SEQPACKET | NONBLOCK, 0);
+    assert_eq!(
+        errno(block_on(kernel.recvfrom(
+            &caller,
+            fd,
+            UserSliceMut::new(0x600, 1),
+            MsgFlags(0),
+            GuestPtrMut::NULL,
+            GuestPtrMut::NULL
+        ))),
+        Errno::EAGAIN
+    );
+}

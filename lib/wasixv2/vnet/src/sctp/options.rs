@@ -44,7 +44,7 @@ fn put_int(out: &mut [u8], value: i32) -> NetResult<usize> {
 }
 
 /// A `struct sockaddr_storage` holding `addr` in `family`'s layout.
-fn storage(family: Domain, addr: SocketAddr) -> SockaddrStorage {
+pub(super) fn storage(family: Domain, addr: SocketAddr) -> SockaddrStorage {
     let mut raw = [0; SockaddrStorage::SIZE];
     let bytes = sockaddr_bytes(family, Some(addr));
     raw[..bytes.len()].copy_from_slice(&bytes);
@@ -109,6 +109,7 @@ impl SctpSocket {
         let mut g = self.lock();
         let queued = self.set_locked(&mut g, name, value)?;
         drop(g);
+        self.rearm_idle();
         if queued {
             self.wq.wake(PollMask::IN | PollMask::RDNORM);
         }
@@ -158,7 +159,17 @@ impl SctpSocket {
                             // With more than one path, at most the paths' retransmissions
                             // together (`pathmaxrxt`, 5 each).
                             let paths = a.paddrs.len();
-                            if paths > 1 && usize::from(p.sasoc_asocmaxrxt) > paths * 5 {
+                            if paths > 1
+                                && usize::from(p.sasoc_asocmaxrxt)
+                                    > a.paddrs
+                                        .iter()
+                                        .map(|addr| {
+                                            usize::from(
+                                                a.paths.get(addr).unwrap_or(&a.path).retrans,
+                                            )
+                                        })
+                                        .sum()
+                            {
                                 return Err(Errno::EINVAL);
                             }
                             a.max_retrans = p.sasoc_asocmaxrxt;
@@ -194,6 +205,39 @@ impl SctpSocket {
                 }
             }
             SctpOption::SCTP_NODELAY => g.so.nodelay = int(value)? != 0,
+            SctpOption::SCTP_DELAYED_ACK_TIME => {
+                // net/sctp/socket.c: sctp_setsockopt_delayed_ack (including legacy layout).
+                let p = if value.len() == SctpAssocValue::SIZE {
+                    let v: SctpAssocValue = record(value)?;
+                    SctpSackInfo {
+                        sack_assoc_id: v.assoc_id,
+                        sack_delay: v.assoc_value,
+                        sack_freq: u32::from(v.assoc_value == 0),
+                    }
+                } else {
+                    record::<SctpSackInfo>(value)?
+                };
+                if p.sack_delay > 500 {
+                    return Err(Errno::EINVAL);
+                }
+                if p.sack_delay == 0 && p.sack_freq == 0 {
+                    return Ok(false);
+                }
+                self.for_assocs(
+                    g,
+                    p.sack_assoc_id,
+                    |so| so.path.sack(&p),
+                    |a| {
+                        a.path.sack(&p);
+                        for path in a.paths.values_mut() {
+                            path.sack(&p);
+                        }
+                    },
+                )?;
+            }
+            SctpOption::SCTP_PEER_ADDR_PARAMS => {
+                self.set_peer_params(g, value)?;
+            }
             SctpOption::SCTP_AUTOCLOSE => {
                 if g.style == Style::Tcp {
                     return Err(Errno::EOPNOTSUPP);
@@ -207,6 +251,27 @@ impl SctpSocket {
                     .addr_assoc(g, &p.ssp_addr, p.ssp_assoc_id)
                     .ok_or(Errno::EINVAL)?;
                 asoc.lock().primary = addr;
+                // net/sctp/associola.c: sctp_assoc_set_primary /
+                // net/sctp/ulpevent.c: sctp_ulpevent_notify_peer_addr_change.
+                if subscribed(asoc.lock().subscribe, SctpSnType::SCTP_PEER_ADDR_CHANGE.0) {
+                    let data = guest_bytes(&SctpPaddrChange {
+                        spc_type: SctpSnType::SCTP_PEER_ADDR_CHANGE.0,
+                        spc_flags: 0,
+                        spc_length: SctpPaddrChange::SIZE as u32,
+                        spc_aaddr: storage(self.domain, addr),
+                        spc_state: 4,
+                        spc_error: 0,
+                        spc_assoc_id: asoc.id,
+                    });
+                    g.rcvq.push_back(Event {
+                        asoc,
+                        body: Body::Notification,
+                        data,
+                        read: 0,
+                        partial_delivery: false,
+                    });
+                    queued = true;
+                }
             }
             // `sctp_setsockopt_peer_primary_addr` needs ASCONF, which is off
             // (`net.sctp.addip_enable`).
@@ -389,6 +454,7 @@ impl SctpSocket {
             body: Body::Notification,
             data: sender_dry(asoc),
             read: 0,
+            partial_delivery: false,
         });
         true
     }
@@ -423,6 +489,37 @@ impl SctpSocket {
                 }
                 Ok(n)
             }
+            SctpOption::SCTP_DELAYED_ACK_TIME => {
+                let legacy = out.len() == SctpAssocValue::SIZE;
+                let id = i32::from_le_bytes(out.get(..4).ok_or(Errno::EINVAL)?.try_into().unwrap());
+                let path = match self.option_assoc(&g, id, SCTP_FUTURE_ASSOC)? {
+                    Some(a) => a.lock().path,
+                    None => g.so.path,
+                };
+                let enabled = path.flags & 32 != 0;
+                if legacy {
+                    Ok(put(
+                        out,
+                        &SctpAssocValue {
+                            assoc_id: id,
+                            assoc_value: if enabled { path.sack_delay } else { 0 },
+                        },
+                    ))
+                } else {
+                    if out.len() < SctpSackInfo::SIZE {
+                        return Err(Errno::EINVAL);
+                    }
+                    Ok(put(
+                        out,
+                        &SctpSackInfo {
+                            sack_assoc_id: id,
+                            sack_delay: path.sack_delay,
+                            sack_freq: if enabled { path.sack_freq } else { 1 },
+                        },
+                    ))
+                }
+            }
+            SctpOption::SCTP_PEER_ADDR_PARAMS => self.get_peer_params(&g, out),
             SctpOption::SCTP_AUTOCLOSE => {
                 if g.style == Style::Tcp {
                     return Err(Errno::EOPNOTSUPP);
@@ -694,5 +791,175 @@ impl SctpSocket {
             sstat_fragmentation_point: frag,
             sstat_primary: self.paddrinfo(g, asoc, primary),
         }
+    }
+}
+
+impl PeerParams {
+    fn sack(&mut self, p: &SctpSackInfo) {
+        if p.sack_delay != 0 {
+            self.sack_delay = p.sack_delay;
+            self.flags = (self.flags & !96) | 32;
+        }
+        if p.sack_freq == 1 {
+            self.flags = (self.flags & !96) | 64;
+        } else if p.sack_freq > 1 {
+            self.sack_freq = p.sack_freq;
+            self.flags = (self.flags & !96) | 32;
+        }
+    }
+
+    /// net/sctp/socket.c: sctp_apply_peer_addr_params. The message transport has no
+    /// packet loss, but keeps the endpoint/association/path settings independently.
+    fn apply(&mut self, p: &SctpPaddrparams, ipv6: bool) {
+        let flags = u32::from_le_bytes(p.spp_flags);
+        if flags & 1 != 0 && (p.spp_hbinterval != 0 || flags & 128 != 0) {
+            self.hb = if flags & 128 != 0 {
+                0
+            } else {
+                p.spp_hbinterval
+            };
+        }
+        let mtu = u32::from_le_bytes(p.spp_pathmtu);
+        if flags & 16 != 0 && mtu != 0 {
+            self.mtu = mtu;
+        }
+        let delay = u32::from_le_bytes(p.spp_sackdelay);
+        if flags & 32 != 0 && delay != 0 {
+            self.sack_delay = delay;
+        }
+        for mask in [3, 24, 96] {
+            if flags & mask != 0 {
+                self.flags = (self.flags & !mask) | (flags & mask);
+            }
+        }
+        if p.spp_pathmaxrxt != 0 {
+            self.retrans = p.spp_pathmaxrxt;
+        }
+        if flags & 256 != 0 && ipv6 {
+            self.flowlabel = u32::from_le_bytes(p.spp_ipv6_flowlabel) & 0xfffff;
+            self.flags |= 256;
+        }
+        if flags & 512 != 0 {
+            self.dscp = p.spp_dscp & 0xfc;
+            self.flags |= 512;
+        }
+    }
+
+    fn write(self, mut p: SctpPaddrparams) -> SctpPaddrparams {
+        p.spp_hbinterval = self.hb;
+        p.spp_pathmaxrxt = self.retrans;
+        p.spp_pathmtu = self.mtu.to_le_bytes();
+        p.spp_sackdelay = self.sack_delay.to_le_bytes();
+        p.spp_flags = self.flags.to_le_bytes();
+        p.spp_ipv6_flowlabel = self.flowlabel.to_le_bytes();
+        p.spp_dscp = self.dscp;
+        p
+    }
+}
+
+type PeerParamsTarget = Option<(Arc<Assoc>, Option<SocketAddr>)>;
+
+impl SctpSocket {
+    fn peer_params_request(
+        &self,
+        g: &Inner,
+        value: &[u8],
+    ) -> NetResult<(SctpPaddrparams, PeerParamsTarget)> {
+        let mut bytes = vec![0; SctpPaddrparams::SIZE];
+        if value.len() < 152 {
+            return Err(Errno::EINVAL);
+        }
+        let n = value.len().min(bytes.len());
+        bytes[..n].copy_from_slice(&value[..n]);
+        let p = SctpPaddrparams::read_from(&bytes).unwrap();
+        let addr = storage_addr(&p.spp_address);
+        let specific = addr.is_some_and(|a| !a.ip().is_unspecified());
+        let path = if specific {
+            let (a, addr) = self
+                .addr_assoc(g, &p.spp_address, p.spp_assoc_id)
+                .ok_or(Errno::EINVAL)?;
+            Some((a, Some(addr)))
+        } else {
+            let a = self.id2assoc(g, p.spp_assoc_id);
+            if a.is_none() && p.spp_assoc_id != SCTP_FUTURE_ASSOC && g.style == Style::Udp {
+                return Err(Errno::EINVAL);
+            }
+            a.map(|a| (a, None))
+        };
+        Ok((p, path))
+    }
+
+    fn set_peer_params(&self, g: &mut Inner, value: &[u8]) -> NetResult<()> {
+        if value.len() != 152 && value.len() != SctpPaddrparams::SIZE {
+            return Err(Errno::EINVAL);
+        }
+        let (p, target) = self.peer_params_request(g, value)?;
+        let flags = u32::from_le_bytes(p.spp_flags);
+        if [3, 24, 96].iter().any(|mask| flags & mask == *mask)
+            || u32::from_le_bytes(p.spp_sackdelay) > 500
+            || (u32::from_le_bytes(p.spp_pathmtu) != 0 && u32::from_le_bytes(p.spp_pathmtu) < 512)
+            || (value.len() == 152 && flags & (256 | 512) != 0)
+            || (flags & 4 != 0 && target.is_none())
+        {
+            return Err(Errno::EINVAL);
+        }
+        if let Some((a, addr)) = target {
+            let mut a = a.lock();
+            let default = a.path;
+            for addr in a.paddrs.clone() {
+                a.paths.entry(addr).or_insert(default);
+            }
+            if let Some(addr) = addr {
+                self.apply_peer_path(a.paths.get_mut(&addr).expect("peer path exists"), &p, addr);
+            } else {
+                a.path.apply(&p, self.domain == Domain::Inet6);
+                for (addr, path) in &mut a.paths {
+                    self.apply_peer_path(path, &p, *addr);
+                }
+            }
+            let mtu = a
+                .paddrs
+                .iter()
+                .map(|addr| a.paths.get(addr).unwrap_or(&a.path).mtu)
+                .filter(|mtu| *mtu != 0)
+                .min();
+            if let Some(mtu) = mtu {
+                a.pmtu = mtu;
+                a.path.mtu = mtu;
+            }
+        } else {
+            g.so.path.apply(&p, self.domain == Domain::Inet6);
+        }
+        Ok(())
+    }
+
+    /// sctp_apply_peer_addr_params re-probes a transport when PMTU discovery is
+    /// re-enabled; a formerly fixed path MTU must not survive that transition.
+    fn apply_peer_path(&self, path: &mut PeerParams, p: &SctpPaddrparams, addr: SocketAddr) {
+        let discover = path.flags & 16 != 0 && u32::from_le_bytes(p.spp_flags) & 8 != 0;
+        path.apply(p, addr.is_ipv6());
+        if discover {
+            path.mtu = self.net.mtu_to(addr.ip()).unwrap_or(1500);
+        }
+    }
+
+    fn get_peer_params(&self, g: &Inner, out: &mut [u8]) -> NetResult<usize> {
+        let (p, target) = self.peer_params_request(g, out)?;
+        let path = match target {
+            Some((a, addr)) => {
+                let a = a.lock();
+                addr.and_then(|addr| a.paths.get(&addr).copied())
+                    .unwrap_or(a.path)
+            }
+            None => g.so.path,
+        };
+        let size = if out.len() >= SctpPaddrparams::SIZE {
+            SctpPaddrparams::SIZE
+        } else {
+            152
+        };
+        let bytes = guest_bytes(&path.write(p));
+        out[..size].copy_from_slice(&bytes[..size]);
+        Ok(size)
     }
 }

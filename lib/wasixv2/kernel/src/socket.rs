@@ -207,7 +207,10 @@ impl SocketFile {
         flags: MsgFlags,
     ) -> SysResult<RecvMsg> {
         let socket = &self.socket;
-        let proto_flags = flags & !(MsgFlags::MSG_WAITALL | MsgFlags::MSG_DONTWAIT);
+        let mut proto_flags = flags & !(MsgFlags::MSG_WAITALL | MsgFlags::MSG_DONTWAIT);
+        if wait.nonblocking() {
+            proto_flags |= MsgFlags::MSG_DONTWAIT;
+        }
         if flags.intersects(MsgFlags::MSG_ERRQUEUE | MsgFlags::MSG_OOB) {
             return Ok(socket.recv(buf, proto_flags)?);
         }

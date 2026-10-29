@@ -209,6 +209,10 @@ pub struct PortEntry {
 /// One SCTP endpoint, for `/proc/net/sctp/eps` (`sctp_eps_seq_show`).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SctpEndpoint {
+    pub domain: Domain,
+    pub rx_queue: usize,
+    pub backlog: u32,
+    pub info: wasixv2_abi::SctpInfo,
     /// `sctp_sock.type`: 0 one-to-one (`SCTP_SOCKET_TCP`), 1 one-to-many, 2 peeled off.
     pub style: u8,
     /// `sk_state`, as the TCP state numbers SCTP's socket states share.
@@ -223,6 +227,8 @@ pub struct SctpEndpoint {
 /// One SCTP association, for `/proc/net/sctp/assocs` (`sctp_assocs_seq_show`).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SctpAssocEntry {
+    pub domain: Domain,
+    pub info: wasixv2_abi::SctpInfo,
     /// The owning socket's style and state, as in [`SctpEndpoint`].
     pub style: u8,
     pub sk_state: u8,
@@ -674,6 +680,13 @@ pub trait Socket: Pollable {
 /// `SCTP_SOCKOPT_PEELOFF*`, whose packed address arrays, descriptors and blocking the kernel
 /// handles.
 pub trait SctpOps {
+    /// Kernel timer hook for SCTP's AUTOCLOSE timer (net/sctp/sm_sideeffect.c:
+    /// sctp_cmd_interpreter). The argument arms after that duration, or cancels.
+    fn set_autoclose_timer(&self, arm: Box<dyn Fn(Option<Duration>) + Send + Sync>);
+
+    /// Runs expired association idle timers and returns the delay to the next one.
+    fn autoclose_expire(&self) -> Option<Duration>;
+
     /// `sctp_bindx_add`/`sctp_bindx_rem`: adds the addresses to the socket's bind list (binding
     /// it first if unbound) or removes them, undoing what was done if one fails.
     /// `privileged` is `CAP_NET_BIND_SERVICE`, as for `Socket::bind`.

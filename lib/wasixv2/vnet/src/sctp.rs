@@ -21,13 +21,12 @@
 //!   the sender's `SO_SNDBUF`, and a send waits while that is used up (`sctp_wspace`).
 //!
 //! Not modelled: heartbeats and path failover (the primary path is always active), PR-SCTP
-//! abandonment (nothing is lost), partial delivery of messages larger than the window, stream
-//! reconfiguration, AUTH and ASCONF (bound addresses added later stay out of existing
-//! associations, as with `addip_enable` off). `SCTP_AUTOCLOSE` is noticed when the socket is
-//! next used rather than by a timer.
+//! abandonment (nothing is lost), stream reconfiguration, AUTH and ASCONF (bound addresses
+//! added later stay out of existing associations, as with `addip_enable` off). The kernel
+//! supplies the timer hook driving idle association shutdown.
 
 use std::{
-    collections::{BTreeSet, VecDeque},
+    collections::{BTreeMap, BTreeSet, VecDeque},
     net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6},
     sync::{
         Arc, Mutex, MutexGuard, Weak,
@@ -37,11 +36,12 @@ use std::{
 };
 
 use wasixv2_abi::{
-    Errno, GuestLayout, MsgFlags, SctpAssocChange, SctpAssocValue, SctpAssocparams, SctpCmsgType,
-    SctpEvent, SctpEventSubscribe, SctpGetaddrs, SctpInitmsg, SctpNxtinfo, SctpOption,
-    SctpPaddrinfo, SctpPrim, SctpRcvinfo, SctpRtoinfo, SctpSacState, SctpSenderDryEvent,
-    SctpShutdownEvent, SctpSinfoFlags, SctpSnType, SctpSndinfo, SctpSndrcvinfo, SctpSpinfoState,
-    SctpStatus, SockaddrStorage, SocketLevel, SocketOption as So,
+    Errno, GuestLayout, MsgFlags, SctpAdaptationEvent, SctpAssocChange, SctpAssocValue,
+    SctpAssocparams, SctpCmsgType, SctpEvent, SctpEventSubscribe, SctpGetaddrs, SctpInfo,
+    SctpInitmsg, SctpNxtinfo, SctpOption, SctpPaddrChange, SctpPaddrinfo, SctpPaddrparams,
+    SctpPdapiEvent, SctpPrim, SctpRcvinfo, SctpRtoinfo, SctpSacState, SctpSackInfo,
+    SctpSenderDryEvent, SctpShutdownEvent, SctpSinfoFlags, SctpSnType, SctpSndinfo, SctpSndrcvinfo,
+    SctpSpinfoState, SctpStatus, SockaddrStorage, SocketLevel, SocketOption as So,
 };
 use wasixv2_wait::{PollMask, PollTable, Pollable, WaitQueue, poll_wait};
 
@@ -171,6 +171,7 @@ enum AState {
     /// The INIT is out (`SCTP_STATE_COOKIE_WAIT`).
     CookieWait,
     Established,
+    ShutdownPending,
     Closed,
 }
 
@@ -181,6 +182,7 @@ impl AState {
             AState::Closed => 0,
             AState::CookieWait => 1,
             AState::Established => 3,
+            AState::ShutdownPending => 4,
         }
     }
 }
@@ -198,6 +200,7 @@ struct Defaults {
 /// The `SOL_SCTP` options of a socket (`struct sctp_sock`).
 #[derive(Clone, Debug)]
 struct SctpOpts {
+    path: PeerParams,
     nodelay: bool,
     initmsg: SctpInitmsg,
     /// `rtoinfo`: initial, max, min, in milliseconds.
@@ -225,6 +228,7 @@ impl Default for SctpOpts {
     /// `sctp_init_sock`.
     fn default() -> Self {
         Self {
+            path: PeerParams::default(),
             nodelay: false,
             initmsg: SctpInitmsg {
                 sinit_num_ostreams: DEFAULT_OUTSTREAMS,
@@ -443,7 +447,37 @@ pub(crate) struct Assoc {
     inner: Mutex<AssocInner>,
 }
 
+#[derive(Clone, Copy, Debug)]
+struct PeerParams {
+    hb: u32,
+    retrans: u16,
+    mtu: u32,
+    sack_delay: u32,
+    sack_freq: u32,
+    flags: u32,
+    flowlabel: u32,
+    dscp: u8,
+}
+
+impl Default for PeerParams {
+    fn default() -> Self {
+        Self {
+            hb: HB_INTERVAL,
+            retrans: 5,
+            mtu: 0,
+            sack_delay: 200,
+            sack_freq: 2,
+            flags: 1 | 8 | 32,
+            flowlabel: 0,
+            dscp: 0,
+        }
+    }
+}
+
 struct AssocInner {
+    adaptation: u32,
+    path: PeerParams,
+    paths: BTreeMap<SocketAddr, PeerParams>,
     /// The socket the association belongs to; accept and peeloff move it.
     ep: Weak<SctpSocket>,
     peer: Weak<Assoc>,
@@ -533,6 +567,9 @@ struct Event {
     data: Vec<u8>,
     /// How much of `data` a partial read already took.
     read: usize,
+    /// The message exceeds the receive window: its remaining fragments are still
+    /// charged to the sender until the receiver reopens its window.
+    partial_delivery: bool,
 }
 
 enum Body {
@@ -581,7 +618,9 @@ fn enqueue(asoc: &Arc<Assoc>, body: Body, data: Vec<u8>) -> bool {
         } else {
             asoc.lock().rmem += data.len();
         }
+        let partial_delivery = !notification && data.len() > g.opts.rcvbuf / 2;
         g.rcvq.push_back(Event {
+            partial_delivery,
             asoc: asoc.clone(),
             body,
             data,
@@ -679,6 +718,8 @@ fn end_assoc(a: &Arc<Assoc>, how: End) {
             cause.extend_from_slice(&((4 + reason.len()) as u16).to_be_bytes());
             cause.extend_from_slice(&reason);
             if let (Some(b), Some(b_ep)) = (&b, &b_ep) {
+                // net/sctp/ulpqueue.c: sctp_ulpq_abort_pd.
+                b_ep.abort_partial(b);
                 // `sctp_sf_do_9_1_abort`.
                 let event = assoc_change(b, SctpSacState::SCTP_COMM_LOST, ERROR_USER_ABORT, &cause);
                 notify(b, event);
@@ -722,8 +763,11 @@ fn detach(asoc: &Arc<Assoc>) {
 
 // ==== Sockets ====
 
+type IdleTimer = Box<dyn Fn(Option<Duration>) + Send + Sync>;
+
 /// An SCTP socket of a [`Net`] (`struct sctp_sock` and its endpoint).
 pub struct SctpSocket {
+    idle_timer: Mutex<Option<IdleTimer>>,
     net: Arc<Net>,
     id: SockId,
     domain: Domain,
@@ -920,6 +964,7 @@ impl SctpSocket {
     fn build(net: Arc<Net>, domain: Domain, kind: SocketKind, uid: u32, inner: Inner) -> Arc<Self> {
         let id = net.next_id();
         Arc::new_cyclic(|me| Self {
+            idle_timer: Mutex::new(None),
             net,
             id,
             domain,
@@ -1138,8 +1183,18 @@ impl SctpSocket {
         laddrs: Vec<IpAddr>,
         saddr: IpAddr,
     ) -> AssocInner {
-        let pmtu = self.net.mtu_to(saddr).unwrap_or(1500);
+        let pmtu = if g.so.path.flags & 16 != 0 && g.so.path.mtu != 0 {
+            g.so.path.mtu
+        } else {
+            self.net.mtu_to(saddr).unwrap_or(1500)
+        };
         AssocInner {
+            adaptation: g.so.adaptation_ind,
+            path: PeerParams {
+                mtu: pmtu,
+                ..g.so.path
+            },
+            paths: BTreeMap::new(),
             ep: self.me.clone(),
             peer: Weak::new(),
             state,
@@ -1311,6 +1366,7 @@ impl SctpSocket {
         net.state().sctp.stats.passive_estabs += 1;
         listener.wq.wake(PollMask::IN | PollMask::RDNORM);
         notify(&b, assoc_change(&b, SctpSacState::SCTP_COMM_UP, 0, &[]));
+        listener.rearm_idle();
         Ok(b)
     }
 
@@ -1353,6 +1409,23 @@ impl SctpSocket {
         self.net.state().sctp.stats.active_estabs += 1;
         self.wq.wake(PollMask::OUT | PollMask::WRNORM);
         notify(a, assoc_change(a, SctpSacState::SCTP_COMM_UP, 0, &[]));
+        self.rearm_idle();
+        // net/sctp/sm_statefuns.c: sctp_sf_do_5_1E_ca / sctp_sf_do_5_1D_ce.
+        for (receiver, peer) in [(a, b), (b, a)] {
+            let adaptation = peer.lock().adaptation;
+            if adaptation != 0 {
+                notify(
+                    receiver,
+                    guest_bytes(&SctpAdaptationEvent {
+                        sai_type: SctpSnType::SCTP_ADAPTATION_INDICATION.0,
+                        sai_flags: 0,
+                        sai_length: SctpAdaptationEvent::SIZE as u32,
+                        sai_adaptation_ind: adaptation,
+                        sai_assoc_id: receiver.id,
+                    }),
+                );
+            }
+        }
     }
 
     /// `__sctp_connect` for `connect` and `sctp_connectx`.
@@ -1634,7 +1707,66 @@ impl SctpSocket {
         info
     }
 
-    /// `SCTP_AUTOCLOSE` for associations idle that long, noticed when the socket is used.
+    fn abort_partial(&self, asoc: &Arc<Assoc>) {
+        let aborted = {
+            let mut g = self.lock();
+            let mut aborted = false;
+            g.rcvq.retain(|event| {
+                let partial = Arc::ptr_eq(&event.asoc, asoc)
+                    && !event.is_notification()
+                    && event.read != 0
+                    && event.partial_delivery;
+                if partial {
+                    let mut a = asoc.lock();
+                    a.rmem = a.rmem.saturating_sub(event.left());
+                    aborted = true;
+                }
+                !partial
+            });
+            aborted
+        };
+        if aborted {
+            notify(
+                asoc,
+                guest_bytes(&SctpPdapiEvent {
+                    pdapi_type: SctpSnType::SCTP_PARTIAL_DELIVERY_EVENT.0,
+                    pdapi_flags: 0,
+                    pdapi_length: SctpPdapiEvent::SIZE as u32,
+                    pdapi_indication: 0,
+                    pdapi_assoc_id: asoc.id,
+                    pdapi_stream: 0,
+                    pdapi_seq: 0,
+                }),
+            );
+        }
+    }
+
+    /// Earliest association idle deadline (net/sctp/sm_statefuns.c:
+    /// sctp_sf_autoclose_timer_expire). Outstanding data delays orderly shutdown.
+    fn idle_delay(&self) -> Option<Duration> {
+        let g = self.lock();
+        if g.style != Style::Udp || g.so.autoclose == 0 {
+            return None;
+        }
+        let limit = Duration::from_secs(u64::from(g.so.autoclose));
+        g.asocs
+            .iter()
+            .filter_map(|a| {
+                let a = a.lock();
+                (a.state == AState::Established)
+                    .then(|| limit.saturating_sub(a.last_data.elapsed()))
+            })
+            .min()
+    }
+
+    fn rearm_idle(&self) {
+        let delay = self.idle_delay();
+        if let Some(arm) = &*self.idle_timer.lock().unwrap() {
+            arm(delay);
+        }
+    }
+
+    /// `SCTP_AUTOCLOSE` for associations idle that long.
     fn expire_idle(&self) {
         let idle: Vec<Arc<Assoc>> = {
             let g = self.lock();
@@ -1653,7 +1785,12 @@ impl SctpSocket {
         };
         for asoc in idle {
             self.net.state().sctp.stats.autoclose_expireds += 1;
-            end_assoc(&asoc, End::Shutdown);
+            // sctp_sf_autoclose_timer_expire waits for the outgoing queue's ACKs.
+            // Bytes outside the peer window are still on that outgoing queue.
+            asoc.lock().state = AState::ShutdownPending;
+            if asoc.peer().is_none_or(|peer| peer.lock().unacked() == 0) {
+                end_assoc(&asoc, End::Shutdown);
+            }
         }
     }
 
@@ -1754,7 +1891,12 @@ impl SctpSocket {
             if g.rd_shut {
                 return Ok(RecvMsg::default());
             }
-            if g.asocs.is_empty() && g.state != SkState::Listening {
+            // net/sctp/socket.c: sctp_wait_for_packet checks !timeo first;
+            // nonblocking one-to-many sockets without associations return EAGAIN.
+            if g.asocs.is_empty()
+                && g.state != SkState::Listening
+                && (g.style != Style::Udp || !flags.contains(MsgFlags::MSG_DONTWAIT))
+            {
                 return Err(Errno::ENOTCONN);
             }
             return Err(Errno::EAGAIN);
@@ -1764,7 +1906,14 @@ impl SctpSocket {
             false => g.rcvq.pop_front(),
         };
         let event_ref = event.as_ref().unwrap_or_else(|| &g.rcvq[0]);
-        let n = event_ref.left().min(buf.len());
+        // net/sctp/ulpqueue.c: sctp_ulpq_partial_delivery. A message larger than
+        // the receive window arrives in fragments, and can be aborted before EOR.
+        let available = if event_ref.partial_delivery {
+            event_ref.left().min(g.opts.rcvbuf / 2)
+        } else {
+            event_ref.left()
+        };
+        let n = available.min(buf.len());
         buf[..n].copy_from_slice(&event_ref.data[event_ref.read..event_ref.read + n]);
         let next = match peek {
             true => g.rcvq.front(),
@@ -1797,8 +1946,15 @@ impl SctpSocket {
         }
         drop(g);
         // The window opened: the sender may have waited for room.
-        if let Some(sender) = freed.and_then(|a| a.peer()).and_then(|b| b.owner()) {
-            sender.wq.wake(PollMask::OUT | PollMask::WRNORM);
+        if let Some(receiver) = freed
+            && let Some(sender) = receiver.peer()
+        {
+            if sender.lock().state == AState::ShutdownPending && receiver.lock().unacked() == 0 {
+                end_assoc(&sender, End::Shutdown);
+            }
+            if let Some(owner) = sender.owner() {
+                owner.wq.wake(PollMask::OUT | PollMask::WRNORM);
+            }
         }
         Ok(RecvMsg {
             len: n,
@@ -1879,10 +2035,51 @@ impl SctpSocket {
         g.opts.mc.drop_all(&self.net);
     }
 
+    /// net/sctp/socket.c: sctp_get_sctp_info. Counters for packets/loss are zero in
+    /// the message transport; path and socket configuration come from their actual state.
+    fn diag_info(&self, g: &Inner, asoc: Option<&AssocInner>) -> SctpInfo {
+        let mut info = if asoc.is_some() {
+            SctpInfo::default()
+        } else {
+            SctpInfo {
+                sctpi_s_autoclose: g.so.autoclose,
+                sctpi_s_adaptation_ind: g.so.adaptation_ind,
+                sctpi_s_pd_point: g.so.pd_point,
+                sctpi_s_nodelay: g.so.nodelay as u8,
+                sctpi_s_disable_fragments: g.so.disable_fragments as u8,
+                sctpi_s_v4mapped: g.so.v4mapped as u8,
+                sctpi_s_frag_interleave: g.so.frag_interleave as u8,
+                sctpi_s_type: u32::from(g.style.raw()),
+                ..SctpInfo::default()
+            }
+        };
+        if let Some(a) = asoc {
+            let path = a.paths.get(&a.primary).unwrap_or(&a.path);
+            info.sctpi_state = u32::from(a.state.internal());
+            info.sctpi_rwnd = a.rwnd() as u32;
+            info.sctpi_instrms = a.incnt;
+            info.sctpi_outstrms = a.outcnt;
+            info.sctpi_max_burst = a.max_burst;
+            info.sctpi_maxseg = a.frag_point();
+            info.sctpi_p_address = options::storage(self.domain, a.primary);
+            info.sctpi_p_state = SctpSpinfoState::SCTP_ACTIVE.0;
+            info.sctpi_p_cwnd = a.pmtu * 4;
+            info.sctpi_p_rto = a.rto[0];
+            info.sctpi_p_hbinterval = path.hb / 4;
+            info.sctpi_p_pathmaxrxt = u32::from(path.retrans);
+            info.sctpi_p_sackdelay = path.sack_delay;
+        }
+        info
+    }
+
     /// `/proc/net/sctp/eps`.
     fn endpoint(&self) -> Option<SctpEndpoint> {
         let g = self.lock();
         (g.state == SkState::Listening).then(|| SctpEndpoint {
+            domain: self.domain,
+            rx_queue: g.asocs.len(),
+            backlog: g.backlog,
+            info: self.diag_info(&g, None),
             style: g.style.raw(),
             state: g.state.raw(),
             port: g.port,
@@ -1902,6 +2099,8 @@ impl SctpSocket {
                 let tx = asoc.peer().map_or(0, |b| b.lock().unacked());
                 let a = asoc.lock();
                 SctpAssocEntry {
+                    domain: self.domain,
+                    info: self.diag_info(&g, Some(&a)),
                     style: g.style.raw(),
                     sk_state: g.state.raw(),
                     state: a.state.internal(),
@@ -1916,7 +2115,7 @@ impl SctpSocket {
                     primary_src: Some(a.saddr),
                     paddrs: a.paddrs.iter().map(|p| p.ip()).collect(),
                     primary: Some(a.primary.ip()),
-                    hbinterval: HB_INTERVAL,
+                    hbinterval: a.path.hb,
                     incnt: a.incnt,
                     outcnt: a.outcnt,
                     max_retrans: a.max_retrans,
@@ -2288,6 +2487,16 @@ impl Socket for SctpSocket {
 }
 
 impl SctpOps for SctpSocket {
+    fn set_autoclose_timer(&self, arm: Box<dyn Fn(Option<Duration>) + Send + Sync>) {
+        *self.idle_timer.lock().unwrap() = Some(arm);
+        self.rearm_idle();
+    }
+
+    fn autoclose_expire(&self) -> Option<Duration> {
+        self.expire_idle();
+        self.idle_delay()
+    }
+
     /// `sctp_bindx_add` and `sctp_bindx_rem`.
     fn bindx(&self, addrs: &[SocketAddr], add: bool, privileged: bool) -> NetResult<()> {
         let mut g = self.lock();

@@ -686,3 +686,267 @@ fn across_a_veth_and_in_proc() {
         Err(Errno::ETIMEDOUT)
     );
 }
+
+#[test]
+fn delayed_sack_and_packed_peer_parameters() {
+    use wasixv2_abi::{SctpPaddrparams, SctpSackInfo};
+    let n = net();
+    let c = seqpacket(&n);
+    let p = SctpSackInfo {
+        sack_assoc_id: 0,
+        sack_delay: 300,
+        sack_freq: 3,
+    };
+    set(&*c, SctpOption::SCTP_DELAYED_ACK_TIME, &p).unwrap();
+    assert_eq!(get(&*c, SctpOption::SCTP_DELAYED_ACK_TIME, &p).unwrap(), p);
+    assert_eq!(
+        set(
+            &*c,
+            SctpOption::SCTP_DELAYED_ACK_TIME,
+            &SctpSackInfo {
+                sack_delay: 501,
+                ..p
+            }
+        ),
+        Err(Errno::EINVAL)
+    );
+    let legacy = SctpAssocValue {
+        assoc_id: 0,
+        assoc_value: 0,
+    };
+    set(&*c, SctpOption::SCTP_DELAYED_ACK_TIME, &legacy).unwrap();
+    assert_eq!(
+        get(&*c, SctpOption::SCTP_DELAYED_ACK_TIME, &p)
+            .unwrap()
+            .sack_freq,
+        1
+    );
+    let p = SctpPaddrparams {
+        spp_hbinterval: 1234,
+        spp_pathmaxrxt: 7,
+        spp_pathmtu: 1400u32.to_le_bytes(),
+        spp_sackdelay: 250u32.to_le_bytes(),
+        spp_flags: (1u32 | 16 | 32 | 512).to_le_bytes(),
+        spp_dscp: 0xff,
+        ..SctpPaddrparams::ZERO
+    };
+    let bytes = crate::cmsg::guest_bytes(&p);
+    assert_eq!(
+        &bytes[138..142],
+        &1400u32.to_le_bytes(),
+        "packed unaligned pathmtu"
+    );
+    set(&*c, SctpOption::SCTP_PEER_ADDR_PARAMS, &p).unwrap();
+    let got = get(&*c, SctpOption::SCTP_PEER_ADDR_PARAMS, &p).unwrap();
+    assert_eq!(
+        (got.spp_hbinterval, got.spp_pathmaxrxt, got.spp_dscp),
+        (1234, 7, 0xfc)
+    );
+    assert_eq!(got.spp_pathmtu, 1400u32.to_le_bytes());
+    assert_eq!(
+        set(
+            &*c,
+            SctpOption::SCTP_PEER_ADDR_PARAMS,
+            &SctpPaddrparams {
+                spp_flags: 3u32.to_le_bytes(),
+                ..p
+            }
+        ),
+        Err(Errno::EINVAL)
+    );
+    let l = seqpacket(&n);
+    l.bind(a("127.0.0.1:5060"), true).unwrap();
+    l.listen(4).unwrap();
+    let id = c.sctp().unwrap().connectx(&[a("127.0.0.1:5060")]).unwrap();
+    let status = get(
+        &*c,
+        SctpOption::SCTP_STATUS,
+        &SctpStatus {
+            sstat_assoc_id: id,
+            ..SctpStatus::ZERO
+        },
+    )
+    .unwrap();
+    let by_addr = SctpPaddrparams {
+        spp_assoc_id: status.sstat_assoc_id,
+        spp_address: status.sstat_primary.spinfo_address,
+        spp_hbinterval: 2345,
+        spp_flags: 1u32.to_le_bytes(),
+        ..SctpPaddrparams::ZERO
+    };
+    set(&*c, SctpOption::SCTP_PEER_ADDR_PARAMS, &by_addr).unwrap();
+    assert_eq!(
+        get(&*c, SctpOption::SCTP_PEER_ADDR_PARAMS, &by_addr)
+            .unwrap()
+            .spp_hbinterval,
+        2345
+    );
+    assert_eq!(
+        get(
+            &*c,
+            SctpOption::SCTP_PEER_ADDR_PARAMS,
+            &SctpPaddrparams {
+                spp_assoc_id: status.sstat_assoc_id,
+                ..SctpPaddrparams::ZERO
+            }
+        )
+        .unwrap()
+        .spp_hbinterval,
+        1234
+    );
+    set(
+        &*c,
+        SctpOption::SCTP_PEER_ADDR_PARAMS,
+        &SctpPaddrparams {
+            spp_flags: 8u32.to_le_bytes(),
+            ..by_addr
+        },
+    )
+    .unwrap();
+    let discovered = get(&*c, SctpOption::SCTP_PEER_ADDR_PARAMS, &by_addr).unwrap();
+    assert_eq!(
+        u32::from_le_bytes(discovered.spp_pathmtu),
+        n.mtu_to(a("127.0.0.1:5060").ip()).unwrap()
+    );
+}
+
+#[test]
+fn autoclose_arms_a_timer_and_expires_without_socket_io() {
+    let n = net();
+    let c = super::SctpSocket::new(n.clone(), Domain::Inet, SocketKind::SeqPacket, 1);
+    let l = seqpacket(&n);
+    l.bind(a("127.0.0.1:5061"), true).unwrap();
+    l.listen(4).unwrap();
+    let (tx, rx) = std::sync::mpsc::channel();
+    c.sctp()
+        .unwrap()
+        .set_autoclose_timer(Box::new(move |after| {
+            tx.send(after).unwrap();
+        }));
+    set_int(&*c, SctpOption::SCTP_AUTOCLOSE, 10).unwrap();
+    c.sctp().unwrap().connectx(&[a("127.0.0.1:5061")]).unwrap();
+    let arms: Vec<_> = rx.try_iter().flatten().collect();
+    assert!(arms.iter().any(|delay| *delay <= Duration::from_secs(10)));
+    c.lock().asocs[0].lock().last_data -= Duration::from_secs(11);
+    assert_eq!(c.sctp().unwrap().autoclose_expire(), None);
+    assert_eq!(get_int(&*c, SctpOption::SCTP_GET_ASSOC_NUMBER), Ok(0));
+    assert_eq!(get_int(&*l, SctpOption::SCTP_GET_ASSOC_NUMBER), Ok(0));
+}
+
+#[test]
+fn one_to_many_nonblocking_receive_without_associations_is_eagain() {
+    let s = seqpacket(&net());
+    assert_eq!(
+        s.recv(&mut [0; 1], MsgFlags::MSG_DONTWAIT),
+        Err(Errno::EAGAIN)
+    );
+    assert_eq!(s.recv(&mut [0; 1], MsgFlags(0)), Err(Errno::ENOTCONN));
+    assert_eq!(
+        stream(&net()).recv(&mut [0; 1], MsgFlags::MSG_DONTWAIT),
+        Err(Errno::ENOTCONN)
+    );
+}
+
+#[test]
+fn adaptation_primary_and_partial_delivery_notifications() {
+    use wasixv2_abi::{SctpAdaptationEvent, SctpPaddrChange, SctpPdapiEvent};
+    let n = net();
+    let l = stream(&n);
+    l.bind(a("127.0.0.1:5062"), true).unwrap();
+    l.set_option(
+        SOL_SCTP,
+        SctpOption::SCTP_EVENTS.0,
+        &[0, 0, 1, 0, 0, 0, 1, 1],
+    )
+    .unwrap();
+    l.listen(4).unwrap();
+    let c = stream(&n);
+    set_int(&*c, SctpOption::SCTP_ADAPTATION_LAYER, 0x12345678).unwrap();
+    assert_eq!(c.connect(a("127.0.0.1:5062")), Err(Errno::EINPROGRESS));
+    let s = l.accept().unwrap().socket;
+    let raw = recv(&*s, 64).unwrap().0;
+    assert_eq!(
+        SctpAdaptationEvent::read_from(&raw)
+            .unwrap()
+            .sai_adaptation_ind,
+        0x12345678
+    );
+    let status = get(&*s, SctpOption::SCTP_STATUS, &SctpStatus::ZERO).unwrap();
+    set(
+        &*s,
+        SctpOption::SCTP_PRIMARY_ADDR,
+        &SctpPrim {
+            ssp_assoc_id: status.sstat_assoc_id,
+            ssp_addr: status.sstat_primary.spinfo_address,
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        SctpPaddrChange::read_from(&recv(&*s, 256).unwrap().0)
+            .unwrap()
+            .spc_state,
+        4
+    );
+    set_int(&*s, SctpOption::SCTP_PARTIAL_DELIVERY_POINT, 2).unwrap();
+    send(&*c, &vec![b'p'; 200_000]).unwrap();
+    assert_eq!(recv(&*s, 3).unwrap().0, b"ppp");
+    c.set_option(
+        1,
+        wasixv2_abi::SocketOption::SO_LINGER.0,
+        &[1i32.to_le_bytes(), 0i32.to_le_bytes()].concat(),
+    )
+    .unwrap();
+    drop(c);
+    assert_eq!(recv(&*s, 64).unwrap_err(), Errno::ECONNRESET);
+    let raw = recv(&*s, 64).unwrap().0;
+    assert_eq!(SctpPdapiEvent::read_from(&raw).unwrap().pdapi_indication, 0);
+}
+
+#[test]
+fn a_short_read_of_a_complete_message_does_not_enter_partial_delivery() {
+    let n = net();
+    let (_l, c, s) = connected(&n, 5063);
+    s.set_option(SOL_SCTP, SctpOption::SCTP_EVENTS.0, &[0, 0, 0, 0, 0, 0, 1])
+        .unwrap();
+    send(&*c, b"complete").unwrap();
+    assert_eq!(recv(&*s, 3).unwrap().0, b"com");
+    c.set_option(
+        1,
+        wasixv2_abi::SocketOption::SO_LINGER.0,
+        &[1i32.to_le_bytes(), 0i32.to_le_bytes()].concat(),
+    )
+    .unwrap();
+    drop(c);
+    assert_eq!(recv(&*s, 64).unwrap_err(), Errno::ECONNRESET);
+    assert_eq!(recv(&*s, 64).unwrap().0, b"plete");
+}
+
+#[test]
+fn autoclose_waits_for_bytes_outside_the_peer_window() {
+    let n = net();
+    let c = super::SctpSocket::new(n.clone(), Domain::Inet, SocketKind::SeqPacket, 1);
+    let l = seqpacket(&n);
+    l.bind(a("127.0.0.1:5064"), true).unwrap();
+    l.listen(4).unwrap();
+    set_int(&*c, SctpOption::SCTP_AUTOCLOSE, 1).unwrap();
+    let id = c.sctp().unwrap().connectx(&[a("127.0.0.1:5064")]).unwrap();
+    let info = SctpSndinfo {
+        snd_assoc_id: id,
+        ..SctpSndinfo::ZERO
+    };
+    let ctl = Control {
+        level: SOL_SCTP,
+        kind: SctpCmsgType::SCTP_SNDINFO.0,
+        data: crate::cmsg::guest_bytes(&info),
+    };
+    send_ctl(&*c, &vec![0; 200_000], None, &[ctl]).unwrap();
+    c.lock().asocs[0].lock().last_data -= Duration::from_secs(2);
+    assert_eq!(c.sctp().unwrap().autoclose_expire(), None);
+    assert_eq!(
+        get_int(&*c, SctpOption::SCTP_GET_ASSOC_NUMBER),
+        Ok(1),
+        "shutdown waits for outstanding data"
+    );
+    recv(&*l, 106_496).unwrap();
+    assert_eq!(get_int(&*c, SctpOption::SCTP_GET_ASSOC_NUMBER), Ok(0));
+}
