@@ -197,7 +197,7 @@ pub struct Kernel {
     /// The kernel log.
     printk: Arc<printk::Printk>,
     /// BSD process accounting.
-    acct: acct::Acct,
+    acct: Arc<acct::Acct>,
     /// Where core dumps go.
     coredump: Arc<coredump::Coredump>,
     /// The integer sysctls of [`sysctl::Tunable`].
@@ -473,7 +473,7 @@ impl Kernel {
         cgroups.start_notify(&timers, &vfs);
         Self {
             printk,
-            acct: acct::Acct::default(),
+            acct: Arc::default(),
             coredump: Arc::default(),
             tunables: Arc::default(),
             boot_id: {

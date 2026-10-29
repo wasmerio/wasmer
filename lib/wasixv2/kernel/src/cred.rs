@@ -8,7 +8,13 @@
 //! transitions drop and regain them as on Linux. Credentials are per process; Linux keeps them
 //! per thread, but libc applies every set*id call to all threads, so a program cannot tell.
 
-use std::{fmt, sync::Arc};
+use std::{
+    fmt,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
+};
 
 use wasixv2_syscalls::Errno;
 use wasixv2_vfs::{Cap, Cred as FsCred};
@@ -270,6 +276,8 @@ impl IdChange<u32> {
 /// A process's credentials.
 #[derive(Clone)]
 pub(crate) struct Cred {
+    /// PF_SUPERPRIV collected across the thread group, cleared for a fork child.
+    pub(crate) privilege_used: Arc<AtomicBool>,
     pub(crate) user: Ids<Kuid>,
     pub(crate) group: Ids<Kgid>,
     /// Supplementary groups, in ascending order (`groups_sort`).
@@ -338,6 +346,7 @@ impl Cred {
             _ => 0,
         };
         Self {
+            privilege_used: Arc::default(),
             user: Ids::all(Kuid(identity.uid)),
             group: Ids::all(Kgid(identity.gid)),
             groups: identity.groups.iter().copied().map(Kgid).collect(),
@@ -353,11 +362,21 @@ impl Cred {
         }
     }
 
+    /// Linux copy_process clears PF_SUPERPRIV, even when credentials are unchanged.
+    pub(crate) fn for_process(mut self) -> Self {
+        self.privilege_used = Arc::default();
+        self
+    }
+
     /// `ns_capable(current_user_ns(), cap)`: the capability over the process's own user
     /// namespace and what it owns. Right for what acts on the caller itself (its ids, its
     /// capability sets, its root) and for making namespaces.
     pub(crate) fn capable(&self, cap: Cap) -> bool {
-        self.effective & cap.bit() != 0
+        let capable = self.effective & cap.bit() != 0;
+        if capable {
+            self.privilege_used.store(true, Ordering::Relaxed);
+        }
+        capable
     }
 
     /// `ns_capable` (`cap_capable_helper`): the capability over the user namespace `target`.
@@ -375,6 +394,7 @@ impl Cred {
             }
             let parent = ns.parent().expect("a namespace above level 0 has a parent");
             if Arc::ptr_eq(parent, mine) && ns.owner() == self.user.effective {
+                self.privilege_used.store(true, Ordering::Relaxed);
                 return true;
             }
             ns = parent;
@@ -437,6 +457,7 @@ impl Cred {
             fsgid: self.group.fs.0,
             groups: self.groups.iter().map(|gid| gid.0).collect(),
             caps: self.effective,
+            privilege_used: Some(self.privilege_used.clone()),
             user_ns: self.user_ns.clone(),
             security: crate::landlock::fs_security(&self.landlock),
         }

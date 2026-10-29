@@ -94,6 +94,7 @@ pub(super) enum Global {
     Printk,
     DmesgRestrict,
     PrintkDevkmsg,
+    Acct,
     SeccompActionsAvail,
     SeccompActionsLogged,
     /// `kernel.core_pattern`, `kernel.core_uses_pid` and `kernel.core_pipe_limit`.
@@ -175,6 +176,7 @@ impl Global {
             | Self::DmesgRestrict
             | Self::PrintkDevkmsg
             | Self::SeccompActionsLogged
+            | Self::Acct
             | Self::CorePattern
             | Self::CoreUsesPid
             | Self::CorePipeLimit
@@ -321,6 +323,10 @@ pub(super) fn global(
         Global::Crypto => crypto(),
         Global::Cgroups => cgroups(source),
         Global::Kmsg => Vec::new(),
+        Global::Acct => {
+            let values = source.acct.parameters.lock_or_recover();
+            line(&format!("{}\t{}\t{}", values[0], values[1], values[2]))
+        }
         Global::SeccompActionsAvail => line(&crate::seccomp::Logging::available()),
         Global::SeccompActionsLogged => line(&source.seccomp_logging.names()),
         Global::Printk => {

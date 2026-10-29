@@ -375,6 +375,7 @@ const STATIC: &[(usize, &str, Static)] = &[
         "actions_logged",
         Static::File(text::Global::SeccompActionsLogged),
     ),
+    (13, "acct", Static::File(text::Global::Acct)),
 ];
 
 /// The file of an integer sysctl.
@@ -1207,6 +1208,7 @@ impl Node for ProcNode {
                         | text::Global::CorePipeLimit => {
                             Some(Write::Core(self.source.coredump.clone(), file))
                         }
+                        text::Global::Acct => Some(Write::Acct(self.source.acct.clone())),
                         text::Global::SeccompActionsLogged => {
                             let may = opener
                                 .as_ref()
@@ -1582,6 +1584,7 @@ struct FileHandle {
 
 /// What a writable file sets.
 enum Write {
+    Acct(Arc<crate::acct::Acct>),
     Seccomp(Arc<crate::seccomp::Logging>, bool),
     /// A task's name.
     Comm(Arc<Source>, Scope),
@@ -1812,6 +1815,19 @@ impl Handle for FileHandle {
     /// sysctl's new value.
     async fn write_at(&self, data: &[u8], offset: u64) -> FsResult<usize> {
         match self.write.as_ref().ok_or(Errno::EINVAL)? {
+            Write::Acct(acct) => {
+                let text = std::str::from_utf8(data).map_err(|_| Errno::EINVAL)?;
+                let values = text
+                    .split_whitespace()
+                    .take(3)
+                    .map(|word| word.parse::<i32>().map_err(|_| Errno::EINVAL))
+                    .collect::<Result<Vec<_>, _>>()?;
+                if values.is_empty() {
+                    return Err(Errno::EINVAL);
+                }
+                acct.parameters.lock_or_recover()[..values.len()].copy_from_slice(&values);
+            }
+
             Write::Seccomp(_, false) => return Err(Errno::EPERM),
             Write::Seccomp(log, true) => log.set_names(data, offset)?,
             Write::Map(ns, kind, cred) => return ns.write_map(*kind, cred, offset, data),

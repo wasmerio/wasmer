@@ -895,6 +895,14 @@ impl Kernel {
             let flags = flags | if afork { crate::acct::AFORK } else { 0 };
             (code as u32, flags, node.parent)
         };
+        // Linux kernel/acct.c:acct_collect uses PF_SUPERPRIV, not uid == 0.
+        if process
+            .cred()
+            .privilege_used
+            .load(std::sync::atomic::Ordering::Relaxed)
+        {
+            flags |= crate::acct::ASU;
+        }
         if process.ident.lock_or_recover().dumped_core {
             flags |= crate::acct::ACORE;
         }
@@ -1617,7 +1625,7 @@ impl Kernel {
                 maxrss: Default::default(),
                 cpu_timers: Default::default(),
                 ident: Mutex::new(ident),
-                cred: Mutex::new(cred),
+                cred: Mutex::new(cred.for_process()),
                 resources: Mutex::new(parent.resources.lock_or_recover().clone()),
                 pid_ns: ns.pid_for_children.clone(),
                 sysvsem: Mutex::new(Some(ns.ipc.clone())),
