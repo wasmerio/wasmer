@@ -1,7 +1,7 @@
 //! Anonymous pipes, as Linux's `fs/pipe.c`, with a byte buffer instead of page slots.
 
 use std::{
-    collections::VecDeque,
+    collections::{HashMap, VecDeque},
     sync::{
         Arc, Mutex, MutexGuard, Weak,
         atomic::{AtomicU32, Ordering},
@@ -30,37 +30,129 @@ pub(crate) const DEFAULT_SIZE: usize = 16 * PIPE_PAGE;
 
 /// `fs.pipe-max-size` (`pipe_max_size`, `fs/pipe.c`): no caller without `CAP_SYS_RESOURCE`
 /// makes a pipe larger, and a new pipe it makes holds at most this much. One for the machine.
-pub(crate) struct PipeMaxSize(AtomicU32);
+pub(crate) struct PipeMaxSize {
+    max: AtomicU32,
+    soft: AtomicU32,
+    hard: AtomicU32,
+    users: Mutex<HashMap<u32, usize>>,
+}
+
+/// Reserved pipe pages. The charge follows the pipe, not individual descriptors.
+pub(crate) struct Budget {
+    size: usize,
+    charge: Charge,
+}
+
+struct Charge {
+    limits: Arc<PipeMaxSize>,
+    uid: u32,
+    pages: usize,
+}
+
+impl Drop for Charge {
+    fn drop(&mut self) {
+        let mut users = self.limits.users.lock_or_recover();
+        if let Some(total) = users.get_mut(&self.uid) {
+            *total -= self.pages;
+            if *total == 0 {
+                users.remove(&self.uid);
+            }
+        }
+    }
+}
+
+impl Charge {
+    /// fs/pipe.c pipe_set_size checks quotas only on growth, against the
+    /// prospective total, and rolls the accounting back on failure.
+    fn resize(&mut self, pages: usize, unprivileged: bool) -> Result<(), Errno> {
+        let mut users = self.limits.users.lock_or_recover();
+        let total = users.entry(self.uid).or_default();
+        let new = *total - self.pages + pages;
+        if pages > self.pages && unprivileged && self.limits.over_limit(new) {
+            return Err(Errno::EPERM);
+        }
+        *total = new;
+        self.pages = pages;
+        Ok(())
+    }
+}
 
 impl PipeMaxSize {
     /// Linux's default, 1 MiB.
     const DEFAULT: u32 = 1 << 20;
 
     pub(crate) fn get(&self) -> u32 {
-        self.0.load(Ordering::Relaxed)
+        self.max.load(Ordering::Relaxed)
     }
 
     /// `proc_dopipe_max_size`'s write: the value rounded as a pipe's size is
     /// (`round_pipe_size`), `ERANGE` for one past 2 GiB, which rounds to nothing.
     pub(crate) fn set(&self, value: u32) -> Result<(), Errno> {
         let size = round_pipe_size(value).ok_or(Errno::ERANGE)?;
-        self.0.store(size as u32, Ordering::Relaxed);
+        self.max.store(size as u32, Ordering::Relaxed);
         Ok(())
     }
 
-    /// `alloc_pipe_info`'s size: the default, or the limit if that is smaller and the maker
-    /// lacks `CAP_SYS_RESOURCE` (`privileged`).
-    pub(crate) fn new_pipe_size(&self, privileged: bool) -> usize {
-        match privileged {
-            true => DEFAULT_SIZE,
-            false => DEFAULT_SIZE.min(self.get() as usize),
+    pub(crate) fn user_limit(&self, hard: bool) -> u32 {
+        let limit = if hard { &self.hard } else { &self.soft };
+        limit.load(Ordering::Relaxed)
+    }
+
+    pub(crate) fn set_user_limit(&self, hard: bool, pages: u32) -> Result<(), Errno> {
+        // fs/pipe.c uses proc_doulongvec_minmax: unsigned long is u32 in the guest.
+        let limit = if hard { &self.hard } else { &self.soft };
+        limit.store(pages, Ordering::Relaxed);
+        Ok(())
+    }
+
+    fn over_limit(&self, pages: usize) -> bool {
+        [
+            self.soft.load(Ordering::Relaxed),
+            self.hard.load(Ordering::Relaxed),
+        ]
+        .iter()
+        .any(|&limit| limit != 0 && pages > limit as usize)
+    }
+
+    /// fs/pipe.c alloc_pipe_info accounts the default first; over the soft
+    /// limit an unprivileged user gets PIPE_MIN_DEF_BUFFERS (two pages).
+    pub(crate) fn allocate(
+        self: &Arc<Self>,
+        uid: u32,
+        mut size: usize,
+        unprivileged: bool,
+    ) -> Result<Budget, Errno> {
+        let mut users = self.users.lock_or_recover();
+        let total = users.get(&uid).copied().unwrap_or(0);
+        let soft = self.soft.load(Ordering::Relaxed) as usize;
+        if unprivileged && soft != 0 && total + size / PIPE_PAGE > soft {
+            size = 2 * PIPE_PAGE;
         }
+        let pages = size / PIPE_PAGE;
+        let hard = self.hard.load(Ordering::Relaxed) as usize;
+        if unprivileged && hard != 0 && total + pages > hard {
+            return Err(Errno::ENFILE);
+        }
+        users.insert(uid, total + pages);
+        Ok(Budget {
+            size,
+            charge: Charge {
+                limits: self.clone(),
+                uid,
+                pages,
+            },
+        })
     }
 }
 
 impl Default for PipeMaxSize {
     fn default() -> Self {
-        Self(AtomicU32::new(Self::DEFAULT))
+        Self {
+            max: AtomicU32::new(Self::DEFAULT),
+            soft: AtomicU32::new(16384),
+            hard: AtomicU32::new(0),
+            users: Mutex::default(),
+        }
     }
 }
 
@@ -94,6 +186,7 @@ struct State {
     /// fs/pipe.c PIPE_BUF_FLAG_PACKET; stream runs may merge, packets never do.
     segments: VecDeque<(usize, bool)>,
     capacity: usize,
+    charge: Charge,
     /// Room promised to a splice into the pipe that is still reading its input
     /// ([`Reservation`]), which Linux keeps by holding the pipe's lock across the read.
     reserved: usize,
@@ -213,7 +306,11 @@ impl Drop for PipeEnd {
 }
 
 /// A pipe with no ends yet that holds `capacity` bytes (`alloc_pipe_info`).
-fn new_pipe(capacity: usize, notification: bool) -> Arc<Pipe> {
+fn new_pipe(budget: Budget, notification: bool) -> Arc<Pipe> {
+    let Budget {
+        size: capacity,
+        charge,
+    } = budget;
     Arc::new(Pipe {
         notification,
         state: Mutex::new(State {
@@ -221,6 +318,7 @@ fn new_pipe(capacity: usize, notification: bool) -> Arc<Pipe> {
             buf: VecDeque::new(),
             segments: VecDeque::new(),
             capacity,
+            charge,
             reserved: 0,
             readers: 0,
             writers: 0,
@@ -236,8 +334,8 @@ fn new_pipe(capacity: usize, notification: bool) -> Arc<Pipe> {
 }
 
 /// A new pipe's read and write ends, holding `capacity` bytes.
-fn pipe(capacity: usize, notification: bool) -> (PipeEnd, PipeEnd) {
-    let pipe = new_pipe(capacity, notification);
+fn pipe(budget: Budget, notification: bool) -> (PipeEnd, PipeEnd) {
+    let pipe = new_pipe(budget, notification);
     let (read, _) = PipeEnd::attach(&pipe, false);
     let (write, _) = PipeEnd::attach(&pipe, true);
     (read, write)
@@ -246,8 +344,8 @@ fn pipe(capacity: usize, notification: bool) -> (PipeEnd, PipeEnd) {
 // ---- fs: FIFOs (`fs/fifo.rs`) ----
 
 /// A pipe with no ends yet holding `capacity` bytes, for a FIFO inode's first open.
-pub(crate) fn fifo_pipe(capacity: usize) -> Arc<Pipe> {
-    new_pipe(capacity, false)
+pub(crate) fn fifo_pipe(budget: Budget) -> Arc<Pipe> {
+    new_pipe(budget, false)
 }
 
 /// The other side of a pipe as an end was attached: how many ends it had open, and how many it
@@ -826,13 +924,32 @@ impl PipeEnd {
         }
     }
 
+    pub(crate) fn set_watch_size(&self, notes: u32, unprivileged: bool) -> Result<i32, Errno> {
+        let mut state = self.pipe.state.lock_or_recover();
+        let capacity = state
+            .watch
+            .as_ref()
+            .ok_or(Errno::ENODEV)?
+            .capacity_for(notes)?;
+        state.charge.resize(capacity / PIPE_PAGE, unprivileged)?;
+        state.watch.as_mut().expect("checked").set_size(notes)?;
+        state.capacity = capacity;
+        Ok(0)
+    }
+
     fn input_len(&self) -> usize {
         self.pipe.state.lock_or_recover().input_len()
     }
 
     /// `pipe_set_size` with `round_pipe_size`: growing past `max`, `fs.pipe-max-size`, takes
     /// `CAP_SYS_RESOURCE` (`privileged`); shrinking is always allowed.
-    fn set_size(&self, size: u32, max: u32, privileged: bool) -> Result<usize, Errno> {
+    fn set_size(
+        &self,
+        size: u32,
+        max: u32,
+        privileged: bool,
+        unprivileged: bool,
+    ) -> Result<usize, Errno> {
         if self.pipe.notification {
             return Err(Errno::EBUSY);
         }
@@ -844,6 +961,7 @@ impl PipeEnd {
         if state.used() > size {
             return Err(Errno::EBUSY);
         }
+        state.charge.resize(size / PIPE_PAGE, unprivileged)?;
         state.capacity = size;
         drop(state);
         self.pipe.wr_wait.wake(PollMask::WRITABLE);
@@ -913,10 +1031,7 @@ impl FileObject for PipeEnd {
     ) -> LocalFuture<'a, SysResult<i32>> {
         Box::pin(async move {
             if request == IoctlRequest::IOC_WATCH_QUEUE_SET_SIZE {
-                let mut state = self.pipe.state.lock_or_recover();
-                let capacity = state.watch.as_mut().ok_or(Errno::ENODEV)?.set_size(arg)?;
-                state.capacity = capacity;
-                return Ok(0);
+                return Ok(self.set_watch_size(arg, true)?);
             }
             if request == IoctlRequest::IOC_WATCH_QUEUE_SET_FILTER {
                 if !self.pipe.notification {
@@ -951,11 +1066,12 @@ pub(crate) fn fcntl(
     arg: u32,
     max: u32,
     privileged: bool,
+    unprivileged: bool,
 ) -> SysResult<i32> {
     let end = file.downcast::<PipeEnd>().ok_or(Errno::EBADF)?;
     let size = match cmd {
         FcntlCmd::F_GETPIPE_SZ => end.pipe.state.lock_or_recover().capacity,
-        _ => end.set_size(arg, max, privileged)?,
+        _ => end.set_size(arg, max, privileged, unprivileged)?,
     };
     Ok(size as i32)
 }
@@ -978,7 +1094,7 @@ impl Kernel {
         let owner = self.cred(caller).fs_owner();
         let status =
             flags & (OpenFlags::O_NONBLOCK | OpenFlags::O_DIRECT | OpenFlags::O_NOTIFICATION_PIPE);
-        let [read, write] = self.pipe_files(self.new_pipe_size(caller), owner, status);
+        let [read, write] = self.pipe_files(self.new_pipe_budget(caller)?, owner, status);
         let cloexec = flags.contains(OpenFlags::O_CLOEXEC);
         self.install_pair(caller, fildes, [read, write], cloexec)
             .await?;
@@ -989,11 +1105,11 @@ impl Kernel {
     /// pipefs inode owned by `owner`.
     pub(crate) fn pipe_files(
         &self,
-        size: usize,
+        budget: Budget,
         owner: (u32, u32),
         status: OpenFlags,
     ) -> [OpenFile; 2] {
-        let (read, write) = pipe(size, status.contains(OpenFlags::O_NOTIFICATION_PIPE));
+        let (read, write) = pipe(budget, status.contains(OpenFlags::O_NOTIFICATION_PIPE));
         let status = status & !OpenFlags::O_NOTIFICATION_PIPE;
         // The pipe hangs off its inode, as a FIFO's does, so `/proc/<pid>/fd/<n>` reopens it.
         let path = self.pseudo.pipe(owner);
@@ -1013,11 +1129,22 @@ impl Kernel {
 
     /// How much a pipe the caller makes holds (`alloc_pipe_info`): `fs.pipe-max-size` bounds
     /// it unless the caller has `CAP_SYS_RESOURCE`.
-    pub(crate) fn new_pipe_size(&self, caller: &Caller<'_>) -> usize {
-        let privileged = self
-            .cred(caller)
-            .capable_init(wasixv2_vfs::Cap::SysResource);
-        self.pipe_max_size.new_pipe_size(privileged)
+    pub(crate) fn new_pipe_budget(&self, caller: &Caller<'_>) -> Result<Budget, Errno> {
+        let cred = self.cred(caller);
+        let resource = cred.capable_init(wasixv2_vfs::Cap::SysResource);
+        let size = if resource {
+            DEFAULT_SIZE
+        } else {
+            DEFAULT_SIZE.min(self.pipe_max_size.get() as usize)
+        };
+        self.pipe_max_size
+            .allocate(cred.user.real.0, size, self.pipe_user_unprivileged(caller))
+    }
+
+    pub(crate) fn pipe_user_unprivileged(&self, caller: &Caller<'_>) -> bool {
+        let cred = self.cred(caller);
+        !cred.capable_init(wasixv2_vfs::Cap::SysResource)
+            && !cred.capable_init(wasixv2_vfs::Cap::SysAdmin)
     }
 
     /// Installs `files` at the lowest free descriptors: all of them, or none with `EMFILE`.

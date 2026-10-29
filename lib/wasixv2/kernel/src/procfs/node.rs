@@ -411,6 +411,16 @@ const STATIC: &[(usize, &str, Static)] = &[
             crate::ipc::mqueue::MqSysctl::MsgsizeDefault,
         )),
     ),
+    (
+        15,
+        "pipe-user-pages-soft",
+        Static::File(text::Global::PipeUserPages(false)),
+    ),
+    (
+        15,
+        "pipe-user-pages-hard",
+        Static::File(text::Global::PipeUserPages(true)),
+    ),
 ];
 
 /// The file of an integer sysctl.
@@ -1235,6 +1245,10 @@ impl Node for ProcNode {
                         text::Global::Mqueue(entry) => {
                             Some(Write::Mqueue(ns.ipc.mq.clone(), entry))
                         }
+                        text::Global::PipeUserPages(hard) => Some(Write::PipeUserPages(
+                            self.source.pipe_max_size.clone(),
+                            hard,
+                        )),
                         text::Global::PipeMaxSize => {
                             Some(Write::PipeMaxSize(self.source.pipe_max_size.clone()))
                         }
@@ -1665,6 +1679,7 @@ enum Write {
     NrOpen(Arc<NrOpen>),
     /// `fs.pipe-max-size`.
     PipeMaxSize(Arc<PipeMaxSize>),
+    PipeUserPages(Arc<PipeMaxSize>, bool),
     Mqueue(
         Arc<crate::ipc::mqueue::Mqueues>,
         crate::ipc::mqueue::MqSysctl,
@@ -1947,6 +1962,7 @@ impl Handle for FileHandle {
             Write::NsLastPid(ns, true) => ns.set_last_pid(sysctl_int(data)?)?,
             Write::NrOpen(nr_open) => nr_open.set(sysctl_int(data)?)?,
             Write::Mqueue(queues, entry) => queues.set_sysctl(*entry, sysctl_i32(data)?)?,
+            Write::PipeUserPages(max, hard) => max.set_user_limit(*hard, sysctl_int(data)?)?,
             Write::PipeMaxSize(max) => max.set(sysctl_int(data)?)?,
             Write::AioMaxNr(aio) => aio.set_max(sysctl_int(data)?),
             Write::Keys(keys, entry) => keys.set_sysctl(*entry, sysctl_int(data)?)?,

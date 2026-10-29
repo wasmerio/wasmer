@@ -541,8 +541,9 @@ impl Kernel {
                     return Ok(Backing::Stream(object, path));
                 }
                 let interrupt = self.interrupt(caller);
-                let capacity = self.new_pipe_size(caller);
-                Arc::new(fifo::open(file, flags, capacity, &*interrupt).await?)
+                Arc::new(
+                    fifo::open(file, flags, || self.new_pipe_budget(caller), &*interrupt).await?,
+                )
             }
             wasixv2_vfs::FileType::CharDevice | wasixv2_vfs::FileType::BlockDevice => {
                 self.open_device(caller, file, flags).await?
@@ -804,7 +805,14 @@ impl Kernel {
                     .cred(caller)
                     .capable_init(wasixv2_vfs::Cap::SysResource);
                 let max = self.pipe_max_size.get();
-                crate::pipe::fcntl(&file, cmd, arg, max, privileged)
+                crate::pipe::fcntl(
+                    &file,
+                    cmd,
+                    arg,
+                    max,
+                    privileged,
+                    self.pipe_user_unprivileged(caller),
+                )
             }
             FcntlCmd::F_ADD_SEALS | FcntlCmd::F_GET_SEALS => {
                 self.memfd_fcntl(&file, cmd, arg).await

@@ -84,6 +84,11 @@ impl Kernel {
             write_value(caller.memory(), GuestPtrMut::new(arg), &left).await?;
             return Ok(0);
         }
+        if request == IoctlRequest::IOC_WATCH_QUEUE_SET_SIZE
+            && let Some(end) = file.downcast::<crate::pipe::PipeEnd>()
+        {
+            return Ok(end.set_watch_size(arg, self.pipe_user_unprivileged(caller))?);
+        }
         if let Some(result) = self.fileattr_ioctl(caller, &file, request, arg).await {
             return result;
         }
