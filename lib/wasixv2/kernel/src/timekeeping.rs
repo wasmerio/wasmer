@@ -35,9 +35,6 @@ pub struct Timekeeper {
     offset: AtomicI64,
     /// `tai_offset`, in seconds: `CLOCK_TAI` is the wall clock plus this.
     tai: AtomicI32,
-    /// The wall-clock second at which the leap state machine next acts, checked by every
-    /// reading ([`Ntp::next_event`]).
-    next_event: AtomicI64,
     /// Counts the sets of the clock (`clock_was_set_seq`).
     seq: AtomicU64,
     ntp: Mutex<Ntp>,
@@ -71,13 +68,14 @@ impl Timekeeper {
     /// A wall clock that reads the host's until it is set.
     pub fn new(host: Arc<dyn Host>) -> Arc<Self> {
         let now = secs(nanos(host.realtime()));
+        let mut ntp = Ntp::new(now);
+        ntp.start_slew(host.monotonic(), nanos(host.realtime()));
         Arc::new(Self {
             host,
             offset: AtomicI64::new(0),
             tai: AtomicI32::new(0),
-            next_event: AtomicI64::new(i64::MAX),
             seq: AtomicU64::new(0),
-            ntp: Mutex::new(Ntp::new(now)),
+            ntp: Mutex::new(ntp),
             was_set: WaitQueue::new(),
             delayed: Mutex::new(None),
         })
@@ -148,21 +146,15 @@ impl Timekeeper {
             ntp.age(now - ntp.last_sec);
             ntp.last_sec = now;
         }
-        self.next_event.store(ntp.next_event(), Ordering::Release);
         leapt
     }
 
     /// The wall clock, with a leap second due taken; one taken here re-runs the realtime
     /// timers later (`clock_was_set_delayed`).
     fn realtime_nanos(&self) -> i128 {
-        let now = self.now_nanos();
-        if secs(now) < self.next_event.load(Ordering::Acquire) {
-            return now;
-        }
         let leapt = {
             let mut ntp = self.ntp.lock_or_recover();
-            let now = self.now_nanos();
-            self.advance(&mut ntp, secs(now))
+            self.discipline(&mut ntp)
         };
         if leapt != 0 {
             self.was_set();
@@ -171,6 +163,12 @@ impl Timekeeper {
             }
         }
         self.now_nanos()
+    }
+
+    fn discipline(&self, ntp: &mut Ntp) -> i64 {
+        let correction = ntp.slew(self.host.monotonic(), self.now_nanos());
+        self.shift(correction);
+        self.advance(ntp, secs(self.now_nanos()))
     }
 
     /// `do_settimeofday64` of a valid time ([`valid_settod`]): the clock cannot go back past
@@ -183,7 +181,7 @@ impl Timekeeper {
         let delta = nanos(ts) - self.now_nanos();
         self.shift(delta);
         ntp.clear(secs(nanos(ts)));
-        self.next_event.store(ntp.next_event(), Ordering::Release);
+        ntp.start_slew(self.host.monotonic(), nanos(ts));
         drop(ntp);
         self.was_set();
         Ok(())
@@ -211,7 +209,7 @@ impl Timekeeper {
     ) -> Result<(ClockState, bool), Errno> {
         crate::ntp::validate(txc, sys_time)?;
         let mut ntp = self.ntp.lock_or_recover();
-        let leapt = self.advance(&mut ntp, secs(self.now_nanos()));
+        let leapt = self.discipline(&mut ntp);
         let now = self.now_nanos();
         let ts = (secs(now), now.rem_euclid(NANOS_PER_SEC) as u32);
         let mut clock_set = leapt != 0;
@@ -233,7 +231,6 @@ impl Timekeeper {
             self.tai.store(tai, Ordering::Release);
             clock_set = true;
         }
-        self.next_event.store(ntp.next_event(), Ordering::Release);
         drop(ntp);
         if clock_set {
             self.was_set();
@@ -652,5 +649,123 @@ mod tests {
         futures::executor::block_on(time.sleep_until_realtime(BEFORE_MIDNIGHT + 30 * SECOND));
         thread.join().unwrap();
         assert!(time.realtime() >= BEFORE_MIDNIGHT + 60 * SECOND);
+    }
+    #[test]
+    fn frequency_and_tick_adjust_the_rate_without_setting_the_clock() {
+        let (host, time) = keeper(BEFORE_MIDNIGHT);
+        adjtimex(
+            &time,
+            KernelTimex {
+                freq: 100 * 65536,
+                ..txc(AdjtimexModes::ADJ_FREQUENCY.0)
+            },
+        );
+        let seq = time.seq();
+        host.advance(10 * SECOND);
+        assert_eq!(time.realtime(), host.realtime() + Duration::from_millis(1));
+        assert_eq!(
+            time.seq(),
+            seq,
+            "slewing never cancels CANCEL_ON_SET timers"
+        );
+        // +1 usec at USER_HZ=100 cancels -100 ppm.
+        adjtimex(
+            &time,
+            KernelTimex {
+                freq: -100 * 65536,
+                tick: 10_001,
+                ..txc(AdjtimexModes::ADJ_FREQUENCY.0 | AdjtimexModes::ADJ_TICK.0)
+            },
+        );
+        host.advance(10 * SECOND);
+        assert_eq!(time.realtime(), host.realtime() + Duration::from_millis(1));
+    }
+
+    #[test]
+    fn adjtime_slews_both_directions_and_drains_the_remainder() {
+        for sign in [-1, 1] {
+            let (host, time) = keeper(BEFORE_MIDNIGHT);
+            adjtimex(
+                &time,
+                KernelTimex {
+                    offset: sign * 1000,
+                    ..txc(AdjtimexModes::ADJ_OFFSET_SINGLESHOT.0)
+                },
+            );
+            assert_eq!(time.realtime(), host.realtime(), "no step");
+            host.advance(SECOND);
+            let correction = nanos(time.realtime()) - nanos(host.realtime());
+            assert!((200_000..=300_000).contains(&(correction * i128::from(sign))));
+            host.advance(3 * SECOND);
+            let delivered = nanos(time.realtime()) - nanos(host.realtime());
+            assert!((delivered - i128::from(sign) * 1_000_000).abs() <= 1);
+            host.advance(4 * SECOND);
+            assert_eq!(
+                nanos(time.realtime()) - nanos(host.realtime()),
+                i128::from(sign) * 1_000_000
+            );
+            assert_eq!(
+                adjtimex(&time, txc(AdjtimexModes::ADJ_OFFSET_SS_READ.0))
+                    .1
+                    .offset,
+                0
+            );
+        }
+    }
+
+    #[test]
+    fn pll_phase_converges_and_matches_the_delivered_correction() {
+        for sign in [-1, 1] {
+            let (host, time) = keeper(BEFORE_MIDNIGHT);
+            adjtimex(
+                &time,
+                KernelTimex {
+                    offset: sign * 16_000_000,
+                    status: TimexStatus::STA_PLL | TimexStatus::STA_FREQHOLD,
+                    ..txc(AdjtimexModes::ADJ_STATUS.0
+                        | AdjtimexModes::ADJ_NANO.0
+                        | AdjtimexModes::ADJ_OFFSET.0)
+                },
+            );
+            host.advance(120 * SECOND);
+            let now = time.realtime();
+            let left = adjtimex(&time, txc(0)).1.offset;
+            assert!(left.abs() < 16_000, "phase remainder {left}");
+            let total = nanos(now) - nanos(host.realtime()) + i128::from(left);
+            assert!((total - i128::from(sign) * 16_000_000).abs() <= 2);
+        }
+    }
+
+    #[test]
+    fn opposing_phase_and_adjtime_slews_both_converge() {
+        let (host, time) = keeper(BEFORE_MIDNIGHT);
+        adjtimex(
+            &time,
+            KernelTimex {
+                offset: 8_000_000,
+                status: TimexStatus::STA_PLL | TimexStatus::STA_FREQHOLD,
+                ..txc(AdjtimexModes::ADJ_STATUS.0
+                    | AdjtimexModes::ADJ_NANO.0
+                    | AdjtimexModes::ADJ_OFFSET.0)
+            },
+        );
+        adjtimex(
+            &time,
+            KernelTimex {
+                offset: -1000,
+                ..txc(AdjtimexModes::ADJ_OFFSET_SINGLESHOT.0)
+            },
+        );
+        host.advance(180 * SECOND);
+        let delivered = nanos(time.realtime()) - nanos(host.realtime());
+        let phase = adjtimex(&time, txc(0)).1.offset;
+        assert!((delivered + i128::from(phase) - 7_000_000).abs() <= 2);
+        assert!(phase.abs() < 1000);
+        assert_eq!(
+            adjtimex(&time, txc(AdjtimexModes::ADJ_OFFSET_SS_READ.0))
+                .1
+                .offset,
+            0
+        );
     }
 }
