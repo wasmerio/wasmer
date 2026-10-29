@@ -1418,3 +1418,169 @@ fn direct_openat2_replaces_slots_and_reports_table_errors() {
         Ok(0)
     );
 }
+
+fn anonymous(m: &Machine, pages: u32, shared: bool) -> u32 {
+    let flags = MapFlags::MAP_ANONYMOUS
+        | if shared {
+            MapFlags::MAP_SHARED
+        } else {
+            MapFlags::MAP_PRIVATE
+        };
+    block_on(m.kernel.mmap(
+        &m.caller(),
+        0,
+        pages * 65536,
+        ProtFlags(3),
+        flags,
+        Fd(-1),
+        0,
+    ))
+    .unwrap()
+}
+
+fn fixed_write(ring: &Ring<'_>, fd: Fd, addr: u32, len: u32, slot: u16) {
+    ring.push(IoUringSqe {
+        addr: u64::from(addr),
+        len,
+        buf_index: slot,
+        ..sqe(IoUringOp::IORING_OP_WRITE_FIXED, fd.0, 1)
+    });
+    assert_eq!(ring.submit(1), Ok(1));
+    assert_eq!(res(&ring.reap()), [(1, len as i32)]);
+}
+
+#[test]
+fn fixed_buffers_retain_private_pages_across_partial_unmap_and_fixed_overlay() {
+    let m = Machine::new();
+    let ring = m.ring(8, 0);
+    let addr = anonymous(&m, 2, false);
+    m.memory.put(addr, b"old!");
+    let data = SCRATCH + 64;
+    put_value(
+        &m,
+        data,
+        wasixv2_abi::Iovec {
+            iov_base: addr,
+            iov_len: 131072,
+        },
+    );
+    put_value(
+        &m,
+        data + 8,
+        wasixv2_abi::Iovec {
+            iov_base: addr,
+            iov_len: 4,
+        },
+    );
+    assert_eq!(register_resources(&ring, true, 2, data, 0), Ok(0));
+    block_on(m.kernel.munmap(&m.caller(), addr, 65536)).unwrap();
+    let flags = MapFlags::MAP_ANONYMOUS | MapFlags::MAP_PRIVATE | MapFlags::MAP_FIXED;
+    assert_eq!(
+        block_on(
+            m.kernel
+                .mmap(&m.caller(), addr, 65536, ProtFlags(3), flags, Fd(-1), 0)
+        ),
+        Ok(addr)
+    );
+    m.memory.put(addr, b"new!");
+    let out = m.file("retained-out", b"");
+    fixed_write(&ring, out, addr, 4, 0);
+    assert_eq!(
+        block_on(
+            m.kernel
+                .pread64(&m.caller(), out, UserSliceMut::new(BUF, 4), 0)
+        ),
+        Ok(4)
+    );
+    assert_eq!(m.memory.get(BUF, 4), b"old!");
+    let input = m.file("retained-input", b"read");
+    ring.push(IoUringSqe {
+        addr: u64::from(addr),
+        len: 4,
+        ..sqe(IoUringOp::IORING_OP_READ_FIXED, input.0, 2)
+    });
+    assert_eq!(ring.submit(1), Ok(1));
+    assert_eq!(res(&ring.reap()), [(2, 4)]);
+    assert_eq!(m.memory.get(addr, 4), b"new!");
+    fixed_write(&ring, out, addr, 4, 1);
+    block_on(
+        m.kernel
+            .pread64(&m.caller(), out, UserSliceMut::new(BUF, 4), 0),
+    )
+    .unwrap();
+    assert_eq!(
+        m.memory.get(BUF, 4),
+        b"read",
+        "overlapping registrations retain the same page"
+    );
+    m.memory.put(addr + 65536, b"live");
+    fixed_write(&ring, out, addr + 65536, 4, 0);
+    block_on(
+        m.kernel
+            .pread64(&m.caller(), out, UserSliceMut::new(BUF, 4), 0),
+    )
+    .unwrap();
+    assert_eq!(m.memory.get(BUF, 4), b"live");
+}
+
+#[test]
+fn fixed_buffers_follow_mremap_and_retain_shared_aliases() {
+    for shared in [false, true] {
+        let m = Machine::new();
+        let ring = m.ring(8, 0);
+        let addr = anonymous(&m, 1, shared);
+        m.memory.put(addr, b"old!");
+        put_value(
+            &m,
+            SCRATCH + 64,
+            wasixv2_abi::Iovec {
+                iov_base: addr,
+                iov_len: 4,
+            },
+        );
+        assert_eq!(register_resources(&ring, true, 1, SCRATCH + 64, 0), Ok(0));
+        let flags =
+            wasixv2_abi::MremapFlags::MREMAP_MAYMOVE | wasixv2_abi::MremapFlags::MREMAP_FIXED;
+        let target = anonymous(&m, 1, false);
+        assert_eq!(
+            block_on(
+                m.kernel
+                    .mremap(&m.caller(), addr, 65536, 65536, flags, target)
+            ),
+            Ok(target as i32)
+        );
+        m.memory.put(target, b"move");
+        let out = m.file("moved-buffer", b"");
+        fixed_write(&ring, out, addr, 4, 0);
+        block_on(
+            m.kernel
+                .pread64(&m.caller(), out, UserSliceMut::new(BUF, 4), 0),
+        )
+        .unwrap();
+        assert_eq!(m.memory.get(BUF, 4), b"move");
+        let alias = if shared {
+            let flags = wasixv2_abi::MremapFlags::MREMAP_MAYMOVE;
+            Some(block_on(m.kernel.mremap(&m.caller(), target, 0, 65536, flags, 0)).unwrap() as u32)
+        } else {
+            None
+        };
+        block_on(m.kernel.munmap(&m.caller(), target, 65536)).unwrap();
+        let flags = MapFlags::MAP_ANONYMOUS | MapFlags::MAP_PRIVATE | MapFlags::MAP_FIXED;
+        block_on(
+            m.kernel
+                .mmap(&m.caller(), target, 65536, ProtFlags(3), flags, Fd(-1), 0),
+        )
+        .unwrap();
+        m.memory.put(target, b"oops");
+        if let Some(alias) = alias {
+            m.memory.put(alias, b"alias");
+        }
+        fixed_write(&ring, out, addr, 4, 0);
+        block_on(
+            m.kernel
+                .pread64(&m.caller(), out, UserSliceMut::new(BUF, 4), 0),
+        )
+        .unwrap();
+        assert_eq!(m.memory.get(BUF, 4), if shared { b"alia" } else { b"move" });
+    }
+}

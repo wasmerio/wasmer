@@ -35,6 +35,7 @@
 //! leaves out.
 
 mod ops;
+mod kbuf;
 mod register;
 mod rsrc;
 mod tctx;
@@ -48,8 +49,8 @@ use std::{
 use wasixv2_abi::{
     ConstSigsetPtr, GuestLayout, GuestPtr, IoCqringOffsets, IoSqringOffsets, IoUringCqe,
     IoUringGeteventsArg, IoUringParams, IoUringParamsPtr, IoUringSqe, IoringCqFlags,
-    IoringEnterFlags, IoringFeatFlags, IoringSetupFlags, IoringSqFlags, Iovec, KernelTimespec,
-    OpenFlags, VoidPtr,
+    IoringEnterFlags, IoringFeatFlags, IoringSetupFlags, IoringSqFlags, KernelTimespec, OpenFlags,
+    VoidPtr,
 };
 use wasixv2_host::Host;
 use wasixv2_pages::SharedPages;
@@ -235,7 +236,7 @@ struct State {
     /// `IORING_REGISTER_BUFFERS`: address and length of each.
     buffers: Option<Vec<Option<rsrc::BufferNode>>>,
     /// `IORING_OP_PROVIDE_BUFFERS`' groups: address, length and id of each buffer.
-    pbufs: HashMap<u16, VecDeque<Pbuf>>,
+    pbufs: HashMap<u16, kbuf::Group>,
     /// `IORING_REGISTER_EVENTFD`, and whether only async completions signal it.
     eventfd: Option<(Arc<OpenFile>, bool)>,
     /// `IORING_REGISTER_PERSONALITY`'s credentials, by id from 1 (`ctx->personalities`),
@@ -247,13 +248,7 @@ struct State {
     submitter: Option<TaskId>,
 }
 
-/// A provided buffer (`struct io_buffer`).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) struct Pbuf {
-    pub(crate) addr: u32,
-    pub(crate) len: u32,
-    pub(crate) bid: u16,
-}
+pub(crate) use kbuf::Pbuf;
 
 impl Ctx {
     fn read_word(&self, offset: u64) -> u32 {
@@ -496,6 +491,11 @@ impl FileObject for IoRing {
         let (pages, size) = match offset {
             SQ_RING | CQ_RING => (ctx.rings.clone(), ctx.shape.rings_size),
             SQES => (ctx.sqes.clone(), ctx.shape.sqes_size),
+            off if off & 0xf800_0000 == 0x8000_0000 => {
+                let pages = match kbuf::mmap(ctx, off) { Ok(pages) => pages, Err(err) => return Some(Err(err)) };
+                let size = pages.size();
+                (pages, size)
+            }
             _ => return Some(Err(Errno::EINVAL)),
         };
         if len > size {
@@ -537,10 +537,7 @@ impl FileObject for IoRing {
         out += &format!("UserBufs:\t{}\n", buffers.map_or(0, Vec::len));
         for (i, buffer) in buffers.into_iter().flatten().enumerate() {
             if let Some(buffer) = buffer {
-                let Iovec {
-                    iov_base: addr,
-                    iov_len: len,
-                } = buffer.item;
+                let (addr, len) = (buffer.item.addr, buffer.item.len);
                 out += &format!("{i:5}: 0x{addr:x}/{len}\n");
             }
         }

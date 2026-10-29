@@ -36,7 +36,9 @@
 //!
 //! [`Host::shared_pages`]: wasixv2_host::Host::shared_pages
 
+mod retained;
 mod shared;
+pub(crate) use retained::{Retained, RetainedMemory};
 
 use std::{
     collections::BTreeMap,
@@ -206,6 +208,7 @@ pub(crate) struct Mm {
     /// The Linux AIO contexts made on the address space (`ioctx_table`); a fork child's
     /// starts empty.
     pub(crate) aio: crate::aio::IoctxTable,
+    retained: retained::RetainedPages,
 }
 
 /// The page map, locked. A change through it reaches the address space's [`PageAccess`] when
@@ -274,6 +277,7 @@ impl Mm {
             shared: AtomicBool::new(space.mappings.any_shared()),
             space: Mutex::new(space),
             aio: Default::default(),
+            retained: Default::default(),
             access: Arc::new(access),
         }
     }
@@ -1404,6 +1408,7 @@ impl Kernel {
             mm.space().set_locked(old_end, new_end, locked);
         } else {
             let (from, to) = (new_end * PAGE_SIZE, old_end * PAGE_SIZE);
+            mm.retain_unmapped(caller.memory(), from, to).await;
             mm.space().unmap(from, to - from);
         }
         mm.space().set_brk(start, new);
@@ -1633,6 +1638,7 @@ impl Kernel {
     /// pages out, drops every mapping there and frees the pages. The caller holds `Mm::op`.
     async fn unmap_range(&self, caller: &Caller<'_>, start: u64, end: u64) {
         let mm = self.mm(caller.task());
+        mm.retain_unmapped(caller.memory(), start, end).await;
         for mut mapping in mm.take_range(start, end) {
             // munmap cannot fail once the range is valid; a file that refuses the data loses it.
             let _ = mapping.release(caller.memory()).await;
@@ -1704,10 +1710,18 @@ impl Kernel {
                 true => mm.space().mappings.aliases(addr64, addr64 + old_size),
                 false => Vec::new(),
             };
+            mm.retain_unmapped(
+                caller.memory(),
+                addr64 + old_size.min(new_size),
+                addr64 + old_size,
+            )
+            .await;
             copy(caller.memory(), addr64, target, old_size.min(new_size)).await?;
             mm.space().remap_flags(addr64, old_size, target, new_size);
             self.move_mappings(caller, addr64, old_size, target, new_size)
                 .await?;
+            mm.retain_moved(addr64, old_size.min(new_size), target)
+                .await;
             match remap.dont_unmap {
                 true => {
                     // `dontunmap_complete`: the source is never locked after the move.
@@ -1752,6 +1766,7 @@ impl Kernel {
         mm.space().remap_flags(addr64, old_size, target, new_size);
         self.move_mappings(caller, addr64, old_size, target, new_size)
             .await?;
+        mm.retain_moved(addr64, old_size, target).await;
         mm.space().unmap(addr64, old_size);
         Ok(target as i32)
     }
@@ -2009,6 +2024,8 @@ impl Kernel {
     async fn drop_pages(&self, caller: &Caller<'_>, start: u64, len: u64) -> Result<(), Errno> {
         let mm = self.mm(caller.task());
         let _op = mm.op.lock().await;
+        mm.retain_unmapped(caller.memory(), start, start + len)
+            .await;
         let mut mappings = mm.take_range(start, start + len);
         let mut at = start;
         let mut result = Ok(());
@@ -2268,6 +2285,7 @@ impl Kernel {
         // `__mmput`: `exit_aio` before `exit_mmap`.
         self.exit_aio(&mm);
         let _op = mm.op.lock().await;
+        mm.retain_unmapped(caller.memory(), 0, 1 << 32).await;
         let mappings = mm.space().clear_mappings();
         for mut mapping in mappings {
             let _ = mapping.write_back(caller.memory()).await;

@@ -40,7 +40,7 @@ impl<T> Drop for Node<T> {
 }
 
 pub(super) type FileNode = Arc<Node<Arc<OpenFile>>>;
-pub(super) type BufferNode = Arc<Node<Iovec>>;
+pub(super) type BufferNode = Arc<Node<Arc<crate::mm::Retained>>>;
 
 impl Ctx {
     /// Linux filetable.c:__io_fixed_fd_install/io_install_fixed_file. Explicit indices
@@ -179,11 +179,15 @@ impl Kernel {
             if iov.is_none() && tag != 0 {
                 return Err(Errno::EINVAL.into());
             }
+            let buffer = match iov {
+                Some(iov) => Some(self.retain_pages(caller, iov.iov_base, iov.iov_len).await?),
+                None => None,
+            };
             let old = {
                 let mut state = ctx.state.lock_or_recover();
                 let table = state.buffers.as_mut().ok_or(Errno::ENXIO)?;
                 let entry = table.get_mut(slot).ok_or(Errno::EINVAL)?;
-                std::mem::replace(entry, iov.map(|iov| Node::new(ctx, iov, tag)))
+                std::mem::replace(entry, buffer.map(|buffer| Node::new(ctx, buffer, tag)))
             };
             drop(old);
         } else {

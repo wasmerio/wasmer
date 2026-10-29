@@ -17,7 +17,7 @@ use wasixv2_abi::{
 use wasixv2_syscalls::{Caller, Errno, Fd, SysErr, SysResult, TaskId, read_value};
 use wasixv2_wait::{PollMask, PollTable, WaitEntry, WaitQueue};
 
-use super::{Ctx, Pbuf, Registrations, State, cqe_res, is_ring};
+use super::{Ctx, Pbuf, Registrations, State, cqe_res, is_ring, kbuf};
 use crate::{
     Kernel,
     cred::Cred,
@@ -70,8 +70,6 @@ const SQE_VALID_FLAGS: u8 = IosqeFlags::IOSQE_FIXED_FILE.0
     | IosqeFlags::IOSQE_BUFFER_SELECT.0
     | IosqeFlags::IOSQE_CQE_SKIP_SUCCESS.0;
 const LINK_FLAGS: u8 = IosqeFlags::IOSQE_IO_LINK.0 | IosqeFlags::IOSQE_IO_HARDLINK.0;
-/// `MAX_BIDS_PER_BGID`.
-const MAX_BIDS_PER_BGID: u32 = 1 << 16;
 
 const fn op(op: IoUringOp) -> u8 {
     op.0
@@ -329,9 +327,7 @@ impl Ctx {
 
     /// Gives a provided buffer back to its group's head (`io_kbuf_recycle_legacy`).
     fn recycle(&self, req: &Req, pbuf: Pbuf) {
-        let mut state = self.state.lock_or_recover();
-        let group = state.pbufs.entry(req.sqe.buf_index).or_default();
-        group.push_front(pbuf);
+        kbuf::recycle(self, req.sqe.buf_index, pbuf);
     }
 
     /// Removes the waiting request `id`.
@@ -751,8 +747,8 @@ impl Kernel {
                     self.sys_statx(caller, Fd(sqe.fd), path, flags, StatxMask(sqe.len), buffer);
                 Ok(Outcome::of(statx.await))
             }
-            IoUringOp::IORING_OP_PROVIDE_BUFFERS => op_provide_buffers(ctx, &sqe),
-            IoUringOp::IORING_OP_REMOVE_BUFFERS => op_remove_buffers(ctx, &sqe),
+            IoUringOp::IORING_OP_PROVIDE_BUFFERS => Ok(Outcome::of(kbuf::provide(ctx, &sqe).map_err(SysErr::from))),
+            IoUringOp::IORING_OP_REMOVE_BUFFERS => Ok(Outcome::of(kbuf::remove(ctx, &sqe).map_err(SysErr::from))),
             _ => Err(Errno::EOPNOTSUPP),
         }
     }
@@ -821,7 +817,7 @@ impl Kernel {
         }
         let iovecs = match (vectored, fixed, select) {
             (_, _, true) => {
-                let pbuf = match req.pbuf {
+                let pbuf = match req.pbuf.clone() {
                     Some(pbuf) => pbuf,
                     None => {
                         let len = match vectored {
@@ -832,8 +828,8 @@ impl Kernel {
                             }
                             false => sqe.len,
                         };
-                        let pbuf = select_buffer(ctx, sqe.buf_index, len)?;
-                        req.pbuf = Some(pbuf);
+                        let pbuf = kbuf::select(caller, ctx, sqe.buf_index, len).await?;
+                        req.pbuf = Some(pbuf.clone());
                         pbuf
                     }
                 };
@@ -862,13 +858,24 @@ impl Kernel {
             off => At::Offset(u64::try_from(off).map_err(|_| Errno::EINVAL)?),
         };
         let nowait = flags | RwfFlags::RWF_NOWAIT;
+        let retained = req
+            .buffer_node
+            .as_ref()
+            .map(|node| crate::mm::RetainedMemory {
+                memory: caller.memory(),
+                range: &node.item,
+            });
+        let redirected = retained
+            .as_ref()
+            .map(|memory| Caller::new(caller.task(), memory));
+        let io_caller = redirected.as_ref().unwrap_or(caller);
         let done = match write {
             true => {
-                self.write_from_iovecs(caller, &file, &iovecs, at, nowait)
+                self.write_from_iovecs(io_caller, &file, &iovecs, at, nowait)
                     .await
             }
             false => {
-                self.read_into_iovecs_flags(caller, &file, &iovecs, at, nowait)
+                self.read_into_iovecs_flags(io_caller, &file, &iovecs, at, nowait)
                     .await
             }
         };
@@ -886,11 +893,10 @@ impl Kernel {
                 }
                 Err(Errno::EAGAIN)
             }
-            Ok(n) => Ok(Outcome::Done {
-                res: n as i32,
-                flags: req.pbuf.take().map_or(0, buffer_flags),
-                fail: u64::from(n) < wanted,
-            }),
+            Ok(n) => {
+                let flags = match req.pbuf.take() { Some(pbuf) => kbuf::complete(caller, pbuf, n).await?, None => 0 };
+                Ok(Outcome::Done { res: n as i32, flags, fail: u64::from(n) < wanted })
+            }
             Err(err) => Ok(Outcome::of(Err(err))),
         }
     }
@@ -950,11 +956,11 @@ impl Kernel {
         }
         let (addr, len) = match select {
             true => {
-                let pbuf = match req.pbuf {
+                let pbuf = match req.pbuf.clone() {
                     Some(pbuf) => pbuf,
                     None => {
-                        let pbuf = select_buffer(ctx, sqe.buf_index, sqe.len)?;
-                        req.pbuf = Some(pbuf);
+                        let pbuf = kbuf::select(caller, ctx, sqe.buf_index, sqe.len).await?;
+                        req.pbuf = Some(pbuf.clone());
                         pbuf
                     }
                 };
@@ -989,7 +995,7 @@ impl Kernel {
                 Ok(Outcome::Again(events))
             }
             Ok(n) => {
-                let flags = req.pbuf.take().map_or(0, buffer_flags);
+                let flags = match req.pbuf.take() { Some(pbuf) => kbuf::complete(caller, pbuf, n as u32).await?, None => 0 };
                 // A stream's end ends a multishot receive.
                 if multishot && n > 0 {
                     return Ok(Outcome::More {
@@ -1642,85 +1648,6 @@ fn op_poll_remove(ctx: &Arc<Ctx>, sqe: &IoUringSqe) -> Result<Outcome, Errno> {
     Ok(Outcome::of(Ok(0)))
 }
 
-/// `io_provide_buffers`: `nbufs` buffers of `len` bytes from `addr`, with ids from `off`, to
-/// group `buf_group`.
-fn op_provide_buffers(ctx: &Ctx, sqe: &IoUringSqe) -> Result<Outcome, Errno> {
-    if sqe.op_flags != 0 || sqe.splice_fd_in != 0 {
-        return Err(Errno::EINVAL);
-    }
-    let nbufs = sqe.fd as u32;
-    if nbufs == 0 || nbufs > MAX_BIDS_PER_BGID {
-        return Err(Errno::E2BIG);
-    }
-    if sqe.len == 0 {
-        return Err(Errno::EINVAL);
-    }
-    let size = u64::from(sqe.len) * u64::from(nbufs);
-    let end = sqe.addr.checked_add(size).ok_or(Errno::EOVERFLOW)?;
-    if end > 1 << 32 {
-        return Err(Errno::EFAULT);
-    }
-    if sqe.off > u64::from(u16::MAX) {
-        return Err(Errno::E2BIG);
-    }
-    if sqe.off + u64::from(nbufs) > u64::from(MAX_BIDS_PER_BGID) {
-        return Err(Errno::EINVAL);
-    }
-    let mut state = ctx.state.lock_or_recover();
-    let group = state.pbufs.entry(sqe.buf_index).or_default();
-    let mut added = 0;
-    for i in 0..nbufs {
-        if group.len() as u32 == MAX_BIDS_PER_BGID {
-            break;
-        }
-        group.push_back(Pbuf {
-            addr: (sqe.addr + u64::from(i) * u64::from(sqe.len)) as u32,
-            len: sqe.len.min(crate::MAX_RW_COUNT as u32),
-            bid: (sqe.off + u64::from(i)) as u16,
-        });
-        added += 1;
-    }
-    Ok(Outcome::of(match added {
-        0 => Err(Errno::EOVERFLOW.into()),
-        _ => Ok(0),
-    }))
-}
-
-/// `io_remove_buffers`: up to `nbufs` buffers of group `buf_group`; how many went.
-fn op_remove_buffers(ctx: &Ctx, sqe: &IoUringSqe) -> Result<Outcome, Errno> {
-    if sqe.op_flags != 0 || sqe.addr != 0 || sqe.len != 0 || sqe.off != 0 || sqe.splice_fd_in != 0 {
-        return Err(Errno::EINVAL);
-    }
-    let nbufs = sqe.fd as u32;
-    if nbufs == 0 || nbufs > MAX_BIDS_PER_BGID {
-        return Err(Errno::EINVAL);
-    }
-    let mut state = ctx.state.lock_or_recover();
-    let Some(group) = state.pbufs.get_mut(&sqe.buf_index) else {
-        return Ok(Outcome::of(Err(Errno::ENOENT.into())));
-    };
-    let n = (nbufs as usize).min(group.len());
-    group.drain(..n);
-    Ok(Outcome::of(Ok(n as i32)))
-}
-
-/// `io_buffer_select`: the first buffer of group `bgid`, cut to `len` if that is less;
-/// `ENOBUFS` if the group has none.
-fn select_buffer(ctx: &Ctx, bgid: u16, len: u32) -> Result<Pbuf, Errno> {
-    let mut state = ctx.state.lock_or_recover();
-    let group = state.pbufs.get_mut(&bgid).ok_or(Errno::ENOBUFS)?;
-    let mut pbuf = group.pop_front().ok_or(Errno::ENOBUFS)?;
-    if len != 0 && len < pbuf.len {
-        pbuf.len = len;
-    }
-    Ok(pbuf)
-}
-
-/// The CQE flags of a completion that used a provided buffer.
-fn buffer_flags(pbuf: Pbuf) -> u32 {
-    IoringCqeFlags::IORING_CQE_F_BUFFER.0 | (u32::from(pbuf.bid) << 16)
-}
-
 /// `io_import_fixed`: the range `[addr, addr + len)` must lie in registered buffer
 /// `buf_index`.
 fn fixed_buffer(ctx: &Ctx, req: &mut Req) -> Result<Iovec, Errno> {
@@ -1737,7 +1664,7 @@ fn fixed_buffer(ctx: &Ctx, req: &mut Req) -> Result<Iovec, Errno> {
             .and_then(Clone::clone)
             .ok_or(Errno::EFAULT)?
     };
-    let (base, size) = (node.item.iov_base, node.item.iov_len);
+    let (base, size) = (node.item.addr, node.item.len);
     req.buffer_node = Some(node);
     let end = sqe
         .addr
