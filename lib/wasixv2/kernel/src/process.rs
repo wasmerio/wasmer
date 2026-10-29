@@ -2256,7 +2256,7 @@ impl Kernel {
         ru: RusagePtr,
         report_empty: bool,
     ) -> SysResult<bool> {
-        let options = options.0;
+        let mut options = options.0;
         if options & !WAIT_KNOWN != 0 {
             return Err(Errno::EINVAL.into());
         }
@@ -2265,6 +2265,8 @@ impl Kernel {
             return Err(Errno::EINVAL.into());
         }
         let me = self.process(caller.task());
+        let requested_nohang = options & WaitOptions::WNOHANG.0 != 0;
+        let mut nonblocking_pidfd = false;
         // `find_get_pid`: a pid outside the caller's namespace names no child (id 0 is none).
         let find = |nr: Pid| self.find_vpid(caller, nr).unwrap_or(0);
         let which = match which {
@@ -2272,7 +2274,17 @@ impl Kernel {
             Idtype::P_PID if upid > 0 => Which::Pid(find(upid)),
             Idtype::P_PGID if upid == 0 => Which::Pgid(me.ident.lock_or_recover().pgid),
             Idtype::P_PGID if upid > 0 => Which::Pgid(find(upid)),
-            Idtype::P_PIDFD => Which::Pid(self.pidfd_pid(caller, Fd(upid))?),
+            Idtype::P_PIDFD if upid >= 0 => {
+                // kernel/exit.c kernel_waitid_prepare: the pid and flags come from one
+                // retained file, so concurrent close/reuse cannot change the target.
+                let file = self.io_file(caller, Fd(upid))?;
+                let pid = pidfd_target(&file).ok_or(Errno::EBADF)?;
+                nonblocking_pidfd = file.flags().contains(OpenFlags::O_NONBLOCK);
+                if nonblocking_pidfd {
+                    options |= WaitOptions::WNOHANG.0;
+                }
+                Which::Pid(pid)
+            }
             _ => return Err(Errno::EINVAL.into()),
         };
         let interrupt = self.interrupt(caller);
@@ -2309,11 +2321,16 @@ impl Kernel {
         if !ready && !report_empty {
             return Ok(false);
         }
-        if !ru.is_null() {
+        if ready && !ru.is_null() {
             write_value(caller.memory(), ru, &usage).await?;
         }
         if !infop.is_null() {
             write_value(caller.memory(), infop, &info).await?;
+        }
+        // kernel_waitid: implicit WNOHANG from O_NONBLOCK reports EAGAIN, while an
+        // explicit WNOHANG reports zero. sys_waitid still copies siginfo on EAGAIN.
+        if !ready && nonblocking_pidfd && !requested_nohang {
+            return Err(Errno::EAGAIN.into());
         }
         Ok(ready)
     }
