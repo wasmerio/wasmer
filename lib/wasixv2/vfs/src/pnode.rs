@@ -709,6 +709,9 @@ impl TreeState {
                 firsts.push(candidate);
             }
         }
+        // The parent is a candidate itself when it receives from its own peers (a shared mount
+        // moved below a peer of itself): its counts must not include this reference.
+        drop(at);
         firsts
             .iter()
             .any(|first| self.chain_busy(first, mount, &firsts))
