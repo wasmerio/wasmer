@@ -491,7 +491,43 @@ fn timeout_expiry_wakes_a_cq_wait_below_its_minimum() {
     assert_eq!(ring.submit(1), Ok(1));
     assert!(waiting.as_mut().poll(&mut cx).is_pending());
     drop(waiting);
-    assert_eq!(res(&ring.reap()), [(3, -Errno::ECANCELED.0), (4, 0)]);
+    assert_eq!(res(&ring.reap()), [(4, 0), (3, -Errno::ECANCELED.0)]);
+}
+
+#[test]
+fn timeout_removal_completes_before_its_cancelled_timeout() {
+    for deferred in [false, true] {
+        let m = Machine::new();
+        let flags = if deferred {
+            IoringSetupFlags::IORING_SETUP_SINGLE_ISSUER.0
+                | IoringSetupFlags::IORING_SETUP_DEFER_TASKRUN.0
+        } else {
+            0
+        };
+        let ring = m.ring(8, flags);
+        write_ts(&m, TS, Duration::from_secs(30));
+        ring.push(IoUringSqe {
+            addr: TS.into(),
+            len: 1,
+            op_flags: IoringOpFlags::IORING_TIMEOUT_MULTISHOT.0,
+            ..sqe(IoUringOp::IORING_OP_TIMEOUT, -1, 1)
+        });
+        assert_eq!(ring.submit(1), Ok(1));
+        ring.push(IoUringSqe {
+            addr: 1,
+            ..sqe(IoUringOp::IORING_OP_TIMEOUT_REMOVE, -1, 2)
+        });
+        assert_eq!(ring.submit(1), Ok(1));
+        // Linux io_uring/timeout.c:io_timeout_cancel queues failure task work;
+        // io_timeout_remove completes its own request inline.
+        assert_eq!(res(&ring.reap()), [(2, 0)]);
+        block_on(m.kernel.run_task_work(&m.caller()));
+        if deferred {
+            assert!(ring.reap().is_empty());
+            assert_eq!(ring.submit_and_wait(0, 1), Ok(0));
+        }
+        assert_eq!(res(&ring.reap()), [(1, -Errno::ECANCELED.0)]);
+    }
 }
 
 #[test]
@@ -527,7 +563,8 @@ fn timeouts_fire_or_count_completions() {
     };
     ring.push(remove);
     assert_eq!(ring.submit(1), Ok(1));
-    assert_eq!(res(&ring.reap()), [(1, -Errno::ECANCELED.0), (9, 0)]);
+    block_on(m.kernel.run_task_work(&m.caller()));
+    assert_eq!(res(&ring.reap()), [(9, 0), (1, -Errno::ECANCELED.0)]);
     ring.push(remove);
     assert_eq!(ring.submit(1), Ok(1));
     assert_eq!(res(&ring.reap()), [(9, -Errno::ENOENT.0)]);
@@ -3186,7 +3223,8 @@ fn relative_realtime_timeouts_ignore_wall_clock_sets() {
             ..sqe(IoUringOp::IORING_OP_TIMEOUT_REMOVE, -1, 2)
         });
         assert_eq!(ring.submit(1), Ok(1));
-        assert_eq!(res(&ring.reap()), [(1, -Errno::ECANCELED.0), (2, 0)]);
+        block_on(m.kernel.run_task_work(&m.caller()));
+        assert_eq!(res(&ring.reap()), [(2, 0), (1, -Errno::ECANCELED.0)]);
     }
 }
 
@@ -4063,6 +4101,7 @@ fn multishot_timeouts_count_shots_cancel_and_end_when_the_cq_is_full() {
         ..sqe(IoUringOp::IORING_OP_TIMEOUT_REMOVE, -1, 3)
     });
     ring.submit(1).unwrap();
+    block_on(m.kernel.run_task_work(&m.caller()));
     let completions = ring.reap();
     assert!(res(&completions).contains(&(2, -Errno::ECANCELED.0)));
     assert!(res(&completions).contains(&(3, 0)));

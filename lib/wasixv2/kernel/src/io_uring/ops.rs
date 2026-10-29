@@ -131,7 +131,7 @@ pub(crate) struct Req {
     link: VecDeque<Req>,
     /// The `IORING_OP_LINK_TIMEOUT` that guards it, and its timer once armed.
     link_timeout: Option<LinkTimeout>,
-    /// Its submission failed: it completes with this.
+    /// Completes with this error instead of executing.
     failed: Option<Errno>,
     /// A wakeup made it ready again: an attempt that would block arms it again rather than
     /// failing.
@@ -760,6 +760,10 @@ impl Kernel {
 
     /// `io_issue_sqe`: one attempt at `req` that does not block, and what follows from it.
     pub(super) async fn issue(&self, caller: &Caller<'_>, ctx: &Arc<Ctx>, mut req: Req) {
+        if let Some(errno) = req.failed {
+            ctx.finish(req, -errno.0, 0, true);
+            return;
+        }
         loop {
             let lent = req
                 .creds
@@ -2350,7 +2354,11 @@ impl Kernel {
             let Some(waiting) = found else {
                 return Ok(Outcome::of(Err(Errno::ENOENT.into())));
             };
-            ctx.finish_waiting(waiting, -Errno::ECANCELED.0);
+            // Linux io_uring/timeout.c:io_timeout_cancel uses
+            // io_req_task_queue_fail; io_timeout_remove completes inline first.
+            let mut req = waiting.into_req();
+            req.failed = Some(Errno::ECANCELED);
+            ctx.queue_ready(req);
             return Ok(Outcome::of(Ok(0)));
         }
         let known = update_mask
