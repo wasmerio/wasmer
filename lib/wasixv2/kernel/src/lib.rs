@@ -156,7 +156,7 @@ pub struct Kernel {
     /// The filesystem types `mount` makes instances of.
     filesystems: Arc<fs::mount::Registry>,
     // ---- thr ----
-    futexes: futex::Futexes,
+    futexes: Arc<futex::Futexes>,
     // ---- proc ----
     /// The process tree: parents, zombies and vfork relations.
     procs: process::Procs,
@@ -336,7 +336,7 @@ impl Kernel {
             filesystems: fs::mount::Registry::new(),
             shm: None,
             vfs,
-            futexes: futex::Futexes::default(),
+            futexes: Arc::default(),
             procs,
             pids,
             binfmt: Arc::new(process::WasmMagic),
