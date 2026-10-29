@@ -26,7 +26,7 @@ use wasixv2_abi::{
     AddressFamily, MsgFlags, OpenFlags, SiCode, SocketFlags, SocketOption, SocketType,
 };
 use wasixv2_host::Host;
-use wasixv2_syscalls::{Caller, Errno, Fd, LocalFuture, SysResult};
+use wasixv2_syscalls::{Caller, Errno, LocalFuture, SysResult};
 use wasixv2_vfs::Cap;
 use wasixv2_vnet::bpf::SockFilter;
 use wasixv2_wait::{PollMask, PollTable, Pollable, WaitQueue, poll_wait};
@@ -551,8 +551,7 @@ impl Kernel {
         kind: SocketType,
         protocol: i32,
         flags: SocketFlags,
-        dest: crate::fs::FileDest<'_>,
-    ) -> SysResult<Fd> {
+    ) -> SysResult<OpenFile> {
         if kind != SocketType::SOCK_RAW && kind != SocketType::SOCK_DGRAM {
             return Err(Errno::ESOCKTNOSUPPORT.into());
         }
@@ -588,8 +587,7 @@ impl Kernel {
             ),
             status,
         );
-        dest.reserve(self, caller, flags.contains(SocketFlags::SOCK_CLOEXEC))?
-            .install(Arc::new(file))
+        Ok(file)
     }
 }
 

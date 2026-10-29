@@ -60,6 +60,21 @@ pub(crate) const SUPPORTED: &[IoUringOp] = &[
     IoUringOp::IORING_OP_FILES_UPDATE,
     IoUringOp::IORING_OP_FIXED_FD_INSTALL,
     IoUringOp::IORING_OP_READ_MULTISHOT,
+    IoUringOp::IORING_OP_MADVISE,
+    IoUringOp::IORING_OP_FADVISE,
+    IoUringOp::IORING_OP_RENAMEAT,
+    IoUringOp::IORING_OP_UNLINKAT,
+    IoUringOp::IORING_OP_MKDIRAT,
+    IoUringOp::IORING_OP_SYMLINKAT,
+    IoUringOp::IORING_OP_LINKAT,
+    IoUringOp::IORING_OP_FTRUNCATE,
+    IoUringOp::IORING_OP_FGETXATTR,
+    IoUringOp::IORING_OP_FSETXATTR,
+    IoUringOp::IORING_OP_GETXATTR,
+    IoUringOp::IORING_OP_SETXATTR,
+    IoUringOp::IORING_OP_SOCKET,
+    IoUringOp::IORING_OP_BIND,
+    IoUringOp::IORING_OP_LISTEN,
 ];
 
 /// `SQE_VALID_FLAGS`.
@@ -768,8 +783,246 @@ impl Kernel {
             IoUringOp::IORING_OP_REMOVE_BUFFERS => {
                 Ok(Outcome::of(kbuf::remove(ctx, &sqe).map_err(SysErr::from)))
             }
-            _ => Err(Errno::EOPNOTSUPP),
+            _ => self.op_misc(caller, ctx, req).await,
         }
+    }
+
+    /// Synchronous operations, with the SQE field mappings from io_uring/{advise,fs,xattr,truncate,net}.c.
+    async fn op_misc(
+        &self,
+        caller: &Caller<'_>,
+        ctx: &Ctx,
+        req: &mut Req,
+    ) -> Result<Outcome, Errno> {
+        use wasixv2_abi::{AddressFamily, MadviseAdvice, RenameFlags, XattrFlags};
+        let s = req.sqe;
+        let opcode = IoUringOp(s.opcode);
+        let namespace = matches!(
+            opcode,
+            IoUringOp::IORING_OP_RENAMEAT
+                | IoUringOp::IORING_OP_UNLINKAT
+                | IoUringOp::IORING_OP_MKDIRAT
+                | IoUringOp::IORING_OP_SYMLINKAT
+                | IoUringOp::IORING_OP_LINKAT
+        );
+        if namespace {
+            if s.buf_index != 0 || s.splice_fd_in != 0 {
+                return Err(Errno::EINVAL);
+            }
+            if req.has(IosqeFlags::IOSQE_FIXED_FILE) {
+                return Err(Errno::EBADF);
+            }
+        }
+        let result = match opcode {
+            IoUringOp::IORING_OP_MADVISE => {
+                if s.buf_index != 0 || s.splice_fd_in != 0 {
+                    return Err(Errno::EINVAL);
+                }
+                let addr = u32::try_from(s.addr).map_err(|_| Errno::EFAULT)?;
+                let len = u32::try_from(if s.off == 0 { u64::from(s.len) } else { s.off })
+                    .map_err(|_| Errno::EINVAL)?;
+                self.sys_madvise(caller, addr, len, MadviseAdvice(s.op_flags as i32))
+                    .await
+            }
+            IoUringOp::IORING_OP_FADVISE => {
+                if s.buf_index != 0 || s.splice_fd_in != 0 {
+                    return Err(Errno::EINVAL);
+                }
+                let file = self.req_file(caller, ctx, req)?;
+                let len = if s.addr == 0 {
+                    u64::from(s.len)
+                } else {
+                    s.addr
+                } as i64;
+                if matches!(file.backing, Backing::Stream(..)) {
+                    return Err(Errno::ESPIPE);
+                }
+                if (s.off as i64) < 0 || len < 0 || s.op_flags > 5 {
+                    return Err(Errno::EINVAL);
+                }
+                Ok(0)
+            }
+            IoUringOp::IORING_OP_RENAMEAT => {
+                self.sys_renameat2(
+                    caller,
+                    Fd(s.fd),
+                    GuestPtr::new(s.addr as u32),
+                    Fd(s.len as i32),
+                    GuestPtr::new(s.off as u32),
+                    RenameFlags(s.op_flags),
+                )
+                .await
+            }
+            IoUringOp::IORING_OP_LINKAT => {
+                self.sys_linkat(
+                    caller,
+                    Fd(s.fd),
+                    GuestPtr::new(s.addr as u32),
+                    Fd(s.len as i32),
+                    GuestPtr::new(s.off as u32),
+                    AtFlags(s.op_flags),
+                )
+                .await
+            }
+            IoUringOp::IORING_OP_MKDIRAT => {
+                if s.off != 0 || s.op_flags != 0 {
+                    return Err(Errno::EINVAL);
+                }
+                self.sys_mkdirat(
+                    caller,
+                    Fd(s.fd),
+                    GuestPtr::new(s.addr as u32),
+                    s.len as u16 as u32,
+                )
+                .await
+            }
+            IoUringOp::IORING_OP_SYMLINKAT => {
+                if s.len != 0 || s.op_flags != 0 {
+                    return Err(Errno::EINVAL);
+                }
+                self.sys_symlinkat(
+                    caller,
+                    GuestPtr::new(s.addr as u32),
+                    Fd(s.fd),
+                    GuestPtr::new(s.off as u32),
+                )
+                .await
+            }
+            IoUringOp::IORING_OP_UNLINKAT => {
+                if s.off != 0 || s.len != 0 || s.addr3 != 0 || s.pad2 != 0 {
+                    return Err(Errno::EINVAL);
+                }
+                self.sys_unlinkat(
+                    caller,
+                    Fd(s.fd),
+                    GuestPtr::new(s.addr as u32),
+                    AtFlags(s.op_flags),
+                )
+                .await
+            }
+            IoUringOp::IORING_OP_FTRUNCATE => {
+                if s.op_flags != 0
+                    || s.addr != 0
+                    || s.len != 0
+                    || s.buf_index != 0
+                    || s.splice_fd_in != 0
+                    || s.addr3 != 0
+                {
+                    return Err(Errno::EINVAL);
+                }
+                let file = self.req_file(caller, ctx, req)?;
+                if file.flags().contains(OpenFlags::O_PATH) {
+                    return Err(Errno::EBADF);
+                }
+                self.truncate_file(caller, &file, s.off as i64).await
+            }
+            IoUringOp::IORING_OP_FGETXATTR
+            | IoUringOp::IORING_OP_FSETXATTR
+            | IoUringOp::IORING_OP_GETXATTR
+            | IoUringOp::IORING_OP_SETXATTR => {
+                let set = matches!(
+                    opcode,
+                    IoUringOp::IORING_OP_FSETXATTR | IoUringOp::IORING_OP_SETXATTR
+                );
+                let path = matches!(
+                    opcode,
+                    IoUringOp::IORING_OP_GETXATTR | IoUringOp::IORING_OP_SETXATTR
+                );
+                if !set && s.op_flags != 0 {
+                    return Err(Errno::EINVAL);
+                }
+                let target = if path {
+                    if req.has(IosqeFlags::IOSQE_FIXED_FILE) {
+                        return Err(Errno::EBADF);
+                    }
+                    match self
+                        .xattr_path(caller, GuestPtr::new(s.addr3 as u32), true)
+                        .await
+                    {
+                        Ok(path) => path,
+                        Err(err) => return Ok(Outcome::of(Err(err))),
+                    }
+                } else {
+                    let file = self.req_file(caller, ctx, req)?;
+                    if file.flags().contains(OpenFlags::O_PATH) {
+                        return Err(Errno::EBADF);
+                    }
+                    file.path().clone()
+                };
+                if set {
+                    self.xattr_set(
+                        caller,
+                        target,
+                        GuestPtr::new(s.addr as u32),
+                        wasixv2_syscalls::UserSlice::new(s.off as u32, s.len),
+                        XattrFlags(s.op_flags),
+                    )
+                    .await
+                } else {
+                    self.xattr_get(
+                        caller,
+                        target,
+                        GuestPtr::new(s.addr as u32),
+                        wasixv2_syscalls::UserSliceMut::new(s.off as u32, s.len),
+                    )
+                    .await
+                    .map(|n| n as i32)
+                }
+            }
+            IoUringOp::IORING_OP_SOCKET => {
+                if s.addr != 0 || s.op_flags != 0 || s.buf_index != 0 {
+                    return Err(Errno::EINVAL);
+                }
+                let index = s.splice_fd_in as u32;
+                if index != 0 && s.off as u32 & SocketFlags::SOCK_CLOEXEC.0 != 0 {
+                    return Err(Errno::EINVAL);
+                }
+                let dest = if index == 0 {
+                    crate::fs::FileDest::Table
+                } else {
+                    crate::fs::FileDest::Direct(ctx, index)
+                };
+                self.socket_to(
+                    caller,
+                    AddressFamily(s.fd),
+                    s.off as i32,
+                    s.len as i32,
+                    dest,
+                )
+                .await
+                .map(|fd| fd.0)
+            }
+            IoUringOp::IORING_OP_BIND => {
+                if s.len != 0 || s.buf_index != 0 || s.op_flags != 0 || s.splice_fd_in != 0 {
+                    return Err(Errno::EINVAL);
+                }
+                let mut raw = vec![0; s.off.min(129) as usize];
+                if s.off > 128 {
+                    return Err(Errno::EINVAL);
+                }
+                caller
+                    .memory()
+                    .read(s.addr as u32, &mut raw)
+                    .await
+                    .map_err(|_| Errno::EFAULT)?;
+                let file = self.req_file(caller, ctx, req)?;
+                self.bind_file(caller, file, &raw).await
+            }
+            IoUringOp::IORING_OP_LISTEN => {
+                if s.addr != 0
+                    || s.buf_index != 0
+                    || s.op_flags != 0
+                    || s.splice_fd_in != 0
+                    || s.off != 0
+                {
+                    return Err(Errno::EINVAL);
+                }
+                let file = self.req_file(caller, ctx, req)?;
+                self.listen_file(caller, file, s.len as i32)
+            }
+            _ => return Err(Errno::EOPNOTSUPP),
+        };
+        Ok(Outcome::of(result))
     }
 
     /// `io_nop`: completes with 0, or `IORING_NOP_INJECT_RESULT`'s `len`; with
