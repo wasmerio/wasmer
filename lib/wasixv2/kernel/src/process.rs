@@ -780,6 +780,7 @@ impl Kernel {
             stack: newsp,
             tls,
             set_tid: Vec::new(),
+            start_arg: None,
         };
         self.kernel_clone(caller, args).await
     }
@@ -840,6 +841,7 @@ impl Kernel {
             stack,
             tls,
             set_tid,
+            start_arg: None,
         };
         self.kernel_clone(caller, args).await
     }
@@ -847,8 +849,14 @@ impl Kernel {
     /// `kernel_clone` and `copy_process`'s checks of the flags, in their order. vfork
     /// (`CLONE_VM | CLONE_VFORK`) works in every build configuration; fork (no `CLONE_VM`)
     /// needs an address space that can be duplicated, and gets `ENOSYS` otherwise, as there is
-    /// no fork without an MMU on Linux.
-    async fn kernel_clone(&self, caller: &Caller<'_>, mut args: KernelClone) -> SysResult<i32> {
+    /// no fork without an MMU on Linux. A process on the caller's memory that runs alongside it
+    /// (`CLONE_VM` without `CLONE_VFORK`) needs an entry point of its own, so only
+    /// `thread-spawn` makes one ([`KernelClone::start_arg`]).
+    pub(crate) async fn kernel_clone(
+        &self,
+        caller: &Caller<'_>,
+        mut args: KernelClone,
+    ) -> SysResult<i32> {
         // An empty mount namespace is a new one.
         if args.flags.contains(CloneFlags::CLONE_EMPTY_MNTNS) {
             args.flags |= CloneFlags::CLONE_NEWNS;
@@ -908,7 +916,8 @@ impl Kernel {
         if flags.contains(CloneFlags::CLONE_INTO_CGROUP) {
             return Err(Errno::EBADF.into());
         }
-        // Threads start through `thread-spawn`; a process sharing handlers is not supported.
+        // Threads start through `thread-spawn`, which makes them itself; a process sharing
+        // handlers is not supported.
         if flags.contains(CloneFlags::CLONE_THREAD) || flags.contains(CloneFlags::CLONE_SIGHAND) {
             return Err(Errno::EINVAL.into());
         }
@@ -919,6 +928,9 @@ impl Kernel {
         let newsp = args.stack;
         let (parent_tid, tls, child_tid) = (args.parent_tid, args.tls, args.child_tid);
         if !flags.contains(CloneFlags::CLONE_VM) {
+            if args.start_arg.is_some() {
+                return Err(Errno::EINVAL.into());
+            }
             let pidfd = match flags.contains(CloneFlags::CLONE_PIDFD) {
                 true => Some(self.prepare_pidfd(caller, args.pidfd, false).await?),
                 false => None,
@@ -933,8 +945,14 @@ impl Kernel {
                 .fork(caller, flags, exit_signal, newsp, writes, &args.set_tid)
                 .await;
         }
-        // Only vfork can run the child: it takes over the caller's instance.
-        if !flags.contains(CloneFlags::CLONE_VFORK) || newsp != 0 {
+        if !flags.contains(CloneFlags::CLONE_VFORK) {
+            return match args.start_arg {
+                Some(start_arg) => self.clone_vm(caller, args, exit_signal, start_arg).await,
+                None => Err(Errno::EINVAL.into()),
+            };
+        }
+        // A vfork child takes over the caller's instance, on the caller's stack.
+        if newsp != 0 || args.start_arg.is_some() {
             return Err(Errno::EINVAL.into());
         }
         let pidfd = match flags.contains(CloneFlags::CLONE_PIDFD) {
@@ -979,6 +997,53 @@ impl Kernel {
         };
         self.queue(parent_task, switch);
         Ok(0)
+    }
+
+    /// `clone` with `CLONE_VM` but neither `CLONE_THREAD` nor `CLONE_VFORK`, from
+    /// `thread-spawn`: a new process on the caller's memory (`copy_mm` shares the address
+    /// space, so `mm_users` counts both), which the execution layer starts at the thread entry
+    /// point with `start_arg` on an instance of its own ([`GuestAction::StartThread`]).
+    async fn clone_vm(
+        &self,
+        caller: &Caller<'_>,
+        args: KernelClone,
+        exit_signal: i32,
+        start_arg: u32,
+    ) -> SysResult<i32> {
+        let flags = args.flags;
+        let pidfd = match flags.contains(CloneFlags::CLONE_PIDFD) {
+            true => Some(self.prepare_pidfd(caller, args.pidfd, true).await?),
+            false => None,
+        };
+        let parent_task = caller.task();
+        let child = self.copy_process(
+            parent_task,
+            flags,
+            exit_signal,
+            args.tls,
+            args.child_tid,
+            &args.set_tid,
+        )?;
+        if let Some((reservation, _)) = pidfd {
+            reservation.install(Arc::new(self.pidfd_file(child.0, OpenFlags::O_RDWR)));
+        }
+        // Both writes land in the one memory; Linux ignores faults on them. The child's tid is
+        // as it sees itself, which differs for the first process of a pid namespace.
+        let (pid, tid) = (self.vnr(caller, child.0), self.own_tid(child));
+        if flags.contains(CloneFlags::CLONE_PARENT_SETTID) {
+            let at = GuestPtrMut::new(args.parent_tid);
+            let _ = write_value(caller.memory(), at, &pid).await;
+        }
+        if flags.contains(CloneFlags::CLONE_CHILD_SETTID) {
+            let _ = write_value(caller.memory(), GuestPtrMut::new(args.child_tid), &tid).await;
+        }
+        let start = GuestAction::StartThread {
+            task: child,
+            tid,
+            start_arg,
+        };
+        self.queue(parent_task, start);
+        Ok(pid)
     }
 
     /// Whether `task`'s children would start in another pid namespace than its own.
@@ -1899,18 +1964,21 @@ struct ForkWrites {
 const CLONE_LEGACY_FLAGS: u64 = 0xffff_ffff;
 
 /// What `clone` and `clone3` ask for (`struct kernel_clone_args`), as guest addresses.
-struct KernelClone {
+pub(crate) struct KernelClone {
     /// Without the exit signal.
-    flags: CloneFlags,
-    exit_signal: u64,
-    pidfd: u32,
-    parent_tid: u32,
-    child_tid: u32,
+    pub(crate) flags: CloneFlags,
+    pub(crate) exit_signal: u64,
+    pub(crate) pidfd: u32,
+    pub(crate) parent_tid: u32,
+    pub(crate) child_tid: u32,
     /// The top of the child's stack, 0 for the caller's.
-    stack: u32,
-    tls: u32,
+    pub(crate) stack: u32,
+    pub(crate) tls: u32,
     /// The pids asked for, from the child's pid namespace up (`set_tid`).
-    set_tid: Vec<i32>,
+    pub(crate) set_tid: Vec<i32>,
+    /// `thread-spawn`'s argument for the thread entry point, where a process on the caller's
+    /// memory starts; `None` for `clone` and `clone3`.
+    pub(crate) start_arg: Option<u32>,
 }
 
 /// `copy_clone_args_from_user`: a `struct clone_args` of `size` bytes, and the pids its

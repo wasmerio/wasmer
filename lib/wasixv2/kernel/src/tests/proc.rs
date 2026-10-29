@@ -1011,3 +1011,132 @@ fn clone_pidfd_faults_after_the_flag_checks() {
     );
     assert_eq!(kernel.take_pending(task), None);
 }
+
+// ---- processes on the caller's memory ----
+
+/// `thread-spawn` with `flags`, and its tid writes at 8 and 16.
+fn spawn(kernel: &Kernel, caller: &Caller<'_>, flags: u32) -> SysResult<i32> {
+    let (parent_tid, child_tid) = (S32Ptr::new(8), S32Ptr::new(16));
+    block_on(kernel.thread_spawn(caller, flags, 0x40, parent_tid, 0, child_tid))
+}
+
+const VM: u32 = CloneFlags::CLONE_VM.0 as u32;
+
+/// `thread-spawn` with `CLONE_VM` but not `CLONE_THREAD` makes a process of its own on the
+/// caller's memory: its own pid and thread group, the caller's process as its parent, which
+/// reaps it with its exit signal, the one address space, and a thread-style start.
+#[test]
+fn clone_vm_without_clone_thread_makes_a_process_on_the_callers_memory() {
+    let (kernel, task, _) = setup(b"");
+    let memory = forkable();
+    let caller = Caller::new(task, &memory);
+    let flags = VM | SIGCHLD | CloneFlags::CLONE_PARENT_SETTID.0 as u32;
+
+    let pid = spawn(&kernel, &caller, flags).expect("clone");
+
+    let child = TaskId(pid as u32);
+    assert_eq!(word(&memory.0, 8), child.0, "CLONE_PARENT_SETTID at once");
+    assert_eq!(
+        kernel.take_pending(task),
+        Some(GuestAction::StartThread {
+            task: child,
+            tid: pid,
+            start_arg: 0x40,
+        })
+    );
+    assert_eq!(kernel.tgid(child), child, "a thread group of its own");
+    assert!(Arc::ptr_eq(&kernel.mm(child), &kernel.mm(task)));
+    let child_caller = Caller::new(child, &memory);
+    assert_eq!(block_on(kernel.getppid(&child_caller)), Ok(task.0 as Pid));
+    assert_eq!(block_on(kernel.exit(&child_caller, 6)), Ok(()));
+    block_on(kernel.exit_mm(&child_caller));
+    kernel.release(child);
+    let waited = block_on(kernel.waitid(
+        &caller,
+        Idtype::P_PID,
+        pid,
+        SiginfoPtr::new(32),
+        WaitOptions::WEXITED,
+        RusagePtr::new(0),
+    ));
+    assert_eq!(waited, Ok(0));
+    assert_eq!(word(&memory.0, 32), Signal::SIGCHLD.0 as u32, "si_signo");
+    assert_eq!(word(&memory.0, 32 + 20), 6, "si_status");
+}
+
+/// The child's `clear_child_tid` is written on its exit, as another task (its creator) still
+/// uses the memory (`mm_users > 1`), and the memory stays.
+#[test]
+fn a_clone_vm_child_clears_its_child_tid_as_it_exits() {
+    let (kernel, task, _) = setup(b"");
+    let memory = forkable();
+    let caller = Caller::new(task, &memory);
+    let flags = VM
+        | SIGCHLD
+        | CloneFlags::CLONE_CHILD_SETTID.0 as u32
+        | CloneFlags::CLONE_CHILD_CLEARTID.0 as u32;
+    let child = TaskId(spawn(&kernel, &caller, flags).unwrap() as u32);
+    while kernel.take_pending(task).is_some() {}
+    assert_eq!(word(&memory.0, 16), child.0);
+
+    let child_caller = Caller::new(child, &memory);
+    assert_eq!(block_on(kernel.exit(&child_caller, 0)), Ok(()));
+    block_on(kernel.exit_mm(&child_caller));
+
+    assert_eq!(word(&memory.0, 16), 0);
+}
+
+/// `CLONE_PARENT` makes the child its creator's sibling, and the forms `clone` refuses, a
+/// vfork, and `CLONE_SIGHAND` without `CLONE_VM` stay `EINVAL`; `clone` itself cannot start a
+/// process on the caller's memory.
+#[test]
+fn clone_vm_takes_clone_parent_and_refuses_what_clone_refuses() {
+    let (kernel, task) = setup_with_init();
+    let memory = forkable();
+    let caller = Caller::new(task, &memory);
+
+    let sibling = spawn(&kernel, &caller, VM | CloneFlags::CLONE_PARENT.0 as u32).unwrap();
+    let sibling = Caller::new(TaskId(sibling as u32), &memory);
+    assert_eq!(block_on(kernel.getppid(&sibling)), Ok(INIT.0 as Pid));
+    while kernel.take_pending(task).is_some() {}
+
+    let vfork = VM | CloneFlags::CLONE_VFORK.0 as u32 | SIGCHLD;
+    let sighand = CloneFlags::CLONE_SIGHAND.0 as u32 | SIGCHLD;
+    let fs_newns = VM | (CloneFlags::CLONE_FS | CloneFlags::CLONE_NEWNS).0 as u32;
+    for flags in [vfork, sighand, SIGCHLD, fs_newns] {
+        assert_eq!(
+            errno(spawn(&kernel, &caller, flags)),
+            Errno::EINVAL,
+            "{flags:#x}"
+        );
+    }
+    assert_eq!(
+        errno(clone(&kernel, &caller, VM | SIGCHLD, 0)),
+        Errno::EINVAL
+    );
+    assert_eq!(kernel.take_pending(task), None);
+}
+
+/// A process the execution layer could not start goes again, from the tree too, as
+/// `copy_process` undoes a child.
+#[test]
+fn a_clone_vm_child_that_never_starts_leaves_no_process() {
+    let (kernel, task, _) = setup(b"");
+    let memory = forkable();
+    let caller = Caller::new(task, &memory);
+    let child = TaskId(spawn(&kernel, &caller, VM | SIGCHLD).unwrap() as u32);
+    while kernel.take_pending(task).is_some() {}
+
+    kernel.abort_thread(child);
+
+    assert!(kernel.procs.find(child.0).is_none());
+    let waited = block_on(kernel.waitid(
+        &caller,
+        Idtype::P_ALL,
+        0,
+        SiginfoPtr::new(32),
+        WaitOptions(WaitOptions::WEXITED.0 | WaitOptions::WNOHANG.0),
+        RusagePtr::new(0),
+    ));
+    assert_eq!(waited, Err(Errno::ECHILD.into()));
+}
