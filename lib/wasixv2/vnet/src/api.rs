@@ -187,6 +187,18 @@ pub struct PortEntry {
     pub inode: u64,
 }
 
+/// The sysctls that make a namespace ignore echo requests.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum EchoIgnore {
+    /// `net.ipv4.icmp_echo_ignore_all`, `net.ipv4.icmp_echo_ignore_broadcasts`.
+    All,
+    Broadcasts,
+    /// `net.ipv6.icmp.echo_ignore_all`, `echo_ignore_multicast`. (`echo_ignore_anycast` has
+    /// nothing to act on: no namespace has anycast addresses.)
+    All6,
+    Multicast6,
+}
+
 /// One ping or raw ICMP socket, for `/proc/net/{icmp,icmp6,raw,raw6}`.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct IcmpEntry {
@@ -321,10 +333,9 @@ pub trait Network: Send + Sync {
         Vec::new()
     }
 
-    /// `net.ipv4.icmp_echo_ignore_broadcasts` (`broadcasts`) or `icmp_echo_ignore_all`, which
-    /// the namespace's ICMP heeds answering echo requests.
-    fn set_icmp_echo_ignore(&self, broadcasts: bool, ignore: bool) -> Result<(), Errno> {
-        let _ = (broadcasts, ignore);
+    /// One of the sysctls the namespace's ICMP heeds answering echo requests.
+    fn set_icmp_echo_ignore(&self, which: EchoIgnore, ignore: bool) -> Result<(), Errno> {
+        let _ = (which, ignore);
         Err(Errno::EOPNOTSUPP)
     }
 

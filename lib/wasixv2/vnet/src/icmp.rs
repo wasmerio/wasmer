@@ -29,8 +29,8 @@ use wasixv2_abi::{Errno, IpOption, Ipv6Option, MsgFlags, SoEeOrigin, SocketLevel
 use wasixv2_wait::{PollMask, PollTable, Pollable, WaitQueue, poll_wait};
 
 use crate::{
-    Accepted, BackendDatagram, Control, Domain, IcmpEntry, NetResult, QueuedError, RecvMsg,
-    SendMsg, Shutdown, Socket, SocketKind,
+    Accepted, BackendDatagram, Control, Domain, EchoIgnore, IcmpEntry, NetResult, QueuedError,
+    RecvMsg, SendMsg, Shutdown, Socket, SocketKind,
     addr::{canonical_ip, present, unbound},
     bpf::{Arrival, PACKET_HOST, PACKET_LOOPBACK, PACKET_MULTICAST, SockFilter},
     cmsg::{self, SendCtl},
@@ -117,6 +117,9 @@ pub(crate) struct IcmpTables {
     /// `net.ipv4.icmp_echo_ignore_all`, `net.ipv4.icmp_echo_ignore_broadcasts`.
     pub echo_ignore_all: bool,
     pub echo_ignore_broadcasts: bool,
+    /// `net.ipv6.icmp.echo_ignore_all`, `net.ipv6.icmp.echo_ignore_multicast`.
+    pub echo_ignore_all6: bool,
+    pub echo_ignore_multicast6: bool,
     /// The identification of the next IPv4 header made up for a raw socket.
     ip_id: u16,
 }
@@ -129,6 +132,8 @@ impl Default for IcmpTables {
             raw: Vec::new(),
             echo_ignore_all: false,
             echo_ignore_broadcasts: true,
+            echo_ignore_all6: false,
+            echo_ignore_multicast6: false,
             ip_id: 1,
         }
     }
@@ -516,14 +521,21 @@ impl Net {
     /// `icmp_echo`, `icmpv6_echo_reply`: answers an echo request back the way it came, from
     /// the address it was sent to, or for a group from an address of the interface it
     /// arrived on. IPv4 heeds `icmp_echo_ignore_all` and, for a group,
-    /// `icmp_echo_ignore_broadcasts`.
+    /// `icmp_echo_ignore_broadcasts`; IPv6 `echo_ignore_all` and, for a group,
+    /// `echo_ignore_multicast` (`icmpv6_rcv`).
     fn icmp_echo(&self, msg: &IcmpMsg, iif: u32, back: Back) {
         let src = {
             let st = self.state();
-            if msg.dst.is_ipv4()
-                && (st.icmp.echo_ignore_all
-                    || (msg.dst.is_multicast() && st.icmp.echo_ignore_broadcasts))
-            {
+            let group = msg.dst.is_multicast();
+            let ignored = match msg.dst {
+                IpAddr::V4(_) => {
+                    st.icmp.echo_ignore_all || (group && st.icmp.echo_ignore_broadcasts)
+                }
+                IpAddr::V6(_) => {
+                    st.icmp.echo_ignore_all6 || (group && st.icmp.echo_ignore_multicast6)
+                }
+            };
+            if ignored {
                 return;
             }
             match msg.dst.is_multicast() {
@@ -695,14 +707,16 @@ impl Net {
         self.icmp_input(msg, LOOPBACK_INDEX, back);
     }
 
-    /// `net.ipv4.icmp_echo_ignore_all` (`broadcasts` false) or
-    /// `icmp_echo_ignore_broadcasts`.
-    pub(crate) fn set_echo_ignore(&self, broadcasts: bool, ignore: bool) {
+    /// One of the echo sysctls ([`EchoIgnore`]).
+    pub(crate) fn set_echo_ignore(&self, which: EchoIgnore, ignore: bool) {
         let mut st = self.state();
-        match broadcasts {
-            true => st.icmp.echo_ignore_broadcasts = ignore,
-            false => st.icmp.echo_ignore_all = ignore,
-        }
+        let icmp = &mut st.icmp;
+        *match which {
+            EchoIgnore::All => &mut icmp.echo_ignore_all,
+            EchoIgnore::Broadcasts => &mut icmp.echo_ignore_broadcasts,
+            EchoIgnore::All6 => &mut icmp.echo_ignore_all6,
+            EchoIgnore::Multicast6 => &mut icmp.echo_ignore_multicast6,
+        } = ignore;
     }
 }
 

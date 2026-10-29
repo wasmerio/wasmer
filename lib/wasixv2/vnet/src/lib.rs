@@ -24,9 +24,10 @@ mod udp;
 mod tests;
 
 pub use api::{
-    Accepted, Backend, BackendDatagram, BackendStream, Control, Domain, IcmpEntry, InboundSink,
-    Interface, Network, NewLink, NewLinkKind, PortEntry, Publication, PublishedDatagram,
-    QueuedError, RecvMsg, Room, SendMsg, Shutdown, Socket, SocketKind, StreamState,
+    Accepted, Backend, BackendDatagram, BackendStream, Control, Domain, EchoIgnore, IcmpEntry,
+    InboundSink, Interface, Network, NewLink, NewLinkKind, PortEntry, Publication,
+    PublishedDatagram, QueuedError, RecvMsg, Room, SendMsg, Shutdown, Socket, SocketKind,
+    StreamState,
 };
 pub use icmp::IcmpSocket;
 pub use net::{MovedLink, Net, NetConfig, Rtnl, Uplink, move_link, rtnl};

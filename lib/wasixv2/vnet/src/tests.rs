@@ -1866,17 +1866,21 @@ fn echo_requests_cross_a_veth_and_reach_groups() {
         p.recv(&mut buf, MsgFlags(0)).unwrap().from.unwrap(),
         a("10.25.0.2:0")
     );
-    nb.set_icmp_echo_ignore(false, true).unwrap();
+    nb.set_icmp_echo_ignore(crate::EchoIgnore::All, true)
+        .unwrap();
     send_to(&*p, &echo4(1, 2, b"a"), Some(a("10.25.0.2:0"))).unwrap();
     assert_eq!(recv(&*p, 64), Err(Errno::EAGAIN));
-    nb.set_icmp_echo_ignore(false, false).unwrap();
+    nb.set_icmp_echo_ignore(crate::EchoIgnore::All, false)
+        .unwrap();
 
     p.set_option(SOL_IP, IpOption::IP_MULTICAST_IF.0, &[10, 25, 0, 1])
         .unwrap();
     send_to(&*p, &echo4(1, 3, b"g"), Some(a("224.0.0.1:0"))).unwrap();
     assert_eq!(recv(&*p, 64), Err(Errno::EAGAIN));
-    na.set_icmp_echo_ignore(true, false).unwrap();
-    nb.set_icmp_echo_ignore(true, false).unwrap();
+    na.set_icmp_echo_ignore(crate::EchoIgnore::Broadcasts, false)
+        .unwrap();
+    nb.set_icmp_echo_ignore(crate::EchoIgnore::Broadcasts, false)
+        .unwrap();
     send_to(&*p, &echo4(1, 4, b"g"), Some(a("224.0.0.1:0"))).unwrap();
     let mut from: Vec<SocketAddr> = (0..2)
         .map(|_| p.recv(&mut buf, MsgFlags(0)).unwrap().from.unwrap())
@@ -2225,4 +2229,41 @@ fn datagrams_over_the_mtu_with_df_are_emsgsize_and_a_local_error() {
 fn n6_udp(n: &Net) -> Arc<dyn Socket> {
     n.socket(Domain::Inet6, SocketKind::Datagram, 0, UID)
         .unwrap()
+}
+
+/// `net.ipv6.icmp.echo_ignore_all` stops a namespace answering ICMPv6 echo requests, and
+/// `echo_ignore_multicast` those to a group (`icmpv6_rcv`, `icmpv6_echo_reply`).
+#[test]
+fn ipv6_echo_sysctls_stop_replies() {
+    use crate::EchoIgnore;
+    let (na, nb) = veth_pair(("10.29.0.1", "10.29.0.2"), ("fd00:29::1", "fd00:29::2"));
+    let p6 = ping_socket(&na, Domain::Inet6);
+    let req = [128, 0, 0, 0, 0, 1, 0, 1];
+    nb.set_icmp_echo_ignore(EchoIgnore::All6, true).unwrap();
+    send_to(&*p6, &req, Some(a("[fd00:29::2]:0"))).unwrap();
+    assert_eq!(recv(&*p6, 64), Err(Errno::EAGAIN));
+    // IPv4's sysctl is another.
+    nb.set_icmp_echo_ignore(EchoIgnore::All6, false).unwrap();
+    nb.set_icmp_echo_ignore(EchoIgnore::All, true).unwrap();
+    send_to(&*p6, &req, Some(a("[fd00:29::2]:0"))).unwrap();
+    assert!(recv(&*p6, 64).is_ok());
+
+    // To all nodes out the veth: both namespaces answer, until they ignore groups.
+    let veth0 = index_of(&na, "veth0");
+    let ff02 = |n: &Net| {
+        n.set_icmp_echo_ignore(EchoIgnore::Multicast6, true)
+            .unwrap()
+    };
+    let all_nodes = SocketAddr::V6(std::net::SocketAddrV6::new(
+        "ff02::1".parse().unwrap(),
+        0,
+        0,
+        veth0,
+    ));
+    send_to(&*p6, &req, Some(all_nodes)).unwrap();
+    assert!(recv(&*p6, 64).is_ok() && recv(&*p6, 64).is_ok());
+    ff02(&na);
+    ff02(&nb);
+    send_to(&*p6, &req, Some(all_nodes)).unwrap();
+    assert_eq!(recv(&*p6, 64), Err(Errno::EAGAIN));
 }
