@@ -1897,3 +1897,87 @@ fn fuse_epoll_delivers_remote_poll_notifications() {
     assert_eq!(n32(&event, 0), EpollEvents::EPOLLIN.0);
     assert_eq!(n64(&event, 8), 0x1234);
 }
+
+#[test]
+fn fuse_background_limits_throttle_until_reply_or_control_update() {
+    let d = Daemon::new();
+    let req = d.read();
+    let mut init = vec![0; 64];
+    p32(&mut init, 0, 7);
+    p32(&mut init, 4, 46);
+    p32(&mut init, 16, 1 | (1 << 16));
+    p32(&mut init, 20, 4096);
+    d.reply(&req, 0, &init).unwrap();
+    let node = d.lookup(2, FileType::Regular);
+    let mut handles = Vec::new();
+    for _ in 0..4 {
+        handles.push(
+            d.exchange(
+                node.open(OpenOptions {
+                    read: true,
+                    ..OpenOptions::default()
+                }),
+                14,
+                |_| (0, vec![0; 16]),
+            )
+            .unwrap(),
+        );
+    }
+    drop(handles);
+    let first = d.read();
+    assert_eq!(n32(&first, 4), 18);
+    assert_eq!(
+        now(d
+            .kernel
+            .read(&d.caller(), d.fd, UserSliceMut::new(BUF, 65536))),
+        Err(SysErr::Errno(Errno::EAGAIN))
+    );
+    d.reply(&first, 0, &[]).unwrap();
+    let second = d.read();
+    assert_eq!(n32(&second, 4), 18);
+    block_on(d.kernel.vfs().mount(
+        b"/sys",
+        d.kernel.sysfs(),
+        wasixv2_vfs::MountFlags::default(),
+        true,
+    ))
+    .unwrap();
+    let target = d.path(0x100, "/sys/fs/fuse/connections");
+    let ty = d.path(0x200, "fusectl");
+    block_on(d.kernel.mount(
+        &d.caller(),
+        GuestPtr::NULL,
+        target,
+        ty,
+        MsFlags(0),
+        GuestPtr::NULL,
+    ))
+    .unwrap();
+    let path = d.path(0x100, "/sys/fs/fuse/connections/1/max_background");
+    let limit = block_on(
+        d.kernel
+            .openat(&d.caller(), CWD, path, OpenFlags::O_RDWR, 0),
+    )
+    .unwrap();
+    put(&d.memory, 0x1000, b"0x3\n");
+    assert_eq!(
+        block_on(
+            d.kernel
+                .write(&d.caller(), limit, UserSlice::new(0x1000, 4))
+        ),
+        Ok(4)
+    );
+    for _ in 0..2 {
+        let req = d.read();
+        assert_eq!(n32(&req, 4), 18);
+        d.reply(&req, 0, &[]).unwrap();
+    }
+    assert_eq!(
+        block_on(
+            d.kernel
+                .write(&d.caller(), limit, UserSlice::new(0x1000, 4))
+        ),
+        Err(SysErr::Errno(Errno::EINVAL))
+    );
+    d.reply(&second, 0, &[]).unwrap();
+}

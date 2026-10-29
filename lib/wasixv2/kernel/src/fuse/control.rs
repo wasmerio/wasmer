@@ -207,23 +207,38 @@ impl Handle for ControlNode {
         buf[..n].copy_from_slice(&text.as_bytes()[start..start + n]);
         Ok(n)
     }
-    async fn write_at(&self, data: &[u8], _: u64) -> FsResult<usize> {
+    async fn write_at(&self, data: &[u8], offset: u64) -> FsResult<usize> {
         let conn = self.conn()?;
         if self.file == Some(1) {
             conn.abort();
             return Ok(data.len());
         }
-        let value = std::str::from_utf8(data)
-            .ok()
-            .and_then(|s| s.trim().parse::<u16>().ok())
-            .filter(|v| *v != 0)
-            .ok_or(Errno::EINVAL)?;
+        // fs/fuse/control.c:fuse_conn_limit_write uses base zero and disallows a
+        // second write at a nonzero file position. Zero is a valid limit.
+        if offset != 0 {
+            return Err(Errno::EINVAL);
+        }
+        let text = std::str::from_utf8(data).map_err(|_| Errno::EINVAL)?;
+        let text = text.strip_suffix('\n').unwrap_or(text);
+        let text = text.strip_prefix('+').unwrap_or(text);
+        let (digits, base) =
+            if let Some(hex) = text.strip_prefix("0x").or_else(|| text.strip_prefix("0X")) {
+                (hex, 16)
+            } else if text.starts_with('0') && text.len() > 1 {
+                (&text[1..], 8)
+            } else {
+                (text, 10)
+            };
+        let value = u16::from_str_radix(digits, base).map_err(|_| Errno::EINVAL)?;
         let mut q = conn.queue.lock_or_recover();
         match self.file {
             Some(2) => q.max_background = value,
             Some(3) => q.congestion_threshold = value,
             _ => return Err(Errno::EINVAL),
         };
+        q.promote_background();
+        drop(q);
+        conn.readable.wake(wasixv2_wait::PollMask::IN);
         Ok(data.len())
     }
     async fn readdir(&self, cookie: u64, sink: &mut dyn DirSink) -> FsResult<()> {
