@@ -30,6 +30,7 @@ mod net;
 mod netlink;
 mod ns;
 mod nsfs;
+mod ntp;
 mod pid;
 mod pipe;
 mod poll;
@@ -53,6 +54,7 @@ mod sysfs;
 mod taint;
 mod thread;
 mod time;
+mod timekeeping;
 mod timer;
 mod timerfd;
 mod tty;
@@ -77,6 +79,7 @@ pub use fs::{
 };
 pub use ident::{Uname, UnameError};
 pub use reboot::PowerRequest;
+pub use timekeeping::Timekeeper;
 use wasixv2_abi::{
     AccessMode, AtFlags, Buf, ClockId, CloseRangeFlags, ConstBuf, ConstFileHandlePtr,
     ConstGidArray, ConstIovecArray, ConstKernelItimerspecPtr, ConstKernelTimespecArray,
@@ -130,7 +133,9 @@ pub struct ProcessConfig {
 }
 
 pub struct Kernel {
+    /// The machine's clocks: [`Kernel::time`] as a host, whose wall clock is the machine's.
     host: Arc<dyn Host>,
+    time: Arc<Timekeeper>,
     /// Shared with the process filesystems, which read it.
     state: Arc<TaskTable>,
     // ---- ns ----
@@ -318,9 +323,16 @@ impl Task {
 }
 
 impl Kernel {
-    /// A kernel whose root filesystem is `root`. Further filesystems are mounted through
-    /// [`Kernel::vfs`].
+    /// A kernel whose root filesystem is `root`, with a wall clock of its own over `host`'s.
+    /// Further filesystems are mounted through [`Kernel::vfs`].
     pub fn new(host: Arc<dyn Host>, root: Arc<dyn Filesystem>) -> Self {
+        Self::with_timekeeper(Timekeeper::new(host), root)
+    }
+
+    /// A kernel whose wall clock is `time`'s, which the machine's filesystems also stamp
+    /// their files with.
+    pub fn with_timekeeper(time: Arc<Timekeeper>, root: Arc<dyn Filesystem>) -> Self {
+        let host: Arc<dyn Host> = time.clone();
         let vfs = Vfs::new(root);
         let clock = Arc::new(fs::HostClock(host.clone()));
         let pids = Arc::new(pid::Pids::default());
@@ -331,6 +343,7 @@ impl Kernel {
         let procs = process::Procs::new(pids.clone());
         let jobs = tty::Jobs::new(&state, &procs.tree, &pids);
         let timers = timer::Timers::new(host.clone());
+        time.on_clock_was_set_delayed(timers.clock_was_set_delayed_hook());
         let sigio = fasync::Sigio::new(jobs.clone(), &timers);
         let inotify = Arc::new(fs::inotify::Registry::default());
         let dnotify = Arc::new(fs::dnotify::Dnotify::new(sigio.clone()));
@@ -353,6 +366,7 @@ impl Kernel {
             sigio,
             timers,
             host,
+            time,
             state,
             init_ns: Arc::new(ns::NsProxy::initial(
                 &init_user_ns,
@@ -2466,6 +2480,14 @@ impl Syscalls for Kernel {
         tp: ConstKernelTimespecPtr,
     ) -> SysResult<i32> {
         self.sys_clock_settime(caller, clock, tp).await
+    }
+    async fn clock_adjtime64(
+        &self,
+        caller: &Caller<'_>,
+        clock: ClockId,
+        utx: wasixv2_abi::KernelTimexPtr,
+    ) -> SysResult<i32> {
+        self.sys_clock_adjtime(caller, clock, utx).await
     }
     async fn clock_nanosleep_time64(
         &self,

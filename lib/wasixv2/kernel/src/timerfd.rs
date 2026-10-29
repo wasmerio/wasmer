@@ -6,11 +6,15 @@
 //! takes the expirations, so a periodic timer nobody reads costs nothing.
 //!
 //! `TFD_TIMER_CANCEL_ON_SET` works as Linux's: a set of the realtime clock cancels an absolute
-//! realtime timer with the flag, whose read then fails with `ECANCELED`. The wall clock is the
-//! host's, so the kernel is not told of a set but sees one when the clock's offset from the
-//! monotonic clock moved ([`ClockOffset`]): when the timer fires, is read, polled or set. A
-//! read or an expiry that finds a set also re-derives the monotonic deadlines of the machine's
+//! realtime timer with the flag, whose read then fails with `ECANCELED`. A set of the
+//! machine's clock runs `clock_was_set`, which fires the timer; a step of the host's wall
+//! clock the machine is not told of, and sees when the clock's offset from the monotonic
+//! clock moved ([`ClockOffset`]): when the timer fires, is read, polled or set. A read or an
+//! expiry that finds such a set also re-derives the monotonic deadlines of the machine's
 //! other realtime timers ([`Timer::clock_was_set`]).
+//!
+//! An absolute setting on the monotonic or boot-time clock is in the caller's time namespace
+//! (`timens_ktime_to_host`); the timer runs on the host's clock.
 
 use std::{
     sync::{Arc, Mutex, Weak},
@@ -21,7 +25,6 @@ use wasixv2_abi::{
     ClockId, ConstKernelItimerspecPtr, KernelItimerspec, KernelItimerspecPtr, OpenFlags,
     TimerfdFlags, TimerfdSettimeFlags,
 };
-use wasixv2_host::Host;
 use wasixv2_syscalls::{
     Caller, Errno, Fd, LocalFuture, SysErr, SysResult, read_value, write_value,
 };
@@ -32,6 +35,7 @@ use crate::{
     file::{Backing, FileObject, Io, OpenFile},
     sync::MutexExt,
     time::{self, Clock, ClockOffset},
+    timekeeping::Timekeeper,
     timer::{self, Timer},
 };
 
@@ -58,7 +62,7 @@ enum Moffs {
 
 struct Inner {
     clock: Clock,
-    host: Arc<dyn Host>,
+    time: Arc<Timekeeper>,
     state: Mutex<State>,
     wait: WaitQueue,
     /// Fires at `deadline` while no expiration is unread.
@@ -69,7 +73,7 @@ pub(crate) struct TimerFd(Arc<Inner>);
 
 impl Inner {
     fn now(&self) -> Duration {
-        time::read(&*self.host, self.clock, None)
+        time::read(&self.time, self.clock, None)
     }
 
     /// Counts the expirations up to now; returns whether there are unread ones.
@@ -93,13 +97,7 @@ impl Inner {
     /// `deadline` on the host's monotonic clock, which kernel timers run on. A realtime
     /// deadline is checked again when the timer fires, since that clock can move.
     fn monotonic(&self, deadline: Duration) -> Duration {
-        match self.clock {
-            Clock::Realtime => {
-                let left = deadline.saturating_sub(self.host.realtime());
-                self.host.monotonic().saturating_add(left)
-            }
-            _ => deadline,
-        }
+        time::monotonic_deadline(&self.time, self.clock, deadline)
     }
 
     /// Arms the kernel timer for the next expiry while none is unread.
@@ -117,7 +115,7 @@ impl Inner {
         let Moffs::At(seen) = state.moffs else {
             return false;
         };
-        if !state.might_cancel || !seen.moved(&ClockOffset::read(&*self.host)) {
+        if !state.might_cancel || !seen.moved(&ClockOffset::read(&self.time)) {
             return false;
         }
         state.moffs = Moffs::Set;
@@ -130,7 +128,7 @@ impl Inner {
         if !state.might_cancel || !matches!(state.moffs, Moffs::Set) {
             return false;
         }
-        state.moffs = Moffs::At(ClockOffset::read(&*self.host));
+        state.moffs = Moffs::At(ClockOffset::read(&self.time));
         true
     }
 
@@ -255,7 +253,8 @@ impl Kernel {
         }
         let clock = match clockid {
             ClockId::CLOCK_REALTIME => Clock::Realtime,
-            ClockId::CLOCK_MONOTONIC | ClockId::CLOCK_BOOTTIME => Clock::Monotonic,
+            ClockId::CLOCK_MONOTONIC => Clock::Monotonic,
+            ClockId::CLOCK_BOOTTIME => Clock::Boottime,
             // The alarm clocks need CAP_WAKE_ALARM. A machine never suspends, so they run as
             // their plain clocks do.
             ClockId::CLOCK_REALTIME_ALARM | ClockId::CLOCK_BOOTTIME_ALARM
@@ -264,7 +263,7 @@ impl Kernel {
                 return Err(Errno::EPERM.into());
             }
             ClockId::CLOCK_REALTIME_ALARM => Clock::Realtime,
-            ClockId::CLOCK_BOOTTIME_ALARM => Clock::Monotonic,
+            ClockId::CLOCK_BOOTTIME_ALARM => Clock::Boottime,
             _ => return Err(Errno::EINVAL.into()),
         };
         let object = TimerFd(Arc::new_cyclic(|inner: &Weak<Inner>| {
@@ -273,18 +272,18 @@ impl Kernel {
                 Box::new(move || inner.upgrade().and_then(|inner| inner.expired()));
             Inner {
                 clock,
-                host: self.host.clone(),
+                time: self.time.clone(),
                 state: Mutex::new(State {
                     deadline: None,
                     interval: Duration::ZERO,
                     ticks: 0,
                     might_cancel: false,
-                    moffs: Moffs::At(ClockOffset::read(&*self.host)),
+                    moffs: Moffs::At(ClockOffset::read(&self.time)),
                 }),
                 wait: WaitQueue::new(),
-                timer: match clock {
-                    Clock::Realtime => self.timers.realtime_timer(expired),
-                    _ => self.timers.timer(expired),
+                timer: match clock.settable() {
+                    true => self.timers.realtime_timer(expired),
+                    false => self.timers.timer(expired),
                 },
             }
         }));
@@ -321,11 +320,15 @@ impl Kernel {
         if !(flags & !allowed).is_empty() {
             return Err(Errno::EINVAL.into());
         }
-        let value = time::from_timespec(new.it_value)?;
+        let mut value = time::from_timespec(new.it_value)?;
         let interval = time::from_timespec(new.it_interval)?;
         let file = self.timerfd(caller, fd)?;
         let timer = &file.downcast::<TimerFd>().unwrap().0;
         let absolute = flags.contains(TimerfdSettimeFlags::TFD_TIMER_ABSTIME);
+        let disarm = value.is_zero();
+        if absolute && !disarm {
+            value = self.timens_to_host(caller, timer.clock, value);
+        }
         let (previous, set, canceled) = {
             let mut state = timer.state.lock_or_recover();
             // A set the old setting cancels on marks the timer, as it did when it happened.
@@ -338,11 +341,11 @@ impl Kernel {
                 && absolute
                 && flags.contains(TimerfdSettimeFlags::TFD_TIMER_CANCEL_ON_SET);
             if state.might_cancel && matches!(state.moffs, Moffs::At(_)) {
-                state.moffs = Moffs::At(ClockOffset::read(&*timer.host));
+                state.moffs = Moffs::At(ClockOffset::read(&timer.time));
             }
             state.ticks = 0;
             state.interval = interval;
-            state.deadline = match (value.is_zero(), absolute) {
+            state.deadline = match (disarm, absolute) {
                 (true, _) => None,
                 (false, true) => Some(value),
                 (false, false) => timer.now().checked_add(value),
@@ -350,7 +353,7 @@ impl Kernel {
             // `hrtimer_cancel`, then `hrtimer_start` for the new setting.
             timer.rearm(&state);
             // An unreported set fails the arming, which stands (`timerfd_setup`).
-            let canceled = !value.is_zero() && timer.canceled(&mut state);
+            let canceled = !disarm && timer.canceled(&mut state);
             (previous, set, canceled)
         };
         if set {

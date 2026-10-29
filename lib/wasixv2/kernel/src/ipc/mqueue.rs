@@ -664,7 +664,7 @@ impl Kernel {
         let woken = match deadline {
             None => wait_event(queue, ready, &*interrupt).await.map(Some),
             Some(at) => {
-                let sleep = self.host.sleep(at.saturating_sub(self.host.realtime()));
+                let sleep = self.time.sleep_until_realtime(at);
                 wait_event_timeout(queue, ready, &*interrupt, sleep).await
             }
         };

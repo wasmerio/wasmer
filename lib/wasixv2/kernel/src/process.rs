@@ -1764,6 +1764,14 @@ impl Kernel {
             // parent's untouched.
             t.mm = Arc::default();
             t.thread = thread::ThreadState::default();
+            // `exec_task_namespaces`: the new image runs in the time namespace for children.
+            if let Some(ns) = &t.ns
+                && !Arc::ptr_eq(&ns.time, &ns.time_for_children)
+            {
+                let mut ns = (**ns).clone();
+                ns.enter_time_for_children();
+                t.ns = Some(Arc::new(ns));
+            }
         });
         // `exec_mm_release`: a parent that waits for the old memory goes on.
         self.fork_vfork_done(task);

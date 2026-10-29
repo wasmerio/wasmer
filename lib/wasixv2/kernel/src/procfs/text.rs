@@ -17,10 +17,11 @@ use super::{Source, node::Scope};
 use crate::{
     file::OpenFile,
     mm::{Mm, PAGE_SIZE, RegionKind},
-    ns::{NetNs, NsKind, NsProxy, PidNs, UserNs},
+    ns::{NetNs, NsKind, NsProxy, PidNs, TimeNs, UserNs},
     resource::{ADDRESS_SPACE, TICKS},
     sched::cpus,
     sync::MutexExt,
+    time::timens_add,
     uidgid::OVERFLOW_ID,
     userns::MapKind,
 };
@@ -142,6 +143,8 @@ pub(super) enum PerPid {
     GidMap,
     ProjidMap,
     Setgroups,
+    /// The offsets of the process's time namespace for children.
+    TimensOffsets,
 }
 
 /// A system file as a reader in the namespaces `ns`, the pid namespace `pid_ns` and the user
@@ -162,8 +165,9 @@ pub(super) fn global(
     Ok(match file {
         Global::Cpuinfo => cpuinfo(),
         Global::Meminfo => meminfo(source),
+        // `uptime_proc_show`: the boot-time clock of the reader's time namespace.
         Global::Uptime => {
-            let up = source.host.monotonic();
+            let up = timens_add(source.host.monotonic(), ns.time.offsets().1);
             line(&format!("{} 0.00", centis(up)))
         }
         // The last pid is the reader's pid namespace's.
@@ -758,12 +762,14 @@ fn net_mcfilter(ns: &NetNs, v6: bool) -> Vec<u8> {
     out.into_bytes()
 }
 
-/// A file of a process's directory, as a reader in the user namespace `reader` sees it.
+/// A file of a process's directory, as a reader in the user namespace `reader` and the time
+/// namespace `reader_time` sees it.
 pub(super) fn per_pid(
     source: &Source,
     scope: Scope,
     file: PerPid,
     reader: &Arc<UserNs>,
+    reader_time: &TimeNs,
 ) -> FsResult<Vec<u8>> {
     let info = source.process(scope.pid).ok_or(Errno::ESRCH)?;
     let process = &info.process;
@@ -785,7 +791,7 @@ pub(super) fn per_pid(
             let ns = task.ns.as_ref().ok_or(Errno::EINVAL)?;
             mounts(source, &ns.mnt.tree, &root, file == PerPid::Mountinfo)
         }
-        PerPid::Stat => stat_line(source, scope, &info),
+        PerPid::Stat => stat_line(source, scope, &info, reader_time),
         PerPid::Statm => {
             let pages = source.mm(scope).map_or(0, |mm| mm.size()) / PAGE_SIZE;
             format!("{pages} {pages} 0 0 0 {pages} 0\n").into_bytes()
@@ -795,7 +801,28 @@ pub(super) fn per_pid(
         PerPid::GidMap => process.cred().user_ns.show_map(MapKind::Gid, reader),
         PerPid::ProjidMap => process.cred().user_ns.show_map(MapKind::Projid, reader),
         PerPid::Setgroups => process.cred().user_ns.show_setgroups(),
+        PerPid::TimensOffsets => {
+            let task = source.task(scope.pid, scope.tid).ok_or(Errno::ESRCH)?;
+            match &task.ns {
+                Some(ns) => timens_offsets(&ns.time_for_children),
+                None => Vec::new(),
+            }
+        }
     })
+}
+
+/// `proc_timens_show_offsets`: `show_offset` of each clock, as a normalised timespec.
+fn timens_offsets(ns: &TimeNs) -> Vec<u8> {
+    let (monotonic, boottime) = ns.offsets();
+    let mut out = String::new();
+    for (name, offset) in [("monotonic", monotonic), ("boottime", boottime)] {
+        let (sec, nsec) = (
+            offset.div_euclid(1_000_000_000),
+            offset.rem_euclid(1_000_000_000),
+        );
+        let _ = writeln!(out, "{name:<10} {sec:>10} {nsec:>9}");
+    }
+    out.into_bytes()
 }
 
 /// `cmdline` and `environ`: every string followed by a NUL.
@@ -1029,8 +1056,14 @@ fn state(info: &super::ProcessInfo, task: Option<&super::TaskInfo>) -> (char, &'
     }
 }
 
-/// `do_task_stat`.
-fn stat_line(source: &Source, scope: Scope, info: &super::ProcessInfo) -> Vec<u8> {
+/// `do_task_stat`. The start time is on the boot-time clock of the reader's time namespace
+/// `reader_time`.
+fn stat_line(
+    source: &Source,
+    scope: Scope,
+    info: &super::ProcessInfo,
+    reader_time: &TimeNs,
+) -> Vec<u8> {
     let process = &info.process;
     let pid = source.nr(scope.tid.unwrap_or(scope.pid));
     let ident = process.ident.lock_or_recover().clone();
@@ -1049,7 +1082,7 @@ fn stat_line(source: &Source, scope: Scope, info: &super::ProcessInfo) -> Vec<u8
     let sched = task.map(|task| task.sched).unwrap_or_default();
     let nice = sched.nice();
     let threads = source.threads(scope.pid).len().max(1);
-    let start = ticks(process.start);
+    let start = ticks(timens_add(process.start, reader_time.offsets().1));
     let vsize = source.mm(scope).map_or(0, |mm| mm.size());
     let rss = vsize / PAGE_SIZE;
     let signals = source

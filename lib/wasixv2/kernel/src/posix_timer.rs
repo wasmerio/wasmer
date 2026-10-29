@@ -26,8 +26,8 @@ use wasixv2_abi::{
     KernelItimerspecPtr, PrctlArg, SiCode, SigevNotify, Siginfo, Sigval, TimerFlags, TimerId,
     TimerIdPtr, Ulong,
 };
-use wasixv2_host::Host;
 use wasixv2_syscalls::{Caller, Errno, SysResult, TaskId, read_value, write_value};
+use wasixv2_vfs::Cap;
 
 use crate::{
     Kernel, Process,
@@ -35,14 +35,13 @@ use crate::{
     signal::{Charge, Signals},
     sync::MutexExt,
     time::{self, Clock, ClockRef},
+    timekeeping::Timekeeper,
     timer::{self, Timer},
 };
 
 const SIGRTMAX: i32 = 64;
 /// `KTIME_MAX`: timer values saturate at the largest `ktime_t`.
 const KTIME_MAX: Duration = Duration::from_nanos(i64::MAX as u64);
-/// `CLOCK_TAI`, which `ClockId` does not name.
-const CLOCK_TAI: ClockId = ClockId(11);
 
 /// The POSIX timers of one thread group (`signal_struct::posix_timers` and its id hash).
 #[derive(Default)]
@@ -131,7 +130,7 @@ pub(crate) struct PosixTimer {
     signo: i32,
     value: Sigval,
     group: Weak<Signals>,
-    host: Arc<dyn Host>,
+    time: Arc<Timekeeper>,
     /// Cleared, with the group's signal state locked, once the timer is deleted.
     valid: AtomicBool,
     /// Whether the last signal sent came from a periodic timer; read and written with the
@@ -205,20 +204,14 @@ impl PosixTimer {
     }
 
     fn now(&self, base: Clock) -> Duration {
-        time::read(&*self.host, base, self.cpu.as_ref())
+        time::read(&self.time, base, self.cpu.as_ref())
     }
 
-    /// `expires` on `base`, a wall clock, as a deadline on the host's monotonic clock, which
-    /// kernel timers run on. A realtime expiry is checked again when the timer fires, since
+    /// `expires` on `base` as a deadline on the host's monotonic clock, which kernel timers
+    /// run on. An expiry on a settable clock is checked again when the timer fires, since
     /// that clock can move.
     fn monotonic_deadline(&self, base: Clock, expires: Duration) -> Duration {
-        match base {
-            Clock::Realtime => {
-                let left = expires.saturating_sub(self.host.realtime());
-                self.host.monotonic().saturating_add(left)
-            }
-            _ => expires,
-        }
+        time::monotonic_deadline(&self.time, base, expires)
     }
 
     /// Whether the thread a thread CPU clock belongs to is still there.
@@ -383,23 +376,25 @@ impl PosixTimer {
         setting
     }
 
-    /// `common_timer_set`
+    /// `common_timer_set`: `disarm` for a zero value; an absolute `value` is the host's
+    /// already (`timens_ktime_to_host`).
     fn set(
         self: &Arc<Self>,
         state: &mut State,
         absolute: bool,
+        disarm: bool,
         value: Duration,
         interval: Duration,
     ) {
         self.cancel(state);
         state.status = Status::Disarmed;
-        state.interval = match value.is_zero() {
+        state.interval = match disarm {
             true => Duration::ZERO,
             false => ktime(interval),
         };
         state.overrun_last = 0;
         state.overrun = -1;
-        if value.is_zero() {
+        if disarm {
             return;
         }
         // `common_hrtimer_arm`: a relative `CLOCK_REALTIME` timer runs on the monotonic clock.
@@ -454,7 +449,7 @@ fn timer_clock(id: ClockId) -> Result<(), Errno> {
         ClockId::CLOCK_REALTIME
         | ClockId::CLOCK_MONOTONIC
         | ClockId::CLOCK_BOOTTIME
-        | CLOCK_TAI
+        | ClockId::CLOCK_TAI
         | ClockId::CLOCK_REALTIME_ALARM
         | ClockId::CLOCK_BOOTTIME_ALARM
         | ClockId::CLOCK_PROCESS_CPUTIME_ID
@@ -514,13 +509,18 @@ impl Kernel {
         Ok((false, thread, event.sigev_signo, Some(event.sigev_value)))
     }
 
-    /// `kc->timer_create`: the alarm clocks need `CAP_WAKE_ALARM`, and a CPU clock must
-    /// name a process, or a thread of the caller's group (`posix_cpu_timer_create`).
+    /// `kc->timer_create`: the alarm clocks need `CAP_WAKE_ALARM` (`alarm_timer_create`),
+    /// and run as their base clocks, as a machine never suspends; a CPU clock must name a
+    /// process, or a thread of the caller's group (`posix_cpu_timer_create`).
     fn timer_spec_clock(&self, caller: &Caller<'_>, id: ClockId) -> Result<ClockRef, Errno> {
-        match id {
-            ClockId::CLOCK_REALTIME_ALARM | ClockId::CLOCK_BOOTTIME_ALARM => Err(Errno::EPERM),
-            _ => self.resolve_clock(caller, id, false),
+        if matches!(
+            id,
+            ClockId::CLOCK_REALTIME_ALARM | ClockId::CLOCK_BOOTTIME_ALARM
+        ) && !self.cred(caller).capable_init(Cap::WakeAlarm)
+        {
+            return Err(Errno::EPERM);
         }
+        self.resolve_clock(caller, id, false)
     }
 
     pub(crate) async fn sys_timer_create(
@@ -617,7 +617,7 @@ impl Kernel {
                 signo: spec.signo,
                 value: spec.value.unwrap_or(Sigval(id.to_le_bytes())),
                 group: Arc::downgrade(group),
-                host: self.host.clone(),
+                time: self.time.clone(),
                 valid: AtomicBool::new(true),
                 sig_periodic: AtomicBool::new(false),
                 state: Mutex::new(State {
@@ -631,9 +631,9 @@ impl Kernel {
                     sigqueue_seq: 0,
                     cpu_entry: None,
                 }),
-                timer: match spec.clock {
-                    Clock::Realtime => self.timers.realtime_timer(Box::new(expired)),
-                    _ => self.timers.timer(Box::new(expired)),
+                timer: match spec.clock.settable() {
+                    true => self.timers.realtime_timer(Box::new(expired)),
+                    false => self.timers.timer(Box::new(expired)),
                 },
                 _charge: charge,
             }
@@ -655,6 +655,12 @@ impl Kernel {
         let interval = time::from_timespec(new.it_interval)?;
         let value = time::from_timespec(new.it_value)?;
         let timer = self.posix_timer(caller, id)?;
+        let absolute = flags.contains(TimerFlags::TIMER_ABSTIME);
+        let disarm = value.is_zero();
+        let value = match absolute && !disarm {
+            true => self.timens_to_host(caller, timer.clock, value),
+            false => value,
+        };
         let previous = {
             let mut state = timer.state.lock_or_recover();
             if !timer.is_valid() {
@@ -675,8 +681,7 @@ impl Kernel {
             // A signal still queued from the old setting is stale now.
             state.signal_seq += 1;
             let previous = timer.get(&mut state);
-            let absolute = flags.contains(TimerFlags::TIMER_ABSTIME);
-            timer.set(&mut state, absolute, value, interval);
+            timer.set(&mut state, absolute, disarm, value, interval);
             previous
         };
         if !old.is_null() {
