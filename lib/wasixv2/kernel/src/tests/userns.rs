@@ -725,3 +725,120 @@ fn procfs_mounts_in_a_user_namespace_only_where_one_is_fully_visible() {
         assert_eq!(errno(mount(&kernel, &user, "/proc", "proc")), Errno::EPERM);
     }
 }
+
+/// Dequeues a pending `sig` of `p` (`sigtimedwait` with a zero timeout), with its `si_uid`.
+fn take_uid(kernel: &Kernel, p: &P, sig: Signal) -> Option<u32> {
+    let mask = 1u64 << (sig.0 - 1);
+    let these = wasixv2_abi::Sigset {
+        sig: [mask as u32, (mask >> 32) as u32],
+    };
+    let now = wasixv2_abi::KernelTimespec {
+        tv_sec: 0,
+        tv_nsec: 0,
+    };
+    block_on(write_value(&p.memory, GuestPtrMut::new(0x170), &these)).unwrap();
+    block_on(write_value(&p.memory, GuestPtrMut::new(0x178), &now)).unwrap();
+    let caller = p.caller();
+    let info = GuestPtrMut::new(0x200);
+    let wait =
+        kernel.rt_sigtimedwait_time64(&caller, GuestPtr::new(0x170), info, GuestPtr::new(0x178), 8);
+    block_on(wait).ok()?;
+    let info: wasixv2_abi::Siginfo = block_on(read_value(&p.memory, GuestPtr::new(0x200))).unwrap();
+    Some(u32::from_le_bytes(info.sifields[4..8].try_into().unwrap()))
+}
+
+fn kill(kernel: &Kernel, p: &P, pid: i32, sig: Signal) -> SysResult<i32> {
+    block_on(kernel.sys_kill(&p.caller(), pid, sig))
+}
+
+/// A signal's sender, a peer's credentials, an IPC object's owner and a child's uid in
+/// `waitid` show as the receiver's user namespace sees them; an id it does not map is the
+/// overflow id.
+#[test]
+fn ids_reach_a_user_namespace_as_it_sees_them() {
+    let (kernel, outside) = machine_as(1000);
+    let unix = wasixv2_abi::AddressFamily(1);
+    let pair = wasixv2_abi::FdPair::new(0x100);
+    let caller = outside.caller();
+    assert_eq!(
+        block_on(kernel.socketpair(&caller, unix, 1, 0, pair)),
+        Ok(0)
+    );
+    let ipc_creat = wasixv2_abi::IpcFlags::IPC_CREAT.0 as i32;
+    let msqid = block_on(kernel.msgget(&caller, 0, ipc_creat | 0o600)).unwrap();
+    let inside = fork(&kernel, &outside, CloneFlags(0)).unwrap();
+    become_root(&kernel, &inside, CloneFlags(0));
+    let inside_pid = pid_of(&kernel, &inside);
+
+    // SO_PEERCRED: the socket pair's maker, uid 1000, is root inside.
+    let mut fd = [0u8; 4];
+    block_on(outside.memory.read(0x100, &mut fd)).unwrap();
+    let fd = Fd(i32::from_le_bytes(fd));
+    block_on(write_value(
+        &inside.memory,
+        GuestPtrMut::<u32>::new(0x404),
+        &12,
+    ))
+    .unwrap();
+    let level = wasixv2_abi::SocketLevel::SOL_SOCKET;
+    let peercred = wasixv2_abi::SocketOption::SO_PEERCRED.0;
+    let caller = inside.caller();
+    let get = kernel.getsockopt(
+        &caller,
+        fd,
+        level,
+        peercred,
+        wasixv2_abi::Buf::new(0x400 + 0x10),
+        wasixv2_abi::SocklenPtr::new(0x404),
+    );
+    assert_eq!(block_on(get), Ok(0));
+    let mut ucred = [0u8; 12];
+    block_on(inside.memory.read(0x410, &mut ucred)).unwrap();
+    let word = |at: usize| u32::from_le_bytes(ucred[at..at + 4].try_into().unwrap());
+    assert_eq!((word(4), word(8)), (0, 0));
+
+    // IPC_STAT: the queue's owner and creator.
+    let stat = kernel.msgctl(
+        &caller,
+        msqid,
+        wasixv2_abi::IpcCmd::IPC_STAT.0,
+        GuestPtrMut::new(0x600),
+    );
+    assert_eq!(block_on(stat), Ok(0));
+    let ds: wasixv2_abi::Msqid64Ds =
+        block_on(read_value(&inside.memory, GuestPtr::new(0x600))).unwrap();
+    assert_eq!((ds.msg_perm.uid, ds.msg_perm.cuid), (0, 0));
+
+    // A signal from uid 1000 comes from root inside, and back from uid 1000 outside.
+    assert_eq!(kill(&kernel, &outside, inside_pid, Signal::SIGUSR1), Ok(0));
+    assert_eq!(take_uid(&kernel, &inside, Signal::SIGUSR1), Some(0));
+    let outside_pid = pid_of(&kernel, &outside);
+    assert_eq!(kill(&kernel, &inside, outside_pid, Signal::SIGUSR2), Ok(0));
+    assert_eq!(take_uid(&kernel, &outside, Signal::SIGUSR2), Some(1000));
+}
+
+/// `kill_ok_by_cred`: a user namespace's root has `CAP_KILL` over its own namespace only, so
+/// it signals a process outside just as its uid could.
+#[test]
+fn a_user_namespaces_root_kills_only_what_its_uid_may() {
+    let (kernel, root, user) = mounting_machine();
+    let other = fork(&kernel, &root, CloneFlags(0)).unwrap();
+    assert_eq!(block_on(kernel.setuid(&other.caller(), 2000)), Ok(0));
+    let sibling = fork(&kernel, &user, CloneFlags(0)).unwrap();
+    become_root(&kernel, &user, CloneFlags(0));
+    let pid = |p: &P| pid_of(&kernel, p);
+
+    assert_eq!(
+        errno(kill(&kernel, &user, pid(&other), Signal::SIGUSR1)),
+        Errno::EPERM
+    );
+    assert_eq!(
+        kill(&kernel, &user, pid(&sibling), Signal::SIGUSR1),
+        Ok(0),
+        "uid 1000"
+    );
+    assert_eq!(
+        errno(kill(&kernel, &user, pid(&root), Signal::SIGUSR1)),
+        Errno::EPERM
+    );
+}
