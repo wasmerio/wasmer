@@ -372,14 +372,14 @@ impl PosixTimer {
 
     /// `common_timer_get`: the time left and the interval. An expired interval timer whose
     /// signal is not delivered yet, and a `SIGEV_NONE` one, are moved past now first.
-    fn get(&self, state: &mut State) -> KernelItimerspec {
+    fn get(&self, state: &mut State, cpu_now: Option<Duration>) -> KernelItimerspec {
         let mut setting = KernelItimerspec::default();
         if !state.interval.is_zero() {
             setting.it_interval = time::to_timespec(state.interval);
         } else if state.status == Status::Disarmed && !self.sigev_none {
             return setting;
         }
-        let now = self.now(state.base);
+        let now = cpu_now.unwrap_or_else(|| self.now(state.base));
         if !state.interval.is_zero() && state.status != Status::Armed {
             let periods = Self::forward(state, now);
             state.overrun = state.overrun.saturating_add(periods);
@@ -407,6 +407,7 @@ impl PosixTimer {
         disarm: bool,
         value: Duration,
         interval: Duration,
+        cpu_now: Option<Duration>,
     ) {
         self.cancel(state);
         state.status = Status::Disarmed;
@@ -424,15 +425,18 @@ impl PosixTimer {
             (ClockId::CLOCK_REALTIME, false) => Clock::Monotonic,
             _ => self.clock,
         };
+        // posix_cpu_timer_set samples the CPU clock at arming, including the running
+        // task's time since its last tick (kernel/time/posix-cpu-timers.c).
+        let now = cpu_now.unwrap_or_else(|| self.now(state.base));
         state.expires = match absolute {
             true => ktime(value),
-            false => ktime(self.now(state.base).saturating_add(value)),
+            false => ktime(now.saturating_add(value)),
         };
         // A `SIGEV_NONE` timer only pretends to be queued.
         if self.sigev_none {
             return;
         }
-        match self.start(state) {
+        match state.expires > now && self.start(state) {
             true => state.status = Status::Armed,
             false => self.queue_signal(state),
         }
@@ -683,6 +687,10 @@ impl Kernel {
             true => self.timens_to_host(caller, timer.clock, value),
             false => value,
         };
+        let account = timer
+            .cpu
+            .as_ref()
+            .and_then(|cpu| self.cpu_clock_account(caller.task(), cpu));
         let previous = {
             let mut state = timer.state.lock_or_recover();
             if !timer.is_valid() {
@@ -702,8 +710,12 @@ impl Kernel {
             }
             // A signal still queued from the old setting is stale now.
             state.signal_seq += 1;
-            let previous = timer.get(&mut state);
-            timer.set(&mut state, absolute, disarm, value, interval);
+            let cpu_now = timer
+                .cpu
+                .as_ref()
+                .map(|cpu| cpu.sample(&*self.host, account.as_deref()));
+            let previous = timer.get(&mut state, cpu_now);
+            timer.set(&mut state, absolute, disarm, value, interval, cpu_now);
             previous
         };
         if !old.is_null() {
@@ -719,7 +731,20 @@ impl Kernel {
         setting: KernelItimerspecPtr,
     ) -> SysResult<i32> {
         let timer = self.posix_timer(caller, id)?;
-        let current = timer.get(&mut timer.state.lock_or_recover());
+        // posix_cpu_timer_get samples the current clock, rather than returning the
+        // last accounting tick's remaining time (kernel/time/posix-cpu-timers.c).
+        let account = timer
+            .cpu
+            .as_ref()
+            .and_then(|cpu| self.cpu_clock_account(caller.task(), cpu));
+        let current = {
+            let mut state = timer.state.lock_or_recover();
+            let cpu_now = timer
+                .cpu
+                .as_ref()
+                .map(|cpu| cpu.sample(&*self.host, account.as_deref()));
+            timer.get(&mut state, cpu_now)
+        };
         write_value(caller.memory(), setting, &current).await?;
         Ok(0)
     }
