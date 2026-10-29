@@ -17,6 +17,7 @@ use wasixv2_wait::Interrupt;
 use crate::{
     IO_CHUNK, Kernel, MAX_RW_COUNT,
     file::{Backing, Io, OpenFile, ReadSink, SeekBase, check_file_size, delivered},
+    sync::MutexExt,
 };
 
 /// Most iovecs one `readv` or `writev` takes, as Linux's `UIO_MAXIOV`.
@@ -1064,10 +1065,43 @@ impl Kernel {
         self.sync_file_mappings(caller, file).await;
         self.pre_content_permission(caller, file, Some(length as u64), 0)
             .await?;
-        let resized = inner.set_size(length as u64).await;
+        let resized = inner
+            .set_size_checked(length as u64, |old_size| {
+                self.check_newsize(caller, old_size, length as u64)
+            })
+            .await;
         self.sync_file_mappings(caller, file).await;
         resized?;
         Ok(0)
+    }
+
+    /// fs/attr.c:inode_newsize_ok: RLIMIT_FSIZE only restricts extension, and
+    /// send_sig(SIGXFSZ, current, 0) supplies SI_USER and targets the calling task.
+    pub(crate) fn check_newsize(
+        &self,
+        caller: &Caller<'_>,
+        old_size: u64,
+        size: u64,
+    ) -> Result<(), Errno> {
+        let limit = self
+            .process(caller.task())
+            .resources
+            .lock_or_recover()
+            .soft(wasixv2_abi::RlimitResource::RLIMIT_FSIZE);
+        if size > old_size && size > limit {
+            let info = self.sender_info(
+                caller,
+                wasixv2_abi::Signal::SIGXFSZ.0,
+                wasixv2_abi::SiCode::SI_USER,
+            );
+            let _ = self.task_signals(caller.task()).group().send_from(
+                Some(caller.task()),
+                info,
+                false,
+            );
+            return Err(Errno::EFBIG);
+        }
+        Ok(())
     }
 
     /// `fadvise64_64`: validated, then ignored; there is no page cache to advise.

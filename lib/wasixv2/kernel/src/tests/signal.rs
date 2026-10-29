@@ -356,6 +356,90 @@ fn a_fork_or_vfork_child_keeps_the_alternate_stack_and_a_thread_starts_without()
     assert_eq!(altstack(&kernel, &Caller::new(vforked, &memory)), inherited);
 }
 
+/// fs/attr.c:inode_newsize_ok applies RLIMIT_FSIZE only when extending a file,
+/// sending SIGXFSZ to current rather than the thread group.
+#[test]
+fn truncate_enforces_fsize_only_on_extension_and_signals_the_caller() {
+    let (kernel, task, memory) = machine();
+    let caller = Caller::new(task, &memory);
+    let fd = super::mapping::open(
+        &kernel,
+        &caller,
+        b"/size",
+        OpenFlags::O_CREAT | OpenFlags::O_RDWR,
+    );
+    assert_eq!(block_on(kernel.ftruncate64(&caller, fd, 100)), Ok(0));
+    let thread = spawn_thread(&kernel, &caller);
+    let thread_caller = Caller::new(thread, &memory);
+    let sig = Signal::SIGXFSZ.0;
+    for who in [&caller, &thread_caller] {
+        block(&kernel, who, 1u64 << (sig - 1));
+    }
+    block_on(write_value(
+        &memory,
+        GuestPtrMut::new(0x180),
+        &wasixv2_abi::Rlimit64 {
+            rlim_cur: 10,
+            rlim_max: u64::MAX,
+        },
+    ))
+    .unwrap();
+    assert_eq!(
+        block_on(kernel.prlimit64(
+            &caller,
+            0,
+            RlimitResource::RLIMIT_FSIZE,
+            ConstRlimit64Ptr::new(0x180),
+            Rlimit64Ptr::NULL
+        )),
+        Ok(0)
+    );
+    let path = GuestPtr::new(0x800);
+    for by_fd in [true, false] {
+        // Shrinking to above the limit and leaving the size unchanged are legal.
+        assert_eq!(block_on(kernel.ftruncate64(&caller, fd, 90)), Ok(0));
+        assert_eq!(block_on(kernel.truncate64(&caller, path, 90)), Ok(0));
+        let result = if by_fd {
+            block_on(kernel.ftruncate64(&thread_caller, fd, 91))
+        } else {
+            block_on(kernel.truncate64(&thread_caller, path, 91))
+        };
+        assert_eq!(result, err(Errno::EFBIG));
+        assert!(take(&kernel, &caller, sig).is_none());
+        let info = take(&kernel, &thread_caller, sig).expect("SIGXFSZ on truncating thread");
+        assert_eq!(info.si_code, wasixv2_abi::SiCode::SI_USER.0);
+        assert_eq!(sifield(&info, 0), kernel.process(task).pid.0);
+        assert_eq!(sifield(&info, 4), kernel.cred(&caller).user.real.0);
+        assert_eq!(
+            block_on(kernel.lseek(&caller, fd, 0, SeekWhence::SEEK_END)),
+            Ok(90)
+        );
+    }
+    assert_eq!(block_on(kernel.ftruncate64(&caller, fd, 10)), Ok(0));
+    assert_eq!(block_on(kernel.truncate64(&caller, path, 10)), Ok(0));
+    assert!(take(&kernel, &caller, sig).is_none());
+    assert!(take(&kernel, &thread_caller, sig).is_none());
+    assert_eq!(
+        block_on(kernel.ftruncate64(&caller, Fd(-1), 100)),
+        err(Errno::EBADF)
+    );
+    assert_eq!(
+        block_on(kernel.truncate64(&caller, GuestPtr::NULL, -1)),
+        err(Errno::EINVAL)
+    );
+    let readonly = super::mapping::open(&kernel, &caller, b"/size", OpenFlags::O_RDONLY);
+    assert_eq!(
+        block_on(kernel.ftruncate64(&caller, readonly, 100)),
+        err(Errno::EINVAL)
+    );
+    assert_eq!(block_on(kernel.fchmod(&caller, fd, 0o400)), Ok(0));
+    assert_eq!(
+        block_on(kernel.truncate64(&caller, path, 100)),
+        err(Errno::EACCES)
+    );
+    assert!(take(&kernel, &caller, sig).is_none());
+}
+
 // ---- RLIMIT_SIGPENDING ----
 
 fn set_sigpending_limit(kernel: &Kernel, caller: &Caller<'_>, limit: u64) {

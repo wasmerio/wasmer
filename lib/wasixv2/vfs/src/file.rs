@@ -345,6 +345,15 @@ impl File {
     /// only its write access counts, never the permission bits. The caller has checked that it
     /// is a regular file opened for writing.
     pub async fn set_size(&self, size: u64) -> FsResult<()> {
+        self.set_size_checked(size, |_| Ok(())).await
+    }
+
+    /// `do_ftruncate` with the caller's `inode_newsize_ok` resource check.
+    pub async fn set_size_checked(
+        &self,
+        size: u64,
+        check: impl FnOnce(u64) -> FsResult<()>,
+    ) -> FsResult<()> {
         let handle = self.handle()?;
         // `do_ftruncate`.
         if crate::ops::append_only(&self.path.dentry) {
@@ -352,6 +361,7 @@ impl File {
         }
         let inode = self.path.dentry.inode();
         let _sealed = inode.seal_lock().await;
+        check(self.node().getattr().await?.size)?;
         let attr = crate::SetAttr {
             size: Some(size),
             ..crate::SetAttr::default()
