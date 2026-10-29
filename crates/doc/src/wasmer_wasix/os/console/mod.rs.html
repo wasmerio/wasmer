@@ -277,7 +277,7 @@
 <a href=#277 id=277 data-nosnippet>277</a>
 <a href=#278 id=278 data-nosnippet>278</a>        <span class="comment">// Build the config
 <a href=#279 id=279 data-nosnippet>279</a>        // Run the binary
-<a href=#280 id=280 data-nosnippet>280</a>        </span><span class="kw">let </span>process = block_on(spawn_exec(pkg, prog, env, <span class="kw-2">&amp;</span><span class="self">self</span>.runtime))<span class="question-mark">?</span>;
+<a href=#280 id=280 data-nosnippet>280</a>        </span><span class="kw">let </span>process = block_on(spawn_exec(pkg.into(), prog, env, <span class="kw-2">&amp;</span><span class="self">self</span>.runtime))<span class="question-mark">?</span>;
 <a href=#281 id=281 data-nosnippet>281</a>
 <a href=#282 id=282 data-nosnippet>282</a>        <span class="comment">// Return the process
 <a href=#283 id=283 data-nosnippet>283</a>        </span><span class="prelude-val">Ok</span>((process, wasi_process))

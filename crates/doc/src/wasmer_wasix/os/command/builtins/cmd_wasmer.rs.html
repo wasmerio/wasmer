@@ -174,7 +174,7 @@
 <a href=#174 id=174 data-nosnippet>174</a>                    env.use_package_async(<span class="kw-2">&amp;</span>binary).<span class="kw">await</span>.unwrap();
 <a href=#175 id=175 data-nosnippet>175</a>
 <a href=#176 id=176 data-nosnippet>176</a>                    <span class="comment">// Now run the module
-<a href=#177 id=177 data-nosnippet>177</a>                    </span>spawn_exec(<span class="kw-2">*</span>binary, name, env, <span class="kw-2">&amp;</span><span class="self">self</span>.runtime).<span class="kw">await
+<a href=#177 id=177 data-nosnippet>177</a>                    </span>spawn_exec((<span class="kw-2">*</span>binary).into(), name, env, <span class="kw-2">&amp;</span><span class="self">self</span>.runtime).<span class="kw">await
 <a href=#178 id=178 data-nosnippet>178</a>                </span>}
 <a href=#179 id=179 data-nosnippet>179</a>                Executable::Wasm(bytes) =&gt; {
 <a href=#180 id=180 data-nosnippet>180</a>                    <span class="kw">let </span>data = HashedModuleData::new(bytes);

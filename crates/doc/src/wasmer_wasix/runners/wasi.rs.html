@@ -523,7 +523,7 @@
 <a href=#523 id=523 data-nosnippet>523</a>        </span><span class="kw">let </span>exit_code = tasks.spawn_and_block_on(
 <a href=#524 id=524 data-nosnippet>524</a>            <span class="kw">async move </span>{
 <a href=#525 id=525 data-nosnippet>525</a>                <span class="kw">let </span><span class="kw-2">mut </span>task_handle =
-<a href=#526 id=526 data-nosnippet>526</a>                    <span class="kw">crate</span>::bin_factory::spawn_exec(pkg, <span class="kw-2">&amp;</span>command_name, env, <span class="kw-2">&amp;</span>runtime)
+<a href=#526 id=526 data-nosnippet>526</a>                    <span class="kw">crate</span>::bin_factory::spawn_exec(pkg.into(), <span class="kw-2">&amp;</span>command_name, env, <span class="kw-2">&amp;</span>runtime)
 <a href=#527 id=527 data-nosnippet>527</a>                        .<span class="kw">await
 <a href=#528 id=528 data-nosnippet>528</a>                        </span>.context(<span class="string">"Spawn failed"</span>)<span class="question-mark">?</span>;
 <a href=#529 id=529 data-nosnippet>529</a>
