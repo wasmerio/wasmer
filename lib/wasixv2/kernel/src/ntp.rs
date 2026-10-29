@@ -2,10 +2,10 @@
 //! (`CONFIG_NTP_PPS` off): what `adjtimex` stores and reports, and the leap second state
 //! machine of `second_overflow`.
 //!
-//! The clock is the host's plus an offset, which nothing slews: the frequency, the phase offset
-//! of `ADJ_OFFSET` and the `adjtime` remainder are stored and reported as Linux computes them,
-//! but leave the clock's rate alone. `second_overflow` runs lazily, at the seconds where it
-//! does something ([`Ntp::next_event`]), with the per-second growth of `maxerror` caught up.
+//! Frequency/tick rate and the phase/adjtime corrections are integrated by Timekeeper
+//! against the monotonic clock; realtime reads catch up even while the machine is idle.
+
+use std::time::Duration;
 
 use wasixv2_abi::{AdjtimexModes, ClockState, KernelTimex, KernelTimexTimeval, TimexStatus};
 
@@ -52,8 +52,15 @@ fn has(modes: AdjtimexModes, mode: AdjtimexModes) -> bool {
     modes.0 & mode.0 != 0
 }
 
-/// `struct ntp_data`, less the PPS and slewing fields.
+/// `struct ntp_data`, without PPS.
 pub(crate) struct Ntp {
+    slew_mono: i128,
+    slew_wall: i128,
+    slew_remainder: i128,
+    phase_rate: i128,
+    adjust_rate: i128,
+    phase_fraction: i128,
+    adjust_fraction: i128,
     tick_usec: i64,
     time_state: ClockState,
     time_status: u32,
@@ -76,6 +83,13 @@ impl Ntp {
     /// The boot state (`tk_ntp_data`), as of the realtime second `now`.
     pub(crate) fn new(now: i64) -> Self {
         Self {
+            slew_mono: 0,
+            slew_wall: i128::from(now) * 1_000_000_000,
+            slew_remainder: 0,
+            phase_rate: 0,
+            adjust_rate: 0,
+            phase_fraction: 0,
+            adjust_fraction: 0,
             tick_usec: USER_TICK_USEC,
             time_state: ClockState::TIME_OK,
             time_status: TimexStatus::STA_UNSYNC.0,
@@ -95,6 +109,10 @@ impl Ntp {
     /// second pending. The leap state stays.
     pub(crate) fn clear(&mut self, now: i64) {
         self.time_adjust = 0;
+        self.adjust_fraction = 0;
+        self.phase_fraction = 0;
+        self.phase_rate = 0;
+        self.adjust_rate = 0;
         self.time_status |= TimexStatus::STA_UNSYNC.0;
         self.time_maxerror = NTP_PHASE_LIMIT;
         self.time_esterror = NTP_PHASE_LIMIT;
@@ -102,6 +120,83 @@ impl Ntp {
         self.ntp_next_leap_sec = i64::MAX;
         // A set skips the seconds between, as `second_overflow` runs only as the clock ticks.
         self.last_sec = now;
+    }
+
+    pub(crate) fn start_slew(&mut self, mono: Duration, wall: i128) {
+        self.slew_mono = mono.as_nanos() as i128;
+        self.slew_wall = wall;
+        self.slew_remainder = 0;
+    }
+
+    /// kernel/time/ntp.c: second_overflow, ntp_offset_chunk, ntp_drain_skew;
+    /// timekeeping.c: timekeeping_adjust/logarithmic_accumulation. Integrate the
+    /// scaled clock rate between realtime second boundaries, retaining sub-ns phase.
+    /// Phase and adjtime drain independently, so opposing corrections also converge.
+    pub(crate) fn slew(&mut self, mono: Duration, raw_wall: i128) -> i128 {
+        const NS: i128 = 1_000_000_000;
+        const SCALE: i128 = 1 << NTP_SCALE_SHIFT;
+        const DENOM: i128 = NS * SCALE;
+        const US: i128 = 1_000 * SCALE;
+        let mono = mono.as_nanos() as i128;
+        let mut elapsed = (mono - self.slew_mono).max(0);
+        self.slew_mono = mono;
+        // A host wall-clock step is a baseline change, never phase to slew away.
+        self.slew_wall = raw_wall - elapsed;
+        let steady = i128::from(self.tick_usec * NSEC_PER_USEC * USER_HZ - 1_000_000_000) * SCALE
+            + i128::from(self.time_freq);
+        let mut applied = 0;
+        while elapsed > 0 {
+            let phase = i128::from(self.time_offset) * i128::from(HZ) + self.phase_fraction;
+            let adjust = i128::from(self.time_adjust) * US + self.adjust_fraction;
+            let pending = phase != 0 || adjust != 0;
+            let rate = steady + self.phase_rate + self.adjust_rate;
+            let until_second = NS - self.slew_wall.rem_euclid(NS);
+            let until_boundary = (until_second * DENOM + DENOM + rate - 1) / (DENOM + rate);
+            let step = if pending {
+                elapsed.min(until_boundary.max(1))
+            } else {
+                elapsed
+            };
+            let drain = |remaining: i128, rate: i128| {
+                if remaining == 0 || remaining.signum() != rate.signum() {
+                    0
+                } else {
+                    (step * rate / NS).abs().min(remaining.abs()) * remaining.signum()
+                }
+            };
+            let phase_done = drain(phase, self.phase_rate);
+            let adjust_done = drain(adjust, self.adjust_rate);
+            let phase_left = phase - phase_done;
+            self.time_offset = (phase_left / i128::from(HZ)) as i64;
+            self.phase_fraction = phase_left % i128::from(HZ);
+            let adjust_left = adjust - adjust_done;
+            self.time_adjust = (adjust_left / US) as i64;
+            self.adjust_fraction = adjust_left % US;
+            let correction =
+                step.saturating_mul(steady) + (phase_done + adjust_done) * NS + self.slew_remainder;
+            let ns = correction / DENOM;
+            self.slew_remainder = correction % DENOM;
+            applied += ns;
+            self.slew_wall += step + ns;
+            elapsed -= step;
+            if pending && step == until_boundary.max(1) {
+                // Rate for the next second, with Linux's final nonzero chunk floor.
+                self.phase_rate = phase_left / (1i128 << (SHIFT_PLL + self.time_constant));
+                if self.phase_rate == 0 {
+                    self.phase_rate = phase_left;
+                }
+                self.adjust_rate = adjust_left.clamp(-500_000 * SCALE, 500_000 * SCALE);
+                // second_overflow floors a nonzero skew_delta at +/-1 per tick.
+                // Converted from its divided-by-HZ units, that is HZ*HZ here.
+                let floor = i128::from(HZ * HZ);
+                for rate in [&mut self.phase_rate, &mut self.adjust_rate] {
+                    if *rate != 0 && rate.abs() < floor {
+                        *rate = rate.signum() * floor;
+                    }
+                }
+            }
+        }
+        applied
     }
 
     fn status(&self, bits: TimexStatus) -> bool {
@@ -236,6 +331,7 @@ impl Ntp {
         freq_adj = freq_adj.saturating_add(self.time_freq).min(MAXFREQ_SCALED);
         self.time_freq = freq_adj.max(-MAXFREQ_SCALED);
         self.time_offset = (offset << NTP_SCALE_SHIFT) / HZ;
+        self.phase_fraction = 0;
     }
 
     /// `process_adjtimex_modes`
@@ -292,6 +388,7 @@ impl Ntp {
             let save_adjust = self.time_adjust;
             if txc.modes.0 & ADJ_OFFSET_READONLY == 0 {
                 self.time_adjust = txc.offset;
+                self.adjust_fraction = 0;
             }
             txc.offset = save_adjust;
         } else {
