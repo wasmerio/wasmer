@@ -989,9 +989,8 @@ impl Network for Net {
         protocol: i32,
         uid: u32,
     ) -> Result<Arc<dyn Socket>, Errno> {
-        // `inet_create`: 0 means the default; IPPROTO_TCP=6, IPPROTO_UDP=17, and ICMP's
-        // datagram (ping) and raw sockets of the family's ICMP. Raw sockets of other
-        // protocols carry nothing here.
+        // `inet_create`: 0 means the default; IPPROTO_TCP=6, IPPROTO_UDP=17, ICMP's datagram
+        // (ping) sockets, and raw sockets of any protocol (see `raw.rs`).
         let icmp = match domain {
             Domain::Inet => IPPROTO_ICMP,
             Domain::Inet6 => IPPROTO_ICMPV6,
@@ -1004,7 +1003,11 @@ impl Network for Net {
             }
             (SocketKind::Raw, p) if p == icmp => Ok(IcmpSocket::new(self.arc(), domain, true, uid)),
             (SocketKind::Raw, 0) => Err(Errno::EPROTONOSUPPORT),
-            (SocketKind::Raw, _) => Err(Errno::ESOCKTNOSUPPORT),
+            (SocketKind::Raw, p) if !(0..crate::raw::IPPROTO_MAX).contains(&p) => {
+                Err(Errno::EINVAL)
+            }
+            // `inet_num` is what a packet's protocol is matched against: one past 255 never is.
+            (SocketKind::Raw, p) => Ok(IcmpSocket::raw(self.arc(), domain, p as u8, uid)),
             _ => Err(Errno::EPROTONOSUPPORT),
         }
     }

@@ -2999,3 +2999,142 @@ fn the_dns_server_has_an_ipv6_address_on_an_ipv6_uplink() {
     assert_eq!(got.from, Some(a("[fec0::3]:53")));
     assert_eq!(records(&buf[..got.len], TYPE_AAAA).len(), 1);
 }
+
+/// A UDP header, then `payload`, with the checksum over the IPv4 pseudo header.
+fn udp4(src: SocketAddr, dst: SocketAddr, payload: &[u8]) -> Vec<u8> {
+    let len = 8 + payload.len();
+    let mut u = Vec::new();
+    u.extend(src.port().to_be_bytes());
+    u.extend(dst.port().to_be_bytes());
+    u.extend((len as u16).to_be_bytes());
+    u.extend([0, 0]);
+    u.extend_from_slice(payload);
+    let (std::net::IpAddr::V4(s), std::net::IpAddr::V4(d)) = (src.ip(), dst.ip()) else {
+        panic!("IPv4")
+    };
+    let mut pseudo = s.octets().to_vec();
+    pseudo.extend(d.octets());
+    pseudo.extend([0, 17]);
+    pseudo.extend((len as u16).to_be_bytes());
+    pseudo.extend(&u);
+    let c = csum(&pseudo);
+    u[6..8].copy_from_slice(&c.to_be_bytes());
+    u
+}
+
+/// Raw sockets of other protocols (`raw.c`): a raw UDP socket gets a copy of every UDP
+/// datagram arriving in the namespace, behind an IPv4 header; a raw socket's own UDP packet
+/// reaches the UDP socket of its port; `IPPROTO_RAW` sends its own header; a protocol nobody
+/// takes is answered with a protocol unreachable, one a raw socket listens to is not.
+#[test]
+fn raw_sockets_of_any_protocol_see_and_send_packets() {
+    let n = net();
+    let raw_udp = n.socket(Domain::Inet, SocketKind::Raw, 17, UID).unwrap();
+    assert_eq!(raw_udp.protocol(), 17);
+    let rx = n
+        .socket(Domain::Inet, SocketKind::Datagram, 0, UID)
+        .unwrap();
+    rx.bind(a("127.0.0.1:7000"), false).unwrap();
+    let tx = n
+        .socket(Domain::Inet, SocketKind::Datagram, 0, UID)
+        .unwrap();
+    tx.bind(a("127.0.0.1:7001"), false).unwrap();
+    send_to(&*tx, b"hi", Some(a("127.0.0.1:7000"))).unwrap();
+    let mut buf = [0; 128];
+    let got = raw_udp.recv(&mut buf, MsgFlags(0)).unwrap();
+    assert_eq!(got.len, 20 + 8 + 2);
+    assert_eq!((buf[0], buf[9]), (0x45, 17));
+    assert_eq!(&buf[20..24], &[0x1b, 0x59, 0x1b, 0x58]);
+    assert_eq!(&buf[28..30], b"hi");
+    assert_eq!(recv(&*rx, 16).unwrap(), b"hi");
+
+    // A UDP packet a raw UDP socket writes reaches the UDP socket of its port, as from the
+    // port its header names.
+    let packet = udp4(a("127.0.0.1:9999"), a("127.0.0.1:7000"), b"crafted");
+    send_to(&*raw_udp, &packet, Some(a("127.0.0.1:0"))).unwrap();
+    let mut from = [0; 16];
+    let r = rx.recv(&mut from, MsgFlags(0)).unwrap();
+    assert_eq!(&from[..r.len], b"crafted");
+    assert_eq!(r.from.unwrap(), a("127.0.0.1:9999"));
+    // A bad checksum is dropped.
+    let mut bad = packet.clone();
+    bad[8] ^= 1;
+    send_to(&*raw_udp, &bad, Some(a("127.0.0.1:0"))).unwrap();
+    assert_eq!(recv(&*rx, 16), Err(Errno::EAGAIN));
+    while raw_udp.recv(&mut buf, MsgFlags::MSG_DONTWAIT).is_ok() {}
+
+    // Protocol 253 (experimentation): a raw socket of 253 gets what another sends; the
+    // sender's own raw socket of 254 takes its own packet, so no error comes back.
+    let icmp = raw_icmp(&n, Domain::Inet);
+    let exp = n.socket(Domain::Inet, SocketKind::Raw, 253, UID).unwrap();
+    let mine = n.socket(Domain::Inet, SocketKind::Raw, 253, UID).unwrap();
+    send_to(&*mine, b"payload", Some(a("127.0.0.1:0"))).unwrap();
+    let got = exp.recv(&mut buf, MsgFlags(0)).unwrap();
+    assert_eq!(buf[9], 253);
+    assert_eq!(&buf[20..got.len], b"payload");
+    assert_eq!(
+        recv(&*icmp, 128),
+        Err(Errno::EAGAIN),
+        "no error for a taken protocol"
+    );
+
+    // IPPROTO_RAW sends with IP_HDRINCL: the header names protocol 253, then 252, which no
+    // socket takes: a protocol unreachable comes back, quoting the packet.
+    let raw = n.socket(Domain::Inet, SocketKind::Raw, 255, UID).unwrap();
+    let mut out = [0; 4];
+    let len = raw.get_option(0, 3, &mut out).unwrap();
+    assert_eq!(&out[..len], &1i32.to_le_bytes(), "IP_HDRINCL is on");
+    let mut packet = vec![
+        0x45, 0, 0, 0, 0, 0, 0, 0, 33, 253, 0, 0, 0, 0, 0, 0, 127, 0, 0, 1,
+    ];
+    packet.extend(b"own");
+    send_to(&*raw, &packet, Some(a("127.0.0.1:0"))).unwrap();
+    let got = exp.recv(&mut buf, MsgFlags(0)).unwrap();
+    assert_eq!(buf[8], 33, "the header's TTL");
+    assert_eq!(&buf[20..got.len], b"own");
+    packet[9] = 252;
+    send_to(&*raw, &packet, Some(a("127.0.0.1:0"))).unwrap();
+    let got = icmp.recv(&mut buf, MsgFlags(0)).unwrap();
+    assert_eq!((buf[20], buf[21]), (3, 2), "protocol unreachable");
+    assert_eq!(buf[28 + 9], 252, "quoting the packet's header");
+    assert_eq!(&buf[48..got.len], b"own");
+    assert_eq!(
+        send_to(&*raw, &packet[..10], Some(a("127.0.0.1:0"))),
+        Err(Errno::EINVAL)
+    );
+    // ICMP_FILTER is ICMP's alone.
+    assert_eq!(exp.set_option(255, 1, &[0; 4]), Err(Errno::EOPNOTSUPP));
+}
+
+/// A raw IPv6 socket of another protocol: `IPV6_CHECKSUM` at the IPv6 level (refused on
+/// ICMPv6 there), and the checksum the kernel computes over the pseudo header.
+#[test]
+fn raw_ipv6_sockets_compute_the_checksum_ipv6_checksum_asks_for() {
+    let n = net();
+    let r = n.socket(Domain::Inet6, SocketKind::Raw, 253, UID).unwrap();
+    let mut out = [0; 4];
+    let len = r.get_option(41, 7, &mut out).unwrap();
+    assert_eq!(
+        &out[..len],
+        &(-1i32).to_le_bytes(),
+        "no checksum by default"
+    );
+    assert_eq!(r.set_option(41, 7, &3i32.to_le_bytes()), Err(Errno::EINVAL));
+    r.set_option(41, 7, &2i32.to_le_bytes()).unwrap();
+    send_to(&*r, &[0xab, 0, 0, 0, 1, 2], Some(a("[::1]:0"))).unwrap();
+    let mut buf = [0; 16];
+    let got = r.recv(&mut buf, MsgFlags(0)).unwrap();
+    assert_eq!(got.len, 6, "no IPv6 header");
+    let mut pseudo = std::net::Ipv6Addr::LOCALHOST.octets().to_vec();
+    pseudo.extend(std::net::Ipv6Addr::LOCALHOST.octets());
+    pseudo.extend(6u32.to_be_bytes());
+    pseudo.extend([0, 0, 0, 253]);
+    pseudo.extend(&buf[..6]);
+    assert_eq!(csum(&pseudo), 0);
+    let icmp6 = raw_icmp(&n, Domain::Inet6);
+    assert_eq!(
+        icmp6.set_option(41, 7, &2i32.to_le_bytes()),
+        Err(Errno::EINVAL)
+    );
+    assert_eq!(r.set_option(58, 1, &[0; 32]), Err(Errno::EOPNOTSUPP));
+}

@@ -685,6 +685,7 @@ impl Net {
         at: &Arrival,
         data: &[u8],
     ) {
+        self.raw_udp_copy(from, dst, at, data);
         let socks = self.state().udp_on_port(dst.port());
         for sock in socks.iter().filter_map(Weak::upgrade) {
             sock.deliver_multicast(dst, from, at, data);
@@ -979,38 +980,30 @@ impl Socket for UdpSocket {
                 back_iif,
             } => {
                 drop(g);
-                match to {
-                    Some(target) => {
-                        let arrival = Arrival {
-                            src: from.ip(),
-                            dst: dst.ip(),
-                            ttl,
-                            iif,
-                            pkttype: PACKET_HOST,
-                        };
-                        if msg.data.is_empty() {
-                            target.deliver(msg.data, from, &arrival);
-                        }
-                        for chunk in msg.data.chunks(segment) {
-                            target.deliver(chunk, from, &arrival);
-                        }
+                let arrival = Arrival {
+                    src: from.ip(),
+                    dst: dst.ip(),
+                    ttl,
+                    iif,
+                    pkttype: PACKET_HOST,
+                };
+                let back = Back {
+                    net: self.net.clone(),
+                    iif: back_iif,
+                };
+                // Each segment is a datagram of its own; raw UDP sockets there see it first.
+                // Nobody taking it there, the namespace answers with a port unreachable.
+                let arrive = |data: &[u8]| {
+                    at.raw_udp_copy(from, dst, &arrival, data);
+                    match &to {
+                        Some(target) => target.deliver(data, from, &arrival),
+                        None => at.udp_unreachable(from, dst, data, iif, back.clone(), msg.now),
                     }
-                    // Nobody takes it there: the namespace answers with a port unreachable,
-                    // each segment being a datagram of its own.
-                    None => {
-                        let back = Back {
-                            net: self.net.clone(),
-                            iif: back_iif,
-                        };
-                        let unreachable = |data: &[u8]| {
-                            at.udp_unreachable(from, dst, data, iif, back.clone(), msg.now)
-                        };
-                        if msg.data.is_empty() {
-                            unreachable(msg.data);
-                        }
-                        msg.data.chunks(segment).for_each(unreachable);
-                    }
+                };
+                if msg.data.is_empty() {
+                    arrive(msg.data);
                 }
+                msg.data.chunks(segment).for_each(arrive);
                 Ok(msg.data.len())
             }
             // Lost on a link where nothing answers; where no neighbour does, the sender hears

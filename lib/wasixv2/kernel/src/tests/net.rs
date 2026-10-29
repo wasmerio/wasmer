@@ -363,8 +363,8 @@ fn root_binds_privileged_ports_and_raw_sockets_need_cap_net_raw() {
         block_on(kernel.bind(&caller, fd, GuestPtr::new(0x200), 16)),
         Ok(0)
     );
-    // A raw ICMP socket for root; raw sockets of other protocols carry nothing, and one of
-    // protocol 0 is none (`inet_create`).
+    // Raw sockets of any protocol for root; one of protocol 0 is none and one past
+    // `IPPROTO_MAX` invalid (`inet_create`), before the capability check.
     let vnet = wasixv2_vnet::Net::new(wasixv2_vnet::NetConfig::default(), None);
     let (kernel, task, memory) = super::cred::machine_with(|kernel| {
         kernel
@@ -374,13 +374,16 @@ fn root_binds_privileged_ports_and_raw_sockets_need_cap_net_raw() {
     let caller = Caller::new(task, &memory);
     let raw = |protocol| block_on(kernel.socket(&caller, AddressFamily::AF_INET, 3, protocol));
     assert!(raw(1).is_ok());
-    assert_eq!(errno(raw(17)), Errno::ESOCKTNOSUPPORT);
+    assert!(raw(17).is_ok());
+    assert!(raw(255).is_ok());
     assert_eq!(errno(raw(0)), Errno::EPROTONOSUPPORT);
+    assert_eq!(errno(raw(263)), Errno::EINVAL);
     let (kernel, task, memory) = networked();
     let caller = Caller::new(task, &memory);
     let raw = |protocol| block_on(kernel.socket(&caller, AddressFamily::AF_INET, 3, protocol));
     assert_eq!(errno(raw(1)), Errno::EPERM);
     assert_eq!(errno(raw(0)), Errno::EPROTONOSUPPORT);
+    assert_eq!(errno(raw(-1)), Errno::EINVAL);
 }
 
 #[test]
