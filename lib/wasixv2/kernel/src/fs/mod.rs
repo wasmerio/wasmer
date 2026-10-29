@@ -972,10 +972,30 @@ pub(crate) fn build_open_flags(how: &OpenHow) -> Result<(OpenFlags, LookupFlags)
 }
 
 pub(crate) async fn read_path(memory: &dyn UserMemory, path: Cstr) -> Result<Vec<u8>, Errno> {
+    // Linux fs/namei.c:getname_flags/strncpy_from_user faults on unmapped
+    // pathname bytes. Host loads in this guard are allowed only for LLVM's
+    // null va_list workaround; a pathname is not a va_list.
+    if path.addr() < memory.low_guard().await {
+        return Err(Errno::EFAULT);
+    }
     read_cstr(memory, path, PATH_MAX)
         .await
         .map_err(|err| match err {
             CstrError::Fault => Errno::EFAULT,
             CstrError::TooLong => Errno::ENAMETOOLONG,
         })
+}
+
+/// Linux include/linux/fs.h:getname_maybe_null: only these callers allow a NULL
+/// pathname with AT_EMPTY_PATH; non-NULL pointers still require a readable byte.
+pub(crate) async fn read_path_maybe_null(
+    memory: &dyn UserMemory,
+    path: Cstr,
+    flags: AtFlags,
+) -> Result<Vec<u8>, Errno> {
+    if path.is_null() && flags.contains(AtFlags::AT_EMPTY_PATH) {
+        Ok(Vec::new())
+    } else {
+        read_path(memory, path).await
+    }
 }

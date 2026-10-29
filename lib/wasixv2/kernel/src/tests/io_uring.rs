@@ -4728,3 +4728,81 @@ fn return_task_work_defers_a_busy_ring_without_blocking() {
     assert_eq!(res(&ring.reap()), [(91, 4)]);
     assert_eq!(m.memory.get(BUF, 4), b"work");
 }
+
+/// Linux fs/namei.c:getname_flags faults on unmapped pathname memory before lookup.
+#[test]
+fn path_operations_fault_on_readable_low_guard_addresses() {
+    let m = Machine::new();
+    let ring = m.ring(8, IoringSetupFlags::IORING_SETUP_SUBMIT_ALL.0);
+    let memory = mount::Guarded(&m.memory, 65536);
+    let caller = Caller::new(m.task, &memory);
+    for (opcode, user_data) in [
+        (IoUringOp::IORING_OP_STATX, 81),
+        (IoUringOp::IORING_OP_UNLINKAT, 82),
+        (IoUringOp::IORING_OP_MKDIRAT, 83),
+    ] {
+        ring.push(IoUringSqe {
+            addr: 0x1234,
+            off: if opcode == IoUringOp::IORING_OP_STATX {
+                (ring.rings + 4096).into()
+            } else {
+                0
+            },
+            ..sqe(opcode, -100, user_data)
+        });
+    }
+    assert_eq!(
+        block_on(
+            m.kernel
+                .io_uring_enter(&caller, ring.fd, 3, 0, 0, GuestPtr::NULL, 0)
+        ),
+        Ok(3)
+    );
+    assert_eq!(
+        res(&ring.reap()),
+        [
+            (81, -Errno::EFAULT.0),
+            (82, -Errno::EFAULT.0),
+            (83, -Errno::EFAULT.0)
+        ]
+    );
+    // The same pathname copy serves normal syscalls, including an empty string.
+    assert_eq!(
+        block_on(m.kernel.statx(
+            &caller,
+            Fd(-100),
+            GuestPtr::NULL,
+            AtFlags::AT_EMPTY_PATH,
+            wasixv2_abi::StatxMask(0),
+            GuestPtrMut::new(ring.rings + 4096)
+        )),
+        Ok(0)
+    );
+    assert_eq!(
+        errno(block_on(m.kernel.mkdirat(
+            &caller,
+            Fd(-100),
+            GuestPtr::new(0x1234),
+            0o755
+        ))),
+        Errno::EFAULT
+    );
+    assert_eq!(
+        errno(block_on(m.kernel.unlinkat(
+            &caller,
+            Fd(-100),
+            GuestPtr::new(0x1234),
+            AtFlags(0)
+        ))),
+        Errno::EFAULT
+    );
+    assert_eq!(
+        block_on(crate::fs::read_path(&memory, GuestPtr::new(65536))),
+        Ok(Vec::new())
+    );
+    assert_eq!(
+        block_on(crate::fs::read_path(&m.memory, GuestPtr::new(0x1234))),
+        Ok(Vec::new()),
+        "images without a guard keep their valid low addresses"
+    );
+}
