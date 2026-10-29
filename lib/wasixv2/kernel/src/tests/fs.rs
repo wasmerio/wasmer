@@ -1727,3 +1727,35 @@ fn user_xattrs_are_supported_on_socket_inodes() {
     );
     assert_eq!(get(&memory, 0x3000, 5), b"value");
 }
+
+/// fs/notify/fanotify/fanotify.c fanotify_group_event_mask removes
+/// FAN_ONDIR/FAN_EVENT_ON_CHILD from legacy descriptor events.
+#[test]
+fn legacy_fanotify_directory_events_contain_only_event_bits() {
+    use wasixv2_abi::{FanotifyMarkFlags as M, FanotifyMask as E};
+    let (kernel, task, memory) = super::cred::machine_as(0, 0);
+    let t = T::new(&kernel, task, &memory);
+    t.mkdir("/dir");
+    let group = Fd(block_on(kernel.fanotify_init(&t.caller, 2, 0)).unwrap());
+    let name = t.path("/dir");
+    assert_eq!(
+        block_on(kernel.fanotify_mark(
+            &t.caller,
+            group,
+            M::FAN_MARK_ADD.0,
+            (E::FAN_OPEN | E::FAN_ONDIR).0,
+            CWD,
+            name
+        )),
+        Ok(0)
+    );
+    let fd = t
+        .open("/dir", OpenFlags::O_RDONLY | OpenFlags::O_DIRECTORY)
+        .unwrap();
+    let events = fanotify_events(&t, group);
+    assert_eq!(events.len(), 1);
+    assert_eq!(events[0].0, E::FAN_OPEN.0);
+    t.close(Fd(events[0].1));
+    t.close(fd);
+    assert!(fanotify_events(&t, group).is_empty());
+}

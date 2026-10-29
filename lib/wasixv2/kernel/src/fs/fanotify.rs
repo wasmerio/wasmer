@@ -754,7 +754,9 @@ impl Group {
         let (marks, ignore, matched) = self.matching(change);
         let test = change.mask & marks & !ignore;
         let user = match fid_mode {
-            0 => OUTGOING,
+            // fs/notify/fanotify/fanotify.c fanotify_group_event_mask
+            // strips FANOTIFY_EVENT_FLAGS for groups that report descriptors.
+            0 => OUTGOING & !EVENT_FLAGS,
             _ => OUTGOING | EVENT_FLAGS,
         };
         if fid_mode != 0 && test & !EVENT_FLAGS == 0 {
