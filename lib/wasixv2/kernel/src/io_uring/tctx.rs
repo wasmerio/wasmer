@@ -141,29 +141,45 @@ impl Kernel {
     }
 
     /// io_uring/tw.c:tctx_task_work_run, called before get_signal's task_work_run boundary.
-    pub(crate) async fn io_uring_run_task_work(&self, caller: &Caller<'_>) {
+    pub(crate) fn io_uring_run_task_work<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+    ) -> wasixv2_syscalls::LocalFuture<'a, ()> {
         let context = self
             .state
-            .lock_or_recover()
+            .read_or_recover()
             .tasks
             .get(&caller.task())
-            .map(|task| (task.uring.clone(), task.mm.clone()));
-        let Some((tctx, mm)) = context else { return };
-        while tctx.pending.swap(false, Ordering::AcqRel) {
-            self.task_signals(caller.task())
-                .group()
-                .clear_uring_notify(caller.task());
-            for ctx in tctx.rings() {
-                if ctx
-                    .shape
-                    .has(wasixv2_abi::IoringSetupFlags::IORING_SETUP_DEFER_TASKRUN)
-                {
-                    continue;
+            .filter(|task| task.uring.pending())
+            .map(|task| (task.uring.clone(), task.mm.id(), task.signals.clone()));
+        let Some((tctx, mm, signals)) = context else {
+            // A capture-free PollFn is zero-sized: boxing this completed future
+            // allocates nothing on signal returns of tasks without io_uring work.
+            return Box::pin(std::future::poll_fn(|_| std::task::Poll::Ready(())));
+        };
+        Box::pin(async move {
+            while tctx.pending.swap(false, Ordering::AcqRel) {
+                signals.group().clear_uring_notify(caller.task());
+                for ctx in tctx.rings() {
+                    if ctx
+                        .shape
+                        .has(wasixv2_abi::IoringSetupFlags::IORING_SETUP_DEFER_TASKRUN)
+                    {
+                        continue;
+                    }
+                    // io_uring/tw.c:tctx_task_work_run issues under uring_lock.
+                    // This cooperative return hook leaves busy work notified
+                    // for the next boundary/enter instead of parking its executor
+                    // behind another task's long buffer registration.
+                    let Some(_submit) = ctx.submit.try_lock() else {
+                        tctx.pending.store(true, Ordering::Release);
+                        signals.group().notify_uring(caller.task());
+                        return;
+                    };
+                    self.run_task_work(caller, &ctx, mm).await;
                 }
-                let _submit = ctx.submit.lock().await;
-                self.run_task_work(caller, &ctx, mm.id()).await;
             }
-        }
+        })
     }
 
     pub(crate) fn tctx(&self, task: TaskId) -> Arc<Tctx> {

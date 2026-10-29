@@ -3409,7 +3409,7 @@ impl Syscalls for Kernel {
 
 impl Control for Kernel {
     fn run_task_work<'a>(&'a self, caller: &'a Caller<'_>) -> LocalFuture<'a, ()> {
-        Box::pin(self.io_uring_run_task_work(caller))
+        self.io_uring_run_task_work(caller)
     }
 
     fn take_pending(&self, task: TaskId) -> Option<GuestAction> {
@@ -3579,7 +3579,10 @@ impl SharedMappings for Kernel {
         // so exit_mm cannot mark its final user left_mm between check and attach.
         let state = self.state.read_or_recover();
         if let Some(entry) = state.tasks.get(&task)
-            && state.tasks.values().any(|t| Arc::ptr_eq(&t.mm, &entry.mm) && !t.thread.left_mm())
+            && state
+                .tasks
+                .values()
+                .any(|t| Arc::ptr_eq(&t.mm, &entry.mm) && !t.thread.left_mm())
         {
             entry.mm.attach_foreign(memory);
         }
