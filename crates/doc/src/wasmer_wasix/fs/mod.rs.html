@@ -3650,82 +3650,92 @@
 <a href=#3650 id=3650 data-nosnippet>3650</a>        <span class="kw">let </span>link = wasi_fs
 <a href=#3651 id=3651 data-nosnippet>3651</a>            .get_inode_at_path(<span class="kw-2">&amp;</span>inodes, <span class="kw">crate</span>::VIRTUAL_ROOT_FD, <span class="string">"/link"</span>, <span class="bool-val">false</span>)
 <a href=#3652 id=3652 data-nosnippet>3652</a>            .unwrap();
-<a href=#3653 id=3653 data-nosnippet>3653</a>        <span class="macro">assert!</span>(<span class="macro">matches!</span>(
-<a href=#3654 id=3654 data-nosnippet>3654</a>            link.read().deref(),
-<a href=#3655 id=3655 data-nosnippet>3655</a>            Kind::Symlink {
-<a href=#3656 id=3656 data-nosnippet>3656</a>                symlink_kind: SymlinkKind::Virtual,
-<a href=#3657 id=3657 data-nosnippet>3657</a>                relative_path,
-<a href=#3658 id=3658 data-nosnippet>3658</a>                ..
-<a href=#3659 id=3659 data-nosnippet>3659</a>            } <span class="kw">if </span>relative_path == Path::new(<span class="string">"target.txt"</span>)
-<a href=#3660 id=3660 data-nosnippet>3660</a>        ));
-<a href=#3661 id=3661 data-nosnippet>3661</a>
-<a href=#3662 id=3662 data-nosnippet>3662</a>        <span class="comment">// Parent must not have cached the symlink.
-<a href=#3663 id=3663 data-nosnippet>3663</a>        </span><span class="kw">let </span>(parent_inode, <span class="kw">_</span>, child_name) = wasi_fs
-<a href=#3664 id=3664 data-nosnippet>3664</a>            .get_owned_parent_inode_at_path(
-<a href=#3665 id=3665 data-nosnippet>3665</a>                <span class="kw-2">&amp;</span>inodes,
-<a href=#3666 id=3666 data-nosnippet>3666</a>                <span class="kw">crate</span>::VIRTUAL_ROOT_FD,
-<a href=#3667 id=3667 data-nosnippet>3667</a>                Path::new(<span class="string">"/link"</span>),
-<a href=#3668 id=3668 data-nosnippet>3668</a>                <span class="bool-val">false</span>,
-<a href=#3669 id=3669 data-nosnippet>3669</a>            )
-<a href=#3670 id=3670 data-nosnippet>3670</a>            .unwrap();
-<a href=#3671 id=3671 data-nosnippet>3671</a>        <span class="macro">assert_eq!</span>(child_name, <span class="string">"link"</span>);
-<a href=#3672 id=3672 data-nosnippet>3672</a>        <span class="kw">match </span>parent_inode.read().deref() {
-<a href=#3673 id=3673 data-nosnippet>3673</a>            Kind::Dir { entries, .. } | Kind::Root { entries } =&gt; {
-<a href=#3674 id=3674 data-nosnippet>3674</a>                <span class="macro">assert!</span>(!entries.contains_key(<span class="string">"link"</span>));
-<a href=#3675 id=3675 data-nosnippet>3675</a>            }
-<a href=#3676 id=3676 data-nosnippet>3676</a>            <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"expected the parent of /link to be a directory"</span>),
-<a href=#3677 id=3677 data-nosnippet>3677</a>        }
-<a href=#3678 id=3678 data-nosnippet>3678</a>    }
-<a href=#3679 id=3679 data-nosnippet>3679</a>
-<a href=#3680 id=3680 data-nosnippet>3680</a>    <span class="attr">#[tokio::test]
-<a href=#3681 id=3681 data-nosnippet>3681</a>    </span><span class="kw">async fn </span>remove_symlink_file_drops_ephemeral_link_without_backing_file() {
-<a href=#3682 id=3682 data-nosnippet>3682</a>        <span class="comment">// Ephemeral link, no host file: removal succeeds, unregisters, target untouched.
-<a href=#3683 id=3683 data-nosnippet>3683</a>        </span><span class="kw">let </span>inodes = WasiInodes::new();
-<a href=#3684 id=3684 data-nosnippet>3684</a>        <span class="kw">let </span>fs_backing =
-<a href=#3685 id=3685 data-nosnippet>3685</a>            WasiFsRoot::from_filesystem(Arc::new(RootFileSystemBuilder::default().build_tmp()));
-<a href=#3686 id=3686 data-nosnippet>3686</a>        <span class="kw">let </span>wasi_fs =
-<a href=#3687 id=3687 data-nosnippet>3687</a>            WasiFs::new_with_preopen(<span class="kw-2">&amp;</span>inodes, <span class="kw-2">&amp;</span>[], <span class="kw-2">&amp;</span>[<span class="string">"/"</span>.to_string()], fs_backing).unwrap();
-<a href=#3688 id=3688 data-nosnippet>3688</a>
-<a href=#3689 id=3689 data-nosnippet>3689</a>        wasi_fs
-<a href=#3690 id=3690 data-nosnippet>3690</a>            .root_fs
-<a href=#3691 id=3691 data-nosnippet>3691</a>            .new_open_options()
-<a href=#3692 id=3692 data-nosnippet>3692</a>            .create(<span class="bool-val">true</span>)
-<a href=#3693 id=3693 data-nosnippet>3693</a>            .write(<span class="bool-val">true</span>)
-<a href=#3694 id=3694 data-nosnippet>3694</a>            .open(Path::new(<span class="string">"/target.txt"</span>))
-<a href=#3695 id=3695 data-nosnippet>3695</a>            .unwrap();
-<a href=#3696 id=3696 data-nosnippet>3696</a>        wasi_fs.register_ephemeral_symlink(
-<a href=#3697 id=3697 data-nosnippet>3697</a>            PathBuf::from(<span class="string">"/link"</span>),
-<a href=#3698 id=3698 data-nosnippet>3698</a>            PathBuf::from(<span class="string">"link"</span>),
-<a href=#3699 id=3699 data-nosnippet>3699</a>            PathBuf::from(<span class="string">"target.txt"</span>),
-<a href=#3700 id=3700 data-nosnippet>3700</a>        );
-<a href=#3701 id=3701 data-nosnippet>3701</a>        <span class="macro">assert!</span>(wasi_fs.ephemeral_symlink_at(Path::new(<span class="string">"/link"</span>)).is_some());
-<a href=#3702 id=3702 data-nosnippet>3702</a>
-<a href=#3703 id=3703 data-nosnippet>3703</a>        <span class="macro">assert_eq!</span>(
-<a href=#3704 id=3704 data-nosnippet>3704</a>            wasi_fs.remove_symlink_file(Path::new(<span class="string">"/link"</span>)),
-<a href=#3705 id=3705 data-nosnippet>3705</a>            Errno::Success
-<a href=#3706 id=3706 data-nosnippet>3706</a>        );
-<a href=#3707 id=3707 data-nosnippet>3707</a>        <span class="macro">assert!</span>(wasi_fs.ephemeral_symlink_at(Path::new(<span class="string">"/link"</span>)).is_none());
-<a href=#3708 id=3708 data-nosnippet>3708</a>        <span class="macro">assert!</span>(
-<a href=#3709 id=3709 data-nosnippet>3709</a>            wasi_fs
-<a href=#3710 id=3710 data-nosnippet>3710</a>                .root_fs
-<a href=#3711 id=3711 data-nosnippet>3711</a>                .metadata(Path::new(<span class="string">"/target.txt"</span>))
-<a href=#3712 id=3712 data-nosnippet>3712</a>                .unwrap()
-<a href=#3713 id=3713 data-nosnippet>3713</a>                .is_file()
-<a href=#3714 id=3714 data-nosnippet>3714</a>        );
-<a href=#3715 id=3715 data-nosnippet>3715</a>    }
-<a href=#3716 id=3716 data-nosnippet>3716</a>
-<a href=#3717 id=3717 data-nosnippet>3717</a>    <span class="attr">#[tokio::test]
-<a href=#3718 id=3718 data-nosnippet>3718</a>    </span><span class="kw">async fn </span>remove_symlink_file_reports_noent_when_nothing_to_remove() {
-<a href=#3719 id=3719 data-nosnippet>3719</a>        <span class="kw">let </span>inodes = WasiInodes::new();
-<a href=#3720 id=3720 data-nosnippet>3720</a>        <span class="kw">let </span>fs_backing =
-<a href=#3721 id=3721 data-nosnippet>3721</a>            WasiFsRoot::from_filesystem(Arc::new(RootFileSystemBuilder::default().build_tmp()));
-<a href=#3722 id=3722 data-nosnippet>3722</a>        <span class="kw">let </span>wasi_fs =
-<a href=#3723 id=3723 data-nosnippet>3723</a>            WasiFs::new_with_preopen(<span class="kw-2">&amp;</span>inodes, <span class="kw-2">&amp;</span>[], <span class="kw-2">&amp;</span>[<span class="string">"/"</span>.to_string()], fs_backing).unwrap();
-<a href=#3724 id=3724 data-nosnippet>3724</a>
-<a href=#3725 id=3725 data-nosnippet>3725</a>        <span class="macro">assert_eq!</span>(
-<a href=#3726 id=3726 data-nosnippet>3726</a>            wasi_fs.remove_symlink_file(Path::new(<span class="string">"/missing"</span>)),
-<a href=#3727 id=3727 data-nosnippet>3727</a>            Errno::Noent
-<a href=#3728 id=3728 data-nosnippet>3728</a>        );
-<a href=#3729 id=3729 data-nosnippet>3729</a>    }
-<a href=#3730 id=3730 data-nosnippet>3730</a>}
+<a href=#3653 id=3653 data-nosnippet>3653</a>        <span class="kw">let </span>stat = <span class="kw-2">*</span>link.stat.read().unwrap();
+<a href=#3654 id=3654 data-nosnippet>3654</a>        <span class="macro">assert_eq!</span>(stat.st_filetype, Filetype::SymbolicLink);
+<a href=#3655 id=3655 data-nosnippet>3655</a>        <span class="macro">assert_ne!</span>(stat.st_ino, <span class="number">0</span>);
+<a href=#3656 id=3656 data-nosnippet>3656</a>        <span class="macro">assert_eq!</span>(stat.st_nlink, <span class="number">1</span>);
+<a href=#3657 id=3657 data-nosnippet>3657</a>        <span class="macro">assert_eq!</span>(stat.st_size, <span class="number">10</span>);
+<a href=#3658 id=3658 data-nosnippet>3658</a>
+<a href=#3659 id=3659 data-nosnippet>3659</a>        <span class="kw">let </span>resolved_again = wasi_fs
+<a href=#3660 id=3660 data-nosnippet>3660</a>            .get_inode_at_path(<span class="kw-2">&amp;</span>inodes, <span class="kw">crate</span>::VIRTUAL_ROOT_FD, <span class="string">"/link"</span>, <span class="bool-val">false</span>)
+<a href=#3661 id=3661 data-nosnippet>3661</a>            .unwrap();
+<a href=#3662 id=3662 data-nosnippet>3662</a>        <span class="macro">assert_eq!</span>(resolved_again.ino(), link.ino());
+<a href=#3663 id=3663 data-nosnippet>3663</a>        <span class="macro">assert!</span>(<span class="macro">matches!</span>(
+<a href=#3664 id=3664 data-nosnippet>3664</a>            link.read().deref(),
+<a href=#3665 id=3665 data-nosnippet>3665</a>            Kind::Symlink {
+<a href=#3666 id=3666 data-nosnippet>3666</a>                symlink_kind: SymlinkKind::Virtual,
+<a href=#3667 id=3667 data-nosnippet>3667</a>                relative_path,
+<a href=#3668 id=3668 data-nosnippet>3668</a>                ..
+<a href=#3669 id=3669 data-nosnippet>3669</a>            } <span class="kw">if </span>relative_path == Path::new(<span class="string">"target.txt"</span>)
+<a href=#3670 id=3670 data-nosnippet>3670</a>        ));
+<a href=#3671 id=3671 data-nosnippet>3671</a>
+<a href=#3672 id=3672 data-nosnippet>3672</a>        <span class="comment">// Parent must not have cached the symlink.
+<a href=#3673 id=3673 data-nosnippet>3673</a>        </span><span class="kw">let </span>(parent_inode, <span class="kw">_</span>, child_name) = wasi_fs
+<a href=#3674 id=3674 data-nosnippet>3674</a>            .get_owned_parent_inode_at_path(
+<a href=#3675 id=3675 data-nosnippet>3675</a>                <span class="kw-2">&amp;</span>inodes,
+<a href=#3676 id=3676 data-nosnippet>3676</a>                <span class="kw">crate</span>::VIRTUAL_ROOT_FD,
+<a href=#3677 id=3677 data-nosnippet>3677</a>                Path::new(<span class="string">"/link"</span>),
+<a href=#3678 id=3678 data-nosnippet>3678</a>                <span class="bool-val">false</span>,
+<a href=#3679 id=3679 data-nosnippet>3679</a>            )
+<a href=#3680 id=3680 data-nosnippet>3680</a>            .unwrap();
+<a href=#3681 id=3681 data-nosnippet>3681</a>        <span class="macro">assert_eq!</span>(child_name, <span class="string">"link"</span>);
+<a href=#3682 id=3682 data-nosnippet>3682</a>        <span class="kw">match </span>parent_inode.read().deref() {
+<a href=#3683 id=3683 data-nosnippet>3683</a>            Kind::Dir { entries, .. } | Kind::Root { entries } =&gt; {
+<a href=#3684 id=3684 data-nosnippet>3684</a>                <span class="macro">assert!</span>(!entries.contains_key(<span class="string">"link"</span>));
+<a href=#3685 id=3685 data-nosnippet>3685</a>            }
+<a href=#3686 id=3686 data-nosnippet>3686</a>            <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"expected the parent of /link to be a directory"</span>),
+<a href=#3687 id=3687 data-nosnippet>3687</a>        }
+<a href=#3688 id=3688 data-nosnippet>3688</a>    }
+<a href=#3689 id=3689 data-nosnippet>3689</a>
+<a href=#3690 id=3690 data-nosnippet>3690</a>    <span class="attr">#[tokio::test]
+<a href=#3691 id=3691 data-nosnippet>3691</a>    </span><span class="kw">async fn </span>remove_symlink_file_drops_ephemeral_link_without_backing_file() {
+<a href=#3692 id=3692 data-nosnippet>3692</a>        <span class="comment">// Ephemeral link, no host file: removal succeeds, unregisters, target untouched.
+<a href=#3693 id=3693 data-nosnippet>3693</a>        </span><span class="kw">let </span>inodes = WasiInodes::new();
+<a href=#3694 id=3694 data-nosnippet>3694</a>        <span class="kw">let </span>fs_backing =
+<a href=#3695 id=3695 data-nosnippet>3695</a>            WasiFsRoot::from_filesystem(Arc::new(RootFileSystemBuilder::default().build_tmp()));
+<a href=#3696 id=3696 data-nosnippet>3696</a>        <span class="kw">let </span>wasi_fs =
+<a href=#3697 id=3697 data-nosnippet>3697</a>            WasiFs::new_with_preopen(<span class="kw-2">&amp;</span>inodes, <span class="kw-2">&amp;</span>[], <span class="kw-2">&amp;</span>[<span class="string">"/"</span>.to_string()], fs_backing).unwrap();
+<a href=#3698 id=3698 data-nosnippet>3698</a>
+<a href=#3699 id=3699 data-nosnippet>3699</a>        wasi_fs
+<a href=#3700 id=3700 data-nosnippet>3700</a>            .root_fs
+<a href=#3701 id=3701 data-nosnippet>3701</a>            .new_open_options()
+<a href=#3702 id=3702 data-nosnippet>3702</a>            .create(<span class="bool-val">true</span>)
+<a href=#3703 id=3703 data-nosnippet>3703</a>            .write(<span class="bool-val">true</span>)
+<a href=#3704 id=3704 data-nosnippet>3704</a>            .open(Path::new(<span class="string">"/target.txt"</span>))
+<a href=#3705 id=3705 data-nosnippet>3705</a>            .unwrap();
+<a href=#3706 id=3706 data-nosnippet>3706</a>        wasi_fs.register_ephemeral_symlink(
+<a href=#3707 id=3707 data-nosnippet>3707</a>            PathBuf::from(<span class="string">"/link"</span>),
+<a href=#3708 id=3708 data-nosnippet>3708</a>            PathBuf::from(<span class="string">"link"</span>),
+<a href=#3709 id=3709 data-nosnippet>3709</a>            PathBuf::from(<span class="string">"target.txt"</span>),
+<a href=#3710 id=3710 data-nosnippet>3710</a>        );
+<a href=#3711 id=3711 data-nosnippet>3711</a>        <span class="macro">assert!</span>(wasi_fs.ephemeral_symlink_at(Path::new(<span class="string">"/link"</span>)).is_some());
+<a href=#3712 id=3712 data-nosnippet>3712</a>
+<a href=#3713 id=3713 data-nosnippet>3713</a>        <span class="macro">assert_eq!</span>(
+<a href=#3714 id=3714 data-nosnippet>3714</a>            wasi_fs.remove_symlink_file(Path::new(<span class="string">"/link"</span>)),
+<a href=#3715 id=3715 data-nosnippet>3715</a>            Errno::Success
+<a href=#3716 id=3716 data-nosnippet>3716</a>        );
+<a href=#3717 id=3717 data-nosnippet>3717</a>        <span class="macro">assert!</span>(wasi_fs.ephemeral_symlink_at(Path::new(<span class="string">"/link"</span>)).is_none());
+<a href=#3718 id=3718 data-nosnippet>3718</a>        <span class="macro">assert!</span>(
+<a href=#3719 id=3719 data-nosnippet>3719</a>            wasi_fs
+<a href=#3720 id=3720 data-nosnippet>3720</a>                .root_fs
+<a href=#3721 id=3721 data-nosnippet>3721</a>                .metadata(Path::new(<span class="string">"/target.txt"</span>))
+<a href=#3722 id=3722 data-nosnippet>3722</a>                .unwrap()
+<a href=#3723 id=3723 data-nosnippet>3723</a>                .is_file()
+<a href=#3724 id=3724 data-nosnippet>3724</a>        );
+<a href=#3725 id=3725 data-nosnippet>3725</a>    }
+<a href=#3726 id=3726 data-nosnippet>3726</a>
+<a href=#3727 id=3727 data-nosnippet>3727</a>    <span class="attr">#[tokio::test]
+<a href=#3728 id=3728 data-nosnippet>3728</a>    </span><span class="kw">async fn </span>remove_symlink_file_reports_noent_when_nothing_to_remove() {
+<a href=#3729 id=3729 data-nosnippet>3729</a>        <span class="kw">let </span>inodes = WasiInodes::new();
+<a href=#3730 id=3730 data-nosnippet>3730</a>        <span class="kw">let </span>fs_backing =
+<a href=#3731 id=3731 data-nosnippet>3731</a>            WasiFsRoot::from_filesystem(Arc::new(RootFileSystemBuilder::default().build_tmp()));
+<a href=#3732 id=3732 data-nosnippet>3732</a>        <span class="kw">let </span>wasi_fs =
+<a href=#3733 id=3733 data-nosnippet>3733</a>            WasiFs::new_with_preopen(<span class="kw-2">&amp;</span>inodes, <span class="kw-2">&amp;</span>[], <span class="kw-2">&amp;</span>[<span class="string">"/"</span>.to_string()], fs_backing).unwrap();
+<a href=#3734 id=3734 data-nosnippet>3734</a>
+<a href=#3735 id=3735 data-nosnippet>3735</a>        <span class="macro">assert_eq!</span>(
+<a href=#3736 id=3736 data-nosnippet>3736</a>            wasi_fs.remove_symlink_file(Path::new(<span class="string">"/missing"</span>)),
+<a href=#3737 id=3737 data-nosnippet>3737</a>            Errno::Noent
+<a href=#3738 id=3738 data-nosnippet>3738</a>        );
+<a href=#3739 id=3739 data-nosnippet>3739</a>    }
+<a href=#3740 id=3740 data-nosnippet>3740</a>}
 </code></pre></div></section></main></body></html>
