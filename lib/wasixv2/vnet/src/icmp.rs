@@ -1275,7 +1275,11 @@ impl Socket for IcmpSocket {
             false => (msg.data.to_vec(), None, None),
         };
         // `ping_v6_sendmsg`: a link-local destination needs an interface.
-        let oif = [ctl.oif, scope, self.device(&g)]
+        let (sticky_src, sticky_oif) = match self.domain {
+            Domain::Inet6 => g.opts.sticky_pktinfo,
+            Domain::Inet => (Ipv6Addr::UNSPECIFIED, 0),
+        };
+        let oif = [ctl.oif, scope, self.device(&g), sticky_oif]
             .into_iter()
             .find(|&i| i != 0)
             .unwrap_or(0);
@@ -1286,8 +1290,10 @@ impl Socket for IcmpSocket {
         {
             return Err(Errno::EINVAL);
         }
+        let sticky_src = Some(IpAddr::V6(sticky_src)).filter(|ip| !ip.is_unspecified());
         let src_wanted = hdr_src
             .or(ctl.src.map(canonical_ip))
+            .or(sticky_src)
             .or(Self::bound_src(&g));
         if !dst.is_multicast() {
             if dst == IpAddr::V4(Ipv4Addr::BROADCAST)
