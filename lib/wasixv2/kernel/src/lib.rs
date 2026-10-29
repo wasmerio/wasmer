@@ -72,8 +72,10 @@ mod tty;
 mod uidgid;
 mod unix;
 mod userns;
+mod watch_queue;
 mod work;
 mod yama;
+pub use watch_queue::WatchList;
 
 use std::{
     collections::HashMap,
@@ -178,6 +180,7 @@ pub struct Kernel {
     pipe_max_size: Arc<pipe::PipeMaxSize>,
     /// `fs.aio-nr` and `fs.aio-max-nr`.
     aio: Arc<aio::AioSysctl>,
+    watch_users: watch_queue::Users,
     /// `vm.overcommit_*` and `vm.max_map_count`.
     vm: Arc<mm::VmSysctls>,
     /// The internal shmem filesystem behind `memfd_create` (`shm_mnt`); without one,
@@ -486,6 +489,7 @@ impl Kernel {
             pseudo: pseudo::Pseudo::new(&vfs, clock),
             nr_open: Arc::default(),
             taint: Arc::default(),
+            watch_users: watch_queue::Users::default(),
             pipe_max_size: Arc::default(),
             aio: Arc::default(),
             vm: Arc::default(),

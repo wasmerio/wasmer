@@ -837,3 +837,5 @@ mod task;
 mod timerfd;
 mod tty;
 mod userns;
+
+mod watch_queue;
