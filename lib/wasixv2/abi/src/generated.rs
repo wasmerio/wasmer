@@ -19520,6 +19520,474 @@ impl GuestLayout for SctpShutdownEvent {
         self.sse_assoc_id.write_to(&mut out[8..]);
     }
 }
+/// `SCTP_SENDER_DRY_EVENT` notification (`struct sctp_sender_dry_event`).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct SctpSenderDryEvent {
+    pub sender_dry_type: u16,
+    pub sender_dry_flags: u16,
+    pub sender_dry_length: u32,
+    pub sender_dry_assoc_id: i32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<SctpSenderDryEvent>() == 12);
+    assert!(core::mem::align_of::<SctpSenderDryEvent>() == 4);
+    assert!(core::mem::offset_of!(SctpSenderDryEvent, sender_dry_type) == 0);
+    assert!(core::mem::offset_of!(SctpSenderDryEvent, sender_dry_flags) == 2);
+    assert!(core::mem::offset_of!(SctpSenderDryEvent, sender_dry_length) == 4);
+    assert!(core::mem::offset_of!(SctpSenderDryEvent, sender_dry_assoc_id) == 8);
+};
+impl Default for SctpSenderDryEvent {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for SctpSenderDryEvent {
+    const SIZE: usize = 12;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        sender_dry_type: <u16 as GuestLayout>::ZERO,
+        sender_dry_flags: <u16 as GuestLayout>::ZERO,
+        sender_dry_length: <u32 as GuestLayout>::ZERO,
+        sender_dry_assoc_id: <i32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            sender_dry_type: GuestLayout::read_from(&bytes[0..])?,
+            sender_dry_flags: GuestLayout::read_from(&bytes[2..])?,
+            sender_dry_length: GuestLayout::read_from(&bytes[4..])?,
+            sender_dry_assoc_id: GuestLayout::read_from(&bytes[8..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.sender_dry_type.write_to(&mut out[0..]);
+        self.sender_dry_flags.write_to(&mut out[2..]);
+        self.sender_dry_length.write_to(&mut out[4..]);
+        self.sender_dry_assoc_id.write_to(&mut out[8..]);
+    }
+}
+/// `SCTP_GET_PEER_ADDR_INFO` and `sctp-status`' primary path (`struct sctp_paddrinfo`, packed
+/// and 4-aligned, which on wasm32 leaves every field at its natural offset); `spinfo-state` is
+/// `sctp-spinfo-state`.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct SctpPaddrinfo {
+    pub spinfo_assoc_id: i32,
+    pub spinfo_address: SockaddrStorage,
+    pub spinfo_state: i32,
+    pub spinfo_cwnd: u32,
+    pub spinfo_srtt: u32,
+    pub spinfo_rto: u32,
+    pub spinfo_mtu: u32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<SctpPaddrinfo>() == 152);
+    assert!(core::mem::align_of::<SctpPaddrinfo>() == 4);
+    assert!(core::mem::offset_of!(SctpPaddrinfo, spinfo_assoc_id) == 0);
+    assert!(core::mem::offset_of!(SctpPaddrinfo, spinfo_address) == 4);
+    assert!(core::mem::offset_of!(SctpPaddrinfo, spinfo_state) == 132);
+    assert!(core::mem::offset_of!(SctpPaddrinfo, spinfo_cwnd) == 136);
+    assert!(core::mem::offset_of!(SctpPaddrinfo, spinfo_srtt) == 140);
+    assert!(core::mem::offset_of!(SctpPaddrinfo, spinfo_rto) == 144);
+    assert!(core::mem::offset_of!(SctpPaddrinfo, spinfo_mtu) == 148);
+};
+impl Default for SctpPaddrinfo {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for SctpPaddrinfo {
+    const SIZE: usize = 152;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        spinfo_assoc_id: <i32 as GuestLayout>::ZERO,
+        spinfo_address: <SockaddrStorage as GuestLayout>::ZERO,
+        spinfo_state: <i32 as GuestLayout>::ZERO,
+        spinfo_cwnd: <u32 as GuestLayout>::ZERO,
+        spinfo_srtt: <u32 as GuestLayout>::ZERO,
+        spinfo_rto: <u32 as GuestLayout>::ZERO,
+        spinfo_mtu: <u32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            spinfo_assoc_id: GuestLayout::read_from(&bytes[0..])?,
+            spinfo_address: GuestLayout::read_from(&bytes[4..])?,
+            spinfo_state: GuestLayout::read_from(&bytes[132..])?,
+            spinfo_cwnd: GuestLayout::read_from(&bytes[136..])?,
+            spinfo_srtt: GuestLayout::read_from(&bytes[140..])?,
+            spinfo_rto: GuestLayout::read_from(&bytes[144..])?,
+            spinfo_mtu: GuestLayout::read_from(&bytes[148..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.spinfo_assoc_id.write_to(&mut out[0..]);
+        self.spinfo_address.write_to(&mut out[4..]);
+        self.spinfo_state.write_to(&mut out[132..]);
+        self.spinfo_cwnd.write_to(&mut out[136..]);
+        self.spinfo_srtt.write_to(&mut out[140..]);
+        self.spinfo_rto.write_to(&mut out[144..]);
+        self.spinfo_mtu.write_to(&mut out[148..]);
+    }
+}
+/// `SCTP_STATUS` (`struct sctp_status`); `sstat-state` is `sctp-sstat-state`.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct SctpStatus {
+    pub sstat_assoc_id: i32,
+    pub sstat_state: i32,
+    pub sstat_rwnd: u32,
+    pub sstat_unackdata: u16,
+    pub sstat_penddata: u16,
+    pub sstat_instrms: u16,
+    pub sstat_outstrms: u16,
+    pub sstat_fragmentation_point: u32,
+    pub sstat_primary: SctpPaddrinfo,
+}
+const _: () = {
+    assert!(core::mem::size_of::<SctpStatus>() == 176);
+    assert!(core::mem::align_of::<SctpStatus>() == 4);
+    assert!(core::mem::offset_of!(SctpStatus, sstat_assoc_id) == 0);
+    assert!(core::mem::offset_of!(SctpStatus, sstat_state) == 4);
+    assert!(core::mem::offset_of!(SctpStatus, sstat_rwnd) == 8);
+    assert!(core::mem::offset_of!(SctpStatus, sstat_unackdata) == 12);
+    assert!(core::mem::offset_of!(SctpStatus, sstat_penddata) == 14);
+    assert!(core::mem::offset_of!(SctpStatus, sstat_instrms) == 16);
+    assert!(core::mem::offset_of!(SctpStatus, sstat_outstrms) == 18);
+    assert!(core::mem::offset_of!(SctpStatus, sstat_fragmentation_point) == 20);
+    assert!(core::mem::offset_of!(SctpStatus, sstat_primary) == 24);
+};
+impl Default for SctpStatus {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for SctpStatus {
+    const SIZE: usize = 176;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        sstat_assoc_id: <i32 as GuestLayout>::ZERO,
+        sstat_state: <i32 as GuestLayout>::ZERO,
+        sstat_rwnd: <u32 as GuestLayout>::ZERO,
+        sstat_unackdata: <u16 as GuestLayout>::ZERO,
+        sstat_penddata: <u16 as GuestLayout>::ZERO,
+        sstat_instrms: <u16 as GuestLayout>::ZERO,
+        sstat_outstrms: <u16 as GuestLayout>::ZERO,
+        sstat_fragmentation_point: <u32 as GuestLayout>::ZERO,
+        sstat_primary: <SctpPaddrinfo as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            sstat_assoc_id: GuestLayout::read_from(&bytes[0..])?,
+            sstat_state: GuestLayout::read_from(&bytes[4..])?,
+            sstat_rwnd: GuestLayout::read_from(&bytes[8..])?,
+            sstat_unackdata: GuestLayout::read_from(&bytes[12..])?,
+            sstat_penddata: GuestLayout::read_from(&bytes[14..])?,
+            sstat_instrms: GuestLayout::read_from(&bytes[16..])?,
+            sstat_outstrms: GuestLayout::read_from(&bytes[18..])?,
+            sstat_fragmentation_point: GuestLayout::read_from(&bytes[20..])?,
+            sstat_primary: GuestLayout::read_from(&bytes[24..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.sstat_assoc_id.write_to(&mut out[0..]);
+        self.sstat_state.write_to(&mut out[4..]);
+        self.sstat_rwnd.write_to(&mut out[8..]);
+        self.sstat_unackdata.write_to(&mut out[12..]);
+        self.sstat_penddata.write_to(&mut out[14..]);
+        self.sstat_instrms.write_to(&mut out[16..]);
+        self.sstat_outstrms.write_to(&mut out[18..]);
+        self.sstat_fragmentation_point.write_to(&mut out[20..]);
+        self.sstat_primary.write_to(&mut out[24..]);
+    }
+}
+/// `SCTP_PRIMARY_ADDR` (`struct sctp_prim`, packed and 4-aligned).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct SctpPrim {
+    pub ssp_assoc_id: i32,
+    pub ssp_addr: SockaddrStorage,
+}
+const _: () = {
+    assert!(core::mem::size_of::<SctpPrim>() == 132);
+    assert!(core::mem::align_of::<SctpPrim>() == 4);
+    assert!(core::mem::offset_of!(SctpPrim, ssp_assoc_id) == 0);
+    assert!(core::mem::offset_of!(SctpPrim, ssp_addr) == 4);
+};
+impl Default for SctpPrim {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for SctpPrim {
+    const SIZE: usize = 132;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        ssp_assoc_id: <i32 as GuestLayout>::ZERO,
+        ssp_addr: <SockaddrStorage as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            ssp_assoc_id: GuestLayout::read_from(&bytes[0..])?,
+            ssp_addr: GuestLayout::read_from(&bytes[4..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.ssp_assoc_id.write_to(&mut out[0..]);
+        self.ssp_addr.write_to(&mut out[4..]);
+    }
+}
+/// `SCTP_SOCKOPT_PEELOFF` (`sctp_peeloff_arg_t`): in, the association; out, the new descriptor.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct SctpPeeloffArg {
+    pub associd: i32,
+    pub sd: i32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<SctpPeeloffArg>() == 8);
+    assert!(core::mem::align_of::<SctpPeeloffArg>() == 4);
+    assert!(core::mem::offset_of!(SctpPeeloffArg, associd) == 0);
+    assert!(core::mem::offset_of!(SctpPeeloffArg, sd) == 4);
+};
+impl Default for SctpPeeloffArg {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for SctpPeeloffArg {
+    const SIZE: usize = 8;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        associd: <i32 as GuestLayout>::ZERO,
+        sd: <i32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            associd: GuestLayout::read_from(&bytes[0..])?,
+            sd: GuestLayout::read_from(&bytes[4..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.associd.write_to(&mut out[0..]);
+        self.sd.write_to(&mut out[4..]);
+    }
+}
+/// `SCTP_SOCKOPT_PEELOFF_FLAGS` (`sctp_peeloff_flags_arg_t`); `flags` takes `SOCK_CLOEXEC` and
+/// `SOCK_NONBLOCK`.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct SctpPeeloffFlagsArg {
+    pub p_arg: SctpPeeloffArg,
+    pub flags: u32,
+}
+const _: () = {
+    assert!(core::mem::size_of::<SctpPeeloffFlagsArg>() == 12);
+    assert!(core::mem::align_of::<SctpPeeloffFlagsArg>() == 4);
+    assert!(core::mem::offset_of!(SctpPeeloffFlagsArg, p_arg) == 0);
+    assert!(core::mem::offset_of!(SctpPeeloffFlagsArg, flags) == 8);
+};
+impl Default for SctpPeeloffFlagsArg {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for SctpPeeloffFlagsArg {
+    const SIZE: usize = 12;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        p_arg: <SctpPeeloffArg as GuestLayout>::ZERO,
+        flags: <u32 as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            p_arg: GuestLayout::read_from(&bytes[0..])?,
+            flags: GuestLayout::read_from(&bytes[8..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.p_arg.write_to(&mut out[0..]);
+        self.flags.write_to(&mut out[8..]);
+    }
+}
+/// `SCTP_SOCKOPT_CONNECTX3` (`struct sctp_getaddrs_old`): `addr-num` bytes of packed addresses
+/// at `addrs`; the association id is written back over `assoc-id`.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct SctpGetaddrsOld {
+    pub assoc_id: i32,
+    pub addr_num: i32,
+    pub addrs: ConstSockaddrPtr,
+}
+const _: () = {
+    assert!(core::mem::size_of::<SctpGetaddrsOld>() == 12);
+    assert!(core::mem::align_of::<SctpGetaddrsOld>() == 4);
+    assert!(core::mem::offset_of!(SctpGetaddrsOld, assoc_id) == 0);
+    assert!(core::mem::offset_of!(SctpGetaddrsOld, addr_num) == 4);
+    assert!(core::mem::offset_of!(SctpGetaddrsOld, addrs) == 8);
+};
+impl Default for SctpGetaddrsOld {
+    fn default() -> Self {
+        <Self as GuestLayout>::ZERO
+    }
+}
+impl GuestLayout for SctpGetaddrsOld {
+    const SIZE: usize = 12;
+    const ALIGN: usize = 4;
+    const ZERO: Self = Self {
+        assoc_id: <i32 as GuestLayout>::ZERO,
+        addr_num: <i32 as GuestLayout>::ZERO,
+        addrs: <ConstSockaddrPtr as GuestLayout>::ZERO,
+    };
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        let bytes = bytes.get(..Self::SIZE)?;
+        Some(Self {
+            assoc_id: GuestLayout::read_from(&bytes[0..])?,
+            addr_num: GuestLayout::read_from(&bytes[4..])?,
+            addrs: GuestLayout::read_from(&bytes[8..])?,
+        })
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        let out = &mut out[..Self::SIZE];
+        out.fill(0);
+        self.assoc_id.write_to(&mut out[0..]);
+        self.addr_num.write_to(&mut out[4..]);
+        self.addrs.write_to(&mut out[8..]);
+    }
+}
+/// `sstat_state` of `SCTP_STATUS` (`enum sctp_sstat_state`).
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct SctpSstatState(pub i32);
+impl SctpSstatState {
+    pub const SCTP_EMPTY: Self = Self(0);
+    pub const SCTP_CLOSED: Self = Self(1);
+    pub const SCTP_COOKIE_WAIT: Self = Self(2);
+    pub const SCTP_COOKIE_ECHOED: Self = Self(3);
+    pub const SCTP_ESTABLISHED: Self = Self(4);
+    pub const SCTP_SHUTDOWN_PENDING: Self = Self(5);
+    pub const SCTP_SHUTDOWN_SENT: Self = Self(6);
+    pub const SCTP_SHUTDOWN_RECEIVED: Self = Self(7);
+    pub const SCTP_SHUTDOWN_ACK_SENT: Self = Self(8);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("SCTP_EMPTY", Self::SCTP_EMPTY),
+        ("SCTP_CLOSED", Self::SCTP_CLOSED),
+        ("SCTP_COOKIE_WAIT", Self::SCTP_COOKIE_WAIT),
+        ("SCTP_COOKIE_ECHOED", Self::SCTP_COOKIE_ECHOED),
+        ("SCTP_ESTABLISHED", Self::SCTP_ESTABLISHED),
+        ("SCTP_SHUTDOWN_PENDING", Self::SCTP_SHUTDOWN_PENDING),
+        ("SCTP_SHUTDOWN_SENT", Self::SCTP_SHUTDOWN_SENT),
+        ("SCTP_SHUTDOWN_RECEIVED", Self::SCTP_SHUTDOWN_RECEIVED),
+        ("SCTP_SHUTDOWN_ACK_SENT", Self::SCTP_SHUTDOWN_ACK_SENT),
+    ];
+    /// Name of the first constant with this value, if any.
+    pub const fn name(self) -> Option<&'static str> {
+        match self.0 {
+            0 => Some("SCTP_EMPTY"),
+            1 => Some("SCTP_CLOSED"),
+            2 => Some("SCTP_COOKIE_WAIT"),
+            3 => Some("SCTP_COOKIE_ECHOED"),
+            4 => Some("SCTP_ESTABLISHED"),
+            5 => Some("SCTP_SHUTDOWN_PENDING"),
+            6 => Some("SCTP_SHUTDOWN_SENT"),
+            7 => Some("SCTP_SHUTDOWN_RECEIVED"),
+            8 => Some("SCTP_SHUTDOWN_ACK_SENT"),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Debug for SctpSstatState {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.name() {
+            Some(name) => f.write_str(name),
+            None => write!(f, "SctpSstatState({})", self.0),
+        }
+    }
+}
+
+impl GuestLayout for SctpSstatState {
+    const SIZE: usize = <i32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <i32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <i32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
+/// `spinfo_state` of a peer address (`enum sctp_spinfo_state`).
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct SctpSpinfoState(pub i32);
+impl SctpSpinfoState {
+    pub const SCTP_INACTIVE: Self = Self(0);
+    pub const SCTP_PF: Self = Self(1);
+    pub const SCTP_ACTIVE: Self = Self(2);
+    pub const SCTP_UNCONFIRMED: Self = Self(3);
+    pub const SCTP_UNKNOWN: Self = Self(65535);
+    /// All named values, in definition order (aliases included).
+    pub const MEMBERS: &'static [(&'static str, Self)] = &[
+        ("SCTP_INACTIVE", Self::SCTP_INACTIVE),
+        ("SCTP_PF", Self::SCTP_PF),
+        ("SCTP_ACTIVE", Self::SCTP_ACTIVE),
+        ("SCTP_UNCONFIRMED", Self::SCTP_UNCONFIRMED),
+        ("SCTP_UNKNOWN", Self::SCTP_UNKNOWN),
+    ];
+    /// Name of the first constant with this value, if any.
+    pub const fn name(self) -> Option<&'static str> {
+        match self.0 {
+            0 => Some("SCTP_INACTIVE"),
+            1 => Some("SCTP_PF"),
+            2 => Some("SCTP_ACTIVE"),
+            3 => Some("SCTP_UNCONFIRMED"),
+            65535 => Some("SCTP_UNKNOWN"),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Debug for SctpSpinfoState {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.name() {
+            Some(name) => f.write_str(name),
+            None => write!(f, "SctpSpinfoState({})", self.0),
+        }
+    }
+}
+
+impl GuestLayout for SctpSpinfoState {
+    const SIZE: usize = <i32 as GuestLayout>::SIZE;
+    const ALIGN: usize = <i32 as GuestLayout>::ALIGN;
+    const ZERO: Self = Self(0);
+    fn read_from(bytes: &[u8]) -> Option<Self> {
+        <i32 as GuestLayout>::read_from(bytes).map(Self)
+    }
+    fn write_to(&self, out: &mut [u8]) {
+        self.0.write_to(out);
+    }
+}
+
 /// `SOL_SCTP` socket options (UAPI `linux/sctp.h`).
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
@@ -19555,6 +20023,7 @@ impl SctpOption {
     pub const SCTP_SOCKOPT_BINDX_ADD: Self = Self(100);
     pub const SCTP_SOCKOPT_BINDX_REM: Self = Self(101);
     pub const SCTP_SOCKOPT_PEELOFF: Self = Self(102);
+    pub const SCTP_SOCKOPT_CONNECTX_OLD: Self = Self(107);
     pub const SCTP_GET_PEER_ADDRS: Self = Self(108);
     pub const SCTP_GET_LOCAL_ADDRS: Self = Self(109);
     pub const SCTP_SOCKOPT_CONNECTX: Self = Self(110);
@@ -19604,6 +20073,7 @@ impl SctpOption {
         ("SCTP_SOCKOPT_BINDX_ADD", Self::SCTP_SOCKOPT_BINDX_ADD),
         ("SCTP_SOCKOPT_BINDX_REM", Self::SCTP_SOCKOPT_BINDX_REM),
         ("SCTP_SOCKOPT_PEELOFF", Self::SCTP_SOCKOPT_PEELOFF),
+        ("SCTP_SOCKOPT_CONNECTX_OLD", Self::SCTP_SOCKOPT_CONNECTX_OLD),
         ("SCTP_GET_PEER_ADDRS", Self::SCTP_GET_PEER_ADDRS),
         ("SCTP_GET_LOCAL_ADDRS", Self::SCTP_GET_LOCAL_ADDRS),
         ("SCTP_SOCKOPT_CONNECTX", Self::SCTP_SOCKOPT_CONNECTX),
@@ -19649,6 +20119,7 @@ impl SctpOption {
             100 => Some("SCTP_SOCKOPT_BINDX_ADD"),
             101 => Some("SCTP_SOCKOPT_BINDX_REM"),
             102 => Some("SCTP_SOCKOPT_PEELOFF"),
+            107 => Some("SCTP_SOCKOPT_CONNECTX_OLD"),
             108 => Some("SCTP_GET_PEER_ADDRS"),
             109 => Some("SCTP_GET_LOCAL_ADDRS"),
             110 => Some("SCTP_SOCKOPT_CONNECTX"),
