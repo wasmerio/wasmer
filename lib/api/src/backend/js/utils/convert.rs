@@ -1,4 +1,4 @@
-use std::{collections::HashMap, convert::TryInto, sync::Arc};
+use std::{collections::HashMap, convert::TryInto};
 
 use js_sys::{
     Function as JsFunction,
@@ -261,7 +261,7 @@ impl AsJs for Instance {
         Ok(Self {
             _inner: crate::BackendInstance::Js(instance),
             module: module.clone(),
-            exports: Arc::new(exports),
+            exports: exports.into(),
         })
     }
 }
