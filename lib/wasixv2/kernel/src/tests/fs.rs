@@ -383,6 +383,7 @@ fn generic_ioctls_give_block_size_bytes_used_and_refuse_async() {
             root: &vfs.root(),
             umask: 0,
             task: 0,
+            leases: None,
         },
         &vfs.root(),
         b"/f",

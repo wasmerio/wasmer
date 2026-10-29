@@ -4,18 +4,27 @@
 //!
 //! Record locks of both kinds conflict with each other, even within one process. `flock` locks
 //! and record locks never conflict.
+//!
+//! Leases (`F_SETLEASE`) belong to an open file too. An open or truncation that conflicts with
+//! one tells its holder ([`LeaseHolder`]) and waits until the holder gave way or its time
+//! (`lease-break-time`) is up (`__break_lease`); see [`crate::Vfs`]'s `break_lease`.
 
 use std::{
     collections::HashMap,
     future::Future,
     pin::Pin,
-    sync::Mutex,
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicUsize, Ordering},
+    },
     task::{Context, Poll, Waker},
+    time::Duration,
 };
 
+use async_trait::async_trait;
 use wasixv2_abi::Errno;
 
-use crate::types::FsResult;
+use crate::{inode::Inode, types::FsResult};
 
 /// Identifies a locked object: superblock id and inode number.
 pub type LockKey = (u64, u64);
@@ -70,6 +79,130 @@ struct ObjectLocks {
     /// `(file id, exclusive)`.
     flocks: Vec<(u64, bool)>,
     ranges: Vec<RangeLock>,
+    leases: Vec<Lease>,
+}
+
+impl ObjectLocks {
+    fn is_empty(&self) -> bool {
+        self.flocks.is_empty() && self.ranges.is_empty() && self.leases.is_empty()
+    }
+}
+
+/// The holder of a lease, which hears when it must give way (`lease_manager_operations`).
+/// Called with none of the lock manager's locks held.
+pub trait LeaseHolder: Send + Sync {
+    /// `lm_break`: an open or a truncation that conflicts with the lease began.
+    fn lease_break(&self);
+    /// The lease went, as its holder asked or once its break time was up (`lease_modify` to
+    /// `F_UNLCK`); not when its file's last close takes it.
+    fn lease_removed(&self);
+}
+
+/// How a call that breaks leases waits for them (`__break_lease`'s
+/// `wait_event_interruptible_timeout`): the caller's clock and signals, and the machine's
+/// `lease-break-time`.
+#[async_trait(?Send)]
+pub trait LeaseWait {
+    /// The monotonic time the leases' deadlines are kept in.
+    fn now(&self) -> Duration;
+    /// `lease-break-time`: how long a holder has to give way, or `None` for as long as it
+    /// takes.
+    fn break_time(&self) -> Option<Duration>;
+    /// Waits until `changed` completes or the clock reaches `deadline`. `EINTR` when a signal
+    /// ends the wait; the kernel restarts the call.
+    async fn wait<'a>(
+        &'a self,
+        changed: Pin<Box<dyn Future<Output = ()> + 'a>>,
+        deadline: Option<Duration>,
+    ) -> FsResult<()>;
+}
+
+/// One lease (`file_lease` with `FL_LEASE`), held by an open file.
+struct Lease {
+    file: u64,
+    kind: LockKind,
+    /// `FL_UNLOCK_PENDING`: an open for writing or a truncation waits for it to go, until
+    /// `break_time`.
+    unlock_pending: bool,
+    /// `FL_DOWNGRADE_PENDING`: an open for reading waits for it to become a read lease, until
+    /// `downgrade_time`.
+    downgrade_pending: bool,
+    break_time: Option<Duration>,
+    downgrade_time: Option<Duration>,
+    holder: Arc<dyn LeaseHolder>,
+}
+
+impl Lease {
+    /// `lease_modify` to `kind` (not `F_UNLCK`), and what it no longer waits for
+    /// (`lease_clear_pending`).
+    fn modify(&mut self, kind: LockKind) {
+        self.kind = kind;
+        if kind == LockKind::Read {
+            self.downgrade_pending = false;
+        }
+    }
+
+    /// `target_leasetype`: what `F_GETLEASE` reports, `None` for `F_UNLCK`.
+    fn target(&self) -> Option<LockKind> {
+        match (self.unlock_pending, self.downgrade_pending) {
+            (true, _) => None,
+            (false, true) => Some(LockKind::Read),
+            (false, false) => Some(self.kind),
+        }
+    }
+
+    /// `leases_conflict`: either the lease or the breaker writes.
+    fn conflicts(&self, write: bool) -> bool {
+        write || self.kind == LockKind::Write
+    }
+}
+
+/// The holders to tell, once the manager's lock is released (`lease_dispose_list`).
+#[derive(Default)]
+struct Calls(Vec<(Arc<dyn LeaseHolder>, bool)>);
+
+impl Calls {
+    fn broken(&mut self, lease: &Lease) {
+        self.0.push((lease.holder.clone(), true));
+    }
+
+    fn removed(&mut self, lease: &Lease) {
+        self.0.push((lease.holder.clone(), false));
+    }
+
+    fn run(self) {
+        for (holder, broken) in self.0 {
+            match broken {
+                true => holder.lease_break(),
+                false => holder.lease_removed(),
+            }
+        }
+    }
+}
+
+/// What a lease request asks for (`F_SETLEASE` with `F_RDLCK` or `F_WRLCK`).
+pub(crate) struct LeaseRequest<'a> {
+    pub(crate) file: u64,
+    pub(crate) kind: LockKind,
+    /// The file's own share of the inode's open counts (`self_wcount`, `self_rcount`).
+    pub(crate) own: (i32, i32),
+    pub(crate) inode: &'a Inode,
+    pub(crate) holder: Arc<dyn LeaseHolder>,
+    /// `fs.leases-enable`.
+    pub(crate) enabled: bool,
+    pub(crate) now: Duration,
+}
+
+/// Where breaking an object's leases stands.
+pub(crate) enum Break {
+    /// No lease conflicts any more.
+    Done,
+    /// The first lease still in the way has until `deadline`; the leases changed last at
+    /// `generation`.
+    Wait {
+        deadline: Option<Duration>,
+        generation: u64,
+    },
 }
 
 #[derive(Default)]
@@ -87,6 +220,9 @@ struct State {
 #[derive(Default)]
 pub struct LockManager {
     state: Mutex<State>,
+    /// How many leases exist, so that an open of a file without any looks no further
+    /// (`break_lease`'s lockless check).
+    leases: AtomicUsize,
 }
 
 /// Linux's `MAX_DEADLK_ITERATIONS`.
@@ -195,11 +331,16 @@ impl LockManager {
         self.unlock(key, owner, 0, u64::MAX);
     }
 
-    /// Drops the `flock` and OFD locks of an open file on its last close (`locks_remove_file`).
+    /// Drops the `flock` and OFD locks and the lease of an open file on its last close
+    /// (`locks_remove_file`).
     pub fn release_file(&self, key: LockKey, file: u64) {
         self.edit(key, |locks| {
             locks.flocks.retain(|(f, _)| *f != file);
             locks.ranges.retain(|l| l.owner != LockOwner::File(file));
+            let had = locks.leases.len();
+            locks.leases.retain(|l| l.file != file);
+            self.leases
+                .fetch_sub(had - locks.leases.len(), Ordering::SeqCst);
         });
     }
 
@@ -209,10 +350,181 @@ impl LockManager {
             return;
         };
         f(locks);
-        if locks.flocks.is_empty() && locks.ranges.is_empty() {
+        if locks.is_empty() {
             state.objects.remove(&key);
         }
         wake(&mut state, key);
+    }
+
+    /// Runs `f` on `key`'s locks, with the leases whose time is up gone first
+    /// (`time_out_leases`), then wakes the object's waiters and tells the holders what `f`
+    /// and the time did to their leases. Returns what `f` did and the generation it left.
+    fn leases<R>(
+        &self,
+        key: LockKey,
+        now: Duration,
+        f: impl FnOnce(&mut ObjectLocks, &mut Calls, &AtomicUsize) -> R,
+    ) -> (R, u64) {
+        let mut calls = Calls::default();
+        let done = {
+            let mut state = self.state.lock().unwrap();
+            let locks = state.objects.entry(key).or_default();
+            self.time_out(locks, now, &mut calls);
+            let result = f(locks, &mut calls, &self.leases);
+            if locks.is_empty() {
+                state.objects.remove(&key);
+            }
+            wake(&mut state, key);
+            (result, state.generation)
+        };
+        calls.run();
+        done
+    }
+
+    /// `time_out_leases`: a lease past its downgrade time becomes a read lease, one past its
+    /// break time goes.
+    fn time_out(&self, locks: &mut ObjectLocks, now: Duration, calls: &mut Calls) {
+        let past = |t: Option<Duration>| t.is_some_and(|t| now > t);
+        locks.leases.retain_mut(|lease| {
+            if past(lease.downgrade_time) {
+                lease.modify(LockKind::Read);
+            }
+            if past(lease.break_time) {
+                calls.removed(lease);
+                self.leases.fetch_sub(1, Ordering::SeqCst);
+                return false;
+            }
+            true
+        });
+    }
+
+    /// Whether any object has a lease (`break_lease`'s check, without the lock).
+    pub(crate) fn any_leases(&self) -> bool {
+        self.leases.load(Ordering::SeqCst) > 0
+    }
+
+    /// `generic_add_lease`: takes or changes `request.file`'s lease on `key`. `EAGAIN` while
+    /// the file is open in a way the lease would hide (`lease_open_conflict`), or for another
+    /// lease in the way: any for a write lease, one being broken for a new lease. A new lease
+    /// needs `fs.leases-enable` (`EINVAL`).
+    pub(crate) fn add_lease(&self, key: LockKey, request: LeaseRequest<'_>) -> FsResult<()> {
+        let open_conflict = || match request.kind {
+            LockKind::Read => request.inode.open_for_write(),
+            LockKind::Write => request.inode.open_counts() != request.own,
+        };
+        self.leases(key, request.now, |locks, _, count| {
+            if open_conflict() {
+                return Err(Errno::EAGAIN);
+            }
+            let others = locks.leases.iter().filter(|l| l.file != request.file);
+            for other in others {
+                if request.kind == LockKind::Write || other.unlock_pending {
+                    return Err(Errno::EAGAIN);
+                }
+            }
+            if let Some(mine) = locks.leases.iter_mut().find(|l| l.file == request.file) {
+                mine.modify(request.kind);
+                mine.holder = request.holder;
+                return Ok(());
+            }
+            if !request.enabled {
+                return Err(Errno::EINVAL);
+            }
+            locks.leases.push(Lease {
+                file: request.file,
+                kind: request.kind,
+                unlock_pending: false,
+                downgrade_pending: false,
+                break_time: None,
+                downgrade_time: None,
+                holder: request.holder,
+            });
+            // An open that raced past the check before the lease was in place.
+            if open_conflict() {
+                locks.leases.pop();
+                return Err(Errno::EAGAIN);
+            }
+            count.fetch_add(1, Ordering::SeqCst);
+            Ok(())
+        })
+        .0
+    }
+
+    /// `generic_delete_lease`: removes `file`'s lease on `key`; `EAGAIN` without one.
+    pub(crate) fn remove_lease(&self, key: LockKey, file: u64, now: Duration) -> FsResult<()> {
+        self.leases(key, now, |locks, calls, count| {
+            let at = locks.leases.iter().position(|l| l.file == file);
+            let lease = locks.leases.remove(at.ok_or(Errno::EAGAIN)?);
+            count.fetch_sub(1, Ordering::SeqCst);
+            calls.removed(&lease);
+            Ok(())
+        })
+        .0
+    }
+
+    /// `__fcntl_getlease`: `file`'s lease on `key` as it is to become, `None` for `F_UNLCK`.
+    pub(crate) fn lease(&self, key: LockKey, file: u64, now: Duration) -> Option<LockKind> {
+        if !self.any_leases() {
+            return None;
+        }
+        self.leases(key, now, |locks, _, _| {
+            let lease = locks.leases.iter().find(|l| l.file == file)?;
+            lease.target()
+        })
+        .0
+    }
+
+    /// `__break_lease`'s step: an open (for writing with `write`) or a truncation tells the
+    /// holders of the leases in its way that they must go, or become read leases for an open
+    /// for reading, by `break_time` from `now`, unless they were told already; then says
+    /// whether one is still in the way.
+    pub(crate) fn break_leases(
+        &self,
+        key: LockKey,
+        write: bool,
+        now: Duration,
+        break_time: Option<Duration>,
+    ) -> Break {
+        let deadline = break_time.map(|t| now + t);
+        let (wait, generation) = self.leases(key, now, |locks, calls, _| {
+            for lease in locks.leases.iter_mut().filter(|l| l.conflicts(write)) {
+                if write {
+                    if lease.unlock_pending {
+                        continue;
+                    }
+                    lease.unlock_pending = true;
+                    lease.break_time = deadline;
+                } else {
+                    if lease.unlock_pending || lease.downgrade_pending {
+                        continue;
+                    }
+                    lease.downgrade_pending = true;
+                    lease.downgrade_time = deadline;
+                }
+                calls.broken(lease);
+            }
+            let first = locks.leases.iter().find(|l| l.conflicts(write))?;
+            Some(match first.unlock_pending {
+                true => first.break_time,
+                false => first.downgrade_time,
+            })
+        });
+        match wait {
+            None => Break::Done,
+            Some(deadline) => Break::Wait {
+                deadline,
+                generation,
+            },
+        }
+    }
+
+    /// Completes once the locks of `key` changed after `generation`.
+    pub(crate) fn changed_since(
+        &self,
+        key: LockKey,
+        generation: u64,
+    ) -> impl Future<Output = ()> + '_ {
+        self.changed(key, generation)
     }
 
     /// Completes once `key`'s locks changed after `generation` (or, spuriously, others').

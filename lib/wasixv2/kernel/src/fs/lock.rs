@@ -1,17 +1,41 @@
-//! `flock` and the `fcntl` record-lock commands (`fs/locks.c`).
+//! `flock`, the `fcntl` record-lock commands and leases (`fs/locks.c`).
 
-use std::sync::Arc;
+use std::sync::{Arc, Weak};
 
-use wasixv2_abi::{FcntlCmd, Flock, Flock64, FlockOp, GuestLayout, LockType, SeekWhence};
+use wasixv2_abi::{FcntlCmd, Flock, Flock64, FlockOp, GuestLayout, LockType, SeekWhence, SiCode};
 use wasixv2_syscalls::{Caller, Errno, Fd, SysErr, SysResult};
-use wasixv2_vfs::{FlockOp as Op, LockKind, LockOwner, RangeLock};
+use wasixv2_vfs::{Cap, FileType, FlockOp as Op, LeaseHolder, LockKind, LockOwner, RangeLock};
 use wasixv2_wait::{Interrupted, interruptible};
 
 use crate::{
     Kernel,
+    fasync::{OwnerType, Sigio},
     file::{Backing, OpenFile},
     sync::MutexExt,
 };
+
+/// What holds a lease (`lease_manager_ops`): a break sends the file's owner `SIGIO`, or the
+/// `F_SETSIG` signal with `POLL_MSG` and the descriptor `F_SETLEASE` came through
+/// (`lease_break_callback`'s `kill_fasync`).
+struct Holder {
+    file: Weak<OpenFile>,
+    fd: Fd,
+    sigio: Arc<Sigio>,
+}
+
+impl LeaseHolder for Holder {
+    fn lease_break(&self) {
+        if let Some(file) = self.file.upgrade() {
+            self.sigio.send(&file, self.fd, SiCode::POLL_MSG);
+        }
+    }
+
+    fn lease_removed(&self) {
+        if let Some(file) = self.file.upgrade() {
+            file.delown();
+        }
+    }
+}
 
 /// The POSIX lock owner of the calling process.
 pub(crate) fn process_owner(kernel: &Kernel, caller: &Caller<'_>) -> LockOwner {
@@ -165,6 +189,73 @@ impl Kernel {
 }
 
 impl Kernel {
+    /// `fcntl_setlease`: `F_SETLEASE` on `file`, open as `fd`, with `F_RDLCK`, `F_WRLCK` or
+    /// `F_UNLCK` (`vfs_setlease`, `generic_setlease`). Only a regular file's owner, or a
+    /// caller with `CAP_LEASE`, takes leases (`EACCES`); a new lease makes the caller's process
+    /// the file's owner unless it has one (`lease_setup`).
+    pub(crate) async fn fcntl_setlease(
+        &self,
+        caller: &Caller<'_>,
+        fd: Fd,
+        file: &Arc<OpenFile>,
+        arg: u32,
+    ) -> SysResult<i32> {
+        let Backing::Inode(inner) = &file.backing else {
+            return Err(Errno::EINVAL.into());
+        };
+        if inner.file_type() == FileType::Directory {
+            return Err(Errno::EINVAL.into());
+        }
+        let kind = match i16::try_from(arg).map(LockType) {
+            Ok(LockType::F_RDLCK) => Some(LockKind::Read),
+            Ok(LockType::F_WRLCK) => Some(LockKind::Write),
+            Ok(LockType::F_UNLCK) => None,
+            _ => return Err(Errno::EINVAL.into()),
+        };
+        let cred = self.env(caller).cred;
+        let attr = inner.node().getattr().await?;
+        if cred.fsuid != attr.uid && !cred.capable(Cap::Lease) {
+            return Err(Errno::EACCES.into());
+        }
+        // `generic_setlease` takes regular files only, and `kernel_setlease` only on a
+        // filesystem with `->setlease`, which procfs is not.
+        let proc = inner.path.dentry.sb().info.magic == crate::procfs::PROC_SUPER_MAGIC;
+        if inner.file_type() != FileType::Regular || proc {
+            return Err(Errno::EINVAL.into());
+        }
+        let now = self.host.monotonic();
+        let Some(kind) = kind else {
+            inner.remove_lease(now)?;
+            return Ok(0);
+        };
+        let holder = Arc::new(Holder {
+            file: Arc::downgrade(file),
+            fd,
+            sigio: self.sigio.clone(),
+        });
+        let enabled = self.sysctls.leases_enable() != 0;
+        inner.set_lease(kind, holder, enabled, now)?;
+        let pid = self.process(caller.task()).pid;
+        let creds = self.cred(caller);
+        let uids = (creds.user.real, creds.user.effective);
+        file.set_owner(Some(pid.0), OwnerType::Process, uids, false);
+        Ok(0)
+    }
+
+    /// `fcntl_getlease`: the lease `file` holds, as it is to become while it is being broken.
+    pub(crate) fn fcntl_getlease(&self, file: &OpenFile) -> i32 {
+        let lease = match &file.backing {
+            Backing::Inode(inner) => inner.lease(self.host.monotonic()),
+            Backing::Stream(..) => None,
+        };
+        let kind = match lease {
+            Some(LockKind::Read) => LockType::F_RDLCK,
+            Some(LockKind::Write) => LockType::F_WRLCK,
+            None => LockType::F_UNLCK,
+        };
+        i32::from(kind.0)
+    }
+
     /// Whether `fd` still refers to `file`.
     fn still_open(&self, caller: &Caller<'_>, fd: Fd, file: &Arc<OpenFile>) -> bool {
         let files = self.files(caller.task());

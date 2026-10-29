@@ -31,7 +31,9 @@ pub use dentry::Dentry;
 pub use driver::{Filesystem, Handle, Link, MAX_DIR_COOKIE, Node, SharedContents};
 pub use file::{DIR_POS_EOD, File};
 pub use inode::{Bound, Inode};
-pub use locks::{FlockOp, LockKey, LockKind, LockManager, LockOwner, RangeLock};
+pub use locks::{
+    FlockOp, LeaseHolder, LeaseWait, LockKey, LockKind, LockManager, LockOwner, RangeLock,
+};
 pub use mount::{MNT_UNIQUE_ID_OFFSET, MntNs, Mount, MountFlags, Path, Superblock};
 use mount::{Tree, TreeSeq};
 pub use namei::{Last, LookupFlags, MAX_SYMLINKS};
@@ -190,6 +192,7 @@ impl Vfs {
             root: &root,
             umask: 0o022,
             task: 0,
+            leases: None,
         };
         let source = self.lookup(&cx, &root, from, LookupFlags::follow()).await?;
         let target = self.embedder_target(at, create).await?;
@@ -212,6 +215,7 @@ impl Vfs {
             root: &root,
             umask: 0o022,
             task: 0,
+            leases: None,
         };
         if create {
             self.mkdir_all(&cx, at).await?;

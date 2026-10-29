@@ -173,6 +173,7 @@ impl World {
             root: &self.root,
             umask: 0o022,
             task: 0,
+            leases: None,
         }
     }
 

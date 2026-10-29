@@ -84,6 +84,7 @@ fn read(setup: &Setup, path: &[u8]) -> Result<Vec<u8>, Errno> {
         root: &root,
         umask: 0o022,
         task: 0,
+        leases: None,
     };
     let how = OpenHow {
         flags: OpenFlags::O_RDONLY,
@@ -127,6 +128,7 @@ fn guest_changes_reach_the_host() {
         root: &root,
         umask: 0o022,
         task: 0,
+        leases: None,
     };
 
     block_on(setup.vfs.mkdir(&cx, &root, b"/mnt/new", 0o750)).unwrap();
@@ -160,6 +162,7 @@ fn lookup(setup: &Setup, path: &[u8]) -> Result<wasixv2_vfs::Path, Errno> {
         root: &root,
         umask: 0o022,
         task: 0,
+        leases: None,
     };
     block_on(setup.vfs.lookup(&cx, &root, path, LookupFlags::default()))
 }
@@ -214,6 +217,7 @@ fn open(
         root: &root,
         umask: 0o022,
         task: 0,
+        leases: None,
     };
     let how = OpenHow {
         flags,
@@ -262,6 +266,7 @@ fn a_writable_open_survives_chmod_to_read_only() {
         root: &root,
         umask: 0o022,
         task: 0,
+        leases: None,
     };
     block_on(setup.vfs.chmod(&cx, &file.path, 0o444)).unwrap();
 
@@ -284,6 +289,7 @@ fn an_unnamed_read_only_file_is_writable_and_linkable() {
         root: &root,
         umask: 0o022,
         task: 0,
+        leases: None,
     };
     let empty = LookupFlags {
         empty: true,

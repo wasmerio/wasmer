@@ -389,6 +389,39 @@ fn vm_tunables_show_the_memory_model() {
     assert!(vm.contains(&"mmap_min_addr".to_string()), "{vm:?}");
 }
 
+/// The `fs.*` tunables the kernel acts on read as integers and take what root writes:
+/// `dir-notify-enable` and `leases-enable` (1), `lease-break-time` (45 seconds).
+#[test]
+fn fs_tunables_read_and_take_integers() {
+    let (kernel, task, _) =
+        super::cred::machine_with(|kernel| kernel.with_credentials(Credentials::new(0, 0)));
+    let procfs = kernel.procfs();
+    let mount = kernel
+        .vfs()
+        .mount(b"/proc", procfs, MountFlags::default(), true);
+    block_on(mount).unwrap();
+    let memory = memory();
+    let t = T::new(&kernel, task, &memory);
+    let tunables = [
+        ("dir-notify-enable", "1\n"),
+        ("leases-enable", "1\n"),
+        ("lease-break-time", "45\n"),
+    ];
+    let fs = t.list("/proc/sys/fs");
+    for (name, value) in tunables {
+        assert!(fs.contains(&name.to_string()), "{fs:?}");
+        let at = format!("/proc/sys/fs/{name}");
+        let fd = t.open(&at, OpenFlags::O_RDONLY).unwrap();
+        assert_eq!(t.read_all(fd), value);
+        let fd = t.open(&at, OpenFlags::O_WRONLY).unwrap();
+        assert_eq!(t.write(fd, b" -3\n"), Ok(4));
+        assert_eq!(errno(t.write(fd, b"x")), Errno::EINVAL);
+        let fd = t.open(&at, OpenFlags::O_RDONLY).unwrap();
+        assert_eq!(t.read_all(fd), "-3\n");
+    }
+    assert_eq!(kernel.sysctls.lease_break_time(), -3);
+}
+
 #[test]
 fn memory_devices_read_write_and_seek_like_linux() {
     let (kernel, task, _) = machine();

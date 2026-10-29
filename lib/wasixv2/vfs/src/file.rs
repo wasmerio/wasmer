@@ -1,13 +1,14 @@
 //! Open files: the filesystem part of an open file description.
 
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use wasixv2_abi::Errno;
 
 use crate::{
     Vfs,
     driver::{Handle, Node, SharedContents},
-    locks::LockKey,
+    inode::OpenAccess,
+    locks::{LeaseHolder, LeaseRequest, LockKey, LockKind},
     mount::{MntNs, Path, WriteAccess},
     notify::{FsEvent, Object},
     types::{DirEntry, DirSink, FileType, FsResult},
@@ -31,6 +32,8 @@ pub struct File {
     vfs: Arc<Vfs>,
     /// The write access a file open for writing holds on its mount (`FMODE_WRITER`).
     _write: Option<WriteAccess>,
+    /// What the file counts on its inode: write access, or a read-only open.
+    _access: Option<OpenAccess>,
     /// The anonymous namespace of the detached tree whose root this is (`FMODE_NEED_UNMOUNT`):
     /// the last close unmounts the tree unless it was attached somewhere since
     /// (`dissolve_on_fput`).
@@ -56,8 +59,15 @@ impl File {
             path_only,
             vfs,
             _write: write,
+            _access: None,
             detached: None,
         }
+    }
+
+    /// The file with `access` counted on its inode for as long as it is open.
+    pub(crate) fn with_access(mut self, access: Option<OpenAccess>) -> Self {
+        self._access = access;
+        self
     }
 
     /// An `O_PATH` file at the root of the detached tree in `ns`, which it keeps until its
@@ -146,6 +156,46 @@ impl File {
         let (at, n) = handle.append(data).await?;
         self.modified(n);
         Ok((at + n as u64, n))
+    }
+
+    /// `F_SETLEASE` with `F_RDLCK` or `F_WRLCK` (`generic_add_lease`): takes or changes the
+    /// file's lease, which `holder` keeps. `EAGAIN` while the file is open in a way the lease
+    /// would hide (a read lease needs no writer, a write lease no other opener), or another
+    /// lease is in the way; a new lease needs `enabled` (`fs.leases-enable`), else `EINVAL`.
+    /// `now` is the clock of [`crate::LeaseWait`].
+    pub fn set_lease(
+        &self,
+        kind: LockKind,
+        holder: Arc<dyn LeaseHolder>,
+        enabled: bool,
+        now: Duration,
+    ) -> FsResult<()> {
+        // `lease_open_conflict`: the file's own part of the inode's counts.
+        let own = match (self.writable, self.readable) {
+            (true, _) => (1, 0),
+            (false, true) => (0, 1),
+            (false, false) => (0, 0),
+        };
+        let request = LeaseRequest {
+            file: self.id,
+            kind,
+            own,
+            inode: self.path.dentry.inode(),
+            holder,
+            enabled,
+            now,
+        };
+        self.vfs.locks.add_lease(self.lock_key(), request)
+    }
+
+    /// `F_SETLEASE` with `F_UNLCK` (`generic_delete_lease`): `EAGAIN` without a lease.
+    pub fn remove_lease(&self, now: Duration) -> FsResult<()> {
+        self.vfs.locks.remove_lease(self.lock_key(), self.id, now)
+    }
+
+    /// `F_GETLEASE`: the file's lease as it is to become once broken, `None` for `F_UNLCK`.
+    pub fn lease(&self, now: Duration) -> Option<LockKind> {
+        self.vfs.locks.lease(self.lock_key(), self.id, now)
     }
 
     fn modified(&self, n: usize) {

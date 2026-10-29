@@ -1349,7 +1349,11 @@ impl Kernel {
                 ..LookupFlags::default()
             },
         };
-        let file = self.vfs.open(&env.cx(), &target, b"", &how).await?;
+        let file = self
+            .vfs
+            .open(&env.cx(), &target, b"", &how)
+            .await
+            .map_err(|errno| env.error(errno))?;
         let binary = Binary {
             mode: attr.mode,
             owner: (attr.uid, attr.gid),

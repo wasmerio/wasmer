@@ -172,6 +172,7 @@ async fn create_tty_node(
         root: &root,
         umask: 0,
         task: 0,
+        leases: None,
     };
     let dir = vfs
         .lookup(&cx, &root, at, wasixv2_vfs::LookupFlags::follow())
@@ -200,6 +201,7 @@ async fn create_nodes(vfs: &Vfs, at: &[u8]) -> FsResult<()> {
         root: &root,
         umask: 0,
         task: 0,
+        leases: None,
     };
     let dir = vfs
         .lookup(&cx, &root, at, wasixv2_vfs::LookupFlags::follow())

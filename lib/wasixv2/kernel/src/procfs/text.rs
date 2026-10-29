@@ -45,6 +45,8 @@ pub(super) enum Global {
     NrOpen,
     PipeMaxSize,
     DirNotifyEnable,
+    LeasesEnable,
+    LeaseBreakTime,
 }
 
 /// The files of a network namespace (`/proc/<pid>/net`).
@@ -69,7 +71,9 @@ impl Global {
             | Self::FileMax
             | Self::NrOpen
             | Self::PipeMaxSize
-            | Self::DirNotifyEnable => 0o644,
+            | Self::DirNotifyEnable
+            | Self::LeasesEnable
+            | Self::LeaseBreakTime => 0o644,
             // Writing it needs `CAP_CHECKPOINT_RESTORE` instead.
             Self::NsLastPid => 0o666,
             _ => 0o444,
@@ -140,6 +144,8 @@ pub(super) fn global(
         Global::NrOpen => line(&NR_OPEN.to_string()),
         Global::PipeMaxSize => line(&PIPE_MAX_SIZE.to_string()),
         Global::DirNotifyEnable => line(&source.sysctls.dir_notify_enable().to_string()),
+        Global::LeasesEnable => line(&source.sysctls.leases_enable().to_string()),
+        Global::LeaseBreakTime => line(&source.sysctls.lease_break_time().to_string()),
     })
 }
 
