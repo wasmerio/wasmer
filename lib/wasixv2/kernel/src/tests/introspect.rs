@@ -478,7 +478,7 @@ fn process_madvise_takes_hints_for_other_processes() {
     let advise = |caller: &Caller<'_>, pidfd: Fd, advice: MadviseAdvice| {
         block_on(kernel.process_madvise(caller, pidfd, vec, 1, advice, 0))
     };
-    let self_group = Fd(-10001);
+    let self_group = Fd(wasixv2_abi::PidfdSelf::PIDFD_SELF_THREAD_GROUP.0);
     assert_eq!(
         advise(&caller, self_group, MadviseAdvice::MADV_DONTNEED),
         Ok(page as i32)

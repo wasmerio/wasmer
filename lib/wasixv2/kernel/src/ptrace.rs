@@ -173,11 +173,6 @@ impl Kernel {
     }
 }
 
-/// `PIDFD_SELF_THREAD`: a pidfd argument that names the calling thread.
-const PIDFD_SELF_THREAD: i32 = -10000;
-/// `PIDFD_SELF_THREAD_GROUP`: a pidfd argument that names the caller's thread group leader.
-const PIDFD_SELF_THREAD_GROUP: i32 = -10001;
-
 impl Kernel {
     /// `pidfd_get_task`: the task a pidfd argument names: the caller or its leader for
     /// `PIDFD_SELF_*`, else the thread group leader of the pidfd's process (`ESRCH` once it
@@ -187,9 +182,10 @@ impl Kernel {
         caller: &wasixv2_syscalls::Caller<'_>,
         pidfd: wasixv2_abi::Fd,
     ) -> Result<TaskId, wasixv2_abi::Errno> {
-        let task = match pidfd.0 {
-            PIDFD_SELF_THREAD => caller.task(),
-            PIDFD_SELF_THREAD_GROUP => self.process(caller.task()).pid,
+        use wasixv2_abi::PidfdSelf;
+        let task = match PidfdSelf(pidfd.0) {
+            PidfdSelf::PIDFD_SELF_THREAD => caller.task(),
+            PidfdSelf::PIDFD_SELF_THREAD_GROUP => self.process(caller.task()).pid,
             _ => TaskId(self.pidfd_pid(caller, pidfd)?),
         };
         match self.task_process(task) {
