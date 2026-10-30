@@ -888,6 +888,12 @@ pub trait BackendStream: Pollable {
     }
     /// Where the connection stands.
     fn state(&self) -> StreamState;
+    /// `TCP_ESTABLISHED`, excluding either side's FIN. Backends whose connected
+    /// phase also includes half-closed streams override this query.
+    fn tcp_established(&self) -> bool {
+        self.state() == StreamState::Established
+    }
+
     /// `EAGAIN` when nothing is buffered; 0 at end of stream.
     fn read(&self, buf: &mut [u8], peek: bool) -> Result<usize, Errno>;
     /// `EAGAIN` when nothing fits.

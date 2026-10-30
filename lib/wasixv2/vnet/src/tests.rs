@@ -3634,6 +3634,52 @@ fn accepted_tcp_child_inherits_address_lock_but_not_port_lock() {
     }
 }
 
+/// ipv6_sockglue.c do_ipv6_setsockopt/do_ipv6_getsockopt require
+/// TCP_ESTABLISHED for ADDRFORM, including its getsockopt query.
+#[test]
+fn ipv6_addrform_requires_established_tcp_after_shutdown() {
+    use wasixv2_abi::{Ipv6Option, SocketLevel};
+    for shutdown in [0, 1, 2] {
+        let n = net();
+        let listener = n.socket(Domain::Inet6, SocketKind::Stream, 0, UID).unwrap();
+        listener.bind(a("[::]:19012"), false).unwrap();
+        listener.listen(1).unwrap();
+        let client = tcp(&n);
+        client.connect(a("127.0.0.1:19012")).unwrap();
+        let accepted = listener.accept().unwrap().socket;
+        if shutdown == 0 {
+            client.shutdown(Shutdown::Write).unwrap();
+        } else {
+            accepted
+                .shutdown(if shutdown == 1 {
+                    Shutdown::Write
+                } else {
+                    Shutdown::Read
+                })
+                .unwrap();
+        }
+        let level = SocketLevel::SOL_IPV6.0;
+        let name = Ipv6Option::IPV6_ADDRFORM.0;
+        let mut out = [0; 4];
+        if shutdown == 2 {
+            assert_eq!(accepted.get_option(level, name, &mut out), Ok(4));
+            assert_eq!(
+                accepted.set_option(level, name, &2i32.to_le_bytes()),
+                Ok(())
+            );
+        } else {
+            assert_eq!(
+                accepted.get_option(level, name, &mut out),
+                Err(Errno::ENOTCONN)
+            );
+            assert_eq!(
+                accepted.set_option(level, name, &2i32.to_le_bytes()),
+                Err(Errno::ENOTCONN)
+            );
+        }
+    }
+}
+
 #[test]
 fn raw_ipv6_addrform_rejects_invalid_family_before_protocol() {
     let n = net();

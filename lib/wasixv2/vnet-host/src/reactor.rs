@@ -731,6 +731,37 @@ impl Pollable for HostStream {
 }
 
 impl BackendStream for HostStream {
+    fn tcp_established(&self) -> bool {
+        let st = self.0.state();
+        if !st.connected || st.failed || st.reset || st.wr_shut || st.rx_eof {
+            return false;
+        }
+        drop(st);
+        #[cfg(any(target_os = "linux", target_os = "android"))]
+        {
+            // Linux net/ipv4/tcp.c tcp_get_info: TCP_INFO begins with tcpi_state.
+            // Unlike RDHUP, it distinguishes a peer FIN from local SHUT_RD.
+            let mut state = [0u8; 1];
+            let mut len: libc::socklen_t = 1;
+            // SAFETY: state and len are writable buffers of the supplied sizes;
+            // the stream owns the socket throughout this call.
+            let result = unsafe {
+                libc::getsockopt(
+                    self.0.sock.as_raw_fd(),
+                    libc::IPPROTO_TCP,
+                    libc::TCP_INFO,
+                    state.as_mut_ptr().cast(),
+                    &mut len,
+                )
+            };
+            result == 0 && len == 1 && state[0] == 1 /* TCP_ESTABLISHED */
+        }
+        #[cfg(not(any(target_os = "linux", target_os = "android")))]
+        {
+            true
+        }
+    }
+
     fn state(&self) -> Phase {
         let st = self.0.state();
         if st.failed || st.reset {
@@ -2024,5 +2055,50 @@ mod cork_tests {
         let mut bytes = Vec::new();
         peer.read_to_end(&mut bytes).unwrap();
         assert_eq!(bytes, b"held");
+    }
+}
+
+#[cfg(all(test, any(target_os = "linux", target_os = "android")))]
+mod addrform_state_tests {
+    use super::*;
+    use wasixv2_vnet::{Domain, Net, NetConfig, Network, Shutdown, SocketKind};
+
+    #[test]
+    fn addrform_observes_peer_fin_after_local_read_shutdown() {
+        let backend = HostBackend::new().unwrap();
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let net = Net::new(NetConfig::host_default(), Some(backend));
+        let socket = net.socket(Domain::Inet6, SocketKind::Stream, 0, 0).unwrap();
+        let destination: SocketAddr = format!(
+            "[::ffff:10.0.2.2]:{}",
+            listener.local_addr().unwrap().port()
+        )
+        .parse()
+        .unwrap();
+        assert_eq!(socket.connect(destination), Err(Errno::EINPROGRESS));
+        let (peer, _) = listener.accept().unwrap();
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while !socket.poll(None).contains(PollMask::OUT) {
+            assert!(Instant::now() < deadline);
+            std::thread::yield_now();
+        }
+        socket.shutdown(Shutdown::Read).unwrap();
+        let mut out = [0; 4];
+        assert_eq!(
+            socket.get_option(41, 1 /* IPV6_ADDRFORM */, &mut out),
+            Ok(4)
+        );
+        peer.shutdown(std::net::Shutdown::Write).unwrap();
+        let deadline = Instant::now() + Duration::from_secs(2);
+        loop {
+            if socket.get_option(41, 1, &mut out) == Err(Errno::ENOTCONN) {
+                break;
+            }
+            assert!(
+                Instant::now() < deadline,
+                "ADDRFORM remained established after FIN"
+            );
+            std::thread::yield_now();
+        }
     }
 }

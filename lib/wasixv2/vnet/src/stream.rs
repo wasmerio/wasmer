@@ -105,6 +105,15 @@ impl Conn {
         self.lock().established
     }
 
+    pub fn tcp_established(&self, side: usize) -> bool {
+        let g = self.lock();
+        g.established
+            && !g.side[side].done
+            && !g.side[1 - side].done
+            && !g.side[side].wr_shut
+            && !g.side[1 - side].wr_shut
+    }
+
     /// Whether `side` is finished with the connection (reset, refused, or aborted).
     pub fn is_done(&self, side: usize) -> bool {
         self.lock().side[side].done
