@@ -238,3 +238,82 @@ fn sys_kernel_has_mm_and_cgroup() {
     let features = p.read(&kernel, "/sys/kernel/cgroup/features").unwrap();
     assert!(features.starts_with("nsdelegate\n") && features.ends_with("pids_localevents\n"));
 }
+
+/// ipc/mq_sysctl.c exposes five limits per IPC namespace; mqueue_get_inode
+/// consumes the configured defaults, and create enforces queues_max.
+#[test]
+fn mqueue_sysctls_control_defaults_and_follow_the_ipc_namespace() {
+    use wasixv2_abi::{CloneFlags, MqAttr};
+    use wasixv2_syscalls::read_value;
+    let (kernel, p) = machine();
+    assert_eq!(
+        p.read(&kernel, "/proc/sys/fs/mqueue/queues_max"),
+        Ok("256\n".into())
+    );
+    assert_eq!(
+        p.write(&kernel, "/proc/sys/fs/mqueue/msg_default", "2"),
+        Ok(1)
+    );
+    assert_eq!(
+        p.write(&kernel, "/proc/sys/fs/mqueue/msgsize_default", "128"),
+        Ok(3)
+    );
+    put(&p.memory.0, 0x100, b"queue\0");
+    let fd = Fd(block_on(kernel.mq_open(
+        &p.caller(),
+        GuestPtr::new(0x100),
+        OpenFlags::O_CREAT | OpenFlags::O_RDWR,
+        0o600,
+        GuestPtr::NULL,
+    ))
+    .unwrap());
+    assert_eq!(
+        block_on(kernel.mq_getsetattr(&p.caller(), fd.0, GuestPtr::NULL, GuestPtrMut::new(0x400))),
+        Ok(0)
+    );
+    let attr: MqAttr = block_on(read_value(&p.memory, GuestPtr::new(0x400))).unwrap();
+    assert_eq!((attr.mq_maxmsg, attr.mq_msgsize), (2, 128));
+    assert_eq!(
+        p.write(&kernel, "/proc/sys/fs/mqueue/msg_max", "0"),
+        Err(SysErr::Errno(Errno::EINVAL))
+    );
+    assert_eq!(
+        block_on(kernel.unshare(&p.caller(), CloneFlags::CLONE_NEWIPC.0 as u32)),
+        Ok(0)
+    );
+    assert_eq!(
+        p.read(&kernel, "/proc/sys/fs/mqueue/msg_default"),
+        Ok("10\n".into())
+    );
+    assert_eq!(
+        p.read(&kernel, "/proc/sys/fs/mqueue/msgsize_default"),
+        Ok("8192\n".into())
+    );
+    assert_eq!(
+        p.write(&kernel, "/proc/sys/fs/mqueue/queues_max", "1"),
+        Ok(1)
+    );
+    super::cred::set_caps(&kernel, &p.caller(), &p.memory.0, 0);
+    put(&p.memory.0, 0x100, b"first\0");
+    assert!(
+        block_on(kernel.mq_open(
+            &p.caller(),
+            GuestPtr::new(0x100),
+            OpenFlags::O_CREAT | OpenFlags::O_RDWR,
+            0o600,
+            GuestPtr::NULL
+        ))
+        .is_ok()
+    );
+    put(&p.memory.0, 0x100, b"second\0");
+    assert_eq!(
+        errno(block_on(kernel.mq_open(
+            &p.caller(),
+            GuestPtr::new(0x100),
+            OpenFlags::O_CREAT | OpenFlags::O_RDWR,
+            0o600,
+            GuestPtr::NULL
+        ))),
+        Errno::ENOSPC
+    );
+}

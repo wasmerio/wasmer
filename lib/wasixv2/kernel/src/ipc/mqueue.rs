@@ -68,11 +68,22 @@ const NOTIFY_REMOVED: u8 = 2;
 /// msg_msg` and one `struct posix_msg_tree_node` on a 32-bit kernel.
 const MSG_OVERHEAD: u64 = 24 + 24;
 
+/// ipc/mq_sysctl.c's five namespace-local integer limits.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum MqSysctl {
+    QueuesMax,
+    MsgMax,
+    MsgsizeMax,
+    MsgDefault,
+    MsgsizeDefault,
+}
+
 /// The namespace's queues: how many exist and what they charge, and the namespace's `mqueue`
 /// filesystem, which names them.
 pub(crate) struct Mqueues {
     /// Queues that exist, named or not (`mq_queues_count`).
     count: Mutex<usize>,
+    limits: Mutex<[i32; 5]>,
     /// `RLIMIT_MSGQUEUE` charges per user.
     charged: Mutex<HashMap<u32, u64>>,
     /// Who made the namespace, by filesystem uid and gid: the filesystem's root is theirs.
@@ -86,10 +97,38 @@ impl Mqueues {
     pub(crate) fn new(creator: (u32, u32)) -> Self {
         Self {
             count: Mutex::default(),
+            limits: Mutex::new([
+                QUEUES_MAX as i32,
+                MSG_MAX,
+                MSGSIZE_MAX,
+                MSG_MAX,
+                MSGSIZE_MAX,
+            ]),
             charged: Mutex::default(),
             creator,
             sb: OnceLock::new(),
         }
+    }
+
+    pub(crate) fn sysctl(&self, entry: MqSysctl) -> i32 {
+        self.limits.lock_or_recover()[entry as usize]
+    }
+
+    pub(crate) fn set_sysctl(&self, entry: MqSysctl, value: i32) -> Result<(), Errno> {
+        // ipc/mq_sysctl.c: queues_max uses proc_dointvec (no bounds);
+        // the other four use proc_dointvec_minmax with Linux's hard limits.
+        let valid = match entry {
+            MqSysctl::QueuesMax => true,
+            MqSysctl::MsgMax | MqSysctl::MsgDefault => (1..=HARD_MSGMAX).contains(&value),
+            MqSysctl::MsgsizeMax | MqSysctl::MsgsizeDefault => {
+                (128..=HARD_MSGSIZEMAX).contains(&value)
+            }
+        };
+        if !valid {
+            return Err(Errno::EINVAL);
+        }
+        self.limits.lock_or_recover()[entry as usize] = value;
+        Ok(())
     }
 
     /// `mqueue_get_inode` for a new queue of `owner`'s with the permission bits `mode`, and
@@ -104,19 +143,21 @@ impl Mqueues {
     ) -> Result<Arc<Mqueue>, Errno> {
         let resource = owner.resource;
         let mut count = self.count.lock_or_recover();
-        if *count >= QUEUES_MAX && !resource {
+        let limits = *self.limits.lock_or_recover();
+        if *count >= limits[0] as u32 as usize && !resource {
             return Err(Errno::ENOSPC);
         }
         let (maxmsg, msgsize) = match attr {
             Some(attr) => (attr.mq_maxmsg, attr.mq_msgsize),
-            None => (MSG_MAX, MSGSIZE_MAX),
+            // ipc/mqueue.c mqueue_get_inode clamps defaults to the tunable maxima.
+            None => (limits[1].min(limits[3]), limits[2].min(limits[4])),
         };
         if maxmsg <= 0 || msgsize <= 0 {
             return Err(Errno::EINVAL);
         }
         let (max_msg, max_size) = match resource {
             true => (HARD_MSGMAX, HARD_MSGSIZEMAX),
-            false => (MSG_MAX, MSGSIZE_MAX),
+            false => (limits[1], limits[2]),
         };
         if maxmsg > max_msg || msgsize > max_size {
             return Err(Errno::EINVAL);
