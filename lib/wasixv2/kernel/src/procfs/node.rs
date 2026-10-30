@@ -591,6 +591,7 @@ const NET_ENTRIES: &[(Option<usize>, &str, Option<text::Net>)] = &[
     (Some(NET_SCTP), "assocs", Some(text::Net::SctpAssocs)),
     (Some(NET_SCTP), "eps", Some(text::Net::SctpEps)),
     (Some(NET_SCTP), "snmp", Some(text::Net::SctpSnmp)),
+    (None, "arp", Some(text::Net::Arp)),
 ];
 
 /// `net/sctp` (`sctp_proc_init`).

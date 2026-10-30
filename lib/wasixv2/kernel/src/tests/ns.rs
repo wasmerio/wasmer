@@ -651,6 +651,21 @@ fn proc_sys_kernel_shows_the_readers_uts_namespace() {
 }
 
 #[test]
+fn proc_net_arp_exposes_an_empty_neighbor_table_header() {
+    let (kernel, task, memory) = machine_as(1);
+    let caller = Caller::new(task, &memory);
+    // net/ipv4/arp.c:arp_seq_show prints the header even with no neighbors.
+    let header = "IP address       HW type     Flags       HW address            Mask     Device\n";
+    for path in [
+        "/proc/net/arp",
+        "/proc/self/net/arp",
+        "/proc/thread-self/net/arp",
+    ] {
+        assert_eq!(read_text(&kernel, &caller, path), header);
+    }
+}
+
+#[test]
 fn proc_net_is_the_callers_own_net_directory() {
     let (kernel, task, memory) = machine_as(1);
     let caller = Caller::new(task, &memory);
