@@ -226,3 +226,31 @@ async fn blocking_dynamic_host_rejects_the_wrong_result_count() {
         .unwrap_err();
     assert!(error.to_string().contains("wrong number of results"));
 }
+
+#[wasm_bindgen_test]
+async fn blocking_i64_arguments_and_host_results_keep_all_bits() {
+    let _no_jspi = NoJspi::new();
+    let mut store = Store::default();
+    let module = Module::new(
+        &store,
+        r#"(module
+        (import "host" "pair" (func $pair (param i64 i64) (result i64 i64)))
+        (func (export "roundtrip") (param i64 i64) (result i64 i64)
+          local.get 0 local.get 1 call $pair))"#,
+    )
+    .unwrap();
+    let pair = Function::new_typed_async(&mut store, async |a: i64, b: i64| (a, b));
+    let instance = Instance::new(&mut store, &module, &imports! {"host"=>{"pair"=>pair}}).unwrap();
+    let function = instance.exports.get_function("roundtrip").unwrap();
+    // Linux fs/read_write.c:ksys_lseek/vfs_llseek transports signed 64-bit offsets.
+    // These values also catch Number's rounding above 53 bits and negative errno.
+    let values = [
+        wasmer::Value::I64(9_007_199_254_740_993),
+        wasmer::Value::I64(i64::MIN + 1),
+    ];
+    let result = function
+        .call_async(&store.into_async(), values.to_vec())
+        .await
+        .unwrap();
+    assert_eq!(result.as_ref(), &values);
+}
