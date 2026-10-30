@@ -55,8 +55,7 @@ pub(crate) fn fd_filestat_get_internal(
         return Err(Errno::Access);
     }
 
-    let guard = fd_entry.inode.stat.read().unwrap();
-    Ok(*guard.deref())
+    state.fs.stat_for_inode(&fd_entry.inode)
 }
 
 /// ### `fd_filestat_get_old()`

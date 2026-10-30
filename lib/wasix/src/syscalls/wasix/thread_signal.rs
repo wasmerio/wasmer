@@ -13,12 +13,17 @@ pub fn thread_signal(
     tid: Tid,
     sig: Signal,
 ) -> Result<Errno, WasiError> {
-    {
-        let tid: WasiThreadId = tid.into();
-        ctx.data().process.signal_thread(&tid, sig);
-    }
+    let tid: WasiThreadId = tid.into();
+    ctx.data().process.signal_thread(&tid, sig);
 
-    let env = ctx.data();
+    if sig == Signal::Sigkill {
+        let env = ctx.data();
+        if let Err(error) = env.tasks().terminate_wasm_thread(env.pid(), tid) {
+            tracing::debug!(%error, %tid, "task manager could not terminate WASM thread");
+            env.process.wake_atomic_waiters(sig);
+        }
+        return Ok(Errno::Success);
+    }
 
     WasiEnv::do_pending_operations(&mut ctx)?;
 

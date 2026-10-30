@@ -63,6 +63,7 @@ impl PackageSummary {
 
         let pkg = PackageInfo::from_manifest(id, manifest, container.version())?;
         let dist = DistributionInfo {
+            webc_size: None,
             webc: url,
             webc_sha256,
         };
@@ -266,6 +267,8 @@ fn url_or_manifest_to_specifier(value: &UrlOrManifest) -> Result<PackageSource, 
 /// Information used when retrieving a package.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DistributionInfo {
+    /// Size of the decoded WEBC image, when the registry provides it.
+    pub webc_size: Option<u64>,
     /// A URL that can be used to download the `*.webc` file.
     pub webc: Url,
     /// A SHA-256 checksum for the `*.webc` file.
