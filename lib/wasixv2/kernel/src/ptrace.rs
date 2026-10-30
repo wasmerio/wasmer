@@ -412,6 +412,10 @@ pub(crate) struct Tracee {
     pub(crate) signals: Arc<crate::signal::TaskSignals>,
     /// The tracee ended (an exited thread, `EXIT_ZOMBIE` for its tracer): what `wait` reports.
     pub(crate) exit: Option<crate::process::Exit>,
+    /// The final status selected on exit, not waitable until exit_mm has finished.
+    pending_exit: Option<crate::process::Exit>,
+    /// Execution has let go of this thread; its tracer still owns the zombie.
+    pub(crate) released: bool,
 }
 
 /// Every traced task, by task id.
@@ -480,6 +484,8 @@ impl Kernel {
                 process,
                 signals: signals.clone(),
                 exit: None,
+                released: false,
+                pending_exit: None,
             },
         );
         self.tracees
@@ -495,6 +501,9 @@ impl Kernel {
             tracee.signals.group().ptrace_unlink(task, exit_code);
             if tracee.exit.is_some() && task == tracee.process.pid {
                 self.ptrace_notify_parent(task.0, None);
+            }
+            if tracee.released {
+                self.release_task(task);
             }
         }
         self.procs.changed.wake(wasixv2_wait::PollMask::empty());
@@ -1254,6 +1263,7 @@ impl Kernel {
             let tracee = &map[&id];
             let process = tracee.process.clone();
             let signals = tracee.signals.clone();
+            let released = tracee.released;
             let report = match tracee.exit {
                 Some(exit) if options & WaitOptions::WEXITED.0 != 0 => {
                     if !nowait {
@@ -1281,11 +1291,26 @@ impl Kernel {
                     if id == process.pid {
                         self.ptrace_notify_parent(id.0, Some(me));
                     }
+                    if released {
+                        self.release_task(id);
+                    }
                 }
                 return (true, Some((nr, report, process)));
             }
         }
         (any, None)
+    }
+
+    /// kernel/exit.c:exit_notify leaves a ptraced nonleader in EXIT_ZOMBIE until
+    /// wait_task_zombie or __ptrace_detach consumes it. Execution release alone is not reap.
+    pub(crate) fn defer_traced_thread_release(&self, task: TaskId) -> Option<Arc<Process>> {
+        let mut map = self.tracees.lock();
+        let tracee = map.get_mut(&task)?;
+        if task == tracee.process.pid || tracee.exit.is_none() {
+            return None;
+        }
+        tracee.released = true;
+        Some(tracee.process.clone())
     }
 
     /// A task's end as ptrace sees it: as a tracer, its tracees are let go (`exit_ptrace`),
@@ -1323,10 +1348,14 @@ impl Kernel {
         if task == process.pid {
             return;
         }
-        let tracer = match self.tracees.lock().get(&task) {
-            Some(t) if t.exit.is_none() => t.tracer,
-            _ => return,
-        };
+        if self
+            .tracees
+            .lock()
+            .get(&task)
+            .is_none_or(|t| t.exit.is_some() || t.pending_exit.is_some())
+        {
+            return;
+        }
         let exit = match self.killed_by(process.pid.0) {
             Some(sig) => crate::process::Exit {
                 code: wasixv2_abi::SiCode::CLD_KILLED,
@@ -1340,10 +1369,28 @@ impl Kernel {
             },
         };
         if let Some(t) = self.tracees.lock().get_mut(&task) {
-            t.exit = Some(exit);
+            t.pending_exit = Some(exit);
         }
-        self.signal_tracer(task, tracer, exit.code, exit.status, false);
-        self.procs.changed.wake(wasixv2_wait::PollMask::empty());
+        if self.task_ref(task, |t| t.thread.exit_mm_done()) {
+            self.ptrace_finish_exit(task);
+        }
+    }
+
+    /// kernel/exit.c:do_exit finishes exit_mm before exit_notify makes a zombie
+    /// waitable. A successful tracer wait may immediately release the task.
+    pub(crate) fn ptrace_finish_exit(&self, task: TaskId) {
+        let report = {
+            let mut map = self.tracees.lock();
+            map.get_mut(&task).and_then(|t| {
+                let exit = t.pending_exit.take()?;
+                t.exit = Some(exit);
+                Some((t.tracer, exit))
+            })
+        };
+        if let Some((tracer, exit)) = report {
+            self.signal_tracer(task, tracer, exit.code, exit.status, false);
+            self.procs.changed.wake(wasixv2_wait::PollMask::empty());
+        }
     }
 
     /// `ptrace_init_task` for a task `parent` just made: a traced parent's child is traced by
@@ -1475,6 +1522,9 @@ impl Kernel {
             tracee.signals.group().ptrace_unlink(id, None);
             if tracee.exit.is_some() && id == tracee.process.pid {
                 self.ptrace_notify_parent(id.0, None);
+            }
+            if tracee.released {
+                self.release_task(id);
             }
         }
         self.procs.changed.wake(wasixv2_wait::PollMask::empty());

@@ -1724,3 +1724,110 @@ fn sigcont_notifies_a_seized_group_stop_before_or_after_listen() {
         assert!(!waits_stopped(kernel, child));
     }
 }
+
+/// kernel/exit.c:exit_notify and wait_task_zombie retain a ptraced thread's zombie
+/// until its tracer waits. delay_group_leader prevents reaping the leader first.
+#[test]
+fn traced_thread_exit_survives_release_and_delays_leader_reap() {
+    let (stack, tracer, memory) = machine();
+    let kernel = &stack.inner;
+    let caller = Caller::new(tracer, &memory);
+    let leader = fork_child(kernel, &caller);
+    let child_memory = flat();
+    let leader_caller = Caller::new(leader, &child_memory);
+    let thread = TaskId(
+        block_on(kernel.thread_spawn(&leader_caller, 0x10f00, 0, S32Ptr::NULL, 0, S32Ptr::NULL))
+            .unwrap() as u32,
+    );
+    while kernel.take_pending(leader).is_some() {}
+    for task in [leader, thread] {
+        assert_eq!(ptrace(kernel, &caller, R::PTRACE_SEIZE, task, 0, 0), Ok(0));
+    }
+    let thread_caller = Caller::new(thread, &child_memory);
+    block_on(kernel.exit(&thread_caller, 7)).unwrap();
+    assert_eq!(kernel.take_pending(thread), Some(GuestAction::Exit(7)));
+    block_on(kernel.exit_mm(&thread_caller));
+    kernel.release(thread);
+    for _ in 0..2 {
+        assert_eq!(
+            wait(kernel, &caller, thread, WALL | WaitOptions::WNOWAIT.0),
+            Some((SiCode::CLD_EXITED, 7, thread.0 as i32))
+        );
+    }
+    block_on(kernel.exit_group(&leader_caller, 3)).unwrap();
+    assert_eq!(kernel.take_pending(leader), Some(GuestAction::Exit(3)));
+    kernel.release(leader);
+    assert_eq!(wait(kernel, &caller, leader, WALL), None);
+    assert_eq!(
+        wait(kernel, &caller, thread, WALL),
+        Some((SiCode::CLD_EXITED, 7, thread.0 as i32))
+    );
+    assert!(kernel.task_process(thread).is_none());
+    assert_eq!(wait(kernel, &caller, leader, WALL).unwrap().1, 3);
+}
+
+#[test]
+fn traced_thread_release_handles_wait_first_and_tracer_exit() {
+    for tracer_exits in [false, true] {
+        let (stack, tracer, memory) = machine();
+        let kernel = &stack.inner;
+        let caller = Caller::new(tracer, &memory);
+        let leader = fork_child(kernel, &caller);
+        let child_memory = flat();
+        let leader_caller = Caller::new(leader, &child_memory);
+        let thread = TaskId(
+            block_on(kernel.thread_spawn(&leader_caller, 0x10f00, 0, S32Ptr::NULL, 0, S32Ptr::NULL))
+                .unwrap() as u32,
+        );
+        while kernel.take_pending(leader).is_some() {}
+        assert_eq!(
+            ptrace(kernel, &caller, R::PTRACE_SEIZE, thread, 0, 0),
+            Ok(0)
+        );
+        let cc = Caller::new(thread, &child_memory);
+        block_on(kernel.exit(&cc, 9)).unwrap();
+        assert_eq!(kernel.take_pending(thread), Some(GuestAction::Exit(9)));
+        block_on(kernel.exit_mm(&cc));
+        if tracer_exits {
+            kernel.release(thread);
+            assert!(kernel.task_process(thread).is_some());
+            block_on(kernel.exit_group(&caller, 0)).unwrap();
+        } else {
+            assert_eq!(
+                wait(kernel, &caller, thread, WALL),
+                Some((SiCode::CLD_EXITED, 9, thread.0 as i32))
+            );
+            assert!(kernel.task_process(thread).is_some());
+            kernel.release(thread);
+        }
+        assert!(kernel.task_process(thread).is_none());
+    }
+}
+
+#[test]
+fn traced_thread_group_exit_waits_for_memory_cleanup() {
+    let (stack, tracer, memory) = machine();
+    let kernel = &stack.inner;
+    let caller = Caller::new(tracer, &memory);
+    let leader = fork_child(kernel, &caller);
+    let child_memory = flat();
+    let cc = Caller::new(leader, &child_memory);
+    let thread = TaskId(
+        block_on(kernel.thread_spawn(&cc, 0x10f00, 0, S32Ptr::NULL, 0, S32Ptr::NULL)).unwrap()
+            as u32,
+    );
+    while kernel.take_pending(leader).is_some() {}
+    assert_eq!(
+        ptrace(kernel, &caller, R::PTRACE_SEIZE, thread, 0, 0),
+        Ok(0)
+    );
+    block_on(kernel.exit_group(&cc, 5)).unwrap();
+    assert_eq!(kernel.take_pending(thread), Some(GuestAction::Exit(5)));
+    assert_eq!(wait(kernel, &caller, thread, WALL), None);
+    block_on(kernel.exit_mm(&Caller::new(thread, &child_memory)));
+    kernel.release(thread);
+    assert_eq!(
+        wait(kernel, &caller, thread, WALL),
+        Some((SiCode::CLD_EXITED, 5, thread.0 as i32))
+    );
+}
