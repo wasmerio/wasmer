@@ -180,6 +180,12 @@ private pages retain their existing CoW backing. With a known layout, backing an
 growing linear memory does not by itself map a gap. `None` keeps the original contract and
 bottom-up growth/reuse behavior for other embedders and unknown images.
 
+Retired thread instances return their execution-owned unwind buffers to a pool shared by
+instances on the same memory, including CLONE_VM processes. A buffer stays leased until
+the guest and its return handling finish; errors and panic unwinding release the lease too.
+Reusing these reservations bounds their space by concurrent instances instead of lifetime
+thread count, without attempting munmap through an exec caller's replacement address space.
+
 Exec obtains these bounds from the linker's exported globals. Unknown data bounds leave the
 layout unspecified. The optional `__heap_base` export can be absent when nothing references
 it; then exec follows lld's `Writer::layoutMemory` and aligns the known data/stack end to 16.

@@ -176,6 +176,10 @@ pub(crate) struct Asyncify {
 }
 
 impl Asyncify {
+    pub(crate) fn buffer_address(&self) -> Option<u32> {
+        self.buffer
+    }
+
     pub(crate) fn reserve_buffer(&mut self, addr: u32) {
         self.buffer = Some(addr);
     }

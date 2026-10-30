@@ -578,7 +578,7 @@ pub(crate) async fn vfork_return<S: 'static>(
 }
 
 #[cfg(test)]
-mod tests {
+pub(super) mod tests {
     use std::{
         collections::{HashMap, VecDeque},
         ops::Range,
@@ -597,7 +597,7 @@ mod tests {
 
     /// Control that records faults and releases; a fault leaves the exit it causes pending.
     #[derive(Default)]
-    struct Recorder {
+    pub(crate) struct Recorder {
         pending: Mutex<HashMap<TaskId, VecDeque<GuestAction>>>,
         faulted: Mutex<Vec<(TaskId, i32)>>,
         released: Mutex<Vec<TaskId>>,
@@ -610,6 +610,7 @@ mod tests {
         cpu: Option<Arc<CpuAccount>>,
         retry: Option<(Arc<crate::cputime::tests::Clocks>, SysErr)>,
         calls: AtomicU32,
+        pub(crate) buffer_allocations: AtomicU32,
     }
 
     impl Recorder {
@@ -623,6 +624,30 @@ mod tests {
     }
 
     impl Syscalls for Recorder {
+        async fn mmap(
+            &self,
+            caller: &Caller<'_>,
+            _: u32,
+            len: u32,
+            _: wasixv2_abi::ProtFlags,
+            _: wasixv2_abi::MapFlags,
+            _: wasixv2_abi::Fd,
+            _: i64,
+        ) -> SysResult<u32> {
+            let index = self.buffer_allocations.fetch_add(1, Ordering::Relaxed);
+            let at = 4 * 65536 + index * len;
+            let size = caller.memory().size().await;
+            let end = u64::from(at) + u64::from(len);
+            if end > size {
+                caller
+                    .memory()
+                    .grow((end - size).div_ceil(65536) as u32)
+                    .await
+                    .ok_or(Errno::ENOMEM)?;
+            }
+            Ok(at)
+        }
+
         async fn sched_yield(&self, _: &Caller<'_>) -> SysResult<i32> {
             let Some((clocks, error)) = &self.retry else {
                 return Err(Errno::ENOSYS.into());
@@ -752,7 +777,7 @@ mod tests {
     }
 
     /// A host that cannot start threads.
-    struct NoThreads;
+    pub(crate) struct NoThreads;
 
     impl Host for NoThreads {
         fn realtime(&self) -> Duration {

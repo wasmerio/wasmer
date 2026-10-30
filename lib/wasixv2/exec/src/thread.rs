@@ -10,7 +10,11 @@
 //!
 //! [`GuestAction::StartThread`]: wasixv2_syscalls::GuestAction::StartThread
 
-use std::{io, ops::Range, sync::Arc};
+use std::{
+    io,
+    ops::Range,
+    sync::{Arc, Mutex, PoisonError},
+};
 
 use wasixv2_abi::Signal;
 use wasixv2_host::Host;
@@ -20,6 +24,7 @@ use wasmer::{AsyncFunctionEnvMut, Engine, FunctionEnv, Instance, Module, SharedM
 use crate::{
     Ended, ExecEnv, ExecError,
     abi::{Abi, Abis, Entry, Role},
+    asyncify::Access,
     base::Base,
     memory::ReadOnly,
     process,
@@ -38,6 +43,7 @@ pub(crate) struct Image<S> {
     /// The main thread's stack in `memory`.
     main_stack: Range<u32>,
     layout: Option<wasixv2_syscalls::MemoryLayout>,
+    buffers: Arc<Mutex<Vec<u32>>>,
     /// The ranges of `memory` that show shared objects read-only, for every thread.
     read_only: Arc<ReadOnly>,
     /// The frozen image `memory` is a private view of ([`crate::base`]).
@@ -74,6 +80,7 @@ impl<S> Image<S> {
             low_guard,
             main_stack,
             layout,
+            buffers: Arc::default(),
             read_only,
             base,
             syscalls,
@@ -82,6 +89,26 @@ impl<S> Image<S> {
             abis,
             handoff,
         })
+    }
+}
+
+/// An execution-owned buffer on this memory, available again once its instance
+/// has stopped. Like kernel/exit.c:exit_mm, retirement releases the task's storage;
+/// keep the reservation for reuse rather than munmap through a task whose exec
+/// may already have replaced its mm. Sharing the pool also covers CLONE_VM processes.
+struct BufferLease {
+    pool: Arc<Mutex<Vec<u32>>>,
+    addr: Option<u32>,
+}
+
+impl Drop for BufferLease {
+    fn drop(&mut self) {
+        if let Some(addr) = self.addr {
+            self.pool
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner)
+                .push(addr);
+        }
     }
 }
 
@@ -114,6 +141,7 @@ where
             // The memory, so its stack region, is the creator's (Linux shares the mm).
             main_stack: self.main_stack.clone(),
             layout: self.layout.clone(),
+            buffers: self.buffers.clone(),
             read_only: self.read_only.clone(),
             base: self.base.clone(),
             syscalls: self.syscalls.clone(),
@@ -240,11 +268,96 @@ where
 
         let store = store.into_async();
         let entry = Entry::new(&env, &store);
+        let mut buffer = BufferLease {
+            pool: self.buffers.clone(),
+            addr: self
+                .buffers
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner)
+                .pop(),
+        };
+        if let Some(addr) = buffer.addr {
+            entry
+                .cx()
+                .with(|env, _| {
+                    if let Some(asyncify) = &mut env.asyncify {
+                        asyncify.reserve_buffer(addr);
+                    }
+                })
+                .await;
+        }
         let result = match crate::asyncify::prepare_buffer(entry.cx()).await {
-            Ok(()) => abi.start_thread(&entry, tid, start_arg).await,
+            Ok(()) => {
+                buffer.addr = entry
+                    .cx()
+                    .with(|env, _| env.asyncify.as_ref().and_then(|a| a.buffer_address()))
+                    .await;
+                abi.start_thread(&entry, tid, start_arg).await
+            }
             Err(err) => Err(err),
         };
         let on_return = abi.on_thread_return();
         Ok(crate::ended(entry.cx(), result, on_return, Role::Thread).await)
+    }
+}
+
+#[cfg(all(test, feature = "sys"))]
+mod tests {
+    use super::*;
+    use crate::process::tests::{NoThreads, Recorder};
+    use std::sync::atomic::Ordering;
+
+    /// kernel/exit.c:exit_mm releases a retired task's execution resources.
+    /// Repeated threads on one memory must not consume a fresh MiB each time.
+    #[test]
+    fn retired_thread_unwind_buffers_are_reused() {
+        let store = Store::default();
+        let module = Module::new(
+            &store,
+            wat::parse_str(
+                r#"(module
+            (import "env" "memory" (memory 4 64 shared))
+            (export "memory" (memory 0))
+            (global (export "__stack_pointer") (mut i32) (i32.const 131072))
+            (func (export "asyncify_start_unwind") (param i32))
+            (func (export "asyncify_stop_unwind"))
+            (func (export "asyncify_start_rewind") (param i32))
+            (func (export "asyncify_stop_rewind"))
+            (func (export "wasixv2_thread_start") (param i32 i32) unreachable))"#,
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        let mut store = store;
+        let memory =
+            wasmer::Memory::new(&mut store, wasmer::MemoryType::new(4, Some(64), true)).unwrap();
+        let control = Arc::new(Recorder::default());
+        let layout = wasixv2_syscalls::MemoryLayout {
+            image_end: 3 * 65536,
+            data: 2 * 65536..3 * 65536,
+            brk: 3 * 65536,
+            maximum: 64 * 65536,
+            reserved: Vec::new(),
+        };
+        let image = Image::new(
+            &store,
+            &module,
+            memory.as_shared(&store).unwrap(),
+            (0, Arc::default(), None),
+            0..0,
+            Some(layout),
+            control.clone(),
+            Arc::new(NoThreads),
+            Arc::new(crate::wasixv2::Wasixv2),
+            Arc::new(Abis::wasixv2()),
+            Arc::default(),
+        );
+        for id in 2..6 {
+            let ended =
+                futures::executor::block_on(image.clone().call_entry(TaskId(id), id as i32, 0))
+                    .unwrap();
+            assert!(matches!(ended, Ended::Fault { .. }));
+        }
+        assert_eq!(control.buffer_allocations.load(Ordering::Relaxed), 1);
     }
 }
