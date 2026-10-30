@@ -102,5 +102,10 @@ strict observer-gap guard. Uninterrupted fixed-runtime full7200s confirmation is
 pending. The analyzer
 `userland/tests/soak-results.py RESULT_DIRECTORY` verifies actual persistent
 runtime before writing `results.json`, reporting warm/late slopes, quantiles,
-fresh-process peaks and quiescent task counts. No clean two-hour curve is claimed
-yet. Canonical takeover state: `~/wasixv2-orch/logs/v16soak/STATE.md`.
+fresh-process peaks and quiescent task counts. It also compares persistent/fresh
+cycle medians in the same10-minute windows, excluding each machine's first two
+cycles. At~49minutes, both slow together under~80% host CPU pressure; their median
+ratio remains0.979–0.992, which supports shared scheduling contention rather than
+aging-machine degradation. This is a robustness run on a shared host, not an
+isolated performance benchmark. No clean two-hour curve is claimed yet.
+Canonical takeover state: `~/wasixv2-orch/logs/v16soak/STATE.md`.
