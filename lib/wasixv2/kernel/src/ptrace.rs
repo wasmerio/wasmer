@@ -1166,7 +1166,18 @@ impl Kernel {
         if !self.tracees.used() {
             return false;
         }
-        let signals = self.task_signals(task);
+        // kernel/exit.c:do_exit reports EXIT before exit_notify/release_task.
+        // take_pending's exit snapshot can race with reap; a DeadTask has only
+        // its unwind action left, never a new ptrace stop.
+        let Some((signals, process)) = ({
+            let state = self.state.read_or_recover();
+            state
+                .tasks
+                .get(&task)
+                .map(|t| (t.signals.clone(), t.process.clone()))
+        }) else {
+            return false;
+        };
         let group = signals.group();
         let decision = group.with_trace(task, |trace| {
             if trace.sync_stop == Some(SyncStop::Exit) {
@@ -1194,7 +1205,6 @@ impl Kernel {
             Some(3) => {}
             _ => return false,
         }
-        let process = self.process(task);
         let message = self
             .killed_by(process.pid.0)
             .unwrap_or((status & 0xff) << 8) as u64;

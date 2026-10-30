@@ -1831,3 +1831,20 @@ fn traced_thread_group_exit_waits_for_memory_cleanup() {
         Some((SiCode::CLD_EXITED, 5, thread.0 as i32))
     );
 }
+
+/// kernel/exit.c:do_exit reports ptrace EXIT before exit_notify/release_task.
+/// Model a parent reaping between take_pending's exit snapshot and its ptrace check.
+#[test]
+fn pending_exit_check_tolerates_a_leader_reaped_after_snapshot() {
+    let (stack, parent, memory) = machine();
+    let kernel = &stack.inner;
+    let caller = Caller::new(parent, &memory);
+    let child_memory = flat();
+    let child = traced_child(kernel, &caller, &child_memory);
+    assert_eq!(ptrace(kernel, &caller, R::PTRACE_CONT, child, 0, 0), Ok(0));
+    block_on(kernel.exit_group(&caller, 0)).unwrap();
+    assert!(!kernel.state.read_or_recover().tasks.contains_key(&parent));
+    assert!(!kernel.ptrace_pending_exit(parent, 0));
+    assert_eq!(kernel.take_pending(parent), Some(GuestAction::Exit(0)));
+    assert_eq!(kernel.take_pending(parent), None);
+}
