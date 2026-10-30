@@ -32,8 +32,9 @@ receive slot. vnet::RecvQueue owns MSG_OOB, SO_OOBINLINE, SIOCATMARK and POLLPRI
 
 The test relay (`tests/wasixv2/browser/network-server.mjs`) uses real loopback
 TCP/UDP services, deterministic A/AAAA/PTR/TXT answers, host UDP-send failures,
-and real fixed-port publications. Its separate urgent wire-conformance endpoint
-is a provider byte endpoint, **not evidence of native host MSG_OOB forwarding**.
+real fixed-port publications and a bounded Python urgent relay helper over real
+localhost TCP sockets. The helper forwards MSG_OOB and receives inline with
+SIOCATMARK before every one-byte read; both directions traverse native sockets.
 The stock server patch below is still required for that deployment.
 
 ## Exact stock-server follow-up

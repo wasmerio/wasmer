@@ -1214,3 +1214,68 @@ fn dropping_udp_drains_accepted_datagrams_before_close() {
         .unwrap();
     assert!(send < close);
 }
+
+#[test]
+fn publication_rechecks_a_listener_created_after_accept_credit() {
+    struct LaterListener {
+        ready: AtomicBool,
+        accepted: AtomicUsize,
+    }
+    impl InboundSink for LaterListener {
+        fn poll_room(&self, _: Option<&mut PollTable<'_>>) -> Room {
+            if self.ready.load(Ordering::SeqCst) {
+                Room::Ready
+            } else {
+                Room::Gone
+            }
+        }
+        fn incoming(&self, _: Arc<dyn BackendStream>, _: WaitQueue) -> bool {
+            self.accepted.fetch_add(1, Ordering::SeqCst);
+            true
+        }
+    }
+    let mut h = Harness::new();
+    let sink = Arc::new(LaterListener {
+        ready: AtomicBool::new(false),
+        accepted: AtomicUsize::new(0),
+    });
+    let _publication = h.backend.publish(peer(), 1, sink.clone()).unwrap();
+    assert!(h.pump().is_pending());
+    let (request, socket) = h
+        .transport
+        .commands
+        .iter()
+        .find_map(|c| match c {
+            Command::Listen {
+                request, socket, ..
+            } => Some((*request, *socket)),
+            _ => None,
+        })
+        .unwrap();
+    h.event(Event::Complete {
+        request,
+        result: Ok(()),
+    });
+    let child = h
+        .transport
+        .commands
+        .iter()
+        .find_map(|c| match c {
+            Command::Accept { child, .. } => Some(*child),
+            _ => None,
+        })
+        .unwrap();
+    sink.ready.store(true, Ordering::SeqCst);
+    h.event(Event::Accepted {
+        socket,
+        child,
+        peer: peer(),
+    });
+    assert_eq!(sink.accepted.load(Ordering::SeqCst), 1);
+    assert!(
+        !h.transport
+            .commands
+            .iter()
+            .any(|c| matches!(c,Command::Reset {socket:id} if *id==child))
+    );
+}

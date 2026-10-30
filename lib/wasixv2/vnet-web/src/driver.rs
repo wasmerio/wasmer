@@ -3,7 +3,7 @@ use crate::{
     transport::{Command, Event, Transport},
 };
 use std::{
-    collections::{BTreeMap, VecDeque},
+    collections::{BTreeMap, BTreeSet, VecDeque},
     sync::Arc,
     task::{Context, Poll},
 };
@@ -167,14 +167,14 @@ impl Driver {
                 .collect()
         };
         let entry: Arc<dyn WaitEntry> = Arc::new(DriverWake(self.shared.clone()));
-        let mut accepting = BTreeMap::new();
+        let mut accepting = BTreeSet::new();
         for (id, sink) in listeners {
             let mut register = |q: &WaitQueue, _| self.registrations.push(q.add(entry.clone()));
             let room = sink.poll_room(Some(&mut PollTable::new(PollMask::empty(), &mut register)));
             // Like vnet-host's listener, accept and reset when no guest listener exists;
             // only a full accept queue leaves the connection in the relay backlog.
             if room != Room::Full {
-                accepting.insert(id, room == Room::Gone);
+                accepting.insert(id);
             }
         }
         // Registration precedes checking the predicate. A room/guest-I/O wake before this
@@ -219,7 +219,7 @@ impl Driver {
                     addr,
                 }));
             }
-            if accepting.contains_key(&id)
+            if accepting.contains(&id)
                 && listener.child.is_none()
                 && inner.flows.len() + inner.listeners.len() < self.shared.config.max_sockets
             {
@@ -234,7 +234,6 @@ impl Driver {
                 inner.flows.insert(child, flow);
                 let listener = inner.listeners.get_mut(&id).unwrap();
                 listener.child = Some(child);
-                listener.refuse_child = accepting[&id];
                 return Ok(Some(Command::Accept { socket: id, child }));
             }
         }
@@ -727,7 +726,7 @@ impl Driver {
                         return Err(Errno::EPROTO);
                     }
                     listener.child = None;
-                    if listener.released || listener.refuse_child {
+                    if listener.released {
                         None
                     } else {
                         Some(listener.sink.clone())
@@ -767,7 +766,9 @@ impl Driver {
                 id,
                 peer,
             });
-            if !sink.incoming(stream.clone(), wq) {
+            // Linux tcp_v4_syn_recv_sock/inet_csk_accept use current listener state.
+            // Accept credit may predate listen; no callback runs under the backend mutex.
+            if sink.poll_room(None) != Room::Ready || !sink.incoming(stream.clone(), wq) {
                 let mut inner = self.shared.inner.lock().unwrap();
                 if let Some(flow) = inner.flows.get_mut(&id) {
                     flow.reset = true;
