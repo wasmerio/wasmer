@@ -21,10 +21,21 @@ pub enum Module {
     Wasix32,
     /// `wasi`, which only holds wasi-threads' `thread-spawn`.
     Wasi,
+    /// The historical `wasix_http_client_v1` WAI extension.
+    HttpClient,
+    /// WAI HTTP resource destruction, not a guest ABI on its own.
+    Canonical,
 }
 
 impl Module {
-    pub const ALL: [Self; 4] = [Self::Preview1, Self::Unstable, Self::Wasix32, Self::Wasi];
+    pub const ALL: [Self; 6] = [
+        Self::Preview1,
+        Self::Unstable,
+        Self::Wasix32,
+        Self::Wasi,
+        Self::HttpClient,
+        Self::Canonical,
+    ];
 
     pub const fn name(self) -> &'static str {
         match self {
@@ -32,6 +43,8 @@ impl Module {
             Self::Unstable => "wasi_unstable",
             Self::Wasix32 => "wasix_32v1",
             Self::Wasi => "wasi",
+            Self::HttpClient => crate::http::NAMESPACE,
+            Self::Canonical => crate::http::CANONICAL,
         }
     }
 
@@ -61,7 +74,7 @@ pub struct Entry {
     pub stub: Stub,
 }
 
-use Module::{Preview1, Unstable, Wasi, Wasix32};
+use Module::{Canonical, HttpClient, Preview1, Unstable, Wasi, Wasix32};
 use Stub::{Pending, Shim, Unsupported};
 use Type::{I32, I64};
 
@@ -83,8 +96,14 @@ macro_rules! table {
 
 const THREADS: &[Module] = &[Preview1, Unstable, Wasi];
 const PREVIEW1: &[Module] = &[Preview1];
+const HTTP: &[Module] = &[HttpClient];
+const CANONICAL: &[Module] = &[Canonical];
 
 table! {
+    // Historical WAI HTTP extension; these imports return expected<> through guest memory.
+    "client::new" HTTP (I32) -> () Shim;
+    "client::send" HTTP (I32 I32) -> () Shim;
+    "resource_drop_client" CANONICAL (I32) -> () Shim;
     // ---- WASI preview1 ----
     "args_get" WASI (I32 I32) -> (I32) Shim;
     "args_sizes_get" WASI (I32 I32) -> (I32) Shim;
@@ -264,18 +283,6 @@ pub fn validate(wasm: &wasmer::Module) -> Result<(), String> {
                 )
             })?;
             Some(FunctionType::new(entry.params, entry.results))
-        } else if matches!(
-            import.module(),
-            crate::http::NAMESPACE | crate::http::CANONICAL
-        ) {
-            let count = crate::http::params(import.module(), import.name()).ok_or_else(|| {
-                format!(
-                    "unknown WASIX v1 import {}.{}",
-                    import.module(),
-                    import.name()
-                )
-            })?;
-            Some(FunctionType::new(vec![I32; count], []))
         } else {
             None
         };
@@ -319,7 +326,6 @@ where
     S: Syscalls + Control + Send + Sync + 'static,
 {
     let mut imports = Imports::new();
-    crate::http::imports(&mut imports, store, env, wasm);
     for import in wasm.imports().functions() {
         let Some(module) = Module::from_name(import.module()) else {
             continue;
@@ -354,6 +360,9 @@ where
         };
     }
     Some(match name {
+        "client::new" => f!(http::client_new::<S>),
+        "client::send" => f!(http::client_send::<S>),
+        "resource_drop_client" => f!(http::client_drop::<S>),
         "args_get" => f!(startup::args_get::<S>),
         "args_sizes_get" => f!(startup::args_sizes_get::<S>),
         "environ_get" => f!(startup::environ_get::<S>),

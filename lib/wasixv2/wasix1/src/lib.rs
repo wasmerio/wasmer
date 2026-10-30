@@ -187,7 +187,11 @@ fn flavor(modules: impl Iterator<Item = String>) -> Option<V1Flavor> {
             "wasix_http_client_v1" if flavor == V1Flavor::Wasm32 => {
                 flavor = V1Flavor::HttpClient;
             }
-            name if V1Module::from_name(name).is_some() => v1 = true,
+            name if V1Module::from_name(name)
+                .is_some_and(|module| module != V1Module::Canonical) =>
+            {
+                v1 = true
+            }
             _ => {}
         }
     }
@@ -226,6 +230,7 @@ mod tests {
             None
         );
         assert_eq!(flavor(modules(&["env"])), None);
+        assert_eq!(flavor(modules(&["canonical_abi"])), None);
     }
 
     #[test]
