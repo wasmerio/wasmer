@@ -1140,3 +1140,125 @@ the human user remains responsible for contributions. Remaining104 expected
 failures, dynamic LTP setup budgets, neighbor cache support and deferred guest
 page protections remain follow-ups. Landing order:
 **LTP -> tests -> libc2 -> wasmer -> plan**, ABI unchanged. **GO**.
+
+## 2026-10-30: validation train 22 — NO-GO
+
+Hold main/feat landing. Integration, gates, exactly ONE full suite, four strict
+fixture corrections, cause diagnosis, smoke, matching consumer pins, and shared
+libc2 rebuilds are complete. **Ten unresolved regressions versus train21, nine
+versus corrected train19, remain unblessed.** Four memory-based prerequisite
+skips are artifacts of the new accounting problem. No unexpected runtime host
+panic was observed in retained invocation/gate/smoke/diagnostic logs.
+
+Candidates, published only on train22 branches (orchestrator owns mains):
+
+| Repo | Branch | Base -> head |
+| --- | --- | --- |
+| wasmer | wasixv2/train22 | fe5556c0591 -> **d90cd88fd34** |
+| tests | train22 | b770259 -> **aca5ac3** |
+| libc2 | train22 | e42efbed -> **b969f9aa** |
+| LTP | wasixv2-train22 | 27e0e1b5f -> **54ea12a4b** |
+
+Both consumers pin testsaca5ac3 and unchanged ABI **07cd32e**; tests pin LTP54ea12a4b.
+The sole-run runtime is **df6e4ed6ed4**, tests ee2200d, libc2 e2096238, LTP525608d49.
+Final runtime changes only its tests gitlink. CLI SHA256:
+`f9d2d680354567a7a34ae35e040fdfb3e753b6840e277c402288c05bc13f1d92`.
+
+- Integrated V8 extra dev-zero coverage and three process_vm fixes, four libc
+  nftw fixes, and both LTP prerequisite patches. Kept landed mqueue/dev-zero
+  implementations and omitted duplicate production patches and input pins.
+- Integrated approved P3 optional UserMemory layout, top-down mmap/separate brk,
+  byte-granular RLIMIT_DATA, reserved main unwind buffer, and per-thread buffers.
+  The VM bulk-memory4GiB endpoint repair remains its own commit **acf812d2d54**.
+- Gates: all25 native crate invocations, **1991 passing cases including docs**;
+  kernel1109, exec64, host17, VM59. All three Makefile-flags strict clippy gates,
+  fmt, release6m57s, CLI59pass/12ignored and tty6pass. Runner21pass/2 unchanged
+  ignored probes, strict clippy/fmt; private EH/asyncify sysroots/import checks.
+- One unchanged host timer unit had a racy try_lock assertion against the live
+  worker. **df6e4ed6ed4** isolates that synchronous unit's queue from expiry-worker
+  contention. Full host gate passes; an intentional under-lock destruction
+  mutation still fails it. Production timer code is unchanged. These two unit
+  assertion artifacts are distinguished from runtime host panics.
+- Exactly ONE full run **3458s**, CPUs0-3/three jobs: raw **4070 pass /87 xfail /
+  14 unexpected fail /2 unexpected pass /436 ignored**, observed4072/101/436.
+  All8 new configurations pass. Per-invocation bounded capture and independent
+  cleanup retain panic evidence and follow declared LTP deadlines; no second run.
+- Four fixture assumptions were corrected and all four pass strict focused checks
+  on the same gated binary: exec traps use the existing low guard because a high
+  address can now be valid; proc maps parses64-bit exclusive endpoints and compares
+  totals with summed VMAs; POSIX mmap9-1 reserves two pages so its unaligned
+  one-page request stays below TASK_SIZE (Linux mm/mmap.c __get_unmapped_area
+  checks bounds first); removexattr02 uses NULL because wasm32 -1 can name the
+  mapped final byte (fs/namei.c getname_flags). Red modules/output are archived.
+
+| Suite | Train21 pass / xfail / unexpected / ignored | Final classified pass / xfail / unexpected / ignored |
+| --- | --- | --- |
+| own | 314 /0 /0 /1 | 321 /0 /1 /1 |
+| libc-test | 411 /2 /0 /0 | 411 /2 /0 /0 |
+| POSIX | 1727 /20 /0 /81 | 1727 /17 /0 /81 |
+| LTP | 1619 /82 /0 /349 | 1617 /68 /9 /354 |
+| **Total** | **4071 /104 /0 /431** | **4076 /87 /10 /436** |
+
+These are one full run plus four proven fixture corrections, not a second run.
+Nine old failures and8 new configurations pass. Five prior failures are explicitly
+excluded using native-musl evidence, with no passing registration removed.
+The expectation files contain **89 entries**:87 executed persistent failures plus
+old overcommit_memory01/03 expectations whose bodies now skip on false memory
+prerequisites. All10 regressions stay unlisted;16 surviving handwritten causes
+are retained. Flaky policy and global timeout policy are unchanged.
+
+Remaining blockers, with source/evidence in `regression-causes.json`:
+
+1. **Sparse fork:** proc-fork-sparse passes the same module on train21 under2GiB
+   (228316KiB peak,1.47s). Train22 OOMs at2GiB; diagnostic10GiB passes at
+   **8505496KiB**,10.91s. Existing MemoryImage::capture fallback on shared/file
+   pages outside the frozen Base now copies nearly4GiB. Raising the cap is not a
+   fix. Preserve copy correctness/provenance when repairing this fallback; Linux
+   mm/memory.c copy_page_range and mm/mmap.c dup_mmap are the references.
+2. **Unwind-buffer lifetime:** gf07/09/10/11 and keyctl02 trap at thread4090/4091
+   with `no memory for unwinding: ENOMEM`. Image::call_entry/prepare_buffer eagerly
+   allocate1MiB per additional asyncify thread and no retirement path releases
+   it. An mm-owned lifetime must cover exit, exec and traps without unmapping a
+   replacement mm; no new kernel/exec cleanup contract was invented here.
+3. **Core holes:** madvise08 and waitid10 pass baseline21 at~52MiB but their
+   unchanged train22 invocations OOM at2GiB. do_coredump/ElfCore::new cover the
+   linear span rather than actual VMA PT_LOADs. Diagnostic waitid10 with guest
+   core limits0 passes at75416KiB/0.10s; it does not clear the canonical failure.
+   Follow fs/binfmt_elf.c elf_core_dump and fs/coredump.c vma_dump_size, retaining
+   DONTDUMP, limits and valid ELF32 endpoints.
+4. **Accounting:** meminfo/VmData/sysinfo still count the linear high-water span.
+   min_free_kbytes sees MemFree0; in6_02's getdatasize overflows32-bit VmData bytes
+   (ENOBUFS is stale errno). max_map_count/getrusage03 falsely skip despite prior
+   passes; old overcommit01/03 bodies also skip. Separate mapped/data/resident
+   accounting from the linear span, following fs/proc/task_mmu.c task_mem/
+   task_statm and fs/proc/meminfo.c meminfo_proc_show. No approximate total swap
+   or fabricated available-memory value was added.
+
+Smoke passes: SWS classic/Linux28/28 each, UDP6, v1eight plus known Python failure,
+C++9, pty11/no-tty, all12 usual/35 hand statuses match21, inherited feature/program
+workflows and fresh strace10checks. PHP CLI initially failed a CDN response-body
+read and passed isolated retry. The stock retry regenerated its individual
+logs-v1 directory; initial aggregate output is retained, final individual logs
+are scanned. All suite panic streams are retained; do not infer preserved initial
+per-file v1 output beyond the aggregate. No observed runtime host panic.
+
+Requested smoke: raw-brk growth and fork after512 descending mmaps pass; namespace
+mqueue read/write/bounds pass; four process_vm transfers ending/crossing4GiB keep
+correct8-byte prefixes. LTP brk01/02 raw variants TPASS, libc variants retain TCONF.
+Both nftw and all3 process_vm LTP prerequisites TPASS. ioctl02's full-run root
+TCONF is not mistaken for VT coverage: explicit root replay reaches No-accessible-
+numeric-VT TCONF. Runner script_index misses extensionless test_ioctl's legacy
+root declaration; that metadata lookup remains a follow-up.64x1ms sleeps never
+return early: overshoot p5020.450us,p9543.162us,max53.361us.
+
+Shared local libc2 main fast-forwards to b969f9aa with exact tests/ABI/LTP pins;
+EH/asyncify builds and import checks pass **04:17:16UTC**. No remote main/feat/tag
+is pushed. Logs, source/module repros, binaries, classifications, complete commit
+inventories and audits are in `~/wasixv2-orch/logs/train22/`. Only owned Cargo
+targets are removed. All new commits have the exact GPT-6.1-Sol AI disclosure;
+the human user remains responsible for contributions. Own train22-plan worktree
+was used throughout; shared plan worktree was not used or switched.
+
+After the blockers are repaired and validated, landing dependency order is
+**LTP -> tests -> libc2 -> wasmer -> plan**, ABI unchanged. Candidate publication
+does not authorize landing. **NO-GO: hold mains.**
