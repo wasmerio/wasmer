@@ -243,8 +243,14 @@ impl Conn {
         if count == 0 {
             return false;
         }
-        let data: Vec<_> = g.tx[side].drain(..count).collect();
-        g.rx[1 - side].push(&data);
+        // tcp_sendmsg_locked queues the payload without collecting it again.
+        let tx = &mut g.tx[side];
+        let rx = &mut g.rx[1 - side];
+        let (first, second) = tx.as_slices();
+        let n = count.min(first.len());
+        rx.push(&first[..n]);
+        rx.push(&second[..count - n]);
+        tx.drain(..count);
         true
     }
 
@@ -607,6 +613,30 @@ mod tests {
 
     fn conn() -> Conn {
         Conn::new([WaitQueue::new(), WaitQueue::new()], [B, B], true)
+    }
+
+    #[test]
+    fn warmed_stream_transfers_allocate_no_temporary_buffers() {
+        let buffers = Buffers {
+            sndbuf: 65536,
+            rcvbuf: 65536,
+            ..B
+        };
+        let c = Conn::new(
+            [WaitQueue::new(), WaitQueue::new()],
+            [buffers, buffers],
+            true,
+        );
+        let data = [42; 65536];
+        let mut out = [0; 65536];
+        assert_eq!(c.write0(&data), Ok(data.len()));
+        assert_eq!(c.read(1, &mut out, false), Ok(out.len()));
+        let allocations = crate::allocations::count(|| {
+            assert_eq!(c.write0(&data), Ok(data.len()));
+            assert_eq!(c.read(1, &mut out, false), Ok(out.len()));
+        });
+        assert_eq!(out, data);
+        assert_eq!(allocations, 0, "queue capacity is already reserved");
     }
 
     #[test]
