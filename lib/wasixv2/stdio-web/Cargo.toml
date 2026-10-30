@@ -1,0 +1,24 @@
+[package]
+name = "wasixv2-stdio-web"
+version = "0.0.0"
+description = "Bounded browser stdio adapters for WASIX"
+publish = false
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+wasixv2-host = { path = "../host" }
+wasixv2-wait = { path = "../wait" }
+futures-util.workspace = true
+
+[target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
+futures.workspace = true
+wasixv2-kernel = { path = "../kernel" }
+wasixv2-abi = { path = "../abi" }
+wasixv2-syscalls = { path = "../syscalls" }
+wasixv2-vfs = { path = "../vfs" }
+wasixv2-vfs-mem = { path = "../vfs-mem" }

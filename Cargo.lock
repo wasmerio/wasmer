@@ -7195,6 +7195,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "wasixv2-stdio-web"
+version = "0.0.0"
+dependencies = [
+ "futures",
+ "futures-util",
+ "wasixv2-abi",
+ "wasixv2-host",
+ "wasixv2-kernel",
+ "wasixv2-syscalls",
+ "wasixv2-vfs",
+ "wasixv2-vfs-mem",
+ "wasixv2-wait",
+]
+
+[[package]]
 name = "wasixv2-syscalls"
 version = "0.0.0"
 dependencies = [
