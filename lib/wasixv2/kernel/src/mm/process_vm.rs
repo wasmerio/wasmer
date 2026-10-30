@@ -126,7 +126,10 @@ impl<'a> Cursor<'a> {
         loop {
             let iov = self.iovecs.get(self.index)?;
             if self.offset < iov.iov_len {
-                return Some((iov.iov_base + self.offset, iov.iov_len - self.offset));
+                return iov
+                    .iov_base
+                    .checked_add(self.offset)
+                    .map(|addr| (addr, iov.iov_len - self.offset));
             }
             (self.index, self.offset) = (self.index + 1, 0);
         }
@@ -134,5 +137,22 @@ impl<'a> Cursor<'a> {
 
     fn advance(&mut self, n: u32) {
         self.offset += n;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn an_iovec_stops_at_the_guest_address_limit() {
+        let vectors = [Iovec {
+            iov_base: u32::MAX - 3,
+            iov_len: 8,
+        }];
+        let mut cursor = Cursor::new(&vectors);
+        assert_eq!(cursor.next(), Some((u32::MAX - 3, 8)));
+        cursor.advance(4);
+        assert_eq!(cursor.next(), None);
     }
 }
