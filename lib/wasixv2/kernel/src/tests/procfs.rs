@@ -773,6 +773,53 @@ fn memory_devices_read_write_and_seek_like_linux() {
     assert_eq!(errno(t.open("/dev/tty", rw)), Errno::ENXIO);
 }
 
+/// mm/char-mem.c:mmap_zero_prepare and mm/vma.c:mmap_region turn private
+/// /dev/zero mappings into independent anonymous memory; null/full cannot map.
+#[test]
+fn zero_device_private_mappings_are_anonymous_and_independent() {
+    let (kernel, task, _) = machine();
+    let memory = memory();
+    let t = T::new(&kernel, task, &memory);
+    let caller = Caller::new(task, &memory);
+    let zero = t.open("/dev/zero", OpenFlags::O_RDONLY).unwrap();
+    let page = WASM_PAGE_SIZE as u32;
+    let map = |fd, flags| {
+        block_on(kernel.mmap(&caller, 0, page, ProtFlags(3), flags, fd, i64::from(page)))
+    };
+    let first = map(zero, MapFlags::MAP_PRIVATE).unwrap();
+    assert_eq!(get(&memory, first, 16), [0; 16]);
+    put(&memory, first, b"private");
+    let second = map(zero, MapFlags::MAP_PRIVATE).unwrap();
+    assert_eq!(get(&memory, second, 16), [0; 16]);
+    // Anonymous VMAs accept WIPEONFORK and DONTNEED; a private file VMA does not.
+    assert_eq!(
+        block_on(kernel.madvise(
+            &caller,
+            first,
+            page,
+            wasixv2_abi::MadviseAdvice::MADV_WIPEONFORK,
+        )),
+        Ok(0)
+    );
+    assert_eq!(
+        block_on(kernel.madvise(
+            &caller,
+            first,
+            page,
+            wasixv2_abi::MadviseAdvice::MADV_DONTNEED,
+        )),
+        Ok(0)
+    );
+    assert_eq!(get(&memory, first, 16), [0; 16]);
+    assert_eq!(errno(map(zero, MapFlags::MAP_SHARED)), Errno::EACCES);
+    let writeonly = t.open("/dev/zero", OpenFlags::O_WRONLY).unwrap();
+    assert_eq!(errno(map(writeonly, MapFlags::MAP_PRIVATE)), Errno::EACCES);
+    for name in ["/dev/null", "/dev/full"] {
+        let fd = t.open(name, OpenFlags::O_RDWR).unwrap();
+        assert_eq!(errno(map(fd, MapFlags::MAP_PRIVATE)), Errno::ENODEV);
+    }
+}
+
 #[test]
 fn memory_and_random_devices_fill_reads_larger_than_one_step() {
     // `dd bs=1M` counts on it: `read_iter_zero` and `urandom_read_iter` fill the whole buffer.
