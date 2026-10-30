@@ -3296,3 +3296,96 @@ fn ipv6_addrform_converts_mapped_connections() {
     let raw = n.socket(Domain::Inet6, SocketKind::Raw, 253, UID).unwrap();
     assert_eq!(raw.set_option(level, name, &inet), Err(Errno::ENOPROTOOPT));
 }
+
+/// net/ipv4/udp.c udp_sendmsg: MSG_MORE and UDP_CORK accumulate one datagram;
+/// later sends use the first destination, even without a connected peer.
+#[test]
+fn udp_cork_preserves_datagram_and_destination() {
+    for domain in [Domain::Inet, Domain::Inet6] {
+        let n = net();
+        let sender = n.socket(domain, SocketKind::Datagram, 0, UID).unwrap();
+        let receiver = n.socket(domain, SocketKind::Datagram, 0, UID).unwrap();
+        let other = n.socket(domain, SocketKind::Datagram, 0, UID).unwrap();
+        let first = a(if domain == Domain::Inet {
+            "127.0.0.1:19002"
+        } else {
+            "[::1]:19002"
+        });
+        let second = a(if domain == Domain::Inet {
+            "127.0.0.1:19003"
+        } else {
+            "[::1]:19003"
+        });
+        receiver.bind(first, false).unwrap();
+        other.bind(second, false).unwrap();
+        sender
+            .send(SendMsg {
+                data: b"hello",
+                to: Some(first),
+                flags: MsgFlags::MSG_MORE,
+                control: &[],
+                net_raw: false,
+                now: Duration::ZERO,
+            })
+            .unwrap();
+        assert_eq!(recv(&*receiver, 64), Err(Errno::EAGAIN));
+        send_to(&*sender, b" world", Some(second)).unwrap();
+        assert_eq!(recv(&*receiver, 64).unwrap(), b"hello world");
+        assert_eq!(recv(&*other, 64), Err(Errno::EAGAIN));
+        sender
+            .set_option(17, 1 /* UDP_CORK */, &1i32.to_le_bytes())
+            .unwrap();
+        send_to(&*sender, b"a", Some(first)).unwrap();
+        send(&*sender, b"b").unwrap();
+        assert_eq!(recv(&*receiver, 64), Err(Errno::EAGAIN));
+        sender.set_option(17, 1, &0i32.to_le_bytes()).unwrap();
+        assert_eq!(recv(&*receiver, 64).unwrap(), b"ab");
+        let mut out = [0; 4];
+        sender.get_option(17, 1, &mut out).unwrap();
+        assert_eq!(out, [0; 4]);
+        // An overflowing append discards the pending datagram (udp_flush_pending_frames).
+        sender
+            .send(SendMsg {
+                data: b"lost",
+                to: Some(first),
+                flags: MsgFlags::MSG_MORE,
+                control: &[],
+                net_raw: false,
+                now: Duration::ZERO,
+            })
+            .unwrap();
+        assert_eq!(send(&*sender, &vec![0; 65527]), Err(Errno::EMSGSIZE));
+        assert_eq!(send(&*sender, b"x"), Err(Errno::EDESTADDRREQ));
+        assert_eq!(recv(&*receiver, 64), Err(Errno::EAGAIN));
+    }
+}
+
+#[test]
+fn udp_ipv6_cork_rejects_ipv4_append_without_losing_pending_data() {
+    let n = net();
+    let sender = n
+        .socket(Domain::Inet6, SocketKind::Datagram, 0, UID)
+        .unwrap();
+    let receiver = n
+        .socket(Domain::Inet6, SocketKind::Datagram, 0, UID)
+        .unwrap();
+    receiver.bind(a("[::1]:19010"), false).unwrap();
+    sender
+        .send(SendMsg {
+            data: b"a",
+            to: Some(a("[::1]:19010")),
+            flags: MsgFlags::MSG_MORE,
+            control: &[],
+            net_raw: false,
+            now: Duration::ZERO,
+        })
+        .unwrap();
+    // udpv6_sendmsg delegates mapped destinations to udp_sendmsg, which rejects
+    // an IPv6 pending cork with EINVAL before touching it.
+    assert_eq!(
+        send_to(&*sender, b"wrong", Some(a("[::ffff:127.0.0.1]:19010"))),
+        Err(Errno::EINVAL)
+    );
+    send(&*sender, b"b").unwrap();
+    assert_eq!(recv(&*receiver, 64).unwrap(), b"ab");
+}
