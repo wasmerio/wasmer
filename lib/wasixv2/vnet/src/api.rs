@@ -720,6 +720,16 @@ pub type PublishedDatagram = (Arc<dyn BackendDatagram>, Box<dyn Publication>);
 /// queue, never one of its own, so a waiter that registered on the socket before the backend
 /// object existed still hears about it.
 pub trait Backend: Send + Sync {
+    /// An in-runtime peer reached by the uplink, if any. The namespace finishes routing
+    /// after releasing its own lock, through its ordinary cross-namespace socket path.
+    /// This preserves guest source ports and per-namespace bind/accept/UDP semantics;
+    /// host transports keep returning None and choose their own host source ports.
+    /// Must not take any Net/socket lock: the source route table is locked by the caller.
+    fn peer_network(&self, destination: IpAddr) -> Option<Arc<Net>> {
+        let _ = destination;
+        None
+    }
+
     /// Starts an outbound stream connection to `peer`. The stream reports `OUT` once
     /// connected, or `ERR` with `take_error` set if it failed. Immediate failures
     /// (`ENETUNREACH`) are errors here. The stream wakes `wq`, the guest socket's queue, on

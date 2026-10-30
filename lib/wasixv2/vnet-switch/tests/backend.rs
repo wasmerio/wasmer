@@ -49,6 +49,11 @@ fn machines_route_tcp_and_discover_only_live_nonloopback_listeners() {
     assert!(r.is_ok() || r == Err(Errno::EINPROGRESS));
     let accepted = listener.accept().unwrap();
     assert_eq!(
+        accepted.peer,
+        client.local_addr().unwrap(),
+        "switch routes preserve the guest source port"
+    );
+    assert_eq!(
         accepted.peer.ip(),
         "192.0.2.10".parse::<std::net::IpAddr>().unwrap()
     );
@@ -257,4 +262,62 @@ fn memory_stream_reuses_bounded_buffers_urgent_marks_and_unread_reset() {
     assert_eq!(a.write(b"x"), Err(Errno::EAGAIN));
     drop(b);
     assert_eq!(a.take_error(), Some(Errno::ECONNRESET));
+}
+
+#[test]
+fn switched_established_stream_reads_reset_then_eof() {
+    let sw = switch();
+    let a = sw.backend("192.0.2.10".parse().unwrap()).unwrap();
+    let b = sw.network("192.0.2.11".parse().unwrap(), 24).unwrap();
+    let listener = socket(&*b, Domain::Inet, SocketKind::Stream);
+    listener.bind(addr("0.0.0.0:9000"), false).unwrap();
+    listener.listen(1).unwrap();
+    let stream = a
+        .connect(addr("192.0.2.11:9000"), WaitQueue::new())
+        .unwrap();
+    let accepted = listener.accept().unwrap().socket;
+    stream.write(b"unread").unwrap();
+    drop(accepted);
+    assert_eq!(stream.read(&mut [0; 8], false), Err(Errno::ECONNRESET));
+    assert_eq!(stream.read(&mut [0; 8], false), Ok(0));
+}
+
+#[test]
+fn unbound_udp_source_port_and_reuseport_listener_survive_peer_routing() {
+    let sw = switch();
+    let a = sw.network("192.0.2.10".parse().unwrap(), 24).unwrap();
+    let b = sw.network("192.0.2.11".parse().unwrap(), 24).unwrap();
+    let left = socket(&*a, Domain::Inet, SocketKind::Datagram);
+    let right = socket(&*b, Domain::Inet, SocketKind::Datagram);
+    right.bind(addr("0.0.0.0:9000"), false).unwrap();
+    left.connect(addr("192.0.2.11:9000")).unwrap();
+    send(&*left, b"tuple", None).unwrap();
+    let mut buf = [0; 8];
+    let received = right.recv(&mut buf, MsgFlags(0)).unwrap();
+    assert_eq!(received.from, Some(left.local_addr().unwrap()));
+    send(&*right, b"reply", received.from).unwrap();
+    assert_eq!(receive(&*left), b"reply");
+    let make_listener = || {
+        let s = socket(&*b, Domain::Inet, SocketKind::Stream);
+        s.set_option(
+            SocketLevel::SOL_SOCKET.0,
+            SocketOption::SO_REUSEPORT.0,
+            &1i32.to_le_bytes(),
+        )
+        .unwrap();
+        s.bind(addr("0.0.0.0:8080"), false).unwrap();
+        s.listen(1).unwrap();
+        s
+    };
+    let first = make_listener();
+    let second = make_listener();
+    drop(first);
+    assert!(
+        sw.listeners()
+            .iter()
+            .any(|l| l.address == addr("192.0.2.11:8080"))
+    );
+    let client = socket(&*a, Domain::Inet, SocketKind::Stream);
+    let _ = client.connect(addr("192.0.2.11:8080"));
+    assert!(second.accept().is_ok());
 }

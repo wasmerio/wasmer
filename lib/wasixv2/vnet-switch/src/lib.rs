@@ -1,7 +1,8 @@
 //! In-runtime socket switch. Each port owns one unicast address; Machines retain their
 //! independent namespace/port tables. Use [`Switch::network`] for automatic non-loopback
 //! TCP/UDP publication. No host sockets, worker messages or packet stack are involved.
-//! Stream source ports are backend-owned (as with the host backend), not guest bind ports.
+//! Machine peers reuse vnet's cross-namespace path and preserve guest source ports.
+//! Explicit Backend clients, like host transports, have backend-owned source ports.
 mod datagram;
 mod stream;
 
@@ -19,7 +20,8 @@ use wasixv2_vnet::{
     PublishedDatagram, Room, Uplink, WaitQueue,
 };
 
-/// Per-port bounds, including sockets waiting for an accept queue to have room.
+/// Bounds for explicit Backend endpoints. Machine peer sockets use vnet's existing
+/// namespace socket limits and bounded TCP/UDP queues.
 #[derive(Clone, Copy, Debug)]
 pub struct Config {
     pub max_endpoints: usize,
@@ -136,6 +138,7 @@ impl Switch {
             address,
             me: me.clone(),
             state: Mutex::new(PortState::default()),
+            network: Mutex::new(Weak::new()),
         });
         ports.insert(address, Arc::downgrade(&backend));
         Ok(backend)
@@ -158,14 +161,16 @@ impl Switch {
             IpAddr::V4(a) => uplink.v4 = Some((a, prefix, None)),
             IpAddr::V6(a) => uplink.v6 = Some((a, prefix, None)),
         }
-        Ok(Net::new(
+        let network = Net::new(
             NetConfig {
                 uplink: Some(uplink),
                 auto_publish: Some(address),
                 ..NetConfig::default()
             },
-            Some(backend),
-        ))
+            Some(backend.clone()),
+        );
+        *backend.network.lock().unwrap() = Arc::downgrade(&network);
+        Ok(network)
     }
 
     fn destination(&self, address: IpAddr) -> Option<Arc<SwitchBackend>> {
@@ -188,6 +193,22 @@ impl Switch {
             .collect();
         let mut snapshots = Vec::new();
         for port in ports {
+            let network = port.network.lock().unwrap().upgrade();
+            if let Some(network) = network {
+                use wasixv2_vnet::Network;
+                for entry in network
+                    .ports()
+                    .into_iter()
+                    .filter(|p| p.listening && !p.local.ip().is_loopback())
+                {
+                    let address = SocketAddr::new(port.address, entry.local.port());
+                    let room = network.inbound_sink(entry.local).poll_room(None);
+                    if room != Room::Gone {
+                        snapshots.push(Listener { address, room });
+                    }
+                }
+                continue;
+            }
             let listeners: Vec<_> = port
                 .state
                 .lock()
@@ -207,6 +228,7 @@ impl Switch {
             }
         }
         snapshots.sort_by_key(|l| l.address);
+        snapshots.dedup_by_key(|l| l.address);
         snapshots
     }
 }
@@ -217,6 +239,7 @@ pub struct SwitchBackend {
     address: IpAddr,
     me: Weak<SwitchBackend>,
     state: Mutex<PortState>,
+    network: Mutex<Weak<Net>>,
 }
 struct Lease {
     _port: Arc<SwitchBackend>,
@@ -261,6 +284,10 @@ impl SwitchBackend {
     }
 }
 impl Backend for SwitchBackend {
+    fn peer_network(&self, destination: IpAddr) -> Option<Arc<Net>> {
+        let peer = self.switch.destination(destination)?;
+        peer.network.lock().unwrap().upgrade()
+    }
     fn connect(&self, peer: SocketAddr, wq: WaitQueue) -> Result<Arc<dyn BackendStream>, Errno> {
         if peer.is_ipv4() != self.address.is_ipv4() {
             return Err(Errno::EAFNOSUPPORT);
