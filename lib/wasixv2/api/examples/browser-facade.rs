@@ -322,6 +322,9 @@ mod wasm {
             program_name: None,
             mounts: vec![],
             expected: Expected { files: vec![] },
+            console: false,
+            http: false,
+            command_defaults: vec![],
         };
         block_on(execute(fixture, &wasm)).map_err(error)
     }
