@@ -149,6 +149,7 @@ impl Net {
             src: p.src,
             dst: p.dst,
             ttl: p.ttl,
+            traffic_class: 0,
             iif,
             pkttype,
         };

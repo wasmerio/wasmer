@@ -92,6 +92,8 @@ pub(crate) struct SendCtl {
     /// `IP_TTL` / `IPV6_HOPLIMIT`: the datagram's hop limit, if given (`ipc->ttl`,
     /// `ipc6->hlimit`).
     pub ttl: Option<u8>,
+    /// `IPV6_TCLASS` for this packet, or the socket's sticky value when absent.
+    pub traffic_class: Option<u8>,
     /// `IPV6_DONTFRAG` (`ipc6->dontfrag`), if given.
     pub dontfrag: Option<bool>,
 }
@@ -133,6 +135,8 @@ pub(crate) fn udp(
         ctl.src = ip.src;
         ctl.oif = ip.oif;
         ctl.ttl = ip.ttl;
+        ctl.traffic_class = ip.traffic_class;
+        ctl.dontfrag = ip.dontfrag;
     }
     Ok(ctl)
 }
@@ -300,9 +304,11 @@ fn ip6(controls: &[Control], net_raw: bool) -> NetResult<SendCtl> {
                 ctl.ttl = u8::try_from(hops).ok();
             }
             k if k == Ipv6Option::IPV6_TCLASS.0 => {
-                if !(-1..=255).contains(&int(c)?) {
+                let class = int(c)?;
+                if !(-1..=255).contains(&class) {
                     return Err(Errno::EINVAL);
                 }
+                ctl.traffic_class = u8::try_from(class).ok();
             }
             k if k == Ipv6Option::IPV6_DONTFRAG.0 => {
                 let v = int(c)?;
@@ -387,6 +393,8 @@ mod tests {
         let udp6 = |cs: &[Control], raw| udp(cs, Domain::Inet6, false, raw);
         let hop = |v: i32| c(SOL_IPV6, Ipv6Option::IPV6_HOPLIMIT.0, &v.to_le_bytes());
         assert!(udp6(&[hop(-1)], false).is_ok());
+        let dontfrag = c(SOL_IPV6, Ipv6Option::IPV6_DONTFRAG.0, &1i32.to_le_bytes());
+        assert_eq!(udp6(&[dontfrag], false).unwrap().dontfrag, Some(true));
         assert_eq!(udp6(&[hop(256)], false), Err(Errno::EINVAL));
         // An IPv4 option on an IPv6 destination is ignored.
         assert!(udp6(&[ttl(0)], false).is_ok());

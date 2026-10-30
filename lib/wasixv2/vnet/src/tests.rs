@@ -3693,3 +3693,109 @@ fn raw_ipv6_addrform_rejects_invalid_family_before_protocol() {
         Err(Errno::ENOPROTOOPT)
     );
 }
+
+/// Linux net/ipv6/datagram.c:ip6_datagram_recv_specific_ctl reads the queued
+/// packet's header using the receiver's current rxopt bits, including on peek.
+#[test]
+fn udp_ipv6_receive_controls_preserve_queued_packet_metadata() {
+    use crate::Control;
+    use wasixv2_abi::{Ipv6Option, SocketLevel};
+    let n = net();
+    let rx = n
+        .socket(Domain::Inet6, SocketKind::Datagram, 0, UID)
+        .unwrap();
+    let tx = n
+        .socket(Domain::Inet6, SocketKind::Datagram, 0, UID)
+        .unwrap();
+    let dst = a("[::1]:19012");
+    rx.bind(dst, false).unwrap();
+    let level = SocketLevel::SOL_IPV6.0;
+    let set = |s: &dyn Socket, name: i32, value: i32| {
+        s.set_option(level, name, &value.to_le_bytes()).unwrap();
+    };
+    set(&*tx, Ipv6Option::IPV6_UNICAST_HOPS.0, 23);
+    set(&*tx, Ipv6Option::IPV6_TCLASS.0, 0x21);
+    send_to(&*tx, b"queued", Some(dst)).unwrap();
+    set(&*tx, Ipv6Option::IPV6_UNICAST_HOPS.0, 31);
+    set(&*tx, Ipv6Option::IPV6_TCLASS.0, 0x77);
+    set(&*rx, Ipv6Option::IPV6_RECVHOPLIMIT.0, 1);
+    set(&*rx, Ipv6Option::IPV6_RECVTCLASS.0, 1);
+    let control = |kind: i32, value: i32| Control {
+        level,
+        kind,
+        data: value.to_le_bytes().to_vec(),
+    };
+    let expected = vec![
+        control(Ipv6Option::IPV6_HOPLIMIT.0, 23),
+        control(Ipv6Option::IPV6_TCLASS.0, 0x21),
+    ];
+    let mut buf = [0; 16];
+    let peek = rx.recv(&mut buf, MsgFlags::MSG_PEEK).unwrap();
+    assert_eq!(&buf[..peek.len], b"queued");
+    assert_eq!(peek.control, expected);
+    assert_eq!(rx.recv(&mut buf, MsgFlags(0)).unwrap().control, expected);
+    let overrides = [
+        control(Ipv6Option::IPV6_HOPLIMIT.0, 2),
+        control(Ipv6Option::IPV6_TCLASS.0, 0xab),
+    ];
+    tx.send(SendMsg {
+        data: b"overridden",
+        to: Some(dst),
+        flags: MsgFlags(0),
+        control: &overrides,
+        net_raw: false,
+        now: Duration::ZERO,
+    })
+    .unwrap();
+    assert_eq!(rx.recv(&mut buf, MsgFlags(0)).unwrap().control, overrides);
+    send_to(&*tx, b"off", Some(dst)).unwrap();
+    set(&*rx, Ipv6Option::IPV6_RECVHOPLIMIT.0, 0);
+    set(&*rx, Ipv6Option::IPV6_RECVTCLASS.0, 0);
+    assert!(rx.recv(&mut buf, MsgFlags(0)).unwrap().control.is_empty());
+    // Per-send -1 falls back to the sticky setting; zero is a real hop limit.
+    set(&*rx, Ipv6Option::IPV6_RECVHOPLIMIT.0, 1);
+    set(&*rx, Ipv6Option::IPV6_RECVTCLASS.0, 1);
+    let defaults = [
+        control(Ipv6Option::IPV6_HOPLIMIT.0, 0),
+        control(Ipv6Option::IPV6_TCLASS.0, -1),
+    ];
+    tx.send(SendMsg {
+        data: b"defaults",
+        to: Some(dst),
+        flags: MsgFlags(0),
+        control: &defaults,
+        net_raw: false,
+        now: Duration::ZERO,
+    })
+    .unwrap();
+    assert_eq!(
+        rx.recv(&mut buf, MsgFlags(0)).unwrap().control,
+        vec![
+            control(Ipv6Option::IPV6_HOPLIMIT.0, 0),
+            control(Ipv6Option::IPV6_TCLASS.0, 0x77),
+        ]
+    );
+    set(&*rx, Ipv6Option::IPV6_RECVPKTINFO.0, 1);
+    set(&*rx, 2 /* IPV6_2292PKTINFO */, 1);
+    set(&*rx, 8 /* IPV6_2292HOPLIMIT */, 1);
+    send_to(&*tx, b"all", Some(dst)).unwrap();
+    let packet_info = crate::cmsg::in6_pktinfo("::1".parse().unwrap(), 1);
+    assert_eq!(
+        rx.recv(&mut buf, MsgFlags(0)).unwrap().control,
+        vec![
+            Control {
+                level,
+                kind: Ipv6Option::IPV6_PKTINFO.0,
+                data: packet_info.clone()
+            },
+            control(Ipv6Option::IPV6_HOPLIMIT.0, 31),
+            control(Ipv6Option::IPV6_TCLASS.0, 0x77),
+            Control {
+                level,
+                kind: 2,
+                data: packet_info
+            },
+            control(8, 31),
+        ]
+    );
+}

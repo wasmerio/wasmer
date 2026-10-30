@@ -50,6 +50,7 @@ struct Datagram {
     data: Vec<u8>,
     /// Canonical sender.
     from: SocketAddr,
+    at: Arrival,
 }
 
 /// udp_sock::pending and the first send's cork metadata (udp_sendmsg/udpv6_sendmsg).
@@ -208,6 +209,7 @@ impl UdpSocket {
         g.queue.push_back(Datagram {
             data: data.to_vec(),
             from,
+            at: *at,
         });
         drop(g);
         self.wq.wake(PollMask::IN | PollMask::RDNORM);
@@ -262,6 +264,7 @@ impl UdpSocket {
                     src: from.ip(),
                     dst,
                     ttl: 64,
+                    traffic_class: 0,
                     iif: uplink,
                     pkttype: PACKET_HOST,
                 }
@@ -742,6 +745,7 @@ impl UdpSocket {
         // `UDP_SEGMENT`: the payload leaves as datagrams of the segment size.
         let segment = ctl.gso_size.unwrap_or(usize::MAX).max(1);
         let ttl = ctl.ttl.unwrap_or_else(|| g.opts.unicast_ttl(self.domain()));
+        let traffic_class = Self::traffic_class(&g, &ctl, dst.ip());
         match route {
             UdpRoute::Local {
                 from,
@@ -755,6 +759,7 @@ impl UdpSocket {
                     src: from.ip(),
                     dst: dst.ip(),
                     ttl,
+                    traffic_class,
                     iif,
                     pkttype: PACKET_HOST,
                 };
@@ -868,6 +873,7 @@ impl UdpSocket {
         }
         let (ttl, looped) = g.opts.mc.ttl_loop(dst.ip());
         let ttl = ctl.ttl.unwrap_or(ttl);
+        let traffic_class = Self::traffic_class(&g, ctl, dst.ip());
         drop(g);
         let from = SocketAddr::new(route.src, local.port());
         let segment = ctl.gso_size.unwrap_or(usize::MAX).max(1);
@@ -880,6 +886,7 @@ impl UdpSocket {
                 src: from.ip(),
                 dst: dst.ip(),
                 ttl,
+                traffic_class,
                 iif,
                 pkttype: match Arc::ptr_eq(&net, &self.net) {
                     true => PACKET_LOOPBACK,
@@ -894,6 +901,65 @@ impl UdpSocket {
             }
         }
         Ok(data.len())
+    }
+
+    // Linux net/ipv6/udp.c:udpv6_sendmsg resolves an unspecified per-message
+    // class from the sticky socket option before building the packet.
+    fn traffic_class(g: &Inner, ctl: &SendCtl, dst: IpAddr) -> u8 {
+        if dst.is_ipv4() {
+            return 0;
+        }
+        ctl.traffic_class.unwrap_or_else(|| {
+            u8::try_from(
+                g.opts
+                    .int(SocketLevel::SOL_IPV6.0, Ipv6Option::IPV6_TCLASS.0),
+            )
+            .unwrap_or(0)
+        })
+    }
+
+    /// Linux net/ipv6/datagram.c:ip6_datagram_recv_ctl emits common packet
+    /// info, then specific hop/class fields and finally legacy RFC2292 fields.
+    fn controls(&self, g: &Inner, d: &Datagram) -> Vec<Control> {
+        if self.domain() != Domain::Inet6 {
+            return Vec::new();
+        }
+        let level = SocketLevel::SOL_IPV6.0;
+        let mut out = Vec::new();
+        let dst = match d.at.dst {
+            IpAddr::V4(a) => a.to_ipv6_mapped(),
+            IpAddr::V6(a) => a,
+        };
+        let info = |kind| Control {
+            level,
+            kind,
+            data: cmsg::in6_pktinfo(dst, d.at.iif),
+        };
+        let int = |kind, value: u8| Control {
+            level,
+            kind,
+            data: i32::from(value).to_le_bytes().to_vec(),
+        };
+        if g.opts.flag(level, Ipv6Option::IPV6_RECVPKTINFO.0) {
+            out.push(info(Ipv6Option::IPV6_PKTINFO.0));
+        }
+        // Mapped IPv4 datagrams only take the common IPv6 packet-info path.
+        if d.at.dst.is_ipv4() {
+            return out;
+        }
+        if g.opts.flag(level, Ipv6Option::IPV6_RECVHOPLIMIT.0) {
+            out.push(int(Ipv6Option::IPV6_HOPLIMIT.0, d.at.ttl));
+        }
+        if g.opts.flag(level, Ipv6Option::IPV6_RECVTCLASS.0) {
+            out.push(int(Ipv6Option::IPV6_TCLASS.0, d.at.traffic_class));
+        }
+        if g.opts.flag(level, crate::opts::IPV6_2292PKTINFO) {
+            out.push(info(crate::opts::IPV6_2292PKTINFO));
+        }
+        if g.opts.flag(level, crate::opts::IPV6_2292HOPLIMIT) {
+            out.push(int(crate::opts::IPV6_2292HOPLIMIT, d.at.ttl));
+        }
+        out
     }
 
     /// `__udp_is_mcast_sock`, `__udp_v6_is_mcast_sock`: takes a datagram to the group `dst`
@@ -1174,13 +1240,16 @@ impl Socket for UdpSocket {
         if let Some(d) = g.queue.front() {
             // Copied out under the lock, so a peek takes no copy of the datagram.
             let (full, from) = (d.data.len(), d.from);
+            let control = self.controls(&g, d);
             let len = buf.len().min(full);
             buf[..len].copy_from_slice(&d.data[..len]);
             if !peek {
                 g.queue.pop_front();
                 g.queued -= full + DGRAM_OVERHEAD;
             }
-            return Ok(dgram_result(self.domain(), len, full, from));
+            let mut result = dgram_result(self.domain(), len, full, from);
+            result.control = control;
+            return Ok(result);
         }
         let backend = g.backend.clone();
         let rd_shut = g.rd_shut;
