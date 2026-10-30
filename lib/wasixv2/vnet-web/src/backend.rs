@@ -466,23 +466,27 @@ impl BackendStream for Stream {
             return Ok(0);
         }
         // Linux net/ipv4/tcp.c:tcp_recvmsg_locked drains queued bytes before sk_err/EOF.
+        let queued = flow.rx.len();
         let n = flow.rx.read(buf, peek, flow.oob_inline);
-        if n != 0 {
-            if !peek {
-                drop(inner);
-                self.shared.wake.wake();
-            }
-            return Ok(n);
-        }
-        if let Some(error) = flow.error.take() {
-            return Err(error);
-        }
-        if flow.read_shut {
+        let consumed = flow.rx.len() != queued;
+        let result = if n != 0 {
+            Ok(n)
+        } else if let Some(error) = flow.error.take() {
+            Err(error)
+        } else if flow.read_shut {
             Ok(0)
         } else {
             Err(Errno::EAGAIN)
+        };
+        drop(inner);
+        // tcp_recvmsg_locked consumes a skipped non-inline urgent byte too. Reopen the
+        // driver's receive window even when no ordinary bytes were returned to the caller.
+        if consumed {
+            self.shared.wake.wake();
         }
+        result
     }
+
     fn write(&self, data: &[u8]) -> Result<usize, Errno> {
         self.enqueue(data, false)
     }
