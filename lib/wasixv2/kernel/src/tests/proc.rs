@@ -51,6 +51,32 @@ fn clone(kernel: &Kernel, caller: &Caller<'_>, flags: u32, newsp: u32) -> SysRes
 const SIGCHLD: u32 = Signal::SIGCHLD.0 as u32;
 
 #[test]
+fn procfs_mount_does_not_retain_the_initial_mount_namespace() {
+    for retained in [false, true] {
+        let kernel = test_kernel().with_init();
+        let initial = Arc::downgrade(&kernel.init_ns);
+        let root = Arc::downgrade(&kernel.vfs.root().mnt.sb().fs);
+        let procfs = kernel.procfs();
+        block_on(kernel.vfs.mount(
+            b"/proc",
+            procfs.clone(),
+            wasixv2_vfs::MountFlags::default(),
+            true,
+        ))
+        .unwrap();
+        let keep = retained.then_some(procfs);
+        drop(kernel);
+        assert!(initial.upgrade().is_none(), "procfs retained NsProxy");
+        assert!(root.upgrade().is_none(), "procfs retained its mount tree");
+        // A separately held proc filesystem may survive, without retaining the
+        // filesystem tree that happened to contain its mount.
+        if let Some(procfs) = keep {
+            assert!(block_on(procfs.root().lookup(b"sys")).is_ok());
+        }
+    }
+}
+
+#[test]
 fn fork_needs_an_address_space_that_can_be_duplicated() {
     let (kernel, task, _) = setup(b"");
     let memory = FlatMemory(RefCell::new(vec![0; 64]));

@@ -30,7 +30,7 @@ use crate::{
     fs::{FsContext, HostClock},
     ident::Comm,
     mm::{Mm, VmSysctls},
-    ns::{NsProxy, PidNs, UserNs},
+    ns::{CgroupNs, IpcNs, NetNs, NsProxy, PidNs, TimeNs, UserNs, UtsNs},
     nsfs::Nsfs,
     pid::{Pids, Upid},
     pipe::PipeMaxSize,
@@ -63,7 +63,7 @@ impl Kernel {
             host: self.host.clone(),
             pid_ns,
             pids: self.pids.clone(),
-            ns: self.init_ns.clone(),
+            ns: Namespaces::from(self.init_ns.as_ref()),
             nsfs: self.pseudo.nsfs.clone(),
             filesystems: self.filesystems.clone(),
             sysctls: self.sysctls.clone(),
@@ -162,7 +162,7 @@ struct Source {
     pid_ns: Arc<PidNs>,
     pids: Arc<Pids>,
     /// The initial namespaces, which the system files show the embedder.
-    ns: Arc<NsProxy>,
+    ns: Namespaces,
     /// Where `/proc/<pid>/ns` links lead.
     nsfs: Nsfs,
     /// The filesystem types `/proc/filesystems` lists.
@@ -201,6 +201,32 @@ struct Source {
     tunables: Arc<crate::sysctl::Tunables>,
     /// `kernel.random.boot_id`.
     boot_id: [u8; 16],
+}
+
+/// Namespace data used by proc system files, without the mounter's mount tree.
+/// Linux fs/proc/root.c:proc_fill_super pins the pid namespace, not nsproxy.
+/// Retaining nsproxy here creates /proc -> nsproxy.mnt -> /proc ownership cycles.
+#[derive(Clone)]
+struct Namespaces {
+    uts: Arc<UtsNs>,
+    ipc: Arc<IpcNs>,
+    net: Arc<NetNs>,
+    pid_for_children: Arc<PidNs>,
+    cgroup: Arc<CgroupNs>,
+    time: Arc<TimeNs>,
+}
+
+impl From<&NsProxy> for Namespaces {
+    fn from(ns: &NsProxy) -> Self {
+        Self {
+            uts: ns.uts.clone(),
+            ipc: ns.ipc.clone(),
+            net: ns.net.clone(),
+            pid_for_children: ns.pid_for_children.clone(),
+            cgroup: ns.cgroup.clone(),
+            time: ns.time.clone(),
+        }
+    }
 }
 
 /// A process as the tree has it.
@@ -371,10 +397,15 @@ impl Source {
 
     /// The namespaces of task `tid`, which the system files show it: those of `current` for
     /// Linux's handlers. The embedder, and a task gone meanwhile, see the initial ones.
-    fn ns_of(&self, tid: u32) -> Arc<NsProxy> {
+    fn ns_of(&self, tid: u32) -> Namespaces {
         let ns = self.state.upgrade().and_then(|state| {
             let state = state.read_or_recover();
-            state.tasks.get(&TaskId(tid))?.ns.clone()
+            state
+                .tasks
+                .get(&TaskId(tid))?
+                .ns
+                .as_deref()
+                .map(Namespaces::from)
         });
         ns.unwrap_or_else(|| self.ns.clone())
     }
