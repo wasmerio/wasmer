@@ -42,7 +42,7 @@ pub fn fd_close(mut ctx: FunctionEnvMut<'_, WasiEnv>, fd: WasiFd) -> Result<Errn
     let env = ctx.data();
     let (_, mut state) = unsafe { env.get_memory_and_wasi_state(&ctx, 0) };
 
-    let outcome = state.fs.close_fd_and_capture_flush(fd);
+    let outcome = state.fs.close_fd_from_guest(fd, env.tid().raw());
 
     if outcome.skipped_preopen {
         trace!("Skipping fd_close for pre-opened FD ({})", fd);
