@@ -1,0 +1,122 @@
+[
+  {
+    "config": "v1/cranelift",
+    "workload": "clock_gettime",
+    "runs": 5,
+    "median_ns": 287.139,
+    "min_ns": 223.273,
+    "max_ns": 369.78
+  },
+  {
+    "config": "v1/cranelift",
+    "workload": "file_bulk",
+    "runs": 5,
+    "median_ns": 5043.07,
+    "min_ns": 1782.543,
+    "max_ns": 13834.727
+  },
+  {
+    "config": "v1/cranelift",
+    "workload": "file_small",
+    "runs": 5,
+    "median_ns": 1912.648,
+    "min_ns": 1307.089,
+    "max_ns": 3230.442
+  },
+  {
+    "config": "v1/cranelift",
+    "workload": "fork_exec",
+    "runs": 5,
+    "median_ns": 13395602.3,
+    "min_ns": 8524208.4,
+    "max_ns": 20140186.2
+  },
+  {
+    "config": "v1/cranelift",
+    "workload": "fork_exit",
+    "runs": 5,
+    "median_ns": 5964012.367,
+    "min_ns": 4179863.867,
+    "max_ns": 11015833.167
+  },
+  {
+    "config": "v1/cranelift",
+    "workload": "futex",
+    "runs": 5,
+    "median_ns": 12345.037,
+    "min_ns": 11829.106,
+    "max_ns": 16088.546
+  },
+  {
+    "config": "v1/cranelift",
+    "workload": "getpid",
+    "runs": 5,
+    "median_ns": 147.08,
+    "min_ns": 97.01,
+    "max_ns": 217.546
+  },
+  {
+    "config": "v1/cranelift",
+    "workload": "mmap",
+    "runs": 5,
+    "median_ns": 324.301,
+    "min_ns": 305.487,
+    "max_ns": 347.95
+  },
+  {
+    "config": "v1/cranelift",
+    "workload": "pipe_bulk",
+    "runs": 5,
+    "median_ns": 22899.133,
+    "min_ns": 14201.663,
+    "max_ns": 40727.126
+  },
+  {
+    "config": "v1/cranelift",
+    "workload": "pipe_small",
+    "runs": 5,
+    "median_ns": 1873.498,
+    "min_ns": 1398.757,
+    "max_ns": 3112.502
+  },
+  {
+    "config": "v1/cranelift",
+    "workload": "poll_many",
+    "runs": 5,
+    "median_ns": 73244.703,
+    "min_ns": 68386.311,
+    "max_ns": 137536.568
+  },
+  {
+    "config": "v1/cranelift",
+    "workload": "thread",
+    "runs": 5,
+    "median_ns": 2122307.82,
+    "min_ns": 1635843.98,
+    "max_ns": 2318495.0
+  },
+  {
+    "config": "v1/cranelift",
+    "workload": "vfork_exec",
+    "runs": 5,
+    "median_ns": 4374969.2,
+    "min_ns": 2373418.95,
+    "max_ns": 4997693.5
+  },
+  {
+    "config": "v1/cranelift",
+    "workload": "tcp_bulk",
+    "runs": 5,
+    "median_ns": 14032.314,
+    "min_ns": 12418.797,
+    "max_ns": 14689.124
+  },
+  {
+    "config": "v1/cranelift",
+    "workload": "tcp_connect",
+    "runs": 5,
+    "median_ns": 22902.095,
+    "min_ns": 22308.79,
+    "max_ns": 24884.66
+  }
+]

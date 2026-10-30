@@ -1,0 +1,274 @@
+[
+  {
+    "workload": "getpid",
+    "before": {
+      "runs": 7,
+      "median": 591.946,
+      "min": 569.299,
+      "max": 628.221
+    },
+    "after": {
+      "runs": 7,
+      "median": 548.41,
+      "min": 535.725,
+      "max": 572.572
+    },
+    "after_over_before": 0.9264527507576704
+  },
+  {
+    "workload": "clock_gettime",
+    "before": {
+      "runs": 7,
+      "median": 699.132,
+      "min": 677.035,
+      "max": 709.774
+    },
+    "after": {
+      "runs": 7,
+      "median": 658.332,
+      "min": 651.141,
+      "max": 675.27
+    },
+    "after_over_before": 0.9416419216971903
+  },
+  {
+    "workload": "pipe_small",
+    "before": {
+      "runs": 7,
+      "median": 2495.082,
+      "min": 2458.447,
+      "max": 2596.412
+    },
+    "after": {
+      "runs": 7,
+      "median": 2289.544,
+      "min": 2274.361,
+      "max": 2314.667
+    },
+    "after_over_before": 0.9176227474688207
+  },
+  {
+    "workload": "file_small",
+    "before": {
+      "runs": 7,
+      "median": 4163.788,
+      "min": 4122.819,
+      "max": 4191.529
+    },
+    "after": {
+      "runs": 7,
+      "median": 3980.456,
+      "min": 3936.169,
+      "max": 4015.535
+    },
+    "after_over_before": 0.9559699004848471
+  },
+  {
+    "workload": "pipe_bulk",
+    "before": {
+      "runs": 7,
+      "median": 34445.441,
+      "min": 31258.724,
+      "max": 40103.546
+    },
+    "after": {
+      "runs": 7,
+      "median": 25697.277,
+      "min": 23260.218,
+      "max": 34492.045
+    },
+    "after_over_before": 0.7460283931333612
+  },
+  {
+    "workload": "file_bulk",
+    "before": {
+      "runs": 7,
+      "median": 9839.746,
+      "min": 9368.74,
+      "max": 10111.865
+    },
+    "after": {
+      "runs": 7,
+      "median": 9338.316,
+      "min": 9098.741,
+      "max": 9579.832
+    },
+    "after_over_before": 0.9490403512448392
+  },
+  {
+    "workload": "fork_exit",
+    "before": {
+      "runs": 7,
+      "median": 733116.38,
+      "min": 676205.14,
+      "max": 945085.16
+    },
+    "after": {
+      "runs": 7,
+      "median": 840227.68,
+      "min": 679893.66,
+      "max": 1043916.5
+    },
+    "after_over_before": 1.1461040878666495
+  },
+  {
+    "workload": "fork_exec",
+    "before": {
+      "runs": 7,
+      "median": 1646457.35,
+      "min": 1498104.35,
+      "max": 2119894.4
+    },
+    "after": {
+      "runs": 7,
+      "median": 1700782.6,
+      "min": 1466077.9,
+      "max": 1951138.7
+    },
+    "after_over_before": 1.0329952367123265
+  },
+  {
+    "workload": "vfork_exec",
+    "before": {
+      "runs": 7,
+      "median": 953546.78,
+      "min": 798795.22,
+      "max": 1017902.96
+    },
+    "after": {
+      "runs": 7,
+      "median": 939048.44,
+      "min": 835691.18,
+      "max": 1059153.24
+    },
+    "after_over_before": 0.9847953552944722
+  },
+  {
+    "workload": "thread",
+    "before": {
+      "runs": 7,
+      "median": 710257.995,
+      "min": 561707.82,
+      "max": 824446.785
+    },
+    "after": {
+      "runs": 7,
+      "median": 596126.41,
+      "min": 500890.925,
+      "max": 790084.415
+    },
+    "after_over_before": 0.8393096792947752
+  },
+  {
+    "workload": "futex",
+    "before": {
+      "runs": 7,
+      "median": 3512.132,
+      "min": 1781.694,
+      "max": 7960.366
+    },
+    "after": {
+      "runs": 7,
+      "median": 5268.944,
+      "min": 2213.213,
+      "max": 8069.144
+    },
+    "after_over_before": 1.5002124065951965
+  },
+  {
+    "workload": "poll_many",
+    "before": {
+      "runs": 7,
+      "median": 27913.449,
+      "min": 26543.021,
+      "max": 31268.344
+    },
+    "after": {
+      "runs": 7,
+      "median": 26790.25,
+      "min": 26235.856,
+      "max": 29911.196
+    },
+    "after_over_before": 0.9597613680774454
+  },
+  {
+    "workload": "epoll_many",
+    "before": {
+      "runs": 7,
+      "median": 9520.531,
+      "min": 9139.005,
+      "max": 10379.066
+    },
+    "after": {
+      "runs": 7,
+      "median": 9531.286,
+      "min": 9083.509,
+      "max": 10186.497
+    },
+    "after_over_before": 1.0011296638811427
+  },
+  {
+    "workload": "epoll_ready",
+    "before": {
+      "runs": 7,
+      "median": 14099.521,
+      "min": 13708.245,
+      "max": 16045.001
+    },
+    "after": {
+      "runs": 7,
+      "median": 10154.563,
+      "min": 9184.091,
+      "max": 17574.243
+    },
+    "after_over_before": 0.7202062396304101
+  },
+  {
+    "workload": "tcp_bulk",
+    "before": {
+      "runs": 7,
+      "median": 89123.237,
+      "min": 87160.217,
+      "max": 101114.851
+    },
+    "after": {
+      "runs": 7,
+      "median": 6024.42,
+      "min": 5273.206,
+      "max": 16804.104
+    },
+    "after_over_before": 0.06759651245611736
+  },
+  {
+    "workload": "tcp_connect",
+    "before": {
+      "runs": 7,
+      "median": 7918.536,
+      "min": 7007.268,
+      "max": 8703.386
+    },
+    "after": {
+      "runs": 7,
+      "median": 7534.898,
+      "min": 6938.92,
+      "max": 8481.83
+    },
+    "after_over_before": 0.9515519030285396
+  },
+  {
+    "workload": "mmap",
+    "before": {
+      "runs": 7,
+      "median": 5185.918,
+      "min": 5100.434,
+      "max": 5377.381
+    },
+    "after": {
+      "runs": 7,
+      "median": 5320.132,
+      "min": 5122.285,
+      "max": 6135.836
+    },
+    "after_over_before": 1.0258804709214453
+  }
+]

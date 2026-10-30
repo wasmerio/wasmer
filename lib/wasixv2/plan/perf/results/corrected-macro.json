@@ -1,0 +1,56 @@
+[
+  {
+    "workload": "sqlite",
+    "config": "legacy",
+    "metric": "value",
+    "runs": 5,
+    "median": 0.301,
+    "min": 0.295,
+    "max": 0.312
+  },
+  {
+    "workload": "sqlite",
+    "config": "v1-abi",
+    "metric": "value",
+    "runs": 5,
+    "median": 0.234,
+    "min": 0.221,
+    "max": 0.239
+  },
+  {
+    "workload": "sqlite",
+    "config": "cranelift",
+    "metric": "value",
+    "runs": 5,
+    "median": 0.226,
+    "min": 0.224,
+    "max": 0.23
+  },
+  {
+    "workload": "sqlite",
+    "config": "native",
+    "metric": "value",
+    "runs": 5,
+    "median": 0.039,
+    "min": 0.038,
+    "max": 0.042
+  },
+  {
+    "workload": "nginx",
+    "config": "cranelift",
+    "metric": "value",
+    "runs": 5,
+    "median": 15838.758192694224,
+    "min": 12930.34968514204,
+    "max": 17322.423717262172
+  },
+  {
+    "workload": "nginx",
+    "config": "native",
+    "metric": "value",
+    "runs": 5,
+    "median": 79426.73022748351,
+    "min": 77560.90699632202,
+    "max": 80003.22861590756
+  }
+]

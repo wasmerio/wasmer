@@ -1,0 +1,18 @@
+[
+  {
+    "workload": "futex",
+    "before": {
+      "runs": 11,
+      "median": 8522.967,
+      "min": 6989.892,
+      "max": 10738.708
+    },
+    "after": {
+      "runs": 11,
+      "median": 8859.662,
+      "min": 6970.478,
+      "max": 11524.279
+    },
+    "after_over_before": 1.0395044354859053
+  }
+]

@@ -1,0 +1,530 @@
+[
+  {
+    "config": "native/native",
+    "workload": "clock_gettime",
+    "runs": 5,
+    "median_ns": 19.445,
+    "min_ns": 18.798,
+    "max_ns": 21.618
+  },
+  {
+    "config": "native/native",
+    "workload": "epoll_many",
+    "runs": 5,
+    "median_ns": 89.756,
+    "min_ns": 88.651,
+    "max_ns": 97.649
+  },
+  {
+    "config": "native/native",
+    "workload": "epoll_ready",
+    "runs": 5,
+    "median_ns": 92.763,
+    "min_ns": 92.177,
+    "max_ns": 99.926
+  },
+  {
+    "config": "native/native",
+    "workload": "file_bulk",
+    "runs": 5,
+    "median_ns": 2747.09,
+    "min_ns": 2621.926,
+    "max_ns": 4334.626
+  },
+  {
+    "config": "native/native",
+    "workload": "file_small",
+    "runs": 5,
+    "median_ns": 242.812,
+    "min_ns": 237.302,
+    "max_ns": 294.015
+  },
+  {
+    "config": "native/native",
+    "workload": "fork_exec",
+    "runs": 5,
+    "median_ns": 382738.8,
+    "min_ns": 294638.3,
+    "max_ns": 392564.2
+  },
+  {
+    "config": "native/native",
+    "workload": "fork_exit",
+    "runs": 5,
+    "median_ns": 300326.2,
+    "min_ns": 135600.9,
+    "max_ns": 384537.533
+  },
+  {
+    "config": "native/native",
+    "workload": "futex",
+    "runs": 5,
+    "median_ns": 7505.778,
+    "min_ns": 3477.134,
+    "max_ns": 34711.204
+  },
+  {
+    "config": "native/native",
+    "workload": "getpid",
+    "runs": 5,
+    "median_ns": 58.337,
+    "min_ns": 37.672,
+    "max_ns": 71.427
+  },
+  {
+    "config": "native/native",
+    "workload": "mmap",
+    "runs": 5,
+    "median_ns": 7057.362,
+    "min_ns": 3578.84,
+    "max_ns": 8143.361
+  },
+  {
+    "config": "native/native",
+    "workload": "pipe_bulk",
+    "runs": 5,
+    "median_ns": 7708.416,
+    "min_ns": 6010.777,
+    "max_ns": 16719.195
+  },
+  {
+    "config": "native/native",
+    "workload": "pipe_small",
+    "runs": 5,
+    "median_ns": 212.627,
+    "min_ns": 184.321,
+    "max_ns": 350.737
+  },
+  {
+    "config": "native/native",
+    "workload": "poll_many",
+    "runs": 5,
+    "median_ns": 7765.704,
+    "min_ns": 5713.623,
+    "max_ns": 10968.326
+  },
+  {
+    "config": "native/native",
+    "workload": "tcp_bulk",
+    "runs": 5,
+    "median_ns": 19186.867,
+    "min_ns": 11828.513,
+    "max_ns": 32355.112
+  },
+  {
+    "config": "native/native",
+    "workload": "tcp_connect",
+    "runs": 5,
+    "median_ns": 5254030.985,
+    "min_ns": 40734.28,
+    "max_ns": 5315299.035
+  },
+  {
+    "config": "native/native",
+    "workload": "thread",
+    "runs": 5,
+    "median_ns": 462267.54,
+    "min_ns": 192952.56,
+    "max_ns": 1085579.28
+  },
+  {
+    "config": "native/native",
+    "workload": "vfork_exec",
+    "runs": 5,
+    "median_ns": 741223.3,
+    "min_ns": 237441.5,
+    "max_ns": 2213727.95
+  },
+  {
+    "config": "v1/cranelift",
+    "workload": "clock_gettime",
+    "runs": 5,
+    "median_ns": 877.003,
+    "min_ns": 808.65,
+    "max_ns": 976.029
+  },
+  {
+    "config": "v1/cranelift",
+    "workload": "epoll_many",
+    "runs": 5,
+    "median_ns": 26239.301,
+    "min_ns": 19872.425,
+    "max_ns": 35463.439
+  },
+  {
+    "config": "v1/cranelift",
+    "workload": "epoll_ready",
+    "runs": 5,
+    "median_ns": 25718.088,
+    "min_ns": 21569.078,
+    "max_ns": 55097.314
+  },
+  {
+    "config": "v1/cranelift",
+    "workload": "file_bulk",
+    "runs": 5,
+    "median_ns": 10507.934,
+    "min_ns": 9838.164,
+    "max_ns": 18835.537
+  },
+  {
+    "config": "v1/cranelift",
+    "workload": "file_small",
+    "runs": 5,
+    "median_ns": 4767.557,
+    "min_ns": 4648.56,
+    "max_ns": 6694.312
+  },
+  {
+    "config": "v1/cranelift",
+    "workload": "fork_exec",
+    "runs": 5,
+    "median_ns": 1543048.9,
+    "min_ns": 1072861.7,
+    "max_ns": 1806959.8
+  },
+  {
+    "config": "v1/cranelift",
+    "workload": "fork_exit",
+    "runs": 5,
+    "median_ns": 787734.1,
+    "min_ns": 406195.633,
+    "max_ns": 1457091.567
+  },
+  {
+    "config": "v1/cranelift",
+    "workload": "futex",
+    "runs": 5,
+    "median_ns": 13475.823,
+    "min_ns": 9285.813,
+    "max_ns": 43840.67
+  },
+  {
+    "config": "v1/cranelift",
+    "workload": "getpid",
+    "runs": 5,
+    "median_ns": 975.367,
+    "min_ns": 919.242,
+    "max_ns": 1001.514
+  },
+  {
+    "config": "v1/cranelift",
+    "workload": "mmap",
+    "runs": 5,
+    "median_ns": 327.622,
+    "min_ns": 309.017,
+    "max_ns": 719.269
+  },
+  {
+    "config": "v1/cranelift",
+    "workload": "pipe_bulk",
+    "runs": 5,
+    "median_ns": 45003.779,
+    "min_ns": 37968.479,
+    "max_ns": 47857.057
+  },
+  {
+    "config": "v1/cranelift",
+    "workload": "pipe_small",
+    "runs": 5,
+    "median_ns": 3944.825,
+    "min_ns": 3029.802,
+    "max_ns": 4030.051
+  },
+  {
+    "config": "v1/cranelift",
+    "workload": "poll_many",
+    "runs": 5,
+    "median_ns": 94957.371,
+    "min_ns": 85129.826,
+    "max_ns": 135246.718
+  },
+  {
+    "config": "v1/cranelift",
+    "workload": "tcp_bulk",
+    "runs": 5,
+    "median_ns": 188675.649,
+    "min_ns": 148743.151,
+    "max_ns": 301051.865
+  },
+  {
+    "config": "v1/cranelift",
+    "workload": "tcp_connect",
+    "runs": 5,
+    "median_ns": 49037.59,
+    "min_ns": 18186.965,
+    "max_ns": 68966.465
+  },
+  {
+    "config": "v1/cranelift",
+    "workload": "thread",
+    "runs": 5,
+    "median_ns": 1336090.76,
+    "min_ns": 694672.59,
+    "max_ns": 1566069.39
+  },
+  {
+    "config": "v1/cranelift",
+    "workload": "vfork_exec",
+    "runs": 5,
+    "median_ns": 2325946.5,
+    "min_ns": 2188229.3,
+    "max_ns": 2724873.05
+  },
+  {
+    "config": "v2-async/cranelift",
+    "workload": "clock_gettime",
+    "runs": 5,
+    "median_ns": 715.862,
+    "min_ns": 710.041,
+    "max_ns": 859.458
+  },
+  {
+    "config": "v2-async/cranelift",
+    "workload": "epoll_many",
+    "runs": 5,
+    "median_ns": 23934.015,
+    "min_ns": 16675.608,
+    "max_ns": 37038.206
+  },
+  {
+    "config": "v2-async/cranelift",
+    "workload": "epoll_ready",
+    "runs": 5,
+    "median_ns": 29013.519,
+    "min_ns": 24291.376,
+    "max_ns": 36036.628
+  },
+  {
+    "config": "v2-async/cranelift",
+    "workload": "file_bulk",
+    "runs": 5,
+    "median_ns": 10188.808,
+    "min_ns": 10093.511,
+    "max_ns": 28682.368
+  },
+  {
+    "config": "v2-async/cranelift",
+    "workload": "file_small",
+    "runs": 5,
+    "median_ns": 4597.957,
+    "min_ns": 4144.992,
+    "max_ns": 4809.314
+  },
+  {
+    "config": "v2-async/cranelift",
+    "workload": "fork_exec",
+    "runs": 5,
+    "median_ns": 2790724.0,
+    "min_ns": 2370743.6,
+    "max_ns": 3650048.0
+  },
+  {
+    "config": "v2-async/cranelift",
+    "workload": "fork_exit",
+    "runs": 5,
+    "median_ns": 1522856.767,
+    "min_ns": 1186820.167,
+    "max_ns": 2210799.533
+  },
+  {
+    "config": "v2-async/cranelift",
+    "workload": "futex",
+    "runs": 5,
+    "median_ns": 23990.752,
+    "min_ns": 20639.213,
+    "max_ns": 40477.529
+  },
+  {
+    "config": "v2-async/cranelift",
+    "workload": "getpid",
+    "runs": 5,
+    "median_ns": 854.149,
+    "min_ns": 732.877,
+    "max_ns": 1066.614
+  },
+  {
+    "config": "v2-async/cranelift",
+    "workload": "mmap",
+    "runs": 5,
+    "median_ns": 13447.443,
+    "min_ns": 9787.086,
+    "max_ns": 16067.487
+  },
+  {
+    "config": "v2-async/cranelift",
+    "workload": "pipe_bulk",
+    "runs": 5,
+    "median_ns": 47630.354,
+    "min_ns": 44925.211,
+    "max_ns": 53768.096
+  },
+  {
+    "config": "v2-async/cranelift",
+    "workload": "pipe_small",
+    "runs": 5,
+    "median_ns": 2734.96,
+    "min_ns": 2541.269,
+    "max_ns": 2815.11
+  },
+  {
+    "config": "v2-async/cranelift",
+    "workload": "poll_many",
+    "runs": 5,
+    "median_ns": 55883.463,
+    "min_ns": 31454.678,
+    "max_ns": 61790.394
+  },
+  {
+    "config": "v2-async/cranelift",
+    "workload": "tcp_bulk",
+    "runs": 5,
+    "median_ns": 180989.739,
+    "min_ns": 136742.735,
+    "max_ns": 274659.109
+  },
+  {
+    "config": "v2-async/cranelift",
+    "workload": "tcp_connect",
+    "runs": 5,
+    "median_ns": 70311.375,
+    "min_ns": 31865.665,
+    "max_ns": 74214.325
+  },
+  {
+    "config": "v2-async/cranelift",
+    "workload": "thread",
+    "runs": 5,
+    "median_ns": 2319040.92,
+    "min_ns": 1896172.31,
+    "max_ns": 3362291.31
+  },
+  {
+    "config": "v2-async/cranelift",
+    "workload": "vfork_exec",
+    "runs": 5,
+    "median_ns": 2292986.5,
+    "min_ns": 1412189.45,
+    "max_ns": 2831111.95
+  },
+  {
+    "config": "v2-eh/cranelift",
+    "workload": "clock_gettime",
+    "runs": 5,
+    "median_ns": 713.667,
+    "min_ns": 700.073,
+    "max_ns": 718.827
+  },
+  {
+    "config": "v2-eh/cranelift",
+    "workload": "epoll_many",
+    "runs": 5,
+    "median_ns": 18503.395,
+    "min_ns": 13782.289,
+    "max_ns": 32261.344
+  },
+  {
+    "config": "v2-eh/cranelift",
+    "workload": "epoll_ready",
+    "runs": 5,
+    "median_ns": 36197.681,
+    "min_ns": 31307.609,
+    "max_ns": 46152.469
+  },
+  {
+    "config": "v2-eh/cranelift",
+    "workload": "file_bulk",
+    "runs": 5,
+    "median_ns": 12042.53,
+    "min_ns": 10115.793,
+    "max_ns": 15852.617
+  },
+  {
+    "config": "v2-eh/cranelift",
+    "workload": "file_small",
+    "runs": 5,
+    "median_ns": 4630.475,
+    "min_ns": 4151.787,
+    "max_ns": 4804.004
+  },
+  {
+    "config": "v2-eh/cranelift",
+    "workload": "futex",
+    "runs": 5,
+    "median_ns": 24370.957,
+    "min_ns": 13898.077,
+    "max_ns": 52622.156
+  },
+  {
+    "config": "v2-eh/cranelift",
+    "workload": "getpid",
+    "runs": 5,
+    "median_ns": 888.268,
+    "min_ns": 579.099,
+    "max_ns": 1121.856
+  },
+  {
+    "config": "v2-eh/cranelift",
+    "workload": "mmap",
+    "runs": 5,
+    "median_ns": 10843.93,
+    "min_ns": 8876.726,
+    "max_ns": 14474.456
+  },
+  {
+    "config": "v2-eh/cranelift",
+    "workload": "pipe_bulk",
+    "runs": 5,
+    "median_ns": 47652.164,
+    "min_ns": 34789.042,
+    "max_ns": 58627.071
+  },
+  {
+    "config": "v2-eh/cranelift",
+    "workload": "pipe_small",
+    "runs": 5,
+    "median_ns": 2610.215,
+    "min_ns": 2457.7,
+    "max_ns": 3852.31
+  },
+  {
+    "config": "v2-eh/cranelift",
+    "workload": "poll_many",
+    "runs": 5,
+    "median_ns": 59307.599,
+    "min_ns": 44031.588,
+    "max_ns": 94979.602
+  },
+  {
+    "config": "v2-eh/cranelift",
+    "workload": "tcp_bulk",
+    "runs": 5,
+    "median_ns": 186906.783,
+    "min_ns": 100205.192,
+    "max_ns": 327768.829
+  },
+  {
+    "config": "v2-eh/cranelift",
+    "workload": "tcp_connect",
+    "runs": 5,
+    "median_ns": 64590.95,
+    "min_ns": 16515.995,
+    "max_ns": 131238.535
+  },
+  {
+    "config": "v2-eh/cranelift",
+    "workload": "thread",
+    "runs": 5,
+    "median_ns": 1807579.65,
+    "min_ns": 1621855.96,
+    "max_ns": 2328561.21
+  },
+  {
+    "config": "v2-eh/cranelift",
+    "workload": "vfork_exec",
+    "runs": 5,
+    "median_ns": 2121438.1,
+    "min_ns": 1778436.95,
+    "max_ns": 2747957.1
+  }
+]
