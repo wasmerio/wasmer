@@ -161,7 +161,7 @@ impl Kernel {
             return Err(Errno::EINVAL);
         }
         let memory = caller.memory();
-        check_mapped(memory, addr, flags.private, touched || flags.numa).await?;
+        check_mapped(self, caller, addr, flags.private, touched || flags.numa).await?;
         if flags.numa {
             let at = addr.checked_add(4).ok_or(Errno::EFAULT)?;
             let node: u32 = read_value(memory, GuestPtr::new(at))

@@ -660,15 +660,22 @@ async fn in_low_guard(memory: &dyn UserMemory, addr: u32) -> bool {
 /// futex whose word the operation reads or changes (`touched`), and for any futex without
 /// `private`, whose page `get_futex_key` looks up.
 async fn check_mapped(
-    memory: &dyn UserMemory,
+    kernel: &Kernel,
+    caller: &Caller<'_>,
     addr: u32,
     private: bool,
     touched: bool,
 ) -> Result<(), Errno> {
-    match (!private || touched) && in_low_guard(memory, addr).await {
-        true => Err(Errno::EFAULT),
-        false => Ok(()),
+    if (!private || touched) && in_low_guard(caller.memory(), addr).await {
+        return Err(Errno::EFAULT);
     }
+    if !private {
+        kernel
+            .mm(caller.task())
+            .check_shared_futex(addr, caller.memory().size().await)
+            .await?;
+    }
+    Ok(())
 }
 
 /// `get_user` of the futex word or robust list entry at `addr`, which faults in the low guard.
@@ -773,7 +780,7 @@ impl Kernel {
                 if bitset == 0 {
                     return Err(Errno::EINVAL.into());
                 }
-                check_mapped(memory, word.addr, private, true).await?;
+                check_mapped(self, caller, word.addr, private, true).await?;
                 let val = AtomicWord::U32(val);
                 self.futex_wait(caller, word, private, val, bitset, timeout)
                     .await
@@ -786,7 +793,7 @@ impl Kernel {
                 if bitset == 0 {
                     return Err(Errno::EINVAL.into());
                 }
-                check_mapped(memory, word.addr, private, false).await?;
+                check_mapped(self, caller, word.addr, private, false).await?;
                 Ok(self.futexes.wake(key, val, bitset)? as i32)
             }
             FutexOp::FUTEX_REQUEUE | FutexOp::FUTEX_CMP_REQUEUE => {
@@ -796,11 +803,11 @@ impl Kernel {
                     return Err(Errno::EINVAL.into());
                 }
                 let compare = cmd == FutexOp::FUTEX_CMP_REQUEUE;
-                check_mapped(memory, word.addr, private, compare).await?;
+                check_mapped(self, caller, word.addr, private, compare).await?;
                 if !uaddr2.addr().is_multiple_of(4) {
                     return Err(Errno::EINVAL.into());
                 }
-                check_mapped(memory, uaddr2.addr(), private, false).await?;
+                check_mapped(self, caller, uaddr2.addr(), private, false).await?;
                 let to = self.futex_key(caller.task(), uaddr2.addr(), private);
                 let expected = compare.then_some(val3);
                 let counts = (n_wake as u32, n_requeue as u32);
@@ -808,12 +815,12 @@ impl Kernel {
                 Ok(with_word_locked(memory, word.addr, requeue).await? as i32)
             }
             FutexOp::FUTEX_WAKE_OP => {
-                check_mapped(memory, word.addr, private, false).await?;
+                check_mapped(self, caller, word.addr, private, false).await?;
                 if !uaddr2.addr().is_multiple_of(4) {
                     return Err(Errno::EINVAL.into());
                 }
                 // The operation changes the second word.
-                check_mapped(memory, uaddr2.addr(), private, true).await?;
+                check_mapped(self, caller, uaddr2.addr(), private, true).await?;
                 let word2 = self.futex_word(caller, uaddr2.addr(), private);
                 let wake_op = || {
                     self.futexes
@@ -822,15 +829,15 @@ impl Kernel {
                 Ok(with_word_locked(memory, word2.addr, wake_op).await? as i32)
             }
             FutexOp::FUTEX_LOCK_PI | FutexOp::FUTEX_LOCK_PI2 => {
-                check_mapped(memory, word.addr, private, true).await?;
+                check_mapped(self, caller, word.addr, private, true).await?;
                 self.futex_lock_pi(caller, word, tid, timeout).await
             }
             FutexOp::FUTEX_TRYLOCK_PI => {
-                check_mapped(memory, word.addr, private, true).await?;
+                check_mapped(self, caller, word.addr, private, true).await?;
                 self.futex_trylock_pi(caller, word, tid).await
             }
             FutexOp::FUTEX_UNLOCK_PI => {
-                check_mapped(memory, word.addr, private, true).await?;
+                check_mapped(self, caller, word.addr, private, true).await?;
                 self.futex_unlock_pi(caller, word, tid).await
             }
             FutexOp::FUTEX_WAIT_REQUEUE_PI => {
@@ -841,8 +848,8 @@ impl Kernel {
                 if target == key {
                     return Err(Errno::EINVAL.into());
                 }
-                check_mapped(memory, uaddr2.addr(), private, false).await?;
-                check_mapped(memory, word.addr, private, true).await?;
+                check_mapped(self, caller, uaddr2.addr(), private, false).await?;
+                check_mapped(self, caller, word.addr, private, true).await?;
                 self.futex_wait_requeue_pi(caller, word, val, timeout, target, tid)
                     .await
             }
@@ -859,8 +866,8 @@ impl Kernel {
                     return Err(Errno::EINVAL.into());
                 }
                 // The lock may be taken for the waiter on the second word.
-                check_mapped(memory, word.addr, private, true).await?;
-                check_mapped(memory, target.addr, private, true).await?;
+                check_mapped(self, caller, word.addr, private, true).await?;
+                check_mapped(self, caller, target.addr, private, true).await?;
                 self.futex_cmp_requeue_pi(caller, word, target, n_requeue as u32, val3)
                     .await
             }

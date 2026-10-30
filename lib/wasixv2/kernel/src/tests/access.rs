@@ -3,7 +3,7 @@
 //! `PROT_WRITE`, as Linux's `copy_from_user` and `copy_to_user` do. Memory the guest grew
 //! itself and the image's own pages stay readable and writable.
 
-use wasixv2_abi::{MapFlags, MremapFlags, ProtFlags};
+use wasixv2_abi::{FutexOp, MapFlags, MremapFlags, ProtFlags};
 use wasixv2_syscalls::{PageAccess, SharedMappings};
 
 use super::{ipc::errno, mapping::open, proc::ForkableMemory, *};
@@ -91,6 +91,101 @@ fn write_out(kernel: &Kernel, caller: &Caller<'_>, addr: u32) -> SysResult<u32> 
 /// `read(0, addr, 4)`: the kernel writes guest memory.
 fn read_in(kernel: &Kernel, caller: &Caller<'_>, addr: u32) -> SysResult<u32> {
     block_on(kernel.read(caller, Fd(0), UserSliceMut::new(addr, 4)))
+}
+
+/// Linux kernel/futex/core.c:get_futex_key resolves shared pages even for wake/requeue.
+#[test]
+fn shared_futex_keys_fault_on_inaccessible_pages_but_private_wakes_do_not() {
+    let (kernel, task, memory, _) = checked(b"");
+    let caller = Caller::new(task, &memory);
+    let unmapped = mmap(&kernel, &caller, PAGE, RW);
+    assert_eq!(block_on(kernel.munmap(&caller, unmapped, PAGE)), Ok(0));
+    let none = mmap(&kernel, &caller, PAGE, NONE);
+    // Allocate another hole: the allocator reused the first one for PROT_NONE.
+    let unmapped = if none == unmapped {
+        let addr = mmap(&kernel, &caller, PAGE, RW);
+        assert_eq!(block_on(kernel.munmap(&caller, addr, PAGE)), Ok(0));
+        addr
+    } else {
+        unmapped
+    };
+    let valid = 0x1000;
+    let call = |addr, op, addr2| {
+        block_on(kernel.futex_time64(
+            &caller,
+            GuestPtrMut::new(addr),
+            op,
+            1,
+            1,
+            GuestPtrMut::new(addr2),
+            0,
+        ))
+    };
+    for addr in [none, unmapped] {
+        assert_eq!(errno(call(addr, FutexOp::FUTEX_WAKE, 0)), Errno::EFAULT);
+        assert_eq!(
+            errno(call(addr, FutexOp::FUTEX_CMP_REQUEUE, valid)),
+            Errno::EFAULT
+        );
+        assert_eq!(
+            errno(call(valid, FutexOp::FUTEX_CMP_REQUEUE, addr)),
+            Errno::EFAULT
+        );
+        assert_eq!(
+            call(
+                addr,
+                FutexOp(FutexOp::FUTEX_WAKE.0 | FutexOp::FUTEX_PRIVATE_FLAG.0),
+                0
+            ),
+            Ok(0)
+        );
+        assert_eq!(
+            call(
+                valid,
+                FutexOp(FutexOp::FUTEX_CMP_REQUEUE.0 | FutexOp::FUTEX_PRIVATE_FLAG.0),
+                addr
+            ),
+            Ok(0)
+        );
+    }
+    let read = mmap(&kernel, &caller, PAGE, READ);
+    assert_eq!(errno(call(read, FutexOp::FUTEX_WAKE, 0)), Errno::EFAULT);
+}
+
+#[test]
+fn shared_futex_keys_fault_past_the_last_file_page_after_truncate() {
+    let (kernel, task, memory, _) = checked(b"");
+    let caller = Caller::new(task, &memory);
+    let fd = open(
+        &kernel,
+        &caller,
+        b"/futex",
+        OpenFlags::O_CREAT | OpenFlags::O_RDWR,
+    );
+    assert_eq!(
+        block_on(kernel.ftruncate64(&caller, fd, PAGE.into())),
+        Ok(0)
+    );
+    let addr = block_on(kernel.mmap(&caller, 0, PAGE, RW, MapFlags::MAP_SHARED, fd, 0)).unwrap();
+    let wake = || {
+        block_on(kernel.futex_time64(
+            &caller,
+            GuestPtrMut::new(addr),
+            FutexOp::FUTEX_WAKE,
+            1,
+            0,
+            GuestPtrMut::NULL,
+            0,
+        ))
+    };
+    assert_eq!(wake(), Ok(0));
+    assert_eq!(block_on(kernel.mprotect(&caller, addr, PAGE, READ)), Ok(0));
+    assert_eq!(wake(), Ok(0));
+    // A partial final page is valid; a page wholly beyond EOF is not.
+    assert_eq!(block_on(kernel.ftruncate64(&caller, fd, 1)), Ok(0));
+    assert_eq!(wake(), Ok(0));
+    assert_eq!(block_on(kernel.ftruncate64(&caller, fd, 0)), Ok(0));
+    assert_eq!(errno(wake()), Errno::EFAULT);
 }
 
 /// Linux mm/mprotect.c do_mprotect_pkey: no VMA covers the unmapped NULL page.

@@ -414,6 +414,41 @@ impl Mm {
         })
     }
 
+    /// kernel/futex/core.c:get_futex_key pins a readable shared-key page, rejecting
+    /// inaccessible pages and read-only anonymous pages. File faults past EOF fail too.
+    pub(crate) async fn check_shared_futex(&self, addr: u32, size: u64) -> Result<(), Errno> {
+        if u64::from(addr) + 4 > size {
+            return Err(Errno::EFAULT);
+        }
+        self.access
+            .check(addr, 4, false)
+            .map_err(|_| Errno::EFAULT)?;
+        let (shared, file) = {
+            let space = self.space();
+            let mapping = space.mappings.containing(addr.into());
+            let file = mapping.and_then(|mapping| {
+                let (file, offset) = mapping.file()?;
+                Some((file.clone(), offset + u64::from(addr) - mapping.start))
+            });
+            (mapping.is_some_and(Mapping::is_shared), file)
+        };
+        match file {
+            Some((file, offset)) => {
+                // mm/filemap.c:filemap_fault: the final partial page is accessible.
+                let len = file.inode()?.node().getattr().await?.size;
+                if offset / PAGE_SIZE >= len.div_ceil(PAGE_SIZE) {
+                    return Err(Errno::EFAULT);
+                }
+            }
+            None if !shared => self
+                .access
+                .check(addr, 4, true)
+                .map_err(|_| Errno::EFAULT)?,
+            None => {}
+        }
+        Ok(())
+    }
+
     /// Where this address space maps byte `offset` of the shared object `object`, if it does:
     /// the lowest such address.
     pub(crate) fn address_of(&self, object: u64, offset: u64) -> Option<u32> {
