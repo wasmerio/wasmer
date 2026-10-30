@@ -655,3 +655,37 @@ net/udp.rs:642:20: error[E0599]: no method named `reregister` found for struct `
 net/udp.rs:646:20: error[E0599]: no method named `deregister` found for struct `IoSource<std::net::UdpSocket>` in the current scope
 net/udp.rs:769:9: error[E0308]: mismatched types
 ```
+
+## 7. Decisions (orchestrator, 2026-10-30, after independent review)
+
+**C2: flipped.** The synchronous-blocking worker lane is the **primary** browser lane: each guest task
+runs on its own dedicated worker; async host imports are exposed as synchronous JS functions that poll
+the syscall future and park the worker on the shared scheduler (Atomics.wait) on Pending, as v1 did
+(`lib/virtual-io/src/waker.rs`, `lib/wasix/src/syscalls/mod.rs:block_on_with_timeout`; classic SDK
+`src/tasks/thread_pool.rs`). `call_async` becomes a direct synchronous call on that lane. JSPI is an
+optional, runtime-probed optimisation, not a requirement. Consequences:
+- No exec code may await a JS Promise on its own task worker (instantiation, loader fetch, providers,
+  timers go to the coordinator/I/O worker).
+- Failing to start a worker for kernel drivers (timer, tty) is a hard error, never a fallback onto the
+  current (blocking) worker (`kernel/src/timer.rs` fallback must not apply in the browser).
+- The coordinator creates all workers; a blocked task worker must never be a worker's creator.
+- Do not hold the store write lock across nested re-entrant calls (signals, vfork, fork rewind).
+- The first required browser CI lane is "SharedArrayBuffer + cross-origin isolation, no JSPI".
+- JSPI-specific fairness/yield machinery from §4 is deferred.
+
+**C1: approved with changes.**
+- Fast path: local copy through the worker's own registered copy of the shared Memory (existing
+  lib/api per-worker handles). Slow path: a dedicated memory-copy worker.
+- The memory-copy worker is **pure JS and never executes runtime Rust code** (hard rule; otherwise
+  runtime mutexes/allocator create a deadlock cycle).
+- The runtime heap is shared, so the copy worker copies directly between guest Memory and the caller's
+  Rust buffer; one request slot per task worker in the runtime heap; no bounce buffer.
+- No registration acknowledgement: exec posts the registration and attaches immediately; the copy worker
+  holds requests for not-yet-registered IDs until the registration arrives.
+- Never-reused u64 IDs instead of generations; unregister on Drop.
+- Timed Atomics.wait; on timeout the Machine fails (never a silent EFAULT). No kernel path reaches it on
+  the page main thread.
+
+**Re-ordering.** B3 splits into **B3a** (JS compare-exchange on guest memory, memory_grow without
+`data_ptr`; no gate, right after B1) and **B3b** (foreign copies per C1). **B10 (sync lane) moves into
+wave 2 alongside B2** and is the primary execution lane; B4's scheduler wake integration targets it.
