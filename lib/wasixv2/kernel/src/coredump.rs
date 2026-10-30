@@ -247,9 +247,10 @@ fn parse(pattern: &[u8], names: &Names, uses_pid: bool) -> Option<Target> {
 /// linear memory follows from.
 pub(crate) struct ElfCore {
     pub(crate) head: Vec<u8>,
-    /// How much of the memory is dumped: all of it, or none when `coredump_filter` leaves out
-    /// private anonymous memory.
+    /// Number of serialized memory bytes after coredump_filter and VM_DONTDUMP.
     pub(crate) memory_len: u64,
+    /// Virtual ranges whose bytes follow head, omitting VM_DONTDUMP ranges.
+    memory_ranges: Vec<std::ops::Range<u64>>,
 }
 
 /// What the notes say of the process.
@@ -315,9 +316,14 @@ fn timeval(d: std::time::Duration) -> [u8; 8] {
 impl ElfCore {
     /// `elf_core_dump` for an address space of `memory_size` bytes: an `ET_CORE` ELF32
     /// little-endian file with no machine (`EM_NONE`), a `PT_NOTE` of `NT_PRSTATUS` (no
-    /// registers), `NT_PRPSINFO`, `NT_SIGINFO`, `NT_AUXV` and `NT_FILE`, then one `PT_LOAD` of the whole linear
+    /// registers), `NT_PRPSINFO`, `NT_SIGINFO`, `NT_AUXV` and `NT_FILE`, then `PT_LOAD` segments of linear
     /// memory at address 0, page-aligned in the file.
-    pub(crate) fn new(core: &CoreInfo, memory_size: u64, filter: u32) -> Self {
+    pub(crate) fn new(
+        core: &CoreInfo,
+        memory_size: u64,
+        filter: u32,
+        excluded: &[std::ops::Range<u64>],
+    ) -> Self {
         let mut prstatus = Vec::new();
         let info = &core.info;
         for word in [info.si_signo, info.si_code, info.si_errno] {
@@ -388,12 +394,39 @@ impl ElfCore {
             note(NT_FILE, &files),
         ]
         .concat();
-        let notes_offset = (EHDR_SIZE + 2 * PHDR_SIZE) as u64;
+        // fs/coredump.c vma_dump_size keeps a PT_LOAD for VM_DONTDUMP
+        // but gives it no file bytes. Preserve each virtual range's address.
+        let mut segments = Vec::new();
+        let mut cursor = 0;
+        for range in excluded {
+            let start = range.start.min(memory_size).max(cursor);
+            let end = range.end.min(memory_size).max(start);
+            if cursor < start {
+                segments.push((cursor..start, true));
+            }
+            if start < end {
+                segments.push((start..end, false));
+            }
+            cursor = end;
+        }
+        if cursor < memory_size || segments.is_empty() {
+            segments.push((cursor..memory_size, true));
+        }
+        let phnum = segments.len() + 1;
+        let extended = phnum >= u16::MAX as usize;
+        let section_offset = EHDR_SIZE + phnum * PHDR_SIZE;
+        let notes_offset = (section_offset + if extended { 40 } else { 0 }) as u64;
         let memory_offset = (notes_offset + notes.len() as u64).next_multiple_of(MIN_COREDUMP);
-        let memory_len = match filter & MMF_DUMP_ANON_PRIVATE {
-            0 => 0,
-            _ => memory_size,
-        };
+        let dump = filter & MMF_DUMP_ANON_PRIVATE != 0;
+        let memory_ranges: Vec<_> = segments
+            .iter()
+            .filter(|(_, included)| dump && *included)
+            .map(|(range, _)| range.clone())
+            .collect();
+        let memory_len = memory_ranges
+            .iter()
+            .map(|range| range.end - range.start)
+            .sum();
 
         let mut head = Vec::new();
         head.extend(b"\x7fELF");
@@ -406,9 +439,16 @@ impl ElfCore {
         // Entry, program headers right after this header, no section headers, flags.
         head.extend(0u32.to_le_bytes());
         head.extend((EHDR_SIZE as u32).to_le_bytes());
+        head.extend((if extended { section_offset as u32 } else { 0 }).to_le_bytes());
         head.extend(0u32.to_le_bytes());
-        head.extend(0u32.to_le_bytes());
-        for half in [EHDR_SIZE as u16, PHDR_SIZE as u16, 2, 40, 0, 0] {
+        for half in [
+            EHDR_SIZE as u16,
+            PHDR_SIZE as u16,
+            if extended { u16::MAX } else { phnum as u16 },
+            40,
+            u16::from(extended),
+            0,
+        ] {
             head.extend(half.to_le_bytes());
         }
         let phdr = |kind: u32, offset: u64, vaddr: u32, filesz: u64, memsz: u64, flags, align| {
@@ -429,18 +469,35 @@ impl ElfCore {
         };
         let notes_len = notes.len() as u64;
         head.extend(phdr(PT_NOTE, notes_offset, 0, notes_len, 0, 0, 0));
-        head.extend(phdr(
-            PT_LOAD,
-            memory_offset,
-            0,
-            memory_len,
-            memory_size,
-            PF_R | PF_W,
-            MIN_COREDUMP as u32,
-        ));
+        let mut offset = memory_offset;
+        for (range, included) in segments {
+            let memsz = range.end - range.start;
+            let filesz = if dump && included { memsz } else { 0 };
+            head.extend(phdr(
+                PT_LOAD,
+                offset,
+                range.start as u32,
+                filesz,
+                memsz,
+                PF_R | PF_W,
+                MIN_COREDUMP as u32,
+            ));
+            offset += filesz;
+        }
+        // ELF PN_XNUM: the actual program-header count lives in sh_info
+        // of the null section when e_phnum cannot hold it (fs/binfmt_elf.c).
+        if extended {
+            let mut section = [0u8; 40];
+            section[28..32].copy_from_slice(&(phnum as u32).to_le_bytes());
+            head.extend(section);
+        }
         head.extend(notes);
         head.resize(memory_offset as usize, 0);
-        Self { head, memory_len }
+        Self {
+            head,
+            memory_len,
+            memory_ranges,
+        }
     }
 }
 
@@ -564,7 +621,8 @@ impl Kernel {
         self.note_coredump(&process, PIDFD_COREDUMPED | how, &info);
         let core = self.core_info(task, &process, info, &comm);
         let size = caller.memory().size().await;
-        let elf = ElfCore::new(&core, size, filter);
+        let excluded = self.mm(task).dont_dump_ranges();
+        let elf = ElfCore::new(&core, size, filter, &excluded);
         let mut sink = Sink {
             file: &file,
             task,
@@ -575,21 +633,30 @@ impl Kernel {
             return;
         }
         let mut chunk = vec![0; crate::IO_CHUNK];
-        let mut at = 0;
-        while at < elf.memory_len {
-            let n = (elf.memory_len - at).min(chunk.len() as u64) as usize;
-            if caller
-                .memory()
-                .read(at as u32, &mut chunk[..n])
-                .await
-                .is_err()
-            {
-                chunk[..n].fill(0);
+        debug_assert_eq!(
+            elf.memory_len,
+            elf.memory_ranges
+                .iter()
+                .map(|r| r.end - r.start)
+                .sum::<u64>()
+        );
+        for range in &elf.memory_ranges {
+            let mut at = range.start;
+            while at < range.end {
+                let n = (range.end - at).min(chunk.len() as u64) as usize;
+                if caller
+                    .memory()
+                    .read(at as u32, &mut chunk[..n])
+                    .await
+                    .is_err()
+                {
+                    chunk[..n].fill(0);
+                }
+                if !sink.emit(&chunk[..n]).await {
+                    return;
+                }
+                at += n as u64;
             }
-            if !sink.emit(&chunk[..n]).await {
-                return;
-            }
-            at += n as u64;
         }
         if piped {
             self.coredump.pipe_count.fetch_sub(1, Ordering::Relaxed);
@@ -914,12 +981,12 @@ mod tests {
             auxv: Vec::new(),
             files: Vec::new(),
         };
-        let elf = ElfCore::new(&core, 1 << 20, COREDUMP_FILTER_DEFAULT);
+        let elf = ElfCore::new(&core, 1 << 20, COREDUMP_FILTER_DEFAULT, &[]);
         assert_eq!(&elf.head[..4], b"\x7fELF");
         assert_eq!(u16::from_le_bytes([elf.head[16], elf.head[17]]), ET_CORE);
         assert_eq!(elf.head.len() as u64 % MIN_COREDUMP, 0);
         assert_eq!(elf.memory_len, 1 << 20);
-        let none = ElfCore::new(&core, 1 << 20, 0);
+        let none = ElfCore::new(&core, 1 << 20, 0, &[]);
         assert_eq!(none.memory_len, 0);
     }
 }

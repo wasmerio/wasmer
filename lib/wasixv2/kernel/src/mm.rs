@@ -424,6 +424,11 @@ impl Mm {
         })
     }
 
+    /// The VM_DONTDUMP ranges to omit from a core file.
+    pub(crate) fn dont_dump_ranges(&self) -> Vec<Range<u64>> {
+        self.space().dont_dump.ranges()
+    }
+
     /// The size of memory when a memory call last looked (`total_vm`).
     pub(crate) fn size(&self) -> u64 {
         self.space().seen
@@ -478,6 +483,7 @@ pub(crate) struct Region {
     pub(crate) locked: bool,
     pub(crate) wipe_on_fork: bool,
     pub(crate) dont_copy: bool,
+    pub(crate) dont_dump: bool,
 }
 
 /// What sets an area above the image apart from its neighbours: two next to each other are one
@@ -493,6 +499,7 @@ struct AreaKey {
     locked: bool,
     wipe_on_fork: bool,
     dont_copy: bool,
+    dont_dump: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -523,6 +530,8 @@ pub(crate) struct AddressSpace {
     wipe_on_fork: PageFlags,
     /// VM_DONTCOPY: AIO rings are omitted by dup_mmap.
     dont_copy: PageFlags,
+    /// VM_DONTDUMP: omitted by fs/coredump.c vma_dump_size.
+    dont_dump: PageFlags,
     /// `VM_LOCKED`: the pages `mlock`, `mlockall` and `MAP_LOCKED` locked, which `locked_vm`
     /// counts. Memory is never paged out, so locking changes nothing else.
     locked: PageFlags,
@@ -646,6 +655,7 @@ impl AddressSpace {
             mappings: self.mappings.dup(pid),
             wipe_on_fork: self.wipe_on_fork.clone(),
             dont_copy: self.dont_copy.clone(),
+            dont_dump: self.dont_dump.clone(),
             // `dup_mmap` clears `VM_LOCKED_MASK`, and `mm_init` keeps no `VM_LOCKED` of
             // `def_flags`: locks are not inherited.
             locked: PageFlags::default(),
@@ -829,6 +839,7 @@ impl AddressSpace {
             space.mark_pages(first, end, false);
             space.wipe_on_fork.set(first, end, false);
             space.dont_copy.set(first, end, false);
+            space.dont_dump.set(first, end, false);
             space.locked.set(first, end, false);
             space.no_access.set(first, end, false);
             space.read_only.set(first, end, false);
@@ -842,6 +853,7 @@ impl AddressSpace {
         self.recount(first, end, |space| {
             space.wipe_on_fork.remap(from, old_len, to, new_len);
             space.dont_copy.remap(from, old_len, to, new_len);
+            space.dont_dump.remap(from, old_len, to, new_len);
             space.locked.remap(from, old_len, to, new_len);
             space.no_access.remap(from, old_len, to, new_len);
             space.read_only.remap(from, old_len, to, new_len);
@@ -999,6 +1011,7 @@ impl AddressSpace {
                 locked: false,
                 wipe_on_fork: false,
                 dont_copy: false,
+                dont_dump: false,
             };
             areas.push((image, None));
         }
@@ -1032,6 +1045,7 @@ impl AddressSpace {
                         locked: key.locked,
                         wipe_on_fork: key.wipe_on_fork,
                         dont_copy: key.dont_copy,
+                        dont_dump: key.dont_dump,
                     };
                     areas.push((region, Some(key)));
                 }
@@ -1060,6 +1074,7 @@ impl AddressSpace {
             locked: self.locked.get(page),
             wipe_on_fork: self.wipe_on_fork.get(page),
             dont_copy: self.dont_copy.get(page),
+            dont_dump: self.dont_dump.get(page),
         }
     }
 
@@ -1113,6 +1128,10 @@ impl AddressSpace {
     /// `VM_WIPEONFORK` on or off for the pages `[first, end)`.
     fn set_wipe_on_fork(&mut self, first: u64, end: u64, on: bool) {
         self.recount(first, end, |space| space.wipe_on_fork.set(first, end, on));
+    }
+
+    fn set_dont_dump(&mut self, first: u64, end: u64, on: bool) {
+        self.recount(first, end, |space| space.dont_dump.set(first, end, on));
     }
 
     /// `VM_LOCKED` on or off for the pages `[first, end)`.
@@ -2118,7 +2137,8 @@ impl Kernel {
     /// `MADV_DONTNEED` drops the pages: anonymous memory reads as zeroes again, a private file
     /// mapping as the file, and a shared mapping keeps its contents, which are synchronised
     /// unless the memory shows the object's pages itself. `MADV_WIPEONFORK` and
-    /// `MADV_KEEPONFORK` set and clear `VM_WIPEONFORK`. Every other advice changes nothing.
+    /// `MADV_KEEPONFORK` set and clear `VM_WIPEONFORK`; `MADV_DONTDUMP` and
+    /// `MADV_DODUMP` toggle `VM_DONTDUMP`. Other supported hints leave the pages unchanged.
     pub(crate) async fn sys_madvise(
         &self,
         caller: &Caller<'_>,
@@ -2168,6 +2188,22 @@ impl Kernel {
             }
         }
         match advice {
+            MadviseAdvice::MADV_DONTDUMP | MadviseAdvice::MADV_DODUMP => {
+                // mm/madvise.c madvise_vma_behavior toggles VM_DONTDUMP.
+                let mm = self.mm(caller.task());
+                let _op = mm.op.lock().await;
+                // Recheck under the operation lock so a concurrent munmap cannot
+                // turn this into flags on a hole (madvise_walk_vmas).
+                self.check_mapped(caller, start.into(), len).await?;
+                let first = u64::from(start) / PAGE_SIZE;
+                let end = (u64::from(start) + len) / PAGE_SIZE;
+                let on = advice == MadviseAdvice::MADV_DONTDUMP;
+                let mut space = mm.space();
+                // madvise_update_vma uses split_vma, just as mprotect_fixup.
+                let splits = space.splits(first, end, |key| key.dont_dump != on);
+                space.check_splits(splits, self.vm.map_limit())?;
+                space.set_dont_dump(first, end, on);
+            }
             MadviseAdvice::MADV_DONTNEED => self.drop_pages(caller, start.into(), len).await?,
             MadviseAdvice::MADV_REMOVE => return Err(Errno::EINVAL.into()),
             MadviseAdvice::MADV_WIPEONFORK => {
