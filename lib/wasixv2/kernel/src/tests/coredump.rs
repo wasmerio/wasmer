@@ -137,6 +137,44 @@ fn memory_segment(core: &[u8]) -> (u32, u32, u32) {
     (word(phdr + 4), word(phdr + 16), word(phdr + 20))
 }
 
+/// fs/binfmt_elf.c:elf_core_dump emits PT_LOADs only for VMAs, not holes.
+#[test]
+fn core_dump_omits_unmapped_linear_holes() {
+    let (kernel, p) = machine();
+    p.set_core_limit(&kernel, u64::MAX);
+    let (child, pid) = p.fork(&kernel);
+    let caller = child.caller();
+    let page = WASM_PAGE_SIZE as u32;
+    let at = block_on(kernel.mmap(
+        &caller,
+        8 * page,
+        page,
+        ProtFlags::PROT_READ | ProtFlags::PROT_WRITE,
+        MapFlags::MAP_PRIVATE | MapFlags::MAP_ANONYMOUS | MapFlags::MAP_FIXED,
+        Fd(-1),
+        0,
+    ))
+    .unwrap();
+    put(&child.memory.0, at, b"mapped");
+    child.die_of(&kernel, pid, Signal::SIGABRT);
+    assert_eq!(
+        p.reap(&kernel, pid),
+        (SiCode::CLD_DUMPED.0, Signal::SIGABRT.0)
+    );
+    let core = p.read(&kernel, "/core").unwrap();
+    let word = |at: usize| u32::from_le_bytes(core[at..at + 4].try_into().unwrap());
+    let count = u16::from_le_bytes(core[44..46].try_into().unwrap()) as usize;
+    let loads: Vec<_> = (0..count)
+        .map(|i| 52 + i * 32)
+        .filter(|&i| word(i) == 1)
+        .collect();
+    assert_eq!(loads.len(), 2);
+    assert_eq!((word(loads[0] + 8), word(loads[0] + 20)), (0, page));
+    assert_eq!((word(loads[1] + 8), word(loads[1] + 20)), (at, page));
+    assert_eq!(core.len() as u32, word(loads[0] + 4) + 2 * page);
+    assert_eq!(&core[word(loads[1] + 4) as usize..][..6], b"mapped");
+}
+
 /// A signal that dumps core writes the dying process's memory to the file `core_pattern`
 /// names, as an ELF core file, and the parent sees `CLD_DUMPED`; `RLIMIT_CORE` 0, the
 /// default, dumps nothing.

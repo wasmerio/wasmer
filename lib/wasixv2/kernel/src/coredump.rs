@@ -314,13 +314,13 @@ fn timeval(d: std::time::Duration) -> [u8; 8] {
 }
 
 impl ElfCore {
-    /// `elf_core_dump` for an address space of `memory_size` bytes: an `ET_CORE` ELF32
+    /// `elf_core_dump` for the mapped ranges of an address space: an `ET_CORE` ELF32
     /// little-endian file with no machine (`EM_NONE`), a `PT_NOTE` of `NT_PRSTATUS` (no
     /// registers), `NT_PRPSINFO`, `NT_SIGINFO`, `NT_AUXV` and `NT_FILE`, then `PT_LOAD` segments of linear
-    /// memory at address 0, page-aligned in the file.
+    /// mapped memory, page-aligned in the file.
     pub(crate) fn new(
         core: &CoreInfo,
-        memory_size: u64,
+        mapped: &[std::ops::Range<u64>],
         filter: u32,
         excluded: &[std::ops::Range<u64>],
     ) -> Self {
@@ -397,20 +397,24 @@ impl ElfCore {
         // fs/coredump.c vma_dump_size keeps a PT_LOAD for VM_DONTDUMP
         // but gives it no file bytes. Preserve each virtual range's address.
         let mut segments = Vec::new();
-        let mut cursor = 0;
-        for range in excluded {
-            let start = range.start.min(memory_size).max(cursor);
-            let end = range.end.min(memory_size).max(start);
-            if cursor < start {
-                segments.push((cursor..start, true));
+        // fs/binfmt_elf.c:elf_core_dump iterates VMAs. An unmapped linear-memory
+        // hole has neither a PT_LOAD nor file bytes; VM_DONTDUMP keeps a zero-sized load.
+        for mapped in mapped {
+            let mut cursor = mapped.start;
+            for range in excluded {
+                let start = range.start.clamp(cursor, mapped.end);
+                let end = range.end.clamp(start, mapped.end);
+                if cursor < start {
+                    segments.push((cursor..start, true));
+                }
+                if start < end {
+                    segments.push((start..end, false));
+                }
+                cursor = end;
             }
-            if start < end {
-                segments.push((start..end, false));
+            if cursor < mapped.end {
+                segments.push((cursor..mapped.end, true));
             }
-            cursor = end;
-        }
-        if cursor < memory_size || segments.is_empty() {
-            segments.push((cursor..memory_size, true));
         }
         let phnum = segments.len() + 1;
         let extended = phnum >= u16::MAX as usize;
@@ -620,9 +624,11 @@ impl Kernel {
         let how = pidfd_mask(Some(dumpable));
         self.note_coredump(&process, PIDFD_COREDUMPED | how, &info);
         let core = self.core_info(task, &process, info, &comm);
-        let size = caller.memory().size().await;
-        let excluded = self.mm(task).dont_dump_ranges();
-        let elf = ElfCore::new(&core, size, filter, &excluded);
+        self.mem_size(caller).await;
+        let mm = self.mm(task);
+        let mapped: Vec<_> = mm.regions().into_iter().map(|r| r.start..r.end).collect();
+        let excluded = mm.dont_dump_ranges();
+        let elf = ElfCore::new(&core, &mapped, filter, &excluded);
         let mut sink = Sink {
             file: &file,
             task,
@@ -981,12 +987,12 @@ mod tests {
             auxv: Vec::new(),
             files: Vec::new(),
         };
-        let elf = ElfCore::new(&core, 1 << 20, COREDUMP_FILTER_DEFAULT, &[]);
+        let elf = ElfCore::new(&core, &[0..1 << 20], COREDUMP_FILTER_DEFAULT, &[]);
         assert_eq!(&elf.head[..4], b"\x7fELF");
         assert_eq!(u16::from_le_bytes([elf.head[16], elf.head[17]]), ET_CORE);
         assert_eq!(elf.head.len() as u64 % MIN_COREDUMP, 0);
         assert_eq!(elf.memory_len, 1 << 20);
-        let none = ElfCore::new(&core, 1 << 20, 0, &[]);
+        let none = ElfCore::new(&core, &[0..1 << 20], 0, &[]);
         assert_eq!(none.memory_len, 0);
     }
 }

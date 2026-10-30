@@ -292,9 +292,9 @@ One cgroup v2 hierarchy (`kernel/src/cgroup`, `kernel/cgroup/cgroup.c`) with the
 
 The core is an ELF32 little-endian `ET_CORE` file with no machine (`EM_NONE`: wasm has none):
 
-1. The ELF header, then two program headers: a `PT_NOTE` and one `PT_LOAD` for the whole linear memory at address 0 (`p_memsz` its size, `p_filesz` the same, or 0 when `/proc/<pid>/coredump_filter` leaves out private anonymous memory, bit 0; `p_flags` `PF_R | PF_W`, `p_align` 4096).
+1. The ELF header, then a `PT_NOTE` and `PT_LOAD` headers for mapped VMA ranges, as `fs/binfmt_elf.c:elf_core_dump` iterates them. Unmapped linear holes have neither headers nor file bytes. `p_memsz` is the mapped range's size; `p_filesz` is the same, or 0 for `MADV_DONTDUMP` or when `/proc/<pid>/coredump_filter` leaves out private anonymous memory (bit 0); `p_flags` is `PF_R | PF_W`, `p_align` 4096.
 2. The notes, each named `CORE`: `NT_PRSTATUS` (`struct elf_prstatus_common` of a 32-bit kernel: the signal, the pids as the process's pid namespace sees them, user, system and children's times, then `pr_fpvalid`; no `pr_reg`, as there are no registers), `NT_PRPSINFO` (state, nice, real uid and gid, pids, the name and the first 80 bytes of the arguments), `NT_SIGINFO` (the 128-byte `siginfo_t` of the signal), `NT_AUXV` (the saved auxiliary vector through `AT_NULL`) and `NT_FILE` (file-backed VMA start/end/page offsets in guest-page units, followed by NUL-terminated paths).
-3. Zeros up to the next 4096-byte boundary, then the linear memory, byte for byte.
+3. Zeros up to the next 4096-byte boundary, then the included mapped ranges, byte for byte.
 
 ### Pipes and splice
 
