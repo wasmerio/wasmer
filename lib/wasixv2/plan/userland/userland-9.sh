@@ -19,7 +19,7 @@ source_tree() {
 case $pkg in
   zlib)
     source_tree zlib-
-    CHOST=wasm32 CC=wasixcc ./configure --static --prefix="$PREFIX" 
+    CHOST=wasm32 CC=wasixcc ./configure --static --prefix="$PREFIX"
     make -j"$JOBS"
     make -j"$JOBS" install
     ;;
