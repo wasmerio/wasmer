@@ -35,6 +35,7 @@ pub(super) enum Global {
     Loadavg,
     Stat,
     Version,
+    KernelVersion,
     Filesystems,
     Cmdline,
     Hostname,
@@ -281,11 +282,13 @@ pub(super) fn global(
         }
         Global::Stat => stat(source),
         Global::Version => line(&format!(
-            "{} version {} {}",
+            "{} version {} (wasmer@localhost) (Rust) {}",
             uts(&names.sysname),
             uts(&names.release),
             uts(&names.version)
         )),
+        // kernel/utsname_sysctl.c proc_do_uts_string exposes the uts field itself.
+        Global::KernelVersion => line(&uts(&names.version)),
         Global::Filesystems => filesystems(source),
         Global::Cmdline => line(""),
         Global::Hostname => line(&uts(&names.nodename)),

@@ -1616,3 +1616,24 @@ fn status_and_directory_owners_use_the_named_threads_credentials() {
     let attr = main.stat("/proc/self", AtFlags(0)).unwrap();
     assert_eq!((attr.stx_uid, attr.stx_gid), (0, 0));
 }
+
+/// fs/proc/version.c version_proc_show uses linux_proc_banner, including the
+/// build user/host and compiler fields consumed by userspace parsers.
+#[test]
+fn proc_version_contains_the_linux_build_fields() {
+    let (kernel, task, _) = machine();
+    let memory = memory();
+    let t = T::new(&kernel, task, &memory);
+    let fd = t
+        .open("/proc/sys/kernel/version", OpenFlags::O_RDONLY)
+        .unwrap();
+    assert_eq!(t.read_all(fd), "#1 SMP wasixv2 2.0.0\n");
+    let fd = t.open("/proc/version", OpenFlags::O_RDONLY).unwrap();
+    let version = t.read_all(fd);
+    assert!(
+        version.starts_with("Linux version 7.2.0-wasixv2 ("),
+        "{version}"
+    );
+    assert!(version.contains(") ("), "{version}");
+    assert!(version.contains(") #1 SMP wasixv2 2.0.0"), "{version}");
+}
