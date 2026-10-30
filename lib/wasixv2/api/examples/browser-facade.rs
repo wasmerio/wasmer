@@ -121,7 +121,27 @@ mod wasm {
                 64,
                 Some("fec0::2".parse().unwrap()),
             ));
-            let (network, relay) = if let Some(profile) = &fixture.network {
+            let switch = fixture
+                .network
+                .as_deref()
+                .filter(|p| p.starts_with("switch"))
+                .map(|_| wasixv2_vnet_switch::Switch::new(Default::default()))
+                .transpose()
+                .map_err(error)?;
+            let switch_v6 = fixture.network.as_deref() == Some("switch6");
+            let (network, relay) = if let Some(switch) = &switch {
+                (
+                    switch
+                        .network(
+                            if switch_v6 { "fd00::10" } else { "192.0.2.10" }
+                                .parse()
+                                .unwrap(),
+                            if switch_v6 { 64 } else { 24 },
+                        )
+                        .map_err(error)?,
+                    None,
+                )
+            } else if let Some(profile) = &fixture.network {
                 if profile == "absent" {
                     (Net::new(net_config.clone(), None), None)
                 } else {
@@ -149,24 +169,59 @@ mod wasm {
             let mut publications = Vec::new();
             for (key, value) in &fixture.env {
                 if key == "PUBLISH_TCP" && fixture.network.as_deref() != Some("peer") {
-                    publications.push(
-                        network
-                            .publish(
-                                format!("127.0.0.1:{value}").parse().map_err(error)?,
-                                "0.0.0.0:8080".parse().unwrap(),
+                    if fixture.network.as_deref() == Some("ephemeral") {
+                        let host = "127.0.0.1:0".parse().unwrap();
+                        let publication = relay
+                            .as_ref()
+                            .unwrap()
+                            .backend()
+                            .publish_resolved(
+                                host,
+                                4096,
+                                network.inbound_sink("0.0.0.0:8080".parse().unwrap()),
                             )
-                            .map_err(error)?,
-                    );
+                            .await
+                            .map_err(error)?;
+                        if publication.host_addr().port() == 0 {
+                            return Err(error("unresolved TCP publication"));
+                        }
+                        publications.push(publication);
+                    } else {
+                        publications.push(
+                            network
+                                .publish(
+                                    format!("127.0.0.1:{value}").parse().map_err(error)?,
+                                    "0.0.0.0:8080".parse().unwrap(),
+                                )
+                                .map_err(error)?,
+                        );
+                    }
                 }
                 if key == "PUBLISH_UDP" && fixture.network.as_deref() != Some("peer") {
-                    publications.push(
-                        network
-                            .publish_udp(
-                                format!("127.0.0.1:{value}").parse().map_err(error)?,
-                                "0.0.0.0:8081".parse().unwrap(),
-                            )
-                            .map_err(error)?,
-                    );
+                    if fixture.network.as_deref() == Some("ephemeral") {
+                        let pair = relay
+                            .as_ref()
+                            .unwrap()
+                            .backend()
+                            .publish_datagram_resolved("127.0.0.1:0".parse().unwrap())
+                            .await
+                            .map_err(error)?;
+                        if pair.1.host_addr().port() == 0 {
+                            return Err(error("unresolved UDP publication"));
+                        }
+                        publications.push(
+                            network.publish_udp_endpoint(pair, "0.0.0.0:8081".parse().unwrap()),
+                        );
+                    } else {
+                        publications.push(
+                            network
+                                .publish_udp(
+                                    format!("127.0.0.1:{value}").parse().map_err(error)?,
+                                    "0.0.0.0:8081".parse().unwrap(),
+                                )
+                                .map_err(error)?,
+                        );
+                    }
                 }
             }
             let mut builder =
@@ -255,7 +310,63 @@ mod wasm {
                 .map_err(error)?;
             let engine = Engine::default();
             let module = wasixv2::load(&engine, wasm).map_err(error)?;
-            let peer = if fixture.network.as_deref() == Some("peer") {
+            let peer = if let Some(switch) = &switch {
+                use wasixv2_vnet::Network;
+                let network = switch
+                    .network(
+                        if switch_v6 { "fd00::11" } else { "192.0.2.11" }
+                            .parse()
+                            .unwrap(),
+                        if switch_v6 { 64 } else { 24 },
+                    )
+                    .map_err(error)?;
+                let peer = Arc::new(
+                    browser::builder(Arc::new(host.services()), executor.clone(), network.clone())
+                        .build(),
+                );
+                let server_args = std::iter::once("switch".into())
+                    .chain(fixture.args.clone())
+                    .chain(std::iter::once("server".into()))
+                    .collect();
+                let run = browser::spawn(
+                    peer.clone(),
+                    &executor,
+                    engine.clone(),
+                    module.clone(),
+                    ProcessConfig {
+                        args: server_args,
+                        env: peer.default_env(),
+                        stdio: wasixv2::Stdio::from_fns(|_| {}, |_| {}),
+                    },
+                )
+                .await
+                .map_err(error)?;
+                let udp = fixture.args.iter().any(|a| a == "udp");
+                let deadline = host.monotonic() + std::time::Duration::from_secs(5);
+                loop {
+                    let ready = if udp {
+                        network.ports().iter().any(|p| {
+                            p.kind == wasixv2_vnet::SocketKind::Datagram && p.local.port() == 8080
+                        })
+                    } else {
+                        switch.listeners().iter().any(|p| {
+                            p.address.ip()
+                                == if switch_v6 { "fd00::11" } else { "192.0.2.11" }
+                                    .parse::<std::net::IpAddr>()
+                                    .unwrap()
+                                && p.address.port() == 8080
+                        })
+                    };
+                    if ready {
+                        break;
+                    }
+                    if host.monotonic() >= deadline {
+                        return Err(error("switch peer never became ready"));
+                    }
+                    host.sleep(std::time::Duration::from_millis(1)).await;
+                }
+                Some((peer, run, None, None))
+            } else if fixture.network.as_deref() == Some("peer") {
                 let (network, relay) = browser::relay::connect(
                     fixture.relay_url.as_deref().unwrap(),
                     net_config,
@@ -300,7 +411,7 @@ mod wasm {
                 )
                 .await
                 .map_err(error)?;
-                Some((peer, run, relay, publication))
+                Some((peer, run, Some(relay), Some(publication)))
             } else {
                 None
             };
@@ -331,7 +442,9 @@ mod wasm {
                 drop(run);
                 drop(peer);
                 drop(publication);
-                relay.shutdown().await;
+                if let Some(relay) = relay {
+                    relay.shutdown().await;
+                }
                 if result != 0 {
                     return Err(error(format!("peer guest exited {result}")));
                 }

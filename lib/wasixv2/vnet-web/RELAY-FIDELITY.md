@@ -23,6 +23,7 @@ unknown version/operation, trailing bytes and invalid errnos are protocol errors
 | response | u32(7), u32(1), u32(op=2), u64(request), u32(TTL), u32(answer=0), String(PTR name) |
 | response | u32(7), u32(1), u32(op=2), u64(request), u32(TTL), u32(answer=1), Vec<u8>(DNS response) |
 | response | u32(7), u32(1), u32(op=3), u64(socket), Vec<u8>(last byte urgent) |
+| response | u32(7), u32(1), u32(op=4), u64(socket), SocketAddr(quoted destination), Option<SocketAddr>(offender), Vec<u8>(quoted payload) |
 
 SendUrgent receives the ordinary Sent/SendError reply. The driver sends the
 marked byte alone after acknowledgments for all preceding bytes; following data
@@ -53,9 +54,19 @@ The stock server patch below is still required for that deployment.
 3. In the UDP receive arm, emit ReceivedFrom also for Ok((0, source)); zero is
    a datagram length, never EOF (net/ipv4/udp.c:udp_recvmsg). In the SendTo arm,
    emit DatagramError for host send failures, even with reserved request ID 0;
-   do not terminate the endpoint (udp_sendmsg). Connected-host ICMP/error-queue
-   fidelity needs a further explicit connect/errqueue record; this profile does
-   not claim that unsupported feature.
+   do not terminate the endpoint (udp_sendmsg). For actual ICMP port-unreachable
+   notifications emit op4 with the quoted destination, offender (port 0) and
+   payload; never label a local send error or websocket failure as ICMP.
+   vnet-web matches the current connected peer and applies Linux udp_err
+   (__udp4_lib_err in older kernels): hard errors become sk_err on connected
+   sockets, or with RECVERR also on unconnected sockets and in the bounded error
+   queue. A consumed sk_err affects one send/recv; the endpoint stays open.
+   The stock server still needs a host provider exposing these error quotes
+   (IP_RECVERR/IPV6_RECVERR + recvmsg(MSG_ERRQUEUE), or a connected host UDP socket
+   where the offending tuple is unambiguous). Its existing VirtualUdpSocket
+   receive arm must distinguish ECONNREFUSED from endpoint teardown and emit the
+   exact quote. Do not infer the destination from the most recent send on an
+   unconnected multi-peer socket. Other ICMP types remain a future protocol item.
 4. Serve reverse lookup with getnameinfo and raw-forward messages with the
    configured resolver, bounding packets to 65535 bytes and preserving DNS
    status/identifier/question. Return the exact extension answer/TTL; failures
@@ -71,10 +82,26 @@ The stock server patch below is still required for that deployment.
    at that mark, ordinary Data elsewhere; bound every read/queue. Follow the
    existing vnet-host reactor implementation and Linux tcp_recv_urg,tcp_ioctl,
    tcp_poll,tcp_sendmsg_locked. Do not substitute ordinary writes for MSG_OOB.
-7. Keep port-zero TCP/UDP publication unsupported. Publication::host_addr is
-   synchronous while relay bind is asynchronous. Supporting it needs an explicit
-   embedding API/bind-address completion design; returning port 0 as a resolved
-   address would violate that contract. No change is made to kernel/exec.
+7. Port-zero publication now uses the existing classic Socket/GetAddrLocal
+   request (tag 1, operation 25, Some(request)) and ResponseToRequest/SocketAddr
+   reply (tag 0, response 8), after the bind/listen acknowledgment. The stock
+   server already implements both for TCP listeners and UDP sockets; no server
+   deployment change is needed for address resolution. Embedders use
+   WebBackend::publish_resolved / publish_datagram_resolved on a task worker,
+   retaining the provisional handle until the address resolves. A canceled wait
+   drops that handle and closes a late bind. Failure/disconnect resolves the
+   waiter as an embedder error. Synchronous Backend publication keeps rejecting
+   port 0; it never exposes an unresolved Publication::host_addr. Attach the
+   returned UDP pair with Net::publish_udp_endpoint, or use Net::inbound_sink for
+   the TCP destination. Poll the I/O driver independently throughout.
 
-Production native listen-backlog configuration, connected UDP ICMP/errqueue,
-and a real WISP provider remain separate explicit limits.
+The deterministic relay tests actual Linux connected UDP ECONNREFUSED and carries
+its destination/quote in op4, separately from local host-send failures. IPv4 and
+IPv6 classic reference-server tests exercise real port-zero TCP/UDP ingress and
+verify the UDP reply source port. The production stock server is unchanged.
+
+Production native listen-backlog configuration and non-port-unreachable ICMP
+records remain explicit follow-ups. WISP remains outside this package: its owner
+must implement a Transport over the actual SDK WISP session, advertise only
+TCP/DNS until UDP/ingress extensions exist, and test cancellation/disconnect and
+bounded buffering independently. SDK service-worker HTTP framing stays in SDK.
