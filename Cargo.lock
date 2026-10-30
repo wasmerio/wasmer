@@ -7281,6 +7281,7 @@ dependencies = [
  "tracing",
  "wasixv2-abi",
  "wasixv2-wait",
+ "web-time",
 ]
 
 [[package]]
