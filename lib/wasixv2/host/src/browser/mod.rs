@@ -237,8 +237,15 @@ pub fn browser_run(id: u32) -> Result<(), JsValue> {
         .map_err(|error| JsValue::from_str(&error.to_string()))?;
     block_on(async move { start().await });
     drop(lease);
-    OBJECT_HOOKS.with_borrow(|hooks| (hooks.collect)());
+    browser_collect();
     Ok(())
+}
+
+/// Release expired worker-local engine roots after a direct root entry returns.
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub fn browser_collect() {
+    OBJECT_HOOKS.with_borrow(|hooks| (hooks.collect)());
 }
 
 #[cfg(test)]
