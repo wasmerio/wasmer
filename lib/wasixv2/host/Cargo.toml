@@ -38,3 +38,10 @@ default = []
 tokio = ["dep:tokio", "dep:getrandom", "dep:libc"]
 # A host on the JavaScript event loop, for wasm32-unknown-unknown in browsers and node.
 web = ["dep:js-sys", "dep:wasm-bindgen", "dep:wasm-bindgen-futures"]
+# Dedicated blocking workers sharing a threaded Rust runtime heap.
+browser = ["web"]
+
+[[example]]
+name = "browser"
+crate-type = ["cdylib"]
+required-features = ["browser"]
