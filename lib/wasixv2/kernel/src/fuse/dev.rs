@@ -684,6 +684,18 @@ pub(crate) struct Device {
     pub(super) sync_init: AtomicBool,
 }
 impl Device {
+    /// fs/fuse/dev.c:fuse_dev_splice_write: validate the device before taking
+    /// pipe buffers, then consume the entire reply even if protocol validation fails.
+    pub(crate) async fn splice_from_pipe(
+        &self,
+        pipe: &crate::pipe::Pipe,
+        len: usize,
+    ) -> SysResult<usize> {
+        let conn = self.connection()?;
+        let data = pipe.splice_take_exact(len).await?;
+        Ok(conn.write_reply(self.id, &data)?)
+    }
+
     fn connection(&self) -> Result<Arc<Connection>, Errno> {
         self.conn.lock_or_recover().clone().ok_or(Errno::EPERM)
     }
@@ -719,6 +731,13 @@ impl Pollable for Device {
     }
 }
 impl FileObject for Device {
+    // fs/fuse/dev.c:fuse_dev_operations supplies splice independently of INIT.
+    fn splice_read(&self) -> bool {
+        true
+    }
+    fn splice_write(&self) -> bool {
+        true
+    }
     fn read_size(&self) -> usize {
         MAX_IO + HEADER + 16 + 256
     }

@@ -359,6 +359,11 @@ impl Kernel {
         len: usize,
         nonblock: bool,
     ) -> SysResult<usize> {
+        // FUSE takes a complete reply before validation; generic splice_write
+        // instead leaves bytes queued on failure (fs/fuse/dev.c:fuse_dev_splice_write).
+        if let Some(device) = output.downcast::<crate::fuse::Device>() {
+            return device.splice_from_pipe(ipipe, len).await;
+        }
         let writes = match &output.backing {
             Backing::Inode(file) => file.file_type() == FileType::Regular,
             Backing::Stream(object, _) => object.splice_write(),
