@@ -916,3 +916,114 @@ are rebuilt before publication. Only train19 branches and the fast-forward plan
 are pushed by this agent; no remote main/feat push. After the lifecycle and mmap
 blockers are fixed, landing order is **tests -> libc2 -> wasmer -> plan**, with
 ABI07cd32e unchanged and LTP733f1688a already published/pinned. **Hold mains.**
+
+## 2026-10-30: validation train 20 — GO
+
+Integration, all gates, exactly ONE full suite, per-name classification, usual and
+requested smoke, final consumer pins, and shared sysroot rebuild/checks pass.
+There are **zero regressions and zero observed host panics**. The orchestrator
+owns remote mains; this agent publishes only train20 branches and a fast-forward
+plan update from its own `train20-plan` worktree. The shared plan worktree was
+neither used nor switched.
+
+Candidates: wasmer `wasixv2/train20` **7ce6fb09b13** on **695109e3965** (23 commits),
+tests `train20` **7628931** on **f6aee33** (12), libc2 `train20` **09b788f0** on
+**3b6a3e31** (one tests pin), LTP `wasixv2-train20` **801f6ad4b** on **733f1688a**
+(6, including two merges). Both consumers pin tests7628931 and unchanged
+ABI **07cd32e**; tests pin combined LTP801f6ad4b. No ABI regeneration or libc2
+source changes, LLVM changes/releases, prebuilt Wasm commits, or forbidden
+runtime paths are included.
+
+- Inputs: V4 IPC effective ownership, fork attachment metadata, proc/sysvipc,
+  namespace limits, locks/inotify/positional I/O/FSIZE; V7 dev-zero mappings and
+  independent truncate regression; V5 owning-task poll wakeups, low-guard paths,
+  initial multishot and one-shot lifetime corrections; V6 seized SIGCONT tracing;
+  vkeys auth/restrictions/same-ring move/relink watches; vtimers native deadlines,
+  task slack and current CPU timer sampling. The approved default-fallback
+  `Host::sleep_until_range` addition is included.
+- Replayed only branch-owned source commits. Omitted per-branch tests pins and
+  made one final tests bump in each consumer. Skipped V4's low-guard change,
+  already equivalent to landed train19, V5's two inherited timeout fixes, and
+  V7's concurrent-exit fix already landed through fix19. Retained one V4
+  truncate/write/transfer implementation matching Linux
+  `fs/attr.c:inode_newsize_ok`, with BOTH V4 and V7 test families; no duplicate
+  VFS boundary or signal helper. Timer DESIGN conflict preserves fix19's
+  credential lifetime and the new slack description. No new mechanism or
+  unapproved kernel/exec contract was introduced.
+- Merged both LTP forks, and four tests branches. Expectation conflicts applied
+  only branch-owned removals, preserving current classifications. Plan inputs
+  **739aab29ede** (newer than5fdf372fecc) and **693354bb4f8** merged cleanly into
+  origin plan14c275ba4cb. Two C fixtures received whitespace-only formatting;
+  all three new guest fixtures passed in the sole run before formatting and
+  all pass clang-format dry-run/Werror afterward.
+- Gates: **25 crate invocations / 1934 passing cases including doctests**,
+  kernel1074, exec60, host17; all three strict Makefile-flags clippy gates,
+  workspace fmt, release CLI11m23s, CLI **59 pass/12 ignored**, tty **6 pass**.
+  Runner **16 pass/2 unchanged toolchain probes ignored**, strict clippy/fmt.
+  The same unchanged libc2/ABI sysroots validated in train19 were used for
+  the suite. Native dev/test debuginfo was disabled externally for disk space.
+- Exactly ONE full suite, **3143s**, runtimecfa34be7462, CPUs0-3/three jobs,
+  canonical60s budget. Raw **3984 pass/194 xfail/5 unexpected fail/4 unexpected
+  pass/603 ignored**. Normalized **3988 pass/199 fail/603 ignored**. No observed
+  host panic in any invocation capture, gates or smoke, including all five
+  train19 panic cases. Final runtime differs from the gated/suite binary only
+  in the final tests gitlink.
+- Baseline inventory clarification: supplied3929/249/606 omitted the two
+  unblessed mmap failures repaired by fix19. Per-name train19 evidence plus
+  landed f6aee33 policy and fix19 therefore give **3931/249/606**. Both repaired
+  mmap cases pass this run. Classification uses names, not a shifted total.
+
+| Suite | Before pass / xfail / ignored | After pass / xfail / ignored |
+| --- | --- | --- |
+| own | 293 / 0 / 1 | 296 / 0 / 1 |
+| libc-test | 403 / 15 / 0 | 403 / 15 / 0 |
+| POSIX | 1723 / 37 / 81 | 1724 / 36 / 81 |
+| LTP | 1512 / 197 / 524 | 1565 / 148 / 521 |
+| **Total** | **3931 / 249 / 606** | **3988 / 199 / 603** |
+
+- **51 old failures pass**, two old skips pass, four new registrations pass
+  (three fixtures and wqueue10). One old skip becomes a failure; no pass becomes
+  ignored and no registration disappears. All13 surviving handwritten causes
+  remain; five obsolete fixed-case notes are dropped. No flaky or timeout-policy
+  changes and no second full suite.
+- Four input-removed timing expectations are restored: nanosleep01,pselect01,
+  pselect01_64,epoll_pwait03 still exceed their accuracy bounds in the full
+  three-job run. They failed baseline too; branch-isolated passes do not prove
+  their removal is stable under full-run load. They are not regressions.
+- Newly running `ltp/syscalls-ipc/semget05` times out in setup while allocating
+  all32000 SEMMNI sets, now exposed by the new proc sysctl. Its identical other
+  registration passes13.07s and diagnostic replay19.45s. The source setup calls
+  `tst_set_runtime(maxsems/200)` (160s, LTP overall190s), but that is allowed
+  headroom, not proof of a required deadline increase. Keep the observed60s
+  timeout listed with source/capture cause; follow up on setup cost under
+  three-job load. No runtime workaround or fabricated ENOSPC was added.
+- The three established train19 cap artifacts (cond-init4-1,gf15,min_free_kbytes)
+  pass in this full run with their proven10GiB case caps; other invocations
+  retain2GiB. Independent65s pipe cleanup preserves the60s result budget.
+- Smoke: SWS classic/Linux **28/28** each, v1 eight plus the known Python
+  dynamic-linking failure, UDP **6/6**, all carried userlands, C++ **9/9**, pty
+  **11/11**, no-tty; all12 usual and35 hand exit statuses match train19. All25
+  inherited feature commands pass, plus liburing timeout and supported
+  poll/statx/unlink/mkdir, network/namespaces/privileges/keys/seccomp/core/FUSE.
+  SQPOLL-only upstream tests remain explicitly excluded from the supported
+  workflow, with their EINVAL behavior unchanged.
+- Requested smoke: SysV msg/sem/shm ownership uses effective IDs independently
+  of fsuid, including access/removal; raw key-watch records and real keyutils
+  `keyctl watch` observe updates.64 x1ms nanosleeps: min7.064us,p5022.754us,
+  p95660.867us,max2.934470ms overshoot, never early and median<450us PASS.
+  Source-built strace fork **c7f71a82bde6** through the merged userland5 recipe
+  passes **all10 checks**: `strace -f ls` inside the Machine, pipeline/filter,
+  wide scalar/raw values, signal, no-regset/no-info/no-inject/no-unwind.
+- Shared local libc2 main fast-forwards to09b788f0, matching ABI/tests/LTP pins;
+  EH and asyncify sysroot targets and run.sh checks pass. The first launcher
+  stopped before building because Git's recursive tests fetch sought unpublished
+  combined LTP; explicit local nonrecursive fetches repaired ordering. That
+  setup log is retained. No source or suite change resulted.
+
+Logs, captures, classification, source manifests, smoke/repro assets and the
+archived runtime are in `~/wasixv2-orch/logs/train20/`; only this train's owned
+Cargo targets are removed. All new commits use the configured git user and the
+requested GPT-6.1-Sol attribution. Land in dependency order:
+**LTP -> tests -> libc2 -> wasmer -> plan**, ABI unchanged. **GO** for the
+orchestrator to land; remaining expected failures and the above follow-ups are
+explicitly retained.
