@@ -7,6 +7,7 @@ pub(crate) mod event;
 pub(crate) mod exit;
 pub mod fs;
 pub(crate) mod futex;
+pub(crate) mod http;
 pub(crate) mod io;
 pub(crate) mod path;
 pub(crate) mod poll;

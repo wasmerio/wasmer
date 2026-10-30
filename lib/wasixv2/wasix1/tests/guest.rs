@@ -238,7 +238,13 @@ fn every_import_links() {
             ));
         }
     }
-    wat.push_str("  (memory (export \"memory\") 1)\n  (func (export \"_start\")))\n");
+    // The HTTP entries require the guest's canonical allocator even when this
+    // link-only fixture never calls them.
+    wat.push_str(
+        r#"(memory (export "memory") 1)
+      (func (export "canonical_abi_realloc") (param i32 i32 i32 i32) (result i32) i32.const 1024)
+      (func (export "_start")))"#,
+    );
     assert_eq!(block_on(&wat, &["all"]).0, 0);
 }
 
