@@ -13,8 +13,12 @@ use wasmer::RuntimeError;
 pub const NAMESPACE: &str = "wasix_http_client_v1";
 pub const CANONICAL: &str = "canonical_abi";
 
+#[cfg(all(feature = "js", target_arch = "wasm32"))]
+pub mod browser;
+
 /// An owned request: no guest borrow or worker-local JS object crosses the provider boundary.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "js", derive(serde::Serialize, serde::Deserialize))]
 pub struct Request {
     pub url: String,
     pub method: String,
@@ -25,12 +29,14 @@ pub struct Request {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "js", derive(serde::Serialize, serde::Deserialize))]
 pub enum RedirectPolicy {
     NoFollow,
     Follow { max: u32 },
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "js", derive(serde::Serialize, serde::Deserialize))]
 pub struct Response {
     pub status: u16,
     pub headers: Vec<(String, Vec<u8>)>,
