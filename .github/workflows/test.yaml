@@ -135,6 +135,34 @@ jobs:
             echo "Pinned rust toolchain ($WASIX_RUST_TOOLCHAIN_TAG) is older than latest release ($latest)"
             exit 1
           fi
+  check_wasixv2_wasm:
+    name: WASIX v2 wasm check (${{ matrix.component }})
+    runs-on: ${{ github.event_name == 'pull_request' && 'aux-pub-16cpu-amd64' || 'aux-pub-trusted-16cpu-amd64' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        component: [core, webhost, engine, exec, wasix1, facade]
+    env:
+      CARGO_INCREMENTAL: "0"
+      CARGO_BUILD_JOBS: "3"
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: true
+      - uses: ./.github/actions/load_toolchain
+        id: load_toolchain
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ steps.load_toolchain.outputs.rust_toolchain }}
+          targets: wasm32-unknown-unknown
+      - name: Cache
+        uses: runs-on/cache@v5
+        with:
+          path: *cargo-cache-paths
+          key: cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-wasixv2-wasm-${{ matrix.component }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}
+      - name: Check browser libraries (compile only)
+        run: make check-wasixv2-wasm-${{ matrix.component }}
   cargo_deny:
     name: cargo-deny
     runs-on: ${{ github.event_name == 'pull_request' && 'aux-pub-16cpu-amd64' || 'aux-pub-trusted-16cpu-amd64' }}
@@ -868,6 +896,7 @@ jobs:
     needs:
       - setup
       - lint
+      - check_wasixv2_wasm
       - cargo_deny
       - test_nodejs
       - test_interpreter_api

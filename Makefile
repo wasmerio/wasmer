@@ -454,6 +454,37 @@ check-wasmer:
 check-api-no-async:
 	$(CARGO_BINARY) check $(CARGO_TARGET_FLAG) --manifest-path lib/api/Cargo.toml $(compiler_features) --locked
 
+# Keep browser feature sets in separate Cargo invocations: unification can hide a
+# native dependency or a missing js/web feature. These are compile-only checks;
+# host drivers compiling here does not imply browser filesystem/network support.
+wasixv2_wasm_checks := core webhost engine exec wasix1 facade
+wasixv2_wasm_check_flags := --lib --locked --target wasm32-unknown-unknown
+
+.PHONY: check-wasixv2-wasm $(addprefix check-wasixv2-wasm-,$(wasixv2_wasm_checks))
+.NOTPARALLEL: check-wasixv2-wasm
+check-wasixv2-wasm: $(addprefix check-wasixv2-wasm-,$(wasixv2_wasm_checks))
+
+check-wasixv2-wasm-core:
+	$(CARGO_BINARY) check $(wasixv2_wasm_check_flags) \
+		-p wasixv2-kernel -p wasixv2-syscalls -p wasixv2-vfs -p wasixv2-vnet \
+		-p wasixv2-vfs-mem -p wasixv2-vfs-overlay -p wasixv2-vfs-package \
+		-p wasixv2-vfs-host -p wasixv2-vnet-host -p wasixv2-vnet-switch
+
+check-wasixv2-wasm-webhost:
+	$(CARGO_BINARY) check $(wasixv2_wasm_check_flags) -p wasixv2-host --no-default-features --features web
+
+check-wasixv2-wasm-engine:
+	$(CARGO_BINARY) check $(wasixv2_wasm_check_flags) -p wasmer --no-default-features --features js-default,experimental-async
+
+check-wasixv2-wasm-exec:
+	$(CARGO_BINARY) check $(wasixv2_wasm_check_flags) -p wasixv2-exec --no-default-features --features js
+
+check-wasixv2-wasm-wasix1:
+	$(CARGO_BINARY) check $(wasixv2_wasm_check_flags) -p wasixv2-wasix1 --no-default-features --features js
+
+check-wasixv2-wasm-facade:
+	$(CARGO_BINARY) check $(wasixv2_wasm_check_flags) -p wasixv2 --no-default-features --features js,web,wasix1
+
 check-capi:
 	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) check $(CARGO_TARGET_FLAG) --manifest-path lib/c-api/Cargo.toml  \
 		--no-default-features --features wat,compiler,wasi,middlewares $(capi_compiler_features)
