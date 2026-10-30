@@ -25,7 +25,7 @@ out-of-tree builds against the exact-base asyncify sysroot.
 Coreutils uses unmodified Automake `make check TESTS=...` in explicit filtered
 batches, excluding the upstream root-only set and interleaving utility families.
 Host-built `all-am` and maintainer/documentation-only `check-local` are marked
-already built; the upstream test driver, environment and expected comparisons
+already built, and PROGRAMS= prevents re-traversing their host build dependencies; the upstream test driver, environment and expected comparisons
 run in the guest. Each shell test has a 60-second bound. The driver preserves
 logs, counts `.trs` results and fails on host panics. A 90-minute suite budget
 leaves not-attempted tests visibly distinct from upstream skips.
@@ -44,6 +44,20 @@ Tcl 8.6.16:
 Attempt static Tcl with its upstream `--disable-shared --disable-load` options;
 if unsupported, use SQLite's Tcl-free fuzzcheck alternative. No linking,
 closures, libffi or reflection source changes are in scope.
+
+Bash uses `make tests TESTSCRIPT=/suite/bash-batch-10.sh` with an explicit list
+of `run-*` test groups (aggregate/duplicate scripts excluded). Helpers
+recho/zecho/printenv/xcase are target-compiled, while build generators stay native.
+Each group retains stdout/stderr, has a 90-second bound, and any expected-output
+diff fails even if a later comparison would hide it. `run-shell-suite-10.py`
+records the selected list and each result. Default informational warnings go to
+stderr and are retained. Bash and Tcl builds run only after the preceding suite.
+
+Initial corrected coreutils pilot: 7 PASS / 5 SKIP / 0 FAIL, no panic. Broad
+non-root shell selection contains 614 tests; results are still pending. Ancillary
+programs supplied after the pilot make its first broad batch 8 PASS / 4 SKIP.
+Two initial harness setup attempts executed zero tests (list parsing and
+absolute utility paths); they are not included in counts.
 
 Results are pending; do not interpret a successful source build or harness
 launch as an upstream test pass. Every kernel/libc correction requires a

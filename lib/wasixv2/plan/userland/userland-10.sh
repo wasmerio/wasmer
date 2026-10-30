@@ -5,7 +5,7 @@ export BINARYEN_CORES=$JOBS OMP_NUM_THREADS=$JOBS CARGO_INCREMENTAL=0
 ROOT=${USERLAND10:-$HOME/wasixv2-tools/userland-10}
 BASE=${USERLAND_BASE:-$HOME/wasixv2-tools/userland}
 mkdir -p "$ROOT/bin"
-pkg=${1:?coreutils or bash}
+pkg=${1:?one suite build package required}
 mkdir -p "$ROOT/$pkg-build"
 cd "$ROOT/$pkg-build"
 case $pkg in
@@ -30,6 +30,35 @@ case $pkg in
    "$CC" -O2 "$ROOT/bash-src/support/$p.c" -o "$p"
   done
   install -m755 bash "$ROOT/bin/bash"
+  ;;
+ tcl)
+  "$ROOT/tcl-src/unix/configure" --host="$HOST" --build="$BUILD" \
+   --prefix="$ROOT/prefix" --disable-shared --disable-load --enable-threads CFLAGS=-O2
+  make -j"$JOBS"
+  make -j"$JOBS" install
+  install -m755 tclsh "$ROOT/bin/tclsh"
+  ;;
+ sqlite)
+  "$ROOT/sqlite-src/configure" --host="$HOST" --build="$BUILD" \
+   --disable-shared --disable-load-extension --with-tclsh=/usr/bin/tclsh8.6 CFLAGS=-O2
+  make -j"$JOBS" testfixture TCL_CONFIG_SH="$ROOT/prefix/lib/tclConfig.sh" \
+   TCLLIBDIR="$ROOT/prefix/lib"
+  install -m755 testfixture "$ROOT/bin/testfixture"
+  ;;
+ busybox)
+  cd "$ROOT/busybox-src"
+  make -j"$JOBS" HOSTCC=cc defconfig
+  sed -i 's/^CONFIG_HWCLOCK=y/# CONFIG_HWCLOCK is not set/; s/^CONFIG_TC=y/# CONFIG_TC is not set/; s/^CONFIG_SHA1_HWACCEL=y/# CONFIG_SHA1_HWACCEL is not set/; s/^CONFIG_SHA256_HWACCEL=y/# CONFIG_SHA256_HWACCEL is not set/; s/^CONFIG_STATIC=.*/CONFIG_STATIC=y/; s/^CONFIG_EXTRA_CFLAGS=.*/CONFIG_EXTRA_CFLAGS="-O2"/' .config
+  export WASIXV2_BUSYBOX_CC=$CC
+  make -j"$JOBS" CC="$USERLAND/tests/busybox-cc.py" HOSTCC=cc AR="$AR" \
+   LD="$USERLAND/tests/busybox-ld.py" CROSS_COMPILE= SKIP_STRIP=y busybox
+  install -m755 busybox "$ROOT/bin/busybox"
+  ;;
+ make)
+  "$ROOT/make-src/configure" --host="$HOST" --build="$BUILD" \
+   --disable-nls --without-guile CFLAGS=-O2
+  make -j"$JOBS"
+  install -m755 make "$ROOT/bin/make"
   ;;
  *) exit 2;;
 esac
