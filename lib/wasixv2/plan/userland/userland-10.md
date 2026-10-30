@@ -110,7 +110,7 @@ git and excluded from the final totals.
 | Bash 5.3.20 | run-* groups | 81 | 5 | 0 |
 | SQLite 3.49.2 | veryquick harness tests | 305880 | 0 | 1 explicit file; 12 upstream file/group notices |
 | Busybox 1.37.0 | filtered assertions | 653 | 11 | 4 skips; 1 untested |
-| GNU make 4.4.1 | portable categories | pending | pending | pending |
+| GNU make 4.4.1 | assertions in portable categories | 1403 | 1 | 1 category; 3 explicit exclusions |
 
 Bash uses the PTY helper with `timeout --foreground`, allowing interactive
 children to remain in the foreground process group. The jobs group needs 300s
@@ -192,11 +192,57 @@ invocations. Configure runs real target probes; subsequent build-time Errno and
 XS generators use the existing same-version native miniperl, copied into the
 owned source tree. `PERL_FOR_BUILD` overrides its userland-9/perl-native location.
 This is an ordinary native code generator, like SQLite's host Tcl; suite runs
-use the installed static Wasm. The owned prefix installs ordinary pure libraries
+use the installed static Wasm. The native build helper also runs install.perl
+on the host to populate the owned prefix outside the target-probe mount. The
+owned prefix installs ordinary pure libraries
 and static XS attributes/Cwd/Fcntl/File::Glob/IO/List::Util/POSIX/re. Fresh
 perl-static-src avoids stale config.sh-derived paths/lists in the preserved
 initial diagnostic tree. No probe result is fabricated.
 tests/make-10.sh selects all features/functions/misc/options/targets/variables
 categories except archives/load/loadapi, which need native compilation or
 shared modules in the guest. VMS categories are outside this Linux profile.
-There are 132 selected categories. GNU make runtime results are pending.
+There are 132 selected categories: 130 pass, one fails, and functions/guile is
+naturally N/A in the without-guile build. These contain 1403 passing assertions
+and one failing assertion; the three explicitly excluded categories are not
+counted as executed skips. Full raw output is make-broad.log, with failed
+comparison evidence in userland-10/make-broad-tests/work.
+
+The module probe and cleanup-sensitive pilot pass (59 assertions in five
+categories). Do not use the upstream -keep flag: its rmfiles helper suppresses
+fixture deletion and invalidates later tests. The initial diagnostic run with
+that option is preserved but excluded from semantic counts. make-10.sh extracts
+pristine tests into MAKE_TEST_ROOT (default userland-10/make-tests) from the
+pinned userland-9 make archive, then uses ordinary upstream cleanup; failed
+comparisons preserve their own logs/diffs by default. Set a fresh MAKE_TEST_ROOT
+under USERLAND10 for independent runs and focused confirmations.
+
+GNU make's only remaining failure is misc/close_stdout. `/dev/full` returns
+ENOSPC correctly and make prints the expected write-error diagnostic. Then
+src/main.c:close_stdout calls exit(MAKE_TROUBLE) from an atexit callback. The
+libc2/musl src/exit/exit.c:exit implementation deliberately traps same-thread
+recursive exit (upstream musl commit 8cca79a7). Classify this as an upstream
+make/test portability issue relying on glibc's recursive-exit behavior, which
+musl [explicitly does not support](https://wiki.musl-libc.org/functional-differences-from-glibc.html#Re-entrancy-of-exit).
+No libc2 behavior is changed to accommodate undefined application behavior.
+The typed source probe tests recursive exit and the supported _Exit alternative
+from the same atexit handler. Native Linux controls use pristine upstream musl
+1.2.6, whose exit.c is byte-identical to the requested libc2 base; the port itself
+cannot build for native x86_64 because its internal syscall wrappers are WASIX
+specific. Native static GNU make 4.4.1 linked with musl also fails the identical
+upstream misc/close_stdout case, proving the guest result is not a new kernel
+or libc2 regression. The minimal controls give:
+
+| Control | recursive exit | _Exit alternative |
+| --- | --- | --- |
+| native glibc | status 7 | status 7 |
+| native musl 1.2.6 | SIGSEGV (a_crash uses hlt) | status 7 |
+| guest libc2 | SIGILL (a_crash uses __builtin_trap) | status 7 |
+
+Final runtime source is 2a8d8408cde; the archived release CLI and prior baseline
+binaries, complete raw logs, result JSON and configure/control evidence remain
+outside git in logs/v12suites and the owned userland-10 kit. Tests/libc2/ABI pins
+are unchanged. No prebuilt Wasm is committed. The full conformance suite remains
+with the merge train. Follow-ups are the documented coherent host-file mapping
+boundary, Tcl's callback ABI portability, unavailable locale/build-tool/extension
+fixtures, and upstream make's recursive-exit assumption; these are not silently
+turned into passing tests or ABI changes.

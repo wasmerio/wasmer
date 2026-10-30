@@ -110,7 +110,8 @@ case $pkg in
   rm miniperl
   cp "$PERL_FOR_BUILD" miniperl
   make -j"$JOBS" all
-  make -j"$JOBS" install.perl
+  # Installation writes the owned prefix outside the target-probe mount.
+  make -j"$JOBS" install.perl RUN_PERL="$PERL_FOR_BUILD -Ilib -I."
   if [ -L "$ROOT/bin/perl" ]; then rm "$ROOT/bin/perl"; fi
   install -m755 perl.wasm "$ROOT/bin/perl"
   install -m755 perl.wasm "$ROOT/prefix-perl/bin/perl"

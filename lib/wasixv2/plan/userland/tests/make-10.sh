@@ -2,8 +2,14 @@
 # Explicit portable categories, using the actual upstream Perl harness.
 set -eu
 ROOT=${USERLAND10:-$HOME/wasixv2-tools/userland-10}
+TESTROOT=${MAKE_TEST_ROOT:-$ROOT/make-tests}
 CLI=${1:?release CLI required}
 shift
+if [ ! -d "$TESTROOT" ]; then
+ mkdir -p "$TESTROOT"
+ tar -xf "${MAKE_ARCHIVE:-$HOME/wasixv2-tools/userland-9/downloads/make-4.4.1.tar.gz}" \
+  -C "$TESTROOT" --strip-components=2 make-4.4.1/tests
+fi
 if [ "$#" -eq 0 ]; then
  mapfile -t selected < <(python3 - "$ROOT" <<'PY'
 from pathlib import Path
@@ -24,6 +30,5 @@ mkdir -p "$ROOT/logs/make"
 printf '%s\n' "$@" > "$ROOT/logs/make/selected.txt"
 exec "$CLI" run --compiler-threads 3 --no-tty --user 1 \
  --volume "$ROOT:$ROOT" --volume "$ROOT/bin:/bin" --volume "$ROOT/bin:/usr/bin" \
- --cwd "$ROOT/make-src/tests" "$ROOT/bin/perl" -- \
- "$ROOT/make-src/tests/run_make_tests.pl" -make /bin/make -srcdir "$ROOT/make-src" \
- -keep "$@"
+ --cwd "$TESTROOT" "$ROOT/bin/perl" -- \
+ "$TESTROOT/run_make_tests.pl" -make /bin/make -srcdir "$ROOT/make-src" "$@"
