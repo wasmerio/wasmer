@@ -5,6 +5,15 @@ export PATH=/bin:/usr/bin HOME=/root LANG=C LC_ALL=C
 pkg=${1:?workflow}
 mkdir -p "/tmp/v15-$pkg"
 cd "/tmp/v15-$pkg"
+server=
+cleanup() {
+  status=$?
+  if [ -n "$server" ]; then kill "$server" 2>/dev/null || true; fi
+  mkdir -p "/work/v15-$pkg"
+  cp ./*.log "/work/v15-$pkg/" 2>/dev/null || true
+  exit "$status"
+}
+trap cleanup EXIT
 case $pkg in
 tls)
   openssl version
@@ -32,7 +41,6 @@ http {
 CONF
   nginx -p "$PWD/" -c "$PWD/nginx.conf" &
   server=$!
-  trap 'kill "$server" 2>/dev/null || true' EXIT
   for ((i=0;i<100;i++)); do
     curl --silent --fail --cacert cert.pem --resolve localhost:18443:127.0.0.1 https://localhost:18443/payload > ready 2> ready.err && break
     sleep .05
@@ -45,7 +53,7 @@ CONF
   grep ' 2 HTTP/1.1$' access.log
   kill "$server"
   wait "$server"
-  trap - EXIT
+  server=
   openssl speed -seconds 1 -bytes 1024 sha256 aes-128-cbc > speed.log 2>&1
   cp curl.log access.log speed.log /work/
   echo 'TLS verified certificate, HTTP/1.1, connection reuse, speed PASS'

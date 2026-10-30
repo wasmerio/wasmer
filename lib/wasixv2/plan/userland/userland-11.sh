@@ -40,7 +40,7 @@ curl)
   ;;
 ffmpeg)
   source_tree ffmpeg-
-  ./configure --enable-cross-compile --target-os=linux --arch=wasm32 --cc="$CC" --ar="$AR" --ranlib="$RANLIB" --nm="$NM" --disable-shared --enable-static --disable-asm --disable-x86asm --disable-autodetect --disable-doc --disable-debug --disable-stripping --disable-network --disable-hwaccels --disable-vulkan --disable-ffplay --disable-ffprobe --disable-everything --enable-indev=lavfi --enable-protocol=file,pipe --enable-demuxer=matroska,mpegts --enable-muxer=matroska,mpegts,null,framehash --enable-decoder=ffv1,pcm_s16le,mpeg2video,mp2 --enable-encoder=ffv1,pcm_s16le,mpeg2video,mp2 --enable-filter=testsrc2,sine,format,aformat,aresample,anull,null --extra-cflags=-O2
+  ./configure --enable-cross-compile --target-os=linux --arch=wasm32 --cc="$CC" --ar="$AR" --ranlib="$RANLIB" --nm="$NM" --disable-shared --enable-static --disable-asm --disable-x86asm --disable-autodetect --disable-doc --disable-debug --disable-stripping --disable-network --disable-hwaccels --disable-vulkan --disable-ffplay --disable-ffprobe --disable-everything --enable-indev=lavfi --enable-protocol=file,pipe --enable-parser=mpegvideo,mpegaudio --enable-demuxer=matroska,mpegts --enable-muxer=matroska,mpegts,null,framehash --enable-decoder=wrapped_avframe,ffv1,pcm_s16le,mpeg2video,mp2 --enable-encoder=ffv1,pcm_s16le,mpeg2video,mp2 --enable-filter=testsrc2,sine,format,aformat,aresample,anull,null --extra-cflags=-O2
   make -j"$JOBS" ffmpeg
   install_wasm ffmpeg ffmpeg
   ;;

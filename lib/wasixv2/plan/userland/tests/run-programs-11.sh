@@ -13,8 +13,10 @@ if [ -d "$ROOT/python-src/Lib" ]; then
   mkdir -p "$ROOT/python-lib/lib/python3.13"
   args+=(--volume "$ROOT/python-lib:/python" --volume "$ROOT/python-src/Lib:/python/lib/python3.13" --env PYTHONHOME=/python)
 fi
+if [[ $pkg == python-* ]]; then args+=(--stack-size 16777216); fi
 case $pkg in
-vim|htop) rm -f "$ROOT/work/vim-result"; cmd=("$ROOT/bin/programs-pty" -- "$pkg");;
+htop) cmd=("$ROOT/bin/programs-pty" -- "$pkg");;
+vim) rm -f "$ROOT/work/vim-result"; cmd=("$ROOT/bin/programs-pty" -- "$pkg");;
 python-*) cmd=("$ROOT/bin/bash" -- /tests/programs-11.sh "$pkg");;
 *) cmd=("$ROOT/bin/bash" -- /tests/programs-11.sh "$pkg");;
 esac

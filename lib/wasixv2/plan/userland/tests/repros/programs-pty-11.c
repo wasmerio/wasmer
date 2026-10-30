@@ -10,6 +10,7 @@
 #include <sys/ioctl.h>
 #include <sys/prctl.h>
 #include <sys/wait.h>
+#include <time.h>
 #include <unistd.h>
 
 static void* worker(void* unused) {
@@ -57,7 +58,15 @@ int main(int argc, char** argv) {
   char captured[262144] = {0};
   size_t used = 0;
   int status = 0, ended = 0;
-  for (int tick = 0; tick < 200; ++tick) {
+  struct timespec start, now;
+  clock_gettime(CLOCK_MONOTONIC, &start);
+  int sent = 0, quit = 0;
+  double sent_at = 0;
+  for (;;) {
+    clock_gettime(CLOCK_MONOTONIC, &now);
+    double elapsed =
+        now.tv_sec - start.tv_sec + (now.tv_nsec - start.tv_nsec) / 1e9;
+    if (elapsed > 60) break;
     struct pollfd p = {.fd = master, .events = POLLIN};
     int ready = poll(&p, 1, 100);
     if (ready > 0 && (p.revents & POLLIN)) {
@@ -71,11 +80,18 @@ int main(int argc, char** argv) {
         }
       }
     }
-    if (tick == 15) {
+    if (!sent &&
+        (vim ? strstr(captured, "[New]") : strstr(captured, "Tasks:"))) {
+      sent = 1;
+      sent_at = elapsed;
       const char* keys = vim ? "iV15 edit-save verified\n\033:wq\n" : "H";
       if (write(master, keys, strlen(keys)) != (ssize_t)strlen(keys)) return 8;
     }
-    if (!vim && tick == 45 && write(master, "q", 1) != 1) return 9;
+    if (!vim && sent && !quit && elapsed - sent_at > 2) {
+      if (write(master, "q", 1) != 1) return 9;
+      quit = 1;
+    }
+    if (ready > 0 && !(p.revents & POLLIN)) usleep(10000);
     if (waitpid(child, &status, WNOHANG) == child) {
       ended = 1;
       break;
@@ -84,7 +100,8 @@ int main(int argc, char** argv) {
   fclose(out);
   if (!ended) {
     kill(child, SIGKILL);
-    waitpid(child, &status, 0);
+    while (waitpid(child, &status, 0) < 0 && errno == EINTR) {
+    }
   }
   close(master);
   if (!ended || !WIFEXITED(status) || WEXITSTATUS(status)) {

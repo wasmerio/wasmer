@@ -6,14 +6,20 @@ ROOT=${USERLAND11:-$HOME/wasixv2-tools/userland-11}
 TESTS=$(cd "$(dirname "$0")" && pwd)
 mkdir -p "$ROOT/python-lib/lib/python3.13" "$ROOT/logs/python" "$ROOT/work"
 selection=(test_os test_subprocess test_signal test_socket test_select test_threading test_multiprocessing_fork test_asyncio.test_futures test_asyncio.test_tasks test_asyncio.test_events test_mmap test_fcntl test_pty)
+shift
+if [ "$#" -gt 0 ]; then selection=("$@"); fi
 for test in "${selection[@]}"; do
+  extra=()
+  if [ "$test" = test_socket ] && [ "${PYTHON11_IGNORE_UDPLITE:-0}" = 1 ]; then
+    extra+=(--ignore '*UDPLITE*')
+  fi
   set +e
   python3 "$TESTS/checked-run.py" "$ROOT/logs/python/$test.log" \
-    timeout -k5 660 nice -n 19 taskset -c 4-7 "$WASMER" run --compiler-threads 3 --no-tty --user 1 \
+    timeout -k5 660 nice -n 19 taskset -c 4-7 "$WASMER" run --compiler-threads 3 --stack-size 16777216 --no-tty --user 1 \
     --volume "$ROOT/bin:/bin" --volume "$ROOT/work:/work" \
     --volume "$ROOT/python-lib:/python" --volume "$ROOT/python-src/Lib:/python/lib/python3.13" \
     --env PYTHONHOME=/python --env PATH=/bin:/usr/bin --env HOME=/home/user \
-    --cwd /tmp "$ROOT/bin/bash" -- -c 'exec /bin/python3 "$@"' python-test -m test -v --timeout 600 --junit-xml "/work/python-$test.xml" "$test"
+    --cwd /tmp "$ROOT/bin/bash" -- -c 'exec /bin/python3 "$@"' python-test -m test -v --timeout 600 --junit-xml "/work/python-$test.xml" "${extra[@]}" "$test"
   status=$?
   set -e
   printf '\nEXIT:%s\n' "$status" >> "$ROOT/logs/python/$test.log"
