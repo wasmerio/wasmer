@@ -149,6 +149,7 @@ pub(super) enum Net {
     Dev,
     /// `route`, `ipv6_route` and `if_inet6`.
     Route,
+    Arp,
     Ipv6Route,
     IfInet6,
     /// `igmp` and `igmp6`.
@@ -446,6 +447,12 @@ pub(super) fn net(ns: &NetNs, file: Net) -> Vec<u8> {
         Net::Unix => unix_sockets(ns),
         Net::Dev => net_dev(ns),
         Net::Route => net_route(ns),
+        // net/ipv4/arp.c:arp_seq_show emits its header even with no entries.
+        // The socket-message transport has no ARP resolver/neighbor records.
+        Net::Arp => {
+            b"IP address       HW type     Flags       HW address            Mask     Device\n"
+                .to_vec()
+        }
         Net::Ipv6Route => net_ipv6_route(ns),
         Net::IfInet6 => net_if_inet6(ns),
         Net::Igmp => net_igmp(ns),
