@@ -188,9 +188,15 @@ GNU make source build passes. The inherited miniperl kit cannot load required
 constant.pm, so userland-10.sh perl builds an ordinary static Perl 5.40.2 with
 usedl=undef. probe-cc-10.py extends the existing actual-target launcher to preserve
 the caller cwd and execute real Wasm directly during recursive guest build-tool
-invocations. The owned prefix installs ordinary pure libraries and selected
-static XS attributes/Cwd/Fcntl/IO/List::Util/POSIX. No probe result is fabricated.
+invocations. Configure runs real target probes; subsequent build-time Errno and
+XS generators use the existing same-version native miniperl, copied into the
+owned source tree. `PERL_FOR_BUILD` overrides its userland-9/perl-native location.
+This is an ordinary native code generator, like SQLite's host Tcl; suite runs
+use the installed static Wasm. The owned prefix installs ordinary pure libraries
+and static XS attributes/Cwd/Fcntl/File::Glob/IO/List::Util/POSIX/re. Fresh
+perl-static-src avoids stale config.sh-derived paths/lists in the preserved
+initial diagnostic tree. No probe result is fabricated.
 tests/make-10.sh selects all features/functions/misc/options/targets/variables
 categories except archives/load/loadapi, which need native compilation or
 shared modules in the guest. VMS categories are outside this Linux profile.
-GNU make runtime results are pending.
+There are 132 selected categories. GNU make runtime results are pending.

@@ -79,23 +79,36 @@ case $pkg in
   ;;
  perl)
   : "${WASIXV2_PROBE_CLI:?release CLI needed for actual target probes}"
-  if [ ! -d "$ROOT/perl-src" ]; then
-   mkdir -p "$ROOT/perl-src"
+  # Keep the earlier diagnostic tree intact; Configure reuses stale config.sh
+  # lists and derived installation paths even when onlyextensions/prefix change.
+  PSRC=$ROOT/perl-static-src
+  if [ ! -d "$PSRC" ]; then
+   mkdir -p "$PSRC"
    tar -xf "$HOME/wasixv2-tools/userland-9/downloads/perl-5.40.2.tar.xz" \
-    -C "$ROOT/perl-src" --strip-components=1
+    -C "$PSRC" --strip-components=1
   fi
-  cd "$ROOT/perl-src"
-  export WASIXV2_PROBE_CC=wasixcc WASIXV2_PROBE_BIN="$ROOT/bin" WASIXV2_PROBE_ROOT="$ROOT/perl-src"
+  cd "$PSRC"
+  export WASIXV2_PROBE_CC=wasixcc WASIXV2_PROBE_BIN="$ROOT/bin" WASIXV2_PROBE_ROOT="$PSRC"
   sysroot="$WASIXCC_SYSROOT_PREFIX/sysroot-wasixv2-asyncify"
   sh Configure -des -Dcc="$USERLAND/tests/probe-cc-10.py" -Dld="$USERLAND/tests/probe-cc-10.py" \
    -Dar=wasixar -Dnm=wasixnm -Dranlib=wasixranlib -Dosname=linux -Darchname=wasm32-linux \
    -Dprefix="$ROOT/prefix-perl" \
    -Dlibc="$sysroot/lib/wasm32-wasixv2/libc.a" \
    -Dlibpth="$sysroot/lib/wasm32-wasixv2" -Dusrinc="$sysroot/include" \
-   -Donlyextensions="attributes Cwd Fcntl IO List/Util POSIX" \
+   -Donlyextensions="attributes Cwd Fcntl File/Glob IO List/Util POSIX re" \
+   -Dstatic_ext="attributes Cwd Fcntl File/Glob IO List/Util POSIX re" \
    -Dusedl=undef -Duseshrplib=false -Dusemymalloc=n -Doptimize=-O2 \
    -Dccflags="-D_GNU_SOURCE -fno-strict-aliasing" -Dcccdlflags= -Dccdlflags= -Dlddlflags= -Dldflags= -Dlibs=-lm
   rm -f miniperl miniperl.wasm
+  make -j"$JOBS" miniperl lib/Config.pm
+  # The same-version native miniperl is a build-time generator, like SQLite's
+  # native Tcl. Errno and static XS Makefiles must invoke the host compiler.
+  # Configure's actual-target probes and the installed Perl remain Wasm.
+  : "${PERL_FOR_BUILD:=$HOME/wasixv2-tools/userland-9/perl-native/miniperl}"
+  "$PERL_FOR_BUILD" -e 'die "need Perl 5.40.2" unless $^V eq v5.40.2'
+  cp miniperl miniperl-target-launcher
+  rm miniperl
+  cp "$PERL_FOR_BUILD" miniperl
   make -j"$JOBS" all
   make -j"$JOBS" install.perl
   if [ -L "$ROOT/bin/perl" ]; then rm "$ROOT/bin/perl"; fi
