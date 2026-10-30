@@ -21,6 +21,13 @@ tracing.workspace = true
 wasmparser.workspace = true
 
 [dev-dependencies]
+wat.workspace = true
+futures.workspace = true
+
+[target.'cfg(target_arch = "wasm32")'.dev-dependencies]
+wasm-bindgen-test.workspace = true
+
+[target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
 # Layout conformance only; never a runtime dependency.
 wasmer-wasix-types = { path = "../../wasi-types" }
 wasixv2 = { path = "../api" }
@@ -28,7 +35,8 @@ tokio = { workspace = true, features = ["macros", "rt", "sync", "time"] }
 wasmer = { path = "../../api", version = "=7.5.0", default-features = false, features = [
   "cranelift",
 ] }
-wat.workspace = true
+wasixv2-kernel = { path = "../kernel" }
+wasixv2-vfs-mem = { path = "../vfs-mem" }
 
 [features]
 default = ["sys"]

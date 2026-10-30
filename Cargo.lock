@@ -7316,12 +7316,16 @@ dependencies = [
 name = "wasixv2-wasix1"
 version = "0.0.0"
 dependencies = [
+ "futures",
  "tokio",
  "tracing",
  "wasixv2",
  "wasixv2-abi",
  "wasixv2-exec",
+ "wasixv2-kernel",
  "wasixv2-syscalls",
+ "wasixv2-vfs-mem",
+ "wasm-bindgen-test",
  "wasmer",
  "wasmer-wasix-types",
  "wasmparser 0.259.0",
