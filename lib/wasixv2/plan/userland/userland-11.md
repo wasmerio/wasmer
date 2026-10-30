@@ -20,7 +20,7 @@ Full logs, RED evidence, source/hash manifests and state:
 
 All five workflows pass on the final systemd-built release CLI. Full source-built
 Python profile uses Modules/Setup.local plus detected static Setup.stdlib;
-_ctypes/FFI and9 shared-only/unsupported module names are disabled explicitly.
+Nine unsupported/shared-only module names, including _ctypes/FFI, are disabled explicitly.
 The final target Makefile has DYNLOADFILE=dynload_stub.o and no shared modules.
 Same-version native Python builds only explicitly static generator prerequisites.
 Other program profiles select ordinary supported static options, not function stubs.
@@ -98,7 +98,7 @@ launching if editing concurrently; never edit a guest script while it executes.
 
 Source kits inherited from earlier packages are preserved. Final programs and
 static dependencies are retained; only owned intermediate build trees and target
-are removed after hash/byte-identity checks. Invalid wrapper/configuration runs,
+are removed after hash/byte-identity checks (completed;17GiB free). Invalid wrapper/configuration runs,
 original failures and host-OOM evidence remain in logs and are not counted.
 
 Existing boundaries: incoming host-backend IP-header ancillary metadata is not
