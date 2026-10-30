@@ -1327,3 +1327,185 @@ fn skipping_an_urgent_only_full_queue_wakes_the_input_driver() {
     assert_eq!(stream.read(&mut data, false), Ok(1));
     assert_eq!(data[0], b'a');
 }
+
+fn poll_future<F: std::future::Future>(future: std::pin::Pin<&mut F>) -> Poll<F::Output> {
+    future.poll(&mut Context::from_waker(
+        futures_util::task::noop_waker_ref(),
+    ))
+}
+fn address_request(h: &Harness) -> (u64, u64) {
+    h.transport
+        .commands
+        .iter()
+        .rev()
+        .find_map(|c| match c {
+            Command::LocalAddr { request, socket } => Some((*request, *socket)),
+            _ => None,
+        })
+        .unwrap()
+}
+#[test]
+fn port_zero_publication_waits_for_bound_address_and_cancels_cleanly() {
+    let mut h = Harness::new();
+    let backend = h.backend.clone();
+    let host: SocketAddr = "127.0.0.1:0".parse().unwrap();
+    let mut future = Box::pin(backend.publish_resolved(host, 1, Sink::new()));
+    assert!(poll_future(future.as_mut()).is_pending());
+    assert!(h.pump().is_pending());
+    let (request, socket) = h
+        .transport
+        .commands
+        .iter()
+        .find_map(|c| match c {
+            Command::Listen {
+                request,
+                socket,
+                addr,
+            } => {
+                assert_eq!(*addr, host);
+                Some((*request, *socket))
+            }
+            _ => None,
+        })
+        .unwrap();
+    h.event(Event::Complete {
+        request,
+        result: Ok(()),
+    });
+    assert!(
+        poll_future(future.as_mut()).is_pending(),
+        "listen acknowledgment has no address"
+    );
+    let (request, id) = address_request(&h);
+    assert_eq!(id, socket);
+    let resolved = "127.0.0.1:43210".parse().unwrap();
+    h.event(Event::LocalAddr {
+        request,
+        addr: resolved,
+    });
+    let publication = match poll_future(future.as_mut()) {
+        Poll::Ready(Ok(p)) => p,
+        _ => panic!("publication did not resolve"),
+    };
+    assert_eq!(publication.host_addr(), resolved);
+    drop(publication);
+    assert!(h.pump().is_pending());
+    assert!(
+        h.transport
+            .commands
+            .iter()
+            .any(|c| matches!(c, Command::Close { socket: id } if *id == socket))
+    );
+
+    let mut future = Box::pin(backend.publish_resolved(host, 1, Sink::new()));
+    assert!(poll_future(future.as_mut()).is_pending());
+    assert!(h.pump().is_pending());
+    let (request, socket) = h
+        .transport
+        .commands
+        .iter()
+        .rev()
+        .find_map(|c| match c {
+            Command::Listen {
+                request, socket, ..
+            } => Some((*request, *socket)),
+            _ => None,
+        })
+        .unwrap();
+    drop(future);
+    h.event(Event::Complete {
+        request,
+        result: Ok(()),
+    });
+    let (request, _) = address_request(&h);
+    h.event(Event::LocalAddr {
+        request,
+        addr: resolved,
+    });
+    assert!(
+        h.transport
+            .commands
+            .iter()
+            .any(|c| matches!(c, Command::Close { socket: id } if *id == socket))
+    );
+}
+#[test]
+fn udp_zero_publication_resolves_and_failure_or_disconnect_finishes_waiters() {
+    for failure in [None, Some(Errno::EADDRINUSE), Some(Errno::ECONNABORTED)] {
+        let mut h = Harness::with_capabilities(Capabilities::classic_fidelity(true));
+        let backend = h.backend.clone();
+        let mut future = Box::pin(backend.publish_datagram_resolved("[::1]:0".parse().unwrap()));
+        assert!(poll_future(future.as_mut()).is_pending());
+        assert!(h.pump().is_pending());
+        let (request, _) = h
+            .transport
+            .commands
+            .iter()
+            .find_map(|c| match c {
+                Command::Bind {
+                    request, socket, ..
+                } => Some((*request, *socket)),
+                _ => None,
+            })
+            .unwrap();
+        h.event(Event::Complete {
+            request,
+            result: Ok(()),
+        });
+        let (request, _) = address_request(&h);
+        match failure {
+            None => h.event(Event::LocalAddr {
+                request,
+                addr: "[::1]:12345".parse().unwrap(),
+            }),
+            Some(Errno::ECONNABORTED) => {
+                h.transport.error = failure;
+                assert!(h.pump().is_ready());
+            }
+            Some(error) => h.event(Event::Complete {
+                request,
+                result: Err(error),
+            }),
+        }
+        match poll_future(future.as_mut()) {
+            Poll::Ready(Ok((endpoint, publication))) if failure.is_none() => {
+                assert_eq!(publication.host_addr(), "[::1]:12345".parse().unwrap());
+                endpoint.attach(Some(WaitQueue::new())).unwrap();
+                assert_eq!(endpoint.send_to(b"", "[::1]:8000".parse().unwrap()), Ok(0));
+            }
+            Poll::Ready(Err(error)) => assert_eq!(error.raw_os_error(), failure.map(|e| e.0)),
+            _ => panic!("bound address waiter did not finish"),
+        }
+    }
+}
+#[test]
+fn unresolved_or_wrong_family_address_is_protocol_failure_and_wakes_waiter() {
+    for invalid in ["127.0.0.1:0", "[::1]:1234"] {
+        let mut h = Harness::new();
+        let backend = h.backend.clone();
+        let mut future =
+            Box::pin(backend.publish_resolved("127.0.0.1:0".parse().unwrap(), 1, Sink::new()));
+        assert!(poll_future(future.as_mut()).is_pending());
+        assert!(h.pump().is_pending());
+        let request = h
+            .transport
+            .commands
+            .iter()
+            .find_map(|c| match c {
+                Command::Listen { request, .. } => Some(*request),
+                _ => None,
+            })
+            .unwrap();
+        h.event(Event::Complete {
+            request,
+            result: Ok(()),
+        });
+        let (request, _) = address_request(&h);
+        h.transport.events.push_back(Event::LocalAddr {
+            request,
+            addr: invalid.parse().unwrap(),
+        });
+        assert_eq!(h.pump(), Poll::Ready(Err(Errno::EPROTO)));
+        assert!(matches!(poll_future(future.as_mut()), Poll::Ready(Err(_))));
+    }
+}

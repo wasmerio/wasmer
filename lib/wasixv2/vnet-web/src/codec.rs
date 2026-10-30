@@ -104,6 +104,7 @@ pub fn encode(command: &Command) -> Result<Vec<u8>, Errno> {
             };
             pack((1u32, socket, 44u32, how, Some(request)))?
         }
+        Command::LocalAddr { request, socket } => pack((1u32, socket, 25u32, Some(request)))?,
         Command::Accept { socket, child } => pack((1u32, socket, 24u32, child, None::<u64>))?,
     };
     if out.len() > MAX_FRAME {
@@ -142,6 +143,10 @@ pub fn decode(frame: &[u8]) -> Result<Event, Errno> {
                 1 => Event::Complete {
                     request,
                     result: Err(network_error(r.get()?)?),
+                },
+                8 => Event::LocalAddr {
+                    request,
+                    addr: r.get()?,
                 },
                 5 => Event::Lookup {
                     request,

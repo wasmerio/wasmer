@@ -12,7 +12,7 @@ use std::{
 };
 use wasixv2_abi::Errno;
 use wasixv2_host::{Executor, browser::BrowserExecutor};
-use wasixv2_vnet_web::{Capabilities, Classic, Config, FrameTransport};
+use wasixv2_vnet_web::{Capabilities, Classic, Config, FrameTransport, WebBackend};
 use wasixv2_wait::{NoInterrupt, PollMask, WaitQueue, Waiter};
 use wasm_bindgen::prelude::*;
 
@@ -162,8 +162,15 @@ impl FrameTransport for Frames {
 pub struct Relay {
     id: u32,
     shared: Arc<Shared>,
+    backend: Arc<WebBackend>,
 }
 impl Relay {
+    /// Provider operations whose bind-address completion is asynchronous. Drive them on a
+    /// task worker; the session's independent I/O worker continues the relay protocol.
+    pub fn backend(&self) -> &WebBackend {
+        &self.backend
+    }
+
     pub async fn shutdown(&self) {
         self.shared.fail(Errno::ENETDOWN);
         let waiter = Waiter::new();
@@ -192,7 +199,9 @@ pub fn connect(
     capabilities: Capabilities,
     executor: &BrowserExecutor,
 ) -> io::Result<(Arc<Net>, Relay)> {
-    let (network, driver) = super::network(config, limits, capabilities)?;
+    let (backend, driver) = WebBackend::new(limits, capabilities)
+        .map_err(|errno| io::Error::from_raw_os_error(errno.0))?;
+    let network = Net::new(config, Some(backend.clone()));
     let id = NEXT
         .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |id| id.checked_add(1))
         .map_err(|_| io::Error::other("relay IDs exhausted"))?;
@@ -218,5 +227,12 @@ pub fn connect(
         CHANNELS.lock().unwrap().remove(&id);
         return Err(error);
     }
-    Ok((network, Relay { id, shared }))
+    Ok((
+        network,
+        Relay {
+            id,
+            shared,
+            backend,
+        },
+    ))
 }

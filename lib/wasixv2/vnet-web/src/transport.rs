@@ -107,6 +107,11 @@ pub enum Command {
         socket: u64,
         addr: SocketAddr,
     },
+    /// Existing classic GetAddrLocal request, after a successful bind/listen.
+    LocalAddr {
+        request: u64,
+        socket: u64,
+    },
     Accept {
         socket: u64,
         child: u64,
@@ -120,6 +125,10 @@ pub enum Command {
 /// An asynchronous completion produced by the owning I/O worker.
 #[derive(Clone, Debug)]
 pub enum Event {
+    LocalAddr {
+        request: u64,
+        addr: SocketAddr,
+    },
     Complete {
         request: u64,
         result: Result<(), Errno>,
