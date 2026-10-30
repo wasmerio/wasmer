@@ -3,6 +3,15 @@
 
 #![recursion_limit = "256"]
 
+#[cfg(all(feature = "browser", target_arch = "wasm32"))]
+pub mod browser;
+
+mod package;
+pub use package::{Package, install_packages};
+
+mod directory;
+pub use directory::{DirectoryEntry, populate_directory};
+
 use std::{
     collections::HashSet,
     future::Future,
@@ -80,6 +89,55 @@ fn stack(kernel: Kernel) -> Stack {
     Layered::new(SyscallEntry(Trace), kernel)
 }
 
+/// Two executor views of one machine, like Linux's guest tasks and kernel threads
+/// (`kernel/kthread.c:kthread_create_on_node`), without a second timekeeper.
+struct TaskHost {
+    host: Arc<dyn Host>,
+    executor: Arc<dyn Executor>,
+}
+
+impl Host for TaskHost {
+    fn realtime(&self) -> std::time::Duration {
+        self.host.realtime()
+    }
+    fn monotonic(&self) -> std::time::Duration {
+        self.host.monotonic()
+    }
+    fn sleep(&self, duration: std::time::Duration) -> LocalFuture<'_, ()> {
+        self.host.sleep(duration)
+    }
+    fn sleep_until(&self, deadline: std::time::Duration) -> LocalFuture<'_, ()> {
+        self.host.sleep_until(deadline)
+    }
+    fn sleep_until_range(
+        &self,
+        deadline: std::time::Duration,
+        slack: std::time::Duration,
+    ) -> LocalFuture<'_, ()> {
+        self.host.sleep_until_range(deadline, slack)
+    }
+    fn thread_cpu_time(&self) -> Option<std::time::Duration> {
+        self.host.thread_cpu_time()
+    }
+    fn thread_cpu_clock(&self) -> Option<Arc<dyn wasixv2_host::ThreadCpuClock>> {
+        self.host.thread_cpu_clock()
+    }
+    fn random(&self, buf: &mut [u8]) {
+        self.host.random(buf);
+    }
+    fn executor(&self) -> &dyn Executor {
+        &*self.executor
+    }
+    fn report(&self, message: &str) {
+        self.host.report(message);
+        #[cfg(all(feature = "browser", target_arch = "wasm32"))]
+        browser::report(message);
+    }
+    fn shared_pages(&self, size: u64) -> io::Result<Arc<dyn SharedPages>> {
+        self.host.shared_pages(size)
+    }
+}
+
 /// One kernel and the processes it runs.
 ///
 /// The root filesystem is in memory and laid out as a small Linux system (see
@@ -106,6 +164,8 @@ pub struct Machine {
     time: Arc<Timekeeper>,
     /// [`Machine::time`] as a host, over the embedder's.
     host: Arc<dyn Host>,
+    /// The same machine clocks, with the guest-task executor when supplied.
+    task_host: Arc<dyn Host>,
     /// The uid and gid processes start as and filesystems are owned by.
     owner: (u32, u32),
     /// Where new processes start; `/` if unset.
@@ -150,6 +210,8 @@ impl Default for Machine {
 /// ```
 pub struct MachineBuilder {
     host: Arc<dyn Host>,
+    task_executor: Option<Arc<dyn Executor>>,
+    network: Option<Arc<Net>>,
     user: Credentials,
     uname: Uname,
     root: Option<Arc<dyn Filesystem>>,
@@ -184,6 +246,8 @@ impl MachineBuilder {
     pub fn new(host: Arc<dyn Host>) -> Self {
         Self {
             host,
+            task_executor: None,
+            network: None,
             user: Credentials::default(),
             uname: Uname::default(),
             root: None,
@@ -194,6 +258,20 @@ impl MachineBuilder {
             #[cfg(all(feature = "host-network", unix))]
             vsock: None,
         }
+    }
+
+    /// Supplies the machine's network namespace, including its backend and resolver
+    /// configuration. No default host backend is constructed when this is set.
+    pub fn network(mut self, network: Arc<Net>) -> Self {
+        self.network = Some(network);
+        self
+    }
+
+    /// Runs guest tasks on this executor while kernel timer and terminal drivers use
+    /// the original host's executor. Both views read the same machine clocks.
+    pub fn task_executor(mut self, executor: Arc<dyn Executor>) -> Self {
+        self.task_executor = Some(executor);
+        self
     }
 
     /// Makes the host network also the machine's vsock host side: the machine is a vsock
@@ -273,6 +351,8 @@ impl MachineBuilder {
     pub fn build(self) -> Machine {
         let Self {
             host,
+            task_executor,
+            network,
             user,
             uname,
             root,
@@ -287,10 +367,17 @@ impl MachineBuilder {
         // The machine's wall clock is its own: setting it leaves the embedder's alone.
         let time = Timekeeper::new(host);
         let host: Arc<dyn Host> = time.clone();
+        let task_host = match task_executor {
+            Some(executor) => Arc::new(TaskHost {
+                host: host.clone(),
+                executor,
+            }) as Arc<dyn Host>,
+            None => host.clone(),
+        };
         #[cfg(all(feature = "host-network", unix))]
-        let network = default_network(dns, vsock);
+        let network = network.unwrap_or_else(|| default_network(dns, vsock));
         #[cfg(not(all(feature = "host-network", unix)))]
-        let network = default_network(dns);
+        let network = network.unwrap_or_else(|| default_network(dns));
         let root = root
             .unwrap_or_else(|| default_root(&host, &network.resolv_conf(), &user, uname.release()));
         #[cfg(feature = "wasix1")]
@@ -312,7 +399,12 @@ impl MachineBuilder {
         );
         now(mount_kernel_filesystems(&kernel, &host));
         let syscalls = Arc::new(stack(kernel));
-        Helpers::install(&syscalls, &abis, &host);
+        Helpers::install(
+            &syscalls,
+            &abis,
+            &task_host,
+            !Arc::ptr_eq(&host, &task_host),
+        );
         Machine {
             syscalls,
             abis,
@@ -321,6 +413,7 @@ impl MachineBuilder {
             network,
             time,
             host,
+            task_host,
             owner,
             working_dir: None,
             running: Arc::default(),
@@ -461,7 +554,12 @@ impl Machine {
         );
         mount_kernel_filesystems(&kernel, &self.host).await;
         self.syscalls = Arc::new(stack(kernel));
-        Helpers::install(&self.syscalls, &self.abis, &self.host);
+        Helpers::install(
+            &self.syscalls,
+            &self.abis,
+            &self.task_host,
+            !Arc::ptr_eq(&self.host, &self.task_host),
+        );
         Ok(())
     }
 
@@ -564,7 +662,8 @@ impl Machine {
         &self.network
     }
 
-    fn vfs(&self) -> &Arc<Vfs> {
+    /// The filesystem namespace; embedder operations supply explicit credentials and root.
+    pub fn vfs(&self) -> &Arc<Vfs> {
         self.syscalls.inner.vfs()
     }
 
@@ -777,7 +876,7 @@ impl Machine {
             image,
             syscalls,
             task,
-            self.host.clone(),
+            self.task_host.clone(),
             abis,
         );
         Ok(run.await?)
@@ -839,7 +938,7 @@ impl Machine {
         module: &Module,
         task: TaskId,
     ) -> Result<i32, RunError> {
-        let host = self.host.clone();
+        let host = self.task_host.clone();
         let (syscalls, abis) = (self.syscalls.clone(), self.abis.clone());
         Ok(wasixv2_exec::run_with_abis(store, module, syscalls, task, host, abis).await?)
     }
@@ -1033,14 +1132,21 @@ fn killed(kernel: &Kernel, task: TaskId) -> Option<i32> {
 /// helper: each runs as a program's image does, compiled on a default engine, and nothing
 /// waits for it.
 struct Helpers {
+    dedicated: bool,
     syscalls: std::sync::Weak<Stack>,
     abis: Arc<Abis<Stack>>,
     host: Arc<dyn Host>,
 }
 
 impl Helpers {
-    fn install(syscalls: &Arc<Stack>, abis: &Arc<Abis<Stack>>, host: &Arc<dyn Host>) {
+    fn install(
+        syscalls: &Arc<Stack>,
+        abis: &Arc<Abis<Stack>>,
+        host: &Arc<dyn Host>,
+        dedicated: bool,
+    ) {
         let helpers = Helpers {
+            dedicated,
             syscalls: Arc::downgrade(syscalls),
             abis: abis.clone(),
             host: host.clone(),
@@ -1055,12 +1161,21 @@ impl wasixv2_kernel::UsermodeHelper for Helpers {
             return;
         };
         let (abis, host) = (self.abis.clone(), self.host.clone());
-        let run = async move {
-            let engine = Engine::default();
-            // The helper's end is its own; a failure to start kills it as any image's does.
-            let _ = wasixv2_exec::run_exec(engine, image, syscalls, task, host, abis).await;
-        };
-        self.host.executor().spawn_local(Box::pin(run));
+        let failed = syscalls.clone();
+        let start: ThreadStart = Box::new(move || {
+            Box::pin(async move {
+                let engine = Engine::default();
+                // A helper is a guest task too: never put it on a blocking kernel-driver worker.
+                let _ = wasixv2_exec::run_exec(engine, image, syscalls, task, host, abis).await;
+            })
+        });
+        if self.dedicated {
+            if self.host.executor().spawn_thread(start).is_err() {
+                abandon(&failed.inner, task);
+            }
+        } else {
+            self.host.executor().spawn_local(start());
+        }
     }
 }
 
@@ -1797,9 +1912,112 @@ pub fn targets_wasixv2(module: &Module) -> bool {
         .any(|import| import.module() == wasixv2_exec::IMPORT_MODULE)
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "tokio", not(target_arch = "wasm32")))]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn supplied_network_and_task_host_survive_root_assembly() {
+        let network = Net::new(NetConfig::host_default(), None);
+        let executor = Arc::new(TokioHost::default());
+        let mut machine = Machine::builder()
+            .network(network.clone())
+            .task_executor(executor.clone())
+            .build();
+        let layer = machine
+            .commands_layer([("test".to_owned(), OwnedBuffer::from_bytes(&b"bytes"[..]))])
+            .unwrap()
+            .unwrap();
+        machine.mount_root_layers([layer]).await.unwrap();
+        assert!(Arc::ptr_eq(machine.network(), &network));
+        assert!(std::ptr::eq(
+            machine.task_host.executor(),
+            &*executor as &dyn Executor
+        ));
+        assert!(!std::ptr::eq(
+            machine.host.executor(),
+            machine.task_host.executor()
+        ));
+        // The custom namespace's resolver is reflected in the boot filesystem.
+        let vfs = machine.vfs();
+        let root = vfs.root();
+        let cred = Cred::root();
+        let cx = Ctx {
+            cred: &cred,
+            root: &root,
+            umask: 0,
+            task: 0,
+            leases: None,
+        };
+        let how = wasixv2_vfs::OpenHow {
+            flags: wasixv2_abi::OpenFlags::O_RDONLY,
+            mode: 0,
+            lookup: LookupFlags::follow(),
+        };
+        let file = vfs
+            .open(&cx, &root, b"/etc/resolv.conf", &how)
+            .await
+            .unwrap();
+        let mut bytes = vec![0; 1024];
+        let n = file.read_at(&mut bytes, 0).await.unwrap();
+        assert_eq!(&bytes[..n], network.resolv_conf().as_bytes());
+        // Guest clock changes must reach both host views, rather than another Timekeeper.
+        let before = machine.host.monotonic();
+        assert!(machine.task_host.monotonic() >= before);
+    }
+
+    #[tokio::test]
+    async fn rejected_helper_admission_never_runs_on_the_kernel_worker() {
+        use std::sync::atomic::AtomicUsize;
+        struct Refuse(AtomicUsize);
+        impl Executor for Refuse {
+            fn spawn_local(&self, _: LocalFuture<'static, ()>) {
+                panic!("helper ran on a kernel driver worker");
+            }
+            fn spawn_thread(&self, _: ThreadStart) -> io::Result<()> {
+                self.0.fetch_add(1, Ordering::Relaxed);
+                Err(io::ErrorKind::WouldBlock.into())
+            }
+            fn spawn_blocking(&self, _: Box<dyn FnOnce() + Send>) -> LocalFuture<'static, ()> {
+                panic!("unexpected blocking call");
+            }
+        }
+        let executor = Arc::new(Refuse(AtomicUsize::new(0)));
+        let machine = Machine::builder().task_executor(executor.clone()).build();
+        let config = ProcessConfig {
+            args: vec![],
+            env: vec![],
+            stdio: Stdio::from_fns(|_| {}, |_| {}),
+        };
+        let task = machine.syscalls.inner.spawn(config).unwrap();
+        let helper = Helpers {
+            dedicated: true,
+            syscalls: Arc::downgrade(&machine.syscalls),
+            abis: machine.abis.clone(),
+            host: machine.task_host.clone(),
+        };
+        wasixv2_kernel::UsermodeHelper::start(&helper, task, Image::copied(vec![]));
+        assert_eq!(executor.0.load(Ordering::Relaxed), 1);
+        let wasm = wat::parse_str(r#"(module
+            (import "wasixv2" "thread_spawn" (func $spawn (param i32 i32 i32 i32 i32) (result i32)))
+            (import "wasixv2" "exit_group" (func $exit (param i32)))
+            (import "env" "memory" (memory 1 2 shared))
+            (export "memory" (memory 0))
+            (func (export "wasixv2_thread_start") (param i32 i32))
+            (func (export "_start")
+              (call $exit (i32.sub (i32.const 0) (call $spawn (i32.const 0x10f00) (i32.const 0) (i32.const 0) (i32.const 0) (i32.const 0))))
+              unreachable))"#).unwrap();
+        assert_eq!(
+            machine
+                .run(&wasm, Stdio::from_fns(|_| {}, |_| {}))
+                .await
+                .unwrap(),
+            wasixv2_abi::Errno::EAGAIN.0
+        );
+        assert_eq!(executor.0.load(Ordering::Relaxed), 2);
+        // Rejected work is released rather than stranding Machine shutdown.
+        machine.shutdown().await;
+    }
 
     fn params(options: &[(&'static str, Option<&'static str>)]) -> Vec<FsParam<'static>> {
         options
