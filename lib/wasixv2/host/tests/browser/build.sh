@@ -19,7 +19,7 @@ fi
 export RUSTFLAGS="${RUSTFLAGS:-} -C target-feature=+atomics,+bulk-memory,+mutable-globals -C panic=abort -C link-arg=--import-memory -C link-arg=--shared-memory -C link-arg=--initial-memory=4194304 -C link-arg=--max-memory=268435456 -C link-arg=--export=__wasm_init_tls -C link-arg=--export=__tls_size -C link-arg=--export=__tls_align -C link-arg=--export=__tls_base"
 RUSTC="$(python3 lib/wasixv2/host/tests/browser/prepare-std.py "$CARGO_TARGET_DIR" "$nightly")"
 export RUSTC
-nice -n 19 taskset -c 4-7 cargo +"$nightly" build --locked -Z build-std=std,panic_abort \
+nice -n 19 taskset -c "${WASIX_BROWSER_CPUS:-4-7}" cargo +"$nightly" build --locked -Z build-std=std,panic_abort \
     --target wasm32-unknown-unknown -p "$package" --no-default-features --features "$features" --example "$example" -j3
 out="$CARGO_TARGET_DIR/browser"
 mkdir -p "$out"

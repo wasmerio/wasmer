@@ -9,13 +9,15 @@ on:
   push:
     branches: [feat/wasixv2, wasixv2/b8-facade, wasixv2/b17-ci]
   workflow_dispatch:
+env:
+  WASIX_BROWSER_CPUS: 0-3
 permissions:
   contents: read
   actions: read
 jobs:
   adapter:
     name: Browser adapter (SAB, isolated, no JSPI)
-    runs-on: ${{ github.event_name == 'pull_request' && 'aux-pub-16cpu-amd64' || 'aux-pub-trusted-16cpu-amd64' }}
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v6
@@ -40,10 +42,10 @@ jobs:
         shell: bash
         run: |
           git -C tests/wasixv2 submodule update --init upstream/ltp
-          nice -n 19 taskset -c 4-7 cargo test --manifest-path tests/wasixv2/Cargo.toml -p wasixv2-tests --locked -j3
+          nice -n 19 taskset -c "$WASIX_BROWSER_CPUS" cargo test --manifest-path tests/wasixv2/Cargo.toml -p wasixv2-tests --locked -j3
           export RUSTFLAGS="$(sed -n 's/^lint-packages: RUSTFLAGS += \(.*\) # TODO:.*/\1/p' Makefile)"
-          nice -n 19 taskset -c 4-7 cargo clippy --manifest-path tests/wasixv2/Cargo.toml -p wasixv2-tests --all-targets --locked -j3 -- -D clippy::all
-          nice -n 19 taskset -c 4-7 cargo fmt --manifest-path tests/wasixv2/Cargo.toml --all --check
+          nice -n 19 taskset -c "$WASIX_BROWSER_CPUS" cargo clippy --manifest-path tests/wasixv2/Cargo.toml -p wasixv2-tests --all-targets --locked -j3 -- -D clippy::all
+          nice -n 19 taskset -c "$WASIX_BROWSER_CPUS" cargo fmt --manifest-path tests/wasixv2/Cargo.toml --all --check
       - name: Install pinned browser tooling
         working-directory: tests/wasixv2/browser
         run: |
@@ -55,10 +57,10 @@ jobs:
           BROWSER_TEST_ARTIFACTS: artifacts/regressions
         run: |
           mkdir -p artifacts
-          nice -n 19 taskset -c 4-7 npm test > artifacts/regressions.log 2>&1
+          nice -n 19 taskset -c "$WASIX_BROWSER_CPUS" npm test > artifacts/regressions.log 2>&1
       - name: Source-built transport smoke (infrastructure only)
         working-directory: tests/wasixv2/browser
-        run: nice -n 19 taskset -c 4-7 node run.mjs --smoke --artifacts artifacts/transport
+        run: nice -n 19 taskset -c "$WASIX_BROWSER_CPUS" node run.mjs --smoke --artifacts artifacts/transport
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -67,7 +69,7 @@ jobs:
           if-no-files-found: error
   runtime:
     name: B2 threaded debug smoke (SAB, isolated, no JSPI)
-    runs-on: ${{ github.event_name == 'pull_request' && 'aux-pub-16cpu-amd64' || 'aux-pub-trusted-16cpu-amd64' }}
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
       CARGO_INCREMENTAL: "0"
@@ -100,13 +102,13 @@ jobs:
         run: |
           npm ci
           npx playwright install --with-deps chromium
-          nice -n 19 taskset -c 4-7 node run.mjs --smoke --b2-smoke --runtime "$CARGO_TARGET_DIR/browser" --artifacts artifacts/b2
+          nice -n 19 taskset -c "$WASIX_BROWSER_CPUS" node run.mjs --smoke --b2-smoke --runtime "$CARGO_TARGET_DIR/browser" --artifacts artifacts/b2
       - name: Link the browser facade and run lifecycle regressions
         run: |
           python3 lib/wasixv2/api/tests/browser/check-features.py > browser-features.log
           bash lib/wasixv2/api/tests/browser/build.sh >> browser-build.log 2>&1
-          nice -n 19 taskset -c 4-7 node --test lib/wasixv2/api/tests/browser/*.test.mjs
-          nice -n 19 taskset -c 4-7 node lib/wasixv2/api/tests/browser/lifecycle.mjs "$CARGO_TARGET_DIR/browser" > browser-lifecycle.log 2>&1
+          nice -n 19 taskset -c "$WASIX_BROWSER_CPUS" node --test lib/wasixv2/api/tests/browser/*.test.mjs
+          nice -n 19 taskset -c "$WASIX_BROWSER_CPUS" node lib/wasixv2/api/tests/browser/lifecycle.mjs "$CARGO_TARGET_DIR/browser" > browser-lifecycle.log 2>&1
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -125,16 +127,15 @@ jobs:
           if-no-files-found: error
   fixture-export:
     name: Build reviewed WASIX fixtures from pinned sources
-    runs-on: ${{ github.event_name == 'pull_request' && 'aux-pub-16cpu-amd64' || 'aux-pub-trusted-16cpu-amd64' }}
+    runs-on: ubuntu-24.04
     timeout-minutes: 240
     env:
       CARGO_INCREMENTAL: "0"
       CARGO_BUILD_JOBS: "3"
       WASIXV2_BROWSER_TOOLS: ${{ github.workspace }}/target/browser-tools
       CARGO_TARGET_DIR: ${{ github.workspace }}/target/browser-export
-      # Prefer a dedicated read-only source credential; the existing private-CI
-      # token is also used by patchsmith-test.yml. github.token cannot read libc2.
-      GH_TOKEN: ${{ secrets.WASIXV2_TOOLCHAIN_TOKEN || secrets.COMPAT_TESTS_GH_TOKEN }}
+      # github.token and COMPAT_TESTS_GH_TOKEN cannot read private libc2.
+      GH_TOKEN: ${{ secrets.WASIXV2_TOOLCHAIN_TOKEN }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -183,7 +184,7 @@ jobs:
       - name: Export only the reviewed browser subset
         run: |
           source "$WASIXV2_BROWSER_TOOLS/env.sh"
-          nice -n 19 taskset -c 4-7 cargo run --manifest-path tests/wasixv2/Cargo.toml -p wasixv2-tests --locked -j3 -- --browser-export "$RUNNER_TEMP/browser-fixtures" > browser-export.log 2>&1
+          nice -n 19 taskset -c "$WASIX_BROWSER_CPUS" cargo run --manifest-path tests/wasixv2/Cargo.toml -p wasixv2-tests --locked -j3 -- --browser-export "$RUNNER_TEMP/browser-fixtures" > browser-export.log 2>&1
       - uses: actions/upload-artifact@v4
         if: success()
         with:
@@ -201,7 +202,7 @@ jobs:
   fixtures:
     name: Reviewed browser fixtures (SAB, isolated, no JSPI)
     needs: [runtime, fixture-export]
-    runs-on: ${{ github.event_name == 'pull_request' && 'aux-pub-16cpu-amd64' || 'aux-pub-trusted-16cpu-amd64' }}
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v6
@@ -223,7 +224,7 @@ jobs:
         run: |
           npm ci
           npx playwright install --with-deps chromium
-          nice -n 19 taskset -c 4-7 node run.mjs --manifest "$GITHUB_WORKSPACE/browser-fixtures/manifest.json" --runtime "$GITHUB_WORKSPACE/browser-runtime" --artifacts artifacts/fixtures
+          nice -n 19 taskset -c "$WASIX_BROWSER_CPUS" node run.mjs --manifest "$GITHUB_WORKSPACE/browser-fixtures/manifest.json" --runtime "$GITHUB_WORKSPACE/browser-runtime" --artifacts artifacts/fixtures
       - uses: actions/upload-artifact@v4
         if: always()
         with:
