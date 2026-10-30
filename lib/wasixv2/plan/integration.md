@@ -2025,3 +2025,163 @@ with the exact GPT-6.1-Sol attribution footer; the human remains responsible.
 Landing order: **tests main -> Wasmer feat/wasixv2 -> plan**; orchestrator pushes
 mains. Only own train28 refs and authorized fast-forward `wasixv2/plan` are pushed
 from the private `train28-plan` worktree.
+
+## 2026-10-30: merge train 29 — NO-GO (zombie scheduler metadata)
+
+Hold main/feat landing. V13 expected-failure integration, required gates, exactly
+ONE full suite, focused correction/classification, complete native/browser smoke
+and candidate publication are complete. All24 V13 retirements pass the full run,
+but a newly exposed pre-existing scheduler lifetime failure remains. No partial
+scheduler repair or new kernel/exec contract was introduced. V14perf, V15progs
+and the concurrent new lifetime work are excluded. The orchestrator owns mains.
+
+| Repository | Base | Train29 candidate |
+| --- | --- | --- |
+| Wasmer, `wasixv2/train29` | af8aa676d82 | **78c67bfe0e09** |
+| wasixv2-tests, `train29` | 3a2d12d | **92b94c5ef4e8** |
+| libc2, `train29` | 6bc05b3b | **01bff0a2610c** |
+| LTP, `wasixv2-train29` | 54ea12a4b | **af13239c1f83** |
+| ABI | 07cd32e | unchanged; both consumers match |
+
+Replayed only V13's two runtime commits: shared-key futex page/protection/EOF
+validation and the empty `/proc/net/arp` header through existing namespace
+procfs. Linux authorities remain in source/commits: kernel/futex/core.c
+get_futex_key, mm/filemap.c filemap_fault and net/ipv4/arp.c arp_seq_show.
+Libc2 SHMLBA now matches the existing64KiB kernel page, following
+include/asm-generic/shmparam.h and ipc/shm.c do_shmat. Tests rebase V13's
+runner/static-TLS-companion/self-exec/privilege/duration/watchdog fixes onto
+landed3a2d12d, retaining epoll_pwait03's later flaky entry and retiring the
+causally fixed semget05 flake. The five LTP source fixes merge into one own branch;
+its merged tree equals d1ba3a2a6. Private plan merges V13 triage through d72bbb51507.
+No ABI generation, excluded loader/guest-closure/libffi/reflection change or
+tracked prebuilt Wasm is included. Static TLS companions are upstream's static
+target dependencies, with no dynamic-loader change.
+
+Gates pass:28 native crate invocations/**2163 cases**, kernel1128; all three
+Makefile-flags strict native clippies and root fmt; CLI59+TTY6/12existing ignores;
+runner44+2existing toolchain-only ignores with strict lint/fmt. Complete Makefile
+wasm compile gate, strict provider/facade/engine/kernel/exec wasm lints and feature
+graph pass; actual wasm callback units2+7, real threaded owner-readiness unit1,
+JavaScript runtime83 and runner38 pass. Release CLI7m18s, source35b6fac6086;
+final runtime differs only by its tests gitlink. Binary SHA256
+`15191eb844554367c11bc2d3097a0b176ac7d7701c85777300651b6587750dc6`.
+
+Private sysroots use V13 source-built corrected libc/headers/builtins over copies
+of train28's complete sysroots, retaining byte-identical unchanged C++ libraries
+and includes. Both installed SHMLBA headers equal integrated source. Both private
+C/UAPI/C++ link/import gates pass, as do all actual C++ runtime smoke cases.
+
+Exactly **ONE full suite**, **3060s**, nice19/CPUs0-3/three jobs and baseline case
+caps. Raw **4118pass /59expected-fail /2unexpected-fail /0unexpected-pass /
+433ignored** is immutable. The table reconciles only the exact harness correction
+below; it is not another full run.
+
+| Suite | Landed28 pass / fail / ignored | Train29 reconciled pass / fail / ignored |
+| --- | --- | --- |
+| own | 324 /0 /1 | 325 /0 /1 |
+| libc-test | 411 /2 /0 | 412 /1 /0 |
+| POSIX | 1727 /17 /81 | 1731 /13 /81 |
+| LTP | 1632 /64 /352 | 1651 /46 /351 |
+| **Total** | **4094 /83 /434** | **4119 /60 /433** |
+
+All24 old failures pass (19LTP/4POSIX/1libc-test), semget05 moves from ignored to
+passing, and the new SHMLBA fixture passes. No registration disappears or passing
+case becomes ignored. The remaining59 V13 causes are preserved; one scheduler
+cause is added, for60 expectations. No additional flaky entry or tolerance/cap
+change. POSIX timer_settime5-3 passes150.05s; multicast membership passes618.50s
+under its source-declared600s budget plus existing grace. Fork13's600s workload
+also completes. The ABI/LTP runtime/source budgets are honored rather than guessed.
+
+Resolved harness artifact: cve-2011-0999/thp01 reported execvp(true):ENOENT when I
+restored an own userland kit from temporary tmpfs and briefly removed the old
+mounted directory. HostFs pins an O_PATH root descriptor, so pathname recreation
+cannot rescue that old descriptor's removed children. The complete overlap-window
+and raw failure are retained. Exact original registration passes unblessed with
+stable mounts,1actual/0ignored. No runtime source fix or xfail hides that artifact;
+all primary kits and mount paths are now persistent and stable.
+
+**Remaining blocker: sched_setscheduler04.** Its normal full-run libc RR checks
+fail2/8; trace retry passes8/8. The child can exit before the parent queries it.
+Scheduler lookup rejects exited tasks, and execution release removes the Task and
+its Sched while the process remains an unreaped zombie. Linux
+kernel/sched/syscalls.c find_process_by_pid/sched_getscheduler/sched_getparam still
+find that task until kernel/exit.c release_task at reap. Thus the failure is
+ESRCH with the priority buffer unchanged, not incorrect RESET_ON_FORK inheritance.
+A deterministic kernel exit-before-query regression fails at the intended ESRCH
+assertion; its exact patch/source stays outside the candidate. The initial test
+setup memory error is separately retained and not called semantic RED.
+
+A native Linux control returns policy0/priority0 for the unreaped zombie, then
+ESRCH after reap. The identical source-built Wasm deterministically returns ESRCH
+before reap on BOTH landed train28 and train29. Scheduler/thread source is
+byte-identical across those heads; train28's archived binary is source-equivalent
+to af8aa676d82 except tests pins. This proves the bug predates V13, without
+claiming it repaired. A single nameability-predicate fix is insufficient because
+the scheduler state itself has already gone. Reviewed zombie metadata retention
+must cover all relevant scheduler queries/setters, permissions, namespaces,
+non-leader exit and reap without retaining execution/mm resources. No new
+retention mechanism or kernel/exec contract was invented in this integration.
+
+Native smoke matches28 or passes:12usual/35hand/25carried statuses, SWS28+28,
+UDP6, v1eight plus existing Python import/linking failure, C++9, PTY11/no-tty,
+train23 brk/fork512/mqueue/process_vm4GiB/root-ioctl prerequisite checks;
+ten program workflows and ten strace checks; seven V9 workflows; fresh FUSE
+overlay copy-up/lower preservation/whiteout/new-file/unmount. All20 original-order
+panic reproductions complete with16results each. Busybox198pass/11same failures/
+1skip, including passing date-timezone. All eight V11 workflows pass, including
+Perl12scripts/810 assertions. No source-kit payload changed.
+
+Fresh named debug browser bundle, real threaded std/TLS destruction, no diagnostic
+allocator or forced GC. Chromium156.0.8078.4 and Firefox157.0
+each pass **99/99**,0skips:22v2 (original21 plus lifetime),14v1,3static v1 C,
+15B14, independently executed17B15 and28B16. Isolation/SAB and page+worker no-JSPI
+probes pass for every case; transport and lifecycle lanes pass in both engines.
+B15 overlaps B16, giving82distinct cases per engine while all groups execute.
+
+Persistent Chromium completes500 lifetimes with bounds passing: heap
+64,815,104bytes,15Rust workers/max17native targets
+(limit26), RSS peak1,276,387,328bytes below2GiB,625copy/164task rotations.
+Raw final coordinator shutdown remains FALSE. Firefox persistent60, relay50,
+robustness/admission/fault/shutdown checks and both engines' real headed background
+timers pass the strict diagnostic audit. 7 visible Chromium-only
+teardown failures match browser plan§7 at6dc60a976c9; raw flags are never rewritten.
+This run's accepted-task-death cleanup passes. No Firefox waiver or broader
+SDK/R2 teardown signoff is claimed.
+
+Invocation/raw/browser scans find **zero unexpected runtime host panics**. Two
+intentional diagnostic unit assertion failures (test setup and then the actual
+unfixed scheduler regression) are explicitly separated from runtime panics.
+Four incomplete full-suite captures match four baseline2GiB OOM scopes in the
+user journal; no captured guest remains live. Native signal auditing finds only
+the deliberate capture-cleanup self-test kill. Initial uninitialized-NAPI fmt
+and launcher spelling/filename stops happened before any guest/full-suite guard;
+corrected gates and the one actual full run are retained.
+
+Shared external disk growth breached the reserve despite owned Cargo targets
+being tmpfs: sampled floor **8.41GB**. Temporary kit relocation protected
+payloads but caused the disclosed thp01 artifact on restoration. All2418 input
+payload hashes and all retained core/browser assets are verified; original28 kits,
+all private sources/out/prefix/packages/logs, CLIs, controls and exports remain.
+Completed owned targets/staging/profiles are reclaimed after guest drain, with
+final persistent free space above10GB. No other agent's file/worktree was removed.
+
+**Shared libc2 remains6bc05b3b and both shared sysroots are unchanged.** Libc2 did
+change, but the explicit protocol requires landing approval before their rebuild;
+NO-GO supplies no such approval. After the blocker is repaired/reviewed and landing
+approved, fast-forward shared libc2 to the approved candidate and fully rebuild
+both EH/asyncify sysroots plus C/UAPI/C++ checks. No remote main/feat/tag is pushed.
+
+Evidence: `~/wasixv2-orch/logs/train29/STATE.md`, immutable suite-1/raw captures,
+classification and corrected classification, regression-analysis, scheduler-control
+(native/baseline/current logs, source, Wasm and failing Rust patch), native/browser
+reports, panic/native-signal/capture/OOM audits, full commit inventory, payload and
+asset hashes, cleanup and remote-head verification. Remaining V13 owner/transport/
+upstream limits,29 retained flakes (28fromV13 plus epoll), Chromium R2/SDK/WISP/
+service-worker/Ports/cold-CI credential work and V14/V15 remain follow-ups.
+
+All integration commits were made by this AI agent as configured Git user with
+the exact GPT-6.1-Sol footer; the human remains responsible. Publish only own
+train29 refs and this authorized fast-forward plan entry from PRIVATE train29-plan.
+After blocker resolution/approval, landing order is **LTP -> tests -> libc2 ->
+Wasmer -> plan**, followed by the approved shared-sysroot rebuild/check update.
+**NO-GO: hold mains pending the zombie scheduler retention repair/review.**
