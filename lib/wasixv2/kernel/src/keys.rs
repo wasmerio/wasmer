@@ -619,10 +619,16 @@ impl Keys {
         let keyring = make(format!("_uid.{local}"));
         let session = make(format!("_uid_ses.{local}"));
         session.st().links.push(keyring.clone());
-        let mut st = user.state.lock_or_recover();
-        let keyring = st.keyring.get_or_insert(keyring).clone();
-        let session = st.session.get_or_insert(session).clone();
-        (keyring, session)
+        // security/keys/process_keys.c:look_up_user_keyrings publishes one pair.
+        // Another creator may have won while these candidates were allocated.
+        // Keep the losing candidates until after the quota lock is released:
+        // Key::drop takes that same lock to return their quota.
+        {
+            let mut st = user.state.lock_or_recover();
+            let installed_keyring = st.keyring.get_or_insert_with(|| keyring.clone()).clone();
+            let installed_session = st.session.get_or_insert_with(|| session.clone()).clone();
+            (installed_keyring, installed_session)
+        }
     }
 
     /// The keys `/proc/keys` shows the opener `ctx`: those it may view.
@@ -1807,4 +1813,56 @@ async fn put_out(
         caller.memory().write(buf, &data[..n]).await?;
     }
     Ok(data.len() as i32)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::{sync::mpsc, thread, time::Instant};
+
+    /// security/keys/process_keys.c:look_up_user_keyrings installs one user pair.
+    /// A racing creator must retire its unused candidates without holding their quota lock.
+    #[test]
+    fn concurrent_user_keyrings_release_losing_candidates_outside_the_quota_lock() {
+        let host = Arc::new(crate::tests::TestHost);
+        let timers = crate::timer::Timers::new(host.clone());
+        let keys = Keys::new(host, &timers);
+        let cred = Arc::new(Cred::new(
+            &crate::Credentials::new(1, 1),
+            UserNs::initial_user(),
+        ));
+        let user = keys.user(cred.user.real);
+        let serials = keys.serials.lock_or_recover();
+        let (send, done) = mpsc::channel();
+        let mut threads = Vec::new();
+        for _ in 0..2 {
+            let (keys, cred, send) = (keys.clone(), cred.clone(), send.clone());
+            threads.push(thread::spawn(move || {
+                let (ring, session) = keys.user_keyrings(&cred);
+                send.send((ring.serial, session.serial)).unwrap();
+            }));
+        }
+        // Allocation charges quota before taking the serial-table lock. Neither
+        // creator can publish a pair until both passed the empty-cache check.
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while user.state.lock_or_recover().nkeys != 2 {
+            assert!(
+                Instant::now() < deadline,
+                "both creators must reach allocation"
+            );
+            thread::yield_now();
+        }
+        drop(serials);
+        let first = done
+            .recv_timeout(Duration::from_secs(2))
+            .expect("first creator completes");
+        let second = done
+            .recv_timeout(Duration::from_secs(2))
+            .expect("losing creator completes");
+        assert_eq!(first, second);
+        for thread in threads {
+            thread.join().unwrap();
+        }
+        assert_eq!(user.state.lock_or_recover().nkeys, 2);
+    }
 }
