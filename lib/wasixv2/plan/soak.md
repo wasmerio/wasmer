@@ -48,6 +48,18 @@ requiring three nondecreasing blocks and net growth over32MiB RSS,8fds,4threads,
 8tasks or10ms probe latency. These are investigation triggers, not proof of a
 leak. Fresh-machine peak/end resources and quiescent counts must also be reviewed.
 
+After the long unit finishes, `userland/soak-host.sh RUNTIME_WORKTREE NEW_LOG 32`
+builds a bounded standalone embedding driver against that debug CLI's existing
+rlibs (no new dependency resolution), then repeats32full-workload machines in ONE
+native process. It follows `api/tests/machine.rs`, caches only fixed compiled
+images through the public Loader API, and asserts each machine's Net and
+TokioHost weak references expire after shutdown/drop. `RETIRED` lines record
+same-process fd/thread/RSS after every machine. This supplements the long CLI
+run, since an OS process exit alone could hide machine-owned reference leaks.
+Keep it serialized with the soak/build/gates and within the same cgroup cap.
+Its compilation and runtime are pending; syntax/format checks alone are not a
+claimed lifetime result.
+
 ## Bounded panic finding
 
 `HostBackend::drop` could run on its own reactor thread when an inbound callback
