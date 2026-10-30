@@ -255,9 +255,9 @@ impl Artifact {
         ))
     }
 
-    /// Load an ELF artifact directly from a file-backed memory map.
+    /// Load a native artifact directly from a file-backed memory map.
     ///
-    /// Unlike [`Self::deserialize`], this entrypoint only accepts ELF artifacts.
+    /// Unlike [`Self::deserialize`], this entrypoint only accepts ELF or Mach-O artifacts.
     ///
     /// # Safety
     /// This function loads executable code into memory. The file must be trusted
@@ -271,11 +271,15 @@ impl Artifact {
         let cache = ReadCache::new(BufReader::new(file));
         let image = object::File::parse(&cache)
             .map_err(|e| DeserializeError::CorruptedBinary(format!("cannot parse image: {e}")))?;
-        if image.format() != object::BinaryFormat::Elf {
+        if !matches!(
+            image.format(),
+            object::BinaryFormat::Elf | object::BinaryFormat::MachO
+        ) {
             return Err(DeserializeError::Incompatible(
-                "Artifact::deserialize_file only supports ELF artifacts".to_string(),
+                "Artifact::deserialize_file only supports ELF or Mach-O artifacts".to_string(),
             ));
         }
+        Self::check_native_image(&image)?;
 
         let module_info = image
             .section_by_name_bytes(crate::WASMER_MODULE_INFO_SECTION_NAME)
@@ -300,14 +304,38 @@ impl Artifact {
         Self::from_parts_with_module_file(&mut inner_engine, artifact, engine.target(), Some(path))
     }
 
+    fn check_native_image<'a, R: ReadRef<'a>>(
+        image: &object::File<'a, R>,
+    ) -> Result<(), DeserializeError> {
+        let host = crate::object::get_object_for_target(&target_lexicon::Triple::host())
+            .map_err(|e| DeserializeError::Incompatible(format!("unsupported host target: {e}")))?;
+        if image.format() != host.format() {
+            return Err(DeserializeError::Incompatible(format!(
+                "native artifact format {:?} does not match host format {:?}",
+                image.format(),
+                host.format()
+            )));
+        }
+        if image.architecture() != host.architecture() {
+            return Err(DeserializeError::Incompatible(format!(
+                "native artifact architecture {:?} does not match host architecture {:?}",
+                image.architecture(),
+                host.architecture()
+            )));
+        }
+        Ok(())
+    }
+
     /// Deserialize an ELF artifact held in memory, if the bytes contain one.
     fn deserialize_elf(engine: &Engine, bytes: &[u8]) -> Result<Option<Self>, DeserializeError> {
-        if !bytes.starts_with(&object::elf::ELFMAG) {
+        if !ArtifactBuild::has_native_header(bytes) {
             return Ok(None);
         }
 
         let image = object::File::parse(bytes)
             .map_err(|e| DeserializeError::CorruptedBinary(format!("cannot parse image: {e}")))?;
+        Self::check_native_image(&image)?;
+
         let module_info = image
             .section_by_name_bytes(crate::WASMER_MODULE_INFO_SECTION_NAME)
             .ok_or_else(|| {
@@ -702,6 +730,10 @@ impl Artifact {
                     compact_unwind,
                     get_got_address(RelocationTarget::LibCall(wasmer_vm::LibCall::EHPersonality)),
                 )?;
+            } else {
+                // Default RKYV artifacts (notably Singlepass) also need DWARF unwind
+                // registration on macOS/aarch64 when compact unwind is absent.
+                engine_inner.publish_eh_frame(eh_frame)?;
             }
             #[cfg(not(any(
                 target_arch = "wasm32",
@@ -807,13 +839,14 @@ impl Artifact {
     ) -> Result<AllocatedArtifact, DeserializeError> {
         let image = object::File::parse(elf_file_data)
             .map_err(|e| DeserializeError::CorruptedBinary(format!("cannot parse image: {e}")))?;
-        let base = engine_inner.map_elf_binary(&image, elf_file_data)?;
+        let (base, map_size) = engine_inner.map_elf_binary(&image, elf_file_data)?;
         Self::allocate_elf_artifact_from_image(
             engine_inner,
             module_info,
             &image,
             base,
             DebugInfoSource::Bytes(Arc::from(elf_file_data)),
+            map_size,
         )
     }
 
@@ -831,12 +864,15 @@ impl Artifact {
         let cache = ReadCache::new(BufReader::new(file));
         let image = object::File::parse(&cache)
             .map_err(|e| DeserializeError::CorruptedBinary(format!("cannot parse image: {e}")))?;
-        if image.format() != object::BinaryFormat::Elf {
+        if !matches!(
+            image.format(),
+            object::BinaryFormat::Elf | object::BinaryFormat::MachO
+        ) {
             return Err(DeserializeError::Incompatible(
-                "file-backed Artifact is not ELF".to_string(),
+                "file-backed Artifact is not ELF or Mach-O".to_string(),
             ));
         }
-        let base = engine_inner.map_elf_binary_file(&image, fd)?;
+        let (base, map_size) = engine_inner.map_elf_binary_file(&image, fd)?;
         #[cfg(feature = "compiler")]
         if let Some(debugger) = engine_inner.debugger() {
             engine_inner.register_debugger(path, base, debugger)?;
@@ -847,6 +883,7 @@ impl Artifact {
             &image,
             base,
             DebugInfoSource::File(Arc::new(Mutex::new(debug_file))),
+            map_size,
         )
     }
 
@@ -867,7 +904,11 @@ impl Artifact {
         image: &object::File<'a, R>,
         base: *mut std::ffi::c_void,
         debug_info: DebugInfoSource,
+        map_size: usize,
     ) -> Result<AllocatedArtifact, DeserializeError> {
+        const FN_OFFSET_SIZE: usize = std::mem::size_of::<usize>();
+        let is_macho = image.format() == object::BinaryFormat::MachO;
+
         let mut function_offsets = None;
         for section in image.sections() {
             let Ok(section_name) = section.name_bytes() else {
@@ -880,11 +921,38 @@ impl Artifact {
                             "cannot load image section data: {e}"
                         ))
                     })?;
-                    function_offsets = Some(
-                        data.chunks_exact(std::mem::size_of::<usize>())
-                            .map(|chunk| usize::from_le_bytes(chunk.try_into().unwrap()))
-                            .collect_vec(),
-                    );
+
+                    function_offsets = Some(if is_macho {
+                        // Mach-O stores chained pointers here, not plain offsets.
+                        // Read the pointers after the mapper has applied the fixups.
+                        let invalid_range = || {
+                            DeserializeError::CorruptedBinary(
+                                "Function offset section exceeds allocated range".to_string(),
+                            )
+                        };
+                        let address =
+                            usize::try_from(section.address()).map_err(|_| invalid_range())?;
+                        if address
+                            .checked_add(data.len())
+                            .is_none_or(|end| end > map_size)
+                        {
+                            return Err(invalid_range());
+                        }
+                        let data = unsafe {
+                            std::slice::from_raw_parts(base.cast::<u8>().add(address), data.len())
+                        };
+                        data.as_chunks::<FN_OFFSET_SIZE>()
+                            .0
+                            .iter()
+                            .map(|chunk| usize::from_le_bytes(*chunk).wrapping_sub(base as usize))
+                            .collect_vec()
+                    } else {
+                        data.as_chunks::<FN_OFFSET_SIZE>()
+                            .0
+                            .iter()
+                            .map(|chunk| usize::from_le_bytes(*chunk))
+                            .collect_vec()
+                    });
                 }
                 crate::EH_FRAME_SECTION_NAME => {
                     engine_inner.publish_elf_eh_frame(section.address(), section.size())?;
@@ -911,7 +979,7 @@ impl Artifact {
         let expected_offset_count = local_function_count
             .checked_add(signature_count)
             .and_then(|count| count.checked_add(dynamic_trampoline_count))
-            .ok_or_else(&corrupted_offsets)?;
+            .ok_or_else(corrupted_offsets)?;
         if function_offsets.len() != expected_offset_count {
             return Err(corrupted_offsets());
         }
@@ -925,7 +993,7 @@ impl Artifact {
             .skip(1)
             .take(local_function_count)
             .zip(function_offsets.iter())
-            .map(|(f1, f0)| f1.checked_sub(*f0).ok_or_else(&corrupted_offsets))
+            .map(|(f1, f0)| f1.checked_sub(*f0).ok_or_else(corrupted_offsets))
             .collect::<Result<Vec<_>, _>>()?;
 
         let signatures = {
@@ -1883,11 +1951,12 @@ impl Artifact {
 /// parsed lazily instead of duplicating all trap tables in memory.
 pub(crate) struct TrapReader {
     source: DebugInfoSource,
+    image_base: usize,
 }
 
 impl TrapReader {
-    pub(crate) fn new(source: DebugInfoSource) -> Self {
-        Self { source }
+    pub(crate) fn new(source: DebugInfoSource, image_base: usize) -> Self {
+        Self { source, image_base }
     }
 
     /// Looks up the trap information for `local_index` at `rel_pos`, the offset
@@ -1900,33 +1969,40 @@ impl TrapReader {
         match &self.source {
             DebugInfoSource::Bytes(data) => {
                 let image = object::File::parse(&data[..]).ok()?;
-                Self::lookup_in_image(&image, local_index, rel_pos)
+                self.lookup_in_image(&image, local_index, rel_pos)
             }
             DebugInfoSource::File(file) => {
                 let file = file.lock().unwrap();
                 let cache = ReadCache::new(BufReader::new(file.try_clone().ok()?));
                 let image = object::File::parse(&cache).ok()?;
-                Self::lookup_in_image(&image, local_index, rel_pos)
+                self.lookup_in_image(&image, local_index, rel_pos)
             }
         }
     }
 
     fn lookup_in_image<'data, R: ReadRef<'data>>(
+        &self,
         image: &object::File<'data, R>,
         local_index: LocalFunctionIndex,
         rel_pos: u32,
     ) -> Option<TrapInformation> {
         let traps_section = image.section_by_name_bytes(WASMER_TRAPS_SECTION_NAME)?;
-        let trap_offsets = image
-            .section_by_name_bytes(WASMER_TRAP_FUNCTION_OFFSETS_SECTION_NAME)?
-            .data()
-            .ok()?;
+        let offsets_section =
+            image.section_by_name_bytes(WASMER_TRAP_FUNCTION_OFFSETS_SECTION_NAME)?;
+        let trap_offsets = offsets_section.data().ok()?;
         let slot = local_index.index().checked_mul(size_of::<usize>())?;
         let offset_bytes = trap_offsets.get(slot..slot + size_of::<usize>())?;
 
-        // These slots contain relocated virtual addresses, not section-relative
-        // offsets. ELF currently emitted by Wasmer is native and little-endian.
-        let trap_address = usize::from_le_bytes(offset_bytes.try_into().ok()?);
+        // Mach-O slots contain chained pointers on disk. Read the mapped slot after fixups.
+        let trap_address = if image.format() == object::BinaryFormat::MachO {
+            let address = self
+                .image_base
+                .checked_add(offsets_section.address() as usize)?
+                .checked_add(slot)?;
+            unsafe { (address as *const usize).read_unaligned() }.checked_sub(self.image_base)?
+        } else {
+            usize::from_le_bytes(offset_bytes.try_into().ok()?)
+        };
         let trap_offset = trap_address.checked_sub(traps_section.address() as usize)?;
         let traps = Self::parse_function_traps(traps_section.data().ok()?, trap_offset)?;
         traps
@@ -1948,7 +2024,9 @@ impl TrapReader {
         let records = data.get(WORD_SIZE..WORD_SIZE.checked_add(records_len)?)?;
 
         records
-            .chunks_exact(RECORD_SIZE)
+            .as_chunks::<RECORD_SIZE>()
+            .0
+            .iter()
             .map(|record| {
                 let code_offset = u32::from_le_bytes(record[..WORD_SIZE].try_into().ok()?);
                 let code = u32::from_le_bytes(record[WORD_SIZE..].try_into().ok()?);

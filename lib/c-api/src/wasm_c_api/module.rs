@@ -499,9 +499,9 @@ pub unsafe extern "C" fn wasm_module_deserialize(
     let store_ref = unsafe { store.inner.store() };
     let module = c_try!(unsafe { Module::deserialize(&store_ref, bytes.as_slice()) });
 
-    Some(unsafe {
-        NonNull::new_unchecked(Box::into_raw(Box::new(wasm_module_t { inner: module })))
-    })
+    Some(Box::into_non_null(Box::new(wasm_module_t {
+        inner: module,
+    })))
 }
 
 /// Serializes a module into a binary representation that the

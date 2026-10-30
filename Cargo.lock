@@ -3041,6 +3041,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a6cb138bb79a146c1bd460005623e142ef0181e3d0219cb493e02f7d08a35695"
 
 [[package]]
+name = "itanium-demangle"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9d6bb878540441f0de21777d65fd62a773700062e83dccdbdd22b15552ac0161"
+
+[[package]]
 name = "itertools"
 version = "0.10.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3249,9 +3255,9 @@ checksum = "0c6639b70a7ce854b79c70d7e83f16b5dc0137cc914f3d7d03803b513ecc67ac"
 
 [[package]]
 name = "libwild"
-version = "0.10.0"
+version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6f7edaa8ff7a14a1a9915d5ff85c65b24426d81edc0362635a687c70ce7c1ccc"
+checksum = "5d6b4972584a2cda476f03cca7e58899a96b93ac500fc6635b315289204accf3"
 dependencies = [
  "anyhow",
  "atomic-take",
@@ -3259,7 +3265,6 @@ dependencies = [
  "blake3",
  "bumpalo-herd",
  "bytesize",
- "cc",
  "colored",
  "colosseum",
  "crossbeam-queue",
@@ -3272,6 +3277,7 @@ dependencies = [
  "hashbrown 0.17.1",
  "hex",
  "indexmap",
+ "itanium-demangle",
  "itertools 0.15.0",
  "jobserver",
  "leb128",
@@ -3287,7 +3293,6 @@ dependencies = [
  "perfetto-recorder",
  "rayon",
  "serde",
- "serde_yaml",
  "sha2",
  "sharded-offset-map",
  "sharded-vec-writer",
@@ -3299,9 +3304,10 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "uuid",
- "wasm-encoder 0.255.0",
- "wasmparser 0.255.0",
+ "wasm-encoder 0.262.0",
+ "wasmparser",
  "winnow 1.0.4",
+ "yaml_serde",
  "zerocopy",
  "zlib-rs",
 ]
@@ -3329,9 +3335,9 @@ dependencies = [
 
 [[package]]
 name = "linker-layout"
-version = "0.10.0"
+version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a9b117d6790188a855ea548db622f1b9d3ae8fc7df7bc66f296defd78f7c2e10"
+checksum = "e14f161bfacdac5e560fa4946ad0d911230a440e7b1f2b3b70a80e6374877f3e"
 dependencies = [
  "anyhow",
  "postcard",
@@ -3340,9 +3346,9 @@ dependencies = [
 
 [[package]]
 name = "linker-trace"
-version = "0.10.0"
+version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "728b8a0f9a835c0debd6ae954531169bc76cb430fae909a701303b907e5b518f"
+checksum = "2ed2e42ba51e235e207fa59665ea41eb497d9e8c1e279b767c4056edb6b0b07c"
 dependencies = [
  "anyhow",
  "postcard",
@@ -3351,9 +3357,9 @@ dependencies = [
 
 [[package]]
 name = "linker-utils"
-version = "0.10.0"
+version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "198c6aa21803baa1398e7fb169adadba421164c27ee7946b3a7dcc57d40b1f7e"
+checksum = "3ad02a04a6e183cd7087b82c4755556d9ff842a9fa448ec6be26e2d46b8c6972"
 dependencies = [
  "anyhow",
  "leb128",
@@ -5352,19 +5358,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "serde_yaml"
-version = "0.9.34+deprecated"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a8b1a1a2ebf674015cc02edccce75287f1a0130d394307b36743c2f5d504b47"
-dependencies = [
- "indexmap",
- "itoa",
- "ryu",
- "serde",
- "unsafe-libyaml",
-]
-
-[[package]]
 name = "serial_test"
 version = "4.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6688,12 +6681,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b55eedc365f81a3c32aea49baf23fa965e3cd85bcc28fb8045708c7388d124ef"
 
 [[package]]
-name = "unsafe-libyaml"
-version = "0.2.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "673aac59facbab8a9007c7f6108d11f63b603f7cabff99fabf650fea5c32b861"
-
-[[package]]
 name = "untrusted"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7209,21 +7196,12 @@ dependencies = [
 
 [[package]]
 name = "wasm-encoder"
-version = "0.255.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9b524283fb5df62eec102ed0574838961bdd7ba5ac9c50d38e2756c51c971a42"
-dependencies = [
- "leb128fmt",
-]
-
-[[package]]
-name = "wasm-encoder"
 version = "0.262.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4495a6f85dd94c411c749303efcbc5defade0b0cbdbc0541495241ab917a9b5a"
 dependencies = [
  "leb128fmt",
- "wasmparser 0.262.0",
+ "wasmparser",
 ]
 
 [[package]]
@@ -7295,7 +7273,7 @@ dependencies = [
  "wasmer-derive",
  "wasmer-types",
  "wasmer-vm",
- "wasmparser 0.262.0",
+ "wasmparser",
  "wat",
  "which",
  "windows-sys 0.61.2",
@@ -7586,7 +7564,7 @@ dependencies = [
  "thiserror 2.0.21",
  "wasmer-types",
  "wasmer-vm",
- "wasmparser 0.262.0",
+ "wasmparser",
  "which",
  "windows-sys 0.61.2",
 ]
@@ -7896,7 +7874,7 @@ dependencies = [
  "sha2",
  "target-lexicon 0.13.5",
  "thiserror 2.0.21",
- "wasmparser 0.262.0",
+ "wasmparser",
 ]
 
 [[package]]
@@ -8017,7 +7995,7 @@ dependencies = [
  "wasmer-package",
  "wasmer-types",
  "wasmer-wasix-types",
- "wasmparser 0.262.0",
+ "wasmparser",
  "wcgi",
  "wcgi-host",
  "web-sys",
@@ -8101,22 +8079,12 @@ dependencies = [
 
 [[package]]
 name = "wasmparser"
-version = "0.255.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e8e329ef4b5d46e73b91d3ac6924417cad55a8cbbf869c199283383427c3320b"
-dependencies = [
- "bitflags 2.13.2",
- "hashbrown 0.17.1",
- "indexmap",
-]
-
-[[package]]
-name = "wasmparser"
 version = "0.262.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "974d643b125b272607e2fff8012ea14a8328acd7621e4bafa7afb32500052b1b"
 dependencies = [
  "bitflags 2.13.2",
+ "hashbrown 0.17.1",
  "indexmap",
  "semver 1.0.28",
 ]
@@ -8129,7 +8097,7 @@ checksum = "3232d77b0187af27c1eb54c3f368cc51b3f899e58637ec9f52d47201f75d4d04"
 dependencies = [
  "anyhow",
  "termcolor",
- "wasmparser 0.262.0",
+ "wasmparser",
 ]
 
 [[package]]

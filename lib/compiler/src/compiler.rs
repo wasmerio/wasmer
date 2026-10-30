@@ -5,7 +5,7 @@ use std::cmp::Reverse;
 use std::collections::HashMap;
 use std::fs::File;
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
+use std::sync::{LazyLock, Mutex};
 
 use crate::EH_FRAME_SECTION_NAME;
 use crate::misc::{CompiledFunctionExt, CompiledKind};
@@ -29,6 +29,7 @@ use object::{
     SymbolKind, SymbolScope, elf,
 };
 use std::{boxed::Box, sync::Arc};
+use target_lexicon::BinaryFormat;
 use wasmer_types::{
     CompilationProgressCallback, Features, FunctionIndex, LocalFunctionIndex,
     entity::{EntityRef, PrimaryMap},
@@ -442,6 +443,8 @@ pub struct CompiledObjects {
     pub trampoline_object_files: Vec<Vec<u8>>,
     /// Objects for dynamic trampolines.
     pub dynamic_trampoline_object_files: Vec<Vec<u8>>,
+    /// Whether the backend emits per-function trap tables to reference in metadata.
+    pub emit_trap_offsets: bool,
 }
 
 fn emit_wasmer_meta_object(
@@ -455,19 +458,21 @@ fn emit_wasmer_meta_object(
     let section_id = obj.add_section(
         obj.segment_name(StandardSegment::Data).to_vec(),
         crate::WASMER_MODULE_INFO_SECTION_NAME.to_vec(),
-        SectionKind::Other,
+        SectionKind::ReadOnlyData,
     );
     obj.append_section_data(section_id, compile_info_blob, 8);
-    obj.section_mut(section_id).flags = SectionFlags::Elf {
-        sh_type: elf::SHT_PROGBITS,
-        sh_flags: elf::SHF_GNU_RETAIN,
-    };
+    if obj.format() == object::BinaryFormat::Elf {
+        obj.section_mut(section_id).flags = SectionFlags::Elf {
+            sh_type: elf::SHT_PROGBITS,
+            sh_flags: elf::SHF_GNU_RETAIN,
+        };
+    }
 
     // Emit zero sentinel for the .eh_frame section.
     let section_id = obj.add_section(
         obj.segment_name(StandardSegment::Debug).to_vec(),
         EH_FRAME_SECTION_NAME.to_vec(),
-        SectionKind::Debug,
+        SectionKind::Other,
     );
     obj.append_section_data(section_id, &0u64.to_ne_bytes(), 4);
 
@@ -475,12 +480,14 @@ fn emit_wasmer_meta_object(
     let section_id = obj.add_section(
         obj.segment_name(StandardSegment::Data).to_vec(),
         WASMER_FUNCTION_OFFSETS_SECTION_NAME.to_vec(),
-        SectionKind::Other,
+        SectionKind::ReadOnlyDataWithRel,
     );
-    obj.section_mut(section_id).flags = SectionFlags::Elf {
-        sh_type: elf::SHT_PROGBITS,
-        sh_flags: elf::SHF_GNU_RETAIN,
-    };
+    if obj.format() == object::BinaryFormat::Elf {
+        obj.section_mut(section_id).flags = SectionFlags::Elf {
+            sh_type: elf::SHT_PROGBITS,
+            sh_flags: elf::SHF_GNU_RETAIN,
+        };
+    }
     let pointer_size = target
         .triple()
         .pointer_width()
@@ -541,46 +548,50 @@ fn emit_wasmer_meta_object(
         })?;
     }
 
-    let trap_fn_offsets_section_id = obj.add_section(
-        obj.segment_name(StandardSegment::Data).to_vec(),
-        WASMER_TRAP_FUNCTION_OFFSETS_SECTION_NAME.to_vec(),
-        SectionKind::Other,
-    );
-    obj.section_mut(trap_fn_offsets_section_id).flags = SectionFlags::Elf {
-        sh_type: elf::SHT_PROGBITS,
-        sh_flags: elf::SHF_GNU_RETAIN,
-    };
-    for traps_name in (0..compiled_objects.object_files.len())
-        .map(|i| CompiledKind::Local(LocalFunctionIndex::new(i), String::new()).traps_name())
-    {
-        let offset =
-            obj.append_section_data(trap_fn_offsets_section_id, &zero_pointer, pointer_size);
-        let symbol_id = obj.add_symbol(ObjSymbol {
-            name: traps_name.as_bytes().into(),
-            value: 0,
-            size: 0,
-            kind: SymbolKind::Data,
-            scope: SymbolScope::Linkage,
-            weak: true,
-            section: SymbolSection::Undefined,
-            flags: SymbolFlags::None,
-        });
-        obj.add_relocation(
-            trap_fn_offsets_section_id,
-            Relocation {
-                offset,
-                flags: RelocationFlags::Generic {
-                    kind: RelocationKind::Absolute,
-                    encoding: RelocationEncoding::Generic,
-                    size: pointer_bits,
+    if compiled_objects.emit_trap_offsets {
+        let trap_fn_offsets_section_id = obj.add_section(
+            obj.segment_name(StandardSegment::Data).to_vec(),
+            WASMER_TRAP_FUNCTION_OFFSETS_SECTION_NAME.to_vec(),
+            SectionKind::ReadOnlyDataWithRel,
+        );
+        if obj.format() == object::BinaryFormat::Elf {
+            obj.section_mut(trap_fn_offsets_section_id).flags = SectionFlags::Elf {
+                sh_type: elf::SHT_PROGBITS,
+                sh_flags: elf::SHF_GNU_RETAIN,
+            };
+        }
+        for traps_name in (0..compiled_objects.object_files.len())
+            .map(|i| CompiledKind::Local(LocalFunctionIndex::new(i), String::new()).traps_name())
+        {
+            let offset =
+                obj.append_section_data(trap_fn_offsets_section_id, &zero_pointer, pointer_size);
+            let symbol_id = obj.add_symbol(ObjSymbol {
+                name: traps_name.as_bytes().into(),
+                value: 0,
+                size: 0,
+                kind: SymbolKind::Data,
+                scope: SymbolScope::Linkage,
+                weak: true,
+                section: SymbolSection::Undefined,
+                flags: SymbolFlags::None,
+            });
+            obj.add_relocation(
+                trap_fn_offsets_section_id,
+                Relocation {
+                    offset,
+                    flags: RelocationFlags::Generic {
+                        kind: RelocationKind::Absolute,
+                        encoding: RelocationEncoding::Generic,
+                        size: pointer_bits,
+                    },
+                    symbol: symbol_id,
+                    addend: 0,
                 },
-                symbol: symbol_id,
-                addend: 0,
-            },
-        )
-        .map_err(|e| {
-            format!("failed to add function trap offset relocation for {traps_name}: {e}")
-        })?;
+            )
+            .map_err(|e| {
+                format!("failed to add function trap offset relocation for {traps_name}: {e}")
+            })?;
+        }
     }
 
     obj.write()
@@ -690,8 +701,24 @@ impl FileSystem for InMemoryFileSystem {
     }
 }
 
-const WASMER_IMAGE_FILENAME: &str = "wasmer-image.so";
+const WASMER_IMAGE_FILENAME: &str = "wasmer-image";
 const WASMER_META_FILENAME: &str = "__wasmer_meta.o";
+const WASMER_LIBRARY_FILENAME: &str = "libwasmer.dylib";
+static WASMER_LIBRARY_TBD: LazyLock<String> = LazyLock::new(|| {
+    let symbols = crate::LIBCALLS_MACHO.keys().copied().sorted().join(", ");
+    format!(
+        r#"--- !tapi-tbd
+ tbd-version: 4
+ targets: [  arm64-macos, arm64e-macos ]
+ install-name: 'libwasmer.dylib'
+ current-version: 1
+ exports:
+   - targets: [ arm64-macos, arm64e-macos ]
+     symbols: [ {symbols} ]
+...
+"#
+    )
+});
 
 /// Emits Wasmer metadata sections and links backend-generated object buffers into a shared object.
 pub fn emit_metadata_and_link(
@@ -702,28 +729,57 @@ pub fn emit_metadata_and_link(
     mut debug_dir: Option<PathBuf>,
     module_hash: Option<String>,
 ) -> Result<Vec<u8>, CompileError> {
+    let format = target.triple().binary_format;
+
     pool.install(|| {
         let meta_object = emit_wasmer_meta_object(target, compile_info_blob, &compiled_objects)
             .map_err(CompileError::Codegen)?;
+        if let Some(debug_dir) = debug_dir.as_mut() {
+            if let Some(ref hash) = module_hash {
+                debug_dir.push(hash);
+            }
+            std::fs::create_dir_all(&debug_dir).ok();
+            let _ = std::fs::write(debug_dir.join(WASMER_META_FILENAME), &meta_object);
+        }
         let CompiledObjects {
+            emit_trap_offsets: _,
             object_files,
             import_trampoline_object_files,
             trampoline_object_files,
             dynamic_trampoline_object_files,
         } = compiled_objects;
         let fs = InMemoryFileSystem::default();
-        let mut link_args = vec![
-            "ld".to_string(),
-            // Allow resolution of the public symbols directly without PLT entries!
-            "-Bsymbolic".to_string(),
-            "-shared".to_string(),
-            "-z".to_string(),
-            "now".to_string(),
-            "-z".to_string(),
-            "relro".to_string(),
-            "-o".to_string(),
-            WASMER_IMAGE_FILENAME.to_string(),
-        ];
+        let mut link_args = match format {
+            BinaryFormat::Macho => {
+                vec![
+                    "ld".to_string(),
+                    "-flavor".to_string(),
+                    "darwin".to_string(),
+                    "-dylib".to_string(),
+                    "-o".to_string(),
+                    WASMER_IMAGE_FILENAME.to_string(),
+                ]
+            }
+            BinaryFormat::Elf => {
+                vec![
+                    "ld".to_string(),
+                    // Allow resolution of the public symbols directly without PLT entries!
+                    "-Bsymbolic".to_string(),
+                    "-shared".to_string(),
+                    "-z".to_string(),
+                    "now".to_string(),
+                    "-z".to_string(),
+                    "relro".to_string(),
+                    "-o".to_string(),
+                    WASMER_IMAGE_FILENAME.to_string(),
+                ]
+            }
+            _ => {
+                return Err(CompileError::UnsupportedTarget(format!(
+                    "unsupported binary format: {format:?}"
+                )));
+            }
+        };
 
         {
             let mut files = fs
@@ -742,11 +798,20 @@ pub fn emit_metadata_and_link(
                 link_args.push(path.display().to_string());
             }
             files.insert(PathBuf::from(WASMER_META_FILENAME), Arc::new(meta_object));
+            if matches!(format, BinaryFormat::Macho) {
+                files.insert(
+                    PathBuf::from(WASMER_LIBRARY_FILENAME),
+                    Arc::new(WASMER_LIBRARY_TBD.as_bytes().to_vec()),
+                );
+            }
         }
         // Keep the synthetic `.eh_frame` terminator after the real CIE/FDE
         // records. Linkers concatenate input sections in object order, and a
         // leading terminator makes frame registration see an empty table.
         link_args.push(WASMER_META_FILENAME.to_string());
+        if matches!(format, BinaryFormat::Macho) {
+            link_args.push(WASMER_LIBRARY_FILENAME.to_string());
+        }
 
         let mut wild_args = Args::new(|| link_args.iter().map(String::as_str)).map_err(|e| {
             CompileError::Codegen(format!("failed to initialize Wild linker: {e:?}"))
@@ -772,13 +837,16 @@ pub fn emit_metadata_and_link(
 
         // If compiler-debug-dir is set, copy the final linked .so image
         // into the module_hash subfolder.
-        if let Some(debug_dir) = debug_dir.as_mut() {
-            if let Some(ref hash) = module_hash {
-                debug_dir.push(hash);
-            }
-            std::fs::create_dir_all(&debug_dir).ok();
-            debug_dir.push(WASMER_IMAGE_FILENAME);
-            let _ = std::fs::write(debug_dir, &image);
+        if let Some(debug_dir) = debug_dir.as_ref() {
+            let suffix = match format {
+                BinaryFormat::Elf => ".so",
+                BinaryFormat::Macho => ".dylib",
+                _ => unreachable!(),
+            };
+            let _ = std::fs::write(
+                debug_dir.join(format!("{WASMER_IMAGE_FILENAME}{suffix}")),
+                &image,
+            );
         }
         Ok(image)
     })

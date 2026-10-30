@@ -293,8 +293,9 @@ impl Engine {
         unsafe {
             let mut file = std::fs::File::open(file_ref)?;
             let mut magic = [0; 4];
-            let is_elf = file.read_exact(&mut magic).is_ok() && magic == object::elf::ELFMAG;
-            if is_elf {
+            let is_native = file.read_exact(&mut magic).is_ok()
+                && crate::ArtifactBuild::has_native_header(&magic);
+            if is_native {
                 return Ok(Arc::new(Artifact::deserialize_file(self, file_ref)?));
             }
             file.rewind()?;
@@ -534,7 +535,6 @@ impl EngineInner {
     }
 
     #[cfg(not(target_arch = "wasm32"))]
-    #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
     /// Register DWARF-type exception handling information associated with the code.
     pub(crate) fn publish_eh_frame(&mut self, eh_frame: Option<&[u8]>) -> Result<(), CompileError> {
         self.code_memory
@@ -567,18 +567,18 @@ impl EngineInner {
 
     /// Memory-map a compiled ELF artifact image, keeping the mapping alive
     /// for the lifetime of the engine. Returns the base address of the
-    /// mapping, which section/symbol offsets from the image are relative to.
+    /// mapping and its size. Section/symbol offsets are relative to the base.
     #[cfg(not(target_arch = "wasm32"))]
     pub(crate) fn map_elf_binary<'a, R: object::ReadRef<'a>>(
         &mut self,
         object_file: &object::File<'a, R>,
         data: &[u8],
-    ) -> Result<*mut c_void, CompileError> {
+    ) -> Result<(*mut c_void, usize), CompileError> {
         let map = MemoryMappedBinary::try_from_bytes(object_file, data)
             .map_err(CompileError::Resource)?;
-        let base = map.base();
+        let mapping = (map.base(), map.size());
         self.elf_mapped_binary.push(map);
-        Ok(base)
+        Ok(mapping)
     }
 
     /// Memory-map a compiled ELF artifact directly from a file.
@@ -587,12 +587,12 @@ impl EngineInner {
         &mut self,
         object_file: &object::File<'a, R>,
         file: RawFd,
-    ) -> Result<*mut c_void, CompileError> {
+    ) -> Result<(*mut c_void, usize), CompileError> {
         let map =
             MemoryMappedBinary::try_from_file(object_file, file).map_err(CompileError::Resource)?;
-        let base = map.base();
+        let mapping = (map.base(), map.size());
         self.elf_mapped_binary.push(map);
-        Ok(base)
+        Ok(mapping)
     }
 
     #[cfg(all(not(target_arch = "wasm32"), unix, feature = "compiler"))]
