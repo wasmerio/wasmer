@@ -346,6 +346,76 @@ fn now_is_the_machines_wall_clock() {
     );
 }
 
+/// Linux fs/utimes.c:do_utimes_path/vfs_utimes updates the symlink itself.
+#[test]
+fn symlink_times_update_the_pinned_inode_without_following_its_target() {
+    use std::os::unix::fs::MetadataExt;
+    use wasixv2_vfs::{SetAttr, TimeSet};
+
+    let s = setup();
+    let inside = s._dir.path().join("inside");
+    symlink("data", inside.join("link")).unwrap();
+    symlink("missing", inside.join("dangling")).unwrap();
+    let wall = Duration::new(1_300_000_000, 31);
+    let host = wasixv2_vfs_host::open(&inside, Arc::new(Wall(wall)), Default::default()).unwrap();
+    let root = host.root();
+    let target = fs::metadata(inside.join("data")).unwrap();
+    let outside = fs::metadata(s.outside.join("secret")).unwrap();
+    let atime = Timestamp::new(1_100_000_000, 17);
+    let mtime = Timestamp::new(1_200_000_000, 29);
+
+    for name in [b"link".as_slice(), b"dangling", b"abs"] {
+        let node = block_on(root.lookup(name)).unwrap();
+        let attr = block_on(node.setattr(&SetAttr {
+            atime: Some(TimeSet::At(atime)),
+            mtime: Some(TimeSet::At(mtime)),
+            ..Default::default()
+        }))
+        .unwrap();
+        assert_eq!((attr.atime, attr.mtime), (atime, mtime));
+        let attr = block_on(node.setattr(&SetAttr {
+            mtime: Some(TimeSet::Now),
+            ..Default::default()
+        }))
+        .unwrap();
+        assert_eq!(attr.atime, atime);
+        assert_eq!(attr.mtime, Timestamp::new(wall.as_secs() as i64, 31));
+        let meta = fs::symlink_metadata(inside.join(std::str::from_utf8(name).unwrap())).unwrap();
+        assert_eq!((meta.atime(), meta.atime_nsec()), (atime.sec, 17));
+        assert_eq!(
+            (meta.mtime(), meta.mtime_nsec()),
+            (wall.as_secs() as i64, 31)
+        );
+    }
+
+    let node = block_on(root.lookup(b"link")).unwrap();
+    fs::rename(inside.join("link"), inside.join("moved")).unwrap();
+    symlink("data", inside.join("link")).unwrap();
+    let replacement = fs::symlink_metadata(inside.join("link")).unwrap();
+    block_on(node.setattr(&SetAttr {
+        mtime: Some(TimeSet::At(mtime)),
+        ..Default::default()
+    }))
+    .unwrap();
+    let moved = fs::symlink_metadata(inside.join("moved")).unwrap();
+    assert_eq!((moved.mtime(), moved.mtime_nsec()), (mtime.sec, 29));
+    let current = fs::symlink_metadata(inside.join("link")).unwrap();
+    assert_eq!(current.modified().unwrap(), replacement.modified().unwrap());
+    fs::remove_file(inside.join("moved")).unwrap();
+    let attr = block_on(node.setattr(&SetAttr {
+        mtime: Some(TimeSet::Now),
+        ..Default::default()
+    }))
+    .unwrap();
+    assert_eq!(attr.mtime, Timestamp::new(wall.as_secs() as i64, 31));
+    let current = fs::metadata(inside.join("data")).unwrap();
+    assert_eq!(current.modified().unwrap(), target.modified().unwrap());
+    assert_eq!(current.accessed().unwrap(), target.accessed().unwrap());
+    let current = fs::metadata(s.outside.join("secret")).unwrap();
+    assert_eq!(current.modified().unwrap(), outside.modified().unwrap());
+    assert_eq!(current.accessed().unwrap(), outside.accessed().unwrap());
+}
+
 #[test]
 fn host_file_handles_use_native_exports_without_pinning_exported_files() {
     use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};

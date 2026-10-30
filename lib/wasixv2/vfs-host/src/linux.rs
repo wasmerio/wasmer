@@ -702,16 +702,25 @@ impl Node for HostNode {
                     cvt(unsafe { libc::truncate(proc.as_ptr(), size) })?;
                 }
                 // The host stamps ctime itself; it cannot be set.
-                if (attr.atime.is_some() || attr.mtime.is_some()) && !is_symlink {
+                if attr.atime.is_some() || attr.mtime.is_some() {
+                    // Linux fs/utimes.c:do_utimes_path/vfs_utimes accepts an O_PATH
+                    // symlink with AT_EMPTY_PATH, preserving its pinned identity.
+                    let (dir, path, flags) = if is_symlink {
+                        (
+                            raw,
+                            c"".as_ptr(),
+                            libc::AT_EMPTY_PATH | libc::AT_SYMLINK_NOFOLLOW,
+                        )
+                    } else {
+                        (libc::AT_FDCWD, proc.as_ptr(), 0)
+                    };
                     let at = |t: Option<TimeSet>| match t {
                         Some(TimeSet::Now) => Some(TimeSet::At(now)),
                         t => t,
                     };
                     let times = [timespec(at(attr.atime)), timespec(at(attr.mtime))];
                     // SAFETY: `times` holds two timespecs.
-                    let set = cvt(unsafe {
-                        libc::utimensat(libc::AT_FDCWD, proc.as_ptr(), times.as_ptr(), 0)
-                    });
+                    let set = cvt(unsafe { libc::utimensat(dir, path, times.as_ptr(), flags) });
                     // An explicit time needs the host file's owner, "now" only write access
                     // (which the guest's permission check already granted): the host's "now"
                     // then.
@@ -721,9 +730,7 @@ impl Node for HostNode {
                         {
                             let times = [timespec(attr.atime), timespec(attr.mtime)];
                             // SAFETY: `times` holds two timespecs.
-                            cvt(unsafe {
-                                libc::utimensat(libc::AT_FDCWD, proc.as_ptr(), times.as_ptr(), 0)
-                            })?;
+                            cvt(unsafe { libc::utimensat(dir, path, times.as_ptr(), flags) })?;
                         }
                         set => {
                             set?;
