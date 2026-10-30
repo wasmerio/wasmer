@@ -568,7 +568,7 @@ pub trait Network: Send + Sync {
 /// `ERR` while an error is pending, `PRI` while an urgent byte waits for `MSG_OOB`), and every
 /// state change must wake the queues `poll` registered with the matching events.
 pub trait Socket: Pollable {
-    /// Kernel timer hook for TCP's 200 ms cork ceiling (TCP_DELACK_MAX).
+    /// Kernel timer hook for TCP's 200 ms cork ceiling (TCP_RTO_MIN).
     fn set_cork_timer(&self, arm: Box<dyn Fn(bool) + Send + Sync>) {
         let _ = arm;
     }
