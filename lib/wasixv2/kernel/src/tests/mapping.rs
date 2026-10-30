@@ -844,3 +844,29 @@ fn mmap_rejects_page_offset_overflow_before_allocating() {
         );
     }
 }
+
+/// mm/madvise.c madvise_behavior_valid rejects KSM advice without CONFIG_KSM;
+/// madvise_dontneed_free_valid_vma rejects locked memory and MADV_FREE file mappings.
+#[test]
+fn madvise_rejects_unsupported_and_incompatible_advice() {
+    use wasixv2_abi::MadviseAdvice as A;
+    let (kernel, task, memory, fd) = with_file(b"x");
+    let caller = Caller::new(task, &memory);
+    let at = mmap(&kernel, &caller, PAGE, MapFlags::MAP_PRIVATE, fd).unwrap();
+    for advice in [A::MADV_MERGEABLE, A::MADV_UNMERGEABLE, A::MADV_FREE] {
+        assert_eq!(
+            errno(block_on(kernel.madvise(&caller, at, PAGE, advice))),
+            Errno::EINVAL
+        );
+    }
+    assert_eq!(block_on(kernel.mlock(&caller, at, PAGE)), Ok(0));
+    assert_eq!(
+        errno(block_on(kernel.madvise(
+            &caller,
+            at,
+            PAGE,
+            A::MADV_DONTNEED
+        ))),
+        Errno::EINVAL
+    );
+}
