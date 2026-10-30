@@ -18,6 +18,10 @@ pub struct Capabilities {
     pub dns_forward: bool,
     /// The relay sends EOF notifications (the stock v1 server currently does not).
     pub eof: bool,
+    /// Additive v1 relay extension, selected out of band with a matching provider.
+    pub fidelity: bool,
+    pub urgent: bool,
+    pub udp_publish: bool,
 }
 
 impl Capabilities {
@@ -30,6 +34,19 @@ impl Capabilities {
             listen: true,
             dns_name: true,
             ..Self::default()
+        }
+    }
+
+    /// Our additive classic-fidelity profile; never use against a stock relay.
+    pub fn classic_fidelity(ipv6: bool) -> Self {
+        Self {
+            eof: true,
+            fidelity: true,
+            urgent: true,
+            udp_publish: true,
+            dns_reverse: true,
+            dns_forward: true,
+            ..Self::classic(ipv6)
         }
     }
 
@@ -58,6 +75,11 @@ pub enum Command {
         addr: SocketAddr,
     },
     Send {
+        request: u64,
+        socket: u64,
+        data: Vec<u8>,
+    },
+    SendUrgent {
         request: u64,
         socket: u64,
         data: Vec<u8>,
@@ -118,6 +140,16 @@ pub enum Event {
     },
     SendError {
         request: u64,
+        socket: u64,
+        error: Errno,
+    },
+    /// Last byte is urgent, at this position in the ordered stream.
+    Urgent {
+        socket: u64,
+        data: Vec<u8>,
+    },
+    /// A host UDP send failed; the endpoint remains usable.
+    DatagramError {
         socket: u64,
         error: Errno,
     },
@@ -196,6 +228,18 @@ impl<T: FrameTransport> Transport for Classic<T> {
         self.capabilities
     }
     fn poll_send(&mut self, cx: &mut Context<'_>, command: &Command) -> Poll<Result<(), Errno>> {
+        if !self.capabilities.fidelity
+            && matches!(
+                command,
+                Command::SendUrgent { .. }
+                    | Command::Lookup {
+                        lookup: Lookup::Addr(_) | Lookup::Forward(_),
+                        ..
+                    }
+            )
+        {
+            return Poll::Ready(Err(Errno::EOPNOTSUPP));
+        }
         let frame = match crate::codec::encode(command) {
             Ok(frame) => frame,
             Err(error) => return Poll::Ready(Err(error)),
@@ -203,9 +247,14 @@ impl<T: FrameTransport> Transport for Classic<T> {
         self.transport.poll_send(cx, &frame)
     }
     fn poll_recv(&mut self, cx: &mut Context<'_>) -> Poll<Result<Event, Errno>> {
-        self.transport
-            .poll_recv(cx)
-            .map(|frame| frame.and_then(|frame| crate::codec::decode(&frame)))
+        self.transport.poll_recv(cx).map(|frame| {
+            frame.and_then(|frame| {
+                if !self.capabilities.fidelity && frame.starts_with(&7u32.to_le_bytes()) {
+                    return Err(Errno::EPROTO);
+                }
+                crate::codec::decode(&frame)
+            })
+        })
     }
     fn poll_closed(&mut self, cx: &mut Context<'_>) -> Poll<Errno> {
         self.transport.poll_closed(cx)

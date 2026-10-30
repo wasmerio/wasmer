@@ -81,3 +81,12 @@ B2 must implement and browser-test a bounded worker-local WebSocket/provider
 transport and cross-worker wakers. B8 owns facade/network injection. Real browser
 worker, endpoint-replacement and WISP-provider integration tests remain with that
 integration. Nothing here implements or depends on C1 or C2.
+
+## Opt-in fidelity provider
+
+`Capabilities::classic_fidelity(ipv6)` selects our additive versioned protocol:
+FIN versus reset, UDP host-send errors, PTR/raw DNS, urgent byte marks and fixed
+UDP publication. Use it only with a matching provider. The stock profile is
+unchanged; port-zero publication remains unsupported. See
+[RELAY-FIDELITY.md](RELAY-FIDELITY.md) for the byte contract, deterministic test
+provider, Linux authorities, exact stock-server changes and remaining limits.

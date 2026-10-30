@@ -1030,3 +1030,187 @@ fn close_resets_when_unread_bytes_remain_in_the_driver_input_slot() {
             .any(|c| matches!(c, Command::Reset { socket: id } if *id == socket))
     );
 }
+
+#[test]
+fn fidelity_urgent_marks_preserve_order_peek_inline_and_bounded_writes() {
+    let mut h = Harness::with_capabilities(Capabilities::classic_fidelity(true));
+    let (stream, socket) = h.connect();
+    assert_eq!(stream.write(b"ab"), Ok(2));
+    assert_eq!(stream.write_urgent(b"c!"), Ok(2));
+    assert_eq!(stream.write(b"de"), Ok(2));
+    assert!(h.pump().is_pending());
+    assert_eq!(h.send_request().2, b"abc");
+    h.ack(3);
+    let (request, data) = h
+        .transport
+        .commands
+        .iter()
+        .find_map(|c| match c {
+            Command::SendUrgent { request, data, .. } => Some((*request, data.clone())),
+            _ => None,
+        })
+        .unwrap();
+    assert_eq!(data, b"!");
+    h.event(Event::Sent {
+        request,
+        socket,
+        amount: 1,
+    });
+    assert_eq!(h.send_request().2, b"de");
+    h.ack(2);
+    h.event(Event::Urgent {
+        socket,
+        data: b"abc!".to_vec(),
+    });
+    h.event(Event::Data {
+        socket,
+        data: b"de".to_vec(),
+    });
+    assert!(stream.poll(None).contains(PollMask::PRI));
+    let mut buf = [0; 8];
+    assert_eq!(stream.read(&mut buf, false), Ok(3));
+    assert_eq!(&buf[..3], b"abc");
+    assert!(stream.at_mark());
+    assert_eq!(stream.read_urgent(true), Ok(b'!'));
+    assert_eq!(stream.read_urgent(false), Ok(b'!'));
+    assert!(!stream.poll(None).contains(PollMask::PRI));
+    assert_eq!(stream.read(&mut buf, false), Ok(2));
+    assert_eq!(&buf[..2], b"de");
+    stream
+        .set_option(
+            wasixv2_abi::SocketLevel::SOL_SOCKET.0,
+            wasixv2_abi::SocketOption::SO_OOBINLINE.0,
+            &1i32.to_le_bytes(),
+        )
+        .unwrap();
+    h.event(Event::Urgent {
+        socket,
+        data: vec![b'?'],
+    });
+    assert_eq!(stream.read_urgent(false), Err(Errno::EINVAL));
+    assert_eq!(stream.read(&mut buf, false), Ok(1));
+    assert_eq!(buf[0], b'?');
+    assert_eq!(stream.write_urgent(b"123456789"), Ok(8));
+    assert_eq!(stream.write_urgent(b"!"), Err(Errno::EAGAIN));
+}
+
+#[test]
+fn published_udp_drops_unattached_packets_resets_attachment_and_preserves_errors() {
+    let mut h = Harness::with_capabilities(Capabilities::classic_fidelity(true));
+    let (endpoint, publication) = h.backend.publish_datagram(peer()).unwrap();
+    assert_eq!(publication.host_addr(), peer());
+    assert!(h.pump().is_pending());
+    let (request, socket) = h
+        .transport
+        .commands
+        .iter()
+        .find_map(|c| match c {
+            Command::Bind {
+                request,
+                socket,
+                addr,
+            } => {
+                assert_eq!(*addr, peer());
+                Some((*request, *socket))
+            }
+            _ => None,
+        })
+        .unwrap();
+    h.event(Event::Complete {
+        request,
+        result: Ok(()),
+    });
+    h.event(Event::Datagram {
+        socket,
+        data: vec![],
+        addr: peer(),
+    });
+    assert!(!endpoint.poll(None).contains(PollMask::READABLE));
+    endpoint.attach(Some(WaitQueue::new())).unwrap();
+    h.event(Event::Datagram {
+        socket,
+        data: vec![],
+        addr: peer(),
+    });
+    assert_eq!(endpoint.recv_from(&mut [], true), Ok((0, 0, peer())));
+    assert_eq!(endpoint.recv_from(&mut [], false), Ok((0, 0, peer())));
+    assert_eq!(endpoint.recv_from(&mut [], false), Err(Errno::EAGAIN));
+    h.event(Event::DatagramError {
+        socket,
+        error: Errno::EMSGSIZE,
+    });
+    assert!(endpoint.poll(None).contains(PollMask::ERR));
+    assert_eq!(endpoint.take_error(), Some(Errno::EMSGSIZE));
+    assert_eq!(endpoint.send_to(b"ok", peer()), Ok(2));
+    h.event(Event::Datagram {
+        socket,
+        data: b"stale".to_vec(),
+        addr: peer(),
+    });
+    endpoint.attach(None).unwrap();
+    endpoint.attach(Some(WaitQueue::new())).unwrap();
+    assert_eq!(endpoint.recv_from(&mut [0; 8], false), Err(Errno::EAGAIN));
+    drop(endpoint);
+    assert!(h.pump().is_pending());
+    assert!(
+        !h.transport
+            .commands
+            .iter()
+            .any(|c| matches!(c,Command::Close{socket:id} if *id==socket))
+    );
+    drop(publication);
+    assert!(h.pump().is_pending());
+    assert!(
+        h.transport
+            .commands
+            .iter()
+            .any(|c| matches!(c,Command::Close{socket:id} if *id==socket))
+    );
+    assert!(
+        h.backend
+            .publish_datagram("127.0.0.1:0".parse().unwrap())
+            .is_err()
+    );
+    let stock = Harness::new();
+    assert!(stock.backend.publish_datagram(peer()).is_err());
+}
+
+#[test]
+fn dropping_udp_drains_accepted_datagrams_before_close() {
+    let mut h = Harness::new();
+    let endpoint = h.backend.datagram(Domain::Inet, WaitQueue::new()).unwrap();
+    assert!(h.pump().is_pending());
+    let (request, socket) = h
+        .transport
+        .commands
+        .iter()
+        .find_map(|c| match c {
+            Command::Bind {
+                request, socket, ..
+            } => Some((*request, *socket)),
+            _ => None,
+        })
+        .unwrap();
+    h.event(Event::Complete {
+        request,
+        result: Ok(()),
+    });
+    assert_eq!(endpoint.send_to(b"last", peer()), Ok(4));
+    drop(endpoint);
+    assert!(h.pump().is_pending());
+    let send = h
+        .transport
+        .commands
+        .iter()
+        .position(
+            |c| matches!(c,Command::SendTo {socket:id,data,..} if *id==socket && data==b"last"),
+        )
+        .unwrap();
+    let close = h
+        .transport
+        .commands
+        .iter()
+        .position(|c| matches!(c,Command::Close {socket:id} if *id==socket))
+        .unwrap();
+    assert!(send < close);
+}
