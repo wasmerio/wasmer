@@ -107,6 +107,29 @@ impl<'a> MemoryView<'a> {
         }
     }
 
+    /// Atomically replaces an aligned 32-bit word when it equals `expected`, returning
+    /// its previous bit pattern. Create a fresh view after growing the memory.
+    pub fn compare_exchange_u32(
+        &self,
+        offset: u64,
+        expected: u32,
+        new: u32,
+    ) -> Result<u32, MemoryAccessError> {
+        if !offset.is_multiple_of(4) {
+            return Err(MemoryAccessError::UnalignedPointerRead);
+        }
+        let end = offset.checked_add(4).ok_or(MemoryAccessError::Overflow)?;
+        if end > self.size {
+            return Err(MemoryAccessError::HeapOutOfBounds);
+        }
+        let offset = u32::try_from(offset).map_err(|_| MemoryAccessError::Overflow)?;
+        let word =
+            js_sys::Int32Array::new_with_byte_offset_and_length(&self.view.buffer(), offset, 1);
+        js_sys::Atomics::compare_exchange(&word, 0, expected as i32, new as i32)
+            .map(|previous| previous as u32)
+            .map_err(|_| MemoryAccessError::HeapOutOfBounds)
+    }
+
     /// Safely reads bytes from the memory at the given offset.
     ///
     /// The full buffer will be filled, otherwise a `MemoryAccessError` is returned
@@ -279,8 +302,10 @@ impl<'a> MemoryView<'a> {
         amount: u64,
         new_memory: &Self,
     ) -> Result<(), MemoryAccessError> {
-        let source_offset = u32::try_from(source_offset).map_err(|_| MemoryAccessError::Overflow)?;
-        let target_offset = u32::try_from(target_offset).map_err(|_| MemoryAccessError::Overflow)?;
+        let source_offset =
+            u32::try_from(source_offset).map_err(|_| MemoryAccessError::Overflow)?;
+        let target_offset =
+            u32::try_from(target_offset).map_err(|_| MemoryAccessError::Overflow)?;
         let amount = u32::try_from(amount).map_err(|_| MemoryAccessError::Overflow)?;
         let source_end = source_offset
             .checked_add(amount)
