@@ -73,9 +73,30 @@ must not return a Promise. SDK-facing process/package APIs remain SDK/B8 work.
 On each runtime worker, `configure` should install `ObjectHooks` using the existing
 engine `prepare_shared_object_message`, `receive_shared_object_message`, and shared
 object collection functions. `prepare` captures an opaque envelope locally; the
-receiver imports it before acknowledging readiness. `collect` runs after each task,
-and `teardown` releases all remaining worker-local roots before std TLS cleanup.
+receiver imports it before acknowledging readiness. `collect` runs after each task
+and direct root entry. Once all Rust workers are idle, the coordinator also sweeps
+every object consumer: its last Rust owner may have dropped on another worker
+after the consumer's previous task completed. FIFO orders sweeps before later
+admissions; collection replies cannot overwrite newer admission state.
+`teardown` releases all remaining worker-local roots before std TLS cleanup.
+After 32 completed starts, the next admission may replace a task realm only when
+the optional `browser_can_retire` API query confirms zero live shared engine roots.
+Old Rust/TLS retirement completes before replacement bootstrap; the pending
+admission keeps its capacity reservation and cancellation cannot dispatch it.
+Root/service workers and live objects are retained. Missing readiness disables
+refresh. This bounds GC-owned native wrappers without a GC API or guest ABI change.
 The smoke uses a guest Memory envelope; host has no dependency on a wasm engine.
+
+Focused Rust browser units use the same real threaded/TLS-cleanup std recipe:
+
+```sh
+WASIX_BROWSER_PACKAGE=wasixv2 WASIX_BROWSER_FEATURES=browser,wasix1 \
+WASIX_BROWSER_TEST=browser_retirement_js \
+CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUNNER=/path/to/wasm-bindgen-test-runner \
+bash lib/wasixv2/host/tests/browser/build.sh
+```
+
+The matching bindgen CLI and `CARGO_TARGET_DIR` settings above still apply.
 
 `BrowserExecutor::new(task_limit, service_limit)` runs only on a bootstrapped worker.
 Use its task view for exec; expose `.services()` from the kernel's Host for timer/TTY

@@ -92,15 +92,15 @@ until the separate SDK port's classic/current API tests pass.
 | Raw module, WAT conversion | `load`, `Machine::run_module`, `browser::spawn`; SDK uses `wat` | Done raw: browser `base-exit-status` five variants, `base-args-env`; WAT used by `lifecycle_smoke` | SDK conversion/public run wrappers (S1) |
 | Registry/local WEBC, named/default commands, command binary | `Package::from_bytes`, `entrypoint`, `commands`, `binary`, `prepare_command`, `install_packages`, `Machine::run_file` | Done bytes/commands: `package::tests::{byte_backed_packages_install_commands_without_native_sources,version_two_sources_migrate_from_bytes,initial_command_configuration_preserves_explicit_values,supplied_dependency_atoms_survive_the_package_sources}`; browser R1 WEBC v2/v3 default/named/dependency/extra commands | S1, S2 |
 | args/env/cwd, extra packages, sandbox install/shell | `ProcessConfig`, `set_working_dir`, `install_packages` | Done args/env: `base-args-env`; package precedence tested above; browser R1 cwd/package and R3 mini-shell acceptance | S1 |
-| Multiple instances/shared runtime/cache/pool, close/disposal | `browser::builder`, `BrowserExecutor`, Machine, `Run` | Done isolated kernels/shared Directory: `lifecycle_smoke.sharedDirectory,machineIsolation`; Missing multi-client cache/pool disposal acceptance | S1, S2, R2 |
+| Multiple instances/shared runtime/cache/pool, close/disposal | `browser::builder`, `BrowserExecutor`, Machine, `Run` | Done isolated kernels/shared Directory and B13 same-runtime 500/resource bounds; Missing Chromium complete reclamation and SDK multi-client cache/pool disposal acceptance | S1, S2, R2 |
 | stdin/stdout/stderr, wait and captured output | `Session`, `Streams`, `Run::wait` | Done bounded independent outputs/EOF/drain: `lifecycle_smoke.backpressure` (256 KiB through 64 KiB queues), adapter.test.mjs final-result ordering | SDK streams/capture limits/lines (S1) |
-| Live spawn/capture/pipe/discard, input close, timeout/terminate/kill | `browser::spawn`, `Run::{wait,kill,signaller}`, stdio-web queues | Done kill/repeated concurrent wait/signal: `lifecycle_smoke.kill,wait,signal`; Missing public terminate/deadline/pipe/capture API compatibility | S1, R2 |
+| Live spawn/capture/pipe/discard, input close, timeout/terminate/kill | `browser::spawn`, `Run::{wait,kill,signaller}`, stdio-web queues | Done kill/repeated concurrent wait/signal and B13 canceled wait/kill/deadline stress; Missing public terminate/deadline/pipe/capture API compatibility | S1, R2 |
 | TTY, raw input/echo/editing/Ctrl-C/resize | Machine console, `Signaller::{console_resize,console_hangup}`, Session | Done busy browser Ctrl-C: `lifecycle_smoke.busyTty`; native `stdio-web/tests/tty.rs` covers canonical/raw, resize, foreground selection and hangup; browser R3 canonical/raw/echo/EOF, resize, job control and hangup acceptance below | S1 |
 | Mutable shared Directory and mounts | `browser::directory`, WebFs, `populate_directory`, `Machine::mount` | Done shared bytes across Machines: lifecycle; `directory::tests::{readonly_directories_bytes_and_symlinks_keep_their_identity,escaping_paths_and_symlink_parents_fail_before_mutation}`; browser fs-rw-pread/readdir/rename/link-symlink/openat2-in-root and R1 live VFS acceptance below | S1 |
 | Editing filesystem after sandbox creation | `Machine::vfs`, explicit `Ctx`, credentials/root and VFS operations | Done same provider identity: lifecycle; browser R1 held-inode round-trip, EACCES/EROFS and provider EIO acceptance below | S1 |
 | Host mounts/storage provider | WebFs object-ID Provider protocol; memory/package/overlay drivers | Done memory provider: `lifecycle_smoke.sharedDirectory` and `directory::tests::readonly_directories_bytes_and_symlinks_keep_their_identity`; Missing JS-backed OPFS/File System Access integration; native host paths unavailable | S3 |
-| pthreads/worker concurrency | `BrowserExecutor::spawn_thread(ThreadStart)`, engine object envelopes | Done reviewed `thr-atomic-wait-signal`; protocol.test.mjs admission/failure models; Missing extended lifetime/limit browser stress | R2 |
-| sleep/poll/futex/atomic wait | BrowserHost off-worker timer, kernel futex/WaitQueue, runtime Parker | Done base-nanosleep/timerfd and thr-atomic-wait-signal; `host/src/timer.rs:expiry_coalesces_in_hard_expiry_order_without_firing_early,replacing_and_cancelling_a_timer_drop_wakers_outside_the_queue_lock`; Missing combined cancellation/background-tab browser acceptance | R2 |
+| pthreads/worker concurrency | `BrowserExecutor::spawn_thread(ThreadStart)`, engine object envelopes | Done reviewed `thr-atomic-wait-signal`, B13 lifetime/limit/fault lanes and admission/retirement models; Missing Chromium disposal/fault reclamation | R2 |
+| sleep/poll/futex/atomic wait | BrowserHost off-worker timer, kernel futex/WaitQueue, runtime Parker | Done base-nanosleep/timerfd, thr-atomic-wait-signal and B13 cancellation/notify-before-wait/delayed-driver stress; Missing real background-tab scheduling acceptance | R2 |
 | SAB/bootstrap/worker URL | `startCoordinator`, configure_browser, threaded std/TLS, C1 pure JS copy worker | Done artifact inspection + isolated page/worker capability probes; Missing distributable SDK worker URL/bundler/version contract tests | S1, R2 |
 | Classic relay TCP/UDP/DNS | `browser::relay::connect`, supplied Net, vnet-web Classic Driver | Done Chromium/Firefox source network fixtures: classic TCP/UDP IPv4+IPv6, empty UDP/peek/trunc, A/AAAA and opt-in PTR/raw DNS; FIN/reset, host send errors and native urgent round-trip. Stock deployment fidelity remains opt-in | R4, N1 |
 | WISP egress/endpoint replacement | `browser::network`, `Transport`, `Capabilities::wisp` | Done provider capability contract: `vnet-web/tests/backend.rs:provider_capabilities_and_dns_answers_are_explicit_and_bounded`; Missing real WISP JS provider and browser reconnect/endpoint tests | S4, R4 |
@@ -124,11 +124,11 @@ smoke cannot close a browser acceptance item.
 | S5 | Separate SDK: service-worker HTTP framing/ingress, browser TCP bridge and public Ports wait/expose/onListen wrappers. B16 supplies in-runtime cross-Machine TCP/UDP address routing and read-only Switch::listeners snapshots; wrap these without claiming native browser listeners. Native tests cover backlog saturation/publication lifetime; preserve those behaviors in SDK port APIs. |
 | B9 | Parallel wasix1 package: integrate B9 branch and run real v1 static/thread/spawn/fork/TTY/socket plus HTTP-provider/import-layout/CORS/failure acceptance. No v1 quirks enter kernel policy. |
 | R1 | Complete for the Rust/runtime facade: browser source-built WEBC v2/v3/default/named/dependency/subdirectory/cwd/extra-command and live VFS credential/provider-error acceptance, Chromium and Firefox. Evidence and reproduction below. SDK acquisition/cache/wrappers remain S1/S2/S3. |
-| R2 | Runtime robustness: worker limit/bootstrap/death, same-runtime reuse/TLS/object collection, canceled wait/kill/deadline, notify-before-wait, timer cancel/background throttling, UI/I/O heartbeat, complete heap/driver/relay reclamation. Add stress and failure injection to actual supported browser lanes. |
+| R2 | B13 adds real limit/bootstrap/death, canceled wait/kill/deadline, notify-before-wait, timer cancellation/delayed-driver and repeated relay tests. Firefox lanes reclaim all workers. **Open:** Chromium normal shutdown and some timer-death cleanup retain workers; real background-tab scheduling remains unmeasured. See B13 evidence below; complete reclamation/signoff is withheld. |
 | R3 | Complete for the runtime console: browser canonical/raw/echo/editing/EOF, resize/SIGWINCH, foreground job control and hangup under blocking/busy guests, reusing kernel behavior and existing PTY/shell fixtures. Chromium and Firefox evidence below; terminal widgets/wrappers remain S1. |
 | R4 | B15: deterministic source fixtures cover classic UDP+DNS/IPv6, FIN/reset, bounded queues/overflow, disconnect/refusal/provider absence, fixed TCP+UDP ingress and two-Machine relay-mediated peers. Chromium/Firefox evidence below. B16 additionally covers virtual-switch peers, resolved port-zero TCP/UDP ingress and destination-qualified host UDP ICMP/RECVERR. Real WISP adapter and SDK HTTP/Ports wrappers remain S4/S5. |
 | N1 | B15: explicit classic_fidelity profile carries distinguishable EOF/reset, empty UDP, host-send errors, reverse/raw DNS, fixed UDP publication and urgent marks. Native MSG_OOB test service proves both directions. Stock v1 server remains unchanged; exact additive records/server changes and deployment limits are in vnet-web/RELAY-FIDELITY.md. B16 resolves port-zero publications through existing classic GetAddrLocal and adds destination-qualified ICMP port-unreachable/error-queue support where providers can signal it. Production stock UDP ICMP extraction and non-port-unreachable records remain provider follow-ups. |
-| R6 | Runtime/engine lifetime: same-runtime proc-fork currently exhausts browser guest-memory allocation after roughly 22 runs despite C1 unregister and zero local root counters. Reduce live-root versus engine-GC/address-reservation behavior and prove long-running pool reuse without forced GC. Browser/Playwright owner: reduce the intermittent WebKit page/context crash (reproduced without the WASIX runtime); retain both failing default and explicit process-isolated evidence. Do not classify it as a fixed kernel fault. |
+| R6 | B13 fixes copy/task-realm native-memory retention, Store host-import capture lifetime and the procfs mount ownership cycle. Chromium completes 500 same-runtime fork fixtures with bounded heap/RSS/reservations/actual worker targets and no forced GC; shutdown remains R2-open. Browser/Playwright owner: reduce the intermittent WebKit page/context crash (reproduced without the WASIX runtime); retain both failing default and explicit process-isolated evidence. Do not classify it as a fixed kernel fault. |
 | CI1 | Integration CI: execute the cold source-toolchain producer with required private-source access, verify cache restore and all mandatory browser jobs. Local installed-toolchain runs do not prove cold provisioning. |
 | P1 | Platform/approved-design follow-up: native coherent separately mapped shared pages, page protection/guard faults, native CoW and shared-page-backed AIO/io_uring rings are unavailable on JS. Preserve copied-mapping/retained-copy semantics; changing those requires a separately approved memory design. |
 
@@ -210,6 +210,83 @@ the browser normal-dependency audit. No full wasixv2 suite was run.
 separate, and the SDK wrappers/integrations and scoped runtime acceptance gaps
 above remain. Passing Rust tests or the process-isolated lane cannot establish
 classic/current SDK API compatibility.
+
+## B13 lifetime and robustness (2026-10-30)
+
+The lifetime quota is addressed in the measured 500-run lane. Complete R2 signoff
+is **withheld**: Chromium still retains its coordinator after normal shutdown,
+and the final timer-death lane also retained its failed timer worker.
+
+C1 unregister removes a JS root but does not force an isolate to collect dead
+Memory wrappers. The copy service now hands live state and endpoints directly to
+a replacement pure-JS realm after eight unregisters. Firefox requires readiness
+on that handoff port and sender survival through restored-state acknowledgement;
+normal retirement closes the service's own ports on its own event loop. Fatal
+uncertainty still poisons the heap and forcefully terminates workers.
+
+Task-only GC diagnostics exposed a second isolate-lifetime dependency after the
+copy fix. A task realm is now refreshed on its next admission after 32 starts,
+only when `browser_can_retire` reports no live shared engine objects. Existing
+Rust/TLS retirement precedes replacement bootstrap; local futures already drain
+before idle. Missing readiness disables refresh, and root/service workers are
+retained. Cancellation, capacity and retirement-failure models cover this path.
+Consumed dispatch envelopes are released immediately after cloning. Store-owned
+host-import callbacks release Rust captures without JS finalization, and procfs
+no longer retains the unused initial mount namespace through its fallback view.
+These changes preserve C1/C2, guest ABI and Linux mm/task ownership.
+
+All rows use the source-built debug artifact, B8 coordinator and B11 isolated
+server/expectations, with JSPI absent. No acceptance lane invokes GC.
+
+| Lane | Measured result |
+| --- | --- |
+| Chromium 156.0.8078.4, one runtime, 500 proc-fork fixtures | 500/500 fixture assertions; 5,000 child address spaces; resource bounds pass; **shutdown fails** with one coordinator target |
+| Chromium continuing-parent fixture | 500 isolated forks/reaps complete; **shutdown fails** |
+| Firefox 157.0, one runtime, 60 proc-fork fixtures | Pass, including zero workers; 74 copy and 17 task retirements |
+| Firefox continuing-parent fixture | 500 isolated forks/reaps and final ECHILD pass, including zero workers |
+| Limit/rejected-start ownership | Chromium five repetitions complete assertions but fail shutdown; Firefox five repetitions pass |
+| Cancellation/deadline/timer/notify-before-wait | Chromium three repetitions complete assertions but fail shutdown; Firefox two repetitions pass |
+| Bootstrap/accepted-task/timer death | Chromium bootstrap/task pass; timer cleanup fails in the final run; Firefox all three pass |
+| Existing relay, 50 connections/sends in one runtime | Chromium completes relay/I/O assertions but fails shutdown; Firefox passes with zero workers |
+| Timer callbacks delayed 50 ms | Chromium three repetitions satisfy deadline/no-early-completion assertions but fail shutdown |
+| Existing lifecycle/shared-directory/signal/TTY and relay smoke | Chromium and Firefox assertions pass; this does not replace the disposal gates above |
+
+The final Chromium 500-run samples show a 71.625 MiB shared-heap maximum and
+10.0625 MiB range after iteration 25, 15 Rust workers, at most 18 actual worker
+targets (bound 26), 1.27 GiB renderer RSS maximum, and 8.07 MiB virtual-reservation
+range. It performs 625 copy and 164 guarded task retirements. The fixed gates are
+16 MiB heap range, a fixed Rust pool, bounded actual targets, 2 GiB renderer RSS
+and 16 GiB reservation range. RSS includes browser/JIT costs. Later peak growth
+is diagnostic; earlier 8 MiB heap and warm-relative RSS budget failures remain
+preserved. Firefox's RSS/reservations were not measured. Delayed timer injection
+does not establish real background-tab scheduling behavior.
+
+`tests/wasixv2/browser/worker-close.mjs` preserves a separate failing reduction:
+the real coordinator with fake JS boot/retire workers closes for an empty Module
+but retains its Chromium target for the large compiled runtime Module, which is
+**never instantiated**. Firefox closes both. Raw-CDP control without attached
+worker debuggers also retained the coordinator. The coordinator/browser ownership
+cause remains unconfirmed; no debugger-only classification, forced GC, timeout
+waiver, process-isolation fallback or creator-topology change is shipped.
+
+Reproduce against a reviewed source export containing `proc-fork-lifetime`:
+
+```sh
+node tests/wasixv2/browser/lifetime.mjs /runtime /export/manifest.json /results/lifetime 500 chromium
+node tests/wasixv2/browser/lifetime.mjs /runtime /export/manifest.json /results/firefox 60 firefox
+node lib/wasixv2/api/tests/browser/relay-lifetime.mjs /runtime /export/manifest.json /results/relay 50
+node tests/wasixv2/browser/worker-close.mjs /runtime /results/close-control chromium
+```
+
+Evidence is under `~/wasixv2-orch/logs/b13-lifetime/acceptance-*`,
+`reduction-{chromium,firefox}`, and `STATE.md`. Earlier failed 500-run reports,
+237/238 child-output failures before guarded reuse, rejected prototypes and GC
+diagnostics remain separate. Failed result JSON includes the actual process
+output; a completed fixture count never overrides resource/disposal failure.
+Scoped native tests, strict native/wasm clippy, real-threaded-std owner-readiness
+unit, 65 runtime JS models, 26 runner tests, formatting and feature audit pass.
+No full wasixv2 suite was run; SDK API/worker packaging and the other follow-ups
+above remain separate acceptance work.
 
 ## Chromium debug baseline (2026-10-30)
 
