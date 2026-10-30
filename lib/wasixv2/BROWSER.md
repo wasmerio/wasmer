@@ -100,7 +100,7 @@ until the separate SDK port's classic/current API tests pass.
 | Editing filesystem after sandbox creation | `Machine::vfs`, explicit `Ctx`, credentials/root and VFS operations | Done same provider identity: lifecycle; Missing browser editing API round-trip and credential-error acceptance | S1, R1 |
 | Host mounts/storage provider | WebFs object-ID Provider protocol; memory/package/overlay drivers | Done memory provider: `lifecycle_smoke.sharedDirectory` and `directory::tests::readonly_directories_bytes_and_symlinks_keep_their_identity`; Missing JS-backed OPFS/File System Access integration; native host paths unavailable | S3 |
 | pthreads/worker concurrency | `BrowserExecutor::spawn_thread(ThreadStart)`, engine object envelopes | Done reviewed `thr-atomic-wait-signal`, B13 lifetime/limit/fault lanes and admission/retirement models; Missing Chromium disposal/fault reclamation | R2 |
-| sleep/poll/futex/atomic wait | BrowserHost off-worker timer, kernel futex/WaitQueue, runtime Parker | Done base-nanosleep/timerfd, thr-atomic-wait-signal and B13 cancellation/notify-before-wait/delayed-driver stress; Missing real background-tab scheduling acceptance | R2 |
+| sleep/poll/futex/atomic wait | BrowserHost off-worker timer, kernel futex/WaitQueue, runtime Parker | Done base-nanosleep/timerfd, thr-atomic-wait-signal and B13 cancellation/notify-before-wait/delayed-driver stress; B18 actual-background measurement below; shutdown remains open | R2 |
 | SAB/bootstrap/worker URL | `startCoordinator`, configure_browser, threaded std/TLS, C1 pure JS copy worker | Done artifact inspection + isolated page/worker capability probes; Missing distributable SDK worker URL/bundler/version contract tests | S1, R2 |
 | Classic relay TCP/UDP/DNS | `browser::relay::connect`, supplied Net, vnet-web Classic Driver | Done actual browser TCP `relay_smoke`; native `vnet-web/tests/relay.rs:reference_relay_tcp_udp_dns_ipv4,reference_relay_tcp_udp_dns_ipv6` checks reference wire TCP/UDP/DNS; Missing browser UDP/DNS and stock-provider error/EOF semantics | R4, N1 |
 | WISP egress/endpoint replacement | `browser::network`, `Transport`, `Capabilities::wisp` | Done provider capability contract: `vnet-web/tests/backend.rs:provider_capabilities_and_dns_answers_are_explicit_and_bounded`; Missing real WISP JS provider and browser reconnect/endpoint tests | S4, R4 |
@@ -124,7 +124,7 @@ smoke cannot close a browser acceptance item.
 | S5 | Separate SDK plus narrow facade follow-up if required: service-worker HTTP framing/ingress, browser TCP bridge, peer sandboxes and read-only listener discovery. The vnet-switch crate currently contains only documentation; implement and test cross-Machine address routing before claiming peer networking. Test backlog saturation/publication lifetime and browser port APIs without claiming native host listeners. |
 | B9 | Parallel wasix1 package: integrate B9 branch and run real v1 static/thread/spawn/fork/TTY/socket plus HTTP-provider/import-layout/CORS/failure acceptance. No v1 quirks enter kernel policy. |
 | R1 | Runtime acceptance: source-built browser WEBC v2/v3/default/named/dependency/subdirectory command execution, cwd and extra packages, live VFS edits with credentials and provider failure cases. Existing native tests remain useful but insufficient. |
-| R2 | B13 adds real limit/bootstrap/death, canceled wait/kill/deadline, notify-before-wait, timer cancellation/delayed-driver and repeated relay tests. Firefox lanes reclaim all workers. **Open:** Chromium normal shutdown and some timer-death cleanup retain workers; real background-tab scheduling remains unmeasured. See B13 evidence below; complete reclamation/signoff is withheld. |
+| R2 | B13 adds real limit/bootstrap/death, canceled wait/kill/deadline, notify-before-wait, timer cancellation/delayed-driver and repeated relay tests. Firefox lanes reclaim all workers. **Open:** Chromium normal shutdown and some timer-death cleanup retain workers; B18 measures actual hidden-tab timers below. See B13/B18 evidence below; complete reclamation/signoff is withheld. |
 | R3 | Runtime TTY acceptance: browser canonical/raw/echo/editing/EOF, resize/SIGWINCH, foreground job control and hangup under blocking/busy guests; reuse kernel behavior and native tty tests. |
 | R4 | Runtime network acceptance: browser classic UDP+DNS/IPv6, TCP half-close/reset, queue bounds, disconnect/refusal/provider absence, ingress/peer networks and WISP adapter. Use deterministic local services. |
 | N1 | Classic relay provider: emit distinguishable EOF/reset, preserve empty UDP and host-send errors, reverse/raw DNS provider, UDP publication, urgent data and port-zero publication where claimed. Current stock relay limits are detailed in vnet-web/README.md; unsupported capabilities must remain explicit. |
@@ -334,3 +334,53 @@ CHROME=/usr/bin/google-chrome node lib/wasixv2/api/tests/browser/example.mjs \
 browser run requires successful guest exit and exactly 32 timing bytes for the
 warmup and all five samples. The example regression checks exit/atexit output,
 invalid runtime URL and missing-module failure against the real source fixture.
+
+## B18 real background-tab scheduling (2026-10-30)
+
+The source-built threaded debug runtime, with JSPI absent, completed 80 requested
+500 ms `BrowserHost::sleep_until` sleeps while a second native tab was selected.
+The measurement tab reported `hidden` throughout each sample window. All sleeps
+reached their monotonic deadlines and every timer progressed, preserving Linux
+`kernel/time/hrtimer.c:hrtimer_nanosleep`'s no-early-completion rule.
+
+| Browser | Hidden samples | Requested | Minimum / upper median / maximum | Sum of sleep durations |
+| --- | --- | --- | --- | --- |
+| Chromium 156.0.8078.4 | 80 | 500 ms | 500.455 / 500.555 / 501.285 ms | 40,045.670 ms |
+| Firefox 157.0 | 80 | 500 ms | 500.660 / 500.880 / 558.840 ms | 40,445.240 ms |
+
+Each engine also completed ten 100 ms foreground sleeps before and after hiding:
+Chromium's combined range was 100.470–102.810 ms, Firefox's 100.500–107.960 ms.
+None of the 100 sleeps per engine completed early. This approximately 40-second
+hidden window showed progress with bounded observed lateness; it does not cover
+long-hidden intensive throttling, freezing, system suspension or tab discard,
+and does not establish an upper scheduling-latency guarantee.
+
+These are headed Linux/Xvfb measurements with native Ctrl+T tab selection.
+Playwright's forced focus/active overrides otherwise leave pages reporting
+visible even after switching tabs. The [background runner](../../tests/wasixv2/browser/background.mjs)
+uses private temporary driver/browser copies that remove only those automation
+focus overrides and restores Chromium's background scheduling switches. Timer
+and visibility engine code, installed/shared tools and runtime timer queues are
+unchanged. Source-layout guards and unit regressions protect that preparation;
+no visibility spoofing, artificial timer delay or forced GC is used.
+
+**R2 disposal remains open.** Chromium's measurement report is still a failure:
+its independent final zero-worker gate retained the coordinator. Firefox passed
+that gate with zero workers. B18 also reproduced timer-death retention of the
+timer worker and coordinator before any experimental changes. Strong final
+ownership, terminal-task and browser Web Lock lifetime-fence probes did not
+reliably resolve the no-Rust shutdown control; none of those unproved runtime
+changes is included. No kernel/exec or approved C1/C2 contract changed.
+
+Reproduce the measurement and required shutdown regressions separately:
+
+```sh
+xvfb-run -a node tests/wasixv2/browser/background.mjs /runtime /new/background-chromium chromium
+xvfb-run -a node tests/wasixv2/browser/background.mjs /runtime /new/background-firefox firefox
+node tests/wasixv2/browser/shutdown.mjs /runtime /export/manifest.json /new/shutdown chromium,firefox 3
+```
+
+Evidence is retained under `~/wasixv2-orch/logs/b18-shutdown`:
+`final-background-{chromium,firefox}/results.json`, the failing baseline timer
+and no-Rust controls, rejected-probe reports, and `STATE.md`. Chromium disposal
+failures remain visible and are never converted into expected successes.
