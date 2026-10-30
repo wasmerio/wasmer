@@ -97,6 +97,17 @@ impl SharedMemory {
         self.memory.host_data()
     }
 
+    /// The JS Memory already registered on the calling worker, or `None` if it
+    /// has not been delivered there. The returned JS value must stay on that worker.
+    #[cfg(feature = "js")]
+    pub fn local_js_memory(&self) -> Option<js_sys::WebAssembly::Memory> {
+        match &self.memory {
+            VMSharedMemory::Js(memory) => memory.local_memory(),
+            #[allow(unreachable_patterns)]
+            _ => None,
+        }
+    }
+
     /// Create an operations handle that does not keep the underlying memory alive.
     pub fn ops(&self) -> MemoryOps {
         MemoryOps {

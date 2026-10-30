@@ -280,12 +280,27 @@ impl Shared {
 }
 
 /// Starts the driver: on a host thread of its own when the host has threads, so it does not
-/// end with the guest thread that armed the first timer, else on the current executor.
+/// end with the guest thread that armed the first timer. Only non-browser hosts may
+/// fall back to the current executor; browser task workers can park synchronously.
 fn spawn_driver(shared: &Arc<Shared>) {
+    spawn_driver_with_fallback(
+        shared,
+        !cfg!(all(target_arch = "wasm32", target_os = "unknown")),
+    );
+}
+
+fn spawn_driver_with_fallback(shared: &Arc<Shared>, allow_local: bool) {
     let weak = Arc::downgrade(shared);
     let start: wasixv2_host::ThreadStart = Box::new(move || Box::pin(drive(weak)));
     let executor = shared.host.executor();
-    if executor.spawn_thread(start).is_err() {
+    if let Err(error) = executor.spawn_thread(start) {
+        // kernel/kthread.c:kthread_create_on_node reports driver creation failure.
+        // C2: a browser task worker may park synchronously; a local timer driver there
+        // cannot guarantee progress. Fail the runtime instead of silently falling back.
+        assert!(
+            allow_local,
+            "browser kernel timer driver failed to start: {error}"
+        );
         executor.spawn_local(Box::pin(drive(Arc::downgrade(shared))));
     }
 }
@@ -384,6 +399,37 @@ mod tests {
             std::thread::spawn(move || futures::executor::block_on(start()));
             Ok(())
         }
+    }
+
+    #[test]
+    #[should_panic(expected = "browser kernel timer driver failed to start")]
+    fn blocking_browser_driver_start_failure_is_fatal() {
+        struct NoThreads;
+        impl Host for NoThreads {
+            fn realtime(&self) -> Duration {
+                Duration::ZERO
+            }
+            fn monotonic(&self) -> Duration {
+                Duration::ZERO
+            }
+            fn sleep(&self, _: Duration) -> LocalFuture<'_, ()> {
+                Box::pin(async {})
+            }
+            fn random(&self, _: &mut [u8]) {}
+            fn executor(&self) -> &dyn Executor {
+                self
+            }
+        }
+        impl Executor for NoThreads {
+            fn spawn_local(&self, _: LocalFuture<'static, ()>) {
+                panic!("must never fall back onto a blocking browser worker");
+            }
+            fn spawn_blocking(&self, _: Box<dyn FnOnce() + Send>) -> LocalFuture<'static, ()> {
+                unreachable!()
+            }
+        }
+        let timers = Timers::new(Arc::new(NoThreads));
+        spawn_driver_with_fallback(&timers.shared, false);
     }
 
     fn timers() -> (Timers, Arc<dyn Host>) {

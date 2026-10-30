@@ -46,3 +46,21 @@ async fn spawn_local_runs_in_the_background() {
     assert!(ran.get());
     assert_eq!(host.executor().run_blocking(|| 6 * 7).await, 42);
 }
+
+#[wasm_bindgen_test]
+fn canceled_sleeps_release_their_rust_callback_roots() {
+    use std::task::{Context, Waker};
+    let host = WebHost::new();
+    let before = wasm_bindgen::externref_heap_live_count();
+    for _ in 0..10 {
+        let mut sleep = host.sleep(Duration::from_secs(3600));
+        assert!(
+            sleep
+                .as_mut()
+                .poll(&mut Context::from_waker(Waker::noop()))
+                .is_pending()
+        );
+        drop(sleep);
+    }
+    assert_eq!(wasm_bindgen::externref_heap_live_count(), before);
+}

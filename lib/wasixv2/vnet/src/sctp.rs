@@ -32,8 +32,16 @@ use std::{
         Arc, Mutex, MutexGuard, Weak,
         atomic::{AtomicU64, Ordering},
     },
-    time::{Duration, Instant},
+    time::Duration,
 };
+
+// net/sctp/sm_statefuns.c:sctp_sf_autoclose_timer_expire measures idle elapsed time.
+// std::time::Instant panics on unknown-unknown; web-time uses Performance and, in
+// threaded artifacts, timeOrigin to compare association timestamps across workers.
+#[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
+use std::time::Instant;
+#[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
+use web_time::Instant;
 
 use wasixv2_abi::{
     Errno, GuestLayout, MsgFlags, SctpAdaptationEvent, SctpAssocChange, SctpAssocValue,

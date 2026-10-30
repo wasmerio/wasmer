@@ -23,6 +23,9 @@ thiserror.workspace = true
 tracing.workspace = true
 wasm-encoder = { workspace = true, features = ["wasmparser"] }
 wasmparser.workspace = true
+js-sys = { workspace = true, optional = true }
+wasm-bindgen = { workspace = true, optional = true }
+wat = { workspace = true, optional = true }
 
 [target.'cfg(unix)'.dependencies]
 libc = { workspace = true, features = ["std"] }
@@ -41,4 +44,13 @@ wasm-bindgen-test.workspace = true
 [features]
 default = ["sys"]
 sys = ["wasmer/sys", "wasmer/headless"]
-js = ["wasmer/js-default", "wasixv2-host/browser"]
+js = ["wasmer/js-default", "wasixv2-host/browser", "dep:js-sys", "dep:wasm-bindgen"]
+
+# Source-built threaded regression artifact; never enabled by embedders.
+browser-memory-test = ["js", "wasixv2-host/browser", "dep:wat"]
+
+[[example]]
+name = "browser-memory"
+path = "src/lib.rs"
+crate-type = ["cdylib"]
+required-features = ["browser-memory-test"]

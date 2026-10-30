@@ -7125,6 +7125,7 @@ name = "wasixv2-exec"
 version = "0.0.0"
 dependencies = [
  "futures",
+ "js-sys",
  "libc",
  "thiserror 2.0.21",
  "tracing",
@@ -7132,6 +7133,7 @@ dependencies = [
  "wasixv2-host",
  "wasixv2-pages",
  "wasixv2-syscalls",
+ "wasm-bindgen",
  "wasm-bindgen-test",
  "wasm-encoder 0.259.0",
  "wasmer",
@@ -7149,7 +7151,9 @@ dependencies = [
  "js-sys",
  "libc",
  "tokio",
+ "wasixv2-abi",
  "wasixv2-pages",
+ "wasixv2-vnet",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "wasm-bindgen-test",
@@ -7193,6 +7197,21 @@ name = "wasixv2-record"
 version = "0.0.0"
 dependencies = [
  "wasixv2-syscalls",
+]
+
+[[package]]
+name = "wasixv2-stdio-web"
+version = "0.0.0"
+dependencies = [
+ "futures",
+ "futures-util",
+ "wasixv2-abi",
+ "wasixv2-host",
+ "wasixv2-kernel",
+ "wasixv2-syscalls",
+ "wasixv2-vfs",
+ "wasixv2-vfs-mem",
+ "wasixv2-wait",
 ]
 
 [[package]]
@@ -7276,12 +7295,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "wasixv2-vfs-web"
+version = "0.0.0"
+dependencies = [
+ "async-trait",
+ "futures",
+ "wasixv2-abi",
+ "wasixv2-vfs",
+ "wasixv2-vfs-mem",
+ "wasixv2-vfs-overlay",
+]
+
+[[package]]
 name = "wasixv2-vnet"
 version = "0.0.0"
 dependencies = [
  "tracing",
  "wasixv2-abi",
  "wasixv2-wait",
+ "web-time",
 ]
 
 [[package]]
@@ -7302,6 +7334,20 @@ name = "wasixv2-vnet-switch"
 version = "0.0.0"
 dependencies = [
  "wasixv2-vnet",
+]
+
+[[package]]
+name = "wasixv2-vnet-web"
+version = "0.0.0"
+dependencies = [
+ "bincode 2.0.1",
+ "futures-util",
+ "serde",
+ "tokio",
+ "virtual-net",
+ "wasixv2-abi",
+ "wasixv2-vnet",
+ "wasixv2-wait",
 ]
 
 [[package]]
