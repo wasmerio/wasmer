@@ -205,10 +205,14 @@ fn coordinator_wakes_after_payload_unlock() {
     }
     impl StreamWake for Coordinator {
         fn notify(&self) {
-            self.calls.fetch_add(1, Ordering::Relaxed);
-            // Reenter to ensure wake callbacks never hold the payload/coordinator mutex.
-            if let Some(source) = self.source.upgrade() {
-                assert_eq!(source.try_read(&mut []).unwrap(), 0);
+            if self.calls.fetch_add(1, Ordering::Relaxed) == 0 {
+                // Consume actual payload, then reenter wake and set_wake. An empty read
+                // would bypass the state lock and would not test unlock ordering.
+                let source = self.source.upgrade().unwrap();
+                let mut bytes = [0];
+                assert_eq!(source.try_read(&mut bytes).unwrap(), 1);
+                assert_eq!(bytes, *b"x");
+                source.set_wake(Arc::new(Waker::noop().clone()));
             }
         }
     }
@@ -220,9 +224,8 @@ fn coordinator_wakes_after_payload_unlock() {
     });
     rx.set_wake(wake.clone());
     tx.try_write(b"x").unwrap();
-    assert_eq!(wake.calls.load(Ordering::Relaxed), 1);
-    rx.try_read(&mut [0]).unwrap();
     assert_eq!(wake.calls.load(Ordering::Relaxed), 2);
+    kind(rx.try_read(&mut [0]), io::ErrorKind::WouldBlock);
 }
 
 #[test]

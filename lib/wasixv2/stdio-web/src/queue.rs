@@ -116,7 +116,8 @@ impl Source {
         Ok(n)
     }
 
-    /// Async coordinator read, with a separate registration for every pending operation.
+    /// Async read, with a separate registration for every pending operation. The executor's
+    /// Waker must support cross-worker routing; do not use a worker-local JS future Waker.
     pub async fn read(&self, buf: &mut [u8]) -> io::Result<usize> {
         let waiter = Waiter::new();
         let _registration = waiter.register(&self.0.changed, PollMask::empty());
