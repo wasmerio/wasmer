@@ -67,7 +67,26 @@ ffmpeg)
   ;;
 python-strace)
   export PYTHONHOME=/python
-  strace -f -o /work/python-strace.log python3 -c 'import subprocess, threading; t=threading.Thread(target=lambda: print("thread-ok")); t.start(); assert subprocess.check_output(["/bin/echo", "subprocess-ok"]) == b"subprocess-ok\n"; t.join(); print("strace-python PASS")'
+  strace -f -o /work/python-strace.log python3 - <<'PYTHON'
+import os
+import signal
+import subprocess
+import sys
+import threading
+
+t = threading.Thread(target=lambda: print("thread-ok"))
+t.start()
+assert subprocess.check_output(["/bin/echo", "subprocess-ok"]) == b"subprocess-ok\n"
+t.join()
+child = os.fork()
+if child == 0:
+    os._exit(0)
+assert os.waitpid(child, 0)[1] == 0
+child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(30)"])
+child.kill()
+assert child.wait(timeout=10) == -signal.SIGKILL
+print("strace-python fork/subprocess/threads/SIGKILL PASS")
+PYTHON
   ;;
 *) echo "unknown workflow $pkg" >&2; exit 2;;
 esac

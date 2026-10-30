@@ -94,6 +94,16 @@ NATIVE
   mkdir -p "$ROOT/host-python/bin"
   ln -sfn "$SRC/python" "$ROOT/host-python/bin/python3.13"
   ;;
+python-relink)
+  # ABI and headers are unchanged; link the source-built objects to the fixed
+  # libc archive without rebuilding unrelated static extension objects.
+  cd "$ROOT/python-src"
+  rm -f python
+  make -j"$JOBS" python
+  install_wasm python python3
+  mkdir -p "$ROOT/python-stdlib"
+  cp -a Lib/. "$ROOT/python-stdlib/"
+  ;;
 python)
   source_tree Python-
   # No optional FFI or shared-only test extensions are built or imported.
@@ -112,6 +122,8 @@ SETUP
   make -j"$JOBS" python pybuilddir.txt
   cp "$(cat pybuilddir.txt)"/_sysconfigdata*.py Lib/
   install_wasm python python3
+  mkdir -p "$ROOT/python-stdlib"
+  cp -a Lib/. "$ROOT/python-stdlib/"
   ;;
 *) echo "unknown package: $pkg" >&2; exit 2;;
 esac

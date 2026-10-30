@@ -9,6 +9,7 @@
 #include <string.h>
 #include <sys/ioctl.h>
 #include <sys/prctl.h>
+#include <sys/stat.h>
 #include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
@@ -16,12 +17,25 @@
 static void* worker(void* unused) {
   (void)unused;
   pthread_setname_np(pthread_self(), "v15-worker");
-  for (;;) usleep(100000);
+  volatile unsigned counter = 0;
+  for (;;) {
+    for (unsigned i = 0; i < 1000000; ++i) counter += i;
+    usleep(10000);
+  }
   return NULL;
 }
 int main(int argc, char** argv) {
   if (argc != 2) return 2;
   const int vim = !strcmp(argv[1], "vim");
+  if (!vim) {
+    mkdir("/tmp/.config", 0700);
+    mkdir("/tmp/.config/htop", 0700);
+    FILE* config = fopen("/tmp/.config/htop/htoprc", "w");
+    if (!config) return 24;
+    fputs("hide_userland_threads=0\nshow_thread_names=1\nshow_program_path=0\n",
+          config);
+    fclose(config);
+  }
   int master = posix_openpt(O_RDWR | O_NOCTTY);
   if (master < 0 || grantpt(master) || unlockpt(master)) return 3;
   char slave_name[128];
@@ -84,7 +98,7 @@ int main(int argc, char** argv) {
         (vim ? strstr(captured, "[New]") : strstr(captured, "Tasks:"))) {
       sent = 1;
       sent_at = elapsed;
-      const char* keys = vim ? "iV15 edit-save verified\n\033:wq\n" : "H";
+      const char* keys = vim ? "iV15 edit-save verified\n\033:wq\n" : "";
       if (write(master, keys, strlen(keys)) != (ssize_t)strlen(keys)) return 8;
     }
     if (!vim && sent && !quit && elapsed - sent_at > 2) {
@@ -117,7 +131,8 @@ int main(int argc, char** argv) {
     fclose(saved);
   } else {
     if (!strstr(captured, "Mem") || !strstr(captured, "Tasks") ||
-        !strstr(captured, "v15-")) {
+        !strstr(captured, "v15-driver") || !strstr(captured, "v15-worker") ||
+        !strstr(captured, "CPU")) {
       fputs("htop missing memory/task/process display\n", stderr);
       return 22;
     }
@@ -128,6 +143,13 @@ int main(int argc, char** argv) {
       sscanf(line, "Threads: %d", &threads);
     if (proc) fclose(proc);
     if (threads != 2) return 23;
+    proc = fopen("/proc/stat", "r");
+    unsigned long long user = 0, nice = 0, system = 0;
+    if (!proc || !fgets(line, sizeof(line), proc) ||
+        sscanf(line, "cpu %llu %llu %llu", &user, &nice, &system) != 3 ||
+        user + nice + system == 0)
+      return 25;
+    fclose(proc);
   }
   printf("%s guest PTY PASS\n", argv[1]);
   return 0;
