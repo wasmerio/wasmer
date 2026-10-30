@@ -15,7 +15,10 @@
 //! Urgent data goes with the bytes it ends: a write with `MSG_OOB` marks its last byte in the
 //! peer's queue ([`RecvQueue`]) and wakes the peer with `PRI`, the new mark (see [`crate::api`]).
 
-use std::sync::Mutex;
+use std::{
+    net::SocketAddr,
+    sync::{Arc, Mutex},
+};
 
 use wasixv2_abi::Errno;
 use wasixv2_wait::{PollMask, WaitQueue};
@@ -450,6 +453,134 @@ fn split(sides: &mut [Side; 2], side: usize) -> (&mut Side, &mut Side) {
         (&mut a[0], &mut b[0])
     } else {
         (&mut b[0], &mut a[0])
+    }
+}
+
+/// One end of an in-runtime backend connection. Uses the same bounded queues, urgent
+/// marks and FIN/RST rules as namespace-local TCP (Linux net/ipv4/tcp.c:tcp_close,
+/// tcp_shutdown,tcp_poll and net/ipv4/tcp_input.c:tcp_reset).
+///
+/// Backends supply each socket's existing wait queue; this object never substitutes one.
+pub struct MemoryStream {
+    conn: Arc<Conn>,
+    side: usize,
+    peer: SocketAddr,
+    opts: Mutex<crate::opts::SockOpts>,
+}
+
+impl MemoryStream {
+    /// Make a connected pair. `addresses[i]` is side i's address; `queues[i]` is
+    /// the queue woken when side i's readiness changes.
+    pub fn pair(addresses: [SocketAddr; 2], queues: [WaitQueue; 2]) -> [Arc<Self>; 2] {
+        let opts = addresses.map(|a| {
+            crate::opts::SockOpts::new(
+                crate::SocketKind::Stream,
+                if a.is_ipv4() {
+                    crate::Domain::Inet
+                } else {
+                    crate::Domain::Inet6
+                },
+            )
+        });
+        let conn = Arc::new(Conn::new(queues, opts.each_ref().map(Self::buffers), true));
+        [0, 1].map(|side| {
+            Arc::new(Self {
+                conn: conn.clone(),
+                side,
+                peer: addresses[1 - side],
+                opts: Mutex::new(opts[side].clone()),
+            })
+        })
+    }
+
+    fn buffers(o: &crate::opts::SockOpts) -> Buffers {
+        Buffers {
+            sndbuf: o.sndbuf,
+            rcvbuf: o.rcvbuf,
+            rcvlowat: o.rcvlowat,
+            urginline: o.flag(
+                wasixv2_abi::SocketLevel::SOL_SOCKET.0,
+                wasixv2_abi::SocketOption::SO_OOBINLINE.0,
+            ),
+        }
+    }
+}
+
+impl crate::Pollable for MemoryStream {
+    fn poll(&self, _: Option<&mut crate::PollTable<'_>>) -> PollMask {
+        self.conn.poll(self.side)
+    }
+}
+
+impl crate::BackendStream for MemoryStream {
+    fn state(&self) -> crate::StreamState {
+        if self.conn.is_done(self.side) {
+            crate::StreamState::Closed
+        } else {
+            crate::StreamState::Established
+        }
+    }
+    fn tcp_established(&self) -> bool {
+        self.conn.tcp_established(self.side)
+    }
+    fn read(&self, buf: &mut [u8], peek: bool) -> NetResult<usize> {
+        self.conn.read(self.side, buf, peek)
+    }
+    fn write(&self, data: &[u8]) -> NetResult<usize> {
+        self.conn
+            .write_more(self.side, data, false, false, usize::MAX)
+    }
+    fn write_more(&self, data: &[u8], more: bool, mss: usize) -> NetResult<usize> {
+        self.conn.write_more(self.side, data, false, more, mss)
+    }
+    fn push(&self) {
+        self.conn.push(self.side);
+    }
+    fn corked_len(&self) -> usize {
+        self.conn.corked_len(self.side)
+    }
+    fn write_urgent(&self, data: &[u8]) -> NetResult<usize> {
+        self.conn
+            .write_more(self.side, data, true, false, usize::MAX)
+    }
+    fn read_urgent(&self, peek: bool) -> NetResult<u8> {
+        self.conn.read_urgent(self.side, peek)
+    }
+    fn at_mark(&self) -> bool {
+        self.conn.at_mark(self.side)
+    }
+    fn shutdown(&self, how: Shutdown) -> NetResult<()> {
+        self.conn.shutdown(self.side, how);
+        Ok(())
+    }
+    fn take_error(&self) -> Option<Errno> {
+        self.conn.take_error(self.side)
+    }
+    fn peer_addr(&self) -> SocketAddr {
+        self.peer
+    }
+    fn input_len(&self) -> usize {
+        self.conn.input_len(self.side)
+    }
+    fn output_len(&self) -> usize {
+        self.conn.output_len(self.side)
+    }
+    fn set_option(&self, level: i32, name: i32, value: &[u8]) -> NetResult<()> {
+        let mut opts = self.opts.lock().unwrap();
+        let changed = opts.set(level, name, value, true)?;
+        let buffers = Self::buffers(&opts);
+        drop(opts);
+        if changed == crate::opts::Changed::Buffers {
+            self.conn.set_buffers(self.side, buffers);
+        }
+        Ok(())
+    }
+}
+
+impl Drop for MemoryStream {
+    fn drop(&mut self) {
+        let abort = self.opts.lock().unwrap().linger == Some(0);
+        self.conn.close(self.side, abort);
     }
 }
 
