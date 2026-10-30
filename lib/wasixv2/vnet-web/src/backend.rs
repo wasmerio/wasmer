@@ -75,7 +75,6 @@ pub(crate) struct Listener {
     pub ready: bool,
     pub released: bool,
     pub child: Option<u64>,
-    pub refuse_child: bool,
 }
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Kind {
@@ -326,7 +325,6 @@ impl Backend for WebBackend {
                 ready: false,
                 released: false,
                 child: None,
-                refuse_child: false,
             },
         );
         drop(inner);
