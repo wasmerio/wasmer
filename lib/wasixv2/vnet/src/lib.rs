@@ -9,6 +9,7 @@ mod api;
 pub mod bpf;
 mod cmsg;
 mod dns;
+mod errors;
 mod icmp;
 pub mod iface;
 mod mcast;
@@ -34,11 +35,13 @@ pub use api::{
     SctpAssocEntry, SctpEndpoint, SctpOps, SendMsg, Shutdown, Socket, SocketKind, StreamState,
     VsockInboundSink, VsockPublication,
 };
+pub use errors::DatagramErrors;
 pub use icmp::IcmpSocket;
 pub use net::{MovedLink, Net, NetConfig, Rtnl, Uplink, move_link, rtnl};
 pub use ratelimit::IcmpLimit;
 pub use recvq::RecvQueue;
 pub use sctp::SctpSocket;
+pub use stream::MemoryStream;
 pub use tcp::TcpSocket;
 pub use udp::UdpSocket;
 pub use wasixv2_wait::{PollMask, PollTable, Pollable, WaitQueue};

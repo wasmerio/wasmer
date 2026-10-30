@@ -7343,7 +7343,9 @@ dependencies = [
 name = "wasixv2-vnet-switch"
 version = "0.0.0"
 dependencies = [
+ "wasixv2-abi",
  "wasixv2-vnet",
+ "wasixv2-wait",
 ]
 
 [[package]]

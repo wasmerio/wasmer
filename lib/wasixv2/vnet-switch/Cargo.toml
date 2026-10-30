@@ -12,3 +12,5 @@ rust-version.workspace = true
 
 [dependencies]
 wasixv2-vnet = { path = "../vnet" }
+wasixv2-abi = { path = "../abi" }
+wasixv2-wait = { path = "../wait" }
