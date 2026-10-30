@@ -465,7 +465,7 @@ impl Drop for Receiving<'_> {
 
 /// `lookup_noperm_common` and `simple_lookup` on a queue name. musl strips the leading `/`.
 fn check_name(name: &[u8]) -> Result<(), Errno> {
-    if name.is_empty() || name == b"." || name == b".." || name.contains(&b'/') {
+    if name == b"." || name == b".." || name.contains(&b'/') {
         return Err(Errno::EACCES);
     }
     if name.len() > NAME_MAX {
@@ -476,6 +476,8 @@ fn check_name(name: &[u8]) -> Result<(), Errno> {
 
 async fn read_name(caller: &Caller<'_>, name: Cstr) -> Result<Vec<u8>, Errno> {
     match read_cstr(caller.memory(), name, PATH_MAX).await {
+        // ipc/mqueue.c do_mq_open/mq_unlink use fs/namei.c getname, before fd allocation.
+        Ok(name) if name.is_empty() => Err(Errno::ENOENT),
         Ok(name) => Ok(name),
         Err(CstrError::Fault) => Err(Errno::EFAULT),
         Err(CstrError::TooLong) => Err(Errno::ENAMETOOLONG),
