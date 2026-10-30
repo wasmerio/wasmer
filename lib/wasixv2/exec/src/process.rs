@@ -880,8 +880,8 @@ pub(super) mod tests {
 
     /// Kernel task work must see the current memory on syscall returns and user-code
     /// preemption, while an unraised WorkFlag keeps the hook off the fast path.
-    #[cfg(feature = "sys")]
-    #[test]
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(not(target_arch = "wasm32"), test)]
     fn task_work_runs_before_returning_from_syscalls_and_preemption() {
         for raised in [true, false] {
             let expected = i32::from(raised);
@@ -914,8 +914,8 @@ pub(super) mod tests {
         }
     }
 
-    #[cfg(feature = "sys")]
-    #[test]
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(not(target_arch = "wasm32"), test)]
     fn actions_generated_by_the_final_task_work_drain_precede_guest_resume() {
         let wasm = wat::parse_str(
             r#"(module

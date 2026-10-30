@@ -14,6 +14,12 @@ use wasm_bindgen::{JsCast, prelude::*};
 use wasm_bindgen_futures::{JsFuture, future_to_promise};
 use wasmer_types::{FunctionType, RawValue};
 
+#[cfg(feature = "experimental-async")]
+use crate::{
+    AsStoreAsync, AsyncFunctionEnvMut, BackendAsyncFunctionEnvMut, StoreAsync, StoreContext,
+    entities::function::async_host::{AsyncFunctionEnv, AsyncHostFunction},
+    js::{blocking, function::env::AsyncFunctionEnvMut as JsAsyncFunctionEnvMut, jspi},
+};
 use crate::{
     AsStoreMut, AsStoreRef, BackendFunction, BackendFunctionEnv, BackendFunctionEnvMut,
     FromToNativeWasmType, FunctionEnv, FunctionEnvMut, HostFunction, HostFunctionKind, IntoResult,
@@ -24,12 +30,6 @@ use crate::{
         vm::{VMFuncRef, VMFunctionCallback, function::VMFunction},
     },
     vm::{VMExtern, VMExternFunction},
-};
-#[cfg(feature = "experimental-async")]
-use crate::{
-    AsStoreAsync, AsyncFunctionEnvMut, BackendAsyncFunctionEnvMut, StoreAsync, StoreContext,
-    entities::function::async_host::{AsyncFunctionEnv, AsyncHostFunction},
-    js::{function::env::AsyncFunctionEnvMut as JsAsyncFunctionEnvMut, jspi},
 };
 
 use std::panic::{self, AssertUnwindSafe};
@@ -85,11 +85,7 @@ impl Function {
     }
 
     #[cfg(feature = "experimental-async")]
-    pub(crate) fn new_async<FT, F, Fut>(
-        store: &mut impl AsStoreMut,
-        ty: FT,
-        func: F,
-    ) -> Self
+    pub(crate) fn new_async<FT, F, Fut>(store: &mut impl AsStoreMut, ty: FT, func: F) -> Self
     where
         FT: Into<FunctionType>,
         F: Fn(&[Value]) -> Fut + 'static,
@@ -112,35 +108,37 @@ impl Function {
         Fut: Future<Output = Result<Vec<Value>, RuntimeError>> + 'static,
         T: 'static,
     {
-        assert!(
-            jspi::is_supported(),
-            "the JavaScript host does not support WebAssembly JSPI"
-        );
+        let mode = {
+            let mut store = store.as_store_mut();
+            let backend = store.inner.store.as_js_mut();
+            backend.async_imports = true;
+            backend.async_mode
+        };
 
         let function_type = ty.into();
         let func_ty = function_type.clone();
         let store_id = store.objects_mut().id();
         let raw_env = env.as_js().clone();
         let func = Rc::new(func);
-        let wrapped_func = Closure::wrap(Box::new(move |args: &Array| -> Promise {
-            let Some(async_store) = jspi::active_store(store_id) else {
-                return Promise::reject(&JsValue::from_str(
-                    "an async host function was called outside Function::call_async",
-                ));
-            };
-            let callback_store = async_store.store();
-            let js_env = JsAsyncFunctionEnvMut {
-                store: async_store,
-                func_env: raw_env.clone(),
-            };
-            let env_mut =
-                AsyncFunctionEnvMut(BackendAsyncFunctionEnvMut::Js(js_env));
+        let callback = move |args: &Array| {
+            let async_store = jspi::active_store(store_id);
             let parameter_types = function_type.params().to_vec();
             let result_types = function_type.results().to_vec();
             let args = args.clone();
             let func = Rc::clone(&func);
-
-            future_to_promise(async move {
+            let raw_env = raw_env.clone();
+            async move {
+                let async_store = async_store.ok_or_else(|| {
+                    RuntimeError::new(
+                        "an async host function was called outside Function::call_async",
+                    )
+                })?;
+                let callback_store = async_store.store();
+                let env_mut =
+                    AsyncFunctionEnvMut(BackendAsyncFunctionEnvMut::Js(JsAsyncFunctionEnvMut {
+                        store: async_store,
+                        func_env: raw_env,
+                    }));
                 let mut write_lock = callback_store.write_lock().await;
                 let values = parameter_types
                     .iter()
@@ -151,32 +149,54 @@ impl Function {
                     .collect::<Vec<_>>();
                 let store_context = StoreContext::install_async(write_lock.inner);
                 let future = func(env_mut, &values);
+                // Imports, including nested signal/vfork/fork calls, acquire the store
+                // themselves. No store guard may survive while polling their future.
                 drop(store_context);
-
-                let results = future.await.map_err(JsValue::from)?;
-                match result_types.len() {
-                    0 => Ok(JsValue::UNDEFINED),
-                    1 => Ok(wasmer_value_to_js(&results[0])),
-                    _ => Ok(wasmer_array_to_js_array(&results).into()),
+                let results = future.await?;
+                if results.len() != result_types.len() {
+                    return Err(RuntimeError::new(
+                        "async host function returned wrong number of results",
+                    ));
                 }
+                Ok(match result_types.len() {
+                    0 => JsValue::UNDEFINED,
+                    1 => wasmer_value_to_js(&results[0]),
+                    _ => wasmer_array_to_js_array(&results).into(),
+                })
+            }
+        };
+        let wrapped_func = match mode {
+            jspi::AsyncMode::Blocking => {
+                Closure::wrap(Box::new(move |args: &Array| -> Result<JsValue, JsValue> {
+                    blocking::block_on(callback(args))
+                        .and_then(|result| result)
+                        .map_err(JsValue::from)
+                })
+                    as Box<dyn Fn(&Array) -> Result<JsValue, JsValue>>)
+                .into_js_value()
+            }
+            jspi::AsyncMode::Jspi => Closure::wrap(Box::new(move |args: &Array| -> Promise {
+                let future = callback(args);
+                future_to_promise(async move { future.await.map_err(JsValue::from) })
             })
-        }) as Box<dyn FnMut(&Array) -> Promise>)
-        .into_js_value();
+                as Box<dyn Fn(&Array) -> Promise>)
+            .into_js_value(),
+        };
 
         let variadic =
             JsFunction::new_with_args("f", "return f(Array.prototype.slice.call(arguments, 1))");
         let function = variadic
             .bind1(&JsValue::UNDEFINED, &wrapped_func)
             .unchecked_into::<JsFunction>();
-        let function = match jspi::suspending(&function) {
-            Ok(function) => function,
-            Err(error) => wasm_bindgen::throw_val(error),
+        let function = match mode {
+            jspi::AsyncMode::Blocking => function,
+            jspi::AsyncMode::Jspi => match jspi::suspending(&function) {
+                Ok(function) => function,
+                Err(error) => wasm_bindgen::throw_val(error),
+            },
         };
         let vm_function = VMFunction::new(function, func_ty);
-        Self::from_vm_extern(
-            &mut store.as_store_mut(),
-            VMExternFunction::Js(vm_function),
-        )
+        Self::from_vm_extern(&mut store.as_store_mut(), VMExternFunction::Js(vm_function))
     }
 
     #[cfg(feature = "experimental-async")]
@@ -529,16 +549,25 @@ impl Function {
                 arguments.set(index as u32, param.as_jsvalue(&write_lock));
             }
 
-            let store_context = StoreContext::install_async(write_lock.inner);
-            let promising = jspi::promising(&function.handle.function)
-                .map_err(RuntimeError::from)?;
-            let promise = Reflect::apply(&promising, &JsValue::NULL, &arguments)
-                .map_err(RuntimeError::from)?
-                .dyn_into::<Promise>()
-                .map_err(RuntimeError::from)?;
-            drop(store_context);
-
-            let result = JsFuture::from(promise).await.map_err(RuntimeError::from)?;
+            let mode = write_lock.as_store_ref().inner.store.as_js().async_mode;
+            drop(write_lock);
+            // JavaScript guest execution does not access Rust StoreInner. Releasing the
+            // guard here allows imports and nested guest calls to borrow it independently.
+            let result = match mode {
+                jspi::AsyncMode::Blocking => {
+                    Reflect::apply(&function.handle.function, &JsValue::NULL, &arguments)
+                        .map_err(RuntimeError::from)?
+                }
+                jspi::AsyncMode::Jspi => {
+                    let promising =
+                        jspi::promising(&function.handle.function).map_err(RuntimeError::from)?;
+                    let promise = Reflect::apply(&promising, &JsValue::NULL, &arguments)
+                        .map_err(RuntimeError::from)?
+                        .dyn_into::<Promise>()
+                        .map_err(RuntimeError::from)?;
+                    JsFuture::from(promise).await.map_err(RuntimeError::from)?
+                }
+            };
             let mut write_lock = store.write_lock().await;
             match function_type.results().len() {
                 0 => Ok(Box::<[Value]>::default()),
@@ -555,11 +584,7 @@ impl Function {
                         .iter()
                         .enumerate()
                         .map(|(index, ty)| {
-                            js_value_to_wasmer(
-                                &mut write_lock,
-                                ty,
-                                &result.get(index as u32),
-                            )
+                            js_value_to_wasmer(&mut write_lock, ty, &result.get(index as u32))
                         })
                         .collect::<Vec<_>>()
                         .into_boxed_slice())

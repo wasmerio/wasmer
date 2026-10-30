@@ -7132,6 +7132,7 @@ dependencies = [
  "wasixv2-host",
  "wasixv2-pages",
  "wasixv2-syscalls",
+ "wasm-bindgen-test",
  "wasm-encoder 0.259.0",
  "wasmer",
  "wasmer-types",
