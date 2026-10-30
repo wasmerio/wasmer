@@ -3518,9 +3518,10 @@ impl Syscalls for Kernel {
         mmsg: wasixv2_abi::MmsghdrArray,
         vlen: u32,
         flags: wasixv2_abi::MsgFlags,
-        _timeout: KernelTimespecPtr,
+        timeout: KernelTimespecPtr,
     ) -> SysResult<i32> {
-        self.sys_recvmmsg(caller, fd, mmsg, vlen, flags).await
+        self.sys_recvmmsg(caller, fd, mmsg, vlen, flags, timeout)
+            .await
     }
 }
 

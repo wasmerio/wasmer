@@ -1417,7 +1417,8 @@ impl Kernel {
     }
 
     /// `do_recvmmsg`. `MSG_WAITFORONE` makes every message after the first non-blocking.
-    // TODO: the timeout argument is not honoured yet.
+    // net/socket.c __sys_recvmmsg/do_recvmmsg checks the timeout before
+    // looking up the socket, and updates it after each received message.
     pub(crate) async fn sys_recvmmsg(
         &self,
         caller: &Caller<'_>,
@@ -1425,7 +1426,16 @@ impl Kernel {
         mmsg: MmsghdrArray,
         vlen: u32,
         flags: MsgFlags,
+        timeout: wasixv2_abi::KernelTimespecPtr,
     ) -> SysResult<i32> {
+        let deadline = if timeout.is_null() {
+            None
+        } else {
+            let ts = read_value(caller.memory(), GuestPtr::new(timeout.addr())).await?;
+            let duration = crate::time::from_timespec(ts)?;
+            Some(self.host.monotonic().saturating_add(duration))
+        };
+        let mut remaining = Duration::ZERO;
         let sock = self.any_socket(caller, fd)?;
         let vlen = vlen.min(UIO_MAXIOV);
         let mut flags = flags;
@@ -1433,7 +1443,9 @@ impl Kernel {
         while received < vlen {
             let result = async {
                 let at = offset(mmsg.addr(), received as usize * wasixv2_abi::Mmsghdr::SIZE)?;
-                let n = self.recv_msghdr(caller, &sock, at, flags).await?;
+                let n = self
+                    .recv_msghdr(caller, &sock, at, flags & !MsgFlags::MSG_WAITFORONE)
+                    .await?;
                 let len_at = GuestPtrMut::new(offset(at, UserMsghdr::SIZE)?);
                 write_value(caller.memory(), len_at, &(n as u32)).await?;
                 SysResult::Ok(())
@@ -1447,6 +1459,20 @@ impl Kernel {
             if flags.contains(MsgFlags::MSG_WAITFORONE) {
                 flags |= MsgFlags::MSG_DONTWAIT;
             }
+            if let Some(deadline) = deadline {
+                remaining = deadline.saturating_sub(self.host.monotonic());
+                if remaining.is_zero() {
+                    break;
+                }
+            }
+        }
+        if received > 0 && deadline.is_some() {
+            write_value(
+                caller.memory(),
+                timeout,
+                &crate::time::to_timespec(remaining),
+            )
+            .await?;
         }
         Ok(received as i32)
     }
