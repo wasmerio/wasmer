@@ -508,6 +508,26 @@ fn posix_queues_order_by_priority_and_notify_once() {
     assert_eq!(send(&caller_a, qa, b"still", 0), Ok(0));
 }
 
+/// ipc/mqueue.c do_mq_open/mq_unlink use fs/namei.c getname: an empty pathname is
+/// ENOENT before the single-component name/permission checks run.
+#[test]
+fn posix_queue_empty_names_return_enoent() {
+    let (kernel, task, _) = setup(b"");
+    let memory = memory();
+    let caller = Caller::new(task, &memory);
+    for flags in [OpenFlags::O_RDONLY, OpenFlags::O_CREAT | OpenFlags::O_RDWR] {
+        assert_eq!(
+            errno(mq_open(&kernel, &caller, b"", flags, None)),
+            Errno::ENOENT
+        );
+    }
+    put(&memory, 0x800, b"\0");
+    assert_eq!(
+        errno(block_on(kernel.mq_unlink(&caller, GuestPtr::new(0x800)))),
+        Errno::ENOENT
+    );
+}
+
 #[test]
 fn only_the_owner_root_or_cap_fowner_unlink_a_posix_queue() {
     let (kernel, root, memory_root) = super::cred::machine_as(0, 0);
