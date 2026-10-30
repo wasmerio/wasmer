@@ -11,9 +11,9 @@ use crate::types::unwind::CompiledFunctionUnwindInfoReference;
 /// Represents a registry of function unwind information for System V ABI.
 pub struct UnwindRegistry {
     published: bool,
-    #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
+    eh_frames_published: bool,
     registrations: Vec<usize>,
-    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    #[cfg(target_os = "macos")]
     compact_unwind_mgr: compact_unwind::CompactUnwindManager,
 }
 
@@ -25,7 +25,7 @@ unsafe extern "C" {
 }
 
 // Apple-specific unwind functions - the following is taken from LLVM's libunwind itself.
-#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+#[cfg(target_os = "macos")]
 mod compact_unwind;
 
 /// There are two primary unwinders on Unix platforms: libunwind and libgcc.
@@ -71,9 +71,9 @@ impl UnwindRegistry {
 
         Self {
             published: false,
-            #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
+            eh_frames_published: false,
             registrations: Vec::new(),
-            #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+            #[cfg(target_os = "macos")]
             compact_unwind_mgr: Default::default(),
         }
     }
@@ -94,9 +94,8 @@ impl UnwindRegistry {
     }
 
     /// Publishes all registered functions (coming from .eh_frame sections).
-    #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
     pub fn publish_eh_frame(&mut self, eh_frame: Option<&[u8]>) -> Result<(), String> {
-        if self.published {
+        if self.eh_frames_published {
             return Err("unwind registry has already been published".to_string());
         }
 
@@ -106,13 +105,12 @@ impl UnwindRegistry {
             }
         }
 
-        self.published = true;
+        self.eh_frames_published = true;
 
         Ok(())
     }
 
     #[allow(clippy::cast_ptr_alignment)]
-    #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
     unsafe fn register_eh_frames(&mut self, eh_frame: &[u8]) {
         {
             // Validate that the `.eh_frame` is well-formed before registering it.
@@ -176,6 +174,21 @@ impl UnwindRegistry {
         }
     }
 
+    #[cfg(target_os = "macos")]
+    pub(crate) fn publish_unwind_info(
+        &mut self,
+        image_range: core::ops::Range<usize>,
+        section: &[u8],
+    ) -> Result<(), String> {
+        if self.published {
+            return Err("unwind registry has already been published".to_string());
+        }
+        self.compact_unwind_mgr
+            .publish_unwind_info(image_range, section);
+        self.published = true;
+        Ok(())
+    }
+
     #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
     pub(crate) fn publish_compact_unwind(
         &mut self,
@@ -215,8 +228,7 @@ extern "C" fn atexit_handler() {
 
 impl Drop for UnwindRegistry {
     fn drop(&mut self) {
-        if self.published {
-            #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
+        if self.published || self.eh_frames_published {
             // libgcc stores the frame entries as a linked list in decreasing sort order
             // based on the PC value of the registered entry.
             //
@@ -238,7 +250,7 @@ impl Drop for UnwindRegistry {
                 }
             }
 
-            #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+            #[cfg(target_os = "macos")]
             {
                 if EXIT_CALLED.load(Ordering::SeqCst) {
                     return;
