@@ -633,6 +633,9 @@ them as descriptions, not locations.
 
 ## 7. Decisions
 
+Open decisions that need the owner (page protections, PROT_EXEC, memory accounting, the two
+changes in wasmer's core crates) are written up in [plan/open-decisions.md](plan/open-decisions.md).
+
 Decided by the user on 2026-10-27:
 
 - wasix1 `0777` create mode (`f71e0b1a38b`, train 5): kept for now. A WP7 follow-up finds what v1
