@@ -585,6 +585,52 @@ fn existing_overlay_supplies_copy_on_write_without_new_storage() {
     });
 }
 
+#[test]
+fn removed_lower_overlay_directory_cannot_be_repopulated_through_a_held_node() {
+    block_on(async {
+        for replace in [false, true] {
+            let lower = backing();
+            lower
+                .root()
+                .create(b"gone", &new(NewKind::Directory))
+                .await
+                .unwrap();
+            let overlay = OverlayFs::new(Some(backing()), vec![lower]);
+            let info = overlay.info();
+            let provider = LocalProvider::new(overlay);
+            let fs = WebFs::new(provider.clone(), info, MEMORY_CAPABILITIES)
+                .await
+                .unwrap();
+            let root = fs.root();
+            let held = root.lookup(b"gone").await.unwrap();
+            if replace {
+                root.create(b"replacement", &new(NewKind::Directory))
+                    .await
+                    .unwrap();
+                root.rename(b"replacement", &root, b"gone", RenameMode::Replace)
+                    .await
+                    .unwrap();
+            } else {
+                root.rmdir(b"gone").await.unwrap();
+            }
+            assert_eq!(provider.removed_directories(), 1);
+            assert_eq!(
+                held.create(b"resurrected", &new(NewKind::Regular))
+                    .await
+                    .err(),
+                Some(Errno::ENOENT)
+            );
+            if replace {
+                assert_ne!(root.lookup(b"gone").await.unwrap().ino(), held.ino());
+            } else {
+                assert_eq!(root.lookup(b"gone").await.err(), Some(Errno::ENOENT));
+            }
+            drop(held);
+            assert_eq!(provider.removed_directories(), 0);
+        }
+    });
+}
+
 struct Scripted {
     replies: Mutex<VecDeque<FsResult<Reply>>>,
     releases: Mutex<Vec<Resource>>,

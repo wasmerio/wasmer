@@ -1,7 +1,7 @@
 //! Native-testable provider using existing drivers, also usable in a browser runtime heap.
 
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     sync::{
         Arc, Mutex,
         atomic::{AtomicU64, Ordering},
@@ -38,6 +38,9 @@ pub struct LocalProvider {
     namespace: futures::lock::Mutex<()>,
     /// Directory ancestry, learned as directories are acquired, for lock_rename's trap check.
     parents: Mutex<HashMap<u64, u64>>,
+    /// S_DEAD belongs to the provider identity, not to a backing layer's nlink. A whiteout
+    /// can hide a lower directory without unlinking that lower inode at all.
+    removed: Mutex<HashSet<(u64, u32)>>,
     version: AtomicU64,
 }
 
@@ -62,6 +65,11 @@ impl LocalProvider {
         (objects.nodes.len(), objects.handles.len())
     }
 
+    #[cfg(test)]
+    pub(crate) fn removed_directories(&self) -> usize {
+        self.removed.lock().unwrap().len()
+    }
+
     pub fn new(fs: Arc<dyn Filesystem>) -> Arc<Self> {
         let root = fs.root().ino();
         Arc::new(Self {
@@ -69,6 +77,7 @@ impl LocalProvider {
             objects: Mutex::new(Objects::default()),
             namespace: futures::lock::Mutex::new(()),
             parents: Mutex::new(HashMap::from([(root, root)])),
+            removed: Mutex::new(HashSet::new()),
             version: AtomicU64::new(0),
         })
     }
@@ -138,7 +147,12 @@ impl LocalProvider {
         }
         // S_DEAD on each VFS's inode does not cover removal by a different VFS client.
         // Linux fs/namei.c:may_create_dentry rejects creation in an unlinked directory.
-        if node.getattr().await?.nlink == 0 {
+        let removed = self
+            .removed
+            .lock()
+            .unwrap()
+            .contains(&(node.ino(), node.generation()));
+        if removed || node.getattr().await?.nlink == 0 {
             return Err(Errno::ENOENT);
         }
         Ok(node)
@@ -150,6 +164,19 @@ impl LocalProvider {
                 .lock()
                 .unwrap()
                 .insert(node.ino(), parent.ino());
+        }
+    }
+
+    fn removed(&self, node: &Arc<dyn Node>) {
+        self.parents.lock().unwrap().remove(&node.ino());
+        let objects = self.objects.lock().unwrap();
+        // No tombstone is needed unless a client can still use the removed directory.
+        // Linux fs/namei.c:vfs_rmdir and vfs_rename mark the held inode S_DEAD.
+        if objects.nodes.values().any(|held| held.ino() == node.ino()) {
+            self.removed
+                .lock()
+                .unwrap()
+                .insert((node.ino(), node.generation()));
         }
     }
 
@@ -214,7 +241,7 @@ impl LocalProvider {
             if mode == RenameMode::Exchange {
                 self.parent(target, &dir);
             } else if target.file_type() == FileType::Directory {
-                self.parents.lock().unwrap().remove(&target.ino());
+                self.removed(target);
             }
         }
         self.parent(&source, &new_dir);
@@ -284,7 +311,7 @@ impl LocalProvider {
                 let dir = self.directory(id).await?;
                 let node = dir.lookup(&name).await?;
                 dir.rmdir(&name).await?;
-                self.parents.lock().unwrap().remove(&node.ino());
+                self.removed(&node);
                 Reply::Done
             }
             Request::Rename(id, name, new_dir, new_name, mode) => {
@@ -373,7 +400,19 @@ impl Provider for LocalProvider {
         // Drop objects outside the registry lock; their destructors can release other resources.
         match resource {
             Resource::Node(id) => {
-                let node = self.objects.lock().unwrap().nodes.remove(&id);
+                let node = {
+                    let mut objects = self.objects.lock().unwrap();
+                    let node = objects.nodes.remove(&id);
+                    if let Some(node) = &node
+                        && !objects.nodes.values().any(|held| held.ino() == node.ino())
+                    {
+                        self.removed
+                            .lock()
+                            .unwrap()
+                            .remove(&(node.ino(), node.generation()));
+                    }
+                    node
+                };
                 drop(node);
             }
             Resource::Handle(id) => {
