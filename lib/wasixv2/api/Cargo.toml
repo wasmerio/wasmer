@@ -17,6 +17,7 @@ wasixv2-trace = { path = "../trace" }
 wasixv2-record = { path = "../record" }
 wasixv2-policy = { path = "../policy" }
 wasixv2-host = { path = "../host" }
+wasixv2-wait = { path = "../wait", optional = true }
 wasixv2-vfs = { path = "../vfs" }
 wasixv2-vfs-mem = { path = "../vfs-mem" }
 wasixv2-vfs-host = { path = "../vfs-host" }
@@ -25,6 +26,9 @@ wasixv2-vfs-package = { path = "../vfs-package" }
 wasixv2-vnet = { path = "../vnet" }
 wasixv2-vnet-host = { path = "../vnet-host", optional = true }
 wasixv2-vnet-switch = { path = "../vnet-switch" }
+wasixv2-vnet-web = { path = "../vnet-web", optional = true }
+wasixv2-vfs-web = { path = "../vfs-web", optional = true }
+wasixv2-stdio-web = { path = "../stdio-web", optional = true }
 wasixv2-kernel = { path = "../kernel" }
 wasixv2-pages = { path = "../pages" }
 wasixv2-checkpoint = { path = "../checkpoint" }
@@ -37,13 +41,23 @@ thiserror.workspace = true
 tracing.workspace = true
 wasmparser.workspace = true
 webc.workspace = true
+futures-util = { workspace = true, optional = true }
+async-trait.workspace = true
+wasm-bindgen = { workspace = true, optional = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
 
 [dev-dependencies]
+wat.workspace = true
+
+[target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
 tokio = { workspace = true, features = ["macros", "rt", "sync", "time"] }
 wasmer = { path = "../../api", version = "=7.5.0", default-features = false, features = [
   "cranelift",
 ] }
-wat.workspace = true
+
+[target.'cfg(target_arch = "wasm32")'.dev-dependencies]
+wasm-bindgen-test.workspace = true
 
 [features]
 default = ["sys", "tokio", "host-network", "wasix1"]
@@ -69,3 +83,23 @@ tokio = ["wasixv2-host/tokio"]
 host-network = ["dep:wasixv2-vnet-host"]
 # `WebHost`, for embedders on a JavaScript event loop; pair with `js` on wasm32.
 web = ["wasixv2-host/web"]
+# Full shared-runtime worker profile. Disable defaults when targeting the browser.
+browser-drivers = [
+  "dep:wasixv2-vnet-web",
+  "dep:wasixv2-vfs-web",
+  "dep:wasixv2-stdio-web",
+]
+browser = [
+  "js",
+  "web",
+  "wasixv2-host/browser",
+  "browser-drivers",
+  "dep:wasixv2-wait",
+  "dep:futures-util",
+  "dep:wasm-bindgen",
+]
+
+[[example]]
+name = "browser-facade"
+crate-type = ["cdylib"]
+required-features = ["browser"]
