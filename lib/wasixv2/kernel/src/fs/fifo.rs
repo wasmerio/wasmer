@@ -29,7 +29,7 @@ pub(crate) struct FifoFile {
 /// is `ENXIO`; `O_RDWR` never waits. A signal interrupts the wait. None of this applies to a
 /// pipe's inode (`is_pipe`): its other side is whatever the pipe has now, so a reader after
 /// the last writer sees end of file and a writer after the last reader `EPIPE`.
-/// A pipe made for it holds `capacity` bytes.
+/// A new pipe uses the supplied budget; an existing bound pipe is reused.
 pub(crate) async fn open(
     file: File,
     flags: OpenFlags,
@@ -38,7 +38,11 @@ pub(crate) async fn open(
 ) -> SysResult<FifoFile> {
     let inode = file.path.dentry.inode().clone();
     let pipe = inode
-        .try_bound_or_bind(|| Ok(fifo_pipe(budget()?)))?
+        .try_bound_or_bind(|| {
+            // fs/pipe.c fifo_open maps alloc_pipe_info failure to ENOMEM,
+            // even when anonymous pipe2 would report ENFILE for the quota.
+            Ok(fifo_pipe(budget().map_err(|_| Errno::ENOMEM)?))
+        })?
         .downcast::<Pipe>()
         .map_err(|_| Errno::ENXIO)?;
     let is_pipe = file.path.dentry.sb().info.magic == PIPEFS_MAGIC;
