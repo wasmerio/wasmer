@@ -6,6 +6,9 @@ use wasm_bindgen_futures::JsFuture;
 use wasm_bindgen_test::wasm_bindgen_test;
 use wasmer::{Function, Instance, Module, Store, TypedFunction, imports};
 
+mod common;
+use common::Exit;
+
 #[wasm_bindgen_test]
 async fn typed_async_host_and_guest_calls_use_jspi() {
     let mut store = Store::default();
@@ -40,18 +43,6 @@ async fn typed_async_host_and_guest_calls_use_jspi() {
     let result = compute.call_async(&store.into_async(), 41).await.unwrap();
     assert_eq!(result, 42);
 }
-
-/// An exit, as WASIX reports one: an error of the embedder's own type.
-#[derive(Debug)]
-struct Exit(i32);
-
-impl std::fmt::Display for Exit {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "exited with {}", self.0)
-    }
-}
-
-impl std::error::Error for Exit {}
 
 /// Calls a guest whose import is an async host function that fails with
 /// `Exit(code)`, after awaiting a JS promise or at once. (The guest suspends

@@ -266,22 +266,24 @@ impl From<Trap> for RuntimeError {
     }
 }
 
+/// Lossy: keeps only the error's text, so a `RuntimeError` built back from
+/// this value can no longer be downcast to the original error.
+///
+/// A host function's error must be thrown or rejected with `trap_value`
+/// instead, which keeps it.
 impl From<RuntimeError> for wasm_bindgen::JsValue {
     fn from(value: RuntimeError) -> Self {
         Self::from(value.to_string())
     }
 }
 
-pub(crate) fn raise(error: Box<dyn std::error::Error + Send + Sync>) -> ! {
-    let error = Trap::user(error);
-    let js_error: JsValue = error.into();
-    wasm_bindgen::throw_val(js_error)
+pub(crate) fn raise(error: Box<dyn Error + Send + Sync>) -> ! {
+    wasm_bindgen::throw_val(trap_value(error))
 }
 
 /// The value a host function's error is thrown or rejected with: a [`Trap`],
 /// which `RuntimeError::from(JsValue)` turns back into the same error, so
-/// the caller can still downcast it (to a WASIX exit, say). The error's text,
-/// which `From<RuntimeError> for JsValue` gives, would lose its type.
-pub(crate) fn into_js_value(error: RuntimeError) -> JsValue {
-    Trap::user(Box::new(error)).into()
+/// the caller can still downcast it (to a WASIX exit, say).
+pub(crate) fn trap_value(error: impl Into<Box<dyn Error + Send + Sync>>) -> JsValue {
+    Trap::user(error.into()).into()
 }
