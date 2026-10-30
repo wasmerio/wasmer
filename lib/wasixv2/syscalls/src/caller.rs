@@ -38,23 +38,23 @@ pub fn current_task() -> Option<TaskId> {
 /// `future` run as `task`'s: while it is polled, [`current_task`] is `task`. The kernel's
 /// syscall entry scopes each call, including calls from a vfork child on its parent's instance.
 pub fn as_task<F: std::future::Future>(task: TaskId, future: F) -> AsTask<F> {
-    AsTask { task, future }
+    AsTask {
+        task,
+        future: Box::pin(future),
+    }
 }
 
-pin_project_lite::pin_project! {
-    /// See [`as_task`]. The scope owns its pinned future without a heap allocation.
-    pub struct AsTask<F> {
-        task: TaskId,
-        #[pin]
-        future: F,
-    }
+/// See [`as_task`]. Large syscall futures stay behind a stable, compact pointer.
+pub struct AsTask<F> {
+    task: TaskId,
+    future: std::pin::Pin<Box<F>>,
 }
 
 impl<F: std::future::Future> std::future::Future for AsTask<F> {
     type Output = F::Output;
 
     fn poll(
-        self: std::pin::Pin<&mut Self>,
+        mut self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<F::Output> {
         struct Restore(Option<TaskId>);
@@ -63,11 +63,10 @@ impl<F: std::future::Future> std::future::Future for AsTask<F> {
                 CURRENT.with(|current| current.set(self.0));
             }
         }
-        let this = self.project();
         // Linux include/linux/sched.h:current names the executing task. Keep
         // that scope through nesting and restore it even when a poll unwinds.
-        let _restore = Restore(CURRENT.with(|current| current.replace(Some(*this.task))));
-        this.future.poll(cx)
+        let _restore = Restore(CURRENT.with(|current| current.replace(Some(self.task))));
+        self.future.as_mut().poll(cx)
     }
 }
 
