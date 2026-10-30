@@ -1,0 +1,161 @@
+name: WASIX v2 browser
+on:
+  pull_request:
+    paths:
+      - "lib/wasixv2/**"
+      - "lib/api/**"
+      - "tests/wasixv2"
+      - ".github/workflows/wasixv2-browser.yaml"
+  push:
+    branches: [feat/wasixv2, wasixv2/b11-harness]
+  workflow_dispatch:
+    inputs:
+      bundles_run_id:
+        description: "Integration run containing source-built wasixv2-browser-fixtures and wasixv2-browser-runtime artifacts"
+        required: true
+        type: string
+permissions:
+  contents: read
+  actions: read
+jobs:
+  adapter:
+    name: Browser adapter (SAB, isolated, no JSPI)
+    runs-on: ${{ github.event_name == 'pull_request' && 'aux-pub-16cpu-amd64' || 'aux-pub-trusted-16cpu-amd64' }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: tests/wasixv2/browser/package-lock.json
+      - uses: ./.github/actions/load_toolchain
+        id: load_toolchain
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ steps.load_toolchain.outputs.rust_toolchain }}
+      - name: Check native exporter tooling (unit tests only)
+        env:
+          CARGO_INCREMENTAL: "0"
+          CARGO_BUILD_JOBS: "3"
+          RUST_TEST_THREADS: "3"
+          CARGO_TARGET_DIR: ${{ github.workspace }}/target/browser-adapter
+        shell: bash
+        run: |
+          git -C tests/wasixv2 submodule update --init upstream/ltp
+          nice -n 19 taskset -c 4-7 cargo test --manifest-path tests/wasixv2/Cargo.toml -p wasixv2-tests --locked -j3
+          export RUSTFLAGS="$(sed -n 's/^lint-packages: RUSTFLAGS += \(.*\) # TODO:.*/\1/p' Makefile)"
+          nice -n 19 taskset -c 4-7 cargo clippy --manifest-path tests/wasixv2/Cargo.toml -p wasixv2-tests --all-targets --locked -j3 -- -D clippy::all
+          nice -n 19 taskset -c 4-7 cargo fmt --manifest-path tests/wasixv2/Cargo.toml --all --check
+      - name: Install pinned browser tooling
+        working-directory: tests/wasixv2/browser
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+      - name: Check adapter and failure paths in real Chromium
+        working-directory: tests/wasixv2/browser
+        env:
+          BROWSER_TEST_ARTIFACTS: artifacts/regressions
+        run: |
+          mkdir -p artifacts
+          nice -n 19 taskset -c 4-7 npm test > artifacts/regressions.log 2>&1
+      - name: Source-built transport smoke (infrastructure only)
+        working-directory: tests/wasixv2/browser
+        run: nice -n 19 taskset -c 4-7 node run.mjs --smoke --artifacts artifacts/transport
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: wasixv2-browser-adapter-results
+          path: tests/wasixv2/browser/artifacts
+          if-no-files-found: error
+  runtime:
+    name: B2 threaded debug smoke (SAB, isolated, no JSPI)
+    # B2 supplies build.sh; B8 will extend the bundle with the fixture adapter.
+    continue-on-error: true
+    runs-on: ${{ github.event_name == 'pull_request' && 'aux-pub-16cpu-amd64' || 'aux-pub-trusted-16cpu-amd64' }}
+    timeout-minutes: 30
+    env:
+      CARGO_INCREMENTAL: "0"
+      CARGO_BUILD_JOBS: "3"
+      CARGO_TARGET_DIR: ${{ github.workspace }}/target/browser-runtime
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Install B2's pinned nightly and matching bindgen CLI
+        shell: bash
+        run: |
+          test -f lib/wasixv2/host/tests/browser/build.sh
+          rustup toolchain install nightly-2026-08-08 --profile minimal --component rust-src --target wasm32-unknown-unknown
+          version=$(sed -n '/^name = "wasm-bindgen"$/{n;s/version = "\(.*\)"/\1/p;}' Cargo.lock)
+          curl --fail --location --retry 3 "https://github.com/wasm-bindgen/wasm-bindgen/releases/download/${version}/wasm-bindgen-${version}-x86_64-unknown-linux-musl.tar.gz" -o "$RUNNER_TEMP/bindgen.tar.gz"
+          tar -xzf "$RUNNER_TEMP/bindgen.tar.gz" -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/wasm-bindgen-${version}-x86_64-unknown-linux-musl" >> "$GITHUB_PATH"
+      - name: Link and inspect B2's debug runtime artifact
+        run: bash lib/wasixv2/host/tests/browser/build.sh > browser-build.log 2>&1
+      - name: Reuse B2 smoke through Playwright
+        working-directory: tests/wasixv2/browser
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+          nice -n 19 taskset -c 4-7 node run.mjs --smoke --b2-smoke --runtime "$CARGO_TARGET_DIR/browser" --artifacts artifacts/b2
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: wasixv2-browser-runtime-results
+          path: |
+            browser-build.log
+            tests/wasixv2/browser/artifacts
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: wasixv2-browser-runtime
+          path: target/browser-runtime/browser
+          if-no-files-found: error
+  fixtures:
+    name: Reviewed browser fixture subset (B8 integration)
+    # Explicitly dispatched until integration supplies the source-built bundles on PRs.
+    # Never turn missing runtime capabilities into per-test skips or native xfails.
+    if: github.event_name == 'workflow_dispatch'
+    continue-on-error: true
+    runs-on: aux-pub-trusted-16cpu-amd64
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - uses: actions/download-artifact@v4
+        with:
+          name: wasixv2-browser-fixtures
+          run-id: ${{ inputs.bundles_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: browser-fixtures
+      - uses: actions/download-artifact@v4
+        with:
+          name: wasixv2-browser-runtime
+          run-id: ${{ inputs.bundles_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: browser-runtime
+      - name: Run every selected configuration
+        working-directory: tests/wasixv2/browser
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+          nice -n 19 taskset -c 4-7 node run.mjs --manifest "$GITHUB_WORKSPACE/browser-fixtures/manifest.json" --runtime "$GITHUB_WORKSPACE/browser-runtime" --artifacts artifacts/fixtures
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: wasixv2-browser-fixture-results
+          path: |
+            tests/wasixv2/browser/artifacts
+            browser-fixtures
+          if-no-files-found: error
