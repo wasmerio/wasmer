@@ -347,3 +347,57 @@ fn unbound_udp_source_port_and_reuseport_listener_survive_peer_routing() {
     let _ = client.connect(addr("192.0.2.11:8080"));
     assert!(second.accept().is_ok());
 }
+
+#[test]
+fn discovery_excludes_unreachable_freebind_and_wrong_family_listeners() {
+    let sw = switch();
+    let net = sw.network("192.0.2.10".parse().unwrap(), 24).unwrap();
+    let nonlocal = socket(&*net, Domain::Inet, SocketKind::Stream);
+    nonlocal
+        .set_option(
+            SocketLevel::SOL_IP.0,
+            IpOption::IP_FREEBIND.0,
+            &1i32.to_le_bytes(),
+        )
+        .unwrap();
+    nonlocal.bind(addr("192.0.2.99:8000"), false).unwrap();
+    nonlocal.listen(1).unwrap();
+    let v6only = socket(&*net, Domain::Inet6, SocketKind::Stream);
+    v6only
+        .set_option(
+            SocketLevel::SOL_IPV6.0,
+            wasixv2_vnet::opts::IPV6_V6ONLY,
+            &1i32.to_le_bytes(),
+        )
+        .unwrap();
+    v6only.bind(addr("[::]:8001"), false).unwrap();
+    v6only.listen(1).unwrap();
+    assert!(sw.listeners().is_empty());
+    let local = socket(&*net, Domain::Inet, SocketKind::Stream);
+    local.bind(addr("0.0.0.0:8002"), false).unwrap();
+    local.listen(1).unwrap();
+    assert_eq!(sw.listeners().len(), 1);
+    let index = net
+        .interfaces()
+        .into_iter()
+        .find(|i| i.name == "eth0")
+        .unwrap()
+        .index;
+    net.del_address(
+        index,
+        &wasixv2_vnet::iface::AddrMatch {
+            v6: false,
+            local: Some("192.0.2.10".parse().unwrap()),
+            address: None,
+            prefix_len: 24,
+            label: None,
+        },
+    )
+    .unwrap();
+    assert!(
+        sw.listeners().is_empty(),
+        "a removed address is no longer reachable"
+    );
+
+    assert!(sw.backend("::ffff:192.0.2.10".parse().unwrap()).is_err());
+}
