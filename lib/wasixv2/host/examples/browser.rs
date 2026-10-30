@@ -3,6 +3,7 @@
 
 #[cfg(target_arch = "wasm32")]
 mod wasm {
+    use std::time::Duration;
     use std::{
         cell::{Cell, RefCell},
         sync::{
@@ -12,7 +13,7 @@ mod wasm {
         task::{Poll, Waker},
     };
     use wasixv2_host::{
-        Executor,
+        BrowserHost, ByteSource, Executor, Host, WebHost,
         browser::{BrowserExecutor, ObjectHooks, block_on, set_object_hooks},
     };
     use wasm_bindgen::prelude::*;
@@ -84,6 +85,184 @@ mod wasm {
         waker: Mutex<Option<Waker>>,
         released: AtomicBool,
         waiters: Mutex<Vec<Waker>>,
+    }
+
+    /// This runs on a synchronously parked root and B2 service/task workers, with
+    /// no JSPI. Timers must continue independently of all of those event loops.
+    #[wasm_bindgen]
+    pub fn timer_smoke() -> u32 {
+        let executor = BrowserExecutor::new(2, 2).unwrap();
+        let host = BrowserHost::new(executor.clone()).unwrap();
+        let service = host.services();
+        let before = host.monotonic();
+        let shared = Arc::new(Shared::default());
+        let busy = shared.clone();
+        let busy_host = host.clone();
+        executor
+            .spawn_thread(Box::new(move || {
+                Box::pin(async move {
+                    // The worker's time origin is later than root's, but its clock cannot
+                    // go backwards. Busy Rust wasm occupies its event loop like a guest.
+                    assert!(busy_host.monotonic() >= before);
+                    while !busy.released.load(Ordering::Acquire) {
+                        std::hint::spin_loop();
+                    }
+                    busy.count.fetch_add(1, Ordering::Release);
+                    let waker = busy.waker.lock().unwrap().take();
+                    if let Some(waker) = waker {
+                        waker.wake();
+                    }
+                })
+            }))
+            .unwrap();
+        #[derive(Default)]
+        struct Input {
+            ready: AtomicBool,
+            waker: Mutex<Option<Waker>>,
+        }
+        impl ByteSource for Input {
+            fn poll_read(
+                &self,
+                cx: &mut std::task::Context<'_>,
+                buf: &mut [u8],
+            ) -> Poll<std::io::Result<usize>> {
+                if buf.is_empty() {
+                    return Poll::Ready(Ok(0));
+                }
+                *self.waker.lock().unwrap() = Some(cx.waker().clone());
+                if self.ready.swap(false, Ordering::AcqRel) {
+                    buf[0] = 3; // raw Ctrl-C; line discipline/signals belong to the kernel.
+                    Poll::Ready(Ok(1))
+                } else {
+                    Poll::Pending
+                }
+            }
+        }
+        let input = Arc::new(Input::default());
+        let read_input = input.clone();
+        let done = shared.clone();
+        executor
+            .services()
+            .spawn_thread(Box::new(move || {
+                Box::pin(async move {
+                    let mut byte = [0];
+                    assert_eq!(
+                        std::future::poll_fn(|cx| read_input.poll_read(cx, &mut byte))
+                            .await
+                            .unwrap(),
+                        1
+                    );
+                    assert_eq!(byte, [3]);
+                    done.released.store(true, Ordering::Release);
+                })
+            }))
+            .unwrap();
+        executor
+            .services()
+            .spawn_thread(Box::new(move || {
+                Box::pin(async move {
+                    let start = service.monotonic();
+                    service
+                        .sleep_until_range(
+                            start + Duration::from_millis(30),
+                            Duration::from_millis(10),
+                        )
+                        .await;
+                    assert!(service.monotonic() >= start + Duration::from_millis(30));
+                    input.ready.store(true, Ordering::Release);
+                    let waker = input.waker.lock().unwrap().take();
+                    if let Some(waker) = waker {
+                        waker.wake();
+                    }
+                })
+            }))
+            .unwrap();
+        block_on(std::future::poll_fn(|cx| {
+            *shared.waker.lock().unwrap() = Some(cx.waker().clone());
+            if shared.count.load(Ordering::Acquire) == 1 {
+                Poll::Ready(())
+            } else {
+                Poll::Pending
+            }
+        }));
+        block_on(async {
+            let deadline = host.monotonic() + Duration::from_millis(10);
+            host.sleep_until(deadline).await;
+            assert!(host.monotonic() >= deadline);
+            // The first poll registers; dropping synchronously removes the far alarm.
+            let mut far = host.sleep(Duration::from_secs(3_000_000));
+            assert!(
+                far.as_mut()
+                    .poll(&mut std::task::Context::from_waker(Waker::noop()))
+                    .is_pending()
+            );
+            drop(far);
+            // Sending cancellation and a new earlier sleep cannot revive the old entry.
+            host.sleep(Duration::from_millis(1)).await;
+            host.sleep_until(Duration::ZERO).await;
+        });
+        let mut bytes = vec![0; 65536 * 2 + 17];
+        host.random(&mut bytes);
+        assert!(bytes.iter().any(|byte| *byte != 0));
+        assert!(bytes[65536 * 2..].iter().any(|byte| *byte != 0));
+        assert!(host.thread_cpu_clock().is_none());
+        assert!(host.thread_cpu_time().is_none());
+        // Exercise simple WebHost cancellation on this worker without awaiting its JS loop.
+        let roots = wasm_bindgen::externref_heap_live_count();
+        let mut local = WebHost.sleep(Duration::from_secs(3600));
+        assert!(
+            local
+                .as_mut()
+                .poll(&mut std::task::Context::from_waker(Waker::noop()))
+                .is_pending()
+        );
+        drop(local);
+        assert_eq!(wasm_bindgen::externref_heap_live_count(), roots);
+        1
+    }
+
+    #[wasm_bindgen]
+    pub fn sctp_smoke() -> u32 {
+        use wasixv2_abi::{Errno, MsgFlags, SctpOption, SocketLevel};
+        use wasixv2_vnet::{Domain, Net, NetConfig, Network, SendMsg, SocketKind};
+        let net = Net::new(NetConfig::default(), None);
+        let listener = net
+            .socket(Domain::Inet, SocketKind::SeqPacket, 132, 1)
+            .unwrap();
+        let client = net
+            .socket(Domain::Inet, SocketKind::SeqPacket, 132, 1)
+            .unwrap();
+        let address = "127.0.0.1:5000".parse().unwrap();
+        listener.bind(address, true).unwrap();
+        listener.listen(4).unwrap();
+        client
+            .set_option(
+                SocketLevel::SOL_SCTP.0,
+                SctpOption::SCTP_AUTOCLOSE.0,
+                &1u32.to_le_bytes(),
+            )
+            .unwrap();
+        assert_eq!(client.connect(address), Err(Errno::EINPROGRESS));
+        let before = client.sctp().unwrap().autoclose_expire().unwrap();
+        assert!(before <= Duration::from_secs(1) && !before.is_zero());
+        assert_eq!(
+            client.send(SendMsg {
+                data: b"sctp",
+                to: Some(address),
+                flags: MsgFlags(0),
+                control: &[],
+                net_raw: false,
+                now: Duration::ZERO,
+            }),
+            Ok(4)
+        );
+        let mut buffer = [0; 4];
+        assert_eq!(listener.recv(&mut buffer, MsgFlags(0)).unwrap().len, 4);
+        assert_eq!(&buffer, b"sctp");
+        let host = BrowserHost::new(BrowserExecutor::new(1, 1).unwrap()).unwrap();
+        block_on(host.sleep(Duration::from_millis(1050)));
+        assert_eq!(client.sctp().unwrap().autoclose_expire(), None);
+        1
     }
 
     #[wasm_bindgen]

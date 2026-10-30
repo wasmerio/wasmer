@@ -13,6 +13,8 @@ mod timer;
 mod tokio_host;
 #[cfg(feature = "web")]
 mod web_host;
+#[cfg(feature = "web")]
+mod web_timer;
 
 use std::{
     future::Future,
@@ -26,6 +28,8 @@ use std::{
 #[cfg(feature = "tokio")]
 pub use tokio_host::TokioHost;
 use wasixv2_pages::SharedPages;
+#[cfg(feature = "browser")]
+pub use web_host::BrowserHost;
 #[cfg(feature = "web")]
 pub use web_host::WebHost;
 

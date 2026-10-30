@@ -49,7 +49,7 @@ on every worker before termination. Removing the std hook makes that test fail.
 
 ## Integration boundary
 
-Serve `bootstrap.js`, `coordinator.js`, and `worker.js` as ES modules alongside the
+Serve `bootstrap.js`, `coordinator.js`, `worker.js`, and `timer-driver.js` as ES modules alongside the
 embedding crate's wasm-bindgen output. On the page, asynchronously call:
 
 ```js
@@ -95,7 +95,7 @@ sequence **before** polling/registering and use that snapshot to park after Pend
 
 Promises, fetch, module instantiation and JS timers must finish before dispatch or
 run on independent I/O resources. A blocking service ThreadStart is not a JS event
-loop: do not await WebHost's setTimeout future there. B4/B5/B6/B10 own those drivers.
+loop: do not await WebHost's setTimeout future there. B4 supplies the timer driver below; B5/B6/B10 supply the remaining I/O resources.
 Guest futexes remain kernel futexes; runtime parking words are never guest addresses.
 Linux authorities for the ordering are `kernel/sched/wait.c:prepare_to_wait_event`,
 `kernel/sched/core.c:try_to_wake_up`, and `kernel/kthread.c:kthread_create_on_node`.
@@ -133,7 +133,59 @@ shutdown and page heartbeat. Native tests cover wake-before-wait, ownership,
 capacity, nested local drives and bounded queues; Node tests cover coordinator races.
 
 This is not a full guest/facade parity result. B3 supplies guest/foreign memory
-operations; B4 supplies worker-safe timers; B8 wires Host views and engine hooks;
+operations; B4 supplies worker-safe timers and SCTP clocks; B8 wires Host views and engine hooks;
 B10 connects synchronous guest imports. Actual kernel timer/TTY end-to-end runs,
 guest signals/fork/I/O, additional browsers, and browser CI belong to those packages
 and B11. No full wasixv2 suite is needed to run this host harness.
+
+
+## Browser clocks and deadlines (B4)
+
+Construct `BrowserHost::new(executor)` on a bootstrapped runtime worker; use this
+host for execution and its `.services()` view for the kernel. Both views share
+B2's pool and clocks but service ThreadStarts have reserved capacity and fail hard
+on admission failure. `WebHost` remains a single-event-loop host; its sleep must
+not be awaited on a synchronously parked worker.
+
+Bootstrap now always creates one additional `timer` worker before `ready`, outside
+both the task and service admission limits. It instantiates the same runtime heap
+with independent TLS/stack, remains on its JS event loop, and never drives guests
+or parks on a syscall future. It owns one setTimeout alarm; its callbacks call the exported
+`browser_timers_tick` and `browser_timers_pending`. Embeddings must retain those
+wasm-bindgen exports and serve `timer-driver.js` beside `worker.js`. A constructor,
+bootstrap, alarm or worker failure fails the runtime, with no current-worker
+fallback. Normal shutdown refuses live sleeps, clears the alarm and performs the
+same Rust/TLS cleanup as every other worker.
+
+All WebHost/BrowserHost reads normalize `performance.timeOrigin` and
+`performance.now()` onto a runtime-wide epoch and clamp backwards samples under
+a shared lock. Realtime is Date; guest clock changes remain Timekeeper policy.
+No native CPU clock is supplied, so existing active-wall-time accounting applies.
+SCTP uses web-time's browser Instant, normalized across workers in threaded builds;
+its relative idle durations are translated by the existing kernel timer hook.
+
+Rust owns a bounded (65536 live waits) queue ordered by hard expiry, with never
+reused u64 registration IDs. `sleep_until_range` expires the soft-ready prefix
+when an alarm runs, following Linux `kernel/time/hrtimer.c:__hrtimer_run_queues`
+and `include/linux/hrtimer.h:hrtimer_set_expires_range_ns`. No expiry precedes its
+soft deadline; browser throttling may delay observation. Alarm delays round up
+and split at 2^31-1 ms. Dropping a sleep synchronously removes its registration and
+requests alarm recomputation. A shared atomic pending bit coalesces insert/cancel
+storms to one queued rearm message. JS generation checks discard callbacks already
+queued at cancellation; late messages only inspect the current Rust queue.
+Wakers run and drop outside the queue lock, and publish B2's shared atomic wake
+state instead of calling another worker's wasm-bindgen task queue.
+
+Entropy fills use crypto.getRandomValues in at most 65536-byte chunks through a
+nonshared JS scratch array (Web Crypto rejects SAB views), then copy back into the
+runtime heap. Simple WebHost timers directly own and cancel their JS handle and
+Rust callback; canceled Promise/JsFuture callback cycles would leak Rust roots.
+
+Native fake-clock tests cover clock epochs/clamping, no-early/coalesced expiry,
+long-delay splitting, cancellation/late alarms, entropy chunking and reentrant
+Wakers. The real no-JSPI Chromium smoke checks a timer service while a task runs a
+busy Rust wasm loop and the root parks, a raw Ctrl-C ByteSource pump on a second
+reserved service worker, no-early waits, long-wait cancellation,
+large entropy requests, SCTP association/data/autoclose, empty timer shutdown and
+all worker TLS destructors. This is a host-service progress check; actual guest
+kernel timer/TTY signals require B7/B8/B10 integration and remain that lane's gate.
