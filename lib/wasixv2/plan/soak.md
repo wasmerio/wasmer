@@ -57,8 +57,12 @@ TokioHost weak references expire after shutdown/drop. `RETIRED` lines record
 same-process fd/thread/RSS after every machine. This supplements the long CLI
 run, since an OS process exit alone could hide machine-owned reference leaks.
 Keep it serialized with the soak/build/gates and within the same cgroup cap.
-Its compilation and runtime are pending; syntax/format checks alone are not a
-claimed lifetime result.
+Same-process result:32/32 full-workload machines PASS (`retirement-unit2.log`,
+EXIT0). Every Net and TokioHost weak reference expired. Retirement fds stayed11
+for all32; host threads stayed22 for the final16; RSS warmed from1085MiB to1363MiB
+and varied by only4KiB over the final4retirements. Raw rows are retained in
+`retirement-results.json`. This bounded check is separate from the required
+continuous two-hour curves.
 
 ## Bounded panic finding
 
@@ -92,7 +96,10 @@ explicitly reject observer-loop or sampling gaps>120s before classifying a guest
 stall. No guest deadline/assertion has been weakened, and this interval is not
 counted toward a successful two-hour result.
 
-Results: uninterrupted fixed-runtime full7200s confirmation pending. The analyzer
+Run03 uses small RAM-backed observer files under `/run/user/1000/v16soak-run03`
+and archives them into `logs/v16soak/run-03` when finished. The driver keeps its
+strict observer-gap guard. Uninterrupted fixed-runtime full7200s confirmation is
+pending. The analyzer
 `userland/tests/soak-results.py RESULT_DIRECTORY` verifies actual persistent
 runtime before writing `results.json`, reporting warm/late slopes, quantiles,
 fresh-process peaks and quiescent task counts. No clean two-hour curve is claimed
