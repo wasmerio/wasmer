@@ -14,7 +14,7 @@ if [ -d "$ROOT/python-src/Lib" ]; then
   args+=(--volume "$ROOT/python-lib:/python" --volume "$ROOT/python-src/Lib:/python/lib/python3.13" --env PYTHONHOME=/python)
 fi
 case $pkg in
-vim|htop) cmd=("$ROOT/bin/programs-pty" -- "$pkg");;
+vim|htop) rm -f "$ROOT/work/vim-result"; cmd=("$ROOT/bin/programs-pty" -- "$pkg");;
 python-*) cmd=("$ROOT/bin/bash" -- /tests/programs-11.sh "$pkg");;
 *) cmd=("$ROOT/bin/bash" -- /tests/programs-11.sh "$pkg");;
 esac

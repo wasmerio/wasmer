@@ -52,7 +52,7 @@ CONF
   ;;
 ffmpeg)
   ffmpeg -nostdin -hide_banner -f lavfi -i 'testsrc2=size=64x48:rate=10' -f lavfi -i 'sine=frequency=440:sample_rate=8000' -t 0.3 -c:v ffv1 -c:a pcm_s16le source.mkv > generate.log 2>&1
-  cat source.mkv | ffmpeg -nostdin -hide_banner -i pipe:0 -c:v mpeg2video -c:a mp2 -ar 16000 -f mpegts pipe:1 2> transcode.log | ffmpeg -nostdin -hide_banner -i pipe:0 -map 0:v -map 0:a -f null - > decode.log 2>&1
+  cat source.mkv | ffmpeg -nostdin -hide_banner -i pipe:0 -c:v mpeg2video -c:a mp2 -ar 16000 -f mpegts pipe:1 2> transcode.log | ffmpeg -nostdin -hide_banner -i pipe:0 -map 0:v -map 0:a -c:v ffv1 -c:a pcm_s16le -f null - > decode.log 2>&1
   grep 'video:' decode.log
   cp generate.log transcode.log decode.log /work/
   echo 'FFmpeg generated video+audio and pipe transcode/decode PASS'

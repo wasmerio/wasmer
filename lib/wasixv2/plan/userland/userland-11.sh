@@ -57,7 +57,7 @@ vim)
 static __typeof__(&tgetent) volatile symbol = &tgetent;
 int main(void) { return symbol == 0; }
 C
-  "$CC" -O2 -I"$PREFIX/include/ncursesw" "$ROOT/vim-termcap-probe.c" -L"$PREFIX/lib" -ltinfow -o "$ROOT/vim-termcap-probe.wasm"
+  "$CC" -O2 -I"$PREFIX/include" -I"$PREFIX/include/ncursesw" "$ROOT/vim-termcap-probe.c" -L"$PREFIX/lib" -ltinfow -o "$ROOT/vim-termcap-probe.wasm"
   "$WASIXV2_PROBE_CLI" run --compiler-threads 3 --no-tty "$ROOT/vim-termcap-probe.wasm"
   export ac_cv_func_tgetent=yes
   rm -f src/auto/osdef.h src/auto/config.cache
