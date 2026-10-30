@@ -1,0 +1,26 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>WASIX v2 browser embedding</title>
+<h1>WASIX v2 browser embedding</h1>
+<p>Serve this page and the source-built runtime with COOP/COEP. Supply a same-origin WASIX module URL.</p>
+<form>
+  <label>Module URL <input name="module" required placeholder="/fixtures/cases/2/main.wasm"></label>
+  <button>Run</button>
+</form>
+<pre id="output" aria-live="polite"></pre>
+<script type="module">
+import { runProgram } from "./run.js";
+const form = document.querySelector("form");
+const output = document.querySelector("#output");
+form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    form.querySelector("button").disabled = true;
+    output.textContent = "Starting…";
+    try {
+        const result = await runProgram({ runtimeUrl: "/runtime/", moduleUrl: form.elements.module.value });
+        const decode = (bytes) => new TextDecoder().decode(new Uint8Array(bytes));
+        output.textContent = `exit: ${result.exitCode}\nstdout:\n${decode(result.stdout)}\nstderr:\n${decode(result.stderr)}`;
+    } catch (error) { output.textContent = error.stack ?? String(error); }
+    finally { form.querySelector("button").disabled = false; }
+});
+</script>
