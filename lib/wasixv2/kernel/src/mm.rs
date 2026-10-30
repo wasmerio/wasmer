@@ -1,7 +1,8 @@
 //! The program break, anonymous and file mappings inside the guest's linear memory.
 //!
-//! Linear memory only grows, so `brk` and `mmap` hand out pages above everything the image owns
-//! (its data, stack and heap) and grow memory when no unmapped run fits. `munmap` returns pages
+//! With image layout metadata, `brk` grows above the image and `mmap` searches free runs from
+//! the top down (`mm/util.c:arch_pick_mmap_layout`). Without it they hand out pages above
+//! everything initially in memory. Linear memory grows to back mappings as needed. `munmap` returns pages
 //! for reuse by later mappings, which are zeroed then, by dropping them where the memory can
 //! ([`UserMemory::zero_pages`]), so a page no one wrote takes no host memory however often it is
 //! mapped, as on Linux, where even a large `PROT_NONE` mapping costs nothing until it is
@@ -59,8 +60,8 @@ use wasixv2_abi::{
     OpenFlags, ProtFlags, Ulong, Uptr, Usize,
 };
 use wasixv2_syscalls::{
-    Caller, Errno, PageAccess, Restricted, SharedMapping, SysResult, TaskId, UserMemory,
-    WASM_PAGE_SIZE,
+    Caller, Errno, MemoryLayout, PageAccess, Restricted, SharedMapping, SysResult, TaskId,
+    UserMemory, WASM_PAGE_SIZE,
 };
 use wasixv2_vfs::{Cap, FileType, WRITE_SEALS};
 
@@ -514,6 +515,8 @@ pub(crate) enum RegionKind {
 
 #[derive(Default)]
 pub(crate) struct AddressSpace {
+    /// Known image bounds and exec-owned reservations; absent for legacy embedders.
+    layout: Option<MemoryLayout>,
     /// First page under the allocator's control, fixed by the first growth. Pages below belong to
     /// the image.
     base: Option<u64>,
@@ -648,6 +651,7 @@ impl AddressSpace {
     /// A copy for the fork child `pid`.
     fn dup(&self, pid: u32) -> Self {
         let mut child = Self {
+            layout: self.layout.clone(),
             base: self.base,
             mapped: self.mapped.clone(),
             brk: self.brk,
@@ -774,6 +778,11 @@ impl AddressSpace {
 
     fn record_growth(&mut self, previous: u64, pages: u32) {
         self.seen = self.seen.max(previous + u64::from(pages) * PAGE_SIZE);
+        if self.layout.is_some() {
+            // Backing a gap in linear memory does not create a VMA. The caller marks only
+            // the pages it actually takes, leaving brk room below a top-down mapping.
+            return;
+        }
         let first = previous / PAGE_SIZE;
         let base = *self.base.get_or_insert(first);
         let Some(index) = first.checked_sub(base) else {
@@ -946,7 +955,20 @@ impl AddressSpace {
         let end = end.min(base + self.mapped.len() as u64);
         let first = first.max(base);
         if first < end {
-            self.set_mapped((first - base) as usize, (end - base) as usize, mapped);
+            let reserved = self
+                .layout
+                .as_ref()
+                .map(|layout| layout.reserved.clone())
+                .unwrap_or_default();
+            let mut from = first;
+            if !mapped {
+                for range in reserved {
+                    let low = (range.start / PAGE_SIZE).max(from).min(end);
+                    self.set_mapped((from - base) as usize, (low - base) as usize, false);
+                    from = range.end.div_ceil(PAGE_SIZE).max(from).min(end);
+                }
+            }
+            self.set_mapped((from - base) as usize, (end - base) as usize, mapped);
         }
     }
 
@@ -985,8 +1007,70 @@ impl AddressSpace {
     /// Whether `[first, end)` can be taken: each page is the allocator's and free, or at or past
     /// the end of memory.
     fn pages_free(&self, first: u64, end: u64, mem_pages: u64) -> bool {
+        if !self.allocatable(first, end) {
+            return false;
+        }
         let movable = |page: u64| self.base.is_some_and(|base| page >= base) || page >= mem_pages;
         (first..end).all(|page| movable(page) && !self.page_mapped(page, mem_pages))
+    }
+
+    /// `arch_pick_mmap_layout`: once supplied by exec, the image bounds are independent
+    /// of the current linear-memory size. The existing free-run index spans the maximum.
+    fn initialize(&mut self, mut layout: MemoryLayout) {
+        if self.base.is_some() || self.layout.is_some() {
+            return;
+        }
+        let base = layout.image_end.max(MMAP_MIN_ADDR).div_ceil(PAGE_SIZE);
+        let end = layout.maximum / PAGE_SIZE;
+        if layout.data.start > layout.data.end
+            || layout.data.end > layout.image_end
+            || layout.image_end > layout.brk
+            || layout.brk > layout.maximum
+            || layout.maximum > 1 << 32
+            || !layout.maximum.is_multiple_of(PAGE_SIZE)
+            || layout
+                .reserved
+                .iter()
+                .any(|range| range.start > range.end || range.end > layout.maximum)
+            || base > end
+        {
+            return;
+        }
+        self.base = Some(base);
+        self.mapped = vec![false; (end - base) as usize];
+        if end > base {
+            self.free.insert(0, (end - base) as usize);
+        }
+        self.brk = Some((layout.brk, layout.brk));
+        layout.reserved.sort_by_key(|range| range.start);
+        for range in &layout.reserved {
+            let first = (range.start / PAGE_SIZE).max(base).min(end);
+            let last = range.end.div_ceil(PAGE_SIZE).min(end).max(first);
+            self.set_mapped((first - base) as usize, (last - base) as usize, true);
+        }
+        self.layout = Some(layout);
+        self.dirty = Some(0..end);
+        self.recount_all();
+    }
+
+    /// Exec-owned reservations and addresses past the module's maximum are never allocator
+    /// pages, including for MAP_FIXED or brk growth that has not backed memory yet.
+    fn allocatable(&self, first: u64, end: u64) -> bool {
+        self.layout.as_ref().is_none_or(|layout| {
+            end * PAGE_SIZE <= layout.maximum
+                && !layout
+                    .reserved
+                    .iter()
+                    .any(|range| first * PAGE_SIZE < range.end && range.start < end * PAGE_SIZE)
+        })
+    }
+
+    /// `unmapped_area_topdown`: take the highest fitting run below the exec reservations.
+    fn top_down(&self, pages: u64) -> Option<u64> {
+        let base = self.base?;
+        self.free.iter().rev().find_map(|(&start, &end)| {
+            (end as u64 - start as u64 >= pages).then(|| (base + end as u64 - pages) * PAGE_SIZE)
+        })
     }
 
     /// The areas Linux would have, lowest first, as far as memory was seen: the image's pages as
@@ -1484,7 +1568,12 @@ impl Kernel {
 
     pub(crate) async fn mem_size(&self, caller: &Caller<'_>) -> u64 {
         let size = caller.memory().size().await;
-        self.mm(caller.task()).space().set_seen(size);
+        let mm = self.mm(caller.task());
+        let uninitialized = mm.space().base.is_none();
+        if uninitialized && let Some(layout) = caller.memory().layout().await {
+            mm.space().initialize(layout);
+        }
+        mm.space().set_seen(size);
         size
     }
 
@@ -1531,7 +1620,8 @@ impl Kernel {
         Ok(())
     }
 
-    /// The break starts at the end of memory as it is on the first call.
+    /// `mm/mmap.c:sys_brk`: layout metadata fixes start_brk independently of mmap.
+    /// Without it the break retains the original end-of-memory initialization.
     pub(crate) async fn sys_brk(&self, caller: &Caller<'_>, brk: Uptr) -> SysResult<i32> {
         let mm = self.mm(caller.task());
         let _op = mm.op.lock().await;
@@ -1545,17 +1635,43 @@ impl Kernel {
         if new < start {
             return Ok(current as i32);
         }
+        // `check_data_rlimit`, before PAGE_ALIGN, including data/BSS. Even changes within
+        // the same page must respect a non-page-aligned RLIMIT_DATA.
+        let data = mm
+            .space()
+            .layout
+            .as_ref()
+            .map(|layout| layout.data.end - layout.data.start);
+        if let Some(data) = data {
+            let limit = self
+                .process(caller.task())
+                .resources
+                .lock_or_recover()
+                .soft(wasixv2_abi::RlimitResource::RLIMIT_DATA);
+            if new - start + data > limit {
+                return Ok(current as i32);
+            }
+        }
         let (old_end, new_end) = (current.div_ceil(PAGE_SIZE), new.div_ceil(PAGE_SIZE));
         if new_end > old_end {
             // `check_brk_limits`.
             let free = mm.space().pages_free(old_end, new_end, size / PAGE_SIZE);
+            // sys_brk keeps a page between the expanded break and the next VMA.
+            let gap = {
+                let space = mm.space();
+                space.layout.as_ref().is_none_or(|layout| {
+                    new_end * PAGE_SIZE >= layout.maximum
+                        || space.pages_free(new_end, new_end + 1, size / PAGE_SIZE)
+                })
+            };
             let len = (new_end - old_end) * PAGE_SIZE;
             let Ok(locked) = self.check_lock_new(caller, false, len) else {
                 return Ok(current as i32);
             };
             // `do_brk_flags`: too many mappings?
             let too_many = mm.space().map_count() > self.vm.map_limit();
-            if !free || too_many || self.take_pages(caller, old_end, new_end).await.is_err() {
+            if !free || !gap || too_many || self.take_pages(caller, old_end, new_end).await.is_err()
+            {
                 return Ok(current as i32);
             }
             mm.space().set_locked(old_end, new_end, locked);
@@ -1758,7 +1874,14 @@ impl Kernel {
 
     /// Maps `pages` zeroed pages wherever they fit. The caller holds `Mm::op`.
     async fn map_anywhere(&self, caller: &Caller<'_>, pages: u64) -> Result<u64, Errno> {
+        self.mem_size(caller).await;
         let mm = self.mm(caller.task());
+        if mm.space().layout.is_some() {
+            let addr = mm.space().top_down(pages).ok_or(Errno::ENOMEM)?;
+            self.take_pages(caller, addr / PAGE_SIZE, addr / PAGE_SIZE + pages)
+                .await?;
+            return Ok(addr);
+        }
         let placement = mm.space().place(pages)?;
         let addr = match placement {
             Placement::Reuse(addr) => {
@@ -1796,6 +1919,9 @@ impl Kernel {
         let mm = self.mm(caller.task());
         let replace = {
             let space = mm.space();
+            if !space.allocatable(first, end) {
+                return Err(Errno::ENOMEM.into());
+            }
             if space.pages_free(first, end, mem_pages) {
                 // Free pages can be taken as they are.
                 false
@@ -2997,6 +3123,34 @@ fn check_file_mapping(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn layout_and_brk_are_copied_by_fork_but_free_runs_are_independent() {
+        let mut parent = AddressSpace::default();
+        parent.initialize(MemoryLayout {
+            image_end: 2 * PAGE_SIZE,
+            data: PAGE_SIZE..2 * PAGE_SIZE,
+            brk: 2 * PAGE_SIZE,
+            maximum: 16 * PAGE_SIZE,
+            reserved: std::iter::once(15 * PAGE_SIZE..16 * PAGE_SIZE).collect(),
+        });
+        parent.set_seen(4 * PAGE_SIZE);
+        parent.set_pages(2, 4, true);
+        parent.set_brk(2 * PAGE_SIZE, 4 * PAGE_SIZE);
+        let mut child = parent.dup(123);
+        assert_eq!(child.layout, parent.layout);
+        assert_eq!(child.brk, parent.brk);
+        let next = child.top_down(1).unwrap();
+        assert_eq!(next, 14 * PAGE_SIZE);
+        child.set_pages(14, 15, true);
+        child.set_brk(2 * PAGE_SIZE, 3 * PAGE_SIZE);
+        assert_eq!(parent.top_down(1), Some(next));
+        assert_eq!(parent.brk, Some((2 * PAGE_SIZE, 4 * PAGE_SIZE)));
+        assert_eq!(child.top_down(1), Some(13 * PAGE_SIZE));
+        // An unmap cannot turn execution-layer reservations into free runs.
+        child.unmap(15 * PAGE_SIZE, PAGE_SIZE);
+        assert_eq!(child.top_down(1), Some(13 * PAGE_SIZE));
+    }
 
     thread_local! {
         /// How many pages' [`AreaKey`]s this thread worked out.

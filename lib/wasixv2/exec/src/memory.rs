@@ -99,6 +99,62 @@ pub(crate) fn main_stack(instance: &Instance, store: &mut impl AsStoreMut) -> Ra
     })
 }
 
+pub(crate) fn image_layout(
+    instance: &Instance,
+    memory: &Memory,
+    store: &mut impl AsStoreMut,
+    unwind: bool,
+) -> Option<wasixv2_syscalls::MemoryLayout> {
+    use wasixv2_syscalls::{MemoryLayout, WASM_PAGE_SIZE};
+    let mut value = |name: &str| {
+        instance
+            .exports
+            .get_global(name)
+            .ok()?
+            .get(&mut *store)
+            .i32()
+            .map(|v| u64::from(v as u32))
+    };
+    let sp = value("__stack_pointer")?;
+    let data_end = value("__data_end")?;
+    // lld/wasm/Writer.cpp:Writer::layoutMemory only defines __heap_base when it is
+    // referenced. Its value is the end of data/stack rounded to heapAlignment (16).
+    // __data_end includes BSS and the shared-memory initialization flag.
+    let heap = value("__heap_base").unwrap_or_else(|| data_end.max(sp).next_multiple_of(16));
+    // lld's stack-first data starts above the initial stack pointer. Data-first modules
+    // must export their data start; guessing it would charge stack bytes to RLIMIT_DATA.
+    let data_start = value("__data_start").or_else(|| (sp <= data_end).then_some(sp))?;
+    let maximum = memory
+        .ty(&*store)
+        .maximum
+        .map_or(1 << 32, |pages| u64::from(pages.0) * WASM_PAGE_SIZE);
+    if data_start > data_end
+        || heap < data_end.max(sp)
+        || heap > memory.view(&*store).data_size()
+        || maximum > 1 << 32
+    {
+        return None;
+    }
+    let mut reserved = Vec::new();
+    if unwind {
+        // Asyncify's header holds an exclusive end in a u32. At 4 GiB the final page
+        // cannot be used for the buffer, even though linear memory itself can reach it.
+        let end = maximum.min(u64::from(u32::MAX)) / WASM_PAGE_SIZE * WASM_PAGE_SIZE;
+        let start = end.checked_sub(u64::from(crate::asyncify::BUFFER_SIZE))?;
+        if start < heap.div_ceil(WASM_PAGE_SIZE) * WASM_PAGE_SIZE {
+            return None;
+        }
+        reserved.push(start..maximum);
+    }
+    Some(MemoryLayout {
+        image_end: heap,
+        data: data_start..data_end,
+        brk: heap,
+        maximum,
+        reserved,
+    })
+}
+
 /// Makes the low guard of `memory` read-only, and returns its size: [`LOW_GUARD`], or 0 where
 /// the host cannot protect pages. Once suffices for the life of the memory: memories are
 /// reserved to their maximum (`MemoryStyle::Static`), so growing them never moves their base.
@@ -554,6 +610,9 @@ fn force_write_at<S: 'static>(
 /// Copies happen at once when the store is free, as it is while the guest waits for its own
 /// import, so they allocate nothing ([`copied`]); they wait for the store otherwise.
 impl<S: 'static> UserMemory for GuestMemory<'_, S> {
+    fn layout(&self) -> LocalFuture<'_, Option<wasixv2_syscalls::MemoryLayout>> {
+        Box::pin(async move { self.env.read().await.data().layout.clone() })
+    }
     fn read<'a>(&'a self, addr: u32, buf: &'a mut [u8]) -> LocalFuture<'a, Result<(), Fault>> {
         match self.env.try_read() {
             Some(env) => copied(read_at(&env, addr, buf)),
@@ -699,6 +758,9 @@ pub(crate) struct OutsideMemory<'a, 'b, S: 'static> {
 }
 
 impl<S: Send + Sync + 'static> UserMemory for OutsideMemory<'_, '_, S> {
+    fn layout(&self) -> LocalFuture<'_, Option<wasixv2_syscalls::MemoryLayout>> {
+        Box::pin(self.cx.with(|data, _| data.layout.clone()))
+    }
     fn read<'a>(&'a self, addr: u32, buf: &'a mut [u8]) -> LocalFuture<'a, Result<(), Fault>> {
         Box::pin(
             self.cx
@@ -1002,6 +1064,87 @@ fn copied_value<T: 'static>(result: T) -> LocalFuture<'static, T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn image_layout_reserves_unwind_space_and_excludes_the_stack_from_data() {
+        let mut store = wasmer::Store::default();
+        let wasm = wat::parse_str(
+            r#"(module
+            (memory (export "memory") 5 64)
+            (global (export "__stack_pointer") (mut i32) (i32.const 262144))
+            (global (export "__data_end") i32 (i32.const 262176))
+            (global (export "__heap_base") i32 (i32.const 262192)))"#,
+        )
+        .unwrap();
+        let module = wasmer::Module::new(&store, wasm).unwrap();
+        let instance = Instance::new(&mut store, &module, &wasmer::imports! {}).unwrap();
+        let memory = instance.exports.get_memory("memory").unwrap();
+        let layout = image_layout(&instance, memory, &mut store, true).unwrap();
+        assert_eq!(layout.data, 262144..262176);
+        assert_eq!(layout.image_end, 262192);
+        assert_eq!(layout.brk, 262192);
+        assert_eq!(layout.maximum, 64 * 65536);
+        assert_eq!(layout.reserved.len(), 1);
+        assert_eq!(layout.reserved[0], 48 * 65536..64 * 65536);
+        assert!(
+            image_layout(&instance, memory, &mut store, false)
+                .unwrap()
+                .reserved
+                .is_empty()
+        );
+    }
+
+    #[test]
+    fn a_stack_first_image_does_not_need_the_optional_heap_base_export() {
+        let mut store = wasmer::Store::default();
+        let wasm = wat::parse_str(
+            r#"(module
+            (memory (export "memory") 5 64)
+            (global (export "__stack_pointer") (mut i32) (i32.const 262144))
+            (global (export "__data_end") i32 (i32.const 262177)))"#,
+        )
+        .unwrap();
+        let module = wasmer::Module::new(&store, wasm).unwrap();
+        let instance = Instance::new(&mut store, &module, &wasmer::imports! {}).unwrap();
+        let memory = instance.exports.get_memory("memory").unwrap();
+        let layout = image_layout(&instance, memory, &mut store, true).unwrap();
+        assert_eq!(layout.data, 262144..262177);
+        assert_eq!(layout.brk, 262192);
+    }
+
+    #[test]
+    fn data_first_layout_requires_data_bounds_and_keeps_the_stack_reserved() {
+        let mut store = wasmer::Store::default();
+        let wasm = wat::parse_str(
+            r#"(module
+            (memory (export "memory") 5 64)
+            (global (export "__stack_pointer") (mut i32) (i32.const 262144))
+            (global (export "__data_start") i32 (i32.const 1024))
+            (global (export "__data_end") i32 (i32.const 8192))
+            (global (export "__heap_base") i32 (i32.const 262144)))"#,
+        )
+        .unwrap();
+        let module = wasmer::Module::new(&store, wasm).unwrap();
+        let instance = Instance::new(&mut store, &module, &wasmer::imports! {}).unwrap();
+        let memory = instance.exports.get_memory("memory").unwrap();
+        let layout = image_layout(&instance, memory, &mut store, false).unwrap();
+        assert_eq!(layout.data, 1024..8192);
+        assert_eq!(layout.brk, 262144);
+        assert_eq!(layout.image_end, 262144);
+    }
+
+    #[test]
+    fn an_image_without_linker_bounds_keeps_the_legacy_layout() {
+        let mut store = wasmer::Store::default();
+        let module = wasmer::Module::new(
+            &store,
+            wat::parse_str(r#"(module (memory (export "memory") 1 2))"#).unwrap(),
+        )
+        .unwrap();
+        let instance = Instance::new(&mut store, &module, &wasmer::imports! {}).unwrap();
+        let memory = instance.exports.get_memory("memory").unwrap();
+        assert!(image_layout(&instance, memory, &mut store, false).is_none());
+    }
 
     #[test]
     fn a_stack_first_layout_gets_the_guard() {

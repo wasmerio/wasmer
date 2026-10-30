@@ -37,6 +37,7 @@ pub(crate) struct Image<S> {
     low_guard: u32,
     /// The main thread's stack in `memory`.
     main_stack: Range<u32>,
+    layout: Option<wasixv2_syscalls::MemoryLayout>,
     /// The ranges of `memory` that show shared objects read-only, for every thread.
     read_only: Arc<ReadOnly>,
     /// The frozen image `memory` is a private view of ([`crate::base`]).
@@ -59,6 +60,7 @@ impl<S> Image<S> {
         memory: SharedMemory,
         (low_guard, read_only, base): (u32, Arc<ReadOnly>, Option<Arc<Base>>),
         main_stack: Range<u32>,
+        layout: Option<wasixv2_syscalls::MemoryLayout>,
         syscalls: Arc<S>,
         host: Arc<dyn Host>,
         abi: Arc<dyn Abi<S>>,
@@ -71,6 +73,7 @@ impl<S> Image<S> {
             memory,
             low_guard,
             main_stack,
+            layout,
             read_only,
             base,
             syscalls,
@@ -110,6 +113,7 @@ where
             low_guard: self.low_guard,
             // The memory, so its stack region, is the creator's (Linux shares the mm).
             main_stack: self.main_stack.clone(),
+            layout: self.layout.clone(),
             read_only: self.read_only.clone(),
             base: self.base.clone(),
             syscalls: self.syscalls.clone(),
@@ -225,6 +229,7 @@ where
         data.memory = Some(memory);
         data.low_guard = self.low_guard;
         data.main_stack = self.main_stack.clone();
+        data.layout = self.layout.clone();
         data.read_only = self.read_only.clone();
         data.base = self.base.clone();
         data.stack_pointer = crate::stack_pointer(&instance);
@@ -235,7 +240,10 @@ where
 
         let store = store.into_async();
         let entry = Entry::new(&env, &store);
-        let result = abi.start_thread(&entry, tid, start_arg).await;
+        let result = match crate::asyncify::prepare_buffer(entry.cx()).await {
+            Ok(()) => abi.start_thread(&entry, tid, start_arg).await,
+            Err(err) => Err(err),
+        };
         let on_return = abi.on_thread_return();
         Ok(crate::ended(entry.cx(), result, on_return, Role::Thread).await)
     }

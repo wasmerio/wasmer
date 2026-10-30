@@ -40,10 +40,38 @@ impl<const OK: bool> Future for Copied<OK> {
     }
 }
 
+/// Immutable image metadata used to choose Linux's brk and mmap layout.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MemoryLayout {
+    /// End of the image's occupied bytes, including the main stack and linker reservations.
+    pub image_end: u64,
+    /// The data segment, including BSS, for Linux's `check_data_rlimit` accounting.
+    pub data: Range<u64>,
+    /// Initial program break, at or above `image_end`.
+    pub brk: u64,
+    /// Exclusive linear-memory maximum, at most 2^32 and aligned to a wasm page.
+    pub maximum: u64,
+    /// Page-aligned execution-layer reservations, excluded from brk and mmap allocation.
+    /// They may be backed lazily, but must remain reserved for the lifetime of the image.
+    pub reserved: Vec<Range<u64>>,
+}
+
 /// The calling task's address space, read and written the way Linux's `copy_{from,to}_user` do:
 /// a copy that touches the low guard or a page its address space's [`PageAccess`] keeps from
 /// it faults. This is independent of the guest's own loads, which may read the low guard.
 pub trait UserMemory {
+    /// Immutable image layout for Linux's separate brk and top-down mmap arenas. The image,
+    /// including its main stack, and `reserved` ranges remain owned by the execution layer;
+    /// other pages above the image are available for kernel mappings even if linear memory
+    /// already backs them. Growing linear memory alone does not map those pages.
+    ///
+    /// `None` preserves the original allocation contract: everything initially in memory
+    /// belongs to the image, and new mappings grow memory or reuse pages previously freed.
+    /// Copies for a fork child must report the same layout as the parent.
+    fn layout(&self) -> LocalFuture<'_, Option<MemoryLayout>> {
+        Box::pin(async { None })
+    }
+
     fn read<'a>(&'a self, addr: u32, buf: &'a mut [u8]) -> LocalFuture<'a, Result<(), Fault>>;
     fn write<'a>(&'a self, addr: u32, data: &'a [u8]) -> LocalFuture<'a, Result<(), Fault>>;
 
@@ -465,6 +493,16 @@ mod tests {
         fn grow(&self, _: u32) -> LocalFuture<'_, Option<u64>> {
             Box::pin(async { None })
         }
+    }
+
+    #[test]
+    fn memory_without_layout_preserves_the_original_contract() {
+        let memory = Flat(RefCell::new(vec![0; 8]));
+        let mut cx = std::task::Context::from_waker(std::task::Waker::noop());
+        assert_eq!(
+            memory.layout().as_mut().poll(&mut cx),
+            std::task::Poll::Ready(None)
+        );
     }
 
     #[test]
