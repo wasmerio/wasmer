@@ -50,6 +50,12 @@ use crate::{
     base::Base,
 };
 
+#[cfg(all(feature = "js", target_arch = "wasm32"))]
+mod browser;
+#[cfg(all(feature = "browser-memory-test", target_arch = "wasm32"))]
+#[path = "../tests/browser/exports.rs"]
+mod browser_tests;
+
 /// Bytes at the bottom of linear memory the low guard covers: `mmap_min_addr`'s 65536, the value
 /// x86 and arm64 distributions configure.
 pub(crate) const LOW_GUARD: u32 = 65536;
@@ -858,7 +864,10 @@ impl<S: Send + Sync + 'static> UserMemory for OutsideMemory<'_, '_, S> {
 /// thread that runs the guest, and copies through it run on the caller's host thread while the
 /// guest runs on its own.
 ///
-/// The copies use the memory's host address directly, which is sound because:
+/// In the browser, copies use a locally registered JS Memory or synchronously wait
+/// for the pure-JS memory-copy worker (C1); its timeout poisons the runtime. These
+/// calls never run on the page main thread. On native hosts copies use the memory
+/// host address directly, which is sound because:
 /// - the memory is one host mapping reserved to its maximum that never moves (a shared
 ///   memory's static reservation), whose base and current size [`SharedMemory::host_data`]
 ///   reads anew for every copy;
@@ -872,6 +881,8 @@ impl<S: Send + Sync + 'static> UserMemory for OutsideMemory<'_, '_, S> {
 /// `access_process_vm` gives no atomicity either.
 pub(crate) struct ForeignMemory {
     memory: SharedMemory,
+    #[cfg(all(feature = "js", target_arch = "wasm32"))]
+    browser: browser::Registration,
     /// The frozen image must remain a private view of its file when pages are cleared.
     #[cfg(all(target_os = "linux", feature = "sys"))]
     base: Option<Arc<Base>>,
@@ -889,6 +900,8 @@ impl ForeignMemory {
         page_access: Option<Arc<PageAccess>>,
     ) -> Self {
         Self {
+            #[cfg(all(feature = "js", target_arch = "wasm32"))]
+            browser: browser::Registration::new(&memory),
             memory,
             #[cfg(all(target_os = "linux", feature = "sys"))]
             base: None,
@@ -947,6 +960,7 @@ impl ForeignMemory {
     }
 
     /// The host address of `[addr, addr + len)`, which lies inside the memory.
+    #[cfg(not(all(feature = "js", target_arch = "wasm32")))]
     fn at(&self, addr: u32, len: usize) -> Result<*mut u8, Fault> {
         let (base, size) = self.memory.host_data().ok_or(Fault)?;
         if u64::from(addr) + len as u64 > size {
@@ -968,12 +982,17 @@ impl ForeignMemory {
 
     fn copy_out(&self, addr: u32, buf: &mut [u8], force: bool) -> Result<(), Fault> {
         self.check(addr, buf.len(), false, force)?;
-        let src = self.at(addr, buf.len())?;
-        // SAFETY: `src` holds `buf.len()` bytes of the memory, which does not overlap `buf`.
-        // Like MemoryView, this raw copy is not atomic with guest stores/atomics;
-        // unsynchronized overlapping guest accesses can race under Rust's memory model.
-        unsafe { std::ptr::copy_nonoverlapping(src, buf.as_mut_ptr(), buf.len()) };
-        Ok(())
+        #[cfg(all(feature = "js", target_arch = "wasm32"))]
+        return self.browser.read(&self.memory, addr, buf);
+        #[cfg(not(all(feature = "js", target_arch = "wasm32")))]
+        {
+            let src = self.at(addr, buf.len())?;
+            // SAFETY: `src` holds `buf.len()` bytes of the memory, which does not overlap `buf`.
+            // Like MemoryView, this raw copy is not atomic with guest stores/atomics;
+            // unsynchronized overlapping guest accesses can race under Rust's memory model.
+            unsafe { std::ptr::copy_nonoverlapping(src, buf.as_mut_ptr(), buf.len()) };
+            Ok(())
+        }
     }
 
     fn copy_in(&self, addr: u32, bytes: &[u8], force: bool) -> Result<(), Fault> {
@@ -985,13 +1004,18 @@ impl ForeignMemory {
         if in_read_only(&read_only, addr, bytes.len()) {
             return Err(Fault);
         }
-        let dst = self.at(addr, bytes.len())?;
-        // SAFETY: `dst` holds `bytes.len()` writable bytes of the memory (not the guard, not a
-        // read-only view while `read_only` is held), which do not overlap `bytes`.
-        // Guest stores/atomics can race this raw copy as with MemoryView; callers
-        // need guest synchronization for atomic or Rust data-race-free access.
-        unsafe { std::ptr::copy_nonoverlapping(bytes.as_ptr(), dst, bytes.len()) };
-        Ok(())
+        #[cfg(all(feature = "js", target_arch = "wasm32"))]
+        return self.browser.write(&self.memory, addr, bytes);
+        #[cfg(not(all(feature = "js", target_arch = "wasm32")))]
+        {
+            let dst = self.at(addr, bytes.len())?;
+            // SAFETY: `dst` holds `bytes.len()` writable bytes of the memory (not the guard, not a
+            // read-only view while `read_only` is held), which do not overlap `bytes`.
+            // Guest stores/atomics can race this raw copy as with MemoryView; callers
+            // need guest synchronization for atomic or Rust data-race-free access.
+            unsafe { std::ptr::copy_nonoverlapping(bytes.as_ptr(), dst, bytes.len()) };
+            Ok(())
+        }
     }
 }
 
@@ -1017,6 +1041,9 @@ impl UserMemory for ForeignMemory {
     }
 
     fn size(&self) -> LocalFuture<'_, u64> {
+        #[cfg(all(feature = "js", target_arch = "wasm32"))]
+        let size = self.browser.size(&self.memory);
+        #[cfg(not(all(feature = "js", target_arch = "wasm32")))]
         let size = self.memory.host_data().map_or(0, |(_, size)| size);
         Box::pin(async move { size })
     }
@@ -1031,6 +1058,21 @@ impl UserMemory for ForeignMemory {
         copied(self.discard_pages(addr, len))
     }
 
+    #[cfg(all(feature = "js", target_arch = "wasm32"))]
+    fn zero_pages(&self, addr: u32, len: u64) -> LocalFuture<'_, Result<(), Fault>> {
+        let result = (|| {
+            let checked_len = usize::try_from(len).map_err(|_| Fault)?;
+            let read_only = self.read_only.ranges();
+            if in_guard(self.low_guard, addr, checked_len)
+                || in_read_only(&read_only, addr, checked_len)
+            {
+                return Err(Fault);
+            }
+            self.browser.zero(&self.memory, addr, len)
+        })();
+        copied(result)
+    }
+
     fn low_guard(&self) -> LocalFuture<'_, u32> {
         let guard = self.low_guard;
         Box::pin(async move { guard })
@@ -1043,6 +1085,7 @@ impl UserMemory for ForeignMemory {
         expected: u32,
         new: u32,
     ) -> LocalFuture<'_, Result<u32, Fault>> {
+        #[cfg(not(all(feature = "js", target_arch = "wasm32")))]
         use std::sync::atomic::{AtomicU32, Ordering};
         let result = (|| {
             self.check(addr, 4, true, false)?;
@@ -1051,12 +1094,20 @@ impl UserMemory for ForeignMemory {
             if !addr.is_multiple_of(4) || protected {
                 return Err(Fault);
             }
-            let ptr = self.at(addr, 4)?;
-            // SAFETY: an aligned, writable word inside the memory (see `copy_in`); the guest's
-            // threads only race with this through atomics.
-            let word = unsafe { AtomicU32::from_ptr(ptr.cast()) };
-            let current = word.compare_exchange(expected, new, Ordering::SeqCst, Ordering::SeqCst);
-            Ok(current.unwrap_or_else(|actual| actual))
+            #[cfg(all(feature = "js", target_arch = "wasm32"))]
+            return self
+                .browser
+                .compare_exchange(&self.memory, addr, expected, new);
+            #[cfg(not(all(feature = "js", target_arch = "wasm32")))]
+            {
+                let ptr = self.at(addr, 4)?;
+                // SAFETY: an aligned, writable word inside the memory (see `copy_in`); the guest's
+                // threads only race with this through atomics.
+                let word = unsafe { AtomicU32::from_ptr(ptr.cast()) };
+                let current =
+                    word.compare_exchange(expected, new, Ordering::SeqCst, Ordering::SeqCst);
+                Ok(current.unwrap_or_else(|actual| actual))
+            }
         })();
         copied_value(result)
     }

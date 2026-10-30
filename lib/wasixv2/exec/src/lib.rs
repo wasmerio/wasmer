@@ -598,6 +598,8 @@ where
     let bound = abi.bind(&instance, &mut store, task, Role::Process)?;
     let shared = memory.as_shared(&store);
     if let Some(shared) = &shared {
+        // Browser C1 posts registration here before attachment; foreign requests
+        // may complete through the independent JS copy worker without a readiness ack.
         let foreign = memory::ForeignMemory::new(
             shared.clone(),
             low_guard,

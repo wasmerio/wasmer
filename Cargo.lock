@@ -7125,6 +7125,7 @@ name = "wasixv2-exec"
 version = "0.0.0"
 dependencies = [
  "futures",
+ "js-sys",
  "libc",
  "thiserror 2.0.21",
  "tracing",
@@ -7132,6 +7133,7 @@ dependencies = [
  "wasixv2-host",
  "wasixv2-pages",
  "wasixv2-syscalls",
+ "wasm-bindgen",
  "wasm-encoder 0.259.0",
  "wasmer",
  "wasmer-types",
