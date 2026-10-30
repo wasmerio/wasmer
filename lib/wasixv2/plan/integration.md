@@ -1393,3 +1393,132 @@ the human user remains responsible for contributions.
 
 After the input panic has a source-backed repair/decision, landing order is
 **tests -> libc2 -> wasmer -> plan**; ABI/LTP unchanged. Orchestrator owns mains.
+
+## 2026-10-30: merge train 24 — NO-GO
+
+Integration, requested gates, exactly ONE full suite, classification, native and
+no-JSPI Chromium smoke, matching consumer pins, and both shared sysroots are
+complete. **Hold landing:** the sole run has one semaphore deadline regression,
+and B8's earlier coordinator-fatal browser bounds fault still lacks a root cause
+or identified repair. A clean current browser run does not establish that repair.
+The orchestrator owns remote mains; only train24 branches and this fast-forward
+plan update are published from the private train24-plan worktree.
+
+| Repo | Branch | Base -> candidate |
+| --- | --- | --- |
+| wasmer | wasixv2/train24 | 651502a7eab -> **049dea6d8b5** |
+| wasixv2-tests | train24 | 6a7c5a0 -> **ec49d8b** |
+| libc2 | train24 | e9dac22e -> **6bc05b3b** |
+| plan | wasixv2/plan | 6cced18dd3e -> userland7 merge342c59762f1 + this entry |
+
+Both consumers pin tests ec49d8b and unchanged ABI **07cd32e**; tests retain LTP
+**54ea12a4b**. Replayed four V10FU runtime fixes, B8's three own source/CI commits,
+the libc strptime change, and both tests commits. Inherited train23 patches and
+input-specific tests pins were omitted; each consumer receives one final bump.
+B8's merge resolutions are retained; B9 and B12 are not included. Plan userland7
+recipes through d83c8339ff6 are merged. Shared plan worktree untouched.
+
+The sole integration repair is **c8ec38d46b5**: V10FU's NewNode.umask field also
+needs the browser provider adapter. Ordinary providers receive VFS-applied modes,
+so their low-level request uses umask0, matching existing memory-driver adapters
+and Linux fs/namei.c:vfs_prepare_mode. The initial combined build fails on the
+missing field; a sibling round-trip unit guards effective mode/owner preservation.
+Both sides of the protocol-test conflict survive, including train23's asset check.
+No new mechanism, kernel/exec contract, ABI generation, excluded linking/closures/
+libffi/reflection change, or prebuilt Wasm commit is introduced.
+
+Gates pass: **28 native crate invocations / 2115 passing cases including docs**,
+kernel1122/exec68/host33 plus its existing ignored measurement; browser drivers
+vnet29/vfs16/stdio21. Three strict Makefile-flags native clippy gates, workspace
+fmt, release CLI7m51s, CLI59pass/12existingignored and TTY6pass. Runner29pass/
+2existingignored, strict clippy/fmt; all6 Makefile wasm compile checks, strict
+wasm library/facade-example lint, and the browser runtime dependency graph pass.
+Node models **42/42** pass. Both private and final shared EH/asyncify sysroots,
+Linux UAPI/C/C++ import checks pass; shared local libc2 fast-forwards to6bc05b3b.
+No remote main/feat/tag is pushed.
+
+Exactly **ONE full suite**, **3001s**, runtime **c8ec38d46b5**, tests8028eaa,
+libc2d3ebdcce, LTP54ea12a4b, CPUs0-3/three test threads and original deadlines/
+case caps. Final runtime changes only its tests gitlink. Archived CLI SHA256:
+`e442365bc16f5be8a4a76981d10b75399f5e9dabd159da4bfa589bd86d71ec14`.
+Raw **4094pass /83xfail /1unexpectedfail /0unexpectedpass /432ignored**.
+Copy-mode live labels are not passing evidence; final counts use actual copied
+failure lists and retained invocation output.
+
+| Suite | Train23 pass / fail / ignored | Train24 pass / fail / ignored |
+| --- | --- | --- |
+| own | 322 /0 /1 | 323 /0 /1 |
+| libc-test | 411 /2 /0 | 411 /2 /0 |
+| POSIX | 1727 /17 /81 | 1727 /17 /81 |
+| LTP | 1634 /64 /350 | 1633 /65 /350 |
+| **Total** | **4094 /83 /432** | **4094 /84 /432** |
+
+One new registration, libc-strptime-zone/default, passes; both direct EH and
+asyncify checks also pass. No old expectation becomes passing, no passing case
+becomes ignored, and no registration disappears. All83 surviving failure causes,
+flaky and exclusion policies are preserved. Per the requested classification,
+the additional semaphore timeout is listed with its cause, **still blocking**.
+
+Regression **ltp/syscalls-ipc/semget05** exceeds the canonical60s deadline, despite
+its guest eventually reporting TPASS/exit0 at **62.83s** within capture cleanup
+grace. Its other full-run registration passes13.08s and its trace retry13.15s;
+a later canonical exact-module/CLI diagnostic passes **13.10s**. These clean
+replays do not erase the observed timeout. LTP semget05.c:setup allocates32000
+semaphore arrays and cleanup removes them; tst_set_runtime(maxsems/200) declares
+160s/190s overall. The latency outlier remains unrooted. No deadline/cap increase,
+flaky suppression, fabricated ENOSPC, or kernel/exec workaround is used. Follow
+workload latency under canonical three-job load before landing; source, module,
+launcher, hashes, exact arguments and all three full-run captures are archived.
+
+V9's historical `syscall from an unknown task` panic now has a source-backed
+repair: input12b483ba18b -> integrated **382ee133823**, a fallible signals/process
+snapshot across parent reap (kernel/exit.c:do_exit/exit_notify/release_task).
+The deterministic reaped-leader unit passes in the full kernel gate. **All20
+original-order coreutils workflows complete,16 results each, with zero host
+panic**, retaining the original unsupported mktemp injection for reproduction.
+Before/after evidence and per-iteration hashes are in v9-panic-repair.json.
+
+Native smoke passes: all12 usual/35hand statuses match train23; SWS28+28,
+UDP6, v1eight plus known Python linking failure, C++9, pty11/no-tty, carried
+features, supported liburing/network/namespaces/privileges/keys/seccomp/core/FUSE,
+and strace10. Train23 extras rawbrk/fork512 mappings, mqueue limits, process_vm
+4GiB endpoints and root ioctl prerequisite pass. Seven V9 workflows pass,
+including nginx reload, Redis benchmark/BGSAVE, DNS/TCP, namespaces and coreutils.
+V10FU fuse-overlayfs copy-up/lower preservation/whiteout/new-file/unmount passes.
+Busybox date-timezone passes: **198pass/11same classified failures/1skip**, matching
+v10fu's focused set. No new full Busybox-suite or PostgreSQL validation is claimed.
+
+Chrome151.0.7922.108 with JSPI absent passes:
+
+- B2/B4 host and C1 foreign-memory real worker smoke, independent timers/input,
+  local/remote copies, bounds/growth, retained memory and normal shutdown.
+- Sync lane6 including full-width i64, CAS1, API16 and all5 existing exec wasm
+  units through the real worker/copy/timer bootstrap; optional JSPI stays outside
+  this lane. B11 adapter7 and source-built transport smoke pass, zero skips.
+- Fresh B8 source export **21/21 ready**, real fixture runner **21/21 PASS**, zero
+  skips. Facade isolation/shared directory/signal/kill/wait/busyTTY/backpressure
+  and real guest classic WebSocket relay TCP pass. Bundles/results are archived.
+
+Current runtime/gate/smoke/build invocation logs have **zero unexpected host
+panics**. Separate blocking input evidence is B8 fixtures-third/results.json:
+proc-fork/default reports a coordinator-fatal `RuntimeError: memory access out of
+bounds`. It was an infrastructure failure, not a normalized guest exit. Neither
+B8's later21/21 plus focused replays nor this train's21/21 identifies a repair.
+Keep this open for B8/B12 diagnosis; current passes are not full-browser signoff.
+Cold CI toolchain provisioning/private-source access, broader browser/SDK/v1
+coverage, the existing Busybox failures and PostgreSQL PIC dependency remain
+follow-ups; B9/B12 changes were deliberately excluded.
+
+The first program-smoke attempt stopped before guest start on a missing private
+liburing source mount. Its setup log is retained; restoring private liburing/
+strace sources resumed only unfinished checks. No completed full suite or smoke
+group was repeated. Disk stayed above10GB by removing only owned completed
+native/release/wasm/sysroot intermediates and duplicate LTP build outputs after
+verifying installed links; executing guests, sources and logs were preserved.
+Final tested CLI, browser bundles, fixture export, repros and audits are retained
+in `~/wasixv2-orch/logs/train24/`; only owned targets are removed after archival.
+
+All integration commits were made by this AI agent as the configured git user
+with the exact GPT-6.1-Sol footer; the human user remains responsible. After the
+two blockers are resolved, landing order is **tests -> libc2 -> wasmer -> plan**,
+ABI/LTP unchanged. **NO-GO: hold mains.**
