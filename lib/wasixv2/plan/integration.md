@@ -1522,3 +1522,122 @@ All integration commits were made by this AI agent as the configured git user
 with the exact GPT-6.1-Sol footer; the human user remains responsible. After the
 two blockers are resolved, landing order is **tests -> libc2 -> wasmer -> plan**,
 ABI/LTP unchanged. **NO-GO: hold mains.**
+
+## 2026-10-30: merge train 25 — GO for scoped integration
+
+Candidate branches integrate B9 v1 compatibility, B12 runner/embedding handoff,
+B14 package/filesystem/TTY acceptance and B15 classic-relay fidelity. The
+orchestrator owns landing remote mains. B13 lifetime and B16 virtual-switch work
+are excluded; broader SDK/browser parity remains unsigned.
+
+| Repository | Base | Train25 candidate |
+| --- | --- | --- |
+| wasmer, `wasixv2/train25` | 3b3aa19b9d4 | **6a8410a5a45** |
+| wasixv2-tests, `train25` | f1ac800 | **dff5da8** |
+| libc2 | 6bc05b3b | unchanged |
+| ABI | 07cd32e | unchanged, both consumers match |
+| LTP | 54ea12a4b | unchanged |
+
+Replayed only the packages' own commits: nine B9, four B12, one B14 and four
+B15 runtime commits. Inherited B8/dependency commits and package-specific tests
+pins were omitted. There is exactly one final Wasmer tests bump. Combined merge
+resolutions retain package/VFS/TTY actions alongside network peer assembly,
+both capability-document sections, B12 case selection followed by B9 HTTP
+metadata injection, and both acceptance/network descriptor validators.
+Tests retain their six source commits plus **dff5da8**, the integration repair:
+two existing failed/stale-export unit calls need the fifth, combined network
+selector argument. The runner failed compilation before that repair; afterward
+33 unit tests pass, with two existing ignores. No new mechanism, kernel/exec
+contract, ABI change, excluded-team change or prebuilt Wasm commit is introduced.
+
+Gates pass: **28 native crate invocations / 2131 passing cases including docs**;
+kernel1122, exec69, browser facade69 including doctest, vnet-web35. Strict
+Makefile-flags all-target native clippy, CLI/test clippy, workspace formatting,
+CLI59+TTY6 with12existing ignores, runner33+2existing ignores plus strict
+clippy/fmt, all Makefile wasm compile checks, browser-provider and combined
+facade-library/example wasm clippy, dependency graph and JavaScript checks pass.
+Release CLI built in8m01s. Tested runtime source **7e50bf297b7**; final6a8410a5a45
+changes only the tests gitlink. CLI SHA256:
+`ee227d116da922f14a188920e100341c7bfef02341b2575c4d76448d2768fb7f`.
+
+Exactly **ONE executed full suite**, **3046s**, testsdff5da8 and shared libc2
+sysroots6bc05b3b, nice19/CPUs0-3/three threads, original memory caps and source
+budgets (60s floor plus declared LTP budgets). No budget or failure policy changed.
+
+| Suite | Landed24 pass / fail / ignored | Train25 pass / fail / ignored |
+| --- | --- | --- |
+| own | 323 /0 /1 | 323 /0 /1 |
+| libc-test | 411 /2 /0 | 411 /2 /0 |
+| POSIX | 1727 /17 /81 | 1727 /17 /81 |
+| LTP | 1633 /64 /351 | 1633 /64 /351 |
+| **Total** | **4094 /83 /433** | **4094 /83 /433** |
+
+Raw summary:4094pass/83expectedfail/0unexpectedfail/0unexpectedpass/433ignored.
+No new failure, newly passing expectation, disappearance or new skip. Blessing
+is a no-op; all83 existing handwritten failure causes and flaky/exclusion lists
+are preserved, including landed semget05 policy. A launcher preflight stopped
+before any case on missing libc-test sources; that zero-case attempt is archived
+separately. After recursive pinned-source initialization, `--list` matched all4610
+baseline registrations and the one executed suite ran without any case replay.
+Classification now requires a completed suite summary.
+
+Native smoke audit passes:12usual/35hand/25carried-feature statuses match24,
+SWS28+28, UDP6, eight v1 packages plus the existing Python linking failure,
+C++9, PTY11/no-tty, fresh focused C and train23 brk/mqueue/process_vm/root-ioctl
+extras, all10 liburing/network/namespaces/privileges/keys/seccomp/core/FUSE/strace
+workflows, all seven V9 real-program workflows and all10 focused strace checks.
+FUSE overlay copy-up/lower preservation/whiteout/new-file/unmount passes.
+All20 original-order panic workflows complete,16 results each, retaining the
+unsupported mktemp injection. Busybox is unchanged:198pass/11classified failures/
+1skip; date-timezone passes.
+
+Fresh combined source artifact and exports, headless Chromium151.0.7922.108 and
+Firefox157.0, context-per-case, cross-origin isolation/SAB and no JSPI:
+
+| Required group | Chromium | Firefox |
+| --- | --- | --- |
+| v2 fixtures | 21/21 | 21/21 |
+| v1 fixtures | 14/14 | 14/14 |
+| static v1 C programs | 3/3 | 3/3 |
+| B14 package/VFS/TTY acceptance | 15/15 | 15/15 |
+| B15 networking acceptance | 17/17 | 17/17 |
+| **Total, zero skips** | **70/70** | **70/70** |
+
+Both engines' transport and lifecycle/isolation/signal/kill/wait/busy-TTY/
+backpressure/real-relay checks pass. JSPI APIs are removed before every served
+JavaScript module, with page and worker probes both false. Networking includes
+actual native urgent sockets and relay-mediated two-Machine peers; this does not
+claim virtual-switch routing or deployment of the unchanged stock relay server.
+
+Final scan covers9526 invocation/build logs: **zero unexpected runtime host
+panics**. The initial CLI harness had59 prerequisite assertions before any
+runtime launch (missing release binary/fixture checkout); corrected ordering and
+pinned initialization yield the clean65-case CLI gate. Four incomplete
+setsockopt11/alias normal/trace captures match four train25 scope OOM events in
+the user journal, the same baseline2GiB resource failures. No live captured guest
+remains; no kernel-journal PID-level proof is claimed.
+
+Other repaired harness setup issues remain archived: keyctl's private bin
+staging was restored before its guest launched; the first overlay attempt used
+a copied old whiteout, so only its private scratch was reset; static v1 C uses
+the compiler's `wasm32-wasi` target spelling. Only unfinished/failed smoke phases
+were resumed. The runtime source did not change after its gates/suite.
+
+Evidence: `~/wasixv2-orch/logs/train25/STATE.md`, classification/native-smoke/
+browser reports, raw captures, archived suite build logs,756 hashed assets and
+per-repository commit inventory. Disk stayed above10GB by removing only owned,
+completed build duplicates/staging/caches; tested CLI, browser bundle, fixture
+exports and invocation evidence are retained. Own Cargo/fixture targets are
+removed after archival. libc2 is unchanged, so shared sysroot rebuild is not needed.
+
+Known follow-ups remain explicit: B13/B16, full SDK wrappers/service-worker/WISP,
+stock-server fidelity deployment and port-zero/connected-UDP limits, cold CI
+provisioning, and B12's unreproduced historical B8 bounds fault/R6 lifetime and
+WebKit context-reuse limits. No repair or full browser-parity signoff is claimed
+for those baseline/open items. Integration GO is scoped to this requested train.
+
+All new commits were made by this AI agent as the configured git user with the
+exact GPT-6.1-Sol attribution footer; the human user remains responsible.
+Landing order: **tests main -> wasmer feat/wasixv2 -> plan**; libc2/ABI/LTP are
+unchanged. Only train25 candidate refs and this authorized fast-forward plan
+entry are published; the orchestrator pushes mains.
