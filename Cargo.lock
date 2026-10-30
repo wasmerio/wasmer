@@ -7310,6 +7310,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "wasixv2-vnet-web"
+version = "0.0.0"
+dependencies = [
+ "bincode 2.0.1",
+ "futures-util",
+ "serde",
+ "tokio",
+ "virtual-net",
+ "wasixv2-abi",
+ "wasixv2-vnet",
+ "wasixv2-wait",
+]
+
+[[package]]
 name = "wasixv2-wait"
 version = "0.0.0"
 dependencies = [
