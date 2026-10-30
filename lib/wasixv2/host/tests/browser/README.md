@@ -120,7 +120,9 @@ its workers: shared locks/allocator state cannot safely be reused. The page rece
 shutdown, first stop Machines, wake/drain tasks and output, and drop their owners;
 call `BrowserExecutor::close` to refuse new work. Send `shutdown` only when workers
 are idle. `shutdown-busy` refuses premature teardown; `stopped` acknowledges that
-all workers retired. Abrupt termination is infrastructure failure, not Linux exit.
+all workers retired; the coordinator releases its runtime references and closes
+itself. Drop the embedder's own module/memory references too. Abrupt termination is
+infrastructure failure, not Linux exit.
 
 ## Coverage and follow-ups
 
