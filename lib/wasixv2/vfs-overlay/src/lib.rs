@@ -645,6 +645,7 @@ impl OverlayNode {
             FileType::BlockDevice => (NewKind::BlockDevice(attr.rdev), attr.mode),
         };
         let new = NewNode {
+            umask: 0,
             kind,
             mode,
             uid: attr.uid,
@@ -755,6 +756,7 @@ impl OverlayNode {
     /// Creates a whiteout for `name` in this directory's upper directory `upper`.
     async fn make_whiteout(&self, upper: &Arc<dyn Node>, name: &[u8]) -> FsResult<()> {
         let device = NewNode {
+            umask: 0,
             kind: NewKind::CharDevice(Device::default()),
             mode: 0,
             uid: 0,

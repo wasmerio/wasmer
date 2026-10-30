@@ -29,9 +29,9 @@ use wasixv2_vfs::{Cred, FileType, Filesystem};
 use wasixv2_wait::WaitQueue;
 use wire::*;
 
-// BIG_WRITES, DO_READDIRPLUS and POSIX_ACL. In particular no WRITEBACK_CACHE,
+// BIG_WRITES, DONT_MASK, DO_READDIRPLUS and POSIX_ACL. In particular no WRITEBACK_CACHE,
 // passthrough, splice, DAX, or mmap of direct I/O files (fuse_send_init).
-const INIT_FLAGS: u32 = (1 << 5) | (1 << 13) | (1 << 20);
+const INIT_FLAGS: u32 = (1 << 5) | (1 << 6) | (1 << 13) | (1 << 20);
 
 pub(super) struct Connection {
     sync_init: bool,

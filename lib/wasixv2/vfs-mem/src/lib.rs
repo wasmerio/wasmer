@@ -245,6 +245,7 @@ impl MemFs {
             nodes: Mutex::default(),
         });
         let root = NewNode {
+            umask: 0,
             kind: NewKind::Directory,
             mode,
             uid,

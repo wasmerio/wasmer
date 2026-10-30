@@ -177,6 +177,7 @@ fn mutations_fail_with_erofs() {
     let root = fs.root();
     let file = lookup(&fs, "a.txt");
     let new = NewNode {
+        umask: 0,
         kind: wasixv2_vfs::NewKind::Regular,
         mode: 0o644,
         uid: 0,

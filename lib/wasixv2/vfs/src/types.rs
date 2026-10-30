@@ -187,9 +187,12 @@ impl NewKind<'_> {
 }
 
 /// A new object: its kind and initial ownership and permission bits, already decided by the VFS
-/// (umask applied, set-gid inheritance resolved).
+/// (umask applied, set-gid inheritance resolved), unless the driver delegates creation
+/// inheritance to a remote server ([`Node::delegates_creation`](crate::Node::delegates_creation)).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct NewNode<'a> {
+    /// The creating task's umask, also supplied when `mode` is already masked.
+    pub umask: u32,
     pub kind: NewKind<'a>,
     pub mode: u32,
     pub uid: u32,

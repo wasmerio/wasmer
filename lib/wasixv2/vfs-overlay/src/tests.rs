@@ -18,6 +18,7 @@ fn mem() -> Arc<dyn Filesystem> {
 
 fn new(kind: NewKind<'_>) -> NewNode<'_> {
     NewNode {
+        umask: 0,
         kind,
         mode: 0o644,
         uid: 1,

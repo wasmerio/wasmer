@@ -444,6 +444,9 @@ impl Node for FuseNode {
     fn unlinked_directory(&self) -> bool {
         self.deleted.load(Ordering::Acquire)
     }
+    fn delegates_creation(&self) -> bool {
+        true
+    }
     fn acl_permissions(&self) -> bool {
         self.conn.queue.lock_or_recover().flags & (1 << 20) != 0
     }
@@ -552,8 +555,15 @@ impl Node for FuseNode {
         if self.deleted.load(Ordering::Acquire) {
             return Err(Errno::ENOENT);
         }
+        // fs/fuse/dir.c:fuse_mknod/fuse_mkdir: always transmit current_umask,
+        // but apply it to mode only when process_init_reply did not select DONT_MASK.
+        let mode = if self.conn.queue.lock_or_recover().flags & (1 << 6) != 0 {
+            new.mode
+        } else {
+            new.mode & !new.umask
+        };
         let (opcode, mut body) = match new.kind {
-            NewKind::Directory => (9, words32(&[new.mode | self.kind.mode_bits(), 0])),
+            NewKind::Directory => (9, words32(&[mode, new.umask])),
             NewKind::Symlink(_) => (6, Vec::new()),
             kind => {
                 let rdev = match kind {
@@ -564,7 +574,7 @@ impl Node for FuseNode {
                 };
                 (
                     8,
-                    words32(&[new.mode | kind.file_type().mode_bits(), rdev, 0, 0]),
+                    words32(&[mode | kind.file_type().mode_bits(), rdev, new.umask, 0]),
                 )
             }
         };
@@ -583,7 +593,13 @@ impl Node for FuseNode {
         options: OpenOptions,
     ) -> FsResult<(Arc<dyn Node>, Box<dyn Handle>)> {
         let flags = Self::flags(options) | 0o100;
-        let mut body = words32(&[flags, new.mode | FileType::Regular.mode_bits(), 0, 0]);
+        // fs/fuse/dir.c:fuse_create_open, including its MKNOD fallback.
+        let mode = if self.conn.queue.lock_or_recover().flags & (1 << 6) != 0 {
+            new.mode
+        } else {
+            new.mode & !new.umask
+        };
+        let mut body = words32(&[flags, mode | FileType::Regular.mode_bits(), new.umask, 0]);
         super::wire::name(&mut body, name);
         match self.conn.optional(35, self.id, body, 144, 144).await {
             Ok(out) => {
