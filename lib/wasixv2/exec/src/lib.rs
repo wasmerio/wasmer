@@ -773,6 +773,13 @@ fn imports<S>(
 where
     S: Syscalls + Control + Send + Sync + 'static,
 {
+    // Process and thread instances bind imports on their owning worker; nested host
+    // calls must use that worker's scheduler, including its detached Rust tasks.
+    #[cfg(feature = "js")]
+    wasmer::js::set_blocking_executor(|future| {
+        wasixv2_host::browser::block_on(future);
+        Ok(())
+    });
     let mut imports = abi.imports(store, env, module);
     imports.define(
         preempt::HOOK_MODULE,
