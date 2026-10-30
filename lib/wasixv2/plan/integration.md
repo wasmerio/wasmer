@@ -1758,3 +1758,138 @@ cleanup audit. All integration commits were made by this AI agent as configured
 git user with the exact GPT-6.1-Sol attribution footer; the human remains
 responsible. Landing order: **tests main -> Wasmer feat/wasixv2 -> plan**;
 libc2/ABI/LTP unchanged. The orchestrator pushes mains.
+
+## 2026-10-30: merge train 27 — GO for scoped integration
+
+Integrates V11 real-program validation and its ptrace/SIGKILL signal-range fix.
+B13 lifetime and V12 suites are excluded. The orchestrator owns runtime/tests
+mains; candidate refs and this fast-forward plan entry are published from the
+private `train27-plan` worktree. Shared plan worktree untouched.
+
+| Repository | Base | Train27 candidate |
+| --- | --- | --- |
+| Wasmer, `wasixv2/train27` | 7ccaad3e14e | **b145215a694** |
+| wasixv2-tests, `train27` | 8ada114 | **ed854e9** |
+| libc2 | 6bc05b3b | unchanged |
+| ABI | 07cd32e | unchanged; both consumers match |
+| LTP | 54ea12a4b | unchanged |
+
+V11's sole runtime commit b6ba99822a3 replays as **b0fe8924c31**. Kernel-sent
+signals use the existing valid-signal check before indexing signal state,
+matching Linux `kernel/signal.c:send_sig_info`; `include/linux/ptrace.h:
+ptrace_report_syscall` ignores EINVAL for the stop marker when SIGKILL prevents
+stopping. The failing-first sibling unit covers both syscall entry and exit.
+The original traced Perl panic and deterministic RED evidence remain referenced
+in `input-panic-repair.json`. No ABI, new kernel/exec contract, excluded linking/
+closures/libffi/reflection, or tracked prebuilt-Wasm change.
+
+Private plan replays V11's three source-only recipe/results commits
+27bf6dcb5e4/67f1c689f60/01a0145d950, with one trailing-space cleanup. All eight
+workflows pass on the integrated runtime: SQLite concurrent WAL reader/writer
+locking, backup/integrity and VACUUM; Git branches/merge/gc/fsck/local and
+upload-pack clones/hooks; make -j4 with recursive pipe jobserver; tmux pty/server/
+split/send/capture/detach/attach; rsync metadata/hardlinks/delete/loopback daemon;
+eight Lua files; miniperl twelve files/810 assertions including traced fork;
+OpenSSH key login/remote command/SFTP scp. Sources, pins and recipes are retained.
+
+Gates pass: **28 native crate invocations /2156 passing cases** (train26:2155;
+kernel1123), three strict Makefile-flags clippy gates, root fmt, release CLI
+**8m33s**, CLI59+TTY6 with12existing ignores, runner33+2existing ignores and
+strict runner clippy/fmt. Complete Makefile wasm compile gate, browser-provider
+and facade-library/example wasm clippy, dependency graph and JS/runner tests pass.
+The runtime source remains gated **b0fe8924c31**; final b145215a694 changes only
+its single tests gitlink. Archived CLI SHA256:
+`4c8cc7b351ed0f4397d31b96f92ac9405c85db35221f3a1f9de431bcb73b9079`.
+
+Exactly **ONE executed full suite**, **2997s**, CPUs0-3/nice19/three threads,
+original caps/deadlines and source-declared LTP budgets. Source b0fe8924c31,
+tests8ada114 and unchanged shared libc2 sysroots. Raw4094pass/83xfail/
+0unexpectedfail/0unexpectedpass/433ignored. A copied launcher filename stopped
+before guard/runner/any case; zero-case evidence is archived. Its correction
+launched the sole actual suite, retaining all completed gates/discovery.
+
+| Suite | Train26 pass / fail / ignored | Train27 pass / fail / ignored |
+| --- | --- | --- |
+| own | 323 /0 /1 | 323 /0 /1 |
+| libc-test | 411 /2 /0 | 411 /2 /0 |
+| POSIX | 1727 /17 /81 | 1727 /17 /81 |
+| LTP | 1633 /64 /351 | 1633 /64 /351 |
+| **Total** | **4094 /83 /433** | **4094 /83 /433** |
+
+No regression/new pass/new ignore/disappearance in the sole suite. Blessing is
+a no-op; all83 existing causes, flaky and exclusion policies remain unchanged.
+The final tests commit corrects only base-clocks' CPU burn helper, validated by
+focused checks below; it adds no registration and changes no expectation policy.
+No second full suite.
+
+Native smoke matches26:12usual/35hand/25carried-feature statuses, SWS28+28, UDP6,
+v1eight plus the existing Python linking failure, C++9, PTY11/no-tty, focused C
+and train23 brk/mqueue/process_vm/root-ioctl prerequisites; all10program workflows
+and10strace checks; seven V9 workflows; fresh fuse-overlayfs copy-up/lower
+preservation/whiteout/new-file/unmount. All20 original-order panic repetitions
+complete,16results each, retaining unsupported mktemp injection. Busybox remains
+198pass/11same failures/1skip, with date-timezone passing. All eight V11 workflows
+also pass. No current host panic observed.
+
+Fresh source-built browser runtime/exports, actual Chromium151.0.7922.108 and
+Firefox157.0, context-per-case, cross-origin isolation/SAB and page+worker no-JSPI:
+
+| Required group, resolved outcomes | Chromium | Firefox |
+| --- | --- | --- |
+| v2 | 21/21 | 21/21 after focused clock correction |
+| v1 | 14/14 | 14/14 |
+| static v1 C | 3/3 | 3/3 |
+| B14 | 15/15 | 15/15 |
+| B15 original subset | 17/17 | 17/17 |
+| B16 combined | 28/28 | 28/28 |
+| **Required outcomes, zero skips** | **98/98** | **98/98** |
+
+The original Firefox run is **97/98**, with only base-clocks/default failing its
+CPU-delta assertions. Its helper spun30ms of wall time and required10ms CPU,
+which Linux does not guarantee across descheduling. Controlled native SIGSTOP/
+CONT for60ms reproduces the false failure: original process/thread CPU about60us;
+corrected helper consumes30ms and passes the same control. **ed854e9** drives the
+existing helper by thread CPU time, retaining every assertion/deadline and the
+separate monotonic tests, following `kernel/time/posix-cpu-timers.c:
+posix_cpu_clock_get/cpu_clock_sample`. The edited fixture is formatted with the
+repository configuration and its ExpectedStdout directive is preserved.
+
+The complete corrected fixture passes native Linux, native WASIX and focused
+Chromium+Firefox runs. Original Firefox results/output are never rewritten;
+`browser-report.json` explicitly reconciles that one correction. Chromium's
+original98/98 is retained and its corrected clock also passes. Thus198 fixture
+executions were made:196 original plus two focused corrections; B15's17case
+subset is independently executed despite also appearing within B16's28. Both
+engines' transport/lifecycle checks pass. The fresh runtime descriptor is
+65initial/4096maximum shared pages; TLS/stack-destruction structural checks pass.
+No runtime clock repair, SDK parity or deployment signoff is claimed.
+
+Invocation/build scans throughout validation and after browser correction find
+**zero unexpected current host panics**. Four incomplete setsockopt11/alias
+normal/trace captures match four owned2GiB OOM scopes in the user journal, as
+baseline; zero captured guest remains live. No kernel-journal PID proof claimed.
+The inherited fixture-format setup failure and zero-case launcher evidence are
+retained alongside corrected validations.
+
+Shared disk pressure required reclaiming completed owned targets promptly.
+LTP duplicate outputs were removed only after readiness and installed-symlink
+checks; all build logs were archived before target removal. Browser bundle23files
+were hash-verified against compiler outputs before deleting its completed target;
+active browsers serve retained exports/bundles. Archived CLI and all program
+out/bin inputs were hash-verified before remaining completed Cargo targets and
+regenerable bin staging were removed. All source kits/out/bin/packages/logs are
+kept. Recorded floor **10.37GB (9.66GiB)**, above10GB decimal.1026 core artifacts
+are hashed and retained. Both libc archive hashes remain unchanged, so no shared
+sysroot rebuild is required.
+
+Evidence: `~/wasixv2-orch/logs/train27/STATE.md`, classification, native/browser
+reports, clock-correction/native-preemption proof, capture/OOM audit, raw logs,
+source/pin/commit inventories, artifact hashes and cleanup records. B17 cold CI
+remains owner-blocked on WASIXV2_TOOLCHAIN_TOKEN; B13/V12, historical browser
+lifetime/WebKit limits, SDK/WISP/service-worker/Ports and production relay
+fidelity deployment remain separate follow-ups. No credential workaround attempted.
+
+All new commits were made by this AI agent as configured git user with the exact
+GPT-6.1-Sol attribution footer; the human is responsible. Landing order:
+**tests main -> Wasmer feat/wasixv2 -> plan**; libc2/ABI/LTP unchanged. Only own
+train27 candidate refs and the authorized fast-forward plan entry are pushed.
