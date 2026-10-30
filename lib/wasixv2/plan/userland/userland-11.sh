@@ -51,7 +51,11 @@ ncurses)
   ;;
 vim)
   source_tree v9.1.
-  ./configure --host="$HOST" --build="$BUILD" --with-features=normal --with-tlib=tinfow --disable-gui --without-x --disable-channel --disable-terminal --disable-netbeans --disable-gpm --disable-nls --disable-acl --disable-selinux --disable-xsmp --disable-pythoninterp --disable-python3interp --disable-luainterp --disable-perlinterp --disable-rubyinterp --disable-tclinterp CFLAGS="-O2 -I$PREFIX/include -I$PREFIX/include/ncursesw" LDFLAGS="-static -L$PREFIX/lib"
+  # Vim's configure executes several required probes. Its compiler launcher
+  # runs real Wasm conftests; normal program outputs remain unchanged.
+  export WASIXV2_PROBE_CC=$CC WASIXV2_PROBE_ROOT=$SRC WASIXV2_PROBE_BIN=$HOME/wasixv2-tools/userland/out/bin
+  chmod +x "$USERLAND/tests/probe-cc-11.py"
+  CC="$USERLAND/tests/probe-cc-11.py" ./configure --host="$HOST" --build="$HOST" --with-features=normal --with-tlib=tinfow --disable-gui --without-x --disable-channel --disable-terminal --disable-netbeans --disable-gpm --disable-nls --disable-acl --disable-selinux --disable-xsmp --disable-pythoninterp --disable-python3interp --disable-luainterp --disable-perlinterp --disable-rubyinterp --disable-tclinterp CFLAGS="-O2 -I$PREFIX/include -I$PREFIX/include/ncursesw" LDFLAGS="-static -L$PREFIX/lib"
   make -j"$JOBS"
   install_wasm src/vim vim
   ;;
