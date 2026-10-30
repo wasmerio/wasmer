@@ -58,6 +58,7 @@ CONFIG
     echo 'redis benchmark + BGSAVE PASS'
     ;;
   postgres)
+    export PATH=/pg/bin:/bin
     data=/tmp/pgdata
     initdb -D "$data" --no-locale -E UTF8 -A trust -U postgres \
       --set=shared_memory_type=sysv --set=dynamic_shared_memory_type=sysv \

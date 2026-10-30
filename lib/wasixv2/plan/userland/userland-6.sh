@@ -5,6 +5,7 @@ export BINARYEN_CORES=$JOBS OMP_NUM_THREADS=$JOBS CARGO_INCREMENTAL=0
 ROOT=${USERLAND6:-$HOME/wasixv2-tools/userland-6}
 OUT=$ROOT/out DOWNLOADS=$ROOT/downloads
 mkdir -p "$OUT/bin" "$ROOT/prefix"
+export PATH="$ROOT/host/bin:$PATH"
 pkg=${1:?one package required}
 source_tree() {
   local pattern=$1 entry url sum
@@ -32,18 +33,38 @@ case $pkg in
     ;;
   redis)
     source_tree redis-7.0.
-    make -j"$JOBS" CC="$CC" AR="$AR" RANLIB="$RANLIB" MALLOC=libc \
+    make -C src -j"$JOBS" CC="$CC" AR="$AR" RANLIB="$RANLIB" MALLOC=libc \
       DEBUG= OPTIMIZATION=-O2 USE_SYSTEMD=no BUILD_TLS=no uname_M=wasm32 \
       redis-server redis-cli redis-benchmark
     for p in redis-server redis-cli redis-benchmark; do install_wasm "src/$p" "$p"; done
     ;;
   postgres)
     source_tree postgresql-
-    ./configure --host="$HOST" --build="$BUILD" --prefix=/pg \
+    # src/template/linux explicitly supports overriding the semaphore preference.
+    PREFERRED_SEMAPHORES=SYSV ./configure --host="$HOST" --build="$BUILD" --prefix=/pg \
       --without-icu --without-readline --without-zlib --without-lz4 --without-zstd \
-      --without-openssl CFLAGS='-O2 -g'
-    make -j"$JOBS"
-    make -j"$JOBS" DESTDIR="$ROOT/postgres-install" install
+      --without-openssl --disable-rpath --with-system-tzdata=/zones CFLAGS='-O2 -g'
+    # Configure selects these ports with symlinks/flags; their source mtimes can
+    # predate objects from a previous configuration in this reusable build tree.
+    rm -f src/backend/port/pg_sema.o src/timezone/pgtz.o
+    # Build the server and requested static clients; no PL/plugin/shared-library targets.
+    make -C src/backend -j"$JOBS" generated-headers
+    make -C src/backend/port -j"$JOBS" pg_sema.o
+    make -C src/timezone -j"$JOBS" pgtz.o
+    make -C src/backend -j"$JOBS" all
+    make -C src/interfaces/libpq -j"$JOBS" libpq.a
+    make -C src/fe_utils -j"$JOBS" -o submake-libpq
+    for p in initdb pg_ctl pgbench psql; do
+      local_libs=()
+      case $p in pgbench|psql)
+        local_libs=("LIBS=-lpgcommon_shlib -lpgport_shlib -lpgcommon -lpgport -lm");;
+      esac
+      make -C "src/bin/$p" -j"$JOBS" -o submake-libpq -o submake-libpgfeutils "${local_libs[@]}"
+    done
+    for dir in src/backend src/include/catalog src/backend/catalog src/bin/initdb src/bin/pg_ctl src/bin/pgbench src/bin/psql; do
+      make -C "$dir" -j"$JOBS" -o submake-libpq -o submake-libpgfeutils DESTDIR="$ROOT/postgres-install" install
+    done
+    make -C src/backend/snowball -j"$JOBS" DESTDIR="$ROOT/postgres-install" install-script
     cp -a "$ROOT/postgres-install/pg/bin/." "$OUT/bin/"
     ;;
   curl)
@@ -67,8 +88,9 @@ case $pkg in
     source_tree busybox-
     make -j"$JOBS" HOSTCC=cc defconfig
     # Kconfig options, not source substitutions. Standalone applets need fork.
-    sed -i 's/^CONFIG_STATIC=.*/CONFIG_STATIC=y/; s/^CONFIG_EXTRA_CFLAGS=.*/CONFIG_EXTRA_CFLAGS="-O2"/' .config
-    make -j"$JOBS" CC="$CC" HOSTCC=cc AR="$AR" \
+    sed -i 's/^CONFIG_HWCLOCK=y/# CONFIG_HWCLOCK is not set/; s/^CONFIG_TC=y/# CONFIG_TC is not set/; s/^CONFIG_SHA1_HWACCEL=y/# CONFIG_SHA1_HWACCEL is not set/; s/^CONFIG_SHA256_HWACCEL=y/# CONFIG_SHA256_HWACCEL is not set/; s/^CONFIG_STATIC=.*/CONFIG_STATIC=y/; s/^CONFIG_EXTRA_CFLAGS=.*/CONFIG_EXTRA_CFLAGS="-O2"/' .config
+    export WASIXV2_BUSYBOX_CC=$CC
+    make -j"$JOBS" CC="$USERLAND/tests/busybox-cc.py" HOSTCC=cc AR="$AR" \
       LD="$USERLAND/tests/busybox-ld.py" CROSS_COMPILE= SKIP_STRIP=y busybox
     install_wasm busybox busybox
     ;;

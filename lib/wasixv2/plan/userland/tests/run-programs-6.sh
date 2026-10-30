@@ -15,16 +15,16 @@ args=(run --compiler-threads 3 --no-tty --user 0 --net --dns builtin
   --volume "$ROOT/bin:/bin" --volume "$ROOT/work:/work" --volume "$TESTS:/tests")
 case $workflow in
   dash|bash)
-    exec timeout -k5 90 nice -n19 taskset -c 4-7 "$WASMER" "${args[@]}" \
+    exec python3 "$TESTS/checked-run.py" "$ROOT/logs/$workflow.log" timeout -k5 90 nice -n19 taskset -c 4-7 "$WASMER" "${args[@]}" \
       "$ROOT/out/bin/shell-pty" -- "/bin/$workflow"
     ;;
   postgres)
     args[5]=1
-    args+=(--volume "$ROOT/postgres-install/pg:/pg")
+    args+=(--volume "$ROOT/postgres-install/pg:/pg" --volume /usr/share/zoneinfo:/zones)
     ;;
   coreutils)
     args+=(--volume "$USERLAND4/coreutils:/coreutils")
-    exec timeout -k5 300 nice -n19 taskset -c 4-7 "$WASMER" "${args[@]}" \
+    exec python3 "$TESTS/checked-run.py" "$ROOT/logs/$workflow.log" timeout -k5 300 nice -n19 taskset -c 4-7 "$WASMER" "${args[@]}" \
       "$ROOT/bin/bash" -- -c '
         cd /coreutils/build
         export LC_ALL=C LANG=C
@@ -47,12 +47,12 @@ case $workflow in
     ;;
   busybox)
     args+=(--volume "$ROOT/busybox-src:/busybox")
-    exec timeout -k5 900 nice -n19 taskset -c 4-7 "$WASMER" "${args[@]}" \
-      "$ROOT/bin/bash" -- -c 'cd /busybox/testsuite; exec bash ./runtest -v'
+    exec python3 "$TESTS/checked-run.py" "$ROOT/logs/$workflow.log" timeout -k5 900 nice -n19 taskset -c 4-7 "$WASMER" "${args[@]}" \
+      "$ROOT/bin/bash" -- -c 'mkdir -p /tmp/busybox; cp -r /busybox/testsuite /tmp/busybox/; cp /busybox/.config /busybox/busybox /tmp/busybox/; cd /tmp/busybox/testsuite; exec bash ./runtest -v'
     ;;
   nginx|redis|overlay|network|netns) ;;
   *) echo "unknown workflow $workflow" >&2; exit 2 ;;
 esac
-exec timeout -k5 240 nice -n19 taskset -c 4-7 "$WASMER" "${args[@]}" \
+exec python3 "$TESTS/checked-run.py" "$ROOT/logs/$workflow.log" timeout -k5 240 nice -n19 taskset -c 4-7 "$WASMER" "${args[@]}" \
   "$ROOT/bin/strace" -- -f -o "/work/strace-$workflow.log" \
   /bin/bash /tests/programs-6.sh "$workflow"
