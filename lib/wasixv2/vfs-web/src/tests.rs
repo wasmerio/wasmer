@@ -28,6 +28,7 @@ async fn mount() -> Arc<WebFs> {
 
 fn new(kind: NewKind<'_>) -> NewNode<'_> {
     NewNode {
+        umask: 0,
         kind,
         mode: 0o644,
         uid: 1,
@@ -794,4 +795,19 @@ fn provider_directory_cookies_are_opaque_and_need_not_be_ordered() {
     let mut names = Names(Vec::new(), 10);
     block_on(handle.readdir(0, &mut names)).unwrap();
     assert_eq!(names.0, vec![(b"a".to_vec(), 50), (b"b".to_vec(), 7)]);
+}
+
+#[test]
+fn provider_creation_roundtrip_keeps_the_vfs_applied_mode() {
+    // fs/namei.c:vfs_prepare_mode applies mode_strip_umask before the driver call.
+    let request = NewNode {
+        mode: 0o640,
+        umask: 0o027,
+        ..new(NewKind::Regular)
+    };
+    let record = protocol::Create::from_new(&request);
+    let restored = record.as_new();
+    assert_eq!(restored.mode, 0o640);
+    assert_eq!(restored.umask, 0);
+    assert_eq!((restored.uid, restored.gid), (request.uid, request.gid));
 }

@@ -76,6 +76,7 @@ impl Create {
 
     pub(crate) fn as_new(&self) -> NewNode<'_> {
         NewNode {
+            umask: 0,
             kind: match self.file_type {
                 FileType::Regular => NewKind::Regular,
                 FileType::Directory => NewKind::Directory,
