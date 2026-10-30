@@ -75,6 +75,15 @@ pub(crate) fn path_unlink_file_internal(
         }
     };
 
+    // Reject directories before touching the parent's cached entries or the
+    // inode's link count: a failed `path_unlink_file` must leave no side
+    // effects, otherwise the directory would be evicted from the cache and
+    // later `path_remove_directory` calls would lose track of it (returning
+    // `ENOENT` and leaving the real directory tree in place).
+    if matches!(inode.read().deref(), Kind::Dir { .. } | Kind::Root { .. }) {
+        return Ok(Errno::Isdir);
+    }
+
     let removed_inode = {
         let mut guard = parent_inode.write();
         let entry = match guard.deref_mut() {

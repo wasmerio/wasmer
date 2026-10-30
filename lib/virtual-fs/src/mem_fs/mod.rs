@@ -39,10 +39,12 @@ impl FileLifecycle {
         self.open_handles.fetch_add(1, Ordering::AcqRel);
     }
 
+    // Last-close and unlink need one order across both atomics: either unlink
+    // observes zero handles, or the last close observes that the inode is unlinked.
     fn closed(&self) -> usize {
         let previous = self
             .open_handles
-            .try_update(Ordering::AcqRel, Ordering::Acquire, |count| {
+            .try_update(Ordering::SeqCst, Ordering::Acquire, |count| {
                 count.checked_sub(1)
             })
             .expect("FileLifecycle::closed called with zero open handles");
@@ -50,15 +52,15 @@ impl FileLifecycle {
     }
 
     fn open_handle_count(&self) -> usize {
-        self.open_handles.load(Ordering::Acquire)
+        self.open_handles.load(Ordering::SeqCst)
     }
 
     fn mark_unlinked(&self) {
-        self.unlinked.store(true, Ordering::Release);
+        self.unlinked.store(true, Ordering::SeqCst);
     }
 
     fn is_unlinked(&self) -> bool {
-        self.unlinked.load(Ordering::Acquire)
+        self.unlinked.load(Ordering::SeqCst)
     }
 }
 
