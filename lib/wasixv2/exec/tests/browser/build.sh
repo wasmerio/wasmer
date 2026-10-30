@@ -18,7 +18,7 @@ out="$CARGO_TARGET_DIR/browser"
 mkdir -p "$out/memory"
 "$bindgen" "$CARGO_TARGET_DIR/wasm32-unknown-unknown/debug/examples/browser_memory.wasm" \
     --target web --out-dir "$out" --out-name runtime
-cp lib/wasixv2/host/src/browser/{bootstrap,coordinator,worker}.js "$out/"
+cp lib/wasixv2/host/src/browser/{bootstrap,coordinator,worker,timer-driver}.js "$out/"
 cp lib/wasixv2/exec/src/memory/{client,copy-worker,operations}.js "$out/memory/"
 cp lib/wasixv2/host/tests/browser/index.html "$out/"
 cp lib/wasixv2/exec/tests/browser/{smoke,silent-copy-worker}.js "$out/"
