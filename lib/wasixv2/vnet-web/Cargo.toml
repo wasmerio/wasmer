@@ -1,0 +1,23 @@
+[package]
+name = "wasixv2-vnet-web"
+version = "0.0.0"
+description = "Browser relay network backend for WASIX"
+publish = false
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+wasixv2-abi = { path = "../abi" }
+wasixv2-vnet = { path = "../vnet" }
+wasixv2-wait = { path = "../wait" }
+bincode = { workspace = true, features = ["serde"] }
+serde = { workspace = true, features = ["derive"] }
+futures-util.workspace = true
+
+[target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
+virtual-net = { path = "../../virtual-net" }
+tokio = { workspace = true, default-features = false, features = ["rt", "time"] }
