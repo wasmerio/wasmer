@@ -226,6 +226,12 @@ pub fn decode(frame: &[u8]) -> Result<Event, Errno> {
                         result: Ok(Found { ttl, answer }),
                     }
                 }
+                4 => Event::DatagramRefused {
+                    socket: r.get()?,
+                    destination: r.get()?,
+                    offender: r.get()?,
+                    payload: r.get()?,
+                },
                 3 => Event::Urgent {
                     socket: r.get()?,
                     data: r.get()?,

@@ -83,3 +83,61 @@ impl DatagramErrors {
         Some(error)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn recverr_queues_quotes_and_dequeue_rearms_pending_error() {
+        let mut e = DatagramErrors::default();
+        let dst = "192.0.2.1:1234".parse().unwrap();
+        assert!(!e.refused(dst, None, b"a", false, 4096));
+        e.set_option(
+            SocketLevel::SOL_IP.0,
+            IpOption::IP_RECVERR.0,
+            &1i32.to_le_bytes(),
+        )
+        .unwrap();
+        assert!(e.refused(dst, None, b"a", false, 4096));
+        assert!(e.refused(dst, None, b"b", false, 4096));
+        assert_eq!(e.take_error(), Some(Errno::ECONNREFUSED));
+        assert!(e.has_error());
+        assert_eq!(e.take_queued_error().unwrap().payload, b"a");
+        assert_eq!(e.take_error(), Some(Errno::ECONNREFUSED));
+        assert_eq!(e.take_queued_error().unwrap().payload, b"b");
+        assert!(!e.has_error());
+    }
+    #[test]
+    fn family_options_queue_bounds_and_disabling_preserve_sk_err() {
+        let mut e = DatagramErrors::default();
+        let dst = "[2001:db8::1]:1234".parse().unwrap();
+        e.set_option(
+            SocketLevel::SOL_IP.0,
+            IpOption::IP_RECVERR.0,
+            &1i32.to_le_bytes(),
+        )
+        .unwrap();
+        assert!(!e.refused(dst, None, b"v6", false, 4096));
+        e.set_option(
+            SocketLevel::SOL_IPV6.0,
+            Ipv6Option::IPV6_RECVERR.0,
+            &1i32.to_le_bytes(),
+        )
+        .unwrap();
+        assert!(e.refused(dst, None, b"v6", false, 770));
+        assert!(e.refused(dst, None, b"drop", false, 770));
+        let q = e.take_queued_error().unwrap();
+        assert_eq!((q.type_, q.code), (1, 4));
+        assert_eq!(q.payload, b"v6");
+        assert!(e.take_queued_error().is_none());
+        e.refused(dst, None, b"v6", false, 4096);
+        e.set_option(
+            SocketLevel::SOL_IPV6.0,
+            Ipv6Option::IPV6_RECVERR.0,
+            &0i32.to_le_bytes(),
+        )
+        .unwrap();
+        assert!(e.take_queued_error().is_none());
+        assert_eq!(e.take_error(), Some(Errno::ECONNREFUSED));
+    }
+}
