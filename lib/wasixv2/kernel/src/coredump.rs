@@ -987,12 +987,17 @@ mod tests {
             auxv: Vec::new(),
             files: Vec::new(),
         };
-        let elf = ElfCore::new(&core, &[0..1 << 20], COREDUMP_FILTER_DEFAULT, &[]);
+        let elf = ElfCore::new(
+            &core,
+            std::slice::from_ref(&(0..1 << 20)),
+            COREDUMP_FILTER_DEFAULT,
+            &[],
+        );
         assert_eq!(&elf.head[..4], b"\x7fELF");
         assert_eq!(u16::from_le_bytes([elf.head[16], elf.head[17]]), ET_CORE);
         assert_eq!(elf.head.len() as u64 % MIN_COREDUMP, 0);
         assert_eq!(elf.memory_len, 1 << 20);
-        let none = ElfCore::new(&core, &[0..1 << 20], 0, &[]);
+        let none = ElfCore::new(&core, std::slice::from_ref(&(0..1 << 20)), 0, &[]);
         assert_eq!(none.memory_len, 0);
     }
 }
