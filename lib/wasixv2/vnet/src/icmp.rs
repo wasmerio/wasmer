@@ -1124,6 +1124,7 @@ impl IcmpSocket {
             src: msg.src,
             dst: msg.dst,
             ttl: msg.ttl,
+            traffic_class: 0,
             iif,
             pkttype,
         };
@@ -1800,6 +1801,7 @@ impl Socket for IcmpSocket {
                                 src: r.from,
                                 dst: r.dst,
                                 ttl: r.ttl,
+                                traffic_class: 0,
                                 iif: self.net.uplink_index(),
                                 pkttype: PACKET_HOST,
                             };

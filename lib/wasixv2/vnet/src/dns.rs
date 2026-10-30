@@ -653,6 +653,7 @@ fn deliver(net: &Weak<Net>, server: SocketAddr, client: SocketAddr, data: &[u8])
         src: server.ip(),
         dst: client.ip(),
         ttl: 64,
+        traffic_class: 0,
         iif: net.uplink_index(),
         pkttype: PACKET_HOST,
     };

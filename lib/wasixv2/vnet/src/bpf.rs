@@ -692,6 +692,7 @@ pub(crate) struct Arrival {
     pub src: IpAddr,
     pub dst: IpAddr,
     pub ttl: u8,
+    pub traffic_class: u8,
     pub iif: u32,
     pub pkttype: u8,
 }
