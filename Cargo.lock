@@ -7228,6 +7228,7 @@ dependencies = [
 name = "wasixv2-syscalls"
 version = "0.0.0"
 dependencies = [
+ "pin-project-lite",
  "wasixv2-abi",
  "wasixv2-pages",
 ]

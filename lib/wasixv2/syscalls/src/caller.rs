@@ -38,29 +38,36 @@ pub fn current_task() -> Option<TaskId> {
 /// `future` run as `task`'s: while it is polled, [`current_task`] is `task`. The kernel's
 /// syscall entry scopes each call, including calls from a vfork child on its parent's instance.
 pub fn as_task<F: std::future::Future>(task: TaskId, future: F) -> AsTask<F> {
-    AsTask {
-        task,
-        future: Box::pin(future),
-    }
+    AsTask { task, future }
 }
 
-/// See [`as_task`].
-pub struct AsTask<F> {
-    task: TaskId,
-    future: std::pin::Pin<Box<F>>,
+pin_project_lite::pin_project! {
+    /// See [`as_task`]. The scope owns its pinned future without a heap allocation.
+    pub struct AsTask<F> {
+        task: TaskId,
+        #[pin]
+        future: F,
+    }
 }
 
 impl<F: std::future::Future> std::future::Future for AsTask<F> {
     type Output = F::Output;
 
     fn poll(
-        mut self: std::pin::Pin<&mut Self>,
+        self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<F::Output> {
-        let outer = CURRENT.with(|current| current.replace(Some(self.task)));
-        let poll = self.future.as_mut().poll(cx);
-        CURRENT.with(|current| current.set(outer));
-        poll
+        struct Restore(Option<TaskId>);
+        impl Drop for Restore {
+            fn drop(&mut self) {
+                CURRENT.with(|current| current.set(self.0));
+            }
+        }
+        let this = self.project();
+        // Linux include/linux/sched.h:current names the executing task. Keep
+        // that scope through nesting and restore it even when a poll unwinds.
+        let _restore = Restore(CURRENT.with(|current| current.replace(Some(*this.task))));
+        this.future.poll(cx)
     }
 }
 
@@ -76,6 +83,23 @@ mod tests {
         let seen = futures_executor_block_on(outer);
         assert_eq!(seen, (Some(TaskId(3)), Some(TaskId(7))));
         assert_eq!(current_task(), None);
+    }
+
+    #[test]
+    fn a_panicking_task_restores_the_outer_current_task() {
+        let outer = as_task(TaskId(3), async {
+            let panic = std::panic::catch_unwind(|| {
+                futures_executor_block_on(as_task(TaskId(7), async {
+                    assert_eq!(current_task(), Some(TaskId(7)));
+                    panic!("guest operation failed");
+                }));
+            });
+            assert!(panic.is_err());
+            current_task()
+        });
+        let seen = futures_executor_block_on(outer);
+        assert_eq!(current_task(), None);
+        assert_eq!(seen, Some(TaskId(3)));
     }
 
     /// Polls a future that never waits to its end.
