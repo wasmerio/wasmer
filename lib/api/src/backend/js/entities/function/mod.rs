@@ -167,20 +167,28 @@ impl Function {
         };
         let wrapped_func = match mode {
             jspi::AsyncMode::Blocking => {
-                Closure::wrap(Box::new(move |args: &Array| -> Result<JsValue, JsValue> {
-                    blocking::block_on(callback(args))
-                        .and_then(|result| result)
-                        .map_err(JsValue::from)
-                })
-                    as Box<dyn Fn(&Array) -> Result<JsValue, JsValue>>)
-                .into_js_value()
+                store
+                    .objects_mut()
+                    .as_js_mut()
+                    .host_callback(Closure::wrap(Box::new(
+                        move |args: &Array| -> Result<JsValue, JsValue> {
+                            blocking::block_on(callback(args))
+                                .and_then(|result| result)
+                                .map_err(JsValue::from)
+                        },
+                    )
+                        as Box<dyn Fn(&Array) -> Result<JsValue, JsValue>>))
             }
-            jspi::AsyncMode::Jspi => Closure::wrap(Box::new(move |args: &Array| -> Promise {
-                let future = callback(args);
-                future_to_promise(async move { future.await.map_err(JsValue::from) })
-            })
-                as Box<dyn Fn(&Array) -> Promise>)
-            .into_js_value(),
+            jspi::AsyncMode::Jspi => {
+                store
+                    .objects_mut()
+                    .as_js_mut()
+                    .host_callback(Closure::wrap(Box::new(move |args: &Array| -> Promise {
+                        let future = callback(args);
+                        future_to_promise(async move { future.await.map_err(JsValue::from) })
+                    })
+                        as Box<dyn Fn(&Array) -> Promise>))
+            }
         };
 
         let variadic =
@@ -331,54 +339,60 @@ impl Function {
         let raw_store = store.as_raw() as *mut u8;
         let raw_env = env.clone();
         let wrapped_func: JsValue = match function_type.results().len() {
-            0 => Closure::wrap(Box::new(move |args: &Array| {
-                let mut store: StoreMut = unsafe { StoreMut::from_raw(raw_store as _) };
-                let wasm_arguments = function_type
-                    .params()
-                    .iter()
-                    .enumerate()
-                    .map(|(i, param)| {
-                        js_value_to_wasmer(&mut store, param, &args.get(i as u32))
-                    })
-                    .collect::<Vec<_>>();
-                let env: FunctionEnvMut<T> = raw_env.clone().into_mut(&mut store);
-                let _results = func(env, &wasm_arguments)?;
-                Ok(())
-            })
-                as Box<dyn FnMut(&Array) -> Result<(), JsValue>>)
-            .into_js_value(),
-            1 => Closure::wrap(Box::new(move |args: &Array| {
-                let mut store: StoreMut = unsafe { StoreMut::from_raw(raw_store as _) };
-                let wasm_arguments = function_type
-                    .params()
-                    .iter()
-                    .enumerate()
-                    .map(|(i, param)| {
-                        js_value_to_wasmer(&mut store, param, &args.get(i as u32))
-                    })
-                    .collect::<Vec<_>>();
-                let env: FunctionEnvMut<T> = raw_env.clone().into_mut(&mut store);
-                let results = func(env, &wasm_arguments)?;
-                Ok(wasmer_value_to_js(&results[0]))
-            })
-                as Box<dyn FnMut(&Array) -> Result<JsValue, JsValue>>)
-            .into_js_value(),
-            _n => Closure::wrap(Box::new(move |args: &Array| {
-                let mut store: StoreMut = unsafe { StoreMut::from_raw(raw_store as _) };
-                let wasm_arguments = function_type
-                    .params()
-                    .iter()
-                    .enumerate()
-                    .map(|(i, param)| {
-                        js_value_to_wasmer(&mut store, param, &args.get(i as u32))
-                    })
-                    .collect::<Vec<_>>();
-                let env: FunctionEnvMut<T> = raw_env.clone().into_mut(&mut store);
-                let results = func(env, &wasm_arguments)?;
-                Ok(wasmer_array_to_js_array(&results))
-            })
-                as Box<dyn FnMut(&Array) -> Result<Array, JsValue>>)
-            .into_js_value(),
+            0 => store
+                .objects_mut()
+                .as_js_mut()
+                .host_callback(Closure::wrap(Box::new(move |args: &Array| {
+                    let mut store: StoreMut = unsafe { StoreMut::from_raw(raw_store as _) };
+                    let wasm_arguments = function_type
+                        .params()
+                        .iter()
+                        .enumerate()
+                        .map(|(i, param)| {
+                            js_value_to_wasmer(&mut store, param, &args.get(i as u32))
+                        })
+                        .collect::<Vec<_>>();
+                    let env: FunctionEnvMut<T> = raw_env.clone().into_mut(&mut store);
+                    let _results = func(env, &wasm_arguments)?;
+                    Ok(())
+                })
+                    as Box<dyn FnMut(&Array) -> Result<(), JsValue>>)),
+            1 => store
+                .objects_mut()
+                .as_js_mut()
+                .host_callback(Closure::wrap(Box::new(move |args: &Array| {
+                    let mut store: StoreMut = unsafe { StoreMut::from_raw(raw_store as _) };
+                    let wasm_arguments = function_type
+                        .params()
+                        .iter()
+                        .enumerate()
+                        .map(|(i, param)| {
+                            js_value_to_wasmer(&mut store, param, &args.get(i as u32))
+                        })
+                        .collect::<Vec<_>>();
+                    let env: FunctionEnvMut<T> = raw_env.clone().into_mut(&mut store);
+                    let results = func(env, &wasm_arguments)?;
+                    Ok(wasmer_value_to_js(&results[0]))
+                })
+                    as Box<dyn FnMut(&Array) -> Result<JsValue, JsValue>>)),
+            _n => store
+                .objects_mut()
+                .as_js_mut()
+                .host_callback(Closure::wrap(Box::new(move |args: &Array| {
+                    let mut store: StoreMut = unsafe { StoreMut::from_raw(raw_store as _) };
+                    let wasm_arguments = function_type
+                        .params()
+                        .iter()
+                        .enumerate()
+                        .map(|(i, param)| {
+                            js_value_to_wasmer(&mut store, param, &args.get(i as u32))
+                        })
+                        .collect::<Vec<_>>();
+                    let env: FunctionEnvMut<T> = raw_env.clone().into_mut(&mut store);
+                    let results = func(env, &wasm_arguments)?;
+                    Ok(wasmer_array_to_js_array(&results))
+                })
+                    as Box<dyn FnMut(&Array) -> Result<Array, JsValue>>)),
         };
 
         let dyn_func =

@@ -1,6 +1,6 @@
-use std::{marker::PhantomData, num::NonZeroUsize};
+use std::{any::Any, marker::PhantomData, num::NonZeroUsize};
 
-use wasm_bindgen::JsValue;
+use wasm_bindgen::{JsValue, closure::Closure};
 use wasmer_types::StoreId;
 
 use crate::js::{
@@ -50,12 +50,32 @@ impl_store_object! {
 #[derive(Default, Debug)]
 pub struct StoreObjects {
     id: StoreId,
+    host_callbacks: HostCallbacks,
     globals: Vec<VMGlobal>,
     function_environments: Vec<VMFunctionEnvironment>,
     externrefs: Vec<ExternRefData>,
 }
 
+#[derive(Default)]
+struct HostCallbacks(Vec<Box<dyn Any>>);
+
+impl std::fmt::Debug for HostCallbacks {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("HostCallbacks").field(&self.0.len()).finish()
+    }
+}
+
 impl StoreObjects {
+    pub(crate) fn host_callback<T: ?Sized + 'static>(&mut self, callback: Closure<T>) -> JsValue {
+        // Import callbacks borrow this Store's environment handles. Relinquishing
+        // them to JS GC also defers their Rust captures indefinitely on idle workers.
+        // Invalidate them before dropping the environments, including stale JS callers.
+        // Guest exit ownership remains Linux kernel/exit.c:exit_mm,do_exit.
+        let value = callback.as_ref().clone();
+        self.host_callbacks.0.push(Box::new(callback));
+        value
+    }
+
     /// Returns the ID of this context.
     pub fn id(&self) -> StoreId {
         self.id
