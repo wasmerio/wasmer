@@ -19,8 +19,21 @@ wasmer = { path = "../../api", version = "=7.5.0", default-features = false, fea
 ] }
 tracing.workspace = true
 wasmparser.workspace = true
+serde = { workspace = true, features = ["derive"], optional = true }
+serde_json = { workspace = true, optional = true }
+wasm-bindgen = { workspace = true, optional = true }
 
 [dev-dependencies]
+wat.workspace = true
+futures.workspace = true
+wasixv2-kernel = { path = "../kernel" }
+wasixv2-vfs-mem = { path = "../vfs-mem" }
+
+[target.'cfg(target_arch = "wasm32")'.dev-dependencies]
+wasm-bindgen-test.workspace = true
+wasixv2 = { path = "../api", default-features = false, features = ["js", "web", "wasix1"] }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
 # Layout conformance only; never a runtime dependency.
 wasmer-wasix-types = { path = "../../wasi-types" }
 wasixv2 = { path = "../api" }
@@ -28,9 +41,8 @@ tokio = { workspace = true, features = ["macros", "rt", "sync", "time"] }
 wasmer = { path = "../../api", version = "=7.5.0", default-features = false, features = [
   "cranelift",
 ] }
-wat.workspace = true
 
 [features]
 default = ["sys"]
 sys = ["wasmer/sys", "wasmer/headless", "wasixv2-exec/sys"]
-js = ["wasmer/js-default", "wasixv2-exec/js"]
+js = ["wasmer/js-default", "wasixv2-exec/js", "dep:serde", "dep:serde_json", "dep:wasm-bindgen"]

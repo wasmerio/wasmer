@@ -153,6 +153,7 @@ jobs:
         run: |
           source "$WASIXV2_BROWSER_TOOLS/env.sh"
           nice -n 19 taskset -c 4-7 cargo run --manifest-path tests/wasixv2/Cargo.toml -p wasixv2-tests --locked -j3 -- --browser-export "$RUNNER_TEMP/browser-fixtures" > browser-export.log 2>&1
+          nice -n 19 taskset -c 4-7 cargo run --manifest-path tests/wasixv2/Cargo.toml -p wasixv2-tests --locked -j3 -- --browser-v1-export "$RUNNER_TEMP/browser-v1-fixtures" > browser-v1-export.log 2>&1
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -162,10 +163,17 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
+          name: wasixv2-browser-v1-fixtures
+          path: ${{ runner.temp }}/browser-v1-fixtures
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
           name: wasixv2-browser-toolchain-results
           path: |
             browser-toolchain.log
             browser-export.log
+            browser-v1-export.log
           if-no-files-found: warn
   fixtures:
     name: Reviewed browser fixtures (SAB, isolated, no JSPI)
@@ -187,12 +195,17 @@ jobs:
         with:
           name: wasixv2-browser-runtime
           path: browser-runtime
+      - uses: actions/download-artifact@v4
+        with:
+          name: wasixv2-browser-v1-fixtures
+          path: browser-v1-fixtures
       - name: Run every selected configuration
         working-directory: tests/wasixv2/browser
         run: |
           npm ci
           npx playwright install --with-deps chromium
           nice -n 19 taskset -c 4-7 node run.mjs --manifest "$GITHUB_WORKSPACE/browser-fixtures/manifest.json" --runtime "$GITHUB_WORKSPACE/browser-runtime" --artifacts artifacts/fixtures
+          nice -n 19 taskset -c 4-7 node run.mjs --manifest "$GITHUB_WORKSPACE/browser-v1-fixtures/manifest.json" --runtime "$GITHUB_WORKSPACE/browser-runtime" --artifacts artifacts/v1-fixtures
       - uses: actions/upload-artifact@v4
         if: always()
         with:

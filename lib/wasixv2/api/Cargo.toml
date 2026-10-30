@@ -102,4 +102,4 @@ browser = [
 [[example]]
 name = "browser-facade"
 crate-type = ["cdylib"]
-required-features = ["browser"]
+required-features = ["browser", "wasix1"]

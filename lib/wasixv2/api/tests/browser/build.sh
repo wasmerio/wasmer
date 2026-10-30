@@ -12,3 +12,5 @@ mkdir -p "$out/memory"
 cp lib/wasixv2/exec/src/memory/{client,copy-worker,operations}.js "$out/memory/"
 cp lib/wasixv2/api/tests/browser/{fixture-adapter,io-driver}.js "$out/"
 cp lib/wasixv2/api/tests/browser/index.html "$out/"
+
+cp lib/wasixv2/wasix1/src/http/fetch-driver.js "$out/http-fetch-driver.js"
