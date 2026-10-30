@@ -128,13 +128,6 @@ impl Shared {
     fn now(&self) -> Timestamp {
         self.clock.now()
     }
-
-    fn time(&self, set: TimeSet) -> Timestamp {
-        match set {
-            TimeSet::Now => self.now(),
-            TimeSet::At(time) => time,
-        }
-    }
 }
 
 /// The space a filesystem has used and may use (`shmem_sb_info`'s `used_blocks` and
@@ -757,6 +750,12 @@ impl Node for MemNode {
     }
 
     async fn setattr(&self, attr: &SetAttr) -> FsResult<Attr> {
+        // Linux fs/attr.c:notify_change samples current_time once for the update.
+        let now = self.shared.now();
+        let time = |set| match set {
+            TimeSet::Now => now,
+            TimeSet::At(time) => time,
+        };
         {
             let mut owner = self.quota_owner.lock().unwrap();
             let charge = Charge {
@@ -775,7 +774,7 @@ impl Node for MemNode {
                 self.shared.quotas.transfer(
                     [*owner, next],
                     self.allocated() * BLOCK,
-                    self.shared.now().sec.max(0) as u64,
+                    now.sec.max(0) as u64,
                     attr.quota_exempt,
                 )?;
                 *owner = next;
@@ -789,14 +788,14 @@ impl Node for MemNode {
                 if let Some(gid) = attr.gid {
                     meta.gid = gid;
                 }
-                if let Some(time) = attr.atime {
-                    meta.atime = self.shared.time(time);
+                if let Some(set) = attr.atime {
+                    meta.atime = time(set);
                 }
-                if let Some(time) = attr.mtime {
-                    meta.mtime = self.shared.time(time);
+                if let Some(set) = attr.mtime {
+                    meta.mtime = time(set);
                 }
-                if let Some(time) = attr.ctime {
-                    meta.ctime = self.shared.time(time);
+                if let Some(set) = attr.ctime {
+                    meta.ctime = time(set);
                 }
             }
         }
