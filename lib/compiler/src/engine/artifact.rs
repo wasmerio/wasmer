@@ -279,6 +279,7 @@ impl Artifact {
                 "Artifact::deserialize_file only supports ELF or Mach-O artifacts".to_string(),
             ));
         }
+        Self::check_native_image(&image)?;
 
         let module_info = image
             .section_by_name_bytes(crate::WASMER_MODULE_INFO_SECTION_NAME)
@@ -303,6 +304,28 @@ impl Artifact {
         Self::from_parts_with_module_file(&mut inner_engine, artifact, engine.target(), Some(path))
     }
 
+    fn check_native_image<'a, R: ReadRef<'a>>(
+        image: &object::File<'a, R>,
+    ) -> Result<(), DeserializeError> {
+        let host = crate::object::get_object_for_target(&target_lexicon::Triple::host())
+            .map_err(|e| DeserializeError::Incompatible(format!("unsupported host target: {e}")))?;
+        if image.format() != host.format() {
+            return Err(DeserializeError::Incompatible(format!(
+                "native artifact format {:?} does not match host format {:?}",
+                image.format(),
+                host.format()
+            )));
+        }
+        if image.architecture() != host.architecture() {
+            return Err(DeserializeError::Incompatible(format!(
+                "native artifact architecture {:?} does not match host architecture {:?}",
+                image.architecture(),
+                host.architecture()
+            )));
+        }
+        Ok(())
+    }
+
     /// Deserialize an ELF artifact held in memory, if the bytes contain one.
     fn deserialize_elf(engine: &Engine, bytes: &[u8]) -> Result<Option<Self>, DeserializeError> {
         if !ArtifactBuild::has_native_header(bytes) {
@@ -311,6 +334,8 @@ impl Artifact {
 
         let image = object::File::parse(bytes)
             .map_err(|e| DeserializeError::CorruptedBinary(format!("cannot parse image: {e}")))?;
+        Self::check_native_image(&image)?;
+
         let module_info = image
             .section_by_name_bytes(crate::WASMER_MODULE_INFO_SECTION_NAME)
             .ok_or_else(|| {
