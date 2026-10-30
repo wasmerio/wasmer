@@ -1,7 +1,7 @@
 //! The program break, anonymous and file mappings inside the guest's linear memory.
 //!
-//! With image layout metadata, `brk` grows above the image and `mmap` searches free runs from
-//! the top down (`mm/util.c:arch_pick_mmap_layout`). Without it they hand out pages above
+//! With image layout metadata, `brk` grows above the image and `mmap` searches free runs
+//! bottom-up above a bounded brk gap (see DESIGN.md). Without it they hand out pages above
 //! everything initially in memory. Linear memory grows to back mappings as needed. `munmap` returns pages
 //! for reuse by later mappings, which are zeroed then, by dropping them where the memory can
 //! ([`UserMemory::zero_pages`]), so a page no one wrote takes no host memory however often it is
@@ -517,6 +517,8 @@ pub(crate) enum RegionKind {
 pub(crate) struct AddressSpace {
     /// Known image bounds and exec-owned reservations; absent for legacy embedders.
     layout: Option<MemoryLayout>,
+    /// Lowest address for automatic mappings, above the initial brk growth gap.
+    mmap_start: u64,
     /// First page under the allocator's control, fixed by the first growth. Pages below belong to
     /// the image.
     base: Option<u64>,
@@ -652,6 +654,7 @@ impl AddressSpace {
     fn dup(&self, pid: u32) -> Self {
         let mut child = Self {
             layout: self.layout.clone(),
+            mmap_start: self.mmap_start,
             base: self.base,
             mapped: self.mapped.clone(),
             brk: self.brk,
@@ -780,7 +783,7 @@ impl AddressSpace {
         self.seen = self.seen.max(previous + u64::from(pages) * PAGE_SIZE);
         if self.layout.is_some() {
             // Backing a gap in linear memory does not create a VMA. The caller marks only
-            // the pages it actually takes, leaving brk room below a top-down mapping.
+            // the pages it actually takes, leaving brk room below automatic mappings.
             return;
         }
         let first = previous / PAGE_SIZE;
@@ -1016,7 +1019,7 @@ impl AddressSpace {
 
     /// `arch_pick_mmap_layout`: once supplied by exec, the image bounds are independent
     /// of the current linear-memory size. The existing free-run index spans the maximum.
-    fn initialize(&mut self, mut layout: MemoryLayout) {
+    fn initialize(&mut self, mut layout: MemoryLayout, data_limit: u64) {
         if self.base.is_some() || self.layout.is_some() {
             return;
         }
@@ -1042,6 +1045,14 @@ impl AddressSpace {
             self.free.insert(0, (end - base) as usize);
         }
         self.brk = Some((layout.brk, layout.brk));
+        // Unlike mm/util.c:arch_pick_mmap_layout, wasm cannot sparsely back a high
+        // VMA: linear memory grows through every byte below it. Leave brk a bounded
+        // gap, then use mm/vma.c:unmapped_area's lowest fitting run.
+        let gap = data_limit
+            .saturating_sub(layout.data.end - layout.data.start)
+            .min(64 << 20)
+            .min(layout.maximum / 8);
+        self.mmap_start = layout.brk.saturating_add(gap).div_ceil(PAGE_SIZE) * PAGE_SIZE;
         layout.reserved.sort_by_key(|range| range.start);
         for range in &layout.reserved {
             let first = (range.start / PAGE_SIZE).max(base).min(end);
@@ -1065,11 +1076,13 @@ impl AddressSpace {
         })
     }
 
-    /// `unmapped_area_topdown`: take the highest fitting run below the exec reservations.
-    fn top_down(&self, pages: u64) -> Option<u64> {
+    /// `mm/vma.c:unmapped_area`: the lowest free run above the brk reservation.
+    fn bottom_up(&self, pages: u64) -> Option<u64> {
         let base = self.base?;
-        self.free.iter().rev().find_map(|(&start, &end)| {
-            (end as u64 - start as u64 >= pages).then(|| (base + end as u64 - pages) * PAGE_SIZE)
+        let low = self.mmap_start / PAGE_SIZE;
+        self.free.iter().find_map(|(&start, &end)| {
+            let first = (base + start as u64).max(low);
+            (first.checked_add(pages)? <= base + end as u64).then_some(first * PAGE_SIZE)
         })
     }
 
@@ -1571,7 +1584,12 @@ impl Kernel {
         let mm = self.mm(caller.task());
         let uninitialized = mm.space().base.is_none();
         if uninitialized && let Some(layout) = caller.memory().layout().await {
-            mm.space().initialize(layout);
+            let limit = self
+                .process(caller.task())
+                .resources
+                .lock_or_recover()
+                .soft(wasixv2_abi::RlimitResource::RLIMIT_DATA);
+            mm.space().initialize(layout, limit);
         }
         mm.space().set_seen(size);
         size
@@ -1877,7 +1895,7 @@ impl Kernel {
         self.mem_size(caller).await;
         let mm = self.mm(caller.task());
         if mm.space().layout.is_some() {
-            let addr = mm.space().top_down(pages).ok_or(Errno::ENOMEM)?;
+            let addr = mm.space().bottom_up(pages).ok_or(Errno::ENOMEM)?;
             self.take_pages(caller, addr / PAGE_SIZE, addr / PAGE_SIZE + pages)
                 .await?;
             return Ok(addr);
@@ -3127,29 +3145,32 @@ mod tests {
     #[test]
     fn layout_and_brk_are_copied_by_fork_but_free_runs_are_independent() {
         let mut parent = AddressSpace::default();
-        parent.initialize(MemoryLayout {
-            image_end: 2 * PAGE_SIZE,
-            data: PAGE_SIZE..2 * PAGE_SIZE,
-            brk: 2 * PAGE_SIZE,
-            maximum: 16 * PAGE_SIZE,
-            reserved: std::iter::once(15 * PAGE_SIZE..16 * PAGE_SIZE).collect(),
-        });
+        parent.initialize(
+            MemoryLayout {
+                image_end: 2 * PAGE_SIZE,
+                data: PAGE_SIZE..2 * PAGE_SIZE,
+                brk: 2 * PAGE_SIZE,
+                maximum: 16 * PAGE_SIZE,
+                reserved: std::iter::once(15 * PAGE_SIZE..16 * PAGE_SIZE).collect(),
+            },
+            u64::MAX,
+        );
         parent.set_seen(4 * PAGE_SIZE);
         parent.set_pages(2, 4, true);
         parent.set_brk(2 * PAGE_SIZE, 4 * PAGE_SIZE);
         let mut child = parent.dup(123);
         assert_eq!(child.layout, parent.layout);
         assert_eq!(child.brk, parent.brk);
-        let next = child.top_down(1).unwrap();
-        assert_eq!(next, 14 * PAGE_SIZE);
-        child.set_pages(14, 15, true);
+        let next = child.bottom_up(1).unwrap();
+        assert_eq!(next, 4 * PAGE_SIZE);
+        child.set_pages(4, 5, true);
         child.set_brk(2 * PAGE_SIZE, 3 * PAGE_SIZE);
-        assert_eq!(parent.top_down(1), Some(next));
+        assert_eq!(parent.bottom_up(1), Some(next));
         assert_eq!(parent.brk, Some((2 * PAGE_SIZE, 4 * PAGE_SIZE)));
-        assert_eq!(child.top_down(1), Some(13 * PAGE_SIZE));
+        assert_eq!(child.bottom_up(1), Some(5 * PAGE_SIZE));
         // An unmap cannot turn execution-layer reservations into free runs.
         child.unmap(15 * PAGE_SIZE, PAGE_SIZE);
-        assert_eq!(child.top_down(1), Some(13 * PAGE_SIZE));
+        assert_eq!(child.bottom_up(1), Some(5 * PAGE_SIZE));
     }
 
     thread_local! {

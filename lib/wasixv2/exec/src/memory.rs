@@ -136,20 +136,23 @@ pub(crate) fn image_layout(
         return None;
     }
     let mut reserved = Vec::new();
+    let mut brk = heap;
     if unwind {
-        // Asyncify's header holds an exclusive end in a u32. At 4 GiB the final page
-        // cannot be used for the buffer, even though linear memory itself can reach it.
-        let end = maximum.min(u64::from(u32::MAX)) / WASM_PAGE_SIZE * WASM_PAGE_SIZE;
-        let start = end.checked_sub(u64::from(crate::asyncify::BUFFER_SIZE))?;
-        if start < heap.div_ceil(WASM_PAGE_SIZE) * WASM_PAGE_SIZE {
+        // Keep execution storage low too: a reservation at the wasm ceiling would
+        // materialize the entire linear span on the first unwind (DESIGN.md).
+        let start = heap.div_ceil(WASM_PAGE_SIZE) * WASM_PAGE_SIZE;
+        let end = start.checked_add(u64::from(crate::asyncify::BUFFER_SIZE))?;
+        // Asyncify's header stores its exclusive end in a u32.
+        if end > maximum || end > u64::from(u32::MAX) {
             return None;
         }
-        reserved.push(start..maximum);
+        reserved.push(start..end);
+        brk = end;
     }
     Some(MemoryLayout {
         image_end: heap,
         data: data_start..data_end,
-        brk: heap,
+        brk,
         maximum,
         reserved,
     })
@@ -1082,10 +1085,10 @@ mod tests {
         let layout = image_layout(&instance, memory, &mut store, true).unwrap();
         assert_eq!(layout.data, 262144..262176);
         assert_eq!(layout.image_end, 262192);
-        assert_eq!(layout.brk, 262192);
+        assert_eq!(layout.brk, 21 * 65536);
         assert_eq!(layout.maximum, 64 * 65536);
         assert_eq!(layout.reserved.len(), 1);
-        assert_eq!(layout.reserved[0], 48 * 65536..64 * 65536);
+        assert_eq!(layout.reserved[0], 5 * 65536..21 * 65536);
         assert!(
             image_layout(&instance, memory, &mut store, false)
                 .unwrap()
@@ -1109,7 +1112,7 @@ mod tests {
         let memory = instance.exports.get_memory("memory").unwrap();
         let layout = image_layout(&instance, memory, &mut store, true).unwrap();
         assert_eq!(layout.data, 262144..262177);
-        assert_eq!(layout.brk, 262192);
+        assert_eq!(layout.brk, 21 * 65536);
     }
 
     #[test]

@@ -165,8 +165,14 @@ Open objects follow a three-level split:
 
 `UserMemory::layout` optionally supplies immutable image/data bounds, the initial program break,
 the linear-memory maximum, and execution-owned reservations. The kernel starts brk after the
-image (including the linker's main stack) and allocates mmap runs from the top down, keeping
-space between them as Linux's `mm/util.c:arch_pick_mmap_layout` does. The low guard and
+image (including the linker's main stack and a low execution-owned unwind reservation).
+Automatic mmap placement uses the lowest free run above a brk growth gap: the initial
+`RLIMIT_DATA` allowance less data/BSS, capped at 64 MiB and one eighth of maximum memory,
+rounded up to a wasm page. This deliberately differs from Linux's
+`mm/util.c:arch_pick_mmap_layout`: Linux's high VMAs use sparse virtual memory, whereas wasm
+linear memory grows upward through every byte below its highest allocation. A top-down mmap
+or unwind reservation would therefore materialize almost 4 GiB for even a tiny allocation.
+Explicit mapping addresses still follow the existing fixed/hint rules. The low guard and
 `mmap_min_addr` stay unchanged. brk checks the byte-granular `RLIMIT_DATA`, including data/BSS,
 before rounding to pages (`mm/mmap.c:sys_brk`, `include/linux/mm.h:check_data_rlimit`); a collision
 returns the old break. Fork copies this metadata and the break along with the existing page map;

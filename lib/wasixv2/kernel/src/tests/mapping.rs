@@ -42,22 +42,23 @@ impl UserMemory for LayoutMemory {
 }
 
 #[test]
-fn layout_separates_brk_from_top_down_mappings() {
+fn layout_separates_brk_from_bottom_up_mappings() {
     let (kernel, task, _) = setup(b"");
     let memory = LayoutMemory(FlatMemory(RefCell::new(vec![0; 4 * PAGE as usize])));
     let caller = Caller::new(task, &memory);
     let brk = |at| block_on(kernel.brk(&caller, at)).unwrap() as u32;
     assert_eq!(brk(0), 3 * PAGE);
     let first = mmap(&kernel, &caller, PAGE, ANON, Fd(-1)).unwrap();
-    assert_eq!(first, 61 * PAGE);
+    assert_eq!(first, 11 * PAGE);
     let second = mmap(&kernel, &caller, 2 * PAGE, ANON, Fd(-1)).unwrap();
-    assert_eq!(second, 59 * PAGE);
+    assert_eq!(second, 12 * PAGE);
+    assert_eq!(block_on(memory.size()), u64::from(14 * PAGE));
     assert_eq!(brk(5 * PAGE), 5 * PAGE);
     put(&memory.0, 4 * PAGE, b"old heap");
     assert_eq!(brk(3 * PAGE), 3 * PAGE);
     assert_eq!(brk(5 * PAGE), 5 * PAGE);
     assert_eq!(get(&memory.0, 4 * PAGE, 8), [0; 8]);
-    // Reuse the highest free run; neither brk nor the exec reservation is a gap.
+    // Reuse the lowest free run; neither brk nor the exec reservation is a gap.
     assert_eq!(block_on(kernel.munmap(&caller, first, PAGE)), Ok(0));
     assert_eq!(mmap(&kernel, &caller, PAGE, ANON, Fd(-1)), Ok(first));
     assert_eq!(brk(60 * PAGE), 5 * PAGE);
