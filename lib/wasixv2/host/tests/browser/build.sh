@@ -22,7 +22,7 @@ out="$CARGO_TARGET_DIR/browser"
 mkdir -p "$out"
 "$bindgen" "$CARGO_TARGET_DIR/wasm32-unknown-unknown/debug/examples/browser.wasm" \
     --target web --out-dir "$out" --out-name runtime
-cp lib/wasixv2/host/src/browser/{bootstrap,coordinator,worker}.js "$out/"
+cp lib/wasixv2/host/src/browser/{bootstrap,coordinator,worker,timer-driver}.js "$out/"
 cp lib/wasixv2/host/tests/browser/{index.html,smoke.js} "$out/"
 # A structural artifact check fails before entering a browser if shared memory or TLS
 # setup was lost. The checked script also emits the exact memory limits to the log.

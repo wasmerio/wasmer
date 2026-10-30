@@ -14,3 +14,6 @@ rust-version.workspace = true
 wasixv2-abi = { path = "../abi" }
 wasixv2-wait = { path = "../wait" }
 tracing = { workspace = true }
+
+[target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dependencies]
+web-time.workspace = true

@@ -950,3 +950,24 @@ fn autoclose_waits_for_bytes_outside_the_peer_window() {
     recv(&*l, 106_496).unwrap();
     assert_eq!(get_int(&*c, SctpOption::SCTP_GET_ASSOC_NUMBER), Ok(0));
 }
+
+#[test]
+fn association_clock_data_refresh_does_not_autoclose_early() {
+    let n = net();
+    let listener = seqpacket(&n);
+    listener.bind(a("127.0.0.1:5065"), true).unwrap();
+    listener.listen(4).unwrap();
+    let client = super::SctpSocket::new(n.clone(), Domain::Inet, SocketKind::SeqPacket, 1);
+    set_int(&*client, SctpOption::SCTP_AUTOCLOSE, 10).unwrap();
+    client
+        .sctp()
+        .unwrap()
+        .connectx(&[a("127.0.0.1:5065")])
+        .unwrap();
+    let original = client.lock().asocs[0].lock().last_data;
+    send_ctl(&*client, b"clock", Some(a("127.0.0.1:5065")), &[]).unwrap();
+    assert!(client.lock().asocs[0].lock().last_data >= original);
+    let left = client.sctp().unwrap().autoclose_expire().unwrap();
+    assert!(!left.is_zero() && left <= Duration::from_secs(10));
+    assert_eq!(get_int(&*client, SctpOption::SCTP_GET_ASSOC_NUMBER), Ok(1));
+}
