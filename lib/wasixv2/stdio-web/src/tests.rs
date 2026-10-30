@@ -303,3 +303,28 @@ fn console_preserves_raw_bytes_and_keeps_stderr_separate() {
     );
     assert_eq!(streams.stderr.try_read(&mut bytes).unwrap(), 3);
 }
+
+#[test]
+fn finish_succeeds_when_consumers_drop_after_eof_before_waiter_resumes() {
+    let (session, stdio, streams) = Session::new(2).unwrap();
+    block_on(stdio.stdout.write(b"a")).unwrap();
+    block_on(stdio.stderr.write(b"b")).unwrap();
+    let mut finish = Box::pin(session.finish());
+    assert!(poll(finish.as_mut()).is_pending());
+    for source in [&streams.stdout, &streams.stderr] {
+        let mut bytes = [0; 2];
+        assert_eq!(source.try_read(&mut bytes).unwrap(), 1);
+        assert_eq!(source.try_read(&mut bytes).unwrap(), 0);
+    }
+    drop(streams);
+    assert!(matches!(poll(finish.as_mut()), Poll::Ready(Ok(()))));
+}
+
+#[test]
+fn dropping_reader_with_unread_closed_output_still_fails_drain() {
+    let (tx, rx) = channel(1).unwrap();
+    tx.try_write(b"a").unwrap();
+    tx.close();
+    drop(rx);
+    kind(block_on(tx.drained()), io::ErrorKind::ConnectionAborted);
+}
