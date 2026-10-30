@@ -885,6 +885,102 @@ mod epoll {
     }
 
     #[test]
+    fn concurrent_harvests_deliver_a_oneshot_item_only_once() {
+        use crate::file::{Backing, FileObject, Io, OpenFile};
+        use std::sync::{
+            atomic::{AtomicBool, Ordering},
+            mpsc,
+        };
+        use wasixv2_wait::{PollTable, WaitQueue, poll_wait};
+
+        struct Gate {
+            wait: WaitQueue,
+            armed: AtomicBool,
+            entered: mpsc::Sender<()>,
+            release: Mutex<mpsc::Receiver<()>>,
+        }
+
+        impl Pollable for Gate {
+            fn poll(&self, mut table: Option<&mut PollTable<'_>>) -> PollMask {
+                poll_wait(&mut table, &self.wait);
+                if self.armed.swap(false, Ordering::AcqRel) {
+                    self.entered.send(()).unwrap();
+                    self.release.lock_or_recover().recv().unwrap();
+                }
+                PollMask::READABLE
+            }
+        }
+
+        impl FileObject for Gate {
+            fn read<'a>(&'a self, _: Io<'a>, _: &'a mut [u8]) -> LocalFuture<'a, SysResult<usize>> {
+                Box::pin(async { Err(Errno::EBADF.into()) })
+            }
+
+            fn write<'a>(&'a self, _: Io<'a>, _: &'a [u8]) -> LocalFuture<'a, SysResult<usize>> {
+                Box::pin(async { Err(Errno::EBADF.into()) })
+            }
+        }
+
+        let t = Fixture::new();
+        let (entered_tx, entered_rx) = mpsc::channel();
+        let (release_tx, release_rx) = mpsc::channel();
+        let gate = Arc::new(Gate {
+            wait: WaitQueue::new(),
+            armed: AtomicBool::new(false),
+            entered: entered_tx,
+            release: Mutex::new(release_rx),
+        });
+        let file = Arc::new(OpenFile::new(
+            Backing::Stream(gate.clone(), t.kernel.pseudo.anon("epoll-test")),
+            OpenFlags::O_RDWR,
+        ));
+        let fd = t
+            .kernel
+            .files(t.task)
+            .lock_or_recover()
+            .install(file, false)
+            .unwrap();
+        let ep = t.create();
+        t.add(ep, fd, IN | ONESHOT);
+        let kernel = Arc::new(t.kernel);
+        let task = t.task;
+        gate.armed.store(true, Ordering::Release);
+
+        // fs/eventpoll.c:ep_send_events holds ep->mtx while sampling readiness
+        // and disarming EPOLLONESHOT. A callback during that scan must not let
+        // another waiter sample and deliver the still-armed item too.
+        std::thread::scope(|scope| {
+            let wait = || {
+                let memory = FlatMemory(RefCell::new(vec![0; 65536]));
+                block_on(kernel.epoll_pwait(
+                    &Caller::new(task, &memory),
+                    ep,
+                    GuestPtrMut::new(0x900),
+                    1,
+                    0,
+                    GuestPtr::NULL,
+                    8,
+                ))
+                .unwrap()
+            };
+            let first = scope.spawn(wait);
+            entered_rx.recv_timeout(Duration::from_secs(10)).unwrap();
+            gate.wait.wake(PollMask::READABLE);
+            let (done_tx, done_rx) = mpsc::channel();
+            let second = scope.spawn(move || {
+                let n = wait();
+                done_tx.send(()).unwrap();
+                n
+            });
+            // Before the fix the competing scan finishes here with an event;
+            // with serialization it waits for the first scan to disarm it.
+            let _ = done_rx.recv_timeout(Duration::from_secs(1));
+            release_tx.send(()).unwrap();
+            assert_eq!(first.join().unwrap() + second.join().unwrap(), 1);
+        });
+    }
+
+    #[test]
     fn items_follow_the_open_file_not_the_descriptor() {
         let t = Fixture::new();
         let (r, w) = pipe(&t.kernel, &t.caller(), OpenFlags::O_NONBLOCK);
