@@ -1715,6 +1715,43 @@ fn proc_pid_mem_returns_eio_for_unmapped_holes() {
     );
 }
 
+/// Linux kernel/signal.c:get_signal resumes at disposition handling after ptrace_signal,
+/// before servicing job-control work queued while the tracer held the delivery stop.
+#[test]
+fn a_resumed_signal_is_delivered_before_a_pending_job_control_trap() {
+    for resume in [R::PTRACE_CONT, R::PTRACE_SYSCALL] {
+        for interrupt in [false, true] {
+            let (stack, parent, memory) = machine();
+            let kernel = &stack.inner;
+            let caller = Caller::new(parent, &memory);
+            let child = fork_child(kernel, &caller);
+            assert_eq!(ptrace(kernel, &caller, R::PTRACE_SEIZE, child, 0, 0), Ok(0));
+            kernel.kill(child, Signal::SIGTERM).unwrap();
+            assert_eq!(kernel.take_pending(child), Some(GuestAction::Stopped));
+            assert_eq!(
+                wait(kernel, &caller, child, WALL).unwrap().1,
+                Signal::SIGTERM.0
+            );
+            if interrupt {
+                assert_eq!(
+                    ptrace(kernel, &caller, R::PTRACE_INTERRUPT, child, 0, 0),
+                    Ok(0)
+                );
+            } else {
+                kernel.kill(child, Signal::SIGCONT).unwrap();
+            }
+            assert_eq!(
+                ptrace(kernel, &caller, resume, child, 0, Signal::SIGTERM.0 as u32),
+                Ok(0)
+            );
+            assert!(
+                matches!(kernel.take_pending(child), Some(GuestAction::Exit(_))),
+                "the tracer's SIGTERM must survive pending trap (interrupt={interrupt})"
+            );
+        }
+    }
+}
+
 /// kernel/signal.c `prepare_signal` and `ptrace_trap_notify`: SIGCONT is a sticky
 /// notification to a seized tracer, including when it arrives before PTRACE_LISTEN.
 #[test]
