@@ -125,12 +125,15 @@ impl RecvQueue {
                     used -= 1;
                 }
             }
-            for (to, from) in buf[copied..copied + used]
-                .iter_mut()
-                .zip(self.data.range(offset..offset + used))
-            {
-                *to = *from;
+            // tcp_recvmsg_locked copies one contiguous skb fragment at a time.
+            // A VecDeque has at most two; keep the urgent-boundary logic above.
+            let (first, second) = self.data.as_slices();
+            let n = used.min(first.len().saturating_sub(offset));
+            if n != 0 {
+                buf[copied..copied + n].copy_from_slice(&first[offset..offset + n]);
             }
+            let at = offset.saturating_sub(first.len());
+            buf[copied + n..copied + used].copy_from_slice(&second[at..at + used - n]);
             copied += used;
             seq += used as u64;
         }
@@ -173,6 +176,24 @@ mod tests {
         let got = q.read(&mut buf, peek, inline);
         buf.truncate(got);
         buf
+    }
+
+    #[test]
+    fn wrapped_reads_preserve_peeks_and_the_urgent_mark() {
+        let mut q = RecvQueue::default();
+        q.push(b"abcd");
+        assert_eq!(read(&mut q, 3, false, false), b"abc");
+        q.push(b"efghi");
+        q.push_urgent(b"j!", false);
+        assert!(!q.data.as_slices().1.is_empty());
+        assert_eq!(read(&mut q, 16, true, false), b"defghij");
+        assert_eq!(q.len(), 8);
+        assert_eq!(q.recv_urgent(true, false, false), Ok(b'!'));
+        assert_eq!(read(&mut q, 16, false, false), b"defghij");
+        assert!(q.at_mark());
+        assert_eq!(q.recv_urgent(false, false, false), Ok(b'!'));
+        assert_eq!(read(&mut q, 1, false, false), b"");
+        assert!(q.is_empty());
     }
 
     #[test]

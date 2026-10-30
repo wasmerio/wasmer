@@ -26,6 +26,8 @@ mod tcp;
 mod udp;
 
 #[cfg(test)]
+mod allocations;
+#[cfg(test)]
 mod tests;
 
 pub use api::{
