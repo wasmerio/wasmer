@@ -100,6 +100,8 @@ pub struct ExecEnv<S> {
     low_guard: u32,
     /// The main thread's stack in `memory` ([`wasixv2_syscalls::UserMemory::main_stack`]).
     main_stack: std::ops::Range<u32>,
+    /// Immutable image layout shared by every instance on this memory.
+    layout: Option<wasixv2_syscalls::MemoryLayout>,
     /// The ranges of `memory` that show shared objects read-only, which every thread of the
     /// process shares.
     read_only: Arc<memory::ReadOnly>,
@@ -146,6 +148,7 @@ impl<S: Control> ExecEnv<S> {
             memory: None,
             low_guard: 0,
             main_stack: 0..0,
+            layout: None,
             read_only: Arc::default(),
             base: None,
             stack_pointer: None,
@@ -566,6 +569,15 @@ where
     let guarded = abi.low_guard() && memory::guardable(&instance, &mut store);
     let main_stack = memory::main_stack(&instance, &mut store);
     let mut asyncify = asyncify::Asyncify::new(&instance, &mut store)?;
+    let layout = abi
+        .low_guard()
+        .then(|| memory::image_layout(&instance, &memory, &mut store, asyncify.is_some()))
+        .flatten();
+    if let (Some(layout), Some(asyncify)) = (&layout, &mut asyncify)
+        && let Some(range) = layout.reserved.first()
+    {
+        asyncify.reserve_buffer(range.start as u32);
+    }
     let read_only = Arc::<memory::ReadOnly>::default();
     // Before any guest code runs, and before the guard is protected: `MAP_FIXED` resets it.
     let base = match fork {
@@ -605,6 +617,7 @@ where
             shared,
             protected,
             main_stack.clone(),
+            layout.clone(),
             syscalls,
             host,
             abi,
@@ -617,6 +630,7 @@ where
     data.memory = Some(memory);
     data.low_guard = low_guard;
     data.main_stack = main_stack;
+    data.layout = layout;
     data.read_only = read_only;
     data.base = base;
     data.stack_pointer = stack_pointer(&instance);

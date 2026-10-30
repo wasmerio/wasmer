@@ -163,6 +163,27 @@ Open objects follow a three-level split:
 
 ### Mappings without an MMU
 
+`UserMemory::layout` optionally supplies immutable image/data bounds, the initial program break,
+the linear-memory maximum, and execution-owned reservations. The kernel starts brk after the
+image (including the linker's main stack) and allocates mmap runs from the top down, keeping
+space between them as Linux's `mm/util.c:arch_pick_mmap_layout` does. The low guard and
+`mmap_min_addr` stay unchanged. brk checks the byte-granular `RLIMIT_DATA`, including data/BSS,
+before rounding to pages (`mm/mmap.c:sys_brk`, `include/linux/mm.h:check_data_rlimit`); a collision
+returns the old break. Fork copies this metadata and the break along with the existing page map;
+private pages retain their existing CoW backing. With a known layout, backing an address by
+growing linear memory does not by itself map a gap. `None` keeps the original contract and
+bottom-up growth/reuse behavior for other embedders and unknown images.
+
+Exec obtains these bounds from the linker's exported globals. Unknown data bounds leave the
+layout unspecified. The optional `__heap_base` export can be absent when nothing references
+it; then exec follows lld's `Writer::layoutMemory` and aligns the known data/stack end to 16.
+An asyncify process reserves its unwind buffer at the top of its memory
+range before any guest code runs, backing it lazily; its header's exclusive end must still fit
+in a wasm32 pointer. Additional thread instances allocate their buffers through the existing
+kernel mmap path before entering guest code, so no later `memory.grow` competes with mappings.
+The parent's buffer address is inherited on fork. These are execution-layer reservations and
+ordinary anonymous mappings; no guest ABI or page-protection policy changes.
+
 Wasm cannot make a page of linear memory alias a page of another module's memory, or appear at two addresses. The host can: every linear memory is one host mapping reserved to its maximum that never moves (wasmer's static memory style), so the execution layer can replace a range of it with a `MAP_SHARED` mapping of a host object (`mmap` with `MAP_FIXED`, `wasixv2-pages`). Where the host has such objects (`Host::shared_pages`: a memfd on Linux, an unlinked `shm_open` object on macOS) and the memory can place them (`UserMemory::map_shared`: wasmer's sys backend on Unix), shared memory is shared pages. Everything else is a copy in the process's memory (kernel `mm.rs`, `mm/shared.rs`).
 
 - **Mapped objects.** `MAP_SHARED | MAP_ANONYMOUS` memory gets an object of its own (Linux's `shmem_zero_setup`), a SysV segment is one (`shmem_kernel_file_setup`), and so is each regular file of the memfd and `/dev/shm` tmpfs (`MemFs::with_shared_pages`; the driver hands it out through `Node::shared_pages`), as tmpfs keeps its files in shmem; every mapping and attachment of it, in any process, shows its pages, so a store is seen everywhere at once, and `read` and `write` on such a file reach the same pages. A fork child's memory shows the same objects in the same ranges: the copy of the parent's memory leaves them out (`dup_mmap` copies no pages of a shared mapping), and the child maps them before its low guard is protected, since `MAP_FIXED` resets protections (`SharedMappings`). `munmap`, `shmdt` and `MAP_FIXED` over one give the range zeroed private pages again; `mremap` moves the pages along and grows a mapping only as far as its object reaches; `mremap` with an old length of 0 maps the object a second time; `MADV_DONTNEED` keeps the contents. A mapping that may never be written (`VM_MAYWRITE` clear: a `SHM_RDONLY` attachment, a shared mapping of a file not open for writing or write-sealed) is mapped read-only, as the low guard is protected: a guest store into it traps and the process dies with `SIGSEGV`, the execution layer's one checked write path refuses it (`EFAULT` from a syscall that would store there), and `mprotect(PROT_WRITE)` over it fails with `EACCES`. The execution layer records those ranges per memory, for all its threads, and holds that record while it writes, so no range loses write access under a host copy; a fork child maps them read-only again, and `munmap`, `shmdt` and `MAP_FIXED` give the range writable private pages. Every other range is mapped read-write whatever the protection, since wasm enforces none of its own; none is placed over the low guard or past the object's end, so no host access can raise `SIGBUS`.

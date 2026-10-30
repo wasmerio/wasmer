@@ -11,6 +11,106 @@ use crate::sync::MutexExt;
 const PAGE: u32 = WASM_PAGE_SIZE as u32;
 const RW: ProtFlags = ProtFlags(3);
 
+/// Like FlatMemory, but with spare linear-memory pages and an exec-owned high reservation.
+struct LayoutMemory(FlatMemory);
+
+impl UserMemory for LayoutMemory {
+    fn read<'a>(&'a self, addr: u32, bytes: &'a mut [u8]) -> LocalFuture<'a, Result<(), Fault>> {
+        self.0.read(addr, bytes)
+    }
+    fn write<'a>(&'a self, addr: u32, bytes: &'a [u8]) -> LocalFuture<'a, Result<(), Fault>> {
+        self.0.write(addr, bytes)
+    }
+    fn size(&self) -> LocalFuture<'_, u64> {
+        self.0.size()
+    }
+    fn grow(&self, pages: u32) -> LocalFuture<'_, Option<u64>> {
+        self.0.grow(pages)
+    }
+    fn layout(&self) -> LocalFuture<'_, Option<wasixv2_syscalls::MemoryLayout>> {
+        Box::pin(async {
+            let page = u64::from(PAGE);
+            Some(wasixv2_syscalls::MemoryLayout {
+                image_end: 3 * page,
+                data: 2 * page..2 * page + 32,
+                brk: 3 * page,
+                maximum: 64 * page,
+                reserved: std::iter::once(62 * page..64 * page).collect(),
+            })
+        })
+    }
+}
+
+#[test]
+fn layout_separates_brk_from_top_down_mappings() {
+    let (kernel, task, _) = setup(b"");
+    let memory = LayoutMemory(FlatMemory(RefCell::new(vec![0; 4 * PAGE as usize])));
+    let caller = Caller::new(task, &memory);
+    let brk = |at| block_on(kernel.brk(&caller, at)).unwrap() as u32;
+    assert_eq!(brk(0), 3 * PAGE);
+    let first = mmap(&kernel, &caller, PAGE, ANON, Fd(-1)).unwrap();
+    assert_eq!(first, 61 * PAGE);
+    let second = mmap(&kernel, &caller, 2 * PAGE, ANON, Fd(-1)).unwrap();
+    assert_eq!(second, 59 * PAGE);
+    assert_eq!(brk(5 * PAGE), 5 * PAGE);
+    put(&memory.0, 4 * PAGE, b"old heap");
+    assert_eq!(brk(3 * PAGE), 3 * PAGE);
+    assert_eq!(brk(5 * PAGE), 5 * PAGE);
+    assert_eq!(get(&memory.0, 4 * PAGE, 8), [0; 8]);
+    // Reuse the highest free run; neither brk nor the exec reservation is a gap.
+    assert_eq!(block_on(kernel.munmap(&caller, first, PAGE)), Ok(0));
+    assert_eq!(mmap(&kernel, &caller, PAGE, ANON, Fd(-1)), Ok(first));
+    assert_eq!(brk(60 * PAGE), 5 * PAGE);
+    assert_eq!(
+        errno(block_on(kernel.mmap(
+            &caller,
+            0,
+            PAGE,
+            RW,
+            ANON | MapFlags::MAP_FIXED,
+            Fd(-1),
+            0
+        ))),
+        Errno::EPERM
+    );
+    assert!(
+        block_on(kernel.mmap(
+            &caller,
+            62 * PAGE,
+            PAGE,
+            RW,
+            ANON | MapFlags::MAP_FIXED,
+            Fd(-1),
+            0
+        ))
+        .is_err()
+    );
+}
+
+#[test]
+fn brk_checks_data_limit_before_page_rounding() {
+    let (kernel, task, _) = setup(b"");
+    let memory = LayoutMemory(FlatMemory(RefCell::new(vec![0; 4 * PAGE as usize])));
+    let caller = Caller::new(task, &memory);
+    let start = block_on(kernel.brk(&caller, 0)).unwrap() as u32;
+    // Linux mm/mmap.c:sys_brk and include/linux/mm.h:check_data_rlimit include BSS
+    // and check bytes even if both breaks lie in the same page.
+    kernel
+        .process(task)
+        .resources
+        .lock_or_recover()
+        .set_soft(RlimitResource::RLIMIT_DATA, 64);
+    assert_eq!(
+        block_on(kernel.brk(&caller, start + 32)),
+        Ok((start + 32) as i32)
+    );
+    assert_eq!(
+        block_on(kernel.brk(&caller, start + 33)),
+        Ok((start + 32) as i32)
+    );
+    assert_eq!(block_on(kernel.brk(&caller, start)), Ok(start as i32));
+}
+
 /// A kernel with one task and two pages of memory; `/f` holds `contents`, open read-write at
 /// the returned descriptor.
 fn with_file(contents: &[u8]) -> (Kernel, TaskId, FlatMemory, Fd) {

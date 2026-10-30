@@ -45,7 +45,7 @@ use crate::{ExecEnv, memory_image::MemoryImage};
 /// Pages of linear memory an instance takes, on its first unwind, for its unwound stacks. An
 /// unwind that needs more traps.
 const BUFFER_PAGES: u32 = 16;
-const BUFFER_SIZE: u32 = BUFFER_PAGES * 64 * 1024;
+pub(crate) const BUFFER_SIZE: u32 = BUFFER_PAGES * 64 * 1024;
 /// asyncify's data header: the position, where an unwind pushes and a rewind pops, and the end.
 const HEADER: u32 = 8;
 
@@ -176,6 +176,9 @@ pub(crate) struct Asyncify {
 }
 
 impl Asyncify {
+    pub(crate) fn reserve_buffer(&mut self, addr: u32) {
+        self.buffer = Some(addr);
+    }
     /// The asyncify state of `instance`, or `None` if its module is not [`instrumented`].
     pub(crate) fn new(
         instance: &Instance,
@@ -482,13 +485,59 @@ pub(crate) async fn unwind<S: 'static>(
     start_unwind.call_async(&cx.store(), buffer as i32).await
 }
 
-/// The unwind buffer, taken from the top of memory the first time. Pages grown here count as
-/// mapped for the kernel, as pages the guest grows itself do.
+/// A thread's unwind buffer uses the existing kernel allocator before guest entry. Unlike
+/// a process image's fixed reservation, every thread needs a distinct buffer on shared memory.
+pub(crate) async fn prepare_buffer<S>(cx: &Outside<'_, S>) -> Result<(), RuntimeError>
+where
+    S: wasixv2_syscalls::Syscalls + wasixv2_syscalls::Control + Send + Sync + 'static,
+{
+    let request = cx
+        .with(|env, _| {
+            (env.layout.is_some() && env.asyncify.as_ref().is_some_and(|a| a.buffer.is_none()))
+                .then(|| (env.syscalls.clone(), env.task))
+        })
+        .await;
+    if let Some((syscalls, task)) = request {
+        use wasixv2_abi::{Fd, MapFlags, ProtFlags};
+        let memory = crate::memory::OutsideMemory { cx };
+        let caller = wasixv2_syscalls::Caller::new(task, &memory);
+        let addr = syscalls
+            .mmap(
+                &caller,
+                0,
+                BUFFER_SIZE,
+                ProtFlags::PROT_READ | ProtFlags::PROT_WRITE,
+                MapFlags::MAP_PRIVATE | MapFlags::MAP_ANONYMOUS,
+                Fd(-1),
+                0,
+            )
+            .await
+            .map_err(|err| RuntimeError::new(format!("no memory for unwinding: {err:?}")))?;
+        cx.with(|env, _| {
+            env.asyncify
+                .as_mut()
+                .expect("checked above")
+                .reserve_buffer(addr)
+        })
+        .await;
+    }
+    Ok(())
+}
+
+/// Back the reserved unwind buffer on first use. Unknown layouts retain lazy growth at the
+/// end of memory; known layouts never grow beyond their reservation.
 async fn buffer<S: 'static>(cx: &impl Access<S>) -> Result<u32, RuntimeError> {
     cx.with(|env, store| {
         let memory = env.memory.clone().expect("an instance has memory");
         let a = env.asyncify.as_mut().ok_or_else(not_instrumented)?;
         if let Some(buffer) = a.buffer {
+            let size = memory.view(&*store).data_size();
+            let end = u64::from(buffer) + u64::from(BUFFER_SIZE);
+            if end > size {
+                memory
+                    .grow(store, (end - size).div_ceil(65536) as u32)
+                    .map_err(|err| RuntimeError::new(format!("no memory for unwinding: {err}")))?;
+            }
             return Ok(buffer);
         }
         let previous = memory
@@ -813,6 +862,7 @@ mod tests {
                 memory: None,
                 low_guard: 0,
                 main_stack: 0..0,
+                layout: None,
                 read_only: Arc::default(),
                 base: None,
                 page_access: None,

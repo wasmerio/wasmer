@@ -15,6 +15,11 @@
 //! faults even when its host pages remain readable. The guest's own loads are a separate path
 //! and may read that guard for LLVM's null-va_list compatibility. `force_read` is the kernel's
 //! internal access to host-readable bytes, not a user-copy validation bypass for syscalls.
+//!
+//! `UserMemory::layout` is an optional host-side contract for separate Linux brk and top-down
+//! mmap arenas. `MemoryLayout` identifies the immutable image/data bounds, initial break,
+//! maximum, and execution-owned reservations. Its default `None` preserves allocation by
+//! linear-memory growth for existing embedders; it does not change the guest syscall ABI.
 
 mod caller;
 mod control;
@@ -32,8 +37,8 @@ pub use control::{
 pub use cputime::{CpuAccount, CpuBase, CpuTime, CpuTimes, Expiry, GroupCpu};
 pub use generated::{Layer, Layered, Syscall, SyscallRet, Syscalls, dispatch};
 pub use memory::{
-    CstrError, Fault, LocalFuture, PageAccess, Restricted, UserMemory, UserSlice, UserSliceMut,
-    WASM_PAGE_SIZE, copied, read_cstr, read_value, write_value,
+    CstrError, Fault, LocalFuture, MemoryLayout, PageAccess, Restricted, UserMemory, UserSlice,
+    UserSliceMut, WASM_PAGE_SIZE, copied, read_cstr, read_value, write_value,
 };
 pub use result::{SysErr, SysResult};
 pub use wasixv2_abi::{Errno, Fd};
