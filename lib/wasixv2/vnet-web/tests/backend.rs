@@ -992,3 +992,41 @@ fn publication_without_guest_listener_accepts_and_resets_instead_of_stalling() {
             .any(|c| matches!(c, Command::Close { socket } if *socket == child))
     );
 }
+
+#[test]
+fn read_shutdown_preserves_queued_bytes_and_the_established_tcp_state() {
+    let mut h = Harness::new();
+    let (s, socket) = h.connect();
+    h.event(Event::Data {
+        socket,
+        data: b"abcdefghijkl".to_vec(),
+    });
+    s.shutdown(Shutdown::Read).unwrap();
+    assert!(s.tcp_established(), "SHUT_RD sends no FIN");
+    let mut buf = [0; 8];
+    assert_eq!(s.read(&mut buf, false), Ok(8));
+    assert_eq!(&buf, b"abcdefgh");
+    assert!(h.pump().is_pending());
+    assert_eq!(s.read(&mut buf, false), Ok(4));
+    assert_eq!(&buf[..4], b"ijkl");
+    assert_eq!(s.read(&mut buf, false), Ok(0));
+    assert_eq!(s.write(b"out"), Ok(3));
+}
+#[test]
+fn close_resets_when_unread_bytes_remain_in_the_driver_input_slot() {
+    let mut h = Harness::new();
+    let (s, socket) = h.connect();
+    h.event(Event::Data {
+        socket,
+        data: b"abcdefghijkl".to_vec(),
+    });
+    assert_eq!(s.read(&mut [0; 8], false), Ok(8));
+    drop(s);
+    assert!(h.pump().is_pending());
+    assert!(
+        h.transport
+            .commands
+            .iter()
+            .any(|c| matches!(c, Command::Reset { socket: id } if *id == socket))
+    );
+}
