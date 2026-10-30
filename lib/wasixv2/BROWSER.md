@@ -102,9 +102,9 @@ until the separate SDK port's classic/current API tests pass.
 | pthreads/worker concurrency | `BrowserExecutor::spawn_thread(ThreadStart)`, engine object envelopes | Done reviewed `thr-atomic-wait-signal`; protocol.test.mjs admission/failure models; Missing extended lifetime/limit browser stress | R2 |
 | sleep/poll/futex/atomic wait | BrowserHost off-worker timer, kernel futex/WaitQueue, runtime Parker | Done base-nanosleep/timerfd and thr-atomic-wait-signal; `host/src/timer.rs:expiry_coalesces_in_hard_expiry_order_without_firing_early,replacing_and_cancelling_a_timer_drop_wakers_outside_the_queue_lock`; Missing combined cancellation/background-tab browser acceptance | R2 |
 | SAB/bootstrap/worker URL | `startCoordinator`, configure_browser, threaded std/TLS, C1 pure JS copy worker | Done artifact inspection + isolated page/worker capability probes; Missing distributable SDK worker URL/bundler/version contract tests | S1, R2 |
-| Classic relay TCP/UDP/DNS | `browser::relay::connect`, supplied Net, vnet-web Classic Driver | Done actual browser TCP `relay_smoke`; native `vnet-web/tests/relay.rs:reference_relay_tcp_udp_dns_ipv4,reference_relay_tcp_udp_dns_ipv6` checks reference wire TCP/UDP/DNS; Missing browser UDP/DNS and stock-provider error/EOF semantics | R4, N1 |
+| Classic relay TCP/UDP/DNS | `browser::relay::connect`, supplied Net, vnet-web Classic Driver | Done Chromium/Firefox source network fixtures: classic TCP/UDP IPv4+IPv6, empty UDP/peek/trunc, A/AAAA and opt-in PTR/raw DNS; FIN/reset, host send errors and native urgent round-trip. Stock deployment fidelity remains opt-in | R4, N1 |
 | WISP egress/endpoint replacement | `browser::network`, `Transport`, `Capabilities::wisp` | Done provider capability contract: `vnet-web/tests/backend.rs:provider_capabilities_and_dns_answers_are_explicit_and_bounded`; Missing real WISP JS provider and browser reconnect/endpoint tests | S4, R4 |
-| Loopback/peer TCP/browser HTTP ingress/ports | supplied Net, vnet-switch, `InboundSink`, `Publication` | Done native loopback: `api/tests/net.rs:loopback_tcp_carries_data_between_two_sockets`; publication model: `vnet-web/tests/backend.rs:publication_without_guest_listener_accepts_and_resets_instead_of_stalling`; Missing cross-Machine switch (vnet-switch is a placeholder), browser peer/HTTP ingress and SDK listener discovery | S5, R4 |
+| Loopback/peer TCP/browser HTTP ingress/ports | supplied Net, vnet-switch, `InboundSink`, `Publication` | Done native loopback: `api/tests/net.rs:loopback_tcp_carries_data_between_two_sockets`; publication model: `vnet-web/tests/backend.rs:publication_without_guest_listener_accepts_and_resets_instead_of_stalling`; Done browser TCP+UDP ingress and two-Machine relay-mediated peer acceptance. Missing cross-Machine switch address routing (vnet-switch is a placeholder), SDK HTTP/service-worker framing and listener discovery | S5, R4 |
 | v1 fetch HTTP import | wasix1 embedder provider (B9) | Missing on B12's B8 base; B9 owns implementation and acceptance independently | B9 |
 | Registry URL/auth/cache/progress/cancellation | byte-backed Package/Loader boundary | Done accepts supplied bytes/dependencies; Missing SDK fetch/auth/CacheStorage/dedup/progress/AbortSignal | S2 |
 | Feature probing/logging/bundling | capability probes, coordinator fatal/report messages | Done no-JSPI lane probes/artifact checks; Missing SDK logging/init APIs and bundled worker/CSP failure tests | S1, R2 |
@@ -126,8 +126,8 @@ smoke cannot close a browser acceptance item.
 | R1 | Runtime acceptance: source-built browser WEBC v2/v3/default/named/dependency/subdirectory command execution, cwd and extra packages, live VFS edits with credentials and provider failure cases. Existing native tests remain useful but insufficient. |
 | R2 | Runtime robustness: worker limit/bootstrap/death, same-runtime reuse/TLS/object collection, canceled wait/kill/deadline, notify-before-wait, timer cancel/background throttling, UI/I/O heartbeat, complete heap/driver/relay reclamation. Add stress and failure injection to actual supported browser lanes. |
 | R3 | Runtime TTY acceptance: browser canonical/raw/echo/editing/EOF, resize/SIGWINCH, foreground job control and hangup under blocking/busy guests; reuse kernel behavior and native tty tests. |
-| R4 | Runtime network acceptance: browser classic UDP+DNS/IPv6, TCP half-close/reset, queue bounds, disconnect/refusal/provider absence, ingress/peer networks and WISP adapter. Use deterministic local services. |
-| N1 | Classic relay provider: emit distinguishable EOF/reset, preserve empty UDP and host-send errors, reverse/raw DNS provider, UDP publication, urgent data and port-zero publication where claimed. Current stock relay limits are detailed in vnet-web/README.md; unsupported capabilities must remain explicit. |
+| R4 | B15: deterministic source fixtures cover classic UDP+DNS/IPv6, FIN/reset, bounded queues/overflow, disconnect/refusal/provider absence, fixed TCP+UDP ingress and two-Machine relay-mediated peers. Chromium/Firefox evidence below. Real WISP adapter and virtual-switch address routing remain S4/S5. |
+| N1 | B15: explicit classic_fidelity profile carries distinguishable EOF/reset, empty UDP, host-send errors, reverse/raw DNS, fixed UDP publication and urgent marks. Native MSG_OOB test service proves both directions. Stock v1 server remains unchanged; exact additive records/server changes and deployment limits are in vnet-web/RELAY-FIDELITY.md. Port-zero and connected-host UDP ICMP/errqueue remain unsupported. |
 | R6 | Runtime/engine lifetime: same-runtime proc-fork currently exhausts browser guest-memory allocation after roughly 22 runs despite C1 unregister and zero local root counters. Reduce live-root versus engine-GC/address-reservation behavior and prove long-running pool reuse without forced GC. Browser/Playwright owner: reduce the intermittent WebKit page/context crash (reproduced without the WASIX runtime); retain both failing default and explicit process-isolated evidence. Do not classify it as a fixed kernel fault. |
 | CI1 | Integration CI: execute the cold source-toolchain producer with required private-source access, verify cache restore and all mandatory browser jobs. Local installed-toolchain runs do not prove cold provisioning. |
 | P1 | Platform/approved-design follow-up: native coherent separately mapped shared pages, page protection/guard faults, native CoW and shared-page-backed AIO/io_uring rings are unavailable on JS. Preserve copied-mapping/retained-copy semantics; changing those requires a separately approved memory design. |
@@ -257,3 +257,57 @@ CHROME=/usr/bin/google-chrome node lib/wasixv2/api/tests/browser/example.mjs \
 browser run requires successful guest exit and exactly 32 timing bytes for the
 warmup and all five samples. The example regression checks exit/atexit output,
 invalid runtime URL and missing-module failure against the real source fixture.
+
+## B15 network acceptance
+
+The source-built `browser/net-allowlist.txt` in tests branch `b15-net` adds 17
+network cases to the B8/B11 runner. Each case creates fresh deterministic local
+TCP/UDP/relay services; required IPv6 and Linux urgent service failures fail the
+case. Chromium and Firefox use the same SAB-isolated no-JSPI lane and exact
+expectations. No native expected-failure baseline or Wasm binary is added.
+
+The tests found and fixed a relay publication race: accept credit issued while
+no guest listener existed retained that decision and reset a later connection
+after the guest had started listening. The driver now checks current sink
+readiness when the accepted child arrives, outside its mutex. The new
+`publication_rechecks_a_listener_created_after_accept_credit` regression fails
+before the fix. Linux authorities are
+`net/ipv4/tcp_ipv4.c:tcp_v4_syn_recv_sock` and
+`net/ipv4/inet_connection_sock.c:inet_csk_accept`.
+
+The additional provider unit tests preserve urgent ordering and receive marks,
+publication attachment/lifetime, empty datagrams, asynchronous UDP errors and
+accepted UDP sends across last close. A one-byte receive-buffer regression also
+proves that skipping an urgent byte wakes the driver even when the read returns
+EAGAIN, allowing its held frame to advance. The codec tests retain byte compatibility
+with the stock wire and reject malformed versioned extension records.
+[Provider contract and stock-server follow-up](vnet-web/RELAY-FIDELITY.md) define
+what deployments must implement before selecting classic_fidelity. Port-zero
+publication remains unsupported; no unresolved address is reported as bound.
+
+Peer evidence is two separate Machines/Nets communicating over a relay
+publication. It does not establish virtual-switch address routing, native host
+socket options beyond the implemented records, connected-UDP ICMP/error-queue
+support, or SDK HTTP/WISP wrappers. Those remain explicit S4/S5/provider work.
+
+Measured network lanes (2026-10-30):
+
+| Engine | Required no-JSPI cases | Maximum local relay host write queue |
+| --- | --- | --- |
+| Chromium 151.0.7922.108 | 17/17 pass | 16,384 bytes |
+| Firefox 157.0 | 17/17 pass | 16,384 bytes |
+
+The test provider enforces a 256 KiB host write-queue bound. Runtime socket queues
+use the existing configured limits; the overflow case deliberately saturates the
+worker receive bridge and must fail the socket with ECONNABORTED, never silently
+lose transport state or report successful EOF. Evidence is retained under
+`~/wasixv2-orch/logs/b15-net/{final-chromium,final-firefox}`; both contain
+results, capabilities, per-case logs and service counts/maxima. Rebuild the debug
+runtime and use `--browser-net-export` before rerunning. Full SDK/browser parity
+remains withheld for the independent follow-ups above.
+
+Scoped B15 checks pass: 35 provider tests (including the actual classic reference
+relay on IPv4/IPv6), 68 native facade tests plus one doctest, 32 runner Rust unit
+tests (two existing ignored tests), 18 runner JavaScript tests, facade adapter/I/O
+unit checks, strict Makefile-flags native and wasm clippy, formatting and the
+browser dependency audit. The full WASIX suite was not run.

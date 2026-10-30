@@ -36,6 +36,10 @@ mod wasm {
         #[serde(default)]
         http: bool,
         #[serde(default)]
+        network: Option<String>,
+        #[serde(default)]
+        relay_url: Option<String>,
+        #[serde(default)]
         command_defaults: Vec<CommandDefaults>,
     }
     #[derive(Deserialize)]
@@ -111,12 +115,62 @@ mod wasm {
             let user = credentials(fixture.user.as_deref())?;
             let owner = (user.uid(), user.gid());
             let (session, stdio, streams) = browser::Session::new(65536).map_err(error)?;
-            let mut builder = browser::builder(
-                Arc::new(host.services()),
-                executor.clone(),
-                Net::new(NetConfig::default(), None),
-            )
-            .user(user);
+            let mut net_config = NetConfig::host_default();
+            net_config.uplink.as_mut().unwrap().v6 = Some((
+                "fec0::15".parse().unwrap(),
+                64,
+                Some("fec0::2".parse().unwrap()),
+            ));
+            let (network, relay) = if let Some(profile) = &fixture.network {
+                if profile == "absent" {
+                    (Net::new(net_config.clone(), None), None)
+                } else {
+                    let caps = if profile == "classic" {
+                        browser::Capabilities::classic(true)
+                    } else {
+                        browser::Capabilities::classic_fidelity(true)
+                    };
+                    let (net, relay) = browser::relay::connect(
+                        fixture
+                            .relay_url
+                            .as_deref()
+                            .ok_or_else(|| error("missing relay URL"))?,
+                        net_config.clone(),
+                        browser::NetworkLimits::default(),
+                        caps,
+                        &executor,
+                    )
+                    .map_err(error)?;
+                    (net, Some(relay))
+                }
+            } else {
+                (Net::new(NetConfig::default(), None), None)
+            };
+            let mut publications = Vec::new();
+            for (key, value) in &fixture.env {
+                if key == "PUBLISH_TCP" && fixture.network.as_deref() != Some("peer") {
+                    publications.push(
+                        network
+                            .publish(
+                                format!("127.0.0.1:{value}").parse().map_err(error)?,
+                                "0.0.0.0:8080".parse().unwrap(),
+                            )
+                            .map_err(error)?,
+                    );
+                }
+                if key == "PUBLISH_UDP" && fixture.network.as_deref() != Some("peer") {
+                    publications.push(
+                        network
+                            .publish_udp(
+                                format!("127.0.0.1:{value}").parse().map_err(error)?,
+                                "0.0.0.0:8081".parse().unwrap(),
+                            )
+                            .map_err(error)?,
+                    );
+                }
+            }
+            let mut builder =
+                browser::builder(Arc::new(host.services()), executor.clone(), network).user(user);
             if fixture.http {
                 builder = builder.wasix1_http_provider(Arc::new(
                     wasixv2::wasix1_http::browser::FetchProvider::new(Default::default())
@@ -201,6 +255,55 @@ mod wasm {
                 .map_err(error)?;
             let engine = Engine::default();
             let module = wasixv2::load(&engine, wasm).map_err(error)?;
+            let peer = if fixture.network.as_deref() == Some("peer") {
+                let (network, relay) = browser::relay::connect(
+                    fixture.relay_url.as_deref().unwrap(),
+                    net_config,
+                    browser::NetworkLimits::default(),
+                    browser::Capabilities::classic_fidelity(true),
+                    &executor,
+                )
+                .map_err(error)?;
+                let port = fixture
+                    .env
+                    .iter()
+                    .find(|(key, _)| key == "PUBLISH_TCP")
+                    .ok_or_else(|| error("missing peer publication"))?
+                    .1
+                    .clone();
+                let publication = network
+                    .publish(
+                        format!("127.0.0.1:{port}").parse().map_err(error)?,
+                        "0.0.0.0:8080".parse().unwrap(),
+                    )
+                    .map_err(error)?;
+                let peer = Arc::new(
+                    browser::builder(Arc::new(host.services()), executor.clone(), network).build(),
+                );
+                let mut env = peer.default_env();
+                env.extend(
+                    fixture
+                        .env
+                        .iter()
+                        .map(|(key, value)| format!("{key}={value}")),
+                );
+                let run = browser::spawn(
+                    peer.clone(),
+                    &executor,
+                    engine.clone(),
+                    module.clone(),
+                    ProcessConfig {
+                        args: vec!["relay".into(), "peer-server".into()],
+                        env,
+                        stdio: wasixv2::Stdio::from_fns(|_| {}, |_| {}),
+                    },
+                )
+                .await
+                .map_err(error)?;
+                Some((peer, run, relay, publication))
+            } else {
+                None
+            };
             let mut env = machine.default_env();
             for (name, value) in fixture.env {
                 env.retain(|entry| {
@@ -222,6 +325,17 @@ mod wasm {
             // Wait for descendants too before EOF, so inherited output producers
             // cannot write after the final process result (kernel/exit.c:exit_files).
             machine.shutdown().await;
+            if let Some((peer, run, relay, publication)) = peer {
+                let result = run.wait().await.map_err(error)?;
+                peer.shutdown().await;
+                drop(run);
+                drop(peer);
+                drop(publication);
+                relay.shutdown().await;
+                if result != 0 {
+                    return Err(error(format!("peer guest exited {result}")));
+                }
+            }
             session.finish().await.map_err(error)?;
             let (stdout, stderr) = std::future::poll_fn(|cx| {
                 let mut state = output.lock().unwrap();
@@ -276,6 +390,10 @@ mod wasm {
             drop(run);
             drop(machine);
             drop(session);
+            drop(publications);
+            if let Some(relay) = relay {
+                relay.shutdown().await;
+            }
             executor.close();
             serde_json::to_string(
                 &serde_json::json!({"exitCode":exit,"stdout":stdout,"stderr":stderr,"files":files}),
@@ -322,6 +440,11 @@ mod wasm {
             program_name: None,
             mounts: vec![],
             expected: Expected { files: vec![] },
+            console: false,
+            http: false,
+            network: None,
+            relay_url: None,
+            command_defaults: vec![],
         };
         block_on(execute(fixture, &wasm)).map_err(error)
     }
@@ -595,6 +718,8 @@ mod wasm {
                     expected: Expected { files: vec![] },
                     console: false,
                     http: false,
+                    network: None,
+                    relay_url: None,
                     command_defaults: vec![],
                 },
                 &echo,
