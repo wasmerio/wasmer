@@ -15,6 +15,32 @@ fn error(e: impl std::fmt::Display) -> JsValue {
     JsValue::from_str(&e.to_string())
 }
 
+/// Measure host scheduling without weakening hrtimer_nanosleep's no-early rule
+/// (Linux kernel/time/hrtimer.c). The runner verifies actual tab visibility.
+#[wasm_bindgen]
+pub fn background_sleep_smoke(count: u32, delay_ms: u32) -> Result<String, JsValue> {
+    if !(1..=100).contains(&count) || !(1..=1000).contains(&delay_ms) {
+        return Err(error("invalid background sleep sample bounds"));
+    }
+    wasixv2_host::browser::block_on(async {
+        let executor = BrowserExecutor::new(8, 8).map_err(error)?;
+        let host = BrowserHost::new(executor.clone()).map_err(error)?;
+        let requested = Duration::from_millis(u64::from(delay_ms));
+        let mut elapsed_ns = Vec::new();
+        for _ in 0..count {
+            let start = host.monotonic();
+            host.sleep_until(start + requested).await;
+            let elapsed = host.monotonic().saturating_sub(start);
+            if elapsed < requested {
+                return Err(error("background sleep completed before its deadline"));
+            }
+            elapsed_ns.push(elapsed.as_nanos() as u64);
+        }
+        executor.close();
+        serde_json::to_string(&elapsed_ns).map_err(error)
+    })
+}
+
 /// A coordinator task limit of one must reject the second admission, drop it
 /// exactly once, then reuse the first worker after its accepted task completes.
 #[wasm_bindgen]
