@@ -69,7 +69,12 @@ impl Kernel {
             let (Some(at), Some(there)) = (l.next(), r.next()) else {
                 break None;
             };
-            let n = (at.1.min(there.1) as usize).min(CHUNK);
+            // process_vm_rw_pages copies through the local iterator a page at
+            // a time: a fault on the next page keeps the successful prefix.
+            let local_page = super::PAGE_SIZE - u64::from(at.0) % super::PAGE_SIZE;
+            let n = (at.1.min(there.1) as usize)
+                .min(CHUNK)
+                .min(local_page as usize);
             let buf = &mut buf[..n];
             let moved = match write {
                 false => {

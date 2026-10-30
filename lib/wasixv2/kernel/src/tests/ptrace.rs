@@ -804,6 +804,48 @@ fn process_vm_empty_vectors_skip_remote_validation_and_lookup() {
     }
 }
 
+/// mm/process_vm_access.c:process_vm_rw_pages keeps the prefix copied before a
+/// local page faults, for both directions and even within one iovec.
+#[test]
+fn process_vm_keeps_the_prefix_before_a_local_fault() {
+    let (stack, task, memory) = machine();
+    let kernel = &stack.inner;
+    let caller = Caller::new(task, &memory);
+    let child = fork_child(kernel, &caller);
+    let shared = SyncMemory::new(2 * 65536, 0x100);
+    kernel.attach_memory(child, shared.clone());
+    shared.put(0x3000, b"remote!!");
+    iovec(&memory.0, 0x100, 65536 - 4, 8);
+    iovec(&memory.0, 0x110, 0x3000, 8);
+    assert_eq!(
+        block_on(kernel.process_vm_readv(
+            &caller,
+            child.0 as i32,
+            GuestPtr::new(0x100),
+            1,
+            GuestPtr::new(0x110),
+            1,
+            0,
+        )),
+        Ok(4)
+    );
+    assert_eq!(get(&memory.0, 65536 - 4, 4), b"remo");
+    put(&memory.0, 65536 - 4, b"send");
+    assert_eq!(
+        block_on(kernel.process_vm_writev(
+            &caller,
+            child.0 as i32,
+            GuestPtr::new(0x100),
+            1,
+            GuestPtr::new(0x110),
+            1,
+            0,
+        )),
+        Ok(4)
+    );
+    assert_eq!(shared.get(0x3000, 8), b"sendte!!");
+}
+
 /// `/proc/<pid>/mem` reads and writes the address space at the file offset, for an opener that
 /// may attach (`EACCES` otherwise); an address nothing backs is `EIO`.
 #[test]
