@@ -190,3 +190,29 @@ fn test_wasm_memory_size() {
         assert_eq!(memory.size(&store).0, 11);
     }
 }
+
+#[cfg(feature = "js")]
+#[wasm_bindgen_test]
+fn js_compare_exchange_checks_word_and_refreshes_after_growth() {
+    let mut store = Store::default();
+    let memory = Memory::new(&mut store, MemoryType::new(1, Some(2), true)).unwrap();
+    let view = memory.as_js().view(&store);
+    assert_eq!(view.compare_exchange_u32(0, 0, u32::MAX).unwrap(), 0);
+    assert_eq!(view.compare_exchange_u32(0, 1, 2).unwrap(), u32::MAX);
+    assert_eq!(view.compare_exchange_u32(0, u32::MAX, 7).unwrap(), u32::MAX);
+    assert!(view.compare_exchange_u32(1, 0, 1).is_err());
+    assert!(view.compare_exchange_u32(65536, 0, 1).is_err());
+    assert!(view.compare_exchange_u32(u64::MAX - 3, 0, 1).is_err());
+    memory.grow(&mut store, 1).unwrap();
+    assert_eq!(
+        memory
+            .as_js()
+            .view(&store)
+            .compare_exchange_u32(65536, 0, 42)
+            .unwrap(),
+        0
+    );
+    let mut bytes = [0; 4];
+    memory.view(&store).read(65536, &mut bytes).unwrap();
+    assert_eq!(u32::from_le_bytes(bytes), 42);
+}

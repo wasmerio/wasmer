@@ -853,7 +853,8 @@ mod tests {
         unwind(&env, Request::Save { slot: 0 }).await
     }
 
-    #[test]
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(not(target_arch = "wasm32"), test)]
     fn a_level_that_fails_while_unwinding_leaves_the_instance_still() {
         let mut store = wasmer::Store::default();
         let module = Module::new(&store, wat::parse_str(TRAP_WHILE_UNWINDING).unwrap()).unwrap();

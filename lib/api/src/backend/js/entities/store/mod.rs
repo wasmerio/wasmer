@@ -9,11 +9,21 @@ pub(crate) use obj::*;
 #[derive(Debug)]
 pub(crate) struct Store {
     pub(crate) engine: Engine,
+    #[cfg(feature = "experimental-async")]
+    pub(crate) async_mode: crate::js::AsyncMode,
+    #[cfg(feature = "experimental-async")]
+    pub(crate) async_imports: bool,
 }
 
 impl Store {
     pub(crate) fn new(engine: Engine) -> Self {
-        Self { engine }
+        Self {
+            engine,
+            #[cfg(feature = "experimental-async")]
+            async_mode: crate::js::AsyncMode::Blocking,
+            #[cfg(feature = "experimental-async")]
+            async_imports: false,
+        }
     }
 
     pub(crate) fn engine(&self) -> &Engine {

@@ -31,7 +31,8 @@ extern "C" {
     fn new(function: &Function) -> Result<Suspending, JsValue>;
 }
 
-pub(crate) fn is_supported() -> bool {
+/// Reports whether the JavaScript host exposes both JSPI entry points.
+pub fn is_supported() -> bool {
     let Ok(webassembly) = Reflect::get(&js_sys::global(), &JsValue::from_str("WebAssembly")) else {
         return false;
     };
@@ -71,11 +72,43 @@ impl Drop for ActiveStoreGuard {
             let mut stores = stores.borrow_mut();
             let active = stores
                 .get_mut(&self.id)
-                .expect("active JSPI store guard is unbalanced");
+                .expect("active JavaScript store guard is unbalanced");
             active.users -= 1;
             if active.users == 0 {
                 stores.remove(&self.id);
             }
         });
     }
+}
+
+/// How async imports and guest calls execute in one JavaScript store.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum AsyncMode {
+    /// Synchronous imports poll Rust futures and park the dedicated task worker on Pending.
+    #[default]
+    Blocking,
+    /// Optional JSPI stack switching, selected only after runtime feature probing.
+    Jspi,
+}
+
+/// Selects a store's lane before creating its first async import. Blocking is the default.
+/// JSPI requires both `WebAssembly.Suspending` and `WebAssembly.promising`.
+pub fn set_async_mode(
+    store: &mut impl crate::AsStoreMut,
+    mode: AsyncMode,
+) -> Result<(), crate::RuntimeError> {
+    if mode == AsyncMode::Jspi && !is_supported() {
+        return Err(crate::RuntimeError::new(
+            "the JavaScript host does not support WebAssembly JSPI",
+        ));
+    }
+    let mut store = store.as_store_mut();
+    let backend = store.inner.store.as_js_mut();
+    if backend.async_imports && backend.async_mode != mode {
+        return Err(crate::RuntimeError::new(
+            "cannot change the async lane after creating async imports",
+        ));
+    }
+    backend.async_mode = mode;
+    Ok(())
 }

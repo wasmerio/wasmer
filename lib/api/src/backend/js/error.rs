@@ -1,4 +1,52 @@
-use std::error::Error;
+use std::{
+    cell::RefCell,
+    collections::HashMap,
+    error::Error,
+    sync::{
+        Arc, Weak,
+        atomic::{AtomicU32, Ordering},
+    },
+};
+
+static NEXT_ERROR: AtomicU32 = AtomicU32::new(1);
+thread_local! {
+    static LOCAL_ERRORS: RefCell<HashMap<u32, (Weak<JsErrorOwner>, JsValue)>> = RefCell::default();
+}
+
+#[derive(Debug)]
+struct JsErrorOwner(u32);
+impl Drop for JsErrorOwner {
+    fn drop(&mut self) {
+        // A foreign final drop cannot touch the originating worker's JS heap. Its weak
+        // entry is collected by that worker's next error conversion instead.
+        let _ = LOCAL_ERRORS.try_with(|errors| {
+            errors.borrow_mut().remove(&self.0);
+        });
+    }
+}
+
+#[derive(Debug)]
+struct ThrownValue {
+    owner: Arc<JsErrorOwner>,
+    message: JsTrap,
+}
+impl ThrownValue {
+    fn new(value: JsValue) -> Self {
+        let message = JsTrap::from(value.clone());
+        let id = NEXT_ERROR
+            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |id| id.checked_add(1))
+            .expect("JavaScript error IDs exhausted");
+        let owner = Arc::new(JsErrorOwner(id));
+        LOCAL_ERRORS.with_borrow_mut(|errors| {
+            errors.retain(|_, (owner, _)| owner.strong_count() != 0);
+            errors.insert(id, (Arc::downgrade(&owner), value));
+        });
+        Self { owner, message }
+    }
+    fn local_value(&self) -> Option<JsValue> {
+        LOCAL_ERRORS.with_borrow(|errors| errors.get(&self.owner.0).map(|(_, value)| value.clone()))
+    }
+}
 
 use js_sys::Reflect;
 use wasm_bindgen::{JsValue, prelude::*};
@@ -11,7 +59,7 @@ use crate::{
 #[derive(Debug)]
 enum InnerTrap {
     User(Box<dyn Error + Send + Sync>),
-    Js(JsTrap),
+    Js(ThrownValue),
 }
 
 /// A struct representing a Trap
@@ -85,7 +133,7 @@ impl std::fmt::Display for Trap {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self.inner {
             InnerTrap::User(e) => write!(f, "user: {e}"),
-            InnerTrap::Js(value) => write!(f, "js: {value}"),
+            InnerTrap::Js(value) => write!(f, "js: {}", value.message),
         }
     }
 }
@@ -101,7 +149,7 @@ impl From<JsValue> for RuntimeError {
         }
 
         Self::from(Trap {
-            inner: InnerTrap::Js(value.into()),
+            inner: InnerTrap::Js(ThrownValue::new(value)),
         })
     }
 }
@@ -169,6 +217,21 @@ fn wasm32_pointer_from_js_number(value: f64) -> Option<u32> {
 mod tests {
     use super::wasm32_pointer_from_js_number;
 
+    #[wasm_bindgen_test::wasm_bindgen_test]
+    fn thrown_values_stay_rooted_only_while_the_error_is_live() {
+        use super::{JsValue, LOCAL_ERRORS, RuntimeError};
+        let before = LOCAL_ERRORS.with_borrow(|errors| errors.len());
+        let error = RuntimeError::from(JsValue::from_str("original thrown value"));
+        assert_eq!(LOCAL_ERRORS.with_borrow(|errors| errors.len()), before + 1);
+        let rethrown: JsValue = error.clone().into();
+        assert_eq!(
+            rethrown.as_string().as_deref(),
+            Some("original thrown value")
+        );
+        drop(error);
+        assert_eq!(LOCAL_ERRORS.with_borrow(|errors| errors.len()), before);
+    }
+
     #[test]
     fn converts_signed_and_unsigned_wasm32_pointers() {
         assert_eq!(wasm32_pointer_from_js_number(42.0), Some(42));
@@ -176,10 +239,7 @@ mod tests {
             wasm32_pointer_from_js_number(i32::MIN as f64),
             Some(0x8000_0000),
         );
-        assert_eq!(
-            wasm32_pointer_from_js_number(-1.0),
-            Some(u32::MAX),
-        );
+        assert_eq!(wasm32_pointer_from_js_number(-1.0), Some(u32::MAX),);
         assert_eq!(
             wasm32_pointer_from_js_number(u32::MAX as f64),
             Some(u32::MAX),
@@ -245,7 +305,7 @@ impl std::fmt::Display for JsTrap {
 impl From<JsTrap> for Trap {
     fn from(value: JsTrap) -> Self {
         Self {
-            inner: InnerTrap::Js(value),
+            inner: InnerTrap::Js(ThrownValue::new(JsValue::from_str(&value.to_string()))),
         }
     }
 }
@@ -268,7 +328,14 @@ impl From<Trap> for RuntimeError {
 
 impl From<RuntimeError> for wasm_bindgen::JsValue {
     fn from(value: RuntimeError) -> Self {
-        Self::from(value.to_string())
+        if let crate::BackendTrap::Js(trap) = &value.inner.source
+            && let InnerTrap::Js(thrown) = &trap.inner
+            && let Some(original) = thrown.local_value()
+        {
+            return original;
+        }
+        // Keep exec's typed Exit/Restore errors intact across JS host frames.
+        Trap::user(Box::new(value)).into()
     }
 }
 

@@ -811,6 +811,31 @@ pub(super) mod tests {
         }
     }
 
+    // Linux mm/mmap.c:do_brk_flags grows backing memory without requiring any host
+    // pointer representation; the JS backend must use its refreshed buffer views.
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(not(target_arch = "wasm32"), test)]
+    fn memory_grow_hook_accepts_growth_and_reports_the_previous_size() {
+        let wasm = wat::parse_str(
+            r#"(module
+            (import "wasixv2" "exit_group" (func $exit (param i32)))
+            (import "wasixv2-exec" "memory-grow" (func $grow (param i32) (result i32)))
+            (memory (export "memory") 1 2)
+            (func (export "_start")
+                (if (i32.ne (call $grow (i32.const 1)) (i32.const 1)) (then unreachable))
+                (i32.store (i32.const 65536) (i32.const 42))
+                (if (i32.ne (call $grow (i32.const 1)) (i32.const -1)) (then unreachable))
+                (call $exit (i32.const 0))))"#,
+        )
+        .unwrap();
+        let store = Store::default();
+        let module = wasmer::Module::new(&store, wasm).unwrap();
+        let control = Arc::new(Recorder::default());
+        let run = crate::run(store, &module, control.clone(), PARENT, Arc::new(NoThreads));
+        assert_eq!(futures::executor::block_on(run).unwrap(), 0);
+        assert!(control.faulted.lock().unwrap().is_empty());
+    }
+
     const PARENT: TaskId = TaskId(2);
     const CHILD: TaskId = TaskId(3);
 
@@ -880,8 +905,8 @@ pub(super) mod tests {
 
     /// Kernel task work must see the current memory on syscall returns and user-code
     /// preemption, while an unraised WorkFlag keeps the hook off the fast path.
-    #[cfg(feature = "sys")]
-    #[test]
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(not(target_arch = "wasm32"), test)]
     fn task_work_runs_before_returning_from_syscalls_and_preemption() {
         for raised in [true, false] {
             let expected = i32::from(raised);
@@ -914,8 +939,8 @@ pub(super) mod tests {
         }
     }
 
-    #[cfg(feature = "sys")]
-    #[test]
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(not(target_arch = "wasm32"), test)]
     fn actions_generated_by_the_final_task_work_drain_precede_guest_resume() {
         let wasm = wat::parse_str(
             r#"(module
