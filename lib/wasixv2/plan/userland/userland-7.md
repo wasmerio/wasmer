@@ -1,7 +1,8 @@
 # Userland 7: follow-ups from the real-program sweep
 
-Runtime branch `wasixv2/v10fu` starts at v9progs `b178e7a7b16`. The FUSE fix is
-`01112d3f6e6`; tests `v10fu` is `9c3eace`, libc2 `v10fu` is `e8694467` (ABI remains
+Runtime branch `wasixv2/v10fu` starts at v9progs `b178e7a7b16`. Runtime head is `9d58b5317da`: DONT_MASK
+`01112d3f6e6`, exit-check race `12b483ba18b`, device splice `2bc629353b1`, and
+blocking splice reads `9d58b5317da`. Tests `v10fu` is `9c3eace`, libc2 `v10fu` is `e8694467` (ABI remains
 `07cd32e`). Build/run artifacts stay outside git under `~/wasixv2-tools/userland-7`.
 Initialize this directory by copying the source builds, `bin`, `out`, and PostgreSQL
 installation from userland-6; retain original v9 artifacts. See userland-6.md for
@@ -73,3 +74,51 @@ team's supported v2 PIC compiler/sysroot and loader, followed by the ordinary
 plugin recipe and existing postgres workflow. The existing static server reaches
 bootstrap and exercises System V shared memory and semaphores; that is not a
 completed initialization or a pgbench result.
+
+
+## Final validation
+
+| Follow-up | Result |
+| --- | --- |
+| fuse-overlayfs 1.15 / libfuse 3.17.4 | PASS existing overlay workflow: copy-up preserves lower data, whiteout hides the removed file, new-file creation reaches upper, normal unmount and daemon exit complete. |
+| Busybox 1.37.0 | Relinked unchanged source against libc2 e8694467. Focused failing-applet set: 198 PASS / 11 FAIL / 1 SKIP. date-timezone now passes; all other failures match the classifications above. This does not claim a new complete Busybox-suite run. |
+| Intermittent host panic | Reproduced on original-order coreutils iteration 2 with full backtrace, then deterministic kernel RED. Fixed exit-check/reap race; twenty complete original-order workflow iterations on 2bc629353b1 contain no host panic. Later change 9d58b5317da affects FUSE only. |
+| PostgreSQL 17.5 | initdb bootstrap PASS, post-bootstrap FATAL on missing dict_snowball. Ordinary plugin recipe fails unsupported v2 PIC. pgbench NOT RUN. No unsupported catalog omission or linking patch. |
+| sshfs / GLib (optional) | Not pursued: inherited GLib build requires PCRE2 and excluded libffi work. |
+
+The FUSE run exposed two further Linux bugs after INIT succeeded. libfuse selects
+splice by protocol version; the device now implements copying splice transport.
+Linux fs/fuse/dev.c:fuse_dev_splice_write consumes exactly the requested bytes
+before validating the reply, but leaves a pipe with insufficient bytes unchanged;
+regression coverage includes both cases. A blocking device read must remain
+blocking when its output pipe has O_NONBLOCK: fs/splice.c:splice_file_to_pipe
+uses nonblocking flags for pipe room, while fs/fuse/dev.c:fuse_dev_do_read checks
+the source file's flags. That behavior has its own failing-first regression.
+
+The panic was take_pending -> ptrace_pending_exit -> task_signals. Once any
+process had used ptrace, a later exit check performed an infallible second lookup
+after take_pending released its task-table lock; reap could win in between.
+Snapshotting signals/process with a fallible lookup preserves the existing
+DeadTask unwind action. Linux kernel/exit.c:do_exit orders ptrace EXIT before
+exit_notify/release_task; an already unhashed task cannot acquire a new EXIT stop.
+No kernel/exec contract or guest ABI changed.
+
+Final gates: **310 distinct Rust tests** (45 FUSE, 31 ptrace, 56 task, 41 kernel
+fs, 137 across affected VFS driver crates), all-target clippy using the exact
+Makefile lint flags for touched crates, and cargo fmt --all --check PASS.
+Both libc2 sysroots build; the strptime fixture passes with EH and asyncify.
+Release CLI builds PASS, including the final FUSE correction. No full WASIX or
+workspace test suite was run. All heavy commands were serialized, nice 19,
+CPUs 4–7, jobs 3, incremental disabled, with release builds in systemd user units.
+
+PostgreSQL's final trace has 12 shmget, 10 shmat, 12 semget, 182 semctl, and 12
+semop call entries before the verified plugin blocker. These counts establish
+IPC exercise, not completed initialization. The linking team must supply a
+supported v2 PIC compiler/sysroot and loader before the plugin recipe, initdb,
+and pgbench can finish.
+
+Machine-local evidence and handoff: `~/wasixv2-orch/logs/v10fu/STATE.md`;
+`traces/panic-before.log`, twenty `traces/panic-after/panic-N.log` files, original
+splice failure traces, and final overlay/PostgreSQL traces. The final tested
+CLI is archived at `logs/v10fu/bin/wasmer` with source manifest and SHA256SUMS.
+Source-only recipes are committed; no prebuilt Wasm or expected-failure edits.
