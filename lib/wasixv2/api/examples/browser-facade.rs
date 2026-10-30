@@ -286,6 +286,46 @@ mod wasm {
             .await
             .map_err(|e| e.as_string().unwrap_or_else(|| format!("{e:?}")))
     }
+    /// Performance baseline: guest-side monotonic time around synchronous syscalls.
+    /// Linux kernel/sys.c:__do_sys_getpid and kernel/time/posix-timers.c:
+    /// posix_get_monotonic_timespec define the unchanged operations being measured.
+    #[wasm_bindgen]
+    pub fn benchmark_smoke(iterations: u32) -> Result<String, JsValue> {
+        if !(1..=1_000_000).contains(&iterations) {
+            return Err(error("iterations must be between 1 and 1000000"));
+        }
+        let wasm = wat::parse_str(format!(
+            r#"(module
+                (import "wasixv2" "exit_group" (func $exit (param i32)))
+                (import "wasixv2" "getpid" (func $getpid (result i32)))
+                (import "wasixv2" "clock_gettime64" (func $clock (param i32 i32) (result i32)))
+                (import "wasixv2" "write" (func $write (param i32 i32 i32) (result i32)))
+                (memory (export "memory") 2 16 shared)
+                (func (export "_start") (local $left i32)
+                    i32.const {iterations} local.set $left
+                    i32.const 1 i32.const 1024 call $clock drop
+                    (loop $again
+                        call $getpid drop
+                        local.get $left i32.const 1 i32.sub local.tee $left br_if $again)
+                    i32.const 1 i32.const 1040 call $clock drop
+                    i32.const 1 i32.const 1024 i32.const 32 call $write drop
+                    i32.const 0 call $exit unreachable))"#
+        ))
+        .map_err(error)?;
+        let fixture = Fixture {
+            name: "syscall-baseline".into(),
+            args: vec![],
+            env: vec![],
+            stdin: vec![],
+            cwd: None,
+            user: None,
+            program_name: None,
+            mounts: vec![],
+            expected: Expected { files: vec![] },
+        };
+        block_on(execute(fixture, &wasm)).map_err(error)
+    }
+
     /// Browser-only regression: two kernels, shared provider identity, cached waits,
     /// immediate kill and busy-guest terminal input, using the public B8 facade.
     #[wasm_bindgen]
