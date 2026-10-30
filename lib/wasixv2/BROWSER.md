@@ -90,14 +90,14 @@ until the separate SDK port's classic/current API tests pass.
 | Classic/current capability | Facade/driver destination | Runtime status and evidence | Missing work |
 | --- | --- | --- | --- |
 | Raw module, WAT conversion | `load`, `Machine::run_module`, `browser::spawn`; SDK uses `wat` | Done raw: browser `base-exit-status` five variants, `base-args-env`; WAT used by `lifecycle_smoke` | SDK conversion/public run wrappers (S1) |
-| Registry/local WEBC, named/default commands, command binary | `Package::from_bytes`, `entrypoint`, `commands`, `binary`, `prepare_command`, `install_packages`, `Machine::run_file` | Done bytes/commands: `package::tests::{byte_backed_packages_install_commands_without_native_sources,version_two_sources_migrate_from_bytes,initial_command_configuration_preserves_explicit_values,supplied_dependency_atoms_survive_the_package_sources}`; Missing browser WEBC acceptance | S1, S2, R1 |
-| args/env/cwd, extra packages, sandbox install/shell | `ProcessConfig`, `set_working_dir`, `install_packages` | Done args/env: `base-args-env`; package precedence tested above; Missing integrated browser cwd/package/shell tests | S1, R1 |
+| Registry/local WEBC, named/default commands, command binary | `Package::from_bytes`, `entrypoint`, `commands`, `binary`, `prepare_command`, `install_packages`, `Machine::run_file` | Done bytes/commands: `package::tests::{byte_backed_packages_install_commands_without_native_sources,version_two_sources_migrate_from_bytes,initial_command_configuration_preserves_explicit_values,supplied_dependency_atoms_survive_the_package_sources}`; browser R1 WEBC v2/v3 default/named/dependency/extra commands | S1, S2 |
+| args/env/cwd, extra packages, sandbox install/shell | `ProcessConfig`, `set_working_dir`, `install_packages` | Done args/env: `base-args-env`; package precedence tested above; browser R1 cwd/package and R3 mini-shell acceptance | S1 |
 | Multiple instances/shared runtime/cache/pool, close/disposal | `browser::builder`, `BrowserExecutor`, Machine, `Run` | Done isolated kernels/shared Directory: `lifecycle_smoke.sharedDirectory,machineIsolation`; Missing multi-client cache/pool disposal acceptance | S1, S2, R2 |
 | stdin/stdout/stderr, wait and captured output | `Session`, `Streams`, `Run::wait` | Done bounded independent outputs/EOF/drain: `lifecycle_smoke.backpressure` (256 KiB through 64 KiB queues), adapter.test.mjs final-result ordering | SDK streams/capture limits/lines (S1) |
 | Live spawn/capture/pipe/discard, input close, timeout/terminate/kill | `browser::spawn`, `Run::{wait,kill,signaller}`, stdio-web queues | Done kill/repeated concurrent wait/signal: `lifecycle_smoke.kill,wait,signal`; Missing public terminate/deadline/pipe/capture API compatibility | S1, R2 |
-| TTY, raw input/echo/editing/Ctrl-C/resize | Machine console, `Signaller::{console_resize,console_hangup}`, Session | Done busy browser Ctrl-C: `lifecycle_smoke.busyTty`; native `stdio-web/tests/tty.rs` covers canonical/raw, resize, foreground selection and hangup; Missing full browser TTY matrix | S1, R3 |
-| Mutable shared Directory and mounts | `browser::directory`, WebFs, `populate_directory`, `Machine::mount` | Done shared bytes across Machines: lifecycle; `directory::tests::{readonly_directories_bytes_and_symlinks_keep_their_identity,escaping_paths_and_symlink_parents_fail_before_mutation}`; browser fs-rw-pread/readdir/rename/link-symlink/openat2-in-root | S1, R1 |
-| Editing filesystem after sandbox creation | `Machine::vfs`, explicit `Ctx`, credentials/root and VFS operations | Done same provider identity: lifecycle; Missing browser editing API round-trip and credential-error acceptance | S1, R1 |
+| TTY, raw input/echo/editing/Ctrl-C/resize | Machine console, `Signaller::{console_resize,console_hangup}`, Session | Done busy browser Ctrl-C: `lifecycle_smoke.busyTty`; native `stdio-web/tests/tty.rs` covers canonical/raw, resize, foreground selection and hangup; browser R3 canonical/raw/echo/EOF, resize, job control and hangup acceptance below | S1 |
+| Mutable shared Directory and mounts | `browser::directory`, WebFs, `populate_directory`, `Machine::mount` | Done shared bytes across Machines: lifecycle; `directory::tests::{readonly_directories_bytes_and_symlinks_keep_their_identity,escaping_paths_and_symlink_parents_fail_before_mutation}`; browser fs-rw-pread/readdir/rename/link-symlink/openat2-in-root and R1 live VFS acceptance below | S1 |
+| Editing filesystem after sandbox creation | `Machine::vfs`, explicit `Ctx`, credentials/root and VFS operations | Done same provider identity: lifecycle; browser R1 held-inode round-trip, EACCES/EROFS and provider EIO acceptance below | S1 |
 | Host mounts/storage provider | WebFs object-ID Provider protocol; memory/package/overlay drivers | Done memory provider: `lifecycle_smoke.sharedDirectory` and `directory::tests::readonly_directories_bytes_and_symlinks_keep_their_identity`; Missing JS-backed OPFS/File System Access integration; native host paths unavailable | S3 |
 | pthreads/worker concurrency | `BrowserExecutor::spawn_thread(ThreadStart)`, engine object envelopes | Done reviewed `thr-atomic-wait-signal`; protocol.test.mjs admission/failure models; Missing extended lifetime/limit browser stress | R2 |
 | sleep/poll/futex/atomic wait | BrowserHost off-worker timer, kernel futex/WaitQueue, runtime Parker | Done base-nanosleep/timerfd and thr-atomic-wait-signal; `host/src/timer.rs:expiry_coalesces_in_hard_expiry_order_without_firing_early,replacing_and_cancelling_a_timer_drop_wakers_outside_the_queue_lock`; Missing combined cancellation/background-tab browser acceptance | R2 |
@@ -123,9 +123,9 @@ smoke cannot close a browser acceptance item.
 | S4 | Separate SDK/provider: WISP TCP/DNS callback transport on independent I/O worker, endpoint replacement/auth/DoH+CORS; test refusal, disconnect while blocked, reconnect without byte replay. Preserve explicit lack of WISP UDP/ingress. |
 | S5 | Separate SDK plus narrow facade follow-up if required: service-worker HTTP framing/ingress, browser TCP bridge, peer sandboxes and read-only listener discovery. The vnet-switch crate currently contains only documentation; implement and test cross-Machine address routing before claiming peer networking. Test backlog saturation/publication lifetime and browser port APIs without claiming native host listeners. |
 | B9 | Parallel wasix1 package: integrate B9 branch and run real v1 static/thread/spawn/fork/TTY/socket plus HTTP-provider/import-layout/CORS/failure acceptance. No v1 quirks enter kernel policy. |
-| R1 | Runtime acceptance: source-built browser WEBC v2/v3/default/named/dependency/subdirectory command execution, cwd and extra packages, live VFS edits with credentials and provider failure cases. Existing native tests remain useful but insufficient. |
+| R1 | Complete for the Rust/runtime facade: browser source-built WEBC v2/v3/default/named/dependency/subdirectory/cwd/extra-command and live VFS credential/provider-error acceptance, Chromium and Firefox. Evidence and reproduction below. SDK acquisition/cache/wrappers remain S1/S2/S3. |
 | R2 | Runtime robustness: worker limit/bootstrap/death, same-runtime reuse/TLS/object collection, canceled wait/kill/deadline, notify-before-wait, timer cancel/background throttling, UI/I/O heartbeat, complete heap/driver/relay reclamation. Add stress and failure injection to actual supported browser lanes. |
-| R3 | Runtime TTY acceptance: browser canonical/raw/echo/editing/EOF, resize/SIGWINCH, foreground job control and hangup under blocking/busy guests; reuse kernel behavior and native tty tests. |
+| R3 | Complete for the runtime console: browser canonical/raw/echo/editing/EOF, resize/SIGWINCH, foreground job control and hangup under blocking/busy guests, reusing kernel behavior and existing PTY/shell fixtures. Chromium and Firefox evidence below; terminal widgets/wrappers remain S1. |
 | R4 | Runtime network acceptance: browser classic UDP+DNS/IPv6, TCP half-close/reset, queue bounds, disconnect/refusal/provider absence, ingress/peer networks and WISP adapter. Use deterministic local services. |
 | N1 | Classic relay provider: emit distinguishable EOF/reset, preserve empty UDP and host-send errors, reverse/raw DNS provider, UDP publication, urgent data and port-zero publication where claimed. Current stock relay limits are detailed in vnet-web/README.md; unsupported capabilities must remain explicit. |
 | R6 | Runtime/engine lifetime: same-runtime proc-fork currently exhausts browser guest-memory allocation after roughly 22 runs despite C1 unregister and zero local root counters. Reduce live-root versus engine-GC/address-reservation behavior and prove long-running pool reuse without forced GC. Browser/Playwright owner: reduce the intermittent WebKit page/context crash (reproduced without the WASIX runtime); retain both failing default and explicit process-isolated evidence. Do not classify it as a fixed kernel fault. |
@@ -257,3 +257,51 @@ CHROME=/usr/bin/google-chrome node lib/wasixv2/api/tests/browser/example.mjs \
 browser run requires successful guest exit and exactly 32 timing bytes for the
 warmup and all five samples. The example regression checks exit/atexit output,
 invalid runtime URL and missing-module failure against the real source fixture.
+
+## R1/R3 browser acceptance (2026-10-30)
+
+The tests repo's `b14-accept` branch (`fae0ded`) adds an exact 15-configuration selection in
+`browser/accept-allowlist.txt`. Chromium 151.0.7922.108 and Firefox 157.0 each
+passed **15/15**, with shared memory, cross-origin isolation and JSPI absent in
+page and workers. Every guest and WEBC atom is built from source; the browser
+constructs and parses actual WEBC v3/v2 bytes before VFS execution. No prebuilt
+Wasm or expected-failure changes are committed.
+
+R1 covers default/named launch, supplied dependency atoms and commands, extra
+packages and command precedence, writable package/subdirectory mounts with
+containment, default/explicit cwd and argument/environment precedence. A live
+provider-backed directory checks guest-to-embedder writes and embedder writes,
+rename/unlink/replacement while the guest holds an inode; explicit foreign
+credentials give EACCES, readonly mounts EROFS and a test provider's lookup/read
+failures EIO. Invalid package bytes and missing command/dependency fail explicitly.
+The v2 producer lays its selected tree under the legacy atom-volume directory;
+v3 uses an independent volume plus `host_path` selection.
+
+R3 checks exact canonical echo/erase and Ctrl-D followed by further input, raw
+control bytes without echo, caught SIGWINCH/all four winsize fields and hangup
+under blocked/busy guests, foreground Ctrl-C after background SIGTTIN, and
+default SIGHUP via input EOF or explicit hangup. Existing `tty-pty`,
+`tty-pty-jobctl` and `tty-mini-shell` extend coverage to TOSTOP/SIGTTOU,
+stop/continue and foreground swaps. Test actions wait for complete guest output
+markers; all line discipline/job-control policy stays in the kernel.
+
+Linux `drivers/tty/tty_io.c:__tty_hangup` installs hung-up file operations before
+`tty_signal_session_leader`, so EOF can race ahead of SIGHUP. The source test
+waits for eventual SIGHUP after EOF instead of assuming atomic publication.
+No runtime defect was established and no kernel/exec contract changed.
+
+Reproduce with the B8/B12 build recipe above, then in `tests/wasixv2`:
+
+```sh
+cargo run -p wasixv2-tests --locked -- --browser-accept-export /new/export
+CHROME=/usr/bin/google-chrome node browser/run.mjs --manifest /new/export/manifest.json \
+  --runtime /browser-runtime --artifacts /new/chromium-results
+node browser/run.mjs --browser firefox --manifest /new/export/manifest.json \
+  --runtime /browser-runtime --artifacts /new/firefox-results
+```
+
+Shared-machine builds use nice 19, CPUs 4–7, `-j3`, `CARGO_INCREMENTAL=0` and
+owned debug targets. Evidence is retained under `~/wasixv2-orch/logs/b14-accept`;
+`STATE.md` records exact source revisions and final artifact/result paths. This
+closes the scoped R1/R3 runtime acceptance items; SDK API parity and the other
+follow-ups above remain unsigned.
