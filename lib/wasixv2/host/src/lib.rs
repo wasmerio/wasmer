@@ -5,6 +5,8 @@
 //! Two implementations ship here: [`TokioHost`] for native embedders (feature `tokio`) and
 //! [`WebHost`] for `wasm32-unknown-unknown` in a browser or node (feature `web`).
 
+#[cfg(feature = "browser")]
+pub mod browser;
 #[cfg(feature = "tokio")]
 mod timer;
 #[cfg(feature = "tokio")]
