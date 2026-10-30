@@ -611,12 +611,13 @@ impl Pipe {
             if n > 0 {
                 let was_full = {
                     let mut state = self.state.lock_or_recover();
-                    let was_full = state.free() == 0;
+                    let was_full = state.free() < PIPE_BUF.min(state.capacity);
                     state.consume(n, packet_read);
                     was_full
                 };
-                // fs/pipe.c pipe_read wakes writers after freeing a slot from
-                // a full pipe. Reading an already writable pipe is no new edge.
+                // fs/pipe.c anon_pipe_read wakes writers after freeing a full slot.
+                // Use pipe_poll's same slot threshold: an atomic writer can
+                // sleep with some bytes free. Already writable pipes add no edge.
                 if was_full {
                     self.wr_wait.wake(PollMask::WRITABLE);
                 }

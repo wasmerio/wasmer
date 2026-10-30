@@ -121,6 +121,47 @@ fn full_pipe_takes_a_partial_write_but_not_a_partial_atomic_one() {
     );
 }
 
+/// fs/pipe.c anon_pipe_read wakes blocked writers when a full slot becomes free.
+/// Byte-oriented pipe storage can block an atomic write with some bytes free.
+#[test]
+fn reading_a_pipe_wakes_an_atomic_writer_with_partial_room() {
+    struct Woken(std::sync::atomic::AtomicBool);
+    impl futures::task::ArcWake for Woken {
+        fn wake_by_ref(this: &Arc<Self>) {
+            this.0.store(true, std::sync::atomic::Ordering::SeqCst);
+        }
+    }
+    let (kernel, task, memory) = machine();
+    let caller = Caller::new(task, &memory);
+    let (r, w) = pipe(&kernel, &caller, OpenFlags(0));
+    assert_eq!(
+        block_on(kernel.fcntl64(&caller, w, FcntlCmd::F_SETPIPE_SZ, 8192)),
+        Ok(8192)
+    );
+    assert_eq!(
+        block_on(kernel.write(&caller, w, UserSlice::new(0x1000, 6000))),
+        Ok(6000)
+    );
+    let write = kernel.write(&caller, w, UserSlice::new(0x1000, 4096));
+    futures::pin_mut!(write);
+    let woken = Arc::new(Woken(std::sync::atomic::AtomicBool::new(false)));
+    let waker = futures::task::waker(woken.clone());
+    let mut cx = std::task::Context::from_waker(&waker);
+    assert!(std::future::Future::poll(write.as_mut(), &mut cx).is_pending());
+    assert_eq!(
+        block_on(kernel.read(&caller, r, UserSliceMut::new(0x4000, 4096))),
+        Ok(4096)
+    );
+    assert!(
+        woken.0.load(std::sync::atomic::Ordering::SeqCst),
+        "blocked writer was not woken"
+    );
+    assert_eq!(
+        std::future::Future::poll(write.as_mut(), &mut cx),
+        std::task::Poll::Ready(Ok(4096))
+    );
+}
+
 #[test]
 fn blocking_pipe_read_waits_for_a_writer_on_another_thread() {
     let (kernel, task, memory) = machine();
