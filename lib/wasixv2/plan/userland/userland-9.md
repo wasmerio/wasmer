@@ -57,15 +57,44 @@ value. No library implementation, crypto behavior or excluded subsystem is
 modified. OpenSSH's native hardening/retpoline/rpath flags are disabled through
 its supported configure options for this wasm target.
 
-Seven programs pass their complete requested workflows on the baseline runtime.
-Optimized miniperl builds and executes its selected tests. The traced fork tests
+All eight programs pass their requested workflows on runtime b6ba99822a3.
+Optimized static miniperl passes twelve bundled files / 810 test points, using
+the upstream tty opt-out in this noninteractive harness. Lua passes eight files. The traced fork tests
 exposed a real kernel panic: after SIGKILL prevents a syscall stop, ptrace_stop
 returns SIGTRAP|0x80, which the internal signal sender failed to validate before
 indexing the disposition table. Linux kernel/signal.c:send_sig_info rejects that
 value. A failing-first kernel unit test covers both entry and exit notifications;
-the small sender validation fix and final program rerun are being gated.
+the sender validation fix passes 32 ptrace, 34 signal and 35 process kernel tests,
+all-target kernel clippy with Makefile lint flags and workspace formatting. All
+eight final workflows pass with zero host panics; no full suite was run.
 
 Full chronological evidence and active-unit names are in
 ~/wasixv2-orch/logs/v11progs/STATE.md. Package/source configuration blockers are
 recorded separately from Linux kernel/libc bugs; no behavior workaround or
 expected-failure change is permitted.
+
+
+Final evidence (all `run-PROGRAM-fixed.log` report EXIT:0):
+
+| Program | Source version | Verified behavior |
+| --- | --- | --- |
+| sqlite3 | 3.49.2 | create/insert/select, concurrent WAL reader, writer lock conflict, VACUUM, .backup/integrity |
+| git | 2.49.0 | divergent branch merge, log, gc/fsck, hardlinked and upload-pack local clones, shell hook |
+| GNU make | 4.4.1 | C-free recipes, -j4, recursive pipe jobserver |
+| tmux | 3.5a | v2 pty, server socket, split, send/capture, detach/attach |
+| rsync | 3.4.1 | -aH modes/times/symlink/hardlink, --delete, loopback daemon |
+| Lua | 5.4.8 | eight exact upstream files, no dlopen |
+| miniperl | 5.40.2 | twelve exact upstream files, 810 test points, fork/pipe/stat included |
+| OpenSSH | 10.0p1 | Ed25519 key login, remote command, SFTP scp over guest loopback |
+
+Dependencies: zlib 1.3.1, libevent 2.1.12-stable, ncurses 6.5 and OpenSSL 3.5.0,
+all source-built static. Full Perl/static extensions were not built: the requested
+miniperl alternative suffices for the selected no-dlopen subset. No dynamic
+linking, closures, libffi or reflection source was changed. ABI/libc2/tests pins
+remain unchanged; the regression is a Rust kernel unit test.
+
+The final CLI and source/SHA256 manifest are archived at
+~/wasixv2-orch/logs/v11progs/bin; traces and the failing-first evidence are retained
+beside STATE.md. Reproduce with `bash tests/run-programs-9.sh
+~/wasixv2-orch/logs/v11progs/bin/wasmer PROGRAM` and the retained source kit.
+The merge train remains responsible for full-suite validation.
