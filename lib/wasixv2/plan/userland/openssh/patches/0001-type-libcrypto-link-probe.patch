@@ -1,0 +1,17 @@
+--- a/configure.ac
++++ b/configure.ac
+@@ -2879 +2879,2 @@
+-	AC_TRY_LINK_FUNC([RAND_add], ,
++	AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <openssl/rand.h>]],
++	    [[RAND_add("", 0, 0.0);]])], [],
+--- a/configure
++++ b/configure
+@@ -18828,4 +18828 @@
+-/* Override any GCC internal prototype to avoid an error.
+-   Use char because int might match the return type of a GCC
+-   builtin and then its argument prototype would still apply.  */
+-char RAND_add ();
++#include <openssl/rand.h>
+@@ -18835 +18832 @@
+-return RAND_add ();
++RAND_add("", 0, 0.0);
