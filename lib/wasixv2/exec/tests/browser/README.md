@@ -40,6 +40,20 @@ holds requests for unknown IDs until registration arrives; cross-port unregister
 before registration discards that later registration rather than retaining a dead
 memory. A live Rust handle keeps the guest memory alive through every copy.
 
+Unregister removes the service's Memory reference, but the engine can keep a
+dead wrapper's address reservation until that isolate collects. After eight
+unregistrations the coordinator replaces this pure-JS realm. The old realm
+hands its live registry, retirement markers, pending slot offsets and client
+endpoints directly to the replacement through a private MessageChannel; queued
+client messages remain ordered. The receiver first announces ownership on that
+channel. The sender stays alive until the coordinator receives restored-state
+readiness, which avoids Firefox shared-memory decode failures during handoff.
+These service bootstrap acknowledgements do not acknowledge C1 registrations.
+After acknowledgement and normal drained runtime shutdown, the pure-JS realm
+closes its own client/handoff ports and then itself. Fatal/uncertain heap failure
+still forcefully terminates the service and every Rust worker.
+No runtime Rust, forced GC, guest progress or new kernel contract is involved.
+
 One atomic slot per runtime worker publishes operation, ID, guest offset, runtime
 buffer address/length and CAS arguments. Release/acquire completion precedes any
 return into Rust. Growth refreshes both guest and runtime buffer views. The caller
