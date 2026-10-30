@@ -124,6 +124,7 @@ pub async fn spawn(
 ) -> Result<Run, crate::RunError> {
     // Publish the kernel task before returning the handle, so an immediate kill
     // cannot race an as-yet-uncreated process (kernel/fork.c:kernel_clone and kernel/sched/core.c:wake_up_new_task).
+    crate::preflight(&module)?;
     let (task, admission) = machine.start(config).await?;
     let completion = Arc::new(Completion::default());
     let output = completion.clone();
