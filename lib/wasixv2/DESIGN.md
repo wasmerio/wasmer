@@ -177,7 +177,9 @@ Explicit mapping addresses still follow the existing fixed/hint rules. The low g
 before rounding to pages (`mm/mmap.c:sys_brk`, `include/linux/mm.h:check_data_rlimit`); a collision
 returns the old break. Fork copies this metadata and the break along with the existing page map;
 private pages retain their existing CoW backing. With a known layout, backing an address by
-growing linear memory does not by itself map a gap. `None` keeps the original contract and
+growing linear memory does not by itself map a gap. Memory reports (`VmSize`, `VmData`,
+`statm`, `sysinfo`, `/proc/meminfo` and resource usage) count mapped pages rather than this
+linear span, following `fs/proc/task_mmu.c:task_mem/task_statm`. `None` keeps the original contract and
 bottom-up growth/reuse behavior for other embedders and unknown images.
 
 Retired thread instances return their execution-owned unwind buffers to a pool shared by

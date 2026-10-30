@@ -1715,3 +1715,52 @@ fn random_ioctl_reports_the_ready_pool_entropy() {
         );
     }
 }
+
+/// fs/proc/task_mmu.c:task_mem/task_statm use mapped pages, not the highest VA.
+#[test]
+fn memory_reports_omit_unmapped_linear_holes() {
+    let (kernel, task, _) = machine();
+    let memory = memory();
+    let t = T::new(&kernel, task, &memory);
+    let page = WASM_PAGE_SIZE as u32;
+    block_on(kernel.mmap(
+        &t.caller,
+        8 * page,
+        page,
+        ProtFlags::PROT_READ | ProtFlags::PROT_WRITE,
+        MapFlags::MAP_PRIVATE | MapFlags::MAP_ANONYMOUS | MapFlags::MAP_FIXED,
+        Fd(-1),
+        0,
+    ))
+    .unwrap();
+    assert_eq!(kernel.mm(task).size(), 2 * u64::from(page));
+    let status = sysctl_get(&t, "/proc/self/status");
+    for field in ["VmSize:", "VmRSS:", "VmData:"] {
+        let kb: u64 = status
+            .lines()
+            .find(|l| l.starts_with(field))
+            .unwrap()
+            .split_whitespace()
+            .nth(1)
+            .unwrap()
+            .parse()
+            .unwrap();
+        assert_eq!(kb, 2 * u64::from(page) / 1024, "{field}");
+    }
+    let statm = sysctl_get(&t, "/proc/self/statm");
+    assert_eq!(statm.split_whitespace().next(), Some("2"));
+    block_on(kernel.sysinfo(&t.caller, GuestPtrMut::new(0x3000))).unwrap();
+    let info: wasixv2_abi::Sysinfo = block_on(read_value(&memory, GuestPtr::new(0x3000))).unwrap();
+    assert_eq!(info.freeram, info.totalram - 2);
+    let meminfo = sysctl_get(&t, "/proc/meminfo");
+    let free: u64 = meminfo
+        .lines()
+        .find(|l| l.starts_with("MemFree:"))
+        .unwrap()
+        .split_whitespace()
+        .nth(1)
+        .unwrap()
+        .parse()
+        .unwrap();
+    assert_eq!(free, ((1u64 << 32) - 2 * u64::from(page)) / 1024);
+}

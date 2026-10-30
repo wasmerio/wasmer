@@ -609,10 +609,12 @@ fn initial(ns: &UserNs) -> &UserNs {
 
 /// The bytes the processes' address spaces hold.
 fn memory_used(source: &Source) -> u64 {
+    let mut seen = std::collections::HashSet::new();
     source
         .all_pids()
         .into_iter()
         .filter_map(|pid| source.mm(Scope { pid, tid: None }))
+        .filter(|mm| seen.insert(mm.id()))
         .map(|mm| mm.size())
         .sum()
 }

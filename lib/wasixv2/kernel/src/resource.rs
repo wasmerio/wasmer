@@ -246,7 +246,8 @@ impl Kernel {
                     RusageWho::RUSAGE_SELF => process.cpu.times(),
                     _ => self.task_ref(caller.task(), |t| t.cpu.times()),
                 };
-                let size = caller.memory().size().await / 1024;
+                self.mem_size(caller).await;
+                let size = self.mm(caller.task()).size() / 1024;
                 rusage(times, process.maxrss.load(Ordering::Relaxed).max(size))
             }
             RusageWho::RUSAGE_CHILDREN => {
@@ -291,7 +292,21 @@ impl Kernel {
         let boottime = self.timens_offset(caller, crate::time::Clock::Boottime);
         let uptime = crate::time::timens_add(self.host.monotonic(), boottime);
         let total = ADDRESS_SPACE / PAGE_SIZE;
-        let used = caller.memory().size().await / PAGE_SIZE;
+        self.mem_size(caller).await;
+        // fs/proc/meminfo.c:meminfo_proc_show and kernel/sys.c:do_sysinfo report
+        // machine memory, counting a shared mm only once.
+        let used = {
+            let state = self.state.read_or_recover();
+            let mut seen = std::collections::HashSet::new();
+            state
+                .tasks
+                .values()
+                .filter(|t| !t.thread.left_mm())
+                .filter(|t| seen.insert(t.mm.id()))
+                .map(|t| t.mm.size())
+                .sum::<u64>()
+                / PAGE_SIZE
+        };
         let procs = self.state.read_or_recover().tasks.len();
         let si = Sysinfo {
             uptime: (uptime.as_secs() + u64::from(uptime.subsec_nanos() > 0)) as i32,

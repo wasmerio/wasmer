@@ -430,9 +430,19 @@ impl Mm {
         self.space().dont_dump.ranges()
     }
 
-    /// The size of memory when a memory call last looked (`total_vm`).
+    /// Mapped bytes (`total_vm`), as fs/proc/task_mmu.c:task_mem/task_statm count.
+    /// Growing linear memory to back a distant VMA does not map the intervening hole.
     pub(crate) fn size(&self) -> u64 {
-        self.space().seen
+        let space = self.space();
+        let seen = space.seen.div_ceil(PAGE_SIZE);
+        let base = space.base.unwrap_or(seen).min(seen);
+        let mapped = space
+            .mapped
+            .iter()
+            .take((seen - base) as usize)
+            .filter(|&&mapped| mapped)
+            .count() as u64;
+        (base + mapped) * PAGE_SIZE
     }
 
     /// How many bytes are locked (`locked_vm`).

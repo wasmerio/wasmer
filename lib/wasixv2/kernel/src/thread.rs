@@ -1137,7 +1137,8 @@ impl Kernel {
             (last, process)
         };
         // `do_exit`'s `setmax_mm_hiwater_rss`, for `getrusage` of the group and its parent.
-        process.note_rss(caller.memory().size().await);
+        self.mem_size(caller).await;
+        process.note_rss(self.mm(task).size());
         if last {
             self.exit_mmap(caller).await;
         }
