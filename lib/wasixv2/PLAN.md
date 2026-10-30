@@ -14,11 +14,10 @@ signals, preemption, task lifetime), the exec `Abi` registry, the WASIX v1 compa
 waits on the kernel futexes, and the userland fixes. `wasmer run` runs WASIX v2, WASIX v1 and WASI
 modules on the v2 kernel. tests `main` = `6405893`, libc2 `main` = `c26931b5`.
 
-Suite on `feat/wasixv2` `695109e3965` (merge train 19 + fix19; wasixv2-tests `f6aee33`, libc2 `3b6a3e31`,
-abi `07cd32e`, LTP fork `733f1688a`): 3929 pass, 249 expected failures, 606 ignored (one suite run; the
-runner now runs POSIX as root, mounts the userland at /bin for every suite, forks LTP tests as upstream
-does and builds LTP with libaio). Per suite: Open POSIX 1721/37/81, LTP 1512/197/524, libc-test 403/15/0,
-wasixv2 293/0/1. fix19 removed five teardown host panics; mmap/13-1 and 14-1 pass.
+Suite on `feat/wasixv2` `f2e457967c8` (merge trains 20-22 + fix22; wasixv2-tests `a0634b3`, libc2 `b969f9aa`,
+abi `07cd32e`, LTP fork `54ea12a4b`): about 4076 pass, 87 expected failures, 436 ignored (train 22's one suite
+run; fix22 then cleared its ten regressions with targeted re-runs). Since validation began (train 18):
+3547 -> 4076 passing, 586 -> 87 expected failures.
 
 Smoke tests pass: v2 static-web-server (28/28); through the v1 compat layer
 wasmer/static-web-server, phpix/phpix-85-32bit (CLI and `-S` server), coreutils, cowsay,
@@ -157,11 +156,16 @@ changes above, io_uring timeout/cancel fixes, and the userland-5 real-program ki
 util-linux, keyutils, squashfuse, core-note checks). Shared mmap ctime/mtime are marked at msync/munmap
 (POSIX window) until host page protection exists.
 
-Merge train 20 (next): IPC/FS conformance, liburing/poll fixes and the LLVM .symver branch, the strace
-wasm32 port (wasix-org/strace wasixv2/wasm32), /dev/zero mmap, RLIMIT_FSIZE on truncate, the libaio port,
-keys/watch_queue fixes, nanosecond host timers (Host::sleep_until_range). In progress: CHEAP-2, NET.
-Pending decisions: host-enforced page protections (and userfaultfd), the memory-accounting branch,
-`SharedMemory::host_data` in wasmer's lib/api, recording PROT_EXEC without enforcing it.
+Trains 20-22 have landed: IPC/FS conformance, liburing/poll fixes, the strace wasm32 port (strace -f
+works in the guest), /dev/zero mmap, RLIMIT_FSIZE, the libaio port, keys/watch_queue, nanosecond host timers
+(Host::sleep_until_range), CHEAP-2 (78 stale expectations), IPv6/corking/resolver, per-thread fsuid fixes,
+mqueue sysctls, process_vm/nftw fixes, and the memory layout (UserMemory::layout; bottom-up mmap above a
+brk reservation, because a wasm linear memory only grows upward), plus a wasmer VM fix for bulk-memory
+ranges ending at 4 GiB.
+
+Remaining work is mostly gated on user decisions: host-enforced page protections (and userfaultfd),
+recording PROT_EXEC without enforcing it, memory accounting (min_free_kbytes, overcommit), the
+memory-accounting branch, and the two lib/api / lib/vm changes outside WASIX.
 
 Open follow-ups: memory accounting (local branch, paused by the user), fork copy-on-write (memory
 design phase 2b), `mmap/24-1` peaks at 8 GB, mlockall ignores RLIMIT_MEMLOCK (mlockall03), no `ldd`
