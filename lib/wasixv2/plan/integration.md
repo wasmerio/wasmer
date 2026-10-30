@@ -1027,3 +1027,116 @@ requested GPT-6.1-Sol attribution. Land in dependency order:
 **LTP -> tests -> libc2 -> wasmer -> plan**, ABI unchanged. **GO** for the
 orchestrator to land; remaining expected failures and the above follow-ups are
 explicitly retained.
+
+## 2026-10-30: validation train 21 — GO
+
+Integrated vnet, vc2 and vperms onto landed train20, ran all gates and exactly
+**ONE full suite**, repaired/classified its findings with strict focused checks,
+repeated the full smoke set on the repaired runtime, and rebuilt both shared
+libc2 sysroots. There are **zero unresolved regressions versus train19 or train20
+and zero observed unexpected runtime host panics**. The orchestrator owns mains;
+this agent publishes only train21 branches and this fast-forward plan entry from
+its own `train21-plan` worktree. The shared plan worktree was not used or switched.
+
+Candidates: wasmer `wasixv2/train21` **fe5556c0591** on **7ce6fb09b13** (36 commits),
+tests `train21` **b770259** on **7628931** (31), libc2 `train21` **e42efbed** on
+**09b788f0** (12), LTP `wasixv2-train21` **27e0e1b5f** on **801f6ad4b** (6,
+including both fork merges). Both consumers pin testsb770259 and unchanged
+ABI **07cd32e**; tests pin combined LTP27e0e1b5f. Branch tests pins were dropped,
+then each consumer received one final classified tests bump. No ABI regeneration,
+prebuilt Wasm commits, excluded-area edits, or LLVM release/tag is included.
+
+- Inputs: IPv6 MTU/ADDRFORM/raw receive options, UDP/TCP corking and accepted-child
+  bind locks; Linux syscall validation, namespace mqueue limits, per-user pipe
+  quotas, DONTDUMP core ranges, default services; libc signal/wait/sysconf/O_PATH/
+  positional-write/mmap/recvmmsg/resolver/protocol fixes; setresid no-op filesystem
+  IDs, filesystem capability sets, empty mqueue names. The vc2 hopopt libc entry
+  and vnet root declarations combine successfully: full-run asapi_01 exits0,
+  including hopopt TPASS and checksum assertions.
+- The procfs append conflict preserves landed SysV inode identities and separate
+  Linux mq_permissions, appending mqueue at145. Tests expectation merges apply
+  only branch-owned removals. Two proposed getegid*_16 exclusions were removed:
+  those sources call ordinary lowercase getegid and were passing baseline.
+- Initial gates: **25 crate invocations /1974 passing cases including doctests**,
+  kernel1100, vnet138, vnet-host31, exec60, host17; all three strict Makefile-flags
+  clippy gates, workspace fmt, release CLI8m16s, CLI59pass/12ignored, tty6pass.
+  Runner21pass/2 unchanged toolchain probes ignored, strict clippy/fmt. Combined
+  private libc EH/asyncify builds and run.sh import checks pass before the suite.
+- Sole full run **3534s**, runtime2afdf7169cb, tests8088762, libc6c4ace86,
+  LTP27e0e1b5f, CPUs0-3/three jobs. Raw tally: **4048 pass/102 xfail/14 unexpected
+  fail/11 unexpected pass/431 ignored**; observed outcomes **4059/116/431**.
+  The completed run and its raw captures are retained without modification.
+- Eight raw regression candidates were resolved. Three old fixtures expected
+  superseded behavior: signals to root-owned init now get EPERM; O_PATH fchmod/
+  fchown retain EBADF; libc sigtimedwait folds SI_TKILL to SI_USER. Their corrected
+  tests retain procfs liveness/orphan reaping, mode/fstat/fchdir/magic-link coverage,
+  and signal queue/timeout/pointer coverage, with source references.
+- Four pipeio timeouts expose a real wakeup bug: a blocked atomic writer may have
+  some bytes free. Use the same fullness threshold as pipe_poll, preserving the
+  no-extra-EPOLLOUT-edge test (Linux fs/pipe.c anon_pipe_read), **584ca08b021**.
+  POSIX mmap24-2 exposes filesystem backing allocation before fixed-range overflow:
+  reuse an early bound check to return ENOMEM before tmpfs ENOSPC, preserving
+  offset-overflow precedence (mm/mmap.c __get_unmapped_area), **01b2b805062**.
+  Both new units fail first, then the full kernel passes **1102 tests**, followed
+  by strict clippy, fmt and the final release rebuild2m53s.
+- Integration formatting mistake: explicit LLVM style bypassed the repository's
+  Google/CommentPragmas configuration and changed all18 `//#` directives into
+  `// #`. Four new fixtures lost required root/mapping settings. Restore exact
+  original directives with the repository style; all18 pass strict checks. The
+  final binary also passes **26 strict focused cases**:18 new fixtures, three
+  corrected old contracts, POSIX mmap24-2, and all four pipeio registrations.
+  No second full suite, no timeout/flaky workaround, no new kernel/exec contract.
+
+| Suite | Train20 pass / xfail / ignored | Final pass / xfail / ignored |
+| --- | --- | --- |
+| own | 296 / 0 / 1 | 314 / 0 / 1 |
+| libc-test | 403 / 15 / 0 | 411 / 2 / 0 |
+| POSIX | 1724 / 36 / 81 | 1727 / 20 / 81 |
+| LTP | 1565 / 148 / 521 | 1619 / 82 / 349 |
+| **Total** | **3988 / 199 / 603** | **4071 / 104 / 431** |
+
+These final outcomes reconcile the sole run with its12 proven corrections,
+not a second full-run result. **60 old failures and five old skips pass**, and
+18 new fixtures pass. **202 explicit unsupported-case exclusions** comprise34
+prior failures and168 prior ignores; none was passing. Pipe15 now reaches its
+NOFILE prerequisite (4096 descriptors, insufficient for16384 pipes) and TCONF.
+No passing case becomes ignored. Versus the corrected train19 inventory
+**3931/249/606**,111 failures and seven skips pass,22 new registrations pass,
+and semget05 is the sole newly running failure (already classified in train20).
+
+- Remaining104 failures have reviewed causes;18 manual notes are retained or
+  updated. ipneigh now reaches missing ARP/NDISC state after the getopt repair;
+  mseal's ILP32 limit is distinguished from PkeyAlloc diagnostic noise. Sticky
+  unlink, no-shebang execlp and empty-name mq_open retain documented musl/glibc
+  differences. Semget05 still exceeds60s in the IPC registration while its
+  duplicate passes13.24s; setup dynamically declares160s runtime/190s overall,
+  which static metadata cannot supply. No global timeout or flaky-list changes.
+- Bounded invocation capture exists from the first run. Cleanup was refined to
+  keep capture alive after the runner-owned proxy is killed, with an independent
+  five-second guest cleanup helper, honoring declared LTP budgets. Self-check
+  passes; old-own-orphan scan finds none. Recursive invocation/gate/smoke scans
+  find zero unexpected runtime panics. Two intentional failing-first unit
+  assertion panics are fixed and verified green; historical ignored-test reason
+  text is not misreported as an executed panic.
+- Repeated final smoke passes: SWS classic/Linux28/28 each, UDP6/6, v1 eight plus
+  unchanged known Python dynamic-linking failure, C++9/9, pty11/11 and no-tty.
+  All12 usual and35 hand command statuses match train20; inherited features and
+  supported liburing/network/namespaces/privileges/keys/seccomp/core/FUSE pass.
+  Fresh stracec7f71a82 against combined libc passes all10 checks, including
+  `strace -f ls` inside the Machine. Copy fresh out/bin artifacts into the harness
+  bin directory so the rebuilt program is actually exercised.
+- Requested hopopt lookup, IPv6 MSG_MORE/timer/TCP_CORK probe and per-thread
+  setresuid/setresgid no-op fsuid probe all pass.64 x1ms nanosleeps never return
+  early: p50 overshoot **16.141us**, p95 **41.259us**, max **969.686us**.
+- Shared local libc2 main fast-forwards to e42efbed with exact final tests/ABI/LTP
+  pins; EH and asyncify sysroot builds and run.sh checks pass02:28:34UTC.
+  Nonrecursive local fetch ordering avoids unpublished-submodule fetch errors.
+
+Full logs, raw and corrected classification, all commit inventories,52 archived
+reproduction/source/config assets and both CLI binaries are in
+`~/wasixv2-orch/logs/train21/`. Only owned Cargo targets are removed. All new
+commits use the configured git user and the exact GPT-6.1-Sol AI attribution;
+the human user remains responsible for contributions. Remaining104 expected
+failures, dynamic LTP setup budgets, neighbor cache support and deferred guest
+page protections remain follow-ups. Landing order:
+**LTP -> tests -> libc2 -> wasmer -> plan**, ABI unchanged. **GO**.
