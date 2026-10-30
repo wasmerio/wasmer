@@ -1,0 +1,101 @@
+[
+  {
+    "workload": "sqlite_tmpfs",
+    "config": "legacy",
+    "metric": "value",
+    "runs": 5,
+    "median": 1.11,
+    "min": 0.716,
+    "max": 1.245
+  },
+  {
+    "workload": "sqlite_tmpfs",
+    "config": "v1-abi",
+    "metric": "value",
+    "runs": 5,
+    "median": 1.197,
+    "min": 0.672,
+    "max": 1.458
+  },
+  {
+    "workload": "sqlite_tmpfs",
+    "config": "cranelift",
+    "metric": "value",
+    "runs": 5,
+    "median": 1.065,
+    "min": 0.835,
+    "max": 1.276
+  },
+  {
+    "workload": "sqlite_tmpfs",
+    "config": "native",
+    "metric": "value",
+    "runs": 5,
+    "median": 0.135,
+    "min": 0.118,
+    "max": 0.193
+  },
+  {
+    "workload": "redis",
+    "config": "cranelift",
+    "metric": "SET",
+    "runs": 5,
+    "median": 21762.79,
+    "min": 15491.87,
+    "max": 25575.45
+  },
+  {
+    "workload": "redis",
+    "config": "cranelift",
+    "metric": "GET",
+    "runs": 5,
+    "median": 26845.64,
+    "min": 16638.94,
+    "max": 32573.29
+  },
+  {
+    "workload": "redis",
+    "config": "native",
+    "metric": "SET",
+    "runs": 5,
+    "median": 87719.3,
+    "min": 59171.6,
+    "max": 132450.34
+  },
+  {
+    "workload": "redis",
+    "config": "native",
+    "metric": "GET",
+    "runs": 5,
+    "median": 96618.36,
+    "min": 81967.21,
+    "max": 122699.38
+  },
+  {
+    "workload": "core",
+    "config": "cranelift",
+    "metric": "value",
+    "runs": 5,
+    "median": 5.047572344017681,
+    "min": 4.4167451989487745,
+    "max": 5.324219278001692
+  },
+  {
+    "workload": "core",
+    "config": "native",
+    "metric": "value",
+    "runs": 5,
+    "median": 0.6435696160187945,
+    "min": 0.3502445420017466,
+    "max": 0.7423881310387515
+  },
+  {
+    "workload": "make",
+    "config": "native",
+    "metric": "value",
+    "runs": 5,
+    "median": 1.0611633880180307,
+    "min": 0.9926295399782248,
+    "max": 1.1223325470346026
+  }
+]

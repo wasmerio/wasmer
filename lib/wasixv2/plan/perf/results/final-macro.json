@@ -1,0 +1,56 @@
+[
+  {
+    "workload": "sqlite",
+    "config": "cranelift",
+    "metric": "value",
+    "runs": 5,
+    "median": 0.234,
+    "min": 0.222,
+    "max": 0.254
+  },
+  {
+    "workload": "sqlite_tmpfs",
+    "config": "cranelift",
+    "metric": "value",
+    "runs": 5,
+    "median": 0.338,
+    "min": 0.327,
+    "max": 0.354
+  },
+  {
+    "workload": "redis",
+    "config": "cranelift",
+    "metric": "SET",
+    "runs": 5,
+    "median": 69444.45,
+    "min": 61538.46,
+    "max": 89686.09
+  },
+  {
+    "workload": "redis",
+    "config": "cranelift",
+    "metric": "GET",
+    "runs": 5,
+    "median": 68728.52,
+    "min": 50125.32,
+    "max": 95693.77
+  },
+  {
+    "workload": "nginx",
+    "config": "cranelift",
+    "metric": "value",
+    "runs": 5,
+    "median": 9920.449625251405,
+    "min": 6851.6990961520905,
+    "max": 13073.339006033953
+  },
+  {
+    "workload": "core",
+    "config": "cranelift",
+    "metric": "value",
+    "runs": 5,
+    "median": 1.307786584016867,
+    "min": 1.1527358500170521,
+    "max": 1.6198705900460482
+  }
+]
