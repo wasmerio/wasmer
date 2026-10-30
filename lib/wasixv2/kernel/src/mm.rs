@@ -1062,7 +1062,9 @@ impl AddressSpace {
             .saturating_sub(layout.data.end - layout.data.start)
             .min(64 << 20)
             .min(layout.maximum / 8);
-        self.mmap_start = layout.brk.saturating_add(gap).div_ceil(PAGE_SIZE) * PAGE_SIZE;
+        // mm/mmap.c:sys_brk's vm_start_gap check requires a free page after
+        // the expanded break, even when RLIMIT_DATA allows less than one page.
+        self.mmap_start = (layout.brk.saturating_add(gap).div_ceil(PAGE_SIZE) + 1) * PAGE_SIZE;
         layout.reserved.sort_by_key(|range| range.start);
         for range in &layout.reserved {
             let first = (range.start / PAGE_SIZE).max(base).min(end);
@@ -3172,15 +3174,15 @@ mod tests {
         assert_eq!(child.layout, parent.layout);
         assert_eq!(child.brk, parent.brk);
         let next = child.bottom_up(1).unwrap();
-        assert_eq!(next, 4 * PAGE_SIZE);
-        child.set_pages(4, 5, true);
+        assert_eq!(next, 5 * PAGE_SIZE);
+        child.set_pages(5, 6, true);
         child.set_brk(2 * PAGE_SIZE, 3 * PAGE_SIZE);
         assert_eq!(parent.bottom_up(1), Some(next));
         assert_eq!(parent.brk, Some((2 * PAGE_SIZE, 4 * PAGE_SIZE)));
-        assert_eq!(child.bottom_up(1), Some(5 * PAGE_SIZE));
+        assert_eq!(child.bottom_up(1), Some(6 * PAGE_SIZE));
         // An unmap cannot turn execution-layer reservations into free runs.
         child.unmap(15 * PAGE_SIZE, PAGE_SIZE);
-        assert_eq!(child.bottom_up(1), Some(5 * PAGE_SIZE));
+        assert_eq!(child.bottom_up(1), Some(6 * PAGE_SIZE));
     }
 
     thread_local! {

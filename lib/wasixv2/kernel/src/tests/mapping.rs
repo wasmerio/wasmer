@@ -49,10 +49,10 @@ fn layout_separates_brk_from_bottom_up_mappings() {
     let brk = |at| block_on(kernel.brk(&caller, at)).unwrap() as u32;
     assert_eq!(brk(0), 3 * PAGE);
     let first = mmap(&kernel, &caller, PAGE, ANON, Fd(-1)).unwrap();
-    assert_eq!(first, 11 * PAGE);
+    assert_eq!(first, 12 * PAGE);
     let second = mmap(&kernel, &caller, 2 * PAGE, ANON, Fd(-1)).unwrap();
-    assert_eq!(second, 12 * PAGE);
-    assert_eq!(block_on(memory.size()), u64::from(14 * PAGE));
+    assert_eq!(second, 13 * PAGE);
+    assert_eq!(block_on(memory.size()), u64::from(15 * PAGE));
     assert_eq!(brk(5 * PAGE), 5 * PAGE);
     put(&memory.0, 4 * PAGE, b"old heap");
     assert_eq!(brk(3 * PAGE), 3 * PAGE);
@@ -86,6 +86,31 @@ fn layout_separates_brk_from_bottom_up_mappings() {
         ))
         .is_err()
     );
+}
+
+/// mm/mmap.c:sys_brk keeps a guard page before the next VMA. A bounded
+/// reservation must leave that page in addition to the data allowance itself.
+#[test]
+fn layout_reserves_the_data_allowance_and_a_brk_guard() {
+    let (kernel, task, _) = setup(b"");
+    let memory = LayoutMemory(FlatMemory(RefCell::new(vec![0; 4 * PAGE as usize])));
+    kernel
+        .process(task)
+        .resources
+        .lock_or_recover()
+        .set_soft(RlimitResource::RLIMIT_DATA, 64);
+    let caller = Caller::new(task, &memory);
+    let start = block_on(kernel.brk(&caller, 0)).unwrap() as u32;
+    let mapping = mmap(&kernel, &caller, PAGE, ANON, Fd(-1)).unwrap();
+    assert_eq!(
+        block_on(kernel.brk(&caller, start + 32)),
+        Ok((start + 32) as i32)
+    );
+    assert_eq!(
+        block_on(kernel.brk(&caller, start + 33)),
+        Ok((start + 32) as i32)
+    );
+    assert!(mapping >= start + 2 * PAGE);
 }
 
 #[test]

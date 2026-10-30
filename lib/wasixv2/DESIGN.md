@@ -168,7 +168,8 @@ the linear-memory maximum, and execution-owned reservations. The kernel starts b
 image (including the linker's main stack and a low execution-owned unwind reservation).
 Automatic mmap placement uses the lowest free run above a brk growth gap: the initial
 `RLIMIT_DATA` allowance less data/BSS, capped at 64 MiB and one eighth of maximum memory,
-rounded up to a wasm page. This deliberately differs from Linux's
+rounded up to a wasm page, followed by the guard page `mm/mmap.c:sys_brk` requires
+before the next VMA. This deliberately differs from Linux's
 `mm/util.c:arch_pick_mmap_layout`: Linux's high VMAs use sparse virtual memory, whereas wasm
 linear memory grows upward through every byte below its highest allocation. A top-down mmap
 or unwind reservation would therefore materialize almost 4 GiB for even a tiny allocation.
