@@ -1563,6 +1563,12 @@ impl Kernel {
             return Err(Errno::EACCES.into());
         }
         let pages = pages(len)?;
+        // mm/mmap.c do_mmap checks pgoff + (len >> PAGE_SHIFT) for
+        // unsigned-long overflow. Guest unsigned long is 32 bits.
+        let pgoff = u64::try_from(offset).map_err(|_| Errno::EOVERFLOW)? / PAGE_SIZE;
+        if pgoff + pages > u64::from(u32::MAX) {
+            return Err(Errno::EOVERFLOW.into());
+        }
         // Too many mappings?
         if self.mm(caller.task()).space().map_count() > self.vm.map_limit() {
             return Err(Errno::ENOMEM.into());
