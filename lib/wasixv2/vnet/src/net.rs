@@ -263,6 +263,10 @@ impl Path {
 
 /// A route decision made under the namespace's lock, before the peer of a veth was asked.
 enum Hop {
+    Peer {
+        src: IpAddr,
+        net: Arc<Net>,
+    },
     Done(Path),
     /// Out the veth end `oif`, to the next hop `hop` (the route's gateway, else the
     /// destination).
@@ -565,7 +569,9 @@ impl Net {
         dst
     }
 
-    pub(crate) fn inbound_sink(&self, guest: SocketAddr) -> Arc<dyn InboundSink> {
+    /// Existing TCP publication destination, also usable by asynchronous providers that
+    /// resolve a host bind before returning their publication handle.
+    pub fn inbound_sink(&self, guest: SocketAddr) -> Arc<dyn InboundSink> {
         Arc::new(GuestListenerSink {
             net: self.me.clone(),
             guest: canonical(guest),
@@ -577,6 +583,19 @@ impl Net {
         let hop = self.hop(&self.state(), dst, bound)?;
         Ok(match hop {
             Hop::Done(path) => path,
+            Hop::Peer { src, net } => {
+                if net.state().ifaces.is_local(dst.ip()) {
+                    Path::Local {
+                        src,
+                        net: Some(net),
+                    }
+                } else {
+                    Path::Nowhere {
+                        src,
+                        unresolved: true,
+                    }
+                }
+            }
             Hop::Veth { src, end, hop, .. } => across(src, &end, dst, hop),
         })
     }
@@ -591,10 +610,15 @@ impl Net {
         Ok(match decision.via {
             Via::Local => Hop::Done(Path::Local { src, net: None }),
             Via::Uplink if self.is_dns_server(dst.ip()) => Hop::Done(Path::Dns { src }),
-            Via::Uplink if self.backend.is_some() => Hop::Done(Path::Backend {
-                src,
-                host_dst: self.host_view(dst),
-            }),
+            Via::Uplink if self.backend.is_some() => {
+                match self.backend.as_ref().unwrap().peer_network(dst.ip()) {
+                    Some(net) => Hop::Peer { src, net },
+                    None => Hop::Done(Path::Backend {
+                        src,
+                        host_dst: self.host_view(dst),
+                    }),
+                }
+            }
             Via::Uplink => return Err(Errno::ENETUNREACH),
             Via::Veth(end) => Hop::Veth {
                 src,
@@ -620,7 +644,9 @@ impl Net {
 
     /// The uplink's interface index, 0 if the namespace has none.
     pub(crate) fn uplink_index(&self) -> u32 {
-        let st = self.state();
+        self.uplink_index_locked(&self.state())
+    }
+    fn uplink_index_locked(&self, st: &NetState) -> u32 {
         st.ifaces
             .links()
             .iter()
@@ -772,6 +798,28 @@ impl Net {
                 iif: LOOPBACK_INDEX,
                 back_iif: LOOPBACK_INDEX,
             },
+            Hop::Peer { src, net: peer } => {
+                let (to, iif) = {
+                    let st = peer.state();
+                    if !st.ifaces.is_local(dst.ip()) {
+                        return Ok(UdpRoute::Nowhere {
+                            from: SocketAddr::new(src, local.port()),
+                            unresolved: true,
+                        });
+                    }
+                    (
+                        udp_receiver(&st, src, local, dst),
+                        peer.uplink_index_locked(&st),
+                    )
+                };
+                UdpRoute::Local {
+                    from: SocketAddr::new(src, local.port()),
+                    to: to.and_then(|w| w.upgrade()),
+                    at: peer,
+                    iif,
+                    back_iif: self.uplink_index(),
+                }
+            }
             Hop::Done(Path::Backend { host_dst, .. }) => UdpRoute::Backend { host_dst },
             Hop::Done(Path::Dns { src }) => UdpRoute::Dns {
                 from: SocketAddr::new(src, local.port()),
