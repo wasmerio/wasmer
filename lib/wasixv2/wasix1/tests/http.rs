@@ -9,6 +9,17 @@ use wasixv2_wasix1::{
     http::{HttpProvider, Request, Response},
 };
 
+fn host() -> Arc<dyn wasixv2::Host> {
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        Arc::new(wasixv2::TokioHost::default())
+    }
+    #[cfg(target_arch = "wasm32")]
+    {
+        Arc::new(wasixv2::WebHost::new())
+    }
+}
+
 struct Mock;
 impl HttpProvider for Mock {
     fn send(&self, request: Request) -> wasixv2::LocalFuture<'_, Result<Response, String>> {
@@ -28,7 +39,7 @@ impl HttpProvider for Mock {
 }
 
 async fn run(wat: &str, provider: Arc<dyn HttpProvider>) -> i32 {
-    let host: Arc<dyn wasixv2::Host> = Arc::new(wasixv2::TokioHost::default());
+    let host = host();
     let root = Arc::new(wasixv2_vfs_mem::MemFs::new(
         Arc::new(wasixv2_kernel::HostClock(host.clone())),
         0o777,
@@ -70,7 +81,8 @@ const ALLOCATOR: &str = r#"
       (local.get $ptr))
 "#;
 
-#[tokio::test]
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+#[cfg_attr(not(target_arch = "wasm32"), tokio::test)]
 async fn mock_response_errors_and_resource_drop_use_the_historical_layout() {
     let source = format!(
         r#"(module
@@ -112,9 +124,10 @@ async fn mock_response_errors_and_resource_drop_use_the_historical_layout() {
     assert_eq!(run(&source, Arc::new(Mock)).await, 0);
 }
 
-#[tokio::test]
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+#[cfg_attr(not(target_arch = "wasm32"), tokio::test)]
 async fn no_provider_returns_a_canonical_error() {
-    let machine = wasixv2::Machine::new();
+    let machine = wasixv2::Machine::with_host(host());
     let wasm = wat::parse_str(r#"(module
         (import "wasix_http_client_v1" "client::new" (func $new (param i32)))
         (import "wasi_snapshot_preview1" "proc_exit" (func $exit (param i32)))
