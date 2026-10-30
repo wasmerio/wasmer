@@ -5,6 +5,9 @@ use wasm_bindgen_test::*;
 use anyhow::Result;
 use wasmer::*;
 
+mod common;
+use common::Exit;
+
 #[engine_test]
 #[cfg_attr(
     all(target_os = "windows", feature = "v8"),
@@ -155,5 +158,57 @@ fn back_and_forth_with_imports() -> Result<()> {
         instance.exports.get_typed_function(&store, "add_one")?;
     add_one.call(&mut store, 1)?;
 
+    Ok(())
+}
+
+// A typed host function, and dynamic ones with no, one and two results (each
+// its own path in the JS backend), each failing with `Exit`: the caller gets
+// that error back, and can downcast it.
+#[engine_test]
+fn host_functions_fail_with_their_own_error() -> Result<()> {
+    let mut store = Store::default();
+    let module = Module::new(
+        &store,
+        br#"(module
+            (import "host" "typed" (func $typed (param i32)))
+            (import "host" "none" (func $none (param i32)))
+            (import "host" "one" (func $one (param i32) (result i32)))
+            (import "host" "two" (func $two (param i32) (result i32 i32)))
+            (func (export "typed") (param i32) (call $typed (local.get 0)))
+            (func (export "none") (param i32) (call $none (local.get 0)))
+            (func (export "one") (param i32) (result i32) (call $one (local.get 0)))
+            (func (export "two") (param i32) (result i32 i32) (call $two (local.get 0)))
+        )"#,
+    )?;
+
+    let exit = |args: &[Value]| -> Result<Vec<Value>, RuntimeError> {
+        Err(RuntimeError::user(Box::new(Exit(args[0].unwrap_i32()))))
+    };
+    let imports = imports! {
+        "host" => {
+            "typed" => Function::new_typed(&mut store, |code: i32| Err::<(), _>(Exit(code))),
+            "none" => Function::new(&mut store, FunctionType::new([Type::I32], []), exit),
+            "one" => Function::new(&mut store, FunctionType::new([Type::I32], [Type::I32]), exit),
+            "two" => Function::new(
+                &mut store,
+                FunctionType::new([Type::I32], [Type::I32, Type::I32]),
+                exit,
+            ),
+        }
+    };
+    let instance = Instance::new(&mut store, &module, &imports)?;
+
+    for (code, name) in (1..).zip(["typed", "none", "one", "two"]) {
+        let error = instance
+            .exports
+            .get_function(name)?
+            .call(&mut store, &[Value::I32(code)])
+            .unwrap_err();
+        assert_eq!(
+            error.downcast_ref::<Exit>().map(|exit| exit.0),
+            Some(code),
+            "{name}: {error}"
+        );
+    }
     Ok(())
 }
