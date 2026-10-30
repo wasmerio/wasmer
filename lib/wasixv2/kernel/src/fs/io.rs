@@ -116,23 +116,27 @@ impl<'a> Cursor<'a> {
         }
     }
 
-    /// The guest buffer pieces covering the next `len` bytes, and advances past them.
-    fn take(&mut self, mut len: usize) -> Vec<(u32, usize)> {
-        let mut pieces = Vec::new();
-        while len > 0 && self.index < self.iovecs.len() {
-            let iov = &self.iovecs[self.index];
-            let n = (iov.iov_len as usize - self.offset).min(len);
-            if n > 0 {
-                pieces.push((iov.iov_base.wrapping_add(self.offset as u32), n));
+    /// Yields the next `len` guest bytes, advancing only over yielded pieces.
+    /// lib/iov_iter.c:iterate_iovec stops at a failed copy; later pieces need
+    /// neither visiting nor an allocation to collect them before the copy.
+    fn take(&mut self, mut len: usize) -> impl Iterator<Item = (u32, usize)> + '_ {
+        std::iter::from_fn(move || {
+            while len > 0 && self.index < self.iovecs.len() {
+                let iov = &self.iovecs[self.index];
+                let n = (iov.iov_len as usize - self.offset).min(len);
+                let addr = iov.iov_base.wrapping_add(self.offset as u32);
+                self.offset += n;
+                len -= n;
+                if self.offset == iov.iov_len as usize {
+                    self.index += 1;
+                    self.offset = 0;
+                }
+                if n > 0 {
+                    return Some((addr, n));
+                }
             }
-            self.offset += n;
-            len -= n;
-            if self.offset == iov.iov_len as usize {
-                self.index += 1;
-                self.offset = 0;
-            }
-        }
-        pieces
+            None
+        })
     }
 
     /// Copies the next bytes in from the guest, up to `buf.len()`. A fault ends the copy:
@@ -1325,6 +1329,39 @@ pub(crate) async fn read_iovecs(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn stopped_copy_does_not_walk_the_remaining_iovecs() {
+        fn first(pieces: impl IntoIterator<Item = (u32, usize)>) -> Option<(u32, usize)> {
+            pieces.into_iter().next()
+        }
+        fn collect(pieces: impl IntoIterator<Item = (u32, usize)>) -> Vec<(u32, usize)> {
+            pieces.into_iter().collect()
+        }
+        let iovecs = [
+            Iovec {
+                iov_base: 16,
+                iov_len: 2,
+            },
+            Iovec {
+                iov_base: 32,
+                iov_len: 0,
+            },
+            Iovec {
+                iov_base: 48,
+                iov_len: 3,
+            },
+            Iovec {
+                iov_base: 64,
+                iov_len: 4,
+            },
+        ];
+        let mut cursor = Cursor::new(&iovecs);
+        // A copy that stops at its first piece must not advance over the rest
+        // (lib/iov_iter.c:iterate_iovec). Creating the iterator does no work.
+        assert_eq!(first(cursor.take(9)), Some((16, 2)));
+        assert_eq!(collect(cursor.take(9)), [(48, 3), (64, 4)]);
+    }
 
     #[test]
     fn steps_reuse_the_thread_scratch_without_zeroing_it_again() {
