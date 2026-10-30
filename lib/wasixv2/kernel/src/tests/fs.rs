@@ -1712,6 +1712,35 @@ fn inode_flags_make_files_append_only_or_immutable() {
     assert_eq!(get_flags(fd), Ok(Fl::FS_NODUMP_FL.0));
 }
 
+/// security/commoncap.c cap_task_fix_setuid drops CAP_FS_SET on setfsuid away from root;
+/// fs/ioctl.c fileattr_set_prepare then refuses immutable/append-only changes even by the owner.
+#[test]
+fn setfsuid_drops_and_restores_immutable_capability() {
+    use wasixv2_abi::{FsInodeFlags as Fl, IoctlRequest as R};
+    let (kernel, task, memory) = super::cred::machine_as(0, 0);
+    let t = T::new(&kernel, task, &memory);
+    t.create("/file", b"");
+    let fd = t.open("/file", OpenFlags::O_RDONLY).unwrap();
+    block_on(kernel.fchownat(&t.caller, CWD, t.path("/file"), 1000, 1000, AtFlags(0))).unwrap();
+    assert_eq!(block_on(kernel.setfsuid(&t.caller, 1000)), Ok(0));
+    for flags in [Fl::FS_IMMUTABLE_FL.0, Fl::FS_APPEND_FL.0] {
+        put(&memory, 0x3000, &flags.to_le_bytes());
+        let set = kernel.ioctl(&t.caller, fd, R::FS_IOC_SETFLAGS, 0x3000);
+        assert_eq!(errno(block_on(set)), Errno::EPERM);
+    }
+    assert_eq!(block_on(kernel.setfsuid(&t.caller, 0)), Ok(1000));
+    put(&memory, 0x3000, &Fl::FS_IMMUTABLE_FL.0.to_le_bytes());
+    assert_eq!(
+        block_on(kernel.ioctl(&t.caller, fd, R::FS_IOC_SETFLAGS, 0x3000)),
+        Ok(0)
+    );
+    put(&memory, 0x3000, &0u32.to_le_bytes());
+    assert_eq!(
+        block_on(kernel.ioctl(&t.caller, fd, R::FS_IOC_SETFLAGS, 0x3000)),
+        Ok(0)
+    );
+}
+
 #[test]
 fn file_attrs_through_fsxattr_and_file_getattr() {
     use wasixv2_abi::{FsInodeFlags as Fl, FsXflags as X, IoctlRequest as R};

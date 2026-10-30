@@ -26,14 +26,15 @@ use crate::{
 
 /// `CAP_VALID_MASK`: every capability.
 pub(crate) const CAP_FULL: u64 = (1 << (Cap::LAST + 1)) - 1;
-/// `CAP_FS_MASK`: the capabilities a filesystem uid of 0 historically meant.
-const CAP_FS_MASK: u64 = Cap::Chown.bit()
+/// `CAP_FS_SET` (include/linux/capability.h): the capabilities setfsuid drops and raises.
+const CAP_FS_SET: u64 = Cap::Chown.bit()
     | Cap::Mknod.bit()
     | Cap::DacOverride.bit()
     | Cap::DacReadSearch.bit()
     | Cap::Fowner.bit()
     | Cap::Fsetid.bit()
-    | Cap::MacOverride.bit();
+    | Cap::MacOverride.bit()
+    | Cap::LinuxImmutable.bit();
 /// `NGROUPS_MAX`.
 pub(crate) const NGROUPS_MAX: usize = 65536;
 
@@ -567,9 +568,9 @@ impl Cred {
         if changed && !self.secure(secure::NO_SETUID_FIXUP) {
             // The filesystem capabilities follow a filesystem uid of root.
             if self.is_root(old) && !self.is_root(new.user.fs) {
-                new.effective &= !CAP_FS_MASK;
+                new.effective &= !CAP_FS_SET;
             } else if !self.is_root(old) && self.is_root(new.user.fs) {
-                new.effective |= new.permitted & CAP_FS_MASK;
+                new.effective |= new.permitted & CAP_FS_SET;
             }
         }
         (old, new)
@@ -907,6 +908,22 @@ mod tests {
                 assert_eq!(synchronized.group.fs, Kgid(0));
             }
         }
+    }
+
+    /// security/commoncap.c cap_task_fix_setuid uses cap_drop_fs_set/cap_raise_fs_set,
+    /// including CAP_LINUX_IMMUTABLE (include/linux/capability.h CAP_FS_SET).
+    #[test]
+    fn setfsuid_drops_and_restores_immutable_capability() {
+        let (_, lowered) = root().change_fsuid(Some(u(1000)));
+        assert!(!lowered.capable(Cap::LinuxImmutable));
+        assert!(lowered.capable(Cap::Setuid));
+        let (_, restored) = lowered.change_fsuid(Some(u(0)));
+        assert!(restored.capable(Cap::LinuxImmutable));
+
+        let mut no_fixup = root();
+        no_fixup.securebits |= secure::NO_SETUID_FIXUP;
+        let (_, unchanged) = no_fixup.change_fsuid(Some(u(1000)));
+        assert!(unchanged.capable(Cap::LinuxImmutable));
     }
 
     #[test]
