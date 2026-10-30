@@ -1,0 +1,21 @@
+[package]
+name = "wasixv2-vfs-web"
+version = "0.0.0"
+description = "Browser filesystem provider driver for the WASIX VFS"
+publish = false
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+wasixv2-vfs = { path = "../vfs" }
+wasixv2-abi = { path = "../abi" }
+wasixv2-vfs-mem = { path = "../vfs-mem" }
+async-trait.workspace = true
+futures.workspace = true
+
+[dev-dependencies]
+wasixv2-vfs-overlay = { path = "../vfs-overlay" }

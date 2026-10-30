@@ -7275,6 +7275,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "wasixv2-vfs-web"
+version = "0.0.0"
+dependencies = [
+ "async-trait",
+ "futures",
+ "wasixv2-abi",
+ "wasixv2-vfs",
+ "wasixv2-vfs-mem",
+ "wasixv2-vfs-overlay",
+]
+
+[[package]]
 name = "wasixv2-vnet"
 version = "0.0.0"
 dependencies = [
