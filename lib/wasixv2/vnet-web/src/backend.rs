@@ -107,6 +107,7 @@ pub(crate) struct Flow {
     pub inflight: Option<(u64, usize)>,
     pub send_blocked: bool,
     pub read_shut: bool,
+    pub peer_fin: bool,
     pub write_shut: bool,
     pub sent_read_shut: bool,
     pub sent_write_shut: bool,
@@ -134,6 +135,7 @@ impl Flow {
             inflight: None,
             send_blocked: false,
             read_shut: false,
+            peer_fin: false,
             write_shut: false,
             sent_read_shut: false,
             sent_write_shut: false,
@@ -383,7 +385,7 @@ impl BackendStream for Stream {
     fn tcp_established(&self) -> bool {
         let inner = self.shared.inner.lock().unwrap();
         let flow = &inner.flows[&self.id];
-        flow.state == StreamState::Established && !flow.read_shut && !flow.write_shut
+        flow.state == StreamState::Established && !flow.peer_fin && !flow.write_shut
     }
     fn read(&self, buf: &mut [u8], peek: bool) -> Result<usize, Errno> {
         let mut inner = self.shared.inner.lock().unwrap();
@@ -457,8 +459,9 @@ impl BackendStream for Stream {
         }
         // Linux net/ipv4/tcp.c:tcp_shutdown queues FIN after bytes already accepted.
         if matches!(how, Shutdown::Read | Shutdown::Both) {
+            // Linux tcp_shutdown does not discard the receive queue or send a FIN for
+            // SHUT_RD; tcp_recvmsg_locked still returns bytes already accepted.
             flow.read_shut = true;
-            flow.rx.clear();
         }
         if matches!(how, Shutdown::Write | Shutdown::Both) {
             flow.write_shut = true;

@@ -371,7 +371,14 @@ impl Driver {
         if flow.kind != Kind::Stream {
             return Err(Errno::EPROTO);
         }
-        if flow.read_shut || flow.released {
+        if flow.released {
+            // Linux tcp_close counts unread bytes, including bytes already received from
+            // the relay but still waiting for room in the endpoint's receive queue.
+            flow.reset |= *offset < data.len();
+            self.input = None;
+            return Ok(true);
+        }
+        if flow.peer_fin || flow.state == StreamState::Closed {
             self.input = None;
             return Ok(true);
         }
@@ -626,6 +633,7 @@ impl Driver {
             Event::Eof { socket } => {
                 if let Some(flow) = inner.flows.get_mut(&socket) {
                     flow.read_shut = true;
+                    flow.peer_fin = true;
                     // A peer FIN is not a local SHUT_RD request.
                     flow.sent_read_shut = true;
                     wakes.push((flow.wq.clone(), flow.mask(self.shared.config)));
