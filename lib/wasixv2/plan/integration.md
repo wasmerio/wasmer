@@ -1262,3 +1262,134 @@ was used throughout; shared plan worktree was not used or switched.
 After the blockers are repaired and validated, landing dependency order is
 **LTP -> tests -> libc2 -> wasmer -> plan**, ABI unchanged. Candidate publication
 does not authorize landing. **NO-GO: hold mains.**
+
+## 2026-10-30: merge train 23 — NO-GO (unresolved input host panic)
+
+Integration and authorized validation are complete. The current candidate has
+**zero new native regressions and zero observed unexpected host panics** across
+its gates, sole full suite, focused comparisons and native/browser smoke.
+**Hold landing under the binding host-panic rule:** V9's initial coreutils run
+contains a real `syscall from an unknown task` panic, still without a root cause
+or failing lifetime unit. Neither V9's final replay nor this train's coreutils
+replay reproduced it; no source-backed repair is claimed. The orchestrator owns
+remote mains. Only train23 branches and this fast-forward plan entry are pushed.
+
+| Repo | Branch | Base -> candidate |
+| --- | --- | --- |
+| wasmer | wasixv2/train23 | f2e457967c8 -> **651502a7eab** |
+| wasixv2-tests | train23 | a0634b3 -> **6a7c5a0** |
+| libc2 | train23 | b969f9aa -> **e9dac22e** (tests pin only) |
+| plan | wasixv2/plan | 8f3b073887d -> recipe merge d52653910fe + this entry |
+
+Both consumers pin tests6a7c5a0 and unchanged ABI **07cd32e**. Tests retain landed
+LTP **54ea12a4b**. No ABI generation or libc source change; no prebuilt Wasm,
+excluded linking/closures/libffi/reflection change, or remote main/feat/tag push.
+
+- Replayed V9 traced-thread zombie lifetime, B1, B2, B10/B3a, B3b, B4, B5,
+  B6, B7, and B11 in requested order, preserving each package's logical commits.
+  Inherited B1/B2 commits and the B11 branch tests pin were omitted; each
+  consumer receives one final combined tests pin. B8/B9 are **not included**.
+- Manifest conflicts union JS atomics/copy dependencies, host/browser and wasm
+  test features. Coordinator creation retains both C1 copy ports and B4 timer
+  roles/lifecycle. Both model regression sets remain. The sole extra repair is
+  **6e455028543**, bundling B4's timer-driver.js in C1's threaded test artifact;
+  its new asset regression fails before the copy-list repair. **31 Node model
+  tests pass**. No new kernel/exec contract or runtime mechanism was introduced.
+- Private train23-plan merges userland6 recipes **745d69c3ce1/7e24e9bbc65**.
+  Shared plan worktree was untouched. Existing conventions/fixtures were reused.
+- Native gates: **28 crate invocations / 2085 passing cases**, kernel1117,
+  exec68, host33 plus its existing ignored measurement; browser backend/model
+  tests vnet-web29, vfs-web15, stdio-web21. Three strict Makefile-flags clippy
+  gates, workspace fmt, release CLI8m26s, CLI **59pass/12existingignored**, TTY6
+  pass. Runner29pass/2existingignored, strict lint/fmt. All6 Makefile wasm
+  checks and strict wasm library lint for all touched browser/runtime crates pass.
+- Exactly **ONE full suite**, **2991s**, CPUs0-3/three jobs, original deadlines,
+  unchanged case caps. Runtime **6e455028543**, tests5019025, libc2b969f9aa,
+  LTP54ea12a4b. Final runtime changes only its tests gitlink. Archived CLI SHA256
+  `0fdfd11ecf79fd65c08abaf4fdde17f753da2770adf7c3b27941f3cf01a7be44`.
+  Raw **4085pass/81xfail/2unexpectedfail/9unexpectedpass/432ignored**;
+  observed **4094pass/83fail/432ignored**. No second full suite.
+
+The landed baseline requires per-name reconstruction: train22 measured
+4076pass/87xfail/10unresolved/436ignored, while fix22 used focused checks, not
+another full suite. Apply its proven repairs, four cleared prerequisites and
+a0634b3 policy. The initial reconstruction4087/90/432 then needs two newly
+proven baseline resource failures, giving **4085/92/432** below.
+
+| Suite | Landed reconstructed pass / xfail / ignored | Current pass / xfail / ignored |
+| --- | --- | --- |
+| own | 322 /0 /1 | 322 /0 /1 |
+| libc-test | 411 /2 /0 | 411 /2 /0 |
+| POSIX | 1727 /17 /81 | 1727 /17 /81 |
+| LTP | 1625 /73 /350 | 1634 /64 /350 |
+| **Total** | **4085 /92 /432** | **4094 /83 /432** |
+
+Both apparent regressions are the same executable: setsockopt11 and its
+cve-2026-53362 alias. LTP lib/tst_memutils.c:tst_pollute_memory deliberately
+commits reported free guest memory; each normal/trace scope was OOM-killed at
+2GiB. Exact captured module/argv comparisons also OOM-kill landed fix22 e62bcd36
+**2/2** and train23 **1/1**, with unit journals retained. This predates browser
+integration; no cap increase or kernel/exec workaround is used. Both receive
+that reviewed cause. Nine old failures leave the lists: seven DIO registrations,
+min_free_kbytes under its inherited10GiB suite cap, and IPC semget05. The min_free
+pass does **not** claim its separate2GiB OOM/accounting limitation was repaired.
+All surviving handwritten causes and flaky/exclusion policies are preserved;
+no passing test becomes ignored or disappears, and no new registration appears.
+
+Copy-mode `ok` labels include recorded failures: final counts/classification use
+the copied failure lists and captured outputs. Live progress labels are not pass
+proof. Named repair captures independently prove keyctl02, getrusage03,
+madvise08/max_map_count/min_free with exit0, TPASS and zero TFAIL.
+
+Native smoke assertions pass: SWS28+28, UDP6, v1eight plus known Python dynamic
+linking failure, C++9, pty11/no-tty, all12usual/35hand statuses match22, inherited
+feature/program checks and freshly built strace10 checks. Train22 extra raw-brk
+and fork512 mappings, mqueue sysctls, process_vm4GiB copies and explicit root
+ioctl device prerequisite pass. The old descending-address smoke assertion is
+adapted to fix22's landed bottom-up allocator; no runtime change. V9 dash/bash
+pty, nginx reload, Redis benchmark+BGSAVE under strace, DNS/TCP, netns/veth and
+coreutils16 (15pass/1root skip) all pass with backtraces/panic detection enabled.
+The original V9 panic is retained separately as unresolved input evidence.
+
+Real **Chrome151.0.7922.108 no-JSPI** smoke passes:
+
+- B2+B4: shared Arc/guest SAB, idle reuse/TLS destruction/nested admission,
+  reserved services, independent timer/input pump progress, cancellation/common
+  clocks/crypto chunks/SCTP clocks, admission/fatal handling and clean shutdown;
+  page heartbeat300.
+- C1: local and remote immediate copies while target runs/parks, growth,
+  bounds/protections/CAS/zero, retention after owner exit, timeout-fatal and
+  shutdown; heartbeat59. Coordinator carries both copy and timer services.
+- B10: sync-lane5, CAS contention1 (150000updates), API library16 pass. Optional
+  JSPI test is explicitly outside this no-JSPI lane. All5 existing exec wasm
+  units also pass through the real B2/C1/B4 bootstrap: growth/CAS/work/drain/
+  asyncify. External test adapter initially omitted wasm-bindgen-test's normal
+  __wbg_test_invoke bridge; retained setup failure, corrected that bridge, then
+  all5 pass. Runtime and test bodies unchanged.
+- B11:7 adapter/browser tests, zero skips, plus source-built WAT transport smoke
+  pass. Fixtures still await B8; browser CI runtime/fixture jobs stay nonblocking.
+  Full facade/provider/relay/TTY/kernel guest parity, B9 compatibility, other
+  browsers/SDK handoff, and the noted JS unreachable trap classification remain
+  follow-ups; no full-browser parity signoff is claimed.
+
+Shared userland3/4 and later the reused train22 sysroots were externally absent
+when needed. Private retained source-built tool copies/packages and own identical
+libc2 sysroots restored validation; frozen userland inventory is hashed. A stale
+new22 script filename caused a second setup-only stop, fixed before that check
+ran. Failures are retained; completed checks/suite were not rerun. Shared local
+libc2main then fast-forwards to e9dac22e with exact test/ABI pins; **both shared
+EH/asyncify sysroots and import checks pass09:39UTC**, no remote main pushed.
+
+Evidence: `~/wasixv2-orch/logs/train23/STATE.md`, classifications, raw captures,
+paired OOM journals, source/pin/attribution audits, browser/native logs, smoke
+report and69 hashed artifacts including tested CLI/linked browser bundles.
+Seven incomplete capture records are journal-confirmed OOM scopes; zero owned
+live guests. Every current retained invocation log is panic-scanned; zero
+unexpected current panics. The earlier V9 input panic remains explicitly open in
+input-panic-evidence.json, requiring **NO-GO** under the user's binding rule.
+Only owned build targets are removed after archiving. All commits are made by
+this AI agent as the configured git user with the exact GPT-6.1-Sol disclosure;
+the human user remains responsible for contributions.
+
+After the input panic has a source-backed repair/decision, landing order is
+**tests -> libc2 -> wasmer -> plan**; ABI/LTP unchanged. Orchestrator owns mains.
