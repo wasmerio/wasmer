@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["AuthoringError"],"macro":["forward_from"]};
+window.SIDEBAR_ITEMS = {"enum":["AuthoringError"],"macro":[["forward_from",1]]};

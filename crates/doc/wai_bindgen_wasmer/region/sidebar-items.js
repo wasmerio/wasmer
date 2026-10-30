@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["to_error"],"macro":["tuples"],"struct":["BorrowChecker","Region"],"trait":["AllBytesValid"]};
+window.SIDEBAR_ITEMS = {"fn":["to_error"],"macro":[["tuples",1]],"struct":["BorrowChecker","Region"],"trait":["AllBytesValid"]};

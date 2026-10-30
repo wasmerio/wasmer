@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"macro":["err","err_nt"]};
+window.SIDEBAR_ITEMS = {"macro":[["err",1],["err_nt",1]]};

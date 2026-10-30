@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-singlepass/src/codegen.rs`."><title>codegen.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-17e0aaed.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="wasmer_compiler_singlepass" data-themes="" data-resource-suffix="" data-rustdoc-version="1.96.1 (31fca3adb 2026-06-26)" data-channel="1.96.1" data-search-js="search-b5634cc7.js" data-stringdex-js="stringdex-2da4960a.js" data-settings-js="settings-170eb4bf.js" ><script src="../../static.files/storage-41dd4d93.js"></script><script defer src="../../static.files/src-script-813739b1.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-5013f961.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-f7c3ffd8.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><h1><div class="sub-heading">wasmer_compiler_singlepass/</div>codegen.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-4"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-singlepass/src/codegen.rs`."><title>codegen.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-0c87338a.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="wasmer_compiler_singlepass" data-themes="" data-resource-suffix="" data-rustdoc-version="1.99.1 (58cf8f9c3 2026-10-13)" data-channel="1.99.1" data-search-js="search-cf4fc35e.js" data-stringdex-js="stringdex-b5109af9.js" data-settings-js="settings-170eb4bf.js" ><script src="../../static.files/storage-41dd4d93.js"></script><script defer src="../../static.files/src-script-813739b1.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-417ebf0a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-9f56287d.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><h1><div class="sub-heading">wasmer_compiler_singlepass/</div>codegen.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-4"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
 <a href=#2 id=2 data-nosnippet>2</a></span><span class="kw">use </span><span class="kw">crate</span>::dwarf::WriterRelocate;
-<a href=#3 id=3 data-nosnippet>3</a><span class="kw">use </span>crate::{
+<a href=#3 id=3 data-nosnippet>3</a><span class="kw">use crate</span>::{
 <a href=#4 id=4 data-nosnippet>4</a>    address_map::get_function_address_map,
 <a href=#5 id=5 data-nosnippet>5</a>    codegen_error,
 <a href=#6 id=6 data-nosnippet>6</a>    common_decl::<span class="kw-2">*</span>,
@@ -6134,91 +6134,98 @@
 <a href=#6134 id=6134 data-nosnippet>6134</a>        <span class="self">self</span>.output_reporter.finish(body.len())<span class="question-mark">?</span>;
 <a href=#6135 id=6135 data-nosnippet>6135</a>
 <a href=#6136 id=6136 data-nosnippet>6136</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(callbacks) = <span class="self">self</span>.config.callbacks.as_ref() {
-<a href=#6137 id=6137 data-nosnippet>6137</a>            callbacks.obj_memory_buffer(
-<a href=#6138 id=6138 data-nosnippet>6138</a>                <span class="kw-2">&amp;</span>CompiledKind::Local(<span class="self">self</span>.local_func_index, <span class="self">self</span>.function_name.clone()),
-<a href=#6139 id=6139 data-nosnippet>6139</a>                <span class="kw-2">&amp;</span><span class="self">self</span>.module.hash_string(),
-<a href=#6140 id=6140 data-nosnippet>6140</a>                <span class="kw-2">&amp;</span>body,
-<a href=#6141 id=6141 data-nosnippet>6141</a>            );
-<a href=#6142 id=6142 data-nosnippet>6142</a>            callbacks.asm_memory_buffer(
-<a href=#6143 id=6143 data-nosnippet>6143</a>                <span class="kw-2">&amp;</span>CompiledKind::Local(<span class="self">self</span>.local_func_index, <span class="self">self</span>.function_name.clone()),
-<a href=#6144 id=6144 data-nosnippet>6144</a>                <span class="kw-2">&amp;</span><span class="self">self</span>.module.hash_string(),
-<a href=#6145 id=6145 data-nosnippet>6145</a>                arch,
-<a href=#6146 id=6146 data-nosnippet>6146</a>                <span class="kw-2">&amp;</span>body,
-<a href=#6147 id=6147 data-nosnippet>6147</a>                assembly_comments,
-<a href=#6148 id=6148 data-nosnippet>6148</a>            )<span class="question-mark">?</span>;
-<a href=#6149 id=6149 data-nosnippet>6149</a>        }
-<a href=#6150 id=6150 data-nosnippet>6150</a>
-<a href=#6151 id=6151 data-nosnippet>6151</a>        <span class="kw">let </span>function = CompiledFunction {
-<a href=#6152 id=6152 data-nosnippet>6152</a>            body: FunctionBody { body, unwind_info },
-<a href=#6153 id=6153 data-nosnippet>6153</a>            relocations: <span class="self">self</span>.relocations.clone(),
-<a href=#6154 id=6154 data-nosnippet>6154</a>            frame_info: CompiledFunctionFrameInfo { traps, address_map },
-<a href=#6155 id=6155 data-nosnippet>6155</a>            maximum_stack_usage: <span class="prelude-val">Some</span>(<span class="self">self</span>.stack_offset.maximum_offset),
-<a href=#6156 id=6156 data-nosnippet>6156</a>        };
-<a href=#6157 id=6157 data-nosnippet>6157</a>        <span class="kw">if </span><span class="self">self</span>.config.experimental_artifact {
-<a href=#6158 id=6158 data-nosnippet>6158</a>            <span class="kw">let </span>maximum_stack_usage = function.maximum_stack_usage;
-<a href=#6159 id=6159 data-nosnippet>6159</a>            <span class="prelude-val">Ok</span>(CompileOutput::Object(
-<a href=#6160 id=6160 data-nosnippet>6160</a>                elf::emit_local_function(
-<a href=#6161 id=6161 data-nosnippet>6161</a>                    target,
-<a href=#6162 id=6162 data-nosnippet>6162</a>                    <span class="self">self</span>.local_func_index,
-<a href=#6163 id=6163 data-nosnippet>6163</a>                    function,
-<a href=#6164 id=6164 data-nosnippet>6164</a>                    fde,
-<a href=#6165 id=6165 data-nosnippet>6165</a>                    <span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
-<a href=#6166 id=6166 data-nosnippet>6166</a>                    </span><span class="self">self</span>.dwarf_state,
-<a href=#6167 id=6167 data-nosnippet>6167</a>                )<span class="question-mark">?</span>,
-<a href=#6168 id=6168 data-nosnippet>6168</a>                maximum_stack_usage,
-<a href=#6169 id=6169 data-nosnippet>6169</a>            ))
-<a href=#6170 id=6170 data-nosnippet>6170</a>        } <span class="kw">else </span>{
-<a href=#6171 id=6171 data-nosnippet>6171</a>            <span class="prelude-val">Ok</span>(CompileOutput::InMemory((function, fde)))
-<a href=#6172 id=6172 data-nosnippet>6172</a>        }
-<a href=#6173 id=6173 data-nosnippet>6173</a>    }
-<a href=#6174 id=6174 data-nosnippet>6174</a>    <span class="comment">// FIXME: This implementation seems to be not enough to resolve all kinds of register dependencies
-<a href=#6175 id=6175 data-nosnippet>6175</a>    // at call place.
-<a href=#6176 id=6176 data-nosnippet>6176</a>    </span><span class="attr">#[allow(clippy::type_complexity)]
-<a href=#6177 id=6177 data-nosnippet>6177</a>    </span><span class="kw">fn </span>sort_call_movs(movs: <span class="kw-2">&amp;mut </span>[(Location&lt;M::GPR, M::SIMD&gt;, M::GPR, Size)]) {
-<a href=#6178 id=6178 data-nosnippet>6178</a>        <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..movs.len() {
-<a href=#6179 id=6179 data-nosnippet>6179</a>            <span class="kw">for </span>j <span class="kw">in </span>(i + <span class="number">1</span>)..movs.len() {
-<a href=#6180 id=6180 data-nosnippet>6180</a>                <span class="kw">if let </span>Location::GPR(src_gpr) = movs[j].<span class="number">0
-<a href=#6181 id=6181 data-nosnippet>6181</a>                    </span>&amp;&amp; src_gpr == movs[i].<span class="number">1
-<a href=#6182 id=6182 data-nosnippet>6182</a>                </span>{
-<a href=#6183 id=6183 data-nosnippet>6183</a>                    movs.swap(i, j);
-<a href=#6184 id=6184 data-nosnippet>6184</a>                }
-<a href=#6185 id=6185 data-nosnippet>6185</a>            }
-<a href=#6186 id=6186 data-nosnippet>6186</a>        }
-<a href=#6187 id=6187 data-nosnippet>6187</a>    }
-<a href=#6188 id=6188 data-nosnippet>6188</a>
-<a href=#6189 id=6189 data-nosnippet>6189</a>    <span class="comment">// Cycle detector. Uncomment this to debug possibly incorrect call-mov sequences.
-<a href=#6190 id=6190 data-nosnippet>6190</a>    /*
-<a href=#6191 id=6191 data-nosnippet>6191</a>    {
-<a href=#6192 id=6192 data-nosnippet>6192</a>        use std::collections::{HashMap, HashSet, VecDeque};
-<a href=#6193 id=6193 data-nosnippet>6193</a>        let mut mov_map: HashMap&lt;GPR, HashSet&lt;GPR&gt;&gt; = HashMap::new();
-<a href=#6194 id=6194 data-nosnippet>6194</a>        for mov in movs.iter() {
-<a href=#6195 id=6195 data-nosnippet>6195</a>            if let Location::GPR(src_gpr) = mov.0 {
-<a href=#6196 id=6196 data-nosnippet>6196</a>                if src_gpr != mov.1 {
-<a href=#6197 id=6197 data-nosnippet>6197</a>                    mov_map.entry(src_gpr).or_insert_with(|| HashSet::new()).insert(mov.1);
-<a href=#6198 id=6198 data-nosnippet>6198</a>                }
-<a href=#6199 id=6199 data-nosnippet>6199</a>            }
-<a href=#6200 id=6200 data-nosnippet>6200</a>        }
-<a href=#6201 id=6201 data-nosnippet>6201</a>
-<a href=#6202 id=6202 data-nosnippet>6202</a>        for (start, _) in mov_map.iter() {
-<a href=#6203 id=6203 data-nosnippet>6203</a>            let mut q: VecDeque&lt;GPR&gt; = VecDeque::new();
-<a href=#6204 id=6204 data-nosnippet>6204</a>            let mut black: HashSet&lt;GPR&gt; = HashSet::new();
-<a href=#6205 id=6205 data-nosnippet>6205</a>
-<a href=#6206 id=6206 data-nosnippet>6206</a>            q.push_back(*start);
-<a href=#6207 id=6207 data-nosnippet>6207</a>            black.insert(*start);
+<a href=#6137 id=6137 data-nosnippet>6137</a>            <span class="kw">if </span>!<span class="self">self</span>.config.experimental_artifact {
+<a href=#6138 id=6138 data-nosnippet>6138</a>                callbacks.obj_memory_buffer(
+<a href=#6139 id=6139 data-nosnippet>6139</a>                    <span class="kw-2">&amp;</span>CompiledKind::Local(<span class="self">self</span>.local_func_index, <span class="self">self</span>.function_name.clone()),
+<a href=#6140 id=6140 data-nosnippet>6140</a>                    <span class="kw-2">&amp;</span><span class="self">self</span>.module.hash_string(),
+<a href=#6141 id=6141 data-nosnippet>6141</a>                    <span class="kw-2">&amp;</span>body,
+<a href=#6142 id=6142 data-nosnippet>6142</a>                );
+<a href=#6143 id=6143 data-nosnippet>6143</a>            }
+<a href=#6144 id=6144 data-nosnippet>6144</a>            callbacks.asm_memory_buffer(
+<a href=#6145 id=6145 data-nosnippet>6145</a>                <span class="kw-2">&amp;</span>CompiledKind::Local(<span class="self">self</span>.local_func_index, <span class="self">self</span>.function_name.clone()),
+<a href=#6146 id=6146 data-nosnippet>6146</a>                <span class="kw-2">&amp;</span><span class="self">self</span>.module.hash_string(),
+<a href=#6147 id=6147 data-nosnippet>6147</a>                arch,
+<a href=#6148 id=6148 data-nosnippet>6148</a>                <span class="kw-2">&amp;</span>body,
+<a href=#6149 id=6149 data-nosnippet>6149</a>                assembly_comments,
+<a href=#6150 id=6150 data-nosnippet>6150</a>            )<span class="question-mark">?</span>;
+<a href=#6151 id=6151 data-nosnippet>6151</a>        }
+<a href=#6152 id=6152 data-nosnippet>6152</a>
+<a href=#6153 id=6153 data-nosnippet>6153</a>        <span class="kw">let </span>function = CompiledFunction {
+<a href=#6154 id=6154 data-nosnippet>6154</a>            body: FunctionBody { body, unwind_info },
+<a href=#6155 id=6155 data-nosnippet>6155</a>            relocations: <span class="self">self</span>.relocations.clone(),
+<a href=#6156 id=6156 data-nosnippet>6156</a>            frame_info: CompiledFunctionFrameInfo { traps, address_map },
+<a href=#6157 id=6157 data-nosnippet>6157</a>            maximum_stack_usage: <span class="prelude-val">Some</span>(<span class="self">self</span>.stack_offset.maximum_offset),
+<a href=#6158 id=6158 data-nosnippet>6158</a>        };
+<a href=#6159 id=6159 data-nosnippet>6159</a>        <span class="kw">if </span><span class="self">self</span>.config.experimental_artifact {
+<a href=#6160 id=6160 data-nosnippet>6160</a>            <span class="kw">let </span>maximum_stack_usage = function.maximum_stack_usage;
+<a href=#6161 id=6161 data-nosnippet>6161</a>            <span class="kw">let </span>object = elf::emit_local_function(
+<a href=#6162 id=6162 data-nosnippet>6162</a>                target,
+<a href=#6163 id=6163 data-nosnippet>6163</a>                <span class="self">self</span>.local_func_index,
+<a href=#6164 id=6164 data-nosnippet>6164</a>                function,
+<a href=#6165 id=6165 data-nosnippet>6165</a>                fde,
+<a href=#6166 id=6166 data-nosnippet>6166</a>                <span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
+<a href=#6167 id=6167 data-nosnippet>6167</a>                </span><span class="self">self</span>.dwarf_state,
+<a href=#6168 id=6168 data-nosnippet>6168</a>            )<span class="question-mark">?</span>;
+<a href=#6169 id=6169 data-nosnippet>6169</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(callbacks) = <span class="self">self</span>.config.callbacks.as_ref() {
+<a href=#6170 id=6170 data-nosnippet>6170</a>                callbacks.obj_memory_buffer(
+<a href=#6171 id=6171 data-nosnippet>6171</a>                    <span class="kw-2">&amp;</span>CompiledKind::Local(<span class="self">self</span>.local_func_index, <span class="self">self</span>.function_name.clone()),
+<a href=#6172 id=6172 data-nosnippet>6172</a>                    <span class="kw-2">&amp;</span><span class="self">self</span>.module.hash_string(),
+<a href=#6173 id=6173 data-nosnippet>6173</a>                    <span class="kw-2">&amp;</span>object,
+<a href=#6174 id=6174 data-nosnippet>6174</a>                );
+<a href=#6175 id=6175 data-nosnippet>6175</a>            }
+<a href=#6176 id=6176 data-nosnippet>6176</a>            <span class="prelude-val">Ok</span>(CompileOutput::Object(object, maximum_stack_usage))
+<a href=#6177 id=6177 data-nosnippet>6177</a>        } <span class="kw">else </span>{
+<a href=#6178 id=6178 data-nosnippet>6178</a>            <span class="prelude-val">Ok</span>(CompileOutput::InMemory((function, fde)))
+<a href=#6179 id=6179 data-nosnippet>6179</a>        }
+<a href=#6180 id=6180 data-nosnippet>6180</a>    }
+<a href=#6181 id=6181 data-nosnippet>6181</a>    <span class="comment">// FIXME: This implementation seems to be not enough to resolve all kinds of register dependencies
+<a href=#6182 id=6182 data-nosnippet>6182</a>    // at call place.
+<a href=#6183 id=6183 data-nosnippet>6183</a>    </span><span class="attr">#[allow(clippy::type_complexity)]
+<a href=#6184 id=6184 data-nosnippet>6184</a>    </span><span class="kw">fn </span>sort_call_movs(movs: <span class="kw-2">&amp;mut </span>[(Location&lt;M::GPR, M::SIMD&gt;, M::GPR, Size)]) {
+<a href=#6185 id=6185 data-nosnippet>6185</a>        <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..movs.len() {
+<a href=#6186 id=6186 data-nosnippet>6186</a>            <span class="kw">for </span>j <span class="kw">in </span>(i + <span class="number">1</span>)..movs.len() {
+<a href=#6187 id=6187 data-nosnippet>6187</a>                <span class="kw">if let </span>Location::GPR(src_gpr) = movs[j].<span class="number">0
+<a href=#6188 id=6188 data-nosnippet>6188</a>                    </span>&amp;&amp; src_gpr == movs[i].<span class="number">1
+<a href=#6189 id=6189 data-nosnippet>6189</a>                </span>{
+<a href=#6190 id=6190 data-nosnippet>6190</a>                    movs.swap(i, j);
+<a href=#6191 id=6191 data-nosnippet>6191</a>                }
+<a href=#6192 id=6192 data-nosnippet>6192</a>            }
+<a href=#6193 id=6193 data-nosnippet>6193</a>        }
+<a href=#6194 id=6194 data-nosnippet>6194</a>    }
+<a href=#6195 id=6195 data-nosnippet>6195</a>
+<a href=#6196 id=6196 data-nosnippet>6196</a>    <span class="comment">// Cycle detector. Uncomment this to debug possibly incorrect call-mov sequences.
+<a href=#6197 id=6197 data-nosnippet>6197</a>    /*
+<a href=#6198 id=6198 data-nosnippet>6198</a>    {
+<a href=#6199 id=6199 data-nosnippet>6199</a>        use std::collections::{HashMap, HashSet, VecDeque};
+<a href=#6200 id=6200 data-nosnippet>6200</a>        let mut mov_map: HashMap&lt;GPR, HashSet&lt;GPR&gt;&gt; = HashMap::new();
+<a href=#6201 id=6201 data-nosnippet>6201</a>        for mov in movs.iter() {
+<a href=#6202 id=6202 data-nosnippet>6202</a>            if let Location::GPR(src_gpr) = mov.0 {
+<a href=#6203 id=6203 data-nosnippet>6203</a>                if src_gpr != mov.1 {
+<a href=#6204 id=6204 data-nosnippet>6204</a>                    mov_map.entry(src_gpr).or_insert_with(|| HashSet::new()).insert(mov.1);
+<a href=#6205 id=6205 data-nosnippet>6205</a>                }
+<a href=#6206 id=6206 data-nosnippet>6206</a>            }
+<a href=#6207 id=6207 data-nosnippet>6207</a>        }
 <a href=#6208 id=6208 data-nosnippet>6208</a>
-<a href=#6209 id=6209 data-nosnippet>6209</a>            while q.len() &gt; 0 {
-<a href=#6210 id=6210 data-nosnippet>6210</a>                let reg = q.pop_front().unwrap();
-<a href=#6211 id=6211 data-nosnippet>6211</a>                let empty_set = HashSet::new();
-<a href=#6212 id=6212 data-nosnippet>6212</a>                for x in mov_map.get(&amp;reg).unwrap_or(&amp;empty_set).iter() {
-<a href=#6213 id=6213 data-nosnippet>6213</a>                    if black.contains(x) {
-<a href=#6214 id=6214 data-nosnippet>6214</a>                        panic!("cycle detected");
-<a href=#6215 id=6215 data-nosnippet>6215</a>                    }
-<a href=#6216 id=6216 data-nosnippet>6216</a>                    q.push_back(*x);
-<a href=#6217 id=6217 data-nosnippet>6217</a>                    black.insert(*x);
-<a href=#6218 id=6218 data-nosnippet>6218</a>                }
-<a href=#6219 id=6219 data-nosnippet>6219</a>            }
-<a href=#6220 id=6220 data-nosnippet>6220</a>        }
-<a href=#6221 id=6221 data-nosnippet>6221</a>    }
-<a href=#6222 id=6222 data-nosnippet>6222</a>    */
-<a href=#6223 id=6223 data-nosnippet>6223</a></span>}
+<a href=#6209 id=6209 data-nosnippet>6209</a>        for (start, _) in mov_map.iter() {
+<a href=#6210 id=6210 data-nosnippet>6210</a>            let mut q: VecDeque&lt;GPR&gt; = VecDeque::new();
+<a href=#6211 id=6211 data-nosnippet>6211</a>            let mut black: HashSet&lt;GPR&gt; = HashSet::new();
+<a href=#6212 id=6212 data-nosnippet>6212</a>
+<a href=#6213 id=6213 data-nosnippet>6213</a>            q.push_back(*start);
+<a href=#6214 id=6214 data-nosnippet>6214</a>            black.insert(*start);
+<a href=#6215 id=6215 data-nosnippet>6215</a>
+<a href=#6216 id=6216 data-nosnippet>6216</a>            while q.len() &gt; 0 {
+<a href=#6217 id=6217 data-nosnippet>6217</a>                let reg = q.pop_front().unwrap();
+<a href=#6218 id=6218 data-nosnippet>6218</a>                let empty_set = HashSet::new();
+<a href=#6219 id=6219 data-nosnippet>6219</a>                for x in mov_map.get(&amp;reg).unwrap_or(&amp;empty_set).iter() {
+<a href=#6220 id=6220 data-nosnippet>6220</a>                    if black.contains(x) {
+<a href=#6221 id=6221 data-nosnippet>6221</a>                        panic!("cycle detected");
+<a href=#6222 id=6222 data-nosnippet>6222</a>                    }
+<a href=#6223 id=6223 data-nosnippet>6223</a>                    q.push_back(*x);
+<a href=#6224 id=6224 data-nosnippet>6224</a>                    black.insert(*x);
+<a href=#6225 id=6225 data-nosnippet>6225</a>                }
+<a href=#6226 id=6226 data-nosnippet>6226</a>            }
+<a href=#6227 id=6227 data-nosnippet>6227</a>        }
+<a href=#6228 id=6228 data-nosnippet>6228</a>    }
+<a href=#6229 id=6229 data-nosnippet>6229</a>    */
+<a href=#6230 id=6230 data-nosnippet>6230</a></span>}
 </code></pre></div></section></main></body></html>

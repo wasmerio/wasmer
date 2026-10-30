@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"macro":["count_idents","impl_host_function"]};
+window.SIDEBAR_ITEMS = {"macro":[["count_idents",1],["impl_host_function",1]]};

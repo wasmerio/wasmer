@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"macro":["count","tuple_filesystems"],"trait":["FileSystems"]};
+window.SIDEBAR_ITEMS = {"macro":[["count",1],["tuple_filesystems",1]],"trait":["FileSystems"]};

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["UserSelection"],"macro":["call"],"struct":["AskingNetworking"]};
+window.SIDEBAR_ITEMS = {"enum":["UserSelection"],"macro":[["call",1]],"struct":["AskingNetworking"]};

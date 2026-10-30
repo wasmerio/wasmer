@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"macro":["partial_eq","primitives"],"trait":["ValueType"],"union":["RawValue"]};
+window.SIDEBAR_ITEMS = {"macro":[["partial_eq",1],["primitives",1]],"trait":["ValueType"],"union":["RawValue"]};

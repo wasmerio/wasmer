@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["MaybeInstanceOwned"],"macro":["impl_context_object"],"struct":["InternalStoreHandle","StoreHandle","StoreObjects"],"trait":["StoreObject"]};
+window.SIDEBAR_ITEMS = {"enum":["MaybeInstanceOwned"],"macro":[["impl_context_object",1]],"struct":["InternalStoreHandle","StoreHandle","StoreObjects"],"trait":["StoreObject"]};

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["DebugInfoSource"],"fn":["load_dwarf_context"],"static":["LIBCALLS_ELF"],"struct":["DebugInfo","ImageSegment","MemoryMappedBinary"],"type":["DwarfReader"]};
+window.SIDEBAR_ITEMS = {"enum":["DebugInfoSource"],"fn":["load_dwarf_context"],"static":["LIBCALLS_ELF","LIBCALLS_MACHO"],"struct":["DebugInfo","ImageSegment","MemoryMappedBinary"],"type":["DwarfReader"]};

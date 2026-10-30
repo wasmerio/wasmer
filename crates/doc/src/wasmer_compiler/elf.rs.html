@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler/src/elf.rs`."><title>elf.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-17e0aaed.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="wasmer_compiler" data-themes="" data-resource-suffix="" data-rustdoc-version="1.96.1 (31fca3adb 2026-06-26)" data-channel="1.96.1" data-search-js="search-b5634cc7.js" data-stringdex-js="stringdex-2da4960a.js" data-settings-js="settings-170eb4bf.js" ><script src="../../static.files/storage-41dd4d93.js"></script><script defer src="../../static.files/src-script-813739b1.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-5013f961.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-f7c3ffd8.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><h1><div class="sub-heading">wasmer_compiler/</div>elf.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="doccomment">//! Helpers shared by the object-based compiler backends (Cranelift and
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler/src/elf.rs`."><title>elf.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-0c87338a.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="wasmer_compiler" data-themes="" data-resource-suffix="" data-rustdoc-version="1.99.1 (58cf8f9c3 2026-10-13)" data-channel="1.99.1" data-search-js="search-cf4fc35e.js" data-stringdex-js="stringdex-b5109af9.js" data-settings-js="settings-170eb4bf.js" ><script src="../../static.files/storage-41dd4d93.js"></script><script defer src="../../static.files/src-script-813739b1.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-417ebf0a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-9f56287d.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><h1><div class="sub-heading">wasmer_compiler/</div>elf.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="doccomment">//! Helpers shared by the object-based compiler backends (Cranelift and
 <a href=#2 id=2 data-nosnippet>2</a>//! Singlepass) for emitting per-function relocatable ELF objects and linking
 <a href=#3 id=3 data-nosnippet>3</a>//! them into the final module image.
 <a href=#4 id=4 data-nosnippet>4</a>
@@ -75,332 +75,340 @@
 <a href=#75 id=75 data-nosnippet>75</a><span class="doccomment">/// Declare an undefined dynamic symbol for a libcall, resolved by the runtime
 <a href=#76 id=76 data-nosnippet>76</a>/// loader through a dynamic relocation.
 <a href=#77 id=77 data-nosnippet>77</a></span><span class="kw">pub fn </span>add_libcall_symbol(object: <span class="kw-2">&amp;mut </span>Object&lt;<span class="lifetime">'static</span>&gt;, libcall: LibCall) -&gt; SymbolId {
-<a href=#78 id=78 data-nosnippet>78</a>    object.add_symbol(Symbol {
-<a href=#79 id=79 data-nosnippet>79</a>        name: libcall.to_function_name().to_string().into_bytes(),
-<a href=#80 id=80 data-nosnippet>80</a>        value: <span class="number">0</span>,
-<a href=#81 id=81 data-nosnippet>81</a>        size: <span class="number">0</span>,
-<a href=#82 id=82 data-nosnippet>82</a>        kind: SymbolKind::Unknown,
-<a href=#83 id=83 data-nosnippet>83</a>        scope: SymbolScope::Dynamic,
-<a href=#84 id=84 data-nosnippet>84</a>        weak: <span class="bool-val">false</span>,
-<a href=#85 id=85 data-nosnippet>85</a>        section: SymbolSection::Undefined,
-<a href=#86 id=86 data-nosnippet>86</a>        flags: SymbolFlags::None,
-<a href=#87 id=87 data-nosnippet>87</a>    })
-<a href=#88 id=88 data-nosnippet>88</a>}
-<a href=#89 id=89 data-nosnippet>89</a>
-<a href=#90 id=90 data-nosnippet>90</a><span class="doccomment">/// Map a Wasmer relocation kind onto the corresponding object-file relocation
-<a href=#91 id=91 data-nosnippet>91</a>/// flags.
-<a href=#92 id=92 data-nosnippet>92</a></span><span class="kw">pub fn </span>relocation_kind_to_flags(kind: RelocationKind) -&gt; <span class="prelude-ty">Result</span>&lt;RelocationFlags, CompileError&gt; {
-<a href=#93 id=93 data-nosnippet>93</a>    <span class="kw">use </span>ObjectRelocationKind <span class="kw">as </span>K;
-<a href=#94 id=94 data-nosnippet>94</a>    <span class="prelude-val">Ok</span>(<span class="kw">match </span>kind {
-<a href=#95 id=95 data-nosnippet>95</a>        RelocationKind::Abs4 =&gt; RelocationFlags::Generic {
-<a href=#96 id=96 data-nosnippet>96</a>            kind: K::Absolute,
-<a href=#97 id=97 data-nosnippet>97</a>            encoding: RelocationEncoding::Generic,
-<a href=#98 id=98 data-nosnippet>98</a>            size: <span class="number">32</span>,
-<a href=#99 id=99 data-nosnippet>99</a>        },
-<a href=#100 id=100 data-nosnippet>100</a>        RelocationKind::Abs8 =&gt; RelocationFlags::Generic {
+<a href=#78 id=78 data-nosnippet>78</a>    <span class="kw">let </span>name = <span class="kw">if </span>object.format() == object::BinaryFormat::MachO {
+<a href=#79 id=79 data-nosnippet>79</a>        <span class="macro">format!</span>(<span class="string">"_{}"</span>, libcall.to_function_name())
+<a href=#80 id=80 data-nosnippet>80</a>    } <span class="kw">else </span>{
+<a href=#81 id=81 data-nosnippet>81</a>        libcall.to_function_name().to_string()
+<a href=#82 id=82 data-nosnippet>82</a>    };
+<a href=#83 id=83 data-nosnippet>83</a>    object.add_symbol(Symbol {
+<a href=#84 id=84 data-nosnippet>84</a>        name: name.into_bytes(),
+<a href=#85 id=85 data-nosnippet>85</a>        value: <span class="number">0</span>,
+<a href=#86 id=86 data-nosnippet>86</a>        size: <span class="number">0</span>,
+<a href=#87 id=87 data-nosnippet>87</a>        kind: SymbolKind::Unknown,
+<a href=#88 id=88 data-nosnippet>88</a>        scope: SymbolScope::Dynamic,
+<a href=#89 id=89 data-nosnippet>89</a>        weak: <span class="bool-val">false</span>,
+<a href=#90 id=90 data-nosnippet>90</a>        section: SymbolSection::Undefined,
+<a href=#91 id=91 data-nosnippet>91</a>        flags: SymbolFlags::None,
+<a href=#92 id=92 data-nosnippet>92</a>    })
+<a href=#93 id=93 data-nosnippet>93</a>}
+<a href=#94 id=94 data-nosnippet>94</a>
+<a href=#95 id=95 data-nosnippet>95</a><span class="doccomment">/// Map a Wasmer relocation kind onto the corresponding object-file relocation
+<a href=#96 id=96 data-nosnippet>96</a>/// flags.
+<a href=#97 id=97 data-nosnippet>97</a></span><span class="kw">pub fn </span>relocation_kind_to_flags(kind: RelocationKind) -&gt; <span class="prelude-ty">Result</span>&lt;RelocationFlags, CompileError&gt; {
+<a href=#98 id=98 data-nosnippet>98</a>    <span class="kw">use </span>ObjectRelocationKind <span class="kw">as </span>K;
+<a href=#99 id=99 data-nosnippet>99</a>    <span class="prelude-val">Ok</span>(<span class="kw">match </span>kind {
+<a href=#100 id=100 data-nosnippet>100</a>        RelocationKind::Abs4 =&gt; RelocationFlags::Generic {
 <a href=#101 id=101 data-nosnippet>101</a>            kind: K::Absolute,
 <a href=#102 id=102 data-nosnippet>102</a>            encoding: RelocationEncoding::Generic,
-<a href=#103 id=103 data-nosnippet>103</a>            size: <span class="number">64</span>,
+<a href=#103 id=103 data-nosnippet>103</a>            size: <span class="number">32</span>,
 <a href=#104 id=104 data-nosnippet>104</a>        },
-<a href=#105 id=105 data-nosnippet>105</a>        RelocationKind::PCRel4 =&gt; RelocationFlags::Generic {
-<a href=#106 id=106 data-nosnippet>106</a>            kind: K::Relative,
+<a href=#105 id=105 data-nosnippet>105</a>        RelocationKind::Abs8 =&gt; RelocationFlags::Generic {
+<a href=#106 id=106 data-nosnippet>106</a>            kind: K::Absolute,
 <a href=#107 id=107 data-nosnippet>107</a>            encoding: RelocationEncoding::Generic,
-<a href=#108 id=108 data-nosnippet>108</a>            size: <span class="number">32</span>,
+<a href=#108 id=108 data-nosnippet>108</a>            size: <span class="number">64</span>,
 <a href=#109 id=109 data-nosnippet>109</a>        },
-<a href=#110 id=110 data-nosnippet>110</a>        RelocationKind::X86CallPCRel4 =&gt; RelocationFlags::Generic {
+<a href=#110 id=110 data-nosnippet>110</a>        RelocationKind::PCRel4 =&gt; RelocationFlags::Generic {
 <a href=#111 id=111 data-nosnippet>111</a>            kind: K::Relative,
-<a href=#112 id=112 data-nosnippet>112</a>            encoding: RelocationEncoding::X86Branch,
+<a href=#112 id=112 data-nosnippet>112</a>            encoding: RelocationEncoding::Generic,
 <a href=#113 id=113 data-nosnippet>113</a>            size: <span class="number">32</span>,
 <a href=#114 id=114 data-nosnippet>114</a>        },
-<a href=#115 id=115 data-nosnippet>115</a>        RelocationKind::X86CallPLTRel4 =&gt; RelocationFlags::Generic {
-<a href=#116 id=116 data-nosnippet>116</a>            kind: K::PltRelative,
+<a href=#115 id=115 data-nosnippet>115</a>        RelocationKind::X86CallPCRel4 =&gt; RelocationFlags::Generic {
+<a href=#116 id=116 data-nosnippet>116</a>            kind: K::Relative,
 <a href=#117 id=117 data-nosnippet>117</a>            encoding: RelocationEncoding::X86Branch,
 <a href=#118 id=118 data-nosnippet>118</a>            size: <span class="number">32</span>,
 <a href=#119 id=119 data-nosnippet>119</a>        },
-<a href=#120 id=120 data-nosnippet>120</a>        RelocationKind::X86GOTPCRel4 =&gt; RelocationFlags::Generic {
-<a href=#121 id=121 data-nosnippet>121</a>            kind: K::GotRelative,
-<a href=#122 id=122 data-nosnippet>122</a>            encoding: RelocationEncoding::Generic,
+<a href=#120 id=120 data-nosnippet>120</a>        RelocationKind::X86CallPLTRel4 =&gt; RelocationFlags::Generic {
+<a href=#121 id=121 data-nosnippet>121</a>            kind: K::PltRelative,
+<a href=#122 id=122 data-nosnippet>122</a>            encoding: RelocationEncoding::X86Branch,
 <a href=#123 id=123 data-nosnippet>123</a>            size: <span class="number">32</span>,
 <a href=#124 id=124 data-nosnippet>124</a>        },
-<a href=#125 id=125 data-nosnippet>125</a>        RelocationKind::Arm64Call =&gt; RelocationFlags::Elf {
-<a href=#126 id=126 data-nosnippet>126</a>            r_type: elf::R_AARCH64_CALL26,
-<a href=#127 id=127 data-nosnippet>127</a>        },
-<a href=#128 id=128 data-nosnippet>128</a>        <span class="comment">// For RISC-V relocations, please refer to:
-<a href=#129 id=129 data-nosnippet>129</a>        // https://github.com/riscv-non-isa/riscv-elf-psabi-doc/blob/2484f950a551c653f1823f1bd11926bf5a57fae3/riscv-elf.adoc#relocations
-<a href=#130 id=130 data-nosnippet>130</a>        </span>RelocationKind::RiscvPCRelHi20 =&gt; RelocationFlags::Elf {
-<a href=#131 id=131 data-nosnippet>131</a>            r_type: elf::R_RISCV_PCREL_HI20,
-<a href=#132 id=132 data-nosnippet>132</a>        },
-<a href=#133 id=133 data-nosnippet>133</a>        RelocationKind::RiscvPCRelLo12I =&gt; RelocationFlags::Elf {
-<a href=#134 id=134 data-nosnippet>134</a>            r_type: elf::R_RISCV_PCREL_LO12_I,
-<a href=#135 id=135 data-nosnippet>135</a>        },
-<a href=#136 id=136 data-nosnippet>136</a>        RelocationKind::RiscvCall =&gt; RelocationFlags::Elf {
-<a href=#137 id=137 data-nosnippet>137</a>            r_type: elf::R_RISCV_CALL_PLT,
-<a href=#138 id=138 data-nosnippet>138</a>        },
-<a href=#139 id=139 data-nosnippet>139</a>        kind =&gt; {
-<a href=#140 id=140 data-nosnippet>140</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::Codegen(<span class="macro">format!</span>(
-<a href=#141 id=141 data-nosnippet>141</a>                <span class="string">"unsupported ELF relocation kind: {kind:?}"
-<a href=#142 id=142 data-nosnippet>142</a>            </span>)));
-<a href=#143 id=143 data-nosnippet>143</a>        }
-<a href=#144 id=144 data-nosnippet>144</a>    })
-<a href=#145 id=145 data-nosnippet>145</a>}
-<a href=#146 id=146 data-nosnippet>146</a>
-<a href=#147 id=147 data-nosnippet>147</a><span class="doccomment">/// Apply the compiled code's relocations to `section`, declaring the referenced symbols.
-<a href=#148 id=148 data-nosnippet>148</a></span><span class="kw">pub fn </span>add_relocations(
-<a href=#149 id=149 data-nosnippet>149</a>    object: <span class="kw-2">&amp;mut </span>Object&lt;<span class="lifetime">'static</span>&gt;,
-<a href=#150 id=150 data-nosnippet>150</a>    section: SectionId,
-<a href=#151 id=151 data-nosnippet>151</a>    relocations: <span class="kw-2">&amp;</span>[Relocation],
-<a href=#152 id=152 data-nosnippet>152</a>    local_symbol: <span class="prelude-ty">Option</span>&lt;(LocalFunctionIndex, SymbolId)&gt;,
-<a href=#153 id=153 data-nosnippet>153</a>) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
-<a href=#154 id=154 data-nosnippet>154</a>    <span class="kw">for </span>relocation <span class="kw">in </span>relocations {
-<a href=#155 id=155 data-nosnippet>155</a>        <span class="kw">let </span>symbol = <span class="kw">match </span>relocation.reloc_target {
-<a href=#156 id=156 data-nosnippet>156</a>            RelocationTarget::LocalFunc(index) =&gt; local_symbol
-<a href=#157 id=157 data-nosnippet>157</a>                .filter(|(local_index, <span class="kw">_</span>)| <span class="kw-2">*</span>local_index == index)
-<a href=#158 id=158 data-nosnippet>158</a>                .map_or_else(
-<a href=#159 id=159 data-nosnippet>159</a>                    || {
-<a href=#160 id=160 data-nosnippet>160</a>                        add_undefined_symbol(
-<a href=#161 id=161 data-nosnippet>161</a>                            object,
-<a href=#162 id=162 data-nosnippet>162</a>                            CompiledKind::Local(index, String::new()).linkage_name(),
-<a href=#163 id=163 data-nosnippet>163</a>                        )
-<a href=#164 id=164 data-nosnippet>164</a>                    },
-<a href=#165 id=165 data-nosnippet>165</a>                    |(<span class="kw">_</span>, symbol)| symbol,
-<a href=#166 id=166 data-nosnippet>166</a>                ),
-<a href=#167 id=167 data-nosnippet>167</a>            RelocationTarget::CustomSection(index) =&gt; add_undefined_symbol(
-<a href=#168 id=168 data-nosnippet>168</a>                object,
-<a href=#169 id=169 data-nosnippet>169</a>                CompiledKind::ImportFunctionTrampoline(
-<a href=#170 id=170 data-nosnippet>170</a>                    FunctionIndex::from_u32(index.as_u32()),
-<a href=#171 id=171 data-nosnippet>171</a>                    FunctionType::default(),
-<a href=#172 id=172 data-nosnippet>172</a>                )
-<a href=#173 id=173 data-nosnippet>173</a>                .linkage_name(),
-<a href=#174 id=174 data-nosnippet>174</a>            ),
-<a href=#175 id=175 data-nosnippet>175</a>            RelocationTarget::LibCall(libcall) =&gt; add_libcall_symbol(object, libcall),
-<a href=#176 id=176 data-nosnippet>176</a>            RelocationTarget::DynamicTrampoline(index) =&gt; add_undefined_symbol(
-<a href=#177 id=177 data-nosnippet>177</a>                object,
-<a href=#178 id=178 data-nosnippet>178</a>                CompiledKind::DynamicFunctionTrampoline(index, FunctionType::default())
-<a href=#179 id=179 data-nosnippet>179</a>                    .linkage_name(),
-<a href=#180 id=180 data-nosnippet>180</a>            ),
-<a href=#181 id=181 data-nosnippet>181</a>        };
-<a href=#182 id=182 data-nosnippet>182</a>        <span class="kw">let </span>flags = relocation_kind_to_flags(relocation.kind)<span class="question-mark">?</span>;
-<a href=#183 id=183 data-nosnippet>183</a>        object
-<a href=#184 id=184 data-nosnippet>184</a>            .add_relocation(
-<a href=#185 id=185 data-nosnippet>185</a>                section,
-<a href=#186 id=186 data-nosnippet>186</a>                ObjectRelocation {
-<a href=#187 id=187 data-nosnippet>187</a>                    offset: relocation.offset <span class="kw">as </span>u64,
-<a href=#188 id=188 data-nosnippet>188</a>                    flags,
-<a href=#189 id=189 data-nosnippet>189</a>                    symbol,
-<a href=#190 id=190 data-nosnippet>190</a>                    addend: relocation.addend,
-<a href=#191 id=191 data-nosnippet>191</a>                },
-<a href=#192 id=192 data-nosnippet>192</a>            )
-<a href=#193 id=193 data-nosnippet>193</a>            .map_err(|e| CompileError::Codegen(<span class="macro">format!</span>(<span class="string">"failed to add ELF relocation: {e}"</span>)))<span class="question-mark">?</span>;
-<a href=#194 id=194 data-nosnippet>194</a>    }
-<a href=#195 id=195 data-nosnippet>195</a>    <span class="prelude-val">Ok</span>(())
-<a href=#196 id=196 data-nosnippet>196</a>}
-<a href=#197 id=197 data-nosnippet>197</a>
-<a href=#198 id=198 data-nosnippet>198</a><span class="doccomment">/// Emit the per-function trap table into a `.w.traps` section, under a weak
-<a href=#199 id=199 data-nosnippet>199</a>/// data symbol so the metadata object can reference it per function.
-<a href=#200 id=200 data-nosnippet>200</a></span><span class="kw">pub fn </span>emit_trap_section(
-<a href=#201 id=201 data-nosnippet>201</a>    object: <span class="kw-2">&amp;mut </span>Object&lt;<span class="lifetime">'static</span>&gt;,
-<a href=#202 id=202 data-nosnippet>202</a>    kind: <span class="kw-2">&amp;</span>CompiledKind,
-<a href=#203 id=203 data-nosnippet>203</a>    traps: <span class="kw-2">&amp;</span>[TrapInformation],
-<a href=#204 id=204 data-nosnippet>204</a>) {
-<a href=#205 id=205 data-nosnippet>205</a>    <span class="kw">let </span><span class="kw-2">mut </span>trap_data = Vec::with_capacity(traps.len() * <span class="number">8 </span>+ size_of::&lt;u32&gt;());
-<a href=#206 id=206 data-nosnippet>206</a>    trap_data.extend_from_slice(<span class="kw-2">&amp;</span>(traps.len() <span class="kw">as </span>u32).to_le_bytes());
-<a href=#207 id=207 data-nosnippet>207</a>    <span class="kw">for </span>trap <span class="kw">in </span>traps {
-<a href=#208 id=208 data-nosnippet>208</a>        trap_data.extend_from_slice(<span class="kw-2">&amp;</span>trap.code_offset.to_le_bytes());
-<a href=#209 id=209 data-nosnippet>209</a>        trap_data.extend_from_slice(<span class="kw-2">&amp;</span>(trap.trap_code <span class="kw">as </span>u32).to_le_bytes());
-<a href=#210 id=210 data-nosnippet>210</a>    }
-<a href=#211 id=211 data-nosnippet>211</a>    <span class="kw">let </span>traps_section = object.add_section(
-<a href=#212 id=212 data-nosnippet>212</a>        object.segment_name(StandardSegment::Data).to_vec(),
-<a href=#213 id=213 data-nosnippet>213</a>        <span class="kw">crate</span>::WASMER_TRAPS_SECTION_NAME.to_vec(),
-<a href=#214 id=214 data-nosnippet>214</a>        SectionKind::Other,
-<a href=#215 id=215 data-nosnippet>215</a>    );
-<a href=#216 id=216 data-nosnippet>216</a>    <span class="kw">let </span>traps_symbol = object.add_symbol(Symbol {
-<a href=#217 id=217 data-nosnippet>217</a>        name: kind.traps_name().into_bytes(),
-<a href=#218 id=218 data-nosnippet>218</a>        value: <span class="number">0</span>,
-<a href=#219 id=219 data-nosnippet>219</a>        size: trap_data.len() <span class="kw">as </span>u64,
-<a href=#220 id=220 data-nosnippet>220</a>        kind: SymbolKind::Data,
-<a href=#221 id=221 data-nosnippet>221</a>        scope: SymbolScope::Linkage,
-<a href=#222 id=222 data-nosnippet>222</a>        weak: <span class="bool-val">true</span>,
-<a href=#223 id=223 data-nosnippet>223</a>        section: SymbolSection::Section(traps_section),
-<a href=#224 id=224 data-nosnippet>224</a>        flags: SymbolFlags::None,
-<a href=#225 id=225 data-nosnippet>225</a>    });
-<a href=#226 id=226 data-nosnippet>226</a>    object.add_symbol_data(traps_symbol, traps_section, <span class="kw-2">&amp;</span>trap_data, <span class="number">4</span>);
-<a href=#227 id=227 data-nosnippet>227</a>}
-<a href=#228 id=228 data-nosnippet>228</a>
-<a href=#229 id=229 data-nosnippet>229</a><span class="doccomment">/// Emit a serialized `.eh_frame` blob into its own section, resolving the
-<a href=#230 id=230 data-nosnippet>230</a>/// recorded relocations against the function's text symbol, the exception
-<a href=#231 id=231 data-nosnippet>231</a>/// personality routine and the function's LSDA section.
-<a href=#232 id=232 data-nosnippet>232</a></span><span class="kw">pub fn </span>emit_eh_frame_section(
-<a href=#233 id=233 data-nosnippet>233</a>    object: <span class="kw-2">&amp;mut </span>Object&lt;<span class="lifetime">'static</span>&gt;,
-<a href=#234 id=234 data-nosnippet>234</a>    eh_frame_bytes: <span class="kw-2">&amp;</span>[u8],
-<a href=#235 id=235 data-nosnippet>235</a>    relocations: <span class="kw-2">&amp;</span>[EhRelocation],
-<a href=#236 id=236 data-nosnippet>236</a>    function_symbol: SymbolId,
-<a href=#237 id=237 data-nosnippet>237</a>    lsda_section_symbol: <span class="prelude-ty">Option</span>&lt;SymbolId&gt;,
-<a href=#238 id=238 data-nosnippet>238</a>) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
-<a href=#239 id=239 data-nosnippet>239</a>    <span class="kw">let </span>section = object.add_section(
-<a href=#240 id=240 data-nosnippet>240</a>        object.segment_name(StandardSegment::Debug).to_vec(),
-<a href=#241 id=241 data-nosnippet>241</a>        <span class="kw">crate</span>::EH_FRAME_SECTION_NAME.to_vec(),
-<a href=#242 id=242 data-nosnippet>242</a>        SectionKind::Other,
-<a href=#243 id=243 data-nosnippet>243</a>    );
-<a href=#244 id=244 data-nosnippet>244</a>    <span class="kw">let </span>data_offset = object.append_section_data(section, eh_frame_bytes, <span class="number">4</span>);
-<a href=#245 id=245 data-nosnippet>245</a>
-<a href=#246 id=246 data-nosnippet>246</a>    <span class="comment">// Add the personality pointer lazily. CIEs reference this slot indirectly
-<a href=#247 id=247 data-nosnippet>247</a>    // and PC-relative, while the slot itself has an absolute relocation to the
-<a href=#248 id=248 data-nosnippet>248</a>    // runtime function. This mirrors the `DW.ref.*` convention used by native
-<a href=#249 id=249 data-nosnippet>249</a>    // compilers and, unlike a GOT-relative data relocation, works across the
-<a href=#250 id=250 data-nosnippet>250</a>    // 64-bit ELF architectures supported by Wasmer.
-<a href=#251 id=251 data-nosnippet>251</a>    </span><span class="kw">let </span><span class="kw-2">mut </span>personality_reference_symbol = <span class="prelude-val">None</span>;
-<a href=#252 id=252 data-nosnippet>252</a>    <span class="kw">for </span>relocation <span class="kw">in </span>relocations {
-<a href=#253 id=253 data-nosnippet>253</a>        <span class="kw">let </span>symbol = <span class="kw">match </span>relocation.target {
-<a href=#254 id=254 data-nosnippet>254</a>            EhTarget::Function =&gt; function_symbol,
-<a href=#255 id=255 data-nosnippet>255</a>            EhTarget::Personality =&gt; {
-<a href=#256 id=256 data-nosnippet>256</a>                <span class="kw">if let </span><span class="prelude-val">Some</span>(symbol) = personality_reference_symbol {
-<a href=#257 id=257 data-nosnippet>257</a>                    symbol
-<a href=#258 id=258 data-nosnippet>258</a>                } <span class="kw">else </span>{
-<a href=#259 id=259 data-nosnippet>259</a>                    <span class="kw">let </span>personality_symbol = add_libcall_symbol(object, LibCall::EHPersonality);
-<a href=#260 id=260 data-nosnippet>260</a>                    <span class="kw">let </span>personality_section =
-<a href=#261 id=261 data-nosnippet>261</a>                        object.section_id(StandardSection::ReadOnlyDataWithRel);
-<a href=#262 id=262 data-nosnippet>262</a>                    <span class="kw">let </span>reference_symbol = object.add_symbol(Symbol {
-<a href=#263 id=263 data-nosnippet>263</a>                        name: <span class="string">b"DW.ref.wasmer_eh_personality"</span>.to_vec(),
-<a href=#264 id=264 data-nosnippet>264</a>                        value: <span class="number">0</span>,
-<a href=#265 id=265 data-nosnippet>265</a>                        size: <span class="number">8</span>,
-<a href=#266 id=266 data-nosnippet>266</a>                        kind: SymbolKind::Data,
-<a href=#267 id=267 data-nosnippet>267</a>                        scope: SymbolScope::Compilation,
-<a href=#268 id=268 data-nosnippet>268</a>                        weak: <span class="bool-val">false</span>,
-<a href=#269 id=269 data-nosnippet>269</a>                        section: SymbolSection::Undefined,
-<a href=#270 id=270 data-nosnippet>270</a>                        flags: SymbolFlags::None,
-<a href=#271 id=271 data-nosnippet>271</a>                    });
-<a href=#272 id=272 data-nosnippet>272</a>                    <span class="kw">let </span>reference_offset =
-<a href=#273 id=273 data-nosnippet>273</a>                        object.add_symbol_data(reference_symbol, personality_section, <span class="kw-2">&amp;</span>[<span class="number">0</span>; <span class="number">8</span>], <span class="number">8</span>);
-<a href=#274 id=274 data-nosnippet>274</a>                    object
-<a href=#275 id=275 data-nosnippet>275</a>                        .add_relocation(
-<a href=#276 id=276 data-nosnippet>276</a>                            personality_section,
-<a href=#277 id=277 data-nosnippet>277</a>                            ObjectRelocation {
-<a href=#278 id=278 data-nosnippet>278</a>                                offset: reference_offset,
-<a href=#279 id=279 data-nosnippet>279</a>                                flags: RelocationFlags::Generic {
-<a href=#280 id=280 data-nosnippet>280</a>                                    kind: ObjectRelocationKind::Absolute,
-<a href=#281 id=281 data-nosnippet>281</a>                                    encoding: RelocationEncoding::Generic,
-<a href=#282 id=282 data-nosnippet>282</a>                                    size: <span class="number">64</span>,
-<a href=#283 id=283 data-nosnippet>283</a>                                },
-<a href=#284 id=284 data-nosnippet>284</a>                                symbol: personality_symbol,
-<a href=#285 id=285 data-nosnippet>285</a>                                addend: <span class="number">0</span>,
-<a href=#286 id=286 data-nosnippet>286</a>                            },
-<a href=#287 id=287 data-nosnippet>287</a>                        )
-<a href=#288 id=288 data-nosnippet>288</a>                        .map_err(|e| {
-<a href=#289 id=289 data-nosnippet>289</a>                            CompileError::Codegen(<span class="macro">format!</span>(
-<a href=#290 id=290 data-nosnippet>290</a>                                <span class="string">"failed to add personality reference relocation: {e}"
-<a href=#291 id=291 data-nosnippet>291</a>                            </span>))
-<a href=#292 id=292 data-nosnippet>292</a>                        })<span class="question-mark">?</span>;
-<a href=#293 id=293 data-nosnippet>293</a>                    personality_reference_symbol = <span class="prelude-val">Some</span>(reference_symbol);
-<a href=#294 id=294 data-nosnippet>294</a>                    reference_symbol
-<a href=#295 id=295 data-nosnippet>295</a>                }
-<a href=#296 id=296 data-nosnippet>296</a>            }
-<a href=#297 id=297 data-nosnippet>297</a>            EhTarget::Lsda =&gt; lsda_section_symbol.ok_or_else(|| {
-<a href=#298 id=298 data-nosnippet>298</a>                CompileError::Codegen(
-<a href=#299 id=299 data-nosnippet>299</a>                    <span class="string">".eh_frame references an LSDA but none was emitted"</span>.to_string(),
-<a href=#300 id=300 data-nosnippet>300</a>                )
-<a href=#301 id=301 data-nosnippet>301</a>            })<span class="question-mark">?</span>,
-<a href=#302 id=302 data-nosnippet>302</a>        };
-<a href=#303 id=303 data-nosnippet>303</a>        object
-<a href=#304 id=304 data-nosnippet>304</a>            .add_relocation(
-<a href=#305 id=305 data-nosnippet>305</a>                section,
-<a href=#306 id=306 data-nosnippet>306</a>                ObjectRelocation {
-<a href=#307 id=307 data-nosnippet>307</a>                    offset: data_offset + relocation.offset,
-<a href=#308 id=308 data-nosnippet>308</a>                    flags: RelocationFlags::Generic {
-<a href=#309 id=309 data-nosnippet>309</a>                        kind: relocation.kind,
-<a href=#310 id=310 data-nosnippet>310</a>                        encoding: RelocationEncoding::Generic,
-<a href=#311 id=311 data-nosnippet>311</a>                        size: <span class="number">8 </span>* relocation.size,
-<a href=#312 id=312 data-nosnippet>312</a>                    },
-<a href=#313 id=313 data-nosnippet>313</a>                    symbol,
-<a href=#314 id=314 data-nosnippet>314</a>                    addend: relocation.addend,
-<a href=#315 id=315 data-nosnippet>315</a>                },
-<a href=#316 id=316 data-nosnippet>316</a>            )
-<a href=#317 id=317 data-nosnippet>317</a>            .map_err(|e| {
-<a href=#318 id=318 data-nosnippet>318</a>                CompileError::Codegen(<span class="macro">format!</span>(<span class="string">"failed to add .eh_frame relocation: {e}"</span>))
-<a href=#319 id=319 data-nosnippet>319</a>            })<span class="question-mark">?</span>;
-<a href=#320 id=320 data-nosnippet>320</a>    }
-<a href=#321 id=321 data-nosnippet>321</a>    <span class="prelude-val">Ok</span>(())
-<a href=#322 id=322 data-nosnippet>322</a>}
-<a href=#323 id=323 data-nosnippet>323</a>
-<a href=#324 id=324 data-nosnippet>324</a><span class="doccomment">/// Serialize a trampoline's body into its own relocatable object file.
-<a href=#325 id=325 data-nosnippet>325</a></span><span class="kw">pub fn </span>emit_function_body(
-<a href=#326 id=326 data-nosnippet>326</a>    target: <span class="kw-2">&amp;</span>Target,
-<a href=#327 id=327 data-nosnippet>327</a>    kind: <span class="kw-2">&amp;</span>CompiledKind,
-<a href=#328 id=328 data-nosnippet>328</a>    body: <span class="kw-2">&amp;</span>FunctionBody,
-<a href=#329 id=329 data-nosnippet>329</a>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, CompileError&gt; {
-<a href=#330 id=330 data-nosnippet>330</a>    <span class="kw">let </span><span class="kw-2">mut </span>object = get_object_for_target(target.triple())
-<a href=#331 id=331 data-nosnippet>331</a>        .map_err(|e| CompileError::Codegen(<span class="macro">format!</span>(<span class="string">"cannot create object: {e}"</span>)))<span class="question-mark">?</span>;
-<a href=#332 id=332 data-nosnippet>332</a>    <span class="kw">let </span>symbol = object.add_symbol(Symbol {
-<a href=#333 id=333 data-nosnippet>333</a>        name: kind.linkage_name().into_bytes(),
-<a href=#334 id=334 data-nosnippet>334</a>        value: <span class="number">0</span>,
-<a href=#335 id=335 data-nosnippet>335</a>        size: body.body.len() <span class="kw">as </span>u64,
-<a href=#336 id=336 data-nosnippet>336</a>        kind: SymbolKind::Text,
-<a href=#337 id=337 data-nosnippet>337</a>        scope: SymbolScope::Linkage,
-<a href=#338 id=338 data-nosnippet>338</a>        weak: <span class="bool-val">false</span>,
-<a href=#339 id=339 data-nosnippet>339</a>        section: SymbolSection::Undefined,
-<a href=#340 id=340 data-nosnippet>340</a>        flags: SymbolFlags::None,
-<a href=#341 id=341 data-nosnippet>341</a>    });
-<a href=#342 id=342 data-nosnippet>342</a>    <span class="kw">let </span>text = object.section_id(StandardSection::Text);
-<a href=#343 id=343 data-nosnippet>343</a>    object.add_symbol_data(symbol, text, <span class="kw-2">&amp;</span>body.body, <span class="number">4</span>);
-<a href=#344 id=344 data-nosnippet>344</a>    object
-<a href=#345 id=345 data-nosnippet>345</a>        .write()
-<a href=#346 id=346 data-nosnippet>346</a>        .map_err(|e| CompileError::Codegen(<span class="macro">format!</span>(<span class="string">"failed to serialize object: {e}"</span>)))
-<a href=#347 id=347 data-nosnippet>347</a>}
-<a href=#348 id=348 data-nosnippet>348</a>
-<a href=#349 id=349 data-nosnippet>349</a><span class="doccomment">/// Serialize an import trampoline's custom section into its own relocatable object file.
-<a href=#350 id=350 data-nosnippet>350</a></span><span class="kw">pub fn </span>emit_import_trampoline(
-<a href=#351 id=351 data-nosnippet>351</a>    target: <span class="kw-2">&amp;</span>Target,
-<a href=#352 id=352 data-nosnippet>352</a>    kind: <span class="kw-2">&amp;</span>CompiledKind,
-<a href=#353 id=353 data-nosnippet>353</a>    section: <span class="kw-2">&amp;</span>CustomSection,
-<a href=#354 id=354 data-nosnippet>354</a>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, CompileError&gt; {
-<a href=#355 id=355 data-nosnippet>355</a>    <span class="kw">let </span><span class="kw-2">mut </span>object = get_object_for_target(target.triple())
-<a href=#356 id=356 data-nosnippet>356</a>        .map_err(|e| CompileError::Codegen(<span class="macro">format!</span>(<span class="string">"cannot create object: {e}"</span>)))<span class="question-mark">?</span>;
-<a href=#357 id=357 data-nosnippet>357</a>    <span class="kw">let </span>symbol = object.add_symbol(Symbol {
-<a href=#358 id=358 data-nosnippet>358</a>        name: kind.linkage_name().into_bytes(),
-<a href=#359 id=359 data-nosnippet>359</a>        value: <span class="number">0</span>,
-<a href=#360 id=360 data-nosnippet>360</a>        size: section.bytes.len() <span class="kw">as </span>u64,
-<a href=#361 id=361 data-nosnippet>361</a>        kind: SymbolKind::Text,
-<a href=#362 id=362 data-nosnippet>362</a>        scope: SymbolScope::Linkage,
-<a href=#363 id=363 data-nosnippet>363</a>        weak: <span class="bool-val">false</span>,
-<a href=#364 id=364 data-nosnippet>364</a>        section: SymbolSection::Undefined,
-<a href=#365 id=365 data-nosnippet>365</a>        flags: SymbolFlags::None,
-<a href=#366 id=366 data-nosnippet>366</a>    });
-<a href=#367 id=367 data-nosnippet>367</a>    <span class="kw">let </span>text = object.section_id(StandardSection::Text);
-<a href=#368 id=368 data-nosnippet>368</a>    object.add_symbol_data(symbol, text, section.bytes.as_slice(), <span class="number">4</span>);
-<a href=#369 id=369 data-nosnippet>369</a>    object
-<a href=#370 id=370 data-nosnippet>370</a>        .write()
-<a href=#371 id=371 data-nosnippet>371</a>        .map_err(|e| CompileError::Codegen(<span class="macro">format!</span>(<span class="string">"failed to serialize object: {e}"</span>)))
-<a href=#372 id=372 data-nosnippet>372</a>}
-<a href=#373 id=373 data-nosnippet>373</a><span class="doccomment">/// Link all the per-function and trampoline objects (plus the Wasmer metadata
-<a href=#374 id=374 data-nosnippet>374</a>/// object) into the final shared-object module image.
-<a href=#375 id=375 data-nosnippet>375</a></span><span class="attr">#[allow(clippy::too_many_arguments)]
-<a href=#376 id=376 data-nosnippet>376</a></span><span class="kw">pub fn </span>link_module(
-<a href=#377 id=377 data-nosnippet>377</a>    pool: <span class="kw-2">&amp;</span>rayon::ThreadPool,
-<a href=#378 id=378 data-nosnippet>378</a>    target: <span class="kw-2">&amp;</span>Target,
-<a href=#379 id=379 data-nosnippet>379</a>    compile_info_blob: <span class="kw-2">&amp;</span>[u8],
-<a href=#380 id=380 data-nosnippet>380</a>    object_files: Vec&lt;Vec&lt;u8&gt;&gt;,
-<a href=#381 id=381 data-nosnippet>381</a>    import_trampoline_objects: Vec&lt;Vec&lt;u8&gt;&gt;,
-<a href=#382 id=382 data-nosnippet>382</a>    trampoline_objects: Vec&lt;Vec&lt;u8&gt;&gt;,
-<a href=#383 id=383 data-nosnippet>383</a>    dynamic_trampoline_objects: Vec&lt;Vec&lt;u8&gt;&gt;,
-<a href=#384 id=384 data-nosnippet>384</a>    debug_dir: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
-<a href=#385 id=385 data-nosnippet>385</a>    module_hash: <span class="prelude-ty">Option</span>&lt;String&gt;,
-<a href=#386 id=386 data-nosnippet>386</a>    function_max_stack_usage: PrimaryMap&lt;LocalFunctionIndex, <span class="prelude-ty">Option</span>&lt;usize&gt;&gt;,
-<a href=#387 id=387 data-nosnippet>387</a>) -&gt; <span class="prelude-ty">Result</span>&lt;Compilation, CompileError&gt; {
-<a href=#388 id=388 data-nosnippet>388</a>    <span class="kw">let </span>elf = emit_metadata_and_link(
-<a href=#389 id=389 data-nosnippet>389</a>        pool,
-<a href=#390 id=390 data-nosnippet>390</a>        target,
-<a href=#391 id=391 data-nosnippet>391</a>        compile_info_blob,
-<a href=#392 id=392 data-nosnippet>392</a>        CompiledObjects {
-<a href=#393 id=393 data-nosnippet>393</a>            object_files,
-<a href=#394 id=394 data-nosnippet>394</a>            import_trampoline_object_files: import_trampoline_objects,
-<a href=#395 id=395 data-nosnippet>395</a>            trampoline_object_files: trampoline_objects,
-<a href=#396 id=396 data-nosnippet>396</a>            dynamic_trampoline_object_files: dynamic_trampoline_objects,
-<a href=#397 id=397 data-nosnippet>397</a>        },
-<a href=#398 id=398 data-nosnippet>398</a>        debug_dir,
-<a href=#399 id=399 data-nosnippet>399</a>        module_hash,
-<a href=#400 id=400 data-nosnippet>400</a>    )<span class="question-mark">?</span>;
-<a href=#401 id=401 data-nosnippet>401</a>    <span class="prelude-val">Ok</span>(Compilation::Elf {
-<a href=#402 id=402 data-nosnippet>402</a>        data: elf,
-<a href=#403 id=403 data-nosnippet>403</a>        function_max_stack_usage,
-<a href=#404 id=404 data-nosnippet>404</a>    })
-<a href=#405 id=405 data-nosnippet>405</a>}
+<a href=#125 id=125 data-nosnippet>125</a>        RelocationKind::X86GOTPCRel4 =&gt; RelocationFlags::Generic {
+<a href=#126 id=126 data-nosnippet>126</a>            kind: K::GotRelative,
+<a href=#127 id=127 data-nosnippet>127</a>            encoding: RelocationEncoding::Generic,
+<a href=#128 id=128 data-nosnippet>128</a>            size: <span class="number">32</span>,
+<a href=#129 id=129 data-nosnippet>129</a>        },
+<a href=#130 id=130 data-nosnippet>130</a>        RelocationKind::Arm64Call =&gt; RelocationFlags::Generic {
+<a href=#131 id=131 data-nosnippet>131</a>            kind: K::Relative,
+<a href=#132 id=132 data-nosnippet>132</a>            encoding: RelocationEncoding::AArch64Call,
+<a href=#133 id=133 data-nosnippet>133</a>            size: <span class="number">26</span>,
+<a href=#134 id=134 data-nosnippet>134</a>        },
+<a href=#135 id=135 data-nosnippet>135</a>        <span class="comment">// For RISC-V relocations, please refer to:
+<a href=#136 id=136 data-nosnippet>136</a>        // https://github.com/riscv-non-isa/riscv-elf-psabi-doc/blob/2484f950a551c653f1823f1bd11926bf5a57fae3/riscv-elf.adoc#relocations
+<a href=#137 id=137 data-nosnippet>137</a>        </span>RelocationKind::RiscvPCRelHi20 =&gt; RelocationFlags::Elf {
+<a href=#138 id=138 data-nosnippet>138</a>            r_type: elf::R_RISCV_PCREL_HI20,
+<a href=#139 id=139 data-nosnippet>139</a>        },
+<a href=#140 id=140 data-nosnippet>140</a>        RelocationKind::RiscvPCRelLo12I =&gt; RelocationFlags::Elf {
+<a href=#141 id=141 data-nosnippet>141</a>            r_type: elf::R_RISCV_PCREL_LO12_I,
+<a href=#142 id=142 data-nosnippet>142</a>        },
+<a href=#143 id=143 data-nosnippet>143</a>        RelocationKind::RiscvCall =&gt; RelocationFlags::Elf {
+<a href=#144 id=144 data-nosnippet>144</a>            r_type: elf::R_RISCV_CALL_PLT,
+<a href=#145 id=145 data-nosnippet>145</a>        },
+<a href=#146 id=146 data-nosnippet>146</a>        kind =&gt; {
+<a href=#147 id=147 data-nosnippet>147</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::Codegen(<span class="macro">format!</span>(
+<a href=#148 id=148 data-nosnippet>148</a>                <span class="string">"unsupported ELF relocation kind: {kind:?}"
+<a href=#149 id=149 data-nosnippet>149</a>            </span>)));
+<a href=#150 id=150 data-nosnippet>150</a>        }
+<a href=#151 id=151 data-nosnippet>151</a>    })
+<a href=#152 id=152 data-nosnippet>152</a>}
+<a href=#153 id=153 data-nosnippet>153</a>
+<a href=#154 id=154 data-nosnippet>154</a><span class="doccomment">/// Apply the compiled code's relocations to `section`, declaring the referenced symbols.
+<a href=#155 id=155 data-nosnippet>155</a></span><span class="kw">pub fn </span>add_relocations(
+<a href=#156 id=156 data-nosnippet>156</a>    object: <span class="kw-2">&amp;mut </span>Object&lt;<span class="lifetime">'static</span>&gt;,
+<a href=#157 id=157 data-nosnippet>157</a>    section: SectionId,
+<a href=#158 id=158 data-nosnippet>158</a>    relocations: <span class="kw-2">&amp;</span>[Relocation],
+<a href=#159 id=159 data-nosnippet>159</a>    local_symbol: <span class="prelude-ty">Option</span>&lt;(LocalFunctionIndex, SymbolId)&gt;,
+<a href=#160 id=160 data-nosnippet>160</a>) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
+<a href=#161 id=161 data-nosnippet>161</a>    <span class="kw">for </span>relocation <span class="kw">in </span>relocations {
+<a href=#162 id=162 data-nosnippet>162</a>        <span class="kw">let </span>symbol = <span class="kw">match </span>relocation.reloc_target {
+<a href=#163 id=163 data-nosnippet>163</a>            RelocationTarget::LocalFunc(index) =&gt; local_symbol
+<a href=#164 id=164 data-nosnippet>164</a>                .filter(|(local_index, <span class="kw">_</span>)| <span class="kw-2">*</span>local_index == index)
+<a href=#165 id=165 data-nosnippet>165</a>                .map_or_else(
+<a href=#166 id=166 data-nosnippet>166</a>                    || {
+<a href=#167 id=167 data-nosnippet>167</a>                        add_undefined_symbol(
+<a href=#168 id=168 data-nosnippet>168</a>                            object,
+<a href=#169 id=169 data-nosnippet>169</a>                            CompiledKind::Local(index, String::new()).linkage_name(),
+<a href=#170 id=170 data-nosnippet>170</a>                        )
+<a href=#171 id=171 data-nosnippet>171</a>                    },
+<a href=#172 id=172 data-nosnippet>172</a>                    |(<span class="kw">_</span>, symbol)| symbol,
+<a href=#173 id=173 data-nosnippet>173</a>                ),
+<a href=#174 id=174 data-nosnippet>174</a>            RelocationTarget::CustomSection(index) =&gt; add_undefined_symbol(
+<a href=#175 id=175 data-nosnippet>175</a>                object,
+<a href=#176 id=176 data-nosnippet>176</a>                CompiledKind::ImportFunctionTrampoline(
+<a href=#177 id=177 data-nosnippet>177</a>                    FunctionIndex::from_u32(index.as_u32()),
+<a href=#178 id=178 data-nosnippet>178</a>                    FunctionType::default(),
+<a href=#179 id=179 data-nosnippet>179</a>                )
+<a href=#180 id=180 data-nosnippet>180</a>                .linkage_name(),
+<a href=#181 id=181 data-nosnippet>181</a>            ),
+<a href=#182 id=182 data-nosnippet>182</a>            RelocationTarget::LibCall(libcall) =&gt; add_libcall_symbol(object, libcall),
+<a href=#183 id=183 data-nosnippet>183</a>            RelocationTarget::DynamicTrampoline(index) =&gt; add_undefined_symbol(
+<a href=#184 id=184 data-nosnippet>184</a>                object,
+<a href=#185 id=185 data-nosnippet>185</a>                CompiledKind::DynamicFunctionTrampoline(index, FunctionType::default())
+<a href=#186 id=186 data-nosnippet>186</a>                    .linkage_name(),
+<a href=#187 id=187 data-nosnippet>187</a>            ),
+<a href=#188 id=188 data-nosnippet>188</a>        };
+<a href=#189 id=189 data-nosnippet>189</a>        <span class="kw">let </span>flags = relocation_kind_to_flags(relocation.kind)<span class="question-mark">?</span>;
+<a href=#190 id=190 data-nosnippet>190</a>        object
+<a href=#191 id=191 data-nosnippet>191</a>            .add_relocation(
+<a href=#192 id=192 data-nosnippet>192</a>                section,
+<a href=#193 id=193 data-nosnippet>193</a>                ObjectRelocation {
+<a href=#194 id=194 data-nosnippet>194</a>                    offset: relocation.offset <span class="kw">as </span>u64,
+<a href=#195 id=195 data-nosnippet>195</a>                    flags,
+<a href=#196 id=196 data-nosnippet>196</a>                    symbol,
+<a href=#197 id=197 data-nosnippet>197</a>                    addend: relocation.addend,
+<a href=#198 id=198 data-nosnippet>198</a>                },
+<a href=#199 id=199 data-nosnippet>199</a>            )
+<a href=#200 id=200 data-nosnippet>200</a>            .map_err(|e| CompileError::Codegen(<span class="macro">format!</span>(<span class="string">"failed to add ELF relocation: {e}"</span>)))<span class="question-mark">?</span>;
+<a href=#201 id=201 data-nosnippet>201</a>    }
+<a href=#202 id=202 data-nosnippet>202</a>    <span class="prelude-val">Ok</span>(())
+<a href=#203 id=203 data-nosnippet>203</a>}
+<a href=#204 id=204 data-nosnippet>204</a>
+<a href=#205 id=205 data-nosnippet>205</a><span class="doccomment">/// Emit the per-function trap table into a `.w.traps` section, under a weak
+<a href=#206 id=206 data-nosnippet>206</a>/// data symbol so the metadata object can reference it per function.
+<a href=#207 id=207 data-nosnippet>207</a></span><span class="kw">pub fn </span>emit_trap_section(
+<a href=#208 id=208 data-nosnippet>208</a>    object: <span class="kw-2">&amp;mut </span>Object&lt;<span class="lifetime">'static</span>&gt;,
+<a href=#209 id=209 data-nosnippet>209</a>    kind: <span class="kw-2">&amp;</span>CompiledKind,
+<a href=#210 id=210 data-nosnippet>210</a>    traps: <span class="kw-2">&amp;</span>[TrapInformation],
+<a href=#211 id=211 data-nosnippet>211</a>) {
+<a href=#212 id=212 data-nosnippet>212</a>    <span class="kw">let </span><span class="kw-2">mut </span>trap_data = Vec::with_capacity(traps.len() * <span class="number">8 </span>+ size_of::&lt;u32&gt;());
+<a href=#213 id=213 data-nosnippet>213</a>    trap_data.extend_from_slice(<span class="kw-2">&amp;</span>(traps.len() <span class="kw">as </span>u32).to_le_bytes());
+<a href=#214 id=214 data-nosnippet>214</a>    <span class="kw">for </span>trap <span class="kw">in </span>traps {
+<a href=#215 id=215 data-nosnippet>215</a>        trap_data.extend_from_slice(<span class="kw-2">&amp;</span>trap.code_offset.to_le_bytes());
+<a href=#216 id=216 data-nosnippet>216</a>        trap_data.extend_from_slice(<span class="kw-2">&amp;</span>(trap.trap_code <span class="kw">as </span>u32).to_le_bytes());
+<a href=#217 id=217 data-nosnippet>217</a>    }
+<a href=#218 id=218 data-nosnippet>218</a>    <span class="kw">let </span>traps_section = object.add_section(
+<a href=#219 id=219 data-nosnippet>219</a>        object.segment_name(StandardSegment::Data).to_vec(),
+<a href=#220 id=220 data-nosnippet>220</a>        <span class="kw">crate</span>::WASMER_TRAPS_SECTION_NAME.to_vec(),
+<a href=#221 id=221 data-nosnippet>221</a>        SectionKind::Other,
+<a href=#222 id=222 data-nosnippet>222</a>    );
+<a href=#223 id=223 data-nosnippet>223</a>    <span class="kw">let </span>traps_symbol = object.add_symbol(Symbol {
+<a href=#224 id=224 data-nosnippet>224</a>        name: kind.traps_name().into_bytes(),
+<a href=#225 id=225 data-nosnippet>225</a>        value: <span class="number">0</span>,
+<a href=#226 id=226 data-nosnippet>226</a>        size: trap_data.len() <span class="kw">as </span>u64,
+<a href=#227 id=227 data-nosnippet>227</a>        kind: SymbolKind::Data,
+<a href=#228 id=228 data-nosnippet>228</a>        scope: SymbolScope::Linkage,
+<a href=#229 id=229 data-nosnippet>229</a>        weak: <span class="bool-val">true</span>,
+<a href=#230 id=230 data-nosnippet>230</a>        section: SymbolSection::Section(traps_section),
+<a href=#231 id=231 data-nosnippet>231</a>        flags: SymbolFlags::None,
+<a href=#232 id=232 data-nosnippet>232</a>    });
+<a href=#233 id=233 data-nosnippet>233</a>    object.add_symbol_data(traps_symbol, traps_section, <span class="kw-2">&amp;</span>trap_data, <span class="number">4</span>);
+<a href=#234 id=234 data-nosnippet>234</a>}
+<a href=#235 id=235 data-nosnippet>235</a>
+<a href=#236 id=236 data-nosnippet>236</a><span class="doccomment">/// Emit a serialized `.eh_frame` blob into its own section, resolving the
+<a href=#237 id=237 data-nosnippet>237</a>/// recorded relocations against the function's text symbol, the exception
+<a href=#238 id=238 data-nosnippet>238</a>/// personality routine and the function's LSDA section.
+<a href=#239 id=239 data-nosnippet>239</a></span><span class="kw">pub fn </span>emit_eh_frame_section(
+<a href=#240 id=240 data-nosnippet>240</a>    object: <span class="kw-2">&amp;mut </span>Object&lt;<span class="lifetime">'static</span>&gt;,
+<a href=#241 id=241 data-nosnippet>241</a>    eh_frame_bytes: <span class="kw-2">&amp;</span>[u8],
+<a href=#242 id=242 data-nosnippet>242</a>    relocations: <span class="kw-2">&amp;</span>[EhRelocation],
+<a href=#243 id=243 data-nosnippet>243</a>    function_symbol: SymbolId,
+<a href=#244 id=244 data-nosnippet>244</a>    lsda_section_symbol: <span class="prelude-ty">Option</span>&lt;SymbolId&gt;,
+<a href=#245 id=245 data-nosnippet>245</a>) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
+<a href=#246 id=246 data-nosnippet>246</a>    <span class="kw">let </span>section = object.add_section(
+<a href=#247 id=247 data-nosnippet>247</a>        object.segment_name(StandardSegment::Debug).to_vec(),
+<a href=#248 id=248 data-nosnippet>248</a>        <span class="kw">crate</span>::EH_FRAME_SECTION_NAME.to_vec(),
+<a href=#249 id=249 data-nosnippet>249</a>        SectionKind::Other,
+<a href=#250 id=250 data-nosnippet>250</a>    );
+<a href=#251 id=251 data-nosnippet>251</a>    <span class="kw">let </span>data_offset = object.append_section_data(section, eh_frame_bytes, <span class="number">4</span>);
+<a href=#252 id=252 data-nosnippet>252</a>
+<a href=#253 id=253 data-nosnippet>253</a>    <span class="comment">// Add the personality pointer lazily. CIEs reference this slot indirectly
+<a href=#254 id=254 data-nosnippet>254</a>    // and PC-relative, while the slot itself has an absolute relocation to the
+<a href=#255 id=255 data-nosnippet>255</a>    // runtime function. This mirrors the `DW.ref.*` convention used by native
+<a href=#256 id=256 data-nosnippet>256</a>    // compilers and, unlike a GOT-relative data relocation, works across the
+<a href=#257 id=257 data-nosnippet>257</a>    // 64-bit ELF architectures supported by Wasmer.
+<a href=#258 id=258 data-nosnippet>258</a>    </span><span class="kw">let </span><span class="kw-2">mut </span>personality_reference_symbol = <span class="prelude-val">None</span>;
+<a href=#259 id=259 data-nosnippet>259</a>    <span class="kw">for </span>relocation <span class="kw">in </span>relocations {
+<a href=#260 id=260 data-nosnippet>260</a>        <span class="kw">let </span>symbol = <span class="kw">match </span>relocation.target {
+<a href=#261 id=261 data-nosnippet>261</a>            EhTarget::Function =&gt; function_symbol,
+<a href=#262 id=262 data-nosnippet>262</a>            EhTarget::Personality =&gt; {
+<a href=#263 id=263 data-nosnippet>263</a>                <span class="kw">if let </span><span class="prelude-val">Some</span>(symbol) = personality_reference_symbol {
+<a href=#264 id=264 data-nosnippet>264</a>                    symbol
+<a href=#265 id=265 data-nosnippet>265</a>                } <span class="kw">else </span>{
+<a href=#266 id=266 data-nosnippet>266</a>                    <span class="kw">let </span>personality_symbol = add_libcall_symbol(object, LibCall::EHPersonality);
+<a href=#267 id=267 data-nosnippet>267</a>                    <span class="kw">let </span>personality_section =
+<a href=#268 id=268 data-nosnippet>268</a>                        object.section_id(StandardSection::ReadOnlyDataWithRel);
+<a href=#269 id=269 data-nosnippet>269</a>                    <span class="kw">let </span>reference_symbol = object.add_symbol(Symbol {
+<a href=#270 id=270 data-nosnippet>270</a>                        name: <span class="string">b"DW.ref.wasmer_eh_personality"</span>.to_vec(),
+<a href=#271 id=271 data-nosnippet>271</a>                        value: <span class="number">0</span>,
+<a href=#272 id=272 data-nosnippet>272</a>                        size: <span class="number">8</span>,
+<a href=#273 id=273 data-nosnippet>273</a>                        kind: SymbolKind::Data,
+<a href=#274 id=274 data-nosnippet>274</a>                        scope: SymbolScope::Compilation,
+<a href=#275 id=275 data-nosnippet>275</a>                        weak: <span class="bool-val">false</span>,
+<a href=#276 id=276 data-nosnippet>276</a>                        section: SymbolSection::Undefined,
+<a href=#277 id=277 data-nosnippet>277</a>                        flags: SymbolFlags::None,
+<a href=#278 id=278 data-nosnippet>278</a>                    });
+<a href=#279 id=279 data-nosnippet>279</a>                    <span class="kw">let </span>reference_offset =
+<a href=#280 id=280 data-nosnippet>280</a>                        object.add_symbol_data(reference_symbol, personality_section, <span class="kw-2">&amp;</span>[<span class="number">0</span>; <span class="number">8</span>], <span class="number">8</span>);
+<a href=#281 id=281 data-nosnippet>281</a>                    object
+<a href=#282 id=282 data-nosnippet>282</a>                        .add_relocation(
+<a href=#283 id=283 data-nosnippet>283</a>                            personality_section,
+<a href=#284 id=284 data-nosnippet>284</a>                            ObjectRelocation {
+<a href=#285 id=285 data-nosnippet>285</a>                                offset: reference_offset,
+<a href=#286 id=286 data-nosnippet>286</a>                                flags: RelocationFlags::Generic {
+<a href=#287 id=287 data-nosnippet>287</a>                                    kind: ObjectRelocationKind::Absolute,
+<a href=#288 id=288 data-nosnippet>288</a>                                    encoding: RelocationEncoding::Generic,
+<a href=#289 id=289 data-nosnippet>289</a>                                    size: <span class="number">64</span>,
+<a href=#290 id=290 data-nosnippet>290</a>                                },
+<a href=#291 id=291 data-nosnippet>291</a>                                symbol: personality_symbol,
+<a href=#292 id=292 data-nosnippet>292</a>                                addend: <span class="number">0</span>,
+<a href=#293 id=293 data-nosnippet>293</a>                            },
+<a href=#294 id=294 data-nosnippet>294</a>                        )
+<a href=#295 id=295 data-nosnippet>295</a>                        .map_err(|e| {
+<a href=#296 id=296 data-nosnippet>296</a>                            CompileError::Codegen(<span class="macro">format!</span>(
+<a href=#297 id=297 data-nosnippet>297</a>                                <span class="string">"failed to add personality reference relocation: {e}"
+<a href=#298 id=298 data-nosnippet>298</a>                            </span>))
+<a href=#299 id=299 data-nosnippet>299</a>                        })<span class="question-mark">?</span>;
+<a href=#300 id=300 data-nosnippet>300</a>                    personality_reference_symbol = <span class="prelude-val">Some</span>(reference_symbol);
+<a href=#301 id=301 data-nosnippet>301</a>                    reference_symbol
+<a href=#302 id=302 data-nosnippet>302</a>                }
+<a href=#303 id=303 data-nosnippet>303</a>            }
+<a href=#304 id=304 data-nosnippet>304</a>            EhTarget::Lsda =&gt; lsda_section_symbol.ok_or_else(|| {
+<a href=#305 id=305 data-nosnippet>305</a>                CompileError::Codegen(
+<a href=#306 id=306 data-nosnippet>306</a>                    <span class="string">".eh_frame references an LSDA but none was emitted"</span>.to_string(),
+<a href=#307 id=307 data-nosnippet>307</a>                )
+<a href=#308 id=308 data-nosnippet>308</a>            })<span class="question-mark">?</span>,
+<a href=#309 id=309 data-nosnippet>309</a>        };
+<a href=#310 id=310 data-nosnippet>310</a>        object
+<a href=#311 id=311 data-nosnippet>311</a>            .add_relocation(
+<a href=#312 id=312 data-nosnippet>312</a>                section,
+<a href=#313 id=313 data-nosnippet>313</a>                ObjectRelocation {
+<a href=#314 id=314 data-nosnippet>314</a>                    offset: data_offset + relocation.offset,
+<a href=#315 id=315 data-nosnippet>315</a>                    flags: RelocationFlags::Generic {
+<a href=#316 id=316 data-nosnippet>316</a>                        kind: relocation.kind,
+<a href=#317 id=317 data-nosnippet>317</a>                        encoding: RelocationEncoding::Generic,
+<a href=#318 id=318 data-nosnippet>318</a>                        size: <span class="number">8 </span>* relocation.size,
+<a href=#319 id=319 data-nosnippet>319</a>                    },
+<a href=#320 id=320 data-nosnippet>320</a>                    symbol,
+<a href=#321 id=321 data-nosnippet>321</a>                    addend: relocation.addend,
+<a href=#322 id=322 data-nosnippet>322</a>                },
+<a href=#323 id=323 data-nosnippet>323</a>            )
+<a href=#324 id=324 data-nosnippet>324</a>            .map_err(|e| {
+<a href=#325 id=325 data-nosnippet>325</a>                CompileError::Codegen(<span class="macro">format!</span>(<span class="string">"failed to add .eh_frame relocation: {e}"</span>))
+<a href=#326 id=326 data-nosnippet>326</a>            })<span class="question-mark">?</span>;
+<a href=#327 id=327 data-nosnippet>327</a>    }
+<a href=#328 id=328 data-nosnippet>328</a>    <span class="prelude-val">Ok</span>(())
+<a href=#329 id=329 data-nosnippet>329</a>}
+<a href=#330 id=330 data-nosnippet>330</a>
+<a href=#331 id=331 data-nosnippet>331</a><span class="doccomment">/// Serialize a trampoline's body into its own relocatable object file.
+<a href=#332 id=332 data-nosnippet>332</a></span><span class="kw">pub fn </span>emit_function_body(
+<a href=#333 id=333 data-nosnippet>333</a>    target: <span class="kw-2">&amp;</span>Target,
+<a href=#334 id=334 data-nosnippet>334</a>    kind: <span class="kw-2">&amp;</span>CompiledKind,
+<a href=#335 id=335 data-nosnippet>335</a>    body: <span class="kw-2">&amp;</span>FunctionBody,
+<a href=#336 id=336 data-nosnippet>336</a>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, CompileError&gt; {
+<a href=#337 id=337 data-nosnippet>337</a>    <span class="kw">let </span><span class="kw-2">mut </span>object = get_object_for_target(target.triple())
+<a href=#338 id=338 data-nosnippet>338</a>        .map_err(|e| CompileError::Codegen(<span class="macro">format!</span>(<span class="string">"cannot create object: {e}"</span>)))<span class="question-mark">?</span>;
+<a href=#339 id=339 data-nosnippet>339</a>    <span class="kw">let </span>symbol = object.add_symbol(Symbol {
+<a href=#340 id=340 data-nosnippet>340</a>        name: kind.linkage_name().into_bytes(),
+<a href=#341 id=341 data-nosnippet>341</a>        value: <span class="number">0</span>,
+<a href=#342 id=342 data-nosnippet>342</a>        size: body.body.len() <span class="kw">as </span>u64,
+<a href=#343 id=343 data-nosnippet>343</a>        kind: SymbolKind::Text,
+<a href=#344 id=344 data-nosnippet>344</a>        scope: SymbolScope::Linkage,
+<a href=#345 id=345 data-nosnippet>345</a>        weak: <span class="bool-val">false</span>,
+<a href=#346 id=346 data-nosnippet>346</a>        section: SymbolSection::Undefined,
+<a href=#347 id=347 data-nosnippet>347</a>        flags: SymbolFlags::None,
+<a href=#348 id=348 data-nosnippet>348</a>    });
+<a href=#349 id=349 data-nosnippet>349</a>    <span class="kw">let </span>text = object.section_id(StandardSection::Text);
+<a href=#350 id=350 data-nosnippet>350</a>    object.add_symbol_data(symbol, text, <span class="kw-2">&amp;</span>body.body, <span class="number">4</span>);
+<a href=#351 id=351 data-nosnippet>351</a>    object
+<a href=#352 id=352 data-nosnippet>352</a>        .write()
+<a href=#353 id=353 data-nosnippet>353</a>        .map_err(|e| CompileError::Codegen(<span class="macro">format!</span>(<span class="string">"failed to serialize object: {e}"</span>)))
+<a href=#354 id=354 data-nosnippet>354</a>}
+<a href=#355 id=355 data-nosnippet>355</a>
+<a href=#356 id=356 data-nosnippet>356</a><span class="doccomment">/// Serialize an import trampoline's custom section into its own relocatable object file.
+<a href=#357 id=357 data-nosnippet>357</a></span><span class="kw">pub fn </span>emit_import_trampoline(
+<a href=#358 id=358 data-nosnippet>358</a>    target: <span class="kw-2">&amp;</span>Target,
+<a href=#359 id=359 data-nosnippet>359</a>    kind: <span class="kw-2">&amp;</span>CompiledKind,
+<a href=#360 id=360 data-nosnippet>360</a>    section: <span class="kw-2">&amp;</span>CustomSection,
+<a href=#361 id=361 data-nosnippet>361</a>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, CompileError&gt; {
+<a href=#362 id=362 data-nosnippet>362</a>    <span class="kw">let </span><span class="kw-2">mut </span>object = get_object_for_target(target.triple())
+<a href=#363 id=363 data-nosnippet>363</a>        .map_err(|e| CompileError::Codegen(<span class="macro">format!</span>(<span class="string">"cannot create object: {e}"</span>)))<span class="question-mark">?</span>;
+<a href=#364 id=364 data-nosnippet>364</a>    <span class="kw">let </span>symbol = object.add_symbol(Symbol {
+<a href=#365 id=365 data-nosnippet>365</a>        name: kind.linkage_name().into_bytes(),
+<a href=#366 id=366 data-nosnippet>366</a>        value: <span class="number">0</span>,
+<a href=#367 id=367 data-nosnippet>367</a>        size: section.bytes.len() <span class="kw">as </span>u64,
+<a href=#368 id=368 data-nosnippet>368</a>        kind: SymbolKind::Text,
+<a href=#369 id=369 data-nosnippet>369</a>        scope: SymbolScope::Linkage,
+<a href=#370 id=370 data-nosnippet>370</a>        weak: <span class="bool-val">false</span>,
+<a href=#371 id=371 data-nosnippet>371</a>        section: SymbolSection::Undefined,
+<a href=#372 id=372 data-nosnippet>372</a>        flags: SymbolFlags::None,
+<a href=#373 id=373 data-nosnippet>373</a>    });
+<a href=#374 id=374 data-nosnippet>374</a>    <span class="kw">let </span>text = object.section_id(StandardSection::Text);
+<a href=#375 id=375 data-nosnippet>375</a>    object.add_symbol_data(symbol, text, section.bytes.as_slice(), <span class="number">4</span>);
+<a href=#376 id=376 data-nosnippet>376</a>    object
+<a href=#377 id=377 data-nosnippet>377</a>        .write()
+<a href=#378 id=378 data-nosnippet>378</a>        .map_err(|e| CompileError::Codegen(<span class="macro">format!</span>(<span class="string">"failed to serialize object: {e}"</span>)))
+<a href=#379 id=379 data-nosnippet>379</a>}
+<a href=#380 id=380 data-nosnippet>380</a><span class="doccomment">/// Link all the per-function and trampoline objects (plus the Wasmer metadata
+<a href=#381 id=381 data-nosnippet>381</a>/// object) into the final shared-object module image.
+<a href=#382 id=382 data-nosnippet>382</a></span><span class="attr">#[allow(clippy::too_many_arguments)]
+<a href=#383 id=383 data-nosnippet>383</a></span><span class="kw">pub fn </span>link_module(
+<a href=#384 id=384 data-nosnippet>384</a>    pool: <span class="kw-2">&amp;</span>rayon::ThreadPool,
+<a href=#385 id=385 data-nosnippet>385</a>    target: <span class="kw-2">&amp;</span>Target,
+<a href=#386 id=386 data-nosnippet>386</a>    compile_info_blob: <span class="kw-2">&amp;</span>[u8],
+<a href=#387 id=387 data-nosnippet>387</a>    object_files: Vec&lt;Vec&lt;u8&gt;&gt;,
+<a href=#388 id=388 data-nosnippet>388</a>    import_trampoline_objects: Vec&lt;Vec&lt;u8&gt;&gt;,
+<a href=#389 id=389 data-nosnippet>389</a>    trampoline_objects: Vec&lt;Vec&lt;u8&gt;&gt;,
+<a href=#390 id=390 data-nosnippet>390</a>    dynamic_trampoline_objects: Vec&lt;Vec&lt;u8&gt;&gt;,
+<a href=#391 id=391 data-nosnippet>391</a>    debug_dir: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
+<a href=#392 id=392 data-nosnippet>392</a>    module_hash: <span class="prelude-ty">Option</span>&lt;String&gt;,
+<a href=#393 id=393 data-nosnippet>393</a>    function_max_stack_usage: PrimaryMap&lt;LocalFunctionIndex, <span class="prelude-ty">Option</span>&lt;usize&gt;&gt;,
+<a href=#394 id=394 data-nosnippet>394</a>) -&gt; <span class="prelude-ty">Result</span>&lt;Compilation, CompileError&gt; {
+<a href=#395 id=395 data-nosnippet>395</a>    <span class="kw">let </span>elf = emit_metadata_and_link(
+<a href=#396 id=396 data-nosnippet>396</a>        pool,
+<a href=#397 id=397 data-nosnippet>397</a>        target,
+<a href=#398 id=398 data-nosnippet>398</a>        compile_info_blob,
+<a href=#399 id=399 data-nosnippet>399</a>        CompiledObjects {
+<a href=#400 id=400 data-nosnippet>400</a>            emit_trap_offsets: <span class="bool-val">true</span>,
+<a href=#401 id=401 data-nosnippet>401</a>            object_files,
+<a href=#402 id=402 data-nosnippet>402</a>            import_trampoline_object_files: import_trampoline_objects,
+<a href=#403 id=403 data-nosnippet>403</a>            trampoline_object_files: trampoline_objects,
+<a href=#404 id=404 data-nosnippet>404</a>            dynamic_trampoline_object_files: dynamic_trampoline_objects,
+<a href=#405 id=405 data-nosnippet>405</a>        },
+<a href=#406 id=406 data-nosnippet>406</a>        debug_dir,
+<a href=#407 id=407 data-nosnippet>407</a>        module_hash,
+<a href=#408 id=408 data-nosnippet>408</a>    )<span class="question-mark">?</span>;
+<a href=#409 id=409 data-nosnippet>409</a>    <span class="prelude-val">Ok</span>(Compilation::Elf {
+<a href=#410 id=410 data-nosnippet>410</a>        data: elf,
+<a href=#411 id=411 data-nosnippet>411</a>        function_max_stack_usage,
+<a href=#412 id=412 data-nosnippet>412</a>    })
+<a href=#413 id=413 data-nosnippet>413</a>}
 </code></pre></div></section></main></body></html>

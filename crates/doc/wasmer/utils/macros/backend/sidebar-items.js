@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"macro":["gen_rt_ty","match_rt"]};
+window.SIDEBAR_ITEMS = {"macro":[["gen_rt_ty",1],["match_rt",1]]};

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["call_dynamic","read_value","write_value"],"macro":["read_value","write_value"]};
+window.SIDEBAR_ITEMS = {"fn":["call_dynamic","read_value","write_value"],"macro":[["read_value",1],["write_value",1]]};

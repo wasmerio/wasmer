@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"macro":["get_input_str","get_input_str_bus","get_input_str_bus_ok","get_input_str_ok","wasi_dl_err","wasi_try","wasi_try_dl","wasi_try_mem","wasi_try_mem_ok","wasi_try_mem_ok_ok","wasi_try_ok","wasi_try_ok_ok"]};
+window.SIDEBAR_ITEMS = {"macro":[["get_input_str",1],["get_input_str_bus",1],["get_input_str_bus_ok",1],["get_input_str_ok",1],["wasi_dl_err",1],["wasi_try",1],["wasi_try_dl",1],["wasi_try_mem",1],["wasi_try_mem_ok",1],["wasi_try_mem_ok_ok",1],["wasi_try_ok",1],["wasi_try_ok_ok",1]]};

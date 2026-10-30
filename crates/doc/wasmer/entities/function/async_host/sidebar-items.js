@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["AsyncFunctionEnv"],"macro":["impl_async_host_function_with_env","impl_async_host_function_without_env"],"trait":["AsyncHostFunction"]};
+window.SIDEBAR_ITEMS = {"enum":["AsyncFunctionEnv"],"macro":[["impl_async_host_function_with_env",1],["impl_async_host_function_without_env",1]],"trait":["AsyncHostFunction"]};

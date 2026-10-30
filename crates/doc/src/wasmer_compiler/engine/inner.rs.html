@@ -1,9 +1,9 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler/src/engine/inner.rs`."><title>inner.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-17e0aaed.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_compiler" data-themes="" data-resource-suffix="" data-rustdoc-version="1.96.1 (31fca3adb 2026-06-26)" data-channel="1.96.1" data-search-js="search-b5634cc7.js" data-stringdex-js="stringdex-2da4960a.js" data-settings-js="settings-170eb4bf.js" ><script src="../../../static.files/storage-41dd4d93.js"></script><script defer src="../../../static.files/src-script-813739b1.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-5013f961.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-f7c3ffd8.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><h1><div class="sub-heading">wasmer_compiler/engine/</div>inner.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="kw">use </span>std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler/src/engine/inner.rs`."><title>inner.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-0c87338a.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_compiler" data-themes="" data-resource-suffix="" data-rustdoc-version="1.99.1 (58cf8f9c3 2026-10-13)" data-channel="1.99.1" data-search-js="search-cf4fc35e.js" data-stringdex-js="stringdex-b5109af9.js" data-settings-js="settings-170eb4bf.js" ><script src="../../../static.files/storage-41dd4d93.js"></script><script defer src="../../../static.files/src-script-813739b1.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-417ebf0a.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-9f56287d.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><h1><div class="sub-heading">wasmer_compiler/engine/</div>inner.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="kw">use </span>std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 <a href=#2 id=2 data-nosnippet>2</a><span class="kw">use </span>std::sync::{Arc, Mutex};
 <a href=#3 id=3 data-nosnippet>3</a>
 <a href=#4 id=4 data-nosnippet>4</a><span class="kw">use </span><span class="kw">crate</span>::engine::builder::EngineBuilder;
 <a href=#5 id=5 data-nosnippet>5</a><span class="attr">#[cfg(feature = <span class="string">"compiler"</span>)]
-<a href=#6 id=6 data-nosnippet>6</a></span><span class="kw">use </span>crate::{Compiler, CompilerConfig, Debugger};
+<a href=#6 id=6 data-nosnippet>6</a></span><span class="kw">use crate</span>::{Compiler, CompilerConfig, Debugger};
 <a href=#7 id=7 data-nosnippet>7</a>
 <a href=#8 id=8 data-nosnippet>8</a><span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
 <a href=#9 id=9 data-nosnippet>9</a></span><span class="kw">use </span>wasmer_types::CompilationProgressCallback;
@@ -32,7 +32,7 @@
 <a href=#32 id=32 data-nosnippet>32</a>};
 <a href=#33 id=33 data-nosnippet>33</a>
 <a href=#34 id=34 data-nosnippet>34</a><span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
-<a href=#35 id=35 data-nosnippet>35</a></span><span class="kw">use </span>crate::{
+<a href=#35 id=35 data-nosnippet>35</a></span><span class="kw">use crate</span>::{
 <a href=#36 id=36 data-nosnippet>36</a>    Artifact, BaseTunables, CodeMemory, FunctionExtent, GlobalFrameInfoRegistration, Tunables,
 <a href=#37 id=37 data-nosnippet>37</a>    engine::mapped_binary::MemoryMappedBinary,
 <a href=#38 id=38 data-nosnippet>38</a>    types::{
@@ -293,248 +293,248 @@
 <a href=#293 id=293 data-nosnippet>293</a>        <span class="kw">unsafe </span>{
 <a href=#294 id=294 data-nosnippet>294</a>            <span class="kw">let </span><span class="kw-2">mut </span>file = std::fs::File::open(file_ref)<span class="question-mark">?</span>;
 <a href=#295 id=295 data-nosnippet>295</a>            <span class="kw">let </span><span class="kw-2">mut </span>magic = [<span class="number">0</span>; <span class="number">4</span>];
-<a href=#296 id=296 data-nosnippet>296</a>            <span class="kw">let </span>is_elf = file.read_exact(<span class="kw-2">&amp;mut </span>magic).is_ok() &amp;&amp; magic == object::elf::ELFMAG;
-<a href=#297 id=297 data-nosnippet>297</a>            <span class="kw">if </span>is_elf {
-<a href=#298 id=298 data-nosnippet>298</a>                <span class="kw">return </span><span class="prelude-val">Ok</span>(Arc::new(Artifact::deserialize_file(<span class="self">self</span>, file_ref)<span class="question-mark">?</span>));
-<a href=#299 id=299 data-nosnippet>299</a>            }
-<a href=#300 id=300 data-nosnippet>300</a>            file.rewind()<span class="question-mark">?</span>;
-<a href=#301 id=301 data-nosnippet>301</a>            <span class="self">self</span>.deserialize(
-<a href=#302 id=302 data-nosnippet>302</a>                OwnedBuffer::from_file(<span class="kw-2">&amp;</span>file)
-<a href=#303 id=303 data-nosnippet>303</a>                    .map_err(|e| DeserializeError::Generic(e.to_string()))<span class="question-mark">?</span>,
-<a href=#304 id=304 data-nosnippet>304</a>            )
-<a href=#305 id=305 data-nosnippet>305</a>        }
-<a href=#306 id=306 data-nosnippet>306</a>    }
-<a href=#307 id=307 data-nosnippet>307</a>
-<a href=#308 id=308 data-nosnippet>308</a>    <span class="doccomment">/// Deserialize from a file path.
-<a href=#309 id=309 data-nosnippet>309</a>    ///
-<a href=#310 id=310 data-nosnippet>310</a>    /// # Safety
-<a href=#311 id=311 data-nosnippet>311</a>    ///
-<a href=#312 id=312 data-nosnippet>312</a>    /// See [`Artifact::deserialize_unchecked`].
-<a href=#313 id=313 data-nosnippet>313</a>    </span><span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
-<a href=#314 id=314 data-nosnippet>314</a>    </span><span class="kw">pub unsafe fn </span>deserialize_from_file_unchecked(
-<a href=#315 id=315 data-nosnippet>315</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#316 id=316 data-nosnippet>316</a>        file_ref: <span class="kw-2">&amp;</span>Path,
-<a href=#317 id=317 data-nosnippet>317</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;Arc&lt;Artifact&gt;, DeserializeError&gt; {
-<a href=#318 id=318 data-nosnippet>318</a>        <span class="kw">unsafe </span>{
-<a href=#319 id=319 data-nosnippet>319</a>            <span class="kw">let </span>file = std::fs::File::open(file_ref)<span class="question-mark">?</span>;
-<a href=#320 id=320 data-nosnippet>320</a>            <span class="self">self</span>.deserialize_unchecked(
-<a href=#321 id=321 data-nosnippet>321</a>                OwnedBuffer::from_file(<span class="kw-2">&amp;</span>file)
-<a href=#322 id=322 data-nosnippet>322</a>                    .map_err(|e| DeserializeError::Generic(e.to_string()))<span class="question-mark">?</span>,
-<a href=#323 id=323 data-nosnippet>323</a>            )
-<a href=#324 id=324 data-nosnippet>324</a>        }
-<a href=#325 id=325 data-nosnippet>325</a>    }
-<a href=#326 id=326 data-nosnippet>326</a>
-<a href=#327 id=327 data-nosnippet>327</a>    <span class="doccomment">/// A unique identifier for this object.
-<a href=#328 id=328 data-nosnippet>328</a>    ///
-<a href=#329 id=329 data-nosnippet>329</a>    /// This exists to allow us to compare two Engines for equality. Otherwise,
-<a href=#330 id=330 data-nosnippet>330</a>    /// comparing two trait objects unsafely relies on implementation details
-<a href=#331 id=331 data-nosnippet>331</a>    /// of trait representation.
-<a href=#332 id=332 data-nosnippet>332</a>    </span><span class="kw">pub fn </span>id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>EngineId {
-<a href=#333 id=333 data-nosnippet>333</a>        <span class="kw-2">&amp;</span><span class="self">self</span>.engine_id
-<a href=#334 id=334 data-nosnippet>334</a>    }
-<a href=#335 id=335 data-nosnippet>335</a>
-<a href=#336 id=336 data-nosnippet>336</a>    <span class="doccomment">/// Clone the engine
-<a href=#337 id=337 data-nosnippet>337</a>    </span><span class="kw">pub fn </span>cloned(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
-<a href=#338 id=338 data-nosnippet>338</a>        <span class="self">self</span>.clone()
-<a href=#339 id=339 data-nosnippet>339</a>    }
-<a href=#340 id=340 data-nosnippet>340</a>
-<a href=#341 id=341 data-nosnippet>341</a>    <span class="doccomment">/// Attach a Tunable to this engine
-<a href=#342 id=342 data-nosnippet>342</a>    </span><span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
-<a href=#343 id=343 data-nosnippet>343</a>    </span><span class="kw">pub fn </span>set_tunables(<span class="kw-2">&amp;mut </span><span class="self">self</span>, tunables: <span class="kw">impl </span>Tunables + Send + Sync + <span class="lifetime">'static</span>) {
-<a href=#344 id=344 data-nosnippet>344</a>        <span class="self">self</span>.tunables = Arc::new(tunables);
-<a href=#345 id=345 data-nosnippet>345</a>    }
-<a href=#346 id=346 data-nosnippet>346</a>
-<a href=#347 id=347 data-nosnippet>347</a>    <span class="doccomment">/// Get a reference to attached Tunable of this engine
-<a href=#348 id=348 data-nosnippet>348</a>    </span><span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
-<a href=#349 id=349 data-nosnippet>349</a>    </span><span class="kw">pub fn </span>tunables(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="kw">dyn </span>Tunables {
-<a href=#350 id=350 data-nosnippet>350</a>        <span class="self">self</span>.tunables.as_ref()
-<a href=#351 id=351 data-nosnippet>351</a>    }
-<a href=#352 id=352 data-nosnippet>352</a>
-<a href=#353 id=353 data-nosnippet>353</a>    <span class="doccomment">/// Add suggested optimizations to this engine.
-<a href=#354 id=354 data-nosnippet>354</a>    </span><span class="attr">#[deprecated(note = <span class="string">"User compilation options are currently unused"</span>)]
-<a href=#355 id=355 data-nosnippet>355</a>    </span><span class="kw">pub fn </span>with_opts(
-<a href=#356 id=356 data-nosnippet>356</a>        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-<a href=#357 id=357 data-nosnippet>357</a>        _suggested_opts: <span class="kw-2">&amp;</span>wasmer_types::target::UserCompilerOptimizations,
-<a href=#358 id=358 data-nosnippet>358</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
-<a href=#359 id=359 data-nosnippet>359</a>        <span class="prelude-val">Ok</span>(())
-<a href=#360 id=360 data-nosnippet>360</a>    }
-<a href=#361 id=361 data-nosnippet>361</a>}
-<a href=#362 id=362 data-nosnippet>362</a>
-<a href=#363 id=363 data-nosnippet>363</a><span class="kw">impl </span>std::fmt::Debug <span class="kw">for </span>Engine {
-<a href=#364 id=364 data-nosnippet>364</a>    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; core::fmt::Result {
-<a href=#365 id=365 data-nosnippet>365</a>        <span class="macro">write!</span>(f, <span class="string">"{}"</span>, <span class="self">self</span>.deterministic_id())
-<a href=#366 id=366 data-nosnippet>366</a>    }
-<a href=#367 id=367 data-nosnippet>367</a>}
-<a href=#368 id=368 data-nosnippet>368</a>
-<a href=#369 id=369 data-nosnippet>369</a><span class="doccomment">/// The inner contents of `Engine`
-<a href=#370 id=370 data-nosnippet>370</a></span><span class="kw">pub struct </span>EngineInner {
-<a href=#371 id=371 data-nosnippet>371</a>    <span class="attr">#[cfg(feature = <span class="string">"compiler"</span>)]
-<a href=#372 id=372 data-nosnippet>372</a>    </span><span class="doccomment">/// The compiler and cpu features
-<a href=#373 id=373 data-nosnippet>373</a>    </span>compiler: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>Compiler&gt;&gt;,
-<a href=#374 id=374 data-nosnippet>374</a>    <span class="attr">#[cfg(feature = <span class="string">"compiler"</span>)]
-<a href=#375 id=375 data-nosnippet>375</a>    </span><span class="doccomment">/// The compiler and cpu features
-<a href=#376 id=376 data-nosnippet>376</a>    </span>features: Features,
-<a href=#377 id=377 data-nosnippet>377</a>    <span class="doccomment">/// The code memory is responsible of publishing the compiled
-<a href=#378 id=378 data-nosnippet>378</a>    /// functions to memory.
-<a href=#379 id=379 data-nosnippet>379</a>    </span><span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
-<a href=#380 id=380 data-nosnippet>380</a>    </span>code_memory: Vec&lt;CodeMemory&gt;,
-<a href=#381 id=381 data-nosnippet>381</a>    <span class="doccomment">/// Memory-mapped ELF artifact image, produced by `--experimental-artifact`.
-<a href=#382 id=382 data-nosnippet>382</a>    </span><span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
-<a href=#383 id=383 data-nosnippet>383</a>    </span>elf_mapped_binary: Vec&lt;MemoryMappedBinary&gt;,
-<a href=#384 id=384 data-nosnippet>384</a>    <span class="doccomment">/// The signature registry is used mainly to operate with trampolines
-<a href=#385 id=385 data-nosnippet>385</a>    /// performantly.
-<a href=#386 id=386 data-nosnippet>386</a>    </span><span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
-<a href=#387 id=387 data-nosnippet>387</a>    </span>signatures: SignatureRegistry,
-<a href=#388 id=388 data-nosnippet>388</a>}
-<a href=#389 id=389 data-nosnippet>389</a>
-<a href=#390 id=390 data-nosnippet>390</a><span class="kw">impl </span>std::fmt::Debug <span class="kw">for </span>EngineInner {
-<a href=#391 id=391 data-nosnippet>391</a>    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; core::fmt::Result {
-<a href=#392 id=392 data-nosnippet>392</a>        <span class="kw">let </span><span class="kw-2">mut </span>formatter = f.debug_struct(<span class="string">"EngineInner"</span>);
-<a href=#393 id=393 data-nosnippet>393</a>        <span class="attr">#[cfg(feature = <span class="string">"compiler"</span>)]
-<a href=#394 id=394 data-nosnippet>394</a>        </span>{
-<a href=#395 id=395 data-nosnippet>395</a>            formatter.field(<span class="string">"compiler"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.compiler);
-<a href=#396 id=396 data-nosnippet>396</a>            formatter.field(<span class="string">"features"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.features);
-<a href=#397 id=397 data-nosnippet>397</a>        }
-<a href=#398 id=398 data-nosnippet>398</a>
-<a href=#399 id=399 data-nosnippet>399</a>        <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
-<a href=#400 id=400 data-nosnippet>400</a>        </span>{
-<a href=#401 id=401 data-nosnippet>401</a>            formatter.field(<span class="string">"signatures"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.signatures);
-<a href=#402 id=402 data-nosnippet>402</a>        }
-<a href=#403 id=403 data-nosnippet>403</a>
-<a href=#404 id=404 data-nosnippet>404</a>        formatter.finish()
-<a href=#405 id=405 data-nosnippet>405</a>    }
-<a href=#406 id=406 data-nosnippet>406</a>}
-<a href=#407 id=407 data-nosnippet>407</a>
-<a href=#408 id=408 data-nosnippet>408</a><span class="kw">impl </span>EngineInner {
-<a href=#409 id=409 data-nosnippet>409</a>    <span class="doccomment">/// Gets the compiler associated to this engine.
-<a href=#410 id=410 data-nosnippet>410</a>    </span><span class="attr">#[cfg(feature = <span class="string">"compiler"</span>)]
-<a href=#411 id=411 data-nosnippet>411</a>    </span><span class="kw">pub fn </span>compiler(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span><span class="kw">dyn </span>Compiler, CompileError&gt; {
-<a href=#412 id=412 data-nosnippet>412</a>        <span class="kw">match </span><span class="self">self</span>.compiler.as_ref() {
-<a href=#413 id=413 data-nosnippet>413</a>            <span class="prelude-val">None </span>=&gt; <span class="prelude-val">Err</span>(CompileError::Codegen(
-<a href=#414 id=414 data-nosnippet>414</a>                <span class="string">"No compiler compiled into executable"</span>.to_string(),
-<a href=#415 id=415 data-nosnippet>415</a>            )),
-<a href=#416 id=416 data-nosnippet>416</a>            <span class="prelude-val">Some</span>(compiler) =&gt; <span class="prelude-val">Ok</span>(<span class="kw-2">&amp;**</span>compiler),
-<a href=#417 id=417 data-nosnippet>417</a>        }
-<a href=#418 id=418 data-nosnippet>418</a>    }
-<a href=#419 id=419 data-nosnippet>419</a>
-<a href=#420 id=420 data-nosnippet>420</a>    <span class="doccomment">/// Validate the module
-<a href=#421 id=421 data-nosnippet>421</a>    </span><span class="attr">#[cfg(feature = <span class="string">"compiler"</span>)]
-<a href=#422 id=422 data-nosnippet>422</a>    </span><span class="kw">pub fn </span>validate(<span class="kw-2">&amp;</span><span class="self">self</span>, data: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
-<a href=#423 id=423 data-nosnippet>423</a>        <span class="kw">let </span>compiler = <span class="self">self</span>.compiler()<span class="question-mark">?</span>;
-<a href=#424 id=424 data-nosnippet>424</a>        compiler.validate_module(<span class="kw-2">&amp;</span><span class="self">self</span>.features, data)
-<a href=#425 id=425 data-nosnippet>425</a>    }
-<a href=#426 id=426 data-nosnippet>426</a>
-<a href=#427 id=427 data-nosnippet>427</a>    <span class="doccomment">/// The Wasm features
-<a href=#428 id=428 data-nosnippet>428</a>    </span><span class="attr">#[cfg(feature = <span class="string">"compiler"</span>)]
-<a href=#429 id=429 data-nosnippet>429</a>    </span><span class="kw">pub fn </span>features(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Features {
-<a href=#430 id=430 data-nosnippet>430</a>        <span class="kw-2">&amp;</span><span class="self">self</span>.features
-<a href=#431 id=431 data-nosnippet>431</a>    }
-<a href=#432 id=432 data-nosnippet>432</a>
-<a href=#433 id=433 data-nosnippet>433</a>    <span class="doccomment">/// Allocate compiled functions into memory
-<a href=#434 id=434 data-nosnippet>434</a>    </span><span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
-<a href=#435 id=435 data-nosnippet>435</a>    #[allow(clippy::type_complexity)]
-<a href=#436 id=436 data-nosnippet>436</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>allocate&lt;<span class="lifetime">'a</span>, FunctionBody, CustomSection&gt;(
-<a href=#437 id=437 data-nosnippet>437</a>        <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span><span class="self">self</span>,
-<a href=#438 id=438 data-nosnippet>438</a>        _module: <span class="kw-2">&amp;</span>wasmer_types::ModuleInfo,
-<a href=#439 id=439 data-nosnippet>439</a>        functions: <span class="kw">impl </span>ExactSizeIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">'a </span>FunctionBody&gt; + <span class="lifetime">'a</span>,
-<a href=#440 id=440 data-nosnippet>440</a>        function_call_trampolines: <span class="kw">impl </span>ExactSizeIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">'a </span>FunctionBody&gt; + <span class="lifetime">'a</span>,
-<a href=#441 id=441 data-nosnippet>441</a>        dynamic_function_trampolines: <span class="kw">impl </span>ExactSizeIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">'a </span>FunctionBody&gt; + <span class="lifetime">'a</span>,
-<a href=#442 id=442 data-nosnippet>442</a>        custom_sections: <span class="kw">impl </span>ExactSizeIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">'a </span>CustomSection&gt; + Clone + <span class="lifetime">'a</span>,
-<a href=#443 id=443 data-nosnippet>443</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;
-<a href=#444 id=444 data-nosnippet>444</a>        (
-<a href=#445 id=445 data-nosnippet>445</a>            PrimaryMap&lt;LocalFunctionIndex, FunctionExtent&gt;,
-<a href=#446 id=446 data-nosnippet>446</a>            PrimaryMap&lt;SignatureIndex, VMTrampoline&gt;,
-<a href=#447 id=447 data-nosnippet>447</a>            PrimaryMap&lt;FunctionIndex, FunctionBodyPtr&gt;,
-<a href=#448 id=448 data-nosnippet>448</a>            PrimaryMap&lt;SectionIndex, SectionBodyPtr&gt;,
-<a href=#449 id=449 data-nosnippet>449</a>        ),
-<a href=#450 id=450 data-nosnippet>450</a>        CompileError,
-<a href=#451 id=451 data-nosnippet>451</a>    &gt;
-<a href=#452 id=452 data-nosnippet>452</a>    <span class="kw">where
-<a href=#453 id=453 data-nosnippet>453</a>        </span>FunctionBody: FunctionBodyLike&lt;<span class="lifetime">'a</span>&gt; + <span class="lifetime">'a</span>,
-<a href=#454 id=454 data-nosnippet>454</a>        CustomSection: CustomSectionLike&lt;<span class="lifetime">'a</span>&gt; + <span class="lifetime">'a</span>,
-<a href=#455 id=455 data-nosnippet>455</a>    {
-<a href=#456 id=456 data-nosnippet>456</a>        <span class="kw">let </span>functions_len = functions.len();
-<a href=#457 id=457 data-nosnippet>457</a>        <span class="kw">let </span>function_call_trampolines_len = function_call_trampolines.len();
-<a href=#458 id=458 data-nosnippet>458</a>
-<a href=#459 id=459 data-nosnippet>459</a>        <span class="kw">let </span>function_bodies = functions
-<a href=#460 id=460 data-nosnippet>460</a>            .chain(function_call_trampolines)
-<a href=#461 id=461 data-nosnippet>461</a>            .chain(dynamic_function_trampolines)
-<a href=#462 id=462 data-nosnippet>462</a>            .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
-<a href=#463 id=463 data-nosnippet>463</a>        <span class="kw">let </span>(executable_sections, data_sections): (Vec&lt;<span class="kw">_</span>&gt;, <span class="kw">_</span>) = custom_sections
-<a href=#464 id=464 data-nosnippet>464</a>            .clone()
-<a href=#465 id=465 data-nosnippet>465</a>            .partition(|section| section.protection() == CustomSectionProtection::ReadExecute);
-<a href=#466 id=466 data-nosnippet>466</a>        <span class="self">self</span>.code_memory.push(CodeMemory::new());
-<a href=#467 id=467 data-nosnippet>467</a>
-<a href=#468 id=468 data-nosnippet>468</a>        <span class="kw">let </span>(<span class="kw-2">mut </span>allocated_functions, allocated_executable_sections, allocated_data_sections) =
-<a href=#469 id=469 data-nosnippet>469</a>            <span class="self">self</span>.code_memory
-<a href=#470 id=470 data-nosnippet>470</a>                .last_mut()
-<a href=#471 id=471 data-nosnippet>471</a>                .unwrap()
-<a href=#472 id=472 data-nosnippet>472</a>                .allocate(
-<a href=#473 id=473 data-nosnippet>473</a>                    function_bodies.as_slice(),
-<a href=#474 id=474 data-nosnippet>474</a>                    executable_sections.as_slice(),
-<a href=#475 id=475 data-nosnippet>475</a>                    data_sections.as_slice(),
-<a href=#476 id=476 data-nosnippet>476</a>                )
-<a href=#477 id=477 data-nosnippet>477</a>                .map_err(|message| {
-<a href=#478 id=478 data-nosnippet>478</a>                    CompileError::Resource(<span class="macro">format!</span>(
-<a href=#479 id=479 data-nosnippet>479</a>                        <span class="string">"failed to allocate memory for functions: {message}"</span>,
-<a href=#480 id=480 data-nosnippet>480</a>                    ))
-<a href=#481 id=481 data-nosnippet>481</a>                })<span class="question-mark">?</span>;
-<a href=#482 id=482 data-nosnippet>482</a>
-<a href=#483 id=483 data-nosnippet>483</a>        <span class="kw">let </span>allocated_functions_result = allocated_functions
-<a href=#484 id=484 data-nosnippet>484</a>            .drain(<span class="number">0</span>..functions_len)
-<a href=#485 id=485 data-nosnippet>485</a>            .map(|slice| FunctionExtent {
-<a href=#486 id=486 data-nosnippet>486</a>                ptr: FunctionBodyPtr(slice.as_ptr()),
-<a href=#487 id=487 data-nosnippet>487</a>                length: slice.len(),
-<a href=#488 id=488 data-nosnippet>488</a>            })
-<a href=#489 id=489 data-nosnippet>489</a>            .collect::&lt;PrimaryMap&lt;LocalFunctionIndex, <span class="kw">_</span>&gt;&gt;();
-<a href=#490 id=490 data-nosnippet>490</a>
-<a href=#491 id=491 data-nosnippet>491</a>        <span class="kw">let </span><span class="kw-2">mut </span>allocated_function_call_trampolines: PrimaryMap&lt;SignatureIndex, VMTrampoline&gt; =
-<a href=#492 id=492 data-nosnippet>492</a>            PrimaryMap::new();
-<a href=#493 id=493 data-nosnippet>493</a>        <span class="kw">for </span>ptr <span class="kw">in </span>allocated_functions
-<a href=#494 id=494 data-nosnippet>494</a>            .drain(<span class="number">0</span>..function_call_trampolines_len)
-<a href=#495 id=495 data-nosnippet>495</a>            .map(|slice| slice.as_ptr())
-<a href=#496 id=496 data-nosnippet>496</a>        {
-<a href=#497 id=497 data-nosnippet>497</a>            <span class="kw">let </span>trampoline =
-<a href=#498 id=498 data-nosnippet>498</a>                <span class="kw">unsafe </span>{ std::mem::transmute::&lt;<span class="kw-2">*const </span>VMFunctionBody, VMTrampoline&gt;(ptr) };
-<a href=#499 id=499 data-nosnippet>499</a>            allocated_function_call_trampolines.push(trampoline);
-<a href=#500 id=500 data-nosnippet>500</a>        }
-<a href=#501 id=501 data-nosnippet>501</a>
-<a href=#502 id=502 data-nosnippet>502</a>        <span class="kw">let </span>allocated_dynamic_function_trampolines = allocated_functions
-<a href=#503 id=503 data-nosnippet>503</a>            .drain(..)
-<a href=#504 id=504 data-nosnippet>504</a>            .map(|slice| FunctionBodyPtr(slice.as_ptr()))
-<a href=#505 id=505 data-nosnippet>505</a>            .collect::&lt;PrimaryMap&lt;FunctionIndex, <span class="kw">_</span>&gt;&gt;();
-<a href=#506 id=506 data-nosnippet>506</a>
-<a href=#507 id=507 data-nosnippet>507</a>        <span class="kw">let </span><span class="kw-2">mut </span>exec_iter = allocated_executable_sections.iter();
-<a href=#508 id=508 data-nosnippet>508</a>        <span class="kw">let </span><span class="kw-2">mut </span>data_iter = allocated_data_sections.iter();
-<a href=#509 id=509 data-nosnippet>509</a>        <span class="kw">let </span>allocated_custom_sections = custom_sections
-<a href=#510 id=510 data-nosnippet>510</a>            .map(|section| {
-<a href=#511 id=511 data-nosnippet>511</a>                SectionBodyPtr(
-<a href=#512 id=512 data-nosnippet>512</a>                    <span class="kw">if </span>section.protection() == CustomSectionProtection::ReadExecute {
-<a href=#513 id=513 data-nosnippet>513</a>                        exec_iter.next()
-<a href=#514 id=514 data-nosnippet>514</a>                    } <span class="kw">else </span>{
-<a href=#515 id=515 data-nosnippet>515</a>                        data_iter.next()
-<a href=#516 id=516 data-nosnippet>516</a>                    }
-<a href=#517 id=517 data-nosnippet>517</a>                    .unwrap()
-<a href=#518 id=518 data-nosnippet>518</a>                    .as_ptr(),
-<a href=#519 id=519 data-nosnippet>519</a>                )
-<a href=#520 id=520 data-nosnippet>520</a>            })
-<a href=#521 id=521 data-nosnippet>521</a>            .collect::&lt;PrimaryMap&lt;SectionIndex, <span class="kw">_</span>&gt;&gt;();
-<a href=#522 id=522 data-nosnippet>522</a>        <span class="prelude-val">Ok</span>((
-<a href=#523 id=523 data-nosnippet>523</a>            allocated_functions_result,
-<a href=#524 id=524 data-nosnippet>524</a>            allocated_function_call_trampolines,
-<a href=#525 id=525 data-nosnippet>525</a>            allocated_dynamic_function_trampolines,
-<a href=#526 id=526 data-nosnippet>526</a>            allocated_custom_sections,
-<a href=#527 id=527 data-nosnippet>527</a>        ))
-<a href=#528 id=528 data-nosnippet>528</a>    }
-<a href=#529 id=529 data-nosnippet>529</a>
-<a href=#530 id=530 data-nosnippet>530</a>    <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
-<a href=#531 id=531 data-nosnippet>531</a>    </span><span class="doccomment">/// Make memory containing compiled code executable.
-<a href=#532 id=532 data-nosnippet>532</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>publish_compiled_code(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-<a href=#533 id=533 data-nosnippet>533</a>        <span class="self">self</span>.code_memory.last_mut().unwrap().publish();
-<a href=#534 id=534 data-nosnippet>534</a>    }
-<a href=#535 id=535 data-nosnippet>535</a>
-<a href=#536 id=536 data-nosnippet>536</a>    <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
-<a href=#537 id=537 data-nosnippet>537</a>    #[cfg(not(all(target_os = <span class="string">"macos"</span>, target_arch = <span class="string">"aarch64"</span>)))]
+<a href=#296 id=296 data-nosnippet>296</a>            <span class="kw">let </span>is_native = file.read_exact(<span class="kw-2">&amp;mut </span>magic).is_ok()
+<a href=#297 id=297 data-nosnippet>297</a>                &amp;&amp; <span class="kw">crate</span>::ArtifactBuild::has_native_header(<span class="kw-2">&amp;</span>magic);
+<a href=#298 id=298 data-nosnippet>298</a>            <span class="kw">if </span>is_native {
+<a href=#299 id=299 data-nosnippet>299</a>                <span class="kw">return </span><span class="prelude-val">Ok</span>(Arc::new(Artifact::deserialize_file(<span class="self">self</span>, file_ref)<span class="question-mark">?</span>));
+<a href=#300 id=300 data-nosnippet>300</a>            }
+<a href=#301 id=301 data-nosnippet>301</a>            file.rewind()<span class="question-mark">?</span>;
+<a href=#302 id=302 data-nosnippet>302</a>            <span class="self">self</span>.deserialize(
+<a href=#303 id=303 data-nosnippet>303</a>                OwnedBuffer::from_file(<span class="kw-2">&amp;</span>file)
+<a href=#304 id=304 data-nosnippet>304</a>                    .map_err(|e| DeserializeError::Generic(e.to_string()))<span class="question-mark">?</span>,
+<a href=#305 id=305 data-nosnippet>305</a>            )
+<a href=#306 id=306 data-nosnippet>306</a>        }
+<a href=#307 id=307 data-nosnippet>307</a>    }
+<a href=#308 id=308 data-nosnippet>308</a>
+<a href=#309 id=309 data-nosnippet>309</a>    <span class="doccomment">/// Deserialize from a file path.
+<a href=#310 id=310 data-nosnippet>310</a>    ///
+<a href=#311 id=311 data-nosnippet>311</a>    /// # Safety
+<a href=#312 id=312 data-nosnippet>312</a>    ///
+<a href=#313 id=313 data-nosnippet>313</a>    /// See [`Artifact::deserialize_unchecked`].
+<a href=#314 id=314 data-nosnippet>314</a>    </span><span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
+<a href=#315 id=315 data-nosnippet>315</a>    </span><span class="kw">pub unsafe fn </span>deserialize_from_file_unchecked(
+<a href=#316 id=316 data-nosnippet>316</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#317 id=317 data-nosnippet>317</a>        file_ref: <span class="kw-2">&amp;</span>Path,
+<a href=#318 id=318 data-nosnippet>318</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;Arc&lt;Artifact&gt;, DeserializeError&gt; {
+<a href=#319 id=319 data-nosnippet>319</a>        <span class="kw">unsafe </span>{
+<a href=#320 id=320 data-nosnippet>320</a>            <span class="kw">let </span>file = std::fs::File::open(file_ref)<span class="question-mark">?</span>;
+<a href=#321 id=321 data-nosnippet>321</a>            <span class="self">self</span>.deserialize_unchecked(
+<a href=#322 id=322 data-nosnippet>322</a>                OwnedBuffer::from_file(<span class="kw-2">&amp;</span>file)
+<a href=#323 id=323 data-nosnippet>323</a>                    .map_err(|e| DeserializeError::Generic(e.to_string()))<span class="question-mark">?</span>,
+<a href=#324 id=324 data-nosnippet>324</a>            )
+<a href=#325 id=325 data-nosnippet>325</a>        }
+<a href=#326 id=326 data-nosnippet>326</a>    }
+<a href=#327 id=327 data-nosnippet>327</a>
+<a href=#328 id=328 data-nosnippet>328</a>    <span class="doccomment">/// A unique identifier for this object.
+<a href=#329 id=329 data-nosnippet>329</a>    ///
+<a href=#330 id=330 data-nosnippet>330</a>    /// This exists to allow us to compare two Engines for equality. Otherwise,
+<a href=#331 id=331 data-nosnippet>331</a>    /// comparing two trait objects unsafely relies on implementation details
+<a href=#332 id=332 data-nosnippet>332</a>    /// of trait representation.
+<a href=#333 id=333 data-nosnippet>333</a>    </span><span class="kw">pub fn </span>id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>EngineId {
+<a href=#334 id=334 data-nosnippet>334</a>        <span class="kw-2">&amp;</span><span class="self">self</span>.engine_id
+<a href=#335 id=335 data-nosnippet>335</a>    }
+<a href=#336 id=336 data-nosnippet>336</a>
+<a href=#337 id=337 data-nosnippet>337</a>    <span class="doccomment">/// Clone the engine
+<a href=#338 id=338 data-nosnippet>338</a>    </span><span class="kw">pub fn </span>cloned(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
+<a href=#339 id=339 data-nosnippet>339</a>        <span class="self">self</span>.clone()
+<a href=#340 id=340 data-nosnippet>340</a>    }
+<a href=#341 id=341 data-nosnippet>341</a>
+<a href=#342 id=342 data-nosnippet>342</a>    <span class="doccomment">/// Attach a Tunable to this engine
+<a href=#343 id=343 data-nosnippet>343</a>    </span><span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
+<a href=#344 id=344 data-nosnippet>344</a>    </span><span class="kw">pub fn </span>set_tunables(<span class="kw-2">&amp;mut </span><span class="self">self</span>, tunables: <span class="kw">impl </span>Tunables + Send + Sync + <span class="lifetime">'static</span>) {
+<a href=#345 id=345 data-nosnippet>345</a>        <span class="self">self</span>.tunables = Arc::new(tunables);
+<a href=#346 id=346 data-nosnippet>346</a>    }
+<a href=#347 id=347 data-nosnippet>347</a>
+<a href=#348 id=348 data-nosnippet>348</a>    <span class="doccomment">/// Get a reference to attached Tunable of this engine
+<a href=#349 id=349 data-nosnippet>349</a>    </span><span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
+<a href=#350 id=350 data-nosnippet>350</a>    </span><span class="kw">pub fn </span>tunables(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="kw">dyn </span>Tunables {
+<a href=#351 id=351 data-nosnippet>351</a>        <span class="self">self</span>.tunables.as_ref()
+<a href=#352 id=352 data-nosnippet>352</a>    }
+<a href=#353 id=353 data-nosnippet>353</a>
+<a href=#354 id=354 data-nosnippet>354</a>    <span class="doccomment">/// Add suggested optimizations to this engine.
+<a href=#355 id=355 data-nosnippet>355</a>    </span><span class="attr">#[deprecated(note = <span class="string">"User compilation options are currently unused"</span>)]
+<a href=#356 id=356 data-nosnippet>356</a>    </span><span class="kw">pub fn </span>with_opts(
+<a href=#357 id=357 data-nosnippet>357</a>        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+<a href=#358 id=358 data-nosnippet>358</a>        _suggested_opts: <span class="kw-2">&amp;</span>wasmer_types::target::UserCompilerOptimizations,
+<a href=#359 id=359 data-nosnippet>359</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
+<a href=#360 id=360 data-nosnippet>360</a>        <span class="prelude-val">Ok</span>(())
+<a href=#361 id=361 data-nosnippet>361</a>    }
+<a href=#362 id=362 data-nosnippet>362</a>}
+<a href=#363 id=363 data-nosnippet>363</a>
+<a href=#364 id=364 data-nosnippet>364</a><span class="kw">impl </span>std::fmt::Debug <span class="kw">for </span>Engine {
+<a href=#365 id=365 data-nosnippet>365</a>    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; core::fmt::Result {
+<a href=#366 id=366 data-nosnippet>366</a>        <span class="macro">write!</span>(f, <span class="string">"{}"</span>, <span class="self">self</span>.deterministic_id())
+<a href=#367 id=367 data-nosnippet>367</a>    }
+<a href=#368 id=368 data-nosnippet>368</a>}
+<a href=#369 id=369 data-nosnippet>369</a>
+<a href=#370 id=370 data-nosnippet>370</a><span class="doccomment">/// The inner contents of `Engine`
+<a href=#371 id=371 data-nosnippet>371</a></span><span class="kw">pub struct </span>EngineInner {
+<a href=#372 id=372 data-nosnippet>372</a>    <span class="attr">#[cfg(feature = <span class="string">"compiler"</span>)]
+<a href=#373 id=373 data-nosnippet>373</a>    </span><span class="doccomment">/// The compiler and cpu features
+<a href=#374 id=374 data-nosnippet>374</a>    </span>compiler: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>Compiler&gt;&gt;,
+<a href=#375 id=375 data-nosnippet>375</a>    <span class="attr">#[cfg(feature = <span class="string">"compiler"</span>)]
+<a href=#376 id=376 data-nosnippet>376</a>    </span><span class="doccomment">/// The compiler and cpu features
+<a href=#377 id=377 data-nosnippet>377</a>    </span>features: Features,
+<a href=#378 id=378 data-nosnippet>378</a>    <span class="doccomment">/// The code memory is responsible of publishing the compiled
+<a href=#379 id=379 data-nosnippet>379</a>    /// functions to memory.
+<a href=#380 id=380 data-nosnippet>380</a>    </span><span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
+<a href=#381 id=381 data-nosnippet>381</a>    </span>code_memory: Vec&lt;CodeMemory&gt;,
+<a href=#382 id=382 data-nosnippet>382</a>    <span class="doccomment">/// Memory-mapped ELF artifact image, produced by `--experimental-artifact`.
+<a href=#383 id=383 data-nosnippet>383</a>    </span><span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
+<a href=#384 id=384 data-nosnippet>384</a>    </span>elf_mapped_binary: Vec&lt;MemoryMappedBinary&gt;,
+<a href=#385 id=385 data-nosnippet>385</a>    <span class="doccomment">/// The signature registry is used mainly to operate with trampolines
+<a href=#386 id=386 data-nosnippet>386</a>    /// performantly.
+<a href=#387 id=387 data-nosnippet>387</a>    </span><span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
+<a href=#388 id=388 data-nosnippet>388</a>    </span>signatures: SignatureRegistry,
+<a href=#389 id=389 data-nosnippet>389</a>}
+<a href=#390 id=390 data-nosnippet>390</a>
+<a href=#391 id=391 data-nosnippet>391</a><span class="kw">impl </span>std::fmt::Debug <span class="kw">for </span>EngineInner {
+<a href=#392 id=392 data-nosnippet>392</a>    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; core::fmt::Result {
+<a href=#393 id=393 data-nosnippet>393</a>        <span class="kw">let </span><span class="kw-2">mut </span>formatter = f.debug_struct(<span class="string">"EngineInner"</span>);
+<a href=#394 id=394 data-nosnippet>394</a>        <span class="attr">#[cfg(feature = <span class="string">"compiler"</span>)]
+<a href=#395 id=395 data-nosnippet>395</a>        </span>{
+<a href=#396 id=396 data-nosnippet>396</a>            formatter.field(<span class="string">"compiler"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.compiler);
+<a href=#397 id=397 data-nosnippet>397</a>            formatter.field(<span class="string">"features"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.features);
+<a href=#398 id=398 data-nosnippet>398</a>        }
+<a href=#399 id=399 data-nosnippet>399</a>
+<a href=#400 id=400 data-nosnippet>400</a>        <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
+<a href=#401 id=401 data-nosnippet>401</a>        </span>{
+<a href=#402 id=402 data-nosnippet>402</a>            formatter.field(<span class="string">"signatures"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.signatures);
+<a href=#403 id=403 data-nosnippet>403</a>        }
+<a href=#404 id=404 data-nosnippet>404</a>
+<a href=#405 id=405 data-nosnippet>405</a>        formatter.finish()
+<a href=#406 id=406 data-nosnippet>406</a>    }
+<a href=#407 id=407 data-nosnippet>407</a>}
+<a href=#408 id=408 data-nosnippet>408</a>
+<a href=#409 id=409 data-nosnippet>409</a><span class="kw">impl </span>EngineInner {
+<a href=#410 id=410 data-nosnippet>410</a>    <span class="doccomment">/// Gets the compiler associated to this engine.
+<a href=#411 id=411 data-nosnippet>411</a>    </span><span class="attr">#[cfg(feature = <span class="string">"compiler"</span>)]
+<a href=#412 id=412 data-nosnippet>412</a>    </span><span class="kw">pub fn </span>compiler(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span><span class="kw">dyn </span>Compiler, CompileError&gt; {
+<a href=#413 id=413 data-nosnippet>413</a>        <span class="kw">match </span><span class="self">self</span>.compiler.as_ref() {
+<a href=#414 id=414 data-nosnippet>414</a>            <span class="prelude-val">None </span>=&gt; <span class="prelude-val">Err</span>(CompileError::Codegen(
+<a href=#415 id=415 data-nosnippet>415</a>                <span class="string">"No compiler compiled into executable"</span>.to_string(),
+<a href=#416 id=416 data-nosnippet>416</a>            )),
+<a href=#417 id=417 data-nosnippet>417</a>            <span class="prelude-val">Some</span>(compiler) =&gt; <span class="prelude-val">Ok</span>(<span class="kw-2">&amp;**</span>compiler),
+<a href=#418 id=418 data-nosnippet>418</a>        }
+<a href=#419 id=419 data-nosnippet>419</a>    }
+<a href=#420 id=420 data-nosnippet>420</a>
+<a href=#421 id=421 data-nosnippet>421</a>    <span class="doccomment">/// Validate the module
+<a href=#422 id=422 data-nosnippet>422</a>    </span><span class="attr">#[cfg(feature = <span class="string">"compiler"</span>)]
+<a href=#423 id=423 data-nosnippet>423</a>    </span><span class="kw">pub fn </span>validate(<span class="kw-2">&amp;</span><span class="self">self</span>, data: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
+<a href=#424 id=424 data-nosnippet>424</a>        <span class="kw">let </span>compiler = <span class="self">self</span>.compiler()<span class="question-mark">?</span>;
+<a href=#425 id=425 data-nosnippet>425</a>        compiler.validate_module(<span class="kw-2">&amp;</span><span class="self">self</span>.features, data)
+<a href=#426 id=426 data-nosnippet>426</a>    }
+<a href=#427 id=427 data-nosnippet>427</a>
+<a href=#428 id=428 data-nosnippet>428</a>    <span class="doccomment">/// The Wasm features
+<a href=#429 id=429 data-nosnippet>429</a>    </span><span class="attr">#[cfg(feature = <span class="string">"compiler"</span>)]
+<a href=#430 id=430 data-nosnippet>430</a>    </span><span class="kw">pub fn </span>features(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Features {
+<a href=#431 id=431 data-nosnippet>431</a>        <span class="kw-2">&amp;</span><span class="self">self</span>.features
+<a href=#432 id=432 data-nosnippet>432</a>    }
+<a href=#433 id=433 data-nosnippet>433</a>
+<a href=#434 id=434 data-nosnippet>434</a>    <span class="doccomment">/// Allocate compiled functions into memory
+<a href=#435 id=435 data-nosnippet>435</a>    </span><span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
+<a href=#436 id=436 data-nosnippet>436</a>    #[allow(clippy::type_complexity)]
+<a href=#437 id=437 data-nosnippet>437</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>allocate&lt;<span class="lifetime">'a</span>, FunctionBody, CustomSection&gt;(
+<a href=#438 id=438 data-nosnippet>438</a>        <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span><span class="self">self</span>,
+<a href=#439 id=439 data-nosnippet>439</a>        _module: <span class="kw-2">&amp;</span>wasmer_types::ModuleInfo,
+<a href=#440 id=440 data-nosnippet>440</a>        functions: <span class="kw">impl </span>ExactSizeIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">'a </span>FunctionBody&gt; + <span class="lifetime">'a</span>,
+<a href=#441 id=441 data-nosnippet>441</a>        function_call_trampolines: <span class="kw">impl </span>ExactSizeIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">'a </span>FunctionBody&gt; + <span class="lifetime">'a</span>,
+<a href=#442 id=442 data-nosnippet>442</a>        dynamic_function_trampolines: <span class="kw">impl </span>ExactSizeIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">'a </span>FunctionBody&gt; + <span class="lifetime">'a</span>,
+<a href=#443 id=443 data-nosnippet>443</a>        custom_sections: <span class="kw">impl </span>ExactSizeIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">'a </span>CustomSection&gt; + Clone + <span class="lifetime">'a</span>,
+<a href=#444 id=444 data-nosnippet>444</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;
+<a href=#445 id=445 data-nosnippet>445</a>        (
+<a href=#446 id=446 data-nosnippet>446</a>            PrimaryMap&lt;LocalFunctionIndex, FunctionExtent&gt;,
+<a href=#447 id=447 data-nosnippet>447</a>            PrimaryMap&lt;SignatureIndex, VMTrampoline&gt;,
+<a href=#448 id=448 data-nosnippet>448</a>            PrimaryMap&lt;FunctionIndex, FunctionBodyPtr&gt;,
+<a href=#449 id=449 data-nosnippet>449</a>            PrimaryMap&lt;SectionIndex, SectionBodyPtr&gt;,
+<a href=#450 id=450 data-nosnippet>450</a>        ),
+<a href=#451 id=451 data-nosnippet>451</a>        CompileError,
+<a href=#452 id=452 data-nosnippet>452</a>    &gt;
+<a href=#453 id=453 data-nosnippet>453</a>    <span class="kw">where
+<a href=#454 id=454 data-nosnippet>454</a>        </span>FunctionBody: FunctionBodyLike&lt;<span class="lifetime">'a</span>&gt; + <span class="lifetime">'a</span>,
+<a href=#455 id=455 data-nosnippet>455</a>        CustomSection: CustomSectionLike&lt;<span class="lifetime">'a</span>&gt; + <span class="lifetime">'a</span>,
+<a href=#456 id=456 data-nosnippet>456</a>    {
+<a href=#457 id=457 data-nosnippet>457</a>        <span class="kw">let </span>functions_len = functions.len();
+<a href=#458 id=458 data-nosnippet>458</a>        <span class="kw">let </span>function_call_trampolines_len = function_call_trampolines.len();
+<a href=#459 id=459 data-nosnippet>459</a>
+<a href=#460 id=460 data-nosnippet>460</a>        <span class="kw">let </span>function_bodies = functions
+<a href=#461 id=461 data-nosnippet>461</a>            .chain(function_call_trampolines)
+<a href=#462 id=462 data-nosnippet>462</a>            .chain(dynamic_function_trampolines)
+<a href=#463 id=463 data-nosnippet>463</a>            .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+<a href=#464 id=464 data-nosnippet>464</a>        <span class="kw">let </span>(executable_sections, data_sections): (Vec&lt;<span class="kw">_</span>&gt;, <span class="kw">_</span>) = custom_sections
+<a href=#465 id=465 data-nosnippet>465</a>            .clone()
+<a href=#466 id=466 data-nosnippet>466</a>            .partition(|section| section.protection() == CustomSectionProtection::ReadExecute);
+<a href=#467 id=467 data-nosnippet>467</a>        <span class="self">self</span>.code_memory.push(CodeMemory::new());
+<a href=#468 id=468 data-nosnippet>468</a>
+<a href=#469 id=469 data-nosnippet>469</a>        <span class="kw">let </span>(<span class="kw-2">mut </span>allocated_functions, allocated_executable_sections, allocated_data_sections) =
+<a href=#470 id=470 data-nosnippet>470</a>            <span class="self">self</span>.code_memory
+<a href=#471 id=471 data-nosnippet>471</a>                .last_mut()
+<a href=#472 id=472 data-nosnippet>472</a>                .unwrap()
+<a href=#473 id=473 data-nosnippet>473</a>                .allocate(
+<a href=#474 id=474 data-nosnippet>474</a>                    function_bodies.as_slice(),
+<a href=#475 id=475 data-nosnippet>475</a>                    executable_sections.as_slice(),
+<a href=#476 id=476 data-nosnippet>476</a>                    data_sections.as_slice(),
+<a href=#477 id=477 data-nosnippet>477</a>                )
+<a href=#478 id=478 data-nosnippet>478</a>                .map_err(|message| {
+<a href=#479 id=479 data-nosnippet>479</a>                    CompileError::Resource(<span class="macro">format!</span>(
+<a href=#480 id=480 data-nosnippet>480</a>                        <span class="string">"failed to allocate memory for functions: {message}"</span>,
+<a href=#481 id=481 data-nosnippet>481</a>                    ))
+<a href=#482 id=482 data-nosnippet>482</a>                })<span class="question-mark">?</span>;
+<a href=#483 id=483 data-nosnippet>483</a>
+<a href=#484 id=484 data-nosnippet>484</a>        <span class="kw">let </span>allocated_functions_result = allocated_functions
+<a href=#485 id=485 data-nosnippet>485</a>            .drain(<span class="number">0</span>..functions_len)
+<a href=#486 id=486 data-nosnippet>486</a>            .map(|slice| FunctionExtent {
+<a href=#487 id=487 data-nosnippet>487</a>                ptr: FunctionBodyPtr(slice.as_ptr()),
+<a href=#488 id=488 data-nosnippet>488</a>                length: slice.len(),
+<a href=#489 id=489 data-nosnippet>489</a>            })
+<a href=#490 id=490 data-nosnippet>490</a>            .collect::&lt;PrimaryMap&lt;LocalFunctionIndex, <span class="kw">_</span>&gt;&gt;();
+<a href=#491 id=491 data-nosnippet>491</a>
+<a href=#492 id=492 data-nosnippet>492</a>        <span class="kw">let </span><span class="kw-2">mut </span>allocated_function_call_trampolines: PrimaryMap&lt;SignatureIndex, VMTrampoline&gt; =
+<a href=#493 id=493 data-nosnippet>493</a>            PrimaryMap::new();
+<a href=#494 id=494 data-nosnippet>494</a>        <span class="kw">for </span>ptr <span class="kw">in </span>allocated_functions
+<a href=#495 id=495 data-nosnippet>495</a>            .drain(<span class="number">0</span>..function_call_trampolines_len)
+<a href=#496 id=496 data-nosnippet>496</a>            .map(|slice| slice.as_ptr())
+<a href=#497 id=497 data-nosnippet>497</a>        {
+<a href=#498 id=498 data-nosnippet>498</a>            <span class="kw">let </span>trampoline =
+<a href=#499 id=499 data-nosnippet>499</a>                <span class="kw">unsafe </span>{ std::mem::transmute::&lt;<span class="kw-2">*const </span>VMFunctionBody, VMTrampoline&gt;(ptr) };
+<a href=#500 id=500 data-nosnippet>500</a>            allocated_function_call_trampolines.push(trampoline);
+<a href=#501 id=501 data-nosnippet>501</a>        }
+<a href=#502 id=502 data-nosnippet>502</a>
+<a href=#503 id=503 data-nosnippet>503</a>        <span class="kw">let </span>allocated_dynamic_function_trampolines = allocated_functions
+<a href=#504 id=504 data-nosnippet>504</a>            .drain(..)
+<a href=#505 id=505 data-nosnippet>505</a>            .map(|slice| FunctionBodyPtr(slice.as_ptr()))
+<a href=#506 id=506 data-nosnippet>506</a>            .collect::&lt;PrimaryMap&lt;FunctionIndex, <span class="kw">_</span>&gt;&gt;();
+<a href=#507 id=507 data-nosnippet>507</a>
+<a href=#508 id=508 data-nosnippet>508</a>        <span class="kw">let </span><span class="kw-2">mut </span>exec_iter = allocated_executable_sections.iter();
+<a href=#509 id=509 data-nosnippet>509</a>        <span class="kw">let </span><span class="kw-2">mut </span>data_iter = allocated_data_sections.iter();
+<a href=#510 id=510 data-nosnippet>510</a>        <span class="kw">let </span>allocated_custom_sections = custom_sections
+<a href=#511 id=511 data-nosnippet>511</a>            .map(|section| {
+<a href=#512 id=512 data-nosnippet>512</a>                SectionBodyPtr(
+<a href=#513 id=513 data-nosnippet>513</a>                    <span class="kw">if </span>section.protection() == CustomSectionProtection::ReadExecute {
+<a href=#514 id=514 data-nosnippet>514</a>                        exec_iter.next()
+<a href=#515 id=515 data-nosnippet>515</a>                    } <span class="kw">else </span>{
+<a href=#516 id=516 data-nosnippet>516</a>                        data_iter.next()
+<a href=#517 id=517 data-nosnippet>517</a>                    }
+<a href=#518 id=518 data-nosnippet>518</a>                    .unwrap()
+<a href=#519 id=519 data-nosnippet>519</a>                    .as_ptr(),
+<a href=#520 id=520 data-nosnippet>520</a>                )
+<a href=#521 id=521 data-nosnippet>521</a>            })
+<a href=#522 id=522 data-nosnippet>522</a>            .collect::&lt;PrimaryMap&lt;SectionIndex, <span class="kw">_</span>&gt;&gt;();
+<a href=#523 id=523 data-nosnippet>523</a>        <span class="prelude-val">Ok</span>((
+<a href=#524 id=524 data-nosnippet>524</a>            allocated_functions_result,
+<a href=#525 id=525 data-nosnippet>525</a>            allocated_function_call_trampolines,
+<a href=#526 id=526 data-nosnippet>526</a>            allocated_dynamic_function_trampolines,
+<a href=#527 id=527 data-nosnippet>527</a>            allocated_custom_sections,
+<a href=#528 id=528 data-nosnippet>528</a>        ))
+<a href=#529 id=529 data-nosnippet>529</a>    }
+<a href=#530 id=530 data-nosnippet>530</a>
+<a href=#531 id=531 data-nosnippet>531</a>    <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
+<a href=#532 id=532 data-nosnippet>532</a>    </span><span class="doccomment">/// Make memory containing compiled code executable.
+<a href=#533 id=533 data-nosnippet>533</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>publish_compiled_code(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+<a href=#534 id=534 data-nosnippet>534</a>        <span class="self">self</span>.code_memory.last_mut().unwrap().publish();
+<a href=#535 id=535 data-nosnippet>535</a>    }
+<a href=#536 id=536 data-nosnippet>536</a>
+<a href=#537 id=537 data-nosnippet>537</a>    <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
 <a href=#538 id=538 data-nosnippet>538</a>    </span><span class="doccomment">/// Register DWARF-type exception handling information associated with the code.
 <a href=#539 id=539 data-nosnippet>539</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>publish_eh_frame(<span class="kw-2">&amp;mut </span><span class="self">self</span>, eh_frame: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>[u8]&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
 <a href=#540 id=540 data-nosnippet>540</a>        <span class="self">self</span>.code_memory
@@ -567,18 +567,18 @@
 <a href=#567 id=567 data-nosnippet>567</a>
 <a href=#568 id=568 data-nosnippet>568</a>    <span class="doccomment">/// Memory-map a compiled ELF artifact image, keeping the mapping alive
 <a href=#569 id=569 data-nosnippet>569</a>    /// for the lifetime of the engine. Returns the base address of the
-<a href=#570 id=570 data-nosnippet>570</a>    /// mapping, which section/symbol offsets from the image are relative to.
+<a href=#570 id=570 data-nosnippet>570</a>    /// mapping and its size. Section/symbol offsets are relative to the base.
 <a href=#571 id=571 data-nosnippet>571</a>    </span><span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
 <a href=#572 id=572 data-nosnippet>572</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>map_elf_binary&lt;<span class="lifetime">'a</span>, R: object::ReadRef&lt;<span class="lifetime">'a</span>&gt;&gt;(
 <a href=#573 id=573 data-nosnippet>573</a>        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
 <a href=#574 id=574 data-nosnippet>574</a>        object_file: <span class="kw-2">&amp;</span>object::File&lt;<span class="lifetime">'a</span>, R&gt;,
 <a href=#575 id=575 data-nosnippet>575</a>        data: <span class="kw-2">&amp;</span>[u8],
-<a href=#576 id=576 data-nosnippet>576</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">*mut </span>c_void, CompileError&gt; {
+<a href=#576 id=576 data-nosnippet>576</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;(<span class="kw-2">*mut </span>c_void, usize), CompileError&gt; {
 <a href=#577 id=577 data-nosnippet>577</a>        <span class="kw">let </span>map = MemoryMappedBinary::try_from_bytes(object_file, data)
 <a href=#578 id=578 data-nosnippet>578</a>            .map_err(CompileError::Resource)<span class="question-mark">?</span>;
-<a href=#579 id=579 data-nosnippet>579</a>        <span class="kw">let </span>base = map.base();
+<a href=#579 id=579 data-nosnippet>579</a>        <span class="kw">let </span>mapping = (map.base(), map.size());
 <a href=#580 id=580 data-nosnippet>580</a>        <span class="self">self</span>.elf_mapped_binary.push(map);
-<a href=#581 id=581 data-nosnippet>581</a>        <span class="prelude-val">Ok</span>(base)
+<a href=#581 id=581 data-nosnippet>581</a>        <span class="prelude-val">Ok</span>(mapping)
 <a href=#582 id=582 data-nosnippet>582</a>    }
 <a href=#583 id=583 data-nosnippet>583</a>
 <a href=#584 id=584 data-nosnippet>584</a>    <span class="doccomment">/// Memory-map a compiled ELF artifact directly from a file.
@@ -587,12 +587,12 @@
 <a href=#587 id=587 data-nosnippet>587</a>        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
 <a href=#588 id=588 data-nosnippet>588</a>        object_file: <span class="kw-2">&amp;</span>object::File&lt;<span class="lifetime">'a</span>, R&gt;,
 <a href=#589 id=589 data-nosnippet>589</a>        file: RawFd,
-<a href=#590 id=590 data-nosnippet>590</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">*mut </span>c_void, CompileError&gt; {
+<a href=#590 id=590 data-nosnippet>590</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;(<span class="kw-2">*mut </span>c_void, usize), CompileError&gt; {
 <a href=#591 id=591 data-nosnippet>591</a>        <span class="kw">let </span>map =
 <a href=#592 id=592 data-nosnippet>592</a>            MemoryMappedBinary::try_from_file(object_file, file).map_err(CompileError::Resource)<span class="question-mark">?</span>;
-<a href=#593 id=593 data-nosnippet>593</a>        <span class="kw">let </span>base = map.base();
+<a href=#593 id=593 data-nosnippet>593</a>        <span class="kw">let </span>mapping = (map.base(), map.size());
 <a href=#594 id=594 data-nosnippet>594</a>        <span class="self">self</span>.elf_mapped_binary.push(map);
-<a href=#595 id=595 data-nosnippet>595</a>        <span class="prelude-val">Ok</span>(base)
+<a href=#595 id=595 data-nosnippet>595</a>        <span class="prelude-val">Ok</span>(mapping)
 <a href=#596 id=596 data-nosnippet>596</a>    }
 <a href=#597 id=597 data-nosnippet>597</a>
 <a href=#598 id=598 data-nosnippet>598</a>    <span class="attr">#[cfg(all(not(target_arch = <span class="string">"wasm32"</span>), unix, feature = <span class="string">"compiler"</span>))]

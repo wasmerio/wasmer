@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["DlOperation"],"macro":["lock_instance_group_state"],"mod":["linker_shared","topology_lock"],"struct":["LinkerStateWriteBackoff"]};
+window.SIDEBAR_ITEMS = {"enum":["DlOperation"],"macro":[["lock_instance_group_state",1]],"mod":["linker_shared","topology_lock"],"struct":["LinkerStateWriteBackoff"]};

@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `tests/lib/compiler-test-derive/src/lib.rs`."><title>lib.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-17e0aaed.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="compiler_test_derive" data-themes="" data-resource-suffix="" data-rustdoc-version="1.96.1 (31fca3adb 2026-06-26)" data-channel="1.96.1" data-search-js="search-b5634cc7.js" data-stringdex-js="stringdex-2da4960a.js" data-settings-js="settings-170eb4bf.js" ><script src="../../static.files/storage-41dd4d93.js"></script><script defer src="../../static.files/src-script-813739b1.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-5013f961.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-f7c3ffd8.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><h1><div class="sub-heading">compiler_test_derive/</div>lib.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="attr">#[cfg(proc_macro)]
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `tests/lib/compiler-test-derive/src/lib.rs`."><title>lib.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-0c87338a.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="compiler_test_derive" data-themes="" data-resource-suffix="" data-rustdoc-version="1.99.1 (58cf8f9c3 2026-10-13)" data-channel="1.99.1" data-search-js="search-cf4fc35e.js" data-stringdex-js="stringdex-b5109af9.js" data-settings-js="settings-170eb4bf.js" ><script src="../../static.files/storage-41dd4d93.js"></script><script defer src="../../static.files/src-script-813739b1.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-417ebf0a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-9f56287d.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><h1><div class="sub-heading">compiler_test_derive/</div>lib.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="attr">#[cfg(proc_macro)]
 <a href=#2 id=2 data-nosnippet>2</a></span><span class="kw">extern crate </span>proc_macro;
 <a href=#3 id=3 data-nosnippet>3</a>
 <a href=#4 id=4 data-nosnippet>4</a><span class="kw">use </span>proc_macro2::TokenStream;
@@ -69,113 +69,115 @@
 <a href=#69 id=69 data-nosnippet>69</a>        <span class="kw">if </span>dynamic_memory {
 <a href=#70 id=70 data-nosnippet>70</a>            config = <span class="macro">quote!</span> { #config.with_dynamic_memory() };
 <a href=#71 id=71 data-nosnippet>71</a>        }
-<a href=#72 id=72 data-nosnippet>72</a>        <span class="kw">let </span>experimental_artifact_cfg =
-<a href=#73 id=73 data-nosnippet>73</a>            experimental_artifact.then(|| <span class="macro">quote!</span> { <span class="attr">#[cfg(target_os = <span class="string">"linux"</span>)] </span>});
-<a href=#74 id=74 data-nosnippet>74</a>        <span class="kw">let </span><span class="kw-2">mut </span>new_sig = func.sig.clone();
-<a href=#75 id=75 data-nosnippet>75</a>        <span class="kw">let </span>attrs = func
-<a href=#76 id=76 data-nosnippet>76</a>            .attrs
-<a href=#77 id=77 data-nosnippet>77</a>            .clone()
-<a href=#78 id=78 data-nosnippet>78</a>            .iter()
-<a href=#79 id=79 data-nosnippet>79</a>            .fold(<span class="macro">quote!</span> {}, |acc, new| <span class="macro">quote!</span> {#acc #new});
-<a href=#80 id=80 data-nosnippet>80</a>        new_sig.ident = test_name;
-<a href=#81 id=81 data-nosnippet>81</a>        new_sig.inputs = ::syn::punctuated::Punctuated::new();
-<a href=#82 id=82 data-nosnippet>82</a>        <span class="kw">let </span>f = <span class="macro">quote!</span> {
-<a href=#83 id=83 data-nosnippet>83</a>            <span class="attr">#[test_log::test]
-<a href=#84 id=84 data-nosnippet>84</a>            </span>#attrs
-<a href=#85 id=85 data-nosnippet>85</a>            <span class="attr">#[cfg(feature = #engine_feature_name)]
-<a href=#86 id=86 data-nosnippet>86</a>            </span>#experimental_artifact_cfg
-<a href=#87 id=87 data-nosnippet>87</a>            #new_sig {
-<a href=#88 id=88 data-nosnippet>88</a>                #fn_name(#config)
-<a href=#89 id=89 data-nosnippet>89</a>            }
-<a href=#90 id=90 data-nosnippet>90</a>        };
-<a href=#91 id=91 data-nosnippet>91</a>        <span class="kw">if </span>should_ignore(
-<a href=#92 id=92 data-nosnippet>92</a>            <span class="kw-2">&amp;</span>func.sig.ident.to_string().replace(<span class="string">"r#"</span>, <span class="string">""</span>),
-<a href=#93 id=93 data-nosnippet>93</a>            compiler_name,
-<a href=#94 id=94 data-nosnippet>94</a>            engine_name,
-<a href=#95 id=95 data-nosnippet>95</a>        ) &amp;&amp; !<span class="macro">cfg!</span>(test)
-<a href=#96 id=96 data-nosnippet>96</a>        {
-<a href=#97 id=97 data-nosnippet>97</a>            <span class="macro">quote!</span> {
-<a href=#98 id=98 data-nosnippet>98</a>                <span class="attr">#[ignore]
-<a href=#99 id=99 data-nosnippet>99</a>                </span>#f
-<a href=#100 id=100 data-nosnippet>100</a>            }
-<a href=#101 id=101 data-nosnippet>101</a>        } <span class="kw">else </span>{
-<a href=#102 id=102 data-nosnippet>102</a>            f
-<a href=#103 id=103 data-nosnippet>103</a>        }
-<a href=#104 id=104 data-nosnippet>104</a>    };
-<a href=#105 id=105 data-nosnippet>105</a>
-<a href=#106 id=106 data-nosnippet>106</a>    <span class="kw">let </span>construct_compiler_test =
-<a href=#107 id=107 data-nosnippet>107</a>        |func: <span class="kw-2">&amp;</span>::syn::ItemFn, compiler_name: <span class="kw-2">&amp;</span>str| -&gt; ::proc_macro2::TokenStream {
-<a href=#108 id=108 data-nosnippet>108</a>            <span class="kw">let </span>mod_name = <span class="macro">::quote::format_ident!</span>(<span class="string">"{}"</span>, compiler_name.to_lowercase());
-<a href=#109 id=109 data-nosnippet>109</a>            <span class="kw">let </span>engine_test = construct_engine_test(
-<a href=#110 id=110 data-nosnippet>110</a>                func,
-<a href=#111 id=111 data-nosnippet>111</a>                compiler_name,
-<a href=#112 id=112 data-nosnippet>112</a>                compiler_name,
-<a href=#113 id=113 data-nosnippet>113</a>                <span class="kw-2">&amp;</span>compiler_name.to_lowercase(),
-<a href=#114 id=114 data-nosnippet>114</a>                <span class="bool-val">false</span>,
-<a href=#115 id=115 data-nosnippet>115</a>                <span class="bool-val">false</span>,
-<a href=#116 id=116 data-nosnippet>116</a>            );
-<a href=#117 id=117 data-nosnippet>117</a>            <span class="kw">let </span>native_compiler = compiler_name != <span class="string">"V8"</span>;
-<a href=#118 id=118 data-nosnippet>118</a>            <span class="kw">let </span>experimental_artifact_test = native_compiler.then(|| {
-<a href=#119 id=119 data-nosnippet>119</a>                construct_engine_test(
-<a href=#120 id=120 data-nosnippet>120</a>                    func,
-<a href=#121 id=121 data-nosnippet>121</a>                    compiler_name,
-<a href=#122 id=122 data-nosnippet>122</a>                    <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{compiler_name}_exp_artifact"</span>),
-<a href=#123 id=123 data-nosnippet>123</a>                    <span class="kw-2">&amp;</span>compiler_name.to_lowercase(),
-<a href=#124 id=124 data-nosnippet>124</a>                    <span class="bool-val">true</span>,
-<a href=#125 id=125 data-nosnippet>125</a>                    <span class="bool-val">false</span>,
-<a href=#126 id=126 data-nosnippet>126</a>                )
-<a href=#127 id=127 data-nosnippet>127</a>            });
-<a href=#128 id=128 data-nosnippet>128</a>            <span class="kw">let </span>dynamic_memory_experimental_artifact_test = native_compiler.then(|| {
-<a href=#129 id=129 data-nosnippet>129</a>                construct_engine_test(
-<a href=#130 id=130 data-nosnippet>130</a>                    func,
-<a href=#131 id=131 data-nosnippet>131</a>                    compiler_name,
-<a href=#132 id=132 data-nosnippet>132</a>                    <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{compiler_name}_dynamic_memory_exp_artifact"</span>),
-<a href=#133 id=133 data-nosnippet>133</a>                    <span class="kw-2">&amp;</span>compiler_name.to_lowercase(),
-<a href=#134 id=134 data-nosnippet>134</a>                    <span class="bool-val">true</span>,
-<a href=#135 id=135 data-nosnippet>135</a>                    <span class="bool-val">true</span>,
-<a href=#136 id=136 data-nosnippet>136</a>                )
-<a href=#137 id=137 data-nosnippet>137</a>            });
-<a href=#138 id=138 data-nosnippet>138</a>            <span class="kw">let </span>compiler_name_lowercase = compiler_name.to_lowercase();
-<a href=#139 id=139 data-nosnippet>139</a>
-<a href=#140 id=140 data-nosnippet>140</a>            <span class="macro">quote!</span> {
-<a href=#141 id=141 data-nosnippet>141</a>                <span class="attr">#[cfg(feature = #compiler_name_lowercase)]
-<a href=#142 id=142 data-nosnippet>142</a>                </span><span class="kw">mod </span>#mod_name {
-<a href=#143 id=143 data-nosnippet>143</a>                    <span class="kw">use </span>super::<span class="kw-2">*</span>;
-<a href=#144 id=144 data-nosnippet>144</a>
-<a href=#145 id=145 data-nosnippet>145</a>                    #engine_test
-<a href=#146 id=146 data-nosnippet>146</a>                    #experimental_artifact_test
-<a href=#147 id=147 data-nosnippet>147</a>                    #dynamic_memory_experimental_artifact_test
-<a href=#148 id=148 data-nosnippet>148</a>                }
-<a href=#149 id=149 data-nosnippet>149</a>            }
-<a href=#150 id=150 data-nosnippet>150</a>        };
-<a href=#151 id=151 data-nosnippet>151</a>
-<a href=#152 id=152 data-nosnippet>152</a>    <span class="kw">let </span>singlepass_compiler_test = construct_compiler_test(<span class="kw-2">&amp;</span>my_fn, <span class="string">"Singlepass"</span>);
-<a href=#153 id=153 data-nosnippet>153</a>    <span class="kw">let </span>cranelift_compiler_test = construct_compiler_test(<span class="kw-2">&amp;</span>my_fn, <span class="string">"Cranelift"</span>);
-<a href=#154 id=154 data-nosnippet>154</a>    <span class="kw">let </span>llvm_compiler_test = construct_compiler_test(<span class="kw-2">&amp;</span>my_fn, <span class="string">"LLVM"</span>);
-<a href=#155 id=155 data-nosnippet>155</a>    <span class="kw">let </span>v8_compiler_test = construct_compiler_test(<span class="kw-2">&amp;</span>my_fn, <span class="string">"V8"</span>);
-<a href=#156 id=156 data-nosnippet>156</a>
-<a href=#157 id=157 data-nosnippet>157</a>    <span class="comment">// We remove the method decorators
-<a href=#158 id=158 data-nosnippet>158</a>    </span>my_fn.attrs = <span class="macro">vec!</span>[];
-<a href=#159 id=159 data-nosnippet>159</a>
-<a href=#160 id=160 data-nosnippet>160</a>    <span class="kw">let </span>x = <span class="macro">quote!</span> {
-<a href=#161 id=161 data-nosnippet>161</a>        <span class="attr">#[cfg(test)]
-<a href=#162 id=162 data-nosnippet>162</a>        </span><span class="kw">mod </span>#fn_name {
-<a href=#163 id=163 data-nosnippet>163</a>            <span class="kw">use </span>super::<span class="kw-2">*</span>;
-<a href=#164 id=164 data-nosnippet>164</a>
-<a href=#165 id=165 data-nosnippet>165</a>            <span class="attr">#[allow(unused)]
-<a href=#166 id=166 data-nosnippet>166</a>            </span>#my_fn
-<a href=#167 id=167 data-nosnippet>167</a>
-<a href=#168 id=168 data-nosnippet>168</a>            #singlepass_compiler_test
-<a href=#169 id=169 data-nosnippet>169</a>            #cranelift_compiler_test
-<a href=#170 id=170 data-nosnippet>170</a>            #llvm_compiler_test
-<a href=#171 id=171 data-nosnippet>171</a>            #v8_compiler_test
-<a href=#172 id=172 data-nosnippet>172</a>        }
-<a href=#173 id=173 data-nosnippet>173</a>    };
-<a href=#174 id=174 data-nosnippet>174</a>
-<a href=#175 id=175 data-nosnippet>175</a>    <span class="attr">#[allow(clippy::useless_conversion)]
-<a href=#176 id=176 data-nosnippet>176</a>    </span>x.into()
-<a href=#177 id=177 data-nosnippet>177</a>}
-<a href=#178 id=178 data-nosnippet>178</a>
-<a href=#179 id=179 data-nosnippet>179</a><span class="attr">#[cfg(test)]
-<a href=#180 id=180 data-nosnippet>180</a></span><span class="kw">mod </span>tests;
+<a href=#72 id=72 data-nosnippet>72</a>        <span class="kw">let </span>experimental_artifact_cfg = experimental_artifact.then(|| <span class="kw">match </span>compiler_name {
+<a href=#73 id=73 data-nosnippet>73</a>            <span class="string">"Cranelift" </span>| <span class="string">"Singlepass" </span>| <span class="string">"LLVM" </span>=&gt; <span class="macro">quote!</span> {},
+<a href=#74 id=74 data-nosnippet>74</a>            <span class="kw">_ </span>=&gt; <span class="macro">quote!</span> { <span class="attr">#[cfg(target_os = <span class="string">"linux"</span>)] </span>},
+<a href=#75 id=75 data-nosnippet>75</a>        });
+<a href=#76 id=76 data-nosnippet>76</a>        <span class="kw">let </span><span class="kw-2">mut </span>new_sig = func.sig.clone();
+<a href=#77 id=77 data-nosnippet>77</a>        <span class="kw">let </span>attrs = func
+<a href=#78 id=78 data-nosnippet>78</a>            .attrs
+<a href=#79 id=79 data-nosnippet>79</a>            .clone()
+<a href=#80 id=80 data-nosnippet>80</a>            .iter()
+<a href=#81 id=81 data-nosnippet>81</a>            .fold(<span class="macro">quote!</span> {}, |acc, new| <span class="macro">quote!</span> {#acc #new});
+<a href=#82 id=82 data-nosnippet>82</a>        new_sig.ident = test_name;
+<a href=#83 id=83 data-nosnippet>83</a>        new_sig.inputs = ::syn::punctuated::Punctuated::new();
+<a href=#84 id=84 data-nosnippet>84</a>        <span class="kw">let </span>f = <span class="macro">quote!</span> {
+<a href=#85 id=85 data-nosnippet>85</a>            <span class="attr">#[test_log::test]
+<a href=#86 id=86 data-nosnippet>86</a>            </span>#attrs
+<a href=#87 id=87 data-nosnippet>87</a>            <span class="attr">#[cfg(feature = #engine_feature_name)]
+<a href=#88 id=88 data-nosnippet>88</a>            </span>#experimental_artifact_cfg
+<a href=#89 id=89 data-nosnippet>89</a>            #new_sig {
+<a href=#90 id=90 data-nosnippet>90</a>                #fn_name(#config)
+<a href=#91 id=91 data-nosnippet>91</a>            }
+<a href=#92 id=92 data-nosnippet>92</a>        };
+<a href=#93 id=93 data-nosnippet>93</a>        <span class="kw">if </span>should_ignore(
+<a href=#94 id=94 data-nosnippet>94</a>            <span class="kw-2">&amp;</span>func.sig.ident.to_string().replace(<span class="string">"r#"</span>, <span class="string">""</span>),
+<a href=#95 id=95 data-nosnippet>95</a>            compiler_name,
+<a href=#96 id=96 data-nosnippet>96</a>            engine_name,
+<a href=#97 id=97 data-nosnippet>97</a>        ) &amp;&amp; !<span class="macro">cfg!</span>(test)
+<a href=#98 id=98 data-nosnippet>98</a>        {
+<a href=#99 id=99 data-nosnippet>99</a>            <span class="macro">quote!</span> {
+<a href=#100 id=100 data-nosnippet>100</a>                <span class="attr">#[ignore]
+<a href=#101 id=101 data-nosnippet>101</a>                </span>#f
+<a href=#102 id=102 data-nosnippet>102</a>            }
+<a href=#103 id=103 data-nosnippet>103</a>        } <span class="kw">else </span>{
+<a href=#104 id=104 data-nosnippet>104</a>            f
+<a href=#105 id=105 data-nosnippet>105</a>        }
+<a href=#106 id=106 data-nosnippet>106</a>    };
+<a href=#107 id=107 data-nosnippet>107</a>
+<a href=#108 id=108 data-nosnippet>108</a>    <span class="kw">let </span>construct_compiler_test =
+<a href=#109 id=109 data-nosnippet>109</a>        |func: <span class="kw-2">&amp;</span>::syn::ItemFn, compiler_name: <span class="kw-2">&amp;</span>str| -&gt; ::proc_macro2::TokenStream {
+<a href=#110 id=110 data-nosnippet>110</a>            <span class="kw">let </span>mod_name = <span class="macro">::quote::format_ident!</span>(<span class="string">"{}"</span>, compiler_name.to_lowercase());
+<a href=#111 id=111 data-nosnippet>111</a>            <span class="kw">let </span>engine_test = construct_engine_test(
+<a href=#112 id=112 data-nosnippet>112</a>                func,
+<a href=#113 id=113 data-nosnippet>113</a>                compiler_name,
+<a href=#114 id=114 data-nosnippet>114</a>                compiler_name,
+<a href=#115 id=115 data-nosnippet>115</a>                <span class="kw-2">&amp;</span>compiler_name.to_lowercase(),
+<a href=#116 id=116 data-nosnippet>116</a>                <span class="bool-val">false</span>,
+<a href=#117 id=117 data-nosnippet>117</a>                <span class="bool-val">false</span>,
+<a href=#118 id=118 data-nosnippet>118</a>            );
+<a href=#119 id=119 data-nosnippet>119</a>            <span class="kw">let </span>native_compiler = compiler_name != <span class="string">"V8"</span>;
+<a href=#120 id=120 data-nosnippet>120</a>            <span class="kw">let </span>experimental_artifact_test = native_compiler.then(|| {
+<a href=#121 id=121 data-nosnippet>121</a>                construct_engine_test(
+<a href=#122 id=122 data-nosnippet>122</a>                    func,
+<a href=#123 id=123 data-nosnippet>123</a>                    compiler_name,
+<a href=#124 id=124 data-nosnippet>124</a>                    <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{compiler_name}_exp_artifact"</span>),
+<a href=#125 id=125 data-nosnippet>125</a>                    <span class="kw-2">&amp;</span>compiler_name.to_lowercase(),
+<a href=#126 id=126 data-nosnippet>126</a>                    <span class="bool-val">true</span>,
+<a href=#127 id=127 data-nosnippet>127</a>                    <span class="bool-val">false</span>,
+<a href=#128 id=128 data-nosnippet>128</a>                )
+<a href=#129 id=129 data-nosnippet>129</a>            });
+<a href=#130 id=130 data-nosnippet>130</a>            <span class="kw">let </span>dynamic_memory_experimental_artifact_test = native_compiler.then(|| {
+<a href=#131 id=131 data-nosnippet>131</a>                construct_engine_test(
+<a href=#132 id=132 data-nosnippet>132</a>                    func,
+<a href=#133 id=133 data-nosnippet>133</a>                    compiler_name,
+<a href=#134 id=134 data-nosnippet>134</a>                    <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{compiler_name}_dynamic_memory_exp_artifact"</span>),
+<a href=#135 id=135 data-nosnippet>135</a>                    <span class="kw-2">&amp;</span>compiler_name.to_lowercase(),
+<a href=#136 id=136 data-nosnippet>136</a>                    <span class="bool-val">true</span>,
+<a href=#137 id=137 data-nosnippet>137</a>                    <span class="bool-val">true</span>,
+<a href=#138 id=138 data-nosnippet>138</a>                )
+<a href=#139 id=139 data-nosnippet>139</a>            });
+<a href=#140 id=140 data-nosnippet>140</a>            <span class="kw">let </span>compiler_name_lowercase = compiler_name.to_lowercase();
+<a href=#141 id=141 data-nosnippet>141</a>
+<a href=#142 id=142 data-nosnippet>142</a>            <span class="macro">quote!</span> {
+<a href=#143 id=143 data-nosnippet>143</a>                <span class="attr">#[cfg(feature = #compiler_name_lowercase)]
+<a href=#144 id=144 data-nosnippet>144</a>                </span><span class="kw">mod </span>#mod_name {
+<a href=#145 id=145 data-nosnippet>145</a>                    <span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href=#146 id=146 data-nosnippet>146</a>
+<a href=#147 id=147 data-nosnippet>147</a>                    #engine_test
+<a href=#148 id=148 data-nosnippet>148</a>                    #experimental_artifact_test
+<a href=#149 id=149 data-nosnippet>149</a>                    #dynamic_memory_experimental_artifact_test
+<a href=#150 id=150 data-nosnippet>150</a>                }
+<a href=#151 id=151 data-nosnippet>151</a>            }
+<a href=#152 id=152 data-nosnippet>152</a>        };
+<a href=#153 id=153 data-nosnippet>153</a>
+<a href=#154 id=154 data-nosnippet>154</a>    <span class="kw">let </span>singlepass_compiler_test = construct_compiler_test(<span class="kw-2">&amp;</span>my_fn, <span class="string">"Singlepass"</span>);
+<a href=#155 id=155 data-nosnippet>155</a>    <span class="kw">let </span>cranelift_compiler_test = construct_compiler_test(<span class="kw-2">&amp;</span>my_fn, <span class="string">"Cranelift"</span>);
+<a href=#156 id=156 data-nosnippet>156</a>    <span class="kw">let </span>llvm_compiler_test = construct_compiler_test(<span class="kw-2">&amp;</span>my_fn, <span class="string">"LLVM"</span>);
+<a href=#157 id=157 data-nosnippet>157</a>    <span class="kw">let </span>v8_compiler_test = construct_compiler_test(<span class="kw-2">&amp;</span>my_fn, <span class="string">"V8"</span>);
+<a href=#158 id=158 data-nosnippet>158</a>
+<a href=#159 id=159 data-nosnippet>159</a>    <span class="comment">// We remove the method decorators
+<a href=#160 id=160 data-nosnippet>160</a>    </span>my_fn.attrs = <span class="macro">vec!</span>[];
+<a href=#161 id=161 data-nosnippet>161</a>
+<a href=#162 id=162 data-nosnippet>162</a>    <span class="kw">let </span>x = <span class="macro">quote!</span> {
+<a href=#163 id=163 data-nosnippet>163</a>        <span class="attr">#[cfg(test)]
+<a href=#164 id=164 data-nosnippet>164</a>        </span><span class="kw">mod </span>#fn_name {
+<a href=#165 id=165 data-nosnippet>165</a>            <span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href=#166 id=166 data-nosnippet>166</a>
+<a href=#167 id=167 data-nosnippet>167</a>            <span class="attr">#[allow(unused)]
+<a href=#168 id=168 data-nosnippet>168</a>            </span>#my_fn
+<a href=#169 id=169 data-nosnippet>169</a>
+<a href=#170 id=170 data-nosnippet>170</a>            #singlepass_compiler_test
+<a href=#171 id=171 data-nosnippet>171</a>            #cranelift_compiler_test
+<a href=#172 id=172 data-nosnippet>172</a>            #llvm_compiler_test
+<a href=#173 id=173 data-nosnippet>173</a>            #v8_compiler_test
+<a href=#174 id=174 data-nosnippet>174</a>        }
+<a href=#175 id=175 data-nosnippet>175</a>    };
+<a href=#176 id=176 data-nosnippet>176</a>
+<a href=#177 id=177 data-nosnippet>177</a>    <span class="attr">#[allow(clippy::useless_conversion)]
+<a href=#178 id=178 data-nosnippet>178</a>    </span>x.into()
+<a href=#179 id=179 data-nosnippet>179</a>}
+<a href=#180 id=180 data-nosnippet>180</a>
+<a href=#181 id=181 data-nosnippet>181</a><span class="attr">#[cfg(test)]
+<a href=#182 id=182 data-nosnippet>182</a></span><span class="kw">mod </span>tests;
 </code></pre></div></section></main></body></html>

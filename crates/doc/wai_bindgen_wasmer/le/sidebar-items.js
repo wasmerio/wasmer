@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"macro":["primitives","tuples"],"struct":["Le"],"trait":["Endian"]};
+window.SIDEBAR_ITEMS = {"macro":[["primitives",1],["tuples",1]],"struct":["Le"],"trait":["Endian"]};

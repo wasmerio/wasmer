@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["convert_results"],"macro":["impl_native_traits"]};
+window.SIDEBAR_ITEMS = {"fn":["convert_results"],"macro":[["impl_native_traits",1]]};

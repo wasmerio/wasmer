@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"macro":["bin_name","make_spinner","spinner_err","spinner_ok"]};
+window.SIDEBAR_ITEMS = {"macro":[["bin_name",1],["make_spinner",1],["spinner_err",1],["spinner_ok",1]]};
