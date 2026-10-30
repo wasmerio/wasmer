@@ -27,9 +27,11 @@
 //! with `SIGSEGV`, and [`ReadOnly`] keeps [`write`] out of it. Every other range stays
 //! read-write whatever the guest asked for, as wasm enforces no page protection of its own.
 
+#[cfg(all(unix, feature = "sys"))]
+use std::sync::RwLockWriteGuard;
 use std::{
     ops::Range,
-    sync::{Arc, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard},
+    sync::{Arc, PoisonError, RwLock, RwLockReadGuard},
 };
 
 #[cfg(all(unix, feature = "sys"))]
@@ -42,11 +44,10 @@ use wasmer::{
     SharedMemory,
 };
 
-#[cfg(all(unix, feature = "sys"))]
-use crate::base::Base;
 use crate::{
     ExecEnv,
     asyncify::{Access, Outside},
+    base::Base,
 };
 
 /// Bytes at the bottom of linear memory the low guard covers: `mmap_min_addr`'s 65536, the value
@@ -291,6 +292,8 @@ pub(crate) fn zero_pages(
     addr: u32,
     len: u64,
 ) -> Result<(), Fault> {
+    #[cfg(not(all(unix, feature = "sys")))]
+    let _ = base;
     let view = memory.view(store);
     let len = usize::try_from(len).map_err(|_| Fault)?;
     let inside = u64::from(addr)
@@ -1332,6 +1335,35 @@ mod tests {
         store_at.call(&mut store, at + PAGE as u32).unwrap();
         assert!(store_at.call(&mut store, at + 8).is_err());
         assert_eq!(memory.view(&store).read_u8(u64::from(at) + 8).unwrap(), 0);
+    }
+
+    #[test]
+    fn zero_pages_without_a_base_checks_bounds_and_preserves_other_bytes() {
+        use wasmer::{MemoryType, Store};
+
+        const PAGE: u64 = 65536;
+        let mut store = Store::default();
+        let memory = Memory::new(&mut store, MemoryType::new(4, None, false)).unwrap();
+        let view = memory.view(&store);
+        view.write(PAGE - 1, b"L").unwrap();
+        view.write(PAGE, &vec![1; 2 * PAGE as usize]).unwrap();
+        view.write(3 * PAGE, b"R").unwrap();
+        let read_only = ReadOnly::default();
+        let zero = |addr, len| zero_pages(&memory, (0, &read_only, None), &store, addr, len);
+
+        // Linux mm/madvise.c:madvise_dontneed_single_vma discards only the
+        // requested private range; the portable path must expose the same zeros.
+        assert_eq!(zero(PAGE as u32, 2 * PAGE), Ok(()));
+        let mut bytes = vec![1; 2 * PAGE as usize];
+        view.read(PAGE, &mut bytes).unwrap();
+        assert!(bytes.iter().all(|&byte| byte == 0));
+        assert_eq!(view.read_u8(PAGE - 1).unwrap(), b'L');
+        assert_eq!(view.read_u8(3 * PAGE).unwrap(), b'R');
+        assert_eq!(zero(3 * PAGE as u32, 2 * PAGE), Err(Fault));
+        assert_eq!(view.read_u8(3 * PAGE).unwrap(), b'R');
+        assert_eq!(zero(4 * PAGE as u32, 0), Ok(()));
+        assert_eq!(zero(4 * PAGE as u32, 1), Err(Fault));
+        assert_eq!(zero(u32::MAX, u64::MAX), Err(Fault));
     }
 
     #[cfg(all(target_os = "linux", feature = "sys"))]
