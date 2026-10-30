@@ -5,7 +5,7 @@ WASMER=$(realpath "${1:?release CLI}")
 workflow=${2:?workflow}
 TESTS=$(cd "$(dirname "$0")" && pwd)
 ROOT=${USERLAND7:-$HOME/wasixv2-tools/userland-7}
-V6=${USERLAND6:-$HOME/wasixv2-tools/userland-6}
+export USERLAND4=${USERLAND4:-$HOME/wasixv2-tools/userland}
 mkdir -p "$ROOT/logs" "$ROOT/work"
 case $workflow in
   overlay|postgres)

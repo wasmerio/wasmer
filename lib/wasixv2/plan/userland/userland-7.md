@@ -40,9 +40,9 @@ Makefile-flags clippy and formatting pass. Program validation follows below.
 | awk gsub erroneous word start match | editors/awk.c:awk_sub explicitly describes this bug in its branch without REG_STARTEND. Musl does not offer that BSD extension. Upstream applet limitation; no kernel or regex workaround. |
 | cpio lists hardlinks | testsuite/cpio.tests explicitly marks the missing names as an upstream known bug. |
 | date-timezone | Real libc2 compatibility bug: strptime %z rejected ISO-8601 Z. Fixed with a failing-first fixture; glibc time/strptime_l.c:__strptime_internal accepts Z as UTC. Numeric offsets and unrelated fields are regression controls. |
-| hostname-i-works | Test compares net-tools' IPv6 result ::1 to Busybox's IPv4 127.0.0.1. Busybox uses AF_INET (networking/hostname.c). |
-| mount -o remount,mand | Test requires loop block devices and ext2; neither is provided by this machine. |
-| mount RO loop | Same loop/block-filesystem requirement. |
+| hostname-i-works | Test compares net-tools' IPv6 result ::1 to Busybox's IPv4 127.0.0.1. Busybox uses gethostbyname and inet_ntoa (networking/hostname.c). |
+| mount -o remount,mand | Test requires a loop block device and Minix filesystem; neither is provided by this machine. |
+| mount RO loop | Requires a loop block device and ext2 filesystem, also unavailable. |
 | sed embedded NUL | testsuite/sed.tests explicitly guards this known bug with SKIP_KNOWN_BUGS; applet C-string handling. |
 | sed NUL in command | Same explicit upstream known-bug guard. |
 | sed nonexistent label | testsuite/sed.tests explicitly documents missing-label validation with no input as an incompatibility and guards it as a known bug. |
