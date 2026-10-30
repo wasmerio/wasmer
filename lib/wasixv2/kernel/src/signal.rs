@@ -3091,7 +3091,12 @@ impl Kernel {
                 .tasks
                 .get(&TaskId(target))
                 .map(|t| t.cred.clone())
-                .or_else(|| state.retired_creds.get(&TaskId(target)).cloned())
+                .or_else(|| {
+                    state
+                        .retired
+                        .get(&TaskId(target))
+                        .map(|task| task.cred.clone())
+                })
         };
         let (Some(sender), Some(target)) = (
             sender,

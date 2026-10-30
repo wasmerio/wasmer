@@ -2751,7 +2751,7 @@ impl Kernel {
                     .tasks
                     .get(&id)
                     .map(|t| t.cred.clone())
-                    .or_else(|| state.retired_creds.get(&id).cloned())?;
+                    .or_else(|| state.retired.get(&id).map(|task| task.cred.clone()))?;
                 Some((cred, node.parent))
             })
         };

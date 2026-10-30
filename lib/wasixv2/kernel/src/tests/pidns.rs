@@ -1043,3 +1043,58 @@ fn reboot_in_the_initial_pid_namespace_powers_the_machine_off() {
     assert!(dies(&kernel, &child));
     assert!(dies(&kernel, &root));
 }
+
+#[test]
+fn zombie_scheduler_lookups_use_the_callers_pid_namespace() {
+    let (kernel, parent) = machine();
+    let (init, _) = fork(&kernel, &parent, NEWPID).unwrap();
+    let (child, inner_pid) = fork(&kernel, &init, 0).unwrap();
+    let outer_pid = kernel
+        .pids
+        .nr(&kernel.active_pid_ns(parent.task), child.task.0);
+    assert_ne!(inner_pid, outer_pid);
+    // kernel/sched/syscalls.c:find_process_by_pid uses find_task_by_vpid, including zombies.
+    block_on(write_value(
+        &init.memory,
+        GuestPtrMut::new(0x100),
+        &wasixv2_abi::SchedParam { sched_priority: 0 },
+    ))
+    .unwrap();
+    assert_eq!(
+        block_on(kernel.sched_setscheduler(
+            &init.caller(),
+            inner_pid,
+            SchedPolicy::SCHED_BATCH,
+            GuestPtr::new(0x100)
+        )),
+        Ok(0)
+    );
+    exit(&kernel, &child, 0);
+    assert_eq!(
+        block_on(kernel.sched_getscheduler(&init.caller(), inner_pid)),
+        Ok(SchedPolicy::SCHED_BATCH.0)
+    );
+    assert_eq!(
+        block_on(kernel.sched_getscheduler(&parent.caller(), outer_pid)),
+        Ok(SchedPolicy::SCHED_BATCH.0)
+    );
+    assert_eq!(
+        errno(block_on(
+            kernel.sched_getscheduler(&init.caller(), outer_pid)
+        )),
+        Errno::ESRCH
+    );
+    assert!(reap(&kernel, &init, inner_pid).unwrap().is_some());
+    assert_eq!(
+        errno(block_on(
+            kernel.sched_getscheduler(&init.caller(), inner_pid)
+        )),
+        Errno::ESRCH
+    );
+    assert_eq!(
+        errno(block_on(
+            kernel.sched_getscheduler(&parent.caller(), outer_pid)
+        )),
+        Errno::ESRCH
+    );
+}

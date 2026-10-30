@@ -470,7 +470,7 @@ impl Kernel {
             .tasks
             .get(&task)
             .map(|t| t.cred.clone())
-            .or_else(|| state.retired_creds.get(&task).cloned())
+            .or_else(|| state.retired.get(&task).map(|task| task.cred.clone()))
     }
 
     /// `find_task_by_vpid` + `get_task_cred`, including an unreaped zombie leader.
