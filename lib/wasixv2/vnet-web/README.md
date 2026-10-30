@@ -71,9 +71,10 @@ messages when supplied, but the stock relay needs fixes for those cases.
 
 Classic TCP publication supports fixed addresses, accept credits and asynchronous
 bind-error reporting through `take_publication_error`. It has no synchronous
-port-zero address reply or configurable native listen-backlog record: port-zero
-publication is explicitly unsupported, and guest backlog enforcement remains in
-the sink. UDP publication and urgent data are unsupported. Socket options with no
+port-zero address reply or configurable native listen-backlog record. The explicit
+asynchronous provider API resolves port zero with GetAddrLocal before publishing
+its handle; guest backlog enforcement remains in the sink. Default-profile UDP
+publication and urgent data are unsupported. Socket options with no
 implemented wire effect return EOPNOTSUPP. These are explicit provider limits,
 not changes to guest Linux socket policy.
 
@@ -87,6 +88,22 @@ integration. Nothing here implements or depends on C1 or C2.
 `Capabilities::classic_fidelity(ipv6)` selects our additive versioned protocol:
 FIN versus reset, UDP host-send errors, PTR/raw DNS, urgent byte marks and fixed
 UDP publication. Use it only with a matching provider. The stock profile is
-unchanged; port-zero publication remains unsupported. See
+unchanged; asynchronous publication resolves port zero through existing classic
+records. See
 [RELAY-FIDELITY.md](RELAY-FIDELITY.md) for the byte contract, deterministic test
 provider, Linux authorities, exact stock-server changes and remaining limits.
+
+### Resolved publications and UDP ICMP
+
+Use `WebBackend::publish_resolved` / `publish_datagram_resolved` when the host
+address requests port zero. They await the existing classic GetAddrLocal reply
+before returning a publication. Keep polling the independent I/O driver; dropping
+the future cancels its provisional publication. `Net::inbound_sink` supplies the
+TCP destination and `Net::publish_udp_endpoint` adopts a resolved UDP pair.
+Synchronous `Backend` publication still rejects port zero.
+
+Fidelity providers can send destination-qualified `Event::DatagramRefused` for
+actual ICMP port unreachable. It matches the current connected peer, reports
+ECONNREFUSED once on the next send/recv, and supports bounded RECVERR quotes.
+Local `DatagramError` remains separate. See RELAY-FIDELITY.md for exact stock
+server/provider and WISP follow-ups; no production relay deployment is changed.
