@@ -125,6 +125,7 @@ impl Switch {
             || address.is_unspecified()
             || address.is_multicast()
             || address == IpAddr::from([255, 255, 255, 255])
+            || matches!(address, IpAddr::V6(a) if a.to_ipv4_mapped().is_some())
         {
             return Err(io::ErrorKind::InvalidInput.into());
         }
@@ -196,13 +197,22 @@ impl Switch {
             let network = port.network.lock().unwrap().upgrade();
             if let Some(network) = network {
                 use wasixv2_vnet::Network;
-                for entry in network
-                    .ports()
-                    .into_iter()
-                    .filter(|p| p.listening && !p.local.ip().is_loopback())
-                {
+                if !network.route(port.address).is_ok_and(|r| r.local) {
+                    continue;
+                }
+                for entry in network.ports().into_iter().filter(|p| p.listening) {
+                    let ip = match entry.local.ip() {
+                        IpAddr::V6(a) => a.to_ipv4_mapped().map_or(IpAddr::V6(a), IpAddr::V4),
+                        ip => ip,
+                    };
+                    let wildcard_serves = ip.is_unspecified()
+                        && (entry.local.is_ipv4() == port.address.is_ipv4()
+                            || (port.address.is_ipv4() && !entry.v6only));
+                    if !wildcard_serves && ip != port.address {
+                        continue;
+                    }
                     let address = SocketAddr::new(port.address, entry.local.port());
-                    let room = network.inbound_sink(entry.local).poll_room(None);
+                    let room = network.inbound_sink(address).poll_room(None);
                     if room != Room::Gone {
                         snapshots.push(Listener { address, room });
                     }
