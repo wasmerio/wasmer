@@ -13,11 +13,11 @@ use wasixv2_syscalls::Errno;
 use wasixv2_vfs::{FsResult, MntNs, Mount, MountFlags, Path};
 use wasixv2_vnet::{Domain, IcmpEntry, SocketKind};
 
-use super::{Source, introspect, node::Scope};
+use super::{Namespaces, Source, introspect, node::Scope};
 use crate::{
     file::OpenFile,
     mm::{Mm, PAGE_SIZE, RegionKind},
-    ns::{NetNs, NsProxy, PidNs, TimeNs, UserNs},
+    ns::{NetNs, PidNs, TimeNs, UserNs},
     resource::{ADDRESS_SPACE, TICKS},
     sched::cpus,
     sync::MutexExt,
@@ -260,7 +260,7 @@ pub(super) enum PerPid {
 /// namespace `user_ns` sees it.
 pub(super) fn global(
     source: &Source,
-    ns: &NsProxy,
+    ns: &Namespaces,
     pid_ns: &PidNs,
     user_ns: &UserNs,
     file: Global,
@@ -1393,7 +1393,7 @@ pub(super) fn per_pid(
     scope: Scope,
     file: PerPid,
     reader: &Arc<UserNs>,
-    viewer: &NsProxy,
+    viewer: &Namespaces,
 ) -> FsResult<Vec<u8>> {
     let info = source.process(scope.pid).ok_or(Errno::ESRCH)?;
     let process = &info.process;
