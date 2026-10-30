@@ -394,11 +394,20 @@ fn stdin_close_hangs_up_console_and_completes_a_blocked_read() {
     let memory = Memory::default();
     let caller = Caller::new(tty.task, &memory);
     tty.handle(&caller, Signal::SIGHUP);
+    let mut read = Box::pin(
+        tty.kernel
+            .read(&caller, Fd(0), UserSliceMut::new(0x200, 32)),
+    );
+    assert!(
+        read.as_mut()
+            .poll(&mut Context::from_waker(Waker::noop()))
+            .is_pending()
+    );
     tty.streams.stdin.close();
     eventually(|| tty.kernel.work_flag(tty.task).is_raised());
     assert!(
         matches!(tty.kernel.take_pending(tty.task), Some(GuestAction::Signal(frame)) if frame.signo() == Signal::SIGHUP.0)
     );
     tty.kernel.signal_return(tty.task, Some(0));
-    assert!(tty.read(&caller).is_empty());
+    assert_eq!(bounded(read), Ok(0));
 }

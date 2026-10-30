@@ -21,8 +21,9 @@ pub struct Streams {
     pub stderr: Arc<Source>,
 }
 
-/// Runtime owner of a run's streams. Use the returned Stdio in ProcessConfig. After the run
-/// and `console_wait_until_sent` complete, call `finish` and keep consuming both outputs
+/// Runtime owner of a run's streams. Use the returned Stdio in ProcessConfig. After all
+/// tasks sharing the streams stop and `console_wait_until_sent` completes, call `finish`
+/// and keep consuming both outputs
 /// until EOF before publishing the final process result. Dropping this owner alone does
 /// not revoke streams still held by a process; use `abort` for infrastructure failure.
 pub struct Session {
@@ -32,7 +33,7 @@ pub struct Session {
 }
 
 impl Session {
-    /// Each direction reserves at most `capacity` payload bytes. Zero is invalid.
+    /// Each direction accepts at most `capacity` queued payload bytes. Zero is invalid.
     pub fn new(capacity: usize) -> io::Result<(Self, Stdio, Streams)> {
         let (input_tx, input_rx) = channel(capacity)?;
         let (output_tx, output_rx) = channel(capacity)?;
