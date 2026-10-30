@@ -11,17 +11,17 @@
 #include <unistd.h>
 
 static int tasks(void) {
-  DIR *proc = opendir("/proc");
+  DIR* proc = opendir("/proc");
   assert(proc);
   int count = 0;
-  struct dirent *p;
+  struct dirent* p;
   while ((p = readdir(proc))) {
     if (p->d_name[0] < '0' || p->d_name[0] > '9') continue;
     char path[128];
     snprintf(path, sizeof(path), "/proc/%s/task", p->d_name);
-    DIR *threads = opendir(path);
+    DIR* threads = opendir(path);
     if (!threads) continue;
-    struct dirent *t;
+    struct dirent* t;
     while ((t = readdir(threads)))
       if (t->d_name[0] >= '0' && t->d_name[0] <= '9') count++;
     closedir(threads);
@@ -33,13 +33,17 @@ static int tasks(void) {
 static void reaped(pid_t pid, int sig) {
   int status;
   pid_t got;
-  do { got = waitpid(pid, &status, 0); } while (got < 0 && errno == EINTR);
+  do {
+    got = waitpid(pid, &status, 0);
+  } while (got < 0 && errno == EINTR);
   assert(got == pid);
-  if (sig) assert(WIFSIGNALED(status) && WTERMSIG(status) == sig);
-  else assert(WIFEXITED(status) && WEXITSTATUS(status) == 0);
+  if (sig)
+    assert(WIFSIGNALED(status) && WTERMSIG(status) == sig);
+  else
+    assert(WIFEXITED(status) && WEXITSTATUS(status) == 0);
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
   assert(argc >= 2);
   if (!strcmp(argv[1], "tasks")) {
     printf("%d\n", tasks());
@@ -61,7 +65,7 @@ int main(int argc, char **argv) {
         children[i] = fork();
         assert(children[i] >= 0);
         if (!children[i]) {
-          execl("/bin/true", "true", (char *)NULL);
+          execl("/bin/true", "true", (char*)NULL);
           _exit(127);
         }
       }

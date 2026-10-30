@@ -67,7 +67,8 @@ def main():
         os.set_blocking(proc.stdout.fileno(), False)
         m = dict(name=name, proc=proc, born=time.monotonic(), ready=None, last=time.monotonic(),
                  tail=collections.deque(maxlen=80), pending=b"", rows=[], port=port, tasks=None,
-                 cycles=0, quiescent=[], done=False, phase="startup", duration=duration)
+                 cycles=0, quiescent=[], done=False, phase="startup", duration=duration,
+                 peak=dict(rss_kib=0, fds=0, threads=0), last_resources=None)
         selector.register(proc.stdout, selectors.EVENT_READ, m)
         machines.append(m)
         event("start", name=name, pid=proc.pid, duration=duration)
@@ -123,6 +124,9 @@ def main():
                 r = resources(m["proc"].pid)
                 if r:
                     total_rss += r["rss_kib"]
+                    m["last_resources"] = r
+                    for k, v in r.items():
+                        m["peak"][k] = max(m["peak"][k], v)
                 code = m["proc"].poll()
                 if code is not None:
                     # Drain a final buffered read before judging the DONE marker.
@@ -130,7 +134,8 @@ def main():
                         raw = m["proc"].stdout.read() or b""
                         consume(m, raw)
                     result = dict(name=m["name"], code=code, done=m["done"], cycles=m["cycles"],
-                                  age_s=round(now-m["born"], 2), quiescent=m["quiescent"][-20:])
+                                  age_s=round(now-m["born"], 2), quiescent=m["quiescent"][-20:],
+                                  peak=m["peak"], final=m["last_resources"])
                     completed.append(result)
                     event("exit", **result)
                     (a.output / f"{m['name']}.tail").write_text("\n".join(m["tail"]) + "\n")
