@@ -2369,9 +2369,13 @@ impl Kernel {
             None => {}
         }
         loop {
+            // Linux kernel/signal.c:get_signal resumes after ptrace_signal, at
+            // disposition handling, before reconsidering pre-dequeue stops.
+            let resumed_signal = from_tracer.is_some();
             // kernel/fork.c `kernel_clone`: VFORK_DONE precedes the parent's return.
             let trace = &state.task(task).ptrace;
-            if trace.link.is_some()
+            if !resumed_signal
+                && trace.link.is_some()
                 && trace.vfork_done.is_some()
                 && !state.sigkill_pending(task)
                 && state.fatal(task).is_none()
@@ -2411,7 +2415,8 @@ impl Kernel {
             }
             // `do_jobctl_trap`: a trap stop is due.
             let trace = &state.task(task).ptrace;
-            if trace.link.is_some()
+            if !resumed_signal
+                && trace.link.is_some()
                 && (trace.trap_stop || trace.trap_notify)
                 && !state.sigkill_pending(task)
                 && state.fatal(task).is_none()
@@ -2426,7 +2431,7 @@ impl Kernel {
             }
             // A pending fatal signal comes before a stop, as Linux's `complete_signal` makes it
             // a group exit as it is sent.
-            if state.task(task).stop_pending && state.fatal(task).is_none() {
+            if !resumed_signal && state.task(task).stop_pending && state.fatal(task).is_none() {
                 // Lock order: the signal state, then the thread group's.
                 let exiting = process.group.signal_group_exit();
                 if let Some(completed) = state.do_signal_stop(task, 0, exiting) {
@@ -2438,14 +2443,14 @@ impl Kernel {
             // `do_freezer_trap`: the freezer holds the task, its signals queued, unless it has
             // a stop to take or a fatal signal ends it.
             let me = state.task(task);
-            if me.trap_freeze && !me.stop_pending && !fatal {
+            if !resumed_signal && me.trap_freeze && !me.stop_pending && !fatal {
                 drop(state);
                 css.enter_frozen();
                 return Some(GuestAction::Stopped);
             }
             // Throttled: the task waits for its runtime, unless it dies.
             let me = state.task(task);
-            if me.throttled_until.is_some() {
+            if !resumed_signal && me.throttled_until.is_some() {
                 if !fatal {
                     drop(state);
                     return Some(GuestAction::Stopped);
@@ -2454,7 +2459,7 @@ impl Kernel {
             }
             // Leaving the frozen state: for good, or back into the freezer while the cgroup
             // still freezes (`cgroup_leave_frozen`). The tree comes before the signal state.
-            if css.frozen() {
+            if !resumed_signal && css.frozen() {
                 drop(state);
                 css.leave_frozen(fatal, || signals.freeze(true));
                 state = signals.group.state.lock_or_recover();
