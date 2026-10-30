@@ -147,15 +147,20 @@ fixture export, so an exporter failure does not discard the built tools. Only
 executables, Clang resource headers and the two sysroots are cached; private
 source checkouts and compiler object files are excluded. Host tools use debug
 builds with assertions, without bulky debug symbols, and serialized LLVM links.
-The cold runner installs native build prerequisites including lld and rsync
+Jobs run on GitHub-hosted Ubuntu 24.04 with CPUs 0-3 and three build jobs.
+Local recipes default to shared-machine CPUs 4-7; `WASIX_BROWSER_CPUS` overrides
+the affinity without changing Cargo or runtime flags. The cold runner installs
+native build prerequisites including lld and rsync
 (Linux `Makefile:headers_install` uses rsync for the pinned UAPI headers).
 
 `wasix-org/libc2` is private. Set the Actions secret `WASIXV2_TOOLCHAIN_TOKEN`
 to a credential with **Contents: read** access to that repository (and any other
 private pinned source/submodule). Until a dedicated credential is provisioned,
-the workflow uses `COMPAT_TESTS_GH_TOKEN`, the existing private cross-repository
-CI credential from `.github/workflows/patchsmith-test.yml`. A workflow's own
-`github.token` is scoped to Wasmer and cannot fetch libc2. Fork pull requests do
+a cold run cannot build libc2. The `GH_TOKEN` environment/credential-helper
+pattern matches the existing cross-repository workflows; the existing
+`COMPAT_TESTS_GH_TOKEN` from `patchsmith-test.yml` was checked and also lacks
+libc2 access. A workflow's own `github.token` is scoped to Wasmer and cannot
+fetch libc2. Fork pull requests do
 not receive these secrets; their cold producer therefore fails explicitly and
 requires a trusted same-repository run. Do not expose credentials to fork code
 using `pull_request_target`.
