@@ -242,7 +242,7 @@ async fn blocking_i64_arguments_and_host_results_keep_all_bits() {
     let pair = Function::new_typed_async(&mut store, async |a: i64, b: i64| (a, b));
     let instance = Instance::new(&mut store, &module, &imports! {"host"=>{"pair"=>pair}}).unwrap();
     let function = instance.exports.get_function("roundtrip").unwrap();
-    // Linux fs/read_write.c:ksys_lseek/vfs_llseek transports signed 64-bit offsets.
+    // Linux fs/read_write.c:vfs_llseek transports signed 64-bit offsets.
     // These values also catch Number's rounding above 53 bits and negative errno.
     let values = [
         wasmer::Value::I64(9_007_199_254_740_993),

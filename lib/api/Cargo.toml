@@ -89,7 +89,6 @@ wasm-bindgen.workspace = true
 wasm-bindgen-futures = { workspace = true, optional = true }
 js-sys.workspace = true
 wasmer-derive = { path = "../derive", version = "=7.5.0" }
-wasmer-compiler = { path = "../compiler", version = "=7.5.0" }
 # - Optional dependencies for `js`.
 wasmparser = { workspace = true, default-features = false, optional = true }
 hashbrown = { workspace = true, optional = true }
