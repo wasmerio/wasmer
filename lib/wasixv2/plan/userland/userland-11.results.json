@@ -1,0 +1,169 @@
+{
+  "runtime": "f1532f506878c3905f1f924ebdf3f33520c3dcd7",
+  "tests": "3a5d1a0",
+  "libc2": "4101c810",
+  "abi": "07cd32e",
+  "programs": {
+    "cpython": "3.13.3",
+    "openssl": "3.5.0",
+    "curl": "8.14.1",
+    "nginx": "1.28.0",
+    "ffmpeg": "7.1.1",
+    "vim": "9.1.1354",
+    "htop": "3.4.1"
+  },
+  "python": {
+    "groups": [
+      {
+        "name": "test_asyncio.test_events",
+        "total": 261,
+        "passed": 261,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "name": "test_asyncio.test_futures",
+        "total": 181,
+        "passed": 181,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "name": "test_asyncio.test_tasks",
+        "total": 985,
+        "passed": 984,
+        "failed": 0,
+        "skipped": 1
+      },
+      {
+        "name": "test_fcntl",
+        "total": 11,
+        "passed": 9,
+        "failed": 0,
+        "skipped": 2
+      },
+      {
+        "name": "test_mmap",
+        "total": 50,
+        "passed": 38,
+        "failed": 0,
+        "skipped": 12
+      },
+      {
+        "name": "test_multiprocessing_fork",
+        "total": 402,
+        "passed": 334,
+        "failed": 0,
+        "skipped": 68
+      },
+      {
+        "name": "test_os",
+        "total": 366,
+        "passed": 308,
+        "failed": 0,
+        "skipped": 58
+      },
+      {
+        "name": "test_pty",
+        "total": 6,
+        "passed": 6,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "name": "test_select",
+        "total": 6,
+        "passed": 6,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "name": "test_signal",
+        "total": 57,
+        "passed": 52,
+        "failed": 0,
+        "skipped": 5
+      },
+      {
+        "name": "test_socket",
+        "total": 627,
+        "passed": 548,
+        "failed": 0,
+        "skipped": 79
+      },
+      {
+        "name": "test_subprocess",
+        "total": 342,
+        "passed": 299,
+        "failed": 0,
+        "skipped": 43
+      },
+      {
+        "name": "test_threading",
+        "total": 210,
+        "passed": 207,
+        "failed": 0,
+        "skipped": 3
+      }
+    ],
+    "totals": {
+      "total": 3504,
+      "passed": 3233,
+      "failed": 0,
+      "skipped": 271
+    },
+    "explicit_not_selected": {
+      "udplite_cases": 113
+    },
+    "profile": "static builtins; no dlopen/ctypes/FFI; default regrtest resources; 16MiB CLI stack"
+  },
+  "binaries": {
+    "curl": {
+      "bytes": 6623852,
+      "sha256": "4fa09e5dadd0f6f042aa09d66097153ecf25ee4ec0b491f2659bdc49d701f517"
+    },
+    "ffmpeg": {
+      "bytes": 5296026,
+      "sha256": "9aa57e33a82fd6e86d16e4f45cb1de4a5396f200c4566ff4bfc0f6682e779c33"
+    },
+    "htop": {
+      "bytes": 694371,
+      "sha256": "20af853aafb9f05be17f5cbc00d83f74e2e52b9a29337ac73dcde0702ba674cc"
+    },
+    "nginx": {
+      "bytes": 15596504,
+      "sha256": "cfd1b601e75b8973e9a4f6adacdc6aee750acb9724190e80da27de9ec1703499"
+    },
+    "openssl": {
+      "bytes": 7516403,
+      "sha256": "349be80627055ffb0ba81221b1f0cedd21ae1f71f993bbfbe452849f573d7bdf"
+    },
+    "programs-pty": {
+      "bytes": 93409,
+      "sha256": "582dec3998d45c2aa4b27330d37ce1c5de94ef10d5fa1a815f2f62b1193aa2c4"
+    },
+    "python3": {
+      "bytes": 52253792,
+      "sha256": "786451f888be22bfdc812fd9b25e052699404baa8adaa127211972d11299e76e"
+    },
+    "vim": {
+      "bytes": 9591464,
+      "sha256": "f64b707f2b878b20cb5ab2e70bc4bd460050aaed4d131aecd105dfe872bfa5d4"
+    }
+  },
+  "fixes": [
+    "filesystem-derived _PC_NAME_MAX",
+    "queued IPv6 UDP receive controls and parsed send controls"
+  ],
+  "gates": {
+    "vnet_targeted_checks": 32,
+    "runner_fixture_parser_checks": 2,
+    "libc_regression_configs": [
+      "eh",
+      "asyncify",
+      "native glibc"
+    ],
+    "clippy": "exact Makefile flags, all targets for touched Rust crates",
+    "fmt": "PASS"
+  }
+}
