@@ -308,6 +308,24 @@ mod test_vmglobal_import {
     }
 }
 
+/// The byte range of a wasm32 bulk-memory operation, checked before any writes.
+/// WebAssembly's memory.fill/copy/init compare the mathematical exclusive end with
+/// the memory length: it may equal 2^32 for a full wasm32 memory, so add in host width.
+/// See https://webassembly.github.io/spec/versions/core/WebAssembly-2.0.pdf.
+pub(crate) fn memory32_range(
+    start: u32,
+    len: u32,
+    bound: usize,
+) -> Result<std::ops::Range<usize>, Trap> {
+    let start = usize::try_from(start).unwrap();
+    let len = usize::try_from(len).unwrap();
+    let end = start
+        .checked_add(len)
+        .filter(|&end| end <= bound)
+        .ok_or_else(|| Trap::lib(TrapCode::HeapAccessOutOfBounds))?;
+    Ok(start..end)
+}
+
 /// Do an unsynchronized, non-atomic `memory.copy` for the memory.
 ///
 /// # Errors
@@ -327,23 +345,13 @@ pub(crate) unsafe fn memory_copy(
 ) -> Result<(), Trap> {
     unsafe {
         // https://webassembly.github.io/reference-types/core/exec/instructions.html#exec-memory-copy
-        if src
-            .checked_add(len)
-            .is_none_or(|n| usize::try_from(n).unwrap() > src_mem.current_length)
-            || dst
-                .checked_add(len)
-                .is_none_or(|m| usize::try_from(m).unwrap() > dst_mem.current_length)
-        {
-            return Err(Trap::lib(TrapCode::HeapAccessOutOfBounds));
-        }
-
-        let dst = usize::try_from(dst).unwrap();
-        let src = usize::try_from(src).unwrap();
+        let src = memory32_range(src, len, src_mem.current_length)?;
+        let dst = memory32_range(dst, len, dst_mem.current_length)?;
 
         // Bounds and casts are checked above, by this point we know that
         // everything is safe.
-        let dst = dst_mem.base.add(dst);
-        let src = src_mem.base.add(src);
+        let dst = dst_mem.base.add(dst.start);
+        let src = src_mem.base.add(src.start);
         ptr::copy(src, dst, len as usize);
 
         Ok(())
@@ -367,22 +375,99 @@ pub(crate) unsafe fn memory_fill(
     len: u32,
 ) -> Result<(), Trap> {
     unsafe {
-        if dst
-            .checked_add(len)
-            .is_none_or(|m| usize::try_from(m).unwrap() > mem.current_length)
-        {
-            return Err(Trap::lib(TrapCode::HeapAccessOutOfBounds));
-        }
-
-        let dst = isize::try_from(dst).unwrap();
+        let dst = memory32_range(dst, len, mem.current_length)?;
         let val = val as u8;
 
         // Bounds and casts are checked above, by this point we know that
         // everything is safe.
-        let dst = mem.base.offset(dst);
+        let dst = mem.base.add(dst.start);
         ptr::write_bytes(dst, val, len as usize);
 
         Ok(())
+    }
+}
+
+#[cfg(all(test, target_pointer_width = "64", target_family = "unix"))]
+mod test_bulk_memory {
+    use super::{VMMemoryDefinition, memory_copy, memory_fill, memory32_range};
+    use crate::mmap::Mmap;
+
+    const FOUR_GIB: usize = 1usize << 32;
+    const TAIL: u32 = u32::MAX - 15;
+
+    #[test]
+    fn memory32_ranges_allow_a_four_gib_exclusive_end() {
+        assert_eq!(
+            memory32_range(TAIL, 16, FOUR_GIB).unwrap(),
+            TAIL as usize..FOUR_GIB
+        );
+        assert!(memory32_range(TAIL, 17, FOUR_GIB).is_err());
+        assert!(memory32_range(TAIL, 16, FOUR_GIB - 1).is_err());
+        assert_eq!(
+            memory32_range(u32::MAX, 0, FOUR_GIB).unwrap(),
+            u32::MAX as usize..u32::MAX as usize
+        );
+        assert!(memory32_range(0, 1, 0).is_err());
+    }
+
+    #[test]
+    fn memory_fill_accepts_the_last_bytes_of_four_gib() {
+        let mut mapping = Mmap::with_at_least(FOUR_GIB, false).unwrap();
+        let memory = VMMemoryDefinition {
+            base: mapping.as_mut_ptr(),
+            current_length: mapping.len(),
+        };
+        // SAFETY: a real private mapping backs the full definition, and no other thread
+        // accesses it. Only its last host page is touched, not four GiB of physical memory.
+        unsafe {
+            memory_fill(&memory, TAIL, 0x5a, 16).unwrap();
+            assert_eq!(
+                std::slice::from_raw_parts(memory.base.add(TAIL as usize), 16),
+                &[0x5a; 16]
+            );
+            assert!(memory_fill(&memory, TAIL, 0, 17).is_err());
+            assert_eq!(
+                std::slice::from_raw_parts(memory.base.add(TAIL as usize), 16),
+                &[0x5a; 16]
+            );
+            memory_fill(&memory, u32::MAX, 0, 0).unwrap();
+        }
+    }
+
+    #[test]
+    fn memory_copy_accepts_source_and_destination_ending_at_four_gib() {
+        let mut mapping = Mmap::with_at_least(FOUR_GIB, false).unwrap();
+        let memory = VMMemoryDefinition {
+            base: mapping.as_mut_ptr(),
+            current_length: mapping.len(),
+        };
+        // SAFETY: the real private mapping holds every byte of the definition and is not
+        // shared. Invalid ranges must trap before copying any byte.
+        unsafe {
+            std::ptr::copy_nonoverlapping(
+                b"0123456789abcdef".as_ptr(),
+                memory.base.add(TAIL as usize),
+                16,
+            );
+            memory_copy(&memory, &memory, 0, TAIL, 16).unwrap();
+            assert_eq!(
+                std::slice::from_raw_parts(memory.base, 16),
+                b"0123456789abcdef"
+            );
+            memory_copy(&memory, &memory, TAIL, 0, 16).unwrap();
+            assert!(memory_copy(&memory, &memory, TAIL, 0, 17).is_err());
+            assert!(memory_copy(&memory, &memory, 0, TAIL, 17).is_err());
+            assert_eq!(
+                std::slice::from_raw_parts(memory.base, 16),
+                b"0123456789abcdef"
+            );
+            memory_copy(&memory, &memory, TAIL + 1, TAIL, 15).unwrap();
+            assert_eq!(
+                std::slice::from_raw_parts(memory.base.add(TAIL as usize), 16),
+                b"00123456789abcde"
+            );
+            memory_copy(&memory, &memory, u32::MAX, u32::MAX, 0).unwrap();
+        }
     }
 }
 
