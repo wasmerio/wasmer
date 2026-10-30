@@ -3633,3 +3633,17 @@ fn accepted_tcp_child_inherits_address_lock_but_not_port_lock() {
         }
     }
 }
+
+#[test]
+fn raw_ipv6_addrform_rejects_invalid_family_before_protocol() {
+    let n = net();
+    let raw = n.socket(Domain::Inet6, SocketKind::Raw, 253, UID).unwrap();
+    assert_eq!(
+        raw.set_option(41, 1 /* IPV6_ADDRFORM */, &10i32.to_le_bytes()),
+        Err(Errno::EINVAL)
+    );
+    assert_eq!(
+        raw.set_option(41, 1, &2i32.to_le_bytes()),
+        Err(Errno::ENOPROTOOPT)
+    );
+}
