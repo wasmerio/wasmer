@@ -106,6 +106,7 @@ impl Kernel {
         };
         let cred = self.env(caller).cred;
         let new = NewNode {
+            umask: 0,
             kind: NewKind::Regular,
             mode,
             uid: cred.fsuid,

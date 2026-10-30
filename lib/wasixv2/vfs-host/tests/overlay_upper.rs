@@ -51,6 +51,7 @@ impl Clock for Epoch {
 
 fn add_file(dir: &Arc<dyn Node>, name: &[u8], data: &[u8], mode: u32) {
     let new = NewNode {
+        umask: 0,
         kind: NewKind::Regular,
         mode,
         uid: 1,

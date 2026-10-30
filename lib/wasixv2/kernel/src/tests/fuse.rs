@@ -266,6 +266,67 @@ impl Daemon {
 }
 
 #[test]
+fn fuse_creation_mode_and_umask_negotiation() {
+    // Linux fs/fuse/dir.c:fuse_create_open/fuse_mknod/fuse_mkdir: the daemon
+    // inherits ACLs; DONT_MASK controls mode masking, never the umask field.
+    for flags in [0, 1 << 6, 1 << 20, (1 << 6) | (1 << 20)] {
+        for operation in [8, 9, 35, 0] {
+            let d = Daemon::new();
+            d.init_flags(flags);
+            block_on(d.kernel.umask(&d.caller(), 0o027)).unwrap();
+            let path = d.path(0x100, "/mnt/new");
+            let mut created = false;
+            let mut fallback = false;
+            d.drive(d.task, async {
+                match operation {
+                    8 => d.kernel.mknodat(&d.caller(), CWD, path, 0o10666, 0).await,
+                    9 => d.kernel.mkdirat(&d.caller(), CWD, path, 0o777).await,
+                    _ => d.kernel.openat(&d.caller(), CWD, path,
+                        OpenFlags::O_CREAT | OpenFlags::O_RDWR, 0o666).await.map(|_| 0),
+                }
+            }, |req| {
+                let opcode = n32(req, 4);
+                match opcode {
+                    1 => (-Errno::ENOENT.0, vec![]),
+                    3 => (0, attr_out(1, FileType::Directory)),
+                    8 | 9 | 35 => {
+                        if opcode == 35 && operation == 0 {
+                            fallback = true;
+                            return (-Errno::ENOSYS.0, vec![]);
+                        }
+                        let (kind, bits) = match operation {
+                            8 => (FileType::Fifo, 0o666),
+                            9 => (FileType::Directory, 0o777),
+                            _ => (FileType::Regular, 0o666),
+                        };
+                        let mode = if flags & (1 << 6) != 0 { bits } else { bits & !0o027 };
+                        let (mode_at, mask_at) = match opcode { 35 => (44, 48), 9 => (40, 44), _ => (40, 48) };
+                        let type_bits = if opcode == 9 { 0 } else { kind.mode_bits() };
+                        assert_eq!(n32(req, mode_at), mode | type_bits, "flags={flags:#x}, opcode={opcode}");
+                        assert_eq!(n32(req, mask_at), 0o027);
+                        created = true;
+                        let mut out = entry(2, kind);
+                        if opcode == 35 { out.extend(vec![0; 16]); }
+                        (0, out)
+                    }
+                    14 => (0, vec![0; 16]),
+                    _ => panic!("unexpected creation request {opcode}; ACL inheritance belongs to daemon"),
+                }
+            }).unwrap();
+            assert!(created);
+            assert_eq!(fallback, operation == 0);
+        }
+    }
+}
+
+#[test]
+fn fuse_init_offers_dont_mask() {
+    let d = Daemon::new();
+    let req = d.read();
+    assert_ne!(n32(&req, 52) & (1 << 6), 0);
+}
+
+#[test]
 fn fuse_init_lookup_cache_and_notifications() {
     let d = Daemon::new();
     d.init();
@@ -309,6 +370,7 @@ fn fuse_namespace_and_metadata_protocol() {
         (NewKind::Symlink(b"target"), 6),
     ] {
         let new = NewNode {
+            umask: 0,
             quota_exempt: false,
             kind,
             mode: 0o750,
@@ -1172,6 +1234,7 @@ fn fuse_create_open_directory_sync_statfs_and_mmap_policy() {
     let d = Daemon::new();
     d.init();
     let new = NewNode {
+        umask: 0,
         quota_exempt: false,
         kind: NewKind::Regular,
         mode: 0o640,
@@ -1356,6 +1419,7 @@ fn fuse_notify_delete_retires_an_open_directory() {
     assert!(node.unlinked_directory());
     assert_eq!(block_on(node.getattr()).unwrap().nlink, 0);
     let new = NewNode {
+        umask: 0,
         quota_exempt: false,
         kind: NewKind::Regular,
         mode: 0o600,
@@ -1374,6 +1438,7 @@ fn fuse_invalid_create_reply_releases_before_forgetting() {
     let d = Daemon::new();
     d.init();
     let new = NewNode {
+        umask: 0,
         quota_exempt: false,
         kind: NewKind::Regular,
         mode: 0o600,

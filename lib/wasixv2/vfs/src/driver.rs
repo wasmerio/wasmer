@@ -157,6 +157,12 @@ pub trait Node: Send + Sync + Any {
     fn acl_permissions(&self) -> bool {
         true
     }
+    /// The driver handles umask and default-ACL/setgid inheritance itself, as Linux
+    /// FUSE does in `fs/fuse/dir.c` rather than `posix_acl_create`. `NewNode::mode`
+    /// then retains the requested permissions; `NewNode::umask` always holds the mask.
+    fn delegates_creation(&self) -> bool {
+        false
+    }
     /// Remote invalidations can discard the VFS's memoized ACLs.
     fn acl_version(&self) -> u64 {
         0

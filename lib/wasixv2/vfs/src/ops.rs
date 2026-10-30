@@ -618,11 +618,15 @@ impl Vfs {
         let is_dir = file_type == FileType::Directory;
         let dir_attr = dir.dentry.node().getattr().await?;
         let mut mode = mode;
-        let acls = self
-            .posix_acl_create(&dir.dentry, file_type, &mut mode, cx.umask)
-            .await?;
+        let delegated = dir.dentry.node().delegates_creation();
+        let acls = if delegated {
+            None
+        } else {
+            self.posix_acl_create(&dir.dentry, file_type, &mut mode, cx.umask)
+                .await?
+        };
         let gid = if dir_attr.mode & S_ISGID != 0 {
-            if is_dir {
+            if is_dir && !delegated {
                 mode |= S_ISGID;
             }
             dir_attr.gid
@@ -634,6 +638,7 @@ impl Vfs {
             mode &= !S_ISGID;
         }
         let new = NewNode {
+            umask: cx.umask,
             kind: NewKind::Regular,
             mode,
             uid: cx.cred.fsuid,
