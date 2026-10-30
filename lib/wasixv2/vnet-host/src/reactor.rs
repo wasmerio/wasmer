@@ -223,7 +223,12 @@ impl Drop for HostBackend {
     fn drop(&mut self) {
         self.shared.stop.store(true, Ordering::Release);
         let _ = self.shared.waker.wake();
-        if let Some(t) = self.thread.take() {
+        // A sink can release the last network reference on the reactor, just as Linux
+        // net/core/net_namespace.c:cleanup_net retires namespaces on its cleanup worker.
+        // That worker exits after the callback; it cannot wait for itself.
+        if let Some(t) = self.thread.take()
+            && t.thread().id() != thread::current().id()
+        {
             let _ = t.join();
         }
     }
@@ -1846,6 +1851,61 @@ mod tests {
 
     fn backend() -> Arc<HostBackend> {
         HostBackend::new().unwrap()
+    }
+
+    #[test]
+    fn last_backend_reference_can_be_dropped_from_a_reactor_callback() {
+        struct Retire {
+            backend: Mutex<Option<Arc<HostBackend>>>,
+            dropped: mpsc::Sender<bool>,
+        }
+        impl InboundSink for Retire {
+            fn poll_room(&self, _: Option<&mut PollTable<'_>>) -> Room {
+                // GuestListenerSink similarly upgrades the Net weak reference on this
+                // worker: namespace teardown can leave that as its last backend owner.
+                let backend = self.backend.lock().unwrap().take();
+                if let Some(backend) = backend {
+                    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                        drop(backend);
+                    }));
+                    let _ = self.dropped.send(result.is_ok());
+                }
+                Room::Gone
+            }
+
+            fn incoming(&self, _: Arc<dyn BackendStream>, _: WaitQueue) -> bool {
+                false
+            }
+        }
+
+        let backend = backend();
+        let shared = Arc::downgrade(&backend.shared);
+        let (tx, rx) = mpsc::channel();
+        let sink = Arc::new(Retire {
+            backend: Mutex::new(Some(backend.clone())),
+            dropped: tx,
+        });
+        let publication = backend
+            .publish("127.0.0.1:0".parse().unwrap(), 1, sink)
+            .unwrap();
+        drop(backend);
+        let _peer = std::net::TcpStream::connect(publication.host_addr()).unwrap();
+        let dropped = rx
+            .recv_timeout(Duration::from_secs(5))
+            .expect("reactor callback returned");
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while shared.strong_count() != 0 && Instant::now() < deadline {
+            std::thread::yield_now();
+        }
+        assert_eq!(
+            shared.strong_count(),
+            0,
+            "reactor stopped and released its state"
+        );
+        assert!(
+            dropped,
+            "dropping the backend on its reactor must not panic"
+        );
     }
 
     #[test]
