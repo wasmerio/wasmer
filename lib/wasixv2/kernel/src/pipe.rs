@@ -566,6 +566,24 @@ impl Pipe {
         }
     }
 
+    /// fs/fuse/dev.c:fuse_dev_splice_write detaches exactly len bytes before
+    /// validating a reply. A short pipe fails without consuming or waiting.
+    pub(crate) async fn splice_take_exact(&self, len: usize) -> SysResult<Vec<u8>> {
+        let _io = self.io_lock.lock().await;
+        let data = {
+            let mut state = self.state.lock_or_recover();
+            if state.buf.len() < len {
+                return Err(Errno::EINVAL.into());
+            }
+            let data = state.buf.range(..len).copied().collect();
+            state.consume(len, false);
+            data
+        };
+        self.wr_wait.wake(PollMask::WRITABLE);
+        self.signal_writers();
+        Ok(data)
+    }
+
     /// Consumes data from the front for `out`, at most `buf.len()` bytes, with `buf` as the
     /// kernel's buffer: waits for data without the I/O lock, then under it looks at the data,
     /// hands it to `out` and consumes what `out` took (`pipe_read`, `__splice_from_pipe`).

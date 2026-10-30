@@ -2094,3 +2094,72 @@ fn fuse_uses_calling_threads_credentials_and_subjective_overrides() {
         }
     }
 }
+
+#[test]
+fn fuse_device_splice_transfers_requests_and_replies() {
+    // fs/fuse/dev.c:fuse_dev_splice_read/fuse_dev_splice_write exist even
+    // without INIT feature bits. libfuse selects them by protocol version.
+    let d = Daemon::new();
+    d.init();
+    now(d
+        .kernel
+        .pipe2(&d.caller(), GuestPtrMut::new(0x500), OpenFlags::O_NONBLOCK))
+    .unwrap();
+    let fds = get(&d.memory, 0x500, 8);
+    let rd = Fd(n32(&fds, 0) as i32);
+    let wr = Fd(n32(&fds, 4) as i32);
+    now(d
+        .kernel
+        .fcntl64(&d.caller(), wr, wasixv2_abi::FcntlCmd::F_SETPIPE_SZ, 131072))
+    .unwrap();
+    block_on(as_task(d.task, async {
+        let mut lookup = std::pin::pin!(d.root.lookup(b"file"));
+        assert!(futures::poll!(&mut lookup).is_pending());
+        let caller = d.caller();
+        let splice = |input, output, len| {
+            d.kernel.splice(
+                &caller,
+                input,
+                wasixv2_abi::LoffPtr::NULL,
+                output,
+                wasixv2_abi::LoffPtr::NULL,
+                len,
+                wasixv2_abi::SpliceFlags(0),
+            )
+        };
+        assert_eq!(now(splice(d.fd, wr, 16)), Err(SysErr::Errno(Errno::EINVAL)));
+        let n = now(splice(d.fd, wr, 131072)).unwrap() as u32;
+        assert_eq!(
+            now(d.kernel.read(&d.caller(), rd, UserSliceMut::new(BUF, n))),
+            Ok(n)
+        );
+        let req = get(&d.memory, BUF, n as usize);
+        assert_eq!(n32(&req, 4), 1);
+        // A short pipe is untouched; a complete but invalid reply is consumed
+        // before validation (fuse_dev_splice_write, unlike generic splice_write).
+        put(&d.memory, BUF, &[0; 8]);
+        assert_eq!(
+            now(d.kernel.write(&d.caller(), wr, UserSlice::new(BUF, 8))),
+            Ok(8)
+        );
+        assert_eq!(now(splice(rd, d.fd, 16)), Err(SysErr::Errno(Errno::EINVAL)));
+        assert_eq!(now(splice(rd, d.fd, 8)), Err(SysErr::Errno(Errno::EINVAL)));
+        assert_eq!(
+            now(d.kernel.read(&d.caller(), rd, UserSliceMut::new(BUF, 16))),
+            Err(SysErr::Errno(Errno::EAGAIN))
+        );
+        let body = entry(2, FileType::Regular);
+        let mut reply = vec![0; 16];
+        p32(&mut reply, 0, (16 + body.len()) as u32);
+        p64(&mut reply, 8, n64(&req, 8));
+        reply.extend(body);
+        put(&d.memory, BUF, &reply);
+        let len = reply.len() as u32;
+        assert_eq!(
+            now(d.kernel.write(&d.caller(), wr, UserSlice::new(BUF, len))),
+            Ok(len)
+        );
+        assert_eq!(now(splice(rd, d.fd, len)), Ok(len as i32));
+        assert_eq!(now(lookup).unwrap().ino(), 2);
+    }));
+}
