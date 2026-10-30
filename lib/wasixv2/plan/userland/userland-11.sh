@@ -40,7 +40,7 @@ curl)
   ;;
 ffmpeg)
   source_tree ffmpeg-
-  ./configure --enable-cross-compile --target-os=linux --arch=wasm32 --cc="$CC" --ar="$AR" --ranlib="$RANLIB" --nm="$NM" --disable-shared --enable-static --disable-asm --disable-x86asm --disable-autodetect --disable-doc --disable-debug --disable-network --disable-hwaccels --disable-vulkan --disable-ffplay --disable-ffprobe --disable-everything --enable-indev=lavfi --enable-protocol=file,pipe --enable-demuxer=matroska,mpegts --enable-muxer=matroska,mpegts,null,framehash --enable-decoder=ffv1,pcm_s16le,mpeg2video,mp2 --enable-encoder=ffv1,pcm_s16le,mpeg2video,mp2 --enable-filter=testsrc2,sine,format,aformat,aresample,anull,null --extra-cflags=-O2
+  ./configure --enable-cross-compile --target-os=linux --arch=wasm32 --cc="$CC" --ar="$AR" --ranlib="$RANLIB" --nm="$NM" --disable-shared --enable-static --disable-asm --disable-x86asm --disable-autodetect --disable-doc --disable-debug --disable-stripping --disable-network --disable-hwaccels --disable-vulkan --disable-ffplay --disable-ffprobe --disable-everything --enable-indev=lavfi --enable-protocol=file,pipe --enable-demuxer=matroska,mpegts --enable-muxer=matroska,mpegts,null,framehash --enable-decoder=ffv1,pcm_s16le,mpeg2video,mp2 --enable-encoder=ffv1,pcm_s16le,mpeg2video,mp2 --enable-filter=testsrc2,sine,format,aformat,aresample,anull,null --extra-cflags=-O2
   make -j"$JOBS" ffmpeg
   install_wasm ffmpeg ffmpeg
   ;;
@@ -52,17 +52,26 @@ ncurses)
   ;;
 vim)
   source_tree v9.1.
+  cat > "$ROOT/vim-termcap-probe.c" <<'C'
+#include <termcap.h>
+static __typeof__(&tgetent) volatile symbol = &tgetent;
+int main(void) { return symbol == 0; }
+C
+  "$CC" -O2 -I"$PREFIX/include/ncursesw" "$ROOT/vim-termcap-probe.c" -L"$PREFIX/lib" -ltinfow -o "$ROOT/vim-termcap-probe.wasm"
+  "$WASIXV2_PROBE_CLI" run --compiler-threads 3 --no-tty "$ROOT/vim-termcap-probe.wasm"
+  export ac_cv_func_tgetent=yes
+  rm -f src/auto/osdef.h src/auto/config.cache
   # Vim's configure executes several required probes. Its compiler launcher
   # runs real Wasm conftests; normal program outputs remain unchanged.
   export WASIXV2_PROBE_CC=$CC WASIXV2_PROBE_ROOT=$SRC WASIXV2_PROBE_BIN=$HOME/wasixv2-tools/userland/out/bin
   chmod +x "$USERLAND/tests/probe-cc-11.py"
-  CC="$USERLAND/tests/probe-cc-11.py" ./configure --host="$HOST" --build="$HOST" --with-features=normal --with-tlib=tinfow --disable-gui --without-x --disable-channel --disable-terminal --disable-netbeans --disable-gpm --disable-nls --disable-acl --disable-selinux --disable-xsmp --disable-pythoninterp --disable-python3interp --disable-luainterp --disable-perlinterp --disable-rubyinterp --disable-tclinterp CFLAGS="-O2 -I$PREFIX/include -I$PREFIX/include/ncursesw" LDFLAGS="-static -L$PREFIX/lib"
+  CC="$USERLAND/tests/probe-cc-11.py" ./configure --host="$HOST" --build="$HOST" --with-features=normal --with-tlib=tinfow --disable-gui --without-x --disable-channel --disable-terminal --disable-netbeans --disable-gpm --disable-nls --disable-acl --disable-selinux --disable-xsmp --disable-pythoninterp --disable-python3interp --disable-luainterp --disable-perlinterp --disable-rubyinterp --disable-tclinterp CFLAGS=-O2 CPPFLAGS="-I$PREFIX/include -I$PREFIX/include/ncursesw" LDFLAGS="-static -L$PREFIX/lib"
   make -j"$JOBS"
   install_wasm src/vim vim
   ;;
 htop)
   source_tree htop-
-  PKG_CONFIG_LIBDIR="$PREFIX/lib/pkgconfig" ./configure --host="$HOST" --build="$BUILD" --disable-unicode --disable-sensors --disable-libnl --disable-capabilities CFLAGS="-O2 -I$PREFIX/include -I$PREFIX/include/ncursesw" LDFLAGS="-static -L$PREFIX/lib" LIBS='-lncursesw -ltinfow'
+  PKG_CONFIG_LIBDIR="$PREFIX/lib/pkgconfig" ./configure --host="$HOST" --build="$BUILD" --enable-unicode --with-curses=ncursesw --disable-sensors --disable-libnl --disable-capabilities CFLAGS="-O2 -I$PREFIX/include -I$PREFIX/include/ncursesw" LDFLAGS="-static -L$PREFIX/lib" CURSES_CFLAGS="-I$PREFIX/include/ncursesw" CURSES_LIBS='-lncursesw -ltinfow'
   make -j"$JOBS"
   install_wasm htop htop
   ;;
@@ -95,7 +104,7 @@ SETUP
   : "${WASIXV2_PROBE_CLI:?release CLI}"
   "$CC" "$USERLAND/tests/probes/python-devices-11.c" -o "$ROOT/python-devices.wasm"
   "$WASIXV2_PROBE_CLI" run --compiler-threads 3 --no-tty "$ROOT/python-devices.wasm" > "$ROOT/python-site"
-  CONFIG_SITE="$ROOT/python-site" PKG_CONFIG_LIBDIR="$PREFIX/lib/pkgconfig" ./configure --host="$HOST" --build="$BUILD" --with-build-python="$ROOT/host-python/bin/python3.13" --prefix=/python --disable-shared --without-ensurepip --with-pkg-config=no --enable-ipv6 --with-openssl="$PREFIX" CFLAGS='-O2 -fno-strict-aliasing' CPPFLAGS="-I$PREFIX/include" LDFLAGS="-static -L$PREFIX/lib"
+  DYNLOADFILE=dynload_stub.o CONFIG_SITE="$ROOT/python-site" PKG_CONFIG_LIBDIR="$PREFIX/lib/pkgconfig" ./configure --host="$HOST" --build="$BUILD" --with-build-python="$ROOT/host-python/bin/python3.13" --prefix=/python --disable-shared --without-ensurepip --with-pkg-config=no --enable-ipv6 --with-openssl="$PREFIX" CFLAGS='-O2 -fno-strict-aliasing' CPPFLAGS="-I$PREFIX/include" LDFLAGS="-static -L$PREFIX/lib"
   # Upstream's wasm32 profile emits static stdlib entries. Keep the complete
   # detected module list in Setup.local, before configure regenerates Makefile.
   cat Modules/Setup.stdlib >> Modules/Setup.local

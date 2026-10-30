@@ -13,7 +13,7 @@ for test in "${selection[@]}"; do
     --volume "$ROOT/bin:/bin" --volume "$ROOT/work:/work" \
     --volume "$ROOT/python-lib:/python" --volume "$ROOT/python-src/Lib:/python/lib/python3.13" \
     --env PYTHONHOME=/python --env PATH=/bin:/usr/bin --env HOME=/home/user \
-    --cwd /tmp "$ROOT/bin/python3" -- -m test -v --timeout 600 --json-file "/work/python-$test.json" "$test"
+    --cwd /tmp "$ROOT/bin/bash" -- -c 'exec /bin/python3 "$@"' python-test -m test -v --timeout 600 --junit-xml "/work/python-$test.xml" "$test"
   status=$?
   set -e
   printf '\nEXIT:%s\n' "$status" >> "$ROOT/logs/python/$test.log"
