@@ -7373,6 +7373,8 @@ name = "wasixv2-wasix1"
 version = "0.0.0"
 dependencies = [
  "futures",
+ "serde",
+ "serde_json",
  "tokio",
  "tracing",
  "wasixv2",
@@ -7381,6 +7383,7 @@ dependencies = [
  "wasixv2-kernel",
  "wasixv2-syscalls",
  "wasixv2-vfs-mem",
+ "wasm-bindgen",
  "wasm-bindgen-test",
  "wasmer",
  "wasmer-wasix-types",

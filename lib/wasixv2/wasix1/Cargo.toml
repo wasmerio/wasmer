@@ -19,6 +19,9 @@ wasmer = { path = "../../api", version = "=7.5.0", default-features = false, fea
 ] }
 tracing.workspace = true
 wasmparser.workspace = true
+serde = { workspace = true, features = ["derive"], optional = true }
+serde_json = { workspace = true, optional = true }
+wasm-bindgen = { workspace = true, optional = true }
 
 [dev-dependencies]
 wat.workspace = true
@@ -42,4 +45,4 @@ wasmer = { path = "../../api", version = "=7.5.0", default-features = false, fea
 [features]
 default = ["sys"]
 sys = ["wasmer/sys", "wasmer/headless", "wasixv2-exec/sys"]
-js = ["wasmer/js-default", "wasixv2-exec/js"]
+js = ["wasmer/js-default", "wasixv2-exec/js", "dep:serde", "dep:serde_json", "dep:wasm-bindgen"]
