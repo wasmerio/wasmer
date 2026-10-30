@@ -1279,3 +1279,51 @@ fn publication_rechecks_a_listener_created_after_accept_credit() {
             .any(|c| matches!(c,Command::Reset {socket:id} if *id==child))
     );
 }
+
+#[test]
+fn skipping_an_urgent_only_full_queue_wakes_the_input_driver() {
+    use futures_util::task::{ArcWake, waker_ref};
+    struct Wake(AtomicUsize);
+    impl ArcWake for Wake {
+        fn wake_by_ref(this: &Arc<Self>) {
+            this.0.fetch_add(1, Ordering::SeqCst);
+        }
+    }
+    let caps = Capabilities::classic_fidelity(false);
+    let mut h = Harness::with_capabilities(caps);
+    let (backend, driver) = WebBackend::new(
+        Config {
+            max_sockets: 8,
+            max_lookups: 2,
+            buffer_bytes: 1,
+            chunk_bytes: 1,
+        },
+        caps,
+    )
+    .unwrap();
+    h.backend = backend;
+    h.driver = driver;
+    let (stream, socket) = h.connect();
+    h.event(Event::Urgent {
+        socket,
+        data: vec![b'!'],
+    });
+    h.transport.events.push_back(Event::Data {
+        socket,
+        data: vec![b'a'],
+    });
+    let wake = Arc::new(Wake(AtomicUsize::new(0)));
+    let waker = waker_ref(&wake);
+    let mut cx = Context::from_waker(&waker);
+    assert!(h.driver.poll(&mut cx, &mut h.transport).is_pending());
+    wake.0.store(0, Ordering::SeqCst);
+    assert_eq!(stream.read(&mut [0; 1], false), Err(Errno::EAGAIN));
+    assert!(
+        wake.0.load(Ordering::SeqCst) > 0,
+        "skipping the urgent byte released receive capacity"
+    );
+    assert!(h.pump().is_pending());
+    let mut data = [0; 1];
+    assert_eq!(stream.read(&mut data, false), Ok(1));
+    assert_eq!(data[0], b'a');
+}
