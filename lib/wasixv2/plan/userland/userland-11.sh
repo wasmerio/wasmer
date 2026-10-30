@@ -33,6 +33,7 @@ nginx)
   ;;
 curl)
   source_tree curl-
+  source "$USERLAND/tests/openssl-probes-11.sh"
   PKG_CONFIG_LIBDIR="$PREFIX/lib/pkgconfig" ./configure --host="$HOST" --build="$BUILD" --disable-shared --enable-static --with-openssl="$PREFIX" --without-libpsl --without-zlib --without-zstd --without-brotli --disable-ldap --disable-ldaps --without-libidn2 --without-librtmp --without-libssh2 --disable-manual CFLAGS=-O2 LDFLAGS="-static -L$PREFIX/lib" LIBS='-lssl -lcrypto'
   make -j"$JOBS"
   install_wasm src/curl curl
@@ -79,7 +80,7 @@ binascii binascii.c
 unicodedata unicodedata.c
 NATIVE
   CC=cc AR=ar RANLIB=ranlib NM=nm ./configure --prefix="$ROOT/host-python" --without-ensurepip --disable-test-modules --disable-shared CFLAGS=-O2
-  make -j"$JOBS" python
+  make -j"$JOBS" python pybuilddir.txt
   # Use its build-tree standard library; never build optional native extensions.
   mkdir -p "$ROOT/host-python/bin"
   ln -sfn "$SRC/python" "$ROOT/host-python/bin/python3.13"
