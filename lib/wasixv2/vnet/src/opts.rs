@@ -209,6 +209,7 @@ const INT_OPTS: &[(i32, i32, i32, bool, bool)] = &[
     (SOL_IPV6, Ipv6Option::IPV6_RECVPATHMTU.0, 0, true, false),
     (SOL_IPV6, Ipv6Option::IPV6_FREEBIND.0, 0, true, false),
     (SOL_IPV6, Ipv6Option::IPV6_MTU_DISCOVER.0, 1, false, false),
+    (SOL_IPV6, Ipv6Option::IPV6_MTU.0, 0, false, false),
     (SOL_IPV6, Ipv6Option::IPV6_RECVHOPLIMIT.0, 0, true, false),
     (SOL_TCP, Tcp::TCP_NODELAY.0, 0, true, true),
     (SOL_TCP, Tcp::TCP_CORK.0, 0, true, true),
@@ -448,6 +449,43 @@ impl SockOpts {
         Ok(Ip6Mtuinfo::SIZE)
     }
 
+    /// net/ipv6/ipv6_sockglue.c do_ipv6_getsockopt: IPV6_MTU reports the
+    /// route MTU, not np->frag_size set by setsockopt.
+    pub(crate) fn get_mtu(
+        &self,
+        net: &Net,
+        peer: Option<std::net::IpAddr>,
+        level: i32,
+        name: i32,
+        out: &mut [u8],
+    ) -> Option<NetResult<usize>> {
+        if level != SOL_IPV6
+            || ![Ipv6Option::IPV6_MTU.0, Ipv6Option::IPV6_PATHMTU.0].contains(&name)
+        {
+            return None;
+        }
+        Some(self.check_level(level).and_then(|()| {
+            let mtu = peer.and_then(|p| net.mtu_to(p));
+            if name == Ipv6Option::IPV6_PATHMTU.0 {
+                Self::path_mtu(out, mtu)
+            } else {
+                mtu.filter(|&m| m != 0)
+                    .map(|m| write_int(out, m as i32))
+                    .ok_or(Errno::ENOTCONN)
+            }
+        }))
+    }
+
+    /// net/ipv6/ip6_output.c ip6_setup_cork: np->frag_size caps the route MTU.
+    pub(crate) fn fragment_mtu(&self, mtu: u32, v6: bool) -> u32 {
+        let limit = self.int(SOL_IPV6, Ipv6Option::IPV6_MTU.0) as u32;
+        if v6 && limit != 0 {
+            mtu.min(limit)
+        } else {
+            mtu
+        }
+    }
+
     /// The hop limit of a unicast packet: `IP_TTL`/`IPV6_UNICAST_HOPS`, else the default 64.
     pub(crate) fn unicast_ttl(&self, family: Domain) -> u8 {
         let key = match family {
@@ -603,6 +641,14 @@ impl SockOpts {
             }
             (SOL_IP, n) if n == IpOption::IP_TTL.0 => {
                 if val != -1 && !(1..=255).contains(&val) {
+                    return Err(Errno::EINVAL);
+                }
+                self.ints.insert((level, name), val);
+                Ok(Changed::Nothing)
+            }
+            (SOL_IPV6, n) if n == Ipv6Option::IPV6_MTU.0 => {
+                // net/ipv6/ipv6_sockglue.c do_ipv6_setsockopt: zero resets it.
+                if val != 0 && val < 1280 {
                     return Err(Errno::EINVAL);
                 }
                 self.ints.insert((level, name), val);

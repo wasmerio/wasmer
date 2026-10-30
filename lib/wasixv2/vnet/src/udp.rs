@@ -449,6 +449,7 @@ impl UdpSocket {
         let Some(mtu) = mtu else {
             return Ok(());
         };
+        let mtu = g.opts.fragment_mtu(mtu, v6);
         let header = if v6 { IPV6_HDR } else { IPV4_HDR };
         if len + header <= mtu as usize || !g.opts.dont_fragment(v6, dontfrag) {
             return Ok(());
@@ -1170,9 +1171,11 @@ impl Socket for UdpSocket {
         if crate::mcast::handles(level, name) {
             return g.opts.get_mcast(&self.net, level, name, out);
         }
-        if (level, name) == (SocketLevel::SOL_IPV6.0, Ipv6Option::IPV6_PATHMTU.0) {
-            let mtu = g.peer.and_then(|p| self.net.mtu_to(p.ip()));
-            return SockOpts::path_mtu(out, mtu);
+        if let Some(result) = g
+            .opts
+            .get_mtu(&self.net, g.peer.map(|p| p.ip()), level, name, out)
+        {
+            return result;
         }
         g.opts.get(level, name, out)
     }
