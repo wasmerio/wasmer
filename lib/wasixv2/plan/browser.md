@@ -689,3 +689,19 @@ optional, runtime-probed optimisation, not a requirement. Consequences:
 **Re-ordering.** B3 splits into **B3a** (JS compare-exchange on guest memory, memory_grow without
 `data_ptr`; no gate, right after B1) and **B3b** (foreign copies per C1). **B10 (sync lane) moves into
 wave 2 alongside B2** and is the primary execution lane; B4's scheduler wake integration targets it.
+
+**C2 amendment request (b18, 2026-10-30): declined for now.** b18 asked to move physical Worker
+construction from the coordinator to the page (coordinator admission via ports) to address
+Chromium retaining the coordinator (and, after injected timer-driver death, one worker) at runtime
+shutdown. Evidence in `~/wasixv2-orch/logs/b18-shutdown/STATE.md`: the retention reproduces
+intermittently in pure-JS controls with no Rust runtime (nested dedicated workers holding a large
+compiled Module), GDB shows extra live DedicatedWorker native threads with no matching CDP
+target, and Firefox is clean. That points at Chromium's nested-worker teardown rather than our
+ownership protocol. The leak happens once per runtime teardown, not per process or fork (R6 is
+fixed: 500 forks stay bounded). Moving worker creation to the page would make spawning depend on
+the page's event loop (throttled in background tabs) and reopen the C2 progress analysis, which
+is a bigger risk than the leak. Decision: keep coordinator-created workers; document the
+Chromium shutdown retention as a known limit with the no-Rust reproduction (to be reported
+upstream); keep the failing regressions visible but non-blocking for Chromium only; revisit
+page-owned workers only if the leak shows up in real embedder use (repeated runtime creation in
+one page).
