@@ -554,7 +554,17 @@ fn orphans_go_to_init_which_reaps_them() {
 /// included, and `kill(-1)` passes init by.
 #[test]
 fn init_takes_no_signal_it_has_no_handler_for() {
-    let (kernel, task) = setup_with_init();
+    // Linux kernel/signal.c checks permission before SIGNAL_UNKILLABLE.
+    // Use an authorized sender here; init itself has root's INIT_CRED.
+    let stdin = Arc::new(Input(Mutex::new(Vec::new())));
+    let (kernel, task, _) = spawn_on(
+        test_kernel()
+            .with_credentials(Credentials::new(0, 0))
+            .with_init(),
+        stdin,
+        &[],
+        &[],
+    );
     let memory = forkable();
     let caller = Caller::new(task, &memory);
     let child = fork_child(&kernel, &caller);
