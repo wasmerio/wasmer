@@ -313,6 +313,28 @@ impl FileObject for RandomDevice {
         Box::pin(async move { Ok(data.len()) })
     }
 
+    fn ioctl<'a>(
+        &'a self,
+        caller: &'a Caller<'a>,
+        request: wasixv2_abi::IoctlRequest,
+        arg: u32,
+    ) -> LocalFuture<'a, SysResult<i32>> {
+        Box::pin(async move {
+            // drivers/char/random.c random_ioctl RNDGETENTCNT: the host
+            // entropy pool is ready, as /proc/sys/kernel/random/entropy_avail reports.
+            if request.0 != 0x8004_5200 {
+                return Err(Errno::ENOTTY.into());
+            }
+            wasixv2_syscalls::write_value(
+                caller.memory(),
+                wasixv2_abi::GuestPtrMut::new(arg),
+                &256i32,
+            )
+            .await?;
+            Ok(0)
+        })
+    }
+
     fn positional(&self) -> bool {
         true
     }

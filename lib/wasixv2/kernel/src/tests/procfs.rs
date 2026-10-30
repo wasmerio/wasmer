@@ -1637,3 +1637,34 @@ fn proc_version_contains_the_linux_build_fields() {
     assert!(version.contains(") ("), "{version}");
     assert!(version.contains(") #1 SMP wasixv2 2.0.0"), "{version}");
 }
+
+/// drivers/char/random.c random_ioctl: RNDGETENTCNT needs no capability and
+/// copies the ready pool's credited bits; an invalid destination is EFAULT.
+#[test]
+fn random_ioctl_reports_the_ready_pool_entropy() {
+    let (kernel, task, _) = machine();
+    let memory = memory();
+    let t = T::new(&kernel, task, &memory);
+    for name in ["/dev/random", "/dev/urandom"] {
+        let fd = t.open(name, OpenFlags::O_RDONLY).unwrap();
+        assert_eq!(
+            block_on(kernel.ioctl(
+                &t.caller,
+                fd,
+                wasixv2_abi::IoctlRequest(0x8004_5200),
+                0x3000
+            )),
+            Ok(0)
+        );
+        assert_eq!(get(&memory, 0x3000, 4), 256i32.to_le_bytes());
+        assert_eq!(
+            errno(block_on(kernel.ioctl(
+                &t.caller,
+                fd,
+                wasixv2_abi::IoctlRequest(0x8004_5200),
+                u32::MAX
+            ))),
+            Errno::EFAULT
+        );
+    }
+}
