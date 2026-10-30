@@ -298,7 +298,12 @@ mod tests {
                 self.1.store(true, Ordering::Release);
             }
         }
-        let timers = Timers::new();
+        // This unit checks poll/drop's lock ownership. A live expiry worker could
+        // hold the mutex independently and make CheckDrop report a false failure.
+        let timers = Timers {
+            shared: Arc::default(),
+            worker: Some(thread::spawn(|| {})),
+        };
         let mut sleep =
             Box::pin(timers.sleep(Instant::now() + Duration::from_secs(3600), Duration::ZERO));
         let replaced = Arc::new(AtomicBool::new(false));
