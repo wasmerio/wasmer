@@ -2163,3 +2163,49 @@ fn fuse_device_splice_transfers_requests_and_replies() {
         assert_eq!(now(lookup).unwrap().ino(), 2);
     }));
 }
+
+#[test]
+fn fuse_splice_nonblocking_pipe_keeps_blocking_device_reads() {
+    // fs/fuse/dev.c:fuse_dev_do_read uses the input file's O_NONBLOCK;
+    // splice_file_to_pipe's nonblocking pipe only controls waiting for room.
+    let d = Daemon::new();
+    d.init();
+    let caller = d.caller();
+    now(d
+        .kernel
+        .fcntl64(&caller, d.fd, wasixv2_abi::FcntlCmd::F_SETFL, 0))
+    .unwrap();
+    now(d
+        .kernel
+        .pipe2(&caller, GuestPtrMut::new(0x500), OpenFlags::O_NONBLOCK))
+    .unwrap();
+    let fds = get(&d.memory, 0x500, 8);
+    let rd = Fd(n32(&fds, 0) as i32);
+    let wr = Fd(n32(&fds, 4) as i32);
+    now(d
+        .kernel
+        .fcntl64(&caller, wr, wasixv2_abi::FcntlCmd::F_SETPIPE_SZ, 131072))
+    .unwrap();
+    block_on(as_task(d.task, async {
+        let mut transfer = std::pin::pin!(d.kernel.splice(
+            &caller,
+            d.fd,
+            wasixv2_abi::LoffPtr::NULL,
+            wr,
+            wasixv2_abi::LoffPtr::NULL,
+            131072,
+            wasixv2_abi::SpliceFlags(0)
+        ));
+        assert!(futures::poll!(&mut transfer).is_pending());
+        let mut lookup = std::pin::pin!(d.root.lookup(b"file"));
+        assert!(futures::poll!(&mut lookup).is_pending());
+        let n = now(transfer).unwrap() as u32;
+        assert_eq!(
+            now(d.kernel.read(&caller, rd, UserSliceMut::new(BUF, n))),
+            Ok(n)
+        );
+        let req = get(&d.memory, BUF, n as usize);
+        d.reply(&req, 0, &entry(2, FileType::Regular)).unwrap();
+        assert_eq!(now(lookup).unwrap().ino(), 2);
+    }));
+}

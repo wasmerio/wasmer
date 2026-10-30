@@ -442,7 +442,9 @@ impl Kernel {
                 (None, true) => input.read_at(caller.task(), &mut buf, at.pos).await?,
                 (None, false) => {
                     let mut io = input.io(caller.task(), &*interrupt);
-                    if nonblock {
+                    // fuse_dev_do_read checks only the device file's O_NONBLOCK;
+                    // SPLICE_F_NONBLOCK governs pipe room, not waiting for a request.
+                    if nonblock && input.downcast::<crate::fuse::Device>().is_none() {
                         io.flags |= OpenFlags::O_NONBLOCK;
                     }
                     let object = input.object().expect("a stream has an object");
