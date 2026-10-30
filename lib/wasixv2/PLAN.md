@@ -14,7 +14,7 @@ signals, preemption, task lifetime), the exec `Abi` registry, the WASIX v1 compa
 waits on the kernel futexes, and the userland fixes. `wasmer run` runs WASIX v2, WASIX v1 and WASI
 modules on the v2 kernel. tests `main` = `6405893`, libc2 `main` = `c26931b5`.
 
-Suite on `feat/wasixv2` `3b3aa19b9d4` (merge train 24; wasixv2-tests `f1ac800`, libc2 `6bc05b3b`,
+Suite on `feat/wasixv2` `6a8410a5a45` (merge train 25; wasixv2-tests `dff5da8`, libc2 `6bc05b3b`,
 abi `07cd32e`, LTP fork `54ea12a4b`): 4094 pass, 83 expected failures, 433 ignored. Since validation
 began (train 18): 3547 -> 4094 passing, 586 -> 83 expected failures.
 
@@ -22,8 +22,10 @@ began (train 18): 3547 -> 4094 passing, 586 -> 83 expected failures.
 train 23 landed B1 (wasm32 compile gate), B2 (worker executor), B10 (synchronous-blocking worker lane,
 primary; JSPI optional), B3a/B3b (JS atomics, foreign-memory copies), B4 (timers), B5 (`vnet-web` relay
 backend), B6 (`vfs-web` providers), B7 (`stdio-web`) and B11 (headless no-JSPI runner). Train 24 landed B8
-(browser facade: 21/21 real fixtures in Chromium without JSPI). B9 (v1 compat), B12 (SDK capability
-contract in `lib/wasixv2/BROWSER.md`) and the R1/R3/R4 acceptance work are queued for train 25.
+(browser facade: 21/21 real fixtures in Chromium without JSPI). Train 25 landed B9 (v1 compat),
+B12 (SDK capability contract in `lib/wasixv2/BROWSER.md`) and the R1/R3/R4/N1 acceptance work: 70/70
+browser cases pass in Chromium and Firefox without JSPI. Open: R6/R2 lifetime (b13), virtual switch (b16),
+cold-runner CI (needs secret `WASIXV2_TOOLCHAIN_TOKEN`), SDK items S1-S5 (separate project).
 
 Smoke tests pass: v2 static-web-server (28/28); through the v1 compat layer
 wasmer/static-web-server, phpix/phpix-85-32bit (CLI and `-S` server), coreutils, cowsay,
