@@ -26,6 +26,48 @@ fn new(kind: NewKind<'_>) -> NewNode<'_> {
     }
 }
 
+/// Linux fs/attr.c:notify_change uses one current_time for an attribute update.
+#[test]
+fn setattr_now_uses_one_timestamp_and_preserves_explicit_or_omitted_times() {
+    struct TickingClock(AtomicU64);
+    impl Clock for TickingClock {
+        fn now(&self) -> Timestamp {
+            Timestamp::new(100, self.0.fetch_add(1, Ordering::Relaxed) as u32)
+        }
+    }
+    let fs = MemFs::new(Arc::new(TickingClock(AtomicU64::new(0))), 0o755, 1, 1);
+    let file = block_on(fs.root().create(b"f", &new(NewKind::Regular))).unwrap();
+    let attr = block_on(file.setattr(&SetAttr {
+        atime: Some(TimeSet::Now),
+        mtime: Some(TimeSet::Now),
+        ctime: Some(TimeSet::Now),
+        ..Default::default()
+    }))
+    .unwrap();
+    assert_eq!(attr.atime, attr.mtime);
+    assert_eq!(attr.mtime, attr.ctime);
+
+    let explicit = Timestamp::new(12, 34);
+    let attr = block_on(file.setattr(&SetAttr {
+        atime: Some(TimeSet::At(explicit)),
+        mtime: Some(TimeSet::Now),
+        ctime: Some(TimeSet::Now),
+        ..Default::default()
+    }))
+    .unwrap();
+    assert_eq!(attr.atime, explicit);
+    assert_eq!(attr.mtime, attr.ctime);
+    let previous = attr.mtime;
+    let attr = block_on(file.setattr(&SetAttr {
+        mtime: Some(TimeSet::Now),
+        ctime: Some(TimeSet::At(explicit)),
+        ..Default::default()
+    }))
+    .unwrap();
+    assert_eq!((attr.atime, attr.ctime), (explicit, explicit));
+    assert!(attr.mtime > previous);
+}
+
 struct Names(Vec<(Vec<u8>, u64)>, usize);
 
 impl DirSink for Names {
