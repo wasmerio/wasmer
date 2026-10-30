@@ -54,6 +54,8 @@ pub(super) enum Global {
     FileMax,
     NrOpen,
     PipeMaxSize,
+    /// fs.pipe-user-pages-soft/hard (true selects the hard limit).
+    PipeUserPages(bool),
     Mqueue(crate::ipc::mqueue::MqSysctl),
     DirNotifyEnable,
     LeasesEnable,
@@ -174,6 +176,7 @@ impl Global {
             | Self::FileMax
             | Self::NrOpen
             | Self::PipeMaxSize
+            | Self::PipeUserPages(_)
             | Self::Mqueue(_)
             | Self::DirNotifyEnable
             | Self::LeasesEnable
@@ -307,6 +310,7 @@ pub(super) fn global(
         Global::FileMax => line(&i64::MAX.to_string()),
         Global::NrOpen => line(&source.nr_open.get().to_string()),
         Global::Mqueue(entry) => line(&ns.ipc.mq.sysctl(entry).to_string()),
+        Global::PipeUserPages(hard) => line(&source.pipe_max_size.user_limit(hard).to_string()),
         Global::PipeMaxSize => line(&source.pipe_max_size.get().to_string()),
         Global::DirNotifyEnable => line(&source.sysctls.dir_notify_enable().to_string()),
         Global::LeasesEnable => line(&source.sysctls.leases_enable().to_string()),

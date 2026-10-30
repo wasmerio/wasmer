@@ -12,7 +12,7 @@ use wasixv2_wait::{Interrupt, PollMask, PollTable, Pollable};
 use crate::{
     fasync::Fasync,
     file::{FileObject, Io, ReadSink},
-    pipe::{Pipe, PipeEnd, fifo_pipe},
+    pipe::{Budget, Pipe, PipeEnd, fifo_pipe},
     pseudo::PIPEFS_MAGIC,
 };
 
@@ -33,12 +33,12 @@ pub(crate) struct FifoFile {
 pub(crate) async fn open(
     file: File,
     flags: OpenFlags,
-    capacity: usize,
+    budget: impl FnOnce() -> Result<Budget, Errno>,
     interrupt: &dyn Interrupt,
 ) -> SysResult<FifoFile> {
     let inode = file.path.dentry.inode().clone();
     let pipe = inode
-        .bound_or_bind(|| fifo_pipe(capacity))
+        .try_bound_or_bind(|| Ok(fifo_pipe(budget()?)))?
         .downcast::<Pipe>()
         .map_err(|_| Errno::ENXIO)?;
     let is_pipe = file.path.dentry.sb().info.magic == PIPEFS_MAGIC;

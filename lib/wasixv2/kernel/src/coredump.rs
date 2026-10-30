@@ -683,7 +683,8 @@ impl Kernel {
         args: Vec<Vec<u8>>,
     ) -> Option<OpenFile> {
         let size = crate::pipe::DEFAULT_SIZE;
-        let [read, write] = self.pipe_files(size, (0, 0), OpenFlags(0));
+        let budget = self.pipe_max_size.allocate(0, size, false).ok()?;
+        let [read, write] = self.pipe_files(budget, (0, 0), OpenFlags(0));
         let mut files = self.fd_table();
         files.install(Arc::new(read), false)?;
         let root = crate::Credentials::new(0, 0);

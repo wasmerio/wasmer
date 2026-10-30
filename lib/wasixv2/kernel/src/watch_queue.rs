@@ -42,16 +42,20 @@ pub(crate) struct Queue {
 
 impl Queue {
     /// watch_queue_set_size takes a number of notifications, despite the UAPI comment.
-    pub(crate) fn set_size(&mut self, notes: u32) -> Result<usize, Errno> {
+    pub(crate) fn capacity_for(&self, notes: u32) -> Result<usize, Errno> {
         if self.limit.is_some() {
             return Err(Errno::EBUSY);
         }
         if !(1..=512).contains(&notes) {
             return Err(Errno::EINVAL);
         }
-        let pages = (notes as usize).div_ceil(NOTES_PER_PAGE);
-        self.limit = Some(pages * NOTES_PER_PAGE);
-        Ok(pages * 4096)
+        Ok((notes as usize).div_ceil(NOTES_PER_PAGE) * 4096)
+    }
+
+    pub(crate) fn set_size(&mut self, notes: u32) -> Result<usize, Errno> {
+        let bytes = self.capacity_for(notes)?;
+        self.limit = Some(bytes / 4096 * NOTES_PER_PAGE);
+        Ok(bytes)
     }
 
     pub(crate) fn set_filter(&mut self, filter: Option<Vec<WatchNotificationTypeFilter>>) {

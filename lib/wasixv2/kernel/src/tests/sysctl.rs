@@ -317,3 +317,53 @@ fn mqueue_sysctls_control_defaults_and_follow_the_ipc_namespace() {
         Errno::ENOSPC
     );
 }
+
+/// fs/pipe.c alloc_pipe_info limits unprivileged per-user pages, accounts
+/// resizes, and releases the charge only with the last pipe reference.
+#[test]
+fn pipe_user_page_limits_bound_new_pipes_and_resizes() {
+    use wasixv2_abi::FcntlCmd;
+    let (kernel, p) = machine();
+    assert_eq!(
+        p.read(&kernel, "/proc/sys/fs/pipe-user-pages-soft"),
+        Ok("16384\n".into())
+    );
+    assert_eq!(
+        p.write(&kernel, "/proc/sys/fs/pipe-user-pages-soft", "2"),
+        Ok(1)
+    );
+    assert_eq!(
+        p.write(&kernel, "/proc/sys/fs/pipe-user-pages-hard", "4"),
+        Ok(1)
+    );
+    super::cred::set_caps(&kernel, &p.caller(), &p.memory.0, 0);
+    let (r, w) = super::ipc::pipe(&kernel, &p.caller(), OpenFlags(0));
+    assert_eq!(
+        block_on(kernel.fcntl64(&p.caller(), r, FcntlCmd::F_GETPIPE_SZ, 0)),
+        Ok(8192)
+    );
+    assert_eq!(
+        errno(block_on(kernel.fcntl64(
+            &p.caller(),
+            r,
+            FcntlCmd::F_SETPIPE_SZ,
+            16384
+        ))),
+        Errno::EPERM
+    );
+    let (r2, w2) = super::ipc::pipe(&kernel, &p.caller(), OpenFlags(0));
+    assert_eq!(
+        errno(block_on(kernel.pipe2(
+            &p.caller(),
+            GuestPtrMut::new(0x100),
+            OpenFlags(0)
+        ))),
+        Errno::ENFILE
+    );
+    block_on(kernel.close(&p.caller(), r)).unwrap();
+    block_on(kernel.close(&p.caller(), w)).unwrap();
+    let (r3, w3) = super::ipc::pipe(&kernel, &p.caller(), OpenFlags(0));
+    for fd in [r2, w2, r3, w3] {
+        block_on(kernel.close(&p.caller(), fd)).unwrap();
+    }
+}

@@ -1608,7 +1608,7 @@ impl Kernel {
             return Err(Errno::EINVAL);
         }
         let files = self.pipe_files(
-            self.new_pipe_size(caller),
+            self.new_pipe_budget(caller)?,
             self.cred(caller).fs_owner(),
             flags & (OpenFlags::O_NONBLOCK | OpenFlags::O_DIRECT),
         );

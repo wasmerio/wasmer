@@ -168,6 +168,21 @@ impl Inode {
         object
     }
 
+    /// Like bound_or_bind, but a failed factory leaves the inode unbound.
+    /// Holding the inode lock through the factory prevents duplicate allocations.
+    pub fn try_bound_or_bind(
+        &self,
+        make: impl FnOnce() -> crate::FsResult<Bound>,
+    ) -> crate::FsResult<Bound> {
+        let mut state = self.state.lock().unwrap();
+        if let Some(object) = state.bound.as_ref().and_then(Weak::upgrade) {
+            return Ok(object);
+        }
+        let object = make()?;
+        state.bound = Some(Arc::downgrade(&object));
+        Ok(object)
+    }
+
     /// Binds `object` unless a live one is bound already (`false`), as `bind` on a Unix socket
     /// path does.
     pub fn bind(&self, object: &Bound) -> bool {
