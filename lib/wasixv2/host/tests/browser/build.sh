@@ -19,6 +19,13 @@ fi
 export RUSTFLAGS="${RUSTFLAGS:-} -C target-feature=+atomics,+bulk-memory,+mutable-globals -C panic=abort -C link-arg=--import-memory -C link-arg=--shared-memory -C link-arg=--initial-memory=4194304 -C link-arg=--max-memory=268435456 -C link-arg=--export=__wasm_init_tls -C link-arg=--export=__tls_size -C link-arg=--export=__tls_align -C link-arg=--export=__tls_base"
 RUSTC="$(python3 lib/wasixv2/host/tests/browser/prepare-std.py "$CARGO_TARGET_DIR" "$nightly")"
 export RUSTC
+if [[ -n "${WASIX_BROWSER_TEST:-}" ]]; then
+    # Focused Rust wasm units need the same real TLS-cleanup std as the producer.
+    # CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUNNER selects the matching bindgen runner.
+    nice -n 19 taskset -c 4-7 cargo +"$nightly" test --locked -Z build-std=std,panic_abort -Z panic-abort-tests \
+        --target wasm32-unknown-unknown -p "$package" --no-default-features --features "$features" --test "$WASIX_BROWSER_TEST" -j3
+    exit 0
+fi
 nice -n 19 taskset -c 4-7 cargo +"$nightly" build --locked -Z build-std=std,panic_abort \
     --target wasm32-unknown-unknown -p "$package" --no-default-features --features "$features" --example "$example" -j3
 out="$CARGO_TARGET_DIR/browser"

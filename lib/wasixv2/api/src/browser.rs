@@ -33,6 +33,15 @@ pub fn configure_browser() {
     });
 }
 
+/// An idle task realm may retire only after its last shared engine object owner drops.
+/// Linux kernel/exit.c:exit_mm still owns mm lifetime; this releases only expired
+/// JS wrappers through the existing worker/TLS retirement path.
+#[wasm_bindgen(js_name = browser_can_retire)]
+pub fn can_retire() -> bool {
+    wasmer::js::collect_shared_objects();
+    wasmer::js::shared_object_stats().0 == 0
+}
+
 /// Kernel drivers use `host` (configured with `executor.services()`), and guest
 /// threads use the task executor. The host must use off-worker clocks/timers.
 /// Each call boots a distinct kernel; share directories explicitly through mounts.
