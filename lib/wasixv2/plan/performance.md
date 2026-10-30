@@ -147,3 +147,36 @@ python3 lib/wasixv2/plan/perf/macros.py /abs/release/wasmer --out "$HOME/wasixv2
 ```
 
 The report and source-only recipes are committed on plan-perf. Exact per-repository commit inventory, chronological red/green evidence, limitations and final cleanup are in `~/wasixv2-orch/logs/v14perf/STATE.md`.
+
+
+## V17 Performance 2 — baseline, work in progress
+
+V17 starts at V14 runtime `573e0641062`, tests `374d353`, ABI `07cd32e`
+and libc2 `6bc05b3b`. The unchanged archived V14 final release CLI and
+legacy release CLI run the same source-built guest modules. Seven interleaved
+measured pairs follow one warmup per workload and runtime, all on CPUs 4–7 at
+nice 19; 80/80 warm/measured invocations pass. Counts are 1,000,000 for getpid
+and clock, 20,000 mappings, 2,000 connections and 100,000 futex round trips.
+Raw commands, load, timestamps and outputs: `~/wasixv2-orch/logs/v17perf/micro/baseline.jsonl`.
+
+These are a new shared-load phase, not a before/after optimization result.
+The merge train and other agents are active. Scheduling-sensitive ratios
+change substantially from V14, which is why each candidate needs its own A/B.
+
+| Operation | V14 final, µs median [min–max] | Legacy v1, µs median [min–max] | V14/legacy |
+| --- | --- | --- | ---: |
+| getpid | 0.602 [0.555–1.449] | 0.054 [0.051–0.150] | 11.116 |
+| clock_gettime | 0.822 [0.664–1.616] | 0.136 [0.130–0.328] | 6.026 |
+| mmap | 5.869 [5.179–12.243] | 0.346 [0.337–0.726] | 16.981 |
+| tcp_connect | 19.588 [12.211–23.519] | 55.675 [42.818–72.599] | 0.352 |
+| futex | 3.870 [2.405–6.187] | 0.808 [0.709–17.112] | 4.788 |
+
+No V17 runtime speedup is claimed yet. Release-build authorization is pending
+under the package's explicit no-release-build rule; a new debug CLI must not
+be compared directly with an archived release CLI to claim a v1 ratio.
+The compact-dispatch candidate has a failing-first unit proof: an unrelated
+64 KiB read future makes a getpid dispatch carry 65,688 bytes. A second
+candidate will preserve resident private host pages when clearing one guest
+page, while leaving untouched pages uncommitted and retaining large-range
+discard, low-guard, shared-view and retained-page behavior. Neither changes
+the Syscalls/Control or guest ABI contracts. Both remain unimplemented here.
