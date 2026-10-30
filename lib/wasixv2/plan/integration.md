@@ -1893,3 +1893,135 @@ All new commits were made by this AI agent as configured git user with the exact
 GPT-6.1-Sol attribution footer; the human is responsible. Landing order:
 **tests main -> Wasmer feat/wasixv2 -> plan**; libc2/ABI/LTP unchanged. Only own
 train27 candidate refs and the authorized fast-forward plan entry are pushed.
+
+## 2026-10-30: merge train 28 — GO for scoped integration
+
+Integrates B13 bounded browser fork-memory lifetime, B18 real background-tab
+measurements and visible shutdown regressions, and V12 host-symlink timestamps,
+ptrace resumed-signal ordering and memfs attribute timestamps. Replays only input
+commits absent from feat, preserving existing B14/B15/B16 acceptance machinery.
+V13xfail/V14perf excluded. Private plan merge **f60f2a52d92** includes V12's seven
+source-only upstream-suite recipes through fd92a202ea7. No upstream-suite result
+beyond the conformance suite and workflows below is claimed.
+
+| Repository | Base | Train28 candidate |
+| --- | --- | --- |
+| Wasmer, `wasixv2/train28` | b145215a694 | **5dba9e86e4e** |
+| wasixv2-tests, `train28` | ed854e9 | **2aba1546d7c** |
+| libc2 | 6bc05b3bc265 | unchanged |
+| ABI | 07cd32edb66b | unchanged; both consumers match |
+| LTP | 54ea12a4bdb6 | unchanged |
+
+Sixteen logical runtime input commits plus one final tests gitlink bump. Gated
+code **6efc5953840** differs from final candidate only by that gitlink. Tests add
+eleven input commits plus one classified timing-xfail entry. No new kernel/exec
+contract, dynamic linking, guest closures, libffi, reflection, ABI or tracked
+prebuilt Wasm change. Existing Store host-import ownership repair is retained.
+Linux authorities accompany the input fixes: kernel exit/mm lifetime ownership,
+fs/utimes.c timestamp semantics and kernel/ptrace.c resumed-signal ordering.
+
+Gates pass: **28 native crate invocations /2160 cases** (baseline2156;
+kernel1125 versus1123), three native strict Makefile clippies, root fmt,
+runner33+2existing ignores and strict clippy/fmt, complete Makefile wasm gate,
+browser/provider/facade/engine/kernel/exec wasm strict clippies and feature graph.
+Actual wasm host callback units2+7 and real threaded-std owner-readiness unit1
+pass; runtime JS83 and runner JS38 pass. Release CLI build8m18s; archived SHA256
+`c82b43faf2a6ef946682e09c5182468a6fdf674242bc10bc9af6829a4fa2a3b0`.
+Original CLI run58pass/1HTTP timeout/12ignored remains archived: test-only
+`wasi_runner_on_disk_with_dependencies` reqwest unwrap, no child-runtime panic.
+The exact case passes three candidate and two landed-baseline focused controls;
+initial delay remains unreproduced, no source fix claimed. Resolved unique
+CLI59+TTY6/12existing ignores; complete raw original and controls retained.
+
+Exactly **ONE full suite**, **3023s**, CPUs0-3/nice19/three threads, original
+caps/deadlines and shared sysroots. Raw **4094pass /83expected-fail /
+1unexpected-fail /0unexpected-pass /433ignored**, never rewritten. The sole new
+failure is classified explicitly below; no second full suite.
+
+| Suite | Train27 pass / fail / ignored | Train28 pass / fail / ignored |
+| --- | --- | --- |
+| own | 323 /0 /1 | 324 /0 /1 |
+| libc-test | 411 /2 /0 | 411 /2 /0 |
+| POSIX | 1727 /17 /81 | 1727 /17 /81 |
+| LTP | 1633 /64 /351 | 1632 /65 /351 |
+| **Total** | **4094 /83 /433** | **4094 /84 /433** |
+
+New own proc-fork-lifetime case passes. `ltp/syscalls/epoll_pwait03` has13 passing
+subassertions and one100ms upper-latency mean100572.33us against100537us ceiling
+(35.33us over); no early return/result failure. Identical saved module/argv/caps
+pass14/14 on candidate and landed baseline; SIGSTOP/CONT scheduling interference
+reproduces eight upper-latency failures on that same baseline. Linux
+`fs/eventpoll.c:ep_poll` uses `kernel/time/sleep_timeout.c:
+schedule_hrtimeout_range`, whose upper bound is best effort; descheduling is
+not bounded by it. No epoll/timer production path changed. Per train blessing
+protocol, **2aba154** records this visible load-sensitive xfail with its cause;
+no tolerance/deadline/cap change, ignore, runtime repair or clean raw-suite claim.
+All83 prior causes are preserved; no newly passing old xfail, new ignore or
+registration disappearance. Classification/raw normal+trace/control logs retained.
+
+Native smoke passes or exactly matches baseline:12usual/35hand/25carried-feature
+statuses, SWS28+28, UDP6, v1eight plus existing excluded Python import failure,
+C++9, PTY11/no-tty, focused C and train23 brk/mqueue/process_vm/root-ioctl checks;
+ten program workflows plus ten strace checks; seven V9 workflows; fresh
+fuse-overlayfs copy-up/lower preservation/whiteout/new-file/unmount. Initial
+copied overlay scratch contained an inherited whiteout; preserved that failure
+and scratch, then ran the overlay on fresh scratch successfully. All20 panic
+iterations complete with16results each. Busybox198pass/11same failures/1skip,
+date-timezone passing. All eight V11 workflows pass, including Perl12files/810.
+
+Fresh source-built named debug browser runtime, real threaded std/TLS teardown,
+65initial/4096maximum shared pages; no diagnostic allocator or forced GC.
+Actual Chromium156.0.8078.4 and Firefox157.0, isolation/SAB and page+worker JSPI
+absence verified. Both engines pass **99/99**, zero failures/skips: v2 **22**
+(original21 plus new lifetime fixture), v1 **14**, static v1 C **3**, B14 **15**,
+B15 independently executed original subset **17**, B16 **28**. Transport/lifecycle
+checks also pass; B15 overlaps B16, so82distinct cases per engine.
+
+Persistent Chromium **500/500** forks complete with resource bounds passing:
+heap64,880,640bytes,15Rust workers/max18native targets(limit26),
+RSSpeak1,501,143,040bytes below fixed2GiB ceiling,625copy/164task rotations.
+Final coordinator cleanup remains raw FALSE. Firefox persistent60, relay50,
+robustness2, admission5, bootstrap/task/timer faults and repeated shutdown controls
+all pass with zero workers. Both engines' real headed background measurements
+pass100checks (80hidden500ms timers plus20foreground100ms), return to visible,
+and stop with zero workers; hidden medians Chromium500.485ms/Firefox500.82ms.
+
+Nine Chromium teardown diagnostics remain visible/non-blocking under browser
+plan §7 at **6dc60a976c9**: normal coordinator retention (including persistent,
+relay, robustness/admission), pure-JS no-Rust controls, injected timer death, and
+accepted-task-death cleanup. The last initially failed the stricter integration
+audit; its exact injected-error/cleanup-timeout and native-target multiset match
+preserved B13 `final-task-death/results.json` on the same Chromium version.
+The historical JSON/hash and initial audit rejection are retained. No raw failed
+flag was changed; all guest assertions completed or expected injection was
+observed, and Firefox stays clean. This is scoped R6 integration, **not an R2
+shutdown fix or full browser/SDK signoff**. Browser regressions remain blocking
+for Firefox and any unclassified failure.
+
+Final invocation/raw/browser-console scans find **zero runtime host panics**;
+the original CLI test-harness timeout assertion is separately disclosed above.
+Four incomplete setsockopt11/CVE-alias normal/trace captures match four existing
+2GiB OOM scopes in the user journal; zero live owned guest. The independent tests
+Git metadata was restored after external deletion of its former parent metadata,
+then all433tracked source entries were byte-compared before validation.
+
+Completed owned targets are reclaimed with hash checks; all copied userland
+sources/out/prefix/packages and smoke artifacts stay available. CLI/browser
+bundles/exports/raw logs are retained. All2418 copied input payloads and shared
+libc archives remain hash-identical, so no shared libc2 sysroot rebuild is needed.
+Disk remains above10GB decimal. Shared plan worktree and other agents' files
+are untouched.
+
+Evidence: `~/wasixv2-orch/logs/train28/STATE.md`, final-audit/classification,
+regression-analysis/epoll-controls, CLI controls, native/browser reports,
+task-retention historical proof, raw logs, capture/OOM audit, full commit/pin
+inventory, asset/input hashes and cleanup records. Follow-ups: Chromium upstream
+nested-worker shutdown/R2, epoll timing-CI load sensitivity, existing B17 credential
+block, WebKit/SDK/WISP/service-worker/Ports and production relay deployment.
+V13/V14 remain separate work. No credential workaround or kernel contract change.
+
+All train integration commits were made by this AI agent as configured git user
+with the exact GPT-6.1-Sol attribution footer; the human remains responsible.
+Landing order: **tests main -> Wasmer feat/wasixv2 -> plan**; orchestrator pushes
+mains. Only own train28 refs and authorized fast-forward `wasixv2/plan` are pushed
+from the private `train28-plan` worktree.
