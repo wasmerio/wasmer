@@ -51,7 +51,26 @@ impl HttpProvider for Mock {
 }
 
 async fn run(wat: &str, provider: Arc<dyn HttpProvider>) -> i32 {
-    run_with_task(wat, provider, |_, _| {}).await
+    let mut machine = wasixv2::MachineBuilder::new(host())
+        .wasix1_http_provider(provider)
+        .build();
+    // Root assembly reconstructs the ABI registry; the configured guest capability
+    // must survive it, just as exec retains process resources (fs/exec.c:begin_new_exec).
+    let layer = machine
+        .commands_layer([(
+            "http".to_owned(),
+            wasixv2::OwnedBuffer::from_bytes(&b"unused"[..]),
+        )])
+        .unwrap()
+        .unwrap();
+    machine.mount_root_layers([layer]).await.unwrap();
+    machine
+        .run(
+            &wat::parse_str(wat).unwrap(),
+            wasixv2::Stdio::from_fns(|_| {}, |_| {}),
+        )
+        .await
+        .unwrap()
 }
 
 async fn run_with_task(
