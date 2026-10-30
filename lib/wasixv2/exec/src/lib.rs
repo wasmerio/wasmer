@@ -443,7 +443,8 @@ fn signal_name(signal: i32) -> &'static str {
 
 /// The signal a trap stands for, as the processor's exception would raise it on Linux.
 fn fault_signal(err: RuntimeError) -> i32 {
-    let signal = match err.to_trap() {
+    let code = err.downcast_ref::<InstructionTrap>().map(|trap| trap.0);
+    let signal = match code.or_else(|| err.to_trap()) {
         Some(TrapCode::IntegerDivisionByZero | TrapCode::IntegerOverflow) => Signal::SIGFPE,
         // `ud2` and `__builtin_trap`.
         Some(TrapCode::UnreachableCodeReached) => Signal::SIGILL,
@@ -453,6 +454,20 @@ fn fault_signal(err: RuntimeError) -> i32 {
         _ => Signal::SIGSEGV,
     };
     signal.0
+}
+
+/// JavaScript exposes no structured reason on WebAssembly.RuntimeError. Instructions whose
+/// reason the loader knows carry it through the same typed error path as exit and restore.
+#[derive(Debug, thiserror::Error)]
+#[error("{0}")]
+struct InstructionTrap(TrapCode);
+
+fn unreachable_trap() -> Result<i32, RuntimeError> {
+    // Linux arch/x86/kernel/traps.c:exc_invalid_op -> do_error_trap sends SIGILL for UD2,
+    // the native equivalent of wasm unreachable / __builtin_trap.
+    Err(RuntimeError::user(Box::new(InstructionTrap(
+        TrapCode::UnreachableCodeReached,
+    ))))
 }
 
 /// Reports a host panic and kills the thread group of `task` with SIGSEGV, as a kernel oops
@@ -790,6 +805,11 @@ where
         preempt::HOOK_MODULE,
         preempt::GROW_NAME,
         Function::new_typed_with_env_async(store, env, memory_grow::<S>),
+    );
+    imports.define(
+        preempt::HOOK_MODULE,
+        preempt::UNREACHABLE_NAME,
+        Function::new_typed(store, unreachable_trap),
     );
     atomics::define(&mut imports, store, env);
     imports
