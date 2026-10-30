@@ -13,6 +13,7 @@ use wasixv2_wait::{PollMask, PollTable, WaitEntry, WaitQueue, WaitRegistration};
 
 enum Pending {
     Open(u64),
+    Address(u64, bool),
     Listen(u64),
     Send(u64, usize),
     Shutdown(u64),
@@ -528,6 +529,8 @@ impl Driver {
     }
 
     fn event(&mut self, event: Event) -> Result<(), Errno> {
+        let mut binding_wakes = Vec::new();
+        let mut address_query = None;
         let mut wakes = Vec::new();
         let mut complete = None;
         let mut incoming = None;
@@ -547,8 +550,15 @@ impl Driver {
                             if let Some(flow) = inner.flows.get_mut(&id) {
                                 flow.opening = false;
                                 match result {
+                                    Ok(()) if flow.binding.is_some() => {
+                                        flow.opening = true;
+                                        address_query = Some((id, true));
+                                    }
                                     Ok(()) => flow.state = StreamState::Established,
                                     Err(error) => {
+                                        if let Some(binding) = flow.binding.take() {
+                                            binding_wakes.extend(binding.complete(Err(error)));
+                                        }
                                         if flow.published {
                                             self.publication_failure(flow.peer, error);
                                         }
@@ -562,10 +572,18 @@ impl Driver {
                             if let Some(listener) = inner.listeners.get_mut(&id) {
                                 listener.opening = false;
                                 listener.ready = result.is_ok();
+                                if result.is_ok() && listener.binding.is_some() {
+                                    listener.opening = true;
+                                    listener.ready = false;
+                                    address_query = Some((id, false));
+                                }
                                 // A failed publication never affects guest bind/listen. Keep
                                 // the failure visible to the embedding driver caller.
                                 if let Err(error) = result {
                                     listener.released = true;
+                                    if let Some(binding) = listener.binding.take() {
+                                        binding_wakes.extend(binding.complete(Err(error)));
+                                    }
                                     self.publication_failure(listener.addr, error);
                                 }
                             }
@@ -579,8 +597,19 @@ impl Driver {
                                 wakes.push((flow.wq.clone(), flow.mask(self.shared.config)));
                             }
                         }
+                        Pending::Address(id, udp) => {
+                            let error = result.err().ok_or(Errno::EPROTO)?;
+                            self.bound(&mut inner, id, udp, Err(error), &mut binding_wakes)?;
+                        }
                         Pending::Send(_, _) => return Err(Errno::EPROTO),
                     }
+                }
+            }
+            Event::LocalAddr { request, addr } => {
+                if let Some(Pending::Address(id, udp)) = self.pending.remove(&request) {
+                    self.bound(&mut inner, id, udp, Ok(addr), &mut binding_wakes)?;
+                } else {
+                    return Err(Errno::EPROTO);
                 }
             }
             Event::Lookup {
@@ -753,7 +782,16 @@ impl Driver {
                 }
             }
         }
+        if let Some((socket, udp)) = address_query {
+            let request = inner.id()?;
+            self.pending.insert(request, Pending::Address(socket, udp));
+            self.cleanup
+                .push_back(Command::LocalAddr { request, socket });
+        }
         drop(inner);
+        for waker in binding_wakes {
+            waker.wake();
+        }
         for (wq, mask) in wakes {
             wq.wake(mask);
         }
@@ -775,6 +813,66 @@ impl Driver {
                 }
             }
         }
+        Ok(())
+    }
+
+    fn bound(
+        &self,
+        inner: &mut crate::backend::Inner,
+        id: u64,
+        udp: bool,
+        result: Result<std::net::SocketAddr, Errno>,
+        wakes: &mut Vec<std::task::Waker>,
+    ) -> Result<(), Errno> {
+        let (requested, binding) = if udp {
+            let Some(flow) = inner.flows.get_mut(&id) else {
+                return Ok(());
+            };
+            (flow.peer, flow.binding.clone())
+        } else {
+            let Some(listener) = inner.listeners.get_mut(&id) else {
+                return Ok(());
+            };
+            (listener.addr, listener.binding.clone())
+        };
+        let Some(binding) = binding else {
+            return Err(Errno::EPROTO);
+        };
+        if let Ok(addr) = result
+            && (addr.port() == 0
+                || addr.is_ipv4() != requested.is_ipv4()
+                || (requested.port() != 0 && requested.port() != addr.port())
+                || (!requested.ip().is_unspecified() && requested.ip() != addr.ip()))
+        {
+            return Err(Errno::EPROTO);
+        }
+        if udp {
+            let flow = inner.flows.get_mut(&id).unwrap();
+            flow.binding = None;
+            flow.opening = false;
+            match result {
+                Ok(addr) => {
+                    flow.peer = addr;
+                    flow.state = StreamState::Established;
+                }
+                Err(error) => flow.fail(error),
+            }
+        } else {
+            let listener = inner.listeners.get_mut(&id).unwrap();
+            listener.binding = None;
+            listener.opening = false;
+            match result {
+                Ok(addr) => {
+                    listener.addr = addr;
+                    listener.ready = true;
+                }
+                Err(_) => listener.released = true,
+            }
+        }
+        if let Err(error) = result {
+            self.publication_failure(requested, error);
+        }
+        wakes.extend(binding.complete(result));
         Ok(())
     }
 
@@ -802,7 +900,11 @@ impl Driver {
         }
         inner.online = false;
         let mut queues = Vec::new();
+        let mut binding_wakes = Vec::new();
         for flow in inner.flows.values_mut() {
+            if let Some(binding) = flow.binding.take() {
+                binding_wakes.extend(binding.complete(Err(Errno::ECONNABORTED)));
+            }
             if flow.state != StreamState::Closed {
                 flow.fail(Errno::ECONNABORTED);
                 queues.push(flow.wq.clone());
@@ -812,9 +914,17 @@ impl Driver {
         }
         inner.flows.retain(|_, flow| !flow.released);
         let listeners = std::mem::take(&mut inner.listeners);
+        for listener in listeners.values() {
+            if let Some(binding) = &listener.binding {
+                binding_wakes.extend(binding.complete(Err(Errno::ECONNABORTED)));
+            }
+        }
         let queries = std::mem::take(&mut inner.lookups);
         drop(inner);
         drop(listeners);
+        for waker in binding_wakes {
+            waker.wake();
+        }
         for wq in queues {
             wq.wake(PollMask::ERR | PollMask::HUP | PollMask::READABLE | PollMask::WRITABLE);
         }

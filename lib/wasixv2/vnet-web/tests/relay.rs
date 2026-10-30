@@ -190,3 +190,119 @@ fn reference_relay_tcp_udp_dns_ipv4() {
 fn reference_relay_tcp_udp_dns_ipv6() {
     exercise("::1".parse().unwrap());
 }
+
+#[derive(Default)]
+struct Ingress(Mutex<Vec<Arc<dyn wasixv2_vnet::BackendStream>>>);
+impl wasixv2_vnet::InboundSink for Ingress {
+    fn poll_room(&self, _: Option<&mut wasixv2_wait::PollTable<'_>>) -> wasixv2_vnet::Room {
+        wasixv2_vnet::Room::Ready
+    }
+    fn incoming(&self, stream: Arc<dyn wasixv2_vnet::BackendStream>, _: WaitQueue) -> bool {
+        self.0.lock().unwrap().push(stream);
+        true
+    }
+}
+fn ephemeral_publications(ip: IpAddr) {
+    tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap()
+        .block_on(async {
+            let (backend, mut driver) =
+                WebBackend::new(Config::default(), Capabilities::classic_fidelity(true)).unwrap();
+            let mut relay =
+                Classic::new(ReferenceRelay::new(), Capabilities::classic_fidelity(true));
+            let sink = Arc::new(Ingress::default());
+            let mut bind =
+                Box::pin(backend.publish_resolved(SocketAddr::new(ip, 0), 4, sink.clone()));
+            let publication = tokio::time::timeout(
+                Duration::from_secs(5),
+                futures_util::future::poll_fn(|cx| {
+                    assert!(driver.poll(cx, &mut relay).is_pending());
+                    bind.as_mut().poll(cx)
+                }),
+            )
+            .await
+            .unwrap()
+            .unwrap();
+            drop(bind);
+            let host = publication.host_addr();
+            assert_eq!(host.ip(), ip);
+            assert_ne!(host.port(), 0);
+            let mut client = std::net::TcpStream::connect(host).unwrap();
+            client.write_all(b"ingress").unwrap();
+            drive_until("ephemeral TCP ingress", &mut driver, &mut relay, || {
+                !sink.0.lock().unwrap().is_empty()
+            })
+            .await;
+            let stream = sink.0.lock().unwrap().pop().unwrap();
+            let mut bytes = Vec::new();
+            drive_until("ephemeral TCP bytes", &mut driver, &mut relay, || {
+                let mut buf = [0; 16];
+                if let Ok(n) = stream.read(&mut buf, false) {
+                    bytes.extend_from_slice(&buf[..n]);
+                }
+                bytes.len() == 7
+            })
+            .await;
+            assert_eq!(bytes, b"ingress");
+            drop(stream);
+            drop(client);
+            drop(publication);
+
+            let mut bind = Box::pin(backend.publish_datagram_resolved(SocketAddr::new(ip, 0)));
+            let (endpoint, publication) = tokio::time::timeout(
+                Duration::from_secs(5),
+                futures_util::future::poll_fn(|cx| {
+                    assert!(driver.poll(cx, &mut relay).is_pending());
+                    bind.as_mut().poll(cx)
+                }),
+            )
+            .await
+            .unwrap()
+            .unwrap();
+            drop(bind);
+            let host = publication.host_addr();
+            assert_eq!(host.ip(), ip);
+            assert_ne!(host.port(), 0);
+            endpoint.attach(Some(WaitQueue::new())).unwrap();
+            let client = UdpSocket::bind(SocketAddr::new(ip, 0)).unwrap();
+            client.set_nonblocking(true).unwrap();
+            client.send_to(b"udp", host).unwrap();
+            let mut received = None;
+            drive_until("ephemeral UDP ingress", &mut driver, &mut relay, || {
+                let mut buf = [0; 8];
+                if let Ok((n, _, peer)) = endpoint.recv_from(&mut buf, false) {
+                    received = Some((buf[..n].to_vec(), peer));
+                }
+                received.is_some()
+            })
+            .await;
+            let (bytes, peer) = received.unwrap();
+            assert_eq!(bytes, b"udp");
+            assert_eq!(endpoint.send_to(b"reply", peer), Ok(5));
+            let mut received = None;
+            drive_until(
+                "ephemeral UDP reply source",
+                &mut driver,
+                &mut relay,
+                || {
+                    let mut buf = [0; 8];
+                    if let Ok((n, peer)) = client.recv_from(&mut buf) {
+                        received = Some((buf[..n].to_vec(), peer));
+                    }
+                    received.is_some()
+                },
+            )
+            .await;
+            assert_eq!(received, Some((b"reply".to_vec(), host)));
+        });
+}
+#[test]
+fn stock_relay_ephemeral_tcp_udp_publication_ipv4() {
+    ephemeral_publications("127.0.0.1".parse().unwrap());
+}
+#[test]
+fn stock_relay_ephemeral_tcp_udp_publication_ipv6() {
+    ephemeral_publications("::1".parse().unwrap());
+}

@@ -478,7 +478,19 @@ impl Net {
         let backend = self.backend.as_ref().ok_or_else(|| {
             std::io::Error::new(std::io::ErrorKind::Unsupported, "network has no backend")
         })?;
-        let (endpoint, host) = backend.publish_datagram(host)?;
+        let publication = backend.publish_datagram(host)?;
+        Ok(self.publish_udp_endpoint(publication, guest))
+    }
+
+    /// Attach an already-bound provider endpoint to the guest port. This is the second
+    /// half of publish_udp for asynchronous providers: the publication must already have
+    /// a resolved host address. No guest bind result depends on provider success.
+    pub fn publish_udp_endpoint(
+        &self,
+        publication: crate::PublishedDatagram,
+        guest: SocketAddr,
+    ) -> Box<dyn Publication> {
+        let (endpoint, host) = publication;
         let id = self.next_id();
         self.state().udp_pubs.push(UdpPublication {
             id,
@@ -487,11 +499,11 @@ impl Net {
             attached: None,
         });
         self.offer_udp_publication(id);
-        Ok(Box::new(UdpPublished {
+        Box::new(UdpPublished {
             net: self.me.clone(),
             id,
             host,
-        }))
+        })
     }
 
     /// Hands publication `id`, if unattached, to a socket already bound where it reaches.

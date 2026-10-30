@@ -1,4 +1,4 @@
-use crate::{Capabilities, Driver};
+use crate::{Capabilities, Driver, publication::Binding};
 use futures_util::task::AtomicWaker;
 use std::{
     collections::{BTreeMap, VecDeque},
@@ -75,6 +75,7 @@ pub(crate) struct Listener {
     pub ready: bool,
     pub released: bool,
     pub child: Option<u64>,
+    pub binding: Option<Arc<Binding>>,
 }
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Kind {
@@ -87,6 +88,7 @@ pub(crate) struct Packet {
 }
 pub(crate) struct Flow {
     pub kind: Kind,
+    pub binding: Option<Arc<Binding>>,
     pub peer: SocketAddr,
     pub connected_peer: Option<SocketAddr>,
     pub wq: WaitQueue,
@@ -120,6 +122,7 @@ impl Flow {
     pub fn new(kind: Kind, peer: SocketAddr, wq: WaitQueue) -> Self {
         Self {
             kind,
+            binding: None,
             peer,
             connected_peer: None,
             wq,
@@ -305,63 +308,15 @@ impl Backend for WebBackend {
     fn publish(
         &self,
         host: SocketAddr,
-        _backlog: u32,
+        backlog: u32,
         sink: Arc<dyn InboundSink>,
     ) -> Result<Box<dyn Publication>, std::io::Error> {
-        let mut inner = self.shared.inner.lock().unwrap();
-        inner.room(self.shared.config).map_err(io_error)?;
-        if !inner.capabilities.listen || host.port() == 0 {
-            // Classic ListenTcp has no bound-address response for ephemeral publication.
-            return Err(std::io::ErrorKind::Unsupported.into());
-        }
-        family_allowed(inner.capabilities, host).map_err(io_error)?;
-        let id = inner.id().map_err(io_error)?;
-        inner.listeners.insert(
-            id,
-            Listener {
-                addr: host,
-                sink,
-                opening: false,
-                ready: false,
-                released: false,
-                child: None,
-            },
-        );
-        drop(inner);
-        self.shared.wake.wake();
-        Ok(Box::new(Published {
-            shared: self.shared.clone(),
-            id,
-            host,
-        }))
+        self.start_publish(host, backlog, None, sink)
+            .map(|p| Box::new(p) as Box<dyn Publication>)
     }
     fn publish_datagram(&self, host: SocketAddr) -> Result<PublishedDatagram, std::io::Error> {
-        let mut inner = self.shared.inner.lock().unwrap();
-        inner.room(self.shared.config).map_err(io_error)?;
-        if !inner.capabilities.udp_publish || host.port() == 0 {
-            return Err(std::io::ErrorKind::Unsupported.into());
-        }
-        family_allowed(inner.capabilities, host).map_err(io_error)?;
-        let id = inner.id().map_err(io_error)?;
-        let domain = if host.is_ipv4() {
-            Domain::Inet
-        } else {
-            Domain::Inet6
-        };
-        let mut flow = Flow::new(Kind::Datagram(domain), host, WaitQueue::new());
-        flow.published = true;
-        flow.attached = false;
-        inner.flows.insert(id, flow);
-        drop(inner);
-        self.shared.wake.wake();
-        let endpoint = Arc::new(Datagram {
-            shared: self.shared.clone(),
-            id,
-        });
-        Ok((
-            endpoint.clone(),
-            Box::new(DatagramPublication { endpoint, host }),
-        ))
+        self.start_publish_datagram(host, None)
+            .map(|(ep, p)| (ep, Box::new(p) as Box<dyn Publication>))
     }
     fn lookup(&self, lookup: Lookup, done: LookupDone) {
         let mut inner = self.shared.inner.lock().unwrap();
@@ -638,15 +593,9 @@ impl BackendDatagram for Datagram {
         Ok(())
     }
     fn take_error(&self) -> Option<Errno> {
-        self.shared
-            .inner
-            .lock()
-            .unwrap()
-            .flows
-            .get_mut(&self.id)
-            .unwrap()
-            .error
-            .take()
+        let mut inner = self.shared.inner.lock().unwrap();
+        let flow = inner.flows.get_mut(&self.id).unwrap();
+        flow.error.take()
     }
     fn recv_from(&self, buf: &mut [u8], peek: bool) -> Result<(usize, usize, SocketAddr), Errno> {
         let mut inner = self.shared.inner.lock().unwrap();
@@ -718,7 +667,7 @@ fn release(shared: &Arc<Shared>, id: u64) {
     drop(inner);
     shared.wake.wake();
 }
-struct Published {
+pub(crate) struct Published {
     shared: Arc<Shared>,
     id: u64,
     host: SocketAddr,
@@ -742,7 +691,7 @@ impl Drop for Published {
     }
 }
 
-struct DatagramPublication {
+pub(crate) struct DatagramPublication {
     endpoint: Arc<Datagram>,
     host: SocketAddr,
 }
@@ -752,5 +701,101 @@ impl Publication for DatagramPublication {
     }
     fn set_backlog(&self, _: u32) {
         let _ = &self.endpoint;
+    }
+}
+
+impl WebBackend {
+    pub(crate) fn start_publish(
+        &self,
+        host: SocketAddr,
+        _backlog: u32,
+        binding: Option<Arc<Binding>>,
+        sink: Arc<dyn InboundSink>,
+    ) -> Result<Published, std::io::Error> {
+        let mut inner = self.shared.inner.lock().unwrap();
+        inner.room(self.shared.config).map_err(io_error)?;
+        if !inner.capabilities.listen || (host.port() == 0 && binding.is_none()) {
+            // Classic ListenTcp has no bound-address response for ephemeral publication.
+            return Err(std::io::ErrorKind::Unsupported.into());
+        }
+        family_allowed(inner.capabilities, host).map_err(io_error)?;
+        let id = inner.id().map_err(io_error)?;
+        inner.listeners.insert(
+            id,
+            Listener {
+                addr: host,
+                sink,
+                opening: false,
+                ready: false,
+                released: false,
+                child: None,
+                binding,
+            },
+        );
+        drop(inner);
+        self.shared.wake.wake();
+        Ok(Published {
+            shared: self.shared.clone(),
+            id,
+            host,
+        })
+    }
+    pub(crate) fn start_publish_datagram(
+        &self,
+        host: SocketAddr,
+        binding: Option<Arc<Binding>>,
+    ) -> Result<(Arc<dyn BackendDatagram>, DatagramPublication), std::io::Error> {
+        let mut inner = self.shared.inner.lock().unwrap();
+        inner.room(self.shared.config).map_err(io_error)?;
+        if !inner.capabilities.udp_publish || (host.port() == 0 && binding.is_none()) {
+            return Err(std::io::ErrorKind::Unsupported.into());
+        }
+        family_allowed(inner.capabilities, host).map_err(io_error)?;
+        let id = inner.id().map_err(io_error)?;
+        let domain = if host.is_ipv4() {
+            Domain::Inet
+        } else {
+            Domain::Inet6
+        };
+        let mut flow = Flow::new(Kind::Datagram(domain), host, WaitQueue::new());
+        flow.binding = binding;
+        flow.published = true;
+        flow.attached = false;
+        inner.flows.insert(id, flow);
+        drop(inner);
+        self.shared.wake.wake();
+        let endpoint = Arc::new(Datagram {
+            shared: self.shared.clone(),
+            id,
+        });
+        Ok((endpoint.clone(), DatagramPublication { endpoint, host }))
+    }
+}
+
+impl WebBackend {
+    /// Bind and resolve the actual relay address before returning a Publication. Poll on
+    /// a task worker while the independent I/O driver progresses; cancellation drops the
+    /// provisional handle and closes any socket the relay creates. Uses classic GetAddrLocal.
+    pub async fn publish_resolved(
+        &self,
+        host: SocketAddr,
+        backlog: u32,
+        sink: Arc<dyn InboundSink>,
+    ) -> std::io::Result<Box<dyn Publication>> {
+        let binding = Arc::new(Binding::default());
+        let mut handle = self.start_publish(host, backlog, Some(binding.clone()), sink)?;
+        handle.host = binding.wait().await.map_err(io_error)?;
+        Ok(Box::new(handle))
+    }
+    /// UDP counterpart of publish_resolved. The endpoint is initially unattached; pass the
+    /// returned pair to Net::publish_udp_endpoint to attach it to the guest namespace.
+    pub async fn publish_datagram_resolved(
+        &self,
+        host: SocketAddr,
+    ) -> std::io::Result<PublishedDatagram> {
+        let binding = Arc::new(Binding::default());
+        let (endpoint, mut handle) = self.start_publish_datagram(host, Some(binding.clone()))?;
+        handle.host = binding.wait().await.map_err(io_error)?;
+        Ok((endpoint, Box::new(handle)))
     }
 }

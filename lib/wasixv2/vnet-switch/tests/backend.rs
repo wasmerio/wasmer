@@ -265,6 +265,32 @@ fn memory_stream_reuses_bounded_buffers_urgent_marks_and_unread_reset() {
 }
 
 #[test]
+fn already_resolved_udp_endpoint_attaches_through_net_publication_hook() {
+    use wasixv2_vnet::{Net, NetConfig, Uplink};
+    let sw = switch();
+    let backend = sw.backend("192.0.2.11".parse().unwrap()).unwrap();
+    let net = Net::new(
+        NetConfig {
+            uplink: Some(Uplink {
+                v4: Some(("192.0.2.11".parse().unwrap(), 24, None)),
+                ..Uplink::default()
+            }),
+            ..NetConfig::default()
+        },
+        Some(backend.clone()),
+    );
+    let s = socket(&*net, Domain::Inet, SocketKind::Datagram);
+    s.bind(addr("0.0.0.0:8080"), false).unwrap();
+    let pair = backend.publish_datagram(addr("192.0.2.11:0")).unwrap();
+    let host = pair.1.host_addr();
+    let publication = net.publish_udp_endpoint(pair, addr("0.0.0.0:8080"));
+    assert_eq!(publication.host_addr(), host);
+    let source = sw.backend("192.0.2.10".parse().unwrap()).unwrap();
+    let ep = source.datagram(Domain::Inet, WaitQueue::new()).unwrap();
+    ep.send_to(b"adopted", host).unwrap();
+    assert_eq!(receive(&*s), b"adopted");
+}
+#[test]
 fn switched_established_stream_reads_reset_then_eof() {
     let sw = switch();
     let a = sw.backend("192.0.2.10".parse().unwrap()).unwrap();

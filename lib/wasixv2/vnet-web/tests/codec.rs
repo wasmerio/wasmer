@@ -363,3 +363,22 @@ fn fidelity_records_distinguish_reset_udp_errors_dns_and_urgent() {
         packed((4u32, 1u32, 0u32, 7u64, 9u64, vec![b'!']))
     );
 }
+
+#[test]
+fn local_address_query_uses_existing_classic_records() {
+    assert_eq!(
+        codec::encode(&Command::LocalAddr {
+            request: 7,
+            socket: 9
+        })
+        .unwrap(),
+        packed(Request::Socket {
+            socket: 9.into(),
+            req: Op::GetAddrLocal,
+            req_id: Some(7)
+        })
+    );
+    assert!(
+        matches!(codec::decode(&packed(Response::ResponseToRequest {req_id:7,res:Reply::SocketAddr(addr())})).unwrap(), Event::LocalAddr { request: 7, addr: a } if a == addr())
+    );
+}
