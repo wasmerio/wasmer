@@ -7,7 +7,7 @@ on:
       - "tests/wasixv2"
       - ".github/workflows/wasixv2-browser.yaml"
   push:
-    branches: [feat/wasixv2, wasixv2/b8-facade]
+    branches: [feat/wasixv2, wasixv2/b8-facade, wasixv2/b17-ci]
   workflow_dispatch:
 permissions:
   contents: read
@@ -89,6 +89,10 @@ jobs:
           curl --fail --location --retry 3 "https://github.com/wasm-bindgen/wasm-bindgen/releases/download/${version}/wasm-bindgen-${version}-x86_64-unknown-linux-musl.tar.gz" -o "$RUNNER_TEMP/bindgen.tar.gz"
           tar -xzf "$RUNNER_TEMP/bindgen.tar.gz" -C "$RUNNER_TEMP"
           echo "$RUNNER_TEMP/wasm-bindgen-${version}-x86_64-unknown-linux-musl" >> "$GITHUB_PATH"
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: wasixv2-browser-runtime
+          cache-targets: "false"
       - name: Link and inspect B2's debug runtime artifact
         run: bash lib/wasixv2/host/tests/browser/build.sh > browser-build.log 2>&1
       - name: Reuse B2 smoke through Playwright
@@ -128,7 +132,9 @@ jobs:
       CARGO_BUILD_JOBS: "3"
       WASIXV2_BROWSER_TOOLS: ${{ github.workspace }}/target/browser-tools
       CARGO_TARGET_DIR: ${{ github.workspace }}/target/browser-export
-      GH_TOKEN: ${{ secrets.WASIXV2_TOOLCHAIN_TOKEN || github.token }}
+      # Prefer a dedicated read-only source credential; the existing private-CI
+      # token is also used by patchsmith-test.yml. github.token cannot read libc2.
+      GH_TOKEN: ${{ secrets.WASIXV2_TOOLCHAIN_TOKEN || secrets.COMPAT_TESTS_GH_TOKEN }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -141,21 +147,46 @@ jobs:
       - name: Install native source-build prerequisites
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake ninja-build clang build-essential python3 curl git gh
-          gh auth setup-git
-      - uses: actions/cache@v4
+          sudo apt-get install -y cmake ninja-build clang lld build-essential python3 curl git gh rsync
+      - uses: actions/cache/restore@v4
+        id: tools-cache
         with:
-          path: ${{ env.WASIXV2_BROWSER_TOOLS }}
-          key: wasixv2-browser-tools-debug-${{ runner.os }}-${{ hashFiles('lib/wasixv2/api/tests/browser/toolchain.env', 'lib/wasixv2/api/tests/browser/prepare-toolchain.sh') }}
+          # Cache executables, resource headers and sysroots, not private sources
+          # or multi-GB LLVM object files. Paths match the producer's env.sh.
+          path: |
+            ${{ env.WASIXV2_BROWSER_TOOLS }}/bin
+            ${{ env.WASIXV2_BROWSER_TOOLS }}/build/llvm/bin
+            ${{ env.WASIXV2_BROWSER_TOOLS }}/build/llvm/lib/clang
+            ${{ env.WASIXV2_BROWSER_TOOLS }}/build/binaryen/bin
+            ${{ env.WASIXV2_BROWSER_TOOLS }}/sysroots/sysroot-wasixv2
+            ${{ env.WASIXV2_BROWSER_TOOLS }}/sysroots/sysroot-wasixv2-asyncify
+            ${{ env.WASIXV2_BROWSER_TOOLS }}/complete-*
+          key: wasixv2-browser-tools-debug-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('lib/wasixv2/api/tests/browser/toolchain.env', 'lib/wasixv2/api/tests/browser/prepare-toolchain.sh') }}
       - name: Build pinned v2 compiler and EH/asyncify C sysroots
-        run: bash lib/wasixv2/api/tests/browser/prepare-toolchain.sh > browser-toolchain.log 2>&1
+        run: |
+          bash lib/wasixv2/api/tests/browser/prepare-toolchain.sh > browser-toolchain.log 2>&1 || {
+            tail -n 80 browser-toolchain.log
+            exit 1
+          }
+      - uses: actions/cache/save@v4
+        if: steps.tools-cache.outputs.cache-hit != 'true'
+        with:
+          path: |
+            ${{ env.WASIXV2_BROWSER_TOOLS }}/bin
+            ${{ env.WASIXV2_BROWSER_TOOLS }}/build/llvm/bin
+            ${{ env.WASIXV2_BROWSER_TOOLS }}/build/llvm/lib/clang
+            ${{ env.WASIXV2_BROWSER_TOOLS }}/build/binaryen/bin
+            ${{ env.WASIXV2_BROWSER_TOOLS }}/sysroots/sysroot-wasixv2
+            ${{ env.WASIXV2_BROWSER_TOOLS }}/sysroots/sysroot-wasixv2-asyncify
+            ${{ env.WASIXV2_BROWSER_TOOLS }}/complete-*
+          key: ${{ steps.tools-cache.outputs.cache-primary-key }}
       - name: Export only the reviewed browser subset
         run: |
           source "$WASIXV2_BROWSER_TOOLS/env.sh"
           nice -n 19 taskset -c 4-7 cargo run --manifest-path tests/wasixv2/Cargo.toml -p wasixv2-tests --locked -j3 -- --browser-export "$RUNNER_TEMP/browser-fixtures" > browser-export.log 2>&1
           nice -n 19 taskset -c 4-7 cargo run --manifest-path tests/wasixv2/Cargo.toml -p wasixv2-tests --locked -j3 -- --browser-v1-export "$RUNNER_TEMP/browser-v1-fixtures" > browser-v1-export.log 2>&1
       - uses: actions/upload-artifact@v4
-        if: always()
+        if: success()
         with:
           name: wasixv2-browser-fixtures
           path: ${{ runner.temp }}/browser-fixtures
