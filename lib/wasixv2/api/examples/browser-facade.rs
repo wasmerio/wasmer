@@ -3,6 +3,10 @@
 fn main() {}
 
 #[cfg(target_arch = "wasm32")]
+#[path = "browser/acceptance.rs"]
+mod acceptance;
+
+#[cfg(target_arch = "wasm32")]
 mod wasm {
     use serde::Deserialize;
     use std::{
@@ -18,6 +22,8 @@ mod wasm {
     use wasixv2_kernel::HostClock;
     use wasixv2_vfs::{Cred, Ctx, LookupFlags, OpenHow};
     use wasm_bindgen::prelude::*;
+
+    use crate::acceptance;
 
     #[derive(Deserialize)]
     #[serde(rename_all = "camelCase")]
@@ -37,6 +43,8 @@ mod wasm {
         http: bool,
         #[serde(default)]
         command_defaults: Vec<CommandDefaults>,
+        #[serde(default)]
+        acceptance: Option<acceptance::Scenario>,
     }
     #[derive(Deserialize)]
     #[serde(deny_unknown_fields)]
@@ -146,6 +154,11 @@ mod wasm {
                     )
                 }))
                 .map_err(error)?;
+            let package =
+                acceptance::install(&mut machine, wasm, fixture.acceptance.as_ref()).await?;
+            if fixture.acceptance.as_ref().is_some_and(|s| s.live_vfs) {
+                acceptance::mount_live(&machine, host.clone()).await?;
+            }
             for mount in fixture.mounts {
                 let fs =
                     browser::directory(Arc::new(HostClock(host.clone())), 0o700, owner.0, owner.1)
@@ -162,9 +175,47 @@ mod wasm {
             if let Some(cwd) = fixture.cwd {
                 machine.set_working_dir(cwd);
             }
+            let engine = Engine::default();
+            let mut env = machine.default_env();
+            for (name, value) in fixture.env {
+                env.retain(|entry| {
+                    entry.split_once('=').map(|(key, _)| key) != Some(name.as_str())
+                });
+                env.push(format!("{name}={value}"));
+            }
+            let mut config = ProcessConfig {
+                args: if package.is_some() {
+                    fixture.args
+                } else {
+                    std::iter::once(fixture.program_name.unwrap_or(fixture.name))
+                        .chain(fixture.args)
+                        .collect()
+                },
+                env,
+                stdio,
+            };
+            let path = if let Some(package) = &package {
+                Some(
+                    package
+                        .prepare_command(
+                            &mut machine,
+                            fixture
+                                .acceptance
+                                .as_ref()
+                                .and_then(|s| s.command.as_deref()),
+                            &mut config,
+                        )
+                        .map_err(error)?,
+                )
+            } else {
+                None
+            };
             let machine = Arc::new(machine);
             let output = Arc::new(Mutex::new(Output::default()));
             let captured = output.clone();
+            let editing = machine.clone();
+            let actions = fixture.acceptance.map(|s| s.actions).unwrap_or_default();
+            let keep_input = !actions.is_empty();
             executor
                 .services()
                 .spawn_thread(Box::new(move || {
@@ -177,13 +228,18 @@ mod wasm {
                                     Ok(n) => offset += n,
                                 }
                             }
-                            if !fixture.console {
+                            if !fixture.console && !keep_input {
                                 streams.stdin.close();
                             }
                         };
                         let (_, out, err) = futures_util::future::join3(
                             input,
-                            collect(streams.stdout),
+                            acceptance::collect_actions(
+                                streams.stdout,
+                                streams.stdin.clone(),
+                                editing,
+                                actions,
+                            ),
                             collect(streams.stderr),
                         )
                         .await;
@@ -199,26 +255,21 @@ mod wasm {
                     })
                 }))
                 .map_err(error)?;
-            let engine = Engine::default();
-            let module = wasixv2::load(&engine, wasm).map_err(error)?;
-            let mut env = machine.default_env();
-            for (name, value) in fixture.env {
-                env.retain(|entry| {
-                    entry.split_once('=').map(|(key, _)| key) != Some(name.as_str())
-                });
-                env.push(format!("{name}={value}"));
-            }
-            let config = ProcessConfig {
-                args: std::iter::once(fixture.program_name.unwrap_or(fixture.name))
-                    .chain(fixture.args)
-                    .collect(),
-                env,
-                stdio,
+            let (result, run) = if let Some(path) = path {
+                (
+                    machine
+                        .run_file(&engine, &path, config)
+                        .await
+                        .map_err(error),
+                    None,
+                )
+            } else {
+                let module = wasixv2::load(&engine, wasm).map_err(error)?;
+                let run = browser::spawn(machine.clone(), &executor, engine, module, config)
+                    .await
+                    .map_err(error)?;
+                (run.wait().await.map_err(error), Some(run))
             };
-            let run = browser::spawn(machine.clone(), &executor, engine, module, config)
-                .await
-                .map_err(error)?;
-            let result = run.wait().await;
             // Wait for descendants too before EOF, so inherited output producers
             // cannot write after the final process result (kernel/exit.c:exit_files).
             machine.shutdown().await;
@@ -230,7 +281,7 @@ mod wasm {
             })
             .await
             .map_err(error)?;
-            let exit = result.map_err(error)?;
+            let exit = result?;
             let mut files = Vec::new();
             for file in fixture.expected.files {
                 let vfs = machine.vfs();
@@ -322,6 +373,10 @@ mod wasm {
             program_name: None,
             mounts: vec![],
             expected: Expected { files: vec![] },
+            console: false,
+            http: false,
+            command_defaults: vec![],
+            acceptance: None,
         };
         block_on(execute(fixture, &wasm)).map_err(error)
     }
@@ -596,6 +651,7 @@ mod wasm {
                     console: false,
                     http: false,
                     command_defaults: vec![],
+                    acceptance: None,
                 },
                 &echo,
             )
