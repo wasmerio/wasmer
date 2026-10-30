@@ -48,5 +48,31 @@ requiring three nondecreasing blocks and net growth over32MiB RSS,8fds,4threads,
 8tasks or10ms probe latency. These are investigation triggers, not proof of a
 leak. Fresh-machine peak/end resources and quiescent counts must also be reviewed.
 
-Results: preparation/pilot pending. No clean two-hour curve or runtime fix is
-claimed yet. Canonical takeover state: `~/wasixv2-orch/logs/v16soak/STATE.md`.
+## Bounded panic finding
+
+`HostBackend::drop` could run on its own reactor thread when an inbound callback
+released the final network reference. Its unconditional native thread join then
+panicked with `Resource deadlock avoided (os error35)`. The deterministic sibling
+`reactor::tests::last_backend_reference_can_be_dropped_from_a_reactor_callback`
+fails before production edits (`reactor-red.log`, EXIT101), catches the callback
+panic, and also checks that the reactor's shared state disappears.
+
+Runtime fix `b57e718dbf4` always stops/wakes the reactor and joins only from another
+thread, matching the existing host timer lifetime handling. The reactor owns its
+shared state until its stop loop ends. Linux source: `net/core/net_namespace.c`,
+`cleanup_net`, which retires namespaces from the cleanup worker. No ABI or
+kernel/exec contract changes. Ten focused reactor/publication/vsock checks PASS;
+exact Makefile-flags all-target clippy and `cargo fmt --all --check` PASS.
+
+Pilot02:5persistent+5fresh mixed cycles PASS, quiescent tasks11 throughout,
+both exits0/DONE. The initial run01 was deliberately stopped after13.6minutes to
+prove/fix the separate teardown interleaving:358cycles,6completed fresh machines,
+quiescent11, no observed workload failure or panic. This partial run does not
+count as two-hour validation. Original curves and the deterministic RED remain
+archived.
+
+Results: fixed-runtime full7200s confirmation pending. The analyzer
+`userland/tests/soak-results.py RESULT_DIRECTORY` verifies actual persistent
+runtime before writing `results.json`, reporting warm/late slopes, quantiles,
+fresh-process peaks and quiescent task counts. No clean two-hour curve is claimed
+yet. Canonical takeover state: `~/wasixv2-orch/logs/v16soak/STATE.md`.
