@@ -1311,6 +1311,15 @@ pub(crate) fn pages(len: u32) -> Result<u64, Errno> {
     }
 }
 
+/// mm/mmap.c __get_unmapped_area rejects ranges outside TASK_SIZE before
+/// mmap_region invokes a filesystem, which may fail to allocate backing pages.
+fn check_fixed_range(addr: Uptr, pages: u64) -> Result<(), Errno> {
+    match u64::from(addr) + pages * PAGE_SIZE > 1 << 32 {
+        true => Err(Errno::ENOMEM),
+        false => Ok(()),
+    }
+}
+
 /// The caller's main stack and stack pointer, for [`AddressSpace::expand_stack`].
 async fn stack_seen(caller: &Caller<'_>) -> (Range<u32>, u32) {
     let memory = caller.memory();
@@ -1597,6 +1606,9 @@ impl Kernel {
         if map_locked && !self.lock_limit(caller).can_lock() {
             return Err(Errno::EPERM.into());
         }
+        if flags.intersects(MapFlags::MAP_FIXED | MapFlags::MAP_FIXED_NOREPLACE) {
+            check_fixed_range(addr, pages)?;
+        }
         if let Some(file) = &file {
             if offset < 0 {
                 return Err(Errno::EOVERFLOW.into());
@@ -1776,9 +1788,7 @@ impl Kernel {
         check_aligned(addr)?;
         let first = u64::from(addr) / PAGE_SIZE;
         let end = first + pages;
-        if end * PAGE_SIZE > 1 << 32 {
-            return Err(Errno::ENOMEM.into());
-        }
+        check_fixed_range(addr, pages)?;
         if u64::from(addr) < MMAP_MIN_ADDR {
             return Err(Errno::EPERM.into());
         }

@@ -1189,3 +1189,62 @@ fn shared_file_mapping_marks_write_times_at_sync_and_removal() {
         }
     }
 }
+
+/// mm/mmap.c __get_unmapped_area rejects a fixed range outside TASK_SIZE
+/// before mmap_region asks the filesystem to back it with pages.
+#[test]
+fn fixed_mmap_range_overflow_precedes_tmpfs_capacity() {
+    let host: Arc<dyn Host> = Arc::new(SharedHost);
+    let clock = Arc::new(HostClock(host.clone()));
+    let root = MemFs::with_limits(
+        clock,
+        0o755,
+        1,
+        1,
+        wasixv2_vfs_mem::Limits {
+            max_bytes: Some(u64::from(PAGE)),
+            max_inodes: None,
+        },
+    )
+    .with_shared_pages(Arc::new(SharedHost));
+    let (kernel, task, _) = spawn_on(
+        Kernel::new(host, Arc::new(root)),
+        Arc::new(Input(Mutex::new(Vec::new()))),
+        &[],
+        &[],
+    );
+    let memory = MappedMemory::new(2, true);
+    let caller = Caller::new(task, &memory);
+    let fd = super::mapping::open(
+        &kernel,
+        &caller,
+        b"/mapped",
+        OpenFlags::O_CREAT | OpenFlags::O_RDWR,
+    );
+    for fixed in [MapFlags::MAP_FIXED, MapFlags::MAP_FIXED_NOREPLACE] {
+        assert_eq!(
+            errno(block_on(kernel.mmap(
+                &caller,
+                u32::MAX - PAGE + 1,
+                2 * PAGE,
+                RW,
+                MapFlags::MAP_SHARED | fixed,
+                fd,
+                0
+            ))),
+            Errno::ENOMEM,
+        );
+    }
+    assert_eq!(
+        errno(block_on(kernel.mmap(
+            &caller,
+            0,
+            2 * PAGE,
+            RW,
+            MapFlags::MAP_SHARED,
+            fd,
+            0
+        ))),
+        Errno::ENOSPC,
+    );
+}
