@@ -511,8 +511,17 @@ impl Pipe {
             };
             let n = out.take(&buf[..n]).await?;
             if n > 0 {
-                self.state.lock_or_recover().consume(n, packet_read);
-                self.wr_wait.wake(PollMask::WRITABLE);
+                let was_full = {
+                    let mut state = self.state.lock_or_recover();
+                    let was_full = state.free() == 0;
+                    state.consume(n, packet_read);
+                    was_full
+                };
+                // fs/pipe.c pipe_read wakes writers after freeing a slot from
+                // a full pipe. Reading an already writable pipe is no new edge.
+                if was_full {
+                    self.wr_wait.wake(PollMask::WRITABLE);
+                }
                 self.signal_writers();
             }
             return Ok(n);
