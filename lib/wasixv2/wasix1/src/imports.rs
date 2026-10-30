@@ -21,10 +21,21 @@ pub enum Module {
     Wasix32,
     /// `wasi`, which only holds wasi-threads' `thread-spawn`.
     Wasi,
+    /// The historical `wasix_http_client_v1` WAI extension.
+    HttpClient,
+    /// WAI HTTP resource destruction, not a guest ABI on its own.
+    Canonical,
 }
 
 impl Module {
-    pub const ALL: [Self; 4] = [Self::Preview1, Self::Unstable, Self::Wasix32, Self::Wasi];
+    pub const ALL: [Self; 6] = [
+        Self::Preview1,
+        Self::Unstable,
+        Self::Wasix32,
+        Self::Wasi,
+        Self::HttpClient,
+        Self::Canonical,
+    ];
 
     pub const fn name(self) -> &'static str {
         match self {
@@ -32,6 +43,8 @@ impl Module {
             Self::Unstable => "wasi_unstable",
             Self::Wasix32 => "wasix_32v1",
             Self::Wasi => "wasi",
+            Self::HttpClient => crate::http::NAMESPACE,
+            Self::Canonical => crate::http::CANONICAL,
         }
     }
 
@@ -61,7 +74,7 @@ pub struct Entry {
     pub stub: Stub,
 }
 
-use Module::{Preview1, Unstable, Wasi, Wasix32};
+use Module::{Canonical, HttpClient, Preview1, Unstable, Wasi, Wasix32};
 use Stub::{Pending, Shim, Unsupported};
 use Type::{I32, I64};
 
@@ -83,8 +96,14 @@ macro_rules! table {
 
 const THREADS: &[Module] = &[Preview1, Unstable, Wasi];
 const PREVIEW1: &[Module] = &[Preview1];
+const HTTP: &[Module] = &[HttpClient];
+const CANONICAL: &[Module] = &[Canonical];
 
 table! {
+    // Historical WAI HTTP extension; these imports return expected<> through guest memory.
+    "client::new" HTTP (I32) -> () Shim;
+    "client::send" HTTP (I32 I32) -> () Shim;
+    "resource_drop_client" CANONICAL (I32) -> () Shim;
     // ---- WASI preview1 ----
     "args_get" WASI (I32 I32) -> (I32) Shim;
     "args_sizes_get" WASI (I32 I32) -> (I32) Shim;
@@ -248,6 +267,53 @@ pub fn entry(module: Module, name: &str) -> Option<&'static Entry> {
         .find(|entry| entry.name == name && entry.modules.contains(&module))
 }
 
+/// Checks the compatibility-owned import surface before admitting a browser task. Missing
+/// imports are errors, never success stubs. Engine/internal and embedder namespaces retain
+/// their own validation; the instance linker still validates every supplied extern.
+pub fn validate(wasm: &wasmer::Module) -> Result<(), String> {
+    use wasmer::ExternType;
+
+    for import in wasm.imports() {
+        let signature = if let Some(module) = Module::from_name(import.module()) {
+            let entry = entry(module, import.name()).ok_or_else(|| {
+                format!(
+                    "unknown WASIX v1 import {}.{}",
+                    import.module(),
+                    import.name()
+                )
+            })?;
+            Some(FunctionType::new(entry.params, entry.results))
+        } else {
+            None
+        };
+        if let Some(signature) = signature
+            && import.ty() != &ExternType::Function(signature.clone())
+        {
+            return Err(format!(
+                "invalid WASIX v1 import {}.{}: expected {signature:?}, found {:?}",
+                import.module(),
+                import.name(),
+                import.ty()
+            ));
+        }
+    }
+    if wasm
+        .imports()
+        .any(|import| import.module() == crate::http::NAMESPACE)
+    {
+        let expected = ExternType::Function(FunctionType::new([I32; 4], [I32]));
+        if !wasm
+            .exports()
+            .any(|export| export.name() == "canonical_abi_realloc" && export.ty() == &expected)
+        {
+            return Err(
+                "WASIX v1 HTTP requires canonical_abi_realloc: (i32,i32,i32,i32)->i32".to_owned(),
+            );
+        }
+    }
+    Ok(())
+}
+
 /// The v1 functions `wasm` imports, ready for an instance whose environment is `env`. Only
 /// those: every instance (each thread, each image) defines its own. An import the table does
 /// not have stays undefined, and the module fails to link.
@@ -294,6 +360,9 @@ where
         };
     }
     Some(match name {
+        "client::new" => f!(http::client_new::<S>),
+        "client::send" => f!(http::client_send::<S>),
+        "resource_drop_client" => f!(http::client_drop::<S>),
         "args_get" => f!(startup::args_get::<S>),
         "args_sizes_get" => f!(startup::args_sizes_get::<S>),
         "environ_get" => f!(startup::environ_get::<S>),
@@ -446,6 +515,44 @@ mod tests {
     use std::collections::HashSet;
 
     use super::*;
+
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(not(target_arch = "wasm32"), test)]
+    fn preflight_reports_missing_imports_and_wrong_types_explicitly() {
+        let store = Store::default();
+        for (source, expected) in [
+            (
+                r#"(module (import "wasix_32v1" "unknown" (func)))"#,
+                "unknown WASIX v1 import wasix_32v1.unknown",
+            ),
+            (
+                r#"(module (import "wasi_snapshot_preview1" "fd_write" (global i32)))"#,
+                "invalid WASIX v1 import wasi_snapshot_preview1.fd_write",
+            ),
+            (
+                r#"(module (import "wasi_snapshot_preview1" "proc_exit" (func)))"#,
+                "invalid WASIX v1 import wasi_snapshot_preview1.proc_exit",
+            ),
+            (
+                r#"(module (import "wasix_http_client_v1" "client::unknown" (func)))"#,
+                "unknown WASIX v1 import wasix_http_client_v1.client::unknown",
+            ),
+            (
+                r#"(module (import "wasix_http_client_v1" "client::new" (func (param i32))))"#,
+                "WASIX v1 HTTP requires canonical_abi_realloc",
+            ),
+        ] {
+            let module = wasmer::Module::new(&store, wat::parse_str(source).unwrap()).unwrap();
+            assert!(validate(&module).unwrap_err().starts_with(expected));
+        }
+        let source = r#"(module
+            (import "wasix_http_client_v1" "client::new" (func (param i32)))
+            (import "wasix_http_client_v1" "client::send" (func (param i32 i32)))
+            (import "canonical_abi" "resource_drop_client" (func (param i32)))
+            (func (export "canonical_abi_realloc") (param i32 i32 i32 i32) (result i32) i32.const 0))"#;
+        let module = wasmer::Module::new(&store, wat::parse_str(source).unwrap()).unwrap();
+        validate(&module).unwrap();
+    }
 
     #[test]
     fn names_are_unique_per_module() {

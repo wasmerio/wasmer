@@ -145,3 +145,22 @@ exports only the reviewed subset. A cold source toolchain build is expensive;
 its exact-pinned cache is independent of runtime artifacts. Private source
 repositories need the optional `WASIXV2_TOOLCHAIN_TOKEN` read credential. The
 runtime/producer/fixture jobs are required, with per-test logs retained on failure.
+
+## WASIX v1 guest HTTP
+
+With `wasix1`, `MachineBuilder::wasix1_http_provider` installs an explicit guest
+capability retained across root assembly and exec. The historical canonical WAI
+imports, handles and codec live in `wasix1`; native and browser facade entry points
+validate legacy imports before task admission. This does not fetch packages.
+
+For browser Fetch, install `wasixv2::wasix1_http::browser::FetchProvider` with bounded
+request/response/in-flight limits and set bootstrap `ioModuleUrl` to `io-driver.js`
+next to `http-fetch-driver.js`. The coordinator starts B8's independent I/O worker
+before guests: owned commands start Fetch there and short completion exports wake
+the existing v2 control path. Dropping the pending future aborts its request. No
+Fetch Promise runs on the blocking guest worker. Origin, CORS, forbidden headers
+and opaque-response restrictions remain enforced by the browser. Explicit bounded
+redirect counts cannot be implemented by browser Fetch and return a capability
+error; no-follow rejects unreadable opaque redirects. The default browser redirect
+policy is Fetch's ordinary follow behavior. Installing this capability is separate
+from granting the socket relay.

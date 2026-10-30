@@ -34,7 +34,7 @@ if [[ ! -f "$tools/complete-$pins" ]]; then
     ln -sf lld "$tools/build/llvm/bin/wasm-ld"
     nice -n 19 taskset -c 4-7 cmake -S "$tools/src/binaryen" -B "$tools/build/binaryen" -G Ninja \
         -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTS=OFF
-    nice -n 19 taskset -c 4-7 cmake --build "$tools/build/binaryen" --parallel 3 --target wasm-opt
+    nice -n 19 taskset -c 4-7 cmake --build "$tools/build/binaryen" --parallel 3 --target wasm-opt wasm-as
     rustup toolchain install "$WASIX_BROWSER_CC_TOOLCHAIN" --profile minimal
     CARGO_INCREMENTAL=0 CARGO_TARGET_DIR="$tools/build/wasixcc" nice -n 19 taskset -c 4-7 \
         cargo +"$WASIX_BROWSER_CC_TOOLCHAIN" build --locked --manifest-path "$tools/src/wasixcc/Cargo.toml" --no-default-features -j3

@@ -172,7 +172,8 @@ mod tests {
 
     /// As `WasiEnv::prepare_spawn`: `exec-name` replaces argv[0], `main-args` go after it, and
     /// `env` fills in names the environment lacks, skipping entries without `=`.
-    #[test]
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(not(target_arch = "wasm32"), test)]
     fn command_defaults_apply_as_v1() {
         let defaults = CommandDefaults {
             argv0: Some("python3".into()),

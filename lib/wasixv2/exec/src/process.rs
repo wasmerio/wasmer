@@ -883,8 +883,8 @@ pub(super) mod tests {
     /// `get_signal` dumps core), then `do_exit` runs `exit_mm` (`mm_release`: the robust futex
     /// list, `clear_child_tid` and its futex wake), as for every exit: the kernel hears of the
     /// fault first, then the instance hands it the task's memory, still there.
-    #[cfg(feature = "sys")]
-    #[test]
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(not(target_arch = "wasm32"), test)]
     fn a_trapped_task_faults_before_it_leaves_its_memory() {
         let wasm = wat::parse_str(
             r#"(module
@@ -894,7 +894,7 @@ pub(super) mod tests {
         )
         .unwrap();
         let store = Store::default();
-        let module = wasmer::Module::new(&store, wasm).unwrap();
+        let module = crate::load(store.engine(), &wasm).unwrap();
         let control = Arc::new(Recorder::default());
         let run = crate::run(store, &module, control.clone(), PARENT, Arc::new(NoThreads));
         let status = futures::executor::block_on(run).unwrap();

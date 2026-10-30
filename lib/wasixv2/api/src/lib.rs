@@ -55,6 +55,8 @@ pub use wasixv2_vnet::{Net, NetConfig};
 #[cfg(all(feature = "host-network", unix))]
 pub use wasixv2_vnet_host::{VsockConfig, VsockRoute};
 #[cfg(feature = "wasix1")]
+pub use wasixv2_wasix1::http as wasix1_http;
+#[cfg(feature = "wasix1")]
 pub use wasixv2_wasix1::{
     CommandDefaults, V1Flavor, is_wasix1_module, module_flavor as wasix1_module_flavor,
 };
@@ -66,6 +68,8 @@ use webc::v3::read::OwnedReader;
 pub enum RunError {
     #[error("invalid module: {0}")]
     Compile(#[from] wasmer::CompileError),
+    #[error("invalid compatibility imports: {0}")]
+    Imports(String),
     #[error(transparent)]
     Exec(#[from] ExecError),
     #[error("cannot use the working directory: {0}")]
@@ -76,6 +80,16 @@ pub enum RunError {
     Console(io::Error),
     #[error("cannot start the process: {0}")]
     Spawn(io::Error),
+}
+
+// Reject compatibility import mismatches before publishing a task. The v1 decoder
+// remains solely in wasix1; this facade only wires its embedding boundary.
+fn preflight(module: &Module) -> Result<(), RunError> {
+    #[cfg(feature = "wasix1")]
+    wasixv2_wasix1::imports::validate(module).map_err(RunError::Imports)?;
+    #[cfg(not(feature = "wasix1"))]
+    let _ = module;
+    Ok(())
 }
 
 /// The directories [`Machine::install_commands`] puts commands in, relative to the root.
@@ -218,6 +232,8 @@ pub struct MachineBuilder {
     init: bool,
     /// The embedder's loader; the ABIs' own default otherwise.
     loader: Option<Arc<dyn Loader>>,
+    #[cfg(feature = "wasix1")]
+    http_provider: Option<Arc<dyn wasix1_http::HttpProvider>>,
     console: Option<(Console, [bool; 3])>,
     dns: Dns,
     #[cfg(all(feature = "host-network", unix))]
@@ -253,11 +269,21 @@ impl MachineBuilder {
             root: None,
             init: true,
             loader: None,
+            #[cfg(feature = "wasix1")]
+            http_provider: None,
             console: None,
             dns: Dns::default(),
             #[cfg(all(feature = "host-network", unix))]
             vsock: None,
         }
+    }
+
+    /// Supplies the historical v1 guest HTTP capability. It is retained across root
+    /// assembly and exec; package downloads remain the embedder's responsibility.
+    #[cfg(feature = "wasix1")]
+    pub fn wasix1_http_provider(mut self, provider: Arc<dyn wasix1_http::HttpProvider>) -> Self {
+        self.http_provider = Some(provider);
+        self
     }
 
     /// Supplies the machine's network namespace, including its backend and resolver
@@ -358,6 +384,8 @@ impl MachineBuilder {
             root,
             init,
             loader,
+            #[cfg(feature = "wasix1")]
+            http_provider,
             console,
             dns,
             #[cfg(all(feature = "host-network", unix))]
@@ -381,7 +409,10 @@ impl MachineBuilder {
         let root = root
             .unwrap_or_else(|| default_root(&host, &network.resolv_conf(), &user, uname.release()));
         #[cfg(feature = "wasix1")]
-        let wasix1 = Wasix1Commands::default();
+        let wasix1 = Wasix1Commands {
+            http_provider,
+            ..Wasix1Commands::default()
+        };
         let abis = Arc::new(abis(
             loader,
             #[cfg(feature = "wasix1")]
@@ -803,6 +834,7 @@ impl Machine {
         module: &Module,
         config: ProcessConfig,
     ) -> Result<i32, RunError> {
+        preflight(module)?;
         let (task, running) = self.start(config).await?;
         let status = self
             .run_image(Store::new(engine.clone()), module, task)
@@ -1094,6 +1126,7 @@ fn boot(
 struct Wasix1Commands {
     names: Mutex<Vec<(String, CommandDefaults)>>,
     files: Arc<std::sync::RwLock<wasixv2_wasix1::Commands>>,
+    http_provider: Option<Arc<dyn wasix1_http::HttpProvider>>,
 }
 
 /// The guest ABIs programs may target, `wasixv2` first, and how their images compile: by
@@ -1108,9 +1141,13 @@ fn abis(
     }
     abis.push(Arc::new(Wasixv2));
     #[cfg(feature = "wasix1")]
-    abis.push(Arc::new(wasixv2_wasix1::Wasix1::with_commands(
-        wasix1.files.clone(),
-    )));
+    {
+        let mut abi = wasixv2_wasix1::Wasix1::with_commands(wasix1.files.clone());
+        if let Some(provider) = &wasix1.http_provider {
+            abi = abi.with_http_provider(provider.clone());
+        }
+        abis.push(Arc::new(abi));
+    }
     abis
 }
 
@@ -1915,6 +1952,26 @@ pub fn targets_wasixv2(module: &Module) -> bool {
 #[cfg(all(test, feature = "tokio", not(target_arch = "wasm32")))]
 mod tests {
     use super::*;
+
+    #[cfg(feature = "wasix1")]
+    #[tokio::test]
+    async fn missing_legacy_imports_fail_before_process_admission() {
+        let machine = Machine::new();
+        let wasm = wat::parse_str(
+            r#"(module
+            (import "wasix_32v1" "missing_browser_import" (func))
+            (memory (export "memory") 1)
+            (func (export "_start")))"#,
+        )
+        .unwrap();
+        let error = machine
+            .run(&wasm, Stdio::from_fns(|_| {}, |_| {}))
+            .await
+            .unwrap_err();
+        assert!(matches!(error, RunError::Imports(_)), "{error}");
+        assert!(error.to_string().contains("missing_browser_import"));
+        assert!(machine.running.lock().unwrap().is_empty());
+    }
 
     #[tokio::test]
     async fn supplied_network_and_task_host_survive_root_assembly() {

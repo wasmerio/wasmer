@@ -28,6 +28,8 @@ pub const THREAD_ENTRY: &str = "wasi_thread_start";
 pub const SIGNAL_CALLBACK: &str = "__wasm_signal";
 
 pub struct Wasix1Instance {
+    pub(crate) http: crate::http::State,
+    pub(crate) realloc: Option<Function>,
     procs: Arc<Procs>,
     /// The package commands v1 programs start with their defaults.
     commands: Arc<RwLock<Commands>>,
@@ -73,6 +75,7 @@ impl Wasix1Instance {
     pub(crate) fn bind(
         procs: Arc<Procs>,
         commands: Arc<RwLock<Commands>>,
+        http: Option<Arc<dyn crate::http::HttpProvider>>,
         instance: &Instance,
         task: TaskId,
         role: Role,
@@ -88,6 +91,8 @@ impl Wasix1Instance {
             Role::Thread => (exports.get_function(THREAD_ENTRY)?.clone(), None),
         };
         Ok(Self {
+            http: crate::http::State::new(http),
+            realloc: function("canonical_abi_realloc"),
             procs,
             commands,
             image: Mutex::new(image),

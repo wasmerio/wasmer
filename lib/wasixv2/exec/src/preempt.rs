@@ -14,10 +14,10 @@
 //! no further than the instance's ABI allows ([`crate::AbiInstance::memory_limit`]): an ABI may
 //! keep the top of the address space for itself, as WASIX v1's compat layer does.
 //!
-//! The rewrite only adds: five types, five function imports after the others (so defined
-//! functions move up by five indices), one global, the check, and a constant with each atomic's
-//! offset before the call that replaces it. The start function is left alone, as it runs during
-//! instantiation, before the instance can take signals or has threads to wait for.
+//! The rewrite only adds: six types, six function imports after the others (so defined
+//! functions move up by six indices), one global, the check, and a constant with each atomic's
+//! offset before the call that replaces it. The start function gets only typed unreachable
+//! traps: it runs during instantiation, before the instance can take signals or wait for threads.
 
 use std::convert::Infallible;
 
@@ -41,9 +41,11 @@ pub(crate) const WAIT64_NAME: &str = "memory-atomic-wait64";
 pub(crate) const NOTIFY_NAME: &str = "memory-atomic-notify";
 /// `(delta) -> previous size in pages, or -1`, as `memory.grow` on memory 0.
 pub(crate) const GROW_NAME: &str = "memory-grow";
+/// An explicit invalid instruction, with a typed reason even on engines with opaque traps.
+pub(crate) const UNREACHABLE_NAME: &str = "unreachable";
 
 /// The added imports in order, each with its parameters; all return an `i32`.
-const HOOKS: [(&str, &[ValType]); 5] = [
+const HOOKS: [(&str, &[ValType]); 6] = [
     (HOOK_NAME, &[]),
     (
         WAIT32_NAME,
@@ -55,6 +57,7 @@ const HOOKS: [(&str, &[ValType]); 5] = [
     ),
     (NOTIFY_NAME, &[ValType::I32, ValType::I32, ValType::I32]),
     (GROW_NAME, &[ValType::I32]),
+    (UNREACHABLE_NAME, &[]),
 ];
 
 /// Checks between two calls of the hook. A check costs a few instructions, a call of the hook
@@ -305,6 +308,12 @@ impl Reencode for Points {
         let mut reader = func.get_operators_reader()?;
         while !reader.eof() {
             let instruction = self.parse_instruction(&mut reader)?;
+            if matches!(instruction, Instruction::Unreachable) {
+                // Keep the original instruction for its polymorphic stack typing. The hook
+                // always traps, including in start functions (it needs no bound instance).
+                f.instruction(&Instruction::Call(self.hook() + 5));
+                f.instruction(&Instruction::Drop);
+            }
             let header = matches!(instruction, Instruction::Loop(_));
             match self.atomic_call(&instruction).filter(|_| checked) {
                 Some([offset, call]) => {
@@ -383,10 +392,10 @@ mod tests {
             text.contains(r#"(import "wasixv2-exec" "preempt" (func (;1;) (type"#),
             "{text}"
         );
-        // The defined functions moved up by five; `$call` still calls `$spin`.
-        assert!(text.contains("call 6"), "{text}");
-        assert!(text.contains("(export \"spin\" (func 6))"), "{text}");
-        assert!(text.contains("(start 8)"), "{text}");
+        // The defined functions moved up by six; `$call` still calls `$spin`.
+        assert!(text.contains("call 7"), "{text}");
+        assert!(text.contains("(export \"spin\" (func 7))"), "{text}");
+        assert!(text.contains("(start 9)"), "{text}");
         assert_eq!(text.matches("call 1").count(), 3, "{text}");
         assert!(
             text.contains("(global (;0;) (mut i32) i32.const 65536)"),
@@ -405,7 +414,26 @@ mod tests {
             text.contains(r#"(import "wasixv2-exec" "preempt""#),
             "{text}"
         );
-        assert!(text.contains("(export \"_start\" (func 5))"), "{text}");
+        assert!(text.contains("(export \"_start\" (func 6))"), "{text}");
+    }
+
+    #[test]
+    fn unreachable_keeps_polymorphic_typing_and_traps_in_start_functions() {
+        let wasm = wat::parse_str(
+            r#"(module
+                (func (export "f") (result i64) unreachable i64.add)
+                (func $start unreachable)
+                (start $start))"#,
+        )
+        .unwrap();
+        let out = instrument(&wasm).unwrap();
+        wasmparser::validate(&out).unwrap();
+        let text = print(&out);
+        assert_eq!(
+            text.matches("call 5\n    drop\n    unreachable").count(),
+            2,
+            "{text}"
+        );
     }
 
     #[test]
