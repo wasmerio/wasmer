@@ -26,7 +26,7 @@ Coreutils uses unmodified Automake `make check TESTS=...` in explicit filtered
 batches, excluding the upstream root-only set and interleaving utility families.
 Host-built `all-am` and maintainer/documentation-only `check-local` are marked
 already built, and PROGRAMS= prevents re-traversing their host build dependencies; the upstream test driver, environment and expected comparisons
-run in the guest. Each shell test has a 60-second bound. The driver preserves
+run in the guest. Each shell test has a 60-second bound plus a five-second kill deadline; --test/--label/--timeout allow isolated longer confirmations without replacing baseline results. The driver preserves
 logs, counts `.trs` results and fails on host panics. A 90-minute suite budget
 leaves not-attempted tests visibly distinct from upstream skips.
 
@@ -54,7 +54,7 @@ records the selected list and each result. Default informational warnings go to
 stderr and are retained. Bash and Tcl builds run only after the preceding suite.
 
 Initial corrected coreutils pilot: 7 PASS / 5 SKIP / 0 FAIL, no panic. Broad
-non-root shell selection contains 614 tests; results are still pending. Ancillary
+non-root shell selection completed 614 tests: 488 PASS / 121 SKIP / 5 FAIL on the baseline. Two failures exposed symlink timestamp updates silently skipped in the host driver; three tail/strace failures exposed SIGTERM lost when SIGCONT queued a ptrace job-control trap. Both have failing-first Rust regressions and Linux source citations, followed by passing targeted crate tests, exact-flags clippy and formatting. All five fail-before cases pass on the fixed CLI; final combined counts are **493 PASS / 121 SKIP / 0 FAIL**. Isolated traced/untraced tail/sleep controls return the same status as native Linux. The initial timeout-budget suspicion was superseded by the confirmed ptrace signal-loss regression. Ancillary
 programs supplied after the pilot make its first broad batch 8 PASS / 4 SKIP.
 Two initial harness setup attempts executed zero tests (list parsing and
 absolute utility paths); they are not included in counts.
@@ -63,3 +63,29 @@ Results are pending; do not interpret a successful source build or harness
 launch as an upstream test pass. Every kernel/libc correction requires a
 failing-first sibling regression and Linux source/function citation. Machine
 handoff is `~/wasixv2-orch/logs/v12suites/STATE.md`.
+
+
+Runtime fixes pushed by the AI agent with the required attribution:
+`87cba5c4b5c` (host symlink times), `3d7fcca51fe` (resumed ptrace signal ordering).
+Linux references: `fs/utimes.c:do_utimes_path/vfs_utimes` and
+`kernel/signal.c:get_signal/ptrace_signal`. No ABI or kernel/exec contract change.
+Host driver gates: 15 tests. Kernel gates: 33 ptrace +34 signal tests. No full suite.
+
+
+Bash cross configuration needs an actual target fork/wait probe:
+`tests/probes/wait-status-10.c` prints the WEXITSTATUS offset (8 on the tested
+Linux ABI). `userland-10.sh bash` runs it through `WASIXV2_PROBE_CLI` and passes
+its measured result to configure. The upstream cross fallback 0 corrupts
+lastpipe's synthetic process statuses. This is a build configuration correction,
+not a kernel change. Use the source-built dash as `/bin/sh` for POSIX wrapper
+scripts; Bash POSIX mode exits on the suite wrapper's `unset` of readonly UID.
+For tty tests, `run-shell-suite-10.py CLI --pty --label bash-pty` supplies an
+isolated host PTY as the CLI's ordinary guest console, preserving expected files.
+Initial no-tty/raw baseline was 75 PASS / 11 FAIL across 86 groups.
+
+Tcl's first static link selected compatibility memcmp/strstr/strtoul from
+unknown cross-run results and failed duplicate strtoul. The typed runtime probe
+`tests/probes/tcl-compat-10.c` checks the same upstream conditions on the actual
+target. Only after it passes does the recipe cache the successful results.
+Core `binaries libraries` and corresponding install targets avoid bundled shared
+extension packages. Static Tcl/SQLite results remain pending.

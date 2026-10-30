@@ -7,7 +7,7 @@ mkdir -p "$BASH_SUITE_LOG"
 result=0
 for test in $BASH_TEST_FILTER; do
  export BASH_TSTOUT="/tmp/v12-$test-$$"
- timeout 90 /bin/sh "./$test" > "$BASH_SUITE_LOG/$test.stdout" 2> "$BASH_SUITE_LOG/$test.stderr"
+ timeout -k 5 90 /bin/sh "./$test" > "$BASH_SUITE_LOG/$test.stdout" 2> "$BASH_SUITE_LOG/$test.stderr"
  status=$?
  # Scripts use diff for expected output; several run more than one diff and
  # return only the final command's status. Preserve earlier differences too.

@@ -12,9 +12,13 @@ parser = argparse.ArgumentParser()
 parser.add_argument('cli')
 parser.add_argument('suite', choices=['coreutils'])
 parser.add_argument('--limit', type=int, default=0)
+parser.add_argument('--start', type=int, default=0)
+parser.add_argument('--test', action='append', default=[])
+parser.add_argument('--label')
+parser.add_argument('--timeout', type=int, default=60)
 args = parser.parse_args()
 root = Path(os.environ.get('USERLAND10', Path.home() / 'wasixv2-tools/userland-10'))
-logs = root / 'logs' / args.suite
+logs = root / 'logs' / (args.label or args.suite)
 logs.mkdir(parents=True, exist_ok=True)
 build = root / 'coreutils-build'
 text = (build / 'Makefile').read_text().replace('\\\n', ' ')
@@ -34,6 +38,9 @@ while any(families.values()):
     for group in families.values():
         if group:
             ordered.append(group.pop(0))
+if args.test:
+    assert set(args.test) <= set(ordered)
+    ordered = args.test
 if args.limit:
     ordered = ordered[:args.limit]
 (logs / 'selected.txt').write_text('\n'.join(ordered) + '\n')
@@ -42,7 +49,10 @@ base = [args.cli, 'run', '--compiler-threads', '3', '--no-tty', '--user', '1',
         str(root / 'bin/bash'), '--', '-c']
 start = time.monotonic()
 results = []
-for index in range(0, len(ordered), 12):
+if args.start:
+    results = [tuple(line.split('\t')) for line in (logs / 'results.tsv').read_text().splitlines()]
+    assert len(results) == args.start
+for index in range(args.start, len(ordered), 12):
     if time.monotonic() - start > 5100:
         break
     batch = ordered[index:index + 12]
@@ -53,7 +63,7 @@ for index in range(0, len(ordered), 12):
                'AM_MAKEFLAGS="-o all-am -o check-local" '
                'SHELL=/bin/bash PREFERABLY_POSIX_SHELL=/bin/bash PERL=/bin/perl '
                'CC=wasixcc AWK=/bin/awk EGREP="/bin/grep -E" '
-               'SH_LOG_COMPILER="/bin/timeout 60 /bin/bash" '
+               f'SH_LOG_COMPILER="/bin/timeout -k 5 {args.timeout} /bin/bash" '
                'TESTS="' + ' '.join(batch) + '"')
     for test in batch:
         for suffix in ['.log', '.trs']:
@@ -62,7 +72,7 @@ for index in range(0, len(ordered), 12):
     with log.open('w') as output:
         try:
             result = subprocess.run(base + [command], stdout=output, stderr=subprocess.STDOUT,
-                                    env={**os.environ, 'RUST_BACKTRACE': 'full'}, timeout=840)
+                                    env={**os.environ, 'RUST_BACKTRACE': 'full'}, timeout=max(840, len(batch) * (args.timeout + 10)))
             code = result.returncode
         except subprocess.TimeoutExpired:
             code = 124

@@ -21,6 +21,11 @@ case $pkg in
   done
   ;;
  bash)
+  : "${WASIXV2_PROBE_CLI:?release CLI needed for actual configure probes}"
+  "$CC" -O2 "$USERLAND/tests/probes/wait-status-10.c" -o "$ROOT/wait-status.wasm"
+  bash_cv_wexitstatus_offset=$("$WASIXV2_PROBE_CLI" run --compiler-threads 3 --no-tty "$ROOT/wait-status.wasm")
+  [[ $bash_cv_wexitstatus_offset =~ ^[0-9]+$ ]]
+  export bash_cv_wexitstatus_offset
   "$ROOT/bash-src/configure" --host="$HOST" --build="$BUILD" --prefix=/ \
    --without-bash-malloc --disable-nls --enable-readline --with-included-readline \
    bash_cv_dev_fd=standard bash_cv_termcap_lib=gnutermcap bash_cv_getenv_redef=no \
@@ -32,16 +37,21 @@ case $pkg in
   install -m755 bash "$ROOT/bin/bash"
   ;;
  tcl)
+  : "${WASIXV2_PROBE_CLI:?release CLI needed for actual configure probes}"
+  "$CC" -O2 -fno-builtin "$USERLAND/tests/probes/tcl-compat-10.c" -o "$ROOT/tcl-compat.wasm"
+  "$WASIXV2_PROBE_CLI" run --compiler-threads 3 --no-tty "$ROOT/tcl-compat.wasm"
+  export ac_cv_func_memcmp_working=yes tcl_cv_strstr_unbroken=ok tcl_cv_strtoul_unbroken=ok
   "$ROOT/tcl-src/unix/configure" --host="$HOST" --build="$BUILD" \
    --prefix="$ROOT/prefix" --disable-shared --disable-load --enable-threads CFLAGS=-O2
-  make -j"$JOBS"
-  make -j"$JOBS" install
+  make clean
+  make -j"$JOBS" binaries libraries
+  make -j"$JOBS" install-binaries install-libraries install-msgs install-tzdata
   install -m755 tclsh "$ROOT/bin/tclsh"
   ;;
  sqlite)
   "$ROOT/sqlite-src/configure" --host="$HOST" --build="$BUILD" \
-   --disable-shared --disable-load-extension --with-tclsh=/usr/bin/tclsh8.6 CFLAGS=-O2
-  make -j"$JOBS" testfixture TCL_CONFIG_SH="$ROOT/prefix/lib/tclConfig.sh" \
+   --disable-shared --disable-load-extension --disable-readline --with-tclsh=/usr/bin/tclsh8.6 CFLAGS=-O2
+  make -j"$JOBS" testfixture sqlite3 TCL_CONFIG_SH="$ROOT/prefix/lib/tclConfig.sh" \
    TCLLIBDIR="$ROOT/prefix/lib"
   install -m755 testfixture "$ROOT/bin/testfixture"
   ;;
