@@ -2061,9 +2061,10 @@ impl Machine for MachineX86_64 {
         None
     }
 
+    // XMM11–13 remain reserved for SSE emulation.
     fn pick_temp_simd(&self) -> Option<XMM> {
         use XMM::*;
-        static REGS: &[XMM] = &[XMM0, XMM1, XMM2];
+        static REGS: &[XMM] = &[XMM0, XMM1, XMM2, XMM8, XMM9, XMM10];
         for r in REGS {
             if !self.used_simd_contains(r) {
                 return Some(*r);
@@ -7361,9 +7362,15 @@ impl Machine for MachineX86_64 {
             }
         };
 
-        let tmp_xmm1 = XMM::XMM8;
-        let tmp_xmm2 = XMM::XMM9;
-        let tmp_xmm3 = XMM::XMM10;
+        let tmp_xmm1 = self.acquire_temp_simd().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
+        })?;
+        let tmp_xmm2 = self.acquire_temp_simd().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
+        })?;
+        let tmp_xmm3 = self.acquire_temp_simd().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
+        })?;
 
         self.move_location(Size::S64, Location::SIMD(src1), Location::GPR(tmpg1))?;
         self.move_location(Size::S64, Location::SIMD(src2), Location::GPR(tmpg2))?;
@@ -7413,6 +7420,9 @@ impl Machine for MachineX86_64 {
             }
         }
 
+        self.release_simd(tmp_xmm3);
+        self.release_simd(tmp_xmm2);
+        self.release_simd(tmp_xmm1);
         self.release_gpr(tmpg2);
         self.release_gpr(tmpg1);
         self.release_simd(tmp2);
@@ -7481,9 +7491,15 @@ impl Machine for MachineX86_64 {
             }
         };
 
-        let tmp_xmm1 = XMM::XMM8;
-        let tmp_xmm2 = XMM::XMM9;
-        let tmp_xmm3 = XMM::XMM10;
+        let tmp_xmm1 = self.acquire_temp_simd().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
+        })?;
+        let tmp_xmm2 = self.acquire_temp_simd().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
+        })?;
+        let tmp_xmm3 = self.acquire_temp_simd().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
+        })?;
 
         self.move_location(Size::S64, Location::SIMD(src1), Location::GPR(tmpg1))?;
         self.move_location(Size::S64, Location::SIMD(src2), Location::GPR(tmpg2))?;
@@ -7528,6 +7544,9 @@ impl Machine for MachineX86_64 {
             }
         }
 
+        self.release_simd(tmp_xmm3);
+        self.release_simd(tmp_xmm2);
+        self.release_simd(tmp_xmm1);
         self.release_gpr(tmpg2);
         self.release_gpr(tmpg1);
         self.release_simd(tmp2);
@@ -7763,9 +7782,15 @@ impl Machine for MachineX86_64 {
             }
         };
 
-        let tmp_xmm1 = XMM::XMM8;
-        let tmp_xmm2 = XMM::XMM9;
-        let tmp_xmm3 = XMM::XMM10;
+        let tmp_xmm1 = self.acquire_temp_simd().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
+        })?;
+        let tmp_xmm2 = self.acquire_temp_simd().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
+        })?;
+        let tmp_xmm3 = self.acquire_temp_simd().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
+        })?;
 
         self.move_location(Size::S32, Location::SIMD(src1), Location::GPR(tmpg1))?;
         self.move_location(Size::S32, Location::SIMD(src2), Location::GPR(tmpg2))?;
@@ -7815,6 +7840,9 @@ impl Machine for MachineX86_64 {
             }
         }
 
+        self.release_simd(tmp_xmm3);
+        self.release_simd(tmp_xmm2);
+        self.release_simd(tmp_xmm1);
         self.release_gpr(tmpg2);
         self.release_gpr(tmpg1);
         self.release_simd(tmp2);
@@ -7883,9 +7911,15 @@ impl Machine for MachineX86_64 {
             }
         };
 
-        let tmp_xmm1 = XMM::XMM8;
-        let tmp_xmm2 = XMM::XMM9;
-        let tmp_xmm3 = XMM::XMM10;
+        let tmp_xmm1 = self.acquire_temp_simd().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
+        })?;
+        let tmp_xmm2 = self.acquire_temp_simd().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
+        })?;
+        let tmp_xmm3 = self.acquire_temp_simd().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
+        })?;
 
         self.move_location(Size::S32, Location::SIMD(src1), Location::GPR(tmpg1))?;
         self.move_location(Size::S32, Location::SIMD(src2), Location::GPR(tmpg2))?;
@@ -7930,6 +7964,9 @@ impl Machine for MachineX86_64 {
             }
         }
 
+        self.release_simd(tmp_xmm3);
+        self.release_simd(tmp_xmm2);
+        self.release_simd(tmp_xmm1);
         self.release_gpr(tmpg2);
         self.release_gpr(tmpg1);
         self.release_simd(tmp2);
@@ -8651,6 +8688,12 @@ mod test {
         op(
             machine,
             Location::SIMD(XMM::XMM0),
+            Location::SIMD(XMM::XMM0),
+            Location::SIMD(XMM::XMM0),
+        )?;
+        op(
+            machine,
+            Location::SIMD(XMM::XMM2),
             Location::SIMD(XMM::XMM0),
             Location::SIMD(XMM::XMM0),
         )?;
