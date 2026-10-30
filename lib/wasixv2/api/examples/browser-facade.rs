@@ -3,6 +3,10 @@
 fn main() {}
 
 #[cfg(target_arch = "wasm32")]
+#[path = "browser/lifetime.rs"]
+mod lifetime;
+
+#[cfg(target_arch = "wasm32")]
 mod wasm {
     use serde::Deserialize;
     use std::{
