@@ -11,8 +11,6 @@ use crate::{
     ptrace::{Access, MODE_ATTACH_REALCREDS, access_remote_vm},
 };
 
-/// `UIO_MAXIOV`.
-const UIO_MAXIOV: Ulong = 1024;
 /// How much one step moves through kernel memory.
 const CHUNK: usize = 64 * 1024;
 
@@ -33,15 +31,27 @@ impl Kernel {
         flags: Ulong,
         write: bool,
     ) -> SysResult<i32> {
-        if flags != 0 || liovcnt > UIO_MAXIOV || riovcnt > UIO_MAXIOV {
+        if flags != 0 {
             return Err(Errno::EINVAL.into());
         }
         let memory = caller.memory();
+        // mm/process_vm_access.c:process_vm_rw imports the remote list only
+        // after a nonempty local iterator; process_vm_rw_core looks up no task
+        // when every remote vector is empty.
+        if liovcnt == 0 {
+            return Ok(0);
+        }
         let local = crate::fs::read_iovecs(memory, lvec, liovcnt).await?;
         if local.iter().all(|iov| iov.iov_len == 0) {
             return Ok(0);
         }
+        if riovcnt == 0 {
+            return Ok(0);
+        }
         let remote = crate::fs::read_iovecs(memory, rvec, riovcnt).await?;
+        if remote.iter().all(|iov| iov.iov_len == 0) {
+            return Ok(0);
+        }
         let task = self
             .find_vpid(caller, pid)
             .map(TaskId)

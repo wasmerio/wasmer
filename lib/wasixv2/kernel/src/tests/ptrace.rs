@@ -772,6 +772,38 @@ fn process_vm_readv_and_writev_copy_between_processes() {
     assert_eq!(errno(block_on(nobody)), Errno::ESRCH);
 }
 
+/// mm/process_vm_access.c:process_vm_rw and process_vm_rw_core return on empty
+/// vectors before importing the remote list or looking up the target, respectively.
+#[test]
+fn process_vm_empty_vectors_skip_remote_validation_and_lookup() {
+    let (stack, task, memory) = machine();
+    let kernel = &stack.inner;
+    let caller = Caller::new(task, &memory);
+    for write in [false, true] {
+        let call = |local_count, remote, remote_count, flags| {
+            block_on(kernel.sys_process_vm_rw(
+                &caller,
+                4242,
+                GuestPtr::new(0x100),
+                local_count,
+                GuestPtr::new(remote),
+                remote_count,
+                flags,
+                write,
+            ))
+        };
+        iovec(&memory.0, 0x100, 0x1000, 0);
+        assert_eq!(call(1, u32::MAX, 1025, 0), Ok(0));
+        assert_eq!(errno(call(1, u32::MAX, 1025, 1)), Errno::EINVAL);
+        iovec(&memory.0, 0x100, 0x1000, 8);
+        assert_eq!(call(1, u32::MAX, 0, 0), Ok(0));
+        iovec(&memory.0, 0x110, u32::MAX, 0);
+        assert_eq!(call(1, 0x110, 1, 0), Ok(0));
+        assert_eq!(errno(call(1, u32::MAX, 1, 0)), Errno::EFAULT);
+        assert_eq!(errno(call(1, 0x110, 1025, 0)), Errno::EINVAL);
+    }
+}
+
 /// `/proc/<pid>/mem` reads and writes the address space at the file offset, for an opener that
 /// may attach (`EACCES` otherwise); an address nothing backs is `EIO`.
 #[test]
