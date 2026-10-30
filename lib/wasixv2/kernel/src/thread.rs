@@ -122,6 +122,10 @@ impl ThreadState {
         self.left_mm
     }
 
+    pub(crate) fn exit_mm_done(&self) -> bool {
+        self.exit_mm_done
+    }
+
     /// The thread state of a new process's first task, made from the caller's (`copy_process`):
     /// no robust list, the caller's thread pointer unless `CLONE_SETTLS` gives `tls`,
     /// `CLONE_CHILD_CLEARTID`'s `child_tid`, and the caller's rseq area unless the child
@@ -596,6 +600,9 @@ impl Kernel {
         }
         let mut gone = Vec::new();
         {
+            // A group's reap must not reap its tracer-owned thread zombies.
+            // Lock order remains tracees before the task table, as ptrace_link_task.
+            let tracees = self.tracees.lock();
             let mut state = self.state.lock_or_recover();
             for pid in &reaped {
                 state.retired_creds.remove(&TaskId(*pid));
@@ -603,7 +610,10 @@ impl Kernel {
             let ids: Vec<TaskId> = state
                 .tasks
                 .iter()
-                .filter(|(_, t)| reaped.contains(&t.process.pid.0))
+                .filter(|(id, t)| {
+                    reaped.contains(&t.process.pid.0)
+                        && (**id == t.process.pid || !tracees.contains_key(id))
+                })
                 .map(|(&id, _)| id)
                 .collect();
             for id in ids {
@@ -633,6 +643,10 @@ impl Kernel {
     /// lives on in the process tree. For a task its reaper took out of the table already, this
     /// is `put_task_struct`: what was left of it goes.
     pub(crate) fn release_task(&self, task: TaskId) {
+        if let Some(process) = self.defer_traced_thread_release(task) {
+            self.exit_notify(&process);
+            return;
+        }
         let dead = self.state.lock_or_recover().dead.remove(&task);
         if let Some(mut dead) = dead {
             let unstarted = dead.work.take_unstarted();
@@ -1154,6 +1168,7 @@ impl Kernel {
         }
         // The accounting records of the exit, while the task can still wait.
         self.acct_flush().await;
+        self.ptrace_finish_exit(task);
     }
 
     /// The vfork parent of `child`, the task its instance runs as, if that parent died while
