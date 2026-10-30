@@ -897,6 +897,50 @@ fn proc_pid_mem_reads_and_writes_the_address_space() {
     assert_eq!(errno(open(&sibling_caller, &sibling_memory)), Errno::EACCES);
 }
 
+/// kernel/signal.c:send_sig_info rejects the syscall-stop marker returned by
+/// ptrace_stop when SIGKILL prevented a stop (include/linux/ptrace.h:ptrace_report_syscall).
+#[test]
+fn a_fatal_signal_before_a_syscall_stop_does_not_send_the_stop_marker() {
+    for entry in [true, false] {
+        let (stack, parent, memory) = machine();
+        let kernel = &stack.inner;
+        let caller = Caller::new(parent, &memory);
+        let child_memory = flat();
+        let child = traced_child(kernel, &caller, &child_memory);
+        let child_caller = Caller::new(child, &child_memory);
+        assert_eq!(
+            ptrace(
+                kernel,
+                &caller,
+                R::PTRACE_SETOPTIONS,
+                child,
+                0,
+                PtraceOptions::PTRACE_O_TRACESYSGOOD.0,
+            ),
+            Ok(0)
+        );
+        assert_eq!(
+            ptrace(kernel, &caller, R::PTRACE_SYSCALL, child, 0, 0),
+            Ok(0)
+        );
+        assert_eq!(kernel.take_pending(child), None);
+        kernel.kill(child, Signal::SIGKILL).unwrap();
+        if entry {
+            assert!(block_on(kernel.ptrace_syscall_entry(
+                &child_caller,
+                NR_GETPID as u32,
+                [0; 6],
+            )));
+        } else {
+            block_on(kernel.ptrace_syscall_exit(child, 0));
+        }
+        assert!(matches!(
+            kernel.take_pending(child),
+            Some(GuestAction::Exit(code)) if code & 0x7f == Signal::SIGKILL.0
+        ));
+    }
+}
+
 /// kernel/exit.c `do_exit` never reaches syscall-exit tracing. The layer may see
 /// an unparented tracer already reaped when `exit_group` returns internally.
 #[test]
