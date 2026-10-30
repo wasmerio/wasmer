@@ -568,6 +568,13 @@ pub trait Network: Send + Sync {
 /// `ERR` while an error is pending, `PRI` while an urgent byte waits for `MSG_OOB`), and every
 /// state change must wake the queues `poll` registered with the matching events.
 pub trait Socket: Pollable {
+    /// Kernel timer hook for TCP's 200 ms cork ceiling (TCP_DELACK_MAX).
+    fn set_cork_timer(&self, arm: Box<dyn Fn(bool) + Send + Sync>) {
+        let _ = arm;
+    }
+    /// Push partial TCP segments when the cork timer expires.
+    fn cork_expire(&self) {}
+
     fn domain(&self) -> Domain;
     fn kind(&self) -> SocketKind;
     /// The protocol `SO_PROTOCOL` reports (`IPPROTO_TCP`, `IPPROTO_UDP`, ...), never 0.
@@ -867,6 +874,18 @@ pub enum StreamState {
 /// Urgent data follows `tcp_recvmsg` and `tcp_recv_urg` as [`crate::RecvQueue`] keeps them,
 /// with the guest's `SO_OOBINLINE`, which arrives through `set_option`.
 pub trait BackendStream: Pollable {
+    /// Packet-carrying backends retain partial segments with `more`; synthetic
+    /// streams may ignore this TCP packetization hint.
+    fn write_more(&self, data: &[u8], more: bool, mss: usize) -> Result<usize, Errno> {
+        let _ = (more, mss);
+        self.write(data)
+    }
+    /// Push partial segments retained by [`BackendStream::write_more`].
+    fn push(&self) {}
+    /// Bytes retained solely by TCP corking.
+    fn corked_len(&self) -> usize {
+        0
+    }
     /// Where the connection stands.
     fn state(&self) -> StreamState;
     /// `EAGAIN` when nothing is buffered; 0 at end of stream.

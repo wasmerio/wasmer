@@ -314,6 +314,8 @@ struct StreamState {
     oobinline: bool,
     /// Guest to host.
     tx: VecDeque<u8>,
+    /// Prefix released by tcp_push; the tail remains corked until a push or FIN.
+    tx_ready: usize,
     /// Where in `tx` the byte a guest `MSG_OOB` send made urgent is: the host gets it alone
     /// with `MSG_OOB`, so the host marks it too.
     tx_urgent: Option<usize>,
@@ -473,8 +475,9 @@ impl StreamShared {
                     }
                 }
             }
-            while st.host_writable && !st.tx.is_empty() && !st.reset {
+            while st.host_writable && st.tx_ready != 0 && !st.reset {
                 let (chunk, _) = st.tx.as_slices();
+                let chunk = &chunk[..chunk.len().min(st.tx_ready)];
                 let sent = match st.tx_urgent {
                     Some(0) => socket2::SockRef::from(&self.sock).send_out_of_band(&chunk[..1]),
                     Some(at) => (&self.sock).write(&chunk[..chunk.len().min(at)]),
@@ -483,6 +486,7 @@ impl StreamShared {
                 match sent {
                     Ok(n) => {
                         st.tx.drain(..n);
+                        st.tx_ready -= n;
                         st.tx_urgent = st.tx_urgent.and_then(|at| at.checked_sub(n));
                         progress = true;
                         wake |= PollMask::OUT | PollMask::WRNORM;
@@ -678,6 +682,7 @@ impl Drop for HostStream {
     fn drop(&mut self) {
         let mut st = self.0.state();
         st.released = true;
+        st.tx_ready = st.tx.len();
         st.abort |= !st.rx.is_empty();
         drop(st);
         self.0.kick();
@@ -763,9 +768,33 @@ impl BackendStream for HostStream {
     }
 
     fn write(&self, data: &[u8]) -> Result<usize, Errno> {
-        let n = HostStream::queue(&mut self.0.state(), data)?;
+        self.write_more(data, false, 1460)
+    }
+
+    fn write_more(&self, data: &[u8], more: bool, mss: usize) -> Result<usize, Errno> {
+        let mut st = self.0.state();
+        let n = HostStream::queue(&mut st, data)?;
+        let held = st.tx.len() - st.tx_ready;
+        st.tx_ready += if more {
+            held / mss.max(1) * mss.max(1)
+        } else {
+            held
+        };
+        drop(st);
         self.0.kick();
         Ok(n)
+    }
+
+    fn push(&self) {
+        let mut st = self.0.state();
+        st.tx_ready = st.tx.len();
+        drop(st);
+        self.0.kick();
+    }
+
+    fn corked_len(&self) -> usize {
+        let st = self.0.state();
+        st.tx.len() - st.tx_ready
     }
 
     fn write_urgent(&self, data: &[u8]) -> Result<usize, Errno> {
@@ -774,6 +803,7 @@ impl BackendStream for HostStream {
         if n > 0 {
             st.tx_urgent = Some(st.tx.len() - 1);
         }
+        st.tx_ready = st.tx.len();
         drop(st);
         self.0.kick();
         Ok(n)
@@ -798,6 +828,7 @@ impl BackendStream for HostStream {
         }
         if how != Shutdown::Read {
             st.wr_shut = true;
+            st.tx_ready = st.tx.len();
         }
         drop(st);
         self.0.kick();
@@ -1944,5 +1975,54 @@ mod tests {
         fn libc_pipe(fds: *mut i32) -> i32;
         #[link_name = "close"]
         fn libc_close(fd: i32) -> i32;
+    }
+}
+
+#[cfg(test)]
+mod cork_tests {
+    use super::*;
+    use wasixv2_vnet::{Domain, Net, NetConfig, Network, SendMsg, SocketKind};
+
+    /// net/ipv4/tcp.c tcp_push: the host bridge must withhold a partial segment
+    /// too, and releasing the socket must still flush it before FIN.
+    #[test]
+    fn tcp_cork_reaches_host_and_flushes_on_close() {
+        let backend = HostBackend::new().unwrap();
+        let host = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let net = Net::new(NetConfig::host_default(), Some(backend));
+        let socket = net.socket(Domain::Inet, SocketKind::Stream, 0, 0).unwrap();
+        let destination = SocketAddr::new(
+            "10.0.2.2".parse().unwrap(),
+            host.local_addr().unwrap().port(),
+        );
+        assert_eq!(socket.connect(destination), Err(Errno::EINPROGRESS));
+        let (mut peer, _) = host.accept().unwrap();
+        peer.set_read_timeout(Some(Duration::from_millis(50)))
+            .unwrap();
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while !socket.poll(None).contains(PollMask::OUT) {
+            assert!(Instant::now() < deadline);
+            std::thread::yield_now();
+        }
+        socket
+            .send(SendMsg {
+                data: b"held",
+                to: None,
+                flags: wasixv2_abi::MsgFlags::MSG_MORE,
+                control: &[],
+                net_raw: false,
+                now: Duration::ZERO,
+            })
+            .unwrap();
+        let mut buf = [0; 16];
+        assert!(matches!(
+            peer.read(&mut buf).unwrap_err().kind(),
+            io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut
+        ));
+        drop(socket);
+        peer.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
+        let mut bytes = Vec::new();
+        peer.read_to_end(&mut bytes).unwrap();
+        assert_eq!(bytes, b"held");
     }
 }

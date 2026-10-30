@@ -3389,3 +3389,87 @@ fn udp_ipv6_cork_rejects_ipv4_append_without_losing_pending_data() {
     send(&*sender, b"b").unwrap();
     assert_eq!(recv(&*receiver, 64).unwrap(), b"ab");
 }
+
+/// net/ipv4/tcp.c tcp_sendmsg_locked, do_tcp_setsockopt and tcp_close:
+/// corking holds partial segments; uncork, NODELAY and shutdown push them.
+#[test]
+fn tcp_cork_pushes_on_send_options_shutdown_and_close() {
+    use wasixv2_abi::{SocketLevel, TcpOption};
+    let n = net();
+    let (c, s) = tcp_pair(&n, 19007);
+    let more = |data| {
+        c.send(SendMsg {
+            data,
+            to: None,
+            flags: MsgFlags::MSG_MORE,
+            control: &[],
+            net_raw: false,
+            now: Duration::ZERO,
+        })
+    };
+    more(b"held").unwrap();
+    assert_eq!(recv(&*s, 64), Err(Errno::EAGAIN));
+    send(&*c, b"tail").unwrap();
+    assert_eq!(recv(&*s, 64).unwrap(), b"heldtail");
+    let level = SocketLevel::SOL_TCP.0;
+    c.set_option(level, TcpOption::TCP_CORK.0, &1i32.to_le_bytes())
+        .unwrap();
+    send(&*c, b"corked").unwrap();
+    assert_eq!(recv(&*s, 64), Err(Errno::EAGAIN));
+    c.set_option(level, TcpOption::TCP_NODELAY.0, &1i32.to_le_bytes())
+        .unwrap();
+    assert_eq!(recv(&*s, 64).unwrap(), b"corked");
+    send(&*c, b"still corked").unwrap();
+    assert_eq!(recv(&*s, 64), Err(Errno::EAGAIN));
+    c.set_option(level, TcpOption::TCP_CORK.0, &0i32.to_le_bytes())
+        .unwrap();
+    assert_eq!(recv(&*s, 64).unwrap(), b"still corked");
+    more(b"fin").unwrap();
+    c.shutdown(Shutdown::Write).unwrap();
+    assert_eq!(recv(&*s, 64).unwrap(), b"fin");
+    assert_eq!(recv(&*s, 64).unwrap(), b"");
+    let (c, s) = tcp_pair(&n, 19008);
+    c.send(SendMsg {
+        data: b"close",
+        to: None,
+        flags: MsgFlags::MSG_MORE,
+        control: &[],
+        net_raw: false,
+        now: Duration::ZERO,
+    })
+    .unwrap();
+    drop(c);
+    assert_eq!(recv(&*s, 64).unwrap(), b"close");
+    assert_eq!(recv(&*s, 64).unwrap(), b"");
+}
+
+#[test]
+fn tcp_cork_timer_push_and_closed_peer_reset() {
+    let n = net();
+    let (c, s) = tcp_pair(&n, 19009);
+    c.send(SendMsg {
+        data: b"timer",
+        to: None,
+        flags: MsgFlags::MSG_MORE,
+        control: &[],
+        net_raw: false,
+        now: Duration::ZERO,
+    })
+    .unwrap();
+    c.cork_expire();
+    assert_eq!(recv(&*s, 64).unwrap(), b"timer");
+    c.send(SendMsg {
+        data: b"reset",
+        to: None,
+        flags: MsgFlags::MSG_MORE,
+        control: &[],
+        net_raw: false,
+        now: Duration::ZERO,
+    })
+    .unwrap();
+    drop(s);
+    // tcp_rcv_state_process: sending into an orphan after its FIN yields EPIPE.
+    c.cork_expire();
+    assert_eq!(c.take_error(), Some(Errno::EPIPE));
+    assert_eq!(c.output_len(), Ok(0));
+}
