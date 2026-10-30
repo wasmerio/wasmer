@@ -1,0 +1,13 @@
+https://nginx.org/download/nginx-1.28.0.tar.gz	c6b5c6b086c0df9d3ca3ff5e084c1d0ef909e6038279c71c1c3e985f576ff76a
+https://download.redis.io/releases/redis-7.2.7.tar.gz	72c081e3b8cfae7144273d26d76736f08319000af46c01515cad5d29765cead5
+https://ftp.postgresql.org/pub/source/v17.5/postgresql-17.5.tar.bz2	fcb7ab38e23b264d1902cb25e6adafb4525a6ebcbd015434aeef9eda80f528d8
+https://deb.debian.org/debian/pool/main/d/dash/dash_0.5.12.orig.tar.gz	6a474ac46e8b0b32916c4c60df694c82058d3297d8b385b74508030ca4a8f28a
+https://busybox.net/downloads/busybox-1.37.0.tar.bz2	3311dff32e746499f4df0d5df04d7eb396382d7e108bb9250e7b519b837043a4
+https://curl.se/download/curl-8.14.1.tar.xz	f4619a1e2474c4bbfedc88a7c2191209c8334b48fa1f4e53fd584cc12e9120dd
+https://ftp.gnu.org/gnu/wget/wget-1.25.0.tar.gz	766e48423e79359ea31e41db9e5c289675947a7fcf2efdcedb726ac9d0da3784
+https://github.com/containers/fuse-overlayfs/archive/refs/tags/v1.15.tar.gz	e4fbbdacbeffb560715e6c74c128aee07a7053a1fec78dc904bcc0a88e2efd67
+https://github.com/libfuse/sshfs/releases/download/sshfs-3.7.3/sshfs-3.7.3.tar.xz	5218ce7bdd2ce0a34137a0d7798e0f6d09f0e6d21b1e98ee730a18b0699c2e99
+https://download.gnome.org/sources/glib/2.84/glib-2.84.0.tar.xz	f8823600cb85425e2815cfad82ea20fdaa538482ab74e7293d58b3f64a5aff6a
+https://deb.debian.org/debian/pool/main/s/socat/socat_1.8.0.3.orig.tar.bz2	01eb017361d95bb3a6941e840b59e4463a3fabf92df4154ed02b16a2ed6a0095
+https://github.com/westes/flex/releases/download/v2.6.4/flex-2.6.4.tar.gz	e87aae032bf07c26f85ac0ed3250998c37621d95f8bd748b31f15b33c45ee995
+https://download.redis.io/releases/redis-7.0.15.tar.gz	98066f5363504b26c34dd20fbcc3c957990d764cdf42576c836fc021073f4341
