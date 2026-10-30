@@ -83,7 +83,16 @@ quiescent11, no observed workload failure or panic. This partial run does not
 count as two-hour validation. Original curves and the deterministic RED remain
 archived.
 
-Results: fixed-runtime full7200s confirmation pending. The analyzer
+Fixed run02 was invalidated at~80minutes: its observer's minute ticks jumped from
+722.46s to4802.69s (4080.23s gap), and no cycle progressed after774.997s. The agent's
+requested60s clock wait also returned after4053.23s. Global user journal activity
+continued, so neither whole-host suspension nor a guest deadlock is established.
+The watchdog stopped the run; its failed summary/tails are preserved. New runs
+explicitly reject observer-loop or sampling gaps>120s before classifying a guest
+stall. No guest deadline/assertion has been weakened, and this interval is not
+counted toward a successful two-hour result.
+
+Results: uninterrupted fixed-runtime full7200s confirmation pending. The analyzer
 `userland/tests/soak-results.py RESULT_DIRECTORY` verifies actual persistent
 runtime before writing `results.json`, reporting warm/late slopes, quantiles,
 fresh-process peaks and quiescent task counts. No clean two-hour curve is claimed

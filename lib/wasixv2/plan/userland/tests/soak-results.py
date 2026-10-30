@@ -32,6 +32,9 @@ def main():
     events = [json.loads(line) for line in (root / "events.jsonl").read_text().splitlines()]
     curves = [json.loads(line) for line in (root / "curves.jsonl").read_text().splitlines()]
     assert summary["failure"] is None, summary["failure"]
+    ticks = sorted({r["at_s"] for r in curves})
+    gaps = [b-a for a, b in zip(ticks, ticks[1:])]
+    assert not gaps or max(gaps) <= 120, "minute observer lost more than two minutes"
     completed = summary["completed"]
     assert all(r["code"] == 0 and r["done"] for r in completed)
     ready = next(e["at_s"] for e in events if e["kind"] == "ready" and e["name"] == "persistent")
@@ -44,6 +47,7 @@ def main():
     fresh = [r for r in completed if r["name"] != "persistent"]
     results = dict(
         measured_s=exited-ready, persistent_cycles=summary["persistent_cycles"],
+        sample_ticks=len(ticks), largest_sample_gap_s=max(gaps, default=0),
         total_cycles=len(cycles), fresh_machines=len(fresh),
         quiescent_tasks=stats([r["tasks"] for r in cycles]),
         persistent={}, fresh_peaks={}, growth_flags=summary["growth_flags"],

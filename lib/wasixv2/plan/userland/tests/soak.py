@@ -49,6 +49,7 @@ def main():
     started = time.monotonic()
     deadline = None
     next_sample = started
+    last_observation = started
     failure = None
     short_id = 0
     completed = []
@@ -119,6 +120,12 @@ def main():
                     selector.unregister(key.fileobj)
                     key.fileobj.close()
             now = time.monotonic()
+            gap = now - last_observation
+            last_observation = now
+            if gap > 120:
+                failure = f"host observer gap of {gap:.1f}s: invalid continuous measurement"
+                event("observation_gap", seconds=gap)
+                break
             total_rss = 0
             for m in list(machines):
                 r = resources(m["proc"].pid)
