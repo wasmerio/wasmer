@@ -44,6 +44,7 @@ pub struct Response {
 /// Explicit HTTP capability. The embedder owns URL/header policy, Fetch and CORS behavior.
 /// On the blocking browser lane, a future must never depend on its task worker's JS event
 /// loop; dispatch Promise-producing I/O to the coordinator/I/O worker before parking.
+/// Dropping a send future must cancel/release its in-flight operation.
 pub trait HttpProvider: Send + Sync {
     fn new_client(&self) -> Result<(), String> {
         Ok(())
@@ -188,24 +189,87 @@ async fn client_send<S: Syscalls + Control + 'static>(
     input: i32,
     out: i32,
 ) -> Result<(), RuntimeError> {
-    done(
-        shim::call(&env, async |frame| {
-            Ok(async {
-                let bytes = read(frame.mem.guest(), input as u32, 68).await?;
-                let provider = frame.instance().http.provider(word(&bytes, 0))?;
-                let response = match decode(frame.mem.guest(), &bytes).await? {
-                    Ok(request) => provider.send(request).await,
-                    Err(error) => Err(error),
-                };
-                match response {
-                    Ok(response) => write_response(frame, out as u32, response).await,
-                    Err(error) => write_error(frame, out as u32, error).await,
-                }
+    // Internal task-work restarts must not replay an HTTP request (especially a POST).
+    let mut request = None;
+    let result = shim::call(&env, async |frame| {
+        if request.is_none() {
+            match prepare(frame, input as u32).await {
+                Ok(prepared) => request = Some(prepared),
+                Err(error) => return Ok(Err(error)),
             }
-            .await)
+        }
+        let response = wait_response(frame, request.as_mut().unwrap()).await?;
+        request.take();
+        Ok(match response {
+            Ok(response) => write_response(frame, out as u32, response).await,
+            Err(error) => write_error(frame, out as u32, error).await,
         })
-        .await?,
-    )
+    })
+    .await?;
+    // A fatal signal unwinds above; a handled interruption is a WAI error, not a wasm trap.
+    drop(request);
+    match result {
+        Done::Err(errno) => {
+            let error = if errno == crate::abi::Errno::INTR {
+                "HTTP request interrupted".to_owned()
+            } else {
+                format!("HTTP request wait failed (errno {})", errno.0)
+            };
+            done(
+                shim::call(&env, async |frame| {
+                    Ok(write_error(frame, out as u32, error.clone()).await)
+                })
+                .await?,
+            )
+        }
+        result => done(result),
+    }
+}
+
+async fn prepare<S: Syscalls + Control + 'static>(
+    frame: &Frame<'_, S>,
+    input: u32,
+) -> Result<LocalFuture<'static, Result<Response, String>>, RuntimeError> {
+    let bytes = read(frame.mem.guest(), input, 68).await?;
+    let provider = frame.instance().http.provider(word(&bytes, 0))?;
+    let request = decode(frame.mem.guest(), &bytes).await?;
+    Ok(Box::pin(async move {
+        match request {
+            Ok(request) => provider.send(request).await,
+            Err(error) => Err(error),
+        }
+    }))
+}
+
+async fn wait_response<S: Syscalls + Control + 'static>(
+    frame: &Frame<'_, S>,
+    request: &mut LocalFuture<'static, Result<Response, String>>,
+) -> crate::errno::V1Result<Result<Response, String>> {
+    use std::{future::poll_fn, pin::pin, task::Poll};
+    use wasixv2_abi::{GuestPtr, GuestPtrMut};
+    let caller = frame.caller();
+    // Linux fs/select.c:do_sys_poll: no fds and no timeout waits only for a signal or
+    // task-work interruption. Use its existing wait registration and restart policy;
+    // dropping this future removes the registration when the provider completes first.
+    let mut interrupted = pin!(frame.syscalls.ppoll_time64(
+        &caller,
+        GuestPtrMut::NULL,
+        0,
+        GuestPtrMut::NULL,
+        GuestPtr::NULL,
+        8,
+    ));
+    poll_fn(|cx| {
+        if let Poll::Ready(response) = request.as_mut().poll(cx) {
+            return Poll::Ready(Ok(response));
+        }
+        match interrupted.as_mut().poll(cx) {
+            Poll::Ready(Err(error)) => Poll::Ready(Err(error.into())),
+            Poll::Ready(Ok(_)) => Poll::Ready(Err(wasixv2_abi::Errno::EIO.into())),
+            Poll::Pending => Poll::Pending,
+        }
+    })
+    .await
 }
 
 async fn read(mem: &dyn UserMemory, addr: u32, len: u32) -> Result<Vec<u8>, RuntimeError> {
