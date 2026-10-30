@@ -18,7 +18,7 @@ use crate::vmcontext::{
     VMFunctionImport, VMFunctionKind, VMGlobalDefinition, VMGlobalImport, VMMemoryDefinition,
     VMMemoryImport, VMSharedTagIndex, VMSignatureHash, VMTableDefinition, VMTableImport,
     VMTrampoline, memory_copy, memory_fill, memory32_atomic_check_notify, memory32_atomic_check32,
-    memory32_atomic_check64,
+    memory32_atomic_check64, memory32_range,
 };
 use crate::{FunctionBodyPtr, MaybeInstanceOwned, TrapHandlerFn, VMTag, wasmer_call_trampoline};
 use crate::{VMConfig, VMFuncRef, VMFunction, VMGlobal, VMMemory, VMTable};
@@ -871,15 +871,9 @@ impl Instance {
             .unwrap_or(&[]);
 
         let current_length = unsafe { memory.vmmemory().as_ref().current_length };
-        if src.checked_add(len).is_none_or(|n| n as usize > data.len())
-            || dst
-                .checked_add(len)
-                .is_none_or(|m| usize::try_from(m).unwrap() > current_length)
-        {
-            return Err(Trap::lib(TrapCode::HeapAccessOutOfBounds));
-        }
-        let src_slice = &data[src as usize..(src + len) as usize];
-        unsafe { memory.initialize_with_data(dst as usize, src_slice) }
+        let src = memory32_range(src, len, data.len())?;
+        let dst = memory32_range(dst, len, current_length)?;
+        unsafe { memory.initialize_with_data(dst.start, &data[src]) }
     }
 
     /// Drop the given data segment, truncating its length to zero.
