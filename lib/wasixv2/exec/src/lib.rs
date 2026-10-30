@@ -867,11 +867,13 @@ where
     if grown > limit {
         return Ok(-1);
     }
-    let base = memory.view(&*store).data_ptr();
+    #[cfg(feature = "sys")]
+    let base = (data.low_guard != 0).then(|| memory.view(&*store).data_ptr());
     let previous = memory.grow(&mut *store, delta as u32);
     // The low guard is protected once, at the base the memory had then.
+    #[cfg(feature = "sys")]
     debug_assert!(
-        data.low_guard == 0 || memory.view(&*store).data_ptr() == base,
+        base.is_none_or(|base| memory.view(&*store).data_ptr() == base),
         "a guarded memory moved as it grew"
     );
     Ok(match previous {

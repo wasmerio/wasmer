@@ -722,6 +722,33 @@ impl<S: 'static> UserMemory for GuestMemory<'_, S> {
         })
     }
 
+    // Linux kernel/futex/core.c:handle_futex_death needs a single atomic transition,
+    // including when another guest thread changes the word concurrently.
+    #[cfg(all(feature = "js", not(feature = "sys")))]
+    fn compare_exchange_u32(
+        &self,
+        addr: u32,
+        expected: u32,
+        new: u32,
+    ) -> LocalFuture<'_, Result<u32, Fault>> {
+        Box::pin(async move {
+            let env = self.env.read().await;
+            let (data, store) = env.data_and_store();
+            data.check_access(addr, 4, true)?;
+            let read_only = data.read_only.ranges();
+            if in_guard(data.low_guard, addr, 4) || in_read_only(&read_only, addr, 4) {
+                return Err(Fault);
+            }
+            data.memory
+                .as_ref()
+                .ok_or(Fault)?
+                .as_js()
+                .view(&store)
+                .compare_exchange_u32(u64::from(addr), expected, new)
+                .map_err(|_| Fault)
+        })
+    }
+
     fn grow(&self, pages: u32) -> LocalFuture<'_, Option<u64>> {
         Box::pin(async move {
             let mut env = self.env.write().await;
@@ -1070,6 +1097,95 @@ fn copied_value<T: 'static>(result: T) -> LocalFuture<'static, T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(not(target_arch = "wasm32"), test)]
+    fn guest_compare_exchange_honors_page_access_alignment_and_bounds() {
+        use crate::process::tests::{NoThreads, Recorder};
+        use wasixv2_syscalls::{PageAccess, Restricted, TaskId};
+        let store = wasmer::Store::default();
+        let module = wasmer::Module::new(
+            &store,
+            wat::parse_str(
+                r#"(module
+            (import "wasixv2" "exit_group" (func (param i32)))
+            (memory (export "memory") 2 3 shared)
+            (func (export "_start")))"#,
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        let mut abis = crate::Abis::new();
+        abis.push(Arc::new(crate::Wasixv2));
+        let mut ready = crate::instantiate(
+            store,
+            &module,
+            Arc::new(Recorder::default()),
+            TaskId(2),
+            Arc::new(NoThreads),
+            Arc::new(abis),
+            None,
+        )
+        .unwrap();
+        let access = Arc::new(PageAccess::default());
+        ready.env.as_mut(&mut ready.store).page_access = Some(access.clone());
+        let check = wasmer::Function::new_typed_with_env_async(
+            &mut ready.store,
+            &ready.env,
+            move |env: AsyncFunctionEnvMut<ExecEnv<Recorder>>| {
+                let access = access.clone();
+                async move {
+                    let memory = GuestMemory::new(&env);
+                    env.write().await.data_mut().low_guard = 65536;
+                    assert!(memory.compare_exchange_u32(0, 0, 1).await.is_err());
+                    {
+                        let data = env.read().await;
+                        data.data().read_only.0.write().unwrap().push(65536..65540);
+                    }
+                    assert!(memory.compare_exchange_u32(65536, 0, 1).await.is_err());
+                    env.read().await.data().read_only.0.write().unwrap().clear();
+
+                    assert_eq!(memory.compare_exchange_u32(65536, 0, u32::MAX).await, Ok(0));
+                    assert_eq!(memory.compare_exchange_u32(65536, 1, 2).await, Ok(u32::MAX));
+                    access.set(vec![Restricted {
+                        range: 65536..131072,
+                        readable: true,
+                    }]);
+                    assert!(
+                        memory
+                            .compare_exchange_u32(65536, u32::MAX, 2)
+                            .await
+                            .is_err()
+                    );
+                    access.set(vec![Restricted {
+                        range: 65536..131072,
+                        readable: false,
+                    }]);
+                    assert!(
+                        memory
+                            .compare_exchange_u32(65536, u32::MAX, 2)
+                            .await
+                            .is_err()
+                    );
+                    access.set(vec![]);
+                    assert!(memory.compare_exchange_u32(65537, 0, 2).await.is_err());
+                    assert!(memory.compare_exchange_u32(131072, 0, 2).await.is_err());
+                    assert!(
+                        memory
+                            .compare_exchange_u32(u32::MAX - 3, 0, 2)
+                            .await
+                            .is_err()
+                    );
+                    assert_eq!(
+                        memory.compare_exchange_u32(65536, u32::MAX, 7).await,
+                        Ok(u32::MAX)
+                    );
+                    Ok::<(), wasmer::RuntimeError>(())
+                }
+            },
+        );
+        futures::executor::block_on(check.call_async(&ready.store.into_async(), vec![])).unwrap();
+    }
 
     #[test]
     fn image_layout_reserves_unwind_space_and_excludes_the_stack_from_data() {
