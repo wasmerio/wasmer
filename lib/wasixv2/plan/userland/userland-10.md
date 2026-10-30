@@ -63,6 +63,14 @@ programs supplied after the pilot make its first broad batch 8 PASS / 4 SKIP.
 Two initial harness setup attempts executed zero tests (list parsing and
 absolute utility paths); they are not included in counts.
 
+| Coreutils baseline failure (all now PASS) | Classification / fix |
+| --- | --- |
+| tests/touch/no-dereference.sh | kernel/VFS bug: host symlink timestamp update skipped; 87cba5c4b5c |
+| tests/cp/preserve-slink-time.sh | same host symlink timestamp bug; 87cba5c4b5c |
+| tests/tail/inotify-rotate-resources.sh | kernel bug: tracer-resumed SIGTERM lost behind pending control trap; 3d7fcca51fe |
+| tests/tail/inotify-only-regular.sh | same ptrace signal-delivery bug; 3d7fcca51fe |
+| tests/tail/debug.sh | same ptrace signal-delivery bug; 3d7fcca51fe |
+
 Every kernel/libc correction has a failing-first sibling regression and Linux
 source/function citation. Machine handoff and detailed chronology are in
 `~/wasixv2-orch/logs/v12suites/STATE.md`.
