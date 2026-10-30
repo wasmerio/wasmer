@@ -77,7 +77,7 @@ pub fn js_value_to_wasmer(
 pub fn wasmer_value_to_js(val: &Value) -> JsValue {
     match val {
         Value::I32(i) => JsValue::from_f64(*i as _),
-        Value::I64(i) => JsValue::from_f64(*i as _),
+        Value::I64(i) => JsValue::from(*i),
         Value::F32(f) => JsValue::from_f64(*f as _),
         Value::F64(f) => JsValue::from_f64(*f),
         Value::V128(f) => JsValue::from_f64(*f as _),
