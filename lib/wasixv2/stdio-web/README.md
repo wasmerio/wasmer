@@ -16,7 +16,9 @@ Promise is involved.
 `Sink::close` orders persistent EOF after accepted bytes. Last producer drop does
 the same. `Source::cancel` or last consumer drop discards queued bytes and wakes
 blocked producers with `ConnectionAborted`. `Sink::abort` cancels both sides.
-Empty buffers return zero immediately; a canceled stream otherwise keeps failing.
+Last consumer drop after clean, fully consumed EOF preserves successful drain;
+dropping unread output still fails it. Empty buffers return zero immediately;
+a canceled stream otherwise keeps failing.
 Dropping a pending async read, write or drain removes its wait registration and
 consumes no bytes. `ByteSource::poll_read` supports one logical poll reader,
 matching host `BlockingSource`; `Source::read` supports separate async waiters.

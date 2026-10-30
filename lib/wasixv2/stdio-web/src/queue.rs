@@ -152,7 +152,17 @@ impl ByteSource for Source {
 }
 impl Drop for Source {
     fn drop(&mut self) {
-        self.cancel();
+        {
+            let mut state = self.0.state.lock().unwrap();
+            // A consumer may retire after EOF before the producer's drain future repolls.
+            // Preserve successful completion; unread data or an open producer still aborts.
+            if state.closed && state.bytes.is_empty() {
+                return;
+            }
+            state.canceled = true;
+            state.bytes.clear();
+        }
+        self.0.wake();
     }
 }
 
