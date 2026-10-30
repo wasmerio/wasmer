@@ -2071,3 +2071,26 @@ fn socketpair_validates_the_protocol_before_pair_support() {
         );
     }
 }
+
+/// net/ipv4/tcp.c tcp_getsockopt rejects levels other than SOL_TCP and
+/// SOL_IP with EOPNOTSUPP, while unknown options at a supported level are ENOPROTOOPT.
+#[test]
+fn getsockopt_rejects_unsupported_protocol_levels() {
+    let (kernel, task, memory) = networked();
+    let caller = Caller::new(task, &memory);
+    let fd = socket(&kernel, &caller, STREAM);
+    for level in [500, 17] {
+        put(&memory, 0x200, &4i32.to_le_bytes());
+        assert_eq!(
+            errno(block_on(kernel.getsockopt(
+                &caller,
+                fd,
+                SocketLevel(level),
+                SocketOption::SO_OOBINLINE.0,
+                GuestPtrMut::new(0x300),
+                GuestPtrMut::new(0x200)
+            ))),
+            Errno::EOPNOTSUPP
+        );
+    }
+}
