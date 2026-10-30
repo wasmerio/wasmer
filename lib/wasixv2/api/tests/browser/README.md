@@ -1,5 +1,9 @@
 # Browser embedding
 
+See [browser support and SDK handoff](../../../BROWSER.md) for the runnable
+JavaScript example, classic/current capability checklist, engine matrix and
+Chromium debug baseline.
+
 Build the facade with defaults disabled:
 
 ```sh
