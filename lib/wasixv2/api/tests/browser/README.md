@@ -138,6 +138,28 @@ assigned packages; these tests do not declare universal browser parity.
 CI's separate producer uses `toolchain.env` source pins and
 `prepare-toolchain.sh` to build debug tools and EH/asyncify C sysroots, then
 exports only the reviewed subset. A cold source toolchain build is expensive;
-its exact-pinned cache is independent of runtime artifacts. Private source
-repositories need the optional `WASIXV2_TOOLCHAIN_TOKEN` read credential. The
-runtime/producer/fixture jobs are required, with per-test logs retained on failure.
+its exact-pinned cache is independent of runtime artifacts and is saved before
+fixture export, so an exporter failure does not discard the built tools. Only
+executables, Clang resource headers and the two sysroots are cached; private
+source checkouts and compiler object files are excluded. Host tools use debug
+builds with assertions, without bulky debug symbols, and serialized LLVM links.
+The cold runner installs native build prerequisites including lld and rsync
+(Linux `Makefile:headers_install` uses rsync for the pinned UAPI headers).
+
+`wasix-org/libc2` is private. Set the Actions secret `WASIXV2_TOOLCHAIN_TOKEN`
+to a credential with **Contents: read** access to that repository (and any other
+private pinned source/submodule). Until a dedicated credential is provisioned,
+the workflow uses `COMPAT_TESTS_GH_TOKEN`, the existing private cross-repository
+CI credential from `.github/workflows/patchsmith-test.yml`. A workflow's own
+`github.token` is scoped to Wasmer and cannot fetch libc2. Fork pull requests do
+not receive these secrets; their cold producer therefore fails explicitly and
+requires a trusted same-repository run. Do not expose credentials to fork code
+using `pull_request_target`.
+
+The producer overrides inherited Git credential helpers for source fetches,
+uses `GH_TOKEN` only from the environment, and never embeds tokens in URLs,
+source configuration, generated env.sh or caches. It checks private access
+before public downloads and reports the missing secret in the step log. A
+restored completion marker is accepted only with all required tools/sysroot
+files present. Runtime/producer/fixture jobs remain required, with per-test
+logs retained on failure; no native expectation changes or prebuilt Wasm.
