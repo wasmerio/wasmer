@@ -1479,6 +1479,11 @@ impl GroupState {
 impl Signals {
     /// `send_sig(sig, task, 1)`: `sig` from the kernel, to `task` alone.
     pub(crate) fn send_task_kernel(&self, task: TaskId, sig: i32) {
+        // kernel/signal.c:send_sig_info validates kernel senders too. If SIGKILL
+        // prevented a syscall stop, ptrace_stop can return SIGTRAP | 0x80.
+        if check_sendable(sig).is_err() {
+            return;
+        }
         let _ = self.send(Some(task), kernel_info(sig));
     }
 
