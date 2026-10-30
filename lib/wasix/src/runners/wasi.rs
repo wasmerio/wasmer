@@ -413,11 +413,26 @@ impl WasiRunner {
         let runtime = env.runtime.clone();
         let tasks = runtime.task_manager().clone();
 
+        // Read through the shared state, not a snapshot: `env` is moved into the
+        // task below, and the guest registers its callback during startup, after
+        // this point.
+        #[cfg(all(unix, feature = "ctrlc"))]
+        let host_signal_relay: Arc<dyn Fn() -> bool + Send + Sync + 'static> = {
+            let state = env.state.clone();
+            Arc::new(move || {
+                state
+                    .signal_handler_registered
+                    .load(std::sync::atomic::Ordering::SeqCst)
+            })
+        };
+
         let mut task_handle =
             crate::bin_factory::spawn_exec_module(module, env, &runtime).context("Spawn failed")?;
 
         #[cfg(feature = "ctrlc")]
         task_handle.install_ctrlc_handler();
+        #[cfg(all(unix, feature = "ctrlc"))]
+        task_handle.install_os_signal_relay(host_signal_relay);
         let task_handle = async move { task_handle.wait_finished().await }.in_current_span();
 
         let result = tasks.spawn_and_block_on(task_handle)?;
@@ -516,6 +531,16 @@ impl WasiRunner {
         let tasks = runtime.task_manager().clone();
         let pkg = pkg.clone();
 
+        #[cfg(all(unix, feature = "ctrlc"))]
+        let host_signal_relay: Arc<dyn Fn() -> bool + Send + Sync + 'static> = {
+            let state = env.state.clone();
+            Arc::new(move || {
+                state
+                    .signal_handler_registered
+                    .load(std::sync::atomic::Ordering::SeqCst)
+            })
+        };
+
         // Wrapping the call to `spawn_and_block_on` in a call to `spawn_await` could help to prevent deadlocks
         // because then blocking in here won't block the tokio runtime
         //
@@ -529,6 +554,8 @@ impl WasiRunner {
 
                 #[cfg(feature = "ctrlc")]
                 task_handle.install_ctrlc_handler();
+                #[cfg(all(unix, feature = "ctrlc"))]
+                task_handle.install_os_signal_relay(host_signal_relay);
 
                 task_handle
                     .wait_finished()
