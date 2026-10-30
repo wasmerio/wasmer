@@ -19,12 +19,17 @@ use wasmer::{
 };
 use wasmer_types::{GlobalIndex, ModuleInfo};
 
-#[derive(Clone)]
-struct MeteringGlobalIndexes(GlobalIndex, GlobalIndex);
+/// The indexes of the globals that [`Metering`] appends to a module.
+///
+/// Obtain them with [`Metering::global_indexes`] to emit code that reads or
+/// updates the metering state from another middleware, instead of forking
+/// this one.
+#[derive(Clone, Copy)]
+pub struct MeteringGlobalIndexes(GlobalIndex, GlobalIndex);
 
 impl MeteringGlobalIndexes {
     /// The global index in the current module for remaining points.
-    fn remaining_points(&self) -> GlobalIndex {
+    pub fn remaining_points(&self) -> GlobalIndex {
         self.0
     }
 
@@ -33,7 +38,7 @@ impl MeteringGlobalIndexes {
     /// This boolean is represented as a i32 global:
     ///   * 0: there are remaining points
     ///   * 1: points have been exhausted
-    fn points_exhausted(&self) -> GlobalIndex {
+    pub fn points_exhausted(&self) -> GlobalIndex {
         self.1
     }
 }
@@ -136,6 +141,16 @@ impl<F: Fn(&Operator) -> u64 + Send + Sync> Metering<F> {
             global_indexes: Mutex::new(None),
         }
     }
+
+    /// The indexes of the metering globals in the module this middleware was
+    /// applied to, or `None` before that happened.
+    ///
+    /// The globals only exist once `transform_module_info` has run, so a
+    /// middleware pushed after this one can read the indexes from its own
+    /// `generate_function_middleware` and charge points itself.
+    pub fn global_indexes(&self) -> Option<MeteringGlobalIndexes> {
+        *self.global_indexes.lock().unwrap()
+    }
 }
 
 impl<F: Fn(&Operator) -> u64 + Send + Sync> fmt::Debug for Metering<F> {
@@ -156,7 +171,7 @@ impl<F: Fn(&Operator) -> u64 + Send + Sync + 'static> ModuleMiddleware for Meter
     ) -> Box<dyn FunctionMiddleware<'a> + 'a> {
         Box::new(FunctionMetering {
             cost_function: self.cost_function.clone(),
-            global_indexes: self.global_indexes.lock().unwrap().clone().unwrap(),
+            global_indexes: self.global_indexes.lock().unwrap().unwrap(),
             accumulated_cost: 0,
         })
     }
@@ -501,6 +516,30 @@ mod tests {
         assert_eq!(
             get_remaining_points(&mut store, &instance),
             MeteringPoints::Exhausted
+        );
+    }
+
+    #[test]
+    fn global_indexes_are_exposed_after_compilation() {
+        let metering = Arc::new(Metering::new(10, cost_function));
+        assert!(metering.global_indexes().is_none());
+
+        let mut compiler_config = Cranelift::default();
+        compiler_config.push_middleware(metering.clone());
+        let store = Store::new(EngineBuilder::new(compiler_config));
+        let module = Module::new(&store, bytecode()).unwrap();
+
+        let indexes = metering
+            .global_indexes()
+            .expect("indexes after compilation");
+        let exports = &module.info().exports;
+        assert_eq!(
+            exports["wasmer_metering_remaining_points"],
+            ExportIndex::Global(indexes.remaining_points())
+        );
+        assert_eq!(
+            exports["wasmer_metering_points_exhausted"],
+            ExportIndex::Global(indexes.points_exhausted())
         );
     }
 
