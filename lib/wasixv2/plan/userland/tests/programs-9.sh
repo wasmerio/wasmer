@@ -43,6 +43,7 @@ case $workflow in
     git add topic
     git commit -m topic
     git checkout main
+    mkdir -p .git/hooks
     printf '#!/bin/sh\nprintf hook-ok > hook-result\n' > .git/hooks/post-commit
     chmod +x .git/hooks/post-commit
     printf 'main\n' > main
@@ -57,6 +58,8 @@ case $workflow in
     cd ..
     git clone repo clone
     cmp repo/topic clone/topic
+    git clone --no-local repo clone-protocol
+    cmp repo/topic clone-protocol/topic
     test "$(git -C clone rev-parse HEAD)" = "$(git -C repo rev-parse HEAD)"
     ;;
   make)
@@ -128,9 +131,11 @@ CONF
     done
     ;;
   perl)
+    # Upstream opt-out for a harness deliberately run without a controlling tty.
+    export PERL_SKIP_TTY_TEST=1
     cd /perl/t
     /bin/miniperl -I../lib TEST base/cond.t base/if.t base/lex.t base/num.t base/pat.t base/term.t \
-      op/arith.t op/concat.t op/fork.t op/pipe.t op/readdir.t op/stat.t
+      opbasic/arith.t opbasic/concat.t op/fork.t io/pipe.t op/readdir.t op/stat.t
     ;;
   openssh)
     mkdir -p /etc/ssh /root/.ssh /var/empty /usr/libexec
@@ -153,7 +158,6 @@ PidFile /tmp/v11-openssh/sshd.pid
 PermitRootLogin prohibit-password
 PasswordAuthentication no
 KbdInteractiveAuthentication no
-UsePAM no
 StrictModes yes
 AuthorizedKeysFile .ssh/authorized_keys
 Subsystem sftp /usr/libexec/sftp-server
@@ -165,7 +169,7 @@ CONF
     for ((n=0;n<100;n++)); do grep -q 'Server listening' sshd.log && break; sleep .05; done
     test "$(ssh "${opts[@]}" -p 18222 root@127.0.0.1 'printf remote-ok')" = remote-ok
     printf 'scp-payload\n' > payload
-    scp "${opts[@]}" -P 18222 payload root@127.0.0.1:/tmp/v11-openssh/copied
+    scp -S /bin/ssh "${opts[@]}" -P 18222 payload root@127.0.0.1:/tmp/v11-openssh/copied
     cmp payload copied
     kill "$server"
     wait "$server" || test $? = 143

@@ -106,8 +106,8 @@ int main(void) {
     return 1;
   }
   command("tmux -L v11 split-window -h -t v11 /bin/bash");
-  command("tmux -L v11 send-keys -t v11:0.0 " printf 'tmux-%s\\n' first
-          " Enter");
+  command(
+      "tmux -L v11 send-keys -t v11:0.0 \"printf 'tmux-%s\\n' first\" Enter");
   expect("tmux-first");
   command("tmux -L v11 capture-pane -p -t v11:0.0 | grep -q tmux-first");
   command("tmux -L v11 detach-client -s v11");
@@ -115,12 +115,14 @@ int main(void) {
   command("tmux -L v11 has-session -t v11");
   pid_t second = client(slave_name, 1);
   usleep(200000);
-  command("tmux -L v11 send-keys -t v11:0.1 " printf 'tmux-%s\\n' attached
-          " Enter");
+  command(
+      "tmux -L v11 send-keys -t v11:0.1 \"printf 'tmux-%s\\n' attached\" "
+      "Enter");
   expect("tmux-attached");
   command("tmux -L v11 capture-pane -p -t v11:0.1 | grep -q tmux-attached");
-  command("tmux -L v11 kill-server");
+  command("tmux -L v11 detach-client -s v11");
   reaped(second);
+  command("tmux -L v11 kill-server");
   close(master);
   puts("tmux pty split/send-keys/detach/attach PASS");
   return 0;

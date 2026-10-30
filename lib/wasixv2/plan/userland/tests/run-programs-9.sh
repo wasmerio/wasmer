@@ -13,7 +13,7 @@ args=(run --compiler-threads 3 --no-tty --user 0 --net --dns builtin
   --volume "$ROOT/bin:/bin" --volume "$ROOT/work:/work" --volume "$TESTS:/tests")
 case $workflow in
   lua) args+=(--volume "$ROOT/lua-tests:/lua-tests");;
-  perl) args+=(--volume "$ROOT/perl-tests:/perl");;
+  perl) args+=(--volume "$ROOT/perl-tests:/perl" --volume "$ROOT/perl-src:$ROOT/perl-src");;
   tmux)
     args+=(--volume "$ROOT/prefix/share/terminfo:/terminfo")
     exec python3 "$TESTS/checked-run.py" "$ROOT/logs/$workflow.log" \
