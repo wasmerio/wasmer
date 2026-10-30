@@ -7,8 +7,9 @@ use std::{
 };
 use wasixv2_abi::Errno;
 use wasixv2_vnet::{
-    Backend, BackendDatagram, BackendStream, Domain, InboundSink, Lookup, LookupDone, LookupError,
-    Publication, PublishedDatagram, RecvQueue, Shutdown, StreamState,
+    Backend, BackendDatagram, BackendStream, DatagramErrors, Domain, InboundSink, Lookup,
+    LookupDone, LookupError, Publication, PublishedDatagram, QueuedError, RecvQueue, Shutdown,
+    StreamState,
 };
 use wasixv2_wait::{PollMask, PollTable, Pollable, WaitQueue};
 
@@ -99,6 +100,7 @@ pub(crate) struct Flow {
     pub reset_sent: bool,
     pub remote: bool,
     pub error: Option<Errno>,
+    pub datagram_errors: DatagramErrors,
     pub rx: RecvQueue,
     pub oob_inline: bool,
     pub tx_head: u64,
@@ -133,6 +135,7 @@ impl Flow {
             reset_sent: false,
             remote: false,
             error: None,
+            datagram_errors: DatagramErrors::default(),
             rx: RecvQueue::default(),
             oob_inline: false,
             tx_head: 0,
@@ -167,7 +170,7 @@ impl Flow {
     pub fn mask(&self, config: Config) -> PollMask {
         // Linux net/ipv4/tcp.c:tcp_poll; net/ipv4/udp.c:udp_poll. FIN only ends reading.
         let mut mask = PollMask::empty();
-        if self.error.is_some() {
+        if self.error.is_some() || self.datagram_errors.has_error() {
             mask |= PollMask::ERR;
         }
         if self.kind != Kind::Stream {
@@ -377,7 +380,11 @@ impl Stream {
         let mut inner = self.shared.inner.lock().unwrap();
         let flow = inner.flows.get_mut(&self.id).unwrap();
         // Linux net/ipv4/tcp.c:tcp_sendmsg_locked consumes sk_err before EPIPE.
-        if let Some(error) = flow.error.take() {
+        if let Some(error) = flow
+            .error
+            .take()
+            .or_else(|| flow.datagram_errors.take_error())
+        {
             return Err(error);
         }
         if flow.write_shut || flow.state == StreamState::Closed {
@@ -426,7 +433,11 @@ impl BackendStream for Stream {
         let consumed = flow.rx.len() != queued;
         let result = if n != 0 {
             Ok(n)
-        } else if let Some(error) = flow.error.take() {
+        } else if let Some(error) = flow
+            .error
+            .take()
+            .or_else(|| flow.datagram_errors.take_error())
+        {
             Err(error)
         } else if flow.read_shut {
             Ok(0)
@@ -552,7 +563,11 @@ impl BackendDatagram for Datagram {
         let mut inner = self.shared.inner.lock().unwrap();
         family_allowed(inner.capabilities, to)?;
         let flow = inner.flows.get_mut(&self.id).unwrap();
-        if let Some(error) = flow.error.take() {
+        if let Some(error) = flow
+            .error
+            .take()
+            .or_else(|| flow.datagram_errors.take_error())
+        {
             return Err(error);
         }
         if flow.state == StreamState::Closed {
@@ -595,13 +610,19 @@ impl BackendDatagram for Datagram {
     fn take_error(&self) -> Option<Errno> {
         let mut inner = self.shared.inner.lock().unwrap();
         let flow = inner.flows.get_mut(&self.id).unwrap();
-        flow.error.take()
+        flow.error
+            .take()
+            .or_else(|| flow.datagram_errors.take_error())
     }
     fn recv_from(&self, buf: &mut [u8], peek: bool) -> Result<(usize, usize, SocketAddr), Errno> {
         let mut inner = self.shared.inner.lock().unwrap();
         let flow = inner.flows.get_mut(&self.id).unwrap();
         // Linux net/ipv4/udp.c:udp_recvmsg preserves datagram length for MSG_TRUNC.
-        if let Some(error) = flow.error.take() {
+        if let Some(error) = flow
+            .error
+            .take()
+            .or_else(|| flow.datagram_errors.take_error())
+        {
             return Err(error);
         }
         let Some(packet) = flow.incoming.front() else {
@@ -628,6 +649,7 @@ impl BackendDatagram for Datagram {
         f.outgoing.clear();
         f.outgoing_bytes = 0;
         f.error = None;
+        f.datagram_errors = DatagramErrors::default();
         f.connected_peer = None;
         f.attached = wq.is_some();
         f.wq = wq.unwrap_or_default();
@@ -639,8 +661,27 @@ impl BackendDatagram for Datagram {
             .front()
             .map_or(0, |p| p.data.len())
     }
-    fn set_option(&self, _: i32, _: i32, _: &[u8]) -> Result<(), Errno> {
-        Err(Errno::EOPNOTSUPP)
+    fn set_option(&self, level: i32, name: i32, value: &[u8]) -> Result<(), Errno> {
+        self.shared
+            .inner
+            .lock()
+            .unwrap()
+            .flows
+            .get_mut(&self.id)
+            .unwrap()
+            .datagram_errors
+            .set_option(level, name, value)
+    }
+    fn take_queued_error(&self) -> Option<QueuedError> {
+        self.shared
+            .inner
+            .lock()
+            .unwrap()
+            .flows
+            .get_mut(&self.id)
+            .unwrap()
+            .datagram_errors
+            .take_queued_error()
     }
 }
 impl Drop for Datagram {

@@ -382,3 +382,24 @@ fn local_address_query_uses_existing_classic_records() {
         matches!(codec::decode(&packed(Response::ResponseToRequest {req_id:7,res:Reply::SocketAddr(addr())})).unwrap(), Event::LocalAddr { request: 7, addr: a } if a == addr())
     );
 }
+#[test]
+fn port_unreachable_record_preserves_destination_offender_and_quote() {
+    let bytes = packed((
+        7u32,
+        1u32,
+        4u32,
+        9u64,
+        addr(),
+        Some(addr()),
+        b"quote".to_vec(),
+    ));
+    assert!(
+        matches!(codec::decode(&bytes).unwrap(), Event::DatagramRefused {socket:9,destination,offender:Some(from),payload} if destination == addr() && from == addr() && payload == b"quote")
+    );
+    for length in 0..bytes.len() {
+        assert!(codec::decode(&bytes[..length]).is_err());
+    }
+    let mut trailing = bytes;
+    trailing.push(0);
+    assert!(codec::decode(&trailing).is_err());
+}

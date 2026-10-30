@@ -699,6 +699,45 @@ impl Driver {
                     }
                 }
             }
+            Event::DatagramRefused {
+                socket,
+                destination,
+                offender,
+                payload,
+            } => {
+                if !inner.capabilities.udp_icmp
+                    || payload.len() > 65535
+                    || offender.is_some_and(|a| a.is_ipv4() != destination.is_ipv4())
+                {
+                    return Err(Errno::EPROTO);
+                }
+                if let Some(flow) = inner.flows.get_mut(&socket) {
+                    let Kind::Datagram(domain) = flow.kind else {
+                        return Err(Errno::EPROTO);
+                    };
+                    if (domain == wasixv2_vnet::Domain::Inet) != destination.is_ipv4() {
+                        return Err(Errno::EPROTO);
+                    }
+                    // Linux net/ipv4/udp.c:__udp4_lib_err (now udp_err) looks up the
+                    // quoted tuple, then reports hard errors only to connected sockets
+                    // unless RECVERR is enabled. A stale peer's error cannot hit a new peer.
+                    if flow.attached
+                        && !flow.released
+                        && flow.connected_peer.is_none_or(|p| p == destination)
+                    {
+                        let changed = flow.datagram_errors.refused(
+                            destination,
+                            offender,
+                            &payload,
+                            flow.connected_peer.is_some(),
+                            self.shared.config.buffer_bytes,
+                        );
+                        if changed {
+                            wakes.push((flow.wq.clone(), PollMask::ERR));
+                        }
+                    }
+                }
+            }
             Event::Writable { socket } => {
                 if let Some(flow) = inner.flows.get_mut(&socket) {
                     flow.send_blocked = false;

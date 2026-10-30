@@ -22,6 +22,8 @@ pub struct Capabilities {
     pub fidelity: bool,
     pub urgent: bool,
     pub udp_publish: bool,
+    /// Destination-qualified ICMP port-unreachable notifications (fidelity op4).
+    pub udp_icmp: bool,
 }
 
 impl Capabilities {
@@ -44,6 +46,7 @@ impl Capabilities {
             fidelity: true,
             urgent: true,
             udp_publish: true,
+            udp_icmp: true,
             dns_reverse: true,
             dns_forward: true,
             ..Self::classic(ipv6)
@@ -161,6 +164,14 @@ pub enum Event {
     DatagramError {
         socket: u64,
         error: Errno,
+    },
+    /// ICMP port unreachable with the quoted destination/payload. Unlike DatagramError
+    /// (a local host send failure), this is filtered by connection and RECVERR state.
+    DatagramRefused {
+        socket: u64,
+        destination: SocketAddr,
+        offender: Option<SocketAddr>,
+        payload: Vec<u8>,
     },
     /// Peer FIN, preserving the other direction. Reset is a distinct event.
     Eof {

@@ -1509,3 +1509,101 @@ fn unresolved_or_wrong_family_address_is_protocol_failure_and_wakes_waiter() {
         assert!(matches!(poll_future(future.as_mut()), Poll::Ready(Err(_))));
     }
 }
+#[test]
+fn icmp_refusal_matches_current_connected_peer_and_next_io_consumes_once() {
+    for receive in [false, true] {
+        let mut h = Harness::with_capabilities(Capabilities::classic_fidelity(true));
+        let endpoint = h.backend.datagram(Domain::Inet, WaitQueue::new()).unwrap();
+        assert!(h.pump().is_pending());
+        let (request, socket) = h
+            .transport
+            .commands
+            .iter()
+            .find_map(|c| match c {
+                Command::Bind {
+                    request, socket, ..
+                } => Some((*request, *socket)),
+                _ => None,
+            })
+            .unwrap();
+        h.event(Event::Complete {
+            request,
+            result: Ok(()),
+        });
+        endpoint.connect(Some(peer())).unwrap();
+        let event = |destination| Event::DatagramRefused {
+            socket,
+            destination,
+            offender: None,
+            payload: vec![],
+        };
+        h.event(event("192.0.2.2:1234".parse().unwrap()));
+        assert_eq!(endpoint.take_error(), None);
+        h.event(event(peer()));
+        assert!(endpoint.poll(None).contains(PollMask::ERR));
+        if receive {
+            assert_eq!(endpoint.recv_from(&mut [], false), Err(Errno::ECONNREFUSED));
+        } else {
+            assert_eq!(endpoint.send_to(b"x", peer()), Err(Errno::ECONNREFUSED));
+        }
+        assert_eq!(endpoint.take_error(), None);
+        assert!(!endpoint.poll(None).contains(PollMask::ERR));
+        assert_eq!(endpoint.send_to(b"x", peer()), Ok(1));
+        endpoint.connect(None).unwrap();
+        h.event(event(peer()));
+        assert_eq!(endpoint.take_error(), None);
+    }
+}
+#[test]
+fn recverr_retains_bounded_icmp_quotes_and_attach_drops_them() {
+    use wasixv2_abi::{IpOption, SocketLevel};
+    // Model queue bound is 8 bytes, below an error skb's charge: pending still reports
+    // the error but allocation cannot exceed the endpoint bound.
+    let mut h = Harness::with_capabilities(Capabilities::classic_fidelity(true));
+    let (endpoint, _publication) = h.backend.publish_datagram(peer()).unwrap();
+    endpoint.attach(Some(WaitQueue::new())).unwrap();
+    endpoint
+        .set_option(
+            SocketLevel::SOL_IP.0,
+            IpOption::IP_RECVERR.0,
+            &1i32.to_le_bytes(),
+        )
+        .unwrap();
+    assert!(h.pump().is_pending());
+    let (request, socket) = h
+        .transport
+        .commands
+        .iter()
+        .find_map(|c| match c {
+            Command::Bind {
+                request, socket, ..
+            } => Some((*request, *socket)),
+            _ => None,
+        })
+        .unwrap();
+    h.event(Event::Complete {
+        request,
+        result: Ok(()),
+    });
+    h.event(Event::DatagramRefused {
+        socket,
+        destination: peer(),
+        offender: None,
+        payload: vec![],
+    });
+    assert_eq!(endpoint.take_error(), Some(Errno::ECONNREFUSED));
+    assert_eq!(endpoint.take_queued_error(), None);
+    endpoint.attach(None).unwrap();
+    endpoint.attach(Some(WaitQueue::new())).unwrap();
+    h.event(Event::DatagramRefused {
+        socket,
+        destination: peer(),
+        offender: None,
+        payload: vec![],
+    });
+    assert_eq!(
+        endpoint.take_error(),
+        None,
+        "new socket inherits neither RECVERR nor connection"
+    );
+}
