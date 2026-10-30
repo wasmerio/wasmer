@@ -32,6 +32,7 @@
 pub mod abi;
 mod calls;
 pub mod errno;
+pub mod http;
 pub mod imports;
 mod instance;
 pub mod memory;
@@ -54,6 +55,7 @@ use crate::{imports::Module as V1Module, instance::Wasix1Instance, process::Proc
 pub struct Wasix1 {
     procs: Arc<Procs>,
     commands: Arc<RwLock<Commands>>,
+    http: Option<Arc<dyn http::HttpProvider>>,
 }
 
 impl Wasix1 {
@@ -68,7 +70,15 @@ impl Wasix1 {
         Self {
             procs: Arc::default(),
             commands,
+            http: None,
         }
+    }
+
+    /// Enables the historical v1 HTTP extension with an explicit embedder capability.
+    /// Browser providers must complete their I/O on an independent event-loop worker.
+    pub fn with_http_provider(mut self, provider: Arc<dyn http::HttpProvider>) -> Self {
+        self.http = Some(provider);
+        self
     }
 }
 
@@ -81,11 +91,17 @@ where
     }
 
     fn matches(&self, module: &Module) -> bool {
-        module_flavor(module) == Some(V1Flavor::Wasm32)
+        matches!(
+            module_flavor(module),
+            Some(V1Flavor::Wasm32 | V1Flavor::HttpClient)
+        )
     }
 
     fn matches_image(&self, image: &[u8]) -> bool {
-        is_wasix1_module(image) == Some(V1Flavor::Wasm32)
+        matches!(
+            is_wasix1_module(image),
+            Some(V1Flavor::Wasm32 | V1Flavor::HttpClient)
+        )
     }
 
     fn imports(
@@ -105,7 +121,7 @@ where
         role: Role,
     ) -> Result<Arc<dyn AbiInstance<S>>, ExecError> {
         let (procs, commands) = (self.procs.clone(), self.commands.clone());
-        let bound = Wasix1Instance::bind(procs, commands, instance, task, role)?;
+        let bound = Wasix1Instance::bind(procs, commands, self.http.clone(), instance, task, role)?;
         Ok(Arc::new(bound))
     }
 }
@@ -117,19 +133,16 @@ pub enum V1Flavor {
     Wasm32,
     /// `wasix_64v1`: not supported, since the kernel's address spaces are 32-bit.
     Wasm64,
-    /// Imports `wasix_http_client_v1`, which the v2 kernel does not provide.
+    /// Imports the historical `wasix_http_client_v1` extension, served by an embedder provider.
     HttpClient,
 }
 
 impl V1Flavor {
-    /// Why the flavour cannot run, for anything but [`V1Flavor::Wasm32`].
+    /// Why the flavour cannot run, or `None` for the supported wasm32 flavours.
     pub fn unsupported_reason(self) -> Option<&'static str> {
         match self {
-            Self::Wasm32 => None,
+            Self::Wasm32 | Self::HttpClient => None,
             Self::Wasm64 => Some("wasm64 WASIX v1 modules are not supported"),
-            Self::HttpClient => {
-                Some("the `wasix_http_client_v1` ABI is not supported on the v2 kernel")
-            }
         }
     }
 }
