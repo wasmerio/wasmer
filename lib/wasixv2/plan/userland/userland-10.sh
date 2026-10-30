@@ -36,24 +36,31 @@ case $pkg in
   done
   install -m755 bash "$ROOT/bin/bash"
   ;;
- tcl)
+ tcl|tcl-nothreads)
   : "${WASIXV2_PROBE_CLI:?release CLI needed for actual configure probes}"
   "$CC" -O2 -fno-builtin "$USERLAND/tests/probes/tcl-compat-10.c" -o "$ROOT/tcl-compat.wasm"
   "$WASIXV2_PROBE_CLI" run --compiler-threads 3 --no-tty "$ROOT/tcl-compat.wasm"
   export ac_cv_func_memcmp_working=yes tcl_cv_strstr_unbroken=ok tcl_cv_strtoul_unbroken=ok
+  TPREFIX=$ROOT/prefix
+  THREADS=--enable-threads
+  if [ "$pkg" = tcl-nothreads ]; then TPREFIX=$ROOT/prefix-tcl-nothreads; THREADS=--disable-threads; fi
   "$ROOT/tcl-src/unix/configure" --host="$HOST" --build="$BUILD" \
-   --prefix="$ROOT/prefix" --disable-shared --disable-load --enable-threads CFLAGS=-O2
+   --prefix="$TPREFIX" --disable-shared --disable-load "$THREADS" CFLAGS=-O2
   make clean
   make -j"$JOBS" binaries libraries
-  make -j"$JOBS" install-binaries install-libraries install-msgs install-tzdata
+  make -j"$JOBS" install-binaries install-libraries install-headers install-msgs install-tzdata
   install -m755 tclsh "$ROOT/bin/tclsh"
   ;;
  sqlite)
+  ZPREFIX=${USERLAND9_PREFIX:-$HOME/wasixv2-tools/userland-9/prefix}
+  TCLPREFIX=${TCL_CONFIG_PREFIX:-$ROOT/prefix}
   "$ROOT/sqlite-src/configure" --host="$HOST" --build="$BUILD" \
-   --disable-shared --disable-load-extension --disable-readline --with-tclsh=/usr/bin/tclsh8.6 CFLAGS=-O2
-  make -j"$JOBS" testfixture sqlite3 TCL_CONFIG_SH="$ROOT/prefix/lib/tclConfig.sh" \
-   TCLLIBDIR="$ROOT/prefix/lib"
+   --disable-shared --disable-load-extension --disable-readline --with-tclsh=/usr/bin/tclsh8.6 \
+   CFLAGS="-O2 -I$ZPREFIX/include" LDFLAGS="-L$ZPREFIX/lib -lz"
+  make -j"$JOBS" testfixture sqlite3 TCL_CONFIG_SH="$TCLPREFIX/lib/tclConfig.sh" \
+   TCLLIBDIR="$TCLPREFIX/lib"
   install -m755 testfixture "$ROOT/bin/testfixture"
+  install -m755 sqlite3 "$ROOT/bin/sqlite3"
   ;;
  busybox)
   cd "$ROOT/busybox-src"
@@ -69,6 +76,31 @@ case $pkg in
    --disable-nls --without-guile CFLAGS=-O2
   make -j"$JOBS"
   install -m755 make "$ROOT/bin/make"
+  ;;
+ perl)
+  : "${WASIXV2_PROBE_CLI:?release CLI needed for actual target probes}"
+  if [ ! -d "$ROOT/perl-src" ]; then
+   mkdir -p "$ROOT/perl-src"
+   tar -xf "$HOME/wasixv2-tools/userland-9/downloads/perl-5.40.2.tar.xz" \
+    -C "$ROOT/perl-src" --strip-components=1
+  fi
+  cd "$ROOT/perl-src"
+  export WASIXV2_PROBE_CC=wasixcc WASIXV2_PROBE_BIN="$ROOT/bin" WASIXV2_PROBE_ROOT="$ROOT/perl-src"
+  sysroot="$WASIXCC_SYSROOT_PREFIX/sysroot-wasixv2-asyncify"
+  sh Configure -des -Dcc="$USERLAND/tests/probe-cc-10.py" -Dld="$USERLAND/tests/probe-cc-10.py" \
+   -Dar=wasixar -Dnm=wasixnm -Dranlib=wasixranlib -Dosname=linux -Darchname=wasm32-linux \
+   -Dprefix="$ROOT/prefix-perl" \
+   -Dlibc="$sysroot/lib/wasm32-wasixv2/libc.a" \
+   -Dlibpth="$sysroot/lib/wasm32-wasixv2" -Dusrinc="$sysroot/include" \
+   -Donlyextensions="attributes Cwd Fcntl IO List/Util POSIX" \
+   -Dusedl=undef -Duseshrplib=false -Dusemymalloc=n -Doptimize=-O2 \
+   -Dccflags="-D_GNU_SOURCE -fno-strict-aliasing" -Dcccdlflags= -Dccdlflags= -Dlddlflags= -Dldflags= -Dlibs=-lm
+  rm -f miniperl miniperl.wasm
+  make -j"$JOBS" all
+  make -j"$JOBS" install.perl
+  if [ -L "$ROOT/bin/perl" ]; then rm "$ROOT/bin/perl"; fi
+  install -m755 perl.wasm "$ROOT/bin/perl"
+  install -m755 perl.wasm "$ROOT/prefix-perl/bin/perl"
   ;;
  *) exit 2;;
 esac
