@@ -467,6 +467,64 @@ fn nested_waits_choose_their_own_task_state() {
 }
 
 #[test]
+fn immediately_ready_status_borrows_the_executor_waker() {
+    struct Executor(AtomicUsize);
+    impl std::task::Wake for Executor {
+        fn wake(self: Arc<Self>) {
+            self.0.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+    let executor = Arc::new(Executor(AtomicUsize::new(0)));
+    let waker = std::task::Waker::from(executor.clone());
+    let status = TaskStatus::default();
+    let ready = std::future::poll_fn(|_| {
+        assert_eq!(
+            Arc::strong_count(&executor),
+            2,
+            "ready polling needs no owning forwarder"
+        );
+        Poll::Ready(())
+    });
+    let mut wait = pin!(status.during(TaskState::Uninterruptible, ready));
+    assert!(
+        wait.as_mut()
+            .poll(&mut Context::from_waker(&waker))
+            .is_ready()
+    );
+    assert_eq!(executor.0.load(Ordering::Relaxed), 0);
+}
+
+#[test]
+fn a_cloned_status_waker_can_outlive_a_completed_poll() {
+    use std::cell::RefCell;
+    struct Executor(AtomicUsize);
+    impl std::task::Wake for Executor {
+        fn wake(self: Arc<Self>) {
+            self.0.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+    let executor = Arc::new(Executor(AtomicUsize::new(0)));
+    let waker = std::task::Waker::from(executor.clone());
+    let status = TaskStatus::default();
+    let saved = RefCell::new(None);
+    {
+        let ready = std::future::poll_fn(|cx| {
+            *saved.borrow_mut() = Some(cx.waker().clone());
+            Poll::Ready(())
+        });
+        let mut wait = pin!(status.during(TaskState::Uninterruptible, ready));
+        assert!(
+            wait.as_mut()
+                .poll(&mut Context::from_waker(&waker))
+                .is_ready()
+        );
+    }
+    saved.borrow().as_ref().unwrap().wake_by_ref();
+    assert_eq!(executor.0.load(Ordering::Relaxed), 1);
+    assert_eq!(status.state(), TaskState::Running);
+}
+
+#[test]
 fn completed_waits_release_the_executor_waker() {
     struct Executor(AtomicUsize);
     impl std::task::Wake for Executor {
