@@ -96,6 +96,9 @@ pub(crate) struct Epoll {
 
 pub(crate) struct Ep {
     state: Mutex<State>,
+    /// fs/eventpoll.c:ep->mtx serializes harvests and control changes while
+    /// callbacks may still queue readiness under the separate state lock.
+    scan: Mutex<()>,
     /// `epoll_wait` callers sleep here (`ep->wq`).
     wq: WaitQueue,
     /// Pollers of the epoll descriptor itself sleep here (`ep->poll_wait`).
@@ -189,6 +192,7 @@ impl Ep {
     fn new() -> Arc<Self> {
         Arc::new(Self {
             state: Mutex::default(),
+            scan: Mutex::new(()),
             wq: WaitQueue::new(),
             poll_wait: WaitQueue::new(),
             file: OnceLock::new(),
@@ -246,6 +250,7 @@ impl Ep {
 
     /// `ep_insert`.
     fn insert(self: &Arc<Self>, key: Key, file: &Arc<OpenFile>, event: (u32, EpollData)) {
+        let _scan = self.scan.lock_or_recover();
         let item = Arc::new(Item {
             key,
             file: Arc::downgrade(file),
@@ -266,6 +271,7 @@ impl Ep {
 
     /// `ep_modify`.
     fn modify(&self, item: &Arc<Item>, event: (u32, EpollData)) {
+        let _scan = self.scan.lock_or_recover();
         *item.event.lock_or_recover() = event;
         if !Self::item_poll(item, false).is_empty() {
             self.queue_ready(&[item.key]);
@@ -288,6 +294,7 @@ impl Ep {
 
     /// `ep_remove`: also unlinks the item from its file.
     fn remove(self: &Arc<Self>, key: Key) -> bool {
+        let _scan = self.scan.lock_or_recover();
         let Some(item) = self.forget(key) else {
             return false;
         };
@@ -304,20 +311,22 @@ impl Ep {
     /// items are disarmed and edge-triggered ones leave the list; [`Ep::unsend`] undoes that
     /// when the events cannot be copied out.
     fn send_events(&self, max: usize) -> Vec<Sent> {
-        let txlist: Vec<Key> = {
-            let mut state = self.state.lock_or_recover();
-            state.queued.clear();
-            state.ready.drain(..).collect()
-        };
+        let _scan = self.scan.lock_or_recover();
+        // ep_start_scan splices the ready list, without copying all its items.
+        // Unvisited keys retain membership, so callbacks cannot duplicate them.
+        let mut txlist = std::mem::take(&mut self.state.lock_or_recover().ready);
         let mut events = Vec::new();
         let mut requeue = Vec::new();
-        let mut done = 0;
-        for &key in &txlist {
-            if events.len() >= max {
-                break;
-            }
-            done += 1;
-            let Some(item) = self.find(key) else { continue };
+        while events.len() < max {
+            let Some(key) = txlist.pop_front() else { break };
+            let item = {
+                let mut state = self.state.lock_or_recover();
+                if !state.queued.remove(&key) {
+                    continue;
+                }
+                state.items.get(&key).cloned()
+            };
+            let Some(item) = item else { continue };
             let revents = Self::item_poll(&item, false);
             if revents.is_empty() {
                 continue;
@@ -342,13 +351,13 @@ impl Ep {
         // `ep_done_scan`: unprocessed items go back to the front, level-triggered ones after
         // them, then whatever arrived meanwhile.
         let mut state = self.state.lock_or_recover();
-        let arrived: Vec<Key> = state.ready.drain(..).collect();
-        state.queued.clear();
-        for key in txlist[done..].iter().chain(&requeue).chain(&arrived) {
-            if state.items.contains_key(key) && state.queued.insert(*key) {
-                state.ready.push_back(*key);
+        for key in requeue {
+            if state.items.contains_key(&key) && state.queued.insert(key) {
+                txlist.push_back(key);
             }
         }
+        txlist.append(&mut state.ready);
+        state.ready = txlist;
         let more = !state.ready.is_empty();
         drop(state);
         if more {
