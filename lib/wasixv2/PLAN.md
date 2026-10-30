@@ -14,8 +14,8 @@ signals, preemption, task lifetime), the exec `Abi` registry, the WASIX v1 compa
 waits on the kernel futexes, and the userland fixes. `wasmer run` runs WASIX v2, WASIX v1 and WASI
 modules on the v2 kernel. tests `main` = `6405893`, libc2 `main` = `c26931b5`.
 
-Suite on `feat/wasixv2` `b145215a694` (merge train 27; wasixv2-tests `ed854e9`, libc2 `6bc05b3b`,
-abi `07cd32e`, LTP fork `54ea12a4b`): 4094 pass, 83 expected failures, 433 ignored. Since validation
+Suite on `feat/wasixv2` `af8aa676d82` (merge train 28; wasixv2-tests `3a2d12d`, libc2 `6bc05b3b`,
+abi `07cd32e`, LTP fork `54ea12a4b`): 4094 pass, 83 expected failures, 434 ignored. Since validation
 began (train 18): 3547 -> 4094 passing, 586 -> 83 expected failures.
 
 **Browser support** ([plan/browser.md](plan/browser.md) on `wasixv2/plan-browser`, decisions in its §7):
