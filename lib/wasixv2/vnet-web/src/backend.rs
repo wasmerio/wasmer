@@ -8,7 +8,7 @@ use std::{
 use wasixv2_abi::Errno;
 use wasixv2_vnet::{
     Backend, BackendDatagram, BackendStream, Domain, InboundSink, Lookup, LookupDone, LookupError,
-    Publication, Shutdown, StreamState,
+    Publication, PublishedDatagram, RecvQueue, Shutdown, StreamState,
 };
 use wasixv2_wait::{PollMask, PollTable, Pollable, WaitQueue};
 
@@ -98,7 +98,12 @@ pub(crate) struct Flow {
     pub reset_sent: bool,
     pub remote: bool,
     pub error: Option<Errno>,
-    pub rx: VecDeque<u8>,
+    pub rx: RecvQueue,
+    pub oob_inline: bool,
+    pub tx_head: u64,
+    pub tx_urgent: VecDeque<u64>,
+    pub published: bool,
+    pub attached: bool,
     pub tx: VecDeque<u8>,
     pub incoming: VecDeque<Packet>,
     pub outgoing: VecDeque<Packet>,
@@ -126,7 +131,12 @@ impl Flow {
             reset_sent: false,
             remote: false,
             error: None,
-            rx: VecDeque::new(),
+            rx: RecvQueue::default(),
+            oob_inline: false,
+            tx_head: 0,
+            tx_urgent: VecDeque::new(),
+            published: false,
+            attached: true,
             tx: VecDeque::new(),
             incoming: VecDeque::new(),
             outgoing: VecDeque::new(),
@@ -170,7 +180,10 @@ impl Flow {
         if self.state == StreamState::Connecting {
             return mask;
         }
-        if !self.rx.is_empty() || self.read_shut {
+        if self.rx.urgent() {
+            mask |= PollMask::PRI;
+        }
+        if self.rx.readable(1, self.oob_inline) || self.read_shut {
             mask |= PollMask::READABLE;
         }
         if (self.tx.len() < config.buffer_bytes && !self.send_blocked) || self.write_shut {
@@ -324,6 +337,34 @@ impl Backend for WebBackend {
             host,
         }))
     }
+    fn publish_datagram(&self, host: SocketAddr) -> Result<PublishedDatagram, std::io::Error> {
+        let mut inner = self.shared.inner.lock().unwrap();
+        inner.room(self.shared.config).map_err(io_error)?;
+        if !inner.capabilities.udp_publish || host.port() == 0 {
+            return Err(std::io::ErrorKind::Unsupported.into());
+        }
+        family_allowed(inner.capabilities, host).map_err(io_error)?;
+        let id = inner.id().map_err(io_error)?;
+        let domain = if host.is_ipv4() {
+            Domain::Inet
+        } else {
+            Domain::Inet6
+        };
+        let mut flow = Flow::new(Kind::Datagram(domain), host, WaitQueue::new());
+        flow.published = true;
+        flow.attached = false;
+        inner.flows.insert(id, flow);
+        drop(inner);
+        self.shared.wake.wake();
+        let endpoint = Arc::new(Datagram {
+            shared: self.shared.clone(),
+            id,
+        });
+        Ok((
+            endpoint.clone(),
+            Box::new(DatagramPublication { endpoint, host }),
+        ))
+    }
     fn lookup(&self, lookup: Lookup, done: LookupDone) {
         let mut inner = self.shared.inner.lock().unwrap();
         let caps = inner.capabilities;
@@ -378,44 +419,8 @@ impl Pollable for Stream {
         self.shared.inner.lock().unwrap().flows[&self.id].mask(self.shared.config)
     }
 }
-impl BackendStream for Stream {
-    fn state(&self) -> StreamState {
-        self.shared.inner.lock().unwrap().flows[&self.id].state
-    }
-    fn tcp_established(&self) -> bool {
-        let inner = self.shared.inner.lock().unwrap();
-        let flow = &inner.flows[&self.id];
-        flow.state == StreamState::Established && !flow.peer_fin && !flow.write_shut
-    }
-    fn read(&self, buf: &mut [u8], peek: bool) -> Result<usize, Errno> {
-        let mut inner = self.shared.inner.lock().unwrap();
-        let flow = inner.flows.get_mut(&self.id).unwrap();
-        if buf.is_empty() {
-            return Ok(0);
-        }
-        // Linux net/ipv4/tcp.c:tcp_recvmsg_locked drains queued bytes before sk_err/EOF.
-        let n = buf.len().min(flow.rx.len());
-        if n != 0 {
-            for (dst, src) in buf[..n].iter_mut().zip(flow.rx.iter()) {
-                *dst = *src;
-            }
-            if !peek {
-                flow.rx.drain(..n);
-                drop(inner);
-                self.shared.wake.wake();
-            }
-            return Ok(n);
-        }
-        if let Some(error) = flow.error.take() {
-            return Err(error);
-        }
-        if flow.read_shut {
-            Ok(0)
-        } else {
-            Err(Errno::EAGAIN)
-        }
-    }
-    fn write(&self, data: &[u8]) -> Result<usize, Errno> {
+impl Stream {
+    fn enqueue(&self, data: &[u8], urgent: bool) -> Result<usize, Errno> {
         let mut inner = self.shared.inner.lock().unwrap();
         let flow = inner.flows.get_mut(&self.id).unwrap();
         // Linux net/ipv4/tcp.c:tcp_sendmsg_locked consumes sk_err before EPIPE.
@@ -437,19 +442,73 @@ impl BackendStream for Stream {
         if n == 0 {
             return Err(Errno::EAGAIN);
         }
+        if urgent {
+            flow.tx_urgent
+                .push_back(flow.tx_head + flow.tx.len() as u64 + n as u64 - 1);
+        }
         flow.tx.extend(&data[..n]);
         drop(inner);
         self.shared.wake.wake();
         Ok(n)
     }
-    fn write_urgent(&self, _: &[u8]) -> Result<usize, Errno> {
-        Err(Errno::EOPNOTSUPP)
+}
+impl BackendStream for Stream {
+    fn state(&self) -> StreamState {
+        self.shared.inner.lock().unwrap().flows[&self.id].state
     }
-    fn read_urgent(&self, _: bool) -> Result<u8, Errno> {
-        Err(Errno::EINVAL)
+    fn tcp_established(&self) -> bool {
+        let inner = self.shared.inner.lock().unwrap();
+        let flow = &inner.flows[&self.id];
+        flow.state == StreamState::Established && !flow.peer_fin && !flow.write_shut
+    }
+    fn read(&self, buf: &mut [u8], peek: bool) -> Result<usize, Errno> {
+        let mut inner = self.shared.inner.lock().unwrap();
+        let flow = inner.flows.get_mut(&self.id).unwrap();
+        if buf.is_empty() {
+            return Ok(0);
+        }
+        // Linux net/ipv4/tcp.c:tcp_recvmsg_locked drains queued bytes before sk_err/EOF.
+        let n = flow.rx.read(buf, peek, flow.oob_inline);
+        if n != 0 {
+            if !peek {
+                drop(inner);
+                self.shared.wake.wake();
+            }
+            return Ok(n);
+        }
+        if let Some(error) = flow.error.take() {
+            return Err(error);
+        }
+        if flow.read_shut {
+            Ok(0)
+        } else {
+            Err(Errno::EAGAIN)
+        }
+    }
+    fn write(&self, data: &[u8]) -> Result<usize, Errno> {
+        self.enqueue(data, false)
+    }
+    fn write_urgent(&self, data: &[u8]) -> Result<usize, Errno> {
+        if !self.shared.inner.lock().unwrap().capabilities.urgent {
+            return Err(Errno::EOPNOTSUPP);
+        }
+        // Linux net/ipv4/tcp.c:tcp_sendmsg_locked sets the mark on the last accepted byte.
+        // Queue bytes and mark under one lock; an I/O worker cannot send before publication.
+        self.enqueue(data, true)
+    }
+    fn read_urgent(&self, peek: bool) -> Result<u8, Errno> {
+        let mut inner = self.shared.inner.lock().unwrap();
+        let f = inner.flows.get_mut(&self.id).unwrap();
+        f.rx.recv_urgent(
+            peek,
+            f.oob_inline,
+            f.state == StreamState::Closed && !f.peer_fin,
+        )
     }
     fn at_mark(&self) -> bool {
-        false
+        self.shared.inner.lock().unwrap().flows[&self.id]
+            .rx
+            .at_mark()
     }
     fn shutdown(&self, how: Shutdown) -> Result<(), Errno> {
         let mut inner = self.shared.inner.lock().unwrap();
@@ -487,13 +546,29 @@ impl BackendStream for Stream {
         self.peer
     }
     fn input_len(&self) -> usize {
-        self.shared.inner.lock().unwrap().flows[&self.id].rx.len()
+        let inner = self.shared.inner.lock().unwrap();
+        let f = &inner.flows[&self.id];
+        f.rx.inq(f.oob_inline)
     }
     fn output_len(&self) -> usize {
         self.shared.inner.lock().unwrap().flows[&self.id].tx.len()
     }
-    fn set_option(&self, _: i32, _: i32, _: &[u8]) -> Result<(), Errno> {
-        Err(Errno::EOPNOTSUPP)
+    fn set_option(&self, level: i32, name: i32, value: &[u8]) -> Result<(), Errno> {
+        if level != wasixv2_abi::SocketLevel::SOL_SOCKET.0
+            || name != wasixv2_abi::SocketOption::SO_OOBINLINE.0
+        {
+            return Err(Errno::EOPNOTSUPP);
+        }
+        let value: [u8; 4] = value.try_into().map_err(|_| Errno::EINVAL)?;
+        self.shared
+            .inner
+            .lock()
+            .unwrap()
+            .flows
+            .get_mut(&self.id)
+            .unwrap()
+            .oob_inline = i32::from_le_bytes(value) != 0;
+        Ok(())
     }
 }
 impl Drop for Stream {
@@ -590,6 +665,23 @@ impl BackendDatagram for Datagram {
         }
         Ok(result)
     }
+    fn attach(&self, wq: Option<WaitQueue>) -> Result<(), Errno> {
+        let mut inner = self.shared.inner.lock().unwrap();
+        let f = inner.flows.get_mut(&self.id).unwrap();
+        if !f.published {
+            return Err(Errno::EOPNOTSUPP);
+        }
+        // Linux net/ipv4/udp.c:udp_lib_close: a new socket inherits no queued data/errors.
+        f.incoming.clear();
+        f.incoming_bytes = 0;
+        f.outgoing.clear();
+        f.outgoing_bytes = 0;
+        f.error = None;
+        f.connected_peer = None;
+        f.attached = wq.is_some();
+        f.wq = wq.unwrap_or_default();
+        Ok(())
+    }
     fn input_len(&self) -> usize {
         self.shared.inner.lock().unwrap().flows[&self.id]
             .incoming
@@ -645,5 +737,18 @@ impl Drop for Published {
         }
         drop(inner);
         self.shared.wake.wake();
+    }
+}
+
+struct DatagramPublication {
+    endpoint: Arc<Datagram>,
+    host: SocketAddr,
+}
+impl Publication for DatagramPublication {
+    fn host_addr(&self) -> SocketAddr {
+        self.host
+    }
+    fn set_backlog(&self, _: u32) {
+        let _ = &self.endpoint;
     }
 }

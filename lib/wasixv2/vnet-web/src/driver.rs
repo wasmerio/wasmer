@@ -38,7 +38,7 @@ pub struct Driver {
     retired: Vec<Listener>,
     cursor: u64,
     stopped: bool,
-    input: Option<(u64, Vec<u8>, usize)>,
+    input: Option<(u64, Vec<u8>, usize, bool)>,
 }
 impl Driver {
     pub(crate) fn new(shared: Arc<Shared>, generation: u64) -> Self {
@@ -94,7 +94,12 @@ impl Driver {
                             if data.len() > crate::codec::MAX_FRAME {
                                 return self.stop(transport, Errno::EMSGSIZE);
                             }
-                            self.input = Some((socket, data, 0));
+                            self.input = Some((socket, data, 0, false));
+                        } else if let Event::Urgent { socket, data } = event {
+                            if data.is_empty() || data.len() > crate::codec::MAX_FRAME {
+                                return self.stop(transport, Errno::EPROTO);
+                            }
+                            self.input = Some((socket, data, 0, true));
                         } else if let Err(error) = self.event(event) {
                             return self.stop(transport, error);
                         }
@@ -259,7 +264,7 @@ impl Driver {
                 if flow.reset && !flow.reset_sent && flow.remote {
                     flow.reset_sent = true;
                     Some(Command::Reset { socket: id })
-                } else if flow.tx.is_empty() || flow.reset || flow.kind != Kind::Stream {
+                } else if flow.reset || (flow.tx.is_empty() && flow.outgoing.is_empty()) {
                     if !flow.remote {
                         if flow.released {
                             inner.flows.remove(&id);
@@ -326,15 +331,34 @@ impl Driver {
                 continue;
             }
             if !flow.tx.is_empty() {
-                let size = flow.tx.len().min(self.shared.config.chunk_bytes);
+                let mut size = flow.tx.len().min(self.shared.config.chunk_bytes);
+                let urgent = flow
+                    .tx_urgent
+                    .front()
+                    .is_some_and(|mark| *mark == flow.tx_head);
+                if let Some(mark) = flow.tx_urgent.front() {
+                    size = size.min(if urgent {
+                        1
+                    } else {
+                        (*mark - flow.tx_head) as usize
+                    });
+                }
                 let data = flow.tx.iter().take(size).copied().collect();
                 flow.inflight = Some((request, size));
                 self.pending.insert(request, Pending::Send(id, size));
                 self.cursor = id;
-                return Ok(Some(Command::Send {
-                    request,
-                    socket: id,
-                    data,
+                return Ok(Some(if urgent {
+                    Command::SendUrgent {
+                        request,
+                        socket: id,
+                        data,
+                    }
+                } else {
+                    Command::Send {
+                        request,
+                        socket: id,
+                        data,
+                    }
                 }));
             }
             let read = flow.read_shut && !flow.sent_read_shut;
@@ -360,7 +384,7 @@ impl Driver {
     }
 
     fn copy_input(&mut self) -> Result<bool, Errno> {
-        let Some((socket, data, offset)) = &mut self.input else {
+        let Some((socket, data, offset, urgent)) = &mut self.input else {
             return Ok(false);
         };
         let mut inner = self.shared.inner.lock().unwrap();
@@ -383,7 +407,13 @@ impl Driver {
             return Ok(true);
         }
         let n = (data.len() - *offset).min(self.shared.config.buffer_bytes - flow.rx.len());
-        flow.rx.extend(&data[*offset..*offset + n]);
+        let bytes = &data[*offset..*offset + n];
+        let marked = *urgent && n != 0 && *offset + n == data.len();
+        if marked {
+            flow.rx.push_urgent(bytes, flow.oob_inline);
+        } else {
+            flow.rx.push(bytes);
+        }
         *offset += n;
         if *offset == data.len() {
             self.input = None;
@@ -391,7 +421,14 @@ impl Driver {
         let wq = flow.wq.clone();
         drop(inner);
         if n != 0 {
-            wq.wake(PollMask::READABLE);
+            wq.wake(
+                PollMask::READABLE
+                    | if marked {
+                        PollMask::PRI
+                    } else {
+                        PollMask::empty()
+                    },
+            );
         }
         Ok(n != 0)
     }
@@ -404,6 +441,9 @@ impl Driver {
                     request, socket, ..
                 }
                 | Command::Shutdown {
+                    request, socket, ..
+                }
+                | Command::SendUrgent {
                     request, socket, ..
                 },
             ) => inner
@@ -457,6 +497,9 @@ impl Driver {
                 }
                 | Command::Shutdown {
                     request, socket, ..
+                }
+                | Command::SendUrgent {
+                    request, socket, ..
                 },
             ) => {
                 self.pending.remove(&request);
@@ -506,7 +549,12 @@ impl Driver {
                                 flow.opening = false;
                                 match result {
                                     Ok(()) => flow.state = StreamState::Established,
-                                    Err(error) => flow.fail(error),
+                                    Err(error) => {
+                                        if flow.published {
+                                            self.publication_failure(flow.peer, error);
+                                        }
+                                        flow.fail(error)
+                                    }
                                 }
                                 wakes.push((flow.wq.clone(), flow.mask(self.shared.config)));
                             }
@@ -576,6 +624,14 @@ impl Driver {
                         }
                         flow.inflight = None;
                         flow.tx.drain(..amount);
+                        flow.tx_head += amount as u64;
+                        while flow
+                            .tx_urgent
+                            .front()
+                            .is_some_and(|mark| *mark < flow.tx_head)
+                        {
+                            flow.tx_urgent.pop_front();
+                        }
                         wakes.push((flow.wq.clone(), PollMask::WRITABLE));
                     }
                 }
@@ -601,7 +657,20 @@ impl Driver {
                     }
                 }
             }
-            Event::Data { .. } => unreachable!("data is copied through the bounded input slot"),
+            Event::Data { .. } | Event::Urgent { .. } => {
+                unreachable!("data is copied through the bounded input slot")
+            }
+            Event::DatagramError { socket, error } => {
+                if let Some(flow) = inner.flows.get_mut(&socket) {
+                    if flow.kind == Kind::Stream {
+                        return Err(Errno::EPROTO);
+                    }
+                    if flow.attached {
+                        flow.error = Some(error);
+                        wakes.push((flow.wq.clone(), PollMask::ERR));
+                    }
+                }
+            }
             Event::Writable { socket } => {
                 if let Some(flow) = inner.flows.get_mut(&socket) {
                     flow.send_blocked = false;
@@ -621,6 +690,7 @@ impl Driver {
                         && flow.connected_peer.is_none_or(|peer| peer == addr)
                         && flow.incoming_bytes + data.len().max(1)
                             <= self.shared.config.buffer_bytes
+                        && flow.attached
                         && !flow.released
                         && flow.state == StreamState::Established
                     {

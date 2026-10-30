@@ -299,6 +299,67 @@ fn errors_are_explicit_and_malformed_frames_are_rejected() {
             request: 1,
             lookup: Lookup::Addr(addr().ip())
         })
-        .is_err()
+        .is_ok()
+    );
+}
+
+#[test]
+fn fidelity_records_distinguish_reset_udp_errors_dns_and_urgent() {
+    assert!(matches!(
+        codec::decode(&packed((7u32, 1u32, 0u32, 9u64, 104i32))).unwrap(),
+        Event::Reset {
+            socket: 9,
+            error: Errno::ECONNRESET
+        }
+    ));
+    assert!(matches!(
+        codec::decode(&packed((7u32, 1u32, 1u32, 9u64, 90i32))).unwrap(),
+        Event::DatagramError {
+            socket: 9,
+            error: Errno::EMSGSIZE
+        }
+    ));
+    assert!(matches!(
+        codec::decode(&packed((7u32, 1u32, 2u32, 7u64, 30u32, 0u32, "relay.test"))).unwrap(),
+        Event::Lookup { result: Ok(_), .. }
+    ));
+    assert!(matches!(
+        codec::decode(&packed((7u32, 1u32, 2u32, 7u64, 30u32, 1u32, vec![1u8, 2]))).unwrap(),
+        Event::Lookup { result: Ok(_), .. }
+    ));
+    assert!(matches!(
+        codec::decode(&packed((7u32, 1u32, 3u32, 9u64, vec![b'!']))).unwrap(),
+        Event::Urgent { socket: 9, .. }
+    ));
+    for version in [0u32, 2] {
+        assert!(codec::decode(&packed((7u32, version, 0u32, 9u64, 104i32))).is_err());
+    }
+    for error in [0i32, -1, 4096] {
+        assert!(codec::decode(&packed((7u32, 1u32, 0u32, 9u64, error))).is_err());
+    }
+    assert_eq!(
+        codec::encode(&Command::Lookup {
+            request: 7,
+            lookup: Lookup::Addr(addr().ip())
+        })
+        .unwrap(),
+        packed((4u32, 1u32, 1u32, 7u64, addr().ip()))
+    );
+    assert_eq!(
+        codec::encode(&Command::Lookup {
+            request: 7,
+            lookup: Lookup::Forward(vec![1, 2])
+        })
+        .unwrap(),
+        packed((4u32, 1u32, 2u32, 7u64, vec![1u8, 2]))
+    );
+    assert_eq!(
+        codec::encode(&Command::SendUrgent {
+            request: 7,
+            socket: 9,
+            data: vec![b'!']
+        })
+        .unwrap(),
+        packed((4u32, 1u32, 0u32, 7u64, 9u64, vec![b'!']))
     );
 }

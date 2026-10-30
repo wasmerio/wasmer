@@ -67,7 +67,19 @@ pub fn encode(command: &Command) -> Result<Vec<u8>, Errno> {
             None::<IpAddr>,
             Some(request),
         ))?,
-        Command::Lookup { .. } => return Err(Errno::EOPNOTSUPP),
+        Command::Lookup {
+            request,
+            lookup: Lookup::Addr(addr),
+        } => pack((4u32, 1u32, 1u32, request, addr))?,
+        Command::Lookup {
+            request,
+            lookup: Lookup::Forward(message),
+        } => pack((4u32, 1u32, 2u32, request, message))?,
+        Command::SendUrgent {
+            request,
+            socket,
+            data,
+        } => pack((4u32, 1u32, 0u32, request, socket, data))?,
         Command::Send {
             request,
             socket,
@@ -182,6 +194,40 @@ pub fn decode(frame: &[u8]) -> Result<Event, Errno> {
             peer: r.get()?,
         },
         6 => Event::Eof { socket: r.get()? },
+        // Extension envelope: version 1. Errnos are Linux numeric values, not NetworkError.
+        7 => {
+            if r.get::<u32>()? != 1 {
+                return Err(Errno::EPROTO);
+            }
+            match r.get::<u32>()? {
+                0 => Event::Reset {
+                    socket: r.get()?,
+                    error: relay_errno(r.get()?)?,
+                },
+                1 => Event::DatagramError {
+                    socket: r.get()?,
+                    error: relay_errno(r.get()?)?,
+                },
+                2 => {
+                    let request = r.get()?;
+                    let ttl = r.get()?;
+                    let answer = match r.get::<u32>()? {
+                        0 => Answer::Name(r.get()?),
+                        1 => Answer::Message(r.get()?),
+                        _ => return Err(Errno::EPROTO),
+                    };
+                    Event::Lookup {
+                        request,
+                        result: Ok(Found { ttl, answer }),
+                    }
+                }
+                3 => Event::Urgent {
+                    socket: r.get()?,
+                    data: r.get()?,
+                },
+                _ => return Err(Errno::EPROTO),
+            }
+        }
         _ => return Err(Errno::EPROTO),
     };
     if !r.0.is_empty() {
@@ -223,4 +269,12 @@ fn network_error(tag: u32) -> Result<Errno, Errno> {
 /// Classic resolution errors carry no trustworthy NXDOMAIN/TTL information.
 pub(crate) fn lookup_error(_: Errno) -> LookupError {
     LookupError::Failed
+}
+
+fn relay_errno(value: i32) -> Result<Errno, Errno> {
+    if (1..=4095).contains(&value) {
+        Ok(Errno(value))
+    } else {
+        Err(Errno::EPROTO)
+    }
 }
