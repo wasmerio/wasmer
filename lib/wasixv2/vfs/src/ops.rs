@@ -175,7 +175,7 @@ impl Vfs {
             acc_mode |= MAY_WRITE;
         }
         if flags.contains(OpenFlags::__O_TMPFILE) {
-            return self.open_tmpfile(cx, start, path, how, acc_mode).await;
+            return self.open_tmpfile(cx, start, path, how).await;
         }
 
         let mut walk = Walk::new(self, cx, start, path, how.lookup)?;
@@ -520,7 +520,6 @@ impl Vfs {
         start: &Path,
         path: &[u8],
         how: &OpenHow,
-        acc_mode: u32,
     ) -> FsResult<File> {
         let lookup = LookupFlags {
             directory: true,
@@ -553,8 +552,9 @@ impl Vfs {
             .dentry
             .inode()
             .set_linkable(!how.flags.contains(OpenFlags::O_EXCL));
-        self.may_open(cx, &target, acc_mode & !MAY_WRITE, how.flags)
-            .await?;
+        // fs/namei.c do_o_tmpfile passes acc_mode=0: the creator may open
+        // the new inode even when its requested mode grants no read permission.
+        self.may_open(cx, &target, 0, how.flags).await?;
         let mode = OpenMode {
             security_path: Some(&dir),
             flags: how.flags,
