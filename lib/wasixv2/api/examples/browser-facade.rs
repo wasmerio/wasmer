@@ -31,6 +31,20 @@ mod wasm {
         program_name: Option<String>,
         mounts: Vec<Mount>,
         expected: Expected,
+        #[serde(default)]
+        console: bool,
+        #[serde(default)]
+        http: bool,
+        #[serde(default)]
+        command_defaults: Vec<CommandDefaults>,
+    }
+    #[derive(Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct CommandDefaults {
+        name: String,
+        argv0: Option<String>,
+        args: Vec<String>,
+        env: Vec<String>,
     }
     #[derive(Deserialize)]
     struct Mount {
@@ -96,13 +110,42 @@ mod wasm {
             let host = Arc::new(BrowserHost::new(executor.clone()).map_err(error)?);
             let user = credentials(fixture.user.as_deref())?;
             let owner = (user.uid(), user.gid());
-            let mut machine = browser::builder(
+            let (session, stdio, streams) = browser::Session::new(65536).map_err(error)?;
+            let mut builder = browser::builder(
                 Arc::new(host.services()),
                 executor.clone(),
                 Net::new(NetConfig::default(), None),
             )
-            .user(user)
-            .build();
+            .user(user);
+            if fixture.http {
+                builder = builder.wasix1_http_provider(Arc::new(
+                    wasixv2::wasix1_http::browser::FetchProvider::new(Default::default())
+                        .map_err(error)?,
+                ));
+            }
+            if fixture.console {
+                builder = builder.console(
+                    session.console(wasixv2_host::WindowSize {
+                        rows: 25,
+                        cols: 80,
+                        ..Default::default()
+                    }),
+                    [true, true, false],
+                );
+            }
+            let mut machine = builder.build();
+            machine
+                .set_wasix1_command_defaults(fixture.command_defaults.into_iter().map(|c| {
+                    (
+                        c.name,
+                        wasixv2::CommandDefaults {
+                            argv0: c.argv0,
+                            args: c.args,
+                            env: c.env,
+                        },
+                    )
+                }))
+                .map_err(error)?;
             for mount in fixture.mounts {
                 let fs =
                     browser::directory(Arc::new(HostClock(host.clone())), 0o700, owner.0, owner.1)
@@ -120,7 +163,6 @@ mod wasm {
                 machine.set_working_dir(cwd);
             }
             let machine = Arc::new(machine);
-            let (session, stdio, streams) = browser::Session::new(65536).map_err(error)?;
             let output = Arc::new(Mutex::new(Output::default()));
             let captured = output.clone();
             executor
@@ -135,7 +177,9 @@ mod wasm {
                                     Ok(n) => offset += n,
                                 }
                             }
-                            streams.stdin.close();
+                            if !fixture.console {
+                                streams.stdin.close();
+                            }
                         };
                         let (_, out, err) = futures_util::future::join3(
                             input,
@@ -299,6 +343,31 @@ mod wasm {
                 (func (export "_start")
                   (drop (call $write (call $open (i32.const -100) (i32.const 16) (i32.const 1) (i32.const 0)) (i32.const 64) (i32.const 3)))
                   (call $exit (i32.const 0)) unreachable))"#).map_err(error)?).map_err(error)?;
+            let invalid = wasixv2::load(
+                &engine,
+                &wat::parse_str(
+                    r#"(module
+                (import "wasix_32v1" "missing_browser_import" (func))
+                (memory (export "memory") 1) (func (export "_start")))"#,
+                )
+                .map_err(error)?,
+            )
+            .map_err(error)?;
+            let invalid_result = browser::spawn(
+                first.clone(),
+                &executor,
+                engine.clone(),
+                invalid,
+                ProcessConfig {
+                    args: vec!["invalid".into()],
+                    env: vec![],
+                    stdio: wasixv2::Stdio::from_fns(|_| {}, |_| {}),
+                },
+            )
+            .await;
+            assert!(
+                matches!(invalid_result, Err(wasixv2::RunError::Imports(ref message)) if message.contains("missing_browser_import"))
+            );
             let config = || ProcessConfig {
                 args: vec!["smoke".into()],
                 env: vec![],
@@ -484,6 +553,9 @@ mod wasm {
                     program_name: None,
                     mounts: vec![],
                     expected: Expected { files: vec![] },
+                    console: false,
+                    http: false,
+                    command_defaults: vec![],
                 },
                 &echo,
             )
