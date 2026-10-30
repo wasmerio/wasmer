@@ -367,3 +367,40 @@ fn pipe_user_page_limits_bound_new_pipes_and_resizes() {
         block_on(kernel.close(&p.caller(), fd)).unwrap();
     }
 }
+
+/// fs/pipe.c fifo_open maps alloc_pipe_info failure to ENOMEM (pipe2 uses
+/// ENFILE). Reopening an existing FIFO needs no allocation or second charge.
+#[test]
+fn fifo_pipe_budget_failure_is_enomem_and_reopening_reuses_the_charge() {
+    let (kernel, p) = machine();
+    for name in [b"first\0".as_slice(), b"second\0".as_slice()] {
+        put(&p.memory.0, 0x100, name);
+        assert_eq!(
+            block_on(kernel.mknodat(&p.caller(), CWD, GuestPtr::new(0x100), 0o010600, 0)),
+            Ok(0)
+        );
+    }
+    assert_eq!(
+        p.write(&kernel, "/proc/sys/fs/pipe-user-pages-soft", "0"),
+        Ok(1)
+    );
+    assert_eq!(
+        p.write(&kernel, "/proc/sys/fs/pipe-user-pages-hard", "16"),
+        Ok(2)
+    );
+    super::cred::set_caps(&kernel, &p.caller(), &p.memory.0, 0);
+    let first = p.open(&kernel, "first", OpenFlags::O_RDWR).unwrap();
+    let reopened = p.open(&kernel, "first", OpenFlags::O_RDWR).unwrap();
+    assert_eq!(
+        errno(p.open(&kernel, "second", OpenFlags::O_RDWR)),
+        Errno::ENOMEM
+    );
+    block_on(kernel.close(&p.caller(), first)).unwrap();
+    assert_eq!(
+        errno(p.open(&kernel, "second", OpenFlags::O_RDWR)),
+        Errno::ENOMEM
+    );
+    block_on(kernel.close(&p.caller(), reopened)).unwrap();
+    let second = p.open(&kernel, "second", OpenFlags::O_RDWR).unwrap();
+    block_on(kernel.close(&p.caller(), second)).unwrap();
+}
