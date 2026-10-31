@@ -15,6 +15,7 @@ wasixv2-exec = { path = "../exec", default-features = false, optional = true }
 wasmer = { path = "../../api", version = "=7.5.0", default-features = false, optional = true }
 
 wasmparser.workspace = true
+wasm-encoder = { workspace = true, features = ["wasmparser"] }
 thiserror.workspace = true
 
 [dev-dependencies]

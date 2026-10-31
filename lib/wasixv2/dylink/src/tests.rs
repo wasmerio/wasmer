@@ -492,3 +492,207 @@ fn graph_indices_and_wasm_indices_have_separate_validation() {
     section(7, &[1, 1, b'f', 0, 99], &mut wasm);
     assert!(Module::parse(&wasm).is_err());
 }
+
+#[test]
+fn initialization_is_bounded_host_effects_not_guest_execution() {
+    let wasm = bytes(
+        r#"(module
+      (import "env" "__memory_base" (global $base i32))
+      (memory 1)
+      (data $image "hello")
+      (global $tls (mut i32) (i32.const 0))
+      (func $init
+        global.get $base i32.const 0 i32.const 5 memory.init $image
+        data.drop $image)
+      (start $init)
+      (func (export "__wasm_apply_data_relocs")
+        global.get $base i32.const 8 i32.add
+        global.get $base i32.const 4 i32.add i32.store)
+      (func (export "__wasm_init_tls") (param $block i32)
+        local.get $block global.set $tls
+        local.get $block i32.const 0 i32.const 5 memory.init $image))"#,
+        [16, 0, 0, 0],
+        &[],
+        &[],
+        &[],
+    );
+    let init = crate::Initialization::parse(&wasm).unwrap();
+    let effects = init
+        .effects([(0, 128)].into(), &reservation(128..144), None)
+        .unwrap();
+    assert_eq!(effects.writes[0].bytes, b"hello");
+    assert_eq!(effects.writes[1].address, 136);
+    assert_eq!(effects.writes[1].bytes, 132u32.to_le_bytes());
+    assert!(
+        init.effects([(0, 128)].into(), &reservation(129..144), None)
+            .is_err()
+    );
+    assert_eq!(
+        init.dropped_segments().iter().copied().collect::<Vec<_>>(),
+        [0]
+    );
+}
+
+#[test]
+fn initialization_rejects_import_calls_recursion_loops_and_imported_global_writes() {
+    for wat in [
+        include_str!("fixtures/initialization.wat"),
+        "(module (func $init (call $init)) (start $init))",
+        "(module (func $init (loop (br 0))) (start $init))",
+        "(module (import \"env\" \"sp\" (global $sp (mut i32))) (func $init i32.const 0 global.set $sp) (start $init))",
+    ] {
+        assert!(crate::Initialization::parse(&bytes(wat, [0; 4], &[], &[], &[])).is_err());
+    }
+}
+
+#[test]
+fn shared_once_template_is_lifted_without_atomic_wait_or_peer_reinitialization() {
+    let wasm = bytes(
+        include_str!("fixtures/once-initialization.wat"),
+        [16, 0, 0, 0],
+        &[],
+        &[],
+        &[],
+    );
+    let init = crate::Initialization::parse(&wasm).unwrap();
+    let first = init
+        .effects([(0, 128)].into(), &reservation(128..144), None)
+        .unwrap();
+    assert_eq!(first.writes[0].bytes, b"test");
+    assert_eq!(first.writes[1].address, 136);
+    assert_eq!(first.writes[1].bytes, 2u32.to_le_bytes());
+    let peer = init
+        .effects([(0, 128)].into(), &reservation(256..272), Some(256))
+        .unwrap();
+    assert!(peer.writes.is_empty());
+    let bad = include_str!("fixtures/once-initialization.wat")
+        .replace("br_table 0 1 2", "br_table 0 2 2");
+    assert!(crate::Initialization::parse(&bytes(&bad, [16, 0, 0, 0], &[], &[], &[])).is_err());
+}
+
+#[test]
+fn sanitized_instantiation_has_no_start_or_active_shared_writes() {
+    let wasm = bytes(
+        r#"(module
+      (import "env" "__memory_base" (global $base i32))
+      (import "env" "__table_base" (global $table i32))
+      (memory 1)
+      (table 16 funcref)
+      (func $function)
+      (data (global.get $base) "new")
+      (data $passive "keep")
+      (elem (global.get $table) func $function)
+      (func $init)
+      (start $init))"#,
+        [16, 0, 2, 0],
+        &[],
+        &[],
+        &[],
+    );
+    let init = crate::Initialization::parse(&wasm).unwrap();
+    let globals: std::collections::BTreeMap<u32, u64> = [(0, 128), (1, 8)].into();
+    assert_eq!(
+        init.effects(globals.clone(), &reservation(128..144), None)
+            .unwrap()
+            .writes[0]
+            .bytes,
+        b"new"
+    );
+    assert_eq!(
+        init.table_effects(&globals, &reservation(8..10)).unwrap(),
+        [crate::InitTable {
+            index: 8,
+            functions: vec![Some(0)]
+        }]
+    );
+    assert!(init.table_effects(&globals, &reservation(9..11)).is_err());
+    let clean = init.instantiate_bytes().unwrap();
+    let module = Module::parse(&clean).unwrap();
+    assert_eq!(module.start(), None);
+    assert!(module.exports().contains_key("__wasix_dylink_fn_0"));
+    let mut data = Vec::new();
+    for payload in wasmparser::Parser::new(0).parse_all(&clean) {
+        match payload.unwrap() {
+            wasmparser::Payload::DataSection(section) => {
+                for segment in section {
+                    let segment = segment.unwrap();
+                    assert!(matches!(segment.kind, wasmparser::DataKind::Passive));
+                    data.push(segment.data.to_vec());
+                }
+            }
+            wasmparser::Payload::ElementSection(section) => {
+                for segment in section {
+                    assert!(matches!(
+                        segment.unwrap().kind,
+                        wasmparser::ElementKind::Declared
+                    ));
+                }
+            }
+            _ => {}
+        }
+    }
+    assert_eq!(data, [vec![], b"keep".to_vec()]);
+}
+
+#[test]
+#[ignore = "requires a source-built lld fixture via WASIXV2_DYLINK_PROOF"]
+fn source_built_lld_initialization_contract() {
+    let path =
+        std::env::var_os("WASIXV2_DYLINK_PROOF").expect("path to source-built lld wasm fixture");
+    let bytes = std::fs::read(path).unwrap();
+    let init = crate::Initialization::parse(&bytes).unwrap();
+    let mut globals = std::collections::BTreeMap::new();
+    let mut index = 0;
+    for payload in wasmparser::Parser::new(0).parse_all(&bytes) {
+        match payload.unwrap() {
+            wasmparser::Payload::ImportSection(section) => {
+                for import in section.into_imports() {
+                    let import = import.unwrap();
+                    if matches!(import.ty, wasmparser::TypeRef::Global(_)) {
+                        globals.insert(
+                            index,
+                            match import.name {
+                                "__memory_base" => 4096,
+                                "__table_base" => 3,
+                                _ => 0,
+                            },
+                        );
+                        index += 1;
+                    }
+                }
+            }
+            wasmparser::Payload::GlobalSection(section) => {
+                for global in section {
+                    let global = global.unwrap();
+                    let value = match global.init_expr.get_operators_reader().read().unwrap() {
+                        wasmparser::Operator::I32Const { value } => u64::from(value as u32),
+                        wasmparser::Operator::I64Const { value } => value as u64,
+                        wasmparser::Operator::GlobalGet { global_index } => globals[&global_index],
+                        _ => panic!("unsupported proof global initializer"),
+                    };
+                    globals.insert(index, value);
+                    index += 1;
+                }
+            }
+            _ => {}
+        }
+    }
+    let first = init
+        .effects(globals.clone(), &reservation(0..65536), None)
+        .unwrap();
+    assert!(!first.writes.is_empty());
+    let peer = init
+        .effects(globals, &reservation(32768..32800), Some(32768))
+        .unwrap();
+    assert!(
+        peer.writes
+            .iter()
+            .all(|write| write.address >= 32768 && write.address < 32800)
+    );
+    let rewritten = init.instantiate_bytes().unwrap();
+    assert_eq!(Module::parse(&rewritten).unwrap().start(), None);
+}
+
+fn reservation(range: std::ops::Range<u64>) -> [std::ops::Range<u64>; 1] {
+    [range]
+}

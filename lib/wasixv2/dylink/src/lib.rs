@@ -6,9 +6,11 @@
 //! constructors or implement the four `dl_*` imports. The eventual image owner must validate
 //! and publish a plan together with every store's instances before any guest can use it.
 
+mod initialize;
 mod metadata;
 mod plan;
 
+pub use initialize::{InitEffects, InitTable, InitWrite, Initialization};
 pub use metadata::{Export, ExternType, Import, Module};
 pub use plan::{
     BindingMode, BindingTarget, DeferredCheck, Fixup, FixupKind, Layout, Plan, PlanError,
