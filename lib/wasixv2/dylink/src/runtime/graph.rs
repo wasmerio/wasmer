@@ -275,7 +275,19 @@ impl Graph {
         }
     }
     pub fn symbol(&self, handle: usize, name: &str, tls: &[u32]) -> Result<u32> {
+        // musl do_dlsym(head): dlopen(NULL)'s explicit main handle searches
+        // global scope, including preloads, without enabling DEFAULT/NEXT.
+        let mut scope = if handle == 0 {
+            self.global.clone()
+        } else {
+            Vec::new()
+        };
         for index in self.scope(handle) {
+            if !scope.contains(&index) {
+                scope.push(index);
+            }
+        }
+        for index in scope {
             if let Some(export) = self.libraries[index].metadata.exports().get(name) {
                 if export
                     .flags

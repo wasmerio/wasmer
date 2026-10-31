@@ -2,6 +2,7 @@
 mod forward;
 mod graph;
 mod load;
+mod startup;
 use crate::{BindingTarget, ExternType, FixupKind, Initialization, SOURCE_SECTION, StagedModule};
 use graph::{Graph, Library, infrastructure, initial_globals};
 use std::{
@@ -166,9 +167,6 @@ impl Root {
     fn new(source: Vec<u8>) -> Arc<Self> {
         let parsed = (|| -> Result<(Graph, u32)> {
             let mut main = Library::new(source, None)?;
-            if !main.metadata.needed().is_empty() {
-                return Err(failure("startup dependencies are not supported"));
-            }
             let stack = main
                 .metadata
                 .exports()
@@ -456,6 +454,7 @@ impl<S: Syscalls + Control + Send + Sync + 'static> Abi<S> for Image<S> {
                             "__memory_base" => main.base,
                             "__table_base" => main.table,
                             "__stack_pointer" => self.root.stack,
+                            _ if matches!(import.module(), "GOT.func" | "GOT.mem") => continue,
                             _ => {
                                 return Err(failure(format!(
                                     "unsupported dynamic main global {}",
@@ -510,6 +509,12 @@ impl<S: Syscalls + Control + Send + Sync + 'static> Abi<S> for Image<S> {
         }
         imports
     }
+    fn prepare<'a>(
+        &'a self,
+        cx: &'a wasixv2_exec::Preparation<'a, S>,
+    ) -> LocalFuture<'a, startup::PreparedResult<S>> {
+        Box::pin(self.prepare_startup(cx))
+    }
     fn bind(
         &self,
         instance: &Instance,
@@ -517,39 +522,8 @@ impl<S: Syscalls + Control + Send + Sync + 'static> Abi<S> for Image<S> {
         task: TaskId,
         role: Role,
     ) -> std::result::Result<Arc<dyn AbiInstance<S>>, ExecError> {
-        if let Some(error) = self.root.error.get() {
-            return Err(ExecError::Load(wasixv2_exec::LoadError::other(failure(
-                error,
-            ))));
-        }
-        let inner = <Wasixv2 as Abi<S>>::bind(&Wasixv2, instance, store, task, role)?;
-        let memory = instance
-            .exports
-            .get_memory("__wasix_dylink_memory_0")?
-            .clone();
-        let table = instance
-            .exports
-            .get_table("__indirect_function_table")?
-            .clone();
-        Ok(Arc::new(StoreImage {
-            root: self.root.clone(),
-            inner,
-            role,
-            cleanup: OnceLock::new(),
-            retired: Arc::new(AtomicBool::new(false)),
-            servicing: AtomicBool::new(false),
-            local: Arc::new(Mutex::new(Local {
-                instances: vec![instance.clone()],
-                forwarders: Vec::new(),
-                tls: vec![0],
-                memory,
-                table,
-                stage: None,
-                leases: Vec::new(),
-                generation: 0,
-            })),
-            _type: std::marker::PhantomData,
-        }))
+        self.bind_store(instance, store, task, role)
+            .map(|image| image as Arc<dyn AbiInstance<S>>)
     }
     fn image_layout(
         &self,
@@ -580,6 +554,50 @@ impl<S: Syscalls + Control + Send + Sync + 'static> Abi<S> for Image<S> {
     }
     fn low_guard(&self) -> bool {
         true
+    }
+}
+impl<S: Syscalls + Control + Send + Sync + 'static> Image<S> {
+    fn bind_store(
+        &self,
+        instance: &Instance,
+        store: &mut Store,
+        task: TaskId,
+        role: Role,
+    ) -> std::result::Result<Arc<StoreImage<S>>, ExecError> {
+        if let Some(error) = self.root.error.get() {
+            return Err(ExecError::Load(wasixv2_exec::LoadError::other(failure(
+                error,
+            ))));
+        }
+        let inner = <Wasixv2 as Abi<S>>::bind(&Wasixv2, instance, store, task, role)?;
+        let memory = instance
+            .exports
+            .get_memory("__wasix_dylink_memory_0")?
+            .clone();
+        let table = instance
+            .exports
+            .get_table("__indirect_function_table")?
+            .clone();
+        Ok(Arc::new(StoreImage {
+            root: self.root.clone(),
+            inner,
+            role,
+            cleanup: OnceLock::new(),
+            startup: Mutex::new(None),
+            retired: Arc::new(AtomicBool::new(false)),
+            servicing: AtomicBool::new(false),
+            local: Arc::new(Mutex::new(Local {
+                instances: vec![instance.clone()],
+                forwarders: Vec::new(),
+                tls: vec![0],
+                memory,
+                table,
+                stage: None,
+                leases: Vec::new(),
+                generation: 0,
+            })),
+            _type: std::marker::PhantomData,
+        }))
     }
 }
 struct Local {
@@ -845,6 +863,7 @@ impl LocalStage {
     }
 }
 struct StoreImage<S: 'static> {
+    startup: Mutex<Option<startup::Bound<S>>>,
     retired: Arc<AtomicBool>,
     cleanup: OnceLock<Arc<wasixv2_host::LoaderCleanup>>,
     root: Arc<Root>,
@@ -863,8 +882,7 @@ impl<S: Syscalls + Control + Send + Sync + 'static> StoreImage<S> {
         }
     }
 
-    fn main_prepare(&self, store: &mut StoreMut<'_>) -> Result<()> {
-        let graph = self.root.graph();
+    fn main_prepare(&self, store: &mut StoreMut<'_>, graph: &Graph) -> Result<()> {
         let main = &graph.libraries[0];
         let mut local = lock(&self.local);
         let instance = &local.instances[0];
@@ -1215,10 +1233,14 @@ impl<S: Syscalls + Control + Send + Sync + 'static> AbiInstance<S> for StoreImag
                     .map_err(|_| failure("runner already retired"))?;
             }
 
-            entry
-                .with_store(|_, store| self.main_prepare(store))
-                .await?;
+            let startup = lock(&self.startup).take();
+            if let Some(startup) = startup {
+                return self.finish_startup(entry, startup).await;
+            }
             let graph = self.root.graph();
+            entry
+                .with_store(|_, store| self.main_prepare(store, &graph))
+                .await?;
             if graph.libraries.len() > 1 {
                 let (syscalls, task) = entry
                     .with_store(|data, _| (data.syscalls().clone(), data.task()))
@@ -1636,6 +1658,44 @@ mod lease_cancellation_tests {
                 self.completed.store(true, Ordering::Release);
             })
         }
+    }
+    #[test]
+    fn canceled_startup_releases_mapping_before_reopening_and_dropping_nonce() {
+        let owner = Arc::new(());
+        let weak = Arc::downgrade(&owner);
+        let gate = LoaderGate::new(91);
+        let task = TaskId(1);
+        let admission = gate.claim_image(&owner).unwrap();
+        admission.bind(task).unwrap();
+        let closing = gate.close(task).unwrap();
+        drop(admission);
+        let scope = wasixv2_host::LoaderCleanup::new(Arc::new(QueueHost));
+        let ready = Arc::new(AtomicBool::new(false));
+        let completed = Arc::new(AtomicBool::new(false));
+        drop(startup::Pending {
+            cleanup: scope.clone(),
+            owner,
+            closing: Some(closing),
+            leases: vec![Box::new(Lease {
+                ready: ready.clone(),
+                completed: completed.clone(),
+            })],
+        });
+        let mut cx = Context::from_waker(Waker::noop());
+        let mut drain = Box::pin(scope.run(async {}));
+        assert!(drain.as_mut().poll(&mut cx).is_pending());
+        let mut job = JOBS.with(|jobs| jobs.borrow_mut().pop().unwrap());
+        assert!(job.as_mut().poll(&mut cx).is_pending());
+        assert!(gate.busy());
+        assert!(weak.upgrade().is_some());
+        assert!(!completed.load(Ordering::Acquire));
+        ready.store(true, Ordering::Release);
+        assert!(job.as_mut().poll(&mut cx).is_ready());
+        drop(job);
+        assert!(completed.load(Ordering::Acquire));
+        assert!(!gate.busy());
+        assert!(weak.upgrade().is_none());
+        assert!(drain.as_mut().poll(&mut cx).is_ready());
     }
     #[test]
     fn weak_logical_retirement_releases_before_retained_image_handle_drops() {

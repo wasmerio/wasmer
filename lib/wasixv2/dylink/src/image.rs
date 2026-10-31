@@ -31,9 +31,6 @@ pub fn prepare_image(bytes: &[u8]) -> Result<Vec<u8>, PlanError> {
         return Ok(bytes.to_vec());
     }
     let metadata = Module::parse(bytes)?;
-    if !metadata.needed().is_empty() {
-        return Err(PlanError::Unsupported("dynamic-main startup dependencies"));
-    }
     if metadata
         .exports()
         .keys()

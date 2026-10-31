@@ -771,7 +771,8 @@ fn dynamic_main_source_preparation_is_explicit_and_non_executing() {
     }
     assert_eq!(sources, [original.as_slice()]);
     assert!(crate::prepare_image(&prepared).is_err());
-    assert!(crate::prepare_image(&bytes(native, [0; 4], &["lib.so"], &[], &[])).is_err());
+    let dynamic = crate::prepare_image(&bytes(native, [0; 4], &["lib.so"], &[], &[])).unwrap();
+    assert_eq!(Module::parse(&dynamic).unwrap().needed(), ["lib.so"]);
     let asyncify = native.replace(
         "(memory 1)",
         "(memory 1) (func (export \"asyncify_start_unwind\"))",

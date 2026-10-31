@@ -1,19 +1,19 @@
 use super::*;
 use wasmer::{AsStoreAsync, StoreAsync};
 
-struct Coordinator<S: Syscalls + Control + Send + Sync + 'static> {
-    transaction: Option<LoaderTransaction>,
-    cleanup: Option<LocalFuture<'static, Result<()>>>,
-    root: Arc<Root>,
-    local: Arc<Mutex<Local>>,
-    env: FunctionEnv<ExecEnv<S>>,
-    store: StoreAsync,
-    syscalls: Arc<S>,
-    cleanup_scope: Arc<wasixv2_host::LoaderCleanup>,
-    task: TaskId,
+pub(super) struct Coordinator<S: Syscalls + Control + Send + Sync + 'static> {
+    pub(super) transaction: Option<LoaderTransaction>,
+    pub(super) cleanup: Option<LocalFuture<'static, Result<()>>>,
+    pub(super) root: Arc<Root>,
+    pub(super) local: Arc<Mutex<Local>>,
+    pub(super) env: FunctionEnv<ExecEnv<S>>,
+    pub(super) store: StoreAsync,
+    pub(super) syscalls: Arc<S>,
+    pub(super) cleanup_scope: Arc<wasixv2_host::LoaderCleanup>,
+    pub(super) task: TaskId,
 }
 impl<S: Syscalls + Control + Send + Sync + 'static> Coordinator<S> {
-    async fn abort(mut self) -> Result<()> {
+    pub(super) async fn abort(mut self) -> Result<()> {
         drop(self.transaction.take());
         self.cleanup = Some(Box::pin(cleanup(
             self.root.clone(),
@@ -42,7 +42,7 @@ async fn await_cleanup(pending: &mut Option<LocalFuture<'static, Result<()>>>) -
 
 // A closed admission can reopen by Drop. Once activated, every path needs the
 // Coordinator's rollback obligation, so no preparation await/error may follow it.
-async fn activate_prepared<T>(
+pub(super) async fn activate_prepared<T>(
     prepared: impl std::future::Future<Output = std::result::Result<T, Errno>>,
     activate: impl FnOnce() -> std::result::Result<LoaderTransaction, Errno>,
 ) -> std::result::Result<(T, LoaderTransaction), Errno> {
@@ -100,6 +100,7 @@ async fn cleanup<S: Syscalls + Control + Send + Sync + 'static>(
                 for module in stage.modules.into_values() {
                     local.instances.push(module.publish()?);
                 }
+                local.forwarders.extend(stage.forwarders);
                 local.tls = stage.tls;
                 local.leases.extend(stage.leases);
             }
@@ -186,16 +187,15 @@ impl<S: Syscalls + Control + Send + Sync + 'static> StoreImage<S> {
         }
         Ok(())
     }
-    async fn finish_phase(
+    pub(super) async fn finish_phase(
         &self,
-        env: &AsyncFunctionEnvMut<ExecEnv<S>>,
+        cx: &Context<'_, S>,
         coordinator: &Coordinator<S>,
     ) -> Result<()> {
         let transaction = coordinator.transaction.as_ref().unwrap();
         let gate = transaction.gate();
         if let Some(command) = gate.command(coordinator.task) {
-            self.command(&Context::Import(env), coordinator.task, command)
-                .await?;
+            self.command(cx, coordinator.task, command).await?;
         }
         coordinator
             .syscalls
@@ -326,7 +326,8 @@ impl<S: Syscalls + Control + Send + Sync + 'static> StoreImage<S> {
         });
         lock(&self.root.state).work = Some(work.clone());
         let result = async {
-            self.finish_phase(env, &coordinator).await?;
+            self.finish_phase(&Context::Import(env), &coordinator)
+                .await?;
             for lib in &mut graph.libraries[work.previous..] {
                 let info = lib.metadata.memory_info();
                 let lease = syscalls
@@ -372,7 +373,8 @@ impl<S: Syscalls + Control + Send + Sync + 'static> StoreImage<S> {
                     .unwrap()
                     .advance(phase)
                     .map_err(failure)?;
-                self.finish_phase(env, &coordinator).await?;
+                self.finish_phase(&Context::Import(env), &coordinator)
+                    .await?;
                 if let Some(error) = lock(&work.error).clone() {
                     return Err(failure(error));
                 }
@@ -405,7 +407,8 @@ impl<S: Syscalls + Control + Send + Sync + 'static> StoreImage<S> {
                 let _ = syscalls.loader_fatal(&gate);
                 return Err(failure(error));
             }
-            self.finish_phase(env, &coordinator).await?;
+            self.finish_phase(&Context::Import(env), &coordinator)
+                .await?;
             lock(&self.root.state)
                 .leases
                 .extend(std::mem::take(&mut *lock(&work.leases)));
@@ -451,6 +454,43 @@ pub(super) async fn report(
     }
     Ok(-errno.0)
 }
+pub(super) async fn read<S: wasixv2_syscalls::LoaderControl>(
+    syscalls: &S,
+    caller: &Caller<'_>,
+    name: &[u8],
+    search: &[u8],
+    runtime: &[String],
+) -> Result<wasixv2_syscalls::LibraryImage> {
+    let paths = if name.contains(&b'/') {
+        vec![name.to_vec()]
+    } else {
+        let mut paths = Vec::new();
+        for path in runtime
+            .iter()
+            .flat_map(|p| p.as_bytes().split(|b| *b == b':'))
+            .chain(search.split(|b| *b == b':'))
+        {
+            if path.contains(&b'$') {
+                return Err(failure("runtime path expansion is unsupported"));
+            }
+            let mut candidate = path.to_vec();
+            if !candidate.is_empty() {
+                candidate.push(b'/');
+            }
+            candidate.extend_from_slice(name);
+            paths.push(candidate);
+        }
+        paths
+    };
+    let mut last = None;
+    for path in paths {
+        match syscalls.loader_read(caller, &path).await {
+            Ok(image) => return Ok(image),
+            Err(error) => last = Some(error),
+        }
+    }
+    Err(failure(format!("cannot open library: {last:?}")))
+}
 async fn collect<S: Syscalls + Control + Send + Sync + 'static>(
     env: &AsyncFunctionEnvMut<ExecEnv<S>>,
     caller: &Caller<'_>,
@@ -463,43 +503,6 @@ async fn collect<S: Syscalls + Control + Send + Sync + 'static>(
     let mut graph = old.clone();
     if name.is_empty() {
         return Ok((graph, 0));
-    }
-    async fn read<S: Control>(
-        syscalls: &S,
-        caller: &Caller<'_>,
-        name: &[u8],
-        search: &[u8],
-        runtime: &[String],
-    ) -> Result<wasixv2_syscalls::LibraryImage> {
-        let paths = if name.contains(&b'/') {
-            vec![name.to_vec()]
-        } else {
-            let mut paths = Vec::new();
-            for path in runtime
-                .iter()
-                .flat_map(|p| p.as_bytes().split(|b| *b == b':'))
-                .chain(search.split(|b| *b == b':'))
-            {
-                if path.contains(&b'$') {
-                    return Err(failure("runtime path expansion is unsupported"));
-                }
-                let mut candidate = path.to_vec();
-                if !candidate.is_empty() {
-                    candidate.push(b'/');
-                }
-                candidate.extend_from_slice(name);
-                paths.push(candidate);
-            }
-            paths
-        };
-        let mut last = None;
-        for path in paths {
-            match syscalls.loader_read(caller, &path).await {
-                Ok(image) => return Ok(image),
-                Err(error) => last = Some(error),
-            }
-        }
-        Err(failure(format!("cannot open library: {last:?}")))
     }
     let image = read(
         &*syscalls,

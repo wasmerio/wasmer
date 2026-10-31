@@ -46,14 +46,14 @@ segments and active elements declared while preserving segment indices. Private
 exports expose function/global/memory/tag identity for later engine preparation.
 TLS pointer relocations are applied after each thread's final TLS global fixups.
 `prepare_image` explicitly prepares a native dynamic main and retains its original
-validated source in a reserved custom section; it rejects startup dependencies and
-asyncify. The native facade
+validated source in a reserved custom section; startup dependency metadata is retained
+for asynchronous preparation, and asyncify remains rejected. The native facade
 compiler uses it for initial images and exec; custom loaders remain explicit.
 The runtime verifies the deterministic sanitized/instrumented source against the
 native compiled module hash before host initialization.
 
-The native path supports NOW explicit handles, exported data/functions, per-store
-DSO TLS, cyclic direct-function dependencies with resolved NOW targets, existing
+The native path supports startup DT_NEEDED and nonsecure LD_PRELOAD, NOW explicit
+handles, exported data/functions, per-store DSO TLS, cyclic direct-function dependencies with resolved NOW targets, existing
 and future peers, shared `Image` CLONE_VM groups, missing-symbol rollback, and
 no-unload close. Existing admission registers every store; an atomic
 mm image-owner token rejects mixed/custom or independently selected owners.
@@ -61,6 +61,39 @@ All registered stores park, prepare and apply validated host effects before atom
 graph publication; libc2 drains constructors afterward. Fresh exec selects a new
 image/mm, retaining surviving old-mm attachments. Shared graphs contain source,
 layout and file owners, never store-local engine objects.
+
+Native startup prepares imports before main instantiation using the committed
+new environment and security identity. Secure startup ignores LD_LIBRARY_PATH
+and LD_PRELOAD without rewriting the guest environment. Files use the existing
+namespace/credential/regular-file/noexec path, never host paths. Explicit preloads
+precede needed libraries in global scope after main; file identity deduplicates
+both, and real metadata dependency edges stay intact.
+
+The optional host-only `Abi::prepare` returns a store-local consuming bind
+attachment; ordinary/custom ABI defaults retain their imports/bind behavior.
+A trusted Kernel startup snapshot and closed/drained admission prove the initial
+mm is fresh and has only its starting task before real memory/layout attaches.
+Reservations then reuse the existing mmap allocator. Main is instantiated first
+with typed NOW forwarders, so side modules use its actual tags/libc functions.
+The existing transaction installs all data/TLS/table effects before guest entry;
+future stores prepare their own imports/TLS against that committed graph. Custom
+controls without startup snapshots retain their prior dependency-free plugin
+profile and cannot start metadata requiring dependencies.
+
+Libc drains queued DSO constructors after main TLS/SSP and secure initialization,
+before main `_init`/constructors. It reuses the recursive loader lock and permits
+nested dlopen and constructor-created threads after publication. Main TLS remains
+libc/pthread-owned; side imports requiring late binding to main TLS stay rejected.
+No host initializer executes guest helpers or constructors under the gate.
+
+Pre-instantiation preparation runs after kernel exec commit. Existing failures
+before the no-return boundary keep the old image; new-image startup failures
+retain the current SIGSEGV/error behavior and cannot resume the old executable.
+This stage does not adopt musl's startup-linker exit127 convention. Pre-bind
+embedding failures return an error plus the existing process fault; a failed
+post-bind prepare_entry follows the existing entry-fault status path. Scoped
+cleanup releases unpublished reservations before runner retirement, while
+surviving old-mm CLONE_VM users retain their original image.
 
 When a resolved direct-function provider has not yet been instantiated, the store
 creates a typed Wasm forwarding function calling its reserved table slot. These
@@ -72,7 +105,7 @@ those definitions rather than forwarding aliases. All targets are filled by
 host Apply before atomic publication, and rollback clears only new slots. Future
 stores replay the same frozen NOW targets with their own forwarding instances.
 
-The profile fails closed for startup dependencies, asyncify, LAZY/NEXT,
+The profile fails closed for asyncify, LAZY/NEXT,
 caller-sensitive lookup, unsupported initializer bodies, definition-free function
 alias cycles and main-TLS crossimports that need post-libc late binding. DSO-local TLS
 and calls through main libc TLS accessors are supported. The real C source proof
