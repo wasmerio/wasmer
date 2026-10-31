@@ -79,7 +79,7 @@ impl<S: Syscalls + Control + Send + Sync + 'static> Drop for Coordinator<S> {
         }
     }
 }
-async fn cleanup<S: Syscalls + Control + Send + Sync + 'static>(
+pub(super) async fn cleanup<S: wasixv2_syscalls::LoaderControl + Send + Sync + 'static>(
     root: Arc<Root>,
     local: Arc<Mutex<Local>>,
     store: StoreAsync,
@@ -102,14 +102,14 @@ async fn cleanup<S: Syscalls + Control + Send + Sync + 'static>(
                 }
                 local.forwarders.extend(stage.forwarders);
                 local.tls = stage.tls;
+                local.lazy_targets = stage.lazy_targets;
                 local.leases.extend(stage.leases);
             }
             None
         } else {
+            let table = local.table.clone();
             if let Some(stage) = &mut local.stage {
-                for module in stage.modules.values_mut() {
-                    module.rollback(&mut store)?;
-                }
+                stage.rollback(&mut store, &table)?;
             }
             local.stage.take()
         }
@@ -225,11 +225,12 @@ impl<S: Syscalls + Control + Send + Sync + 'static> StoreImage<S> {
         if caller_addr != 0
             || flags.bits()
                 & !(DlFlags::RTLD_NOW.bits()
+                    | DlFlags::RTLD_LAZY.bits()
                     | DlFlags::RTLD_GLOBAL.bits()
                     | DlFlags::RTLD_NOLOAD.bits()
                     | DlFlags::RTLD_NODELETE.bits())
                 != 0
-            || !flags.contains(DlFlags::RTLD_NOW)
+            || !flags.intersects(DlFlags::RTLD_NOW | DlFlags::RTLD_LAZY)
         {
             return report(
                 caller,
@@ -570,7 +571,11 @@ async fn collect<S: Syscalls + Control + Send + Sync + 'static>(
             .ok_or_else(|| failure("table overflow"))?;
         graph.assign_slots(index)?;
     }
-    graph.seal(requested, old.libraries.len())?;
+    if flags.contains(DlFlags::RTLD_NOW) {
+        graph.seal(requested, old.libraries.len())?;
+    } else {
+        graph.seal_lazy(requested, old.libraries.len())?;
+    }
     Ok((graph, requested))
 }
 

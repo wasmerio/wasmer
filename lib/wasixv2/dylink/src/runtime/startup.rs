@@ -528,9 +528,8 @@ impl<S: Syscalls + Control + Send + Sync + 'static> StoreImage<S> {
                 .with_store(|_, store| {
                     self.main_aliases(store, &graph)?;
                     let mut local = lock(&self.local);
-                    for module in local.stage.as_mut().unwrap().modules.values_mut() {
-                        module.apply(store)?;
-                    }
+                    let table = local.table.clone();
+                    local.stage.as_mut().unwrap().apply(store, &table)?;
                     let mut stage = local.stage.take().unwrap();
                     local.leases.append(&mut stage.leases);
                     local.forwarders.append(&mut stage.forwarders);
@@ -538,6 +537,7 @@ impl<S: Syscalls + Control + Send + Sync + 'static> StoreImage<S> {
                         local.instances.push(module.publish()?);
                     }
                     local.tls = stage.tls;
+                    local.lazy_targets = stage.lazy_targets;
                     local.generation = self.root.gate()?.generation();
                     Ok::<(), RuntimeError>(())
                 })

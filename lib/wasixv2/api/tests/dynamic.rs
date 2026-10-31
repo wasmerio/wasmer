@@ -72,6 +72,31 @@ async fn native_pic_startup_needed_and_preload_with_future_peers() {
 }
 
 async fn run_fixture_image(directory: PathBuf, image: &str, expected: &str, env: Vec<String>) {
+    run_fixture_status(directory, image, expected, env, 0).await;
+}
+
+#[tokio::test]
+#[ignore = "requires source-built LAZY fixtures via WASIXV2_NATIVE_LAZY_DIR"]
+async fn native_pic_lazy_direct_functions_and_process_scoped_failure() {
+    let directory =
+        PathBuf::from(std::env::var_os("WASIXV2_NATIVE_LAZY_DIR").expect("fixture directory"));
+    for (image, expected, status) in [
+        ("main.wasm", "native lazy GLOBAL PASS:", 0),
+        ("main-promotion.wasm", "native lazy PROMOTION PASS:", 0),
+        ("main-scope.wasm", "native lazy SCOPE PASS:", 0),
+        ("main-unresolved.wasm", "native lazy unresolved CALL:", 132),
+    ] {
+        run_fixture_status(directory.clone(), image, expected, Vec::new(), status).await;
+    }
+}
+
+async fn run_fixture_status(
+    directory: PathBuf,
+    image: &str,
+    expected: &str,
+    env: Vec<String>,
+    status: i32,
+) {
     let wasm = std::fs::read(directory.join(image)).expect("source-built main");
     let local = tokio::task::LocalSet::new();
     let (result, out, err) = local
@@ -107,7 +132,11 @@ async fn run_fixture_image(directory: PathBuf, image: &str, expected: &str, env:
         .await
         .expect("main executor cleanup drained");
     let result = result.expect("bounded native plugin execution");
-    assert_eq!(result.unwrap(), 0, "stdout: {out}\nstderr: {err}");
+    assert_eq!(
+        result.unwrap(),
+        status,
+        "{image}: stdout: {out}\nstderr: {err}"
+    );
     assert!(out.contains(expected), "stdout: {out}\nstderr: {err}");
 }
 

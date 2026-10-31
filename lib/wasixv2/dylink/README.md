@@ -26,8 +26,9 @@ direct function and GOT fixups, and separate TLS/absolute/data offsets. Tables
 reserve null at zero and the existing signal sentinels at one and two. Global scope precedes the local load group; hidden/local
 definitions bind locally. Lookup takes the first visible definition including weak
 definitions, as musl's `ldso/dynlink.c:find_sym2` does. Missing strong NOW references
-fail, missing weak references become zero, and unresolved LAZY references remain
-explicitly deferred. Type errors are errors in either mode. Non-linker import
+fail, missing weak references become zero, and missing strong LAZY direct
+functions remain explicitly deferred. Missing GOT references and type errors
+are errors in either mode. Non-linker import
 namespaces and well-known `env` infrastructure are host bindings requiring checks.
 This is userspace linker policy; Linux `fs/binfmt_elf.c:load_elf_binary` loads the
 interpreter, rather than implementing these symbol lookups in the kernel.
@@ -108,7 +109,21 @@ those definitions rather than forwarding aliases. All targets are filled by
 host Apply before atomic publication, and rollback clears only new slots. Future
 stores replay the same frozen NOW targets with their own forwarding instances.
 
-The profile fails closed for asyncify, LAZY/NEXT,
+Native `RTLD_LAZY` can defer a missing strong direct-function import. A typed,
+normally instrumented Wasm forwarder calls its reserved per-store slot, initially
+populated with an `unreachable` stub. Calling it while unresolved follows the
+existing process SIGILL trap path; it does not kill other CLONE_VM processes.
+A call that has already selected an unresolved stub keeps that outcome if a
+concurrent publication binds the slot; an executing guest frame is never replayed.
+A later GLOBAL load or promotion binds that edge once, in every current store
+and future-store replay, without rebinding old NOW targets. The existing loader
+transaction saves and restores the exact prior values of changed deferred slots
+on failure or cancellation. Constructors still run only after publication.
+NOW takes precedence when both binding mode bits are supplied; startup stays NOW.
+Missing GOT.func/GOT.mem/data/TLS references and unresolved function exports,
+elements or references requiring a concrete definition remain unsupported.
+
+The profile fails closed for asyncify, NEXT,
 caller-sensitive lookup, unsupported initializer bodies, definition-free function
 alias cycles and main-TLS crossimports that need post-libc late binding. DSO-local TLS
 and calls through main libc TLS accessors are supported. The real C source proof

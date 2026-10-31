@@ -595,6 +595,7 @@ impl<S: Syscalls + Control + Send + Sync + 'static> Image<S> {
                 stage: None,
                 leases: Vec::new(),
                 generation: 0,
+                lazy_targets: BTreeMap::new(),
             })),
             _type: std::marker::PhantomData,
         }))
@@ -609,6 +610,7 @@ struct Local {
     stage: Option<LocalStage>,
     leases: Vec<Box<dyn LoaderReservation>>,
     generation: u64,
+    lazy_targets: BTreeMap<u32, Option<(usize, u32)>>,
 }
 impl Local {
     fn symbol(
@@ -704,6 +706,14 @@ impl Local {
                     ExternType::Function(signature)
                         if fixup.is_some_and(|f| f.kind != FixupKind::Host) =>
                     {
+                        if fixup.is_some_and(|f| f.target == BindingTarget::Deferred) {
+                            let lazy = lib
+                                .lazy
+                                .get(&ordinal)
+                                .ok_or_else(|| failure("missing deferred function slot"))?;
+                            pending.push((ordinal, signature.clone(), lazy.slot));
+                            continue;
+                        }
                         let BindingTarget::Function { module, index, .. } = &fixup.unwrap().target
                         else {
                             return Err(failure("missing weak direct function is unsupported"));
@@ -800,8 +810,14 @@ impl Local {
         for index in work.previous..graph.libraries.len() {
             let mut functions = BTreeMap::new();
             let mut function = 0;
-            for import in graph.libraries[index].metadata.imports() {
+            for (ordinal, import) in graph.libraries[index].metadata.imports().iter().enumerate() {
                 if matches!(import.ty, ExternType::Function(_)) {
+                    if graph.libraries[index].fixups.iter().any(|fixup| {
+                        fixup.import == ordinal && fixup.target == BindingTarget::Deferred
+                    }) {
+                        function += 1;
+                        continue;
+                    }
                     let (module, target) = graph.function_definition(index, function)?;
                     let provider = if module < work.previous {
                         &local.instances[module]
@@ -823,6 +839,77 @@ impl Local {
                 .get_mut(&index)
                 .unwrap()
                 .resolve_aliases(&functions);
+        }
+        local.stage_lazy(store, &graph, base_imports)?;
+        // A LAZY module may own several trap instances, in addition to its
+        // ordinary forwarder. Publication must not allocate after commit.
+        local
+            .forwarders
+            .try_reserve(local.stage.as_ref().unwrap().forwarders.len())
+            .map_err(failure)?;
+        Ok(())
+    }
+
+    fn stage_lazy(
+        &mut self,
+        store: &mut StoreMut<'_>,
+        graph: &Graph,
+        imports: &Imports,
+    ) -> Result<()> {
+        let size = self.table.size(&*store);
+        if graph.cursor > size {
+            self.table
+                .grow(store, graph.cursor - size, Value::FuncRef(None))?;
+        }
+        for lib in &graph.libraries {
+            for (ordinal, lazy) in &lib.lazy {
+                self.stage
+                    .as_mut()
+                    .unwrap()
+                    .lazy_targets
+                    .insert(lazy.slot, lazy.target);
+                if self.lazy_targets.get(&lazy.slot) == Some(&lazy.target) {
+                    continue;
+                }
+                let function = if let Some((module, index)) = lazy.target {
+                    let provider = self
+                        .instances
+                        .get(module)
+                        .or_else(|| {
+                            self.stage
+                                .as_ref()?
+                                .modules
+                                .get(&module)
+                                .map(StagedModule::instance)
+                        })
+                        .ok_or_else(|| failure("missing deferred target instance"))?;
+                    engine_function(provider, index)?
+                } else {
+                    let ExternType::Function(signature) = &lib.metadata.imports()[*ordinal].ty
+                    else {
+                        return Err(failure("deferred non-function import"));
+                    };
+                    let instance = forward::traps(
+                        store,
+                        &self.table,
+                        imports,
+                        std::slice::from_ref(signature),
+                    )?;
+                    let function = instance.exports.get_function("0").map_err(failure)?.clone();
+                    self.stage.as_mut().unwrap().forwarders.push(instance);
+                    function
+                };
+                let before = self
+                    .table
+                    .get(store, lazy.slot)
+                    .ok_or_else(|| failure("missing deferred slot"))?;
+                self.stage.as_mut().unwrap().lazy_slots.push(LazySlot {
+                    slot: lazy.slot,
+                    before,
+                    function,
+                    applied: false,
+                });
+            }
         }
         Ok(())
     }
@@ -870,6 +957,14 @@ struct LocalStage {
     forwarders: Vec<Instance>,
     tls: Vec<u32>,
     leases: Vec<Box<dyn LoaderReservation>>,
+    lazy_targets: BTreeMap<u32, Option<(usize, u32)>>,
+    lazy_slots: Vec<LazySlot>,
+}
+struct LazySlot {
+    slot: u32,
+    before: Value,
+    function: wasmer::Function,
+    applied: bool,
 }
 impl LocalStage {
     fn resume(stage: &mut Option<Self>, tls: Vec<u32>, leases: Vec<Box<dyn LoaderReservation>>) {
@@ -878,9 +973,35 @@ impl LocalStage {
             forwarders: Vec::new(),
             tls: Vec::new(),
             leases: Vec::new(),
+            lazy_targets: BTreeMap::new(),
+            lazy_slots: Vec::new(),
         });
         stage.tls = tls;
         stage.leases.extend(leases);
+    }
+    fn apply(&mut self, store: &mut impl AsStoreMut, table: &Table) -> Result<()> {
+        for module in self.modules.values_mut() {
+            module.apply(store)?;
+        }
+        for slot in &mut self.lazy_slots {
+            table.set(
+                store,
+                slot.slot,
+                Value::FuncRef(Some(slot.function.clone())),
+            )?;
+            slot.applied = true;
+        }
+        Ok(())
+    }
+    fn rollback(&mut self, store: &mut impl AsStoreMut, table: &Table) -> Result<()> {
+        for slot in self.lazy_slots.iter_mut().rev().filter(|slot| slot.applied) {
+            table.set(store, slot.slot, slot.before.clone())?;
+            slot.applied = false;
+        }
+        for module in self.modules.values_mut() {
+            module.rollback(store)?;
+        }
+        Ok(())
     }
 }
 struct StoreImage<S: 'static> {
@@ -1063,15 +1184,12 @@ impl<S: Syscalls + Control + Send + Sync + 'static> StoreImage<S> {
             LoaderPhase::Apply => {
                 cx.with(|_, store| {
                     let mut local = lock(&self.local);
-                    for staged in local
+                    let table = local.table.clone();
+                    local
                         .stage
                         .as_mut()
                         .ok_or_else(|| failure("missing prepared store"))?
-                        .modules
-                        .values_mut()
-                    {
-                        staged.apply(store)?;
-                    }
+                        .apply(store, &table)?;
                     Ok::<(), RuntimeError>(())
                 })
                 .await?;
@@ -1085,6 +1203,7 @@ impl<S: Syscalls + Control + Send + Sync + 'static> StoreImage<S> {
                     }
                     local.forwarders.extend(staged.forwarders);
                     local.tls = staged.tls;
+                    local.lazy_targets = staged.lazy_targets;
                     local.leases.extend(staged.leases);
                 }
                 local.generation = self.root.gate()?.generation() + 1;
@@ -1093,10 +1212,9 @@ impl<S: Syscalls + Control + Send + Sync + 'static> StoreImage<S> {
                 let stage = cx
                     .with(|_, store| {
                         let mut local = lock(&self.local);
+                        let table = local.table.clone();
                         if let Some(staged) = &mut local.stage {
-                            for module in staged.modules.values_mut() {
-                                module.rollback(store)?;
-                            }
+                            staged.rollback(store, &table)?;
                         }
                         Ok::<_, RuntimeError>(local.stage.take())
                     })
@@ -1317,13 +1435,12 @@ impl<S: Syscalls + Control + Send + Sync + 'static> AbiInstance<S> for StoreImag
                 entry
                     .with_store(|_, store| {
                         let mut local = lock(&self.local);
-                        let stage = local
+                        let table = local.table.clone();
+                        local
                             .stage
                             .as_mut()
-                            .ok_or_else(|| failure("missing entry stage"))?;
-                        for module in stage.modules.values_mut() {
-                            module.apply(store)?;
-                        }
+                            .ok_or_else(|| failure("missing entry stage"))?
+                            .apply(store, &table)?;
                         let mut stage = local.stage.take().unwrap();
                         local.leases.extend(std::mem::take(&mut stage.leases));
                         for module in stage.modules.into_values() {
@@ -1331,6 +1448,7 @@ impl<S: Syscalls + Control + Send + Sync + 'static> AbiInstance<S> for StoreImag
                         }
                         local.forwarders.extend(stage.forwarders);
                         local.tls = stage.tls;
+                        local.lazy_targets = stage.lazy_targets;
                         local.leases.extend(stage.leases);
                         local.generation = self.root.gate()?.generation();
                         Ok::<(), RuntimeError>(())
@@ -1871,6 +1989,283 @@ mod lease_cancellation_tests {
 }
 
 #[cfg(all(test, feature = "engine-tests"))]
+mod lazy_tests {
+    use super::*;
+    use std::{
+        future::Future,
+        task::{Context as PollContext, Waker},
+    };
+    use wasmer::{AsStoreAsync, Function, TypedFunction};
+
+    fn library(wat: &str) -> Library {
+        let wat = wat.replacen(
+            "(module",
+            r#"(module (import "env" "memory" (memory 1 4 shared))"#,
+            1,
+        );
+        Library::new(crate::tests::bytes(&wat, [0; 4], &[], &[], &[]), None).unwrap()
+    }
+    fn prepare(
+        local: &mut Local,
+        store: &mut Store,
+        imports: &Imports,
+        graph: Graph,
+        previous: usize,
+    ) -> Work {
+        let mut work = cyclic_tests::work(graph);
+        work.previous = previous;
+        let count = work.graph().unwrap().libraries.len();
+        local
+            .stage_modules(
+                &mut store.as_store_mut(),
+                imports,
+                &work,
+                vec![0; count],
+                Vec::new(),
+                TaskId(1),
+            )
+            .unwrap();
+        work
+    }
+    fn publish(local: &mut Local, store: &mut Store) {
+        local
+            .stage
+            .as_mut()
+            .unwrap()
+            .apply(store, &local.table)
+            .unwrap();
+        let stage = local.stage.take().unwrap();
+        for module in stage.modules.into_values() {
+            local.instances.push(module.publish().unwrap());
+        }
+        local.forwarders.extend(stage.forwarders);
+        local.tls = stage.tls;
+        local.lazy_targets = stage.lazy_targets;
+    }
+    fn initial() -> (Graph, Local, Store, Imports, TypedFunction<i32, i32>, u32) {
+        let (mut graph, mut local, mut store, imports) = cyclic_tests::fixture();
+        graph.libraries.truncate(1);
+        graph.cursor = 3;
+        graph.initialization = vec![0];
+        graph.libraries.push(library(
+            r#"(module
+            (import "env" "late" (func $late (param i32) (result i32)))
+            (func (export "call") (param i32) (result i32) local.get 0 call $late))"#,
+        ));
+        graph.assign_slots(1).unwrap();
+        graph.seal_lazy(1, 1).unwrap();
+        let slot = graph.libraries[1].lazy.values().next().unwrap().slot;
+        prepare(&mut local, &mut store, &imports, graph.clone(), 1);
+        publish(&mut local, &mut store);
+        let call = local.instances[1]
+            .exports
+            .get_typed_function::<i32, i32>(&store, "call")
+            .unwrap();
+        assert_eq!(
+            call.call(&mut store, 1).unwrap_err().to_trap(),
+            Some(wasmer_types::TrapCode::UnreachableCodeReached)
+        );
+        (graph, local, store, imports, call, slot)
+    }
+    fn resolved(mut graph: Graph) -> Graph {
+        graph.libraries.push(library("(module (func (export \"late\") (param i32) (result i32) local.get 0 i32.const 10 i32.add))"));
+        graph.assign_slots(2).unwrap();
+        graph.global.push(2);
+        graph.seal(2, 2).unwrap();
+        graph
+    }
+    #[test]
+    fn deferred_slots_restore_exact_old_values_after_partial_apply_and_replay_future_stores() {
+        let (graph, mut local, mut store, imports, call, slot) = initial();
+        let old = Function::new_typed(&mut store, |n: i32| n + 3);
+        local
+            .table
+            .set(&mut store, slot, Value::FuncRef(Some(old.clone())))
+            .unwrap();
+        let graph = resolved(graph);
+        prepare(&mut local, &mut store, &imports, graph.clone(), 2);
+        local.stage.as_mut().unwrap().lazy_slots.push(LazySlot {
+            slot: u32::MAX,
+            before: Value::FuncRef(None),
+            function: old,
+            applied: false,
+        });
+        assert!(
+            local
+                .stage
+                .as_mut()
+                .unwrap()
+                .apply(&mut store, &local.table)
+                .is_err()
+        );
+        assert_eq!(call.call(&mut store, 2).unwrap(), 12);
+        local
+            .stage
+            .as_mut()
+            .unwrap()
+            .rollback(&mut store, &local.table)
+            .unwrap();
+        // Exact observed old funcref, not a freshly recreated unresolved stub or null.
+        assert_eq!(call.call(&mut store, 2).unwrap(), 5);
+        local.stage.take();
+        assert_eq!(local.lazy_targets[&slot], None);
+        prepare(&mut local, &mut store, &imports, graph.clone(), 2);
+        publish(&mut local, &mut store);
+        assert_eq!(call.call(&mut store, 2).unwrap(), 12);
+        assert!(local.lazy_targets[&slot].is_some());
+        let (_, mut peer, mut peer_store, peer_imports) = cyclic_tests::fixture();
+        prepare(&mut peer, &mut peer_store, &peer_imports, graph, 1);
+        publish(&mut peer, &mut peer_store);
+        assert_eq!(
+            peer.instances[1]
+                .exports
+                .get_typed_function::<i32, i32>(&peer_store, "call")
+                .unwrap()
+                .call(&mut peer_store, 4)
+                .unwrap(),
+            14
+        );
+    }
+    #[test]
+    fn a_failed_peer_restores_each_existing_stores_observed_slot() {
+        let (graph, mut first, mut first_store, imports, first_call, slot) = initial();
+        let (_, mut second, mut second_store, second_imports, second_call, _) = initial();
+        let graph = resolved(graph);
+        let old_first = Function::new_typed(&mut first_store, |n: i32| n + 3);
+        let old_second = Function::new_typed(&mut second_store, |n: i32| n + 7);
+        first
+            .table
+            .set(&mut first_store, slot, Value::FuncRef(Some(old_first)))
+            .unwrap();
+        second
+            .table
+            .set(
+                &mut second_store,
+                slot,
+                Value::FuncRef(Some(old_second.clone())),
+            )
+            .unwrap();
+        prepare(&mut first, &mut first_store, &imports, graph.clone(), 2);
+        prepare(&mut second, &mut second_store, &second_imports, graph, 2);
+        first
+            .stage
+            .as_mut()
+            .unwrap()
+            .apply(&mut first_store, &first.table)
+            .unwrap();
+        second.stage.as_mut().unwrap().lazy_slots.push(LazySlot {
+            slot: u32::MAX,
+            before: Value::FuncRef(None),
+            function: old_second,
+            applied: false,
+        });
+        assert!(
+            second
+                .stage
+                .as_mut()
+                .unwrap()
+                .apply(&mut second_store, &second.table)
+                .is_err()
+        );
+        for (local, store) in [
+            (&mut first, &mut first_store),
+            (&mut second, &mut second_store),
+        ] {
+            local
+                .stage
+                .as_mut()
+                .unwrap()
+                .rollback(store, &local.table)
+                .unwrap();
+            assert_eq!(local.lazy_targets[&slot], None);
+        }
+        assert_eq!(first_call.call(&mut first_store, 2).unwrap(), 5);
+        assert_eq!(second_call.call(&mut second_store, 2).unwrap(), 9);
+    }
+
+    struct PendingLease(Arc<AtomicBool>);
+    impl LoaderReservation for PendingLease {
+        fn address(&self) -> u32 {
+            0
+        }
+        fn length(&self) -> u32 {
+            1
+        }
+        fn retain(&mut self) {}
+        fn release(self: Box<Self>) -> LocalFuture<'static, ()> {
+            Box::pin(std::future::poll_fn(move |_| {
+                if self.0.load(Ordering::Acquire) {
+                    std::task::Poll::Ready(())
+                } else {
+                    std::task::Poll::Pending
+                }
+            }))
+        }
+    }
+    #[test]
+    fn canceled_cleanup_restores_old_slots_before_awaiting_the_original_release() {
+        struct Control;
+        impl wasixv2_syscalls::LoaderControl for Control {}
+        let (graph, mut local, mut store, imports, call, slot) = initial();
+        let old = Function::new_typed(&mut store, |n: i32| n + 3);
+        local
+            .table
+            .set(&mut store, slot, Value::FuncRef(Some(old)))
+            .unwrap();
+        let work = prepare(&mut local, &mut store, &imports, resolved(graph), 2);
+        local
+            .stage
+            .as_mut()
+            .unwrap()
+            .apply(&mut store, &local.table)
+            .unwrap();
+        let ready = Arc::new(AtomicBool::new(false));
+        local
+            .stage
+            .as_mut()
+            .unwrap()
+            .leases
+            .push(Box::new(PendingLease(ready.clone())));
+        let root = Root::new(crate::tests::bytes("(module)", [0; 4], &[], &[], &[]));
+        let gate = LoaderGate::new(107);
+        assert!(root.gate.set(gate.clone()).is_ok());
+        let task = TaskId(1);
+        drop(gate.bind(task).unwrap());
+        let transaction = gate.close(task).unwrap().activate(&[task]).unwrap();
+        gate.acknowledge(task, gate.command(task).unwrap()).unwrap();
+        for phase in [LoaderPhase::Prepare, LoaderPhase::Apply] {
+            transaction.advance(phase).unwrap();
+            gate.acknowledge(task, gate.command(task).unwrap()).unwrap();
+        }
+        lock(&root.state).work = Some(Arc::new(work));
+        drop(transaction);
+        let store = store.into_async();
+        let local = Arc::new(Mutex::new(local));
+        let mut pending = Some(Box::pin(load::cleanup(
+            root,
+            local.clone(),
+            store.store(),
+            Arc::new(Control),
+            task,
+        )));
+        let mut cx = PollContext::from_waker(Waker::noop());
+        let mut abort = Box::pin(async { pending.as_mut().unwrap().await });
+        assert!(abort.as_mut().poll(&mut cx).is_pending());
+        drop(abort);
+        assert!(gate.busy());
+        assert_eq!(call.call(&mut store.store().write(), 2).unwrap(), 5);
+        assert_eq!(lock(&local).lazy_targets[&slot], None);
+        let mut transferred = pending.take().unwrap();
+        ready.store(true, Ordering::Release);
+        assert!(matches!(
+            transferred.as_mut().poll(&mut cx),
+            std::task::Poll::Ready(Ok(()))
+        ));
+        assert!(!gate.busy());
+    }
+}
+
+#[cfg(all(test, feature = "engine-tests"))]
 mod symbol_tests {
     use super::*;
     use wasmer::{AsStoreMut, MemoryType, Store, TableType};
@@ -1915,6 +2310,7 @@ mod symbol_tests {
                 stage: None,
                 leases: Vec::new(),
                 generation: 0,
+                lazy_targets: BTreeMap::new(),
             };
             for value in [base, 8192] {
                 global.set(&mut store, Value::I32(value)).unwrap();
@@ -1941,7 +2337,7 @@ mod cyclic_tests {
     use super::*;
     use wasmer::{AsStoreMut, Function, MemoryType, Store, TableType};
 
-    fn fixture() -> (Graph, Local, Store, Imports) {
+    pub(super) fn fixture() -> (Graph, Local, Store, Imports) {
         let mut store = Store::default();
         let memory = Memory::new(&mut store, MemoryType::new(1, Some(4), true)).unwrap();
         let table = Table::new(
@@ -2043,10 +2439,11 @@ mod cyclic_tests {
             stage: None,
             leases: Vec::new(),
             generation: 0,
+            lazy_targets: BTreeMap::new(),
         };
         (graph, local, store, imports)
     }
-    fn work(graph: Graph) -> Work {
+    pub(super) fn work(graph: Graph) -> Work {
         Work {
             publication: Mutex::new(Some(Publication {
                 graph: Arc::new(graph),

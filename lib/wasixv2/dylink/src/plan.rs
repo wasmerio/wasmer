@@ -25,7 +25,7 @@ pub enum PlanError {
     TypeMismatch { module: usize, name: String },
 }
 
-/// Only the planning policy: Lazy records missing references; it creates no runtime stubs.
+/// Only the planning policy: Lazy records missing direct functions; it creates no stubs.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BindingMode {
     Now,
@@ -66,7 +66,7 @@ pub enum BindingTarget {
     Host,
     /// A weak missing reference; zero is not a callable function stub.
     WeakZero,
-    /// A missing Lazy reference. Runtime binding and failure policy are not implemented.
+    /// A missing strong direct function. The live binder owns its slot and failure policy.
     Deferred,
 }
 
@@ -133,6 +133,52 @@ impl Plan {
         mode: BindingMode,
     ) -> Result<Self, PlanError> {
         Self::for_load(modules, dependencies, root, global_scope, mode, 0)
+    }
+
+    /// Retry exactly one deferred direct import under its original load group and
+    /// the current global scope. This performs no layout or old-NOW import planning.
+    #[cfg(feature = "sys")]
+    pub(crate) fn retry_direct(
+        modules: &[Module],
+        dependencies: &[Vec<usize>],
+        root: usize,
+        global_scope: &[usize],
+        caller: usize,
+        ordinal: usize,
+    ) -> Result<Option<BindingTarget>, PlanError> {
+        let import = modules
+            .get(caller)
+            .and_then(|module| module.imports.get(ordinal))
+            .ok_or(PlanError::Graph("missing deferred import"))?;
+        if classify(import)? != FixupKind::DirectFunction {
+            return Err(PlanError::Unsupported(
+                "only direct functions can be retried",
+            ));
+        }
+        if root >= modules.len() || dependencies.len() != modules.len() {
+            return Err(PlanError::Graph("missing original load group"));
+        }
+        let local = breadth_first(std::iter::once(root), dependencies);
+        let scope = breadth_first(std::iter::once(caller), dependencies);
+        let lookup = global_scope
+            .iter()
+            .chain(local.iter())
+            .chain(scope.iter())
+            .copied()
+            .collect::<Vec<_>>();
+        let Some((provider, export)) = find(modules, caller, import, &lookup) else {
+            return Ok(None);
+        };
+        bind(
+            caller,
+            import,
+            FixupKind::DirectFunction,
+            provider,
+            export,
+            &mut BTreeMap::new(),
+            &mut 0,
+        )
+        .map(Some)
     }
 
     /// Existing NOW bindings are retained by the live image, not resolved again when
@@ -215,7 +261,7 @@ impl Plan {
                     )?
                 } else if import.flags.contains(SymbolFlags::BINDING_WEAK) {
                     BindingTarget::WeakZero
-                } else if mode == BindingMode::Lazy {
+                } else if mode == BindingMode::Lazy && kind == FixupKind::DirectFunction {
                     BindingTarget::Deferred
                 } else {
                     return Err(PlanError::MissingSymbol {
@@ -436,5 +482,28 @@ fn bind(
             })
         }
         _ => Err(mismatch()),
+    }
+}
+
+#[cfg(test)]
+mod lazy_tests {
+    use super::*;
+
+    #[test]
+    fn lazy_does_not_defer_missing_got_function_or_memory_values() {
+        for namespace in ["GOT.func", "GOT.mem"] {
+            let source = crate::tests::bytes(
+                &format!("(module (import \"{namespace}\" \"missing\" (global (mut i32))))"),
+                [0; 4],
+                &[],
+                &[],
+                &[],
+            );
+            let module = Module::parse(&source).unwrap();
+            assert!(matches!(
+                Plan::new(&[module], &[Vec::new()], 0, &[], BindingMode::Lazy),
+                Err(PlanError::MissingSymbol { module: 0, .. })
+            ));
+        }
     }
 }

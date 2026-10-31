@@ -1,4 +1,4 @@
-//! Eager, typed edges to resolved definitions that have not been instantiated yet.
+//! Typed edges and unresolved-call traps, all using ordinary exec instrumentation.
 use super::{Result, failure};
 use wasm_encoder::{
     CodeSection, EntityType, ExportKind, ExportSection, Function, FunctionSection, ImportSection,
@@ -14,13 +14,47 @@ pub(super) fn instantiate(
     imports: &Imports,
     targets: &[(FuncType, u32)],
 ) -> Result<Instance> {
+    instantiate_targets(
+        store,
+        table,
+        imports,
+        &targets
+            .iter()
+            .map(|(ty, slot)| (ty.clone(), Some(*slot)))
+            .collect::<Vec<_>>(),
+    )
+}
+
+pub(super) fn traps(
+    store: &mut impl AsStoreMut,
+    table: &Table,
+    imports: &Imports,
+    signatures: &[FuncType],
+) -> Result<Instance> {
+    instantiate_targets(
+        store,
+        table,
+        imports,
+        &signatures
+            .iter()
+            .map(|ty| (ty.clone(), None))
+            .collect::<Vec<_>>(),
+    )
+}
+
+fn instantiate_targets(
+    store: &mut impl AsStoreMut,
+    table: &Table,
+    imports: &Imports,
+    targets: &[(FuncType, Option<u32>)],
+) -> Result<Instance> {
     let mut module = Module::new();
     let mut types = TypeSection::new();
     let mut functions = FunctionSection::new();
     let mut exports = ExportSection::new();
     let mut code = CodeSection::new();
     for (index, (signature, slot)) in targets.iter().enumerate() {
-        if *slot < 3 {
+        if slot.is_some_and(|slot| slot < 3) {
             return Err(failure("forwarding target is a signal sentinel"));
         }
         let convert = |ty| RoundtripReencoder.val_type(ty).map_err(failure);
@@ -42,16 +76,21 @@ pub(super) fn instantiate(
         functions.function(index);
         exports.export(&index.to_string(), ExportKind::Func, index);
         let mut function = Function::new([]);
-        for argument in 0..signature.params().len() {
-            function.instruction(&Instruction::LocalGet(
-                u32::try_from(argument).map_err(failure)?,
-            ));
+        if let Some(slot) = slot {
+            for argument in 0..signature.params().len() {
+                function.instruction(&Instruction::LocalGet(
+                    u32::try_from(argument).map_err(failure)?,
+                ));
+            }
+            function.instruction(&Instruction::I32Const(*slot as i32));
+            function.instruction(&Instruction::CallIndirect {
+                type_index: index,
+                table_index: 0,
+            });
+        } else {
+            // exec fault_signal maps unreachable to the existing process SIGILL path.
+            function.instruction(&Instruction::Unreachable);
         }
-        function.instruction(&Instruction::I32Const(*slot as i32));
-        function.instruction(&Instruction::CallIndirect {
-            type_index: index,
-            table_index: 0,
-        });
         function.instruction(&Instruction::End);
         code.function(&function);
     }

@@ -6,6 +6,14 @@ use std::{
 };
 use wasmparser::{Operator, Parser, Payload, SymbolFlags, TypeRef};
 
+/// A loader-owned direct-call slot, retained after its first concrete binding.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(super) struct LazyFunction {
+    pub slot: u32,
+    pub root: usize,
+    pub target: Option<(usize, u32)>,
+}
+
 #[derive(Clone)]
 pub(super) struct Library {
     pub source: Arc<Vec<u8>>,
@@ -14,6 +22,7 @@ pub(super) struct Library {
     pub backing: Option<wasixv2_syscalls::Image>,
     pub dependencies: Vec<usize>,
     pub fixups: Vec<Fixup>,
+    pub lazy: BTreeMap<usize, LazyFunction>,
     pub base: u32,
     pub table: u32,
     pub slots: BTreeMap<u32, u32>,
@@ -56,6 +65,7 @@ impl Library {
             backing: None,
             dependencies: Vec::new(),
             fixups: Vec::new(),
+            lazy: BTreeMap::new(),
             base: 0,
             table: 3,
             slots: BTreeMap::new(),
@@ -84,7 +94,11 @@ impl Graph {
         }
         result
     }
+    #[cfg(test)]
     pub fn plan(&self, root: usize, previously_bound: usize) -> Result<Plan> {
+        self.plan_mode(root, previously_bound, BindingMode::Now)
+    }
+    fn plan_mode(&self, root: usize, previously_bound: usize, mode: BindingMode) -> Result<Plan> {
         Plan::for_load(
             &self
                 .libraries
@@ -98,7 +112,7 @@ impl Graph {
                 .collect::<Vec<_>>(),
             root,
             &self.global,
-            BindingMode::Now,
+            mode,
             previously_bound,
         )
         .map_err(failure)
@@ -107,7 +121,17 @@ impl Graph {
     /// Future stores replay every group, including earlier RTLD_LOCAL groups, without
     /// rebinding old imports against a later RTLD_GLOBAL scope (musl do_dlsym/reloc_all).
     pub fn seal(&mut self, root: usize, previous: usize) -> Result<()> {
-        let plan = self.plan(root, previous)?;
+        self.seal_mode(root, previous, BindingMode::Now)
+    }
+    /// Only new strong direct-function misses defer. Startup and NOW remain eager.
+    pub fn seal_lazy(&mut self, root: usize, previous: usize) -> Result<()> {
+        self.seal_mode(root, previous, BindingMode::Lazy)
+    }
+    fn seal_mode(&mut self, root: usize, previous: usize, mode: BindingMode) -> Result<()> {
+        if previous > self.libraries.len() {
+            return Err(failure("previous graph length exceeds current graph"));
+        }
+        let plan = self.plan_mode(root, previous, mode)?;
         for index in previous..self.libraries.len() {
             self.libraries[index].fixups = plan
                 .fixups
@@ -115,6 +139,36 @@ impl Graph {
                 .filter(|fixup| fixup.module == index)
                 .cloned()
                 .collect();
+        }
+        for module in previous..self.libraries.len() {
+            let deferred = self.libraries[module]
+                .fixups
+                .iter()
+                .filter(|fixup| fixup.target == BindingTarget::Deferred)
+                .map(|fixup| fixup.import)
+                .collect::<Vec<_>>();
+            for ordinal in deferred {
+                if deferred_identity(&self.libraries[module], ordinal)? {
+                    return Err(failure(
+                        "deferred function requires a concrete exported or referenced identity",
+                    ));
+                }
+                let slot = self.cursor;
+                if slot < 3 {
+                    return Err(failure("signal sentinel lazy slot"));
+                }
+                self.cursor = slot
+                    .checked_add(1)
+                    .ok_or_else(|| failure("table overflow"))?;
+                self.libraries[module].lazy.insert(
+                    ordinal,
+                    LazyFunction {
+                        slot,
+                        root,
+                        target: None,
+                    },
+                );
+            }
         }
         // Re-exports name module-local imported functions. Resolve them before
         // instantiation so a cycle never forwards to its own imported alias.
@@ -126,6 +180,66 @@ impl Graph {
                 }
             }
             self.libraries[module].fixups = fixups;
+        }
+        // musl ldso/dynlink.c:redo_lazy_relocs retries unresolved references after
+        // scope extension. Preserve original groups and never revisit frozen NOW or
+        // previously resolved lazy targets. Metadata-only promotion has no new imports.
+        let modules = self
+            .libraries
+            .iter()
+            .map(|lib| lib.metadata.clone())
+            .collect::<Vec<_>>();
+        let dependencies = self
+            .libraries
+            .iter()
+            .map(|lib| lib.dependencies.clone())
+            .collect::<Vec<_>>();
+        let unresolved = self
+            .libraries
+            .iter()
+            .take(previous)
+            .enumerate()
+            .flat_map(|(module, lib)| {
+                lib.lazy
+                    .iter()
+                    .filter(|(_, lazy)| lazy.target.is_none())
+                    .map(move |(ordinal, lazy)| (module, *ordinal, lazy.root))
+            })
+            .collect::<Vec<_>>();
+        for (module, ordinal, group) in unresolved {
+            let Some(mut target) = Plan::retry_direct(
+                &modules,
+                &dependencies,
+                group,
+                &self.global,
+                module,
+                ordinal,
+            )
+            .map_err(failure)?
+            else {
+                continue;
+            };
+            let BindingTarget::Function {
+                module: provider,
+                index,
+                ..
+            } = &mut target
+            else {
+                return Err(failure("deferred function resolved to a non-function"));
+            };
+            (*provider, *index) = self.function_definition(*provider, *index)?;
+            let concrete = (*provider, *index);
+            let lib = &mut self.libraries[module];
+            let fixup = lib
+                .fixups
+                .iter_mut()
+                .find(|fixup| fixup.import == ordinal)
+                .ok_or_else(|| failure("missing deferred fixup"))?;
+            if fixup.target != BindingTarget::Deferred {
+                return Err(failure("unresolved lazy edge lost its deferred fixup"));
+            }
+            fixup.target = target;
+            lib.lazy.get_mut(&ordinal).unwrap().target = Some(concrete);
         }
         self.initialization.extend(
             plan.initialization_order
@@ -326,6 +440,83 @@ impl Graph {
         Err(failure(format!("missing symbol {name}")))
     }
 }
+/// Deferred calls are not function identities: reject address-taking and every
+/// element form, including inactive segments omitted by the initialization effects.
+fn deferred_identity(lib: &Library, ordinal: usize) -> Result<bool> {
+    let function = lib
+        .metadata
+        .imports()
+        .iter()
+        .take(ordinal)
+        .filter(|import| matches!(import.ty, ExternType::Function(_)))
+        .count() as u32;
+    if lib.slots.contains_key(&function)
+        || lib
+            .metadata
+            .exports()
+            .values()
+            .any(|export| export.index == function && matches!(export.ty, ExternType::Function(_)))
+    {
+        return Ok(true);
+    }
+    let references = |reader: wasmparser::OperatorsReader<'_>| -> Result<bool> {
+        for op in reader {
+            if matches!(op.map_err(failure)?, Operator::RefFunc { function_index } if function_index == function)
+            {
+                return Ok(true);
+            }
+        }
+        Ok(false)
+    };
+    for payload in Parser::new(0).parse_all(&lib.source) {
+        match payload.map_err(failure)? {
+            Payload::ElementSection(section) => {
+                for element in section {
+                    match element.map_err(failure)?.items {
+                        wasmparser::ElementItems::Functions(items) => {
+                            for index in items {
+                                if index.map_err(failure)? == function {
+                                    return Ok(true);
+                                }
+                            }
+                        }
+                        wasmparser::ElementItems::Expressions(_, items) => {
+                            for expr in items {
+                                if references(expr.map_err(failure)?.get_operators_reader())? {
+                                    return Ok(true);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            Payload::GlobalSection(section) => {
+                for global in section {
+                    if references(global.map_err(failure)?.init_expr.get_operators_reader())? {
+                        return Ok(true);
+                    }
+                }
+            }
+            Payload::TableSection(section) => {
+                for table in section {
+                    if let wasmparser::TableInit::Expr(expr) = table.map_err(failure)?.init
+                        && references(expr.get_operators_reader())?
+                    {
+                        return Ok(true);
+                    }
+                }
+            }
+            Payload::CodeSectionEntry(body)
+                if references(body.get_operators_reader().map_err(failure)?)? =>
+            {
+                return Ok(true);
+            }
+            _ => {}
+        }
+    }
+    Ok(false)
+}
+
 /// Literal base inputs before engine instantiation; the fully resolved GOT values replace
 /// the zero placeholders before any initialization plan is applied.
 pub(super) fn infrastructure(lib: &Library, stack: u32, tls: u32) -> BTreeMap<u32, u64> {
@@ -391,6 +582,231 @@ pub(super) fn initial_globals(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn lazy_library(wat: &str) -> Library {
+        Library::new(crate::tests::bytes(wat, [0; 4], &[], &[], &[]), None).unwrap()
+    }
+    fn missing_direct() -> Graph {
+        Graph {
+            libraries: vec![
+                lazy_library("(module)"),
+                lazy_library(r#"(module (import "env" "f" (func (param i32) (result i32))))"#),
+            ],
+            global: vec![0],
+            cursor: 3,
+            initialization: vec![0],
+        }
+    }
+    fn append_library(graph: &mut Graph, wat: &str) -> usize {
+        let index = graph.libraries.len();
+        graph.libraries.push(lazy_library(wat));
+        graph.assign_slots(index).unwrap();
+        index
+    }
+    #[test]
+    fn lazy_defers_only_missing_strong_direct_edges_with_stable_import_ordinal_slots() {
+        let mut graph = missing_direct();
+        graph.libraries[1] = lazy_library(
+            r#"(module
+            (import "env" "__memory_base" (global i32))
+            (import "wasixv2" "host" (func))
+            (import "env" "f" (func (param i32) (result i32))))"#,
+        );
+        assert!(
+            graph
+                .clone()
+                .seal(1, 1)
+                .unwrap_err()
+                .to_string()
+                .contains("MissingSymbol")
+        );
+        graph.seal_lazy(1, 1).unwrap();
+        let edge = graph.libraries[1].lazy[&2].clone();
+        assert_eq!(
+            edge,
+            LazyFunction {
+                slot: 3,
+                root: 1,
+                target: None
+            }
+        );
+        assert_eq!(graph.libraries[1].fixups[2].target, BindingTarget::Deferred);
+        assert_eq!(graph.cursor, 4);
+        assert!(graph.function_definition(1, 1).is_err());
+        graph.seal(1, 2).unwrap();
+        assert_eq!(graph.libraries[1].lazy[&2], edge);
+        assert_eq!(graph.cursor, 4, "retry must not allocate another slot");
+        for cursor in [0, u32::MAX] {
+            let mut invalid = missing_direct();
+            invalid.cursor = cursor;
+            assert!(invalid.seal_lazy(1, 1).is_err());
+        }
+    }
+    #[test]
+    fn deferred_dependency_keeps_the_requested_lookup_group() {
+        let root = Library::new(
+            crate::tests::bytes("(module)", [0; 4], &["dep"], &[], &[]),
+            None,
+        )
+        .unwrap();
+        let mut graph = missing_direct();
+        graph.libraries.push(graph.libraries[1].clone());
+        graph.libraries[1] = root;
+        graph.libraries[1].dependencies = vec![2];
+        graph.seal_lazy(1, 1).unwrap();
+        assert_eq!(graph.libraries[2].lazy[&0].root, 1);
+        assert_eq!(graph.libraries[2].lazy[&0].target, None);
+        let unrelated = append_library(
+            &mut graph,
+            r#"(module (func (export "f") (param i32) (result i32) local.get 0))"#,
+        );
+        graph.seal(unrelated, unrelated).unwrap();
+        assert_eq!(graph.libraries[2].lazy[&0].target, None);
+    }
+
+    #[test]
+    fn unrelated_local_definition_does_not_resolve_until_global_promotion_then_freezes() {
+        let mut graph = missing_direct();
+        graph.seal_lazy(1, 1).unwrap();
+        let slot = graph.libraries[1].lazy[&0].slot;
+        let provider = append_library(
+            &mut graph,
+            r#"(module (func (export "f") (param i32) (result i32) local.get 0))"#,
+        );
+        graph.seal(provider, provider).unwrap();
+        assert_eq!(graph.libraries[1].lazy[&0].target, None);
+        assert_eq!(graph.libraries[1].fixups[0].target, BindingTarget::Deferred);
+        graph.global.push(provider);
+        graph.seal(provider, graph.libraries.len()).unwrap();
+        assert_eq!(
+            graph.libraries[1].lazy[&0],
+            LazyFunction {
+                slot,
+                root: 1,
+                target: Some((provider, 0))
+            }
+        );
+        assert!(matches!(graph.libraries[1].fixups[0].target,
+            BindingTarget::Function { module, index: 0, slot: None } if module == provider));
+        let frozen = graph.libraries[1].fixups.clone();
+        let incompatible = append_library(&mut graph, "(module (func (export \"f\")))");
+        // Deliberately change current lookup priority: even a now-incompatible first
+        // definition must not cause a resolved edge to be looked up or typechecked again.
+        graph.global.insert(1, incompatible);
+        graph.seal_lazy(incompatible, incompatible).unwrap();
+        assert_eq!(graph.libraries[1].fixups, frozen);
+        assert_eq!(graph.libraries[1].lazy[&0].slot, slot);
+        assert_eq!(graph.libraries[1].lazy[&0].target, Some((provider, 0)));
+    }
+    #[test]
+    fn lazy_retry_typechecks_first_visible_definition_without_mutating_old_binding() {
+        let mut graph = missing_direct();
+        graph.seal_lazy(1, 1).unwrap();
+        let original = graph.libraries[1].lazy.clone();
+        let wrong = append_library(&mut graph, "(module (func (export \"f\")))");
+        graph.global.push(wrong);
+        assert!(
+            graph
+                .seal(wrong, wrong)
+                .unwrap_err()
+                .to_string()
+                .contains("TypeMismatch")
+        );
+        assert_eq!(graph.libraries[1].lazy, original);
+        assert_eq!(graph.libraries[1].fixups[0].target, BindingTarget::Deferred);
+    }
+    #[test]
+    fn old_now_imports_are_not_revalidated_when_lazy_edges_are_retried() {
+        let mut graph = missing_direct();
+        graph.libraries[1] = lazy_library(
+            r#"(module
+            (import "env" "f" (func (param i32) (result i32)))
+            (func (export "f") (param i32) (result i32) local.get 0))"#,
+        );
+        graph.assign_slots(1).unwrap();
+        graph.seal(1, 1).unwrap();
+        let frozen = graph.libraries[1].fixups.clone();
+        let wrong = append_library(&mut graph, "(module (func (export \"f\")))");
+        graph.seal(wrong, wrong).unwrap();
+        graph.global.push(wrong);
+        assert!(
+            graph.plan(1, 0).is_err(),
+            "fresh planning would see an incompatible global"
+        );
+        graph.seal_lazy(1, graph.libraries.len()).unwrap();
+        assert_eq!(graph.libraries[1].fixups, frozen);
+        assert!(graph.libraries[1].lazy.is_empty());
+    }
+    #[test]
+    fn lazy_rejects_missing_got_but_keeps_existing_weak_zero_policy() {
+        for namespace in ["GOT.func", "GOT.mem"] {
+            let mut graph = missing_direct();
+            graph.libraries[1] = lazy_library(&format!(
+                "(module (import \"{namespace}\" \"missing\" (global (mut i32))))"
+            ));
+            assert!(
+                graph
+                    .seal_lazy(1, 1)
+                    .unwrap_err()
+                    .to_string()
+                    .contains("MissingSymbol")
+            );
+        }
+        let mut graph = missing_direct();
+        graph.libraries[1] = Library::new(
+            crate::tests::bytes(
+                r#"(module (import "env" "f" (func (param i32) (result i32))))"#,
+                [0; 4],
+                &[],
+                &[],
+                &[(
+                    "env",
+                    "f",
+                    SymbolFlags::BINDING_WEAK | SymbolFlags::UNDEFINED,
+                )],
+            ),
+            None,
+        )
+        .unwrap();
+        graph.seal_lazy(1, 1).unwrap();
+        assert_eq!(graph.libraries[1].fixups[0].target, BindingTarget::WeakZero);
+        assert!(graph.libraries[1].lazy.is_empty());
+    }
+    #[test]
+    fn deferred_imports_cannot_supply_export_element_or_ref_func_identities() {
+        for use_ in [
+            r#"(export "alias" (func $f))"#,
+            r#"(table 4 funcref) (elem (i32.const 3) $f)"#,
+            r#"(elem func $f)"#,
+            r#"(elem declare func $f)"#,
+            r#"(elem funcref (ref.func $f))"#,
+            r#"(elem declare funcref (ref.func $f))"#,
+            r#"(global funcref (ref.func $f)) (func ref.func $f drop)"#,
+        ] {
+            let mut graph = missing_direct();
+            graph.libraries[1] = lazy_library(&format!(
+                r#"(module (import "env" "missing" (func $f)) {use_})"#
+            ));
+            assert!(
+                graph
+                    .seal_lazy(1, 1)
+                    .unwrap_err()
+                    .to_string()
+                    .contains("concrete exported or referenced identity"),
+                "{use_}"
+            );
+        }
+        let mut alias = missing_direct();
+        alias.libraries[1] =
+            lazy_library(r#"(module (import "env" "f" (func $f)) (export "f" (func $f)))"#);
+        assert!(
+            alias
+                .seal_lazy(1, 1)
+                .unwrap_err()
+                .to_string()
+                .contains("alias cycle")
+        );
+    }
 
     #[test]
     fn main_tls_lookup_uses_store_base_but_early_relocations_stay_rejected() {
