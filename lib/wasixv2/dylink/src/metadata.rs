@@ -47,6 +47,7 @@ pub struct Module {
     pub(crate) functions: Vec<FuncType>,
     pub(crate) exports: BTreeMap<String, Export>,
     unknown: Vec<(u8, Vec<u8>)>,
+    omitted_weak_imports: BTreeMap<(String, String), SymbolFlags>,
     start: Option<u32>,
 }
 
@@ -173,25 +174,43 @@ impl Module {
             mut export_flags,
             unknown,
         } = dylink.ok_or(PlanError::Metadata("missing dylink.0 section"))?;
-        let imports = raw_imports
-            .into_iter()
-            .map(|(module, name, ty)| {
-                let flags = import_flags
-                    .get(&(module.clone(), name.clone()))
-                    .copied()
-                    .unwrap_or_default();
-                Import {
-                    module,
-                    name,
-                    ty,
-                    flags,
-                }
-            })
-            .collect::<Vec<_>>();
-        for import in &imports {
-            import_flags.remove(&(import.module.clone(), import.name.clone()));
+        let mut imports = Vec::new();
+        let mut consumed = BTreeSet::new();
+        for (module, name, ty) in raw_imports {
+            let direct = (module.clone(), name.clone());
+            let semantic = ("env".to_string(), name.clone());
+            let exact = import_flags.get(&direct).copied();
+            let got = if matches!(module.as_str(), "GOT.mem" | "GOT.func") {
+                import_flags.get(&semantic).copied()
+            } else {
+                None
+            };
+            if exact.zip(got).is_some_and(|(a, b)| a != b) {
+                return Err(PlanError::Metadata("ambiguous GOT import flags"));
+            }
+            if exact.is_some() {
+                consumed.insert(direct);
+            }
+            if got.is_some() {
+                consumed.insert(semantic);
+            }
+            imports.push(Import {
+                module,
+                name,
+                ty,
+                flags: exact.or(got).unwrap_or_default(),
+            });
         }
-        if !import_flags.is_empty() {
+        for key in consumed {
+            import_flags.remove(&key);
+        }
+        // lld/wasm/SyntheticSections.cpp:DylinkSection::writeBody emits all live
+        // undefined weak symbols, including data resolved to zero without a wasm import.
+        // Preserve those annotations; a dangling strong/non-undefined entry is malformed.
+        if import_flags
+            .values()
+            .any(|flags| !flags.contains(SymbolFlags::UNDEFINED | SymbolFlags::BINDING_WEAK))
+        {
             return Err(PlanError::Metadata(
                 "dylink metadata names a missing import",
             ));
@@ -236,8 +255,13 @@ impl Module {
             functions,
             exports,
             unknown,
+            omitted_weak_imports: import_flags,
             start,
         })
+    }
+
+    pub fn omitted_weak_imports(&self) -> &BTreeMap<(String, String), SymbolFlags> {
+        &self.omitted_weak_imports
     }
 
     pub fn memory_info(&self) -> wasmparser::MemInfo {

@@ -1042,3 +1042,54 @@ fn native_staging_never_runs_guest_initializers_and_rolls_back_fresh_effects() {
         "side-module loop bypassed exec preemption"
     );
 }
+
+#[test]
+fn lld_omitted_undefined_weak_annotations_do_not_create_imports() {
+    let flags = SymbolFlags::UNDEFINED | SymbolFlags::BINDING_WEAK | SymbolFlags::VISIBILITY_HIDDEN;
+    let wasm = bytes(
+        "(module)",
+        [0; 4],
+        &[],
+        &[],
+        &[("env", "__init_array_start", flags)],
+    );
+    let module = Module::parse(&wasm).unwrap();
+    assert!(module.imports().is_empty());
+    assert_eq!(
+        module.omitted_weak_imports()[&("env".into(), "__init_array_start".into())],
+        flags
+    );
+    assert!(
+        Module::parse(&bytes(
+            "(module)",
+            [0; 4],
+            &[],
+            &[],
+            &[("env", "strong", SymbolFlags::UNDEFINED)]
+        ))
+        .is_err()
+    );
+}
+
+#[test]
+fn semantic_weak_import_flags_apply_to_got_and_ambiguous_flags_fail() {
+    let flags = SymbolFlags::UNDEFINED | SymbolFlags::BINDING_WEAK;
+    let wat = "(module (import \"GOT.mem\" \"weak\" (global (mut i32))))";
+    let wasm = bytes(wat, [0; 4], &[], &[], &[("env", "weak", flags)]);
+    let module = Module::parse(&wasm).unwrap();
+    assert_eq!(module.imports()[0].flags, flags);
+    assert!(module.omitted_weak_imports().is_empty());
+    let plan = Plan::new(&[module], &[vec![]], 0, &[], BindingMode::Now).unwrap();
+    assert_eq!(plan.fixups[0].target, BindingTarget::WeakZero);
+    let wasm = bytes(
+        wat,
+        [0; 4],
+        &[],
+        &[],
+        &[
+            ("env", "weak", flags),
+            ("GOT.mem", "weak", SymbolFlags::empty()),
+        ],
+    );
+    assert!(Module::parse(&wasm).is_err());
+}
