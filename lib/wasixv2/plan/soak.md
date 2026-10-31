@@ -109,3 +109,30 @@ ratio remains0.979–0.992, which supports shared scheduling contention rather t
 aging-machine degradation. This is a robustness run on a shared host, not an
 isolated performance benchmark. No clean two-hour curve is claimed yet.
 Canonical takeover state: `~/wasixv2-orch/logs/v16soak/STATE.md`.
+
+### Interpreting native RSS
+
+The late RSS rise was investigated before classifying it as a leak. Supplemental
+`quiescent.jsonl` samples host memory100ms after completed cycles, during the
+guest's one-second idle. Version-specific `userland/tests/soak-arenas.py` reads
+only the owned process's `/proc/PID/mem`, without attaching, pausing, signalling,
+injecting calls or changing its allocator. Run it with read permission (normally
+`sudo`) and the live result directory, optionally followed by a machine name.
+Locked/changing arena snapshots are discarded and reported.
+
+On this glibc2.39/x86_64 host, two stable55-arena snapshots at92.8/96.8minutes show
+system bytes566.809/567.027MiB, free chunks529.830/529.756MiB and unfreed bytes
+36.979/37.271MiB. A fresh-cycle control shows45arenas,321.055MiB system,
+295.601MiB free and25.454MiB unfreed. Unfreed includes allocator metadata and
+tcaches; it is not a precise application live-byte counter. Most native heap
+memory is already free for reuse, so RSS alone does not establish a kernel leak.
+No `malloc_trim`, arena-limit setting or runtime workaround has been applied.
+Late samples will test whether this footprint levels off; the raw RSS warming
+remains part of the reported curve.
+
+Parser/layout source: glibc2.39
+[`malloc.c:malloc_state,__malloc_info`](https://raw.githubusercontent.com/bminor/glibc/glibc-2.39/malloc/malloc.c)
+and [`arena.c:heap_info,arena_get2,__malloc_arena_thread_freeres`](https://raw.githubusercontent.com/bminor/glibc/glibc-2.39/malloc/arena.c).
+The latter retains detached arenas for reuse and bounds their creation using the
+native core count unless explicitly configured. The heap-shaped map observation
+is checked against that source; free-bin snapshots supply the stronger evidence.
