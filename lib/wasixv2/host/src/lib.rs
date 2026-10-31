@@ -5,6 +5,9 @@
 //! Two implementations ship here: [`TokioHost`] for native embedders (feature `tokio`) and
 //! [`WebHost`] for `wasm32-unknown-unknown` in a browser or node (feature `web`).
 
+mod loader_cleanup;
+pub use loader_cleanup::{LoaderCleanup, LoaderCleanupJob};
+
 #[cfg(feature = "browser")]
 pub mod browser;
 #[cfg(feature = "tokio")]
