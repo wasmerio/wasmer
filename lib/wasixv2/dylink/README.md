@@ -18,7 +18,7 @@ GC/typed-function signatures, exact function imports/exports and wasm64 are reje
 
 Plans contain cycle-safe graph order, aligned relative memory/table reservations,
 direct function and GOT fixups, and separate TLS/absolute/data offsets. Tables
-reserve null at zero. Global scope precedes the local load group; hidden/local
+reserve null at zero and the existing signal sentinels at one and two. Global scope precedes the local load group; hidden/local
 definitions bind locally. Lookup takes the first visible definition including weak
 definitions, as musl's `ldso/dynlink.c:find_sym2` does. Missing strong NOW references
 fail, missing weak references become zero, and unresolved LAZY references remain

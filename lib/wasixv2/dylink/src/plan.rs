@@ -155,7 +155,7 @@ impl Plan {
         );
         let initialization_order = postorder(&load_order, dependencies);
         let mut memory_size = 0;
-        let mut table_size = 1; // Null is never a usable function pointer.
+        let mut table_size = 3; // 0=null, 1=SIG_IGN, 2=SIG_HOLD (existing wasixv2 signal ABI).
         let mut memory_alignment = 1;
         let mut table_alignment = 1;
         let mut layouts = Vec::new();

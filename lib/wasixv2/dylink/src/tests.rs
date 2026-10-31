@@ -101,8 +101,8 @@ fn cycles_diamonds_and_layouts_are_deterministic() {
     assert_eq!(plan.initialization_order, [2, 1, 0]);
     assert_eq!(plan.layouts[0].memory.start, 0);
     assert_eq!(plan.layouts[2].memory, 32..48);
-    assert_eq!(plan.layouts[0].table.start, 1);
-    assert_eq!(plan.layouts[2].table, 5..7);
+    assert_eq!(plan.layouts[0].table.start, 3);
+    assert_eq!(plan.layouts[2].table, 7..9);
     assert!(
         Plan::new(
             &modules,
@@ -695,4 +695,25 @@ fn source_built_lld_initialization_contract() {
 
 fn reservation(range: std::ops::Range<u64>) -> [std::ops::Range<u64>; 1] {
     [range]
+}
+
+#[test]
+fn signal_handler_sentinels_are_not_dynamic_table_slots() {
+    let m = Module::parse(&bytes(
+        "(module (import \"GOT.func\" \"f\" (global (mut i32))) (func (export \"f\")))",
+        [0; 4],
+        &[],
+        &[],
+        &[],
+    ))
+    .unwrap();
+    let plan = Plan::new(&[m], &[vec![]], 0, &[], BindingMode::Now).unwrap();
+    assert!(plan.layouts[0].table.start >= 3);
+    assert!(matches!(
+        plan.fixups[0].target,
+        BindingTarget::Function {
+            slot: Some(3..),
+            ..
+        }
+    ));
 }
