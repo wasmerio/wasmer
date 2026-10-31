@@ -148,7 +148,11 @@ ownership atomically under the final table lock, preserving the existing
 Control::release and exec contracts. Linux source: `kernel/exit.c:release_task`,
 `kernel/fork.c:__put_task_struct`. 126focused signal/task/ptrace/FUSE tests PASS;
 exact Makefile-flags all-target kernel clippy and workspace fmtcheck PASS.
-Final fixed-runtime two-hour confirmation is pending.
+Final fixed-runtime run04 completed7200.286s afterREADY:1579persistent and
+1529fresh cycles (3108total),59fresh machines,120minute ticks/maxgap60.93s.
+Every exit0/DONE, all quiescent guest tasks11, no panic/assertion/stall. This
+confirms the established fixes functionally; **memory sign-off remains open**.
+Machine-readable aggregates and evidence hashes are in `soak.results.json`.
 
 Canonical takeover state: `~/wasixv2-orch/logs/v16soak/STATE.md`.
 
@@ -197,3 +201,50 @@ cache-count reads validate each thread; changing/disappearing threads are
 reported as unstable. Self-control PASS; finalrun cycle805 measured33/33stable
 threads and0.806MiB tcache chunks. This does not explain the entire arena
 unfreed estimate. No process attach, target writes, signals or allocator tuning.
+
+
+## Fixed run04 curves and open heap investigation
+
+Canonical debug CLI `ff65b0255b5`, SHA256
+`6597f726a69a8cf7ea4c1862c212af89dcf5bbeef8b109798959cbe480f75463`;
+immutable guest/observer snapshot at recipe `8a7e2005439`. No full suite or
+release build. Cgroup observed peak2060251136bytes, swap0, cap5600MiB;
+process affinity/nice verified4–7/19. Raw data: `logs/v16soak/run-04`.
+
+| Resource | Warm median | p95 | Range | First/last15min median |
+| --- | ---: | ---: | ---: | ---: |
+| RSS KiB |655904|776272|606140–795052|747852 /687500|
+| Native fds |72|77|68–80|75 /73|
+| Native threads |37|46|32–51|36 /39|
+| Guest tasks (in-cycle) |18|25|11–27|15 /17|
+| Fixed HTTP probe ms |2.835|12.552|1.279–19.897|2.038 /5.357|
+
+RSS fell naturally around minute30, then rose again; late-hour slope+65301KiB/h.
+Corrected block flags mark RSS/threads for investigation. The final100quiescent
+host samples have fds71 and threads35–37; all3108quiescent guest counts are11.
+Persistent/fresh cycle-median ratios are0.938–1.003 across10-minute windows, so
+no aging-specific throughput loss is demonstrated.
+
+The separate final32-machine embedding run PASS: every Net/TokioHost weak owner
+expired, fds11 throughout, final16threads23–24, final4RSS1473644–1473652KiB
+(8KiB variation). This checks many machines in one native process separately
+from the long persistent-machine run.
+
+Most native arena bytes are free for reuse, but the **unfreed estimate is not
+flat**:26.230MiB at5min to38.823MiB at115min. Final arena sample53/53stable,
+system575.832/free537.009MiB,35attached threads. Tcache64/85/115min estimates
+0.806458/0.812927/0.821320MiB do not explain that increase.
+
+A separate180s diagnostic run on `ff65` plus archived temporary read-only
+counters completed51full cycles. DeadTask records stay0–1, live tasks11–29,
+PID/process capacities56, root saved stacks4–6/~1–10KiB, tmpfs47–49inodes and
+22–24blocks. All vfork tables are empty in sampled points. This confirms the
+retirement race correction and rules out these simple accumulation paths in
+the bounded run. Temporary sources were SHA-guarded/restored; production branch
+stays clean. `counters-final-results.json` retains named ranges.
+
+Native allocation profiling of a separate bounded fork/exec workload is in
+progress using a task-owned extracted Valgrind package. Host packages and the
+canonical CLI are unchanged. Do not call all resource curves flat or conclude
+that the remaining heap rise is harmless before its allocation stacks are
+understood. Canonical continuation state is the STATE.md linked above.
