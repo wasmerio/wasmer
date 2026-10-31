@@ -1329,6 +1329,11 @@ impl Kernel {
         if newsp != 0 || args.start_arg.is_some() {
             return Err(Errno::EINVAL.into());
         }
+        let _admission = self
+            .mm(caller.task())
+            .loader
+            .admit()
+            .map_err(|_| wasixv2_syscalls::SysErr::RestartNoIntr)?;
         let pidfd = match flags.contains(CloneFlags::CLONE_PIDFD) {
             true => Some(self.prepare_pidfd(caller, args.pidfd, true).await?),
             false => None,
@@ -1387,6 +1392,11 @@ impl Kernel {
         start_arg: u32,
         into: Option<Result<Arc<Cgroup>, Errno>>,
     ) -> SysResult<i32> {
+        let _admission = self
+            .mm(caller.task())
+            .loader
+            .admit()
+            .map_err(|_| wasixv2_syscalls::SysErr::RestartNoIntr)?;
         let flags = args.flags;
         let pidfd = match flags.contains(CloneFlags::CLONE_PIDFD) {
             true => Some(self.prepare_pidfd(caller, args.pidfd, true).await?),
@@ -1817,6 +1827,11 @@ impl Kernel {
         env: Vec<Vec<u8>>,
         flags: AtFlags,
     ) -> SysResult<i32> {
+        let _admission = self
+            .mm(caller.task())
+            .loader
+            .admit()
+            .map_err(|_| wasixv2_syscalls::SysErr::RestartNoIntr)?;
         // Linux 5.18+: an empty argv gets an empty argv[0], so argc is never 0.
         if args.is_empty() {
             args.push(Vec::new());
@@ -2209,6 +2224,7 @@ impl Kernel {
             // Linux kernel/fork.c:mm_init also initializes exec's mm from the
             // current mm's inheritable flags (MDWE_NO_INHERIT is honored here).
             let inherited = t.mm.prctl.lock_or_recover().for_new_mm();
+            t.mm.loader.leave(task);
             t.mm = Arc::default();
             *t.mm.prctl.lock_or_recover() = inherited;
             t.thread = thread::ThreadState::default();

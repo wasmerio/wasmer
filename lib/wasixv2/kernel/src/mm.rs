@@ -196,6 +196,7 @@ impl VmSysctls {
 /// same linear memory shares one: the threads of a group, and a vfork child while it runs in its
 /// parent's instance.
 pub(crate) struct Mm {
+    pub(crate) loader: Arc<wasixv2_syscalls::LoaderGate>,
     /// Names the address space in futex keys; never reused.
     id: u64,
     pub(crate) prctl: Mutex<crate::ident::MmPrctl>,
@@ -281,8 +282,10 @@ impl Mm {
         let access = PageAccess::default();
         access.set(space.restricted());
         space.dirty = None;
+        let id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
         Self {
-            id: NEXT_ID.fetch_add(1, Ordering::Relaxed),
+            id,
+            loader: wasixv2_syscalls::LoaderGate::new(id),
             prctl: Mutex::default(),
             op: Default::default(),
             shared: AtomicBool::new(space.mappings.any_shared()),

@@ -687,6 +687,8 @@ pub(super) mod tests {
         }
     }
 
+    impl wasixv2_syscalls::LoaderControl for Recorder {}
+
     impl Control for Recorder {
         fn work_flag(&self, _: TaskId) -> Arc<wasixv2_syscalls::WorkFlag> {
             self.resume_flag

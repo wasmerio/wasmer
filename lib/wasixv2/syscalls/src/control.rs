@@ -198,7 +198,14 @@ impl WorkFlag {
 /// The return-to-guest interface. The execution layer asks after every syscall and at every
 /// preemption point, and reports what becomes of the instances it runs tasks on.
 pub trait Control:
-    AtomicWait + CpuTime + ExitMm + GroupStop + PidView + SharedMappings + VforkWait
+    crate::LoaderControl
+    + AtomicWait
+    + CpuTime
+    + ExitMm
+    + GroupStop
+    + PidView
+    + SharedMappings
+    + VforkWait
 {
     /// The next thing to do for `task`: an exit, a thread to start, a signal handler to run, or
     /// nothing.

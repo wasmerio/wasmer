@@ -222,6 +222,11 @@ impl Kernel {
             return Err(Errno::EINVAL.into());
         }
         let parent = caller.task();
+        let _admission = self
+            .mm(parent)
+            .loader
+            .admit()
+            .map_err(|_| wasixv2_syscalls::SysErr::RestartNoIntr)?;
         let child = {
             let mut state = self.state.lock_or_recover();
             let task = state
@@ -1139,6 +1144,7 @@ impl Kernel {
             let Some(entry) = state.tasks.get_mut(&task) else {
                 return;
             };
+            entry.mm.loader.leave(task);
             entry.thread.left_mm = true;
             // `exit_task_namespaces`, after `exit_mm`: a task that is done holds no namespace,
             // which goes with its last task before the process is seen to exit.
@@ -1329,6 +1335,7 @@ pub(crate) fn forget_task(state: &mut State, task: TaskId) -> Option<Arc<Process
 /// live tasks with it. Returns its entry, and whether that completed a group stop.
 fn unhash_task(state: &mut State, task: TaskId) -> Option<(Task, bool)> {
     let entry = state.tasks.remove(&task)?;
+    entry.mm.loader.leave(task);
     // kernel/exit.c `__exit_signal`, under the same lock procfs uses to sum live tasks.
     entry.process.ioac.add(entry.ioac.counts());
     state.pids.detach(task.0, crate::pid::PidType::Pid);

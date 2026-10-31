@@ -32,6 +32,7 @@ mod ipc;
 mod kcmp;
 mod keys;
 mod landlock;
+mod loader;
 mod lsm;
 mod memfd;
 mod mm;

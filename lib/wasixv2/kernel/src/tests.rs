@@ -811,6 +811,7 @@ mod ipc;
 mod jobctl;
 mod keys;
 mod landlock;
+mod loader;
 mod lsm;
 #[cfg(any(target_os = "linux", target_os = "android", target_os = "macos"))]
 mod mapped;
