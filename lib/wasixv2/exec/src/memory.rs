@@ -1168,7 +1168,7 @@ mod tests {
         .unwrap();
         let mut abis = crate::Abis::new();
         abis.push(Arc::new(crate::Wasixv2));
-        let mut ready = crate::instantiate(
+        let mut ready = futures::executor::block_on(crate::instantiate(
             store,
             &module,
             Arc::new(Recorder::default()),
@@ -1177,7 +1177,7 @@ mod tests {
             Arc::new(abis),
             wasixv2_host::LoaderCleanup::new(Arc::new(NoThreads)),
             None,
-        )
+        ))
         .unwrap();
         let access = Arc::new(PageAccess::default());
         ready.env.as_mut(&mut ready.store).page_access = Some(access.clone());

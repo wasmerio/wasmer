@@ -13,7 +13,7 @@ use wasmer::{
     StoreAsync, Value,
 };
 
-use crate::{ExecEnv, ExecError, LoadError, Loader, asyncify};
+use crate::{ExecEnv, ExecError, LoadError, Loader, Preparation, asyncify};
 
 /// One guest ABI.
 pub trait Abi<S>: Send + Sync + 'static
@@ -60,6 +60,18 @@ where
     fn imports(&self, store: &mut Store, env: &FunctionEnv<ExecEnv<S>>, module: &Module)
     -> Imports;
 
+    /// Optionally supplies store-local imports/state before instantiating the main module.
+    /// Default/custom ABIs retain the ordinary imports and bind path. No guest code may
+    /// run during preparation; returned state owns no borrow of the context or async store.
+    #[allow(clippy::type_complexity)] // explicit optional store-affine attachment ownership
+    fn prepare<'a>(
+        &'a self,
+        preparation: &'a Preparation<'a, S>,
+    ) -> LocalFuture<'a, Result<Option<Box<dyn PreparedImage<S>>>, ExecError>> {
+        let _ = preparation;
+        Box::pin(async { Ok(None) })
+    }
+
     /// Binds what the execution layer needs of a new instance of a module this ABI matched.
     /// Called once per instance, before any of its code runs, with the task it starts as.
     #[allow(clippy::result_large_err)] // `ExecError` is the crate's error, returned once per instance
@@ -95,6 +107,23 @@ where
     fn low_guard(&self) -> bool {
         false
     }
+}
+
+/// Store-affine pre-instantiation state. Consuming bind transfers all prepared
+/// instances and leases into the resulting ordinary ABI instance. On failure or
+/// cancellation its owner releases them through the existing loader cleanup scope.
+pub trait PreparedImage<S: 'static>: 'static {
+    /// Additional imports, merged over the ABI's ordinary imports before instantiation.
+    fn imports(&self) -> &Imports;
+
+    #[allow(clippy::result_large_err)]
+    fn bind(
+        self: Box<Self>,
+        instance: &Instance,
+        store: &mut Store,
+        task: TaskId,
+        role: Role,
+    ) -> Result<Arc<dyn AbiInstance<S>>, ExecError>;
 }
 
 /// What an instance is for.
@@ -282,6 +311,13 @@ impl<'a, S: Send + Sync + 'static> Entry<'a, S> {
 
     pub fn memory(&self) -> impl wasixv2_syscalls::UserMemory + '_ {
         crate::memory::OutsideMemory { cx: &self.cx }
+    }
+
+    /// An owned handle for finite host cleanup/cancellation work on this store.
+    /// Do not retain it in ABI state reachable from this store's own environment.
+    pub fn store(&self) -> StoreAsync {
+        use crate::asyncify::Access;
+        self.cx.store()
     }
 
     /// Host-only store access before guest entry; the closure cannot suspend or invoke wasm.

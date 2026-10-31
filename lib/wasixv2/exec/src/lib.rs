@@ -19,6 +19,7 @@ mod memory_image;
 #[cfg(all(target_os = "linux", feature = "sys"))]
 mod pagemap;
 mod preempt;
+mod preparation;
 mod process;
 mod signal;
 mod thread;
@@ -33,12 +34,15 @@ use std::{
     task::Poll,
 };
 
-pub use abi::{Abi, AbiInstance, Abis, Entry, EntryReturn, Role, Sigreturn, VforkResume};
+pub use abi::{
+    Abi, AbiInstance, Abis, Entry, EntryReturn, PreparedImage, Role, Sigreturn, VforkResume,
+};
 pub use dynamic::GuestDynamicLinker;
 pub use generated::IMPORT_MODULE;
 pub use loader::{Compile, LoadError, Loader};
 pub use memory::GuestMemory;
 pub use preempt::InstrumentError;
+pub use preparation::Preparation;
 pub use process::VFORK_RETURN;
 pub use thread::THREAD_ENTRY;
 pub use wasixv2::{Wasixv2, is_wasixv2_module};
@@ -562,7 +566,7 @@ async fn run_image<S>(
 where
     S: Syscalls + Control + Send + Sync + 'static,
 {
-    let ready = instantiate(store, module, syscalls, task, host, abis, cleanup, None)?;
+    let ready = instantiate(store, module, syscalls, task, host, abis, cleanup, None).await?;
     Ok(ready.start().await)
 }
 
@@ -590,7 +594,8 @@ where
         abis,
         cleanup,
         Some(&image),
-    )?;
+    )
+    .await?;
     let (entry, args, buffer) = (image.entry, image.args.clone(), image.buffer());
     drop(image);
     ready.resume_fork(entry, args, buffer).await
@@ -617,6 +622,31 @@ impl Binding {
             task,
             installed: false,
         })
+    }
+    /// Reclaim only admission after startup publication. The store was registered
+    /// before preparation and must never be registered a second time.
+    async fn finish<S: Syscalls + Control + Send + Sync + 'static>(
+        mut self,
+        abi: &dyn Abi<S>,
+        syscalls: &S,
+    ) -> Result<Registration, Errno> {
+        if self.admission.is_none() {
+            loop {
+                match abi.claim_image(&self.gate) {
+                    Ok(admission) => {
+                        self.admission = Some(admission);
+                        break;
+                    }
+                    Err(Errno::EAGAIN) => {
+                        syscalls
+                            .loader_sleep(self.task, &self.gate, wasixv2_syscalls::LoaderWait::Idle)
+                            .await?
+                    }
+                    Err(error) => return Err(error),
+                }
+            }
+        }
+        Ok(self.install())
     }
     pub(crate) fn install(mut self) -> Registration {
         self.installed = true;
@@ -649,13 +679,14 @@ struct Ready<S: 'static> {
     env: FunctionEnv<ExecEnv<S>>,
     instance: Instance,
     abi: Arc<dyn AbiInstance<S>>,
+    image_abi: Arc<dyn Abi<S>>,
     admission: Option<Binding>,
 }
 
 /// Instantiates `module` as `task` for the ABI in `abis` that serves it, or, with `fork`, the
 /// copy of an instance a forked child rewinds.
 #[allow(clippy::too_many_arguments)]
-fn instantiate<S>(
+async fn instantiate<S>(
     mut store: Store,
     module: &Module,
     syscalls: Arc<S>,
@@ -670,7 +701,7 @@ where
 {
     let abi = abis.require(module)?;
     abi.attach_cleanup(&cleanup);
-    let admission = syscalls
+    let mut admission = syscalls
         .loader_gate(task)
         .map(|gate| Binding::new(&*abi, gate, task))
         .transpose()
@@ -691,6 +722,29 @@ where
     let mut imports = imports(&*abi, &mut store, &env, module);
     let size = fork.map(|image| image.memory.size());
     let imported = import_memory(&mut store, module, &mut imports, size)?;
+    // Fork copies retain their existing rewind/bind contract. Native startup is
+    // EH/PIC-only; this opt-in phase does not add multi-module asyncify/fork support.
+    let (mut store, prepared, bootstrap) = if fork.is_none() {
+        env.as_mut(&mut store).imports = imports.clone();
+        preparation::prepare(
+            store,
+            &env,
+            module,
+            Role::Process,
+            &*abi,
+            imported.as_ref(),
+            &mut admission,
+        )
+        .await?
+    } else {
+        (store, None, None)
+    };
+    // Keep the legacy pre-bind environment for a default/None preparation.
+    env.as_mut(&mut store).imports = Imports::new();
+    if let Some(prepared) = &prepared {
+        imports.extend(prepared.imports());
+        preparation::verify_memory(module, &imports, imported.as_ref())?;
+    }
     let instance = Instance::new(&mut store, module, &imports)?;
     let memory = match imported {
         Some(memory) => memory,
@@ -701,12 +755,23 @@ where
     let main_stack = abi.main_stack(&instance, &mut store);
     let mut asyncify = asyncify::Asyncify::new(&instance, &mut store)?;
     let layout = abi.image_layout(&instance, &memory, &mut store, asyncify.is_some());
+    if let Some(bootstrap) = &bootstrap
+        && (layout.as_ref() != Some(&bootstrap.layout)
+            || main_stack != bootstrap.stack
+            || guarded != (bootstrap.guard != 0))
+    {
+        return Err(ExecError::Load(LoadError::Format(Errno::EINVAL)));
+    }
     if let (Some(layout), Some(asyncify)) = (&layout, &mut asyncify)
         && let Some(range) = layout.reserved.first()
     {
         asyncify.reserve_buffer(range.start as u32);
     }
-    let read_only = Arc::<memory::ReadOnly>::default();
+    let read_only = if bootstrap.is_some() {
+        env.as_ref(&store).read_only.clone()
+    } else {
+        Arc::<memory::ReadOnly>::default()
+    };
     // Before any guest code runs, and before the guard is protected: `MAP_FIXED` resets it.
     let base = match fork {
         Some(image) => {
@@ -723,7 +788,16 @@ where
         true => memory::protect_low(&memory, &store),
         false => 0,
     };
-    let bound = abi.bind(&instance, &mut store, task, Role::Process)?;
+    if bootstrap
+        .as_ref()
+        .is_some_and(|early| early.guard != low_guard)
+    {
+        return Err(ExecError::Load(LoadError::Format(Errno::EINVAL)));
+    }
+    let bound = match prepared {
+        Some(prepared) => prepared.bind(&instance, &mut store, task, Role::Process)?,
+        None => abi.bind(&instance, &mut store, task, Role::Process)?,
+    };
     let shared = memory.as_shared(&store);
     if let Some(shared) = &shared {
         // Browser C1 posts registration here before attachment; foreign requests
@@ -750,7 +824,7 @@ where
             layout.clone(),
             syscalls,
             host,
-            abi,
+            abi.clone(),
             abis,
             handoff,
         );
@@ -774,6 +848,7 @@ where
         env,
         instance,
         abi: bound,
+        image_abi: abi,
         admission,
     })
 }
@@ -864,9 +939,22 @@ impl<S: Syscalls + Control + Send + Sync + 'static> Ready<S> {
     async fn start(self) -> Ended {
         let store = self.store.into_async();
         let entry = Entry::new(&self.env, &store);
-        let prepared = self.abi.prepare_entry(&entry).await;
+        let mut prepared = self.abi.prepare_entry(&entry).await;
         let _registration = if prepared.is_ok() {
-            self.admission.map(Binding::install)
+            match self.admission {
+                Some(binding) => {
+                    let syscalls = entry.with_store(|env, _| env.syscalls.clone()).await;
+                    match binding.finish(&*self.image_abi, &*syscalls).await {
+                        Ok(registration) => Some(registration),
+                        Err(error) => {
+                            prepared =
+                                Err(RuntimeError::new(format!("startup admission: {error:?}")));
+                            None
+                        }
+                    }
+                }
+                None => None,
+            }
         } else {
             drop(self.admission);
             None

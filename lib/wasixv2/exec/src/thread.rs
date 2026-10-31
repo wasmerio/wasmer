@@ -249,7 +249,7 @@ where
         cleanup: Arc<wasixv2_host::LoaderCleanup>,
     ) -> Result<Ended, ExecError> {
         self.abi.attach_cleanup(&cleanup);
-        let admission = if let Some(gate) = self.syscalls.loader_gate(task) {
+        let mut admission = if let Some(gate) = self.syscalls.loader_gate(task) {
             loop {
                 match crate::Binding::new(&*self.abi, gate.clone(), task) {
                     Ok(admission) => break Some(admission),
@@ -286,8 +286,49 @@ where
         if let Some(import) = self.module.imports().memories().next() {
             imports.define(import.module(), import.name(), memory.clone());
         }
+        {
+            let data = env.as_mut(&mut store);
+            data.imports = imports.clone();
+            data.memory = Some(memory.clone());
+            data.low_guard = self.low_guard;
+            data.main_stack = self.main_stack.clone();
+            data.layout = self.layout.clone();
+            data.read_only = self.read_only.clone();
+            data.base = self.base.clone();
+        }
+        let (mut store, prepared, _) = crate::preparation::prepare(
+            store,
+            &env,
+            &self.module,
+            Role::Thread,
+            &*self.abi,
+            Some(&memory),
+            &mut admission,
+        )
+        .await?;
+        {
+            let data = env.as_mut(&mut store);
+            data.imports = wasmer::Imports::new();
+            if prepared.is_none() {
+                // Preserve the ordinary custom ABI's pre-bind environment. Native
+                // preparation alone needs the inherited real memory before bind.
+                data.memory = None;
+                data.low_guard = 0;
+                data.main_stack = 0..0;
+                data.layout = None;
+                data.read_only = Arc::default();
+                data.base = None;
+            }
+        }
+        if let Some(prepared) = &prepared {
+            imports.extend(prepared.imports());
+            crate::preparation::verify_memory(&self.module, &imports, Some(&memory))?;
+        }
         let instance = Instance::new(&mut store, &self.module, &imports)?;
-        let abi = self.abi.bind(&instance, &mut store, task, Role::Thread)?;
+        let abi = match prepared {
+            Some(prepared) => prepared.bind(&instance, &mut store, task, Role::Thread)?,
+            None => self.abi.bind(&instance, &mut store, task, Role::Thread)?,
+        };
         let asyncify = crate::asyncify::Asyncify::new(&instance, &mut store)?;
         let data = env.as_mut(&mut store);
         data.imports = imports.clone();
@@ -325,7 +366,15 @@ where
         }
         let prepared = abi.prepare_entry(&entry).await;
         let _registration = if prepared.is_ok() {
-            admission.map(crate::Binding::install)
+            match admission {
+                Some(binding) => Some(
+                    binding
+                        .finish(&*self.abi, &*self.syscalls)
+                        .await
+                        .map_err(|e| ExecError::Load(crate::LoadError::Format(e)))?,
+                ),
+                None => None,
+            }
         } else {
             drop(admission);
             None
@@ -356,6 +405,89 @@ mod tests {
     use super::*;
     use crate::process::tests::{NoThreads, Recorder};
     use std::sync::atomic::Ordering;
+
+    #[test]
+    fn future_peer_prepares_import_overlay_before_instantiating_main() {
+        use crate::preparation::tests::{Mode, Probe, ProbeAbi, control, layout, module};
+        use std::sync::atomic::Ordering;
+        let store = Store::default();
+        let module = module(&store);
+        let recorder = control(83);
+        let probe = Arc::<Probe>::default();
+        let selected: Arc<dyn Abi<Recorder>> = Arc::new(ProbeAbi {
+            probe: probe.clone(),
+            mode: Mode::Prepared,
+        });
+        let mut abis = Abis::new();
+        abis.push(selected.clone());
+        let abis = Arc::new(abis);
+        let ready = futures::executor::block_on(crate::instantiate(
+            store,
+            &module,
+            recorder.clone(),
+            TaskId(1),
+            Arc::new(NoThreads),
+            abis.clone(),
+            wasixv2_host::LoaderCleanup::new(Arc::new(NoThreads)),
+            None,
+        ))
+        .unwrap();
+        let shared = ready
+            .env
+            .as_ref(&ready.store)
+            .memory()
+            .unwrap()
+            .as_shared(&ready.store)
+            .unwrap();
+        let image = Image::new(
+            &ready.store,
+            &module,
+            shared,
+            (0, Arc::default(), None),
+            0..131072,
+            Some(layout()),
+            recorder.clone(),
+            Arc::new(NoThreads),
+            selected.clone(),
+            abis,
+            Arc::default(),
+        );
+        let store = ready.store.into_async();
+        futures::executor::block_on(async {
+            let entry = Entry::new(&ready.env, &store);
+            ready.abi.prepare_entry(&entry).await.unwrap();
+            let registration = ready
+                .admission
+                .unwrap()
+                .finish(&*selected, &*recorder)
+                .await
+                .unwrap();
+            let ended = image
+                .call_entry(
+                    TaskId(2),
+                    2,
+                    0,
+                    wasixv2_host::LoaderCleanup::new(Arc::new(NoThreads)),
+                )
+                .await
+                .unwrap();
+            assert!(matches!(ended, Ended::Exited(0)));
+            assert_eq!(
+                *probe.roles.lock().unwrap(),
+                vec![Role::Process, Role::Thread]
+            );
+            assert_eq!(probe.prepared_binds.load(Ordering::Relaxed), 2);
+            assert_eq!(probe.ordinary_binds.load(Ordering::Relaxed), 0);
+            assert_eq!(probe.guest_calls.load(Ordering::Relaxed), 1);
+            assert_eq!(
+                probe.claims.load(Ordering::Relaxed),
+                3,
+                "peer keeps its original admission"
+            );
+            assert!(recorder.loader.as_ref().unwrap().only_store(TaskId(1)));
+            drop(registration);
+        });
+    }
 
     /// kernel/exit.c:exit_mm releases a retired task's execution resources.
     /// Repeated threads on one memory must not consume a fresh MiB each time.
