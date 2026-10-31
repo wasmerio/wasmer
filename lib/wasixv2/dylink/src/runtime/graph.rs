@@ -239,14 +239,13 @@ impl Graph {
         let base = if absolute {
             0
         } else if tls {
-            if module == 0 {
-                return Err(failure(
-                    "side import of main TLS requires post-libc binding",
-                ));
-            }
-            *tls_bases
+            let base = *tls_bases
                 .get(module)
-                .ok_or_else(|| failure("missing store TLS"))?
+                .ok_or_else(|| failure("missing store TLS"))?;
+            if module == 0 && base == 0 {
+                return Err(failure("main TLS is not initialized"));
+            }
+            base
         } else {
             self.libraries[module].base
         };
@@ -263,6 +262,14 @@ impl Graph {
                     .copied()
                     .ok_or_else(|| failure("unassigned function slot"))
             }
+            BindingTarget::Data {
+                module: 0,
+                tls: true,
+                absolute: false,
+                ..
+            } => Err(failure(
+                "side import of main TLS requires post-libc binding",
+            )),
             BindingTarget::Data {
                 module,
                 index,
@@ -384,6 +391,46 @@ pub(super) fn initial_globals(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn main_tls_lookup_uses_store_base_but_early_relocations_stay_rejected() {
+        let main = Library::new(
+            crate::tests::bytes(
+                r#"(module (global (export "value") i32 (i32.const 8)))"#,
+                [0; 4],
+                &[],
+                &[("value", SymbolFlags::TLS)],
+                &[],
+            ),
+            None,
+        )
+        .unwrap();
+        let graph = Graph {
+            libraries: vec![main],
+            global: vec![0],
+            cursor: 3,
+            initialization: vec![0],
+        };
+        assert_eq!(graph.symbol(0, "value", &[2048]).unwrap(), 2056);
+        assert_eq!(graph.symbol(0, "value", &[4096]).unwrap(), 4104);
+        for bases in [&[][..], &[0][..], &[u32::MAX - 7][..]] {
+            assert!(graph.symbol(0, "value", bases).is_err());
+        }
+        let target = BindingTarget::Data {
+            module: 0,
+            index: 0,
+            offset: Some(8),
+            tls: true,
+            absolute: false,
+        };
+        assert!(
+            graph
+                .target_address(&target, &[2048])
+                .unwrap_err()
+                .to_string()
+                .contains("post-libc binding")
+        );
+    }
 
     #[test]
     fn function_aliases_require_a_concrete_typed_definition_and_canonical_slot() {

@@ -611,6 +611,27 @@ struct Local {
     generation: u64,
 }
 impl Local {
+    fn symbol(
+        &self,
+        store: &mut StoreMut<'_>,
+        graph: &Graph,
+        handle: usize,
+        name: &str,
+    ) -> Result<u32> {
+        let mut tls = self.tls.clone();
+        if let Some(base) = tls.first_mut() {
+            // musl ldso/dynlink.c::do_dlsym selects the calling thread's TLS.
+            // pthread/CLONE_VM entry can change main's base after main_prepare.
+            *base = self.instances[0]
+                .exports
+                .get_global("__tls_base")
+                .ok()
+                .and_then(|global| global.get(&mut *store).i32())
+                .unwrap_or(0) as u32;
+        }
+        graph.symbol(handle, name, &tls)
+    }
+
     fn stage_modules(
         &mut self,
         store: &mut StoreMut<'_>,
@@ -1406,10 +1427,9 @@ impl<S: Syscalls + Control + Send + Sync + 'static> AbiInstance<S> for StoreImag
             if index >= graph.libraries.len() {
                 return Err(Errno::EINVAL.into());
             }
-            let address = {
-                let local = lock(&self.local);
-                graph.symbol(index, name, &local.tls)
-            };
+            let address = Context::Import(env)
+                .with(|_, store| lock(&self.local).symbol(store, &graph, index, name))
+                .await;
             match address {
                 Ok(value) => {
                     write_value(caller.memory(), addr, &value)
@@ -1847,6 +1867,72 @@ mod lease_cancellation_tests {
         drop(transferred);
         assert!(completed.load(Ordering::Acquire));
         assert!(nonce.upgrade().is_none());
+    }
+}
+
+#[cfg(all(test, feature = "engine-tests"))]
+mod symbol_tests {
+    use super::*;
+    use wasmer::{AsStoreMut, MemoryType, Store, TableType};
+
+    #[test]
+    fn main_tls_lookup_reads_live_global_in_each_store_without_changing_bindings() {
+        for base in [2048, 4096] {
+            let source = crate::tests::bytes(
+                &format!(
+                    r#"(module
+                    (global (export "__tls_base") (mut i32) (i32.const {base}))
+                    (global (export "value") i32 (i32.const 8)))"#
+                ),
+                [0; 4],
+                &[],
+                &[("value", wasmparser::SymbolFlags::TLS)],
+                &[],
+            );
+            let graph = Graph {
+                libraries: vec![Library::new(source.clone(), None).unwrap()],
+                global: vec![0],
+                cursor: 3,
+                initialization: vec![0],
+            };
+            let mut store = Store::default();
+            let module = Module::new(&store, source).unwrap();
+            let instance = Instance::new(&mut store, &module, &Imports::new()).unwrap();
+            let global = instance.exports.get_global("__tls_base").unwrap().clone();
+            let memory = Memory::new(&mut store, MemoryType::new(1, Some(4), true)).unwrap();
+            let table = Table::new(
+                &mut store,
+                TableType::new(Type::FuncRef, 3, Some(64)),
+                Value::FuncRef(None),
+            )
+            .unwrap();
+            let local = Local {
+                instances: vec![instance],
+                forwarders: Vec::new(),
+                tls: vec![123456],
+                memory,
+                table,
+                stage: None,
+                leases: Vec::new(),
+                generation: 0,
+            };
+            for value in [base, 8192] {
+                global.set(&mut store, Value::I32(value)).unwrap();
+                assert_eq!(
+                    local
+                        .symbol(&mut store.as_store_mut(), &graph, 0, "value")
+                        .unwrap(),
+                    value as u32 + 8
+                );
+            }
+            global.set(&mut store, Value::I32(0)).unwrap();
+            assert!(
+                local
+                    .symbol(&mut store.as_store_mut(), &graph, 0, "value")
+                    .is_err()
+            );
+            assert_eq!(local.tls, [123456]);
+        }
     }
 }
 

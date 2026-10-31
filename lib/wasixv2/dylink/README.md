@@ -84,6 +84,9 @@ Libc drains queued DSO constructors after main TLS/SSP and secure initialization
 before main `_init`/constructors. It reuses the recursive loader lock and permits
 nested dlopen and constructor-created threads after publication. Main TLS remains
 libc/pthread-owned; side imports requiring late binding to main TLS stay rejected.
+Explicit-handle `dlsym` of main TLS reads the calling store's current
+`__tls_base`, so initialized pthreads see their own block without changing
+the frozen import bindings or taking ownership of main TLS.
 No host initializer executes guest helpers or constructors under the gate.
 
 Pre-instantiation preparation runs after kernel exec commit. Existing failures
