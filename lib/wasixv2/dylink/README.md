@@ -68,15 +68,15 @@ imports, tables, globals and TLS; required effect/range/identity checks remain.
 The image releases cache ownership at logical retirement, while live engine
 instances retain their normal code ownership.
 
-The browser JS profile uses the same EH/PIC NOW loader. Existing B2 envelopes
-transport compiled Modules into future/idle realms; an already-running cold realm
+The browser JS profile uses the same EH/PIC NOW and direct-function LAZY loader.
+Existing B2 envelopes transport compiled Modules into future/idle realms; a cold realm
 uses Wasmer's existing retained-source compile-once/cache fallback. No compilation
 Promise is awaited on a blocking guest worker. Cold compilation errors return
 normal preparation errors before publication. Generated forwarding code is cached
 per exact signature/slot/table-limit variant. As for other JS embedding, the host
 is responsible for supplying matching prepared Module/source; the loader adds no
 compiled-module provenance checks. Opaque host Modules use the existing transport
-contract. JS LAZY, NEXT, asyncify and early main-TLS crossimports remain unsupported.
+contract. NEXT, asyncify and early main-TLS crossimports remain unsupported.
 
 Startup prepares imports before main instantiation using the committed
 new environment and security identity. Secure startup ignores LD_LIBRARY_PATH
@@ -124,8 +124,8 @@ those definitions rather than forwarding aliases. All targets are filled by
 host Apply before atomic publication, and rollback clears only new slots. Future
 stores replay the same frozen NOW targets with their own forwarding instances.
 
-Native `RTLD_LAZY` can defer a missing strong direct-function import. A typed,
-normally instrumented Wasm forwarder calls its reserved per-store slot, initially
+Native and browser `RTLD_LAZY` can defer a missing strong direct-function import.
+A typed, normally instrumented Wasm forwarder calls its reserved per-store slot, initially
 populated with an `unreachable` stub. Calling it while unresolved follows the
 existing process SIGILL trap path; it does not kill other CLONE_VM processes.
 A call that has already selected an unresolved stub keeps that outcome if a

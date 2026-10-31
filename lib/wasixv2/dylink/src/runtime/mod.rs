@@ -2095,14 +2095,17 @@ mod lease_cancellation_tests {
     }
 }
 
-#[cfg(all(test, feature = "engine-tests"))]
+#[cfg(all(
+    test,
+    any(feature = "engine-tests", all(feature = "js", target_arch = "wasm32"))
+))]
 mod lazy_tests {
     use super::*;
     use std::{
         future::Future,
         task::{Context as PollContext, Waker},
     };
-    use wasmer::{AsStoreAsync, Function, TypedFunction};
+    use wasmer::{AsStoreAsync, TypedFunction};
 
     fn library(wat: &str) -> Library {
         let wat = wat.replacen(
@@ -2149,6 +2152,39 @@ mod lazy_tests {
         local.tls = stage.tls;
         local.lazy_targets = stage.lazy_targets;
     }
+    fn wasm_replacement(store: &mut Store, increment: i32) -> BoundModule {
+        // A JS funcref table accepts actual Wasm functions, not arbitrary host JS
+        // closures. Keep its compiled module alive through the same bound owner as
+        // production code, while preserving exact observed-slot rollback assertions.
+        let module = Module::new(
+            &*store,
+            wat::parse_str(format!(
+                r#"(module
+            (func (export "replacement") (param i32) (result i32)
+                local.get 0 i32.const {increment} i32.add))"#
+            ))
+            .unwrap(),
+        )
+        .unwrap();
+        let instance = Instance::new(store, &module, &Imports::new()).unwrap();
+        BoundModule::new(&instance)
+    }
+    fn assert_unresolved_trap(error: RuntimeError) {
+        #[cfg(not(all(feature = "js", target_arch = "wasm32")))]
+        assert_eq!(
+            error.to_trap(),
+            Some(wasmer_types::TrapCode::UnreachableCodeReached)
+        );
+        #[cfg(all(feature = "js", target_arch = "wasm32"))]
+        {
+            use js_sys::wasm_bindgen::{JsCast, JsValue};
+            let thrown: JsValue = error.into();
+            assert!(
+                thrown.is_instance_of::<js_sys::WebAssembly::RuntimeError>(),
+                "the unresolved Wasm body must produce a real engine RuntimeError"
+            );
+        }
+    }
     fn initial() -> (Graph, Local, Store, Imports, TypedFunction<i32, i32>, u32) {
         let (mut graph, mut local, mut store, imports) = cyclic_tests::fixture();
         graph.libraries.truncate(1);
@@ -2168,10 +2204,18 @@ mod lazy_tests {
             .exports
             .get_typed_function::<i32, i32>(&store, "call")
             .unwrap();
-        assert_eq!(
-            call.call(&mut store, 1).unwrap_err().to_trap(),
-            Some(wasmer_types::TrapCode::UnreachableCodeReached)
+        let Some(Value::FuncRef(Some(stub))) = local.table.get(&mut store, slot) else {
+            panic!("unresolved slot must contain a real typed trap, never null");
+        };
+        // Prove the installed target itself traps with the expected signature;
+        // this excludes a null/ill-typed indirect call as a substitute for the stub.
+        assert_unresolved_trap(
+            stub.typed::<i32, i32>(&store)
+                .unwrap()
+                .call(&mut store, 1)
+                .unwrap_err(),
         );
+        assert_unresolved_trap(call.call(&mut store, 1).unwrap_err());
         (graph, local, store, imports, call, slot)
     }
     fn resolved(mut graph: Graph) -> Graph {
@@ -2181,10 +2225,16 @@ mod lazy_tests {
         graph.seal(2, 2).unwrap();
         graph
     }
-    #[test]
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(not(target_arch = "wasm32"), test)]
     fn deferred_slots_restore_exact_old_values_after_partial_apply_and_replay_future_stores() {
         let (graph, mut local, mut store, imports, call, slot) = initial();
-        let old = Function::new_typed(&mut store, |n: i32| n + 3);
+        let old_image = wasm_replacement(&mut store, 3);
+        let old = old_image
+            .exports
+            .get_function("replacement")
+            .unwrap()
+            .clone();
         local
             .table
             .set(&mut store, slot, Value::FuncRef(Some(old.clone())))
@@ -2233,13 +2283,24 @@ mod lazy_tests {
             14
         );
     }
-    #[test]
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(not(target_arch = "wasm32"), test)]
     fn a_failed_peer_restores_each_existing_stores_observed_slot() {
         let (graph, mut first, mut first_store, imports, first_call, slot) = initial();
         let (_, mut second, mut second_store, second_imports, second_call, _) = initial();
         let graph = resolved(graph);
-        let old_first = Function::new_typed(&mut first_store, |n: i32| n + 3);
-        let old_second = Function::new_typed(&mut second_store, |n: i32| n + 7);
+        let old_first_image = wasm_replacement(&mut first_store, 3);
+        let old_second_image = wasm_replacement(&mut second_store, 7);
+        let old_first = old_first_image
+            .exports
+            .get_function("replacement")
+            .unwrap()
+            .clone();
+        let old_second = old_second_image
+            .exports
+            .get_function("replacement")
+            .unwrap()
+            .clone();
         first
             .table
             .set(&mut first_store, slot, Value::FuncRef(Some(old_first)))
@@ -2290,6 +2351,90 @@ mod lazy_tests {
         assert_eq!(second_call.call(&mut second_store, 2).unwrap(), 9);
     }
 
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(not(target_arch = "wasm32"), test)]
+    fn local_promotion_resolves_lazy_while_old_now_stays_frozen_on_existing_and_future_stores() {
+        let (mut graph, mut local, mut store, imports, call, slot) = initial();
+        graph.libraries.push(library(
+            r#"(module
+            (import "env" "choice" (func $choice (result i32)))
+            (func (export "choice") (result i32) i32.const 7)
+            (func (export "now_call") (result i32) call $choice))"#,
+        ));
+        graph.assign_slots(2).unwrap();
+        graph.seal(2, 2).unwrap();
+        let frozen = graph.libraries[2].fixups.clone();
+        prepare(&mut local, &mut store, &imports, graph.clone(), 2);
+        publish(&mut local, &mut store);
+        let now = local.instances[2]
+            .exports
+            .get_typed_function::<(), i32>(&store, "now_call")
+            .unwrap();
+        assert_eq!(now.call(&mut store).unwrap(), 7);
+
+        graph.libraries.push(library(
+            r#"(module
+            (func (export "late") (param i32) (result i32) local.get 0 i32.const 10 i32.add)
+            (func (export "choice") (result i32) i32.const 99))"#,
+        ));
+        graph.assign_slots(3).unwrap();
+        graph.seal(3, 3).unwrap();
+        assert_eq!(
+            graph.libraries[1].lazy.values().next().unwrap().target,
+            None
+        );
+        prepare(&mut local, &mut store, &imports, graph.clone(), 3);
+        publish(&mut local, &mut store);
+        assert_unresolved_trap(call.call(&mut store, 1).unwrap_err());
+        assert_eq!(now.call(&mut store).unwrap(), 7);
+        assert_eq!(
+            local.instances[3]
+                .exports
+                .get_typed_function::<(), i32>(&store, "choice")
+                .unwrap()
+                .call(&mut store)
+                .unwrap(),
+            99
+        );
+
+        graph.global.push(3);
+        graph.seal(3, 4).unwrap();
+        assert_eq!(graph.libraries[2].fixups, frozen);
+        prepare(&mut local, &mut store, &imports, graph.clone(), 4);
+        assert!(
+            local.stage.as_ref().unwrap().modules.is_empty(),
+            "promotion must not create a duplicate instance"
+        );
+        assert_eq!(local.stage.as_ref().unwrap().lazy_slots.len(), 1);
+        publish(&mut local, &mut store);
+        assert_eq!(call.call(&mut store, 4).unwrap(), 14);
+        assert_eq!(now.call(&mut store).unwrap(), 7);
+        assert_eq!(local.lazy_targets[&slot], Some((3, 0)));
+
+        let (_, mut peer, mut peer_store, peer_imports) = cyclic_tests::fixture();
+        prepare(&mut peer, &mut peer_store, &peer_imports, graph, 1);
+        publish(&mut peer, &mut peer_store);
+        assert_eq!(
+            peer.instances[1]
+                .exports
+                .get_typed_function::<i32, i32>(&peer_store, "call")
+                .unwrap()
+                .call(&mut peer_store, 6)
+                .unwrap(),
+            16
+        );
+        assert_eq!(
+            peer.instances[2]
+                .exports
+                .get_typed_function::<(), i32>(&peer_store, "now_call")
+                .unwrap()
+                .call(&mut peer_store)
+                .unwrap(),
+            7
+        );
+        assert_eq!(peer.lazy_targets[&slot], Some((3, 0)));
+    }
+
     struct PendingLease(Arc<AtomicBool>);
     impl LoaderReservation for PendingLease {
         fn address(&self) -> u32 {
@@ -2309,12 +2454,18 @@ mod lazy_tests {
             }))
         }
     }
-    #[test]
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(not(target_arch = "wasm32"), test)]
     fn canceled_cleanup_restores_old_slots_before_awaiting_the_original_release() {
         struct Control;
         impl wasixv2_syscalls::LoaderControl for Control {}
         let (graph, mut local, mut store, imports, call, slot) = initial();
-        let old = Function::new_typed(&mut store, |n: i32| n + 3);
+        let old_image = wasm_replacement(&mut store, 3);
+        let old = old_image
+            .exports
+            .get_function("replacement")
+            .unwrap()
+            .clone();
         local
             .table
             .set(&mut store, slot, Value::FuncRef(Some(old)))
