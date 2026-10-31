@@ -105,16 +105,18 @@ mod integrity_check {
 
 #[cfg(debug_assertions)]
 mod integrity_check {
-    use std::{fmt::Write as _, panic::Location};
+    use std::{fmt::Write as _, panic::Location, sync::Arc};
 
     use js_sys::JsString;
+    use wasm_bindgen::JsCast;
 
     #[derive(Debug, Clone, PartialEq)]
     pub(crate) struct IntegrityCheck {
         original_thread: u32,
         created: &'static Location<'static>,
         type_name: &'static str,
-        backtrace: Option<String>,
+        // Export snapshots clone handles; keep their immutable diagnostic shared.
+        backtrace: Option<Arc<String>>,
     }
 
     impl IntegrityCheck {
@@ -176,13 +178,53 @@ mod integrity_check {
         }
     }
 
-    fn record_backtrace() -> Option<String> {
+    fn record_backtrace() -> Option<Arc<String>> {
         let err = js_sys::Error::new("");
         let stack = JsString::from(wasm_bindgen::intern("stack"));
 
-        js_sys::Reflect::get(&err, &stack)
-            .ok()
-            .and_then(|v| v.as_string())
+        let stack = js_sys::Reflect::get(&err, &stack)
+            .ok()?
+            .dyn_into::<JsString>()
+            .ok()?;
+        copy_backtrace(&stack)
+    }
+
+    fn copy_backtrace(stack: &JsString) -> Option<Arc<String>> {
+        // Firefox can include the entire very large Wasm/Rust stack. Bound this
+        // optional diagnostic in JS before copying it into the fixed Wasm heap.
+        const MAX_STACK_UNITS: u32 = 8192;
+        let mut trace = stack.slice(0, MAX_STACK_UNITS).as_string()?;
+        if stack.length() > MAX_STACK_UNITS {
+            trace.push_str("\n[stack truncated]");
+        }
+        Some(Arc::new(trace))
+    }
+
+    #[cfg(all(test, target_arch = "wasm32"))]
+    mod tests {
+        use super::IntegrityCheck;
+
+        #[wasm_bindgen_test::wasm_bindgen_test]
+        fn many_large_export_diagnostics_fit_the_runtime_heap() {
+            let stack = js_sys::JsString::from("frame\n".repeat(20_000));
+            let diagnostics = (0..5_000)
+                .map(|_| super::copy_backtrace(&stack).unwrap())
+                .collect::<Vec<_>>();
+            assert!(diagnostics.first().unwrap().starts_with("frame\n"));
+            assert!(diagnostics.last().unwrap().starts_with("frame\n"));
+        }
+
+        #[wasm_bindgen_test::wasm_bindgen_test]
+        fn many_export_handle_clones_preserve_debug_affinity_within_the_runtime_heap() {
+            // Large PIC mains expose thousands of functions; snapshots/ABI handles
+            // clone these diagnostics repeatedly under the same fixed runtime heap.
+            let original = IntegrityCheck::new("export handle");
+            let copies = vec![original.clone(); 250_000];
+            copies.first().unwrap().check();
+            copies.last().unwrap().check();
+            assert_eq!(copies.first(), Some(&original));
+            assert_eq!(copies.last(), Some(&original));
+        }
     }
 }
 
