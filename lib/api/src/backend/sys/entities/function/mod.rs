@@ -651,6 +651,15 @@ impl Function {
     }
 
     pub(crate) unsafe fn from_vm_funcref(store: &mut impl AsStoreMut, funcref: VMFuncRef) -> Self {
+        {
+            let objects = store.objects_mut().as_sys_mut();
+            if let Some(handle) = objects.function_ref(funcref) {
+                return Self {
+                    // The cached handle belongs to these same store objects.
+                    handle: unsafe { StoreHandle::from_internal(objects.id(), handle) },
+                };
+            }
+        }
         let signature = {
             let anyfunc = unsafe { funcref.0.as_ref() };
             store
@@ -668,8 +677,11 @@ impl Function {
             kind: wasmer_vm::VMFunctionKind::Static,
             host_data: Box::new(()),
         };
+        let objects = store.objects_mut().as_sys_mut();
+        let handle = objects.intern_function_ref(vm_function);
         Self {
-            handle: StoreHandle::new(store.objects_mut().as_sys_mut(), vm_function),
+            // Interning allocated the handle in these same store objects.
+            handle: unsafe { StoreHandle::from_internal(objects.id(), handle) },
         }
     }
 

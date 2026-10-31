@@ -1,9 +1,12 @@
 use crate::{
-    VMExceptionObj, VMExternObj, VMFunction, VMFunctionEnvironment, VMGlobal, VMInstance, VMMemory,
-    VMTable, VMTag,
+    VMExceptionObj, VMExternObj, VMFuncRef, VMFunction, VMFunctionEnvironment, VMGlobal,
+    VMInstance, VMMemory, VMTable, VMTag,
 };
 use core::slice::Iter;
-use std::{cell::UnsafeCell, fmt, marker::PhantomData, num::NonZeroUsize, ptr::NonNull};
+use std::{
+    cell::UnsafeCell, collections::HashMap, fmt, marker::PhantomData, num::NonZeroUsize,
+    ptr::NonNull,
+};
 use wasmer_types::StoreId;
 
 /// Trait to represent an object managed by a context. This is implemented on
@@ -51,6 +54,9 @@ pub struct StoreObjects {
     tables: Vec<VMTable>,
     globals: Vec<VMGlobal>,
     functions: Vec<VMFunction>,
+    /// Wrappers converted from funcrefs live in the arena once per function address.
+    /// The instance or host function owning that address lives in this store too.
+    function_refs: HashMap<usize, InternalStoreHandle<VMFunction>>,
     instances: Vec<VMInstance>,
     extern_objs: Vec<VMExternObj>,
     exceptions: Vec<VMExceptionObj>,
@@ -79,6 +85,7 @@ impl StoreObjects {
             tables,
             globals,
             functions,
+            function_refs: HashMap::new(),
             instances,
             extern_objs,
             function_environments,
@@ -95,6 +102,25 @@ impl StoreObjects {
     /// Sets the ID of this store
     pub fn set_id(&mut self, id: StoreId) {
         self.id = id;
+    }
+
+    /// Finds the store-owned wrapper for a previously converted function reference.
+    pub fn function_ref(&self, reference: VMFuncRef) -> Option<InternalStoreHandle<VMFunction>> {
+        self.function_refs
+            .get(&(reference.0.as_ptr() as usize))
+            .copied()
+    }
+
+    /// Keeps one converted wrapper per function address. A table edit still resolves
+    /// its current reference; table indices and function types do not identify functions.
+    pub fn intern_function_ref(&mut self, function: VMFunction) -> InternalStoreHandle<VMFunction> {
+        let address = function.anyfunc.as_ptr().as_ptr() as usize;
+        if let Some(handle) = self.function_refs.get(&address) {
+            return *handle;
+        }
+        let handle = InternalStoreHandle::new(self, function);
+        self.function_refs.insert(address, handle);
+        handle
     }
 
     /// Returns a pair of mutable references from two handles.
