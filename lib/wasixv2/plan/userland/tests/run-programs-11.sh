@@ -24,4 +24,4 @@ vim) rm -f "$ROOT/work/vim-result"; cmd=("$ROOT/bin/programs-pty" -- "$pkg");;
 python-*) cmd=("$ROOT/bin/bash" -- /tests/programs-11.sh "$pkg");;
 *) cmd=("$ROOT/bin/bash" -- /tests/programs-11.sh "$pkg");;
 esac
-exec python3 "$TESTS/checked-run.py" "$ROOT/logs/$pkg.log" timeout -k5 180 nice -n 19 taskset -c 4-7 "$WASMER" "${args[@]}" "${cmd[@]}"
+exec python3 "$TESTS/checked-run.py" "$ROOT/logs/$pkg.log" timeout -k5 180 nice -n 19 taskset -c "${WASIXV2_TEST_CPUS:-4-7}" "$WASMER" "${args[@]}" "${cmd[@]}"

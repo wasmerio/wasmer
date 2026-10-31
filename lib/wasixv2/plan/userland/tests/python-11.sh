@@ -17,7 +17,7 @@ for test in "${selection[@]}"; do
   fi
   set +e
   python3 "$TESTS/checked-run.py" "$ROOT/logs/python/$test.log" \
-    timeout -k5 660 nice -n 19 taskset -c 4-7 "$WASMER" run --compiler-threads 1 --stack-size 16777216 --no-tty --user 1 \
+    timeout -k5 660 nice -n 19 taskset -c "${WASIXV2_TEST_CPUS:-4-7}" "$WASMER" run --compiler-threads 1 --stack-size 16777216 --no-tty --user 1 \
     --volume "$ROOT/bin:/bin" --volume "$ROOT/work:/work" \
     --volume "$ROOT/python-lib:/python" --volume "$PYLIB:/python/lib/python3.13" \
     --env PYTHONHOME=/python --env PATH=/bin:/usr/bin --env HOME=/home/user \
