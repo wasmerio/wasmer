@@ -44,7 +44,7 @@ cycle boundaries. A missing completed cycle for180s or startup for600s fails.
 Probe requests must return exactly `soak-ok\n` within5s.
 
 Growth flags compare five-sample block minima after five minutes of warmup,
-requiring three nondecreasing blocks and net growth over32MiB RSS,8fds,4threads,
+checking each contiguous run of at least three nondecreasing blocks and net growth over32MiB RSS,8fds,4threads,
 8tasks or10ms probe latency. These are investigation triggers, not proof of a
 leak. Fresh-machine peak/end resources and quiescent counts must also be reviewed.
 
@@ -96,18 +96,56 @@ explicitly reject observer-loop or sampling gaps>120s before classifying a guest
 stall. No guest deadline/assertion has been weakened, and this interval is not
 counted toward a successful two-hour result.
 
-Run03 uses small RAM-backed observer files under `/run/user/1000/v16soak-run03`
-and archives them into `logs/v16soak/run-03` when finished. The driver keeps its
-strict observer-gap guard. Uninterrupted fixed-runtime full7200s confirmation is
-pending. The analyzer
-`userland/tests/soak-results.py RESULT_DIRECTORY` verifies actual persistent
-runtime before writing `results.json`, reporting warm/late slopes, quantiles,
-fresh-process peaks and quiescent task counts. It also compares persistent/fresh
-cycle medians in the same10-minute windows, excluding each machine's first two
-cycles. At~49minutes, both slow together under~80% host CPU pressure; their median
-ratio remains0.979–0.992, which supports shared scheduling contention rather than
-aging-machine degradation. This is a robustness run on a shared host, not an
-isolated performance benchmark. No clean two-hour curve is claimed yet.
+Run03 completed7203.55s afterREADY:1057persistent +1005fresh cycles across57fresh
+machines (2062total),121minute sample ticks, largest gap60.83s. Every exit0/DONE,
+all quiescent tasks11, no host panic/assertion/stall. Unit memory peak1.4GiB, no
+swap. Its observer wrote small RAM-backed files under
+`/run/user/1000/v16soak-run03`, archived into `logs/v16soak/run-03`.
+
+This is a functional pass, **not a leak-free sign-off**: late native heap analysis
+led to the separate retired-task leak below. Raw RSS was not flat. After five
+minutes of warmup, the curves were:
+
+| Resource | Median | p95 | Range | First/last15min median |
+| --- | ---: | ---: | ---: | ---: |
+| RSS KiB |601706|703112|533804–713596|562508 /696818|
+| Native fds |73|77|65–79|72 /73.5|
+| Native threads |40|47|31–50|38 /42|
+| Guest tasks (in-cycle) |19|25|11–28|20 /17|
+| Fixed HTTP probe ms |10.000|28.590|1.567–103.133|8.842 /4.141|
+
+Second-half RSS slope was+131346KiB/hour. The original whole-run monotonic flag
+was false after early decreases; inspection of the late curve correctly raised
+an investigation. The corrected contiguous-run detector flags RSS and threads;
+it passes four bounded controls, including an early-dip/late-growth regression
+that failed first. Historical raw flags remain preserved separately from
+`growth_flags_recomputed` in results. Thread counts overlap fresh controls; the
+flag prompts review and is not proof of a native-thread leak. Quiescent guest tasks were exactly11 in every cycle.
+`userland/tests/soak-results.py RESULT_DIRECTORY` verifies actual duration and
+sample continuity before writing quantiles/slopes and fresh-process peaks to
+`results.json`. Persistent/fresh cycle medians in corresponding10-minute windows
+(excluding each machine's first two cycles) had ratios0.978–1.012. Both slowed
+and recovered together under shared scheduling pressure; no aging-specific
+throughput penalty was demonstrated. This is a shared-host robustness run.
+
+### Retired task retention
+
+Temporary read-only counters on the unchanged retirement logic found live task
+and PID tables bounded, root asyncify saves5/~3–6KiB and retired credentials0–1,
+but `DeadTask` records growing roughly once per cycle. A61s trace retained21dead
+records across16cycles; every sampled retained task entered `release_task`
+before its reaper unhashed it. Names span curl, tmux, nginx, SQLite and make,
+which rules out a single guest program's cache as the explanation.
+
+`release_task` checks `state.dead`, unlocks for fatal file/vfork cleanup, then
+looks in `state.tasks` under a second lock. A concurrent wait/reap can move the
+task into `dead` between these locks; the later absent-live-task return misses
+that record. The bounded sibling regression races reap/release for4096exited
+children; production fix and confirmation are pending. Intended correction:
+consume either live or retired ownership atomically under the final table lock,
+preserving the existing Control::release and exec contracts. Linux source:
+`kernel/exit.c:release_task`, `kernel/fork.c:__put_task_struct`.
+
 Canonical takeover state: `~/wasixv2-orch/logs/v16soak/STATE.md`.
 
 ### Interpreting native RSS
@@ -127,8 +165,10 @@ system bytes566.809/567.027MiB, free chunks529.830/529.756MiB and unfreed bytes
 tcaches; it is not a precise application live-byte counter. Most native heap
 memory is already free for reuse, so RSS alone does not establish a kernel leak.
 No `malloc_trim`, arena-limit setting or runtime workaround has been applied.
-Late samples will test whether this footprint levels off; the raw RSS warming
-remains part of the reported curve.
+Later stable55-arena samples through cycle1040 show system588.461MiB,
+free548.905MiB and unfreed39.556MiB. The small unfreed increase was investigated
+rather than dismissed as allocator retention, exposing the retired-task race
+above. Raw RSS warming remains part of the reported curve.
 
 Parser/layout source: glibc2.39
 [`malloc.c:malloc_state,__malloc_info`](https://raw.githubusercontent.com/bminor/glibc/glibc-2.39/malloc/malloc.c)

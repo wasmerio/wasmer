@@ -6,6 +6,8 @@ import json
 import statistics
 from pathlib import Path
 
+from soak import flags
+
 
 def stats(values):
     values = sorted(values)
@@ -67,6 +69,10 @@ def main():
         total_cycles=len(cycles), fresh_machines=len(fresh),
         quiescent_tasks=stats([r["tasks"] for r in cycles]),
         persistent={}, fresh_peaks={}, growth_flags=summary["growth_flags"],
+        growth_flags_recomputed={key: flags(persistent, key, tolerance)
+                                 for key, tolerance in [("rss_kib", 32768), ("fds", 8),
+                                                        ("threads", 4), ("tasks", 8),
+                                                        ("latency_ms", 10)]},
         cycle_comparison=throughput,
     )
     for field in ["rss_kib", "fds", "threads", "tasks", "latency_ms"]:

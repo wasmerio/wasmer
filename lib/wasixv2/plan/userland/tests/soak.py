@@ -27,7 +27,17 @@ def flags(rows, key, tolerance):
     # allocator high water marks are signals to investigate, not proven leaks.
     values = [r[key] for r in rows if r.get(key) is not None and r["age_s"] >= 300]
     blocks = [min(values[i:i+5]) for i in range(0, len(values)-4, 5)]
-    return len(blocks) >= 3 and all(b >= a for a, b in zip(blocks, blocks[1:])) and blocks[-1] - blocks[0] > tolerance
+    if not blocks:
+        return False
+    floor, count = blocks[0], 1
+    for previous, current in zip(blocks, blocks[1:]):
+        if current < previous:
+            floor, count = current, 1
+        else:
+            count += 1
+        if count >= 3 and current-floor > tolerance:
+            return True
+    return False
 
 
 def main():
