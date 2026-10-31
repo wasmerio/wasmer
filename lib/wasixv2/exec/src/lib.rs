@@ -9,6 +9,7 @@ pub mod asyncify;
 mod atomics;
 mod base;
 mod cputime;
+mod dynamic;
 mod fork;
 mod generated;
 mod loader;
@@ -32,6 +33,7 @@ use std::{
 };
 
 pub use abi::{Abi, AbiInstance, Abis, Entry, EntryReturn, Role, Sigreturn, VforkResume};
+pub use dynamic::GuestDynamicLinker;
 pub use generated::IMPORT_MODULE;
 pub use loader::{Compile, LoadError, Loader};
 pub use memory::GuestMemory;

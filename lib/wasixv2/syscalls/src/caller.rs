@@ -8,11 +8,27 @@ pub struct TaskId(pub u32);
 pub struct Caller<'a> {
     task: TaskId,
     memory: &'a dyn UserMemory,
+    dynamic_linker: Option<&'a dyn crate::DynamicLinker>,
 }
 
 impl<'a> Caller<'a> {
     pub fn new(task: TaskId, memory: &'a dyn UserMemory) -> Self {
-        Self { task, memory }
+        Self {
+            task,
+            memory,
+            dynamic_linker: None,
+        }
+    }
+
+    /// Attaches only the current import's borrowed engine capability. The kernel never
+    /// retains it; ordinary callers and custom syscall implementations need not opt in.
+    pub fn with_dynamic_linker(mut self, linker: &'a dyn crate::DynamicLinker) -> Self {
+        self.dynamic_linker = Some(linker);
+        self
+    }
+
+    pub fn dynamic_linker(&self) -> Option<&'a dyn crate::DynamicLinker> {
+        self.dynamic_linker
     }
 
     pub fn task(&self) -> TaskId {

@@ -877,7 +877,8 @@ where
 {
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
-    let caller = Caller::new(task, &memory);
+    let dynamic_linker = crate::GuestDynamicLinker::new(&env);
+    let caller = Caller::new(task, &memory).with_dynamic_linker(&dynamic_linker);
     loop {
         let ret = Syscalls::dl_open(
             &*syscalls,
@@ -910,7 +911,8 @@ where
 {
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
-    let caller = Caller::new(task, &memory);
+    let dynamic_linker = crate::GuestDynamicLinker::new(&env);
+    let caller = Caller::new(task, &memory).with_dynamic_linker(&dynamic_linker);
     loop {
         let ret = Syscalls::dl_sym(
             &*syscalls,
@@ -934,7 +936,8 @@ where
 {
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
-    let caller = Caller::new(task, &memory);
+    let dynamic_linker = crate::GuestDynamicLinker::new(&env);
+    let caller = Caller::new(task, &memory).with_dynamic_linker(&dynamic_linker);
     loop {
         let ret = Syscalls::dl_close(&*syscalls, &caller, DlHandle(handle as u32)).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -952,7 +955,8 @@ where
 {
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
-    let caller = Caller::new(task, &memory);
+    let dynamic_linker = crate::GuestDynamicLinker::new(&env);
+    let caller = Caller::new(task, &memory).with_dynamic_linker(&dynamic_linker);
     loop {
         let ret = Syscalls::dl_next_init(&*syscalls, &caller, UptrPtr::new(ctors as u32)).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {

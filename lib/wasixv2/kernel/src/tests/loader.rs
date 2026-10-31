@@ -193,3 +193,73 @@ fn loader_rejects_a_borrowed_vfork_instance_and_reopens_admission() {
     assert!(!gate.busy());
     assert!(gate.admit().is_ok());
 }
+
+#[test]
+fn borrowed_loader_authority_stays_behind_layer_denial_and_entry_scope() {
+    use std::cell::Cell;
+    use wasixv2_abi::DlHandle;
+    use wasixv2_syscalls::{
+        DynamicLinker, Layer, Layered, MaybeFuture, Syscall, SyscallRet, dispatch,
+    };
+    struct Capability(Cell<u32>);
+    impl DynamicLinker for Capability {
+        fn dl_close<'a>(
+            &'a self,
+            caller: &'a Caller<'_>,
+            handle: DlHandle,
+        ) -> LocalFuture<'a, SysResult<i32>> {
+            Box::pin(async move {
+                assert_eq!(wasixv2_syscalls::current_task(), Some(caller.task()));
+                self.0.set(self.0.get() + 1);
+                Ok(handle.0 as i32)
+            })
+        }
+    }
+    struct Deny;
+    impl Layer<Kernel> for Deny {
+        fn call<'a>(
+            &'a self,
+            _: &'a Caller<'_>,
+            _: Syscall,
+            _: &'a Kernel,
+        ) -> MaybeFuture<'a, SysResult<SyscallRet>> {
+            MaybeFuture::Ready(Err(Errno::EPERM.into()))
+        }
+    }
+    struct Forward(Cell<u32>);
+    impl Layer<Kernel> for Forward {
+        fn call<'a>(
+            &'a self,
+            caller: &'a Caller<'_>,
+            call: Syscall,
+            next: &'a Kernel,
+        ) -> MaybeFuture<'a, SysResult<SyscallRet>> {
+            self.0.set(self.0.get() + 1);
+            dispatch(next, caller, call)
+        }
+    }
+    let (kernel, task, _) = setup(b"");
+    let memory = FlatMemory::default();
+    let plain = Caller::new(task, &memory);
+    assert!(plain.dynamic_linker().is_none());
+    assert_eq!(
+        block_on(kernel.dl_close(&plain, DlHandle(7))),
+        Err(Errno::ENOSYS.into())
+    );
+    let capability = Capability(Cell::new(0));
+    let caller = Caller::new(task, &memory).with_dynamic_linker(&capability);
+    let deny = Layered::new(crate::entry::SyscallEntry(Deny), kernel);
+    assert_eq!(
+        block_on(deny.dl_close(&caller, DlHandle(7))),
+        Err(Errno::EPERM.into())
+    );
+    assert_eq!(capability.0.get(), 0);
+    let forward = Layered::new(
+        crate::entry::SyscallEntry(Forward(Cell::new(0))),
+        deny.inner,
+    );
+    assert_eq!(block_on(forward.dl_close(&caller, DlHandle(7))), Ok(7));
+    assert_eq!(capability.0.get(), 1);
+    assert_eq!(forward.layer.0.0.get(), 1);
+    assert_eq!(wasixv2_syscalls::current_task(), None);
+}

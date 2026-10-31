@@ -24,6 +24,7 @@
 mod caller;
 mod control;
 mod cputime;
+mod dynamic;
 mod future;
 mod generated;
 mod loader;
@@ -50,3 +51,5 @@ pub use loader::{
     LibraryImage, LoaderAdmission, LoaderClosing, LoaderCommand, LoaderControl, LoaderGate,
     LoaderPhase, LoaderReservation, LoaderTransaction, LoaderWait,
 };
+
+pub use dynamic::DynamicLinker;

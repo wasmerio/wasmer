@@ -103,16 +103,17 @@ use wasixv2_abi::{
     ConstGidArray, ConstIovecArray, ConstKernelItimerspecPtr, ConstKernelTimespecArray,
     ConstKernelTimespecPtr, ConstMqAttrPtr, ConstMsgbufPtr, ConstOpenHowPtr, ConstRlimit64Ptr,
     ConstSchedParamPtr, ConstSembufArray, ConstSigeventPtr, ConstSigsetPtr, ConstXattrArgsPtr,
-    Cstr, FadviseAdvice, FallocFlags, FcntlCmd, FileHandlePtr, FlockOp, FutexOp, Gid, GidArray,
-    GidPtr, GrndFlags, IoctlRequest, KernelItimerspecPtr, KernelTimespecPtr, LinuxDirent64Ptr,
-    Loff, LoffPtr, MadviseAdvice, MapFlags, MclFlags, MembarrierCmd, MembarrierCmdFlags,
-    MemfdFlags, MlockFlags, Mode, MqAttrPtr, MremapFlags, MsgbufPtr, Msqid64DsPtr, MsyncFlags,
-    NewUtsnamePtr, OpenFlags, Pid, PrctlOption, PrioWhich, ProtFlags, RenameFlags, Rlimit64Ptr,
-    RlimitResource, RobustListHeadPtr, RobustListHeadPtrPtr, RusagePtr, RusageWho, RwfFlags,
-    S32Ptr, SchedAttrPtr, SchedParamPtr, SchedPolicy, SeekWhence, Shmid64DsPtr, Signal,
-    SigprocmaskHow, Sigset, SigsetPtr, SpliceFlags, Statfs64Ptr, StatxMask, StatxPtr,
-    SyncFileRangeFlags, SysinfoPtr, TimerFlags, TimerfdFlags, TimerfdSettimeFlags, TmsPtr, U32Ptr,
-    Uid, UidPtr, Ulong, UlongArray, Uptr, Usize, UsizePtr, VoidPtr, XattrArgsPtr, XattrFlags,
+    Cstr, DlFlags, DlHandle, DlHandlePtr, FadviseAdvice, FallocFlags, FcntlCmd, FileHandlePtr,
+    FlockOp, FutexOp, Gid, GidArray, GidPtr, GrndFlags, IoctlRequest, KernelItimerspecPtr,
+    KernelTimespecPtr, LinuxDirent64Ptr, Loff, LoffPtr, MadviseAdvice, MapFlags, MclFlags,
+    MembarrierCmd, MembarrierCmdFlags, MemfdFlags, MlockFlags, Mode, MqAttrPtr, MremapFlags,
+    MsgbufPtr, Msqid64DsPtr, MsyncFlags, NewUtsnamePtr, OpenFlags, Pid, PrctlOption, PrioWhich,
+    ProtFlags, RenameFlags, Rlimit64Ptr, RlimitResource, RobustListHeadPtr, RobustListHeadPtrPtr,
+    RusagePtr, RusageWho, RwfFlags, S32Ptr, SchedAttrPtr, SchedParamPtr, SchedPolicy, SeekWhence,
+    Shmid64DsPtr, Signal, SigprocmaskHow, Sigset, SigsetPtr, SpliceFlags, Statfs64Ptr, StatxMask,
+    StatxPtr, SyncFileRangeFlags, SysinfoPtr, TimerFlags, TimerfdFlags, TimerfdSettimeFlags,
+    TmsPtr, U32Ptr, Uid, UidPtr, Ulong, UlongArray, Uptr, UptrPtr, Usize, UsizePtr, VoidPtr,
+    XattrArgsPtr, XattrFlags,
 };
 use wasixv2_host::Host;
 pub use wasixv2_host::{Console, Stdio, WindowSize};
@@ -809,6 +810,69 @@ impl Kernel {
 }
 
 impl Syscalls for Kernel {
+    fn dl_open<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        file: Cstr,
+        flags: DlFlags,
+        search_path: Cstr,
+        caller_addr: Uptr,
+        handle: DlHandlePtr,
+        err: UserSliceMut,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        match caller.dynamic_linker() {
+            Some(linker) => MaybeFuture::Future(linker.dl_open(
+                caller,
+                file,
+                flags,
+                search_path,
+                caller_addr,
+                handle,
+                err,
+            )),
+            None => MaybeFuture::Ready(Err(Errno::ENOSYS.into())),
+        }
+    }
+
+    fn dl_sym<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        handle: DlHandle,
+        symbol: Cstr,
+        caller_addr: Uptr,
+        addr: UptrPtr,
+        err: UserSliceMut,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        match caller.dynamic_linker() {
+            Some(linker) => {
+                MaybeFuture::Future(linker.dl_sym(caller, handle, symbol, caller_addr, addr, err))
+            }
+            None => MaybeFuture::Ready(Err(Errno::ENOSYS.into())),
+        }
+    }
+
+    fn dl_close<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        handle: DlHandle,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        match caller.dynamic_linker() {
+            Some(linker) => MaybeFuture::Future(linker.dl_close(caller, handle)),
+            None => MaybeFuture::Ready(Err(Errno::ENOSYS.into())),
+        }
+    }
+
+    fn dl_next_init<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        ctors: UptrPtr,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        match caller.dynamic_linker() {
+            Some(linker) => MaybeFuture::Future(linker.dl_next_init(caller, ctors)),
+            None => MaybeFuture::Ready(Err(Errno::ENOSYS.into())),
+        }
+    }
+
     fn startup_size<'a>(&'a self, caller: &'a Caller<'_>) -> MaybeFuture<'a, SysResult<u32>> {
         MaybeFuture::Future(Box::pin(async move {
             let process = self.process(caller.task());

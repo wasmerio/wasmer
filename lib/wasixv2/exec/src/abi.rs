@@ -4,7 +4,10 @@
 
 use std::sync::Arc;
 
-use wasixv2_syscalls::{Binfmt, Control, Errno, Image, LocalFuture, SignalFrame, Syscalls, TaskId};
+use wasixv2_abi::{Cstr, DlFlags, DlHandle, DlHandlePtr, Uptr, UptrPtr};
+use wasixv2_syscalls::{
+    Binfmt, Control, Errno, Image, LocalFuture, SignalFrame, Syscalls, TaskId, UserSliceMut,
+};
 use wasmer::{
     AsyncFunctionEnvMut, Function, FunctionEnv, Imports, Instance, Module, RuntimeError, Store,
     StoreAsync, Value,
@@ -63,6 +66,66 @@ pub enum Role {
 
 /// The per-instance half of an [`Abi`]: entry points and the guest-visible interruptions.
 pub trait AbiInstance<S: 'static>: Send + Sync {
+    #[allow(clippy::too_many_arguments)]
+    fn dl_open<'a>(
+        &'a self,
+        env: &'a AsyncFunctionEnvMut<ExecEnv<S>>,
+        caller: &'a wasixv2_syscalls::Caller<'_>,
+        file: Cstr,
+        flags: DlFlags,
+        search_path: Cstr,
+        caller_addr: Uptr,
+        handle: DlHandlePtr,
+        err: UserSliceMut,
+    ) -> LocalFuture<'a, wasixv2_syscalls::SysResult<i32>> {
+        let _ = (
+            env,
+            caller,
+            file,
+            flags,
+            search_path,
+            caller_addr,
+            handle,
+            err,
+        );
+        Box::pin(async { Err(Errno::ENOSYS.into()) })
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn dl_sym<'a>(
+        &'a self,
+        env: &'a AsyncFunctionEnvMut<ExecEnv<S>>,
+        caller: &'a wasixv2_syscalls::Caller<'_>,
+        handle: DlHandle,
+        symbol: Cstr,
+        caller_addr: Uptr,
+        addr: UptrPtr,
+        err: UserSliceMut,
+    ) -> LocalFuture<'a, wasixv2_syscalls::SysResult<i32>> {
+        let _ = (env, caller, handle, symbol, caller_addr, addr, err);
+        Box::pin(async { Err(Errno::ENOSYS.into()) })
+    }
+
+    fn dl_close<'a>(
+        &'a self,
+        env: &'a AsyncFunctionEnvMut<ExecEnv<S>>,
+        caller: &'a wasixv2_syscalls::Caller<'_>,
+        handle: DlHandle,
+    ) -> LocalFuture<'a, wasixv2_syscalls::SysResult<i32>> {
+        let _ = (env, caller, handle);
+        Box::pin(async { Err(Errno::ENOSYS.into()) })
+    }
+
+    fn dl_next_init<'a>(
+        &'a self,
+        env: &'a AsyncFunctionEnvMut<ExecEnv<S>>,
+        caller: &'a wasixv2_syscalls::Caller<'_>,
+        ctors: UptrPtr,
+    ) -> LocalFuture<'a, wasixv2_syscalls::SysResult<i32>> {
+        let _ = (env, caller, ctors);
+        Box::pin(async { Err(Errno::ENOSYS.into()) })
+    }
+
     /// Runs the process image from its entry point until the entry returns or the guest unwinds.
     fn start<'a>(&'a self, entry: &'a Entry<'a, S>) -> LocalFuture<'a, Result<(), RuntimeError>>;
 
