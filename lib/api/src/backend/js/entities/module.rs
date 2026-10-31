@@ -108,27 +108,32 @@ impl Module {
     /// needs them. A module created elsewhere and not yet delivered is recompiled
     /// synchronously from retained bytes, which browsers may refuse on the main
     /// thread for large modules; the accessors built on this are infallible, so an
-    /// undeliverable module panics rather than returning an error.
+    /// undeliverable module panics there. Instantiation uses the fallible sibling.
     fn local_module(&self) -> WebAssembly::Module {
+        self.try_local_module()
+            .expect("failed to access a shared module in this worker")
+    }
+
+    fn try_local_module(&self) -> Result<WebAssembly::Module, RuntimeError> {
         if let Some(module) = self.module.get() {
-            return module;
+            return Ok(module);
         }
         // A running sibling can observe dlopen before receiving postMessage.
-        // The fallback uses the same compile path as `from_binary_unchecked`.
+        // A failed compile stays recoverable on the fallible instantiation path.
         #[cfg(feature = "js-serializable-module")]
         if let Some(bytes) = &self.raw_bytes {
             let bytes = Uint8Array::from(bytes.as_ref());
             let module = WebAssembly::Module::new(&bytes.into())
-                .expect("failed to compile a shared module in this worker");
+                .map_err(|error: JsValue| -> RuntimeError { error.into() })?;
             self.module.install(module.clone());
-            return module;
+            return Ok(module);
         }
-        panic!(
+        Err(RuntimeError::new(
             "module is unavailable in this worker: deliver it with \
              wasmer::js::prepare_shared_object_message and call receive_shared_object_message \
              before accessing the task (or use export_shared_objects/import_shared_objects); \
-             the local compilation fallback requires js-serializable-module and retained bytes"
-        );
+             the local compilation fallback requires js-serializable-module and retained bytes",
+        ))
     }
 
     #[cfg(target_arch = "wasm32")]
@@ -257,6 +262,8 @@ impl Module {
             )));
         }
 
+        // imports() may itself need the local module when metadata was not parsed.
+        let module = self.try_local_module()?;
         let imports_object = js_sys::Object::new();
         let mut import_externs: Vec<Extern> = vec![];
         for import_type in self.imports() {
@@ -313,7 +320,7 @@ impl Module {
             // in case the import is not found, the JS Wasm VM will handle
             // the error for us, so we don't need to handle it
         }
-        let instance = WebAssembly::Instance::new(&self.local_module(), &imports_object)
+        let instance = WebAssembly::Instance::new(&module, &imports_object)
             .map_err(|e: JsValue| -> RuntimeError { e.into() })?;
         #[cfg(feature = "wasm-types-polyfill")]
         self.annotate_table_functions(store, imports, &instance);
@@ -405,7 +412,7 @@ impl Module {
     ) -> Result<Self, DeserializeError> {
         #[cfg(feature = "js-serializable-module")]
         return Self::from_binary(_engine, &_bytes.into_bytes())
-            .map_err(|e| DeserializeError::Compiler(e));
+            .map_err(DeserializeError::Compiler);
 
         #[cfg(not(feature = "js-serializable-module"))]
         return Err(DeserializeError::Generic("You need to enable the `js-serializable-module` feature flag to deserialize a `Module`".to_string()));
@@ -418,7 +425,7 @@ impl Module {
     ) -> Result<Self, DeserializeError> {
         #[cfg(feature = "js-serializable-module")]
         return Self::from_binary(_engine, &_bytes.into_bytes())
-            .map_err(|e| DeserializeError::Compiler(e));
+            .map_err(DeserializeError::Compiler);
 
         #[cfg(not(feature = "js-serializable-module"))]
         return Err(DeserializeError::Generic("You need to enable the `js-serializable-module` feature flag to deserialize a `Module`".to_string()));
@@ -742,9 +749,33 @@ impl crate::Module {
 
 #[cfg(all(test, feature = "wasm-types-polyfill", feature = "wat"))]
 mod tests {
-    use crate::js::utils::shared_handle::{forget_local_objects, shared_object_stats};
+    use crate::js::utils::shared_handle::{
+        export_shared_objects, forget_local_objects, import_shared_objects, shared_object_stats,
+    };
     use crate::{ExternType, Module, Store};
     use wasm_bindgen_test::wasm_bindgen_test;
+
+    struct SavedRealm(js_sys::Array);
+
+    impl SavedRealm {
+        fn forget() -> Self {
+            let realm = Self(export_shared_objects());
+            forget_local_objects();
+            realm
+        }
+
+        fn restore(&self) {
+            // These are the original objects exported by this same runtime, with
+            // their live Rust owners retained by each test, not untrusted IDs.
+            unsafe { import_shared_objects(&self.0) }.unwrap();
+        }
+    }
+
+    impl Drop for SavedRealm {
+        fn drop(&mut self) {
+            self.restore();
+        }
+    }
 
     #[wasm_bindgen_test]
     fn metadata_does_not_need_the_local_js_module() {
@@ -759,7 +790,7 @@ mod tests {
         )
         .unwrap();
         // As in a worker that has not received this module yet.
-        forget_local_objects();
+        let _realm = SavedRealm::forget();
         let (_, fallbacks) = shared_object_stats();
 
         let imports = module.imports().collect::<Vec<_>>();
@@ -771,8 +802,113 @@ mod tests {
         assert!(memory.shared);
         assert_eq!(memory.maximum.map(|pages| pages.0), Some(16));
         assert!(matches!(imports[1].ty(), ExternType::Function(f) if f.params().len() == 1));
-        let exports = module.exports().map(|e| e.name().to_owned()).collect::<Vec<_>>();
+        let exports = module
+            .exports()
+            .map(|e| e.name().to_owned())
+            .collect::<Vec<_>>();
         assert_eq!(exports, ["g", "h"]);
         assert_eq!(shared_object_stats().1, fallbacks);
+    }
+
+    #[cfg(feature = "js-serializable-module")]
+    mod realm_fallback {
+        use super::{Module, SavedRealm, Store, shared_object_stats};
+        use crate::{Imports, Instance, InstantiationError};
+        use bytes::Bytes;
+        use js_sys::WebAssembly;
+        use wasm_bindgen_test::wasm_bindgen_test;
+
+        fn module(store: &Store) -> Module {
+            Module::new(
+                store,
+                "(module (func (export \"value\") (result i32) i32.const 7))",
+            )
+            .unwrap()
+        }
+
+        #[wasm_bindgen_test]
+        fn delivered_module_reuses_identity_without_fallback() {
+            let mut store = Store::default();
+            let mut module = module(&store);
+            let original = module.as_js().module.get::<WebAssembly::Module>().unwrap();
+            // A delivered object must win even when fallback bytes cannot compile.
+            module.as_js_mut().raw_bytes = Some(Bytes::from_static(b"invalid wasm"));
+            let realm = SavedRealm::forget();
+            realm.restore();
+            let fallbacks = shared_object_stats().1;
+            let instance = Instance::new(&mut store, &module, &Imports::new()).unwrap();
+            let value = instance
+                .exports
+                .get_typed_function::<(), i32>(&store, "value")
+                .unwrap();
+            assert_eq!(value.call(&mut store).unwrap(), 7);
+            assert_eq!(shared_object_stats().1, fallbacks);
+            let reused = module.as_js().module.get::<WebAssembly::Module>().unwrap();
+            assert!(js_sys::Object::is(original.as_ref(), reused.as_ref()));
+        }
+
+        #[wasm_bindgen_test]
+        fn first_cold_instantiation_compiles_once_then_reuses_cached_module() {
+            let mut store = Store::default();
+            let module = module(&store);
+            let _realm = SavedRealm::forget();
+            let fallbacks = shared_object_stats().1;
+            let first = Instance::new(&mut store, &module, &Imports::new()).unwrap();
+            let cached = module.as_js().module.get::<WebAssembly::Module>().unwrap();
+            assert_eq!(shared_object_stats().1, fallbacks + 1);
+            let second = Instance::new(&mut store, &module, &Imports::new()).unwrap();
+            let reused = module.as_js().module.get::<WebAssembly::Module>().unwrap();
+            assert!(js_sys::Object::is(cached.as_ref(), reused.as_ref()));
+            assert_eq!(shared_object_stats().1, fallbacks + 1);
+            for instance in [first, second] {
+                let value = instance
+                    .exports
+                    .get_typed_function::<(), i32>(&store, "value")
+                    .unwrap();
+                assert_eq!(value.call(&mut store).unwrap(), 7);
+            }
+        }
+
+        #[wasm_bindgen_test]
+        fn invalid_cold_fallback_is_a_recoverable_instantiation_error() {
+            let mut store = Store::default();
+            let mut module = module(&store);
+            module.as_js_mut().raw_bytes = Some(Bytes::from_static(b"invalid wasm"));
+            // Also cover the path where imports() would otherwise need the
+            // infallible accessor instead of parsed metadata.
+            module.as_js_mut().parsed = false;
+            let realm = SavedRealm::forget();
+            let fallbacks = shared_object_stats().1;
+            let result = Instance::new(&mut store, &module, &Imports::new());
+            assert!(matches!(result, Err(InstantiationError::Start(_))));
+            assert!(module.as_js().module.get::<WebAssembly::Module>().is_none());
+            assert_eq!(shared_object_stats().1, fallbacks);
+            // A later delivery can still satisfy the same handle after failure.
+            realm.restore();
+            assert!(Instance::new(&mut store, &module, &Imports::new()).is_ok());
+            assert_eq!(shared_object_stats().1, fallbacks);
+        }
+
+        #[wasm_bindgen_test]
+        fn missing_cold_source_is_a_recoverable_instantiation_error() {
+            let mut store = Store::default();
+            let source = module(&store);
+            // Wrapping an existing JS module has neither retained bytes nor
+            // parsed metadata, as with a delivered compiled-only module.
+            let module = Module::from(source.as_js().module.get::<WebAssembly::Module>().unwrap());
+            let _realm = SavedRealm::forget();
+            let fallbacks = shared_object_stats().1;
+            let result = Instance::new(&mut store, &module, &Imports::new());
+            let Err(InstantiationError::Start(error)) = result else {
+                panic!("missing source must be a recoverable instantiation error");
+            };
+            assert!(
+                error
+                    .to_string()
+                    .contains("module is unavailable in this worker")
+            );
+            assert!(module.as_js().module.get::<WebAssembly::Module>().is_none());
+            assert_eq!(shared_object_stats().1, fallbacks);
+        }
     }
 }
