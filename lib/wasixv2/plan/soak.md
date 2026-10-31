@@ -237,6 +237,18 @@ reported as unstable. Self-control PASS; finalrun cycle805 measured33/33stable
 threads and0.806MiB tcache chunks. This does not explain the entire arena
 unfreed estimate. No process attach, target writes, signals or allocator tuning.
 
+`userland/tests/soak-mmaps.py` also reads direct-mmap malloc counters, total
+mapping count and the native thread-name histogram at a quiet cycle. The exact
+libc SHA guard pins the local `int_mallinfo` instructions that read
+`mp_.n_mmaps`/`mp_.mmapped_mem`; the source is
+[`malloc.c:int_mallinfo`](https://raw.githubusercontent.com/bminor/glibc/glibc-2.39/malloc/malloc.c).
+Its independent local control checks those counters against `mallinfo2` before,
+during and after allocating/freeing a16MiB mmap-backed chunk. All three phases
+PASS. Calls and allocations occur only in the observer; the owned soak target
+is read through `/proc/PID/mem` with stable duplicate counter checks. No target
+calls, attach, writes, signals or tuning. Arena estimates alone cannot exclude
+large mmap allocation growth, so retain these supplementary snapshots too.
+
 
 ## Fixed run04 curves and open heap investigation
 
