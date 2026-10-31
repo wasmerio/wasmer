@@ -195,7 +195,15 @@ mod integrity_check {
         const MAX_STACK_UNITS: u32 = 8192;
         let mut trace = stack.slice(0, MAX_STACK_UNITS).as_string()?;
         if stack.length() > MAX_STACK_UNITS {
-            trace.push_str("\n[stack truncated]");
+            const MARKER: &str = "\n[stack truncated]";
+            // Reserve the marker inside the copied text: appending past its
+            // capacity otherwise doubles every export's diagnostic allocation.
+            let mut end = trace.len().saturating_sub(MARKER.len());
+            while !trace.is_char_boundary(end) {
+                end -= 1;
+            }
+            trace.truncate(end);
+            trace.push_str(MARKER);
         }
         Some(Arc::new(trace))
     }
@@ -203,6 +211,21 @@ mod integrity_check {
     #[cfg(all(test, target_arch = "wasm32"))]
     mod tests {
         use super::IntegrityCheck;
+
+        #[wasm_bindgen_test::wasm_bindgen_test]
+        fn truncation_marker_keeps_export_diagnostics_within_the_bounded_copy() {
+            for stack in [
+                js_sys::JsString::from("frame\n".repeat(20_000)),
+                js_sys::JsString::from("é🦀".repeat(20_000)),
+            ] {
+                let bounded = stack.slice(0, 8192).as_string().unwrap();
+                let diagnostic = super::copy_backtrace(&stack).unwrap();
+                assert!(diagnostic.capacity() <= bounded.capacity(),
+                    "a marker must not double the allocation for every export");
+                assert!(diagnostic.len() <= bounded.len());
+                assert!(diagnostic.ends_with("\n[stack truncated]"));
+            }
+        }
 
         #[wasm_bindgen_test::wasm_bindgen_test]
         fn many_large_export_diagnostics_fit_the_runtime_heap() {
