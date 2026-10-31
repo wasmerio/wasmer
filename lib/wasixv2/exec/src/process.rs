@@ -585,6 +585,7 @@ pub(super) mod tests {
         sync::atomic::{AtomicU32, Ordering},
         time::Duration,
     };
+    use wasixv2_syscalls::MaybeFuture;
 
     use wasixv2_abi::Errno;
     use wasixv2_host::{Executor, LocalFuture};
@@ -624,53 +625,65 @@ pub(super) mod tests {
     }
 
     impl Syscalls for Recorder {
-        async fn mmap(
-            &self,
-            caller: &Caller<'_>,
+        fn mmap<'a>(
+            &'a self,
+            caller: &'a Caller<'_>,
             _: u32,
             len: u32,
             _: wasixv2_abi::ProtFlags,
             _: wasixv2_abi::MapFlags,
             _: wasixv2_abi::Fd,
             _: i64,
-        ) -> SysResult<u32> {
-            let index = self.buffer_allocations.fetch_add(1, Ordering::Relaxed);
-            let at = 4 * 65536 + index * len;
-            let size = caller.memory().size().await;
-            let end = u64::from(at) + u64::from(len);
-            if end > size {
-                caller
-                    .memory()
-                    .grow((end - size).div_ceil(65536) as u32)
-                    .await
-                    .ok_or(Errno::ENOMEM)?;
-            }
-            Ok(at)
+        ) -> MaybeFuture<'a, SysResult<u32>> {
+            MaybeFuture::Future(Box::pin(async move {
+                let index = self.buffer_allocations.fetch_add(1, Ordering::Relaxed);
+                let at = 4 * 65536 + index * len;
+                let size = caller.memory().size().await;
+                let end = u64::from(at) + u64::from(len);
+                if end > size {
+                    caller
+                        .memory()
+                        .grow((end - size).div_ceil(65536) as u32)
+                        .await
+                        .ok_or(Errno::ENOMEM)?;
+                }
+                Ok(at)
+            }))
         }
 
-        async fn sched_yield(&self, _: &Caller<'_>) -> SysResult<i32> {
-            let Some((clocks, error)) = &self.retry else {
-                return Err(Errno::ENOSYS.into());
-            };
-            let used = Duration::from_micros(2);
-            clocks.advance(used, used);
-            if self.calls.fetch_add(1, Ordering::Relaxed) == 0 {
-                Err(*error)
-            } else {
+        fn sched_yield<'a>(&'a self, _: &'a Caller<'_>) -> MaybeFuture<'a, SysResult<i32>> {
+            MaybeFuture::Future(Box::pin(async move {
+                let Some((clocks, error)) = &self.retry else {
+                    return Err(Errno::ENOSYS.into());
+                };
+                let used = Duration::from_micros(2);
+                clocks.advance(used, used);
+                if self.calls.fetch_add(1, Ordering::Relaxed) == 0 {
+                    Err(*error)
+                } else {
+                    Ok(0)
+                }
+            }))
+        }
+
+        fn restart_syscall<'a>(&'a self, _: &'a Caller<'_>) -> MaybeFuture<'a, SysResult<i32>> {
+            MaybeFuture::Future(Box::pin(async move {
+                let (clocks, _) = self.retry.as_ref().expect("a restart block");
+                let used = Duration::from_micros(3);
+                clocks.advance(used, used);
                 Ok(0)
-            }
+            }))
         }
 
-        async fn restart_syscall(&self, _: &Caller<'_>) -> SysResult<i32> {
-            let (clocks, _) = self.retry.as_ref().expect("a restart block");
-            let used = Duration::from_micros(3);
-            clocks.advance(used, used);
-            Ok(0)
-        }
-
-        async fn exit_group(&self, caller: &Caller<'_>, status: i32) -> SysResult<()> {
-            self.queue(caller.task(), GuestAction::Exit(status));
-            Ok(())
+        fn exit_group<'a>(
+            &'a self,
+            caller: &'a Caller<'_>,
+            status: i32,
+        ) -> MaybeFuture<'a, SysResult<()>> {
+            MaybeFuture::Future(Box::pin(async move {
+                self.queue(caller.task(), GuestAction::Exit(status));
+                Ok(())
+            }))
         }
     }
 

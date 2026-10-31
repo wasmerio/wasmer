@@ -33,23 +33,24 @@ use wasixv2_abi::{
 };
 
 use crate::{
+    MaybeFuture,
     caller::Caller,
     memory::{UserSlice, UserSliceMut},
     result::SysResult,
 };
 
-/// One async method per import of the guest ABI, with typed arguments.
+/// One immediate-or-deferred method per import of the guest ABI, with typed arguments.
 ///
 /// Every method fails with `ENOSYS` unless overridden, so an implementation (the kernel, a test
 /// double) provides only the syscalls it supports.
 // The futures are deliberately not `Send`: wasmer's async host calls are not.
-#[allow(async_fn_in_trait, unused_variables)]
+#[allow(unused_variables)]
 pub trait Syscalls {
     /// Size in bytes of the startup block that `startup-get` writes.
     ///
     /// Wasm import `wasixv2.startup_size`.
-    async fn startup_size(&self, caller: &Caller<'_>) -> SysResult<u32> {
-        Err(Errno::ENOSYS.into())
+    fn startup_size<'a>(&'a self, caller: &'a Caller<'_>) -> MaybeFuture<'a, SysResult<u32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Writes the Linux-style initial process block into `buf`, which holds `len` bytes and must be
@@ -68,8 +69,12 @@ pub trait Syscalls {
     /// `AT_SECURE` and `AT_CLKTCK`. ELF-related entries (`AT_PHDR`, `AT_ENTRY`, ...) are absent.
     ///
     /// Wasm import `wasixv2.startup_get`.
-    async fn startup_get(&self, caller: &Caller<'_>, buf: UserSliceMut) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn startup_get<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        buf: UserSliceMut,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Starts a task that shares the caller's memory on an instance of its own: `clone` with
@@ -97,16 +102,16 @@ pub trait Syscalls {
     /// task's id (a new process's pid) as the caller sees it, or `-errno`.
     ///
     /// Wasm import `wasixv2.thread_spawn`.
-    async fn thread_spawn(
-        &self,
-        caller: &Caller<'_>,
+    fn thread_spawn<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         flags: Ulong,
         start_arg: Uptr,
         parent_tid: S32Ptr,
         tls: Uptr,
         child_tid: S32Ptr,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Registers libc's signal trampoline for the thread group, as an index into the module's
@@ -150,8 +155,12 @@ pub trait Syscalls {
     /// Returns 0 or `-errno`.
     ///
     /// Wasm import `wasixv2.signal_callback_register`.
-    async fn signal_callback_register(&self, caller: &Caller<'_>, callback: u32) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn signal_callback_register<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        callback: u32,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Calls and functions whose signatures are only known at run time, which wasm cannot express
@@ -169,15 +178,15 @@ pub trait Syscalls {
     /// fails with `-EINVAL`. Returns 0 or `-errno`.
     ///
     /// Wasm import `wasixv2.call_dynamic`.
-    async fn call_dynamic(
-        &self,
-        caller: &Caller<'_>,
+    fn call_dynamic<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         function: u32,
         values: UserSlice,
         results: UserSliceMut,
         flags: CallDynamicFlags,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Writes the signature of the function at table index `function`: its argument types to
@@ -187,15 +196,15 @@ pub trait Syscalls {
     /// `result` is written.
     ///
     /// Wasm import `wasixv2.reflect_signature`.
-    async fn reflect_signature(
-        &self,
-        caller: &Caller<'_>,
+    fn reflect_signature<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         function: u32,
         argument_types: UserSliceMut,
         result_types: UserSliceMut,
         result: ReflectionResultPtr,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Reserves a table slot for a closure and writes its index to `closure`. Calling it before
@@ -206,8 +215,12 @@ pub trait Syscalls {
     /// environment from an array in linear memory that the host owns.
     ///
     /// Wasm import `wasixv2.closure_allocate`.
-    async fn closure_allocate(&self, caller: &Caller<'_>, closure: U32Ptr) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn closure_allocate<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        closure: U32Ptr,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Makes `closure` callable with the given signature: calling it packs its arguments into a
@@ -218,24 +231,28 @@ pub trait Syscalls {
     /// Returns 0 or `-errno`.
     ///
     /// Wasm import `wasixv2.closure_prepare`.
-    async fn closure_prepare(
-        &self,
-        caller: &Caller<'_>,
+    fn closure_prepare<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         backing: u32,
         closure: u32,
         argument_types: UserSlice,
         result_types: UserSlice,
         env_: Uptr,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Frees `closure`'s slot and returns its stub to its pool. Calling it afterwards traps.
     /// Returns 0, or `-EINVAL` if `closure` is not an allocated closure.
     ///
     /// Wasm import `wasixv2.closure_free`.
-    async fn closure_free(&self, caller: &Caller<'_>, closure: u32) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn closure_free<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        closure: u32,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Checkpoints the process: the host saves the guest's memory and its kernel state, and the
@@ -246,8 +263,8 @@ pub trait Syscalls {
     /// so the stack cannot be captured. The C interface is `wasix_proc_checkpoint()`.
     ///
     /// Wasm import `wasixv2.checkpoint`.
-    async fn checkpoint(&self, caller: &Caller<'_>) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn checkpoint<'a>(&'a self, caller: &'a Caller<'_>) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// `setjmp` for the asyncify build configuration, where wasm exceptions are not available:
@@ -256,26 +273,26 @@ pub trait Syscalls {
     /// others get `-ENOSYS`. Returns 0, 1 or `-errno`.
     ///
     /// Wasm import `wasixv2.stack_save`.
-    async fn stack_save(
-        &self,
-        caller: &Caller<'_>,
+    fn stack_save<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         snapshot: StackSnapshotPtr,
         val: S32Ptr,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// `longjmp` for the asyncify build configuration: resumes the `stack-save` that filled
     /// `snapshot`, which returns 1 there with `val` written. Only for asyncify modules.
     ///
     /// Wasm import `wasixv2.stack_restore`.
-    async fn stack_restore(
-        &self,
-        caller: &Caller<'_>,
+    fn stack_restore<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         snapshot: ConstStackSnapshotPtr,
         val: i32,
-    ) -> SysResult<()> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<()>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Creates a suspended coroutine context and writes its id to `id`. Its first
@@ -285,8 +302,13 @@ pub trait Syscalls {
     /// Returns 0 or `-errno`.
     ///
     /// Wasm import `wasixv2.context_create`.
-    async fn context_create(&self, caller: &Caller<'_>, entry: u32, id: U64Ptr) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn context_create<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        entry: u32,
+        id: U64Ptr,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Suspends the current context and resumes context `id`, from where it last
@@ -294,16 +316,24 @@ pub trait Syscalls {
     /// or `-errno`.
     ///
     /// Wasm import `wasixv2.context_switch`.
-    async fn context_switch(&self, caller: &Caller<'_>, id: u64) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn context_switch<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        id: u64,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Destroys a suspended or finished context and releases its resources. Destroying
     /// the current or the main context fails. Returns 0 or `-errno`.
     ///
     /// Wasm import `wasixv2.context_destroy`.
-    async fn context_destroy(&self, caller: &Caller<'_>, id: u64) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn context_destroy<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        id: u64,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// The host instantiates and links side modules; libc2 decides policy and runs constructors.
@@ -335,17 +365,17 @@ pub trait Syscalls {
     ///
     /// Wasm import `wasixv2.dl_open`.
     #[allow(clippy::too_many_arguments)]
-    async fn dl_open(
-        &self,
-        caller: &Caller<'_>,
+    fn dl_open<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         file: Cstr,
         flags: DlFlags,
         search_path: Cstr,
         caller_addr: Uptr,
         handle: DlHandlePtr,
         err: UserSliceMut,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// `dlsym`: looks up `symbol` and writes its address to `addr`: a linear memory
@@ -358,24 +388,28 @@ pub trait Syscalls {
     /// NUL-terminated message for `dlerror` into `err`. Returns 0 or `-errno`.
     ///
     /// Wasm import `wasixv2.dl_sym`.
-    async fn dl_sym(
-        &self,
-        caller: &Caller<'_>,
+    fn dl_sym<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         handle: DlHandle,
         symbol: Cstr,
         caller_addr: Uptr,
         addr: UptrPtr,
         err: UserSliceMut,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// `dlclose`: drops a reference to `handle`. Code is never unloaded. Returns 0, or
     /// `-EINVAL` if `handle` is not a loaded module.
     ///
     /// Wasm import `wasixv2.dl_close`.
-    async fn dl_close(&self, caller: &Caller<'_>, handle: DlHandle) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn dl_close<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        handle: DlHandle,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Takes the next queued module whose constructors have not run, in initialization
@@ -387,8 +421,12 @@ pub trait Syscalls {
     /// held then, so constructors may call `dlopen`; libc serializes loading with its own lock.
     ///
     /// Wasm import `wasixv2.dl_next_init`.
-    async fn dl_next_init(&self, caller: &Caller<'_>, ctors: UptrPtr) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn dl_next_init<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        ctors: UptrPtr,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_openat(int dfd, const char * filename, int flags, umode_t mode)`.
@@ -396,57 +434,57 @@ pub trait Syscalls {
     /// as full register.
     ///
     /// Wasm import `wasixv2.openat` (riscv32 nr 56).
-    async fn openat(
-        &self,
-        caller: &Caller<'_>,
+    fn openat<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         dfd: Fd,
         filename: Cstr,
         flags: OpenFlags,
         mode: Mode,
-    ) -> SysResult<Fd> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<Fd>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_openat2(int dfd, const char * filename, struct open_how * how, size_t usize)`.
     /// struct open_how {u64 flags; u64 mode; u64 resolve} 24 bytes; usize must be >= 24.
     ///
     /// Wasm import `wasixv2.openat2` (riscv32 nr 437).
-    async fn openat2(
-        &self,
-        caller: &Caller<'_>,
+    fn openat2<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         dfd: Fd,
         filename: Cstr,
         how: ConstOpenHowPtr,
         usize: Usize,
-    ) -> SysResult<Fd> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<Fd>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_close(unsigned int fd)`.
     ///
     /// Wasm import `wasixv2.close` (riscv32 nr 57).
-    async fn close(&self, caller: &Caller<'_>, fd: Fd) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn close<'a>(&'a self, caller: &'a Caller<'_>, fd: Fd) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_close_range(unsigned int fd, unsigned int max_fd, unsigned int flags)`.
     ///
     /// Wasm import `wasixv2.close_range` (riscv32 nr 436).
-    async fn close_range(
-        &self,
-        caller: &Caller<'_>,
+    fn close_range<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: u32,
         max_fd: u32,
         flags: CloseRangeFlags,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_dup(unsigned int fildes)`.
     ///
     /// Wasm import `wasixv2.dup` (riscv32 nr 23).
-    async fn dup(&self, caller: &Caller<'_>, fildes: Fd) -> SysResult<Fd> {
-        Err(Errno::ENOSYS.into())
+    fn dup<'a>(&'a self, caller: &'a Caller<'_>, fildes: Fd) -> MaybeFuture<'a, SysResult<Fd>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_dup3(unsigned int oldfd, unsigned int newfd, int flags)`.
@@ -454,14 +492,14 @@ pub trait Syscalls {
     /// F_GETFD).
     ///
     /// Wasm import `wasixv2.dup3` (riscv32 nr 24).
-    async fn dup3(
-        &self,
-        caller: &Caller<'_>,
+    fn dup3<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         oldfd: Fd,
         newfd: Fd,
         flags: OpenFlags,
-    ) -> SysResult<Fd> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<Fd>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_fcntl64(unsigned int fd, unsigned int cmd, unsigned long arg)`.
@@ -473,22 +511,27 @@ pub trait Syscalls {
     /// on `cmd`.
     ///
     /// Wasm import `wasixv2.fcntl64` (riscv32 nr 25).
-    async fn fcntl64(
-        &self,
-        caller: &Caller<'_>,
+    fn fcntl64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         cmd: FcntlCmd,
         arg: Ulong,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_flock(unsigned int fd, unsigned int cmd)`.
     /// BSD flock(2), not fcntl locks.
     ///
     /// Wasm import `wasixv2.flock` (riscv32 nr 32).
-    async fn flock(&self, caller: &Caller<'_>, fd: Fd, cmd: FlockOp) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn flock<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        fd: Fd,
+        cmd: FlockOp,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_ioctl(unsigned int fd, unsigned int cmd, unsigned long arg)`.
@@ -498,83 +541,93 @@ pub trait Syscalls {
     /// Untyped: arg: an integer or a guest pointer, depending on `cmd`.
     ///
     /// Wasm import `wasixv2.ioctl` (riscv32 nr 29).
-    async fn ioctl(
-        &self,
-        caller: &Caller<'_>,
+    fn ioctl<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         cmd: IoctlRequest,
         arg: Ulong,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_read(unsigned int fd, char * buf, size_t count)`.
     ///
     /// Wasm import `wasixv2.read` (riscv32 nr 63).
-    async fn read(&self, caller: &Caller<'_>, fd: Fd, buf: UserSliceMut) -> SysResult<u32> {
-        Err(Errno::ENOSYS.into())
+    fn read<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        fd: Fd,
+        buf: UserSliceMut,
+    ) -> MaybeFuture<'a, SysResult<u32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_write(unsigned int fd, const char * buf, size_t count)`.
     ///
     /// Wasm import `wasixv2.write` (riscv32 nr 64).
-    async fn write(&self, caller: &Caller<'_>, fd: Fd, buf: UserSlice) -> SysResult<u32> {
-        Err(Errno::ENOSYS.into())
+    fn write<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        fd: Fd,
+        buf: UserSlice,
+    ) -> MaybeFuture<'a, SysResult<u32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_readv(unsigned long fd, const struct iovec * vec, unsigned long vlen)`.
     /// struct iovec {void*; size_t} = 8 bytes on wasm32. IOV_MAX 1024.
     ///
     /// Wasm import `wasixv2.readv` (riscv32 nr 65).
-    async fn readv(
-        &self,
-        caller: &Caller<'_>,
+    fn readv<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         vec: ConstIovecArray,
         vlen: Ulong,
-    ) -> SysResult<u32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<u32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_writev(unsigned long fd, const struct iovec * vec, unsigned long vlen)`.
     ///
     /// Wasm import `wasixv2.writev` (riscv32 nr 66).
-    async fn writev(
-        &self,
-        caller: &Caller<'_>,
+    fn writev<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         vec: ConstIovecArray,
         vlen: Ulong,
-    ) -> SysResult<u32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<u32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_pread64(unsigned int fd, char * buf, size_t count, loff_t pos)`.
     /// pos register pair on riscv32 (no padding before the pair on riscv).
     ///
     /// Wasm import `wasixv2.pread64` (riscv32 nr 67).
-    async fn pread64(
-        &self,
-        caller: &Caller<'_>,
+    fn pread64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         buf: UserSliceMut,
         pos: Loff,
-    ) -> SysResult<u32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<u32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_pwrite64(unsigned int fd, const char * buf, size_t count, loff_t pos)`.
     /// pos register pair.
     ///
     /// Wasm import `wasixv2.pwrite64` (riscv32 nr 68).
-    async fn pwrite64(
-        &self,
-        caller: &Caller<'_>,
+    fn pwrite64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         buf: UserSlice,
         pos: Loff,
-    ) -> SysResult<u32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<u32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_preadv(unsigned long fd, const struct iovec * vec, unsigned long vlen, unsigned long
@@ -582,15 +635,15 @@ pub trait Syscalls {
     /// The kernel takes the position as (pos_l, pos_h) on all arches; here it is one `s64`.
     ///
     /// Wasm import `wasixv2.preadv` (riscv32 nr 69).
-    async fn preadv(
-        &self,
-        caller: &Caller<'_>,
+    fn preadv<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         vec: ConstIovecArray,
         vlen: Ulong,
         pos: i64,
-    ) -> SysResult<u32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<u32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_pwritev(unsigned long fd, const struct iovec * vec, unsigned long vlen, unsigned long
@@ -598,15 +651,15 @@ pub trait Syscalls {
     /// The kernel takes the position as (pos_l, pos_h) on all arches; here it is one `s64`.
     ///
     /// Wasm import `wasixv2.pwritev` (riscv32 nr 70).
-    async fn pwritev(
-        &self,
-        caller: &Caller<'_>,
+    fn pwritev<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         vec: ConstIovecArray,
         vlen: Ulong,
         pos: i64,
-    ) -> SysResult<u32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<u32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_preadv2(unsigned long fd, const struct iovec * vec, unsigned long vlen, unsigned long
@@ -615,16 +668,16 @@ pub trait Syscalls {
     /// position.
     ///
     /// Wasm import `wasixv2.preadv2` (riscv32 nr 286).
-    async fn preadv2(
-        &self,
-        caller: &Caller<'_>,
+    fn preadv2<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         vec: ConstIovecArray,
         vlen: Ulong,
         pos: i64,
         flags: RwfFlags,
-    ) -> SysResult<u32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<u32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_pwritev2(unsigned long fd, const struct iovec * vec, unsigned long vlen, unsigned long
@@ -633,16 +686,16 @@ pub trait Syscalls {
     /// position.
     ///
     /// Wasm import `wasixv2.pwritev2` (riscv32 nr 287).
-    async fn pwritev2(
-        &self,
-        caller: &Caller<'_>,
+    fn pwritev2<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         vec: ConstIovecArray,
         vlen: Ulong,
         pos: i64,
         flags: RwfFlags,
-    ) -> SysResult<u32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<u32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_lseek(unsigned int fd, off_t offset, unsigned int whence)`, with a 64-bit offset.
@@ -653,29 +706,29 @@ pub trait Syscalls {
     /// which truncates offsets beyond 2 GiB; libc calls this import directly for the full range.
     ///
     /// Wasm import `wasixv2.lseek` (riscv32 nr 62).
-    async fn lseek(
-        &self,
-        caller: &Caller<'_>,
+    fn lseek<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         offset: Loff,
         whence: SeekWhence,
-    ) -> SysResult<i64> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i64>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_sendfile64(int out_fd, int in_fd, loff_t * offset, size_t count)`.
     /// riscv32 name sendfile64; offset is loff_t* (64-bit in memory).
     ///
     /// Wasm import `wasixv2.sendfile64` (riscv32 nr 71).
-    async fn sendfile64(
-        &self,
-        caller: &Caller<'_>,
+    fn sendfile64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         out_fd: Fd,
         in_fd: Fd,
         offset: LoffPtr,
         count: Usize,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_splice(int fd_in, loff_t * off_in, int fd_out, loff_t * off_out, size_t len, unsigned
@@ -684,46 +737,46 @@ pub trait Syscalls {
     ///
     /// Wasm import `wasixv2.splice` (riscv32 nr 76).
     #[allow(clippy::too_many_arguments)]
-    async fn splice(
-        &self,
-        caller: &Caller<'_>,
+    fn splice<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd_in: Fd,
         off_in: LoffPtr,
         fd_out: Fd,
         off_out: LoffPtr,
         len: Usize,
         flags: SpliceFlags,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_tee(int fdin, int fdout, size_t len, unsigned int flags)`.
     ///
     /// Wasm import `wasixv2.tee` (riscv32 nr 77).
-    async fn tee(
-        &self,
-        caller: &Caller<'_>,
+    fn tee<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fdin: Fd,
         fdout: Fd,
         len: Usize,
         flags: SpliceFlags,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_vmsplice(int fd, const struct iovec * uiov, unsigned long nr_segs, unsigned int
     /// flags)`.
     ///
     /// Wasm import `wasixv2.vmsplice` (riscv32 nr 75).
-    async fn vmsplice(
-        &self,
-        caller: &Caller<'_>,
+    fn vmsplice<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         uiov: ConstIovecArray,
         nr_segs: Ulong,
         flags: SpliceFlags,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_copy_file_range(int fd_in, loff_t * off_in, int fd_out, loff_t * off_out, size_t len,
@@ -732,48 +785,58 @@ pub trait Syscalls {
     ///
     /// Wasm import `wasixv2.copy_file_range` (riscv32 nr 285).
     #[allow(clippy::too_many_arguments)]
-    async fn copy_file_range(
-        &self,
-        caller: &Caller<'_>,
+    fn copy_file_range<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd_in: Fd,
         off_in: LoffPtr,
         fd_out: Fd,
         off_out: LoffPtr,
         len: Usize,
         flags: u32,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_truncate64(const char * path, loff_t length)`.
     /// riscv32 name truncate64; length register pair.
     ///
     /// Wasm import `wasixv2.truncate64` (riscv32 nr 45).
-    async fn truncate64(&self, caller: &Caller<'_>, path: Cstr, length: Loff) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn truncate64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        path: Cstr,
+        length: Loff,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_ftruncate64(unsigned int fd, loff_t length)`.
     /// riscv32 name ftruncate64; length register pair.
     ///
     /// Wasm import `wasixv2.ftruncate64` (riscv32 nr 46).
-    async fn ftruncate64(&self, caller: &Caller<'_>, fd: Fd, length: Loff) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn ftruncate64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        fd: Fd,
+        length: Loff,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_fallocate(int fd, int mode, loff_t offset, loff_t len)`.
     /// offset/len register pairs.
     ///
     /// Wasm import `wasixv2.fallocate` (riscv32 nr 47).
-    async fn fallocate(
-        &self,
-        caller: &Caller<'_>,
+    fn fallocate<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         mode: FallocFlags,
         offset: Loff,
         len: Loff,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_fadvise64_64(int fd, loff_t offset, loff_t len, int advice)`.
@@ -782,156 +845,156 @@ pub trait Syscalls {
     /// arm/ppc fadvise64_64 with advice second).
     ///
     /// Wasm import `wasixv2.fadvise64_64` (riscv32 nr 223).
-    async fn fadvise64_64(
-        &self,
-        caller: &Caller<'_>,
+    fn fadvise64_64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         offset: Loff,
         len: Loff,
         advice: FadviseAdvice,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_readahead(int fd, loff_t offset, size_t count)`.
     /// offset register pair.
     ///
     /// Wasm import `wasixv2.readahead` (riscv32 nr 213).
-    async fn readahead(
-        &self,
-        caller: &Caller<'_>,
+    fn readahead<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         offset: Loff,
         count: Usize,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_sync()`.
     ///
     /// Wasm import `wasixv2.sync` (riscv32 nr 81).
-    async fn sync(&self, caller: &Caller<'_>) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn sync<'a>(&'a self, caller: &'a Caller<'_>) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_fsync(unsigned int fd)`.
     ///
     /// Wasm import `wasixv2.fsync` (riscv32 nr 82).
-    async fn fsync(&self, caller: &Caller<'_>, fd: Fd) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn fsync<'a>(&'a self, caller: &'a Caller<'_>, fd: Fd) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_fdatasync(unsigned int fd)`.
     ///
     /// Wasm import `wasixv2.fdatasync` (riscv32 nr 83).
-    async fn fdatasync(&self, caller: &Caller<'_>, fd: Fd) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn fdatasync<'a>(&'a self, caller: &'a Caller<'_>, fd: Fd) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_syncfs(int fd)`.
     ///
     /// Wasm import `wasixv2.syncfs` (riscv32 nr 267).
-    async fn syncfs(&self, caller: &Caller<'_>, fd: Fd) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn syncfs<'a>(&'a self, caller: &'a Caller<'_>, fd: Fd) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_sync_file_range(int fd, loff_t offset, loff_t nbytes, unsigned int flags)`.
     /// riscv32 uses sync_file_range (not sync_file_range2); offset/nbytes are register pairs on riscv32.
     ///
     /// Wasm import `wasixv2.sync_file_range` (riscv32 nr 84).
-    async fn sync_file_range(
-        &self,
-        caller: &Caller<'_>,
+    fn sync_file_range<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         offset: Loff,
         nbytes: Loff,
         flags: SyncFileRangeFlags,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_getdents64(unsigned int fd, struct linux_dirent64 * dirent, unsigned int count)`.
     /// struct linux_dirent64 records, 8-byte aligned reclen.
     ///
     /// Wasm import `wasixv2.getdents64` (riscv32 nr 61).
-    async fn getdents64(
-        &self,
-        caller: &Caller<'_>,
+    fn getdents64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         dirent: LinuxDirent64Ptr,
         count: u32,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_mkdirat(int dfd, const char * pathname, umode_t mode)`.
     ///
     /// Wasm import `wasixv2.mkdirat` (riscv32 nr 34).
-    async fn mkdirat(
-        &self,
-        caller: &Caller<'_>,
+    fn mkdirat<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         dfd: Fd,
         pathname: Cstr,
         mode: Mode,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_mknodat(int dfd, const char * filename, umode_t mode, unsigned int dev)`.
     /// dev is u32 in new_encode_dev format (major<<8 low bits... see kdev_t.h).
     ///
     /// Wasm import `wasixv2.mknodat` (riscv32 nr 33).
-    async fn mknodat(
-        &self,
-        caller: &Caller<'_>,
+    fn mknodat<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         dfd: Fd,
         filename: Cstr,
         mode: Mode,
         dev: u32,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_unlinkat(int dfd, const char * pathname, int flag)`.
     /// No unlink/rmdir: AT_REMOVEDIR flag.
     ///
     /// Wasm import `wasixv2.unlinkat` (riscv32 nr 35).
-    async fn unlinkat(
-        &self,
-        caller: &Caller<'_>,
+    fn unlinkat<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         dfd: Fd,
         pathname: Cstr,
         flag: AtFlags,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_symlinkat(const char * oldname, int newdfd, const char * newname)`.
     ///
     /// Wasm import `wasixv2.symlinkat` (riscv32 nr 36).
-    async fn symlinkat(
-        &self,
-        caller: &Caller<'_>,
+    fn symlinkat<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         oldname: Cstr,
         newdfd: Fd,
         newname: Cstr,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_linkat(int olddfd, const char * oldname, int newdfd, const char * newname, int flags)`.
     ///
     /// Wasm import `wasixv2.linkat` (riscv32 nr 37).
-    async fn linkat(
-        &self,
-        caller: &Caller<'_>,
+    fn linkat<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         olddfd: Fd,
         oldname: Cstr,
         newdfd: Fd,
         newname: Cstr,
         flags: AtFlags,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_renameat2(int olddfd, const char * oldname, int newdfd, const char * newname, unsigned
@@ -939,152 +1002,180 @@ pub trait Syscalls {
     /// No renameat on riscv32 (renameat abi not enabled): musl rename/renameat -> renameat2(..., 0).
     ///
     /// Wasm import `wasixv2.renameat2` (riscv32 nr 276).
-    async fn renameat2(
-        &self,
-        caller: &Caller<'_>,
+    fn renameat2<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         olddfd: Fd,
         oldname: Cstr,
         newdfd: Fd,
         newname: Cstr,
         flags: RenameFlags,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_readlinkat(int dfd, const char * pathname, char * buf, int bufsiz)`.
     /// returns byte count, no NUL terminator.
     ///
     /// Wasm import `wasixv2.readlinkat` (riscv32 nr 78).
-    async fn readlinkat(
-        &self,
-        caller: &Caller<'_>,
+    fn readlinkat<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         dfd: Fd,
         pathname: Cstr,
         buf: Buf,
         bufsiz: i32,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_faccessat(int dfd, const char * filename, int mode)`.
     /// No access(2): AT_FDCWD.
     ///
     /// Wasm import `wasixv2.faccessat` (riscv32 nr 48).
-    async fn faccessat(
-        &self,
-        caller: &Caller<'_>,
+    fn faccessat<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         dfd: Fd,
         filename: Cstr,
         mode: AccessMode,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_faccessat2(int dfd, const char * filename, int mode, int flags)`.
     /// musl faccessat with flags tries faccessat2 first.
     ///
     /// Wasm import `wasixv2.faccessat2` (riscv32 nr 439).
-    async fn faccessat2(
-        &self,
-        caller: &Caller<'_>,
+    fn faccessat2<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         dfd: Fd,
         filename: Cstr,
         mode: AccessMode,
         flags: AtFlags,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_chdir(const char * filename)`.
     ///
     /// Wasm import `wasixv2.chdir` (riscv32 nr 49).
-    async fn chdir(&self, caller: &Caller<'_>, filename: Cstr) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn chdir<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        filename: Cstr,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_fchdir(unsigned int fd)`.
     ///
     /// Wasm import `wasixv2.fchdir` (riscv32 nr 50).
-    async fn fchdir(&self, caller: &Caller<'_>, fd: Fd) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn fchdir<'a>(&'a self, caller: &'a Caller<'_>, fd: Fd) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_chroot(const char * filename)`.
     ///
     /// Wasm import `wasixv2.chroot` (riscv32 nr 51).
-    async fn chroot(&self, caller: &Caller<'_>, filename: Cstr) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn chroot<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        filename: Cstr,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_fchroot(int fd, unsigned int flags)`.
     ///
     /// Wasm import `wasixv2.fchroot` (riscv32 nr 472).
-    async fn fchroot(&self, caller: &Caller<'_>, fd: Fd, flags: u32) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn fchroot<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        fd: Fd,
+        flags: u32,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_getcwd(char * buf, unsigned long size)`.
     ///
     /// Wasm import `wasixv2.getcwd` (riscv32 nr 17).
-    async fn getcwd(&self, caller: &Caller<'_>, buf: UserSliceMut) -> SysResult<u32> {
-        Err(Errno::ENOSYS.into())
+    fn getcwd<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        buf: UserSliceMut,
+    ) -> MaybeFuture<'a, SysResult<u32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_fchmod(unsigned int fd, umode_t mode)`.
     ///
     /// Wasm import `wasixv2.fchmod` (riscv32 nr 52).
-    async fn fchmod(&self, caller: &Caller<'_>, fd: Fd, mode: Mode) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn fchmod<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        fd: Fd,
+        mode: Mode,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_fchmodat(int dfd, const char * filename, umode_t mode)`.
     ///
     /// Wasm import `wasixv2.fchmodat` (riscv32 nr 53).
-    async fn fchmodat(
-        &self,
-        caller: &Caller<'_>,
+    fn fchmodat<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         dfd: Fd,
         filename: Cstr,
         mode: Mode,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_fchmodat2(int dfd, const char * filename, umode_t mode, unsigned int flags)`.
     /// musl fchmodat(AT_SYMLINK_NOFOLLOW) tries fchmodat2 first.
     ///
     /// Wasm import `wasixv2.fchmodat2` (riscv32 nr 452).
-    async fn fchmodat2(
-        &self,
-        caller: &Caller<'_>,
+    fn fchmodat2<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         dfd: Fd,
         filename: Cstr,
         mode: Mode,
         flags: AtFlags,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_fchown(unsigned int fd, uid_t user, gid_t group)`.
     ///
     /// Wasm import `wasixv2.fchown` (riscv32 nr 55).
-    async fn fchown(&self, caller: &Caller<'_>, fd: Fd, user: Uid, group: Gid) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn fchown<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        fd: Fd,
+        user: Uid,
+        group: Gid,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_fchownat(int dfd, const char * filename, uid_t user, gid_t group, int flag)`.
     ///
     /// Wasm import `wasixv2.fchownat` (riscv32 nr 54).
-    async fn fchownat(
-        &self,
-        caller: &Caller<'_>,
+    fn fchownat<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         dfd: Fd,
         filename: Cstr,
         user: Uid,
         group: Gid,
         flag: AtFlags,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_statx(int dfd, const char * filename, unsigned flags, unsigned int mask, struct statx *
@@ -1094,16 +1185,16 @@ pub trait Syscalls {
     /// fstat(fd) uses statx(fd, "", AT_EMPTY_PATH, ...).
     ///
     /// Wasm import `wasixv2.statx` (riscv32 nr 291).
-    async fn statx(
-        &self,
-        caller: &Caller<'_>,
+    fn statx<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         dfd: Fd,
         filename: Cstr,
         flags: AtFlags,
         mask: StatxMask,
         buffer: StatxPtr,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_statfs64(const char * pathname, size_t sz, struct statfs64 * buf)`.
@@ -1111,28 +1202,28 @@ pub trait Syscalls {
     /// 32-bit).
     ///
     /// Wasm import `wasixv2.statfs64` (riscv32 nr 43).
-    async fn statfs64(
-        &self,
-        caller: &Caller<'_>,
+    fn statfs64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pathname: Cstr,
         sz: Usize,
         buf: Statfs64Ptr,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_fstatfs64(unsigned int fd, size_t sz, struct statfs64 * buf)`.
     /// sz must be sizeof(struct statfs64) == 88.
     ///
     /// Wasm import `wasixv2.fstatfs64` (riscv32 nr 44).
-    async fn fstatfs64(
-        &self,
-        caller: &Caller<'_>,
+    fn fstatfs64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         sz: Usize,
         buf: Statfs64Ptr,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_utimensat(int dfd, const char * filename, struct __kernel_timespec * utimes, int
@@ -1141,43 +1232,52 @@ pub trait Syscalls {
     /// (futimens).
     ///
     /// Wasm import `wasixv2.utimensat_time64` (riscv32 nr 412).
-    async fn utimensat_time64(
-        &self,
-        caller: &Caller<'_>,
+    fn utimensat_time64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         dfd: Fd,
         filename: Cstr,
         utimes: ConstKernelTimespecArray,
         flags: AtFlags,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_pipe2(int * fildes, int flags)`.
     /// fildes is int[2].
     ///
     /// Wasm import `wasixv2.pipe2` (riscv32 nr 59).
-    async fn pipe2(&self, caller: &Caller<'_>, fildes: FdPair, flags: OpenFlags) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn pipe2<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        fildes: FdPair,
+        flags: OpenFlags,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_memfd_create(const char * uname, unsigned int flags)`.
     ///
     /// Wasm import `wasixv2.memfd_create` (riscv32 nr 279).
-    async fn memfd_create(
-        &self,
-        caller: &Caller<'_>,
+    fn memfd_create<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         uname: Cstr,
         flags: MemfdFlags,
-    ) -> SysResult<Fd> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<Fd>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_memfd_secret(unsigned int flags)`.
     /// Enabled on riscv via memfd_secret abi (syscall_abis_32 += riscv memfd_secret).
     ///
     /// Wasm import `wasixv2.memfd_secret` (riscv32 nr 447).
-    async fn memfd_secret(&self, caller: &Caller<'_>, flags: u32) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn memfd_secret<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        flags: u32,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_name_to_handle_at(int dfd, const char * name, struct file_handle * handle, void *
@@ -1186,29 +1286,29 @@ pub trait Syscalls {
     /// Untyped: mnt-id: `int *`, or `u64 *` with `AT_HANDLE_MNT_ID_UNIQUE`.
     ///
     /// Wasm import `wasixv2.name_to_handle_at` (riscv32 nr 264).
-    async fn name_to_handle_at(
-        &self,
-        caller: &Caller<'_>,
+    fn name_to_handle_at<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         dfd: Fd,
         name: Cstr,
         handle: FileHandlePtr,
         mnt_id: S32Ptr,
         flag: i32,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_open_by_handle_at(int mountdirfd, struct file_handle * handle, int flags)`.
     ///
     /// Wasm import `wasixv2.open_by_handle_at` (riscv32 nr 265).
-    async fn open_by_handle_at(
-        &self,
-        caller: &Caller<'_>,
+    fn open_by_handle_at<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         mountdirfd: Fd,
         handle: ConstFileHandlePtr,
         flags: OpenFlags,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_cachestat(unsigned int fd, struct cachestat_range * cstat_range, struct cachestat *
@@ -1216,47 +1316,47 @@ pub trait Syscalls {
     /// struct cachestat_range {u64 off; u64 len}; struct cachestat 5 x u64.
     ///
     /// Wasm import `wasixv2.cachestat` (riscv32 nr 451).
-    async fn cachestat(
-        &self,
-        caller: &Caller<'_>,
+    fn cachestat<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         cstat_range: ConstCachestatRangePtr,
         cstat: CachestatPtr,
         flags: u32,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_file_getattr(int dfd, const char * filename, struct file_attr * ufattr, size_t usize,
     /// unsigned int at_flags)`.
     ///
     /// Wasm import `wasixv2.file_getattr` (riscv32 nr 468).
-    async fn file_getattr(
-        &self,
-        caller: &Caller<'_>,
+    fn file_getattr<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         dfd: Fd,
         filename: Cstr,
         ufattr: FileAttrPtr,
         usize: Usize,
         at_flags: AtFlags,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_file_setattr(int dfd, const char * filename, struct file_attr * ufattr, size_t usize,
     /// unsigned int at_flags)`.
     ///
     /// Wasm import `wasixv2.file_setattr` (riscv32 nr 469).
-    async fn file_setattr(
-        &self,
-        caller: &Caller<'_>,
+    fn file_setattr<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         dfd: Fd,
         filename: Cstr,
         ufattr: ConstFileAttrPtr,
         usize: Usize,
         at_flags: AtFlags,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_quotactl(unsigned int cmd, const char * special, qid_t id, void * addr)`.
@@ -1264,170 +1364,185 @@ pub trait Syscalls {
     /// Untyped: addr: pointee depends on `cmd`.
     ///
     /// Wasm import `wasixv2.quotactl` (riscv32 nr 60).
-    async fn quotactl(
-        &self,
-        caller: &Caller<'_>,
+    fn quotactl<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         cmd: u32,
         special: Cstr,
         id: Qid,
         addr: VoidPtr,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_quotactl_fd(unsigned int fd, unsigned int cmd, qid_t id, void * addr)`.
     /// Untyped: addr: pointee depends on `cmd`.
     ///
     /// Wasm import `wasixv2.quotactl_fd` (riscv32 nr 443).
-    async fn quotactl_fd(
-        &self,
-        caller: &Caller<'_>,
+    fn quotactl_fd<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         cmd: u32,
         id: Qid,
         addr: VoidPtr,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_setxattr(const char * pathname, const char * name, const void * value, size_t size, int
     /// flags)`.
     ///
     /// Wasm import `wasixv2.setxattr` (riscv32 nr 5).
-    async fn setxattr(
-        &self,
-        caller: &Caller<'_>,
+    fn setxattr<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pathname: Cstr,
         name: Cstr,
         value: UserSlice,
         flags: XattrFlags,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_lsetxattr(const char * pathname, const char * name, const void * value, size_t size,
     /// int flags)`.
     ///
     /// Wasm import `wasixv2.lsetxattr` (riscv32 nr 6).
-    async fn lsetxattr(
-        &self,
-        caller: &Caller<'_>,
+    fn lsetxattr<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pathname: Cstr,
         name: Cstr,
         value: UserSlice,
         flags: XattrFlags,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_fsetxattr(int fd, const char * name, const void * value, size_t size, int flags)`.
     ///
     /// Wasm import `wasixv2.fsetxattr` (riscv32 nr 7).
-    async fn fsetxattr(
-        &self,
-        caller: &Caller<'_>,
+    fn fsetxattr<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         name: Cstr,
         value: UserSlice,
         flags: XattrFlags,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_getxattr(const char * pathname, const char * name, void * value, size_t size)`.
     ///
     /// Wasm import `wasixv2.getxattr` (riscv32 nr 8).
-    async fn getxattr(
-        &self,
-        caller: &Caller<'_>,
+    fn getxattr<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pathname: Cstr,
         name: Cstr,
         value: UserSliceMut,
-    ) -> SysResult<u32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<u32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_lgetxattr(const char * pathname, const char * name, void * value, size_t size)`.
     ///
     /// Wasm import `wasixv2.lgetxattr` (riscv32 nr 9).
-    async fn lgetxattr(
-        &self,
-        caller: &Caller<'_>,
+    fn lgetxattr<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pathname: Cstr,
         name: Cstr,
         value: UserSliceMut,
-    ) -> SysResult<u32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<u32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_fgetxattr(int fd, const char * name, void * value, size_t size)`.
     ///
     /// Wasm import `wasixv2.fgetxattr` (riscv32 nr 10).
-    async fn fgetxattr(
-        &self,
-        caller: &Caller<'_>,
+    fn fgetxattr<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         name: Cstr,
         value: UserSliceMut,
-    ) -> SysResult<u32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<u32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_listxattr(const char * pathname, char * list, size_t size)`.
     ///
     /// Wasm import `wasixv2.listxattr` (riscv32 nr 11).
-    async fn listxattr(
-        &self,
-        caller: &Caller<'_>,
+    fn listxattr<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pathname: Cstr,
         list: UserSliceMut,
-    ) -> SysResult<u32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<u32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_llistxattr(const char * pathname, char * list, size_t size)`.
     ///
     /// Wasm import `wasixv2.llistxattr` (riscv32 nr 12).
-    async fn llistxattr(
-        &self,
-        caller: &Caller<'_>,
+    fn llistxattr<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pathname: Cstr,
         list: UserSliceMut,
-    ) -> SysResult<u32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<u32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_flistxattr(int fd, char * list, size_t size)`.
     ///
     /// Wasm import `wasixv2.flistxattr` (riscv32 nr 13).
-    async fn flistxattr(&self, caller: &Caller<'_>, fd: Fd, list: UserSliceMut) -> SysResult<u32> {
-        Err(Errno::ENOSYS.into())
+    fn flistxattr<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        fd: Fd,
+        list: UserSliceMut,
+    ) -> MaybeFuture<'a, SysResult<u32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_removexattr(const char * pathname, const char * name)`.
     ///
     /// Wasm import `wasixv2.removexattr` (riscv32 nr 14).
-    async fn removexattr(&self, caller: &Caller<'_>, pathname: Cstr, name: Cstr) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn removexattr<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        pathname: Cstr,
+        name: Cstr,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_lremovexattr(const char * pathname, const char * name)`.
     ///
     /// Wasm import `wasixv2.lremovexattr` (riscv32 nr 15).
-    async fn lremovexattr(
-        &self,
-        caller: &Caller<'_>,
+    fn lremovexattr<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pathname: Cstr,
         name: Cstr,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_fremovexattr(int fd, const char * name)`.
     ///
     /// Wasm import `wasixv2.fremovexattr` (riscv32 nr 16).
-    async fn fremovexattr(&self, caller: &Caller<'_>, fd: Fd, name: Cstr) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn fremovexattr<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        fd: Fd,
+        name: Cstr,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_setxattrat(int dfd, const char * pathname, unsigned int at_flags, const char * name,
@@ -1435,17 +1550,17 @@ pub trait Syscalls {
     ///
     /// Wasm import `wasixv2.setxattrat` (riscv32 nr 463).
     #[allow(clippy::too_many_arguments)]
-    async fn setxattrat(
-        &self,
-        caller: &Caller<'_>,
+    fn setxattrat<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         dfd: Fd,
         pathname: Cstr,
         at_flags: AtFlags,
         name: Cstr,
         uargs: ConstXattrArgsPtr,
         usize: Usize,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_getxattrat(int dfd, const char * pathname, unsigned int at_flags, const char * name,
@@ -1453,70 +1568,74 @@ pub trait Syscalls {
     ///
     /// Wasm import `wasixv2.getxattrat` (riscv32 nr 464).
     #[allow(clippy::too_many_arguments)]
-    async fn getxattrat(
-        &self,
-        caller: &Caller<'_>,
+    fn getxattrat<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         dfd: Fd,
         pathname: Cstr,
         at_flags: AtFlags,
         name: Cstr,
         uargs: XattrArgsPtr,
         usize: Usize,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_listxattrat(int dfd, const char * pathname, unsigned int at_flags, char * list, size_t
     /// size)`.
     ///
     /// Wasm import `wasixv2.listxattrat` (riscv32 nr 465).
-    async fn listxattrat(
-        &self,
-        caller: &Caller<'_>,
+    fn listxattrat<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         dfd: Fd,
         pathname: Cstr,
         at_flags: AtFlags,
         list: UserSliceMut,
-    ) -> SysResult<u32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<u32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_removexattrat(int dfd, const char * pathname, unsigned int at_flags, const char *
     /// name)`.
     ///
     /// Wasm import `wasixv2.removexattrat` (riscv32 nr 466).
-    async fn removexattrat(
-        &self,
-        caller: &Caller<'_>,
+    fn removexattrat<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         dfd: Fd,
         pathname: Cstr,
         at_flags: AtFlags,
         name: Cstr,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_epoll_create1(int flags)`.
     /// No epoll_create on asm-generic.
     ///
     /// Wasm import `wasixv2.epoll_create1` (riscv32 nr 20).
-    async fn epoll_create1(&self, caller: &Caller<'_>, flags: EpollCreateFlags) -> SysResult<Fd> {
-        Err(Errno::ENOSYS.into())
+    fn epoll_create1<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        flags: EpollCreateFlags,
+    ) -> MaybeFuture<'a, SysResult<Fd>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_epoll_ctl(int epfd, int op, int fd, struct epoll_event * event)`.
     /// struct epoll_event is NOT packed on asm-generic (packed only on x86_64): 16 bytes, data at offset 8.
     ///
     /// Wasm import `wasixv2.epoll_ctl` (riscv32 nr 21).
-    async fn epoll_ctl(
-        &self,
-        caller: &Caller<'_>,
+    fn epoll_ctl<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         epfd: Fd,
         op: EpollCtlOp,
         fd: Fd,
         event: ConstEpollEventPtr,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_epoll_pwait(int epfd, struct epoll_event * events, int maxevents, int timeout, const
@@ -1526,17 +1645,17 @@ pub trait Syscalls {
     ///
     /// Wasm import `wasixv2.epoll_pwait` (riscv32 nr 22).
     #[allow(clippy::too_many_arguments)]
-    async fn epoll_pwait(
-        &self,
-        caller: &Caller<'_>,
+    fn epoll_pwait<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         epfd: Fd,
         events: EpollEventArray,
         maxevents: i32,
         timeout: i32,
         sigmask: ConstSigsetPtr,
         sigsetsize: Usize,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_epoll_pwait2(int epfd, struct epoll_event * events, int maxevents, const struct
@@ -1545,17 +1664,17 @@ pub trait Syscalls {
     ///
     /// Wasm import `wasixv2.epoll_pwait2` (riscv32 nr 441).
     #[allow(clippy::too_many_arguments)]
-    async fn epoll_pwait2(
-        &self,
-        caller: &Caller<'_>,
+    fn epoll_pwait2<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         epfd: Fd,
         events: EpollEventArray,
         maxevents: i32,
         timeout: ConstKernelTimespecPtr,
         sigmask: ConstSigsetPtr,
         sigsetsize: Usize,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_ppoll(struct pollfd * ufds, unsigned int nfds, struct __kernel_timespec * tsp, const
@@ -1563,16 +1682,16 @@ pub trait Syscalls {
     /// No poll on riscv32: musl poll() -> ppoll_time64(fds, n, ts or NULL, NULL, 8). Kernel updates *tsp.
     ///
     /// Wasm import `wasixv2.ppoll_time64` (riscv32 nr 414).
-    async fn ppoll_time64(
-        &self,
-        caller: &Caller<'_>,
+    fn ppoll_time64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         ufds: PollfdArray,
         nfds: u32,
         tsp: KernelTimespecPtr,
         sigmask: ConstSigsetPtr,
         sigsetsize: Usize,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_pselect6(int n, fd_set * inp, fd_set * outp, fd_set * exp, struct __kernel_timespec *
@@ -1583,124 +1702,133 @@ pub trait Syscalls {
     ///
     /// Wasm import `wasixv2.pselect6_time64` (riscv32 nr 413).
     #[allow(clippy::too_many_arguments)]
-    async fn pselect6_time64(
-        &self,
-        caller: &Caller<'_>,
+    fn pselect6_time64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         n: i32,
         inp: KernelFdSetPtr,
         outp: KernelFdSetPtr,
         exp: KernelFdSetPtr,
         tsp: KernelTimespecPtr,
         sig: ConstSigsetArgpackPtr,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_eventfd2(unsigned int count, int flags)`.
     /// No eventfd.
     ///
     /// Wasm import `wasixv2.eventfd2` (riscv32 nr 19).
-    async fn eventfd2(
-        &self,
-        caller: &Caller<'_>,
+    fn eventfd2<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         count: u32,
         flags: EventfdFlags,
-    ) -> SysResult<Fd> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<Fd>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_signalfd4(int ufd, sigset_t * user_mask, size_t sizemask, int flags)`.
     /// sizemask must be 8 (kernel sigset_t size).
     ///
     /// Wasm import `wasixv2.signalfd4` (riscv32 nr 74).
-    async fn signalfd4(
-        &self,
-        caller: &Caller<'_>,
+    fn signalfd4<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         ufd: Fd,
         user_mask: ConstSigsetPtr,
         sizemask: Usize,
         flags: SignalfdFlags,
-    ) -> SysResult<Fd> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<Fd>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_timerfd_create(int clockid, int flags)`.
     ///
     /// Wasm import `wasixv2.timerfd_create` (riscv32 nr 85).
-    async fn timerfd_create(
-        &self,
-        caller: &Caller<'_>,
+    fn timerfd_create<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         clockid: ClockId,
         flags: TimerfdFlags,
-    ) -> SysResult<Fd> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<Fd>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_timerfd_settime(int ufd, int flags, const struct __kernel_itimerspec * utmr, struct
     /// __kernel_itimerspec * otmr)`.
     ///
     /// Wasm import `wasixv2.timerfd_settime64` (riscv32 nr 411).
-    async fn timerfd_settime64(
-        &self,
-        caller: &Caller<'_>,
+    fn timerfd_settime64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         ufd: Fd,
         flags: TimerfdSettimeFlags,
         utmr: ConstKernelItimerspecPtr,
         otmr: KernelItimerspecPtr,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_timerfd_gettime(int ufd, struct __kernel_itimerspec * otmr)`.
     ///
     /// Wasm import `wasixv2.timerfd_gettime64` (riscv32 nr 410).
-    async fn timerfd_gettime64(
-        &self,
-        caller: &Caller<'_>,
+    fn timerfd_gettime64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         ufd: Fd,
         otmr: KernelItimerspecPtr,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_inotify_init1(int flags)`.
     /// No inotify_init.
     ///
     /// Wasm import `wasixv2.inotify_init1` (riscv32 nr 26).
-    async fn inotify_init1(&self, caller: &Caller<'_>, flags: InotifyInitFlags) -> SysResult<Fd> {
-        Err(Errno::ENOSYS.into())
+    fn inotify_init1<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        flags: InotifyInitFlags,
+    ) -> MaybeFuture<'a, SysResult<Fd>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_inotify_add_watch(int fd, const char * pathname, u32 mask)`.
     ///
     /// Wasm import `wasixv2.inotify_add_watch` (riscv32 nr 27).
-    async fn inotify_add_watch(
-        &self,
-        caller: &Caller<'_>,
+    fn inotify_add_watch<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         pathname: Cstr,
         mask: InotifyMask,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_inotify_rm_watch(int fd, __s32 wd)`.
     ///
     /// Wasm import `wasixv2.inotify_rm_watch` (riscv32 nr 28).
-    async fn inotify_rm_watch(&self, caller: &Caller<'_>, fd: Fd, wd: i32) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn inotify_rm_watch<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        fd: Fd,
+        wd: i32,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_fanotify_init(unsigned int flags, unsigned int event_f_flags)`.
     ///
     /// Wasm import `wasixv2.fanotify_init` (riscv32 nr 262).
-    async fn fanotify_init(
-        &self,
-        caller: &Caller<'_>,
+    fn fanotify_init<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         flags: u32,
         event_f_flags: u32,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_fanotify_mark(int fanotify_fd, unsigned int flags, __u64 mask, int dfd, const char *
@@ -1708,16 +1836,16 @@ pub trait Syscalls {
     /// __u64 mask: register pair on riscv32.
     ///
     /// Wasm import `wasixv2.fanotify_mark` (riscv32 nr 263).
-    async fn fanotify_mark(
-        &self,
-        caller: &Caller<'_>,
+    fn fanotify_mark<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fanotify_fd: Fd,
         flags: u32,
         mask: u64,
         dfd: Fd,
         pathname: Cstr,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_rt_sigaction(int sig, const struct sigaction * act, struct sigaction * oact, size_t
@@ -1731,56 +1859,56 @@ pub trait Syscalls {
     /// headers) reintroduced. For WASIX, follow the kernel layout (16 bytes, no restorer).
     ///
     /// Wasm import `wasixv2.rt_sigaction` (riscv32 nr 134).
-    async fn rt_sigaction(
-        &self,
-        caller: &Caller<'_>,
+    fn rt_sigaction<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         sig: Signal,
         act: ConstSigactionPtr,
         oact: SigactionPtr,
         sigsetsize: Usize,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_rt_sigprocmask(int how, sigset_t * nset, sigset_t * oset, size_t sigsetsize)`.
     /// sigsetsize must be 8.
     ///
     /// Wasm import `wasixv2.rt_sigprocmask` (riscv32 nr 135).
-    async fn rt_sigprocmask(
-        &self,
-        caller: &Caller<'_>,
+    fn rt_sigprocmask<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         how: SigprocmaskHow,
         nset: ConstSigsetPtr,
         oset: SigsetPtr,
         sigsetsize: Usize,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_rt_sigpending(sigset_t * uset, size_t sigsetsize)`.
     /// sigsetsize must be 8.
     ///
     /// Wasm import `wasixv2.rt_sigpending` (riscv32 nr 136).
-    async fn rt_sigpending(
-        &self,
-        caller: &Caller<'_>,
+    fn rt_sigpending<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         uset: SigsetPtr,
         sigsetsize: Usize,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_rt_sigsuspend(sigset_t * unewset, size_t sigsetsize)`.
     /// sigsetsize must be 8.
     ///
     /// Wasm import `wasixv2.rt_sigsuspend` (riscv32 nr 133).
-    async fn rt_sigsuspend(
-        &self,
-        caller: &Caller<'_>,
+    fn rt_sigsuspend<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         unewset: ConstSigsetPtr,
         sigsetsize: Usize,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_rt_sigtimedwait(const sigset_t * uthese, siginfo_t * uinfo, const struct
@@ -1788,44 +1916,44 @@ pub trait Syscalls {
     /// sigsetsize must be 8. siginfo 128 bytes.
     ///
     /// Wasm import `wasixv2.rt_sigtimedwait_time64` (riscv32 nr 421).
-    async fn rt_sigtimedwait_time64(
-        &self,
-        caller: &Caller<'_>,
+    fn rt_sigtimedwait_time64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         uthese: ConstSigsetPtr,
         uinfo: SiginfoPtr,
         uts: ConstKernelTimespecPtr,
         sigsetsize: Usize,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_rt_sigqueueinfo(pid_t pid, int sig, siginfo_t * uinfo)`.
     /// siginfo_t 128 bytes.
     ///
     /// Wasm import `wasixv2.rt_sigqueueinfo` (riscv32 nr 138).
-    async fn rt_sigqueueinfo(
-        &self,
-        caller: &Caller<'_>,
+    fn rt_sigqueueinfo<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pid: Pid,
         sig: Signal,
         uinfo: ConstSiginfoPtr,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_rt_tgsigqueueinfo(pid_t tgid, pid_t pid, int sig, siginfo_t * uinfo)`.
     /// siginfo_t 128 bytes.
     ///
     /// Wasm import `wasixv2.rt_tgsigqueueinfo` (riscv32 nr 240).
-    async fn rt_tgsigqueueinfo(
-        &self,
-        caller: &Caller<'_>,
+    fn rt_tgsigqueueinfo<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         tgid: Pid,
         pid: Pid,
         sig: Signal,
         uinfo: ConstSiginfoPtr,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_rt_sigreturn()`.
@@ -1836,8 +1964,8 @@ pub trait Syscalls {
     /// Wasm import `wasixv2.rt_sigreturn` (riscv32 nr 139).
     ///
     /// Declared for completeness; implementations may leave it unimplemented.
-    async fn rt_sigreturn(&self, caller: &Caller<'_>) -> SysResult<()> {
-        Err(Errno::ENOSYS.into())
+    fn rt_sigreturn<'a>(&'a self, caller: &'a Caller<'_>) -> MaybeFuture<'a, SysResult<()>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_sigaltstack(const stack_t * uss, stack_t * uoss)`.
@@ -1847,62 +1975,72 @@ pub trait Syscalls {
     /// the wasm call stack stays with the engine.
     ///
     /// Wasm import `wasixv2.sigaltstack` (riscv32 nr 132).
-    async fn sigaltstack(
-        &self,
-        caller: &Caller<'_>,
+    fn sigaltstack<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         uss: ConstSigaltstackPtr,
         uoss: SigaltstackPtr,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_kill(pid_t pid, int sig)`.
     ///
     /// Wasm import `wasixv2.kill` (riscv32 nr 129).
-    async fn kill(&self, caller: &Caller<'_>, pid: Pid, sig: Signal) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn kill<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        pid: Pid,
+        sig: Signal,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_tkill(pid_t pid, int sig)`.
     ///
     /// Wasm import `wasixv2.tkill` (riscv32 nr 130).
-    async fn tkill(&self, caller: &Caller<'_>, pid: Pid, sig: Signal) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn tkill<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        pid: Pid,
+        sig: Signal,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_tgkill(pid_t tgid, pid_t pid, int sig)`.
     ///
     /// Wasm import `wasixv2.tgkill` (riscv32 nr 131).
-    async fn tgkill(
-        &self,
-        caller: &Caller<'_>,
+    fn tgkill<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         tgid: Pid,
         pid: Pid,
         sig: Signal,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_pidfd_send_signal(int pidfd, int sig, siginfo_t * info, unsigned int flags)`.
     ///
     /// Wasm import `wasixv2.pidfd_send_signal` (riscv32 nr 424).
-    async fn pidfd_send_signal(
-        &self,
-        caller: &Caller<'_>,
+    fn pidfd_send_signal<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pidfd: Fd,
         sig: Signal,
         info: ConstSiginfoPtr,
         flags: u32,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_restart_syscall()`.
     /// Kernel-internal restart mechanism; not called by libc.
     ///
     /// Wasm import `wasixv2.restart_syscall` (riscv32 nr 128).
-    async fn restart_syscall(&self, caller: &Caller<'_>) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn restart_syscall<'a>(&'a self, caller: &'a Caller<'_>) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_clone(unsigned long clone_flags, unsigned long newsp, int * parent_tidptr, unsigned
@@ -1927,16 +2065,16 @@ pub trait Syscalls {
     /// own entry point.
     ///
     /// Wasm import `wasixv2.clone` (riscv32 nr 220).
-    async fn clone(
-        &self,
-        caller: &Caller<'_>,
+    fn clone<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         clone_flags: Ulong,
         newsp: Uptr,
         parent_tidptr: S32Ptr,
         tls: Uptr,
         child_tidptr: S32Ptr,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_clone3(struct clone_args * uargs, size_t size)`.
@@ -1944,13 +2082,13 @@ pub trait Syscalls {
     /// Not used by musl.
     ///
     /// Wasm import `wasixv2.clone3` (riscv32 nr 435).
-    async fn clone3(
-        &self,
-        caller: &Caller<'_>,
+    fn clone3<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         uargs: ConstCloneArgsPtr,
         size: Usize,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_execve(const char * filename, const char *const * argv, const char *const * envp)`.
@@ -1959,14 +2097,14 @@ pub trait Syscalls {
     /// empty argv[0]. The file must be a regular, executable wasm module or `#!` script.
     ///
     /// Wasm import `wasixv2.execve` (riscv32 nr 221).
-    async fn execve(
-        &self,
-        caller: &Caller<'_>,
+    fn execve<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         filename: Cstr,
         argv: CstrArray,
         envp: CstrArray,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_execveat(int fd, const char * filename, const char *const * argv, const char *const *
@@ -1974,16 +2112,16 @@ pub trait Syscalls {
     /// AT_EMPTY_PATH for fexecve.
     ///
     /// Wasm import `wasixv2.execveat` (riscv32 nr 281).
-    async fn execveat(
-        &self,
-        caller: &Caller<'_>,
+    fn execveat<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         filename: Cstr,
         argv: CstrArray,
         envp: CstrArray,
         flags: AtFlags,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_exit(int error_code)`.
@@ -1991,16 +2129,24 @@ pub trait Syscalls {
     /// `clone`).
     ///
     /// Wasm import `wasixv2.exit` (riscv32 nr 93).
-    async fn exit(&self, caller: &Caller<'_>, error_code: i32) -> SysResult<()> {
-        Err(Errno::ENOSYS.into())
+    fn exit<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        error_code: i32,
+    ) -> MaybeFuture<'a, SysResult<()>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_exit_group(int error_code)`.
     /// noreturn (a vfork child's parent resumes at its vfork point, see `clone`).
     ///
     /// Wasm import `wasixv2.exit_group` (riscv32 nr 94).
-    async fn exit_group(&self, caller: &Caller<'_>, error_code: i32) -> SysResult<()> {
-        Err(Errno::ENOSYS.into())
+    fn exit_group<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        error_code: i32,
+    ) -> MaybeFuture<'a, SysResult<()>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_waitid(int which, pid_t upid, struct siginfo * infop, int options, struct rusage *
@@ -2011,16 +2157,16 @@ pub trait Syscalls {
     /// (see types.md).
     ///
     /// Wasm import `wasixv2.waitid` (riscv32 nr 95).
-    async fn waitid(
-        &self,
-        caller: &Caller<'_>,
+    fn waitid<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         which: Idtype,
         upid: Pid,
         infop: SiginfoPtr,
         options: WaitOptions,
         ru: RusagePtr,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_set_tid_address(int * tidptr)`.
@@ -2028,120 +2174,152 @@ pub trait Syscalls {
     /// tid. musl uses it at startup and in pthread_create via clone CLONE_CHILD_CLEARTID.
     ///
     /// Wasm import `wasixv2.set_tid_address` (riscv32 nr 96).
-    async fn set_tid_address(&self, caller: &Caller<'_>, tidptr: S32Ptr) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn set_tid_address<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        tidptr: S32Ptr,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_unshare(unsigned long unshare_flags)`.
     ///
     /// Wasm import `wasixv2.unshare` (riscv32 nr 97).
-    async fn unshare(&self, caller: &Caller<'_>, unshare_flags: Ulong) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn unshare<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        unshare_flags: Ulong,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_setns(int fd, int flags)`.
     ///
     /// Wasm import `wasixv2.setns` (riscv32 nr 268).
-    async fn setns(&self, caller: &Caller<'_>, fd: Fd, flags: i32) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn setns<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        fd: Fd,
+        flags: i32,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_getpid()`.
     ///
     /// Wasm import `wasixv2.getpid` (riscv32 nr 172).
-    async fn getpid(&self, caller: &Caller<'_>) -> SysResult<Pid> {
-        Err(Errno::ENOSYS.into())
+    fn getpid<'a>(&'a self, caller: &'a Caller<'_>) -> MaybeFuture<'a, SysResult<Pid>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_getppid()`.
     ///
     /// Wasm import `wasixv2.getppid` (riscv32 nr 173).
-    async fn getppid(&self, caller: &Caller<'_>) -> SysResult<Pid> {
-        Err(Errno::ENOSYS.into())
+    fn getppid<'a>(&'a self, caller: &'a Caller<'_>) -> MaybeFuture<'a, SysResult<Pid>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_gettid()`.
     ///
     /// Wasm import `wasixv2.gettid` (riscv32 nr 178).
-    async fn gettid(&self, caller: &Caller<'_>) -> SysResult<Pid> {
-        Err(Errno::ENOSYS.into())
+    fn gettid<'a>(&'a self, caller: &'a Caller<'_>) -> MaybeFuture<'a, SysResult<Pid>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_getpgid(pid_t pid)`.
     ///
     /// Wasm import `wasixv2.getpgid` (riscv32 nr 155).
-    async fn getpgid(&self, caller: &Caller<'_>, pid: Pid) -> SysResult<Pid> {
-        Err(Errno::ENOSYS.into())
+    fn getpgid<'a>(&'a self, caller: &'a Caller<'_>, pid: Pid) -> MaybeFuture<'a, SysResult<Pid>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_setpgid(pid_t pid, pid_t pgid)`.
     ///
     /// Wasm import `wasixv2.setpgid` (riscv32 nr 154).
-    async fn setpgid(&self, caller: &Caller<'_>, pid: Pid, pgid: Pid) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn setpgid<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        pid: Pid,
+        pgid: Pid,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_getsid(pid_t pid)`.
     ///
     /// Wasm import `wasixv2.getsid` (riscv32 nr 156).
-    async fn getsid(&self, caller: &Caller<'_>, pid: Pid) -> SysResult<Pid> {
-        Err(Errno::ENOSYS.into())
+    fn getsid<'a>(&'a self, caller: &'a Caller<'_>, pid: Pid) -> MaybeFuture<'a, SysResult<Pid>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_setsid()`.
     ///
     /// Wasm import `wasixv2.setsid` (riscv32 nr 157).
-    async fn setsid(&self, caller: &Caller<'_>) -> SysResult<Pid> {
-        Err(Errno::ENOSYS.into())
+    fn setsid<'a>(&'a self, caller: &'a Caller<'_>) -> MaybeFuture<'a, SysResult<Pid>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_pidfd_open(pid_t pid, unsigned int flags)`.
     ///
     /// Wasm import `wasixv2.pidfd_open` (riscv32 nr 434).
-    async fn pidfd_open(&self, caller: &Caller<'_>, pid: Pid, flags: u32) -> SysResult<Fd> {
-        Err(Errno::ENOSYS.into())
+    fn pidfd_open<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        pid: Pid,
+        flags: u32,
+    ) -> MaybeFuture<'a, SysResult<Fd>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_pidfd_getfd(int pidfd, int fd, unsigned int flags)`.
     ///
     /// Wasm import `wasixv2.pidfd_getfd` (riscv32 nr 438).
-    async fn pidfd_getfd(
-        &self,
-        caller: &Caller<'_>,
+    fn pidfd_getfd<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pidfd: Fd,
         fd: Fd,
         flags: u32,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_process_mrelease(int pidfd, unsigned int flags)`.
     ///
     /// Wasm import `wasixv2.process_mrelease` (riscv32 nr 448).
-    async fn process_mrelease(&self, caller: &Caller<'_>, pidfd: Fd, flags: u32) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn process_mrelease<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        pidfd: Fd,
+        flags: u32,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_kcmp(pid_t pid1, pid_t pid2, int type, unsigned long idx1, unsigned long idx2)`.
     ///
     /// Wasm import `wasixv2.kcmp` (riscv32 nr 272).
-    async fn kcmp(
-        &self,
-        caller: &Caller<'_>,
+    fn kcmp<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pid1: Pid,
         pid2: Pid,
         r#type: i32,
         idx1: Ulong,
         idx2: Ulong,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_personality(unsigned int personality)`.
     ///
     /// Wasm import `wasixv2.personality` (riscv32 nr 92).
-    async fn personality(&self, caller: &Caller<'_>, personality: u32) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn personality<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        personality: u32,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_prctl(int option, unsigned long arg2, unsigned long arg3, unsigned long arg4, unsigned
@@ -2150,16 +2328,16 @@ pub trait Syscalls {
     /// Untyped: arg2..arg5: integers or guest pointers, depending on `option`.
     ///
     /// Wasm import `wasixv2.prctl` (riscv32 nr 167).
-    async fn prctl(
-        &self,
-        caller: &Caller<'_>,
+    fn prctl<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         option: PrctlOption,
         arg2: Ulong,
         arg3: Ulong,
         arg4: Ulong,
         arg5: Ulong,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_ptrace(long request, long pid, unsigned long addr, unsigned long data)`.
@@ -2169,15 +2347,15 @@ pub trait Syscalls {
     /// at `data`).
     ///
     /// Wasm import `wasixv2.ptrace` (riscv32 nr 117).
-    async fn ptrace(
-        &self,
-        caller: &Caller<'_>,
+    fn ptrace<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         request: PtraceRequest,
         pid: Pid,
         addr: Uptr,
         data: Ulong,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_process_vm_readv(pid_t pid, const struct iovec * lvec, unsigned long liovcnt, const
@@ -2185,17 +2363,17 @@ pub trait Syscalls {
     ///
     /// Wasm import `wasixv2.process_vm_readv` (riscv32 nr 270).
     #[allow(clippy::too_many_arguments)]
-    async fn process_vm_readv(
-        &self,
-        caller: &Caller<'_>,
+    fn process_vm_readv<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pid: Pid,
         lvec: ConstIovecArray,
         liovcnt: Ulong,
         rvec: ConstIovecArray,
         riovcnt: Ulong,
         flags: Ulong,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_process_vm_writev(pid_t pid, const struct iovec * lvec, unsigned long liovcnt, const
@@ -2203,31 +2381,31 @@ pub trait Syscalls {
     ///
     /// Wasm import `wasixv2.process_vm_writev` (riscv32 nr 271).
     #[allow(clippy::too_many_arguments)]
-    async fn process_vm_writev(
-        &self,
-        caller: &Caller<'_>,
+    fn process_vm_writev<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pid: Pid,
         lvec: ConstIovecArray,
         liovcnt: Ulong,
         rvec: ConstIovecArray,
         riovcnt: Ulong,
         flags: Ulong,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_seccomp(unsigned int op, unsigned int flags, void * uargs)`.
     /// Untyped: uargs: pointee depends on `op`.
     ///
     /// Wasm import `wasixv2.seccomp` (riscv32 nr 277).
-    async fn seccomp(
-        &self,
-        caller: &Caller<'_>,
+    fn seccomp<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         op: u32,
         flags: u32,
         uargs: VoidPtr,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_rseq(struct rseq * rseq, u32 rseq_len, int flags, u32 sig)`.
@@ -2237,384 +2415,403 @@ pub trait Syscalls {
     /// over-alignment).
     ///
     /// Wasm import `wasixv2.rseq` (riscv32 nr 293).
-    async fn rseq(
-        &self,
-        caller: &Caller<'_>,
+    fn rseq<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         rseq: VoidPtr,
         rseq_len: u32,
         flags: i32,
         sig: u32,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_rseq_slice_yield()`.
     ///
     /// Wasm import `wasixv2.rseq_slice_yield` (riscv32 nr 471).
-    async fn rseq_slice_yield(&self, caller: &Caller<'_>) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn rseq_slice_yield<'a>(&'a self, caller: &'a Caller<'_>) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_set_robust_list(struct robust_list_head * head, size_t len)`.
     /// len must be sizeof(struct robust_list_head) == 12 on ILP32.
     ///
     /// Wasm import `wasixv2.set_robust_list` (riscv32 nr 99).
-    async fn set_robust_list(
-        &self,
-        caller: &Caller<'_>,
+    fn set_robust_list<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         head: RobustListHeadPtr,
         len: Usize,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_get_robust_list(int pid, struct robust_list_head * * head_ptr, size_t * len_ptr)`.
     ///
     /// Wasm import `wasixv2.get_robust_list` (riscv32 nr 100).
-    async fn get_robust_list(
-        &self,
-        caller: &Caller<'_>,
+    fn get_robust_list<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pid: i32,
         head_ptr: RobustListHeadPtrPtr,
         len_ptr: UsizePtr,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_getuid()`.
     ///
     /// Wasm import `wasixv2.getuid` (riscv32 nr 174).
-    async fn getuid(&self, caller: &Caller<'_>) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn getuid<'a>(&'a self, caller: &'a Caller<'_>) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_geteuid()`.
     ///
     /// Wasm import `wasixv2.geteuid` (riscv32 nr 175).
-    async fn geteuid(&self, caller: &Caller<'_>) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn geteuid<'a>(&'a self, caller: &'a Caller<'_>) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_getgid()`.
     ///
     /// Wasm import `wasixv2.getgid` (riscv32 nr 176).
-    async fn getgid(&self, caller: &Caller<'_>) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn getgid<'a>(&'a self, caller: &'a Caller<'_>) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_getegid()`.
     ///
     /// Wasm import `wasixv2.getegid` (riscv32 nr 177).
-    async fn getegid(&self, caller: &Caller<'_>) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn getegid<'a>(&'a self, caller: &'a Caller<'_>) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_setuid(uid_t uid)`.
     ///
     /// Wasm import `wasixv2.setuid` (riscv32 nr 146).
-    async fn setuid(&self, caller: &Caller<'_>, uid: Uid) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn setuid<'a>(&'a self, caller: &'a Caller<'_>, uid: Uid) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_setgid(gid_t gid)`.
     ///
     /// Wasm import `wasixv2.setgid` (riscv32 nr 144).
-    async fn setgid(&self, caller: &Caller<'_>, gid: Gid) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn setgid<'a>(&'a self, caller: &'a Caller<'_>, gid: Gid) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_setreuid(uid_t ruid, uid_t euid)`.
     ///
     /// Wasm import `wasixv2.setreuid` (riscv32 nr 145).
-    async fn setreuid(&self, caller: &Caller<'_>, ruid: Uid, euid: Uid) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn setreuid<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        ruid: Uid,
+        euid: Uid,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_setregid(gid_t rgid, gid_t egid)`.
     ///
     /// Wasm import `wasixv2.setregid` (riscv32 nr 143).
-    async fn setregid(&self, caller: &Caller<'_>, rgid: Gid, egid: Gid) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn setregid<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        rgid: Gid,
+        egid: Gid,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_setresuid(uid_t ruid, uid_t euid, uid_t suid)`.
     ///
     /// Wasm import `wasixv2.setresuid` (riscv32 nr 147).
-    async fn setresuid(
-        &self,
-        caller: &Caller<'_>,
+    fn setresuid<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         ruid: Uid,
         euid: Uid,
         suid: Uid,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_getresuid(uid_t * ruidp, uid_t * euidp, uid_t * suidp)`.
     ///
     /// Wasm import `wasixv2.getresuid` (riscv32 nr 148).
-    async fn getresuid(
-        &self,
-        caller: &Caller<'_>,
+    fn getresuid<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         ruidp: UidPtr,
         euidp: UidPtr,
         suidp: UidPtr,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_setresgid(gid_t rgid, gid_t egid, gid_t sgid)`.
     ///
     /// Wasm import `wasixv2.setresgid` (riscv32 nr 149).
-    async fn setresgid(
-        &self,
-        caller: &Caller<'_>,
+    fn setresgid<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         rgid: Gid,
         egid: Gid,
         sgid: Gid,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_getresgid(gid_t * rgidp, gid_t * egidp, gid_t * sgidp)`.
     ///
     /// Wasm import `wasixv2.getresgid` (riscv32 nr 150).
-    async fn getresgid(
-        &self,
-        caller: &Caller<'_>,
+    fn getresgid<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         rgidp: GidPtr,
         egidp: GidPtr,
         sgidp: GidPtr,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_setfsuid(uid_t uid)`.
     ///
     /// Wasm import `wasixv2.setfsuid` (riscv32 nr 151).
-    async fn setfsuid(&self, caller: &Caller<'_>, uid: Uid) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn setfsuid<'a>(&'a self, caller: &'a Caller<'_>, uid: Uid) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_setfsgid(gid_t gid)`.
     ///
     /// Wasm import `wasixv2.setfsgid` (riscv32 nr 152).
-    async fn setfsgid(&self, caller: &Caller<'_>, gid: Gid) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn setfsgid<'a>(&'a self, caller: &'a Caller<'_>, gid: Gid) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_getgroups(int gidsetsize, gid_t * grouplist)`.
     /// gid_t is 32-bit (uid32 on asm-generic).
     ///
     /// Wasm import `wasixv2.getgroups` (riscv32 nr 158).
-    async fn getgroups(
-        &self,
-        caller: &Caller<'_>,
+    fn getgroups<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         gidsetsize: i32,
         grouplist: GidArray,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_setgroups(int gidsetsize, gid_t * grouplist)`.
     ///
     /// Wasm import `wasixv2.setgroups` (riscv32 nr 159).
-    async fn setgroups(
-        &self,
-        caller: &Caller<'_>,
+    fn setgroups<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         gidsetsize: i32,
         grouplist: ConstGidArray,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_capget(cap_user_header_t header, cap_user_data_t dataptr)`.
     /// cap_user_header_t/cap_user_data_t are pointer typedefs.
     ///
     /// Wasm import `wasixv2.capget` (riscv32 nr 90).
-    async fn capget(
-        &self,
-        caller: &Caller<'_>,
+    fn capget<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         header: UserCapHeaderPtr,
         dataptr: UserCapDataArray,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_capset(cap_user_header_t header, const cap_user_data_t data)`.
     /// cap_user_header_t/cap_user_data_t are pointer typedefs.
     ///
     /// Wasm import `wasixv2.capset` (riscv32 nr 91).
-    async fn capset(
-        &self,
-        caller: &Caller<'_>,
+    fn capset<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         header: UserCapHeaderPtr,
         data: ConstUserCapDataArray,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_sched_setparam(pid_t pid, struct sched_param * param)`.
     ///
     /// Wasm import `wasixv2.sched_setparam` (riscv32 nr 118).
-    async fn sched_setparam(
-        &self,
-        caller: &Caller<'_>,
+    fn sched_setparam<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pid: Pid,
         param: ConstSchedParamPtr,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_sched_getparam(pid_t pid, struct sched_param * param)`.
     ///
     /// Wasm import `wasixv2.sched_getparam` (riscv32 nr 121).
-    async fn sched_getparam(
-        &self,
-        caller: &Caller<'_>,
+    fn sched_getparam<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pid: Pid,
         param: SchedParamPtr,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_sched_setscheduler(pid_t pid, int policy, struct sched_param * param)`.
     ///
     /// Wasm import `wasixv2.sched_setscheduler` (riscv32 nr 119).
-    async fn sched_setscheduler(
-        &self,
-        caller: &Caller<'_>,
+    fn sched_setscheduler<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pid: Pid,
         policy: SchedPolicy,
         param: ConstSchedParamPtr,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_sched_getscheduler(pid_t pid)`.
     ///
     /// Wasm import `wasixv2.sched_getscheduler` (riscv32 nr 120).
-    async fn sched_getscheduler(&self, caller: &Caller<'_>, pid: Pid) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn sched_getscheduler<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        pid: Pid,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_sched_setattr(pid_t pid, struct sched_attr * uattr, unsigned int flags)`.
     /// struct sched_attr size-versioned (56 bytes VER1).
     ///
     /// Wasm import `wasixv2.sched_setattr` (riscv32 nr 274).
-    async fn sched_setattr(
-        &self,
-        caller: &Caller<'_>,
+    fn sched_setattr<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pid: Pid,
         uattr: SchedAttrPtr,
         flags: u32,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_sched_getattr(pid_t pid, struct sched_attr * uattr, unsigned int usize, unsigned int
     /// flags)`.
     ///
     /// Wasm import `wasixv2.sched_getattr` (riscv32 nr 275).
-    async fn sched_getattr(
-        &self,
-        caller: &Caller<'_>,
+    fn sched_getattr<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pid: Pid,
         uattr: SchedAttrPtr,
         usize: u32,
         flags: u32,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_sched_setaffinity(pid_t pid, unsigned int len, unsigned long * user_mask_ptr)`.
     /// mask is array of unsigned long (32-bit on wasm32); len in bytes.
     ///
     /// Wasm import `wasixv2.sched_setaffinity` (riscv32 nr 122).
-    async fn sched_setaffinity(
-        &self,
-        caller: &Caller<'_>,
+    fn sched_setaffinity<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pid: Pid,
         len: u32,
         user_mask_ptr: UlongArray,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_sched_getaffinity(pid_t pid, unsigned int len, unsigned long * user_mask_ptr)`.
     /// Returns number of bytes written (kernel cpumask size), not 0.
     ///
     /// Wasm import `wasixv2.sched_getaffinity` (riscv32 nr 123).
-    async fn sched_getaffinity(
-        &self,
-        caller: &Caller<'_>,
+    fn sched_getaffinity<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pid: Pid,
         len: u32,
         user_mask_ptr: UlongArray,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_sched_yield()`.
     ///
     /// Wasm import `wasixv2.sched_yield` (riscv32 nr 124).
-    async fn sched_yield(&self, caller: &Caller<'_>) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn sched_yield<'a>(&'a self, caller: &'a Caller<'_>) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_sched_get_priority_max(int policy)`.
     ///
     /// Wasm import `wasixv2.sched_get_priority_max` (riscv32 nr 125).
-    async fn sched_get_priority_max(
-        &self,
-        caller: &Caller<'_>,
+    fn sched_get_priority_max<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         policy: SchedPolicy,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_sched_get_priority_min(int policy)`.
     ///
     /// Wasm import `wasixv2.sched_get_priority_min` (riscv32 nr 126).
-    async fn sched_get_priority_min(
-        &self,
-        caller: &Caller<'_>,
+    fn sched_get_priority_min<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         policy: SchedPolicy,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_sched_rr_get_interval(pid_t pid, struct __kernel_timespec * interval)`.
     ///
     /// Wasm import `wasixv2.sched_rr_get_interval_time64` (riscv32 nr 423).
-    async fn sched_rr_get_interval_time64(
-        &self,
-        caller: &Caller<'_>,
+    fn sched_rr_get_interval_time64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pid: Pid,
         interval: KernelTimespecPtr,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_getpriority(int which, int who)`.
     /// Returns 20 - nice (1..40) to avoid negative values; libc converts.
     ///
     /// Wasm import `wasixv2.getpriority` (riscv32 nr 141).
-    async fn getpriority(&self, caller: &Caller<'_>, which: PrioWhich, who: i32) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn getpriority<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        which: PrioWhich,
+        who: i32,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_setpriority(int which, int who, int niceval)`.
     ///
     /// Wasm import `wasixv2.setpriority` (riscv32 nr 140).
-    async fn setpriority(
-        &self,
-        caller: &Caller<'_>,
+    fn setpriority<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         which: PrioWhich,
         who: i32,
         niceval: i32,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_getrusage(int who, struct rusage * ru)`.
@@ -2622,13 +2819,13 @@ pub trait Syscalls {
     /// bytes; musl converts to 64-bit-time struct rusage on 32-bit archs.
     ///
     /// Wasm import `wasixv2.getrusage` (riscv32 nr 165).
-    async fn getrusage(
-        &self,
-        caller: &Caller<'_>,
+    fn getrusage<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         who: RusageWho,
         ru: RusagePtr,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_prlimit64(pid_t pid, unsigned int resource, const struct rlimit64 * new_rlim, struct
@@ -2637,15 +2834,15 @@ pub trait Syscalls {
     /// 2 x __u64 = 16 bytes.
     ///
     /// Wasm import `wasixv2.prlimit64` (riscv32 nr 261).
-    async fn prlimit64(
-        &self,
-        caller: &Caller<'_>,
+    fn prlimit64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pid: Pid,
         resource: RlimitResource,
         new_rlim: ConstRlimit64Ptr,
         old_rlim: Rlimit64Ptr,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_times(struct tms * tbuf)`.
@@ -2653,42 +2850,51 @@ pub trait Syscalls {
     /// ticks (32-bit, may wrap and look like -errno).
     ///
     /// Wasm import `wasixv2.times` (riscv32 nr 153).
-    async fn times(&self, caller: &Caller<'_>, tbuf: TmsPtr) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn times<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        tbuf: TmsPtr,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_ioprio_set(int which, int who, int ioprio)`.
     ///
     /// Wasm import `wasixv2.ioprio_set` (riscv32 nr 30).
-    async fn ioprio_set(
-        &self,
-        caller: &Caller<'_>,
+    fn ioprio_set<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         which: i32,
         who: i32,
         ioprio: i32,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_ioprio_get(int which, int who)`.
     ///
     /// Wasm import `wasixv2.ioprio_get` (riscv32 nr 31).
-    async fn ioprio_get(&self, caller: &Caller<'_>, which: i32, who: i32) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn ioprio_get<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        which: i32,
+        who: i32,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_getcpu(unsigned * cpup, unsigned * nodep, void * unused)`.
     /// 3rd arg unused (was tcache).
     ///
     /// Wasm import `wasixv2.getcpu` (riscv32 nr 168).
-    async fn getcpu(
-        &self,
-        caller: &Caller<'_>,
+    fn getcpu<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         cpup: U32Ptr,
         nodep: U32Ptr,
         unused: VoidPtr,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_sysinfo(struct sysinfo * info)`.
@@ -2696,63 +2902,81 @@ pub trait Syscalls {
     /// (_f[20-2*sizeof(long)-sizeof(int)] = 8 bytes).
     ///
     /// Wasm import `wasixv2.sysinfo` (riscv32 nr 179).
-    async fn sysinfo(&self, caller: &Caller<'_>, info: SysinfoPtr) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn sysinfo<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        info: SysinfoPtr,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_newuname(struct new_utsname * name)`.
     /// struct new_utsname = 6 x 65 chars = 390 bytes.
     ///
     /// Wasm import `wasixv2.uname` (riscv32 nr 160).
-    async fn uname(&self, caller: &Caller<'_>, name: NewUtsnamePtr) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn uname<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        name: NewUtsnamePtr,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_sethostname(char * name, int len)`.
     ///
     /// Wasm import `wasixv2.sethostname` (riscv32 nr 161).
-    async fn sethostname(&self, caller: &Caller<'_>, name: ConstBuf, len: i32) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn sethostname<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        name: ConstBuf,
+        len: i32,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_setdomainname(char * name, int len)`.
     ///
     /// Wasm import `wasixv2.setdomainname` (riscv32 nr 162).
-    async fn setdomainname(&self, caller: &Caller<'_>, name: ConstBuf, len: i32) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn setdomainname<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        name: ConstBuf,
+        len: i32,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_umask(int mask)`.
     ///
     /// Wasm import `wasixv2.umask` (riscv32 nr 166).
-    async fn umask(&self, caller: &Caller<'_>, mask: i32) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn umask<'a>(&'a self, caller: &'a Caller<'_>, mask: i32) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_getrandom(char * ubuf, size_t len, unsigned int flags)`.
     /// musl getrandom() + getentropy.
     ///
     /// Wasm import `wasixv2.getrandom` (riscv32 nr 278).
-    async fn getrandom(
-        &self,
-        caller: &Caller<'_>,
+    fn getrandom<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         ubuf: UserSliceMut,
         flags: GrndFlags,
-    ) -> SysResult<u32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<u32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_membarrier(int cmd, unsigned int flags, int cpu_id)`.
     ///
     /// Wasm import `wasixv2.membarrier` (riscv32 nr 283).
-    async fn membarrier(
-        &self,
-        caller: &Caller<'_>,
+    fn membarrier<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         cmd: MembarrierCmd,
         flags: MembarrierCmdFlags,
         cpu_id: i32,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_futex(u32 * uaddr, int op, u32 val, const struct __kernel_timespec * utime, u32 *
@@ -2764,17 +2988,17 @@ pub trait Syscalls {
     ///
     /// Wasm import `wasixv2.futex_time64` (riscv32 nr 422).
     #[allow(clippy::too_many_arguments)]
-    async fn futex_time64(
-        &self,
-        caller: &Caller<'_>,
+    fn futex_time64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         uaddr: U32Ptr,
         op: FutexOp,
         val: u32,
         utime: Ulong,
         uaddr2: U32Ptr,
         val3: u32,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_futex_waitv(struct futex_waitv * waiters, unsigned int nr_futexes, unsigned int flags,
@@ -2783,31 +3007,31 @@ pub trait Syscalls {
     /// 32-bit).
     ///
     /// Wasm import `wasixv2.futex_waitv` (riscv32 nr 449).
-    async fn futex_waitv(
-        &self,
-        caller: &Caller<'_>,
+    fn futex_waitv<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         waiters: ConstFutexWaitvArray,
         nr_futexes: u32,
         flags: u32,
         timeout: KernelTimespecPtr,
         clockid: ClockId,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_futex_wake(void * uaddr, unsigned long mask, int nr, unsigned int flags)`.
     /// futex2 API (6.7+). mask is unsigned long (32-bit on riscv32).
     ///
     /// Wasm import `wasixv2.futex_wake` (riscv32 nr 454).
-    async fn futex_wake(
-        &self,
-        caller: &Caller<'_>,
+    fn futex_wake<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         uaddr: U32Ptr,
         mask: Ulong,
         nr: i32,
         flags: Futex2Flags,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_futex_wait(void * uaddr, unsigned long val, unsigned long mask, unsigned int flags,
@@ -2816,17 +3040,17 @@ pub trait Syscalls {
     ///
     /// Wasm import `wasixv2.futex_wait` (riscv32 nr 455).
     #[allow(clippy::too_many_arguments)]
-    async fn futex_wait(
-        &self,
-        caller: &Caller<'_>,
+    fn futex_wait<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         uaddr: U32Ptr,
         val: Ulong,
         mask: Ulong,
         flags: Futex2Flags,
         timeout: KernelTimespecPtr,
         clockid: ClockId,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_futex_requeue(struct futex_waitv * waiters, unsigned int flags, int nr_wake, int
@@ -2834,15 +3058,15 @@ pub trait Syscalls {
     /// Takes array of 2 struct futex_waitv.
     ///
     /// Wasm import `wasixv2.futex_requeue` (riscv32 nr 456).
-    async fn futex_requeue(
-        &self,
-        caller: &Caller<'_>,
+    fn futex_requeue<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         waiters: ConstFutexWaitvArray,
         flags: u32,
         nr_wake: i32,
         nr_requeue: i32,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_brk(unsigned long brk)`.
@@ -2850,8 +3074,8 @@ pub trait Syscalls {
     /// probe/extend (lite_malloc/mallocng expand_heap).
     ///
     /// Wasm import `wasixv2.brk` (riscv32 nr 214).
-    async fn brk(&self, caller: &Caller<'_>, brk: Uptr) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn brk<'a>(&'a self, caller: &'a Caller<'_>, brk: Uptr) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_mmap(unsigned long addr, unsigned long len, unsigned long prot, unsigned long flags,
@@ -2869,24 +3093,29 @@ pub trait Syscalls {
     ///
     /// Wasm import `wasixv2.mmap` (riscv32 nr 222).
     #[allow(clippy::too_many_arguments)]
-    async fn mmap(
-        &self,
-        caller: &Caller<'_>,
+    fn mmap<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         addr: Uptr,
         len: Ulong,
         prot: ProtFlags,
         flags: MapFlags,
         fd: Fd,
         offset: Loff,
-    ) -> SysResult<Uptr> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<Uptr>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_munmap(unsigned long addr, size_t len)`.
     ///
     /// Wasm import `wasixv2.munmap` (riscv32 nr 215).
-    async fn munmap(&self, caller: &Caller<'_>, addr: Uptr, len: Usize) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn munmap<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        addr: Uptr,
+        len: Usize,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_mremap(unsigned long addr, unsigned long old_len, unsigned long new_len, unsigned long
@@ -2894,160 +3123,178 @@ pub trait Syscalls {
     /// 5th arg new_addr only with MREMAP_FIXED; returns address.
     ///
     /// Wasm import `wasixv2.mremap` (riscv32 nr 216).
-    async fn mremap(
-        &self,
-        caller: &Caller<'_>,
+    fn mremap<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         addr: Uptr,
         old_len: Ulong,
         new_len: Ulong,
         flags: MremapFlags,
         new_addr: Uptr,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_mprotect(unsigned long start, size_t len, unsigned long prot)`.
     /// Wasm linear memory has no page protection, so the kernel cannot enforce `prot`.
     ///
     /// Wasm import `wasixv2.mprotect` (riscv32 nr 226).
-    async fn mprotect(
-        &self,
-        caller: &Caller<'_>,
+    fn mprotect<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         start: Uptr,
         len: Usize,
         prot: ProtFlags,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_pkey_mprotect(unsigned long start, size_t len, unsigned long prot, int pkey)`.
     ///
     /// Wasm import `wasixv2.pkey_mprotect` (riscv32 nr 288).
-    async fn pkey_mprotect(
-        &self,
-        caller: &Caller<'_>,
+    fn pkey_mprotect<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         start: Uptr,
         len: Usize,
         prot: ProtFlags,
         pkey: i32,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_pkey_alloc(unsigned long flags, unsigned long init_val)`.
     ///
     /// Wasm import `wasixv2.pkey_alloc` (riscv32 nr 289).
-    async fn pkey_alloc(
-        &self,
-        caller: &Caller<'_>,
+    fn pkey_alloc<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         flags: Ulong,
         init_val: Ulong,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_pkey_free(int pkey)`.
     ///
     /// Wasm import `wasixv2.pkey_free` (riscv32 nr 290).
-    async fn pkey_free(&self, caller: &Caller<'_>, pkey: i32) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn pkey_free<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        pkey: i32,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_msync(unsigned long start, size_t len, int flags)`.
     ///
     /// Wasm import `wasixv2.msync` (riscv32 nr 227).
-    async fn msync(
-        &self,
-        caller: &Caller<'_>,
+    fn msync<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         start: Uptr,
         len: Usize,
         flags: MsyncFlags,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_madvise(unsigned long start, size_t len_in, int behavior)`.
     ///
     /// Wasm import `wasixv2.madvise` (riscv32 nr 233).
-    async fn madvise(
-        &self,
-        caller: &Caller<'_>,
+    fn madvise<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         start: Uptr,
         len_in: Usize,
         behavior: MadviseAdvice,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_process_madvise(int pidfd, const struct iovec * vec, size_t vlen, int behavior,
     /// unsigned int flags)`.
     ///
     /// Wasm import `wasixv2.process_madvise` (riscv32 nr 440).
-    async fn process_madvise(
-        &self,
-        caller: &Caller<'_>,
+    fn process_madvise<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pidfd: Fd,
         vec: ConstIovecArray,
         vlen: Usize,
         behavior: MadviseAdvice,
         flags: u32,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_mincore(unsigned long start, size_t len, unsigned char * vec)`.
     /// vec gets one byte per 4096-byte page.
     ///
     /// Wasm import `wasixv2.mincore` (riscv32 nr 232).
-    async fn mincore(
-        &self,
-        caller: &Caller<'_>,
+    fn mincore<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         start: Uptr,
         len: Usize,
         vec: Buf,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_mlock(unsigned long start, size_t len)`.
     ///
     /// Wasm import `wasixv2.mlock` (riscv32 nr 228).
-    async fn mlock(&self, caller: &Caller<'_>, start: Uptr, len: Usize) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn mlock<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        start: Uptr,
+        len: Usize,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_mlock2(unsigned long start, size_t len, int flags)`.
     ///
     /// Wasm import `wasixv2.mlock2` (riscv32 nr 284).
-    async fn mlock2(
-        &self,
-        caller: &Caller<'_>,
+    fn mlock2<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         start: Uptr,
         len: Usize,
         flags: MlockFlags,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_munlock(unsigned long start, size_t len)`.
     ///
     /// Wasm import `wasixv2.munlock` (riscv32 nr 229).
-    async fn munlock(&self, caller: &Caller<'_>, start: Uptr, len: Usize) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn munlock<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        start: Uptr,
+        len: Usize,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_mlockall(int flags)`.
     ///
     /// Wasm import `wasixv2.mlockall` (riscv32 nr 230).
-    async fn mlockall(&self, caller: &Caller<'_>, flags: MclFlags) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn mlockall<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        flags: MclFlags,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_munlockall()`.
     ///
     /// Wasm import `wasixv2.munlockall` (riscv32 nr 231).
-    async fn munlockall(&self, caller: &Caller<'_>) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn munlockall<'a>(&'a self, caller: &'a Caller<'_>) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_remap_file_pages(unsigned long start, unsigned long size, unsigned long prot, unsigned
@@ -3055,16 +3302,16 @@ pub trait Syscalls {
     /// Deprecated (emulated).
     ///
     /// Wasm import `wasixv2.remap_file_pages` (riscv32 nr 234).
-    async fn remap_file_pages(
-        &self,
-        caller: &Caller<'_>,
+    fn remap_file_pages<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         start: Uptr,
         size: Ulong,
         prot: Ulong,
         pgoff: Ulong,
         flags: Ulong,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_mbind(unsigned long start, unsigned long len, unsigned long mode, const unsigned long *
@@ -3072,76 +3319,76 @@ pub trait Syscalls {
     ///
     /// Wasm import `wasixv2.mbind` (riscv32 nr 235).
     #[allow(clippy::too_many_arguments)]
-    async fn mbind(
-        &self,
-        caller: &Caller<'_>,
+    fn mbind<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         start: Uptr,
         len: Ulong,
         mode: Ulong,
         nmask: ConstUlongArray,
         maxnode: Ulong,
         flags: u32,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_get_mempolicy(int * policy, unsigned long * nmask, unsigned long maxnode, unsigned long
     /// addr, unsigned long flags)`.
     ///
     /// Wasm import `wasixv2.get_mempolicy` (riscv32 nr 236).
-    async fn get_mempolicy(
-        &self,
-        caller: &Caller<'_>,
+    fn get_mempolicy<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         policy: S32Ptr,
         nmask: UlongArray,
         maxnode: Ulong,
         addr: Uptr,
         flags: Ulong,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_set_mempolicy(int mode, const unsigned long * nmask, unsigned long maxnode)`.
     ///
     /// Wasm import `wasixv2.set_mempolicy` (riscv32 nr 237).
-    async fn set_mempolicy(
-        &self,
-        caller: &Caller<'_>,
+    fn set_mempolicy<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         mode: i32,
         nmask: ConstUlongArray,
         maxnode: Ulong,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_set_mempolicy_home_node(unsigned long start, unsigned long len, unsigned long
     /// home_node, unsigned long flags)`.
     ///
     /// Wasm import `wasixv2.set_mempolicy_home_node` (riscv32 nr 450).
-    async fn set_mempolicy_home_node(
-        &self,
-        caller: &Caller<'_>,
+    fn set_mempolicy_home_node<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         start: Uptr,
         len: Ulong,
         home_node: Ulong,
         flags: Ulong,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_migrate_pages(pid_t pid, unsigned long maxnode, const unsigned long * old_nodes, const
     /// unsigned long * new_nodes)`.
     ///
     /// Wasm import `wasixv2.migrate_pages` (riscv32 nr 238).
-    async fn migrate_pages(
-        &self,
-        caller: &Caller<'_>,
+    fn migrate_pages<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pid: Pid,
         maxnode: Ulong,
         old_nodes: ConstUlongArray,
         new_nodes: ConstUlongArray,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_move_pages(pid_t pid, unsigned long nr_pages, const void * * pages, const int * nodes,
@@ -3149,30 +3396,30 @@ pub trait Syscalls {
     ///
     /// Wasm import `wasixv2.move_pages` (riscv32 nr 239).
     #[allow(clippy::too_many_arguments)]
-    async fn move_pages(
-        &self,
-        caller: &Caller<'_>,
+    fn move_pages<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pid: Pid,
         nr_pages: Ulong,
         pages: ConstUptrArray,
         nodes: ConstS32Array,
         status: S32Array,
         flags: i32,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_mseal(unsigned long start, size_t len, unsigned long flags)`.
     ///
     /// Wasm import `wasixv2.mseal` (riscv32 nr 462).
-    async fn mseal(
-        &self,
-        caller: &Caller<'_>,
+    fn mseal<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         start: Uptr,
         len: Usize,
         flags: Ulong,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_map_shadow_stack(unsigned long addr, unsigned long size, unsigned int flags)`.
@@ -3181,21 +3428,25 @@ pub trait Syscalls {
     /// Wasm import `wasixv2.map_shadow_stack` (riscv32 nr 453).
     ///
     /// Declared for completeness; implementations may leave it unimplemented.
-    async fn map_shadow_stack(
-        &self,
-        caller: &Caller<'_>,
+    fn map_shadow_stack<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         addr: Uptr,
         size: Ulong,
         flags: u32,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_userfaultfd(int flags)`.
     ///
     /// Wasm import `wasixv2.userfaultfd` (riscv32 nr 282).
-    async fn userfaultfd(&self, caller: &Caller<'_>, flags: i32) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn userfaultfd<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        flags: i32,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_clock_gettime(const clockid_t which_clock, struct __kernel_timespec * tp)`.
@@ -3204,37 +3455,37 @@ pub trait Syscalls {
     /// bytes.
     ///
     /// Wasm import `wasixv2.clock_gettime64` (riscv32 nr 403).
-    async fn clock_gettime64(
-        &self,
-        caller: &Caller<'_>,
+    fn clock_gettime64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         which_clock: ClockId,
         tp: KernelTimespecPtr,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_clock_settime(const clockid_t which_clock, const struct __kernel_timespec * tp)`.
     ///
     /// Wasm import `wasixv2.clock_settime64` (riscv32 nr 404).
-    async fn clock_settime64(
-        &self,
-        caller: &Caller<'_>,
+    fn clock_settime64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         which_clock: ClockId,
         tp: ConstKernelTimespecPtr,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_clock_getres(const clockid_t which_clock, struct __kernel_timespec * tp)`.
     ///
     /// Wasm import `wasixv2.clock_getres_time64` (riscv32 nr 406).
-    async fn clock_getres_time64(
-        &self,
-        caller: &Caller<'_>,
+    fn clock_getres_time64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         which_clock: ClockId,
         tp: KernelTimespecPtr,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_clock_nanosleep(const clockid_t which_clock, int flags, const struct __kernel_timespec
@@ -3243,15 +3494,15 @@ pub trait Syscalls {
     /// ...). Returns -errno directly (POSIX clock_nanosleep returns positive errno; libc converts).
     ///
     /// Wasm import `wasixv2.clock_nanosleep_time64` (riscv32 nr 407).
-    async fn clock_nanosleep_time64(
-        &self,
-        caller: &Caller<'_>,
+    fn clock_nanosleep_time64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         which_clock: ClockId,
         flags: TimerFlags,
         rqtp: ConstKernelTimespecPtr,
         rmtp: KernelTimespecPtr,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_clock_adjtime(const clockid_t which_clock, struct __kernel_timex * utx)`.
@@ -3259,13 +3510,13 @@ pub trait Syscalls {
     /// clock_adjtime(CLOCK_REALTIME).
     ///
     /// Wasm import `wasixv2.clock_adjtime64` (riscv32 nr 405).
-    async fn clock_adjtime64(
-        &self,
-        caller: &Caller<'_>,
+    fn clock_adjtime64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         which_clock: ClockId,
         utx: KernelTimexPtr,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_getitimer(int which, struct __kernel_old_itimerval * value)`.
@@ -3273,13 +3524,13 @@ pub trait Syscalls {
     /// riscv32, 16 bytes total). y2038 legacy; musl converts on 32-bit.
     ///
     /// Wasm import `wasixv2.getitimer` (riscv32 nr 102).
-    async fn getitimer(
-        &self,
-        caller: &Caller<'_>,
+    fn getitimer<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         which: ItimerWhich,
         value: KernelOldItimervalPtr,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_setitimer(int which, struct __kernel_old_itimerval * value, struct
@@ -3288,14 +3539,14 @@ pub trait Syscalls {
     /// fail with EOVERFLOW-like handling in musl.
     ///
     /// Wasm import `wasixv2.setitimer` (riscv32 nr 103).
-    async fn setitimer(
-        &self,
-        caller: &Caller<'_>,
+    fn setitimer<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         which: ItimerWhich,
         value: ConstKernelOldItimervalPtr,
         ovalue: KernelOldItimervalPtr,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_timer_create(const clockid_t which_clock, struct sigevent * timer_event_spec, timer_t *
@@ -3304,14 +3555,14 @@ pub trait Syscalls {
     /// helper thread + SIGEV_THREAD_ID.
     ///
     /// Wasm import `wasixv2.timer_create` (riscv32 nr 107).
-    async fn timer_create(
-        &self,
-        caller: &Caller<'_>,
+    fn timer_create<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         which_clock: ClockId,
         timer_event_spec: ConstSigeventPtr,
         created_timer_id: TimerIdPtr,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_timer_settime(timer_t timer_id, int flags, const struct __kernel_itimerspec *
@@ -3319,188 +3570,201 @@ pub trait Syscalls {
     /// struct __kernel_itimerspec = 2 x timespec64 = 32 bytes.
     ///
     /// Wasm import `wasixv2.timer_settime64` (riscv32 nr 409).
-    async fn timer_settime64(
-        &self,
-        caller: &Caller<'_>,
+    fn timer_settime64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         timer_id: TimerId,
         flags: TimerFlags,
         new_setting: ConstKernelItimerspecPtr,
         old_setting: KernelItimerspecPtr,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_timer_gettime(timer_t timer_id, struct __kernel_itimerspec * setting)`.
     ///
     /// Wasm import `wasixv2.timer_gettime64` (riscv32 nr 408).
-    async fn timer_gettime64(
-        &self,
-        caller: &Caller<'_>,
+    fn timer_gettime64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         timer_id: TimerId,
         setting: KernelItimerspecPtr,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_timer_getoverrun(timer_t timer_id)`.
     ///
     /// Wasm import `wasixv2.timer_getoverrun` (riscv32 nr 109).
-    async fn timer_getoverrun(&self, caller: &Caller<'_>, timer_id: TimerId) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn timer_getoverrun<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        timer_id: TimerId,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_timer_delete(timer_t timer_id)`.
     ///
     /// Wasm import `wasixv2.timer_delete` (riscv32 nr 111).
-    async fn timer_delete(&self, caller: &Caller<'_>, timer_id: TimerId) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn timer_delete<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        timer_id: TimerId,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_socket(int family, int type, int protocol)`.
     /// SOCK_NONBLOCK=O_NONBLOCK(04000), SOCK_CLOEXEC=O_CLOEXEC(02000000) on asm-generic.
     ///
     /// Wasm import `wasixv2.socket` (riscv32 nr 198).
-    async fn socket(
-        &self,
-        caller: &Caller<'_>,
+    fn socket<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         family: AddressFamily,
         r#type: i32,
         protocol: i32,
-    ) -> SysResult<Fd> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<Fd>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_socketpair(int family, int type, int protocol, int * usockvec)`.
     ///
     /// Wasm import `wasixv2.socketpair` (riscv32 nr 199).
-    async fn socketpair(
-        &self,
-        caller: &Caller<'_>,
+    fn socketpair<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         family: AddressFamily,
         r#type: i32,
         protocol: i32,
         usockvec: FdPair,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_bind(int fd, struct sockaddr * umyaddr, int addrlen)`.
     ///
     /// Wasm import `wasixv2.bind` (riscv32 nr 200).
-    async fn bind(
-        &self,
-        caller: &Caller<'_>,
+    fn bind<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         umyaddr: ConstSockaddrPtr,
         addrlen: Socklen,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_listen(int fd, int backlog)`.
     ///
     /// Wasm import `wasixv2.listen` (riscv32 nr 201).
-    async fn listen(&self, caller: &Caller<'_>, fd: Fd, backlog: i32) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn listen<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        fd: Fd,
+        backlog: i32,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_accept(int fd, struct sockaddr * upeer_sockaddr, int * upeer_addrlen)`.
     /// musl defines SYS_accept to SYS_accept4 only if SYS_accept is missing; riscv32 has both.
     ///
     /// Wasm import `wasixv2.accept` (riscv32 nr 202).
-    async fn accept(
-        &self,
-        caller: &Caller<'_>,
+    fn accept<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         upeer_sockaddr: SockaddrPtr,
         upeer_addrlen: SocklenPtr,
-    ) -> SysResult<Fd> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<Fd>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_accept4(int fd, struct sockaddr * upeer_sockaddr, int * upeer_addrlen, int flags)`.
     ///
     /// Wasm import `wasixv2.accept4` (riscv32 nr 242).
-    async fn accept4(
-        &self,
-        caller: &Caller<'_>,
+    fn accept4<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         upeer_sockaddr: SockaddrPtr,
         upeer_addrlen: SocklenPtr,
         flags: SocketFlags,
-    ) -> SysResult<Fd> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<Fd>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_connect(int fd, struct sockaddr * uservaddr, int addrlen)`.
     ///
     /// Wasm import `wasixv2.connect` (riscv32 nr 203).
-    async fn connect(
-        &self,
-        caller: &Caller<'_>,
+    fn connect<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         uservaddr: ConstSockaddrPtr,
         addrlen: Socklen,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_getsockname(int fd, struct sockaddr * usockaddr, int * usockaddr_len)`.
     ///
     /// Wasm import `wasixv2.getsockname` (riscv32 nr 204).
-    async fn getsockname(
-        &self,
-        caller: &Caller<'_>,
+    fn getsockname<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         usockaddr: SockaddrPtr,
         usockaddr_len: SocklenPtr,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_getpeername(int fd, struct sockaddr * usockaddr, int * usockaddr_len)`.
     ///
     /// Wasm import `wasixv2.getpeername` (riscv32 nr 205).
-    async fn getpeername(
-        &self,
-        caller: &Caller<'_>,
+    fn getpeername<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         usockaddr: SockaddrPtr,
         usockaddr_len: SocklenPtr,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_sendto(int fd, void * buff, size_t len, unsigned int flags, struct sockaddr * addr, int
     /// addr_len)`.
     ///
     /// Wasm import `wasixv2.sendto` (riscv32 nr 206).
-    async fn sendto(
-        &self,
-        caller: &Caller<'_>,
+    fn sendto<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         buff: UserSlice,
         flags: MsgFlags,
         addr: ConstSockaddrPtr,
         addr_len: Socklen,
-    ) -> SysResult<u32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<u32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_recvfrom(int fd, void * ubuf, size_t size, unsigned int flags, struct sockaddr * addr,
     /// int * addr_len)`.
     ///
     /// Wasm import `wasixv2.recvfrom` (riscv32 nr 207).
-    async fn recvfrom(
-        &self,
-        caller: &Caller<'_>,
+    fn recvfrom<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         ubuf: UserSliceMut,
         flags: MsgFlags,
         addr: SockaddrPtr,
         addr_len: SocklenPtr,
-    ) -> SysResult<u32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<u32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_setsockopt(int fd, int level, int optname, char * optval, int optlen)`.
@@ -3509,38 +3773,43 @@ pub trait Syscalls {
     /// take 64-bit __kernel_sock_timeval. musl tries _NEW first on 32-bit time64 archs then falls back.
     ///
     /// Wasm import `wasixv2.setsockopt` (riscv32 nr 208).
-    async fn setsockopt(
-        &self,
-        caller: &Caller<'_>,
+    fn setsockopt<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         level: SocketLevel,
         optname: i32,
         optval: UserSlice,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_getsockopt(int fd, int level, int optname, char * optval, int * optlen)`.
     /// see setsockopt.
     ///
     /// Wasm import `wasixv2.getsockopt` (riscv32 nr 209).
-    async fn getsockopt(
-        &self,
-        caller: &Caller<'_>,
+    fn getsockopt<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         level: SocketLevel,
         optname: i32,
         optval: Buf,
         optlen: SocklenPtr,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_shutdown(int fd, int how)`.
     ///
     /// Wasm import `wasixv2.shutdown` (riscv32 nr 210).
-    async fn shutdown(&self, caller: &Caller<'_>, fd: Fd, how: ShutdownHow) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn shutdown<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        fd: Fd,
+        how: ShutdownHow,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_sendmsg(int fd, struct user_msghdr * msg, unsigned int flags)`.
@@ -3548,43 +3817,43 @@ pub trait Syscalls {
     /// CMSG_ALIGN to sizeof(long)=4.
     ///
     /// Wasm import `wasixv2.sendmsg` (riscv32 nr 211).
-    async fn sendmsg(
-        &self,
-        caller: &Caller<'_>,
+    fn sendmsg<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         msg: ConstUserMsghdrPtr,
         flags: MsgFlags,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_recvmsg(int fd, struct user_msghdr * msg, unsigned int flags)`.
     /// see sendmsg. SCM_TIMESTAMP*_OLD vs _NEW differ on 32-bit.
     ///
     /// Wasm import `wasixv2.recvmsg` (riscv32 nr 212).
-    async fn recvmsg(
-        &self,
-        caller: &Caller<'_>,
+    fn recvmsg<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         msg: UserMsghdrPtr,
         flags: MsgFlags,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_sendmmsg(int fd, struct mmsghdr * mmsg, unsigned int vlen, unsigned int flags)`.
     /// struct mmsghdr = msghdr(28) + unsigned msg_len = 32 bytes.
     ///
     /// Wasm import `wasixv2.sendmmsg` (riscv32 nr 269).
-    async fn sendmmsg(
-        &self,
-        caller: &Caller<'_>,
+    fn sendmmsg<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         mmsg: MmsghdrArray,
         vlen: u32,
         flags: MsgFlags,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_recvmmsg(int fd, struct mmsghdr * mmsg, unsigned int vlen, unsigned int flags, struct
@@ -3592,23 +3861,28 @@ pub trait Syscalls {
     /// struct mmsghdr = 32 bytes; timespec64 timeout.
     ///
     /// Wasm import `wasixv2.recvmmsg_time64` (riscv32 nr 417).
-    async fn recvmmsg_time64(
-        &self,
-        caller: &Caller<'_>,
+    fn recvmmsg_time64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         mmsg: MmsghdrArray,
         vlen: u32,
         flags: MsgFlags,
         timeout: KernelTimespecPtr,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_msgget(key_t key, int msgflg)`.
     ///
     /// Wasm import `wasixv2.msgget` (riscv32 nr 186).
-    async fn msgget(&self, caller: &Caller<'_>, key: Key, msgflg: i32) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn msgget<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        key: Key,
+        msgflg: i32,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_msgctl(int msqid, int cmd, struct msqid_ds * buf)`.
@@ -3617,58 +3891,58 @@ pub trait Syscalls {
     /// (msg_stime + msg_stime_high).
     ///
     /// Wasm import `wasixv2.msgctl` (riscv32 nr 187).
-    async fn msgctl(
-        &self,
-        caller: &Caller<'_>,
+    fn msgctl<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         msqid: i32,
         cmd: i32,
         buf: Msqid64DsPtr,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_msgrcv(int msqid, struct msgbuf * msgp, size_t msgsz, long msgtyp, int msgflg)`.
     /// msgbuf {long mtype; char mtext[]} - mtype is 32-bit on ILP32.
     ///
     /// Wasm import `wasixv2.msgrcv` (riscv32 nr 188).
-    async fn msgrcv(
-        &self,
-        caller: &Caller<'_>,
+    fn msgrcv<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         msqid: i32,
         msgp: MsgbufPtr,
         msgsz: Usize,
         msgtyp: Slong,
         msgflg: i32,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_msgsnd(int msqid, struct msgbuf * msgp, size_t msgsz, int msgflg)`.
     /// see msgrcv.
     ///
     /// Wasm import `wasixv2.msgsnd` (riscv32 nr 189).
-    async fn msgsnd(
-        &self,
-        caller: &Caller<'_>,
+    fn msgsnd<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         msqid: i32,
         msgp: ConstMsgbufPtr,
         msgsz: Usize,
         msgflg: i32,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_semget(key_t key, int nsems, int semflg)`.
     ///
     /// Wasm import `wasixv2.semget` (riscv32 nr 190).
-    async fn semget(
-        &self,
-        caller: &Caller<'_>,
+    fn semget<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         key: Key,
         nsems: i32,
         semflg: i32,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_semctl(int semid, int semnum, int cmd, unsigned long arg)`.
@@ -3677,28 +3951,28 @@ pub trait Syscalls {
     /// Untyped: arg: `union semun` by value: an `int`, or a pointer to `semid64-ds`, `u16[]` or `seminfo`.
     ///
     /// Wasm import `wasixv2.semctl` (riscv32 nr 191).
-    async fn semctl(
-        &self,
-        caller: &Caller<'_>,
+    fn semctl<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         semid: i32,
         semnum: i32,
         cmd: i32,
         arg: Ulong,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_semop(int semid, struct sembuf * tsops, unsigned int nsops)`.
     ///
     /// Wasm import `wasixv2.semop` (riscv32 nr 193).
-    async fn semop(
-        &self,
-        caller: &Caller<'_>,
+    fn semop<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         semid: i32,
         tsops: ConstSembufArray,
         nsops: u32,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_semtimedop(int semid, struct sembuf * tsops, unsigned int nsops, const struct
@@ -3706,143 +3980,151 @@ pub trait Syscalls {
     /// musl semop uses semop; semtimedop -> semtimedop_time64.
     ///
     /// Wasm import `wasixv2.semtimedop_time64` (riscv32 nr 420).
-    async fn semtimedop_time64(
-        &self,
-        caller: &Caller<'_>,
+    fn semtimedop_time64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         semid: i32,
         tsops: ConstSembufArray,
         nsops: u32,
         timeout: ConstKernelTimespecPtr,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_shmget(key_t key, size_t size, int shmflg)`.
     ///
     /// Wasm import `wasixv2.shmget` (riscv32 nr 194).
-    async fn shmget(
-        &self,
-        caller: &Caller<'_>,
+    fn shmget<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         key: Key,
         size: Usize,
         shmflg: i32,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_shmctl(int shmid, int cmd, struct shmid_ds * buf)`.
     /// shmid64_ds with split time high fields on 32-bit.
     ///
     /// Wasm import `wasixv2.shmctl` (riscv32 nr 195).
-    async fn shmctl(
-        &self,
-        caller: &Caller<'_>,
+    fn shmctl<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         shmid: i32,
         cmd: i32,
         buf: Shmid64DsPtr,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_shmat(int shmid, char * shmaddr, int shmflg)`.
     /// Returns attach address. SHMLBA alignment.
     ///
     /// Wasm import `wasixv2.shmat` (riscv32 nr 196).
-    async fn shmat(
-        &self,
-        caller: &Caller<'_>,
+    fn shmat<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         shmid: i32,
         shmaddr: Uptr,
         shmflg: i32,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_shmdt(char * shmaddr)`.
     ///
     /// Wasm import `wasixv2.shmdt` (riscv32 nr 197).
-    async fn shmdt(&self, caller: &Caller<'_>, shmaddr: Uptr) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn shmdt<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        shmaddr: Uptr,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_mq_open(const char * u_name, int oflag, umode_t mode, struct mq_attr * u_attr)`.
     /// struct mq_attr = 4 x long + 4 x long reserved = 32 bytes on ILP32.
     ///
     /// Wasm import `wasixv2.mq_open` (riscv32 nr 180).
-    async fn mq_open(
-        &self,
-        caller: &Caller<'_>,
+    fn mq_open<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         u_name: Cstr,
         oflag: OpenFlags,
         mode: Mode,
         u_attr: ConstMqAttrPtr,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_mq_unlink(const char * u_name)`.
     ///
     /// Wasm import `wasixv2.mq_unlink` (riscv32 nr 181).
-    async fn mq_unlink(&self, caller: &Caller<'_>, u_name: Cstr) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn mq_unlink<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        u_name: Cstr,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_mq_timedsend(mqd_t mqdes, const char * u_msg_ptr, size_t msg_len, unsigned int
     /// msg_prio, const struct __kernel_timespec * u_abs_timeout)`.
     ///
     /// Wasm import `wasixv2.mq_timedsend_time64` (riscv32 nr 418).
-    async fn mq_timedsend_time64(
-        &self,
-        caller: &Caller<'_>,
+    fn mq_timedsend_time64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         mqdes: Mqd,
         u_msg_ptr: ConstBuf,
         msg_len: Usize,
         msg_prio: u32,
         u_abs_timeout: ConstKernelTimespecPtr,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_mq_timedreceive(mqd_t mqdes, char * u_msg_ptr, size_t msg_len, unsigned int *
     /// u_msg_prio, const struct __kernel_timespec * u_abs_timeout)`.
     ///
     /// Wasm import `wasixv2.mq_timedreceive_time64` (riscv32 nr 419).
-    async fn mq_timedreceive_time64(
-        &self,
-        caller: &Caller<'_>,
+    fn mq_timedreceive_time64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         mqdes: Mqd,
         u_msg_ptr: Buf,
         msg_len: Usize,
         u_msg_prio: U32Ptr,
         u_abs_timeout: ConstKernelTimespecPtr,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_mq_notify(mqd_t mqdes, const struct sigevent * u_notification)`.
     ///
     /// Wasm import `wasixv2.mq_notify` (riscv32 nr 184).
-    async fn mq_notify(
-        &self,
-        caller: &Caller<'_>,
+    fn mq_notify<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         mqdes: Mqd,
         u_notification: ConstSigeventPtr,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_mq_getsetattr(mqd_t mqdes, const struct mq_attr * u_mqstat, struct mq_attr *
     /// u_omqstat)`.
     ///
     /// Wasm import `wasixv2.mq_getsetattr` (riscv32 nr 185).
-    async fn mq_getsetattr(
-        &self,
-        caller: &Caller<'_>,
+    fn mq_getsetattr<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         mqdes: Mqd,
         u_mqstat: ConstMqAttrPtr,
         u_omqstat: MqAttrPtr,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_io_setup(unsigned nr_events, aio_context_t * ctxp)`.
@@ -3850,48 +4132,52 @@ pub trait Syscalls {
     /// musl does not use it (POSIX aio is thread-based).
     ///
     /// Wasm import `wasixv2.io_setup` (riscv32 nr 0).
-    async fn io_setup(
-        &self,
-        caller: &Caller<'_>,
+    fn io_setup<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         nr_events: u32,
         ctxp: AioContextPtr,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_io_destroy(aio_context_t ctx)`.
     /// aio_context_t is 32-bit unsigned long on riscv32.
     ///
     /// Wasm import `wasixv2.io_destroy` (riscv32 nr 1).
-    async fn io_destroy(&self, caller: &Caller<'_>, ctx: AioContext) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn io_destroy<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        ctx: AioContext,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_io_submit(aio_context_t ctx_id, long nr, struct iocb * * iocbpp)`.
     /// struct iocb is fixed 64 bytes with explicit __u64 fields (pointer-in-u64).
     ///
     /// Wasm import `wasixv2.io_submit` (riscv32 nr 2).
-    async fn io_submit(
-        &self,
-        caller: &Caller<'_>,
+    fn io_submit<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         ctx_id: AioContext,
         nr: Slong,
         iocbpp: ConstIocbPtrArray,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_io_cancel(aio_context_t ctx_id, struct iocb * iocb, struct io_event * result)`.
     ///
     /// Wasm import `wasixv2.io_cancel` (riscv32 nr 3).
-    async fn io_cancel(
-        &self,
-        caller: &Caller<'_>,
+    fn io_cancel<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         ctx_id: AioContext,
         iocb: IocbPtr,
         result: IoEventPtr,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_io_pgetevents(aio_context_t ctx_id, long min_nr, long nr, struct io_event * events,
@@ -3901,29 +4187,29 @@ pub trait Syscalls {
     ///
     /// Wasm import `wasixv2.io_pgetevents_time64` (riscv32 nr 416).
     #[allow(clippy::too_many_arguments)]
-    async fn io_pgetevents_time64(
-        &self,
-        caller: &Caller<'_>,
+    fn io_pgetevents_time64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         ctx_id: AioContext,
         min_nr: Slong,
         nr: Slong,
         events: IoEventArray,
         timeout: KernelTimespecPtr,
         usig: ConstAioSigsetPtr,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_io_uring_setup(u32 entries, struct io_uring_params * params)`.
     ///
     /// Wasm import `wasixv2.io_uring_setup` (riscv32 nr 425).
-    async fn io_uring_setup(
-        &self,
-        caller: &Caller<'_>,
+    fn io_uring_setup<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         entries: u32,
         params: IoUringParamsPtr,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_io_uring_enter(unsigned int fd, u32 to_submit, u32 min_complete, u32 flags, const void
@@ -3932,17 +4218,17 @@ pub trait Syscalls {
     ///
     /// Wasm import `wasixv2.io_uring_enter` (riscv32 nr 426).
     #[allow(clippy::too_many_arguments)]
-    async fn io_uring_enter(
-        &self,
-        caller: &Caller<'_>,
+    fn io_uring_enter<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         to_submit: u32,
         min_complete: u32,
         flags: u32,
         argp: ConstVoidPtr,
         argsz: Usize,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_io_uring_register(unsigned int fd, unsigned int opcode, void * arg, unsigned int
@@ -3950,15 +4236,15 @@ pub trait Syscalls {
     /// Untyped: arg: pointee depends on `opcode`.
     ///
     /// Wasm import `wasixv2.io_uring_register` (riscv32 nr 427).
-    async fn io_uring_register(
-        &self,
-        caller: &Caller<'_>,
+    fn io_uring_register<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         opcode: u32,
         arg: VoidPtr,
         nr_args: u32,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_mount(char * dev_name, char * dir_name, char * type, unsigned long flags, void *
@@ -3967,139 +4253,155 @@ pub trait Syscalls {
     /// Untyped: data: file system specific.
     ///
     /// Wasm import `wasixv2.mount` (riscv32 nr 40).
-    async fn mount(
-        &self,
-        caller: &Caller<'_>,
+    fn mount<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         dev_name: Cstr,
         dir_name: Cstr,
         r#type: Cstr,
         flags: MountFlags,
         data: ConstVoidPtr,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_umount(char * name, int flags)`.
     ///
     /// Wasm import `wasixv2.umount2` (riscv32 nr 39).
-    async fn umount2(&self, caller: &Caller<'_>, name: Cstr, flags: UmountFlags) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn umount2<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        name: Cstr,
+        flags: UmountFlags,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_pivot_root(const char * new_root, const char * put_old)`.
     ///
     /// Wasm import `wasixv2.pivot_root` (riscv32 nr 41).
-    async fn pivot_root(
-        &self,
-        caller: &Caller<'_>,
+    fn pivot_root<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         new_root: Cstr,
         put_old: Cstr,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_open_tree(int dfd, const char * filename, unsigned flags)`.
     ///
     /// Wasm import `wasixv2.open_tree` (riscv32 nr 428).
-    async fn open_tree(
-        &self,
-        caller: &Caller<'_>,
+    fn open_tree<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         dfd: Fd,
         filename: Cstr,
         flags: u32,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_open_tree_attr(int dfd, const char * filename, unsigned flags, struct mount_attr *
     /// uattr, size_t usize)`.
     ///
     /// Wasm import `wasixv2.open_tree_attr` (riscv32 nr 467).
-    async fn open_tree_attr(
-        &self,
-        caller: &Caller<'_>,
+    fn open_tree_attr<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         dfd: Fd,
         filename: Cstr,
         flags: u32,
         uattr: ConstMountAttrPtr,
         usize: Usize,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_move_mount(int from_dfd, const char * from_pathname, int to_dfd, const char *
     /// to_pathname, unsigned int flags)`.
     ///
     /// Wasm import `wasixv2.move_mount` (riscv32 nr 429).
-    async fn move_mount(
-        &self,
-        caller: &Caller<'_>,
+    fn move_mount<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         from_dfd: Fd,
         from_pathname: Cstr,
         to_dfd: Fd,
         to_pathname: Cstr,
         flags: u32,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_fsopen(const char * _fs_name, unsigned int flags)`.
     ///
     /// Wasm import `wasixv2.fsopen` (riscv32 nr 430).
-    async fn fsopen(&self, caller: &Caller<'_>, fs_name: Cstr, flags: u32) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn fsopen<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        fs_name: Cstr,
+        flags: u32,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_fsconfig(int fd, unsigned int cmd, const char * _key, const void * _value, int aux)`.
     /// Untyped: value: pointee depends on `cmd`.
     ///
     /// Wasm import `wasixv2.fsconfig` (riscv32 nr 431).
-    async fn fsconfig(
-        &self,
-        caller: &Caller<'_>,
+    fn fsconfig<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         cmd: u32,
         key: Cstr,
         value: ConstVoidPtr,
         aux: i32,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_fsmount(int fs_fd, unsigned int flags, unsigned int attr_flags)`.
     ///
     /// Wasm import `wasixv2.fsmount` (riscv32 nr 432).
-    async fn fsmount(
-        &self,
-        caller: &Caller<'_>,
+    fn fsmount<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fs_fd: Fd,
         flags: u32,
         attr_flags: u32,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_fspick(int dfd, const char * path, unsigned int flags)`.
     ///
     /// Wasm import `wasixv2.fspick` (riscv32 nr 433).
-    async fn fspick(&self, caller: &Caller<'_>, dfd: Fd, path: Cstr, flags: u32) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn fspick<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        dfd: Fd,
+        path: Cstr,
+        flags: u32,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_mount_setattr(int dfd, const char * path, unsigned int flags, struct mount_attr *
     /// uattr, size_t usize)`.
     ///
     /// Wasm import `wasixv2.mount_setattr` (riscv32 nr 442).
-    async fn mount_setattr(
-        &self,
-        caller: &Caller<'_>,
+    fn mount_setattr<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         dfd: Fd,
         path: Cstr,
         flags: AtFlags,
         uattr: ConstMountAttrPtr,
         usize: Usize,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_statmount(const struct mnt_id_req * req, struct statmount * buf, size_t bufsize,
@@ -4107,15 +4409,15 @@ pub trait Syscalls {
     /// `buf` holds a `statmount` record followed by its strings, `bufsize` bytes in all.
     ///
     /// Wasm import `wasixv2.statmount` (riscv32 nr 457).
-    async fn statmount(
-        &self,
-        caller: &Caller<'_>,
+    fn statmount<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         req: ConstMntIdReqPtr,
         buf: VoidPtr,
         bufsize: Usize,
         flags: u32,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_listmount(const struct mnt_id_req * req, u64 * mnt_ids, size_t nr_mnt_ids, unsigned int
@@ -4123,44 +4425,44 @@ pub trait Syscalls {
     /// struct mnt_id_req (u32 size, u32 spare/mnt_ns_fd, u64 mnt_id, u64 param, u64 mnt_ns_id).
     ///
     /// Wasm import `wasixv2.listmount` (riscv32 nr 458).
-    async fn listmount(
-        &self,
-        caller: &Caller<'_>,
+    fn listmount<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         req: ConstMntIdReqPtr,
         mnt_ids: U64Array,
         nr_mnt_ids: Usize,
         flags: u32,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_listns(const struct ns_id_req * req, u64 * ns_ids, size_t nr_ns_ids, unsigned int
     /// flags)`.
     ///
     /// Wasm import `wasixv2.listns` (riscv32 nr 470).
-    async fn listns(
-        &self,
-        caller: &Caller<'_>,
+    fn listns<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         req: ConstNsIdReqPtr,
         ns_ids: U64Array,
         nr_ns_ids: Usize,
         flags: u32,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_landlock_create_ruleset(const struct landlock_ruleset_attr *const attr, const size_t
     /// size, const __u32 flags)`.
     ///
     /// Wasm import `wasixv2.landlock_create_ruleset` (riscv32 nr 444).
-    async fn landlock_create_ruleset(
-        &self,
-        caller: &Caller<'_>,
+    fn landlock_create_ruleset<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         attr: ConstLandlockRulesetAttrPtr,
         size: Usize,
         flags: u32,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_landlock_add_rule(const int ruleset_fd, const enum landlock_rule_type rule_type, const
@@ -4169,99 +4471,99 @@ pub trait Syscalls {
     /// landlock_path_beneath_attr`.
     ///
     /// Wasm import `wasixv2.landlock_add_rule` (riscv32 nr 445).
-    async fn landlock_add_rule(
-        &self,
-        caller: &Caller<'_>,
+    fn landlock_add_rule<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         ruleset_fd: Fd,
         rule_type: i32,
         rule_attr: ConstVoidPtr,
         flags: u32,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_landlock_restrict_self(const int ruleset_fd, const __u32 flags)`.
     ///
     /// Wasm import `wasixv2.landlock_restrict_self` (riscv32 nr 446).
-    async fn landlock_restrict_self(
-        &self,
-        caller: &Caller<'_>,
+    fn landlock_restrict_self<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         ruleset_fd: Fd,
         flags: u32,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_lsm_get_self_attr(unsigned int attr, struct lsm_ctx * ctx, u32 * size, u32 flags)`.
     ///
     /// Wasm import `wasixv2.lsm_get_self_attr` (riscv32 nr 459).
-    async fn lsm_get_self_attr(
-        &self,
-        caller: &Caller<'_>,
+    fn lsm_get_self_attr<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         attr: u32,
         ctx: LsmCtxPtr,
         size: U32Ptr,
         flags: u32,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_lsm_set_self_attr(unsigned int attr, struct lsm_ctx * ctx, u32 size, u32 flags)`.
     ///
     /// Wasm import `wasixv2.lsm_set_self_attr` (riscv32 nr 460).
-    async fn lsm_set_self_attr(
-        &self,
-        caller: &Caller<'_>,
+    fn lsm_set_self_attr<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         attr: u32,
         ctx: ConstLsmCtxPtr,
         size: u32,
         flags: u32,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_lsm_list_modules(u64 * ids, u32 * size, u32 flags)`.
     ///
     /// Wasm import `wasixv2.lsm_list_modules` (riscv32 nr 461).
-    async fn lsm_list_modules(
-        &self,
-        caller: &Caller<'_>,
+    fn lsm_list_modules<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         ids: U64Array,
         size: U32Ptr,
         flags: u32,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_add_key(const char * _type, const char * _description, const void * _payload, size_t
     /// plen, key_serial_t ringid)`.
     ///
     /// Wasm import `wasixv2.add_key` (riscv32 nr 217).
-    async fn add_key(
-        &self,
-        caller: &Caller<'_>,
+    fn add_key<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         r#type: Cstr,
         description: Cstr,
         payload: ConstVoidPtr,
         plen: Usize,
         ringid: KeySerial,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_request_key(const char * _type, const char * _description, const char * _callout_info,
     /// key_serial_t destringid)`.
     ///
     /// Wasm import `wasixv2.request_key` (riscv32 nr 218).
-    async fn request_key(
-        &self,
-        caller: &Caller<'_>,
+    fn request_key<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         r#type: Cstr,
         description: Cstr,
         callout_info: Cstr,
         destringid: KeySerial,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_keyctl(int option, unsigned long arg2, unsigned long arg3, unsigned long arg4, unsigned
@@ -4270,16 +4572,16 @@ pub trait Syscalls {
     /// Untyped: arg2..arg5: integers or guest pointers, depending on `option`.
     ///
     /// Wasm import `wasixv2.keyctl` (riscv32 nr 219).
-    async fn keyctl(
-        &self,
-        caller: &Caller<'_>,
+    fn keyctl<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         option: i32,
         arg2: Ulong,
         arg3: Ulong,
         arg4: Ulong,
         arg5: Ulong,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_bpf(int cmd, union bpf_attr * uattr, unsigned int size, struct bpf_common_attr *
@@ -4289,16 +4591,16 @@ pub trait Syscalls {
     /// modelled.
     ///
     /// Wasm import `wasixv2.bpf` (riscv32 nr 280).
-    async fn bpf(
-        &self,
-        caller: &Caller<'_>,
+    fn bpf<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         cmd: i32,
         uattr: VoidPtr,
         size: u32,
         uattr_common: VoidPtr,
         size_common: u32,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_perf_event_open(struct perf_event_attr * attr_uptr, pid_t pid, int cpu, int group_fd,
@@ -4307,16 +4609,16 @@ pub trait Syscalls {
     /// Untyped: attr-uptr: `struct perf_event_attr` (size-versioned, not modelled).
     ///
     /// Wasm import `wasixv2.perf_event_open` (riscv32 nr 241).
-    async fn perf_event_open(
-        &self,
-        caller: &Caller<'_>,
+    fn perf_event_open<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         attr_uptr: VoidPtr,
         pid: Pid,
         cpu: i32,
         group_fd: Fd,
         flags: Ulong,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_reboot(int magic1, int magic2, unsigned int cmd, void * arg)`.
@@ -4324,56 +4626,66 @@ pub trait Syscalls {
     /// Untyped: arg: only used by `LINUX_REBOOT_CMD_RESTART2` (a string).
     ///
     /// Wasm import `wasixv2.reboot` (riscv32 nr 142).
-    async fn reboot(
-        &self,
-        caller: &Caller<'_>,
+    fn reboot<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         magic1: i32,
         magic2: i32,
         cmd: RebootCmd,
         arg: VoidPtr,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_acct(const char * name)`.
     ///
     /// Wasm import `wasixv2.acct` (riscv32 nr 89).
-    async fn acct(&self, caller: &Caller<'_>, name: Cstr) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn acct<'a>(&'a self, caller: &'a Caller<'_>, name: Cstr) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_swapon(const char * specialfile, int swap_flags)`.
     ///
     /// Wasm import `wasixv2.swapon` (riscv32 nr 224).
-    async fn swapon(
-        &self,
-        caller: &Caller<'_>,
+    fn swapon<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         specialfile: Cstr,
         swap_flags: i32,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_swapoff(const char * specialfile)`.
     ///
     /// Wasm import `wasixv2.swapoff` (riscv32 nr 225).
-    async fn swapoff(&self, caller: &Caller<'_>, specialfile: Cstr) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn swapoff<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        specialfile: Cstr,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_syslog(int type, char * buf, int len)`.
     /// klogctl.
     ///
     /// Wasm import `wasixv2.syslog` (riscv32 nr 116).
-    async fn syslog(&self, caller: &Caller<'_>, r#type: i32, buf: Buf, len: i32) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn syslog<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        r#type: i32,
+        buf: Buf,
+        len: i32,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_vhangup()`.
     ///
     /// Wasm import `wasixv2.vhangup` (riscv32 nr 58).
-    async fn vhangup(&self, caller: &Caller<'_>) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    fn vhangup<'a>(&'a self, caller: &'a Caller<'_>) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_kexec_load(unsigned long entry, unsigned long nr_segments, struct kexec_segment *
@@ -4382,15 +4694,15 @@ pub trait Syscalls {
     /// Wasm import `wasixv2.kexec_load` (riscv32 nr 104).
     ///
     /// Declared for completeness; implementations may leave it unimplemented.
-    async fn kexec_load(
-        &self,
-        caller: &Caller<'_>,
+    fn kexec_load<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         entry: Uptr,
         nr_segments: Ulong,
         segments: ConstKexecSegmentArray,
         flags: Ulong,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_kexec_file_load(int kernel_fd, int initrd_fd, unsigned long cmdline_len, const char *
@@ -4399,16 +4711,16 @@ pub trait Syscalls {
     /// Wasm import `wasixv2.kexec_file_load` (riscv32 nr 294).
     ///
     /// Declared for completeness; implementations may leave it unimplemented.
-    async fn kexec_file_load(
-        &self,
-        caller: &Caller<'_>,
+    fn kexec_file_load<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         kernel_fd: Fd,
         initrd_fd: Fd,
         cmdline_len: Ulong,
         cmdline_ptr: Cstr,
         flags: Ulong,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_init_module(void * umod, unsigned long len, const char * uargs)`.
@@ -4416,14 +4728,14 @@ pub trait Syscalls {
     /// Wasm import `wasixv2.init_module` (riscv32 nr 105).
     ///
     /// Declared for completeness; implementations may leave it unimplemented.
-    async fn init_module(
-        &self,
-        caller: &Caller<'_>,
+    fn init_module<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         umod: ConstBuf,
         len: Ulong,
         uargs: Cstr,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_finit_module(int fd, const char * uargs, int flags)`.
@@ -4431,14 +4743,14 @@ pub trait Syscalls {
     /// Wasm import `wasixv2.finit_module` (riscv32 nr 273).
     ///
     /// Declared for completeness; implementations may leave it unimplemented.
-    async fn finit_module(
-        &self,
-        caller: &Caller<'_>,
+    fn finit_module<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         uargs: Cstr,
         flags: i32,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 
     /// Kernel: `sys_delete_module(const char * name_user, unsigned int flags)`.
@@ -4446,13 +4758,13 @@ pub trait Syscalls {
     /// Wasm import `wasixv2.delete_module` (riscv32 nr 106).
     ///
     /// Declared for completeness; implementations may leave it unimplemented.
-    async fn delete_module(
-        &self,
-        caller: &Caller<'_>,
+    fn delete_module<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         name_user: Cstr,
         flags: u32,
-    ) -> SysResult<i32> {
-        Err(Errno::ENOSYS.into())
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Ready(Err(Errno::ENOSYS.into()))
     }
 }
 
@@ -11263,84 +11575,79 @@ fn regs<const N: usize>(r: [u64; N]) -> [u64; 6] {
     out
 }
 
-pub async fn dispatch<S: Syscalls + ?Sized>(
-    syscalls: &S,
-    caller: &Caller<'_>,
+pub fn dispatch<'a, S: Syscalls + ?Sized>(
+    syscalls: &'a S,
+    caller: &'a Caller<'_>,
     call: Syscall,
-) -> SysResult<SyscallRet> {
-    Ok(match call {
-        Syscall::StartupSize => SyscallRet::StartupSize(syscalls.startup_size(caller).await?),
-        Syscall::StartupGet { buf } => {
-            SyscallRet::StartupGet(syscalls.startup_get(caller, buf).await?)
-        }
+) -> MaybeFuture<'a, SysResult<SyscallRet>> {
+    match call {
+        Syscall::StartupSize => syscalls
+            .startup_size(caller)
+            .map(|ret| ret.map(SyscallRet::StartupSize)),
+        Syscall::StartupGet { buf } => syscalls
+            .startup_get(caller, buf)
+            .map(|ret| ret.map(SyscallRet::StartupGet)),
         Syscall::ThreadSpawn {
             flags,
             start_arg,
             parent_tid,
             tls,
             child_tid,
-        } => SyscallRet::ThreadSpawn(
-            syscalls
-                .thread_spawn(caller, flags, start_arg, parent_tid, tls, child_tid)
-                .await?,
-        ),
-        Syscall::SignalCallbackRegister { callback } => SyscallRet::SignalCallbackRegister(
-            syscalls.signal_callback_register(caller, callback).await?,
-        ),
+        } => syscalls
+            .thread_spawn(caller, flags, start_arg, parent_tid, tls, child_tid)
+            .map(|ret| ret.map(SyscallRet::ThreadSpawn)),
+        Syscall::SignalCallbackRegister { callback } => syscalls
+            .signal_callback_register(caller, callback)
+            .map(|ret| ret.map(SyscallRet::SignalCallbackRegister)),
         Syscall::CallDynamic {
             function,
             values,
             results,
             flags,
-        } => SyscallRet::CallDynamic(
-            syscalls
-                .call_dynamic(caller, function, values, results, flags)
-                .await?,
-        ),
+        } => syscalls
+            .call_dynamic(caller, function, values, results, flags)
+            .map(|ret| ret.map(SyscallRet::CallDynamic)),
         Syscall::ReflectSignature {
             function,
             argument_types,
             result_types,
             result,
-        } => SyscallRet::ReflectSignature(
-            syscalls
-                .reflect_signature(caller, function, argument_types, result_types, result)
-                .await?,
-        ),
-        Syscall::ClosureAllocate { closure } => {
-            SyscallRet::ClosureAllocate(syscalls.closure_allocate(caller, closure).await?)
-        }
+        } => syscalls
+            .reflect_signature(caller, function, argument_types, result_types, result)
+            .map(|ret| ret.map(SyscallRet::ReflectSignature)),
+        Syscall::ClosureAllocate { closure } => syscalls
+            .closure_allocate(caller, closure)
+            .map(|ret| ret.map(SyscallRet::ClosureAllocate)),
         Syscall::ClosurePrepare {
             backing,
             closure,
             argument_types,
             result_types,
             env_,
-        } => SyscallRet::ClosurePrepare(
-            syscalls
-                .closure_prepare(caller, backing, closure, argument_types, result_types, env_)
-                .await?,
-        ),
-        Syscall::ClosureFree { closure } => {
-            SyscallRet::ClosureFree(syscalls.closure_free(caller, closure).await?)
-        }
-        Syscall::Checkpoint => SyscallRet::Checkpoint(syscalls.checkpoint(caller).await?),
-        Syscall::StackSave { snapshot, val } => {
-            SyscallRet::StackSave(syscalls.stack_save(caller, snapshot, val).await?)
-        }
-        Syscall::StackRestore { snapshot, val } => {
-            syscalls.stack_restore(caller, snapshot, val).await?;
-            SyscallRet::StackRestore
-        }
-        Syscall::ContextCreate { entry, id } => {
-            SyscallRet::ContextCreate(syscalls.context_create(caller, entry, id).await?)
-        }
-        Syscall::ContextSwitch { id } => {
-            SyscallRet::ContextSwitch(syscalls.context_switch(caller, id).await?)
-        }
-        Syscall::ContextDestroy { id } => {
-            SyscallRet::ContextDestroy(syscalls.context_destroy(caller, id).await?)
-        }
+        } => syscalls
+            .closure_prepare(caller, backing, closure, argument_types, result_types, env_)
+            .map(|ret| ret.map(SyscallRet::ClosurePrepare)),
+        Syscall::ClosureFree { closure } => syscalls
+            .closure_free(caller, closure)
+            .map(|ret| ret.map(SyscallRet::ClosureFree)),
+        Syscall::Checkpoint => syscalls
+            .checkpoint(caller)
+            .map(|ret| ret.map(SyscallRet::Checkpoint)),
+        Syscall::StackSave { snapshot, val } => syscalls
+            .stack_save(caller, snapshot, val)
+            .map(|ret| ret.map(SyscallRet::StackSave)),
+        Syscall::StackRestore { snapshot, val } => syscalls
+            .stack_restore(caller, snapshot, val)
+            .map(|ret| ret.map(|()| SyscallRet::StackRestore)),
+        Syscall::ContextCreate { entry, id } => syscalls
+            .context_create(caller, entry, id)
+            .map(|ret| ret.map(SyscallRet::ContextCreate)),
+        Syscall::ContextSwitch { id } => syscalls
+            .context_switch(caller, id)
+            .map(|ret| ret.map(SyscallRet::ContextSwitch)),
+        Syscall::ContextDestroy { id } => syscalls
+            .context_destroy(caller, id)
+            .map(|ret| ret.map(SyscallRet::ContextDestroy)),
         Syscall::DlOpen {
             file,
             flags,
@@ -11348,104 +11655,118 @@ pub async fn dispatch<S: Syscalls + ?Sized>(
             caller_addr,
             handle,
             err,
-        } => SyscallRet::DlOpen(
-            syscalls
-                .dl_open(caller, file, flags, search_path, caller_addr, handle, err)
-                .await?,
-        ),
+        } => syscalls
+            .dl_open(caller, file, flags, search_path, caller_addr, handle, err)
+            .map(|ret| ret.map(SyscallRet::DlOpen)),
         Syscall::DlSym {
             handle,
             symbol,
             caller_addr,
             addr,
             err,
-        } => SyscallRet::DlSym(
-            syscalls
-                .dl_sym(caller, handle, symbol, caller_addr, addr, err)
-                .await?,
-        ),
-        Syscall::DlClose { handle } => {
-            SyscallRet::DlClose(syscalls.dl_close(caller, handle).await?)
-        }
-        Syscall::DlNextInit { ctors } => {
-            SyscallRet::DlNextInit(syscalls.dl_next_init(caller, ctors).await?)
-        }
+        } => syscalls
+            .dl_sym(caller, handle, symbol, caller_addr, addr, err)
+            .map(|ret| ret.map(SyscallRet::DlSym)),
+        Syscall::DlClose { handle } => syscalls
+            .dl_close(caller, handle)
+            .map(|ret| ret.map(SyscallRet::DlClose)),
+        Syscall::DlNextInit { ctors } => syscalls
+            .dl_next_init(caller, ctors)
+            .map(|ret| ret.map(SyscallRet::DlNextInit)),
         Syscall::Openat {
             dfd,
             filename,
             flags,
             mode,
-        } => SyscallRet::Openat(syscalls.openat(caller, dfd, filename, flags, mode).await?),
+        } => syscalls
+            .openat(caller, dfd, filename, flags, mode)
+            .map(|ret| ret.map(SyscallRet::Openat)),
         Syscall::Openat2 {
             dfd,
             filename,
             how,
             usize,
-        } => SyscallRet::Openat2(syscalls.openat2(caller, dfd, filename, how, usize).await?),
-        Syscall::Close { fd } => SyscallRet::Close(syscalls.close(caller, fd).await?),
-        Syscall::CloseRange { fd, max_fd, flags } => {
-            SyscallRet::CloseRange(syscalls.close_range(caller, fd, max_fd, flags).await?)
-        }
-        Syscall::Dup { fildes } => SyscallRet::Dup(syscalls.dup(caller, fildes).await?),
+        } => syscalls
+            .openat2(caller, dfd, filename, how, usize)
+            .map(|ret| ret.map(SyscallRet::Openat2)),
+        Syscall::Close { fd } => syscalls
+            .close(caller, fd)
+            .map(|ret| ret.map(SyscallRet::Close)),
+        Syscall::CloseRange { fd, max_fd, flags } => syscalls
+            .close_range(caller, fd, max_fd, flags)
+            .map(|ret| ret.map(SyscallRet::CloseRange)),
+        Syscall::Dup { fildes } => syscalls
+            .dup(caller, fildes)
+            .map(|ret| ret.map(SyscallRet::Dup)),
         Syscall::Dup3 {
             oldfd,
             newfd,
             flags,
-        } => SyscallRet::Dup3(syscalls.dup3(caller, oldfd, newfd, flags).await?),
-        Syscall::Fcntl64 { fd, cmd, arg } => {
-            SyscallRet::Fcntl64(syscalls.fcntl64(caller, fd, cmd, arg).await?)
-        }
-        Syscall::Flock { fd, cmd } => SyscallRet::Flock(syscalls.flock(caller, fd, cmd).await?),
-        Syscall::Ioctl { fd, cmd, arg } => {
-            SyscallRet::Ioctl(syscalls.ioctl(caller, fd, cmd, arg).await?)
-        }
-        Syscall::Read { fd, buf } => SyscallRet::Read(syscalls.read(caller, fd, buf).await?),
-        Syscall::Write { fd, buf } => SyscallRet::Write(syscalls.write(caller, fd, buf).await?),
-        Syscall::Readv { fd, vec, vlen } => {
-            SyscallRet::Readv(syscalls.readv(caller, fd, vec, vlen).await?)
-        }
-        Syscall::Writev { fd, vec, vlen } => {
-            SyscallRet::Writev(syscalls.writev(caller, fd, vec, vlen).await?)
-        }
-        Syscall::Pread64 { fd, buf, pos } => {
-            SyscallRet::Pread64(syscalls.pread64(caller, fd, buf, pos).await?)
-        }
-        Syscall::Pwrite64 { fd, buf, pos } => {
-            SyscallRet::Pwrite64(syscalls.pwrite64(caller, fd, buf, pos).await?)
-        }
-        Syscall::Preadv { fd, vec, vlen, pos } => {
-            SyscallRet::Preadv(syscalls.preadv(caller, fd, vec, vlen, pos).await?)
-        }
-        Syscall::Pwritev { fd, vec, vlen, pos } => {
-            SyscallRet::Pwritev(syscalls.pwritev(caller, fd, vec, vlen, pos).await?)
-        }
+        } => syscalls
+            .dup3(caller, oldfd, newfd, flags)
+            .map(|ret| ret.map(SyscallRet::Dup3)),
+        Syscall::Fcntl64 { fd, cmd, arg } => syscalls
+            .fcntl64(caller, fd, cmd, arg)
+            .map(|ret| ret.map(SyscallRet::Fcntl64)),
+        Syscall::Flock { fd, cmd } => syscalls
+            .flock(caller, fd, cmd)
+            .map(|ret| ret.map(SyscallRet::Flock)),
+        Syscall::Ioctl { fd, cmd, arg } => syscalls
+            .ioctl(caller, fd, cmd, arg)
+            .map(|ret| ret.map(SyscallRet::Ioctl)),
+        Syscall::Read { fd, buf } => syscalls
+            .read(caller, fd, buf)
+            .map(|ret| ret.map(SyscallRet::Read)),
+        Syscall::Write { fd, buf } => syscalls
+            .write(caller, fd, buf)
+            .map(|ret| ret.map(SyscallRet::Write)),
+        Syscall::Readv { fd, vec, vlen } => syscalls
+            .readv(caller, fd, vec, vlen)
+            .map(|ret| ret.map(SyscallRet::Readv)),
+        Syscall::Writev { fd, vec, vlen } => syscalls
+            .writev(caller, fd, vec, vlen)
+            .map(|ret| ret.map(SyscallRet::Writev)),
+        Syscall::Pread64 { fd, buf, pos } => syscalls
+            .pread64(caller, fd, buf, pos)
+            .map(|ret| ret.map(SyscallRet::Pread64)),
+        Syscall::Pwrite64 { fd, buf, pos } => syscalls
+            .pwrite64(caller, fd, buf, pos)
+            .map(|ret| ret.map(SyscallRet::Pwrite64)),
+        Syscall::Preadv { fd, vec, vlen, pos } => syscalls
+            .preadv(caller, fd, vec, vlen, pos)
+            .map(|ret| ret.map(SyscallRet::Preadv)),
+        Syscall::Pwritev { fd, vec, vlen, pos } => syscalls
+            .pwritev(caller, fd, vec, vlen, pos)
+            .map(|ret| ret.map(SyscallRet::Pwritev)),
         Syscall::Preadv2 {
             fd,
             vec,
             vlen,
             pos,
             flags,
-        } => SyscallRet::Preadv2(syscalls.preadv2(caller, fd, vec, vlen, pos, flags).await?),
+        } => syscalls
+            .preadv2(caller, fd, vec, vlen, pos, flags)
+            .map(|ret| ret.map(SyscallRet::Preadv2)),
         Syscall::Pwritev2 {
             fd,
             vec,
             vlen,
             pos,
             flags,
-        } => SyscallRet::Pwritev2(syscalls.pwritev2(caller, fd, vec, vlen, pos, flags).await?),
-        Syscall::Lseek { fd, offset, whence } => {
-            SyscallRet::Lseek(syscalls.lseek(caller, fd, offset, whence).await?)
-        }
+        } => syscalls
+            .pwritev2(caller, fd, vec, vlen, pos, flags)
+            .map(|ret| ret.map(SyscallRet::Pwritev2)),
+        Syscall::Lseek { fd, offset, whence } => syscalls
+            .lseek(caller, fd, offset, whence)
+            .map(|ret| ret.map(SyscallRet::Lseek)),
         Syscall::Sendfile64 {
             out_fd,
             in_fd,
             offset,
             count,
-        } => SyscallRet::Sendfile64(
-            syscalls
-                .sendfile64(caller, out_fd, in_fd, offset, count)
-                .await?,
-        ),
+        } => syscalls
+            .sendfile64(caller, out_fd, in_fd, offset, count)
+            .map(|ret| ret.map(SyscallRet::Sendfile64)),
         Syscall::Splice {
             fd_in,
             off_in,
@@ -11453,23 +11774,25 @@ pub async fn dispatch<S: Syscalls + ?Sized>(
             off_out,
             len,
             flags,
-        } => SyscallRet::Splice(
-            syscalls
-                .splice(caller, fd_in, off_in, fd_out, off_out, len, flags)
-                .await?,
-        ),
+        } => syscalls
+            .splice(caller, fd_in, off_in, fd_out, off_out, len, flags)
+            .map(|ret| ret.map(SyscallRet::Splice)),
         Syscall::Tee {
             fdin,
             fdout,
             len,
             flags,
-        } => SyscallRet::Tee(syscalls.tee(caller, fdin, fdout, len, flags).await?),
+        } => syscalls
+            .tee(caller, fdin, fdout, len, flags)
+            .map(|ret| ret.map(SyscallRet::Tee)),
         Syscall::Vmsplice {
             fd,
             uiov,
             nr_segs,
             flags,
-        } => SyscallRet::Vmsplice(syscalls.vmsplice(caller, fd, uiov, nr_segs, flags).await?),
+        } => syscalls
+            .vmsplice(caller, fd, uiov, nr_segs, flags)
+            .map(|ret| ret.map(SyscallRet::Vmsplice)),
         Syscall::CopyFileRange {
             fd_in,
             off_in,
@@ -11477,316 +11800,314 @@ pub async fn dispatch<S: Syscalls + ?Sized>(
             off_out,
             len,
             flags,
-        } => SyscallRet::CopyFileRange(
-            syscalls
-                .copy_file_range(caller, fd_in, off_in, fd_out, off_out, len, flags)
-                .await?,
-        ),
-        Syscall::Truncate64 { path, length } => {
-            SyscallRet::Truncate64(syscalls.truncate64(caller, path, length).await?)
-        }
-        Syscall::Ftruncate64 { fd, length } => {
-            SyscallRet::Ftruncate64(syscalls.ftruncate64(caller, fd, length).await?)
-        }
+        } => syscalls
+            .copy_file_range(caller, fd_in, off_in, fd_out, off_out, len, flags)
+            .map(|ret| ret.map(SyscallRet::CopyFileRange)),
+        Syscall::Truncate64 { path, length } => syscalls
+            .truncate64(caller, path, length)
+            .map(|ret| ret.map(SyscallRet::Truncate64)),
+        Syscall::Ftruncate64 { fd, length } => syscalls
+            .ftruncate64(caller, fd, length)
+            .map(|ret| ret.map(SyscallRet::Ftruncate64)),
         Syscall::Fallocate {
             fd,
             mode,
             offset,
             len,
-        } => SyscallRet::Fallocate(syscalls.fallocate(caller, fd, mode, offset, len).await?),
+        } => syscalls
+            .fallocate(caller, fd, mode, offset, len)
+            .map(|ret| ret.map(SyscallRet::Fallocate)),
         Syscall::Fadvise6464 {
             fd,
             offset,
             len,
             advice,
-        } => SyscallRet::Fadvise6464(
-            syscalls
-                .fadvise64_64(caller, fd, offset, len, advice)
-                .await?,
-        ),
-        Syscall::Readahead { fd, offset, count } => {
-            SyscallRet::Readahead(syscalls.readahead(caller, fd, offset, count).await?)
-        }
-        Syscall::Sync => SyscallRet::Sync(syscalls.sync(caller).await?),
-        Syscall::Fsync { fd } => SyscallRet::Fsync(syscalls.fsync(caller, fd).await?),
-        Syscall::Fdatasync { fd } => SyscallRet::Fdatasync(syscalls.fdatasync(caller, fd).await?),
-        Syscall::Syncfs { fd } => SyscallRet::Syncfs(syscalls.syncfs(caller, fd).await?),
+        } => syscalls
+            .fadvise64_64(caller, fd, offset, len, advice)
+            .map(|ret| ret.map(SyscallRet::Fadvise6464)),
+        Syscall::Readahead { fd, offset, count } => syscalls
+            .readahead(caller, fd, offset, count)
+            .map(|ret| ret.map(SyscallRet::Readahead)),
+        Syscall::Sync => syscalls.sync(caller).map(|ret| ret.map(SyscallRet::Sync)),
+        Syscall::Fsync { fd } => syscalls
+            .fsync(caller, fd)
+            .map(|ret| ret.map(SyscallRet::Fsync)),
+        Syscall::Fdatasync { fd } => syscalls
+            .fdatasync(caller, fd)
+            .map(|ret| ret.map(SyscallRet::Fdatasync)),
+        Syscall::Syncfs { fd } => syscalls
+            .syncfs(caller, fd)
+            .map(|ret| ret.map(SyscallRet::Syncfs)),
         Syscall::SyncFileRange {
             fd,
             offset,
             nbytes,
             flags,
-        } => SyscallRet::SyncFileRange(
-            syscalls
-                .sync_file_range(caller, fd, offset, nbytes, flags)
-                .await?,
-        ),
-        Syscall::Getdents64 { fd, dirent, count } => {
-            SyscallRet::Getdents64(syscalls.getdents64(caller, fd, dirent, count).await?)
-        }
+        } => syscalls
+            .sync_file_range(caller, fd, offset, nbytes, flags)
+            .map(|ret| ret.map(SyscallRet::SyncFileRange)),
+        Syscall::Getdents64 { fd, dirent, count } => syscalls
+            .getdents64(caller, fd, dirent, count)
+            .map(|ret| ret.map(SyscallRet::Getdents64)),
         Syscall::Mkdirat {
             dfd,
             pathname,
             mode,
-        } => SyscallRet::Mkdirat(syscalls.mkdirat(caller, dfd, pathname, mode).await?),
+        } => syscalls
+            .mkdirat(caller, dfd, pathname, mode)
+            .map(|ret| ret.map(SyscallRet::Mkdirat)),
         Syscall::Mknodat {
             dfd,
             filename,
             mode,
             dev,
-        } => SyscallRet::Mknodat(syscalls.mknodat(caller, dfd, filename, mode, dev).await?),
+        } => syscalls
+            .mknodat(caller, dfd, filename, mode, dev)
+            .map(|ret| ret.map(SyscallRet::Mknodat)),
         Syscall::Unlinkat {
             dfd,
             pathname,
             flag,
-        } => SyscallRet::Unlinkat(syscalls.unlinkat(caller, dfd, pathname, flag).await?),
+        } => syscalls
+            .unlinkat(caller, dfd, pathname, flag)
+            .map(|ret| ret.map(SyscallRet::Unlinkat)),
         Syscall::Symlinkat {
             oldname,
             newdfd,
             newname,
-        } => SyscallRet::Symlinkat(syscalls.symlinkat(caller, oldname, newdfd, newname).await?),
+        } => syscalls
+            .symlinkat(caller, oldname, newdfd, newname)
+            .map(|ret| ret.map(SyscallRet::Symlinkat)),
         Syscall::Linkat {
             olddfd,
             oldname,
             newdfd,
             newname,
             flags,
-        } => SyscallRet::Linkat(
-            syscalls
-                .linkat(caller, olddfd, oldname, newdfd, newname, flags)
-                .await?,
-        ),
+        } => syscalls
+            .linkat(caller, olddfd, oldname, newdfd, newname, flags)
+            .map(|ret| ret.map(SyscallRet::Linkat)),
         Syscall::Renameat2 {
             olddfd,
             oldname,
             newdfd,
             newname,
             flags,
-        } => SyscallRet::Renameat2(
-            syscalls
-                .renameat2(caller, olddfd, oldname, newdfd, newname, flags)
-                .await?,
-        ),
+        } => syscalls
+            .renameat2(caller, olddfd, oldname, newdfd, newname, flags)
+            .map(|ret| ret.map(SyscallRet::Renameat2)),
         Syscall::Readlinkat {
             dfd,
             pathname,
             buf,
             bufsiz,
-        } => SyscallRet::Readlinkat(
-            syscalls
-                .readlinkat(caller, dfd, pathname, buf, bufsiz)
-                .await?,
-        ),
+        } => syscalls
+            .readlinkat(caller, dfd, pathname, buf, bufsiz)
+            .map(|ret| ret.map(SyscallRet::Readlinkat)),
         Syscall::Faccessat {
             dfd,
             filename,
             mode,
-        } => SyscallRet::Faccessat(syscalls.faccessat(caller, dfd, filename, mode).await?),
+        } => syscalls
+            .faccessat(caller, dfd, filename, mode)
+            .map(|ret| ret.map(SyscallRet::Faccessat)),
         Syscall::Faccessat2 {
             dfd,
             filename,
             mode,
             flags,
-        } => SyscallRet::Faccessat2(
-            syscalls
-                .faccessat2(caller, dfd, filename, mode, flags)
-                .await?,
-        ),
-        Syscall::Chdir { filename } => SyscallRet::Chdir(syscalls.chdir(caller, filename).await?),
-        Syscall::Fchdir { fd } => SyscallRet::Fchdir(syscalls.fchdir(caller, fd).await?),
-        Syscall::Chroot { filename } => {
-            SyscallRet::Chroot(syscalls.chroot(caller, filename).await?)
-        }
-        Syscall::Fchroot { fd, flags } => {
-            SyscallRet::Fchroot(syscalls.fchroot(caller, fd, flags).await?)
-        }
-        Syscall::Getcwd { buf } => SyscallRet::Getcwd(syscalls.getcwd(caller, buf).await?),
-        Syscall::Fchmod { fd, mode } => {
-            SyscallRet::Fchmod(syscalls.fchmod(caller, fd, mode).await?)
-        }
+        } => syscalls
+            .faccessat2(caller, dfd, filename, mode, flags)
+            .map(|ret| ret.map(SyscallRet::Faccessat2)),
+        Syscall::Chdir { filename } => syscalls
+            .chdir(caller, filename)
+            .map(|ret| ret.map(SyscallRet::Chdir)),
+        Syscall::Fchdir { fd } => syscalls
+            .fchdir(caller, fd)
+            .map(|ret| ret.map(SyscallRet::Fchdir)),
+        Syscall::Chroot { filename } => syscalls
+            .chroot(caller, filename)
+            .map(|ret| ret.map(SyscallRet::Chroot)),
+        Syscall::Fchroot { fd, flags } => syscalls
+            .fchroot(caller, fd, flags)
+            .map(|ret| ret.map(SyscallRet::Fchroot)),
+        Syscall::Getcwd { buf } => syscalls
+            .getcwd(caller, buf)
+            .map(|ret| ret.map(SyscallRet::Getcwd)),
+        Syscall::Fchmod { fd, mode } => syscalls
+            .fchmod(caller, fd, mode)
+            .map(|ret| ret.map(SyscallRet::Fchmod)),
         Syscall::Fchmodat {
             dfd,
             filename,
             mode,
-        } => SyscallRet::Fchmodat(syscalls.fchmodat(caller, dfd, filename, mode).await?),
+        } => syscalls
+            .fchmodat(caller, dfd, filename, mode)
+            .map(|ret| ret.map(SyscallRet::Fchmodat)),
         Syscall::Fchmodat2 {
             dfd,
             filename,
             mode,
             flags,
-        } => SyscallRet::Fchmodat2(
-            syscalls
-                .fchmodat2(caller, dfd, filename, mode, flags)
-                .await?,
-        ),
-        Syscall::Fchown { fd, user, group } => {
-            SyscallRet::Fchown(syscalls.fchown(caller, fd, user, group).await?)
-        }
+        } => syscalls
+            .fchmodat2(caller, dfd, filename, mode, flags)
+            .map(|ret| ret.map(SyscallRet::Fchmodat2)),
+        Syscall::Fchown { fd, user, group } => syscalls
+            .fchown(caller, fd, user, group)
+            .map(|ret| ret.map(SyscallRet::Fchown)),
         Syscall::Fchownat {
             dfd,
             filename,
             user,
             group,
             flag,
-        } => SyscallRet::Fchownat(
-            syscalls
-                .fchownat(caller, dfd, filename, user, group, flag)
-                .await?,
-        ),
+        } => syscalls
+            .fchownat(caller, dfd, filename, user, group, flag)
+            .map(|ret| ret.map(SyscallRet::Fchownat)),
         Syscall::Statx {
             dfd,
             filename,
             flags,
             mask,
             buffer,
-        } => SyscallRet::Statx(
-            syscalls
-                .statx(caller, dfd, filename, flags, mask, buffer)
-                .await?,
-        ),
-        Syscall::Statfs64 { pathname, sz, buf } => {
-            SyscallRet::Statfs64(syscalls.statfs64(caller, pathname, sz, buf).await?)
-        }
-        Syscall::Fstatfs64 { fd, sz, buf } => {
-            SyscallRet::Fstatfs64(syscalls.fstatfs64(caller, fd, sz, buf).await?)
-        }
+        } => syscalls
+            .statx(caller, dfd, filename, flags, mask, buffer)
+            .map(|ret| ret.map(SyscallRet::Statx)),
+        Syscall::Statfs64 { pathname, sz, buf } => syscalls
+            .statfs64(caller, pathname, sz, buf)
+            .map(|ret| ret.map(SyscallRet::Statfs64)),
+        Syscall::Fstatfs64 { fd, sz, buf } => syscalls
+            .fstatfs64(caller, fd, sz, buf)
+            .map(|ret| ret.map(SyscallRet::Fstatfs64)),
         Syscall::UtimensatTime64 {
             dfd,
             filename,
             utimes,
             flags,
-        } => SyscallRet::UtimensatTime64(
-            syscalls
-                .utimensat_time64(caller, dfd, filename, utimes, flags)
-                .await?,
-        ),
-        Syscall::Pipe2 { fildes, flags } => {
-            SyscallRet::Pipe2(syscalls.pipe2(caller, fildes, flags).await?)
-        }
-        Syscall::MemfdCreate { uname, flags } => {
-            SyscallRet::MemfdCreate(syscalls.memfd_create(caller, uname, flags).await?)
-        }
-        Syscall::MemfdSecret { flags } => {
-            SyscallRet::MemfdSecret(syscalls.memfd_secret(caller, flags).await?)
-        }
+        } => syscalls
+            .utimensat_time64(caller, dfd, filename, utimes, flags)
+            .map(|ret| ret.map(SyscallRet::UtimensatTime64)),
+        Syscall::Pipe2 { fildes, flags } => syscalls
+            .pipe2(caller, fildes, flags)
+            .map(|ret| ret.map(SyscallRet::Pipe2)),
+        Syscall::MemfdCreate { uname, flags } => syscalls
+            .memfd_create(caller, uname, flags)
+            .map(|ret| ret.map(SyscallRet::MemfdCreate)),
+        Syscall::MemfdSecret { flags } => syscalls
+            .memfd_secret(caller, flags)
+            .map(|ret| ret.map(SyscallRet::MemfdSecret)),
         Syscall::NameToHandleAt {
             dfd,
             name,
             handle,
             mnt_id,
             flag,
-        } => SyscallRet::NameToHandleAt(
-            syscalls
-                .name_to_handle_at(caller, dfd, name, handle, mnt_id, flag)
-                .await?,
-        ),
+        } => syscalls
+            .name_to_handle_at(caller, dfd, name, handle, mnt_id, flag)
+            .map(|ret| ret.map(SyscallRet::NameToHandleAt)),
         Syscall::OpenByHandleAt {
             mountdirfd,
             handle,
             flags,
-        } => SyscallRet::OpenByHandleAt(
-            syscalls
-                .open_by_handle_at(caller, mountdirfd, handle, flags)
-                .await?,
-        ),
+        } => syscalls
+            .open_by_handle_at(caller, mountdirfd, handle, flags)
+            .map(|ret| ret.map(SyscallRet::OpenByHandleAt)),
         Syscall::Cachestat {
             fd,
             cstat_range,
             cstat,
             flags,
-        } => SyscallRet::Cachestat(
-            syscalls
-                .cachestat(caller, fd, cstat_range, cstat, flags)
-                .await?,
-        ),
+        } => syscalls
+            .cachestat(caller, fd, cstat_range, cstat, flags)
+            .map(|ret| ret.map(SyscallRet::Cachestat)),
         Syscall::FileGetattr {
             dfd,
             filename,
             ufattr,
             usize,
             at_flags,
-        } => SyscallRet::FileGetattr(
-            syscalls
-                .file_getattr(caller, dfd, filename, ufattr, usize, at_flags)
-                .await?,
-        ),
+        } => syscalls
+            .file_getattr(caller, dfd, filename, ufattr, usize, at_flags)
+            .map(|ret| ret.map(SyscallRet::FileGetattr)),
         Syscall::FileSetattr {
             dfd,
             filename,
             ufattr,
             usize,
             at_flags,
-        } => SyscallRet::FileSetattr(
-            syscalls
-                .file_setattr(caller, dfd, filename, ufattr, usize, at_flags)
-                .await?,
-        ),
+        } => syscalls
+            .file_setattr(caller, dfd, filename, ufattr, usize, at_flags)
+            .map(|ret| ret.map(SyscallRet::FileSetattr)),
         Syscall::Quotactl {
             cmd,
             special,
             id,
             addr,
-        } => SyscallRet::Quotactl(syscalls.quotactl(caller, cmd, special, id, addr).await?),
-        Syscall::QuotactlFd { fd, cmd, id, addr } => {
-            SyscallRet::QuotactlFd(syscalls.quotactl_fd(caller, fd, cmd, id, addr).await?)
-        }
+        } => syscalls
+            .quotactl(caller, cmd, special, id, addr)
+            .map(|ret| ret.map(SyscallRet::Quotactl)),
+        Syscall::QuotactlFd { fd, cmd, id, addr } => syscalls
+            .quotactl_fd(caller, fd, cmd, id, addr)
+            .map(|ret| ret.map(SyscallRet::QuotactlFd)),
         Syscall::Setxattr {
             pathname,
             name,
             value,
             flags,
-        } => SyscallRet::Setxattr(
-            syscalls
-                .setxattr(caller, pathname, name, value, flags)
-                .await?,
-        ),
+        } => syscalls
+            .setxattr(caller, pathname, name, value, flags)
+            .map(|ret| ret.map(SyscallRet::Setxattr)),
         Syscall::Lsetxattr {
             pathname,
             name,
             value,
             flags,
-        } => SyscallRet::Lsetxattr(
-            syscalls
-                .lsetxattr(caller, pathname, name, value, flags)
-                .await?,
-        ),
+        } => syscalls
+            .lsetxattr(caller, pathname, name, value, flags)
+            .map(|ret| ret.map(SyscallRet::Lsetxattr)),
         Syscall::Fsetxattr {
             fd,
             name,
             value,
             flags,
-        } => SyscallRet::Fsetxattr(syscalls.fsetxattr(caller, fd, name, value, flags).await?),
+        } => syscalls
+            .fsetxattr(caller, fd, name, value, flags)
+            .map(|ret| ret.map(SyscallRet::Fsetxattr)),
         Syscall::Getxattr {
             pathname,
             name,
             value,
-        } => SyscallRet::Getxattr(syscalls.getxattr(caller, pathname, name, value).await?),
+        } => syscalls
+            .getxattr(caller, pathname, name, value)
+            .map(|ret| ret.map(SyscallRet::Getxattr)),
         Syscall::Lgetxattr {
             pathname,
             name,
             value,
-        } => SyscallRet::Lgetxattr(syscalls.lgetxattr(caller, pathname, name, value).await?),
-        Syscall::Fgetxattr { fd, name, value } => {
-            SyscallRet::Fgetxattr(syscalls.fgetxattr(caller, fd, name, value).await?)
-        }
-        Syscall::Listxattr { pathname, list } => {
-            SyscallRet::Listxattr(syscalls.listxattr(caller, pathname, list).await?)
-        }
-        Syscall::Llistxattr { pathname, list } => {
-            SyscallRet::Llistxattr(syscalls.llistxattr(caller, pathname, list).await?)
-        }
-        Syscall::Flistxattr { fd, list } => {
-            SyscallRet::Flistxattr(syscalls.flistxattr(caller, fd, list).await?)
-        }
-        Syscall::Removexattr { pathname, name } => {
-            SyscallRet::Removexattr(syscalls.removexattr(caller, pathname, name).await?)
-        }
-        Syscall::Lremovexattr { pathname, name } => {
-            SyscallRet::Lremovexattr(syscalls.lremovexattr(caller, pathname, name).await?)
-        }
-        Syscall::Fremovexattr { fd, name } => {
-            SyscallRet::Fremovexattr(syscalls.fremovexattr(caller, fd, name).await?)
-        }
+        } => syscalls
+            .lgetxattr(caller, pathname, name, value)
+            .map(|ret| ret.map(SyscallRet::Lgetxattr)),
+        Syscall::Fgetxattr { fd, name, value } => syscalls
+            .fgetxattr(caller, fd, name, value)
+            .map(|ret| ret.map(SyscallRet::Fgetxattr)),
+        Syscall::Listxattr { pathname, list } => syscalls
+            .listxattr(caller, pathname, list)
+            .map(|ret| ret.map(SyscallRet::Listxattr)),
+        Syscall::Llistxattr { pathname, list } => syscalls
+            .llistxattr(caller, pathname, list)
+            .map(|ret| ret.map(SyscallRet::Llistxattr)),
+        Syscall::Flistxattr { fd, list } => syscalls
+            .flistxattr(caller, fd, list)
+            .map(|ret| ret.map(SyscallRet::Flistxattr)),
+        Syscall::Removexattr { pathname, name } => syscalls
+            .removexattr(caller, pathname, name)
+            .map(|ret| ret.map(SyscallRet::Removexattr)),
+        Syscall::Lremovexattr { pathname, name } => syscalls
+            .lremovexattr(caller, pathname, name)
+            .map(|ret| ret.map(SyscallRet::Lremovexattr)),
+        Syscall::Fremovexattr { fd, name } => syscalls
+            .fremovexattr(caller, fd, name)
+            .map(|ret| ret.map(SyscallRet::Fremovexattr)),
         Syscall::Setxattrat {
             dfd,
             pathname,
@@ -11794,11 +12115,9 @@ pub async fn dispatch<S: Syscalls + ?Sized>(
             name,
             uargs,
             usize,
-        } => SyscallRet::Setxattrat(
-            syscalls
-                .setxattrat(caller, dfd, pathname, at_flags, name, uargs, usize)
-                .await?,
-        ),
+        } => syscalls
+            .setxattrat(caller, dfd, pathname, at_flags, name, uargs, usize)
+            .map(|ret| ret.map(SyscallRet::Setxattrat)),
         Syscall::Getxattrat {
             dfd,
             pathname,
@@ -11806,40 +12125,36 @@ pub async fn dispatch<S: Syscalls + ?Sized>(
             name,
             uargs,
             usize,
-        } => SyscallRet::Getxattrat(
-            syscalls
-                .getxattrat(caller, dfd, pathname, at_flags, name, uargs, usize)
-                .await?,
-        ),
+        } => syscalls
+            .getxattrat(caller, dfd, pathname, at_flags, name, uargs, usize)
+            .map(|ret| ret.map(SyscallRet::Getxattrat)),
         Syscall::Listxattrat {
             dfd,
             pathname,
             at_flags,
             list,
-        } => SyscallRet::Listxattrat(
-            syscalls
-                .listxattrat(caller, dfd, pathname, at_flags, list)
-                .await?,
-        ),
+        } => syscalls
+            .listxattrat(caller, dfd, pathname, at_flags, list)
+            .map(|ret| ret.map(SyscallRet::Listxattrat)),
         Syscall::Removexattrat {
             dfd,
             pathname,
             at_flags,
             name,
-        } => SyscallRet::Removexattrat(
-            syscalls
-                .removexattrat(caller, dfd, pathname, at_flags, name)
-                .await?,
-        ),
-        Syscall::EpollCreate1 { flags } => {
-            SyscallRet::EpollCreate1(syscalls.epoll_create1(caller, flags).await?)
-        }
+        } => syscalls
+            .removexattrat(caller, dfd, pathname, at_flags, name)
+            .map(|ret| ret.map(SyscallRet::Removexattrat)),
+        Syscall::EpollCreate1 { flags } => syscalls
+            .epoll_create1(caller, flags)
+            .map(|ret| ret.map(SyscallRet::EpollCreate1)),
         Syscall::EpollCtl {
             epfd,
             op,
             fd,
             event,
-        } => SyscallRet::EpollCtl(syscalls.epoll_ctl(caller, epfd, op, fd, event).await?),
+        } => syscalls
+            .epoll_ctl(caller, epfd, op, fd, event)
+            .map(|ret| ret.map(SyscallRet::EpollCtl)),
         Syscall::EpollPwait {
             epfd,
             events,
@@ -11847,13 +12162,11 @@ pub async fn dispatch<S: Syscalls + ?Sized>(
             timeout,
             sigmask,
             sigsetsize,
-        } => SyscallRet::EpollPwait(
-            syscalls
-                .epoll_pwait(
-                    caller, epfd, events, maxevents, timeout, sigmask, sigsetsize,
-                )
-                .await?,
-        ),
+        } => syscalls
+            .epoll_pwait(
+                caller, epfd, events, maxevents, timeout, sigmask, sigsetsize,
+            )
+            .map(|ret| ret.map(SyscallRet::EpollPwait)),
         Syscall::EpollPwait2 {
             epfd,
             events,
@@ -11861,24 +12174,20 @@ pub async fn dispatch<S: Syscalls + ?Sized>(
             timeout,
             sigmask,
             sigsetsize,
-        } => SyscallRet::EpollPwait2(
-            syscalls
-                .epoll_pwait2(
-                    caller, epfd, events, maxevents, timeout, sigmask, sigsetsize,
-                )
-                .await?,
-        ),
+        } => syscalls
+            .epoll_pwait2(
+                caller, epfd, events, maxevents, timeout, sigmask, sigsetsize,
+            )
+            .map(|ret| ret.map(SyscallRet::EpollPwait2)),
         Syscall::PpollTime64 {
             ufds,
             nfds,
             tsp,
             sigmask,
             sigsetsize,
-        } => SyscallRet::PpollTime64(
-            syscalls
-                .ppoll_time64(caller, ufds, nfds, tsp, sigmask, sigsetsize)
-                .await?,
-        ),
+        } => syscalls
+            .ppoll_time64(caller, ufds, nfds, tsp, sigmask, sigsetsize)
+            .map(|ret| ret.map(SyscallRet::PpollTime64)),
         Syscall::Pselect6Time64 {
             n,
             inp,
@@ -11886,246 +12195,239 @@ pub async fn dispatch<S: Syscalls + ?Sized>(
             exp,
             tsp,
             sig,
-        } => SyscallRet::Pselect6Time64(
-            syscalls
-                .pselect6_time64(caller, n, inp, outp, exp, tsp, sig)
-                .await?,
-        ),
-        Syscall::Eventfd2 { count, flags } => {
-            SyscallRet::Eventfd2(syscalls.eventfd2(caller, count, flags).await?)
-        }
+        } => syscalls
+            .pselect6_time64(caller, n, inp, outp, exp, tsp, sig)
+            .map(|ret| ret.map(SyscallRet::Pselect6Time64)),
+        Syscall::Eventfd2 { count, flags } => syscalls
+            .eventfd2(caller, count, flags)
+            .map(|ret| ret.map(SyscallRet::Eventfd2)),
         Syscall::Signalfd4 {
             ufd,
             user_mask,
             sizemask,
             flags,
-        } => SyscallRet::Signalfd4(
-            syscalls
-                .signalfd4(caller, ufd, user_mask, sizemask, flags)
-                .await?,
-        ),
-        Syscall::TimerfdCreate { clockid, flags } => {
-            SyscallRet::TimerfdCreate(syscalls.timerfd_create(caller, clockid, flags).await?)
-        }
+        } => syscalls
+            .signalfd4(caller, ufd, user_mask, sizemask, flags)
+            .map(|ret| ret.map(SyscallRet::Signalfd4)),
+        Syscall::TimerfdCreate { clockid, flags } => syscalls
+            .timerfd_create(caller, clockid, flags)
+            .map(|ret| ret.map(SyscallRet::TimerfdCreate)),
         Syscall::TimerfdSettime64 {
             ufd,
             flags,
             utmr,
             otmr,
-        } => SyscallRet::TimerfdSettime64(
-            syscalls
-                .timerfd_settime64(caller, ufd, flags, utmr, otmr)
-                .await?,
-        ),
-        Syscall::TimerfdGettime64 { ufd, otmr } => {
-            SyscallRet::TimerfdGettime64(syscalls.timerfd_gettime64(caller, ufd, otmr).await?)
-        }
-        Syscall::InotifyInit1 { flags } => {
-            SyscallRet::InotifyInit1(syscalls.inotify_init1(caller, flags).await?)
-        }
-        Syscall::InotifyAddWatch { fd, pathname, mask } => SyscallRet::InotifyAddWatch(
-            syscalls
-                .inotify_add_watch(caller, fd, pathname, mask)
-                .await?,
-        ),
-        Syscall::InotifyRmWatch { fd, wd } => {
-            SyscallRet::InotifyRmWatch(syscalls.inotify_rm_watch(caller, fd, wd).await?)
-        }
+        } => syscalls
+            .timerfd_settime64(caller, ufd, flags, utmr, otmr)
+            .map(|ret| ret.map(SyscallRet::TimerfdSettime64)),
+        Syscall::TimerfdGettime64 { ufd, otmr } => syscalls
+            .timerfd_gettime64(caller, ufd, otmr)
+            .map(|ret| ret.map(SyscallRet::TimerfdGettime64)),
+        Syscall::InotifyInit1 { flags } => syscalls
+            .inotify_init1(caller, flags)
+            .map(|ret| ret.map(SyscallRet::InotifyInit1)),
+        Syscall::InotifyAddWatch { fd, pathname, mask } => syscalls
+            .inotify_add_watch(caller, fd, pathname, mask)
+            .map(|ret| ret.map(SyscallRet::InotifyAddWatch)),
+        Syscall::InotifyRmWatch { fd, wd } => syscalls
+            .inotify_rm_watch(caller, fd, wd)
+            .map(|ret| ret.map(SyscallRet::InotifyRmWatch)),
         Syscall::FanotifyInit {
             flags,
             event_f_flags,
-        } => SyscallRet::FanotifyInit(syscalls.fanotify_init(caller, flags, event_f_flags).await?),
+        } => syscalls
+            .fanotify_init(caller, flags, event_f_flags)
+            .map(|ret| ret.map(SyscallRet::FanotifyInit)),
         Syscall::FanotifyMark {
             fanotify_fd,
             flags,
             mask,
             dfd,
             pathname,
-        } => SyscallRet::FanotifyMark(
-            syscalls
-                .fanotify_mark(caller, fanotify_fd, flags, mask, dfd, pathname)
-                .await?,
-        ),
+        } => syscalls
+            .fanotify_mark(caller, fanotify_fd, flags, mask, dfd, pathname)
+            .map(|ret| ret.map(SyscallRet::FanotifyMark)),
         Syscall::RtSigaction {
             sig,
             act,
             oact,
             sigsetsize,
-        } => SyscallRet::RtSigaction(
-            syscalls
-                .rt_sigaction(caller, sig, act, oact, sigsetsize)
-                .await?,
-        ),
+        } => syscalls
+            .rt_sigaction(caller, sig, act, oact, sigsetsize)
+            .map(|ret| ret.map(SyscallRet::RtSigaction)),
         Syscall::RtSigprocmask {
             how,
             nset,
             oset,
             sigsetsize,
-        } => SyscallRet::RtSigprocmask(
-            syscalls
-                .rt_sigprocmask(caller, how, nset, oset, sigsetsize)
-                .await?,
-        ),
-        Syscall::RtSigpending { uset, sigsetsize } => {
-            SyscallRet::RtSigpending(syscalls.rt_sigpending(caller, uset, sigsetsize).await?)
-        }
+        } => syscalls
+            .rt_sigprocmask(caller, how, nset, oset, sigsetsize)
+            .map(|ret| ret.map(SyscallRet::RtSigprocmask)),
+        Syscall::RtSigpending { uset, sigsetsize } => syscalls
+            .rt_sigpending(caller, uset, sigsetsize)
+            .map(|ret| ret.map(SyscallRet::RtSigpending)),
         Syscall::RtSigsuspend {
             unewset,
             sigsetsize,
-        } => SyscallRet::RtSigsuspend(syscalls.rt_sigsuspend(caller, unewset, sigsetsize).await?),
+        } => syscalls
+            .rt_sigsuspend(caller, unewset, sigsetsize)
+            .map(|ret| ret.map(SyscallRet::RtSigsuspend)),
         Syscall::RtSigtimedwaitTime64 {
             uthese,
             uinfo,
             uts,
             sigsetsize,
-        } => SyscallRet::RtSigtimedwaitTime64(
-            syscalls
-                .rt_sigtimedwait_time64(caller, uthese, uinfo, uts, sigsetsize)
-                .await?,
-        ),
-        Syscall::RtSigqueueinfo { pid, sig, uinfo } => {
-            SyscallRet::RtSigqueueinfo(syscalls.rt_sigqueueinfo(caller, pid, sig, uinfo).await?)
-        }
+        } => syscalls
+            .rt_sigtimedwait_time64(caller, uthese, uinfo, uts, sigsetsize)
+            .map(|ret| ret.map(SyscallRet::RtSigtimedwaitTime64)),
+        Syscall::RtSigqueueinfo { pid, sig, uinfo } => syscalls
+            .rt_sigqueueinfo(caller, pid, sig, uinfo)
+            .map(|ret| ret.map(SyscallRet::RtSigqueueinfo)),
         Syscall::RtTgsigqueueinfo {
             tgid,
             pid,
             sig,
             uinfo,
-        } => SyscallRet::RtTgsigqueueinfo(
-            syscalls
-                .rt_tgsigqueueinfo(caller, tgid, pid, sig, uinfo)
-                .await?,
-        ),
-        Syscall::RtSigreturn => {
-            syscalls.rt_sigreturn(caller).await?;
-            SyscallRet::RtSigreturn
-        }
-        Syscall::Sigaltstack { uss, uoss } => {
-            SyscallRet::Sigaltstack(syscalls.sigaltstack(caller, uss, uoss).await?)
-        }
-        Syscall::Kill { pid, sig } => SyscallRet::Kill(syscalls.kill(caller, pid, sig).await?),
-        Syscall::Tkill { pid, sig } => SyscallRet::Tkill(syscalls.tkill(caller, pid, sig).await?),
-        Syscall::Tgkill { tgid, pid, sig } => {
-            SyscallRet::Tgkill(syscalls.tgkill(caller, tgid, pid, sig).await?)
-        }
+        } => syscalls
+            .rt_tgsigqueueinfo(caller, tgid, pid, sig, uinfo)
+            .map(|ret| ret.map(SyscallRet::RtTgsigqueueinfo)),
+        Syscall::RtSigreturn => syscalls
+            .rt_sigreturn(caller)
+            .map(|ret| ret.map(|()| SyscallRet::RtSigreturn)),
+        Syscall::Sigaltstack { uss, uoss } => syscalls
+            .sigaltstack(caller, uss, uoss)
+            .map(|ret| ret.map(SyscallRet::Sigaltstack)),
+        Syscall::Kill { pid, sig } => syscalls
+            .kill(caller, pid, sig)
+            .map(|ret| ret.map(SyscallRet::Kill)),
+        Syscall::Tkill { pid, sig } => syscalls
+            .tkill(caller, pid, sig)
+            .map(|ret| ret.map(SyscallRet::Tkill)),
+        Syscall::Tgkill { tgid, pid, sig } => syscalls
+            .tgkill(caller, tgid, pid, sig)
+            .map(|ret| ret.map(SyscallRet::Tgkill)),
         Syscall::PidfdSendSignal {
             pidfd,
             sig,
             info,
             flags,
-        } => SyscallRet::PidfdSendSignal(
-            syscalls
-                .pidfd_send_signal(caller, pidfd, sig, info, flags)
-                .await?,
-        ),
-        Syscall::RestartSyscall => {
-            SyscallRet::RestartSyscall(syscalls.restart_syscall(caller).await?)
-        }
+        } => syscalls
+            .pidfd_send_signal(caller, pidfd, sig, info, flags)
+            .map(|ret| ret.map(SyscallRet::PidfdSendSignal)),
+        Syscall::RestartSyscall => syscalls
+            .restart_syscall(caller)
+            .map(|ret| ret.map(SyscallRet::RestartSyscall)),
         Syscall::Clone {
             clone_flags,
             newsp,
             parent_tidptr,
             tls,
             child_tidptr,
-        } => SyscallRet::Clone(
-            syscalls
-                .clone(caller, clone_flags, newsp, parent_tidptr, tls, child_tidptr)
-                .await?,
-        ),
-        Syscall::Clone3 { uargs, size } => {
-            SyscallRet::Clone3(syscalls.clone3(caller, uargs, size).await?)
-        }
+        } => syscalls
+            .clone(caller, clone_flags, newsp, parent_tidptr, tls, child_tidptr)
+            .map(|ret| ret.map(SyscallRet::Clone)),
+        Syscall::Clone3 { uargs, size } => syscalls
+            .clone3(caller, uargs, size)
+            .map(|ret| ret.map(SyscallRet::Clone3)),
         Syscall::Execve {
             filename,
             argv,
             envp,
-        } => SyscallRet::Execve(syscalls.execve(caller, filename, argv, envp).await?),
+        } => syscalls
+            .execve(caller, filename, argv, envp)
+            .map(|ret| ret.map(SyscallRet::Execve)),
         Syscall::Execveat {
             fd,
             filename,
             argv,
             envp,
             flags,
-        } => SyscallRet::Execveat(
-            syscalls
-                .execveat(caller, fd, filename, argv, envp, flags)
-                .await?,
-        ),
-        Syscall::Exit { error_code } => {
-            syscalls.exit(caller, error_code).await?;
-            SyscallRet::Exit
-        }
-        Syscall::ExitGroup { error_code } => {
-            syscalls.exit_group(caller, error_code).await?;
-            SyscallRet::ExitGroup
-        }
+        } => syscalls
+            .execveat(caller, fd, filename, argv, envp, flags)
+            .map(|ret| ret.map(SyscallRet::Execveat)),
+        Syscall::Exit { error_code } => syscalls
+            .exit(caller, error_code)
+            .map(|ret| ret.map(|()| SyscallRet::Exit)),
+        Syscall::ExitGroup { error_code } => syscalls
+            .exit_group(caller, error_code)
+            .map(|ret| ret.map(|()| SyscallRet::ExitGroup)),
         Syscall::Waitid {
             which,
             upid,
             infop,
             options,
             ru,
-        } => SyscallRet::Waitid(
-            syscalls
-                .waitid(caller, which, upid, infop, options, ru)
-                .await?,
-        ),
-        Syscall::SetTidAddress { tidptr } => {
-            SyscallRet::SetTidAddress(syscalls.set_tid_address(caller, tidptr).await?)
-        }
-        Syscall::Unshare { unshare_flags } => {
-            SyscallRet::Unshare(syscalls.unshare(caller, unshare_flags).await?)
-        }
-        Syscall::Setns { fd, flags } => SyscallRet::Setns(syscalls.setns(caller, fd, flags).await?),
-        Syscall::Getpid => SyscallRet::Getpid(syscalls.getpid(caller).await?),
-        Syscall::Getppid => SyscallRet::Getppid(syscalls.getppid(caller).await?),
-        Syscall::Gettid => SyscallRet::Gettid(syscalls.gettid(caller).await?),
-        Syscall::Getpgid { pid } => SyscallRet::Getpgid(syscalls.getpgid(caller, pid).await?),
-        Syscall::Setpgid { pid, pgid } => {
-            SyscallRet::Setpgid(syscalls.setpgid(caller, pid, pgid).await?)
-        }
-        Syscall::Getsid { pid } => SyscallRet::Getsid(syscalls.getsid(caller, pid).await?),
-        Syscall::Setsid => SyscallRet::Setsid(syscalls.setsid(caller).await?),
-        Syscall::PidfdOpen { pid, flags } => {
-            SyscallRet::PidfdOpen(syscalls.pidfd_open(caller, pid, flags).await?)
-        }
-        Syscall::PidfdGetfd { pidfd, fd, flags } => {
-            SyscallRet::PidfdGetfd(syscalls.pidfd_getfd(caller, pidfd, fd, flags).await?)
-        }
-        Syscall::ProcessMrelease { pidfd, flags } => {
-            SyscallRet::ProcessMrelease(syscalls.process_mrelease(caller, pidfd, flags).await?)
-        }
+        } => syscalls
+            .waitid(caller, which, upid, infop, options, ru)
+            .map(|ret| ret.map(SyscallRet::Waitid)),
+        Syscall::SetTidAddress { tidptr } => syscalls
+            .set_tid_address(caller, tidptr)
+            .map(|ret| ret.map(SyscallRet::SetTidAddress)),
+        Syscall::Unshare { unshare_flags } => syscalls
+            .unshare(caller, unshare_flags)
+            .map(|ret| ret.map(SyscallRet::Unshare)),
+        Syscall::Setns { fd, flags } => syscalls
+            .setns(caller, fd, flags)
+            .map(|ret| ret.map(SyscallRet::Setns)),
+        Syscall::Getpid => syscalls
+            .getpid(caller)
+            .map(|ret| ret.map(SyscallRet::Getpid)),
+        Syscall::Getppid => syscalls
+            .getppid(caller)
+            .map(|ret| ret.map(SyscallRet::Getppid)),
+        Syscall::Gettid => syscalls
+            .gettid(caller)
+            .map(|ret| ret.map(SyscallRet::Gettid)),
+        Syscall::Getpgid { pid } => syscalls
+            .getpgid(caller, pid)
+            .map(|ret| ret.map(SyscallRet::Getpgid)),
+        Syscall::Setpgid { pid, pgid } => syscalls
+            .setpgid(caller, pid, pgid)
+            .map(|ret| ret.map(SyscallRet::Setpgid)),
+        Syscall::Getsid { pid } => syscalls
+            .getsid(caller, pid)
+            .map(|ret| ret.map(SyscallRet::Getsid)),
+        Syscall::Setsid => syscalls
+            .setsid(caller)
+            .map(|ret| ret.map(SyscallRet::Setsid)),
+        Syscall::PidfdOpen { pid, flags } => syscalls
+            .pidfd_open(caller, pid, flags)
+            .map(|ret| ret.map(SyscallRet::PidfdOpen)),
+        Syscall::PidfdGetfd { pidfd, fd, flags } => syscalls
+            .pidfd_getfd(caller, pidfd, fd, flags)
+            .map(|ret| ret.map(SyscallRet::PidfdGetfd)),
+        Syscall::ProcessMrelease { pidfd, flags } => syscalls
+            .process_mrelease(caller, pidfd, flags)
+            .map(|ret| ret.map(SyscallRet::ProcessMrelease)),
         Syscall::Kcmp {
             pid1,
             pid2,
             r#type,
             idx1,
             idx2,
-        } => SyscallRet::Kcmp(
-            syscalls
-                .kcmp(caller, pid1, pid2, r#type, idx1, idx2)
-                .await?,
-        ),
-        Syscall::Personality { personality } => {
-            SyscallRet::Personality(syscalls.personality(caller, personality).await?)
-        }
+        } => syscalls
+            .kcmp(caller, pid1, pid2, r#type, idx1, idx2)
+            .map(|ret| ret.map(SyscallRet::Kcmp)),
+        Syscall::Personality { personality } => syscalls
+            .personality(caller, personality)
+            .map(|ret| ret.map(SyscallRet::Personality)),
         Syscall::Prctl {
             option,
             arg2,
             arg3,
             arg4,
             arg5,
-        } => SyscallRet::Prctl(
-            syscalls
-                .prctl(caller, option, arg2, arg3, arg4, arg5)
-                .await?,
-        ),
+        } => syscalls
+            .prctl(caller, option, arg2, arg3, arg4, arg5)
+            .map(|ret| ret.map(SyscallRet::Prctl)),
         Syscall::Ptrace {
             request,
             pid,
             addr,
             data,
-        } => SyscallRet::Ptrace(syscalls.ptrace(caller, request, pid, addr, data).await?),
+        } => syscalls
+            .ptrace(caller, request, pid, addr, data)
+            .map(|ret| ret.map(SyscallRet::Ptrace)),
         Syscall::ProcessVmReadv {
             pid,
             lvec,
@@ -12133,11 +12435,9 @@ pub async fn dispatch<S: Syscalls + ?Sized>(
             rvec,
             riovcnt,
             flags,
-        } => SyscallRet::ProcessVmReadv(
-            syscalls
-                .process_vm_readv(caller, pid, lvec, liovcnt, rvec, riovcnt, flags)
-                .await?,
-        ),
+        } => syscalls
+            .process_vm_readv(caller, pid, lvec, liovcnt, rvec, riovcnt, flags)
+            .map(|ret| ret.map(SyscallRet::ProcessVmReadv)),
         Syscall::ProcessVmWritev {
             pid,
             lvec,
@@ -12145,186 +12445,208 @@ pub async fn dispatch<S: Syscalls + ?Sized>(
             rvec,
             riovcnt,
             flags,
-        } => SyscallRet::ProcessVmWritev(
-            syscalls
-                .process_vm_writev(caller, pid, lvec, liovcnt, rvec, riovcnt, flags)
-                .await?,
-        ),
-        Syscall::Seccomp { op, flags, uargs } => {
-            SyscallRet::Seccomp(syscalls.seccomp(caller, op, flags, uargs).await?)
-        }
+        } => syscalls
+            .process_vm_writev(caller, pid, lvec, liovcnt, rvec, riovcnt, flags)
+            .map(|ret| ret.map(SyscallRet::ProcessVmWritev)),
+        Syscall::Seccomp { op, flags, uargs } => syscalls
+            .seccomp(caller, op, flags, uargs)
+            .map(|ret| ret.map(SyscallRet::Seccomp)),
         Syscall::Rseq {
             rseq,
             rseq_len,
             flags,
             sig,
-        } => SyscallRet::Rseq(syscalls.rseq(caller, rseq, rseq_len, flags, sig).await?),
-        Syscall::RseqSliceYield => {
-            SyscallRet::RseqSliceYield(syscalls.rseq_slice_yield(caller).await?)
-        }
-        Syscall::SetRobustList { head, len } => {
-            SyscallRet::SetRobustList(syscalls.set_robust_list(caller, head, len).await?)
-        }
+        } => syscalls
+            .rseq(caller, rseq, rseq_len, flags, sig)
+            .map(|ret| ret.map(SyscallRet::Rseq)),
+        Syscall::RseqSliceYield => syscalls
+            .rseq_slice_yield(caller)
+            .map(|ret| ret.map(SyscallRet::RseqSliceYield)),
+        Syscall::SetRobustList { head, len } => syscalls
+            .set_robust_list(caller, head, len)
+            .map(|ret| ret.map(SyscallRet::SetRobustList)),
         Syscall::GetRobustList {
             pid,
             head_ptr,
             len_ptr,
-        } => SyscallRet::GetRobustList(
-            syscalls
-                .get_robust_list(caller, pid, head_ptr, len_ptr)
-                .await?,
-        ),
-        Syscall::Getuid => SyscallRet::Getuid(syscalls.getuid(caller).await?),
-        Syscall::Geteuid => SyscallRet::Geteuid(syscalls.geteuid(caller).await?),
-        Syscall::Getgid => SyscallRet::Getgid(syscalls.getgid(caller).await?),
-        Syscall::Getegid => SyscallRet::Getegid(syscalls.getegid(caller).await?),
-        Syscall::Setuid { uid } => SyscallRet::Setuid(syscalls.setuid(caller, uid).await?),
-        Syscall::Setgid { gid } => SyscallRet::Setgid(syscalls.setgid(caller, gid).await?),
-        Syscall::Setreuid { ruid, euid } => {
-            SyscallRet::Setreuid(syscalls.setreuid(caller, ruid, euid).await?)
-        }
-        Syscall::Setregid { rgid, egid } => {
-            SyscallRet::Setregid(syscalls.setregid(caller, rgid, egid).await?)
-        }
-        Syscall::Setresuid { ruid, euid, suid } => {
-            SyscallRet::Setresuid(syscalls.setresuid(caller, ruid, euid, suid).await?)
-        }
+        } => syscalls
+            .get_robust_list(caller, pid, head_ptr, len_ptr)
+            .map(|ret| ret.map(SyscallRet::GetRobustList)),
+        Syscall::Getuid => syscalls
+            .getuid(caller)
+            .map(|ret| ret.map(SyscallRet::Getuid)),
+        Syscall::Geteuid => syscalls
+            .geteuid(caller)
+            .map(|ret| ret.map(SyscallRet::Geteuid)),
+        Syscall::Getgid => syscalls
+            .getgid(caller)
+            .map(|ret| ret.map(SyscallRet::Getgid)),
+        Syscall::Getegid => syscalls
+            .getegid(caller)
+            .map(|ret| ret.map(SyscallRet::Getegid)),
+        Syscall::Setuid { uid } => syscalls
+            .setuid(caller, uid)
+            .map(|ret| ret.map(SyscallRet::Setuid)),
+        Syscall::Setgid { gid } => syscalls
+            .setgid(caller, gid)
+            .map(|ret| ret.map(SyscallRet::Setgid)),
+        Syscall::Setreuid { ruid, euid } => syscalls
+            .setreuid(caller, ruid, euid)
+            .map(|ret| ret.map(SyscallRet::Setreuid)),
+        Syscall::Setregid { rgid, egid } => syscalls
+            .setregid(caller, rgid, egid)
+            .map(|ret| ret.map(SyscallRet::Setregid)),
+        Syscall::Setresuid { ruid, euid, suid } => syscalls
+            .setresuid(caller, ruid, euid, suid)
+            .map(|ret| ret.map(SyscallRet::Setresuid)),
         Syscall::Getresuid {
             ruidp,
             euidp,
             suidp,
-        } => SyscallRet::Getresuid(syscalls.getresuid(caller, ruidp, euidp, suidp).await?),
-        Syscall::Setresgid { rgid, egid, sgid } => {
-            SyscallRet::Setresgid(syscalls.setresgid(caller, rgid, egid, sgid).await?)
-        }
+        } => syscalls
+            .getresuid(caller, ruidp, euidp, suidp)
+            .map(|ret| ret.map(SyscallRet::Getresuid)),
+        Syscall::Setresgid { rgid, egid, sgid } => syscalls
+            .setresgid(caller, rgid, egid, sgid)
+            .map(|ret| ret.map(SyscallRet::Setresgid)),
         Syscall::Getresgid {
             rgidp,
             egidp,
             sgidp,
-        } => SyscallRet::Getresgid(syscalls.getresgid(caller, rgidp, egidp, sgidp).await?),
-        Syscall::Setfsuid { uid } => SyscallRet::Setfsuid(syscalls.setfsuid(caller, uid).await?),
-        Syscall::Setfsgid { gid } => SyscallRet::Setfsgid(syscalls.setfsgid(caller, gid).await?),
+        } => syscalls
+            .getresgid(caller, rgidp, egidp, sgidp)
+            .map(|ret| ret.map(SyscallRet::Getresgid)),
+        Syscall::Setfsuid { uid } => syscalls
+            .setfsuid(caller, uid)
+            .map(|ret| ret.map(SyscallRet::Setfsuid)),
+        Syscall::Setfsgid { gid } => syscalls
+            .setfsgid(caller, gid)
+            .map(|ret| ret.map(SyscallRet::Setfsgid)),
         Syscall::Getgroups {
             gidsetsize,
             grouplist,
-        } => SyscallRet::Getgroups(syscalls.getgroups(caller, gidsetsize, grouplist).await?),
+        } => syscalls
+            .getgroups(caller, gidsetsize, grouplist)
+            .map(|ret| ret.map(SyscallRet::Getgroups)),
         Syscall::Setgroups {
             gidsetsize,
             grouplist,
-        } => SyscallRet::Setgroups(syscalls.setgroups(caller, gidsetsize, grouplist).await?),
-        Syscall::Capget { header, dataptr } => {
-            SyscallRet::Capget(syscalls.capget(caller, header, dataptr).await?)
-        }
-        Syscall::Capset { header, data } => {
-            SyscallRet::Capset(syscalls.capset(caller, header, data).await?)
-        }
-        Syscall::SchedSetparam { pid, param } => {
-            SyscallRet::SchedSetparam(syscalls.sched_setparam(caller, pid, param).await?)
-        }
-        Syscall::SchedGetparam { pid, param } => {
-            SyscallRet::SchedGetparam(syscalls.sched_getparam(caller, pid, param).await?)
-        }
-        Syscall::SchedSetscheduler { pid, policy, param } => SyscallRet::SchedSetscheduler(
-            syscalls
-                .sched_setscheduler(caller, pid, policy, param)
-                .await?,
-        ),
-        Syscall::SchedGetscheduler { pid } => {
-            SyscallRet::SchedGetscheduler(syscalls.sched_getscheduler(caller, pid).await?)
-        }
-        Syscall::SchedSetattr { pid, uattr, flags } => {
-            SyscallRet::SchedSetattr(syscalls.sched_setattr(caller, pid, uattr, flags).await?)
-        }
+        } => syscalls
+            .setgroups(caller, gidsetsize, grouplist)
+            .map(|ret| ret.map(SyscallRet::Setgroups)),
+        Syscall::Capget { header, dataptr } => syscalls
+            .capget(caller, header, dataptr)
+            .map(|ret| ret.map(SyscallRet::Capget)),
+        Syscall::Capset { header, data } => syscalls
+            .capset(caller, header, data)
+            .map(|ret| ret.map(SyscallRet::Capset)),
+        Syscall::SchedSetparam { pid, param } => syscalls
+            .sched_setparam(caller, pid, param)
+            .map(|ret| ret.map(SyscallRet::SchedSetparam)),
+        Syscall::SchedGetparam { pid, param } => syscalls
+            .sched_getparam(caller, pid, param)
+            .map(|ret| ret.map(SyscallRet::SchedGetparam)),
+        Syscall::SchedSetscheduler { pid, policy, param } => syscalls
+            .sched_setscheduler(caller, pid, policy, param)
+            .map(|ret| ret.map(SyscallRet::SchedSetscheduler)),
+        Syscall::SchedGetscheduler { pid } => syscalls
+            .sched_getscheduler(caller, pid)
+            .map(|ret| ret.map(SyscallRet::SchedGetscheduler)),
+        Syscall::SchedSetattr { pid, uattr, flags } => syscalls
+            .sched_setattr(caller, pid, uattr, flags)
+            .map(|ret| ret.map(SyscallRet::SchedSetattr)),
         Syscall::SchedGetattr {
             pid,
             uattr,
             usize,
             flags,
-        } => SyscallRet::SchedGetattr(
-            syscalls
-                .sched_getattr(caller, pid, uattr, usize, flags)
-                .await?,
-        ),
+        } => syscalls
+            .sched_getattr(caller, pid, uattr, usize, flags)
+            .map(|ret| ret.map(SyscallRet::SchedGetattr)),
         Syscall::SchedSetaffinity {
             pid,
             len,
             user_mask_ptr,
-        } => SyscallRet::SchedSetaffinity(
-            syscalls
-                .sched_setaffinity(caller, pid, len, user_mask_ptr)
-                .await?,
-        ),
+        } => syscalls
+            .sched_setaffinity(caller, pid, len, user_mask_ptr)
+            .map(|ret| ret.map(SyscallRet::SchedSetaffinity)),
         Syscall::SchedGetaffinity {
             pid,
             len,
             user_mask_ptr,
-        } => SyscallRet::SchedGetaffinity(
-            syscalls
-                .sched_getaffinity(caller, pid, len, user_mask_ptr)
-                .await?,
-        ),
-        Syscall::SchedYield => SyscallRet::SchedYield(syscalls.sched_yield(caller).await?),
-        Syscall::SchedGetPriorityMax { policy } => {
-            SyscallRet::SchedGetPriorityMax(syscalls.sched_get_priority_max(caller, policy).await?)
-        }
-        Syscall::SchedGetPriorityMin { policy } => {
-            SyscallRet::SchedGetPriorityMin(syscalls.sched_get_priority_min(caller, policy).await?)
-        }
-        Syscall::SchedRrGetIntervalTime64 { pid, interval } => {
-            SyscallRet::SchedRrGetIntervalTime64(
-                syscalls
-                    .sched_rr_get_interval_time64(caller, pid, interval)
-                    .await?,
-            )
-        }
-        Syscall::Getpriority { which, who } => {
-            SyscallRet::Getpriority(syscalls.getpriority(caller, which, who).await?)
-        }
+        } => syscalls
+            .sched_getaffinity(caller, pid, len, user_mask_ptr)
+            .map(|ret| ret.map(SyscallRet::SchedGetaffinity)),
+        Syscall::SchedYield => syscalls
+            .sched_yield(caller)
+            .map(|ret| ret.map(SyscallRet::SchedYield)),
+        Syscall::SchedGetPriorityMax { policy } => syscalls
+            .sched_get_priority_max(caller, policy)
+            .map(|ret| ret.map(SyscallRet::SchedGetPriorityMax)),
+        Syscall::SchedGetPriorityMin { policy } => syscalls
+            .sched_get_priority_min(caller, policy)
+            .map(|ret| ret.map(SyscallRet::SchedGetPriorityMin)),
+        Syscall::SchedRrGetIntervalTime64 { pid, interval } => syscalls
+            .sched_rr_get_interval_time64(caller, pid, interval)
+            .map(|ret| ret.map(SyscallRet::SchedRrGetIntervalTime64)),
+        Syscall::Getpriority { which, who } => syscalls
+            .getpriority(caller, which, who)
+            .map(|ret| ret.map(SyscallRet::Getpriority)),
         Syscall::Setpriority {
             which,
             who,
             niceval,
-        } => SyscallRet::Setpriority(syscalls.setpriority(caller, which, who, niceval).await?),
-        Syscall::Getrusage { who, ru } => {
-            SyscallRet::Getrusage(syscalls.getrusage(caller, who, ru).await?)
-        }
+        } => syscalls
+            .setpriority(caller, which, who, niceval)
+            .map(|ret| ret.map(SyscallRet::Setpriority)),
+        Syscall::Getrusage { who, ru } => syscalls
+            .getrusage(caller, who, ru)
+            .map(|ret| ret.map(SyscallRet::Getrusage)),
         Syscall::Prlimit64 {
             pid,
             resource,
             new_rlim,
             old_rlim,
-        } => SyscallRet::Prlimit64(
-            syscalls
-                .prlimit64(caller, pid, resource, new_rlim, old_rlim)
-                .await?,
-        ),
-        Syscall::Times { tbuf } => SyscallRet::Times(syscalls.times(caller, tbuf).await?),
-        Syscall::IoprioSet { which, who, ioprio } => {
-            SyscallRet::IoprioSet(syscalls.ioprio_set(caller, which, who, ioprio).await?)
-        }
-        Syscall::IoprioGet { which, who } => {
-            SyscallRet::IoprioGet(syscalls.ioprio_get(caller, which, who).await?)
-        }
+        } => syscalls
+            .prlimit64(caller, pid, resource, new_rlim, old_rlim)
+            .map(|ret| ret.map(SyscallRet::Prlimit64)),
+        Syscall::Times { tbuf } => syscalls
+            .times(caller, tbuf)
+            .map(|ret| ret.map(SyscallRet::Times)),
+        Syscall::IoprioSet { which, who, ioprio } => syscalls
+            .ioprio_set(caller, which, who, ioprio)
+            .map(|ret| ret.map(SyscallRet::IoprioSet)),
+        Syscall::IoprioGet { which, who } => syscalls
+            .ioprio_get(caller, which, who)
+            .map(|ret| ret.map(SyscallRet::IoprioGet)),
         Syscall::Getcpu {
             cpup,
             nodep,
             unused,
-        } => SyscallRet::Getcpu(syscalls.getcpu(caller, cpup, nodep, unused).await?),
-        Syscall::Sysinfo { info } => SyscallRet::Sysinfo(syscalls.sysinfo(caller, info).await?),
-        Syscall::Uname { name } => SyscallRet::Uname(syscalls.uname(caller, name).await?),
-        Syscall::Sethostname { name, len } => {
-            SyscallRet::Sethostname(syscalls.sethostname(caller, name, len).await?)
-        }
-        Syscall::Setdomainname { name, len } => {
-            SyscallRet::Setdomainname(syscalls.setdomainname(caller, name, len).await?)
-        }
-        Syscall::Umask { mask } => SyscallRet::Umask(syscalls.umask(caller, mask).await?),
-        Syscall::Getrandom { ubuf, flags } => {
-            SyscallRet::Getrandom(syscalls.getrandom(caller, ubuf, flags).await?)
-        }
-        Syscall::Membarrier { cmd, flags, cpu_id } => {
-            SyscallRet::Membarrier(syscalls.membarrier(caller, cmd, flags, cpu_id).await?)
-        }
+        } => syscalls
+            .getcpu(caller, cpup, nodep, unused)
+            .map(|ret| ret.map(SyscallRet::Getcpu)),
+        Syscall::Sysinfo { info } => syscalls
+            .sysinfo(caller, info)
+            .map(|ret| ret.map(SyscallRet::Sysinfo)),
+        Syscall::Uname { name } => syscalls
+            .uname(caller, name)
+            .map(|ret| ret.map(SyscallRet::Uname)),
+        Syscall::Sethostname { name, len } => syscalls
+            .sethostname(caller, name, len)
+            .map(|ret| ret.map(SyscallRet::Sethostname)),
+        Syscall::Setdomainname { name, len } => syscalls
+            .setdomainname(caller, name, len)
+            .map(|ret| ret.map(SyscallRet::Setdomainname)),
+        Syscall::Umask { mask } => syscalls
+            .umask(caller, mask)
+            .map(|ret| ret.map(SyscallRet::Umask)),
+        Syscall::Getrandom { ubuf, flags } => syscalls
+            .getrandom(caller, ubuf, flags)
+            .map(|ret| ret.map(SyscallRet::Getrandom)),
+        Syscall::Membarrier { cmd, flags, cpu_id } => syscalls
+            .membarrier(caller, cmd, flags, cpu_id)
+            .map(|ret| ret.map(SyscallRet::Membarrier)),
         Syscall::FutexTime64 {
             uaddr,
             op,
@@ -12332,28 +12654,26 @@ pub async fn dispatch<S: Syscalls + ?Sized>(
             utime,
             uaddr2,
             val3,
-        } => SyscallRet::FutexTime64(
-            syscalls
-                .futex_time64(caller, uaddr, op, val, utime, uaddr2, val3)
-                .await?,
-        ),
+        } => syscalls
+            .futex_time64(caller, uaddr, op, val, utime, uaddr2, val3)
+            .map(|ret| ret.map(SyscallRet::FutexTime64)),
         Syscall::FutexWaitv {
             waiters,
             nr_futexes,
             flags,
             timeout,
             clockid,
-        } => SyscallRet::FutexWaitv(
-            syscalls
-                .futex_waitv(caller, waiters, nr_futexes, flags, timeout, clockid)
-                .await?,
-        ),
+        } => syscalls
+            .futex_waitv(caller, waiters, nr_futexes, flags, timeout, clockid)
+            .map(|ret| ret.map(SyscallRet::FutexWaitv)),
         Syscall::FutexWake {
             uaddr,
             mask,
             nr,
             flags,
-        } => SyscallRet::FutexWake(syscalls.futex_wake(caller, uaddr, mask, nr, flags).await?),
+        } => syscalls
+            .futex_wake(caller, uaddr, mask, nr, flags)
+            .map(|ret| ret.map(SyscallRet::FutexWake)),
         Syscall::FutexWait {
             uaddr,
             val,
@@ -12361,22 +12681,20 @@ pub async fn dispatch<S: Syscalls + ?Sized>(
             flags,
             timeout,
             clockid,
-        } => SyscallRet::FutexWait(
-            syscalls
-                .futex_wait(caller, uaddr, val, mask, flags, timeout, clockid)
-                .await?,
-        ),
+        } => syscalls
+            .futex_wait(caller, uaddr, val, mask, flags, timeout, clockid)
+            .map(|ret| ret.map(SyscallRet::FutexWait)),
         Syscall::FutexRequeue {
             waiters,
             flags,
             nr_wake,
             nr_requeue,
-        } => SyscallRet::FutexRequeue(
-            syscalls
-                .futex_requeue(caller, waiters, flags, nr_wake, nr_requeue)
-                .await?,
-        ),
-        Syscall::Brk { brk } => SyscallRet::Brk(syscalls.brk(caller, brk).await?),
+        } => syscalls
+            .futex_requeue(caller, waiters, flags, nr_wake, nr_requeue)
+            .map(|ret| ret.map(SyscallRet::FutexRequeue)),
+        Syscall::Brk { brk } => syscalls
+            .brk(caller, brk)
+            .map(|ret| ret.map(SyscallRet::Brk)),
         Syscall::Mmap {
             addr,
             len,
@@ -12384,88 +12702,84 @@ pub async fn dispatch<S: Syscalls + ?Sized>(
             flags,
             fd,
             offset,
-        } => SyscallRet::Mmap(
-            syscalls
-                .mmap(caller, addr, len, prot, flags, fd, offset)
-                .await?,
-        ),
-        Syscall::Munmap { addr, len } => {
-            SyscallRet::Munmap(syscalls.munmap(caller, addr, len).await?)
-        }
+        } => syscalls
+            .mmap(caller, addr, len, prot, flags, fd, offset)
+            .map(|ret| ret.map(SyscallRet::Mmap)),
+        Syscall::Munmap { addr, len } => syscalls
+            .munmap(caller, addr, len)
+            .map(|ret| ret.map(SyscallRet::Munmap)),
         Syscall::Mremap {
             addr,
             old_len,
             new_len,
             flags,
             new_addr,
-        } => SyscallRet::Mremap(
-            syscalls
-                .mremap(caller, addr, old_len, new_len, flags, new_addr)
-                .await?,
-        ),
-        Syscall::Mprotect { start, len, prot } => {
-            SyscallRet::Mprotect(syscalls.mprotect(caller, start, len, prot).await?)
-        }
+        } => syscalls
+            .mremap(caller, addr, old_len, new_len, flags, new_addr)
+            .map(|ret| ret.map(SyscallRet::Mremap)),
+        Syscall::Mprotect { start, len, prot } => syscalls
+            .mprotect(caller, start, len, prot)
+            .map(|ret| ret.map(SyscallRet::Mprotect)),
         Syscall::PkeyMprotect {
             start,
             len,
             prot,
             pkey,
-        } => SyscallRet::PkeyMprotect(
-            syscalls
-                .pkey_mprotect(caller, start, len, prot, pkey)
-                .await?,
-        ),
-        Syscall::PkeyAlloc { flags, init_val } => {
-            SyscallRet::PkeyAlloc(syscalls.pkey_alloc(caller, flags, init_val).await?)
-        }
-        Syscall::PkeyFree { pkey } => SyscallRet::PkeyFree(syscalls.pkey_free(caller, pkey).await?),
-        Syscall::Msync { start, len, flags } => {
-            SyscallRet::Msync(syscalls.msync(caller, start, len, flags).await?)
-        }
+        } => syscalls
+            .pkey_mprotect(caller, start, len, prot, pkey)
+            .map(|ret| ret.map(SyscallRet::PkeyMprotect)),
+        Syscall::PkeyAlloc { flags, init_val } => syscalls
+            .pkey_alloc(caller, flags, init_val)
+            .map(|ret| ret.map(SyscallRet::PkeyAlloc)),
+        Syscall::PkeyFree { pkey } => syscalls
+            .pkey_free(caller, pkey)
+            .map(|ret| ret.map(SyscallRet::PkeyFree)),
+        Syscall::Msync { start, len, flags } => syscalls
+            .msync(caller, start, len, flags)
+            .map(|ret| ret.map(SyscallRet::Msync)),
         Syscall::Madvise {
             start,
             len_in,
             behavior,
-        } => SyscallRet::Madvise(syscalls.madvise(caller, start, len_in, behavior).await?),
+        } => syscalls
+            .madvise(caller, start, len_in, behavior)
+            .map(|ret| ret.map(SyscallRet::Madvise)),
         Syscall::ProcessMadvise {
             pidfd,
             vec,
             vlen,
             behavior,
             flags,
-        } => SyscallRet::ProcessMadvise(
-            syscalls
-                .process_madvise(caller, pidfd, vec, vlen, behavior, flags)
-                .await?,
-        ),
-        Syscall::Mincore { start, len, vec } => {
-            SyscallRet::Mincore(syscalls.mincore(caller, start, len, vec).await?)
-        }
-        Syscall::Mlock { start, len } => {
-            SyscallRet::Mlock(syscalls.mlock(caller, start, len).await?)
-        }
-        Syscall::Mlock2 { start, len, flags } => {
-            SyscallRet::Mlock2(syscalls.mlock2(caller, start, len, flags).await?)
-        }
-        Syscall::Munlock { start, len } => {
-            SyscallRet::Munlock(syscalls.munlock(caller, start, len).await?)
-        }
-        Syscall::Mlockall { flags } => {
-            SyscallRet::Mlockall(syscalls.mlockall(caller, flags).await?)
-        }
-        Syscall::Munlockall => SyscallRet::Munlockall(syscalls.munlockall(caller).await?),
+        } => syscalls
+            .process_madvise(caller, pidfd, vec, vlen, behavior, flags)
+            .map(|ret| ret.map(SyscallRet::ProcessMadvise)),
+        Syscall::Mincore { start, len, vec } => syscalls
+            .mincore(caller, start, len, vec)
+            .map(|ret| ret.map(SyscallRet::Mincore)),
+        Syscall::Mlock { start, len } => syscalls
+            .mlock(caller, start, len)
+            .map(|ret| ret.map(SyscallRet::Mlock)),
+        Syscall::Mlock2 { start, len, flags } => syscalls
+            .mlock2(caller, start, len, flags)
+            .map(|ret| ret.map(SyscallRet::Mlock2)),
+        Syscall::Munlock { start, len } => syscalls
+            .munlock(caller, start, len)
+            .map(|ret| ret.map(SyscallRet::Munlock)),
+        Syscall::Mlockall { flags } => syscalls
+            .mlockall(caller, flags)
+            .map(|ret| ret.map(SyscallRet::Mlockall)),
+        Syscall::Munlockall => syscalls
+            .munlockall(caller)
+            .map(|ret| ret.map(SyscallRet::Munlockall)),
         Syscall::RemapFilePages {
             start,
             size,
             prot,
             pgoff,
             flags,
-        } => SyscallRet::RemapFilePages(
-            syscalls
-                .remap_file_pages(caller, start, size, prot, pgoff, flags)
-                .await?,
-        ),
+        } => syscalls
+            .remap_file_pages(caller, start, size, prot, pgoff, flags)
+            .map(|ret| ret.map(SyscallRet::RemapFilePages)),
         Syscall::Mbind {
             start,
             len,
@@ -12473,47 +12787,41 @@ pub async fn dispatch<S: Syscalls + ?Sized>(
             nmask,
             maxnode,
             flags,
-        } => SyscallRet::Mbind(
-            syscalls
-                .mbind(caller, start, len, mode, nmask, maxnode, flags)
-                .await?,
-        ),
+        } => syscalls
+            .mbind(caller, start, len, mode, nmask, maxnode, flags)
+            .map(|ret| ret.map(SyscallRet::Mbind)),
         Syscall::GetMempolicy {
             policy,
             nmask,
             maxnode,
             addr,
             flags,
-        } => SyscallRet::GetMempolicy(
-            syscalls
-                .get_mempolicy(caller, policy, nmask, maxnode, addr, flags)
-                .await?,
-        ),
+        } => syscalls
+            .get_mempolicy(caller, policy, nmask, maxnode, addr, flags)
+            .map(|ret| ret.map(SyscallRet::GetMempolicy)),
         Syscall::SetMempolicy {
             mode,
             nmask,
             maxnode,
-        } => SyscallRet::SetMempolicy(syscalls.set_mempolicy(caller, mode, nmask, maxnode).await?),
+        } => syscalls
+            .set_mempolicy(caller, mode, nmask, maxnode)
+            .map(|ret| ret.map(SyscallRet::SetMempolicy)),
         Syscall::SetMempolicyHomeNode {
             start,
             len,
             home_node,
             flags,
-        } => SyscallRet::SetMempolicyHomeNode(
-            syscalls
-                .set_mempolicy_home_node(caller, start, len, home_node, flags)
-                .await?,
-        ),
+        } => syscalls
+            .set_mempolicy_home_node(caller, start, len, home_node, flags)
+            .map(|ret| ret.map(SyscallRet::SetMempolicyHomeNode)),
         Syscall::MigratePages {
             pid,
             maxnode,
             old_nodes,
             new_nodes,
-        } => SyscallRet::MigratePages(
-            syscalls
-                .migrate_pages(caller, pid, maxnode, old_nodes, new_nodes)
-                .await?,
-        ),
+        } => syscalls
+            .migrate_pages(caller, pid, maxnode, old_nodes, new_nodes)
+            .map(|ret| ret.map(SyscallRet::MigratePages)),
         Syscall::MovePages {
             pid,
             nr_pages,
@@ -12521,342 +12829,317 @@ pub async fn dispatch<S: Syscalls + ?Sized>(
             nodes,
             status,
             flags,
-        } => SyscallRet::MovePages(
-            syscalls
-                .move_pages(caller, pid, nr_pages, pages, nodes, status, flags)
-                .await?,
-        ),
-        Syscall::Mseal { start, len, flags } => {
-            SyscallRet::Mseal(syscalls.mseal(caller, start, len, flags).await?)
-        }
-        Syscall::MapShadowStack { addr, size, flags } => {
-            SyscallRet::MapShadowStack(syscalls.map_shadow_stack(caller, addr, size, flags).await?)
-        }
-        Syscall::Userfaultfd { flags } => {
-            SyscallRet::Userfaultfd(syscalls.userfaultfd(caller, flags).await?)
-        }
-        Syscall::ClockGettime64 { which_clock, tp } => {
-            SyscallRet::ClockGettime64(syscalls.clock_gettime64(caller, which_clock, tp).await?)
-        }
-        Syscall::ClockSettime64 { which_clock, tp } => {
-            SyscallRet::ClockSettime64(syscalls.clock_settime64(caller, which_clock, tp).await?)
-        }
-        Syscall::ClockGetresTime64 { which_clock, tp } => SyscallRet::ClockGetresTime64(
-            syscalls
-                .clock_getres_time64(caller, which_clock, tp)
-                .await?,
-        ),
+        } => syscalls
+            .move_pages(caller, pid, nr_pages, pages, nodes, status, flags)
+            .map(|ret| ret.map(SyscallRet::MovePages)),
+        Syscall::Mseal { start, len, flags } => syscalls
+            .mseal(caller, start, len, flags)
+            .map(|ret| ret.map(SyscallRet::Mseal)),
+        Syscall::MapShadowStack { addr, size, flags } => syscalls
+            .map_shadow_stack(caller, addr, size, flags)
+            .map(|ret| ret.map(SyscallRet::MapShadowStack)),
+        Syscall::Userfaultfd { flags } => syscalls
+            .userfaultfd(caller, flags)
+            .map(|ret| ret.map(SyscallRet::Userfaultfd)),
+        Syscall::ClockGettime64 { which_clock, tp } => syscalls
+            .clock_gettime64(caller, which_clock, tp)
+            .map(|ret| ret.map(SyscallRet::ClockGettime64)),
+        Syscall::ClockSettime64 { which_clock, tp } => syscalls
+            .clock_settime64(caller, which_clock, tp)
+            .map(|ret| ret.map(SyscallRet::ClockSettime64)),
+        Syscall::ClockGetresTime64 { which_clock, tp } => syscalls
+            .clock_getres_time64(caller, which_clock, tp)
+            .map(|ret| ret.map(SyscallRet::ClockGetresTime64)),
         Syscall::ClockNanosleepTime64 {
             which_clock,
             flags,
             rqtp,
             rmtp,
-        } => SyscallRet::ClockNanosleepTime64(
-            syscalls
-                .clock_nanosleep_time64(caller, which_clock, flags, rqtp, rmtp)
-                .await?,
-        ),
-        Syscall::ClockAdjtime64 { which_clock, utx } => {
-            SyscallRet::ClockAdjtime64(syscalls.clock_adjtime64(caller, which_clock, utx).await?)
-        }
-        Syscall::Getitimer { which, value } => {
-            SyscallRet::Getitimer(syscalls.getitimer(caller, which, value).await?)
-        }
+        } => syscalls
+            .clock_nanosleep_time64(caller, which_clock, flags, rqtp, rmtp)
+            .map(|ret| ret.map(SyscallRet::ClockNanosleepTime64)),
+        Syscall::ClockAdjtime64 { which_clock, utx } => syscalls
+            .clock_adjtime64(caller, which_clock, utx)
+            .map(|ret| ret.map(SyscallRet::ClockAdjtime64)),
+        Syscall::Getitimer { which, value } => syscalls
+            .getitimer(caller, which, value)
+            .map(|ret| ret.map(SyscallRet::Getitimer)),
         Syscall::Setitimer {
             which,
             value,
             ovalue,
-        } => SyscallRet::Setitimer(syscalls.setitimer(caller, which, value, ovalue).await?),
+        } => syscalls
+            .setitimer(caller, which, value, ovalue)
+            .map(|ret| ret.map(SyscallRet::Setitimer)),
         Syscall::TimerCreate {
             which_clock,
             timer_event_spec,
             created_timer_id,
-        } => SyscallRet::TimerCreate(
-            syscalls
-                .timer_create(caller, which_clock, timer_event_spec, created_timer_id)
-                .await?,
-        ),
+        } => syscalls
+            .timer_create(caller, which_clock, timer_event_spec, created_timer_id)
+            .map(|ret| ret.map(SyscallRet::TimerCreate)),
         Syscall::TimerSettime64 {
             timer_id,
             flags,
             new_setting,
             old_setting,
-        } => SyscallRet::TimerSettime64(
-            syscalls
-                .timer_settime64(caller, timer_id, flags, new_setting, old_setting)
-                .await?,
-        ),
-        Syscall::TimerGettime64 { timer_id, setting } => {
-            SyscallRet::TimerGettime64(syscalls.timer_gettime64(caller, timer_id, setting).await?)
-        }
-        Syscall::TimerGetoverrun { timer_id } => {
-            SyscallRet::TimerGetoverrun(syscalls.timer_getoverrun(caller, timer_id).await?)
-        }
-        Syscall::TimerDelete { timer_id } => {
-            SyscallRet::TimerDelete(syscalls.timer_delete(caller, timer_id).await?)
-        }
+        } => syscalls
+            .timer_settime64(caller, timer_id, flags, new_setting, old_setting)
+            .map(|ret| ret.map(SyscallRet::TimerSettime64)),
+        Syscall::TimerGettime64 { timer_id, setting } => syscalls
+            .timer_gettime64(caller, timer_id, setting)
+            .map(|ret| ret.map(SyscallRet::TimerGettime64)),
+        Syscall::TimerGetoverrun { timer_id } => syscalls
+            .timer_getoverrun(caller, timer_id)
+            .map(|ret| ret.map(SyscallRet::TimerGetoverrun)),
+        Syscall::TimerDelete { timer_id } => syscalls
+            .timer_delete(caller, timer_id)
+            .map(|ret| ret.map(SyscallRet::TimerDelete)),
         Syscall::Socket {
             family,
             r#type,
             protocol,
-        } => SyscallRet::Socket(syscalls.socket(caller, family, r#type, protocol).await?),
+        } => syscalls
+            .socket(caller, family, r#type, protocol)
+            .map(|ret| ret.map(SyscallRet::Socket)),
         Syscall::Socketpair {
             family,
             r#type,
             protocol,
             usockvec,
-        } => SyscallRet::Socketpair(
-            syscalls
-                .socketpair(caller, family, r#type, protocol, usockvec)
-                .await?,
-        ),
+        } => syscalls
+            .socketpair(caller, family, r#type, protocol, usockvec)
+            .map(|ret| ret.map(SyscallRet::Socketpair)),
         Syscall::Bind {
             fd,
             umyaddr,
             addrlen,
-        } => SyscallRet::Bind(syscalls.bind(caller, fd, umyaddr, addrlen).await?),
-        Syscall::Listen { fd, backlog } => {
-            SyscallRet::Listen(syscalls.listen(caller, fd, backlog).await?)
-        }
+        } => syscalls
+            .bind(caller, fd, umyaddr, addrlen)
+            .map(|ret| ret.map(SyscallRet::Bind)),
+        Syscall::Listen { fd, backlog } => syscalls
+            .listen(caller, fd, backlog)
+            .map(|ret| ret.map(SyscallRet::Listen)),
         Syscall::Accept {
             fd,
             upeer_sockaddr,
             upeer_addrlen,
-        } => SyscallRet::Accept(
-            syscalls
-                .accept(caller, fd, upeer_sockaddr, upeer_addrlen)
-                .await?,
-        ),
+        } => syscalls
+            .accept(caller, fd, upeer_sockaddr, upeer_addrlen)
+            .map(|ret| ret.map(SyscallRet::Accept)),
         Syscall::Accept4 {
             fd,
             upeer_sockaddr,
             upeer_addrlen,
             flags,
-        } => SyscallRet::Accept4(
-            syscalls
-                .accept4(caller, fd, upeer_sockaddr, upeer_addrlen, flags)
-                .await?,
-        ),
+        } => syscalls
+            .accept4(caller, fd, upeer_sockaddr, upeer_addrlen, flags)
+            .map(|ret| ret.map(SyscallRet::Accept4)),
         Syscall::Connect {
             fd,
             uservaddr,
             addrlen,
-        } => SyscallRet::Connect(syscalls.connect(caller, fd, uservaddr, addrlen).await?),
+        } => syscalls
+            .connect(caller, fd, uservaddr, addrlen)
+            .map(|ret| ret.map(SyscallRet::Connect)),
         Syscall::Getsockname {
             fd,
             usockaddr,
             usockaddr_len,
-        } => SyscallRet::Getsockname(
-            syscalls
-                .getsockname(caller, fd, usockaddr, usockaddr_len)
-                .await?,
-        ),
+        } => syscalls
+            .getsockname(caller, fd, usockaddr, usockaddr_len)
+            .map(|ret| ret.map(SyscallRet::Getsockname)),
         Syscall::Getpeername {
             fd,
             usockaddr,
             usockaddr_len,
-        } => SyscallRet::Getpeername(
-            syscalls
-                .getpeername(caller, fd, usockaddr, usockaddr_len)
-                .await?,
-        ),
+        } => syscalls
+            .getpeername(caller, fd, usockaddr, usockaddr_len)
+            .map(|ret| ret.map(SyscallRet::Getpeername)),
         Syscall::Sendto {
             fd,
             buff,
             flags,
             addr,
             addr_len,
-        } => SyscallRet::Sendto(
-            syscalls
-                .sendto(caller, fd, buff, flags, addr, addr_len)
-                .await?,
-        ),
+        } => syscalls
+            .sendto(caller, fd, buff, flags, addr, addr_len)
+            .map(|ret| ret.map(SyscallRet::Sendto)),
         Syscall::Recvfrom {
             fd,
             ubuf,
             flags,
             addr,
             addr_len,
-        } => SyscallRet::Recvfrom(
-            syscalls
-                .recvfrom(caller, fd, ubuf, flags, addr, addr_len)
-                .await?,
-        ),
+        } => syscalls
+            .recvfrom(caller, fd, ubuf, flags, addr, addr_len)
+            .map(|ret| ret.map(SyscallRet::Recvfrom)),
         Syscall::Setsockopt {
             fd,
             level,
             optname,
             optval,
-        } => SyscallRet::Setsockopt(
-            syscalls
-                .setsockopt(caller, fd, level, optname, optval)
-                .await?,
-        ),
+        } => syscalls
+            .setsockopt(caller, fd, level, optname, optval)
+            .map(|ret| ret.map(SyscallRet::Setsockopt)),
         Syscall::Getsockopt {
             fd,
             level,
             optname,
             optval,
             optlen,
-        } => SyscallRet::Getsockopt(
-            syscalls
-                .getsockopt(caller, fd, level, optname, optval, optlen)
-                .await?,
-        ),
-        Syscall::Shutdown { fd, how } => {
-            SyscallRet::Shutdown(syscalls.shutdown(caller, fd, how).await?)
-        }
-        Syscall::Sendmsg { fd, msg, flags } => {
-            SyscallRet::Sendmsg(syscalls.sendmsg(caller, fd, msg, flags).await?)
-        }
-        Syscall::Recvmsg { fd, msg, flags } => {
-            SyscallRet::Recvmsg(syscalls.recvmsg(caller, fd, msg, flags).await?)
-        }
+        } => syscalls
+            .getsockopt(caller, fd, level, optname, optval, optlen)
+            .map(|ret| ret.map(SyscallRet::Getsockopt)),
+        Syscall::Shutdown { fd, how } => syscalls
+            .shutdown(caller, fd, how)
+            .map(|ret| ret.map(SyscallRet::Shutdown)),
+        Syscall::Sendmsg { fd, msg, flags } => syscalls
+            .sendmsg(caller, fd, msg, flags)
+            .map(|ret| ret.map(SyscallRet::Sendmsg)),
+        Syscall::Recvmsg { fd, msg, flags } => syscalls
+            .recvmsg(caller, fd, msg, flags)
+            .map(|ret| ret.map(SyscallRet::Recvmsg)),
         Syscall::Sendmmsg {
             fd,
             mmsg,
             vlen,
             flags,
-        } => SyscallRet::Sendmmsg(syscalls.sendmmsg(caller, fd, mmsg, vlen, flags).await?),
+        } => syscalls
+            .sendmmsg(caller, fd, mmsg, vlen, flags)
+            .map(|ret| ret.map(SyscallRet::Sendmmsg)),
         Syscall::RecvmmsgTime64 {
             fd,
             mmsg,
             vlen,
             flags,
             timeout,
-        } => SyscallRet::RecvmmsgTime64(
-            syscalls
-                .recvmmsg_time64(caller, fd, mmsg, vlen, flags, timeout)
-                .await?,
-        ),
-        Syscall::Msgget { key, msgflg } => {
-            SyscallRet::Msgget(syscalls.msgget(caller, key, msgflg).await?)
-        }
-        Syscall::Msgctl { msqid, cmd, buf } => {
-            SyscallRet::Msgctl(syscalls.msgctl(caller, msqid, cmd, buf).await?)
-        }
+        } => syscalls
+            .recvmmsg_time64(caller, fd, mmsg, vlen, flags, timeout)
+            .map(|ret| ret.map(SyscallRet::RecvmmsgTime64)),
+        Syscall::Msgget { key, msgflg } => syscalls
+            .msgget(caller, key, msgflg)
+            .map(|ret| ret.map(SyscallRet::Msgget)),
+        Syscall::Msgctl { msqid, cmd, buf } => syscalls
+            .msgctl(caller, msqid, cmd, buf)
+            .map(|ret| ret.map(SyscallRet::Msgctl)),
         Syscall::Msgrcv {
             msqid,
             msgp,
             msgsz,
             msgtyp,
             msgflg,
-        } => SyscallRet::Msgrcv(
-            syscalls
-                .msgrcv(caller, msqid, msgp, msgsz, msgtyp, msgflg)
-                .await?,
-        ),
+        } => syscalls
+            .msgrcv(caller, msqid, msgp, msgsz, msgtyp, msgflg)
+            .map(|ret| ret.map(SyscallRet::Msgrcv)),
         Syscall::Msgsnd {
             msqid,
             msgp,
             msgsz,
             msgflg,
-        } => SyscallRet::Msgsnd(syscalls.msgsnd(caller, msqid, msgp, msgsz, msgflg).await?),
-        Syscall::Semget { key, nsems, semflg } => {
-            SyscallRet::Semget(syscalls.semget(caller, key, nsems, semflg).await?)
-        }
+        } => syscalls
+            .msgsnd(caller, msqid, msgp, msgsz, msgflg)
+            .map(|ret| ret.map(SyscallRet::Msgsnd)),
+        Syscall::Semget { key, nsems, semflg } => syscalls
+            .semget(caller, key, nsems, semflg)
+            .map(|ret| ret.map(SyscallRet::Semget)),
         Syscall::Semctl {
             semid,
             semnum,
             cmd,
             arg,
-        } => SyscallRet::Semctl(syscalls.semctl(caller, semid, semnum, cmd, arg).await?),
+        } => syscalls
+            .semctl(caller, semid, semnum, cmd, arg)
+            .map(|ret| ret.map(SyscallRet::Semctl)),
         Syscall::Semop {
             semid,
             tsops,
             nsops,
-        } => SyscallRet::Semop(syscalls.semop(caller, semid, tsops, nsops).await?),
+        } => syscalls
+            .semop(caller, semid, tsops, nsops)
+            .map(|ret| ret.map(SyscallRet::Semop)),
         Syscall::SemtimedopTime64 {
             semid,
             tsops,
             nsops,
             timeout,
-        } => SyscallRet::SemtimedopTime64(
-            syscalls
-                .semtimedop_time64(caller, semid, tsops, nsops, timeout)
-                .await?,
-        ),
-        Syscall::Shmget { key, size, shmflg } => {
-            SyscallRet::Shmget(syscalls.shmget(caller, key, size, shmflg).await?)
-        }
-        Syscall::Shmctl { shmid, cmd, buf } => {
-            SyscallRet::Shmctl(syscalls.shmctl(caller, shmid, cmd, buf).await?)
-        }
+        } => syscalls
+            .semtimedop_time64(caller, semid, tsops, nsops, timeout)
+            .map(|ret| ret.map(SyscallRet::SemtimedopTime64)),
+        Syscall::Shmget { key, size, shmflg } => syscalls
+            .shmget(caller, key, size, shmflg)
+            .map(|ret| ret.map(SyscallRet::Shmget)),
+        Syscall::Shmctl { shmid, cmd, buf } => syscalls
+            .shmctl(caller, shmid, cmd, buf)
+            .map(|ret| ret.map(SyscallRet::Shmctl)),
         Syscall::Shmat {
             shmid,
             shmaddr,
             shmflg,
-        } => SyscallRet::Shmat(syscalls.shmat(caller, shmid, shmaddr, shmflg).await?),
-        Syscall::Shmdt { shmaddr } => SyscallRet::Shmdt(syscalls.shmdt(caller, shmaddr).await?),
+        } => syscalls
+            .shmat(caller, shmid, shmaddr, shmflg)
+            .map(|ret| ret.map(SyscallRet::Shmat)),
+        Syscall::Shmdt { shmaddr } => syscalls
+            .shmdt(caller, shmaddr)
+            .map(|ret| ret.map(SyscallRet::Shmdt)),
         Syscall::MqOpen {
             u_name,
             oflag,
             mode,
             u_attr,
-        } => SyscallRet::MqOpen(
-            syscalls
-                .mq_open(caller, u_name, oflag, mode, u_attr)
-                .await?,
-        ),
-        Syscall::MqUnlink { u_name } => {
-            SyscallRet::MqUnlink(syscalls.mq_unlink(caller, u_name).await?)
-        }
+        } => syscalls
+            .mq_open(caller, u_name, oflag, mode, u_attr)
+            .map(|ret| ret.map(SyscallRet::MqOpen)),
+        Syscall::MqUnlink { u_name } => syscalls
+            .mq_unlink(caller, u_name)
+            .map(|ret| ret.map(SyscallRet::MqUnlink)),
         Syscall::MqTimedsendTime64 {
             mqdes,
             u_msg_ptr,
             msg_len,
             msg_prio,
             u_abs_timeout,
-        } => SyscallRet::MqTimedsendTime64(
-            syscalls
-                .mq_timedsend_time64(caller, mqdes, u_msg_ptr, msg_len, msg_prio, u_abs_timeout)
-                .await?,
-        ),
+        } => syscalls
+            .mq_timedsend_time64(caller, mqdes, u_msg_ptr, msg_len, msg_prio, u_abs_timeout)
+            .map(|ret| ret.map(SyscallRet::MqTimedsendTime64)),
         Syscall::MqTimedreceiveTime64 {
             mqdes,
             u_msg_ptr,
             msg_len,
             u_msg_prio,
             u_abs_timeout,
-        } => SyscallRet::MqTimedreceiveTime64(
-            syscalls
-                .mq_timedreceive_time64(
-                    caller,
-                    mqdes,
-                    u_msg_ptr,
-                    msg_len,
-                    u_msg_prio,
-                    u_abs_timeout,
-                )
-                .await?,
-        ),
+        } => syscalls
+            .mq_timedreceive_time64(caller, mqdes, u_msg_ptr, msg_len, u_msg_prio, u_abs_timeout)
+            .map(|ret| ret.map(SyscallRet::MqTimedreceiveTime64)),
         Syscall::MqNotify {
             mqdes,
             u_notification,
-        } => SyscallRet::MqNotify(syscalls.mq_notify(caller, mqdes, u_notification).await?),
+        } => syscalls
+            .mq_notify(caller, mqdes, u_notification)
+            .map(|ret| ret.map(SyscallRet::MqNotify)),
         Syscall::MqGetsetattr {
             mqdes,
             u_mqstat,
             u_omqstat,
-        } => SyscallRet::MqGetsetattr(
-            syscalls
-                .mq_getsetattr(caller, mqdes, u_mqstat, u_omqstat)
-                .await?,
-        ),
-        Syscall::IoSetup { nr_events, ctxp } => {
-            SyscallRet::IoSetup(syscalls.io_setup(caller, nr_events, ctxp).await?)
-        }
-        Syscall::IoDestroy { ctx } => {
-            SyscallRet::IoDestroy(syscalls.io_destroy(caller, ctx).await?)
-        }
-        Syscall::IoSubmit { ctx_id, nr, iocbpp } => {
-            SyscallRet::IoSubmit(syscalls.io_submit(caller, ctx_id, nr, iocbpp).await?)
-        }
+        } => syscalls
+            .mq_getsetattr(caller, mqdes, u_mqstat, u_omqstat)
+            .map(|ret| ret.map(SyscallRet::MqGetsetattr)),
+        Syscall::IoSetup { nr_events, ctxp } => syscalls
+            .io_setup(caller, nr_events, ctxp)
+            .map(|ret| ret.map(SyscallRet::IoSetup)),
+        Syscall::IoDestroy { ctx } => syscalls
+            .io_destroy(caller, ctx)
+            .map(|ret| ret.map(SyscallRet::IoDestroy)),
+        Syscall::IoSubmit { ctx_id, nr, iocbpp } => syscalls
+            .io_submit(caller, ctx_id, nr, iocbpp)
+            .map(|ret| ret.map(SyscallRet::IoSubmit)),
         Syscall::IoCancel {
             ctx_id,
             iocb,
             result,
-        } => SyscallRet::IoCancel(syscalls.io_cancel(caller, ctx_id, iocb, result).await?),
+        } => syscalls
+            .io_cancel(caller, ctx_id, iocb, result)
+            .map(|ret| ret.map(SyscallRet::IoCancel)),
         Syscall::IoPgeteventsTime64 {
             ctx_id,
             min_nr,
@@ -12864,14 +13147,12 @@ pub async fn dispatch<S: Syscalls + ?Sized>(
             events,
             timeout,
             usig,
-        } => SyscallRet::IoPgeteventsTime64(
-            syscalls
-                .io_pgetevents_time64(caller, ctx_id, min_nr, nr, events, timeout, usig)
-                .await?,
-        ),
-        Syscall::IoUringSetup { entries, params } => {
-            SyscallRet::IoUringSetup(syscalls.io_uring_setup(caller, entries, params).await?)
-        }
+        } => syscalls
+            .io_pgetevents_time64(caller, ctx_id, min_nr, nr, events, timeout, usig)
+            .map(|ret| ret.map(SyscallRet::IoPgeteventsTime64)),
+        Syscall::IoUringSetup { entries, params } => syscalls
+            .io_uring_setup(caller, entries, params)
+            .map(|ret| ret.map(SyscallRet::IoUringSetup)),
         Syscall::IoUringEnter {
             fd,
             to_submit,
@@ -12879,282 +13160,262 @@ pub async fn dispatch<S: Syscalls + ?Sized>(
             flags,
             argp,
             argsz,
-        } => SyscallRet::IoUringEnter(
-            syscalls
-                .io_uring_enter(caller, fd, to_submit, min_complete, flags, argp, argsz)
-                .await?,
-        ),
+        } => syscalls
+            .io_uring_enter(caller, fd, to_submit, min_complete, flags, argp, argsz)
+            .map(|ret| ret.map(SyscallRet::IoUringEnter)),
         Syscall::IoUringRegister {
             fd,
             opcode,
             arg,
             nr_args,
-        } => SyscallRet::IoUringRegister(
-            syscalls
-                .io_uring_register(caller, fd, opcode, arg, nr_args)
-                .await?,
-        ),
+        } => syscalls
+            .io_uring_register(caller, fd, opcode, arg, nr_args)
+            .map(|ret| ret.map(SyscallRet::IoUringRegister)),
         Syscall::Mount {
             dev_name,
             dir_name,
             r#type,
             flags,
             data,
-        } => SyscallRet::Mount(
-            syscalls
-                .mount(caller, dev_name, dir_name, r#type, flags, data)
-                .await?,
-        ),
-        Syscall::Umount2 { name, flags } => {
-            SyscallRet::Umount2(syscalls.umount2(caller, name, flags).await?)
-        }
-        Syscall::PivotRoot { new_root, put_old } => {
-            SyscallRet::PivotRoot(syscalls.pivot_root(caller, new_root, put_old).await?)
-        }
+        } => syscalls
+            .mount(caller, dev_name, dir_name, r#type, flags, data)
+            .map(|ret| ret.map(SyscallRet::Mount)),
+        Syscall::Umount2 { name, flags } => syscalls
+            .umount2(caller, name, flags)
+            .map(|ret| ret.map(SyscallRet::Umount2)),
+        Syscall::PivotRoot { new_root, put_old } => syscalls
+            .pivot_root(caller, new_root, put_old)
+            .map(|ret| ret.map(SyscallRet::PivotRoot)),
         Syscall::OpenTree {
             dfd,
             filename,
             flags,
-        } => SyscallRet::OpenTree(syscalls.open_tree(caller, dfd, filename, flags).await?),
+        } => syscalls
+            .open_tree(caller, dfd, filename, flags)
+            .map(|ret| ret.map(SyscallRet::OpenTree)),
         Syscall::OpenTreeAttr {
             dfd,
             filename,
             flags,
             uattr,
             usize,
-        } => SyscallRet::OpenTreeAttr(
-            syscalls
-                .open_tree_attr(caller, dfd, filename, flags, uattr, usize)
-                .await?,
-        ),
+        } => syscalls
+            .open_tree_attr(caller, dfd, filename, flags, uattr, usize)
+            .map(|ret| ret.map(SyscallRet::OpenTreeAttr)),
         Syscall::MoveMount {
             from_dfd,
             from_pathname,
             to_dfd,
             to_pathname,
             flags,
-        } => SyscallRet::MoveMount(
-            syscalls
-                .move_mount(caller, from_dfd, from_pathname, to_dfd, to_pathname, flags)
-                .await?,
-        ),
-        Syscall::Fsopen { fs_name, flags } => {
-            SyscallRet::Fsopen(syscalls.fsopen(caller, fs_name, flags).await?)
-        }
+        } => syscalls
+            .move_mount(caller, from_dfd, from_pathname, to_dfd, to_pathname, flags)
+            .map(|ret| ret.map(SyscallRet::MoveMount)),
+        Syscall::Fsopen { fs_name, flags } => syscalls
+            .fsopen(caller, fs_name, flags)
+            .map(|ret| ret.map(SyscallRet::Fsopen)),
         Syscall::Fsconfig {
             fd,
             cmd,
             key,
             value,
             aux,
-        } => SyscallRet::Fsconfig(syscalls.fsconfig(caller, fd, cmd, key, value, aux).await?),
+        } => syscalls
+            .fsconfig(caller, fd, cmd, key, value, aux)
+            .map(|ret| ret.map(SyscallRet::Fsconfig)),
         Syscall::Fsmount {
             fs_fd,
             flags,
             attr_flags,
-        } => SyscallRet::Fsmount(syscalls.fsmount(caller, fs_fd, flags, attr_flags).await?),
-        Syscall::Fspick { dfd, path, flags } => {
-            SyscallRet::Fspick(syscalls.fspick(caller, dfd, path, flags).await?)
-        }
+        } => syscalls
+            .fsmount(caller, fs_fd, flags, attr_flags)
+            .map(|ret| ret.map(SyscallRet::Fsmount)),
+        Syscall::Fspick { dfd, path, flags } => syscalls
+            .fspick(caller, dfd, path, flags)
+            .map(|ret| ret.map(SyscallRet::Fspick)),
         Syscall::MountSetattr {
             dfd,
             path,
             flags,
             uattr,
             usize,
-        } => SyscallRet::MountSetattr(
-            syscalls
-                .mount_setattr(caller, dfd, path, flags, uattr, usize)
-                .await?,
-        ),
+        } => syscalls
+            .mount_setattr(caller, dfd, path, flags, uattr, usize)
+            .map(|ret| ret.map(SyscallRet::MountSetattr)),
         Syscall::Statmount {
             req,
             buf,
             bufsize,
             flags,
-        } => SyscallRet::Statmount(syscalls.statmount(caller, req, buf, bufsize, flags).await?),
+        } => syscalls
+            .statmount(caller, req, buf, bufsize, flags)
+            .map(|ret| ret.map(SyscallRet::Statmount)),
         Syscall::Listmount {
             req,
             mnt_ids,
             nr_mnt_ids,
             flags,
-        } => SyscallRet::Listmount(
-            syscalls
-                .listmount(caller, req, mnt_ids, nr_mnt_ids, flags)
-                .await?,
-        ),
+        } => syscalls
+            .listmount(caller, req, mnt_ids, nr_mnt_ids, flags)
+            .map(|ret| ret.map(SyscallRet::Listmount)),
         Syscall::Listns {
             req,
             ns_ids,
             nr_ns_ids,
             flags,
-        } => SyscallRet::Listns(
-            syscalls
-                .listns(caller, req, ns_ids, nr_ns_ids, flags)
-                .await?,
-        ),
-        Syscall::LandlockCreateRuleset { attr, size, flags } => SyscallRet::LandlockCreateRuleset(
-            syscalls
-                .landlock_create_ruleset(caller, attr, size, flags)
-                .await?,
-        ),
+        } => syscalls
+            .listns(caller, req, ns_ids, nr_ns_ids, flags)
+            .map(|ret| ret.map(SyscallRet::Listns)),
+        Syscall::LandlockCreateRuleset { attr, size, flags } => syscalls
+            .landlock_create_ruleset(caller, attr, size, flags)
+            .map(|ret| ret.map(SyscallRet::LandlockCreateRuleset)),
         Syscall::LandlockAddRule {
             ruleset_fd,
             rule_type,
             rule_attr,
             flags,
-        } => SyscallRet::LandlockAddRule(
-            syscalls
-                .landlock_add_rule(caller, ruleset_fd, rule_type, rule_attr, flags)
-                .await?,
-        ),
-        Syscall::LandlockRestrictSelf { ruleset_fd, flags } => SyscallRet::LandlockRestrictSelf(
-            syscalls
-                .landlock_restrict_self(caller, ruleset_fd, flags)
-                .await?,
-        ),
+        } => syscalls
+            .landlock_add_rule(caller, ruleset_fd, rule_type, rule_attr, flags)
+            .map(|ret| ret.map(SyscallRet::LandlockAddRule)),
+        Syscall::LandlockRestrictSelf { ruleset_fd, flags } => syscalls
+            .landlock_restrict_self(caller, ruleset_fd, flags)
+            .map(|ret| ret.map(SyscallRet::LandlockRestrictSelf)),
         Syscall::LsmGetSelfAttr {
             attr,
             ctx,
             size,
             flags,
-        } => SyscallRet::LsmGetSelfAttr(
-            syscalls
-                .lsm_get_self_attr(caller, attr, ctx, size, flags)
-                .await?,
-        ),
+        } => syscalls
+            .lsm_get_self_attr(caller, attr, ctx, size, flags)
+            .map(|ret| ret.map(SyscallRet::LsmGetSelfAttr)),
         Syscall::LsmSetSelfAttr {
             attr,
             ctx,
             size,
             flags,
-        } => SyscallRet::LsmSetSelfAttr(
-            syscalls
-                .lsm_set_self_attr(caller, attr, ctx, size, flags)
-                .await?,
-        ),
-        Syscall::LsmListModules { ids, size, flags } => {
-            SyscallRet::LsmListModules(syscalls.lsm_list_modules(caller, ids, size, flags).await?)
-        }
+        } => syscalls
+            .lsm_set_self_attr(caller, attr, ctx, size, flags)
+            .map(|ret| ret.map(SyscallRet::LsmSetSelfAttr)),
+        Syscall::LsmListModules { ids, size, flags } => syscalls
+            .lsm_list_modules(caller, ids, size, flags)
+            .map(|ret| ret.map(SyscallRet::LsmListModules)),
         Syscall::AddKey {
             r#type,
             description,
             payload,
             plen,
             ringid,
-        } => SyscallRet::AddKey(
-            syscalls
-                .add_key(caller, r#type, description, payload, plen, ringid)
-                .await?,
-        ),
+        } => syscalls
+            .add_key(caller, r#type, description, payload, plen, ringid)
+            .map(|ret| ret.map(SyscallRet::AddKey)),
         Syscall::RequestKey {
             r#type,
             description,
             callout_info,
             destringid,
-        } => SyscallRet::RequestKey(
-            syscalls
-                .request_key(caller, r#type, description, callout_info, destringid)
-                .await?,
-        ),
+        } => syscalls
+            .request_key(caller, r#type, description, callout_info, destringid)
+            .map(|ret| ret.map(SyscallRet::RequestKey)),
         Syscall::Keyctl {
             option,
             arg2,
             arg3,
             arg4,
             arg5,
-        } => SyscallRet::Keyctl(
-            syscalls
-                .keyctl(caller, option, arg2, arg3, arg4, arg5)
-                .await?,
-        ),
+        } => syscalls
+            .keyctl(caller, option, arg2, arg3, arg4, arg5)
+            .map(|ret| ret.map(SyscallRet::Keyctl)),
         Syscall::Bpf {
             cmd,
             uattr,
             size,
             uattr_common,
             size_common,
-        } => SyscallRet::Bpf(
-            syscalls
-                .bpf(caller, cmd, uattr, size, uattr_common, size_common)
-                .await?,
-        ),
+        } => syscalls
+            .bpf(caller, cmd, uattr, size, uattr_common, size_common)
+            .map(|ret| ret.map(SyscallRet::Bpf)),
         Syscall::PerfEventOpen {
             attr_uptr,
             pid,
             cpu,
             group_fd,
             flags,
-        } => SyscallRet::PerfEventOpen(
-            syscalls
-                .perf_event_open(caller, attr_uptr, pid, cpu, group_fd, flags)
-                .await?,
-        ),
+        } => syscalls
+            .perf_event_open(caller, attr_uptr, pid, cpu, group_fd, flags)
+            .map(|ret| ret.map(SyscallRet::PerfEventOpen)),
         Syscall::Reboot {
             magic1,
             magic2,
             cmd,
             arg,
-        } => SyscallRet::Reboot(syscalls.reboot(caller, magic1, magic2, cmd, arg).await?),
-        Syscall::Acct { name } => SyscallRet::Acct(syscalls.acct(caller, name).await?),
+        } => syscalls
+            .reboot(caller, magic1, magic2, cmd, arg)
+            .map(|ret| ret.map(SyscallRet::Reboot)),
+        Syscall::Acct { name } => syscalls
+            .acct(caller, name)
+            .map(|ret| ret.map(SyscallRet::Acct)),
         Syscall::Swapon {
             specialfile,
             swap_flags,
-        } => SyscallRet::Swapon(syscalls.swapon(caller, specialfile, swap_flags).await?),
-        Syscall::Swapoff { specialfile } => {
-            SyscallRet::Swapoff(syscalls.swapoff(caller, specialfile).await?)
-        }
-        Syscall::Syslog { r#type, buf, len } => {
-            SyscallRet::Syslog(syscalls.syslog(caller, r#type, buf, len).await?)
-        }
-        Syscall::Vhangup => SyscallRet::Vhangup(syscalls.vhangup(caller).await?),
+        } => syscalls
+            .swapon(caller, specialfile, swap_flags)
+            .map(|ret| ret.map(SyscallRet::Swapon)),
+        Syscall::Swapoff { specialfile } => syscalls
+            .swapoff(caller, specialfile)
+            .map(|ret| ret.map(SyscallRet::Swapoff)),
+        Syscall::Syslog { r#type, buf, len } => syscalls
+            .syslog(caller, r#type, buf, len)
+            .map(|ret| ret.map(SyscallRet::Syslog)),
+        Syscall::Vhangup => syscalls
+            .vhangup(caller)
+            .map(|ret| ret.map(SyscallRet::Vhangup)),
         Syscall::KexecLoad {
             entry,
             nr_segments,
             segments,
             flags,
-        } => SyscallRet::KexecLoad(
-            syscalls
-                .kexec_load(caller, entry, nr_segments, segments, flags)
-                .await?,
-        ),
+        } => syscalls
+            .kexec_load(caller, entry, nr_segments, segments, flags)
+            .map(|ret| ret.map(SyscallRet::KexecLoad)),
         Syscall::KexecFileLoad {
             kernel_fd,
             initrd_fd,
             cmdline_len,
             cmdline_ptr,
             flags,
-        } => SyscallRet::KexecFileLoad(
-            syscalls
-                .kexec_file_load(
-                    caller,
-                    kernel_fd,
-                    initrd_fd,
-                    cmdline_len,
-                    cmdline_ptr,
-                    flags,
-                )
-                .await?,
-        ),
-        Syscall::InitModule { umod, len, uargs } => {
-            SyscallRet::InitModule(syscalls.init_module(caller, umod, len, uargs).await?)
-        }
-        Syscall::FinitModule { fd, uargs, flags } => {
-            SyscallRet::FinitModule(syscalls.finit_module(caller, fd, uargs, flags).await?)
-        }
-        Syscall::DeleteModule { name_user, flags } => {
-            SyscallRet::DeleteModule(syscalls.delete_module(caller, name_user, flags).await?)
-        }
-    })
+        } => syscalls
+            .kexec_file_load(
+                caller,
+                kernel_fd,
+                initrd_fd,
+                cmdline_len,
+                cmdline_ptr,
+                flags,
+            )
+            .map(|ret| ret.map(SyscallRet::KexecFileLoad)),
+        Syscall::InitModule { umod, len, uargs } => syscalls
+            .init_module(caller, umod, len, uargs)
+            .map(|ret| ret.map(SyscallRet::InitModule)),
+        Syscall::FinitModule { fd, uargs, flags } => syscalls
+            .finit_module(caller, fd, uargs, flags)
+            .map(|ret| ret.map(SyscallRet::FinitModule)),
+        Syscall::DeleteModule { name_user, flags } => syscalls
+            .delete_module(caller, name_user, flags)
+            .map(|ret| ret.map(SyscallRet::DeleteModule)),
+    }
 }
 
 /// A layer that sees every syscall as a [`Syscall`] value.
 ///
 /// A layer is written for the syscalls `S` it runs in front of: a generic one (a tracer) for
 /// every `S`, one that needs more of what it wraps (the kernel's syscall entry) for that type.
-#[allow(async_fn_in_trait)]
 pub trait Layer<S: Syscalls> {
-    async fn call(&self, caller: &Caller<'_>, call: Syscall, next: &S) -> SysResult<SyscallRet>;
+    fn call<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        call: Syscall,
+        next: &'a S,
+    ) -> MaybeFuture<'a, SysResult<SyscallRet>>;
 }
 
 /// Runs `layer` in front of `inner`.
@@ -13174,31 +13435,39 @@ fn mismatch(call: &str) -> ! {
 }
 
 impl<L: Layer<S>, S: Syscalls> Syscalls for Layered<L, S> {
-    async fn startup_size(&self, caller: &Caller<'_>) -> SysResult<u32> {
+    fn startup_size<'a>(&'a self, caller: &'a Caller<'_>) -> MaybeFuture<'a, SysResult<u32>> {
         let call = Syscall::StartupSize;
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::StartupSize(ret) => Ok(ret),
-            _ => mismatch("startup_size"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::StartupSize(ret) => Ok(ret),
+                _ => mismatch("startup_size"),
+            })
     }
 
-    async fn startup_get(&self, caller: &Caller<'_>, buf: UserSliceMut) -> SysResult<i32> {
+    fn startup_get<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        buf: UserSliceMut,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::StartupGet { buf };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::StartupGet(ret) => Ok(ret),
-            _ => mismatch("startup_get"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::StartupGet(ret) => Ok(ret),
+                _ => mismatch("startup_get"),
+            })
     }
 
-    async fn thread_spawn(
-        &self,
-        caller: &Caller<'_>,
+    fn thread_spawn<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         flags: Ulong,
         start_arg: Uptr,
         parent_tid: S32Ptr,
         tls: Uptr,
         child_tid: S32Ptr,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::ThreadSpawn {
             flags,
             start_arg,
@@ -13206,77 +13475,95 @@ impl<L: Layer<S>, S: Syscalls> Syscalls for Layered<L, S> {
             tls,
             child_tid,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::ThreadSpawn(ret) => Ok(ret),
-            _ => mismatch("thread_spawn"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::ThreadSpawn(ret) => Ok(ret),
+                _ => mismatch("thread_spawn"),
+            })
     }
 
-    async fn signal_callback_register(&self, caller: &Caller<'_>, callback: u32) -> SysResult<i32> {
+    fn signal_callback_register<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        callback: u32,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::SignalCallbackRegister { callback };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::SignalCallbackRegister(ret) => Ok(ret),
-            _ => mismatch("signal_callback_register"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::SignalCallbackRegister(ret) => Ok(ret),
+                _ => mismatch("signal_callback_register"),
+            })
     }
 
-    async fn call_dynamic(
-        &self,
-        caller: &Caller<'_>,
+    fn call_dynamic<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         function: u32,
         values: UserSlice,
         results: UserSliceMut,
         flags: CallDynamicFlags,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::CallDynamic {
             function,
             values,
             results,
             flags,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::CallDynamic(ret) => Ok(ret),
-            _ => mismatch("call_dynamic"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::CallDynamic(ret) => Ok(ret),
+                _ => mismatch("call_dynamic"),
+            })
     }
 
-    async fn reflect_signature(
-        &self,
-        caller: &Caller<'_>,
+    fn reflect_signature<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         function: u32,
         argument_types: UserSliceMut,
         result_types: UserSliceMut,
         result: ReflectionResultPtr,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::ReflectSignature {
             function,
             argument_types,
             result_types,
             result,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::ReflectSignature(ret) => Ok(ret),
-            _ => mismatch("reflect_signature"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::ReflectSignature(ret) => Ok(ret),
+                _ => mismatch("reflect_signature"),
+            })
     }
 
-    async fn closure_allocate(&self, caller: &Caller<'_>, closure: U32Ptr) -> SysResult<i32> {
+    fn closure_allocate<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        closure: U32Ptr,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::ClosureAllocate { closure };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::ClosureAllocate(ret) => Ok(ret),
-            _ => mismatch("closure_allocate"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::ClosureAllocate(ret) => Ok(ret),
+                _ => mismatch("closure_allocate"),
+            })
     }
 
-    async fn closure_prepare(
-        &self,
-        caller: &Caller<'_>,
+    fn closure_prepare<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         backing: u32,
         closure: u32,
         argument_types: UserSlice,
         result_types: UserSlice,
         env_: Uptr,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::ClosurePrepare {
             backing,
             closure,
@@ -13284,89 +13571,122 @@ impl<L: Layer<S>, S: Syscalls> Syscalls for Layered<L, S> {
             result_types,
             env_,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::ClosurePrepare(ret) => Ok(ret),
-            _ => mismatch("closure_prepare"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::ClosurePrepare(ret) => Ok(ret),
+                _ => mismatch("closure_prepare"),
+            })
     }
 
-    async fn closure_free(&self, caller: &Caller<'_>, closure: u32) -> SysResult<i32> {
+    fn closure_free<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        closure: u32,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::ClosureFree { closure };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::ClosureFree(ret) => Ok(ret),
-            _ => mismatch("closure_free"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::ClosureFree(ret) => Ok(ret),
+                _ => mismatch("closure_free"),
+            })
     }
 
-    async fn checkpoint(&self, caller: &Caller<'_>) -> SysResult<i32> {
+    fn checkpoint<'a>(&'a self, caller: &'a Caller<'_>) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Checkpoint;
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Checkpoint(ret) => Ok(ret),
-            _ => mismatch("checkpoint"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Checkpoint(ret) => Ok(ret),
+                _ => mismatch("checkpoint"),
+            })
     }
 
-    async fn stack_save(
-        &self,
-        caller: &Caller<'_>,
+    fn stack_save<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         snapshot: StackSnapshotPtr,
         val: S32Ptr,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::StackSave { snapshot, val };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::StackSave(ret) => Ok(ret),
-            _ => mismatch("stack_save"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::StackSave(ret) => Ok(ret),
+                _ => mismatch("stack_save"),
+            })
     }
 
-    async fn stack_restore(
-        &self,
-        caller: &Caller<'_>,
+    fn stack_restore<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         snapshot: ConstStackSnapshotPtr,
         val: i32,
-    ) -> SysResult<()> {
+    ) -> MaybeFuture<'a, SysResult<()>> {
         let call = Syscall::StackRestore { snapshot, val };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::StackRestore => Ok(()),
-            _ => mismatch("stack_restore"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::StackRestore => Ok(()),
+                _ => mismatch("stack_restore"),
+            })
     }
 
-    async fn context_create(&self, caller: &Caller<'_>, entry: u32, id: U64Ptr) -> SysResult<i32> {
+    fn context_create<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        entry: u32,
+        id: U64Ptr,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::ContextCreate { entry, id };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::ContextCreate(ret) => Ok(ret),
-            _ => mismatch("context_create"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::ContextCreate(ret) => Ok(ret),
+                _ => mismatch("context_create"),
+            })
     }
 
-    async fn context_switch(&self, caller: &Caller<'_>, id: u64) -> SysResult<i32> {
+    fn context_switch<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        id: u64,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::ContextSwitch { id };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::ContextSwitch(ret) => Ok(ret),
-            _ => mismatch("context_switch"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::ContextSwitch(ret) => Ok(ret),
+                _ => mismatch("context_switch"),
+            })
     }
 
-    async fn context_destroy(&self, caller: &Caller<'_>, id: u64) -> SysResult<i32> {
+    fn context_destroy<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        id: u64,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::ContextDestroy { id };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::ContextDestroy(ret) => Ok(ret),
-            _ => mismatch("context_destroy"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::ContextDestroy(ret) => Ok(ret),
+                _ => mismatch("context_destroy"),
+            })
     }
 
     #[allow(clippy::too_many_arguments)]
-    async fn dl_open(
-        &self,
-        caller: &Caller<'_>,
+    fn dl_open<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         file: Cstr,
         flags: DlFlags,
         search_path: Cstr,
         caller_addr: Uptr,
         handle: DlHandlePtr,
         err: UserSliceMut,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::DlOpen {
             file,
             flags,
@@ -13375,21 +13695,23 @@ impl<L: Layer<S>, S: Syscalls> Syscalls for Layered<L, S> {
             handle,
             err,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::DlOpen(ret) => Ok(ret),
-            _ => mismatch("dl_open"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::DlOpen(ret) => Ok(ret),
+                _ => mismatch("dl_open"),
+            })
     }
 
-    async fn dl_sym(
-        &self,
-        caller: &Caller<'_>,
+    fn dl_sym<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         handle: DlHandle,
         symbol: Cstr,
         caller_addr: Uptr,
         addr: UptrPtr,
         err: UserSliceMut,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::DlSym {
             handle,
             symbol,
@@ -13397,263 +13719,326 @@ impl<L: Layer<S>, S: Syscalls> Syscalls for Layered<L, S> {
             addr,
             err,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::DlSym(ret) => Ok(ret),
-            _ => mismatch("dl_sym"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::DlSym(ret) => Ok(ret),
+                _ => mismatch("dl_sym"),
+            })
     }
 
-    async fn dl_close(&self, caller: &Caller<'_>, handle: DlHandle) -> SysResult<i32> {
+    fn dl_close<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        handle: DlHandle,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::DlClose { handle };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::DlClose(ret) => Ok(ret),
-            _ => mismatch("dl_close"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::DlClose(ret) => Ok(ret),
+                _ => mismatch("dl_close"),
+            })
     }
 
-    async fn dl_next_init(&self, caller: &Caller<'_>, ctors: UptrPtr) -> SysResult<i32> {
+    fn dl_next_init<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        ctors: UptrPtr,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::DlNextInit { ctors };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::DlNextInit(ret) => Ok(ret),
-            _ => mismatch("dl_next_init"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::DlNextInit(ret) => Ok(ret),
+                _ => mismatch("dl_next_init"),
+            })
     }
 
-    async fn openat(
-        &self,
-        caller: &Caller<'_>,
+    fn openat<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         dfd: Fd,
         filename: Cstr,
         flags: OpenFlags,
         mode: Mode,
-    ) -> SysResult<Fd> {
+    ) -> MaybeFuture<'a, SysResult<Fd>> {
         let call = Syscall::Openat {
             dfd,
             filename,
             flags,
             mode,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Openat(ret) => Ok(ret),
-            _ => mismatch("openat"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Openat(ret) => Ok(ret),
+                _ => mismatch("openat"),
+            })
     }
 
-    async fn openat2(
-        &self,
-        caller: &Caller<'_>,
+    fn openat2<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         dfd: Fd,
         filename: Cstr,
         how: ConstOpenHowPtr,
         usize: Usize,
-    ) -> SysResult<Fd> {
+    ) -> MaybeFuture<'a, SysResult<Fd>> {
         let call = Syscall::Openat2 {
             dfd,
             filename,
             how,
             usize,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Openat2(ret) => Ok(ret),
-            _ => mismatch("openat2"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Openat2(ret) => Ok(ret),
+                _ => mismatch("openat2"),
+            })
     }
 
-    async fn close(&self, caller: &Caller<'_>, fd: Fd) -> SysResult<i32> {
+    fn close<'a>(&'a self, caller: &'a Caller<'_>, fd: Fd) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Close { fd };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Close(ret) => Ok(ret),
-            _ => mismatch("close"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Close(ret) => Ok(ret),
+                _ => mismatch("close"),
+            })
     }
 
-    async fn close_range(
-        &self,
-        caller: &Caller<'_>,
+    fn close_range<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: u32,
         max_fd: u32,
         flags: CloseRangeFlags,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::CloseRange { fd, max_fd, flags };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::CloseRange(ret) => Ok(ret),
-            _ => mismatch("close_range"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::CloseRange(ret) => Ok(ret),
+                _ => mismatch("close_range"),
+            })
     }
 
-    async fn dup(&self, caller: &Caller<'_>, fildes: Fd) -> SysResult<Fd> {
+    fn dup<'a>(&'a self, caller: &'a Caller<'_>, fildes: Fd) -> MaybeFuture<'a, SysResult<Fd>> {
         let call = Syscall::Dup { fildes };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Dup(ret) => Ok(ret),
-            _ => mismatch("dup"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Dup(ret) => Ok(ret),
+                _ => mismatch("dup"),
+            })
     }
 
-    async fn dup3(
-        &self,
-        caller: &Caller<'_>,
+    fn dup3<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         oldfd: Fd,
         newfd: Fd,
         flags: OpenFlags,
-    ) -> SysResult<Fd> {
+    ) -> MaybeFuture<'a, SysResult<Fd>> {
         let call = Syscall::Dup3 {
             oldfd,
             newfd,
             flags,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Dup3(ret) => Ok(ret),
-            _ => mismatch("dup3"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Dup3(ret) => Ok(ret),
+                _ => mismatch("dup3"),
+            })
     }
 
-    async fn fcntl64(
-        &self,
-        caller: &Caller<'_>,
+    fn fcntl64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         cmd: FcntlCmd,
         arg: Ulong,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Fcntl64 { fd, cmd, arg };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Fcntl64(ret) => Ok(ret),
-            _ => mismatch("fcntl64"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Fcntl64(ret) => Ok(ret),
+                _ => mismatch("fcntl64"),
+            })
     }
 
-    async fn flock(&self, caller: &Caller<'_>, fd: Fd, cmd: FlockOp) -> SysResult<i32> {
+    fn flock<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        fd: Fd,
+        cmd: FlockOp,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Flock { fd, cmd };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Flock(ret) => Ok(ret),
-            _ => mismatch("flock"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Flock(ret) => Ok(ret),
+                _ => mismatch("flock"),
+            })
     }
 
-    async fn ioctl(
-        &self,
-        caller: &Caller<'_>,
+    fn ioctl<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         cmd: IoctlRequest,
         arg: Ulong,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Ioctl { fd, cmd, arg };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Ioctl(ret) => Ok(ret),
-            _ => mismatch("ioctl"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Ioctl(ret) => Ok(ret),
+                _ => mismatch("ioctl"),
+            })
     }
 
-    async fn read(&self, caller: &Caller<'_>, fd: Fd, buf: UserSliceMut) -> SysResult<u32> {
+    fn read<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        fd: Fd,
+        buf: UserSliceMut,
+    ) -> MaybeFuture<'a, SysResult<u32>> {
         let call = Syscall::Read { fd, buf };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Read(ret) => Ok(ret),
-            _ => mismatch("read"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Read(ret) => Ok(ret),
+                _ => mismatch("read"),
+            })
     }
 
-    async fn write(&self, caller: &Caller<'_>, fd: Fd, buf: UserSlice) -> SysResult<u32> {
+    fn write<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        fd: Fd,
+        buf: UserSlice,
+    ) -> MaybeFuture<'a, SysResult<u32>> {
         let call = Syscall::Write { fd, buf };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Write(ret) => Ok(ret),
-            _ => mismatch("write"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Write(ret) => Ok(ret),
+                _ => mismatch("write"),
+            })
     }
 
-    async fn readv(
-        &self,
-        caller: &Caller<'_>,
+    fn readv<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         vec: ConstIovecArray,
         vlen: Ulong,
-    ) -> SysResult<u32> {
+    ) -> MaybeFuture<'a, SysResult<u32>> {
         let call = Syscall::Readv { fd, vec, vlen };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Readv(ret) => Ok(ret),
-            _ => mismatch("readv"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Readv(ret) => Ok(ret),
+                _ => mismatch("readv"),
+            })
     }
 
-    async fn writev(
-        &self,
-        caller: &Caller<'_>,
+    fn writev<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         vec: ConstIovecArray,
         vlen: Ulong,
-    ) -> SysResult<u32> {
+    ) -> MaybeFuture<'a, SysResult<u32>> {
         let call = Syscall::Writev { fd, vec, vlen };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Writev(ret) => Ok(ret),
-            _ => mismatch("writev"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Writev(ret) => Ok(ret),
+                _ => mismatch("writev"),
+            })
     }
 
-    async fn pread64(
-        &self,
-        caller: &Caller<'_>,
+    fn pread64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         buf: UserSliceMut,
         pos: Loff,
-    ) -> SysResult<u32> {
+    ) -> MaybeFuture<'a, SysResult<u32>> {
         let call = Syscall::Pread64 { fd, buf, pos };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Pread64(ret) => Ok(ret),
-            _ => mismatch("pread64"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Pread64(ret) => Ok(ret),
+                _ => mismatch("pread64"),
+            })
     }
 
-    async fn pwrite64(
-        &self,
-        caller: &Caller<'_>,
+    fn pwrite64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         buf: UserSlice,
         pos: Loff,
-    ) -> SysResult<u32> {
+    ) -> MaybeFuture<'a, SysResult<u32>> {
         let call = Syscall::Pwrite64 { fd, buf, pos };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Pwrite64(ret) => Ok(ret),
-            _ => mismatch("pwrite64"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Pwrite64(ret) => Ok(ret),
+                _ => mismatch("pwrite64"),
+            })
     }
 
-    async fn preadv(
-        &self,
-        caller: &Caller<'_>,
+    fn preadv<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         vec: ConstIovecArray,
         vlen: Ulong,
         pos: i64,
-    ) -> SysResult<u32> {
+    ) -> MaybeFuture<'a, SysResult<u32>> {
         let call = Syscall::Preadv { fd, vec, vlen, pos };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Preadv(ret) => Ok(ret),
-            _ => mismatch("preadv"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Preadv(ret) => Ok(ret),
+                _ => mismatch("preadv"),
+            })
     }
 
-    async fn pwritev(
-        &self,
-        caller: &Caller<'_>,
+    fn pwritev<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         vec: ConstIovecArray,
         vlen: Ulong,
         pos: i64,
-    ) -> SysResult<u32> {
+    ) -> MaybeFuture<'a, SysResult<u32>> {
         let call = Syscall::Pwritev { fd, vec, vlen, pos };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Pwritev(ret) => Ok(ret),
-            _ => mismatch("pwritev"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Pwritev(ret) => Ok(ret),
+                _ => mismatch("pwritev"),
+            })
     }
 
-    async fn preadv2(
-        &self,
-        caller: &Caller<'_>,
+    fn preadv2<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         vec: ConstIovecArray,
         vlen: Ulong,
         pos: i64,
         flags: RwfFlags,
-    ) -> SysResult<u32> {
+    ) -> MaybeFuture<'a, SysResult<u32>> {
         let call = Syscall::Preadv2 {
             fd,
             vec,
@@ -13661,21 +14046,23 @@ impl<L: Layer<S>, S: Syscalls> Syscalls for Layered<L, S> {
             pos,
             flags,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Preadv2(ret) => Ok(ret),
-            _ => mismatch("preadv2"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Preadv2(ret) => Ok(ret),
+                _ => mismatch("preadv2"),
+            })
     }
 
-    async fn pwritev2(
-        &self,
-        caller: &Caller<'_>,
+    fn pwritev2<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         vec: ConstIovecArray,
         vlen: Ulong,
         pos: i64,
         flags: RwfFlags,
-    ) -> SysResult<u32> {
+    ) -> MaybeFuture<'a, SysResult<u32>> {
         let call = Syscall::Pwritev2 {
             fd,
             vec,
@@ -13683,57 +14070,63 @@ impl<L: Layer<S>, S: Syscalls> Syscalls for Layered<L, S> {
             pos,
             flags,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Pwritev2(ret) => Ok(ret),
-            _ => mismatch("pwritev2"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Pwritev2(ret) => Ok(ret),
+                _ => mismatch("pwritev2"),
+            })
     }
 
-    async fn lseek(
-        &self,
-        caller: &Caller<'_>,
+    fn lseek<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         offset: Loff,
         whence: SeekWhence,
-    ) -> SysResult<i64> {
+    ) -> MaybeFuture<'a, SysResult<i64>> {
         let call = Syscall::Lseek { fd, offset, whence };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Lseek(ret) => Ok(ret),
-            _ => mismatch("lseek"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Lseek(ret) => Ok(ret),
+                _ => mismatch("lseek"),
+            })
     }
 
-    async fn sendfile64(
-        &self,
-        caller: &Caller<'_>,
+    fn sendfile64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         out_fd: Fd,
         in_fd: Fd,
         offset: LoffPtr,
         count: Usize,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Sendfile64 {
             out_fd,
             in_fd,
             offset,
             count,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Sendfile64(ret) => Ok(ret),
-            _ => mismatch("sendfile64"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Sendfile64(ret) => Ok(ret),
+                _ => mismatch("sendfile64"),
+            })
     }
 
     #[allow(clippy::too_many_arguments)]
-    async fn splice(
-        &self,
-        caller: &Caller<'_>,
+    fn splice<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd_in: Fd,
         off_in: LoffPtr,
         fd_out: Fd,
         off_out: LoffPtr,
         len: Usize,
         flags: SpliceFlags,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Splice {
             fd_in,
             off_in,
@@ -13742,63 +14135,69 @@ impl<L: Layer<S>, S: Syscalls> Syscalls for Layered<L, S> {
             len,
             flags,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Splice(ret) => Ok(ret),
-            _ => mismatch("splice"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Splice(ret) => Ok(ret),
+                _ => mismatch("splice"),
+            })
     }
 
-    async fn tee(
-        &self,
-        caller: &Caller<'_>,
+    fn tee<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fdin: Fd,
         fdout: Fd,
         len: Usize,
         flags: SpliceFlags,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Tee {
             fdin,
             fdout,
             len,
             flags,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Tee(ret) => Ok(ret),
-            _ => mismatch("tee"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Tee(ret) => Ok(ret),
+                _ => mismatch("tee"),
+            })
     }
 
-    async fn vmsplice(
-        &self,
-        caller: &Caller<'_>,
+    fn vmsplice<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         uiov: ConstIovecArray,
         nr_segs: Ulong,
         flags: SpliceFlags,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Vmsplice {
             fd,
             uiov,
             nr_segs,
             flags,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Vmsplice(ret) => Ok(ret),
-            _ => mismatch("vmsplice"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Vmsplice(ret) => Ok(ret),
+                _ => mismatch("vmsplice"),
+            })
     }
 
     #[allow(clippy::too_many_arguments)]
-    async fn copy_file_range(
-        &self,
-        caller: &Caller<'_>,
+    fn copy_file_range<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd_in: Fd,
         off_in: LoffPtr,
         fd_out: Fd,
         off_out: LoffPtr,
         len: Usize,
         flags: u32,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::CopyFileRange {
             fd_in,
             off_in,
@@ -13807,231 +14206,273 @@ impl<L: Layer<S>, S: Syscalls> Syscalls for Layered<L, S> {
             len,
             flags,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::CopyFileRange(ret) => Ok(ret),
-            _ => mismatch("copy_file_range"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::CopyFileRange(ret) => Ok(ret),
+                _ => mismatch("copy_file_range"),
+            })
     }
 
-    async fn truncate64(&self, caller: &Caller<'_>, path: Cstr, length: Loff) -> SysResult<i32> {
+    fn truncate64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        path: Cstr,
+        length: Loff,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Truncate64 { path, length };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Truncate64(ret) => Ok(ret),
-            _ => mismatch("truncate64"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Truncate64(ret) => Ok(ret),
+                _ => mismatch("truncate64"),
+            })
     }
 
-    async fn ftruncate64(&self, caller: &Caller<'_>, fd: Fd, length: Loff) -> SysResult<i32> {
+    fn ftruncate64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        fd: Fd,
+        length: Loff,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Ftruncate64 { fd, length };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Ftruncate64(ret) => Ok(ret),
-            _ => mismatch("ftruncate64"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Ftruncate64(ret) => Ok(ret),
+                _ => mismatch("ftruncate64"),
+            })
     }
 
-    async fn fallocate(
-        &self,
-        caller: &Caller<'_>,
+    fn fallocate<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         mode: FallocFlags,
         offset: Loff,
         len: Loff,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Fallocate {
             fd,
             mode,
             offset,
             len,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Fallocate(ret) => Ok(ret),
-            _ => mismatch("fallocate"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Fallocate(ret) => Ok(ret),
+                _ => mismatch("fallocate"),
+            })
     }
 
-    async fn fadvise64_64(
-        &self,
-        caller: &Caller<'_>,
+    fn fadvise64_64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         offset: Loff,
         len: Loff,
         advice: FadviseAdvice,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Fadvise6464 {
             fd,
             offset,
             len,
             advice,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Fadvise6464(ret) => Ok(ret),
-            _ => mismatch("fadvise64_64"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Fadvise6464(ret) => Ok(ret),
+                _ => mismatch("fadvise64_64"),
+            })
     }
 
-    async fn readahead(
-        &self,
-        caller: &Caller<'_>,
+    fn readahead<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         offset: Loff,
         count: Usize,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Readahead { fd, offset, count };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Readahead(ret) => Ok(ret),
-            _ => mismatch("readahead"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Readahead(ret) => Ok(ret),
+                _ => mismatch("readahead"),
+            })
     }
 
-    async fn sync(&self, caller: &Caller<'_>) -> SysResult<i32> {
+    fn sync<'a>(&'a self, caller: &'a Caller<'_>) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Sync;
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Sync(ret) => Ok(ret),
-            _ => mismatch("sync"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Sync(ret) => Ok(ret),
+                _ => mismatch("sync"),
+            })
     }
 
-    async fn fsync(&self, caller: &Caller<'_>, fd: Fd) -> SysResult<i32> {
+    fn fsync<'a>(&'a self, caller: &'a Caller<'_>, fd: Fd) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Fsync { fd };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Fsync(ret) => Ok(ret),
-            _ => mismatch("fsync"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Fsync(ret) => Ok(ret),
+                _ => mismatch("fsync"),
+            })
     }
 
-    async fn fdatasync(&self, caller: &Caller<'_>, fd: Fd) -> SysResult<i32> {
+    fn fdatasync<'a>(&'a self, caller: &'a Caller<'_>, fd: Fd) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Fdatasync { fd };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Fdatasync(ret) => Ok(ret),
-            _ => mismatch("fdatasync"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Fdatasync(ret) => Ok(ret),
+                _ => mismatch("fdatasync"),
+            })
     }
 
-    async fn syncfs(&self, caller: &Caller<'_>, fd: Fd) -> SysResult<i32> {
+    fn syncfs<'a>(&'a self, caller: &'a Caller<'_>, fd: Fd) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Syncfs { fd };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Syncfs(ret) => Ok(ret),
-            _ => mismatch("syncfs"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Syncfs(ret) => Ok(ret),
+                _ => mismatch("syncfs"),
+            })
     }
 
-    async fn sync_file_range(
-        &self,
-        caller: &Caller<'_>,
+    fn sync_file_range<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         offset: Loff,
         nbytes: Loff,
         flags: SyncFileRangeFlags,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::SyncFileRange {
             fd,
             offset,
             nbytes,
             flags,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::SyncFileRange(ret) => Ok(ret),
-            _ => mismatch("sync_file_range"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::SyncFileRange(ret) => Ok(ret),
+                _ => mismatch("sync_file_range"),
+            })
     }
 
-    async fn getdents64(
-        &self,
-        caller: &Caller<'_>,
+    fn getdents64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         dirent: LinuxDirent64Ptr,
         count: u32,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Getdents64 { fd, dirent, count };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Getdents64(ret) => Ok(ret),
-            _ => mismatch("getdents64"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Getdents64(ret) => Ok(ret),
+                _ => mismatch("getdents64"),
+            })
     }
 
-    async fn mkdirat(
-        &self,
-        caller: &Caller<'_>,
+    fn mkdirat<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         dfd: Fd,
         pathname: Cstr,
         mode: Mode,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Mkdirat {
             dfd,
             pathname,
             mode,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Mkdirat(ret) => Ok(ret),
-            _ => mismatch("mkdirat"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Mkdirat(ret) => Ok(ret),
+                _ => mismatch("mkdirat"),
+            })
     }
 
-    async fn mknodat(
-        &self,
-        caller: &Caller<'_>,
+    fn mknodat<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         dfd: Fd,
         filename: Cstr,
         mode: Mode,
         dev: u32,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Mknodat {
             dfd,
             filename,
             mode,
             dev,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Mknodat(ret) => Ok(ret),
-            _ => mismatch("mknodat"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Mknodat(ret) => Ok(ret),
+                _ => mismatch("mknodat"),
+            })
     }
 
-    async fn unlinkat(
-        &self,
-        caller: &Caller<'_>,
+    fn unlinkat<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         dfd: Fd,
         pathname: Cstr,
         flag: AtFlags,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Unlinkat {
             dfd,
             pathname,
             flag,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Unlinkat(ret) => Ok(ret),
-            _ => mismatch("unlinkat"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Unlinkat(ret) => Ok(ret),
+                _ => mismatch("unlinkat"),
+            })
     }
 
-    async fn symlinkat(
-        &self,
-        caller: &Caller<'_>,
+    fn symlinkat<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         oldname: Cstr,
         newdfd: Fd,
         newname: Cstr,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Symlinkat {
             oldname,
             newdfd,
             newname,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Symlinkat(ret) => Ok(ret),
-            _ => mismatch("symlinkat"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Symlinkat(ret) => Ok(ret),
+                _ => mismatch("symlinkat"),
+            })
     }
 
-    async fn linkat(
-        &self,
-        caller: &Caller<'_>,
+    fn linkat<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         olddfd: Fd,
         oldname: Cstr,
         newdfd: Fd,
         newname: Cstr,
         flags: AtFlags,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Linkat {
             olddfd,
             oldname,
@@ -14039,21 +14480,23 @@ impl<L: Layer<S>, S: Syscalls> Syscalls for Layered<L, S> {
             newname,
             flags,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Linkat(ret) => Ok(ret),
-            _ => mismatch("linkat"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Linkat(ret) => Ok(ret),
+                _ => mismatch("linkat"),
+            })
     }
 
-    async fn renameat2(
-        &self,
-        caller: &Caller<'_>,
+    fn renameat2<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         olddfd: Fd,
         oldname: Cstr,
         newdfd: Fd,
         newname: Cstr,
         flags: RenameFlags,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Renameat2 {
             olddfd,
             oldname,
@@ -14061,173 +14504,227 @@ impl<L: Layer<S>, S: Syscalls> Syscalls for Layered<L, S> {
             newname,
             flags,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Renameat2(ret) => Ok(ret),
-            _ => mismatch("renameat2"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Renameat2(ret) => Ok(ret),
+                _ => mismatch("renameat2"),
+            })
     }
 
-    async fn readlinkat(
-        &self,
-        caller: &Caller<'_>,
+    fn readlinkat<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         dfd: Fd,
         pathname: Cstr,
         buf: Buf,
         bufsiz: i32,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Readlinkat {
             dfd,
             pathname,
             buf,
             bufsiz,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Readlinkat(ret) => Ok(ret),
-            _ => mismatch("readlinkat"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Readlinkat(ret) => Ok(ret),
+                _ => mismatch("readlinkat"),
+            })
     }
 
-    async fn faccessat(
-        &self,
-        caller: &Caller<'_>,
+    fn faccessat<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         dfd: Fd,
         filename: Cstr,
         mode: AccessMode,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Faccessat {
             dfd,
             filename,
             mode,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Faccessat(ret) => Ok(ret),
-            _ => mismatch("faccessat"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Faccessat(ret) => Ok(ret),
+                _ => mismatch("faccessat"),
+            })
     }
 
-    async fn faccessat2(
-        &self,
-        caller: &Caller<'_>,
+    fn faccessat2<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         dfd: Fd,
         filename: Cstr,
         mode: AccessMode,
         flags: AtFlags,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Faccessat2 {
             dfd,
             filename,
             mode,
             flags,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Faccessat2(ret) => Ok(ret),
-            _ => mismatch("faccessat2"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Faccessat2(ret) => Ok(ret),
+                _ => mismatch("faccessat2"),
+            })
     }
 
-    async fn chdir(&self, caller: &Caller<'_>, filename: Cstr) -> SysResult<i32> {
+    fn chdir<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        filename: Cstr,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Chdir { filename };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Chdir(ret) => Ok(ret),
-            _ => mismatch("chdir"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Chdir(ret) => Ok(ret),
+                _ => mismatch("chdir"),
+            })
     }
 
-    async fn fchdir(&self, caller: &Caller<'_>, fd: Fd) -> SysResult<i32> {
+    fn fchdir<'a>(&'a self, caller: &'a Caller<'_>, fd: Fd) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Fchdir { fd };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Fchdir(ret) => Ok(ret),
-            _ => mismatch("fchdir"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Fchdir(ret) => Ok(ret),
+                _ => mismatch("fchdir"),
+            })
     }
 
-    async fn chroot(&self, caller: &Caller<'_>, filename: Cstr) -> SysResult<i32> {
+    fn chroot<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        filename: Cstr,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Chroot { filename };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Chroot(ret) => Ok(ret),
-            _ => mismatch("chroot"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Chroot(ret) => Ok(ret),
+                _ => mismatch("chroot"),
+            })
     }
 
-    async fn fchroot(&self, caller: &Caller<'_>, fd: Fd, flags: u32) -> SysResult<i32> {
+    fn fchroot<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        fd: Fd,
+        flags: u32,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Fchroot { fd, flags };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Fchroot(ret) => Ok(ret),
-            _ => mismatch("fchroot"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Fchroot(ret) => Ok(ret),
+                _ => mismatch("fchroot"),
+            })
     }
 
-    async fn getcwd(&self, caller: &Caller<'_>, buf: UserSliceMut) -> SysResult<u32> {
+    fn getcwd<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        buf: UserSliceMut,
+    ) -> MaybeFuture<'a, SysResult<u32>> {
         let call = Syscall::Getcwd { buf };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Getcwd(ret) => Ok(ret),
-            _ => mismatch("getcwd"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Getcwd(ret) => Ok(ret),
+                _ => mismatch("getcwd"),
+            })
     }
 
-    async fn fchmod(&self, caller: &Caller<'_>, fd: Fd, mode: Mode) -> SysResult<i32> {
+    fn fchmod<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        fd: Fd,
+        mode: Mode,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Fchmod { fd, mode };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Fchmod(ret) => Ok(ret),
-            _ => mismatch("fchmod"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Fchmod(ret) => Ok(ret),
+                _ => mismatch("fchmod"),
+            })
     }
 
-    async fn fchmodat(
-        &self,
-        caller: &Caller<'_>,
+    fn fchmodat<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         dfd: Fd,
         filename: Cstr,
         mode: Mode,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Fchmodat {
             dfd,
             filename,
             mode,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Fchmodat(ret) => Ok(ret),
-            _ => mismatch("fchmodat"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Fchmodat(ret) => Ok(ret),
+                _ => mismatch("fchmodat"),
+            })
     }
 
-    async fn fchmodat2(
-        &self,
-        caller: &Caller<'_>,
+    fn fchmodat2<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         dfd: Fd,
         filename: Cstr,
         mode: Mode,
         flags: AtFlags,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Fchmodat2 {
             dfd,
             filename,
             mode,
             flags,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Fchmodat2(ret) => Ok(ret),
-            _ => mismatch("fchmodat2"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Fchmodat2(ret) => Ok(ret),
+                _ => mismatch("fchmodat2"),
+            })
     }
 
-    async fn fchown(&self, caller: &Caller<'_>, fd: Fd, user: Uid, group: Gid) -> SysResult<i32> {
+    fn fchown<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        fd: Fd,
+        user: Uid,
+        group: Gid,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Fchown { fd, user, group };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Fchown(ret) => Ok(ret),
-            _ => mismatch("fchown"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Fchown(ret) => Ok(ret),
+                _ => mismatch("fchown"),
+            })
     }
 
-    async fn fchownat(
-        &self,
-        caller: &Caller<'_>,
+    fn fchownat<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         dfd: Fd,
         filename: Cstr,
         user: Uid,
         group: Gid,
         flag: AtFlags,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Fchownat {
             dfd,
             filename,
@@ -14235,21 +14732,23 @@ impl<L: Layer<S>, S: Syscalls> Syscalls for Layered<L, S> {
             group,
             flag,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Fchownat(ret) => Ok(ret),
-            _ => mismatch("fchownat"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Fchownat(ret) => Ok(ret),
+                _ => mismatch("fchownat"),
+            })
     }
 
-    async fn statx(
-        &self,
-        caller: &Caller<'_>,
+    fn statx<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         dfd: Fd,
         filename: Cstr,
         flags: AtFlags,
         mask: StatxMask,
         buffer: StatxPtr,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Statx {
             dfd,
             filename,
@@ -14257,98 +14756,121 @@ impl<L: Layer<S>, S: Syscalls> Syscalls for Layered<L, S> {
             mask,
             buffer,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Statx(ret) => Ok(ret),
-            _ => mismatch("statx"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Statx(ret) => Ok(ret),
+                _ => mismatch("statx"),
+            })
     }
 
-    async fn statfs64(
-        &self,
-        caller: &Caller<'_>,
+    fn statfs64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pathname: Cstr,
         sz: Usize,
         buf: Statfs64Ptr,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Statfs64 { pathname, sz, buf };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Statfs64(ret) => Ok(ret),
-            _ => mismatch("statfs64"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Statfs64(ret) => Ok(ret),
+                _ => mismatch("statfs64"),
+            })
     }
 
-    async fn fstatfs64(
-        &self,
-        caller: &Caller<'_>,
+    fn fstatfs64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         sz: Usize,
         buf: Statfs64Ptr,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Fstatfs64 { fd, sz, buf };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Fstatfs64(ret) => Ok(ret),
-            _ => mismatch("fstatfs64"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Fstatfs64(ret) => Ok(ret),
+                _ => mismatch("fstatfs64"),
+            })
     }
 
-    async fn utimensat_time64(
-        &self,
-        caller: &Caller<'_>,
+    fn utimensat_time64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         dfd: Fd,
         filename: Cstr,
         utimes: ConstKernelTimespecArray,
         flags: AtFlags,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::UtimensatTime64 {
             dfd,
             filename,
             utimes,
             flags,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::UtimensatTime64(ret) => Ok(ret),
-            _ => mismatch("utimensat_time64"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::UtimensatTime64(ret) => Ok(ret),
+                _ => mismatch("utimensat_time64"),
+            })
     }
 
-    async fn pipe2(&self, caller: &Caller<'_>, fildes: FdPair, flags: OpenFlags) -> SysResult<i32> {
+    fn pipe2<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        fildes: FdPair,
+        flags: OpenFlags,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Pipe2 { fildes, flags };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Pipe2(ret) => Ok(ret),
-            _ => mismatch("pipe2"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Pipe2(ret) => Ok(ret),
+                _ => mismatch("pipe2"),
+            })
     }
 
-    async fn memfd_create(
-        &self,
-        caller: &Caller<'_>,
+    fn memfd_create<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         uname: Cstr,
         flags: MemfdFlags,
-    ) -> SysResult<Fd> {
+    ) -> MaybeFuture<'a, SysResult<Fd>> {
         let call = Syscall::MemfdCreate { uname, flags };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::MemfdCreate(ret) => Ok(ret),
-            _ => mismatch("memfd_create"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::MemfdCreate(ret) => Ok(ret),
+                _ => mismatch("memfd_create"),
+            })
     }
 
-    async fn memfd_secret(&self, caller: &Caller<'_>, flags: u32) -> SysResult<i32> {
+    fn memfd_secret<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        flags: u32,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::MemfdSecret { flags };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::MemfdSecret(ret) => Ok(ret),
-            _ => mismatch("memfd_secret"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::MemfdSecret(ret) => Ok(ret),
+                _ => mismatch("memfd_secret"),
+            })
     }
 
-    async fn name_to_handle_at(
-        &self,
-        caller: &Caller<'_>,
+    fn name_to_handle_at<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         dfd: Fd,
         name: Cstr,
         handle: FileHandlePtr,
         mnt_id: S32Ptr,
         flag: i32,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::NameToHandleAt {
             dfd,
             name,
@@ -14356,59 +14878,65 @@ impl<L: Layer<S>, S: Syscalls> Syscalls for Layered<L, S> {
             mnt_id,
             flag,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::NameToHandleAt(ret) => Ok(ret),
-            _ => mismatch("name_to_handle_at"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::NameToHandleAt(ret) => Ok(ret),
+                _ => mismatch("name_to_handle_at"),
+            })
     }
 
-    async fn open_by_handle_at(
-        &self,
-        caller: &Caller<'_>,
+    fn open_by_handle_at<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         mountdirfd: Fd,
         handle: ConstFileHandlePtr,
         flags: OpenFlags,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::OpenByHandleAt {
             mountdirfd,
             handle,
             flags,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::OpenByHandleAt(ret) => Ok(ret),
-            _ => mismatch("open_by_handle_at"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::OpenByHandleAt(ret) => Ok(ret),
+                _ => mismatch("open_by_handle_at"),
+            })
     }
 
-    async fn cachestat(
-        &self,
-        caller: &Caller<'_>,
+    fn cachestat<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         cstat_range: ConstCachestatRangePtr,
         cstat: CachestatPtr,
         flags: u32,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Cachestat {
             fd,
             cstat_range,
             cstat,
             flags,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Cachestat(ret) => Ok(ret),
-            _ => mismatch("cachestat"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Cachestat(ret) => Ok(ret),
+                _ => mismatch("cachestat"),
+            })
     }
 
-    async fn file_getattr(
-        &self,
-        caller: &Caller<'_>,
+    fn file_getattr<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         dfd: Fd,
         filename: Cstr,
         ufattr: FileAttrPtr,
         usize: Usize,
         at_flags: AtFlags,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::FileGetattr {
             dfd,
             filename,
@@ -14416,21 +14944,23 @@ impl<L: Layer<S>, S: Syscalls> Syscalls for Layered<L, S> {
             usize,
             at_flags,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::FileGetattr(ret) => Ok(ret),
-            _ => mismatch("file_getattr"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::FileGetattr(ret) => Ok(ret),
+                _ => mismatch("file_getattr"),
+            })
     }
 
-    async fn file_setattr(
-        &self,
-        caller: &Caller<'_>,
+    fn file_setattr<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         dfd: Fd,
         filename: Cstr,
         ufattr: ConstFileAttrPtr,
         usize: Usize,
         at_flags: AtFlags,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::FileSetattr {
             dfd,
             filename,
@@ -14438,231 +14968,276 @@ impl<L: Layer<S>, S: Syscalls> Syscalls for Layered<L, S> {
             usize,
             at_flags,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::FileSetattr(ret) => Ok(ret),
-            _ => mismatch("file_setattr"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::FileSetattr(ret) => Ok(ret),
+                _ => mismatch("file_setattr"),
+            })
     }
 
-    async fn quotactl(
-        &self,
-        caller: &Caller<'_>,
+    fn quotactl<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         cmd: u32,
         special: Cstr,
         id: Qid,
         addr: VoidPtr,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Quotactl {
             cmd,
             special,
             id,
             addr,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Quotactl(ret) => Ok(ret),
-            _ => mismatch("quotactl"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Quotactl(ret) => Ok(ret),
+                _ => mismatch("quotactl"),
+            })
     }
 
-    async fn quotactl_fd(
-        &self,
-        caller: &Caller<'_>,
+    fn quotactl_fd<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         cmd: u32,
         id: Qid,
         addr: VoidPtr,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::QuotactlFd { fd, cmd, id, addr };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::QuotactlFd(ret) => Ok(ret),
-            _ => mismatch("quotactl_fd"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::QuotactlFd(ret) => Ok(ret),
+                _ => mismatch("quotactl_fd"),
+            })
     }
 
-    async fn setxattr(
-        &self,
-        caller: &Caller<'_>,
+    fn setxattr<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pathname: Cstr,
         name: Cstr,
         value: UserSlice,
         flags: XattrFlags,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Setxattr {
             pathname,
             name,
             value,
             flags,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Setxattr(ret) => Ok(ret),
-            _ => mismatch("setxattr"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Setxattr(ret) => Ok(ret),
+                _ => mismatch("setxattr"),
+            })
     }
 
-    async fn lsetxattr(
-        &self,
-        caller: &Caller<'_>,
+    fn lsetxattr<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pathname: Cstr,
         name: Cstr,
         value: UserSlice,
         flags: XattrFlags,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Lsetxattr {
             pathname,
             name,
             value,
             flags,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Lsetxattr(ret) => Ok(ret),
-            _ => mismatch("lsetxattr"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Lsetxattr(ret) => Ok(ret),
+                _ => mismatch("lsetxattr"),
+            })
     }
 
-    async fn fsetxattr(
-        &self,
-        caller: &Caller<'_>,
+    fn fsetxattr<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         name: Cstr,
         value: UserSlice,
         flags: XattrFlags,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Fsetxattr {
             fd,
             name,
             value,
             flags,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Fsetxattr(ret) => Ok(ret),
-            _ => mismatch("fsetxattr"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Fsetxattr(ret) => Ok(ret),
+                _ => mismatch("fsetxattr"),
+            })
     }
 
-    async fn getxattr(
-        &self,
-        caller: &Caller<'_>,
+    fn getxattr<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pathname: Cstr,
         name: Cstr,
         value: UserSliceMut,
-    ) -> SysResult<u32> {
+    ) -> MaybeFuture<'a, SysResult<u32>> {
         let call = Syscall::Getxattr {
             pathname,
             name,
             value,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Getxattr(ret) => Ok(ret),
-            _ => mismatch("getxattr"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Getxattr(ret) => Ok(ret),
+                _ => mismatch("getxattr"),
+            })
     }
 
-    async fn lgetxattr(
-        &self,
-        caller: &Caller<'_>,
+    fn lgetxattr<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pathname: Cstr,
         name: Cstr,
         value: UserSliceMut,
-    ) -> SysResult<u32> {
+    ) -> MaybeFuture<'a, SysResult<u32>> {
         let call = Syscall::Lgetxattr {
             pathname,
             name,
             value,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Lgetxattr(ret) => Ok(ret),
-            _ => mismatch("lgetxattr"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Lgetxattr(ret) => Ok(ret),
+                _ => mismatch("lgetxattr"),
+            })
     }
 
-    async fn fgetxattr(
-        &self,
-        caller: &Caller<'_>,
+    fn fgetxattr<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         name: Cstr,
         value: UserSliceMut,
-    ) -> SysResult<u32> {
+    ) -> MaybeFuture<'a, SysResult<u32>> {
         let call = Syscall::Fgetxattr { fd, name, value };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Fgetxattr(ret) => Ok(ret),
-            _ => mismatch("fgetxattr"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Fgetxattr(ret) => Ok(ret),
+                _ => mismatch("fgetxattr"),
+            })
     }
 
-    async fn listxattr(
-        &self,
-        caller: &Caller<'_>,
+    fn listxattr<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pathname: Cstr,
         list: UserSliceMut,
-    ) -> SysResult<u32> {
+    ) -> MaybeFuture<'a, SysResult<u32>> {
         let call = Syscall::Listxattr { pathname, list };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Listxattr(ret) => Ok(ret),
-            _ => mismatch("listxattr"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Listxattr(ret) => Ok(ret),
+                _ => mismatch("listxattr"),
+            })
     }
 
-    async fn llistxattr(
-        &self,
-        caller: &Caller<'_>,
+    fn llistxattr<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pathname: Cstr,
         list: UserSliceMut,
-    ) -> SysResult<u32> {
+    ) -> MaybeFuture<'a, SysResult<u32>> {
         let call = Syscall::Llistxattr { pathname, list };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Llistxattr(ret) => Ok(ret),
-            _ => mismatch("llistxattr"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Llistxattr(ret) => Ok(ret),
+                _ => mismatch("llistxattr"),
+            })
     }
 
-    async fn flistxattr(&self, caller: &Caller<'_>, fd: Fd, list: UserSliceMut) -> SysResult<u32> {
+    fn flistxattr<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        fd: Fd,
+        list: UserSliceMut,
+    ) -> MaybeFuture<'a, SysResult<u32>> {
         let call = Syscall::Flistxattr { fd, list };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Flistxattr(ret) => Ok(ret),
-            _ => mismatch("flistxattr"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Flistxattr(ret) => Ok(ret),
+                _ => mismatch("flistxattr"),
+            })
     }
 
-    async fn removexattr(&self, caller: &Caller<'_>, pathname: Cstr, name: Cstr) -> SysResult<i32> {
-        let call = Syscall::Removexattr { pathname, name };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Removexattr(ret) => Ok(ret),
-            _ => mismatch("removexattr"),
-        }
-    }
-
-    async fn lremovexattr(
-        &self,
-        caller: &Caller<'_>,
+    fn removexattr<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pathname: Cstr,
         name: Cstr,
-    ) -> SysResult<i32> {
-        let call = Syscall::Lremovexattr { pathname, name };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Lremovexattr(ret) => Ok(ret),
-            _ => mismatch("lremovexattr"),
-        }
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        let call = Syscall::Removexattr { pathname, name };
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Removexattr(ret) => Ok(ret),
+                _ => mismatch("removexattr"),
+            })
     }
 
-    async fn fremovexattr(&self, caller: &Caller<'_>, fd: Fd, name: Cstr) -> SysResult<i32> {
+    fn lremovexattr<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        pathname: Cstr,
+        name: Cstr,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        let call = Syscall::Lremovexattr { pathname, name };
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Lremovexattr(ret) => Ok(ret),
+                _ => mismatch("lremovexattr"),
+            })
+    }
+
+    fn fremovexattr<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        fd: Fd,
+        name: Cstr,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Fremovexattr { fd, name };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Fremovexattr(ret) => Ok(ret),
-            _ => mismatch("fremovexattr"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Fremovexattr(ret) => Ok(ret),
+                _ => mismatch("fremovexattr"),
+            })
     }
 
     #[allow(clippy::too_many_arguments)]
-    async fn setxattrat(
-        &self,
-        caller: &Caller<'_>,
+    fn setxattrat<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         dfd: Fd,
         pathname: Cstr,
         at_flags: AtFlags,
         name: Cstr,
         uargs: ConstXattrArgsPtr,
         usize: Usize,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Setxattrat {
             dfd,
             pathname,
@@ -14671,23 +15246,25 @@ impl<L: Layer<S>, S: Syscalls> Syscalls for Layered<L, S> {
             uargs,
             usize,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Setxattrat(ret) => Ok(ret),
-            _ => mismatch("setxattrat"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Setxattrat(ret) => Ok(ret),
+                _ => mismatch("setxattrat"),
+            })
     }
 
     #[allow(clippy::too_many_arguments)]
-    async fn getxattrat(
-        &self,
-        caller: &Caller<'_>,
+    fn getxattrat<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         dfd: Fd,
         pathname: Cstr,
         at_flags: AtFlags,
         name: Cstr,
         uargs: XattrArgsPtr,
         usize: Usize,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Getxattrat {
             dfd,
             pathname,
@@ -14696,91 +15273,105 @@ impl<L: Layer<S>, S: Syscalls> Syscalls for Layered<L, S> {
             uargs,
             usize,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Getxattrat(ret) => Ok(ret),
-            _ => mismatch("getxattrat"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Getxattrat(ret) => Ok(ret),
+                _ => mismatch("getxattrat"),
+            })
     }
 
-    async fn listxattrat(
-        &self,
-        caller: &Caller<'_>,
+    fn listxattrat<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         dfd: Fd,
         pathname: Cstr,
         at_flags: AtFlags,
         list: UserSliceMut,
-    ) -> SysResult<u32> {
+    ) -> MaybeFuture<'a, SysResult<u32>> {
         let call = Syscall::Listxattrat {
             dfd,
             pathname,
             at_flags,
             list,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Listxattrat(ret) => Ok(ret),
-            _ => mismatch("listxattrat"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Listxattrat(ret) => Ok(ret),
+                _ => mismatch("listxattrat"),
+            })
     }
 
-    async fn removexattrat(
-        &self,
-        caller: &Caller<'_>,
+    fn removexattrat<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         dfd: Fd,
         pathname: Cstr,
         at_flags: AtFlags,
         name: Cstr,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Removexattrat {
             dfd,
             pathname,
             at_flags,
             name,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Removexattrat(ret) => Ok(ret),
-            _ => mismatch("removexattrat"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Removexattrat(ret) => Ok(ret),
+                _ => mismatch("removexattrat"),
+            })
     }
 
-    async fn epoll_create1(&self, caller: &Caller<'_>, flags: EpollCreateFlags) -> SysResult<Fd> {
+    fn epoll_create1<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        flags: EpollCreateFlags,
+    ) -> MaybeFuture<'a, SysResult<Fd>> {
         let call = Syscall::EpollCreate1 { flags };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::EpollCreate1(ret) => Ok(ret),
-            _ => mismatch("epoll_create1"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::EpollCreate1(ret) => Ok(ret),
+                _ => mismatch("epoll_create1"),
+            })
     }
 
-    async fn epoll_ctl(
-        &self,
-        caller: &Caller<'_>,
+    fn epoll_ctl<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         epfd: Fd,
         op: EpollCtlOp,
         fd: Fd,
         event: ConstEpollEventPtr,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::EpollCtl {
             epfd,
             op,
             fd,
             event,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::EpollCtl(ret) => Ok(ret),
-            _ => mismatch("epoll_ctl"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::EpollCtl(ret) => Ok(ret),
+                _ => mismatch("epoll_ctl"),
+            })
     }
 
     #[allow(clippy::too_many_arguments)]
-    async fn epoll_pwait(
-        &self,
-        caller: &Caller<'_>,
+    fn epoll_pwait<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         epfd: Fd,
         events: EpollEventArray,
         maxevents: i32,
         timeout: i32,
         sigmask: ConstSigsetPtr,
         sigsetsize: Usize,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::EpollPwait {
             epfd,
             events,
@@ -14789,23 +15380,25 @@ impl<L: Layer<S>, S: Syscalls> Syscalls for Layered<L, S> {
             sigmask,
             sigsetsize,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::EpollPwait(ret) => Ok(ret),
-            _ => mismatch("epoll_pwait"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::EpollPwait(ret) => Ok(ret),
+                _ => mismatch("epoll_pwait"),
+            })
     }
 
     #[allow(clippy::too_many_arguments)]
-    async fn epoll_pwait2(
-        &self,
-        caller: &Caller<'_>,
+    fn epoll_pwait2<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         epfd: Fd,
         events: EpollEventArray,
         maxevents: i32,
         timeout: ConstKernelTimespecPtr,
         sigmask: ConstSigsetPtr,
         sigsetsize: Usize,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::EpollPwait2 {
             epfd,
             events,
@@ -14814,21 +15407,23 @@ impl<L: Layer<S>, S: Syscalls> Syscalls for Layered<L, S> {
             sigmask,
             sigsetsize,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::EpollPwait2(ret) => Ok(ret),
-            _ => mismatch("epoll_pwait2"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::EpollPwait2(ret) => Ok(ret),
+                _ => mismatch("epoll_pwait2"),
+            })
     }
 
-    async fn ppoll_time64(
-        &self,
-        caller: &Caller<'_>,
+    fn ppoll_time64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         ufds: PollfdArray,
         nfds: u32,
         tsp: KernelTimespecPtr,
         sigmask: ConstSigsetPtr,
         sigsetsize: Usize,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::PpollTime64 {
             ufds,
             nfds,
@@ -14836,23 +15431,25 @@ impl<L: Layer<S>, S: Syscalls> Syscalls for Layered<L, S> {
             sigmask,
             sigsetsize,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::PpollTime64(ret) => Ok(ret),
-            _ => mismatch("ppoll_time64"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::PpollTime64(ret) => Ok(ret),
+                _ => mismatch("ppoll_time64"),
+            })
     }
 
     #[allow(clippy::too_many_arguments)]
-    async fn pselect6_time64(
-        &self,
-        caller: &Caller<'_>,
+    fn pselect6_time64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         n: i32,
         inp: KernelFdSetPtr,
         outp: KernelFdSetPtr,
         exp: KernelFdSetPtr,
         tsp: KernelTimespecPtr,
         sig: ConstSigsetArgpackPtr,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Pselect6Time64 {
             n,
             inp,
@@ -14861,146 +15458,175 @@ impl<L: Layer<S>, S: Syscalls> Syscalls for Layered<L, S> {
             tsp,
             sig,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Pselect6Time64(ret) => Ok(ret),
-            _ => mismatch("pselect6_time64"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Pselect6Time64(ret) => Ok(ret),
+                _ => mismatch("pselect6_time64"),
+            })
     }
 
-    async fn eventfd2(
-        &self,
-        caller: &Caller<'_>,
+    fn eventfd2<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         count: u32,
         flags: EventfdFlags,
-    ) -> SysResult<Fd> {
+    ) -> MaybeFuture<'a, SysResult<Fd>> {
         let call = Syscall::Eventfd2 { count, flags };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Eventfd2(ret) => Ok(ret),
-            _ => mismatch("eventfd2"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Eventfd2(ret) => Ok(ret),
+                _ => mismatch("eventfd2"),
+            })
     }
 
-    async fn signalfd4(
-        &self,
-        caller: &Caller<'_>,
+    fn signalfd4<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         ufd: Fd,
         user_mask: ConstSigsetPtr,
         sizemask: Usize,
         flags: SignalfdFlags,
-    ) -> SysResult<Fd> {
+    ) -> MaybeFuture<'a, SysResult<Fd>> {
         let call = Syscall::Signalfd4 {
             ufd,
             user_mask,
             sizemask,
             flags,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Signalfd4(ret) => Ok(ret),
-            _ => mismatch("signalfd4"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Signalfd4(ret) => Ok(ret),
+                _ => mismatch("signalfd4"),
+            })
     }
 
-    async fn timerfd_create(
-        &self,
-        caller: &Caller<'_>,
+    fn timerfd_create<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         clockid: ClockId,
         flags: TimerfdFlags,
-    ) -> SysResult<Fd> {
+    ) -> MaybeFuture<'a, SysResult<Fd>> {
         let call = Syscall::TimerfdCreate { clockid, flags };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::TimerfdCreate(ret) => Ok(ret),
-            _ => mismatch("timerfd_create"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::TimerfdCreate(ret) => Ok(ret),
+                _ => mismatch("timerfd_create"),
+            })
     }
 
-    async fn timerfd_settime64(
-        &self,
-        caller: &Caller<'_>,
+    fn timerfd_settime64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         ufd: Fd,
         flags: TimerfdSettimeFlags,
         utmr: ConstKernelItimerspecPtr,
         otmr: KernelItimerspecPtr,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::TimerfdSettime64 {
             ufd,
             flags,
             utmr,
             otmr,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::TimerfdSettime64(ret) => Ok(ret),
-            _ => mismatch("timerfd_settime64"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::TimerfdSettime64(ret) => Ok(ret),
+                _ => mismatch("timerfd_settime64"),
+            })
     }
 
-    async fn timerfd_gettime64(
-        &self,
-        caller: &Caller<'_>,
+    fn timerfd_gettime64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         ufd: Fd,
         otmr: KernelItimerspecPtr,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::TimerfdGettime64 { ufd, otmr };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::TimerfdGettime64(ret) => Ok(ret),
-            _ => mismatch("timerfd_gettime64"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::TimerfdGettime64(ret) => Ok(ret),
+                _ => mismatch("timerfd_gettime64"),
+            })
     }
 
-    async fn inotify_init1(&self, caller: &Caller<'_>, flags: InotifyInitFlags) -> SysResult<Fd> {
+    fn inotify_init1<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        flags: InotifyInitFlags,
+    ) -> MaybeFuture<'a, SysResult<Fd>> {
         let call = Syscall::InotifyInit1 { flags };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::InotifyInit1(ret) => Ok(ret),
-            _ => mismatch("inotify_init1"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::InotifyInit1(ret) => Ok(ret),
+                _ => mismatch("inotify_init1"),
+            })
     }
 
-    async fn inotify_add_watch(
-        &self,
-        caller: &Caller<'_>,
+    fn inotify_add_watch<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         pathname: Cstr,
         mask: InotifyMask,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::InotifyAddWatch { fd, pathname, mask };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::InotifyAddWatch(ret) => Ok(ret),
-            _ => mismatch("inotify_add_watch"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::InotifyAddWatch(ret) => Ok(ret),
+                _ => mismatch("inotify_add_watch"),
+            })
     }
 
-    async fn inotify_rm_watch(&self, caller: &Caller<'_>, fd: Fd, wd: i32) -> SysResult<i32> {
+    fn inotify_rm_watch<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        fd: Fd,
+        wd: i32,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::InotifyRmWatch { fd, wd };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::InotifyRmWatch(ret) => Ok(ret),
-            _ => mismatch("inotify_rm_watch"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::InotifyRmWatch(ret) => Ok(ret),
+                _ => mismatch("inotify_rm_watch"),
+            })
     }
 
-    async fn fanotify_init(
-        &self,
-        caller: &Caller<'_>,
+    fn fanotify_init<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         flags: u32,
         event_f_flags: u32,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::FanotifyInit {
             flags,
             event_f_flags,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::FanotifyInit(ret) => Ok(ret),
-            _ => mismatch("fanotify_init"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::FanotifyInit(ret) => Ok(ret),
+                _ => mismatch("fanotify_init"),
+            })
     }
 
-    async fn fanotify_mark(
-        &self,
-        caller: &Caller<'_>,
+    fn fanotify_mark<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fanotify_fd: Fd,
         flags: u32,
         mask: u64,
         dfd: Fd,
         pathname: Cstr,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::FanotifyMark {
             fanotify_fd,
             flags,
@@ -15008,223 +15634,263 @@ impl<L: Layer<S>, S: Syscalls> Syscalls for Layered<L, S> {
             dfd,
             pathname,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::FanotifyMark(ret) => Ok(ret),
-            _ => mismatch("fanotify_mark"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::FanotifyMark(ret) => Ok(ret),
+                _ => mismatch("fanotify_mark"),
+            })
     }
 
-    async fn rt_sigaction(
-        &self,
-        caller: &Caller<'_>,
+    fn rt_sigaction<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         sig: Signal,
         act: ConstSigactionPtr,
         oact: SigactionPtr,
         sigsetsize: Usize,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::RtSigaction {
             sig,
             act,
             oact,
             sigsetsize,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::RtSigaction(ret) => Ok(ret),
-            _ => mismatch("rt_sigaction"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::RtSigaction(ret) => Ok(ret),
+                _ => mismatch("rt_sigaction"),
+            })
     }
 
-    async fn rt_sigprocmask(
-        &self,
-        caller: &Caller<'_>,
+    fn rt_sigprocmask<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         how: SigprocmaskHow,
         nset: ConstSigsetPtr,
         oset: SigsetPtr,
         sigsetsize: Usize,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::RtSigprocmask {
             how,
             nset,
             oset,
             sigsetsize,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::RtSigprocmask(ret) => Ok(ret),
-            _ => mismatch("rt_sigprocmask"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::RtSigprocmask(ret) => Ok(ret),
+                _ => mismatch("rt_sigprocmask"),
+            })
     }
 
-    async fn rt_sigpending(
-        &self,
-        caller: &Caller<'_>,
+    fn rt_sigpending<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         uset: SigsetPtr,
         sigsetsize: Usize,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::RtSigpending { uset, sigsetsize };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::RtSigpending(ret) => Ok(ret),
-            _ => mismatch("rt_sigpending"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::RtSigpending(ret) => Ok(ret),
+                _ => mismatch("rt_sigpending"),
+            })
     }
 
-    async fn rt_sigsuspend(
-        &self,
-        caller: &Caller<'_>,
+    fn rt_sigsuspend<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         unewset: ConstSigsetPtr,
         sigsetsize: Usize,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::RtSigsuspend {
             unewset,
             sigsetsize,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::RtSigsuspend(ret) => Ok(ret),
-            _ => mismatch("rt_sigsuspend"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::RtSigsuspend(ret) => Ok(ret),
+                _ => mismatch("rt_sigsuspend"),
+            })
     }
 
-    async fn rt_sigtimedwait_time64(
-        &self,
-        caller: &Caller<'_>,
+    fn rt_sigtimedwait_time64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         uthese: ConstSigsetPtr,
         uinfo: SiginfoPtr,
         uts: ConstKernelTimespecPtr,
         sigsetsize: Usize,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::RtSigtimedwaitTime64 {
             uthese,
             uinfo,
             uts,
             sigsetsize,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::RtSigtimedwaitTime64(ret) => Ok(ret),
-            _ => mismatch("rt_sigtimedwait_time64"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::RtSigtimedwaitTime64(ret) => Ok(ret),
+                _ => mismatch("rt_sigtimedwait_time64"),
+            })
     }
 
-    async fn rt_sigqueueinfo(
-        &self,
-        caller: &Caller<'_>,
+    fn rt_sigqueueinfo<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pid: Pid,
         sig: Signal,
         uinfo: ConstSiginfoPtr,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::RtSigqueueinfo { pid, sig, uinfo };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::RtSigqueueinfo(ret) => Ok(ret),
-            _ => mismatch("rt_sigqueueinfo"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::RtSigqueueinfo(ret) => Ok(ret),
+                _ => mismatch("rt_sigqueueinfo"),
+            })
     }
 
-    async fn rt_tgsigqueueinfo(
-        &self,
-        caller: &Caller<'_>,
+    fn rt_tgsigqueueinfo<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         tgid: Pid,
         pid: Pid,
         sig: Signal,
         uinfo: ConstSiginfoPtr,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::RtTgsigqueueinfo {
             tgid,
             pid,
             sig,
             uinfo,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::RtTgsigqueueinfo(ret) => Ok(ret),
-            _ => mismatch("rt_tgsigqueueinfo"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::RtTgsigqueueinfo(ret) => Ok(ret),
+                _ => mismatch("rt_tgsigqueueinfo"),
+            })
     }
 
-    async fn rt_sigreturn(&self, caller: &Caller<'_>) -> SysResult<()> {
+    fn rt_sigreturn<'a>(&'a self, caller: &'a Caller<'_>) -> MaybeFuture<'a, SysResult<()>> {
         let call = Syscall::RtSigreturn;
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::RtSigreturn => Ok(()),
-            _ => mismatch("rt_sigreturn"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::RtSigreturn => Ok(()),
+                _ => mismatch("rt_sigreturn"),
+            })
     }
 
-    async fn sigaltstack(
-        &self,
-        caller: &Caller<'_>,
+    fn sigaltstack<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         uss: ConstSigaltstackPtr,
         uoss: SigaltstackPtr,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Sigaltstack { uss, uoss };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Sigaltstack(ret) => Ok(ret),
-            _ => mismatch("sigaltstack"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Sigaltstack(ret) => Ok(ret),
+                _ => mismatch("sigaltstack"),
+            })
     }
 
-    async fn kill(&self, caller: &Caller<'_>, pid: Pid, sig: Signal) -> SysResult<i32> {
+    fn kill<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        pid: Pid,
+        sig: Signal,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Kill { pid, sig };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Kill(ret) => Ok(ret),
-            _ => mismatch("kill"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Kill(ret) => Ok(ret),
+                _ => mismatch("kill"),
+            })
     }
 
-    async fn tkill(&self, caller: &Caller<'_>, pid: Pid, sig: Signal) -> SysResult<i32> {
+    fn tkill<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        pid: Pid,
+        sig: Signal,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Tkill { pid, sig };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Tkill(ret) => Ok(ret),
-            _ => mismatch("tkill"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Tkill(ret) => Ok(ret),
+                _ => mismatch("tkill"),
+            })
     }
 
-    async fn tgkill(
-        &self,
-        caller: &Caller<'_>,
+    fn tgkill<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         tgid: Pid,
         pid: Pid,
         sig: Signal,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Tgkill { tgid, pid, sig };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Tgkill(ret) => Ok(ret),
-            _ => mismatch("tgkill"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Tgkill(ret) => Ok(ret),
+                _ => mismatch("tgkill"),
+            })
     }
 
-    async fn pidfd_send_signal(
-        &self,
-        caller: &Caller<'_>,
+    fn pidfd_send_signal<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pidfd: Fd,
         sig: Signal,
         info: ConstSiginfoPtr,
         flags: u32,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::PidfdSendSignal {
             pidfd,
             sig,
             info,
             flags,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::PidfdSendSignal(ret) => Ok(ret),
-            _ => mismatch("pidfd_send_signal"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::PidfdSendSignal(ret) => Ok(ret),
+                _ => mismatch("pidfd_send_signal"),
+            })
     }
 
-    async fn restart_syscall(&self, caller: &Caller<'_>) -> SysResult<i32> {
+    fn restart_syscall<'a>(&'a self, caller: &'a Caller<'_>) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::RestartSyscall;
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::RestartSyscall(ret) => Ok(ret),
-            _ => mismatch("restart_syscall"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::RestartSyscall(ret) => Ok(ret),
+                _ => mismatch("restart_syscall"),
+            })
     }
 
-    async fn clone(
-        &self,
-        caller: &Caller<'_>,
+    fn clone<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         clone_flags: Ulong,
         newsp: Uptr,
         parent_tidptr: S32Ptr,
         tls: Uptr,
         child_tidptr: S32Ptr,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Clone {
             clone_flags,
             newsp,
@@ -15232,52 +15898,58 @@ impl<L: Layer<S>, S: Syscalls> Syscalls for Layered<L, S> {
             tls,
             child_tidptr,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Clone(ret) => Ok(ret),
-            _ => mismatch("clone"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Clone(ret) => Ok(ret),
+                _ => mismatch("clone"),
+            })
     }
 
-    async fn clone3(
-        &self,
-        caller: &Caller<'_>,
+    fn clone3<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         uargs: ConstCloneArgsPtr,
         size: Usize,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Clone3 { uargs, size };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Clone3(ret) => Ok(ret),
-            _ => mismatch("clone3"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Clone3(ret) => Ok(ret),
+                _ => mismatch("clone3"),
+            })
     }
 
-    async fn execve(
-        &self,
-        caller: &Caller<'_>,
+    fn execve<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         filename: Cstr,
         argv: CstrArray,
         envp: CstrArray,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Execve {
             filename,
             argv,
             envp,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Execve(ret) => Ok(ret),
-            _ => mismatch("execve"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Execve(ret) => Ok(ret),
+                _ => mismatch("execve"),
+            })
     }
 
-    async fn execveat(
-        &self,
-        caller: &Caller<'_>,
+    fn execveat<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         filename: Cstr,
         argv: CstrArray,
         envp: CstrArray,
         flags: AtFlags,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Execveat {
             fd,
             filename,
@@ -15285,37 +15957,51 @@ impl<L: Layer<S>, S: Syscalls> Syscalls for Layered<L, S> {
             envp,
             flags,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Execveat(ret) => Ok(ret),
-            _ => mismatch("execveat"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Execveat(ret) => Ok(ret),
+                _ => mismatch("execveat"),
+            })
     }
 
-    async fn exit(&self, caller: &Caller<'_>, error_code: i32) -> SysResult<()> {
+    fn exit<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        error_code: i32,
+    ) -> MaybeFuture<'a, SysResult<()>> {
         let call = Syscall::Exit { error_code };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Exit => Ok(()),
-            _ => mismatch("exit"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Exit => Ok(()),
+                _ => mismatch("exit"),
+            })
     }
 
-    async fn exit_group(&self, caller: &Caller<'_>, error_code: i32) -> SysResult<()> {
+    fn exit_group<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        error_code: i32,
+    ) -> MaybeFuture<'a, SysResult<()>> {
         let call = Syscall::ExitGroup { error_code };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::ExitGroup => Ok(()),
-            _ => mismatch("exit_group"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::ExitGroup => Ok(()),
+                _ => mismatch("exit_group"),
+            })
     }
 
-    async fn waitid(
-        &self,
-        caller: &Caller<'_>,
+    fn waitid<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         which: Idtype,
         upid: Pid,
         infop: SiginfoPtr,
         options: WaitOptions,
         ru: RusagePtr,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Waitid {
             which,
             upid,
@@ -15323,131 +16009,187 @@ impl<L: Layer<S>, S: Syscalls> Syscalls for Layered<L, S> {
             options,
             ru,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Waitid(ret) => Ok(ret),
-            _ => mismatch("waitid"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Waitid(ret) => Ok(ret),
+                _ => mismatch("waitid"),
+            })
     }
 
-    async fn set_tid_address(&self, caller: &Caller<'_>, tidptr: S32Ptr) -> SysResult<i32> {
+    fn set_tid_address<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        tidptr: S32Ptr,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::SetTidAddress { tidptr };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::SetTidAddress(ret) => Ok(ret),
-            _ => mismatch("set_tid_address"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::SetTidAddress(ret) => Ok(ret),
+                _ => mismatch("set_tid_address"),
+            })
     }
 
-    async fn unshare(&self, caller: &Caller<'_>, unshare_flags: Ulong) -> SysResult<i32> {
+    fn unshare<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        unshare_flags: Ulong,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Unshare { unshare_flags };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Unshare(ret) => Ok(ret),
-            _ => mismatch("unshare"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Unshare(ret) => Ok(ret),
+                _ => mismatch("unshare"),
+            })
     }
 
-    async fn setns(&self, caller: &Caller<'_>, fd: Fd, flags: i32) -> SysResult<i32> {
+    fn setns<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        fd: Fd,
+        flags: i32,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Setns { fd, flags };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Setns(ret) => Ok(ret),
-            _ => mismatch("setns"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Setns(ret) => Ok(ret),
+                _ => mismatch("setns"),
+            })
     }
 
-    async fn getpid(&self, caller: &Caller<'_>) -> SysResult<Pid> {
+    fn getpid<'a>(&'a self, caller: &'a Caller<'_>) -> MaybeFuture<'a, SysResult<Pid>> {
         let call = Syscall::Getpid;
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Getpid(ret) => Ok(ret),
-            _ => mismatch("getpid"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Getpid(ret) => Ok(ret),
+                _ => mismatch("getpid"),
+            })
     }
 
-    async fn getppid(&self, caller: &Caller<'_>) -> SysResult<Pid> {
+    fn getppid<'a>(&'a self, caller: &'a Caller<'_>) -> MaybeFuture<'a, SysResult<Pid>> {
         let call = Syscall::Getppid;
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Getppid(ret) => Ok(ret),
-            _ => mismatch("getppid"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Getppid(ret) => Ok(ret),
+                _ => mismatch("getppid"),
+            })
     }
 
-    async fn gettid(&self, caller: &Caller<'_>) -> SysResult<Pid> {
+    fn gettid<'a>(&'a self, caller: &'a Caller<'_>) -> MaybeFuture<'a, SysResult<Pid>> {
         let call = Syscall::Gettid;
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Gettid(ret) => Ok(ret),
-            _ => mismatch("gettid"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Gettid(ret) => Ok(ret),
+                _ => mismatch("gettid"),
+            })
     }
 
-    async fn getpgid(&self, caller: &Caller<'_>, pid: Pid) -> SysResult<Pid> {
+    fn getpgid<'a>(&'a self, caller: &'a Caller<'_>, pid: Pid) -> MaybeFuture<'a, SysResult<Pid>> {
         let call = Syscall::Getpgid { pid };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Getpgid(ret) => Ok(ret),
-            _ => mismatch("getpgid"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Getpgid(ret) => Ok(ret),
+                _ => mismatch("getpgid"),
+            })
     }
 
-    async fn setpgid(&self, caller: &Caller<'_>, pid: Pid, pgid: Pid) -> SysResult<i32> {
+    fn setpgid<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        pid: Pid,
+        pgid: Pid,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Setpgid { pid, pgid };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Setpgid(ret) => Ok(ret),
-            _ => mismatch("setpgid"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Setpgid(ret) => Ok(ret),
+                _ => mismatch("setpgid"),
+            })
     }
 
-    async fn getsid(&self, caller: &Caller<'_>, pid: Pid) -> SysResult<Pid> {
+    fn getsid<'a>(&'a self, caller: &'a Caller<'_>, pid: Pid) -> MaybeFuture<'a, SysResult<Pid>> {
         let call = Syscall::Getsid { pid };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Getsid(ret) => Ok(ret),
-            _ => mismatch("getsid"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Getsid(ret) => Ok(ret),
+                _ => mismatch("getsid"),
+            })
     }
 
-    async fn setsid(&self, caller: &Caller<'_>) -> SysResult<Pid> {
+    fn setsid<'a>(&'a self, caller: &'a Caller<'_>) -> MaybeFuture<'a, SysResult<Pid>> {
         let call = Syscall::Setsid;
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Setsid(ret) => Ok(ret),
-            _ => mismatch("setsid"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Setsid(ret) => Ok(ret),
+                _ => mismatch("setsid"),
+            })
     }
 
-    async fn pidfd_open(&self, caller: &Caller<'_>, pid: Pid, flags: u32) -> SysResult<Fd> {
+    fn pidfd_open<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        pid: Pid,
+        flags: u32,
+    ) -> MaybeFuture<'a, SysResult<Fd>> {
         let call = Syscall::PidfdOpen { pid, flags };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::PidfdOpen(ret) => Ok(ret),
-            _ => mismatch("pidfd_open"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::PidfdOpen(ret) => Ok(ret),
+                _ => mismatch("pidfd_open"),
+            })
     }
 
-    async fn pidfd_getfd(
-        &self,
-        caller: &Caller<'_>,
+    fn pidfd_getfd<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pidfd: Fd,
         fd: Fd,
         flags: u32,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::PidfdGetfd { pidfd, fd, flags };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::PidfdGetfd(ret) => Ok(ret),
-            _ => mismatch("pidfd_getfd"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::PidfdGetfd(ret) => Ok(ret),
+                _ => mismatch("pidfd_getfd"),
+            })
     }
 
-    async fn process_mrelease(&self, caller: &Caller<'_>, pidfd: Fd, flags: u32) -> SysResult<i32> {
+    fn process_mrelease<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        pidfd: Fd,
+        flags: u32,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::ProcessMrelease { pidfd, flags };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::ProcessMrelease(ret) => Ok(ret),
-            _ => mismatch("process_mrelease"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::ProcessMrelease(ret) => Ok(ret),
+                _ => mismatch("process_mrelease"),
+            })
     }
 
-    async fn kcmp(
-        &self,
-        caller: &Caller<'_>,
+    fn kcmp<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pid1: Pid,
         pid2: Pid,
         r#type: i32,
         idx1: Ulong,
         idx2: Ulong,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Kcmp {
             pid1,
             pid2,
@@ -15455,29 +16197,37 @@ impl<L: Layer<S>, S: Syscalls> Syscalls for Layered<L, S> {
             idx1,
             idx2,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Kcmp(ret) => Ok(ret),
-            _ => mismatch("kcmp"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Kcmp(ret) => Ok(ret),
+                _ => mismatch("kcmp"),
+            })
     }
 
-    async fn personality(&self, caller: &Caller<'_>, personality: u32) -> SysResult<i32> {
+    fn personality<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        personality: u32,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Personality { personality };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Personality(ret) => Ok(ret),
-            _ => mismatch("personality"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Personality(ret) => Ok(ret),
+                _ => mismatch("personality"),
+            })
     }
 
-    async fn prctl(
-        &self,
-        caller: &Caller<'_>,
+    fn prctl<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         option: PrctlOption,
         arg2: Ulong,
         arg3: Ulong,
         arg4: Ulong,
         arg5: Ulong,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Prctl {
             option,
             arg2,
@@ -15485,43 +16235,47 @@ impl<L: Layer<S>, S: Syscalls> Syscalls for Layered<L, S> {
             arg4,
             arg5,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Prctl(ret) => Ok(ret),
-            _ => mismatch("prctl"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Prctl(ret) => Ok(ret),
+                _ => mismatch("prctl"),
+            })
     }
 
-    async fn ptrace(
-        &self,
-        caller: &Caller<'_>,
+    fn ptrace<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         request: PtraceRequest,
         pid: Pid,
         addr: Uptr,
         data: Ulong,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Ptrace {
             request,
             pid,
             addr,
             data,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Ptrace(ret) => Ok(ret),
-            _ => mismatch("ptrace"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Ptrace(ret) => Ok(ret),
+                _ => mismatch("ptrace"),
+            })
     }
 
     #[allow(clippy::too_many_arguments)]
-    async fn process_vm_readv(
-        &self,
-        caller: &Caller<'_>,
+    fn process_vm_readv<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pid: Pid,
         lvec: ConstIovecArray,
         liovcnt: Ulong,
         rvec: ConstIovecArray,
         riovcnt: Ulong,
         flags: Ulong,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::ProcessVmReadv {
             pid,
             lvec,
@@ -15530,23 +16284,25 @@ impl<L: Layer<S>, S: Syscalls> Syscalls for Layered<L, S> {
             riovcnt,
             flags,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::ProcessVmReadv(ret) => Ok(ret),
-            _ => mismatch("process_vm_readv"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::ProcessVmReadv(ret) => Ok(ret),
+                _ => mismatch("process_vm_readv"),
+            })
     }
 
     #[allow(clippy::too_many_arguments)]
-    async fn process_vm_writev(
-        &self,
-        caller: &Caller<'_>,
+    fn process_vm_writev<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pid: Pid,
         lvec: ConstIovecArray,
         liovcnt: Ulong,
         rvec: ConstIovecArray,
         riovcnt: Ulong,
         flags: Ulong,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::ProcessVmWritev {
             pid,
             lvec,
@@ -15555,635 +16311,783 @@ impl<L: Layer<S>, S: Syscalls> Syscalls for Layered<L, S> {
             riovcnt,
             flags,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::ProcessVmWritev(ret) => Ok(ret),
-            _ => mismatch("process_vm_writev"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::ProcessVmWritev(ret) => Ok(ret),
+                _ => mismatch("process_vm_writev"),
+            })
     }
 
-    async fn seccomp(
-        &self,
-        caller: &Caller<'_>,
+    fn seccomp<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         op: u32,
         flags: u32,
         uargs: VoidPtr,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Seccomp { op, flags, uargs };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Seccomp(ret) => Ok(ret),
-            _ => mismatch("seccomp"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Seccomp(ret) => Ok(ret),
+                _ => mismatch("seccomp"),
+            })
     }
 
-    async fn rseq(
-        &self,
-        caller: &Caller<'_>,
+    fn rseq<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         rseq: VoidPtr,
         rseq_len: u32,
         flags: i32,
         sig: u32,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Rseq {
             rseq,
             rseq_len,
             flags,
             sig,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Rseq(ret) => Ok(ret),
-            _ => mismatch("rseq"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Rseq(ret) => Ok(ret),
+                _ => mismatch("rseq"),
+            })
     }
 
-    async fn rseq_slice_yield(&self, caller: &Caller<'_>) -> SysResult<i32> {
+    fn rseq_slice_yield<'a>(&'a self, caller: &'a Caller<'_>) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::RseqSliceYield;
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::RseqSliceYield(ret) => Ok(ret),
-            _ => mismatch("rseq_slice_yield"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::RseqSliceYield(ret) => Ok(ret),
+                _ => mismatch("rseq_slice_yield"),
+            })
     }
 
-    async fn set_robust_list(
-        &self,
-        caller: &Caller<'_>,
+    fn set_robust_list<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         head: RobustListHeadPtr,
         len: Usize,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::SetRobustList { head, len };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::SetRobustList(ret) => Ok(ret),
-            _ => mismatch("set_robust_list"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::SetRobustList(ret) => Ok(ret),
+                _ => mismatch("set_robust_list"),
+            })
     }
 
-    async fn get_robust_list(
-        &self,
-        caller: &Caller<'_>,
+    fn get_robust_list<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pid: i32,
         head_ptr: RobustListHeadPtrPtr,
         len_ptr: UsizePtr,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::GetRobustList {
             pid,
             head_ptr,
             len_ptr,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::GetRobustList(ret) => Ok(ret),
-            _ => mismatch("get_robust_list"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::GetRobustList(ret) => Ok(ret),
+                _ => mismatch("get_robust_list"),
+            })
     }
 
-    async fn getuid(&self, caller: &Caller<'_>) -> SysResult<i32> {
+    fn getuid<'a>(&'a self, caller: &'a Caller<'_>) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Getuid;
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Getuid(ret) => Ok(ret),
-            _ => mismatch("getuid"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Getuid(ret) => Ok(ret),
+                _ => mismatch("getuid"),
+            })
     }
 
-    async fn geteuid(&self, caller: &Caller<'_>) -> SysResult<i32> {
+    fn geteuid<'a>(&'a self, caller: &'a Caller<'_>) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Geteuid;
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Geteuid(ret) => Ok(ret),
-            _ => mismatch("geteuid"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Geteuid(ret) => Ok(ret),
+                _ => mismatch("geteuid"),
+            })
     }
 
-    async fn getgid(&self, caller: &Caller<'_>) -> SysResult<i32> {
+    fn getgid<'a>(&'a self, caller: &'a Caller<'_>) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Getgid;
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Getgid(ret) => Ok(ret),
-            _ => mismatch("getgid"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Getgid(ret) => Ok(ret),
+                _ => mismatch("getgid"),
+            })
     }
 
-    async fn getegid(&self, caller: &Caller<'_>) -> SysResult<i32> {
+    fn getegid<'a>(&'a self, caller: &'a Caller<'_>) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Getegid;
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Getegid(ret) => Ok(ret),
-            _ => mismatch("getegid"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Getegid(ret) => Ok(ret),
+                _ => mismatch("getegid"),
+            })
     }
 
-    async fn setuid(&self, caller: &Caller<'_>, uid: Uid) -> SysResult<i32> {
+    fn setuid<'a>(&'a self, caller: &'a Caller<'_>, uid: Uid) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Setuid { uid };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Setuid(ret) => Ok(ret),
-            _ => mismatch("setuid"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Setuid(ret) => Ok(ret),
+                _ => mismatch("setuid"),
+            })
     }
 
-    async fn setgid(&self, caller: &Caller<'_>, gid: Gid) -> SysResult<i32> {
+    fn setgid<'a>(&'a self, caller: &'a Caller<'_>, gid: Gid) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Setgid { gid };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Setgid(ret) => Ok(ret),
-            _ => mismatch("setgid"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Setgid(ret) => Ok(ret),
+                _ => mismatch("setgid"),
+            })
     }
 
-    async fn setreuid(&self, caller: &Caller<'_>, ruid: Uid, euid: Uid) -> SysResult<i32> {
+    fn setreuid<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        ruid: Uid,
+        euid: Uid,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Setreuid { ruid, euid };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Setreuid(ret) => Ok(ret),
-            _ => mismatch("setreuid"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Setreuid(ret) => Ok(ret),
+                _ => mismatch("setreuid"),
+            })
     }
 
-    async fn setregid(&self, caller: &Caller<'_>, rgid: Gid, egid: Gid) -> SysResult<i32> {
+    fn setregid<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        rgid: Gid,
+        egid: Gid,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Setregid { rgid, egid };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Setregid(ret) => Ok(ret),
-            _ => mismatch("setregid"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Setregid(ret) => Ok(ret),
+                _ => mismatch("setregid"),
+            })
     }
 
-    async fn setresuid(
-        &self,
-        caller: &Caller<'_>,
+    fn setresuid<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         ruid: Uid,
         euid: Uid,
         suid: Uid,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Setresuid { ruid, euid, suid };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Setresuid(ret) => Ok(ret),
-            _ => mismatch("setresuid"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Setresuid(ret) => Ok(ret),
+                _ => mismatch("setresuid"),
+            })
     }
 
-    async fn getresuid(
-        &self,
-        caller: &Caller<'_>,
+    fn getresuid<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         ruidp: UidPtr,
         euidp: UidPtr,
         suidp: UidPtr,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Getresuid {
             ruidp,
             euidp,
             suidp,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Getresuid(ret) => Ok(ret),
-            _ => mismatch("getresuid"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Getresuid(ret) => Ok(ret),
+                _ => mismatch("getresuid"),
+            })
     }
 
-    async fn setresgid(
-        &self,
-        caller: &Caller<'_>,
+    fn setresgid<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         rgid: Gid,
         egid: Gid,
         sgid: Gid,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Setresgid { rgid, egid, sgid };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Setresgid(ret) => Ok(ret),
-            _ => mismatch("setresgid"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Setresgid(ret) => Ok(ret),
+                _ => mismatch("setresgid"),
+            })
     }
 
-    async fn getresgid(
-        &self,
-        caller: &Caller<'_>,
+    fn getresgid<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         rgidp: GidPtr,
         egidp: GidPtr,
         sgidp: GidPtr,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Getresgid {
             rgidp,
             egidp,
             sgidp,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Getresgid(ret) => Ok(ret),
-            _ => mismatch("getresgid"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Getresgid(ret) => Ok(ret),
+                _ => mismatch("getresgid"),
+            })
     }
 
-    async fn setfsuid(&self, caller: &Caller<'_>, uid: Uid) -> SysResult<i32> {
+    fn setfsuid<'a>(&'a self, caller: &'a Caller<'_>, uid: Uid) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Setfsuid { uid };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Setfsuid(ret) => Ok(ret),
-            _ => mismatch("setfsuid"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Setfsuid(ret) => Ok(ret),
+                _ => mismatch("setfsuid"),
+            })
     }
 
-    async fn setfsgid(&self, caller: &Caller<'_>, gid: Gid) -> SysResult<i32> {
+    fn setfsgid<'a>(&'a self, caller: &'a Caller<'_>, gid: Gid) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Setfsgid { gid };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Setfsgid(ret) => Ok(ret),
-            _ => mismatch("setfsgid"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Setfsgid(ret) => Ok(ret),
+                _ => mismatch("setfsgid"),
+            })
     }
 
-    async fn getgroups(
-        &self,
-        caller: &Caller<'_>,
+    fn getgroups<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         gidsetsize: i32,
         grouplist: GidArray,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Getgroups {
             gidsetsize,
             grouplist,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Getgroups(ret) => Ok(ret),
-            _ => mismatch("getgroups"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Getgroups(ret) => Ok(ret),
+                _ => mismatch("getgroups"),
+            })
     }
 
-    async fn setgroups(
-        &self,
-        caller: &Caller<'_>,
+    fn setgroups<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         gidsetsize: i32,
         grouplist: ConstGidArray,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Setgroups {
             gidsetsize,
             grouplist,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Setgroups(ret) => Ok(ret),
-            _ => mismatch("setgroups"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Setgroups(ret) => Ok(ret),
+                _ => mismatch("setgroups"),
+            })
     }
 
-    async fn capget(
-        &self,
-        caller: &Caller<'_>,
+    fn capget<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         header: UserCapHeaderPtr,
         dataptr: UserCapDataArray,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Capget { header, dataptr };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Capget(ret) => Ok(ret),
-            _ => mismatch("capget"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Capget(ret) => Ok(ret),
+                _ => mismatch("capget"),
+            })
     }
 
-    async fn capset(
-        &self,
-        caller: &Caller<'_>,
+    fn capset<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         header: UserCapHeaderPtr,
         data: ConstUserCapDataArray,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Capset { header, data };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Capset(ret) => Ok(ret),
-            _ => mismatch("capset"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Capset(ret) => Ok(ret),
+                _ => mismatch("capset"),
+            })
     }
 
-    async fn sched_setparam(
-        &self,
-        caller: &Caller<'_>,
+    fn sched_setparam<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pid: Pid,
         param: ConstSchedParamPtr,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::SchedSetparam { pid, param };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::SchedSetparam(ret) => Ok(ret),
-            _ => mismatch("sched_setparam"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::SchedSetparam(ret) => Ok(ret),
+                _ => mismatch("sched_setparam"),
+            })
     }
 
-    async fn sched_getparam(
-        &self,
-        caller: &Caller<'_>,
+    fn sched_getparam<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pid: Pid,
         param: SchedParamPtr,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::SchedGetparam { pid, param };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::SchedGetparam(ret) => Ok(ret),
-            _ => mismatch("sched_getparam"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::SchedGetparam(ret) => Ok(ret),
+                _ => mismatch("sched_getparam"),
+            })
     }
 
-    async fn sched_setscheduler(
-        &self,
-        caller: &Caller<'_>,
+    fn sched_setscheduler<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pid: Pid,
         policy: SchedPolicy,
         param: ConstSchedParamPtr,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::SchedSetscheduler { pid, policy, param };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::SchedSetscheduler(ret) => Ok(ret),
-            _ => mismatch("sched_setscheduler"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::SchedSetscheduler(ret) => Ok(ret),
+                _ => mismatch("sched_setscheduler"),
+            })
     }
 
-    async fn sched_getscheduler(&self, caller: &Caller<'_>, pid: Pid) -> SysResult<i32> {
+    fn sched_getscheduler<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        pid: Pid,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::SchedGetscheduler { pid };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::SchedGetscheduler(ret) => Ok(ret),
-            _ => mismatch("sched_getscheduler"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::SchedGetscheduler(ret) => Ok(ret),
+                _ => mismatch("sched_getscheduler"),
+            })
     }
 
-    async fn sched_setattr(
-        &self,
-        caller: &Caller<'_>,
+    fn sched_setattr<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pid: Pid,
         uattr: SchedAttrPtr,
         flags: u32,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::SchedSetattr { pid, uattr, flags };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::SchedSetattr(ret) => Ok(ret),
-            _ => mismatch("sched_setattr"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::SchedSetattr(ret) => Ok(ret),
+                _ => mismatch("sched_setattr"),
+            })
     }
 
-    async fn sched_getattr(
-        &self,
-        caller: &Caller<'_>,
+    fn sched_getattr<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pid: Pid,
         uattr: SchedAttrPtr,
         usize: u32,
         flags: u32,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::SchedGetattr {
             pid,
             uattr,
             usize,
             flags,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::SchedGetattr(ret) => Ok(ret),
-            _ => mismatch("sched_getattr"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::SchedGetattr(ret) => Ok(ret),
+                _ => mismatch("sched_getattr"),
+            })
     }
 
-    async fn sched_setaffinity(
-        &self,
-        caller: &Caller<'_>,
+    fn sched_setaffinity<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pid: Pid,
         len: u32,
         user_mask_ptr: UlongArray,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::SchedSetaffinity {
             pid,
             len,
             user_mask_ptr,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::SchedSetaffinity(ret) => Ok(ret),
-            _ => mismatch("sched_setaffinity"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::SchedSetaffinity(ret) => Ok(ret),
+                _ => mismatch("sched_setaffinity"),
+            })
     }
 
-    async fn sched_getaffinity(
-        &self,
-        caller: &Caller<'_>,
+    fn sched_getaffinity<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pid: Pid,
         len: u32,
         user_mask_ptr: UlongArray,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::SchedGetaffinity {
             pid,
             len,
             user_mask_ptr,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::SchedGetaffinity(ret) => Ok(ret),
-            _ => mismatch("sched_getaffinity"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::SchedGetaffinity(ret) => Ok(ret),
+                _ => mismatch("sched_getaffinity"),
+            })
     }
 
-    async fn sched_yield(&self, caller: &Caller<'_>) -> SysResult<i32> {
+    fn sched_yield<'a>(&'a self, caller: &'a Caller<'_>) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::SchedYield;
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::SchedYield(ret) => Ok(ret),
-            _ => mismatch("sched_yield"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::SchedYield(ret) => Ok(ret),
+                _ => mismatch("sched_yield"),
+            })
     }
 
-    async fn sched_get_priority_max(
-        &self,
-        caller: &Caller<'_>,
+    fn sched_get_priority_max<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         policy: SchedPolicy,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::SchedGetPriorityMax { policy };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::SchedGetPriorityMax(ret) => Ok(ret),
-            _ => mismatch("sched_get_priority_max"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::SchedGetPriorityMax(ret) => Ok(ret),
+                _ => mismatch("sched_get_priority_max"),
+            })
     }
 
-    async fn sched_get_priority_min(
-        &self,
-        caller: &Caller<'_>,
+    fn sched_get_priority_min<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         policy: SchedPolicy,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::SchedGetPriorityMin { policy };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::SchedGetPriorityMin(ret) => Ok(ret),
-            _ => mismatch("sched_get_priority_min"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::SchedGetPriorityMin(ret) => Ok(ret),
+                _ => mismatch("sched_get_priority_min"),
+            })
     }
 
-    async fn sched_rr_get_interval_time64(
-        &self,
-        caller: &Caller<'_>,
+    fn sched_rr_get_interval_time64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pid: Pid,
         interval: KernelTimespecPtr,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::SchedRrGetIntervalTime64 { pid, interval };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::SchedRrGetIntervalTime64(ret) => Ok(ret),
-            _ => mismatch("sched_rr_get_interval_time64"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::SchedRrGetIntervalTime64(ret) => Ok(ret),
+                _ => mismatch("sched_rr_get_interval_time64"),
+            })
     }
 
-    async fn getpriority(&self, caller: &Caller<'_>, which: PrioWhich, who: i32) -> SysResult<i32> {
+    fn getpriority<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        which: PrioWhich,
+        who: i32,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Getpriority { which, who };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Getpriority(ret) => Ok(ret),
-            _ => mismatch("getpriority"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Getpriority(ret) => Ok(ret),
+                _ => mismatch("getpriority"),
+            })
     }
 
-    async fn setpriority(
-        &self,
-        caller: &Caller<'_>,
+    fn setpriority<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         which: PrioWhich,
         who: i32,
         niceval: i32,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Setpriority {
             which,
             who,
             niceval,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Setpriority(ret) => Ok(ret),
-            _ => mismatch("setpriority"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Setpriority(ret) => Ok(ret),
+                _ => mismatch("setpriority"),
+            })
     }
 
-    async fn getrusage(
-        &self,
-        caller: &Caller<'_>,
+    fn getrusage<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         who: RusageWho,
         ru: RusagePtr,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Getrusage { who, ru };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Getrusage(ret) => Ok(ret),
-            _ => mismatch("getrusage"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Getrusage(ret) => Ok(ret),
+                _ => mismatch("getrusage"),
+            })
     }
 
-    async fn prlimit64(
-        &self,
-        caller: &Caller<'_>,
+    fn prlimit64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pid: Pid,
         resource: RlimitResource,
         new_rlim: ConstRlimit64Ptr,
         old_rlim: Rlimit64Ptr,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Prlimit64 {
             pid,
             resource,
             new_rlim,
             old_rlim,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Prlimit64(ret) => Ok(ret),
-            _ => mismatch("prlimit64"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Prlimit64(ret) => Ok(ret),
+                _ => mismatch("prlimit64"),
+            })
     }
 
-    async fn times(&self, caller: &Caller<'_>, tbuf: TmsPtr) -> SysResult<i32> {
+    fn times<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        tbuf: TmsPtr,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Times { tbuf };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Times(ret) => Ok(ret),
-            _ => mismatch("times"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Times(ret) => Ok(ret),
+                _ => mismatch("times"),
+            })
     }
 
-    async fn ioprio_set(
-        &self,
-        caller: &Caller<'_>,
+    fn ioprio_set<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         which: i32,
         who: i32,
         ioprio: i32,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::IoprioSet { which, who, ioprio };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::IoprioSet(ret) => Ok(ret),
-            _ => mismatch("ioprio_set"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::IoprioSet(ret) => Ok(ret),
+                _ => mismatch("ioprio_set"),
+            })
     }
 
-    async fn ioprio_get(&self, caller: &Caller<'_>, which: i32, who: i32) -> SysResult<i32> {
+    fn ioprio_get<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        which: i32,
+        who: i32,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::IoprioGet { which, who };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::IoprioGet(ret) => Ok(ret),
-            _ => mismatch("ioprio_get"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::IoprioGet(ret) => Ok(ret),
+                _ => mismatch("ioprio_get"),
+            })
     }
 
-    async fn getcpu(
-        &self,
-        caller: &Caller<'_>,
+    fn getcpu<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         cpup: U32Ptr,
         nodep: U32Ptr,
         unused: VoidPtr,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Getcpu {
             cpup,
             nodep,
             unused,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Getcpu(ret) => Ok(ret),
-            _ => mismatch("getcpu"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Getcpu(ret) => Ok(ret),
+                _ => mismatch("getcpu"),
+            })
     }
 
-    async fn sysinfo(&self, caller: &Caller<'_>, info: SysinfoPtr) -> SysResult<i32> {
+    fn sysinfo<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        info: SysinfoPtr,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Sysinfo { info };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Sysinfo(ret) => Ok(ret),
-            _ => mismatch("sysinfo"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Sysinfo(ret) => Ok(ret),
+                _ => mismatch("sysinfo"),
+            })
     }
 
-    async fn uname(&self, caller: &Caller<'_>, name: NewUtsnamePtr) -> SysResult<i32> {
+    fn uname<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        name: NewUtsnamePtr,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Uname { name };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Uname(ret) => Ok(ret),
-            _ => mismatch("uname"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Uname(ret) => Ok(ret),
+                _ => mismatch("uname"),
+            })
     }
 
-    async fn sethostname(&self, caller: &Caller<'_>, name: ConstBuf, len: i32) -> SysResult<i32> {
+    fn sethostname<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        name: ConstBuf,
+        len: i32,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Sethostname { name, len };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Sethostname(ret) => Ok(ret),
-            _ => mismatch("sethostname"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Sethostname(ret) => Ok(ret),
+                _ => mismatch("sethostname"),
+            })
     }
 
-    async fn setdomainname(&self, caller: &Caller<'_>, name: ConstBuf, len: i32) -> SysResult<i32> {
+    fn setdomainname<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        name: ConstBuf,
+        len: i32,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Setdomainname { name, len };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Setdomainname(ret) => Ok(ret),
-            _ => mismatch("setdomainname"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Setdomainname(ret) => Ok(ret),
+                _ => mismatch("setdomainname"),
+            })
     }
 
-    async fn umask(&self, caller: &Caller<'_>, mask: i32) -> SysResult<i32> {
+    fn umask<'a>(&'a self, caller: &'a Caller<'_>, mask: i32) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Umask { mask };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Umask(ret) => Ok(ret),
-            _ => mismatch("umask"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Umask(ret) => Ok(ret),
+                _ => mismatch("umask"),
+            })
     }
 
-    async fn getrandom(
-        &self,
-        caller: &Caller<'_>,
+    fn getrandom<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         ubuf: UserSliceMut,
         flags: GrndFlags,
-    ) -> SysResult<u32> {
+    ) -> MaybeFuture<'a, SysResult<u32>> {
         let call = Syscall::Getrandom { ubuf, flags };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Getrandom(ret) => Ok(ret),
-            _ => mismatch("getrandom"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Getrandom(ret) => Ok(ret),
+                _ => mismatch("getrandom"),
+            })
     }
 
-    async fn membarrier(
-        &self,
-        caller: &Caller<'_>,
+    fn membarrier<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         cmd: MembarrierCmd,
         flags: MembarrierCmdFlags,
         cpu_id: i32,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Membarrier { cmd, flags, cpu_id };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Membarrier(ret) => Ok(ret),
-            _ => mismatch("membarrier"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Membarrier(ret) => Ok(ret),
+                _ => mismatch("membarrier"),
+            })
     }
 
     #[allow(clippy::too_many_arguments)]
-    async fn futex_time64(
-        &self,
-        caller: &Caller<'_>,
+    fn futex_time64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         uaddr: U32Ptr,
         op: FutexOp,
         val: u32,
         utime: Ulong,
         uaddr2: U32Ptr,
         val3: u32,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::FutexTime64 {
             uaddr,
             op,
@@ -16192,21 +17096,23 @@ impl<L: Layer<S>, S: Syscalls> Syscalls for Layered<L, S> {
             uaddr2,
             val3,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::FutexTime64(ret) => Ok(ret),
-            _ => mismatch("futex_time64"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::FutexTime64(ret) => Ok(ret),
+                _ => mismatch("futex_time64"),
+            })
     }
 
-    async fn futex_waitv(
-        &self,
-        caller: &Caller<'_>,
+    fn futex_waitv<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         waiters: ConstFutexWaitvArray,
         nr_futexes: u32,
         flags: u32,
         timeout: KernelTimespecPtr,
         clockid: ClockId,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::FutexWaitv {
             waiters,
             nr_futexes,
@@ -16214,43 +17120,47 @@ impl<L: Layer<S>, S: Syscalls> Syscalls for Layered<L, S> {
             timeout,
             clockid,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::FutexWaitv(ret) => Ok(ret),
-            _ => mismatch("futex_waitv"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::FutexWaitv(ret) => Ok(ret),
+                _ => mismatch("futex_waitv"),
+            })
     }
 
-    async fn futex_wake(
-        &self,
-        caller: &Caller<'_>,
+    fn futex_wake<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         uaddr: U32Ptr,
         mask: Ulong,
         nr: i32,
         flags: Futex2Flags,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::FutexWake {
             uaddr,
             mask,
             nr,
             flags,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::FutexWake(ret) => Ok(ret),
-            _ => mismatch("futex_wake"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::FutexWake(ret) => Ok(ret),
+                _ => mismatch("futex_wake"),
+            })
     }
 
     #[allow(clippy::too_many_arguments)]
-    async fn futex_wait(
-        &self,
-        caller: &Caller<'_>,
+    fn futex_wait<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         uaddr: U32Ptr,
         val: Ulong,
         mask: Ulong,
         flags: Futex2Flags,
         timeout: KernelTimespecPtr,
         clockid: ClockId,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::FutexWait {
             uaddr,
             val,
@@ -16259,51 +17169,57 @@ impl<L: Layer<S>, S: Syscalls> Syscalls for Layered<L, S> {
             timeout,
             clockid,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::FutexWait(ret) => Ok(ret),
-            _ => mismatch("futex_wait"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::FutexWait(ret) => Ok(ret),
+                _ => mismatch("futex_wait"),
+            })
     }
 
-    async fn futex_requeue(
-        &self,
-        caller: &Caller<'_>,
+    fn futex_requeue<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         waiters: ConstFutexWaitvArray,
         flags: u32,
         nr_wake: i32,
         nr_requeue: i32,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::FutexRequeue {
             waiters,
             flags,
             nr_wake,
             nr_requeue,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::FutexRequeue(ret) => Ok(ret),
-            _ => mismatch("futex_requeue"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::FutexRequeue(ret) => Ok(ret),
+                _ => mismatch("futex_requeue"),
+            })
     }
 
-    async fn brk(&self, caller: &Caller<'_>, brk: Uptr) -> SysResult<i32> {
+    fn brk<'a>(&'a self, caller: &'a Caller<'_>, brk: Uptr) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Brk { brk };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Brk(ret) => Ok(ret),
-            _ => mismatch("brk"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Brk(ret) => Ok(ret),
+                _ => mismatch("brk"),
+            })
     }
 
     #[allow(clippy::too_many_arguments)]
-    async fn mmap(
-        &self,
-        caller: &Caller<'_>,
+    fn mmap<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         addr: Uptr,
         len: Ulong,
         prot: ProtFlags,
         flags: MapFlags,
         fd: Fd,
         offset: Loff,
-    ) -> SysResult<Uptr> {
+    ) -> MaybeFuture<'a, SysResult<Uptr>> {
         let call = Syscall::Mmap {
             addr,
             len,
@@ -16312,29 +17228,38 @@ impl<L: Layer<S>, S: Syscalls> Syscalls for Layered<L, S> {
             fd,
             offset,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Mmap(ret) => Ok(ret),
-            _ => mismatch("mmap"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Mmap(ret) => Ok(ret),
+                _ => mismatch("mmap"),
+            })
     }
 
-    async fn munmap(&self, caller: &Caller<'_>, addr: Uptr, len: Usize) -> SysResult<i32> {
+    fn munmap<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        addr: Uptr,
+        len: Usize,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Munmap { addr, len };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Munmap(ret) => Ok(ret),
-            _ => mismatch("munmap"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Munmap(ret) => Ok(ret),
+                _ => mismatch("munmap"),
+            })
     }
 
-    async fn mremap(
-        &self,
-        caller: &Caller<'_>,
+    fn mremap<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         addr: Uptr,
         old_len: Ulong,
         new_len: Ulong,
         flags: MremapFlags,
         new_addr: Uptr,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Mremap {
             addr,
             old_len,
@@ -16342,108 +17267,126 @@ impl<L: Layer<S>, S: Syscalls> Syscalls for Layered<L, S> {
             flags,
             new_addr,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Mremap(ret) => Ok(ret),
-            _ => mismatch("mremap"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Mremap(ret) => Ok(ret),
+                _ => mismatch("mremap"),
+            })
     }
 
-    async fn mprotect(
-        &self,
-        caller: &Caller<'_>,
+    fn mprotect<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         start: Uptr,
         len: Usize,
         prot: ProtFlags,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Mprotect { start, len, prot };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Mprotect(ret) => Ok(ret),
-            _ => mismatch("mprotect"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Mprotect(ret) => Ok(ret),
+                _ => mismatch("mprotect"),
+            })
     }
 
-    async fn pkey_mprotect(
-        &self,
-        caller: &Caller<'_>,
+    fn pkey_mprotect<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         start: Uptr,
         len: Usize,
         prot: ProtFlags,
         pkey: i32,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::PkeyMprotect {
             start,
             len,
             prot,
             pkey,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::PkeyMprotect(ret) => Ok(ret),
-            _ => mismatch("pkey_mprotect"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::PkeyMprotect(ret) => Ok(ret),
+                _ => mismatch("pkey_mprotect"),
+            })
     }
 
-    async fn pkey_alloc(
-        &self,
-        caller: &Caller<'_>,
+    fn pkey_alloc<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         flags: Ulong,
         init_val: Ulong,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::PkeyAlloc { flags, init_val };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::PkeyAlloc(ret) => Ok(ret),
-            _ => mismatch("pkey_alloc"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::PkeyAlloc(ret) => Ok(ret),
+                _ => mismatch("pkey_alloc"),
+            })
     }
 
-    async fn pkey_free(&self, caller: &Caller<'_>, pkey: i32) -> SysResult<i32> {
+    fn pkey_free<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        pkey: i32,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::PkeyFree { pkey };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::PkeyFree(ret) => Ok(ret),
-            _ => mismatch("pkey_free"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::PkeyFree(ret) => Ok(ret),
+                _ => mismatch("pkey_free"),
+            })
     }
 
-    async fn msync(
-        &self,
-        caller: &Caller<'_>,
+    fn msync<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         start: Uptr,
         len: Usize,
         flags: MsyncFlags,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Msync { start, len, flags };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Msync(ret) => Ok(ret),
-            _ => mismatch("msync"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Msync(ret) => Ok(ret),
+                _ => mismatch("msync"),
+            })
     }
 
-    async fn madvise(
-        &self,
-        caller: &Caller<'_>,
+    fn madvise<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         start: Uptr,
         len_in: Usize,
         behavior: MadviseAdvice,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Madvise {
             start,
             len_in,
             behavior,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Madvise(ret) => Ok(ret),
-            _ => mismatch("madvise"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Madvise(ret) => Ok(ret),
+                _ => mismatch("madvise"),
+            })
     }
 
-    async fn process_madvise(
-        &self,
-        caller: &Caller<'_>,
+    fn process_madvise<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pidfd: Fd,
         vec: ConstIovecArray,
         vlen: Usize,
         behavior: MadviseAdvice,
         flags: u32,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::ProcessMadvise {
             pidfd,
             vec,
@@ -16451,81 +17394,109 @@ impl<L: Layer<S>, S: Syscalls> Syscalls for Layered<L, S> {
             behavior,
             flags,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::ProcessMadvise(ret) => Ok(ret),
-            _ => mismatch("process_madvise"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::ProcessMadvise(ret) => Ok(ret),
+                _ => mismatch("process_madvise"),
+            })
     }
 
-    async fn mincore(
-        &self,
-        caller: &Caller<'_>,
+    fn mincore<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         start: Uptr,
         len: Usize,
         vec: Buf,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Mincore { start, len, vec };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Mincore(ret) => Ok(ret),
-            _ => mismatch("mincore"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Mincore(ret) => Ok(ret),
+                _ => mismatch("mincore"),
+            })
     }
 
-    async fn mlock(&self, caller: &Caller<'_>, start: Uptr, len: Usize) -> SysResult<i32> {
+    fn mlock<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        start: Uptr,
+        len: Usize,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Mlock { start, len };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Mlock(ret) => Ok(ret),
-            _ => mismatch("mlock"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Mlock(ret) => Ok(ret),
+                _ => mismatch("mlock"),
+            })
     }
 
-    async fn mlock2(
-        &self,
-        caller: &Caller<'_>,
+    fn mlock2<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         start: Uptr,
         len: Usize,
         flags: MlockFlags,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Mlock2 { start, len, flags };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Mlock2(ret) => Ok(ret),
-            _ => mismatch("mlock2"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Mlock2(ret) => Ok(ret),
+                _ => mismatch("mlock2"),
+            })
     }
 
-    async fn munlock(&self, caller: &Caller<'_>, start: Uptr, len: Usize) -> SysResult<i32> {
+    fn munlock<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        start: Uptr,
+        len: Usize,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Munlock { start, len };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Munlock(ret) => Ok(ret),
-            _ => mismatch("munlock"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Munlock(ret) => Ok(ret),
+                _ => mismatch("munlock"),
+            })
     }
 
-    async fn mlockall(&self, caller: &Caller<'_>, flags: MclFlags) -> SysResult<i32> {
+    fn mlockall<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        flags: MclFlags,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Mlockall { flags };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Mlockall(ret) => Ok(ret),
-            _ => mismatch("mlockall"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Mlockall(ret) => Ok(ret),
+                _ => mismatch("mlockall"),
+            })
     }
 
-    async fn munlockall(&self, caller: &Caller<'_>) -> SysResult<i32> {
+    fn munlockall<'a>(&'a self, caller: &'a Caller<'_>) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Munlockall;
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Munlockall(ret) => Ok(ret),
-            _ => mismatch("munlockall"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Munlockall(ret) => Ok(ret),
+                _ => mismatch("munlockall"),
+            })
     }
 
-    async fn remap_file_pages(
-        &self,
-        caller: &Caller<'_>,
+    fn remap_file_pages<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         start: Uptr,
         size: Ulong,
         prot: Ulong,
         pgoff: Ulong,
         flags: Ulong,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::RemapFilePages {
             start,
             size,
@@ -16533,23 +17504,25 @@ impl<L: Layer<S>, S: Syscalls> Syscalls for Layered<L, S> {
             pgoff,
             flags,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::RemapFilePages(ret) => Ok(ret),
-            _ => mismatch("remap_file_pages"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::RemapFilePages(ret) => Ok(ret),
+                _ => mismatch("remap_file_pages"),
+            })
     }
 
     #[allow(clippy::too_many_arguments)]
-    async fn mbind(
-        &self,
-        caller: &Caller<'_>,
+    fn mbind<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         start: Uptr,
         len: Ulong,
         mode: Ulong,
         nmask: ConstUlongArray,
         maxnode: Ulong,
         flags: u32,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Mbind {
             start,
             len,
@@ -16558,21 +17531,23 @@ impl<L: Layer<S>, S: Syscalls> Syscalls for Layered<L, S> {
             maxnode,
             flags,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Mbind(ret) => Ok(ret),
-            _ => mismatch("mbind"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Mbind(ret) => Ok(ret),
+                _ => mismatch("mbind"),
+            })
     }
 
-    async fn get_mempolicy(
-        &self,
-        caller: &Caller<'_>,
+    fn get_mempolicy<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         policy: S32Ptr,
         nmask: UlongArray,
         maxnode: Ulong,
         addr: Uptr,
         flags: Ulong,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::GetMempolicy {
             policy,
             nmask,
@@ -16580,81 +17555,89 @@ impl<L: Layer<S>, S: Syscalls> Syscalls for Layered<L, S> {
             addr,
             flags,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::GetMempolicy(ret) => Ok(ret),
-            _ => mismatch("get_mempolicy"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::GetMempolicy(ret) => Ok(ret),
+                _ => mismatch("get_mempolicy"),
+            })
     }
 
-    async fn set_mempolicy(
-        &self,
-        caller: &Caller<'_>,
+    fn set_mempolicy<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         mode: i32,
         nmask: ConstUlongArray,
         maxnode: Ulong,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::SetMempolicy {
             mode,
             nmask,
             maxnode,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::SetMempolicy(ret) => Ok(ret),
-            _ => mismatch("set_mempolicy"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::SetMempolicy(ret) => Ok(ret),
+                _ => mismatch("set_mempolicy"),
+            })
     }
 
-    async fn set_mempolicy_home_node(
-        &self,
-        caller: &Caller<'_>,
+    fn set_mempolicy_home_node<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         start: Uptr,
         len: Ulong,
         home_node: Ulong,
         flags: Ulong,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::SetMempolicyHomeNode {
             start,
             len,
             home_node,
             flags,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::SetMempolicyHomeNode(ret) => Ok(ret),
-            _ => mismatch("set_mempolicy_home_node"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::SetMempolicyHomeNode(ret) => Ok(ret),
+                _ => mismatch("set_mempolicy_home_node"),
+            })
     }
 
-    async fn migrate_pages(
-        &self,
-        caller: &Caller<'_>,
+    fn migrate_pages<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pid: Pid,
         maxnode: Ulong,
         old_nodes: ConstUlongArray,
         new_nodes: ConstUlongArray,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::MigratePages {
             pid,
             maxnode,
             old_nodes,
             new_nodes,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::MigratePages(ret) => Ok(ret),
-            _ => mismatch("migrate_pages"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::MigratePages(ret) => Ok(ret),
+                _ => mismatch("migrate_pages"),
+            })
     }
 
     #[allow(clippy::too_many_arguments)]
-    async fn move_pages(
-        &self,
-        caller: &Caller<'_>,
+    fn move_pages<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pid: Pid,
         nr_pages: Ulong,
         pages: ConstUptrArray,
         nodes: ConstS32Array,
         status: S32Array,
         flags: i32,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::MovePages {
             pid,
             nr_pages,
@@ -16663,383 +17646,450 @@ impl<L: Layer<S>, S: Syscalls> Syscalls for Layered<L, S> {
             status,
             flags,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::MovePages(ret) => Ok(ret),
-            _ => mismatch("move_pages"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::MovePages(ret) => Ok(ret),
+                _ => mismatch("move_pages"),
+            })
     }
 
-    async fn mseal(
-        &self,
-        caller: &Caller<'_>,
+    fn mseal<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         start: Uptr,
         len: Usize,
         flags: Ulong,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Mseal { start, len, flags };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Mseal(ret) => Ok(ret),
-            _ => mismatch("mseal"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Mseal(ret) => Ok(ret),
+                _ => mismatch("mseal"),
+            })
     }
 
-    async fn map_shadow_stack(
-        &self,
-        caller: &Caller<'_>,
+    fn map_shadow_stack<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         addr: Uptr,
         size: Ulong,
         flags: u32,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::MapShadowStack { addr, size, flags };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::MapShadowStack(ret) => Ok(ret),
-            _ => mismatch("map_shadow_stack"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::MapShadowStack(ret) => Ok(ret),
+                _ => mismatch("map_shadow_stack"),
+            })
     }
 
-    async fn userfaultfd(&self, caller: &Caller<'_>, flags: i32) -> SysResult<i32> {
+    fn userfaultfd<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        flags: i32,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Userfaultfd { flags };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Userfaultfd(ret) => Ok(ret),
-            _ => mismatch("userfaultfd"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Userfaultfd(ret) => Ok(ret),
+                _ => mismatch("userfaultfd"),
+            })
     }
 
-    async fn clock_gettime64(
-        &self,
-        caller: &Caller<'_>,
+    fn clock_gettime64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         which_clock: ClockId,
         tp: KernelTimespecPtr,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::ClockGettime64 { which_clock, tp };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::ClockGettime64(ret) => Ok(ret),
-            _ => mismatch("clock_gettime64"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::ClockGettime64(ret) => Ok(ret),
+                _ => mismatch("clock_gettime64"),
+            })
     }
 
-    async fn clock_settime64(
-        &self,
-        caller: &Caller<'_>,
+    fn clock_settime64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         which_clock: ClockId,
         tp: ConstKernelTimespecPtr,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::ClockSettime64 { which_clock, tp };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::ClockSettime64(ret) => Ok(ret),
-            _ => mismatch("clock_settime64"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::ClockSettime64(ret) => Ok(ret),
+                _ => mismatch("clock_settime64"),
+            })
     }
 
-    async fn clock_getres_time64(
-        &self,
-        caller: &Caller<'_>,
+    fn clock_getres_time64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         which_clock: ClockId,
         tp: KernelTimespecPtr,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::ClockGetresTime64 { which_clock, tp };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::ClockGetresTime64(ret) => Ok(ret),
-            _ => mismatch("clock_getres_time64"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::ClockGetresTime64(ret) => Ok(ret),
+                _ => mismatch("clock_getres_time64"),
+            })
     }
 
-    async fn clock_nanosleep_time64(
-        &self,
-        caller: &Caller<'_>,
+    fn clock_nanosleep_time64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         which_clock: ClockId,
         flags: TimerFlags,
         rqtp: ConstKernelTimespecPtr,
         rmtp: KernelTimespecPtr,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::ClockNanosleepTime64 {
             which_clock,
             flags,
             rqtp,
             rmtp,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::ClockNanosleepTime64(ret) => Ok(ret),
-            _ => mismatch("clock_nanosleep_time64"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::ClockNanosleepTime64(ret) => Ok(ret),
+                _ => mismatch("clock_nanosleep_time64"),
+            })
     }
 
-    async fn clock_adjtime64(
-        &self,
-        caller: &Caller<'_>,
+    fn clock_adjtime64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         which_clock: ClockId,
         utx: KernelTimexPtr,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::ClockAdjtime64 { which_clock, utx };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::ClockAdjtime64(ret) => Ok(ret),
-            _ => mismatch("clock_adjtime64"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::ClockAdjtime64(ret) => Ok(ret),
+                _ => mismatch("clock_adjtime64"),
+            })
     }
 
-    async fn getitimer(
-        &self,
-        caller: &Caller<'_>,
+    fn getitimer<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         which: ItimerWhich,
         value: KernelOldItimervalPtr,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Getitimer { which, value };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Getitimer(ret) => Ok(ret),
-            _ => mismatch("getitimer"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Getitimer(ret) => Ok(ret),
+                _ => mismatch("getitimer"),
+            })
     }
 
-    async fn setitimer(
-        &self,
-        caller: &Caller<'_>,
+    fn setitimer<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         which: ItimerWhich,
         value: ConstKernelOldItimervalPtr,
         ovalue: KernelOldItimervalPtr,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Setitimer {
             which,
             value,
             ovalue,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Setitimer(ret) => Ok(ret),
-            _ => mismatch("setitimer"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Setitimer(ret) => Ok(ret),
+                _ => mismatch("setitimer"),
+            })
     }
 
-    async fn timer_create(
-        &self,
-        caller: &Caller<'_>,
+    fn timer_create<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         which_clock: ClockId,
         timer_event_spec: ConstSigeventPtr,
         created_timer_id: TimerIdPtr,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::TimerCreate {
             which_clock,
             timer_event_spec,
             created_timer_id,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::TimerCreate(ret) => Ok(ret),
-            _ => mismatch("timer_create"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::TimerCreate(ret) => Ok(ret),
+                _ => mismatch("timer_create"),
+            })
     }
 
-    async fn timer_settime64(
-        &self,
-        caller: &Caller<'_>,
+    fn timer_settime64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         timer_id: TimerId,
         flags: TimerFlags,
         new_setting: ConstKernelItimerspecPtr,
         old_setting: KernelItimerspecPtr,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::TimerSettime64 {
             timer_id,
             flags,
             new_setting,
             old_setting,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::TimerSettime64(ret) => Ok(ret),
-            _ => mismatch("timer_settime64"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::TimerSettime64(ret) => Ok(ret),
+                _ => mismatch("timer_settime64"),
+            })
     }
 
-    async fn timer_gettime64(
-        &self,
-        caller: &Caller<'_>,
+    fn timer_gettime64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         timer_id: TimerId,
         setting: KernelItimerspecPtr,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::TimerGettime64 { timer_id, setting };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::TimerGettime64(ret) => Ok(ret),
-            _ => mismatch("timer_gettime64"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::TimerGettime64(ret) => Ok(ret),
+                _ => mismatch("timer_gettime64"),
+            })
     }
 
-    async fn timer_getoverrun(&self, caller: &Caller<'_>, timer_id: TimerId) -> SysResult<i32> {
+    fn timer_getoverrun<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        timer_id: TimerId,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::TimerGetoverrun { timer_id };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::TimerGetoverrun(ret) => Ok(ret),
-            _ => mismatch("timer_getoverrun"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::TimerGetoverrun(ret) => Ok(ret),
+                _ => mismatch("timer_getoverrun"),
+            })
     }
 
-    async fn timer_delete(&self, caller: &Caller<'_>, timer_id: TimerId) -> SysResult<i32> {
+    fn timer_delete<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        timer_id: TimerId,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::TimerDelete { timer_id };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::TimerDelete(ret) => Ok(ret),
-            _ => mismatch("timer_delete"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::TimerDelete(ret) => Ok(ret),
+                _ => mismatch("timer_delete"),
+            })
     }
 
-    async fn socket(
-        &self,
-        caller: &Caller<'_>,
+    fn socket<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         family: AddressFamily,
         r#type: i32,
         protocol: i32,
-    ) -> SysResult<Fd> {
+    ) -> MaybeFuture<'a, SysResult<Fd>> {
         let call = Syscall::Socket {
             family,
             r#type,
             protocol,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Socket(ret) => Ok(ret),
-            _ => mismatch("socket"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Socket(ret) => Ok(ret),
+                _ => mismatch("socket"),
+            })
     }
 
-    async fn socketpair(
-        &self,
-        caller: &Caller<'_>,
+    fn socketpair<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         family: AddressFamily,
         r#type: i32,
         protocol: i32,
         usockvec: FdPair,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Socketpair {
             family,
             r#type,
             protocol,
             usockvec,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Socketpair(ret) => Ok(ret),
-            _ => mismatch("socketpair"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Socketpair(ret) => Ok(ret),
+                _ => mismatch("socketpair"),
+            })
     }
 
-    async fn bind(
-        &self,
-        caller: &Caller<'_>,
+    fn bind<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         umyaddr: ConstSockaddrPtr,
         addrlen: Socklen,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Bind {
             fd,
             umyaddr,
             addrlen,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Bind(ret) => Ok(ret),
-            _ => mismatch("bind"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Bind(ret) => Ok(ret),
+                _ => mismatch("bind"),
+            })
     }
 
-    async fn listen(&self, caller: &Caller<'_>, fd: Fd, backlog: i32) -> SysResult<i32> {
+    fn listen<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        fd: Fd,
+        backlog: i32,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Listen { fd, backlog };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Listen(ret) => Ok(ret),
-            _ => mismatch("listen"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Listen(ret) => Ok(ret),
+                _ => mismatch("listen"),
+            })
     }
 
-    async fn accept(
-        &self,
-        caller: &Caller<'_>,
+    fn accept<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         upeer_sockaddr: SockaddrPtr,
         upeer_addrlen: SocklenPtr,
-    ) -> SysResult<Fd> {
+    ) -> MaybeFuture<'a, SysResult<Fd>> {
         let call = Syscall::Accept {
             fd,
             upeer_sockaddr,
             upeer_addrlen,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Accept(ret) => Ok(ret),
-            _ => mismatch("accept"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Accept(ret) => Ok(ret),
+                _ => mismatch("accept"),
+            })
     }
 
-    async fn accept4(
-        &self,
-        caller: &Caller<'_>,
+    fn accept4<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         upeer_sockaddr: SockaddrPtr,
         upeer_addrlen: SocklenPtr,
         flags: SocketFlags,
-    ) -> SysResult<Fd> {
+    ) -> MaybeFuture<'a, SysResult<Fd>> {
         let call = Syscall::Accept4 {
             fd,
             upeer_sockaddr,
             upeer_addrlen,
             flags,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Accept4(ret) => Ok(ret),
-            _ => mismatch("accept4"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Accept4(ret) => Ok(ret),
+                _ => mismatch("accept4"),
+            })
     }
 
-    async fn connect(
-        &self,
-        caller: &Caller<'_>,
+    fn connect<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         uservaddr: ConstSockaddrPtr,
         addrlen: Socklen,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Connect {
             fd,
             uservaddr,
             addrlen,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Connect(ret) => Ok(ret),
-            _ => mismatch("connect"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Connect(ret) => Ok(ret),
+                _ => mismatch("connect"),
+            })
     }
 
-    async fn getsockname(
-        &self,
-        caller: &Caller<'_>,
+    fn getsockname<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         usockaddr: SockaddrPtr,
         usockaddr_len: SocklenPtr,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Getsockname {
             fd,
             usockaddr,
             usockaddr_len,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Getsockname(ret) => Ok(ret),
-            _ => mismatch("getsockname"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Getsockname(ret) => Ok(ret),
+                _ => mismatch("getsockname"),
+            })
     }
 
-    async fn getpeername(
-        &self,
-        caller: &Caller<'_>,
+    fn getpeername<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         usockaddr: SockaddrPtr,
         usockaddr_len: SocklenPtr,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Getpeername {
             fd,
             usockaddr,
             usockaddr_len,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Getpeername(ret) => Ok(ret),
-            _ => mismatch("getpeername"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Getpeername(ret) => Ok(ret),
+                _ => mismatch("getpeername"),
+            })
     }
 
-    async fn sendto(
-        &self,
-        caller: &Caller<'_>,
+    fn sendto<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         buff: UserSlice,
         flags: MsgFlags,
         addr: ConstSockaddrPtr,
         addr_len: Socklen,
-    ) -> SysResult<u32> {
+    ) -> MaybeFuture<'a, SysResult<u32>> {
         let call = Syscall::Sendto {
             fd,
             buff,
@@ -17047,21 +18097,23 @@ impl<L: Layer<S>, S: Syscalls> Syscalls for Layered<L, S> {
             addr,
             addr_len,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Sendto(ret) => Ok(ret),
-            _ => mismatch("sendto"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Sendto(ret) => Ok(ret),
+                _ => mismatch("sendto"),
+            })
     }
 
-    async fn recvfrom(
-        &self,
-        caller: &Caller<'_>,
+    fn recvfrom<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         ubuf: UserSliceMut,
         flags: MsgFlags,
         addr: SockaddrPtr,
         addr_len: SocklenPtr,
-    ) -> SysResult<u32> {
+    ) -> MaybeFuture<'a, SysResult<u32>> {
         let call = Syscall::Recvfrom {
             fd,
             ubuf,
@@ -17069,41 +18121,45 @@ impl<L: Layer<S>, S: Syscalls> Syscalls for Layered<L, S> {
             addr,
             addr_len,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Recvfrom(ret) => Ok(ret),
-            _ => mismatch("recvfrom"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Recvfrom(ret) => Ok(ret),
+                _ => mismatch("recvfrom"),
+            })
     }
 
-    async fn setsockopt(
-        &self,
-        caller: &Caller<'_>,
+    fn setsockopt<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         level: SocketLevel,
         optname: i32,
         optval: UserSlice,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Setsockopt {
             fd,
             level,
             optname,
             optval,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Setsockopt(ret) => Ok(ret),
-            _ => mismatch("setsockopt"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Setsockopt(ret) => Ok(ret),
+                _ => mismatch("setsockopt"),
+            })
     }
 
-    async fn getsockopt(
-        &self,
-        caller: &Caller<'_>,
+    fn getsockopt<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         level: SocketLevel,
         optname: i32,
         optval: Buf,
         optlen: SocklenPtr,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Getsockopt {
             fd,
             level,
@@ -17111,77 +18167,92 @@ impl<L: Layer<S>, S: Syscalls> Syscalls for Layered<L, S> {
             optval,
             optlen,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Getsockopt(ret) => Ok(ret),
-            _ => mismatch("getsockopt"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Getsockopt(ret) => Ok(ret),
+                _ => mismatch("getsockopt"),
+            })
     }
 
-    async fn shutdown(&self, caller: &Caller<'_>, fd: Fd, how: ShutdownHow) -> SysResult<i32> {
+    fn shutdown<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        fd: Fd,
+        how: ShutdownHow,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Shutdown { fd, how };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Shutdown(ret) => Ok(ret),
-            _ => mismatch("shutdown"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Shutdown(ret) => Ok(ret),
+                _ => mismatch("shutdown"),
+            })
     }
 
-    async fn sendmsg(
-        &self,
-        caller: &Caller<'_>,
+    fn sendmsg<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         msg: ConstUserMsghdrPtr,
         flags: MsgFlags,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Sendmsg { fd, msg, flags };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Sendmsg(ret) => Ok(ret),
-            _ => mismatch("sendmsg"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Sendmsg(ret) => Ok(ret),
+                _ => mismatch("sendmsg"),
+            })
     }
 
-    async fn recvmsg(
-        &self,
-        caller: &Caller<'_>,
+    fn recvmsg<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         msg: UserMsghdrPtr,
         flags: MsgFlags,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Recvmsg { fd, msg, flags };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Recvmsg(ret) => Ok(ret),
-            _ => mismatch("recvmsg"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Recvmsg(ret) => Ok(ret),
+                _ => mismatch("recvmsg"),
+            })
     }
 
-    async fn sendmmsg(
-        &self,
-        caller: &Caller<'_>,
+    fn sendmmsg<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         mmsg: MmsghdrArray,
         vlen: u32,
         flags: MsgFlags,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Sendmmsg {
             fd,
             mmsg,
             vlen,
             flags,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Sendmmsg(ret) => Ok(ret),
-            _ => mismatch("sendmmsg"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Sendmmsg(ret) => Ok(ret),
+                _ => mismatch("sendmmsg"),
+            })
     }
 
-    async fn recvmmsg_time64(
-        &self,
-        caller: &Caller<'_>,
+    fn recvmmsg_time64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         mmsg: MmsghdrArray,
         vlen: u32,
         flags: MsgFlags,
         timeout: KernelTimespecPtr,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::RecvmmsgTime64 {
             fd,
             mmsg,
@@ -17189,43 +18260,54 @@ impl<L: Layer<S>, S: Syscalls> Syscalls for Layered<L, S> {
             flags,
             timeout,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::RecvmmsgTime64(ret) => Ok(ret),
-            _ => mismatch("recvmmsg_time64"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::RecvmmsgTime64(ret) => Ok(ret),
+                _ => mismatch("recvmmsg_time64"),
+            })
     }
 
-    async fn msgget(&self, caller: &Caller<'_>, key: Key, msgflg: i32) -> SysResult<i32> {
+    fn msgget<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        key: Key,
+        msgflg: i32,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Msgget { key, msgflg };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Msgget(ret) => Ok(ret),
-            _ => mismatch("msgget"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Msgget(ret) => Ok(ret),
+                _ => mismatch("msgget"),
+            })
     }
 
-    async fn msgctl(
-        &self,
-        caller: &Caller<'_>,
+    fn msgctl<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         msqid: i32,
         cmd: i32,
         buf: Msqid64DsPtr,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Msgctl { msqid, cmd, buf };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Msgctl(ret) => Ok(ret),
-            _ => mismatch("msgctl"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Msgctl(ret) => Ok(ret),
+                _ => mismatch("msgctl"),
+            })
     }
 
-    async fn msgrcv(
-        &self,
-        caller: &Caller<'_>,
+    fn msgrcv<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         msqid: i32,
         msgp: MsgbufPtr,
         msgsz: Usize,
         msgtyp: Slong,
         msgflg: i32,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Msgrcv {
             msqid,
             msgp,
@@ -17233,195 +18315,227 @@ impl<L: Layer<S>, S: Syscalls> Syscalls for Layered<L, S> {
             msgtyp,
             msgflg,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Msgrcv(ret) => Ok(ret),
-            _ => mismatch("msgrcv"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Msgrcv(ret) => Ok(ret),
+                _ => mismatch("msgrcv"),
+            })
     }
 
-    async fn msgsnd(
-        &self,
-        caller: &Caller<'_>,
+    fn msgsnd<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         msqid: i32,
         msgp: ConstMsgbufPtr,
         msgsz: Usize,
         msgflg: i32,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Msgsnd {
             msqid,
             msgp,
             msgsz,
             msgflg,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Msgsnd(ret) => Ok(ret),
-            _ => mismatch("msgsnd"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Msgsnd(ret) => Ok(ret),
+                _ => mismatch("msgsnd"),
+            })
     }
 
-    async fn semget(
-        &self,
-        caller: &Caller<'_>,
+    fn semget<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         key: Key,
         nsems: i32,
         semflg: i32,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Semget { key, nsems, semflg };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Semget(ret) => Ok(ret),
-            _ => mismatch("semget"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Semget(ret) => Ok(ret),
+                _ => mismatch("semget"),
+            })
     }
 
-    async fn semctl(
-        &self,
-        caller: &Caller<'_>,
+    fn semctl<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         semid: i32,
         semnum: i32,
         cmd: i32,
         arg: Ulong,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Semctl {
             semid,
             semnum,
             cmd,
             arg,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Semctl(ret) => Ok(ret),
-            _ => mismatch("semctl"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Semctl(ret) => Ok(ret),
+                _ => mismatch("semctl"),
+            })
     }
 
-    async fn semop(
-        &self,
-        caller: &Caller<'_>,
+    fn semop<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         semid: i32,
         tsops: ConstSembufArray,
         nsops: u32,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Semop {
             semid,
             tsops,
             nsops,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Semop(ret) => Ok(ret),
-            _ => mismatch("semop"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Semop(ret) => Ok(ret),
+                _ => mismatch("semop"),
+            })
     }
 
-    async fn semtimedop_time64(
-        &self,
-        caller: &Caller<'_>,
+    fn semtimedop_time64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         semid: i32,
         tsops: ConstSembufArray,
         nsops: u32,
         timeout: ConstKernelTimespecPtr,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::SemtimedopTime64 {
             semid,
             tsops,
             nsops,
             timeout,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::SemtimedopTime64(ret) => Ok(ret),
-            _ => mismatch("semtimedop_time64"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::SemtimedopTime64(ret) => Ok(ret),
+                _ => mismatch("semtimedop_time64"),
+            })
     }
 
-    async fn shmget(
-        &self,
-        caller: &Caller<'_>,
+    fn shmget<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         key: Key,
         size: Usize,
         shmflg: i32,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Shmget { key, size, shmflg };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Shmget(ret) => Ok(ret),
-            _ => mismatch("shmget"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Shmget(ret) => Ok(ret),
+                _ => mismatch("shmget"),
+            })
     }
 
-    async fn shmctl(
-        &self,
-        caller: &Caller<'_>,
+    fn shmctl<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         shmid: i32,
         cmd: i32,
         buf: Shmid64DsPtr,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Shmctl { shmid, cmd, buf };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Shmctl(ret) => Ok(ret),
-            _ => mismatch("shmctl"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Shmctl(ret) => Ok(ret),
+                _ => mismatch("shmctl"),
+            })
     }
 
-    async fn shmat(
-        &self,
-        caller: &Caller<'_>,
+    fn shmat<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         shmid: i32,
         shmaddr: Uptr,
         shmflg: i32,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Shmat {
             shmid,
             shmaddr,
             shmflg,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Shmat(ret) => Ok(ret),
-            _ => mismatch("shmat"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Shmat(ret) => Ok(ret),
+                _ => mismatch("shmat"),
+            })
     }
 
-    async fn shmdt(&self, caller: &Caller<'_>, shmaddr: Uptr) -> SysResult<i32> {
+    fn shmdt<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        shmaddr: Uptr,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Shmdt { shmaddr };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Shmdt(ret) => Ok(ret),
-            _ => mismatch("shmdt"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Shmdt(ret) => Ok(ret),
+                _ => mismatch("shmdt"),
+            })
     }
 
-    async fn mq_open(
-        &self,
-        caller: &Caller<'_>,
+    fn mq_open<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         u_name: Cstr,
         oflag: OpenFlags,
         mode: Mode,
         u_attr: ConstMqAttrPtr,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::MqOpen {
             u_name,
             oflag,
             mode,
             u_attr,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::MqOpen(ret) => Ok(ret),
-            _ => mismatch("mq_open"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::MqOpen(ret) => Ok(ret),
+                _ => mismatch("mq_open"),
+            })
     }
 
-    async fn mq_unlink(&self, caller: &Caller<'_>, u_name: Cstr) -> SysResult<i32> {
+    fn mq_unlink<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        u_name: Cstr,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::MqUnlink { u_name };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::MqUnlink(ret) => Ok(ret),
-            _ => mismatch("mq_unlink"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::MqUnlink(ret) => Ok(ret),
+                _ => mismatch("mq_unlink"),
+            })
     }
 
-    async fn mq_timedsend_time64(
-        &self,
-        caller: &Caller<'_>,
+    fn mq_timedsend_time64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         mqdes: Mqd,
         u_msg_ptr: ConstBuf,
         msg_len: Usize,
         msg_prio: u32,
         u_abs_timeout: ConstKernelTimespecPtr,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::MqTimedsendTime64 {
             mqdes,
             u_msg_ptr,
@@ -17429,21 +18543,23 @@ impl<L: Layer<S>, S: Syscalls> Syscalls for Layered<L, S> {
             msg_prio,
             u_abs_timeout,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::MqTimedsendTime64(ret) => Ok(ret),
-            _ => mismatch("mq_timedsend_time64"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::MqTimedsendTime64(ret) => Ok(ret),
+                _ => mismatch("mq_timedsend_time64"),
+            })
     }
 
-    async fn mq_timedreceive_time64(
-        &self,
-        caller: &Caller<'_>,
+    fn mq_timedreceive_time64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         mqdes: Mqd,
         u_msg_ptr: Buf,
         msg_len: Usize,
         u_msg_prio: U32Ptr,
         u_abs_timeout: ConstKernelTimespecPtr,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::MqTimedreceiveTime64 {
             mqdes,
             u_msg_ptr,
@@ -17451,110 +18567,128 @@ impl<L: Layer<S>, S: Syscalls> Syscalls for Layered<L, S> {
             u_msg_prio,
             u_abs_timeout,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::MqTimedreceiveTime64(ret) => Ok(ret),
-            _ => mismatch("mq_timedreceive_time64"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::MqTimedreceiveTime64(ret) => Ok(ret),
+                _ => mismatch("mq_timedreceive_time64"),
+            })
     }
 
-    async fn mq_notify(
-        &self,
-        caller: &Caller<'_>,
+    fn mq_notify<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         mqdes: Mqd,
         u_notification: ConstSigeventPtr,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::MqNotify {
             mqdes,
             u_notification,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::MqNotify(ret) => Ok(ret),
-            _ => mismatch("mq_notify"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::MqNotify(ret) => Ok(ret),
+                _ => mismatch("mq_notify"),
+            })
     }
 
-    async fn mq_getsetattr(
-        &self,
-        caller: &Caller<'_>,
+    fn mq_getsetattr<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         mqdes: Mqd,
         u_mqstat: ConstMqAttrPtr,
         u_omqstat: MqAttrPtr,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::MqGetsetattr {
             mqdes,
             u_mqstat,
             u_omqstat,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::MqGetsetattr(ret) => Ok(ret),
-            _ => mismatch("mq_getsetattr"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::MqGetsetattr(ret) => Ok(ret),
+                _ => mismatch("mq_getsetattr"),
+            })
     }
 
-    async fn io_setup(
-        &self,
-        caller: &Caller<'_>,
+    fn io_setup<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         nr_events: u32,
         ctxp: AioContextPtr,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::IoSetup { nr_events, ctxp };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::IoSetup(ret) => Ok(ret),
-            _ => mismatch("io_setup"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::IoSetup(ret) => Ok(ret),
+                _ => mismatch("io_setup"),
+            })
     }
 
-    async fn io_destroy(&self, caller: &Caller<'_>, ctx: AioContext) -> SysResult<i32> {
+    fn io_destroy<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        ctx: AioContext,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::IoDestroy { ctx };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::IoDestroy(ret) => Ok(ret),
-            _ => mismatch("io_destroy"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::IoDestroy(ret) => Ok(ret),
+                _ => mismatch("io_destroy"),
+            })
     }
 
-    async fn io_submit(
-        &self,
-        caller: &Caller<'_>,
+    fn io_submit<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         ctx_id: AioContext,
         nr: Slong,
         iocbpp: ConstIocbPtrArray,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::IoSubmit { ctx_id, nr, iocbpp };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::IoSubmit(ret) => Ok(ret),
-            _ => mismatch("io_submit"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::IoSubmit(ret) => Ok(ret),
+                _ => mismatch("io_submit"),
+            })
     }
 
-    async fn io_cancel(
-        &self,
-        caller: &Caller<'_>,
+    fn io_cancel<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         ctx_id: AioContext,
         iocb: IocbPtr,
         result: IoEventPtr,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::IoCancel {
             ctx_id,
             iocb,
             result,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::IoCancel(ret) => Ok(ret),
-            _ => mismatch("io_cancel"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::IoCancel(ret) => Ok(ret),
+                _ => mismatch("io_cancel"),
+            })
     }
 
     #[allow(clippy::too_many_arguments)]
-    async fn io_pgetevents_time64(
-        &self,
-        caller: &Caller<'_>,
+    fn io_pgetevents_time64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         ctx_id: AioContext,
         min_nr: Slong,
         nr: Slong,
         events: IoEventArray,
         timeout: KernelTimespecPtr,
         usig: ConstAioSigsetPtr,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::IoPgeteventsTime64 {
             ctx_id,
             min_nr,
@@ -17563,36 +18697,40 @@ impl<L: Layer<S>, S: Syscalls> Syscalls for Layered<L, S> {
             timeout,
             usig,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::IoPgeteventsTime64(ret) => Ok(ret),
-            _ => mismatch("io_pgetevents_time64"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::IoPgeteventsTime64(ret) => Ok(ret),
+                _ => mismatch("io_pgetevents_time64"),
+            })
     }
 
-    async fn io_uring_setup(
-        &self,
-        caller: &Caller<'_>,
+    fn io_uring_setup<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         entries: u32,
         params: IoUringParamsPtr,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::IoUringSetup { entries, params };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::IoUringSetup(ret) => Ok(ret),
-            _ => mismatch("io_uring_setup"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::IoUringSetup(ret) => Ok(ret),
+                _ => mismatch("io_uring_setup"),
+            })
     }
 
     #[allow(clippy::too_many_arguments)]
-    async fn io_uring_enter(
-        &self,
-        caller: &Caller<'_>,
+    fn io_uring_enter<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         to_submit: u32,
         min_complete: u32,
         flags: u32,
         argp: ConstVoidPtr,
         argsz: Usize,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::IoUringEnter {
             fd,
             to_submit,
@@ -17601,41 +18739,45 @@ impl<L: Layer<S>, S: Syscalls> Syscalls for Layered<L, S> {
             argp,
             argsz,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::IoUringEnter(ret) => Ok(ret),
-            _ => mismatch("io_uring_enter"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::IoUringEnter(ret) => Ok(ret),
+                _ => mismatch("io_uring_enter"),
+            })
     }
 
-    async fn io_uring_register(
-        &self,
-        caller: &Caller<'_>,
+    fn io_uring_register<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         opcode: u32,
         arg: VoidPtr,
         nr_args: u32,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::IoUringRegister {
             fd,
             opcode,
             arg,
             nr_args,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::IoUringRegister(ret) => Ok(ret),
-            _ => mismatch("io_uring_register"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::IoUringRegister(ret) => Ok(ret),
+                _ => mismatch("io_uring_register"),
+            })
     }
 
-    async fn mount(
-        &self,
-        caller: &Caller<'_>,
+    fn mount<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         dev_name: Cstr,
         dir_name: Cstr,
         r#type: Cstr,
         flags: MountFlags,
         data: ConstVoidPtr,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Mount {
             dev_name,
             dir_name,
@@ -17643,60 +18785,73 @@ impl<L: Layer<S>, S: Syscalls> Syscalls for Layered<L, S> {
             flags,
             data,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Mount(ret) => Ok(ret),
-            _ => mismatch("mount"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Mount(ret) => Ok(ret),
+                _ => mismatch("mount"),
+            })
     }
 
-    async fn umount2(&self, caller: &Caller<'_>, name: Cstr, flags: UmountFlags) -> SysResult<i32> {
+    fn umount2<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        name: Cstr,
+        flags: UmountFlags,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Umount2 { name, flags };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Umount2(ret) => Ok(ret),
-            _ => mismatch("umount2"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Umount2(ret) => Ok(ret),
+                _ => mismatch("umount2"),
+            })
     }
 
-    async fn pivot_root(
-        &self,
-        caller: &Caller<'_>,
+    fn pivot_root<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         new_root: Cstr,
         put_old: Cstr,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::PivotRoot { new_root, put_old };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::PivotRoot(ret) => Ok(ret),
-            _ => mismatch("pivot_root"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::PivotRoot(ret) => Ok(ret),
+                _ => mismatch("pivot_root"),
+            })
     }
 
-    async fn open_tree(
-        &self,
-        caller: &Caller<'_>,
+    fn open_tree<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         dfd: Fd,
         filename: Cstr,
         flags: u32,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::OpenTree {
             dfd,
             filename,
             flags,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::OpenTree(ret) => Ok(ret),
-            _ => mismatch("open_tree"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::OpenTree(ret) => Ok(ret),
+                _ => mismatch("open_tree"),
+            })
     }
 
-    async fn open_tree_attr(
-        &self,
-        caller: &Caller<'_>,
+    fn open_tree_attr<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         dfd: Fd,
         filename: Cstr,
         flags: u32,
         uattr: ConstMountAttrPtr,
         usize: Usize,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::OpenTreeAttr {
             dfd,
             filename,
@@ -17704,21 +18859,23 @@ impl<L: Layer<S>, S: Syscalls> Syscalls for Layered<L, S> {
             uattr,
             usize,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::OpenTreeAttr(ret) => Ok(ret),
-            _ => mismatch("open_tree_attr"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::OpenTreeAttr(ret) => Ok(ret),
+                _ => mismatch("open_tree_attr"),
+            })
     }
 
-    async fn move_mount(
-        &self,
-        caller: &Caller<'_>,
+    fn move_mount<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         from_dfd: Fd,
         from_pathname: Cstr,
         to_dfd: Fd,
         to_pathname: Cstr,
         flags: u32,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::MoveMount {
             from_dfd,
             from_pathname,
@@ -17726,29 +18883,38 @@ impl<L: Layer<S>, S: Syscalls> Syscalls for Layered<L, S> {
             to_pathname,
             flags,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::MoveMount(ret) => Ok(ret),
-            _ => mismatch("move_mount"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::MoveMount(ret) => Ok(ret),
+                _ => mismatch("move_mount"),
+            })
     }
 
-    async fn fsopen(&self, caller: &Caller<'_>, fs_name: Cstr, flags: u32) -> SysResult<i32> {
+    fn fsopen<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        fs_name: Cstr,
+        flags: u32,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Fsopen { fs_name, flags };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Fsopen(ret) => Ok(ret),
-            _ => mismatch("fsopen"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Fsopen(ret) => Ok(ret),
+                _ => mismatch("fsopen"),
+            })
     }
 
-    async fn fsconfig(
-        &self,
-        caller: &Caller<'_>,
+    fn fsconfig<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         cmd: u32,
         key: Cstr,
         value: ConstVoidPtr,
         aux: i32,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Fsconfig {
             fd,
             cmd,
@@ -17756,47 +18922,59 @@ impl<L: Layer<S>, S: Syscalls> Syscalls for Layered<L, S> {
             value,
             aux,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Fsconfig(ret) => Ok(ret),
-            _ => mismatch("fsconfig"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Fsconfig(ret) => Ok(ret),
+                _ => mismatch("fsconfig"),
+            })
     }
 
-    async fn fsmount(
-        &self,
-        caller: &Caller<'_>,
+    fn fsmount<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fs_fd: Fd,
         flags: u32,
         attr_flags: u32,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Fsmount {
             fs_fd,
             flags,
             attr_flags,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Fsmount(ret) => Ok(ret),
-            _ => mismatch("fsmount"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Fsmount(ret) => Ok(ret),
+                _ => mismatch("fsmount"),
+            })
     }
 
-    async fn fspick(&self, caller: &Caller<'_>, dfd: Fd, path: Cstr, flags: u32) -> SysResult<i32> {
+    fn fspick<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        dfd: Fd,
+        path: Cstr,
+        flags: u32,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Fspick { dfd, path, flags };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Fspick(ret) => Ok(ret),
-            _ => mismatch("fspick"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Fspick(ret) => Ok(ret),
+                _ => mismatch("fspick"),
+            })
     }
 
-    async fn mount_setattr(
-        &self,
-        caller: &Caller<'_>,
+    fn mount_setattr<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         dfd: Fd,
         path: Cstr,
         flags: AtFlags,
         uattr: ConstMountAttrPtr,
         usize: Usize,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::MountSetattr {
             dfd,
             path,
@@ -17804,182 +18982,202 @@ impl<L: Layer<S>, S: Syscalls> Syscalls for Layered<L, S> {
             uattr,
             usize,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::MountSetattr(ret) => Ok(ret),
-            _ => mismatch("mount_setattr"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::MountSetattr(ret) => Ok(ret),
+                _ => mismatch("mount_setattr"),
+            })
     }
 
-    async fn statmount(
-        &self,
-        caller: &Caller<'_>,
+    fn statmount<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         req: ConstMntIdReqPtr,
         buf: VoidPtr,
         bufsize: Usize,
         flags: u32,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Statmount {
             req,
             buf,
             bufsize,
             flags,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Statmount(ret) => Ok(ret),
-            _ => mismatch("statmount"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Statmount(ret) => Ok(ret),
+                _ => mismatch("statmount"),
+            })
     }
 
-    async fn listmount(
-        &self,
-        caller: &Caller<'_>,
+    fn listmount<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         req: ConstMntIdReqPtr,
         mnt_ids: U64Array,
         nr_mnt_ids: Usize,
         flags: u32,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Listmount {
             req,
             mnt_ids,
             nr_mnt_ids,
             flags,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Listmount(ret) => Ok(ret),
-            _ => mismatch("listmount"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Listmount(ret) => Ok(ret),
+                _ => mismatch("listmount"),
+            })
     }
 
-    async fn listns(
-        &self,
-        caller: &Caller<'_>,
+    fn listns<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         req: ConstNsIdReqPtr,
         ns_ids: U64Array,
         nr_ns_ids: Usize,
         flags: u32,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Listns {
             req,
             ns_ids,
             nr_ns_ids,
             flags,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Listns(ret) => Ok(ret),
-            _ => mismatch("listns"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Listns(ret) => Ok(ret),
+                _ => mismatch("listns"),
+            })
     }
 
-    async fn landlock_create_ruleset(
-        &self,
-        caller: &Caller<'_>,
+    fn landlock_create_ruleset<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         attr: ConstLandlockRulesetAttrPtr,
         size: Usize,
         flags: u32,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::LandlockCreateRuleset { attr, size, flags };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::LandlockCreateRuleset(ret) => Ok(ret),
-            _ => mismatch("landlock_create_ruleset"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::LandlockCreateRuleset(ret) => Ok(ret),
+                _ => mismatch("landlock_create_ruleset"),
+            })
     }
 
-    async fn landlock_add_rule(
-        &self,
-        caller: &Caller<'_>,
+    fn landlock_add_rule<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         ruleset_fd: Fd,
         rule_type: i32,
         rule_attr: ConstVoidPtr,
         flags: u32,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::LandlockAddRule {
             ruleset_fd,
             rule_type,
             rule_attr,
             flags,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::LandlockAddRule(ret) => Ok(ret),
-            _ => mismatch("landlock_add_rule"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::LandlockAddRule(ret) => Ok(ret),
+                _ => mismatch("landlock_add_rule"),
+            })
     }
 
-    async fn landlock_restrict_self(
-        &self,
-        caller: &Caller<'_>,
+    fn landlock_restrict_self<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         ruleset_fd: Fd,
         flags: u32,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::LandlockRestrictSelf { ruleset_fd, flags };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::LandlockRestrictSelf(ret) => Ok(ret),
-            _ => mismatch("landlock_restrict_self"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::LandlockRestrictSelf(ret) => Ok(ret),
+                _ => mismatch("landlock_restrict_self"),
+            })
     }
 
-    async fn lsm_get_self_attr(
-        &self,
-        caller: &Caller<'_>,
+    fn lsm_get_self_attr<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         attr: u32,
         ctx: LsmCtxPtr,
         size: U32Ptr,
         flags: u32,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::LsmGetSelfAttr {
             attr,
             ctx,
             size,
             flags,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::LsmGetSelfAttr(ret) => Ok(ret),
-            _ => mismatch("lsm_get_self_attr"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::LsmGetSelfAttr(ret) => Ok(ret),
+                _ => mismatch("lsm_get_self_attr"),
+            })
     }
 
-    async fn lsm_set_self_attr(
-        &self,
-        caller: &Caller<'_>,
+    fn lsm_set_self_attr<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         attr: u32,
         ctx: ConstLsmCtxPtr,
         size: u32,
         flags: u32,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::LsmSetSelfAttr {
             attr,
             ctx,
             size,
             flags,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::LsmSetSelfAttr(ret) => Ok(ret),
-            _ => mismatch("lsm_set_self_attr"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::LsmSetSelfAttr(ret) => Ok(ret),
+                _ => mismatch("lsm_set_self_attr"),
+            })
     }
 
-    async fn lsm_list_modules(
-        &self,
-        caller: &Caller<'_>,
+    fn lsm_list_modules<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         ids: U64Array,
         size: U32Ptr,
         flags: u32,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::LsmListModules { ids, size, flags };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::LsmListModules(ret) => Ok(ret),
-            _ => mismatch("lsm_list_modules"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::LsmListModules(ret) => Ok(ret),
+                _ => mismatch("lsm_list_modules"),
+            })
     }
 
-    async fn add_key(
-        &self,
-        caller: &Caller<'_>,
+    fn add_key<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         r#type: Cstr,
         description: Cstr,
         payload: ConstVoidPtr,
         plen: Usize,
         ringid: KeySerial,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::AddKey {
             r#type,
             description,
@@ -17987,41 +19185,45 @@ impl<L: Layer<S>, S: Syscalls> Syscalls for Layered<L, S> {
             plen,
             ringid,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::AddKey(ret) => Ok(ret),
-            _ => mismatch("add_key"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::AddKey(ret) => Ok(ret),
+                _ => mismatch("add_key"),
+            })
     }
 
-    async fn request_key(
-        &self,
-        caller: &Caller<'_>,
+    fn request_key<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         r#type: Cstr,
         description: Cstr,
         callout_info: Cstr,
         destringid: KeySerial,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::RequestKey {
             r#type,
             description,
             callout_info,
             destringid,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::RequestKey(ret) => Ok(ret),
-            _ => mismatch("request_key"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::RequestKey(ret) => Ok(ret),
+                _ => mismatch("request_key"),
+            })
     }
 
-    async fn keyctl(
-        &self,
-        caller: &Caller<'_>,
+    fn keyctl<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         option: i32,
         arg2: Ulong,
         arg3: Ulong,
         arg4: Ulong,
         arg5: Ulong,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Keyctl {
             option,
             arg2,
@@ -18029,21 +19231,23 @@ impl<L: Layer<S>, S: Syscalls> Syscalls for Layered<L, S> {
             arg4,
             arg5,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Keyctl(ret) => Ok(ret),
-            _ => mismatch("keyctl"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Keyctl(ret) => Ok(ret),
+                _ => mismatch("keyctl"),
+            })
     }
 
-    async fn bpf(
-        &self,
-        caller: &Caller<'_>,
+    fn bpf<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         cmd: i32,
         uattr: VoidPtr,
         size: u32,
         uattr_common: VoidPtr,
         size_common: u32,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Bpf {
             cmd,
             uattr,
@@ -18051,21 +19255,23 @@ impl<L: Layer<S>, S: Syscalls> Syscalls for Layered<L, S> {
             uattr_common,
             size_common,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Bpf(ret) => Ok(ret),
-            _ => mismatch("bpf"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Bpf(ret) => Ok(ret),
+                _ => mismatch("bpf"),
+            })
     }
 
-    async fn perf_event_open(
-        &self,
-        caller: &Caller<'_>,
+    fn perf_event_open<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         attr_uptr: VoidPtr,
         pid: Pid,
         cpu: i32,
         group_fd: Fd,
         flags: Ulong,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::PerfEventOpen {
             attr_uptr,
             pid,
@@ -18073,109 +19279,135 @@ impl<L: Layer<S>, S: Syscalls> Syscalls for Layered<L, S> {
             group_fd,
             flags,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::PerfEventOpen(ret) => Ok(ret),
-            _ => mismatch("perf_event_open"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::PerfEventOpen(ret) => Ok(ret),
+                _ => mismatch("perf_event_open"),
+            })
     }
 
-    async fn reboot(
-        &self,
-        caller: &Caller<'_>,
+    fn reboot<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         magic1: i32,
         magic2: i32,
         cmd: RebootCmd,
         arg: VoidPtr,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Reboot {
             magic1,
             magic2,
             cmd,
             arg,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Reboot(ret) => Ok(ret),
-            _ => mismatch("reboot"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Reboot(ret) => Ok(ret),
+                _ => mismatch("reboot"),
+            })
     }
 
-    async fn acct(&self, caller: &Caller<'_>, name: Cstr) -> SysResult<i32> {
+    fn acct<'a>(&'a self, caller: &'a Caller<'_>, name: Cstr) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Acct { name };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Acct(ret) => Ok(ret),
-            _ => mismatch("acct"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Acct(ret) => Ok(ret),
+                _ => mismatch("acct"),
+            })
     }
 
-    async fn swapon(
-        &self,
-        caller: &Caller<'_>,
+    fn swapon<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         specialfile: Cstr,
         swap_flags: i32,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Swapon {
             specialfile,
             swap_flags,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Swapon(ret) => Ok(ret),
-            _ => mismatch("swapon"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Swapon(ret) => Ok(ret),
+                _ => mismatch("swapon"),
+            })
     }
 
-    async fn swapoff(&self, caller: &Caller<'_>, specialfile: Cstr) -> SysResult<i32> {
+    fn swapoff<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        specialfile: Cstr,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Swapoff { specialfile };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Swapoff(ret) => Ok(ret),
-            _ => mismatch("swapoff"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Swapoff(ret) => Ok(ret),
+                _ => mismatch("swapoff"),
+            })
     }
 
-    async fn syslog(&self, caller: &Caller<'_>, r#type: i32, buf: Buf, len: i32) -> SysResult<i32> {
+    fn syslog<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        r#type: i32,
+        buf: Buf,
+        len: i32,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Syslog { r#type, buf, len };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Syslog(ret) => Ok(ret),
-            _ => mismatch("syslog"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Syslog(ret) => Ok(ret),
+                _ => mismatch("syslog"),
+            })
     }
 
-    async fn vhangup(&self, caller: &Caller<'_>) -> SysResult<i32> {
+    fn vhangup<'a>(&'a self, caller: &'a Caller<'_>) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::Vhangup;
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::Vhangup(ret) => Ok(ret),
-            _ => mismatch("vhangup"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::Vhangup(ret) => Ok(ret),
+                _ => mismatch("vhangup"),
+            })
     }
 
-    async fn kexec_load(
-        &self,
-        caller: &Caller<'_>,
+    fn kexec_load<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         entry: Uptr,
         nr_segments: Ulong,
         segments: ConstKexecSegmentArray,
         flags: Ulong,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::KexecLoad {
             entry,
             nr_segments,
             segments,
             flags,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::KexecLoad(ret) => Ok(ret),
-            _ => mismatch("kexec_load"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::KexecLoad(ret) => Ok(ret),
+                _ => mismatch("kexec_load"),
+            })
     }
 
-    async fn kexec_file_load(
-        &self,
-        caller: &Caller<'_>,
+    fn kexec_file_load<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         kernel_fd: Fd,
         initrd_fd: Fd,
         cmdline_len: Ulong,
         cmdline_ptr: Cstr,
         flags: Ulong,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::KexecFileLoad {
             kernel_fd,
             initrd_fd,
@@ -18183,51 +19415,59 @@ impl<L: Layer<S>, S: Syscalls> Syscalls for Layered<L, S> {
             cmdline_ptr,
             flags,
         };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::KexecFileLoad(ret) => Ok(ret),
-            _ => mismatch("kexec_file_load"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::KexecFileLoad(ret) => Ok(ret),
+                _ => mismatch("kexec_file_load"),
+            })
     }
 
-    async fn init_module(
-        &self,
-        caller: &Caller<'_>,
+    fn init_module<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         umod: ConstBuf,
         len: Ulong,
         uargs: Cstr,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::InitModule { umod, len, uargs };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::InitModule(ret) => Ok(ret),
-            _ => mismatch("init_module"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::InitModule(ret) => Ok(ret),
+                _ => mismatch("init_module"),
+            })
     }
 
-    async fn finit_module(
-        &self,
-        caller: &Caller<'_>,
+    fn finit_module<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         uargs: Cstr,
         flags: i32,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::FinitModule { fd, uargs, flags };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::FinitModule(ret) => Ok(ret),
-            _ => mismatch("finit_module"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::FinitModule(ret) => Ok(ret),
+                _ => mismatch("finit_module"),
+            })
     }
 
-    async fn delete_module(
-        &self,
-        caller: &Caller<'_>,
+    fn delete_module<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         name_user: Cstr,
         flags: u32,
-    ) -> SysResult<i32> {
+    ) -> MaybeFuture<'a, SysResult<i32>> {
         let call = Syscall::DeleteModule { name_user, flags };
-        match self.layer.call(caller, call, &self.inner).await? {
-            SyscallRet::DeleteModule(ret) => Ok(ret),
-            _ => mismatch("delete_module"),
-        }
+        self.layer
+            .call(caller, call, &self.inner)
+            .map(|ret| match ret? {
+                SyscallRet::DeleteModule(ret) => Ok(ret),
+                _ => mismatch("delete_module"),
+            })
     }
 }
 

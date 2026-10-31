@@ -1,4 +1,4 @@
-//! The `Syscalls` trait with one async method per syscall, the request enum, the `Layered` adapter,
+//! The `Syscalls` trait with one immediate-or-deferred method per syscall, the request enum, the `Layered` adapter,
 //! user-memory reference types, result and restart types, and the return-to-guest interface.
 //!
 //! Everything above the kernel talks to it only through this crate. The trait, the request enum
@@ -24,6 +24,7 @@
 mod caller;
 mod control;
 mod cputime;
+mod future;
 mod generated;
 mod memory;
 mod result;
@@ -35,6 +36,7 @@ pub use control::{
     VforkWait, WorkFlag,
 };
 pub use cputime::{CpuAccount, CpuBase, CpuTime, CpuTimes, Expiry, GroupCpu};
+pub use future::MaybeFuture;
 pub use generated::{Layer, Layered, Syscall, SyscallRet, Syscalls, dispatch};
 pub use memory::{
     CstrError, Fault, LocalFuture, MemoryLayout, PageAccess, Restricted, UserMemory, UserSlice,

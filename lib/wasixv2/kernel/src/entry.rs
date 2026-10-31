@@ -2,6 +2,7 @@
 //! as a [`Layer`] in front of the kernel: the current task and seccomp.
 
 use wasixv2_abi::Errno;
+use wasixv2_syscalls::MaybeFuture;
 use wasixv2_syscalls::{Caller, Layer, SysErr, SysResult, Syscall, SyscallRet, Syscalls, dispatch};
 
 use crate::{Kernel, ptrace::CallInfo, sync::MutexExt as _};
@@ -56,44 +57,46 @@ const NR_CLONE: u32 = 220;
 pub struct SyscallEntry<L = Dispatch>(pub L);
 
 impl<L: Layer<Kernel>> Layer<Kernel> for SyscallEntry<L> {
-    async fn call(
-        &self,
-        caller: &Caller<'_>,
+    fn call<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         call: Syscall,
-        next: &Kernel,
-    ) -> SysResult<SyscallRet> {
-        let (slot, status) = next.task_ref(caller.task(), |t| {
-            (t.syscall.clone(), t.signals.status.clone())
-        });
-        // A pending VFS operation or kernel lock sleeps uninterruptibly. Wait primitives
-        // below supply their specific state, as Linux's prepare_to_wait does.
-        status
-            .during(
-                wasixv2_wait::TaskState::Uninterruptible,
-                wasixv2_syscalls::as_task(caller.task(), async {
-                    // fs/proc/base.c `proc_pid_syscall`: retain the call while suspended, including
-                    // syscall-exit tracing. Drop clears it on both completion and cancellation.
-                    *slot.lock_or_recover() = call_regs(&call).map(|(nr, args)| CallInfo {
-                        nr,
-                        args,
-                        ..Default::default()
-                    });
-                    let _current = CurrentCall(slot);
-                    let traced = next.tracees.used();
-                    let ret = match next.syscall_entry(caller, &call).await {
-                        Entry::Done(ret) => ret,
-                        Entry::Run(changed) => self.0.call(caller, changed, next).await,
-                    };
-                    let ret = if traced {
-                        next.syscall_exit(caller, &call, ret).await
-                    } else {
-                        ret
-                    };
-                    // The typed wasm import keeps its return type even if ptrace changed the syscall.
-                    ret.map(|ret| call.ret_from_raw(ret.to_raw()))
-                }),
-            )
-            .await
+        next: &'a Kernel,
+    ) -> MaybeFuture<'a, SysResult<SyscallRet>> {
+        MaybeFuture::Future(Box::pin(async move {
+            let (slot, status) = next.task_ref(caller.task(), |t| {
+                (t.syscall.clone(), t.signals.status.clone())
+            });
+            // A pending VFS operation or kernel lock sleeps uninterruptibly. Wait primitives
+            // below supply their specific state, as Linux's prepare_to_wait does.
+            status
+                .during(
+                    wasixv2_wait::TaskState::Uninterruptible,
+                    wasixv2_syscalls::as_task(caller.task(), async {
+                        // fs/proc/base.c `proc_pid_syscall`: retain the call while suspended, including
+                        // syscall-exit tracing. Drop clears it on both completion and cancellation.
+                        *slot.lock_or_recover() = call_regs(&call).map(|(nr, args)| CallInfo {
+                            nr,
+                            args,
+                            ..Default::default()
+                        });
+                        let _current = CurrentCall(slot);
+                        let traced = next.tracees.used();
+                        let ret = match next.syscall_entry(caller, &call).await {
+                            Entry::Done(ret) => ret,
+                            Entry::Run(changed) => self.0.call(caller, changed, next).await,
+                        };
+                        let ret = if traced {
+                            next.syscall_exit(caller, &call, ret).await
+                        } else {
+                            ret
+                        };
+                        // The typed wasm import keeps its return type even if ptrace changed the syscall.
+                        ret.map(|ret| call.ret_from_raw(ret.to_raw()))
+                    }),
+                )
+                .await
+        }))
     }
 }
 
@@ -102,8 +105,13 @@ impl<L: Layer<Kernel>> Layer<Kernel> for SyscallEntry<L> {
 pub struct Dispatch;
 
 impl<S: Syscalls> Layer<S> for Dispatch {
-    async fn call(&self, caller: &Caller<'_>, call: Syscall, next: &S) -> SysResult<SyscallRet> {
-        dispatch(next, caller, call).await
+    fn call<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        call: Syscall,
+        next: &'a S,
+    ) -> MaybeFuture<'a, SysResult<SyscallRet>> {
+        dispatch(next, caller, call)
     }
 }
 

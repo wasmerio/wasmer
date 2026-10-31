@@ -871,3 +871,35 @@ fn seccomp_actions_logged_requires_initial_sys_admin() {
         "an already-open fd cannot retain CAP_SYS_ADMIN after a capability drop"
     );
 }
+
+/// kernel/entry/common.c:syscall_trace_enter filters even an immediately-ready body.
+#[test]
+fn denied_ready_syscall_never_constructs_its_body() {
+    use wasixv2_syscalls::{Layer, MaybeFuture, Syscall, SyscallRet};
+    struct MustNotRun;
+    impl Layer<Kernel> for MustNotRun {
+        fn call<'a>(
+            &'a self,
+            _: &'a Caller<'_>,
+            _: Syscall,
+            _: &'a Kernel,
+        ) -> MaybeFuture<'a, SysResult<SyscallRet>> {
+            panic!("seccomp must deny before constructing the ready body")
+        }
+    }
+    let (stack, task, memory) = machine();
+    let caller = Caller::new(task, &memory);
+    no_new_privs(&stack, &caller);
+    assert_eq!(
+        set_filter(
+            &stack,
+            &caller,
+            &memory,
+            0,
+            &filter_for(NR_GETPID, RET_ERRNO | 13)
+        ),
+        Ok(0)
+    );
+    let stack = Layered::new(SyscallEntry(MustNotRun), stack.inner);
+    assert_eq!(errno(block_on(stack.getpid(&caller))), Errno::EACCES);
+}
