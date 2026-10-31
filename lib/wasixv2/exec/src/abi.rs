@@ -31,6 +31,15 @@ where
     /// return, so an image no ABI serves fails with `ENOEXEC` (see [`Abis`]'s [`Binfmt`]).
     fn matches_image(&self, image: &[u8]) -> bool;
 
+    /// Optionally creates the ABI owner for one selected process image. `None` keeps the
+    /// registered ABI. Selection calls this only on the first matching registration; the
+    /// resulting Arc is retained by the image and shared with its future peer instances.
+    /// This hook alone provides no address-space ownership or loader publication protocol.
+    fn for_image(&self, module: &Module) -> Option<Arc<dyn Abi<S>>> {
+        let _ = module;
+        None
+    }
+
     /// Every function import the ABI provides for an instance of `module`. The execution layer
     /// adds the memory import.
     fn imports(&self, store: &mut Store, env: &FunctionEnv<ExecEnv<S>>, module: &Module)
@@ -289,7 +298,10 @@ where
 
     /// The ABI that serves `module`, if any.
     pub fn select(&self, module: &Module) -> Option<Arc<dyn Abi<S>>> {
-        self.abis.iter().find(|abi| abi.matches(module)).cloned()
+        self.abis
+            .iter()
+            .find(|abi| abi.matches(module))
+            .map(|abi| abi.for_image(module).unwrap_or_else(|| abi.clone()))
     }
 
     /// Like [`Abis::select`], failing with [`ExecError::NoAbi`].
@@ -331,5 +343,129 @@ where
 {
     fn default() -> Self {
         Self::wasixv2()
+    }
+}
+
+#[cfg(all(test, feature = "sys"))]
+mod tests {
+    use super::*;
+    use crate::process::tests::Recorder;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    struct Factory {
+        accepts: bool,
+        specialize: bool,
+        calls: Arc<AtomicUsize>,
+    }
+    impl Abi<Recorder> for Factory {
+        fn name(&self) -> &'static str {
+            "factory-proof"
+        }
+        fn matches(&self, _: &Module) -> bool {
+            self.accepts
+        }
+        fn matches_image(&self, _: &[u8]) -> bool {
+            self.accepts
+        }
+        fn for_image(&self, _: &Module) -> Option<Arc<dyn Abi<Recorder>>> {
+            self.calls.fetch_add(1, Ordering::SeqCst);
+            self.specialize
+                .then(|| Arc::new(Unchanged) as Arc<dyn Abi<Recorder>>)
+        }
+        fn imports(
+            &self,
+            _: &mut Store,
+            _: &FunctionEnv<ExecEnv<Recorder>>,
+            _: &Module,
+        ) -> Imports {
+            Imports::new()
+        }
+        fn bind(
+            &self,
+            _: &Instance,
+            _: &mut Store,
+            _: TaskId,
+            _: Role,
+        ) -> Result<Arc<dyn AbiInstance<Recorder>>, ExecError> {
+            unreachable!("selection must not instantiate")
+        }
+    }
+    struct Unchanged;
+    impl Abi<Recorder> for Unchanged {
+        fn name(&self) -> &'static str {
+            "unchanged"
+        }
+        fn matches(&self, _: &Module) -> bool {
+            true
+        }
+        fn matches_image(&self, _: &[u8]) -> bool {
+            true
+        }
+        fn imports(
+            &self,
+            _: &mut Store,
+            _: &FunctionEnv<ExecEnv<Recorder>>,
+            _: &Module,
+        ) -> Imports {
+            Imports::new()
+        }
+        fn bind(
+            &self,
+            _: &Instance,
+            _: &mut Store,
+            _: TaskId,
+            _: Role,
+        ) -> Result<Arc<dyn AbiInstance<Recorder>>, ExecError> {
+            unreachable!("selection must not instantiate")
+        }
+    }
+
+    #[test]
+    fn image_factory_creates_distinct_owners_once_per_selection() {
+        let store = Store::default();
+        let module = Module::new(&store, wat::parse_str("(module)").unwrap()).unwrap();
+        let calls = Arc::new(AtomicUsize::new(0));
+        let mut abis = Abis::new();
+        abis.push(Arc::new(Factory {
+            accepts: false,
+            specialize: true,
+            calls: calls.clone(),
+        }));
+        abis.push(Arc::new(Factory {
+            accepts: true,
+            specialize: true,
+            calls: calls.clone(),
+        }));
+        abis.push(Arc::new(Factory {
+            accepts: true,
+            specialize: true,
+            calls: calls.clone(),
+        }));
+        let first = abis.select(&module).unwrap();
+        let peer = first.clone();
+        let second = abis.require(&module).unwrap();
+        assert_eq!(first.name(), "unchanged");
+        assert!(Arc::ptr_eq(&first, &peer));
+        assert!(!Arc::ptr_eq(&first, &second));
+        assert_eq!(calls.load(Ordering::SeqCst), 2);
+    }
+
+    #[test]
+    fn image_factory_default_preserves_registration_and_first_match() {
+        let store = Store::default();
+        let module = Module::new(&store, wat::parse_str("(module)").unwrap()).unwrap();
+        let original: Arc<dyn Abi<Recorder>> = Arc::new(Unchanged);
+        let calls = Arc::new(AtomicUsize::new(0));
+        let mut abis = Abis::new();
+        assert!(abis.select(&module).is_none());
+        abis.push(original.clone());
+        abis.push(Arc::new(Factory {
+            accepts: true,
+            specialize: true,
+            calls: calls.clone(),
+        }));
+        assert!(Arc::ptr_eq(&original, &abis.select(&module).unwrap()));
+        assert!(Arc::ptr_eq(&original, &abis.require(&module).unwrap()));
+        assert_eq!(calls.load(Ordering::SeqCst), 0);
     }
 }
