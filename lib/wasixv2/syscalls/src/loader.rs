@@ -73,6 +73,12 @@ impl LoaderGate {
     pub fn generation(&self) -> u64 {
         self.state().generation
     }
+    /// Startup may prepare before main binding only on its own fresh image.
+    /// Check after closing/draining admission, not as a sampled thread count.
+    pub fn only_store(&self, task: TaskId) -> bool {
+        let state = self.state();
+        state.stores.len() == 1 && state.stores.contains(&task.0)
+    }
 
     /// Held across clone/exec's preflight and membership update. Closed admission returns
     /// EAGAIN to kernel glue, which must restart at a loader-aware guest safe point, not
@@ -542,7 +548,22 @@ pub trait LoaderReservation: Send + Sync {
     fn release(self: Box<Self>) -> crate::LocalFuture<'static, ()>;
 }
 
+/// Read-only committed startup inputs. The gate identifies the exact new mm;
+/// `fresh` is false once memory/layout has attached, not an assertion by exec.
+pub struct LoaderStartup {
+    pub gate: Arc<LoaderGate>,
+    pub environment: Vec<Vec<u8>>,
+    pub secure: bool,
+    pub fresh: bool,
+}
+
 pub trait LoaderControl {
+    /// None keeps a custom control's existing plugin-only profile. A startup
+    /// dependency graph requires an actual snapshot; never infer insecure defaults.
+    fn loader_startup(&self, task: TaskId) -> Result<Option<LoaderStartup>, Errno> {
+        let _ = task;
+        Ok(None)
+    }
     fn loader_read<'a>(
         &'a self,
         caller: &'a crate::Caller<'_>,
@@ -627,6 +648,9 @@ pub trait LoaderControl {
     }
 }
 impl<L, S: LoaderControl> LoaderControl for Layered<L, S> {
+    fn loader_startup(&self, task: TaskId) -> Result<Option<LoaderStartup>, Errno> {
+        self.inner.loader_startup(task)
+    }
     fn loader_read<'a>(
         &'a self,
         caller: &'a crate::Caller<'_>,
@@ -991,5 +1015,40 @@ mod peer_work_tests {
         gate.leave(TaskId(2));
         assert_eq!(gate.wait_peer_work(TaskId(2)).now_or_never(), Some(false));
         drop(round);
+    }
+}
+
+#[cfg(test)]
+mod startup_tests {
+    use super::*;
+    #[test]
+    fn startup_control_opts_out_by_default_and_layers_preserve_snapshot_identity() {
+        struct DefaultControl;
+        impl LoaderControl for DefaultControl {}
+        assert!(DefaultControl.loader_startup(TaskId(1)).unwrap().is_none());
+        struct Snapshot(Arc<LoaderGate>);
+        impl LoaderControl for Snapshot {
+            fn loader_startup(&self, task: TaskId) -> Result<Option<LoaderStartup>, Errno> {
+                assert_eq!(task, TaskId(7));
+                Ok(Some(LoaderStartup {
+                    gate: self.0.clone(),
+                    environment: vec![b"LD_PRELOAD=a.so".to_vec()],
+                    secure: true,
+                    fresh: false,
+                }))
+            }
+        }
+        let gate = LoaderGate::new(72);
+        let layer = Layered::new((), Snapshot(gate.clone()));
+        let snapshot = layer.loader_startup(TaskId(7)).unwrap().unwrap();
+        assert!(Arc::ptr_eq(&snapshot.gate, &gate));
+        assert!(snapshot.secure);
+        assert!(!snapshot.fresh);
+        assert_eq!(snapshot.environment, [b"LD_PRELOAD=a.so".to_vec()]);
+        assert!(!gate.only_store(TaskId(7)));
+        drop(gate.bind(TaskId(7)).unwrap());
+        assert!(gate.only_store(TaskId(7)));
+        drop(gate.bind(TaskId(8)).unwrap());
+        assert!(!gate.only_store(TaskId(7)));
     }
 }

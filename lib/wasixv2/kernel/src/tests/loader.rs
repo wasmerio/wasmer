@@ -263,3 +263,31 @@ fn borrowed_loader_authority_stays_behind_layer_denial_and_entry_scope() {
     assert_eq!(forward.layer.0.0.get(), 1);
     assert_eq!(wasixv2_syscalls::current_task(), None);
 }
+
+#[test]
+fn loader_startup_uses_committed_environment_identity_and_actual_fresh_mm() {
+    use wasixv2_syscalls::SharedMappings;
+    let (kernel, task, _) = setup(b"");
+    *kernel.process(task).env.lock_or_recover() = vec![
+        b"LD_PRELOAD=/new.so".to_vec(),
+        b"LD_LIBRARY_PATH=/new".to_vec(),
+    ];
+    let first = kernel.loader_startup(task).unwrap().unwrap();
+    assert!(first.fresh);
+    assert!(!first.secure);
+    assert_eq!(first.environment[0], b"LD_PRELOAD=/new.so");
+    assert!(Arc::ptr_eq(&first.gate, &kernel.loader_gate(task).unwrap()));
+    kernel.process(task).ident.lock_or_recover().secure_exec = true;
+    assert!(kernel.loader_startup(task).unwrap().unwrap().secure);
+    kernel.process(task).ident.lock_or_recover().secure_exec = false;
+    let mut cred = (*kernel.task_cred(task)).clone();
+    cred.user.effective = crate::uidgid::Kuid(42);
+    kernel.with_task(task, |t| t.cred = Arc::new(cred));
+    assert!(kernel.loader_startup(task).unwrap().unwrap().secure);
+    kernel.attach_memory(task, Arc::new(SharedMemory(Mutex::new(vec![0; 65536]))));
+    assert!(!kernel.loader_startup(task).unwrap().unwrap().fresh);
+    assert!(matches!(
+        kernel.loader_startup(TaskId(u32::MAX)),
+        Err(Errno::ESRCH)
+    ));
+}

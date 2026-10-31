@@ -308,6 +308,9 @@ impl Mm {
     pub(crate) fn foreign(&self) -> Option<Arc<dyn UserMemory + Send + Sync>> {
         self.foreign.lock_or_recover().clone()
     }
+    pub(crate) fn loader_fresh(&self) -> bool {
+        self.loader.generation() == 0 && self.foreign().is_none() && self.space().base.is_none()
+    }
 
     /// What the kernel's copies may do with each page of the address space.
     pub(crate) fn access(&self) -> &Arc<PageAccess> {

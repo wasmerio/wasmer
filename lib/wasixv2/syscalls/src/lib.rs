@@ -49,7 +49,7 @@ pub use wasixv2_abi::{Errno, Fd};
 
 pub use loader::{
     LibraryImage, LoaderAdmission, LoaderClosing, LoaderCommand, LoaderControl, LoaderGate,
-    LoaderPhase, LoaderReservation, LoaderTransaction, LoaderWait,
+    LoaderPhase, LoaderReservation, LoaderStartup, LoaderTransaction, LoaderWait,
 };
 
 pub use dynamic::DynamicLinker;

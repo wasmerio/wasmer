@@ -1,5 +1,5 @@
 //! Loader coordination only: wasm compilation, instances and initialization stay in exec/dylink.
-use crate::Kernel;
+use crate::{Kernel, sync::MutexExt};
 use std::sync::Arc;
 use wasixv2_syscalls::{
     Errno, LoaderClosing, LoaderControl, LoaderGate, LoaderTransaction, LoaderWait, LocalFuture,
@@ -8,6 +8,29 @@ use wasixv2_syscalls::{
 use wasixv2_wait::wait_event;
 
 impl LoaderControl for Kernel {
+    fn loader_startup(
+        &self,
+        task: TaskId,
+    ) -> Result<Option<wasixv2_syscalls::LoaderStartup>, Errno> {
+        let (process, mm, cred) = {
+            let state = self.state.read_or_recover();
+            let entry = state.tasks.get(&task).ok_or(Errno::ESRCH)?;
+            (entry.process.clone(), entry.mm.clone(), entry.cred.clone())
+        };
+        // fs/binfmt_elf.c:create_elf_tables / include/linux/cred.h:__task_cred:
+        // use committed objective ids and secure_exec, as startup_get does.
+        let ns = &cred.user_ns;
+        let secure = process.ident.lock_or_recover().secure_exec
+            || ns.munged_uid(cred.user.real) != ns.munged_uid(cred.user.effective)
+            || ns.munged_gid(cred.group.real) != ns.munged_gid(cred.group.effective);
+        let environment = process.env.lock_or_recover().clone();
+        Ok(Some(wasixv2_syscalls::LoaderStartup {
+            gate: mm.loader.clone(),
+            environment,
+            secure,
+            fresh: mm.loader_fresh(),
+        }))
+    }
     fn loader_read<'a>(
         &'a self,
         caller: &'a wasixv2_syscalls::Caller<'_>,
