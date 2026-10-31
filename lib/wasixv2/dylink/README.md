@@ -63,7 +63,10 @@ The existing default `sys` and optional `js` engine feature wiring is retained.
 With `sys`, `StagedModule` implements one store's prepare/apply/rollback/publication
 building block. Preparation validates and rewrites source itself, checks the supplied
 address-space memory/table identity, preflights globals and fresh ranges, reconciles
-active element and planned function identities, and reserves table capacity. Apply
+active element and planned function identities, and reserves table capacity. Side
+code receives the existing exec preemption/atomic/growth instrumentation, failing
+closed when that rewrite is unsupported; imports must supply exec's normal host
+hooks. This preserves the main image's return-to-guest work boundary in side code. Apply
 uses only cached host writes/global/table assignments, with no awaits or guest calls.
 Rollback clears staged bytes and slots; old image state and signal sentinel slots
 remain untouched. Publication consumes an applied staging object. The caller must

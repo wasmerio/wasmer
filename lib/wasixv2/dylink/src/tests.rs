@@ -855,6 +855,53 @@ fn native_staging_never_runs_guest_initializers_and_rolls_back_fresh_effects() {
     let base = Global::new(&mut store, Value::I32(128));
     let table_base = Global::new(&mut store, Value::I32(3));
     let mut imports = Imports::new();
+    // The production binder supplies exec's normal environment-backed hooks. These
+    // typed test hooks are never called while staging and let published code run.
+    use std::sync::{
+        Arc,
+        atomic::{AtomicUsize, Ordering},
+    };
+    let ticks = Arc::new(AtomicUsize::new(0));
+    fn tick(env: wasmer::FunctionEnvMut<Arc<AtomicUsize>>) -> i32 {
+        env.data().fetch_add(1, Ordering::Relaxed);
+        65536
+    }
+    let tick_env = wasmer::FunctionEnv::new(&mut store, ticks.clone());
+    let hook = wasmer::Function::new_typed_with_env(&mut store, &tick_env, tick);
+    imports.define("wasixv2-exec", "preempt", hook);
+    imports.define(
+        "wasixv2-exec",
+        "unreachable",
+        wasmer::Function::new_typed(&mut store, || -> i32 {
+            panic!("unreachable guest instruction")
+        }),
+    );
+    imports.define(
+        "wasixv2-exec",
+        "memory-grow",
+        wasmer::Function::new_typed(&mut store, |_: i32| -> i32 { -1 }),
+    );
+    imports.define(
+        "wasixv2-exec",
+        "memory-atomic-wait32",
+        wasmer::Function::new_typed(&mut store, |_: i32, _: i32, _: i64, _: i32| -> i32 {
+            panic!("unexpected wait32")
+        }),
+    );
+    imports.define(
+        "wasixv2-exec",
+        "memory-atomic-wait64",
+        wasmer::Function::new_typed(&mut store, |_: i32, _: i64, _: i64, _: i32| -> i32 {
+            panic!("unexpected wait64")
+        }),
+    );
+    imports.define(
+        "wasixv2-exec",
+        "memory-atomic-notify",
+        wasmer::Function::new_typed(&mut store, |_: i32, _: i32, _: i32| -> i32 {
+            panic!("unexpected notify")
+        }),
+    );
     imports.define("env", "memory", memory.clone());
     imports.define("env", "__indirect_function_table", table.clone());
     imports.define("env", "__memory_base", base);
@@ -868,6 +915,9 @@ fn native_staging_never_runs_guest_initializers_and_rolls_back_fresh_effects() {
       (global $state (mut i32) (i32.const 0))
       (func $f (export "f") (result i32) i32.const 42)
       (func $g (result i32) i32.const 43)
+      (func (export "busy") (local i32)
+        i32.const 70000 local.set 0
+        (loop $again local.get 0 i32.const 1 i32.sub local.tee 0 br_if $again))
       (elem (global.get $table) func $f)
       (data (global.get $base) "new")
       (func $init i32.const 7 global.set $state)
@@ -981,4 +1031,14 @@ fn native_staging_never_runs_guest_initializers_and_rolls_back_fresh_effects() {
         .get_typed_function::<(), i32>(&store, "f")
         .unwrap();
     assert_eq!(function.call(&mut store).unwrap(), 42);
+    instance
+        .exports
+        .get_typed_function::<(), ()>(&store, "busy")
+        .unwrap()
+        .call(&mut store)
+        .unwrap();
+    assert!(
+        ticks.load(Ordering::Relaxed) > 0,
+        "side-module loop bypassed exec preemption"
+    );
 }

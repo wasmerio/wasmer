@@ -42,6 +42,9 @@ impl StagedModule {
     ) -> Result<Self, RuntimeError> {
         let initialization = Initialization::parse(source).map_err(error)?;
         let bytes = initialization.instantiate_bytes().map_err(error)?;
+        // Side-module loops must reach the same return-to-guest boundary as the main.
+        // Never inherit load()'s unpreemptible fallback for a live all-store transaction.
+        let bytes = wasixv2_exec::instrument(&bytes).map_err(error)?;
         let module = Module::new(&store.as_store_ref(), bytes).map_err(error)?;
         let instance = Instance::new(store, &module, imports).map_err(error)?;
         if instance
