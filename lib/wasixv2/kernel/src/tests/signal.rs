@@ -1056,6 +1056,45 @@ fn a_reaped_childs_task_leaves_the_table_and_its_exit_waits_for_the_release() {
     kernel.release(child);
 }
 
+/// kernel/exit.c:release_task and kernel/fork.c:__put_task_struct retire the
+/// reaper's and execution owner's references even when they race.
+#[test]
+fn reaping_concurrently_with_execution_release_leaves_no_dead_tasks() {
+    use std::sync::{
+        Barrier,
+        atomic::{AtomicU32, Ordering},
+    };
+
+    let (kernel, init, _) = machine();
+    let memory = forkable();
+    let caller = Caller::new(init, &memory);
+    let barrier = Barrier::new(2);
+    let child_id = AtomicU32::new(0);
+    const ROUNDS: usize = 4096;
+    std::thread::scope(|scope| {
+        scope.spawn(|| {
+            for _ in 0..ROUNDS {
+                barrier.wait();
+                kernel.release(TaskId(child_id.load(Ordering::Relaxed)));
+                barrier.wait();
+            }
+        });
+        for _ in 0..ROUNDS {
+            let child = fork(&kernel, &caller);
+            block_on(kernel.exit_group(&Caller::new(child, &memory), 5)).unwrap();
+            child_id.store(child.0, Ordering::Relaxed);
+            barrier.wait();
+            let status = reap(&kernel, &caller, child);
+            barrier.wait();
+            assert_eq!(status, Some(5));
+        }
+    });
+    assert!(
+        kernel.state.read_or_recover().dead.is_empty(),
+        "a reaped task has no execution owner left"
+    );
+}
+
 /// A vfork parent killed while it waits, and reaped while its child runs, is out of the table
 /// and its process gone; the child's end still finds it dead (`Resume::Dies`), and the
 /// instance takes its exit and releases it.

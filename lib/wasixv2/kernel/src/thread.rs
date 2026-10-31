@@ -647,19 +647,6 @@ impl Kernel {
             self.exit_notify(&process);
             return;
         }
-        let dead = self.state.lock_or_recover().dead.remove(&task);
-        if let Some(mut dead) = dead {
-            let unstarted = dead.work.take_unstarted();
-            let mut state = self.state.lock_or_recover();
-            for child in unstarted {
-                forget_task(&mut state, child);
-            }
-            drop(state);
-            if let Some(process) = dead.process.upgrade() {
-                process.group.released.wake(PollMask::empty());
-            }
-            return;
-        }
         // fs/fuse/dev.c:request_wait_answer and file.c:fuse_flush/fuse_file_put:
         // fault/fatal teardown must not wait on the daemon. Normal exit_mm closed these
         // files already, using the async flush path.
@@ -668,6 +655,19 @@ impl Kernel {
         self.complete_vfork_done(task);
         let (process, stopped) = {
             let mut state = self.state.lock_or_recover();
+            // kernel/exit.c:release_task and kernel/fork.c:__put_task_struct:
+            // the reaper can unhash this task during the cleanup above. Consume
+            // either table entry under the same lock, so its final release is not lost.
+            if let Some(mut dead) = state.dead.remove(&task) {
+                for child in dead.work.take_unstarted() {
+                    forget_task(&mut state, child);
+                }
+                drop(state);
+                if let Some(process) = dead.process.upgrade() {
+                    process.group.released.wake(PollMask::empty());
+                }
+                return;
+            }
             let (unstarted, process) = match state.tasks.get_mut(&task) {
                 Some(entry) => (entry.work.take_unstarted(), entry.process.clone()),
                 None => return,
