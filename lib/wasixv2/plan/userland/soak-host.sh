@@ -8,13 +8,7 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 KIT=${SOAK_KIT:-$HOME/wasixv2-tools/userland-soak}
 deps=$runtime/target/debug/deps
 find_rlib() {
-  python3 - "$deps" "$1" <<'PY'
-from pathlib import Path
-import sys
-paths=list(Path(sys.argv[1]).glob('lib'+sys.argv[2]+'-*.rlib'))
-assert len(paths)==1,(sys.argv[2],paths)
-print(paths[0])
-PY
+  python3 "$HERE/tests/soak-rlib.py" "$deps" "$1" "${SOAK_RLIB_MANIFEST:-}"
 }
 nice -n 19 taskset -c 4-7 rustc --edition=2024 -C debuginfo=0 -C codegen-units=3 \
   --crate-name soak_host -L "dependency=$deps" \

@@ -57,6 +57,38 @@ TokioHost weak references expire after shutdown/drop. `RETIRED` lines record
 same-process fd/thread/RSS after every machine. This supplements the long CLI
 run, since an OS process exit alone could hide machine-owned reference leaks.
 Keep it serialized with the soak/build/gates and within the same cgroup cap.
+When filtered core tests leave multiple dependency feature variants, set
+`SOAK_RLIB_MANIFEST` to a JSON object mapping `wasixv2`, `wasmer` and `tokio` to
+the exact `.rlib` paths emitted by the CLI's Cargo `compiler-artifact` messages.
+An optional `_sha256` object verifies those libraries have not changed. Without
+a manifest, the helper keeps the single-variant check. The three selector
+controls cover ambiguity, the single-variant path and changed artifacts.
+
+Capture paths from the same debug build, with the existing resource limits:
+
+```bash
+CARGO_INCREMENTAL=0 CARGO_PROFILE_DEV_DEBUG=0 nice -n 19 taskset -c 4-7 \
+  cargo build -j3 -p wasmer-cli --features cranelift --message-format=json > cli-artifacts.jsonl
+python3 - cli-artifacts.jsonl cli-rlibs.json <<'PYCODE'
+import json, sys
+from pathlib import Path
+names = {"wasixv2", "wasmer", "tokio"}
+paths = {name: set() for name in names}
+for line in Path(sys.argv[1]).read_text().splitlines():
+    row = json.loads(line)
+    if row.get("reason") == "compiler-artifact" and row["target"]["name"] in names:
+        paths[row["target"]["name"]].update(p for p in row["filenames"] if p.endswith(".rlib"))
+assert all(len(p) == 1 for p in paths.values()), paths
+Path(sys.argv[2]).write_text(json.dumps({name: next(iter(p)) for name, p in paths.items()}))
+PYCODE
+SOAK_RLIB_MANIFEST="$PWD/cli-rlibs.json" bash userland/soak-host.sh RUNTIME_WORKTREE NEW_LOG 32
+```
+
+Run the Cargo command from the runtime worktree and the linker recipe from this
+plan directory. Keep only the small manifest after consuming the intermediate
+Cargo JSON stream. This selects matching feature variants without a second
+Cargo dependency resolution for the standalone host.
+
 Same-process result:32/32 full-workload machines PASS (`retirement-unit2.log`,
 EXIT0). Every Net and TokioHost weak reference expired. Retirement fds stayed11
 for all32; host threads stayed22 for the final16; RSS warmed from1085MiB to1363MiB
