@@ -39,12 +39,15 @@ pub struct Initialization {
     first: Vec<Program>,
     peer: Vec<Program>,
     tls: Option<Program>,
+    tls_reloc: Option<Program>,
     segments: Vec<Vec<u8>>,
     /// Data segments dropped before user entry, in both initial and subsequent instances.
     dropped: BTreeSet<u32>,
     original: Vec<u8>,
     functions: u32,
     globals: u32,
+    memories: u32,
+    tags: u32,
     active_data: Vec<(Address, u32)>,
     active_elements: Vec<(Address, Vec<Option<u32>>)>,
 }
@@ -85,6 +88,8 @@ impl Initialization {
         let mut active_data = Vec::new();
         let mut active_elements = Vec::new();
         let mut globals_count = 0;
+        let mut memories = 0;
+        let mut tags = 0;
         for payload in Parser::new(0).parse_all(bytes) {
             match payload? {
                 Payload::ImportSection(section) => {
@@ -92,6 +97,8 @@ impl Initialization {
                         match import?.ty {
                             TypeRef::Func(_) => imported_functions += 1,
                             TypeRef::Global(_) => imported_globals += 1,
+                            TypeRef::Memory(_) => memories += 1,
+                            TypeRef::Tag(_) => tags += 1,
                             _ => {}
                         }
                     }
@@ -169,6 +176,8 @@ impl Initialization {
                         }
                     }
                 }
+                Payload::MemorySection(section) => memories += section.count(),
+                Payload::TagSection(section) => tags += section.count(),
                 Payload::CodeSectionEntry(body) => bodies.push(body),
                 _ => {}
             }
@@ -185,6 +194,12 @@ impl Initialization {
         if let Some(export) = exports.get("__wasm_apply_data_relocs") {
             roots.push(export.index);
         }
+        // Writer.cpp's shared-memory start initializes the static TLS image and global
+        // TLS relocations, but does not apply relocations inside that image itself.
+        if let Some(export) = exports.get("__wasm_apply_tls_relocs") {
+            roots.push(export.index);
+        }
+
         let mut first = Vec::new();
         let mut peer = Vec::new();
         let mut dropped = BTreeSet::new();
@@ -212,15 +227,22 @@ impl Initialization {
             .get("__wasm_init_tls")
             .map(|e| context.program(e.index, false, 1))
             .transpose()?;
+        let tls_reloc = exports
+            .get("__wasm_apply_tls_relocs")
+            .map(|e| context.program(e.index, false, 0))
+            .transpose()?;
         Ok(Self {
             first,
             peer,
             tls,
+            tls_reloc,
             segments,
             dropped,
             original: bytes.to_vec(),
             functions: module.functions.len() as u32,
             globals: imported_globals + globals_count,
+            memories,
+            tags,
             active_data,
             active_elements,
         })
@@ -268,6 +290,27 @@ impl Initialization {
                 &mut dropped,
             )?;
         }
+        // WASIX lld's main __wasm_init_tls applies pointer relocations before updating
+        // the per-store TLS GOT globals. Reapply the validated relocations after that
+        // helper's complete effect plan, so pointers reference this thread's final GOT.
+        if tls.is_some()
+            && let Some(program) = &self.tls_reloc
+        {
+            self.evaluate(program, &[], &mut globals, fresh, &mut writes, &mut dropped)?;
+        }
+        globals.retain(|index, value| before.get(index) != Some(value));
+        Ok(InitEffects { writes, globals })
+    }
+
+    /// The main image's per-store relocations, with main TLS left to pthread_create as in
+    /// DESIGN.md. No memory write is permitted here; shared main data already exists.
+    pub fn peer_globals(&self, mut globals: BTreeMap<u32, u64>) -> Result<InitEffects, PlanError> {
+        let before = globals.clone();
+        let mut writes = Vec::new();
+        let mut dropped = BTreeSet::new();
+        for program in &self.peer {
+            self.evaluate(program, &[], &mut globals, &[], &mut writes, &mut dropped)?;
+        }
         globals.retain(|index, value| before.get(index) != Some(value));
         Ok(InitEffects { writes, globals })
     }
@@ -306,6 +349,8 @@ impl Initialization {
             data: 0,
             functions: self.functions,
             globals: self.globals,
+            memories: self.memories,
+            tags: self.tags,
         };
         clean
             .parse_core_module(&mut output, Parser::new(0), &stripped.finish())
@@ -739,6 +784,8 @@ struct Sanitize<'a> {
     data: u32,
     functions: u32,
     globals: u32,
+    memories: u32,
+    tags: u32,
 }
 
 impl wasm_encoder::reencode::Reencode for Sanitize<'_> {
@@ -754,6 +801,20 @@ impl wasm_encoder::reencode::Reencode for Sanitize<'_> {
             exports.export(
                 &format!("__wasix_dylink_fn_{i}"),
                 wasm_encoder::ExportKind::Func,
+                i,
+            );
+        }
+        for i in 0..self.memories {
+            exports.export(
+                &format!("__wasix_dylink_memory_{i}"),
+                wasm_encoder::ExportKind::Memory,
+                i,
+            );
+        }
+        for i in 0..self.tags {
+            exports.export(
+                &format!("__wasix_dylink_tag_{i}"),
+                wasm_encoder::ExportKind::Tag,
                 i,
             );
         }

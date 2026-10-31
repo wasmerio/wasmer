@@ -640,6 +640,10 @@ fn source_built_lld_initialization_contract() {
     let path =
         std::env::var_os("WASIXV2_DYLINK_PROOF").expect("path to source-built lld wasm fixture");
     let bytes = std::fs::read(path).unwrap();
+    let metadata = Module::parse(&bytes).unwrap();
+    if let Some(symbol) = metadata.exports().get("tls_sym") {
+        eprintln!("source-built tls_sym metadata: {symbol:?}");
+    }
     let init = crate::Initialization::parse(&bytes).unwrap();
     let mut globals = std::collections::BTreeMap::new();
     let mut index = 0;
@@ -652,7 +656,7 @@ fn source_built_lld_initialization_contract() {
                         globals.insert(
                             index,
                             match import.name {
-                                "__memory_base" => 4096,
+                                "__memory_base" | "tls_sym" => 4096,
                                 "__table_base" => 3,
                                 _ => 0,
                             },
@@ -681,6 +685,28 @@ fn source_built_lld_initialization_contract() {
         .effects(globals.clone(), &reservation(0..65536), None)
         .unwrap();
     assert!(!first.writes.is_empty());
+    let metadata = Module::parse(&bytes).unwrap();
+    let tls_global = metadata.exports()["__tls_base"].index;
+    let tls_base = first.globals[&tls_global] as u32;
+    assert!(
+        first
+            .writes
+            .iter()
+            .any(|write| write.address == tls_base + 8 && write.bytes == tls_base.to_le_bytes()),
+        "first TLS block's pointer relocation was not applied"
+    );
+    // The DSO imports its preemptible TLS symbol; the real resolver supplies the
+    // address for this peer, rather than reusing the first thread's GOT input.
+    for (index, import) in metadata
+        .imports()
+        .iter()
+        .filter(|import| matches!(import.ty, crate::ExternType::Global(_)))
+        .enumerate()
+    {
+        if import.name == "tls_sym" {
+            globals.insert(index as u32, 32768);
+        }
+    }
     let peer = init
         .effects(globals, &reservation(32768..32800), Some(32768))
         .unwrap();
@@ -688,6 +714,11 @@ fn source_built_lld_initialization_contract() {
         peer.writes
             .iter()
             .all(|write| write.address >= 32768 && write.address < 32800)
+    );
+    assert!(
+        peer.writes
+            .iter()
+            .any(|write| write.address == 32776 && write.bytes == 32768u32.to_le_bytes())
     );
     let rewritten = init.instantiate_bytes().unwrap();
     assert_eq!(Module::parse(&rewritten).unwrap().start(), None);
@@ -716,4 +747,95 @@ fn signal_handler_sentinels_are_not_dynamic_table_slots() {
             ..
         }
     ));
+}
+
+#[test]
+fn dynamic_main_source_preparation_is_explicit_and_non_executing() {
+    let static_image = wat::parse_str("(module (func $init) (start $init))").unwrap();
+    assert_eq!(crate::prepare_image(&static_image).unwrap(), static_image);
+    let native = r#"(module
+      (import "wasixv2" "dl_close" (func (param i32) (result i32)))
+      (memory 1)
+      (func $init)
+      (start $init))"#;
+    let original = bytes(native, [0; 4], &[], &[], &[]);
+    let prepared = crate::prepare_image(&original).unwrap();
+    assert_eq!(Module::parse(&prepared).unwrap().start(), None);
+    let mut sources = Vec::new();
+    for payload in wasmparser::Parser::new(0).parse_all(&prepared) {
+        if let wasmparser::Payload::CustomSection(section) = payload.unwrap()
+            && section.name() == crate::SOURCE_SECTION
+        {
+            sources.push(section.data());
+        }
+    }
+    assert_eq!(sources, [original.as_slice()]);
+    assert!(crate::prepare_image(&prepared).is_err());
+    assert!(crate::prepare_image(&bytes(native, [0; 4], &["lib.so"], &[], &[])).is_err());
+    let asyncify = native.replace(
+        "(memory 1)",
+        "(memory 1) (func (export \"asyncify_start_unwind\"))",
+    );
+    assert!(crate::prepare_image(&bytes(&asyncify, [0; 4], &[], &[], &[])).is_err());
+}
+
+#[test]
+fn peer_globals_and_private_engine_handles_preserve_store_identity() {
+    let wasm = bytes(
+        r#"(module
+      (memory 1)
+      (tag (param i32))
+      (global $state (mut i32) (i32.const 0))
+      (func $start i32.const 9 global.set $state)
+      (start $start))"#,
+        [0; 4],
+        &[],
+        &[],
+        &[],
+    );
+    let init = crate::Initialization::parse(&wasm).unwrap();
+    let effects = init.peer_globals([(0, 0)].into()).unwrap();
+    assert_eq!(effects.globals[&0], 9);
+    assert!(effects.writes.is_empty());
+    let rewritten = Module::parse(&init.instantiate_bytes().unwrap()).unwrap();
+    assert_eq!(rewritten.exports()["__wasix_dylink_memory_0"].index, 0);
+    assert_eq!(rewritten.exports()["__wasix_dylink_tag_0"].index, 0);
+    let writing = bytes(
+        "(module (memory 1) (func $s i32.const 8 i32.const 9 i32.store) (start $s))",
+        [0; 4],
+        &[],
+        &[],
+        &[],
+    );
+    assert!(
+        crate::Initialization::parse(&writing)
+            .unwrap()
+            .peer_globals(Default::default())
+            .is_err()
+    );
+}
+
+#[test]
+fn peer_tls_pointer_relocations_follow_global_tls_fixups() {
+    let wasm = bytes(
+        r#"(module
+      (memory 1)
+      (global $base (mut i32) (i32.const 0))
+      (global $got (mut i32) (i32.const 0))
+      (func $reloc (export "__wasm_apply_tls_relocs")
+        global.get $base global.get $got i32.store)
+      (func (export "__wasm_init_tls") (param i32)
+        local.get 0 global.set $base
+        call $reloc
+        global.get $base global.set $got))"#,
+        [0; 4],
+        &[],
+        &[],
+        &[],
+    );
+    let init = crate::Initialization::parse(&wasm).unwrap();
+    let effects = init
+        .effects([(0, 0), (1, 0)].into(), &reservation(128..132), Some(128))
+        .unwrap();
+    assert_eq!(effects.writes.last().unwrap().bytes, 128u32.to_le_bytes());
 }

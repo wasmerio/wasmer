@@ -31,14 +31,24 @@ Reservations describe a fresh relative layout, not additions to an existing live
 image. The image owner must supply aligned bases and reconcile proposed function
 slots with element segments and imported function aliases. `deferred_checks`
 records that reconciliation, host import checking and unknown global values.
-Initializers (including start functions) are never executed, and names such as
-`__wasm_init_tls` confer no trust. The source fixtures exercise only those metadata
-boundaries; they do not prove cross-module asyncify or caller-identity support.
 
-Live instantiation, initialization validation, rollback/publication, thread
-rendezvous, CLONE_VM ownership, caller-sensitive lookup, startup loading, libc2
-wrappers, PIC toolchain enablement and cross-module fork/exec require subsequent
-approved integration work. No ABI or lifecycle contract is introduced here.
+`Initialization::parse` validates finite helper bodies and the exact supported lld
+shared-memory once template, then produces fresh-range-checked host writes, scalar
+global updates and element placements. It never executes wasm; helper names alone
+confer no trust. It rejects imported calls, constructors, recursion, loops and writes
+to imported globals. The no-auto-start rewrite makes active data empty passive
+segments and active elements declared while preserving segment indices. Private
+exports expose function/global/memory/tag identity for later engine preparation.
+TLS pointer relocations are applied after each thread's final TLS global fixups.
+`prepare_image` explicitly prepares a native dynamic main and retains its original
+validated source in a reserved custom section; it rejects startup dependencies and
+asyncify. It is not connected to the exec compiler or runtime yet.
+
+Live instantiation, rollback/publication, thread rendezvous, CLONE_VM ownership,
+caller-sensitive lookup, startup loading, libc2 wrappers, PIC toolchain enablement
+and cross-module fork/exec require the remaining approved integration work. The
+four imports still have their existing unsupported runtime behavior. The source
+fixtures do not prove cross-module asyncify or caller-identity support.
 
 The pure core tests do not need the engine:
 
