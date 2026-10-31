@@ -3,6 +3,12 @@
 Runtime base: `af8aa676d82` (`wasixv2/v16soak`). Recipe base: `59bd156af22`
 (`wasixv2/plan-soak`). ABI `07cd32e`, tests `3a2d12d`, libc2 base `6bc05b3b`.
 
+Completed: three failing-first lifetime fixes are pushed on the runtime branch.
+The fully fixed run measured 7203.565 seconds after readiness: 3390 mixed cycles
+across one persistent and 59 fresh machines, all successful. The bounded native
+embedding and idle-retirement checks also pass. Final curves and evidence
+hashes are in [soak.results.json](./soak.results.json); details follow below.
+
 Design: reuse V9/V10/V11 source-built static asyncify binaries and the existing
 guest workflow assertions in a persistent CLI machine, while sequential fresh
 CLI machines repeat the same workloads. Collect minute host RSS, descriptor and
@@ -37,7 +43,7 @@ copy-up, whiteout and normal unmount/daemon exit. Final SQLite integrity is chec
 Workers are chosen deterministically from a recorded cycle seed; stop/continue
 wait statuses and terminating signal statuses are checked explicitly.
 
-The persistent guest runs at least7200s after startup. Fresh guests each run120s
+The persistent guest runs at least7200s after startup. Fresh guests each run up to120s
 and repeat throughout the same interval. Host samples are every60s; a separate
 guest monitor counts `/proc/*/task` every60s, with additional quiescent counts at
 cycle boundaries. A missing completed cycle for180s or startup for600s fails.
@@ -103,7 +109,7 @@ plan directory. Keep only the small manifest after consuming the intermediate
 Cargo JSON stream. This selects matching feature variants without a second
 Cargo dependency resolution for the standalone host.
 
-Same-process result:32/32 full-workload machines PASS (`retirement-unit2.log`,
+Historical reactor-fixed result:32/32 full-workload machines PASS (`retirement-unit2.log`,
 EXIT0). Every Net and TokioHost weak reference expired. Retirement fds stayed11
 for all32; host threads stayed22 for the final16; RSS warmed from1085MiB to1363MiB
 and varied by only4KiB over the final4retirements. Raw rows are retained in
@@ -244,7 +250,7 @@ and the pinned local `__libc_malloc` disassembly resolve TLS;
 define the counts/size classes. The target's TLS offset is read from its own GOT,
 not copied from the observer's address space. TCB self-pointers and duplicate
 cache-count reads validate each thread; changing/disappearing threads are
-reported as unstable. Self-control PASS; finalrun cycle805 measured33/33stable
+reported as unstable. Self-control PASS; run04 cycle805 measured33/33stable
 threads and0.806MiB tcache chunks. This does not explain the entire arena
 unfreed estimate. No process attach, target writes, signals or allocator tuning.
 
@@ -261,7 +267,7 @@ calls, attach, writes, signals or tuning. Arena estimates alone cannot exclude
 large mmap allocation growth, so retain these supplementary snapshots too.
 
 
-## Fixed run04 curves and open heap investigation
+## Run04 curves and the function-reference finding
 
 Canonical debug CLI `ff65b0255b5`, SHA256
 `6597f726a69a8cf7ea4c1862c212af89dcf5bbeef8b109798959cbe480f75463`;
@@ -321,6 +327,93 @@ targets and alternates1024table reads/calls. RED:1028stored functions vswarm4;
 GREEN:4, with current-target results checked. 12reference API+5external-table+
 4VMtable checks PASS; exact Makefile-flags all-target clippy for `wasmer` and
 `wasmer-vm`, plus workspace fmtcheck PASS. The fully fixed debug CLI build and
-exact Cargo artifact manifest PASS. A new32-machine check and uninterrupted
-run05must confirm the third fix before memory sign-off. Canonical continuation
-state is the STATE.md linked above.
+exact Cargo artifact manifest PASS. The new32-machine embedding check and
+uninterrupted run05 below confirm the third fix. Canonical evidence and handoff
+state remain in the STATE.md linked above.
+
+## Fully fixed run05
+
+Runtime `f7895de7fa0` includes `b57e718dbf4` (reactor self-join panic) and
+`ff65b0255b5` (retired-task race). Its archived debug CLI SHA256 is
+`0c20b7e7da1bc33f37538837af6c1b8c053d9f9f3b5d2abfa3555416c091a377`.
+The workload/observer snapshot is `86bd66bf7c5`; supplementary read-only malloc
+diagnostics are `4eda4658000`, and the bounded idle control is `7592461cca2`.
+ABI, tests and libc2 pins are unchanged. There were no release builds or full
+suite runs. All heavy work used nice19, CPUs4–7 and at most three build workers.
+
+The analyzer requires at least7200s after READY and rejects failures or gaps
+over120s. This run measured **7203.565s**, with1711 persistent +1679 fresh cycles
+=3390 mixed cycles,59 fresh machines,121 minute ticks and maximum gap60.6s.
+Every process exited0 with DONE; all3390 quiescent guest counts are11. The last
+fresh machine ran only the remaining interval before the common deadline.
+There were no host panics, workload assertions, progress stalls or failed probes.
+The archived events, curves, summary and supplementary samples SHA-match the
+live RAM copies. Raw data: `logs/v16soak/run-05`; summarized data and proof hashes
+are committed in `soak.results.json`.
+
+| Resource | Warm median | p95 | Warm range | First/last15min median |
+| --- | ---: | ---: | ---: | ---: |
+| RSS KiB |919396|1025292|683884–1033964|754548 /988038|
+| Native fds |72|76|62–78|71 /71|
+| Native threads |47|57|31–61|39 /47.5|
+| Guest tasks (minute monitor) |18|25|10–28|19 /11.5|
+| Fixed HTTP probe ms |2.5865|12.588|1.172–19.679|1.970 /2.1125|
+
+The minute monitor can observe startup/shutdown and active forks; cycle-boundary
+counts give the quiescent11 check. All1711 quiet host samples were retained;
+the last100 have fds71, threads47 and RSS974904–988144KiB. Cycle-median
+persistent/fresh ratios span0.9795–1.0041 across ten-minute windows, with no
+measured aging-specific throughput loss. This shared-host comparison is not an
+isolated performance benchmark.
+
+Whole-run RSS/thread growth flags remain true because of native pool warming;
+fd/task/probe flags remain false. RSS fell naturally by about125MiB near minute89.
+The late-hour RSS slope is **-41009KiB/h**, and the thread slope is **-3.677/h**.
+Observed cgroup peak2023968768bytes (about1.89GiB), swap0, below the5600MiB cap.
+No trimming, allocator tuning, target writes or injected calls were used.
+
+| Persistent allocator sample | Unfreed MiB | System MiB | Free MiB | Attached threads |
+| --- | ---: | ---: | ---: | ---: |
+| 5min |25.718|412.207|386.490|31|
+| 35min |25.864|494.848|468.984|32|
+| 65min |26.015|702.227|676.212|47|
+| 85min |26.054|724.801|698.746|47|
+| 115min |26.106|816.941|790.835|47|
+
+The unfreed estimate rises0.388MiB over110minutes, versus12.593MiB before the
+function-reference fix. It includes allocator bookkeeping and native caches;
+this is near-flat live allocation evidence, not byte-for-byte flat RSS.
+All64 arenas in the final snapshot are stable. Native thread caches are
+0.702682/0.698334/0.719681MiB at60/85/115minutes. Direct malloc mmap allocation
+stays at one chunk/4648960bytes, and quiet mapping count stays603 at all three
+checks. Most extra arena capacity is free for reuse.
+
+The separate32-machine embedding check passes every Net/TokioHost weak-owner
+expiration assertion; fds11 throughout, final16threads23. Its final4 RSS range
+is1404944–1420148KiB, so it still has native allocator warming and is not claimed
+as flat RSS. The subsequent8-machine/12s idle control proves cached Tokio workers
+retire: threads21→8, fds11→11, only3 Tokio workers +1 intentional global CPU
+sampler +4 driver/compiler threads remain. No guest/network/timer threads remain.
+The initial idle-control failure was a too-broad assertion against the global
+CPU sampler, corrected from `ticks::Sampler::global`; it is preserved separately
+and is not a runtime panic finding.
+
+Across the four touched runtime crates,157 focused Rust checks pass, as do
+all-target clippy with the exact Makefile lint flags and workspace fmtcheck.
+Seven observer/linker controls, the three-phase independent malloc control and
+the bounded native lifetime controls pass. The full suite remains with the merge
+train, as requested.
+
+To rerun only the three bounded regressions from the runtime worktree:
+
+```bash
+export CARGO_INCREMENTAL=0 CARGO_PROFILE_DEV_DEBUG=0
+nice -n 19 taskset -c 4-7 cargo test -j3 -p wasixv2-vnet-host last_backend_reference_can_be_dropped_from_a_reactor_callback
+nice -n 19 taskset -c 4-7 cargo test -j3 -p wasixv2-kernel reaping_concurrently_with_execution_release_leaves_no_dead_tasks
+nice -n 19 taskset -c 4-7 cargo test -j3 -p wasmer --features cranelift --test reference_types funcref_table_reads_reuse_store_handles
+```
+
+Archived CLIs, manifests, raw evidence and all userland source kits are retained.
+After removing the task's build target, rebuild debug dependencies and capture
+a fresh compiler-artifact manifest before relinking the native driver; the saved
+manifest's paths document the completed validation build.

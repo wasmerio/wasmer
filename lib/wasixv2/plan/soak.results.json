@@ -1,7 +1,8 @@
 {
   "runtime_base": "af8aa676d82",
-  "runtime": "ff65b0255b5",
-  "recipe": "8a7e2005439",
+  "runtime": "f7895de7fa0",
+  "recipe": "86bd66bf7c5",
+  "supplementary_allocator_observer": "4eda4658000",
   "tests": "3a2d12d",
   "libc2": "6bc05b3b",
   "abi": "07cd32e",
@@ -9,20 +10,29 @@
     {
       "commit": "b57e718dbf4",
       "problem": "HostBackend self-join panic from final reactor callback reference",
-      "red": "1 bounded callback test fails before fix",
+      "red": "Bounded callback test fails before fix with native EDEADLK panic",
       "green": "10 focused reactor/publication/vsock checks"
     },
     {
       "commit": "ff65b0255b5",
       "problem": "Concurrent reap between release_task table locks retains DeadTask",
-      "red": "4096-child bounded race fails in0.33s before fix",
+      "red": "4096-child bounded race fails in 0.33s before fix",
       "green": "126 focused signal/task/ptrace/FUSE checks"
+    },
+    {
+      "commit": "f7895de7fa0",
+      "problem": "Repeated funcref table reads retain fresh VMFunction wrappers in the store",
+      "red": "1024 same-signature slot changes/read/calls leave 1028 functions versus warm count 4",
+      "green": "Warm function arena remains 4; 21 focused API reference/table and VM table checks"
     }
   ],
   "gates": {
-    "clippy": "all targets on both touched crates; exact Makefile lint RUSTFLAGS, -Dclippy::all",
+    "focused_rust_checks": 157,
+    "observer_and_linker_controls": 7,
+    "direct_mmap_control_phases": 3,
+    "clippy": "All targets on wasixv2-vnet-host, wasixv2-kernel, wasmer and wasmer-vm; exact Makefile lint RUSTFLAGS and -Dclippy::all",
     "fmt": "cargo fmt --all --check",
-    "full_suite": "not run; owned by merge train"
+    "full_suite": "Not run; owned by merge train"
   },
   "before_task_fix": {
     "measured_s": 7203.55,
@@ -208,7 +218,7 @@
       }
     ]
   },
-  "final": {
+  "before_funcref_fix": {
     "measured_s": 7200.286,
     "persistent_cycles": 1579,
     "sample_ticks": 120,
@@ -392,6 +402,190 @@
       }
     ]
   },
+  "final": {
+    "measured_s": 7203.5650000000005,
+    "persistent_cycles": 1711,
+    "sample_ticks": 121,
+    "largest_sample_gap_s": 60.6,
+    "total_cycles": 3390,
+    "fresh_machines": 59,
+    "quiescent_tasks": {
+      "min": 11,
+      "median": 11.0,
+      "p95": 11,
+      "max": 11
+    },
+    "persistent": {
+      "rss_kib": {
+        "after_warmup": {
+          "min": 683884,
+          "median": 919396.0,
+          "p95": 1025292,
+          "max": 1033964
+        },
+        "slope_per_hour": 158566.2363642902,
+        "second_half_slope_per_hour": -41009.32956041187,
+        "first_15min_median": 754548,
+        "last_15min_median": 988038.0
+      },
+      "fds": {
+        "after_warmup": {
+          "min": 62,
+          "median": 72.0,
+          "p95": 76,
+          "max": 78
+        },
+        "slope_per_hour": -0.3235653732746117,
+        "second_half_slope_per_hour": -1.0881688966658625,
+        "first_15min_median": 71,
+        "last_15min_median": 71.0
+      },
+      "threads": {
+        "after_warmup": {
+          "min": 31,
+          "median": 47.0,
+          "p95": 57,
+          "max": 61
+        },
+        "slope_per_hour": 9.816106918661395,
+        "second_half_slope_per_hour": -3.6769537990910983,
+        "first_15min_median": 39,
+        "last_15min_median": 47.5
+      },
+      "tasks": {
+        "after_warmup": {
+          "min": 10,
+          "median": 18.0,
+          "p95": 25,
+          "max": 28
+        },
+        "slope_per_hour": -1.7748856597418374,
+        "second_half_slope_per_hour": -3.9307535520074106,
+        "first_15min_median": 19,
+        "last_15min_median": 11.5
+      },
+      "latency_ms": {
+        "after_warmup": {
+          "min": 1.172,
+          "median": 2.5865,
+          "p95": 12.588,
+          "max": 19.679
+        },
+        "slope_per_hour": -0.09993883491468426,
+        "second_half_slope_per_hour": 1.5603931158984583,
+        "first_15min_median": 1.97,
+        "last_15min_median": 2.1125
+      }
+    },
+    "fresh_peaks": {
+      "rss_kib": {
+        "min": 626688,
+        "median": 684628,
+        "p95": 748976,
+        "max": 789020
+      },
+      "fds": {
+        "min": 76,
+        "median": 79,
+        "p95": 80,
+        "max": 81
+      },
+      "threads": {
+        "min": 42,
+        "median": 46,
+        "p95": 51,
+        "max": 57
+      }
+    },
+    "growth_flags": {
+      "rss_kib": true,
+      "fds": false,
+      "threads": true,
+      "tasks": false,
+      "latency_ms": false
+    },
+    "growth_flags_recomputed": {
+      "rss_kib": true,
+      "fds": false,
+      "threads": true,
+      "tasks": false,
+      "latency_ms": false
+    },
+    "cycle_comparison": [
+      {
+        "start_min": 0.0,
+        "persistent_cycle_median_s": 4.350999999999999,
+        "fresh_cycle_median_s": 4.406000000000006,
+        "persistent_to_fresh_ratio": 0.9875170222423952
+      },
+      {
+        "start_min": 10.0,
+        "persistent_cycle_median_s": 4.330999999999904,
+        "fresh_cycle_median_s": 4.353999999999928,
+        "persistent_to_fresh_ratio": 0.9947175011483635
+      },
+      {
+        "start_min": 20.0,
+        "persistent_cycle_median_s": 4.411500000000046,
+        "fresh_cycle_median_s": 4.4809999999999945,
+        "persistent_to_fresh_ratio": 0.9844900691809979
+      },
+      {
+        "start_min": 30.0,
+        "persistent_cycle_median_s": 4.266500000000065,
+        "fresh_cycle_median_s": 4.248999999999796,
+        "persistent_to_fresh_ratio": 1.0041186161450386
+      },
+      {
+        "start_min": 40.0,
+        "persistent_cycle_median_s": 4.0060000000000855,
+        "fresh_cycle_median_s": 4.0900000000001455,
+        "persistent_to_fresh_ratio": 0.9794621026894726
+      },
+      {
+        "start_min": 50.0,
+        "persistent_cycle_median_s": 3.969000000000051,
+        "fresh_cycle_median_s": 3.9794999999999163,
+        "persistent_to_fresh_ratio": 0.9973614775725932
+      },
+      {
+        "start_min": 60.0,
+        "persistent_cycle_median_s": 4.089999999999918,
+        "fresh_cycle_median_s": 4.091499999999769,
+        "persistent_to_fresh_ratio": 0.9996333862886836
+      },
+      {
+        "start_min": 70.0,
+        "persistent_cycle_median_s": 4.108499999999822,
+        "fresh_cycle_median_s": 4.128999999999905,
+        "persistent_to_fresh_ratio": 0.9950351174618348
+      },
+      {
+        "start_min": 80.0,
+        "persistent_cycle_median_s": 4.386999999999716,
+        "fresh_cycle_median_s": 4.398499999999785,
+        "persistent_to_fresh_ratio": 0.9973854723200933
+      },
+      {
+        "start_min": 90.0,
+        "persistent_cycle_median_s": 4.121999999999389,
+        "fresh_cycle_median_s": 4.128999999999451,
+        "persistent_to_fresh_ratio": 0.9983046742552524
+      },
+      {
+        "start_min": 100.0,
+        "persistent_cycle_median_s": 4.173999999999978,
+        "fresh_cycle_median_s": 4.166000000000167,
+        "persistent_to_fresh_ratio": 1.0019203072491143
+      },
+      {
+        "start_min": 110.0,
+        "persistent_cycle_median_s": 4.275000000000546,
+        "fresh_cycle_median_s": 4.277000000000044,
+        "persistent_to_fresh_ratio": 0.9995323825112233
+      }
+    ]
+  },
   "native_retirement": {
     "before_task_fix": {
       "machines": 32,
@@ -412,7 +606,7 @@
         22
       ]
     },
-    "final": {
+    "before_funcref_fix": {
       "machines": 32,
       "all_host_and_net_weak_references_expired": true,
       "fd_values": [
@@ -436,10 +630,122 @@
         23,
         24
       ]
+    },
+    "final": {
+      "machines": 32,
+      "all_host_and_net_weak_references_expired": true,
+      "fd_values": [
+        11
+      ],
+      "last_16_thread_values": [
+        23
+      ],
+      "last_4_rss_range_kib": [
+        1404944,
+        1420148
+      ],
+      "first_rss_kib": 1172184,
+      "last_rss_kib": 1420148,
+      "final_four_rss_range_kib": [
+        1404944,
+        1420148
+      ],
+      "last_sixteen_threads": [
+        23
+      ]
     }
   },
-  "memory_signoff": "OPEN: residual native arena-unfreed growth remains under allocation profiling",
-  "post_confirmation_ownership": {
+  "quiescent_host": {
+    "before_funcref_fix": {
+      "samples": 1579,
+      "fd_values": [
+        70,
+        71
+      ],
+      "last_100_fd_values": [
+        71
+      ],
+      "last_100_thread_values": [
+        35,
+        37
+      ],
+      "first_100_rss_median_kib": 688950.0,
+      "last_100_rss_median_kib": 680072.0,
+      "last_100_rss_range_kib": [
+        670776,
+        700388
+      ]
+    },
+    "final": {
+      "samples": 1711,
+      "fd_values": [
+        70,
+        71
+      ],
+      "last_100_fd_values": [
+        71
+      ],
+      "last_100_thread_values": [
+        47
+      ],
+      "first_100_rss_median_kib": 676446.0,
+      "last_100_rss_median_kib": 986400.0,
+      "last_100_rss_range_kib": [
+        974904,
+        988144
+      ]
+    }
+  },
+  "bounded_native_pool_retirement": {
+    "status": "PASS",
+    "machines": 8,
+    "idle_seconds": 12,
+    "fds_before": 11,
+    "fds_after": 11,
+    "threads_before": 21,
+    "threads_after": 8,
+    "rss_after_kib": 1323212,
+    "thread_names": {
+      "soak-host": 4,
+      "tokio-rt-worker": 3,
+      "wasixv2-cpu": 1
+    },
+    "all_host_and_net_weak_references_expired": true,
+    "retirement_fd_values": [
+      11
+    ],
+    "initial_control": "native-idle-initial*.log preserved; initial no-WASIX-thread assertion was too broad for intentional global CPU sampler",
+    "plan_commit": "7592461cca2"
+  },
+  "memory_signoff": {
+    "status": "PASS",
+    "scope": "Bounded validation of the three fixed lifetime defects; near-flat live-allocation estimates, not byte-for-byte flat RSS",
+    "arena_unfreed_first_mib": 25.718,
+    "arena_unfreed_last_mib": 26.106,
+    "arena_unfreed_growth_mib": 0.388,
+    "pre_funcref_fix_arena_growth_mib": 12.593,
+    "late_hour_rss_slope_kib_per_hour": -41009.32956041187,
+    "late_hour_thread_slope_per_hour": -3.6769537990910983,
+    "quiet_final_100_fds": [
+      71
+    ],
+    "quiet_final_100_threads": [
+      47
+    ],
+    "direct_malloc_mmap_bytes": 4648960,
+    "quiet_mapping_count_at_60_85_115_minutes": [
+      603,
+      603,
+      603
+    ],
+    "native_pool_idle_control": "Eight machines then12s idle: threads21->8, fds11; only three Tokio workers, one global CPU sampler and four driver/compiler threads remain",
+    "disclosures": [
+      "Whole-run RSS/thread warming flags are preserved; RSS is not flat from startup.",
+      "Arena unfreed estimates include allocator metadata and native thread caches; the measured110minute variation is0.388MiB.",
+      "The native32-machine embedding check has RSS warming; its weak-owner expiration/fd/thread checks are the retirement evidence."
+    ]
+  },
+  "post_task_fix_ownership": {
     "cycles": 51,
     "kernel_ranges": {
       "task_id": [
@@ -536,46 +842,186 @@
       ]
     }
   },
-  "native_thread_cache_snapshots": [
+  "native_thread_cache_snapshots": {
+    "before_funcref_fix": [
+      {
+        "at_s": 3839.975,
+        "cycle": 805,
+        "threads_seen": 33,
+        "stable_threads": 33,
+        "unstable_threads": 0,
+        "tcache_blocks": 2217,
+        "tcache_mib": 0.806458,
+        "robust_offset": 736,
+        "tls_offset": -1224,
+        "libc_sha256": "8db37cf3f2169f59a0f07ef1fea308c35656668c64c8ff294e1860f4121eb161"
+      },
+      {
+        "at_s": 5134.569,
+        "cycle": 1107,
+        "threads_seen": 33,
+        "stable_threads": 33,
+        "unstable_threads": 0,
+        "tcache_blocks": 2239,
+        "tcache_mib": 0.812927,
+        "robust_offset": 736,
+        "tls_offset": -1224,
+        "libc_sha256": "8db37cf3f2169f59a0f07ef1fea308c35656668c64c8ff294e1860f4121eb161"
+      },
+      {
+        "at_s": 6924.544,
+        "cycle": 1528,
+        "threads_seen": 35,
+        "stable_threads": 35,
+        "unstable_threads": 0,
+        "tcache_blocks": 2303,
+        "tcache_mib": 0.82132,
+        "robust_offset": 736,
+        "tls_offset": -1224,
+        "libc_sha256": "8db37cf3f2169f59a0f07ef1fea308c35656668c64c8ff294e1860f4121eb161"
+      }
+    ],
+    "final": [
+      {
+        "at_s": 1082.049,
+        "cycle": 243,
+        "threads_seen": 32,
+        "stable_threads": 32,
+        "unstable_threads": 0,
+        "tcache_blocks": 1855,
+        "tcache_mib": 0.62236,
+        "robust_offset": 736,
+        "tls_offset": -1224,
+        "libc_sha256": "8db37cf3f2169f59a0f07ef1fea308c35656668c64c8ff294e1860f4121eb161"
+      },
+      {
+        "at_s": 3622.788,
+        "cycle": 854,
+        "threads_seen": 47,
+        "stable_threads": 47,
+        "unstable_threads": 0,
+        "tcache_blocks": 2357,
+        "tcache_mib": 0.702682,
+        "robust_offset": 736,
+        "tls_offset": -1224,
+        "libc_sha256": "8db37cf3f2169f59a0f07ef1fea308c35656668c64c8ff294e1860f4121eb161"
+      },
+      {
+        "at_s": 5127.482,
+        "cycle": 1218,
+        "threads_seen": 47,
+        "stable_threads": 47,
+        "unstable_threads": 0,
+        "tcache_blocks": 2319,
+        "tcache_mib": 0.698334,
+        "robust_offset": 736,
+        "tls_offset": -1224,
+        "libc_sha256": "8db37cf3f2169f59a0f07ef1fea308c35656668c64c8ff294e1860f4121eb161"
+      },
+      {
+        "at_s": 6947.455,
+        "cycle": 1647,
+        "threads_seen": 47,
+        "stable_threads": 47,
+        "unstable_threads": 0,
+        "tcache_blocks": 2348,
+        "tcache_mib": 0.719681,
+        "robust_offset": 736,
+        "tls_offset": -1224,
+        "libc_sha256": "8db37cf3f2169f59a0f07ef1fea308c35656668c64c8ff294e1860f4121eb161"
+      }
+    ]
+  },
+  "direct_mmap_snapshots": [
     {
-      "at_s": 3839.975,
-      "cycle": 805,
-      "threads_seen": 33,
-      "stable_threads": 33,
-      "unstable_threads": 0,
-      "tcache_blocks": 2217,
-      "tcache_mib": 0.806458,
-      "robust_offset": 736,
-      "tls_offset": -1224,
-      "libc_sha256": "8db37cf3f2169f59a0f07ef1fea308c35656668c64c8ff294e1860f4121eb161"
+      "at_s": 3250.45,
+      "cycle": 763,
+      "malloc_mmaps": 1,
+      "malloc_mmap_bytes": 4648960,
+      "mappings": 533,
+      "libc_sha256": "8db37cf3f2169f59a0f07ef1fea308c35656668c64c8ff294e1860f4121eb161",
+      "control": "PASS"
     },
     {
-      "at_s": 5134.569,
-      "cycle": 1107,
-      "threads_seen": 33,
-      "stable_threads": 33,
-      "unstable_threads": 0,
-      "tcache_blocks": 2239,
-      "tcache_mib": 0.812927,
-      "robust_offset": 736,
-      "tls_offset": -1224,
-      "libc_sha256": "8db37cf3f2169f59a0f07ef1fea308c35656668c64c8ff294e1860f4121eb161"
+      "at_s": 3363.932,
+      "cycle": 790,
+      "malloc_mmaps": 1,
+      "malloc_mmap_bytes": 4648960,
+      "mappings": 532,
+      "thread_names": {
+        "wasmer": 2,
+        "tokio-rt-worker": 21,
+        "wasixv2-vnet-ho": 1,
+        "wasixv2-cpu": 1,
+        "wasixv2-guest": 9,
+        "wasixv2-timer": 1
+      },
+      "libc_sha256": "8db37cf3f2169f59a0f07ef1fea308c35656668c64c8ff294e1860f4121eb161",
+      "control": "PASS"
     },
     {
-      "at_s": 6924.544,
-      "cycle": 1528,
-      "threads_seen": 35,
-      "stable_threads": 35,
-      "unstable_threads": 0,
-      "tcache_blocks": 2303,
-      "tcache_mib": 0.82132,
-      "robust_offset": 736,
-      "tls_offset": -1224,
-      "libc_sha256": "8db37cf3f2169f59a0f07ef1fea308c35656668c64c8ff294e1860f4121eb161"
+      "at_s": 3622.788,
+      "cycle": 854,
+      "malloc_mmaps": 1,
+      "malloc_mmap_bytes": 4648960,
+      "mappings": 603,
+      "thread_names": {
+        "wasmer": 2,
+        "tokio-rt-worker": 33,
+        "wasixv2-vnet-ho": 1,
+        "wasixv2-cpu": 1,
+        "wasixv2-guest": 9,
+        "wasixv2-timer": 1
+      },
+      "libc_sha256": "8db37cf3f2169f59a0f07ef1fea308c35656668c64c8ff294e1860f4121eb161",
+      "control": "PASS"
+    },
+    {
+      "at_s": 5131.901,
+      "cycle": 1219,
+      "malloc_mmaps": 1,
+      "malloc_mmap_bytes": 4648960,
+      "mappings": 603,
+      "thread_names": {
+        "wasmer": 2,
+        "tokio-rt-worker": 33,
+        "wasixv2-vnet-ho": 1,
+        "wasixv2-cpu": 1,
+        "wasixv2-guest": 9,
+        "wasixv2-timer": 1
+      },
+      "libc_sha256": "8db37cf3f2169f59a0f07ef1fea308c35656668c64c8ff294e1860f4121eb161",
+      "control": "PASS"
+    },
+    {
+      "at_s": 6947.455,
+      "cycle": 1647,
+      "malloc_mmaps": 1,
+      "malloc_mmap_bytes": 4648960,
+      "mappings": 603,
+      "thread_names": {
+        "wasmer": 2,
+        "tokio-rt-worker": 33,
+        "wasixv2-vnet-ho": 1,
+        "wasixv2-cpu": 1,
+        "wasixv2-guest": 9,
+        "wasixv2-timer": 1
+      },
+      "libc_sha256": "8db37cf3f2169f59a0f07ef1fea308c35656668c64c8ff294e1860f4121eb161",
+      "control": "PASS"
     }
   ],
+  "pre_funcref_fix_allocation_profile": {
+    "runtime": "ff65b0255b5",
+    "cli_archive": "bin/wasmer-task-fixed",
+    "cli_sha256": "6597f726a69a8cf7ea4c1862c212af89dcf5bbeef8b109798959cbe480f75463",
+    "live_requested_growth_bytes": 149955,
+    "function_vector_growth_bytes": 147456,
+    "growing_stack": "InternalStoreHandle::new <- Function::from_vm_funcref <- Table::get <- signal::push_frame",
+    "workload_outcome": "Bounded profiler prefix reached PROFILE1800 before timeout600s EXIT124; not a completed2000-exec test or guest-deadlock claim"
+  },
   "resource_envelope": {
-    "observed_cgroup_peak_bytes": 2060251136,
+    "observed_cgroup_peak_bytes": 2023968768,
     "swap_peak_bytes": 0,
     "memory_max_mib": 5600,
     "aggregate_rss_guard_mib": 5500,
@@ -585,7 +1031,8 @@
       6,
       7
     ],
-    "nice": 19
+    "nice": 19,
+    "observed_at_utc": "2026-10-31T05:36:16Z"
   },
   "stable_allocator_snapshots": {
     "03": [
@@ -865,16 +1312,187 @@
         "unfreed_mib": 38.823,
         "attached_threads": 35
       }
+    ],
+    "05": [
+      {
+        "machine": "persistent",
+        "at_s": 305.858,
+        "cycle": 69,
+        "heap64_count": 46,
+        "arenas_seen": 49,
+        "stable_arenas": 49,
+        "unstable_arenas": 0,
+        "system_mib": 412.207,
+        "free_mib": 386.49,
+        "unfreed_mib": 25.718,
+        "attached_threads": 31
+      },
+      {
+        "machine": "persistent",
+        "at_s": 906.451,
+        "cycle": 202,
+        "heap64_count": 47,
+        "arenas_seen": 50,
+        "stable_arenas": 50,
+        "unstable_arenas": 0,
+        "system_mib": 479.152,
+        "free_mib": 453.345,
+        "unfreed_mib": 25.807,
+        "attached_threads": 32
+      },
+      {
+        "machine": "persistent",
+        "at_s": 1509.896,
+        "cycle": 343,
+        "heap64_count": 47,
+        "arenas_seen": 50,
+        "stable_arenas": 50,
+        "unstable_arenas": 0,
+        "system_mib": 494.805,
+        "free_mib": 468.961,
+        "unfreed_mib": 25.843,
+        "attached_threads": 32
+      },
+      {
+        "machine": "persistent",
+        "at_s": 2109.114,
+        "cycle": 478,
+        "heap64_count": 46,
+        "arenas_seen": 50,
+        "stable_arenas": 50,
+        "unstable_arenas": 0,
+        "system_mib": 494.848,
+        "free_mib": 468.984,
+        "unfreed_mib": 25.864,
+        "attached_threads": 32
+      },
+      {
+        "machine": "persistent",
+        "at_s": 2713.091,
+        "cycle": 628,
+        "heap64_count": 48,
+        "arenas_seen": 51,
+        "stable_arenas": 51,
+        "unstable_arenas": 0,
+        "system_mib": 512.035,
+        "free_mib": 486.135,
+        "unfreed_mib": 25.9,
+        "attached_threads": 33
+      },
+      {
+        "machine": "persistent",
+        "at_s": 3310.518,
+        "cycle": 778,
+        "heap64_count": 49,
+        "arenas_seen": 53,
+        "stable_arenas": 53,
+        "unstable_arenas": 0,
+        "system_mib": 552.066,
+        "free_mib": 526.139,
+        "unfreed_mib": 25.927,
+        "attached_threads": 35
+      },
+      {
+        "machine": "persistent",
+        "at_s": 3908.08,
+        "cycle": 924,
+        "heap64_count": 61,
+        "arenas_seen": 64,
+        "stable_arenas": 64,
+        "unstable_arenas": 0,
+        "system_mib": 702.227,
+        "free_mib": 676.212,
+        "unfreed_mib": 26.015,
+        "attached_threads": 47
+      },
+      {
+        "machine": "persistent",
+        "at_s": 4512.453,
+        "cycle": 1073,
+        "heap64_count": 61,
+        "arenas_seen": 64,
+        "stable_arenas": 64,
+        "unstable_arenas": 0,
+        "system_mib": 718.543,
+        "free_mib": 692.516,
+        "unfreed_mib": 26.027,
+        "attached_threads": 47
+      },
+      {
+        "machine": "persistent",
+        "at_s": 5109.365,
+        "cycle": 1214,
+        "heap64_count": 61,
+        "arenas_seen": 64,
+        "stable_arenas": 64,
+        "unstable_arenas": 0,
+        "system_mib": 724.801,
+        "free_mib": 698.746,
+        "unfreed_mib": 26.054,
+        "attached_threads": 47
+      },
+      {
+        "machine": "persistent",
+        "at_s": 5417.379,
+        "cycle": 1283,
+        "heap64_count": 61,
+        "arenas_seen": 64,
+        "stable_arenas": 64,
+        "unstable_arenas": 0,
+        "system_mib": 725.953,
+        "free_mib": 699.895,
+        "unfreed_mib": 26.058,
+        "attached_threads": 47
+      },
+      {
+        "machine": "persistent",
+        "at_s": 5712.948,
+        "cycle": 1352,
+        "heap64_count": 61,
+        "arenas_seen": 64,
+        "stable_arenas": 64,
+        "unstable_arenas": 0,
+        "system_mib": 761.957,
+        "free_mib": 735.882,
+        "unfreed_mib": 26.075,
+        "attached_threads": 47
+      },
+      {
+        "machine": "persistent",
+        "at_s": 6306.17,
+        "cycle": 1499,
+        "heap64_count": 61,
+        "arenas_seen": 64,
+        "stable_arenas": 64,
+        "unstable_arenas": 0,
+        "system_mib": 800.785,
+        "free_mib": 774.701,
+        "unfreed_mib": 26.084,
+        "attached_threads": 47
+      },
+      {
+        "machine": "persistent",
+        "at_s": 6907.912,
+        "cycle": 1638,
+        "heap64_count": 60,
+        "arenas_seen": 64,
+        "stable_arenas": 64,
+        "unstable_arenas": 0,
+        "system_mib": 816.941,
+        "free_mib": 790.835,
+        "unfreed_mib": 26.106,
+        "attached_threads": 47
+      }
     ]
   },
   "provenance": {
-    "runtime": "ff65b0255b5",
+    "runtime": "f7895de7fa0",
     "profile": "debug, dev.debug=0, cranelift feature, jobs3, incremental0",
     "tests": "3a2d12d596b43d781bdcd0f3a24443c629afe5c2",
     "abi": "07cd32edb66b0cf9f97e276b85e0398c899daa5c",
     "helper_libc2": "6bc05b3bc2651d94725b42b8dff87549f58ee592",
-    "plan": "8a7e2005439",
-    "cli_sha256": "6597f726a69a8cf7ea4c1862c212af89dcf5bbeef8b109798959cbe480f75463",
+    "plan": "86bd66bf7c5",
+    "cli_sha256": "0c20b7e7da1bc33f37538837af6c1b8c053d9f9f3b5d2abfa3555416c091a377",
     "program_sha256": {
       "bash": "13375c09325552a15709e2862dd8545bd84f75f15336a210f0aa02471c3c4388",
       "coreutils": "20c8863b9cf6e3ee404c9affdfaa2828b5c7baaa8594b621f109ca5a20fbc8d9",
@@ -895,10 +1513,16 @@
       "soak-guest.sh": "37c7ecde31cb6ee422768bb743c0800eeefcb0c11f49e7ee79a62808d2af9398"
     },
     "sources": "V9/V10/V11 archived kits; userland/out/bin + userland-7/{out/bin,bin/umount} + userland-9/out/bin; see corresponding source recipe manifests",
-    "run": "run-04",
-    "analyzed_results": "run-04/results.json",
-    "analysis_plan": "d06e60df8a6",
-    "outcome": "functional pass; task retirement fix confirmed; residual heap investigation open"
+    "run": "run-05",
+    "analyzed_results": "run-05/results.json",
+    "analysis_plan": "7592461cca2",
+    "outcome": "PASS:7203.565s afterREADY,3390mixedcycles,59freshmachines; all0/DONE/quiescent11; native32 and boundedidle8 PASS",
+    "cli_archive": "bin/wasmer",
+    "requested_seconds": 7202,
+    "rlib_manifest": "fully-fixed-rlibs.json",
+    "supplementary_allocator_observer": "4eda4658000",
+    "measured_seconds": 7203.5650000000005,
+    "native_idle_result": "native-idle-results.json"
   },
   "evidence_sha256": {
     "reactor-red.log": "6b8a21c1a194fe0026d1e6f5d0aa5d1c582ae804d0faaef44af882105c0baca6",
@@ -910,19 +1534,35 @@
     "kernel-fmt.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "clippy.log": "cf31a2f28313e306c19c3bb05ce4ad07b0f078c1cdec4bb53b4b4cd1f9554929",
     "fmt.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-    "retirement-final.log": "958b4d18cbdc8096770c6c39953b705afad77d4f225e96732881613b379e37c3",
-    "run-04/events.jsonl": "9e59ffb9ed0d37c55f7dc2306f2c1bf70e922c179493b775ae0112264df0ce00",
-    "run-04/curves.jsonl": "c3ed54c735b6d854ab64169300075f38534e75f52178d81d72cd395845c317f9",
-    "run-04/summary.json": "21805fce345d6bdac976e63394070e390beb9789d2c58109ac9f8ffe20136508",
-    "run-04/quiescent.jsonl": "ee476e9428082d899941205b916a0f8dede04a4f4f7deb183a1d7314dc930115",
-    "run-04/arenas.jsonl": "c7f090fb24c207d28ff9ddcc563c5b4b8348f02d43dfca2187370b0f4f50473c",
-    "run-04/tcaches.jsonl": "2a3e71abf7c5318742b2ea88079c3dc6fe32e2e80b7a6dc372872e2924c30818",
+    "retirement-fully-fixed.log": "fcb1ffc8b2fa6bead82a9e75f2dc29b31bc15294a1fb0977b7d553cf38806a40",
     "counters-final.log": "c9f8b3cbae009d374c00bdf557f97158e61f4c089b3951e4553380b8a7acb34e",
-    "diagnostics-final.patch": "162639c2e6ed360e9ddbff4b35c26f053be108144946c8bfb51eb2fced66e7f9"
+    "diagnostics-final.patch": "162639c2e6ed360e9ddbff4b35c26f053be108144946c8bfb51eb2fced66e7f9",
+    "massif-delta.json": "80937eb8f85b73bbb953c6db61146759b92e7406fce6ee632e30e981f5e54a79",
+    "fork-early.massif": "e03ddadaa5236e0e59caa3ff3af0345a1f817267784758d3c92dc46b5c73982d",
+    "fork-late.massif": "9c8e0bf2487cbbb05421c4269e0c7843a68f527ca7c0f46680cddb8282c30ba5",
+    "fully-fixed-rlibs.json": "18e0cacffb1466d444b132e11330737340335764710e9573d1cad315b64d950c",
+    "build-cli-fully-fixed.log": "db5681b1303f4c59d1fcb1d7fa7049ddc5c583e6474c2199016ae4b7bc607a16",
+    "funcref-red.log": "02c730f4507564152a6c1da4bf28197723c3f0ff2ff28e28ec603e9aaee9a454",
+    "funcref-green.log": "023e3dc815ddfacd200c7cba146e029723150f171b899bfc1f0547964499ed17",
+    "funcref-reference-green.log": "cf7551409f129a97f66b417dd2014697062ea56a82f0805c1a663e101f21f13e",
+    "funcref-table-green.log": "b583b03b6fcdb1f3f08823cc308a1810d17a9e8bbff7617b39abc8d483559bd6",
+    "funcref-vm-green.log": "13359621b304c5cbbd1d9fd3fac0f7b281614ca7cc6e8a8d93c879ceab418d1c",
+    "funcref-clippy.log": "420910f3ef35d0553ac0401ecbd38f79628b897124138ade7029a05e4e4369b1",
+    "funcref-fmt.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "native-idle.log": "a2942d76a8d706cedc070094c9384a831c733f724aef3bbd016971cf69b8dc19",
+    "native-idle-results.json": "4d891145d3706eaed15293da3c9279f86e70d95e813f8281326d936a58798878",
+    "run-05/events.jsonl": "603eb2778dbbd01b58e82dc1591f7ee5035051de81382a121091a12273ff0def",
+    "run-05/curves.jsonl": "81a23cb3f0c77c175fb80322d595b5644ca01a4215363e62b4e4d4bde1b490fc",
+    "run-05/summary.json": "841e40818711b616f6009704738350cc037f591975777f3dfc01664fd9914fcc",
+    "run-05/quiescent.jsonl": "3e10e663f0e9ed8545d75f6763548c15f6f2127db4f6879c9fbf98849dc58e95",
+    "run-05/arenas.jsonl": "0837615d6a09575b19195d798bc4a97fc26ef41a311f477fb9ee5b60e1c1b2b7",
+    "run-05/tcaches.jsonl": "cf83691a6732485a6527ea582c0a3c778bacc087877e7067a75cebbc19225d6c",
+    "run-05/mmaps.jsonl": "6af49eebbbd77cdbbec870e107e7241d8fbb49f6c8c44382c70d2a01ce3c6c72"
   },
   "limitations": [
     "RSS includes native allocator free pools; interpret stable arena snapshots and quiescent counts with raw curves.",
+    "The 32-machine native embedding run still has RSS warming; weak-owner expiration and flat fd/thread counts are the retirement checks.",
     "Shared-host throughput comparison is not an isolated performance benchmark.",
-    "Incomplete/invalid runs01/02 are preserved outside this artifact and excluded from duration claims."
+    "Incomplete/invalid runs 01/02 and the bounded profiler timeout are excluded from duration claims."
   ]
 }
