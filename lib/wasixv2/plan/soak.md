@@ -140,11 +140,15 @@ which rules out a single guest program's cache as the explanation.
 `release_task` checks `state.dead`, unlocks for fatal file/vfork cleanup, then
 looks in `state.tasks` under a second lock. A concurrent wait/reap can move the
 task into `dead` between these locks; the later absent-live-task return misses
-that record. The bounded sibling regression races reap/release for4096exited
-children; production fix and confirmation are pending. Intended correction:
-consume either live or retired ownership atomically under the final table lock,
-preserving the existing Control::release and exec contracts. Linux source:
-`kernel/exit.c:release_task`, `kernel/fork.c:__put_task_struct`.
+that record. The bounded sibling regression
+`tests::signal::reaping_concurrently_with_execution_release_leaves_no_dead_tasks`
+races reap/release for4096exited children. RED0.33s/EXIT101 before production
+changes; GREEN0.36s after. Fix `ff65b0255b5` consumes either live or retired
+ownership atomically under the final table lock, preserving the existing
+Control::release and exec contracts. Linux source: `kernel/exit.c:release_task`,
+`kernel/fork.c:__put_task_struct`. 126focused signal/task/ptrace/FUSE tests PASS;
+exact Makefile-flags all-target kernel clippy and workspace fmtcheck PASS.
+Final fixed-runtime two-hour confirmation is pending.
 
 Canonical takeover state: `~/wasixv2-orch/logs/v16soak/STATE.md`.
 
