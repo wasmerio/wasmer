@@ -2185,3 +2185,145 @@ train29 refs and this authorized fast-forward plan entry from PRIVATE train29-pl
 After blocker resolution/approval, landing order is **LTP -> tests -> libc2 ->
 Wasmer -> plan**, followed by the approved shared-sysroot rebuild/check update.
 **NO-GO: hold mains pending the zombie scheduler retention repair/review.**
+
+## 2026-10-31: merge train 30 — GO for scoped V14/V15 integration
+
+Integrates only V14 performance source changes and V15 static-program fixes onto landed
+train 29. The orchestrator owns remote mains. Private train30 worktrees retain the
+source commits and existing merge resolutions; branch-specific Wasmer tests pins are
+omitted in favor of one final combined pin. fix29, V16soak, V17perf and the active B13
+follow-up are excluded.
+
+| Repository | Base | Candidate |
+| --- | --- | --- |
+| Wasmer, `wasixv2/train30` | 78c67bfe0e0 | **219bac3c663467cc33e00b156f11a622fcaacf72** |
+| Tests, `train30` | 92b94c5 | **11f8488bcdbab4c2728e79e137d59a804230f5d9** |
+| Libc2, `train30` | 01bff0a2 | **d73852f99bb26de60f707ef5ec1e204c6469d243** |
+| ABI | 07cd32e | unchanged, matched in both consumers |
+| LTP | af13239c1f83 | unchanged, tests pin retained |
+
+Seven runtime input replays preserve the final boxed AsTask representation and
+panic-safe TLS restoration, lazy I/O iteration, serialized epoll harvest/deque reuse,
+borrowed ready-call wakers, contiguous TCP queue copies, and IPv6 UDP ancillary
+metadata. Libc2 derives _PC_NAME_MAX through statvfs/fstatvfs, retaining train29 SHMLBA.
+Tests replay three source commits. Both source-only plan branches merge cleanly; smoke
+commit **971ee5e0c5f** adds all V15 workflows and a CPU selector to the existing
+launchers. No ABI regeneration, new kernel/exec contract, excluded
+linking/guest-closure/libffi/reflection change, or tracked prebuilt Wasm is included.
+Linux authorities remain in input comments/commits: fs/eventpoll.c
+ep_send_events/ep_start_scan/ep_done_scan; lib/iov_iter.c iterate_iovec;
+include/linux/sched.h current; kernel/sched/core.c try_to_wake_up; net/ipv4/tcp.c
+tcp_sendmsg_locked/tcp_recvmsg_locked; net/ipv6/datagram.c
+ip6_datagram_recv_ctl/ip6_datagram_send_ctl; fs/statfs.c user_statfs/fd_statfs.
+
+All gates pass: **28 native crate invocations / 2171 cases** (train 29: 2163; kernel
+1130 versus 1128), three exact-Makefile-flags native clippies and root fmt; CLI 59+TTY
+6/12 existing ignores; runner 44/2 existing ignores plus strict clippy/fmt; full
+Makefile wasm compile gate, strict browser/facade/engine/kernel/exec wasm lint,
+dependency graph, real wasm callback 2+7 and threaded ownership/retirement 1. JavaScript
+runtime 83 and runner 38 pass. Release build 8m20s; source **7c5f0ee8855** differs from
+final runtime only by tests gitlink. Archived CLI SHA256
+`37be4525904552e6d7576fe720f57590a9ad434d5df4ec16a741c1933d5659aa`.
+
+Exactly **ONE full conformance suite**, **3215s**, nice19/CPUs0-3/three jobs, original
+case caps and declared durations. Raw **4120 pass /60 expected failures /0 unexpected
+failures /0 unexpected passes /433 ignored**, unchanged.
+
+| Suite | Train29 pass / fail / ignored | Train30 pass / fail / ignored |
+| --- | --- | --- |
+| own | 325 /0 /1 | 326 /0 /1 |
+| libc-test | 412 /1 /0 | 412 /1 /0 |
+| POSIX | 1731 /13 /81 | 1731 /13 /81 |
+| LTP | 1651 /46 /351 | 1651 /46 /351 |
+| Total | 4119 /60 /433 | 4120 /60 /433 |
+
+Only the new filesystem-name-limit fixture is added and passes. No regressions, vanished
+registrations or new ignores. Blessing is a no-op: all 60 surviving handwritten causes
+and flaky/excluded files are retained exactly. The known zombie scheduler issue remains
+baseline-classified; fix29 is deliberately absent. The 3215s run is not repeated.
+
+Native smoke matches train 29:12 usual/35 hand/25 carried statuses; SWS 28+28, UDP 6, v1
+eight plus unchanged Python linking failure, C++ 9, PTY 11/no-tty; direct EH+asyncify
+strptime/name-limit cases and train23 brk/fork512/mqueue/process_vm/root-ioctl
+prerequisites. Ten program workflows and ten strace checks, all 7 V9, fresh
+fuse-overlayfs copy-up/lower preservation/whiteout/new-file/unmount, all 20
+original-order panic reproductions (16 results each), Busybox 198 pass/11 same
+failures/1 skip, all 8 V11 including Perl 810 pass.
+
+V15 all 5 workflows pass: verified OpenSSL/curl TLS HTTP/1.1 and connection reuse/speed,
+FFmpeg generated video+audio/pipe transcode/decode, Vim edit/save, htop
+CPU/memory/process/thread PTY display, strace-f Python fork/subprocess/thread/SIGKILL.
+Original 13 CPython groups: **3233 pass /0 fail /271 natural skips**, with 113 UDP-Lite
+cases explicitly not selected. No unsupported FFI/shared extension or full unselected
+Python-suite claim.
+
+One integrated micro matrix: 132 valid warmup/measured invocations across native, v1 ABI
+on v2, v2 EH and asyncify. Representative values below are one integrated sample against
+V14 final seven-sample A/B medians; V14 A/B uses longer counts than the initial matrix.
+CPU pools/runtime bases/shared-load phases differ, so this does **not** re-establish
+exact percentage gains. Full 17-row initial-matrix/final-A-B comparisons and operation
+counts remain in bench-comparison.json.
+
+| Workload | Integrated sample | V14 final A/B median |
+| --- | --- | --- |
+| getpid | 715.32 ns | 548.41 ns |
+| TCP bulk | 9.684 us | 6.024 us |
+| all-ready epoll | 9.355 us | 10.155 us |
+| pipe bulk | 39.816 us | 25.697 us |
+| mmap | 5.932 us | 5.320 us |
+
+Fresh named debug browser bundle (65 initial/4096 maximum shared pages, real TLS/stack
+destruction, no diagnostic allocator or forced GC) passes **99/99 in Chromium and 99/99
+in Firefox, zero skips**: 22 v2 (required 21 plus existing lifetime), 14 v1, 3 static C,
+15 B14, independently executed 17 B15 and 28 B16. B15 overlaps B16; 82 distinct cases
+per engine. Chromium 156.0.8078.4 and Firefox 157.0 identities, isolation/SAB/shared memory and no-JSPI page+worker
+capabilities are audited for every case. Transport/lifecycle lanes pass.
+
+Extra diagnostic audit passes. Chromium 500 completes within bounds: heap 64880640
+bytes, 15 Rust/max 18 native workers (limit 26), maximum observed RSS 1183686656 bytes
+<2 GiB, 624 copy/165 task rotations. Raw final shutdown remains FALSE with
+coordinator-only retention. Firefox 60/relay 50/robustness/admission/fault/shutdown are
+strict and clean; both real headed background runs pass 100 timer checks and stop
+cleanly. **8 raw visible Chromium teardown failures** match browser plan §7
+at 6dc60a976c9, including the no-Rust reproduction and injected timer death; no raw flag
+is rewritten and no Firefox waiver is used. This does not claim an R2 shutdown repair or
+full SDK/browser signoff.
+
+Invocation/build/browser scans find zero unexpected runtime host panics. The sole native
+signal is the deliberate capture-cleanup self-test kill. Four incomplete suite captures
+match four baseline 2 GiB OOM scopes; no owned guest remains. All 2944 frozen input
+payloads verify unchanged after native/V15 execution.
+
+Shared local libc2 fast-forwards to d73852f9 with tests 11f8488. Both full shared
+EH/asyncify sysroots (including C++ runtimes) and C/UAPI/C++ link/import checks pass;
+actual C++ thread/exception smoke and the name-limit fixture pass in both
+configurations. Initial full EH build failed because I selected the local WASIX v1 LLVM
+fork as the runtime source: its __wasix__ entropy branch expects getentropy in
+sys/random.h. The correct repository-pinned upstream runtime source
+ca7933e47d3a3451d81e72ac174dcb5aa28b59d1 selects the Linux path for this target. Both
+configurations were fully rebuilt with that canonical source and the same compiler;
+original top-level failure evidence is retained. No runtime or ABI change was made for
+this build setup correction.
+
+Cleanup and hashes complete: all 14069 retained core/browser/raw/micro artifacts and
+2944 frozen input payloads verify; tested CLI, fresh browser bundle/exports, all
+persistent source/userland kits/out/prefix/stdlib/packages and logs remain. Only exact
+owned completed Cargo/fixture/generated-bin/profile targets are removed after guest
+drain. Shared external growth breached the 10 GB reserve despite owned targets being
+tmpfs: sampled floor 5009027072 bytes. Frozen own copies were deduplicated without
+moving mounted paths; no other agent file was deleted. Owner cleanup restored the
+reserve; final free 37506174976 bytes. No claim of uninterrupted reserve.
+
+Evidence: `~/wasixv2-orch/logs/train30/STATE.md`, immutable suite-1/raw evidence,
+classification/blessing/regression analysis, native/V15/browser reports, benchmark
+comparison/raw matrix, panic/signal/capture/OOM audits, source/commit/asset inventories,
+cleanup and remote-head verification. Follow-ups retain Chromium
+R2/SDK/WISP/service-worker/Ports/cold-CI credential boundaries, unsupported host-backend
+IP-header ancillary metadata/UDP-Lite, the baseline 60 causes and excluded
+fix29/V16/V17/B13 work. No credential workaround or new kernel/exec contract.
+
+All new commits were made by this AI agent as configured Git user with the exact
+GPT-6.1-Sol footer; the human remains responsible. Only own train30 refs plus this
+authorized fast-forward plan entry are pushed from PRIVATE train30-plan. Shared plan
+worktree is untouched. Landing order: **tests main -> libc2 main -> Wasmer feat/wasixv2
+-> plan**; ABI/LTP unchanged. The orchestrator pushes mains.
