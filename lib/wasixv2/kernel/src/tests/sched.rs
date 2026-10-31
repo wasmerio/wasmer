@@ -1,7 +1,9 @@
 //! The scheduler interface: per-thread attributes, thread ids as targets, inheritance, and the
 //! size-versioned `sched_attr`.
 
-use wasixv2_abi::{CloneFlags, GuestLayout, SchedAttr, SchedParam};
+use wasixv2_abi::{
+    CloneFlags, GuestLayout, Idtype, KernelTimespec, SchedAttr, SchedParam, SiginfoPtr, WaitOptions,
+};
 
 use super::{
     ipc::{errno, get, machine, put},
@@ -208,6 +210,180 @@ fn an_exited_thread_is_gone() {
         )),
         Errno::ESRCH
     );
+}
+
+/// kernel/sched/syscalls.c:find_process_by_pid resolves a zombie until
+/// kernel/exit.c:release_task/__unhash_process removes its pid.
+fn check_zombie_scheduler(
+    kernel: &Kernel,
+    caller: &Caller<'_>,
+    pid: i32,
+    policy: SchedPolicy,
+    priority: i32,
+) {
+    assert_eq!(
+        block_on(kernel.sched_getscheduler(caller, pid)),
+        Ok(policy.0)
+    );
+    assert_eq!(
+        block_on(kernel.sched_getparam(caller, pid, GuestPtrMut::new(0x100))),
+        Ok(0)
+    );
+    let mut param = [0; SchedParam::SIZE];
+    block_on(caller.memory().read(0x100, &mut param)).unwrap();
+    assert_eq!(
+        SchedParam::read_from(&param).unwrap().sched_priority,
+        priority
+    );
+    let attr = get_attr(kernel, caller, pid);
+    assert_eq!(
+        (attr.sched_policy, attr.sched_priority),
+        (policy.0 as u32, priority as u32)
+    );
+    assert_eq!(
+        block_on(kernel.sched_rr_get_interval_time64(caller, pid, GuestPtrMut::new(0x200))),
+        Ok(0)
+    );
+    let interval: KernelTimespec = block_on(wasixv2_syscalls::read_value(
+        caller.memory(),
+        GuestPtr::new(0x200),
+    ))
+    .unwrap();
+    if policy == SchedPolicy::SCHED_RR {
+        assert_eq!((interval.tv_sec, interval.tv_nsec), (0, 100_000_000));
+    }
+}
+
+#[test]
+fn a_zombies_scheduler_remains_visible_until_reaped() {
+    for release_first in [true, false] {
+        let (kernel, task, _) = super::cred::machine_as(0, 0);
+        let memory = super::proc::forkable();
+        block_on(memory.grow(1)).unwrap();
+        let caller = Caller::new(task, &memory);
+        let reset = SchedPolicy(SchedPolicy::SCHED_RR.0 | SchedPolicy::SCHED_RESET_ON_FORK.0);
+        assert_eq!(set_scheduler(&kernel, &caller, 0, reset, 10), Ok(0));
+        let child = super::proc::fork_child(&kernel, &caller);
+        let pid = child.0 as i32;
+        check_zombie_scheduler(&kernel, &caller, pid, SchedPolicy::SCHED_NORMAL, 0);
+        // Preserve nondefault per-task metadata, not the parent's reset-on-fork values.
+        assert_eq!(
+            set_scheduler(&kernel, &caller, pid, SchedPolicy::SCHED_RR, 7),
+            Ok(0)
+        );
+        let child_memory = super::proc::forkable();
+        let child_caller = Caller::new(child, &child_memory);
+        let mm = Arc::downgrade(&kernel.state.read_or_recover().tasks[&child].mm);
+        assert_eq!(block_on(kernel.exit_group(&child_caller, 0)), Ok(()));
+        check_zombie_scheduler(&kernel, &caller, pid, SchedPolicy::SCHED_RR, 7);
+        if release_first {
+            kernel.release(child);
+            assert!(
+                mm.upgrade().is_none(),
+                "scheduler metadata must not retain mm"
+            );
+            assert!(!kernel.state.read_or_recover().tasks.contains_key(&child));
+            check_zombie_scheduler(&kernel, &caller, pid, SchedPolicy::SCHED_RR, 7);
+        }
+        // Linux allows scheduler changes to an unreaped task too.
+        assert_eq!(set_param(&kernel, &caller, pid, 8), Ok(0));
+        check_zombie_scheduler(&kernel, &caller, pid, SchedPolicy::SCHED_RR, 8);
+        assert_eq!(
+            set_scheduler(&kernel, &caller, pid, SchedPolicy::SCHED_BATCH, 0),
+            Ok(0)
+        );
+        let attr = SchedAttr {
+            size: SchedAttr::SIZE as u32,
+            sched_policy: SchedPolicy::SCHED_IDLE.0 as u32,
+            ..SchedAttr::default()
+        };
+        let mut bytes = vec![0; SchedAttr::SIZE];
+        attr.write_to(&mut bytes);
+        block_on(memory.write(0x400, &bytes)).unwrap();
+        assert_eq!(
+            block_on(kernel.sched_setattr(&caller, pid, GuestPtrMut::new(0x400), 0)),
+            Ok(0)
+        );
+        check_zombie_scheduler(&kernel, &caller, pid, SchedPolicy::SCHED_IDLE, 0);
+        assert_eq!(
+            block_on(kernel.waitid(
+                &caller,
+                Idtype::P_PID,
+                pid,
+                SiginfoPtr::new(0x600),
+                WaitOptions::WEXITED,
+                RusagePtr::new(0)
+            )),
+            Ok(0)
+        );
+        if !release_first {
+            kernel.release(child);
+        }
+        assert_eq!(
+            errno(block_on(kernel.sched_getscheduler(&caller, pid))),
+            Errno::ESRCH
+        );
+        assert_eq!(
+            errno(block_on(kernel.sched_getparam(
+                &caller,
+                pid,
+                GuestPtrMut::new(0x100)
+            ))),
+            Errno::ESRCH
+        );
+        assert_eq!(
+            errno(block_on(kernel.sched_getattr(
+                &caller,
+                pid,
+                GuestPtrMut::new(0x400),
+                SchedAttr::SIZE as u32,
+                0
+            ))),
+            Errno::ESRCH
+        );
+        assert_eq!(
+            errno(block_on(kernel.sched_rr_get_interval_time64(
+                &caller,
+                pid,
+                GuestPtrMut::new(0x200)
+            ))),
+            Errno::ESRCH
+        );
+        assert_eq!(errno(set_param(&kernel, &caller, pid, 0)), Errno::ESRCH);
+        assert!(mm.upgrade().is_none());
+    }
+}
+
+#[test]
+fn zombie_scheduler_setters_check_retained_credentials() {
+    let (kernel, task, _) = super::cred::machine_as(0, 0);
+    let memory = super::proc::forkable();
+    block_on(memory.grow(1)).unwrap();
+    let caller = Caller::new(task, &memory);
+    let child = super::proc::fork_child(&kernel, &caller);
+    let pid = child.0 as i32;
+    let child_memory = super::proc::forkable();
+    let other = Caller::new(child, &child_memory);
+    assert_eq!(block_on(kernel.setuid(&other, 123)), Ok(0));
+    assert_eq!(block_on(kernel.setuid(&caller, 456)), Ok(0));
+    assert_eq!(block_on(kernel.exit_group(&other, 0)), Ok(()));
+    for released in [false, true] {
+        if released {
+            kernel.release(child);
+        }
+        check_zombie_scheduler(&kernel, &caller, pid, SchedPolicy::SCHED_NORMAL, 0);
+        assert_eq!(errno(set_param(&kernel, &caller, pid, 0)), Errno::EPERM);
+        assert_eq!(
+            errno(set_scheduler(
+                &kernel,
+                &caller,
+                pid,
+                SchedPolicy::SCHED_BATCH,
+                0
+            )),
+            Errno::EPERM
+        );
+    }
 }
 
 #[test]

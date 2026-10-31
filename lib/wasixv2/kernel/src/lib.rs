@@ -266,8 +266,9 @@ pub struct Kernel {
 struct State {
     last_id: u32,
     tasks: HashMap<TaskId, Task>,
-    /// Released leaders keep their objective identity until reap (kernel/cred.c `exit_creds`).
-    retired_creds: HashMap<TaskId, Arc<cred::Cred>>,
+    /// Released leaders keep their credentials and scheduler metadata until reap.
+    /// Linux kernel/exit.c:release_task unhashes their task identity there.
+    retired: HashMap<TaskId, thread::RetiredTask>,
     /// The tasks of reaped processes whose instances still unwind: out of the table
     /// (`release_task`), until the execution layer lets them go (`put_task_struct`).
     dead: HashMap<TaskId, thread::DeadTask>,

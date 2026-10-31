@@ -605,7 +605,7 @@ impl Kernel {
             let tracees = self.tracees.lock();
             let mut state = self.state.lock_or_recover();
             for pid in &reaped {
-                state.retired_creds.remove(&TaskId(*pid));
+                state.retired.remove(&TaskId(*pid));
             }
             let ids: Vec<TaskId> = state
                 .tasks
@@ -673,8 +673,12 @@ impl Kernel {
                 None => return,
             };
             if task == process.pid {
-                let cred = state.tasks[&task].cred.clone();
-                state.retired_creds.insert(task, cred);
+                let entry = &state.tasks[&task];
+                let retired = RetiredTask {
+                    cred: entry.cred.clone(),
+                    sched: entry.sched.clone(),
+                };
+                state.retired.insert(task, retired);
             }
             let mut stopped = None;
             for child in unstarted {
@@ -687,10 +691,7 @@ impl Kernel {
         self.exit_notify(&process);
         self.pid_ns_progress();
         if self.procs.find(process.pid.0).is_none() {
-            self.state
-                .lock_or_recover()
-                .retired_creds
-                .remove(&process.pid);
+            self.state.lock_or_recover().retired.remove(&process.pid);
         }
     }
 
@@ -1338,6 +1339,14 @@ fn unhash_task(state: &mut State, task: TaskId) -> Option<(Task, bool)> {
     }
     group.released.wake(PollMask::empty());
     Some((entry, completed))
+}
+
+/// The identity of a released leader until reap, without its execution resources.
+/// Linux kernel/sched/syscalls.c:find_process_by_pid still finds its task_struct;
+/// kernel/exit.c:release_task/__unhash_process ends that visibility.
+pub(crate) struct RetiredTask {
+    pub(crate) cred: Arc<crate::cred::Cred>,
+    pub(crate) sched: crate::sched::Sched,
 }
 
 /// What is left of a task of a reaped process once its reaper took it out of the task table

@@ -27,7 +27,7 @@ use wasixv2_abi::{
 use wasixv2_syscalls::{Caller, Errno, SysResult, TaskId, read_value, write_value};
 use wasixv2_vfs::Cap;
 
-use crate::{Kernel, State, mm::PAGE_SIZE, sync::MutexExt, time};
+use crate::{Kernel, Process, State, cred::Cred, mm::PAGE_SIZE, sync::MutexExt, time};
 
 /// `MAX_RT_PRIO`: real-time priorities run from 1 to `MAX_RT_PRIO - 1`.
 const MAX_RT_PRIO: u32 = 100;
@@ -689,9 +689,38 @@ fn priority_range(policy: SchedPolicy) -> Option<(i32, i32)> {
     }
 }
 
+impl State {
+    /// Scheduling metadata of a target found under the task-table lock.
+    fn task_sched(&self, id: TaskId) -> &Sched {
+        match self.tasks.get(&id) {
+            Some(task) => &task.sched,
+            None => &self.retired[&id].sched,
+        }
+    }
+
+    fn task_sched_mut(&mut self, id: TaskId) -> &mut Sched {
+        match self.tasks.get_mut(&id) {
+            Some(task) => &mut task.sched,
+            None => {
+                &mut self
+                    .retired
+                    .get_mut(&id)
+                    .expect("scheduler target found")
+                    .sched
+            }
+        }
+    }
+
+    fn sched_cred(&self, id: TaskId) -> &Arc<Cred> {
+        match self.tasks.get(&id) {
+            Some(task) => &task.cred,
+            None => &self.retired[&id].cred,
+        }
+    }
+}
+
 impl Kernel {
-    /// Whether task `id` can still be named: not an exited thread, and not part of a reaped
-    /// process. A zombie's leader stays until it is reaped.
+    /// Whether task `id` is live and belongs to an unreaped process.
     fn nameable(&self, state: &State, id: TaskId) -> bool {
         let Some(task) = state.tasks.get(&id) else {
             return false;
@@ -716,6 +745,26 @@ impl Kernel {
         }
     }
 
+    /// kernel/sched/syscalls.c:find_process_by_pid finds an exited leader until
+    /// kernel/exit.c:release_task unhashes it, including after execution release.
+    fn find_sched_task(
+        &self,
+        state: &State,
+        caller: &Caller<'_>,
+        pid: Pid,
+    ) -> Result<(TaskId, Arc<Process>), Errno> {
+        let id = match pid {
+            0 => caller.task(),
+            pid => TaskId(caller_pid_ns(state, caller).find(pid).ok_or(Errno::ESRCH)?),
+        };
+        let process = match state.tasks.get(&id) {
+            Some(task) if id == task.process.pid || self.nameable(state, id) => task.process.pid,
+            None if state.retired.contains_key(&id) => id,
+            _ => return Err(Errno::ESRCH),
+        };
+        Ok((id, self.procs.find(process.0).ok_or(Errno::ESRCH)?))
+    }
+
     /// Runs `f` on the scheduling state of the task `pid` names.
     fn with_sched<R>(
         &self,
@@ -724,11 +773,12 @@ impl Kernel {
         f: impl FnOnce(&mut Sched) -> R,
     ) -> Result<R, Errno> {
         let mut state = self.state.lock_or_recover();
-        let id = self.find_task(&state, caller, pid)?;
-        let task = state.tasks.get_mut(&id).expect("found above");
-        let result = f(&mut task.sched);
+        let (id, _) = self.find_sched_task(&state, caller, pid)?;
+        let result = f(state.task_sched_mut(id));
         // `cpu.stat`'s `nice_usec` counts the user time of niced tasks.
-        task.css.set_nice(task.sched.nice > 0);
+        if let Some(task) = state.tasks.get(&id) {
+            task.css.set_nice(task.sched.nice > 0);
+        }
         Ok(result)
     }
 
@@ -742,7 +792,7 @@ impl Kernel {
     ) -> SysResult<i32> {
         let cred = self.cred(caller);
         let mut state = self.state.lock_or_recover();
-        let id = self.find_task(&state, caller, pid)?;
+        let (id, process) = self.find_sched_task(&state, caller, pid)?;
         let dl_others = state
             .tasks
             .iter()
@@ -751,21 +801,20 @@ impl Kernel {
             })
             .map(|(_, task)| task.sched.dl_held())
             .sum();
-        let task = state.tasks.get_mut(&id).expect("found above");
         let adm = {
-            let resources = task.process.resources.lock_or_recover();
+            let resources = process.resources.lock_or_recover();
             Admission {
                 nice_limit: resources.soft(RlimitResource::RLIMIT_NICE),
                 rtprio_limit: resources.soft(RlimitResource::RLIMIT_RTPRIO),
                 // `user_check_sched_setscheduler`: `capable(CAP_SYS_NICE)`.
                 capable: cred.capable_init(Cap::SysNice),
-                same_owner: cred.same_owner(&task.cred.clone()),
+                same_owner: cred.same_owner(state.sched_cred(id)),
                 dl_others,
                 now: self.host.monotonic(),
             }
         };
-        let (attr, keep_policy) = request(&task.sched);
-        task.sched.set(&attr, keep_policy, &adm)?;
+        let (attr, keep_policy) = request(state.task_sched(id));
+        state.task_sched_mut(id).set(&attr, keep_policy, &adm)?;
         Ok(0)
     }
 
@@ -952,9 +1001,9 @@ impl Kernel {
         let cred = self.cred(caller);
         let allowed = {
             let state = self.state.read_or_recover();
-            let id = self.find_task(&state, caller, pid)?;
-            let target = state.tasks[&id].cred.clone();
-            cred.same_owner(&target) || cred.ns_capable(&target.user_ns, Cap::SysNice)
+            let (id, _) = self.find_sched_task(&state, caller, pid)?;
+            let target = state.sched_cred(id);
+            cred.same_owner(target) || cred.ns_capable(&target.user_ns, Cap::SysNice)
         };
         if !allowed {
             return Err(Errno::EPERM.into());

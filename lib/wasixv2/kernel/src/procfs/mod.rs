@@ -437,7 +437,12 @@ impl Source {
             .tasks
             .get(&TaskId(tid))
             .map(|t| t.cred.clone())
-            .or_else(|| state.retired_creds.get(&TaskId(tid)).cloned())
+            .or_else(|| {
+                state
+                    .retired
+                    .get(&TaskId(tid))
+                    .map(|task| task.cred.clone())
+            })
     }
 
     /// `current_cred` for an opener; targets use `cred_of` (`__task_cred`).

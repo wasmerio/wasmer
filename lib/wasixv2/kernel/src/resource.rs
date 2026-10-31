@@ -77,9 +77,9 @@ pub(crate) fn nproc_exceeded(state: &State, task: &crate::Task) -> bool {
         .filter(|task| task.cred.clone().user.real == uid)
         .count()
         + state
-            .retired_creds
+            .retired
             .values()
-            .filter(|cred| cred.user.real == uid)
+            .filter(|task| task.cred.user.real == uid)
             .count();
     process.resources.lock_or_recover().nproc_reached(tasks)
 }
