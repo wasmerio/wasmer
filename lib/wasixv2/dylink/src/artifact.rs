@@ -1,7 +1,7 @@
 //! Loader-owned prepared DSO code, shared across compatible stores and JS realms.
 
 use crate::Initialization;
-use std::sync::Arc;
+use std::{collections::BTreeMap, sync::Arc};
 use wasmer::{AsEngineRef, Module, RuntimeError};
 
 fn error(error: impl std::fmt::Display) -> RuntimeError {
@@ -21,6 +21,14 @@ impl PreparedArtifact {
         engine: &impl AsEngineRef,
         initialization: Arc<Initialization>,
     ) -> Result<Self, RuntimeError> {
+        Self::compile_main_tls(engine, initialization, &BTreeMap::new())
+    }
+
+    pub(crate) fn compile_main_tls(
+        engine: &impl AsEngineRef,
+        initialization: Arc<Initialization>,
+        main_tls: &BTreeMap<u32, u32>,
+    ) -> Result<Self, RuntimeError> {
         for payload in wasmparser::Parser::new(0).parse_all(initialization.original_source()) {
             if let wasmparser::Payload::TableSection(section) = payload.map_err(error)?
                 && section.count() > 0
@@ -28,7 +36,7 @@ impl PreparedArtifact {
                 return Err(error("side module defines a private function table"));
             }
         }
-        let bytes = initialization.instantiate_bytes().map_err(error)?;
+        let bytes = initialization.main_tls_bytes(main_tls).map_err(error)?;
         // Do not inherit load()'s unpreemptible fallback. Every side-module loop
         // reaches the ordinary return-to-guest boundary on every store/realm.
         let bytes = wasixv2_exec::instrument(&bytes).map_err(error)?;

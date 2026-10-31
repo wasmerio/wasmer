@@ -137,14 +137,10 @@ pub(crate) fn verify_compiled_source(module: &Module) -> Result<Vec<u8>> {
         Err(failure("dynamic image requires sys or js backend"))
     }
 }
+type ArtifactKey = (wasmer_types::ModuleHash, Vec<(u32, u32)>, String, String);
 struct Root {
     owner: Arc<()>,
-    artifacts: Mutex<
-        BTreeMap<
-            (wasmer_types::ModuleHash, String, String),
-            Arc<crate::artifact::PreparedArtifact>,
-        >,
-    >,
+    artifacts: Mutex<BTreeMap<ArtifactKey, Arc<crate::artifact::PreparedArtifact>>>,
     forward_code: Arc<forward::Cache>,
     cleanup: Mutex<Vec<Weak<wasixv2_host::LoaderCleanup>>>,
     gate: OnceLock<Arc<LoaderGate>>,
@@ -254,21 +250,29 @@ impl Root {
     fn prepare_code(&self, engine: &impl AsEngineRef, graph: &mut Graph) -> Result<()> {
         let engine_ref = engine.as_engine_ref();
         let engine = engine_ref.engine();
+        let main_tls = (1..graph.libraries.len())
+            .map(|index| graph.main_tls_imports(index))
+            .collect::<Result<Vec<_>>>()?;
         let mut artifacts = lock(&self.artifacts);
-        for library in graph.libraries.iter_mut().skip(1) {
+        for (library, main_tls) in graph.libraries.iter_mut().skip(1).zip(main_tls) {
             let key = (
                 library.code_hash,
+                main_tls
+                    .iter()
+                    .map(|(index, offset)| (*index, *offset))
+                    .collect(),
                 engine.deterministic_id(),
                 engine.artifact_format(),
             );
             let artifact = match artifacts.entry(key) {
                 std::collections::btree_map::Entry::Occupied(entry) => entry.into_mut(),
-                std::collections::btree_map::Entry::Vacant(entry) => {
-                    entry.insert(Arc::new(crate::artifact::PreparedArtifact::compile(
+                std::collections::btree_map::Entry::Vacant(entry) => entry.insert(Arc::new(
+                    crate::artifact::PreparedArtifact::compile_main_tls(
                         engine,
                         library.initialization.clone(),
-                    )?))
-                }
+                        &main_tls,
+                    )?,
+                )),
             };
             library.prepared = Some(artifact.clone());
         }
@@ -721,7 +725,16 @@ impl Local {
             let lib = &graph.libraries[index];
             let mut imports = base_imports.clone();
             let mut pending = Vec::new();
+            let main_tls = graph.main_tls_imports(index)?;
+            let mut global_index = 0u32;
             for (ordinal, import) in lib.metadata.imports().iter().enumerate() {
+                let tls_alias = if matches!(import.ty, ExternType::Global(_)) {
+                    let alias = main_tls.contains_key(&global_index);
+                    global_index += 1;
+                    alias
+                } else {
+                    false
+                };
                 let fixup = lib
                     .fixups
                     .iter()
@@ -729,6 +742,18 @@ impl Local {
                 let value = match &import.ty {
                     ExternType::Memory(_) => Some(Extern::Memory(local.memory.clone())),
                     ExternType::Table(_) => Some(Extern::Table(local.table.clone())),
+                    ExternType::Global(_) if tls_alias => {
+                        // The normalized code adds the frozen symbol offset. Sharing
+                        // this store's live base follows libc bootstrap without a
+                        // callback or writes to a parked peer's initialized pointers.
+                        Some(Extern::Global(
+                            local.instances[0]
+                                .exports
+                                .get_global("__tls_base")
+                                .map_err(failure)?
+                                .clone(),
+                        ))
+                    }
                     ExternType::Global(_) if import.name == "__stack_pointer" => {
                         Some(Extern::Global(
                             local.instances[0]
@@ -2520,6 +2545,201 @@ mod lazy_tests {
             std::task::Poll::Ready(Ok(()))
         ));
         assert!(!gate.busy());
+    }
+}
+
+#[cfg(all(
+    test,
+    any(feature = "engine-tests", all(feature = "js", target_arch = "wasm32"))
+))]
+mod main_tls_tests {
+    use super::*;
+
+    fn fixture(offset: u32) -> (Graph, Local, Store, Imports) {
+        let (mut graph, mut local, mut store, imports) = cyclic_tests::fixture();
+        let main = crate::tests::bytes(
+            &format!(
+                r#"(module
+                (global (export "__stack_pointer") (mut i32) (i32.const 65536))
+                (global (export "__tls_base") (mut i32) (i32.const 0))
+                (global (export "__tls_size") i32 (i32.const 16))
+                (global (export "__tls_align") i32 (i32.const 4))
+                (global (export "main_value") i32 (i32.const {offset})))"#
+            ),
+            [0; 4],
+            &[],
+            &[("main_value", wasmparser::SymbolFlags::TLS)],
+            &[],
+        );
+        let module = Module::new(&store, &main).unwrap();
+        let instance = Instance::new(&mut store, &module, &Imports::new()).unwrap();
+        local.instances[0] = BoundModule::new(&instance);
+        graph.libraries = vec![Library::new(main, None).unwrap()];
+        graph.cursor = 3;
+        graph.initialization = vec![0];
+        graph.libraries.push(
+            Library::new(
+                crate::tests::bytes(
+                    r#"(module
+                (import "env" "memory" (memory 1 4 shared))
+                (import "GOT.mem" "main_value" (global $value (mut i32)))
+                (func (export "address") (result i32) global.get $value)
+                (func (export "field") (result i32) global.get $value i32.const 4 i32.add)
+                (func (export "read") (result i32) global.get $value i32.load)
+                (func (export "write") (param i32) global.get $value local.get 0 i32.store))"#,
+                    [0; 4],
+                    &[],
+                    &[],
+                    &[],
+                ),
+                None,
+            )
+            .unwrap(),
+        );
+        graph.assign_slots(1).unwrap();
+        graph.seal(1, 1).unwrap();
+        (graph, local, store, imports)
+    }
+
+    fn publish(local: &mut Local, store: &mut Store, imports: &Imports, work: &Work) {
+        local
+            .stage_modules(
+                &mut store.as_store_mut(),
+                imports,
+                work,
+                vec![0; 2],
+                Vec::new(),
+                TaskId(1),
+            )
+            .unwrap();
+        local
+            .stage
+            .as_mut()
+            .unwrap()
+            .apply(store, &local.table)
+            .unwrap();
+        let stage = local.stage.take().unwrap();
+        for module in stage.modules.into_values() {
+            local.instances.push(module.publish().unwrap());
+        }
+        local.forwarders.extend(stage.forwarders);
+        local.tls = stage.tls;
+        local.lazy_targets = stage.lazy_targets;
+    }
+
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(not(target_arch = "wasm32"), test)]
+    fn code_reads_follow_real_main_global_before_and_after_each_stores_tls_bootstrap() {
+        let (graph, mut local, mut store, imports) = fixture(8);
+        let work = cyclic_tests::work(graph, &store);
+        publish(&mut local, &mut store, &imports, &work);
+        let (_, mut peer, mut peer_store, peer_imports) = fixture(8);
+        publish(&mut peer, &mut peer_store, &peer_imports, &work);
+        for (local, store, first, second) in [
+            (&mut local, &mut store, 4096u32, 8192u32),
+            (&mut peer, &mut peer_store, 12288u32, 16384u32),
+        ] {
+            let main = local.instances[0]
+                .exports
+                .get_global("__tls_base")
+                .unwrap()
+                .clone();
+            let code = &local.instances[1].exports;
+            let address = code
+                .get_typed_function::<(), i32>(&*store, "address")
+                .unwrap();
+            let field = code
+                .get_typed_function::<(), i32>(&*store, "field")
+                .unwrap();
+            let read = code.get_typed_function::<(), i32>(&*store, "read").unwrap();
+            let write = code
+                .get_typed_function::<i32, ()>(&*store, "write")
+                .unwrap();
+            // Instantiation/Apply happened before bootstrap, with a zero main base.
+            // The same code follows later CLONE_SETTLS/inherited-base assignments.
+            for (base, value) in [(first, 41i32), (second, 73i32)] {
+                main.set(&mut *store, Value::I32(base as i32)).unwrap();
+                local
+                    .memory
+                    .view(&*store)
+                    .write(u64::from(base + 8), &value.to_le_bytes())
+                    .unwrap();
+                assert_eq!(address.call(&mut *store).unwrap(), (base + 8) as i32);
+                assert_eq!(field.call(&mut *store).unwrap(), (base + 12) as i32);
+                assert_eq!(read.call(&mut *store).unwrap(), value);
+                write.call(&mut *store, value + 1).unwrap();
+                assert_eq!(read.call(&mut *store).unwrap(), value + 1);
+                assert_eq!(
+                    local
+                        .symbol(
+                            &mut store.as_store_mut(),
+                            &work.graph().unwrap(),
+                            0,
+                            "main_value"
+                        )
+                        .unwrap(),
+                    base + 8
+                );
+            }
+            let mut old = [0; 4];
+            local
+                .memory
+                .view(&*store)
+                .read(u64::from(first + 8), &mut old)
+                .unwrap();
+            assert_eq!(
+                i32::from_le_bytes(old),
+                42,
+                "later base changes never rewrite captured pointer memory"
+            );
+        }
+        assert_eq!(
+            local.instances[0]
+                .exports
+                .get_global("__tls_base")
+                .unwrap()
+                .get(&mut store),
+            Value::I32(8192)
+        );
+        assert_eq!(
+            peer.instances[0]
+                .exports
+                .get_global("__tls_base")
+                .unwrap()
+                .get(&mut peer_store),
+            Value::I32(16384)
+        );
+    }
+
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(not(target_arch = "wasm32"), test)]
+    fn cache_distinguishes_checked_offset_variants_without_keying_on_store_bases() {
+        let (mut graph, _, store, _) = fixture(8);
+        let root = Root::new(graph.libraries[0].source.to_vec());
+        root.prepare_code(&store, &mut graph).unwrap();
+        let original = graph.libraries[1].prepared.clone().unwrap();
+        let (_, _, peer, _) = fixture(8);
+        root.prepare_code(&peer, &mut graph).unwrap();
+        assert!(Arc::ptr_eq(
+            &original,
+            graph.libraries[1].prepared.as_ref().unwrap()
+        ));
+        let (mut other, _, _, _) = fixture(12);
+        root.prepare_code(&store, &mut other).unwrap();
+        assert!(!Arc::ptr_eq(
+            &original,
+            other.libraries[1].prepared.as_ref().unwrap()
+        ));
+        assert_eq!(lock(&root.artifacts).len(), 2);
+        let (invalid, _, _, _) = fixture(16);
+        assert!(invalid.main_tls_imports(1).is_err());
+        let target = &invalid.libraries[1]
+            .fixups
+            .iter()
+            .find(|fixup| fixup.kind == FixupKind::GotMemory)
+            .unwrap()
+            .target;
+        assert!(invalid.target_address(target, &[4096, 0]).is_err());
     }
 }
 

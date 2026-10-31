@@ -1217,3 +1217,218 @@ fn helper_exports_must_have_function_kind_and_exact_signature() {
         assert!(crate::Initialization::parse(&bytes(wat, [0; 4], &[], &[], &[])).is_err());
     }
 }
+
+#[test]
+fn main_tls_live_base_rewrites_reads_stores_and_addresses_without_new_indices() {
+    use wasmparser::{Operator, Parser, Payload};
+
+    let source = bytes(
+        r#"(module
+          (import "host" "unused" (func))
+          (import "env" "__memory_base" (global i32))
+          (import "GOT.mem" "main_tls" (global $tls (mut i32)))
+          (memory 1)
+          (func (export "read") (result i32) global.get $tls i32.load)
+          (func (export "write") (param i32)
+            global.get $tls local.get 0 i32.store)
+          (func (export "address") (result i32) global.get $tls)
+          (func (export "unrelated") (result i32) global.get 0))"#,
+        [0; 4],
+        &[],
+        &[],
+        &[],
+    );
+    let init = crate::Initialization::parse(&source).unwrap();
+    let ordinary = init.instantiate_bytes().unwrap();
+    assert_eq!(init.main_tls_bytes(&Default::default()).unwrap(), ordinary);
+    // Global index 1 is import ordinal 2. The source still imports the live base,
+    // while every ordinary use adds this symbol's immutable TLS offset.
+    let rewritten = init.main_tls_bytes(&[(1, 12)].into()).unwrap();
+    let metadata = Module::parse(&rewritten).unwrap();
+    let original = Module::parse(&ordinary).unwrap();
+    assert_eq!(metadata.imports().len(), original.imports().len());
+    for (actual, expected) in metadata.imports().iter().zip(original.imports()) {
+        assert_eq!(
+            (&actual.module, &actual.name, &actual.ty, actual.flags),
+            (
+                &expected.module,
+                &expected.name,
+                &expected.ty,
+                expected.flags
+            )
+        );
+    }
+    assert_eq!(metadata.exports()["__wasix_dylink_global_1"].index, 1);
+    assert_eq!(metadata.exports()["read"].index, 1);
+    fn bodies(wasm: &[u8]) -> Vec<Vec<Operator<'_>>> {
+        Parser::new(0)
+            .parse_all(wasm)
+            .filter_map(|payload| match payload.unwrap() {
+                Payload::CodeSectionEntry(body) => Some(
+                    body.get_operators_reader()
+                        .unwrap()
+                        .into_iter()
+                        .collect::<Result<Vec<_>, _>>()
+                        .unwrap(),
+                ),
+                _ => None,
+            })
+            .collect::<Vec<_>>()
+    }
+    let code = bodies(&rewritten);
+    assert!(matches!(
+        code[0].as_slice(),
+        [
+            Operator::GlobalGet { global_index: 1 },
+            Operator::I32Const { value: 12 },
+            Operator::I32Add,
+            Operator::I32Load { .. },
+            Operator::End
+        ]
+    ));
+    assert!(matches!(
+        code[1].as_slice(),
+        [
+            Operator::GlobalGet { global_index: 1 },
+            Operator::I32Const { value: 12 },
+            Operator::I32Add,
+            Operator::LocalGet { local_index: 0 },
+            Operator::I32Store { .. },
+            Operator::End
+        ]
+    ));
+    assert!(matches!(
+        code[2].as_slice(),
+        [
+            Operator::GlobalGet { global_index: 1 },
+            Operator::I32Const { value: 12 },
+            Operator::I32Add,
+            Operator::End
+        ]
+    ));
+    assert!(matches!(
+        code[3].as_slice(),
+        [Operator::GlobalGet { global_index: 0 }, Operator::End]
+    ));
+    let wrapping = init.main_tls_bytes(&[(1, u32::MAX)].into()).unwrap();
+    assert!(matches!(
+        bodies(&wrapping)[2].as_slice(),
+        [
+            Operator::GlobalGet { global_index: 1 },
+            Operator::I32Const { value: -1 },
+            Operator::I32Add,
+            Operator::End
+        ]
+    ));
+    assert_eq!(init.instantiate_bytes().unwrap(), ordinary);
+}
+
+#[test]
+fn main_tls_live_base_requires_exact_import_type_and_namespace() {
+    for declaration in [
+        r#"(import "env" "tls" (global (mut i32)))"#,
+        r#"(import "GOT.func" "tls" (global (mut i32)))"#,
+        r#"(import "GOT.mem" "tls" (global i32))"#,
+        r#"(import "GOT.mem" "tls" (global (mut i64)))"#,
+        "(global (mut i32) (i32.const 0))",
+        "",
+    ] {
+        let source = bytes(&format!("(module {declaration})"), [0; 4], &[], &[], &[]);
+        let init = crate::Initialization::parse(&source).unwrap();
+        assert!(
+            init.main_tls_bytes(&[(0, 8)].into()).is_err(),
+            "{declaration}"
+        );
+    }
+}
+
+#[test]
+fn main_tls_live_base_rejects_original_reexports_and_writes_in_any_body() {
+    for body in [
+        r#"(export "escape" (global $tls))"#,
+        "(func (param i32) local.get 0 global.set $tls)",
+        "(func unreachable i32.const 0 global.set $tls)",
+    ] {
+        let source = bytes(
+            &format!(r#"(module (import "GOT.mem" "tls" (global $tls (mut i32))) {body})"#),
+            [0; 4],
+            &[],
+            &[],
+            &[],
+        );
+        let init = crate::Initialization::parse(&source).unwrap();
+        assert!(init.main_tls_bytes(&[(0, 8)].into()).is_err(), "{body}");
+    }
+    let source = bytes(
+        r#"(module (import "GOT.mem" "tls" (global $tls (mut i32)))
+          (global $other (mut i32) (i32.const 0))
+          (func i32.const 5 global.set $other global.get $tls drop))"#,
+        [0; 4],
+        &[],
+        &[],
+        &[],
+    );
+    assert!(
+        crate::Initialization::parse(&source)
+            .unwrap()
+            .main_tls_bytes(&[(0, 8)].into())
+            .is_ok()
+    );
+}
+
+#[test]
+fn main_tls_live_base_rejects_first_peer_data_tls_and_nested_helper_snapshots() {
+    for helpers in [
+        "(func $start global.get $tls global.set $state) (start $start)",
+        r#"(func (export "__wasm_apply_data_relocs") i32.const 16 global.get $tls i32.store)"#,
+        r#"(func (export "__wasm_apply_data_relocs") global.get $tls i32.const 9 i32.store)"#,
+        r#"(func (export "__wasm_init_tls") (param i32) local.get 0 global.get $tls i32.store)"#,
+        r#"(func (export "__wasm_apply_tls_relocs") i32.const 16 global.get $tls i32.store)"#,
+        r#"(func $copy global.get $tls global.set $state)
+          (func $start call $copy) (start $start)"#,
+        r#"(func (export "__wasm_apply_data_relocs") (local i32) global.get $tls local.set 0)"#,
+    ] {
+        let source = bytes(
+            &format!(
+                r#"(module
+              (import "GOT.mem" "tls" (global $tls (mut i32)))
+              (memory 1) (global $state (mut i32) (i32.const 0)) {helpers})"#
+            ),
+            [0; 4],
+            &[],
+            &[],
+            &[],
+        );
+        let init = crate::Initialization::parse(&source).unwrap();
+        assert!(
+            matches!(
+                init.main_tls_bytes(&[(0, 8)].into()),
+                Err(PlanError::Unsupported(
+                    "main TLS alias used by an initialization snapshot"
+                ))
+            ),
+            "{helpers}"
+        );
+    }
+}
+
+#[test]
+fn main_tls_live_base_constant_and_element_snapshots_are_invalid_wasm() {
+    // Imported mutable globals are not constant-expression inputs. The core
+    // validator rejects these before a live-base variant can be constructed.
+    for effect in [
+        "(global i32 (global.get $tls))",
+        r#"(memory 1) (data (global.get $tls) "x")"#,
+        "(table 1 funcref) (func $f) (elem (global.get $tls) func $f)",
+        r#"(memory 1) (data (i32.add (global.get $tls) (i32.const 4)) "x")"#,
+    ] {
+        let source = bytes(
+            &format!(r#"(module (import "GOT.mem" "tls" (global $tls (mut i32))) {effect})"#),
+            [0; 4],
+            &[],
+            &[],
+            &[],
+        );
+        assert!(crate::Initialization::parse(&source).is_err(), "{effect}");
+    }
+}

@@ -63,7 +63,7 @@ graph publication; libc2 drains constructors afterward. Fresh exec selects a new
 image/mm, retaining surviving old-mm attachments. Shared graphs contain source,
 layout, file owners and immutable compiled artifacts, never store-local engine objects.
 The image coordinator validates/prepares each DSO once and caches its compiled
-Module per source/engine/format. Stores instantiate that code with their own
+Module per source/TLS-offset variant/engine/format. Stores instantiate that code with their own
 imports, tables, globals and TLS; required effect/range/identity checks remain.
 The image releases cache ownership at logical retirement, while live engine
 instances retain their normal code ownership.
@@ -76,7 +76,7 @@ normal preparation errors before publication. Generated forwarding code is cache
 per exact signature/slot/table-limit variant. As for other JS embedding, the host
 is responsible for supplying matching prepared Module/source; the loader adds no
 compiled-module provenance checks. Opaque host Modules use the existing transport
-contract. NEXT, asyncify and early main-TLS crossimports remain unsupported.
+contract. NEXT, asyncify and TLS-dependent initialization snapshots remain unsupported.
 
 Startup prepares imports before main instantiation using the committed
 new environment and security identity. Secure startup ignores LD_LIBRARY_PATH
@@ -138,9 +138,19 @@ NOW takes precedence when both binding mode bits are supplied; startup stays NOW
 Missing GOT.func/GOT.mem/data/TLS references and unresolved function exports,
 elements or references requiring a concrete definition remain unsupported.
 
+Main-TLS GOT reads in ordinary code use the calling store's live main
+`__tls_base` plus a validated symbol offset. The loader aliases that store's
+existing mutable main global and normalizes the code, so libc's CLONE_SETTLS or
+borrowed CLONE_VM base assignments take effect without a readiness callback.
+Source that writes or publicly re-exports such a GOT global is rejected. Any
+initializer that snapshots these imported TLS addresses is also rejected before
+publication: updating a GOT cannot repair already initialized pointer bytes.
+Other supported relocations are unchanged; addresses captured by ordinary guest
+code after bootstrap retain their original block lifetime.
+
 The profile fails closed for asyncify, NEXT,
 caller-sensitive lookup, unsupported initializer bodies, definition-free function
-alias cycles and main-TLS crossimports that need post-libc late binding. DSO-local TLS
+alias cycles and main-TLS initializer snapshots that need late relocation. DSO-local TLS
 and calls through main libc TLS accessors are supported. The real C source proof
 uses a three-argument main; it does not establish general C/C++ program acceptance.
 Ptrace syscall-entry/exit stops retain their exact pending future. An opt-in per-store

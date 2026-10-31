@@ -426,6 +426,150 @@ impl Initialization {
         Ok(bytes)
     }
 
+    /// Loader-private live-base variant. The map names original imported GLOBAL
+    /// indices and validated main-TLS offsets; no per-store base enters the code.
+    #[cfg(any(test, feature = "sys", feature = "js"))]
+    pub(crate) fn main_tls_bytes(
+        &self,
+        offsets: &BTreeMap<u32, u32>,
+    ) -> Result<Vec<u8>, PlanError> {
+        use wasm_encoder::reencode::Reencode;
+        if offsets.is_empty() {
+            return self.instantiate_bytes();
+        }
+        let snapshot =
+            || PlanError::Unsupported("main TLS alias used by an initialization snapshot");
+        if self
+            .first
+            .iter()
+            .chain(&self.peer)
+            .chain(self.tls.iter())
+            .chain(self.tls_reloc.iter())
+            .any(|program| {
+                program
+                    .ops
+                    .iter()
+                    .any(|op| matches!(op, Op::Get(index) if offsets.contains_key(index)))
+            })
+            || self
+                .active_data
+                .iter()
+                .any(|(address, _)| address.main_tls(offsets))
+            || self
+                .active_elements
+                .iter()
+                .any(|(address, _)| address.main_tls(offsets))
+        {
+            return Err(snapshot());
+        }
+        let reject_const = |reader: wasmparser::OperatorsReader<'_>| -> Result<(), PlanError> {
+            for op in reader {
+                if matches!(op?, Operator::GlobalGet { global_index } | Operator::GlobalSet { global_index } if offsets.contains_key(&global_index))
+                {
+                    return Err(snapshot());
+                }
+            }
+            Ok(())
+        };
+        let mut global = 0;
+        let mut mapped = BTreeSet::new();
+        for payload in Parser::new(0).parse_all(&self.original) {
+            match payload? {
+                Payload::ImportSection(section) => {
+                    for import in section.into_imports() {
+                        let import = import?;
+                        if let TypeRef::Global(ty) = import.ty {
+                            if offsets.contains_key(&global) {
+                                if import.module != "GOT.mem"
+                                    || ty.content_type != ValType::I32
+                                    || !ty.mutable
+                                    || ty.shared
+                                {
+                                    return Err(PlanError::Unsupported(
+                                        "main TLS alias must be a mutable nonshared i32 GOT.mem import",
+                                    ));
+                                }
+                                mapped.insert(global);
+                            }
+                            global += 1;
+                        }
+                    }
+                }
+                Payload::ExportSection(section) => {
+                    for export in section {
+                        let export = export?;
+                        if export.kind == wasmparser::ExternalKind::Global
+                            && offsets.contains_key(&export.index)
+                        {
+                            return Err(PlanError::Unsupported(
+                                "main TLS alias publicly reexported",
+                            ));
+                        }
+                    }
+                }
+                Payload::CodeSectionEntry(body) => {
+                    for op in body.get_operators_reader()? {
+                        if let Operator::GlobalSet { global_index } = op?
+                            && offsets.contains_key(&global_index)
+                        {
+                            return Err(PlanError::Unsupported(
+                                "main TLS alias written by guest code",
+                            ));
+                        }
+                    }
+                }
+                Payload::GlobalSection(section) => {
+                    for global in section {
+                        reject_const(global?.init_expr.get_operators_reader())?;
+                    }
+                }
+                Payload::TableSection(section) => {
+                    for table in section {
+                        if let wasmparser::TableInit::Expr(expr) = table?.init {
+                            reject_const(expr.get_operators_reader())?;
+                        }
+                    }
+                }
+                Payload::DataSection(section) => {
+                    for data in section {
+                        if let DataKind::Active { offset_expr, .. } = data?.kind {
+                            reject_const(offset_expr.get_operators_reader())?;
+                        }
+                    }
+                }
+                Payload::ElementSection(section) => {
+                    for element in section {
+                        let element = element?;
+                        if let wasmparser::ElementKind::Active { offset_expr, .. } = element.kind {
+                            reject_const(offset_expr.get_operators_reader())?;
+                        }
+                        if let wasmparser::ElementItems::Expressions(_, items) = element.items {
+                            for expr in items {
+                                reject_const(expr?.get_operators_reader())?;
+                            }
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+        if mapped.len() != offsets.len() {
+            return Err(PlanError::Unsupported(
+                "main TLS alias is not an imported global",
+            ));
+        }
+        // Validate only original exports above. Sanitization's private engine-handle
+        // aliases are required for host effect evaluation and are not guest reexports.
+        let source = self.instantiate_bytes()?;
+        let mut output = wasm_encoder::Module::new();
+        MainTls { offsets }
+            .parse_core_module(&mut output, Parser::new(0), &source)
+            .map_err(|_| PlanError::Unsupported("main TLS live-base rewrite failed"))?;
+        let bytes = output.finish();
+        wasmparser::Validator::new().validate_all(&bytes)?;
+        Ok(bytes)
+    }
+
     /// Evaluates active element placements against the new module's table reservation.
     /// Returned values are wasm function indices, not function pointers or live functions.
     pub fn table_effects(
@@ -834,6 +978,15 @@ impl Address {
         Ok(stack.pop().unwrap())
     }
 
+    #[cfg(any(test, feature = "sys", feature = "js"))]
+    fn main_tls(&self, offsets: &BTreeMap<u32, u32>) -> bool {
+        match self {
+            Self::Constant(_) => false,
+            Self::Global(index) => offsets.contains_key(index),
+            Self::Add(a, b) => a.main_tls(offsets) || b.main_tls(offsets),
+        }
+    }
+
     fn value(&self, globals: &BTreeMap<u32, u64>) -> Result<u32, PlanError> {
         Ok(match self {
             Self::Constant(value) => *value,
@@ -842,6 +995,38 @@ impl Address {
             }
             Self::Add(a, b) => a.value(globals)?.wrapping_add(b.value(globals)?),
         })
+    }
+}
+
+#[cfg(any(test, feature = "sys", feature = "js"))]
+struct MainTls<'a> {
+    offsets: &'a BTreeMap<u32, u32>,
+}
+#[cfg(any(test, feature = "sys", feature = "js"))]
+impl wasm_encoder::reencode::Reencode for MainTls<'_> {
+    type Error = std::convert::Infallible;
+
+    fn parse_function_body(
+        &mut self,
+        code: &mut wasm_encoder::CodeSection,
+        body: FunctionBody<'_>,
+    ) -> Result<(), wasm_encoder::reencode::Error<Self::Error>> {
+        let mut function = self.new_function_with_parsed_locals(&body)?;
+        let mut reader = body.get_operators_reader()?;
+        while !reader.eof() {
+            let instruction = self.parse_instruction(&mut reader)?;
+            if let wasm_encoder::Instruction::GlobalGet(index) = instruction
+                && let Some(offset) = self.offsets.get(&index)
+            {
+                function.instruction(&wasm_encoder::Instruction::GlobalGet(index));
+                function.instruction(&wasm_encoder::Instruction::I32Const(*offset as i32));
+                function.instruction(&wasm_encoder::Instruction::I32Add);
+            } else {
+                function.instruction(&instruction);
+            }
+        }
+        code.function(&function);
+        Ok(())
     }
 }
 

@@ -71,6 +71,16 @@ async fn native_pic_startup_needed_and_preload_with_future_peers() {
     }
 }
 
+#[tokio::test]
+#[ignore = "requires source-built main TLS fixtures via WASIXV2_NATIVE_MAIN_TLS_DIR"]
+async fn native_pic_main_tls_code_imports_follow_each_threads_bootstrap() {
+    let directory =
+        PathBuf::from(std::env::var_os("WASIXV2_NATIVE_MAIN_TLS_DIR").expect("fixture directory"));
+    for image in ["main.wasm", "main-late.wasm"] {
+        run_fixture_image(directory.clone(), image, "main TLS PASS:", Vec::new()).await;
+    }
+}
+
 async fn run_fixture_image(directory: PathBuf, image: &str, expected: &str, env: Vec<String>) {
     run_fixture_status(directory, image, expected, env, 0).await;
 }

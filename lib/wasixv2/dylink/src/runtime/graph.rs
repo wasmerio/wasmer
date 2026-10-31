@@ -373,6 +373,52 @@ impl Graph {
         base.checked_add(offset)
             .ok_or_else(|| failure("symbol address overflow"))
     }
+    /// Original global indices whose code reads follow the current store's main TLS.
+    /// Keep scalar address resolution fail-closed: initializer snapshots cannot use this.
+    pub fn main_tls_imports(&self, module: usize) -> Result<BTreeMap<u32, u32>> {
+        let library = &self.libraries[module];
+        let main = &self.libraries[0];
+        let mut result = BTreeMap::new();
+        let mut global = 0u32;
+        for (ordinal, import) in library.metadata.imports().iter().enumerate() {
+            let ExternType::Global(ty) = &import.ty else {
+                continue;
+            };
+            let index = global;
+            global = global
+                .checked_add(1)
+                .ok_or_else(|| failure("global overflow"))?;
+            let Some(fixup) = library.fixups.iter().find(|fixup| fixup.import == ordinal) else {
+                continue;
+            };
+            let BindingTarget::Data {
+                module: 0,
+                tls: true,
+                absolute: false,
+                offset,
+                ..
+            } = &fixup.target
+            else {
+                continue;
+            };
+            let offset = offset.ok_or_else(|| failure("nonliteral main TLS offset"))?;
+            if import.module != "GOT.mem"
+                || fixup.kind != crate::FixupKind::GotMemory
+                || ty.content_type != wasmparser::ValType::I32
+                || !ty.mutable
+                || ty.shared
+                || offset >= main.tls_size
+                || !matches!(main.metadata.exports().get("__tls_base").map(|e| &e.ty),
+                    Some(ExternType::Global(base)) if base.content_type == wasmparser::ValType::I32
+                        && base.mutable && !base.shared)
+            {
+                return Err(failure("invalid main TLS code binding"));
+            }
+            result.insert(index, offset);
+        }
+        Ok(result)
+    }
+
     pub fn target_address(&self, target: &BindingTarget, tls: &[u32]) -> Result<u32> {
         match target {
             BindingTarget::Function { module, index, .. } => {
