@@ -2,7 +2,9 @@
 
 `Module::parse` and `Plan::new` implement the metadata/planning part of
 [DESIGN.md](../DESIGN.md#dynamic-linking). This is not a working dynamic loader:
-no guest code is compiled or run and the four `dl_*` imports remain unchanged.
+the four `dl_*` imports remain unsupported until the process-level integration is installed.
+The optional native staging component compiles and instantiates validated no-start
+modules, but executes no guest initialization or constructor code.
 
 The caller supplies validated module descriptions, identity-deduplicated dependency
 edges matching each `needed` list, the root and the global lookup order. Opening
@@ -57,3 +59,21 @@ cargo test -p wasixv2-dylink --no-default-features
 ```
 
 The existing default `sys` and optional `js` engine feature wiring is retained.
+
+With `sys`, `StagedModule` implements one store's prepare/apply/rollback/publication
+building block. Preparation validates and rewrites source itself, checks the supplied
+address-space memory/table identity, preflights globals and fresh ranges, reconciles
+active element and planned function identities, and reserves table capacity. Apply
+uses only cached host writes/global/table assignments, with no awaits or guest calls.
+Rollback clears staged bytes and slots; old image state and signal sentinel slots
+remain untouched. Publication consumes an applied staging object. The caller must
+retain the object for rollback until the mm-wide transaction publishes every store;
+there is no implicit cross-store coordination or cancellation guarantee in this type.
+The mm coordinator, image ownership factory and libc protocol are still required
+before runtime `dlopen` works. Wasm physical capacity growth cannot be rolled back.
+
+The native engine unit proof is explicitly opt-in so pure planner tests remain cheap:
+
+```sh
+cargo test -p wasixv2-dylink --no-default-features --features engine-tests
+```

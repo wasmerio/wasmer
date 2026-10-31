@@ -25,3 +25,6 @@ wat.workspace = true
 default = ["sys"]
 sys = ["wasmer/sys", "wasmer/headless", "wasixv2-exec/sys"]
 js = ["wasmer/js-default", "wasixv2-exec/js"]
+
+# Explicit opt-in keeps planner-only tests independent of native compiler crates.
+engine-tests = ["sys", "wasmer/cranelift"]

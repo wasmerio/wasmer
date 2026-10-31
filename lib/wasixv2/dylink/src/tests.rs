@@ -839,3 +839,146 @@ fn peer_tls_pointer_relocations_follow_global_tls_fixups() {
         .unwrap();
     assert_eq!(effects.writes.last().unwrap().bytes, 128u32.to_le_bytes());
 }
+
+#[cfg(feature = "engine-tests")]
+#[test]
+fn native_staging_never_runs_guest_initializers_and_rolls_back_fresh_effects() {
+    use wasmer::{Global, Imports, Memory, MemoryType, Store, Table, TableType, Type, Value};
+    let mut store = Store::default();
+    let memory = Memory::new(&mut store, MemoryType::new(1, Some(4), true)).unwrap();
+    let table = Table::new(
+        &mut store,
+        TableType::new(Type::FuncRef, 3, Some(64)),
+        Value::FuncRef(None),
+    )
+    .unwrap();
+    let base = Global::new(&mut store, Value::I32(128));
+    let table_base = Global::new(&mut store, Value::I32(3));
+    let mut imports = Imports::new();
+    imports.define("env", "memory", memory.clone());
+    imports.define("env", "__indirect_function_table", table.clone());
+    imports.define("env", "__memory_base", base);
+    imports.define("env", "__table_base", table_base);
+    let source = bytes(
+        r#"(module
+      (import "env" "memory" (memory 1 4 shared))
+      (import "env" "__indirect_function_table" (table 3 funcref))
+      (import "env" "__memory_base" (global $base i32))
+      (import "env" "__table_base" (global $table i32))
+      (global $state (mut i32) (i32.const 0))
+      (func $f (export "f") (result i32) i32.const 42)
+      (func $g (result i32) i32.const 43)
+      (elem (global.get $table) func $f)
+      (data (global.get $base) "new")
+      (func $init i32.const 7 global.set $state)
+      (start $init))"#,
+        [16, 0, 1, 0],
+        &[],
+        &[],
+        &[],
+    );
+    let mut prepared = crate::StagedModule::prepare(
+        &mut store,
+        &source,
+        &imports,
+        memory.clone(),
+        table.clone(),
+        &reservation(128..144),
+        &reservation(3..4),
+        None,
+    )
+    .unwrap();
+    let mut bytes = [0; 3];
+    memory.view(&store).read(128, &mut bytes).unwrap();
+    assert_eq!(bytes, [0; 3]);
+    assert!(matches!(
+        table.get(&mut store, 3),
+        Some(Value::FuncRef(None))
+    ));
+    assert_eq!(
+        prepared
+            .instance()
+            .exports
+            .get_global("__wasix_dylink_global_2")
+            .unwrap()
+            .get(&mut store)
+            .i32(),
+        Some(0)
+    );
+    assert!(
+        prepared
+            .bind_slot(&mut store, 3, 1, &reservation(3..4))
+            .is_err()
+    );
+    prepared
+        .bind_slot(&mut store, 3, 0, &reservation(3..4))
+        .unwrap();
+    assert!(
+        prepared
+            .bind_slot(&mut store, 2, 0, &reservation(3..4))
+            .is_err()
+    );
+    prepared.apply(&mut store).unwrap();
+    assert!(prepared.apply(&mut store).is_err());
+    memory.view(&store).read(128, &mut bytes).unwrap();
+    assert_eq!(&bytes, b"new");
+    assert_eq!(
+        prepared
+            .instance()
+            .exports
+            .get_global("__wasix_dylink_global_2")
+            .unwrap()
+            .get(&mut store)
+            .i32(),
+        Some(7)
+    );
+    assert!(matches!(
+        table.get(&mut store, 3),
+        Some(Value::FuncRef(Some(_)))
+    ));
+    prepared.rollback(&mut store).unwrap();
+    memory.view(&store).read(128, &mut bytes).unwrap();
+    assert_eq!(bytes, [0; 3]);
+    assert!(matches!(
+        table.get(&mut store, 3),
+        Some(Value::FuncRef(None))
+    ));
+    let function = prepared.function(0).unwrap();
+    assert!(prepared.publish().is_err());
+    // Existing table entries are never overwritten, even by the same function.
+    table
+        .set(&mut store, 3, Value::FuncRef(Some(function)))
+        .unwrap();
+    assert!(
+        crate::StagedModule::prepare(
+            &mut store,
+            &source,
+            &imports,
+            memory.clone(),
+            table.clone(),
+            &reservation(128..144),
+            &reservation(3..4),
+            None
+        )
+        .is_err()
+    );
+    table.set(&mut store, 3, Value::FuncRef(None)).unwrap();
+    let mut prepared = crate::StagedModule::prepare(
+        &mut store,
+        &source,
+        &imports,
+        memory,
+        table,
+        &reservation(128..144),
+        &reservation(3..4),
+        None,
+    )
+    .unwrap();
+    prepared.apply(&mut store).unwrap();
+    let instance = prepared.publish().unwrap();
+    let function = instance
+        .exports
+        .get_typed_function::<(), i32>(&store, "f")
+        .unwrap();
+    assert_eq!(function.call(&mut store).unwrap(), 42);
+}

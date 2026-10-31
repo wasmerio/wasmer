@@ -1,16 +1,18 @@
-//! Side-module metadata and link plans for WASIX, without compiling or running guest code.
+//! Side-module metadata, link plans and host initialization staging for WASIX.
 //!
-//! This is the planning half of DESIGN.md's host/libc2 split. Plans contain relative addresses,
-//! module-local indices and deferred checks, never live handles or Wasmer functions. Bounded
-//! structurally validated initialization effects also describe host writes, without allocating
-//! guest pages, instantiating modules, running constructors or implementing the four `dl_*`
-//! imports. The eventual image owner must validate and publish a plan together with every
-//! store's instances before any guest can use it.
+//! Engine-free plans contain relative addresses, indices and validated bounded effects.
+//! Native staging can compile and instantiate their no-auto-start form, without executing
+//! guest helpers or constructors. The process image owner must publish every store together;
+//! this crate's staging primitives alone do not implement the four `dl_*` imports.
 
 mod image;
 mod initialize;
 mod metadata;
 mod plan;
+#[cfg(feature = "sys")]
+mod store;
+#[cfg(feature = "sys")]
+pub use store::StagedModule;
 
 pub use image::{SOURCE_SECTION, prepare_image};
 pub use initialize::{InitEffects, InitTable, InitWrite, Initialization};
