@@ -93,6 +93,8 @@ impl From<wasmer::InstantiationError> for ExecError {
 /// Host state behind every import of one instance.
 pub struct ExecEnv<S> {
     syscalls: Arc<S>,
+    host: Arc<dyn Host>,
+    imports: Imports,
     task: TaskId,
     /// `task`'s work flag, read on every return to the guest.
     work: Arc<WorkFlag>,
@@ -143,7 +145,9 @@ impl<S: Control> ExecEnv<S> {
     ) -> Self {
         Self {
             work: syscalls.work_flag(task),
-            cpu: cputime::CpuSample::new(host, syscalls.cpu_account(task)),
+            cpu: cputime::CpuSample::new(host.clone(), syscalls.cpu_account(task)),
+            host,
+            imports: Imports::new(),
             page_access: syscalls.page_access(task),
             syscalls,
             task,
@@ -183,6 +187,15 @@ impl<S: Control> ExecEnv<S> {
 }
 
 impl<S> ExecEnv<S> {
+    pub fn host(&self) -> &Arc<dyn Host> {
+        &self.host
+    }
+    pub fn memory(&self) -> Option<&Memory> {
+        self.memory.as_ref()
+    }
+    pub fn imports(&self) -> &Imports {
+        &self.imports
+    }
     pub fn syscalls(&self) -> &Arc<S> {
         &self.syscalls
     }
@@ -540,11 +553,59 @@ where
 }
 
 /// An instance of a process image, ready to run.
+pub(crate) struct Binding {
+    admission: Option<wasixv2_syscalls::LoaderAdmission>,
+    gate: Arc<wasixv2_syscalls::LoaderGate>,
+    task: TaskId,
+    installed: bool,
+}
+impl Binding {
+    pub(crate) fn new<S: Syscalls + Control + Send + Sync + 'static>(
+        abi: &dyn Abi<S>,
+        gate: Arc<wasixv2_syscalls::LoaderGate>,
+        task: TaskId,
+    ) -> Result<Self, Errno> {
+        let admission = abi.claim_image(&gate)?;
+        admission.bind(task)?;
+        Ok(Self {
+            admission: Some(admission),
+            gate,
+            task,
+            installed: false,
+        })
+    }
+    pub(crate) fn install(mut self) -> Registration {
+        self.installed = true;
+        drop(self.admission.take());
+        Registration {
+            gate: self.gate.clone(),
+            task: self.task,
+        }
+    }
+}
+pub(crate) struct Registration {
+    gate: Arc<wasixv2_syscalls::LoaderGate>,
+    task: TaskId,
+}
+impl Drop for Registration {
+    fn drop(&mut self) {
+        self.gate.leave(self.task);
+    }
+}
+impl Drop for Binding {
+    fn drop(&mut self) {
+        if !self.installed {
+            self.gate.leave(self.task);
+        }
+    }
+}
+
 struct Ready<S: 'static> {
     store: Store,
     env: FunctionEnv<ExecEnv<S>>,
     instance: Instance,
     abi: Arc<dyn AbiInstance<S>>,
+    admission: Option<Binding>,
 }
 
 /// Instantiates `module` as `task` for the ABI in `abis` that serves it, or, with `fork`, the
@@ -562,6 +623,11 @@ where
     S: Syscalls + Control + Send + Sync + 'static,
 {
     let abi = abis.require(module)?;
+    let admission = syscalls
+        .loader_gate(task)
+        .map(|gate| Binding::new(&*abi, gate, task))
+        .transpose()
+        .map_err(|e| ExecError::Load(LoadError::Format(e)))?;
     let spawner = process::spawner(
         store.engine().clone(),
         syscalls.clone(),
@@ -583,13 +649,10 @@ where
         None => instance.exports.get_memory("memory")?.clone(),
     };
     // Decided from the module's own globals, before a fork child's copy replaces them.
-    let guarded = abi.low_guard() && memory::guardable(&instance, &mut store);
-    let main_stack = memory::main_stack(&instance, &mut store);
+    let guarded = abi.guardable(&instance, &mut store);
+    let main_stack = abi.main_stack(&instance, &mut store);
     let mut asyncify = asyncify::Asyncify::new(&instance, &mut store)?;
-    let layout = abi
-        .low_guard()
-        .then(|| memory::image_layout(&instance, &memory, &mut store, asyncify.is_some()))
-        .flatten();
+    let layout = abi.image_layout(&instance, &memory, &mut store, asyncify.is_some());
     if let (Some(layout), Some(asyncify)) = (&layout, &mut asyncify)
         && let Some(range) = layout.reserved.first()
     {
@@ -646,6 +709,7 @@ where
         image as Arc<dyn thread::Start>
     });
     let data = env.as_mut(&mut store);
+    data.imports = imports.clone();
     data.memory = Some(memory);
     data.low_guard = low_guard;
     data.main_stack = main_stack;
@@ -662,6 +726,7 @@ where
         env,
         instance,
         abi: bound,
+        admission,
     })
 }
 
@@ -751,7 +816,17 @@ impl<S: Syscalls + Control + Send + Sync + 'static> Ready<S> {
     async fn start(self) -> Ended {
         let store = self.store.into_async();
         let entry = Entry::new(&self.env, &store);
-        let result = self.abi.start(&entry).await;
+        let prepared = self.abi.prepare_entry(&entry).await;
+        let _registration = if prepared.is_ok() {
+            self.admission.map(Binding::install)
+        } else {
+            drop(self.admission);
+            None
+        };
+        let result = match prepared {
+            Ok(()) => self.abi.start(&entry).await,
+            Err(e) => Err(e),
+        };
         let on_return = self.abi.on_entry_return();
         ended(entry.cx(), result, on_return, Role::Process).await
     }
@@ -765,6 +840,7 @@ impl<S: Syscalls + Control + Send + Sync + 'static> Ready<S> {
         buffer: u32,
     ) -> Result<Ended, ExecError> {
         let function = self.instance.exports.get_function(entry)?.clone();
+        let _registration = self.admission.map(Binding::install);
         let store = self.store.into_async();
         let cx = asyncify::Outside {
             env: &self.env,
@@ -835,6 +911,10 @@ fn import_memory(
     if let Some(size) = size {
         let pages = size.div_ceil(wasixv2_syscalls::WASM_PAGE_SIZE) as u32;
         ty.minimum = ty.minimum.max(Pages(pages));
+    }
+    if let Some(wasmer::Extern::Memory(memory)) = imports.get_export(import.module(), import.name())
+    {
+        return Ok(Some(memory));
     }
     let memory = Memory::new(store, ty)?;
     imports.define(import.module(), import.name(), memory.clone());
@@ -974,6 +1054,11 @@ pub async fn complete<S: Syscalls + Control + 'static, T>(
     };
     if raised {
         loop {
+            if let Some(abi) = instance_abi(env).await
+                && let Err(error) = abi.loader_work(env).await
+            {
+                return Outcome::Unwind(error);
+            }
             let memory = GuestMemory { env };
             syscalls.run_task_work(&Caller::new(task, &memory)).await;
             let action = match syscalls.take_pending(task) {
@@ -1085,7 +1170,17 @@ pub async fn complete<S: Syscalls + Control + 'static, T>(
                 }
                 // `do_signal_stop`'s `schedule`: the instance waits, and the call it interrupted
                 // goes on as before the stop once the group continues.
-                GuestAction::Stopped => syscalls.stop_wait(task).await,
+                GuestAction::Stopped => loop {
+                    syscalls.stop_wait(task).await;
+                    if let Some(abi) = instance_abi(env).await
+                        && let Err(error) = abi.loader_work(env).await
+                    {
+                        return Outcome::Unwind(error);
+                    }
+                    if !syscalls.loader_held(task) {
+                        break;
+                    }
+                },
                 GuestAction::Signal(frame) => {
                     let restart = handled.get_or_insert(match ret {
                         Err(SysErr::RestartNoIntr) => true,
@@ -1191,5 +1286,24 @@ async fn return_to_guest<S: Syscalls + Control + 'static, R: From<i32>>(
             Outcome::Unwind(err) => Some(Err(err)),
             Outcome::Unwinding => Some(Ok(R::from(0))),
         };
+    }
+}
+
+#[cfg(all(test, feature = "sys"))]
+mod loader_binding_tests {
+    #[test]
+    fn registered_store_lives_exactly_as_long_as_its_execution_frame() {
+        use wasixv2_syscalls::{LoaderGate, TaskId};
+        let gate = LoaderGate::new(77);
+        let binding = super::Binding::new::<crate::process::tests::Recorder>(
+            &super::Wasixv2,
+            gate.clone(),
+            TaskId(1),
+        )
+        .unwrap();
+        let registration = binding.install();
+        assert!(gate.bind(TaskId(1)).is_err());
+        drop(registration);
+        assert!(gate.bind(TaskId(1)).is_ok());
     }
 }

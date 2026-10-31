@@ -41,6 +41,13 @@ impl StagedModule {
         tls: Option<u32>,
     ) -> Result<Self, RuntimeError> {
         let initialization = Initialization::parse(source).map_err(error)?;
+        for payload in wasmparser::Parser::new(0).parse_all(source) {
+            if let wasmparser::Payload::TableSection(section) = payload.map_err(error)?
+                && section.count() > 0
+            {
+                return Err(error("side module defines a private function table"));
+            }
+        }
         let bytes = initialization.instantiate_bytes().map_err(error)?;
         // Side-module loops must reach the same return-to-guest boundary as the main.
         // Never inherit load()'s unpreemptible fallback for a live all-store transaction.
@@ -68,8 +75,8 @@ impl StagedModule {
                 }
             }
         }
-        if tables != 1 {
-            return Err(error("side module must import one shared function table"));
+        if tables > 1 {
+            return Err(error("side module imports multiple function tables"));
         }
         let mut globals = BTreeMap::new();
         for (name, export) in instance.exports.iter() {

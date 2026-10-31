@@ -229,6 +229,21 @@ where
         tid: i32,
         start_arg: u32,
     ) -> Result<Ended, ExecError> {
+        let admission = if let Some(gate) = self.syscalls.loader_gate(task) {
+            loop {
+                match crate::Binding::new(&*self.abi, gate.clone(), task) {
+                    Ok(admission) => break Some(admission),
+                    Err(wasixv2_syscalls::Errno::EAGAIN) => self
+                        .syscalls
+                        .loader_sleep(task, &gate, wasixv2_syscalls::LoaderWait::Idle)
+                        .await
+                        .map_err(|e| ExecError::Load(crate::LoadError::Format(e)))?,
+                    Err(error) => return Err(ExecError::Load(crate::LoadError::Format(error))),
+                }
+            }
+        } else {
+            None
+        };
         let mut store = Store::new(self.engine.clone());
         let spawner = process::spawner(
             self.engine.clone(),
@@ -254,6 +269,7 @@ where
         let abi = self.abi.bind(&instance, &mut store, task, Role::Thread)?;
         let asyncify = crate::asyncify::Asyncify::new(&instance, &mut store)?;
         let data = env.as_mut(&mut store);
+        data.imports = imports.clone();
         data.memory = Some(memory);
         data.low_guard = self.low_guard;
         data.main_stack = self.main_stack.clone();
@@ -286,6 +302,14 @@ where
                 })
                 .await;
         }
+        let prepared = abi.prepare_entry(&entry).await;
+        let _registration = if prepared.is_ok() {
+            admission.map(crate::Binding::install)
+        } else {
+            drop(admission);
+            None
+        };
+        prepared.map_err(|e| ExecError::Load(crate::LoadError::other(e)))?;
         let result = match crate::asyncify::prepare_buffer(entry.cx()).await {
             Ok(()) => {
                 buffer.addr = entry
@@ -359,5 +383,48 @@ mod tests {
             assert!(matches!(ended, Ended::Fault { .. }));
         }
         assert_eq!(control.buffer_allocations.load(Ordering::Relaxed), 1);
+    }
+}
+
+#[cfg(all(test, feature = "sys"))]
+mod admission_tests {
+    use super::*;
+    use crate::process::tests::{NoThreads, Recorder};
+    #[test]
+    fn wrong_image_owner_is_rejected_without_retrying_an_idle_gate() {
+        let gate = wasixv2_syscalls::LoaderGate::new(91);
+        let owner = Arc::new(());
+        drop(gate.claim_image(&owner).unwrap());
+        let mut control = Recorder::default();
+        control.loader = Some(gate);
+        let control = Arc::new(control);
+        let mut store = Store::default();
+        let module = Module::new(
+            &store,
+            wat::parse_str(r#"(module (import "env" "memory" (memory 1 2 shared)))"#).unwrap(),
+        )
+        .unwrap();
+        let memory =
+            wasmer::Memory::new(&mut store, wasmer::MemoryType::new(1, Some(2), true)).unwrap();
+        let image = Image::new(
+            &store,
+            &module,
+            memory.as_shared(&store).unwrap(),
+            (0, Arc::default(), None),
+            0..0,
+            None,
+            control,
+            Arc::new(NoThreads),
+            Arc::new(crate::Wasixv2),
+            Arc::new(Abis::wasixv2()),
+            Arc::default(),
+        );
+        let result = futures::executor::block_on(image.call_entry(TaskId(7), 7, 0));
+        assert!(matches!(
+            result,
+            Err(ExecError::Load(crate::LoadError::Format(
+                wasixv2_syscalls::Errno::EBUSY
+            )))
+        ));
     }
 }

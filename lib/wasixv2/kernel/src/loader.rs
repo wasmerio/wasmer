@@ -108,6 +108,39 @@ impl LoaderControl for Kernel {
         Ok(round)
     }
 
+    fn loader_fatal_supported(&self) -> bool {
+        true
+    }
+
+    fn loader_fatal(&self, gate: &LoaderGate) -> Result<(), Errno> {
+        let groups = {
+            let state = self.state.read_or_recover();
+            state
+                .tasks
+                .iter()
+                .filter(|(_, entry)| {
+                    std::ptr::eq(&*entry.mm.loader, gate) && !entry.thread.left_mm()
+                })
+                .map(|(id, entry)| (entry.process.pid.0, *id))
+                .collect::<std::collections::BTreeMap<_, _>>()
+        };
+        // Approved fatal IMAGE boundary: include unstarted CLONE_VM groups, even if
+        // the transaction owner already exec'd/exited. Reuse kernel/exit.c:do_group_exit
+        // through force_fatal_signal outside the membership lock; no guest handler runs.
+        for task in groups.into_values() {
+            self.force_fatal_signal(task, wasixv2_abi::Signal::SIGABRT.0);
+        }
+        Ok(())
+    }
+
+    fn loader_held(&self, task: TaskId) -> bool {
+        let signals = self.task_signals(task);
+        signals.held()
+            || signals
+                .throttled_until()
+                .is_some_and(|until| self.host.monotonic() < until)
+    }
+
     fn loader_notify(&self, task: TaskId) {
         self.task_signals(task).group().notify(task);
     }

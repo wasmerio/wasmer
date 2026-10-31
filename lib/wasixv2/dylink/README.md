@@ -1,21 +1,26 @@
-# WASIX v2 link planning
+# WASIX v2 dynamic linking
 
 `Module::parse` and `Plan::new` implement the metadata/planning part of
-[DESIGN.md](../DESIGN.md#dynamic-linking). This is not a working dynamic loader:
-the four `dl_*` imports remain unsupported until the process-level integration is installed.
-The optional native staging component compiles and instantiates validated no-start
-modules, but executes no guest initialization or constructor code.
+[DESIGN.md](../DESIGN.md#dynamic-linking). The native runtime connects the four existing `dl_*` imports to per-image
+source graphs and per-store instances. This is a **work-in-progress review
+checkpoint**, not ready for integration: asynchronous loader retirement and
+cancellation cleanup still lack guaranteed executor custody until completion.
+The native staging component executes no guest initialization helpers; libc2
+calls constructors after publication.
 
 The caller supplies validated module descriptions, identity-deduplicated dependency
-edges matching each `needed` list, the root and the global lookup order. Opening
-files in the guest namespace remains the future host/libc2 loader's responsibility.
-The planner preserves runtime paths without expanding or searching them.
+edges matching each `needed` list, the root and the global lookup order. The runtime opens
+files through the current caller's guest namespace and retains the opened Image
+backing for identity lifetime. The pure planner preserves runtime paths; the
+native runtime searches literal paths without `$ORIGIN` or other expansion.
 
 Supported metadata is wasm32 core modules with function signatures, import/export
 indices and types, `dylink.0` allocation information, dependencies, runtime paths
-and symbol flags. Duplicate sections/entries, dangling flag entries, malformed or
+and symbol flags. Duplicate sections/entries, dangling strong flag entries, malformed or
 trailing subsection fields, invalid alignments and unknown flag bits fail parsing.
-Unknown subsections are retained for a later compatibility check, not interpreted.
+Undefined weak annotations omitted from actual wasm imports by lld are retained;
+semantic `env` flags also apply to GOT imports. Unknown subsections are retained
+for a later compatibility check, not interpreted.
 GC/typed-function signatures, exact function imports/exports and wasm64 are rejected.
 
 Plans contain cycle-safe graph order, aligned relative memory/table reservations,
@@ -44,13 +49,34 @@ exports expose function/global/memory/tag identity for later engine preparation.
 TLS pointer relocations are applied after each thread's final TLS global fixups.
 `prepare_image` explicitly prepares a native dynamic main and retains its original
 validated source in a reserved custom section; it rejects startup dependencies and
-asyncify. It is not connected to the exec compiler or runtime yet.
+asyncify. The native facade
+compiler uses it for initial images and exec; custom loaders remain explicit.
+The runtime verifies the deterministic sanitized/instrumented source against the
+native compiled module hash before host initialization.
 
-Live instantiation, rollback/publication, thread rendezvous, CLONE_VM ownership,
-caller-sensitive lookup, startup loading, libc2 wrappers, PIC toolchain enablement
-and cross-module fork/exec require the remaining approved integration work. The
-four imports still have their existing unsupported runtime behavior. The source
-fixtures do not prove cross-module asyncify or caller-identity support.
+The native path supports NOW explicit handles, exported data/functions, per-store
+DSO TLS, existing and future peers, shared `Image` CLONE_VM groups, missing-symbol
+rollback, and no-unload close. Existing admission registers every store; an atomic
+mm image-owner token rejects mixed/custom or independently selected owners.
+All registered stores park, prepare and apply validated host effects before atomic
+graph publication; libc2 drains constructors afterward. Fresh exec selects a new
+image/mm, retaining surviving old-mm attachments. Shared graphs contain source,
+layout and file owners, never store-local engine objects.
+
+The profile fails closed for startup dependencies, asyncify, LAZY/NEXT,
+caller-sensitive lookup, unsupported initializer bodies, cyclic direct-function
+imports and main-TLS crossimports that need post-libc late binding. DSO-local TLS
+and calls through main libc TLS accessors are supported. The real C source proof
+uses a three-argument main; it does not establish general C/C++ program acceptance.
+Ptrace syscall-entry/exit stops retain their exact pending future and can delay
+publication until the tracer resumes; the loader never skips their acknowledgement.
+No full browser/fork/asyncify acceptance is claimed.
+
+Cancellation guards and normal retirement currently transfer async releases to the
+existing local executor while retaining image ownership. A retiring worker can
+stop that executor before these jobs finish, so final mapping/instance cleanup and
+owner release are **unproven**. Do not land/enable this checkpoint in production
+until the approved-contract lifecycle integration closes that gap.
 
 The pure core tests do not need the engine:
 
@@ -72,8 +98,8 @@ Rollback clears staged bytes and slots; old image state and signal sentinel slot
 remain untouched. Publication consumes an applied staging object. The caller must
 retain the object for rollback until the mm-wide transaction publishes every store;
 there is no implicit cross-store coordination or cancellation guarantee in this type.
-The mm coordinator, image ownership factory and libc protocol are still required
-before runtime `dlopen` works. Wasm physical capacity growth cannot be rolled back.
+The runtime coordinator supplies mm-wide phases, image ownership and the libc
+protocol; `StagedModule` alone does not guarantee their lifecycle. Wasm physical capacity growth cannot be rolled back.
 
 The native engine unit proof is explicitly opt-in so pure planner tests remain cheap:
 

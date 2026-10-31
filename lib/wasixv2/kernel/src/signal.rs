@@ -24,8 +24,8 @@ use wasixv2_abi::{
 };
 use wasixv2_host::Host;
 use wasixv2_syscalls::{
-    Caller, CpuBase, Errno, GuestAction, SignalFrame, SysErr, SysResult, TaskId, WorkFlag,
-    read_value, write_value,
+    Caller, CpuBase, Errno, GuestAction, LoaderControl, SignalFrame, SysErr, SysResult, TaskId,
+    WorkFlag, read_value, write_value,
 };
 use wasixv2_wait::{Interrupt, NoInterrupt, WaitQueue, Waiter, Wakeup, wait_event};
 
@@ -1980,14 +1980,14 @@ impl TaskSignals {
         state.tasks.get_mut(&self.task)?.throttled_until.take()
     }
 
-    fn throttled_until(&self) -> Option<Duration> {
+    pub(crate) fn throttled_until(&self) -> Option<Duration> {
         let state = self.group.state.lock_or_recover();
         state.tasks.get(&self.task)?.throttled_until
     }
 
     /// What holds the task where it is: a stop until SIGCONT, or the freezer until it is thawed
     /// or a fatal signal comes, which it goes on to take.
-    fn held(&self) -> bool {
+    pub(crate) fn held(&self) -> bool {
         let state = self.group.state.lock_or_recover();
         state.tasks.get(&self.task).is_some_and(|t| {
             t.stopped || t.ptrace.traced || (t.trap_freeze && state.fatal(self.task).is_none())
@@ -2746,7 +2746,9 @@ impl Kernel {
     }
 
     /// `do_signal_stop`'s `schedule` in `TASK_STOPPED`: `task` waits until SIGCONT continues
-    /// it, or SIGKILL, its group's exit or an `execve` ends the stop. Nothing else wakes it:
+    /// it, or SIGKILL, its group's exit or an `execve` ends the stop. Loader-only host work
+    /// may wake this wait without ending the stop; exec must recheck loader_held afterward.
+    /// Otherwise nothing wakes it:
     /// signals that are not SIGKILL wait in its queue until it goes on, fatal ones included
     /// (`wants_signal` passes stopped tasks by).
     pub(crate) async fn stop_wait(&self, task: TaskId) {
@@ -2756,7 +2758,10 @@ impl Kernel {
         if let Some(until) = signals.throttled_until() {
             let waiter = Waiter::new();
             let mut sleep = self.host.sleep_until(until);
-            while self.host.monotonic() < until && signals.fatal_pending().is_none() {
+            while self.host.monotonic() < until
+                && signals.fatal_pending().is_none()
+                && !self.loader_pending(task)
+            {
                 // kernel/sched/fair.c throttle_cfs_rq removes a runnable entity from the
                 // runqueue; it does not put the task into a sleeping state.
                 let killable = Killable(&signals, wasixv2_wait::TaskState::Running);
@@ -2764,9 +2769,12 @@ impl Kernel {
                     break;
                 }
             }
+            if self.loader_pending(task) {
+                return;
+            }
             signals.take_throttle();
         }
-        let continued = || (!signals.held()).then_some(());
+        let continued = || (!signals.held() || self.loader_pending(task)).then_some(());
         // kernel/signal.c:do_freezer_trap sleeps TASK_INTERRUPTIBLE|TASK_FREEZABLE.
         // Job-control and ptrace stops keep their procfs state precedence.
         signals

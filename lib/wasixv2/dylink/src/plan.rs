@@ -132,6 +132,20 @@ impl Plan {
         global_scope: &[usize],
         mode: BindingMode,
     ) -> Result<Self, PlanError> {
+        Self::for_load(modules, dependencies, root, global_scope, mode, 0)
+    }
+
+    /// Existing NOW bindings are retained by the live image, not resolved again when
+    /// a later global definition joins the scope. Layout/dependency validation still
+    /// covers every referenced module; only new imports produce fixups.
+    pub(crate) fn for_load(
+        modules: &[Module],
+        dependencies: &[Vec<usize>],
+        root: usize,
+        global_scope: &[usize],
+        mode: BindingMode,
+        previously_bound: usize,
+    ) -> Result<Self, PlanError> {
         if root >= modules.len() || dependencies.len() != modules.len() {
             return Err(PlanError::Graph("missing root or dependency list"));
         }
@@ -173,6 +187,9 @@ impl Plan {
         let mut slots = BTreeMap::new();
         let mut deferred_checks = Vec::new();
         for &module in &load_order {
+            if module < previously_bound {
+                continue;
+            }
             let scope = breadth_first(std::iter::once(module), dependencies);
             // musl ldso/dynlink.c:find_sym2 takes the first visible definition, including
             // weak definitions. A later strong definition does not displace an earlier weak.

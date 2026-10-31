@@ -599,6 +599,7 @@ pub(super) mod tests {
     /// Control that records faults and releases; a fault leaves the exit it causes pending.
     #[derive(Default)]
     pub(crate) struct Recorder {
+        pub(crate) loader: Option<Arc<wasixv2_syscalls::LoaderGate>>,
         pending: Mutex<HashMap<TaskId, VecDeque<GuestAction>>>,
         faulted: Mutex<Vec<(TaskId, i32)>>,
         released: Mutex<Vec<TaskId>>,
@@ -687,7 +688,19 @@ pub(super) mod tests {
         }
     }
 
-    impl wasixv2_syscalls::LoaderControl for Recorder {}
+    impl wasixv2_syscalls::LoaderControl for Recorder {
+        fn loader_gate(&self, _: TaskId) -> Option<Arc<wasixv2_syscalls::LoaderGate>> {
+            self.loader.clone()
+        }
+        fn loader_sleep<'a>(
+            &'a self,
+            _: TaskId,
+            _: &'a wasixv2_syscalls::LoaderGate,
+            _: wasixv2_syscalls::LoaderWait,
+        ) -> wasixv2_syscalls::LocalFuture<'a, Result<(), wasixv2_syscalls::Errno>> {
+            Box::pin(async { Err(wasixv2_syscalls::Errno::EINTR) })
+        }
+    }
 
     impl Control for Recorder {
         fn work_flag(&self, _: TaskId) -> Arc<wasixv2_syscalls::WorkFlag> {

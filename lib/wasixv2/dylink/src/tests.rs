@@ -23,7 +23,7 @@ fn section(id: u8, body: &[u8], out: &mut Vec<u8>) {
     out.extend_from_slice(body);
 }
 
-fn bytes(
+pub(crate) fn bytes(
     wat: &str,
     size: [u32; 4],
     needed: &[&str],
@@ -1092,4 +1092,127 @@ fn semantic_weak_import_flags_apply_to_got_and_ambiguous_flags_fail() {
         ],
     );
     assert!(Module::parse(&wasm).is_err());
+}
+
+#[test]
+fn imported_main_stack_and_table_keep_identity_after_rewrite() {
+    let source = bytes(
+        "(module (import \"env\" \"__stack_pointer\" (global (mut i32))) (import \"env\" \"table\" (table 3 funcref)))",
+        [0; 4],
+        &[],
+        &[],
+        &[],
+    );
+    let rewritten = Module::parse(
+        &crate::Initialization::parse(&source)
+            .unwrap()
+            .instantiate_bytes()
+            .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(rewritten.exports()["__stack_pointer"].index, 0);
+    assert_eq!(rewritten.exports()["__indirect_function_table"].index, 0);
+    assert_eq!(rewritten.exports()["__wasix_dylink_table_0"].index, 0);
+    let source = bytes(
+        "(module (import \"env\" \"__stack_pointer\" (global (mut i32))) (global (export \"__stack_pointer\") (mut i32) (i32.const 1)))",
+        [0; 4],
+        &[],
+        &[],
+        &[],
+    );
+    assert!(crate::Initialization::parse(&source).is_err());
+}
+
+#[cfg(feature = "engine-tests")]
+#[test]
+fn prepared_main_provenance_rejects_forged_source_markers_before_instantiation() {
+    use std::borrow::Cow;
+    use wasm_encoder::{Encode, Section};
+    let store = wasmer::Store::default();
+    let source = bytes(
+        "(module (import \"wasixv2\" \"dl_close\" (func (param i32)(result i32))) (memory 1) (func $s) (start $s))",
+        [0; 4],
+        &[],
+        &[],
+        &[],
+    );
+    let module = crate::load(store.engine(), &source).unwrap();
+    assert_eq!(
+        crate::runtime::verify_compiled_source(&module).unwrap(),
+        source
+    );
+    let mut forged = source.clone();
+    let marker = wasm_encoder::CustomSection {
+        name: Cow::Borrowed(crate::SOURCE_SECTION),
+        data: Cow::Borrowed(&source),
+    };
+    forged.push(marker.id());
+    marker.encode(&mut forged);
+    let module = wasmer::Module::new(&store, forged).unwrap();
+    assert!(crate::runtime::verify_compiled_source(&module).is_err());
+}
+
+#[cfg(feature = "engine-tests")]
+#[test]
+fn function_only_side_module_uses_host_table_without_importing_it() {
+    use wasmer::{Imports, Memory, MemoryType, Store, Table, TableType, Type, Value};
+    let mut store = Store::default();
+    let memory = Memory::new(&mut store, MemoryType::new(1, Some(4), true)).unwrap();
+    let table = Table::new(
+        &mut store,
+        TableType::new(Type::FuncRef, 3, Some(10)),
+        Value::FuncRef(None),
+    )
+    .unwrap();
+    let mut imports = Imports::new();
+    imports.define("env", "memory", memory.clone());
+    let source = bytes(
+        "(module (import \"env\" \"memory\" (memory 1 4 shared)) (func (export \"f\") (result i32) i32.const 9))",
+        [0; 4],
+        &[],
+        &[],
+        &[],
+    );
+    let bytes = wasixv2_exec::instrument(
+        &crate::Initialization::parse(&source)
+            .unwrap()
+            .instantiate_bytes()
+            .unwrap(),
+    )
+    .unwrap();
+    let module = wasmer::Module::new(&store, bytes).unwrap();
+    for import in module.imports().functions() {
+        let ty = import.ty().clone();
+        imports.define(
+            import.module(),
+            import.name(),
+            wasmer::Function::new(&mut store, &ty, |_| Ok(vec![Value::I32(65536)])),
+        );
+    }
+    let mut prepared = crate::StagedModule::prepare(
+        &mut store,
+        &source,
+        &imports,
+        memory,
+        table,
+        &[],
+        &reservation(3..4),
+        None,
+    )
+    .unwrap();
+    prepared
+        .bind_slot(&mut store, 3, 0, &reservation(3..4))
+        .unwrap();
+    prepared.apply(&mut store).unwrap();
+    assert!(prepared.publish().is_ok());
+}
+
+#[test]
+fn helper_exports_must_have_function_kind_and_exact_signature() {
+    for wat in [
+        "(module (global (export \"__wasm_init_tls\") i32 (i32.const 0)) (func (param i32)))",
+        "(module (func (export \"__wasm_call_ctors\") (param i32)))",
+    ] {
+        assert!(crate::Initialization::parse(&bytes(wat, [0; 4], &[], &[], &[])).is_err());
+    }
 }

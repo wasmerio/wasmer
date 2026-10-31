@@ -7127,9 +7127,14 @@ name = "wasixv2-dylink"
 version = "0.0.0"
 dependencies = [
  "thiserror 2.0.21",
+ "tracing",
+ "wasixv2-abi",
  "wasixv2-exec",
+ "wasixv2-host",
+ "wasixv2-syscalls",
  "wasm-encoder 0.259.0",
  "wasmer",
+ "wasmer-types",
  "wasmparser 0.259.0",
  "wat",
 ]

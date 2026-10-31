@@ -40,6 +40,15 @@ where
         None
     }
 
+    /// Admission for one store attachment. Dynamic image owners override with the mm's
+    /// nonce claim; the default remains ownerless and cannot bind into an owned image.
+    fn claim_image(
+        &self,
+        gate: &Arc<wasixv2_syscalls::LoaderGate>,
+    ) -> Result<wasixv2_syscalls::LoaderAdmission, Errno> {
+        gate.admit()
+    }
+
     /// Every function import the ABI provides for an instance of `module`. The execution layer
     /// adds the memory import.
     fn imports(&self, store: &mut Store, env: &FunctionEnv<ExecEnv<S>>, module: &Module)
@@ -55,6 +64,24 @@ where
         task: TaskId,
         role: Role,
     ) -> Result<Arc<dyn AbiInstance<S>>, ExecError>;
+
+    fn image_layout(
+        &self,
+        instance: &Instance,
+        memory: &wasmer::Memory,
+        store: &mut Store,
+        unwind: bool,
+    ) -> Option<wasixv2_syscalls::MemoryLayout> {
+        self.low_guard()
+            .then(|| crate::memory::image_layout(instance, memory, store, unwind))
+            .flatten()
+    }
+    fn main_stack(&self, instance: &Instance, store: &mut Store) -> std::ops::Range<u32> {
+        crate::memory::main_stack(instance, store)
+    }
+    fn guardable(&self, instance: &Instance, store: &mut Store) -> bool {
+        self.low_guard() && crate::memory::guardable(instance, store)
+    }
 
     /// Whether the ABI's modules may get the low guard, the first 64 KiB of linear memory made
     /// inaccessible when the module's layout keeps nothing there (see [`crate::memory`]). Only
@@ -135,6 +162,21 @@ pub trait AbiInstance<S: 'static>: Send + Sync {
         Box::pin(async { Err(Errno::ENOSYS.into()) })
     }
 
+    fn prepare_entry<'a>(
+        &'a self,
+        entry: &'a Entry<'a, S>,
+    ) -> LocalFuture<'a, Result<(), RuntimeError>> {
+        let _ = entry;
+        Box::pin(async { Ok(()) })
+    }
+    fn loader_work<'a>(
+        &'a self,
+        env: &'a AsyncFunctionEnvMut<ExecEnv<S>>,
+    ) -> LocalFuture<'a, Result<(), RuntimeError>> {
+        let _ = env;
+        Box::pin(async { Ok(()) })
+    }
+
     /// Runs the process image from its entry point until the entry returns or the guest unwinds.
     fn start<'a>(&'a self, entry: &'a Entry<'a, S>) -> LocalFuture<'a, Result<(), RuntimeError>>;
 
@@ -201,6 +243,19 @@ impl<'a, S: Send + Sync + 'static> Entry<'a, S> {
 
     pub(crate) fn cx(&self) -> &asyncify::Outside<'a, S> {
         &self.cx
+    }
+
+    pub fn memory(&self) -> impl wasixv2_syscalls::UserMemory + '_ {
+        crate::memory::OutsideMemory { cx: &self.cx }
+    }
+
+    /// Host-only store access before guest entry; the closure cannot suspend or invoke wasm.
+    pub async fn with_store<R>(
+        &self,
+        f: impl FnOnce(&mut ExecEnv<S>, &mut wasmer::StoreMut<'_>) -> R,
+    ) -> R {
+        use crate::asyncify::Access;
+        self.cx.with(f).await
     }
 
     /// Calls `function`, the export named `export`, with `args`. A fork child of a call made

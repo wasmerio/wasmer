@@ -26,10 +26,14 @@ use std::{
 };
 
 pub use shared_buffer::OwnedBuffer;
+#[cfg(feature = "sys")]
+pub use wasixv2_dylink::{Compile, load};
 use wasixv2_exec::{Abis, Wasixv2};
+#[cfg(not(feature = "sys"))]
+pub use wasixv2_exec::{Compile, load};
 pub use wasixv2_exec::{
-    Compile, ExecError, Image, ImageId, InstrumentError, LoadError, Loader, instrument,
-    is_preemptible, is_wasixv2_module, load, warn_not_preemptible,
+    ExecError, Image, ImageId, InstrumentError, LoadError, Loader, instrument, is_preemptible,
+    is_wasixv2_module, warn_not_preemptible,
 };
 #[cfg(not(target_family = "wasm"))]
 pub use wasixv2_host::BlockingSource;
@@ -1136,8 +1140,15 @@ fn abis(
     #[cfg(feature = "wasix1")] wasix1: &Wasix1Commands,
 ) -> Abis<Stack> {
     let mut abis = Abis::new();
-    if let Some(loader) = loader {
-        abis.set_loader(loader);
+    if let Some(loader) = &loader {
+        abis.set_loader(loader.clone());
+    }
+    #[cfg(feature = "sys")]
+    {
+        if loader.is_none() {
+            abis.set_loader(Arc::new(Compile));
+        }
+        abis.push(Arc::new(wasixv2_dylink::Native));
     }
     abis.push(Arc::new(Wasixv2));
     #[cfg(feature = "wasix1")]

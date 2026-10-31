@@ -14,16 +14,21 @@ rust-version.workspace = true
 wasixv2-exec = { path = "../exec", default-features = false, optional = true }
 wasmer = { path = "../../api", version = "=7.5.0", default-features = false, optional = true }
 
+wasmer-types = { path = "../../types", version = "=7.5.0", default-features = false, optional = true }
+wasixv2-abi = { path = "../abi", optional = true }
+wasixv2-syscalls = { path = "../syscalls", optional = true }
+wasixv2-host = { path = "../host", optional = true }
 wasmparser.workspace = true
 wasm-encoder = { workspace = true, features = ["wasmparser"] }
 thiserror.workspace = true
+tracing = { workspace = true, optional = true }
 
 [dev-dependencies]
 wat.workspace = true
 
 [features]
 default = ["sys"]
-sys = ["wasmer/sys", "wasmer/headless", "wasixv2-exec/sys"]
+sys = ["dep:tracing", "dep:wasmer-types", "dep:wasixv2-abi", "dep:wasixv2-syscalls", "dep:wasixv2-host", "wasmer/sys", "wasmer/headless", "wasixv2-exec/sys"]
 js = ["wasmer/js-default", "wasixv2-exec/js"]
 
 # Explicit opt-in keeps planner-only tests independent of native compiler crates.

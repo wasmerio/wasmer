@@ -98,10 +98,10 @@ impl LoaderGate {
         }
         let admissions = state.admissions.checked_add(1).ok_or(Errno::EAGAIN)?;
         if let Some(owner) = owner {
-            if let Some(current) = state.image_owner.upgrade()
-                && !Arc::ptr_eq(&current, owner)
-            {
-                return Err(Errno::EBUSY);
+            match state.image_owner.upgrade() {
+                Some(current) if !Arc::ptr_eq(&current, owner) => return Err(Errno::EBUSY),
+                None if !state.stores.is_empty() => return Err(Errno::EBUSY),
+                _ => {}
             }
             state.image_owner = Arc::downgrade(owner);
         }
@@ -182,15 +182,28 @@ impl LoaderGate {
         self.wake();
     }
 
+    fn command_changed(&self, task: TaskId, previous: Option<LoaderCommand>) -> bool {
+        let state = self.state();
+        match &state.round {
+            Some(round) => match round.participants.get(&task.0) {
+                None => true,
+                Some(ack) => {
+                    (!*ack).then_some(LoaderCommand {
+                        epoch: round.epoch,
+                        phase: round.phase,
+                    }) != previous
+                }
+            },
+            None => state.closing.is_none() || !state.stores.contains(&task.0),
+        }
+    }
+
     /// Waits for a changed command or release. Callers service exits while parking; they do
     /// not execute guest signal handlers or return to guest until the transaction releases.
     pub async fn wait_change(&self, task: TaskId, previous: Option<LoaderCommand>) {
         let _ = wait_event(
             &self.changed,
-            || {
-                let command = self.command(task);
-                (command != previous || !self.busy()).then_some(())
-            },
+            || self.command_changed(task, previous).then_some(()),
             &NoInterrupt,
         )
         .await;
@@ -201,7 +214,7 @@ impl LoaderGate {
     /// closing waits for the caller to finish binding the complete committed graph.
     pub fn bind(self: &Arc<Self>, task: TaskId) -> Result<LoaderAdmission, Errno> {
         let admission = self.admit()?;
-        self.state().stores.insert(task.0);
+        admission.bind(task)?;
         Ok(admission)
     }
 
@@ -213,9 +226,7 @@ impl LoaderGate {
         match wait {
             LoaderWait::Drained => self.state().admissions == 0,
             LoaderWait::Idle => !self.busy(),
-            LoaderWait::Command { task, previous } => {
-                self.command(task) != previous || !self.busy()
-            }
+            LoaderWait::Command { task, previous } => self.command_changed(task, previous),
             LoaderWait::Acknowledged { epoch } => self.state().round.as_ref().is_none_or(|round| {
                 round.epoch != epoch || round.participants.values().all(|ack| *ack)
             }),
@@ -252,6 +263,28 @@ pub struct LoaderAdmission {
     active: bool,
     _image: Option<Arc<()>>,
 }
+impl LoaderAdmission {
+    /// Register before instantiation while this admission remains held. An admission
+    /// obtained before closing may finish binding; the closer waits for it to drain.
+    /// Running ownerless/custom stores prevent claiming a new live image, and ownerless
+    /// admissions cannot attach stores to an already-owned image.
+    pub fn bind(&self, task: TaskId) -> Result<(), Errno> {
+        let mut state = self.gate.state();
+        if let Some(owner) = state.image_owner.upgrade()
+            && !self
+                ._image
+                .as_ref()
+                .is_some_and(|image| Arc::ptr_eq(image, &owner))
+        {
+            return Err(Errno::EBUSY);
+        }
+        if !state.stores.insert(task.0) {
+            return Err(Errno::EBUSY);
+        }
+        Ok(())
+    }
+}
+
 impl Drop for LoaderAdmission {
     fn drop(&mut self) {
         if self.active {
@@ -529,6 +562,26 @@ pub trait LoaderControl {
             .map_err(|_| Errno::EINTR)
         })
     }
+    /// Opt in only when fatal internal image failure can end every shared-mm group.
+    /// Live loading must check this before preparation, never discover lack of support
+    /// after publication. Ordinary/custom controls remain unsupported by default.
+    fn loader_fatal_supported(&self) -> bool {
+        false
+    }
+    fn loader_fatal(&self, gate: &LoaderGate) -> Result<(), Errno> {
+        let _ = gate;
+        Err(Errno::ENOSYS)
+    }
+    /// Host-only work may be serviced while a task remains job/ptrace stopped.
+    fn loader_pending(&self, task: TaskId) -> bool {
+        self.loader_gate(task)
+            .is_some_and(|gate| gate.command(task).is_some())
+    }
+    /// Servicing loader work never clears a job stop, freezer or CFS throttle.
+    fn loader_held(&self, task: TaskId) -> bool {
+        let _ = task;
+        false
+    }
     fn loader_notify(&self, task: TaskId) {
         let _ = task;
     }
@@ -567,6 +620,18 @@ impl<L, S: LoaderControl> LoaderControl for Layered<L, S> {
         wait: LoaderWait,
     ) -> crate::LocalFuture<'a, Result<(), Errno>> {
         self.inner.loader_sleep(task, gate, wait)
+    }
+    fn loader_fatal_supported(&self) -> bool {
+        self.inner.loader_fatal_supported()
+    }
+    fn loader_fatal(&self, gate: &LoaderGate) -> Result<(), Errno> {
+        self.inner.loader_fatal(gate)
+    }
+    fn loader_pending(&self, task: TaskId) -> bool {
+        self.inner.loader_pending(task)
+    }
+    fn loader_held(&self, task: TaskId) -> bool {
+        self.inner.loader_held(task)
     }
     fn loader_notify(&self, task: TaskId) {
         self.inner.loader_notify(task)
@@ -771,5 +836,87 @@ mod participant_snapshot_tests {
         gate.leave(TaskId(1));
         assert!(gate.participants().is_empty());
         drop(round);
+    }
+}
+
+#[cfg(test)]
+mod store_binding_tests {
+    use super::*;
+    #[test]
+    fn existing_unowned_or_duplicate_stores_are_not_unstarted_tasks() {
+        let gate = LoaderGate::new(14);
+        drop(gate.bind(TaskId(1)).unwrap());
+        assert!(matches!(gate.bind(TaskId(1)), Err(Errno::EBUSY)));
+        let owner = Arc::new(());
+        assert!(matches!(gate.claim_image(&owner), Err(Errno::EBUSY)));
+        gate.leave(TaskId(1));
+        let claimed = gate.claim_image(&owner).unwrap();
+        claimed.bind(TaskId(1)).unwrap();
+        assert_eq!(claimed.bind(TaskId(1)), Err(Errno::EBUSY));
+        assert_eq!(gate.admit().unwrap().bind(TaskId(2)), Err(Errno::EBUSY));
+        gate.claim_image(&owner).unwrap().bind(TaskId(2)).unwrap();
+    }
+
+    #[test]
+    fn in_flight_binding_finishes_before_closed_admission_can_activate() {
+        let gate = LoaderGate::new(15);
+        let unowned = gate.admit().unwrap();
+        let owner = Arc::new(());
+        let claimed = gate.claim_image(&owner).unwrap();
+        assert_eq!(unowned.bind(TaskId(2)), Err(Errno::EBUSY));
+        let closing = gate.close(TaskId(1)).unwrap();
+        claimed.bind(TaskId(1)).unwrap();
+        assert!(!gate.ready_for(LoaderWait::Drained));
+        drop(unowned);
+        drop(claimed);
+        assert!(gate.ready_for(LoaderWait::Drained));
+        let round = closing.activate(&[TaskId(1), TaskId(2)]).unwrap();
+        assert_eq!(gate.participants(), [TaskId(1)]);
+        drop(round);
+    }
+}
+
+#[cfg(test)]
+mod detach_wait_tests {
+    use super::*;
+    use futures::FutureExt as _;
+    #[test]
+    fn detached_store_wakes_even_when_acknowledged_command_stays_none() {
+        let gate = LoaderGate::new(16);
+        drop(gate.bind(TaskId(1)).unwrap());
+        drop(gate.bind(TaskId(2)).unwrap());
+        let round = gate
+            .close(TaskId(1))
+            .unwrap()
+            .activate(&[TaskId(1), TaskId(2)])
+            .unwrap();
+        gate.acknowledge(TaskId(2), gate.command(TaskId(2)).unwrap())
+            .unwrap();
+        let wait = LoaderWait::Command {
+            task: TaskId(2),
+            previous: None,
+        };
+        assert!(!gate.ready_for(wait));
+        gate.leave(TaskId(2));
+        assert_eq!(gate.command(TaskId(2)), None);
+        assert!(gate.busy());
+        assert!(gate.ready_for(wait));
+        assert!(gate.wait_change(TaskId(2), None).now_or_never().is_some());
+        drop(round);
+    }
+
+    #[test]
+    fn closing_waits_for_activation_but_releases_a_detached_store() {
+        let gate = LoaderGate::new(17);
+        drop(gate.bind(TaskId(1)).unwrap());
+        let closing = gate.close(TaskId(1)).unwrap();
+        let wait = LoaderWait::Command {
+            task: TaskId(1),
+            previous: None,
+        };
+        assert!(!gate.ready_for(wait));
+        gate.leave(TaskId(1));
+        assert!(gate.ready_for(wait));
+        drop(closing);
     }
 }

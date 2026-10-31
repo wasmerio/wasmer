@@ -47,6 +47,8 @@ pub struct Initialization {
     functions: u32,
     globals: u32,
     memories: u32,
+    tables: u32,
+    aliases: Vec<(String, wasmparser::ExternalKind, u32)>,
     tags: u32,
     active_data: Vec<(Address, u32)>,
     active_elements: Vec<(Address, Vec<Option<u32>>)>,
@@ -89,15 +91,28 @@ impl Initialization {
         let mut active_elements = Vec::new();
         let mut globals_count = 0;
         let mut memories = 0;
+        let mut tables = 0;
+        let mut aliases = Vec::new();
         let mut tags = 0;
         for payload in Parser::new(0).parse_all(bytes) {
             match payload? {
                 Payload::ImportSection(section) => {
                     for import in section.into_imports() {
-                        match import?.ty {
+                        let import = import?;
+                        if matches!(import.ty, TypeRef::Global(_))
+                            && matches!(import.name, "__stack_pointer" | "__tls_base")
+                        {
+                            aliases.push((
+                                import.name.to_string(),
+                                wasmparser::ExternalKind::Global,
+                                imported_globals,
+                            ));
+                        }
+                        match import.ty {
                             TypeRef::Func(_) => imported_functions += 1,
                             TypeRef::Global(_) => imported_globals += 1,
                             TypeRef::Memory(_) => memories += 1,
+                            TypeRef::Table(_) => tables += 1,
                             TypeRef::Tag(_) => tags += 1,
                             _ => {}
                         }
@@ -177,6 +192,7 @@ impl Initialization {
                     }
                 }
                 Payload::MemorySection(section) => memories += section.count(),
+                Payload::TableSection(section) => tables += section.count(),
                 Payload::TagSection(section) => tags += section.count(),
                 Payload::CodeSectionEntry(body) => bodies.push(body),
                 _ => {}
@@ -188,6 +204,47 @@ impl Initialization {
             .any(|name| name.starts_with("__wasix_dylink_"))
         {
             return Err(invalid());
+        }
+        if tables > 0 {
+            aliases.push((
+                "__indirect_function_table".to_string(),
+                wasmparser::ExternalKind::Table,
+                0,
+            ));
+        }
+        for (name, kind, index) in &aliases {
+            if let Some(export) = exports.get(name) {
+                let correct = match kind {
+                    wasmparser::ExternalKind::Global => {
+                        matches!(export.ty, crate::ExternType::Global(_))
+                    }
+                    _ => matches!(export.ty, crate::ExternType::Table(_)),
+                };
+                if !correct || export.index != *index {
+                    return Err(invalid());
+                }
+            }
+        }
+        aliases.retain(|(name, _, _)| !exports.contains_key(name));
+        for name in [
+            "__wasm_init_tls",
+            "__wasm_apply_tls_relocs",
+            "__wasm_apply_data_relocs",
+            "__wasm_call_ctors",
+        ] {
+            if let Some(export) = exports.get(name) {
+                let crate::ExternType::Function(ty) = &export.ty else {
+                    return Err(invalid());
+                };
+                let expected: &[ValType] = if name == "__wasm_init_tls" {
+                    &[ValType::I32]
+                } else {
+                    &[]
+                };
+                if ty.params() != expected || !ty.results().is_empty() {
+                    return Err(invalid());
+                }
+            }
         }
         let constructors = exports.get("__wasm_call_ctors").map(|e| e.index);
         let mut roots = module.start().into_iter().collect::<Vec<_>>();
@@ -242,6 +299,8 @@ impl Initialization {
             functions: module.functions.len() as u32,
             globals: imported_globals + globals_count,
             memories,
+            tables,
+            aliases,
             tags,
             active_data,
             active_elements,
@@ -350,6 +409,8 @@ impl Initialization {
             functions: self.functions,
             globals: self.globals,
             memories: self.memories,
+            tables: self.tables,
+            aliases: &self.aliases,
             tags: self.tags,
         };
         clean
@@ -785,6 +846,8 @@ struct Sanitize<'a> {
     functions: u32,
     globals: u32,
     memories: u32,
+    tables: u32,
+    aliases: &'a [(String, wasmparser::ExternalKind, u32)],
     tags: u32,
 }
 
@@ -809,6 +872,23 @@ impl wasm_encoder::reencode::Reencode for Sanitize<'_> {
                 &format!("__wasix_dylink_memory_{i}"),
                 wasm_encoder::ExportKind::Memory,
                 i,
+            );
+        }
+        for i in 0..self.tables {
+            exports.export(
+                &format!("__wasix_dylink_table_{i}"),
+                wasm_encoder::ExportKind::Table,
+                i,
+            );
+        }
+        for (name, kind, index) in self.aliases {
+            exports.export(
+                name,
+                match kind {
+                    wasmparser::ExternalKind::Global => wasm_encoder::ExportKind::Global,
+                    _ => wasm_encoder::ExportKind::Table,
+                },
+                *index,
             );
         }
         for i in 0..self.tags {
