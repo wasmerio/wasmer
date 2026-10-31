@@ -314,6 +314,16 @@ impl Mm {
         &self.access
     }
 
+    /// Same teardown as munmap, while the caller holds this mm's op lock. Loader leases use
+    /// the original mm and foreign memory, never a recycled task id or its exec's new mm.
+    pub(crate) async fn release_range(&self, memory: &dyn UserMemory, start: u64, end: u64) {
+        self.retain_unmapped(memory, start, end).await;
+        for mut mapping in self.take_range(start, end) {
+            let _ = mapping.release(memory).await;
+        }
+        self.space().unmap(start, end - start);
+    }
+
     pub(crate) fn id(&self) -> u64 {
         self.id
     }
@@ -2019,12 +2029,7 @@ impl Kernel {
     /// pages out, drops every mapping there and frees the pages. The caller holds `Mm::op`.
     async fn unmap_range(&self, caller: &Caller<'_>, start: u64, end: u64) {
         let mm = self.mm(caller.task());
-        mm.retain_unmapped(caller.memory(), start, end).await;
-        for mut mapping in mm.take_range(start, end) {
-            // munmap cannot fail once the range is valid; a file that refuses the data loses it.
-            let _ = mapping.release(caller.memory()).await;
-        }
-        mm.space().unmap(start, end - start);
+        mm.release_range(caller.memory(), start, end).await;
     }
 
     pub(crate) async fn sys_munmap(

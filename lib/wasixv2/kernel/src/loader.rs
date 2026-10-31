@@ -8,6 +8,59 @@ use wasixv2_syscalls::{
 use wasixv2_wait::wait_event;
 
 impl LoaderControl for Kernel {
+    fn loader_read<'a>(
+        &'a self,
+        caller: &'a wasixv2_syscalls::Caller<'_>,
+        path: &'a [u8],
+    ) -> LocalFuture<'a, wasixv2_syscalls::SysResult<wasixv2_syscalls::LibraryImage>> {
+        Box::pin(self.read_library(caller, path))
+    }
+    fn loader_reserve<'a>(
+        &'a self,
+        caller: &'a wasixv2_syscalls::Caller<'_>,
+        bytes: u32,
+        alignment: u32,
+    ) -> LocalFuture<'a, wasixv2_syscalls::SysResult<Box<dyn wasixv2_syscalls::LoaderReservation>>>
+    {
+        Box::pin(async move {
+            use wasixv2_abi::{Fd, MapFlags, ProtFlags};
+            let mm = self.mm(caller.task());
+            let memory = mm.foreign().ok_or(Errno::ENOSYS)?;
+            if !alignment.is_power_of_two() {
+                return Err(Errno::EINVAL.into());
+            }
+            let bytes = bytes.max(1);
+            let len = bytes
+                .checked_add(alignment - 1)
+                .and_then(|n| n.checked_add(4095))
+                .map(|n| n & !4095)
+                .ok_or(Errno::ENOMEM)?;
+            let start = self
+                .sys_mmap(
+                    caller,
+                    0,
+                    len,
+                    ProtFlags::PROT_READ | ProtFlags::PROT_WRITE,
+                    MapFlags::MAP_PRIVATE | MapFlags::MAP_ANONYMOUS,
+                    Fd(-1),
+                    0,
+                )
+                .await?;
+            let address = (u64::from(start) + u64::from(alignment - 1)) & !u64::from(alignment - 1);
+            Ok(Box::new(Reservation {
+                mm,
+                memory,
+                host: self.host.clone(),
+                start,
+                len,
+                address: address as u32,
+                bytes,
+                retained: false,
+            })
+                as Box<dyn wasixv2_syscalls::LoaderReservation>)
+        })
+    }
+
     fn loader_gate(&self, task: TaskId) -> Option<Arc<LoaderGate>> {
         self.state
             .read_or_recover()
@@ -77,5 +130,66 @@ impl LoaderControl for Kernel {
             .await
             .map_err(|_| Errno::EINTR)
         })
+    }
+}
+
+struct Reservation {
+    mm: Arc<crate::mm::Mm>,
+    memory: Arc<dyn wasixv2_syscalls::UserMemory + Send + Sync>,
+    host: Arc<dyn wasixv2_host::Host>,
+    start: u32,
+    len: u32,
+    address: u32,
+    bytes: u32,
+    retained: bool,
+}
+
+async fn release(
+    mm: Arc<crate::mm::Mm>,
+    memory: Arc<dyn wasixv2_syscalls::UserMemory + Send + Sync>,
+    start: u32,
+    len: u32,
+) {
+    let _op = mm.op.lock().await;
+    mm.release_range(
+        &*memory,
+        u64::from(start),
+        u64::from(start) + u64::from(len),
+    )
+    .await;
+}
+
+impl wasixv2_syscalls::LoaderReservation for Reservation {
+    fn address(&self) -> u32 {
+        self.address
+    }
+    fn length(&self) -> u32 {
+        self.bytes
+    }
+    fn retain(&mut self) {
+        self.retained = true;
+    }
+    fn release(mut self: Box<Self>) -> LocalFuture<'static, ()> {
+        self.retained = true;
+        Box::pin(release(
+            self.mm.clone(),
+            self.memory.clone(),
+            self.start,
+            self.len,
+        ))
+    }
+}
+impl Drop for Reservation {
+    fn drop(&mut self) {
+        if !self.retained {
+            // Cancellation transfers cleanup to the existing executor, keyed by mm Arc;
+            // no service, guest code, or syscall through a possibly recycled tid is involved.
+            self.host.executor().spawn_local(Box::pin(release(
+                self.mm.clone(),
+                self.memory.clone(),
+                self.start,
+                self.len,
+            )));
+        }
     }
 }

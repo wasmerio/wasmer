@@ -2987,7 +2987,7 @@ async fn read_header(file: &wasixv2_vfs::File) -> SysResult<Vec<u8>> {
 
 /// The whole of `file`, which was `size` bytes when opened: the contents its filesystem
 /// shares, or else a copy. `ENOMEM` when there is no room for the copy.
-async fn read_image(file: &wasixv2_vfs::File, size: u64) -> SysResult<Image> {
+pub(crate) async fn read_image(file: &wasixv2_vfs::File, size: u64) -> SysResult<Image> {
     if let Some(contents) = file.shared_contents().await {
         return Ok(Image::shared(contents));
     }

@@ -430,7 +430,42 @@ pub enum LoaderWait {
     },
 }
 
+/// An opened file image: its inode identity is held alive by the Image's backing owner.
+#[derive(Clone)]
+pub struct LibraryImage {
+    pub identity: (u64, u64),
+    pub image: crate::Image,
+}
+
+/// An ordinary private anonymous mm mapping, independent of the allocating task's later pid
+/// or exec image. Dropping an unretained lease schedules its mm-specific cleanup; explicit
+/// release can be awaited before reopening admission. Retained DSO data lasts until mm exit.
+pub trait LoaderReservation: Send + Sync {
+    fn address(&self) -> u32;
+    fn length(&self) -> u32;
+    fn retain(&mut self);
+    fn release(self: Box<Self>) -> crate::LocalFuture<'static, ()>;
+}
+
 pub trait LoaderControl {
+    fn loader_read<'a>(
+        &'a self,
+        caller: &'a crate::Caller<'_>,
+        path: &'a [u8],
+    ) -> crate::LocalFuture<'a, crate::SysResult<LibraryImage>> {
+        let _ = (caller, path);
+        Box::pin(async { Err(Errno::ENOSYS.into()) })
+    }
+    fn loader_reserve<'a>(
+        &'a self,
+        caller: &'a crate::Caller<'_>,
+        bytes: u32,
+        alignment: u32,
+    ) -> crate::LocalFuture<'a, crate::SysResult<Box<dyn LoaderReservation>>> {
+        let _ = (caller, bytes, alignment);
+        Box::pin(async { Err(Errno::ENOSYS.into()) })
+    }
+
     fn loader_gate(&self, task: TaskId) -> Option<Arc<LoaderGate>> {
         let _ = task;
         None
@@ -465,6 +500,22 @@ pub trait LoaderControl {
     }
 }
 impl<L, S: LoaderControl> LoaderControl for Layered<L, S> {
+    fn loader_read<'a>(
+        &'a self,
+        caller: &'a crate::Caller<'_>,
+        path: &'a [u8],
+    ) -> crate::LocalFuture<'a, crate::SysResult<LibraryImage>> {
+        self.inner.loader_read(caller, path)
+    }
+    fn loader_reserve<'a>(
+        &'a self,
+        caller: &'a crate::Caller<'_>,
+        bytes: u32,
+        alignment: u32,
+    ) -> crate::LocalFuture<'a, crate::SysResult<Box<dyn LoaderReservation>>> {
+        self.inner.loader_reserve(caller, bytes, alignment)
+    }
+
     fn loader_gate(&self, task: TaskId) -> Option<Arc<LoaderGate>> {
         self.inner.loader_gate(task)
     }

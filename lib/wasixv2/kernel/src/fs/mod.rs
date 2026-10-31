@@ -1009,3 +1009,69 @@ pub(crate) async fn read_path_maybe_null(
         read_path(memory, path).await
     }
 }
+
+impl Kernel {
+    /// The host loader's read-only file open. Reuses openat's start/flags/VFS permission
+    /// path and fd-limit reservation, without exposing a transient descriptor to the guest.
+    pub(crate) async fn read_library(
+        &self,
+        caller: &Caller<'_>,
+        path: &[u8],
+    ) -> SysResult<wasixv2_syscalls::LibraryImage> {
+        if path.len() >= PATH_MAX {
+            return Err(Errno::ENAMETOOLONG.into());
+        }
+        if path.contains(&0) {
+            return Err(Errno::EINVAL.into());
+        }
+        let [slot] = self.reserve_fds(caller, true)?;
+        let how = build_open_how(OpenFlags::O_RDONLY | OpenFlags::O_CLOEXEC, 0);
+        let (flags, lookup) = build_open_flags(&how)?;
+        let env = self.env(caller);
+        let start = self.start(caller, &env, Fd(AtFd::AT_FDCWD.0), path)?;
+        let file = self
+            .vfs
+            .open(
+                &env.cx(),
+                &start,
+                path,
+                &wasixv2_vfs::OpenHow {
+                    flags,
+                    mode: 0,
+                    lookup,
+                },
+            )
+            .await
+            .map_err(|errno| env.error(errno))?;
+        // Keep inode/device open semantics in the normal attachment path. No executable
+        // permission bit is required on a library; a noexec mount still forbids code loading
+        // as mm/mmap.c:do_mmap does for an executable mapping.
+        let backing = self.attach(caller, file, flags).await?;
+        let Backing::Inode(file) = backing else {
+            return Err(Errno::ENOEXEC.into());
+        };
+        if file.file_type() != wasixv2_vfs::FileType::Regular {
+            return Err(Errno::ENOEXEC.into());
+        }
+        if file.path.mnt.is_noexec() {
+            return Err(Errno::EACCES.into());
+        }
+        let identity = file.lock_key();
+        let size = self.vfs.stat(&file.path).await?.size;
+        let image = crate::process::read_image(&file, size).await?;
+        drop(slot);
+        struct LibraryBytes {
+            image: wasixv2_syscalls::Image,
+            _file: wasixv2_vfs::File,
+        }
+        impl AsRef<[u8]> for LibraryBytes {
+            fn as_ref(&self) -> &[u8] {
+                self.image.bytes()
+            }
+        }
+        Ok(wasixv2_syscalls::LibraryImage {
+            identity,
+            image: wasixv2_syscalls::Image::shared(Arc::new(LibraryBytes { image, _file: file })),
+        })
+    }
+}

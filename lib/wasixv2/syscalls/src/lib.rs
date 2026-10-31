@@ -47,6 +47,6 @@ pub use result::{SysErr, SysResult};
 pub use wasixv2_abi::{Errno, Fd};
 
 pub use loader::{
-    LoaderAdmission, LoaderClosing, LoaderCommand, LoaderControl, LoaderGate, LoaderPhase,
-    LoaderTransaction, LoaderWait,
+    LibraryImage, LoaderAdmission, LoaderClosing, LoaderCommand, LoaderControl, LoaderGate,
+    LoaderPhase, LoaderReservation, LoaderTransaction, LoaderWait,
 };
