@@ -57,6 +57,17 @@ TokioHost weak references expire after shutdown/drop. `RETIRED` lines record
 same-process fd/thread/RSS after every machine. This supplements the long CLI
 run, since an OS process exit alone could hide machine-owned reference leaks.
 Keep it serialized with the soak/build/gates and within the same cgroup cap.
+The optional fourth argument is a final idle interval in seconds. A separate
+`soak-host.sh RUNTIME_WORKTREE NEW_LOG 8 12` control passes after the full soak:
+eight mixed-workload machines release their owners, then host threads fall
+from21to8 after12seconds idle, with fds11 throughout. Only the configured three
+Tokio scheduler workers, four driver/compiler threads and one process-global
+CPU sampler remain. The sampler is intentionally shared through
+`exec/src/cputime.rs:ticks::Sampler::global`; no guest/network/timer threads
+remain. The first control's assertion against every WASIX-prefixed thread was
+too broad for this singleton and was corrected after reading that source;
+its failed log is preserved. Tokio1.53.1 `runtime/blocking/pool.rs:KEEP_ALIVE`
+is10seconds. This distinguishes cached blocking workers from leaked workers.
 When filtered core tests leave multiple dependency feature variants, set
 `SOAK_RLIB_MANIFEST` to a JSON object mapping `wasixv2`, `wasmer` and `tokio` to
 the exact `.rlib` paths emitted by the CLI's Cargo `compiler-artifact` messages.

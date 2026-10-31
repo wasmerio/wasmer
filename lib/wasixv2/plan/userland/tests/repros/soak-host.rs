@@ -68,6 +68,7 @@ fn main() {
     let mut args = std::env::args().skip(1);
     let kit = PathBuf::from(args.next().expect("kit path"));
     let machines: usize = args.next().unwrap_or_else(|| "32".into()).parse().unwrap();
+    let idle_seconds: u64 = args.next().unwrap_or_else(|| "0".into()).parse().unwrap();
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .worker_threads(3)
         .enable_all()
@@ -132,6 +133,34 @@ fn main() {
             );
             let (fds, threads, rss) = resources();
             println!("RETIRED {index} fds={fds} threads={threads} rss_kib={rss}");
+        }
+        if idle_seconds != 0 {
+            let (before_fds, before_threads, _) = resources();
+            println!("IDLE START seconds={idle_seconds} fds={before_fds} threads={before_threads}");
+            tokio::time::sleep(Duration::from_secs(idle_seconds)).await;
+            let mut names = std::collections::BTreeMap::new();
+            for thread in std::fs::read_dir("/proc/self/task").unwrap() {
+                let name = std::fs::read_to_string(thread.unwrap().path().join("comm"))
+                    .unwrap()
+                    .trim()
+                    .to_owned();
+                *names.entry(name).or_insert(0_usize) += 1;
+            }
+            // Tokio1.53.1 runtime/blocking/pool.rs:KEEP_ALIVE is ten seconds;
+            // only this runtime's three scheduler workers should survive idle.
+            assert_eq!(names.get("tokio-rt-worker"), Some(&3), "{names:?}");
+            // exec/src/cputime.rs:ticks::Sampler::global is one process-wide
+            // sampler, parked when no guest instances remain.
+            assert_eq!(names.get("wasixv2-cpu"), Some(&1), "{names:?}");
+            assert!(
+                !names
+                    .keys()
+                    .any(|name| name.starts_with("wasixv2-") && name != "wasixv2-cpu"),
+                "{names:?}"
+            );
+            let (fds, threads, rss) = resources();
+            assert!(fds <= before_fds, "descriptors increased while idle");
+            println!("IDLE PASS seconds={idle_seconds} fds={fds} threads={threads} rss_kib={rss} names={names:?}");
         }
         println!("REPEATED MACHINES PASS {machines}");
     });
