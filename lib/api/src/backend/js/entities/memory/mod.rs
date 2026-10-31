@@ -235,7 +235,9 @@ fn smaller_shared_memory_maxima(minimum: Pages, maximum: Pages) -> impl Iterator
 
 impl std::cmp::PartialEq for Memory {
     fn eq(&self, other: &Self) -> bool {
-        self.handle == other.handle
+        // Re-exporting an imported memory can attach different compatible type
+        // limits; equality identifies the memory object, not those annotations.
+        self.handle.memory == other.handle.memory
     }
 }
 

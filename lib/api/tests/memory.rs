@@ -216,3 +216,40 @@ fn js_compare_exchange_checks_word_and_refreshes_after_growth() {
     memory.view(&store).read(65536, &mut bytes).unwrap();
     assert_eq!(u32::from_le_bytes(bytes), 42);
 }
+
+#[engine_test]
+#[cfg_attr(feature = "v8", ignore = "v8 does not support shared memories")]
+fn imported_memory_aliases_keep_identity_with_different_type_limits() -> Result<(), String> {
+    for shared in [false, true] {
+        let mut store = Store::default();
+        let ty = MemoryType::new(2, Some(4), shared);
+        let memory = Memory::new(&mut store, ty).unwrap();
+        let other = Memory::new(&mut store, ty).unwrap();
+        let module = Module::new(
+            &store,
+            format!(
+                "(module (import \"host\" \"memory\" (memory 1 8 {})) (export \"memory\" (memory 0)))",
+                if shared { "shared" } else { "" }
+            ),
+        )
+        .unwrap();
+        let instance = Instance::new(
+            &mut store,
+            &module,
+            &imports! { "host" => { "memory" => memory.clone() } },
+        )
+        .unwrap();
+        let alias = instance.exports.get_memory("memory").unwrap().clone();
+        assert_eq!(
+            alias, memory,
+            "type annotations do not change memory identity"
+        );
+        assert_ne!(alias, other, "separate memories must stay distinct");
+        drop(instance);
+        memory.view(&store).write(0, b"same").unwrap();
+        let mut bytes = [0; 4];
+        alias.view(&store).read(0, &mut bytes).unwrap();
+        assert_eq!(&bytes, b"same");
+    }
+    Ok(())
+}
