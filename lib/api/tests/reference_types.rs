@@ -9,6 +9,67 @@ pub mod reference_types {
     use wasm_bindgen_test::*;
     use wasmer::*;
 
+    /// Repeated signal deliveries resolve the same handler/trampoline funcrefs
+    /// (arch/x86/kernel/signal.c:handle_signal) without retaining one wrapper per read.
+    #[cfg(all(feature = "cranelift", not(target_arch = "wasm32")))]
+    #[test]
+    fn funcref_table_reads_reuse_store_handles() -> Result<()> {
+        use wasmer_vm::{StoreObject, VMFunction};
+
+        fn functions(store: &mut Store) -> usize {
+            VMFunction::list(store.objects_mut().as_sys()).len()
+        }
+
+        let engine: Engine = wasmer::sys::EngineBuilder::new(wasmer::sys::Cranelift::default())
+            .engine()
+            .into();
+        let mut store = Store::new(engine);
+        let module = Module::new(
+            &store,
+            r#"(module
+                (table (export "table") 1 funcref)
+                (func (export "one") (result i32) i32.const 1)
+                (func (export "two") (result i32) i32.const 2))"#,
+        )?;
+        let instance = Instance::new(&mut store, &module, &imports! {})?;
+        let table = instance.exports.get_table("table")?;
+        let targets = [
+            instance.exports.get_function("one")?.clone(),
+            instance.exports.get_function("two")?.clone(),
+        ];
+        for target in &targets {
+            table.set(&mut store, 0, Value::FuncRef(Some(target.clone())))?;
+            assert!(matches!(
+                table.get(&mut store, 0),
+                Some(Value::FuncRef(Some(_)))
+            ));
+        }
+        let warmed = functions(&mut store);
+        for n in 0..1024 {
+            let which = n % targets.len();
+            table.set(&mut store, 0, Value::FuncRef(Some(targets[which].clone())))?;
+            let Some(Value::FuncRef(Some(function))) = table.get(&mut store, 0) else {
+                panic!("expected a function reference");
+            };
+            assert_eq!(
+                function.typed::<(), i32>(&store)?.call(&mut store)?,
+                which as i32 + 1
+            );
+        }
+        assert_eq!(
+            functions(&mut store),
+            warmed,
+            "table reads retain duplicate function wrappers"
+        );
+        table.set(&mut store, 0, Value::FuncRef(None))?;
+        assert!(matches!(
+            table.get(&mut store, 0),
+            Some(Value::FuncRef(None))
+        ));
+        assert!(table.get(&mut store, 1).is_none());
+        Ok(())
+    }
+
     #[engine_test]
     #[cfg_attr(
         feature = "v8-default",
