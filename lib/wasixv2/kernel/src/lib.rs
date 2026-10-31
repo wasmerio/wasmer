@@ -117,8 +117,8 @@ use wasixv2_host::Host;
 pub use wasixv2_host::{Console, Stdio, WindowSize};
 use wasixv2_syscalls::{
     AtomicWait, AtomicWord, Binfmt, Caller, Control, CpuAccount, CpuTime, Errno, ExitMm, Fd,
-    GroupCpu, GroupStop, GuestAction, Image, LocalFuture, PidView, SharedMapping, SharedMappings,
-    SysResult, Syscalls, TaskId, UserSlice, UserSliceMut, VforkWait, WorkFlag,
+    GroupCpu, GroupStop, GuestAction, Image, LocalFuture, MaybeFuture, PidView, SharedMapping,
+    SharedMappings, SysResult, Syscalls, TaskId, UserSlice, UserSliceMut, VforkWait, WorkFlag,
 };
 use wasixv2_vfs::{Filesystem, Mount, Vfs};
 
@@ -807,2728 +807,3532 @@ impl Kernel {
 }
 
 impl Syscalls for Kernel {
-    async fn startup_size(&self, caller: &Caller<'_>) -> SysResult<u32> {
-        let process = self.process(caller.task());
-        // The task table precedes argument locks, as in copy_process.
-        let identity = self.identity(caller.task());
-        let aux = process.exec_aux();
-        let (args, env) = (
-            process.args.lock_or_recover(),
-            process.env.lock_or_recover(),
-        );
-        Ok(Startup::new(&args, &env, identity, aux).size()?)
+    fn startup_size<'a>(&'a self, caller: &'a Caller<'_>) -> MaybeFuture<'a, SysResult<u32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            let process = self.process(caller.task());
+            // The task table precedes argument locks, as in copy_process.
+            let identity = self.identity(caller.task());
+            let aux = process.exec_aux();
+            let (args, env) = (
+                process.args.lock_or_recover(),
+                process.env.lock_or_recover(),
+            );
+            Ok(Startup::new(&args, &env, identity, aux).size()?)
+        }))
     }
 
-    async fn startup_get(&self, caller: &Caller<'_>, buf: UserSliceMut) -> SysResult<i32> {
-        if !buf.addr.is_multiple_of(16) {
-            return Err(Errno::EINVAL.into());
-        }
-        let process = self.process(caller.task());
-        let (args, env) = (
-            process.args.lock_or_recover().clone(),
-            process.env.lock_or_recover().clone(),
-        );
-        let startup = Startup::new(
-            &args,
-            &env,
-            self.identity(caller.task()),
-            process.exec_aux(),
-        );
-        // The address space starts out as the image left it.
-        self.mem_size(caller).await;
-        if buf.len < startup.size()? {
-            return Err(Errno::EINVAL.into());
-        }
-        let mut random = [0; 16];
-        self.host.random(&mut random);
-        let block = startup.build(buf.addr, random)?;
-        buf.copy_out(caller.memory(), &block).await?;
-        *process.auxv.lock_or_recover() = startup.auxv(&block);
-        Ok(0)
+    fn startup_get<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        buf: UserSliceMut,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            if !buf.addr.is_multiple_of(16) {
+                return Err(Errno::EINVAL.into());
+            }
+            let process = self.process(caller.task());
+            let (args, env) = (
+                process.args.lock_or_recover().clone(),
+                process.env.lock_or_recover().clone(),
+            );
+            let startup = Startup::new(
+                &args,
+                &env,
+                self.identity(caller.task()),
+                process.exec_aux(),
+            );
+            // The address space starts out as the image left it.
+            self.mem_size(caller).await;
+            if buf.len < startup.size()? {
+                return Err(Errno::EINVAL.into());
+            }
+            let mut random = [0; 16];
+            self.host.random(&mut random);
+            let block = startup.build(buf.addr, random)?;
+            buf.copy_out(caller.memory(), &block).await?;
+            *process.auxv.lock_or_recover() = startup.auxv(&block);
+            Ok(0)
+        }))
     }
 
     // ---- fs ----
-    async fn openat(
-        &self,
-        caller: &Caller<'_>,
+    fn openat<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         dfd: Fd,
         filename: Cstr,
         flags: OpenFlags,
         mode: Mode,
-    ) -> SysResult<Fd> {
-        self.sys_openat(caller, dfd, filename, flags, mode).await
+    ) -> MaybeFuture<'a, SysResult<Fd>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_openat(caller, dfd, filename, flags, mode).await
+        }))
     }
 
-    async fn openat2(
-        &self,
-        caller: &Caller<'_>,
+    fn openat2<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         dfd: Fd,
         filename: Cstr,
         how: ConstOpenHowPtr,
         usize: Usize,
-    ) -> SysResult<Fd> {
-        self.sys_openat2(caller, dfd, filename, how, usize).await
+    ) -> MaybeFuture<'a, SysResult<Fd>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_openat2(caller, dfd, filename, how, usize).await
+        }))
     }
 
-    async fn close(&self, caller: &Caller<'_>, fd: Fd) -> SysResult<i32> {
-        self.sys_close(caller, fd).await
+    fn close<'a>(&'a self, caller: &'a Caller<'_>, fd: Fd) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move { self.sys_close(caller, fd).await }))
     }
 
-    async fn close_range(
-        &self,
-        caller: &Caller<'_>,
+    fn close_range<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: u32,
         max_fd: u32,
         flags: CloseRangeFlags,
-    ) -> SysResult<i32> {
-        self.sys_close_range(caller, fd, max_fd, flags).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_close_range(caller, fd, max_fd, flags).await
+        }))
     }
 
-    async fn dup(&self, caller: &Caller<'_>, fildes: Fd) -> SysResult<Fd> {
-        self.sys_dup(caller, fildes)
+    fn dup<'a>(&'a self, caller: &'a Caller<'_>, fildes: Fd) -> MaybeFuture<'a, SysResult<Fd>> {
+        MaybeFuture::Future(Box::pin(async move { self.sys_dup(caller, fildes) }))
     }
 
-    async fn dup3(
-        &self,
-        caller: &Caller<'_>,
+    fn dup3<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         oldfd: Fd,
         newfd: Fd,
         flags: OpenFlags,
-    ) -> SysResult<Fd> {
-        self.sys_dup3(caller, oldfd, newfd, flags).await
+    ) -> MaybeFuture<'a, SysResult<Fd>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_dup3(caller, oldfd, newfd, flags).await
+        }))
     }
 
-    async fn fcntl64(
-        &self,
-        caller: &Caller<'_>,
+    fn fcntl64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         cmd: FcntlCmd,
         arg: Ulong,
-    ) -> SysResult<i32> {
-        self.sys_fcntl(caller, fd, cmd, arg).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_fcntl(caller, fd, cmd, arg).await
+        }))
     }
 
-    async fn flock(&self, caller: &Caller<'_>, fd: Fd, cmd: FlockOp) -> SysResult<i32> {
-        self.sys_flock(caller, fd, cmd).await
+    fn flock<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        fd: Fd,
+        cmd: FlockOp,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(
+            async move { self.sys_flock(caller, fd, cmd).await },
+        ))
     }
 
-    async fn readv(
-        &self,
-        caller: &Caller<'_>,
+    fn readv<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         vec: ConstIovecArray,
         vlen: Ulong,
-    ) -> SysResult<u32> {
-        self.sys_readv(caller, fd, vec, vlen).await
+    ) -> MaybeFuture<'a, SysResult<u32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_readv(caller, fd, vec, vlen).await
+        }))
     }
 
-    async fn writev(
-        &self,
-        caller: &Caller<'_>,
+    fn writev<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         vec: ConstIovecArray,
         vlen: Ulong,
-    ) -> SysResult<u32> {
-        self.sys_writev(caller, fd, vec, vlen).await
+    ) -> MaybeFuture<'a, SysResult<u32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_writev(caller, fd, vec, vlen).await
+        }))
     }
 
-    async fn pread64(
-        &self,
-        caller: &Caller<'_>,
+    fn pread64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         buf: UserSliceMut,
         pos: Loff,
-    ) -> SysResult<u32> {
-        self.sys_pread(caller, fd, buf, pos).await
+    ) -> MaybeFuture<'a, SysResult<u32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_pread(caller, fd, buf, pos).await
+        }))
     }
 
-    async fn pwrite64(
-        &self,
-        caller: &Caller<'_>,
+    fn pwrite64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         buf: UserSlice,
         pos: Loff,
-    ) -> SysResult<u32> {
-        self.sys_pwrite(caller, fd, buf, pos).await
+    ) -> MaybeFuture<'a, SysResult<u32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_pwrite(caller, fd, buf, pos).await
+        }))
     }
 
-    async fn preadv(
-        &self,
-        caller: &Caller<'_>,
+    fn preadv<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         vec: ConstIovecArray,
         vlen: Ulong,
         pos: i64,
-    ) -> SysResult<u32> {
-        // `do_preadv`: only preadv2 gives -1 a meaning.
-        if pos < 0 {
-            return Err(Errno::EINVAL.into());
-        }
-        self.sys_preadv2(caller, fd, vec, vlen, pos, RwfFlags(0))
-            .await
+    ) -> MaybeFuture<'a, SysResult<u32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            // `do_preadv`: only preadv2 gives -1 a meaning.
+            if pos < 0 {
+                return Err(Errno::EINVAL.into());
+            }
+            self.sys_preadv2(caller, fd, vec, vlen, pos, RwfFlags(0))
+                .await
+        }))
     }
 
-    async fn pwritev(
-        &self,
-        caller: &Caller<'_>,
+    fn pwritev<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         vec: ConstIovecArray,
         vlen: Ulong,
         pos: i64,
-    ) -> SysResult<u32> {
-        if pos < 0 {
-            return Err(Errno::EINVAL.into());
-        }
-        self.sys_pwritev2(caller, fd, vec, vlen, pos, RwfFlags(0))
-            .await
+    ) -> MaybeFuture<'a, SysResult<u32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            if pos < 0 {
+                return Err(Errno::EINVAL.into());
+            }
+            self.sys_pwritev2(caller, fd, vec, vlen, pos, RwfFlags(0))
+                .await
+        }))
     }
 
-    async fn preadv2(
-        &self,
-        caller: &Caller<'_>,
-        fd: Fd,
-        vec: ConstIovecArray,
-        vlen: Ulong,
-        pos: i64,
-        flags: RwfFlags,
-    ) -> SysResult<u32> {
-        self.sys_preadv2(caller, fd, vec, vlen, pos, flags).await
-    }
-
-    async fn pwritev2(
-        &self,
-        caller: &Caller<'_>,
+    fn preadv2<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         vec: ConstIovecArray,
         vlen: Ulong,
         pos: i64,
         flags: RwfFlags,
-    ) -> SysResult<u32> {
-        self.sys_pwritev2(caller, fd, vec, vlen, pos, flags).await
+    ) -> MaybeFuture<'a, SysResult<u32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_preadv2(caller, fd, vec, vlen, pos, flags).await
+        }))
     }
 
-    async fn lseek(
-        &self,
-        caller: &Caller<'_>,
+    fn pwritev2<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        fd: Fd,
+        vec: ConstIovecArray,
+        vlen: Ulong,
+        pos: i64,
+        flags: RwfFlags,
+    ) -> MaybeFuture<'a, SysResult<u32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_pwritev2(caller, fd, vec, vlen, pos, flags).await
+        }))
+    }
+
+    fn lseek<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         offset: Loff,
         whence: SeekWhence,
-    ) -> SysResult<i64> {
-        self.sys_lseek(caller, fd, offset, whence).await
+    ) -> MaybeFuture<'a, SysResult<i64>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_lseek(caller, fd, offset, whence).await
+        }))
     }
 
-    async fn sendfile64(
-        &self,
-        caller: &Caller<'_>,
+    fn sendfile64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         out_fd: Fd,
         in_fd: Fd,
         offset: LoffPtr,
         count: Usize,
-    ) -> SysResult<i32> {
-        self.sys_sendfile(caller, out_fd, in_fd, offset, count)
-            .await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_sendfile(caller, out_fd, in_fd, offset, count)
+                .await
+        }))
     }
 
-    async fn splice(
-        &self,
-        caller: &Caller<'_>,
+    fn splice<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd_in: Fd,
         off_in: LoffPtr,
         fd_out: Fd,
         off_out: LoffPtr,
         len: Usize,
         flags: SpliceFlags,
-    ) -> SysResult<i32> {
-        self.sys_splice(caller, fd_in, off_in, fd_out, off_out, len, flags)
-            .await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_splice(caller, fd_in, off_in, fd_out, off_out, len, flags)
+                .await
+        }))
     }
 
-    async fn tee(
-        &self,
-        caller: &Caller<'_>,
+    fn tee<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fdin: Fd,
         fdout: Fd,
         len: Usize,
         flags: SpliceFlags,
-    ) -> SysResult<i32> {
-        self.sys_tee(caller, fdin, fdout, len, flags).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_tee(caller, fdin, fdout, len, flags).await
+        }))
     }
 
-    async fn vmsplice(
-        &self,
-        caller: &Caller<'_>,
+    fn vmsplice<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         uiov: ConstIovecArray,
         nr_segs: Ulong,
         flags: SpliceFlags,
-    ) -> SysResult<i32> {
-        self.sys_vmsplice(caller, fd, uiov, nr_segs, flags).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_vmsplice(caller, fd, uiov, nr_segs, flags).await
+        }))
     }
 
-    async fn copy_file_range(
-        &self,
-        caller: &Caller<'_>,
+    fn copy_file_range<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd_in: Fd,
         off_in: LoffPtr,
         fd_out: Fd,
         off_out: LoffPtr,
         len: Usize,
         flags: u32,
-    ) -> SysResult<i32> {
-        self.sys_copy_file_range(caller, fd_in, off_in, fd_out, off_out, len, flags)
-            .await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_copy_file_range(caller, fd_in, off_in, fd_out, off_out, len, flags)
+                .await
+        }))
     }
 
-    async fn truncate64(&self, caller: &Caller<'_>, path: Cstr, length: Loff) -> SysResult<i32> {
-        self.sys_truncate(caller, path, length).await
+    fn truncate64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        path: Cstr,
+        length: Loff,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_truncate(caller, path, length).await
+        }))
     }
 
-    async fn ftruncate64(&self, caller: &Caller<'_>, fd: Fd, length: Loff) -> SysResult<i32> {
-        self.sys_ftruncate(caller, fd, length).await
+    fn ftruncate64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        fd: Fd,
+        length: Loff,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_ftruncate(caller, fd, length).await
+        }))
     }
 
-    async fn fallocate(
-        &self,
-        caller: &Caller<'_>,
+    fn fallocate<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         mode: FallocFlags,
         offset: Loff,
         len: Loff,
-    ) -> SysResult<i32> {
-        self.sys_fallocate(caller, fd, mode, offset, len).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_fallocate(caller, fd, mode, offset, len).await
+        }))
     }
 
-    async fn fadvise64_64(
-        &self,
-        caller: &Caller<'_>,
+    fn fadvise64_64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         _offset: Loff,
         len: Loff,
         advice: FadviseAdvice,
-    ) -> SysResult<i32> {
-        self.sys_fadvise(caller, fd, len, advice)
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_fadvise(caller, fd, len, advice)
+        }))
     }
 
-    async fn readahead(
-        &self,
-        caller: &Caller<'_>,
+    fn readahead<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         _offset: Loff,
         _count: Usize,
-    ) -> SysResult<i32> {
-        self.sys_readahead(caller, fd)
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move { self.sys_readahead(caller, fd) }))
     }
 
-    async fn sync(&self, _: &Caller<'_>) -> SysResult<i32> {
-        self.sys_sync().await
+    fn sync<'a>(&'a self, _: &'a Caller<'_>) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move { self.sys_sync().await }))
     }
 
-    async fn fsync(&self, caller: &Caller<'_>, fd: Fd) -> SysResult<i32> {
-        self.sys_fsync(caller, fd, false).await
+    fn fsync<'a>(&'a self, caller: &'a Caller<'_>, fd: Fd) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(
+            async move { self.sys_fsync(caller, fd, false).await },
+        ))
     }
 
-    async fn fdatasync(&self, caller: &Caller<'_>, fd: Fd) -> SysResult<i32> {
-        self.sys_fsync(caller, fd, true).await
+    fn fdatasync<'a>(&'a self, caller: &'a Caller<'_>, fd: Fd) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(
+            async move { self.sys_fsync(caller, fd, true).await },
+        ))
     }
 
-    async fn syncfs(&self, caller: &Caller<'_>, fd: Fd) -> SysResult<i32> {
-        self.sys_syncfs(caller, fd).await
+    fn syncfs<'a>(&'a self, caller: &'a Caller<'_>, fd: Fd) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move { self.sys_syncfs(caller, fd).await }))
     }
 
-    async fn sync_file_range(
-        &self,
-        caller: &Caller<'_>,
+    fn sync_file_range<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         offset: Loff,
         nbytes: Loff,
         flags: SyncFileRangeFlags,
-    ) -> SysResult<i32> {
-        self.sys_sync_file_range(caller, fd, offset, nbytes, flags)
-            .await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_sync_file_range(caller, fd, offset, nbytes, flags)
+                .await
+        }))
     }
 
-    async fn getdents64(
-        &self,
-        caller: &Caller<'_>,
+    fn getdents64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         dirent: LinuxDirent64Ptr,
         count: u32,
-    ) -> SysResult<i32> {
-        self.sys_getdents64(caller, fd, dirent, count).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_getdents64(caller, fd, dirent, count).await
+        }))
     }
 
-    async fn mkdirat(
-        &self,
-        caller: &Caller<'_>,
+    fn mkdirat<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         dfd: Fd,
         pathname: Cstr,
         mode: Mode,
-    ) -> SysResult<i32> {
-        self.sys_mkdirat(caller, dfd, pathname, mode).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_mkdirat(caller, dfd, pathname, mode).await
+        }))
     }
 
-    async fn mknodat(
-        &self,
-        caller: &Caller<'_>,
+    fn mknodat<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         dfd: Fd,
         filename: Cstr,
         mode: Mode,
         dev: u32,
-    ) -> SysResult<i32> {
-        self.sys_mknodat(caller, dfd, filename, mode, dev).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_mknodat(caller, dfd, filename, mode, dev).await
+        }))
     }
 
-    async fn unlinkat(
-        &self,
-        caller: &Caller<'_>,
+    fn unlinkat<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         dfd: Fd,
         pathname: Cstr,
         flag: AtFlags,
-    ) -> SysResult<i32> {
-        self.sys_unlinkat(caller, dfd, pathname, flag).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_unlinkat(caller, dfd, pathname, flag).await
+        }))
     }
 
-    async fn symlinkat(
-        &self,
-        caller: &Caller<'_>,
+    fn symlinkat<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         oldname: Cstr,
         newdfd: Fd,
         newname: Cstr,
-    ) -> SysResult<i32> {
-        self.sys_symlinkat(caller, oldname, newdfd, newname).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_symlinkat(caller, oldname, newdfd, newname).await
+        }))
     }
 
-    async fn linkat(
-        &self,
-        caller: &Caller<'_>,
+    fn linkat<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         olddfd: Fd,
         oldname: Cstr,
         newdfd: Fd,
         newname: Cstr,
         flags: AtFlags,
-    ) -> SysResult<i32> {
-        self.sys_linkat(caller, olddfd, oldname, newdfd, newname, flags)
-            .await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_linkat(caller, olddfd, oldname, newdfd, newname, flags)
+                .await
+        }))
     }
 
-    async fn renameat2(
-        &self,
-        caller: &Caller<'_>,
+    fn renameat2<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         olddfd: Fd,
         oldname: Cstr,
         newdfd: Fd,
         newname: Cstr,
         flags: RenameFlags,
-    ) -> SysResult<i32> {
-        self.sys_renameat2(caller, olddfd, oldname, newdfd, newname, flags)
-            .await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_renameat2(caller, olddfd, oldname, newdfd, newname, flags)
+                .await
+        }))
     }
 
-    async fn readlinkat(
-        &self,
-        caller: &Caller<'_>,
+    fn readlinkat<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         dfd: Fd,
         pathname: Cstr,
         buf: Buf,
         bufsiz: i32,
-    ) -> SysResult<i32> {
-        self.sys_readlinkat(caller, dfd, pathname, buf, bufsiz)
-            .await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_readlinkat(caller, dfd, pathname, buf, bufsiz)
+                .await
+        }))
     }
 
-    async fn faccessat(
-        &self,
-        caller: &Caller<'_>,
+    fn faccessat<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         dfd: Fd,
         filename: Cstr,
         mode: AccessMode,
-    ) -> SysResult<i32> {
-        self.sys_faccessat2(caller, dfd, filename, mode, AtFlags(0))
-            .await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_faccessat2(caller, dfd, filename, mode, AtFlags(0))
+                .await
+        }))
     }
 
-    async fn faccessat2(
-        &self,
-        caller: &Caller<'_>,
+    fn faccessat2<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         dfd: Fd,
         filename: Cstr,
         mode: AccessMode,
         flags: AtFlags,
-    ) -> SysResult<i32> {
-        self.sys_faccessat2(caller, dfd, filename, mode, flags)
-            .await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_faccessat2(caller, dfd, filename, mode, flags)
+                .await
+        }))
     }
 
-    async fn chdir(&self, caller: &Caller<'_>, filename: Cstr) -> SysResult<i32> {
-        self.sys_chdir(caller, filename).await
+    fn chdir<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        filename: Cstr,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(
+            async move { self.sys_chdir(caller, filename).await },
+        ))
     }
 
-    async fn fchdir(&self, caller: &Caller<'_>, fd: Fd) -> SysResult<i32> {
-        self.sys_fchdir(caller, fd).await
+    fn fchdir<'a>(&'a self, caller: &'a Caller<'_>, fd: Fd) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move { self.sys_fchdir(caller, fd).await }))
     }
 
-    async fn fchroot(&self, caller: &Caller<'_>, fd: Fd, flags: u32) -> SysResult<i32> {
-        self.sys_fchroot(caller, fd, flags).await
+    fn fchroot<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        fd: Fd,
+        flags: u32,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_fchroot(caller, fd, flags).await
+        }))
     }
 
-    async fn chroot(&self, caller: &Caller<'_>, filename: Cstr) -> SysResult<i32> {
-        self.sys_chroot(caller, filename).await
+    fn chroot<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        filename: Cstr,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(
+            async move { self.sys_chroot(caller, filename).await },
+        ))
     }
 
-    async fn getcwd(&self, caller: &Caller<'_>, buf: UserSliceMut) -> SysResult<u32> {
-        self.sys_getcwd(caller, buf).await
+    fn getcwd<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        buf: UserSliceMut,
+    ) -> MaybeFuture<'a, SysResult<u32>> {
+        MaybeFuture::Future(Box::pin(async move { self.sys_getcwd(caller, buf).await }))
     }
 
-    async fn umask(&self, caller: &Caller<'_>, mask: i32) -> SysResult<i32> {
-        self.sys_umask(caller, mask)
+    fn umask<'a>(&'a self, caller: &'a Caller<'_>, mask: i32) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move { self.sys_umask(caller, mask) }))
     }
 
-    async fn fchmod(&self, caller: &Caller<'_>, fd: Fd, mode: Mode) -> SysResult<i32> {
-        self.sys_fchmod(caller, fd, mode).await
+    fn fchmod<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        fd: Fd,
+        mode: Mode,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(
+            async move { self.sys_fchmod(caller, fd, mode).await },
+        ))
     }
 
-    async fn fchmodat(
-        &self,
-        caller: &Caller<'_>,
+    fn fchmodat<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         dfd: Fd,
         filename: Cstr,
         mode: Mode,
-    ) -> SysResult<i32> {
-        self.sys_fchmodat2(caller, dfd, filename, mode, AtFlags(0))
-            .await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_fchmodat2(caller, dfd, filename, mode, AtFlags(0))
+                .await
+        }))
     }
 
-    async fn fchmodat2(
-        &self,
-        caller: &Caller<'_>,
+    fn fchmodat2<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         dfd: Fd,
         filename: Cstr,
         mode: Mode,
         flags: AtFlags,
-    ) -> SysResult<i32> {
-        self.sys_fchmodat2(caller, dfd, filename, mode, flags).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_fchmodat2(caller, dfd, filename, mode, flags).await
+        }))
     }
 
-    async fn fchown(&self, caller: &Caller<'_>, fd: Fd, user: Uid, group: Gid) -> SysResult<i32> {
-        self.sys_fchown(caller, fd, user, group).await
+    fn fchown<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        fd: Fd,
+        user: Uid,
+        group: Gid,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_fchown(caller, fd, user, group).await
+        }))
     }
 
-    async fn fchownat(
-        &self,
-        caller: &Caller<'_>,
+    fn fchownat<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         dfd: Fd,
         filename: Cstr,
         user: Uid,
         group: Gid,
         flag: AtFlags,
-    ) -> SysResult<i32> {
-        self.sys_fchownat(caller, dfd, filename, user, group, flag)
-            .await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_fchownat(caller, dfd, filename, user, group, flag)
+                .await
+        }))
     }
 
-    async fn statx(
-        &self,
-        caller: &Caller<'_>,
+    fn statx<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         dfd: Fd,
         filename: Cstr,
         flags: AtFlags,
         mask: StatxMask,
         buffer: StatxPtr,
-    ) -> SysResult<i32> {
-        self.sys_statx(caller, dfd, filename, flags, mask, buffer)
-            .await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_statx(caller, dfd, filename, flags, mask, buffer)
+                .await
+        }))
     }
 
-    async fn statfs64(
-        &self,
-        caller: &Caller<'_>,
+    fn statfs64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pathname: Cstr,
         sz: Usize,
         buf: Statfs64Ptr,
-    ) -> SysResult<i32> {
-        self.sys_statfs(caller, pathname, sz, buf).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_statfs(caller, pathname, sz, buf).await
+        }))
     }
 
-    async fn fstatfs64(
-        &self,
-        caller: &Caller<'_>,
+    fn fstatfs64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         sz: Usize,
         buf: Statfs64Ptr,
-    ) -> SysResult<i32> {
-        self.sys_fstatfs(caller, fd, sz, buf).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_fstatfs(caller, fd, sz, buf).await
+        }))
     }
 
-    async fn utimensat_time64(
-        &self,
-        caller: &Caller<'_>,
+    fn utimensat_time64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         dfd: Fd,
         filename: Cstr,
         utimes: ConstKernelTimespecArray,
         flags: AtFlags,
-    ) -> SysResult<i32> {
-        self.sys_utimensat(caller, dfd, filename, utimes, flags)
-            .await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_utimensat(caller, dfd, filename, utimes, flags)
+                .await
+        }))
     }
 
-    async fn fanotify_init(
-        &self,
-        caller: &Caller<'_>,
+    fn fanotify_init<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         flags: u32,
         event_f_flags: u32,
-    ) -> SysResult<i32> {
-        self.sys_fanotify_init(caller, flags, event_f_flags)
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_fanotify_init(caller, flags, event_f_flags)
+        }))
     }
 
-    async fn fanotify_mark(
-        &self,
-        caller: &Caller<'_>,
+    fn fanotify_mark<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fanotify_fd: Fd,
         flags: u32,
         mask: u64,
         dfd: Fd,
         pathname: Cstr,
-    ) -> SysResult<i32> {
-        self.sys_fanotify_mark(caller, fanotify_fd, flags, mask, dfd, pathname)
-            .await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_fanotify_mark(caller, fanotify_fd, flags, mask, dfd, pathname)
+                .await
+        }))
     }
 
-    async fn file_getattr(
-        &self,
-        caller: &Caller<'_>,
+    fn file_getattr<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         dfd: Fd,
         filename: Cstr,
         ufattr: wasixv2_abi::FileAttrPtr,
         usize: Usize,
         at_flags: AtFlags,
-    ) -> SysResult<i32> {
-        self.sys_file_getattr(caller, dfd, filename, ufattr, usize, at_flags)
-            .await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_file_getattr(caller, dfd, filename, ufattr, usize, at_flags)
+                .await
+        }))
     }
 
-    async fn file_setattr(
-        &self,
-        caller: &Caller<'_>,
+    fn file_setattr<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         dfd: Fd,
         filename: Cstr,
         ufattr: wasixv2_abi::ConstFileAttrPtr,
         usize: Usize,
         at_flags: AtFlags,
-    ) -> SysResult<i32> {
-        self.sys_file_setattr(caller, dfd, filename, ufattr, usize, at_flags)
-            .await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_file_setattr(caller, dfd, filename, ufattr, usize, at_flags)
+                .await
+        }))
     }
 
-    async fn name_to_handle_at(
-        &self,
-        caller: &Caller<'_>,
+    fn name_to_handle_at<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         dfd: Fd,
         name: Cstr,
         handle: FileHandlePtr,
         mnt_id: S32Ptr,
         flag: i32,
-    ) -> SysResult<i32> {
-        self.sys_name_to_handle_at(caller, dfd, name, handle, mnt_id, flag)
-            .await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_name_to_handle_at(caller, dfd, name, handle, mnt_id, flag)
+                .await
+        }))
     }
 
-    async fn open_by_handle_at(
-        &self,
-        caller: &Caller<'_>,
+    fn open_by_handle_at<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         mountdirfd: Fd,
         handle: ConstFileHandlePtr,
         flags: OpenFlags,
-    ) -> SysResult<i32> {
-        self.sys_open_by_handle_at(caller, mountdirfd, handle, flags)
-            .await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_open_by_handle_at(caller, mountdirfd, handle, flags)
+                .await
+        }))
     }
 
-    async fn quotactl(
-        &self,
-        caller: &Caller<'_>,
+    fn quotactl<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         cmd: u32,
         special: Cstr,
         id: wasixv2_abi::Qid,
         addr: VoidPtr,
-    ) -> SysResult<i32> {
-        self.sys_quotactl(caller, cmd, special, id, addr).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_quotactl(caller, cmd, special, id, addr).await
+        }))
     }
 
-    async fn quotactl_fd(
-        &self,
-        caller: &Caller<'_>,
+    fn quotactl_fd<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         cmd: u32,
         id: wasixv2_abi::Qid,
         addr: VoidPtr,
-    ) -> SysResult<i32> {
-        self.sys_quotactl_fd(caller, fd, cmd, id, addr).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_quotactl_fd(caller, fd, cmd, id, addr).await
+        }))
     }
 
-    async fn setxattr(
-        &self,
-        caller: &Caller<'_>,
+    fn setxattr<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pathname: Cstr,
         name: Cstr,
         value: UserSlice,
         flags: XattrFlags,
-    ) -> SysResult<i32> {
-        let target = self.xattr_path(caller, pathname, true).await?;
-        self.xattr_set(caller, target, name, value, flags).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            let target = self.xattr_path(caller, pathname, true).await?;
+            self.xattr_set(caller, target, name, value, flags).await
+        }))
     }
 
-    async fn lsetxattr(
-        &self,
-        caller: &Caller<'_>,
+    fn lsetxattr<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pathname: Cstr,
         name: Cstr,
         value: UserSlice,
         flags: XattrFlags,
-    ) -> SysResult<i32> {
-        let target = self.xattr_path(caller, pathname, false).await?;
-        self.xattr_set(caller, target, name, value, flags).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            let target = self.xattr_path(caller, pathname, false).await?;
+            self.xattr_set(caller, target, name, value, flags).await
+        }))
     }
 
-    async fn fsetxattr(
-        &self,
-        caller: &Caller<'_>,
+    fn fsetxattr<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         name: Cstr,
         value: UserSlice,
         flags: XattrFlags,
-    ) -> SysResult<i32> {
-        let target = self.xattr_of_fd(caller, fd)?;
-        self.xattr_set(caller, target, name, value, flags).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            let target = self.xattr_of_fd(caller, fd)?;
+            self.xattr_set(caller, target, name, value, flags).await
+        }))
     }
 
-    async fn getxattr(
-        &self,
-        caller: &Caller<'_>,
+    fn getxattr<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pathname: Cstr,
         name: Cstr,
         value: UserSliceMut,
-    ) -> SysResult<u32> {
-        let target = self.xattr_path(caller, pathname, true).await?;
-        self.xattr_get(caller, target, name, value).await
+    ) -> MaybeFuture<'a, SysResult<u32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            let target = self.xattr_path(caller, pathname, true).await?;
+            self.xattr_get(caller, target, name, value).await
+        }))
     }
 
-    async fn lgetxattr(
-        &self,
-        caller: &Caller<'_>,
+    fn lgetxattr<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pathname: Cstr,
         name: Cstr,
         value: UserSliceMut,
-    ) -> SysResult<u32> {
-        let target = self.xattr_path(caller, pathname, false).await?;
-        self.xattr_get(caller, target, name, value).await
+    ) -> MaybeFuture<'a, SysResult<u32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            let target = self.xattr_path(caller, pathname, false).await?;
+            self.xattr_get(caller, target, name, value).await
+        }))
     }
 
-    async fn fgetxattr(
-        &self,
-        caller: &Caller<'_>,
+    fn fgetxattr<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         name: Cstr,
         value: UserSliceMut,
-    ) -> SysResult<u32> {
-        let target = self.xattr_of_fd(caller, fd)?;
-        self.xattr_get(caller, target, name, value).await
+    ) -> MaybeFuture<'a, SysResult<u32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            let target = self.xattr_of_fd(caller, fd)?;
+            self.xattr_get(caller, target, name, value).await
+        }))
     }
 
-    async fn listxattr(
-        &self,
-        caller: &Caller<'_>,
+    fn listxattr<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pathname: Cstr,
         list: UserSliceMut,
-    ) -> SysResult<u32> {
-        let target = self.xattr_path(caller, pathname, true).await?;
-        self.xattr_list(caller, target, list).await
+    ) -> MaybeFuture<'a, SysResult<u32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            let target = self.xattr_path(caller, pathname, true).await?;
+            self.xattr_list(caller, target, list).await
+        }))
     }
 
-    async fn llistxattr(
-        &self,
-        caller: &Caller<'_>,
+    fn llistxattr<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pathname: Cstr,
         list: UserSliceMut,
-    ) -> SysResult<u32> {
-        let target = self.xattr_path(caller, pathname, false).await?;
-        self.xattr_list(caller, target, list).await
+    ) -> MaybeFuture<'a, SysResult<u32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            let target = self.xattr_path(caller, pathname, false).await?;
+            self.xattr_list(caller, target, list).await
+        }))
     }
 
-    async fn flistxattr(&self, caller: &Caller<'_>, fd: Fd, list: UserSliceMut) -> SysResult<u32> {
-        let target = self.xattr_of_fd(caller, fd)?;
-        self.xattr_list(caller, target, list).await
+    fn flistxattr<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        fd: Fd,
+        list: UserSliceMut,
+    ) -> MaybeFuture<'a, SysResult<u32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            let target = self.xattr_of_fd(caller, fd)?;
+            self.xattr_list(caller, target, list).await
+        }))
     }
 
-    async fn removexattr(&self, caller: &Caller<'_>, pathname: Cstr, name: Cstr) -> SysResult<i32> {
-        let target = self.xattr_path(caller, pathname, true).await?;
-        self.xattr_remove(caller, target, name).await
-    }
-
-    async fn lremovexattr(
-        &self,
-        caller: &Caller<'_>,
+    fn removexattr<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pathname: Cstr,
         name: Cstr,
-    ) -> SysResult<i32> {
-        let target = self.xattr_path(caller, pathname, false).await?;
-        self.xattr_remove(caller, target, name).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            let target = self.xattr_path(caller, pathname, true).await?;
+            self.xattr_remove(caller, target, name).await
+        }))
     }
 
-    async fn fremovexattr(&self, caller: &Caller<'_>, fd: Fd, name: Cstr) -> SysResult<i32> {
-        let target = self.xattr_of_fd(caller, fd)?;
-        self.xattr_remove(caller, target, name).await
+    fn lremovexattr<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        pathname: Cstr,
+        name: Cstr,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            let target = self.xattr_path(caller, pathname, false).await?;
+            self.xattr_remove(caller, target, name).await
+        }))
     }
 
-    async fn setxattrat(
-        &self,
-        caller: &Caller<'_>,
+    fn fremovexattr<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        fd: Fd,
+        name: Cstr,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            let target = self.xattr_of_fd(caller, fd)?;
+            self.xattr_remove(caller, target, name).await
+        }))
+    }
+
+    fn setxattrat<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         dfd: Fd,
         pathname: Cstr,
         at_flags: AtFlags,
         name: Cstr,
         uargs: ConstXattrArgsPtr,
         usize: Usize,
-    ) -> SysResult<i32> {
-        self.sys_setxattrat(caller, dfd, pathname, at_flags, name, uargs, usize)
-            .await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_setxattrat(caller, dfd, pathname, at_flags, name, uargs, usize)
+                .await
+        }))
     }
 
-    async fn getxattrat(
-        &self,
-        caller: &Caller<'_>,
+    fn getxattrat<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         dfd: Fd,
         pathname: Cstr,
         at_flags: AtFlags,
         name: Cstr,
         uargs: XattrArgsPtr,
         usize: Usize,
-    ) -> SysResult<i32> {
-        self.sys_getxattrat(caller, dfd, pathname, at_flags, name, uargs, usize)
-            .await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_getxattrat(caller, dfd, pathname, at_flags, name, uargs, usize)
+                .await
+        }))
     }
 
-    async fn listxattrat(
-        &self,
-        caller: &Caller<'_>,
+    fn listxattrat<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         dfd: Fd,
         pathname: Cstr,
         at_flags: AtFlags,
         list: UserSliceMut,
-    ) -> SysResult<u32> {
-        let target = self.xattr_at(caller, dfd, pathname, at_flags).await?;
-        self.xattr_list(caller, target, list).await
+    ) -> MaybeFuture<'a, SysResult<u32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            let target = self.xattr_at(caller, dfd, pathname, at_flags).await?;
+            self.xattr_list(caller, target, list).await
+        }))
     }
 
-    async fn removexattrat(
-        &self,
-        caller: &Caller<'_>,
+    fn removexattrat<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         dfd: Fd,
         pathname: Cstr,
         at_flags: AtFlags,
         name: Cstr,
-    ) -> SysResult<i32> {
-        let target = self.xattr_at(caller, dfd, pathname, at_flags).await?;
-        self.xattr_remove(caller, target, name).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            let target = self.xattr_at(caller, dfd, pathname, at_flags).await?;
+            self.xattr_remove(caller, target, name).await
+        }))
     }
 
-    async fn inotify_init1(
-        &self,
-        caller: &Caller<'_>,
+    fn inotify_init1<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         flags: wasixv2_abi::InotifyInitFlags,
-    ) -> SysResult<Fd> {
-        self.sys_inotify_init1(caller, flags)
+    ) -> MaybeFuture<'a, SysResult<Fd>> {
+        MaybeFuture::Future(Box::pin(
+            async move { self.sys_inotify_init1(caller, flags) },
+        ))
     }
 
-    async fn inotify_add_watch(
-        &self,
-        caller: &Caller<'_>,
+    fn inotify_add_watch<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         pathname: Cstr,
         mask: wasixv2_abi::InotifyMask,
-    ) -> SysResult<i32> {
-        self.sys_inotify_add_watch(caller, fd, pathname, mask).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_inotify_add_watch(caller, fd, pathname, mask).await
+        }))
     }
 
-    async fn inotify_rm_watch(&self, caller: &Caller<'_>, fd: Fd, wd: i32) -> SysResult<i32> {
-        self.sys_inotify_rm_watch(caller, fd, wd)
+    fn inotify_rm_watch<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        fd: Fd,
+        wd: i32,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_inotify_rm_watch(caller, fd, wd)
+        }))
     }
 
-    async fn ioctl(
-        &self,
-        caller: &Caller<'_>,
+    fn ioctl<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         request: IoctlRequest,
         arg: Ulong,
-    ) -> SysResult<i32> {
-        self.sys_ioctl(caller, fd, request, arg).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_ioctl(caller, fd, request, arg).await
+        }))
     }
 
-    async fn read(&self, caller: &Caller<'_>, fd: Fd, buf: UserSliceMut) -> SysResult<u32> {
-        let file = self.file(caller.task(), fd)?;
-        file.check_readable()?;
-        self.read_buf(caller, &file, buf, fs::At::Position).await
+    fn read<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        fd: Fd,
+        buf: UserSliceMut,
+    ) -> MaybeFuture<'a, SysResult<u32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            let file = self.file(caller.task(), fd)?;
+            file.check_readable()?;
+            self.read_buf(caller, &file, buf, fs::At::Position).await
+        }))
     }
 
-    async fn write(&self, caller: &Caller<'_>, fd: Fd, buf: UserSlice) -> SysResult<u32> {
-        let file = self.file(caller.task(), fd)?;
-        file.check_writable()?;
-        self.write_buf(caller, &file, buf, fs::At::Position).await
+    fn write<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        fd: Fd,
+        buf: UserSlice,
+    ) -> MaybeFuture<'a, SysResult<u32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            let file = self.file(caller.task(), fd)?;
+            file.check_writable()?;
+            self.write_buf(caller, &file, buf, fs::At::Position).await
+        }))
     }
 
     // ---- thr ----
-    async fn thread_spawn(
-        &self,
-        caller: &Caller<'_>,
+    fn thread_spawn<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         flags: Ulong,
         start_arg: Uptr,
         parent_tid: S32Ptr,
         tls: Uptr,
         child_tid: S32Ptr,
-    ) -> SysResult<i32> {
-        self.sys_thread_spawn(caller, flags, start_arg, parent_tid, tls, child_tid)
-            .await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_thread_spawn(caller, flags, start_arg, parent_tid, tls, child_tid)
+                .await
+        }))
     }
 
-    async fn exit(&self, caller: &Caller<'_>, error_code: i32) -> SysResult<()> {
-        self.sys_exit(caller, error_code).await
+    fn exit<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        error_code: i32,
+    ) -> MaybeFuture<'a, SysResult<()>> {
+        MaybeFuture::Future(Box::pin(
+            async move { self.sys_exit(caller, error_code).await },
+        ))
     }
 
-    async fn exit_group(&self, caller: &Caller<'_>, error_code: i32) -> SysResult<()> {
-        self.sys_exit_group(caller, error_code).await
+    fn exit_group<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        error_code: i32,
+    ) -> MaybeFuture<'a, SysResult<()>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_exit_group(caller, error_code).await
+        }))
     }
 
-    async fn set_tid_address(&self, caller: &Caller<'_>, tidptr: S32Ptr) -> SysResult<i32> {
-        Ok(self.sys_set_tid_address(caller, tidptr))
+    fn set_tid_address<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        tidptr: S32Ptr,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            Ok(self.sys_set_tid_address(caller, tidptr))
+        }))
     }
 
-    async fn set_robust_list(
-        &self,
-        caller: &Caller<'_>,
+    fn set_robust_list<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         head: RobustListHeadPtr,
         len: Usize,
-    ) -> SysResult<i32> {
-        self.sys_set_robust_list(caller, head, len)
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_set_robust_list(caller, head, len)
+        }))
     }
 
-    async fn get_robust_list(
-        &self,
-        caller: &Caller<'_>,
+    fn get_robust_list<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pid: i32,
         head_ptr: RobustListHeadPtrPtr,
         len_ptr: UsizePtr,
-    ) -> SysResult<i32> {
-        self.sys_get_robust_list(caller, pid, head_ptr, len_ptr)
-            .await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_get_robust_list(caller, pid, head_ptr, len_ptr)
+                .await
+        }))
     }
 
     #[allow(clippy::too_many_arguments)]
-    async fn futex_time64(
-        &self,
-        caller: &Caller<'_>,
+    fn futex_time64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         uaddr: U32Ptr,
         op: FutexOp,
         val: u32,
         utime: Ulong,
         uaddr2: U32Ptr,
         val3: u32,
-    ) -> SysResult<i32> {
-        self.sys_futex(caller, uaddr, op, val, utime, uaddr2, val3)
-            .await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_futex(caller, uaddr, op, val, utime, uaddr2, val3)
+                .await
+        }))
     }
 
-    async fn futex_waitv(
-        &self,
-        caller: &Caller<'_>,
+    fn futex_waitv<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         waiters: wasixv2_abi::ConstFutexWaitvArray,
         nr_futexes: u32,
         flags: u32,
         timeout: KernelTimespecPtr,
         clockid: wasixv2_abi::ClockId,
-    ) -> SysResult<i32> {
-        self.sys_futex_waitv(caller, waiters, nr_futexes, flags, timeout, clockid)
-            .await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_futex_waitv(caller, waiters, nr_futexes, flags, timeout, clockid)
+                .await
+        }))
     }
 
-    async fn futex_wake(
-        &self,
-        caller: &Caller<'_>,
+    fn futex_wake<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         uaddr: U32Ptr,
         mask: Ulong,
         nr: i32,
         flags: wasixv2_abi::Futex2Flags,
-    ) -> SysResult<i32> {
-        self.sys_futex_wake(caller, uaddr, mask, nr, flags).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_futex_wake(caller, uaddr, mask, nr, flags).await
+        }))
     }
 
     #[allow(clippy::too_many_arguments)]
-    async fn futex_wait(
-        &self,
-        caller: &Caller<'_>,
+    fn futex_wait<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         uaddr: U32Ptr,
         val: Ulong,
         mask: Ulong,
         flags: wasixv2_abi::Futex2Flags,
         timeout: KernelTimespecPtr,
         clockid: wasixv2_abi::ClockId,
-    ) -> SysResult<i32> {
-        self.sys_futex_wait(caller, uaddr, val, mask, flags, timeout, clockid)
-            .await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_futex_wait(caller, uaddr, val, mask, flags, timeout, clockid)
+                .await
+        }))
     }
 
-    async fn futex_requeue(
-        &self,
-        caller: &Caller<'_>,
+    fn futex_requeue<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         waiters: wasixv2_abi::ConstFutexWaitvArray,
         flags: u32,
         nr_wake: i32,
         nr_requeue: i32,
-    ) -> SysResult<i32> {
-        self.sys_futex_requeue(caller, waiters, flags, nr_wake, nr_requeue)
-            .await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_futex_requeue(caller, waiters, flags, nr_wake, nr_requeue)
+                .await
+        }))
     }
     // ---- end thr ----
 
     // ---- proc ----
-    async fn clone(
-        &self,
-        caller: &Caller<'_>,
+    fn clone<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         clone_flags: Ulong,
         newsp: Uptr,
         parent_tidptr: S32Ptr,
         tls: Uptr,
         child_tidptr: S32Ptr,
-    ) -> SysResult<i32> {
-        self.sys_clone(caller, clone_flags, newsp, parent_tidptr, tls, child_tidptr)
-            .await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_clone(caller, clone_flags, newsp, parent_tidptr, tls, child_tidptr)
+                .await
+        }))
     }
 
-    async fn clone3(
-        &self,
-        caller: &Caller<'_>,
+    fn clone3<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         uargs: wasixv2_abi::ConstCloneArgsPtr,
         size: Usize,
-    ) -> SysResult<i32> {
-        self.sys_clone3(caller, uargs, size).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_clone3(caller, uargs, size).await
+        }))
     }
 
-    async fn unshare(&self, caller: &Caller<'_>, unshare_flags: Ulong) -> SysResult<i32> {
-        self.sys_unshare(caller, unshare_flags)
+    fn unshare<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        unshare_flags: Ulong,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(
+            async move { self.sys_unshare(caller, unshare_flags) },
+        ))
     }
 
-    async fn acct(&self, caller: &Caller<'_>, name: Cstr) -> SysResult<i32> {
-        self.sys_acct(caller, name).await
+    fn acct<'a>(&'a self, caller: &'a Caller<'_>, name: Cstr) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move { self.sys_acct(caller, name).await }))
     }
 
-    async fn syslog(&self, caller: &Caller<'_>, r#type: i32, buf: Buf, len: i32) -> SysResult<i32> {
-        self.sys_syslog(caller, r#type, buf, len).await
+    fn syslog<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        r#type: i32,
+        buf: Buf,
+        len: i32,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_syslog(caller, r#type, buf, len).await
+        }))
     }
 
-    async fn mount(
-        &self,
-        caller: &Caller<'_>,
+    fn mount<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         dev_name: Cstr,
         dir_name: Cstr,
         r#type: Cstr,
         flags: wasixv2_abi::MountFlags,
         data: wasixv2_abi::ConstVoidPtr,
-    ) -> SysResult<i32> {
-        self.sys_mount(caller, dev_name, dir_name, r#type, flags, data)
-            .await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_mount(caller, dev_name, dir_name, r#type, flags, data)
+                .await
+        }))
     }
 
-    async fn umount2(
-        &self,
-        caller: &Caller<'_>,
+    fn umount2<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         name: Cstr,
         flags: wasixv2_abi::UmountFlags,
-    ) -> SysResult<i32> {
-        self.sys_umount2(caller, name, flags).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_umount2(caller, name, flags).await
+        }))
     }
 
-    async fn pivot_root(
-        &self,
-        caller: &Caller<'_>,
+    fn pivot_root<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         new_root: Cstr,
         put_old: Cstr,
-    ) -> SysResult<i32> {
-        self.sys_pivot_root(caller, new_root, put_old).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_pivot_root(caller, new_root, put_old).await
+        }))
     }
 
-    async fn mount_setattr(
-        &self,
-        caller: &Caller<'_>,
+    fn mount_setattr<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         dfd: Fd,
         path: Cstr,
         flags: AtFlags,
         uattr: wasixv2_abi::ConstMountAttrPtr,
         usize: Usize,
-    ) -> SysResult<i32> {
-        self.sys_mount_setattr(caller, dfd, path, flags, uattr, usize)
-            .await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_mount_setattr(caller, dfd, path, flags, uattr, usize)
+                .await
+        }))
     }
 
-    async fn open_tree_attr(
-        &self,
-        caller: &Caller<'_>,
+    fn open_tree_attr<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         dfd: Fd,
         filename: Cstr,
         flags: u32,
         uattr: wasixv2_abi::ConstMountAttrPtr,
         usize: Usize,
-    ) -> SysResult<i32> {
-        self.sys_open_tree_attr(caller, dfd, filename, flags, uattr, usize)
-            .await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_open_tree_attr(caller, dfd, filename, flags, uattr, usize)
+                .await
+        }))
     }
 
-    async fn listns(
-        &self,
-        caller: &Caller<'_>,
+    fn listns<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         req: wasixv2_abi::ConstNsIdReqPtr,
         ns_ids: wasixv2_abi::U64Array,
         nr_ns_ids: Usize,
         flags: u32,
-    ) -> SysResult<i32> {
-        self.sys_listns(caller, req, ns_ids, nr_ns_ids, flags).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_listns(caller, req, ns_ids, nr_ns_ids, flags).await
+        }))
     }
 
-    async fn open_tree(
-        &self,
-        caller: &Caller<'_>,
+    fn open_tree<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         dfd: Fd,
         filename: Cstr,
         flags: u32,
-    ) -> SysResult<i32> {
-        self.sys_open_tree(caller, dfd, filename, flags).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_open_tree(caller, dfd, filename, flags).await
+        }))
     }
 
-    async fn move_mount(
-        &self,
-        caller: &Caller<'_>,
+    fn move_mount<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         from_dfd: Fd,
         from_pathname: Cstr,
         to_dfd: Fd,
         to_pathname: Cstr,
         flags: u32,
-    ) -> SysResult<i32> {
-        self.sys_move_mount(caller, from_dfd, from_pathname, to_dfd, to_pathname, flags)
-            .await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_move_mount(caller, from_dfd, from_pathname, to_dfd, to_pathname, flags)
+                .await
+        }))
     }
 
-    async fn fsopen(&self, caller: &Caller<'_>, fs_name: Cstr, flags: u32) -> SysResult<i32> {
-        self.sys_fsopen(caller, fs_name, flags).await
+    fn fsopen<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        fs_name: Cstr,
+        flags: u32,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_fsopen(caller, fs_name, flags).await
+        }))
     }
 
-    async fn fsconfig(
-        &self,
-        caller: &Caller<'_>,
+    fn fsconfig<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         cmd: u32,
         key: Cstr,
         value: wasixv2_abi::ConstVoidPtr,
         aux: i32,
-    ) -> SysResult<i32> {
-        self.sys_fsconfig(caller, fd, cmd, key, value, aux).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_fsconfig(caller, fd, cmd, key, value, aux).await
+        }))
     }
 
-    async fn fsmount(
-        &self,
-        caller: &Caller<'_>,
+    fn fsmount<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fs_fd: Fd,
         flags: u32,
         attr_flags: u32,
-    ) -> SysResult<i32> {
-        self.sys_fsmount(caller, fs_fd, flags, attr_flags).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_fsmount(caller, fs_fd, flags, attr_flags).await
+        }))
     }
 
-    async fn fspick(&self, caller: &Caller<'_>, dfd: Fd, path: Cstr, flags: u32) -> SysResult<i32> {
-        self.sys_fspick(caller, dfd, path, flags).await
+    fn fspick<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        dfd: Fd,
+        path: Cstr,
+        flags: u32,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_fspick(caller, dfd, path, flags).await
+        }))
     }
 
-    async fn statmount(
-        &self,
-        caller: &Caller<'_>,
+    fn statmount<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         req: wasixv2_abi::ConstMntIdReqPtr,
         buf: wasixv2_abi::VoidPtr,
         bufsize: Usize,
         flags: u32,
-    ) -> SysResult<i32> {
-        self.sys_statmount(caller, req, buf, bufsize, flags).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_statmount(caller, req, buf, bufsize, flags).await
+        }))
     }
 
-    async fn listmount(
-        &self,
-        caller: &Caller<'_>,
+    fn listmount<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         req: wasixv2_abi::ConstMntIdReqPtr,
         mnt_ids: wasixv2_abi::U64Array,
         nr_mnt_ids: Usize,
         flags: u32,
-    ) -> SysResult<i32> {
-        self.sys_listmount(caller, req, mnt_ids, nr_mnt_ids, flags)
-            .await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_listmount(caller, req, mnt_ids, nr_mnt_ids, flags)
+                .await
+        }))
     }
 
-    async fn setns(&self, caller: &Caller<'_>, fd: Fd, flags: i32) -> SysResult<i32> {
-        self.sys_setns(caller, fd, flags)
+    fn setns<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        fd: Fd,
+        flags: i32,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move { self.sys_setns(caller, fd, flags) }))
     }
 
-    async fn execve(
-        &self,
-        caller: &Caller<'_>,
+    fn execve<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         filename: Cstr,
         argv: wasixv2_abi::CstrArray,
         envp: wasixv2_abi::CstrArray,
-    ) -> SysResult<i32> {
-        let cwd = Fd(wasixv2_abi::AtFd::AT_FDCWD.0);
-        self.sys_execveat(caller, cwd, filename, argv, envp, AtFlags(0))
-            .await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            let cwd = Fd(wasixv2_abi::AtFd::AT_FDCWD.0);
+            self.sys_execveat(caller, cwd, filename, argv, envp, AtFlags(0))
+                .await
+        }))
     }
 
-    async fn execveat(
-        &self,
-        caller: &Caller<'_>,
+    fn execveat<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         filename: Cstr,
         argv: wasixv2_abi::CstrArray,
         envp: wasixv2_abi::CstrArray,
         flags: AtFlags,
-    ) -> SysResult<i32> {
-        self.sys_execveat(caller, fd, filename, argv, envp, flags)
-            .await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_execveat(caller, fd, filename, argv, envp, flags)
+                .await
+        }))
     }
 
-    async fn waitid(
-        &self,
-        caller: &Caller<'_>,
+    fn waitid<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         which: wasixv2_abi::Idtype,
         upid: Pid,
         infop: wasixv2_abi::SiginfoPtr,
         options: wasixv2_abi::WaitOptions,
         ru: RusagePtr,
-    ) -> SysResult<i32> {
-        self.sys_waitid(caller, which, upid, infop, options, ru)
-            .await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_waitid(caller, which, upid, infop, options, ru)
+                .await
+        }))
     }
 
-    async fn ptrace(
-        &self,
-        caller: &Caller<'_>,
+    fn ptrace<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         request: wasixv2_abi::PtraceRequest,
         pid: Pid,
         addr: Uptr,
         data: Ulong,
-    ) -> SysResult<i32> {
-        self.sys_ptrace(caller, request, pid, addr, data).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_ptrace(caller, request, pid, addr, data).await
+        }))
     }
 
-    async fn kcmp(
-        &self,
-        caller: &Caller<'_>,
+    fn kcmp<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pid1: Pid,
         pid2: Pid,
         r#type: i32,
         idx1: Ulong,
         idx2: Ulong,
-    ) -> SysResult<i32> {
-        self.sys_kcmp(caller, pid1, pid2, r#type, idx1, idx2).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_kcmp(caller, pid1, pid2, r#type, idx1, idx2).await
+        }))
     }
 
-    async fn pidfd_getfd(
-        &self,
-        caller: &Caller<'_>,
+    fn pidfd_getfd<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pidfd: Fd,
         fd: Fd,
         flags: u32,
-    ) -> SysResult<i32> {
-        self.sys_pidfd_getfd(caller, pidfd, fd, flags)
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_pidfd_getfd(caller, pidfd, fd, flags)
+        }))
     }
 
-    async fn pidfd_open(&self, caller: &Caller<'_>, pid: Pid, flags: u32) -> SysResult<Fd> {
-        self.sys_pidfd_open(caller, pid, flags)
+    fn pidfd_open<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        pid: Pid,
+        flags: u32,
+    ) -> MaybeFuture<'a, SysResult<Fd>> {
+        MaybeFuture::Future(Box::pin(
+            async move { self.sys_pidfd_open(caller, pid, flags) },
+        ))
     }
 
-    async fn pidfd_send_signal(
-        &self,
-        caller: &Caller<'_>,
+    fn pidfd_send_signal<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pidfd: Fd,
         sig: Signal,
         info: wasixv2_abi::ConstSiginfoPtr,
         flags: u32,
-    ) -> SysResult<i32> {
-        self.sys_pidfd_send_signal(caller, pidfd, sig, info, flags)
-            .await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_pidfd_send_signal(caller, pidfd, sig, info, flags)
+                .await
+        }))
     }
     // ---- end proc ----
 
     /// `task_tgid_vnr(current)`: the leader is in the caller's own pid namespace.
-    async fn getpid(&self, caller: &Caller<'_>) -> SysResult<Pid> {
-        Ok(self.pids.own_nr(self.process(caller.task()).pid.0))
+    fn getpid<'a>(&'a self, caller: &'a Caller<'_>) -> MaybeFuture<'a, SysResult<Pid>> {
+        MaybeFuture::Ready(Ok(self.pids.own_nr(self.process(caller.task()).pid.0)))
     }
 
-    async fn gettid(&self, caller: &Caller<'_>) -> SysResult<Pid> {
-        Ok(self.own_tid(caller.task()))
+    fn gettid<'a>(&'a self, caller: &'a Caller<'_>) -> MaybeFuture<'a, SysResult<Pid>> {
+        MaybeFuture::Ready(Ok(self.own_tid(caller.task())))
     }
 
     // ---- sig ----
 
-    async fn signal_callback_register(&self, caller: &Caller<'_>, callback: u32) -> SysResult<i32> {
-        self.sys_signal_callback_register(caller, callback).await
+    fn signal_callback_register<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        callback: u32,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_signal_callback_register(caller, callback).await
+        }))
     }
 
-    async fn rt_sigaction(
-        &self,
-        caller: &Caller<'_>,
+    fn rt_sigaction<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         sig: Signal,
         act: wasixv2_abi::ConstSigactionPtr,
         oact: wasixv2_abi::SigactionPtr,
         sigsetsize: Usize,
-    ) -> SysResult<i32> {
-        self.sys_rt_sigaction(caller, sig, act, oact, sigsetsize)
-            .await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_rt_sigaction(caller, sig, act, oact, sigsetsize)
+                .await
+        }))
     }
 
-    async fn rt_sigprocmask(
-        &self,
-        caller: &Caller<'_>,
+    fn rt_sigprocmask<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         how: SigprocmaskHow,
         nset: ConstSigsetPtr,
         oset: SigsetPtr,
         sigsetsize: Usize,
-    ) -> SysResult<i32> {
-        self.sys_rt_sigprocmask(caller, how, nset, oset, sigsetsize)
-            .await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_rt_sigprocmask(caller, how, nset, oset, sigsetsize)
+                .await
+        }))
     }
 
-    async fn rt_sigpending(
-        &self,
-        caller: &Caller<'_>,
+    fn rt_sigpending<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         uset: SigsetPtr,
         sigsetsize: Usize,
-    ) -> SysResult<i32> {
-        self.sys_rt_sigpending(caller, uset, sigsetsize).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_rt_sigpending(caller, uset, sigsetsize).await
+        }))
     }
 
-    async fn rt_sigsuspend(
-        &self,
-        caller: &Caller<'_>,
+    fn rt_sigsuspend<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         unewset: ConstSigsetPtr,
         sigsetsize: Usize,
-    ) -> SysResult<i32> {
-        self.sys_rt_sigsuspend(caller, unewset, sigsetsize).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_rt_sigsuspend(caller, unewset, sigsetsize).await
+        }))
     }
 
-    async fn rt_sigtimedwait_time64(
-        &self,
-        caller: &Caller<'_>,
+    fn rt_sigtimedwait_time64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         uthese: ConstSigsetPtr,
         uinfo: wasixv2_abi::SiginfoPtr,
         uts: ConstKernelTimespecPtr,
         sigsetsize: Usize,
-    ) -> SysResult<i32> {
-        self.sys_rt_sigtimedwait(caller, uthese, uinfo, uts, sigsetsize)
-            .await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_rt_sigtimedwait(caller, uthese, uinfo, uts, sigsetsize)
+                .await
+        }))
     }
 
-    async fn rt_sigqueueinfo(
-        &self,
-        caller: &Caller<'_>,
+    fn rt_sigqueueinfo<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pid: Pid,
         sig: Signal,
         uinfo: wasixv2_abi::ConstSiginfoPtr,
-    ) -> SysResult<i32> {
-        self.sys_rt_sigqueueinfo(caller, pid, None, sig, uinfo)
-            .await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_rt_sigqueueinfo(caller, pid, None, sig, uinfo)
+                .await
+        }))
     }
 
-    async fn rt_tgsigqueueinfo(
-        &self,
-        caller: &Caller<'_>,
+    fn rt_tgsigqueueinfo<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         tgid: Pid,
         pid: Pid,
         sig: Signal,
         uinfo: wasixv2_abi::ConstSiginfoPtr,
-    ) -> SysResult<i32> {
-        self.sys_rt_sigqueueinfo(caller, tgid, Some(pid), sig, uinfo)
-            .await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_rt_sigqueueinfo(caller, tgid, Some(pid), sig, uinfo)
+                .await
+        }))
     }
 
-    async fn sigaltstack(
-        &self,
-        caller: &Caller<'_>,
+    fn sigaltstack<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         uss: wasixv2_abi::ConstSigaltstackPtr,
         uoss: wasixv2_abi::SigaltstackPtr,
-    ) -> SysResult<i32> {
-        self.sys_sigaltstack(caller, uss, uoss).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_sigaltstack(caller, uss, uoss).await
+        }))
     }
 
-    async fn kill(&self, caller: &Caller<'_>, pid: Pid, sig: Signal) -> SysResult<i32> {
-        self.sys_kill(caller, pid, sig).await
+    fn kill<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        pid: Pid,
+        sig: Signal,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(
+            async move { self.sys_kill(caller, pid, sig).await },
+        ))
     }
 
-    async fn tkill(&self, caller: &Caller<'_>, pid: Pid, sig: Signal) -> SysResult<i32> {
-        self.sys_tgkill(caller, None, pid, sig).await
+    fn tkill<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        pid: Pid,
+        sig: Signal,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_tgkill(caller, None, pid, sig).await
+        }))
     }
 
-    async fn tgkill(
-        &self,
-        caller: &Caller<'_>,
+    fn tgkill<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         tgid: Pid,
         pid: Pid,
         sig: Signal,
-    ) -> SysResult<i32> {
-        self.sys_tgkill(caller, Some(tgid), pid, sig).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_tgkill(caller, Some(tgid), pid, sig).await
+        }))
     }
 
-    async fn setitimer(
-        &self,
-        caller: &Caller<'_>,
+    fn setitimer<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         which: wasixv2_abi::ItimerWhich,
         value: wasixv2_abi::ConstKernelOldItimervalPtr,
         ovalue: wasixv2_abi::KernelOldItimervalPtr,
-    ) -> SysResult<i32> {
-        self.sys_setitimer(caller, which, value, ovalue).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_setitimer(caller, which, value, ovalue).await
+        }))
     }
 
-    async fn getitimer(
-        &self,
-        caller: &Caller<'_>,
+    fn getitimer<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         which: wasixv2_abi::ItimerWhich,
         value: wasixv2_abi::KernelOldItimervalPtr,
-    ) -> SysResult<i32> {
-        self.sys_getitimer(caller, which, value).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_getitimer(caller, which, value).await
+        }))
     }
 
-    async fn timer_create(
-        &self,
-        caller: &Caller<'_>,
+    fn timer_create<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         which_clock: ClockId,
         timer_event_spec: wasixv2_abi::ConstSigeventPtr,
         created_timer_id: wasixv2_abi::TimerIdPtr,
-    ) -> SysResult<i32> {
-        self.sys_timer_create(caller, which_clock, timer_event_spec, created_timer_id)
-            .await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_timer_create(caller, which_clock, timer_event_spec, created_timer_id)
+                .await
+        }))
     }
 
-    async fn timer_settime64(
-        &self,
-        caller: &Caller<'_>,
+    fn timer_settime64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         timer_id: wasixv2_abi::TimerId,
         flags: TimerFlags,
         new_setting: ConstKernelItimerspecPtr,
         old_setting: KernelItimerspecPtr,
-    ) -> SysResult<i32> {
-        self.sys_timer_settime(caller, timer_id, flags, new_setting, old_setting)
-            .await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_timer_settime(caller, timer_id, flags, new_setting, old_setting)
+                .await
+        }))
     }
 
-    async fn timer_gettime64(
-        &self,
-        caller: &Caller<'_>,
+    fn timer_gettime64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         timer_id: wasixv2_abi::TimerId,
         setting: KernelItimerspecPtr,
-    ) -> SysResult<i32> {
-        self.sys_timer_gettime(caller, timer_id, setting).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_timer_gettime(caller, timer_id, setting).await
+        }))
     }
 
-    async fn timer_getoverrun(
-        &self,
-        caller: &Caller<'_>,
+    fn timer_getoverrun<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         timer_id: wasixv2_abi::TimerId,
-    ) -> SysResult<i32> {
-        self.sys_timer_getoverrun(caller, timer_id)
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_timer_getoverrun(caller, timer_id)
+        }))
     }
 
-    async fn timer_delete(
-        &self,
-        caller: &Caller<'_>,
+    fn timer_delete<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         timer_id: wasixv2_abi::TimerId,
-    ) -> SysResult<i32> {
-        self.sys_timer_delete(caller, timer_id)
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(
+            async move { self.sys_timer_delete(caller, timer_id) },
+        ))
     }
 
     // ---- base ----
-    async fn getppid(&self, caller: &Caller<'_>) -> SysResult<Pid> {
-        Ok(self.sys_getppid(caller))
+    fn getppid<'a>(&'a self, caller: &'a Caller<'_>) -> MaybeFuture<'a, SysResult<Pid>> {
+        MaybeFuture::Future(Box::pin(async move { Ok(self.sys_getppid(caller)) }))
     }
-    async fn getuid(&self, caller: &Caller<'_>) -> SysResult<i32> {
-        Ok(self.sys_getid(caller, IdKind::User, false))
+    fn getuid<'a>(&'a self, caller: &'a Caller<'_>) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            Ok(self.sys_getid(caller, IdKind::User, false))
+        }))
     }
-    async fn geteuid(&self, caller: &Caller<'_>) -> SysResult<i32> {
-        Ok(self.sys_getid(caller, IdKind::User, true))
+    fn geteuid<'a>(&'a self, caller: &'a Caller<'_>) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            Ok(self.sys_getid(caller, IdKind::User, true))
+        }))
     }
-    async fn getgid(&self, caller: &Caller<'_>) -> SysResult<i32> {
-        Ok(self.sys_getid(caller, IdKind::Group, false))
+    fn getgid<'a>(&'a self, caller: &'a Caller<'_>) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            Ok(self.sys_getid(caller, IdKind::Group, false))
+        }))
     }
-    async fn getegid(&self, caller: &Caller<'_>) -> SysResult<i32> {
-        Ok(self.sys_getid(caller, IdKind::Group, true))
+    fn getegid<'a>(&'a self, caller: &'a Caller<'_>) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            Ok(self.sys_getid(caller, IdKind::Group, true))
+        }))
     }
-    async fn setuid(&self, caller: &Caller<'_>, uid: Uid) -> SysResult<i32> {
-        self.sys_set_ids(caller, IdKind::User, IdChange::Id(uid))
+    fn setuid<'a>(&'a self, caller: &'a Caller<'_>, uid: Uid) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_set_ids(caller, IdKind::User, IdChange::Id(uid))
+        }))
     }
-    async fn setgid(&self, caller: &Caller<'_>, gid: Gid) -> SysResult<i32> {
-        self.sys_set_ids(caller, IdKind::Group, IdChange::Id(gid))
+    fn setgid<'a>(&'a self, caller: &'a Caller<'_>, gid: Gid) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_set_ids(caller, IdKind::Group, IdChange::Id(gid))
+        }))
     }
-    async fn setreuid(&self, caller: &Caller<'_>, ruid: Uid, euid: Uid) -> SysResult<i32> {
-        self.sys_set_ids(caller, IdKind::User, IdChange::Re(given(ruid), given(euid)))
+    fn setreuid<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        ruid: Uid,
+        euid: Uid,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_set_ids(caller, IdKind::User, IdChange::Re(given(ruid), given(euid)))
+        }))
     }
-    async fn setregid(&self, caller: &Caller<'_>, rgid: Gid, egid: Gid) -> SysResult<i32> {
-        self.sys_set_ids(
-            caller,
-            IdKind::Group,
-            IdChange::Re(given(rgid), given(egid)),
-        )
+    fn setregid<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        rgid: Gid,
+        egid: Gid,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_set_ids(
+                caller,
+                IdKind::Group,
+                IdChange::Re(given(rgid), given(egid)),
+            )
+        }))
     }
-    async fn setresuid(&self, caller: &Caller<'_>, r: Uid, e: Uid, s: Uid) -> SysResult<i32> {
-        self.sys_set_ids(
-            caller,
-            IdKind::User,
-            IdChange::Res(given(r), given(e), given(s)),
-        )
+    fn setresuid<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        r: Uid,
+        e: Uid,
+        s: Uid,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_set_ids(
+                caller,
+                IdKind::User,
+                IdChange::Res(given(r), given(e), given(s)),
+            )
+        }))
     }
-    async fn setresgid(&self, caller: &Caller<'_>, r: Gid, e: Gid, s: Gid) -> SysResult<i32> {
-        self.sys_set_ids(
-            caller,
-            IdKind::Group,
-            IdChange::Res(given(r), given(e), given(s)),
-        )
+    fn setresgid<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        r: Gid,
+        e: Gid,
+        s: Gid,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_set_ids(
+                caller,
+                IdKind::Group,
+                IdChange::Res(given(r), given(e), given(s)),
+            )
+        }))
     }
-    async fn getresuid(
-        &self,
-        caller: &Caller<'_>,
+    fn getresuid<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         r: UidPtr,
         e: UidPtr,
         s: UidPtr,
-    ) -> SysResult<i32> {
-        self.sys_getresid(caller, IdKind::User, [r, e, s]).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_getresid(caller, IdKind::User, [r, e, s]).await
+        }))
     }
-    async fn getresgid(
-        &self,
-        caller: &Caller<'_>,
+    fn getresgid<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         r: GidPtr,
         e: GidPtr,
         s: GidPtr,
-    ) -> SysResult<i32> {
-        self.sys_getresid(caller, IdKind::Group, [r, e, s]).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_getresid(caller, IdKind::Group, [r, e, s]).await
+        }))
     }
-    async fn setfsuid(&self, caller: &Caller<'_>, uid: Uid) -> SysResult<i32> {
-        self.sys_setfsid(caller, IdKind::User, uid)
+    fn setfsuid<'a>(&'a self, caller: &'a Caller<'_>, uid: Uid) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_setfsid(caller, IdKind::User, uid)
+        }))
     }
-    async fn setfsgid(&self, caller: &Caller<'_>, gid: Gid) -> SysResult<i32> {
-        self.sys_setfsid(caller, IdKind::Group, gid)
+    fn setfsgid<'a>(&'a self, caller: &'a Caller<'_>, gid: Gid) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_setfsid(caller, IdKind::Group, gid)
+        }))
     }
-    async fn getgroups(&self, caller: &Caller<'_>, size: i32, list: GidArray) -> SysResult<i32> {
-        self.sys_getgroups(caller, size, list).await
+    fn getgroups<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        size: i32,
+        list: GidArray,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_getgroups(caller, size, list).await
+        }))
     }
-    async fn setgroups(
-        &self,
-        caller: &Caller<'_>,
+    fn setgroups<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         size: i32,
         list: ConstGidArray,
-    ) -> SysResult<i32> {
-        self.sys_setgroups(caller, size, list).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_setgroups(caller, size, list).await
+        }))
     }
-    async fn capget(
-        &self,
-        caller: &Caller<'_>,
+    fn capget<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         header: wasixv2_abi::UserCapHeaderPtr,
         data: wasixv2_abi::UserCapDataArray,
-    ) -> SysResult<i32> {
-        self.sys_capget(caller, header, data).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_capget(caller, header, data).await
+        }))
     }
-    async fn capset(
-        &self,
-        caller: &Caller<'_>,
+    fn capset<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         header: wasixv2_abi::UserCapHeaderPtr,
         data: wasixv2_abi::ConstUserCapDataArray,
-    ) -> SysResult<i32> {
-        self.sys_capset(caller, header, data).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_capset(caller, header, data).await
+        }))
     }
-    async fn getpgid(&self, caller: &Caller<'_>, pid: Pid) -> SysResult<Pid> {
-        self.sys_getpgid(caller, pid)
+    fn getpgid<'a>(&'a self, caller: &'a Caller<'_>, pid: Pid) -> MaybeFuture<'a, SysResult<Pid>> {
+        MaybeFuture::Future(Box::pin(async move { self.sys_getpgid(caller, pid) }))
     }
-    async fn setpgid(&self, caller: &Caller<'_>, pid: Pid, pgid: Pid) -> SysResult<i32> {
-        self.sys_setpgid(caller, pid, pgid)
+    fn setpgid<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        pid: Pid,
+        pgid: Pid,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move { self.sys_setpgid(caller, pid, pgid) }))
     }
-    async fn getsid(&self, caller: &Caller<'_>, pid: Pid) -> SysResult<Pid> {
-        self.sys_getsid(caller, pid)
+    fn getsid<'a>(&'a self, caller: &'a Caller<'_>, pid: Pid) -> MaybeFuture<'a, SysResult<Pid>> {
+        MaybeFuture::Future(Box::pin(async move { self.sys_getsid(caller, pid) }))
     }
-    async fn setsid(&self, caller: &Caller<'_>) -> SysResult<Pid> {
-        self.sys_setsid(caller)
+    fn setsid<'a>(&'a self, caller: &'a Caller<'_>) -> MaybeFuture<'a, SysResult<Pid>> {
+        MaybeFuture::Future(Box::pin(async move { self.sys_setsid(caller) }))
     }
-    async fn uname(&self, caller: &Caller<'_>, name: NewUtsnamePtr) -> SysResult<i32> {
-        self.sys_uname(caller, name).await
+    fn uname<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        name: NewUtsnamePtr,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move { self.sys_uname(caller, name).await }))
     }
-    async fn reboot(
-        &self,
-        caller: &Caller<'_>,
+    fn reboot<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         magic1: i32,
         magic2: i32,
         cmd: wasixv2_abi::RebootCmd,
         arg: wasixv2_abi::VoidPtr,
-    ) -> SysResult<i32> {
-        self.sys_reboot(caller, magic1, magic2, cmd, arg)
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_reboot(caller, magic1, magic2, cmd, arg)
+        }))
     }
-    async fn sethostname(&self, caller: &Caller<'_>, name: ConstBuf, len: i32) -> SysResult<i32> {
-        self.sys_sethostname(caller, name, len, false).await
+    fn sethostname<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        name: ConstBuf,
+        len: i32,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_sethostname(caller, name, len, false).await
+        }))
     }
-    async fn setdomainname(&self, caller: &Caller<'_>, name: ConstBuf, len: i32) -> SysResult<i32> {
-        self.sys_sethostname(caller, name, len, true).await
+    fn setdomainname<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        name: ConstBuf,
+        len: i32,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_sethostname(caller, name, len, true).await
+        }))
     }
-    async fn personality(&self, caller: &Caller<'_>, personality: u32) -> SysResult<i32> {
-        self.sys_personality(caller, personality)
+    fn personality<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        personality: u32,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_personality(caller, personality)
+        }))
     }
-    async fn prctl(
-        &self,
-        caller: &Caller<'_>,
+    fn prctl<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         option: PrctlOption,
         a2: Ulong,
         a3: Ulong,
         a4: Ulong,
         a5: Ulong,
-    ) -> SysResult<i32> {
-        self.sys_prctl(caller, option, a2, a3, a4, a5).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_prctl(caller, option, a2, a3, a4, a5).await
+        }))
     }
 
-    async fn seccomp(
-        &self,
-        caller: &Caller<'_>,
+    fn seccomp<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         op: u32,
         flags: u32,
         uargs: VoidPtr,
-    ) -> SysResult<i32> {
-        self.sys_seccomp(caller, op, flags, uargs).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_seccomp(caller, op, flags, uargs).await
+        }))
     }
 
-    async fn landlock_create_ruleset(
-        &self,
-        caller: &Caller<'_>,
+    fn landlock_create_ruleset<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         attr: wasixv2_abi::ConstLandlockRulesetAttrPtr,
         size: Usize,
         flags: u32,
-    ) -> SysResult<i32> {
-        self.sys_landlock_create_ruleset(caller, attr, size, flags)
-            .await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_landlock_create_ruleset(caller, attr, size, flags)
+                .await
+        }))
     }
 
-    async fn landlock_add_rule(
-        &self,
-        caller: &Caller<'_>,
+    fn landlock_add_rule<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         ruleset_fd: Fd,
         rule_type: i32,
         rule_attr: wasixv2_abi::ConstVoidPtr,
         flags: u32,
-    ) -> SysResult<i32> {
-        self.sys_landlock_add_rule(caller, ruleset_fd, rule_type, rule_attr.addr(), flags)
-            .await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_landlock_add_rule(caller, ruleset_fd, rule_type, rule_attr.addr(), flags)
+                .await
+        }))
     }
 
-    async fn landlock_restrict_self(
-        &self,
-        caller: &Caller<'_>,
+    fn landlock_restrict_self<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         ruleset_fd: Fd,
         flags: u32,
-    ) -> SysResult<i32> {
-        self.sys_landlock_restrict_self(caller, ruleset_fd, flags)
-            .await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_landlock_restrict_self(caller, ruleset_fd, flags)
+                .await
+        }))
     }
 
-    async fn add_key(
-        &self,
-        caller: &Caller<'_>,
+    fn add_key<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         r#type: Cstr,
         description: Cstr,
         payload: wasixv2_abi::ConstVoidPtr,
         plen: Usize,
         ringid: wasixv2_abi::KeySerial,
-    ) -> SysResult<i32> {
-        let (kind, desc, data) = (r#type.addr(), description.addr(), payload.addr());
-        self.sys_add_key(caller, kind, desc, data, plen, ringid)
-            .await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            let (kind, desc, data) = (r#type.addr(), description.addr(), payload.addr());
+            self.sys_add_key(caller, kind, desc, data, plen, ringid)
+                .await
+        }))
     }
 
-    async fn request_key(
-        &self,
-        caller: &Caller<'_>,
+    fn request_key<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         r#type: Cstr,
         description: Cstr,
         callout_info: Cstr,
         destringid: wasixv2_abi::KeySerial,
-    ) -> SysResult<i32> {
-        let (kind, desc, callout) = (r#type.addr(), description.addr(), callout_info.addr());
-        self.sys_request_key(caller, kind, desc, callout, destringid)
-            .await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            let (kind, desc, callout) = (r#type.addr(), description.addr(), callout_info.addr());
+            self.sys_request_key(caller, kind, desc, callout, destringid)
+                .await
+        }))
     }
 
-    async fn keyctl(
-        &self,
-        caller: &Caller<'_>,
+    fn keyctl<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         option: i32,
         arg2: Ulong,
         arg3: Ulong,
         arg4: Ulong,
         arg5: Ulong,
-    ) -> SysResult<i32> {
-        self.sys_keyctl(caller, option, arg2, arg3, arg4, arg5)
-            .await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_keyctl(caller, option, arg2, arg3, arg4, arg5)
+                .await
+        }))
     }
 
-    async fn lsm_get_self_attr(
-        &self,
-        caller: &Caller<'_>,
+    fn lsm_get_self_attr<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         attr: u32,
         ctx: wasixv2_abi::LsmCtxPtr,
         size: U32Ptr,
         flags: u32,
-    ) -> SysResult<i32> {
-        self.sys_lsm_get_self_attr(caller, attr, ctx.addr(), size, flags)
-            .await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_lsm_get_self_attr(caller, attr, ctx.addr(), size, flags)
+                .await
+        }))
     }
 
-    async fn lsm_set_self_attr(
-        &self,
-        caller: &Caller<'_>,
+    fn lsm_set_self_attr<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         attr: u32,
         ctx: wasixv2_abi::ConstLsmCtxPtr,
         size: u32,
         flags: u32,
-    ) -> SysResult<i32> {
-        self.sys_lsm_set_self_attr(caller, attr, ctx.addr(), size, flags)
-            .await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_lsm_set_self_attr(caller, attr, ctx.addr(), size, flags)
+                .await
+        }))
     }
 
-    async fn lsm_list_modules(
-        &self,
-        caller: &Caller<'_>,
+    fn lsm_list_modules<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         ids: wasixv2_abi::U64Array,
         size: U32Ptr,
         flags: u32,
-    ) -> SysResult<i32> {
-        self.sys_lsm_list_modules(caller, ids.addr(), size, flags)
-            .await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_lsm_list_modules(caller, ids.addr(), size, flags)
+                .await
+        }))
     }
 
-    async fn prlimit64(
-        &self,
-        caller: &Caller<'_>,
+    fn prlimit64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pid: Pid,
         resource: RlimitResource,
         new: ConstRlimit64Ptr,
         old: Rlimit64Ptr,
-    ) -> SysResult<i32> {
-        self.sys_prlimit64(caller, pid, resource, new, old).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_prlimit64(caller, pid, resource, new, old).await
+        }))
     }
-    async fn getrusage(
-        &self,
-        caller: &Caller<'_>,
+    fn getrusage<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         who: RusageWho,
         ru: RusagePtr,
-    ) -> SysResult<i32> {
-        self.sys_getrusage(caller, who, ru).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_getrusage(caller, who, ru).await
+        }))
     }
-    async fn times(&self, caller: &Caller<'_>, tbuf: TmsPtr) -> SysResult<i32> {
-        self.sys_times(caller, tbuf).await
+    fn times<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        tbuf: TmsPtr,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move { self.sys_times(caller, tbuf).await }))
     }
-    async fn sysinfo(&self, caller: &Caller<'_>, info: SysinfoPtr) -> SysResult<i32> {
-        self.sys_sysinfo(caller, info).await
+    fn sysinfo<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        info: SysinfoPtr,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(
+            async move { self.sys_sysinfo(caller, info).await },
+        ))
     }
-    async fn getrandom(
-        &self,
-        caller: &Caller<'_>,
+    fn getrandom<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         buf: UserSliceMut,
         flags: GrndFlags,
-    ) -> SysResult<u32> {
-        self.sys_getrandom(caller, buf, flags).await
+    ) -> MaybeFuture<'a, SysResult<u32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_getrandom(caller, buf, flags).await
+        }))
     }
-    async fn sched_yield(&self, _: &Caller<'_>) -> SysResult<i32> {
-        self.sys_sched_yield().await
+    fn sched_yield<'a>(&'a self, _: &'a Caller<'_>) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move { self.sys_sched_yield().await }))
     }
-    async fn sched_getscheduler(&self, caller: &Caller<'_>, pid: Pid) -> SysResult<i32> {
-        self.sys_sched_getscheduler(caller, pid)
+    fn sched_getscheduler<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        pid: Pid,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(
+            async move { self.sys_sched_getscheduler(caller, pid) },
+        ))
     }
-    async fn sched_setscheduler(
-        &self,
-        caller: &Caller<'_>,
+    fn sched_setscheduler<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pid: Pid,
         policy: SchedPolicy,
         param: ConstSchedParamPtr,
-    ) -> SysResult<i32> {
-        self.sys_sched_setscheduler(caller, pid, Some(policy), param)
-            .await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_sched_setscheduler(caller, pid, Some(policy), param)
+                .await
+        }))
     }
-    async fn sched_setparam(
-        &self,
-        caller: &Caller<'_>,
+    fn sched_setparam<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pid: Pid,
         param: ConstSchedParamPtr,
-    ) -> SysResult<i32> {
-        self.sys_sched_setscheduler(caller, pid, None, param).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_sched_setscheduler(caller, pid, None, param).await
+        }))
     }
-    async fn sched_getparam(
-        &self,
-        caller: &Caller<'_>,
+    fn sched_getparam<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pid: Pid,
         param: SchedParamPtr,
-    ) -> SysResult<i32> {
-        self.sys_sched_getparam(caller, pid, param).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_sched_getparam(caller, pid, param).await
+        }))
     }
-    async fn sched_setattr(
-        &self,
-        caller: &Caller<'_>,
+    fn sched_setattr<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pid: Pid,
         uattr: SchedAttrPtr,
         flags: u32,
-    ) -> SysResult<i32> {
-        self.sys_sched_setattr(caller, pid, uattr, flags).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_sched_setattr(caller, pid, uattr, flags).await
+        }))
     }
-    async fn sched_getattr(
-        &self,
-        caller: &Caller<'_>,
+    fn sched_getattr<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pid: Pid,
         uattr: SchedAttrPtr,
         usize: u32,
         flags: u32,
-    ) -> SysResult<i32> {
-        self.sys_sched_getattr(caller, pid, uattr, usize, flags)
-            .await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_sched_getattr(caller, pid, uattr, usize, flags)
+                .await
+        }))
     }
-    async fn sched_get_priority_max(&self, _: &Caller<'_>, policy: SchedPolicy) -> SysResult<i32> {
-        self.sys_sched_priority(policy, true)
+    fn sched_get_priority_max<'a>(
+        &'a self,
+        _: &'a Caller<'_>,
+        policy: SchedPolicy,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(
+            async move { self.sys_sched_priority(policy, true) },
+        ))
     }
-    async fn sched_get_priority_min(&self, _: &Caller<'_>, policy: SchedPolicy) -> SysResult<i32> {
-        self.sys_sched_priority(policy, false)
+    fn sched_get_priority_min<'a>(
+        &'a self,
+        _: &'a Caller<'_>,
+        policy: SchedPolicy,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(
+            async move { self.sys_sched_priority(policy, false) },
+        ))
     }
-    async fn sched_rr_get_interval_time64(
-        &self,
-        caller: &Caller<'_>,
+    fn sched_rr_get_interval_time64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pid: Pid,
         interval: KernelTimespecPtr,
-    ) -> SysResult<i32> {
-        self.sys_sched_rr_get_interval(caller, pid, interval).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_sched_rr_get_interval(caller, pid, interval).await
+        }))
     }
-    async fn sched_getaffinity(
-        &self,
-        caller: &Caller<'_>,
+    fn sched_getaffinity<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pid: Pid,
         len: u32,
         mask: UlongArray,
-    ) -> SysResult<i32> {
-        self.sys_sched_getaffinity(caller, pid, len, mask).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_sched_getaffinity(caller, pid, len, mask).await
+        }))
     }
-    async fn sched_setaffinity(
-        &self,
-        caller: &Caller<'_>,
+    fn sched_setaffinity<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pid: Pid,
         len: u32,
         mask: UlongArray,
-    ) -> SysResult<i32> {
-        self.sys_sched_setaffinity(caller, pid, len, mask).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_sched_setaffinity(caller, pid, len, mask).await
+        }))
     }
-    async fn getcpu(
-        &self,
-        caller: &Caller<'_>,
+    fn getcpu<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         cpu: U32Ptr,
         node: U32Ptr,
         _: VoidPtr,
-    ) -> SysResult<i32> {
-        self.sys_getcpu(caller, cpu, node).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(
+            async move { self.sys_getcpu(caller, cpu, node).await },
+        ))
     }
-    async fn ioprio_set(
-        &self,
-        caller: &Caller<'_>,
+    fn ioprio_set<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         which: i32,
         who: i32,
         ioprio: i32,
-    ) -> SysResult<i32> {
-        self.sys_ioprio_set(caller, which, who, ioprio)
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_ioprio_set(caller, which, who, ioprio)
+        }))
     }
-    async fn ioprio_get(&self, caller: &Caller<'_>, which: i32, who: i32) -> SysResult<i32> {
-        self.sys_ioprio_get(caller, which, who)
+    fn ioprio_get<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        which: i32,
+        who: i32,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(
+            async move { self.sys_ioprio_get(caller, which, who) },
+        ))
     }
-    async fn getpriority(&self, caller: &Caller<'_>, which: PrioWhich, who: i32) -> SysResult<i32> {
-        self.sys_getpriority(caller, which, who)
+    fn getpriority<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        which: PrioWhich,
+        who: i32,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(
+            async move { self.sys_getpriority(caller, which, who) },
+        ))
     }
-    async fn setpriority(
-        &self,
-        caller: &Caller<'_>,
+    fn setpriority<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         which: PrioWhich,
         who: i32,
         nice: i32,
-    ) -> SysResult<i32> {
-        self.sys_setpriority(caller, which, who, nice)
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_setpriority(caller, which, who, nice)
+        }))
     }
-    async fn membarrier(
-        &self,
-        caller: &Caller<'_>,
+    fn membarrier<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         cmd: MembarrierCmd,
         flags: MembarrierCmdFlags,
         _: i32,
-    ) -> SysResult<i32> {
-        self.sys_membarrier(caller, cmd, flags)
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(
+            async move { self.sys_membarrier(caller, cmd, flags) },
+        ))
     }
-    async fn brk(&self, caller: &Caller<'_>, brk: Uptr) -> SysResult<i32> {
-        self.sys_brk(caller, brk).await
+    fn brk<'a>(&'a self, caller: &'a Caller<'_>, brk: Uptr) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move { self.sys_brk(caller, brk).await }))
     }
-    async fn mmap(
-        &self,
-        caller: &Caller<'_>,
+    fn mmap<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         addr: Uptr,
         len: Ulong,
         prot: ProtFlags,
         flags: MapFlags,
         fd: Fd,
         offset: Loff,
-    ) -> SysResult<Uptr> {
-        self.sys_mmap(caller, addr, len, prot, flags, fd, offset)
-            .await
+    ) -> MaybeFuture<'a, SysResult<Uptr>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_mmap(caller, addr, len, prot, flags, fd, offset)
+                .await
+        }))
     }
-    async fn munmap(&self, caller: &Caller<'_>, addr: Uptr, len: Usize) -> SysResult<i32> {
-        self.sys_munmap(caller, addr, len).await
+    fn munmap<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        addr: Uptr,
+        len: Usize,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(
+            async move { self.sys_munmap(caller, addr, len).await },
+        ))
     }
-    async fn mremap(
-        &self,
-        caller: &Caller<'_>,
+    fn mremap<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         addr: Uptr,
         old_len: Ulong,
         new_len: Ulong,
         flags: MremapFlags,
         new_addr: Uptr,
-    ) -> SysResult<i32> {
-        self.sys_mremap(caller, addr, old_len, new_len, flags, new_addr)
-            .await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_mremap(caller, addr, old_len, new_len, flags, new_addr)
+                .await
+        }))
     }
-    async fn mprotect(
-        &self,
-        caller: &Caller<'_>,
+    fn mprotect<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         start: Uptr,
         len: Usize,
         prot: ProtFlags,
-    ) -> SysResult<i32> {
-        self.sys_mprotect(caller, start, len, prot).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_mprotect(caller, start, len, prot).await
+        }))
     }
-    async fn madvise(
-        &self,
-        caller: &Caller<'_>,
+    fn madvise<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         start: Uptr,
         len: Usize,
         advice: MadviseAdvice,
-    ) -> SysResult<i32> {
-        self.sys_madvise(caller, start, len, advice).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_madvise(caller, start, len, advice).await
+        }))
     }
-    async fn vhangup(&self, caller: &Caller<'_>) -> SysResult<i32> {
-        self.sys_vhangup(caller.task())
+    fn vhangup<'a>(&'a self, caller: &'a Caller<'_>) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move { self.sys_vhangup(caller.task()) }))
     }
-    async fn process_vm_readv(
-        &self,
-        caller: &Caller<'_>,
+    fn process_vm_readv<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pid: Pid,
         lvec: wasixv2_abi::ConstIovecArray,
         liovcnt: Ulong,
         rvec: wasixv2_abi::ConstIovecArray,
         riovcnt: Ulong,
         flags: Ulong,
-    ) -> SysResult<i32> {
-        self.sys_process_vm_rw(caller, pid, lvec, liovcnt, rvec, riovcnt, flags, false)
-            .await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_process_vm_rw(caller, pid, lvec, liovcnt, rvec, riovcnt, flags, false)
+                .await
+        }))
     }
-    async fn process_vm_writev(
-        &self,
-        caller: &Caller<'_>,
+    fn process_vm_writev<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pid: Pid,
         lvec: wasixv2_abi::ConstIovecArray,
         liovcnt: Ulong,
         rvec: wasixv2_abi::ConstIovecArray,
         riovcnt: Ulong,
         flags: Ulong,
-    ) -> SysResult<i32> {
-        self.sys_process_vm_rw(caller, pid, lvec, liovcnt, rvec, riovcnt, flags, true)
-            .await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_process_vm_rw(caller, pid, lvec, liovcnt, rvec, riovcnt, flags, true)
+                .await
+        }))
     }
-    async fn remap_file_pages(
-        &self,
-        caller: &Caller<'_>,
+    fn remap_file_pages<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         start: Uptr,
         size: Ulong,
         prot: Ulong,
         pgoff: Ulong,
         _flags: Ulong,
-    ) -> SysResult<i32> {
-        // `flags` are ignored but for `MAP_NONBLOCK`, which changes nothing here.
-        self.sys_remap_file_pages(caller, start, size, prot, pgoff)
-            .await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            // `flags` are ignored but for `MAP_NONBLOCK`, which changes nothing here.
+            self.sys_remap_file_pages(caller, start, size, prot, pgoff)
+                .await
+        }))
     }
-    async fn mseal(
-        &self,
-        caller: &Caller<'_>,
+    fn mseal<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         start: Uptr,
         len: Usize,
         flags: Ulong,
-    ) -> SysResult<i32> {
-        self.sys_mseal(caller, start, len, flags).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_mseal(caller, start, len, flags).await
+        }))
     }
-    async fn process_mrelease(&self, caller: &Caller<'_>, pidfd: Fd, flags: u32) -> SysResult<i32> {
-        self.sys_process_mrelease(caller, pidfd, flags).await
+    fn process_mrelease<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        pidfd: Fd,
+        flags: u32,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_process_mrelease(caller, pidfd, flags).await
+        }))
     }
 
-    async fn process_madvise(
-        &self,
-        caller: &Caller<'_>,
+    fn process_madvise<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         pidfd: Fd,
         vec: wasixv2_abi::ConstIovecArray,
         vlen: Usize,
         behavior: MadviseAdvice,
         flags: u32,
-    ) -> SysResult<i32> {
-        self.sys_process_madvise(caller, pidfd, vec, vlen, behavior, flags)
-            .await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_process_madvise(caller, pidfd, vec, vlen, behavior, flags)
+                .await
+        }))
     }
-    async fn cachestat(
-        &self,
-        caller: &Caller<'_>,
+    fn cachestat<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         cstat_range: wasixv2_abi::ConstCachestatRangePtr,
         cstat: wasixv2_abi::CachestatPtr,
         flags: u32,
-    ) -> SysResult<i32> {
-        self.sys_cachestat(caller, fd, cstat_range, cstat, flags)
-            .await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_cachestat(caller, fd, cstat_range, cstat, flags)
+                .await
+        }))
     }
-    async fn mincore(
-        &self,
-        caller: &Caller<'_>,
+    fn mincore<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         start: Uptr,
         len: Usize,
         vec: Buf,
-    ) -> SysResult<i32> {
-        self.sys_mincore(caller, start, len, vec).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_mincore(caller, start, len, vec).await
+        }))
     }
-    async fn msync(
-        &self,
-        caller: &Caller<'_>,
+    fn msync<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         start: Uptr,
         len: Usize,
         flags: MsyncFlags,
-    ) -> SysResult<i32> {
-        self.sys_msync(caller, start, len, flags).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_msync(caller, start, len, flags).await
+        }))
     }
-    async fn mlock(&self, caller: &Caller<'_>, start: Uptr, len: Usize) -> SysResult<i32> {
-        self.sys_mlock(caller, start, len, MlockFlags::empty())
-            .await
+    fn mlock<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        start: Uptr,
+        len: Usize,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_mlock(caller, start, len, MlockFlags::empty())
+                .await
+        }))
     }
-    async fn mlock2(
-        &self,
-        caller: &Caller<'_>,
+    fn mlock2<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         start: Uptr,
         len: Usize,
         flags: MlockFlags,
-    ) -> SysResult<i32> {
-        self.sys_mlock(caller, start, len, flags).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_mlock(caller, start, len, flags).await
+        }))
     }
-    async fn munlock(&self, caller: &Caller<'_>, start: Uptr, len: Usize) -> SysResult<i32> {
-        self.sys_munlock(caller, start, len).await
+    fn munlock<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        start: Uptr,
+        len: Usize,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_munlock(caller, start, len).await
+        }))
     }
-    async fn mlockall(&self, caller: &Caller<'_>, flags: MclFlags) -> SysResult<i32> {
-        self.sys_mlockall(caller, flags).await
+    fn mlockall<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        flags: MclFlags,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(
+            async move { self.sys_mlockall(caller, flags).await },
+        ))
     }
-    async fn munlockall(&self, caller: &Caller<'_>) -> SysResult<i32> {
-        self.sys_munlockall(caller).await
+    fn munlockall<'a>(&'a self, caller: &'a Caller<'_>) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move { self.sys_munlockall(caller).await }))
     }
-    async fn memfd_create(
-        &self,
-        caller: &Caller<'_>,
+    fn memfd_create<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         uname: Cstr,
         flags: MemfdFlags,
-    ) -> SysResult<Fd> {
-        self.sys_memfd_create(caller, uname, flags).await
+    ) -> MaybeFuture<'a, SysResult<Fd>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_memfd_create(caller, uname, flags).await
+        }))
     }
-    async fn clock_gettime64(
-        &self,
-        caller: &Caller<'_>,
+    fn clock_gettime64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         clock: ClockId,
         tp: KernelTimespecPtr,
-    ) -> SysResult<i32> {
-        self.sys_clock_gettime(caller, clock, tp).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_clock_gettime(caller, clock, tp).await
+        }))
     }
-    async fn clock_getres_time64(
-        &self,
-        caller: &Caller<'_>,
+    fn clock_getres_time64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         clock: ClockId,
         tp: KernelTimespecPtr,
-    ) -> SysResult<i32> {
-        self.sys_clock_getres(caller, clock, tp).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_clock_getres(caller, clock, tp).await
+        }))
     }
-    async fn clock_settime64(
-        &self,
-        caller: &Caller<'_>,
+    fn clock_settime64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         clock: ClockId,
         tp: ConstKernelTimespecPtr,
-    ) -> SysResult<i32> {
-        self.sys_clock_settime(caller, clock, tp).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_clock_settime(caller, clock, tp).await
+        }))
     }
-    async fn clock_adjtime64(
-        &self,
-        caller: &Caller<'_>,
+    fn clock_adjtime64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         clock: ClockId,
         utx: wasixv2_abi::KernelTimexPtr,
-    ) -> SysResult<i32> {
-        self.sys_clock_adjtime(caller, clock, utx).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_clock_adjtime(caller, clock, utx).await
+        }))
     }
-    async fn clock_nanosleep_time64(
-        &self,
-        caller: &Caller<'_>,
+    fn clock_nanosleep_time64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         clock: ClockId,
         flags: TimerFlags,
         rqtp: ConstKernelTimespecPtr,
         rmtp: KernelTimespecPtr,
-    ) -> SysResult<i32> {
-        self.sys_clock_nanosleep(caller, clock, flags, rqtp, rmtp)
-            .await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_clock_nanosleep(caller, clock, flags, rqtp, rmtp)
+                .await
+        }))
     }
-    async fn restart_syscall(&self, caller: &Caller<'_>) -> SysResult<i32> {
-        self.sys_restart_syscall(caller).await
+    fn restart_syscall<'a>(&'a self, caller: &'a Caller<'_>) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(
+            async move { self.sys_restart_syscall(caller).await },
+        ))
     }
-    async fn signalfd4(
-        &self,
-        caller: &Caller<'_>,
+    fn signalfd4<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         ufd: Fd,
         user_mask: ConstSigsetPtr,
         sizemask: Usize,
         flags: wasixv2_abi::SignalfdFlags,
-    ) -> SysResult<Fd> {
-        self.sys_signalfd4(caller, ufd, user_mask, sizemask, flags)
-            .await
+    ) -> MaybeFuture<'a, SysResult<Fd>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_signalfd4(caller, ufd, user_mask, sizemask, flags)
+                .await
+        }))
     }
 
-    async fn timerfd_create(
-        &self,
-        caller: &Caller<'_>,
+    fn timerfd_create<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         clock: ClockId,
         flags: TimerfdFlags,
-    ) -> SysResult<Fd> {
-        self.sys_timerfd_create(caller, clock, flags).await
+    ) -> MaybeFuture<'a, SysResult<Fd>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_timerfd_create(caller, clock, flags).await
+        }))
     }
-    async fn timerfd_settime64(
-        &self,
-        caller: &Caller<'_>,
+    fn timerfd_settime64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         flags: TimerfdSettimeFlags,
         new: ConstKernelItimerspecPtr,
         old: KernelItimerspecPtr,
-    ) -> SysResult<i32> {
-        self.sys_timerfd_settime(caller, fd, flags, new, old).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_timerfd_settime(caller, fd, flags, new, old).await
+        }))
     }
-    async fn timerfd_gettime64(
-        &self,
-        caller: &Caller<'_>,
+    fn timerfd_gettime64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         out: KernelItimerspecPtr,
-    ) -> SysResult<i32> {
-        self.sys_timerfd_gettime(caller, fd, out).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_timerfd_gettime(caller, fd, out).await
+        }))
     }
 
     // ---- ipc ----
 
-    async fn msgget(&self, caller: &Caller<'_>, key: i32, msgflg: i32) -> SysResult<i32> {
-        self.sys_msgget(caller, key, msgflg)
+    fn msgget<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        key: i32,
+        msgflg: i32,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(
+            async move { self.sys_msgget(caller, key, msgflg) },
+        ))
     }
 
-    async fn msgctl(
-        &self,
-        caller: &Caller<'_>,
+    fn msgctl<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         msqid: i32,
         cmd: i32,
         buf: Msqid64DsPtr,
-    ) -> SysResult<i32> {
-        self.sys_msgctl(caller, msqid, cmd, buf.addr()).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_msgctl(caller, msqid, cmd, buf.addr()).await
+        }))
     }
 
-    async fn msgrcv(
-        &self,
-        caller: &Caller<'_>,
+    fn msgrcv<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         msqid: i32,
         msgp: MsgbufPtr,
         msgsz: Usize,
         msgtyp: i32,
         msgflg: i32,
-    ) -> SysResult<i32> {
-        let n = self
-            .sys_msgrcv(caller, msqid, msgp, msgsz, msgtyp, msgflg)
-            .await?;
-        self.sync_segments(caller).await;
-        Ok(n)
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            let n = self
+                .sys_msgrcv(caller, msqid, msgp, msgsz, msgtyp, msgflg)
+                .await?;
+            self.sync_segments(caller).await;
+            Ok(n)
+        }))
     }
 
-    async fn msgsnd(
-        &self,
-        caller: &Caller<'_>,
+    fn msgsnd<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         msqid: i32,
         msgp: ConstMsgbufPtr,
         msgsz: Usize,
         msgflg: i32,
-    ) -> SysResult<i32> {
-        self.sync_segments(caller).await;
-        self.sys_msgsnd(caller, msqid, msgp, msgsz, msgflg).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sync_segments(caller).await;
+            self.sys_msgsnd(caller, msqid, msgp, msgsz, msgflg).await
+        }))
     }
 
-    async fn semget(
-        &self,
-        caller: &Caller<'_>,
+    fn semget<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         key: i32,
         nsems: i32,
         semflg: i32,
-    ) -> SysResult<i32> {
-        self.sys_semget(caller, key, nsems, semflg)
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_semget(caller, key, nsems, semflg)
+        }))
     }
 
-    async fn semctl(
-        &self,
-        caller: &Caller<'_>,
+    fn semctl<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         semid: i32,
         semnum: i32,
         cmd: i32,
         arg: Ulong,
-    ) -> SysResult<i32> {
-        self.sys_semctl(caller, semid, semnum, cmd, arg).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_semctl(caller, semid, semnum, cmd, arg).await
+        }))
     }
 
-    async fn semop(
-        &self,
-        caller: &Caller<'_>,
+    fn semop<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         semid: i32,
         tsops: ConstSembufArray,
         nsops: u32,
-    ) -> SysResult<i32> {
-        let none = ConstKernelTimespecPtr::NULL;
-        self.semtimedop_time64(caller, semid, tsops, nsops, none)
-            .await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            let none = ConstKernelTimespecPtr::NULL;
+            self.semtimedop_time64(caller, semid, tsops, nsops, none)
+                .await
+        }))
     }
 
-    async fn semtimedop_time64(
-        &self,
-        caller: &Caller<'_>,
+    fn semtimedop_time64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         semid: i32,
         tsops: ConstSembufArray,
         nsops: u32,
         timeout: ConstKernelTimespecPtr,
-    ) -> SysResult<i32> {
-        self.sync_segments(caller).await;
-        let result = self
-            .sys_semtimedop(caller, semid, tsops, nsops, timeout)
-            .await;
-        self.sync_segments(caller).await;
-        result
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sync_segments(caller).await;
+            let result = self
+                .sys_semtimedop(caller, semid, tsops, nsops, timeout)
+                .await;
+            self.sync_segments(caller).await;
+            result
+        }))
     }
 
-    async fn shmget(
-        &self,
-        caller: &Caller<'_>,
+    fn shmget<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         key: i32,
         size: Usize,
         shmflg: i32,
-    ) -> SysResult<i32> {
-        self.sys_shmget(caller, key, size, shmflg)
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_shmget(caller, key, size, shmflg)
+        }))
     }
 
-    async fn shmctl(
-        &self,
-        caller: &Caller<'_>,
+    fn shmctl<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         shmid: i32,
         cmd: i32,
         buf: Shmid64DsPtr,
-    ) -> SysResult<i32> {
-        self.sys_shmctl(caller, shmid, cmd, buf.addr()).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_shmctl(caller, shmid, cmd, buf.addr()).await
+        }))
     }
 
-    async fn shmat(
-        &self,
-        caller: &Caller<'_>,
+    fn shmat<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         shmid: i32,
         shmaddr: Uptr,
         shmflg: i32,
-    ) -> SysResult<i32> {
-        self.sys_shmat(caller, shmid, shmaddr, shmflg).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_shmat(caller, shmid, shmaddr, shmflg).await
+        }))
     }
 
-    async fn shmdt(&self, caller: &Caller<'_>, shmaddr: Uptr) -> SysResult<i32> {
-        self.sys_shmdt(caller, shmaddr).await
+    fn shmdt<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        shmaddr: Uptr,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(
+            async move { self.sys_shmdt(caller, shmaddr).await },
+        ))
     }
 
-    async fn mq_open(
-        &self,
-        caller: &Caller<'_>,
+    fn mq_open<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         u_name: Cstr,
         oflag: OpenFlags,
         mode: Mode,
         u_attr: ConstMqAttrPtr,
-    ) -> SysResult<i32> {
-        self.sys_mq_open(caller, u_name, oflag, mode, u_attr).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_mq_open(caller, u_name, oflag, mode, u_attr).await
+        }))
     }
 
-    async fn mq_unlink(&self, caller: &Caller<'_>, u_name: Cstr) -> SysResult<i32> {
-        self.sys_mq_unlink(caller, u_name).await
+    fn mq_unlink<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        u_name: Cstr,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(
+            async move { self.sys_mq_unlink(caller, u_name).await },
+        ))
     }
 
-    async fn mq_timedsend_time64(
-        &self,
-        caller: &Caller<'_>,
+    fn mq_timedsend_time64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         mqdes: i32,
         u_msg_ptr: ConstBuf,
         msg_len: Usize,
         msg_prio: u32,
         u_abs_timeout: ConstKernelTimespecPtr,
-    ) -> SysResult<i32> {
-        self.sync_segments(caller).await;
-        self.sys_mq_timedsend(
-            caller,
-            Fd(mqdes),
-            u_msg_ptr,
-            msg_len,
-            msg_prio,
-            u_abs_timeout,
-        )
-        .await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sync_segments(caller).await;
+            self.sys_mq_timedsend(
+                caller,
+                Fd(mqdes),
+                u_msg_ptr,
+                msg_len,
+                msg_prio,
+                u_abs_timeout,
+            )
+            .await
+        }))
     }
 
-    async fn mq_timedreceive_time64(
-        &self,
-        caller: &Caller<'_>,
+    fn mq_timedreceive_time64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         mqdes: i32,
         u_msg_ptr: Buf,
         msg_len: Usize,
         u_msg_prio: U32Ptr,
         u_abs_timeout: ConstKernelTimespecPtr,
-    ) -> SysResult<i32> {
-        let n = self
-            .sys_mq_timedreceive(
-                caller,
-                Fd(mqdes),
-                u_msg_ptr,
-                msg_len,
-                u_msg_prio,
-                u_abs_timeout,
-            )
-            .await?;
-        self.sync_segments(caller).await;
-        Ok(n)
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            let n = self
+                .sys_mq_timedreceive(
+                    caller,
+                    Fd(mqdes),
+                    u_msg_ptr,
+                    msg_len,
+                    u_msg_prio,
+                    u_abs_timeout,
+                )
+                .await?;
+            self.sync_segments(caller).await;
+            Ok(n)
+        }))
     }
 
-    async fn mq_notify(
-        &self,
-        caller: &Caller<'_>,
+    fn mq_notify<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         mqdes: i32,
         u_notification: ConstSigeventPtr,
-    ) -> SysResult<i32> {
-        self.sys_mq_notify(caller, Fd(mqdes), u_notification).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_mq_notify(caller, Fd(mqdes), u_notification).await
+        }))
     }
 
-    async fn mq_getsetattr(
-        &self,
-        caller: &Caller<'_>,
+    fn mq_getsetattr<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         mqdes: i32,
         u_mqstat: ConstMqAttrPtr,
         u_omqstat: MqAttrPtr,
-    ) -> SysResult<i32> {
-        self.sys_mq_getsetattr(caller, Fd(mqdes), u_mqstat, u_omqstat)
-            .await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_mq_getsetattr(caller, Fd(mqdes), u_mqstat, u_omqstat)
+                .await
+        }))
     }
 
     // ---- poll ----
 
-    async fn pipe2(
-        &self,
-        caller: &Caller<'_>,
+    fn pipe2<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fildes: wasixv2_abi::FdPair,
         flags: OpenFlags,
-    ) -> SysResult<i32> {
-        self.sys_pipe2(caller, fildes, flags).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_pipe2(caller, fildes, flags).await
+        }))
     }
 
-    async fn eventfd2(
-        &self,
-        caller: &Caller<'_>,
+    fn eventfd2<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         count: u32,
         flags: wasixv2_abi::EventfdFlags,
-    ) -> SysResult<Fd> {
-        self.sys_eventfd2(caller, count, flags).await
+    ) -> MaybeFuture<'a, SysResult<Fd>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_eventfd2(caller, count, flags).await
+        }))
     }
 
-    async fn rseq_slice_yield(&self, _caller: &Caller<'_>) -> SysResult<i32> {
-        // Linux `kernel/rseq.c:sys_rseq_slice_yield`: no extension was granted,
-        // so there is no CPU slice to relinquish and no scheduling side effect.
-        Ok(0)
+    fn rseq_slice_yield<'a>(&'a self, _caller: &'a Caller<'_>) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            // Linux `kernel/rseq.c:sys_rseq_slice_yield`: no extension was granted,
+            // so there is no CPU slice to relinquish and no scheduling side effect.
+            Ok(0)
+        }))
     }
 
-    async fn rseq(
-        &self,
-        caller: &Caller<'_>,
+    fn rseq<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         rseq: wasixv2_abi::VoidPtr,
         rseq_len: u32,
         flags: i32,
         sig: u32,
-    ) -> SysResult<i32> {
-        self.sys_rseq(caller, rseq, rseq_len, flags, sig).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_rseq(caller, rseq, rseq_len, flags, sig).await
+        }))
     }
 
     // ---- aio ----
-    async fn io_setup(
-        &self,
-        caller: &Caller<'_>,
+    fn io_setup<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         nr_events: u32,
         ctxp: wasixv2_abi::AioContextPtr,
-    ) -> SysResult<i32> {
-        self.sys_io_setup(caller, nr_events, ctxp).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_io_setup(caller, nr_events, ctxp).await
+        }))
     }
 
-    async fn io_destroy(
-        &self,
-        caller: &Caller<'_>,
+    fn io_destroy<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         ctx: wasixv2_abi::AioContext,
-    ) -> SysResult<i32> {
-        self.sys_io_destroy(caller, ctx).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(
+            async move { self.sys_io_destroy(caller, ctx).await },
+        ))
     }
 
-    async fn io_submit(
-        &self,
-        caller: &Caller<'_>,
+    fn io_submit<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         ctx_id: wasixv2_abi::AioContext,
         nr: wasixv2_abi::Slong,
         iocbpp: wasixv2_abi::ConstIocbPtrArray,
-    ) -> SysResult<i32> {
-        self.sys_io_submit(caller, ctx_id, nr, iocbpp).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_io_submit(caller, ctx_id, nr, iocbpp).await
+        }))
     }
 
-    async fn io_cancel(
-        &self,
-        caller: &Caller<'_>,
+    fn io_cancel<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         ctx_id: wasixv2_abi::AioContext,
         iocb: wasixv2_abi::IocbPtr,
         result: wasixv2_abi::IoEventPtr,
-    ) -> SysResult<i32> {
-        self.sys_io_cancel(caller, ctx_id, iocb, result).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_io_cancel(caller, ctx_id, iocb, result).await
+        }))
     }
 
-    async fn io_pgetevents_time64(
-        &self,
-        caller: &Caller<'_>,
+    fn io_pgetevents_time64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         ctx_id: wasixv2_abi::AioContext,
         min_nr: wasixv2_abi::Slong,
         nr: wasixv2_abi::Slong,
         events: wasixv2_abi::IoEventArray,
         timeout: KernelTimespecPtr,
         usig: wasixv2_abi::ConstAioSigsetPtr,
-    ) -> SysResult<i32> {
-        self.sys_io_pgetevents(caller, ctx_id, min_nr, nr, events, timeout, usig)
-            .await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_io_pgetevents(caller, ctx_id, min_nr, nr, events, timeout, usig)
+                .await
+        }))
     }
 
     // ---- io_uring ----
-    async fn io_uring_setup(
-        &self,
-        caller: &Caller<'_>,
+    fn io_uring_setup<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         entries: u32,
         params: wasixv2_abi::IoUringParamsPtr,
-    ) -> SysResult<i32> {
-        self.sys_io_uring_setup(caller, entries, params).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_io_uring_setup(caller, entries, params).await
+        }))
     }
 
     #[allow(clippy::too_many_arguments)]
-    async fn io_uring_enter(
-        &self,
-        caller: &Caller<'_>,
+    fn io_uring_enter<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         to_submit: u32,
         min_complete: u32,
         flags: u32,
         argp: wasixv2_abi::ConstVoidPtr,
         argsz: Usize,
-    ) -> SysResult<i32> {
-        self.sys_io_uring_enter(caller, fd, to_submit, min_complete, flags, argp, argsz)
-            .await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_io_uring_enter(caller, fd, to_submit, min_complete, flags, argp, argsz)
+                .await
+        }))
     }
 
-    async fn io_uring_register(
-        &self,
-        caller: &Caller<'_>,
+    fn io_uring_register<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         opcode: u32,
         arg: wasixv2_abi::VoidPtr,
         nr_args: u32,
-    ) -> SysResult<i32> {
-        self.sys_io_uring_register(caller, fd, opcode, arg, nr_args)
-            .await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_io_uring_register(caller, fd, opcode, arg, nr_args)
+                .await
+        }))
     }
 
-    async fn ppoll_time64(
-        &self,
-        caller: &Caller<'_>,
+    fn ppoll_time64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         ufds: wasixv2_abi::PollfdArray,
         nfds: u32,
         tsp: KernelTimespecPtr,
         sigmask: ConstSigsetPtr,
         sigsetsize: Usize,
-    ) -> SysResult<i32> {
-        self.sys_ppoll(caller, ufds, nfds, tsp, sigmask, sigsetsize)
-            .await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_ppoll(caller, ufds, nfds, tsp, sigmask, sigsetsize)
+                .await
+        }))
     }
 
-    async fn pselect6_time64(
-        &self,
-        caller: &Caller<'_>,
+    fn pselect6_time64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         n: i32,
         inp: wasixv2_abi::KernelFdSetPtr,
         outp: wasixv2_abi::KernelFdSetPtr,
         exp: wasixv2_abi::KernelFdSetPtr,
         tsp: KernelTimespecPtr,
         sig: wasixv2_abi::ConstSigsetArgpackPtr,
-    ) -> SysResult<i32> {
-        self.sys_pselect6(caller, n, inp, outp, exp, tsp, sig).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_pselect6(caller, n, inp, outp, exp, tsp, sig).await
+        }))
     }
 
-    async fn epoll_create1(
-        &self,
-        caller: &Caller<'_>,
+    fn epoll_create1<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         flags: wasixv2_abi::EpollCreateFlags,
-    ) -> SysResult<Fd> {
-        self.sys_epoll_create1(caller, flags).await
+    ) -> MaybeFuture<'a, SysResult<Fd>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_epoll_create1(caller, flags).await
+        }))
     }
 
-    async fn epoll_ctl(
-        &self,
-        caller: &Caller<'_>,
+    fn epoll_ctl<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         epfd: Fd,
         op: wasixv2_abi::EpollCtlOp,
         fd: Fd,
         event: wasixv2_abi::ConstEpollEventPtr,
-    ) -> SysResult<i32> {
-        self.sys_epoll_ctl(caller, epfd, op, fd, event).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_epoll_ctl(caller, epfd, op, fd, event).await
+        }))
     }
 
-    async fn epoll_pwait(
-        &self,
-        caller: &Caller<'_>,
+    fn epoll_pwait<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         epfd: Fd,
         events: wasixv2_abi::EpollEventArray,
         maxevents: i32,
         timeout: i32,
         sigmask: ConstSigsetPtr,
         sigsetsize: Usize,
-    ) -> SysResult<i32> {
-        self.sys_epoll_pwait(
-            caller, epfd, events, maxevents, timeout, sigmask, sigsetsize,
-        )
-        .await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_epoll_pwait(
+                caller, epfd, events, maxevents, timeout, sigmask, sigsetsize,
+            )
+            .await
+        }))
     }
 
-    async fn epoll_pwait2(
-        &self,
-        caller: &Caller<'_>,
+    fn epoll_pwait2<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         epfd: Fd,
         events: wasixv2_abi::EpollEventArray,
         maxevents: i32,
         timeout: ConstKernelTimespecPtr,
         sigmask: ConstSigsetPtr,
         sigsetsize: Usize,
-    ) -> SysResult<i32> {
-        self.sys_epoll_pwait2(
-            caller, epfd, events, maxevents, timeout, sigmask, sigsetsize,
-        )
-        .await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_epoll_pwait2(
+                caller, epfd, events, maxevents, timeout, sigmask, sigsetsize,
+            )
+            .await
+        }))
     }
 
     // ---- net ----
 
-    async fn socket(
-        &self,
-        caller: &Caller<'_>,
+    fn socket<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         family: wasixv2_abi::AddressFamily,
         r#type: i32,
         protocol: i32,
-    ) -> SysResult<Fd> {
-        self.sys_socket(caller, family, r#type, protocol).await
+    ) -> MaybeFuture<'a, SysResult<Fd>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_socket(caller, family, r#type, protocol).await
+        }))
     }
 
-    async fn socketpair(
-        &self,
-        caller: &Caller<'_>,
+    fn socketpair<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         family: wasixv2_abi::AddressFamily,
         r#type: i32,
         protocol: i32,
         usockvec: wasixv2_abi::FdPair,
-    ) -> SysResult<i32> {
-        self.sys_socketpair(caller, family, r#type, protocol, usockvec)
-            .await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_socketpair(caller, family, r#type, protocol, usockvec)
+                .await
+        }))
     }
 
-    async fn bind(
-        &self,
-        caller: &Caller<'_>,
+    fn bind<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         umyaddr: wasixv2_abi::ConstSockaddrPtr,
         addrlen: wasixv2_abi::Socklen,
-    ) -> SysResult<i32> {
-        self.sys_bind(caller, fd, umyaddr, addrlen).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_bind(caller, fd, umyaddr, addrlen).await
+        }))
     }
 
-    async fn listen(&self, caller: &Caller<'_>, fd: Fd, backlog: i32) -> SysResult<i32> {
-        self.sys_listen(caller, fd, backlog).await
+    fn listen<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        fd: Fd,
+        backlog: i32,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_listen(caller, fd, backlog).await
+        }))
     }
 
-    async fn accept(
-        &self,
-        caller: &Caller<'_>,
+    fn accept<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         upeer_sockaddr: wasixv2_abi::SockaddrPtr,
         upeer_addrlen: wasixv2_abi::SocklenPtr,
-    ) -> SysResult<Fd> {
-        let flags = wasixv2_abi::SocketFlags(0);
-        self.sys_accept4(caller, fd, upeer_sockaddr, upeer_addrlen, flags)
-            .await
+    ) -> MaybeFuture<'a, SysResult<Fd>> {
+        MaybeFuture::Future(Box::pin(async move {
+            let flags = wasixv2_abi::SocketFlags(0);
+            self.sys_accept4(caller, fd, upeer_sockaddr, upeer_addrlen, flags)
+                .await
+        }))
     }
 
-    async fn accept4(
-        &self,
-        caller: &Caller<'_>,
+    fn accept4<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         upeer_sockaddr: wasixv2_abi::SockaddrPtr,
         upeer_addrlen: wasixv2_abi::SocklenPtr,
         flags: wasixv2_abi::SocketFlags,
-    ) -> SysResult<Fd> {
-        self.sys_accept4(caller, fd, upeer_sockaddr, upeer_addrlen, flags)
-            .await
+    ) -> MaybeFuture<'a, SysResult<Fd>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_accept4(caller, fd, upeer_sockaddr, upeer_addrlen, flags)
+                .await
+        }))
     }
 
-    async fn connect(
-        &self,
-        caller: &Caller<'_>,
+    fn connect<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         uservaddr: wasixv2_abi::ConstSockaddrPtr,
         addrlen: wasixv2_abi::Socklen,
-    ) -> SysResult<i32> {
-        self.sys_connect(caller, fd, uservaddr, addrlen).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_connect(caller, fd, uservaddr, addrlen).await
+        }))
     }
 
-    async fn getsockname(
-        &self,
-        caller: &Caller<'_>,
+    fn getsockname<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         usockaddr: wasixv2_abi::SockaddrPtr,
         usockaddr_len: wasixv2_abi::SocklenPtr,
-    ) -> SysResult<i32> {
-        self.sys_getsockname(caller, fd, usockaddr, usockaddr_len)
-            .await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_getsockname(caller, fd, usockaddr, usockaddr_len)
+                .await
+        }))
     }
 
-    async fn getpeername(
-        &self,
-        caller: &Caller<'_>,
+    fn getpeername<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         usockaddr: wasixv2_abi::SockaddrPtr,
         usockaddr_len: wasixv2_abi::SocklenPtr,
-    ) -> SysResult<i32> {
-        self.sys_getpeername(caller, fd, usockaddr, usockaddr_len)
-            .await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_getpeername(caller, fd, usockaddr, usockaddr_len)
+                .await
+        }))
     }
 
-    async fn sendto(
-        &self,
-        caller: &Caller<'_>,
+    fn sendto<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         buff: UserSlice,
         flags: wasixv2_abi::MsgFlags,
         addr: wasixv2_abi::ConstSockaddrPtr,
         addr_len: wasixv2_abi::Socklen,
-    ) -> SysResult<u32> {
-        self.sys_sendto(caller, fd, buff, flags, addr, addr_len)
-            .await
+    ) -> MaybeFuture<'a, SysResult<u32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_sendto(caller, fd, buff, flags, addr, addr_len)
+                .await
+        }))
     }
 
-    async fn recvfrom(
-        &self,
-        caller: &Caller<'_>,
+    fn recvfrom<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         ubuf: UserSliceMut,
         flags: wasixv2_abi::MsgFlags,
         addr: wasixv2_abi::SockaddrPtr,
         addr_len: wasixv2_abi::SocklenPtr,
-    ) -> SysResult<u32> {
-        self.sys_recvfrom(caller, fd, ubuf, flags, addr, addr_len)
-            .await
+    ) -> MaybeFuture<'a, SysResult<u32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_recvfrom(caller, fd, ubuf, flags, addr, addr_len)
+                .await
+        }))
     }
 
-    async fn setsockopt(
-        &self,
-        caller: &Caller<'_>,
+    fn setsockopt<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         level: wasixv2_abi::SocketLevel,
         optname: i32,
         optval: UserSlice,
-    ) -> SysResult<i32> {
-        self.sys_setsockopt(caller, fd, level, optname, optval)
-            .await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_setsockopt(caller, fd, level, optname, optval)
+                .await
+        }))
     }
 
-    async fn getsockopt(
-        &self,
-        caller: &Caller<'_>,
+    fn getsockopt<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         level: wasixv2_abi::SocketLevel,
         optname: i32,
         optval: wasixv2_abi::Buf,
         optlen: wasixv2_abi::SocklenPtr,
-    ) -> SysResult<i32> {
-        self.sys_getsockopt(caller, fd, level, optname, optval, optlen)
-            .await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_getsockopt(caller, fd, level, optname, optval, optlen)
+                .await
+        }))
     }
 
-    async fn shutdown(
-        &self,
-        caller: &Caller<'_>,
+    fn shutdown<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         how: wasixv2_abi::ShutdownHow,
-    ) -> SysResult<i32> {
-        self.sys_shutdown(caller, fd, how).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(
+            async move { self.sys_shutdown(caller, fd, how).await },
+        ))
     }
 
-    async fn sendmsg(
-        &self,
-        caller: &Caller<'_>,
+    fn sendmsg<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         msg: wasixv2_abi::ConstUserMsghdrPtr,
         flags: wasixv2_abi::MsgFlags,
-    ) -> SysResult<i32> {
-        self.sys_sendmsg(caller, fd, msg, flags).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_sendmsg(caller, fd, msg, flags).await
+        }))
     }
 
-    async fn recvmsg(
-        &self,
-        caller: &Caller<'_>,
+    fn recvmsg<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         msg: wasixv2_abi::UserMsghdrPtr,
         flags: wasixv2_abi::MsgFlags,
-    ) -> SysResult<i32> {
-        self.sys_recvmsg(caller, fd, msg, flags).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_recvmsg(caller, fd, msg, flags).await
+        }))
     }
 
-    async fn sendmmsg(
-        &self,
-        caller: &Caller<'_>,
+    fn sendmmsg<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         mmsg: wasixv2_abi::MmsghdrArray,
         vlen: u32,
         flags: wasixv2_abi::MsgFlags,
-    ) -> SysResult<i32> {
-        self.sys_sendmmsg(caller, fd, mmsg, vlen, flags).await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_sendmmsg(caller, fd, mmsg, vlen, flags).await
+        }))
     }
 
-    async fn recvmmsg_time64(
-        &self,
-        caller: &Caller<'_>,
+    fn recvmmsg_time64<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
         fd: Fd,
         mmsg: wasixv2_abi::MmsghdrArray,
         vlen: u32,
         flags: wasixv2_abi::MsgFlags,
         timeout: KernelTimespecPtr,
-    ) -> SysResult<i32> {
-        self.sys_recvmmsg(caller, fd, mmsg, vlen, flags, timeout)
-            .await
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        MaybeFuture::Future(Box::pin(async move {
+            self.sys_recvmmsg(caller, fd, mmsg, vlen, flags, timeout)
+                .await
+        }))
     }
 }
 

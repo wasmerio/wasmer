@@ -1,5 +1,6 @@
 //! Syscall layer that traces every call, its arguments and its result.
 
+use wasixv2_syscalls::MaybeFuture;
 use wasixv2_syscalls::{Caller, Layer, SysResult, Syscall, SyscallRet, Syscalls, dispatch};
 
 /// Emits one `tracing` event per syscall, after it completes.
@@ -7,10 +8,16 @@ use wasixv2_syscalls::{Caller, Layer, SysResult, Syscall, SyscallRet, Syscalls, 
 pub struct Trace;
 
 impl<S: Syscalls> Layer<S> for Trace {
-    async fn call(&self, caller: &Caller<'_>, call: Syscall, next: &S) -> SysResult<SyscallRet> {
-        let ret = dispatch(next, caller, call).await;
-        tracing::trace!(task = caller.task().0, ?call, ?ret, "syscall");
-        ret
+    fn call<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        call: Syscall,
+        next: &'a S,
+    ) -> MaybeFuture<'a, SysResult<SyscallRet>> {
+        dispatch(next, caller, call).map(move |ret| {
+            tracing::trace!(task = caller.task().0, ?call, ?ret, "syscall");
+            ret
+        })
     }
 }
 
@@ -49,21 +56,41 @@ mod tests {
     struct Recorder(RefCell<Vec<Syscall>>);
 
     impl Syscalls for Recorder {
-        async fn read(&self, _: &Caller<'_>, fd: Fd, buf: UserSliceMut) -> SysResult<u32> {
-            self.0.borrow_mut().push(Syscall::Read { fd, buf });
-            Err(SysErr::Errno(Errno::EBADF))
+        fn read<'a>(
+            &'a self,
+            _: &'a Caller<'_>,
+            fd: Fd,
+            buf: UserSliceMut,
+        ) -> MaybeFuture<'a, SysResult<u32>> {
+            MaybeFuture::Future(Box::pin(async move {
+                self.0.borrow_mut().push(Syscall::Read { fd, buf });
+                Err(SysErr::Errno(Errno::EBADF))
+            }))
         }
 
-        async fn write(&self, _: &Caller<'_>, fd: Fd, buf: UserSlice) -> SysResult<u32> {
-            self.0.borrow_mut().push(Syscall::Write { fd, buf });
-            Ok(buf.len)
+        fn write<'a>(
+            &'a self,
+            _: &'a Caller<'_>,
+            fd: Fd,
+            buf: UserSlice,
+        ) -> MaybeFuture<'a, SysResult<u32>> {
+            MaybeFuture::Future(Box::pin(async move {
+                self.0.borrow_mut().push(Syscall::Write { fd, buf });
+                Ok(buf.len)
+            }))
         }
 
-        async fn exit_group(&self, _: &Caller<'_>, status: i32) -> SysResult<()> {
-            self.0
-                .borrow_mut()
-                .push(Syscall::ExitGroup { error_code: status });
-            Ok(())
+        fn exit_group<'a>(
+            &'a self,
+            _: &'a Caller<'_>,
+            status: i32,
+        ) -> MaybeFuture<'a, SysResult<()>> {
+            MaybeFuture::Future(Box::pin(async move {
+                self.0
+                    .borrow_mut()
+                    .push(Syscall::ExitGroup { error_code: status });
+                Ok(())
+            }))
         }
     }
 
@@ -93,5 +120,22 @@ mod tests {
                 Syscall::ExitGroup { error_code: 3 },
             ]
         );
+    }
+    struct ReadyPid;
+    impl Syscalls for ReadyPid {
+        fn getpid<'a>(&'a self, _: &'a Caller<'_>) -> MaybeFuture<'a, SysResult<i32>> {
+            MaybeFuture::Ready(Ok(19))
+        }
+    }
+
+    #[test]
+    fn tracing_preserves_ready_results() {
+        let memory = NoMemory;
+        let caller = Caller::new(TaskId(1), &memory);
+        let result = Trace.call(&caller, Syscall::Getpid, &ReadyPid);
+        assert!(matches!(
+            result,
+            MaybeFuture::Ready(Ok(SyscallRet::Getpid(19)))
+        ));
     }
 }

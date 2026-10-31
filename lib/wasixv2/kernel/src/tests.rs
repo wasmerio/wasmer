@@ -802,6 +802,7 @@ mod cgroup;
 mod clocks;
 mod coredump;
 mod cred;
+mod entry;
 mod fs;
 mod futex;
 mod introspect;

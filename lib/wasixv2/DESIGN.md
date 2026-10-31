@@ -88,7 +88,7 @@ A syscall runs as: imported function → decode arguments → method on a trait 
    - It allows partial results when a copy faults partway through.
    - `ioctl`, `futex`, `recvmsg`, `execve` and `select` cannot be decoded ahead of time anyway.
 2. **Flags stay as raw bits.** Flag types are transparent newtypes such as `OpenFlags(u32)`, and validation is the kernel's job. Linux ignores unknown `open` flags but rejects them in `openat2`, and the decoder must not be stricter than Linux.
-3. **Methods are async, and restarting is part of the result.** The error type is `SysErr::Errno(..)` or `SysErr::Restart(..)`. Only the outermost glue turns a restart into rerunning the call or returning EINTR, following `SA_RESTART` and `restart_syscall` semantics.
+3. **Methods return an immediate result or a local future, and restarting is part of the result.** `MaybeFuture::Ready` avoids constructing a continuation for synchronous work; `MaybeFuture::Future` borrows the caller and may suspend without a `Send` bound. The error type is `SysErr::Errno(..)` or `SysErr::Restart(..)`. Only the outermost glue turns a restart into rerunning the call or returning EINTR, following `SA_RESTART` and `restart_syscall` semantics.
 4. **Control flow goes through a return-to-guest hook, not the return value.**
    - Affected calls: `exit`, `execve`, `clone`, `rt_sigreturn` and signal delivery.
    - The kernel records the pending work on the task.
