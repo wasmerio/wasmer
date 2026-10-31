@@ -7126,8 +7126,11 @@ dependencies = [
 name = "wasixv2-dylink"
 version = "0.0.0"
 dependencies = [
+ "thiserror 2.0.21",
  "wasixv2-exec",
  "wasmer",
+ "wasmparser 0.259.0",
+ "wat",
 ]
 
 [[package]]

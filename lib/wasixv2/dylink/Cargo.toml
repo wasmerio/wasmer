@@ -11,8 +11,14 @@ repository.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-wasixv2-exec = { path = "../exec", default-features = false }
-wasmer = { path = "../../api", version = "=7.5.0", default-features = false }
+wasixv2-exec = { path = "../exec", default-features = false, optional = true }
+wasmer = { path = "../../api", version = "=7.5.0", default-features = false, optional = true }
+
+wasmparser.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+wat.workspace = true
 
 [features]
 default = ["sys"]
