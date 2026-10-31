@@ -4,7 +4,7 @@
 use crate::{Errno, Layered, TaskId};
 use std::{
     collections::{BTreeMap, BTreeSet},
-    sync::{Arc, Mutex, MutexGuard},
+    sync::{Arc, Mutex, MutexGuard, Weak},
 };
 use wasixv2_wait::{NoInterrupt, PollMask, WaitQueue, wait_event};
 
@@ -33,6 +33,7 @@ pub struct LoaderGate {
 
 #[derive(Default)]
 struct State {
+    image_owner: Weak<()>,
     generation: u64,
     next_epoch: u64,
     admissions: usize,
@@ -77,14 +78,38 @@ impl LoaderGate {
     /// EAGAIN to kernel glue, which must restart at a loader-aware guest safe point, not
     /// wait inside a syscall while the coordinator is waiting for that same task to park.
     pub fn admit(self: &Arc<Self>) -> Result<LoaderAdmission, Errno> {
-        let mut state = self.state();
+        self.admit_locked(&mut self.state(), None)
+    }
+
+    /// Claim an mm's graph identity while entering existing loader admission. The mm
+    /// retains only a weak nonce; images/stores and this in-flight admission retain it
+    /// strongly until cleanup finishes. A different live graph is never substituted.
+    pub fn claim_image(self: &Arc<Self>, owner: &Arc<()>) -> Result<LoaderAdmission, Errno> {
+        self.admit_locked(&mut self.state(), Some(owner))
+    }
+
+    fn admit_locked(
+        self: &Arc<Self>,
+        state: &mut State,
+        owner: Option<&Arc<()>>,
+    ) -> Result<LoaderAdmission, Errno> {
         if state.closing.is_some() || state.round.is_some() {
             return Err(Errno::EAGAIN);
         }
-        state.admissions = state.admissions.checked_add(1).ok_or(Errno::EAGAIN)?;
+        let admissions = state.admissions.checked_add(1).ok_or(Errno::EAGAIN)?;
+        if let Some(owner) = owner {
+            if let Some(current) = state.image_owner.upgrade()
+                && !Arc::ptr_eq(&current, owner)
+            {
+                return Err(Errno::EBUSY);
+            }
+            state.image_owner = Arc::downgrade(owner);
+        }
+        state.admissions = admissions;
         Ok(LoaderAdmission {
             gate: self.clone(),
             active: true,
+            _image: owner.cloned(),
         })
     }
 
@@ -117,6 +142,14 @@ impl LoaderGate {
         (!*round.participants.get(&task.0)?).then_some(LoaderCommand {
             epoch: round.epoch,
             phase: round.phase,
+        })
+    }
+
+    /// Current surviving store participants. Unstarted tasks stay entry-barred and
+    /// never appear as stores; exit removes its participant under the same state lock.
+    pub fn participants(&self) -> Vec<TaskId> {
+        self.state().round.as_ref().map_or_else(Vec::new, |round| {
+            round.participants.keys().map(|id| TaskId(*id)).collect()
         })
     }
 
@@ -217,6 +250,7 @@ impl LoaderGate {
 pub struct LoaderAdmission {
     gate: Arc<LoaderGate>,
     active: bool,
+    _image: Option<Arc<()>>,
 }
 impl Drop for LoaderAdmission {
     fn drop(&mut self) {
@@ -645,5 +679,97 @@ mod cancellation_tests {
         assert!(cleanup.ready());
         assert_eq!(cleanup.finish().unwrap(), 0);
         assert!(gate.bind(TaskId(2)).is_ok());
+    }
+}
+
+#[cfg(test)]
+mod image_owner_tests {
+    use super::*;
+    use std::sync::{
+        Barrier,
+        atomic::{AtomicUsize, Ordering},
+    };
+
+    #[test]
+    fn image_owner_lasts_through_all_attachments_and_inflight_admission() {
+        let gate = LoaderGate::new(10);
+        let image = Arc::new(());
+        let store = image.clone();
+        let weak = Arc::downgrade(&image);
+        let admission = gate.claim_image(&image).unwrap();
+        assert!(gate.claim_image(&store).is_ok());
+        drop(image);
+        drop(store);
+        assert!(
+            weak.upgrade().is_some(),
+            "admitted initialization retains its owner"
+        );
+        assert!(matches!(gate.claim_image(&Arc::new(())), Err(Errno::EBUSY)));
+        drop(admission);
+        assert!(
+            weak.upgrade().is_none(),
+            "gate itself must not retain a strong owner"
+        );
+        assert!(gate.claim_image(&Arc::new(())).is_ok());
+    }
+
+    #[test]
+    fn image_owner_claim_is_atomic_and_respects_closed_admission() {
+        let gate = LoaderGate::new(11);
+        let barrier = Arc::new(Barrier::new(3));
+        let winners = Arc::new(AtomicUsize::new(0));
+        let owners = [Arc::new(()), Arc::new(())];
+        std::thread::scope(|scope| {
+            for owner in &owners {
+                let gate = gate.clone();
+                let barrier = barrier.clone();
+                let winners = winners.clone();
+                scope.spawn(move || {
+                    barrier.wait();
+                    match gate.claim_image(owner) {
+                        Ok(_admission) => {
+                            winners.fetch_add(1, Ordering::SeqCst);
+                        }
+                        Err(errno) => assert_eq!(errno, Errno::EBUSY),
+                    }
+                });
+            }
+            barrier.wait();
+        });
+        assert_eq!(winners.load(Ordering::SeqCst), 1);
+        let closing = gate.close(TaskId(1)).unwrap();
+        assert!(matches!(gate.claim_image(&owners[0]), Err(Errno::EAGAIN)));
+        drop(closing);
+        // A fresh exec mm has independent ownership even while CLONE_VM attachments
+        // retain the old mm's token; replacing it cannot steal the surviving graph.
+        let fresh = LoaderGate::new(12);
+        assert!(fresh.claim_image(&owners[1]).is_ok());
+        assert_eq!(
+            owners
+                .iter()
+                .filter(|owner| gate.claim_image(owner).is_ok())
+                .count(),
+            1
+        );
+    }
+}
+
+#[cfg(test)]
+mod participant_snapshot_tests {
+    use super::*;
+    #[test]
+    fn snapshot_excludes_unstarted_and_detached_stores() {
+        let gate = LoaderGate::new(13);
+        drop(gate.bind(TaskId(1)).unwrap());
+        assert!(gate.participants().is_empty());
+        let round = gate
+            .close(TaskId(1))
+            .unwrap()
+            .activate(&[TaskId(1), TaskId(2)])
+            .unwrap();
+        assert_eq!(gate.participants(), [TaskId(1)]);
+        gate.leave(TaskId(1));
+        assert!(gate.participants().is_empty());
+        drop(round);
     }
 }
