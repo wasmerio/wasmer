@@ -116,6 +116,17 @@ impl Graph {
                 .cloned()
                 .collect();
         }
+        // Re-exports name module-local imported functions. Resolve them before
+        // instantiation so a cycle never forwards to its own imported alias.
+        for module in previous..self.libraries.len() {
+            let mut fixups = self.libraries[module].fixups.clone();
+            for fixup in &mut fixups {
+                if let BindingTarget::Function { module, index, .. } = &mut fixup.target {
+                    (*module, *index) = self.function_definition(*module, *index)?;
+                }
+            }
+            self.libraries[module].fixups = fixups;
+        }
         self.initialization.extend(
             plan.initialization_order
                 .into_iter()
@@ -125,6 +136,52 @@ impl Graph {
             return Err(failure("new library missing from publication order"));
         }
         Ok(())
+    }
+    pub fn function_definition(&self, mut module: usize, mut index: u32) -> Result<(usize, u32)> {
+        let mut seen = BTreeSet::new();
+        loop {
+            if !seen.insert((module, index)) {
+                return Err(failure("function alias cycle has no definition"));
+            }
+            let lib = &self.libraries[module];
+            let signature = lib
+                .metadata
+                .functions
+                .get(index as usize)
+                .ok_or_else(|| failure("function index out of bounds"))?;
+            let imported = lib
+                .metadata
+                .imports()
+                .iter()
+                .enumerate()
+                .filter(|(_, import)| matches!(import.ty, ExternType::Function(_)))
+                .nth(index as usize);
+            let Some((ordinal, _)) = imported else {
+                return Ok((module, index));
+            };
+            let fixup = lib.fixups.iter().find(|fixup| fixup.import == ordinal);
+            match fixup.map(|fixup| &fixup.target) {
+                None if module == 0 => return Ok((module, index)),
+                // Main host imports already have concrete engine functions.
+                Some(BindingTarget::Host) => return Ok((module, index)),
+                Some(BindingTarget::Function {
+                    module: next,
+                    index: function,
+                    ..
+                }) => {
+                    if self.libraries[*next]
+                        .metadata
+                        .functions
+                        .get(*function as usize)
+                        != Some(signature)
+                    {
+                        return Err(failure("function alias signature mismatch"));
+                    }
+                    (module, index) = (*next, *function);
+                }
+                _ => return Err(failure("function alias has no resolved definition")),
+            }
+        }
     }
     pub fn assign_slots(&mut self, index: usize) -> Result<()> {
         let lib = &self.libraries[index];
@@ -198,11 +255,14 @@ impl Graph {
     }
     pub fn target_address(&self, target: &BindingTarget, tls: &[u32]) -> Result<u32> {
         match target {
-            BindingTarget::Function { module, index, .. } => self.libraries[*module]
-                .slots
-                .get(index)
-                .copied()
-                .ok_or_else(|| failure("unassigned function slot")),
+            BindingTarget::Function { module, index, .. } => {
+                let (module, index) = self.function_definition(*module, *index)?;
+                self.libraries[module]
+                    .slots
+                    .get(&index)
+                    .copied()
+                    .ok_or_else(|| failure("unassigned function slot"))
+            }
             BindingTarget::Data {
                 module,
                 index,
@@ -224,11 +284,14 @@ impl Graph {
                     continue;
                 }
                 return match export.ty {
-                    ExternType::Function(_) => self.libraries[index]
-                        .slots
-                        .get(&export.index)
-                        .copied()
-                        .ok_or_else(|| failure("unassigned export slot")),
+                    ExternType::Function(_) => self.target_address(
+                        &BindingTarget::Function {
+                            module: index,
+                            index: export.index,
+                            slot: None,
+                        },
+                        tls,
+                    ),
                     ExternType::Global(_) => self.address(
                         index,
                         export.index,
@@ -309,6 +372,53 @@ pub(super) fn initial_globals(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn function_aliases_require_a_concrete_typed_definition_and_canonical_slot() {
+        let library = |wat: &str| {
+            Library::new(crate::tests::bytes(wat, [0; 4], &[], &[], &[]), None).unwrap()
+        };
+        let mut graph = Graph {
+            libraries: vec![
+                library("(module)"),
+                library(
+                    r#"(module (import "env" "f" (func $f (param i32) (result i32))) (export "f" (func $f)))"#,
+                ),
+            ],
+            global: vec![0],
+            cursor: 3,
+            initialization: vec![0],
+        };
+        graph.libraries[1].dependencies = vec![];
+        // A self-re-export is not an actual NOW definition.
+        assert!(
+            graph
+                .seal(1, 1)
+                .unwrap_err()
+                .to_string()
+                .contains("alias cycle")
+        );
+        graph.libraries.push(library(
+            "(module (func (export \"f\") (param i32) (result i32) local.get 0))",
+        ));
+        graph.libraries[1].fixups[0].target = BindingTarget::Function {
+            module: 2,
+            index: 0,
+            slot: None,
+        };
+        graph.assign_slots(2).unwrap();
+        let slot = graph.libraries[2].slots[&0];
+        assert_eq!(graph.function_definition(1, 0).unwrap(), (2, 0));
+        assert_eq!(graph.symbol(1, "f", &[0; 3]).unwrap(), slot);
+        graph.libraries[2].metadata.functions[0] = wasmparser::FuncType::new([], []);
+        assert!(
+            graph
+                .function_definition(1, 0)
+                .unwrap_err()
+                .to_string()
+                .contains("signature mismatch")
+        );
+    }
 
     #[test]
     fn empty_tls_needs_no_alignment_but_nonempty_tls_requires_a_power_of_two() {

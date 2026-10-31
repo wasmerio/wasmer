@@ -20,6 +20,7 @@ pub struct StagedModule {
     effects: InitEffects,
     globals: Vec<(Global, Value)>,
     slots: BTreeMap<u32, Function>,
+    slot_functions: BTreeMap<u32, u32>,
     applied_slots: Vec<u32>,
     applied_writes: usize,
     applied: bool,
@@ -135,6 +136,7 @@ impl StagedModule {
             effects,
             globals: changes,
             slots: BTreeMap::new(),
+            slot_functions: BTreeMap::new(),
             applied_slots: Vec::new(),
             applied_writes: 0,
             applied: false,
@@ -182,6 +184,7 @@ impl StagedModule {
         if slot < 3 || !fresh.iter().any(|range| range.contains(&u64::from(slot))) {
             return Err(error("function slot is outside fresh reservation"));
         }
+        let index = function;
         let function = self.function(function)?;
         if let Some(existing) = self.slots.get(&slot) {
             if existing != &function {
@@ -196,7 +199,19 @@ impl StagedModule {
             .try_reserve(self.slots.len() + 1)
             .map_err(error)?;
         self.slots.insert(slot, function);
+        self.slot_functions.insert(slot, index);
         Ok(())
+    }
+    /// The runtime follows imported aliases to concrete definitions after every
+    /// cyclic instance exists. Never publish a forwarding function as an alias's
+    /// element/GOT target: that could forward back into itself.
+    pub(crate) fn resolve_aliases(&mut self, aliases: &BTreeMap<u32, Function>) {
+        debug_assert!(!self.applied);
+        for (slot, index) in &self.slot_functions {
+            if let Some(function) = aliases.get(index) {
+                self.slots.insert(*slot, function.clone());
+            }
+        }
     }
     /// Host writes only, with no awaits/imports/guest calls. All effects were range-checked
     /// and all table capacity/types resolved during prepare while peers were parked.

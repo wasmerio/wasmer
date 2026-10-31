@@ -24,13 +24,31 @@ impl ByteSink for Capture {
 async fn native_pic_plugin_with_existing_and_future_peers() {
     let directory =
         PathBuf::from(std::env::var_os("WASIXV2_NATIVE_PLUGIN_DIR").expect("fixture directory"));
-    let wasm = std::fs::read(directory.join("main.wasm")).expect("source-built main");
     for file in ["plugin.so", "bad.so", "independent.so", "global.so"] {
         assert!(
             directory.join(file).is_file(),
             "missing source-built {file}"
         );
     }
+    run_fixture(directory, "native plugin PASS:").await;
+}
+
+#[tokio::test]
+#[ignore = "requires source-built EH/PIC cyclic fixtures via WASIXV2_NATIVE_CYCLES_DIR"]
+async fn native_pic_cyclic_dependencies_with_existing_and_future_peers() {
+    let directory =
+        PathBuf::from(std::env::var_os("WASIXV2_NATIVE_CYCLES_DIR").expect("fixture directory"));
+    for file in ["main.wasm", "cycle-a.so", "cycle-b.so"] {
+        assert!(
+            directory.join(file).is_file(),
+            "missing source-built {file}"
+        );
+    }
+    run_fixture(directory, "native cycles PASS:").await;
+}
+
+async fn run_fixture(directory: PathBuf, expected: &str) {
+    let wasm = std::fs::read(directory.join("main.wasm")).expect("source-built main");
     let local = tokio::task::LocalSet::new();
     let (result, out, err) = local
         .run_until(async {
@@ -62,8 +80,5 @@ async fn native_pic_plugin_with_existing_and_future_peers() {
         .expect("main executor cleanup drained");
     let result = result.expect("bounded native plugin execution");
     assert_eq!(result.unwrap(), 0, "stdout: {out}\nstderr: {err}");
-    assert!(
-        out.contains("native plugin PASS:"),
-        "stdout: {out}\nstderr: {err}"
-    );
+    assert!(out.contains(expected), "stdout: {out}\nstderr: {err}");
 }

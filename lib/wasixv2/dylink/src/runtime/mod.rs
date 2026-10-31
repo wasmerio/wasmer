@@ -1,4 +1,5 @@
 //! Native per-image loader. Shared state contains plans/source, never store-local functions.
+mod forward;
 mod graph;
 mod load;
 use crate::{BindingTarget, ExternType, FixupKind, Initialization, SOURCE_SECTION, StagedModule};
@@ -539,6 +540,7 @@ impl<S: Syscalls + Control + Send + Sync + 'static> Abi<S> for Image<S> {
             servicing: AtomicBool::new(false),
             local: Arc::new(Mutex::new(Local {
                 instances: vec![instance.clone()],
+                forwarders: Vec::new(),
                 tls: vec![0],
                 memory,
                 table,
@@ -582,12 +584,209 @@ impl<S: Syscalls + Control + Send + Sync + 'static> Abi<S> for Image<S> {
 }
 struct Local {
     instances: Vec<Instance>,
+    forwarders: Vec<Instance>,
     tls: Vec<u32>,
     memory: Memory,
     table: Table,
     stage: Option<LocalStage>,
     leases: Vec<Box<dyn LoaderReservation>>,
     generation: u64,
+}
+impl Local {
+    fn stage_modules(
+        &mut self,
+        store: &mut StoreMut<'_>,
+        base_imports: &Imports,
+        work: &Work,
+        tls: Vec<u32>,
+        leases: Vec<Box<dyn LoaderReservation>>,
+        task: TaskId,
+    ) -> Result<()> {
+        LocalStage::resume(&mut self.stage, tls.clone(), leases);
+        let local = self;
+        let graph = work.graph()?;
+        local
+            .instances
+            .try_reserve(graph.libraries.len() - work.previous)
+            .map_err(failure)?;
+        local
+            .forwarders
+            .try_reserve(graph.libraries.len() - work.previous)
+            .map_err(failure)?;
+        let count = local.stage.as_ref().unwrap().leases.len();
+        local.leases.try_reserve(count).map_err(failure)?;
+        for index in graph
+            .initialization
+            .iter()
+            .copied()
+            .filter(|index| *index >= work.previous)
+        {
+            let lib = &graph.libraries[index];
+            let mut imports = base_imports.clone();
+            let mut pending = Vec::new();
+            for (ordinal, import) in lib.metadata.imports().iter().enumerate() {
+                let fixup = lib
+                    .fixups
+                    .iter()
+                    .find(|f| f.module == index && f.import == ordinal);
+                let value = match &import.ty {
+                    ExternType::Memory(_) => Some(Extern::Memory(local.memory.clone())),
+                    ExternType::Table(_) => Some(Extern::Table(local.table.clone())),
+                    ExternType::Global(_) if import.name == "__stack_pointer" => {
+                        Some(Extern::Global(
+                            local.instances[0]
+                                .exports
+                                .get_global("__stack_pointer")
+                                .map_err(failure)?
+                                .clone(),
+                        ))
+                    }
+                    ExternType::Global(ty) => {
+                        let value = match import.name.as_str() {
+                            "__memory_base" => lib.base,
+                            "__table_base" => lib.table,
+                            "__tls_base" => tls[index],
+                            _ => graph.target_address(
+                                &fixup.ok_or_else(|| failure("missing GOT fixup"))?.target,
+                                &tls,
+                            )?,
+                        };
+                        let value = match ty.content_type {
+                            wasmparser::ValType::I32 => Value::I32(value as i32),
+                            wasmparser::ValType::I64 => Value::I64(i64::from(value)),
+                            _ => return Err(failure("unsupported GOT type")),
+                        };
+                        Some(Extern::Global(if ty.mutable {
+                            Global::new_mut(store, value)
+                        } else {
+                            Global::new(store, value)
+                        }))
+                    }
+                    ExternType::Function(signature)
+                        if fixup.is_some_and(|f| f.kind != FixupKind::Host) =>
+                    {
+                        let BindingTarget::Function { module, index, .. } = &fixup.unwrap().target
+                        else {
+                            return Err(failure("missing weak direct function is unsupported"));
+                        };
+                        let provider = if *module < work.previous {
+                            local.instances.get(*module)
+                        } else {
+                            local
+                                .stage
+                                .as_ref()
+                                .and_then(|s| s.modules.get(module))
+                                .map(StagedModule::instance)
+                        };
+                        if let Some(provider) = provider {
+                            Some(Extern::Function(engine_function(provider, *index)?))
+                        } else {
+                            let slot = graph.target_address(&fixup.unwrap().target, &tls)?;
+                            pending.push((ordinal, signature.clone(), slot));
+                            None
+                        }
+                    }
+                    ExternType::Tag(_) => {
+                        let mut found = None;
+                        for provider in &local.instances {
+                            if let Ok(export) = provider.exports.get::<Extern>(&import.name)
+                                && matches!(export, Extern::Tag(_))
+                            {
+                                found = Some(export.clone());
+                                break;
+                            }
+                        }
+                        Some(found.ok_or_else(|| failure("missing main exception tag"))?)
+                    }
+                    _ => None,
+                };
+                if let Some(value) = value {
+                    imports.define(&import.module, &import.name, value);
+                }
+            }
+            if !pending.is_empty() {
+                let targets = pending
+                    .iter()
+                    .map(|(_, ty, slot)| (ty.clone(), *slot))
+                    .collect::<Vec<_>>();
+                let forwarder = forward::instantiate(store, &local.table, base_imports, &targets)?;
+                for (number, (ordinal, _, _)) in pending.iter().enumerate() {
+                    let import = &lib.metadata.imports()[*ordinal];
+                    imports.define(
+                        &import.module,
+                        &import.name,
+                        forwarder
+                            .exports
+                            .get_function(&number.to_string())
+                            .map_err(failure)?
+                            .clone(),
+                    );
+                }
+                local.stage.as_mut().unwrap().forwarders.push(forwarder);
+            }
+            let fresh_memory = if task == work.first {
+                u64::from(lib.base)
+                    ..u64::from(lib.base) + u64::from(lib.metadata.memory_info().memory_size)
+            } else {
+                u64::from(tls[index])..u64::from(tls[index]) + u64::from(lib.tls_size)
+            };
+            let fresh_table = u64::from(lib.table)..u64::from(graph.cursor);
+            let mut prepared = StagedModule::prepare(
+                store,
+                &lib.source,
+                &imports,
+                local.memory.clone(),
+                local.table.clone(),
+                std::slice::from_ref(&fresh_memory),
+                std::slice::from_ref(&fresh_table),
+                if task == work.first {
+                    None
+                } else {
+                    Some(tls[index])
+                },
+            )?;
+            for (function, slot) in &lib.slots {
+                prepared.bind_slot(store, *slot, *function, std::slice::from_ref(&fresh_table))?;
+            }
+            local
+                .stage
+                .as_mut()
+                .unwrap()
+                .modules
+                .insert(index, prepared);
+        }
+        // All definitions now exist. Element/GOT slots must contain actual
+        // definition funcrefs, including imported/re-exported aliases, not thunks.
+        let mut aliases = BTreeMap::new();
+        for index in work.previous..graph.libraries.len() {
+            let mut functions = BTreeMap::new();
+            let mut function = 0;
+            for import in graph.libraries[index].metadata.imports() {
+                if matches!(import.ty, ExternType::Function(_)) {
+                    let (module, target) = graph.function_definition(index, function)?;
+                    let provider = if module < work.previous {
+                        &local.instances[module]
+                    } else {
+                        local.stage.as_ref().unwrap().modules[&module].instance()
+                    };
+                    functions.insert(function, engine_function(provider, target)?);
+                    function += 1;
+                }
+            }
+            aliases.insert(index, functions);
+        }
+        for (index, functions) in aliases {
+            local
+                .stage
+                .as_mut()
+                .unwrap()
+                .modules
+                .get_mut(&index)
+                .unwrap()
+                .resolve_aliases(&functions);
+        }
+        Ok(())
+    }
 }
 struct LeaseLedger {
     cleanup: Arc<wasixv2_host::LoaderCleanup>,
@@ -629,6 +828,7 @@ impl Drop for LeaseLedger {
 }
 struct LocalStage {
     modules: BTreeMap<usize, StagedModule>,
+    forwarders: Vec<Instance>,
     tls: Vec<u32>,
     leases: Vec<Box<dyn LoaderReservation>>,
 }
@@ -636,6 +836,7 @@ impl LocalStage {
     fn resume(stage: &mut Option<Self>, tls: Vec<u32>, leases: Vec<Box<dyn LoaderReservation>>) {
         let stage = stage.get_or_insert_with(|| Self {
             modules: BTreeMap::new(),
+            forwarders: Vec::new(),
             tls: Vec::new(),
             leases: Vec::new(),
         });
@@ -792,128 +993,7 @@ impl<S: Syscalls + Control + Send + Sync + 'static> StoreImage<S> {
         leases: Vec<Box<dyn LoaderReservation>>,
         task: TaskId,
     ) -> Result<()> {
-        LocalStage::resume(&mut lock(&self.local).stage, tls.clone(), leases);
-        let mut local = lock(&self.local);
-        let graph = work.graph()?;
-        local
-            .instances
-            .try_reserve(graph.libraries.len() - work.previous)
-            .map_err(failure)?;
-        let count = local.stage.as_ref().unwrap().leases.len();
-        local.leases.try_reserve(count).map_err(failure)?;
-        for index in graph
-            .initialization
-            .iter()
-            .copied()
-            .filter(|index| *index >= work.previous)
-        {
-            let lib = &graph.libraries[index];
-            let mut imports = base_imports.clone();
-            for (ordinal, import) in lib.metadata.imports().iter().enumerate() {
-                let fixup = lib
-                    .fixups
-                    .iter()
-                    .find(|f| f.module == index && f.import == ordinal);
-                let value = match &import.ty {
-                    ExternType::Memory(_) => Some(Extern::Memory(local.memory.clone())),
-                    ExternType::Table(_) => Some(Extern::Table(local.table.clone())),
-                    ExternType::Global(_) if import.name == "__stack_pointer" => {
-                        Some(Extern::Global(
-                            local.instances[0]
-                                .exports
-                                .get_global("__stack_pointer")
-                                .map_err(failure)?
-                                .clone(),
-                        ))
-                    }
-                    ExternType::Global(ty) => {
-                        let value = match import.name.as_str() {
-                            "__memory_base" => lib.base,
-                            "__table_base" => lib.table,
-                            "__tls_base" => tls[index],
-                            _ => graph.target_address(
-                                &fixup.ok_or_else(|| failure("missing GOT fixup"))?.target,
-                                &tls,
-                            )?,
-                        };
-                        let value = match ty.content_type {
-                            wasmparser::ValType::I32 => Value::I32(value as i32),
-                            wasmparser::ValType::I64 => Value::I64(i64::from(value)),
-                            _ => return Err(failure("unsupported GOT type")),
-                        };
-                        Some(Extern::Global(if ty.mutable {
-                            Global::new_mut(store, value)
-                        } else {
-                            Global::new(store, value)
-                        }))
-                    }
-                    ExternType::Function(_) if fixup.is_some_and(|f| f.kind != FixupKind::Host) => {
-                        let BindingTarget::Function { module, index, .. } = &fixup.unwrap().target
-                        else {
-                            return Err(failure("missing weak direct function is unsupported"));
-                        };
-                        let provider = if *module < work.previous {
-                            local.instances.get(*module)
-                        } else {
-                            local
-                                .stage
-                                .as_ref()
-                                .and_then(|s| s.modules.get(module))
-                                .map(StagedModule::instance)
-                        }
-                        .ok_or_else(|| failure("cyclic direct function dependency"))?;
-                        Some(Extern::Function(engine_function(provider, *index)?))
-                    }
-                    ExternType::Tag(_) => {
-                        let mut found = None;
-                        for provider in &local.instances {
-                            if let Ok(export) = provider.exports.get::<Extern>(&import.name)
-                                && matches!(export, Extern::Tag(_))
-                            {
-                                found = Some(export.clone());
-                                break;
-                            }
-                        }
-                        Some(found.ok_or_else(|| failure("missing main exception tag"))?)
-                    }
-                    _ => None,
-                };
-                if let Some(value) = value {
-                    imports.define(&import.module, &import.name, value);
-                }
-            }
-            let fresh_memory = if task == work.first {
-                u64::from(lib.base)
-                    ..u64::from(lib.base) + u64::from(lib.metadata.memory_info().memory_size)
-            } else {
-                u64::from(tls[index])..u64::from(tls[index]) + u64::from(lib.tls_size)
-            };
-            let fresh_table = u64::from(lib.table)..u64::from(graph.cursor);
-            let mut prepared = StagedModule::prepare(
-                store,
-                &lib.source,
-                &imports,
-                local.memory.clone(),
-                local.table.clone(),
-                std::slice::from_ref(&fresh_memory),
-                std::slice::from_ref(&fresh_table),
-                if task == work.first {
-                    None
-                } else {
-                    Some(tls[index])
-                },
-            )?;
-            for (function, slot) in &lib.slots {
-                prepared.bind_slot(store, *slot, *function, std::slice::from_ref(&fresh_table))?;
-            }
-            local
-                .stage
-                .as_mut()
-                .unwrap()
-                .modules
-                .insert(index, prepared);
-        }
-        Ok(())
+        lock(&self.local).stage_modules(store, base_imports, work, tls, leases, task)
     }
     async fn execute_command(
         &self,
@@ -964,6 +1044,7 @@ impl<S: Syscalls + Control + Send + Sync + 'static> StoreImage<S> {
                     for module in staged.modules.into_values() {
                         local.instances.push(module.publish()?);
                     }
+                    local.forwarders.extend(staged.forwarders);
                     local.tls = staged.tls;
                     local.leases.extend(staged.leases);
                 }
@@ -1205,6 +1286,7 @@ impl<S: Syscalls + Control + Send + Sync + 'static> AbiInstance<S> for StoreImag
                         for module in stage.modules.into_values() {
                             local.instances.push(module.publish()?);
                         }
+                        local.forwarders.extend(stage.forwarders);
                         local.tls = stage.tls;
                         local.leases.extend(stage.leases);
                         local.generation = self.root.gate()?.generation();
@@ -1705,5 +1787,413 @@ mod lease_cancellation_tests {
         drop(transferred);
         assert!(completed.load(Ordering::Acquire));
         assert!(nonce.upgrade().is_none());
+    }
+}
+
+#[cfg(all(test, feature = "engine-tests"))]
+mod cyclic_tests {
+    use super::*;
+    use wasmer::{AsStoreMut, Function, MemoryType, Store, TableType};
+
+    fn fixture() -> (Graph, Local, Store, Imports) {
+        let mut store = Store::default();
+        let memory = Memory::new(&mut store, MemoryType::new(1, Some(4), true)).unwrap();
+        let table = Table::new(
+            &mut store,
+            TableType::new(Type::FuncRef, 3, Some(64)),
+            Value::FuncRef(None),
+        )
+        .unwrap();
+        let main = Module::new(
+            &store,
+            wat::parse_str(
+                "(module (global (export \"__stack_pointer\") (mut i32) (i32.const 65536)))",
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        let main = Instance::new(&mut store, &main, &Imports::new()).unwrap();
+        let library = |name: &str, other: &str, increment: u32| {
+            let extra = if name == "a" {
+                r#"(import "test" "require" (func))"#
+            } else {
+                ""
+            };
+            Library::new(
+                crate::tests::bytes(
+                    &format!(
+                        r#"(module
+                (import "env" "memory" (memory 1 4 shared))
+                (import "env" "__indirect_function_table" (table 3 funcref))
+                (import "env" "__table_base" (global $base i32))
+                (import "env" "{other}" (func $other (param i32 i64) (result i64)))
+                {extra}
+                (export "{other}_alias" (func $other))
+                (elem (global.get $base) func $other)
+                (func (export "{name}") (param $n i32) (param $x i64) (result i64)
+                    local.get $n i32.eqz
+                    if (result i64) local.get $x
+                    else local.get $n i32.const 1 i32.sub
+                         local.get $x i64.const {increment} i64.add call $other end))"#
+                    ),
+                    [0, 0, 1, 0],
+                    &[other],
+                    &[],
+                    &[],
+                ),
+                None,
+            )
+            .unwrap()
+        };
+        let mut graph = Graph {
+            libraries: vec![
+                Library::new(crate::tests::bytes("(module)", [0; 4], &[], &[], &[]), None).unwrap(),
+                library("a", "b", 1),
+                library("b", "a", 2),
+            ],
+            global: vec![0],
+            cursor: 3,
+            initialization: vec![0],
+        };
+        graph.libraries[1].dependencies = vec![2];
+        graph.libraries[2].dependencies = vec![1];
+        for index in 1..3 {
+            graph.libraries[index].table = graph.cursor;
+            graph.cursor += 1;
+            graph.assign_slots(index).unwrap();
+        }
+        graph.seal(1, 1).unwrap();
+        let mut imports = Imports::new();
+        imports.define("env", "memory", memory.clone());
+        imports.define("env", "__indirect_function_table", table.clone());
+        imports.define("test", "require", Function::new_typed(&mut store, || {}));
+        // Same environment-backed hook types as staging's engine sibling. No hook
+        // may run at instantiation/Apply, and guest calls are only made after publish.
+        for source in &graph.libraries[1..] {
+            let instrumented = wasixv2_exec::instrument(
+                &Initialization::parse(&source.source)
+                    .unwrap()
+                    .instantiate_bytes()
+                    .unwrap(),
+            )
+            .unwrap();
+            let module = Module::new(&store, instrumented).unwrap();
+            for import in module
+                .imports()
+                .functions()
+                .filter(|i| i.module() == "wasixv2-exec")
+            {
+                let function =
+                    Function::new(&mut store, import.ty(), |_| Ok(vec![Value::I32(65536)]));
+                imports.define(import.module(), import.name(), function);
+            }
+        }
+        let local = Local {
+            instances: vec![main],
+            forwarders: Vec::new(),
+            memory,
+            table,
+            tls: vec![0],
+            stage: None,
+            leases: Vec::new(),
+            generation: 0,
+        };
+        (graph, local, store, imports)
+    }
+    fn work(graph: Graph) -> Work {
+        Work {
+            publication: Mutex::new(Some(Publication {
+                graph: Arc::new(graph),
+                references: BTreeMap::new(),
+                ctors: VecDeque::new(),
+            })),
+            previous: 1,
+            first: TaskId(1),
+            leases: Mutex::new(Vec::new()),
+            committed: AtomicBool::new(false),
+            error: Mutex::new(None),
+        }
+    }
+    #[test]
+    fn now_cycles_publish_concrete_aliases_and_replay_in_future_stores() {
+        // Two independent stores replay identical frozen targets; a shared Rust
+        // Function/Instance is never transferred between them.
+        for task in [TaskId(1), TaskId(2)] {
+            let (graph, mut local, mut store, imports) = fixture();
+            let work = work(graph);
+            local
+                .stage_modules(
+                    &mut store.as_store_mut(),
+                    &imports,
+                    &work,
+                    vec![0; 3],
+                    Vec::new(),
+                    task,
+                )
+                .unwrap();
+            let stage = local.stage.as_mut().unwrap();
+            assert_eq!(stage.forwarders.len(), 1);
+            assert!(wasixv2_exec::is_preemptible(stage.forwarders[0].module()));
+            assert!(matches!(
+                local.table.get(&mut store, 5),
+                Some(Value::FuncRef(None))
+            ));
+            for module in stage.modules.values_mut() {
+                module.apply(&mut store).unwrap();
+            }
+            let stage = local.stage.take().unwrap();
+            local.forwarders.extend(stage.forwarders);
+            for module in stage.modules.into_values() {
+                local.instances.push(module.publish().unwrap());
+            }
+            assert_eq!(
+                local.instances[1]
+                    .exports
+                    .get_typed_function::<(i32, i64), i64>(&store, "a")
+                    .unwrap()
+                    .call(&mut store, 6, 10)
+                    .unwrap(),
+                19
+            );
+            assert_eq!(
+                local.instances[2]
+                    .exports
+                    .get_typed_function::<(i32, i64), i64>(&store, "b")
+                    .unwrap()
+                    .call(&mut store, 5, 10)
+                    .unwrap(),
+                18
+            );
+            let graph = work.graph().unwrap();
+            let a = graph.symbol(1, "a", &[0; 3]).unwrap();
+            assert_eq!(graph.symbol(2, "a_alias", &[0; 3]).unwrap(), a);
+            let alias_slot = graph.libraries[2].slots[&0];
+            let Some(Value::FuncRef(Some(function))) = local.table.get(&mut store, alias_slot)
+            else {
+                panic!("published imported alias missing")
+            };
+            assert_eq!(
+                function
+                    .typed::<(i32, i64), i64>(&store)
+                    .unwrap()
+                    .call(&mut store, 4, 1)
+                    .unwrap(),
+                7
+            );
+            // Table::get can materialize a different Rust handle for the same
+            // funcref. Distinguish the definition from its forwarding alias by
+            // changing the canonical target after publication: the definition
+            // keeps returning x, whereas the thunk would now return -999.
+            let replacement = Function::new_typed(&mut store, |_: i32, _: i64| -> i64 { -999 });
+            local
+                .table
+                .set(&mut store, a, Value::FuncRef(Some(replacement)))
+                .unwrap();
+            assert_eq!(
+                function
+                    .typed::<(i32, i64), i64>(&store)
+                    .unwrap()
+                    .call(&mut store, 0, 123)
+                    .unwrap(),
+                123
+            );
+        }
+    }
+    #[test]
+    fn forwarding_preserves_numeric_multivalue_and_native_exceptions() {
+        let (_, local, mut store, imports) = fixture();
+        let provider = Module::new(
+            &store,
+            wat::parse_str(
+                r#"(module
+            (tag $error (export "error") (param i32))
+            (func (export "many") (param i32 i64 f32 f64) (result i32 i64 f32 f64)
+                local.get 0 local.get 1 local.get 2 local.get 3)
+            (func (export "raise") (param i32) (result i32) local.get 0 throw $error))"#,
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        let provider = Instance::new(&mut store, &provider, &Imports::new()).unwrap();
+        let targets = [
+            (
+                wasmparser::FuncType::new(
+                    [
+                        wasmparser::ValType::I32,
+                        wasmparser::ValType::I64,
+                        wasmparser::ValType::F32,
+                        wasmparser::ValType::F64,
+                    ],
+                    [
+                        wasmparser::ValType::I32,
+                        wasmparser::ValType::I64,
+                        wasmparser::ValType::F32,
+                        wasmparser::ValType::F64,
+                    ],
+                ),
+                3,
+            ),
+            (
+                wasmparser::FuncType::new([wasmparser::ValType::I32], [wasmparser::ValType::I32]),
+                4,
+            ),
+        ];
+        local
+            .table
+            .grow(&mut store, 2, Value::FuncRef(None))
+            .unwrap();
+        let forwarder = forward::instantiate(&mut store, &local.table, &imports, &targets).unwrap();
+        // Preparation creates code but leaves every target unpublished.
+        assert!(matches!(
+            local.table.get(&mut store, 3),
+            Some(Value::FuncRef(None))
+        ));
+
+        for (slot, name) in [(3, "many"), (4, "raise")] {
+            local
+                .table
+                .set(
+                    &mut store,
+                    slot,
+                    Value::FuncRef(Some(provider.exports.get_function(name).unwrap().clone())),
+                )
+                .unwrap();
+        }
+        let input = [
+            Value::I32(-17),
+            Value::I64(1 << 40),
+            Value::F32(3.25),
+            Value::F64(-7.5),
+        ];
+        assert_eq!(
+            forwarder
+                .exports
+                .get_function("0")
+                .unwrap()
+                .call(&mut store, &input)
+                .unwrap()
+                .as_ref(),
+            &input
+        );
+        let catcher = Module::new(
+            &store,
+            wat::parse_str(
+                r#"(module
+            (import "env" "raise" (func $raise (param i32) (result i32)))
+            (import "env" "error" (tag $error (param i32)))
+            (func (export "catch") (param i32) (result i32)
+                (block $caught (result i32)
+                    (try_table (result i32) (catch $error $caught)
+                        local.get 0 call $raise))))"#,
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        let mut imports = Imports::new();
+        imports.define(
+            "env",
+            "raise",
+            forwarder.exports.get_function("1").unwrap().clone(),
+        );
+        imports.define(
+            "env",
+            "error",
+            provider.exports.get::<Extern>("error").unwrap().clone(),
+        );
+        let catcher = Instance::new(&mut store, &catcher, &imports).unwrap();
+        assert_eq!(
+            catcher
+                .exports
+                .get_typed_function::<i32, i32>(&store, "catch")
+                .unwrap()
+                .call(&mut store, 73)
+                .unwrap(),
+            73
+        );
+        assert!(
+            forward::instantiate(
+                &mut store,
+                &local.table,
+                &Imports::new(),
+                &[(targets[1].0.clone(), 2)]
+            )
+            .is_err()
+        );
+    }
+    #[test]
+    fn cyclic_apply_rollback_clears_all_new_targets_and_drops_forwarders() {
+        let (graph, mut local, mut store, imports) = fixture();
+        let work = work(graph);
+        local
+            .stage_modules(
+                &mut store.as_store_mut(),
+                &imports,
+                &work,
+                vec![0; 3],
+                Vec::new(),
+                TaskId(1),
+            )
+            .unwrap();
+        let stage = local.stage.as_mut().unwrap();
+        assert_eq!(stage.forwarders.len(), 1);
+        for module in stage.modules.values_mut() {
+            module.apply(&mut store).unwrap();
+        }
+        for module in stage.modules.values_mut() {
+            module.rollback(&mut store).unwrap();
+        }
+        drop(local.stage.take());
+        for slot in 3..work.graph().unwrap().cursor {
+            assert!(matches!(
+                local.table.get(&mut store, slot),
+                Some(Value::FuncRef(None))
+            ));
+        }
+        assert!(local.forwarders.is_empty());
+        assert_eq!(local.instances.len(), 1);
+        // The identical load is retryable after rollback; no orphan slot is occupied.
+        local
+            .stage_modules(
+                &mut store.as_store_mut(),
+                &imports,
+                &work,
+                vec![0; 3],
+                Vec::new(),
+                TaskId(1),
+            )
+            .unwrap();
+    }
+    #[test]
+    fn failed_cyclic_prepare_preserves_staged_ownership_and_old_table() {
+        let (graph, mut local, mut store, mut imports) = fixture();
+        // A fails after B and its forwarding instance were successfully prepared.
+        imports.define(
+            "test",
+            "require",
+            Function::new_typed(&mut store, |_: i32| -> i32 { 0 }),
+        );
+        let work = work(graph);
+        assert!(
+            local
+                .stage_modules(
+                    &mut store.as_store_mut(),
+                    &imports,
+                    &work,
+                    vec![0; 3],
+                    Vec::new(),
+                    TaskId(1)
+                )
+                .is_err()
+        );
+        assert_eq!(local.instances.len(), 1);
+        assert!(local.forwarders.is_empty());
+        assert_eq!(local.stage.as_ref().unwrap().forwarders.len(), 1);
+        assert!(local.stage.as_ref().unwrap().modules.contains_key(&2));
+        for slot in 3..local.table.size(&store) {
+            assert!(matches!(
+                local.table.get(&mut store, slot),
+                Some(Value::FuncRef(None))
+            ));
+        }
     }
 }

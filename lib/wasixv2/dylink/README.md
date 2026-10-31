@@ -53,17 +53,28 @@ The runtime verifies the deterministic sanitized/instrumented source against the
 native compiled module hash before host initialization.
 
 The native path supports NOW explicit handles, exported data/functions, per-store
-DSO TLS, existing and future peers, shared `Image` CLONE_VM groups, missing-symbol
-rollback, and no-unload close. Existing admission registers every store; an atomic
+DSO TLS, cyclic direct-function dependencies with resolved NOW targets, existing
+and future peers, shared `Image` CLONE_VM groups, missing-symbol rollback, and
+no-unload close. Existing admission registers every store; an atomic
 mm image-owner token rejects mixed/custom or independently selected owners.
 All registered stores park, prepare and apply validated host effects before atomic
 graph publication; libc2 drains constructors afterward. Fresh exec selects a new
 image/mm, retaining surviving old-mm attachments. Shared graphs contain source,
 layout and file owners, never store-local engine objects.
 
+When a resolved direct-function provider has not yet been instantiated, the store
+creates a typed Wasm forwarding function calling its reserved table slot. These
+functions use normal exec instrumentation, with no symbol lookup or per-call host
+resolver. Their instances remain stage-owned until publication and are retained
+with the committed per-store graph afterward. Imported/re-exported function
+chains resolve to concrete definitions; table elements and symbol addresses use
+those definitions rather than forwarding aliases. All targets are filled by
+host Apply before atomic publication, and rollback clears only new slots. Future
+stores replay the same frozen NOW targets with their own forwarding instances.
+
 The profile fails closed for startup dependencies, asyncify, LAZY/NEXT,
-caller-sensitive lookup, unsupported initializer bodies, cyclic direct-function
-imports and main-TLS crossimports that need post-libc late binding. DSO-local TLS
+caller-sensitive lookup, unsupported initializer bodies, definition-free function
+alias cycles and main-TLS crossimports that need post-libc late binding. DSO-local TLS
 and calls through main libc TLS accessors are supported. The real C source proof
 uses a three-argument main; it does not establish general C/C++ program acceptance.
 Ptrace syscall-entry/exit stops retain their exact pending future. An opt-in per-store
