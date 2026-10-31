@@ -180,3 +180,20 @@ and [`arena.c:heap_info,arena_get2,__malloc_arena_thread_freeres`](https://raw.g
 The latter retains detached arenas for reuse and bounds their creation using the
 native core count unless explicitly configured. The heap-shaped map observation
 is checked against that source; free-bin snapshots supply the stronger evidence.
+
+
+`userland/tests/soak-tcaches.py` supplements the arena estimate for the exact
+host libc SHA recorded in its guard. With no argument it validates calibration
+on its own process; with a live result directory it reads native pthread cache
+counts at a quiescent cycle. Linux
+`kernel/futex/syscalls.c:sys_get_robust_list` supplies the thread descriptor
+location, calibrated with our own `ARCH_GET_FS`. glibc
+[`nptl/descr.h:struct pthread`](https://raw.githubusercontent.com/bminor/glibc/glibc-2.39/nptl/descr.h)
+and the pinned local `__libc_malloc` disassembly resolve TLS;
+[`malloc.c:tcache_perthread_struct,__libc_malloc`](https://raw.githubusercontent.com/bminor/glibc/glibc-2.39/malloc/malloc.c)
+define the counts/size classes. The target's TLS offset is read from its own GOT,
+not copied from the observer's address space. TCB self-pointers and duplicate
+cache-count reads validate each thread; changing/disappearing threads are
+reported as unstable. Self-control PASS; finalrun cycle805 measured33/33stable
+threads and0.806MiB tcache chunks. This does not explain the entire arena
+unfreed estimate. No process attach, target writes, signals or allocator tuning.
