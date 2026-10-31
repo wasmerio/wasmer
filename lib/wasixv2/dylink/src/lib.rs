@@ -3,8 +3,9 @@
 //! Engine-free plans contain relative addresses, indices and validated bounded effects.
 //! Native staging compiles no-auto-start modules without executing guest helpers. The native
 //! image owner connects the existing four imports and coordinates all-store publication;
-//! libc calls constructors afterward. This WIP checkpoint still needs guaranteed async
-//! retirement custody before integration; see README.md for profile and lifecycle limits.
+//! libc calls constructors afterward. Managed runner scopes retain cleanup custody and
+//! logically retire mappings before retained Rust metadata handles drop; see README.md
+//! for the native profile, executor lifetime contract and deferred acceptance limits.
 
 mod image;
 #[cfg(feature = "sys")]

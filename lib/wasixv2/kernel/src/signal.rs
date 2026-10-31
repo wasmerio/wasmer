@@ -1442,6 +1442,19 @@ impl GroupState {
         }
         let trace = &mut me.ptrace;
         trace.traced = true;
+        // kernel/entry/common.c syscall entry/exit surrounds Dispatch; these stops
+        // hold no syscall-body mm.op. Other ptrace events and requested freezer/
+        // throttle flags are not an outside-loader safepoint. Classify the original
+        // kernel stop, never PTRACE_SETSIGINFO or a consumed wait's mutable fields.
+        trace.loader_cooperative = stop.sync.is_none()
+            && stop.why == SiCode::CLD_TRAPPED
+            && matches!(stop.exit_code, code if code == Signal::SIGTRAP.0 || code == Signal::SIGTRAP.0 | 0x80)
+            && trace.call.is_some()
+            && matches!(
+                wasixv2_abi::PtraceArg(stop.message as u32),
+                wasixv2_abi::PtraceArg::PTRACE_EVENTMSG_SYSCALL_ENTRY
+                    | wasixv2_abi::PtraceArg::PTRACE_EVENTMSG_SYSCALL_EXIT
+            );
         (trace.message, trace.exit_code) = (stop.message, stop.exit_code);
         trace.sync_stop = stop.sync;
         trace.trap_stop = false;
@@ -1463,6 +1476,7 @@ impl GroupState {
             return (0, None);
         };
         let trace = &mut me.ptrace;
+        trace.loader_cooperative = false;
         let code = std::mem::take(&mut trace.exit_code);
         let info = trace.last_siginfo.take();
         (

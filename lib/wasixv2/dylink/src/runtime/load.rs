@@ -9,7 +9,7 @@ struct Coordinator<S: Syscalls + Control + Send + Sync + 'static> {
     env: FunctionEnv<ExecEnv<S>>,
     store: StoreAsync,
     syscalls: Arc<S>,
-    host: Arc<dyn wasixv2_host::Host>,
+    cleanup_scope: Arc<wasixv2_host::LoaderCleanup>,
     task: TaskId,
 }
 impl<S: Syscalls + Control + Send + Sync + 'static> Coordinator<S> {
@@ -39,6 +39,17 @@ async fn await_cleanup(pending: &mut Option<LocalFuture<'static, Result<()>>>) -
     *pending = None;
     result
 }
+
+// A closed admission can reopen by Drop. Once activated, every path needs the
+// Coordinator's rollback obligation, so no preparation await/error may follow it.
+async fn activate_prepared<T>(
+    prepared: impl std::future::Future<Output = std::result::Result<T, Errno>>,
+    activate: impl FnOnce() -> std::result::Result<LoaderTransaction, Errno>,
+) -> std::result::Result<(T, LoaderTransaction), Errno> {
+    let prepared = prepared.await?;
+    let transaction = activate()?;
+    Ok((prepared, transaction))
+}
 impl<S: Syscalls + Control + Send + Sync + 'static> Drop for Coordinator<S> {
     fn drop(&mut self) {
         let active = self.transaction.is_some();
@@ -58,7 +69,7 @@ impl<S: Syscalls + Control + Send + Sync + 'static> Drop for Coordinator<S> {
             let root = self.root.clone();
             let syscalls = self.syscalls.clone();
             let env = self.env.clone();
-            self.host.executor().spawn_local(Box::pin(async move {
+            self.cleanup_scope.spawn(Box::pin(async move {
                 let _keep_env = env;
                 if let Err(error) = pending.await {
                     let _ = syscalls.loader_fatal(root.gate().unwrap());
@@ -130,11 +141,19 @@ async fn cleanup<S: Syscalls + Control + Send + Sync + 'static>(
     Ok(())
 }
 impl<S: Syscalls + Control + Send + Sync + 'static> StoreImage<S> {
-    pub(super) async fn service(&self, env: &AsyncFunctionEnvMut<ExecEnv<S>>) -> Result<()> {
-        let (syscalls, task) = {
-            let data = env.read().await;
-            (data.data().syscalls().clone(), data.data().task())
-        };
+    pub(super) async fn service(&self, cx: &Context<'_, S>) -> Result<()> {
+        // A detached frame may still finish its original exit/exec future. It
+        // needs no more loader mutations and must retain that existing outcome.
+        if self.retired.load(Ordering::Acquire) || self.root.retired.load(Ordering::Acquire) {
+            return Ok(());
+        }
+        self.servicing
+            .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+            .map_err(|_| failure("reentrant loader service"))?;
+        let _servicing = Servicing(&self.servicing);
+        let (syscalls, task) = cx
+            .with(|data, _| (data.syscalls().clone(), data.task()))
+            .await;
         let gate = self.root.gate()?.clone();
         // exec/exit can detach this old store before its final complete(). Never wait
         // on old-mm work or allocate against the same task id's replacement image.
@@ -149,7 +168,7 @@ impl<S: Syscalls + Control + Send + Sync + 'static> StoreImage<S> {
                 return Ok(());
             }
             if let Some(command) = gate.command(task) {
-                self.command(env, task, command).await?;
+                self.command(cx, task, command).await?;
             }
             if gate.busy() {
                 syscalls
@@ -175,7 +194,8 @@ impl<S: Syscalls + Control + Send + Sync + 'static> StoreImage<S> {
         let transaction = coordinator.transaction.as_ref().unwrap();
         let gate = transaction.gate();
         if let Some(command) = gate.command(coordinator.task) {
-            self.command(env, coordinator.task, command).await?;
+            self.command(&Context::Import(env), coordinator.task, command)
+                .await?;
         }
         coordinator
             .syscalls
@@ -201,6 +221,7 @@ impl<S: Syscalls + Control + Send + Sync + 'static> StoreImage<S> {
         handle: DlHandlePtr,
         err: UserSliceMut,
     ) -> SysResult<i32> {
+        self.ensure_live().map_err(|_| Errno::ESTALE)?;
         if caller_addr != 0
             || flags.bits()
                 & !(DlFlags::RTLD_NOW.bits()
@@ -229,7 +250,9 @@ impl<S: Syscalls + Control + Send + Sync + 'static> StoreImage<S> {
             return Err(Errno::ESTALE.into());
         }
         if gate.busy() {
-            self.service(env).await.map_err(|_| Errno::EINTR)?;
+            self.service(&Context::Import(env))
+                .await
+                .map_err(|_| Errno::EINTR)?;
             return Err(wasixv2_syscalls::SysErr::RestartNoIntr);
         }
         let name = if file.addr() == 0 {
@@ -271,11 +294,17 @@ impl<S: Syscalls + Control + Send + Sync + 'static> StoreImage<S> {
         if !Arc::ptr_eq(&old, &self.root.graph()) {
             return Err(wasixv2_syscalls::SysErr::RestartNoIntr);
         }
-        let transaction = syscalls.loader_activate(caller.task(), closing)?;
-        let (host, store) = {
-            let data = env.read().await;
-            (data.data().host().clone(), env.as_store_async().store())
-        };
+        let ((cleanup_scope, store), transaction) = activate_prepared(
+            async {
+                let data = env.read().await;
+                Ok((
+                    data.data().loader_cleanup().cloned().ok_or(Errno::ENOSYS)?,
+                    env.as_store_async().store(),
+                ))
+            },
+            || syscalls.loader_activate(caller.task(), closing),
+        )
+        .await?;
         let mut coordinator = Coordinator {
             transaction: Some(transaction),
             cleanup: None,
@@ -284,7 +313,7 @@ impl<S: Syscalls + Control + Send + Sync + 'static> StoreImage<S> {
             env: env.as_ref(),
             store,
             syscalls: syscalls.clone(),
-            host,
+            cleanup_scope,
             task: caller.task(),
         };
         let work = Arc::new(Work {
@@ -550,6 +579,36 @@ mod tests {
         sync::atomic::AtomicUsize,
         task::{Context, Poll, Waker},
     };
+
+    #[test]
+    fn canceled_or_failed_preparation_never_strands_an_activated_round() {
+        for failure in [false, true] {
+            let gate = LoaderGate::new(93);
+            drop(gate.bind(TaskId(1)).unwrap());
+            let closing = gate.close(TaskId(1)).unwrap();
+            let prepared: LocalFuture<'static, std::result::Result<(), Errno>> = if failure {
+                Box::pin(std::future::ready(Err(Errno::ENOSYS)))
+            } else {
+                Box::pin(std::future::pending())
+            };
+            let mut operation = Box::pin(activate_prepared(prepared, || {
+                closing.activate(&[TaskId(1)])
+            }));
+            let polled = operation
+                .as_mut()
+                .poll(&mut Context::from_waker(Waker::noop()));
+            if failure {
+                assert!(matches!(polled, Poll::Ready(Err(Errno::ENOSYS))));
+            } else {
+                assert!(polled.is_pending());
+            }
+            drop(operation);
+            assert!(
+                !gate.busy(),
+                "no coordinator exists to recover a prematurely activated round"
+            );
+        }
+    }
 
     #[test]
     fn canceled_abort_keeps_the_same_suspended_release_for_drop_transfer() {

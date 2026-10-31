@@ -82,3 +82,111 @@ fn fatal_image_ends_each_distinct_clone_vm_process_group() {
         );
     }
 }
+
+#[test]
+fn retirement_membership_keeps_unstarted_and_surviving_old_mm_users() {
+    struct Unsupported;
+    impl LoaderControl for Unsupported {}
+    let (kernel, task, _) = setup(b"");
+    let gate = kernel.loader_gate(task).unwrap();
+    assert_eq!(Unsupported.loader_members(&gate), None);
+    assert_eq!(kernel.loader_members(&gate), Some(1));
+    let memory = FlatMemory(RefCell::new(vec![0; 65536]));
+    let caller = Caller::new(task, &memory);
+    let peer = TaskId(
+        block_on(kernel.thread_spawn(&caller, 0x111, 0, GuestPtrMut::NULL, 0, GuestPtrMut::NULL))
+            .unwrap() as u32,
+    );
+    assert!(gate.participants().is_empty());
+    assert_eq!(kernel.loader_members(&gate), Some(2));
+    // Successful exec moves only this group to a new mm; old unstarted peer survives.
+    kernel.with_task(task, |entry| entry.mm = Arc::default());
+    let fresh = kernel.loader_gate(task).unwrap();
+    assert_eq!(kernel.loader_members(&gate), Some(1));
+    assert_eq!(kernel.loader_members(&fresh), Some(1));
+    kernel.abort_thread(peer);
+    assert_eq!(kernel.loader_members(&gate), Some(0));
+    assert_eq!(kernel.loader_members(&fresh), Some(1));
+    // The same numeric mm id must never stand in for the original gate identity.
+    assert_eq!(
+        kernel.loader_members(&wasixv2_syscalls::LoaderGate::new(fresh.mm())),
+        Some(0)
+    );
+}
+
+#[test]
+fn only_kernel_origin_syscall_stops_allow_outside_cooperation() {
+    use crate::signal::TraceStop;
+    use wasixv2_abi::{PtraceArg, PtraceEvent, SiCode, Siginfo};
+    let (kernel, task, _) = setup(b"");
+    let signals = kernel.task_signals(task);
+    assert!(!kernel.loader_cooperative_safe(task));
+    signals.freeze(true);
+    assert!(kernel.loader_held(task));
+    assert!(
+        !kernel.loader_cooperative_safe(task),
+        "a requested freezer can race an unsafe kernel operation"
+    );
+    signals.freeze(false);
+    signals.group().with_trace(task, |trace| {
+        trace.link = Some(crate::ptrace::Link {
+            tracer: task,
+            seized: false,
+            options: 0,
+        });
+        trace.call = Some(crate::ptrace::CallInfo::default());
+    });
+    for (code, message, safe) in [
+        (
+            Signal::SIGTRAP.0 | PtraceEvent::PTRACE_EVENT_CLONE.0 << 8,
+            PtraceArg::PTRACE_EVENTMSG_SYSCALL_ENTRY.0,
+            false,
+        ),
+        (
+            Signal::SIGTRAP.0,
+            PtraceArg::PTRACE_EVENTMSG_SYSCALL_ENTRY.0,
+            true,
+        ),
+        (
+            Signal::SIGTRAP.0 | 0x80,
+            PtraceArg::PTRACE_EVENTMSG_SYSCALL_EXIT.0,
+            true,
+        ),
+    ] {
+        signals
+            .group()
+            .enter_trace_stop(
+                task,
+                TraceStop {
+                    exit_code: code,
+                    why: SiCode::CLD_TRAPPED,
+                    message: u64::from(message),
+                    info: Some(Siginfo {
+                        si_signo: Signal::SIGTRAP.0,
+                        si_errno: 0,
+                        si_code: code,
+                        sifields: [0; 116],
+                    }),
+                    sync: None,
+                },
+            )
+            .unwrap();
+        assert_eq!(kernel.loader_cooperative_safe(task), safe);
+        signals.group().ptrace_report(task, false);
+        assert_eq!(
+            kernel.loader_cooperative_safe(task),
+            safe,
+            "wait reporting must not remove the safe boundary"
+        );
+        signals.group().with_trace(task, |trace| {
+            trace.last_siginfo.as_mut().unwrap().si_code = Signal::SIGTRAP.0 | 0x80;
+        });
+        assert_eq!(
+            kernel.loader_cooperative_safe(task),
+            safe,
+            "tracer siginfo cannot forge a boundary"
+        );
+        signals.group().leave_trace_stop(task);
+        assert!(!kernel.loader_cooperative_safe(task));
+    }
+}

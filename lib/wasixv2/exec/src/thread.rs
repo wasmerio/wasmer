@@ -128,8 +128,20 @@ where
 {
     fn start(self: Arc<Self>, task: TaskId, tid: i32, start_arg: u32) -> io::Result<()> {
         let host = self.host.clone();
-        host.executor()
-            .spawn_thread(Box::new(move || Box::pin(self.run(task, tid, start_arg))))
+        host.executor().spawn_thread(Box::new(move || {
+            let cleanup = wasixv2_host::LoaderCleanup::new(self.host.clone());
+            let syscalls = self.syscalls.clone();
+            let run = self.run(task, tid, start_arg, cleanup.clone());
+            Box::pin(async move {
+                cleanup
+                    .run(async move {
+                        if let Err(panic) = crate::catch_panic(run).await {
+                            drop(crate::host_panicked(&*syscalls, task, panic));
+                        }
+                    })
+                    .await
+            })
+        }))
     }
 
     fn for_process(&self) -> Arc<dyn Start> {
@@ -185,10 +197,16 @@ where
 {
     /// Runs the thread `task` to its end, on the host thread it was started on. A trap kills
     /// the thread group with its signal; then the kernel forgets the task.
-    async fn run(self: Arc<Self>, task: TaskId, tid: i32, start_arg: u32) {
+    async fn run(
+        self: Arc<Self>,
+        task: TaskId,
+        tid: i32,
+        start_arg: u32,
+        cleanup: Arc<wasixv2_host::LoaderCleanup>,
+    ) {
         let (syscalls, host) = (self.syscalls.clone(), self.host.clone());
         let (engine, abis) = (self.engine.clone(), self.abis.clone());
-        match crate::catch_panic(self.call_entry(task, tid, start_arg)).await {
+        match crate::catch_panic(self.call_entry(task, tid, start_arg, cleanup)).await {
             Ok(Ok(Ended::Exited(_))) => syscalls.release(task),
             Ok(Ok(Ended::Fault {
                 task: at,
@@ -228,7 +246,9 @@ where
         task: TaskId,
         tid: i32,
         start_arg: u32,
+        cleanup: Arc<wasixv2_host::LoaderCleanup>,
     ) -> Result<Ended, ExecError> {
+        self.abi.attach_cleanup(&cleanup);
         let admission = if let Some(gate) = self.syscalls.loader_gate(task) {
             loop {
                 match crate::Binding::new(&*self.abi, gate.clone(), task) {
@@ -260,6 +280,7 @@ where
                 self.host.clone(),
             ),
         );
+        env.as_mut(&mut store).cleanup = Some(cleanup);
         let mut imports = crate::imports(&*self.abi, &mut store, &env, &self.module);
         let memory = self.memory.clone().try_attach(&mut store)?;
         if let Some(import) = self.module.imports().memories().next() {
@@ -316,12 +337,17 @@ where
                     .cx()
                     .with(|env, _| env.asyncify.as_ref().and_then(|a| a.buffer_address()))
                     .await;
-                abi.start_thread(&entry, tid, start_arg).await
+                crate::cooperative::drive(&entry, &*abi, abi.start_thread(&entry, tid, start_arg))
+                    .await
             }
             Err(err) => Err(err),
         };
         let on_return = abi.on_thread_return();
-        Ok(crate::ended(entry.cx(), result, on_return, Role::Thread).await)
+        let ended = crate::ended(entry.cx(), result, on_return, Role::Thread).await;
+        abi.retire(&entry)
+            .await
+            .map_err(|e| ExecError::Load(crate::LoadError::other(e)))?;
+        Ok(ended)
     }
 }
 
@@ -377,9 +403,13 @@ mod tests {
             Arc::default(),
         );
         for id in 2..6 {
-            let ended =
-                futures::executor::block_on(image.clone().call_entry(TaskId(id), id as i32, 0))
-                    .unwrap();
+            let ended = futures::executor::block_on(image.clone().call_entry(
+                TaskId(id),
+                id as i32,
+                0,
+                wasixv2_host::LoaderCleanup::new(Arc::new(NoThreads)),
+            ))
+            .unwrap();
             assert!(matches!(ended, Ended::Fault { .. }));
         }
         assert_eq!(control.buffer_allocations.load(Ordering::Relaxed), 1);
@@ -419,7 +449,12 @@ mod admission_tests {
             Arc::new(Abis::wasixv2()),
             Arc::default(),
         );
-        let result = futures::executor::block_on(image.call_entry(TaskId(7), 7, 0));
+        let result = futures::executor::block_on(image.call_entry(
+            TaskId(7),
+            7,
+            0,
+            wasixv2_host::LoaderCleanup::new(Arc::new(NoThreads)),
+        ));
         assert!(matches!(
             result,
             Err(ExecError::Load(crate::LoadError::Format(

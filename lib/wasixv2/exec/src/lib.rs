@@ -8,6 +8,7 @@ pub mod abi;
 pub mod asyncify;
 mod atomics;
 mod base;
+mod cooperative;
 mod cputime;
 mod dynamic;
 mod fork;
@@ -95,6 +96,7 @@ pub struct ExecEnv<S> {
     syscalls: Arc<S>,
     host: Arc<dyn Host>,
     imports: Imports,
+    cleanup: Option<Arc<wasixv2_host::LoaderCleanup>>,
     task: TaskId,
     /// `task`'s work flag, read on every return to the guest.
     work: Arc<WorkFlag>,
@@ -148,6 +150,7 @@ impl<S: Control> ExecEnv<S> {
             cpu: cputime::CpuSample::new(host.clone(), syscalls.cpu_account(task)),
             host,
             imports: Imports::new(),
+            cleanup: None,
             page_access: syscalls.page_access(task),
             syscalls,
             task,
@@ -187,6 +190,10 @@ impl<S: Control> ExecEnv<S> {
 }
 
 impl<S> ExecEnv<S> {
+    pub fn loader_cleanup(&self) -> Option<&Arc<wasixv2_host::LoaderCleanup>> {
+        self.cleanup.as_ref()
+    }
+
     pub fn host(&self) -> &Arc<dyn Host> {
         &self.host
     }
@@ -317,10 +324,23 @@ pub async fn run_with_abis<S>(
 where
     S: Syscalls + Control + Send + Sync + 'static,
 {
-    let run = process::run(store, module, syscalls.clone(), task, host, abis);
-    catch_panic(run)
+    let cleanup = wasixv2_host::LoaderCleanup::new(host.clone());
+    let run = process::run(
+        store,
+        module,
+        syscalls.clone(),
+        task,
+        host,
+        abis,
+        cleanup.clone(),
+    );
+    cleanup
+        .run(async move {
+            catch_panic(run)
+                .await
+                .unwrap_or_else(|panic| Err(host_panicked(&*syscalls, task, panic)))
+        })
         .await
-        .unwrap_or_else(|panic| Err(host_panicked(&*syscalls, task, panic)))
 }
 
 /// Runs `image`, which the kernel's `kernel_execve` made the image of `task`, a process that ran
@@ -341,10 +361,23 @@ pub async fn run_exec<S>(
 where
     S: Syscalls + Control + Send + Sync + 'static,
 {
-    let run = process::run_exec(engine, image, syscalls.clone(), task, host, abis);
-    catch_panic(run)
+    let cleanup = wasixv2_host::LoaderCleanup::new(host.clone());
+    let run = process::run_exec(
+        engine,
+        image,
+        syscalls.clone(),
+        task,
+        host,
+        abis,
+        cleanup.clone(),
+    );
+    cleanup
+        .run(async move {
+            catch_panic(run)
+                .await
+                .unwrap_or_else(|panic| Err(host_panicked(&*syscalls, task, panic)))
+        })
         .await
-        .unwrap_or_else(|panic| Err(host_panicked(&*syscalls, task, panic)))
 }
 
 /// How one image's run ended.
@@ -524,11 +557,12 @@ async fn run_image<S>(
     task: TaskId,
     host: Arc<dyn Host>,
     abis: Arc<Abis<S>>,
+    cleanup: Arc<wasixv2_host::LoaderCleanup>,
 ) -> Result<Ended, ExecError>
 where
     S: Syscalls + Control + Send + Sync + 'static,
 {
-    let ready = instantiate(store, module, syscalls, task, host, abis, None)?;
+    let ready = instantiate(store, module, syscalls, task, host, abis, cleanup, None)?;
     Ok(ready.start().await)
 }
 
@@ -541,12 +575,22 @@ async fn run_forked<S>(
     task: TaskId,
     host: Arc<dyn Host>,
     abis: Arc<Abis<S>>,
+    cleanup: Arc<wasixv2_host::LoaderCleanup>,
 ) -> Result<Ended, ExecError>
 where
     S: Syscalls + Control + Send + Sync + 'static,
 {
     let module = image.module.clone();
-    let ready = instantiate(store, &module, syscalls, task, host, abis, Some(&image))?;
+    let ready = instantiate(
+        store,
+        &module,
+        syscalls,
+        task,
+        host,
+        abis,
+        cleanup,
+        Some(&image),
+    )?;
     let (entry, args, buffer) = (image.entry, image.args.clone(), image.buffer());
     drop(image);
     ready.resume_fork(entry, args, buffer).await
@@ -610,6 +654,7 @@ struct Ready<S: 'static> {
 
 /// Instantiates `module` as `task` for the ABI in `abis` that serves it, or, with `fork`, the
 /// copy of an instance a forked child rewinds.
+#[allow(clippy::too_many_arguments)]
 fn instantiate<S>(
     mut store: Store,
     module: &Module,
@@ -617,12 +662,14 @@ fn instantiate<S>(
     task: TaskId,
     host: Arc<dyn Host>,
     abis: Arc<Abis<S>>,
+    cleanup: Arc<wasixv2_host::LoaderCleanup>,
     fork: Option<&asyncify::ForkImage>,
 ) -> Result<Ready<S>, ExecError>
 where
     S: Syscalls + Control + Send + Sync + 'static,
 {
     let abi = abis.require(module)?;
+    abi.attach_cleanup(&cleanup);
     let admission = syscalls
         .loader_gate(task)
         .map(|gate| Binding::new(&*abi, gate, task))
@@ -640,6 +687,7 @@ where
         &mut store,
         ExecEnv::new(syscalls.clone(), task, proc, host.clone()),
     );
+    env.as_mut(&mut store).cleanup = Some(cleanup);
     let mut imports = imports(&*abi, &mut store, &env, module);
     let size = fork.map(|image| image.memory.size());
     let imported = import_memory(&mut store, module, &mut imports, size)?;
@@ -824,11 +872,15 @@ impl<S: Syscalls + Control + Send + Sync + 'static> Ready<S> {
             None
         };
         let result = match prepared {
-            Ok(()) => self.abi.start(&entry).await,
+            Ok(()) => cooperative::drive(&entry, &*self.abi, self.abi.start(&entry)).await,
             Err(e) => Err(e),
         };
         let on_return = self.abi.on_entry_return();
-        ended(entry.cx(), result, on_return, Role::Process).await
+        let ended = ended(entry.cx(), result, on_return, Role::Process).await;
+        if let Err(error) = self.abi.retire(&entry).await {
+            tracing::error!(%error, "loader store retirement failed");
+        }
+        ended
     }
 
     /// Rewinds a forked child's copied stack, from `buffer`, into the export `entry` the

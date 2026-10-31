@@ -151,8 +151,8 @@ where
             self.abis.clone(),
         );
         // Without a thread the process died; nothing waits for its status.
-        let _ = self.start(task, move || {
-            let run = run_new_image(engine, image, syscalls, task, host, abis);
+        let _ = self.start(task, move |cleanup| {
+            let run = run_new_image(engine, image, syscalls, task, host, abis, cleanup);
             async move { report_failure(task, run.await) }
         });
     }
@@ -165,8 +165,8 @@ where
             self.abis.clone(),
         );
         // Without a thread the process died; nothing waits for its status.
-        let _ = self.start(task, move || {
-            let run = run_forked(engine, image, syscalls.clone(), task, host, abis);
+        let _ = self.start(task, move |cleanup| {
+            let run = run_forked(engine, image, syscalls.clone(), task, host, abis, cleanup);
             async move {
                 let result = crate::catch_panic(run)
                     .await
@@ -184,9 +184,9 @@ where
             self.abis.clone(),
         );
         let done = handoff.clone();
-        let started = self.start(task, move || {
+        let started = self.start(task, move |cleanup| {
             let takeover = Takeover(done);
-            let run = run_new_image(engine, image, syscalls, task, host, abis);
+            let run = run_new_image(engine, image, syscalls, task, host, abis, cleanup);
             async move { takeover.report(run.await) }
         });
         // The process died of SIGSEGV, as one whose image cannot start does.
@@ -212,10 +212,26 @@ where
     /// `Err` has its status.
     fn start<F, R>(&self, task: TaskId, run: R) -> Result<(), i32>
     where
-        R: FnOnce() -> F + Send + 'static,
+        R: FnOnce(Arc<wasixv2_host::LoaderCleanup>) -> F + Send + 'static,
         F: Future<Output = ()> + 'static,
     {
-        let start = Box::new(move || Box::pin(run()) as wasixv2_host::LocalFuture<'static, ()>);
+        let host = self.host.clone();
+        let syscalls = self.syscalls.clone();
+        let start = Box::new(move || {
+            let cleanup = wasixv2_host::LoaderCleanup::new(host);
+            let scope = cleanup.clone();
+            Box::pin(async move {
+                cleanup
+                    .run(async move {
+                        if let Err(panic) =
+                            crate::catch_panic(async move { run(scope).await }).await
+                        {
+                            drop(crate::host_panicked(&*syscalls, task, panic));
+                        }
+                    })
+                    .await
+            }) as wasixv2_host::LocalFuture<'static, ()>
+        });
         if let Err(err) = self.host.executor().spawn_thread(start) {
             tracing::warn!(%err, "cannot start a process on a thread of its own");
             let status = fault(&*self.syscalls, task, Signal::SIGSEGV.0);
@@ -235,6 +251,7 @@ pub(crate) async fn run<S>(
     task: TaskId,
     host: Arc<dyn Host>,
     abis: Arc<Abis<S>>,
+    cleanup: Arc<wasixv2_host::LoaderCleanup>,
 ) -> Result<i32, ExecError>
 where
     S: Syscalls + Control + Send + Sync + 'static,
@@ -247,9 +264,10 @@ where
         task,
         host.clone(),
         abis.clone(),
+        cleanup.clone(),
     )
     .await;
-    finish(engine, first, syscalls, task, host, abis).await
+    finish(engine, first, syscalls, task, host, abis, cleanup).await
 }
 
 /// Runs a fork child from the copy of its parent's instance, then every image its `execve`
@@ -261,6 +279,7 @@ async fn run_forked<S>(
     task: TaskId,
     host: Arc<dyn Host>,
     abis: Arc<Abis<S>>,
+    cleanup: Arc<wasixv2_host::LoaderCleanup>,
 ) -> Result<i32, ExecError>
 where
     S: Syscalls + Control + Send + Sync + 'static,
@@ -273,9 +292,10 @@ where
         task,
         host.clone(),
         abis.clone(),
+        cleanup.clone(),
     )
     .await;
-    finish(engine, first, syscalls, task, host, abis).await
+    finish(engine, first, syscalls, task, host, abis, cleanup).await
 }
 
 /// Runs `image`, which `kernel_execve` made `task`'s, then every image its `execve` calls load,
@@ -292,6 +312,7 @@ pub(crate) async fn run_exec<S>(
     task: TaskId,
     host: Arc<dyn Host>,
     abis: Arc<Abis<S>>,
+    cleanup: Arc<wasixv2_host::LoaderCleanup>,
 ) -> Result<i32, ExecError>
 where
     S: Syscalls + Control + Send + Sync + 'static,
@@ -313,6 +334,7 @@ where
                         task,
                         host.clone(),
                         abis.clone(),
+                        cleanup.clone(),
                     );
                     run.await
                 }
@@ -320,7 +342,7 @@ where
             }
         }
     };
-    finish(engine, first, syscalls, task, host, abis).await
+    finish(engine, first, syscalls, task, host, abis, cleanup).await
 }
 
 /// Follows `task`'s process from the end of its first image's run through the images its
@@ -333,6 +355,7 @@ async fn finish<S>(
     task: TaskId,
     host: Arc<dyn Host>,
     abis: Arc<Abis<S>>,
+    cleanup: Arc<wasixv2_host::LoaderCleanup>,
 ) -> Result<i32, ExecError>
 where
     S: Syscalls + Control + Send + Sync + 'static,
@@ -383,6 +406,7 @@ where
                     task,
                     host.clone(),
                     abis.clone(),
+                    cleanup.clone(),
                 );
                 run.await.unwrap_or_else(|err| Ended::Fault {
                     task,
@@ -424,6 +448,7 @@ async fn run_new_image<S>(
     task: TaskId,
     host: Arc<dyn Host>,
     abis: Arc<Abis<S>>,
+    cleanup: Arc<wasixv2_host::LoaderCleanup>,
 ) -> Result<i32, ExecError>
 where
     S: Syscalls + Control + Send + Sync + 'static,
@@ -445,7 +470,20 @@ where
             return Ok(status);
         }
     };
-    crate::run_with_abis(Store::new(engine), &module, syscalls, task, host, abis).await
+    // Preserve the public runner's panic result before Takeover reports it, while
+    // sharing this worker's cleanup scope instead of creating a nested runner.
+    let run = run(
+        Store::new(engine),
+        &module,
+        syscalls.clone(),
+        task,
+        host,
+        abis,
+        cleanup,
+    );
+    crate::catch_panic(run)
+        .await
+        .unwrap_or_else(|panic| Err(crate::host_panicked(&*syscalls, task, panic)))
 }
 
 /// Kills `task`'s thread group with the fault `signal` and returns its exit status.

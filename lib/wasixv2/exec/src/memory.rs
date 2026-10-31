@@ -1175,6 +1175,7 @@ mod tests {
             TaskId(2),
             Arc::new(NoThreads),
             Arc::new(abis),
+            wasixv2_host::LoaderCleanup::new(Arc::new(NoThreads)),
             None,
         )
         .unwrap();

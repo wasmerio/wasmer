@@ -333,6 +333,9 @@ pub(crate) struct TaskTrace {
     /// In a ptrace stop (`JOBCTL_TRACED`, `TASK_TRACED`): only the tracer, SIGKILL, or the
     /// tracer's going ends it.
     pub(crate) traced: bool,
+    /// Kernel-origin syscall-entry/exit stop; immutable under tracer register,
+    /// siginfo and wait-report edits. It grants no guest execution or ptrace policy.
+    pub(crate) loader_cooperative: bool,
     /// What the stop reports until a wait takes it, and once the stop is over what the tracer
     /// resumed the task with (`exit_code`).
     pub(crate) exit_code: i32,

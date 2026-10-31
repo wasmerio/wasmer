@@ -108,6 +108,19 @@ impl LoaderControl for Kernel {
         Ok(round)
     }
 
+    fn loader_members(&self, gate: &LoaderGate) -> Option<usize> {
+        // kernel/exit.c:exit_mm counts the original mm, not a reused task id or
+        // an exec replacement. Unstarted CLONE_VM children still own the old mm.
+        Some(
+            self.state
+                .read_or_recover()
+                .tasks
+                .values()
+                .filter(|entry| std::ptr::eq(&*entry.mm.loader, gate) && !entry.thread.left_mm())
+                .count(),
+        )
+    }
+
     fn loader_fatal_supported(&self) -> bool {
         true
     }
@@ -131,6 +144,13 @@ impl LoaderControl for Kernel {
             self.force_fatal_signal(task, wasixv2_abi::Signal::SIGABRT.0);
         }
         Ok(())
+    }
+
+    fn loader_cooperative_safe(&self, task: TaskId) -> bool {
+        self.task_signals(task)
+            .group()
+            .with_trace(task, |trace| trace.traced && trace.loader_cooperative)
+            .unwrap_or(false)
     }
 
     fn loader_held(&self, task: TaskId) -> bool {

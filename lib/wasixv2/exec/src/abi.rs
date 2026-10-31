@@ -49,6 +49,12 @@ where
         gate.admit()
     }
 
+    /// Registers this image's loader cleanup with its current runner. Default/custom
+    /// ABIs have no loader jobs and retain their existing executor lifetime.
+    fn attach_cleanup(&self, scope: &Arc<wasixv2_host::LoaderCleanup>) {
+        let _ = scope;
+    }
+
     /// Every function import the ABI provides for an instance of `module`. The execution layer
     /// adds the memory import.
     fn imports(&self, store: &mut Store, env: &FunctionEnv<ExecEnv<S>>, module: &Module)
@@ -174,6 +180,35 @@ pub trait AbiInstance<S: 'static>: Send + Sync {
         env: &'a AsyncFunctionEnvMut<ExecEnv<S>>,
     ) -> LocalFuture<'a, Result<(), RuntimeError>> {
         let _ = env;
+        Box::pin(async { Ok(()) })
+    }
+
+    /// Opts into host-only loader work while an exact guest/import future is pending.
+    /// The default preserves custom ABI execution and never drives an extra callback.
+    fn cooperative_loader(&self) -> bool {
+        false
+    }
+
+    /// A normal return-to-guest path already owns this store's loader service. The outer
+    /// driver must keep polling that path rather than enter the service a second time.
+    fn loader_work_busy(&self) -> bool {
+        false
+    }
+
+    /// Only finite, validated host work may run here: never call wasm, handlers or
+    /// constructors. The guest future remains pinned and unpolled until this returns.
+    fn loader_work_outside<'a>(
+        &'a self,
+        entry: &'a Entry<'a, S>,
+    ) -> LocalFuture<'a, Result<(), RuntimeError>> {
+        let _ = entry;
+        Box::pin(async { Ok(()) })
+    }
+
+    /// Releases one store's loader resources before its runner retires. Default/custom
+    /// ABIs retain their existing lifetime unless they explicitly provide loader cleanup.
+    fn retire<'a>(&'a self, entry: &'a Entry<'a, S>) -> LocalFuture<'a, Result<(), RuntimeError>> {
+        let _ = entry;
         Box::pin(async { Ok(()) })
     }
 

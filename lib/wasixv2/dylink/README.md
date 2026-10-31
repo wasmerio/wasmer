@@ -2,9 +2,7 @@
 
 `Module::parse` and `Plan::new` implement the metadata/planning part of
 [DESIGN.md](../DESIGN.md#dynamic-linking). The native runtime connects the four existing `dl_*` imports to per-image
-source graphs and per-store instances. This is a **work-in-progress review
-checkpoint**, not ready for integration: asynchronous loader retirement and
-cancellation cleanup still lack guaranteed executor custody until completion.
+source graphs and per-store instances for the bounded native profile below.
 The native staging component executes no guest initialization helpers; libc2
 calls constructors after publication.
 
@@ -68,15 +66,28 @@ caller-sensitive lookup, unsupported initializer bodies, cyclic direct-function
 imports and main-TLS crossimports that need post-libc late binding. DSO-local TLS
 and calls through main libc TLS accessors are supported. The real C source proof
 uses a three-argument main; it does not establish general C/C++ program acceptance.
-Ptrace syscall-entry/exit stops retain their exact pending future and can delay
-publication until the tracer resumes; the loader never skips their acknowledgement.
+Ptrace syscall-entry/exit stops retain their exact pending future. An opt-in per-store
+driver pauses that future only at a kernel-origin syscall-entry/exit stop, services
+validated host loader work under the store lock, then resumes the same future without
+continuing the tracee or replaying ptrace events. Other pending kernel operations
+keep progressing to their ordinary safe return boundary; they may hold loader-needed
+locks. Mutable tracer siginfo cannot grant outside cooperation. Default/custom ABIs
+remain opted out; no acknowledgement is fabricated.
 No full browser/fork/asyncify acceptance is claimed.
 
-Cancellation guards and normal retirement currently transfer async releases to the
-existing local executor while retaining image ownership. A retiring worker can
-stop that executor before these jobs finish, so final mapping/instance cleanup and
-owner release are **unproven**. Do not land/enable this checkpoint in production
-until the approved-contract lifecycle integration closes that gap.
+Managed runners await store retirement and drain only their counted loader cleanup
+jobs; unrelated host work remains detached. Weak final callbacks run after guest/task
+teardown and prior loader jobs. Kernel membership by original gate includes unstarted
+and surviving CLONE_VM users; common mappings retire only after the last user, while
+retained Rust handles keep metadata and the owner nonce until their final drop.
+Retired images/stores reject entry and loader reuse. Exec keeps a fresh mm independent
+from surviving old-mm users, and dead weak callbacks are pruned across replacements.
+
+Cancellation transfers the exact suspended cleanup continuation; provided native
+workers finish their loader scope before exiting. Externally driven callers must
+keep the executor context alive for transferred cleanup, as required by the host
+executor. This preserves the existing whole-run Kernel cancellation policy and does
+not provide recovery after the embedding application shuts that executor down.
 
 The pure core tests do not need the engine:
 

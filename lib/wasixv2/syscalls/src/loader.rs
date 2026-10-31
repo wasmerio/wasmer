@@ -145,6 +145,34 @@ impl LoaderGate {
         })
     }
 
+    /// Wait without disturbing a suspended syscall. Only another task's unacked
+    /// round is host work; an owner must keep polling its own coordinator future.
+    /// False means this store detached and its driver must stop watching this mm.
+    pub async fn wait_peer_work(&self, task: TaskId) -> bool {
+        wait_event(
+            &self.changed,
+            || {
+                let state = self.state();
+                if !state.stores.contains(&task.0) {
+                    return Some(false);
+                }
+                state.round.as_ref().and_then(|round| {
+                    (round.owner != task && round.participants.get(&task.0) == Some(&false))
+                        .then_some(true)
+                })
+            },
+            &NoInterrupt,
+        )
+        .await
+        .unwrap()
+    }
+
+    /// Final retirement waits for the existing transaction recovery without a
+    /// possibly recycled task id or running guest handlers.
+    pub async fn wait_idle(&self) {
+        let _ = wait_event(&self.changed, || (!self.busy()).then_some(()), &NoInterrupt).await;
+    }
+
     /// Current surviving store participants. Unstarted tasks stay entry-barred and
     /// never appear as stores; exit removes its participant under the same state lock.
     pub fn participants(&self) -> Vec<TaskId> {
@@ -562,6 +590,12 @@ pub trait LoaderControl {
             .map_err(|_| Errno::EINTR)
         })
     }
+    /// Actual surviving mm users, including unstarted tasks. None opts out of
+    /// logical image retirement; a live loader requires this before preparing.
+    fn loader_members(&self, gate: &LoaderGate) -> Option<usize> {
+        let _ = gate;
+        None
+    }
     /// Opt in only when fatal internal image failure can end every shared-mm group.
     /// Live loading must check this before preparation, never discover lack of support
     /// after publication. Ordinary/custom controls remain unsupported by default.
@@ -576,6 +610,12 @@ pub trait LoaderControl {
     fn loader_pending(&self, task: TaskId) -> bool {
         self.loader_gate(task)
             .is_some_and(|gate| gate.command(task).is_some())
+    }
+    /// Outside cooperation is allowed only at a proven kernel safepoint. A
+    /// pending syscall may otherwise own locks needed by loader preparation.
+    fn loader_cooperative_safe(&self, task: TaskId) -> bool {
+        let _ = task;
+        false
     }
     /// Servicing loader work never clears a job stop, freezer or CFS throttle.
     fn loader_held(&self, task: TaskId) -> bool {
@@ -621,6 +661,9 @@ impl<L, S: LoaderControl> LoaderControl for Layered<L, S> {
     ) -> crate::LocalFuture<'a, Result<(), Errno>> {
         self.inner.loader_sleep(task, gate, wait)
     }
+    fn loader_members(&self, gate: &LoaderGate) -> Option<usize> {
+        self.inner.loader_members(gate)
+    }
     fn loader_fatal_supported(&self) -> bool {
         self.inner.loader_fatal_supported()
     }
@@ -629,6 +672,9 @@ impl<L, S: LoaderControl> LoaderControl for Layered<L, S> {
     }
     fn loader_pending(&self, task: TaskId) -> bool {
         self.inner.loader_pending(task)
+    }
+    fn loader_cooperative_safe(&self, task: TaskId) -> bool {
+        self.inner.loader_cooperative_safe(task)
     }
     fn loader_held(&self, task: TaskId) -> bool {
         self.inner.loader_held(task)
@@ -918,5 +964,32 @@ mod detach_wait_tests {
         gate.leave(TaskId(1));
         assert!(gate.ready_for(wait));
         drop(closing);
+    }
+}
+
+#[cfg(test)]
+mod peer_work_tests {
+    use super::*;
+    use futures::FutureExt as _;
+    #[test]
+    fn only_unacknowledged_peer_work_wakes_a_preserved_syscall() {
+        let gate = LoaderGate::new(19);
+        for task in [TaskId(1), TaskId(2)] {
+            drop(gate.bind(task).unwrap());
+        }
+        assert!(gate.wait_peer_work(TaskId(2)).now_or_never().is_none());
+        let round = gate
+            .close(TaskId(1))
+            .unwrap()
+            .activate(&[TaskId(1), TaskId(2)])
+            .unwrap();
+        assert!(gate.wait_peer_work(TaskId(1)).now_or_never().is_none());
+        assert_eq!(gate.wait_peer_work(TaskId(2)).now_or_never(), Some(true));
+        gate.acknowledge(TaskId(2), gate.command(TaskId(2)).unwrap())
+            .unwrap();
+        assert!(gate.wait_peer_work(TaskId(2)).now_or_never().is_none());
+        gate.leave(TaskId(2));
+        assert_eq!(gate.wait_peer_work(TaskId(2)).now_or_never(), Some(false));
+        drop(round);
     }
 }

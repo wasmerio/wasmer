@@ -8,7 +8,7 @@ use std::{
     collections::{BTreeMap, VecDeque},
     ops::Range,
     sync::{
-        Arc, Mutex, MutexGuard, OnceLock,
+        Arc, Mutex, MutexGuard, OnceLock, Weak,
         atomic::{AtomicBool, Ordering},
     },
 };
@@ -33,6 +33,31 @@ fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
     mutex
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
+}
+
+/// The same finite host operations, reached from an import or a paused outer call.
+enum Context<'a, S: 'static> {
+    Import(&'a AsyncFunctionEnvMut<ExecEnv<S>>),
+    Entry(&'a Entry<'a, S>),
+}
+impl<S: Send + Sync + 'static> Context<'_, S> {
+    async fn with<R>(&self, f: impl FnOnce(&mut ExecEnv<S>, &mut StoreMut<'_>) -> R) -> R {
+        match self {
+            Self::Import(env) => {
+                let mut guard = env.write().await;
+                let (data, store) = guard.data_and_store_mut();
+                f(data, &mut store.as_store_mut())
+            }
+            Self::Entry(entry) => entry.with_store(f).await,
+        }
+    }
+}
+
+struct Servicing<'a>(&'a AtomicBool);
+impl Drop for Servicing<'_> {
+    fn drop(&mut self) {
+        self.0.store(false, Ordering::Release);
+    }
 }
 
 /// Register before Wasixv2. Only explicitly source-prepared native images opt in.
@@ -99,10 +124,12 @@ pub(crate) fn verify_compiled_source(module: &Module) -> Result<Vec<u8>> {
 }
 struct Root {
     owner: Arc<()>,
+    cleanup: Mutex<Vec<Weak<wasixv2_host::LoaderCleanup>>>,
     gate: OnceLock<Arc<LoaderGate>>,
     host: OnceLock<Arc<dyn wasixv2_host::Host>>,
     error: OnceLock<String>,
     initialized: AtomicBool,
+    retired: AtomicBool,
     stack: u32,
     state: Mutex<State>,
 }
@@ -185,10 +212,12 @@ impl Root {
         };
         Arc::new(Self {
             owner: Arc::new(()),
+            cleanup: Mutex::default(),
             gate: OnceLock::new(),
             host: OnceLock::new(),
             error,
             initialized: AtomicBool::new(false),
+            retired: AtomicBool::new(false),
             stack,
             state: Mutex::new(State {
                 graph: Arc::new(graph),
@@ -198,6 +227,92 @@ impl Root {
                 leases: Vec::new(),
             }),
         })
+    }
+    fn attach_cleanup(&self, scope: &Arc<wasixv2_host::LoaderCleanup>) {
+        let mut scopes = lock(&self.cleanup);
+        scopes.retain(|scope| scope.strong_count() != 0);
+        if !scopes
+            .iter()
+            .any(|old| old.upgrade().is_some_and(|old| Arc::ptr_eq(&old, scope)))
+        {
+            scopes.push(Arc::downgrade(scope));
+        }
+    }
+    fn submit_cleanup(
+        &self,
+        mut job: wasixv2_host::LoaderCleanupJob,
+    ) -> std::result::Result<(), wasixv2_host::LoaderCleanupJob> {
+        for scope in lock(&self.cleanup).iter().rev().filter_map(Weak::upgrade) {
+            match scope.submit(job) {
+                Ok(()) => return Ok(()),
+                Err(returned) => job = returned,
+            }
+        }
+        Err(job)
+    }
+    fn register_retirement<S: wasixv2_syscalls::LoaderControl + Send + Sync + 'static>(
+        self: &Arc<Self>,
+        scope: &Arc<wasixv2_host::LoaderCleanup>,
+        syscalls: Arc<S>,
+    ) -> Result<()> {
+        let root = Arc::downgrade(self);
+        let runner = Arc::downgrade(scope);
+        scope
+            .on_retire(
+                &self.owner,
+                Box::new(move || {
+                    Box::pin(async move {
+                        if let (Some(root), Some(scope)) = (root.upgrade(), runner.upgrade())
+                            && let Err(error) = root.retire_common(&*syscalls, &scope).await
+                        {
+                            let _ = syscalls.loader_fatal(root.gate().unwrap());
+                            tracing::error!(%error, "logical image retirement failed");
+                        }
+                    })
+                }),
+            )
+            .map_err(|_| failure("runner already retired"))
+    }
+    async fn retire_common<S: wasixv2_syscalls::LoaderControl>(
+        self: &Arc<Self>,
+        syscalls: &S,
+        scope: &Arc<wasixv2_host::LoaderCleanup>,
+    ) -> Result<()> {
+        let gate = self.gate()?;
+        if self.retired.load(Ordering::Acquire)
+            || syscalls
+                .loader_members(gate)
+                .ok_or_else(|| failure("logical retirement unsupported"))?
+                != 0
+        {
+            return Ok(());
+        }
+        gate.wait_idle().await;
+        if syscalls
+            .loader_members(gate)
+            .ok_or_else(|| failure("logical retirement unsupported"))?
+            != 0
+            || self.retired.swap(true, Ordering::AcqRel)
+        {
+            return Ok(());
+        }
+        let leases = {
+            let mut state = lock(&self.state);
+            let mut leases = std::mem::take(&mut state.leases);
+            if let Some(work) = state.work.take() {
+                leases.extend(std::mem::take(&mut *lock(&work.leases)));
+            }
+            leases
+        };
+        LeaseLedger {
+            root: self.clone(),
+            cleanup: scope.clone(),
+            leases,
+            pending: None,
+        }
+        .release()
+        .await;
+        Ok(())
     }
     fn gate(&self) -> Result<&Arc<LoaderGate>> {
         self.gate.get().ok_or_else(|| failure("image has no mm"))
@@ -230,14 +345,21 @@ impl Drop for Root {
         if leases.is_empty() {
             return;
         }
-        if let Some(host) = self.host.get() {
-            let owner = self.owner.clone();
-            host.executor().spawn_local(Box::pin(async move {
+        let owner = self.owner.clone();
+        let job: wasixv2_host::LoaderCleanupJob = Box::new(move || {
+            Box::pin(async move {
                 for lease in leases {
                     lease.release().await;
                 }
                 drop(owner);
-            }));
+            })
+        });
+        if let Err(job) = self.submit_cleanup(job)
+            && let Some(host) = self.host.get()
+        {
+            // Trusted hosts retaining a specialized ABI past every runner still need
+            // the existing executor context. This unmanaged lifetime is reported separately.
+            host.executor().spawn_local(job());
         }
     }
 }
@@ -252,6 +374,10 @@ struct Image<S> {
     _type: std::marker::PhantomData<S>,
 }
 impl<S: Syscalls + Control + Send + Sync + 'static> Abi<S> for Image<S> {
+    fn attach_cleanup(&self, scope: &Arc<wasixv2_host::LoaderCleanup>) {
+        self.root.attach_cleanup(scope);
+    }
+
     fn name(&self) -> &'static str {
         "wasixv2-dylink-image"
     }
@@ -262,8 +388,19 @@ impl<S: Syscalls + Control + Send + Sync + 'static> Abi<S> for Image<S> {
         true
     }
     fn claim_image(&self, gate: &Arc<LoaderGate>) -> std::result::Result<LoaderAdmission, Errno> {
+        if self.root.retired.load(Ordering::Acquire) {
+            return Err(Errno::ESTALE);
+        }
         if self.root.error.get().is_some() {
             return Err(Errno::ENOEXEC);
+        }
+        if self
+            .root
+            .gate
+            .get()
+            .is_some_and(|old| !Arc::ptr_eq(old, gate))
+        {
+            return Err(Errno::ESTALE);
         }
         let claim = gate.claim_image(&self.root.owner)?;
         if let Some(old) = self.root.gate.get()
@@ -282,12 +419,16 @@ impl<S: Syscalls + Control + Send + Sync + 'static> Abi<S> for Image<S> {
     ) -> Imports {
         let mut imports = <Wasixv2 as Abi<S>>::imports(&Wasixv2, store, env, module);
         let data = env.as_ref(store);
+        let cleanup = data.loader_cleanup().cloned();
         let task = data.task();
         let syscalls = data.syscalls().clone();
         let host = data.host().clone();
         let setup = (|| -> Result<()> {
             if let Some(error) = self.root.error.get() {
                 return Err(failure(error));
+            }
+            if self.root.retired.load(Ordering::Acquire) {
+                return Err(failure("image retired"));
             }
             if !syscalls.loader_fatal_supported() {
                 return Err(failure("image-wide fatal failure control is unavailable"));
@@ -296,6 +437,14 @@ impl<S: Syscalls + Control + Send + Sync + 'static> Abi<S> for Image<S> {
                 .loader_gate(task)
                 .ok_or_else(|| failure("dynamic image requires mm control"))?;
             self.root.admitted_store(&gate)?;
+            if syscalls.loader_members(&gate).is_none() {
+                return Err(failure("logical retirement control unavailable"));
+            }
+            let scope = cleanup
+                .clone()
+                .ok_or_else(|| failure("dynamic image requires managed runner"))?;
+            self.root.register_retirement(&scope, syscalls.clone())?;
+
             let _ = self.root.host.set(host);
             let graph = self.root.graph();
             let main = &graph.libraries[0];
@@ -385,6 +534,9 @@ impl<S: Syscalls + Control + Send + Sync + 'static> Abi<S> for Image<S> {
             root: self.root.clone(),
             inner,
             role,
+            cleanup: OnceLock::new(),
+            retired: Arc::new(AtomicBool::new(false)),
+            servicing: AtomicBool::new(false),
             local: Arc::new(Mutex::new(Local {
                 instances: vec![instance.clone()],
                 tls: vec![0],
@@ -438,6 +590,7 @@ struct Local {
     generation: u64,
 }
 struct LeaseLedger {
+    cleanup: Arc<wasixv2_host::LoaderCleanup>,
     root: Arc<Root>,
     leases: Vec<Box<dyn LoaderReservation>>,
     pending: Option<LocalFuture<'static, ()>>,
@@ -465,11 +618,9 @@ impl LeaseLedger {
 }
 impl Drop for LeaseLedger {
     fn drop(&mut self) {
-        if let Some(pending) = self.take_pending()
-            && let Some(host) = self.root.host.get()
-        {
+        if let Some(pending) = self.take_pending() {
             let owner = self.root.owner.clone();
-            host.executor().spawn_local(Box::pin(async move {
+            self.cleanup.spawn(Box::pin(async move {
                 pending.await;
                 drop(owner);
             }));
@@ -481,14 +632,36 @@ struct LocalStage {
     tls: Vec<u32>,
     leases: Vec<Box<dyn LoaderReservation>>,
 }
+impl LocalStage {
+    fn resume(stage: &mut Option<Self>, tls: Vec<u32>, leases: Vec<Box<dyn LoaderReservation>>) {
+        let stage = stage.get_or_insert_with(|| Self {
+            modules: BTreeMap::new(),
+            tls: Vec::new(),
+            leases: Vec::new(),
+        });
+        stage.tls = tls;
+        stage.leases.extend(leases);
+    }
+}
 struct StoreImage<S: 'static> {
+    retired: Arc<AtomicBool>,
+    cleanup: OnceLock<Arc<wasixv2_host::LoaderCleanup>>,
     root: Arc<Root>,
     inner: Arc<dyn AbiInstance<S>>,
     role: Role,
+    servicing: AtomicBool,
     local: Arc<Mutex<Local>>,
     _type: std::marker::PhantomData<S>,
 }
 impl<S: Syscalls + Control + Send + Sync + 'static> StoreImage<S> {
+    fn ensure_live(&self) -> Result<()> {
+        if self.retired.load(Ordering::Acquire) || self.root.retired.load(Ordering::Acquire) {
+            Err(failure("store retired"))
+        } else {
+            Ok(())
+        }
+    }
+
     fn main_prepare(&self, store: &mut StoreMut<'_>) -> Result<()> {
         let graph = self.root.graph();
         let main = &graph.libraries[0];
@@ -559,25 +732,20 @@ impl<S: Syscalls + Control + Send + Sync + 'static> StoreImage<S> {
     }
     async fn prepare_modules(
         &self,
-        env: &AsyncFunctionEnvMut<ExecEnv<S>>,
+        cx: &Context<'_, S>,
         caller: &Caller<'_>,
         work: &Work,
     ) -> Result<()> {
         let graph = work.graph()?;
-        let (syscalls, current_tls) = {
-            let data = env.read().await;
-            (
-                data.data().syscalls().clone(),
-                lock(&self.local).tls.clone(),
-            )
-        };
+        let (syscalls, current_tls) = cx
+            .with(|data, _| (data.syscalls().clone(), lock(&self.local).tls.clone()))
+            .await;
         let mut tls = current_tls;
         tls.resize(graph.libraries.len(), 0);
-        let mut ledger = LeaseLedger {
-            root: self.root.clone(),
-            leases: Vec::new(),
-            pending: None,
-        };
+        // Keep each acquired lease in the rollback stage before the next await or
+        // fallible preparation step. Prepare failure must not detach TLS cleanup
+        // and then acknowledge Rollback while that cleanup is still pending.
+        LocalStage::resume(&mut lock(&self.local).stage, tls.clone(), Vec::new());
         for (index, tls_base) in tls.iter_mut().enumerate().skip(work.previous) {
             let lib = &graph.libraries[index];
             if caller.task() == work.first {
@@ -607,19 +775,13 @@ impl<S: Syscalls + Control + Send + Sync + 'static> StoreImage<S> {
                     .await
                     .map_err(failure)?;
                 *tls_base = lease.address();
-                ledger.leases.push(lease);
+                lock(&self.local).stage.as_mut().unwrap().leases.push(lease);
             }
         }
-        let mut guard = env.write().await;
-        let (data, store) = guard.data_and_store_mut();
-        self.stage_modules(
-            &mut store.as_store_mut(),
-            data.imports(),
-            work,
-            tls,
-            std::mem::take(&mut ledger.leases),
-            caller.task(),
-        )
+        cx.with(|data, store| {
+            self.stage_modules(store, data.imports(), work, tls, Vec::new(), caller.task())
+        })
+        .await
     }
     fn stage_modules(
         &self,
@@ -630,11 +792,7 @@ impl<S: Syscalls + Control + Send + Sync + 'static> StoreImage<S> {
         leases: Vec<Box<dyn LoaderReservation>>,
         task: TaskId,
     ) -> Result<()> {
-        lock(&self.local).stage = Some(LocalStage {
-            modules: BTreeMap::new(),
-            tls: tls.clone(),
-            leases,
-        });
+        LocalStage::resume(&mut lock(&self.local).stage, tls.clone(), leases);
         let mut local = lock(&self.local);
         let graph = work.graph()?;
         local
@@ -759,7 +917,7 @@ impl<S: Syscalls + Control + Send + Sync + 'static> StoreImage<S> {
     }
     async fn execute_command(
         &self,
-        env: &AsyncFunctionEnvMut<ExecEnv<S>>,
+        cx: &Context<'_, S>,
         task: TaskId,
         command: wasixv2_syscalls::LoaderCommand,
     ) -> Result<()> {
@@ -767,29 +925,37 @@ impl<S: Syscalls + Control + Send + Sync + 'static> StoreImage<S> {
         match command.phase {
             LoaderPhase::Park => {}
             LoaderPhase::Prepare => {
-                let memory = wasixv2_exec::GuestMemory::new(env);
-                let caller = Caller::new(task, &memory);
-                self.prepare_modules(
-                    env,
-                    &caller,
-                    work.as_deref()
-                        .ok_or_else(|| failure("missing load work"))?,
-                )
-                .await?;
+                let work = work
+                    .as_deref()
+                    .ok_or_else(|| failure("missing load work"))?;
+                match cx {
+                    Context::Import(env) => {
+                        let memory = wasixv2_exec::GuestMemory::new(env);
+                        self.prepare_modules(cx, &Caller::new(task, &memory), work)
+                            .await?;
+                    }
+                    Context::Entry(entry) => {
+                        let memory = entry.memory();
+                        self.prepare_modules(cx, &Caller::new(task, &memory), work)
+                            .await?;
+                    }
+                }
             }
             LoaderPhase::Apply => {
-                let mut guard = env.write().await;
-                let (_, store) = guard.data_and_store_mut();
-                let mut local = lock(&self.local);
-                for staged in local
-                    .stage
-                    .as_mut()
-                    .ok_or_else(|| failure("missing prepared store"))?
-                    .modules
-                    .values_mut()
-                {
-                    staged.apply(store)?;
-                }
+                cx.with(|_, store| {
+                    let mut local = lock(&self.local);
+                    for staged in local
+                        .stage
+                        .as_mut()
+                        .ok_or_else(|| failure("missing prepared store"))?
+                        .modules
+                        .values_mut()
+                    {
+                        staged.apply(store)?;
+                    }
+                    Ok::<(), RuntimeError>(())
+                })
+                .await?;
             }
             LoaderPhase::Publish => {
                 let mut local = lock(&self.local);
@@ -804,19 +970,24 @@ impl<S: Syscalls + Control + Send + Sync + 'static> StoreImage<S> {
                 local.generation = self.root.gate()?.generation() + 1;
             }
             LoaderPhase::Rollback => {
-                let stage = {
-                    let mut guard = env.write().await;
-                    let (_, store) = guard.data_and_store_mut();
-                    let mut local = lock(&self.local);
-                    if let Some(staged) = &mut local.stage {
-                        for module in staged.modules.values_mut() {
-                            module.rollback(store)?;
+                let stage = cx
+                    .with(|_, store| {
+                        let mut local = lock(&self.local);
+                        if let Some(staged) = &mut local.stage {
+                            for module in staged.modules.values_mut() {
+                                module.rollback(store)?;
+                            }
                         }
-                    }
-                    local.stage.take()
-                };
+                        Ok::<_, RuntimeError>(local.stage.take())
+                    })
+                    .await?;
                 if let Some(stage) = stage {
                     LeaseLedger {
+                        cleanup: self
+                            .cleanup
+                            .get()
+                            .ok_or_else(|| failure("missing runner cleanup scope"))?
+                            .clone(),
                         root: self.root.clone(),
                         leases: stage.leases,
                         pending: None,
@@ -830,11 +1001,11 @@ impl<S: Syscalls + Control + Send + Sync + 'static> StoreImage<S> {
     }
     async fn command(
         &self,
-        env: &AsyncFunctionEnvMut<ExecEnv<S>>,
+        cx: &Context<'_, S>,
         task: TaskId,
         command: wasixv2_syscalls::LoaderCommand,
     ) -> Result<()> {
-        if let Err(error) = self.execute_command(env, task, command).await {
+        if let Err(error) = self.execute_command(cx, task, command).await {
             if matches!(command.phase, LoaderPhase::Prepare | LoaderPhase::Apply) {
                 if let Some(work) = lock(&self.root.state).work.as_ref() {
                     let mut saved = lock(&work.error);
@@ -843,7 +1014,7 @@ impl<S: Syscalls + Control + Send + Sync + 'static> StoreImage<S> {
                     }
                 }
             } else {
-                let syscalls = env.read().await.data().syscalls().clone();
+                let syscalls = cx.with(|data, _| data.syscalls().clone()).await;
                 let _ = syscalls.loader_fatal(self.root.gate()?);
                 return Err(error);
             }
@@ -897,9 +1068,72 @@ fn engine_function(instance: &Instance, index: u32) -> Result<wasmer::Function> 
         .cloned()
         .map_err(failure)
 }
+async fn retire_local(
+    root: Arc<Root>,
+    local: Arc<Mutex<Local>>,
+    cleanup: Arc<wasixv2_host::LoaderCleanup>,
+) {
+    let leases = {
+        let mut local = lock(&local);
+        let mut leases = std::mem::take(&mut local.leases);
+        if let Some(stage) = local.stage.take() {
+            leases.extend(stage.leases);
+        }
+        leases
+    };
+    LeaseLedger {
+        root,
+        cleanup,
+        leases,
+        pending: None,
+    }
+    .release()
+    .await;
+}
 impl<S: Syscalls + Control + Send + Sync + 'static> AbiInstance<S> for StoreImage<S> {
+    fn retire<'a>(&'a self, entry: &'a Entry<'a, S>) -> LocalFuture<'a, Result<()>> {
+        Box::pin(async move {
+            self.retired.store(true, Ordering::Release);
+            if let Some(scope) = self.cleanup.get() {
+                retire_local(self.root.clone(), self.local.clone(), scope.clone()).await;
+                // exec may already have replaced this task's mm. Retire only the
+                // original gate when its last user left; fault release is checked
+                // again by the weak final-runner callback after release_task.
+                let syscalls = entry.with_store(|data, _| data.syscalls().clone()).await;
+                self.root.retire_common(&*syscalls, scope).await?;
+            }
+            Ok(())
+        })
+    }
     fn prepare_entry<'a>(&'a self, entry: &'a Entry<'a, S>) -> LocalFuture<'a, Result<()>> {
         Box::pin(async move {
+            let scope = entry
+                .with_store(|data, _| data.loader_cleanup().cloned())
+                .await
+                .ok_or_else(|| failure("dynamic image requires a managed runner"))?;
+            self.ensure_live()?;
+            if self.cleanup.set(scope.clone()).is_ok() {
+                let root = Arc::downgrade(&self.root);
+                let local = Arc::downgrade(&self.local);
+                let runner = Arc::downgrade(&scope);
+                let retired = self.retired.clone();
+                scope
+                    .on_retire(
+                        &self.root.owner,
+                        Box::new(move || {
+                            Box::pin(async move {
+                                retired.store(true, Ordering::Release);
+                                if let (Some(root), Some(local), Some(scope)) =
+                                    (root.upgrade(), local.upgrade(), runner.upgrade())
+                                {
+                                    retire_local(root, local, scope).await;
+                                }
+                            })
+                        }),
+                    )
+                    .map_err(|_| failure("runner already retired"))?;
+            }
+
             entry
                 .with_store(|_, store| self.main_prepare(store))
                 .await?;
@@ -913,6 +1147,11 @@ impl<S: Syscalls + Control + Send + Sync + 'static> AbiInstance<S> for StoreImag
                 let mut tls = lock(&self.local).tls.clone();
                 tls.resize(graph.libraries.len(), 0);
                 let mut ledger = LeaseLedger {
+                    cleanup: self
+                        .cleanup
+                        .get()
+                        .ok_or_else(|| failure("missing runner cleanup scope"))?
+                        .clone(),
                     root: self.root.clone(),
                     leases: Vec::new(),
                     pending: None,
@@ -980,7 +1219,16 @@ impl<S: Syscalls + Control + Send + Sync + 'static> AbiInstance<S> for StoreImag
         &'a self,
         env: &'a AsyncFunctionEnvMut<ExecEnv<S>>,
     ) -> LocalFuture<'a, Result<()>> {
-        Box::pin(self.service(env))
+        Box::pin(async move { self.service(&Context::Import(env)).await })
+    }
+    fn cooperative_loader(&self) -> bool {
+        true
+    }
+    fn loader_work_busy(&self) -> bool {
+        self.servicing.load(Ordering::Acquire)
+    }
+    fn loader_work_outside<'a>(&'a self, entry: &'a Entry<'a, S>) -> LocalFuture<'a, Result<()>> {
+        Box::pin(async move { self.service(&Context::Entry(entry)).await })
     }
     fn dl_open<'a>(
         &'a self,
@@ -1006,6 +1254,7 @@ impl<S: Syscalls + Control + Send + Sync + 'static> AbiInstance<S> for StoreImag
         err: UserSliceMut,
     ) -> LocalFuture<'a, SysResult<i32>> {
         Box::pin(async move {
+            self.ensure_live().map_err(|_| Errno::ESTALE)?;
             if caller_addr != 0 {
                 return load::report(
                     caller,
@@ -1029,7 +1278,9 @@ impl<S: Syscalls + Control + Send + Sync + 'static> AbiInstance<S> for StoreImag
             let _admission = match gate.admit() {
                 Ok(value) => value,
                 Err(_) => {
-                    self.service(env).await.map_err(|_| Errno::EINTR)?;
+                    self.service(&Context::Import(env))
+                        .await
+                        .map_err(|_| Errno::EINTR)?;
                     return Err(wasixv2_syscalls::SysErr::RestartNoIntr);
                 }
             };
@@ -1073,6 +1324,7 @@ impl<S: Syscalls + Control + Send + Sync + 'static> AbiInstance<S> for StoreImag
         handle: DlHandle,
     ) -> LocalFuture<'a, SysResult<i32>> {
         Box::pin(async move {
+            self.ensure_live().map_err(|_| Errno::ESTALE)?;
             let gate = self.root.gate().map_err(|_| Errno::ENOSYS)?;
             if !env
                 .read()
@@ -1087,7 +1339,9 @@ impl<S: Syscalls + Control + Send + Sync + 'static> AbiInstance<S> for StoreImag
             let _admission = match gate.admit() {
                 Ok(value) => value,
                 Err(_) => {
-                    self.service(env).await.map_err(|_| Errno::EINTR)?;
+                    self.service(&Context::Import(env))
+                        .await
+                        .map_err(|_| Errno::EINTR)?;
                     return Err(wasixv2_syscalls::SysErr::RestartNoIntr);
                 }
             };
@@ -1111,6 +1365,7 @@ impl<S: Syscalls + Control + Send + Sync + 'static> AbiInstance<S> for StoreImag
         ctors: UptrPtr,
     ) -> LocalFuture<'a, SysResult<i32>> {
         Box::pin(async move {
+            self.ensure_live().map_err(|_| Errno::ESTALE)?;
             let gate = self.root.gate().map_err(|_| Errno::ENOSYS)?;
             if !env
                 .read()
@@ -1125,7 +1380,9 @@ impl<S: Syscalls + Control + Send + Sync + 'static> AbiInstance<S> for StoreImag
             let _admission = match gate.admit() {
                 Ok(value) => value,
                 Err(_) => {
-                    self.service(env).await.map_err(|_| Errno::EINTR)?;
+                    self.service(&Context::Import(env))
+                        .await
+                        .map_err(|_| Errno::EINTR)?;
                     return Err(wasixv2_syscalls::SysErr::RestartNoIntr);
                 }
             };
@@ -1142,7 +1399,10 @@ impl<S: Syscalls + Control + Send + Sync + 'static> AbiInstance<S> for StoreImag
         })
     }
     fn start<'a>(&'a self, entry: &'a Entry<'a, S>) -> LocalFuture<'a, Result<()>> {
-        self.inner.start(entry)
+        Box::pin(async move {
+            self.ensure_live()?;
+            self.inner.start(entry).await
+        })
     }
     fn on_entry_return(&self) -> EntryReturn {
         self.inner.on_entry_return()
@@ -1153,7 +1413,10 @@ impl<S: Syscalls + Control + Send + Sync + 'static> AbiInstance<S> for StoreImag
         tid: i32,
         arg: u32,
     ) -> LocalFuture<'a, Result<()>> {
-        self.inner.start_thread(entry, tid, arg)
+        Box::pin(async move {
+            self.ensure_live()?;
+            self.inner.start_thread(entry, tid, arg).await
+        })
     }
     fn on_thread_return(&self) -> EntryReturn {
         self.inner.on_thread_return()
@@ -1164,7 +1427,10 @@ impl<S: Syscalls + Control + Send + Sync + 'static> AbiInstance<S> for StoreImag
         frame: &'a SignalFrame,
         restart: bool,
     ) -> LocalFuture<'a, Result<Sigreturn>> {
-        self.inner.deliver_signal(env, frame, restart)
+        Box::pin(async move {
+            self.ensure_live()?;
+            self.inner.deliver_signal(env, frame, restart).await
+        })
     }
     fn vfork_resume<'a>(
         &'a self,
@@ -1172,7 +1438,12 @@ impl<S: Syscalls + Control + Send + Sync + 'static> AbiInstance<S> for StoreImag
         child: TaskId,
         pid: i32,
     ) -> LocalFuture<'a, VforkResume> {
-        self.inner.vfork_resume(env, child, pid)
+        Box::pin(async move {
+            if let Err(error) = self.ensure_live() {
+                return VforkResume::Unwind(error);
+            }
+            self.inner.vfork_resume(env, child, pid).await
+        })
     }
     fn as_any(&self) -> &dyn Any {
         self.inner.as_any()
@@ -1188,9 +1459,9 @@ impl<S: 'static> Drop for StoreImage<S> {
         if leases.is_empty() {
             return;
         }
-        if let Some(host) = self.root.host.get() {
+        if let Some(cleanup) = self.cleanup.get() {
             let owner = self.root.owner.clone();
-            host.executor().spawn_local(Box::pin(async move {
+            cleanup.spawn(Box::pin(async move {
                 for lease in leases {
                     lease.release().await;
                 }
@@ -1285,6 +1556,125 @@ mod lease_cancellation_tests {
         }
     }
     #[test]
+    fn weak_logical_retirement_releases_before_retained_image_handle_drops() {
+        use wasixv2_syscalls::LoaderControl;
+        struct Members(std::sync::atomic::AtomicUsize);
+        impl LoaderControl for Members {
+            fn loader_members(&self, _: &LoaderGate) -> Option<usize> {
+                Some(self.0.load(Ordering::Acquire))
+            }
+        }
+        let host: Arc<dyn Host> = Arc::new(QueueHost);
+        let root = Root::new(crate::tests::bytes("(module)", [0; 4], &[], &[], &[]));
+        assert!(root.gate.set(LoaderGate::new(81)).is_ok());
+        let nonce = Arc::downgrade(&root.owner);
+        let completed = Arc::new(AtomicBool::new(false));
+        let ready = Arc::new(AtomicBool::new(false));
+        lock(&root.state).leases.push(Box::new(Lease {
+            ready: ready.clone(),
+            completed: completed.clone(),
+        }));
+        let members = Arc::new(Members(std::sync::atomic::AtomicUsize::new(1)));
+        let first = wasixv2_host::LoaderCleanup::new(host.clone());
+        root.register_retirement(&first, members.clone()).unwrap();
+        let mut cx = Context::from_waker(Waker::noop());
+        let mut prior = Box::pin(first.run(async {}));
+        assert!(prior.as_mut().poll(&mut cx).is_pending());
+        let mut callback = JOBS.with(|jobs| jobs.borrow_mut().pop().unwrap());
+        assert!(callback.as_mut().poll(&mut cx).is_ready());
+        drop(callback);
+        assert!(prior.as_mut().poll(&mut cx).is_ready());
+        drop(prior);
+        assert!(!root.retired.load(Ordering::Acquire));
+        assert_eq!(lock(&root.state).leases.len(), 1);
+        // An unstarted/surviving old-mm user keeps the image live across first-runner exec.
+        members.0.store(0, Ordering::Release);
+        let final_scope = wasixv2_host::LoaderCleanup::new(host);
+        root.register_retirement(&final_scope, members).unwrap();
+        let mut final_run = Box::pin(final_scope.run(async {}));
+        assert!(final_run.as_mut().poll(&mut cx).is_pending());
+        let mut callback = JOBS.with(|jobs| jobs.borrow_mut().pop().unwrap());
+        assert!(callback.as_mut().poll(&mut cx).is_pending());
+        assert!(root.retired.load(Ordering::Acquire));
+        assert!(!completed.load(Ordering::Acquire));
+        assert!(nonce.upgrade().is_some());
+        ready.store(true, Ordering::Release);
+        assert!(callback.as_mut().poll(&mut cx).is_ready());
+        drop(callback);
+        assert!(final_run.as_mut().poll(&mut cx).is_ready());
+        assert!(completed.load(Ordering::Acquire));
+        assert!(nonce.upgrade().is_some());
+        drop(root);
+        assert!(nonce.upgrade().is_none());
+    }
+    #[test]
+    fn final_common_release_uses_surviving_runner_after_old_scope_retires() {
+        let host: Arc<dyn Host> = Arc::new(QueueHost);
+        let first = wasixv2_host::LoaderCleanup::new(host.clone());
+        let surviving = wasixv2_host::LoaderCleanup::new(host);
+        let root = Root::new(crate::tests::bytes("(module)", [0; 4], &[], &[], &[]));
+        assert!(root.host.set(Arc::new(QueueHost)).is_ok());
+        root.attach_cleanup(&first);
+        root.attach_cleanup(&surviving);
+        let nonce = Arc::downgrade(&root.owner);
+        let completed = Arc::new(AtomicBool::new(false));
+        let ready = Arc::new(AtomicBool::new(false));
+        lock(&root.state).leases.push(Box::new(Lease {
+            ready: ready.clone(),
+            completed: completed.clone(),
+        }));
+        let mut cx = Context::from_waker(Waker::noop());
+        let mut retired = Box::pin(first.run(async {}));
+        assert!(retired.as_mut().poll(&mut cx).is_ready());
+        drop(retired);
+        assert!(!first.is_open());
+        // Root surviving an exec/CLONE_VM detachment must not keep the old runner alive.
+        assert!(nonce.upgrade().is_some());
+        drop(root);
+        let mut run = Box::pin(surviving.run(async {}));
+        assert!(run.as_mut().poll(&mut cx).is_pending());
+        let mut job = JOBS.with(|jobs| jobs.borrow_mut().pop().unwrap());
+        assert!(job.as_mut().poll(&mut cx).is_pending());
+        assert!(nonce.upgrade().is_some());
+        ready.store(true, Ordering::Release);
+        assert!(job.as_mut().poll(&mut cx).is_ready());
+        drop(job);
+        assert!(run.as_mut().poll(&mut cx).is_ready());
+        assert!(completed.load(Ordering::Acquire));
+        assert!(nonce.upgrade().is_none());
+    }
+    #[test]
+    fn partial_prepare_leases_remain_in_stage_until_awaited_rollback() {
+        let root = Root::new(crate::tests::bytes("(module)", [0; 4], &[], &[], &[]));
+        let completed = Arc::new(AtomicBool::new(false));
+        let ready = Arc::new(AtomicBool::new(false));
+        let mut stage = None;
+        LocalStage::resume(&mut stage, vec![0], Vec::new());
+        stage.as_mut().unwrap().leases.push(Box::new(Lease {
+            ready: ready.clone(),
+            completed: completed.clone(),
+        }));
+        // A later allocation or instantiation fails. Refreshing the TLS snapshot
+        // must preserve already allocated leases for this same rollback stage.
+        LocalStage::resume(&mut stage, vec![0, 4096], Vec::new());
+        assert_eq!(stage.as_ref().unwrap().leases.len(), 1);
+        assert!(!completed.load(Ordering::Acquire));
+        assert!(JOBS.with(|jobs| jobs.borrow().is_empty()));
+        let ledger = LeaseLedger {
+            cleanup: wasixv2_host::LoaderCleanup::new(Arc::new(QueueHost)),
+            root,
+            leases: stage.take().unwrap().leases,
+            pending: None,
+        };
+        let mut rollback = Box::pin(ledger.release());
+        let mut cx = Context::from_waker(Waker::noop());
+        assert!(rollback.as_mut().poll(&mut cx).is_pending());
+        assert!(!completed.load(Ordering::Acquire));
+        ready.store(true, Ordering::Release);
+        assert!(rollback.as_mut().poll(&mut cx).is_ready());
+        assert!(completed.load(Ordering::Acquire));
+    }
+    #[test]
     fn canceled_peer_rollback_transfers_consumed_release_and_retains_nonce() {
         let root = Root::new(crate::tests::bytes("(module)", [0; 4], &[], &[], &[]));
         assert!(root.host.set(Arc::new(QueueHost)).is_ok());
@@ -1292,6 +1682,7 @@ mod lease_cancellation_tests {
         let ready = Arc::new(AtomicBool::new(false));
         let completed = Arc::new(AtomicBool::new(false));
         let ledger = LeaseLedger {
+            cleanup: wasixv2_host::LoaderCleanup::new(Arc::new(QueueHost)),
             root: root.clone(),
             pending: None,
             leases: vec![Box::new(Lease {
