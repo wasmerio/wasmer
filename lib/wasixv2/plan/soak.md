@@ -67,9 +67,12 @@ controls cover ambiguity, the single-variant path and changed artifacts.
 Capture paths from the same debug build, with the existing resource limits:
 
 ```bash
-CARGO_INCREMENTAL=0 CARGO_PROFILE_DEV_DEBUG=0 nice -n 19 taskset -c 4-7 \
-  cargo build -j3 -p wasmer-cli --features cranelift --message-format=json > cli-artifacts.jsonl
-python3 - cli-artifacts.jsonl cli-rlibs.json <<'PYCODE'
+runtime="$HOME/dev/github.com/wasmerio/wasmer-wt/v16soak"
+plan="$HOME/dev/github.com/wasmerio/wasmer-wt/v16soak-plan/lib/wasixv2/plan"
+(cd "$runtime"
+ CARGO_INCREMENTAL=0 CARGO_PROFILE_DEV_DEBUG=0 nice -n 19 taskset -c 4-7 \
+   cargo build -j3 -p wasmer-cli --features cranelift --message-format=json > cli-artifacts.jsonl)
+python3 - "$runtime/cli-artifacts.jsonl" "$runtime/cli-rlibs.json" <<'PYCODE'
 import json, sys
 from pathlib import Path
 names = {"wasixv2", "wasmer", "tokio"}
@@ -81,7 +84,7 @@ for line in Path(sys.argv[1]).read_text().splitlines():
 assert all(len(p) == 1 for p in paths.values()), paths
 Path(sys.argv[2]).write_text(json.dumps({name: next(iter(p)) for name, p in paths.items()}))
 PYCODE
-SOAK_RLIB_MANIFEST="$PWD/cli-rlibs.json" bash userland/soak-host.sh RUNTIME_WORKTREE NEW_LOG 32
+SOAK_RLIB_MANIFEST="$runtime/cli-rlibs.json" bash "$plan/userland/soak-host.sh" "$runtime" NEW_LOG 32
 ```
 
 Run the Cargo command from the runtime worktree and the linker recipe from this
@@ -275,8 +278,26 @@ retirement race correction and rules out these simple accumulation paths in
 the bounded run. Temporary sources were SHA-guarded/restored; production branch
 stays clean. `counters-final-results.json` retains named ranges.
 
-Native allocation profiling of a separate bounded fork/exec workload is in
-progress using a task-owned extracted Valgrind package. Host packages and the
-canonical CLI are unchanged. Do not call all resource curves flat or conclude
-that the remaining heap rise is harmless before its allocation stacks are
-understood. Canonical continuation state is the STATE.md linked above.
+Native allocation profiling rooted the residual rise in repeated signal
+handler/trampoline reads: `Table::get` -> `Function::from_vm_funcref` ->
+`InternalStoreHandle::new` appended persistent wrappers to the long-lived store.
+Between two forced Massif snapshots, requested live bytes grew149955, of which
+147456came from the store function vector. The planned2000exec profile reached
+1800before its600s bound (EXIT124); this profiler prefix is not a completed test
+or a guest-deadlock claim. Forced calltrees and delta summaries are archived.
+
+Core fix `f7895de7fa0` interns converted wrappers by caller-checked function
+address in the existing store arena. Every table read still resolves its current
+entry; changing a slot or choosing another same-signature function preserves
+target identity. No WASIX ABI, kernel/exec contract, dynamic-linking, closure,
+libffi or reflection extension changes. Linux lifecycle reference:
+`arch/x86/kernel/signal.c:handle_signal`.
+
+The sibling `reference_types::funcref_table_reads_reuse_store_handles` warms two
+targets and alternates1024table reads/calls. RED:1028stored functions vswarm4;
+GREEN:4, with current-target results checked. 12reference API+5external-table+
+4VMtable checks PASS; exact Makefile-flags all-target clippy for `wasmer` and
+`wasmer-vm`, plus workspace fmtcheck PASS. The fully fixed debug CLI build and
+exact Cargo artifact manifest PASS. A new32-machine check and uninterrupted
+run05must confirm the third fix before memory sign-off. Canonical continuation
+state is the STATE.md linked above.
