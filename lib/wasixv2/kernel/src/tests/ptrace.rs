@@ -1379,7 +1379,7 @@ fn set_syscall_info_edits_entry_exit_and_skips_calls() {
     );
 }
 
-/// No registered rseq exists while sys_rseq returns ENOSYS. Linux copies only the prefix.
+/// An unregistered tracee reports zeros. Linux copies only the requested prefix.
 #[test]
 fn get_rseq_configuration_reports_no_registration() {
     let (stack, tracer, memory) = machine();
@@ -1407,6 +1407,89 @@ fn get_rseq_configuration_reports_no_registration() {
             R::PTRACE_GET_RSEQ_CONFIGURATION,
             child,
             32,
+            0x700
+        ),
+        Ok(24)
+    );
+    assert_eq!(get(&memory.0, 0x700, 24), vec![0; 24]);
+}
+
+/// Linux reports the tracee's registered area, then zeros after unregistering it.
+#[test]
+fn get_rseq_configuration_reports_tracee_registration_until_unregistered() {
+    let (stack, tracer, memory) = machine();
+    let kernel = &stack.inner;
+    let caller = Caller::new(tracer, &memory);
+    let child_memory = flat();
+    let child = traced_child(kernel, &caller, &child_memory);
+    let child_caller = Caller::new(child, &child_memory);
+    const AREA: u32 = 0x1200;
+    const LEN: u32 = 64;
+    const SIG: u32 = 0x5305_3053;
+    assert_eq!(
+        block_on(kernel.rseq(&caller, GuestPtrMut::new(0x1400), 32, 0, SIG + 1)),
+        Ok(0)
+    );
+    assert_eq!(
+        block_on(kernel.rseq(&child_caller, GuestPtrMut::new(AREA), LEN, 0, SIG)),
+        Ok(0)
+    );
+    put(&memory.0, 0x700, &[0xaa; 32]);
+    assert_eq!(
+        ptrace(
+            kernel,
+            &caller,
+            R::PTRACE_GET_RSEQ_CONFIGURATION,
+            child,
+            32,
+            0x700
+        ),
+        Ok(24)
+    );
+    let config: wasixv2_abi::PtraceRseqConfiguration =
+        block_on(read_value(&memory, GuestPtr::new(0x700))).unwrap();
+    assert_eq!(config.rseq_abi_pointer, u64::from(AREA));
+    assert_eq!(config.rseq_abi_size, LEN);
+    assert_eq!(config.signature, SIG);
+    assert_eq!((config.flags, config.pad), (0, 0));
+    assert_eq!(get(&memory.0, 0x718, 8), vec![0xaa; 8]);
+    put(&memory.0, 0x700, &[0xaa; 32]);
+    assert_eq!(
+        ptrace(
+            kernel,
+            &caller,
+            R::PTRACE_GET_RSEQ_CONFIGURATION,
+            child,
+            9,
+            0x700
+        ),
+        Ok(24)
+    );
+    assert_eq!(
+        get(&memory.0, 0x700, 10),
+        [
+            u64::from(AREA).to_le_bytes().to_vec(),
+            vec![LEN.to_le_bytes()[0], 0xaa]
+        ]
+        .concat()
+    );
+    assert_eq!(
+        block_on(kernel.rseq(
+            &child_caller,
+            GuestPtrMut::new(AREA),
+            LEN,
+            wasixv2_abi::RseqFlags::RSEQ_FLAG_UNREGISTER.0,
+            SIG,
+        )),
+        Ok(0)
+    );
+    assert_eq!(
+        ptrace(
+            kernel,
+            &caller,
+            R::PTRACE_GET_RSEQ_CONFIGURATION,
+            child,
+            24,
             0x700
         ),
         Ok(24)

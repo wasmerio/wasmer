@@ -856,9 +856,24 @@ impl Kernel {
                     .await
             }
             R::PTRACE_GET_RSEQ_CONFIGURATION => {
-                // kernel/ptrace.c `ptrace_get_rseq_configuration`: sys_rseq is ENOSYS here,
-                // so no task can have registered an rseq area (CONFIG_RSEQ disabled).
-                let config = wasixv2_abi::PtraceRseqConfiguration::default();
+                // kernel/ptrace.c `ptrace_get_rseq_configuration`: snapshot the tracee's
+                // registration; an unregistered task has a zero configuration.
+                let rseq = {
+                    let state = self.state.read_or_recover();
+                    state
+                        .tasks
+                        .get(&child)
+                        .ok_or(Errno::ESRCH)?
+                        .thread
+                        .rseq
+                        .unwrap_or_default()
+                };
+                let config = wasixv2_abi::PtraceRseqConfiguration {
+                    rseq_abi_pointer: u64::from(rseq.area),
+                    rseq_abi_size: rseq.len,
+                    signature: rseq.sig,
+                    ..Default::default()
+                };
                 let mut bytes = [0; wasixv2_abi::PtraceRseqConfiguration::SIZE];
                 config.write_to(&mut bytes);
                 memory
