@@ -1,13 +1,34 @@
 //! One store's staged side module. No guest initializer is executed.
-use crate::{InitEffects, Initialization};
-use std::{collections::BTreeMap, ops::Range};
+use crate::{InitEffects, Initialization, artifact::PreparedArtifact};
+use std::{collections::BTreeMap, ops::Range, sync::Arc};
 use wasmer::{
-    AsStoreMut, AsStoreRef, Function, Global, Imports, Instance, Memory, Module, RuntimeError,
-    Table, Value,
+    AsStoreMut, AsStoreRef, Exports, Function, Global, Imports, Instance, Memory, Module,
+    RuntimeError, Table, Value,
 };
 
 fn error(error: impl std::fmt::Display) -> RuntimeError {
     RuntimeError::new(error.to_string())
+}
+
+/// Store-affine exported handles and compiled code, without the JS-only !Send
+/// Rust Instance wrapper. The native Store owns VMInstance allocations; exported
+/// JS functions retain their engine module-instance closure. Match the lifetime
+/// proven by api/tests/instance.rs::exports_work_after_multiple_instances_have_been_freed.
+#[derive(Clone)]
+pub(crate) struct BoundModule {
+    pub(crate) exports: Exports,
+    module: Module,
+}
+impl BoundModule {
+    pub(crate) fn new(instance: &Instance) -> Self {
+        Self {
+            exports: instance.exports.clone(),
+            module: instance.module().clone(),
+        }
+    }
+    pub(crate) fn module(&self) -> &Module {
+        &self.module
+    }
 }
 
 /// Effects remain private until every store has prepared. The coordinator must explicitly
@@ -15,16 +36,7 @@ fn error(error: impl std::fmt::Display) -> RuntimeError {
 /// Wasm capacity growth during prepare cannot be undone, but exposes no module or handle.
 pub struct StagedModule {
     instance: Instance,
-    memory: Memory,
-    table: Table,
-    effects: InitEffects,
-    globals: Vec<(Global, Value)>,
-    slots: BTreeMap<u32, Function>,
-    slot_functions: BTreeMap<u32, u32>,
-    applied_slots: Vec<u32>,
-    applied_writes: usize,
-    applied: bool,
-    complete: bool,
+    staged: StagedExports,
 }
 impl StagedModule {
     /// Compile and instantiate the validated no-auto-start form. The resolved imports must
@@ -41,20 +53,135 @@ impl StagedModule {
         fresh_table: &[Range<u64>],
         tls: Option<u32>,
     ) -> Result<Self, RuntimeError> {
-        let initialization = Initialization::parse(source).map_err(error)?;
-        for payload in wasmparser::Parser::new(0).parse_all(source) {
-            if let wasmparser::Payload::TableSection(section) = payload.map_err(error)?
-                && section.count() > 0
-            {
-                return Err(error("side module defines a private function table"));
-            }
-        }
-        let bytes = initialization.instantiate_bytes().map_err(error)?;
-        // Side-module loops must reach the same return-to-guest boundary as the main.
-        // Never inherit load()'s unpreemptible fallback for a live all-store transaction.
-        let bytes = wasixv2_exec::instrument(&bytes).map_err(error)?;
-        let module = Module::new(&store.as_store_ref(), bytes).map_err(error)?;
-        let instance = Instance::new(store, &module, imports).map_err(error)?;
+        let initialization = Arc::new(Initialization::parse(source).map_err(error)?);
+        let artifact = PreparedArtifact::compile(&store.as_store_ref(), initialization)?;
+        Self::prepare_artifact(
+            store,
+            &artifact,
+            imports,
+            memory,
+            table,
+            fresh_memory,
+            fresh_table,
+            tls,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn prepare_artifact(
+        store: &mut impl AsStoreMut,
+        artifact: &PreparedArtifact,
+        imports: &Imports,
+        memory: Memory,
+        table: Table,
+        fresh_memory: &[Range<u64>],
+        fresh_table: &[Range<u64>],
+        tls: Option<u32>,
+    ) -> Result<Self, RuntimeError> {
+        let (instance, staged) = StagedExports::prepare_instance(
+            store,
+            artifact,
+            imports,
+            memory,
+            table,
+            fresh_memory,
+            fresh_table,
+            tls,
+        )?;
+        Ok(Self { instance, staged })
+    }
+    pub fn instance(&self) -> &Instance {
+        &self.instance
+    }
+    pub fn function(&self, index: u32) -> Result<Function, RuntimeError> {
+        self.staged.function(index)
+    }
+    /// Reconcile a planner-proposed GOT/function slot with actual engine function identity,
+    /// including imported/re-exported aliases and active element placement. Existing image
+    /// entries cannot be replaced, even when the requested function happens to be equal.
+    pub fn bind_slot(
+        &mut self,
+        store: &mut impl AsStoreMut,
+        slot: u32,
+        function: u32,
+        fresh: &[Range<u64>],
+    ) -> Result<(), RuntimeError> {
+        self.staged.bind_slot(store, slot, function, fresh)
+    }
+    /// Host writes only, with no awaits/imports/guest calls. All effects were range-checked
+    /// and all table capacity/types resolved during prepare while peers were parked.
+    pub fn apply(&mut self, store: &mut impl AsStoreMut) -> Result<(), RuntimeError> {
+        self.staged.apply(store)
+    }
+    /// Undo only this staging object's new slots/new bytes. Old image instances and GOTs
+    /// were never modified. The mm reservation owner subsequently releases these ranges.
+    pub fn rollback(&mut self, store: &mut impl AsStoreMut) -> Result<(), RuntimeError> {
+        self.staged.rollback(store)
+    }
+    /// Called only after the mm-wide coordinator has completed publication in every store.
+    pub fn publish(self) -> Result<Instance, RuntimeError> {
+        self.staged.publish()?;
+        Ok(self.instance)
+    }
+}
+
+/// Effects remain private until every store has prepared. The coordinator must explicitly
+/// rollback an applied staging object on its owning store or consume it at publication.
+/// Wasm capacity growth during prepare cannot be undone, but exposes no module or handle.
+pub(crate) struct StagedExports {
+    instance: BoundModule,
+    memory: Memory,
+    table: Table,
+    effects: InitEffects,
+    globals: Vec<(Global, Value)>,
+    slots: BTreeMap<u32, Function>,
+    slot_functions: BTreeMap<u32, u32>,
+    applied_slots: Vec<u32>,
+    applied_writes: usize,
+    applied: bool,
+    complete: bool,
+}
+impl StagedExports {
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn prepare_artifact(
+        store: &mut impl AsStoreMut,
+        artifact: &PreparedArtifact,
+        imports: &Imports,
+        memory: Memory,
+        table: Table,
+        fresh_memory: &[Range<u64>],
+        fresh_table: &[Range<u64>],
+        tls: Option<u32>,
+    ) -> Result<Self, RuntimeError> {
+        let (_, staged) = Self::prepare_instance(
+            store,
+            artifact,
+            imports,
+            memory,
+            table,
+            fresh_memory,
+            fresh_table,
+            tls,
+        )?;
+        Ok(staged)
+    }
+
+    /// Instantiate cached loader-owned code; only store-specific values and checked
+    /// effects are derived here. Construction/compilation belongs to the coordinator.
+    #[allow(clippy::too_many_arguments)]
+    fn prepare_instance(
+        store: &mut impl AsStoreMut,
+        artifact: &PreparedArtifact,
+        imports: &Imports,
+        memory: Memory,
+        table: Table,
+        fresh_memory: &[Range<u64>],
+        fresh_table: &[Range<u64>],
+        tls: Option<u32>,
+    ) -> Result<(Instance, Self), RuntimeError> {
+        let initialization = artifact.initialization();
+        let instance = Instance::new(store, artifact.module(), imports).map_err(error)?;
+        let bound = BoundModule::new(&instance);
         if instance
             .exports
             .get_memory("__wasix_dylink_memory_0")
@@ -66,7 +193,7 @@ impl StagedModule {
             ));
         }
         let mut tables = 0;
-        for import in module.imports() {
+        for import in bound.module().imports() {
             if matches!(import.ty(), wasmer::ExternType::Table(_)) {
                 tables += 1;
                 if imports.get_export(import.module(), import.name())
@@ -130,7 +257,7 @@ impl StagedModule {
             changes.push((global, value));
         }
         let mut staged = Self {
-            instance,
+            instance: bound,
             memory,
             table,
             effects,
@@ -156,9 +283,9 @@ impl StagedModule {
                 }
             }
         }
-        Ok(staged)
+        Ok((instance, staged))
     }
-    pub fn instance(&self) -> &Instance {
+    pub fn instance(&self) -> &BoundModule {
         &self.instance
     }
     pub fn function(&self, index: u32) -> Result<Function, RuntimeError> {
@@ -263,7 +390,7 @@ impl StagedModule {
         Ok(())
     }
     /// Called only after the mm-wide coordinator has completed publication in every store.
-    pub fn publish(self) -> Result<Instance, RuntimeError> {
+    pub fn publish(self) -> Result<BoundModule, RuntimeError> {
         if !self.complete {
             return Err(error("staged module was not applied"));
         }

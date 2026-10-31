@@ -76,6 +76,11 @@ pub struct InitEffects {
 }
 
 impl Initialization {
+    #[cfg(any(feature = "sys", feature = "js"))]
+    pub(crate) fn original_source(&self) -> &[u8] {
+        &self.original
+    }
+
     /// Extracts start, data relocations and optional TLS initialization. Only a finite
     /// straight-line helper graph and the exact lld shared-PIC once template are accepted.
     /// Helpers may not call imports or constructors, branch/loop, read memory, grow tables

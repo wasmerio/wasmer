@@ -1,4 +1,4 @@
-//! Native startup uses the existing graph, allocator and transaction before guest entry.
+//! EH/PIC startup uses the existing graph, allocator and transaction before guest entry.
 use super::*;
 use wasixv2_exec::{Preparation, PreparedImage};
 use wasixv2_syscalls::{LoaderClosing, LoaderStartup, MemoryLayout};
@@ -74,7 +74,7 @@ impl Drop for Pending {
 struct Prepared<S: 'static> {
     root: Arc<Root>,
     imports: Imports,
-    forwarders: Vec<Instance>,
+    forwarders: Vec<BoundModule>,
     tls: Vec<u32>,
     bound: Option<Bound<S>>,
 }
@@ -161,7 +161,7 @@ impl<S: Syscalls + Control + Send + Sync + 'static> Image<S> {
             closing: None,
             leases: Vec::new(),
         };
-        let graph = if process {
+        let mut graph = if process {
             pending.closing = Some(cx.close_admission().map_err(load_error)?);
             let closing = pending.closing.as_ref().unwrap();
             syscalls
@@ -203,7 +203,11 @@ impl<S: Syscalls + Control + Send + Sync + 'static> Image<S> {
                     reserved: Vec::new(),
                 },
                 0..self.root.stack,
-                65536,
+                if cfg!(all(unix, feature = "sys")) {
+                    65536
+                } else {
+                    0
+                },
             )
             .await?;
             let memory = cx.memory();
@@ -244,9 +248,14 @@ impl<S: Syscalls + Control + Send + Sync + 'static> Image<S> {
             }
         }
         // Bases are now final; function slots/frozen fixups were prepared before reservations.
+        cx.with_store(|_, store| self.root.prepare_code(store, &mut graph))
+            .await
+            .map_err(load_error)?;
         let graph = Arc::new(graph);
         let (imports, forwarders) = cx
-            .with_store(|_, store| main_imports(store, &base, &graph, &tls))
+            .with_store(|_, store| {
+                main_imports(&self.root.forward_code, store, &base, &graph, &tls)
+            })
             .await
             .map_err(load_error)?;
         Ok(Some(Box::new(Prepared::<S> {
@@ -270,8 +279,8 @@ fn first_tls(lib: &Library, stack: u32) -> Result<u32> {
     };
     let globals = initial_globals(&lib.source, infrastructure(lib, stack, 0))?;
     let end = u64::from(lib.base) + u64::from(lib.metadata.memory_info().memory_size);
-    let effects = Initialization::parse(&lib.source)
-        .map_err(failure)?
+    let effects = lib
+        .initialization
         .effects(
             globals.clone(),
             std::slice::from_ref(&(u64::from(lib.base)..end)),
@@ -287,11 +296,12 @@ fn first_tls(lib: &Library, stack: u32) -> Result<u32> {
 }
 
 fn main_imports(
+    code: &forward::Cache,
     store: &mut StoreMut<'_>,
     base: &Imports,
     graph: &Graph,
     tls: &[u32],
-) -> Result<(Imports, Vec<Instance>)> {
+) -> Result<(Imports, Vec<BoundModule>)> {
     let main = &graph.libraries[0];
     let mut imports = Imports::new();
     let mut pending = Vec::new();
@@ -327,7 +337,7 @@ fn main_imports(
             .iter()
             .map(|(_, ty, slot)| (ty.clone(), *slot))
             .collect::<Vec<_>>();
-        let forwarder = forward::instantiate(store, &table, base, &targets)?;
+        let forwarder = forward::instantiate(code, store, &table, base, &targets)?;
         for (number, (ordinal, _, _)) in pending.iter().enumerate() {
             let import = &main.metadata.imports()[*ordinal];
             imports.define(
@@ -335,12 +345,12 @@ fn main_imports(
                 &import.name,
                 forwarder
                     .exports
-                    .get_function(&number.to_string())
+                    .get_function(&forward::name(number))
                     .map_err(failure)?
                     .clone(),
             );
         }
-        forwarders.push(forwarder);
+        forwarders.push(BoundModule::new(&forwarder));
     }
     Ok((imports, forwarders))
 }
@@ -459,8 +469,8 @@ impl<S: Syscalls + Control + Send + Sync + 'static> StoreImage<S> {
             .collect::<BTreeMap<_, _>>();
         let globals = engine_globals(&local.instances[0], store)?;
         let end = u64::from(main.table) + u64::from(main.metadata.memory_info().table_size);
-        for element in Initialization::parse(&main.source)
-            .map_err(failure)?
+        for element in main
+            .initialization
             .table_effects(
                 &globals,
                 std::slice::from_ref(&(u64::from(main.table)..end)),

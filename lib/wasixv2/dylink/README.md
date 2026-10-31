@@ -1,16 +1,16 @@
 # WASIX v2 dynamic linking
 
 `Module::parse` and `Plan::new` implement the metadata/planning part of
-[DESIGN.md](../DESIGN.md#dynamic-linking). The native runtime connects the four existing `dl_*` imports to per-image
-source graphs and per-store instances for the bounded native profile below.
-The native staging component executes no guest initialization helpers; libc2
+[DESIGN.md](../DESIGN.md#dynamic-linking). The runtime connects the four existing `dl_*` imports to per-image
+source graphs and per-store instances for the bounded native and browser profiles below.
+The staging component executes no guest initialization helpers; libc2
 calls constructors after publication.
 
 The caller supplies validated module descriptions, identity-deduplicated dependency
 edges matching each `needed` list, the root and the global lookup order. The runtime opens
 files through the current caller's guest namespace and retains the opened Image
 backing for identity lifetime. The pure planner preserves runtime paths; the
-native runtime searches literal paths without `$ORIGIN` or other expansion.
+loader searches literal paths without `$ORIGIN` or other expansion.
 
 Supported metadata is wasm32 core modules with function signatures, import/export
 indices and types, `dylink.0` allocation information, dependencies, runtime paths
@@ -46,9 +46,9 @@ to imported globals. The no-auto-start rewrite makes active data empty passive
 segments and active elements declared while preserving segment indices. Private
 exports expose function/global/memory/tag identity for later engine preparation.
 TLS pointer relocations are applied after each thread's final TLS global fixups.
-`prepare_image` explicitly prepares a native dynamic main and retains its original
+`prepare_image` explicitly prepares an EH/PIC dynamic main and retains its original
 validated source in a reserved custom section; startup dependency metadata is retained
-for asynchronous preparation, and asyncify remains rejected. The native facade
+for asynchronous preparation, and asyncify remains rejected. The facade source
 compiler uses it for initial images and exec; custom loaders remain explicit.
 The runtime verifies the deterministic sanitized/instrumented source against the
 native compiled module hash before host initialization.
@@ -61,9 +61,24 @@ mm image-owner token rejects mixed/custom or independently selected owners.
 All registered stores park, prepare and apply validated host effects before atomic
 graph publication; libc2 drains constructors afterward. Fresh exec selects a new
 image/mm, retaining surviving old-mm attachments. Shared graphs contain source,
-layout and file owners, never store-local engine objects.
+layout, file owners and immutable compiled artifacts, never store-local engine objects.
+The image coordinator validates/prepares each DSO once and caches its compiled
+Module per source/engine/format. Stores instantiate that code with their own
+imports, tables, globals and TLS; required effect/range/identity checks remain.
+The image releases cache ownership at logical retirement, while live engine
+instances retain their normal code ownership.
 
-Native startup prepares imports before main instantiation using the committed
+The browser JS profile uses the same EH/PIC NOW loader. Existing B2 envelopes
+transport compiled Modules into future/idle realms; an already-running cold realm
+uses Wasmer's existing retained-source compile-once/cache fallback. No compilation
+Promise is awaited on a blocking guest worker. Cold compilation errors return
+normal preparation errors before publication. Generated forwarding code is cached
+per exact signature/slot/table-limit variant. As for other JS embedding, the host
+is responsible for supplying matching prepared Module/source; the loader adds no
+compiled-module provenance checks. Opaque host Modules use the existing transport
+contract. JS LAZY, NEXT, asyncify and early main-TLS crossimports remain unsupported.
+
+Startup prepares imports before main instantiation using the committed
 new environment and security identity. Secure startup ignores LD_LIBRARY_PATH
 and LD_PRELOAD without rewriting the guest environment. Files use the existing
 namespace/credential/regular-file/noexec path, never host paths. Explicit preloads

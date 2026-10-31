@@ -222,6 +222,20 @@ impl<S: Syscalls + Control + Send + Sync + 'static> StoreImage<S> {
         err: UserSliceMut,
     ) -> SysResult<i32> {
         self.ensure_live().map_err(|_| Errno::ESTALE)?;
+        #[cfg(feature = "js")]
+        if !flags.contains(DlFlags::RTLD_NOW)
+            && Context::Import(env)
+                .with(|_, store| store.as_engine_ref().engine().is_js())
+                .await
+        {
+            return report(
+                caller,
+                err,
+                "browser loader requires RTLD_NOW",
+                Errno::EOPNOTSUPP,
+            )
+            .await;
+        }
         if caller_addr != 0
             || flags.bits()
                 & !(DlFlags::RTLD_NOW.bits()
@@ -338,6 +352,9 @@ impl<S: Syscalls + Control + Send + Sync + 'static> StoreImage<S> {
                 lib.base = lease.address();
                 lock(&work.leases).push(lease);
             }
+            Context::Import(env)
+                .with(|_, store| self.root.prepare_code(store, &mut graph))
+                .await?;
             let graph = Arc::new(graph);
             let mut references = lock(&self.root.state).references.clone();
             let count = references.entry(requested).or_default();

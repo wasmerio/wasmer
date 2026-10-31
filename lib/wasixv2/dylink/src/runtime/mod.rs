@@ -1,9 +1,12 @@
-//! Native per-image loader. Shared state contains plans/source, never store-local functions.
+//! Per-image EH/PIC loader. Shared state contains plans/source, never store-local functions.
 mod forward;
 mod graph;
 mod load;
 mod startup;
-use crate::{BindingTarget, ExternType, FixupKind, Initialization, SOURCE_SECTION, StagedModule};
+use crate::{
+    BindingTarget, ExternType, FixupKind, SOURCE_SECTION,
+    store::{BoundModule, StagedExports},
+};
 use graph::{Graph, Library, infrastructure, initial_globals};
 use std::{
     any::Any,
@@ -24,8 +27,8 @@ use wasixv2_syscalls::{
     UserSliceMut, read_cstr, write_value,
 };
 use wasmer::{
-    AsStoreMut, AsyncFunctionEnvMut, Extern, FunctionEnv, Global, Imports, Instance, Memory,
-    Module, Mutability, RuntimeError, Store, StoreMut, Table, Type, Value,
+    AsEngineRef, AsStoreMut, AsyncFunctionEnvMut, Extern, FunctionEnv, Global, Imports, Instance,
+    Memory, Module, Mutability, RuntimeError, Store, StoreMut, Table, Type, Value,
 };
 type Result<T> = std::result::Result<T, RuntimeError>;
 fn failure(error: impl std::fmt::Debug) -> RuntimeError {
@@ -62,7 +65,7 @@ impl Drop for Servicing<'_> {
     }
 }
 
-/// Register before Wasixv2. Only explicitly source-prepared native images opt in.
+/// Register before Wasixv2. Only explicitly source-prepared EH/PIC images opt in.
 pub struct Native;
 impl<S: Syscalls + Control + Send + Sync + 'static> Abi<S> for Native {
     fn name(&self) -> &'static str {
@@ -100,9 +103,6 @@ impl<S: Syscalls + Control + Send + Sync + 'static> Abi<S> for Native {
     }
 }
 pub(crate) fn verify_compiled_source(module: &Module) -> Result<Vec<u8>> {
-    if module.sys_artifact().is_none() {
-        return Err(failure("native dynamic image requires sys backend"));
-    }
     let mut sections = module.custom_sections(SOURCE_SECTION);
     let source = sections
         .next()
@@ -111,21 +111,41 @@ pub(crate) fn verify_compiled_source(module: &Module) -> Result<Vec<u8>> {
     if sections.next().is_some() {
         return Err(failure("duplicate source marker"));
     }
-    let expected = crate::prepare_image(&source)
-        .map_err(failure)
-        .and_then(|bytes| wasixv2_exec::instrument(&bytes).map_err(failure))?;
-    if module.info().hash != Some(wasmer_types::ModuleHash::new(expected))
-        || module.info().start_function.is_some()
-        || !module.info().table_initializers.is_empty()
-    {
-        return Err(failure(
-            "compiled image differs from validated no-auto-start source",
-        ));
+    #[cfg(feature = "sys")]
+    if module.sys_artifact().is_some() {
+        let expected = crate::prepare_image(&source)
+            .map_err(failure)
+            .and_then(|bytes| wasixv2_exec::instrument(&bytes).map_err(failure))?;
+        if module.info().hash != Some(wasmer_types::ModuleHash::new(&expected))
+            || module.info().start_function.is_some()
+            || !module.info().table_initializers.is_empty()
+        {
+            return Err(failure(
+                "compiled image differs from validated no-auto-start source",
+            ));
+        }
+        return Ok(source);
     }
-    Ok(source)
+    #[cfg(feature = "js")]
+    {
+        // As with other JS embedding, the host supplies the matching prepared
+        // Module/source. Source validation and transformation stay loader-owned.
+        Ok(source)
+    }
+    #[cfg(not(feature = "js"))]
+    {
+        Err(failure("dynamic image requires sys or js backend"))
+    }
 }
 struct Root {
     owner: Arc<()>,
+    artifacts: Mutex<
+        BTreeMap<
+            (wasmer_types::ModuleHash, String, String),
+            Arc<crate::artifact::PreparedArtifact>,
+        >,
+    >,
+    forward_code: Arc<forward::Cache>,
     cleanup: Mutex<Vec<Weak<wasixv2_host::LoaderCleanup>>>,
     gate: OnceLock<Arc<LoaderGate>>,
     host: OnceLock<Arc<dyn wasixv2_host::Host>>,
@@ -211,6 +231,8 @@ impl Root {
         };
         Arc::new(Self {
             owner: Arc::new(()),
+            artifacts: Mutex::default(),
+            forward_code: Arc::default(),
             cleanup: Mutex::default(),
             gate: OnceLock::new(),
             host: OnceLock::new(),
@@ -226,6 +248,31 @@ impl Root {
                 leases: Vec::new(),
             }),
         })
+    }
+    // V1's engine/format key keeps compiled code reusable across compatible stores.
+    // Source and validated plans are loader-owned; peers never reparse or compare bytes.
+    fn prepare_code(&self, engine: &impl AsEngineRef, graph: &mut Graph) -> Result<()> {
+        let engine_ref = engine.as_engine_ref();
+        let engine = engine_ref.engine();
+        let mut artifacts = lock(&self.artifacts);
+        for library in graph.libraries.iter_mut().skip(1) {
+            let key = (
+                library.code_hash,
+                engine.deterministic_id(),
+                engine.artifact_format(),
+            );
+            let artifact = match artifacts.entry(key) {
+                std::collections::btree_map::Entry::Occupied(entry) => entry.into_mut(),
+                std::collections::btree_map::Entry::Vacant(entry) => {
+                    entry.insert(Arc::new(crate::artifact::PreparedArtifact::compile(
+                        engine,
+                        library.initialization.clone(),
+                    )?))
+                }
+            };
+            library.prepared = Some(artifact.clone());
+        }
+        Ok(())
     }
     fn attach_cleanup(&self, scope: &Arc<wasixv2_host::LoaderCleanup>) {
         let mut scopes = lock(&self.cleanup);
@@ -297,6 +344,11 @@ impl Root {
         }
         let leases = {
             let mut state = lock(&self.state);
+            for library in &mut Arc::make_mut(&mut state.graph).libraries {
+                library.prepared = None;
+            }
+            lock(&self.artifacts).clear();
+            self.forward_code.clear();
             let mut leases = std::mem::take(&mut state.leases);
             if let Some(work) = state.work.take() {
                 leases.extend(std::mem::take(&mut *lock(&work.leases)));
@@ -550,7 +602,9 @@ impl<S: Syscalls + Control + Send + Sync + 'static> Abi<S> for Image<S> {
         0..self.root.stack
     }
     fn guardable(&self, _: &Instance, _: &mut Store) -> bool {
-        true
+        // Match exec::memory::protect_low: JS and hosts without page protection
+        // cannot claim a guard during pre-instantiation bootstrap.
+        cfg!(all(unix, feature = "sys"))
     }
     fn low_guard(&self) -> bool {
         true
@@ -587,7 +641,8 @@ impl<S: Syscalls + Control + Send + Sync + 'static> Image<S> {
             retired: Arc::new(AtomicBool::new(false)),
             servicing: AtomicBool::new(false),
             local: Arc::new(Mutex::new(Local {
-                instances: vec![instance.clone()],
+                forward_code: self.root.forward_code.clone(),
+                instances: vec![BoundModule::new(instance)],
                 forwarders: Vec::new(),
                 tls: vec![0],
                 memory,
@@ -602,8 +657,9 @@ impl<S: Syscalls + Control + Send + Sync + 'static> Image<S> {
     }
 }
 struct Local {
-    instances: Vec<Instance>,
-    forwarders: Vec<Instance>,
+    forward_code: Arc<forward::Cache>,
+    instances: Vec<BoundModule>,
+    forwarders: Vec<BoundModule>,
     tls: Vec<u32>,
     memory: Memory,
     table: Table,
@@ -725,7 +781,7 @@ impl Local {
                                 .stage
                                 .as_ref()
                                 .and_then(|s| s.modules.get(module))
-                                .map(StagedModule::instance)
+                                .map(StagedExports::instance)
                         };
                         if let Some(provider) = provider {
                             Some(Extern::Function(engine_function(provider, *index)?))
@@ -758,7 +814,13 @@ impl Local {
                     .iter()
                     .map(|(_, ty, slot)| (ty.clone(), *slot))
                     .collect::<Vec<_>>();
-                let forwarder = forward::instantiate(store, &local.table, base_imports, &targets)?;
+                let forwarder = forward::instantiate(
+                    &local.forward_code,
+                    store,
+                    &local.table,
+                    base_imports,
+                    &targets,
+                )?;
                 for (number, (ordinal, _, _)) in pending.iter().enumerate() {
                     let import = &lib.metadata.imports()[*ordinal];
                     imports.define(
@@ -766,12 +828,17 @@ impl Local {
                         &import.name,
                         forwarder
                             .exports
-                            .get_function(&number.to_string())
+                            .get_function(&forward::name(number))
                             .map_err(failure)?
                             .clone(),
                     );
                 }
-                local.stage.as_mut().unwrap().forwarders.push(forwarder);
+                local
+                    .stage
+                    .as_mut()
+                    .unwrap()
+                    .forwarders
+                    .push(BoundModule::new(&forwarder));
             }
             let fresh_memory = if task == work.first {
                 u64::from(lib.base)
@@ -780,9 +847,11 @@ impl Local {
                 u64::from(tls[index])..u64::from(tls[index]) + u64::from(lib.tls_size)
             };
             let fresh_table = u64::from(lib.table)..u64::from(graph.cursor);
-            let mut prepared = StagedModule::prepare(
+            let mut prepared = StagedExports::prepare_artifact(
                 store,
-                &lib.source,
+                lib.prepared
+                    .as_deref()
+                    .ok_or_else(|| failure("missing prepared module"))?,
                 &imports,
                 local.memory.clone(),
                 local.table.clone(),
@@ -880,7 +949,7 @@ impl Local {
                                 .as_ref()?
                                 .modules
                                 .get(&module)
-                                .map(StagedModule::instance)
+                                .map(StagedExports::instance)
                         })
                         .ok_or_else(|| failure("missing deferred target instance"))?;
                     engine_function(provider, index)?
@@ -890,13 +959,22 @@ impl Local {
                         return Err(failure("deferred non-function import"));
                     };
                     let instance = forward::traps(
+                        &self.forward_code,
                         store,
                         &self.table,
                         imports,
                         std::slice::from_ref(signature),
                     )?;
-                    let function = instance.exports.get_function("0").map_err(failure)?.clone();
-                    self.stage.as_mut().unwrap().forwarders.push(instance);
+                    let function = instance
+                        .exports
+                        .get_function(&forward::name(0))
+                        .map_err(failure)?
+                        .clone();
+                    self.stage
+                        .as_mut()
+                        .unwrap()
+                        .forwarders
+                        .push(BoundModule::new(&instance));
                     function
                 };
                 let before = self
@@ -953,8 +1031,8 @@ impl Drop for LeaseLedger {
     }
 }
 struct LocalStage {
-    modules: BTreeMap<usize, StagedModule>,
-    forwarders: Vec<Instance>,
+    modules: BTreeMap<usize, StagedExports>,
+    forwarders: Vec<BoundModule>,
     tls: Vec<u32>,
     leases: Vec<Box<dyn LoaderReservation>>,
     lazy_targets: BTreeMap<u32, Option<(usize, u32)>>,
@@ -1029,7 +1107,7 @@ impl<S: Syscalls + Control + Send + Sync + 'static> StoreImage<S> {
         let mut local = lock(&self.local);
         let instance = &local.instances[0];
         let inputs = engine_globals(instance, store)?;
-        let init = Initialization::parse(&main.source).map_err(failure)?;
+        let init = &main.initialization;
         if self.role == Role::Process {
             if self.root.initialized.load(Ordering::Acquire) {
                 return Err(failure("second process entry for image"));
@@ -1115,8 +1193,8 @@ impl<S: Syscalls + Control + Send + Sync + 'static> StoreImage<S> {
                         initial_globals(&lib.source, infrastructure(lib, self.root.stack, 0))?;
                     let end =
                         u64::from(lib.base) + u64::from(lib.metadata.memory_info().memory_size);
-                    let effects = Initialization::parse(&lib.source)
-                        .map_err(failure)?
+                    let effects = lib
+                        .initialization
                         .effects(
                             globals.clone(),
                             std::slice::from_ref(&(u64::from(lib.base)..end)),
@@ -1263,7 +1341,10 @@ impl<S: Syscalls + Control + Send + Sync + 'static> StoreImage<S> {
             .map_err(failure)
     }
 }
-fn engine_globals(instance: &Instance, store: &mut impl AsStoreMut) -> Result<BTreeMap<u32, u64>> {
+fn engine_globals(
+    instance: &BoundModule,
+    store: &mut impl AsStoreMut,
+) -> Result<BTreeMap<u32, u64>> {
     let mut globals = BTreeMap::new();
     for (name, export) in instance.exports.iter() {
         if let Some(index) = name.strip_prefix("__wasix_dylink_global_") {
@@ -1281,7 +1362,7 @@ fn engine_globals(instance: &Instance, store: &mut impl AsStoreMut) -> Result<BT
     Ok(globals)
 }
 fn apply_globals(
-    instance: &Instance,
+    instance: &BoundModule,
     store: &mut impl AsStoreMut,
     globals: &BTreeMap<u32, u64>,
 ) -> Result<()> {
@@ -1299,7 +1380,7 @@ fn apply_globals(
     }
     Ok(())
 }
-fn engine_function(instance: &Instance, index: u32) -> Result<wasmer::Function> {
+fn engine_function(instance: &BoundModule, index: u32) -> Result<wasmer::Function> {
     instance
         .exports
         .get_function(&format!("__wasix_dylink_fn_{index}"))
@@ -1847,6 +1928,18 @@ mod lease_cancellation_tests {
         let host: Arc<dyn Host> = Arc::new(QueueHost);
         let root = Root::new(crate::tests::bytes("(module)", [0; 4], &[], &[], &[]));
         assert!(root.gate.set(LoaderGate::new(81)).is_ok());
+        #[cfg(feature = "engine-tests")]
+        let code = {
+            let store = Store::default();
+            let mut graph = (*root.graph()).clone();
+            graph.libraries.push(
+                Library::new(crate::tests::bytes("(module)", [0; 4], &[], &[], &[]), None).unwrap(),
+            );
+            root.prepare_code(&store, &mut graph).unwrap();
+            let weak = Arc::downgrade(graph.libraries[1].prepared.as_ref().unwrap());
+            lock(&root.state).graph = Arc::new(graph);
+            weak
+        };
         let nonce = Arc::downgrade(&root.owner);
         let completed = Arc::new(AtomicBool::new(false));
         let ready = Arc::new(AtomicBool::new(false));
@@ -1867,6 +1960,11 @@ mod lease_cancellation_tests {
         drop(prior);
         assert!(!root.retired.load(Ordering::Acquire));
         assert_eq!(lock(&root.state).leases.len(), 1);
+        #[cfg(feature = "engine-tests")]
+        assert!(
+            code.upgrade().is_some(),
+            "surviving members retain compiled code"
+        );
         // An unstarted/surviving old-mm user keeps the image live across first-runner exec.
         members.0.store(0, Ordering::Release);
         let final_scope = wasixv2_host::LoaderCleanup::new(host);
@@ -1876,6 +1974,15 @@ mod lease_cancellation_tests {
         let mut callback = JOBS.with(|jobs| jobs.borrow_mut().pop().unwrap());
         assert!(callback.as_mut().poll(&mut cx).is_pending());
         assert!(root.retired.load(Ordering::Acquire));
+        #[cfg(feature = "engine-tests")]
+        {
+            assert!(
+                code.upgrade().is_none(),
+                "retirement releases both graph and cache ownership"
+            );
+            assert!(lock(&root.artifacts).is_empty());
+            assert_eq!(root.graph().libraries.len(), 2, "metadata can outlive code");
+        }
         assert!(!completed.load(Ordering::Acquire));
         assert!(nonce.upgrade().is_some());
         ready.store(true, Ordering::Release);
@@ -2012,7 +2119,7 @@ mod lazy_tests {
         graph: Graph,
         previous: usize,
     ) -> Work {
-        let mut work = cyclic_tests::work(graph);
+        let mut work = cyclic_tests::work(graph, store);
         work.previous = previous;
         let count = work.graph().unwrap().libraries.len();
         local
@@ -2302,7 +2409,8 @@ mod symbol_tests {
             )
             .unwrap();
             let local = Local {
-                instances: vec![instance],
+                forward_code: Arc::default(),
+                instances: vec![BoundModule::new(&instance)],
                 forwarders: Vec::new(),
                 tls: vec![123456],
                 memory,
@@ -2332,7 +2440,10 @@ mod symbol_tests {
     }
 }
 
-#[cfg(all(test, feature = "engine-tests"))]
+#[cfg(all(
+    test,
+    any(feature = "engine-tests", all(feature = "js", target_arch = "wasm32"))
+))]
 mod cyclic_tests {
     use super::*;
     use wasmer::{AsStoreMut, Function, MemoryType, Store, TableType};
@@ -2412,13 +2523,9 @@ mod cyclic_tests {
         // Same environment-backed hook types as staging's engine sibling. No hook
         // may run at instantiation/Apply, and guest calls are only made after publish.
         for source in &graph.libraries[1..] {
-            let instrumented = wasixv2_exec::instrument(
-                &Initialization::parse(&source.source)
-                    .unwrap()
-                    .instantiate_bytes()
-                    .unwrap(),
-            )
-            .unwrap();
+            let instrumented =
+                wasixv2_exec::instrument(&source.initialization.instantiate_bytes().unwrap())
+                    .unwrap();
             let module = Module::new(&store, instrumented).unwrap();
             for import in module
                 .imports()
@@ -2431,7 +2538,8 @@ mod cyclic_tests {
             }
         }
         let local = Local {
-            instances: vec![main],
+            forward_code: Arc::default(),
+            instances: vec![BoundModule::new(&main)],
             forwarders: Vec::new(),
             memory,
             table,
@@ -2443,7 +2551,10 @@ mod cyclic_tests {
         };
         (graph, local, store, imports)
     }
-    pub(super) fn work(graph: Graph) -> Work {
+    pub(super) fn work(mut graph: Graph, store: &Store) -> Work {
+        Root::new(graph.libraries[0].source.to_vec())
+            .prepare_code(store, &mut graph)
+            .unwrap();
         Work {
             publication: Mutex::new(Some(Publication {
                 graph: Arc::new(graph),
@@ -2457,13 +2568,54 @@ mod cyclic_tests {
             error: Mutex::new(None),
         }
     }
-    #[test]
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(not(target_arch = "wasm32"), test)]
+    fn image_code_cache_reuses_artifacts_and_distinguishes_replaced_sources() {
+        let (mut graph, _, store, _) = fixture();
+        let root = Root::new(graph.libraries[0].source.to_vec());
+        root.prepare_code(&store, &mut graph).unwrap();
+        let old = graph.libraries[1].prepared.clone().unwrap();
+        let mut replay = graph.clone();
+        replay.libraries[1].prepared = None;
+        root.prepare_code(&Store::new(store.engine().clone()), &mut replay)
+            .unwrap();
+        assert!(Arc::ptr_eq(
+            &old,
+            replay.libraries[1].prepared.as_ref().unwrap()
+        ));
+        assert_eq!(lock(&root.artifacts).len(), 2);
+        replay.libraries[1] = Library::new(
+            crate::tests::bytes("(module (func))", [0; 4], &[], &[], &[]),
+            None,
+        )
+        .unwrap();
+        root.prepare_code(&store, &mut replay).unwrap();
+        assert!(!Arc::ptr_eq(
+            &old,
+            replay.libraries[1].prepared.as_ref().unwrap()
+        ));
+        assert_eq!(lock(&root.artifacts).len(), 3);
+        lock(&root.artifacts).clear();
+        assert_eq!(
+            old.module().exports().functions().count(),
+            graph.libraries[1]
+                .prepared
+                .as_ref()
+                .unwrap()
+                .module()
+                .exports()
+                .functions()
+                .count()
+        );
+    }
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(not(target_arch = "wasm32"), test)]
     fn now_cycles_publish_concrete_aliases_and_replay_in_future_stores() {
         // Two independent stores replay identical frozen targets; a shared Rust
         // Function/Instance is never transferred between them.
         for task in [TaskId(1), TaskId(2)] {
             let (graph, mut local, mut store, imports) = fixture();
-            let work = work(graph);
+            let work = work(graph, &store);
             local
                 .stage_modules(
                     &mut store.as_store_mut(),
@@ -2527,7 +2679,9 @@ mod cyclic_tests {
             // funcref. Distinguish the definition from its forwarding alias by
             // changing the canonical target after publication: the definition
             // keeps returning x, whereas the thunk would now return -999.
-            let replacement = Function::new_typed(&mut store, |_: i32, _: i64| -> i64 { -999 });
+            let replacement = Module::new(&store, wat::parse_str("(module (func (export \"replace\") (param i32 i64) (result i64) i64.const -999))").unwrap()).unwrap();
+            let replacement = Instance::new(&mut store, &replacement, &Imports::new()).unwrap();
+            let replacement = replacement.exports.get_function("replace").unwrap().clone();
             local
                 .table
                 .set(&mut store, a, Value::FuncRef(Some(replacement)))
@@ -2542,7 +2696,8 @@ mod cyclic_tests {
             );
         }
     }
-    #[test]
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(not(target_arch = "wasm32"), test)]
     fn forwarding_preserves_numeric_multivalue_and_native_exceptions() {
         let (_, local, mut store, imports) = fixture();
         let provider = Module::new(
@@ -2585,7 +2740,14 @@ mod cyclic_tests {
             .table
             .grow(&mut store, 2, Value::FuncRef(None))
             .unwrap();
-        let forwarder = forward::instantiate(&mut store, &local.table, &imports, &targets).unwrap();
+        let forwarder = forward::instantiate(
+            &local.forward_code,
+            &mut store,
+            &local.table,
+            &imports,
+            &targets,
+        )
+        .unwrap();
         // Preparation creates code but leaves every target unpublished.
         assert!(matches!(
             local.table.get(&mut store, 3),
@@ -2611,7 +2773,7 @@ mod cyclic_tests {
         assert_eq!(
             forwarder
                 .exports
-                .get_function("0")
+                .get_function(&forward::name(0))
                 .unwrap()
                 .call(&mut store, &input)
                 .unwrap()
@@ -2636,7 +2798,11 @@ mod cyclic_tests {
         imports.define(
             "env",
             "raise",
-            forwarder.exports.get_function("1").unwrap().clone(),
+            forwarder
+                .exports
+                .get_function(&forward::name(1))
+                .unwrap()
+                .clone(),
         );
         imports.define(
             "env",
@@ -2655,6 +2821,7 @@ mod cyclic_tests {
         );
         assert!(
             forward::instantiate(
+                &local.forward_code,
                 &mut store,
                 &local.table,
                 &Imports::new(),
@@ -2663,10 +2830,11 @@ mod cyclic_tests {
             .is_err()
         );
     }
-    #[test]
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(not(target_arch = "wasm32"), test)]
     fn cyclic_apply_rollback_clears_all_new_targets_and_drops_forwarders() {
         let (graph, mut local, mut store, imports) = fixture();
-        let work = work(graph);
+        let work = work(graph, &store);
         local
             .stage_modules(
                 &mut store.as_store_mut(),
@@ -2706,16 +2874,14 @@ mod cyclic_tests {
             )
             .unwrap();
     }
-    #[test]
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(not(target_arch = "wasm32"), test)]
     fn failed_cyclic_prepare_preserves_staged_ownership_and_old_table() {
         let (graph, mut local, mut store, mut imports) = fixture();
         // A fails after B and its forwarding instance were successfully prepared.
-        imports.define(
-            "test",
-            "require",
-            Function::new_typed(&mut store, |_: i32| -> i32 { 0 }),
-        );
-        let work = work(graph);
+        // JS host functions are untyped, so use a wrong import kind on both backends.
+        imports.define("test", "require", Global::new(&mut store, Value::I32(0)));
+        let work = work(graph, &store);
         assert!(
             local
                 .stage_modules(

@@ -254,6 +254,23 @@ mod wasm {
                     [true, true, false],
                 );
             }
+            let mut mounts = Vec::new();
+            for mount in fixture.mounts {
+                let fs =
+                    browser::directory(Arc::new(HostClock(host.clone())), 0o700, owner.0, owner.1)
+                        .await
+                        .map_err(|e| error(format!("mount {}: {e:?}", mount.guest)))?;
+                wasixv2::populate_directory(fs.clone(), &mount.entries, owner.0, owner.1)
+                    .await
+                    .map_err(|e| error(format!("snapshot {}: {e:?}", mount.guest)))?;
+                if mount.guest == "/" {
+                    // The task root is chosen when the kernel boots; a directory
+                    // mount over / afterward does not replace that retained root.
+                    builder = builder.root(fs);
+                } else {
+                    mounts.push((mount.guest, fs));
+                }
+            }
             let mut machine = builder.build();
             machine
                 .set_wasix1_command_defaults(fixture.command_defaults.into_iter().map(|c| {
@@ -272,18 +289,8 @@ mod wasm {
             if fixture.acceptance.as_ref().is_some_and(|s| s.live_vfs) {
                 acceptance::mount_live(&machine, host.clone()).await?;
             }
-            for mount in fixture.mounts {
-                let fs =
-                    browser::directory(Arc::new(HostClock(host.clone())), 0o700, owner.0, owner.1)
-                        .await
-                        .map_err(|e| error(format!("mount {}: {e:?}", mount.guest)))?;
-                wasixv2::populate_directory(fs.clone(), &mount.entries, owner.0, owner.1)
-                    .await
-                    .map_err(|e| error(format!("snapshot {}: {e:?}", mount.guest)))?;
-                machine
-                    .mount(&mount.guest, fs, false)
-                    .await
-                    .map_err(error)?;
+            for (guest, fs) in mounts {
+                machine.mount(&guest, fs, false).await.map_err(error)?;
             }
             if let Some(cwd) = fixture.cwd {
                 machine.set_working_dir(cwd);

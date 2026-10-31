@@ -18,6 +18,9 @@ pub(super) struct LazyFunction {
 pub(super) struct Library {
     pub source: Arc<Vec<u8>>,
     pub metadata: Module,
+    pub initialization: Arc<Initialization>,
+    pub code_hash: wasmer_types::ModuleHash,
+    pub prepared: Option<Arc<crate::artifact::PreparedArtifact>>,
     pub identity: Option<(u64, u64)>,
     pub backing: Option<wasixv2_syscalls::Image>,
     pub dependencies: Vec<usize>,
@@ -32,7 +35,8 @@ pub(super) struct Library {
 impl Library {
     pub fn new(source: Vec<u8>, identity: Option<(u64, u64)>) -> Result<Self> {
         let metadata = Module::parse(&source).map_err(failure)?;
-        Initialization::parse(&source).map_err(failure)?;
+        let initialization = Arc::new(Initialization::parse(&source).map_err(failure)?);
+        let code_hash = wasmer_types::ModuleHash::new(&source);
         if metadata
             .exports()
             .keys()
@@ -61,6 +65,9 @@ impl Library {
         Ok(Self {
             source: Arc::new(source),
             metadata,
+            initialization,
+            code_hash,
+            prepared: None,
             identity,
             backing: None,
             dependencies: Vec::new(),
@@ -301,8 +308,8 @@ impl Graph {
         let lib = &self.libraries[index];
         let globals = initial_globals(&lib.source, infrastructure(lib, 0, 0))?;
         let end = u64::from(lib.table) + u64::from(lib.metadata.memory_info().table_size);
-        let placements = Initialization::parse(&lib.source)
-            .map_err(failure)?
+        let placements = lib
+            .initialization
             .table_effects(&globals, std::slice::from_ref(&(u64::from(lib.table)..end)))
             .map_err(failure)?;
         let mut slots = BTreeMap::new();

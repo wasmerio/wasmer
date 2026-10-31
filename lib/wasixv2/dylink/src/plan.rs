@@ -137,7 +137,7 @@ impl Plan {
 
     /// Retry exactly one deferred direct import under its original load group and
     /// the current global scope. This performs no layout or old-NOW import planning.
-    #[cfg(feature = "sys")]
+    #[cfg(any(feature = "sys", feature = "js"))]
     pub(crate) fn retry_direct(
         modules: &[Module],
         dependencies: &[Vec<usize>],

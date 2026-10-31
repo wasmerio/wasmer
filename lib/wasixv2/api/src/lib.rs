@@ -26,10 +26,10 @@ use std::{
 };
 
 pub use shared_buffer::OwnedBuffer;
-#[cfg(feature = "sys")]
+#[cfg(any(feature = "sys", feature = "js"))]
 pub use wasixv2_dylink::{Compile, load};
 use wasixv2_exec::{Abis, Wasixv2};
-#[cfg(not(feature = "sys"))]
+#[cfg(not(any(feature = "sys", feature = "js")))]
 pub use wasixv2_exec::{Compile, load};
 pub use wasixv2_exec::{
     ExecError, Image, ImageId, InstrumentError, LoadError, Loader, instrument, is_preemptible,
@@ -1143,7 +1143,7 @@ fn abis(
     if let Some(loader) = &loader {
         abis.set_loader(loader.clone());
     }
-    #[cfg(feature = "sys")]
+    #[cfg(any(feature = "sys", feature = "js"))]
     {
         if loader.is_none() {
             abis.set_loader(Arc::new(Compile));
