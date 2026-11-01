@@ -19500,6 +19500,14 @@ impl<L, S: crate::Control> crate::Control for Layered<L, S> {
         self.inner.group_wait(task)
     }
 
+    fn thread_join<'a>(
+        &'a self,
+        caller: &'a crate::Caller<'_>,
+        tid: i32,
+    ) -> crate::LocalFuture<'a, crate::SysResult<()>> {
+        self.inner.thread_join(caller, tid)
+    }
+
     fn fault(&self, task: crate::TaskId, signal: i32) -> bool {
         self.inner.fault(task, signal)
     }

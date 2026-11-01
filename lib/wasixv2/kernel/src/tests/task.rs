@@ -70,6 +70,85 @@ fn released_tasks_are_forgotten() {
     assert!(kernel.state.lock_or_recover().tasks.is_empty());
 }
 
+#[test]
+fn joining_waits_for_execution_release_and_does_not_retain_the_task() {
+    let (kernel, task, memory) = machine();
+    let caller = Caller::new(task, &memory);
+    let child = spawn_thread(&kernel, &caller);
+    let _ = kernel.take_pending(task);
+    let completion = Arc::downgrade(&kernel.state.read_or_recover().tasks[&child].completion);
+    let join = kernel.thread_join(&caller, child.0 as i32);
+    let mut join = std::pin::pin!(join);
+    assert!(join.as_mut().now_or_never().is_none());
+
+    block_on(kernel.exit(&Caller::new(child, &memory), 23)).unwrap();
+    assert_eq!(kernel.take_pending(child), Some(GuestAction::Exit(23)));
+    // A queued exit has not completed the guest invocation yet.
+    assert!(join.as_mut().now_or_never().is_none());
+    kernel.release(child);
+    assert!(!live(&kernel, child));
+    assert_eq!(block_on(join), Ok(()));
+    assert!(completion.upgrade().is_none());
+    assert_eq!(
+        block_on(kernel.thread_join(&caller, child.0 as i32)),
+        Ok(())
+    );
+    assert_eq!(block_on(kernel.thread_join(&caller, -1)), Ok(()));
+}
+
+#[test]
+fn joining_an_aborted_thread_finishes_and_self_join_is_interruptible() {
+    let (kernel, task, memory) = machine();
+    let caller = Caller::new(task, &memory);
+    let child = spawn_thread(&kernel, &caller);
+    let join = kernel.thread_join(&caller, child.0 as i32);
+    let mut join = std::pin::pin!(join);
+    assert!(join.as_mut().now_or_never().is_none());
+    kernel.abort_thread(child);
+    assert_eq!(block_on(join), Ok(()));
+
+    let join = kernel.thread_join(&caller, task.0 as i32);
+    let mut join = std::pin::pin!(join);
+    assert!(join.as_mut().now_or_never().is_none());
+    kernel.kill(task, Signal::SIGKILL).unwrap();
+    assert_eq!(block_on(join), Err(Errno::EINTR.into()));
+}
+
+#[test]
+fn joining_a_tid_from_another_process_is_already_done() {
+    let (kernel, task, memory) = machine();
+    let caller = Caller::new(task, &memory);
+    let other = kernel
+        .new_process(vec![], vec![], kernel.fd_table(), 0)
+        .unwrap();
+    assert_eq!(
+        block_on(kernel.thread_join(&caller, other.0 as i32)),
+        Ok(())
+    );
+    assert!(live(&kernel, other));
+}
+
+#[test]
+fn a_join_keeps_its_completion_when_the_numeric_tid_is_reused() {
+    let (kernel, task, memory) = machine();
+    let caller = Caller::new(task, &memory);
+    let child = spawn_thread(&kernel, &caller);
+    let _ = kernel.take_pending(task);
+    let join = kernel.thread_join(&caller, child.0 as i32);
+    let mut join = std::pin::pin!(join);
+    assert!(join.as_mut().now_or_never().is_none());
+    kernel.abort_thread(child);
+    kernel
+        .active_pid_ns(task)
+        .set_last_pid(child.0 - 1)
+        .unwrap();
+    let replacement = spawn_thread(&kernel, &caller);
+    assert_eq!(replacement, child);
+    assert_eq!(block_on(join), Ok(()));
+    let replacement = TaskId(kernel.find_vpid(&caller, replacement.0 as i32).unwrap());
+    assert!(live(&kernel, replacement));
+}
+
 /// A vfork whose caller's exit was queued first, as another thread's `exit_group` can between
 /// `clone`'s check and its queueing, never starts its child, which goes with its process.
 #[test]

@@ -2,7 +2,10 @@
 //! `exit` versus `exit_group`, `de_thread` for `execve`, releasing tasks the execution layer is
 //! done with, `set_tid_address` and robust futex lists.
 
-use std::sync::{Arc, Mutex};
+use std::sync::{
+    Arc, Mutex,
+    atomic::{AtomicBool, Ordering},
+};
 
 use wasixv2_abi::{
     CloneFlags, GuestPtrMut, RobustListHeadPtr, RobustListHeadPtrPtr, S32Ptr, SiCode, Ulong, Uptr,
@@ -17,6 +20,20 @@ use crate::{Kernel, Process, State, Task, signal::Signals, sync::MutexExt, work:
 
 /// `sizeof(struct robust_list_head)` on ILP32.
 const ROBUST_LIST_HEAD_SIZE: u32 = 12;
+
+/// A join retains only this completion, never a task, instance, address space or pid lookup.
+#[derive(Default)]
+pub(crate) struct Completion {
+    done: AtomicBool,
+    waiters: WaitQueue,
+}
+
+impl Completion {
+    fn finish(&self) {
+        self.done.store(true, Ordering::Release);
+        self.waiters.wake(PollMask::empty());
+    }
+}
 
 /// A thread group (a process, in user terms): which of its tasks are still running, and how it
 /// ended.
@@ -179,6 +196,33 @@ const THREAD_OPTIONAL: CloneFlags = CloneFlags(
 );
 
 impl Kernel {
+    pub(crate) async fn join_thread(&self, caller: &Caller<'_>, tid: i32) -> SysResult<()> {
+        let completion = {
+            let state = self.state.read_or_recover();
+            let Some(me) = state.tasks.get(&caller.task()) else {
+                return Err(Errno::ESRCH.into());
+            };
+            let Some(id) = me.process.pid_ns.find(tid) else {
+                return Ok(());
+            };
+            let Some(other) = state.tasks.get(&TaskId(id)) else {
+                return Ok(());
+            };
+            if !Arc::ptr_eq(&me.process, &other.process) {
+                return Ok(());
+            }
+            other.completion.clone()
+        };
+        let interrupt = self.interrupt(caller);
+        wait_event(
+            &completion.waiters,
+            || completion.done.load(Ordering::Acquire).then_some(()),
+            &*interrupt,
+        )
+        .await
+        .map_err(|Interrupted| Errno::EINTR.into())
+    }
+
     /// `copy_process` for a thread: validates `flags`, creates the task in the caller's thread
     /// group, writes its tid where asked, and leaves the start to the execution layer. Without
     /// `CLONE_THREAD`, the task is a new process on the caller's memory ([`Kernel::kernel_clone`]).
@@ -312,6 +356,7 @@ impl Kernel {
                 seccomp: task.seccomp.clone(),
                 io: crate::sched::copy_io(task.io.as_ref(), flags.contains(CloneFlags::CLONE_IO)),
                 thread,
+                completion: Arc::new(Completion::default()),
                 signals: task
                     .signals
                     .group()
@@ -627,6 +672,7 @@ impl Kernel {
                 };
                 let flag = entry.work.flag().clone();
                 let dead = DeadTask {
+                    completion: entry.completion.clone(),
                     work: std::mem::replace(&mut entry.work, Work::new(flag)),
                     signals: entry.signals.clone(),
                     cpu: entry.cpu.clone(),
@@ -648,6 +694,14 @@ impl Kernel {
     /// lives on in the process tree. For a task its reaper took out of the table already, this
     /// is `put_task_struct`: what was left of it goes.
     pub(crate) fn release_task(&self, task: TaskId) {
+        {
+            let state = self.state.read_or_recover();
+            if let Some(entry) = state.tasks.get(&task) {
+                entry.completion.finish();
+            } else if let Some(dead) = state.dead.get(&task) {
+                dead.completion.finish();
+            }
+        }
         if let Some(process) = self.defer_traced_thread_release(task) {
             self.exit_notify(&process);
             return;
@@ -1328,6 +1382,7 @@ fn gone_in_vfork(waiting: &[TaskId], id: TaskId, t: &Task) -> bool {
 /// ([`Kernel::report_group_stop`]).
 pub(crate) fn forget_task(state: &mut State, task: TaskId) -> Option<Arc<Process>> {
     let (entry, completed) = unhash_task(state, task)?;
+    entry.completion.finish();
     completed.then_some(entry.process)
 }
 
@@ -1360,6 +1415,7 @@ pub(crate) struct RetiredTask {
 /// (`release_task`), until the execution layer lets it go (`put_task_struct`): what its
 /// instance takes on its way out. Its process, memory, files and the rest went with the reap.
 pub(crate) struct DeadTask {
+    completion: Arc<Completion>,
     /// Its exit, or a vfork parent's, which its instance unwinds through.
     pub(crate) work: Work,
     pub(crate) signals: Arc<crate::signal::TaskSignals>,

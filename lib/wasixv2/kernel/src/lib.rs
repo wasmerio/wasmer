@@ -369,6 +369,8 @@ struct Task {
     io: Option<Arc<sched::IoContext>>,
     // ---- thr ----
     thread: thread::ThreadState,
+    /// Completion of this task's execution, independent of its pid and retained resources.
+    completion: Arc<thread::Completion>,
     // ---- sig ----
     /// The task's masks and pending signals, and its thread group's dispositions.
     signals: Arc<signal::TaskSignals>,
@@ -750,6 +752,7 @@ impl Kernel {
             restart: None,
             session_keyring_work: None,
             thread: thread::ThreadState::default(),
+            completion: Arc::new(thread::Completion::default()),
             signals: signal::Signals::new(Some(account)).attach(
                 id,
                 signal::Inherited::none(),
@@ -4508,6 +4511,14 @@ impl Control for Kernel {
 
     fn group_wait(&self, task: TaskId) -> LocalFuture<'_, ()> {
         Box::pin(Kernel::group_wait(self, task))
+    }
+
+    fn thread_join<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        tid: i32,
+    ) -> LocalFuture<'a, SysResult<()>> {
+        Box::pin(self.join_thread(caller, tid))
     }
 
     // ---- proc ----

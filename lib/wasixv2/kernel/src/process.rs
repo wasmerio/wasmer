@@ -1737,6 +1737,7 @@ impl Kernel {
                 seccomp,
                 io: crate::sched::copy_io(task.io.as_ref(), flags.contains(CloneFlags::CLONE_IO)),
                 thread: task.thread.for_process(flags, tls, child_tid),
+                completion: Arc::new(thread::Completion::default()),
                 signals,
                 cred_override: None,
                 uring: Arc::default(),
