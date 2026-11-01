@@ -498,7 +498,7 @@ async fn read_deadline(caller: &Caller<'_>, ts: ConstKernelTimespecPtr) -> SysRe
 impl Kernel {
     /// The queue behind descriptor `fd` and its open file; `EBADF` for anything else.
     fn mq_file(&self, caller: &Caller<'_>, fd: Fd) -> Result<(Arc<OpenFile>, Arc<Mqueue>), Errno> {
-        let file = self.file(caller.task(), fd)?;
+        let file = self.caller_file(caller, fd)?;
         let queue = file.downcast::<MqFile>().ok_or(Errno::EBADF)?.queue.clone();
         Ok((file, queue))
     }
@@ -775,7 +775,7 @@ impl Kernel {
                         let at = u32::from_le_bytes(sev.sigev_value.0);
                         let mut cookie = vec![0; COOKIE_LEN];
                         caller.memory().read(at, &mut cookie).await?;
-                        let sock = self.file(caller.task(), Fd(sev.sigev_signo))?;
+                        let sock = self.caller_file(caller, Fd(sev.sigev_signo))?;
                         let socket = sock
                             .object()
                             .cloned()

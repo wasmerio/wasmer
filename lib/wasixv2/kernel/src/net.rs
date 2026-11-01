@@ -200,6 +200,11 @@ impl Kernel {
         protocol: i32,
     ) -> SysResult<Fd> {
         let (kind, flags) = socket_type(r#type)?;
+        if caller.descriptor_installations().is_some() {
+            return self
+                .socket_to(caller, family, r#type, protocol, crate::fs::FileDest::Table)
+                .await;
+        }
         let file = self
             .create_socket(caller, family, kind, protocol, flags)
             .await?;
@@ -317,6 +322,12 @@ impl Kernel {
         usockvec: FdPair,
     ) -> SysResult<i32> {
         let (kind, flags) = socket_type(r#type)?;
+        let cloexec = flags.contains(SocketFlags::SOCK_CLOEXEC);
+        let reserved = if caller.descriptor_installations().is_some() {
+            Some(self.reserve_fds::<2>(caller, cloexec)?)
+        } else {
+            None
+        };
         match family {
             AddressFamily::AF_UNIX => {}
             _ => {
@@ -335,8 +346,13 @@ impl Kernel {
             unix_file(a, flags, self.pseudo.socket(owner), &self.sigio),
             unix_file(b, flags, self.pseudo.socket(owner), &self.sigio),
         ];
-        let cloexec = flags.contains(SocketFlags::SOCK_CLOEXEC);
-        self.install_pair(caller, usockvec, files, cloexec).await?;
+        match reserved {
+            Some(reserved) => {
+                self.install_reserved_pair(caller, usockvec, files, reserved)
+                    .await?
+            }
+            None => self.install_pair(caller, usockvec, files, cloexec).await?,
+        }
         Ok(0)
     }
 
@@ -349,7 +365,7 @@ impl Kernel {
         len: Socklen,
     ) -> SysResult<i32> {
         let raw = move_addr_to_kernel(caller, addr, len).await?;
-        let file = self.file(caller.task(), fd)?;
+        let file = self.caller_file(caller, fd)?;
         self.bind_file(caller, file, &raw).await
     }
 
@@ -403,7 +419,7 @@ impl Kernel {
         fd: Fd,
         backlog: i32,
     ) -> SysResult<i32> {
-        let file = self.file(caller.task(), fd)?;
+        let file = self.caller_file(caller, fd)?;
         self.listen_file(caller, file, backlog)
     }
 
@@ -617,7 +633,7 @@ impl Kernel {
         addr: SockaddrPtr,
         addrlen: SocklenPtr,
     ) -> SysResult<i32> {
-        let file = self.file(caller.task(), fd)?;
+        let file = self.caller_file(caller, fd)?;
         self.getname_file(caller, file, false, addr, addrlen).await
     }
 

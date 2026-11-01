@@ -733,7 +733,7 @@ impl Kernel {
         user_iocb: u32,
     ) -> Result<(), Errno> {
         let fd = i32::try_from(iocb.aio_fildes).map_err(|_| Errno::EBADF)?;
-        let file = self.file(caller.task(), Fd(fd))?;
+        let file = self.caller_file(caller, Fd(fd))?;
         let flags = IocbFlags(iocb.aio_flags);
         let eventfd = match flags.contains(IocbFlags::IOCB_FLAG_RESFD) {
             true => {

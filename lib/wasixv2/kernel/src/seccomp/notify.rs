@@ -313,7 +313,7 @@ impl Kernel {
         {
             return Err(Errno::EINVAL.into());
         }
-        let file = self.file(caller.task(), Fd(addfd.srcfd as i32))?;
+        let file = self.caller_file(caller, Fd(addfd.srcfd as i32))?;
         let task = {
             let st = notif.state.lock_or_recover();
             let n = st

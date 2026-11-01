@@ -319,7 +319,7 @@ impl Kernel {
         if !valid {
             return Err(Errno::EINVAL.into());
         }
-        let file = self.file(caller.task(), fd)?;
+        let file = self.caller_file(caller, fd)?;
         let context = file.downcast::<FsContextFile>().ok_or(Errno::EINVAL)?;
         let key = match has_key {
             true => Some(copy_string(caller, Cstr::new(key.addr()), PARAM_MAX).await?),
@@ -340,7 +340,7 @@ impl Kernel {
                 Value::Other
             }
             FsconfigCommand::FSCONFIG_SET_FD => {
-                self.file(caller.task(), Fd(aux))?;
+                self.caller_file(caller, Fd(aux))?;
                 Value::Other
             }
             _ => Value::Flag,
@@ -486,7 +486,7 @@ impl Kernel {
             a if a == MountAttrFlags::MOUNT_ATTR_RELATIME.0 => {}
             _ => return Err(Errno::EINVAL.into()),
         }
-        let file = self.file(caller.task(), fs_fd)?;
+        let file = self.caller_file(caller, fs_fd)?;
         let context = file.downcast::<FsContextFile>().ok_or(Errno::EINVAL)?;
         let mounted = {
             let mut context = context.0.lock_or_recover();

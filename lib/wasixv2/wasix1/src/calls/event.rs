@@ -29,17 +29,25 @@ pub(crate) async fn fd_event<S: Syscalls + Control + 'static>(
     ro_fd: i32,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
+        let rights = crate::abi::fs::Rights::FD_READ
+            | crate::abi::fs::Rights::FD_WRITE
+            | crate::abi::fs::Rights::POLL_FD_READWRITE
+            | crate::abi::fs::Rights::FD_FDSTAT_SET_FLAGS;
+        let plan = frame.install_descriptors(vec![
+            crate::rights::Record::new(rights, rights).attachment(),
+        ])?;
         let initial = initial as u64;
-        let caller = frame.caller();
         let small = u32::try_from(initial).ok();
         let fd = frame
             .syscalls
             .eventfd2(
-                &caller,
+                &frame.caller(),
                 small.unwrap_or(0),
                 flags(Eventfdflags(v1_flags as u16)),
             )
             .await?;
+        frame.use_installed(&plan, 0)?;
+        let caller = frame.caller();
         if small.is_none() {
             let value = frame.mem.alloc_bytes(&initial.to_le_bytes())?;
             if let Err(err) = frame.syscalls.write(&caller, fd, value).await {

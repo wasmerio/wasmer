@@ -20,7 +20,7 @@ impl Kernel {
         cstat: CachestatPtr,
         flags: u32,
     ) -> SysResult<i32> {
-        let file = self.file(caller.task(), fd)?;
+        let file = self.caller_file(caller, fd)?;
         let range: CachestatRange = read_value(caller.memory(), range).await?;
         let attr = file.path().dentry.node().getattr().await?;
         let writable = file.flags() & OpenFlags::O_ACCMODE != OpenFlags::O_RDONLY;

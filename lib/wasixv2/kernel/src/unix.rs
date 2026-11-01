@@ -2118,7 +2118,7 @@ impl Kernel {
                     }
                     for fd in control.data.chunks_exact(4) {
                         let fd = i32::from_le_bytes(fd.try_into().unwrap());
-                        let file = self.file(caller.task(), wasixv2_syscalls::Fd(fd))?;
+                        let file = self.caller_file(caller, wasixv2_syscalls::Fd(fd))?;
                         anc.rights.push(file);
                     }
                 }

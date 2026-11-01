@@ -4,6 +4,8 @@
 //! scratch and decode the kernel's. Data moves through the guest's own iovec arrays, which
 //! have Linux's layout. Socket options live in [`super::sockopt`].
 
+use crate::abi::fs::Rights;
+
 use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6};
 
 use wasixv2_abi::{
@@ -218,12 +220,14 @@ pub(crate) async fn sock_open<S: Syscalls + Control + 'static>(
     ro_fd: i32,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
+        let plan = frame.install_descriptors(vec![crate::rights::socket().attachment()])?;
         let family = family(Addressfamily(af as u8))?;
         let ty = socket_type(ty)?;
         let fd = frame
             .syscalls
             .socket(&frame.caller(), family, ty, protocol(family, proto))
             .await?;
+        frame.use_installed(&plan, 0)?;
         sockopt::new_socket(frame, fd).await?;
         frame.write(ro_fd as u32, &(fd.0 as u32)).await
     })
@@ -239,6 +243,10 @@ pub(crate) async fn sock_pair<S: Syscalls + Control + 'static>(
     ro_fd2: i32,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
+        let plan = frame.install_descriptors(vec![
+            crate::rights::socket().attachment(),
+            crate::rights::socket().attachment(),
+        ])?;
         let family = family(Addressfamily(af as u8))?;
         let ty = socket_type(ty)?;
         let fds = frame.mem.alloc_mut::<[i32; 2]>()?;
@@ -253,7 +261,9 @@ pub(crate) async fn sock_pair<S: Syscalls + Control + 'static>(
             )
             .await?;
         let [a, b] = frame.mem.take(fds);
+        frame.use_installed(&plan, 0)?;
         sockopt::new_socket(frame, Fd(a)).await?;
+        frame.use_installed(&plan, 1)?;
         sockopt::new_socket(frame, Fd(b)).await?;
         frame.write(ro_fd1 as u32, &(a as u32)).await?;
         frame.write(ro_fd2 as u32, &(b as u32)).await
@@ -267,6 +277,7 @@ pub(crate) async fn sock_bind<S: Syscalls + Control + 'static>(
     addr: i32,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
+        crate::rights::require(frame, &[(wasixv2_abi::Fd(fd), Rights::SOCK_BIND)]).await?;
         let (ptr, len) = sockaddr_in(frame, addr).await?;
         frame
             .syscalls
@@ -283,6 +294,7 @@ pub(crate) async fn sock_listen<S: Syscalls + Control + 'static>(
     backlog: i32,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
+        crate::rights::require(frame, &[(wasixv2_abi::Fd(fd), Rights::SOCK_LISTEN)]).await?;
         frame
             .syscalls
             .listen(&frame.caller(), Fd(fd), backlog)
@@ -301,6 +313,7 @@ pub(crate) async fn sock_connect<S: Syscalls + Control + 'static>(
     // Whether the body runs again after a signal interrupted it.
     let mut again = false;
     shim::errno(&env, async |frame| {
+        crate::rights::require(frame, &[(wasixv2_abi::Fd(fd), Rights::SOCK_CONNECT)]).await?;
         let (ptr, len) = sockaddr_in(frame, addr).await?;
         match sockopt::connect_timeout(frame, Fd(fd)).await? {
             Some(timeout) => {
@@ -327,6 +340,8 @@ async fn accept<S: Syscalls + Control + 'static>(
     fd: i32,
     fdflags: i32,
 ) -> V1Result<(Fd, SockAddr)> {
+    crate::rights::require(frame, &[(Fd(fd), Rights::SOCK_ACCEPT)]).await?;
+    let plan = frame.install_descriptors(vec![crate::rights::socket().attachment()])?;
     let fdflags = Fdflags(fdflags as u16);
     let mut flags = SocketFlags::empty();
     if fdflags.0 & Fdflags::NONBLOCK.0 != 0 {
@@ -338,6 +353,7 @@ async fn accept<S: Syscalls + Control + 'static>(
         .syscalls
         .accept4(&frame.caller(), Fd(fd), peer.addr, peer.len, flags)
         .await?;
+    frame.use_installed(&plan, 0)?;
     sockopt::new_socket(frame, new).await?;
     Ok((new, peer.take(frame)))
 }
@@ -534,6 +550,14 @@ pub(crate) async fn sock_recv<S: Syscalls + Control + 'static>(
     ro_flags: i32,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
+        crate::rights::socket_or_stream(
+            frame,
+            Fd(fd),
+            Rights::SOCK_RECV,
+            Rights::FD_READ,
+            ri_flags == 0,
+        )
+        .await?;
         let (n, flags, _) = recv(frame, fd, iovs, iovs_len, ri_flags, false).await?;
         frame.write(ro_datalen as u32, &n).await?;
         frame.write(ro_flags as u32, &flags).await
@@ -553,6 +577,7 @@ pub(crate) async fn sock_recv_from<S: Syscalls + Control + 'static>(
     ro_addr: i32,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
+        crate::rights::require(frame, &[(wasixv2_abi::Fd(fd), Rights::SOCK_RECV_FROM)]).await?;
         let (n, flags, peer) = recv(frame, fd, iovs, iovs_len, ri_flags, true).await?;
         frame.write(ro_datalen as u32, &n).await?;
         frame.write(ro_flags as u32, &flags).await?;
@@ -613,6 +638,14 @@ pub(crate) async fn sock_send<S: Syscalls + Control + 'static>(
     ro_datalen: i32,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
+        crate::rights::socket_or_stream(
+            frame,
+            Fd(fd),
+            Rights::SOCK_SEND,
+            Rights::FD_WRITE,
+            si_flags == 0,
+        )
+        .await?;
         let n = send(frame, fd, iovs, iovs_len, si_flags, None).await?;
         frame.write(ro_datalen as u32, &n).await
     })
@@ -629,6 +662,7 @@ pub(crate) async fn sock_send_to<S: Syscalls + Control + 'static>(
     ro_datalen: i32,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
+        crate::rights::require(frame, &[(wasixv2_abi::Fd(fd), Rights::SOCK_SEND_TO)]).await?;
         let n = send(frame, fd, iovs, iovs_len, si_flags, Some(addr)).await?;
         frame.write(ro_datalen as u32, &n).await
     })
@@ -641,6 +675,7 @@ pub(crate) async fn sock_shutdown<S: Syscalls + Control + 'static>(
     how: i32,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
+        crate::rights::require(frame, &[(wasixv2_abi::Fd(fd), Rights::SOCK_SHUTDOWN)]).await?;
         let how = Sdflags(how as u8);
         let (rd, wr) = (how.0 & Sdflags::RD.0 != 0, how.0 & Sdflags::WR.0 != 0);
         let how = match (rd, wr) {
@@ -664,6 +699,7 @@ pub(crate) async fn sock_addr_local<S: Syscalls + Control + 'static>(
     ro_addr: i32,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
+        crate::rights::require(frame, &[(wasixv2_abi::Fd(fd), Rights::empty())]).await?;
         let out = SockaddrOut::new(frame)?;
         frame
             .syscalls
@@ -682,6 +718,7 @@ pub(crate) async fn sock_addr_peer<S: Syscalls + Control + 'static>(
     ro_addr: i32,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
+        crate::rights::require(frame, &[(wasixv2_abi::Fd(fd), Rights::empty())]).await?;
         let peer = peer_name(frame, Fd(fd)).await?;
         frame.write(ro_addr as u32, &AddrPort::encode(&peer)).await
     })
@@ -720,6 +757,7 @@ pub(crate) async fn sock_status<S: Syscalls + Control + 'static>(
     ro_status: i32,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
+        crate::rights::require(frame, &[(wasixv2_abi::Fd(fd), Rights::empty())]).await?;
         let fd = Fd(fd);
         let ty = int_option(frame, fd, SocketLevel::SOL_SOCKET, SocketOption::SO_TYPE.0).await?;
         let listening = int_option(
@@ -785,6 +823,14 @@ pub(crate) async fn sock_send_file<S: Syscalls + Control + 'static>(
     ro_sent: i32,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
+        crate::rights::require(
+            frame,
+            &[
+                (Fd(out_fd), Rights::SOCK_SEND),
+                (Fd(in_fd), Rights::FD_READ),
+            ],
+        )
+        .await?;
         let caller = frame.caller();
         match frame
             .syscalls

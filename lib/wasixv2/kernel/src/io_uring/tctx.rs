@@ -273,7 +273,7 @@ impl Kernel {
     /// The ring open as `fd`: `EBADF` unless open, `EOPNOTSUPP` unless a ring.
     fn ring_file(&self, caller: &Caller<'_>, fd: u64) -> Result<Arc<OpenFile>, Errno> {
         let fd = i32::try_from(fd).map_err(|_| Errno::EBADF)?;
-        let file = self.file(caller.task(), Fd(fd))?;
+        let file = self.caller_file(caller, Fd(fd))?;
         match is_ring(&file) {
             true => Ok(file),
             false => Err(Errno::EOPNOTSUPP),
@@ -322,7 +322,7 @@ impl Kernel {
     ) -> Result<Arc<OpenFile>, Errno> {
         let file = match registered {
             true => self.tctx(caller.task()).registered(fd.0 as u32)?,
-            false => self.file(caller.task(), fd)?,
+            false => self.caller_file(caller, fd)?,
         };
         match is_ring(&file) {
             true => Ok(file),

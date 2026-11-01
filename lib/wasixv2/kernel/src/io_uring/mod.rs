@@ -797,7 +797,7 @@ impl Kernel {
         // `IORING_SETUP_ATTACH_WQ` names another ring, whose workers there are none of.
         if setup & IoringSetupFlags::IORING_SETUP_ATTACH_WQ.0 != 0 {
             let wq = i32::try_from(p.wq_fd).map_err(|_| Errno::EBADF)?;
-            let file = self.file(caller.task(), Fd(wq))?;
+            let file = self.caller_file(caller, Fd(wq))?;
             if !is_ring(&file) {
                 return Err(Errno::EINVAL.into());
             }

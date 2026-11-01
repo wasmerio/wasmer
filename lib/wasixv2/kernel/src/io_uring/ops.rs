@@ -841,7 +841,7 @@ impl Kernel {
                 req.file_node = Some(node);
                 file
             }
-            false => self.file(caller.task(), Fd(req.sqe.fd))?,
+            false => self.caller_file(caller, Fd(req.sqe.fd))?,
         };
         req.file = Some(file.clone());
         Ok(file)
@@ -927,7 +927,7 @@ impl Kernel {
                 if req.has(IosqeFlags::IOSQE_FIXED_FILE) {
                     return Err(Errno::EBADF);
                 }
-                let file = self.file(caller.task(), Fd(sqe.fd))?;
+                let file = self.caller_file(caller, Fd(sqe.fd))?;
                 Ok(Outcome::of(
                     self.epoll_ctl_file(
                         caller,
@@ -1247,7 +1247,7 @@ impl Kernel {
                 req.input_node = Some(node);
                 file
             } else {
-                self.file(caller.task(), Fd(s.splice_fd_in))?
+                self.caller_file(caller, Fd(s.splice_fd_in))?
             };
             req.input = Some(input.clone());
             input
@@ -2170,7 +2170,7 @@ impl Kernel {
             ctx.remove_direct(slot - 1)?;
             return Ok(Outcome::of(Ok(0)));
         }
-        let file = self.file(caller.task(), Fd(sqe.fd))?;
+        let file = self.caller_file(caller, Fd(sqe.fd))?;
         if is_ring(&file) {
             return Err(Errno::EBADF);
         }
@@ -2462,7 +2462,7 @@ impl Kernel {
             return Err(Errno::EINVAL);
         }
         let file = match flags & by_fd != 0 && flags & fd_fixed == 0 {
-            true => Some(self.file(caller.task(), Fd(sqe.fd))?),
+            true => Some(self.caller_file(caller, Fd(sqe.fd))?),
             false => None,
         };
         let matches = |req: &Req| -> bool {

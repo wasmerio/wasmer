@@ -1787,7 +1787,7 @@ impl crate::Kernel {
         fd: u32,
     ) -> Result<Arc<Cgroup>, Errno> {
         let fd = wasixv2_syscalls::Fd(i32::try_from(fd).map_err(|_| Errno::EBADF)?);
-        let file = self.file(caller.task(), fd)?;
+        let file = self.caller_file(caller, fd)?;
         let path = file.path();
         if path.dentry.sb().info.magic != CGROUP2_SUPER_MAGIC {
             return Err(Errno::EBADF);

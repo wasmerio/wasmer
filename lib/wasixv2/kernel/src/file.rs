@@ -9,7 +9,7 @@ use std::{
 };
 
 use wasixv2_abi::{IoctlRequest, OpenFlags};
-use wasixv2_syscalls::{Caller, Errno, Fd, LocalFuture, SysResult, TaskId};
+use wasixv2_syscalls::{Caller, DescriptorAttachment, Errno, Fd, LocalFuture, SysResult, TaskId};
 use wasixv2_vfs::{File, FileType, LockKey, Path, SeekHole, Vfs};
 use wasixv2_wait::{Interrupt, NoInterrupt, PollMask, PollTable, Pollable};
 
@@ -659,6 +659,16 @@ pub enum SeekBase {
 struct Slot {
     file: Arc<OpenFile>,
     cloexec: bool,
+    token: Arc<()>,
+    attachment: Option<DescriptorAttachment>,
+}
+
+#[derive(Clone)]
+pub(crate) struct BoundSlot {
+    pub(crate) file: Arc<OpenFile>,
+    pub(crate) cloexec: bool,
+    pub(crate) token: Arc<()>,
+    pub(crate) attachment: Option<DescriptorAttachment>,
 }
 
 /// `fs.nr_open` (`sysctl_nr_open`, `fs/file.c`): no descriptor table grows to hold this many
@@ -750,8 +760,15 @@ impl FdTable {
         let mut copy = Self::new(self.nr_open.clone());
         copy.limit = self.limit;
         copy.max_fds = self.max_fds;
-        for (fd, file, cloexec) in self.iter() {
-            copy.install_at(fd, file.clone(), cloexec);
+        for (index, slot) in self.slots.iter().enumerate() {
+            if let Some(slot) = slot {
+                copy.install_at_attached(
+                    Fd(index as i32),
+                    slot.file.clone(),
+                    slot.cloexec,
+                    slot.attachment.clone(),
+                );
+            }
         }
         copy
     }
@@ -809,6 +826,28 @@ impl FdTable {
         Some(self.slot(fd)?.file.clone())
     }
 
+    pub(crate) fn bind(&self, fd: Fd) -> Option<BoundSlot> {
+        let slot = self.slot(fd)?;
+        Some(BoundSlot {
+            file: slot.file.clone(),
+            cloexec: slot.cloexec,
+            token: slot.token.clone(),
+            attachment: slot.attachment.clone(),
+        })
+    }
+
+    pub(crate) fn matches(&self, fd: Fd, token: &Arc<()>) -> bool {
+        self.slot(fd)
+            .is_some_and(|slot| Arc::ptr_eq(&slot.token, token))
+    }
+
+    pub(crate) fn replace_attachment(&mut self, fd: Fd, replacement: Option<DescriptorAttachment>) {
+        self.slots[fd.0 as usize]
+            .as_mut()
+            .expect("slot identity checked")
+            .attachment = replacement;
+    }
+
     /// Installs `file` at the lowest free descriptor, as `open` does; `None` if that would reach
     /// the limit, or the table cannot grow to it (`EMFILE`).
     pub(crate) fn install(&mut self, file: Arc<OpenFile>, cloexec: bool) -> Option<Fd> {
@@ -823,12 +862,27 @@ impl FdTable {
         file: Arc<OpenFile>,
         cloexec: bool,
     ) -> Option<Fd> {
+        self.install_from_attached(min, file, cloexec, None)
+    }
+
+    pub(crate) fn install_from_attached(
+        &mut self,
+        min: usize,
+        file: Arc<OpenFile>,
+        cloexec: bool,
+        attachment: Option<DescriptorAttachment>,
+    ) -> Option<Fd> {
         let index = self.free_from(min).next()?;
         self.expand(index).ok()?;
         if self.slots.len() <= index {
             self.slots.resize_with(index + 1, || None);
         }
-        self.slots[index] = Some(Slot { file, cloexec });
+        self.slots[index] = Some(Slot {
+            file,
+            cloexec,
+            token: Arc::new(()),
+            attachment,
+        });
         Some(Fd(index as i32))
     }
 
@@ -840,12 +894,27 @@ impl FdTable {
         file: Arc<OpenFile>,
         cloexec: bool,
     ) -> Option<Arc<OpenFile>> {
+        self.install_at_attached(fd, file, cloexec, None)
+    }
+
+    pub(crate) fn install_at_attached(
+        &mut self,
+        fd: Fd,
+        file: Arc<OpenFile>,
+        cloexec: bool,
+        attachment: Option<DescriptorAttachment>,
+    ) -> Option<Arc<OpenFile>> {
         let index = fd.0 as usize;
         if self.slots.len() <= index {
             self.slots.resize_with(index + 1, || None);
         }
         self.slots[index]
-            .replace(Slot { file, cloexec })
+            .replace(Slot {
+                file,
+                cloexec,
+                token: Arc::new(()),
+                attachment,
+            })
             .map(|slot| slot.file)
     }
 
@@ -871,11 +940,17 @@ impl FdTable {
         Some(Fd(index as i32))
     }
 
-    /// Installs `file` at the reserved `fd` (`fd_install`).
-    pub(crate) fn fill(&mut self, fd: Fd, file: Arc<OpenFile>, cloexec: bool) {
+    /// Installs the file and attachment together at the reserved descriptor (`fd_install`).
+    pub(crate) fn fill_attached(
+        &mut self,
+        fd: Fd,
+        file: Arc<OpenFile>,
+        cloexec: bool,
+        attachment: Option<DescriptorAttachment>,
+    ) {
         let removed = self.reserved.remove(&(fd.0 as usize));
         debug_assert!(removed, "only reserved descriptors are filled");
-        let replaced = self.install_at(fd, file, cloexec);
+        let replaced = self.install_at_attached(fd, file, cloexec, attachment);
         debug_assert!(replaced.is_none());
     }
 

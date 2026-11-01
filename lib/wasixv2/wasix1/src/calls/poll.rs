@@ -380,6 +380,30 @@ where
                 _ => None,
             });
         }
+        let operands: Vec<_> = subs
+            .iter()
+            .filter_map(|sub| match sub.wait {
+                Wait::Read(fd) | Wait::Write(fd) => Some(Fd(fd as i32)),
+                _ => None,
+            })
+            .collect();
+        let captured = frame.bind_descriptors(&operands)?;
+        for sub in &subs {
+            let (fd, access) = match sub.wait {
+                Wait::Read(fd) => (Fd(fd as i32), crate::abi::fs::Rights::FD_READ),
+                Wait::Write(fd) => (Fd(fd as i32), crate::abi::fs::Rights::FD_WRITE),
+                _ => continue,
+            };
+            // Closed entries keep their existing per-event BADF treatment. Rights denial is
+            // an admission error, before subscriptions with the same fd are combined.
+            if captured.get(fd).is_some_and(|entry| entry.present) {
+                crate::rights::require(
+                    frame,
+                    &[(fd, access | crate::abi::fs::Rights::POLL_FD_READWRITE)],
+                )
+                .await?;
+            }
+        }
         let (mut fds, index) = pollfds(&subs);
         // A descriptor that cannot exist is reported at once, as `poll` reports `POLLNVAL`.
         let invalid = subs

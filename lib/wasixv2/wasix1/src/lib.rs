@@ -37,6 +37,7 @@ pub mod imports;
 mod instance;
 pub mod memory;
 pub mod process;
+mod rights;
 pub mod shim;
 
 use std::sync::{Arc, RwLock};

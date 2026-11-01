@@ -171,7 +171,7 @@ impl Kernel {
         }
         let mask = sigset_bits(read_value(caller.memory(), user_mask).await?) & !UNREADABLE;
         if ufd.0 != -1 {
-            let file = self.file(caller.task(), ufd)?;
+            let file = self.caller_file(caller, ufd)?;
             let signalfd = file.downcast::<SignalFd>().ok_or(Errno::EINVAL)?;
             signalfd.mask.store(mask, Ordering::Relaxed);
             // Readers and pollers recheck against the new mask.
