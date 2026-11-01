@@ -54,13 +54,14 @@ impl Table {
         store: &mut impl AsStoreMut,
         index: u32,
     ) -> Option<crate::Function> {
-        #[cfg(feature = "js")]
-        if let BackendTable::Js(table) = &self.0 {
-            return table.get_typed_function(store, index);
-        }
-        match self.get(store, index)? {
-            Value::FuncRef(function) => function,
-            _ => None,
+        match &self.0 {
+            #[cfg(feature = "js")]
+            BackendTable::Js(table) => table.get_typed_function(store, index),
+            #[cfg(any(feature = "sys", feature = "v8"))]
+            _ => match self.get(store, index)? {
+                Value::FuncRef(function) => function,
+                _ => None,
+            },
         }
     }
 
