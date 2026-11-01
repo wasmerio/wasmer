@@ -450,6 +450,11 @@ fn vfork_exit_and_join() {
         (if (i32.ne (i32.load (i32.const 108)) (i32.load (i32.const 96))) (then (call $exit (i32.const 4))))
         (call $exit (i32.const 5))
         ;; the parent again
+        ;; a child's parent remains visible while the child is a zombie
+        (if (call $proc_parent (i32.load (i32.const 100)) (i32.const 108))
+          (then (call $exit (i32.const 12))))
+        (if (i32.ne (i32.load (i32.const 108)) (i32.load (i32.const 96)))
+          (then (call $exit (i32.const 13))))
         (i32.store8 (i32.const 200) (i32.const 1))
         (i32.store (i32.const 204) (i32.load (i32.const 100)))
         (if (call $join (i32.const 200) (i32.const 0) (i32.const 220)) (then (call $exit (i32.const 6))))
@@ -459,8 +464,10 @@ fn vfork_exit_and_join() {
         (i32.store8 (i32.const 200) (i32.const 0))
         (if (i32.ne (call $join (i32.const 200) (i32.const 1) (i32.const 220)) (i32.const 12))
           (then (call $exit (i32.const 10))))
-        ;; another process's parent needs /proc
-        (if (i32.ne (call $proc_parent (i32.add (i32.load (i32.const 96)) (i32.const 1000)) (i32.const 108)) (i32.const 58))
+        ;; a reaped child and an unknown pid have no parent handle
+        (if (i32.ne (call $proc_parent (i32.load (i32.const 100)) (i32.const 108)) (i32.const 8))
+          (then (call $exit (i32.const 14))))
+        (if (i32.ne (call $proc_parent (i32.add (i32.load (i32.const 96)) (i32.const 1000)) (i32.const 108)) (i32.const 8))
           (then (call $exit (i32.const 11))))
         (call $exit (i32.const 0))))
     "#;

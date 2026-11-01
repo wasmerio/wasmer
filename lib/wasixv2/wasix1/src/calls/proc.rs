@@ -1027,19 +1027,58 @@ pub(crate) async fn proc_join<S: Syscalls + Control + 'static>(
     .await
 }
 
-/// `proc_parent(pid, out)`: the caller's parent. Linux answers this for other processes only
-/// through `/proc`, which the kernel does not have: `NOTSUP` for them.
+/// Field 4 of Linux's `fs/proc/array.c:do_task_stat`. The command may contain spaces,
+/// newlines and parentheses, so fields start after its last closing parenthesis.
+fn stat_parent(stat: &[u8]) -> Option<u32> {
+    let end = stat.iter().rposition(|&b| b == b')')?;
+    let fields = std::str::from_utf8(&stat[end + 1..]).ok()?;
+    fields.split_ascii_whitespace().nth(1)?.parse().ok()
+}
+
+/// `proc_parent(pid, out)`: the caller's parent, or another process's through the proc mount.
+/// The old other-pid arm returned `pid` itself, contrary to the v1 header's parent contract.
 pub(crate) async fn proc_parent<S: Syscalls + Control + 'static>(
     env: Env<S>,
     pid: i32,
     out: i32,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
-        if frame.pid().await? != pid {
-            return shim::fail(Errno::NOTSUP);
-        }
-        let parent = frame.syscalls.getppid(&frame.caller()).await?;
-        frame.write(out as u32, &(parent as u32)).await
+        let caller = frame.caller();
+        let parent = if frame.pid().await? == pid {
+            frame.syscalls.getppid(&caller).await? as u32
+        } else {
+            if pid <= 0 {
+                return shim::fail(Errno::BADF);
+            }
+            let path = frame
+                .mem
+                .alloc_cstr(format!("/proc/{pid}/stat").as_bytes())?;
+            let buffer = frame.mem.alloc_zeroed(4096)?;
+            let fd = match frame
+                .syscalls
+                .openat(
+                    &caller,
+                    Fd(AtFd::AT_FDCWD.0),
+                    path,
+                    OpenFlags(OpenFlags::O_RDONLY.0 | OpenFlags::O_CLOEXEC.0),
+                    0,
+                )
+                .await
+            {
+                Ok(fd) => fd,
+                Err(SysErr::Errno(LinuxErrno::ENOENT | LinuxErrno::ESRCH)) => {
+                    return shim::fail(Errno::BADF);
+                }
+                Err(err) => return Err(err.into()),
+            };
+            let read = frame.syscalls.read(&caller, fd, buffer).await;
+            // Even an interrupted read must release the descriptor before the shim returns.
+            let closed = frame.syscalls.close(&caller, fd).await;
+            let count = read?;
+            closed?;
+            stat_parent(&frame.mem.take_bytes(buffer, count as usize)).ok_or(LinuxErrno::EIO)?
+        };
+        frame.write(out as u32, &parent).await
     })
     .await
 }
@@ -1047,6 +1086,16 @@ pub(crate) async fn proc_parent<S: Syscalls + Control + 'static>(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn parent_from_proc_stat() {
+        assert_eq!(stat_parent(b"42 (child) S 7 42 42 0\n"), Some(7));
+        assert_eq!(stat_parent(b"42 (a )\n (b) S 7 42 42 0\n"), Some(7));
+        assert_eq!(stat_parent(b"1 (init) S 0 1 1 0\n"), Some(0));
+        assert_eq!(stat_parent(b"42 (child) S\n"), None);
+        assert_eq!(stat_parent(b"42 (child) S -1\n"), None);
+        assert_eq!(stat_parent(b"42 (child) S 4294967296\n"), None);
+    }
 
     fn strings(items: &[&str]) -> Vec<Vec<u8>> {
         items.iter().map(|s| s.as_bytes().to_vec()).collect()
