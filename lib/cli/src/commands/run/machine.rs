@@ -493,18 +493,26 @@ mod loader_tests {
 /// Keep version recognition in the existing WASI detector: unrelated import modules do
 /// not count, and multiple functions from one version still name only one version.
 fn validate_wasi_versions(module: &Module, deny_multiple: bool) -> Result<(), Error> {
-    if deny_multiple
-        && let Some(versions) = wasmer_wasix::get_wasi_versions(module, false)
-        && versions.len() >= 2
-    {
-        let names = versions
-            .iter()
-            .map(|version| format!("`{}`", version.get_namespace_str()))
-            .collect::<Vec<_>>()
-            .join(", ");
-        bail!(
-            "Found more than 1 WASI version in this module ({names}) and `--deny-multiple-wasi-versions` is enabled."
-        );
+    if deny_multiple && let Some(mut versions) = wasmer_wasix::get_wasi_versions(module, false) {
+        // The legacy detector also labels the HTTP extension Wasix64v1. Only an actual
+        // wasix_64v1 function namespace constitutes that WASI version for this option.
+        if !module
+            .imports()
+            .functions()
+            .any(|import| import.module() == "wasix_64v1")
+        {
+            versions.remove(&wasmer_wasix::WasiVersion::Wasix64v1);
+        }
+        if versions.len() >= 2 {
+            let names = versions
+                .iter()
+                .map(|version| format!("`{}`", version.get_namespace_str()))
+                .collect::<Vec<_>>()
+                .join(", ");
+            bail!(
+                "Found more than 1 WASI version in this module ({names}) and `--deny-multiple-wasi-versions` is enabled."
+            );
+        }
     }
     Ok(())
 }

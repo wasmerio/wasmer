@@ -905,6 +905,37 @@ fn run_deny_multiple_wasi_versions_counts_versions_not_imports() {
 }
 
 #[test]
+fn run_deny_multiple_wasi_versions_does_not_count_http_extension() {
+    let files = TempDir::new().unwrap();
+    let module = files.path().join("http.wasm");
+    std::fs::write(
+        &module,
+        wat::parse_str(
+            r#"(module
+              (import "wasix_http_client_v1" "client::new" (func $new (param i32)))
+              (import "wasi_snapshot_preview1" "proc_exit" (func $exit (param i32)))
+              (memory (export "memory") 1)
+              (func (export "canonical_abi_realloc") (param i32 i32 i32 i32)
+                (result i32) i32.const 1024)
+              (func (export "_start")
+                (call $new (i32.const 0))
+                (call $exit (i32.load8_u (i32.const 0)))))"#,
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    for flags in [vec![], vec!["--deny-multiple-wasi-versions"]] {
+        wasmer_command()
+            .arg("run")
+            .arg(&module)
+            .arg("--http-client")
+            .args(flags)
+            .assert()
+            .success();
+    }
+}
+
+#[test]
 fn run_deny_multiple_wasi_versions_checks_package_entry() {
     let package = wasixv2_commands_package(None);
     std::fs::write(package.path().join("echo.wasm"), mixed_wasi_module()).unwrap();
