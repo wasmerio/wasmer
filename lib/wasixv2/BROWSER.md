@@ -547,3 +547,18 @@ Evidence is retained under `~/wasixv2-orch/logs/b18-shutdown`:
 `final-background-{chromium,firefox}/results.json`, the failing baseline timer
 and no-Rust controls, rejected-probe reports, and `STATE.md`. Chromium disposal
 failures remain visible and are never converted into expected successes.
+
+## Bootstrap terminal cleanup (2026-11-01)
+
+The bootstrap owner now terminates its coordinator handle and clears message/error
+handlers before delivering `fatal` or `stopped`, including uncaught post-ready
+worker errors and message decoding failures. Cleanup remains complete if the
+consumer callback throws; queued terminal events cannot notify consumers twice.
+A stop before readiness rejects bootstrap immediately. Admission continuations
+also recheck the discarded-heap state before importing an envelope.
+
+These focused owner/protocol fixes do **not** close R2: Chromium's nested-worker
+reclamation after normal shutdown or timer-worker death still requires the
+existing real-runtime zero-worker acceptance. Worker creation/topology, Rust/TLS
+retirement and the no-JSPI path retain their existing contracts. Snapshot/restore
+is excluded from the delivery parity gates.
