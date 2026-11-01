@@ -3,7 +3,7 @@
 #![cfg(all(target_arch = "wasm32", feature = "js"))]
 
 use wasm_bindgen_test::{wasm_bindgen_test, wasm_bindgen_test_configure};
-use wasmer::{Function, Imports, Instance, Module, Store, Type, Value};
+use wasmer::{Imports, Instance, Module, Store, Type, Value};
 
 wasm_bindgen_test_configure!(run_in_browser);
 
@@ -35,7 +35,18 @@ fn unchecked_lookup_does_not_poison_an_unknown_function_signature() {
     ));
     assert!(table.get_typed_function(&mut store, 0).is_none());
 
-    let known = Function::new_typed(&mut store, |_: i64| -> i32 { 9 });
+    let typed_module = Module::new(
+        &store,
+        wat::parse_str("(module (func (export \"known\") (param i64) (result i32) i32.const 9))")
+            .unwrap(),
+    )
+    .unwrap();
+    let typed_instance = Instance::new(&mut store, &typed_module, &Imports::new()).unwrap();
+    let known = typed_instance
+        .exports
+        .get_function("known")
+        .unwrap()
+        .clone();
     table
         .set(&mut store, 0, Value::FuncRef(Some(known)))
         .unwrap();
