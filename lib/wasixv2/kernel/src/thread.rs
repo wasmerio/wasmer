@@ -28,10 +28,27 @@ pub(crate) struct Completion {
     waiters: WaitQueue,
 }
 
+struct CapturedCompletion {
+    provider: std::sync::Weak<crate::TaskTable>,
+    completion: Arc<Completion>,
+}
+
 impl Completion {
     fn finish(&self) {
         self.done.store(true, Ordering::Release);
         self.waiters.wake(PollMask::empty());
+    }
+
+    pub(crate) async fn wait(
+        &self,
+        interrupt: &dyn wasixv2_wait::Interrupt,
+    ) -> Result<(), Interrupted> {
+        wait_event(
+            &self.waiters,
+            || self.done.load(Ordering::Acquire).then_some(()),
+            interrupt,
+        )
+        .await
     }
 }
 
@@ -196,31 +213,52 @@ const THREAD_OPTIONAL: CloneFlags = CloneFlags(
 );
 
 impl Kernel {
-    pub(crate) async fn join_thread(&self, caller: &Caller<'_>, tid: i32) -> SysResult<()> {
+    pub(crate) fn capture_join(
+        &self,
+        task: TaskId,
+        tid: i32,
+    ) -> Result<Option<wasixv2_syscalls::ThreadCompletion>, Errno> {
         let completion = {
             let state = self.state.read_or_recover();
-            let Some(me) = state.tasks.get(&caller.task()) else {
-                return Err(Errno::ESRCH.into());
+            let Some(me) = state.tasks.get(&task) else {
+                return Err(Errno::ESRCH);
             };
             let Some(id) = me.process.pid_ns.find(tid) else {
-                return Ok(());
+                return Ok(None);
             };
             let Some(other) = state.tasks.get(&TaskId(id)) else {
-                return Ok(());
+                return Ok(None);
             };
             if !Arc::ptr_eq(&me.process, &other.process) {
-                return Ok(());
+                return Ok(None);
             }
             other.completion.clone()
         };
+        Ok(Some(wasixv2_syscalls::ThreadCompletion::new(
+            CapturedCompletion {
+                provider: Arc::downgrade(&self.state),
+                completion,
+            },
+        )))
+    }
+
+    pub(crate) async fn wait_join(
+        &self,
+        caller: &Caller<'_>,
+        handle: &wasixv2_syscalls::ThreadCompletion,
+    ) -> SysResult<()> {
+        let captured = handle
+            .downcast_ref::<CapturedCompletion>()
+            .filter(|captured| {
+                std::sync::Weak::ptr_eq(&captured.provider, &Arc::downgrade(&self.state))
+            })
+            .ok_or(Errno::EINVAL)?;
         let interrupt = self.interrupt(caller);
-        wait_event(
-            &completion.waiters,
-            || completion.done.load(Ordering::Acquire).then_some(()),
-            &*interrupt,
-        )
-        .await
-        .map_err(|Interrupted| Errno::EINTR.into())
+        captured
+            .completion
+            .wait(&*interrupt)
+            .await
+            .map_err(|Interrupted| wasixv2_syscalls::SysErr::RestartNoHand)
     }
 
     /// `copy_process` for a thread: validates `flags`, creates the task in the caller's thread

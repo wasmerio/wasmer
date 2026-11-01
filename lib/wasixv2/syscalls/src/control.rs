@@ -176,6 +176,21 @@ impl SignalFrame {
 #[derive(Debug, Default)]
 pub struct WorkFlag(AtomicBool);
 
+/// An exact provider-owned task completion. Retains only completion state and weak provider
+/// identity, never the task, its execution resources or a numeric pid lookup.
+#[derive(Clone)]
+pub struct ThreadCompletion(Arc<dyn std::any::Any + Send + Sync>);
+
+impl ThreadCompletion {
+    pub fn new<T: std::any::Any + Send + Sync>(completion: T) -> Self {
+        Self(Arc::new(completion))
+    }
+
+    pub fn downcast_ref<T: std::any::Any>(&self) -> Option<&T> {
+        self.0.downcast_ref()
+    }
+}
+
 impl WorkFlag {
     /// A flag that is always set, for implementations that do not track work per task.
     pub fn always() -> Self {
@@ -259,15 +274,25 @@ pub trait Control:
         Box::pin(async {})
     }
 
-    /// Waits for the captured thread of the caller's process to finish execution. An unknown
-    /// or already released tid succeeds. This neither reaps a child nor retains its resources.
-    /// The default is unsupported; wrappers must forward it with the other control methods.
-    fn thread_join<'a>(
+    /// Captures a same-process tid in the task's pid namespace. Unknown/already released is
+    /// None. Imports retain this answer, including None, across syscall restarts.
+    fn capture_thread_completion(
+        &self,
+        task: TaskId,
+        tid: i32,
+    ) -> Result<Option<ThreadCompletion>, Errno> {
+        let _ = (task, tid);
+        Err(Errno::ENOSYS)
+    }
+
+    /// Waits for the exact captured execution completion without reaping. Internal work may
+    /// interrupt the wait with a restart marker; the caller must retain the same handle.
+    fn wait_thread_completion<'a>(
         &'a self,
         caller: &'a Caller<'_>,
-        tid: i32,
+        completion: &'a ThreadCompletion,
     ) -> LocalFuture<'a, SysResult<()>> {
-        let _ = (caller, tid);
+        let _ = (caller, completion);
         Box::pin(async { Err(Errno::ENOSYS.into()) })
     }
 

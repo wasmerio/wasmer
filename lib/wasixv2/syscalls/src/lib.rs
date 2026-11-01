@@ -34,8 +34,8 @@ mod result;
 pub use caller::{AsTask, Caller, TaskId, as_task, current_task};
 pub use control::{
     AtomicWait, AtomicWord, BINPRM_BUF_SIZE, Binfmt, Control, ExitMm, GroupStop, GuestAction,
-    Image, ImageId, PidView, Resume, SharedMapping, SharedMappings, SignalFrame, VforkParent,
-    VforkWait, WorkFlag,
+    Image, ImageId, PidView, Resume, SharedMapping, SharedMappings, SignalFrame, ThreadCompletion,
+    VforkParent, VforkWait, WorkFlag,
 };
 pub use cputime::{CpuAccount, CpuBase, CpuTime, CpuTimes, Expiry, GroupCpu};
 pub use future::MaybeFuture;
