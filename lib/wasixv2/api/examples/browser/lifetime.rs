@@ -5,6 +5,7 @@ use std::{
         Arc,
         atomic::{AtomicBool, AtomicUsize, Ordering},
     },
+    task::{Context, Poll, Wake, Waker},
     time::Duration,
 };
 use wasixv2::{Engine, Net, NetConfig, ProcessConfig, Stdio, browser};
@@ -13,6 +14,104 @@ use wasm_bindgen::prelude::*;
 
 fn error(e: impl std::fmt::Display) -> JsValue {
     JsValue::from_str(&e.to_string())
+}
+
+/// The primary Promise retains its callbacks and exact provider operation even
+/// when a JsFuture waiter or the detached callback Promise is dropped.
+#[wasm_bindgen]
+pub fn jspi_driver_smoke() -> js_sys::Promise {
+    use wasixv2_host::browser::future_to_promise;
+    use wasm_bindgen::JsCast;
+    let done = Arc::new(AtomicBool::new(false));
+    let completed = done.clone();
+    let observed = done.clone();
+    let primary = future_to_promise(async move {
+        let executor = BrowserExecutor::with_jspi(1, 1).map_err(error)?;
+        let host = Arc::new(BrowserHost::new(executor.clone()).map_err(error)?);
+        let ready = Arc::new(AtomicBool::new(false));
+        let operation_ready = ready.clone();
+        let wake = Arc::new(std::sync::Mutex::new(None::<Waker>));
+        let operation_wake = wake.clone();
+        let drops = Arc::new(AtomicUsize::new(0));
+        let operation_drops = drops.clone();
+        let starts = Arc::new(AtomicUsize::new(0));
+        let operation_starts = starts.clone();
+        struct Dropped(Arc<AtomicUsize>);
+        impl Drop for Dropped {
+            fn drop(&mut self) {
+                self.0.fetch_add(1, Ordering::Relaxed);
+            }
+        }
+        let callback = future_to_promise(async move {
+            let _dropped = Dropped(operation_drops);
+            operation_starts.fetch_add(1, Ordering::Relaxed);
+            std::future::poll_fn(|cx| {
+                *operation_wake.lock().unwrap() = Some(cx.waker().clone());
+                if operation_ready.load(Ordering::Acquire) {
+                    Poll::Ready(())
+                } else {
+                    Poll::Pending
+                }
+            })
+            .await;
+            Ok(JsValue::UNDEFINED)
+        });
+        host.sleep(Duration::from_millis(5)).await;
+        struct WakeProbe;
+        impl Wake for WakeProbe {
+            fn wake(self: Arc<Self>) {}
+        }
+        let probe = Arc::new(WakeProbe);
+        let weak = Arc::downgrade(&probe);
+        let waker = Waker::from(probe);
+        let mut canceled = Box::pin(wasm_bindgen_futures::JsFuture::from(callback.clone()));
+        assert!(
+            canceled
+                .as_mut()
+                .poll(&mut Context::from_waker(&waker))
+                .is_pending()
+        );
+        drop(canceled);
+        drop(waker);
+        assert_eq!(starts.load(Ordering::Relaxed), 1);
+        assert_eq!(
+            drops.load(Ordering::Relaxed),
+            0,
+            "dropping a Promise waiter canceled its provider"
+        );
+        ready.store(true, Ordering::Release);
+        wake.lock().unwrap().take().unwrap().wake();
+        wasm_bindgen_futures::JsFuture::from(callback).await?;
+        assert_eq!(drops.load(Ordering::Relaxed), 1);
+        assert!(
+            weak.upgrade().is_none(),
+            "settled callback retained the canceled waiter's waker"
+        );
+        let callback_host = host.clone();
+        let detached = future_to_promise(async move {
+            callback_host.sleep(Duration::from_millis(5)).await;
+            completed.store(true, Ordering::Release);
+            Ok(JsValue::UNDEFINED)
+        });
+        drop(detached);
+        // The root body completes before the detached Promise's first poll.
+        assert!(!observed.load(Ordering::Acquire));
+        executor.close();
+        Ok(JsValue::from_str(
+            r#"{"registeredBeforePoll":true,"callbackDrained":true,"callbackWakerReleased":true,"providerDroppedOnce":true}"#,
+        ))
+    });
+    let checked = Closure::once_into_js(move |result: JsValue| {
+        assert!(
+            done.load(Ordering::Acquire),
+            "primary Promise settled before callback cleanup"
+        );
+        result
+    });
+    let then = js_sys::Reflect::get(&primary, &JsValue::from_str("then"))
+        .unwrap()
+        .unchecked_into::<js_sys::Function>();
+    then.call1(&primary, &checked).unwrap().unchecked_into()
 }
 
 /// Measure host scheduling without weakening hrtimer_nanosleep's no-early rule

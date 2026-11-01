@@ -387,6 +387,8 @@ pub enum VforkResume {
 pub struct Abis<S> {
     abis: Vec<Arc<dyn Abi<S>>>,
     loader: Arc<dyn Loader>,
+    #[cfg(feature = "js")]
+    js_async_mode: wasmer::js::AsyncMode,
 }
 
 impl<S> Abis<S>
@@ -398,6 +400,8 @@ where
         Self {
             abis: Vec::new(),
             loader: Arc::new(crate::Compile),
+            #[cfg(feature = "js")]
+            js_async_mode: wasmer::js::AsyncMode::Blocking,
         }
     }
 
@@ -410,6 +414,32 @@ where
 
     pub fn push(&mut self, abi: Arc<dyn Abi<S>>) {
         self.abis.push(abi);
+    }
+
+    /// Selects the JavaScript task profile for every initial, thread, fork and
+    /// exec Store. The embedder must select the matching worker driver.
+    #[cfg(feature = "js")]
+    pub fn set_js_async_mode(&mut self, mode: wasmer::js::AsyncMode) {
+        self.js_async_mode = mode;
+    }
+
+    #[cfg(feature = "js")]
+    pub fn js_async_mode(&self) -> wasmer::js::AsyncMode {
+        self.js_async_mode
+    }
+
+    pub(crate) fn configure_store(&self, store: &mut Store) -> Result<(), ExecError> {
+        #[cfg(feature = "js")]
+        if store.is_js() {
+            wasmer::js::set_async_mode(store, self.js_async_mode).map_err(ExecError::StoreMode)?;
+            if self.js_async_mode == wasmer::js::AsyncMode::Jspi {
+                wasmer::js::set_jspi_executor(store, crate::jspi_import)
+                    .map_err(ExecError::StoreMode)?;
+            }
+        }
+        #[cfg(not(feature = "js"))]
+        let _ = store;
+        Ok(())
     }
 
     /// Makes `loader` compile the images `execve` loads.

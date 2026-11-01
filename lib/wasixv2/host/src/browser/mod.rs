@@ -38,6 +38,7 @@ struct Pool {
 pub struct BrowserExecutor {
     pool: Arc<Pool>,
     service: bool,
+    jspi: bool,
 }
 
 impl BrowserExecutor {
@@ -52,7 +53,35 @@ impl BrowserExecutor {
                 closed: AtomicBool::new(false),
             }),
             service: false,
+            jspi: false,
         })
+    }
+
+    /// Opt into JSPI task execution. Every task worker probes support before
+    /// accepting an admission; reserved service workers keep the blocking driver.
+    pub fn with_jspi(task_limit: usize, service_limit: usize) -> io::Result<Self> {
+        #[cfg(target_arch = "wasm32")]
+        {
+            let mut executor = Self::new(task_limit, service_limit)?;
+            if !jspi_supported() {
+                return Err(io::Error::new(
+                    io::ErrorKind::Unsupported,
+                    "WebAssembly JSPI is unavailable",
+                ));
+            }
+            executor.jspi = true;
+            Ok(executor)
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let _ = (task_limit, service_limit);
+            Err(io::ErrorKind::Unsupported.into())
+        }
+    }
+
+    /// Whether this task executor requires JSPI Stores and the asynchronous driver.
+    pub fn uses_jspi(&self) -> bool {
+        self.jspi
     }
 
     /// Reserved driver capacity. A kernel Host must expose this executor while exec uses
@@ -62,6 +91,7 @@ impl BrowserExecutor {
         Self {
             pool: self.pool.clone(),
             service: true,
+            jspi: false,
         }
     }
 
@@ -86,7 +116,7 @@ impl BrowserExecutor {
             let envelope = OBJECT_HOOKS
                 .with_borrow(|hooks| (hooks.prepare)())
                 .map_err(js_error)?;
-            prepare_worker(ticket.id, self.service, envelope).map_err(js_error)?;
+            prepare_worker(ticket.id, self.service, self.jspi, envelope).map_err(js_error)?;
             ticket.accept();
             // A successful post is the ownership handoff. Before that, Ticket drops
             // the unclaimed closure exactly once on any bootstrap/import/clone error.
@@ -196,13 +226,22 @@ extern "C" {
     #[wasm_bindgen(catch, js_name = ensureWorker)]
     fn ensure_worker() -> Result<(), JsValue>;
     #[wasm_bindgen(catch, js_name = prepareWorker)]
-    fn prepare_worker(id: u32, service: bool, envelope: JsValue) -> Result<(), JsValue>;
+    fn prepare_worker(id: u32, service: bool, jspi: bool, envelope: JsValue)
+    -> Result<(), JsValue>;
+    #[wasm_bindgen(js_name = jspiSupported)]
+    fn jspi_supported() -> bool;
     #[wasm_bindgen(catch, js_name = commitWorker)]
     fn commit_worker(id: u32) -> Result<(), JsValue>;
     #[wasm_bindgen(js_name = waitWord)]
     fn js_wait_word(memory: JsValue, address: usize, observed: i32);
     #[wasm_bindgen(js_name = notifyWord)]
-    fn js_notify_word(memory: JsValue, address: usize);
+    fn js_notify_word(memory: JsValue, address: usize, asynchronous: bool);
+    #[wasm_bindgen(catch, js_name = waitWordAsync)]
+    fn js_wait_word_async(address: usize, observed: i32) -> Result<JsValue, JsValue>;
+    #[wasm_bindgen(js_name = cancelWordWait)]
+    fn js_cancel_word_wait(ticket: f64);
+    #[wasm_bindgen(js_name = drivePromise)]
+    fn js_drive_promise(poll: JsValue) -> js_sys::Promise;
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -216,8 +255,12 @@ fn wait_word(word: &std::sync::atomic::AtomicI32, observed: i32) {
 }
 
 #[cfg(target_arch = "wasm32")]
-fn notify_word(word: &std::sync::atomic::AtomicI32) {
-    js_notify_word(wasm_bindgen::memory(), word as *const _ as usize);
+fn notify_word(word: &std::sync::atomic::AtomicI32, asynchronous: bool) {
+    js_notify_word(
+        wasm_bindgen::memory(),
+        word as *const _ as usize,
+        asynchronous,
+    );
 }
 
 /// Trusted coordinator entry: import engine objects before acknowledging bootstrap.
@@ -239,6 +282,34 @@ pub fn browser_run(id: u32) -> Result<(), JsValue> {
     drop(lease);
     browser_collect();
     Ok(())
+}
+
+/// Optional JSPI entry. The admission and worker-local roots remain owned until
+/// the guest, every import driver and all admitted local cleanup have settled.
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub fn browser_run_jspi(id: u32) -> Result<js_sys::Promise, JsValue> {
+    let (start, lease) = ADMISSIONS
+        .claim(id)
+        .map_err(|error| JsValue::from_str(&error.to_string()))?;
+    let driven = scheduler::run_async(async move { start().await });
+    Ok(scheduler::promise(async move {
+        driven.await;
+        drop(lease);
+        browser_collect();
+        Ok(JsValue::UNDEFINED)
+    }))
+}
+
+/// Retain and drive an owned root or host callback on its current worker. Dropping
+/// the returned Promise or a JsFuture waiter does not cancel the owned invocation.
+/// Guest cancellation uses the existing Run/task lifecycle and drains before settlement.
+#[cfg(target_arch = "wasm32")]
+pub fn future_to_promise(
+    future: impl std::future::Future<Output = Result<JsValue, JsValue>> + 'static,
+) -> js_sys::Promise {
+    // Register the scope before the Promise's first microtask.
+    scheduler::promise(scheduler::run_async(future))
 }
 
 /// Release expired worker-local engine roots after a direct root entry returns.

@@ -65,6 +65,8 @@ use crate::asyncify::Access;
 
 #[derive(Debug, thiserror::Error)]
 pub enum ExecError {
+    #[error("cannot configure the execution Store: {0}")]
+    StoreMode(wasmer::RuntimeError),
     #[error("instantiation failed: {0}")]
     Instantiate(Box<wasmer::InstantiationError>),
     #[error("missing export: {0}")]
@@ -701,6 +703,7 @@ async fn instantiate<S>(
 where
     S: Syscalls + Control + Send + Sync + 'static,
 {
+    abis.configure_store(&mut store)?;
     let abi = abis.require(module)?;
     abi.attach_cleanup(&cleanup);
     let mut admission = syscalls
@@ -1035,6 +1038,13 @@ where
     );
     atomics::define(&mut imports, store, env);
     imports
+}
+
+#[cfg(feature = "js")]
+fn jspi_import(future: wasmer::js::JspiFuture) -> js_sys::Promise {
+    // Register while the guest callback is active, before its first microtask.
+    // Only the resulting owner-local Promise may use a JS-bound waker.
+    wasixv2_host::browser::future_to_promise(future)
 }
 
 /// Creates the memory `module` imports, if any, with the limits and sharing its import declares,

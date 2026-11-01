@@ -238,6 +238,8 @@ pub struct MachineBuilder {
     max_guest_tasks: Option<usize>,
     /// The embedder's loader; the ABIs' own default otherwise.
     loader: Option<Arc<dyn Loader>>,
+    #[cfg(feature = "js")]
+    js_async_mode: wasmer::js::AsyncMode,
     #[cfg(feature = "wasix1")]
     http_provider: Option<Arc<dyn wasix1_http::HttpProvider>>,
     #[cfg(feature = "wasix1")]
@@ -278,6 +280,8 @@ impl MachineBuilder {
             init: true,
             max_guest_tasks: None,
             loader: None,
+            #[cfg(feature = "js")]
+            js_async_mode: wasmer::js::AsyncMode::Blocking,
             #[cfg(feature = "wasix1")]
             http_provider: None,
             #[cfg(feature = "wasix1")]
@@ -410,6 +414,8 @@ impl MachineBuilder {
             init,
             max_guest_tasks,
             loader,
+            #[cfg(feature = "js")]
+            js_async_mode,
             #[cfg(feature = "wasix1")]
             http_provider,
             #[cfg(feature = "wasix1")]
@@ -444,6 +450,8 @@ impl MachineBuilder {
         };
         let abis = Arc::new(abis(
             loader,
+            #[cfg(feature = "js")]
+            js_async_mode,
             #[cfg(feature = "wasix1")]
             &wasix1,
         ));
@@ -1167,9 +1175,12 @@ struct Wasix1Commands {
 /// `loader`, or [`Compile`].
 fn abis(
     loader: Option<Arc<dyn Loader>>,
+    #[cfg(feature = "js")] js_async_mode: wasmer::js::AsyncMode,
     #[cfg(feature = "wasix1")] wasix1: &Wasix1Commands,
 ) -> Abis<Stack> {
     let mut abis = Abis::new();
+    #[cfg(feature = "js")]
+    abis.set_js_async_mode(js_async_mode);
     if let Some(loader) = &loader {
         abis.set_loader(loader.clone());
     }

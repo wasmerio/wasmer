@@ -114,6 +114,24 @@ foreign wasm-bindgen future queue. Local detached tasks are bounded at 1024;
 `Parker::{sequence,park,notify}` exposes the primitive separately. Snapshot the
 sequence **before** polling/registering and use that snapshot to park after Pending.
 
+The optional `BrowserExecutor::with_jspi` task view uses an owner-local Promise driver and a
+Promise-awaiting worker entry. Its `.services()` view remains blocking. Register
+the root driver before entering JSPI; each async host import also needs the
+Store's JSPI executor to poll its provider with a shared Parker waker. The
+facade configures that executor before imports. Synchronous root exports return
+`browser::future_to_promise(owned_future)`; the returned Promise retains the
+primary driver even when consumers drop a waiter. Its one-shot poll callbacks
+use existing word routing without waitAsync, helper workers or a polling timer.
+Direct wasm-bindgen task wakers
+must never be handed to providers that can wake on another worker.
+
+The coordinator registers exact `(worker, ticket, word, observed sequence)`
+waits, rechecks the sequence after registration and routes changed predicates to
+owner-local resolvers. Cancellation removes only that ticket; stale deliveries
+are ignored. Root completion drains all synchronously registered import drivers
+and local tasks before releasing the worker. Normal retirement refuses live
+waits, while infrastructure failure discards every registration with the heap.
+
 Promises, fetch, module instantiation and JS timers must finish before dispatch or
 run on independent I/O resources. A blocking service ThreadStart is not a JS event
 loop: do not await WebHost's setTimeout future there. B4 supplies the timer driver below; B5/B6/B10 supply the remaining I/O resources.
