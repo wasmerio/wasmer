@@ -73,6 +73,8 @@ fn main_image(body: &str, mark: &str, needed: &[&str]) -> Vec<u8> {
       (import "wasix_32v1" "dlopen" (func $open (param i32 i32 i32 i32 i32 i32 i32 i32) (result i32)))
       (import "wasix_32v1" "dlsym" (func $sym (param i32 i32 i32 i32 i32 i32) (result i32)))
       (import "wasix_32v1" "dl_invalid_handle" (func $valid (param i32) (result i32)))
+      (import "wasix_32v1" "call_dynamic" (func $invoke (param i32 i32 i32 i32 i32 i32) (result i32)))
+      (import "wasix_32v1" "reflect_signature" (func $reflect (param i32 i32 i32 i32 i32 i32) (result i32)))
       (import "wasi_snapshot_preview1" "fd_write" (func $write (param i32 i32 i32 i32) (result i32)))
       (import "wasix_32v1" "proc_exit2" (func $exit (param i32)))
       (import "wasix_32v1" "thread_spawn_v2" (func $spawn (param i32 i32) (result i32)))
@@ -148,6 +150,24 @@ fn run(name: &str, main: &[u8], images: &[(&str, Vec<u8>)]) -> i32 {
 }
 
 #[test]
+fn an_http_only_pic_main_uses_the_existing_v1_preparation_path() {
+    let image = pic(
+        r#"(module
+      (import "env" "memory" (memory 1 65536 shared))
+      (import "env" "__indirect_function_table" (table 3 funcref))
+      (import "env" "__stack_pointer" (global (mut i32)))
+      (import "env" "__memory_base" (global i32))
+      (import "env" "__table_base" (global i32))
+      (import "wasix_http_client_v1" "client::new" (func (param i32)))
+      (export "memory" (memory 0))
+      (func (export "canonical_abi_realloc") (param i32 i32 i32 i32) (result i32) i32.const 0)
+      (func (export "_start")))"#,
+        &[],
+    );
+    assert_eq!(run("http-only", &image, &[]), 0);
+}
+
+#[test]
 fn old_handles_flags_scopes_and_error_buffers_survive_unchanged_imports() {
     let main = main_image(
         r#"
@@ -177,6 +197,27 @@ fn old_handles_flags_scopes_and_error_buffers_survive_unchanged_imports() {
         &[],
     );
     assert_eq!(run("imports", &main, &[("side.so", side(1, &[]))]), 0);
+}
+
+#[test]
+fn dynamic_function_capabilities_use_the_composed_instances_actual_table() {
+    let main = main_image(
+        r#"
+      (local.set $handle (call $load (i32.const 0)))
+      (call $check (call $invoke (call $lookup (local.get $handle) (i32.const 28) (i32.const 5))
+        (i32.const -1) (i32.const 0) (call $at (i32.const 224)) (i32.const 4) (i32.const 1)) (i32.const 0) (i32.const 1))
+      (call $check (i32.load (call $at (i32.const 224))) (i32.const 42) (i32.const 2))
+      (i32.store8 (call $at (i32.const 232)) (i32.const 255))
+      (call $check (call $reflect (call $lookup (local.get $handle) (i32.const 28) (i32.const 5))
+        (i32.const -1) (i32.const 0) (call $at (i32.const 232)) (i32.const 1) (call $at (i32.const 240))) (i32.const 0) (i32.const 3))
+      (call $check (i32.load8_u (call $at (i32.const 232))) (i32.const 0) (i32.const 4))
+      (call $check (i32.load16_u (call $at (i32.const 242))) (i32.const 0) (i32.const 5))
+      (call $check (i32.load16_u (call $at (i32.const 244))) (i32.const 1) (i32.const 6))
+    "#,
+        "",
+        &[],
+    );
+    assert_eq!(run("function-caps", &main, &[("side.so", side(1, &[]))]), 0);
 }
 
 #[test]

@@ -1529,6 +1529,10 @@ async fn retire_local(
     .await;
 }
 impl<S: Syscalls + Control + Send + Sync + 'static> AbiInstance<S> for StoreImage<S> {
+    fn function_table(&self) -> Option<&Table> {
+        self.inner.function_table()
+    }
+
     fn retire<'a>(&'a self, entry: &'a Entry<'a, S>) -> LocalFuture<'a, Result<()>> {
         Box::pin(async move {
             self.retired.store(true, Ordering::Release);

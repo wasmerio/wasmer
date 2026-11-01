@@ -29,15 +29,15 @@ impl StartupPolicy {
         };
         let mut preloads = Vec::new();
         // musl ldso/dynlink.c:__dls3 trusts neither environment knob in secure mode.
-        if !startup.secure {
-            if let Some(preload) = value(b"LD_PRELOAD=").filter(|_| loader.preloads()) {
-                preloads.extend(
-                    preload
-                        .split(|b| b.is_ascii_whitespace() || *b == b':')
-                        .filter(|name| !name.is_empty())
-                        .map(<[u8]>::to_vec),
-                );
-            }
+        if !startup.secure
+            && let Some(preload) = value(b"LD_PRELOAD=").filter(|_| loader.preloads())
+        {
+            preloads.extend(
+                preload
+                    .split(|b| b.is_ascii_whitespace() || *b == b':')
+                    .filter(|name| !name.is_empty())
+                    .map(<[u8]>::to_vec),
+            );
         }
         let search = loader.startup_search(if startup.secure {
             None
@@ -389,18 +389,26 @@ async fn collect<S: wasixv2_syscalls::LoaderControl>(
         caller: &Caller<'_>,
         graph: &mut Graph,
         name: &[u8],
-        search: Option<&[u8]>,
         runtime: &[String],
         origin: &[u8],
-        loader: &dyn LoadPolicy,
+        policy: &StartupPolicy,
     ) -> Result<usize> {
-        if loader.reuse_by_name() {
-            if let Some(index) = graph.libraries.iter().position(|lib| lib.request == name) {
-                return Ok(index);
-            }
+        let loader = &*policy.loader;
+        if loader.reuse_by_name()
+            && let Some(index) = graph.libraries.iter().position(|lib| lib.request == name)
+        {
+            return Ok(index);
         }
-        let (image, path) =
-            load::read(syscalls, caller, name, search, runtime, origin, loader).await?;
+        let (image, path) = load::read(
+            syscalls,
+            caller,
+            name,
+            policy.search.as_deref(),
+            runtime,
+            origin,
+            loader,
+        )
+        .await?;
         if let Some(index) = graph
             .libraries
             .iter()
@@ -423,10 +431,9 @@ async fn collect<S: wasixv2_syscalls::LoaderControl>(
                 caller,
                 &mut graph,
                 name,
-                policy.search.as_deref(),
                 &[],
                 b"./main.wasm",
-                &*policy.loader,
+                policy,
             )
             .await?,
         );
@@ -449,10 +456,9 @@ async fn collect<S: wasixv2_syscalls::LoaderControl>(
                 caller,
                 &mut graph,
                 name.as_bytes(),
-                policy.search.as_deref(),
                 &runtime,
                 &origin,
-                &*policy.loader,
+                policy,
             )
             .await?;
             graph.libraries[index].dependencies.push(dependency);
