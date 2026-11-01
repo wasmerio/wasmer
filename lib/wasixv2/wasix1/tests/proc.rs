@@ -450,6 +450,11 @@ fn vfork_exit_and_join() {
         (if (i32.ne (i32.load (i32.const 108)) (i32.load (i32.const 96))) (then (call $exit (i32.const 4))))
         (call $exit (i32.const 5))
         ;; the parent again
+        ;; a child's parent remains visible while the child is a zombie
+        (if (call $proc_parent (i32.load (i32.const 100)) (i32.const 108))
+          (then (call $exit (i32.const 12))))
+        (if (i32.ne (i32.load (i32.const 108)) (i32.load (i32.const 96)))
+          (then (call $exit (i32.const 13))))
         (i32.store8 (i32.const 200) (i32.const 1))
         (i32.store (i32.const 204) (i32.load (i32.const 100)))
         (if (call $join (i32.const 200) (i32.const 0) (i32.const 220)) (then (call $exit (i32.const 6))))
@@ -459,8 +464,10 @@ fn vfork_exit_and_join() {
         (i32.store8 (i32.const 200) (i32.const 0))
         (if (i32.ne (call $join (i32.const 200) (i32.const 1) (i32.const 220)) (i32.const 12))
           (then (call $exit (i32.const 10))))
-        ;; another process's parent needs /proc
-        (if (i32.ne (call $proc_parent (i32.add (i32.load (i32.const 96)) (i32.const 1000)) (i32.const 108)) (i32.const 58))
+        ;; a reaped child and an unknown pid have no parent handle
+        (if (i32.ne (call $proc_parent (i32.load (i32.const 100)) (i32.const 108)) (i32.const 8))
+          (then (call $exit (i32.const 14))))
+        (if (i32.ne (call $proc_parent (i32.add (i32.load (i32.const 96)) (i32.const 1000)) (i32.const 108)) (i32.const 8))
           (then (call $exit (i32.const 11))))
         (call $exit (i32.const 0))))
     "#;
@@ -558,6 +565,175 @@ fn spawn() {
     // The first two children wrote to the inherited stdout, the third to the file.
     assert_eq!(stdout, b"childchild");
     assert_eq!(std::fs::read(programs.0.join("out.txt")).unwrap(), b"child");
+}
+
+/// The Rust-style legacy call has three independent pipes and drops every empty CR/LF
+/// argument. The child observes the requested cwd and inherited environment, echoes its
+/// stdin to stdout/stderr, then exits with 7.
+const LEGACY_CHILD: &str = r#"
+(module
+  (import "wasi_snapshot_preview1" "args_sizes_get" (func $argc (param i32 i32) (result i32)))
+  (import "wasi_snapshot_preview1" "args_get" (func $argv (param i32 i32) (result i32)))
+  (import "wasi_snapshot_preview1" "environ_sizes_get" (func $envc (param i32 i32) (result i32)))
+  (import "wasi_snapshot_preview1" "environ_get" (func $env (param i32 i32) (result i32)))
+  (import "wasix_32v1" "getcwd" (func $cwd (param i32 i32) (result i32)))
+  (import "wasi_snapshot_preview1" "fd_read" (func $read (param i32 i32 i32 i32) (result i32)))
+  (import "wasi_snapshot_preview1" "fd_write" (func $write (param i32 i32 i32 i32) (result i32)))
+  (import "wasi_snapshot_preview1" "proc_exit" (func $exit (param i32)))
+  (memory (export "memory") 1)
+  (data (i32.const 400) "\00\02\00\00\01\00\00\00")
+  (func (export "_start")
+    (if (call $argc (i32.const 0) (i32.const 4)) (then (call $exit (i32.const 20))))
+    (if (i32.ne (i32.load (i32.const 0)) (i32.const 3)) (then (call $exit (i32.const 21))))
+    (if (call $argv (i32.const 8) (i32.const 32)) (then (call $exit (i32.const 22))))
+    (if (i32.ne (i32.load (i32.load (i32.const 8))) (i32.const 0x30677261)) (then (call $exit (i32.const 23))))
+    (if (i32.ne (i32.load (i32.load (i32.const 12))) (i32.const 0x31677261)) (then (call $exit (i32.const 24))))
+    (if (i32.ne (i32.load (i32.load (i32.const 16))) (i32.const 0x32677261)) (then (call $exit (i32.const 25))))
+    (if (call $envc (i32.const 0) (i32.const 4)) (then (call $exit (i32.const 26))))
+    (if (i32.ne (i32.load (i32.const 0)) (i32.const 1)) (then (call $exit (i32.const 27))))
+    (if (call $env (i32.const 8) (i32.const 32)) (then (call $exit (i32.const 28))))
+    (if (i32.ne (i32.load8_u (i32.add (i32.load (i32.const 8)) (i32.const 9))) (i32.const 104)) (then (call $exit (i32.const 29))))
+    (i32.store (i32.const 0) (i32.const 32))
+    (if (call $cwd (i32.const 32) (i32.const 0)) (then (call $exit (i32.const 30))))
+    (if (i32.ne (i32.load (i32.const 0)) (i32.const 5)) (then (call $exit (i32.const 31))))
+    (if (i32.ne (i32.load (i32.const 32)) (i32.const 0x6f72702f)) (then (call $exit (i32.const 32))))
+    (if (call $read (i32.const 0) (i32.const 400) (i32.const 1) (i32.const 408)) (then (call $exit (i32.const 33))))
+    (if (i32.ne (i32.load (i32.const 408)) (i32.const 1)) (then (call $exit (i32.const 34))))
+    (if (call $write (i32.const 1) (i32.const 400) (i32.const 1) (i32.const 408)) (then (call $exit (i32.const 35))))
+    (if (call $write (i32.const 2) (i32.const 400) (i32.const 1) (i32.const 408)) (then (call $exit (i32.const 36))))
+    (call $exit (i32.const 7))))
+"#;
+
+const LEGACY_SPAWN: &str = r#"
+(module
+  (import "wasix_32v1" "proc_spawn" (func $spawn
+    (param i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32) (result i32)))
+  (import "wasix_32v1" "proc_join" (func $join (param i32 i32 i32) (result i32)))
+  (import "wasi_snapshot_preview1" "fd_read" (func $read (param i32 i32 i32 i32) (result i32)))
+  (import "wasi_snapshot_preview1" "fd_write" (func $write (param i32 i32 i32 i32) (result i32)))
+  (import "wasi_snapshot_preview1" "fd_close" (func $close (param i32) (result i32)))
+  (import "wasi_snapshot_preview1" "proc_exit" (func $exit (param i32)))
+  (memory (export "memory") 1)
+  (data (i32.const 1000) "child.wasm")
+  (data (i32.const 1032) "\r\narg0\n\narg1\rarg2\r\n")
+  (data (i32.const 1088) "/prog")
+  (data (i32.const 400) "\00\02\00\00\01\00\00\00")
+  (data (i32.const 512) "x")
+  (func $check_pipe (param $at i32)
+    (if (i32.ne (i32.load8_u (local.get $at)) (i32.const 1)) (then (call $exit (i32.const 10))))
+    (if (i32.lt_u (i32.load offset=4 (local.get $at)) (i32.const 3)) (then (call $exit (i32.const 11)))))
+  (func (export "_start")
+    ;; CLOSE_STDIO
+    (if (call $spawn (i32.const 1000) (i32.const 10) (i32.const 0)
+                    (i32.const 1032) (i32.const 19) (i32.const 0) (i32.const 0)
+                    (i32.const 0) (i32.const 0) (i32.const 0)
+                    (i32.const 1088) (i32.const 5) (i32.const 100))
+      (then (call $exit (i32.const 1))))
+    (if (i32.eqz (i32.load (i32.const 100))) (then (call $exit (i32.const 2))))
+    (call $check_pipe (i32.const 104))
+    (call $check_pipe (i32.const 112))
+    (call $check_pipe (i32.const 120))
+    (if (call $write (i32.load (i32.const 108)) (i32.const 400) (i32.const 1) (i32.const 408)) (then (call $exit (i32.const 3))))
+    (drop (call $close (i32.load (i32.const 108))))
+    (if (call $read (i32.load (i32.const 116)) (i32.const 400) (i32.const 1) (i32.const 408)) (then (call $exit (i32.const 4))))
+    (if (i32.ne (i32.load (i32.const 408)) (i32.const 1)) (then (call $exit (i32.const 5))))
+    (if (i32.ne (i32.load8_u (i32.const 512)) (i32.const 120)) (then (call $exit (i32.const 6))))
+    (if (call $read (i32.load (i32.const 124)) (i32.const 400) (i32.const 1) (i32.const 408)) (then (call $exit (i32.const 7))))
+    (if (i32.ne (i32.load (i32.const 408)) (i32.const 1)) (then (call $exit (i32.const 8))))
+    (i32.store8 (i32.const 200) (i32.const 1))
+    (i32.store (i32.const 204) (i32.load (i32.const 100)))
+    (if (call $join (i32.const 200) (i32.const 0) (i32.const 220)) (then (call $exit (i32.const 9))))
+    (if (i32.ne (i32.load16_u (i32.const 222)) (i32.const 7)) (then (call $exit (i32.load16_u (i32.const 222)))))
+    ;; No parent copy of the child's write end can keep either pipe alive.
+    (if (call $read (i32.load (i32.const 116)) (i32.const 400) (i32.const 1) (i32.const 408)) (then (call $exit (i32.const 12))))
+    (if (i32.load (i32.const 408)) (then (call $exit (i32.const 13))))
+    (if (call $read (i32.load (i32.const 124)) (i32.const 400) (i32.const 1) (i32.const 408)) (then (call $exit (i32.const 14))))
+    (if (i32.load (i32.const 408)) (then (call $exit (i32.const 15))))
+    (call $exit (i32.const 0))))
+"#;
+
+#[test]
+fn legacy_spawn_pipes_args_cwd_and_wait() {
+    let programs = Programs::new("legacy-pipes", &[("child.wasm", LEGACY_CHILD)]);
+    assert_eq!(run(LEGACY_SPAWN, Some(&programs.0)).0, 0);
+    let closed = LEGACY_SPAWN.replace(";; CLOSE_STDIO", "(drop (call $close (i32.const 0))) (drop (call $close (i32.const 1))) (drop (call $close (i32.const 2)))");
+    assert_eq!(run(&closed, Some(&programs.0)).0, 0);
+}
+
+#[test]
+fn legacy_spawn_inherit_null_and_failures() {
+    let wat = r#"
+    (module
+      (import "wasix_32v1" "proc_spawn" (func $spawn
+        (param i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32) (result i32)))
+      (import "wasix_32v1" "proc_join" (func $join (param i32 i32 i32) (result i32)))
+      (import "wasix_32v1" "fd_pipe" (func $pipe (param i32 i32) (result i32)))
+      (import "wasi_snapshot_preview1" "fd_close" (func $close (param i32) (result i32)))
+      (import "wasi_snapshot_preview1" "proc_exit" (func $exit (param i32)))
+      (memory (export "memory") 1)
+      (data (i32.const 1000) "/prog/child.wasm")
+      (data (i32.const 1032) "child\n")
+      (data (i32.const 1056) "\r\n")
+      (data (i32.const 1072) "/prog/missing")
+      (data (i32.const 1088) ".")
+      (data (i32.const 1104) "/prog/closed.wasm")
+      (func $launch (param $root i32) (param $preopen i32) (param $mode i32) (param $name i32) (param $len i32) (result i32)
+        (call $spawn (local.get $name) (local.get $len) (local.get $root)
+                     (i32.const 1032) (i32.const 6) (local.get $preopen) (i32.const 2)
+                     (local.get $mode) (local.get $mode) (local.get $mode)
+                     (i32.const 1088) (i32.const 1) (i32.const 100)))
+      (func $wait
+        (i32.store8 (i32.const 200) (i32.const 1))
+        (i32.store (i32.const 204) (i32.load (i32.const 100)))
+        (if (call $join (i32.const 200) (i32.const 0) (i32.const 220)) (then (call $exit (i32.const 90))))
+        (if (i32.ne (i32.load16_u (i32.const 222)) (i32.const 3)) (then (call $exit (i32.load16_u (i32.const 222))))))
+      (func $none
+        (if (i32.or (i32.or (i32.load8_u (i32.const 104)) (i32.load8_u (i32.const 112))) (i32.load8_u (i32.const 120))) (then (call $exit (i32.const 92))))
+        (if (i32.ne (i32.and (i32.and (i32.load (i32.const 108)) (i32.load (i32.const 116))) (i32.load (i32.const 124))) (i32.const -1)) (then (call $exit (i32.const 93)))))
+      (func (export "_start")
+        ;; Empty CR/LF-only preopens are accepted; Inherit produces no extra handles.
+        (if (call $launch (i32.const 0) (i32.const 1056) (i32.const 1) (i32.const 1000) (i32.const 16)) (then (call $exit (i32.const 1))))
+        (call $none) (call $wait)
+        ;; Null and Log historically close stdio, so the child's ignored write fails.
+        (if (call $launch (i32.const 0) (i32.const 1056) (i32.const 2) (i32.const 1104) (i32.const 17)) (then (call $exit (i32.const 2))))
+        (call $none) (call $wait)
+        (if (call $launch (i32.const 0) (i32.const 1056) (i32.const 3) (i32.const 1104) (i32.const 17)) (then (call $exit (i32.const 3))))
+        (call $none) (call $wait)
+        (i32.store (i32.const 100) (i32.const -1))
+        (if (i32.ne (call $launch (i32.const 1) (i32.const 1056) (i32.const 0) (i32.const 1000) (i32.const 16)) (i32.const 58)) (then (call $exit (i32.const 4))))
+        (if (i32.ne (call $launch (i32.const 0) (i32.const 1000) (i32.const 0) (i32.const 1000) (i32.const 16)) (i32.const 58)) (then (call $exit (i32.const 5))))
+        (if (i32.ne (i32.load (i32.const 100)) (i32.const -1)) (then (call $exit (i32.const 6))))
+        ;; A failed exec closes all parent-created descriptors and reaps the child.
+        (if (call $pipe (i32.const 300) (i32.const 304)) (then (call $exit (i32.const 7))))
+        (drop (call $close (i32.load (i32.const 300))))
+        (drop (call $close (i32.load (i32.const 304))))
+        (if (i32.ne (call $launch (i32.const 0) (i32.const 1056) (i32.const 0) (i32.const 1072) (i32.const 13)) (i32.const 44)) (then (call $exit (i32.const 8))))
+        (if (i32.ne (i32.load (i32.const 100)) (i32.const -1)) (then (call $exit (i32.const 9))))
+        (if (call $pipe (i32.const 308) (i32.const 312)) (then (call $exit (i32.const 10))))
+        (if (i32.ne (i32.load (i32.const 300)) (i32.load (i32.const 308))) (then (call $exit (i32.const 11))))
+        (if (i32.ne (i32.load (i32.const 304)) (i32.load (i32.const 312))) (then (call $exit (i32.const 12))))
+        (i32.store8 (i32.const 200) (i32.const 0))
+        (if (i32.ne (call $join (i32.const 200) (i32.const 1) (i32.const 220)) (i32.const 12)) (then (call $exit (i32.const 13))))
+        (call $exit (i32.const 0))))
+    "#;
+    let closed = r#"
+    (module
+      (import "wasi_snapshot_preview1" "fd_fdstat_get" (func $stat (param i32 i32) (result i32)))
+      (import "wasi_snapshot_preview1" "proc_exit" (func $exit (param i32)))
+      (memory (export "memory") 1)
+      (func (export "_start")
+        (if (i32.ne (call $stat (i32.const 0) (i32.const 100)) (i32.const 8)) (then (call $exit (i32.const 40))))
+        (if (i32.ne (call $stat (i32.const 1) (i32.const 100)) (i32.const 8)) (then (call $exit (i32.const 41))))
+        (if (i32.ne (call $stat (i32.const 2) (i32.const 100)) (i32.const 8)) (then (call $exit (i32.const 42))))
+        (call $exit (i32.const 3))))
+    "#;
+    let programs = Programs::new(
+        "legacy-inherit",
+        &[("child.wasm", CHILD), ("closed.wasm", closed)],
+    );
+    let (status, stdout) = run(wat, Some(&programs.0));
+    assert_eq!(status, 0);
+    assert_eq!(stdout, b"child");
 }
 
 /// vfork, then `proc_exec3` in the child: the call returns 0 in the parent, whose `proc_join`
