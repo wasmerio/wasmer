@@ -430,9 +430,7 @@ fn the_group_ends_threads_blocked_in_atomic_waits() {
 
 /// `proc_fork_env` continues as the child, whose `proc_exit2` returns in the parent;
 /// `proc_join` then reports the child's status, and `CHILD` (12) once there are no children.
-#[test]
-fn vfork_exit_and_join() {
-    let wat = r#"
+const VFORK_EXIT_AND_JOIN: &str = r#"
     (module
       (import "wasix_32v1" "proc_fork_env" (func $vfork (param i32) (result i32)))
       (import "wasix_32v1" "proc_exit2" (func $exit (param i32)))
@@ -471,7 +469,193 @@ fn vfork_exit_and_join() {
           (then (call $exit (i32.const 11))))
         (call $exit (i32.const 0))))
     "#;
-    assert_eq!(status(wat), 0);
+
+#[test]
+fn vfork_exit_and_join() {
+    assert_eq!(status(VFORK_EXIT_AND_JOIN), 0);
+}
+
+mod parent_pidfd {
+    use super::*;
+    use wasixv2_abi::{Errno, FcntlCmd, Fd, GuestPtr, IoctlRequest, PidfdInfo, PidfdInfoMask};
+    use wasixv2_kernel::{Dispatch, HostClock, Kernel, SyscallEntry};
+    use wasixv2_syscalls::{
+        Caller, Layer, Layered, MaybeFuture, SysErr, SysResult, Syscall, SyscallRet, Syscalls,
+        read_value,
+    };
+
+    #[derive(Default)]
+    struct Probe {
+        query_error: Mutex<Option<SysErr>>,
+        close_error: Mutex<Option<SysErr>>,
+        missing_pid: bool,
+        opened: Mutex<Vec<Fd>>,
+        closed: Mutex<Vec<Fd>>,
+    }
+
+    struct ProbeLayer(Arc<Probe>);
+
+    impl Layer<Kernel> for ProbeLayer {
+        fn call<'a>(
+            &'a self,
+            caller: &'a Caller<'_>,
+            call: Syscall,
+            next: &'a Kernel,
+        ) -> MaybeFuture<'a, SysResult<SyscallRet>> {
+            MaybeFuture::Future(Box::pin(async move {
+                match call {
+                    // No proc mount, and even an attempted open must fail.
+                    Syscall::Openat { .. } => return Err(Errno::EACCES.into()),
+                    Syscall::Ioctl { fd, cmd, arg } if cmd == IoctlRequest::PIDFD_GET_INFO => {
+                        assert!(self.0.opened.lock().unwrap().contains(&fd));
+                        let info: PidfdInfo =
+                            read_value(caller.memory(), GuestPtr::new(arg)).await?;
+                        assert_eq!(info.mask, PidfdInfoMask::PIDFD_INFO_PID.0);
+                        if let Some(err) = self.0.query_error.lock().unwrap().take() {
+                            return Err(err);
+                        }
+                        if self.0.missing_pid {
+                            caller.memory().write(arg, &[0; 8]).await?;
+                            return Ok(SyscallRet::Ioctl(0));
+                        }
+                    }
+                    Syscall::Close { fd } if self.0.opened.lock().unwrap().contains(&fd) => {
+                        let ret = Dispatch.call(caller, call, next).await;
+                        // Verify the real table, not just that close was called.
+                        assert_eq!(
+                            next.fcntl64(caller, fd, FcntlCmd::F_GETFD, 0).await,
+                            Err(SysErr::Errno(Errno::EBADF))
+                        );
+                        self.0.closed.lock().unwrap().push(fd);
+                        return if let Some(err) = self.0.close_error.lock().unwrap().take() {
+                            Err(err)
+                        } else {
+                            ret
+                        };
+                    }
+                    _ => {}
+                }
+                let ret = Dispatch.call(caller, call, next).await;
+                if let Ok(SyscallRet::PidfdOpen(fd)) = ret {
+                    self.0.opened.lock().unwrap().push(fd);
+                }
+                ret
+            }))
+        }
+    }
+
+    async fn run(wat: &str, probe: Arc<Probe>) -> i32 {
+        let host: Arc<dyn wasixv2::Host> = Arc::new(wasixv2::TokioHost::default());
+        let root = Arc::new(wasixv2_vfs_mem::MemFs::new(
+            Arc::new(HostClock(host.clone())),
+            0o777,
+            1,
+            1,
+        ));
+        let mut abis = wasixv2_exec::Abis::new();
+        abis.push(Arc::new(wasixv2_wasix1::Wasix1::new()));
+        let abis = Arc::new(abis);
+        let kernel = Kernel::new(host.clone(), root).with_binfmt(abis.clone());
+        let task = kernel
+            .spawn(ProcessConfig {
+                args: vec!["parent".to_owned()],
+                env: Vec::new(),
+                stdio: Stdio::from_fns(|_| {}, |_| {}),
+            })
+            .unwrap();
+        let syscalls = Arc::new(Layered::new(SyscallEntry(ProbeLayer(probe)), kernel));
+        let store = wasmer::Store::default();
+        let module = wasixv2_exec::load(store.engine(), &wat::parse_str(wat).unwrap()).unwrap();
+        wasixv2_exec::run_with_abis(store, &module, syscalls, task, host, abis)
+            .await
+            .unwrap()
+    }
+
+    #[tokio::test]
+    async fn proc_parent_without_procfs() {
+        let probe = Arc::new(Probe::default());
+        assert_eq!(run(VFORK_EXIT_AND_JOIN, probe.clone()).await, 0);
+        assert_eq!(*probe.opened.lock().unwrap(), *probe.closed.lock().unwrap());
+        assert_eq!(probe.opened.lock().unwrap().len(), 1);
+    }
+
+    fn query_error_guest(errno: u16) -> String {
+        format!(
+            r#"(module
+              (import "wasix_32v1" "proc_fork_env" (func $vfork (param i32) (result i32)))
+              (import "wasix_32v1" "proc_parent" (func $parent (param i32 i32) (result i32)))
+              (import "wasix_32v1" "proc_exit2" (func $exit (param i32)))
+              (memory (export "memory") 1)
+              (func (export "_start")
+                (if (call $vfork (i32.const 100)) (then (call $exit (i32.const 1))))
+                (call $exit (i32.const 0))
+                (i32.store (i32.const 104) (i32.const -1))
+                (if (i32.ne (call $parent (i32.load (i32.const 100)) (i32.const 104)) (i32.const {errno}))
+                  (then (call $exit (i32.const 2))))
+                (if (i32.ne (i32.load (i32.const 104)) (i32.const -1)) (then (call $exit (i32.const 3))))
+                (call $exit (i32.const 0))))"#
+        )
+    }
+
+    #[tokio::test]
+    async fn proc_parent_closes_pidfd_on_query_error() {
+        for errno in [Errno::EIO, Errno::ESRCH, Errno::ENOSYS, Errno::ENOTTY] {
+            let probe = Arc::new(Probe {
+                query_error: Mutex::new(Some(SysErr::Errno(errno))),
+                ..Probe::default()
+            });
+            let expected = if errno == Errno::ESRCH {
+                wasixv2_wasix1::abi::Errno::BADF
+            } else {
+                wasixv2_wasix1::abi::Errno::from_linux(errno)
+            };
+            assert_eq!(run(&query_error_guest(expected.0), probe.clone()).await, 0);
+            assert_eq!(*probe.opened.lock().unwrap(), *probe.closed.lock().unwrap());
+            assert_eq!(probe.opened.lock().unwrap().len(), 1);
+        }
+    }
+
+    #[tokio::test]
+    async fn proc_parent_does_not_restart_a_released_close() {
+        for error in [
+            SysErr::Restart,
+            SysErr::RestartNoIntr,
+            SysErr::RestartNoHand,
+            SysErr::RestartBlock,
+        ] {
+            let probe = Arc::new(Probe {
+                close_error: Mutex::new(Some(error)),
+                ..Probe::default()
+            });
+            let wat = query_error_guest(wasixv2_wasix1::abi::Errno::INTR.0);
+            assert_eq!(run(&wat, probe.clone()).await, 0);
+            assert_eq!(*probe.opened.lock().unwrap(), *probe.closed.lock().unwrap());
+            assert_eq!(probe.opened.lock().unwrap().len(), 1);
+        }
+    }
+
+    #[tokio::test]
+    async fn proc_parent_restarts_the_query_with_a_fresh_pidfd() {
+        let probe = Arc::new(Probe {
+            query_error: Mutex::new(Some(SysErr::Restart)),
+            ..Probe::default()
+        });
+        assert_eq!(run(VFORK_EXIT_AND_JOIN, probe.clone()).await, 0);
+        assert_eq!(*probe.opened.lock().unwrap(), *probe.closed.lock().unwrap());
+        assert_eq!(probe.opened.lock().unwrap().len(), 2);
+    }
+
+    #[tokio::test]
+    async fn proc_parent_requires_returned_pid_information() {
+        let probe = Arc::new(Probe {
+            missing_pid: true,
+            ..Probe::default()
+        });
+        let wat = query_error_guest(wasixv2_wasix1::abi::Errno::IO.0);
+        assert_eq!(run(&wat, probe.clone()).await, 0);
+        assert_eq!(*probe.opened.lock().unwrap(), *probe.closed.lock().unwrap());
+        assert_eq!(probe.opened.lock().unwrap().len(), 1);
+    }
 }
 
 /// Writes "child" to fd 1 and exits with 3 plus the number of signals it inherited as

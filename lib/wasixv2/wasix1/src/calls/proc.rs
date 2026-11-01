@@ -25,8 +25,9 @@ use std::sync::{
 };
 
 use wasixv2_abi::{
-    AtFd, AtFlags, FcntlCmd, Fd, GuestLayout, GuestPtrMut, Idtype, OpenFlags, RusagePtr, S32Ptr,
-    SaFlags, SiCode, Siginfo, SignalHandler, StatxMask, WaitOptions,
+    AtFd, AtFlags, FcntlCmd, Fd, GuestLayout, GuestPtrMut, Idtype, IoctlRequest, OpenFlags,
+    PidfdInfo, PidfdInfoMask, RusagePtr, S32Ptr, SaFlags, SiCode, Siginfo, SignalHandler,
+    StatxMask, WaitOptions,
 };
 use wasixv2_exec::{
     AbiInstance,
@@ -1215,15 +1216,7 @@ pub(crate) async fn proc_join<S: Syscalls + Control + 'static>(
     .await
 }
 
-/// Field 4 of Linux's `fs/proc/array.c:do_task_stat`. The command may contain spaces,
-/// newlines and parentheses, so fields start after its last closing parenthesis.
-fn stat_parent(stat: &[u8]) -> Option<u32> {
-    let end = stat.iter().rposition(|&b| b == b')')?;
-    let fields = std::str::from_utf8(&stat[end + 1..]).ok()?;
-    fields.split_ascii_whitespace().nth(1)?.parse().ok()
-}
-
-/// `proc_parent(pid, out)`: the caller's parent, or another process's through the proc mount.
+/// `proc_parent(pid, out)`: the parent as the caller's pid namespace sees it.
 /// The old other-pid arm returned `pid` itself, contrary to the v1 header's parent contract.
 pub(crate) async fn proc_parent<S: Syscalls + Control + 'static>(
     env: Env<S>,
@@ -1238,33 +1231,40 @@ pub(crate) async fn proc_parent<S: Syscalls + Control + 'static>(
             if pid <= 0 {
                 return shim::fail(Errno::BADF);
             }
-            let path = frame
-                .mem
-                .alloc_cstr(format!("/proc/{pid}/stat").as_bytes())?;
-            let buffer = frame.mem.alloc_zeroed(4096)?;
-            let fd = match frame
-                .syscalls
-                .openat(
-                    &caller,
-                    Fd(AtFd::AT_FDCWD.0),
-                    path,
-                    OpenFlags(OpenFlags::O_RDONLY.0 | OpenFlags::O_CLOEXEC.0),
-                    0,
-                )
-                .await
-            {
+            // fs/pidfs.c `pidfd_info`: unlike a proc mount, this uses the caller's pid
+            // namespace, and retains the parent of a zombie until it is reaped.
+            let info = frame.mem.alloc(&PidfdInfo {
+                mask: PidfdInfoMask::PIDFD_INFO_PID.0,
+                ..PidfdInfo::default()
+            })?;
+            let fd = match frame.syscalls.pidfd_open(&caller, pid, 0).await {
                 Ok(fd) => fd,
-                Err(SysErr::Errno(LinuxErrno::ENOENT | LinuxErrno::ESRCH)) => {
+                Err(SysErr::Errno(LinuxErrno::ESRCH)) => {
                     return shim::fail(Errno::BADF);
                 }
                 Err(err) => return Err(err.into()),
             };
-            let read = frame.syscalls.read(&caller, fd, buffer).await;
-            // Even an interrupted read must release the descriptor before the shim returns.
+            let query = frame
+                .syscalls
+                .ioctl(&caller, fd, IoctlRequest::PIDFD_GET_INFO, info.addr())
+                .await;
+            // Release the captured descriptor even when the query failed or was interrupted.
             let closed = frame.syscalls.close(&caller, fd).await;
-            let count = read?;
-            closed?;
-            stat_parent(&frame.mem.take_bytes(buffer, count as usize)).ok_or(LinuxErrno::EIO)?
+            match query {
+                Err(SysErr::Errno(LinuxErrno::ESRCH)) => return shim::fail(Errno::BADF),
+                other => other?,
+            };
+            // fs/open.c `sys_close`: the fd is already released, including on interruption.
+            // Never let a custom provider's restart marker replay that close.
+            closed.map_err(|err| match err {
+                SysErr::Errno(_) => err,
+                _ => SysErr::Errno(LinuxErrno::EINTR),
+            })?;
+            let info = frame.mem.take(GuestPtrMut::<PidfdInfo>::new(info.addr()));
+            if info.mask & PidfdInfoMask::PIDFD_INFO_PID.0 == 0 {
+                return Err(LinuxErrno::EIO.into());
+            }
+            info.ppid
         };
         frame.write(out as u32, &parent).await
     })
@@ -1274,16 +1274,6 @@ pub(crate) async fn proc_parent<S: Syscalls + Control + 'static>(
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn parent_from_proc_stat() {
-        assert_eq!(stat_parent(b"42 (child) S 7 42 42 0\n"), Some(7));
-        assert_eq!(stat_parent(b"42 (a )\n (b) S 7 42 42 0\n"), Some(7));
-        assert_eq!(stat_parent(b"1 (init) S 0 1 1 0\n"), Some(0));
-        assert_eq!(stat_parent(b"42 (child) S\n"), None);
-        assert_eq!(stat_parent(b"42 (child) S -1\n"), None);
-        assert_eq!(stat_parent(b"42 (child) S 4294967296\n"), None);
-    }
 
     fn strings(items: &[&str]) -> Vec<Vec<u8>> {
         items.iter().map(|s| s.as_bytes().to_vec()).collect()
