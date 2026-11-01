@@ -159,6 +159,7 @@ impl Run {
             runtime.clone(),
             self.rt.clone(),
             (backend, engine.clone()),
+            self.wasi.deny_multiple_wasi_versions,
         ));
 
         // `--use`: packages whose commands and volumes join the program's.

@@ -167,6 +167,7 @@ pub(super) fn is_script(path: &Path) -> bool {
 pub(super) struct CachedLoader {
     runtime: Arc<dyn Runtime + Send + Sync>,
     options: RuntimeOptions,
+    deny_multiple_wasi_versions: bool,
     /// One engine per backend: the one `wasmer run` picked, and others made when an image
     /// first needs them.
     engines: Mutex<Vec<(BackendType, Engine)>>,
@@ -195,10 +196,12 @@ impl CachedLoader {
         runtime: Arc<dyn Runtime + Send + Sync>,
         options: RuntimeOptions,
         engine: (BackendType, Engine),
+        deny_multiple_wasi_versions: bool,
     ) -> Self {
         Self {
             runtime,
             options,
+            deny_multiple_wasi_versions,
             engines: Mutex::new(vec![engine]),
             modules: Mutex::default(),
         }
@@ -233,6 +236,7 @@ impl CachedLoader {
         // legacy instrument-only hash or a package atom's unprepared hash.
         let wasm = HashedModuleData::new(instrumented);
         let module = self.runtime.load_hashed_module(wasm, Some(&engine)).await?;
+        validate_wasi_versions(&module, self.deny_multiple_wasi_versions)?;
         if let Some(err) = failed {
             wasixv2::warn_not_preemptible(&err);
         }
@@ -331,7 +335,7 @@ mod loader_tests {
         let backend = options.get_available_backends().unwrap()[0];
         let engine = backend.get_engine(&Target::default(), &options).unwrap();
         let runtime = Arc::new(RecordingRuntime::default());
-        let loader = CachedLoader::new(runtime.clone(), options, (backend, engine.clone()));
+        let loader = CachedLoader::new(runtime.clone(), options, (backend, engine.clone()), false);
         (loader, runtime, engine)
     }
 
@@ -484,6 +488,25 @@ mod loader_tests {
             assert!(loader.modules.lock().unwrap().is_empty());
         }
     }
+}
+
+/// Keep version recognition in the existing WASI detector: unrelated import modules do
+/// not count, and multiple functions from one version still name only one version.
+fn validate_wasi_versions(module: &Module, deny_multiple: bool) -> Result<(), Error> {
+    if deny_multiple
+        && let Some(versions) = wasmer_wasix::get_wasi_versions(module, false)
+        && versions.len() >= 2
+    {
+        let names = versions
+            .iter()
+            .map(|version| format!("`{}`", version.get_namespace_str()))
+            .collect::<Vec<_>>()
+            .join(", ");
+        bail!(
+            "Found more than 1 WASI version in this module ({names}) and `--deny-multiple-wasi-versions` is enabled."
+        );
+    }
+    Ok(())
 }
 
 /// Host files explicitly selected by `--map-command`, above package commands. Like v1's
@@ -777,6 +800,11 @@ impl Run {
         handle: &tokio::runtime::Handle,
     ) -> Result<(), Error> {
         self.reject_options_unsupported_by_the_machine(program.is_package())?;
+        // Serialized artifacts bypass CachedLoader; apply the same explicit option before
+        // running their module too.
+        if let Start::Module { module, .. } = &program.start {
+            validate_wasi_versions(module, self.wasi.deny_multiple_wasi_versions)?;
+        }
         #[cfg(unix)]
         raise_open_file_limit();
 

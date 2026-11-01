@@ -850,6 +850,131 @@ fn wasixv2_echo(suffix: &str) -> Vec<u8> {
     wat::parse_str(WASIXV2_ECHO_WAT.replace("{suffix}", suffix)).unwrap()
 }
 
+fn mixed_wasi_module() -> Vec<u8> {
+    wat::parse_str(
+        r#"(module
+          (import "wasi_unstable" "sched_yield" (func $yield (result i32)))
+          (import "wasi_snapshot_preview1" "proc_exit" (func $exit (param i32)))
+          (memory (export "memory") 1)
+          (func (export "_start")
+            (call $exit (call $yield))))"#,
+    )
+    .unwrap()
+}
+
+#[test]
+fn run_deny_multiple_wasi_versions_checks_initial_module() {
+    let files = TempDir::new().unwrap();
+    let module = files.path().join("mixed.wasm");
+    std::fs::write(&module, mixed_wasi_module()).unwrap();
+    wasmer_command().arg("run").arg(&module).assert().success();
+    wasmer_command()
+        .arg("run")
+        .arg(&module)
+        .arg("--deny-multiple-wasi-versions")
+        .assert()
+        .failure()
+        .stderr(contains("Found more than 1 WASI version"))
+        .stderr(contains("wasi_unstable"))
+        .stderr(contains("wasi_snapshot_preview1"));
+}
+
+#[test]
+fn run_deny_multiple_wasi_versions_counts_versions_not_imports() {
+    let files = TempDir::new().unwrap();
+    let module = files.path().join("single.wasm");
+    std::fs::write(
+        &module,
+        wat::parse_str(
+            r#"(module
+              (import "wasi_snapshot_preview1" "sched_yield" (func $yield (result i32)))
+              (import "wasi_snapshot_preview1" "proc_exit" (func $exit (param i32)))
+              (import "canonical_abi" "resource_drop_client" (func (param i32)))
+              (memory (export "memory") 1)
+              (func (export "_start") (call $exit (call $yield))))"#,
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    wasmer_command()
+        .arg("run")
+        .arg(&module)
+        .arg("--deny-multiple-wasi-versions")
+        .assert()
+        .success();
+}
+
+#[test]
+fn run_deny_multiple_wasi_versions_checks_package_entry() {
+    let package = wasixv2_commands_package(None);
+    std::fs::write(package.path().join("echo.wasm"), mixed_wasi_module()).unwrap();
+    wasmer_command()
+        .arg("run")
+        .arg(package.path())
+        .arg("--entrypoint=echo-args")
+        .assert()
+        .success();
+    wasmer_command()
+        .arg("run")
+        .arg(package.path())
+        .arg("--entrypoint=echo-args")
+        .arg("--deny-multiple-wasi-versions")
+        .assert()
+        .failure();
+}
+
+#[test]
+fn run_deny_multiple_wasi_versions_checks_exec_target() {
+    let package = wasixv2_commands_package(None);
+    std::fs::write(package.path().join("echo.wasm"), mixed_wasi_module()).unwrap();
+    wasmer_command()
+        .arg("run")
+        .arg(package.path())
+        .arg("--entrypoint=exec")
+        .arg("/bin/echo-args")
+        .assert()
+        .success();
+    wasmer_command()
+        .arg("run")
+        .arg(package.path())
+        .arg("--entrypoint=exec")
+        .arg("--deny-multiple-wasi-versions")
+        .arg("/bin/echo-args")
+        .assert()
+        .failure();
+}
+
+#[test]
+#[cfg_attr(
+    any(feature = "v8", target_os = "windows"),
+    ignore = "wasmer may not have the 'compile' command with this backend"
+)]
+fn run_deny_multiple_wasi_versions_checks_precompiled_module() {
+    let files = TempDir::new().unwrap();
+    let module = files.path().join("mixed.wasm");
+    let artifact = files.path().join("mixed.wasmu");
+    std::fs::write(&module, mixed_wasi_module()).unwrap();
+    wasmer_command()
+        .arg("compile")
+        .arg(&module)
+        .arg("-o")
+        .arg(&artifact)
+        .assert()
+        .success();
+    wasmer_command()
+        .arg("run")
+        .arg(&artifact)
+        .assert()
+        .success();
+    wasmer_command()
+        .arg("run")
+        .arg(&artifact)
+        .arg("--deny-multiple-wasi-versions")
+        .assert()
+        .failure()
+        .stderr(contains("Found more than 1 WASI version"));
+}
+
 /// A package whose commands are `exec` ([`WASIXV2_EXEC_WAT`]), `echo-args`
 /// ([`WASIXV2_ECHO_WAT`]), `ls` (an echo that ends with `root`) and `script`, a `#!` script
 /// for `echo-args`. With `dependency`, it depends on that registry package too.
