@@ -23,6 +23,7 @@ mod preparation;
 mod process;
 mod signal;
 mod thread;
+mod unwind;
 mod wasixv2;
 
 use std::{
@@ -45,6 +46,7 @@ pub use preempt::InstrumentError;
 pub use preparation::Preparation;
 pub use process::VFORK_RETURN;
 pub use thread::THREAD_ENTRY;
+pub use unwind::GuestUnwind;
 pub use wasixv2::{Wasixv2, is_wasixv2_module};
 use wasixv2_abi::Signal;
 use wasixv2_host::Host;
@@ -1172,6 +1174,12 @@ pub async fn complete<S: Syscalls + Control + 'static, T>(
     task: TaskId,
     ret: SysResult<T>,
 ) -> Outcome<T> {
+    if matches!(ret, Err(SysErr::GuestUnwind)) {
+        finish_import(env).await;
+        return Outcome::Unwind(RuntimeError::new(
+            "guest unwind reached completion without its import-owned error",
+        ));
+    }
     let mut ret = ret;
     let mut task = task;
     // The value a task switch made the call return, which replaces `ret`.
@@ -1186,9 +1194,8 @@ pub async fn complete<S: Syscalls + Control + 'static, T>(
     let raised = {
         let env = env.read().await;
         let data = env.data();
-        if data.cpu.exit() {
-            data.syscalls.cpu_timers(data.task);
-        }
+        // CPU exit is shared with the import-owned guest-unwind path.
+        finish_import_data(data);
         // Nothing to do unless the kernel raised the flag (`exit_to_user_mode_prepare`).
         data.work.is_raised()
     };
@@ -1351,6 +1358,7 @@ pub async fn complete<S: Syscalls + Control + 'static, T>(
     let errno = match (ret, handled) {
         (Ok(value), _) => return Outcome::Return(Ok(value)),
         (Err(SysErr::Errno(errno)), _) => errno,
+        (Err(SysErr::GuestUnwind), _) => unreachable!("checked before guest work"),
         (Err(SysErr::RestartBlock), None | Some(true)) => {
             // Linux's arch/x86/kernel/signal.c:arch_do_signal_or_restart re-enters the
             // syscall instruction. Our import retries in place, so mark that entry here.
@@ -1367,6 +1375,18 @@ pub async fn complete<S: Syscalls + Control + 'static, T>(
         (Err(_), Some(false)) => Errno::EINTR,
     };
     Outcome::Return(Err(errno))
+}
+
+/// Ends a syscall boundary without delivering work or encoding a guest exception.
+async fn finish_import<S: Control + 'static>(env: &AsyncFunctionEnvMut<ExecEnv<S>>) {
+    let env = env.read().await;
+    finish_import_data(env.data());
+}
+
+fn finish_import_data<S: Control>(data: &ExecEnv<S>) {
+    if data.cpu.exit() {
+        data.syscalls.cpu_timers(data.task);
+    }
 }
 
 async fn instance_abi<S: 'static>(
