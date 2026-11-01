@@ -29,7 +29,11 @@ fn profile(bytes: &[u8]) -> Result<Profile, PlanError> {
                     profile.native |= module == "wasixv2";
                     profile.legacy |= matches!(
                         module,
-                        "wasix_32v1" | "wasi_snapshot_preview1" | "wasi_unstable" | "wasi"
+                        "wasix_32v1"
+                            | "wasi_snapshot_preview1"
+                            | "wasi_unstable"
+                            | "wasi"
+                            | "wasix_http_client_v1"
                     );
                 }
             }

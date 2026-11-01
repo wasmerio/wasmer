@@ -520,10 +520,10 @@ async fn collect<S: Syscalls + Control + Send + Sync + 'static>(
     if name.is_empty() {
         return Ok((graph, 0));
     }
-    if policy.reuse_by_name() {
-        if let Some(index) = graph.libraries.iter().position(|lib| lib.request == name) {
-            return Ok((graph, index));
-        }
+    if policy.reuse_by_name()
+        && let Some(index) = graph.libraries.iter().position(|lib| lib.request == name)
+    {
+        return Ok((graph, index));
     }
     let (image, path) = read(
         &*syscalls,
@@ -562,16 +562,15 @@ async fn collect<S: Syscalls + Control + Send + Sync + 'static>(
         let runtime = graph.libraries[index].metadata.runtime_path().to_vec();
         let origin = graph.libraries[index].path.clone();
         for name in needed {
-            if policy.reuse_by_name() {
-                if let Some(dependency) = graph
+            if policy.reuse_by_name()
+                && let Some(dependency) = graph
                     .libraries
                     .iter()
                     .position(|lib| lib.request == name.as_bytes())
-                {
-                    graph.libraries[index].dependencies.push(dependency);
-                    queue.push_back(dependency);
-                    continue;
-                }
+            {
+                graph.libraries[index].dependencies.push(dependency);
+                queue.push_back(dependency);
+                continue;
             }
             let (image, path) = read(
                 &*syscalls,

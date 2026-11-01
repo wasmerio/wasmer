@@ -762,17 +762,33 @@ fn compilation_source_preparation_selects_supported_raw_dynamic_mains() {
     ] {
         assert!(!crate::needs_preparation(&source).unwrap());
     }
-    let legacy = bytes(
-        r#"(module (import "wasi_snapshot_preview1" "proc_exit" (func (param i32))))"#,
+    for namespace in [
+        "wasix_32v1",
+        "wasi_snapshot_preview1",
+        "wasi_unstable",
+        "wasi",
+        "wasix_http_client_v1",
+    ] {
+        let legacy = bytes(
+            &format!(r#"(module (import "{namespace}" "probe" (func)))"#),
+            [0; 4],
+            &[],
+            &[],
+            &[],
+        );
+        assert!(crate::needs_preparation(&legacy).unwrap(), "{namespace}");
+        let legacy_prepared = crate::prepare_image(&legacy).unwrap();
+        assert!(!crate::needs_preparation(&legacy_prepared).unwrap());
+        assert_eq!(Module::parse(&legacy_prepared).unwrap().start(), None);
+    }
+    let wasm64 = bytes(
+        r#"(module (import "wasix_64v1" "probe" (func)))"#,
         [0; 4],
         &[],
         &[],
         &[],
     );
-    assert!(crate::needs_preparation(&legacy).unwrap());
-    let legacy_prepared = crate::prepare_image(&legacy).unwrap();
-    assert!(!crate::needs_preparation(&legacy_prepared).unwrap());
-    assert_eq!(Module::parse(&legacy_prepared).unwrap().start(), None);
+    assert!(!crate::needs_preparation(&wasm64).unwrap());
     let unsupported = bytes(
         r#"(module (import "wasixv2" "exit_group" (func (param i32)))
           (func (export "asyncify_start_unwind")))"#,
