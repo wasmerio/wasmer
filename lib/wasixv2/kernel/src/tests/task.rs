@@ -20,6 +20,13 @@ fn spawn_thread(kernel: &Kernel, caller: &Caller<'_>) -> TaskId {
     TaskId(tid as u32)
 }
 
+async fn join_thread(kernel: &Kernel, caller: &Caller<'_>, tid: i32) -> SysResult<()> {
+    if let Some(completion) = kernel.capture_thread_completion(caller.task(), tid)? {
+        kernel.wait_thread_completion(caller, &completion).await?;
+    }
+    Ok(())
+}
+
 fn live(kernel: &Kernel, task: TaskId) -> bool {
     kernel.state.lock_or_recover().tasks.contains_key(&task)
 }
@@ -77,7 +84,7 @@ fn joining_waits_for_execution_release_and_does_not_retain_the_task() {
     let child = spawn_thread(&kernel, &caller);
     let _ = kernel.take_pending(task);
     let completion = Arc::downgrade(&kernel.state.read_or_recover().tasks[&child].completion);
-    let join = kernel.thread_join(&caller, child.0 as i32);
+    let join = join_thread(&kernel, &caller, child.0 as i32);
     let mut join = std::pin::pin!(join);
     assert!(join.as_mut().now_or_never().is_none());
 
@@ -90,10 +97,10 @@ fn joining_waits_for_execution_release_and_does_not_retain_the_task() {
     assert_eq!(block_on(join), Ok(()));
     assert!(completion.upgrade().is_none());
     assert_eq!(
-        block_on(kernel.thread_join(&caller, child.0 as i32)),
+        block_on(join_thread(&kernel, &caller, child.0 as i32)),
         Ok(())
     );
-    assert_eq!(block_on(kernel.thread_join(&caller, -1)), Ok(()));
+    assert_eq!(block_on(join_thread(&kernel, &caller, -1)), Ok(()));
 }
 
 #[test]
@@ -101,17 +108,17 @@ fn joining_an_aborted_thread_finishes_and_self_join_is_interruptible() {
     let (kernel, task, memory) = machine();
     let caller = Caller::new(task, &memory);
     let child = spawn_thread(&kernel, &caller);
-    let join = kernel.thread_join(&caller, child.0 as i32);
+    let join = join_thread(&kernel, &caller, child.0 as i32);
     let mut join = std::pin::pin!(join);
     assert!(join.as_mut().now_or_never().is_none());
     kernel.abort_thread(child);
     assert_eq!(block_on(join), Ok(()));
 
-    let join = kernel.thread_join(&caller, task.0 as i32);
+    let join = join_thread(&kernel, &caller, task.0 as i32);
     let mut join = std::pin::pin!(join);
     assert!(join.as_mut().now_or_never().is_none());
     kernel.kill(task, Signal::SIGKILL).unwrap();
-    assert_eq!(block_on(join), Err(Errno::EINTR.into()));
+    assert_eq!(block_on(join), Err(SysErr::RestartNoHand));
 }
 
 #[test]
@@ -122,7 +129,7 @@ fn joining_a_tid_from_another_process_is_already_done() {
         .new_process(vec![], vec![], kernel.fd_table(), 0)
         .unwrap();
     assert_eq!(
-        block_on(kernel.thread_join(&caller, other.0 as i32)),
+        block_on(join_thread(&kernel, &caller, other.0 as i32)),
         Ok(())
     );
     assert!(live(&kernel, other));
@@ -134,7 +141,7 @@ fn a_join_keeps_its_completion_when_the_numeric_tid_is_reused() {
     let caller = Caller::new(task, &memory);
     let child = spawn_thread(&kernel, &caller);
     let _ = kernel.take_pending(task);
-    let join = kernel.thread_join(&caller, child.0 as i32);
+    let join = join_thread(&kernel, &caller, child.0 as i32);
     let mut join = std::pin::pin!(join);
     assert!(join.as_mut().now_or_never().is_none());
     kernel.abort_thread(child);
@@ -147,6 +154,43 @@ fn a_join_keeps_its_completion_when_the_numeric_tid_is_reused() {
     assert_eq!(block_on(join), Ok(()));
     let replacement = TaskId(kernel.find_vpid(&caller, replacement.0 as i32).unwrap());
     assert!(live(&kernel, replacement));
+}
+
+#[test]
+fn a_join_restart_keeps_the_exact_completion_and_rejects_foreign_providers() {
+    let (kernel, task, memory) = machine();
+    let caller = Caller::new(task, &memory);
+    let child = spawn_thread(&kernel, &caller);
+    let _ = kernel.take_pending(task);
+    let completion = kernel
+        .capture_thread_completion(task, child.0 as i32)
+        .unwrap()
+        .unwrap();
+    let wait = kernel.wait_thread_completion(&caller, &completion);
+    let mut wait = std::pin::pin!(wait);
+    assert!(wait.as_mut().now_or_never().is_none());
+    kernel.task_signals(task).group().notify(task);
+    assert_eq!(block_on(wait), Err(SysErr::RestartNoHand));
+    kernel.task_signals(task).group().clear_notify(task);
+    kernel.abort_thread(child);
+    kernel
+        .active_pid_ns(task)
+        .set_last_pid(child.0 - 1)
+        .unwrap();
+    assert_eq!(spawn_thread(&kernel, &caller), child);
+    assert_eq!(
+        block_on(kernel.wait_thread_completion(&caller, &completion)),
+        Ok(())
+    );
+
+    let (foreign, foreign_task, foreign_memory) = machine();
+    assert_eq!(
+        block_on(
+            foreign
+                .wait_thread_completion(&Caller::new(foreign_task, &foreign_memory), &completion)
+        ),
+        Err(Errno::EINVAL.into())
+    );
 }
 
 /// A vfork whose caller's exit was queued first, as another thread's `exit_group` can between

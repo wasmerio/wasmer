@@ -4513,12 +4513,20 @@ impl Control for Kernel {
         Box::pin(Kernel::group_wait(self, task))
     }
 
-    fn thread_join<'a>(
+    fn capture_thread_completion(
+        &self,
+        task: TaskId,
+        tid: i32,
+    ) -> Result<Option<wasixv2_syscalls::ThreadCompletion>, Errno> {
+        self.capture_join(task, tid)
+    }
+
+    fn wait_thread_completion<'a>(
         &'a self,
         caller: &'a Caller<'_>,
-        tid: i32,
+        completion: &'a wasixv2_syscalls::ThreadCompletion,
     ) -> LocalFuture<'a, SysResult<()>> {
-        Box::pin(self.join_thread(caller, tid))
+        Box::pin(self.wait_join(caller, completion))
     }
 
     // ---- proc ----

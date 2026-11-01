@@ -1037,6 +1037,11 @@ fn a_reaped_childs_task_leaves_the_table_and_its_exit_waits_for_the_release() {
     let init_memory = forkable();
     let init_caller = Caller::new(init, &init_memory);
     let child = fork(&kernel, &init_caller);
+    let completion = kernel.state.read_or_recover().tasks[&child]
+        .completion
+        .clone();
+    let mut completion_wait = std::pin::pin!(completion.wait(&wasixv2_wait::NoInterrupt));
+    assert!(completion_wait.as_mut().now_or_never().is_none());
     let memory = FlatMemory(RefCell::new(vec![0; 0x1000]));
     let process = Arc::downgrade(&kernel.process(child));
     assert_eq!(
@@ -1044,6 +1049,10 @@ fn a_reaped_childs_task_leaves_the_table_and_its_exit_waits_for_the_release() {
         Ok(())
     );
     assert_eq!(reap(&kernel, &init_caller, child), Some(5));
+    assert!(
+        completion_wait.as_mut().now_or_never().is_none(),
+        "reap is not execution release"
+    );
 
     assert!(!kernel.state.read_or_recover().tasks.contains_key(&child));
     assert!(
@@ -1052,6 +1061,7 @@ fn a_reaped_childs_task_leaves_the_table_and_its_exit_waits_for_the_release() {
     );
     assert_eq!(kernel.take_pending(child), Some(GuestAction::Exit(5)));
     kernel.release(child);
+    assert_eq!(block_on(completion_wait), Ok(()));
     assert!(kernel.state.read_or_recover().dead.is_empty());
     kernel.release(child);
 }

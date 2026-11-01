@@ -112,8 +112,19 @@ pub(crate) async fn thread_join<S: Syscalls + Control + 'static>(
     env: Env<S>,
     tid: i32,
 ) -> Result<i32, RuntimeError> {
+    let captured = std::cell::OnceCell::new();
     shim::errno(&env, async |frame| {
-        Ok(frame.syscalls.thread_join(&frame.caller(), tid).await?)
+        if captured.get().is_none() {
+            let completion = frame.syscalls.capture_thread_completion(frame.task, tid)?;
+            let _ = captured.set(completion);
+        }
+        if let Some(completion) = captured.get().expect("captured once") {
+            frame
+                .syscalls
+                .wait_thread_completion(&frame.caller(), completion)
+                .await?;
+        }
+        Ok(())
     })
     .await
 }
