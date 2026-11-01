@@ -5,7 +5,7 @@
 
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6};
 
-use super::{Fd, GuestLayout, Ptr, layout, newtype_layout};
+use super::{Fd, GuestLayout, Ptr, layout, newtype_layout, proc::OptionTimestamp};
 
 /// `address_family` (`u8`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -221,6 +221,16 @@ layout! {
     /// `hardware_address`.
     pub struct HardwareAddress (size 6, align 1) {
         pub octets: [u8; 6] = 0,
+    }
+}
+
+layout! {
+    /// `route` in api_wasix.h; the legacy Rust host type has narrower IP unions.
+    pub struct Route (size 176, align 8) {
+        pub cidr: AddrCidr = 0,
+        pub via_router: Addr = 28,
+        pub preferred_until: OptionTimestamp = 144,
+        pub expires_at: OptionTimestamp = 160,
     }
 }
 

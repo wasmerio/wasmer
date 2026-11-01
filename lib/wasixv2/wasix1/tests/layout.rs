@@ -145,3 +145,14 @@ fn sock_layouts() {
     assert_eq!(sock::Addr::SIZE, 110);
     assert_eq!(sock::AddrCidr::SIZE, 28);
 }
+
+/// wasix-libc api_wasix.h static assertions; the old Rust host's Route is narrower.
+#[test]
+fn route_matches_libc() {
+    assert_eq!(sock::Route::SIZE, 176);
+    assert_eq!(sock::Route::ALIGN, 8);
+    assert_eq!(offset(sock::Route::OFFSETS, "cidr"), 0);
+    assert_eq!(offset(sock::Route::OFFSETS, "via_router"), 28);
+    assert_eq!(offset(sock::Route::OFFSETS, "preferred_until"), 144);
+    assert_eq!(offset(sock::Route::OFFSETS, "expires_at"), 160);
+}

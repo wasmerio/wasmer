@@ -190,7 +190,8 @@ const WASIX: &str = r#"
   (import "wasix_32v1" "proc_signals_get" (func $proc_signals_get (param i32) (result i32)))
   (memory (export "memory") 1)
   (func (export "_start")
-    (if (i32.ne (call $port_addr_clear) (i32.const 58)) (then (call $proc_exit2 (i32.const 1))))
+    ;; The default non-root guest needs CAP_NET_ADMIN for network configuration.
+    (if (i32.ne (call $port_addr_clear) (i32.const 63)) (then (call $proc_exit2 (i32.const 1))))
     (if (i32.ne (call $dlopen (i32.const 0) (i32.const 0) (i32.const 0) (i32.const 0)
                               (i32.const 0) (i32.const 0) (i32.const 0) (i32.const 0)) (i32.const 58))
       (then (call $proc_exit2 (i32.const 2))))

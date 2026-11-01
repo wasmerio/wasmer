@@ -65,6 +65,14 @@ fn run_wasm_on(
 
 /// The imports and helpers every guest shares; `$body` is the guest's `_start`.
 const PRELUDE: &str = r#"
+  (import "wasix_32v1" "port_addr_add" (func $port_addr_add (param i32) (result i32)))
+  (import "wasix_32v1" "port_addr_remove" (func $port_addr_remove (param i32) (result i32)))
+  (import "wasix_32v1" "port_addr_clear" (func $port_addr_clear (result i32)))
+  (import "wasix_32v1" "port_route_add" (func $port_route_add (param i32 i32 i32 i32) (result i32)))
+  (import "wasix_32v1" "port_route_remove" (func $port_route_remove (param i32) (result i32)))
+  (import "wasix_32v1" "port_route_clear" (func $port_route_clear (result i32)))
+  (import "wasix_32v1" "port_route_list" (func $port_route_list (param i32 i32) (result i32)))
+  (import "wasix_32v1" "port_gateway_set" (func $port_gateway_set (param i32) (result i32)))
   (import "wasix_32v1" "sock_open" (func $sock_open (param i32 i32 i32 i32) (result i32)))
   (import "wasix_32v1" "sock_bind" (func $sock_bind (param i32 i32) (result i32)))
   (import "wasix_32v1" "sock_listen" (func $sock_listen (param i32 i32) (result i32)))
@@ -574,6 +582,146 @@ fn port_addr_list_has_loopback() {
     (call $assert (local.get $found) (i32.const 4))
     "#;
     assert_eq!(run("", body).0, 0);
+}
+
+fn run_port(data: &str, body: &str) -> i32 {
+    let machine = || {
+        Machine::builder()
+            .user(wasixv2::Credentials::new(0, 0))
+            .network(wasixv2::Net::new(wasixv2::NetConfig::default(), None))
+            .build()
+    };
+    let (status, _, stderr) = run_wasm_on(machine, &guest(data, body), &["net"]);
+    assert!(stderr.is_empty(), "stderr: {stderr}");
+    status
+}
+
+/// Configuration uses the same namespace as the list queries, including remove/clear.
+#[test]
+fn port_addresses_mutate_namespace() {
+    let data = r#"
+    (data (i32.const 100) "\01\00\c0\00\02\01\18")
+    (data (i32.const 300) "\01\00\c0\00\02\02\18")
+    "#;
+    let body = r#"
+    (call $ok (call $port_addr_add (i32.const 100)) (i32.const 1))
+    (i32.store (i32.const 8) (i32.const 32))
+    (call $ok (call $port_addr_list (i32.const 1000) (i32.const 8)) (i32.const 2))
+    (call $assert (i32.ge_u (i32.load (i32.const 8)) (i32.const 3)) (i32.const 3))
+    (call $ok (call $port_addr_remove (i32.const 100)) (i32.const 4))
+    ;; Repeated removal is a no-op, as the old loopback provider's retain operation was.
+    (call $ok (call $port_addr_remove (i32.const 100)) (i32.const 5))
+    ;; A primary and secondary in one subnet must both clear successfully.
+    (call $ok (call $port_addr_add (i32.const 100)) (i32.const 11))
+    (call $ok (call $port_addr_add (i32.const 300)) (i32.const 12))
+    (call $ok (call $port_addr_clear) (i32.const 6))
+    (call $ok (call $port_addr_list (i32.const 1000) (i32.const 8)) (i32.const 7))
+    (call $assert (i32.eqz (i32.load (i32.const 8))) (i32.const 8))
+    ;; Invalid prefix and invalid address family are INVAL.
+    (i32.store8 (i32.const 106) (i32.const 33))
+    (call $assert (i32.eq (call $port_addr_add (i32.const 100)) (i32.const 28)) (i32.const 9))
+    (i32.store8 (i32.const 100) (i32.const 0))
+    (call $assert (i32.eq (call $port_addr_remove (i32.const 100)) (i32.const 28)) (i32.const 10))
+    "#;
+    assert_eq!(run_port(data, body), 0);
+}
+
+/// Route layout and overflow match api_wasix.h, and changes reach the live route table.
+#[test]
+fn port_routes_mutate_namespace() {
+    let data = r#"
+    (data (i32.const 100) "\01\00\c0\00\02\00\18")
+    (data (i32.const 300) "\01\00\7f\00\00\01")
+    (data (i32.const 700) "\01\00\cb\00\71\01")
+    "#;
+    let body = r#"
+    (call $ok (call $port_route_clear) (i32.const 1))
+    (call $ok (call $port_route_add (i32.const 100) (i32.const 300) (i32.const 500) (i32.const 520)) (i32.const 2))
+    ;; No room: count is written, output remains untouched.
+    (i32.store (i32.const 1000) (i32.const 0x55555555))
+    (call $assert (i32.eq (call $port_route_list (i32.const 1000) (i32.const 8)) (i32.const 61)) (i32.const 3))
+    (call $assert (i32.eq (i32.load (i32.const 8)) (i32.const 1)) (i32.const 4))
+    (call $assert (i32.eq (i32.load (i32.const 1000)) (i32.const 0x55555555)) (i32.const 5))
+    (call $ok (call $port_route_list (i32.const 1000) (i32.const 8)) (i32.const 6))
+    (call $assert (i32.eq (i32.load (i32.const 1002)) (i32.const 0x000200c0)) (i32.const 7))
+    (call $assert (i32.eq (i32.load8_u (i32.const 1006)) (i32.const 24)) (i32.const 8))
+    (call $assert (i32.eq (i32.load (i32.const 1030)) (i32.const 0x0100007f)) (i32.const 9))
+    (call $assert (i32.eqz (i32.load8_u (i32.const 1144))) (i32.const 10))
+    (call $assert (i32.eqz (i32.load8_u (i32.const 1160))) (i32.const 11))
+    (call $ok (call $port_route_remove (i32.const 100)) (i32.const 12))
+    (call $ok (call $port_route_list (i32.const 1000) (i32.const 8)) (i32.const 13))
+    (call $assert (i32.eqz (i32.load (i32.const 8))) (i32.const 14))
+    (call $ok (call $port_gateway_set (i32.const 300)) (i32.const 15))
+    (i32.store (i32.const 8) (i32.const 2))
+    (call $ok (call $port_route_list (i32.const 1000) (i32.const 8)) (i32.const 16))
+    (call $assert (i32.eq (i32.load (i32.const 8)) (i32.const 1)) (i32.const 17))
+    (call $assert (i32.eqz (i32.load8_u (i32.const 1006))) (i32.const 18))
+    (call $ok (call $port_route_clear) (i32.const 19))
+    (call $ok (call $port_route_list (i32.const 1000) (i32.const 8)) (i32.const 20))
+    (call $assert (i32.eqz (i32.load (i32.const 8))) (i32.const 21))
+    ;; Explicit deadlines are not silently discarded.
+    (i32.store8 (i32.const 500) (i32.const 1))
+    (call $assert (i32.eq (call $port_route_add (i32.const 100) (i32.const 300) (i32.const 500) (i32.const 520)) (i32.const 58)) (i32.const 22))
+    (i32.store8 (i32.const 500) (i32.const 2))
+    (call $assert (i32.eq (call $port_route_add (i32.const 100) (i32.const 300) (i32.const 500) (i32.const 520)) (i32.const 28)) (i32.const 23))
+    (i32.store8 (i32.const 500) (i32.const 0))
+    ;; A queued request is not success: unreachable gateway error comes back in the ACK.
+    (call $assert (i32.eq (call $port_route_add (i32.const 100) (i32.const 700) (i32.const 500) (i32.const 520)) (i32.const 40)) (i32.const 24))
+    "#;
+    assert_eq!(run_port(data, body), 0);
+}
+
+/// IPv6 CIDR prefixes sit after flow/scope fields; on-link routes need an output interface.
+#[test]
+fn port_ipv6_configuration() {
+    let data = r#"
+    (data (i32.const 100) "\02\00\20\01\0d\b8\00\00\00\00\00\00\00\00\00\00\00\01")
+    (data (i32.const 300) "\02\00\20\01\0d\b8")
+    (data (i32.const 500) "\02")
+    "#;
+    let body = r#"
+    (i32.store8 (i32.const 126) (i32.const 128))
+    (i32.store8 (i32.const 326) (i32.const 64))
+    (call $ok (call $port_addr_add (i32.const 100)) (i32.const 1))
+    (call $ok (call $port_route_clear) (i32.const 2))
+    (call $ok (call $port_route_add (i32.const 300) (i32.const 500) (i32.const 700) (i32.const 720)) (i32.const 3))
+    (i32.store (i32.const 8) (i32.const 1))
+    (call $ok (call $port_route_list (i32.const 1000) (i32.const 8)) (i32.const 4))
+    (call $assert (i32.eq (i32.load8_u (i32.const 1000)) (i32.const 2)) (i32.const 5))
+    (call $assert (i32.eq (i32.load8_u (i32.const 1026)) (i32.const 64)) (i32.const 6))
+    (call $assert (i32.eq (i32.load8_u (i32.const 1028)) (i32.const 2)) (i32.const 7))
+    (call $assert (i64.eqz (i64.load (i32.const 1030))) (i32.const 8))
+    (call $ok (call $port_route_remove (i32.const 300)) (i32.const 9))
+    (call $ok (call $port_addr_remove (i32.const 100)) (i32.const 10))
+    (i32.store (i32.const 8) (i32.const 32))
+    (call $ok (call $port_addr_list (i32.const 1000) (i32.const 8)) (i32.const 11))
+    (call $assert (i32.eq (i32.load (i32.const 8)) (i32.const 2)) (i32.const 12))
+    "#;
+    assert_eq!(run_port(data, body), 0);
+}
+
+/// A route dump can exceed 64 KiB; clear must also avoid allocating that much per ACK.
+#[test]
+fn port_large_route_dump_and_clear() {
+    let data = r#"
+    (data (i32.const 100) "\01\00\c6\12\00\00\20")
+    (data (i32.const 300) "\01\00\7f\00\00\01")
+    "#;
+    let body = r#"
+    (local $i i32)
+    (call $ok (call $port_route_clear) (i32.const 1))
+    (loop $add
+      (i32.store (i32.const 102) (i32.or (i32.const 0x12c6) (i32.shl (local.get $i) (i32.const 16))))
+      (call $ok (call $port_route_add (i32.const 100) (i32.const 300) (i32.const 500) (i32.const 520)) (i32.const 2))
+      (local.set $i (i32.add (local.get $i) (i32.const 1)))
+      (br_if $add (i32.lt_u (local.get $i) (i32.const 1200))))
+    (call $assert (i32.eq (call $port_route_list (i32.const 1000) (i32.const 8)) (i32.const 61)) (i32.const 3))
+    (call $assert (i32.eq (i32.load (i32.const 8)) (i32.const 1200)) (i32.const 4))
+    (call $ok (call $port_route_clear) (i32.const 5))
+    (call $ok (call $port_route_list (i32.const 1000) (i32.const 8)) (i32.const 6))
+    (call $assert (i32.eqz (i32.load (i32.const 8))) (i32.const 7))
+    "#;
+    assert_eq!(run_port(data, body), 0);
 }
 
 /// The C counterpart: `net-loopback.c` built against wasix-libc, using `socket`, `poll`,
