@@ -619,7 +619,9 @@ where
 {
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
-    let caller = Caller::new(task, &memory);
+    let unwind = crate::GuestUnwind::default();
+    let functions = crate::GuestFunctionOperations::new(&env, &unwind);
+    let caller = Caller::new(task, &memory).with_functions(&functions);
     loop {
         let ret = Syscalls::call_dynamic(
             &*syscalls,
@@ -630,6 +632,7 @@ where
             CallDynamicFlags(flags as u32),
         )
         .await;
+        let ret = unwind.finish(&env, ret).await?;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
             return ret;
         }
@@ -650,7 +653,9 @@ where
 {
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
-    let caller = Caller::new(task, &memory);
+    let unwind = crate::GuestUnwind::default();
+    let functions = crate::GuestFunctionOperations::new(&env, &unwind);
+    let caller = Caller::new(task, &memory).with_functions(&functions);
     loop {
         let ret = Syscalls::reflect_signature(
             &*syscalls,
@@ -661,6 +666,7 @@ where
             ReflectionResultPtr::new(result as u32),
         )
         .await;
+        let ret = unwind.finish(&env, ret).await?;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
             return ret;
         }
@@ -676,10 +682,13 @@ where
 {
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
-    let caller = Caller::new(task, &memory);
+    let unwind = crate::GuestUnwind::default();
+    let functions = crate::GuestFunctionOperations::new(&env, &unwind);
+    let caller = Caller::new(task, &memory).with_functions(&functions);
     loop {
         let ret =
             Syscalls::closure_allocate(&*syscalls, &caller, U32Ptr::new(closure as u32)).await;
+        let ret = unwind.finish(&env, ret).await?;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
             return ret;
         }
@@ -702,7 +711,9 @@ where
 {
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
-    let caller = Caller::new(task, &memory);
+    let unwind = crate::GuestUnwind::default();
+    let functions = crate::GuestFunctionOperations::new(&env, &unwind);
+    let caller = Caller::new(task, &memory).with_functions(&functions);
     loop {
         let ret = Syscalls::closure_prepare(
             &*syscalls,
@@ -714,6 +725,7 @@ where
             env_ as u32,
         )
         .await;
+        let ret = unwind.finish(&env, ret).await?;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
             return ret;
         }
@@ -729,9 +741,12 @@ where
 {
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
-    let caller = Caller::new(task, &memory);
+    let unwind = crate::GuestUnwind::default();
+    let functions = crate::GuestFunctionOperations::new(&env, &unwind);
+    let caller = Caller::new(task, &memory).with_functions(&functions);
     loop {
         let ret = Syscalls::closure_free(&*syscalls, &caller, closure as u32).await;
+        let ret = unwind.finish(&env, ret).await?;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
             return ret;
         }

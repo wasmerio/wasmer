@@ -131,7 +131,15 @@ where
         role: Role,
     ) -> Result<Arc<dyn AbiInstance<S>>, ExecError> {
         let (procs, commands) = (self.procs.clone(), self.commands.clone());
-        let bound = Wasix1Instance::bind(procs, commands, self.http.clone(), instance, task, role)?;
+        let bound = Wasix1Instance::bind(
+            procs,
+            commands,
+            self.http.clone(),
+            instance,
+            _store,
+            task,
+            role,
+        )?;
         Ok(Arc::new(bound))
     }
 }

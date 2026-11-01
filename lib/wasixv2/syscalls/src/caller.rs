@@ -11,6 +11,7 @@ pub struct Caller<'a> {
     dynamic_linker: Option<&'a dyn crate::DynamicLinker>,
     descriptors: Option<crate::DescriptorSet>,
     installations: Option<crate::DescriptorInstallations>,
+    functions: Option<&'a dyn crate::FunctionOperations>,
 }
 
 impl<'a> Caller<'a> {
@@ -21,6 +22,7 @@ impl<'a> Caller<'a> {
             dynamic_linker: None,
             descriptors: None,
             installations: None,
+            functions: None,
         }
     }
 
@@ -33,6 +35,16 @@ impl<'a> Caller<'a> {
 
     pub fn dynamic_linker(&self) -> Option<&'a dyn crate::DynamicLinker> {
         self.dynamic_linker
+    }
+
+    /// Borrows function authority for this import; dispatch cannot retain it.
+    pub fn with_functions(mut self, functions: &'a dyn crate::FunctionOperations) -> Self {
+        self.functions = Some(functions);
+        self
+    }
+
+    pub fn functions(&self) -> Option<&'a dyn crate::FunctionOperations> {
+        self.functions
     }
 
     pub fn task(&self) -> TaskId {

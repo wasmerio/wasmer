@@ -26,6 +26,7 @@ mod control;
 mod cputime;
 mod descriptors;
 mod dynamic;
+mod function;
 mod future;
 mod generated;
 mod loader;
@@ -57,3 +58,4 @@ pub use loader::{
 };
 
 pub use dynamic::DynamicLinker;
+pub use function::FunctionOperations;
