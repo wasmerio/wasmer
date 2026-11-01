@@ -43,12 +43,18 @@ pub struct Frame<'a, S: 'static> {
     /// Guest memory plus this call's scratch window.
     pub mem: CompatMemory<'a, S>,
     abi: Arc<dyn AbiInstance<S>>,
+    unwind: wasixv2_exec::GuestUnwind,
 }
 
 impl<'a, S: Syscalls + Control + 'static> Frame<'a, S> {
     /// The caller to pass to every v2 call: this task, with this call's memory.
     pub fn caller(&self) -> Caller<'_> {
         Caller::new(self.task, &self.mem)
+    }
+
+    /// The original guest error raised by an engine capability in this import.
+    pub(crate) fn unwind(&self) -> &wasixv2_exec::GuestUnwind {
+        &self.unwind
     }
 
     pub(crate) fn instance(&self) -> &Wasix1Instance {
@@ -140,6 +146,7 @@ where
         task,
         mem: CompatMemory::new(GuestMemory::new(env)),
         abi,
+        unwind: wasixv2_exec::GuestUnwind::default(),
     };
     if !frame.instance().started() {
         // Preopens must exist before the guest's first look at its descriptors.
@@ -153,6 +160,7 @@ where
             Err(Error::Sys(err)) => (Err::<Option<T>, SysErr>(err), None),
             Err(Error::V1(errno)) => (Ok(None), Some(errno)),
         };
+        let ret = frame.unwind().finish(env, ret).await?;
         return Ok(match complete(env, &*syscalls, task, ret).await {
             // A body cannot go on halfway, so a call that saved how to continue
             // (`ERESTART_RESTARTBLOCK`) runs again from the start too.
