@@ -205,17 +205,16 @@ table! {
     "port_bridge" WASIX (I32 I32 I32 I32 I32) -> (I32) Unsupported;
     "port_unbridge" WASIX () -> (I32) Unsupported;
     "port_dhcp_acquire" WASIX () -> (I32) Unsupported;
-    "port_addr_add" WASIX (I32) -> (I32) Unsupported;
-    "port_addr_remove" WASIX (I32) -> (I32) Unsupported;
-    "port_addr_clear" WASIX () -> (I32) Unsupported;
+    "port_addr_add" WASIX (I32) -> (I32) Shim;
+    "port_addr_remove" WASIX (I32) -> (I32) Shim;
+    "port_addr_clear" WASIX () -> (I32) Shim;
     "port_mac" WASIX (I32) -> (I32) Shim;
     "port_addr_list" WASIX (I32 I32) -> (I32) Shim;
-    "port_gateway_set" WASIX (I32) -> (I32) Unsupported;
-    "port_route_add" WASIX (I32 I32 I32 I32) -> (I32) Unsupported;
-    "port_route_remove" WASIX (I32) -> (I32) Unsupported;
-    "port_route_clear" WASIX () -> (I32) Unsupported;
-    // Until the kernel's netlink answers `RTM_GETROUTE`.
-    "port_route_list" WASIX (I32 I32) -> (I32) Unsupported;
+    "port_gateway_set" WASIX (I32) -> (I32) Shim;
+    "port_route_add" WASIX (I32 I32 I32 I32) -> (I32) Shim;
+    "port_route_remove" WASIX (I32) -> (I32) Shim;
+    "port_route_clear" WASIX () -> (I32) Shim;
+    "port_route_list" WASIX (I32 I32) -> (I32) Shim;
     "sock_status" WASIX (I32 I32) -> (I32) Shim;
     "sock_addr_local" WASIX (I32 I32) -> (I32) Shim;
     "sock_addr_peer" WASIX (I32 I32) -> (I32) Shim;
@@ -458,6 +457,14 @@ where
         "sock_join_multicast_v6" => f!(sockopt::sock_join_multicast_v6::<S>),
         "sock_leave_multicast_v6" => f!(sockopt::sock_leave_multicast_v6::<S>),
         "resolve" => f!(resolve::resolve::<S>),
+        "port_addr_add" => f!(port::port_addr_add::<S>),
+        "port_addr_remove" => f!(port::port_addr_remove::<S>),
+        "port_addr_clear" => f!(port::port_addr_clear::<S>),
+        "port_gateway_set" => f!(port::port_gateway_set::<S>),
+        "port_route_add" => f!(port::port_route_add::<S>),
+        "port_route_remove" => f!(port::port_route_remove::<S>),
+        "port_route_clear" => f!(port::port_route_clear::<S>),
+        "port_route_list" => f!(port::port_route_list::<S>),
         "port_addr_list" => f!(port::port_addr_list::<S>),
         "port_mac" => f!(port::port_mac::<S>),
         "proc_raise" => f!(signal::proc_raise::<S>),
