@@ -165,6 +165,7 @@ pub(crate) async fn tty_get<S: Syscalls + Control + 'static>(
     out: i32,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
+        frame.bind_descriptors(&[Fd(0), Fd(1), Fd(2)])?;
         let (ttys, first) = stdio(frame).await?;
         let kept = *frame.proc().await?.proc.tty.modes.lock().unwrap();
         let modes = match &first {
@@ -182,6 +183,7 @@ pub(crate) async fn tty_set<S: Syscalls + Control + 'static>(
     state: i32,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
+        frame.bind_descriptors(&[Fd(0), Fd(1), Fd(2)])?;
         let tty: Tty = frame.read(state as u32).await?;
         let modes = Modes {
             echo: tty.echo == Bool::TRUE,

@@ -1,13 +1,423 @@
 //! Filesystem syscalls on open files and paths: `openat2` scoping, locks, allocation, copies,
 //! status flags and the generic ioctls.
 
-use wasixv2_abi::{EventfdFlags, FileHandlePtr, LockType, ResolveFlags, S32Ptr, SpliceFlags};
+use wasixv2_abi::{
+    CloneFlags, EventfdFlags, FileHandlePtr, LockType, ResolveFlags, S32Ptr, SpliceFlags,
+};
 
 use super::ipc::{errno, get, machine, put};
 use super::*;
 use crate::sync::MutexExt;
 
 const CWD: Fd = Fd(-100);
+
+fn descriptor_value(kernel: &Kernel, task: TaskId, fd: Fd) -> Option<u64> {
+    let set = kernel.snapshot_descriptors(task, &[fd]).unwrap();
+    set.get(fd)?
+        .attachment
+        .as_ref()?
+        .downcast_ref::<u64>()
+        .copied()
+}
+
+#[test]
+fn descriptor_admission_pins_io_but_close_and_dup_cannot_mutate_a_reused_slot() {
+    let (kernel, task, memory) = machine();
+    let t = T::new(&kernel, task, &memory);
+    t.create("/original", b"old");
+    t.create("/replacement", b"new");
+    let fd = t.open("/original", OpenFlags::O_RDWR).unwrap();
+    let set = kernel.snapshot_descriptors(task, &[fd]).unwrap();
+    let caller = Caller::new(task, &memory).with_descriptors(&set);
+    t.close(fd);
+    assert_eq!(t.open("/replacement", OpenFlags::O_RDWR).unwrap(), fd);
+    put(&memory, 0x2000, b"yes");
+    assert_eq!(
+        block_on(kernel.write(&caller, fd, UserSlice::new(0x2000, 3))),
+        Ok(3)
+    );
+    assert_eq!(
+        block_on(kernel.close(&caller, fd)),
+        Err(Errno::EBADF.into())
+    );
+    assert_eq!(block_on(kernel.dup(&caller, fd)), Err(Errno::EBADF.into()));
+    assert_eq!(
+        block_on(kernel.ioctl(&caller, fd, IoctlRequest::FIOCLEX, 0)),
+        Err(Errno::EBADF.into())
+    );
+    assert_eq!(
+        block_on(kernel.fcntl64(&t.caller, fd, FcntlCmd::F_GETFD, 0)),
+        Ok(0)
+    );
+    assert_eq!(t.read(fd, 3).unwrap(), b"new");
+    let original = t.open("/original", OpenFlags::O_RDONLY).unwrap();
+    assert_eq!(t.read(original, 3).unwrap(), b"yes");
+    // A layer rewriting an operand cannot fall through to an uncaptured numeric lookup.
+    assert_eq!(
+        block_on(kernel.read(&caller, original, UserSliceMut::new(0x2000, 3))),
+        Err(Errno::EBADF.into())
+    );
+    let (foreign, foreign_task, foreign_memory) = machine();
+    let foreign_file = T::new(&foreign, foreign_task, &foreign_memory)
+        .open("/foreign", OpenFlags::O_CREAT | OpenFlags::O_RDWR)
+        .unwrap();
+    assert_eq!(foreign_file, fd);
+    let foreign_caller = Caller::new(foreign_task, &foreign_memory).with_descriptors(&set);
+    assert_eq!(
+        block_on(foreign.write(&foreign_caller, fd, UserSlice::new(0x2000, 3))),
+        Err(Errno::EBADF.into())
+    );
+}
+
+#[test]
+fn descriptor_publication_carries_metadata_and_captured_output_identity() {
+    use wasixv2_syscalls::{DescriptorAttachment, DescriptorInstallations, DescriptorUpdate};
+    let (kernel, task, memory) = machine();
+    let t = T::new(&kernel, task, &memory);
+    let plan = DescriptorInstallations::new(vec![Some(DescriptorAttachment::new(7_u64))]);
+    let caller = Caller::new(task, &memory).with_descriptor_installations(&plan);
+    let fd = block_on(kernel.openat(
+        &caller,
+        CWD,
+        t.path("/created"),
+        OpenFlags::O_CREAT | OpenFlags::O_RDWR,
+        0o644,
+    ))
+    .unwrap();
+    // Its first lookup/dup already sees the restricted attachment; there is no setter gap.
+    assert_eq!(descriptor_value(&kernel, task, fd), Some(7));
+    let duplicate = block_on(kernel.dup(&t.caller, fd)).unwrap();
+    assert_eq!(descriptor_value(&kernel, task, duplicate), Some(7));
+    let before = kernel.snapshot_descriptors(task, &[fd]).unwrap();
+    assert_eq!(
+        kernel.replace_descriptor_attachment(
+            task,
+            &before,
+            fd,
+            Some(DescriptorAttachment::new(3_u64))
+        ),
+        Ok(DescriptorUpdate::Replaced)
+    );
+    assert_eq!(
+        kernel.replace_descriptor_attachment(
+            task,
+            &before,
+            fd,
+            Some(DescriptorAttachment::new(5_u64))
+        ),
+        Ok(DescriptorUpdate::Conflict)
+    );
+    assert_eq!(descriptor_value(&kernel, task, fd), Some(3));
+    assert_eq!(descriptor_value(&kernel, task, duplicate), Some(7));
+
+    let created = plan.result(0).unwrap();
+    t.close(fd);
+    let replacement = block_on(kernel.eventfd2(&t.caller, 0, EventfdFlags(0))).unwrap();
+    assert_eq!(replacement, fd);
+    let caller = Caller::new(task, &memory).with_descriptors(created);
+    put(&memory, 0x2000, b"kept");
+    assert_eq!(
+        block_on(kernel.write(&caller, fd, UserSlice::new(0x2000, 4))),
+        Ok(4)
+    );
+    assert_eq!(
+        block_on(kernel.close(&caller, fd)),
+        Err(Errno::EBADF.into())
+    );
+    let check = t.open("/created", OpenFlags::O_RDONLY).unwrap();
+    assert_eq!(t.read(check, 4).unwrap(), b"kept");
+}
+
+#[test]
+fn descriptor_snapshots_do_not_share_tables_and_unshare_rejects_stale_mutations() {
+    use wasixv2_syscalls::{DescriptorAttachment, DescriptorUpdate};
+    let (kernel, task, memory) = machine();
+    let t = T::new(&kernel, task, &memory);
+    let fd = t
+        .open("/shared", OpenFlags::O_CREAT | OpenFlags::O_RDWR)
+        .unwrap();
+    let initial = kernel.snapshot_descriptors(task, &[fd]).unwrap();
+    kernel
+        .replace_descriptor_attachment(task, &initial, fd, Some(DescriptorAttachment::new(7_u64)))
+        .unwrap();
+    let fork_memory = super::proc::forkable();
+    let copied = super::proc::fork_child(&kernel, &Caller::new(task, &fork_memory));
+    assert_eq!(descriptor_value(&kernel, copied, fd), Some(7));
+    // A separate process can share CLONE_FILES; reductions follow the table, not the pid/mm.
+    let flags = (CloneFlags::CLONE_VM | CloneFlags::CLONE_FILES).0 as u32;
+    let child = TaskId(
+        block_on(kernel.thread_spawn(&t.caller, flags, 0, GuestPtrMut::NULL, 0, GuestPtrMut::NULL))
+            .unwrap() as u32,
+    );
+    let table = kernel.files(task);
+    let count = Arc::strong_count(&table);
+    let captured = kernel.snapshot_descriptors(task, &[fd]).unwrap();
+    assert_eq!(
+        Arc::strong_count(&table),
+        count,
+        "snapshots must not change unshare heuristics"
+    );
+    kernel
+        .replace_descriptor_attachment(child, &captured, fd, Some(DescriptorAttachment::new(3_u64)))
+        .unwrap();
+    assert_eq!(descriptor_value(&kernel, task, fd), Some(3));
+    assert_eq!(descriptor_value(&kernel, copied, fd), Some(7));
+    block_on(kernel.unshare(&t.caller, CloneFlags::CLONE_FILES.0 as u32)).unwrap();
+    let stale = Caller::new(task, &memory).with_descriptors(&captured);
+    assert_eq!(block_on(kernel.close(&stale, fd)), Err(Errno::EBADF.into()));
+    assert_eq!(
+        kernel.replace_descriptor_attachment(task, &captured, fd, None),
+        Ok(DescriptorUpdate::Stale)
+    );
+    // An unrelated task cannot borrow the binding merely because its numbers are the same.
+    // Absolute paths still validate private provider/task custody before ignoring dirfd.
+    let unrelated = Caller::new(copied, &memory).with_descriptors(&captured);
+    assert_eq!(
+        block_on(kernel.unlinkat(&unrelated, fd, t.path("/shared"), AtFlags(0))),
+        Err(Errno::EBADF.into())
+    );
+    let own = kernel.snapshot_descriptors(task, &[fd]).unwrap();
+    kernel
+        .replace_descriptor_attachment(task, &own, fd, Some(DescriptorAttachment::new(1_u64)))
+        .unwrap();
+    assert_eq!(descriptor_value(&kernel, task, fd), Some(1));
+    assert_eq!(descriptor_value(&kernel, child, fd), Some(3));
+    let original_table = Arc::downgrade(&table);
+    drop(table);
+    kernel.abort_thread(child);
+    assert!(
+        original_table.upgrade().is_none(),
+        "only weak table custody remains"
+    );
+    t.close(fd);
+    assert_eq!(
+        t.open("/replacement", OpenFlags::O_CREAT | OpenFlags::O_RDWR)
+            .unwrap(),
+        fd
+    );
+    put(&memory, 0x2000, b"admitted");
+    assert_eq!(
+        block_on(kernel.write(&stale, fd, UserSlice::new(0x2000, 8))),
+        Ok(8)
+    );
+    assert!(t.read(fd, 8).unwrap().is_empty());
+    let original = t.open("/shared", OpenFlags::O_RDONLY).unwrap();
+    assert_eq!(t.read(original, 8).unwrap(), b"admitted");
+}
+
+#[test]
+fn descriptor_two_directory_operands_stay_bound_across_close_and_reuse() {
+    let (kernel, task, memory) = machine();
+    let t = T::new(&kernel, task, &memory);
+    for dir in ["/a", "/b", "/c", "/d"] {
+        t.mkdir(dir);
+    }
+    t.create("/a/source", b"bound");
+    let flags = OpenFlags::O_RDONLY | OpenFlags::O_DIRECTORY;
+    let a = t.open("/a", flags).unwrap();
+    let b = t.open("/b", flags).unwrap();
+    let set = kernel.snapshot_descriptors(task, &[a, b]).unwrap();
+    t.close(a);
+    t.close(b);
+    assert_eq!(t.open("/c", flags).unwrap(), a);
+    assert_eq!(t.open("/d", flags).unwrap(), b);
+    put(&memory, 0x1000, b"source\0");
+    put(&memory, 0x1400, b"target\0");
+    let caller = Caller::new(task, &memory).with_descriptors(&set);
+    assert_eq!(
+        block_on(kernel.renameat2(
+            &caller,
+            a,
+            GuestPtr::new(0x1000),
+            b,
+            GuestPtr::new(0x1400),
+            wasixv2_abi::RenameFlags(0)
+        )),
+        Ok(0)
+    );
+    let target = t.open("/b/target", OpenFlags::O_RDONLY).unwrap();
+    assert_eq!(t.read(target, 5).unwrap(), b"bound");
+    assert_eq!(
+        errno(t.open("/d/target", OpenFlags::O_RDONLY)),
+        Errno::ENOENT
+    );
+}
+
+#[test]
+fn descriptor_poll_keeps_captured_absence_after_installation_at_that_number() {
+    use wasixv2_abi::{KernelTimespec, PollEvents, Pollfd, PollfdArray};
+    use wasixv2_syscalls::{read_value, write_value};
+    let (kernel, task, memory) = machine();
+    let t = T::new(&kernel, task, &memory);
+    let absent = Fd(12);
+    let set = kernel.snapshot_descriptors(task, &[absent]).unwrap();
+    block_on(kernel.dup3(&t.caller, Fd(1), absent, OpenFlags(0))).unwrap();
+    block_on(write_value(
+        &memory,
+        GuestPtrMut::new(0x2000),
+        &Pollfd {
+            fd: absent,
+            events: PollEvents::POLLOUT,
+            revents: PollEvents::empty(),
+        },
+    ))
+    .unwrap();
+    block_on(write_value(
+        &memory,
+        GuestPtrMut::new(0x2100),
+        &KernelTimespec {
+            tv_sec: 0,
+            tv_nsec: 0,
+        },
+    ))
+    .unwrap();
+    let caller = Caller::new(task, &memory).with_descriptors(&set);
+    assert_eq!(
+        block_on(kernel.ppoll_time64(
+            &caller,
+            PollfdArray::new(0x2000),
+            1,
+            GuestPtrMut::new(0x2100),
+            GuestPtr::NULL,
+            8
+        )),
+        Ok(1)
+    );
+    let result: Pollfd = block_on(read_value(&memory, GuestPtr::new(0x2000))).unwrap();
+    assert_eq!(result.revents, PollEvents::POLLNVAL);
+}
+
+#[test]
+fn descriptor_install_plans_fail_before_truncate_and_pair_output_fault_publishes_nothing() {
+    use wasixv2_syscalls::{DescriptorAttachment, DescriptorInstallations};
+    let (kernel, task, memory) = machine();
+    let t = T::new(&kernel, task, &memory);
+    t.create("/keep", b"kept");
+    let invalid = DescriptorInstallations::new(vec![Some(DescriptorAttachment::new(7_u64)); 2]);
+    let caller = Caller::new(task, &memory).with_descriptor_installations(&invalid);
+    assert_eq!(
+        block_on(kernel.openat(
+            &caller,
+            CWD,
+            t.path("/keep"),
+            OpenFlags::O_RDWR | OpenFlags::O_TRUNC,
+            0
+        )),
+        Err(Errno::EINVAL.into())
+    );
+    let fd = t.open("/keep", OpenFlags::O_RDONLY).unwrap();
+    assert_eq!(t.read(fd, 4).unwrap(), b"kept");
+    t.close(fd);
+
+    let plan = DescriptorInstallations::new(vec![
+        Some(DescriptorAttachment::new(1_u64)),
+        Some(DescriptorAttachment::new(2_u64)),
+    ]);
+    let caller = Caller::new(task, &memory).with_descriptor_installations(&plan);
+    assert_eq!(
+        block_on(kernel.pipe2(&caller, GuestPtrMut::new(0xffff_fffc), OpenFlags(0))),
+        Err(Errno::EFAULT.into())
+    );
+    assert!(plan.result(0).is_none() && plan.result(1).is_none());
+    let set = kernel.snapshot_descriptors(task, &[Fd(3), Fd(4)]).unwrap();
+    assert!(!set.get(Fd(3)).unwrap().present && !set.get(Fd(4)).unwrap().present);
+}
+
+#[test]
+fn descriptor_exec_copies_surviving_metadata_and_removes_only_its_cloexec_slots() {
+    use wasixv2_syscalls::DescriptorAttachment;
+    let (kernel, task, memory) = machine();
+    let t = T::new(&kernel, task, &memory);
+    super::task::install_prog(&kernel, &t.caller, &memory);
+    let fd = t
+        .open("/survivor", OpenFlags::O_CREAT | OpenFlags::O_RDWR)
+        .unwrap();
+    let set = kernel.snapshot_descriptors(task, &[fd]).unwrap();
+    kernel
+        .replace_descriptor_attachment(task, &set, fd, Some(DescriptorAttachment::new(3_u64)))
+        .unwrap();
+    block_on(kernel.dup3(&t.caller, fd, Fd(21), OpenFlags::O_CLOEXEC)).unwrap();
+    let flags = (CloneFlags::CLONE_VM | CloneFlags::CLONE_FILES).0 as u32;
+    let child = TaskId(
+        block_on(kernel.thread_spawn(&t.caller, flags, 0, GuestPtrMut::NULL, 0, GuestPtrMut::NULL))
+            .unwrap() as u32,
+    );
+    let _ = kernel.take_pending(task);
+    assert_eq!(block_on(super::task::execve(&kernel, &t.caller)), Ok(0));
+    assert_eq!(descriptor_value(&kernel, task, fd), Some(3));
+    assert!(
+        !kernel
+            .snapshot_descriptors(task, &[Fd(21)])
+            .unwrap()
+            .get(Fd(21))
+            .unwrap()
+            .present
+    );
+    assert_eq!(descriptor_value(&kernel, child, Fd(21)), Some(3));
+    assert_eq!(descriptor_value(&kernel, child, fd), Some(3));
+}
+
+#[test]
+fn descriptor_pending_poll_releases_the_table_and_keeps_its_admitted_file_after_unshare() {
+    use futures::FutureExt as _;
+    use wasixv2_abi::{PollEvents, Pollfd, PollfdArray};
+    use wasixv2_syscalls::{read_value, write_value};
+    let (kernel, task, memory) = machine();
+    let t = T::new(&kernel, task, &memory);
+    block_on(kernel.pipe2(&t.caller, GuestPtrMut::new(0x1000), OpenFlags(0))).unwrap();
+    let pair: [Fd; 2] = block_on(read_value(&memory, GuestPtr::new(0x1000))).unwrap();
+    let flags = (CloneFlags::CLONE_VM | CloneFlags::CLONE_FILES).0 as u32;
+    let child = TaskId(
+        block_on(kernel.thread_spawn(&t.caller, flags, 0, GuestPtrMut::NULL, 0, GuestPtrMut::NULL))
+            .unwrap() as u32,
+    );
+    let _ = kernel.take_pending(task);
+    let set = kernel.snapshot_descriptors(task, &[pair[0]]).unwrap();
+    let caller = Caller::new(task, &memory).with_descriptors(&set);
+    block_on(write_value(
+        &memory,
+        GuestPtrMut::new(0x3000),
+        &Pollfd {
+            fd: pair[0],
+            events: PollEvents::POLLIN,
+            revents: PollEvents::empty(),
+        },
+    ))
+    .unwrap();
+    let table = kernel.files(task);
+    let count = Arc::strong_count(&table);
+    let poll = kernel.ppoll_time64(
+        &caller,
+        PollfdArray::new(0x3000),
+        1,
+        GuestPtrMut::NULL,
+        GuestPtr::NULL,
+        8,
+    );
+    let mut poll = std::pin::pin!(poll);
+    assert!(poll.as_mut().now_or_never().is_none());
+    assert_eq!(
+        Arc::strong_count(&table),
+        count,
+        "bound polling must not retain the whole table"
+    );
+    block_on(kernel.unshare(&t.caller, CloneFlags::CLONE_FILES.0 as u32)).unwrap();
+    let old_table = Arc::downgrade(&table);
+    drop(table);
+    kernel.abort_thread(child);
+    assert!(old_table.upgrade().is_none());
+    t.close(pair[0]);
+    let replacement = block_on(kernel.eventfd2(&t.caller, 1, EventfdFlags::EFD_NONBLOCK)).unwrap();
+    assert_eq!(replacement, pair[0]);
+    assert!(
+        poll.as_mut().now_or_never().is_none(),
+        "the new eventfd's readiness must not enter the admitted poll"
+    );
+    assert_eq!(t.write(pair[1], b"x"), Ok(1));
+    assert_eq!(block_on(poll), Ok(1));
+    let result: Pollfd = block_on(read_value(&memory, GuestPtr::new(0x3000))).unwrap();
+    assert!(result.revents.contains(PollEvents::POLLIN));
+}
 
 /// One task's filesystem calls, with its memory at hand. Paths go at 0x1000, data at 0x2000.
 struct T<'a> {

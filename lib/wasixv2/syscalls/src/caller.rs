@@ -9,6 +9,8 @@ pub struct Caller<'a> {
     task: TaskId,
     memory: &'a dyn UserMemory,
     dynamic_linker: Option<&'a dyn crate::DynamicLinker>,
+    descriptors: Option<crate::DescriptorSet>,
+    installations: Option<crate::DescriptorInstallations>,
 }
 
 impl<'a> Caller<'a> {
@@ -17,6 +19,8 @@ impl<'a> Caller<'a> {
             task,
             memory,
             dynamic_linker: None,
+            descriptors: None,
+            installations: None,
         }
     }
 
@@ -37,6 +41,26 @@ impl<'a> Caller<'a> {
 
     pub fn memory(&self) -> &'a dyn UserMemory {
         self.memory
+    }
+
+    /// Every descriptor operand must resolve within this exact acquired set. Cloning the
+    /// snapshot retains its files, never its descriptor table or current slot membership.
+    pub fn with_descriptors(mut self, descriptors: &crate::DescriptorSet) -> Self {
+        self.descriptors = Some(descriptors.clone());
+        self
+    }
+
+    pub fn descriptors(&self) -> Option<&crate::DescriptorSet> {
+        self.descriptors.as_ref()
+    }
+
+    pub fn with_descriptor_installations(mut self, plan: &crate::DescriptorInstallations) -> Self {
+        self.installations = Some(plan.clone());
+        self
+    }
+
+    pub fn descriptor_installations(&self) -> Option<&crate::DescriptorInstallations> {
+        self.installations.as_ref()
     }
 }
 

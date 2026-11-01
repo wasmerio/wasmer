@@ -11,7 +11,6 @@ use crate::{
     Kernel,
     fasync::{OwnerType, Sigio},
     file::{Backing, OpenFile},
-    sync::MutexExt,
 };
 
 /// What holds a lease (`lease_manager_ops`): a break sends the file's owner `SIGIO`, or the
@@ -259,9 +258,12 @@ impl Kernel {
 
     /// Whether `fd` still refers to `file`.
     fn still_open(&self, caller: &Caller<'_>, fd: Fd, file: &Arc<OpenFile>) -> bool {
-        let files = self.files(caller.task());
-        let files = files.lock_or_recover();
-        files.get(fd).is_some_and(|open| Arc::ptr_eq(&open, file))
+        self.with_descriptor_table(caller, |_, files| {
+            Ok(self
+                .bound_slot(caller, files, fd)
+                .is_ok_and(|slot| Arc::ptr_eq(&slot.file, file)))
+        })
+        .unwrap_or(false)
     }
 
     /// A lock request that may wait for a conflicting lock to go. A signal ends the wait with

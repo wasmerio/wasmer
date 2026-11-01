@@ -756,7 +756,7 @@ impl Kernel {
         maxevents: i32,
         deadline: Deadline,
     ) -> SysResult<i32> {
-        let file = self.file(caller.task(), epfd)?;
+        let file = self.caller_file(caller, epfd)?;
         if maxevents <= 0 || maxevents > MAX_EVENTS {
             return Err(Errno::EINVAL.into());
         }

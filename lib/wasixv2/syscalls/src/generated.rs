@@ -19472,6 +19472,25 @@ impl<L: Layer<S>, S: Syscalls> Syscalls for Layered<L, S> {
 }
 
 impl<L, S: crate::Control> crate::Control for Layered<L, S> {
+    fn snapshot_descriptors(
+        &self,
+        task: crate::TaskId,
+        fds: &[crate::Fd],
+    ) -> Result<crate::DescriptorSet, crate::Errno> {
+        self.inner.snapshot_descriptors(task, fds)
+    }
+
+    fn replace_descriptor_attachment(
+        &self,
+        task: crate::TaskId,
+        descriptors: &crate::DescriptorSet,
+        fd: crate::Fd,
+        replacement: Option<crate::DescriptorAttachment>,
+    ) -> Result<crate::DescriptorUpdate, crate::Errno> {
+        self.inner
+            .replace_descriptor_attachment(task, descriptors, fd, replacement)
+    }
+
     fn take_pending(&self, task: crate::TaskId) -> Option<crate::GuestAction> {
         self.inner.take_pending(task)
     }

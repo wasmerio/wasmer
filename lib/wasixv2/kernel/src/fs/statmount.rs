@@ -188,7 +188,7 @@ impl Kernel {
             return self.mount_ns_by_id(req.mnt_ns_id).ok_or(Errno::ENOENT);
         }
         if req.mnt_ns_fd != 0 {
-            let file = self.file(caller.task(), Fd(req.mnt_ns_fd as i32))?;
+            let file = self.caller_file(caller, Fd(req.mnt_ns_fd as i32))?;
             return match crate::nsfs::namespace(file.path()) {
                 Some(Namespace::Mnt(ns)) => Ok(ns.tree.clone()),
                 _ => Err(Errno::EINVAL),
@@ -230,7 +230,7 @@ impl Kernel {
         let mut mask = req.param;
         let target = match flags & by_fd != 0 {
             true => {
-                let file = self.file(caller.task(), Fd(req.mnt_ns_fd as i32))?;
+                let file = self.caller_file(caller, Fd(req.mnt_ns_fd as i32))?;
                 let mount = file.path().mnt.clone();
                 let ns = self.vfs.ns_of(&mount).and_then(|id| self.vfs.lookup_ns(id));
                 if ns.is_none() {

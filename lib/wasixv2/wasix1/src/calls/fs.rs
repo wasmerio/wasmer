@@ -1,11 +1,7 @@
 //! Descriptor calls (`fd_*` apart from reading, writing, closing and directories), and what the
 //! path and directory calls share: path arguments, `statx` to v1 `filestat`, file types.
 //!
-//! Rights are reported, never enforced: `fd_fdstat_get` derives them from the open file's
-//! access mode and type, every descriptor may hand on every right, and access is what Linux
-//! decides for the open file.
-
-use std::{collections::HashSet, sync::Mutex};
+//! Rights are compatibility-owned immutable descriptor attachments, checked on captured files.
 
 use wasixv2_abi::{
     AtFlags, ConstIovecArray, FadviseAdvice, FallocFlags, FcntlCmd, Fd, FdFlags, FileMode,
@@ -27,23 +23,6 @@ use crate::{
     shim::{self, Env, Frame},
 };
 
-/// Per-process filesystem compat state.
-#[derive(Debug, Default)]
-pub struct State {
-    /// Preopened descriptors the guest renumbered another file onto: they are ordinary
-    /// descriptors from then on.
-    replaced: Mutex<HashSet<i32>>,
-}
-
-impl State {
-    /// A fork or vfork child's copy: it has the same descriptors.
-    pub(crate) fn fork(&self) -> Self {
-        Self {
-            replaced: Mutex::new(self.replaced.lock().unwrap().clone()),
-        }
-    }
-}
-
 /// Whether `fd` still is one of the process's preopened directories. v1 kept them for the
 /// life of the process: wasix-libc routes paths to them, and closing one succeeds but leaves
 /// it open.
@@ -51,12 +30,7 @@ pub(crate) async fn is_preopen<S: Syscalls + Control + 'static>(
     frame: &Frame<'_, S>,
     fd: i32,
 ) -> V1Result<bool> {
-    let startup = frame.startup().await?;
-    if startup.preopen(Fd(fd)).is_none() {
-        return Ok(false);
-    }
-    let proc = frame.proc().await?;
-    Ok(!proc.fs.replaced.lock().unwrap().contains(&fd))
+    Ok(crate::rights::record(frame, Fd(fd)).await?.preopen)
 }
 
 /// Linux's `PATH_MAX`: longer v1 paths fail before they are copied.
@@ -352,7 +326,10 @@ pub(crate) fn rights_base(filetype: Filetype, flags: OpenFlags, tty: bool) -> Ri
 }
 
 /// The v1 `fdstat` of `fd`.
-async fn fdstat<S: Syscalls + Control + 'static>(frame: &Frame<'_, S>, fd: Fd) -> V1Result<Fdstat> {
+pub(crate) async fn infer_fdstat<S: Syscalls + Control + 'static>(
+    frame: &Frame<'_, S>,
+    fd: Fd,
+) -> V1Result<Fdstat> {
     let st = fstat(frame, fd, StatxMask::STATX_TYPE).await?;
     let flags = OpenFlags(
         frame
@@ -376,7 +353,10 @@ pub(crate) async fn fd_fdstat_get<S: Syscalls + Control + 'static>(
     out: i32,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
-        let stat = fdstat(frame, Fd(fd)).await?;
+        let rights = crate::rights::record(frame, Fd(fd)).await?;
+        let mut stat = infer_fdstat(frame, Fd(fd)).await?;
+        stat.fs_rights_base = rights.base;
+        stat.fs_rights_inheriting = rights.inheriting;
         frame.write(out as u32, &stat).await
     })
     .await
@@ -390,6 +370,8 @@ pub(crate) async fn fd_fdstat_set_flags<S: Syscalls + Control + 'static>(
     flags: i32,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
+        crate::rights::require(frame, &[(wasixv2_abi::Fd(fd), Rights::FD_FDSTAT_SET_FLAGS)])
+            .await?;
         let caller = frame.caller();
         let old = frame
             .syscalls
@@ -406,19 +388,21 @@ pub(crate) async fn fd_fdstat_set_flags<S: Syscalls + Control + 'static>(
     .await
 }
 
-/// Succeeds for rights the descriptor has; nothing is enforced either way.
+/// Rights may only be reduced; a concurrent reduction cannot overwrite another reduction.
 pub(crate) async fn fd_fdstat_set_rights<S: Syscalls + Control + 'static>(
     env: Env<S>,
     fd: i32,
     base: i64,
-    _inheriting: i64,
+    inheriting: i64,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
-        let stat = fdstat(frame, Fd(fd)).await?;
-        if !stat.fs_rights_base.contains(Rights(base as u64)) {
-            return shim::fail(Errno::NOTCAPABLE);
-        }
-        Ok(())
+        crate::rights::reduce(
+            frame,
+            Fd(fd),
+            Rights(base as u64),
+            Rights(inheriting as u64),
+        )
+        .await
     })
     .await
 }
@@ -448,6 +432,7 @@ async fn filestat_get<S: Syscalls + Control + 'static>(
     snapshot0: bool,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
+        crate::rights::require(frame, &[(wasixv2_abi::Fd(fd), Rights::FD_FILESTAT_GET)]).await?;
         let st = fstat(frame, Fd(fd), FILESTAT_MASK).await?;
         let filetype = fd_filetype(frame, Fd(fd), u32::from(st.stx_mode)).await?;
         write_filestat(frame, out, filestat(&st, filetype), snapshot0).await
@@ -461,6 +446,11 @@ pub(crate) async fn fd_filestat_set_size<S: Syscalls + Control + 'static>(
     size: i64,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
+        crate::rights::require(
+            frame,
+            &[(wasixv2_abi::Fd(fd), Rights::FD_FILESTAT_SET_SIZE)],
+        )
+        .await?;
         frame
             .syscalls
             .ftruncate64(&frame.caller(), Fd(fd), size)
@@ -509,6 +499,11 @@ pub(crate) async fn fd_filestat_set_times<S: Syscalls + Control + 'static>(
     flags: i32,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
+        crate::rights::require(
+            frame,
+            &[(wasixv2_abi::Fd(fd), Rights::FD_FILESTAT_SET_TIMES)],
+        )
+        .await?;
         let times = utimes(atim as u64, mtim as u64, Fstflags(flags as u16))?;
         let times = frame.mem.alloc(&times)?;
         frame
@@ -578,6 +573,7 @@ async fn seek<S: Syscalls + Control + 'static>(
         let Some(whence) = whence(whence_v1 as u8, snapshot0) else {
             return shim::fail(Errno::INVAL);
         };
+        crate::rights::require(frame, &[(wasixv2_abi::Fd(fd), Rights::FD_SEEK)]).await?;
         let pos = frame
             .syscalls
             .lseek(&frame.caller(), Fd(fd), offset, whence)
@@ -593,6 +589,7 @@ pub(crate) async fn fd_tell<S: Syscalls + Control + 'static>(
     out: i32,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
+        crate::rights::require(frame, &[(wasixv2_abi::Fd(fd), Rights::FD_TELL)]).await?;
         let pos = frame
             .syscalls
             .lseek(&frame.caller(), Fd(fd), 0, SeekWhence::SEEK_CUR)
@@ -612,6 +609,7 @@ pub(crate) async fn fd_pread<S: Syscalls + Control + 'static>(
     nread: i32,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
+        crate::rights::require(frame, &[(wasixv2_abi::Fd(fd), Rights::FD_READ)]).await?;
         let n = frame
             .syscalls
             .preadv(
@@ -637,6 +635,7 @@ pub(crate) async fn fd_pwrite<S: Syscalls + Control + 'static>(
     nwritten: i32,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
+        crate::rights::require(frame, &[(wasixv2_abi::Fd(fd), Rights::FD_WRITE)]).await?;
         let n = frame
             .syscalls
             .pwritev(
@@ -657,6 +656,7 @@ pub(crate) async fn fd_sync<S: Syscalls + Control + 'static>(
     fd: i32,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
+        crate::rights::require(frame, &[(wasixv2_abi::Fd(fd), Rights::FD_SYNC)]).await?;
         frame.syscalls.fsync(&frame.caller(), Fd(fd)).await?;
         Ok(())
     })
@@ -668,6 +668,7 @@ pub(crate) async fn fd_datasync<S: Syscalls + Control + 'static>(
     fd: i32,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
+        crate::rights::require(frame, &[(wasixv2_abi::Fd(fd), Rights::FD_DATASYNC)]).await?;
         frame.syscalls.fdatasync(&frame.caller(), Fd(fd)).await?;
         Ok(())
     })
@@ -698,6 +699,7 @@ pub(crate) async fn fd_advise<S: Syscalls + Control + 'static>(
         let Some(advice) = advice(Advice(advice_v1 as u8)) else {
             return shim::fail(Errno::INVAL);
         };
+        crate::rights::require(frame, &[(wasixv2_abi::Fd(fd), Rights::FD_ADVISE)]).await?;
         frame
             .syscalls
             .fadvise64_64(&frame.caller(), Fd(fd), offset, len, advice)
@@ -716,6 +718,7 @@ pub(crate) async fn fd_allocate<S: Syscalls + Control + 'static>(
     len: i64,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
+        crate::rights::require(frame, &[(wasixv2_abi::Fd(fd), Rights::FD_ALLOCATE)]).await?;
         let ret = frame
             .syscalls
             .fallocate(
@@ -754,6 +757,7 @@ pub(crate) async fn fd_renumber<S: Syscalls + Control + 'static>(
     to: i32,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
+        crate::rights::duplicate(frame, Fd(from)).await?;
         let caller = frame.caller();
         if from == to {
             // `dup2` of a descriptor onto itself only checks that it is open.
@@ -770,9 +774,6 @@ pub(crate) async fn fd_renumber<S: Syscalls + Control + 'static>(
         // `to` names `from`'s file now.
         super::epoll::forgotten(frame, Fd(to)).await?;
         frame.proc().await?.net.timeouts.copy(Fd(from), Fd(to));
-        if is_preopen(frame, to).await? {
-            frame.proc().await?.fs.replaced.lock().unwrap().insert(to);
-        }
         Ok(())
     })
     .await
@@ -784,6 +785,7 @@ pub(crate) async fn fd_dup<S: Syscalls + Control + 'static>(
     out: i32,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
+        crate::rights::duplicate(frame, Fd(fd)).await?;
         let new = frame.syscalls.dup(&frame.caller(), Fd(fd)).await?;
         frame.proc().await?.net.timeouts.copy(Fd(fd), new);
         frame.write(out as u32, &(new.0 as u32)).await
@@ -800,6 +802,7 @@ pub(crate) async fn fd_dup2<S: Syscalls + Control + 'static>(
     out: i32,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
+        crate::rights::duplicate(frame, Fd(fd)).await?;
         let cmd = match cloexec as u8 {
             0 => FcntlCmd::F_DUPFD,
             _ => FcntlCmd::F_DUPFD_CLOEXEC,
@@ -820,6 +823,7 @@ pub(crate) async fn fd_fdflags_get<S: Syscalls + Control + 'static>(
     out: i32,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
+        crate::rights::require(frame, &[(wasixv2_abi::Fd(fd), Rights::empty())]).await?;
         let flags = frame
             .syscalls
             .fcntl64(&frame.caller(), Fd(fd), FcntlCmd::F_GETFD, 0)
@@ -839,6 +843,8 @@ pub(crate) async fn fd_fdflags_set<S: Syscalls + Control + 'static>(
     flags: i32,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
+        crate::rights::require(frame, &[(wasixv2_abi::Fd(fd), Rights::FD_FDSTAT_SET_FLAGS)])
+            .await?;
         let cloexec = match Fdflagsext(flags as u16).contains(Fdflagsext::CLOEXEC) {
             true => FdFlags::FD_CLOEXEC,
             false => FdFlags(0),
@@ -859,6 +865,18 @@ pub(crate) async fn fd_pipe<S: Syscalls + Control + 'static>(
     write_out: i32,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
+        let common = Rights::FD_SYNC
+            | Rights::FD_DATASYNC
+            | Rights::POLL_FD_READWRITE
+            | Rights::SOCK_SEND
+            | Rights::FD_FDSTAT_SET_FLAGS
+            | Rights::FD_FILESTAT_GET;
+        let read = common | Rights::FD_READ;
+        let write = common | Rights::FD_WRITE;
+        frame.install_descriptors(vec![
+            crate::rights::Record::new(read, read).attachment(),
+            crate::rights::Record::new(write, write).attachment(),
+        ])?;
         let fds = frame.mem.alloc_mut::<[Fd; 2]>()?;
         frame
             .syscalls

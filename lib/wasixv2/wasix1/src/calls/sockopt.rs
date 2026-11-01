@@ -5,6 +5,8 @@
 //! not have: the compat layer keeps them per socket and applies them in `sock_connect` and
 //! `sock_accept`.
 
+use crate::abi::fs::Rights;
+
 use std::{collections::HashMap, sync::Mutex, time::Duration};
 
 use wasixv2_abi::{
@@ -337,11 +339,14 @@ pub(crate) async fn sock_set_opt_flag<S: Syscalls + Control + 'static>(
     option: i32,
     flag: i32,
 ) -> Result<i32, RuntimeError> {
-    shim::errno(&env, async |frame| match target(option, Kind::Flag)? {
-        Target::Linux(level, name) => {
-            set_int(frame, Fd(fd), level, name, i32::from(flag as u8 != 0)).await
+    shim::errno(&env, async |frame| {
+        crate::rights::require(frame, &[(Fd(fd), Rights::empty())]).await?;
+        match target(option, Kind::Flag)? {
+            Target::Linux(level, name) => {
+                set_int(frame, Fd(fd), level, name, i32::from(flag as u8 != 0)).await
+            }
+            _ => Ok(()),
         }
-        _ => Ok(()),
     })
     .await
 }
@@ -353,6 +358,7 @@ pub(crate) async fn sock_get_opt_flag<S: Syscalls + Control + 'static>(
     ro_flag: i32,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
+        crate::rights::require(frame, &[(wasixv2_abi::Fd(fd), Rights::empty())]).await?;
         let on = match target(option, Kind::Flag)? {
             Target::Linux(level, name) => int_option(frame, Fd(fd), level, name).await? != 0,
             _ => false,
@@ -369,12 +375,15 @@ pub(crate) async fn sock_set_opt_size<S: Syscalls + Control + 'static>(
     option: i32,
     size: i64,
 ) -> Result<i32, RuntimeError> {
-    shim::errno(&env, async |frame| match target(option, Kind::Size)? {
-        Target::Linux(level, name) => {
-            let value = (size as u64).min(i32::MAX as u64) as i32;
-            set_int(frame, Fd(fd), level, name, value).await
+    shim::errno(&env, async |frame| {
+        crate::rights::require(frame, &[(Fd(fd), Rights::empty())]).await?;
+        match target(option, Kind::Size)? {
+            Target::Linux(level, name) => {
+                let value = (size as u64).min(i32::MAX as u64) as i32;
+                set_int(frame, Fd(fd), level, name, value).await
+            }
+            _ => Ok(()),
         }
-        _ => Ok(()),
     })
     .await
 }
@@ -386,6 +395,7 @@ pub(crate) async fn sock_get_opt_size<S: Syscalls + Control + 'static>(
     ro_size: i32,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
+        crate::rights::require(frame, &[(wasixv2_abi::Fd(fd), Rights::empty())]).await?;
         let Target::Linux(level, name) = target(option, Kind::Size)? else {
             return frame.write(ro_size as u32, &0u64).await;
         };
@@ -446,6 +456,7 @@ pub(crate) async fn sock_set_opt_time<S: Syscalls + Control + 'static>(
     time: i32,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
+        crate::rights::require(frame, &[(wasixv2_abi::Fd(fd), Rights::empty())]).await?;
         let target = target(option, Kind::Time)?;
         let time = decode_time(frame.read(time as u32).await?)?;
         let fd = Fd(fd);
@@ -496,6 +507,7 @@ pub(crate) async fn sock_get_opt_time<S: Syscalls + Control + 'static>(
     ro_time: i32,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
+        crate::rights::require(frame, &[(wasixv2_abi::Fd(fd), Rights::empty())]).await?;
         let fd = Fd(fd);
         let time = match target(option, Kind::Time)? {
             Target::Linux(level, name) => {
@@ -534,6 +546,7 @@ async fn multicast_v4<S: Syscalls + Control + 'static>(
     name: IpOption,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
+        crate::rights::require(frame, &[(Fd(fd), Rights::empty())]).await?;
         let group: AddrIp4 = frame.read(group as u32).await?;
         let iface: AddrIp4 = frame.read(iface as u32).await?;
         let mut mreq = [0u8; 8];
@@ -553,6 +566,7 @@ async fn multicast_v6<S: Syscalls + Control + 'static>(
     name: Ipv6Option,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
+        crate::rights::require(frame, &[(Fd(fd), Rights::empty())]).await?;
         let group: AddrIp6 = frame.read(group as u32).await?;
         let mut mreq = [0u8; 20];
         mreq[..16].copy_from_slice(&group.octets);

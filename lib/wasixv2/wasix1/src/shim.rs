@@ -16,7 +16,7 @@
 //! result in v1 numbering. A body must not make further v2 calls after one failed, and must not
 //! write guest-visible results before the last call that can be interrupted.
 
-use std::sync::Arc;
+use std::{cell::RefCell, sync::Arc};
 
 use wasixv2_abi::{GuestLayout, GuestPtrMut};
 use wasixv2_exec::{AbiInstance, ExecEnv, GuestMemory, Outcome, complete};
@@ -44,12 +44,64 @@ pub struct Frame<'a, S: 'static> {
     pub mem: CompatMemory<'a, S>,
     abi: Arc<dyn AbiInstance<S>>,
     unwind: wasixv2_exec::GuestUnwind,
+    descriptors: RefCell<Option<wasixv2_syscalls::DescriptorSet>>,
+    installations: RefCell<Option<wasixv2_syscalls::DescriptorInstallations>>,
 }
 
 impl<'a, S: Syscalls + Control + 'static> Frame<'a, S> {
     /// The caller to pass to every v2 call: this task, with this call's memory.
     pub fn caller(&self) -> Caller<'_> {
-        Caller::new(self.task, &self.mem)
+        let mut caller = Caller::new(self.task, &self.mem);
+        if let Some(set) = &*self.descriptors.borrow() {
+            caller = caller.with_descriptors(set);
+        }
+        if let Some(plan) = &*self.installations.borrow() {
+            caller = caller.with_descriptor_installations(plan);
+        }
+        caller
+    }
+
+    pub(crate) fn bind_descriptors(
+        &self,
+        fds: &[wasixv2_abi::Fd],
+    ) -> V1Result<wasixv2_syscalls::DescriptorSet> {
+        if let Some(set) = &*self.descriptors.borrow() {
+            if fds.iter().any(|&fd| set.get(fd).is_none()) {
+                return fail(Errno::BADF);
+            }
+            return Ok(set.clone());
+        }
+        let set = self
+            .syscalls
+            .snapshot_descriptors(self.task, fds)
+            .map_err(SysErr::from)?;
+        self.replace_descriptors(set.clone());
+        Ok(set)
+    }
+
+    pub(crate) fn replace_descriptors(&self, set: wasixv2_syscalls::DescriptorSet) {
+        *self.descriptors.borrow_mut() = Some(set);
+    }
+
+    pub(crate) fn install_descriptors(
+        &self,
+        attachments: Vec<Option<wasixv2_syscalls::DescriptorAttachment>>,
+    ) -> V1Result<wasixv2_syscalls::DescriptorInstallations> {
+        self.bind_descriptors(&[])?;
+        let plan = wasixv2_syscalls::DescriptorInstallations::new(attachments);
+        *self.installations.borrow_mut() = Some(plan.clone());
+        Ok(plan)
+    }
+
+    pub(crate) fn use_installed(
+        &self,
+        plan: &wasixv2_syscalls::DescriptorInstallations,
+        index: usize,
+    ) -> V1Result<()> {
+        let result = plan.result(index).ok_or(Errno::IO)?;
+        self.replace_descriptors(result.clone());
+        *self.installations.borrow_mut() = None;
+        Ok(())
     }
 
     /// The original guest error raised by an engine capability in this import.
@@ -147,6 +199,8 @@ where
         mem: CompatMemory::new(GuestMemory::new(env)),
         abi,
         unwind: wasixv2_exec::GuestUnwind::default(),
+        descriptors: RefCell::new(None),
+        installations: RefCell::new(None),
     };
     if !frame.instance().started() {
         // Preopens must exist before the guest's first look at its descriptors.
@@ -155,6 +209,8 @@ where
         }
     }
     loop {
+        *frame.descriptors.borrow_mut() = None;
+        *frame.installations.borrow_mut() = None;
         let (ret, own) = match body(&frame).await {
             Ok(value) => (Ok(Some(value)), None),
             Err(Error::Sys(err)) => (Err::<Option<T>, SysErr>(err), None),

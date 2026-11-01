@@ -599,7 +599,7 @@ impl Kernel {
         vec: ConstIovecArray,
         vlen: u32,
     ) -> SysResult<u32> {
-        let file = self.file(caller.task(), fd)?;
+        let file = self.caller_file(caller, fd)?;
         file.check_readable()?;
         let iovecs = read_iovecs(caller.memory(), vec, vlen).await?;
         self.read_into_iovecs(caller, &file, &iovecs, At::Position)
@@ -613,7 +613,7 @@ impl Kernel {
         vec: ConstIovecArray,
         vlen: u32,
     ) -> SysResult<u32> {
-        let file = self.file(caller.task(), fd)?;
+        let file = self.caller_file(caller, fd)?;
         file.check_writable()?;
         let iovecs = read_iovecs(caller.memory(), vec, vlen).await?;
         self.write_from_iovecs(caller, &file, &iovecs, At::Position, RwfFlags(0))
@@ -708,7 +708,7 @@ impl Kernel {
         offset: i64,
         whence: SeekWhence,
     ) -> SysResult<i64> {
-        let file = self.file(caller.task(), fd)?;
+        let file = self.caller_file(caller, fd)?;
         let base = match whence {
             SeekWhence::SEEK_SET => SeekBase::Start,
             SeekWhence::SEEK_CUR => SeekBase::Current,
@@ -764,14 +764,14 @@ impl Kernel {
         offset: LoffPtr,
         count: u32,
     ) -> SysResult<i32> {
-        let input = self.file(caller.task(), in_fd)?;
+        let input = self.caller_file(caller, in_fd)?;
         input.check_readable()?;
         // Only a file with a position takes an offset (`FMODE_PREAD`).
         let positional = input.check_seekable().is_ok();
         if !offset.is_null() && !positional {
             return Err(Errno::ESPIPE.into());
         }
-        let output = self.file(caller.task(), out_fd)?;
+        let output = self.caller_file(caller, out_fd)?;
         output.check_writable()?;
         // `do_splice_direct`: no appending output, and an input `splice_read` can read.
         if output.flags().contains(OpenFlags::O_APPEND) {
@@ -904,8 +904,8 @@ impl Kernel {
         if flags != 0 {
             return Err(Errno::EINVAL.into());
         }
-        let input = self.file(caller.task(), fd_in)?;
-        let output = self.file(caller.task(), fd_out)?;
+        let input = self.caller_file(caller, fd_in)?;
+        let output = self.caller_file(caller, fd_out)?;
         input.check_readable()?;
         output.check_writable()?;
         if output.flags().contains(OpenFlags::O_APPEND) {
@@ -1203,7 +1203,7 @@ impl Kernel {
         len: i64,
         advice: FadviseAdvice,
     ) -> SysResult<i32> {
-        let file = self.file(caller.task(), fd)?;
+        let file = self.caller_file(caller, fd)?;
         if matches!(file.backing, Backing::Stream(..)) {
             return Err(Errno::ESPIPE.into());
         }

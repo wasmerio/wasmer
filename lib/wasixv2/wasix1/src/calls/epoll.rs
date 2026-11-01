@@ -6,6 +6,8 @@
 //! descriptors may name one epoll set (mio `dup`s its set and registers through the copy while
 //! it waits on the original), and only the kernel knows which ones do.
 
+use crate::abi::fs::Rights;
+
 use std::{collections::HashMap, sync::Mutex, time::Duration};
 
 use wasixv2_abi::{
@@ -160,6 +162,10 @@ pub(crate) async fn epoll_create<S: Syscalls + Control + 'static>(
     ro_fd: i32,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
+        let rights = Rights::POLL_FD_READWRITE | Rights::FD_FDSTAT_SET_FLAGS;
+        frame.install_descriptors(vec![
+            crate::rights::Record::new(rights, rights).attachment(),
+        ])?;
         let fd = frame
             .syscalls
             .epoll_create1(&frame.caller(), EpollCreateFlags(0))
@@ -178,6 +184,11 @@ pub(crate) async fn epoll_ctl<S: Syscalls + Control + 'static>(
     event: i32,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
+        crate::rights::require(
+            frame,
+            &[(Fd(epfd), Rights::empty()), (Fd(fd), Rights::empty())],
+        )
+        .await?;
         let (epfd, fd) = (Fd(epfd), Fd(fd));
         let op = match EpollCtl(op as u32) {
             EpollCtl::ADD | EpollCtl::ADD_WITX => EpollCtlOp::EPOLL_CTL_ADD,
@@ -222,6 +233,8 @@ pub(crate) async fn epoll_wait<S: Syscalls + Control + 'static>(
     ro_nevents: i32,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
+        crate::rights::require(frame, &[(wasixv2_abi::Fd(epfd), Rights::POLL_FD_READWRITE)])
+            .await?;
         let epfd = Fd(epfd);
         if maxevents <= 0 {
             return shim::fail(Errno::INVAL);

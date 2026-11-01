@@ -254,7 +254,7 @@ impl Kernel {
                 let at = u32::try_from(addr.checked_add(u64::from(i) * 4).ok_or(Errno::EFAULT)?)
                     .map_err(|_| Errno::EFAULT)?;
                 let fd: i32 = read_value(caller.memory(), GuestPtr::new(at)).await?;
-                let file = self.file(caller.task(), Fd(fd))?;
+                let file = self.caller_file(caller, Fd(fd))?;
                 let slot = ctx.install_direct(file, u32::MAX)?;
                 if let Err(err) = write_value(caller.memory(), GuestPtrMut::new(at), &slot).await {
                     ctx.remove_direct(slot as u32)?;

@@ -15,7 +15,6 @@ use crate::calls;
 pub struct ProcState {
     /// Loaded on the process's first v1 call; see [`calls::startup::load`].
     pub(crate) startup: OnceLock<Arc<Startup>>,
-    pub fs: calls::fs::State,
     pub net: calls::sock::State,
     pub proc: calls::proc::State,
     pub(crate) clocks: calls::clock::State,
@@ -24,7 +23,7 @@ pub struct ProcState {
 impl ProcState {
     /// The state of a child that `fork` or `vfork` makes of this process: it has the same
     /// descriptors, so it announces the same preopens and keeps what the families know about
-    /// them (renumbered preopens, epoll data, socket timeouts), and the same arguments,
+    /// them (epoll data and socket timeouts), and the same arguments,
     /// dispositions and terminal.
     pub fn fork(&self) -> Self {
         let startup = OnceLock::new();
@@ -33,7 +32,6 @@ impl ProcState {
         }
         Self {
             startup,
-            fs: self.fs.fork(),
             net: self.net.fork(),
             proc: self.proc.fork(),
             clocks: self.clocks.fork(),
