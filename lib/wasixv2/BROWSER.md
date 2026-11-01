@@ -111,6 +111,19 @@ engines report `NOTSUP`; supported engines must run the driver, lifecycle and
 relay checks. Source/transport checks alone do not establish browser JSPI or
 context parity. The default gate still removes JSPI on every runtime worker.
 
+The source-built threaded debug gate passed on Chromium 156.0.8078.4 and
+Firefox 157.0 on 2026-11-01; both engines exposed JSPI on the page and root
+worker. The driver smoke proved foreign-worker wake delivery with owner-only
+provider polls, retained provider ownership after dropping a Promise waiter,
+callback cleanup before root completion, both executor/Machine profile mismatch
+rejections before task admission, and default blocking Stores/services. The
+same lane passed shared-directory/isolation, signal/kill/repeated wait, busy TTY,
+output backpressure and relay TCP checks with `Atomics.waitAsync` removed and
+worker creation forbidden outside the coordinator. Both engines also passed
+the default lane with JSPI removed. These checks establish the optional driver
+behavior; execution-context identity, SDK compatibility and the independent R2
+worker-reclamation acceptance remain separate gates.
+
 ## Capability checklist
 
 “Done” describes the stated Rust/runtime surface. “Missing” identifies scope in

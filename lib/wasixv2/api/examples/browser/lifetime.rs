@@ -28,6 +28,62 @@ pub fn jspi_driver_smoke() -> js_sys::Promise {
     let primary = future_to_promise(async move {
         let executor = BrowserExecutor::with_jspi(1, 1).map_err(error)?;
         let host = Arc::new(BrowserHost::new(executor.clone()).map_err(error)?);
+        let blocking = BrowserExecutor::new(1, 1).map_err(error)?;
+        assert!(!blocking.uses_jspi());
+        assert!(!executor.services().uses_jspi());
+        let engine = Engine::default();
+        let module = wasixv2::load(
+            &engine,
+            &wat::parse_str(
+                r#"(module
+                (import "wasixv2" "exit_group" (func $exit (param i32)))
+                (memory (export "memory") 1)
+                (func (export "_start") (call $exit (i32.const 0)) unreachable))"#,
+            )
+            .map_err(error)?,
+        )
+        .map_err(error)?;
+        for (configured, supplied) in [(&blocking, &executor), (&executor, &blocking)] {
+            let machine = Arc::new(
+                browser::builder(
+                    Arc::new(host.services()),
+                    configured.clone(),
+                    Net::new(NetConfig::default(), None),
+                )
+                .max_guest_tasks(Some(0))
+                .build(),
+            );
+            let result = browser::spawn(
+                machine,
+                supplied,
+                engine.clone(),
+                module.clone(),
+                ProcessConfig {
+                    args: vec!["profile".into()],
+                    env: vec![],
+                    stdio: Stdio::from_fns(|_| {}, |_| {}),
+                },
+            )
+            .await;
+            let Err(wasixv2::RunError::Spawn(error)) = result else {
+                panic!("opposite executor profile was not rejected before task admission");
+            };
+            assert_eq!(error.kind(), std::io::ErrorKind::InvalidInput);
+            assert_eq!(
+                error.to_string(),
+                "browser task executor and Machine Store profiles differ"
+            );
+        }
+        blocking.close();
+        let mut store = wasmer::Store::default();
+        let _import = wasmer::Function::new_typed_async(&mut store, || async {});
+        assert!(
+            wasmer::js::set_async_mode(&mut store, wasmer::js::AsyncMode::Jspi)
+                .unwrap_err()
+                .to_string()
+                .contains("cannot change the async lane")
+        );
+        let owner_thread = std::thread::current().id();
         let ready = Arc::new(AtomicBool::new(false));
         let operation_ready = ready.clone();
         let wake = Arc::new(std::sync::Mutex::new(None::<Waker>));
@@ -46,6 +102,7 @@ pub fn jspi_driver_smoke() -> js_sys::Promise {
             let _dropped = Dropped(operation_drops);
             operation_starts.fetch_add(1, Ordering::Relaxed);
             std::future::poll_fn(|cx| {
+                assert_eq!(std::thread::current().id(), owner_thread);
                 *operation_wake.lock().unwrap() = Some(cx.waker().clone());
                 if operation_ready.load(Ordering::Acquire) {
                     Poll::Ready(())
@@ -79,8 +136,15 @@ pub fn jspi_driver_smoke() -> js_sys::Promise {
             0,
             "dropping a Promise waiter canceled its provider"
         );
-        ready.store(true, Ordering::Release);
-        wake.lock().unwrap().take().unwrap().wake();
+        executor
+            .spawn_thread(Box::new(move || {
+                Box::pin(async move {
+                    assert_ne!(std::thread::current().id(), owner_thread);
+                    ready.store(true, Ordering::Release);
+                    wake.lock().unwrap().take().unwrap().wake();
+                })
+            }))
+            .map_err(error)?;
         wasm_bindgen_futures::JsFuture::from(callback).await?;
         assert_eq!(drops.load(Ordering::Relaxed), 1);
         assert!(
@@ -98,7 +162,7 @@ pub fn jspi_driver_smoke() -> js_sys::Promise {
         assert!(!observed.load(Ordering::Acquire));
         executor.close();
         Ok(JsValue::from_str(
-            r#"{"registeredBeforePoll":true,"callbackDrained":true,"callbackWakerReleased":true,"providerDroppedOnce":true}"#,
+            r#"{"registeredBeforePoll":true,"callbackDrained":true,"callbackWakerReleased":true,"providerDroppedOnce":true,"foreignWake":true,"profileMismatch":true,"defaultBlocking":true}"#,
         ))
     });
     let checked = Closure::once_into_js(move |result: JsValue| {
