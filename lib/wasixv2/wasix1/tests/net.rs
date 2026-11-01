@@ -751,3 +751,125 @@ fn c_loopback() {
         "localhost: 127.0.0.1\naccepted\nreadable\necho: hello\nepoll: 1\nok\n"
     );
 }
+
+#[test]
+fn embedding_limits_validate_original_poll_and_receive_requests() {
+    for limited in [false, true] {
+        let wasm = wat::parse_str(format!(r#"(module
+          (import "wasi_snapshot_preview1" "poll_oneoff" (func $poll (param i32 i32 i32 i32) (result i32)))
+          (import "wasix_32v1" "sock_recv" (func $recv (param i32 i32 i32 i32 i32 i32) (result i32)))
+          (import "wasi_snapshot_preview1" "proc_exit" (func $exit (param i32)))
+          (memory (export "memory") 1)
+          (func (export "_start")
+            ;; Two subscriptions exceed a configured one-entry limit before bad memory is read.
+            (if (i32.ne (call $poll (i32.const 2147483647) (i32.const 64) (i32.const 2) (i32.const 72)) (i32.const {}))
+              (then (call $exit (i32.const 1))))
+            ;; Separate iovecs each fit; their combined requested bytes exceed the ceiling.
+            (i32.store (i32.const 0) (i32.const 128))
+            (i32.store (i32.const 4) (i32.const 3))
+            (i32.store (i32.const 8) (i32.const 144))
+            (i32.store (i32.const 12) (i32.const 2))
+            (if (i32.ne (call $recv (i32.const 0) (i32.const 0) (i32.const 2) (i32.const 0) (i32.const 80) (i32.const 84)) (i32.const {}))
+              (then (call $exit (i32.const 2))))
+            (call $exit (i32.const 0))))"#, if limited { wasixv2_wasix1::abi::Errno::TOOBIG.0 } else { wasixv2_wasix1::abi::Errno::MEMVIOLATION.0 }, if limited { wasixv2_wasix1::abi::Errno::INVAL.0 } else { 0 })).unwrap();
+        let (status, _, err) = run_wasm_on(
+            || {
+                Machine::builder()
+                    .wasix1_limits(wasixv2_wasix1::Limits {
+                        max_poll_subscriptions: limited.then_some(1),
+                        max_sock_recv_size: limited.then_some(4),
+                    })
+                    .build()
+            },
+            &wasm,
+            &["limits"],
+        );
+        assert_eq!(status, 0, "limited={limited}: {err}");
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+#[tokio::test]
+async fn receive_limit_uses_the_checked_iovecs_after_guest_mutation() {
+    use wasixv2_abi::{Errno, GuestPtr, Iovec, UserMsghdr};
+    use wasixv2_kernel::{Dispatch, HostClock, Kernel, SyscallEntry};
+    use wasixv2_syscalls::{
+        Caller, Layer, Layered, MaybeFuture, SysResult, Syscall, SyscallRet, read_value,
+    };
+
+    struct MutateIovecs;
+    impl Layer<Kernel> for MutateIovecs {
+        fn call<'a>(
+            &'a self,
+            caller: &'a Caller<'_>,
+            call: Syscall,
+            next: &'a Kernel,
+        ) -> MaybeFuture<'a, SysResult<SyscallRet>> {
+            MaybeFuture::Future(Box::pin(async move {
+                match call {
+                    Syscall::Recvmsg { msg, .. } => {
+                        // Mutate the original array after compat authorization but before
+                        // the kernel/provider reads its supplied msghdr.
+                        caller.memory().write(4, &100_u32.to_le_bytes()).await?;
+                        let header: UserMsghdr =
+                            read_value(caller.memory(), GuestPtr::new(msg.addr())).await?;
+                        let captured: Iovec =
+                            read_value(caller.memory(), GuestPtr::new(header.msg_iov.addr()))
+                                .await?;
+                        assert_eq!(captured.iov_len, 3);
+                        return Err(Errno::ENOTSOCK.into());
+                    }
+                    Syscall::Readv { vec, .. } => {
+                        let captured: Iovec =
+                            read_value(caller.memory(), GuestPtr::new(vec.addr())).await?;
+                        assert_eq!(
+                            captured.iov_len, 3,
+                            "stream fallback must use the same captured array"
+                        );
+                    }
+                    _ => {}
+                }
+                Dispatch.call(caller, call, next).await
+            }))
+        }
+    }
+    let host: Arc<dyn wasixv2::Host> = Arc::new(wasixv2::TokioHost::default());
+    let root = Arc::new(wasixv2_vfs_mem::MemFs::new(
+        Arc::new(HostClock(host.clone())),
+        0o777,
+        1,
+        1,
+    ));
+    let mut abis = wasixv2_exec::Abis::new();
+    abis.push(Arc::new(wasixv2_wasix1::Wasix1::new().with_limits(
+        wasixv2_wasix1::Limits {
+            max_poll_subscriptions: Some(1),
+            max_sock_recv_size: Some(4),
+        },
+    )));
+    let abis = Arc::new(abis);
+    let kernel = Kernel::new(host.clone(), root).with_binfmt(abis.clone());
+    let task = kernel
+        .spawn(ProcessConfig {
+            args: vec!["race".into()],
+            env: Vec::new(),
+            stdio: Stdio::from_fns(|_| {}, |_| {}),
+        })
+        .unwrap();
+    let syscalls = Arc::new(Layered::new(SyscallEntry(MutateIovecs), kernel));
+    let store = wasmer::Store::default();
+    let module = wasixv2_exec::load(store.engine(), &wat::parse_str(r#"(module
+      (import "wasix_32v1" "sock_recv" (func $recv (param i32 i32 i32 i32 i32 i32) (result i32)))
+      (import "wasi_snapshot_preview1" "proc_exit" (func $exit (param i32)))
+      (memory (export "memory") 1)
+      (func (export "_start")
+        (i32.store (i32.const 0) (i32.const 128))
+        (i32.store (i32.const 4) (i32.const 3))
+        (call $exit (call $recv (i32.const 0) (i32.const 0) (i32.const 1) (i32.const 0) (i32.const 80) (i32.const 84)))))"#).unwrap()).unwrap();
+    assert_eq!(
+        wasixv2_exec::run_with_abis(store, &module, syscalls, task, host, abis)
+            .await
+            .unwrap(),
+        0
+    );
+}

@@ -239,6 +239,7 @@ impl Kernel {
             if !Arc::ptr_eq(&process.pid_ns, &task.live_ns().pid_for_children) {
                 return Err(Errno::EINVAL.into());
             }
+            self.check_guest_task_limit(&state)?;
             if crate::resource::nproc_exceeded(&state, task) {
                 return Err(Errno::EAGAIN.into());
             }

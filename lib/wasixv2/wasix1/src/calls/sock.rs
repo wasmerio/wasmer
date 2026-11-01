@@ -428,6 +428,37 @@ async fn recv<S: Syscalls + Control + 'static>(
     ri_flags: i32,
     want_peer: bool,
 ) -> V1Result<(u32, RoFlags, SockAddr)> {
+    let iovs = if let Some(max) = frame.instance().limits.max_sock_recv_size {
+        use crate::abi::GuestLayout;
+        // Match recvmsg's UIO_MAXIOV before walking any guest-selected array.
+        let count = iovs_len as u32;
+        if count > 1024 {
+            return shim::fail(Errno::MSGSIZE);
+        }
+        let mut captured = Vec::with_capacity(count as usize * crate::abi::Iovec::SIZE);
+        let mut requested = 0_u64;
+        for index in 0..count {
+            let offset = index
+                .checked_mul(crate::abi::Iovec::SIZE as u32)
+                .and_then(|n| (iovs as u32).checked_add(n))
+                .ok_or(Errno::FAULT)?;
+            let iov = frame.read::<crate::abi::Iovec>(offset).await?;
+            requested = requested
+                .checked_add(u64::from(iov.iov_len))
+                .ok_or(Errno::OVERFLOW)?;
+            if requested > max {
+                return shim::fail(Errno::INVAL);
+            }
+            let start = captured.len();
+            captured.resize(start + crate::abi::Iovec::SIZE, 0);
+            iov.write_to(&mut captured[start..]);
+        }
+        // Both recvmsg and its stream fallback consume exactly the authorized descriptors,
+        // even if a sibling rewrites the guest array while the provider is pending.
+        frame.mem.alloc_bytes(&captured)?.addr as i32
+    } else {
+        iovs
+    };
     let name = if want_peer {
         Some((frame.mem.alloc_zeroed(SOCKADDR_ROOM)?.addr, SOCKADDR_ROOM))
     } else {

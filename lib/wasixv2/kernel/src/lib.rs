@@ -253,6 +253,7 @@ pub struct Kernel {
     credentials: Credentials,
     /// The kernel's own init, pid 1, which [`Kernel::spawn`]ed processes are children of.
     init: Option<TaskId>,
+    max_guest_tasks: Option<usize>,
     /// Ctrl-Alt-Del and what `reboot` asked the machine to do.
     reboot: reboot::Reboot,
     // ---- tty ----
@@ -554,6 +555,7 @@ impl Kernel {
             audit_sessions: Arc::default(),
             credentials: Credentials::default(),
             init: None,
+            max_guest_tasks: None,
             reboot: Default::default(),
             jobs,
             console: None,
@@ -648,11 +650,28 @@ impl Kernel {
                 Vec::new(),
                 self.fd_table(),
                 0,
+                true,
             )
             .expect("the first process gets pid 1");
         self.task_signals(init).group().make_init();
         self.init = Some(init);
         self
+    }
+
+    /// An immutable ceiling on admitted guest tasks, independent of guest credentials and
+    /// sysctls. Kernel init is excluded; exited tasks count until their task entry is released.
+    pub fn with_guest_task_limit(mut self, limit: Option<usize>) -> Self {
+        self.max_guest_tasks = limit;
+        self
+    }
+
+    fn check_guest_task_limit(&self, state: &State) -> Result<(), Errno> {
+        let guests = state.tasks.len()
+            - usize::from(self.init.is_some_and(|id| state.tasks.contains_key(&id)));
+        if self.max_guest_tasks.is_some_and(|limit| guests >= limit) {
+            return Err(Errno::EAGAIN);
+        }
+        Ok(())
     }
 
     /// An empty descriptor table, bounded by the machine's `fs.nr_open`.
@@ -684,7 +703,7 @@ impl Kernel {
         files: FdTable,
         parent: u32,
     ) -> Result<TaskId, Errno> {
-        self.new_process_as(&self.credentials, args, env, files, parent)
+        self.new_process_as(&self.credentials, args, env, files, parent, false)
     }
 
     /// [`Kernel::new_process`] running as `credentials`.
@@ -695,10 +714,14 @@ impl Kernel {
         env: Vec<String>,
         files: FdTable,
         parent: u32,
+        kernel_init: bool,
     ) -> Result<TaskId, Errno> {
         let cred = cred::Cred::new(credentials, self.init_user_ns.clone());
         let pid_ns = self.init_ns.pid_for_children.clone();
         let mut state = self.state.lock_or_recover();
+        if !kernel_init {
+            self.check_guest_task_limit(&state)?;
+        }
         let id = TaskId(state.last_id + 1);
         state.pids.alloc(id.0, &pid_ns, &[], |_| false)?;
         state.last_id += 1;

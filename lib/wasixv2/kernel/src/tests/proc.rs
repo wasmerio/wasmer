@@ -1409,3 +1409,89 @@ fn waitid_honors_pidfd_nonblock_and_only_copies_ready_rusage() {
     assert_eq!(word(&memory.0, 0x100 + 20), 7);
     assert_ne!(super::ipc::get(&memory.0, 0x200, 144), vec![0xaa; 144]);
 }
+
+fn limited_spawn_config() -> ProcessConfig {
+    ProcessConfig {
+        args: vec!["limited".into()],
+        env: Vec::new(),
+        stdio: Stdio {
+            stdin: Arc::new(Input(Mutex::new(Vec::new()))),
+            stdout: Arc::new(Capture::default()),
+            stderr: Arc::new(Capture::default()),
+        },
+    }
+}
+
+#[test]
+fn embedder_task_limit_excludes_only_kernel_init_and_releases_capacity() {
+    for init in [false, true] {
+        let kernel = test_kernel().with_guest_task_limit(Some(0));
+        let kernel = if init { kernel.with_init() } else { kernel };
+        assert_eq!(kernel.spawn(limited_spawn_config()), Err(Errno::EAGAIN));
+        assert_eq!(
+            kernel.state.lock_or_recover().tasks.len(),
+            usize::from(init)
+        );
+        let kernel = kernel.with_guest_task_limit(Some(1));
+        let task = kernel.spawn(limited_spawn_config()).unwrap();
+        assert_eq!(kernel.spawn(limited_spawn_config()), Err(Errno::EAGAIN));
+        kernel.release(task);
+        assert!(kernel.spawn(limited_spawn_config()).is_ok());
+    }
+}
+
+#[test]
+fn embedder_task_limit_serializes_competing_host_admissions() {
+    let kernel = Arc::new(test_kernel().with_guest_task_limit(Some(1)));
+    let barrier = Arc::new(std::sync::Barrier::new(8));
+    let threads: Vec<_> = (0..8)
+        .map(|_| {
+            let kernel = kernel.clone();
+            let barrier = barrier.clone();
+            std::thread::spawn(move || {
+                barrier.wait();
+                kernel.spawn(limited_spawn_config())
+            })
+        })
+        .collect();
+    let results: Vec<_> = threads
+        .into_iter()
+        .map(|thread| thread.join().unwrap())
+        .collect();
+    assert_eq!(results.iter().filter(|result| result.is_ok()).count(), 1);
+    assert!(
+        results
+            .iter()
+            .all(|result| result.is_ok() || *result == Err(Errno::EAGAIN))
+    );
+    assert_eq!(kernel.state.lock_or_recover().tasks.len(), 1);
+}
+
+#[test]
+fn embedder_task_limit_also_bounds_privileged_forks_and_threads() {
+    let kernel = test_kernel()
+        .with_credentials(Credentials::new(0, 0))
+        .with_guest_task_limit(Some(1));
+    let task = kernel.spawn(limited_spawn_config()).unwrap();
+    let memory = forkable();
+    let caller = Caller::new(task, &memory);
+    assert_eq!(
+        clone(&kernel, &caller, SIGCHLD, 0),
+        Err(SysErr::Errno(Errno::EAGAIN))
+    );
+    for flags in [CloneFlags::CLONE_VM.0 as u32 | SIGCHLD, 0x10f00] {
+        assert_eq!(
+            block_on(kernel.thread_spawn(
+                &caller,
+                flags,
+                0,
+                GuestPtrMut::NULL,
+                0,
+                GuestPtrMut::NULL
+            )),
+            Err(SysErr::Errno(Errno::EAGAIN))
+        );
+        assert_eq!(kernel.take_pending(task), None);
+        assert_eq!(kernel.state.lock_or_recover().tasks.len(), 1);
+    }
+}
