@@ -56,6 +56,7 @@ use crate::{
 pub struct State {
     /// Whether `callback_signal` installed the kernel handlers (see `signal.rs`).
     pub(crate) signals_installed: AtomicBool,
+    pub(crate) timers: signal::State,
     pub(crate) tty: tty::State,
 }
 
@@ -64,6 +65,7 @@ impl State {
     pub(crate) fn fork(&self) -> Self {
         Self {
             signals_installed: AtomicBool::new(self.signals_installed.load(Ordering::Acquire)),
+            timers: signal::State::default(),
             tty: self.tty.fork(),
         }
     }

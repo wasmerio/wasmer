@@ -228,7 +228,7 @@ fn signals_without_any_callback_terminate() {
 }
 
 /// `proc_raise_interval` arms `ITIMER_REAL`: `SIGALRM` interrupts a sleep, which returns
-/// `INTR` (27) once the handler ran. Other signals are `NOTSUP` (58).
+/// `INTR` (27) once the handler ran. Disarming another signal succeeds independently.
 #[test]
 fn alarm() {
     let wat = r#"
@@ -248,7 +248,7 @@ fn alarm() {
         (if (i32.ne (call $sleep (i64.const 10000000000)) (i32.const 27))
           (then (call $exit (i32.const 2))))
         (if (i32.ne (global.get $last) (i32.const 14)) (then (call $exit (i32.const 3))))
-        (if (i32.ne (call $interval (i32.const 10) (i64.const 1) (i32.const 0)) (i32.const 58))
+        (if (call $interval (i32.const 10) (i64.const 0) (i32.const 0))
           (then (call $exit (i32.const 4))))
         ;; a short sleep without a timer completes
         (if (call $sleep (i64.const 1000)) (then (call $exit (i32.const 5))))
