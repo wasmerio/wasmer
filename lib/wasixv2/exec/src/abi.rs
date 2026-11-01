@@ -4,9 +4,10 @@
 
 use std::sync::Arc;
 
-use wasixv2_abi::{Cstr, DlFlags, DlHandle, DlHandlePtr, Uptr, UptrPtr};
+use wasixv2_abi::{Cstr, DlFlags, DlHandle, DlHandlePtr, U32Ptr, Uptr, UptrPtr};
 use wasixv2_syscalls::{
-    Binfmt, Control, Errno, Image, LocalFuture, SignalFrame, Syscalls, TaskId, UserSliceMut,
+    Binfmt, Control, Errno, Image, LocalFuture, SignalFrame, SysResult, Syscalls, TaskId,
+    UserSlice, UserSliceMut,
 };
 use wasmer::{
     AsyncFunctionEnvMut, Function, FunctionEnv, Imports, Instance, Module, RuntimeError, Store,
@@ -137,6 +138,61 @@ pub enum Role {
 
 /// The per-instance half of an [`Abi`]: entry points and the guest-visible interruptions.
 pub trait AbiInstance<S: 'static>: Send + Sync {
+    /// The current store's function table, if the ABI supplies one.
+    fn function_table(&self) -> Option<&wasmer::Table> {
+        None
+    }
+
+    /// Whether this slot's signature is immutable for this image's lifetime.
+    /// Static source metadata and managed closure ownership provide this proof.
+    fn function_cacheable(&self, function: u32) -> bool {
+        let _ = function;
+        false
+    }
+
+    fn closure_allocate<'a>(
+        &'a self,
+        env: &'a AsyncFunctionEnvMut<ExecEnv<S>>,
+        caller: &'a wasixv2_syscalls::Caller<'_>,
+        closure: U32Ptr,
+    ) -> LocalFuture<'a, SysResult<i32>> {
+        let _ = (env, caller, closure);
+        Box::pin(async { Err(Errno::ENOSYS.into()) })
+    }
+
+    #[allow(clippy::too_many_arguments)] // the existing closure wire arguments plus import context
+    fn closure_prepare<'a>(
+        &'a self,
+        env: &'a AsyncFunctionEnvMut<ExecEnv<S>>,
+        caller: &'a wasixv2_syscalls::Caller<'_>,
+        backing: u32,
+        closure: u32,
+        argument_types: UserSlice,
+        result_types: UserSlice,
+        env_: Uptr,
+    ) -> LocalFuture<'a, SysResult<i32>> {
+        let _ = (
+            env,
+            caller,
+            backing,
+            closure,
+            argument_types,
+            result_types,
+            env_,
+        );
+        Box::pin(async { Err(Errno::ENOSYS.into()) })
+    }
+
+    fn closure_free<'a>(
+        &'a self,
+        env: &'a AsyncFunctionEnvMut<ExecEnv<S>>,
+        caller: &'a wasixv2_syscalls::Caller<'_>,
+        closure: u32,
+    ) -> LocalFuture<'a, SysResult<i32>> {
+        let _ = (env, caller, closure);
+        Box::pin(async { Err(Errno::ENOSYS.into()) })
+    }
+
     #[allow(clippy::too_many_arguments)]
     fn dl_open<'a>(
         &'a self,

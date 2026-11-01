@@ -82,6 +82,94 @@ fn returning_from_start_exits_zero() {
     assert_eq!(block_on(wat, &["x"]).0, 0);
 }
 
+#[test]
+fn dynamic_call_preserves_v1_whole_results_and_strict_side_effects() {
+    let wat = r#"(module
+      (import "wasix_32v1" "call_dynamic" (func $call (param i32 i32 i32 i32 i32 i32) (result i32)))
+      (import "wasi_snapshot_preview1" "proc_exit" (func $exit (param i32)))
+      (memory (export "memory") 1)
+      (table 2 funcref)
+      (global $effects (mut i32) (i32.const 0))
+      (elem (i32.const 1) $target)
+      (func $target (result i64 i32)
+        (global.set $effects (i32.add (global.get $effects) (i32.const 1)))
+        (i64.const 123456789) (i32.const 77))
+      (func (export "_start")
+        (i32.store (i32.const 100) (i32.const 0x7a7a7a7a))
+        (i32.store (i32.const 104) (i32.const 0x7a7a7a7a))
+        ;; The i64 does not fit, so the later i32 uses the same output offset.
+        (if (call $call (i32.const 1) (i32.const -1) (i32.const 0) (i32.const 100) (i32.const 4) (i32.const 0))
+          (then (call $exit (i32.const 1))))
+        (if (i32.ne (i32.load (i32.const 100)) (i32.const 77)) (then (call $exit (i32.const 2))))
+        (if (i32.ne (i32.load (i32.const 104)) (i32.const 0x7a7a7a7a)) (then (call $exit (i32.const 3))))
+        ;; Output mismatch is discovered after the target executed and wrote its results.
+        (if (i32.ne (call $call (i32.const 1) (i32.const -1) (i32.const 0) (i32.const 100) (i32.const 20) (i32.const 1)) (i32.const 28))
+          (then (call $exit (i32.const 4))))
+        (if (i32.ne (global.get $effects) (i32.const 2)) (then (call $exit (i32.const 5))))
+        (if (i64.ne (i64.load (i32.const 100)) (i64.const 123456789)) (then (call $exit (i32.const 6))))
+        ;; V1 checks the final written offset; a zero output length ignores its pointer.
+        (if (call $call (i32.const 1) (i32.const -1) (i32.const 0) (i32.const -1) (i32.const 0) (i32.const 1))
+          (then (call $exit (i32.const 7))))
+        (if (i32.ne (global.get $effects) (i32.const 3)) (then (call $exit (i32.const 8))))))"#;
+    assert_eq!(block_on(wat, &["call-results"]).0, 0);
+}
+
+#[test]
+fn dynamic_call_skips_unconsumed_partial_input_bytes() {
+    let wat = r#"(module
+      (import "wasix_32v1" "call_dynamic" (func $call (param i32 i32 i32 i32 i32 i32) (result i32)))
+      (import "wasi_snapshot_preview1" "proc_exit" (func $exit (param i32)))
+      (memory (export "memory") 1)
+      (table 3 funcref)
+      (elem (i32.const 1) $wide $partial)
+      (func $wide (param i64) (result i64) local.get 0)
+      (func $partial (param i32 i64) (result i64)
+        (if (i32.ne (local.get 0) (i32.const 42)) (then (call $exit (i32.const 5))))
+        local.get 1)
+      (func (export "_start") (local $last i32)
+        ;; No complete input field fits, so even this invalid pointer is unused.
+        (if (call $call (i32.const 1) (i32.const -1) (i32.const 4)
+          (i32.const 100) (i32.const 8) (i32.const 0)) (then (call $exit (i32.const 1))))
+        (if (i64.ne (i64.load (i32.const 100)) (i64.const 0)) (then (call $exit (i32.const 2))))
+        (local.set $last (i32.sub (i32.shl (memory.size) (i32.const 16)) (i32.const 4)))
+        (i32.store (local.get $last) (i32.const 42))
+        ;; Only the complete i32 is read, even though the declared slice extends past memory.
+        (if (call $call (i32.const 2) (local.get $last) (i32.const 6)
+          (i32.const 100) (i32.const 8) (i32.const 0)) (then (call $exit (i32.const 3))))
+        (if (i64.ne (i64.load (i32.const 100)) (i64.const 0)) (then (call $exit (i32.const 4))))))"#;
+    assert_eq!(block_on(wat, &["call-input"]).0, 0);
+}
+
+#[test]
+fn reflection_overflow_writes_counts_and_preserves_both_type_buffers() {
+    let wat = r#"(module
+      (import "wasix_32v1" "reflect_signature" (func $reflect (param i32 i32 i32 i32 i32 i32) (result i32)))
+      (import "wasi_snapshot_preview1" "proc_exit" (func $exit (param i32)))
+      (memory (export "memory") 1)
+      (table 2 funcref)
+      (elem (i32.const 1) $target)
+      (func $target (param i64 f32) (result f64) (f64.const 0))
+      (func (export "_start")
+        (i32.store (i32.const 100) (i32.const 0x7a7a7a7a))
+        (if (i32.ne (call $reflect (i32.const 1) (i32.const 100) (i32.const 1) (i32.const 102) (i32.const 1) (i32.const 200)) (i32.const 61))
+          (then (call $exit (i32.const 1))))
+        (if (i32.ne (i32.load (i32.const 100)) (i32.const 0x7a7a7a7a)) (then (call $exit (i32.const 2))))
+        (if (i32.ne (i32.load8_u (i32.const 200)) (i32.const 1)) (then (call $exit (i32.const 3))))
+        (if (i32.ne (i32.load16_u (i32.const 202)) (i32.const 2)) (then (call $exit (i32.const 4))))
+        (if (i32.ne (i32.load16_u (i32.const 204)) (i32.const 1)) (then (call $exit (i32.const 5))))
+        (if (call $reflect (i32.const 1) (i32.const 100) (i32.const 2) (i32.const 102) (i32.const 1) (i32.const 200))
+          (then (call $exit (i32.const 6))))
+        (if (i32.ne (i32.load8_u (i32.const 100)) (i32.const 1)) (then (call $exit (i32.const 7))))
+        (if (i32.ne (i32.load8_u (i32.const 101)) (i32.const 2)) (then (call $exit (i32.const 8))))
+        (if (i32.ne (i32.load8_u (i32.const 102)) (i32.const 3)) (then (call $exit (i32.const 9))))
+        (if (i32.ne (call $reflect (i32.const 9999) (i32.const 0) (i32.const 0) (i32.const 0) (i32.const 0) (i32.const 200)) (i32.const 28)) (then (call $exit (i32.const 10))))
+        (if (i32.load8_u (i32.const 200)) (then (call $exit (i32.const 11))))
+        (if (i32.load (i32.const 202)) (then (call $exit (i32.const 12))))
+        (if (i32.ne (call $reflect (i32.const 0) (i32.const 0) (i32.const 0) (i32.const 0) (i32.const 0) (i32.const 200)) (i32.const 28)) (then (call $exit (i32.const 13))))
+        (if (i32.ne (i32.load8_u (i32.const 200)) (i32.const 1)) (then (call $exit (i32.const 14))))))"#;
+    assert_eq!(block_on(wat, &["reflect-overflow"]).0, 0);
+}
+
 /// Prints `argv[1]` and the environment, read back through the v1 calls.
 const ARGS: &str = r#"
 (module

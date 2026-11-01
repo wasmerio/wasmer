@@ -85,6 +85,7 @@ where
         };
         Ok(Arc::new(Wasixv2Instance {
             entry: entry.clone(),
+            table: crate::function::TableMetadata::bind(instance, _store),
             signal: signal::SignalExports::new(instance),
             vfork_return: exports.get_function(process::VFORK_RETURN).ok().cloned(),
         }))
@@ -97,6 +98,7 @@ where
 }
 
 pub(crate) struct Wasixv2Instance {
+    table: crate::function::TableMetadata,
     /// `_start` of a process image, `wasixv2_thread_start` of a thread.
     entry: Function,
     signal: signal::SignalExports,
@@ -112,6 +114,12 @@ impl Wasixv2Instance {
 }
 
 impl<S: Control + Send + Sync + 'static> AbiInstance<S> for Wasixv2Instance {
+    fn function_table(&self) -> Option<&wasmer::Table> {
+        self.table.table()
+    }
+    fn function_cacheable(&self, _: u32) -> bool {
+        self.table.cacheable()
+    }
     fn start<'a>(&'a self, entry: &'a Entry<'a, S>) -> LocalFuture<'a, Result<(), RuntimeError>> {
         Box::pin(async move { entry.call("_start", &self.entry, &[]).await.map(drop) })
     }

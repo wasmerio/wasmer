@@ -12,6 +12,7 @@ mod cooperative;
 mod cputime;
 mod dynamic;
 mod fork;
+mod function;
 mod generated;
 mod loader;
 mod memory;
@@ -39,6 +40,7 @@ pub use abi::{
     Abi, AbiInstance, Abis, Entry, EntryReturn, PreparedImage, Role, Sigreturn, VforkResume,
 };
 pub use dynamic::GuestDynamicLinker;
+pub use function::{CallBufferPolicy, GuestFunctionOperations, TableMetadata};
 pub use generated::IMPORT_MODULE;
 pub use loader::{Compile, LoadError, Loader};
 pub use memory::GuestMemory;
@@ -253,7 +255,10 @@ pub async fn call_guest<S: 'static>(
     function: &Function,
     args: &[Value],
 ) -> Result<Box<[Value]>, RuntimeError> {
-    asyncify::call(env, None, function, args).await
+    let previous_mode = env.read().await.data().cpu.replace_mode(false);
+    let result = asyncify::call(env, None, function, args).await;
+    env.read().await.data().cpu.replace_mode(previous_mode);
+    result
 }
 
 /// Raised from an import to unwind the guest after its thread group exited.
@@ -268,6 +273,9 @@ pub fn load(engine: &Engine, wasm: &[u8]) -> Result<Module, CompileError> {
     match instrument(wasm) {
         Ok(instrumented) => Module::new(engine, instrumented),
         Err(err) => {
+            if !err.permits_uninstrumented() {
+                return Err(CompileError::Validate(err.to_string()));
+            }
             let module = Module::new(engine, wasm)?;
             warn_not_preemptible(&err);
             Ok(module)

@@ -22,13 +22,13 @@
 use std::convert::Infallible;
 
 use wasm_encoder::{
-    BlockType, CodeSection, ConstExpr, EntityType, Function, GlobalSection, GlobalType,
-    ImportSection, Instruction, Module, SectionId, TypeSection, ValType,
+    BlockType, CodeSection, ConstExpr, EntityType, ExportKind, ExportSection, Function,
+    GlobalSection, GlobalType, ImportSection, Instruction, Module, SectionId, TypeSection, ValType,
     reencode::{Error, Reencode, utils},
 };
 use wasmparser::{
-    FunctionBody, GlobalSectionReader, ImportSectionReader, Parser, RecGroup, TypeRef,
-    TypeSectionReader,
+    ExportSectionReader, FunctionBody, GlobalSectionReader, ImportSectionReader, Operator, Parser,
+    Payload, RecGroup, TypeRef, TypeSectionReader,
 };
 
 /// The imports the instrumentation adds; not part of the guest ABI.
@@ -69,15 +69,24 @@ pub(crate) const BUDGET: i32 = 1 << 16;
 /// does not know.
 #[derive(Debug, thiserror::Error)]
 #[error("cannot add preemption points to the module: {0}")]
-pub struct InstrumentError(String);
+pub struct InstrumentError(String, bool);
+
+impl InstrumentError {
+    pub(crate) fn permits_uninstrumented(&self) -> bool {
+        self.1
+    }
+}
 
 /// `module` with preemption points.
 pub(crate) fn instrument(module: &[u8]) -> Result<Vec<u8>, InstrumentError> {
     let mut out = Module::new();
-    let mut points = Points::default();
+    let mut points = Points {
+        reflection: Reflection::parse(module)?,
+        ..Points::default()
+    };
     match points.parse_core_module(&mut out, Parser::new(0), module) {
         Ok(()) => Ok(out.finish()),
-        Err(err) => Err(InstrumentError(err.to_string())),
+        Err(err) => Err(InstrumentError(err.to_string(), true)),
     }
 }
 
@@ -105,6 +114,92 @@ struct Points {
     start: Option<u32>,
     /// Bodies seen so far.
     bodies: u32,
+    reflection: Reflection,
+    reflection_exported: bool,
+    stable_global: Option<u32>,
+}
+
+#[derive(Default)]
+struct Reflection {
+    enabled: bool,
+    functions: u32,
+    tables: u32,
+    stable: bool,
+}
+
+impl Reflection {
+    fn parse(module: &[u8]) -> Result<Self, InstrumentError> {
+        let parse = || -> Result<(Self, bool), wasmparser::BinaryReaderError> {
+            let mut metadata = Self {
+                stable: true,
+                ..Self::default()
+            };
+            let mut reserved = false;
+            for payload in Parser::new(0).parse_all(module) {
+                match payload? {
+                    Payload::ImportSection(imports) => {
+                        for import in imports.into_imports() {
+                            let import = import?;
+                            match import.ty {
+                                TypeRef::Func(_) | TypeRef::FuncExact(_) => {
+                                    metadata.functions += 1;
+                                    if matches!(import.module, "wasixv2" | "wasix_32v1")
+                                        && matches!(
+                                            import.name,
+                                            "call_dynamic"
+                                                | "reflect_signature"
+                                                | "context_create"
+                                                | "closure_prepare"
+                                        )
+                                    {
+                                        metadata.enabled = true;
+                                    }
+                                }
+                                TypeRef::Table(_) => {
+                                    metadata.tables += 1;
+                                    metadata.stable = false;
+                                }
+                                _ => {}
+                            }
+                        }
+                    }
+                    Payload::FunctionSection(functions) => metadata.functions += functions.count(),
+                    Payload::TableSection(tables) => metadata.tables += tables.count(),
+                    Payload::ExportSection(exports) => {
+                        for export in exports {
+                            reserved |= export?.name.starts_with("__wasix_exec_");
+                        }
+                    }
+                    Payload::CodeSectionEntry(body) if metadata.enabled => {
+                        let mut operators = body.get_operators_reader()?;
+                        while !operators.eof() {
+                            match operators.read()? {
+                                Operator::TableSet { table: 0 }
+                                | Operator::TableFill { table: 0 }
+                                | Operator::TableGrow { table: 0 }
+                                | Operator::TableInit { table: 0, .. }
+                                | Operator::TableCopy { dst_table: 0, .. } => {
+                                    metadata.stable = false
+                                }
+                                _ => {}
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            Ok((metadata, reserved))
+        };
+        let (metadata, reserved) =
+            parse().map_err(|error| InstrumentError(error.to_string(), true))?;
+        if metadata.enabled && reserved {
+            return Err(InstrumentError(
+                "reserved execution metadata export".into(),
+                false,
+            ));
+        }
+        Ok(metadata)
+    }
 }
 
 /// The order of the non-custom sections.
@@ -198,6 +293,40 @@ impl Points {
         };
         globals.global(ty, &ConstExpr::i32_const(BUDGET));
         self.budget = Some(index);
+        if self.reflection.enabled {
+            globals.global(
+                GlobalType {
+                    val_type: ValType::I32,
+                    mutable: false,
+                    shared: false,
+                },
+                &ConstExpr::i32_const(i32::from(self.reflection.stable)),
+            );
+            self.stable_global = Some(index + 1);
+        }
+    }
+
+    fn add_reflection_exports(&mut self, exports: &mut ExportSection) -> Result<(), Error> {
+        if !self.reflection.enabled {
+            return Ok(());
+        }
+        for original in 0..self.reflection.functions {
+            exports.export(
+                &format!("__wasix_exec_fn_{original}"),
+                ExportKind::Func,
+                self.function_index(original)?,
+            );
+        }
+        if self.reflection.tables != 0 {
+            exports.export("__wasix_exec_table", ExportKind::Table, 0);
+        }
+        exports.export(
+            "__wasix_exec_table_stable",
+            ExportKind::Global,
+            self.stable_global.expect("globals precede exports"),
+        );
+        self.reflection_exported = true;
+        Ok(())
     }
 
     /// `if budget { budget -= 1 } else { budget = hook() }`.
@@ -293,6 +422,15 @@ impl Reencode for Points {
         Ok(())
     }
 
+    fn parse_export_section(
+        &mut self,
+        exports: &mut ExportSection,
+        section: ExportSectionReader<'_>,
+    ) -> Result<(), Error> {
+        utils::parse_export_section(self, exports, section)?;
+        self.add_reflection_exports(exports)
+    }
+
     fn parse_function_body(
         &mut self,
         code: &mut CodeSection,
@@ -361,6 +499,11 @@ impl Reencode for Points {
             self.add_budget(&mut globals, self.imported_globals);
             module.section(&globals);
         }
+        if self.reflection.enabled && !self.reflection_exported && past(SectionId::Export, before) {
+            let mut exports = ExportSection::new();
+            self.add_reflection_exports(&mut exports)?;
+            module.section(&exports);
+        }
         Ok(())
     }
 }
@@ -371,6 +514,57 @@ mod tests {
 
     fn print(wasm: &[u8]) -> String {
         wasmprinter::print_bytes(wasm).unwrap()
+    }
+
+    #[test]
+    fn reflection_exports_preserve_function_identity_and_detect_table_writes() {
+        let source = r#"(module
+            (import "wasixv2" "reflect_signature" (func (param i32 i32 i32 i32 i32 i32) (result i32)))
+            (table 2 funcref)
+            (func $target (param i64) (result f32) f32.const 1)
+            (elem declare func $target))"#;
+        let output = instrument(&wat::parse_str(source).unwrap()).unwrap();
+        wasmparser::validate(&output).unwrap();
+        let text = print(&output);
+        let target = Parser::new(0).parse_all(&output).find_map(|payload| {
+            let Payload::ExportSection(exports) = payload.ok()? else {
+                return None;
+            };
+            exports
+                .into_iter()
+                .filter_map(Result::ok)
+                .find(|export| export.name == "__wasix_exec_fn_1")
+                .map(|export| export.index)
+        });
+        assert_eq!(target, Some(7));
+        assert!(
+            text.contains(r#"(export "__wasix_exec_table" (table 0))"#),
+            "{text}"
+        );
+        assert!(text.contains("(global (;1;) i32 i32.const 1)"), "{text}");
+        let mutable = source.replace(
+            "(elem declare func $target)",
+            "(elem declare func $target) (func i32.const 0 ref.null func table.set 0)",
+        );
+        let output = instrument(&wat::parse_str(mutable).unwrap()).unwrap();
+        wasmparser::validate(&output).unwrap();
+        assert!(print(&output).contains("(global (;1;) i32 i32.const 0)"));
+    }
+
+    #[test]
+    fn reflection_metadata_cannot_replace_guest_exports() {
+        let source = wat::parse_str(
+            r#"(module
+            (import "wasixv2" "context_create" (func (param i32 i32) (result i32)))
+            (global (export "__wasix_exec_table_stable") i32 (i32.const 1)))"#,
+        )
+        .unwrap();
+        assert!(
+            instrument(&source)
+                .unwrap_err()
+                .to_string()
+                .contains("reserved execution metadata export")
+        );
     }
 
     #[test]

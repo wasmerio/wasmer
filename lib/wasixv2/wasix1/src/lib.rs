@@ -154,6 +154,7 @@ where
             self.http.clone(),
             self.limits,
             instance,
+            _store,
             task,
             role,
         )?;

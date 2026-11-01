@@ -41,6 +41,7 @@ pub struct Wasix1Instance {
     initialize: Option<Function>,
     /// `_start` of a process image, `wasi_thread_start` of a thread.
     entry: Function,
+    table_cacheable: bool,
     /// The export `callback_signal` last named that exists: `__wasm_signal` unless libc
     /// named another.
     signal: Mutex<Option<Function>>,
@@ -79,6 +80,7 @@ impl Wasix1Instance {
         http: Option<Arc<dyn crate::http::HttpProvider>>,
         limits: crate::Limits,
         instance: &Instance,
+        store: &mut wasmer::Store,
         task: TaskId,
         role: Role,
     ) -> Result<Self, wasmer::ExportError> {
@@ -102,6 +104,7 @@ impl Wasix1Instance {
             exports: exports.clone(),
             initialize: function(INITIALIZE).filter(|_| role == Role::Process),
             entry,
+            table_cacheable: wasixv2_exec::TableMetadata::bind(instance, store).cacheable(),
             signal: Mutex::new(function(SIGNAL_CALLBACK)),
             blocked: AtomicBool::new(false),
             started: AtomicBool::new(false),
@@ -200,6 +203,18 @@ impl Drop for Wasix1Instance {
 }
 
 impl<S: Send + Sync + 'static> AbiInstance<S> for Wasix1Instance {
+    fn function_table(&self) -> Option<&wasmer::Table> {
+        self.exports
+            .get_table("__wasix_exec_table")
+            .or_else(|_| self.exports.get_table("__indirect_function_table"))
+            .or_else(|_| self.exports.get_table("__wasix_dylink_table_0"))
+            .ok()
+    }
+
+    fn function_cacheable(&self, _: u32) -> bool {
+        // Filled from source metadata during ABI binding, never inferred from a slot index.
+        self.table_cacheable
+    }
     /// `_initialize` cannot fork: a fork child resumes in `_start`.
     fn start<'a>(&'a self, entry: &'a Entry<'a, S>) -> LocalFuture<'a, Result<(), RuntimeError>> {
         Box::pin(async move {

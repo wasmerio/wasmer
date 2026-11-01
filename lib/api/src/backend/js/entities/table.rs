@@ -16,10 +16,7 @@ pub struct Table {
 // unsafe impl Send for Table {}
 
 fn set_table_item(table: &VMTable, item_index: u32, item: &JsValue) -> Result<(), RuntimeError> {
-    table
-        .table
-        .set_raw(item_index, item)
-        .map_err(|e| e.into())
+    table.table.set_raw(item_index, item).map_err(|e| e.into())
 }
 
 fn get_table_item(store: &mut impl AsStoreMut, val: Value) -> Result<JsValue, RuntimeError> {
@@ -27,7 +24,9 @@ fn get_table_item(store: &mut impl AsStoreMut, val: Value) -> Result<JsValue, Ru
         return Err(RuntimeError::new("cannot pass Value across contexts"));
     }
     match val {
-        Value::FuncRef(Some(ref func)) => Ok(func.as_js().handle.function.clone().into_inner().into()),
+        Value::FuncRef(Some(ref func)) => {
+            Ok(func.as_js().handle.function.clone().into_inner().into())
+        }
         Value::FuncRef(None) | Value::ExternRef(None) => Ok(JsValue::null()),
         Value::ExternRef(Some(ref reference)) => match &reference.0 {
             crate::BackendExternRef::Js(reference) => Ok(reference.as_js_value()),
@@ -90,9 +89,15 @@ impl Table {
         match self.handle.ty.ty {
             Type::FuncRef => {
                 let func = value.dyn_into::<js_sys::Function>().ok()?;
-                let ty = VMFunction::type_from_js(&func)
-                    .unwrap_or_else(|| FunctionType::new(vec![], vec![]));
-                let vm_function = VMFunction::new(func, ty);
+                let vm_function = match VMFunction::type_from_js(&func) {
+                    Some(ty) => VMFunction::new(func, ty),
+                    // Preserve the historical unchecked API without annotating an invented
+                    // signature onto the shared JS function object.
+                    None => VMFunction {
+                        function: crate::js::utils::js_handle::JsHandle::new(func),
+                        ty: FunctionType::new(vec![], vec![]),
+                    },
+                };
                 let function = crate::Function::from_vm_extern(
                     store,
                     crate::vm::VMExternFunction::Js(vm_function),
@@ -106,6 +111,23 @@ impl Table {
             )))),
             _ => None,
         }
+    }
+
+    pub fn get_typed_function(
+        &self,
+        store: &mut impl AsStoreMut,
+        index: u32,
+    ) -> Option<crate::Function> {
+        if self.handle.ty.ty != Type::FuncRef {
+            return None;
+        }
+        let value = self.handle.table.get_raw(index).ok()?;
+        let function = value.dyn_into::<js_sys::Function>().ok()?;
+        let ty = VMFunction::type_from_js(&function)?;
+        Some(crate::Function::from_vm_extern(
+            store,
+            crate::vm::VMExternFunction::Js(VMFunction::new(function, ty)),
+        ))
     }
 
     pub fn set(
