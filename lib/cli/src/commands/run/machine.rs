@@ -160,7 +160,8 @@ pub(super) fn is_script(path: &Path) -> bool {
 /// Compiles the images the machine's processes `execve`, and the program `wasmer run` starts,
 /// as `wasmer run` compiles a module: on a backend with the WebAssembly features the image
 /// uses, with the machine's preemption points ([`wasixv2::instrument`]), through the runtime's
-/// compiled-module cache. Each image is instrumented and compiled once per run: later loads of
+/// compiled-module cache. Dynamic mains are prepared before instrumentation, as the facade's
+/// default loader does. Each image is prepared, instrumented and compiled once per run: later loads of
 /// the same image find the module by the image's identity (a package file's buffer) or, for a
 /// copy, by a hash of its bytes, without looking at them again.
 pub(super) struct CachedLoader {
@@ -222,10 +223,14 @@ impl CachedLoader {
 
     async fn compile(&self, wasm: &[u8]) -> Result<(Engine, Module), Error> {
         let engine = self.engine_for(wasm)?;
-        let (instrumented, failed) = match wasixv2::instrument(wasm) {
+        let prepared = wasixv2_dylink::prepare_image(wasm)?;
+        let (instrumented, failed) = match wasixv2::instrument(&prepared) {
             Ok(instrumented) => (instrumented, None),
-            Err(err) => (wasm.to_vec(), Some(err)),
+            Err(err) if prepared == wasm => (prepared, Some(err)),
+            Err(err) => return Err(err.into()),
         };
+        // Key the persistent cache by the actual compiler input, never the source's
+        // legacy instrument-only hash or a package atom's unprepared hash.
         let wasm = HashedModuleData::new(instrumented);
         let module = self.runtime.load_hashed_module(wasm, Some(&engine)).await?;
         if let Some(err) = failed {
@@ -261,6 +266,223 @@ impl Loader for CachedLoader {
             self.modules.lock().unwrap().insert(key, loaded);
             Ok((engine, module))
         })
+    }
+}
+
+#[cfg(all(
+    test,
+    feature = "wat",
+    any(
+        feature = "cranelift",
+        feature = "singlepass",
+        feature = "llvm",
+        feature = "v8"
+    )
+))]
+mod loader_tests {
+    use super::*;
+    use futures::{executor::block_on, future::BoxFuture};
+    use wasmer_wasix::{SpawnError, VirtualTaskManager, runtime::resolver::Source};
+
+    #[derive(Debug, Default)]
+    struct RecordingRuntime {
+        requests: Mutex<Vec<HashedModuleData>>,
+        cache: Mutex<HashMap<ModuleHash, Module>>,
+    }
+
+    impl Runtime for RecordingRuntime {
+        fn networking(&self) -> &virtual_net::DynVirtualNetworking {
+            unreachable!("compiling an image needs no networking")
+        }
+
+        fn task_manager(&self) -> &Arc<dyn VirtualTaskManager> {
+            unreachable!("compiling an image needs no task manager")
+        }
+
+        fn source(&self) -> Arc<dyn Source + Send + Sync> {
+            unreachable!("compiling an image needs no package resolver")
+        }
+
+        fn load_hashed_module(
+            &self,
+            data: HashedModuleData,
+            engine: Option<&Engine>,
+        ) -> BoxFuture<'_, Result<Module, SpawnError>> {
+            self.requests.lock().unwrap().push(data.clone());
+            let hash = *data.hash();
+            let mut cache = self.cache.lock().unwrap();
+            let module = match cache.get(&hash) {
+                Some(module) => Ok(module.clone()),
+                None => Module::new(engine.unwrap(), data.wasm())
+                    .inspect(|module| {
+                        cache.insert(hash, module.clone());
+                    })
+                    .map_err(|error| SpawnError::CompileError {
+                        module_hash: hash,
+                        error,
+                    }),
+            };
+            Box::pin(futures::future::ready(module))
+        }
+    }
+
+    fn loader() -> (CachedLoader, Arc<RecordingRuntime>, Engine) {
+        let options = RuntimeOptions::default();
+        let backend = options.get_available_backends().unwrap()[0];
+        let engine = backend.get_engine(&Target::default(), &options).unwrap();
+        let runtime = Arc::new(RecordingRuntime::default());
+        let loader = CachedLoader::new(runtime.clone(), options, (backend, engine.clone()));
+        (loader, runtime, engine)
+    }
+
+    fn wasm(source: &str) -> Vec<u8> {
+        wasmer::wat2wasm(source.as_bytes()).unwrap().into_owned()
+    }
+
+    fn custom_section(bytes: &mut Vec<u8>, name: &str, data: &[u8]) {
+        fn leb(mut value: usize, output: &mut Vec<u8>) {
+            loop {
+                let byte = (value & 127) as u8;
+                value >>= 7;
+                output.push(byte | if value != 0 { 128 } else { 0 });
+                if value == 0 {
+                    break;
+                }
+            }
+        }
+        let mut body = Vec::new();
+        leb(name.len(), &mut body);
+        body.extend_from_slice(name.as_bytes());
+        body.extend_from_slice(data);
+        bytes.push(0);
+        leb(body.len(), bytes);
+        bytes.extend(body);
+    }
+
+    fn dynamic(source: &str) -> Vec<u8> {
+        let mut bytes = wasm(source);
+        // The same empty dylink.0 memory-info fixture as the planner's source tests.
+        custom_section(&mut bytes, "dylink.0", &[1, 4, 0, 0, 0, 0]);
+        bytes
+    }
+
+    fn dynamic_main() -> Vec<u8> {
+        dynamic(
+            r#"(module
+              (import "wasixv2" "unused" (func))
+              (global $state (export "state") (mut i32) (i32.const 0))
+              (func $start i32.const 9 global.set $state)
+              (start $start))"#,
+        )
+    }
+
+    #[test]
+    fn cached_loader_prepares_source_before_instrumenting_and_invalidates_legacy_cache() {
+        let (loader, runtime, engine) = loader();
+        let source = dynamic_main();
+        let legacy = HashedModuleData::new(wasixv2::instrument(&source).unwrap());
+        runtime
+            .cache
+            .lock()
+            .unwrap()
+            .insert(*legacy.hash(), Module::new(&engine, legacy.wasm()).unwrap());
+        let image = Image::copied(source.clone());
+        let (_, module) = block_on(loader.load(&engine, &image)).unwrap();
+        let requests = runtime.requests.lock().unwrap();
+        assert_eq!(requests.len(), 1);
+        assert_ne!(requests[0].hash(), legacy.hash());
+        assert_eq!(requests[0].hash(), &ModuleHash::new(requests[0].wasm()));
+        assert_eq!(
+            requests[0].wasm().as_ref(),
+            wasixv2::instrument(&wasixv2_dylink::prepare_image(&source).unwrap())
+                .unwrap()
+                .as_slice()
+        );
+        assert_eq!(
+            module
+                .custom_sections(wasixv2_dylink::SOURCE_SECTION)
+                .collect::<Vec<_>>(),
+            [source.into_boxed_slice()]
+        );
+        let prepared = wasixv2_dylink::Module::parse(requests[0].wasm()).unwrap();
+        assert_eq!(prepared.start(), None);
+        assert!(prepared.exports().contains_key("__wasix_dylink_global_0"));
+        assert!(wasixv2::is_preemptible(&module));
+    }
+
+    #[test]
+    fn cached_loader_keeps_package_identity_and_copied_image_lookup() {
+        let (loader, runtime, engine) = loader();
+        let source = Arc::new(dynamic_main());
+        let retained = Arc::downgrade(&source);
+        let image = Image::shared(source.clone());
+        drop(source);
+        for _ in 0..2 {
+            block_on(loader.load(&engine, &image)).unwrap();
+        }
+        assert_eq!(runtime.requests.lock().unwrap().len(), 1);
+        let copied = Image::copied(image.bytes().to_vec());
+        for _ in 0..2 {
+            block_on(loader.load(&engine, &copied)).unwrap();
+        }
+        let requests = runtime.requests.lock().unwrap();
+        assert_eq!(requests.len(), 2);
+        assert_eq!(requests[0].hash(), requests[1].hash());
+        drop(requests);
+        drop(image);
+        assert!(retained.upgrade().is_some());
+        drop(loader);
+        assert!(retained.upgrade().is_none());
+    }
+
+    #[test]
+    fn cached_loader_static_and_v1_keep_existing_instrumented_bytes() {
+        let (loader, runtime, engine) = loader();
+        for source in [
+            wasm(r#"(module (import "wasixv2" "unused" (func)))"#),
+            dynamic(r#"(module (import "wasi_snapshot_preview1" "proc_exit" (func (param i32))))"#),
+        ] {
+            let image = Image::copied(source.clone());
+            let (_, module) = block_on(loader.load(&engine, &image)).unwrap();
+            let requests = runtime.requests.lock().unwrap();
+            let input = requests.last().unwrap();
+            let expected = HashedModuleData::new(wasixv2::instrument(&source).unwrap());
+            assert_eq!(input, &expected);
+            assert_eq!(
+                module
+                    .custom_sections(wasixv2_dylink::SOURCE_SECTION)
+                    .count(),
+                0
+            );
+        }
+    }
+
+    #[test]
+    fn cached_loader_preparation_errors_never_compile_raw_dynamic_source() {
+        let (loader, runtime, engine) = loader();
+        let mut reserved = wasm("(module)");
+        custom_section(&mut reserved, wasixv2_dylink::SOURCE_SECTION, b"forged");
+        let mut malformed = wasm(r#"(module (import "wasixv2" "unused" (func)))"#);
+        custom_section(&mut malformed, "dylink.0", &[]);
+        for source in [
+            reserved,
+            malformed,
+            dynamic(
+                r#"(module (import "wasixv2" "unused" (func)) (func (export "asyncify_start_unwind")))"#,
+            ),
+            dynamic(
+                r#"(module (import "wasixv2" "arbitrary" (func $guest)) (func $start call $guest) (start $start))"#,
+            ),
+        ] {
+            // These are valid compiler inputs; only the preparation contract refuses them.
+            assert!(Module::new(&engine, &source).is_ok());
+            let image = Image::copied(source);
+            for _ in 0..2 {
+                assert!(block_on(loader.load(&engine, &image)).is_err());
+            }
+            assert!(runtime.requests.lock().unwrap().is_empty());
+            assert!(loader.modules.lock().unwrap().is_empty());
+        }
     }
 }
 

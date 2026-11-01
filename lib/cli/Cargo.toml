@@ -146,6 +146,7 @@ wasmer-types = { version = "=7.5.0", path = "../types", features = [
   "detect-wasm-features",
 ] }
 # `wasmer run` runs WASIX and WASI programs on the WASIX v2 kernel.
+wasixv2-dylink = { path = "../wasixv2/dylink", default-features = false }
 wasixv2 = { path = "../wasixv2/api", default-features = false, features = [
   "tokio",
   "host-network",
