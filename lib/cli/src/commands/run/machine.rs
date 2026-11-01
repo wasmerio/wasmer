@@ -13,7 +13,7 @@ use std::{
 use anyhow::{Context, Error, bail};
 use wasixv2::{
     CommandDefaults, Console, Credentials, Dns, Image, ImageId, Layer, LoadError, Loader,
-    LocalFuture, Machine, OwnedBuffer, ProcessConfig, Signaller, Stdio, Uname,
+    LocalFuture, Machine, OwnedBuffer, ProcessConfig, Signaller, Stdio, Uname, wasix1_http,
 };
 use wasmer::{Engine, Module};
 use wasmer_config::package::{PackageId, PackageSource};
@@ -517,6 +517,52 @@ fn mapped_commands(mappings: &[String]) -> Result<Vec<PackageCommand>, Error> {
         .collect()
 }
 
+/// The historical guest HTTP capability, distinct from package downloads. Like v1's
+/// client_impl, use the runtime HTTP client's defaults for timeout/redirects and report no
+/// redirect URL list. The flag grants all hosts; without it no provider is installed.
+struct GuestHttpProvider(wasmer_wasix::http::DynHttpClient);
+
+impl wasix1_http::HttpProvider for GuestHttpProvider {
+    fn send(
+        &self,
+        request: wasix1_http::Request,
+    ) -> LocalFuture<'_, Result<wasix1_http::Response, String>> {
+        Box::pin(async move {
+            let url = request.url.parse::<url::Url>().map_err(|e| e.to_string())?;
+            let method =
+                http::Method::from_bytes(request.method.as_bytes()).map_err(|e| e.to_string())?;
+            let mut headers = http::HeaderMap::new();
+            for (name, value) in request.headers {
+                let name =
+                    http::HeaderName::from_bytes(name.as_bytes()).map_err(|e| e.to_string())?;
+                let value = http::HeaderValue::from_bytes(&value).map_err(|e| e.to_string())?;
+                headers.append(name, value);
+            }
+            let response = self
+                .0
+                .request(wasmer_wasix::http::HttpRequest {
+                    url,
+                    method,
+                    headers,
+                    body: request.body,
+                    options: wasmer_wasix::http::HttpRequestOptions::default(),
+                })
+                .await
+                .map_err(|e| e.to_string())?;
+            Ok(wasix1_http::Response {
+                status: response.status.as_u16(),
+                headers: response
+                    .headers
+                    .iter()
+                    .map(|(name, value)| (name.to_string(), value.as_bytes().to_vec()))
+                    .collect(),
+                body: response.body.unwrap_or_default(),
+                redirect_urls: None,
+            })
+        })
+    }
+}
+
 /// The commands of the package tree, in the order the resolver gave them: it made each name
 /// that of the first package in the tree (the root, then its dependencies) that has it.
 ///
@@ -949,6 +995,11 @@ impl Run {
     ) -> Result<Machine, Error> {
         let wasi = &self.wasi;
         let mut builder = Machine::builder().loader(loader).init(!wasi.no_init);
+        if wasi.http_client {
+            let client =
+                wasmer_wasix::http::default_http_client().context("No HTTP client available")?;
+            builder = builder.wasix1_http_provider(Arc::new(GuestHttpProvider(Arc::new(client))));
+        }
         if let Some((console, fds)) = console {
             builder = builder.console(console, fds);
         }
@@ -1033,7 +1084,6 @@ impl Run {
                 "network rulesets (--net=<RULES>)",
                 matches!(wasi.networking, Some(Some(_))),
             ),
-            ("--http-client", wasi.http_client),
             (
                 "--enable-async-threads",
                 wasi.enable_async_threads.is_some(),

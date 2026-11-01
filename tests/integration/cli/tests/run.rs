@@ -966,6 +966,136 @@ fn run_map_commands_rejects_invalid_mappings_without_panicking() {
     }
 }
 
+#[test]
+fn run_http_client_requires_explicit_enablement() {
+    let files = TempDir::new().unwrap();
+    let module = files.path().join("http.wasm");
+    // Same historical client::new result layout as wasix1/tests/http.rs.
+    std::fs::write(
+        &module,
+        wat::parse_str(
+            r#"(module
+              (import "wasix_http_client_v1" "client::new" (func $new (param i32)))
+              (import "wasi_snapshot_preview1" "proc_exit" (func $exit (param i32)))
+              (memory (export "memory") 1)
+              (func (export "canonical_abi_realloc") (param i32 i32 i32 i32)
+                (result i32) i32.const 1024)
+              (func (export "_start")
+                (call $new (i32.const 0))
+                (call $exit (i32.load8_u (i32.const 0)))))"#,
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    wasmer_command().arg("run").arg(&module).assert().code(1);
+    wasmer_command()
+        .arg("run")
+        .arg(&module)
+        .arg("--http-client")
+        .assert()
+        .success();
+}
+
+#[test]
+fn run_http_client_sends_historical_request() {
+    use std::{net::TcpListener, time::Duration};
+
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    listener.set_nonblocking(true).unwrap();
+    let url = format!("http://{}/echo", listener.local_addr().unwrap());
+    let server = std::thread::spawn(move || {
+        let deadline = std::time::Instant::now() + Duration::from_secs(5);
+        let mut stream = loop {
+            match listener.accept() {
+                Ok((stream, _)) => break stream,
+                Err(error) if error.kind() == ErrorKind::WouldBlock => {
+                    assert!(
+                        std::time::Instant::now() < deadline,
+                        "guest HTTP request timed out"
+                    );
+                    std::thread::sleep(Duration::from_millis(10));
+                }
+                Err(error) => panic!("HTTP accept failed: {error}"),
+            }
+        };
+        stream
+            .set_read_timeout(Some(Duration::from_secs(5)))
+            .unwrap();
+        stream
+            .set_write_timeout(Some(Duration::from_secs(5)))
+            .unwrap();
+        let mut request = Vec::new();
+        let mut bytes = [0; 1024];
+        while !request.ends_with(b"\r\n\r\nhi") {
+            let count = stream.read(&mut bytes).unwrap();
+            assert_ne!(count, 0, "guest closed before sending the request body");
+            request.extend_from_slice(&bytes[..count]);
+            assert!(request.len() < 8192);
+        }
+        let request = String::from_utf8(request).unwrap();
+        assert!(request.starts_with("POST /echo HTTP/1.1\r\n"));
+        assert!(request.to_ascii_lowercase().contains("\r\nx-test: cli\r\n"));
+        std::io::Write::write_all(
+            &mut stream,
+            b"HTTP/1.1 201 Created\r\nContent-Length: 5\r\nConnection: close\r\n\r\nhello",
+        )
+        .unwrap();
+    });
+    let files = TempDir::new().unwrap();
+    let module = files.path().join("http.wasm");
+    // Request/response offsets and allocator follow the existing compatibility HTTP tests.
+    let source = format!(
+        r#"(module
+          (import "wasix_http_client_v1" "client::new" (func $new (param i32)))
+          (import "wasix_http_client_v1" "client::send" (func $send (param i32 i32)))
+          (import "wasi_snapshot_preview1" "proc_exit" (func $exit (param i32)))
+          (memory (export "memory") 1)
+          (data (i32.const 256) "{url}")
+          (data (i32.const 2048) "x-testcli")
+          (data (i32.const 3000) "hi")
+          (global $next (mut i32) (i32.const 4096))
+          (func (export "canonical_abi_realloc") (param i32 i32 i32) (param $len i32)
+            (result i32) (local $ptr i32)
+            (local.set $ptr (global.get $next))
+            (global.set $next (i32.and (i32.add (local.get $ptr)
+              (i32.add (local.get $len) (i32.const 7))) (i32.const -8)))
+            (local.get $ptr))
+          (func (export "_start")
+            (call $new (i32.const 0))
+            (if (i32.load8_u (i32.const 0)) (then unreachable))
+            (i32.store (i32.const 128) (i32.load (i32.const 4)))
+            (i32.store (i32.const 132) (i32.const 256))
+            (i32.store (i32.const 136) (i32.const {url_len}))
+            (i32.store8 (i32.const 140) (i32.const 2))
+            (i32.store (i32.const 152) (i32.const 2000))
+            (i32.store (i32.const 156) (i32.const 1))
+            (i32.store (i32.const 2000) (i32.const 2048))
+            (i32.store (i32.const 2004) (i32.const 6))
+            (i32.store (i32.const 2008) (i32.const 2054))
+            (i32.store (i32.const 2012) (i32.const 3))
+            (i32.store8 (i32.const 160) (i32.const 1))
+            (i32.store (i32.const 168) (i32.const 3000))
+            (i32.store (i32.const 172) (i32.const 2))
+            (call $send (i32.const 128) (i32.const 512))
+            (if (i32.load8_u (i32.const 512)) (then unreachable))
+            (if (i32.ne (i32.load16_u (i32.const 516)) (i32.const 201)) (then unreachable))
+            (if (i32.load8_u (i32.const 528)) (then unreachable))
+            (if (i32.ne (i32.load (i32.const 536)) (i32.const 5)) (then unreachable))
+            (if (i32.ne (i32.load (i32.load (i32.const 532))) (i32.const 1819043176)) (then unreachable))
+            (call $exit (i32.const 0))))"#,
+        url_len = url.len(),
+    );
+    std::fs::write(&module, wat::parse_str(source).unwrap()).unwrap();
+    let result = wasmer_command()
+        .arg("run")
+        .arg(&module)
+        .arg("--http-client")
+        .output()
+        .unwrap();
+    server.join().unwrap();
+    result.assert().success();
+}
+
 /// A command that is a `#!` script runs its interpreter, here another command, with the
 /// arguments Linux passes: the interpreter, its argument, the script's path, then the rest.
 #[test]
