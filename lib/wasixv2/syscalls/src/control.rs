@@ -259,6 +259,18 @@ pub trait Control:
         Box::pin(async {})
     }
 
+    /// Waits for the captured thread of the caller's process to finish execution. An unknown
+    /// or already released tid succeeds. This neither reaps a child nor retains its resources.
+    /// The default is unsupported; wrappers must forward it with the other control methods.
+    fn thread_join<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        tid: i32,
+    ) -> LocalFuture<'a, SysResult<()>> {
+        let _ = (caller, tid);
+        Box::pin(async { Err(Errno::ENOSYS.into()) })
+    }
+
     /// `task`'s instance trapped and cannot go on: the hardware fault `signal` (SIGSEGV, SIGILL,
     /// SIGFPE, SIGBUS) with no way to run a handler, so its default action kills the thread
     /// group (`force_sig_fault`, then `get_signal`). Leaves the group's exit pending on `task`.

@@ -173,9 +173,7 @@ table! {
     "thread_spawn_v2" WASIX (I32 I32) -> (I32) Shim;
     "thread_sleep" WASIX (I64) -> (I32) Shim;
     "thread_id" WASIX (I32) -> (I32) Shim;
-    // No libc uses it (pthread_join waits on a futex); Linux has no tid-wait outside
-    // pidfds of threads (`PIDFD_THREAD`), which the kernel does not have.
-    "thread_join" WASIX (I32) -> (I32) Unsupported;
+    "thread_join" WASIX (I32) -> (I32) Shim;
     "thread_parallelism" WASIX (I32) -> (I32) Shim;
     "thread_signal" WASIX (I32 I32) -> (I32) Shim;
     "thread_exit" WASIX (I32) -> () Shim;
@@ -474,6 +472,7 @@ where
         "thread_spawn" | "thread_spawn_v2" => f!(thread::thread_spawn_v2::<S>),
         "thread-spawn" => f!(thread::wasi_thread_spawn::<S>),
         "thread_sleep" => f!(thread::thread_sleep::<S>),
+        "thread_join" => f!(thread::thread_join::<S>),
         "thread_parallelism" => f!(thread::thread_parallelism::<S>),
         "futex_wait" => f!(futex::futex_wait::<S>),
         "futex_wake" => f!(futex::futex_wake::<S>),
