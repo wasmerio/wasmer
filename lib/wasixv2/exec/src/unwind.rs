@@ -113,4 +113,117 @@ mod tests {
         assert!(finish);
         assert!(!unwind.resolve(Ok(())).unwrap_err().1);
     }
+
+    #[cfg(feature = "sys")]
+    #[test]
+    fn engine_import_keeps_original_error_and_finishes_cpu_before_work() {
+        use crate::process::tests::{NoThreads, Recorder};
+        use std::time::Duration;
+        use wasixv2_syscalls::{
+            Caller, CpuTimes, Layer, Layered, MaybeFuture, Syscall, SyscallRet, Syscalls, TaskId,
+        };
+        use wasmer::{Function, FunctionEnv, Instance, Module, Store};
+
+        struct Replace {
+            clocks: Arc<crate::cputime::tests::Clocks>,
+            payload: Arc<()>,
+        }
+        impl<S: Syscalls> Layer<S> for Replace {
+            fn call<'a>(
+                &'a self,
+                caller: &'a Caller<'_>,
+                call: Syscall,
+                next: &'a S,
+            ) -> MaybeFuture<'a, SysResult<SyscallRet>> {
+                wasixv2_syscalls::dispatch(next, caller, call).map(|_| Err(Errno::EINVAL.into()))
+            }
+        }
+        struct Throw<'a>(&'a GuestUnwind, Arc<()>);
+        impl Syscalls for Throw<'_> {
+            fn getpid<'a>(&'a self, _: &'a Caller<'_>) -> MaybeFuture<'a, SysResult<i32>> {
+                MaybeFuture::Ready(
+                    self.0
+                        .raise(RuntimeError::user(Box::new(Payload(self.1.clone())))),
+                )
+            }
+        }
+        async fn invoke(
+            env: AsyncFunctionEnvMut<ExecEnv<Layered<Replace, Recorder>>>,
+        ) -> Result<i32, RuntimeError> {
+            let (syscalls, task) = crate::caller_parts(&env).await;
+            let unwind = GuestUnwind::default();
+            let memory = crate::GuestMemory::new(&env);
+            let caller = Caller::new(task, &memory);
+            // Work must remain pending when the callee already raised its exception.
+            let _ = syscalls.inner.exit_group(&caller, 42).await;
+            syscalls
+                .layer
+                .clocks
+                .advance(Duration::from_micros(2), Duration::from_micros(2));
+            let throw = Throw(&unwind, syscalls.layer.payload.clone());
+            let ret = syscalls.layer.call(&caller, Syscall::Getpid, &throw).await;
+            let ret = ret.map(|_| 0);
+            unwind
+                .finish(&env, ret)
+                .await?
+                .map_err(|_| RuntimeError::new("layer replacement escaped"))
+        }
+
+        let (clocks, account, sample) = crate::cputime::tests::setup(true);
+        let payload = Arc::new(());
+        let syscalls = Arc::new(Layered::new(
+            Replace {
+                clocks: clocks.clone(),
+                payload: payload.clone(),
+            },
+            Recorder::default(),
+        ));
+        let host = Arc::new(NoThreads);
+        let mut store = Store::default();
+        let spawner = crate::process::spawner(
+            store.engine().clone(),
+            syscalls.clone(),
+            host.clone(),
+            Arc::new(crate::Abis::wasixv2()),
+        );
+        let env = FunctionEnv::new(
+            &mut store,
+            ExecEnv::new(
+                syscalls.clone(),
+                TaskId(1),
+                crate::process::ProcExports::new(spawner, Arc::default()),
+                host,
+            ),
+        );
+        env.as_mut(&mut store).cpu = sample;
+        clocks.advance(Duration::from_micros(3), Duration::from_micros(3));
+        let import = Function::new_typed_with_env_async(&mut store, &env, invoke);
+        let module = Module::new(&store, wat::parse_str(r#"(module (import "proof" "invoke" (func $invoke (result i32))) (func (export "run") (result i32) call $invoke))"#).unwrap()).unwrap();
+        let instance = Instance::new(
+            &mut store,
+            &module,
+            &wasmer::imports! { "proof" => { "invoke" => import } },
+        )
+        .unwrap();
+        let function = instance.exports.get_function("run").unwrap();
+        let store = store.into_async();
+        let error = futures::executor::block_on(function.call_async(&store, vec![])).unwrap_err();
+        assert!(Arc::ptr_eq(
+            &error.downcast_ref::<Payload>().unwrap().0,
+            &payload
+        ));
+        clocks.advance(Duration::from_micros(7), Duration::from_micros(7));
+        env.as_ref(&store.read()).sample_cpu();
+        assert_eq!(
+            account.times(),
+            CpuTimes {
+                user: Duration::from_micros(10),
+                system: Duration::from_micros(2)
+            }
+        );
+        assert!(matches!(
+            syscalls.take_pending(TaskId(1)),
+            Some(wasixv2_syscalls::GuestAction::Exit(42))
+        ));
+    }
 }
