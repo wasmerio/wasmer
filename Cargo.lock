@@ -7855,6 +7855,7 @@ dependencies = [
  "virtual-net",
  "walkdir",
  "wasixv2",
+ "wasixv2-dylink",
  "wasm-coredump-builder",
  "wasmer",
  "wasmer-backend-api",
