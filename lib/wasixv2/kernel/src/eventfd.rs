@@ -121,7 +121,7 @@ impl Kernel {
         caller: &Caller<'_>,
         fd: Fd,
     ) -> Result<Arc<OpenFile>, Errno> {
-        let file = self.file(caller.task(), fd)?;
+        let file = self.caller_file(caller, fd)?;
         match file.downcast::<EventFd>() {
             Some(_) => Ok(file),
             None => Err(Errno::EINVAL),

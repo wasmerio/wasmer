@@ -1189,6 +1189,16 @@ impl Kernel {
         cloexec: bool,
     ) -> SysResult<()> {
         let fds = self.reserve_fds::<2>(caller, cloexec)?;
+        self.install_reserved_pair(caller, out, files, fds).await
+    }
+
+    pub(crate) async fn install_reserved_pair(
+        &self,
+        caller: &Caller<'_>,
+        out: FdPair,
+        files: [impl Into<Arc<OpenFile>>; 2],
+        fds: [crate::fs::FdReservation; 2],
+    ) -> SysResult<()> {
         let pair = [fds[0].fd().0, fds[1].fd().0];
         write_value(caller.memory(), GuestPtrMut::new(out.addr()), &pair)
             .await

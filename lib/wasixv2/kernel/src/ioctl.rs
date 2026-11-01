@@ -9,7 +9,6 @@ use crate::{
     file::{Backing, OpenFile},
     fs::FASYNC,
     nsfs::NsFile,
-    sync::MutexExt,
     tty::TtyFile,
 };
 
@@ -95,8 +94,11 @@ impl Kernel {
         match request {
             IoctlRequest::FIOCLEX | IoctlRequest::FIONCLEX => {
                 let cloexec = request == IoctlRequest::FIOCLEX;
-                let files = self.files(caller.task());
-                files.lock_or_recover().set_cloexec(fd, cloexec);
+                self.with_descriptor_table(caller, |_, files| {
+                    self.bound_slot(caller, files, fd)?;
+                    files.set_cloexec(fd, cloexec);
+                    Ok(())
+                })?;
                 Ok(0)
             }
             // `ioctl_fioasync`: a change goes to the object's `fasync`, and is ENOTTY for an

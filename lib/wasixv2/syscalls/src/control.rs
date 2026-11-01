@@ -222,6 +222,29 @@ pub trait Control:
     + SharedMappings
     + VforkWait
 {
+    /// Acquires the actual open files and immutable slot metadata together, including closed
+    /// descriptors. A provider that cannot bind later operations must fail explicitly.
+    fn snapshot_descriptors(
+        &self,
+        task: TaskId,
+        fds: &[crate::Fd],
+    ) -> Result<crate::DescriptorSet, Errno> {
+        let _ = (task, fds);
+        Err(Errno::ENOSYS)
+    }
+
+    /// Replaces only the captured slot's attachment, conditional on its still-current value.
+    fn replace_descriptor_attachment(
+        &self,
+        task: TaskId,
+        descriptors: &crate::DescriptorSet,
+        fd: crate::Fd,
+        replacement: Option<crate::DescriptorAttachment>,
+    ) -> Result<crate::DescriptorUpdate, Errno> {
+        let _ = (task, descriptors, fd, replacement);
+        Err(Errno::ENOSYS)
+    }
+
     /// The next thing to do for `task`: an exit, a thread to start, a signal handler to run, or
     /// nothing.
     fn take_pending(&self, task: TaskId) -> Option<GuestAction>;

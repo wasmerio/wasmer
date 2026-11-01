@@ -24,6 +24,7 @@
 mod caller;
 mod control;
 mod cputime;
+mod descriptors;
 mod dynamic;
 mod future;
 mod generated;
@@ -38,6 +39,9 @@ pub use control::{
     VforkParent, VforkWait, WorkFlag,
 };
 pub use cputime::{CpuAccount, CpuBase, CpuTime, CpuTimes, Expiry, GroupCpu};
+pub use descriptors::{
+    Descriptor, DescriptorAttachment, DescriptorInstallations, DescriptorSet, DescriptorUpdate,
+};
 pub use future::MaybeFuture;
 pub use generated::{Layer, Layered, Syscall, SyscallRet, Syscalls, dispatch};
 pub use memory::{

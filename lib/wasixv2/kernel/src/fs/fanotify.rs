@@ -1390,7 +1390,7 @@ impl Kernel {
             mask &= !EVENT_FLAGS;
             umask = EVENT_FLAGS;
         }
-        let file = self.file(caller.task(), fanotify_fd)?;
+        let file = self.caller_file(caller, fanotify_fd)?;
         let group = file
             .downcast::<FanotifyFile>()
             .ok_or(Errno::EINVAL)?
