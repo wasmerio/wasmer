@@ -20,12 +20,16 @@
 //! returns `INTR` once `__wasm_signal` ran) nor a mask of its own: it is `SA_NODEFER`, since
 //! libc applies `sa_mask` and `SA_NODEFER` itself and must see a signal raised from a handler.
 
-use std::sync::atomic::Ordering;
+use std::{
+    collections::HashMap,
+    sync::{Mutex, atomic::Ordering},
+};
 
 use wasixv2_abi::{
-    ConstSigactionPtr, ConstSigsetPtr, GuestLayout, ItimerWhich, KernelOldItimerval,
-    KernelOldItimervalPtr, KernelOldTimeval, SaFlags, Sigaction, SigactionPtr, SignalHandler,
-    SigprocmaskHow, Sigset, SigsetPtr,
+    ClockId, ConstSigactionPtr, ConstSigsetPtr, GuestLayout, ItimerWhich, KernelItimerspec,
+    KernelItimerspecPtr, KernelOldItimerval, KernelOldItimervalPtr, KernelOldTimeval,
+    KernelTimespec, SaFlags, Sigaction, SigactionPtr, SigevNotify, Sigevent, SignalHandler,
+    SigprocmaskHow, Sigset, SigsetPtr, TimerFlags, TimerId,
 };
 use wasixv2_syscalls::{Control, Syscalls};
 use wasmer::RuntimeError;
@@ -53,6 +57,22 @@ const DEFAULT_IGNORED: [i32; 4] = [17, 18, 23, 28];
 const SIGKILL: i32 = 9;
 const SIGSTOP: i32 = 19;
 const SIGALRM: u8 = 14;
+
+/// IDs only: the kernel owns the timers and stops them on exec and process exit
+/// (`kernel/time/posix-timers.c:exit_itimers`). Fork starts with an empty table.
+#[derive(Debug, Default)]
+pub(crate) struct State(Mutex<HashMap<i32, TimerId>>);
+
+impl State {
+    fn get(&self, sig: i32) -> Option<TimerId> {
+        self.0.lock().unwrap().get(&sig).copied()
+    }
+
+    /// Publishes `id`, or returns the ID another creator published while this one awaited.
+    fn publish(&self, sig: i32, id: TimerId) -> TimerId {
+        *self.0.lock().unwrap().entry(sig).or_insert(id)
+    }
+}
 
 /// Whether the compat layer installs its placeholder handler for `sig`.
 fn delivered(sig: i32) -> bool {
@@ -325,9 +345,71 @@ fn alarm_timer(interval: u64, repeat: bool) -> KernelOldItimerval {
     }
 }
 
-/// `proc_raise_interval(sig, interval, repeat)`: a timer that raises `sig`. Linux's
-/// `ITIMER_REAL` serves `SIGALRM`, which is all wasix-libc asks for (`setitimer`); other
-/// signals would need POSIX timers, which the kernel does not have.
+/// POSIX settings for the v1 nanosecond timestamp. Released wasix-libc's
+/// `libc-top-half/musl/src/signal/setitimer.c` passes seconds*1e9 + microseconds*1000;
+/// the old host's `Duration::from_millis` contradicted that producer and the timestamp ABI.
+fn signal_timer(interval: u64, repeat: bool) -> KernelItimerspec {
+    let value = KernelTimespec {
+        tv_sec: (interval / 1_000_000_000) as i64,
+        tv_nsec: (interval % 1_000_000_000) as i64,
+    };
+    KernelItimerspec {
+        it_interval: if repeat { value } else { KernelTimespec::ZERO },
+        it_value: value,
+    }
+}
+
+/// `do_timer_create`/`do_timer_settime` (`kernel/time/posix-timers.c`): one monotonic,
+/// process-directed timer per v1 signal, independently replaced or disarmed by later calls.
+async fn set_signal_timer<S: Syscalls + Control + 'static>(
+    frame: &Frame<'_, S>,
+    sig: i32,
+    interval: u64,
+    repeat: bool,
+) -> V1Result<()> {
+    if Signal::from_linux(sig).is_none() {
+        return shim::fail(Errno::INVAL);
+    }
+    let proc = frame.proc().await?;
+    let caller = frame.caller();
+    let id = match proc.proc.timers.get(sig) {
+        Some(id) => id,
+        None if interval == 0 => return Ok(()),
+        None => {
+            let event = frame.mem.alloc(&Sigevent {
+                sigev_signo: sig,
+                sigev_notify: SigevNotify::SIGEV_SIGNAL.0,
+                ..Sigevent::ZERO
+            })?;
+            let created = frame.mem.alloc_mut::<TimerId>()?;
+            frame
+                .syscalls
+                .timer_create(&caller, ClockId::CLOCK_MONOTONIC, event, created)
+                .await?;
+            let created = frame.mem.take(created);
+            let id = proc.proc.timers.publish(sig, created);
+            if id != created {
+                frame.syscalls.timer_delete(&caller, created).await?;
+            }
+            id
+        }
+    };
+    let setting = frame.mem.alloc(&signal_timer(interval, repeat))?;
+    frame
+        .syscalls
+        .timer_settime64(
+            &caller,
+            id,
+            TimerFlags(0),
+            setting,
+            KernelItimerspecPtr::NULL,
+        )
+        .await?;
+    Ok(())
+}
+
+/// `proc_raise_interval(sig, interval, repeat)`: preserve `ITIMER_REAL` for `SIGALRM`,
+/// and use POSIX timers for the other signals v1 can name. Zero disarms that signal only.
 pub(crate) async fn proc_raise_interval<S: Syscalls + Control + 'static>(
     env: Env<S>,
     sig: i32,
@@ -335,10 +417,11 @@ pub(crate) async fn proc_raise_interval<S: Syscalls + Control + 'static>(
     repeat: i32,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
+        let repeat = repeat as u8 == Bool::TRUE.0;
         if sig != i32::from(SIGALRM) {
-            return shim::fail(Errno::NOTSUP);
+            return set_signal_timer(frame, sig, interval as u64, repeat).await;
         }
-        let timer = alarm_timer(interval as u64, repeat as u8 == Bool::TRUE.0);
+        let timer = alarm_timer(interval as u64, repeat);
         let timer = frame.mem.alloc(&timer)?;
         frame
             .syscalls
@@ -384,5 +467,35 @@ mod tests {
         assert_eq!(repeating.it_value.tv_usec, 1);
         assert_eq!(repeating.it_interval, repeating.it_value);
         assert_eq!(alarm_timer(0, true), KernelOldItimerval::ZERO);
+    }
+
+    #[test]
+    fn signal_timer_nanoseconds() {
+        let once = signal_timer(1_500_000_001, false);
+        assert_eq!(
+            (once.it_value.tv_sec, once.it_value.tv_nsec),
+            (1, 500_000_001)
+        );
+        assert_eq!(once.it_interval, KernelTimespec::ZERO);
+        let repeating = signal_timer(1, true);
+        assert_eq!(repeating.it_value.tv_nsec, 1);
+        assert_eq!(repeating.it_interval, repeating.it_value);
+        assert_eq!(signal_timer(0, true), KernelItimerspec::ZERO);
+        let largest = signal_timer(u64::MAX, false);
+        assert_eq!(largest.it_value.tv_sec, 18_446_744_073);
+        assert_eq!(largest.it_value.tv_nsec, 709_551_615);
+    }
+
+    #[test]
+    fn timer_ids_are_per_signal_and_not_inherited() {
+        let parent = crate::calls::proc::State::default();
+        assert_eq!(parent.timers.publish(10, 4), 4);
+        assert_eq!(parent.timers.publish(12, 5), 5);
+        assert_eq!(parent.timers.publish(10, 6), 4);
+        assert_eq!(parent.timers.get(10), Some(4));
+        assert_eq!(parent.timers.get(12), Some(5));
+        let child = parent.fork();
+        assert_eq!(child.timers.get(10), None);
+        assert_eq!(child.timers.get(12), None);
     }
 }
