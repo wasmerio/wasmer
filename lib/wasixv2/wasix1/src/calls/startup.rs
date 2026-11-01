@@ -10,7 +10,7 @@
 
 use std::sync::Arc;
 
-use wasixv2_abi::{AtFd, Fd, OpenFlags};
+use wasixv2_abi::{AtFd, FcntlCmd, Fd, OpenFlags};
 use wasixv2_syscalls::{Control, SysResult, Syscalls};
 use wasmer::RuntimeError;
 
@@ -120,10 +120,29 @@ async fn open_dir<S: Syscalls + Control + 'static>(
 ) -> SysResult<Fd> {
     let flags = OpenFlags::O_RDONLY | OpenFlags::O_DIRECTORY | OpenFlags::O_CLOEXEC;
     let path = frame.mem.alloc_cstr(path)?;
-    frame
+    let caller = frame.caller();
+    let fd = frame
         .syscalls
-        .openat(&frame.caller(), Fd(AtFd::AT_FDCWD.0), path, flags, 0)
-        .await
+        .openat(&caller, Fd(AtFd::AT_FDCWD.0), path, flags, 0)
+        .await?;
+    if fd.0 >= 3 {
+        return Ok(fd);
+    }
+    // Preopens must not fill closed stdio slots. F_DUPFD_CLOEXEC preserves the
+    // minimum descriptor and close-on-exec flag (Linux fs/fcntl.c, do_fcntl).
+    let moved = frame
+        .syscalls
+        .fcntl64(&caller, fd, FcntlCmd::F_DUPFD_CLOEXEC, 3)
+        .await;
+    let closed = frame.syscalls.close(&caller, fd).await;
+    match (moved, closed) {
+        (Ok(moved), Ok(_)) => Ok(Fd(moved)),
+        (Ok(moved), Err(err)) => {
+            let _ = frame.syscalls.close(&caller, Fd(moved)).await;
+            Err(err)
+        }
+        (Err(err), _) => Err(err),
+    }
 }
 
 /// Total bytes of `strings` with a NUL after each.

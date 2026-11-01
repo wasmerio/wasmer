@@ -192,8 +192,7 @@ table! {
     "proc_exec2" WASIX (I32 I32 I32 I32 I32 I32) -> () Shim;
     "proc_exec3" WASIX (I32 I32 I32 I32 I32 I32 I32 I32 I32) -> (I32) Shim;
     "proc_exec4" WASIX (I32 I32 I32 I32 I32 I32 I32 I32 I32) -> (I32) Shim;
-    // The old bus API with stdio modes and handles; wasix-libc spawns with proc_spawn2.
-    "proc_spawn" WASIX (I32 I32 I32 I32 I32 I32 I32 I32 I32 I32 I32 I32 I32) -> (I32) Unsupported;
+    "proc_spawn" WASIX (I32 I32 I32 I32 I32 I32 I32 I32 I32 I32 I32 I32 I32) -> (I32) Shim;
     "proc_spawn2" WASIX (I32 I32 I32 I32 I32 I32 I32 I32 I32 I32 I32 I32 I32 I32) -> (I32) Shim;
     "proc_spawn3" WASIX (I32 I32 I32 I32 I32 I32 I32 I32 I32 I32 I32 I32 I32 I32) -> (I32) Shim;
     "proc_id" WASIX (I32) -> (I32) Shim;
@@ -482,6 +481,7 @@ where
         "proc_exec2" => f!(proc::proc_exec2::<S>),
         "proc_exec3" => f!(proc::proc_exec3::<S>),
         "proc_exec4" => f!(proc::proc_exec4::<S>),
+        "proc_spawn" => f!(proc::proc_spawn::<S>),
         "proc_spawn2" => f!(proc::proc_spawn2::<S>),
         "proc_spawn3" => f!(proc::proc_spawn3::<S>),
         "proc_join" => f!(proc::proc_join::<S>),
