@@ -107,6 +107,17 @@ pub(crate) async fn thread_sleep<S: Syscalls + Control + 'static>(
     .await
 }
 
+/// The historical join waits for execution completion without consuming a status or child.
+pub(crate) async fn thread_join<S: Syscalls + Control + 'static>(
+    env: Env<S>,
+    tid: i32,
+) -> Result<i32, RuntimeError> {
+    shim::errno(&env, async |frame| {
+        Ok(frame.syscalls.thread_join(&frame.caller(), tid).await?)
+    })
+    .await
+}
+
 /// Bytes of the CPU mask `thread_parallelism` asks for: 1024 CPUs, as glibc's `cpu_set_t`.
 const CPU_MASK_BYTES: u32 = 128;
 

@@ -193,6 +193,32 @@ fn the_spawn_ends_pthread_creates_hold_on_signals() {
     assert_eq!(status(SPAWN_HOLD), 0);
 }
 
+#[test]
+fn thread_join_waits_for_the_spawned_thread_and_allows_unknown_tids() {
+    assert_eq!(
+        status(
+            r#"
+(module
+  (import "env" "memory" (memory 1 1 shared))
+  (import "wasix_32v1" "thread_spawn_v2" (func $spawn (param i32 i32) (result i32)))
+  (import "wasix_32v1" "thread_join" (func $join (param i32) (result i32)))
+  (import "wasix_32v1" "thread_sleep" (func $sleep (param i64) (result i32)))
+  (import "wasix_32v1" "proc_exit2" (func $exit (param i32)))
+  (func (export "wasi_thread_start") (param i32 i32)
+    (drop (call $sleep (i64.const 1000000)))
+    (i32.atomic.store (i32.const 200) (i32.const 37)))
+  (func (export "_start")
+    (if (call $spawn (i32.const 100) (i32.const 104)) (then (call $exit (i32.const 1))))
+    (if (call $join (i32.load (i32.const 104))) (then (call $exit (i32.const 2))))
+    (if (i32.ne (i32.atomic.load (i32.const 200)) (i32.const 37)) (then (call $exit (i32.const 3))))
+    (if (call $join (i32.const -1)) (then (call $exit (i32.const 4))))
+    (call $exit (i32.const 0))))
+"#
+        ),
+        0
+    );
+}
+
 /// Before libc names its callback, signals take their default action.
 #[test]
 fn signals_before_the_callback_terminate() {
