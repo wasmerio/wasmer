@@ -769,7 +769,7 @@ where
     let mut asyncify = asyncify::Asyncify::new(&instance, &mut store)?;
     let layout = abi.image_layout(&instance, &memory, &mut store, asyncify.is_some());
     if let Some(bootstrap) = &bootstrap
-        && (layout.as_ref() != Some(&bootstrap.layout)
+        && (layout.as_ref() != bootstrap.layout.as_ref()
             || main_stack != bootstrap.stack
             || guarded != (bootstrap.guard != 0))
     {

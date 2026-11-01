@@ -242,10 +242,10 @@ table! {
     "epoll_create" WASIX (I32) -> (I32) Shim;
     "epoll_ctl" WASIX (I32 I32 I32 I32) -> (I32) Shim;
     "epoll_wait" WASIX (I32 I32 I32 I64 I32) -> (I32) Shim;
-    // Dynamic linking, closures and reflection: another team's surface.
-    "dl_invalid_handle" WASIX (I32) -> (I32) Unsupported;
-    "dlopen" WASIX (I32 I32 I32 I32 I32 I32 I32 I32) -> (I32) Unsupported;
-    "dlsym" WASIX (I32 I32 I32 I32 I32 I32) -> (I32) Unsupported;
+    // Dynamic linking, closures and reflection.
+    "dl_invalid_handle" WASIX (I32) -> (I32) Shim;
+    "dlopen" WASIX (I32 I32 I32 I32 I32 I32 I32 I32) -> (I32) Shim;
+    "dlsym" WASIX (I32 I32 I32 I32 I32 I32) -> (I32) Shim;
     "call_dynamic" WASIX (I32 I32 I32 I32 I32 I32) -> (I32) Shim;
     "closure_prepare" WASIX (I32 I32 I32 I32 I32 I32 I32) -> (I32) Unsupported;
     "closure_allocate" WASIX (I32) -> (I32) Unsupported;
@@ -361,6 +361,9 @@ where
         "resource_drop_client" => f!(http::client_drop::<S>),
         "args_get" => f!(startup::args_get::<S>),
         "args_sizes_get" => f!(startup::args_sizes_get::<S>),
+        "dlopen" => f!(dynamic::dlopen::<S>),
+        "dlsym" => f!(dynamic::dlsym::<S>),
+        "dl_invalid_handle" => f!(dynamic::dl_invalid_handle::<S>),
         "environ_get" => f!(startup::environ_get::<S>),
         "environ_sizes_get" => f!(startup::environ_sizes_get::<S>),
         "fd_prestat_get" => f!(startup::fd_prestat_get::<S>),

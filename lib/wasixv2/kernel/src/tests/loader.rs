@@ -80,9 +80,11 @@ fn loader_file_snapshot_preserves_inode_identity_and_fd_reservation() {
     block_on(kernel.write(&caller, fd, UserSlice::new(32, 3))).unwrap();
     let first = block_on(kernel.loader_read(&caller, b"/lib.so")).unwrap();
     assert_eq!(first.image.bytes(), b"one");
+    assert_eq!(first.path.as_deref(), Some(&b"/lib.so"[..]));
     memory.0.borrow_mut()[32..35].copy_from_slice(b"two");
     block_on(kernel.pwrite64(&caller, fd, UserSlice::new(32, 3), 0)).unwrap();
-    let second = block_on(kernel.loader_read(&caller, b"/lib.so")).unwrap();
+    let second = block_on(kernel.loader_read(&caller, b"lib.so")).unwrap();
+    assert_eq!(second.path, first.path);
     assert_eq!(first.identity, second.identity);
     assert_eq!(first.image.bytes(), b"one");
     assert_eq!(second.image.bytes(), b"two");

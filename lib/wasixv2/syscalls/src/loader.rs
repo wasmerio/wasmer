@@ -536,6 +536,10 @@ pub enum LoaderWait {
 pub struct LibraryImage {
     pub identity: (u64, u64),
     pub image: crate::Image,
+    /// Absolute guest open-name captured with the same cwd/root as the file
+    /// lookup. This preserves symlink spelling for relative loader RUNPATHs.
+    /// Providers without guest path metadata may leave this unavailable.
+    pub path: Option<Vec<u8>>,
 }
 
 /// An ordinary private anonymous mm mapping, independent of the allocating task's later pid

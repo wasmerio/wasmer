@@ -109,6 +109,15 @@ impl<'a, S: Syscalls + Control + 'static> Frame<'a, S> {
         &self.unwind
     }
 
+    pub(crate) async fn dynamic_handle_valid(
+        &self,
+        handle: wasixv2_abi::DlHandle,
+    ) -> wasixv2_syscalls::SysResult<bool> {
+        self.abi
+            .dl_valid_handle(self.env, &self.caller(), handle)
+            .await
+    }
+
     pub(crate) fn instance(&self) -> &Wasix1Instance {
         self.abi
             .as_any()

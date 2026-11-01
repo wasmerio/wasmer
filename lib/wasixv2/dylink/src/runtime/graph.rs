@@ -22,6 +22,8 @@ pub(super) struct Library {
     pub code_hash: wasmer_types::ModuleHash,
     pub prepared: Option<Arc<crate::artifact::PreparedArtifact>>,
     pub identity: Option<(u64, u64)>,
+    pub path: Vec<u8>,
+    pub request: Vec<u8>,
     pub backing: Option<wasixv2_syscalls::Image>,
     pub dependencies: Vec<usize>,
     pub fixups: Vec<Fixup>,
@@ -70,6 +72,8 @@ impl Library {
             prepared: None,
             identity,
             backing: None,
+            path: b"./main.wasm".to_vec(),
+            request: Vec::new(),
             dependencies: Vec::new(),
             fixups: Vec::new(),
             lazy: BTreeMap::new(),
@@ -89,6 +93,47 @@ pub(super) struct Graph {
     pub initialization: Vec<usize>,
 }
 impl Graph {
+    /// Reorders only unpublished nodes. Existing handles/slots never move.
+    /// Iterative DFS marks on discovery, so a back edge cannot recurse forever.
+    pub fn dependencies_first(&mut self, previous: usize) -> Vec<usize> {
+        let mut seen = (0..previous).collect::<BTreeSet<_>>();
+        let mut order = (0..previous).collect::<Vec<_>>();
+        for root in previous..self.libraries.len() {
+            let mut stack = vec![(root, false)];
+            while let Some((index, done)) = stack.pop() {
+                if done {
+                    order.push(index);
+                } else if seen.insert(index) {
+                    stack.push((index, true));
+                    stack.extend(
+                        self.libraries[index]
+                            .dependencies
+                            .iter()
+                            .rev()
+                            .map(|index| (*index, false)),
+                    );
+                }
+            }
+        }
+        let mut indices = vec![0; order.len()];
+        for (new, old) in order.iter().copied().enumerate() {
+            indices[old] = new;
+        }
+        self.libraries = order
+            .into_iter()
+            .map(|index| self.libraries[index].clone())
+            .collect();
+        for lib in &mut self.libraries {
+            for index in &mut lib.dependencies {
+                *index = indices[*index];
+            }
+        }
+        for index in self.global.iter_mut().chain(&mut self.initialization) {
+            *index = indices[*index];
+        }
+        indices
+    }
+
     pub fn scope(&self, root: usize) -> Vec<usize> {
         let mut result = Vec::new();
         let mut seen = BTreeSet::new();
@@ -448,6 +493,7 @@ impl Graph {
             _ => Err(failure("unresolved import")),
         }
     }
+    #[cfg(test)]
     pub fn symbol(&self, handle: usize, name: &str, tls: &[u32]) -> Result<u32> {
         // musl do_dlsym(head): dlopen(NULL)'s explicit main handle searches
         // global scope, including preloads, without enabling DEFAULT/NEXT.
@@ -461,7 +507,10 @@ impl Graph {
                 scope.push(index);
             }
         }
-        for index in scope {
+        self.symbol_in_scope(&scope, name, tls)
+    }
+    pub fn symbol_in_scope(&self, scope: &[usize], name: &str, tls: &[u32]) -> Result<u32> {
+        for &index in scope {
             if let Some(export) = self.libraries[index].metadata.exports().get(name) {
                 if export
                     .flags
@@ -656,6 +705,30 @@ mod tests {
         graph.assign_slots(index).unwrap();
         index
     }
+    #[test]
+    fn unpublished_dependency_order_preserves_old_handles_and_terminates_cycles() {
+        let mut graph = missing_direct();
+        graph.libraries.push(lazy_library("(module)"));
+        graph.libraries.push(lazy_library("(module)"));
+        graph.libraries[0].table = 99;
+        graph.libraries[1].request = b"root".to_vec();
+        graph.libraries[2].request = b"dependency".to_vec();
+        graph.libraries[3].request = b"leaf".to_vec();
+        graph.libraries[1].dependencies = vec![2, 3];
+        graph.libraries[2].dependencies = vec![1];
+        graph.global = vec![0, 1];
+        graph.initialization = vec![0];
+        assert_eq!(graph.dependencies_first(1), vec![0, 3, 1, 2]);
+        assert_eq!(graph.libraries[0].table, 99);
+        assert_eq!(graph.libraries[1].request, b"dependency");
+        assert_eq!(graph.libraries[2].request, b"leaf");
+        assert_eq!(graph.libraries[3].request, b"root");
+        assert_eq!(graph.libraries[3].dependencies, vec![1, 2]);
+        assert_eq!(graph.libraries[1].dependencies, vec![3]);
+        assert_eq!(graph.global, vec![0, 3]);
+        assert_eq!(graph.initialization, vec![0]);
+    }
+
     #[test]
     fn lazy_defers_only_missing_strong_direct_edges_with_stable_import_ordinal_slots() {
         let mut graph = missing_direct();

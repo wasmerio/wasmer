@@ -7396,6 +7396,7 @@ dependencies = [
  "tracing",
  "wasixv2",
  "wasixv2-abi",
+ "wasixv2-dylink",
  "wasixv2-exec",
  "wasixv2-kernel",
  "wasixv2-syscalls",

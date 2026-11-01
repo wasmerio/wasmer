@@ -10,27 +10,27 @@ fn load_error(error: impl std::fmt::Debug) -> ExecError {
     ExecError::Load(wasixv2_exec::LoadError::other(failure(error)))
 }
 
-struct Policy {
-    search: Vec<u8>,
+struct StartupPolicy {
+    loader: Arc<dyn LoadPolicy>,
+    search: Option<Vec<u8>>,
     preloads: Vec<Vec<u8>>,
 }
-impl Policy {
+impl StartupPolicy {
+    #[cfg(test)]
     fn new(startup: &LoaderStartup) -> Self {
+        Self::for_loader(startup, Arc::new(policy::NativePolicy))
+    }
+    fn for_loader(startup: &LoaderStartup, loader: Arc<dyn LoadPolicy>) -> Self {
         let value = |name: &[u8]| {
             startup
                 .environment
                 .iter()
                 .find_map(|entry| entry.strip_prefix(name))
         };
-        let mut search = Vec::new();
         let mut preloads = Vec::new();
         // musl ldso/dynlink.c:__dls3 trusts neither environment knob in secure mode.
         if !startup.secure {
-            if let Some(path) = value(b"LD_LIBRARY_PATH=").filter(|path| !path.is_empty()) {
-                search.extend_from_slice(path);
-                search.push(b':');
-            }
-            if let Some(preload) = value(b"LD_PRELOAD=") {
+            if let Some(preload) = value(b"LD_PRELOAD=").filter(|_| loader.preloads()) {
                 preloads.extend(
                     preload
                         .split(|b| b.is_ascii_whitespace() || *b == b':')
@@ -39,8 +39,16 @@ impl Policy {
                 );
             }
         }
-        search.extend_from_slice(b"/lib:/usr/local/lib:/usr/lib");
-        Self { search, preloads }
+        let search = loader.startup_search(if startup.secure {
+            None
+        } else {
+            value(b"LD_LIBRARY_PATH=")
+        });
+        Self {
+            loader,
+            search,
+            preloads,
+        }
     }
 }
 
@@ -73,6 +81,7 @@ impl Drop for Pending {
 
 struct Prepared<S: 'static> {
     root: Arc<Root>,
+    base: Arc<dyn Abi<S>>,
     imports: Imports,
     forwarders: Vec<BoundModule>,
     tls: Vec<u32>,
@@ -97,7 +106,7 @@ impl<S: Syscalls + Control + Send + Sync + 'static> PreparedImage<S> for Prepare
     ) -> std::result::Result<Arc<dyn AbiInstance<S>>, ExecError> {
         let image = Image::<S> {
             root: self.root.clone(),
-            _type: std::marker::PhantomData,
+            base: self.base.clone(),
         };
         let bound = image.bind_store(instance, store, task, role)?;
         {
@@ -140,7 +149,9 @@ impl<S: Syscalls + Control + Send + Sync + 'static> Image<S> {
                 None => return Err(load_error("startup policy control is unavailable")),
                 Some(snapshot)
                     if graph.libraries[0].metadata.needed().is_empty()
-                        && Policy::new(&snapshot).preloads.is_empty() =>
+                        && StartupPolicy::for_loader(&snapshot, self.root.policy.clone())
+                            .preloads
+                            .is_empty() =>
                 {
                     return Ok(None);
                 }
@@ -194,27 +205,34 @@ impl<S: Syscalls + Control + Send + Sync + 'static> Image<S> {
                 })
                 .await
                 .ok_or_else(|| load_error("startup requires imported memory"))?;
-            cx.bootstrap(
-                MemoryLayout {
-                    image_end: end,
-                    data: u64::from(main.base)..end,
-                    brk: end.next_multiple_of(16),
-                    maximum,
-                    reserved: Vec::new(),
-                },
-                0..self.root.stack,
-                if cfg!(all(unix, feature = "sys")) {
-                    65536
-                } else {
-                    0
-                },
-            )
-            .await?;
+            let layout = MemoryLayout {
+                image_end: end,
+                data: u64::from(main.base)..end,
+                brk: end.next_multiple_of(16),
+                maximum,
+                reserved: Vec::new(),
+            };
+            let guard = if cfg!(all(unix, feature = "sys")) {
+                65536
+            } else {
+                0
+            };
+            if self.root.policy.mapped_memory() {
+                cx.bootstrap(layout, 0..self.root.stack, guard).await?;
+            } else {
+                cx.bootstrap_linear(layout, 0..self.root.stack, guard)
+                    .await?;
+            }
             let memory = cx.memory();
             let caller = Caller::new(task, &memory);
-            let mut graph = collect(&*syscalls, &caller, &graph, &Policy::new(&current))
-                .await
-                .map_err(load_error)?;
+            let mut graph = collect(
+                &*syscalls,
+                &caller,
+                &graph,
+                &StartupPolicy::for_loader(&current, self.root.policy.clone()),
+            )
+            .await
+            .map_err(load_error)?;
             for lib in graph.libraries.iter_mut().skip(1) {
                 let info = lib.metadata.memory_info();
                 let lease = syscalls
@@ -260,6 +278,7 @@ impl<S: Syscalls + Control + Send + Sync + 'static> Image<S> {
             .map_err(load_error)?;
         Ok(Some(Box::new(Prepared::<S> {
             root: self.root.clone(),
+            base: self.base.clone(),
             imports,
             forwarders,
             tls,
@@ -311,6 +330,9 @@ fn main_imports(
             ExternType::Global(ty)
                 if matches!(fixup.kind, FixupKind::GotFunction | FixupKind::GotMemory) =>
             {
+                if base.get_export(&import.module, &import.name).is_some() {
+                    continue;
+                }
                 let value = graph.target_address(&fixup.target, tls)?;
                 let value = match ty.content_type {
                     wasmparser::ValType::I32 => Value::I32(value as i32),
@@ -359,7 +381,7 @@ async fn collect<S: wasixv2_syscalls::LoaderControl>(
     syscalls: &S,
     caller: &Caller<'_>,
     old: &Graph,
-    policy: &Policy,
+    policy: &StartupPolicy,
 ) -> Result<Graph> {
     let mut graph = old.clone();
     async fn open<S: wasixv2_syscalls::LoaderControl>(
@@ -367,25 +389,47 @@ async fn collect<S: wasixv2_syscalls::LoaderControl>(
         caller: &Caller<'_>,
         graph: &mut Graph,
         name: &[u8],
-        search: &[u8],
+        search: Option<&[u8]>,
         runtime: &[String],
+        origin: &[u8],
+        loader: &dyn LoadPolicy,
     ) -> Result<usize> {
-        let image = load::read(syscalls, caller, name, search, runtime).await?;
+        if loader.reuse_by_name() {
+            if let Some(index) = graph.libraries.iter().position(|lib| lib.request == name) {
+                return Ok(index);
+            }
+        }
+        let (image, path) =
+            load::read(syscalls, caller, name, search, runtime, origin, loader).await?;
         if let Some(index) = graph
             .libraries
             .iter()
-            .position(|lib| lib.identity == Some(image.identity))
+            .position(|lib| !loader.reuse_by_name() && lib.identity == Some(image.identity))
         {
             return Ok(index);
         }
         let mut lib = Library::new(image.image.bytes().to_vec(), Some(image.identity))?;
         lib.backing = Some(image.image);
+        lib.path = path;
+        lib.request = name.to_vec();
         graph.libraries.push(lib);
         Ok(graph.libraries.len() - 1)
     }
     let mut preloads = Vec::new();
     for name in &policy.preloads {
-        preloads.push(open(syscalls, caller, &mut graph, name, &policy.search, &[]).await?);
+        preloads.push(
+            open(
+                syscalls,
+                caller,
+                &mut graph,
+                name,
+                policy.search.as_deref(),
+                &[],
+                b"./main.wasm",
+                &*policy.loader,
+            )
+            .await?,
+        );
     }
     // musl load_preload appends roots first; load_deps then starts at main,
     // loading its direct dependencies before each preload's transitive ones.
@@ -398,18 +442,27 @@ async fn collect<S: wasixv2_syscalls::LoaderControl>(
         }
         let needed = graph.libraries[index].metadata.needed().to_vec();
         let runtime = graph.libraries[index].metadata.runtime_path().to_vec();
+        let origin = graph.libraries[index].path.clone();
         for name in needed {
             let dependency = open(
                 syscalls,
                 caller,
                 &mut graph,
                 name.as_bytes(),
-                &policy.search,
+                policy.search.as_deref(),
                 &runtime,
+                &origin,
+                &*policy.loader,
             )
             .await?;
             graph.libraries[index].dependencies.push(dependency);
             queue.push_back(dependency);
+        }
+    }
+    if policy.loader.dependency_first_handles() {
+        let indices = graph.dependencies_first(1);
+        for index in &mut preloads {
+            *index = indices[*index];
         }
     }
     graph.global = vec![0];
@@ -577,6 +630,11 @@ impl<S: Syscalls + Control + Send + Sync + 'static> StoreImage<S> {
                     .unwrap_or(0),
             );
         }
+        let constructors = if self.root.policy.host_constructors() {
+            std::mem::take(&mut ctors).into_iter().collect::<Vec<_>>()
+        } else {
+            Vec::new()
+        };
         let work = Arc::new(Work {
             publication: Mutex::new(Some(Publication {
                 graph: graph.clone(),
@@ -675,7 +733,8 @@ impl<S: Syscalls + Control + Send + Sync + 'static> StoreImage<S> {
             }
             return Err(error);
         }
-        Ok(())
+        self.call_constructors(&Context::Entry(entry), &constructors)
+            .await
     }
 }
 
@@ -694,15 +753,21 @@ mod tests {
             secure: false,
             fresh: true,
         };
-        let policy = Policy::new(&startup);
-        assert_eq!(policy.search, b"/first::/last:/lib:/usr/local/lib:/usr/lib");
+        let policy = StartupPolicy::new(&startup);
+        assert_eq!(
+            policy.search.as_deref(),
+            Some(&b"/first::/last:/lib:/usr/local/lib:/usr/lib"[..])
+        );
         assert_eq!(
             policy.preloads,
             [b"a.so".to_vec(), b"b.so".to_vec(), b"a.so".to_vec()]
         );
         startup.secure = true;
-        let policy = Policy::new(&startup);
-        assert_eq!(policy.search, b"/lib:/usr/local/lib:/usr/lib");
+        let policy = StartupPolicy::new(&startup);
+        assert_eq!(
+            policy.search.as_deref(),
+            Some(&b"/lib:/usr/local/lib:/usr/lib"[..])
+        );
         assert!(policy.preloads.is_empty());
     }
     #[test]
@@ -724,6 +789,7 @@ mod tests {
                     let name = path.rsplit(|b| *b == b'/').next().unwrap();
                     let (inode, bytes) = self.0.get(name).ok_or(Errno::ENOENT)?;
                     Ok(LibraryImage {
+                        path: None,
                         identity: (1, *inode),
                         image: wasixv2_syscalls::Image::copied(bytes.clone()),
                     })
@@ -793,8 +859,9 @@ mod tests {
         let memory = Memory;
         let caller = Caller::new(TaskId(7), &memory);
         let old = root.graph();
-        let policy = Policy {
-            search: b"/lib".to_vec(),
+        let policy = StartupPolicy {
+            loader: Arc::new(policy::NativePolicy),
+            search: Some(b"/lib".to_vec()),
             preloads: vec![b"preload.so".to_vec()],
         };
         let mut future = Box::pin(collect(&files, &caller, &old, &policy));

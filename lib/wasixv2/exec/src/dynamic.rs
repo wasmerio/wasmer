@@ -7,10 +7,20 @@ use wasmer::AsyncFunctionEnvMut;
 /// An import-local adapter. Neither the kernel nor its futures retain this borrowed object.
 pub struct GuestDynamicLinker<'a, S: 'static> {
     env: &'a AsyncFunctionEnvMut<ExecEnv<S>>,
+    unwind: Option<&'a crate::GuestUnwind>,
 }
 impl<'a, S: 'static> GuestDynamicLinker<'a, S> {
     pub fn new(env: &'a AsyncFunctionEnvMut<ExecEnv<S>>) -> Self {
-        Self { env }
+        Self { env, unwind: None }
+    }
+    pub fn new_with_unwind(
+        env: &'a AsyncFunctionEnvMut<ExecEnv<S>>,
+        unwind: &'a crate::GuestUnwind,
+    ) -> Self {
+        Self {
+            env,
+            unwind: Some(unwind),
+        }
     }
 }
 impl<S: 'static> DynamicLinker for GuestDynamicLinker<'_, S> {
@@ -35,17 +45,35 @@ impl<S: 'static> DynamicLinker for GuestDynamicLinker<'_, S> {
                 .abi()
                 .cloned()
                 .ok_or(Errno::ENOSYS)?;
-            abi.dl_open(
-                self.env,
-                caller,
-                file,
-                flags,
-                search_path,
-                caller_addr,
-                handle,
-                err,
-            )
-            .await
+            match self.unwind {
+                Some(unwind) => {
+                    abi.dl_open_with_unwind(
+                        self.env,
+                        caller,
+                        file,
+                        flags,
+                        search_path,
+                        caller_addr,
+                        handle,
+                        err,
+                        unwind,
+                    )
+                    .await
+                }
+                None => {
+                    abi.dl_open(
+                        self.env,
+                        caller,
+                        file,
+                        flags,
+                        search_path,
+                        caller_addr,
+                        handle,
+                        err,
+                    )
+                    .await
+                }
+            }
         })
     }
 

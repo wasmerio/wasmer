@@ -220,8 +220,12 @@ impl<S: Syscalls + Control + Send + Sync + 'static> StoreImage<S> {
         caller_addr: u32,
         handle: DlHandlePtr,
         err: UserSliceMut,
+        unwind: Option<&wasixv2_exec::GuestUnwind>,
     ) -> SysResult<i32> {
         self.ensure_live().map_err(|_| Errno::ESTALE)?;
+        if self.root.policy.host_constructors() && unwind.is_none() {
+            return Err(Errno::ENOSYS.into());
+        }
         if caller_addr != 0
             || flags.bits()
                 & !(DlFlags::RTLD_NOW.bits()
@@ -267,22 +271,23 @@ impl<S: Syscalls + Control + Send + Sync + 'static> StoreImage<S> {
             .await
             .map_err(|_| Errno::EFAULT)?;
         let old = self.root.graph();
-        let (mut graph, requested) = match collect(env, caller, &old, &name, &search, flags).await {
-            Ok(value) => value,
-            Err(error) => {
-                if !env
-                    .read()
-                    .await
-                    .data()
-                    .syscalls()
-                    .loader_gate(caller.task())
-                    .is_some_and(|current| Arc::ptr_eq(&current, &gate))
-                {
-                    return Err(Errno::ESTALE.into());
+        let (mut graph, requested) =
+            match collect(env, caller, &old, &name, &search, flags, &*self.root.policy).await {
+                Ok(value) => value,
+                Err(error) => {
+                    if !env
+                        .read()
+                        .await
+                        .data()
+                        .syscalls()
+                        .loader_gate(caller.task())
+                        .is_some_and(|current| Arc::ptr_eq(&current, &gate))
+                    {
+                        return Err(Errno::ESTALE.into());
+                    }
+                    return report(caller, err, &error.to_string(), Errno::ENOEXEC).await;
                 }
-                return report(caller, err, &error.to_string(), Errno::ENOEXEC).await;
-            }
-        };
+            };
         let closing = match gate.close(caller.task()) {
             Ok(closing) => closing,
             Err(Errno::EAGAIN) => return Err(wasixv2_syscalls::SysErr::RestartNoIntr),
@@ -326,6 +331,7 @@ impl<S: Syscalls + Control + Send + Sync + 'static> StoreImage<S> {
             error: Mutex::new(None),
         });
         lock(&self.root.state).work = Some(work.clone());
+        let mut constructors = Vec::new();
         let result = async {
             self.finish_phase(&Context::Import(env), &coordinator)
                 .await?;
@@ -362,7 +368,11 @@ impl<S: Syscalls + Control + Send + Sync + 'static> StoreImage<S> {
                     } else {
                         0
                     };
-                    ctors.push_back(slot);
+                    if self.root.policy.host_constructors() {
+                        constructors.push(slot);
+                    } else {
+                        ctors.push_back(slot);
+                    }
                 }
             }
             *lock(&work.publication) = Some(Publication {
@@ -427,7 +437,17 @@ impl<S: Syscalls + Control + Send + Sync + 'static> StoreImage<S> {
         }
         .await;
         match result {
-            Ok(()) => Ok(0),
+            Ok(()) => {
+                if let Err(error) = self
+                    .call_constructors(&Context::Import(env), &constructors)
+                    .await
+                {
+                    return unwind
+                        .expect("host constructors require import error custody")
+                        .raise(error);
+                }
+                Ok(0)
+            }
             Err(error) => {
                 let committed = work.committed.load(Ordering::Acquire);
                 if committed {
@@ -462,34 +482,25 @@ pub(super) async fn read<S: wasixv2_syscalls::LoaderControl>(
     syscalls: &S,
     caller: &Caller<'_>,
     name: &[u8],
-    search: &[u8],
+    search: Option<&[u8]>,
     runtime: &[String],
-) -> Result<wasixv2_syscalls::LibraryImage> {
-    let paths = if name.contains(&b'/') {
-        vec![name.to_vec()]
-    } else {
-        let mut paths = Vec::new();
-        for path in runtime
-            .iter()
-            .flat_map(|p| p.as_bytes().split(|b| *b == b':'))
-            .chain(search.split(|b| *b == b':'))
-        {
-            if path.contains(&b'$') {
-                return Err(failure("runtime path expansion is unsupported"));
-            }
-            let mut candidate = path.to_vec();
-            if !candidate.is_empty() {
-                candidate.push(b'/');
-            }
-            candidate.extend_from_slice(name);
-            paths.push(candidate);
-        }
-        paths
-    };
+    origin: &[u8],
+    policy: &dyn LoadPolicy,
+) -> Result<(wasixv2_syscalls::LibraryImage, Vec<u8>)> {
+    let paths = policy
+        .paths(name, search, runtime, origin)
+        .map_err(failure)?;
     let mut last = None;
     for path in paths {
         match syscalls.loader_read(caller, &path).await {
-            Ok(image) => return Ok(image),
+            Ok(image) => {
+                let origin = image
+                    .path
+                    .clone()
+                    .or_else(|| path.starts_with(b"/").then_some(path))
+                    .unwrap_or_default();
+                return Ok((image, origin));
+            }
             Err(error) => last = Some(error),
         }
     }
@@ -502,24 +513,32 @@ async fn collect<S: Syscalls + Control + Send + Sync + 'static>(
     name: &[u8],
     search: &[u8],
     flags: DlFlags,
+    policy: &dyn LoadPolicy,
 ) -> Result<(Graph, usize)> {
     let syscalls = env.read().await.data().syscalls().clone();
     let mut graph = old.clone();
     if name.is_empty() {
         return Ok((graph, 0));
     }
-    let image = read(
+    if policy.reuse_by_name() {
+        if let Some(index) = graph.libraries.iter().position(|lib| lib.request == name) {
+            return Ok((graph, index));
+        }
+    }
+    let (image, path) = read(
         &*syscalls,
         caller,
         name,
-        search,
-        old.libraries[0].metadata.runtime_path(),
+        Some(search),
+        policy.open_runtime(old.libraries[0].metadata.runtime_path()),
+        &old.libraries[0].path,
+        policy,
     )
     .await?;
-    let requested = if let Some(index) = graph
+    let mut requested = if let Some(index) = graph
         .libraries
         .iter()
-        .position(|lib| lib.identity == Some(image.identity))
+        .position(|lib| !policy.reuse_by_name() && lib.identity == Some(image.identity))
     {
         index
     } else {
@@ -528,6 +547,8 @@ async fn collect<S: Syscalls + Control + Send + Sync + 'static>(
         }
         let mut library = Library::new(image.image.bytes().to_vec(), Some(image.identity))?;
         library.backing = Some(image.image.clone());
+        library.path = path;
+        library.request = name.to_vec();
         graph.libraries.push(library);
         graph.libraries.len() - 1
     };
@@ -539,23 +560,49 @@ async fn collect<S: Syscalls + Control + Send + Sync + 'static>(
         }
         let needed = graph.libraries[index].metadata.needed().to_vec();
         let runtime = graph.libraries[index].metadata.runtime_path().to_vec();
+        let origin = graph.libraries[index].path.clone();
         for name in needed {
-            let image = read(&*syscalls, caller, name.as_bytes(), search, &runtime).await?;
+            if policy.reuse_by_name() {
+                if let Some(dependency) = graph
+                    .libraries
+                    .iter()
+                    .position(|lib| lib.request == name.as_bytes())
+                {
+                    graph.libraries[index].dependencies.push(dependency);
+                    queue.push_back(dependency);
+                    continue;
+                }
+            }
+            let (image, path) = read(
+                &*syscalls,
+                caller,
+                name.as_bytes(),
+                Some(search),
+                &runtime,
+                &origin,
+                policy,
+            )
+            .await?;
             let dependency = if let Some(index) = graph
                 .libraries
                 .iter()
-                .position(|lib| lib.identity == Some(image.identity))
+                .position(|lib| !policy.reuse_by_name() && lib.identity == Some(image.identity))
             {
                 index
             } else {
                 let mut library = Library::new(image.image.bytes().to_vec(), Some(image.identity))?;
                 library.backing = Some(image.image.clone());
+                library.path = path;
+                library.request = name.as_bytes().to_vec();
                 graph.libraries.push(library);
                 graph.libraries.len() - 1
             };
             graph.libraries[index].dependencies.push(dependency);
             queue.push_back(dependency);
         }
+    }
+    if policy.dependency_first_handles() {
+        requested = graph.dependencies_first(old.libraries.len())[requested];
     }
     if flags.contains(DlFlags::RTLD_GLOBAL) {
         for index in graph.scope(requested) {

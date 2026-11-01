@@ -2,6 +2,8 @@
 mod forward;
 mod graph;
 mod load;
+mod policy;
+pub use policy::{LoadPolicy, compose};
 mod startup;
 use crate::{
     BindingTarget, ExternType, FixupKind, SOURCE_SECTION,
@@ -79,16 +81,9 @@ impl<S: Syscalls + Control + Send + Sync + 'static> Abi<S> for Native {
         wasixv2_exec::is_wasixv2_module(image)
     }
     fn for_image(&self, module: &Module) -> Option<Arc<dyn Abi<S>>> {
-        let source = module.custom_sections(SOURCE_SECTION).next()?.to_vec();
-        let root = Root::new(source);
-        if let Err(error) = verify_compiled_source(module) {
-            let _ = root.error.set(error.to_string());
-        }
-        Some(Arc::new(Image {
-            root,
-            _type: std::marker::PhantomData,
-        }))
+        compose(module, Arc::new(Wasixv2), Arc::new(policy::NativePolicy))
     }
+
     fn imports(&self, _: &mut Store, _: &FunctionEnv<ExecEnv<S>>, _: &Module) -> Imports {
         Imports::new()
     }
@@ -139,6 +134,7 @@ pub(crate) fn verify_compiled_source(module: &Module) -> Result<Vec<u8>> {
 }
 type ArtifactKey = (wasmer_types::ModuleHash, Vec<(u32, u32)>, String, String);
 struct Root {
+    policy: Arc<dyn LoadPolicy>,
     owner: Arc<()>,
     artifacts: Mutex<BTreeMap<ArtifactKey, Arc<crate::artifact::PreparedArtifact>>>,
     forward_code: Arc<forward::Cache>,
@@ -180,7 +176,11 @@ impl Work {
     }
 }
 impl Root {
+    #[cfg(test)]
     fn new(source: Vec<u8>) -> Arc<Self> {
+        Self::with_policy(source, Arc::new(policy::NativePolicy))
+    }
+    fn with_policy(source: Vec<u8>, policy: Arc<dyn LoadPolicy>) -> Arc<Self> {
         let parsed = (|| -> Result<(Graph, u32)> {
             let mut main = Library::new(source, None)?;
             let stack = main
@@ -226,6 +226,7 @@ impl Root {
             }
         };
         Arc::new(Self {
+            policy,
             owner: Arc::new(()),
             artifacts: Mutex::default(),
             forward_code: Arc::default(),
@@ -426,11 +427,12 @@ fn align(value: u32, alignment: u32) -> Result<u32> {
 }
 struct Image<S> {
     root: Arc<Root>,
-    _type: std::marker::PhantomData<S>,
+    base: Arc<dyn Abi<S>>,
 }
 impl<S: Syscalls + Control + Send + Sync + 'static> Abi<S> for Image<S> {
     fn attach_cleanup(&self, scope: &Arc<wasixv2_host::LoaderCleanup>) {
         self.root.attach_cleanup(scope);
+        self.base.attach_cleanup(scope);
     }
 
     fn name(&self) -> &'static str {
@@ -472,7 +474,7 @@ impl<S: Syscalls + Control + Send + Sync + 'static> Abi<S> for Image<S> {
         env: &FunctionEnv<ExecEnv<S>>,
         module: &Module,
     ) -> Imports {
-        let mut imports = <Wasixv2 as Abi<S>>::imports(&Wasixv2, store, env, module);
+        let mut imports = self.base.imports(store, env, module);
         let data = env.as_ref(store);
         let cleanup = data.loader_cleanup().cloned();
         let task = data.task();
@@ -510,7 +512,18 @@ impl<S: Syscalls + Control + Send + Sync + 'static> Abi<S> for Image<S> {
                             "__memory_base" => main.base,
                             "__table_base" => main.table,
                             "__stack_pointer" => self.root.stack,
-                            _ if matches!(import.module(), "GOT.func" | "GOT.mem") => continue,
+                            name if matches!(import.module(), "GOT.func" | "GOT.mem") => {
+                                let end = main
+                                    .base
+                                    .checked_add(main.metadata.memory_info().memory_size)
+                                    .ok_or_else(|| failure("main data overflow"))?;
+                                let Some(value) =
+                                    self.root.policy.main_global(name, self.root.stack, end)
+                                else {
+                                    continue;
+                                };
+                                value
+                            }
                             _ => {
                                 return Err(failure(format!(
                                     "unsupported dynamic main global {}",
@@ -527,6 +540,22 @@ impl<S: Syscalls + Control + Send + Sync + 'static> Abi<S> for Image<S> {
                             Global::new(store, Value::I32(value as i32))
                         };
                         imports.define(import.module(), import.name(), global);
+                    }
+                    wasmer::ExternType::Tag(ty) => {
+                        if let Some(params) =
+                            self.root.policy.main_tag(import.module(), import.name())
+                        {
+                            if ty.params.as_ref() != params {
+                                return Err(failure("invalid infrastructure tag signature"));
+                            }
+                            if imports.get_export(import.module(), import.name()).is_none() {
+                                imports.define(
+                                    import.module(),
+                                    import.name(),
+                                    wasmer::Tag::new(store, params),
+                                );
+                            }
+                        }
                     }
                     wasmer::ExternType::Table(ty) => {
                         let mut ty = *ty;
@@ -549,6 +578,17 @@ impl<S: Syscalls + Control + Send + Sync + 'static> Abi<S> for Image<S> {
                             .ok_or_else(|| failure("main data overflow"))?;
                         let mut ty = *ty;
                         ty.minimum = ty.minimum.max(wasmer::Pages(end.div_ceil(65536)));
+                        if self.root.policy.memory_limit() < 1 << 32 {
+                            let limit = wasmer::Pages(
+                                u32::try_from(
+                                    self.root.policy.memory_limit()
+                                        / wasixv2_syscalls::WASM_PAGE_SIZE,
+                                )
+                                .map_err(failure)?,
+                            );
+                            ty.maximum =
+                                Some(ty.maximum.map_or(limit, |maximum| maximum.min(limit)));
+                        }
                         imports.define(
                             import.module(),
                             import.name(),
@@ -588,6 +628,9 @@ impl<S: Syscalls + Control + Send + Sync + 'static> Abi<S> for Image<S> {
         store: &mut Store,
         _: bool,
     ) -> Option<wasixv2_syscalls::MemoryLayout> {
+        if !self.root.policy.mapped_memory() {
+            return None;
+        }
         let graph = self.root.graph();
         let main = graph.libraries.first()?;
         let end = u64::from(main.base) + u64::from(main.metadata.memory_info().memory_size);
@@ -627,14 +670,15 @@ impl<S: Syscalls + Control + Send + Sync + 'static> Image<S> {
                 error,
             ))));
         }
-        let inner = <Wasixv2 as Abi<S>>::bind(&Wasixv2, instance, store, task, role)?;
+        let inner = self.base.bind(instance, store, task, role)?;
         let memory = instance
             .exports
             .get_memory("__wasix_dylink_memory_0")?
             .clone();
         let table = instance
             .exports
-            .get_table("__indirect_function_table")?
+            .get_table("__indirect_function_table")
+            .or_else(|_| instance.exports.get_table("__wasix_dylink_table_0"))?
             .clone();
         Ok(Arc::new(StoreImage {
             root: self.root.clone(),
@@ -673,6 +717,7 @@ struct Local {
     lazy_targets: BTreeMap<u32, Option<(usize, u32)>>,
 }
 impl Local {
+    #[cfg(all(test, feature = "engine-tests"))]
     fn symbol(
         &self,
         store: &mut StoreMut<'_>,
@@ -692,6 +737,25 @@ impl Local {
                 .unwrap_or(0) as u32;
         }
         graph.symbol(handle, name, &tls)
+    }
+
+    fn symbol_in_scope(
+        &self,
+        store: &mut StoreMut<'_>,
+        graph: &Graph,
+        scope: &[usize],
+        name: &str,
+    ) -> Result<u32> {
+        let mut tls = self.tls.clone();
+        if let Some(base) = tls.first_mut() {
+            *base = self.instances[0]
+                .exports
+                .get_global("__tls_base")
+                .ok()
+                .and_then(|global| global.get(&mut *store).i32())
+                .unwrap_or(0) as u32;
+        }
+        graph.symbol_in_scope(scope, name, &tls)
     }
 
     fn stage_modules(
@@ -1127,6 +1191,36 @@ impl<S: Syscalls + Control + Send + Sync + 'static> StoreImage<S> {
         }
     }
 
+    /// A transaction claims its entire constructor batch before guest entry.
+    /// Resident reopens never replay it, including after a trap or cancellation,
+    /// matching v1's consumed new_modules list. No loader lock spans a guest call.
+    async fn call_constructors(&self, cx: &Context<'_, S>, slots: &[u32]) -> Result<()> {
+        let functions = cx
+            .with(|_, store| {
+                let local = lock(&self.local);
+                slots
+                    .iter()
+                    .filter(|slot| **slot != 0)
+                    .map(|slot| match local.table.get(store, *slot) {
+                        Some(Value::FuncRef(Some(function))) => Ok(function),
+                        _ => Err(failure("constructor slot is not a function")),
+                    })
+                    .collect::<Result<Vec<_>>>()
+            })
+            .await?;
+        for function in functions {
+            match cx {
+                Context::Import(env) => {
+                    wasixv2_exec::call_guest(env, &function, &[]).await?;
+                }
+                Context::Entry(entry) => {
+                    entry.call_once(&function, &[]).await?;
+                }
+            }
+        }
+        Ok(())
+    }
+
     fn main_prepare(&self, store: &mut StoreMut<'_>, graph: &Graph) -> Result<()> {
         let main = &graph.libraries[0];
         let mut local = lock(&self.local);
@@ -1446,7 +1540,7 @@ impl<S: Syscalls + Control + Send + Sync + 'static> AbiInstance<S> for StoreImag
                 let syscalls = entry.with_store(|data, _| data.syscalls().clone()).await;
                 self.root.retire_common(&*syscalls, scope).await?;
             }
-            Ok(())
+            self.inner.retire(entry).await
         })
     }
     fn prepare_entry<'a>(&'a self, entry: &'a Entry<'a, S>) -> LocalFuture<'a, Result<()>> {
@@ -1480,7 +1574,8 @@ impl<S: Syscalls + Control + Send + Sync + 'static> AbiInstance<S> for StoreImag
 
             let startup = lock(&self.startup).take();
             if let Some(startup) = startup {
-                return self.finish_startup(entry, startup).await;
+                self.finish_startup(entry, startup).await?;
+                return self.inner.prepare_entry(entry).await;
             }
             let graph = self.root.graph();
             entry
@@ -1561,7 +1656,7 @@ impl<S: Syscalls + Control + Send + Sync + 'static> AbiInstance<S> for StoreImag
                     })
                     .await?;
             }
-            Ok(())
+            self.inner.prepare_entry(entry).await
         })
     }
     fn loader_work<'a>(
@@ -1590,7 +1685,72 @@ impl<S: Syscalls + Control + Send + Sync + 'static> AbiInstance<S> for StoreImag
         handle: DlHandlePtr,
         err: UserSliceMut,
     ) -> LocalFuture<'a, SysResult<i32>> {
-        Box::pin(self.open(env, caller, file, flags, search, caller_addr, handle, err))
+        Box::pin(self.open(
+            env,
+            caller,
+            file,
+            flags,
+            search,
+            caller_addr,
+            handle,
+            err,
+            None,
+        ))
+    }
+    fn dl_open_with_unwind<'a>(
+        &'a self,
+        env: &'a AsyncFunctionEnvMut<ExecEnv<S>>,
+        caller: &'a Caller<'_>,
+        file: Cstr,
+        flags: DlFlags,
+        search: Cstr,
+        caller_addr: Uptr,
+        handle: DlHandlePtr,
+        err: UserSliceMut,
+        unwind: &'a wasixv2_exec::GuestUnwind,
+    ) -> LocalFuture<'a, SysResult<i32>> {
+        Box::pin(self.open(
+            env,
+            caller,
+            file,
+            flags,
+            search,
+            caller_addr,
+            handle,
+            err,
+            Some(unwind),
+        ))
+    }
+    fn dl_valid_handle<'a>(
+        &'a self,
+        env: &'a AsyncFunctionEnvMut<ExecEnv<S>>,
+        caller: &'a Caller<'_>,
+        handle: DlHandle,
+    ) -> LocalFuture<'a, SysResult<bool>> {
+        Box::pin(async move {
+            self.ensure_live().map_err(|_| Errno::ESTALE)?;
+            let gate = self.root.gate().map_err(|_| Errno::ENOSYS)?;
+            if !env
+                .read()
+                .await
+                .data()
+                .syscalls()
+                .loader_gate(caller.task())
+                .is_some_and(|current| Arc::ptr_eq(&current, gate))
+            {
+                return Err(Errno::ESTALE.into());
+            }
+            let _admission = match gate.admit() {
+                Ok(value) => value,
+                Err(_) => {
+                    self.service(&Context::Import(env))
+                        .await
+                        .map_err(|_| Errno::EINTR)?;
+                    return Err(wasixv2_syscalls::SysErr::RestartNoIntr);
+                }
+            };
+            Ok(handle.0 > 1 && (handle.0 as usize) <= self.root.graph().libraries.len())
+        })
     }
     fn dl_sym<'a>(
         &'a self,
@@ -1637,22 +1797,51 @@ impl<S: Syscalls + Control + Send + Sync + 'static> AbiInstance<S> for StoreImag
                 .await
                 .map_err(|_| Errno::EFAULT)?;
             let name = std::str::from_utf8(&name).map_err(|_| Errno::EINVAL)?;
-            let index = handle.0.checked_sub(1).ok_or(Errno::EINVAL)? as usize;
-            if lock(&self.root.state)
-                .references
-                .get(&index)
-                .copied()
-                .unwrap_or(0)
-                == 0
+            let graph = self.root.graph();
+            let native_index = handle.0.checked_sub(1).map(|index| index as usize);
+            if !self.root.policy.resident_handles() && native_index.is_none() {
+                return Err(Errno::EINVAL.into());
+            }
+            let native_scope = native_index
+                .filter(|index| *index < graph.libraries.len())
+                .map(|index| {
+                    let mut scope = if index == 0 {
+                        graph.global.clone()
+                    } else {
+                        Vec::new()
+                    };
+                    for dependency in graph.scope(index) {
+                        if !scope.contains(&dependency) {
+                            scope.push(dependency);
+                        }
+                    }
+                    scope
+                })
+                .unwrap_or_default();
+            let Some(scope) = self
+                .root
+                .policy
+                .scope(handle.0, graph.libraries.len(), native_scope)
+            else {
+                return load::report(caller, err, "invalid library handle", Errno::EINVAL).await;
+            };
+            if scope.iter().any(|index| *index >= graph.libraries.len()) {
+                return Err(Errno::EINVAL.into());
+            }
+            if !self.root.policy.resident_handles()
+                && native_index.is_none_or(|index| {
+                    lock(&self.root.state)
+                        .references
+                        .get(&index)
+                        .copied()
+                        .unwrap_or(0)
+                        == 0
+                })
             {
                 return load::report(caller, err, "invalid library handle", Errno::EINVAL).await;
             }
-            let graph = self.root.graph();
-            if index >= graph.libraries.len() {
-                return Err(Errno::EINVAL.into());
-            }
             let address = Context::Import(env)
-                .with(|_, store| lock(&self.local).symbol(store, &graph, index, name))
+                .with(|_, store| lock(&self.local).symbol_in_scope(store, &graph, &scope, name))
                 .await;
             match address {
                 Ok(value) => {
@@ -1792,6 +1981,9 @@ impl<S: Syscalls + Control + Send + Sync + 'static> AbiInstance<S> for StoreImag
             }
             self.inner.vfork_resume(env, child, pid).await
         })
+    }
+    fn memory_limit(&self) -> u64 {
+        self.inner.memory_limit()
     }
     fn as_any(&self) -> &dyn Any {
         self.inner.as_any()
