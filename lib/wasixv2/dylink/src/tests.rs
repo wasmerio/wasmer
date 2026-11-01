@@ -750,6 +750,38 @@ fn signal_handler_sentinels_are_not_dynamic_table_slots() {
 }
 
 #[test]
+fn compilation_source_preparation_selects_only_raw_native_dynamic_mains() {
+    let native = r#"(module (import "wasixv2" "exit_group" (func (param i32))))"#;
+    let original = bytes(native, [0; 4], &[], &[], &[]);
+    assert!(crate::needs_preparation(&original).unwrap());
+    let prepared = crate::prepare_image(&original).unwrap();
+    assert!(!crate::needs_preparation(&prepared).unwrap());
+    for source in [
+        wat::parse_str("(module)").unwrap(),
+        wat::parse_str(native).unwrap(),
+        bytes(
+            r#"(module (import "wasi_snapshot_preview1" "proc_exit" (func (param i32))))"#,
+            [0; 4],
+            &[],
+            &[],
+            &[],
+        ),
+    ] {
+        assert!(!crate::needs_preparation(&source).unwrap());
+    }
+    let unsupported = bytes(
+        r#"(module (import "wasixv2" "exit_group" (func (param i32)))
+          (func (export "asyncify_start_unwind")))"#,
+        [0; 4],
+        &[],
+        &[],
+        &[],
+    );
+    assert!(crate::needs_preparation(&unsupported).unwrap());
+    assert!(crate::prepare_image(&unsupported).is_err());
+}
+
+#[test]
 fn dynamic_main_source_preparation_is_explicit_and_non_executing() {
     let static_image = wat::parse_str("(module (func $init) (start $init))").unwrap();
     assert_eq!(crate::prepare_image(&static_image).unwrap(), static_image);

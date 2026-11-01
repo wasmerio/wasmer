@@ -5,29 +5,51 @@ use wasmparser::{Parser, Payload};
 
 pub const SOURCE_SECTION: &str = "wasixv2.dylink.source";
 
-/// Static/v1 images pass through byte-for-byte. A native dynamic main is rewritten before
-/// compilation and carries its validated original source for the store-local ABI binder.
-/// Embedders with custom compilers call this before exec's normal preemption instrumenter.
-pub fn prepare_image(bytes: &[u8]) -> Result<Vec<u8>, PlanError> {
-    let mut dynamic = false;
-    let mut native = false;
+#[derive(Default)]
+struct Profile {
+    dynamic: bool,
+    native: bool,
+    prepared: bool,
+}
+
+fn profile(bytes: &[u8]) -> Result<Profile, PlanError> {
+    let mut profile = Profile::default();
     for payload in Parser::new(0).parse_all(bytes) {
         match payload? {
             Payload::CustomSection(section) => {
                 if section.name() == SOURCE_SECTION {
-                    return Err(PlanError::Metadata("reserved source section"));
+                    profile.prepared = true;
                 }
-                dynamic |= section.name() == "dylink.0";
+                profile.dynamic |= section.name() == "dylink.0";
             }
             Payload::ImportSection(section) => {
                 for import in section.into_imports() {
-                    native |= import?.module == "wasixv2";
+                    profile.native |= import?.module == "wasixv2";
                 }
             }
             _ => {}
         }
     }
-    if !dynamic || !native {
+    Ok(profile)
+}
+
+/// Whether a generic compiler input selects raw native dynamic-main preparation. Static,
+/// v1 and already-prepared inputs retain their existing compilation path. This classifies
+/// source only; it does not validate prepared source markers or grant runtime admission.
+pub fn needs_preparation(bytes: &[u8]) -> Result<bool, PlanError> {
+    let profile = profile(bytes)?;
+    Ok(profile.dynamic && profile.native && !profile.prepared)
+}
+
+/// Static/v1 images pass through byte-for-byte. A native dynamic main is rewritten before
+/// compilation and carries its validated original source for the store-local ABI binder.
+/// Embedders with custom compilers call this before exec's normal preemption instrumenter.
+pub fn prepare_image(bytes: &[u8]) -> Result<Vec<u8>, PlanError> {
+    let profile = profile(bytes)?;
+    if profile.prepared {
+        return Err(PlanError::Metadata("reserved source section"));
+    }
+    if !profile.dynamic || !profile.native {
         return Ok(bytes.to_vec());
     }
     let metadata = Module::parse(bytes)?;

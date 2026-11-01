@@ -89,7 +89,8 @@ impl Compile {
         println!("Compiler: {}", engine.deterministic_id());
         println!("Target: {}", target.triple());
 
-        let module = Module::new(&engine, &module_contents)?;
+        let compiler_input = prepare_compiler_input(module_contents)?;
+        let module = Module::new(&engine, &compiler_input)?;
         module.serialize_to_file(&self.output)?;
         eprintln!(
             "✔ File compiled successfully to `{}`.",
@@ -97,5 +98,49 @@ impl Compile {
         );
 
         Ok(())
+    }
+}
+
+fn prepare_compiler_input(source: Vec<u8>) -> Result<Vec<u8>> {
+    // Only raw native dynamic mains select the existing runtime preparation path.
+    // Generic/static/v1 and upstream-prepared inputs keep their original artifact ABI.
+    if wasixv2_dylink::needs_preparation(&source)? {
+        let prepared = wasixv2_dylink::prepare_image(&source)?;
+        Ok(wasixv2::instrument(&prepared)?)
+    } else {
+        Ok(source)
+    }
+}
+
+#[cfg(all(test, feature = "wat"))]
+mod tests {
+    use super::*;
+
+    fn wasm(source: &str) -> Vec<u8> {
+        wasmer::wat2wasm(source.as_bytes()).unwrap().into_owned()
+    }
+
+    fn dynamic(mut source: Vec<u8>) -> Vec<u8> {
+        // Existing dylink.0 empty memory-info fixture used by the loader/planner tests.
+        source.extend_from_slice(b"\0\x0f\x08dylink.0\x01\x04\0\0\0\0");
+        source
+    }
+
+    #[test]
+    fn compiler_input_preserves_generic_static_v1_and_prepared_bytes() {
+        let native = wasm(r#"(module (import "wasixv2" "exit_group" (func (param i32))))"#);
+        let prepared =
+            wasixv2::instrument(&wasixv2_dylink::prepare_image(&dynamic(native.clone())).unwrap())
+                .unwrap();
+        for source in [
+            wasm("(module (func $init) (start $init))"),
+            native,
+            dynamic(wasm(
+                r#"(module (import "wasi_snapshot_preview1" "proc_exit" (func (param i32))))"#,
+            )),
+            prepared,
+        ] {
+            assert_eq!(prepare_compiler_input(source.clone()).unwrap(), source);
+        }
     }
 }

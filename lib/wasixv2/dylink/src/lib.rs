@@ -26,7 +26,7 @@ mod store;
 #[cfg(any(feature = "sys", feature = "js"))]
 pub use store::StagedModule;
 
-pub use image::{SOURCE_SECTION, prepare_image};
+pub use image::{SOURCE_SECTION, needs_preparation, prepare_image};
 pub use initialize::{InitEffects, InitTable, InitWrite, Initialization};
 pub use metadata::{Export, ExternType, Import, Module};
 pub use plan::{

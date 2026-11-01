@@ -2425,6 +2425,71 @@ fn error_if_no_start_function_found() {
     any(feature = "v8", target_os = "windows"),
     ignore = "wasmer may not have the 'compile' command with this backend"
 )]
+fn run_compile_preserves_generic_wasm_start() {
+    let files = TempDir::new().unwrap();
+    let module = files.path().join("generic.wasm");
+    let artifact = files.path().join("generic.wasmu");
+    std::fs::write(
+        &module,
+        wat::parse_str(
+            r#"(module
+              (global $state (mut i32) (i32.const 0))
+              (func $init i32.const 37 global.set $state)
+              (start $init)
+              (func (export "_start") (result i32) global.get $state))"#,
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    wasmer_command()
+        .arg("compile")
+        .arg(&module)
+        .arg("--compiler-threads=3")
+        .arg("-o")
+        .arg(&artifact)
+        .assert()
+        .success();
+    wasmer_command()
+        .arg("run")
+        .arg(&artifact)
+        .assert()
+        .success()
+        .stdout("37\n");
+}
+
+#[test]
+#[ignore = "requires source-built startup fixtures via WASIXV2_NATIVE_STARTUP_DIR"]
+fn run_compile_native_dynamic_startup() {
+    let directory = std::path::PathBuf::from(
+        std::env::var_os("WASIXV2_NATIVE_STARTUP_DIR").expect("fixture directory"),
+    );
+    let files = TempDir::new().unwrap();
+    let artifact = files.path().join("native.wasmu");
+    wasmer_command()
+        .arg("compile")
+        .arg(directory.join("main.wasm"))
+        .arg("--compiler-threads=3")
+        .arg("-o")
+        .arg(&artifact)
+        .assert()
+        .success();
+    wasmer_command()
+        .arg("run")
+        .arg(&artifact)
+        .arg("--volume")
+        .arg(format!("{}:/", directory.display()))
+        .arg("--env=LD_PRELOAD=/startup-preload.so")
+        .arg("--env=LD_LIBRARY_PATH=/")
+        .assert()
+        .success()
+        .stdout(contains("native startup PASS:"));
+}
+
+#[test]
+#[cfg_attr(
+    any(feature = "v8", target_os = "windows"),
+    ignore = "wasmer may not have the 'compile' command with this backend"
+)]
 fn run_a_pre_compiled_wasm_file() {
     let temp = TempDir::new().unwrap();
     let dest = temp.path().join("qjs.wasmu");
