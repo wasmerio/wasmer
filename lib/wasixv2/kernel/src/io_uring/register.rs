@@ -265,7 +265,7 @@ impl Kernel {
         if fd == -1 {
             return Ok(None);
         }
-        let file = self.file(caller.task(), Fd(fd))?;
+        let file = self.caller_file(caller, Fd(fd))?;
         if is_ring(&file) {
             return Err(Errno::EBADF);
         }

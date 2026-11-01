@@ -860,7 +860,7 @@ impl Kernel {
         if userns_fd > i32::MAX as u64 {
             return Err(Errno::EINVAL);
         }
-        let file = self.file(caller.task(), Fd(userns_fd as i32))?;
+        let file = self.caller_file(caller, Fd(userns_fd as i32))?;
         let ns = file.downcast::<NsFile>().ok_or(Errno::EINVAL)?;
         if ns.namespace().kind() != crate::ns::NsKind::User {
             return Err(Errno::EINVAL);

@@ -1,7 +1,7 @@
 //! `ppoll` and `pselect6`, as Linux's `fs/select.c`, plus the timeout and temporary signal
 //! mask handling that epoll shares.
 
-use std::{sync::Mutex, time::Duration};
+use std::{sync::Arc, time::Duration};
 
 use wasixv2_abi::{
     ConstSigsetPtr, GuestLayout, KernelFdSetPtr, KernelTimespec, KernelTimespecPtr, PollEvents,
@@ -10,7 +10,7 @@ use wasixv2_abi::{
 use wasixv2_syscalls::{Caller, Errno, Fd, SysErr, SysResult, read_value, write_value};
 use wasixv2_wait::{Interrupt, PollMask, PollWaiter, Wakeup};
 
-use crate::{Kernel, file::FdTable, sigset_bits, sync::MutexExt, time};
+use crate::{Kernel, file::OpenFile, sigset_bits, sync::MutexExt, time};
 
 /// When a wait gives up.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -167,14 +167,42 @@ impl Kernel {
 
         let interrupt = self.interrupt(caller);
         let files = self.files(caller.task());
+        let captured = if caller.descriptors().is_some() {
+            Some(
+                fds.iter()
+                    .map(|pollfd| {
+                        if pollfd.fd.0 < 0 {
+                            Ok(None)
+                        } else {
+                            self.poll_file(caller, &files, pollfd.fd)
+                        }
+                    })
+                    .collect::<Result<Vec<_>, Errno>>()?,
+            )
+        } else {
+            None
+        };
+        // A bound poll needs only its acquired files. Keeping the whole table while asleep
+        // would change unshare's sharing test and retain unrelated descriptors afterward.
+        let files = captured.is_none().then_some(files);
         let mut waiter = PollWaiter::new();
         let mut timer = self.timer(caller, deadline);
         let mut timed_out = deadline == Deadline::Now;
         let mut register = !timed_out;
         let count = loop {
             let mut count = 0;
-            for pollfd in &mut fds {
-                let file = { files.lock_or_recover().get(pollfd.fd) };
+            for (index, pollfd) in fds.iter_mut().enumerate() {
+                let file = if pollfd.fd.0 < 0 {
+                    None
+                } else if let Some(captured) = &captured {
+                    captured[index].clone()
+                } else {
+                    files
+                        .as_ref()
+                        .expect("unbound poll has its table")
+                        .lock_or_recover()
+                        .get(pollfd.fd)
+                };
                 if let Some(file) = file {
                     let key = PollMask(pollfd.events.0 as u32) | PollMask::ERR | PollMask::HUP;
                     if register {
@@ -182,7 +210,15 @@ impl Kernel {
                     }
                     file.prepare_poll(key.0).await;
                 }
-                let mask = do_pollfd(&files, pollfd, &mut waiter, false);
+                let file = match &captured {
+                    Some(captured) => captured[index].clone(),
+                    None => files
+                        .as_ref()
+                        .expect("unbound poll has its table")
+                        .lock_or_recover()
+                        .get(pollfd.fd),
+                };
+                let mask = do_pollfd(file, pollfd, &mut waiter, false);
                 if !mask.is_empty() {
                     count += 1;
                     register = false;
@@ -263,9 +299,11 @@ impl Kernel {
             .collect();
 
         // `max_select_fd`: every descriptor asked about must be open.
-        for (fd, _) in &wanted {
-            self.file(caller.task(), Fd(*fd as i32))?;
-        }
+        let acquired = wanted
+            .iter()
+            .map(|(fd, _)| self.caller_file(caller, Fd(*fd as i32)))
+            .collect::<Result<Vec<_>, _>>()?;
+        let captured = caller.descriptors().is_some().then_some(acquired);
 
         let in_set = PollMask::READABLE | PollMask::RDBAND | PollMask::HUP | PollMask::ERR;
         let out_set = PollMask::WRITABLE | PollMask::WRBAND | PollMask::ERR;
@@ -278,12 +316,20 @@ impl Kernel {
         let mut timed_out = deadline == Deadline::Now;
         let mut register = !timed_out;
         let mut result = [vec![0u8; bytes], vec![0u8; bytes], vec![0u8; bytes]];
-        let files = self.files(caller.task());
+        let files = captured.is_none().then(|| self.files(caller.task()));
         let count = loop {
             let mut count = 0;
             // Looked up again on every pass, as Linux does.
-            for (fd, want) in &wanted {
-                let Some(file) = files.lock_or_recover().get(Fd(*fd as i32)) else {
+            for (index, (fd, want)) in wanted.iter().enumerate() {
+                let file = match &captured {
+                    Some(captured) => Some(captured[index].clone()),
+                    None => files
+                        .as_ref()
+                        .expect("unbound select has its table")
+                        .lock_or_recover()
+                        .get(Fd(*fd as i32)),
+                };
+                let Some(file) = file else {
                     continue;
                 };
                 let key = (0..3)
@@ -330,7 +376,7 @@ impl Kernel {
 /// `do_pollfd`: negative descriptors are skipped, closed ones report `POLLNVAL`, and
 /// `POLLERR` and `POLLHUP` are always reported.
 fn do_pollfd(
-    files: &Mutex<FdTable>,
+    file: Option<Arc<OpenFile>>,
     pollfd: &mut Pollfd,
     waiter: &mut PollWaiter,
     register: bool,
@@ -339,7 +385,6 @@ fn do_pollfd(
     if pollfd.fd.0 < 0 {
         return PollMask::empty();
     }
-    let file = files.lock_or_recover().get(pollfd.fd);
     let mask = match file {
         None => PollMask::NVAL,
         Some(file) => {

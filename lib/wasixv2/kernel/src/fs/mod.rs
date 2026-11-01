@@ -296,20 +296,23 @@ impl Kernel {
         dfd: Fd,
         path: &[u8],
     ) -> Result<Path, Errno> {
+        if caller.descriptors().is_some() {
+            self.caller_file(caller, dfd)?;
+        }
         if path.starts_with(b"/") || dfd.0 == AtFd::AT_FDCWD.0 {
             return Ok(env.fs.cwd.clone());
         }
-        Ok(self.file(caller.task(), dfd)?.path().clone())
+        Ok(self.caller_file(caller, dfd)?.path().clone())
     }
 
     /// The path an fd-based operation acts on: the file's, or its object's inode.
     pub(crate) fn fd_path(&self, caller: &Caller<'_>, fd: Fd) -> Result<Path, Errno> {
-        Ok(self.file(caller.task(), fd)?.path().clone())
+        Ok(self.caller_file(caller, fd)?.path().clone())
     }
 
     /// An open file usable for I/O-like operations: `O_PATH` descriptors are `EBADF`.
     pub(crate) fn io_file(&self, caller: &Caller<'_>, fd: Fd) -> Result<Arc<OpenFile>, Errno> {
-        let file = self.file(caller.task(), fd)?;
+        let file = self.caller_file(caller, fd)?;
         if file.flags().contains(OpenFlags::O_PATH) {
             return Err(Errno::EBADF);
         }
@@ -342,6 +345,9 @@ impl Kernel {
     /// `dfd` itself, for an empty path or a walk rooted there: the working directory for
     /// `AT_FDCWD`.
     fn start_or_fd(&self, caller: &Caller<'_>, env: &Env, dfd: Fd) -> Result<Path, Errno> {
+        if caller.descriptors().is_some() {
+            self.caller_file(caller, dfd)?;
+        }
         if dfd.0 == AtFd::AT_FDCWD.0 {
             return Ok(env.fs.cwd.clone());
         }
@@ -559,9 +565,8 @@ impl Kernel {
         file: Arc<OpenFile>,
         cloexec: bool,
     ) -> SysResult<Fd> {
-        let files = self.files(caller.task());
-        let mut files = files.lock_or_recover();
-        Ok(files.install(file, cloexec).ok_or(Errno::EMFILE)?)
+        let [slot] = self.reserve_fds(caller, cloexec)?;
+        Ok(slot.install(file))
     }
 
     /// Reserves the `N` lowest free descriptors, all or none (`EMFILE`), for files that are
@@ -571,18 +576,30 @@ impl Kernel {
         caller: &Caller<'_>,
         cloexec: bool,
     ) -> Result<[FdReservation; N], Errno> {
-        let table = self.files(caller.task());
-        let mut files = table.lock_or_recover();
-        if !files.has_room(N) {
-            return Err(Errno::EMFILE);
+        let plan = caller.descriptor_installations().cloned();
+        if let Some(plan) = &plan {
+            plan.claim(N)?;
         }
-        let fds = [(); N].map(|()| files.reserve().expect("room checked above"));
-        drop(files);
-        Ok(fds.map(|fd| FdReservation {
-            table: Some(table.clone()),
-            fd,
-            cloexec,
-        }))
+        self.with_descriptor_table(caller, |table, files| {
+            if !files.has_room(N) {
+                return Err(Errno::EMFILE);
+            }
+            let mut index = 0;
+            Ok([(); N].map(|()| {
+                let fd = files.reserve().expect("room checked above");
+                let reservation = FdReservation {
+                    owner: self.descriptor_owner.clone(),
+                    origin: caller.task(),
+                    table: Some(table.clone()),
+                    fd,
+                    cloexec,
+                    attachment: plan.as_ref().and_then(|plan| plan.attachment(index)),
+                    output: plan.as_ref().map(|plan| (plan.clone(), index)),
+                };
+                index += 1;
+                reservation
+            }))
+        })
     }
 
     /// What closing a descriptor does besides dropping the reference: release the process's
@@ -613,8 +630,10 @@ impl Kernel {
     }
 
     pub(crate) async fn sys_close(&self, caller: &Caller<'_>, fd: Fd) -> SysResult<i32> {
-        let files = self.files(caller.task());
-        let file = files.lock_or_recover().remove(fd).ok_or(Errno::EBADF)?;
+        let file = self.with_descriptor_table(caller, |_, files| {
+            self.bound_slot(caller, files, fd)?;
+            files.remove(fd).ok_or(Errno::EBADF)
+        })?;
         let result = if let Backing::Inode(inode) = &file.backing {
             inode
                 .flush(u64::from(self.process(caller.task()).pid.0))
@@ -634,6 +653,9 @@ impl Kernel {
         last: u32,
         flags: CloseRangeFlags,
     ) -> SysResult<i32> {
+        if caller.descriptors().is_some() {
+            return Err(Errno::EBADF.into());
+        }
         let known = CloseRangeFlags::CLOSE_RANGE_UNSHARE | CloseRangeFlags::CLOSE_RANGE_CLOEXEC;
         if !(flags & !known).is_empty() || first > last {
             return Err(Errno::EINVAL.into());
@@ -672,8 +694,30 @@ impl Kernel {
     }
 
     pub(crate) fn sys_dup(&self, caller: &Caller<'_>, fd: Fd) -> SysResult<Fd> {
-        let file = self.file(caller.task(), fd)?;
-        self.install(caller, file, false)
+        let plan = caller.descriptor_installations();
+        if let Some(plan) = plan {
+            plan.claim(1)?;
+        }
+        Ok(self.with_descriptor_table(caller, |table, files| {
+            let slot = self.bound_slot(caller, files, fd)?;
+            let attachment = plan.map_or(slot.attachment, |plan| plan.attachment(0));
+            let new = files
+                .install_from_attached(0, slot.file, false, attachment)
+                .ok_or(Errno::EMFILE)?;
+            if let Some(plan) = plan {
+                plan.publish(
+                    0,
+                    crate::descriptors::capture(
+                        &self.descriptor_owner,
+                        caller.task(),
+                        table,
+                        files,
+                        &[new],
+                    ),
+                );
+            }
+            Ok(new)
+        })?)
     }
 
     pub(crate) async fn sys_dup3(
@@ -691,23 +735,44 @@ impl Kernel {
         }
         // `do_dup2` under `file_lock`: the lookup and the install are one step, so a
         // concurrent close of `old` cannot be undone.
-        let files = self.files(caller.task());
-        let replaced = {
-            let mut table = files.lock_or_recover();
+        let plan = caller.descriptor_installations();
+        if let Some(plan) = plan {
+            plan.claim(1)?;
+        }
+        let replaced = self.with_descriptor_table(caller, |files, table| {
             if new.0 < 0 || new.0 as usize >= table.limit() {
-                return Err(Errno::EBADF.into());
+                return Err(Errno::EBADF);
             }
-            let file = table.get(old).ok_or(Errno::EBADF)?;
+            let slot = self.bound_slot(caller, table, old)?;
             // `expand_files`: a table that cannot grow to `new` is `EBADF` here, not `EMFILE`.
             if table.expand(new.0 as usize).is_err() {
-                return Err(Errno::EBADF.into());
+                return Err(Errno::EBADF);
             }
             // A descriptor reserved by an open still in progress.
             if table.is_reserved(new) {
-                return Err(Errno::EBUSY.into());
+                return Err(Errno::EBUSY);
             }
-            table.install_at(new, file, flags.contains(OpenFlags::O_CLOEXEC))
-        };
+            let attachment = plan.map_or(slot.attachment, |plan| plan.attachment(0));
+            let replaced = table.install_at_attached(
+                new,
+                slot.file,
+                flags.contains(OpenFlags::O_CLOEXEC),
+                attachment,
+            );
+            if let Some(plan) = plan {
+                plan.publish(
+                    0,
+                    crate::descriptors::capture(
+                        &self.descriptor_owner,
+                        caller.task(),
+                        files,
+                        table,
+                        &[new],
+                    ),
+                );
+            }
+            Ok(replaced)
+        })?;
         if let Some(replaced) = replaced {
             if let Backing::Inode(inode) = &replaced.backing {
                 let _ = inode
@@ -728,23 +793,41 @@ impl Kernel {
         cmd: FcntlCmd,
         arg: u32,
     ) -> SysResult<i32> {
-        let file = self.file(caller.task(), fd)?;
+        let file = self.caller_file(caller, fd)?;
         let path_only = file.flags().contains(OpenFlags::O_PATH);
-        let files = self.files(caller.task());
         match cmd {
             FcntlCmd::F_DUPFD | FcntlCmd::F_DUPFD_CLOEXEC => {
-                let mut table = files.lock_or_recover();
-                if arg as usize >= table.limit() {
-                    return Err(Errno::EINVAL.into());
+                let plan = caller.descriptor_installations();
+                if let Some(plan) = plan {
+                    plan.claim(1)?;
                 }
-                let cloexec = cmd == FcntlCmd::F_DUPFD_CLOEXEC;
-                let fd = table
-                    .install_from(arg as usize, file, cloexec)
-                    .ok_or(Errno::EMFILE)?;
-                Ok(fd.0)
+                Ok(self.with_descriptor_table(caller, |files, table| {
+                    if arg as usize >= table.limit() {
+                        return Err(Errno::EINVAL);
+                    }
+                    let slot = self.bound_slot(caller, table, fd)?;
+                    let cloexec = cmd == FcntlCmd::F_DUPFD_CLOEXEC;
+                    let attachment = plan.map_or(slot.attachment, |plan| plan.attachment(0));
+                    let fd = table
+                        .install_from_attached(arg as usize, slot.file, cloexec, attachment)
+                        .ok_or(Errno::EMFILE)?;
+                    if let Some(plan) = plan {
+                        plan.publish(
+                            0,
+                            crate::descriptors::capture(
+                                &self.descriptor_owner,
+                                caller.task(),
+                                files,
+                                table,
+                                &[fd],
+                            ),
+                        );
+                    }
+                    Ok(fd.0)
+                })?)
             }
             FcntlCmd::F_GETFD => {
-                let cloexec = files.lock_or_recover().cloexec(fd).unwrap_or_default();
+                let cloexec = self.descriptor_cloexec(caller, fd)?;
                 Ok(if cloexec {
                     FdFlags::FD_CLOEXEC.0 as i32
                 } else {
@@ -753,7 +836,11 @@ impl Kernel {
             }
             FcntlCmd::F_SETFD => {
                 let cloexec = arg & FdFlags::FD_CLOEXEC.0 != 0;
-                files.lock_or_recover().set_cloexec(fd, cloexec);
+                self.with_descriptor_table(caller, |_, files| {
+                    self.bound_slot(caller, files, fd)?;
+                    files.set_cloexec(fd, cloexec);
+                    Ok(())
+                })?;
                 Ok(0)
             }
             FcntlCmd::F_GETFL => Ok(file.flags().0 as i32),
@@ -873,10 +960,14 @@ impl FileSlot<'_> {
 
 /// A descriptor reserved by `Kernel::reserve_fds`. Dropping it unused gives the number back.
 pub(crate) struct FdReservation {
+    owner: Arc<()>,
+    origin: TaskId,
     /// `None` once installed.
     table: Option<Arc<Mutex<FdTable>>>,
     fd: Fd,
     cloexec: bool,
+    attachment: Option<wasixv2_syscalls::DescriptorAttachment>,
+    output: Option<(wasixv2_syscalls::DescriptorInstallations, usize)>,
 }
 
 impl FdReservation {
@@ -887,7 +978,14 @@ impl FdReservation {
     /// Installs `file` at the reserved descriptor (`fd_install`).
     pub(crate) fn install(mut self, file: Arc<OpenFile>) -> Fd {
         let table = self.table.take().expect("installed once");
-        table.lock_or_recover().fill(self.fd, file, self.cloexec);
+        let mut files = table.lock_or_recover();
+        files.fill_attached(self.fd, file, self.cloexec, self.attachment.take());
+        if let Some((plan, index)) = &self.output {
+            plan.publish(
+                *index,
+                crate::descriptors::capture(&self.owner, self.origin, &table, &files, &[self.fd]),
+            );
+        }
         self.fd
     }
 }

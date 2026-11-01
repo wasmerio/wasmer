@@ -622,7 +622,7 @@ impl Kernel {
 
     /// `get_ruleset_from_fd`: `EBADF` for no descriptor, `EBADFD` for one that is no ruleset.
     fn ruleset(&self, caller: &Caller<'_>, fd: Fd) -> Result<Arc<OpenFile>, Errno> {
-        let file = self.file(caller.task(), fd)?;
+        let file = self.caller_file(caller, fd)?;
         if file.downcast::<Ruleset>().is_none() {
             return Err(Errno::EBADFD);
         }
@@ -661,7 +661,7 @@ impl Kernel {
                     return Err(Errno::EINVAL.into());
                 }
                 // `get_path_from_fd`: no rulesets, pipes, sockets or other internal objects.
-                let parent = self.file(caller.task(), parent_fd)?;
+                let parent = self.caller_file(caller, parent_fd)?;
                 if parent.downcast::<Ruleset>().is_some() {
                     return Err(Errno::EBADFD.into());
                 }

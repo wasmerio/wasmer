@@ -7,6 +7,8 @@
 //! does not fit is cut off, and `bufused == buf_len` tells wasix-libc to grow its buffer and
 //! ask again from the cookie before it.
 
+use crate::abi::fs::Rights;
+
 use wasixv2_abi::{Fd, GuestLayout, GuestPtrMut, LinuxDirent64, SeekWhence};
 use wasixv2_syscalls::{Control, Syscalls};
 use wasmer::RuntimeError;
@@ -76,6 +78,7 @@ pub(crate) async fn fd_readdir<S: Syscalls + Control + 'static>(
     used: i32,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
+        crate::rights::require(frame, &[(wasixv2_abi::Fd(fd), Rights::FD_READDIR)]).await?;
         let caller = frame.caller();
         let limit = buf_len as u32 as usize;
         frame

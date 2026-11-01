@@ -117,16 +117,53 @@ pub(crate) async fn path_open2<S: Syscalls + Control + 'static>(
     path_len: i32,
     oflags: i32,
     rights_base: i64,
-    _rights_inheriting: i64,
+    rights_inheriting: i64,
     fdflags: i32,
     fdflagsext: i32,
     out: i32,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
+        let oflags_v1 = Oflags(oflags as u16);
+        let mut required = Rights::PATH_OPEN;
+        if oflags_v1.contains(Oflags::CREAT) {
+            required |= Rights::PATH_CREATE_FILE;
+        }
+        if oflags_v1.contains(Oflags::TRUNC) {
+            required |= Rights::PATH_FILESTAT_SET_SIZE;
+        }
+        crate::rights::require(frame, &[(Fd(fd), required)]).await?;
+        let parent = crate::rights::record(frame, Fd(fd)).await?;
+        let base = Rights(rights_base as u64);
+        let inheriting = Rights(rights_inheriting as u64);
+        if !parent.inheriting.contains(base) || !parent.inheriting.contains(inheriting) {
+            return shim::fail(Errno::NOTCAPABLE);
+        }
+        // v1 path_open2 also derives descriptor rights from the requested access/open mode.
+        let mut implied = Rights::FD_ADVISE | Rights::FD_TELL | Rights::FD_SEEK;
+        if base.contains(Rights::FD_READ) {
+            implied |= Rights::FD_READ | Rights::FD_FILESTAT_GET;
+        }
+        if base.contains(Rights::FD_WRITE)
+            || Fdflags(fdflags as u16).contains(Fdflags::APPEND)
+            || oflags_v1.intersects(Oflags::CREAT | Oflags::TRUNC)
+        {
+            implied |= Rights::FD_DATASYNC
+                | Rights::FD_FDSTAT_SET_FLAGS
+                | Rights::FD_WRITE
+                | Rights::FD_SYNC
+                | Rights::FD_ALLOCATE
+                | Rights::FD_FILESTAT_GET
+                | Rights::FD_FILESTAT_SET_SIZE
+                | Rights::FD_FILESTAT_SET_TIMES;
+        }
+        let base = (base | implied) & parent.inheriting;
+        frame.install_descriptors(vec![
+            crate::rights::Record::new(base, inheriting).attachment(),
+        ])?;
         let flags = open_how(
             Lookupflags(dirflags as u32),
             Oflags(oflags as u16),
-            Rights(rights_base as u64),
+            base,
             Fdflags(fdflags as u16),
             Fdflagsext(fdflagsext as u16),
         )?;
@@ -147,6 +184,11 @@ pub(crate) async fn path_create_directory<S: Syscalls + Control + 'static>(
     path_len: i32,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
+        crate::rights::require(
+            frame,
+            &[(wasixv2_abi::Fd(fd), Rights::PATH_CREATE_DIRECTORY)],
+        )
+        .await?;
         let path = path_arg(frame, path, path_len).await?;
         frame
             .syscalls
@@ -183,6 +225,12 @@ async fn unlink<S: Syscalls + Control + 'static>(
     flags: AtFlags,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
+        let required = if flags.contains(AtFlags::AT_REMOVEDIR) {
+            Rights::PATH_REMOVE_DIRECTORY
+        } else {
+            Rights::PATH_UNLINK_FILE
+        };
+        crate::rights::require(frame, &[(Fd(fd), required)]).await?;
         let path = path_arg(frame, path, path_len).await?;
         frame
             .syscalls
@@ -229,6 +277,7 @@ async fn filestat_get<S: Syscalls + Control + 'static>(
     snapshot0: bool,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
+        crate::rights::require(frame, &[(wasixv2_abi::Fd(fd), Rights::PATH_FILESTAT_GET)]).await?;
         let path = path_arg(frame, path, path_len).await?;
         let flags = nofollow(Lookupflags(lookup as u32));
         let st = stat_at(frame, Fd(fd), path, flags, FILESTAT_MASK).await?;
@@ -250,6 +299,11 @@ pub(crate) async fn path_filestat_set_times<S: Syscalls + Control + 'static>(
     fst_flags: i32,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
+        crate::rights::require(
+            frame,
+            &[(wasixv2_abi::Fd(fd), Rights::PATH_FILESTAT_SET_TIMES)],
+        )
+        .await?;
         let times = utimes(atim as u64, mtim as u64, Fstflags(fst_flags as u16))?;
         let path = path_arg(frame, path, path_len).await?;
         let times = frame.mem.alloc(&times)?;
@@ -281,6 +335,14 @@ pub(crate) async fn path_link<S: Syscalls + Control + 'static>(
     new_len: i32,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
+        crate::rights::require(
+            frame,
+            &[
+                (Fd(old_fd), Rights::PATH_LINK_SOURCE),
+                (Fd(new_fd), Rights::PATH_LINK_TARGET),
+            ],
+        )
+        .await?;
         let old = path_arg(frame, old_path, old_len).await?;
         let new = path_arg(frame, new_path, new_len).await?;
         let flags = match Lookupflags(old_lookup as u32).contains(Lookupflags::SYMLINK_FOLLOW) {
@@ -306,6 +368,14 @@ pub(crate) async fn path_rename<S: Syscalls + Control + 'static>(
     new_len: i32,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
+        crate::rights::require(
+            frame,
+            &[
+                (Fd(old_fd), Rights::PATH_RENAME_SOURCE),
+                (Fd(new_fd), Rights::PATH_RENAME_TARGET),
+            ],
+        )
+        .await?;
         let old = path_arg(frame, old_path, old_len).await?;
         let new = path_arg(frame, new_path, new_len).await?;
         frame
@@ -334,6 +404,7 @@ pub(crate) async fn path_symlink<S: Syscalls + Control + 'static>(
     path_len: i32,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
+        crate::rights::require(frame, &[(wasixv2_abi::Fd(fd), Rights::PATH_SYMLINK)]).await?;
         let target = path_arg(frame, target, target_len).await?;
         let path = path_arg(frame, path, path_len).await?;
         frame
@@ -357,6 +428,7 @@ pub(crate) async fn path_readlink<S: Syscalls + Control + 'static>(
     used: i32,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
+        crate::rights::require(frame, &[(wasixv2_abi::Fd(fd), Rights::PATH_READLINK)]).await?;
         let path = path_arg(frame, path, path_len).await?;
         let n = frame
             .syscalls

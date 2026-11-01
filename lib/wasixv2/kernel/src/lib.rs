@@ -16,6 +16,7 @@ mod chrdev;
 mod coredump;
 mod cputime;
 mod cred;
+mod descriptors;
 mod devinet;
 mod entry;
 mod epoll;
@@ -152,6 +153,7 @@ pub struct ProcessConfig {
 }
 
 pub struct Kernel {
+    descriptor_owner: Arc<()>,
     /// The machine's clocks: [`Kernel::time`] as a host, whose wall clock is the machine's.
     host: Arc<dyn Host>,
     time: Arc<Timekeeper>,
@@ -498,6 +500,7 @@ impl Kernel {
         let cgroups = cgroup::Hierarchy::new(clock.clone(), host.clone(), printk.clone());
         cgroups.start_notify(&timers, &vfs);
         Self {
+            descriptor_owner: Arc::new(()),
             printk,
             acct: Arc::default(),
             coredump: Arc::default(),
@@ -1964,7 +1967,7 @@ impl Syscalls for Kernel {
         buf: UserSliceMut,
     ) -> MaybeFuture<'a, SysResult<u32>> {
         MaybeFuture::Future(Box::pin(async move {
-            let file = self.file(caller.task(), fd)?;
+            let file = self.caller_file(caller, fd)?;
             file.check_readable()?;
             self.read_buf(caller, &file, buf, fs::At::Position).await
         }))
@@ -1977,7 +1980,7 @@ impl Syscalls for Kernel {
         buf: UserSlice,
     ) -> MaybeFuture<'a, SysResult<u32>> {
         MaybeFuture::Future(Box::pin(async move {
-            let file = self.file(caller.task(), fd)?;
+            let file = self.caller_file(caller, fd)?;
             file.check_writable()?;
             self.write_buf(caller, &file, buf, fs::At::Position).await
         }))
@@ -4406,6 +4409,24 @@ impl Syscalls for Kernel {
 }
 
 impl Control for Kernel {
+    fn snapshot_descriptors(
+        &self,
+        task: TaskId,
+        fds: &[Fd],
+    ) -> Result<wasixv2_syscalls::DescriptorSet, Errno> {
+        self.snapshot_fds(task, fds)
+    }
+
+    fn replace_descriptor_attachment(
+        &self,
+        task: TaskId,
+        descriptors: &wasixv2_syscalls::DescriptorSet,
+        fd: Fd,
+        replacement: Option<wasixv2_syscalls::DescriptorAttachment>,
+    ) -> Result<wasixv2_syscalls::DescriptorUpdate, Errno> {
+        self.update_fd_attachment(task, descriptors, fd, replacement)
+    }
+
     fn run_task_work<'a>(&'a self, caller: &'a Caller<'_>) -> LocalFuture<'a, ()> {
         self.io_uring_run_task_work(caller)
     }

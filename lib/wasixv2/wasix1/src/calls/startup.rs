@@ -11,7 +11,9 @@
 use std::sync::Arc;
 
 use wasixv2_abi::{AtFd, FcntlCmd, Fd, OpenFlags};
-use wasixv2_syscalls::{Control, SysResult, Syscalls};
+use wasixv2_syscalls::{
+    Caller, Control, DescriptorInstallations, DescriptorSet, SysResult, Syscalls,
+};
 use wasmer::RuntimeError;
 
 use crate::{
@@ -41,17 +43,19 @@ pub(crate) async fn load<S: Syscalls + Control + 'static>(
         );
         Default::default()
     });
+    let opened = open_preopens(frame).await;
     let startup = Arc::new(Startup {
         args,
         env,
-        preopens: open_preopens(frame).await,
+        preopens: opened.iter().map(|(preopen, _)| preopen.clone()).collect(),
     });
     if proc.startup.set(startup.clone()).is_ok() {
         return startup;
     }
     // Another thread of the process won the race; its preopens are the ones the guest sees.
-    for preopen in &startup.preopens {
-        let _ = frame.syscalls.close(&frame.caller(), preopen.fd).await;
+    for (preopen, binding) in &opened {
+        let caller = Caller::new(frame.task, &frame.mem).with_descriptors(binding);
+        let _ = frame.syscalls.close(&caller, preopen.fd).await;
     }
     proc.startup.get().expect("set by the winner").clone()
 }
@@ -98,14 +102,19 @@ fn parse_block(block: &[u8], base: u32) -> Option<(Strings, Strings)> {
     Some((args, env))
 }
 
-async fn open_preopens<S: Syscalls + Control + 'static>(frame: &Frame<'_, S>) -> Vec<Preopen> {
+async fn open_preopens<S: Syscalls + Control + 'static>(
+    frame: &Frame<'_, S>,
+) -> Vec<(Preopen, DescriptorSet)> {
     let mut preopens = Vec::new();
     for (path, name) in PREOPENS {
         match open_dir(frame, path).await {
-            Ok(fd) => preopens.push(Preopen {
-                fd,
-                name: name.to_vec(),
-            }),
+            Ok((fd, binding)) => preopens.push((
+                Preopen {
+                    fd,
+                    name: name.to_vec(),
+                },
+                binding,
+            )),
             Err(err) => {
                 tracing::warn!(?err, path = %String::from_utf8_lossy(path), "cannot preopen")
             }
@@ -117,28 +126,49 @@ async fn open_preopens<S: Syscalls + Control + 'static>(frame: &Frame<'_, S>) ->
 async fn open_dir<S: Syscalls + Control + 'static>(
     frame: &Frame<'_, S>,
     path: &[u8],
-) -> SysResult<Fd> {
+) -> SysResult<(Fd, DescriptorSet)> {
+    frame.syscalls.snapshot_descriptors(frame.task, &[])?;
+    let record = crate::rights::Record {
+        base: crate::abi::fs::Rights::ALL,
+        inheriting: crate::abi::fs::Rights::ALL,
+        preopen: true,
+        socket: false,
+    };
+    let plan = DescriptorInstallations::new(vec![record.attachment()]);
     let flags = OpenFlags::O_RDONLY | OpenFlags::O_DIRECTORY | OpenFlags::O_CLOEXEC;
     let path = frame.mem.alloc_cstr(path)?;
-    let caller = frame.caller();
+    // Trusted bootstrap uses its own cwd rather than a guest-supplied descriptor operand.
+    let caller = Caller::new(frame.task, &frame.mem).with_descriptor_installations(&plan);
     let fd = frame
         .syscalls
         .openat(&caller, Fd(AtFd::AT_FDCWD.0), path, flags, 0)
         .await?;
+    let binding = plan.result(0).ok_or(wasixv2_abi::Errno::EIO)?.clone();
     if fd.0 >= 3 {
-        return Ok(fd);
+        return Ok((fd, binding));
     }
     // Preopens must not fill closed stdio slots. F_DUPFD_CLOEXEC preserves the
     // minimum descriptor and close-on-exec flag (Linux fs/fcntl.c, do_fcntl).
+    let duplicate = DescriptorInstallations::new(vec![record.attachment()]);
+    let caller = Caller::new(frame.task, &frame.mem)
+        .with_descriptors(&binding)
+        .with_descriptor_installations(&duplicate);
     let moved = frame
         .syscalls
         .fcntl64(&caller, fd, FcntlCmd::F_DUPFD_CLOEXEC, 3)
         .await;
+    let caller = Caller::new(frame.task, &frame.mem).with_descriptors(&binding);
     let closed = frame.syscalls.close(&caller, fd).await;
     match (moved, closed) {
-        (Ok(moved), Ok(_)) => Ok(Fd(moved)),
+        (Ok(moved), Ok(_)) => Ok((
+            Fd(moved),
+            duplicate.result(0).ok_or(wasixv2_abi::Errno::EIO)?.clone(),
+        )),
         (Ok(moved), Err(err)) => {
-            let _ = frame.syscalls.close(&caller, Fd(moved)).await;
+            if let Some(binding) = duplicate.result(0) {
+                let caller = Caller::new(frame.task, &frame.mem).with_descriptors(binding);
+                let _ = frame.syscalls.close(&caller, Fd(moved)).await;
+            }
             Err(err)
         }
         (Err(err), _) => Err(err),

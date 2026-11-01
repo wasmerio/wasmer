@@ -116,6 +116,188 @@ const PREVIEW1: &str = "wasi_snapshot_preview1";
 /// Rights wasix-libc asks for when it opens for reading and writing.
 const RW: &str = "(i64.const 0x1fffffff)";
 
+#[test]
+fn descriptor_rights_reduce_independently_and_deny_path_effects_before_creation() {
+    use wasixv2_wasix1::abi::fs::Rights;
+    let read = (Rights::FD_READ | Rights::FD_FILESTAT_GET).0;
+    let write = Rights::FD_WRITE.0;
+    let dir = (Rights::PATH_OPEN | Rights::PATH_CREATE_FILE | Rights::PATH_FILESTAT_SET_SIZE).0;
+    let wat = format!(
+        r#"
+(module
+  (import "wasix_32v1" "path_open" (func $open (param i32 i32 i32 i32 i32 i64 i64 i32 i32) (result i32)))
+  (import "wasix_32v1" "path_create_directory" (func $mkdir (param i32 i32 i32) (result i32)))
+  (import "wasix_32v1" "path_filestat_get" (func $stat (param i32 i32 i32 i32 i32) (result i32)))
+  (import "wasix_32v1" "fd_fdstat_get" (func $get (param i32 i32) (result i32)))
+  (import "wasix_32v1" "fd_fdstat_set_rights" (func $reduce (param i32 i64 i64) (result i32)))
+  (import "wasix_32v1" "fd_dup" (func $dup (param i32 i32) (result i32)))
+  (import "wasix_32v1" "fd_renumber" (func $renumber (param i32 i32) (result i32)))
+  (import "wasix_32v1" "fd_close" (func $close (param i32) (result i32)))
+  (import "wasix_32v1" "fd_write" (func $write (param i32 i32 i32 i32) (result i32)))
+  (import "wasix_32v1" "proc_exit2" (func $exit (param i32)))
+  (memory (export "memory") 1)
+  (data (i32.const 1024) "filedir/blockedno")
+  (func $check (param $step i32) (param $actual i32) (param $expected i32)
+    (if (i32.ne (local.get $actual) (local.get $expected)) (then (call $exit (local.get $step)))))
+  (func (export "_start") (local $fd i32) (local $alias i32) (local $dir i32)
+    (call $check (i32.const 1) (call $open (i32.const 3) (i32.const 1) (i32.const 1024) (i32.const 4) (i32.const 1) (i64.const {file}) (i64.const 0) (i32.const 0) (i32.const 16)) (i32.const 0))
+    (local.set $fd (i32.load (i32.const 16)))
+    (call $check (i32.const 2) (call $dup (local.get $fd) (i32.const 20)) (i32.const 0))
+    (local.set $alias (i32.load (i32.const 20)))
+    (call $check (i32.const 3) (call $reduce (local.get $fd) (i64.const {read}) (i64.const 0)) (i32.const 0))
+    (call $check (i32.const 4) (call $get (local.get $fd) (i32.const 128)) (i32.const 0))
+    (if (i64.ne (i64.load (i32.const 136)) (i64.const {read})) (then (call $exit (i32.const 5))))
+    (if (i64.ne (i64.load (i32.const 144)) (i64.const 0)) (then (call $exit (i32.const 6))))
+    (i32.store (i32.const 0) (i32.const 1024)) (i32.store (i32.const 4) (i32.const 4))
+    (call $check (i32.const 7) (call $write (local.get $fd) (i32.const 0) (i32.const 1) (i32.const 24)) (i32.const 2))
+    (call $check (i32.const 8) (call $write (local.get $alias) (i32.const 0) (i32.const 1) (i32.const 24)) (i32.const 0))
+    (call $check (i32.const 9) (call $reduce (local.get $fd) (i64.const {write}) (i64.const 0)) (i32.const 76))
+    (call $check (i32.const 10) (call $renumber (local.get $alias) (i32.const 20)) (i32.const 0))
+    (call $check (i32.const 11) (call $reduce (local.get $alias) (i64.const 0) (i64.const 0)) (i32.const 0))
+    (call $check (i32.const 12) (call $write (i32.const 20) (i32.const 0) (i32.const 1) (i32.const 24)) (i32.const 0))
+    (call $check (i32.const 13) (call $mkdir (i32.const 3) (i32.const 1028) (i32.const 3)) (i32.const 0))
+    (call $check (i32.const 14) (call $open (i32.const 3) (i32.const 1) (i32.const 1028) (i32.const 3) (i32.const 2) (i64.const {dir}) (i64.const {read}) (i32.const 0) (i32.const 28)) (i32.const 0))
+    (local.set $dir (i32.load (i32.const 28)))
+    (call $check (i32.const 15) (call $reduce (local.get $dir) (i64.const {path_open}) (i64.const {read})) (i32.const 0))
+    (call $check (i32.const 16) (call $open (local.get $dir) (i32.const 1) (i32.const 1032) (i32.const 7) (i32.const 1) (i64.const {read}) (i64.const 0) (i32.const 0) (i32.const 32)) (i32.const 2))
+    (call $check (i32.const 17) (call $stat (i32.const 3) (i32.const 1) (i32.const 1028) (i32.const 11) (i32.const 256)) (i32.const 44))
+    (call $check (i32.const 18) (call $open (local.get $dir) (i32.const 1) (i32.const 1039) (i32.const 2) (i32.const 0) (i64.const {write}) (i64.const 0) (i32.const 0) (i32.const 32)) (i32.const 76))
+    ;; Replacing an actual preopen with an ordinary file must clear its close exemption.
+    (call $check (i32.const 19) (call $renumber (i32.const 20) (i32.const 3)) (i32.const 0))
+    (call $check (i32.const 20) (call $close (i32.const 3)) (i32.const 0))
+    (call $check (i32.const 21) (call $get (i32.const 3) (i32.const 128)) (i32.const 8))
+    (call $exit (i32.const 0))))
+"#,
+        file = read | write,
+        path_open = Rights::PATH_OPEN.0
+    );
+    assert_eq!(run(&wat::parse_str(wat).unwrap()).0, 0);
+}
+
+#[test]
+fn descriptor_concurrent_guest_reductions_cannot_restore_each_others_removed_rights() {
+    use wasixv2_wasix1::abi::fs::Rights;
+    let read = Rights::FD_READ.0;
+    let write = Rights::FD_WRITE.0;
+    let wat = format!(
+        r#"(module
+      (import "env" "memory" (memory 1 1 shared))
+      (import "wasix_32v1" "path_open" (func $open (param i32 i32 i32 i32 i32 i64 i64 i32 i32) (result i32)))
+      (import "wasix_32v1" "fd_fdstat_set_rights" (func $reduce (param i32 i64 i64) (result i32)))
+      (import "wasix_32v1" "fd_fdstat_get" (func $get (param i32 i32) (result i32)))
+      (import "wasix_32v1" "thread_spawn_v2" (func $spawn (param i32 i32) (result i32)))
+      (import "wasix_32v1" "thread_join" (func $join (param i32) (result i32)))
+      (import "wasix_32v1" "proc_exit2" (func $exit (param i32)))
+      (data (i32.const 1024) "race")
+      (func (export "wasi_thread_start") (param i32) (param $which i32)
+        (block $ready (loop $wait
+          (br_if $ready (i32.atomic.load (i32.const 80)))
+          (drop (memory.atomic.wait32 (i32.const 80) (i32.const 0) (i64.const -1)))
+          (br $wait)))
+        (i32.atomic.store (i32.add (i32.const 128) (i32.mul (local.get $which) (i32.const 4)))
+          (call $reduce (i32.atomic.load (i32.const 64))
+            (if (result i64) (i32.eq (local.get $which) (i32.const 1)) (then (i64.const {read})) (else (i64.const {write})))
+            (i64.const 0))))
+      (func (export "_start") (local $a i32) (local $b i32)
+        (if (call $open (i32.const 3) (i32.const 1) (i32.const 1024) (i32.const 4) (i32.const 1) (i64.const {both}) (i64.const 0) (i32.const 0) (i32.const 64)) (then (call $exit (i32.const 1))))
+        (if (call $spawn (i32.const 1) (i32.const 104)) (then (call $exit (i32.const 2))))
+        (if (call $spawn (i32.const 2) (i32.const 108)) (then (call $exit (i32.const 3))))
+        (i32.atomic.store (i32.const 80) (i32.const 1))
+        (drop (memory.atomic.notify (i32.const 80) (i32.const 2)))
+        (if (call $join (i32.load (i32.const 104))) (then (call $exit (i32.const 4))))
+        (if (call $join (i32.load (i32.const 108))) (then (call $exit (i32.const 5))))
+        (local.set $a (i32.atomic.load (i32.const 132))) (local.set $b (i32.atomic.load (i32.const 136)))
+        (if (i32.ne (i32.add (local.get $a) (local.get $b)) (i32.const 76)) (then (call $exit (i32.const 6))))
+        (if (i32.and (local.get $a) (local.get $b)) (then (call $exit (i32.const 7))))
+        (if (call $get (i32.load (i32.const 64)) (i32.const 256)) (then (call $exit (i32.const 8))))
+        (if (i64.ne (i64.load (i32.const 264))
+          (if (result i64) (i32.eqz (local.get $a)) (then (i64.const {read})) (else (i64.const {write}))))
+          (then (call $exit (i32.const 9))))
+        (call $exit (i32.const 0))))"#,
+        both = read | write
+    );
+    assert_eq!(run(&wat::parse_str(wat).unwrap()).0, 0);
+}
+
+#[tokio::test]
+async fn descriptor_compat_read_uses_its_authorized_pipe_after_a_layer_reuses_the_fd() {
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use wasixv2_abi::{EventfdFlags, Fd};
+    use wasixv2_kernel::{Dispatch, HostClock, Kernel, SyscallEntry};
+    use wasixv2_syscalls::{
+        Caller, Layer, Layered, MaybeFuture, SysResult, Syscall, SyscallRet, Syscalls, UserSlice,
+    };
+    struct Reuse(AtomicBool);
+    impl Layer<Kernel> for Reuse {
+        fn call<'a>(
+            &'a self,
+            caller: &'a Caller<'_>,
+            call: Syscall,
+            next: &'a Kernel,
+        ) -> MaybeFuture<'a, SysResult<SyscallRet>> {
+            MaybeFuture::Future(Box::pin(async move {
+                if let Syscall::Readv { fd, .. } = call
+                    && !self.0.swap(true, Ordering::AcqRel)
+                {
+                    // The v1 adapter authorized its pipe already. A sibling could perform
+                    // this exact close/reuse before the underlying kernel read selects it.
+                    let unbound = Caller::new(caller.task(), caller.memory());
+                    next.close(&unbound, fd).await?;
+                    let replacement = next
+                        .eventfd2(&unbound, 0, EventfdFlags::EFD_NONBLOCK)
+                        .await?;
+                    assert_eq!(replacement, fd);
+                    next.write(&unbound, Fd(fd.0 + 1), UserSlice::new(1024, 1))
+                        .await?;
+                }
+                Dispatch.call(caller, call, next).await
+            }))
+        }
+    }
+    let host: Arc<dyn wasixv2::Host> = Arc::new(wasixv2::TokioHost::default());
+    let root = Arc::new(wasixv2_vfs_mem::MemFs::new(
+        Arc::new(HostClock(host.clone())),
+        0o777,
+        1,
+        1,
+    ));
+    let mut abis = wasixv2_exec::Abis::new();
+    abis.push(Arc::new(wasixv2_wasix1::Wasix1::new()));
+    let abis = Arc::new(abis);
+    let kernel = Kernel::new(host.clone(), root).with_binfmt(abis.clone());
+    let task = kernel
+        .spawn(ProcessConfig {
+            args: vec!["reuse".into()],
+            env: vec![],
+            stdio: Stdio::from_fns(|_| {}, |_| {}),
+        })
+        .unwrap();
+    let syscalls = Arc::new(Layered::new(
+        SyscallEntry(Reuse(AtomicBool::new(false))),
+        kernel,
+    ));
+    let store = wasmer::Store::default();
+    let module = wasixv2_exec::load(store.engine(), &wat::parse_str(r#"(module
+      (import "wasix_32v1" "fd_pipe" (func $pipe (param i32 i32) (result i32)))
+      (import "wasix_32v1" "fd_read" (func $read (param i32 i32 i32 i32) (result i32)))
+      (import "wasix_32v1" "proc_exit2" (func $exit (param i32)))
+      (memory (export "memory") 1)
+      (data (i32.const 1024) "*")
+      (func (export "_start")
+        (if (call $pipe (i32.const 64) (i32.const 68)) (then (call $exit (i32.const 1))))
+        (i32.store (i32.const 0) (i32.const 2048)) (i32.store (i32.const 4) (i32.const 1))
+        (if (call $read (i32.load (i32.const 64)) (i32.const 0) (i32.const 1) (i32.const 72)) (then (call $exit (i32.const 2))))
+        (if (i32.ne (i32.load (i32.const 72)) (i32.const 1)) (then (call $exit (i32.const 3))))
+        (if (i32.ne (i32.load8_u (i32.const 2048)) (i32.const 42)) (then (call $exit (i32.const 4))))
+        (call $exit (i32.const 0))))"#).unwrap()).unwrap();
+    assert_eq!(
+        wasixv2_exec::run_with_abis(store, &module, syscalls, task, host, abis)
+            .await
+            .unwrap(),
+        0
+    );
+}
+
 /// Create, write, seek, read, pread, pwrite, stat and truncate a file under `/tmp` through the
 /// root preopen.
 #[test]

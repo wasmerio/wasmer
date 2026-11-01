@@ -1946,7 +1946,7 @@ impl Kernel {
 
     /// The open file `mmap` maps: `EBADF` unless `fd` is open, and not just as a location.
     fn mmap_file(&self, caller: &Caller<'_>, fd: Fd) -> Result<Arc<OpenFile>, Errno> {
-        let file = self.file(caller.task(), fd)?;
+        let file = self.caller_file(caller, fd)?;
         if file.flags().contains(OpenFlags::O_PATH) {
             return Err(Errno::EBADF);
         }

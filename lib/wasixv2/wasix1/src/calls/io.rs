@@ -1,6 +1,8 @@
 //! `fd_read`, `fd_write`, `fd_close`. v1's `iovec` is Linux's wasm32 `struct iovec`, so the
 //! guest's iovec array goes to the kernel untranslated.
 
+use crate::abi::fs::Rights;
+
 use wasixv2_abi::{ConstIovecArray, Fd};
 use wasixv2_syscalls::{Control, Syscalls};
 use wasmer::RuntimeError;
@@ -15,6 +17,7 @@ pub(crate) async fn fd_read<S: Syscalls + Control + 'static>(
     nread: i32,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
+        crate::rights::require(frame, &[(wasixv2_abi::Fd(fd), Rights::FD_READ)]).await?;
         let iovs = ConstIovecArray::new(iovs as u32);
         let n = frame
             .syscalls
@@ -33,6 +36,7 @@ pub(crate) async fn fd_write<S: Syscalls + Control + 'static>(
     nwritten: i32,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
+        crate::rights::require(frame, &[(wasixv2_abi::Fd(fd), Rights::FD_WRITE)]).await?;
         let iovs = ConstIovecArray::new(iovs as u32);
         let n = frame
             .syscalls

@@ -497,7 +497,7 @@ impl Kernel {
         if mask & IN_MASK_ADD != 0 && mask & IN_MASK_CREATE != 0 {
             return Err(Errno::EINVAL.into());
         }
-        let file = self.file(caller.task(), fd)?;
+        let file = self.caller_file(caller, fd)?;
         let inotify = file
             .downcast::<Inotify>()
             .ok_or(Errno::EINVAL)?
@@ -561,7 +561,7 @@ impl Kernel {
         fd: Fd,
         wd: i32,
     ) -> SysResult<i32> {
-        let file = self.file(caller.task(), fd)?;
+        let file = self.caller_file(caller, fd)?;
         let inotify = &file.downcast::<Inotify>().ok_or(Errno::EINVAL)?.inner;
         let watch = inotify
             .state
