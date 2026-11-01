@@ -25,8 +25,8 @@ use std::sync::{
 };
 
 use wasixv2_abi::{
-    AtFd, AtFlags, FcntlCmd, Fd, GuestLayout, Idtype, OpenFlags, RusagePtr, S32Ptr, SaFlags,
-    SiCode, Siginfo, SignalHandler, StatxMask, WaitOptions,
+    AtFd, AtFlags, FcntlCmd, Fd, GuestLayout, GuestPtrMut, Idtype, OpenFlags, RusagePtr, S32Ptr,
+    SaFlags, SiCode, Siginfo, SignalHandler, StatxMask, WaitOptions,
 };
 use wasixv2_exec::{
     AbiInstance,
@@ -885,6 +885,192 @@ async fn spawn<S: Syscalls + Control + 'static>(
     }
 }
 
+/// The original Rust `Command::spawn` ABI drops empty CR/LF entries, unlike spawn2/3.
+fn legacy_list(list: &[u8]) -> Vec<Vec<u8>> {
+    list.split(|&b| b == b'\n' || b == b'\r')
+        .filter(|entry| !entry.is_empty())
+        .map(<[u8]>::to_vec)
+        .collect()
+}
+
+async fn legacy_string<S: Syscalls + Control + 'static>(
+    frame: &Frame<'_, S>,
+    ptr: i32,
+    len: i32,
+) -> V1Result<Vec<u8>> {
+    let bytes = read_bytes(frame, ptr as u32, len as u32).await?;
+    if std::str::from_utf8(&bytes).is_err() {
+        return shim::fail(Errno::INVAL);
+    }
+    Ok(bytes)
+}
+
+/// Pipe descriptors owned by the parent during a legacy spawn. Every source stays above
+/// stdio, so later dup2 actions cannot overwrite another stream's source (Linux
+/// fs/fcntl.c, do_fcntl/F_DUPFD).
+#[derive(Default)]
+struct LegacyPipes {
+    owned: Vec<Fd>,
+    parent: [Option<Fd>; 3],
+}
+
+impl LegacyPipes {
+    async fn stdio<S: Syscalls + Control + 'static>(
+        &mut self,
+        frame: &Frame<'_, S>,
+        modes: [i32; 3],
+    ) -> V1Result<Vec<ProcSpawnFdOp>> {
+        let caller = frame.caller();
+        let mut actions = Vec::new();
+        for (target, mode) in modes.into_iter().enumerate() {
+            let mut op = ProcSpawnFdOp::ZERO;
+            op.fd = target as u32;
+            match mode {
+                0 => {
+                    let pair = frame.mem.alloc_mut::<[Fd; 2]>()?;
+                    frame
+                        .syscalls
+                        .pipe2(&caller, GuestPtrMut::new(pair.addr()), OpenFlags(0))
+                        .await?;
+                    let mut ends = frame.mem.take(pair);
+                    let first = self.owned.len();
+                    self.owned.extend(ends);
+                    for (index, end) in ends.iter_mut().enumerate() {
+                        if end.0 < 3 {
+                            let moved = Fd(frame
+                                .syscalls
+                                .fcntl64(&caller, *end, FcntlCmd::F_DUPFD, 3)
+                                .await?);
+                            self.owned.push(moved);
+                            frame.syscalls.close(&caller, *end).await?;
+                            self.owned[first + index] = moved;
+                            self.owned.pop();
+                            *end = moved;
+                        }
+                    }
+                    let (parent, child) = if target == 0 {
+                        (ends[1], ends[0])
+                    } else {
+                        (ends[0], ends[1])
+                    };
+                    self.parent[target] = Some(parent);
+                    op.cmd = ProcSpawnFdOpName::DUP2;
+                    op.src_fd = child.0 as u32;
+                    actions.push(op);
+                }
+                1 => {} // Inherit, including a closed descriptor.
+                _ => {
+                    // The old enum maps unknown values to Null; Log closes stdio too.
+                    op.cmd = ProcSpawnFdOpName::CLOSE;
+                    actions.push(op);
+                }
+            }
+        }
+        // Neither end of any parent-created pipe belongs in the exec'd child's table.
+        for fd in &self.owned {
+            let mut op = ProcSpawnFdOp::ZERO;
+            op.cmd = ProcSpawnFdOpName::CLOSE;
+            op.fd = fd.0 as u32;
+            actions.push(op);
+        }
+        Ok(actions)
+    }
+
+    /// OptionFd is an 8-byte tagged record: tag at 0, fd at 4. Preserve v1's UINT_MAX
+    /// sentinel for None; ProcessHandles starts with the pid written by `spawn`.
+    fn handles(&self) -> [u8; 24] {
+        let mut out = [0; 24];
+        for (index, fd) in self.parent.iter().enumerate() {
+            let at = index * 8;
+            out[at] = u8::from(fd.is_some());
+            out[at + 4..at + 8]
+                .copy_from_slice(&fd.map_or(u32::MAX, |fd| fd.0 as u32).to_le_bytes());
+        }
+        out
+    }
+
+    async fn close<S: Syscalls + Control + 'static>(&self, frame: &Frame<'_, S>, success: bool) {
+        for fd in &self.owned {
+            if !success || !self.parent.contains(&Some(*fd)) {
+                // close releases the fd even when reporting an error; do not retry it
+                // (Linux fs/file.c, close_fd).
+                let _ = frame.syscalls.close(&frame.caller(), *fd).await;
+            }
+        }
+    }
+}
+
+/// Historical Rust-style spawn: inherited environment/preopens, explicit cwd and stdio
+/// handles. Chroot and extra preopens were unsupported in v1 too.
+#[allow(clippy::too_many_arguments)]
+pub(crate) async fn proc_spawn<S: Syscalls + Control + 'static>(
+    env: Env<S>,
+    name: i32,
+    name_len: i32,
+    chroot: i32,
+    args: i32,
+    args_len: i32,
+    preopen: i32,
+    preopen_len: i32,
+    stdin: i32,
+    stdout: i32,
+    stderr: i32,
+    working_dir: i32,
+    working_dir_len: i32,
+    ret_handles: i32,
+) -> Result<i32, RuntimeError> {
+    let mut pipes = LegacyPipes::default();
+    let read = async |frame: &Frame<'_, S>| {
+        let name = legacy_string(frame, name, name_len).await?;
+        let args = legacy_string(frame, args, args_len).await?;
+        let preopen = legacy_string(frame, preopen, preopen_len).await?;
+        let cwd = legacy_string(frame, working_dir, working_dir_len).await?;
+        if chroot as u8 == Bool::TRUE.0 || !legacy_list(&preopen).is_empty() {
+            return shim::fail(Errno::NOTSUP);
+        }
+        // Reject an invalid output before creating a child or descriptors.
+        let mut output = [0; 28];
+        frame
+            .mem
+            .guest()
+            .read(ret_handles as u32, &mut output)
+            .await?;
+        let command = Command {
+            name,
+            args: legacy_list(&args),
+            env: None,
+            path: None,
+        };
+        let mut file_actions = pipes.stdio(frame, [stdin, stdout, stderr]).await?;
+        let mut chdir = ProcSpawnFdOp::ZERO;
+        chdir.cmd = ProcSpawnFdOpName::CHDIR;
+        chdir.path = working_dir as u32;
+        chdir.path_len = cwd.len() as u32;
+        file_actions.push(chdir);
+        Ok(Spawn {
+            command,
+            file_actions,
+            dispositions: Vec::new(),
+        })
+    };
+    let result = spawn(&env, read, ret_handles).await;
+    let success = matches!(result, Ok(0));
+    let cleanup = shim::errno(&env, async |frame| {
+        pipes.close(frame, success).await;
+        if success {
+            frame
+                .write_bytes((ret_handles as u32).wrapping_add(4), &pipes.handles())
+                .await?;
+        }
+        Ok(())
+    })
+    .await;
+    match result {
+        Ok(0) => cleanup,
+        other => other,
+    }
+}
+
 /// `proc_spawn2(name, args, envs, fd_ops, signal_dispositions, search_path, path, pid_out)`,
 /// with newline-separated arguments and environment.
 #[allow(clippy::too_many_arguments)]
@@ -1111,6 +1297,50 @@ mod tests {
             strings(&["A=1", "B=2"])
         );
         assert!(split_env(b"NOVALUE\n").is_err());
+    }
+
+    #[test]
+    fn legacy_argument_lists_and_handles() {
+        assert_eq!(
+            legacy_list(b"\r\narg0\n\narg1\rarg2\r\n"),
+            strings(&["arg0", "arg1", "arg2"])
+        );
+        assert!(legacy_list(b"\r\n\n").is_empty());
+        let pipes = LegacyPipes {
+            owned: vec![],
+            parent: [Some(Fd(7)), None, Some(Fd(9))],
+        };
+        let encoded = pipes.handles();
+        assert_eq!(encoded[0], 1);
+        assert_eq!(u32::from_le_bytes(encoded[4..8].try_into().unwrap()), 7);
+        assert_eq!(encoded[8], 0);
+        assert_eq!(
+            u32::from_le_bytes(encoded[12..16].try_into().unwrap()),
+            u32::MAX
+        );
+        assert_eq!(encoded[16], 1);
+        assert_eq!(u32::from_le_bytes(encoded[20..24].try_into().unwrap()), 9);
+    }
+
+    #[test]
+    #[cfg(not(target_arch = "wasm32"))]
+    fn legacy_process_handles_layout() {
+        assert_eq!(
+            std::mem::size_of::<wasmer_wasix_types::wasi::ProcessHandles>(),
+            28
+        );
+        assert_eq!(
+            std::mem::offset_of!(wasmer_wasix_types::wasi::ProcessHandles, stdin),
+            4
+        );
+        assert_eq!(
+            std::mem::offset_of!(wasmer_wasix_types::wasi::ProcessHandles, stdout),
+            12
+        );
+        assert_eq!(
+            std::mem::offset_of!(wasmer_wasix_types::wasi::ProcessHandles, stderr),
+            20
+        );
     }
 
     #[test]
