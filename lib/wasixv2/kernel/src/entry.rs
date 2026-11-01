@@ -190,6 +190,8 @@ impl Kernel {
             Err(SysErr::RestartNoIntr) => -513,
             Err(SysErr::RestartNoHand) => -514,
             Err(SysErr::RestartBlock) => -516,
+            // An engine exception has no Linux return register for a tracer to edit.
+            Err(SysErr::GuestUnwind) => return ret,
         };
         self.ptrace_syscall_exit(task, raw).await;
         let changed = self

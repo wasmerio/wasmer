@@ -6,6 +6,9 @@ use crate::memory::Fault;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SysErr {
     Errno(Errno),
+    /// Guest execution unwound. Its original engine error belongs to the import that
+    /// supplied the borrowed capability; this marker must never become an errno or restart.
+    GuestUnwind,
     /// Interrupted by a signal (`ERESTARTSYS`); the return-to-guest path reruns the call unless a
     /// handler without `SA_RESTART` ran, in which case it returns `EINTR`.
     Restart,
