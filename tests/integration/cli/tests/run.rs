@@ -902,6 +902,70 @@ fn run_wasixv2_package_commands_are_in_bin_and_usr_bin() {
     }
 }
 
+#[test]
+fn run_map_commands_installs_host_bytes_and_last_alias_wins() {
+    let files = TempDir::new().unwrap();
+    let exec = files.path().join("exec.wasm");
+    let mapped = files.path().join("mapped.wasm");
+    std::fs::write(&exec, wat::parse_str(WASIXV2_EXEC_WAT).unwrap()).unwrap();
+    std::fs::write(&mapped, wasixv2_echo("mapped")).unwrap();
+    for dir in ["/bin", "/usr/bin"] {
+        wasmer_command()
+            .arg("run")
+            .arg(&exec)
+            .arg(format!(
+                "--map-command=echo={}",
+                files.path().join("missing").display()
+            ))
+            .arg(format!("--map-command=echo={}", mapped.display()))
+            .arg(format!("{dir}/echo"))
+            .arg("hello")
+            .assert()
+            .success()
+            .stdout(format!("{dir}/echo hello\nmapped"));
+    }
+}
+
+#[test]
+fn run_map_commands_overrides_package_commands() {
+    let package = wasixv2_commands_package(None);
+    let mapped = package.path().join("mapped.wasm");
+    std::fs::write(&mapped, wasixv2_echo("mapped")).unwrap();
+    for dir in ["/bin", "/usr/bin"] {
+        wasmer_command()
+            .arg("run")
+            .arg(package.path())
+            .arg("--entrypoint=exec")
+            .arg(format!("--map-command=echo-args={}", mapped.display()))
+            .arg(format!("{dir}/echo-args"))
+            .arg("hello")
+            .assert()
+            .success()
+            .stdout(format!("{dir}/echo-args hello\nmapped"));
+    }
+}
+
+#[test]
+fn run_map_commands_rejects_invalid_mappings_without_panicking() {
+    let files = TempDir::new().unwrap();
+    let exec = files.path().join("exec.wasm");
+    std::fs::write(&exec, wat::parse_str(WASIXV2_EXEC_WAT).unwrap()).unwrap();
+    for mapping in [
+        "missing-equals",
+        "=empty-name",
+        "echo=",
+        "../echo=host-file",
+    ] {
+        wasmer_command()
+            .arg("run")
+            .arg(&exec)
+            .arg(format!("--map-command={mapping}"))
+            .assert()
+            .failure()
+            .stderr(contains("Invalid --map-command"));
+    }
+}
+
 /// A command that is a `#!` script runs its interpreter, here another command, with the
 /// arguments Linux passes: the interpreter, its argument, the script's path, then the rest.
 #[test]

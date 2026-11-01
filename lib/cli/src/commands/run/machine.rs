@@ -486,6 +486,37 @@ mod loader_tests {
     }
 }
 
+/// Host files explicitly selected by `--map-command`, above package commands. Like v1's
+/// builder map, a repeated alias selects the last host file before any file is read.
+fn mapped_commands(mappings: &[String]) -> Result<Vec<PackageCommand>, Error> {
+    let mut paths = HashMap::new();
+    for mapping in mappings {
+        let (name, path) = mapping.split_once('=').with_context(|| {
+            format!("Invalid --map-command flag: expected <ALIAS>=<HOST_PATH>, got '{mapping}'")
+        })?;
+        let (name, path) = (name.trim(), path.trim());
+        if matches!(name, "" | "." | "..") || name.contains(['/', '\0']) {
+            bail!("Invalid --map-command alias: '{name}' must be a file name");
+        }
+        if path.is_empty() {
+            bail!("Invalid --map-command flag - host path cannot be empty: '{mapping}'");
+        }
+        paths.insert(name.to_string(), PathBuf::from(path));
+    }
+    paths
+        .into_iter()
+        .map(|(name, path)| {
+            let bytes = std::fs::read(&path)
+                .with_context(|| format!("cannot read --map-command file {}", path.display()))?;
+            Ok(PackageCommand {
+                name,
+                atom: OwnedBuffer::from_bytes(bytes),
+                defaults: CommandDefaults::default(),
+            })
+        })
+        .collect()
+}
+
 /// The commands of the package tree, in the order the resolver gave them: it made each name
 /// that of the first package in the tree (the root, then its dependencies) that has it.
 ///
@@ -716,6 +747,7 @@ impl Run {
         #[cfg(not(unix))]
         let console = None;
         let mut machine = self.machine(loader, console)?;
+        let mapped_commands = mapped_commands(&self.wasi.map_commands)?;
         let config = ProcessConfig {
             args: std::iter::once(program.argv0.clone())
                 .chain(wasi.and_then(|w| w.main_args.clone()).unwrap_or_default())
@@ -747,9 +779,9 @@ impl Run {
             root_layers.push(layer);
         }
         // Over the package's volumes, as v1 wrote them into the root after merging those.
-        let commands = program
-            .commands
+        let commands = mapped_commands
             .iter()
+            .chain(&program.commands)
             .map(|cmd| (cmd.name.clone(), cmd.atom.clone()));
         root_layers.extend(
             machine
@@ -770,6 +802,7 @@ impl Run {
         let defaults = program
             .commands
             .iter()
+            .chain(&mapped_commands)
             .map(|cmd| (cmd.name.clone(), cmd.defaults.clone()));
         machine
             .set_wasix1_command_defaults(defaults)
@@ -996,7 +1029,6 @@ impl Run {
         let wasi = &self.wasi;
         #[allow(unused_mut)]
         let mut given = vec![
-            ("--map-command", !wasi.map_commands.is_empty()),
             (
                 "network rulesets (--net=<RULES>)",
                 matches!(wasi.networking, Some(Some(_))),
