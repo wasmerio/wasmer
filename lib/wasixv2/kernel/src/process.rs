@@ -1598,6 +1598,7 @@ impl Kernel {
             if flags.contains(CloneFlags::CLONE_PARENT) && task.signals.group().unkillable() {
                 return Err(Errno::EINVAL);
             }
+            self.check_guest_task_limit(&state)?;
             if crate::resource::nproc_exceeded(&state, task) {
                 return Err(Errno::EAGAIN);
             }

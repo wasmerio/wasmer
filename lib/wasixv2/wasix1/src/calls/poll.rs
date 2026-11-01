@@ -356,6 +356,14 @@ where
         if nsubs == 0 {
             return shim::fail(Errno::INVAL);
         }
+        if frame
+            .instance()
+            .limits
+            .max_poll_subscriptions
+            .is_some_and(|max| nsubs > max)
+        {
+            return shim::fail(Errno::TOOBIG);
+        }
         let mut subs = Vec::new();
         for i in 0..nsubs {
             let addr = (subs_ptr as u32).wrapping_add(i * L::SIZE as u32);

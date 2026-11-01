@@ -49,6 +49,24 @@ use wasmer::{FunctionEnv, Imports, Instance, Module, Store};
 
 use crate::{imports::Module as V1Module, instance::Wasix1Instance, process::Procs};
 
+/// Immutable v1 allocation/request ceilings, independent of kernel resource limits.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Limits {
+    /// Original subscriptions in one poll call, before deduplication; None is unlimited.
+    pub max_poll_subscriptions: Option<u32>,
+    /// Sum of requested receive iovec bytes; None leaves the kernel transfer bounds.
+    pub max_sock_recv_size: Option<u64>,
+}
+
+impl Default for Limits {
+    fn default() -> Self {
+        Self {
+            max_poll_subscriptions: Some(1024),
+            max_sock_recv_size: Some(16 * 1024 * 1024),
+        }
+    }
+}
+
 /// The WASIX v1 ABI. Register it with [`wasixv2_exec::Abis::push`]; one value serves every
 /// process of one kernel.
 #[derive(Default)]
@@ -56,6 +74,7 @@ pub struct Wasix1 {
     procs: Arc<Procs>,
     commands: Arc<RwLock<Commands>>,
     http: Option<Arc<dyn http::HttpProvider>>,
+    limits: Limits,
 }
 
 impl Wasix1 {
@@ -71,7 +90,14 @@ impl Wasix1 {
             procs: Arc::default(),
             commands,
             http: None,
+            limits: Limits::default(),
         }
+    }
+
+    /// Sets immutable import request ceilings, retained by every image and thread binding.
+    pub fn with_limits(mut self, limits: Limits) -> Self {
+        self.limits = limits;
+        self
     }
 
     /// Enables the historical v1 HTTP extension with an explicit embedder capability.
@@ -121,7 +147,15 @@ where
         role: Role,
     ) -> Result<Arc<dyn AbiInstance<S>>, ExecError> {
         let (procs, commands) = (self.procs.clone(), self.commands.clone());
-        let bound = Wasix1Instance::bind(procs, commands, self.http.clone(), instance, task, role)?;
+        let bound = Wasix1Instance::bind(
+            procs,
+            commands,
+            self.http.clone(),
+            self.limits,
+            instance,
+            task,
+            role,
+        )?;
         Ok(Arc::new(bound))
     }
 }

@@ -196,6 +196,7 @@ pub struct Machine {
     user: Credentials,
     uname: Uname,
     init: bool,
+    max_guest_tasks: Option<usize>,
     /// The root filesystem's writable top layer: the [`default_root`] or the embedder's.
     root_upper: Arc<dyn Filesystem>,
     /// Read-only layers under `root_upper`, topmost first; see [`Machine::mount_root_layers`].
@@ -234,10 +235,13 @@ pub struct MachineBuilder {
     uname: Uname,
     root: Option<Arc<dyn Filesystem>>,
     init: bool,
+    max_guest_tasks: Option<usize>,
     /// The embedder's loader; the ABIs' own default otherwise.
     loader: Option<Arc<dyn Loader>>,
     #[cfg(feature = "wasix1")]
     http_provider: Option<Arc<dyn wasix1_http::HttpProvider>>,
+    #[cfg(feature = "wasix1")]
+    wasix1_limits: wasixv2_wasix1::Limits,
     console: Option<(Console, [bool; 3])>,
     dns: Dns,
     #[cfg(all(feature = "host-network", unix))]
@@ -272,14 +276,31 @@ impl MachineBuilder {
             uname: Uname::default(),
             root: None,
             init: true,
+            max_guest_tasks: None,
             loader: None,
             #[cfg(feature = "wasix1")]
             http_provider: None,
+            #[cfg(feature = "wasix1")]
+            wasix1_limits: wasixv2_wasix1::Limits::default(),
             console: None,
             dns: Dns::default(),
             #[cfg(all(feature = "host-network", unix))]
             vsock: None,
         }
+    }
+
+    /// Caps admitted guest tasks, including root-owned threads/processes. Kernel init is
+    /// excluded; zero rejects all guest admission. None leaves task admission uncapped.
+    pub fn max_guest_tasks(mut self, limit: Option<usize>) -> Self {
+        self.max_guest_tasks = limit;
+        self
+    }
+
+    /// Sets v1 poll and socket receive request limits before guest-sized allocations/I/O.
+    #[cfg(feature = "wasix1")]
+    pub fn wasix1_limits(mut self, limits: wasixv2_wasix1::Limits) -> Self {
+        self.wasix1_limits = limits;
+        self
     }
 
     /// Supplies the historical v1 guest HTTP capability. It is retained across root
@@ -387,9 +408,12 @@ impl MachineBuilder {
             uname,
             root,
             init,
+            max_guest_tasks,
             loader,
             #[cfg(feature = "wasix1")]
             http_provider,
+            #[cfg(feature = "wasix1")]
+            wasix1_limits,
             console,
             dns,
             #[cfg(all(feature = "host-network", unix))]
@@ -415,6 +439,7 @@ impl MachineBuilder {
         #[cfg(feature = "wasix1")]
         let wasix1 = Wasix1Commands {
             http_provider,
+            wasix1_limits,
             ..Wasix1Commands::default()
         };
         let abis = Arc::new(abis(
@@ -431,7 +456,8 @@ impl MachineBuilder {
             init,
             console.as_ref().map(|(console, _)| console),
             abis.clone(),
-        );
+        )
+        .with_guest_task_limit(max_guest_tasks);
         now(mount_kernel_filesystems(&kernel, &host));
         let syscalls = Arc::new(stack(kernel));
         Helpers::install(
@@ -455,6 +481,7 @@ impl MachineBuilder {
             user,
             uname,
             init,
+            max_guest_tasks,
             root_upper: root,
             root_lowers: Vec::new(),
             in_use: AtomicBool::new(false),
@@ -586,7 +613,8 @@ impl Machine {
             self.init,
             self.console.as_ref().map(|(console, _)| console),
             self.abis.clone(),
-        );
+        )
+        .with_guest_task_limit(self.max_guest_tasks);
         mount_kernel_filesystems(&kernel, &self.host).await;
         self.syscalls = Arc::new(stack(kernel));
         Helpers::install(
@@ -1131,6 +1159,8 @@ struct Wasix1Commands {
     names: Mutex<Vec<(String, CommandDefaults)>>,
     files: Arc<std::sync::RwLock<wasixv2_wasix1::Commands>>,
     http_provider: Option<Arc<dyn wasix1_http::HttpProvider>>,
+    #[cfg(feature = "wasix1")]
+    wasix1_limits: wasixv2_wasix1::Limits,
 }
 
 /// The guest ABIs programs may target, `wasixv2` first, and how their images compile: by
@@ -1153,7 +1183,8 @@ fn abis(
     abis.push(Arc::new(Wasixv2));
     #[cfg(feature = "wasix1")]
     {
-        let mut abi = wasixv2_wasix1::Wasix1::with_commands(wasix1.files.clone());
+        let mut abi = wasixv2_wasix1::Wasix1::with_commands(wasix1.files.clone())
+            .with_limits(wasix1.wasix1_limits);
         if let Some(provider) = &wasix1.http_provider {
             abi = abi.with_http_provider(provider.clone());
         }

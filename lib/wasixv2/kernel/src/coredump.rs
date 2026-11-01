@@ -769,6 +769,7 @@ impl Kernel {
                 Vec::new(),
                 files,
                 self.init.map_or(0, |i| i.0),
+                false,
             )
             .ok()?;
         // `call_usermodehelper_setup`'s environment.

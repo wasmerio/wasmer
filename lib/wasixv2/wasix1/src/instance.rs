@@ -29,6 +29,7 @@ pub const SIGNAL_CALLBACK: &str = "__wasm_signal";
 
 pub struct Wasix1Instance {
     pub(crate) http: crate::http::State,
+    pub(crate) limits: crate::Limits,
     pub(crate) realloc: Option<Function>,
     procs: Arc<Procs>,
     /// The package commands v1 programs start with their defaults.
@@ -76,6 +77,7 @@ impl Wasix1Instance {
         procs: Arc<Procs>,
         commands: Arc<RwLock<Commands>>,
         http: Option<Arc<dyn crate::http::HttpProvider>>,
+        limits: crate::Limits,
         instance: &Instance,
         task: TaskId,
         role: Role,
@@ -92,6 +94,7 @@ impl Wasix1Instance {
         };
         Ok(Self {
             http: crate::http::State::new(http),
+            limits,
             realloc: function("canonical_abi_realloc"),
             procs,
             commands,
