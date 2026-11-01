@@ -155,6 +155,10 @@ fn old_handles_flags_scopes_and_error_buffers_survive_unchanged_imports() {
         (call $at (i32.const 256)) (i32.const 64) (i32.const -1) (i32.const -1)
         (call $at (i32.const 192))) (i32.const 0) (i32.const 13))
       (call $check (i32.load (call $at (i32.const 192))) (i32.const 1) (i32.const 14))
+      (call $check (call $open (call $at (i32.const 0)) (i32.const 0) (i32.const -1)
+        (call $at (i32.const 256)) (i32.const 1) (i32.const 0) (i32.const 0)
+        (call $at (i32.const 192))) (i32.const 79) (i32.const 15))
+      (call $check (i32.load8_u (call $at (i32.const 256))) (i32.const 0) (i32.const 16))
       (local.set $handle (call $load (i32.const 0)))
       (call $check (i32.load (call $at (i32.const 200))) (i32.const 1) (i32.const 1))
       (call $check (call $valid (local.get $handle)) (i32.const 0) (i32.const 2))
@@ -395,4 +399,23 @@ fn a_linear_heap_stays_readable_and_disjoint_across_late_loader_growth() {
         ),
         0
     );
+}
+
+#[test]
+fn missing_loader_uses_old_unknown_error_before_reading_open_arguments() {
+    let image = wat::parse_str(r#"(module
+      (import "wasix_32v1" "dlopen" (func $open (param i32 i32 i32 i32 i32 i32 i32 i32) (result i32)))
+      (import "wasix_32v1" "dlsym" (func $sym (param i32 i32 i32 i32 i32 i32) (result i32)))
+      (import "wasix_32v1" "dl_invalid_handle" (func $valid (param i32) (result i32)))
+      (import "wasix_32v1" "proc_exit2" (func $exit (param i32)))
+      (memory (export "memory") 1)
+      (data (i32.const 600) "value")
+      (func (export "_start")
+        (if (i32.ne (call $open (i32.const -1) (i32.const 4) (i32.const -1)
+          (i32.const 256) (i32.const 1) (i32.const -1) (i32.const 4) (i32.const 512)) (i32.const 79)) (then (call $exit (i32.const 1))))
+        (if (i32.load8_u (i32.const 256)) (then (call $exit (i32.const 2))))
+        (if (i32.ne (call $sym (i32.const 1) (i32.const 600) (i32.const 5)
+          (i32.const 256) (i32.const 1) (i32.const 512)) (i32.const 79)) (then (call $exit (i32.const 3))))
+        (if (i32.ne (call $valid (i32.const 1)) (i32.const 45)) (then (call $exit (i32.const 4))))))"#).unwrap();
+    assert_eq!(run("missing-loader", &image, &[]), 0);
 }

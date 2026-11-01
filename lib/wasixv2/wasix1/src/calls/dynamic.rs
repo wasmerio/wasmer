@@ -24,7 +24,9 @@ impl wasixv2_dylink::LoadPolicy for Policy {
             let directory = origin
                 .iter()
                 .rposition(|b| *b == b'/')
-                .map_or(&b"."[..], |index| &origin[..index]);
+                .map_or(&b"."[..], |index| {
+                    &origin[..if index == 0 { 1 } else { index }]
+                });
             let mut candidates = Vec::new();
             // v1 locator: environment, RUNPATH, then its system directories.
             for path in search
@@ -32,7 +34,7 @@ impl wasixv2_dylink::LoadPolicy for Policy {
                 .flat_map(|path| path.split(|b| *b == b':'))
             {
                 let mut path = path.to_vec();
-                if !path.is_empty() {
+                if !path.is_empty() && !path.ends_with(b"/") {
                     path.push(b'/');
                 }
                 path.extend_from_slice(name);
@@ -50,11 +52,24 @@ impl wasixv2_dylink::LoadPolicy for Policy {
                     if origin.is_empty() {
                         return Err("library guest origin is unavailable".into());
                     }
-                    [directory, tail].concat()
+                    // Match the old locator's PathBuf::join, including an
+                    // absolute stripped suffix replacing the origin directory.
+                    if tail.starts_with(b"/") {
+                        tail.to_vec()
+                    } else {
+                        let mut expanded = directory.to_vec();
+                        if !tail.is_empty() {
+                            if !expanded.ends_with(b"/") {
+                                expanded.push(b'/');
+                            }
+                            expanded.extend_from_slice(tail);
+                        }
+                        expanded
+                    }
                 } else {
                     path.to_vec()
                 };
-                if !path.is_empty() {
+                if !path.is_empty() && !path.ends_with(b"/") {
                     path.push(b'/');
                 }
                 path.extend_from_slice(name);
@@ -139,6 +154,41 @@ async fn string<S: Syscalls + Control + 'static>(
     Ok(frame.mem.alloc_cstr(&bytes)?)
 }
 
+async fn error<S: Syscalls + Control + 'static>(
+    frame: &Frame<'_, S>,
+    ptr: i32,
+    len: i32,
+    message: &[u8],
+) -> V1Result<()> {
+    if len != 0 {
+        let mut bytes =
+            message[..message.len().min((len as u32).saturating_sub(1) as usize)].to_vec();
+        bytes.push(0);
+        frame.write_bytes(ptr as u32, &bytes).await?;
+    }
+    shim::fail(Errno::UNKNOWN)
+}
+
+async fn require_loader<S: Syscalls + Control + 'static>(
+    frame: &Frame<'_, S>,
+    err: i32,
+    len: i32,
+) -> V1Result<()> {
+    match frame.dynamic_handle_valid(DlHandle(0)).await {
+        Ok(_) => Ok(()),
+        Err(wasixv2_syscalls::SysErr::Errno(wasixv2_syscalls::Errno::ENOSYS)) => {
+            error(
+                frame,
+                err,
+                len,
+                b"The current instance is not a dynamically-linked instance",
+            )
+            .await
+        }
+        Err(error) => Err(error.into()),
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 pub(crate) async fn dlopen<S: Syscalls + Control + 'static>(
     env: Env<S>,
@@ -152,6 +202,7 @@ pub(crate) async fn dlopen<S: Syscalls + Control + 'static>(
     handle: i32,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
+        require_loader(frame, err, err_len).await?;
         let null_path = path == 0;
         let path = if null_path {
             wasixv2_abi::Cstr::new(0)
@@ -163,6 +214,9 @@ pub(crate) async fn dlopen<S: Syscalls + Control + 'static>(
         } else {
             string(frame, search, search_len).await?
         };
+        if !null_path && path_len == 0 {
+            return error(frame, err, err_len, b"cannot open an empty library path").await;
+        }
         let linker = GuestDynamicLinker::new_with_unwind(frame.env, frame.unwind());
         let caller = frame.caller().with_dynamic_linker(&linker);
         // Old dlopen accepted every flag but did not interpret any of them.
@@ -197,6 +251,7 @@ pub(crate) async fn dlsym<S: Syscalls + Control + 'static>(
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
         let name = string(frame, name, name_len).await?;
+        require_loader(frame, err, err_len).await?;
         let linker = GuestDynamicLinker::new(frame.env);
         let caller = frame.caller().with_dynamic_linker(&linker);
         let result = frame
@@ -259,8 +314,8 @@ mod tests {
                 b"$ORIGIN/env/x.wasm".to_vec(),
                 b"/first/x.so".to_vec(),
                 b"/first/x.wasm".to_vec(),
-                b"/plugins/runtime/x.so".to_vec(),
-                b"/plugins/runtime/x.wasm".to_vec(),
+                b"/runtime/x.so".to_vec(),
+                b"/runtime/x.wasm".to_vec(),
             ]
         );
         assert!(Policy.paths(b"x.so", None, &runtime, b"").is_err());
@@ -271,6 +326,54 @@ mod tests {
         assert_eq!(
             Policy.paths(b"x.so", Some(b""), &[], b"").unwrap()[0],
             b"x.so"
+        );
+    }
+
+    #[test]
+    fn origin_suffix_uses_the_old_guest_path_join_rules() {
+        let paths = Policy
+            .paths(
+                b"dep.so",
+                None,
+                &[
+                    "$ORIGIN".into(),
+                    "${ORIGIN}/runtime".into(),
+                    "$ORIGINsuffix".into(),
+                ],
+                b"/plugins/source.so",
+            )
+            .unwrap();
+        assert_eq!(
+            &paths[..6],
+            &[
+                b"/plugins/dep.so".to_vec(),
+                b"/plugins/dep.wasm".to_vec(),
+                b"/runtime/dep.so".to_vec(),
+                b"/runtime/dep.wasm".to_vec(),
+                b"/plugins/suffix/dep.so".to_vec(),
+                b"/plugins/suffix/dep.wasm".to_vec(),
+            ]
+        );
+    }
+
+    #[test]
+    fn root_origin_stays_absolute_independently_of_later_cwd() {
+        let paths = Policy
+            .paths(
+                b"dep.so",
+                None,
+                &["$ORIGIN".into(), "${ORIGIN}/plugins".into()],
+                b"/side.so",
+            )
+            .unwrap();
+        assert_eq!(
+            &paths[..4],
+            &[
+                b"/dep.so".to_vec(),
+                b"/dep.wasm".to_vec(),
+                b"/plugins/dep.so".to_vec(),
+                b"/plugins/dep.wasm".to_vec()
+            ]
         );
     }
 
