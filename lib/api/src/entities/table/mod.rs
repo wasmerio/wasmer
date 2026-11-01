@@ -47,6 +47,23 @@ impl Table {
         self.0.get(store, index)
     }
 
+    /// Retrieves a function only when the engine knows its actual signature.
+    /// On JS, an unannotated function is unknown rather than an inferred `() -> ()`.
+    pub fn get_typed_function(
+        &self,
+        store: &mut impl AsStoreMut,
+        index: u32,
+    ) -> Option<crate::Function> {
+        #[cfg(feature = "js")]
+        if let BackendTable::Js(table) = &self.0 {
+            return table.get_typed_function(store, index);
+        }
+        match self.get(store, index)? {
+            Value::FuncRef(function) => function,
+            _ => None,
+        }
+    }
+
     /// Sets an element `val` in the Table at the provided `index`.
     pub fn set(
         &self,

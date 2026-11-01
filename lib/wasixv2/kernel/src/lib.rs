@@ -100,21 +100,22 @@ pub use printk::Level as LogLevel;
 pub use reboot::PowerRequest;
 pub use timekeeping::Timekeeper;
 use wasixv2_abi::{
-    AccessMode, AtFlags, Buf, ClockId, CloseRangeFlags, ConstBuf, ConstFileHandlePtr,
-    ConstGidArray, ConstIovecArray, ConstKernelItimerspecPtr, ConstKernelTimespecArray,
-    ConstKernelTimespecPtr, ConstMqAttrPtr, ConstMsgbufPtr, ConstOpenHowPtr, ConstRlimit64Ptr,
-    ConstSchedParamPtr, ConstSembufArray, ConstSigeventPtr, ConstSigsetPtr, ConstXattrArgsPtr,
-    Cstr, DlFlags, DlHandle, DlHandlePtr, FadviseAdvice, FallocFlags, FcntlCmd, FileHandlePtr,
-    FlockOp, FutexOp, Gid, GidArray, GidPtr, GrndFlags, IoctlRequest, KernelItimerspecPtr,
-    KernelTimespecPtr, LinuxDirent64Ptr, Loff, LoffPtr, MadviseAdvice, MapFlags, MclFlags,
-    MembarrierCmd, MembarrierCmdFlags, MemfdFlags, MlockFlags, Mode, MqAttrPtr, MremapFlags,
-    MsgbufPtr, Msqid64DsPtr, MsyncFlags, NewUtsnamePtr, OpenFlags, Pid, PrctlOption, PrioWhich,
-    ProtFlags, RenameFlags, Rlimit64Ptr, RlimitResource, RobustListHeadPtr, RobustListHeadPtrPtr,
-    RusagePtr, RusageWho, RwfFlags, S32Ptr, SchedAttrPtr, SchedParamPtr, SchedPolicy, SeekWhence,
-    Shmid64DsPtr, Signal, SigprocmaskHow, Sigset, SigsetPtr, SpliceFlags, Statfs64Ptr, StatxMask,
-    StatxPtr, SyncFileRangeFlags, SysinfoPtr, TimerFlags, TimerfdFlags, TimerfdSettimeFlags,
-    TmsPtr, U32Ptr, Uid, UidPtr, Ulong, UlongArray, Uptr, UptrPtr, Usize, UsizePtr, VoidPtr,
-    XattrArgsPtr, XattrFlags,
+    AccessMode, AtFlags, Buf, CallDynamicFlags, ClockId, CloseRangeFlags, ConstBuf,
+    ConstFileHandlePtr, ConstGidArray, ConstIovecArray, ConstKernelItimerspecPtr,
+    ConstKernelTimespecArray, ConstKernelTimespecPtr, ConstMqAttrPtr, ConstMsgbufPtr,
+    ConstOpenHowPtr, ConstRlimit64Ptr, ConstSchedParamPtr, ConstSembufArray, ConstSigeventPtr,
+    ConstSigsetPtr, ConstXattrArgsPtr, Cstr, DlFlags, DlHandle, DlHandlePtr, FadviseAdvice,
+    FallocFlags, FcntlCmd, FileHandlePtr, FlockOp, FutexOp, Gid, GidArray, GidPtr, GrndFlags,
+    IoctlRequest, KernelItimerspecPtr, KernelTimespecPtr, LinuxDirent64Ptr, Loff, LoffPtr,
+    MadviseAdvice, MapFlags, MclFlags, MembarrierCmd, MembarrierCmdFlags, MemfdFlags, MlockFlags,
+    Mode, MqAttrPtr, MremapFlags, MsgbufPtr, Msqid64DsPtr, MsyncFlags, NewUtsnamePtr, OpenFlags,
+    Pid, PrctlOption, PrioWhich, ProtFlags, ReflectionResultPtr, RenameFlags, Rlimit64Ptr,
+    RlimitResource, RobustListHeadPtr, RobustListHeadPtrPtr, RusagePtr, RusageWho, RwfFlags,
+    S32Ptr, SchedAttrPtr, SchedParamPtr, SchedPolicy, SeekWhence, Shmid64DsPtr, Signal,
+    SigprocmaskHow, Sigset, SigsetPtr, SpliceFlags, Statfs64Ptr, StatxMask, StatxPtr,
+    SyncFileRangeFlags, SysinfoPtr, TimerFlags, TimerfdFlags, TimerfdSettimeFlags, TmsPtr, U32Ptr,
+    Uid, UidPtr, Ulong, UlongArray, Uptr, UptrPtr, Usize, UsizePtr, VoidPtr, XattrArgsPtr,
+    XattrFlags,
 };
 use wasixv2_host::Host;
 pub use wasixv2_host::{Console, Stdio, WindowSize};
@@ -816,6 +817,86 @@ impl Kernel {
 }
 
 impl Syscalls for Kernel {
+    fn call_dynamic<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        function: u32,
+        values: UserSlice,
+        results: UserSliceMut,
+        flags: CallDynamicFlags,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        match caller.functions() {
+            Some(functions) => MaybeFuture::Future(
+                functions.call_dynamic(caller, function, values, results, flags),
+            ),
+            None => MaybeFuture::Ready(Err(Errno::ENOSYS.into())),
+        }
+    }
+
+    fn reflect_signature<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        function: u32,
+        argument_types: UserSliceMut,
+        result_types: UserSliceMut,
+        result: ReflectionResultPtr,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        match caller.functions() {
+            Some(functions) => MaybeFuture::Future(functions.reflect_signature(
+                caller,
+                function,
+                argument_types,
+                result_types,
+                result,
+            )),
+            None => MaybeFuture::Ready(Err(Errno::ENOSYS.into())),
+        }
+    }
+
+    fn closure_allocate<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        closure: U32Ptr,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        match caller.functions() {
+            Some(functions) => MaybeFuture::Future(functions.closure_allocate(caller, closure)),
+            None => MaybeFuture::Ready(Err(Errno::ENOSYS.into())),
+        }
+    }
+
+    fn closure_prepare<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        backing: u32,
+        closure: u32,
+        argument_types: UserSlice,
+        result_types: UserSlice,
+        env_: Uptr,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        match caller.functions() {
+            Some(functions) => MaybeFuture::Future(functions.closure_prepare(
+                caller,
+                backing,
+                closure,
+                argument_types,
+                result_types,
+                env_,
+            )),
+            None => MaybeFuture::Ready(Err(Errno::ENOSYS.into())),
+        }
+    }
+
+    fn closure_free<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        closure: u32,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        match caller.functions() {
+            Some(functions) => MaybeFuture::Future(functions.closure_free(caller, closure)),
+            None => MaybeFuture::Ready(Err(Errno::ENOSYS.into())),
+        }
+    }
+
     fn dl_open<'a>(
         &'a self,
         caller: &'a Caller<'_>,

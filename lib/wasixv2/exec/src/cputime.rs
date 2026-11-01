@@ -68,6 +68,19 @@ impl CpuSample {
         }
     }
 
+    /// Transfers execution between a host import and a nested guest call without
+    /// counting another syscall boundary. Returns the preceding execution mode.
+    pub(crate) fn replace_mode(&self, system: bool) -> bool {
+        match self {
+            #[cfg(not(target_family = "wasm"))]
+            Self::Tick(sample) => sample.mode.system.swap(system, Ordering::Relaxed),
+            Self::Boundary(sample) => {
+                sample.accumulate();
+                sample.entered.replace(system)
+            }
+        }
+    }
+
     pub(crate) fn preempt(&self) -> bool {
         match self {
             #[cfg(not(target_family = "wasm"))]
@@ -672,6 +685,32 @@ pub(crate) mod tests {
             ticks::Sampler::tick(&mut entries);
             assert!(entries.is_empty());
         }
+    }
+
+    #[test]
+    fn nested_guest_execution_keeps_user_time_inside_an_import() {
+        let (clocks, account, sample) = setup(true);
+        clocks.advance(3 * US, 3 * US);
+        sample.enter();
+        clocks.advance(2 * US, 2 * US);
+        let previous = sample.replace_mode(false);
+        assert!(previous);
+        clocks.advance(5 * US, 5 * US);
+        sample.enter();
+        clocks.advance(US, US);
+        sample.exit();
+        clocks.advance(7 * US, 7 * US);
+        sample.replace_mode(previous);
+        clocks.advance(2 * US, 2 * US);
+        sample.exit();
+        sample.sample();
+        assert_eq!(
+            account.times(),
+            CpuTimes {
+                user: 15 * US,
+                system: 5 * US
+            }
+        );
     }
 
     #[test]

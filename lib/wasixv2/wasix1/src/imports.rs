@@ -246,11 +246,11 @@ table! {
     "dl_invalid_handle" WASIX (I32) -> (I32) Unsupported;
     "dlopen" WASIX (I32 I32 I32 I32 I32 I32 I32 I32) -> (I32) Unsupported;
     "dlsym" WASIX (I32 I32 I32 I32 I32 I32) -> (I32) Unsupported;
-    "call_dynamic" WASIX (I32 I32 I32 I32 I32 I32) -> (I32) Unsupported;
+    "call_dynamic" WASIX (I32 I32 I32 I32 I32 I32) -> (I32) Shim;
     "closure_prepare" WASIX (I32 I32 I32 I32 I32 I32 I32) -> (I32) Unsupported;
     "closure_allocate" WASIX (I32) -> (I32) Unsupported;
     "closure_free" WASIX (I32) -> (I32) Unsupported;
-    "reflect_signature" WASIX (I32 I32 I32 I32 I32 I32) -> (I32) Unsupported;
+    "reflect_signature" WASIX (I32 I32 I32 I32 I32 I32) -> (I32) Shim;
     "context_create" WASIX (I32 I32) -> (I32) Unsupported;
     "context_switch" WASIX (I64) -> (I32) Unsupported;
     "context_destroy" WASIX (I64) -> (I32) Unsupported;
@@ -477,6 +477,8 @@ where
         "futex_wait" => f!(futex::futex_wait::<S>),
         "futex_wake" => f!(futex::futex_wake::<S>),
         "futex_wake_all" => f!(futex::futex_wake_all::<S>),
+        "call_dynamic" => f!(function::call_dynamic::<S>),
+        "reflect_signature" => f!(function::reflect_signature::<S>),
         "stack_checkpoint" => f!(stack::stack_checkpoint::<S>),
         "stack_restore" => f!(stack::stack_restore::<S>),
         "tty_get" => f!(tty::tty_get::<S>),
