@@ -102,8 +102,8 @@ impl Compile {
 }
 
 fn prepare_compiler_input(source: Vec<u8>) -> Result<Vec<u8>> {
-    // Only raw native dynamic mains select the existing runtime preparation path.
-    // Generic/static/v1 and upstream-prepared inputs keep their original artifact ABI.
+    // Only supported raw dynamic mains select the existing runtime preparation path.
+    // Generic/static and upstream-prepared inputs keep their original artifact ABI.
     if wasixv2_dylink::needs_preparation(&source)? {
         let prepared = wasixv2_dylink::prepare_image(&source)?;
         Ok(wasixv2::instrument(&prepared)?)
@@ -127,7 +127,7 @@ mod tests {
     }
 
     #[test]
-    fn compiler_input_preserves_generic_static_v1_and_prepared_bytes() {
+    fn compiler_input_preserves_generic_static_and_prepared_bytes() {
         let native = wasm(r#"(module (import "wasixv2" "exit_group" (func (param i32))))"#);
         let prepared =
             wasixv2::instrument(&wasixv2_dylink::prepare_image(&dynamic(native.clone())).unwrap())
@@ -135,12 +135,20 @@ mod tests {
         for source in [
             wasm("(module (func $init) (start $init))"),
             native,
-            dynamic(wasm(
-                r#"(module (import "wasi_snapshot_preview1" "proc_exit" (func (param i32))))"#,
-            )),
+            wasm(r#"(module (import "wasi_snapshot_preview1" "proc_exit" (func (param i32))))"#),
             prepared,
         ] {
             assert_eq!(prepare_compiler_input(source.clone()).unwrap(), source);
         }
+    }
+
+    #[test]
+    fn compiler_input_prepares_legacy_pic_before_serialization() {
+        let source = dynamic(wasm(
+            r#"(module (import "wasix_32v1" "dl_invalid_handle" (func (param i32) (result i32))))"#,
+        ));
+        let expected =
+            wasixv2::instrument(&wasixv2_dylink::prepare_image(&source).unwrap()).unwrap();
+        assert_eq!(prepare_compiler_input(source).unwrap(), expected);
     }
 }

@@ -13,7 +13,7 @@ mod image;
 #[cfg(any(feature = "sys", feature = "js"))]
 mod runtime;
 #[cfg(any(feature = "sys", feature = "js"))]
-pub use runtime::Native;
+pub use runtime::{LoadPolicy, Native, compose};
 #[cfg(any(feature = "sys", feature = "js"))]
 mod compile;
 #[cfg(any(feature = "sys", feature = "js"))]

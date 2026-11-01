@@ -1029,6 +1029,16 @@ impl Kernel {
         let (flags, lookup) = build_open_flags(&how)?;
         let env = self.env(caller);
         let start = self.start(caller, &env, Fd(AtFd::AT_FDCWD.0), path)?;
+        let guest_path = if path.starts_with(b"/") {
+            path.to_vec()
+        } else {
+            let mut absolute = self.vfs.d_path(&env.fs.cwd, &env.fs.root);
+            if !absolute.ends_with(b"/") {
+                absolute.push(b'/');
+            }
+            absolute.extend_from_slice(path);
+            absolute
+        };
         let file = self
             .vfs
             .open(
@@ -1072,6 +1082,7 @@ impl Kernel {
         Ok(wasixv2_syscalls::LibraryImage {
             identity,
             image: wasixv2_syscalls::Image::shared(Arc::new(LibraryBytes { image, _file: file })),
+            path: Some(guest_path),
         })
     }
 }

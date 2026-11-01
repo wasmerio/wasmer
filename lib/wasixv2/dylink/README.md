@@ -204,3 +204,17 @@ The native engine unit proof is explicitly opt-in so pure planner tests remain c
 ```sh
 cargo test -p wasixv2-dylink --no-default-features --features engine-tests
 ```
+
+
+Wasm32 WASIX v1 PIC mains use the same source preparation, host initialization,
+all-store publication and cleanup. Wasix1 supplies the base ABI and its legacy
+path, handle and symbol-scope policy. Its unchanged libc does not drain a loader
+constructor queue: each successful transaction instead claims its newly loaded
+side constructor batch and invokes it through normal instrumented guest entry,
+after admission reopens. Recursive loads own distinct batches. Resident reopens
+never replay constructors, including a batch abandoned by a guest trap or
+cancellation. A guest constructor error remains the original calling-task error;
+it does not roll back published guest effects or trigger loader-wide failure.
+Main constructors remain owned by the base ABI's `_initialize`/`_start` path.
+The allocator-calling legacy `__wasix_init_tls` helper is never executed under the
+gate; only the existing validated source effects initialize private TLS.

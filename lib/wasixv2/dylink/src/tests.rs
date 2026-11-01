@@ -750,7 +750,7 @@ fn signal_handler_sentinels_are_not_dynamic_table_slots() {
 }
 
 #[test]
-fn compilation_source_preparation_selects_only_raw_native_dynamic_mains() {
+fn compilation_source_preparation_selects_supported_raw_dynamic_mains() {
     let native = r#"(module (import "wasixv2" "exit_group" (func (param i32))))"#;
     let original = bytes(native, [0; 4], &[], &[], &[]);
     assert!(crate::needs_preparation(&original).unwrap());
@@ -759,16 +759,20 @@ fn compilation_source_preparation_selects_only_raw_native_dynamic_mains() {
     for source in [
         wat::parse_str("(module)").unwrap(),
         wat::parse_str(native).unwrap(),
-        bytes(
-            r#"(module (import "wasi_snapshot_preview1" "proc_exit" (func (param i32))))"#,
-            [0; 4],
-            &[],
-            &[],
-            &[],
-        ),
     ] {
         assert!(!crate::needs_preparation(&source).unwrap());
     }
+    let legacy = bytes(
+        r#"(module (import "wasi_snapshot_preview1" "proc_exit" (func (param i32))))"#,
+        [0; 4],
+        &[],
+        &[],
+        &[],
+    );
+    assert!(crate::needs_preparation(&legacy).unwrap());
+    let legacy_prepared = crate::prepare_image(&legacy).unwrap();
+    assert!(!crate::needs_preparation(&legacy_prepared).unwrap());
+    assert_eq!(Module::parse(&legacy_prepared).unwrap().start(), None);
     let unsupported = bytes(
         r#"(module (import "wasixv2" "exit_group" (func (param i32)))
           (func (export "asyncify_start_unwind")))"#,

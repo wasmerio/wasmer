@@ -51,7 +51,7 @@ use crate::{imports::Module as V1Module, instance::Wasix1Instance, process::Proc
 
 /// The WASIX v1 ABI. Register it with [`wasixv2_exec::Abis::push`]; one value serves every
 /// process of one kernel.
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct Wasix1 {
     procs: Arc<Procs>,
     commands: Arc<RwLock<Commands>>,
@@ -101,6 +101,15 @@ where
         matches!(
             is_wasix1_module(image),
             Some(V1Flavor::Wasm32 | V1Flavor::HttpClient)
+        )
+    }
+
+    fn for_image(&self, module: &Module) -> Option<Arc<dyn Abi<S>>> {
+        <Self as Abi<S>>::matches(self, module).then_some(())?;
+        wasixv2_dylink::compose(
+            module,
+            Arc::new(self.clone()),
+            Arc::new(calls::dynamic::Policy),
         )
     }
 

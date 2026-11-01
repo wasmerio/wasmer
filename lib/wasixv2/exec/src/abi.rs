@@ -162,6 +162,46 @@ pub trait AbiInstance<S: 'static>: Send + Sync {
         Box::pin(async { Err(Errno::ENOSYS.into()) })
     }
 
+    /// Loader work that may call ordinary instrumented guest constructors. The
+    /// import owns the exact engine error across its syscall layers.
+    #[allow(clippy::too_many_arguments)]
+    fn dl_open_with_unwind<'a>(
+        &'a self,
+        env: &'a AsyncFunctionEnvMut<ExecEnv<S>>,
+        caller: &'a wasixv2_syscalls::Caller<'_>,
+        file: Cstr,
+        flags: DlFlags,
+        search_path: Cstr,
+        caller_addr: Uptr,
+        handle: DlHandlePtr,
+        err: UserSliceMut,
+        unwind: &'a crate::GuestUnwind,
+    ) -> LocalFuture<'a, wasixv2_syscalls::SysResult<i32>> {
+        let _ = unwind;
+        self.dl_open(
+            env,
+            caller,
+            file,
+            flags,
+            search_path,
+            caller_addr,
+            handle,
+            err,
+        )
+    }
+
+    /// Read-only resident-handle metadata. This never closes a library or
+    /// changes its reference count; ABIs without a loader opt out.
+    fn dl_valid_handle<'a>(
+        &'a self,
+        env: &'a AsyncFunctionEnvMut<ExecEnv<S>>,
+        caller: &'a wasixv2_syscalls::Caller<'_>,
+        handle: DlHandle,
+    ) -> LocalFuture<'a, wasixv2_syscalls::SysResult<bool>> {
+        let _ = (env, caller, handle);
+        Box::pin(async { Err(Errno::ENOSYS.into()) })
+    }
+
     #[allow(clippy::too_many_arguments)]
     fn dl_sym<'a>(
         &'a self,

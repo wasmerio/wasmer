@@ -440,11 +440,11 @@ mod loader_tests {
     }
 
     #[test]
-    fn cached_loader_static_and_v1_keep_existing_instrumented_bytes() {
+    fn cached_loader_static_images_keep_existing_instrumented_bytes() {
         let (loader, runtime, engine) = loader();
         for source in [
             wasm(r#"(module (import "wasixv2" "unused" (func)))"#),
-            dynamic(r#"(module (import "wasi_snapshot_preview1" "proc_exit" (func (param i32))))"#),
+            wasm(r#"(module (import "wasi_snapshot_preview1" "proc_exit" (func (param i32))))"#),
         ] {
             let image = Image::copied(source.clone());
             let (_, module) = block_on(loader.load(&engine, &image)).unwrap();

@@ -28,7 +28,7 @@ pub struct Preparation<'a, S: 'static> {
 
 #[derive(Clone)]
 pub(crate) struct Bootstrap {
-    pub(crate) layout: MemoryLayout,
+    pub(crate) layout: Option<MemoryLayout>,
     pub(crate) stack: Range<u32>,
     pub(crate) guard: u32,
 }
@@ -89,6 +89,28 @@ impl<S: Syscalls + Control + Send + Sync + 'static> Preparation<'_, S> {
         stack: Range<u32>,
         guard: u32,
     ) -> Result<(), ExecError> {
+        self.bootstrap_profile(layout, stack, guard, true).await
+    }
+
+    /// Attaches a source-bounded image whose ABI manages a linear `memory.grow`
+    /// heap, as an ordinary ABI with `image_layout = None` does. Admission,
+    /// imported-memory identity, extent and guard validation are identical.
+    pub async fn bootstrap_linear(
+        &self,
+        layout: MemoryLayout,
+        stack: Range<u32>,
+        guard: u32,
+    ) -> Result<(), ExecError> {
+        self.bootstrap_profile(layout, stack, guard, false).await
+    }
+
+    async fn bootstrap_profile(
+        &self,
+        layout: MemoryLayout,
+        stack: Range<u32>,
+        guard: u32,
+        mapped: bool,
+    ) -> Result<(), ExecError> {
         let bad = || ExecError::Load(LoadError::Format(Errno::EINVAL));
         if self.role != Role::Process || self.bootstrap.borrow().is_some() {
             return Err(bad());
@@ -143,7 +165,7 @@ impl<S: Syscalls + Control + Send + Sync + 'static> Preparation<'_, S> {
                 env.page_access.clone(),
             );
             env.memory = Some(memory.clone());
-            env.layout = Some(layout.clone());
+            env.layout = mapped.then(|| layout.clone());
             env.main_stack = stack.clone();
             env.low_guard = guard;
             env.syscalls.attach_memory(env.task, Arc::new(foreign));
@@ -151,7 +173,7 @@ impl<S: Syscalls + Control + Send + Sync + 'static> Preparation<'_, S> {
         })
         .await?;
         self.bootstrap.replace(Some(Bootstrap {
-            layout,
+            layout: mapped.then_some(layout),
             stack,
             guard,
         }));
