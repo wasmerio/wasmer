@@ -164,9 +164,7 @@ impl Function {
             unsafe {
                 let mut context = StoreContext::try_get_current_async(store_id);
                 let mut store_mut = match &mut context {
-                    crate::GetStoreAsyncGuardResult::Ok(wrapper) => StoreMut {
-                        inner: wrapper.guard.as_mut().unwrap(),
-                    },
+                    crate::GetStoreAsyncGuardResult::Ok(wrapper) => wrapper.as_mut(),
                     crate::GetStoreAsyncGuardResult::NotAsync(ptr) => ptr.as_mut(),
                     crate::GetStoreAsyncGuardResult::NotInstalled => {
                         panic!("No store context installed on this thread")
@@ -186,9 +184,7 @@ impl Function {
                     crate::GetStoreAsyncGuardResult::Ok(wrapper) => {
                         AsyncFunctionEnvMutStore::Async(StoreAsync {
                             id,
-                            inner: crate::LocalRwLockWriteGuard::lock_handle(
-                                wrapper.guard.as_mut().unwrap(),
-                            ),
+                            inner: wrapper.lock_handle(),
                         })
                     }
                     crate::GetStoreAsyncGuardResult::NotAsync(ptr) => {
@@ -982,6 +978,8 @@ macro_rules! impl_host_function {
                                 FromToNativeWasmType::from_native(NativeWasmTypeInto::from_abi(&mut store, $x))
                             };
                         )*
+                        // Arguments are owned, and this callback receives no Store borrow.
+                        drop(store_wrapper);
                         to_invocation_result((env.func)($($x),* ).into_result())
                     }))
                 });
