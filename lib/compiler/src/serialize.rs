@@ -3,8 +3,6 @@
 use crate::types::module::{ArchivedCompileModuleInfo, CompileModuleInfo};
 use wasmer_types::{DeserializeError, SerializeError};
 
-pub use wasmer_types::MetadataHeader;
-
 impl CompileModuleInfo {
     /// Serialize compilation metadata into bytes.
     pub fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
