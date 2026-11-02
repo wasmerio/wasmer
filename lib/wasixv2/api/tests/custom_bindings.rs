@@ -17,20 +17,42 @@ use wasmer::{
 };
 
 type Events = Arc<Mutex<Vec<(usize, &'static str)>>>;
+type ThreadEvents = Arc<Mutex<Vec<(&'static str, std::thread::ThreadId)>>>;
+#[derive(Clone)]
+struct ThreadProbe {
+    events: ThreadEvents,
+    barrier: Option<Arc<std::sync::Barrier>>,
+}
+impl ThreadProbe {
+    fn record(&self, phase: &'static str) {
+        self.events
+            .lock()
+            .unwrap()
+            .push((phase, std::thread::current().id()));
+    }
+}
 struct Hook {
     next: AtomicUsize,
     events: Events,
     omit: bool,
+    thread: Option<ThreadProbe>,
 }
 struct State {
     id: usize,
     configured: bool,
     events: Events,
+    thread: Option<ThreadProbe>,
+    cleanup: Option<std::sync::Weak<wasixv2_host::LoaderCleanup>>,
 }
 struct Attachment {
     env: FunctionEnv<State>,
+    exec: FunctionEnv<ExecEnv<MachineSyscalls>>,
 }
 impl InstantiationHook<MachineSyscalls> for Hook {
+    fn requires_owning_thread(&self) -> bool {
+        self.thread.is_some()
+    }
+
     fn provides_import(&self, namespace: &str, name: &str) -> bool {
         namespace == "env" && matches!(name, "value" | "binding_bias")
     }
@@ -39,9 +61,13 @@ impl InstantiationHook<MachineSyscalls> for Hook {
         &self,
         module: &Module,
         store: &mut StoreMut<'_>,
-        _: &FunctionEnv<ExecEnv<MachineSyscalls>>,
+        exec: &FunctionEnv<ExecEnv<MachineSyscalls>>,
         imports: &mut Imports,
     ) -> Result<Option<Box<dyn InstanceAttachment>>, RuntimeError> {
+        if let Some(thread) = &self.thread {
+            thread.record("inspect");
+        }
+        let cleanup = exec.as_ref(store).loader_cleanup().map(Arc::downgrade);
         let requested = module
             .imports()
             .filter(|import| {
@@ -60,12 +86,17 @@ impl InstantiationHook<MachineSyscalls> for Hook {
         }
         let id = self.next.fetch_add(1, Ordering::SeqCst);
         self.events.lock().unwrap().push((id, "prepare"));
+        if let Some(thread) = &self.thread {
+            thread.record("prepare");
+        }
         let env = FunctionEnv::new(
             store,
             State {
                 id,
                 configured: false,
                 events: self.events.clone(),
+                thread: self.thread.clone(),
+                cleanup,
             },
         );
         for (namespace, name, global) in requested {
@@ -91,12 +122,21 @@ impl InstantiationHook<MachineSyscalls> for Hook {
                             .lock()
                             .unwrap()
                             .push((env.data().id, "call"));
+                        if let Some(thread) = &env.data().thread {
+                            thread.record("call");
+                            if let Some(barrier) = &thread.barrier {
+                                barrier.wait();
+                            }
+                        }
                         Ok(env.data().id as i32)
                     },
                 ),
             );
         }
-        Ok(Some(Box::new(Attachment { env })))
+        Ok(Some(Box::new(Attachment {
+            env,
+            exec: exec.clone(),
+        })))
     }
 }
 impl InstanceAttachment for Attachment {
@@ -107,15 +147,32 @@ impl InstanceAttachment for Attachment {
         _: &Instance,
         _: &Memory,
     ) -> Result<(), RuntimeError> {
+        let _ = self.exec.as_ref(&*store).task();
         let state = self.env.as_mut(store);
         state.configured = true;
         state.events.lock().unwrap().push((state.id, "configure"));
+        if let Some(thread) = &state.thread {
+            thread.record("configure");
+        }
         Ok(())
     }
     fn deactivate(&mut self, store: &mut StoreMut<'_>) {
+        let _ = self.exec.as_ref(&*store).task();
         let state = self.env.as_mut(store);
         state.configured = false;
         state.events.lock().unwrap().push((state.id, "deactivate"));
+        if let Some(thread) = &state.thread {
+            thread.record("deactivate");
+            let thread = thread.clone();
+            let scope = state.cleanup.as_ref().unwrap().upgrade().unwrap();
+            assert!(
+                scope
+                    .submit(Box::new(move || Box::pin(async move {
+                        thread.record("cleanup");
+                    })))
+                    .is_ok()
+            );
+        }
     }
 }
 
@@ -186,6 +243,16 @@ async fn run_case(
     name: &str,
     main_binding: bool,
     variant: Variant,
+) -> (Result<i32, wasixv2::RunError>, Events) {
+    run_case_with_thread(name, main_binding, variant, None, false).await
+}
+
+async fn run_case_with_thread(
+    name: &str,
+    main_binding: bool,
+    variant: Variant,
+    thread: Option<ThreadProbe>,
+    file: bool,
 ) -> (Result<i32, wasixv2::RunError>, Events) {
     let programs = Programs(std::env::temp_dir().join(format!(
         "wasixv2-custom-binding-{name}-{}",
@@ -259,28 +326,40 @@ async fn run_case(
         ),
         &["side.so"],
     );
+    if file {
+        let path = programs.0.join("main.wasm");
+        std::fs::write(&path, &main).unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o755)).unwrap();
+        }
+    }
     let events = Arc::new(Mutex::new(Vec::new()));
     let machine = Machine::builder()
         .instantiation_hook(Arc::new(Hook {
             next: AtomicUsize::new(1),
             events: events.clone(),
             omit: variant == Variant::Missing,
+            thread,
         }))
         .build();
     machine
         .mount_host_dir("/prog", &programs.0, false)
         .await
         .unwrap();
-    let status = machine
-        .run_process(
-            &main,
-            ProcessConfig {
-                args: vec!["custom-binding".into()],
-                env: vec!["LD_LIBRARY_PATH=/prog".into()],
-                stdio: Stdio::from_fns(|_| {}, |_| {}),
-            },
-        )
-        .await;
+    let config = ProcessConfig {
+        args: vec!["custom-binding".into()],
+        env: vec!["LD_LIBRARY_PATH=/prog".into()],
+        stdio: Stdio::from_fns(|_| {}, |_| {}),
+    };
+    let status = if file {
+        machine
+            .run_file(&wasmer::Engine::default(), "/prog/main.wasm", config)
+            .await
+    } else {
+        machine.run_process(&main, config).await
+    };
     (status, events)
 }
 
@@ -389,6 +468,133 @@ async fn declaration_without_a_prepared_value_fails_admission_and_deactivates() 
                 "a declaration must never synthesize an import value"
             );
             assert_eq!(*events.lock().unwrap(), [(1, "prepare"), (1, "deactivate")]);
+        })
+        .await;
+}
+
+// Match the API's async_sync_borrow owned subprocess boundary: a broken
+// factory could block the caller on the two-root meeting barrier.
+fn owning_thread_subprocess(name: &str) -> bool {
+    const CHILD: &str = "WASIXV2_OWNING_THREAD_CHILD";
+    if std::env::var_os(CHILD).is_some() {
+        return true;
+    }
+    struct OwnedChild(std::process::Child);
+    impl Drop for OwnedChild {
+        fn drop(&mut self) {
+            let _ = self.0.kill();
+            let _ = self.0.wait();
+        }
+    }
+    let mut child = OwnedChild(
+        std::process::Command::new(std::env::current_exe().unwrap())
+            .args(["--exact", name, "--nocapture"])
+            .env(CHILD, "1")
+            .spawn()
+            .unwrap(),
+    );
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+    loop {
+        match child.0.try_wait() {
+            Ok(Some(status)) => {
+                assert!(status.success(), "owning-thread proof failed: {status}");
+                return false;
+            }
+            Ok(None) if std::time::Instant::now() < deadline => {
+                std::thread::sleep(std::time::Duration::from_millis(10))
+            }
+            result => panic!("owning-thread proof did not finish: {result:?}"),
+        }
+    }
+}
+
+#[tokio::test]
+async fn side_only_bindings_construct_and_retire_on_their_owning_thread() {
+    if !owning_thread_subprocess("side_only_bindings_construct_and_retire_on_their_owning_thread") {
+        return;
+    }
+    tokio::task::LocalSet::new()
+        .run_until(async {
+            for (name, file) in [("owner-side-bytes", false), ("owner-side-file", true)] {
+                let caller = std::thread::current().id();
+                let events: ThreadEvents = Arc::default();
+                let (result, _) = run_case_with_thread(
+                    name,
+                    false,
+                    Variant::Env,
+                    Some(ThreadProbe {
+                        events: events.clone(),
+                        barrier: None,
+                    }),
+                    file,
+                )
+                .await;
+                assert_eq!(result.unwrap(), 0);
+                let events = events.lock().unwrap();
+                let owner = events
+                    .iter()
+                    .find(|(phase, _)| *phase == "prepare")
+                    .unwrap()
+                    .1;
+                assert_ne!(owner, caller);
+                assert!(events.iter().all(|(_, thread)| *thread == owner));
+                assert!(
+                    events
+                        .iter()
+                        .filter(|(phase, _)| *phase == "inspect")
+                        .count()
+                        >= 2
+                );
+                assert_eq!(events.last().unwrap().0, "cleanup");
+                for phase in ["prepare", "configure", "call", "deactivate", "cleanup"] {
+                    assert_eq!(events.iter().filter(|(seen, _)| *seen == phase).count(), 1);
+                }
+            }
+        })
+        .await;
+}
+
+#[tokio::test]
+async fn independent_binding_roots_use_distinct_owning_threads() {
+    if !owning_thread_subprocess("independent_binding_roots_use_distinct_owning_threads") {
+        return;
+    }
+    tokio::task::LocalSet::new()
+        .run_until(async {
+            let barrier = Arc::new(std::sync::Barrier::new(2));
+            let first: ThreadEvents = Arc::default();
+            let second: ThreadEvents = Arc::default();
+            let (left, right) = tokio::join!(
+                run_case_with_thread(
+                    "owner-first",
+                    false,
+                    Variant::Env,
+                    Some(ThreadProbe {
+                        events: first.clone(),
+                        barrier: Some(barrier.clone()),
+                    }),
+                    false
+                ),
+                run_case_with_thread(
+                    "owner-second",
+                    false,
+                    Variant::Env,
+                    Some(ThreadProbe {
+                        events: second.clone(),
+                        barrier: Some(barrier),
+                    }),
+                    false
+                ),
+            );
+            assert_eq!(left.0.unwrap(), 0);
+            assert_eq!(right.0.unwrap(), 0);
+            let first = first.lock().unwrap();
+            let second = second.lock().unwrap();
+            let left = first.iter().find(|(phase, _)| *phase == "call").unwrap().1;
+            let right = second.iter().find(|(phase, _)| *phase == "call").unwrap().1;
+            assert_ne!(left, right);
+            assert_eq!(first.last().unwrap().0, "cleanup");
+            assert_eq!(second.last().unwrap().0, "cleanup");
         })
         .await;
 }

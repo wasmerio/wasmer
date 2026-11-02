@@ -484,6 +484,7 @@ pub struct Abis<S> {
     abis: Vec<Arc<dyn Abi<S>>>,
     loader: Arc<dyn Loader>,
     hooks: Vec<Arc<dyn crate::InstantiationHook<S>>>,
+    owning_thread: bool,
     #[cfg(feature = "js")]
     js_async_mode: wasmer::js::AsyncMode,
 }
@@ -498,6 +499,7 @@ where
             abis: Vec::new(),
             loader: Arc::new(crate::Compile),
             hooks: Vec::new(),
+            owning_thread: false,
             #[cfg(feature = "js")]
             js_async_mode: wasmer::js::AsyncMode::Blocking,
         }
@@ -516,7 +518,14 @@ where
 
     /// Registers a custom binding independently of ABI selection, in registration order.
     pub fn push_instantiation_hook(&mut self, hook: Arc<dyn crate::InstantiationHook<S>>) {
+        self.owning_thread |= hook.requires_owning_thread();
         self.hooks.push(hook);
+    }
+
+    /// Whether any registered binding requires an owning thread, including
+    /// bindings which only a dynamically loaded module may eventually request.
+    pub fn requires_owning_thread(&self) -> bool {
+        self.owning_thread
     }
 
     pub(crate) fn install_hooks(&self, store: &mut Store, env: &FunctionEnv<ExecEnv<S>>) {

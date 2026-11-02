@@ -15,6 +15,13 @@ use crate::ExecEnv;
 /// A hook must not retain an owning Store/StoreAsync, including indirectly: images
 /// retain registered hooks for declarations and their Stores retain bound hook state.
 pub trait InstantiationHook<S>: Send + Sync + 'static {
+    /// Requires each initial/native task Store to be constructed inside the
+    /// executor's owning-thread factory. This fixed registry requirement also
+    /// applies when only a later side module imports the binding.
+    fn requires_owning_thread(&self) -> bool {
+        false
+    }
+
     /// Declares host imports that a dynamic linker may otherwise treat as missing
     /// guest symbols. This pure declaration must stay fixed for the image lifetime;
     /// it neither constructs a value nor overrides infrastructure or a guest definition.
@@ -419,6 +426,147 @@ mod tests {
         }
     }
 
+    struct ThreadOnlyHook(Arc<AtomicUsize>);
+    impl InstantiationHook<Recorder> for ThreadOnlyHook {
+        fn requires_owning_thread(&self) -> bool {
+            true
+        }
+        fn prepare_imports(
+            &self,
+            _: &Module,
+            _: &mut StoreMut<'_>,
+            _: &FunctionEnv<ExecEnv<Recorder>>,
+            _: &mut Imports,
+        ) -> Result<Option<Box<dyn InstanceAttachment>>, RuntimeError> {
+            self.0.fetch_add(1, Ordering::SeqCst);
+            panic!("rejected thread profiles must not prepare bindings");
+        }
+    }
+
+    fn thread_registry(prepared: Arc<AtomicUsize>) -> Arc<Abis<Recorder>> {
+        let mut abis = Abis::wasixv2();
+        abis.push_instantiation_hook(Arc::new(ThreadOnlyHook(prepared)));
+        Arc::new(abis)
+    }
+
+    #[test]
+    fn prebuilt_store_cannot_borrow_an_ambient_thread_profile() {
+        let store = Store::default();
+        let module = module(&store);
+        let prepared = Arc::new(AtomicUsize::new(0));
+        let control = Arc::new(Recorder::default());
+        let task = TaskId(41);
+        let owner = crate::thread::OwningThread::acquire().unwrap();
+        let result = futures::executor::block_on(crate::run_with_abis(
+            store,
+            &module,
+            control.clone(),
+            task,
+            Arc::new(NoThreads),
+            thread_registry(prepared.clone()),
+        ));
+        assert!(matches!(result, Err(ExecError::OwningThreadRequired)));
+        assert_eq!(prepared.load(Ordering::SeqCst), 0);
+        assert_eq!(
+            *control.faulted.lock().unwrap(),
+            [(task, wasixv2_abi::Signal::SIGSEGV.0)]
+        );
+        assert_eq!(*control.released.lock().unwrap(), [task]);
+        owner.authorize().unwrap();
+    }
+
+    #[test]
+    fn failed_thread_factory_releases_the_task_without_preparing_bindings() {
+        let store = Store::default();
+        let module = module(&store);
+        let engine = store.engine().clone();
+        drop(store);
+        let prepared = Arc::new(AtomicUsize::new(0));
+        let control = Arc::new(Recorder::default());
+        let task = TaskId(42);
+        let result = futures::executor::block_on(crate::run_on_owning_thread(
+            engine,
+            &module,
+            control.clone(),
+            task,
+            Arc::new(NoThreads),
+            thread_registry(prepared.clone()),
+        ));
+        assert!(matches!(result, Err(ExecError::OwningThreadSpawn(_))));
+        assert_eq!(prepared.load(Ordering::SeqCst), 0);
+        assert_eq!(
+            *control.faulted.lock().unwrap(),
+            [(task, wasixv2_abi::Signal::SIGSEGV.0)]
+        );
+        assert_eq!(*control.released.lock().unwrap(), [task]);
+    }
+
+    #[test]
+    fn occupied_factory_thread_releases_the_task_without_preparing_bindings() {
+        struct OccupiedThread;
+        impl wasixv2_host::Host for OccupiedThread {
+            fn realtime(&self) -> std::time::Duration {
+                std::time::Duration::ZERO
+            }
+            fn monotonic(&self) -> std::time::Duration {
+                std::time::Duration::ZERO
+            }
+            fn sleep(&self, _: std::time::Duration) -> wasixv2_host::LocalFuture<'_, ()> {
+                Box::pin(async {})
+            }
+            fn random(&self, _: &mut [u8]) {}
+            fn executor(&self) -> &dyn wasixv2_host::Executor {
+                self
+            }
+        }
+        impl wasixv2_host::Executor for OccupiedThread {
+            fn spawn_local(&self, _: wasixv2_host::LocalFuture<'static, ()>) {
+                panic!("rejected factory must not start local work");
+            }
+            fn spawn_blocking(
+                &self,
+                _: Box<dyn FnOnce() + Send>,
+            ) -> wasixv2_host::LocalFuture<'static, ()> {
+                panic!("rejected factory must not start blocking work");
+            }
+            fn spawn_thread(&self, start: wasixv2_host::ThreadStart) -> std::io::Result<()> {
+                // A host may select an existing worker. Admission must reject
+                // this worker's second root before constructing any Store.
+                let mut run = start();
+                assert!(
+                    run.as_mut()
+                        .poll(&mut std::task::Context::from_waker(std::task::Waker::noop()))
+                        .is_ready()
+                );
+                Ok(())
+            }
+        }
+        let store = Store::default();
+        let module = module(&store);
+        let engine = store.engine().clone();
+        drop(store);
+        let prepared = Arc::new(AtomicUsize::new(0));
+        let control = Arc::new(Recorder::default());
+        let task = TaskId(43);
+        let owner = crate::thread::OwningThread::acquire().unwrap();
+        let result = futures::executor::block_on(crate::run_on_owning_thread(
+            engine,
+            &module,
+            control.clone(),
+            task,
+            Arc::new(OccupiedThread),
+            thread_registry(prepared.clone()),
+        ));
+        assert!(matches!(result, Err(ExecError::OwningThreadBusy)));
+        assert_eq!(prepared.load(Ordering::SeqCst), 0);
+        assert_eq!(
+            *control.faulted.lock().unwrap(),
+            [(task, wasixv2_abi::Signal::SIGSEGV.0)]
+        );
+        assert_eq!(*control.released.lock().unwrap(), [task]);
+        owner.authorize().unwrap();
+    }
+
     fn module(store: &Store) -> Module {
         Module::new(
             store,
@@ -589,6 +737,82 @@ mod tests {
             work: Box<dyn FnOnce() + Send>,
         ) -> wasixv2_host::LocalFuture<'static, ()> {
             Box::pin(async move { work() })
+        }
+    }
+
+    #[test]
+    fn owning_thread_reports_runner_panics_only_after_transferred_cleanup_retires() {
+        use std::{
+            future::Future,
+            panic::{AssertUnwindSafe, catch_unwind},
+            pin::Pin,
+            task::{Context, Poll, Waker},
+        };
+        struct Guest {
+            panic_on_poll: bool,
+        }
+        impl Future for Guest {
+            type Output = ();
+            fn poll(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<()> {
+                assert!(!self.panic_on_poll, "guest poll proof");
+                Poll::Ready(())
+            }
+        }
+        impl Drop for Guest {
+            fn drop(&mut self) {
+                panic!("guest destructor proof");
+            }
+        }
+        for panic_on_poll in [false, true] {
+            assert!(JOBS.with(|jobs| jobs.borrow().is_empty()));
+            let scope = wasixv2_host::LoaderCleanup::new(Arc::new(QueueHost));
+            let completed = Arc::new(AtomicUsize::new(0));
+            let job_completed = completed.clone();
+            let (send, receive) = futures::channel::oneshot::channel::<()>();
+            assert!(
+                scope
+                    .submit(Box::new(move || {
+                        Box::pin(async move {
+                            receive.await.unwrap();
+                            job_completed.fetch_add(1, Ordering::SeqCst);
+                        })
+                    }))
+                    .is_ok()
+            );
+            let profile = crate::thread::OwningThread::acquire().unwrap();
+            let mut run = Box::pin(profile.run(&scope, Guest { panic_on_poll }));
+            let mut cx = Context::from_waker(Waker::noop());
+            assert!(run.as_mut().poll(&mut cx).is_pending());
+            assert!(matches!(
+                crate::thread::OwningThread::acquire(),
+                Err(ExecError::OwningThreadBusy)
+            ));
+            assert!(scope.is_open());
+            assert_eq!(completed.load(Ordering::SeqCst), 0);
+            let mut jobs = JOBS.with(|jobs| std::mem::take(&mut *jobs.borrow_mut()));
+            assert_eq!(jobs.len(), 2, "exact cleanup and transferred drain");
+            for job in &mut jobs {
+                assert!(job.as_mut().poll(&mut cx).is_pending());
+            }
+            send.send(()).unwrap();
+            for job in jobs {
+                futures::executor::block_on(job);
+            }
+            assert_eq!(completed.load(Ordering::SeqCst), 1);
+            assert!(!scope.is_open());
+            let panic = catch_unwind(AssertUnwindSafe(|| run.as_mut().poll(&mut cx)))
+                .expect_err("report the original panic after retirement");
+            let expected = if panic_on_poll {
+                "guest poll proof"
+            } else {
+                "guest destructor proof"
+            };
+            assert_eq!(panic.downcast_ref::<&str>(), Some(&expected));
+            drop(run);
+            crate::thread::OwningThread::acquire()
+                .unwrap()
+                .authorize()
+                .unwrap();
         }
     }
 

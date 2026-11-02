@@ -69,17 +69,19 @@ impl Handoff {
     /// Waits for the run that took over to end, and returns how it ended.
     pub(crate) async fn wait(&self) -> Result<i32, ExecError> {
         poll_fn(|cx| {
-            let mut state = self.0.lock().unwrap_or_else(PoisonError::into_inner);
-            match state.result.take() {
-                Some(result) => {
-                    state.taken = true;
-                    Poll::Ready(result)
+            let next = cx.waker().clone();
+            let (result, old_waker) = {
+                let mut state = self.0.lock().unwrap_or_else(PoisonError::into_inner);
+                match state.result.take() {
+                    Some(result) => {
+                        state.taken = true;
+                        (Some(result), state.waker.take())
+                    }
+                    None => (None, state.waker.replace(next)),
                 }
-                None => {
-                    state.waker = Some(cx.waker().clone());
-                    Poll::Pending
-                }
-            }
+            };
+            drop(old_waker);
+            result.map_or(Poll::Pending, Poll::Ready)
         })
         .await
     }
@@ -88,10 +90,10 @@ impl Handoff {
 /// The run that takes over a process, once it runs, with the [`Handoff`] it reports to. A run
 /// the host drops before it ends reports [`ExecError::Dropped`]. (One the host never starts
 /// reports what killing the process gave; see [`Spawner::take_over`].)
-struct Takeover(Arc<Handoff>);
+pub(crate) struct Takeover(pub(crate) Arc<Handoff>);
 
 impl Takeover {
-    fn report(self, result: Result<i32, ExecError>) {
+    pub(crate) fn report(self, result: Result<i32, ExecError>) {
         self.0.complete(result);
     }
 }
@@ -217,19 +219,47 @@ where
     {
         let host = self.host.clone();
         let syscalls = self.syscalls.clone();
+        let owning_thread = self.abis.requires_owning_thread();
         let start = Box::new(move || {
+            let profile = crate::thread::OwningThread::required(owning_thread);
             let cleanup = wasixv2_host::LoaderCleanup::new(host);
             let scope = cleanup.clone();
             Box::pin(async move {
-                cleanup
-                    .run(async move {
-                        if let Err(panic) =
-                            crate::catch_panic(async move { run(scope).await }).await
-                        {
-                            drop(crate::host_panicked(&*syscalls, task, panic));
+                let profile = match profile {
+                    Ok(profile) => profile,
+                    Err(error) => {
+                        // Construct/drop the engine-free future so Takeover
+                        // still reports to its waiting parent; do not poll it.
+                        let dropped =
+                            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                                drop(run(scope))
+                            }));
+                        let error = match dropped {
+                            Ok(()) => crate::reject_profile(&*syscalls, task, error),
+                            Err(panic) => crate::host_panicked(&*syscalls, task, panic),
+                        };
+                        report_failure(task, Err(error));
+                        return;
+                    }
+                };
+                let profile_syscalls = profile.as_ref().map(|_| syscalls.clone());
+                let guest = async move {
+                    if let Err(panic) = crate::catch_panic(async move { run(scope).await }).await {
+                        drop(crate::host_panicked(&*syscalls, task, panic));
+                    }
+                };
+                match profile {
+                    Some(profile) => {
+                        if let Err(panic) = crate::catch_panic(profile.run(&cleanup, guest)).await {
+                            drop(crate::host_panicked(
+                                &*profile_syscalls.unwrap(),
+                                task,
+                                panic,
+                            ));
                         }
-                    })
-                    .await
+                    }
+                    None => cleanup.run(guest).await,
+                }
             }) as wasixv2_host::LocalFuture<'static, ()>
         });
         if let Err(err) = self.host.executor().spawn_thread(start) {
@@ -639,8 +669,8 @@ pub(super) mod tests {
     pub(crate) struct Recorder {
         pub(crate) loader: Option<Arc<wasixv2_syscalls::LoaderGate>>,
         pending: Mutex<HashMap<TaskId, VecDeque<GuestAction>>>,
-        faulted: Mutex<Vec<(TaskId, i32)>>,
-        released: Mutex<Vec<TaskId>>,
+        pub(crate) faulted: Mutex<Vec<(TaskId, i32)>>,
+        pub(crate) released: Mutex<Vec<TaskId>>,
         /// The tasks that left their memory and the ones that faulted, in order.
         ended: Mutex<Vec<(&'static str, TaskId)>>,
         memory_task_work: bool,

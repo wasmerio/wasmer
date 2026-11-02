@@ -71,6 +71,14 @@ use crate::asyncify::Access;
 
 #[derive(Debug, thiserror::Error)]
 pub enum ExecError {
+    #[error("custom bindings require a Store created by the owning-thread factory")]
+    OwningThreadRequired,
+    #[error("owning-thread custom bindings are unsupported on this backend")]
+    OwningThreadUnsupported,
+    #[error("owning-thread execution cannot be admitted on this thread")]
+    OwningThreadBusy,
+    #[error("cannot start the owning-thread executor: {0}")]
+    OwningThreadSpawn(std::io::Error),
     #[error("cannot configure the execution Store: {0}")]
     StoreMode(wasmer::RuntimeError),
     #[error("custom binding failed: {0}")]
@@ -360,6 +368,36 @@ pub async fn run_with_abis<S>(
 where
     S: Syscalls + Control + Send + Sync + 'static,
 {
+    if abis.requires_owning_thread() {
+        // This Store already exists: moving it to a worker would violate its
+        // binding's construction/owner-thread contract.
+        return Err(match catch_unwind(AssertUnwindSafe(|| drop(store))) {
+            Ok(()) => reject_profile(&*syscalls, task, ExecError::OwningThreadRequired),
+            Err(panic) => host_panicked(&*syscalls, task, panic),
+        });
+    }
+    run_with_abis_profiled(store, module, syscalls, task, host, abis, None).await
+}
+
+// The public execution inputs plus its private factory authorization.
+#[allow(clippy::too_many_arguments)]
+async fn run_with_abis_profiled<S>(
+    store: Store,
+    module: &Module,
+    syscalls: Arc<S>,
+    task: TaskId,
+    host: Arc<dyn Host>,
+    abis: Arc<Abis<S>>,
+    profile: Option<thread::OwningThread>,
+) -> Result<i32, ExecError>
+where
+    S: Syscalls + Control + Send + Sync + 'static,
+{
+    if let Some(profile) = &profile {
+        profile
+            .authorize()
+            .map_err(|error| reject_profile(&*syscalls, task, error))?;
+    }
     let cleanup = wasixv2_host::LoaderCleanup::new(host.clone());
     let run = process::run(
         store,
@@ -370,13 +408,15 @@ where
         abis,
         cleanup.clone(),
     );
-    cleanup
-        .run(async move {
-            catch_panic(run)
-                .await
-                .unwrap_or_else(|panic| Err(host_panicked(&*syscalls, task, panic)))
-        })
-        .await
+    let guest = async move {
+        catch_panic(run)
+            .await
+            .unwrap_or_else(|panic| Err(host_panicked(&*syscalls, task, panic)))
+    };
+    match profile {
+        Some(profile) => profile.run(&cleanup, guest).await,
+        None => cleanup.run(guest).await,
+    }
 }
 
 /// Runs `image`, which the kernel's `kernel_execve` made the image of `task`, a process that ran
@@ -397,6 +437,45 @@ pub async fn run_exec<S>(
 where
     S: Syscalls + Control + Send + Sync + 'static,
 {
+    if abis.requires_owning_thread() {
+        #[cfg(all(feature = "sys", not(target_arch = "wasm32")))]
+        return run_owned_entry(
+            engine,
+            ThreadEntry::Image(image),
+            syscalls,
+            task,
+            host,
+            abis,
+        )
+        .await;
+        #[cfg(not(all(feature = "sys", not(target_arch = "wasm32"))))]
+        return Err(reject_profile(
+            &*syscalls,
+            task,
+            ExecError::OwningThreadUnsupported,
+        ));
+    }
+    run_exec_profiled(engine, image, syscalls, task, host, abis, None).await
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn run_exec_profiled<S>(
+    engine: Engine,
+    image: Image,
+    syscalls: Arc<S>,
+    task: TaskId,
+    host: Arc<dyn Host>,
+    abis: Arc<Abis<S>>,
+    profile: Option<thread::OwningThread>,
+) -> Result<i32, ExecError>
+where
+    S: Syscalls + Control + Send + Sync + 'static,
+{
+    if let Some(profile) = &profile {
+        profile
+            .authorize()
+            .map_err(|error| reject_profile(&*syscalls, task, error))?;
+    }
     let cleanup = wasixv2_host::LoaderCleanup::new(host.clone());
     let run = process::run_exec(
         engine,
@@ -407,13 +486,128 @@ where
         abis,
         cleanup.clone(),
     );
-    cleanup
-        .run(async move {
-            catch_panic(run)
-                .await
-                .unwrap_or_else(|panic| Err(host_panicked(&*syscalls, task, panic)))
-        })
+    let guest = async move {
+        catch_panic(run)
+            .await
+            .unwrap_or_else(|panic| Err(host_panicked(&*syscalls, task, panic)))
+    };
+    match profile {
+        Some(profile) => profile.run(&cleanup, guest).await,
+        None => cleanup.run(guest).await,
+    }
+}
+
+/// Constructs the initial Store inside the host's existing thread factory,
+/// then waits through guest teardown and the complete loader cleanup drain.
+/// Only Engine/Module and engine-free run context cross the factory boundary.
+pub async fn run_on_owning_thread<S>(
+    engine: Engine,
+    module: &Module,
+    syscalls: Arc<S>,
+    task: TaskId,
+    host: Arc<dyn Host>,
+    abis: Arc<Abis<S>>,
+) -> Result<i32, ExecError>
+where
+    S: Syscalls + Control + Send + Sync + 'static,
+{
+    #[cfg(all(feature = "sys", not(target_arch = "wasm32")))]
+    {
+        run_owned_entry(
+            engine,
+            ThreadEntry::Module(module.clone()),
+            syscalls,
+            task,
+            host,
+            abis,
+        )
         .await
+    }
+    #[cfg(not(all(feature = "sys", not(target_arch = "wasm32"))))]
+    {
+        let _ = (engine, module, host, abis);
+        Err(reject_profile(
+            &*syscalls,
+            task,
+            ExecError::OwningThreadUnsupported,
+        ))
+    }
+}
+
+fn reject_profile<S: Control>(syscalls: &S, task: TaskId, error: ExecError) -> ExecError {
+    process::fault(syscalls, task, Signal::SIGSEGV.0);
+    syscalls.release(task);
+    error
+}
+
+#[cfg(all(feature = "sys", not(target_arch = "wasm32")))]
+enum ThreadEntry {
+    Module(Module),
+    Image(Image),
+}
+
+#[cfg(all(feature = "sys", not(target_arch = "wasm32")))]
+async fn run_owned_entry<S>(
+    engine: Engine,
+    entry: ThreadEntry,
+    syscalls: Arc<S>,
+    task: TaskId,
+    host: Arc<dyn Host>,
+    abis: Arc<Abis<S>>,
+) -> Result<i32, ExecError>
+where
+    S: Syscalls + Control + Send + Sync + 'static,
+{
+    let completion = Arc::new(process::Handoff::default());
+    let done = process::Takeover(completion.clone());
+    let worker_syscalls = syscalls.clone();
+    let worker_host = host.clone();
+    host.executor()
+        .spawn_thread(Box::new(move || {
+            // This runs on the selected owner, before any Store or FunctionEnv.
+            let profile = thread::OwningThread::acquire();
+            Box::pin(async move {
+                let result = match profile {
+                    Err(error) => Err(reject_profile(&*worker_syscalls, task, error)),
+                    Ok(profile) => {
+                        let call = async {
+                            match entry {
+                                ThreadEntry::Module(module) => {
+                                    run_with_abis_profiled(
+                                        Store::new(engine),
+                                        &module,
+                                        worker_syscalls.clone(),
+                                        task,
+                                        worker_host,
+                                        abis,
+                                        Some(profile),
+                                    )
+                                    .await
+                                }
+                                ThreadEntry::Image(image) => {
+                                    run_exec_profiled(
+                                        engine,
+                                        image,
+                                        worker_syscalls.clone(),
+                                        task,
+                                        worker_host,
+                                        abis,
+                                        Some(profile),
+                                    )
+                                    .await
+                                }
+                            }
+                        };
+                        catch_panic(call).await.unwrap_or_else(|panic| {
+                            Err(host_panicked(&*worker_syscalls, task, panic))
+                        })
+                    }
+                };
+                done.report(result);
+            })
+        }))
+        .map_err(|error| reject_profile(&*syscalls, task, ExecError::OwningThreadSpawn(error)))?;
+    completion.wait().await
 }
 
 /// How one image's run ended.

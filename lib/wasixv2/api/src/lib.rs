@@ -890,10 +890,23 @@ impl Machine {
         config: ProcessConfig,
     ) -> Result<i32, RunError> {
         preflight(module)?;
+        self.check_thread_profile()?;
         let (task, running) = self.start(config).await?;
-        let status = self
-            .run_image(Store::new(engine.clone()), module, task)
-            .await;
+        let status = if self.abis.requires_owning_thread() {
+            wasixv2_exec::run_on_owning_thread(
+                engine.clone(),
+                module,
+                self.syscalls.clone(),
+                task,
+                self.task_host.clone(),
+                self.abis.clone(),
+            )
+            .await
+            .map_err(RunError::Exec)
+        } else {
+            self.run_image(Store::new(engine.clone()), module, task)
+                .await
+        };
         running.released();
         self.console_sent().await;
         status
@@ -915,6 +928,7 @@ impl Machine {
         path: &str,
         config: ProcessConfig,
     ) -> Result<i32, RunError> {
+        self.check_thread_profile()?;
         let bytes = |strings: &[String]| strings.iter().map(|s| s.as_bytes().to_vec()).collect();
         let (args, env) = (bytes(&config.args), bytes(&config.env));
         let (task, running) = self.start(config).await?;
@@ -1017,6 +1031,14 @@ impl Machine {
                 .map_err(|errno| RunError::Console(errno_to_io(errno)))?;
         }
         Ok((task, running))
+    }
+
+    fn check_thread_profile(&self) -> Result<(), RunError> {
+        #[cfg(not(all(feature = "sys", not(target_arch = "wasm32"))))]
+        if self.abis.requires_owning_thread() {
+            return Err(ExecError::OwningThreadUnsupported.into());
+        }
+        Ok(())
     }
 
     async fn run_image(
