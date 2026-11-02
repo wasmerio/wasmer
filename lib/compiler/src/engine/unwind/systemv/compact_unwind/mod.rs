@@ -1,9 +1,4 @@
-/// Data types and functions to read and represent entries in the `__compact_unwind` section.
-mod cu_entry;
-
-use crate::UNWIND_HAS_LSDA;
 use core::ops::Range;
-pub(crate) use cu_entry::CompactUnwindEntry;
 use rangemap::RangeMap;
 use std::sync::{LazyLock, Mutex};
 
@@ -77,7 +72,6 @@ unsafe extern "C" {
 
 #[derive(Debug, Default)]
 pub struct CompactUnwindManager {
-    compact_unwind_entries: Vec<CompactUnwindEntry>,
     dso_base: usize,
     mapped_image_range: Option<Range<usize>>,
 }
@@ -146,18 +140,6 @@ impl CompactUnwindManager {
                 .lock()
                 .expect("cannot lock UNWIND_INFO")
                 .remove(range.clone());
-            return;
-        }
-        if self.dso_base != 0 {
-            let ranges: Vec<Range<usize>> = self
-                .compact_unwind_entries
-                .iter()
-                .map(|v| v.function_addr..v.function_addr + (v.length as usize))
-                .collect();
-            let mut uw_info = UNWIND_INFO.lock().expect("cannot lock UNWIND_INFO");
-            for range in ranges {
-                (*uw_info).remove(range);
-            }
         }
     }
 
