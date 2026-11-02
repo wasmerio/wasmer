@@ -51,13 +51,14 @@ pub(crate) struct AsyncCallFuture {
 
     coroutine: Option<Coroutine<AsyncResume, AsyncYield, Result<Box<[Value]>, RuntimeError>>>,
     suspended_stores: SuspendedStoreContexts,
+    trap_state: RootTrapState,
     pending_store_install: Option<Pin<Box<dyn Future<Output = ForcedStoreInstallGuard>>>>,
     pending_future: Option<HostFuture>,
     next_resume: Option<AsyncResume>,
     result: Option<Result<Box<[Value]>, RuntimeError>>,
 
     // Store handle we can use to lock the store down
-    store: StoreAsync,
+    store: Option<StoreAsync>,
     store_context_id: StoreContextId,
 }
 
@@ -137,27 +138,42 @@ impl AsyncCallFuture {
             id: NEXT_ASYNC_CALL_FUTURE_ID.fetch_add(1, std::sync::atomic::Ordering::SeqCst),
             coroutine: Some(coroutine),
             suspended_stores: SuspendedStoreContexts::default(),
+            trap_state: RootTrapState::default(),
             pending_store_install: None,
             pending_future: None,
             next_resume: Some(AsyncResume::Start),
             result: None,
-            store,
+            store: Some(store),
             store_context_id,
         }
     }
 
-    fn remove_from_wakers_list(&self) {
-        let mut wakers_entry = match ASYNC_CALL_FUTURE_WAKERS.entry(self.store.store_id()) {
-            dashmap::Entry::Occupied(o) => o,
-            dashmap::Entry::Vacant(v) => return,
-        };
-
-        let mut waker_map_ref = wakers_entry.get_mut();
-        waker_map_ref.remove(&self.id);
-        if waker_map_ref.is_empty() {
-            wakers_entry.remove();
-        }
+    fn store(&self) -> &StoreAsync {
+        self.store
+            .as_ref()
+            .expect("invocation Store already released")
     }
+
+    fn remove_from_wakers_list(&self) {
+        remove_from_wakers_list(self.store().store_id(), self.id);
+    }
+}
+
+fn remove_from_wakers_list(store_id: StoreId, id: AsyncCallFutureId) {
+    let mut wakers_entry = match ASYNC_CALL_FUTURE_WAKERS.entry(store_id) {
+        dashmap::Entry::Occupied(o) => o,
+        dashmap::Entry::Vacant(v) => return,
+    };
+
+    let mut waker_map_ref = wakers_entry.get_mut();
+    let removed = waker_map_ref.remove(&id);
+    if waker_map_ref.is_empty() {
+        wakers_entry.remove();
+    } else {
+        drop(wakers_entry);
+    }
+    // User Waker destructors may reenter this registry.
+    drop(removed);
 }
 
 impl Future for AsyncCallFuture {
@@ -169,7 +185,7 @@ impl Future for AsyncCallFuture {
             "Function::call_async futures cannot be polled recursively from within another imported function"
         );
         loop {
-            let store_id = self.store.store_id();
+            let store_id = self.store().store_id();
 
             #[cfg(feature = "experimental-host-interrupt")]
             {
@@ -207,8 +223,8 @@ impl Future for AsyncCallFuture {
             if self.pending_store_install.is_none() {
                 self.pending_store_install = Some(Box::pin(install_store_context(
                     StoreAsync {
-                        id: self.store.id,
-                        inner: self.store.inner.clone(),
+                        id: self.store().id,
+                        inner: self.store().inner.clone(),
                     },
                     self.store_context_id,
                 )));
@@ -232,12 +248,15 @@ impl Future for AsyncCallFuture {
 
             store_context_guard.restore_suffix(&mut self.suspended_stores);
             let resume_arg = self.next_resume.take().expect("no resume arg available");
+            let trap_boundary = TrapBoundary::enter(std::mem::take(&mut self.trap_state));
             let coroutine = self.coroutine.as_mut().unwrap();
             let boundary = CoroutineBoundary::new();
             let result = coroutine.resume(resume_arg);
             boundary.returned();
+            let trap_state = trap_boundary.leave();
             match result {
                 CoroutineResult::Yield(AsyncYield(fut)) => {
+                    self.trap_state = trap_state;
                     store_context_guard.suspend_suffix(&mut self.suspended_stores);
                     self.pending_future = Some(fut);
                 }
@@ -256,7 +275,95 @@ impl Future for AsyncCallFuture {
 
 impl Drop for AsyncCallFuture {
     fn drop(&mut self) {
-        self.remove_from_wakers_list();
+        let store_id = self.store().store_id();
+        // A different invocation may be physically active while this one is
+        // canceled. None of our destructors may yield through its yielder.
+        let _caller = DetachedCoroutineContext::new();
+        let _traps = TrapBoundary::enter(std::mem::take(&mut self.trap_state));
+        let owned = DroppedInvocation {
+            _pending_future: self.pending_future.take(),
+            _pending_store_install: self.pending_store_install.take(),
+            _next_resume: self.next_resume.take(),
+            _result: self.result.take(),
+            _coroutine: self.coroutine.take(),
+            _suspended_stores: std::mem::take(&mut self.suspended_stores),
+            _store: self.store.take(),
+        };
+        // Construct custody before running arbitrary Waker destructors, so an
+        // unwind still destroys the native stack before releasing its Store.
+        remove_from_wakers_list(store_id, self.id);
+        drop(owned);
+    }
+}
+
+// Fields also drop in this order if one destructor panics. Keep raw Sync
+// snapshots and the Store alive until all native stack frames have unwound.
+#[allow(clippy::type_complexity)]
+struct DroppedInvocation {
+    _pending_future: Option<HostFuture>,
+    _pending_store_install: Option<Pin<Box<dyn Future<Output = ForcedStoreInstallGuard>>>>,
+    _next_resume: Option<AsyncResume>,
+    _result: Option<Result<Box<[Value]>, RuntimeError>>,
+    _coroutine: Option<Coroutine<AsyncResume, AsyncYield, Result<Box<[Value]>, RuntimeError>>>,
+    _suspended_stores: SuspendedStoreContexts,
+    _store: Option<StoreAsync>,
+}
+
+// The baremetal backend has no stack-local VM trap handlers to exchange.
+#[derive(Default)]
+struct RootTrapState {
+    #[cfg(not(feature = "baremetal"))]
+    state: wasmer_vm::SavedTrapState,
+    #[cfg(all(unix, feature = "experimental-host-interrupt"))]
+    interrupts: wasmer_vm::interrupt_registry::SavedInterruptState,
+}
+
+impl RootTrapState {
+    unsafe fn replace_current(self) -> Self {
+        // No guest code or user callback runs between the interrupt marker and
+        // VM handler exchanges. A signal during this host-stack transition is
+        // rejected by the handler's Wasm-stack bounds check.
+        Self {
+            #[cfg(all(unix, feature = "experimental-host-interrupt"))]
+            interrupts: unsafe { self.interrupts.replace_current() },
+            #[cfg(not(feature = "baremetal"))]
+            state: unsafe { self.state.replace_current() },
+        }
+    }
+}
+
+struct TrapBoundary {
+    caller: Option<RootTrapState>,
+}
+
+impl TrapBoundary {
+    fn enter(root: RootTrapState) -> Self {
+        // The invocation retains the coroutine and its Store until this
+        // boundary is removed, including while its destructors unwind.
+        Self {
+            caller: Some(unsafe { root.replace_current() }),
+        }
+    }
+
+    fn leave(mut self) -> RootTrapState {
+        // Restore the caller before polling any host future. Only a normal
+        // yield retains the returned raw pointers; Return discards them.
+        unsafe {
+            self.caller
+                .take()
+                .expect("active trap boundary")
+                .replace_current()
+        }
+    }
+}
+
+impl Drop for TrapBoundary {
+    fn drop(&mut self) {
+        // On panic the engine stack may already be dead. Exchange never
+        // dereferences its old pointers, and no token retains them afterward.
+        if let Some(caller) = self.caller.take() {
+            unsafe { caller.replace_current() };
+        }
     }
 }
 
@@ -338,6 +445,35 @@ thread_local! {
 struct CoroutineContext {
     yielder: *const Yielder<AsyncResume, AsyncYield>,
     store_context_id: StoreContextId,
+}
+
+/// Hide a foreign physical coroutine from all cancellation destructors.
+struct DetachedCoroutineContext {
+    caller: Vec<*const CoroutineContext>,
+}
+
+impl DetachedCoroutineContext {
+    fn new() -> Self {
+        Self {
+            caller: CURRENT_CONTEXT.with(|current| std::mem::take(&mut *current.borrow_mut())),
+        }
+    }
+}
+
+impl Drop for DetachedCoroutineContext {
+    fn drop(&mut self) {
+        let remaining = CURRENT_CONTEXT.with(|current| {
+            // Any destructor-created coroutine is owned by that destructor;
+            // none may outlive it or replace the caller's exact prefix.
+            std::mem::replace(&mut *current.borrow_mut(), std::mem::take(&mut self.caller))
+        });
+        if !std::thread::panicking() {
+            assert!(
+                remaining.is_empty(),
+                "destructor left a coroutine installed"
+            );
+        }
+    }
 }
 
 /// Raw context pointers belong to coroutine stacks. Unwinding a resume destroys
@@ -462,6 +598,183 @@ fn run_immediate(
 mod tests {
     use super::*;
     use crate::{Function, Instance, Module};
+
+    #[test]
+    fn cancellation_destructors_cannot_yield_through_another_root() {
+        const CHILD: &str = "WASMER_CANCELLATION_CONTEXT_CHILD";
+        if std::env::var_os(CHILD).is_none() {
+            // Like async_sync_borrow, isolate invalid native stack transitions
+            // in an owned, bounded child process.
+            struct OwnedChild(std::process::Child);
+            impl Drop for OwnedChild {
+                fn drop(&mut self) {
+                    let _ = self.0.kill();
+                    let _ = self.0.wait();
+                }
+            }
+            let mut child = OwnedChild(
+                std::process::Command::new(std::env::current_exe().unwrap())
+                    .args([
+                        "--exact",
+                        "backend::sys::async_runtime::tests::cancellation_destructors_cannot_yield_through_another_root",
+                        "--nocapture",
+                    ])
+                    .env(CHILD, "1")
+                    .spawn()
+                    .unwrap(),
+            );
+            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(15);
+            loop {
+                match child.0.try_wait() {
+                    Ok(Some(status)) => {
+                        assert!(
+                            status.success(),
+                            "cancellation context proof failed: {status}"
+                        );
+                        return;
+                    }
+                    Ok(None) if std::time::Instant::now() < deadline => {
+                        std::thread::sleep(std::time::Duration::from_millis(10));
+                    }
+                    result => panic!("cancellation context proof did not finish: {result:?}"),
+                }
+            }
+        }
+
+        struct Probe(Rc<std::cell::Cell<usize>>);
+        impl Drop for Probe {
+            fn drop(&mut self) {
+                assert!(CoroutineContext::get_current().is_none());
+                assert!(matches!(
+                    block_on_host_future(std::future::pending()),
+                    Err(AsyncRuntimeError::YieldOutsideAsyncContext)
+                ));
+                self.0.set(self.0.get() + 1);
+            }
+        }
+        struct PendingBody(Probe);
+        impl Future for PendingBody {
+            type Output = Result<Vec<Value>, RuntimeError>;
+            fn poll(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<Self::Output> {
+                let _ = &self.0;
+                Poll::Pending
+            }
+        }
+        struct RegistryWake {
+            store_id: StoreId,
+            drops: std::sync::Arc<std::sync::atomic::AtomicUsize>,
+            wakes: std::sync::atomic::AtomicUsize,
+        }
+        impl std::task::Wake for RegistryWake {
+            fn wake(self: std::sync::Arc<Self>) {
+                self.wakes.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            }
+        }
+        impl Drop for RegistryWake {
+            fn drop(&mut self) {
+                assert!(CoroutineContext::get_current().is_none());
+                // A Waker destructor can reenter the registry for its own key.
+                // Removing it must release the DashMap entry before this call.
+                assert!(ASYNC_CALL_FUTURE_WAKERS.get(&self.store_id).is_none());
+                self.drops.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            }
+        }
+
+        let drops = Rc::new(std::cell::Cell::new(0));
+        let mut first_store = Store::default();
+        let _data = crate::FunctionEnv::new(&mut first_store, ());
+        // This Store-owned closure captures a second destructor probe without
+        // requiring a Send implementation for the thread-local test state.
+        let store_probe = Probe(drops.clone());
+        let _owner = Function::new_async(
+            &mut first_store,
+            crate::FunctionType::new([], []),
+            move |_| {
+                let _ = &store_probe;
+                async { Ok(vec![]) }
+            },
+        );
+        let count = drops.clone();
+        let wait = Function::new_async(
+            &mut first_store,
+            crate::FunctionType::new([], []),
+            move |_| PendingBody(Probe(count.clone())),
+        );
+        let module = Module::new(
+            &first_store,
+            r#"(module (import "proof" "wait" (func $wait))
+                (func (export "run") call $wait))"#,
+        )
+        .unwrap();
+        let instance = Instance::new(
+            &mut first_store,
+            &module,
+            &crate::imports! { "proof" => { "wait" => wait } },
+        )
+        .unwrap();
+        let mut first = Box::pin(AsyncCallFuture::new(
+            instance
+                .exports
+                .get_function("run")
+                .unwrap()
+                .as_sys()
+                .clone(),
+            first_store.into_async(),
+            vec![],
+        ));
+        let waker_drops = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let waker = Waker::from(std::sync::Arc::new(RegistryWake {
+            store_id: first.store().store_id(),
+            drops: waker_drops.clone(),
+            wakes: std::sync::atomic::AtomicUsize::new(0),
+        }));
+        assert!(
+            first
+                .as_mut()
+                .poll(&mut Context::from_waker(&waker))
+                .is_pending()
+        );
+        drop(waker);
+        assert_eq!(drops.get(), 0);
+
+        let first = Rc::new(RefCell::new(Some(first)));
+        let mut second_store = Store::default();
+        let cancel = Function::new_async(
+            &mut second_store,
+            crate::FunctionType::new([], []),
+            move |_| {
+                let current = CoroutineContext::get_current().expect("second root active");
+                drop(first.borrow_mut().take().unwrap());
+                assert_eq!(CoroutineContext::get_current(), Some(current));
+                async { Ok(vec![]) }
+            },
+        );
+        let module = Module::new(
+            &second_store,
+            r#"(module (import "proof" "cancel" (func $cancel))
+                (func (export "run") (result i32) call $cancel i32.const 42))"#,
+        )
+        .unwrap();
+        let second = Instance::new(
+            &mut second_store,
+            &module,
+            &crate::imports! { "proof" => { "cancel" => cancel } },
+        )
+        .unwrap();
+        let result = futures::executor::block_on(
+            second
+                .exports
+                .get_function("run")
+                .unwrap()
+                .call_async(&second_store.into_async(), vec![]),
+        )
+        .unwrap();
+        assert_eq!(result[0].i32(), Some(42));
+        assert_eq!(drops.get(), 2);
+        assert_eq!(waker_drops.load(std::sync::atomic::Ordering::SeqCst), 1);
+        CURRENT_CONTEXT.with(|current| assert!(current.borrow().is_empty()));
+        assert!(StoreContext::is_empty());
+    }
 
     #[test]
     fn a_distinct_store_async_call_rejects_recursive_poll_without_starting() {
