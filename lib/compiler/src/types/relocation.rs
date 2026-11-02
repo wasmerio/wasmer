@@ -20,7 +20,7 @@ use crate::{Addend, CodeOffset};
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
-use wasmer_types::{FunctionIndex, LibCall, LocalFunctionIndex, entity::PrimaryMap};
+use wasmer_types::{FunctionIndex, LibCall, LocalFunctionIndex};
 
 /// Relocation kinds for every ISA.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]

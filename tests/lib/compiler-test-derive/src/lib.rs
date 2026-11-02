@@ -106,6 +106,17 @@ fn compiler_test_impl(attrs: TokenStream, input: TokenStream) -> TokenStream {
                 &compiler_name.to_lowercase(),
                 false,
             );
+            let dynamic_memory_test = if compiler_name != "V8" {
+                construct_engine_test(
+                    func,
+                    compiler_name,
+                    &format!("{compiler_name}_dynamic_memory"),
+                    &compiler_name.to_lowercase(),
+                    true,
+                )
+            } else {
+                quote! {}
+            };
             let compiler_name_lowercase = compiler_name.to_lowercase();
 
             quote! {
@@ -114,6 +125,7 @@ fn compiler_test_impl(attrs: TokenStream, input: TokenStream) -> TokenStream {
                     use super::*;
 
                     #engine_test
+                    #dynamic_memory_test
                 }
             }
         };
