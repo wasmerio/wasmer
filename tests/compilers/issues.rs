@@ -1006,6 +1006,64 @@ fn issue_return_call_import(mut config: crate::Config) -> Result<()> {
 
 #[cfg(feature = "llvm")]
 #[compiler_test(issues)]
+fn issue_return_call_import_without_m0(mut config: crate::Config) -> Result<()> {
+    if config.compiler != crate::Compiler::LLVM {
+        return Ok(());
+    }
+
+    let mut features = wasmer::sys::Features::new();
+    features.tail_call(true);
+    config.set_features(features);
+    let mut store = config.store();
+
+    let provider = Module::new(
+        &store,
+        r#"(module
+            (memory 1 1)
+            (data (i32.const 0) "\49\00\00\00")
+            (func (export "read") (param i32 i32) (result i32)
+                i32.const 0 i32.load local.get 0 i32.add))"#,
+    )?;
+    assert_eq!(
+        provider.info().m0_pass_param_enabled,
+        !config.dynamic_memory
+    );
+    let provider = Instance::new(&mut store, &provider, &imports! {})?;
+    let foreign = provider.exports.get_function("read")?.clone();
+    let host = Function::new_typed(&mut store, |value: i32, _: i32| value + 101);
+
+    let caller = Module::new(
+        &store,
+        r#"(module
+            (import "env" "read" (func $read (param i32 i32) (result i32)))
+            (func (export "direct") (param i32 i32) (result i32)
+                local.get 0 local.get 1 call $read)
+            (func (export "tail") (param i32 i32) (result i32)
+                local.get 0 local.get 1 return_call $read
+                unreachable))"#,
+    )?;
+    assert!(!caller.info().m0_pass_param_enabled);
+
+    // Exercise both imported-call ABI branches. A tail call must not execute
+    // the unreachable instruction, even when the callee requires an m0 argument.
+    for (target, expected) in [(foreign, 73), (host, 101)] {
+        let instance = Instance::new(
+            &mut store,
+            &caller,
+            &imports! { "env" => { "read" => target } },
+        )?;
+        for name in ["direct", "tail"] {
+            let run: TypedFunction<(i32, i32), i32> =
+                instance.exports.get_typed_function(&store, name)?;
+            assert_eq!(run.call(&mut store, 0, 37)?, expected);
+        }
+    }
+
+    Ok(())
+}
+
+#[cfg(feature = "llvm")]
+#[compiler_test(issues)]
 fn issue_return_call_indirect_mixed_local_import(mut config: crate::Config) -> Result<()> {
     if config.compiler != crate::Compiler::LLVM {
         return Ok(());
@@ -1848,6 +1906,128 @@ fn table_mismatch_types(mut config: crate::Config) -> Result<()> {
         externref_table.get(&mut store, 0),
         Some(Value::ExternRef(None))
     ));
+    Ok(())
+}
 
+#[cfg(feature = "llvm")]
+#[compiler_test(issues)]
+fn indirect_call_runtime_m0_abi(mut config: crate::Config) -> Result<()> {
+    if config.compiler != crate::Compiler::LLVM {
+        return Ok(());
+    }
+    let mut features = wasmer::sys::Features::new();
+    features.tail_call(true);
+    config.set_features(features);
+    let mut store = config.store();
+
+    let provider = Module::new(
+        &store,
+        r#"
+        (module
+          (import "env" "memory" (memory 1 1))
+          (func (export "read") (param i32) (result i32)
+            i32.const 0 i32.load local.get 0 i32.add))
+    "#,
+    )?;
+    let memory = Memory::new(&mut store, MemoryType::new(1, Some(1), false))?;
+    memory.view(&store).write(0, &73_i32.to_le_bytes())?;
+    let provider = Instance::new(
+        &mut store,
+        &provider,
+        &imports! {
+            "env" => { "memory" => memory }
+        },
+    )?;
+    let foreign = provider.exports.get_function("read")?.clone();
+
+    let no_memory = Module::new(
+        &store,
+        r#"
+        (module (func (export "read") (param i32) (result i32)
+          local.get 0 i32.const 91 i32.add))
+    "#,
+    )?;
+    let no_memory = Instance::new(&mut store, &no_memory, &imports! {})?;
+    let no_m0 = no_memory.exports.get_function("read")?.clone();
+    let host = Function::new_typed(&mut store, |value: i32| value + 101);
+
+    for (caller_has_memory, table_max) in [(false, ""), (false, "2"), (true, ""), (true, "2")] {
+        let memory = if caller_has_memory {
+            r#"(memory (export "memory") 1 1)
+               (data (i32.const 0) "\17\00\00\00")"#
+        } else {
+            ""
+        };
+        let local_value = if caller_has_memory {
+            "i32.const 0 i32.load"
+        } else {
+            "i32.const 23"
+        };
+        let module = Module::new(
+            &store,
+            format!(
+                r#"
+            (module
+              (type $t (func (param i32) (result i32)))
+              {memory}
+              (table (export "table") 2 {table_max} funcref)
+              (elem (i32.const 0) $local)
+              (func $local (export "local") (type $t) (param i32) (result i32)
+                {local_value} local.get 0 i32.add)
+              (func (export "set") (param i32 funcref)
+                local.get 0 local.get 1 table.set)
+              (func (export "run") (param i32 i32) (result i32)
+                local.get 0 local.get 1 call_indirect (type $t))
+              (func (export "tail") (param i32 i32) (result i32)
+                local.get 0 local.get 1 return_call_indirect (type $t)))
+        "#
+            ),
+        )?;
+        // The entry-point ABI flag must survive artifact serialization.
+        let module = unsafe { Module::deserialize(&store, module.serialize()?)? };
+        let instance = Instance::new(&mut store, &module, &imports! {})?;
+        let other_instance = Instance::new(&mut store, &module, &imports! {})?;
+        if caller_has_memory {
+            other_instance
+                .exports
+                .get_memory("memory")?
+                .view(&store)
+                .write(0, &53_i32.to_le_bytes())?;
+        }
+        let set = instance.exports.get_function("set")?;
+        let run: TypedFunction<(i32, i32), i32> =
+            instance.exports.get_typed_function(&store, "run")?;
+        let tail: TypedFunction<(i32, i32), i32> =
+            instance.exports.get_typed_function(&store, "tail")?;
+        assert_eq!(run.call(&mut store, 7, 0)?, 30);
+        assert!(run.call(&mut store, 7, 1).is_err());
+        assert!(run.call(&mut store, 7, 2).is_err());
+
+        let local = instance.exports.get_function("local")?.clone();
+        let other = other_instance.exports.get_function("local")?.clone();
+        for (target, base) in [
+            (foreign.clone(), 73),
+            (no_m0.clone(), 91),
+            (host.clone(), 101),
+            (other, if caller_has_memory { 53 } else { 23 }),
+            (local, 23),
+        ] {
+            // Replace both an initialized slot and one absent from the initializer.
+            for slot in 0..2 {
+                let value = Value::FuncRef(Some(target.clone()));
+                if table_max.is_empty() {
+                    instance
+                        .exports
+                        .get_table("table")?
+                        .set(&mut store, slot as u32, value)?;
+                } else {
+                    // Fixed tables also keep an inline cache, updated by the Wasm setter.
+                    set.call(&mut store, &[Value::I32(slot), value])?;
+                }
+                assert_eq!(run.call(&mut store, 7, slot)?, base + 7);
+                assert_eq!(tail.call(&mut store, 7, slot)?, base + 7);
+            }
+        }
+    }
     Ok(())
 }

@@ -351,8 +351,52 @@ impl FuncTranslator {
         let cache_builder = self.ctx.create_builder();
         let builder = self.ctx.create_builder();
         cache_builder.position_at_end(entry);
+        let m0_param = if m0_is_enabled {
+            // If we're reached from another WASM module (e.g. via indirect call), the caller can't make any assumptions
+            // about `m0` and so NULL argument is passed instead. For more information, see `build_anyfunc_call` function.
+            let m0 = self.abi.get_m0_ptr_param(&func);
+            let load_m0 = self.ctx.append_basic_block(func, "load_m0");
+            let m0_ready = self.ctx.append_basic_block(func, "m0_ready");
+            let is_null = err!(cache_builder.build_is_null(m0, "m0_is_null"));
+            let is_null = err!(cache_builder.build_call(
+                intrinsics.expect_i1,
+                &[is_null.into(), intrinsics.i1_ty.const_zero().into()],
+                "m0_is_null_unlikely",
+            ))
+            .try_as_basic_value()
+            .unwrap_basic()
+            .into_int_value();
+            err!(cache_builder.build_conditional_branch(is_null, load_m0, m0_ready));
+
+            cache_builder.position_at_end(load_m0);
+            let MemoryCache::Static { base_ptr } = CtxType::new(
+                wasm_module,
+                &func,
+                &cache_builder,
+                &self.abi,
+                self.pointer_width,
+                None,
+            )?
+            .memory(
+                MemoryIndex::from_u32(0),
+                &intrinsics,
+                &module,
+                memory_styles,
+            )?
+            else {
+                unreachable!("m0 requires static memory");
+            };
+            err!(cache_builder.build_unconditional_branch(m0_ready));
+
+            cache_builder.position_at_end(m0_ready);
+            let resolved = err!(cache_builder.build_phi(intrinsics.ptr_ty, "m0_base_ptr"));
+            resolved.add_incoming(&[(&m0, entry), (&base_ptr, load_m0)]);
+            Some(resolved.as_basic_value().into_pointer_value())
+        } else {
+            None
+        };
         let br = err!(cache_builder.build_unconditional_branch(start_of_code));
-        alloca_builder.position_before(&br);
+        alloca_builder.position_before(&entry.get_terminator().unwrap());
         cache_builder.position_before(&br);
         builder.position_at_end(start_of_code);
 
@@ -440,14 +484,6 @@ impl FuncTranslator {
 
         let mut params_locals = params.clone();
         params_locals.extend(locals.iter().cloned());
-
-        let mut m0_param = None;
-
-        if m0_is_enabled {
-            let m0 = self.abi.get_m0_ptr_param(&func);
-            m0.set_name("m0_base_ptr");
-            m0_param = Some(m0);
-        }
 
         let mut fcg = LLVMFunctionCodeGenerator {
             m0_param,
@@ -2180,221 +2216,125 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         })
     }
 
-    fn build_m0_indirect_call(
+    // Build an indirect call with three paths based on the table's funcref entry:
+    // 1. Likely same instance (vmctx == anyfunc.vmctx): pass m0 if the optimization
+    //    is enabled; local functions share the caller's ABI and memory #0.
+    // 2. Otherwise, if anyfunc.include_m0_param is set, pass NULL as m0. The caller
+    //    does not know the callee's memory #0 base, so the callee resolves it.
+    // 3. Otherwise, omit m0: the target is a host function or a function in another
+    //    module that does not use the optimization.
+    fn build_anyfunc_call(
         &mut self,
-        table_index: u32,
+        anyfunc: PointerValue<'ctx>,
         ctx_ptr: PointerValue<'ctx>,
         func_type: &FunctionType,
         func_ptr: PointerValue<'ctx>,
-        func_index: IntValue<'ctx>,
         is_return_call: bool,
     ) -> Result<(), CompileError> {
-        let Some(m0) = self.m0_param else {
-            return Err(CompileError::Codegen(
-                "Call to build_m0_indirect_call without m0 parameter!".to_string(),
-            ));
-        };
-
         let params = self.state.popn_save_extra(func_type.params().len())?;
-
-        let mut local_func_indices = vec![];
-        let mut foreign_func_indices = vec![];
-
-        for t in &self.wasm_module.table_initializers {
-            if t.table_index.as_u32() == table_index {
-                for (func_in_table_idx, func_idx) in t.elements.iter().enumerate() {
-                    if self.wasm_module.local_func_index(*func_idx).is_some() {
-                        local_func_indices.push(func_in_table_idx)
-                    } else {
-                        foreign_func_indices.push(func_in_table_idx)
-                    }
-                }
-                break;
-            }
-        }
-
-        let needs_switch = !local_func_indices.is_empty() && !foreign_func_indices.is_empty();
-
-        if needs_switch {
-            let foreign_idx_block = self
-                .context
-                .append_basic_block(self.function, "foreign_call_block");
-            let local_idx_block = self
-                .context
-                .append_basic_block(self.function, "local_call_block");
-            let unreachable_indirect_call_branch_block = self
-                .context
-                .append_basic_block(self.function, "unreachable_indirect_call_branch");
-
-            let cont =
-                (!is_return_call).then(|| self.context.append_basic_block(self.function, "cont"));
-
-            err!(
-                self.builder.build_switch(
-                    func_index,
-                    unreachable_indirect_call_branch_block,
-                    &local_func_indices
-                        .into_iter()
-                        .map(|v| (
-                            self.intrinsics.i32_ty.const_int(v as _, false),
-                            local_idx_block
-                        ))
-                        .chain(foreign_func_indices.into_iter().map(|v| (
-                            self.intrinsics.i32_ty.const_int(v as _, false),
-                            foreign_idx_block
-                        )))
-                        .collect_vec()
-                )
-            );
-
-            self.builder
-                .position_at_end(unreachable_indirect_call_branch_block);
-            err!(self.builder.build_unreachable());
-
-            //let current_block = self.builder.get_insert_block().unwrap();
-            self.builder.position_at_end(local_idx_block);
-            let (local_call_site, local_llvm_func_type) = self.build_indirect_call_with_params(
-                ctx_ptr,
-                func_type,
-                func_ptr,
-                Some(m0),
-                is_return_call,
-                &params,
-            )?;
-
-            let local_rets = if is_return_call {
-                self.emit_return_call(local_call_site, local_llvm_func_type)?;
-                Vec::new()
-            } else {
-                let rets = self.abi.rets_from_call(
-                    &self.builder,
-                    self.intrinsics,
-                    local_call_site,
-                    func_type,
-                )?;
-                err!(
-                    self.builder
-                        .build_unconditional_branch(cont.expect("non-return call requires cont"))
-                );
-                rets
-            };
-            let local_call_block = self
-                .builder
-                .get_insert_block()
-                .ok_or_else(|| CompileError::Codegen("not currently in a block".to_string()))?;
-
-            self.builder.position_at_end(foreign_idx_block);
-            let (foreign_call_site, foreign_llvm_func_type) = self
-                .build_indirect_call_with_params(
-                    ctx_ptr,
-                    func_type,
-                    func_ptr,
-                    None,
-                    is_return_call,
-                    &params,
-                )?;
-
-            let foreign_rets = if is_return_call {
-                self.emit_return_call(foreign_call_site, foreign_llvm_func_type)?;
-                Vec::new()
-            } else {
-                let rets = self.abi.rets_from_call(
-                    &self.builder,
-                    self.intrinsics,
-                    foreign_call_site,
-                    func_type,
-                )?;
-                err!(
-                    self.builder
-                        .build_unconditional_branch(cont.expect("non-return call requires cont"))
-                );
-                rets
-            };
-            let foreign_call_block = self
-                .builder
-                .get_insert_block()
-                .ok_or_else(|| CompileError::Codegen("not currently in a block".to_string()))?;
-
-            if is_return_call {
-                return Ok(());
-            }
-
-            self.builder
-                .position_at_end(cont.expect("non-return call requires cont"));
-
-            if foreign_rets.len() != local_rets.len() {
-                return Err(CompileError::Codegen(format!(
-                    "mismatched return counts in indirect call branches: foreign={}, local={}.",
-                    foreign_rets.len(),
-                    local_rets.len()
-                )));
-            }
-
-            for (foreign_ret, local_ret) in foreign_rets.iter().zip(local_rets.iter()) {
-                let v = err!(self.builder.build_phi(foreign_ret.get_type(), ""));
-                v.add_incoming(&[
-                    (foreign_ret, foreign_call_block),
-                    (local_ret, local_call_block),
-                ]);
-                self.state.push1(v.as_basic_value());
-            }
-        } else if foreign_func_indices.is_empty() {
-            let (call_site, llvm_func_type) = self.build_indirect_call_with_params(
-                ctx_ptr,
-                func_type,
-                func_ptr,
-                Some(m0),
-                is_return_call,
-                &params,
-            )?;
-
-            if is_return_call {
-                self.emit_return_call(call_site, llvm_func_type)?;
-            } else {
-                self.abi
-                    .rets_from_call(&self.builder, self.intrinsics, call_site, func_type)?
-                    .iter()
-                    .for_each(|ret| self.state.push1(*ret));
-            }
-        } else {
-            let (call_site, llvm_func_type) = self.build_indirect_call_with_params(
-                ctx_ptr,
-                func_type,
-                func_ptr,
-                None,
-                is_return_call,
-                &params,
-            )?;
-            if is_return_call {
-                self.emit_return_call(call_site, llvm_func_type)?;
-            } else {
-                self.abi
-                    .rets_from_call(&self.builder, self.intrinsics, call_site, func_type)?
-                    .iter()
-                    .for_each(|ret| self.state.push1(*ret));
-            }
-        }
-
-        Ok(())
-    }
-
-    fn build_indirect_call(
-        &mut self,
-        ctx_ptr: PointerValue<'ctx>,
-        func_type: &FunctionType,
-        func_ptr: PointerValue<'ctx>,
-        m0_param: Option<PointerValue<'ctx>>,
-        is_return_call: bool,
-    ) -> Result<(CallSiteValue<'ctx>, inkwell::types::FunctionType<'ctx>), CompileError> {
-        let params = self.state.popn_save_extra(func_type.params().len())?;
-        self.build_indirect_call_with_params(
+        let local = self
+            .context
+            .append_basic_block(self.function, "call_same_instance");
+        let foreign = self
+            .context
+            .append_basic_block(self.function, "call_foreign_instance");
+        let same_instance = err!(self.builder.build_int_compare(
+            IntPredicate::EQ,
             ctx_ptr,
-            func_type,
-            func_ptr,
-            m0_param,
-            is_return_call,
-            &params,
-        )
+            self.ctx.basic().into_pointer_value(),
+            "same_instance",
+        ));
+        let same_instance = err!(self.builder.build_call(
+            self.intrinsics.expect_i1,
+            &[
+                same_instance.into(),
+                self.intrinsics.i1_ty.const_int(1, false).into()
+            ],
+            "same_instance_likely",
+        ))
+        .try_as_basic_value()
+        .unwrap_basic()
+        .into_int_value();
+        err!(
+            self.builder
+                .build_conditional_branch(same_instance, local, foreign)
+        );
+
+        self.builder.position_at_end(foreign);
+        let flag_ptr = err!(self.builder.build_struct_gep(
+            self.intrinsics.anyfunc_ty,
+            anyfunc,
+            2,
+            "include_m0_param_ptr"
+        ));
+        let flag = err!(self.builder.build_load(
+            self.intrinsics.i8_ty,
+            flag_ptr,
+            "include_m0_param"
+        ))
+        .into_int_value();
+        let include_m0 = err!(self.builder.build_int_compare(
+            IntPredicate::NE,
+            flag,
+            self.intrinsics.i8_ty.const_zero(),
+            "callee_has_m0"
+        ));
+        let with_m0 = self
+            .context
+            .append_basic_block(self.function, "call_with_m0");
+        let without_m0 = self
+            .context
+            .append_basic_block(self.function, "call_without_m0");
+        let cont =
+            (!is_return_call).then(|| self.context.append_basic_block(self.function, "call_cont"));
+        err!(
+            self.builder
+                .build_conditional_branch(include_m0, with_m0, without_m0)
+        );
+
+        let mut results = Vec::new();
+        for (block, m0) in [
+            (local, self.m0_param),
+            (with_m0, Some(self.intrinsics.ptr_ty.const_null())),
+            (without_m0, None),
+        ] {
+            self.builder.position_at_end(block);
+            let (call_site, llvm_func_type) = self.build_indirect_call_with_params(
+                ctx_ptr,
+                func_type,
+                func_ptr,
+                m0,
+                is_return_call,
+                &params,
+            )?;
+            if is_return_call {
+                self.emit_return_call(call_site, llvm_func_type)?;
+            } else {
+                let rets = self.abi.rets_from_call(
+                    &self.builder,
+                    self.intrinsics,
+                    call_site,
+                    func_type,
+                )?;
+                let predecessor = self
+                    .builder
+                    .get_insert_block()
+                    .ok_or_else(|| CompileError::Codegen("not currently in a block".to_string()))?;
+                err!(self.builder.build_unconditional_branch(cont.unwrap()));
+                results.push((rets, predecessor));
+            }
+        }
+        if let Some(cont) = cont {
+            self.builder.position_at_end(cont);
+            for (index, ret) in results[0].0.iter().enumerate() {
+                let phi = err!(self.builder.build_phi(ret.get_type(), ""));
+                for (rets, block) in &results {
+                    phi.add_incoming(&[(&rets[index], *block)]);
+                }
+                self.state.push1(phi.as_basic_value());
+            }
+        }
+        Ok(())
     }
 
     fn build_indirect_call_with_params(
@@ -3566,12 +3506,18 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     })
                     .collect::<Result<Vec<_>, _>>()?;
 
-                if let (Some(m0_param), Some(include_m0_param)) =
-                    (self.m0_param, imported_include_m0_param)
-                {
-                    /* For imported functions, we must be careful about when to include `g0_param`:
+                if let Some(include_m0_param) = imported_include_m0_param {
+                    /* For imported functions, we must be careful about when to include `m0` param:
                     imports from another Wasm module expect it, while host-function imports do not.
-                    We intentionally not leverage tail-calls for such function calls. */
+                    A null pointer is always passed as `m0` argument as we're likely to call a function from a different
+                    module (where m0 might be a different memory). */
+                    let (llvm_func_type_m0, llvm_func_attrs_m0) = self.abi.func_type_to_llvm(
+                        self.context,
+                        self.intrinsics,
+                        Some(self.ctx.get_offsets()),
+                        func_type,
+                        true,
+                    )?;
                     let (llvm_func_type_no_m0, llvm_func_attrs_no_m0) =
                         self.abi.func_type_to_llvm(
                             self.context,
@@ -3583,11 +3529,12 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     let params_with_m0 = self.abi.args_to_call(
                         &self.alloca_builder,
                         func_type,
-                        &llvm_func_type,
+                        &llvm_func_type_m0,
                         callee_vmctx.into_pointer_value(),
                         params.as_slice(),
                         self.intrinsics,
-                        Some(m0_param),
+                        // Intentionally pass NULL as argument (see comment above).
+                        Some(self.intrinsics.ptr_ty.const_null()),
                         is_return_call
                             .then(|| self.current_sret_ptr(func_type))
                             .flatten(),
@@ -3610,7 +3557,8 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                         .append_basic_block(self.function, "call_block_with_m0");
                     let skip_m0_call_block =
                         self.context.append_basic_block(self.function, "call_block");
-                    let call_cont = self.context.append_basic_block(self.function, "call_cont");
+                    let call_cont = (!is_return_call)
+                        .then(|| self.context.append_basic_block(self.function, "call_cont"));
                     err!(self.builder.build_conditional_branch(
                         include_m0_param,
                         include_m0_call_block,
@@ -3619,27 +3567,33 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
 
                     self.builder.position_at_end(include_m0_call_block);
                     let call_site_with_m0 = self.build_indirect_call_or_invoke(
-                        llvm_func_type,
+                        llvm_func_type_m0,
                         func,
                         params_with_m0.as_slice(),
                         "then_block_with_m0",
                         is_return_call,
                     )?;
-                    for (attr, attr_loc) in &attrs {
+                    for (attr, attr_loc) in &llvm_func_attrs_m0 {
                         call_site_with_m0.add_attribute(*attr_loc, *attr);
                     }
-                    let rets_with_m0 = self.abi.rets_from_call(
-                        &self.builder,
-                        self.intrinsics,
-                        call_site_with_m0,
-                        func_type,
-                    )?;
+                    let rets_with_m0 = if is_return_call {
+                        self.emit_return_call(call_site_with_m0, llvm_func_type_m0)?;
+                        Vec::new()
+                    } else {
+                        let rets = self.abi.rets_from_call(
+                            &self.builder,
+                            self.intrinsics,
+                            call_site_with_m0,
+                            func_type,
+                        )?;
+                        err!(self.builder.build_unconditional_branch(call_cont.unwrap()));
+                        rets
+                    };
                     let with_m0_pred = self.builder.get_insert_block().ok_or_else(|| {
                         CompileError::Codegen(
                             "missing insertion block after call with m0".to_string(),
                         )
                     })?;
-                    err!(self.builder.build_unconditional_branch(call_cont));
 
                     self.builder.position_at_end(skip_m0_call_block);
                     let call_site_no_m0 = self.build_indirect_call_or_invoke(
@@ -3652,26 +3606,36 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     for (attr, attr_loc) in &llvm_func_attrs_no_m0 {
                         call_site_no_m0.add_attribute(*attr_loc, *attr);
                     }
-                    let rets_no_m0 = self.abi.rets_from_call(
-                        &self.builder,
-                        self.intrinsics,
-                        call_site_no_m0,
-                        func_type,
-                    )?;
+                    let rets_no_m0 = if is_return_call {
+                        self.emit_return_call(call_site_no_m0, llvm_func_type_no_m0)?;
+                        Vec::new()
+                    } else {
+                        let rets = self.abi.rets_from_call(
+                            &self.builder,
+                            self.intrinsics,
+                            call_site_no_m0,
+                            func_type,
+                        )?;
+                        err!(self.builder.build_unconditional_branch(call_cont.unwrap()));
+                        rets
+                    };
                     let no_m0_pred = self.builder.get_insert_block().ok_or_else(|| {
                         CompileError::Codegen(
                             "missing insertion block after call without m0".to_string(),
                         )
                     })?;
-                    err!(self.builder.build_unconditional_branch(call_cont));
 
-                    self.builder.position_at_end(call_cont);
-                    for i in 0..rets_with_m0.len() {
-                        let with_m0 = rets_with_m0[i];
-                        let no_m0 = rets_no_m0[i];
-                        let phi = err!(self.builder.build_phi(with_m0.get_type(), ""));
-                        phi.add_incoming(&[(&with_m0, with_m0_pred), (&no_m0, no_m0_pred)]);
-                        self.state.push1(phi.as_basic_value());
+                    if let Some(call_cont) = call_cont {
+                        self.builder.position_at_end(call_cont);
+                        for i in 0..rets_with_m0.len() {
+                            let with_m0 = rets_with_m0[i];
+                            let no_m0 = rets_no_m0[i];
+                            let phi = err!(self.builder.build_phi(with_m0.get_type(), ""));
+                            phi.add_incoming(&[(&with_m0, with_m0_pred), (&no_m0, no_m0_pred)]);
+                            self.state.push1(phi.as_basic_value());
+                        }
+                    } else {
+                        self.state.reachable = false;
                     }
                 } else {
                     let params = self.abi.args_to_call(
@@ -3975,7 +3939,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                         .build_struct_gep(
                             self.intrinsics.anyfunc_ty,
                             anyfunc_struct_ptr,
-                            2,
+                            3,
                             "ctx_ptr_ptr",
                         )
                         .unwrap();
@@ -3986,33 +3950,13 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     .into_pointer_value()
                 };
 
-                if self.m0_param.is_some() {
-                    self.build_m0_indirect_call(
-                        table_index.as_u32(),
-                        callee_vmctx,
-                        func_type,
-                        func_ptr,
-                        func_index,
-                        is_return_call,
-                    )?;
-                } else {
-                    let (call_site, llvm_func_type) = self.build_indirect_call(
-                        callee_vmctx,
-                        func_type,
-                        func_ptr,
-                        None,
-                        is_return_call,
-                    )?;
-
-                    if is_return_call {
-                        self.emit_return_call(call_site, llvm_func_type)?;
-                    } else {
-                        self.abi
-                            .rets_from_call(&self.builder, self.intrinsics, call_site, func_type)?
-                            .iter()
-                            .for_each(|ret| self.state.push1(*ret));
-                    }
-                }
+                self.build_anyfunc_call(
+                    anyfunc_struct_ptr,
+                    callee_vmctx,
+                    func_type,
+                    func_ptr,
+                    is_return_call,
+                )?;
 
                 if is_return_call {
                     self.state.reachable = false;

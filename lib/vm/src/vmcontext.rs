@@ -622,6 +622,8 @@ pub struct VMCallerCheckedAnyfunc {
     pub func_ptr: *const VMFunctionBody,
     /// Function signature id.
     pub type_signature_hash: VMSignatureHash,
+    /// Whether the function entry point takes a hidden memory #0 base parameter.
+    pub include_m0_param: bool,
     /// Function `VMContext` or host env.
     pub vmctx: VMFunctionContext,
     /// Address of the function call trampoline to invoke this function using
@@ -648,6 +650,7 @@ impl VMCallerCheckedAnyfunc {
                 host_env: ptr::null_mut(),
             },
             call_trampoline: null_call_trampoline,
+            include_m0_param: false,
         }
     }
 }
@@ -657,6 +660,7 @@ impl PartialEq for VMCallerCheckedAnyfunc {
         self.func_ptr == other.func_ptr
             && self.type_signature_hash == other.type_signature_hash
             && self.vmctx == other.vmctx
+            && self.include_m0_param == other.include_m0_param
             && ptr::fn_addr_eq(self.call_trampoline, other.call_trampoline)
     }
 }
@@ -668,6 +672,7 @@ impl Hash for VMCallerCheckedAnyfunc {
         self.func_ptr.hash(state);
         self.type_signature_hash.hash(state);
         self.vmctx.hash(state);
+        self.include_m0_param.hash(state);
         ptr::hash(self.call_trampoline as *const (), state);
     }
 }
@@ -699,6 +704,14 @@ mod test_vmcaller_checked_anyfunc {
         assert_eq!(
             offset_of!(VMCallerCheckedAnyfunc, vmctx),
             usize::from(offsets.vmcaller_checked_anyfunc_vmctx())
+        );
+        assert_eq!(
+            offset_of!(VMCallerCheckedAnyfunc, call_trampoline),
+            usize::from(offsets.vmcaller_checked_anyfunc_call_trampoline())
+        );
+        assert_eq!(
+            offset_of!(VMCallerCheckedAnyfunc, include_m0_param),
+            usize::from(offsets.vmcaller_checked_anyfunc_include_m0_param())
         );
     }
 }
