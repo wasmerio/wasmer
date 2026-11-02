@@ -529,10 +529,6 @@ impl Compiler for CraneliftCompiler {
             .join("-")
     }
 
-    fn artifact_format(&self) -> String {
-        wasmer_compiler::ArtifactFormat::Native.to_string()
-    }
-
     /// Get the middlewares for this compiler
     fn get_middlewares(&self) -> &[Arc<dyn ModuleMiddleware>] {
         &self.config.middlewares

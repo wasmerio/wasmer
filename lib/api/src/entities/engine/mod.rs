@@ -69,11 +69,6 @@ impl Engine {
         self.be.deterministic_id()
     }
 
-    /// Returns the format used for artifacts produced by this engine.
-    pub fn artifact_format(&self) -> String {
-        self.be.artifact_format()
-    }
-
     /// Returns the unique id of this engine.
     pub fn id(&self) -> EngineId {
         EngineId(self.id)

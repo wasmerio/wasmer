@@ -89,17 +89,6 @@ pub enum DeterministicIdComponent {
     ExperimentalUnalignedMemoryAccesses,
 }
 
-/// The artifact format used for purpose of serialization.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, strum::Display)]
-pub enum ArtifactFormat {
-    /// rkyv serialization based.
-    #[strum(serialize = "rkyv")]
-    Rkyv,
-    /// Native format, such as ELF.
-    #[strum(serialize = "native")]
-    Native,
-}
-
 /// The compiler configuration options.
 pub trait CompilerConfig {
     /// Set the maximum total number of elements allowed in local fixed-size tables.
@@ -199,11 +188,6 @@ pub trait Compiler: Send + std::fmt::Debug {
     /// Returns the deterministic id of this compiler. Same compilers with different
     /// optimizations map to different deterministic IDs.
     fn deterministic_id(&self) -> String;
-
-    /// Returns the used artifact format: `rkyv` or `native`.
-    fn artifact_format(&self) -> String {
-        ArtifactFormat::Rkyv.to_string()
-    }
 
     /// Add suggested optimizations to this compiler.
     #[deprecated(note = "User compilation options are currently unused")]
