@@ -8113,6 +8113,7 @@ dependencies = [
  "virtual-fs",
  "wasm-bindgen",
  "wasm-bindgen-futures",
+ "wasm-bindgen-test",
  "wasmer",
  "wasmer-c-api-imports",
  "wasmer-cache",
