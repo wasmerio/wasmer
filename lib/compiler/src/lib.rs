@@ -65,8 +65,8 @@ mod translator;
 pub use crate::translator::{
     FunctionBinaryReader, FunctionBodyData, FunctionMiddleware, MiddlewareBinaryReader,
     MiddlewareReaderState, ModuleEnvironment, ModuleMiddleware, ModuleMiddlewareChain,
-    ModuleTranslationState, from_binaryreadererror_wasmerror, translate_module, wpheaptype_to_type,
-    wptype_to_type,
+    ModuleTranslationState, from_binaryreadererror_wasmerror, memarg_memory_index,
+    translate_module, wpheaptype_to_type, wptype_to_type,
 };
 
 pub use wasmer_types::{Addend, CodeOffset, Features};
