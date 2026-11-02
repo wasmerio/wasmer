@@ -14,22 +14,17 @@ use std::{
 
 #[cfg(feature = "compiler")]
 use crate::ModuleEnvironment;
-#[cfg(feature = "static-artifact-create")]
-use crate::types::symbols::ModuleMetadata;
 use crate::{
-    ArtifactBuild, ArtifactBuildFromArchive, ArtifactCreate, Engine, EngineInner, Features,
-    FunctionExtent, GlobalFrameInfoRegistration, InstantiationError, Tunables,
+    ArtifactBuild, ArtifactCreate, Engine, EngineInner, Features, FunctionExtent,
+    GlobalFrameInfoRegistration, InstantiationError, Tunables,
     WASMER_TRAP_FUNCTION_OFFSETS_SECTION_NAME, WASMER_TRAPS_SECTION_NAME,
     engine::{resolver::resolve_tags, trap::register_frame_info_source},
     get_object_for_target, resolve_imports,
     types::module::CompileModuleInfo,
 };
-#[cfg(feature = "static-artifact-create")]
-use crate::{Compiler, FunctionBodyData, ModuleTranslationState};
 use itertools::Itertools;
 #[cfg(unix)]
 use std::os::fd::AsRawFd;
-use std::vec::IntoIter;
 #[cfg(feature = "compiler")]
 use wasmer_types::CompilationProgressCallback;
 
@@ -40,10 +35,9 @@ use shared_buffer::OwnedBuffer;
 use crate::engine::mapped_binary::DebugInfoSource;
 
 use wasmer_types::{
-    ArchivedDataInitializerLocation, ArchivedOwnedDataInitializer, CompileError, DataInitializer,
-    DataInitializerLike, DataInitializerLocation, DataInitializerLocationLike, DeserializeError,
-    FunctionIndex, LocalFunctionIndex, MemoryIndex, ModuleInfo, OwnedDataInitializer,
-    SerializeError, SignatureIndex, TableIndex, TrapCode, TrapInformation,
+    CompileError, DataInitializer, DataInitializerLike, DeserializeError, FunctionIndex,
+    LocalFunctionIndex, MemoryIndex, ModuleInfo, SerializeError, SignatureIndex, TableIndex,
+    TrapCode, TrapInformation,
     entity::{BoxedSlice, EntityRef, PrimaryMap},
     target::{CpuFeature, Target},
 };
@@ -87,12 +81,10 @@ pub struct AllocatedArtifact {
     #[cfg_attr(feature = "artifact-size", loupe(skip))]
     vm_offsets: VMOffsets,
 
-    /// The base address the module's code was loaded at, and the raw ELF
-    /// image bytes it was loaded from, when this artifact was built from a
-    /// native ELF image. Used to lazily build DWARF debug info for frame
-    /// symbolication. `None` for non-ELF artifacts.
+    /// The base address and source of the native image. Used to lazily build
+    /// DWARF debug info for frame symbolication.
     #[cfg_attr(feature = "artifact-size", loupe(skip))]
-    elf_image: Option<(usize, DebugInfoSource)>,
+    elf_image: (usize, DebugInfoSource),
 }
 
 impl AllocatedArtifact {
@@ -146,22 +138,12 @@ impl Default for ArtifactId {
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 pub struct Artifact {
     id: ArtifactId,
-    artifact: ArtifactBuildVariant,
+    artifact: ArtifactBuild,
     #[cfg_attr(feature = "artifact-size", loupe(skip))]
     module_file: Option<PathBuf>,
     // The artifact will only be allocated in memory in case we can execute it
     // (that means, if the target != host then this will be None).
     allocated: Option<AllocatedArtifact>,
-}
-
-/// Artifacts may be created as the result of the compilation of a wasm
-/// module, corresponding to `ArtifactBuildVariant::Plain`, or loaded
-/// from an archive, corresponding to `ArtifactBuildVariant::Archived`.
-#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
-#[allow(clippy::large_enum_variant)]
-pub enum ArtifactBuildVariant {
-    Plain(ArtifactBuild),
-    Archived(ArtifactBuildFromArchive),
 }
 
 impl Artifact {
@@ -197,26 +179,12 @@ impl Artifact {
             progress_callback.as_ref(),
         )?;
 
-        Self::from_parts_with_module_file(
-            &mut inner_engine,
-            ArtifactBuildVariant::Plain(artifact),
-            engine.target(),
-            None,
-        )
-        .map_err(|e| match e {
-            DeserializeError::Compiler(c) => c,
-            DeserializeError::Generic(c) => CompileError::Resource(c),
-
-            // `from_parts` only ever returns `CompileError`s when an
-            // `ArtifactBuildVariant::Plain` is passed in. Other cases
-            // of `DeserializeError` can only happen when an
-            // `ArtifactBuildVariant::Archived` is passed in. We don't
-            // wish to change the return type of this method because
-            // a. it makes no sense and b. it would be a breaking change,
-            // hence this match block and the other cases being
-            // unreachable.
-            _ => unreachable!(),
-        })
+        Self::from_parts_with_module_file(&mut inner_engine, artifact, engine.target(), None)
+            .map_err(|e| match e {
+                DeserializeError::Compiler(c) => c,
+                DeserializeError::Generic(c) => CompileError::Resource(c),
+                other => CompileError::Codegen(other.to_string()),
+            })
     }
 
     /// This indicates if the Artifact is allocated and can be run by the current
@@ -245,7 +213,7 @@ impl Artifact {
 
     /// Load a native artifact directly from a file-backed memory map.
     ///
-    /// Unlike [`Self::deserialize`], this entrypoint only accepts ELF or Mach-O artifacts.
+    /// Like [`Self::deserialize`], this entrypoint only accepts ELF or Mach-O artifacts.
     ///
     /// # Safety
     /// This function loads executable code into memory. The file must be trusted
@@ -282,10 +250,10 @@ impl Artifact {
             })?;
         let compile_info = CompileModuleInfo::deserialize(module_info)?;
 
-        let artifact = ArtifactBuildVariant::Plain(ArtifactBuild {
+        let artifact = ArtifactBuild {
             compilation: Vec::new(),
             compile_info,
-        });
+        };
         let mut inner_engine = engine.inner_mut();
         Self::from_parts_with_module_file(&mut inner_engine, artifact, engine.target(), Some(path))
     }
@@ -312,10 +280,22 @@ impl Artifact {
         Ok(())
     }
 
-    /// Deserialize an ELF artifact held in memory, if the bytes contain one.
-    fn deserialize_elf(engine: &Engine, bytes: &[u8]) -> Result<Option<Self>, DeserializeError> {
+    /// Deserialize a native ELF or Mach-O artifact.
+    ///
+    /// # Safety
+    /// This function loads executable code into memory.
+    /// You must trust the loaded bytes to be valid for the chosen engine and
+    /// for the host CPU architecture.
+    /// The artifact layout is validated before loading.
+    pub unsafe fn deserialize(
+        engine: &Engine,
+        bytes: OwnedBuffer,
+    ) -> Result<Self, DeserializeError> {
+        let bytes = bytes.as_ref();
         if !ArtifactBuild::is_deserializable(bytes) {
-            return Ok(None);
+            return Err(DeserializeError::Incompatible(
+                "The provided bytes are not a native Wasmer ELF or Mach-O artifact".to_string(),
+            ));
         }
 
         let image = object::File::parse(bytes)
@@ -334,30 +314,12 @@ impl Artifact {
                 ))
             })?;
         let compile_info = CompileModuleInfo::deserialize(module_info)?;
-        let artifact = ArtifactBuildVariant::Plain(ArtifactBuild {
+        let artifact = ArtifactBuild {
             compilation: bytes.to_vec(),
             compile_info,
-        });
+        };
         let mut inner_engine = engine.inner_mut();
-        Self::from_parts(&mut inner_engine, artifact, engine.target()).map(Some)
-    }
-
-    /// Deserialize a native ELF artifact.
-    ///
-    /// # Safety
-    /// This function loads executable code into memory.
-    /// You must trust the loaded bytes to be valid for the chosen engine and
-    /// for the host CPU architecture.
-    /// The artifact layout is validated before loading.
-    pub unsafe fn deserialize(
-        engine: &Engine,
-        bytes: OwnedBuffer,
-    ) -> Result<Self, DeserializeError> {
-        Self::deserialize_elf(engine, bytes.as_ref())?.ok_or_else(|| {
-            DeserializeError::Incompatible(
-                "The provided bytes are not a native Wasmer ELF artifact".to_string(),
-            )
-        })
+        Self::from_parts(&mut inner_engine, artifact, engine.target())
     }
 
     /// Deserialize a serialized artifact.
@@ -377,7 +339,7 @@ impl Artifact {
     /// Construct a `ArtifactBuild` from component parts.
     pub fn from_parts(
         engine_inner: &mut EngineInner,
-        artifact: ArtifactBuildVariant,
+        artifact: ArtifactBuild,
         target: &Target,
     ) -> Result<Self, DeserializeError> {
         Self::from_parts_with_module_file(engine_inner, artifact, target, None)
@@ -385,7 +347,7 @@ impl Artifact {
 
     fn from_parts_with_module_file(
         engine_inner: &mut EngineInner,
-        artifact: ArtifactBuildVariant,
+        artifact: ArtifactBuild,
         target: &Target,
         module_file: Option<PathBuf>,
     ) -> Result<Self, DeserializeError> {
@@ -408,10 +370,7 @@ impl Artifact {
         }
         let module_info = artifact.module_info();
 
-        let elf_file_data = match &artifact {
-            ArtifactBuildVariant::Plain(p) => p.compilation.as_slice(),
-            ArtifactBuildVariant::Archived(a) => a.get_elf_file(),
-        };
+        let elf_file_data = artifact.compilation.as_slice();
         let allocated = if let Some(module_file) = module_file.as_ref() {
             Self::allocate_elf_artifact_from_path(engine_inner, module_info, module_file)?
         } else {
@@ -425,9 +384,7 @@ impl Artifact {
             allocated: Some(allocated),
         };
 
-        artifact
-            .internal_register_frame_info()
-            .map_err(|e| DeserializeError::CorruptedBinary(format!("{e:?}")))?;
+        artifact.internal_register_frame_info();
         if let Some(frame_info) = artifact.internal_take_frame_info_registration() {
             engine_inner.register_elf_frame_info(frame_info);
         }
@@ -658,7 +615,7 @@ impl Artifact {
             signatures,
             finished_function_lengths,
             vm_offsets,
-            elf_image: Some((base as usize, debug_info)),
+            elf_image: (base as usize, debug_info),
         })
     }
 
@@ -685,9 +642,9 @@ impl std::fmt::Debug for Artifact {
 }
 
 impl<'a> ArtifactCreate<'a> for Artifact {
-    type OwnedDataInitializer = <ArtifactBuildVariant as ArtifactCreate<'a>>::OwnedDataInitializer;
+    type OwnedDataInitializer = <ArtifactBuild as ArtifactCreate<'a>>::OwnedDataInitializer;
     type OwnedDataInitializerIterator =
-        <ArtifactBuildVariant as ArtifactCreate<'a>>::OwnedDataInitializerIterator;
+        <ArtifactBuild as ArtifactCreate<'a>>::OwnedDataInitializerIterator;
 
     fn set_module_info_name(&mut self, name: String) -> bool {
         self.artifact.set_module_info_name(name)
@@ -731,194 +688,28 @@ impl<'a> ArtifactCreate<'a> for Artifact {
     }
 }
 
-impl<'a> ArtifactCreate<'a> for ArtifactBuildVariant {
-    type OwnedDataInitializer = OwnedDataInitializerVariant<'a>;
-    type OwnedDataInitializerIterator = IntoIter<Self::OwnedDataInitializer>;
-
-    fn create_module_info(&self) -> Arc<ModuleInfo> {
-        match self {
-            Self::Plain(artifact) => artifact.create_module_info(),
-            Self::Archived(artifact) => artifact.create_module_info(),
-        }
-    }
-
-    fn set_module_info_name(&mut self, name: String) -> bool {
-        match self {
-            Self::Plain(artifact) => artifact.set_module_info_name(name),
-            Self::Archived(artifact) => artifact.set_module_info_name(name),
-        }
-    }
-
-    fn module_info(&self) -> &ModuleInfo {
-        match self {
-            Self::Plain(artifact) => artifact.module_info(),
-            Self::Archived(artifact) => artifact.module_info(),
-        }
-    }
-
-    fn features(&self) -> &Features {
-        match self {
-            Self::Plain(artifact) => artifact.features(),
-            Self::Archived(artifact) => artifact.features(),
-        }
-    }
-
-    fn cpu_features(&self) -> EnumSet<CpuFeature> {
-        match self {
-            Self::Plain(artifact) => artifact.cpu_features(),
-            Self::Archived(artifact) => artifact.cpu_features(),
-        }
-    }
-
-    fn memory_styles(&self) -> &PrimaryMap<MemoryIndex, MemoryStyle> {
-        match self {
-            Self::Plain(artifact) => artifact.memory_styles(),
-            Self::Archived(artifact) => artifact.memory_styles(),
-        }
-    }
-
-    fn table_styles(&self) -> &PrimaryMap<TableIndex, TableStyle> {
-        match self {
-            Self::Plain(artifact) => artifact.table_styles(),
-            Self::Archived(artifact) => artifact.table_styles(),
-        }
-    }
-
-    fn data_initializers(&'a self) -> Self::OwnedDataInitializerIterator {
-        match self {
-            Self::Plain(artifact) => artifact
-                .data_initializers()
-                .map(OwnedDataInitializerVariant::Plain)
-                .collect::<Vec<_>>()
-                .into_iter(),
-            Self::Archived(artifact) => artifact
-                .data_initializers()
-                .map(OwnedDataInitializerVariant::Archived)
-                .collect::<Vec<_>>()
-                .into_iter(),
-        }
-    }
-
-    fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
-        match self {
-            Self::Plain(artifact) => artifact.serialize(),
-            Self::Archived(artifact) => artifact.serialize(),
-        }
-    }
-}
-
-#[derive(Clone, Copy)]
-pub enum OwnedDataInitializerVariant<'a> {
-    Plain(&'a OwnedDataInitializer),
-    Archived(&'a ArchivedOwnedDataInitializer),
-}
-
-impl<'a> DataInitializerLike<'a> for OwnedDataInitializerVariant<'a> {
-    type Location = DataInitializerLocationVariant<'a>;
-
-    fn location(&self) -> Self::Location {
-        match self {
-            Self::Plain(plain) => DataInitializerLocationVariant::Plain(plain.location()),
-            Self::Archived(archived) => {
-                DataInitializerLocationVariant::Archived(archived.location())
-            }
-        }
-    }
-
-    fn data(&self) -> &'a [u8] {
-        match self {
-            Self::Plain(plain) => plain.data(),
-            Self::Archived(archived) => archived.data(),
-        }
-    }
-}
-
-#[derive(Clone, Copy)]
-pub enum DataInitializerLocationVariant<'a> {
-    Plain(&'a DataInitializerLocation),
-    Archived(&'a ArchivedDataInitializerLocation),
-}
-
-impl DataInitializerLocationVariant<'_> {
-    pub fn clone_to_plain(&self) -> DataInitializerLocation {
-        match self {
-            Self::Plain(p) => (*p).clone(),
-            Self::Archived(a) => DataInitializerLocation {
-                memory_index: a.memory_index(),
-                offset_expr: a.offset_expr(),
-            },
-        }
-    }
-}
-
-impl DataInitializerLocationLike for DataInitializerLocationVariant<'_> {
-    fn memory_index(&self) -> MemoryIndex {
-        match self {
-            Self::Plain(plain) => plain.memory_index(),
-            Self::Archived(archived) => archived.memory_index(),
-        }
-    }
-
-    fn offset_expr(&self) -> wasmer_types::InitExpr {
-        match self {
-            Self::Plain(plain) => plain.offset_expr(),
-            Self::Archived(archived) => archived.offset_expr(),
-        }
-    }
-}
-
 impl Artifact {
-    fn internal_register_frame_info(&mut self) -> Result<(), DeserializeError> {
+    fn internal_register_frame_info(&mut self) {
         if self
             .allocated
             .as_ref()
             .expect("It must be allocated")
             .frame_info_registered
         {
-            return Ok(()); // already done
+            return; // already done
         }
 
         // Native artifacts get symbolicated from lazily loaded DWARF debug info.
-        let elf_image = self
-            .allocated
-            .as_ref()
-            .expect("It must be allocated")
-            .elf_image
-            .clone();
-
-        if elf_image.is_some() {
-            let finished_function_extents = self
-                .allocated
-                .as_ref()
-                .expect("It must be allocated")
-                .function_extents()
-                .into_boxed_slice();
-
-            let (image_base, elf_data) = match elf_image {
-                Some((base, data)) => (base, Some(data)),
-                None => (0, None),
-            };
-
-            let frame_info_registration = &mut self
-                .allocated
-                .as_mut()
-                .expect("It must be allocated")
-                .frame_info_registration;
-
-            *frame_info_registration = register_frame_info_source(
-                self.artifact.create_module_info(),
-                &finished_function_extents,
-                image_base,
-                elf_data,
-            );
-        }
-
-        self.allocated
-            .as_mut()
-            .expect("It must be allocated")
-            .frame_info_registered = true;
-
-        Ok(())
+        let allocated = self.allocated.as_mut().expect("It must be allocated");
+        let finished_function_extents = allocated.function_extents().into_boxed_slice();
+        let (image_base, elf_data) = &allocated.elf_image;
+        allocated.frame_info_registration = register_frame_info_source(
+            self.artifact.create_module_info(),
+            &finished_function_extents,
+            *image_base,
+            Some(elf_data.clone()),
+        );
+        allocated.frame_info_registered = true;
     }
 
     fn internal_take_frame_info_registration(&mut self) -> Option<GlobalFrameInfoRegistration> {
@@ -962,10 +753,7 @@ impl Artifact {
         &self,
     ) -> Option<Vec<(LocalFunctionIndex, Option<usize>)>> {
         let allocated = self.allocated.as_ref()?;
-        let stack_usage = match &self.artifact {
-            ArtifactBuildVariant::Plain(p) => p.get_function_max_stack_usage(),
-            ArtifactBuildVariant::Archived(a) => a.get_function_max_stack_usage(),
-        };
+        let stack_usage = self.artifact.get_function_max_stack_usage();
         Some(
             allocated
                 .finished_functions
@@ -1138,7 +926,7 @@ impl Artifact {
             let data_initializers = self
                 .data_initializers()
                 .map(|init| DataInitializer {
-                    location: init.location().clone_to_plain(),
+                    location: init.location().clone(),
                     data: init.data(),
                 })
                 .collect::<Vec<_>>();
