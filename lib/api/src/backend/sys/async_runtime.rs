@@ -6,7 +6,7 @@ use std::{
     pin::Pin,
     ptr,
     rc::Rc,
-    sync::{LazyLock, atomic::AtomicU64},
+    sync::{Arc, LazyLock, atomic::AtomicU64},
     task::{Context, Poll, RawWaker, RawWakerVTable, Waker},
 };
 
@@ -42,8 +42,9 @@ type AsyncCallFutureId = u64;
 
 static NEXT_ASYNC_CALL_FUTURE_ID: AtomicU64 = AtomicU64::new(0);
 
-static ASYNC_CALL_FUTURE_WAKERS: LazyLock<DashMap<StoreId, HashMap<AsyncCallFutureId, Waker>>> =
-    LazyLock::new(DashMap::new);
+static ASYNC_CALL_FUTURE_WAKERS: LazyLock<
+    DashMap<StoreId, HashMap<AsyncCallFutureId, Arc<Waker>>>,
+> = LazyLock::new(DashMap::new);
 
 #[allow(clippy::type_complexity)]
 pub(crate) struct AsyncCallFuture {
@@ -176,6 +177,24 @@ fn remove_from_wakers_list(store_id: StoreId, id: AsyncCallFutureId) {
     drop(removed);
 }
 
+fn register_waker(store_id: StoreId, id: AsyncCallFutureId, waker: &Waker) {
+    // will_wake compares RawWaker identity without calling its vtable. A poll
+    // with an unchanged Waker needs neither a user clone nor an allocation.
+    let unchanged = ASYNC_CALL_FUTURE_WAKERS
+        .get(&store_id)
+        .and_then(|entry| entry.get(&id).map(|old| old.will_wake(waker)))
+        .unwrap_or(false);
+    if unchanged {
+        return;
+    }
+    let next = Arc::new(waker.clone());
+    let previous = {
+        let mut entry = ASYNC_CALL_FUTURE_WAKERS.entry(store_id).or_default();
+        entry.insert(id, next)
+    };
+    drop(previous);
+}
+
 impl Future for AsyncCallFuture {
     type Output = Result<Box<[Value]>, RuntimeError>;
 
@@ -198,6 +217,12 @@ impl Future for AsyncCallFuture {
                 }
             }
 
+            if self.coroutine.is_some() {
+                // The pending host future may return before the native stack
+                // resumes. Interrupt notification still needs this poll's Waker.
+                register_waker(store_id, self.id, cx.waker());
+            }
+
             if let Some(future) = self.pending_future.as_mut() {
                 match future.as_mut().poll(cx) {
                     Poll::Ready(result) => {
@@ -212,11 +237,6 @@ impl Future for AsyncCallFuture {
             if self.coroutine.is_none() {
                 self.remove_from_wakers_list();
                 return Poll::Ready(self.result.take().expect("polled after completion"));
-            }
-
-            {
-                let mut wakers_entry = ASYNC_CALL_FUTURE_WAKERS.entry(store_id).or_default();
-                wakers_entry.insert(self.id, cx.waker().clone());
             }
 
             // Start a store installation if not in progress already
@@ -429,11 +449,15 @@ where
 // that the futures can catch and react to `interrupt_registry::is_interrupted`
 // correctly.
 pub(crate) fn notify_pending_futures_of_interrupt(store_id: StoreId) {
-    let dashmap::Entry::Occupied(entry) = ASYNC_CALL_FUTURE_WAKERS.entry(store_id) else {
-        return;
+    let wakers: Vec<_> = {
+        let Some(entry) = ASYNC_CALL_FUTURE_WAKERS.get(&store_id) else {
+            return;
+        };
+        // Only Arc cloning happens under the entry. RawWaker clone, wake and
+        // Drop can run arbitrary code that reenters this same Store's registry.
+        entry.values().cloned().collect()
     };
-
-    for waker in entry.get().values() {
+    for waker in wakers {
         waker.wake_by_ref();
     }
 }
@@ -600,8 +624,118 @@ mod tests {
     use crate::{Function, Instance, Module};
 
     #[test]
-    fn cancellation_destructors_cannot_yield_through_another_root() {
-        const CHILD: &str = "WASMER_CANCELLATION_CONTEXT_CHILD";
+    fn registry_callbacks_can_reenter_while_the_current_waker_changes() {
+        if !runtime_subprocess(
+            "backend::sys::async_runtime::tests::registry_callbacks_can_reenter_while_the_current_waker_changes",
+        ) {
+            return;
+        }
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        struct ReentrantWake {
+            store_id: StoreId,
+            clones: AtomicUsize,
+            wakes: AtomicUsize,
+            drops: AtomicUsize,
+        }
+        impl ReentrantWake {
+            fn touch(&self, count: &AtomicUsize) {
+                // Every user callback can inspect its own Store's registry.
+                // A live DashMap entry around any of these calls deadlocks.
+                drop(ASYNC_CALL_FUTURE_WAKERS.get(&self.store_id));
+                count.fetch_add(1, Ordering::SeqCst);
+            }
+            fn waker(self: &Arc<Self>) -> Waker {
+                static VTABLE: RawWakerVTable =
+                    RawWakerVTable::new(clone_waker, wake, wake_by_ref, drop_waker);
+                unsafe fn clone_waker(data: *const ()) -> RawWaker {
+                    // Borrow the existing owned Arc without consuming its raw
+                    // reference; return a separately incremented owned clone.
+                    let state = std::mem::ManuallyDrop::new(unsafe {
+                        Arc::from_raw(data.cast::<ReentrantWake>())
+                    });
+                    state.touch(&state.clones);
+                    RawWaker::new(Arc::into_raw(Arc::clone(&state)).cast(), &VTABLE)
+                }
+                unsafe fn wake(data: *const ()) {
+                    let state = unsafe { Arc::from_raw(data.cast::<ReentrantWake>()) };
+                    state.touch(&state.wakes);
+                }
+                unsafe fn wake_by_ref(data: *const ()) {
+                    let state = std::mem::ManuallyDrop::new(unsafe {
+                        Arc::from_raw(data.cast::<ReentrantWake>())
+                    });
+                    state.touch(&state.wakes);
+                }
+                unsafe fn drop_waker(data: *const ()) {
+                    let state = unsafe { Arc::from_raw(data.cast::<ReentrantWake>()) };
+                    state.touch(&state.drops);
+                }
+                // Each RawWaker owns exactly the Arc cloned here or by its
+                // clone vtable entry; wake/drop consume that one reference.
+                unsafe {
+                    Waker::from_raw(RawWaker::new(Arc::into_raw(self.clone()).cast(), &VTABLE))
+                }
+            }
+        }
+        let mut store = Store::default();
+        let pending = Function::new_async(&mut store, crate::FunctionType::new([], []), |_| {
+            std::future::pending::<Result<Vec<Value>, RuntimeError>>()
+        });
+        let store = store.into_async();
+        let make_state = || {
+            Arc::new(ReentrantWake {
+                store_id: store.id,
+                clones: AtomicUsize::new(0),
+                wakes: AtomicUsize::new(0),
+                drops: AtomicUsize::new(0),
+            })
+        };
+        let first = make_state();
+        let second = make_state();
+        let first_waker = first.waker();
+        let second_waker = second.waker();
+        let mut call = Box::pin(AsyncCallFuture::new(pending.into_sys(), store, vec![]));
+        let poll = |call: &mut Pin<Box<AsyncCallFuture>>, waker: &Waker| {
+            assert!(
+                call.as_mut()
+                    .poll(&mut Context::from_waker(waker))
+                    .is_pending()
+            );
+        };
+        poll(&mut call, &first_waker);
+        assert_eq!(first.clones.load(Ordering::SeqCst), 1);
+        poll(&mut call, &first_waker);
+        assert_eq!(
+            first.clones.load(Ordering::SeqCst),
+            1,
+            "same identity needs no clone"
+        );
+        poll(&mut call, &second_waker);
+        assert_eq!(second.clones.load(Ordering::SeqCst), 1);
+        assert_eq!(first.drops.load(Ordering::SeqCst), 1);
+        notify_pending_futures_of_interrupt(second.store_id);
+        assert_eq!(first.wakes.load(Ordering::SeqCst), 0);
+        assert_eq!(second.wakes.load(Ordering::SeqCst), 1);
+        assert_eq!(
+            second.clones.load(Ordering::SeqCst),
+            1,
+            "snapshot clones only Arc"
+        );
+        drop(call);
+        assert_eq!(second.drops.load(Ordering::SeqCst), 1);
+        assert!(!ASYNC_CALL_FUTURE_WAKERS.contains_key(&second.store_id));
+        drop(first_waker);
+        drop(second_waker);
+        assert_eq!(first.drops.load(Ordering::SeqCst), 2);
+        assert_eq!(second.drops.load(Ordering::SeqCst), 2);
+        assert_eq!(Arc::strong_count(&first), 1);
+        assert_eq!(Arc::strong_count(&second), 1);
+        assert!(StoreContext::is_empty());
+        CURRENT_CONTEXT.with(|current| assert!(current.borrow().is_empty()));
+    }
+
+    fn runtime_subprocess(test_name: &str) -> bool {
+        const CHILD: &str = "WASMER_NATIVE_ASYNC_RUNTIME_CHILD";
         if std::env::var_os(CHILD).is_none() {
             // Like async_sync_borrow, isolate invalid native stack transitions
             // in an owned, bounded child process.
@@ -614,11 +748,7 @@ mod tests {
             }
             let mut child = OwnedChild(
                 std::process::Command::new(std::env::current_exe().unwrap())
-                    .args([
-                        "--exact",
-                        "backend::sys::async_runtime::tests::cancellation_destructors_cannot_yield_through_another_root",
-                        "--nocapture",
-                    ])
+                    .args(["--exact", test_name, "--nocapture"])
                     .env(CHILD, "1")
                     .spawn()
                     .unwrap(),
@@ -627,18 +757,26 @@ mod tests {
             loop {
                 match child.0.try_wait() {
                     Ok(Some(status)) => {
-                        assert!(
-                            status.success(),
-                            "cancellation context proof failed: {status}"
-                        );
-                        return;
+                        assert!(status.success(), "native runtime proof failed: {status}");
+                        return false;
                     }
                     Ok(None) if std::time::Instant::now() < deadline => {
                         std::thread::sleep(std::time::Duration::from_millis(10));
                     }
-                    result => panic!("cancellation context proof did not finish: {result:?}"),
+                    result => panic!("native runtime proof did not finish: {result:?}"),
                 }
             }
+        }
+
+        true
+    }
+
+    #[test]
+    fn cancellation_destructors_cannot_yield_through_another_root() {
+        if !runtime_subprocess(
+            "backend::sys::async_runtime::tests::cancellation_destructors_cannot_yield_through_another_root",
+        ) {
+            return;
         }
 
         struct Probe(Rc<std::cell::Cell<usize>>);
