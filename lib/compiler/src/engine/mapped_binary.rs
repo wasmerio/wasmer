@@ -8,7 +8,6 @@ use std::{os::fd::RawFd, ptr, slice};
 
 #[cfg(unix)]
 use itertools::Itertools;
-#[cfg(unix)]
 use object::{Object, ObjectSection, ReadRef};
 #[cfg(unix)]
 use object::{ObjectSegment, ObjectSymbol, ObjectSymbolTable, SegmentFlags, elf, macho};
@@ -171,6 +170,7 @@ pub static LIBCALLS_ELF: phf::Map<&'static str, LibCall> = phf::phf_map! {
     "wasmer_vm_alloc_exception" => LibCall::AllocException,
     "wasmer_vm_read_exnref" => LibCall::ReadExnRef,
     "wasmer_vm_exception_into_exnref" => LibCall::LibunwindExceptionIntoExnRef,
+    "__gxx_personality_v0" => LibCall::EHPersonality,
     "wasmer_eh_personality" => LibCall::EHPersonality,
     "wasmer_eh_personality2" => LibCall::EHPersonality2,
     "wasmer_vm_dbg_usize" => LibCall::DebugUsize,
@@ -231,10 +231,8 @@ pub static LIBCALLS_MACHO: phf::Map<&'static str, LibCall> = phf::phf_map! {
     "_wasmer_vm_alloc_exception" => LibCall::AllocException,
     "_wasmer_vm_read_exnref" => LibCall::ReadExnRef,
     "_wasmer_vm_exception_into_exnref" => LibCall::LibunwindExceptionIntoExnRef,
-    // Note: on macOS+Mach-O the personality function *must* be called like this, otherwise LLVM
-    // will generate things differently than "normal", wreaking havoc.
-    //
-    // todo: find out if it is a bug in LLVM or it is expected.
+    // Note for macOS, we must use standard C++ personality name in order to trigger emission of the compact
+    // unwind format: https://github.com/llvm/llvm-project/blob/c75421484e8ff4efa83918d3c81300898e67df0f/llvm/lib/Target/AArch64/MCTargetDesc/AArch64AsmBackend.cpp#L593.
     "___gxx_personality_v0" => LibCall::EHPersonality,
     "_wasmer_eh_personality2" => LibCall::EHPersonality2,
     "_wasmer_vm_dbg_usize" => LibCall::DebugUsize,
@@ -305,7 +303,6 @@ impl ImageSegment {
 pub(crate) struct MemoryMappedBinary {
     #[cfg(unix)]
     base: *mut c_void,
-    #[cfg(unix)]
     size: usize,
 
     // Unwind registry associated with the binary.
@@ -321,6 +318,12 @@ pub(crate) struct MemoryMappedBinary {
 // SAFETY: memory mapped base pointer does not escape the type.
 unsafe impl Send for MemoryMappedBinary {}
 unsafe impl Sync for MemoryMappedBinary {}
+
+impl MemoryMappedBinary {
+    pub(crate) fn size(&self) -> usize {
+        self.size
+    }
+}
 
 #[cfg(unix)]
 impl MemoryMappedBinary {
@@ -386,7 +389,13 @@ impl MemoryMappedBinary {
 
         // Mmap individual load segments
         for load_segment in &segments {
-            // The virtual offset does not need to start at a page boundary.
+            #[cfg(target_os = "macos")]
+            if !load_segment.mem_address.is_multiple_of(page_size) {
+                return Err(format!(
+                    "Load segment virtual address 0x{:x} is not aligned to host page size 0x{:x}",
+                    load_segment.mem_address, page_size
+                ));
+            }
             if load_segment.file_address % page_size != load_segment.mem_address % page_size {
                 return Err(format!(
                     "Load segment file offset 0x{:x} and virtual address 0x{:x} have incompatible page alignment",
@@ -561,6 +570,8 @@ impl MemoryMappedBinary {
         Ok(map)
     }
 
+    // Mach-O images use position-independent code (PIC), so relocations must be
+    // applied once the final mapping address is known.
     fn apply_chained_fixups<'a, Mach, R>(
         &self,
         image: &object::read::macho::MachOFile<'a, Mach, R>,
@@ -917,7 +928,6 @@ mod tests {
                             register_frame_info(
                                 Arc::new(ModuleInfo::new()),
                                 &functions.into_boxed_slice(),
-                                None,
                                 base as usize,
                                 None,
                             )

@@ -56,20 +56,18 @@ pub(crate) fn path_create_directory_internal(
     let env = ctx.data();
     let (memory, state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
     let working_dir = state.fs.get_fd(fd)?;
-
-    if !working_dir
-        .inner
-        .rights
-        .contains(Rights::PATH_CREATE_DIRECTORY)
-    {
-        trace!("working directory (fd={fd}) has no rights to create a directory");
-        return Err(Errno::Access);
-    }
-
-    let (parent_inode, dir_name) =
+    let (parent_inode, owner, dir_name) =
         state
             .fs
-            .get_parent_inode_at_path(inodes, fd, Path::new(path), true)?;
+            .get_owned_parent_inode_at_path(inodes, fd, Path::new(path), true)?;
+
+    if let Err(err) = state
+        .fs
+        .check_path_right(&working_dir, &owner, Rights::PATH_CREATE_DIRECTORY)
+    {
+        trace!("working directory (fd={fd}) has no rights to create a directory");
+        return Err(err);
+    }
 
     let mut guard = parent_inode.write();
     match guard.deref_mut() {

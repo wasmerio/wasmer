@@ -103,6 +103,8 @@ use wasmer_wasix::virtual_fs::{
     StaticFile, TmpFileSystem, create_dir_all as create_virtual_dir_all, mem_fs,
 };
 
+#[cfg(not(target_os = "windows"))]
+mod ephemeral_symlink;
 mod error;
 mod runner;
 
@@ -1461,6 +1463,16 @@ fn has_primary_source_file(path: &Path) -> bool {
 fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
     let tests_dir = PathBuf::from_str(env!("CARGO_MANIFEST_DIR"))?.join("tests/wasm_tests/");
     let tests_build_root = tests_dir.join("build");
+
+    #[cfg(not(target_os = "windows"))]
+    for sysroot in TESTED_LIBC_VERSIONS {
+        let config =
+            ephemeral_symlink::fallback_metadata_config(&tests_dir, &tests_build_root, *sysroot)?;
+        tests.push(Trial::test(config.full_test_name(), move || {
+            ephemeral_symlink::run_fallback_metadata_test(config)
+                .map_err(|error| libtest_mimic::Failed::from(format!("{error:?}")))
+        }));
+    }
 
     tests.push(libtest_mimic::Trial::test("wasm/dynamic_runtime_hooks", {
         let tests_dir = tests_dir.clone();

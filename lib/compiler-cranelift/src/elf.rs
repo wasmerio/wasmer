@@ -25,9 +25,12 @@ use object::{
 #[cfg(feature = "unwind")]
 use std::collections::HashMap;
 #[cfg(feature = "unwind")]
-use wasmer_compiler::dwarf::{EhRelocation, EhTarget, WriterRelocate};
-#[cfg(feature = "unwind")]
 use wasmer_compiler::elf::emit_eh_frame_section;
+#[cfg(feature = "unwind")]
+use wasmer_compiler::{
+    UNWIND_HAS_LSDA, WASMER_EH_TAGS_SECTION_NAME,
+    dwarf::{EhRelocation, EhTarget, WriterRelocate},
+};
 use wasmer_compiler::{WasmSourceMap, dwarf::init_dwarf_unit};
 use wasmer_compiler::{
     elf::{add_relocations, emit_trap_section},
@@ -215,7 +218,7 @@ fn emit_eh_tag_section(
     object.append_section_data(section, &bytes, 4);
     let symbol = if object.format() == object::BinaryFormat::MachO {
         object.add_symbol(Symbol {
-            name: b"wasmer_eh_tags".to_vec(),
+            name: WASMER_EH_TAGS_SECTION_NAME.to_vec(),
             value: 0,
             size: bytes.len() as u64,
             kind: SymbolKind::Data,
@@ -315,8 +318,10 @@ pub(crate) fn emit_local_function(
             let lsda_offset =
                 object.append_section_data(gcc_section, &lsda.bytes, u64::from(pointer_bytes));
             let subtractor = macho_compact_unwind.then(|| {
+                use wasmer_compiler::WASMER_LSDA_SECTION_NAME;
+
                 object.add_symbol(Symbol {
-                    name: b"wasmer_lsda".to_vec(),
+                    name: WASMER_LSDA_SECTION_NAME.to_vec(),
                     value: lsda_offset,
                     size: lsda.bytes.len() as u64,
                     kind: SymbolKind::Data,
@@ -383,7 +388,7 @@ pub(crate) fn emit_local_function(
                     function_length,
                     compact_encoding: encoding
                         | if lsda_section_symbol.is_some() {
-                            0x4000_0000
+                            UNWIND_HAS_LSDA
                         } else {
                             0
                         },
@@ -392,7 +397,9 @@ pub(crate) fn emit_local_function(
                 lsda_section_symbol
                     .map(|_| wasmer_compiler::types::section::SectionIndex::from_u32(0)),
             )
-            .expect("one compact unwind entry");
+            .ok_or_else(|| {
+                CompileError::Codegen("missing compact unwind entry for function".into())
+            })?;
             let section = object.add_section(
                 object.segment_name(StandardSegment::Data).to_vec(),
                 b"__compact_unwind".to_vec(),

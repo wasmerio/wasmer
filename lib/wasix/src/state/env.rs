@@ -3,7 +3,7 @@ use crate::journal::{DynJournal, JournalEffector, SnapshotTrigger};
 use crate::{
     Runtime, VirtualTaskManager, WasiControlPlane, WasiEnvBuilder, WasiError, WasiFunctionEnv,
     WasiResult, WasiRuntimeError, WasiStateCreationError, WasiThreadError, WasiVFork,
-    bin_factory::{BinFactory, BinaryPackage, BinaryPackageCommand},
+    bin_factory::{BinFactory, BinaryPackage, BinaryPackageCommand, CommandBinaryPackage},
     capabilities::Capabilities,
     fs::{WasiFsRoot, WasiInodes},
     import_object_for_all_wasi_versions,
@@ -1180,11 +1180,13 @@ impl WasiEnv {
             let _ = root_fs.create_dir(Path::new("/usr"));
             let _ = root_fs.create_dir(Path::new("/usr/bin"));
 
-            for command in &pkg.commands {
+            let package = Arc::new(pkg.clone());
+            for command in &package.commands {
                 let atom = command.atom();
-                let mut package = pkg.clone();
-                package.entrypoint_cmd = Some(command.name().to_string());
-                let package_arc = Arc::new(package);
+                let binary = CommandBinaryPackage {
+                    package: package.clone(),
+                    entrypoint_cmd: Some(command.name().to_string()),
+                };
 
                 for directory in ["/bin", "/usr/bin"] {
                     let path = format!("{directory}/{}", command.name());
@@ -1203,7 +1205,7 @@ impl WasiEnv {
 
                     // Keep metadata for each installed path even if another
                     // alias cannot be written (for example, below a mount).
-                    self.bin_factory.set_binary(&path, &package_arc);
+                    self.bin_factory.set_binary(&path, binary.clone());
                     tracing::debug!(
                         package=%pkg.id,
                         command_name=command.name(),
@@ -1463,7 +1465,7 @@ mod tests {
                 );
             }
             // `prepare_spawn` mutates the env's args, so apply it only once.
-            env.prepare_spawn(installed[0].get_command("pi").unwrap());
+            env.prepare_spawn(installed[0].get_entrypoint_command().unwrap());
             assert_eq!(
                 *env.state.args.lock().unwrap(),
                 ["pi", "/opt/pi/cli.js", "--provider", "openai"]

@@ -79,8 +79,8 @@ const CATCH_ALL_TAG_VALUE: i32 = i32::MAX;
 //   In WebAssembly, this manifests as a stack overflow.
 // - `instcombine` removes one of the NaN canonicalization checks for `sqrt`.
 
-const LLVM_OPT_O0_PASSES: &str = "function(ee-instrument<>),always-inline,coro-cond(coro-early,cgscc(coro-split),coro-cleanup,globaldce),alloc-token,function(annotation-remarks),verify";
-const LLVM_OPT_O1_PASSES: &str = "memprof-remove-attributes,annotation2metadata,forceattrs,inferattrs,coro-early,function<eager-inv>(ee-instrument<>,lower-expect,simplifycfg<bonus-inst-threshold=1;no-forward-switch-cond;no-switch-range-to-icmp;no-switch-to-arithmetic;no-switch-to-lookup;keep-loops;no-hoist-common-insts;no-hoist-loads-stores-with-cond-faulting;no-sink-common-insts;speculate-blocks;simplify-cond-branch;no-speculate-unpredictables>,sroa<modify-cfg>,early-cse<>),openmp-opt,ipsccp,called-value-propagation,globalopt,function<eager-inv>(mem2reg,instcombine<max-iterations=1;no-verify-fixpoint>,simplifycfg<bonus-inst-threshold=1;no-forward-switch-cond;switch-range-to-icmp;no-switch-to-arithmetic;no-switch-to-lookup;keep-loops;no-hoist-common-insts;no-hoist-loads-stores-with-cond-faulting;no-sink-common-insts;speculate-blocks;simplify-cond-branch;no-speculate-unpredictables>),always-inline,require<globals-aa>,function(invalidate<aa>),require<profile-summary>,cgscc(devirt<4>(inline,function-attrs<skip-non-recursive-function-attrs>,function<eager-inv;no-rerun>(sroa<modify-cfg>,early-cse<memssa>,simplifycfg<bonus-inst-threshold=1;no-forward-switch-cond;switch-range-to-icmp;no-switch-to-arithmetic;no-switch-to-lookup;keep-loops;no-hoist-common-insts;no-hoist-loads-stores-with-cond-faulting;no-sink-common-insts;speculate-blocks;simplify-cond-branch;no-speculate-unpredictables>,instcombine<max-iterations=1;no-verify-fixpoint>,libcalls-shrinkwrap,simplifycfg<bonus-inst-threshold=1;no-forward-switch-cond;switch-range-to-icmp;no-switch-to-arithmetic;no-switch-to-lookup;keep-loops;no-hoist-common-insts;no-hoist-loads-stores-with-cond-faulting;no-sink-common-insts;speculate-blocks;simplify-cond-branch;no-speculate-unpredictables>,reassociate,loop-mssa(loop-instsimplify,loop-simplifycfg,licm<no-allowspeculation>,loop-rotate<header-duplication;no-prepare-for-lto>,licm<allowspeculation>,simple-loop-unswitch<no-nontrivial;trivial>),simplifycfg<bonus-inst-threshold=1;no-forward-switch-cond;switch-range-to-icmp;no-switch-to-arithmetic;no-switch-to-lookup;keep-loops;no-hoist-common-insts;no-hoist-loads-stores-with-cond-faulting;no-sink-common-insts;speculate-blocks;simplify-cond-branch;no-speculate-unpredictables>,instcombine<max-iterations=1;no-verify-fixpoint>,loop(loop-idiom,indvars,loop-deletion,loop-unroll-full),sroa<modify-cfg>,memcpyopt,sccp,bdce,instcombine<max-iterations=1;no-verify-fixpoint>,coro-elide,adce,simplifycfg<bonus-inst-threshold=1;no-forward-switch-cond;switch-range-to-icmp;no-switch-to-arithmetic;no-switch-to-lookup;keep-loops;no-hoist-common-insts;no-hoist-loads-stores-with-cond-faulting;no-sink-common-insts;speculate-blocks;simplify-cond-branch;no-speculate-unpredictables>,instcombine<max-iterations=1;no-verify-fixpoint>),function-attrs,function(require<should-not-run-function-passes>),coro-split,coro-annotation-elide)),deadargelim,coro-cleanup,globalopt,globaldce,elim-avail-extern,rpo-function-attrs,recompute-globalsaa,function<eager-inv>(drop-unnecessary-assumes,float2int,lower-constant-intrinsics,loop(loop-rotate<header-duplication;no-prepare-for-lto>,loop-deletion),loop-distribute,inject-tli-mappings,loop-vectorize<no-interleave-forced-only;vectorize-forced-only;>,drop-unnecessary-assumes,infer-alignment,loop-load-elim,instcombine<max-iterations=1;no-verify-fixpoint>,simplifycfg<bonus-inst-threshold=1;forward-switch-cond;switch-range-to-icmp;switch-to-arithmetic;switch-to-lookup;no-keep-loops;hoist-common-insts;no-hoist-loads-stores-with-cond-faulting;sink-common-insts;speculate-blocks;simplify-cond-branch;no-speculate-unpredictables>,vector-combine,instcombine<max-iterations=1;no-verify-fixpoint>,loop-unroll<O1>,transform-warning,sroa<preserve-cfg>,infer-alignment,instcombine<max-iterations=1;no-verify-fixpoint>,loop-mssa(licm<allowspeculation>),alignment-from-assumptions,loop-sink,instsimplify,div-rem-pairs,tailcallelim,simplifycfg<bonus-inst-threshold=1;no-forward-switch-cond;switch-range-to-icmp;switch-to-arithmetic;no-switch-to-lookup;keep-loops;no-hoist-common-insts;hoist-loads-stores-with-cond-faulting;no-sink-common-insts;speculate-blocks;simplify-cond-branch;speculate-unpredictables>),alloc-token,globaldce,constmerge,cg-profile,rel-lookup-table-converter,function(annotation-remarks),verify";
+const LLVM_OPT_O0_PASSES: &str = "function(ee-instrument<>),always-inline,coro-cond(coro-early,cgscc(coro-split),coro-cleanup,globaldce),alloc-token,lower-comment-string,function(annotation-remarks),verify";
+const LLVM_OPT_O1_PASSES: &str = "memprof-remove-attributes,annotation2metadata,forceattrs,inferattrs,coro-early,function<eager-inv>(ee-instrument<>,lower-expect,simplifycfg<bonus-inst-threshold=1;no-forward-switch-cond;no-switch-range-to-icmp;no-switch-to-arithmetic;no-switch-to-lookup;keep-loops;no-hoist-common-insts;no-hoist-loads-stores-with-cond-faulting;no-sink-common-insts;speculate-blocks;simplify-cond-branch;no-speculate-unpredictables>,sroa<modify-cfg>,early-cse<>),openmp-opt,ipsccp,called-value-propagation,globalopt,function<eager-inv>(mem2reg,instcombine<max-iterations=1;no-verify-fixpoint>,simplifycfg<bonus-inst-threshold=1;no-forward-switch-cond;switch-range-to-icmp;no-switch-to-arithmetic;no-switch-to-lookup;keep-loops;no-hoist-common-insts;no-hoist-loads-stores-with-cond-faulting;no-sink-common-insts;speculate-blocks;simplify-cond-branch;no-speculate-unpredictables>),always-inline,require<globals-aa>,function(invalidate<aa>),require<profile-summary>,cgscc(devirt<4>(inline,function-attrs<skip-non-recursive-function-attrs>,function<eager-inv;no-rerun>(sroa<modify-cfg>,early-cse<memssa>,simplifycfg<bonus-inst-threshold=1;no-forward-switch-cond;switch-range-to-icmp;no-switch-to-arithmetic;no-switch-to-lookup;keep-loops;no-hoist-common-insts;no-hoist-loads-stores-with-cond-faulting;no-sink-common-insts;speculate-blocks;simplify-cond-branch;no-speculate-unpredictables>,instcombine<max-iterations=1;no-verify-fixpoint>,libcalls-shrinkwrap,simplifycfg<bonus-inst-threshold=1;no-forward-switch-cond;switch-range-to-icmp;no-switch-to-arithmetic;no-switch-to-lookup;keep-loops;no-hoist-common-insts;no-hoist-loads-stores-with-cond-faulting;no-sink-common-insts;speculate-blocks;simplify-cond-branch;no-speculate-unpredictables>,reassociate,loop-mssa(loop-instsimplify,loop-simplifycfg,licm<no-allowspeculation>,loop-rotate<header-duplication;no-prepare-for-lto;no-check-exit-count>,licm<allowspeculation>,simple-loop-unswitch<no-nontrivial;trivial>),simplifycfg<bonus-inst-threshold=1;no-forward-switch-cond;switch-range-to-icmp;no-switch-to-arithmetic;no-switch-to-lookup;keep-loops;no-hoist-common-insts;no-hoist-loads-stores-with-cond-faulting;no-sink-common-insts;speculate-blocks;simplify-cond-branch;no-speculate-unpredictables>,instcombine<max-iterations=1;no-verify-fixpoint>,loop(loop-idiom,indvars,loop-deletion,loop-unroll-full),sroa<modify-cfg>,memcpyopt,sccp,bdce,instcombine<max-iterations=1;no-verify-fixpoint>,coro-elide,adce,simplifycfg<bonus-inst-threshold=1;no-forward-switch-cond;switch-range-to-icmp;no-switch-to-arithmetic;no-switch-to-lookup;keep-loops;no-hoist-common-insts;no-hoist-loads-stores-with-cond-faulting;no-sink-common-insts;speculate-blocks;simplify-cond-branch;no-speculate-unpredictables>,instcombine<max-iterations=1;no-verify-fixpoint>),function-attrs,function(require<should-not-run-function-passes>),coro-split,coro-annotation-elide)),deadargelim,coro-cleanup,globalopt,globaldce,elim-avail-extern,rpo-function-attrs,recompute-globalsaa,function<eager-inv>(drop-unnecessary-assumes,float2int,lower-constant-intrinsics,loop(loop-rotate<header-duplication;no-prepare-for-lto;check-exit-count>,loop-deletion,loop-interchange),loop-distribute,inject-tli-mappings,loop-vectorize<no-interleave-forced-only;vectorize-forced-only;>,drop-unnecessary-assumes,infer-alignment,loop-load-elim,instcombine<max-iterations=1;no-verify-fixpoint>,simplifycfg<bonus-inst-threshold=1;forward-switch-cond;switch-range-to-icmp;switch-to-arithmetic;switch-to-lookup;no-keep-loops;hoist-common-insts;no-hoist-loads-stores-with-cond-faulting;sink-common-insts;speculate-blocks;simplify-cond-branch;no-speculate-unpredictables>,vector-combine,instcombine<max-iterations=1;no-verify-fixpoint>,loop-unroll<O1>,transform-warning,sroa<preserve-cfg;aggregate-to-vector>,infer-alignment,instcombine<max-iterations=1;no-verify-fixpoint>,loop-mssa(licm<allowspeculation>),alignment-from-assumptions,loop-sink,instsimplify,div-rem-pairs,mergeicmps,expand-memcmp,tailcallelim,simplifycfg<bonus-inst-threshold=1;no-forward-switch-cond;switch-range-to-icmp;switch-to-arithmetic;no-switch-to-lookup;keep-loops;no-hoist-common-insts;hoist-loads-stores-with-cond-faulting;no-sink-common-insts;speculate-blocks;simplify-cond-branch;speculate-unpredictables>),alloc-token,globaldce,constmerge,cg-profile,rel-lookup-table-converter,lower-comment-string,function(annotation-remarks),verify";
 const IGNORED_PASSES: &[&str] = &[
     "memcpyopt",
     "tailcallelim",
@@ -92,7 +92,7 @@ static LLVM_OPT_PASSES: OnceLock<[String; 2]> = OnceLock::new();
 fn llvm_opt_passes() -> &'static [String; 2] {
     LLVM_OPT_PASSES.get_or_init(|| {
         // Update the LLVM_OPT_Ox_PASSES constants based on the release!
-        debug_assert_eq!(get_llvm_version().0, 22);
+        debug_assert_eq!(get_llvm_version().0, 23);
 
         [LLVM_OPT_O0_PASSES, LLVM_OPT_O1_PASSES].map(|passes| {
             let mut passes = passes.to_string();
@@ -187,6 +187,7 @@ impl FuncTranslator {
         let m0_is_enabled = enable_m0_optimization(config, memory_styles);
 
         let module = self.ctx.create_module("");
+        let function_name = function.linkage_name();
 
         let target_machine = &self.target_machines.values().next().unwrap();
         let target_triple = target_machine.get_triple();
@@ -200,13 +201,7 @@ impl FuncTranslator {
 
         let offsets =
             VMOffsets::try_new(self.pointer_width, wasm_module).map_err(CompileError::Resource)?;
-        let intrinsics = Intrinsics::declare(
-            &module,
-            &self.ctx,
-            &target_data,
-            &self.target_triple,
-            &self.binary_fmt,
-        );
+        let intrinsics = Intrinsics::declare(&module, &self.ctx, &target_data, &self.target_triple);
         let (func_type, func_attrs) = self.abi.func_type_to_llvm(
             &self.ctx,
             &intrinsics,
@@ -215,8 +210,9 @@ impl FuncTranslator {
             m0_is_enabled,
         )?;
 
-        let func =
-            module.add_function(&function.linkage_name(), func_type, Some(Linkage::External));
+        let func = module.add_function(&function_name, func_type, Some(Linkage::External));
+        func.as_global_value()
+            .set_alignment(super::FUNCTION_ALIGNMENT);
 
         // TODO: support dSYM debug info file creation and loading in the future
         let debug_info = if matches!(target.binary_format, BinaryFormat::Elf) {
@@ -987,7 +983,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         let int_type = left.get_type();
 
         let (min_value, neg_one_value) = if int_type == self.intrinsics.i32_ty {
-            let min_value = int_type.const_int(i32::MIN as u64, false);
+            let min_value = int_type.const_int(u64::from(i32::MIN as u32), false);
             let neg_one_value = int_type.const_int(-1i32 as u32 as u64, false);
             (min_value, neg_one_value)
         } else if int_type == self.intrinsics.i64_ty {
@@ -3153,7 +3149,10 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
 
             // Generate const values.
             Operator::I32Const { value } => {
-                let i = self.intrinsics.i32_ty.const_int(value as u64, false);
+                let i = self
+                    .intrinsics
+                    .i32_ty
+                    .const_int(u64::from(value as u32), false);
                 let info = if is_f32_arithmetic(value as u32) {
                     ExtraInfo::arithmetic_f32()
                 } else {
@@ -4929,7 +4928,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
                 let int_type = v1.get_type();
                 let (min_value, neg_one_value) = if int_type == self.intrinsics.i32_ty {
-                    let min_value = int_type.const_int(i32::MIN as u64, false);
+                    let min_value = int_type.const_int(u64::from(i32::MIN as u32), false);
                     let neg_one_value = int_type.const_int(-1i32 as u32 as u64, false);
                     (min_value, neg_one_value)
                 } else if int_type == self.intrinsics.i64_ty {

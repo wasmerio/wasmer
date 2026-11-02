@@ -76,7 +76,7 @@ impl AsyncCliCommand for CmdAppSecretsExport {
                 lines.join("\n")
             }
             SecretExportFormat::Json => serde_json::to_string_pretty(&secrets)?,
-            SecretExportFormat::Yaml => serde_yaml::to_string(&secrets)?,
+            SecretExportFormat::Yaml => yaml_serde::to_string(&secrets)?,
         };
 
         if let Some(path) = &self.output {

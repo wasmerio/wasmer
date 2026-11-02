@@ -57,7 +57,7 @@ change once it is ready.
 
 ### LLVM Dependency
 
-`Didn't find usable system-wide LLVM` means LLVM 22 is missing. Either
+`Didn't find usable system-wide LLVM` means LLVM 23 is missing. Either
 install it or build with `ENABLE_LLVM=0`. See
 [Building Wasmer from Source](./BUILD.md#llvm-compiler) for installation
 instructions.

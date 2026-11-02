@@ -73,7 +73,7 @@ impl CmdAppSecretsImport {
             }
             SecretImportFormat::Yaml => {
                 let content = std::fs::read_to_string(path)?;
-                let secrets: Vec<Secret> = serde_yaml::from_str(&content)?;
+                let secrets: Vec<Secret> = yaml_serde::from_str(&content)?;
                 Ok(secrets)
             }
         }

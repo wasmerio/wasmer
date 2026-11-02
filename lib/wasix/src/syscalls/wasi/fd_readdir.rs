@@ -35,6 +35,9 @@ pub fn fd_readdir<M: MemorySize>(
     let buf_arr = wasi_try_mem_ok!(buf.slice(&memory, buf_len));
     let bufused_ref = bufused.deref(&memory);
     let working_dir = wasi_try_ok!(state.fs.get_fd(fd));
+    if !working_dir.inner.rights.contains(Rights::FD_READDIR) {
+        return Ok(Errno::Access);
+    }
     let mut buf_idx = 0usize;
 
     let entries: Vec<(String, Filetype, u64)> = {

@@ -38,7 +38,7 @@ use crate::{
 pub struct BinFactory {
     pub(crate) commands: Commands,
     runtime: Arc<dyn Runtime + Send + Sync + 'static>,
-    pub(crate) local: Arc<RwLock<HashMap<String, Option<Arc<BinaryPackage>>>>>,
+    pub(crate) local: Arc<RwLock<HashMap<String, Option<CommandBinaryPackage>>>>,
 }
 
 impl BinFactory {
@@ -88,9 +88,9 @@ impl BinFactory {
         self.commands.clear();
     }
 
-    pub fn set_binary(&self, name: &str, binary: &Arc<BinaryPackage>) {
+    pub fn set_binary(&self, name: &str, binary: CommandBinaryPackage) {
         let mut cache = self.local.write().unwrap();
-        cache.insert(name.to_string(), Some(binary.clone()));
+        cache.insert(name.to_string(), Some(binary));
     }
 
     #[allow(clippy::await_holding_lock)]
@@ -98,7 +98,7 @@ impl BinFactory {
         &self,
         name: &str,
         fs: Option<&dyn FileSystem>,
-    ) -> Option<Arc<BinaryPackage>> {
+    ) -> Option<CommandBinaryPackage> {
         self.get_executable(name, fs)
             .await
             .and_then(|executable| match executable {
@@ -164,8 +164,7 @@ impl BinFactory {
                             env.prepare_spawn(cmd);
                         }
 
-                        return spawn_exec(pkg.as_ref().clone(), name.as_str(), env, &self.runtime)
-                            .await;
+                        return spawn_exec(pkg, name.as_str(), env, &self.runtime).await;
                     }
                     Executable::Script(script) => {
                         let script_path = invoked_as.unwrap_or_else(|| name.clone());
@@ -344,7 +343,7 @@ fn executable_search_path(env: &WasiEnv) -> Vec<String> {
 
 pub enum Executable {
     Wasm(OwnedBuffer),
-    BinaryPackage(Arc<BinaryPackage>),
+    BinaryPackage(CommandBinaryPackage),
     Script(Shebang),
 }
 
@@ -520,7 +519,7 @@ async fn load_executable_from_buffer(
             let package = BinaryPackage::from_webc(&container, rt)
                 .await
                 .context("Unable to load the package")?;
-            return Ok(Executable::BinaryPackage(Arc::new(package)));
+            return Ok(Executable::BinaryPackage(package.into()));
         }
     }
 

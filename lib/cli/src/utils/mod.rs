@@ -35,10 +35,10 @@ fn retrieve_alias_pathbuf(host_dir: &str, guest_dir: &str) -> Result<MappedDirec
     let host_dir_path = PathBuf::from(&host_dir).canonicalize()?;
     if let Ok(pb_metadata) = host_dir_path.metadata() {
         if !pb_metadata.is_dir() {
-            bail!("\"{}\" exists, but it is not a directory", &host_dir);
+            bail!("\"{host_dir}\" exists, but it is not a directory");
         }
     } else {
-        bail!("Directory \"{}\" does not exist", &host_dir);
+        bail!("Directory \"{host_dir}\" does not exist");
     }
     Ok(MappedDirectory {
         host: host_dir_path,
@@ -71,19 +71,16 @@ pub fn parse_envvar(entry: &str) -> Result<(String, String)> {
     let entry = entry.trim();
 
     match entry.find('=') {
-        None => bail!(
-            "Environment variable must be of the form `<name>=<value>`; found `{}`",
-            &entry
-        ),
+        None => {
+            bail!("Environment variable must be of the form `<name>=<value>`; found `{entry}`",)
+        }
 
         Some(0) => bail!(
-            "Environment variable is not well formed, the `name` is missing in `<name>=<value>`; got `{}`",
-            &entry
+            "Environment variable is not well formed, the `name` is missing in `<name>=<value>`; got `{entry}`",
         ),
 
         Some(position) if position == entry.len() - 1 => bail!(
-            "Environment variable is not well formed, the `value` is missing in `<name>=<value>`; got `{}`",
-            &entry
+            "Environment variable is not well formed, the `value` is missing in `<name>=<value>`; got `{entry}`",
         ),
 
         Some(position) => Ok((entry[..position].into(), entry[position + 1..].into())),
@@ -131,8 +128,8 @@ pub fn load_package_manifest(
 /// Merge two yaml values by recursively merging maps from b into a.
 ///
 /// Preserves old values that were not in b.
-pub(crate) fn merge_yaml_values(a: &serde_yaml::Value, b: &serde_yaml::Value) -> serde_yaml::Value {
-    use serde_yaml::Value as V;
+pub(crate) fn merge_yaml_values(a: &yaml_serde::Value, b: &yaml_serde::Value) -> yaml_serde::Value {
+    use yaml_serde::Value as V;
     match (a, b) {
         (V::Mapping(a), V::Mapping(b)) => {
             let mut m = a.clone();
@@ -168,7 +165,7 @@ mod tests {
 
     #[test]
     fn test_merge_yaml_values() {
-        use serde_yaml::Value;
+        use yaml_serde::Value;
         let v1 = r#"
 a: a
 b:
@@ -188,9 +185,9 @@ b:
 c: c
         "#;
 
-        let a: Value = serde_yaml::from_str(v1).unwrap();
-        let b: Value = serde_yaml::from_str(v2).unwrap();
-        let c: Value = serde_yaml::from_str(v3).unwrap();
+        let a: Value = yaml_serde::from_str(v1).unwrap();
+        let b: Value = yaml_serde::from_str(v2).unwrap();
+        let c: Value = yaml_serde::from_str(v3).unwrap();
         let merged = merge_yaml_values(&a, &b);
         assert_eq!(merged, c);
     }

@@ -114,7 +114,7 @@ pub(super) async fn get_app_id(
         let app_name = if let Some(owner) = &app.owner {
             format!(
                 "{owner}/{}",
-                &app.name.clone().context("App name has to be specified")?
+                app.name.clone().context("App name has to be specified")?
             )
         } else {
             app.name

@@ -602,7 +602,9 @@ pub fn parse_name_section<'data>(
             | wasmparser::Name::Data(_)
             | wasmparser::Name::Unknown { .. }
             | wasmparser::Name::Field(_)
-            | wasmparser::Name::Tag(..) => {}
+            | wasmparser::Name::Tag(..)
+            | wasmparser::Name::Parameter(..)
+            | wasmparser::Name::TagParameter(..) => {}
         }
     }
 

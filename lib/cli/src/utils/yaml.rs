@@ -1,6 +1,6 @@
 //! Format-preserving YAML editing for `app.yaml`.
 //!
-//! Serializing a `serde_yaml::Value` back to a string drops the user's
+//! Serializing a `yaml_serde::Value` back to a string drops the user's
 //! formatting (comments, key order, blank lines, quoting).
 //! [`apply_app_config_to_yaml`] instead edits the original text in place with
 //! [`yaml_edit`], rewriting only the nodes whose value changed.
@@ -8,8 +8,8 @@
 use std::str::FromStr;
 
 use anyhow::Context as _;
-use serde_yaml::Value;
 use yaml_edit::{Mapping, YamlFile, YamlNode};
+use yaml_serde::Value;
 
 /// Apply `target` onto the original app YAML `text`, preserving the formatting
 /// of everything that did not change.
@@ -26,13 +26,13 @@ use yaml_edit::{Mapping, YamlFile, YamlNode};
 /// serialization of `target`.
 pub(crate) fn apply_app_config_to_yaml(text: &str, target: &Value) -> anyhow::Result<String> {
     match try_format_preserving_edit(text, target) {
-        Ok(out) if serde_yaml::from_str::<Value>(&out).is_ok() => Ok(out),
+        Ok(out) if yaml_serde::from_str::<Value>(&out).is_ok() => Ok(out),
         Ok(_) => {
             tracing::warn!(
                 "format-preserving app YAML edit produced invalid YAML; \
                  rewriting the file without preserving formatting"
             );
-            Ok(serde_yaml::to_string(target)?)
+            Ok(yaml_serde::to_string(target)?)
         }
         Err(err) => {
             tracing::warn!(
@@ -40,7 +40,7 @@ pub(crate) fn apply_app_config_to_yaml(text: &str, target: &Value) -> anyhow::Re
                 "cannot format-preserve app YAML edit; \
                  rewriting the file without preserving formatting"
             );
-            Ok(serde_yaml::to_string(target)?)
+            Ok(yaml_serde::to_string(target)?)
         }
     }
 }
@@ -54,7 +54,7 @@ fn try_format_preserving_edit(text: &str, target: &Value) -> anyhow::Result<Stri
     // Second parse, used to detect which keys changed. `yaml_edit` node text
     // cannot be reparsed for this: it is dedented on the first line only, so
     // block values are not valid standalone YAML.
-    let original: Value = serde_yaml::from_str(text)
+    let original: Value = yaml_serde::from_str(text)
         .map_err(|e| anyhow::anyhow!("could not parse YAML semantically: {e}"))?;
 
     match (doc.as_mapping(), target, &original) {
@@ -65,7 +65,7 @@ fn try_format_preserving_edit(text: &str, target: &Value) -> anyhow::Result<Stri
         // The document root is not a mapping (or the target is not a mapping).
         // We have no formatting to preserve in a meaningful way, so fall back to
         // a plain serialization of the target.
-        _ => Ok(serde_yaml::to_string(target)?),
+        _ => Ok(yaml_serde::to_string(target)?),
     }
 }
 
@@ -80,8 +80,8 @@ fn try_format_preserving_edit(text: &str, target: &Value) -> anyhow::Result<Stri
 /// delete the user's forward-compatible settings.
 fn merge_into_mapping(
     mapping: &Mapping,
-    target: &serde_yaml::Mapping,
-    original: Option<&serde_yaml::Mapping>,
+    target: &yaml_serde::Mapping,
+    original: Option<&yaml_serde::Mapping>,
     remove_missing: bool,
 ) -> anyhow::Result<()> {
     for (key_value, value) in target {
@@ -142,7 +142,7 @@ fn set_value(mapping: &Mapping, key: &str, value: &Value) -> anyhow::Result<()> 
             } else if let Some(f) = n.as_f64() {
                 mapping.set(key, f);
             } else {
-                // Unreachable: `serde_yaml` numbers are always i64/u64/f64.
+                // Unreachable: `yaml_serde` numbers are always i64/u64/f64.
                 anyhow::bail!("cannot represent number for app YAML key `{key}`");
             }
         }
@@ -154,7 +154,7 @@ fn set_value(mapping: &Mapping, key: &str, value: &Value) -> anyhow::Result<()> 
     Ok(())
 }
 
-fn stale_top_level_keys(mapping: &Mapping, target: &serde_yaml::Mapping) -> Vec<String> {
+fn stale_top_level_keys(mapping: &Mapping, target: &yaml_serde::Mapping) -> Vec<String> {
     mapping
         .entries()
         .filter_map(|entry| {
@@ -197,7 +197,7 @@ pub(crate) fn apply_app_config_to_yaml_file(
     match std::fs::read_to_string(path) {
         Ok(text) => apply_app_config_to_yaml(&text, target)
             .with_context(|| format!("could not edit YAML file '{}'", path.display())),
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(serde_yaml::to_string(target)?),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(yaml_serde::to_string(target)?),
         Err(e) => Err(e).with_context(|| format!("could not read YAML file '{}'", path.display())),
     }
 }
@@ -207,7 +207,7 @@ mod tests {
     use super::*;
 
     fn parse(s: &str) -> Value {
-        serde_yaml::from_str(s).unwrap()
+        yaml_serde::from_str(s).unwrap()
     }
 
     #[test]
@@ -387,7 +387,7 @@ env:
         let original = r#"kind: wasmer.io/App.v0
 package: .
 "#;
-        let mut target = serde_yaml::Mapping::new();
+        let mut target = yaml_serde::Mapping::new();
         target.insert("kind".into(), "wasmer.io/App.v0".into());
         target.insert("package".into(), ".".into());
         target.insert("name".into(), Value::Null);
@@ -402,7 +402,7 @@ package: .
 name: my-app
 package: .
 "#;
-        let mut target = serde_yaml::Mapping::new();
+        let mut target = yaml_serde::Mapping::new();
         target.insert("kind".into(), "wasmer.io/App.v0".into());
         target.insert("name".into(), Value::Null);
         target.insert("package".into(), ".".into());

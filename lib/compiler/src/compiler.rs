@@ -23,10 +23,7 @@ use itertools::Itertools;
 use libwild::{
     Args, FileSystem, FileType, InputFileData, Linker, OutputFileData, OutputOptions, error,
 };
-use object::write::{
-    Error as ObjectWriteError, Object, Relocation, StandardSection, StandardSegment,
-    Symbol as ObjSymbol, SymbolSection,
-};
+use object::write::{Object, Relocation, StandardSegment, Symbol as ObjSymbol, SymbolSection};
 use object::{
     FileFlags, RelocationEncoding, RelocationFlags, RelocationKind, SectionFlags, SectionKind,
     SymbolFlags, SymbolKind, SymbolScope, elf,
@@ -458,22 +455,6 @@ fn emit_wasmer_meta_object(
     let mut obj = get_object_for_target(target.triple())
         .map_err(|e| format!("failed to create Wasmer meta object: {e}"))?;
 
-    if obj.format() == object::BinaryFormat::MachO {
-        let section_id = obj.section_id(StandardSection::Text);
-        // Mach-O links require an entry symbol, but Wasmer never calls it.
-        // TODO: remove in the future and switch to dylib
-        obj.add_symbol(ObjSymbol {
-            name: b"main".to_vec(),
-            value: 0,
-            size: 0,
-            kind: SymbolKind::Text,
-            scope: SymbolScope::Linkage,
-            weak: true,
-            section: SymbolSection::Section(section_id),
-            flags: SymbolFlags::None,
-        });
-    }
-
     let section_id = obj.add_section(
         obj.segment_name(StandardSegment::Data).to_vec(),
         crate::WASMER_MODULE_INFO_SECTION_NAME.to_vec(),
@@ -728,11 +709,11 @@ static WASMER_LIBRARY_TBD: LazyLock<String> = LazyLock::new(|| {
     format!(
         r#"--- !tapi-tbd
  tbd-version: 4
- targets: [  arm64e-macos ]
+ targets: [  arm64-macos, arm64e-macos ]
  install-name: 'libwasmer.dylib'
  current-version: 1
  exports:
-   - targets: [ arm64e-macos ]
+   - targets: [ arm64-macos, arm64e-macos ]
      symbols: [ {symbols} ]
 ...
 "#
@@ -774,6 +755,7 @@ pub fn emit_metadata_and_link(
                     "ld".to_string(),
                     "-flavor".to_string(),
                     "darwin".to_string(),
+                    "-dylib".to_string(),
                     "-o".to_string(),
                     WASMER_IMAGE_FILENAME.to_string(),
                 ]
@@ -792,7 +774,11 @@ pub fn emit_metadata_and_link(
                     WASMER_IMAGE_FILENAME.to_string(),
                 ]
             }
-            _ => unreachable!("unexpected format"),
+            _ => {
+                return Err(CompileError::UnsupportedTarget(format!(
+                    "unsupported binary format: {format:?}"
+                )));
+            }
         };
 
         {
@@ -901,9 +887,6 @@ pub enum ObjectError {
     /// The object was provided an unknown endianness
     #[error("Unknown Endianness")]
     UnknownEndianness,
-    /// The object was provided a not-supported architecture
-    #[error("Error when writing the object: {0}")]
-    Write(#[from] ObjectWriteError),
     /// The module provided could not be serialized into bytes
     #[error("Error when serializing the given module: {0}")]
     Serialize(#[from] wasmer_types::SerializeError),
@@ -954,6 +937,21 @@ pub fn get_object_for_target(triple: &Triple) -> Result<Object<'static>, ObjectE
     };
 
     let mut object = Object::new(obj_binary_format, obj_architecture, obj_endianness);
+    // TODO: remove with a new libwild release
+    if obj_binary_format == object::BinaryFormat::MachO {
+        // libwild 0.11 skips symbol zero as if Mach-O had an ELF null symbol.
+        // Keep an unreferenced local first: https://github.com/wild-linker/wild/pull/2845
+        object.add_symbol(ObjSymbol {
+            name: b"__wasmer_dummy".to_vec(),
+            value: 0,
+            size: 0,
+            kind: SymbolKind::Data,
+            scope: SymbolScope::Compilation,
+            weak: false,
+            section: SymbolSection::Absolute,
+            flags: SymbolFlags::None,
+        });
+    }
 
     if let Architecture::Riscv64(_) = triple.architecture {
         object.flags = FileFlags::Elf {

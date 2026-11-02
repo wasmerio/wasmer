@@ -1,6 +1,7 @@
 /// Data types and functions to read and represent entries in the `__compact_unwind` section.
 mod cu_entry;
 
+use crate::UNWIND_HAS_LSDA;
 use core::ops::Range;
 pub(crate) use cu_entry::CompactUnwindEntry;
 use rangemap::RangeMap;

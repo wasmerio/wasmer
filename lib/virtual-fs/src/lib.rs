@@ -513,6 +513,9 @@ pub enum FsError {
     /// The connection was reset
     #[error("connection reset")]
     ConnectionReset,
+    /// A link or rename crosses filesystem boundaries
+    #[error("cross-device link")]
+    CrossesDevices,
     /// The operation was interrupted before it could finish
     #[error("operation interrupted")]
     Interrupted,
@@ -569,6 +572,7 @@ impl From<io::Error> for FsError {
             io::ErrorKind::ConnectionAborted => FsError::ConnectionAborted,
             io::ErrorKind::ConnectionRefused => FsError::ConnectionRefused,
             io::ErrorKind::ConnectionReset => FsError::ConnectionReset,
+            io::ErrorKind::CrossesDevices => FsError::CrossesDevices,
             io::ErrorKind::Interrupted => FsError::Interrupted,
             io::ErrorKind::InvalidData => FsError::InvalidData,
             io::ErrorKind::InvalidInput => FsError::InvalidInput,
@@ -598,6 +602,7 @@ impl From<FsError> for io::Error {
             FsError::ConnectionAborted => io::ErrorKind::ConnectionAborted,
             FsError::ConnectionRefused => io::ErrorKind::ConnectionRefused,
             FsError::ConnectionReset => io::ErrorKind::ConnectionReset,
+            FsError::CrossesDevices => io::ErrorKind::CrossesDevices,
             FsError::Interrupted => io::ErrorKind::Interrupted,
             FsError::InvalidData => io::ErrorKind::InvalidData,
             FsError::InvalidInput => io::ErrorKind::InvalidInput,

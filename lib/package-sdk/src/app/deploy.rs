@@ -65,7 +65,7 @@ pub enum DeployError {
     #[error("package publish error: {0}")]
     Publish(#[from] PackagePublishError),
     #[error("yaml error: {0}")]
-    Yaml(#[from] serde_yaml::Error),
+    Yaml(#[from] yaml_serde::Error),
     #[error("backend API error: {0}")]
     Api(#[from] anyhow::Error),
     #[error("app http probe failed: {message}")]
@@ -111,7 +111,7 @@ where
     let name = config.name.clone().ok_or(DeployError::MissingName)?;
 
     let config_value = config.clone().to_yaml_value()?;
-    let raw_config = serde_yaml::to_string(&config_value)?.trim().to_string() + "\n";
+    let raw_config = yaml_serde::to_string(&config_value)?.trim().to_string() + "\n";
 
     progress(DeployProgress::Deploying);
     let version = wasmer_backend_api::query::publish_deploy_app(

@@ -23,7 +23,7 @@ use crate::{
     FunctionExtent, GlobalFrameInfoRegistration, InstantiationError, Tunables,
     WASMER_TRAP_FUNCTION_OFFSETS_SECTION_NAME, WASMER_TRAPS_SECTION_NAME,
     engine::{resolver::resolve_tags, trap::register_frame_info_source},
-    resolve_imports,
+    get_object_for_target, resolve_imports,
     serialize::SerializableModule,
 };
 #[cfg(feature = "static-artifact-create")]
@@ -278,6 +278,7 @@ impl Artifact {
                 "Artifact::deserialize_file only supports ELF or Mach-O artifacts".to_string(),
             ));
         }
+        Self::check_native_image(&image)?;
 
         let module_info = image
             .section_by_name_bytes(crate::WASMER_MODULE_INFO_SECTION_NAME)
@@ -297,6 +298,28 @@ impl Artifact {
         Self::from_parts_with_module_file(&mut inner_engine, artifact, engine.target(), Some(path))
     }
 
+    fn check_native_image<'a, R: ReadRef<'a>>(
+        image: &object::File<'a, R>,
+    ) -> Result<(), DeserializeError> {
+        let host = get_object_for_target(&target_lexicon::Triple::host())
+            .map_err(|e| DeserializeError::Incompatible(format!("unsupported host target: {e}")))?;
+        if image.format() != host.format() {
+            return Err(DeserializeError::Incompatible(format!(
+                "native artifact format {:?} does not match host format {:?}",
+                image.format(),
+                host.format()
+            )));
+        }
+        if image.architecture() != host.architecture() {
+            return Err(DeserializeError::Incompatible(format!(
+                "native artifact architecture {:?} does not match host architecture {:?}",
+                image.architecture(),
+                host.architecture()
+            )));
+        }
+        Ok(())
+    }
+
     /// Deserialize an ELF artifact held in memory, if the bytes contain one.
     fn deserialize_elf(engine: &Engine, bytes: &[u8]) -> Result<Option<Self>, DeserializeError> {
         if !ArtifactBuild::is_deserializable(bytes) {
@@ -305,6 +328,8 @@ impl Artifact {
 
         let image = object::File::parse(bytes)
             .map_err(|e| DeserializeError::CorruptedBinary(format!("cannot parse image: {e}")))?;
+        Self::check_native_image(&image)?;
+
         let module_info = image
             .section_by_name_bytes(crate::WASMER_MODULE_INFO_SECTION_NAME)
             .ok_or_else(|| {
@@ -457,13 +482,14 @@ impl Artifact {
     ) -> Result<AllocatedArtifact, DeserializeError> {
         let image = object::File::parse(elf_file_data)
             .map_err(|e| DeserializeError::CorruptedBinary(format!("cannot parse image: {e}")))?;
-        let base = engine_inner.map_elf_binary(&image, elf_file_data)?;
+        let (base, map_size) = engine_inner.map_elf_binary(&image, elf_file_data)?;
         Self::allocate_elf_artifact_from_image(
             engine_inner,
             module_info,
             &image,
             base,
             DebugInfoSource::Bytes(Arc::from(elf_file_data)),
+            map_size,
         )
     }
 
@@ -489,7 +515,7 @@ impl Artifact {
                 "file-backed Artifact is not ELF or Mach-O".to_string(),
             ));
         }
-        let base = engine_inner.map_elf_binary_file(&image, fd)?;
+        let (base, map_size) = engine_inner.map_elf_binary_file(&image, fd)?;
         #[cfg(feature = "compiler")]
         if let Some(debugger) = engine_inner.debugger() {
             engine_inner.register_debugger(path, base, debugger)?;
@@ -500,6 +526,7 @@ impl Artifact {
             &image,
             base,
             DebugInfoSource::File(Arc::new(Mutex::new(debug_file))),
+            map_size,
         )
     }
 
@@ -520,6 +547,7 @@ impl Artifact {
         image: &object::File<'a, R>,
         base: *mut std::ffi::c_void,
         debug_info: DebugInfoSource,
+        map_size: usize,
     ) -> Result<AllocatedArtifact, DeserializeError> {
         const FN_OFFSET_SIZE: usize = std::mem::size_of::<usize>();
         let is_macho = image.format() == object::BinaryFormat::MachO;
@@ -540,11 +568,21 @@ impl Artifact {
                     function_offsets = Some(if is_macho {
                         // Mach-O stores chained pointers here, not plain offsets.
                         // Read the pointers after the mapper has applied the fixups.
-                        let data = unsafe {
-                            std::slice::from_raw_parts(
-                                base.cast::<u8>().add(section.address() as usize),
-                                data.len(),
+                        let invalid_range = || {
+                            DeserializeError::CorruptedBinary(
+                                "Function offset section exceeds allocated range".to_string(),
                             )
+                        };
+                        let address =
+                            usize::try_from(section.address()).map_err(|_| invalid_range())?;
+                        if address
+                            .checked_add(data.len())
+                            .is_none_or(|end| end > map_size)
+                        {
+                            return Err(invalid_range());
+                        }
+                        let data = unsafe {
+                            std::slice::from_raw_parts(base.cast::<u8>().add(address), data.len())
                         };
                         data.as_chunks::<FN_OFFSET_SIZE>()
                             .0
@@ -584,7 +622,7 @@ impl Artifact {
         let expected_offset_count = local_function_count
             .checked_add(signature_count)
             .and_then(|count| count.checked_add(dynamic_trampoline_count))
-            .ok_or_else(&corrupted_offsets)?;
+            .ok_or_else(corrupted_offsets)?;
         if function_offsets.len() != expected_offset_count {
             return Err(corrupted_offsets());
         }
@@ -598,7 +636,7 @@ impl Artifact {
             .skip(1)
             .take(local_function_count)
             .zip(function_offsets.iter())
-            .map(|(f1, f0)| f1.checked_sub(*f0).ok_or_else(&corrupted_offsets))
+            .map(|(f1, f0)| f1.checked_sub(*f0).ok_or_else(corrupted_offsets))
             .collect::<Result<Vec<_>, _>>()?;
 
         let signatures = {

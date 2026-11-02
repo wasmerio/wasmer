@@ -692,6 +692,12 @@ pub fn translate_operator(
         Operator::Throw { tag_index } => {
             let tag_index = TagIndex::from_u32(*tag_index);
             let arity = environ.tag_param_arity(tag_index);
+            // Exception payloads use the canonical vector type, just like call arguments.
+            for arg in state.peekn_mut(arity) {
+                if is_non_canonical_v128(builder.func.dfg.value_type(*arg)) {
+                    *arg = optionally_bitcast_vector(*arg, I8X16, builder);
+                }
+            }
             let args = state.peekn(arity);
             environ.translate_exn_throw(builder, tag_index, args, state.handlers.landing_pad())?;
             state.popn(arity);

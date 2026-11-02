@@ -575,6 +575,11 @@ pub struct WasiFs {
     pub root_inode: InodeGuard,
     pub has_unioned: Mutex<HashSet<PackageId>>,
     ephemeral_symlinks: Arc<RwLock<HashMap<PathBuf, EphemeralSymlinkEntry>>>,
+    /// Rights each preopen was configured with. Every path operation is capped
+    /// by the ceiling of the preopen that owns what it resolves to, however
+    /// the path got there. Keyed by inode identity: inode numbers derive from
+    /// the backing path, so two aliases of one directory would collide.
+    preopen_ceilings: RwLock<Vec<(InodeGuard, Rights)>>,
 
     // TODO: remove
     // using an atomic is a hack to enable customization after construction,
@@ -709,6 +714,7 @@ impl WasiFs {
             root_inode: self.root_inode.clone(),
             has_unioned: Mutex::new(self.has_unioned.lock().unwrap().clone()),
             ephemeral_symlinks: self.ephemeral_symlinks.clone(),
+            preopen_ceilings: RwLock::new(self.preopen_ceilings.read().unwrap().clone()),
             init_preopens: self.init_preopens.clone(),
             init_vfs_preopens: self.init_vfs_preopens.clone(),
         }
@@ -869,6 +875,7 @@ impl WasiFs {
             root_inode,
             has_unioned: Mutex::new(HashSet::new()),
             ephemeral_symlinks: Arc::new(RwLock::new(HashMap::new())),
+            preopen_ceilings: RwLock::new(Vec::new()),
             init_preopens: Default::default(),
             init_vfs_preopens: Default::default(),
         };
@@ -1144,7 +1151,7 @@ impl WasiFs {
             guard.clone()
         };
         let cur_inode = self.get_fd_inode(base)?;
-        let inode = self.get_inode_at_path_inner(
+        let (inode, _) = self.get_inode_at_path_inner(
             inodes,
             cur_inode,
             current_dir.as_str(),
@@ -1238,6 +1245,8 @@ impl WasiFs {
     /// without re-statting. Syscalls that mutate the filesystem are responsible
     /// for keeping the inode cache and ephemeral symlink map coherent with their
     /// changes.
+    /// Resolves `path_str` from `cur_inode`, returning the resolved inode and
+    /// the preopen (or root) that owns it.
     fn get_inode_at_path_inner(
         &self,
         inodes: &WasiInodes,
@@ -1245,7 +1254,7 @@ impl WasiFs {
         path_str: &str,
         symlink_count: &mut u32,
         follow_symlinks: bool,
-    ) -> Result<InodeGuard, Errno> {
+    ) -> Result<(InodeGuard, InodeGuard), Errno> {
         if *symlink_count > MAX_SYMLINKS {
             return Err(Errno::Loop);
         }
@@ -1266,10 +1275,12 @@ impl WasiFs {
             if let Kind::Root { entries } = cur_inode.read().deref()
                 && let Some(root_entry) = entries.get("/")
             {
-                return Ok(root_entry.clone());
+                return Ok((root_entry.clone(), root_entry.clone()));
             }
-            return Ok(cur_inode);
+            return Ok((cur_inode.clone(), cur_inode));
         }
+
+        let mut owner = self.owner_of(&cur_inode)?;
 
         // POSIX path resolution is stricter than `Path::components()`: explicit
         // `.`/`..` and a trailing slash are observable because they require the
@@ -1323,6 +1334,9 @@ impl WasiFs {
                     };
                     if let Some(parent_inode) = parent_inode {
                         cur_inode = parent_inode;
+                        if matches!(cur_inode.read().deref(), Kind::Root { .. }) {
+                            owner = cur_inode.clone();
+                        }
                     }
                     continue 'path_iter;
                 }
@@ -1358,6 +1372,7 @@ impl WasiFs {
                         Kind::Root { entries } => {
                             if let Some(entry) = entries.get(component_str) {
                                 cur_inode = entry.clone();
+                                owner = entry.clone();
                                 break 'component_lookup;
                             } else if let Some(root) = entries.get("/") {
                                 // This is quite exotic case where Root itself
@@ -1368,6 +1383,7 @@ impl WasiFs {
                                 // iteration - the only actual reason for it to
                                 // be a loop.
                                 cur_inode = root.clone();
+                                owner = root.clone();
                                 continue 'component_lookup;
                             } else {
                                 // Root is not capable of having something other
@@ -1595,7 +1611,7 @@ impl WasiFs {
                     if should_return {
                         // Special files cannot be traversed further, so return the inode directly.
                         if last_component {
-                            return Ok(new_inode);
+                            return Ok((new_inode, owner));
                         }
                         return Err(Errno::Notdir);
                     }
@@ -1653,7 +1669,7 @@ impl WasiFs {
             if *symlink_count > MAX_SYMLINKS {
                 return Err(Errno::Loop);
             }
-            let symlink_inode = self.get_inode_at_path_inner(
+            let (symlink_inode, symlink_owner) = self.get_inode_at_path_inner(
                 inodes,
                 new_base_inode,
                 &new_path,
@@ -1664,9 +1680,70 @@ impl WasiFs {
             // The rest of the path resolution will be relative to resolved
             // symlink target.
             cur_inode = symlink_inode;
+            owner = symlink_owner;
         }
 
-        Ok(cur_inode)
+        Ok((cur_inode, owner))
+    }
+
+    /// The preopen whose tree contains `inode`: the directory just below the
+    /// root on its parent chain, or the root itself.
+    fn owner_of(&self, inode: &InodeGuard) -> Result<InodeGuard, Errno> {
+        let mut cur = inode.clone();
+        loop {
+            let parent = match cur.read().deref() {
+                Kind::Dir { parent, .. } => Some(parent.upgrade().ok_or(Errno::Access)?),
+                _ => None,
+            };
+            let Some(parent) = parent else {
+                return Ok(cur);
+            };
+            if matches!(parent.read().deref(), Kind::Root { .. }) {
+                return Ok(cur);
+            }
+            cur = parent;
+        }
+    }
+
+    /// Rights `owner` was preopened with. Only preopens record a ceiling;
+    /// anything else reachable from the root keeps full rights.
+    pub(crate) fn preopen_ceiling(&self, owner: &InodeGuard) -> Rights {
+        self.preopen_ceilings
+            .read()
+            .unwrap()
+            .iter()
+            .find(|(preopen, _)| Arc::ptr_eq(&preopen.inner, &owner.inner))
+            .map_or(ALL_RIGHTS, |(_, rights)| *rights)
+    }
+
+    /// Fails with `Errno::Access` unless both `fd` and the preopen owning the
+    /// resolved object grant `right`.
+    pub(crate) fn check_path_right(
+        &self,
+        fd: &Fd,
+        owner: &InodeGuard,
+        right: Rights,
+    ) -> Result<(), Errno> {
+        if (fd.inner.rights & self.preopen_ceiling(owner)).contains(right) {
+            Ok(())
+        } else {
+            Err(Errno::Access)
+        }
+    }
+
+    /// Fails with `Errno::Xdev` if moving or linking a file from `source` into
+    /// `target` would give it rights its original preopen did not.
+    pub(crate) fn check_cross_preopen(
+        &self,
+        source: &InodeGuard,
+        target: &InodeGuard,
+    ) -> Result<(), Errno> {
+        let source_ceiling = self.preopen_ceiling(source);
+        if source_ceiling.contains(self.preopen_ceiling(target)) {
+            Ok(())
+        } else {
+            Err(Errno::Xdev)
+        }
     }
 
     pub(crate) fn resolve_symlink_target_path(
@@ -1758,24 +1835,30 @@ impl WasiFs {
         path: &str,
         follow_symlinks: bool,
     ) -> Result<InodeGuard, Errno> {
-        let base_inode = self.get_fd_inode(base)?;
-        let mut symlink_count = 0;
-        self.get_inode_at_path_inner(
-            inodes,
-            base_inode,
-            path,
-            &mut symlink_count,
-            follow_symlinks,
-        )
+        self.get_owned_inode_at_path(inodes, base, path, follow_symlinks)
+            .map(|(inode, _)| inode)
     }
 
-    pub(crate) fn get_inode_at_path_from_inode(
+    /// Like [`Self::get_inode_at_path`], also returning the preopen that owns
+    /// the resolved inode, for [`Self::check_path_right`].
+    pub(crate) fn get_owned_inode_at_path(
+        &self,
+        inodes: &WasiInodes,
+        base: WasiFd,
+        path: &str,
+        follow_symlinks: bool,
+    ) -> Result<(InodeGuard, InodeGuard), Errno> {
+        let base_inode = self.get_fd_inode(base)?;
+        self.get_owned_inode_at_path_from_inode(inodes, base_inode, path, follow_symlinks)
+    }
+
+    pub(crate) fn get_owned_inode_at_path_from_inode(
         &self,
         inodes: &WasiInodes,
         base_inode: InodeGuard,
         path: &str,
         follow_symlinks: bool,
-    ) -> Result<InodeGuard, Errno> {
+    ) -> Result<(InodeGuard, InodeGuard), Errno> {
         let mut symlink_count = 0;
         self.get_inode_at_path_inner(
             inodes,
@@ -1786,21 +1869,25 @@ impl WasiFs {
         )
     }
 
-    /// Returns the parent Dir or Root that the file at a given path is in and the file name
-    /// stripped off
-    pub(crate) fn get_parent_inode_at_path(
+    /// Returns the parent Dir or Root that the file at a given path is in, the
+    /// preopen that owns that parent (for [`Self::check_path_right`]), and the
+    /// file name stripped off.
+    pub(crate) fn get_owned_parent_inode_at_path(
         &self,
         inodes: &WasiInodes,
         base: WasiFd,
         path: &Path,
         follow_symlinks: bool,
-    ) -> Result<(InodeGuard, String), Errno> {
+    ) -> Result<(InodeGuard, InodeGuard, String), Errno> {
         let (parent_dir, new_entity_name) = PosixPath::from_path(path).parent_path_and_name()?;
-        if parent_dir.as_str().is_empty() {
-            return self.get_fd_inode(base).map(|v| (v, new_entity_name));
-        }
-        self.get_inode_at_path(inodes, base, parent_dir.as_str(), follow_symlinks)
-            .map(|v| (v, new_entity_name))
+        let (parent, owner) = if parent_dir.as_str().is_empty() {
+            let parent = self.get_fd_inode(base)?;
+            let owner = self.owner_of(&parent)?;
+            (parent, owner)
+        } else {
+            self.get_owned_inode_at_path(inodes, base, parent_dir.as_str(), follow_symlinks)?
+        };
+        Ok((parent, owner, new_entity_name))
     }
 
     pub fn get_fd(&self, fd: WasiFd) -> Result<Fd, Errno> {
@@ -2157,6 +2244,24 @@ impl WasiFs {
         src: WasiFd,
         dst: WasiFd,
     ) -> Result<Option<VirtualFileLock>, Errno> {
+        self.dup2_at_impl(src, dst, false)
+    }
+
+    /// Apply a dup2 spawn action, including its same-fd CLOEXEC semantics.
+    pub(crate) fn dup2_for_spawn(
+        &self,
+        src: WasiFd,
+        dst: WasiFd,
+    ) -> Result<Option<VirtualFileLock>, Errno> {
+        self.dup2_at_impl(src, dst, true)
+    }
+
+    fn dup2_at_impl(
+        &self,
+        src: WasiFd,
+        dst: WasiFd,
+        clear_cloexec_on_same_fd: bool,
+    ) -> Result<Option<VirtualFileLock>, Errno> {
         if dst > MAX_FD {
             return Err(Errno::Badf);
         }
@@ -2168,6 +2273,13 @@ impl WasiFs {
             Self::ensure_file_handle_present(fd_entry)?;
 
             if src == dst {
+                if clear_cloexec_on_same_fd {
+                    fd_map
+                        .get_mut(src)
+                        .unwrap()
+                        .fd_flags
+                        .set(Fdflagsext::CLOEXEC, false);
+                }
                 return Ok(None);
             }
 
@@ -2389,6 +2501,9 @@ impl WasiFs {
         inodes: &WasiInodes,
         ignore_duplicates: bool,
     ) -> Result<(), String> {
+        // Rebuilds (see `WasiEnv::reinit`) replace every preopen; keeping the
+        // old entries would pin their inode trees.
+        self.preopen_ceilings.write().unwrap().clear();
         for preopen_name in self.init_vfs_preopens.iter() {
             let kind = Kind::Dir {
                 parent: self.root_inode.downgrade(),
@@ -2405,7 +2520,6 @@ impl WasiFs {
                 | Rights::PATH_FILESTAT_GET
                 | Rights::FD_FILESTAT_GET
                 | Rights::PATH_LINK_SOURCE
-                | Rights::PATH_RENAME_SOURCE
                 | Rights::POLL_FD_READWRITE
                 | Rights::SOCK_SHUTDOWN;
             let inode = self
@@ -2426,6 +2540,10 @@ impl WasiFs {
                     inode.clone(),
                 )
                 .map_err(|e| format!("Could not open fd for file {preopen_name:?}: {e}"))?;
+            self.preopen_ceilings
+                .write()
+                .unwrap()
+                .push((inode.clone(), rights));
             {
                 let mut guard = self.root_inode.write();
                 if let Kind::Root { entries } = guard.deref_mut() {
@@ -2480,12 +2598,13 @@ impl WasiFs {
                         | Rights::PATH_FILESTAT_GET
                         | Rights::FD_FILESTAT_GET
                         | Rights::PATH_LINK_SOURCE
-                        | Rights::PATH_RENAME_SOURCE
                         | Rights::POLL_FD_READWRITE
                         | Rights::SOCK_SHUTDOWN;
                 }
                 if *write {
-                    rights |= Rights::FD_DATASYNC
+                    // Renaming removes the entry from this directory.
+                    rights |= Rights::PATH_RENAME_SOURCE
+                        | Rights::FD_DATASYNC
                         | Rights::FD_FDSTAT_SET_FLAGS
                         | Rights::FD_WRITE
                         | Rights::FD_SYNC
@@ -2544,6 +2663,10 @@ impl WasiFs {
                     inode.clone(),
                 )
                 .map_err(|e| format!("Could not open fd for file {path:?}: {e}"))?;
+            self.preopen_ceilings
+                .write()
+                .unwrap()
+                .push((inode.clone(), rights));
             {
                 let mut guard = self.root_inode.write();
                 if let Kind::Root { entries } = guard.deref_mut() {
@@ -2852,6 +2975,7 @@ pub fn fs_error_from_wasi_err(err: Errno) -> FsError {
         Errno::Connaborted => FsError::ConnectionAborted,
         Errno::Connrefused => FsError::ConnectionRefused,
         Errno::Connreset => FsError::ConnectionReset,
+        Errno::Xdev => FsError::CrossesDevices,
         Errno::Intr => FsError::Interrupted,
         Errno::Inval => FsError::InvalidInput,
         Errno::Notconn => FsError::NotConnected,
@@ -2877,6 +3001,7 @@ pub fn fs_error_into_wasi_err(fs_error: FsError) -> Errno {
         FsError::ConnectionAborted => Errno::Connaborted,
         FsError::ConnectionRefused => Errno::Connrefused,
         FsError::ConnectionReset => Errno::Connreset,
+        FsError::CrossesDevices => Errno::Xdev,
         FsError::Interrupted => Errno::Intr,
         FsError::InvalidData => Errno::Io,
         FsError::InvalidFd => Errno::Badf,
@@ -2904,11 +3029,19 @@ mod tests {
     use once_cell::sync::OnceCell;
     use tempfile::tempdir;
     use virtual_fs::{RootFileSystemBuilder, TmpFileSystem};
-    use wasmer::Engine;
+    use wasmer::{Engine, Store};
     use wasmer_config::package::PackageId;
 
     use crate::WasiEnvBuilder;
     use crate::bin_factory::{BinaryPackage, BinaryPackageMount, BinaryPackageMounts};
+
+    #[test]
+    fn cross_device_errors_preserve_wasi_errno() {
+        let error = FsError::from(std::io::Error::from(std::io::ErrorKind::CrossesDevices));
+        assert_eq!(fs_error_into_wasi_err(error), Errno::Xdev);
+        let error: std::io::Error = fs_error_from_wasi_err(Errno::Xdev).into();
+        assert_eq!(error.kind(), std::io::ErrorKind::CrossesDevices);
+    }
 
     #[tokio::test]
     async fn dup2_preserves_active_stdio_rights() {
@@ -2959,6 +3092,168 @@ mod tests {
         let volume = container.volumes()["atom"].clone();
 
         virtual_fs::WebcVolumeFileSystem::new(volume)
+    }
+
+    fn assert_same_fd_state(before: &Fd, after: &Fd) {
+        assert_eq!(before.inner.rights, after.inner.rights);
+        assert_eq!(
+            before.inner.rights_inheriting,
+            after.inner.rights_inheriting
+        );
+        assert_eq!(before.inner.flags, after.inner.flags);
+        assert!(Arc::ptr_eq(&before.inner.offset, &after.inner.offset));
+        assert_eq!(before.open_flags, after.open_flags);
+        assert_eq!(before.inode.ino(), after.inode.ino());
+        assert!(Arc::ptr_eq(&before.inode.inner, &after.inode.inner));
+        assert_eq!(before.is_stdio, after.is_stdio);
+    }
+
+    fn spawn_dup2_test_file(env: &crate::WasiEnv, name: &str) -> WasiFd {
+        let fs = &env.state.fs;
+        let inode = fs.create_inode_with_default_stat(
+            &env.state.inodes,
+            Kind::File {
+                handle: Some(Arc::new(RwLock::new(Box::new(
+                    virtual_fs::StaticFile::new(vec![b'S']),
+                )))),
+                path: name.into(),
+                fd: None,
+            },
+            false,
+            name.to_owned().into(),
+        );
+        fs.create_fd(
+            Rights::FD_READ,
+            Rights::FD_WRITE,
+            Fdflags::APPEND | Fdflags::NONBLOCK,
+            Fdflagsext::from_bits_preserve(Fdflagsext::CLOEXEC.bits() | 0x80),
+            Fd::READ,
+            inode,
+        )
+        .unwrap()
+    }
+
+    #[tokio::test]
+    async fn spawn_dup2_identity_is_child_local_and_preserves_fd_state() {
+        let store = Store::default();
+        let env = WasiEnvBuilder::new("test")
+            .engine(store.engine().clone())
+            .build()
+            .unwrap();
+        let parent = &env.state.fs;
+        let fd = spawn_dup2_test_file(&env, "source");
+        let control = spawn_dup2_test_file(&env, "control");
+        let parent_before = parent.get_fd(fd).unwrap();
+        parent_before.inner.offset.store(37, Ordering::Relaxed);
+        assert!(fd > 2 && !parent_before.is_stdio && !parent_before.inode.is_preopened);
+
+        let child = parent.fork();
+        let before = child.get_fd(fd).unwrap();
+        let handles = before.inode.handle_count();
+
+        assert_eq!(child.dup2_for_spawn(99, fd).unwrap_err(), Errno::Badf);
+        assert_eq!(child.dup2_for_spawn(99, 99).unwrap_err(), Errno::Badf);
+        assert_eq!(
+            child.dup2_for_spawn(fd, MAX_FD + 1).unwrap_err(),
+            Errno::Badf
+        );
+        let after_invalid_source = child.get_fd(fd).unwrap();
+        assert_same_fd_state(&before, &after_invalid_source);
+        assert_eq!(before.inner.fd_flags, after_invalid_source.inner.fd_flags);
+
+        assert!(child.dup2_for_spawn(fd, fd).unwrap().is_none());
+        assert!(child.dup2_for_spawn(fd, fd).unwrap().is_none());
+        let after_spawn_action = child.get_fd(fd).unwrap();
+        assert_same_fd_state(&before, &after_spawn_action);
+        let mut expected_flags = before.inner.fd_flags;
+        expected_flags.set(Fdflagsext::CLOEXEC, false);
+        assert_eq!(after_spawn_action.inner.fd_flags, expected_flags);
+        assert_eq!(after_spawn_action.inner.offset.load(Ordering::Relaxed), 37);
+        assert_eq!(before.inode.handle_count(), handles);
+
+        child.close_cloexec_fds().await;
+        assert_same_fd_state(&before, &child.get_fd(fd).unwrap());
+        assert_eq!(child.get_fd(control).unwrap_err(), Errno::Badf);
+        assert!(parent.get_fd(control).is_ok());
+        assert_eq!(before.inode.handle_count(), handles);
+
+        assert!(parent.dup2_at(fd, fd).unwrap().is_none());
+        let parent_after = parent.get_fd(fd).unwrap();
+        assert_same_fd_state(&parent_before, &parent_after);
+        assert_eq!(parent_before.inner.fd_flags, parent_after.inner.fd_flags);
+    }
+
+    #[tokio::test]
+    async fn spawn_dup2_rejects_a_file_without_an_open_handle() {
+        let store = Store::default();
+        let env = WasiEnvBuilder::new("test")
+            .engine(store.engine().clone())
+            .build()
+            .unwrap();
+        let fs = &env.state.fs;
+        let fd = spawn_dup2_test_file(&env, "closed");
+        let target = spawn_dup2_test_file(&env, "target");
+        let before = fs.get_fd(fd).unwrap();
+        let target_before = fs.get_fd(target).unwrap();
+        if let Kind::File { handle, .. } = &mut *before.inode.write() {
+            *handle = None;
+        } else {
+            panic!("expected a file");
+        }
+        for destination in [fd, target] {
+            assert_eq!(fs.dup2_for_spawn(fd, destination).unwrap_err(), Errno::Badf);
+        }
+        assert_eq!(fs.dup2_at(fd, fd).unwrap_err(), Errno::Badf);
+        let after = fs.get_fd(fd).unwrap();
+        let target_after = fs.get_fd(target).unwrap();
+        assert_same_fd_state(&before, &after);
+        assert_same_fd_state(&target_before, &target_after);
+        assert_eq!(before.inner.fd_flags, after.inner.fd_flags);
+        assert_eq!(target_before.inner.fd_flags, target_after.inner.fd_flags);
+    }
+
+    #[tokio::test]
+    async fn spawn_dup2_distinct_fd_keeps_existing_dup2_behavior() {
+        let store = Store::default();
+        let env = WasiEnvBuilder::new("test")
+            .engine(store.engine().clone())
+            .build()
+            .unwrap();
+        let fs = &env.state.fs;
+        let src = spawn_dup2_test_file(&env, "source");
+        let dst = spawn_dup2_test_file(&env, "target");
+        let source = fs.get_fd(src).unwrap();
+        let ordinary = fs.fork();
+
+        assert!(fs.dup2_for_spawn(src, dst).unwrap().is_some());
+        assert!(ordinary.dup2_at(src, dst).unwrap().is_some());
+
+        let target = fs.get_fd(dst).unwrap();
+        let ordinary_target = ordinary.get_fd(dst).unwrap();
+        assert_same_fd_state(&ordinary_target, &target);
+        assert_eq!(ordinary_target.inner.fd_flags, target.inner.fd_flags);
+        assert_eq!(source.inode.ino(), target.inode.ino());
+        assert!(Arc::ptr_eq(&source.inner.offset, &target.inner.offset));
+        assert!(source.inner.fd_flags.contains(Fdflagsext::CLOEXEC));
+        assert!(!target.inner.fd_flags.contains(Fdflagsext::CLOEXEC));
+    }
+
+    #[tokio::test]
+    async fn rebuilding_preopens_replaces_their_ceilings() {
+        let inodes = WasiInodes::new();
+        let fs_backing =
+            WasiFsRoot::from_filesystem(Arc::new(RootFileSystemBuilder::default().build_tmp()));
+        let preopen = PreopenedDir {
+            path: PathBuf::from("/"),
+            alias: Some("data".to_string()),
+            read: true,
+            ..Default::default()
+        };
+        let wasi_fs = WasiFs::new_with_preopen(&inodes, &[preopen], &[], fs_backing).unwrap();
+
+        wasi_fs.create_preopens(&inodes, true).unwrap();
+
+        assert_eq!(wasi_fs.preopen_ceilings.read().unwrap().len(), 1);
     }
 
     #[tokio::test]
@@ -3289,8 +3584,13 @@ mod tests {
             .unwrap_err();
         assert_eq!(empty_path, Errno::Noent);
 
-        let (single_component_parent, single_component_name) = wasi_fs
-            .get_parent_inode_at_path(&inodes, crate::VIRTUAL_ROOT_FD, Path::new("new-file"), true)
+        let (single_component_parent, _, single_component_name) = wasi_fs
+            .get_owned_parent_inode_at_path(
+                &inodes,
+                crate::VIRTUAL_ROOT_FD,
+                Path::new("new-file"),
+                true,
+            )
             .unwrap();
         assert_eq!(single_component_name, "new-file");
         assert!(matches!(
@@ -3529,6 +3829,16 @@ mod tests {
         let link = wasi_fs
             .get_inode_at_path(&inodes, crate::VIRTUAL_ROOT_FD, "/link", false)
             .unwrap();
+        let stat = *link.stat.read().unwrap();
+        assert_eq!(stat.st_filetype, Filetype::SymbolicLink);
+        assert_ne!(stat.st_ino, 0);
+        assert_eq!(stat.st_nlink, 1);
+        assert_eq!(stat.st_size, 10);
+
+        let resolved_again = wasi_fs
+            .get_inode_at_path(&inodes, crate::VIRTUAL_ROOT_FD, "/link", false)
+            .unwrap();
+        assert_eq!(resolved_again.ino(), link.ino());
         assert!(matches!(
             link.read().deref(),
             Kind::Symlink {
@@ -3539,8 +3849,13 @@ mod tests {
         ));
 
         // Parent must not have cached the symlink.
-        let (parent_inode, child_name) = wasi_fs
-            .get_parent_inode_at_path(&inodes, crate::VIRTUAL_ROOT_FD, Path::new("/link"), false)
+        let (parent_inode, _, child_name) = wasi_fs
+            .get_owned_parent_inode_at_path(
+                &inodes,
+                crate::VIRTUAL_ROOT_FD,
+                Path::new("/link"),
+                false,
+            )
             .unwrap();
         assert_eq!(child_name, "link");
         match parent_inode.read().deref() {

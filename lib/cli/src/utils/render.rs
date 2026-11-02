@@ -58,7 +58,7 @@ pub trait CliRender: serde::Serialize + Sized {
     fn render_item(&self, format: ItemFormat) -> String {
         match format {
             ItemFormat::Json => serde_json::to_string_pretty(self).unwrap(),
-            ItemFormat::Yaml => serde_yaml::to_string(self).unwrap(),
+            ItemFormat::Yaml => yaml_serde::to_string(self).unwrap(),
             ItemFormat::Table => self.render_item_table(),
         }
     }
@@ -68,7 +68,7 @@ pub trait CliRender: serde::Serialize + Sized {
     fn render_list(items: &[Self], format: ListFormat) -> String {
         match format {
             ListFormat::Json => serde_json::to_string_pretty(items).unwrap(),
-            ListFormat::Yaml => serde_yaml::to_string(items).unwrap(),
+            ListFormat::Yaml => yaml_serde::to_string(items).unwrap(),
             ListFormat::Table => Self::render_list_table(items),
             ListFormat::ItemTable => {
                 let mut out = String::new();

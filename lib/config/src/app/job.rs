@@ -308,10 +308,10 @@ mod tests {
     fn job_action_rejects_anything_but_exactly_one_action() {
         for yaml in ["execute: {}\nfetch:\n  path: /", "{}", "sleep: {}"] {
             assert!(
-                serde_yaml::from_str::<JobAction>(yaml).is_err(),
+                yaml_serde::from_str::<JobAction>(yaml).is_err(),
                 "accepted invalid action {yaml:?}"
             );
-            let json: serde_json::Value = serde_yaml::from_str(yaml).unwrap();
+            let json: serde_json::Value = yaml_serde::from_str(yaml).unwrap();
             assert!(serde_json::from_value::<JobAction>(json).is_err());
         }
     }
@@ -322,10 +322,10 @@ mod tests {
             "execute:\n  command: php",
             "fetch:\n  path: /\n  timeout: 30s",
         ] {
-            let action: JobAction = serde_yaml::from_str(yaml).unwrap();
-            assert_eq!(serde_yaml::to_string(&action).unwrap().trim(), yaml);
+            let action: JobAction = yaml_serde::from_str(yaml).unwrap();
+            assert_eq!(yaml_serde::to_string(&action).unwrap().trim(), yaml);
 
-            let json: serde_json::Value = serde_yaml::from_str(yaml).unwrap();
+            let json: serde_json::Value = yaml_serde::from_str(yaml).unwrap();
             assert_eq!(
                 serde_json::from_value::<JobAction>(json.clone()).unwrap(),
                 action
@@ -461,8 +461,8 @@ action:
 
         assert_eq!(
             serialized.trim(),
-            serde_yaml::to_string(&job).unwrap().trim()
+            yaml_serde::to_string(&job).unwrap().trim()
         );
-        assert_eq!(job, serde_yaml::from_str(serialized).unwrap());
+        assert_eq!(job, yaml_serde::from_str(serialized).unwrap());
     }
 }

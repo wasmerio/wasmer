@@ -88,7 +88,7 @@ pub(crate) fn render_s3_credentials(
     match format {
         CredsItemFormat::Rclone => records.iter().map(render_rclone_section).collect(),
         CredsItemFormat::Json => serde_json::to_string_pretty(records).unwrap(),
-        CredsItemFormat::Yaml => serde_yaml::to_string(records).unwrap(),
+        CredsItemFormat::Yaml => yaml_serde::to_string(records).unwrap(),
         CredsItemFormat::Table => {
             let mut table = comfy_table::Table::new();
             table.add_row(vec![
