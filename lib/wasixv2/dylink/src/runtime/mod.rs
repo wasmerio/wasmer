@@ -29,8 +29,9 @@ use wasixv2_syscalls::{
     UserSliceMut, read_cstr, write_value,
 };
 use wasmer::{
-    AsEngineRef, AsStoreMut, AsyncFunctionEnvMut, Extern, FunctionEnv, Global, Imports, Instance,
-    Memory, Module, Mutability, RuntimeError, Store, StoreMut, Table, Type, Value,
+    AsEngineRef, AsStoreAsync, AsStoreMut, AsyncFunctionEnvMut, Extern, FunctionEnv, Global,
+    Imports, Instance, Memory, Module, Mutability, RuntimeError, Store, StoreMut, Table, Type,
+    Value,
 };
 type Result<T> = std::result::Result<T, RuntimeError>;
 fn failure(error: impl std::fmt::Debug) -> RuntimeError {
@@ -56,6 +57,22 @@ impl<S: Send + Sync + 'static> Context<'_, S> {
                 f(data, &mut store.as_store_mut())
             }
             Self::Entry(entry) => entry.with_store(f).await,
+        }
+    }
+
+    // Hook callbacks may resolve their exact ExecEnv themselves. Do not lend
+    // that data separately while running their host-only Store operations.
+    async fn with_store<R>(&self, f: impl FnOnce(&mut StoreMut<'_>) -> R) -> R {
+        match self {
+            Self::Import(env) => {
+                let mut guard = env.write().await;
+                f(&mut guard.as_store_mut())
+            }
+            Self::Entry(entry) => {
+                let store = entry.store();
+                let mut guard = store.write_lock().await;
+                f(&mut guard.as_store_mut())
+            }
         }
     }
 }
@@ -1394,15 +1411,18 @@ impl<S: Syscalls + Control + Send + Sync + 'static> StoreImage<S> {
                 lock(&self.local).stage.as_mut().unwrap().leases.push(lease);
             }
         }
-        cx.with(|data, store| {
+        let (base_imports, hooks) = cx
+            .with(|data, _| (data.abi_imports().clone(), data.instance_hooks().cloned()))
+            .await;
+        cx.with_store(|store| {
             self.stage_modules(
                 store,
-                data.abi_imports(),
+                &base_imports,
                 work,
                 tls,
                 Vec::new(),
                 caller.task(),
-                data.instance_hooks(),
+                hooks.as_ref(),
             )
         })
         .await
@@ -1483,7 +1503,7 @@ impl<S: Syscalls + Control + Send + Sync + 'static> StoreImage<S> {
             }
             LoaderPhase::Rollback => {
                 let stage = cx
-                    .with(|_, store| {
+                    .with_store(|store| {
                         let mut local = lock(&self.local);
                         let table = local.table.clone();
                         if let Some(staged) = &mut local.stage {
@@ -1701,16 +1721,21 @@ impl<S: Syscalls + Control + Send + Sync + 'static> AbiInstance<S> for StoreImag
                     committed: AtomicBool::new(true),
                     error: Mutex::new(None),
                 };
-                entry
-                    .with_store(|data, store| {
+                let (base_imports, hooks) = entry
+                    .with_store(|data, _| {
+                        (data.abi_imports().clone(), data.instance_hooks().cloned())
+                    })
+                    .await;
+                Context::Entry(entry)
+                    .with_store(|store| {
                         self.stage_modules(
                             store,
-                            data.abi_imports(),
+                            &base_imports,
                             &work,
                             tls,
                             std::mem::take(&mut ledger.leases),
                             task,
-                            data.instance_hooks(),
+                            hooks.as_ref(),
                         )
                     })
                     .await?;

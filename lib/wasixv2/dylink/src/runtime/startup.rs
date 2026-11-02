@@ -586,18 +586,21 @@ impl<S: Syscalls + Control + Send + Sync + 'static> StoreImage<S> {
                 committed: AtomicBool::new(true),
                 error: Mutex::new(None),
             };
-            entry
-                .with_store(|data, store| {
+            let (base_imports, hooks) = entry
+                .with_store(|data, _| (data.abi_imports().clone(), data.instance_hooks().cloned()))
+                .await;
+            Context::Entry(entry)
+                .with_store(|store| {
                     let mut local = lock(&self.local);
                     let tls = local.tls.clone();
                     local.stage_modules_with_hooks(
                         store,
-                        data.abi_imports(),
+                        &base_imports,
                         &work,
                         tls,
                         Vec::new(),
                         task,
-                        data.instance_hooks(),
+                        hooks.as_ref(),
                     )
                 })
                 .await?;
