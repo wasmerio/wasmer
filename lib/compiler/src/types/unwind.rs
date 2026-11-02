@@ -37,27 +37,3 @@ pub enum CompiledFunctionUnwindInfoReference<'a> {
     Dwarf,
     CompactUnwind,
 }
-
-/// Any struct that acts like a `CompiledFunctionUnwindInfo`.
-#[allow(missing_docs)]
-pub trait CompiledFunctionUnwindInfoLike<'a> {
-    fn get(&'a self) -> CompiledFunctionUnwindInfoReference<'a>;
-}
-
-impl<'a> CompiledFunctionUnwindInfoLike<'a> for CompiledFunctionUnwindInfo {
-    fn get(&'a self) -> CompiledFunctionUnwindInfoReference<'a> {
-        match self {
-            Self::WindowsX64(v) => CompiledFunctionUnwindInfoReference::WindowsX64(v.as_ref()),
-            Self::Dwarf => CompiledFunctionUnwindInfoReference::Dwarf,
-        }
-    }
-}
-
-impl<'a> CompiledFunctionUnwindInfoLike<'a> for ArchivedCompiledFunctionUnwindInfo {
-    fn get(&'a self) -> CompiledFunctionUnwindInfoReference<'a> {
-        match self {
-            Self::WindowsX64(v) => CompiledFunctionUnwindInfoReference::WindowsX64(v.as_ref()),
-            Self::Dwarf => CompiledFunctionUnwindInfoReference::Dwarf,
-        }
-    }
-}
