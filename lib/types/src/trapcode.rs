@@ -86,6 +86,9 @@ pub enum TrapCode {
 
     /// A table modification operation for a read-only table.
     ReadonlyTableModified = 15,
+
+    /// A table element's type did not match the destination table's element type.
+    TableElementTypeMismatch = 16,
 }
 
 impl TrapCode {
@@ -110,6 +113,7 @@ impl TrapCode {
             }
             Self::HostInterrupt => "interrupted by host",
             Self::ReadonlyTableModified => "read-only table modified",
+            Self::TableElementTypeMismatch => "table element type mismatch",
         }
     }
 }
@@ -133,6 +137,7 @@ impl Display for TrapCode {
             Self::YieldOutsideAsyncContext => "yield_outside_async_context",
             Self::HostInterrupt => "host_interrupt",
             Self::ReadonlyTableModified => "readonly_table_modified",
+            Self::TableElementTypeMismatch => "table_element_type_mismatch",
         };
         f.write_str(identifier)
     }
@@ -158,6 +163,8 @@ impl FromStr for TrapCode {
             "uninitialized_exnref" => Ok(Self::UninitializedExnRef),
             "yield_outside_async_context" => Ok(Self::YieldOutsideAsyncContext),
             "host_interrupt" => Ok(Self::HostInterrupt),
+            "readonly_table_modified" => Ok(Self::ReadonlyTableModified),
+            "table_element_type_mismatch" => Ok(Self::TableElementTypeMismatch),
             _ => Err(()),
         }
     }
@@ -181,7 +188,7 @@ mod tests {
     use super::*;
 
     // Everything but user-defined codes.
-    const CODES: [TrapCode; 11] = [
+    const CODES: &[TrapCode] = &[
         TrapCode::StackOverflow,
         TrapCode::HeapAccessOutOfBounds,
         TrapCode::HeapMisaligned,
@@ -193,13 +200,19 @@ mod tests {
         TrapCode::BadConversionToInteger,
         TrapCode::UnreachableCodeReached,
         TrapCode::UnalignedAtomic,
+        TrapCode::ReadonlyTableModified,
+        TrapCode::TableElementTypeMismatch,
     ];
 
     #[test]
     fn display() {
-        for r in &CODES {
+        for r in CODES {
             let tc = *r;
-            assert_eq!(tc.to_string().parse(), Ok(tc));
+            assert_eq!(
+                tc.to_string().parse(),
+                Ok(tc),
+                "TrapCode parse failed: {tc}"
+            );
         }
         assert_eq!("bogus".parse::<TrapCode>(), Err(()));
 
