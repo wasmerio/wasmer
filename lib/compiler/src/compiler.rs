@@ -36,7 +36,8 @@ use wasmer_types::{
     error::CompileError,
     target::{CpuFeature, Target, UserCompilerOptimizations},
 };
-use wasmer_types::{FunctionType, SignatureIndex};
+use wasmer_types::{FunctionType, MemoryIndex, SignatureIndex};
+use wasmer_vm::MemoryStyle;
 #[cfg(feature = "translator")]
 use wasmparser::{Validator, WasmFeatures};
 
@@ -82,8 +83,8 @@ pub enum DeterministicIdComponent {
     Pic,
     #[strum(serialize = "ro_ftable")]
     ReadonlyFuncrefTable,
-    #[strum(serialize = "no_m0")]
-    DisableM0,
+    #[strum(serialize = "m0")]
+    EnableM0,
     #[strum(serialize = "unaligned_mem")]
     ExperimentalUnalignedMemoryAccesses,
 }
@@ -264,6 +265,11 @@ pub trait Compiler: Send + std::fmt::Debug {
 
     /// Get the middlewares for this compiler
     fn get_middlewares(&self) -> &[Arc<dyn ModuleMiddleware>];
+
+    /// For the LLVM compiler, whether functions pass the first memory as a hidden first argument.
+    fn m0_pass_param_enabled(&self, _memory_styles: &PrimaryMap<MemoryIndex, MemoryStyle>) -> bool {
+        false
+    }
 
     /// Get whether translation-time readonly funcref table analysis should run.
     fn enable_readonly_funcref_table(&self) -> bool {

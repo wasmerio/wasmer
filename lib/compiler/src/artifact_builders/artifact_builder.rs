@@ -98,6 +98,7 @@ impl ArtifactBuild {
             module.tables[table_index].readonly = true;
         }
 
+        module.m0_pass_param_enabled = compiler.m0_pass_param_enabled(&memory_styles);
         module.hash = Some(ModuleHash::new(data));
         let compile_info = CompileModuleInfo {
             module: Arc::new(module),

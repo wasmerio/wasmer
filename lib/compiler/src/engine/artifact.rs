@@ -1587,6 +1587,7 @@ impl Artifact {
             .map(|table_type| tunables.table_style(table_type))
             .collect();
 
+        module.m0_pass_param_enabled = compiler.m0_pass_param_enabled(&memory_styles);
         let compile_info = CompileModuleInfo {
             module: Arc::new(module),
             features: features.clone(),

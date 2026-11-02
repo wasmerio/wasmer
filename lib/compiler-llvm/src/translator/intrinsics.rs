@@ -389,13 +389,12 @@ impl<'ctx> Intrinsics<'ctx> {
         let ctx_ptr_ty_basic = ctx_ptr_ty.as_basic_type_enum();
         let ctx_ptr_ty_basic_md: BasicMetadataTypeEnum = ctx_ptr_ty.into();
 
-        // Keep the LLVM view of `VMCallerCheckedAnyfunc` ABI-compatible with the runtime
-        // layout. `call_indirect` only reads the first three fields, but GEP indexing over
-        // fixed funcref tables still depends on the full element stride.
+        // Keep the LLVM view of `VMCallerCheckedAnyfunc` ABI-compatible with the runtime layout.
         let anyfunc_ty = context.struct_type(
             &[
                 i8_ptr_ty_basic,
                 i32_ty.into(),
+                i8_ty.into(),
                 ctx_ptr_ty_basic,
                 ptr_ty.into(),
             ],
