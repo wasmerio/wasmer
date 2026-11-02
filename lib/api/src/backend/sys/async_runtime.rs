@@ -17,7 +17,7 @@ use super::entities::function::Function as SysFunction;
 use crate::{
     AsStoreAsync, AsStoreMut, AsStoreRef, ForcedStoreInstallGuard, LocalRwLockWriteGuard,
     RuntimeError, Store, StoreAsync, StoreContext, StoreContextId, StoreInner, StoreMut, StoreRef,
-    Value,
+    SuspendedStoreContexts, Value,
 };
 use wasmer_types::StoreId;
 
@@ -50,6 +50,7 @@ pub(crate) struct AsyncCallFuture {
     id: AsyncCallFutureId,
 
     coroutine: Option<Coroutine<AsyncResume, AsyncYield, Result<Box<[Value]>, RuntimeError>>>,
+    suspended_stores: SuspendedStoreContexts,
     pending_store_install: Option<Pin<Box<dyn Future<Output = ForcedStoreInstallGuard>>>>,
     pending_future: Option<HostFuture>,
     next_resume: Option<AsyncResume>,
@@ -117,11 +118,12 @@ impl AsStoreMut for AsyncCallStoreMut {
 impl AsyncCallFuture {
     pub(crate) fn new(function: SysFunction, store: StoreAsync, params: Vec<Value>) -> Self {
         let store_id = store.id;
+        let store_context_id = StoreContext::new_installation_id();
         let coroutine =
             Coroutine::new(move |yielder: &Yielder<AsyncResume, AsyncYield>, resume| {
                 assert!(matches!(resume, AsyncResume::Start));
 
-                let ctx_state = CoroutineContext::new(yielder);
+                let ctx_state = CoroutineContext::new(yielder, store_context_id);
                 ctx_state.enter();
                 let result = {
                     let mut store_mut = AsyncCallStoreMut { store_id };
@@ -134,12 +136,13 @@ impl AsyncCallFuture {
         Self {
             id: NEXT_ASYNC_CALL_FUTURE_ID.fetch_add(1, std::sync::atomic::Ordering::SeqCst),
             coroutine: Some(coroutine),
+            suspended_stores: SuspendedStoreContexts::default(),
             pending_store_install: None,
             pending_future: None,
             next_resume: Some(AsyncResume::Start),
             result: None,
             store,
-            store_context_id: StoreContext::new_installation_id(),
+            store_context_id,
         }
     }
 
@@ -161,6 +164,10 @@ impl Future for AsyncCallFuture {
     type Output = Result<Box<[Value]>, RuntimeError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        assert!(
+            StoreContext::is_empty(),
+            "Function::call_async futures cannot be polled recursively from within another imported function"
+        );
         loop {
             let store_id = self.store.store_id();
 
@@ -223,6 +230,7 @@ impl Future for AsyncCallFuture {
                 Poll::Pending => return Poll::Pending,
             };
 
+            store_context_guard.restore_suffix(&mut self.suspended_stores);
             let resume_arg = self.next_resume.take().expect("no resume arg available");
             let coroutine = self.coroutine.as_mut().unwrap();
             let boundary = CoroutineBoundary::new();
@@ -230,6 +238,7 @@ impl Future for AsyncCallFuture {
             boundary.returned();
             match result {
                 CoroutineResult::Yield(AsyncYield(fut)) => {
+                    store_context_guard.suspend_suffix(&mut self.suspended_stores);
                     self.pending_future = Some(fut);
                 }
                 CoroutineResult::Return(result) => {
@@ -328,6 +337,7 @@ thread_local! {
 
 struct CoroutineContext {
     yielder: *const Yielder<AsyncResume, AsyncYield>,
+    store_context_id: StoreContextId,
 }
 
 /// Raw context pointers belong to coroutine stacks. Unwinding a resume destroys
@@ -373,9 +383,10 @@ impl Drop for CoroutineBoundary {
 }
 
 impl CoroutineContext {
-    fn new(yielder: &Yielder<AsyncResume, AsyncYield>) -> Self {
+    fn new(yielder: &Yielder<AsyncResume, AsyncYield>, store_context_id: StoreContextId) -> Self {
         Self {
             yielder: yielder as *const _,
+            store_context_id,
         }
     }
 
@@ -409,6 +420,14 @@ impl CoroutineContext {
     }
 
     fn block_on_future(&self, future: HostFuture) -> Result<Vec<Value>, RuntimeError> {
+        if !StoreContext::can_suspend_suffix(self.store_context_id) {
+            return run_immediate(future).map_err(|error| match error {
+                AsyncRuntimeError::RuntimeError(error) => error,
+                AsyncRuntimeError::YieldOutsideAsyncContext => RuntimeError::new(
+                    "cannot suspend a native call while a borrowed or incompatible Store context remains installed",
+                ),
+            });
+        }
         // Leave the coroutine context since we're yielding back to the
         // parent stack, and will be inactive until the future is ready.
         self.leave();
@@ -443,6 +462,47 @@ fn run_immediate(
 mod tests {
     use super::*;
     use crate::{Function, Instance, Module};
+
+    #[test]
+    fn a_distinct_store_async_call_rejects_recursive_poll_without_starting() {
+        use std::sync::{
+            Arc,
+            atomic::{AtomicUsize, Ordering},
+        };
+        let entered = Arc::new(AtomicUsize::new(0));
+        let mut store = Store::default();
+        let count = entered.clone();
+        let function = Function::new_typed(&mut store, move || {
+            count.fetch_add(1, Ordering::SeqCst);
+        });
+        let store = store.into_async();
+        let mut call = Box::pin(function.call_async(&store, vec![]));
+        let other = Store::default().into_async();
+        let root = StoreContext::install_async_with_id(
+            other.inner.try_write().unwrap(),
+            StoreContext::new_installation_id(),
+        );
+        let waker = futures::task::noop_waker();
+        assert!(
+            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                call.as_mut().poll(&mut Context::from_waker(&waker))
+            }))
+            .is_err()
+        );
+        assert_eq!(entered.load(Ordering::SeqCst), 0);
+        assert_eq!(
+            unsafe { StoreContext::get_current(other.id) }
+                .as_ref()
+                .objects()
+                .id(),
+            other.id
+        );
+        drop(root);
+        // Rejection did not poll or poison the exact backend invocation.
+        assert!(futures::executor::block_on(call).unwrap().is_empty());
+        assert_eq!(entered.load(Ordering::SeqCst), 1);
+        assert!(StoreContext::is_empty());
+    }
 
     #[test]
     fn a_panicked_engine_coroutine_restores_context_before_the_next_call() {
@@ -489,13 +549,14 @@ mod tests {
     fn a_panicked_nested_coroutine_preserves_its_live_parent_context() {
         let mut parent = Coroutine::new(
             |yielder: &Yielder<AsyncResume, AsyncYield>, _: AsyncResume| {
-                let context = CoroutineContext::new(yielder);
+                let context = CoroutineContext::new(yielder, StoreContext::new_installation_id());
                 context.enter();
                 let mut child = Coroutine::new(
                     |yielder: &Yielder<AsyncResume, AsyncYield>,
                      _: AsyncResume|
                      -> Result<Box<[Value]>, RuntimeError> {
-                        let context = CoroutineContext::new(yielder);
+                        let context =
+                            CoroutineContext::new(yielder, StoreContext::new_installation_id());
                         context.enter();
                         panic!("nested coroutine panic");
                     },
