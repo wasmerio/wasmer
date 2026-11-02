@@ -23,7 +23,10 @@ use serde::{Deserialize, Serialize};
 use wasmer_types::{FunctionIndex, LibCall, LocalFunctionIndex};
 
 /// Relocation kinds for every ISA.
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[derive(RkyvSerialize, RkyvDeserialize, Archive, Copy, Clone, Debug, PartialEq, Eq)]
+#[rkyv(derive(Debug), compare(PartialEq))]
 #[repr(u8)]
 pub enum RelocationKind {
     /// absolute 4-byte
