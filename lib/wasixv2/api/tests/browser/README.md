@@ -50,6 +50,20 @@ Each Machine has its own kernel, task tree, private root and network namespace;
 share directories explicitly by mounting the same `Arc<WebFs>` where desired.
 A provider's own clock remains the clock chosen by its owner.
 
+For the optional JSPI profile, construct `BrowserExecutor::with_jspi(64, 8)`
+instead. It reports `io::ErrorKind::Unsupported` without admission if JSPI is
+absent. Keep the same executor for `browser::builder` and `browser::spawn`;
+their Store/driver profiles must match. Bootstrap with `disableJSPI: false`.
+A synchronous root export returns `browser::future_to_promise(owned_future)`
+from `wasixv2-host` and uses the explicit `entry` message's `jspi: true` flag.
+Avoid wasm-bindgen async exports on this lane: their threaded executor uses
+waitAsync or creates helper workers. The fixture adapter's
+`jspi: true` option selects `run_fixture_jspi` and preserves JSPI in workers.
+The default adapter retains the mandatory no-JSPI profile. Run the focused
+optional gate, which removes waitAsync and rejects worker construction outside
+the coordinator, with `JSPI=1 node lib/wasixv2/api/tests/browser/lifecycle.mjs
+"$CARGO_TARGET_DIR/browser"`; unsupported engines explicitly report `NOTSUP`.
+
 `browser::spawn` publishes a kernel task before returning a Run, then starts the
 guest on a dedicated worker. `Run::wait` supports concurrent/repeated calls and
 canceled waits unregister. `Run::signaller` routes signals, resize and hangup

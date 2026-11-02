@@ -7060,6 +7060,7 @@ version = "0.0.0"
 dependencies = [
  "async-trait",
  "futures-util",
+ "js-sys",
  "serde",
  "serde_json",
  "shared-buffer",
@@ -7091,6 +7092,7 @@ dependencies = [
  "wasixv2-wait",
  "wasixv2-wasix1",
  "wasm-bindgen",
+ "wasm-bindgen-futures",
  "wasm-bindgen-test",
  "wasmer",
  "wasmparser 0.259.0",

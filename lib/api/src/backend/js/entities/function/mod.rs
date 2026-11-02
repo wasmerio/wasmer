@@ -11,7 +11,7 @@ use js_sys::{Array, Function as JsFunction};
 use js_sys::{Promise, Reflect};
 use wasm_bindgen::{JsCast, prelude::*};
 #[cfg(feature = "experimental-async")]
-use wasm_bindgen_futures::{JsFuture, future_to_promise};
+use wasm_bindgen_futures::JsFuture;
 use wasmer_types::{FunctionType, RawValue};
 
 #[cfg(feature = "experimental-async")]
@@ -108,11 +108,11 @@ impl Function {
         Fut: Future<Output = Result<Vec<Value>, RuntimeError>> + 'static,
         T: 'static,
     {
-        let mode = {
+        let (mode, executor) = {
             let mut store = store.as_store_mut();
             let backend = store.inner.store.as_js_mut();
             backend.async_imports = true;
-            backend.async_mode
+            (backend.async_mode, backend.jspi_executor)
         };
 
         let function_type = ty.into();
@@ -185,7 +185,7 @@ impl Function {
                     .as_js_mut()
                     .host_callback(Closure::wrap(Box::new(move |args: &Array| -> Promise {
                         let future = callback(args);
-                        future_to_promise(async move { future.await.map_err(JsValue::from) })
+                        executor(Box::pin(async move { future.await.map_err(JsValue::from) }))
                     })
                         as Box<dyn Fn(&Array) -> Promise>))
             }

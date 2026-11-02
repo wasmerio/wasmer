@@ -51,13 +51,13 @@ Serve a secure context with `Cross-Origin-Opener-Policy: same-origin` and
 `Cross-Origin-Embedder-Policy: require-corp`; ensure CORS/CORP for other origins.
 Allow the worker/module URLs in CSP. SharedArrayBuffer, Wasm shared memory and
 worker `Atomics.wait` are mandatory. The required lane removes JSPI from both
-page and workers; JSPI is optional and its optimisation lane is not signed off.
+page and workers; the optional JSPI profile is described below and is not signed off.
 Modern Wasm exception handling is required by EH guests; fork requires a guest
 built with asyncify independently of JSPI.
 
 The page owns fetch, presentation and the asynchronous coordinator handle.
-Only the coordinator creates workers. Task workers execute synchronous guest
-calls and may block; fetch, WebSocket and Promise-producing providers must make
+Only the coordinator creates workers. Default task workers execute synchronous
+guest calls and may block; fetch, WebSocket and Promise-producing providers must make
 progress elsewhere. Kernel drivers have reserved workers and admission failure
 is fatal. The pure JS memory-copy worker must never instantiate runtime Rust.
 All runtime workers share one Rust heap; CLONE_VM shares guest memory, whereas
@@ -80,6 +80,49 @@ shutdown before terminating workers. Infrastructure failure rejects every waiter
 and discards the complete shared heap; it is never a successful process exit.
 Linux authorities for the unchanged lifecycle are `kernel/fork.c:kernel_clone`,
 `kernel/sched/core.c:wake_up_new_task` and `kernel/exit.c:do_exit,exit_mm`.
+
+## Optional JSPI task profile
+
+`BrowserExecutor::with_jspi(task_limit, service_limit)` probes JSPI and returns
+`Unsupported` when it is unavailable. Pass that executor to `browser::builder`
+and `browser::spawn`; the Machine configures each initial, thread, fork and exec
+Store before creating imports. A mismatched executor/Machine profile fails before
+task publication. Reserved service workers continue using the blocking driver.
+Each supplied runtime Memory has one coordinator lifetime; after shutdown or
+infrastructure failure, create a fresh Memory for a new runtime.
+Bootstrap must preserve JSPI (`disableJSPI: false`). A root entry returning a
+Promise uses `{ type: "entry", jspi: true, ... }` and drives its owned Rust work
+with `wasixv2_host::browser::future_to_promise`. Use a synchronous export returning
+that Promise: the threaded wasm-bindgen async export executor uses waitAsync or
+creates helper workers. Dropping a Promise waiter does not cancel the retained
+invocation; use the existing Run/task cancellation lifecycle.
+
+Both root and imported futures receive shared Rust Parker wakers. The existing
+coordinator routes sequence changes to cancellable owner-local Promise waits;
+foreign workers never resolve another worker's Promise. This profile requires
+no `Atomics.waitAsync` or helper workers. One-shot owner callbacks retain the
+same pinned future until it settles. Worker completion waits for registered import drivers
+and local cleanup before releasing admission, collecting engine roots or
+publishing idle. A live asynchronous run rejects reentrant dispatch/retirement.
+
+The focused gate is `JSPI=1 node lib/wasixv2/api/tests/browser/lifecycle.mjs
+"$CARGO_TARGET_DIR/browser"`; use `BROWSER=firefox` for Firefox. Unsupported
+engines report `NOTSUP`; supported engines must run the driver, lifecycle and
+relay checks. Source/transport checks alone do not establish browser JSPI or
+context parity. The default gate still removes JSPI on every runtime worker.
+
+The source-built threaded debug gate passed on Chromium 156.0.8078.4 and
+Firefox 157.0 on 2026-11-01; both engines exposed JSPI on the page and root
+worker. The driver smoke proved foreign-worker wake delivery with owner-only
+provider polls, retained provider ownership after dropping a Promise waiter,
+callback cleanup before root completion, both executor/Machine profile mismatch
+rejections before task admission, and default blocking Stores/services. The
+same lane passed shared-directory/isolation, signal/kill/repeated wait, busy TTY,
+output backpressure and relay TCP checks with `Atomics.waitAsync` removed and
+worker creation forbidden outside the coordinator. Both engines also passed
+the default lane with JSPI removed. These checks establish the optional driver
+behavior; execution-context identity, SDK compatibility and the independent R2
+worker-reclamation acceptance remain separate gates.
 
 ## Capability checklist
 

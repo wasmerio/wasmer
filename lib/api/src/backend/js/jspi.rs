@@ -1,7 +1,7 @@
-use std::{cell::RefCell, collections::HashMap};
+use std::{cell::RefCell, collections::HashMap, future::Future, pin::Pin};
 
 use crate::{AsStoreAsync, StoreAsync};
-use js_sys::{Function, Reflect};
+use js_sys::{Function, Promise, Reflect};
 use wasm_bindgen::{JsCast, JsValue, prelude::wasm_bindgen};
 use wasmer_types::StoreId;
 
@@ -13,6 +13,30 @@ struct ActiveStore {
 thread_local! {
     static ACTIVE_STORES: RefCell<HashMap<StoreId, ActiveStore>> =
         RefCell::new(HashMap::new());
+}
+
+/// An owned host callback, retained and polled only on its JavaScript worker.
+pub type JspiFuture = Pin<Box<dyn Future<Output = Result<JsValue, JsValue>>>>;
+
+/// Converts a host callback into the Promise consumed by JSPI. Threaded runtimes
+/// must replace the default executor when their providers wake from other workers.
+pub type JspiExecutor = fn(JspiFuture) -> Promise;
+
+/// Selects this Store's callback driver before its first async import. The driver
+/// is invoked synchronously at callback entry, before the future is first polled.
+pub fn set_jspi_executor(
+    store: &mut impl crate::AsStoreMut,
+    executor: JspiExecutor,
+) -> Result<(), crate::RuntimeError> {
+    let mut store = store.as_store_mut();
+    let backend = store.inner.store.as_js_mut();
+    if backend.async_imports {
+        return Err(crate::RuntimeError::new(
+            "cannot change the JSPI executor after creating async imports",
+        ));
+    }
+    backend.jspi_executor = executor;
+    Ok(())
 }
 
 pub(crate) struct ActiveStoreGuard {

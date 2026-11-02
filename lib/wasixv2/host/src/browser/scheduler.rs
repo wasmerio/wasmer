@@ -1,3 +1,5 @@
+#[cfg(target_arch = "wasm32")]
+use std::cell::Cell;
 use std::{
     cell::RefCell,
     collections::VecDeque,
@@ -18,6 +20,8 @@ use crate::LocalFuture;
 #[derive(Default)]
 pub struct Parker {
     sequence: AtomicI32,
+    #[cfg(target_arch = "wasm32")]
+    asynchronous: AtomicBool,
     #[cfg(not(target_arch = "wasm32"))]
     lock: std::sync::Mutex<()>,
     #[cfg(not(target_arch = "wasm32"))]
@@ -36,7 +40,7 @@ impl Parker {
         let _guard = self.lock.lock().unwrap();
         self.sequence.fetch_add(1, Ordering::Release);
         #[cfg(target_arch = "wasm32")]
-        super::notify_word(&self.sequence);
+        super::notify_word(&self.sequence, self.asynchronous.load(Ordering::Acquire));
         #[cfg(not(target_arch = "wasm32"))]
         self.changed.notify_all();
     }
@@ -89,6 +93,8 @@ struct Task {
 struct Scheduler {
     parker: Arc<Parker>,
     tasks: RefCell<VecDeque<Task>>,
+    #[cfg(target_arch = "wasm32")]
+    drivers: Cell<usize>,
 }
 
 thread_local! {
@@ -101,6 +107,25 @@ fn current() -> std::rc::Rc<Scheduler> {
             .clone()
             .expect("BrowserExecutor requires a worker driver")
     })
+}
+
+fn poll_tasks(scheduler: &Scheduler) {
+    let count = scheduler.tasks.borrow().len();
+    for _ in 0..count {
+        let Some(mut task) = scheduler.tasks.borrow_mut().pop_front() else {
+            break;
+        };
+        // No RefCell borrow or runtime lock survives a poll or nested host call.
+        let complete = task.ready.ready.swap(false, Ordering::Acquire)
+            && task
+                .future
+                .as_mut()
+                .poll(&mut Context::from_waker(&Waker::from(task.ready.clone())))
+                .is_ready();
+        if !complete {
+            scheduler.tasks.borrow_mut().push_back(task);
+        }
+    }
 }
 
 pub(super) fn spawn(future: LocalFuture<'static, ()>) -> std::io::Result<()> {
@@ -152,22 +177,7 @@ pub fn block_on<T>(future: impl Future<Output = T>) -> T {
     let mut result = None;
     loop {
         let observed = scheduler.parker.sequence();
-        let count = scheduler.tasks.borrow().len();
-        for _ in 0..count {
-            let Some(mut task) = scheduler.tasks.borrow_mut().pop_front() else {
-                break;
-            };
-            // No RefCell borrow or runtime lock survives a poll or nested host call.
-            let complete = task.ready.ready.swap(false, Ordering::Acquire)
-                && task
-                    .future
-                    .as_mut()
-                    .poll(&mut Context::from_waker(&Waker::from(task.ready.clone())))
-                    .is_ready();
-            if !complete {
-                scheduler.tasks.borrow_mut().push_back(task);
-            }
-        }
+        poll_tasks(&scheduler);
         if result.is_none()
             && let Poll::Ready(value) = future.as_mut().poll(&mut cx)
         {
@@ -180,6 +190,160 @@ pub fn block_on<T>(future: impl Future<Output = T>) -> T {
         }
         scheduler.parker.park(observed);
     }
+}
+
+/// Drives a root or imported JSPI callback on this worker's event loop. Registration
+/// happens synchronously, including before a callback Promise's first microtask.
+#[cfg(target_arch = "wasm32")]
+pub(super) fn run_async<T>(future: impl Future<Output = T>) -> impl Future<Output = T> {
+    let owner = LOCAL.with_borrow_mut(|local| {
+        if local.is_some() {
+            false
+        } else {
+            let scheduler = std::rc::Rc::new(Scheduler::default());
+            scheduler.parker.asynchronous.store(true, Ordering::Release);
+            *local = Some(scheduler);
+            true
+        }
+    });
+    let scheduler = current();
+    assert!(
+        scheduler.parker.asynchronous.load(Ordering::Acquire),
+        "JSPI callback entered a blocking worker driver"
+    );
+    scheduler.drivers.set(
+        scheduler
+            .drivers
+            .get()
+            .checked_add(1)
+            .expect("JSPI driver count overflow"),
+    );
+    struct Driver {
+        scheduler: std::rc::Rc<Scheduler>,
+        owner: bool,
+    }
+    impl Drop for Driver {
+        fn drop(&mut self) {
+            if self.owner {
+                assert!(
+                    self.scheduler.drivers.get() == 1 && self.scheduler.tasks.borrow().is_empty(),
+                    "JSPI root dropped with live worker drivers"
+                );
+                self.scheduler
+                    .parker
+                    .asynchronous
+                    .store(false, Ordering::Release);
+                LOCAL.with_borrow_mut(|local| {
+                    assert!(std::rc::Rc::ptr_eq(
+                        local.as_ref().expect("JSPI owner lost its scheduler"),
+                        &self.scheduler
+                    ));
+                    local.take()
+                });
+            }
+            self.scheduler.drivers.set(self.scheduler.drivers.get() - 1);
+            self.scheduler.parker.notify();
+        }
+    }
+    let driver = Driver { scheduler, owner };
+    async move {
+        let _driver = driver;
+        let scheduler = &_driver.scheduler;
+        let waker = Waker::from(scheduler.parker.clone());
+        let mut cx = Context::from_waker(&waker);
+        let mut future = pin!(future);
+        let mut result = None;
+        loop {
+            let observed = scheduler.parker.sequence();
+            poll_tasks(scheduler);
+            if result.is_none()
+                && let Poll::Ready(value) = future.as_mut().poll(&mut cx)
+            {
+                result = Some(value);
+            }
+            if (!owner || (scheduler.tasks.borrow().is_empty() && scheduler.drivers.get() == 1))
+                && let Some(value) = result.take()
+            {
+                return value;
+            }
+            wait_async(&scheduler.parker, observed).await;
+        }
+    }
+}
+
+/// One exact owned future. Every pending step transfers it into the next local
+/// one-shot callback; there is no Rust state/Closure reference cycle or task registry.
+#[cfg(target_arch = "wasm32")]
+pub(super) fn promise(
+    future: impl Future<Output = Result<wasm_bindgen::JsValue, wasm_bindgen::JsValue>> + 'static,
+) -> js_sys::Promise {
+    use wasm_bindgen::{JsValue, closure::Closure};
+    struct Task {
+        future: LocalFuture<'static, Result<JsValue, JsValue>>,
+        parker: Arc<Parker>,
+    }
+    impl Task {
+        fn callback(self) -> JsValue {
+            Closure::once_into_js(move || self.poll())
+        }
+        fn poll(mut self) -> JsValue {
+            let observed = self.parker.sequence();
+            let waker = Waker::from(self.parker.clone());
+            match self.future.as_mut().poll(&mut Context::from_waker(&waker)) {
+                Poll::Ready(result) => {
+                    drop(self.future);
+                    self.parker.asynchronous.store(false, Ordering::Release);
+                    match result {
+                        Ok(value) => js_sys::Array::of2(&0.into(), &value).into(),
+                        Err(error) => js_sys::Array::of2(&1.into(), &error).into(),
+                    }
+                }
+                Poll::Pending => {
+                    let address = &self.parker.sequence as *const _ as u32;
+                    js_sys::Array::of4(
+                        &2.into(),
+                        &address.into(),
+                        &observed.into(),
+                        &self.callback(),
+                    )
+                    .into()
+                }
+            }
+        }
+    }
+    let parker = Arc::new(Parker::default());
+    parker.asynchronous.store(true, Ordering::Release);
+    super::js_drive_promise(
+        Task {
+            future: Box::pin(future),
+            parker,
+        }
+        .callback(),
+    )
+}
+
+#[cfg(target_arch = "wasm32")]
+async fn wait_async(parker: &Parker, observed: i32) {
+    use wasm_bindgen::{JsCast, JsValue};
+    let registration = super::js_wait_word_async(&parker.sequence as *const _ as usize, observed)
+        .expect("async worker wait registration failed");
+    let ticket = js_sys::Reflect::get(&registration, &JsValue::from_str("ticket"))
+        .unwrap()
+        .as_f64()
+        .expect("async wait ticket missing");
+    struct Registration(f64);
+    impl Drop for Registration {
+        fn drop(&mut self) {
+            super::js_cancel_word_wait(self.0);
+        }
+    }
+    let _registration = Registration(ticket);
+    let promise = js_sys::Reflect::get(&registration, &JsValue::from_str("promise"))
+        .unwrap()
+        .unchecked_into::<js_sys::Promise>();
+    wasm_bindgen_futures::JsFuture::from(promise)
+        .await
+        .expect("async worker wait failed");
 }
 
 #[cfg(test)]

@@ -58,6 +58,8 @@ wasmer = { path = "../../api", version = "=7.5.0", default-features = false, fea
 
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
 wasm-bindgen-test.workspace = true
+wasm-bindgen-futures.workspace = true
+js-sys.workspace = true
 
 [features]
 default = ["sys", "tokio", "host-network", "wasix1"]

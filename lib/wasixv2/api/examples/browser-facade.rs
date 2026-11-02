@@ -21,7 +21,7 @@ mod wasm {
     use wasixv2::{Credentials, DirectoryEntry, Engine, Net, NetConfig, ProcessConfig, browser};
     use wasixv2_host::{
         BrowserHost, ByteSink, Executor, Host,
-        browser::{BrowserExecutor, block_on},
+        browser::{BrowserExecutor, block_on, future_to_promise},
     };
     use wasixv2_kernel::HostClock;
     use wasixv2_vfs::{Cred, Ctx, LookupFlags, OpenHow};
@@ -117,12 +117,47 @@ mod wasm {
     #[wasm_bindgen]
     pub fn run_fixture(metadata: &str, module_bytes: &[u8]) -> Result<String, JsValue> {
         let fixture: Fixture = serde_json::from_str(metadata).map_err(error)?;
-        block_on(execute(fixture, module_bytes)).map_err(error)
+        block_on(execute(fixture, module_bytes, false)).map_err(error)
     }
 
-    async fn execute(fixture: Fixture, wasm: &[u8]) -> Result<String, String> {
-        async fn inner(fixture: Fixture, wasm: &[u8]) -> Result<String, JsValue> {
-            let executor = BrowserExecutor::new(64, 8).map_err(error)?;
+    #[wasm_bindgen]
+    pub fn run_fixture_jspi(metadata: String, module_bytes: Vec<u8>) -> js_sys::Promise {
+        future_to_promise(async move {
+            let fixture: Fixture = serde_json::from_str(&metadata).map_err(error)?;
+            execute(fixture, &module_bytes, true)
+                .await
+                .map(JsValue::from)
+                .map_err(error)
+        })
+    }
+
+    fn task_executor(jspi: bool, task_limit: usize) -> Result<BrowserExecutor, JsValue> {
+        if jspi {
+            BrowserExecutor::with_jspi(task_limit, 8)
+        } else {
+            BrowserExecutor::new(task_limit, 8)
+        }
+        .map_err(error)
+    }
+
+    #[wasm_bindgen]
+    pub fn jspi_support_smoke() -> Result<String, JsValue> {
+        match BrowserExecutor::with_jspi(1, 1) {
+            Ok(executor) => {
+                assert!(!executor.services().uses_jspi());
+                executor.close();
+                Ok(r#"{"supported":true}"#.into())
+            }
+            Err(error) if error.kind() == io::ErrorKind::Unsupported => {
+                Ok(r#"{"supported":false,"error":"NOTSUP"}"#.into())
+            }
+            Err(e) => Err(error(e)),
+        }
+    }
+
+    async fn execute(fixture: Fixture, wasm: &[u8], jspi: bool) -> Result<String, String> {
+        async fn inner(fixture: Fixture, wasm: &[u8], jspi: bool) -> Result<String, JsValue> {
+            let executor = task_executor(jspi, 64)?;
             let host = Arc::new(BrowserHost::new(executor.clone()).map_err(error)?);
             let user = credentials(fixture.user.as_deref())?;
             let owner = (user.uid(), user.gid());
@@ -577,7 +612,7 @@ mod wasm {
             )
             .map_err(error)
         }
-        inner(fixture, wasm)
+        inner(fixture, wasm, jspi)
             .await
             .map_err(|e| e.as_string().unwrap_or_else(|| format!("{e:?}")))
     }
@@ -624,16 +659,25 @@ mod wasm {
             command_defaults: vec![],
             acceptance: None,
         };
-        block_on(execute(fixture, &wasm)).map_err(error)
+        block_on(execute(fixture, &wasm, false)).map_err(error)
     }
 
     /// Browser-only regression: two kernels, shared provider identity, cached waits,
     /// immediate kill and busy-guest terminal input, using the public B8 facade.
     #[wasm_bindgen]
     pub fn lifecycle_smoke() -> Result<String, JsValue> {
+        block_on(lifecycle(false))
+    }
+
+    #[wasm_bindgen]
+    pub fn lifecycle_smoke_jspi() -> js_sys::Promise {
+        future_to_promise(async { lifecycle(true).await.map(JsValue::from) })
+    }
+
+    async fn lifecycle(jspi: bool) -> Result<String, JsValue> {
         use futures_util::FutureExt;
-        block_on(async {
-            let executor = BrowserExecutor::new(64, 8).map_err(error)?;
+        async {
+            let executor = task_executor(jspi, 64)?;
             let host = Arc::new(BrowserHost::new(executor.clone()).map_err(error)?);
             let make = || {
                 browser::builder(
@@ -902,6 +946,7 @@ mod wasm {
                     acceptance: None,
                 },
                 &echo,
+                jspi,
             )
             .await
             .map_err(error)?;
@@ -913,12 +958,21 @@ mod wasm {
                 assert!(bytes.iter().all(|v| v.as_u64() == Some(byte)));
             }
             Ok(serde_json::json!({"exitCode":0,"stdout":[],"stderr":[],"files":[],"sharedDirectory":true,"machineIsolation":true,"signal":true,"kill":true,"wait":true,"busyTty":true,"backpressure":true}).to_string())
-        })
+        }.await
     }
     #[wasm_bindgen]
     pub fn relay_smoke(url: &str) -> Result<String, JsValue> {
-        block_on(async {
-            let executor = BrowserExecutor::new(8, 8).map_err(error)?;
+        block_on(relay(url, false))
+    }
+
+    #[wasm_bindgen]
+    pub fn relay_smoke_jspi(url: String) -> js_sys::Promise {
+        future_to_promise(async move { relay(&url, true).await.map(JsValue::from) })
+    }
+
+    async fn relay(url: &str, jspi: bool) -> Result<String, JsValue> {
+        async {
+            let executor = task_executor(jspi, 8)?;
             let host = Arc::new(BrowserHost::new(executor.clone()).map_err(error)?);
             let (network, relay) = browser::relay::connect(
                 url,
@@ -971,6 +1025,6 @@ mod wasm {
             drop(relay);
             executor.close();
             Ok(serde_json::json!({"exitCode":0,"stdout":[],"stderr":[],"files":[],"relayTcp":true}).to_string())
-        })
+        }.await
     }
 }

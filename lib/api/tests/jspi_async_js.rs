@@ -6,6 +6,60 @@ use wasm_bindgen_futures::JsFuture;
 use wasm_bindgen_test::wasm_bindgen_test;
 use wasmer::{Function, Instance, Module, Store, TypedFunction, imports};
 
+#[wasm_bindgen_test]
+async fn jspi_executors_belong_to_their_store_and_freeze_before_imports() {
+    use std::cell::Cell;
+    thread_local! {
+        static LEFT: Cell<u32> = const { Cell::new(0) };
+        static RIGHT: Cell<u32> = const { Cell::new(0) };
+    }
+    fn left(future: wasmer::js::JspiFuture) -> Promise {
+        LEFT.set(LEFT.get() + 1);
+        wasm_bindgen_futures::future_to_promise(future)
+    }
+    fn right(future: wasmer::js::JspiFuture) -> Promise {
+        RIGHT.set(RIGHT.get() + 1);
+        wasm_bindgen_futures::future_to_promise(future)
+    }
+    fn make(
+        executor: Option<wasmer::js::JspiExecutor>,
+    ) -> (wasmer::StoreAsync, TypedFunction<(), i32>) {
+        let mut store = Store::default();
+        wasmer::js::set_async_mode(&mut store, wasmer::js::AsyncMode::Jspi).unwrap();
+        if let Some(executor) = executor {
+            wasmer::js::set_jspi_executor(&mut store, executor).unwrap();
+        }
+        let module = Module::new(
+            &store,
+            r#"(module
+            (import "host" "answer" (func $answer (result i32)))
+            (func (export "run") (result i32) call $answer))"#,
+        )
+        .unwrap();
+        let answer = Function::new_typed_async(&mut store, || async { 42i32 });
+        assert!(wasmer::js::set_jspi_executor(&mut store, right).is_err());
+        let instance = Instance::new(
+            &mut store,
+            &module,
+            &imports! {"host" => {"answer" => answer}},
+        )
+        .unwrap();
+        let run = instance.exports.get_typed_function(&store, "run").unwrap();
+        (store.into_async(), run)
+    }
+    LEFT.set(0);
+    RIGHT.set(0);
+    let (left_store, left_run) = make(Some(left));
+    let (default_store, default_run) = make(None);
+    let (right_store, right_run) = make(Some(right));
+    assert_eq!(left_run.call_async(&left_store).await.unwrap(), 42);
+    assert_eq!(default_run.call_async(&default_store).await.unwrap(), 42);
+    assert_eq!(right_run.call_async(&right_store).await.unwrap(), 42);
+    assert_eq!(left_run.call_async(&left_store).await.unwrap(), 42);
+    assert_eq!(LEFT.get(), 2);
+    assert_eq!(RIGHT.get(), 1);
+}
+
 struct NoJspi {
     webassembly: JsValue,
     suspending: JsValue,

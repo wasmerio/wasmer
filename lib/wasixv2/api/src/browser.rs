@@ -1,5 +1,5 @@
 //! Shared-runtime browser assembly. JS bootstrap must finish before entering this API;
-//! all guest calls run synchronously on coordinator-created task workers.
+//! all guest calls run on coordinator-created task workers in the selected profile.
 pub mod relay;
 
 use crate::{Host, MachineBuilder, Net};
@@ -50,9 +50,16 @@ pub fn builder(
     executor: BrowserExecutor,
     network: Arc<Net>,
 ) -> MachineBuilder {
-    MachineBuilder::new(host)
+    let mode = if executor.uses_jspi() {
+        wasmer::js::AsyncMode::Jspi
+    } else {
+        wasmer::js::AsyncMode::Blocking
+    };
+    let mut builder = MachineBuilder::new(host)
         .task_executor(Arc::new(executor))
-        .network(network)
+        .network(network);
+    builder.js_async_mode = mode;
+    builder
 }
 
 /// A backend/driver pair for an embedder's independent event-loop transport. No
@@ -131,6 +138,12 @@ pub async fn spawn(
     module: Module,
     config: ProcessConfig,
 ) -> Result<Run, crate::RunError> {
+    if executor.uses_jspi() != (machine.abis.js_async_mode() == wasmer::js::AsyncMode::Jspi) {
+        return Err(crate::RunError::Spawn(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "browser task executor and Machine Store profiles differ",
+        )));
+    }
     // Publish the kernel task before returning the handle, so an immediate kill
     // cannot race an as-yet-uncreated process (kernel/fork.c:kernel_clone and kernel/sched/core.c:wake_up_new_task).
     crate::preflight(&module)?;

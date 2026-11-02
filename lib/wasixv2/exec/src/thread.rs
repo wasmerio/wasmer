@@ -265,6 +265,7 @@ where
             None
         };
         let mut store = Store::new(self.engine.clone());
+        self.abis.configure_store(&mut store)?;
         let spawner = process::spawner(
             self.engine.clone(),
             self.syscalls.clone(),
