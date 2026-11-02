@@ -2,8 +2,9 @@
 //! Singlepass) for emitting per-function relocatable ELF objects and linking
 //! them into the final module image.
 
-use crate::compiler::{CompiledObjects, emit_metadata_and_link, get_object_for_target};
+use crate::compiler::{CompiledObjects, emit_metadata_and_link};
 use crate::dwarf::{EhRelocation, EhTarget};
+use crate::get_object_for_target;
 use crate::misc::{CompiledFunctionExt, CompiledKind};
 use crate::types::function::{Compilation, FunctionBody};
 use crate::types::relocation::{Relocation, RelocationKind, RelocationTarget};

@@ -20,7 +20,10 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
 mod engine;
+mod target_object;
 mod traits;
+
+pub use crate::target_object::{ObjectError, get_object_for_target};
 
 pub mod abi;
 pub mod misc;
@@ -40,10 +43,9 @@ mod compiler;
 #[cfg(feature = "compiler")]
 pub use crate::compiler::{
     CompiledFunction, CompiledObjects, Compiler, CompilerConfig, Debugger,
-    DeterministicIdComponent, FuncTranslator, FunctionBucket, ObjectError,
-    WASM_LARGE_FUNCTION_THRESHOLD, WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE, build_function_buckets,
-    emit_metadata_and_link, get_object_for_target, translate_function_buckets,
-    validate_module_fixed_table_size,
+    DeterministicIdComponent, FuncTranslator, FunctionBucket, WASM_LARGE_FUNCTION_THRESHOLD,
+    WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE, build_function_buckets, emit_metadata_and_link,
+    translate_function_buckets, validate_module_fixed_table_size,
 };
 
 #[cfg(feature = "compiler")]
