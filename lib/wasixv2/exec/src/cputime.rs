@@ -7,12 +7,15 @@
 //! its next return/preemption hook, so the kernel's live CPU-clock extrapolation cannot race
 //! background counter publication. Hosts without cross-thread clocks retain boundary accounting.
 
-use std::{cell::Cell, sync::Arc, time::Duration};
-
-#[cfg(not(target_family = "wasm"))]
-use std::sync::{
-    Mutex, PoisonError,
-    atomic::{AtomicBool, Ordering},
+use std::{
+    cell::Cell,
+    marker::PhantomData,
+    rc::Rc,
+    sync::{
+        Arc, Mutex, PoisonError,
+        atomic::{AtomicBool, Ordering},
+    },
+    time::Duration,
 };
 
 use wasixv2_host::Host;
@@ -68,16 +71,17 @@ impl CpuSample {
         }
     }
 
-    /// Transfers execution between a host import and a nested guest call without
-    /// counting another syscall boundary. Returns the preceding execution mode.
-    pub(crate) fn replace_mode(&self, system: bool) -> bool {
+    /// Transfers to a nested guest without another syscall boundary. The owned
+    /// guard restores the same sampler synchronously on return, drop or panic.
+    pub(crate) fn guest_mode(&mut self) -> CpuModeGuard {
         match self {
             #[cfg(not(target_family = "wasm"))]
-            Self::Tick(sample) => sample.mode.system.swap(system, Ordering::Relaxed),
-            Self::Boundary(sample) => {
-                sample.accumulate();
-                sample.entered.replace(system)
-            }
+            Self::Tick(sample) => CpuModeGuard {
+                previous: sample.mode.system.swap(false, Ordering::Relaxed),
+                sample: GuardSample::Tick(sample.clone()),
+                _local: PhantomData,
+            },
+            Self::Boundary(sample) => sample.guest_mode(),
         }
     }
 
@@ -112,6 +116,36 @@ impl Drop for CpuSample {
     fn drop(&mut self) {
         if let Self::Tick(sample) = self {
             sample.close();
+        }
+    }
+}
+
+pub(crate) struct CpuModeGuard {
+    previous: bool,
+    sample: GuardSample,
+    // Accounting belongs to this executor thread, including on native hosts.
+    _local: PhantomData<Rc<()>>,
+}
+
+enum GuardSample {
+    #[cfg(not(target_family = "wasm"))]
+    Tick(Arc<TickSample>),
+    Boundary(Arc<SharedBoundary>),
+}
+
+impl Drop for CpuModeGuard {
+    fn drop(&mut self) {
+        match &self.sample {
+            #[cfg(not(target_family = "wasm"))]
+            GuardSample::Tick(sample) => {
+                // Closing the owner prevents all publication; changing this flag
+                // neither reads its retired clock nor charges a closed account.
+                sample.mode.system.store(self.previous, Ordering::Relaxed);
+            }
+            GuardSample::Boundary(sample) => sample.with(|state, now| {
+                state.accumulate_at(now);
+                state.entered.set(self.previous);
+            }),
         }
     }
 }
@@ -242,10 +276,58 @@ const CHARGE_EVERY: u32 = 256;
 
 /// The accounting state of one instance. Cells: the entry hook only reads the environment.
 pub(crate) struct BoundarySample {
+    clock: BoundaryClock,
+    state: BoundaryStorage,
+}
+
+#[derive(Clone)]
+struct BoundaryClock {
     host: Arc<dyn Host>,
+    /// Whether the host has a thread CPU clock to read.
+    cpu_clock: bool,
+}
+
+impl BoundaryClock {
+    fn now(&self) -> Option<Duration> {
+        if self.cpu_clock {
+            self.host.thread_cpu_time()
+        } else {
+            Some(self.host.monotonic())
+        }
+    }
+}
+
+enum BoundaryStorage {
+    Inline(BoundaryState),
+    Shared(Arc<SharedBoundary>),
+    // Used only while moving the state into its first owned mode guard.
+    Promoting,
+}
+
+struct SharedBoundary {
+    clock: BoundaryClock,
+    state: Mutex<BoundaryState>,
+    closed: AtomicBool,
+}
+
+impl SharedBoundary {
+    fn with(&self, f: impl FnOnce(&mut BoundaryState, Option<Duration>)) {
+        if self.closed.load(Ordering::Relaxed) {
+            return;
+        }
+        // Host clocks may call arbitrary host code. Never invoke them while the
+        // shared sampler lock is held, including from a mode guard destructor.
+        let now = self.clock.now();
+        let mut state = self.state.lock().unwrap_or_else(PoisonError::into_inner);
+        if !self.closed.load(Ordering::Relaxed) {
+            f(&mut state, now);
+        }
+    }
+}
+
+struct BoundaryState {
     /// The account of the task the instance runs as.
     account: Arc<CpuAccount>,
-    /// Whether the host has a thread CPU clock to read.
     cpu_clock: bool,
     /// The clock at the last boundary: thread CPU time, or monotonic time without one.
     last: Cell<Duration>,
@@ -267,48 +349,127 @@ impl BoundarySample {
             account.set_sampled(cpu);
         }
         Self {
-            account,
-            cpu_clock: cpu.is_some(),
-            last: Cell::new(now),
-            calls: Cell::new(0),
-            entered: Cell::new(false),
-            user: Cell::new(Duration::ZERO),
-            system: Cell::new(Duration::ZERO),
-            host,
+            clock: BoundaryClock {
+                host,
+                cpu_clock: cpu.is_some(),
+            },
+            state: BoundaryStorage::Inline(BoundaryState {
+                account,
+                cpu_clock: cpu.is_some(),
+                last: Cell::new(now),
+                calls: Cell::new(0),
+                entered: Cell::new(false),
+                user: Cell::new(Duration::ZERO),
+                system: Cell::new(Duration::ZERO),
+            }),
+        }
+    }
+
+    fn with<R: Default>(&self, f: impl FnOnce(&BoundaryState, Option<Duration>) -> R) -> R {
+        match &self.state {
+            BoundaryStorage::Inline(state) => f(state, self.clock.now()),
+            BoundaryStorage::Shared(shared) => {
+                let mut result = R::default();
+                shared.with(|state, now| result = f(state, now));
+                result
+            }
+            BoundaryStorage::Promoting => unreachable!("sampler promotion is synchronous"),
+        }
+    }
+
+    fn guest_mode(&mut self) -> CpuModeGuard {
+        if matches!(self.state, BoundaryStorage::Inline(_)) {
+            let BoundaryStorage::Inline(state) =
+                std::mem::replace(&mut self.state, BoundaryStorage::Promoting)
+            else {
+                unreachable!()
+            };
+            self.state = BoundaryStorage::Shared(Arc::new(SharedBoundary {
+                clock: self.clock.clone(),
+                state: Mutex::new(state),
+                closed: AtomicBool::new(false),
+            }));
+        }
+        let BoundaryStorage::Shared(sample) = &self.state else {
+            unreachable!()
+        };
+        let mut previous = false;
+        sample.with(|state, now| {
+            state.accumulate_at(now);
+            previous = state.entered.replace(false);
+        });
+        CpuModeGuard {
+            previous,
+            sample: GuardSample::Boundary(sample.clone()),
+            _local: PhantomData,
         }
     }
 
     /// A syscall enters; account for guest execution since the preceding boundary.
     pub(crate) fn enter(&self) {
-        self.accumulate();
-        self.entered.set(true);
-        self.calls.set(self.calls.get() + 1);
+        self.with(|state, now| {
+            state.accumulate_at(now);
+            state.entered.set(true);
+            state.calls.set(state.calls.get() + 1);
+        });
     }
 
     /// A syscall returns, before the return-to-guest path runs. True when publication took
     /// the task or its group past a CPU timer's expiry ([`CpuAccount::charge`]).
     pub(crate) fn exit(&self) -> bool {
-        self.accumulate();
-        self.entered.set(false);
-        self.calls.get() >= CHARGE_EVERY && self.charge()
+        self.with(|state, now| {
+            state.accumulate_at(now);
+            state.entered.set(false);
+            state.calls.get() >= CHARGE_EVERY && state.charge()
+        })
     }
 
     /// Accounts for execution up to now and publishes accumulated time, including a syscall
     /// in progress. True when the task or group passed a CPU timer's expiry.
     pub(crate) fn sample(&self) -> bool {
-        self.accumulate();
-        self.charge()
+        self.with(|state, now| {
+            state.accumulate_at(now);
+            state.charge()
+        })
     }
 
-    fn accumulate(&self) {
-        let now = if self.cpu_clock {
-            let Some(now) = self.host.thread_cpu_time() else {
-                return;
-            };
-            now
-        } else {
-            self.host.monotonic()
+    /// Retains the same state through account changes, including a live mode guard.
+    pub(crate) fn switch(&mut self, account: Arc<CpuAccount>) -> bool {
+        let switch = |state: &mut BoundaryState, now| {
+            state.accumulate_at(now);
+            let expired = state.charge();
+            if state.cpu_clock {
+                account.set_sampled(state.last.get());
+            }
+            state.account = account.clone();
+            expired
         };
+        match &mut self.state {
+            BoundaryStorage::Inline(state) => switch(state, self.clock.now()),
+            BoundaryStorage::Shared(shared) => {
+                let mut expired = false;
+                shared.with(|state, now| expired = switch(state, now));
+                expired
+            }
+            BoundaryStorage::Promoting => unreachable!("sampler promotion is synchronous"),
+        }
+    }
+}
+
+impl Drop for BoundarySample {
+    fn drop(&mut self) {
+        if let BoundaryStorage::Shared(shared) = &self.state {
+            shared.closed.store(true, Ordering::Relaxed);
+        }
+    }
+}
+
+impl BoundaryState {
+    fn accumulate_at(&self, now: Option<Duration>) {
+        let Some(now) = now else { return };
+        // A reentrant clock callback may commit a later observation before this
+        // one returns. Never move the committed timestamp backwards.
+        let now = now.max(self.last.get());
         let used = now.saturating_sub(self.last.replace(now));
         if !self.entered.get() {
             self.user.set(self.user.get().saturating_add(used));
@@ -326,17 +487,6 @@ impl BoundarySample {
             self.user.replace(Duration::ZERO),
             self.system.replace(Duration::ZERO),
         )
-    }
-
-    /// The instance runs as `account` from now on. Returns whether the last charge to the
-    /// previous task took it past an expiry.
-    pub(crate) fn switch(&mut self, account: Arc<CpuAccount>) -> bool {
-        let expired = self.sample();
-        if self.cpu_clock {
-            account.set_sampled(self.last.get());
-        }
-        self.account = account;
-        expired
     }
 }
 
@@ -439,6 +589,8 @@ pub(crate) mod tests {
         cpu: Arc<Mutex<Option<Duration>>>,
         external: AtomicBool,
         self_reads: AtomicUsize,
+        reenter: Mutex<Option<std::sync::Weak<SharedBoundary>>>,
+        reenter_once: AtomicBool,
     }
 
     impl Clocks {
@@ -459,7 +611,19 @@ pub(crate) mod tests {
         }
         fn thread_cpu_time(&self) -> Option<Duration> {
             self.self_reads.fetch_add(1, Ordering::Relaxed);
-            *self.cpu.lock().unwrap()
+            let now = *self.cpu.lock().unwrap();
+            let reenter = self.reenter.lock().unwrap().clone();
+            if let Some(shared) = reenter.and_then(|sample| sample.upgrade()) {
+                assert!(
+                    shared.state.try_lock().is_ok(),
+                    "clock called under sampler lock"
+                );
+                if self.reenter_once.swap(false, Ordering::Relaxed) {
+                    self.advance(US, US);
+                    shared.with(|state, now| state.accumulate_at(now));
+                }
+            }
+            now
         }
         fn thread_cpu_clock(&self) -> Option<Arc<dyn wasixv2_host::ThreadCpuClock>> {
             self.external.load(Ordering::Relaxed).then(|| {
@@ -689,18 +853,17 @@ pub(crate) mod tests {
 
     #[test]
     fn nested_guest_execution_keeps_user_time_inside_an_import() {
-        let (clocks, account, sample) = setup(true);
+        let (clocks, account, mut sample) = setup(true);
         clocks.advance(3 * US, 3 * US);
         sample.enter();
         clocks.advance(2 * US, 2 * US);
-        let previous = sample.replace_mode(false);
-        assert!(previous);
+        let mode = sample.guest_mode();
         clocks.advance(5 * US, 5 * US);
         sample.enter();
         clocks.advance(US, US);
         sample.exit();
         clocks.advance(7 * US, 7 * US);
-        sample.replace_mode(previous);
+        drop(mode);
         clocks.advance(2 * US, 2 * US);
         sample.exit();
         sample.sample();
@@ -711,6 +874,299 @@ pub(crate) mod tests {
                 system: 5 * US
             }
         );
+    }
+
+    #[test]
+    fn dropping_a_pending_nested_call_restores_cpu_mode_without_store_access() {
+        use std::{future::Future, task::Context};
+
+        let (clocks, account, mut sample) = setup(true);
+        clocks.advance(3 * US, 3 * US);
+        sample.enter();
+        clocks.advance(2 * US, 2 * US);
+        let mode = sample.guest_mode();
+        let mut call = Box::pin(async move {
+            let mode = mode;
+            std::future::pending::<()>().await;
+            drop(mode);
+        });
+        let waker = futures::task::noop_waker();
+        assert!(
+            call.as_mut()
+                .poll(&mut Context::from_waker(&waker))
+                .is_pending()
+        );
+        clocks.advance(5 * US, 5 * US);
+        drop(call);
+        clocks.advance(7 * US, 7 * US);
+        sample.exit();
+        sample.sample();
+        assert_eq!(
+            account.times(),
+            CpuTimes {
+                user: 8 * US,
+                system: 9 * US
+            }
+        );
+    }
+
+    #[test]
+    fn nested_mode_guards_restore_in_order_and_on_panic_without_extra_syscalls() {
+        let (clocks, account, mut sample) = setup(true);
+        sample.enter();
+        let outer = sample.guest_mode();
+        clocks.advance(3 * US, 3 * US);
+        let inner = sample.guest_mode();
+        clocks.advance(5 * US, 5 * US);
+        drop(inner);
+        clocks.advance(7 * US, 7 * US);
+        drop(outer);
+        clocks.advance(2 * US, 2 * US);
+        assert!(
+            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                let _mode = sample.guest_mode();
+                clocks.advance(11 * US, 11 * US);
+                panic!("nested operation panicked");
+            }))
+            .is_err()
+        );
+        clocks.advance(13 * US, 13 * US);
+        sample.exit();
+        // Guard creation/restoration must not manufacture syscall entries/publication.
+        assert_eq!(account.times(), CpuTimes::default());
+        sample.sample();
+        assert_eq!(
+            account.times(),
+            CpuTimes {
+                user: 26 * US,
+                system: 15 * US
+            }
+        );
+    }
+
+    #[test]
+    fn a_mode_guard_follows_account_switch_but_does_not_charge_a_retired_owner() {
+        let (clocks, parent, mut sample) = setup(true);
+        let child = Arc::new(CpuAccount::detached());
+        clocks.advance(3 * US, 3 * US);
+        sample.enter();
+        clocks.advance(2 * US, 2 * US);
+        let mode = sample.guest_mode();
+        clocks.advance(5 * US, 5 * US);
+        sample.switch(child.clone());
+        clocks.advance(7 * US, 7 * US);
+        drop(mode);
+        clocks.advance(11 * US, 11 * US);
+        sample.exit();
+        sample.sample();
+        assert_eq!(
+            parent.times(),
+            CpuTimes {
+                user: 8 * US,
+                system: 2 * US
+            }
+        );
+        assert_eq!(
+            child.times(),
+            CpuTimes {
+                user: 7 * US,
+                system: 11 * US
+            }
+        );
+
+        sample.enter();
+        let mode = sample.guest_mode();
+        sample.sample();
+        let before = child.times();
+        let reads = clocks.self_reads.load(Ordering::Relaxed);
+        drop(sample);
+        clocks.advance(17 * US, 17 * US);
+        drop(mode);
+        assert_eq!(child.times(), before);
+        assert_eq!(clocks.self_reads.load(Ordering::Relaxed), reads);
+    }
+
+    #[test]
+    fn owned_mode_clock_runs_outside_lock_and_stale_reentrant_time_is_ignored() {
+        let (clocks, account, mut sample) = setup(true);
+        sample.enter();
+        let mode = sample.guest_mode();
+        let CpuSample::Boundary(boundary) = &sample else {
+            unreachable!()
+        };
+        let BoundaryStorage::Shared(shared) = &boundary.state else {
+            unreachable!()
+        };
+        *clocks.reenter.lock().unwrap() = Some(Arc::downgrade(shared));
+        clocks.reenter_once.store(true, Ordering::Relaxed);
+        clocks.advance(3 * US, 3 * US);
+        // The callback commits t+1 before returning its captured t to this Drop.
+        drop(mode);
+        clocks.advance(5 * US, 5 * US);
+        sample.exit();
+        sample.sample();
+        assert_eq!(
+            account.times(),
+            CpuTimes {
+                user: 4 * US,
+                system: 5 * US
+            }
+        );
+    }
+
+    #[test]
+    #[cfg(not(target_family = "wasm"))]
+    fn owned_tick_mode_restores_and_cannot_reopen_a_closed_sampler() {
+        let (clocks, account, mut sample, tick) = setup_ticks();
+        sample.enter();
+        let mode = sample.guest_mode();
+        clocks.advance(TICK, TICK);
+        tick.tick();
+        drop(mode);
+        clocks.advance(2 * TICK, 2 * TICK);
+        tick.tick();
+        sample.exit();
+        assert_eq!(
+            account.times(),
+            CpuTimes {
+                user: TICK,
+                system: 2 * TICK
+            }
+        );
+        let mode = sample.guest_mode();
+        sample.sample();
+        let before = account.times();
+        drop(sample);
+        clocks.advance(3 * TICK, 3 * TICK);
+        drop(mode);
+        assert!(!tick.tick());
+        assert!(!tick.flush());
+        assert_eq!(account.times(), before);
+    }
+
+    #[test]
+    #[cfg(feature = "sys")]
+    fn actual_call_guest_restores_import_accounting_after_return_and_trap() {
+        use crate::{
+            ExecEnv,
+            process::tests::{NoThreads, Recorder},
+        };
+        use wasixv2_syscalls::TaskId;
+        use wasmer::{
+            AsyncFunctionEnvMut, Function, FunctionEnv, Instance, Module, RuntimeError, Store,
+            Value,
+        };
+
+        let (clocks, account, sample) = setup(true);
+        let syscalls = Arc::new(Recorder::default());
+        let host = Arc::new(NoThreads);
+        let mut store = Store::default();
+        let spawner = crate::process::spawner(
+            store.engine().clone(),
+            syscalls.clone(),
+            host.clone(),
+            Arc::new(crate::Abis::wasixv2()),
+        );
+        let env = FunctionEnv::new(
+            &mut store,
+            ExecEnv::new(
+                syscalls,
+                TaskId(1),
+                crate::process::ProcExports::new(spawner, Arc::default()),
+                host,
+            ),
+        );
+        env.as_mut(&mut store).cpu = sample;
+        let work = Function::new_typed(&mut store, {
+            let clocks = clocks.clone();
+            move || clocks.advance(5 * US, 5 * US)
+        });
+        let callee_module = Module::new(
+            &store,
+            wat::parse_str(
+                r#"(module
+            (import "proof" "work" (func $work))
+            (func (export "callee") (param i32) (result i32)
+                call $work local.get 0 if unreachable end i32.const 42))"#,
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        let callee_instance = Instance::new(
+            &mut store,
+            &callee_module,
+            &wasmer::imports! { "proof" => { "work" => work } },
+        )
+        .unwrap();
+        env.as_mut(&mut store).imports.define(
+            "proof",
+            "callee",
+            callee_instance
+                .exports
+                .get_function("callee")
+                .unwrap()
+                .clone(),
+        );
+        let invoke = Function::new_typed_with_env_async(&mut store, &env, {
+            let clocks = clocks.clone();
+            move |env: AsyncFunctionEnvMut<ExecEnv<Recorder>>, trap: i32| {
+                let clocks = clocks.clone();
+                async move {
+                    let callee = {
+                        let guard = env.read().await;
+                        guard.data().enter();
+                        let Some(wasmer::Extern::Function(callee)) =
+                            guard.data().imports.get_export("proof", "callee")
+                        else {
+                            unreachable!()
+                        };
+                        callee
+                    };
+                    clocks.advance(2 * US, 2 * US);
+                    let result = crate::call_guest(&env, &callee, &[Value::I32(trap)]).await;
+                    clocks.advance(7 * US, 7 * US);
+                    crate::finish_import(&env).await;
+                    result.map(|values| values[0].i32().unwrap())
+                }
+            }
+        });
+        let outer_module = Module::new(
+            &store,
+            wat::parse_str(
+                r#"(module
+            (import "proof" "invoke" (func $invoke (param i32) (result i32)))
+            (func (export "run") (param i32) (result i32) local.get 0 call $invoke))"#,
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        let outer = Instance::new(
+            &mut store,
+            &outer_module,
+            &wasmer::imports! { "proof" => { "invoke" => invoke } },
+        )
+        .unwrap();
+        let function = outer.exports.get_function("run").unwrap();
+        let store = store.into_async();
+        for trap in 0..=1 {
+            clocks.advance(3 * US, 3 * US);
+            let result: Result<_, RuntimeError> =
+                futures::executor::block_on(function.call_async(&store, vec![Value::I32(trap)]));
+            if trap == 0 {
+                assert_eq!(result.unwrap()[0].i32(), Some(42));
+            } else {
+                assert!(result.is_err(), "the actual guest unreachable must trap");
+            }
+            env.as_ref(&store.read()).sample_cpu();
+            let rounds = (trap + 1) as u32;
+            assert_eq!(
+                account.times(),
+                CpuTimes {
+                    user: 8 * US * rounds,
+                    system: 9 * US * rounds
+                }
+            );
+        }
     }
 
     #[test]
