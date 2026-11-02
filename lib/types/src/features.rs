@@ -30,8 +30,8 @@ pub struct Features {
     pub module_linking: bool,
     /// Multi Memory proposal should be enabled
     pub multi_memory: bool,
-    /// 64-bit Memory proposal should be enabled
-    pub memory64: bool,
+    /// 64-bit Memory proposal should be enabled (unsupported now)
+    pub _memory64: bool,
     /// Wasm exceptions proposal should be enabled
     pub exceptions: bool,
     /// Relaxed SIMD proposal should be enabled
@@ -59,7 +59,7 @@ impl Features {
             module_linking: false,
             // Multi-memory should be on by default
             multi_memory: true,
-            memory64: false,
+            _memory64: false,
             exceptions: false,
             relaxed_simd: false,
             wide_arithmetic: false,
@@ -79,7 +79,7 @@ impl Features {
             tail_call: true,
             module_linking: true,
             multi_memory: true,
-            memory64: true,
+            _memory64: false,
             exceptions: true,
             relaxed_simd: true,
             extended_const: true,
@@ -98,7 +98,7 @@ impl Features {
             tail_call: false,
             module_linking: false,
             multi_memory: false,
-            memory64: false,
+            _memory64: false,
             exceptions: false,
             relaxed_simd: false,
             extended_const: false,
@@ -278,25 +278,6 @@ impl Features {
         self
     }
 
-    /// Configures whether the WebAssembly 64-bit memory proposal will
-    /// be enabled.
-    ///
-    /// The [WebAssembly 64-bit memory proposal][proposal] is now
-    /// fully standardized.
-    /// Support for this feature can be enabled through this method
-    /// for appropriate WebAssembly modules.
-    ///
-    /// This feature gates support for linear memory of sizes larger than
-    /// 2^32 bits.
-    ///
-    /// This is `false` by default.
-    ///
-    /// [proposal]: https://github.com/WebAssembly/memory64
-    pub fn memory64(&mut self, enable: bool) -> &mut Self {
-        self.memory64 = enable;
-        self
-    }
-
     /// Configures whether the WebAssembly exception-handling proposal will be enabled.
     ///
     /// The [WebAssembly exception-handling proposal][eh] is now
@@ -353,7 +334,6 @@ impl Features {
             && (!required.tail_call || self.tail_call)
             && (!required.module_linking || self.module_linking)
             && (!required.multi_memory || self.multi_memory)
-            && (!required.memory64 || self.memory64)
             && (!required.relaxed_simd || self.relaxed_simd)
             && (!required.extended_const || self.extended_const)
             && (!required.wide_arithmetic || self.wide_arithmetic)
@@ -457,9 +437,6 @@ impl Features {
                     features.multi_memory(true);
                 }
 
-                if err_msg.contains("memory64") {
-                    features.memory64(true);
-                }
                 if err_msg.contains("wide arithmetic") {
                     features.wide_arithmetic(true);
                 }
@@ -504,7 +481,7 @@ impl Features {
             tail_call,
             module_linking,
             multi_memory,
-            memory64,
+            _memory64,
             exceptions,
             relaxed_simd,
             extended_const,
@@ -520,7 +497,7 @@ impl Features {
             tail_call: self.tail_call || tail_call,
             module_linking: self.module_linking || module_linking,
             multi_memory: self.multi_memory || multi_memory,
-            memory64: self.memory64 || memory64,
+            _memory64: false,
             exceptions: self.exceptions || exceptions,
             relaxed_simd: self.relaxed_simd || relaxed_simd,
             extended_const: self.extended_const || extended_const,
@@ -552,11 +529,11 @@ mod test_features {
                 tail_call: false,
                 module_linking: false,
                 multi_memory: true,
-                memory64: false,
+                _memory64: false,
                 exceptions: false,
                 relaxed_simd: false,
                 extended_const: true,
-                wide_arithmetic: false
+                wide_arithmetic: false,
             }
         );
     }
@@ -636,12 +613,5 @@ mod test_features {
         let mut features = Features::new();
         features.multi_memory(true);
         assert!(features.multi_memory);
-    }
-
-    #[test]
-    fn enable_memory64() {
-        let mut features = Features::new();
-        features.memory64(true);
-        assert!(features.memory64);
     }
 }

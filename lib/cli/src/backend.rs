@@ -63,8 +63,8 @@ pub struct WasmFeatures {
     #[clap(long = "enable-multi-memory")]
     pub _multi_memory: bool,
 
-    /// Enable support for the memory64 proposal.
-    #[clap(long = "enable-memory64")]
+    /// Unsupported feature.
+    #[clap(long = "enable-memory64", hide = true)]
     pub memory64: bool,
 
     /// Enable support for the exceptions proposal.
@@ -222,7 +222,7 @@ impl FromStr for Profiler {
 }
 
 impl RuntimeOptions {
-    fn validate_profiler(&self) -> Result<()> {
+    fn validate_options(&self) -> Result<()> {
         if self.experimental_artifact && !cfg!(any(target_os = "linux", target_os = "macos")) {
             bail!("--experimental-artifact is only supported on Linux and macOS");
         }
@@ -236,6 +236,9 @@ impl RuntimeOptions {
                 }
                 _ => {}
             }
+        }
+        if self.features.memory64 {
+            bail!("--enable-memory64 is unsupported");
         }
         Ok(())
     }
@@ -407,9 +410,6 @@ impl RuntimeOptions {
         if self.features.module_linking {
             features.module_linking(true);
         }
-        if self.features.memory64 {
-            features.memory64(true);
-        }
         if self.features.exceptions {
             features.exceptions(true);
         }
@@ -439,7 +439,7 @@ impl RuntimeOptions {
         &self,
         rt: &BackendType,
     ) -> Result<Box<dyn CompilerConfig>> {
-        self.validate_profiler()?;
+        self.validate_options()?;
         let compiler_config: Box<dyn CompilerConfig> = match rt {
             BackendType::Headless => bail!("The headless engine can't be chosen"),
             #[cfg(feature = "singlepass")]
@@ -592,7 +592,7 @@ impl BackendType {
     /// We enable every feature the engine supports, since the same engine may later be used
     /// with a module that requires more features than the one used during engine detection.
     pub fn get_engine(&self, target: &Target, runtime_opts: &RuntimeOptions) -> Result<Engine> {
-        runtime_opts.validate_profiler()?;
+        runtime_opts.validate_options()?;
         match self {
             #[cfg(feature = "singlepass")]
             Self::Singlepass => {

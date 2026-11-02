@@ -229,7 +229,7 @@ pub trait Compiler: Send + std::fmt::Debug {
         wasm_features.set(WasmFeatures::SIMD, features.simd);
         wasm_features.set(WasmFeatures::TAIL_CALL, features.tail_call);
         wasm_features.set(WasmFeatures::MULTI_MEMORY, features.multi_memory);
-        wasm_features.set(WasmFeatures::MEMORY64, features.memory64);
+        // r enable MEMORY64 as it might lead to a miscompilation.
         wasm_features.set(WasmFeatures::EXCEPTIONS, features.exceptions);
         wasm_features.set(WasmFeatures::EXTENDED_CONST, features.extended_const);
         wasm_features.set(WasmFeatures::RELAXED_SIMD, features.relaxed_simd);
