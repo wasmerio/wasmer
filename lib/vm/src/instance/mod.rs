@@ -240,41 +240,6 @@ impl Instance {
         Some(NonNull::new(unsafe { self.vmctx_plus_offset(offset) }).unwrap())
     }
 
-    fn sync_fixed_funcref_table_element(
-        &self,
-        table_index: LocalTableIndex,
-        index: u32,
-        funcref: Option<VMFuncRef>,
-    ) {
-        let Some(base) = self.fixed_funcref_table_ptr(table_index) else {
-            return;
-        };
-        unsafe {
-            *base.as_ptr().add(index as usize) = anyfunc_from_funcref(funcref);
-        }
-    }
-
-    fn sync_fixed_funcref_table(&self, table_index: LocalTableIndex) {
-        let Some(base) = self.fixed_funcref_table_ptr(table_index) else {
-            return;
-        };
-        let table = self.tables[table_index].get(self.context());
-        for index in 0..table.size() {
-            let TableElement::FuncRef(funcref) = table.get(index).unwrap() else {
-                unreachable!("fixed funcref tables cannot contain externrefs");
-            };
-            unsafe {
-                *base.as_ptr().add(index as usize) = anyfunc_from_funcref(funcref);
-            }
-        }
-    }
-
-    fn sync_fixed_funcref_table_by_index(&self, table_index: TableIndex) {
-        if let Some(local_table_index) = self.module.local_table_index(table_index) {
-            self.sync_fixed_funcref_table(local_table_index);
-        }
-    }
-
     /// Get a locally defined or imported memory.
     fn get_memory(&self, index: MemoryIndex) -> VMMemoryDefinition {
         if let Some(local_index) = self.module.local_memory_index(index) {
@@ -625,15 +590,7 @@ impl Instance {
             .tables
             .get(table_index)
             .unwrap_or_else(|| panic!("no table for index {}", table_index.index()));
-        let funcref = match &val {
-            TableElement::FuncRef(funcref) => Some(*funcref),
-            TableElement::ExternRef(_) => None,
-        };
-        table.get_mut(self.context_mut()).set(index, val)?;
-        if let Some(funcref) = funcref {
-            self.sync_fixed_funcref_table_element(table_index, index, funcref);
-        }
-        Ok(())
+        table.get_mut(self.context_mut()).set(index, val)
     }
 
     /// Set table element by index for an imported table.
@@ -716,8 +673,6 @@ impl Instance {
                 .expect("should never panic because we already did the bounds check above");
         }
 
-        self.sync_fixed_funcref_table_by_index(table_index);
-
         Ok(())
     }
 
@@ -751,8 +706,6 @@ impl Instance {
                 .expect("should never panic because we already did the bounds check above");
         }
 
-        self.sync_fixed_funcref_table_by_index(table_index);
-
         Ok(())
     }
 
@@ -765,7 +718,7 @@ impl Instance {
         src: u32,
         len: u32,
     ) -> Result<(), Trap> {
-        let result = if dst_table_index == src_table_index {
+        if dst_table_index == src_table_index {
             let table = self.get_table(dst_table_index);
             table.copy_within(dst, src, len)
         } else {
@@ -787,11 +740,7 @@ impl Instance {
                     )
                 }
             }
-        };
-        result?;
-        self.sync_fixed_funcref_table_by_index(dst_table_index);
-
-        Ok(())
+        }
     }
 
     /// Drop an element.
@@ -1234,8 +1183,12 @@ impl VMInstance {
                         &instance.function_call_trampolines,
                         vmctx_ptr,
                     );
-                    for local_table_index in instance.tables.keys() {
-                        instance.sync_fixed_funcref_table(local_table_index);
+                    for (local_table_index, table) in instance.tables.iter() {
+                        if let Some(base) = instance.fixed_funcref_table_ptr(local_table_index) {
+                            table
+                                .get_mut(&mut *instance.context)
+                                .set_fixed_funcref_anyfuncs(base);
+                        }
                     }
                 }
 
@@ -1647,8 +1600,6 @@ fn initialize_tables(instance: &mut Instance) -> Result<(), Trap> {
                     .unwrap();
             }
         }
-
-        instance.sync_fixed_funcref_table_by_index(init.table_index);
     }
 
     Ok(())
@@ -1743,13 +1694,6 @@ fn initialize_globals(instance: &Instance) {
                 },
             }
         }
-    }
-}
-
-fn anyfunc_from_funcref(funcref: Option<VMFuncRef>) -> VMCallerCheckedAnyfunc {
-    match funcref {
-        Some(funcref) => unsafe { *funcref.0.as_ptr() },
-        None => VMCallerCheckedAnyfunc::null(),
     }
 }
 
