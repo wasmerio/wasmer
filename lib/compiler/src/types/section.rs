@@ -116,15 +116,3 @@ impl SectionBody {
         self.0.is_empty()
     }
 }
-
-impl ArchivedSectionBody {
-    /// Returns the length of this section in bytes.
-    pub fn len(&self) -> usize {
-        self.0.len()
-    }
-
-    /// Returns whether or not the section body is empty.
-    pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
-    }
-}
