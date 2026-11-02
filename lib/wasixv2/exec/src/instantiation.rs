@@ -12,7 +12,16 @@ use crate::ExecEnv;
 /// Each successful preparation returns state belonging to this exact instance and Store.
 /// An engine-level Wasm `start` can call imports before configuration: imports that
 /// need the bound instance must reject calls until their attachment is configured.
+/// A hook must not retain an owning Store/StoreAsync, including indirectly: images
+/// retain registered hooks for declarations and their Stores retain bound hook state.
 pub trait InstantiationHook<S>: Send + Sync + 'static {
+    /// Declares host imports that a dynamic linker may otherwise treat as missing
+    /// guest symbols. This pure declaration must stay fixed for the image lifetime;
+    /// it neither constructs a value nor overrides infrastructure or a guest definition.
+    fn provides_import(&self, _namespace: &str, _name: &str) -> bool {
+        false
+    }
+
     /// Host-only preparation: do not call guest functions or retain borrowed Store access.
     /// On failure, the hook must clean up its own partial preparation.
     fn prepare_imports(
@@ -40,6 +49,49 @@ pub trait InstanceAttachment: Send + 'static {
     /// Release Store-owned roots without guest callbacks. Called on the owning runner,
     /// including after prepare/configure failure; must tolerate partial configuration.
     fn deactivate(&mut self, store: &mut StoreMut<'_>);
+}
+
+/// Store-independent declarations retained by an image's symbol planner.
+#[derive(Clone)]
+pub struct ImportDeclarations {
+    hooks: Arc<Vec<Arc<dyn Declaration>>>,
+    identities: Arc<Vec<usize>>,
+}
+trait Declaration: Send + Sync {
+    fn provides_import(&self, namespace: &str, name: &str) -> bool;
+}
+struct Declared<S>(Arc<dyn InstantiationHook<S>>);
+impl<S: 'static> Declaration for Declared<S> {
+    fn provides_import(&self, namespace: &str, name: &str) -> bool {
+        self.0.provides_import(namespace, name)
+    }
+}
+impl ImportDeclarations {
+    fn new<S: 'static>(hooks: &[Arc<dyn InstantiationHook<S>>]) -> Self {
+        Self {
+            identities: Arc::new(
+                hooks
+                    .iter()
+                    .map(|hook| Arc::as_ptr(hook) as *const () as usize)
+                    .collect(),
+            ),
+            hooks: Arc::new(
+                hooks
+                    .iter()
+                    .map(|hook| Arc::new(Declared(hook.clone())) as Arc<dyn Declaration>)
+                    .collect(),
+            ),
+        }
+    }
+    pub fn provides_import(&self, namespace: &str, name: &str) -> bool {
+        self.hooks
+            .iter()
+            .any(|hook| hook.provides_import(namespace, name))
+    }
+    /// Whether peer Stores use the exact same ordered registration objects.
+    pub fn same_hooks(&self, other: &Self) -> bool {
+        self.identities == other.identities
+    }
 }
 
 type Cell = Arc<Mutex<Option<Box<dyn InstanceAttachment>>>>;
@@ -99,6 +151,7 @@ impl InstanceAttachments {
 /// and contains only store-local handles, never an owning Store reference.
 #[derive(Clone)]
 pub struct InstanceHooks {
+    declarations: ImportDeclarations,
     hooks: Vec<Arc<dyn BoundHook>>,
     attached: Arc<Mutex<InstanceAttachments>>,
 }
@@ -135,6 +188,7 @@ impl InstanceHooks {
         env: FunctionEnv<ExecEnv<S>>,
     ) -> Self {
         Self {
+            declarations: ImportDeclarations::new(&hooks),
             hooks: hooks
                 .into_iter()
                 .map(|hook| {
@@ -146,6 +200,11 @@ impl InstanceHooks {
                 .collect(),
             attached: Arc::default(),
         }
+    }
+
+    /// Declarations contain only original registered hooks, never this Store's env.
+    pub fn declarations(&self) -> ImportDeclarations {
+        self.declarations.clone()
     }
 
     pub fn prepare(

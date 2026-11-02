@@ -915,6 +915,7 @@ mod tests {
         let library =
             || Library::new(crate::tests::bytes("(module)", [0; 4], &[], &[], &[]), None).unwrap();
         let mut graph = Graph {
+            host_imports: None,
             libraries: vec![library(), library(), library(), library()],
             global: vec![0, 1, 2, 3],
             cursor: 3,

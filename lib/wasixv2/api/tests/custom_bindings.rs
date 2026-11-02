@@ -12,14 +12,15 @@ use wasixv2::{
     ExecEnv, InstanceAttachment, InstantiationHook, Machine, MachineSyscalls, ProcessConfig, Stdio,
 };
 use wasmer::{
-    Function, FunctionEnv, FunctionEnvMut, Imports, Instance, Memory, Module, RuntimeError,
-    StoreMut,
+    Function, FunctionEnv, FunctionEnvMut, Global, Imports, Instance, Memory, Module, RuntimeError,
+    StoreMut, Value,
 };
 
 type Events = Arc<Mutex<Vec<(usize, &'static str)>>>;
 struct Hook {
     next: AtomicUsize,
     events: Events,
+    omit: bool,
 }
 struct State {
     id: usize,
@@ -30,6 +31,10 @@ struct Attachment {
     env: FunctionEnv<State>,
 }
 impl InstantiationHook<MachineSyscalls> for Hook {
+    fn provides_import(&self, namespace: &str, name: &str) -> bool {
+        namespace == "env" && matches!(name, "value" | "binding_bias")
+    }
+
     fn prepare_imports(
         &self,
         module: &Module,
@@ -37,7 +42,20 @@ impl InstantiationHook<MachineSyscalls> for Hook {
         _: &FunctionEnv<ExecEnv<MachineSyscalls>>,
         imports: &mut Imports,
     ) -> Result<Option<Box<dyn InstanceAttachment>>, RuntimeError> {
-        if !module.imports().any(|import| import.module() == "custom") {
+        let requested = module
+            .imports()
+            .filter(|import| {
+                import.module() == "custom" || self.provides_import(import.module(), import.name())
+            })
+            .map(|import| {
+                (
+                    import.module().to_string(),
+                    import.name().to_string(),
+                    matches!(import.ty(), wasmer::ExternType::Global(_)),
+                )
+            })
+            .collect::<Vec<_>>();
+        if requested.is_empty() {
             return Ok(None);
         }
         let id = self.next.fetch_add(1, Ordering::SeqCst);
@@ -50,25 +68,34 @@ impl InstantiationHook<MachineSyscalls> for Hook {
                 events: self.events.clone(),
             },
         );
-        imports.define(
-            "custom",
-            "value",
-            Function::new_typed_with_env(
-                store,
-                &env,
-                |env: FunctionEnvMut<State>| -> Result<i32, RuntimeError> {
-                    if !env.data().configured {
-                        return Err(RuntimeError::new("binding not configured"));
-                    }
-                    env.data()
-                        .events
-                        .lock()
-                        .unwrap()
-                        .push((env.data().id, "call"));
-                    Ok(env.data().id as i32)
-                },
-            ),
-        );
+        for (namespace, name, global) in requested {
+            if self.omit || imports.get_export(&namespace, &name).is_some() {
+                continue;
+            }
+            if global {
+                imports.define(&namespace, &name, Global::new(store, Value::I32(41)));
+                continue;
+            }
+            imports.define(
+                &namespace,
+                &name,
+                Function::new_typed_with_env(
+                    store,
+                    &env,
+                    |env: FunctionEnvMut<State>| -> Result<i32, RuntimeError> {
+                        if !env.data().configured {
+                            return Err(RuntimeError::new("binding not configured"));
+                        }
+                        env.data()
+                            .events
+                            .lock()
+                            .unwrap()
+                            .push((env.data().id, "call"));
+                        Ok(env.data().id as i32)
+                    },
+                ),
+            );
+        }
         Ok(Some(Box::new(Attachment { env })))
     }
 }
@@ -138,20 +165,60 @@ impl Drop for Programs {
     }
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Variant {
+    Custom,
+    Env,
+    Global,
+    NamespacedStack,
+    Guest,
+    WrongGuest,
+    Missing,
+}
+
 async fn run(name: &str, main_binding: bool) -> Events {
+    let (result, events) = run_case(name, main_binding, Variant::Custom).await;
+    assert_eq!(result.unwrap(), 0);
+    events
+}
+
+async fn run_case(
+    name: &str,
+    main_binding: bool,
+    variant: Variant,
+) -> (Result<i32, wasixv2::RunError>, Events) {
     let programs = Programs(std::env::temp_dir().join(format!(
         "wasixv2-custom-binding-{name}-{}",
         std::process::id()
     )));
     std::fs::create_dir_all(&programs.0).unwrap();
+    let namespace = if variant == Variant::Custom {
+        "custom"
+    } else {
+        "env"
+    };
+    let side_import = if variant == Variant::NamespacedStack {
+        "(import \"custom\" \"__stack_pointer\" (global $bias i32))".to_string()
+    } else if variant == Variant::Global {
+        "(import \"env\" \"binding_bias\" (global $bias i32))".to_string()
+    } else {
+        format!("(import \"{namespace}\" \"value\" (func $value (result i32)))")
+    };
+    let side_body = if matches!(variant, Variant::Global | Variant::NamespacedStack) {
+        "global.get $bias"
+    } else {
+        "call $value"
+    };
     let side = pic(
-        r#"(module
+        &format!(
+            r#"(module
         (import "env" "memory" (memory 1 65536 shared))
         (import "env" "__indirect_function_table" (table 0 funcref))
         (import "env" "__memory_base" (global i32))
         (import "env" "__table_base" (global i32))
-        (import "custom" "value" (func $value (result i32)))
-        (func (export "side_value") (result i32) call $value))"#,
+        {side_import}
+        (func (export "side_value") (result i32) {side_body}))"#
+        ),
         &[],
     );
     std::fs::write(programs.0.join("side.so"), side).unwrap();
@@ -160,10 +227,20 @@ async fn run(name: &str, main_binding: bool) -> Events {
     } else {
         ""
     };
+    let expected = match variant {
+        Variant::Global | Variant::NamespacedStack => 41,
+        Variant::Guest => 79,
+        _ => 1,
+    };
     let body = if main_binding {
-        "call $value call $side i32.eq"
+        "call $value call $side i32.eq".to_string()
     } else {
-        "call $side i32.const 1 i32.ne"
+        format!("call $side i32.const {expected} i32.ne")
+    };
+    let guest = match variant {
+        Variant::Guest => "(func (export \"value\") (result i32) i32.const 79)",
+        Variant::WrongGuest => "(func (export \"value\") (result i64) i64.const 79)",
+        _ => "",
     };
     let main = pic(
         &format!(
@@ -176,6 +253,7 @@ async fn run(name: &str, main_binding: bool) -> Events {
         (import "env" "side_value" (func $side (result i32)))
         (import "wasixv2" "exit_group" (func $exit (param i32)))
         {custom}
+        {guest}
         (export "__indirect_function_table" (table 0))
         (func (export "_start") {body} call $exit))"#
         ),
@@ -186,6 +264,7 @@ async fn run(name: &str, main_binding: bool) -> Events {
         .instantiation_hook(Arc::new(Hook {
             next: AtomicUsize::new(1),
             events: events.clone(),
+            omit: variant == Variant::Missing,
         }))
         .build();
     machine
@@ -201,10 +280,8 @@ async fn run(name: &str, main_binding: bool) -> Events {
                 stdio: Stdio::from_fns(|_| {}, |_| {}),
             },
         )
-        .await
-        .unwrap();
-    assert_eq!(status, 0);
-    events
+        .await;
+    (status, events)
 }
 
 #[tokio::test]
@@ -244,6 +321,74 @@ async fn side_module_only_imports_get_their_own_custom_binding() {
                     (1, "deactivate")
                 ]
             );
+        })
+        .await;
+}
+
+#[tokio::test]
+async fn declared_env_helpers_and_globals_reach_real_side_module_preparation() {
+    tokio::task::LocalSet::new()
+        .run_until(async {
+            for (name, variant) in [
+                ("declared-env", Variant::Env),
+                ("declared-global", Variant::Global),
+                ("namespaced-stack", Variant::NamespacedStack),
+            ] {
+                let (result, events) = run_case(name, false, variant).await;
+                assert_eq!(result.unwrap(), 0);
+                let events = events.lock().unwrap();
+                assert_eq!(
+                    events
+                        .iter()
+                        .filter(|(_, event)| *event == "configure")
+                        .count(),
+                    1
+                );
+                assert_eq!(
+                    events
+                        .iter()
+                        .filter(|(_, event)| *event == "deactivate")
+                        .count(),
+                    1
+                );
+            }
+        })
+        .await;
+}
+
+#[tokio::test]
+async fn guest_definition_precedes_declared_host_fallback_and_type_errors_stay_errors() {
+    tokio::task::LocalSet::new()
+        .run_until(async {
+            let (result, events) = run_case("guest-precedence", false, Variant::Guest).await;
+            assert_eq!(result.unwrap(), 0);
+            assert!(
+                !events
+                    .lock()
+                    .unwrap()
+                    .iter()
+                    .any(|(_, event)| *event == "call")
+            );
+            let (result, events) = run_case("guest-type-error", false, Variant::WrongGuest).await;
+            assert!(
+                !matches!(result, Ok(0)),
+                "a matching guest definition's type mismatch must not fall back to the host"
+            );
+            assert!(events.lock().unwrap().is_empty());
+        })
+        .await;
+}
+
+#[tokio::test]
+async fn declaration_without_a_prepared_value_fails_admission_and_deactivates() {
+    tokio::task::LocalSet::new()
+        .run_until(async {
+            let (result, events) = run_case("missing-declared", false, Variant::Missing).await;
+            assert!(
+                !matches!(result, Ok(0)),
+                "a declaration must never synthesize an import value"
+            );
+            assert_eq!(*events.lock().unwrap(), [(1, "prepare"), (1, "deactivate")]);
         })
         .await;
 }

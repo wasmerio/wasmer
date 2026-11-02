@@ -44,7 +44,7 @@ pub use dynamic::GuestDynamicLinker;
 pub use function::{CallBufferPolicy, GuestFunctionOperations, TableMetadata};
 pub use generated::IMPORT_MODULE;
 pub use instantiation::{
-    InstanceAttachment, InstanceAttachments, InstanceHooks, InstantiationHook,
+    ImportDeclarations, InstanceAttachment, InstanceAttachments, InstanceHooks, InstantiationHook,
 };
 pub use loader::{Compile, LoadError, Loader};
 pub use memory::GuestMemory;

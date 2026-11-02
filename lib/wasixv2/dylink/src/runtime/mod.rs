@@ -135,6 +135,7 @@ pub(crate) fn verify_compiled_source(module: &Module) -> Result<Vec<u8>> {
 type ArtifactKey = (wasmer_types::ModuleHash, Vec<(u32, u32)>, String, String);
 struct Root {
     policy: Arc<dyn LoadPolicy>,
+    declarations: OnceLock<Option<wasixv2_exec::ImportDeclarations>>,
     owner: Arc<()>,
     artifacts: Mutex<BTreeMap<ArtifactKey, Arc<crate::artifact::PreparedArtifact>>>,
     forward_code: Arc<forward::Cache>,
@@ -199,6 +200,7 @@ impl Root {
                     .ok_or_else(|| failure("main alignment"))?,
             )?;
             let mut graph = Graph {
+                host_imports: None,
                 libraries: vec![main],
                 global: vec![0],
                 initialization: vec![0],
@@ -216,6 +218,7 @@ impl Root {
                 let _ = error.set(e.to_string());
                 (
                     Graph {
+                        host_imports: None,
                         libraries: Vec::new(),
                         global: Vec::new(),
                         initialization: Vec::new(),
@@ -227,6 +230,7 @@ impl Root {
         };
         Arc::new(Self {
             policy,
+            declarations: OnceLock::new(),
             owner: Arc::new(()),
             artifacts: Mutex::default(),
             forward_code: Arc::default(),
@@ -480,12 +484,30 @@ impl<S: Syscalls + Control + Send + Sync + 'static> Abi<S> for Image<S> {
         let task = data.task();
         let syscalls = data.syscalls().clone();
         let host = data.host().clone();
+        let declarations = data.instance_hooks().map(|hooks| hooks.declarations());
+        let has_hooks = data.instance_hooks().is_some();
         let setup = (|| -> Result<()> {
             if let Some(error) = self.root.error.get() {
                 return Err(failure(error));
             }
             if self.root.retired.load(Ordering::Acquire) {
                 return Err(failure("image retired"));
+            }
+            let registered = self.root.declarations.get_or_init(|| {
+                if let Some(declarations) = &declarations {
+                    Arc::make_mut(&mut lock(&self.root.state).graph).host_imports =
+                        Some(declarations.clone());
+                }
+                declarations.clone()
+            });
+            if match (registered, &declarations) {
+                (None, None) => false,
+                (Some(registered), Some(declarations)) => !registered.same_hooks(declarations),
+                _ => true,
+            } {
+                return Err(failure(
+                    "peer Store has different custom binding declarations",
+                ));
             }
             if !syscalls.loader_fatal_supported() {
                 return Err(failure("image-wide fatal failure control is unavailable"));
@@ -508,11 +530,11 @@ impl<S: Syscalls + Control + Send + Sync + 'static> Abi<S> for Image<S> {
             for import in module.imports() {
                 match import.ty() {
                     wasmer::ExternType::Global(ty) => {
-                        let value = match import.name() {
-                            "__memory_base" => main.base,
-                            "__table_base" => main.table,
-                            "__stack_pointer" => self.root.stack,
-                            name if matches!(import.module(), "GOT.func" | "GOT.mem") => {
+                        let value = match (import.module(), import.name()) {
+                            ("env", "__memory_base") => main.base,
+                            ("env", "__table_base") => main.table,
+                            ("env", "__stack_pointer") => self.root.stack,
+                            ("GOT.func" | "GOT.mem", name) => {
                                 let end = main
                                     .base
                                     .checked_add(main.metadata.memory_info().memory_size)
@@ -524,6 +546,7 @@ impl<S: Syscalls + Control + Send + Sync + 'static> Abi<S> for Image<S> {
                                 };
                                 value
                             }
+                            _ if has_hooks => continue,
                             _ => {
                                 return Err(failure(format!(
                                     "unsupported dynamic main global {}",
@@ -833,7 +856,9 @@ impl Local {
                                 .clone(),
                         ))
                     }
-                    ExternType::Global(_) if import.name == "__stack_pointer" => {
+                    ExternType::Global(_)
+                        if import.module == "env" && import.name == "__stack_pointer" =>
+                    {
                         Some(Extern::Global(
                             local.instances[0]
                                 .exports
@@ -841,6 +866,16 @@ impl Local {
                                 .map_err(failure)?
                                 .clone(),
                         ))
+                    }
+                    ExternType::Global(_)
+                        if fixup.is_some_and(|fixup| fixup.kind == FixupKind::Host)
+                            && !(import.module == "env"
+                                && matches!(
+                                    import.name.as_str(),
+                                    "__memory_base" | "__table_base" | "__tls_base"
+                                )) =>
+                    {
+                        None
                     }
                     ExternType::Global(ty) => {
                         let value = match import.name.as_str() {
@@ -3001,6 +3036,7 @@ mod symbol_tests {
                 &[],
             );
             let graph = Graph {
+                host_imports: None,
                 libraries: vec![Library::new(source.clone(), None).unwrap()],
                 global: vec![0],
                 cursor: 3,
@@ -3108,6 +3144,7 @@ mod cyclic_tests {
             .unwrap()
         };
         let mut graph = Graph {
+            host_imports: None,
             libraries: vec![
                 Library::new(crate::tests::bytes("(module)", [0; 4], &[], &[], &[]), None).unwrap(),
                 library("a", "b", 1),
