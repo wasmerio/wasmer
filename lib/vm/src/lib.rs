@@ -40,7 +40,7 @@ use std::ptr::NonNull;
 pub use crate::exception::{VMExceptionObj, VMExceptionRef};
 pub use crate::export::*;
 pub use crate::extern_ref::{VMExternObj, VMExternRef};
-pub use crate::function_env::VMFunctionEnvironment;
+pub use crate::function_env::{VMFunctionEnvironment, VMFunctionEnvironmentLease};
 pub use crate::global::*;
 pub use crate::imports::Imports;
 pub use crate::instance::{InstanceAllocator, VMInstance};
