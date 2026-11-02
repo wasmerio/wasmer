@@ -1690,3 +1690,76 @@ fn llvm_static_memory_without_m0() -> Result<()> {
 fn llvm_static_memory_with_m0() -> Result<()> {
     static_memory_calls(true)
 }
+
+#[compiler_test(control_flow)]
+fn implicit_else_reclaims_inputs(config: crate::Config) -> Result<()> {
+    for param_count in [0, 1, 2] {
+        // Cover register inputs, spills, and both ARM64 stack-alignment parities.
+        for prefix_count in [0, 4, 31, 32] {
+            let types = " i64".repeat(param_count);
+            let block_type = if param_count == 0 { "" } else { "(type $pass)" };
+            let pushes = "local.get $value\n".repeat(prefix_count + param_count);
+            let drops = "drop\n".repeat(prefix_count);
+            let checks = "local.get $expected i64.ne if unreachable end\n".repeat(param_count);
+            let replace = "drop\n".repeat(param_count) + &"i64.const 42\n".repeat(param_count);
+            for (name, body, explicit_else, true_reachable, true_result) in [
+                ("empty", "", false, true, 123),
+                ("replace", replace.as_str(), false, true, 42),
+                ("branch", "br 0", false, true, 123),
+                ("unreachable", "unreachable", false, false, 123),
+                (
+                    "nested-unreachable",
+                    "unreachable block i32.const 0 if end end",
+                    false,
+                    false,
+                    123,
+                ),
+                ("explicit-else", replace.as_str(), true, true, 42),
+            ] {
+                let else_text = if explicit_else { "else" } else { "" };
+                let wat = format!(
+                    r#"(module
+                        (type $pass (func (param {types}) (result {types})))
+                        (func $probe)
+                        (func (export "check")
+                            (param $value i64) (param $condition i32) (param $expected i64)
+                            (result i32) (local $remaining i32)
+                            i32.const 400000 local.set $remaining
+                            loop
+                                {pushes}
+                                local.get $condition
+                                if {block_type} {body} {else_text} end
+                                {checks}
+                                {drops}
+                                call $probe
+                                local.get $remaining i32.const 1 i32.sub
+                                local.tee $remaining br_if 0
+                            end
+                            i32.const 1))"#
+                );
+                let mut store = config.store();
+                let module = Module::new(&store, &wat)?;
+                let instance = Instance::new(&mut store, &module, &imports! {})?;
+                let check = instance
+                    .exports
+                    .get_typed_function::<(i64, i32, i64), i32>(&store, "check")?;
+                for condition in 0..=i32::from(true_reachable) {
+                    let expected = if condition == 0 { 123 } else { true_result };
+                    // A return-value assertion alone misses leaked native stack slots:
+                    // the function epilogue restores SP from FP. Repetition exposes
+                    // the leak, and the nonrecursive probe touches the stack on every
+                    // iteration so an imbalance traps at the stack's guard page.
+                    let result = check
+                        .call(&mut store, 123, condition, expected)
+                        .with_context(|| {
+                            format!(
+                                "{name}: params={param_count}, prefix={prefix_count}, condition={condition}"
+                            )
+                        })?;
+                    assert_eq!(result, 1);
+                }
+            }
+        }
+    }
+    Ok(())
+}

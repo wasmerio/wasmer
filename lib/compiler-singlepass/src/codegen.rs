@@ -1142,6 +1142,55 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         Ok(())
     }
 
+    /// Finish the true arm and restore the inputs for an explicit or implicit else.
+    fn emit_if_block_end(&mut self, was_unreachable: bool) -> Result<(), CompileError> {
+        let frame = self.control_stack.last().unwrap();
+
+        if !was_unreachable && !frame.return_types.is_empty() {
+            self.emit_return_values(frame.value_stack_depth_after(), frame.return_types.len())?;
+        }
+
+        let frame = &self.control_stack.last_mut().unwrap();
+        let locs = self
+            .value_stack
+            .drain(frame.value_stack_depth_after()..)
+            .collect_vec();
+        self.release_locations(&locs)?;
+        let frame = &mut self.control_stack.last_mut().unwrap();
+
+        // The Else block must be provided the very same inputs as the previous If block had,
+        // and so we need to copy the already consumed stack values.
+        let ControlState::If {
+            label_else,
+            ref inputs,
+        } = frame.state
+        else {
+            panic!("Operator::Else or Operator::End must be connected to Operator::If statement");
+        };
+        for (input, _) in inputs {
+            match input {
+                Location::GPR(x) => {
+                    self.machine.reserve_gpr(*x);
+                }
+                Location::SIMD(x) => {
+                    self.machine.reserve_simd(*x);
+                }
+                Location::Memory(reg, _) => {
+                    debug_assert_eq!(reg, &self.machine.local_pointer());
+                    // These slots are already allocated, do not probe.
+                    self.stack_offset += 8;
+                }
+                _ => {}
+            }
+        }
+        self.value_stack.extend(inputs);
+
+        self.machine.jmp_unconditional(frame.label)?;
+        self.machine.emit_label(label_else)?;
+        frame.state = ControlState::Else;
+        Ok(())
+    }
+
     fn return_types_for_block(&self, block_type: WpTypeOrFuncType) -> SmallVec<[WpType; 1]> {
         match block_type {
             WpTypeOrFuncType::Empty => smallvec![],
@@ -1168,7 +1217,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
     }
 
     pub fn feed_operator(&mut self, op: Operator) -> Result<(), CompileError> {
-        let was_unreachable;
+        let mut was_unreachable;
 
         if self.unreachable_depth > 0 {
             was_unreachable = true;
@@ -2596,21 +2645,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
                 let cond = self.pop_value_released()?.0;
 
-                /* We might hit a situation where an Operator::If is missing an Operator::Else. In such a situation,
-                the result value just fallthrough from the If block inputs! However, we don't know the information upfront. */
-                if param_types.len() == return_types.len() {
-                    for (input, return_value) in self
-                        .value_stack
-                        .iter()
-                        .rev()
-                        .take(param_types.len())
-                        .zip(self.value_stack.iter().rev().skip(param_types.len()))
-                    {
-                        self.machine
-                            .emit_relaxed_mov(Size::S64, input.0, return_value.0)?;
-                    }
-                }
-
                 let frame = ControlFrame {
                     state: ControlState::If {
                         label_else,
@@ -2637,54 +2671,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     label_else,
                 )?;
             }
-            Operator::Else => {
-                let frame = self.control_stack.last().unwrap();
-
-                if !was_unreachable && !frame.return_types.is_empty() {
-                    self.emit_return_values(
-                        frame.value_stack_depth_after(),
-                        frame.return_types.len(),
-                    )?;
-                }
-
-                let frame = &self.control_stack.last_mut().unwrap();
-                let locs = self
-                    .value_stack
-                    .drain(frame.value_stack_depth_after()..)
-                    .collect_vec();
-                self.release_locations(&locs)?;
-                let frame = &mut self.control_stack.last_mut().unwrap();
-
-                // The Else block must be provided the very same inputs as the previous If block had,
-                // and so we need to copy the already consumed stack values.
-                let ControlState::If {
-                    label_else,
-                    ref inputs,
-                } = frame.state
-                else {
-                    panic!("Operator::Else must be connected to Operator::If statement");
-                };
-                for (input, _) in inputs {
-                    match input {
-                        Location::GPR(x) => {
-                            self.machine.reserve_gpr(*x);
-                        }
-                        Location::SIMD(x) => {
-                            self.machine.reserve_simd(*x);
-                        }
-                        Location::Memory(reg, _) => {
-                            debug_assert_eq!(reg, &self.machine.local_pointer());
-                            self.stack_offset += 8;
-                        }
-                        _ => {}
-                    }
-                }
-                self.value_stack.extend(inputs);
-
-                self.machine.jmp_unconditional(frame.label)?;
-                self.machine.emit_label(label_else)?;
-                frame.state = ControlState::Else;
-            }
+            Operator::Else => self.emit_if_block_end(was_unreachable)?,
             // `TypedSelect` must be used for extern refs so ref counting should
             // be done with TypedSelect. But otherwise they're the same.
             Operator::TypedSelect { .. } | Operator::Select => {
@@ -3784,6 +3771,15 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 self.pop_value_released()?;
             }
             Operator::End => {
+                // ControlState::If is reached iff we've got an if with implicit (missing) Operator::Else that
+                // just returns (propagates) the input values (note IF can have zero input values).
+                let frame = &self.control_stack.last().unwrap();
+                if matches!(frame.state, ControlState::If { .. }) {
+                    self.emit_if_block_end(was_unreachable)?;
+                    // The implicit false arm is reachable even if the true arm
+                    // branched or trapped. End must emit its results and cleanup.
+                    was_unreachable = false;
+                }
                 let frame = self.control_stack.pop().unwrap();
 
                 if !was_unreachable && !frame.return_types.is_empty() {
@@ -3815,11 +3811,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         self.machine.emit_label(frame.label)?;
                     }
 
-                    if let ControlState::If { label_else, .. } = frame.state {
-                        self.machine.emit_label(label_else)?;
-                    }
-
-                    // At this point the return values are properly sitting in the value_stack and are properly canonicalized.
+                    // At this point the return values are properly sitting in the value_stack and
+                    // are properly canonicalized.
                 }
             }
             Operator::AtomicFence => {
