@@ -25,12 +25,14 @@ use std::sync::Arc;
 use wasmer_compiler::WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE;
 use wasmer_compiler::misc::{CompiledKind, save_assembly_to_file, types_to_signature};
 use wasmer_compiler::progress::ProgressContext;
-use wasmer_compiler::serialize::SerializableModule;
-use wasmer_compiler::types::function::Compilation;
 use wasmer_compiler::{
     Compiler, CompilerConfig, FunctionBinaryReader, FunctionBodyData, MiddlewareBinaryReader,
     ModuleMiddleware, ModuleMiddlewareChain, ModuleTranslationState, WasmSourceMap,
-    types::{function::FunctionBody, module::CompileModuleInfo, section::SectionIndex},
+    types::{
+        function::{Compilation, FunctionBody},
+        module::CompileModuleInfo,
+        section::SectionIndex,
+    },
 };
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::target::{Architecture, CallingConvention, CpuFeature, Target};
@@ -62,8 +64,7 @@ impl SinglepassCompiler {
         &self,
         pool: &rayon::ThreadPool,
         target: &Target,
-        compile_info: &CompileModuleInfo,
-        compile_info_blob: &[u8],
+        compile_info: &mut CompileModuleInfo,
         module_translation: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         progress_callback: Option<&CompilationProgressCallback>,
@@ -309,10 +310,15 @@ impl SinglepassCompiler {
             )
             .collect::<Result<Vec<_>, _>>()?;
 
-        elf::link_module(
+        let module_hash = module.hash_string();
+        compile_info.function_max_stack_usage = function_max_stack_usage;
+        let compile_info_blob = compile_info.serialize().map_err(|e| {
+            CompileError::Codegen(format!("cannot serialize CompileModuleInfo: {e}"))
+        })?;
+        let compilation = elf::link_module(
             pool,
             target,
-            compile_info_blob,
+            &compile_info_blob,
             functions,
             import_trampolines,
             function_call_trampolines,
@@ -321,9 +327,9 @@ impl SinglepassCompiler {
                 .callbacks
                 .as_ref()
                 .map(|callbacks| callbacks.debug_dir().clone()),
-            module.hash().map(|hash| hash.to_string()),
-            function_max_stack_usage,
-        )
+            module_hash,
+        )?;
+        Ok(compilation)
     }
 }
 
@@ -364,8 +370,7 @@ impl Compiler for SinglepassCompiler {
     fn compile_module(
         &self,
         target: &Target,
-        compile_info: &CompileModuleInfo,
-        compile_info_blob: &[u8],
+        compile_info: &mut CompileModuleInfo,
         module_translation: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         progress_callback: Option<&CompilationProgressCallback>,
@@ -383,7 +388,6 @@ impl Compiler for SinglepassCompiler {
                 &pool,
                 target,
                 compile_info,
-                compile_info_blob,
                 module_translation,
                 function_body_inputs,
                 progress_callback,
@@ -419,6 +423,8 @@ mod tests {
             memory_styles: PrimaryMap::<MemoryIndex, MemoryStyle>::new(),
             table_styles: PrimaryMap::<TableIndex, TableStyle>::new(),
             function_max_stack_usage: PrimaryMap::new(),
+            data_initializers: Vec::new().into_boxed_slice(),
+            cpu_features: 0,
         };
         let module_translation = ModuleTranslationState::new();
         let function_body_inputs = PrimaryMap::<LocalFunctionIndex, FunctionBodyData<'_>>::new();
@@ -431,20 +437,22 @@ mod tests {
 
         // Compile for 32bit Linux
         let linux32 = Target::new(triple!("i686-unknown-linux-gnu"), CpuFeature::for_host());
-        let (info, translation, inputs) = dummy_compilation_ingredients();
-        let result = compiler.compile_module(&linux32, &info, &[], &translation, inputs, None);
-        match result.unwrap_err() {
-            CompileError::UnsupportedTarget(name) => assert_eq!(name, "i686"),
-            error => panic!("Unexpected error: {error:?}"),
+        let (mut info, translation, inputs) = dummy_compilation_ingredients();
+        let result = compiler.compile_module(&linux32, &mut info, &translation, inputs, None);
+        match result {
+            Err(CompileError::UnsupportedTarget(name)) => assert_eq!(name, "i686"),
+            Err(error) => panic!("Unexpected error: {error:?}"),
+            Ok(_) => panic!("Compilation unexpectedly succeeded"),
         };
 
         // Compile for win32
         let win32 = Target::new(triple!("i686-pc-windows-gnu"), CpuFeature::for_host());
-        let (info, translation, inputs) = dummy_compilation_ingredients();
-        let result = compiler.compile_module(&win32, &info, &[], &translation, inputs, None);
-        match result.unwrap_err() {
-            CompileError::UnsupportedTarget(name) => assert_eq!(name, "i686"), // Windows should be checked before architecture
-            error => panic!("Unexpected error: {error:?}"),
+        let (mut info, translation, inputs) = dummy_compilation_ingredients();
+        let result = compiler.compile_module(&win32, &mut info, &translation, inputs, None);
+        match result {
+            Err(CompileError::UnsupportedTarget(name)) => assert_eq!(name, "i686"), // Windows should be checked before architecture
+            Err(error) => panic!("Unexpected error: {error:?}"),
+            Ok(_) => panic!("Compilation unexpectedly succeeded"),
         };
     }
 

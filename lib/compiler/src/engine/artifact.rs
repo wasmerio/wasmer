@@ -24,10 +24,10 @@ use crate::{
     WASMER_TRAP_FUNCTION_OFFSETS_SECTION_NAME, WASMER_TRAPS_SECTION_NAME,
     engine::{resolver::resolve_tags, trap::register_frame_info_source},
     get_object_for_target, resolve_imports,
-    serialize::SerializableModule,
+    types::module::CompileModuleInfo,
 };
 #[cfg(feature = "static-artifact-create")]
-use crate::{Compiler, FunctionBodyData, ModuleTranslationState, types::module::CompileModuleInfo};
+use crate::{Compiler, FunctionBodyData, ModuleTranslationState};
 use itertools::Itertools;
 #[cfg(unix)]
 use std::os::fd::AsRawFd;
@@ -77,8 +77,6 @@ pub struct AllocatedArtifact {
     finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, FunctionBodyPtr>,
     signatures: BoxedSlice<SignatureIndex, VMSignatureHash>,
     finished_function_lengths: BoxedSlice<LocalFunctionIndex, usize>,
-    // The maximum stack size used for each function (available only for the Singlepass compiler).
-    function_max_stack_usage: BoxedSlice<LocalFunctionIndex, Option<usize>>,
 
     /// Precomputed `VMOffsets` for this artifact's module, cloned by
     /// `Artifact::instantiate` instead of recomputing on every call.
@@ -288,9 +286,10 @@ impl Artifact {
                     "cannot load ModuleInfo section data: {e}"
                 ))
             })?;
-        let serializable = unsafe { SerializableModule::deserialize(module_info)? };
+        let compile_info = CompileModuleInfo::deserialize(module_info)?;
 
-        let artifact = ArtifactBuildVariant::Plain(ArtifactBuild::from_serializable(serializable));
+        let artifact =
+            ArtifactBuildVariant::Plain(ArtifactBuild::from_parts(compile_info, Vec::new()));
         let mut inner_engine = engine.inner_mut();
         Self::from_parts_with_module_file(&mut inner_engine, artifact, engine.target(), Some(path))
     }
@@ -338,12 +337,9 @@ impl Artifact {
                     "cannot load ModuleInfo section data: {e}"
                 ))
             })?;
-        let mut serializable = unsafe { SerializableModule::deserialize(module_info)? };
-        // The copy embedded in the image has an empty placeholder to avoid
-        // embedding the image in itself. Restore it for allocation and reserialization.
-        serializable.compilation = bytes.to_vec();
-
-        let artifact = ArtifactBuildVariant::Plain(ArtifactBuild::from_serializable(serializable));
+        let compile_info = CompileModuleInfo::deserialize(module_info)?;
+        let artifact =
+            ArtifactBuildVariant::Plain(ArtifactBuild::from_parts(compile_info, bytes.to_vec()));
         let mut inner_engine = engine.inner_mut();
         Self::from_parts(&mut inner_engine, artifact, engine.target()).map(Some)
     }
@@ -419,36 +415,14 @@ impl Artifact {
         let module_info = artifact.module_info();
 
         let elf_file_data = match &artifact {
-            ArtifactBuildVariant::Plain(p) => p.serializable.compilation.as_slice(),
+            ArtifactBuildVariant::Plain(p) => p.compilation.as_slice(),
             ArtifactBuildVariant::Archived(a) => a.get_elf_file(),
         };
-        let mut allocated = if let Some(module_file) = module_file.as_ref() {
+        let allocated = if let Some(module_file) = module_file.as_ref() {
             Self::allocate_elf_artifact_from_path(engine_inner, module_info, module_file)?
         } else {
             Self::allocate_elf_artifact(engine_inner, module_info, elf_file_data)?
         };
-
-        // ELF allocation recovers function addresses from the linked image, but
-        // maximum stack usage is compile metadata rather than an ELF property.
-        // Preserve it from the metadata embedded in the artifact.
-        if allocated.elf_image.is_some() {
-            allocated.function_max_stack_usage = match &artifact {
-                ArtifactBuildVariant::Plain(p) => p
-                    .get_function_max_stack_usage()
-                    .expect("function stack usage metadata expected")
-                    .values()
-                    .cloned()
-                    .collect::<PrimaryMap<LocalFunctionIndex, _>>()
-                    .into_boxed_slice(),
-                ArtifactBuildVariant::Archived(a) => a
-                    .get_function_max_stack_usage()
-                    .expect("function stack usage metadata expected")
-                    .values()
-                    .cloned()
-                    .collect::<PrimaryMap<LocalFunctionIndex, _>>()
-                    .into_boxed_slice(),
-            };
-        }
 
         let mut artifact = Self {
             id: Default::default(),
@@ -677,11 +651,6 @@ impl Artifact {
             .into_boxed_slice();
         let finished_function_lengths =
             PrimaryMap::<LocalFunctionIndex, _>::from_iter(local_fn_sizes).into_boxed_slice();
-        let function_max_stack_usage = finished_functions
-            .iter()
-            .map(|_| None)
-            .collect::<PrimaryMap<LocalFunctionIndex, Option<usize>>>()
-            .into_boxed_slice();
 
         let vm_offsets = VMOffsets::try_new(std::mem::size_of::<usize>() as u8, module_info)
             .map_err(DeserializeError::Generic)?;
@@ -695,7 +664,6 @@ impl Artifact {
             signatures,
             finished_function_lengths,
             vm_offsets,
-            function_max_stack_usage,
             elf_image: Some((base as usize, debug_info)),
         })
     }
@@ -1000,11 +968,21 @@ impl Artifact {
         &self,
     ) -> Option<Vec<(LocalFunctionIndex, Option<usize>)>> {
         let allocated = self.allocated.as_ref()?;
+        let stack_usage = match &self.artifact {
+            ArtifactBuildVariant::Plain(p) => p.get_function_max_stack_usage(),
+            ArtifactBuildVariant::Archived(a) => a.get_function_max_stack_usage(),
+        };
         Some(
             allocated
-                .function_max_stack_usage
-                .into_iter()
-                .map(|f| (f.0, *f.1))
+                .finished_functions
+                .iter()
+                .map(|(index, _)| {
+                    let usage = stack_usage
+                        .and_then(|usage| usage.get(index))
+                        .copied()
+                        .flatten();
+                    (index, usage)
+                })
                 .collect(),
         )
     }
@@ -1221,6 +1199,13 @@ impl Artifact {
             memory_styles,
             table_styles,
             function_max_stack_usage: PrimaryMap::new(),
+            data_initializers: translation
+                .data_initializers
+                .iter()
+                .map(OwnedDataInitializer::new)
+                .collect::<Vec<_>>()
+                .into_boxed_slice(),
+            cpu_features: 0,
         };
         Ok((
             compile_info,
@@ -1249,7 +1234,7 @@ impl Artifact {
         CompileError,
     > {
         #[allow(dead_code)]
-        let (compile_info, function_body_inputs, data_initializers, module_translation) =
+        let (mut compile_info, function_body_inputs, data_initializers, module_translation) =
             Self::generate_metadata(data, compiler, tunables, features)?;
 
         let data_initializers = data_initializers
@@ -1266,6 +1251,7 @@ impl Artifact {
             .map(|_function_body| 0u64)
             .collect::<PrimaryMap<LocalFunctionIndex, u64>>();
 
+        compile_info.cpu_features = target.cpu_features().as_u64();
         let metadata = ModuleMetadata {
             compile_info,
             prefix: metadata_prefix.map(|s| s.to_string()).unwrap_or_default(),
@@ -1397,22 +1383,19 @@ impl Artifact {
                 finished_dynamic_function_trampolines.push(fp);
             }
 
-            let artifact = ArtifactBuild::from_serializable(SerializableModule {
-                compilation: Vec::new(),
-                compile_info: metadata.compile_info,
-                data_initializers: metadata.data_initializers,
-                cpu_features: metadata.cpu_features,
-            });
+            let artifact = ArtifactBuild::from_parts(
+                CompileModuleInfo {
+                    data_initializers: metadata.data_initializers,
+                    cpu_features: metadata.cpu_features,
+                    ..metadata.compile_info
+                },
+                Vec::new(),
+            );
 
             let finished_function_lengths = finished_functions
                 .values()
                 .map(|_| 0)
                 .collect::<PrimaryMap<LocalFunctionIndex, usize>>()
-                .into_boxed_slice();
-            let function_max_stack_usage = finished_functions
-                .iter()
-                .map(|_| None)
-                .collect::<PrimaryMap<LocalFunctionIndex, Option<usize>>>()
                 .into_boxed_slice();
 
             // Variant is built first so its module_info is available for
@@ -1439,7 +1422,6 @@ impl Artifact {
                     signatures: signatures.into_boxed_slice(),
                     finished_function_lengths,
                     vm_offsets,
-                    function_max_stack_usage,
                     elf_image: None,
                 }),
             })

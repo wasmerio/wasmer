@@ -5,8 +5,10 @@
 use crate::translator::analyze_readonly_funcref_table;
 use crate::{
     ArtifactCreate, Features,
-    serialize::{ArchivedSerializableModule, SerializableModule},
-    types::module::CompileModuleInfo,
+    types::{
+        function::Compilation,
+        module::{ArchivedCompileModuleInfo, CompileModuleInfo},
+    },
 };
 #[cfg(feature = "compiler")]
 use crate::{EngineInner, ModuleEnvironment, ModuleMiddlewareChain};
@@ -28,7 +30,8 @@ use wasmer_types::*;
 /// A compiled wasm module, ready to be instantiated.
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 pub struct ArtifactBuild {
-    pub(crate) serializable: SerializableModule,
+    pub(crate) compilation: Compilation,
+    pub(crate) compile_info: CompileModuleInfo,
 }
 
 impl ArtifactBuild {
@@ -48,8 +51,6 @@ impl ArtifactBuild {
         table_styles: PrimaryMap<TableIndex, TableStyle>,
         progress_callback: Option<&CompilationProgressCallback>,
     ) -> Result<Self, CompileError> {
-        use crate::types::function::Compilation;
-
         let environ = ModuleEnvironment::new();
         let features = inner_engine.features().clone();
         let translation = environ.translate(data).map_err(CompileError::Wasm)?;
@@ -70,19 +71,13 @@ impl ArtifactBuild {
         }
 
         module.hash = Some(ModuleHash::new(data));
-        let compile_info = CompileModuleInfo {
+        let cpu_features = compiler.get_cpu_features_used(target.cpu_features());
+        let mut compile_info = CompileModuleInfo {
             module: Arc::new(module),
             features,
             memory_styles,
             table_styles,
             function_max_stack_usage: PrimaryMap::new(),
-        };
-        let cpu_features = compiler.get_cpu_features_used(target.cpu_features());
-        let mut serializable = SerializableModule {
-            // The native image does not exist yet. This placeholder is only
-            // used for the metadata copy embedded in that image.
-            compilation: Vec::new(),
-            compile_info,
             data_initializers: translation
                 .data_initializers
                 .iter()
@@ -91,14 +86,9 @@ impl ArtifactBuild {
                 .into_boxed_slice(),
             cpu_features: cpu_features.as_u64(),
         };
-        let compile_info_blob = serializable
-            .serialize()
-            .map_err(|e| CompileError::Codegen(format!("cannot serialize SerializeModule: {e}")))?;
-
         let compilation = compiler.compile_module(
             target,
-            &serializable.compile_info,
-            &compile_info_blob,
+            &mut compile_info,
             // SAFETY: Calling `unwrap` is correct since
             // `environ.translate()` above will write some data into
             // `module_translation_state`.
@@ -107,18 +97,15 @@ impl ArtifactBuild {
             progress_callback,
         )?;
 
-        let Compilation {
-            data,
-            function_max_stack_usage,
-        } = compilation;
-        serializable.compile_info.function_max_stack_usage = function_max_stack_usage;
-        serializable.compilation = data;
-        Ok(Self { serializable })
+        Ok(Self::from_parts(compile_info, compilation))
     }
 
-    /// Create a new ArtifactBuild from a SerializableModule
-    pub fn from_serializable(serializable: SerializableModule) -> Self {
-        Self { serializable }
+    /// Create an artifact from compilation metadata and its native container.
+    pub fn from_parts(compile_info: CompileModuleInfo, compilation: Compilation) -> Self {
+        Self {
+            compilation,
+            compile_info,
+        }
     }
 
     /// The maximum stack allocation directly connected to the function itself
@@ -127,7 +114,7 @@ impl ArtifactBuild {
     pub fn get_function_max_stack_usage(
         &self,
     ) -> Option<&PrimaryMap<LocalFunctionIndex, Option<usize>>> {
-        Some(&self.serializable.compile_info.function_max_stack_usage)
+        Some(&self.compile_info.function_max_stack_usage)
     }
 }
 
@@ -136,42 +123,42 @@ impl<'a> ArtifactCreate<'a> for ArtifactBuild {
     type OwnedDataInitializerIterator = core::slice::Iter<'a, OwnedDataInitializer>;
 
     fn create_module_info(&self) -> Arc<ModuleInfo> {
-        self.serializable.compile_info.module.clone()
+        self.compile_info.module.clone()
     }
 
     fn set_module_info_name(&mut self, name: String) -> bool {
-        Arc::get_mut(&mut self.serializable.compile_info.module).is_some_and(|module_info| {
+        Arc::get_mut(&mut self.compile_info.module).is_some_and(|module_info| {
             module_info.name = Some(name.to_string());
             true
         })
     }
 
     fn module_info(&self) -> &ModuleInfo {
-        &self.serializable.compile_info.module
+        &self.compile_info.module
     }
 
     fn features(&self) -> &Features {
-        &self.serializable.compile_info.features
+        &self.compile_info.features
     }
 
     fn cpu_features(&self) -> EnumSet<CpuFeature> {
-        EnumSet::from_u64(self.serializable.cpu_features)
+        EnumSet::from_u64(self.compile_info.cpu_features)
     }
 
     fn data_initializers(&'a self) -> Self::OwnedDataInitializerIterator {
-        self.serializable.data_initializers.iter()
+        self.compile_info.data_initializers.iter()
     }
 
     fn memory_styles(&self) -> &PrimaryMap<MemoryIndex, MemoryStyle> {
-        &self.serializable.compile_info.memory_styles
+        &self.compile_info.memory_styles
     }
 
     fn table_styles(&self) -> &PrimaryMap<TableIndex, TableStyle> {
-        &self.serializable.compile_info.table_styles
+        &self.compile_info.table_styles
     }
 
     fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
-        Ok(self.serializable.compilation.clone())
+        Ok(self.compilation.clone())
     }
 }
 
@@ -180,7 +167,7 @@ impl<'a> ArtifactCreate<'a> for ArtifactBuild {
 #[derive(Debug)]
 pub struct ModuleFromArchive<'a> {
     /// The compiled native object bytes
-    pub compilation: &'a rkyv::Archived<Vec<u8>>,
+    pub compilation: &'a [u8],
     /// Data initializers
     pub data_initializers: &'a rkyv::Archived<Box<[OwnedDataInitializer]>>,
     /// CPU Feature flags for this compilation
@@ -188,15 +175,13 @@ pub struct ModuleFromArchive<'a> {
 }
 
 impl<'a> ModuleFromArchive<'a> {
-    /// Create a new `ModuleFromArchive` from the archived version of a `SerializableModule`
-    pub fn from_serializable_module(
-        module: &'a ArchivedSerializableModule,
-    ) -> Result<Self, DeserializeError> {
-        Ok(Self {
-            compilation: &module.compilation,
+    /// Create a module view from archived metadata and a native container.
+    pub fn from_parts(module: &'a ArchivedCompileModuleInfo, compilation: &'a [u8]) -> Self {
+        Self {
+            compilation,
             data_initializers: &module.data_initializers,
             cpu_features: module.cpu_features.to_native(),
-        })
+        }
     }
 }
 
@@ -234,17 +219,17 @@ impl ArtifactBuildFromArchive {
         buffer: OwnedBuffer,
         module_builder: impl FnOnce(
             &OwnedBuffer,
-        ) -> Result<&ArchivedSerializableModule, DeserializeError>,
+        ) -> Result<&ArchivedCompileModuleInfo, DeserializeError>,
     ) -> Result<Self, DeserializeError> {
         let mut compile_info = MaybeUninit::uninit();
 
         let cell = ArtifactBuildFromArchiveCell::try_new(buffer, |buffer| {
             let module = module_builder(buffer)?;
             compile_info = MaybeUninit::new(
-                rkyv::deserialize::<_, RkyvError>(&module.compile_info)
+                rkyv::deserialize::<_, RkyvError>(module)
                     .map_err(|e| DeserializeError::CorruptedBinary(format!("{e:?}")))?,
             );
-            ModuleFromArchive::from_serializable_module(module)
+            Ok::<_, DeserializeError>(ModuleFromArchive::from_parts(module, buffer.as_ref()))
         })?;
 
         // Safety: we know the lambda will execute before getting here and assign both values
@@ -271,7 +256,7 @@ impl ArtifactBuildFromArchive {
 
     /// Get compiled native object data.
     pub fn get_elf_file(&self) -> &[u8] {
-        self.cell.borrow_dependent().compilation.as_slice()
+        self.cell.borrow_dependent().compilation
     }
 }
 

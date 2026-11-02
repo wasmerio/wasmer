@@ -10,8 +10,7 @@ use std::sync::{LazyLock, Mutex};
 use crate::elf::CompileOutput;
 use crate::misc::{CompiledFunctionExt, CompiledKind};
 use crate::progress::ProgressContext;
-use crate::types::function::Compilation;
-use crate::types::module::CompileModuleInfo;
+use crate::types::{function::Compilation, module::CompileModuleInfo};
 use crate::{EH_FRAME_SECTION_NAME, get_object_for_target};
 use crate::{
     FunctionBodyData, ModuleTranslationState, WASMER_FUNCTION_OFFSETS_SECTION_NAME,
@@ -231,12 +230,12 @@ pub trait Compiler: Send + std::fmt::Debug {
 
     /// Compiles a parsed module.
     ///
-    /// It returns the [`Compilation`] or a [`CompileError`].
+    /// Updates compilation metadata and returns the compiled native container
+    /// or a [`CompileError`].
     fn compile_module(
         &self,
         target: &Target,
-        module: &CompileModuleInfo,
-        compile_info_blob: &[u8],
+        compile_info: &mut CompileModuleInfo,
         module_translation: &ModuleTranslationState,
         // The list of function bodies
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
@@ -711,7 +710,7 @@ pub fn emit_metadata_and_link(
     compiled_objects: CompiledObjects,
     mut debug_dir: Option<PathBuf>,
     module_hash: Option<String>,
-) -> Result<Vec<u8>, CompileError> {
+) -> Result<Compilation, CompileError> {
     let format = target.triple().binary_format;
 
     pool.install(|| {

@@ -8,8 +8,7 @@ use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use std::{borrow::Cow, collections::HashMap, sync::Arc};
 use wasmer_compiler::elf::CompileOutput;
 use wasmer_compiler::progress::ProgressContext;
-use wasmer_compiler::types::function::Compilation;
-use wasmer_compiler::types::module::CompileModuleInfo;
+use wasmer_compiler::types::{function::Compilation, module::CompileModuleInfo};
 use wasmer_compiler::{
     CompiledObjects, Compiler, FunctionBodyData, ModuleMiddleware, ModuleTranslationState,
     WasmSourceMap, emit_metadata_and_link,
@@ -224,8 +223,7 @@ impl Compiler for LLVMCompiler {
     fn compile_module(
         &self,
         target: &Target,
-        compile_info: &CompileModuleInfo,
-        compile_info_blob: &[u8],
+        compile_info: &mut CompileModuleInfo,
         module_translation: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         progress_callback: Option<&CompilationProgressCallback>,
@@ -411,10 +409,15 @@ impl Compiler for LLVMCompiler {
             })
             .collect();
 
-        let elf_content = emit_metadata_and_link(
+        let module_hash = module.hash_string();
+        compile_info.function_max_stack_usage = function_max_stack_usage;
+        let compile_info_blob = compile_info.serialize().map_err(|e| {
+            CompileError::Codegen(format!("cannot serialize CompileModuleInfo: {e}"))
+        })?;
+        emit_metadata_and_link(
             &pool,
             target,
-            compile_info_blob,
+            &compile_info_blob,
             CompiledObjects {
                 emit_trap_offsets: false,
                 object_files,
@@ -426,12 +429,8 @@ impl Compiler for LLVMCompiler {
                 .callbacks
                 .as_ref()
                 .map(|callbacks| callbacks.debug_dir().clone()),
-            module.hash().map(|hash| hash.to_string()),
-        )?;
-        Ok(Compilation {
-            data: elf_content,
-            function_max_stack_usage,
-        })
+            module_hash,
+        )
     }
 
     /// Add suggested optimizations to this compiler.
