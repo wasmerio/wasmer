@@ -22,9 +22,7 @@ impl StoreAsync {
         match unsafe { StoreContext::try_get_current_async(id) } {
             crate::GetStoreAsyncGuardResult::Ok(guard) => Some(Self {
                 id,
-                inner: crate::LocalRwLockWriteGuard::lock_handle(unsafe {
-                    guard.guard.as_ref().unwrap()
-                }),
+                inner: guard.lock_handle(),
             }),
             _ => None,
         }

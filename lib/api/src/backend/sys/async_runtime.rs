@@ -16,7 +16,8 @@ use dashmap::DashMap;
 use super::entities::function::Function as SysFunction;
 use crate::{
     AsStoreAsync, AsStoreMut, AsStoreRef, ForcedStoreInstallGuard, LocalRwLockWriteGuard,
-    RuntimeError, Store, StoreAsync, StoreContext, StoreInner, StoreMut, StoreRef, Value,
+    RuntimeError, Store, StoreAsync, StoreContext, StoreContextId, StoreInner, StoreMut, StoreRef,
+    Value,
 };
 use wasmer_types::StoreId;
 
@@ -56,6 +57,7 @@ pub(crate) struct AsyncCallFuture {
 
     // Store handle we can use to lock the store down
     store: StoreAsync,
+    store_context_id: StoreContextId,
 }
 
 // We can't use any of the existing AsStoreMut types here, since we keep
@@ -137,6 +139,7 @@ impl AsyncCallFuture {
             next_resume: Some(AsyncResume::Start),
             result: None,
             store,
+            store_context_id: StoreContext::new_installation_id(),
         }
     }
 
@@ -195,10 +198,13 @@ impl Future for AsyncCallFuture {
 
             // Start a store installation if not in progress already
             if self.pending_store_install.is_none() {
-                self.pending_store_install = Some(Box::pin(install_store_context(StoreAsync {
-                    id: self.store.id,
-                    inner: self.store.inner.clone(),
-                })));
+                self.pending_store_install = Some(Box::pin(install_store_context(
+                    StoreAsync {
+                        id: self.store.id,
+                        inner: self.store.inner.clone(),
+                    },
+                    self.store_context_id,
+                )));
             }
 
             // Acquiring a store lock should be the last step before resuming
@@ -219,7 +225,10 @@ impl Future for AsyncCallFuture {
 
             let resume_arg = self.next_resume.take().expect("no resume arg available");
             let coroutine = self.coroutine.as_mut().unwrap();
-            match coroutine.resume(resume_arg) {
+            let boundary = CoroutineBoundary::new();
+            let result = coroutine.resume(resume_arg);
+            boundary.returned();
+            match result {
                 CoroutineResult::Yield(AsyncYield(fut)) => {
                     self.pending_future = Some(fut);
                 }
@@ -242,12 +251,15 @@ impl Drop for AsyncCallFuture {
     }
 }
 
-async fn install_store_context(store: StoreAsync) -> ForcedStoreInstallGuard {
+async fn install_store_context(
+    store: StoreAsync,
+    installation: StoreContextId,
+) -> ForcedStoreInstallGuard {
     match unsafe { crate::StoreContext::try_get_current_async(store.id) } {
         crate::GetStoreAsyncGuardResult::NotInstalled => {
             // We always need to acquire a new write lock on the store.
             let store_guard = store.inner.write().await;
-            unsafe { crate::StoreContext::install_async(store_guard) }
+            crate::StoreContext::install_async_with_id(store_guard, installation)
         }
         _ => {
             // If we're already in a store context, it is unsafe to reuse
@@ -318,6 +330,48 @@ struct CoroutineContext {
     yielder: *const Yielder<AsyncResume, AsyncYield>,
 }
 
+/// Raw context pointers belong to coroutine stacks. Unwinding a resume destroys
+/// those stacks before propagating the panic, so remove only that resume's suffix.
+struct CoroutineBoundary {
+    prefix: Vec<*const CoroutineContext>,
+    returned: bool,
+}
+
+impl CoroutineBoundary {
+    fn new() -> Self {
+        Self {
+            prefix: CURRENT_CONTEXT.with(|current| current.borrow().clone()),
+            returned: false,
+        }
+    }
+
+    fn returned(mut self) {
+        CURRENT_CONTEXT.with(|current| {
+            assert_eq!(
+                *current.borrow(),
+                self.prefix,
+                "coroutine did not restore its context before yielding or returning"
+            );
+        });
+        self.returned = true;
+    }
+}
+
+impl Drop for CoroutineBoundary {
+    fn drop(&mut self) {
+        if !self.returned {
+            CURRENT_CONTEXT.with(|current| {
+                let mut contexts = current.borrow_mut();
+                // Never discard a caller whose ancestry has been disturbed by
+                // another invariant failure during unwinding.
+                if contexts.starts_with(&self.prefix) {
+                    contexts.truncate(self.prefix.len());
+                }
+            });
+        }
+    }
+}
+
 impl CoroutineContext {
     fn new(yielder: &Yielder<AsyncResume, AsyncYield>) -> Self {
         Self {
@@ -334,21 +388,19 @@ impl CoroutineContext {
         })
     }
 
-    // Note: we don't use a drop-style guard here on purpose; if a panic
-    // happens while a coroutine is running, CURRENT_CONTEXT will be in
-    // an inconsistent state. corosensei will unwind all coroutine stacks
-    // anyway, and if we had a guard that would get dropped and try to
-    // leave its context, it'd panic again at the assert_eq! below.
+    // The owning resume boundary handles panic cleanup. A stack-local guard
+    // must not pop this context again while corosensei unwinds its stack.
     fn leave(&self) {
         CURRENT_CONTEXT.with(|cell| {
             let mut borrow = cell.borrow_mut();
 
             // Pop this coroutine from the active stack.
             assert_eq!(
-                borrow.pop(),
+                borrow.last().copied(),
                 Some(self as *const _),
                 "Active coroutine stack corrupted"
             );
+            borrow.pop();
         });
     }
 
@@ -384,5 +436,87 @@ fn run_immediate(
     match future.as_mut().poll(&mut cx) {
         Poll::Ready(result) => result.map_err(AsyncRuntimeError::RuntimeError),
         Poll::Pending => Err(AsyncRuntimeError::YieldOutsideAsyncContext),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{Function, Instance, Module};
+
+    #[test]
+    fn a_panicked_engine_coroutine_restores_context_before_the_next_call() {
+        let mut store = Store::default();
+        let panic = Function::new_typed(&mut store, || -> () {
+            panic!("synchronous callback panic");
+        });
+        let ready = Function::new_async(&mut store, crate::FunctionType::new([], []), |_| async {
+            Ok(vec![])
+        });
+        let module = Module::new(
+            &store,
+            r#"(module
+            (import "proof" "panic" (func $panic))
+            (import "proof" "ready" (func $ready))
+            (func (export "bad") call $panic)
+            (func (export "next") (result i32) call $ready i32.const 7))"#,
+        )
+        .unwrap();
+        let instance = Instance::new(
+            &mut store,
+            &module,
+            &crate::imports! { "proof" => { "panic" => panic, "ready" => ready } },
+        )
+        .unwrap();
+        let store = store.into_async();
+        let bad = instance.exports.get_function("bad").unwrap();
+        assert!(
+            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                futures::executor::block_on(bad.call_async(&store, vec![]))
+            }))
+            .is_err()
+        );
+        CURRENT_CONTEXT.with(|current| assert!(current.borrow().is_empty()));
+        assert!(StoreContext::is_empty());
+        let next = instance.exports.get_function("next").unwrap();
+        let result = futures::executor::block_on(next.call_async(&store, vec![])).unwrap();
+        assert_eq!(result[0].i32(), Some(7));
+        CURRENT_CONTEXT.with(|current| assert!(current.borrow().is_empty()));
+        assert!(StoreContext::is_empty());
+    }
+
+    #[test]
+    fn a_panicked_nested_coroutine_preserves_its_live_parent_context() {
+        let mut parent = Coroutine::new(
+            |yielder: &Yielder<AsyncResume, AsyncYield>, _: AsyncResume| {
+                let context = CoroutineContext::new(yielder);
+                context.enter();
+                let mut child = Coroutine::new(
+                    |yielder: &Yielder<AsyncResume, AsyncYield>,
+                     _: AsyncResume|
+                     -> Result<Box<[Value]>, RuntimeError> {
+                        let context = CoroutineContext::new(yielder);
+                        context.enter();
+                        panic!("nested coroutine panic");
+                    },
+                );
+                let caught = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    let boundary = CoroutineBoundary::new();
+                    let _ = child.resume(AsyncResume::Start);
+                    boundary.returned();
+                }));
+                let retained =
+                    CURRENT_CONTEXT.with(|current| *current.borrow() == vec![&context as *const _]);
+                context.leave();
+                assert!(caught.is_err());
+                assert!(retained);
+                Ok::<_, RuntimeError>(Vec::<Value>::new().into_boxed_slice())
+            },
+        );
+        let boundary = CoroutineBoundary::new();
+        let result = parent.resume(AsyncResume::Start);
+        boundary.returned();
+        assert!(matches!(result, CoroutineResult::Return(Ok(_))));
+        CURRENT_CONTEXT.with(|current| assert!(current.borrow().is_empty()));
     }
 }
