@@ -97,15 +97,10 @@ impl ArtifactBuild {
             progress_callback,
         )?;
 
-        Ok(Self::from_parts(compile_info, compilation))
-    }
-
-    /// Create an artifact from compilation metadata and its native container.
-    pub fn from_parts(compile_info: CompileModuleInfo, compilation: Compilation) -> Self {
-        Self {
+        Ok(Self {
             compilation,
             compile_info,
-        }
+        })
     }
 
     /// The maximum stack allocation directly connected to the function itself

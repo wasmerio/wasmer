@@ -282,8 +282,10 @@ impl Artifact {
             })?;
         let compile_info = CompileModuleInfo::deserialize(module_info)?;
 
-        let artifact =
-            ArtifactBuildVariant::Plain(ArtifactBuild::from_parts(compile_info, Vec::new()));
+        let artifact = ArtifactBuildVariant::Plain(ArtifactBuild {
+            compilation: Vec::new(),
+            compile_info,
+        });
         let mut inner_engine = engine.inner_mut();
         Self::from_parts_with_module_file(&mut inner_engine, artifact, engine.target(), Some(path))
     }
@@ -332,8 +334,10 @@ impl Artifact {
                 ))
             })?;
         let compile_info = CompileModuleInfo::deserialize(module_info)?;
-        let artifact =
-            ArtifactBuildVariant::Plain(ArtifactBuild::from_parts(compile_info, bytes.to_vec()));
+        let artifact = ArtifactBuildVariant::Plain(ArtifactBuild {
+            compilation: bytes.to_vec(),
+            compile_info,
+        });
         let mut inner_engine = engine.inner_mut();
         Self::from_parts(&mut inner_engine, artifact, engine.target()).map(Some)
     }
