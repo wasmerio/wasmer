@@ -1279,36 +1279,6 @@ impl Artifact {
 
         Ok((metadata, module_translation, function_body_inputs))
     }
-
-    /// Compile a module into an object file, which can be statically linked against.
-    ///
-    /// The `metadata_prefix` is an optional prefix for the object name to make the
-    /// function names in the object file unique. When set, the function names will
-    /// be `wasmer_function_{prefix}_{id}` and the object metadata will be addressable
-    /// using `WASMER_METADATA_{prefix}_LENGTH` and `WASMER_METADATA_{prefix}_DATA`.
-    ///
-    #[cfg(feature = "static-artifact-create")]
-    pub fn generate_object<'data>(
-        _compiler: &dyn Compiler,
-        _data: &[u8],
-        _metadata_prefix: Option<&str>,
-        _target: &'data Target,
-        _tunables: &dyn Tunables,
-        _features: &Features,
-    ) -> Result<
-        (
-            ModuleInfo,
-            Object<'data>,
-            usize,
-            Box<dyn crate::types::symbols::SymbolRegistry>,
-        ),
-        CompileError,
-    > {
-        Err(CompileError::Codegen(
-            "ELF compilation unsupported yet".to_string(),
-        ))
-    }
-
     /// Deserialize a ArtifactBuild from an object file
     ///
     /// # Safety
@@ -1322,7 +1292,6 @@ impl Artifact {
             CompileError::UnsupportedFeature("static load is not compiled in".to_string()),
         ))
     }
-
     #[cfg(feature = "static-artifact-load")]
     fn get_byte_slice(input: &[u8], start: usize, end: usize) -> Result<&[u8], DeserializeError> {
         if (start == end && input.len() > start)
