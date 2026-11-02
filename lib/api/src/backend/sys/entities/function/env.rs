@@ -7,7 +7,10 @@ use crate::{
     store::{AsStoreMut, AsStoreRef, StoreRef},
 };
 
-use wasmer_vm::{StoreHandle, StoreId, StoreObject, StoreObjects, VMFunctionEnvironment};
+use wasmer_vm::{
+    StoreHandle, StoreId, StoreObject, StoreObjects, VMFunctionEnvironment,
+    VMFunctionEnvironmentLease,
+};
 
 #[derive(Debug)]
 #[repr(transparent)]
@@ -43,6 +46,7 @@ impl<T: Any + Send + 'static + Sized> FunctionEnv<T> {
         FunctionEnvMut {
             store_mut: store.as_store_mut(),
             func_env: self,
+            split_lease: None,
         }
     }
 }
@@ -121,6 +125,28 @@ impl<T> Clone for FunctionEnv<T> {
 pub struct FunctionEnvMut<'a, T: 'a> {
     pub(crate) store_mut: StoreMut<'a>,
     pub(crate) func_env: FunctionEnv<T>,
+    pub(crate) split_lease: Option<SplitEnvironmentLease<'a>>,
+}
+
+pub(crate) enum SplitEnvironmentLease<'a> {
+    Owned(VMFunctionEnvironmentLease),
+    Borrowed(&'a mut VMFunctionEnvironmentLease),
+}
+
+impl SplitEnvironmentLease<'_> {
+    fn lease(&self) -> &VMFunctionEnvironmentLease {
+        match self {
+            Self::Owned(lease) => lease,
+            Self::Borrowed(lease) => lease,
+        }
+    }
+
+    fn lease_mut(&mut self) -> &mut VMFunctionEnvironmentLease {
+        match self {
+            Self::Owned(lease) => lease,
+            Self::Borrowed(lease) => lease,
+        }
+    }
 }
 
 impl<T> Debug for FunctionEnvMut<'_, T>
@@ -128,19 +154,25 @@ where
     T: Send + Debug + 'static,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.func_env.as_ref(&self.store_mut).fmt(f)
+        self.data().fmt(f)
     }
 }
 
 impl<T: Send + 'static> FunctionEnvMut<'_, T> {
     /// Returns a reference to the host state in this function environment.
     pub fn data(&self) -> &T {
-        self.func_env.as_ref(&self.store_mut)
+        match &self.split_lease {
+            Some(lease) => lease.lease().as_ref().downcast_ref().unwrap(),
+            None => self.func_env.as_ref(&self.store_mut),
+        }
     }
 
     /// Returns a mutable- reference to the host state in this function environment.
     pub fn data_mut(&mut self) -> &mut T {
-        self.func_env.as_mut(&mut self.store_mut)
+        match &mut self.split_lease {
+            Some(lease) => lease.lease_mut().as_mut().downcast_mut().unwrap(),
+            None => self.func_env.as_mut(&mut self.store_mut),
+        }
     }
 
     /// Borrows a new immmutable reference
@@ -153,17 +185,33 @@ impl<T: Send + 'static> FunctionEnvMut<'_, T> {
         FunctionEnvMut {
             store_mut: self.store_mut.as_store_mut(),
             func_env: self.func_env.clone(),
+            split_lease: self
+                .split_lease
+                .as_mut()
+                .map(|lease| SplitEnvironmentLease::Borrowed(lease.lease_mut())),
         }
     }
 
     /// Borrows a new mutable reference of both the attached Store and host state
+    /// The data remains lent to this temporary handle until it is dropped;
+    /// other handles to the same environment reject access during that time.
     pub fn data_and_store_mut(&mut self) -> (&mut T, StoreMut<'_>) {
-        let data = self.func_env.as_mut(&mut self.store_mut) as *mut T;
-        // telling the borrow check to close his eyes here
-        // this is still relatively safe to do as func_env are
-        // stored in a specific vec of Store, separate from the other objects
-        // and not really directly accessible with the StoreMut
-        let data = unsafe { &mut *data };
+        if self.split_lease.is_none() {
+            let lease = self
+                .func_env
+                .handle
+                .get_mut(self.store_mut.objects_mut().as_sys_mut())
+                .lend();
+            self.split_lease = Some(SplitEnvironmentLease::Owned(lease));
+        }
+        let data = self
+            .split_lease
+            .as_mut()
+            .unwrap()
+            .lease_mut()
+            .as_mut()
+            .downcast_mut()
+            .unwrap();
         (data, self.store_mut.as_store_mut())
     }
 
@@ -240,6 +288,7 @@ pub struct AsyncFunctionEnvHandle<T> {
 pub struct AsyncFunctionEnvHandleMut<T> {
     write_lock: StoreAsyncWriteLock,
     pub(crate) func_env: FunctionEnv<T>,
+    split_lease: Option<VMFunctionEnvironmentLease>,
 }
 
 #[cfg(feature = "experimental-async")]
@@ -296,6 +345,7 @@ impl<T: 'static> AsyncFunctionEnvMut<T> {
         AsyncFunctionEnvHandleMut {
             write_lock,
             func_env: self.func_env.clone(),
+            split_lease: None,
         }
     }
 
@@ -324,6 +374,7 @@ impl<T: 'static> AsyncFunctionEnvMut<T> {
         Some(AsyncFunctionEnvHandleMut {
             write_lock,
             func_env: self.func_env.clone(),
+            split_lease: None,
         })
     }
 
@@ -398,18 +449,30 @@ impl<T: 'static> AsStoreRef for AsyncFunctionEnvHandle<T> {
 impl<T: 'static> AsyncFunctionEnvHandleMut<T> {
     /// Returns a mutable reference to the host state in this function environment.
     pub fn data_mut(&mut self) -> &mut T {
-        self.func_env.as_mut(&mut self.write_lock)
+        match &mut self.split_lease {
+            Some(lease) => lease.as_mut().downcast_mut().unwrap(),
+            None => self.func_env.as_mut(&mut self.write_lock),
+        }
     }
 
     /// Returns both the host state and the attached StoreMut
+    /// The data remains lent to this write handle until it is dropped.
     pub fn data_and_store_mut(&mut self) -> (&mut T, &mut impl AsStoreMut) {
-        let data = self.data_mut() as *mut T;
-        // Wisdom of the ancients:
-        // telling the borrow check to close his eyes here
-        // this is still relatively safe to do as func_env are
-        // stored in a specific vec of Store, separate from the other objects
-        // and not really directly accessible with the StoreMut
-        let data = unsafe { &mut *data };
+        if self.split_lease.is_none() {
+            self.split_lease = Some(
+                self.func_env
+                    .handle
+                    .get_mut(self.write_lock.objects_mut().as_sys_mut())
+                    .lend(),
+            );
+        }
+        let data = self
+            .split_lease
+            .as_mut()
+            .unwrap()
+            .as_mut()
+            .downcast_mut()
+            .unwrap();
         (data, &mut self.write_lock)
     }
 
@@ -418,6 +481,10 @@ impl<T: 'static> AsyncFunctionEnvHandleMut<T> {
         FunctionEnvMut {
             store_mut: self.write_lock.as_store_mut(),
             func_env: self.func_env.clone(),
+            split_lease: self
+                .split_lease
+                .as_mut()
+                .map(SplitEnvironmentLease::Borrowed),
         }
     }
 }
@@ -437,5 +504,132 @@ impl<T: 'static> AsStoreMut for AsyncFunctionEnvHandleMut<T> {
 
     fn objects_mut(&mut self) -> &mut crate::StoreObjects {
         AsStoreMut::objects_mut(&mut self.write_lock)
+    }
+}
+
+#[cfg(test)]
+mod split_ownership {
+    use super::*;
+    use std::{
+        panic::{AssertUnwindSafe, catch_unwind},
+        sync::{
+            Arc,
+            atomic::{AtomicUsize, Ordering},
+        },
+    };
+
+    struct State {
+        value: i32,
+        drops: Arc<AtomicUsize>,
+    }
+
+    impl Drop for State {
+        fn drop(&mut self) {
+            self.drops.fetch_add(1, Ordering::SeqCst);
+        }
+    }
+
+    #[test]
+    fn a_split_keeps_its_exact_data_when_the_store_slot_is_removed_and_replaced() {
+        let mut store = Store::default();
+        let drops = Arc::new(AtomicUsize::new(0));
+        let env = FunctionEnv::new(
+            &mut store,
+            State {
+                value: 7,
+                drops: drops.clone(),
+            },
+        );
+        let mut call = env.into_mut(&mut store);
+        {
+            let (data, mut store) = call.data_and_store_mut();
+            let mut removed = VMFunctionEnvironment::list_mut(store.objects_mut().as_sys_mut())
+                .pop()
+                .unwrap();
+            let read_rejected = catch_unwind(AssertUnwindSafe(|| {
+                let _ = removed.as_ref();
+            }))
+            .is_err();
+            let write_rejected = catch_unwind(AssertUnwindSafe(|| {
+                let _ = removed.as_mut();
+            }))
+            .is_err();
+            let second_lease_rejected = catch_unwind(AssertUnwindSafe(|| removed.lend())).is_err();
+            let take_rejected = catch_unwind(AssertUnwindSafe(|| removed.into_contents())).is_err();
+            VMFunctionEnvironment::list_mut(store.objects_mut().as_sys_mut())
+                .push(VMFunctionEnvironment::new(99_i32));
+            data.value += 35;
+            assert!(read_rejected && write_rejected && second_lease_rejected && take_rejected);
+            assert_eq!(drops.load(Ordering::SeqCst), 0);
+        }
+        // Access through this owning handle follows its lease, not the new slot.
+        assert_eq!(call.data().value, 42);
+        {
+            let mut child = call.as_mut();
+            child.data_mut().value += 1;
+            assert_eq!(child.data_and_store_mut().0.value, 43);
+        }
+        assert_eq!(call.data().value, 43);
+        drop(call);
+        assert_eq!(drops.load(Ordering::SeqCst), 1);
+    }
+
+    #[test]
+    #[cfg(feature = "experimental-async")]
+    fn an_async_write_handle_retains_and_reborrows_its_split_data() {
+        let mut store = Store::default();
+        let drops = Arc::new(AtomicUsize::new(0));
+        let env = FunctionEnv::new(
+            &mut store,
+            State {
+                value: 7,
+                drops: drops.clone(),
+            },
+        );
+        let env = AsyncFunctionEnvMut {
+            store: AsyncFunctionEnvMutStore::Async(store.into_async()),
+            func_env: env,
+        };
+        let mut write = futures::executor::block_on(env.write());
+        {
+            let (data, store) = write.data_and_store_mut();
+            let removed = VMFunctionEnvironment::list_mut(store.objects_mut().as_sys_mut())
+                .pop()
+                .unwrap();
+            drop(removed);
+            data.value += 35;
+            assert_eq!(drops.load(Ordering::SeqCst), 0);
+        }
+        {
+            let mut child = write.as_function_env_mut();
+            assert_eq!(child.data().value, 42);
+            child.data_and_store_mut().0.value += 1;
+        }
+        assert_eq!(write.data_mut().value, 43);
+        drop(write);
+        assert_eq!(drops.load(Ordering::SeqCst), 1);
+    }
+
+    #[test]
+    fn a_split_lease_can_move_threads_without_exposing_its_data_through_the_owner() {
+        let mut env = VMFunctionEnvironment::new(7_i32);
+        let mut lease = env.lend();
+        let (ready, started) = std::sync::mpsc::channel();
+        let (release, wait) = std::sync::mpsc::channel();
+        let worker = std::thread::spawn(move || {
+            *lease.as_mut().downcast_mut::<i32>().unwrap() += 35;
+            ready.send(()).unwrap();
+            wait.recv().unwrap();
+            drop(lease);
+        });
+        started.recv().unwrap();
+        let rejected = catch_unwind(AssertUnwindSafe(|| {
+            let _ = env.as_ref();
+        }))
+        .is_err();
+        release.send(()).unwrap();
+        worker.join().unwrap();
+        assert!(rejected);
+        assert_eq!(*env.as_ref().downcast_ref::<i32>().unwrap(), 42);
     }
 }

@@ -28,9 +28,14 @@ impl VMFunctionEnvironment {
     }
 
     pub fn contents(self) -> Box<(dyn std::any::Any + Send + 'static)> {
-        match_rt!(on self => s {
-            s.contents
-        })
+        match self {
+            #[cfg(feature = "sys")]
+            Self::Sys(env) => env.into_contents(),
+            #[cfg(feature = "js")]
+            Self::Js(env) => env.contents,
+            #[cfg(feature = "v8")]
+            Self::V8(env) => env.contents,
+        }
     }
 }
 
