@@ -15,7 +15,37 @@ pub struct StoreAsync {
     pub(crate) inner: LocalRwLock<Box<StoreInner>>,
 }
 
+pub(crate) struct WeakStoreAsync {
+    id: StoreId,
+    inner: crate::WeakLocalRwLock<Box<StoreInner>>,
+}
+
+impl Clone for WeakStoreAsync {
+    fn clone(&self) -> Self {
+        Self {
+            id: self.id,
+            inner: self.inner.clone(),
+        }
+    }
+}
+
+impl WeakStoreAsync {
+    pub(crate) fn upgrade(&self) -> Option<StoreAsync> {
+        Some(StoreAsync {
+            id: self.id,
+            inner: self.inner.upgrade()?,
+        })
+    }
+}
+
 impl StoreAsync {
+    pub(crate) fn downgrade(&self) -> WeakStoreAsync {
+        WeakStoreAsync {
+            id: self.id,
+            inner: self.inner.downgrade(),
+        }
+    }
+
     pub(crate) fn from_context(id: StoreId) -> Option<Self> {
         // Safety: we don't keep the guard around, it's just used to
         // build a safe lock handle.
