@@ -282,6 +282,7 @@ where
             ),
         );
         env.as_mut(&mut store).cleanup = Some(cleanup);
+        self.abis.install_hooks(&mut store, &env);
         let mut imports = crate::imports(&*self.abi, &mut store, &env, &self.module);
         let memory = self.memory.clone().try_attach(&mut store)?;
         if let Some(import) = self.module.imports().memories().next() {
@@ -307,45 +308,89 @@ where
             &mut admission,
         )
         .await?;
-        {
-            let data = env.as_mut(&mut store);
-            data.imports = wasmer::Imports::new();
-            if prepared.is_none() {
-                // Preserve the ordinary custom ABI's pre-bind environment. Native
-                // preparation alone needs the inherited real memory before bind.
-                data.memory = None;
-                data.low_guard = 0;
-                data.main_stack = 0..0;
-                data.layout = None;
-                data.read_only = Arc::default();
-                data.base = None;
+        let hooks = env.as_ref(&store).instance_hooks().cloned();
+        let configured =
+            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<_, ExecError> {
+                {
+                    let data = env.as_mut(&mut store);
+                    data.imports = wasmer::Imports::new();
+                    if prepared.is_none() {
+                        // Preserve the ordinary custom ABI's pre-bind environment. Native
+                        // preparation alone needs the inherited real memory before bind.
+                        data.memory = None;
+                        data.low_guard = 0;
+                        data.main_stack = 0..0;
+                        data.layout = None;
+                        data.read_only = Arc::default();
+                        data.base = None;
+                    }
+                }
+                if let Some(prepared) = &prepared {
+                    imports.extend(prepared.imports());
+                    crate::preparation::verify_memory(&self.module, &imports, Some(&memory))?;
+                }
+                if hooks.is_some() {
+                    env.as_mut(&mut store).abi_imports = Some(imports.clone());
+                }
+                let attached = hooks
+                    .as_ref()
+                    .map(|hooks| {
+                        hooks.prepare(
+                            &self.module,
+                            &mut wasmer::AsStoreMut::as_store_mut(&mut store),
+                            &mut imports,
+                        )
+                    })
+                    .transpose()
+                    .map_err(ExecError::CustomBinding)?;
+                let instance = Instance::new(&mut store, &self.module, &imports)?;
+                let abi = match prepared {
+                    Some(prepared) => prepared.bind(&instance, &mut store, task, Role::Thread)?,
+                    None => self.abi.bind(&instance, &mut store, task, Role::Thread)?,
+                };
+                let asyncify = crate::asyncify::Asyncify::new(&instance, &mut store)?;
+                let data = env.as_mut(&mut store);
+                data.imports = imports.clone();
+                data.memory = Some(memory);
+                data.low_guard = self.low_guard;
+                data.main_stack = self.main_stack.clone();
+                data.layout = self.layout.clone();
+                data.read_only = self.read_only.clone();
+                data.base = self.base.clone();
+                data.stack_pointer = crate::stack_pointer(&instance);
+                data.abi = Some(abi.clone());
+                data.threads = Some(self.clone());
+                data.proc.set_module(&self.module);
+                data.asyncify = asyncify;
+                let memory = env.as_ref(&store).memory().unwrap().clone();
+                if let Some(attached) = attached {
+                    attached
+                        .configure(
+                            &self.module,
+                            &mut wasmer::AsStoreMut::as_store_mut(&mut store),
+                            &instance,
+                            &memory,
+                        )
+                        .map_err(ExecError::CustomBinding)?;
+                }
+                Ok(abi)
+            }));
+        let abi = match configured {
+            Ok(Ok(abi)) => abi,
+            other => {
+                if let Some(hooks) = &hooks {
+                    hooks.deactivate(&mut wasmer::AsStoreMut::as_store_mut(&mut store));
+                }
+                match other {
+                    Ok(Err(error)) => return Err(error),
+                    Err(panic) => std::panic::resume_unwind(panic),
+                    _ => unreachable!(),
+                }
             }
-        }
-        if let Some(prepared) = &prepared {
-            imports.extend(prepared.imports());
-            crate::preparation::verify_memory(&self.module, &imports, Some(&memory))?;
-        }
-        let instance = Instance::new(&mut store, &self.module, &imports)?;
-        let abi = match prepared {
-            Some(prepared) => prepared.bind(&instance, &mut store, task, Role::Thread)?,
-            None => self.abi.bind(&instance, &mut store, task, Role::Thread)?,
         };
-        let asyncify = crate::asyncify::Asyncify::new(&instance, &mut store)?;
-        let data = env.as_mut(&mut store);
-        data.imports = imports.clone();
-        data.memory = Some(memory);
-        data.low_guard = self.low_guard;
-        data.main_stack = self.main_stack.clone();
-        data.layout = self.layout.clone();
-        data.read_only = self.read_only.clone();
-        data.base = self.base.clone();
-        data.stack_pointer = crate::stack_pointer(&instance);
-        data.abi = Some(abi.clone());
-        data.threads = Some(self.clone());
-        data.proc.set_module(&self.module);
-        data.asyncify = asyncify;
-
+        let scope = env.as_ref(&store).loader_cleanup().unwrap().clone();
         let store = store.into_async();
+        let mut attachments = hooks.map(|hooks| hooks.guard(&store, scope));
         let entry = Entry::new(&env, &store);
         let mut buffer = BufferLease {
             pool: self.buffers.clone(),
@@ -394,6 +439,9 @@ where
         };
         let on_return = abi.on_thread_return();
         let ended = crate::ended(entry.cx(), result, on_return, Role::Thread).await;
+        if let Some(attachments) = &mut attachments {
+            attachments.deactivate().await;
+        }
         abi.retire(&entry)
             .await
             .map_err(|e| ExecError::Load(crate::LoadError::other(e)))?;
@@ -422,7 +470,7 @@ mod tests {
         let mut abis = Abis::new();
         abis.push(selected.clone());
         let abis = Arc::new(abis);
-        let ready = futures::executor::block_on(crate::instantiate(
+        let mut ready = futures::executor::block_on(crate::instantiate(
             store,
             &module,
             recorder.clone(),
@@ -435,13 +483,13 @@ mod tests {
         .unwrap();
         let shared = ready
             .env
-            .as_ref(&ready.store)
+            .as_ref(ready.store.as_ref().unwrap())
             .memory()
             .unwrap()
-            .as_shared(&ready.store)
+            .as_shared(ready.store.as_ref().unwrap())
             .unwrap();
         let image = Image::new(
-            &ready.store,
+            ready.store.as_ref().unwrap(),
             &module,
             shared,
             (0, Arc::default(), None),
@@ -453,12 +501,13 @@ mod tests {
             abis,
             Arc::default(),
         );
-        let store = ready.store.into_async();
+        let store = ready.store.take().unwrap().into_async();
         futures::executor::block_on(async {
             let entry = Entry::new(&ready.env, &store);
             ready.abi.prepare_entry(&entry).await.unwrap();
             let registration = ready
                 .admission
+                .take()
                 .unwrap()
                 .finish(&*selected, &*recorder)
                 .await

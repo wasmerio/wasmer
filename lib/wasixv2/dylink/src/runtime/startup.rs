@@ -136,7 +136,7 @@ impl<S: Syscalls + Control + Send + Sync + 'static> Image<S> {
                     data.syscalls().clone(),
                     data.task(),
                     data.loader_cleanup().cloned(),
-                    data.imports().clone(),
+                    data.abi_imports().clone(),
                 )
             })
             .await;
@@ -590,7 +590,15 @@ impl<S: Syscalls + Control + Send + Sync + 'static> StoreImage<S> {
                 .with_store(|data, store| {
                     let mut local = lock(&self.local);
                     let tls = local.tls.clone();
-                    local.stage_modules(store, data.imports(), &work, tls, Vec::new(), task)
+                    local.stage_modules_with_hooks(
+                        store,
+                        data.abi_imports(),
+                        &work,
+                        tls,
+                        Vec::new(),
+                        task,
+                        data.instance_hooks(),
+                    )
                 })
                 .await?;
             entry

@@ -758,6 +758,7 @@ impl Local {
         graph.symbol_in_scope(scope, name, &tls)
     }
 
+    #[cfg(all(test, feature = "engine-tests"))]
     fn stage_modules(
         &mut self,
         store: &mut StoreMut<'_>,
@@ -766,6 +767,20 @@ impl Local {
         tls: Vec<u32>,
         leases: Vec<Box<dyn LoaderReservation>>,
         task: TaskId,
+    ) -> Result<()> {
+        self.stage_modules_with_hooks(store, base_imports, work, tls, leases, task, None)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn stage_modules_with_hooks(
+        &mut self,
+        store: &mut StoreMut<'_>,
+        base_imports: &Imports,
+        work: &Work,
+        tls: Vec<u32>,
+        leases: Vec<Box<dyn LoaderReservation>>,
+        task: TaskId,
+        hooks: Option<&wasixv2_exec::InstanceHooks>,
     ) -> Result<()> {
         LocalStage::resume(&mut self.stage, tls.clone(), leases);
         let local = self;
@@ -936,12 +951,12 @@ impl Local {
                 u64::from(tls[index])..u64::from(tls[index]) + u64::from(lib.tls_size)
             };
             let fresh_table = u64::from(lib.table)..u64::from(graph.cursor);
-            let mut prepared = StagedExports::prepare_artifact(
+            let prepared = StagedExports::prepare_artifact_with_hooks(
                 store,
                 lib.prepared
                     .as_deref()
                     .ok_or_else(|| failure("missing prepared module"))?,
-                &imports,
+                &mut imports,
                 local.memory.clone(),
                 local.table.clone(),
                 std::slice::from_ref(&fresh_memory),
@@ -951,16 +966,24 @@ impl Local {
                 } else {
                     Some(tls[index])
                 },
+                hooks,
             )?;
-            for (function, slot) in &lib.slots {
-                prepared.bind_slot(store, *slot, *function, std::slice::from_ref(&fresh_table))?;
-            }
             local
                 .stage
                 .as_mut()
                 .unwrap()
                 .modules
                 .insert(index, prepared);
+            let prepared = local
+                .stage
+                .as_mut()
+                .unwrap()
+                .modules
+                .get_mut(&index)
+                .unwrap();
+            for (function, slot) in &lib.slots {
+                prepared.bind_slot(store, *slot, *function, std::slice::from_ref(&fresh_table))?;
+            }
         }
         // All definitions now exist. Element/GOT slots must contain actual
         // definition funcrefs, including imported/re-exported aliases, not thunks.
@@ -1337,10 +1360,19 @@ impl<S: Syscalls + Control + Send + Sync + 'static> StoreImage<S> {
             }
         }
         cx.with(|data, store| {
-            self.stage_modules(store, data.imports(), work, tls, Vec::new(), caller.task())
+            self.stage_modules(
+                store,
+                data.abi_imports(),
+                work,
+                tls,
+                Vec::new(),
+                caller.task(),
+                data.instance_hooks(),
+            )
         })
         .await
     }
+    #[allow(clippy::too_many_arguments)]
     fn stage_modules(
         &self,
         store: &mut StoreMut<'_>,
@@ -1349,8 +1381,17 @@ impl<S: Syscalls + Control + Send + Sync + 'static> StoreImage<S> {
         tls: Vec<u32>,
         leases: Vec<Box<dyn LoaderReservation>>,
         task: TaskId,
+        hooks: Option<&wasixv2_exec::InstanceHooks>,
     ) -> Result<()> {
-        lock(&self.local).stage_modules(store, base_imports, work, tls, leases, task)
+        lock(&self.local).stage_modules_with_hooks(
+            store,
+            base_imports,
+            work,
+            tls,
+            leases,
+            task,
+            hooks,
+        )
     }
     async fn execute_command(
         &self,
@@ -1629,11 +1670,12 @@ impl<S: Syscalls + Control + Send + Sync + 'static> AbiInstance<S> for StoreImag
                     .with_store(|data, store| {
                         self.stage_modules(
                             store,
-                            data.imports(),
+                            data.abi_imports(),
                             &work,
                             tls,
                             std::mem::take(&mut ledger.leases),
                             task,
+                            data.instance_hooks(),
                         )
                     })
                     .await?;

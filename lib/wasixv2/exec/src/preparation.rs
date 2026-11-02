@@ -193,7 +193,13 @@ pub(crate) async fn prepare<S>(
 where
     S: Syscalls + Control + Send + Sync + 'static,
 {
+    let hooks = env.as_ref(&store).instance_hooks().cloned();
+    let scope = env.as_ref(&store).loader_cleanup().cloned();
     let store = store.into_async();
+    let mut attachments = hooks
+        .clone()
+        .zip(scope.clone())
+        .map(|(hooks, scope)| hooks.guard(&store, scope));
     let binding_cell = RefCell::new(binding.take());
     let preparation = Preparation {
         cx: Outside { env, store: &store },
@@ -209,9 +215,20 @@ where
         return Err(ExecError::Load(LoadError::Format(Errno::EINVAL)));
     }
     *binding = binding_cell.into_inner();
-    let store = store
-        .into_store()
-        .map_err(|_| ExecError::Load(LoadError::Format(Errno::EBUSY)))?;
+    if let Some(attachments) = &mut attachments {
+        attachments.disarm();
+    }
+    drop(attachments);
+    let store = match store.into_store() {
+        Ok(store) => store,
+        Err(store) => {
+            if let Some((hooks, scope)) = hooks.zip(scope) {
+                let mut attachments = hooks.guard(&store, scope);
+                attachments.deactivate().await;
+            }
+            return Err(ExecError::Load(LoadError::Format(Errno::EBUSY)));
+        }
+    };
     Ok((store, prepared, bootstrap))
 }
 

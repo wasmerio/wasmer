@@ -32,8 +32,8 @@ use wasixv2_exec::{Abis, Wasixv2};
 #[cfg(not(any(feature = "sys", feature = "js")))]
 pub use wasixv2_exec::{Compile, load};
 pub use wasixv2_exec::{
-    ExecError, Image, ImageId, InstrumentError, LoadError, Loader, instrument, is_preemptible,
-    is_wasixv2_module, warn_not_preemptible,
+    ExecEnv, ExecError, Image, ImageId, InstanceAttachment, InstantiationHook, InstrumentError,
+    LoadError, Loader, instrument, is_preemptible, is_wasixv2_module, warn_not_preemptible,
 };
 #[cfg(not(target_family = "wasm"))]
 pub use wasixv2_host::BlockingSource;
@@ -100,8 +100,9 @@ fn preflight(module: &Module) -> Result<(), RunError> {
 const COMMAND_DIRS: [&str; 2] = ["bin", "usr/bin"];
 
 /// The syscalls programs call: through the kernel's syscall entry (seccomp), traced, into the
-/// kernel.
-type Stack = Layered<SyscallEntry<Trace>, Kernel>;
+/// kernel. Custom instantiation hooks use this same stack.
+pub type MachineSyscalls = Layered<SyscallEntry<Trace>, Kernel>;
+type Stack = MachineSyscalls;
 
 fn stack(kernel: Kernel) -> Stack {
     Layered::new(SyscallEntry(Trace), kernel)
@@ -238,6 +239,7 @@ pub struct MachineBuilder {
     max_guest_tasks: Option<usize>,
     /// The embedder's loader; the ABIs' own default otherwise.
     loader: Option<Arc<dyn Loader>>,
+    instantiation_hooks: Vec<Arc<dyn InstantiationHook<Stack>>>,
     #[cfg(feature = "js")]
     js_async_mode: wasmer::js::AsyncMode,
     #[cfg(feature = "wasix1")]
@@ -280,6 +282,7 @@ impl MachineBuilder {
             init: true,
             max_guest_tasks: None,
             loader: None,
+            instantiation_hooks: Vec::new(),
             #[cfg(feature = "js")]
             js_async_mode: wasmer::js::AsyncMode::Blocking,
             #[cfg(feature = "wasix1")]
@@ -291,6 +294,13 @@ impl MachineBuilder {
             #[cfg(all(feature = "host-network", unix))]
             vsock: None,
         }
+    }
+
+    /// Adds ordered custom imports and paired setup to process, thread and side-module
+    /// instances. Registrations are retained across exec and root filesystem rebuilds.
+    pub fn instantiation_hook(mut self, hook: Arc<dyn InstantiationHook<MachineSyscalls>>) -> Self {
+        self.instantiation_hooks.push(hook);
+        self
     }
 
     /// Caps admitted guest tasks, including root-owned threads/processes. Kernel init is
@@ -414,6 +424,7 @@ impl MachineBuilder {
             init,
             max_guest_tasks,
             loader,
+            instantiation_hooks,
             #[cfg(feature = "js")]
             js_async_mode,
             #[cfg(feature = "wasix1")]
@@ -448,13 +459,17 @@ impl MachineBuilder {
             wasix1_limits,
             ..Wasix1Commands::default()
         };
-        let abis = Arc::new(abis(
+        let mut configured_abis = abis(
             loader,
             #[cfg(feature = "js")]
             js_async_mode,
             #[cfg(feature = "wasix1")]
             &wasix1,
-        ));
+        );
+        for hook in instantiation_hooks {
+            configured_abis.push_instantiation_hook(hook);
+        }
+        let abis = Arc::new(configured_abis);
         let kernel = boot(
             &time,
             root.clone(),

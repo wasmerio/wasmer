@@ -14,6 +14,7 @@ mod dynamic;
 mod fork;
 mod function;
 mod generated;
+mod instantiation;
 mod loader;
 mod memory;
 mod memory_image;
@@ -42,6 +43,9 @@ pub use abi::{
 pub use dynamic::GuestDynamicLinker;
 pub use function::{CallBufferPolicy, GuestFunctionOperations, TableMetadata};
 pub use generated::IMPORT_MODULE;
+pub use instantiation::{
+    InstanceAttachment, InstanceAttachments, InstanceHooks, InstantiationHook,
+};
 pub use loader::{Compile, LoadError, Loader};
 pub use memory::GuestMemory;
 pub use preempt::InstrumentError;
@@ -69,6 +73,8 @@ use crate::asyncify::Access;
 pub enum ExecError {
     #[error("cannot configure the execution Store: {0}")]
     StoreMode(wasmer::RuntimeError),
+    #[error("custom binding failed: {0}")]
+    CustomBinding(RuntimeError),
     #[error("instantiation failed: {0}")]
     Instantiate(Box<wasmer::InstantiationError>),
     #[error("missing export: {0}")]
@@ -106,6 +112,8 @@ pub struct ExecEnv<S> {
     syscalls: Arc<S>,
     host: Arc<dyn Host>,
     imports: Imports,
+    abi_imports: Option<Imports>,
+    hooks: Option<InstanceHooks>,
     cleanup: Option<Arc<wasixv2_host::LoaderCleanup>>,
     task: TaskId,
     /// `task`'s work flag, read on every return to the guest.
@@ -160,6 +168,8 @@ impl<S: Control> ExecEnv<S> {
             cpu: cputime::CpuSample::new(host.clone(), syscalls.cpu_account(task)),
             host,
             imports: Imports::new(),
+            abi_imports: None,
+            hooks: None,
             cleanup: None,
             page_access: syscalls.page_access(task),
             syscalls,
@@ -200,6 +210,11 @@ impl<S: Control> ExecEnv<S> {
 }
 
 impl<S> ExecEnv<S> {
+    /// The ordered custom binding hooks for this exact Store.
+    pub fn instance_hooks(&self) -> Option<&InstanceHooks> {
+        self.hooks.as_ref()
+    }
+
     pub fn loader_cleanup(&self) -> Option<&Arc<wasixv2_host::LoaderCleanup>> {
         self.cleanup.as_ref()
     }
@@ -212,6 +227,11 @@ impl<S> ExecEnv<S> {
     }
     pub fn imports(&self) -> &Imports {
         &self.imports
+    }
+    /// ABI imports before the main instance's extension overlay. Side modules prepare
+    /// fresh extension state instead of inheriting another instance's FunctionEnv.
+    pub fn abi_imports(&self) -> &Imports {
+        self.abi_imports.as_ref().unwrap_or(&self.imports)
     }
     pub fn syscalls(&self) -> &Arc<S> {
         &self.syscalls
@@ -686,8 +706,8 @@ impl Drop for Binding {
     }
 }
 
-struct Ready<S: 'static> {
-    store: Store,
+struct Ready<S: Send + Sync + 'static> {
+    store: Option<Store>,
     env: FunctionEnv<ExecEnv<S>>,
     instance: Instance,
     abi: Arc<dyn AbiInstance<S>>,
@@ -732,6 +752,7 @@ where
         ExecEnv::new(syscalls.clone(), task, proc, host.clone()),
     );
     env.as_mut(&mut store).cleanup = Some(cleanup);
+    abis.install_hooks(&mut store, &env);
     let mut imports = imports(&*abi, &mut store, &env, module);
     let size = fork.map(|image| image.memory.size());
     let imported = import_memory(&mut store, module, &mut imports, size)?;
@@ -752,118 +773,173 @@ where
     } else {
         (store, None, None)
     };
-    // Keep the legacy pre-bind environment for a default/None preparation.
-    env.as_mut(&mut store).imports = Imports::new();
-    if let Some(prepared) = &prepared {
-        imports.extend(prepared.imports());
-        preparation::verify_memory(module, &imports, imported.as_ref())?;
-    }
-    let instance = Instance::new(&mut store, module, &imports)?;
-    let memory = match imported {
-        Some(memory) => memory,
-        None => instance.exports.get_memory("memory")?.clone(),
-    };
-    // Decided from the module's own globals, before a fork child's copy replaces them.
-    let guarded = abi.guardable(&instance, &mut store);
-    let main_stack = abi.main_stack(&instance, &mut store);
-    let mut asyncify = asyncify::Asyncify::new(&instance, &mut store)?;
-    let layout = abi.image_layout(&instance, &memory, &mut store, asyncify.is_some());
-    if let Some(bootstrap) = &bootstrap
-        && (layout.as_ref() != bootstrap.layout.as_ref()
-            || main_stack != bootstrap.stack
-            || guarded != (bootstrap.guard != 0))
-    {
-        return Err(ExecError::Load(LoadError::Format(Errno::EINVAL)));
-    }
-    if let (Some(layout), Some(asyncify)) = (&layout, &mut asyncify)
-        && let Some(range) = layout.reserved.first()
-    {
-        asyncify.reserve_buffer(range.start as u32);
-    }
-    let read_only = if bootstrap.is_some() {
-        env.as_ref(&store).read_only.clone()
-    } else {
-        Arc::<memory::ReadOnly>::default()
-    };
-    // Before any guest code runs, and before the guard is protected: `MAP_FIXED` resets it.
-    let base = match fork {
-        Some(image) => {
-            let guard = if guarded { memory::LOW_GUARD } else { 0 };
-            copy_image(&mut store, &instance, &memory, image, (guard, &read_only))?;
-            if let Some(asyncify) = &mut asyncify {
-                image.adopt(asyncify);
-            }
-            image.memory.base().cloned()
+    let hooks = env.as_ref(&store).instance_hooks().cloned();
+    let configured = std::panic::catch_unwind(AssertUnwindSafe(|| -> Result<_, ExecError> {
+        // Keep the legacy pre-bind environment for a default/None preparation.
+        env.as_mut(&mut store).imports = Imports::new();
+        if let Some(prepared) = &prepared {
+            imports.extend(prepared.imports());
+            preparation::verify_memory(module, &imports, imported.as_ref())?;
         }
-        None => base::freeze(&memory, &store).map_err(ExecError::Base)?,
+        if hooks.is_some() {
+            env.as_mut(&mut store).abi_imports = Some(imports.clone());
+        }
+        let attachments = hooks
+            .as_ref()
+            .map(|hooks| {
+                hooks.prepare(
+                    module,
+                    &mut wasmer::AsStoreMut::as_store_mut(&mut store),
+                    &mut imports,
+                )
+            })
+            .transpose()
+            .map_err(ExecError::CustomBinding)?;
+        let instance = Instance::new(&mut store, module, &imports)?;
+        let memory = match imported {
+            Some(memory) => memory,
+            None => instance.exports.get_memory("memory")?.clone(),
+        };
+        // Decided from the module's own globals, before a fork child's copy replaces them.
+        let guarded = abi.guardable(&instance, &mut store);
+        let main_stack = abi.main_stack(&instance, &mut store);
+        let mut asyncify = asyncify::Asyncify::new(&instance, &mut store)?;
+        let layout = abi.image_layout(&instance, &memory, &mut store, asyncify.is_some());
+        if let Some(bootstrap) = &bootstrap
+            && (layout.as_ref() != bootstrap.layout.as_ref()
+                || main_stack != bootstrap.stack
+                || guarded != (bootstrap.guard != 0))
+        {
+            return Err(ExecError::Load(LoadError::Format(Errno::EINVAL)));
+        }
+        if let (Some(layout), Some(asyncify)) = (&layout, &mut asyncify)
+            && let Some(range) = layout.reserved.first()
+        {
+            asyncify.reserve_buffer(range.start as u32);
+        }
+        let read_only = if bootstrap.is_some() {
+            env.as_ref(&store).read_only.clone()
+        } else {
+            Arc::<memory::ReadOnly>::default()
+        };
+        // Before any guest code runs, and before the guard is protected: `MAP_FIXED` resets it.
+        let base = match fork {
+            Some(image) => {
+                let guard = if guarded { memory::LOW_GUARD } else { 0 };
+                copy_image(&mut store, &instance, &memory, image, (guard, &read_only))?;
+                if let Some(asyncify) = &mut asyncify {
+                    image.adopt(asyncify);
+                }
+                image.memory.base().cloned()
+            }
+            None => base::freeze(&memory, &store).map_err(ExecError::Base)?,
+        };
+        let low_guard = match guarded {
+            true => memory::protect_low(&memory, &store),
+            false => 0,
+        };
+        if bootstrap
+            .as_ref()
+            .is_some_and(|early| early.guard != low_guard)
+        {
+            return Err(ExecError::Load(LoadError::Format(Errno::EINVAL)));
+        }
+        let bound = match prepared {
+            Some(prepared) => prepared.bind(&instance, &mut store, task, Role::Process)?,
+            None => abi.bind(&instance, &mut store, task, Role::Process)?,
+        };
+        let shared = memory.as_shared(&store);
+        if let Some(shared) = &shared {
+            // Browser C1 posts registration here before attachment; foreign requests
+            // may complete through the independent JS copy worker without a readiness ack.
+            let foreign = memory::ForeignMemory::new(
+                shared.clone(),
+                low_guard,
+                read_only.clone(),
+                syscalls.page_access(task),
+            );
+            #[cfg(all(target_os = "linux", feature = "sys"))]
+            let foreign = foreign.with_base(base.clone());
+            syscalls.attach_memory(task, Arc::new(foreign));
+        }
+        // ---- thr ----
+        let threads = shared.map(|shared| {
+            let protected = (low_guard, read_only.clone(), base.clone());
+            let image = thread::Image::new(
+                &store,
+                module,
+                shared,
+                protected,
+                main_stack.clone(),
+                layout.clone(),
+                syscalls,
+                host,
+                abi.clone(),
+                abis,
+                handoff,
+            );
+            image as Arc<dyn thread::Start>
+        });
+        let data = env.as_mut(&mut store);
+        data.imports = imports.clone();
+        data.memory = Some(memory);
+        data.low_guard = low_guard;
+        data.main_stack = main_stack;
+        data.layout = layout;
+        data.read_only = read_only;
+        data.base = base;
+        data.stack_pointer = stack_pointer(&instance);
+        data.abi = Some(bound.clone());
+        data.threads = threads;
+        data.proc.set_module(module);
+        data.asyncify = asyncify;
+        let memory = env.as_ref(&store).memory().unwrap().clone();
+        if let Some(attachments) = &attachments {
+            attachments
+                .configure(
+                    module,
+                    &mut wasmer::AsStoreMut::as_store_mut(&mut store),
+                    &instance,
+                    &memory,
+                )
+                .map_err(ExecError::CustomBinding)?;
+        }
+        Ok((instance, bound))
+    }));
+    let (instance, bound) = match configured {
+        Ok(Ok(configured)) => configured,
+        Ok(Err(error)) => {
+            if let Some(hooks) = hooks {
+                hooks.deactivate(&mut wasmer::AsStoreMut::as_store_mut(&mut store));
+            }
+            return Err(error);
+        }
+        Err(panic) => {
+            if let Some(hooks) = hooks {
+                hooks.deactivate(&mut wasmer::AsStoreMut::as_store_mut(&mut store));
+            }
+            std::panic::resume_unwind(panic);
+        }
     };
-    let low_guard = match guarded {
-        true => memory::protect_low(&memory, &store),
-        false => 0,
-    };
-    if bootstrap
-        .as_ref()
-        .is_some_and(|early| early.guard != low_guard)
-    {
-        return Err(ExecError::Load(LoadError::Format(Errno::EINVAL)));
-    }
-    let bound = match prepared {
-        Some(prepared) => prepared.bind(&instance, &mut store, task, Role::Process)?,
-        None => abi.bind(&instance, &mut store, task, Role::Process)?,
-    };
-    let shared = memory.as_shared(&store);
-    if let Some(shared) = &shared {
-        // Browser C1 posts registration here before attachment; foreign requests
-        // may complete through the independent JS copy worker without a readiness ack.
-        let foreign = memory::ForeignMemory::new(
-            shared.clone(),
-            low_guard,
-            read_only.clone(),
-            syscalls.page_access(task),
-        );
-        #[cfg(all(target_os = "linux", feature = "sys"))]
-        let foreign = foreign.with_base(base.clone());
-        syscalls.attach_memory(task, Arc::new(foreign));
-    }
-    // ---- thr ----
-    let threads = shared.map(|shared| {
-        let protected = (low_guard, read_only.clone(), base.clone());
-        let image = thread::Image::new(
-            &store,
-            module,
-            shared,
-            protected,
-            main_stack.clone(),
-            layout.clone(),
-            syscalls,
-            host,
-            abi.clone(),
-            abis,
-            handoff,
-        );
-        image as Arc<dyn thread::Start>
-    });
-    let data = env.as_mut(&mut store);
-    data.imports = imports.clone();
-    data.memory = Some(memory);
-    data.low_guard = low_guard;
-    data.main_stack = main_stack;
-    data.layout = layout;
-    data.read_only = read_only;
-    data.base = base;
-    data.stack_pointer = stack_pointer(&instance);
-    data.abi = Some(bound.clone());
-    data.threads = threads;
-    data.proc.set_module(module);
-    data.asyncify = asyncify;
     Ok(Ready {
-        store,
+        store: Some(store),
         env,
         instance,
         abi: bound,
         image_abi: abi,
         admission,
     })
+}
+
+impl<S: Send + Sync + 'static> Drop for Ready<S> {
+    fn drop(&mut self) {
+        if let Some(store) = &mut self.store {
+            let hooks = self.env.as_ref(store).instance_hooks().cloned();
+            if let Some(hooks) = hooks {
+                hooks.deactivate(&mut wasmer::AsStoreMut::as_store_mut(store));
+            }
+        }
+    }
 }
 
 /// The instance's `__stack_pointer`, if it exports it.
@@ -949,12 +1025,24 @@ fn map_inherited(
 
 impl<S: Syscalls + Control + Send + Sync + 'static> Ready<S> {
     /// Runs the image from its ABI's entry point until it exits, traps or `execve` replaces it.
-    async fn start(self) -> Ended {
-        let store = self.store.into_async();
+    async fn start(mut self) -> Ended {
+        let hooks = self
+            .env
+            .as_ref(self.store.as_ref().unwrap())
+            .instance_hooks()
+            .cloned();
+        let scope = self
+            .env
+            .as_ref(self.store.as_ref().unwrap())
+            .loader_cleanup()
+            .unwrap()
+            .clone();
+        let store = self.store.take().unwrap().into_async();
+        let mut attachments = hooks.map(|hooks| hooks.guard(&store, scope));
         let entry = Entry::new(&self.env, &store);
         let mut prepared = self.abi.prepare_entry(&entry).await;
         let _registration = if prepared.is_ok() {
-            match self.admission {
+            match self.admission.take() {
                 Some(binding) => {
                     let syscalls = entry.with_store(|env, _| env.syscalls.clone()).await;
                     match binding.finish(&*self.image_abi, &*syscalls).await {
@@ -969,7 +1057,7 @@ impl<S: Syscalls + Control + Send + Sync + 'static> Ready<S> {
                 None => None,
             }
         } else {
-            drop(self.admission);
+            drop(self.admission.take());
             None
         };
         let result = match prepared {
@@ -978,6 +1066,9 @@ impl<S: Syscalls + Control + Send + Sync + 'static> Ready<S> {
         };
         let on_return = self.abi.on_entry_return();
         let ended = ended(entry.cx(), result, on_return, Role::Process).await;
+        if let Some(attachments) = &mut attachments {
+            attachments.deactivate().await;
+        }
         if let Err(error) = self.abi.retire(&entry).await {
             tracing::error!(%error, "loader store retirement failed");
         }
@@ -987,14 +1078,26 @@ impl<S: Syscalls + Control + Send + Sync + 'static> Ready<S> {
     /// Rewinds a forked child's copied stack, from `buffer`, into the export `entry` the
     /// parent forked under, and runs it until the image exits, traps or `execve` replaces it.
     async fn resume_fork(
-        self,
+        mut self,
         entry: &'static str,
         args: Vec<Value>,
         buffer: u32,
     ) -> Result<Ended, ExecError> {
         let function = self.instance.exports.get_function(entry)?.clone();
-        let _registration = self.admission.map(Binding::install);
-        let store = self.store.into_async();
+        let _registration = self.admission.take().map(Binding::install);
+        let hooks = self
+            .env
+            .as_ref(self.store.as_ref().unwrap())
+            .instance_hooks()
+            .cloned();
+        let scope = self
+            .env
+            .as_ref(self.store.as_ref().unwrap())
+            .loader_cleanup()
+            .unwrap()
+            .clone();
+        let store = self.store.take().unwrap().into_async();
+        let mut attachments = hooks.map(|hooks| hooks.guard(&store, scope));
         let cx = asyncify::Outside {
             env: &self.env,
             store: &store,
@@ -1006,7 +1109,11 @@ impl<S: Syscalls + Control + Send + Sync + 'static> Ready<S> {
             Err(err) => Err(err),
         };
         let on_return = self.abi.on_entry_return();
-        Ok(ended(&cx, result, on_return, Role::Process).await)
+        let ended = ended(&cx, result, on_return, Role::Process).await;
+        if let Some(attachments) = &mut attachments {
+            attachments.deactivate().await;
+        }
+        Ok(ended)
     }
 }
 

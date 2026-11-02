@@ -1180,9 +1180,9 @@ mod tests {
         ))
         .unwrap();
         let access = Arc::new(PageAccess::default());
-        ready.env.as_mut(&mut ready.store).page_access = Some(access.clone());
+        ready.env.as_mut(ready.store.as_mut().unwrap()).page_access = Some(access.clone());
         let check = wasmer::Function::new_typed_with_env_async(
-            &mut ready.store,
+            ready.store.as_mut().unwrap(),
             &ready.env,
             move |env: AsyncFunctionEnvMut<ExecEnv<Recorder>>| {
                 let access = access.clone();
@@ -1236,7 +1236,10 @@ mod tests {
                 }
             },
         );
-        futures::executor::block_on(check.call_async(&ready.store.into_async(), vec![])).unwrap();
+        futures::executor::block_on(
+            check.call_async(&ready.store.take().unwrap().into_async(), vec![]),
+        )
+        .unwrap();
     }
 
     #[test]

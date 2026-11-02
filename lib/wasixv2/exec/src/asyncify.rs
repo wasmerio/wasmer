@@ -864,6 +864,8 @@ mod tests {
                 syscalls: Arc::new(()),
                 host: Arc::new(crate::cputime::tests::Clocks::default()),
                 imports: wasmer::Imports::new(),
+                abi_imports: None,
+                hooks: None,
                 cleanup: None,
                 task: TaskId(1),
                 work: Arc::new(wasixv2_syscalls::WorkFlag::always()),
