@@ -255,9 +255,9 @@ pub async fn call_guest<S: 'static>(
     function: &Function,
     args: &[Value],
 ) -> Result<Box<[Value]>, RuntimeError> {
-    let previous_mode = env.read().await.data().cpu.replace_mode(false);
+    let mode = env.write().await.data_mut().cpu.guest_mode();
     let result = asyncify::call(env, None, function, args).await;
-    env.read().await.data().cpu.replace_mode(previous_mode);
+    drop(mode);
     result
 }
 
