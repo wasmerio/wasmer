@@ -899,6 +899,37 @@ thread_local! {
     static TRAP_HANDLER: AtomicPtr<TrapHandlerContext> = const { AtomicPtr::new(ptr::null_mut()) };
 }
 
+/// Trap TLS belonging to one suspended native execution stack.
+/// This token does not own the stack containing its pointers.
+#[doc(hidden)]
+#[derive(Default)]
+pub struct SavedTrapState {
+    handler: *mut TrapHandlerContext,
+    yielder: Option<NonNull<Yielder<(), UnwindReason>>>,
+    _thread: std::marker::PhantomData<*mut ()>,
+}
+
+impl SavedTrapState {
+    /// Exchanges the current thread's trap TLS without dereferencing either
+    /// stack's pointers.
+    ///
+    /// # Safety
+    /// All stacks referenced by `self` must remain alive on this thread until
+    /// their handlers leave normally or another exchange removes their state.
+    /// The returned state must be restored before its caller stack resumes.
+    pub unsafe fn replace_current(self) -> Self {
+        compiler_fence(Ordering::Release);
+        let handler = TRAP_HANDLER.with(|ptr| ptr.swap(self.handler, Ordering::Relaxed));
+        let yielder = YIELDER.with(|cell| cell.replace(self.yielder));
+        compiler_fence(Ordering::Acquire);
+        Self {
+            handler,
+            yielder,
+            _thread: std::marker::PhantomData,
+        }
+    }
+}
+
 /// Read-only information that is used by signal handlers to handle and recover
 /// from traps.
 #[allow(clippy::type_complexity)]
