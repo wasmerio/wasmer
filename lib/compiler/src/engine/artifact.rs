@@ -44,9 +44,6 @@ use crate::engine::mapped_binary::DebugInfoSource;
 #[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
 use std::mem;
 
-#[cfg(feature = "static-artifact-create")]
-use object::write::Object;
-
 use wasmer_types::{
     ArchivedDataInitializerLocation, ArchivedOwnedDataInitializer, CompileError, DataInitializer,
     DataInitializerLike, DataInitializerLocation, DataInitializerLocationLike, DeserializeError,
