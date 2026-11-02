@@ -467,3 +467,144 @@ fn async_host_rethrows_nested_exception() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+#[cfg(feature = "sys")]
+fn host_abort_crosses_nested_async_imports_without_running_guest_catches() -> Result<()> {
+    use std::sync::Arc;
+    #[derive(Debug, thiserror::Error)]
+    #[error("host aborted")]
+    struct Aborted(Arc<()>);
+    let payload = Arc::new(());
+    let original = RuntimeError::host_abort(Box::new(Aborted(payload.clone())));
+    let mut store = Store::default();
+    let module = Module::new(
+        &store,
+        r#"(module
+          (import "host" "leaf" (func $leaf))
+          (import "host" "nested" (func $nested))
+          (global $continued (mut i32) (i32.const 0))
+          (func (export "leaf_guest")
+            (block $caught
+              (try_table (catch_all $caught) (call $leaf))
+              (global.set $continued (i32.const 1)) (return))
+            (global.set $continued (i32.const 2)))
+          (func (export "run")
+            (block $caught
+              (try_table (catch_all $caught) (call $nested))
+              (global.set $continued (i32.const 3)) (return))
+            (global.set $continued (i32.const 4)))
+          (func (export "continued") (result i32) global.get $continued))"#,
+    )?;
+    let leaf = Function::new_typed_async(&mut store, {
+        let error = original.clone();
+        move || {
+            let error = error.clone();
+            async move {
+                tokio::task::yield_now().await;
+                Err::<(), _>(error)
+            }
+        }
+    });
+    let env = FunctionEnv::new(&mut store, None::<Function>);
+    let nested = Function::new_typed_with_env_async(
+        &mut store,
+        &env,
+        async |env: AsyncFunctionEnvMut<Option<Function>>| -> Result<(), RuntimeError> {
+            let function = env.read().await.data().clone().unwrap();
+            function.call_async(&env.as_store_async(), vec![]).await?;
+            Ok(())
+        },
+    );
+    let instance = Instance::new(
+        &mut store,
+        &module,
+        &imports! {"host"=>{"leaf"=>leaf, "nested"=>nested}},
+    )?;
+    *env.as_mut(&mut store) = Some(instance.exports.get_function("leaf_guest")?.clone());
+    let store = store.into_async();
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()?;
+    for name in ["leaf_guest", "run"] {
+        let error = runtime
+            .block_on(
+                instance
+                    .exports
+                    .get_function(name)?
+                    .call_async(&store, vec![]),
+            )
+            .unwrap_err();
+        assert!(error.is_host_abort());
+        assert!(Arc::ptr_eq(
+            &error.downcast_ref::<Aborted>().unwrap().0,
+            &payload
+        ));
+    }
+    let result = runtime.block_on(
+        instance
+            .exports
+            .get_function("continued")?
+            .call_async(&store, vec![]),
+    )?;
+    assert_eq!(result[0].i32(), Some(0));
+    Ok(())
+}
+
+#[test]
+#[cfg(feature = "sys")]
+fn explicit_host_abort_keeps_a_nested_guest_exception_uncatchable() -> Result<()> {
+    use std::sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    };
+    let abort = Arc::new(AtomicBool::new(false));
+    let mut store = Store::default();
+    let module = Module::new(
+        &store,
+        r#"(module
+      (import "host" "nested" (func $nested))
+      (tag $error (param i32))
+      (func (export "raise") i32.const 42 throw $error)
+      (func (export "run") (result i32)
+        (block $caught (result i32)
+          (try_table (catch $error $caught) call $nested)
+          i32.const 0 return)))"#,
+    )?;
+    let env = FunctionEnv::new(&mut store, None::<Function>);
+    let nested = Function::new_typed_with_env_async(&mut store, &env, {
+        let abort = abort.clone();
+        move |env: AsyncFunctionEnvMut<Option<Function>>| {
+            let abort = abort.clone();
+            async move {
+                let function = env.read().await.data().clone().unwrap();
+                let error = function
+                    .call_async(&env.as_store_async(), vec![])
+                    .await
+                    .unwrap_err();
+                assert!(error.is_exception());
+                Err::<(), _>(if abort.load(Ordering::Relaxed) {
+                    RuntimeError::host_abort(Box::new(error))
+                } else {
+                    error
+                })
+            }
+        }
+    });
+    let instance = Instance::new(&mut store, &module, &imports! {"host"=>{"nested"=>nested}})?;
+    *env.as_mut(&mut store) = Some(instance.exports.get_function("raise")?.clone());
+    let run = instance.exports.get_function("run")?;
+    let store = store.into_async();
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()?;
+    let caught = runtime.block_on(run.call_async(&store, vec![]))?;
+    assert_eq!(caught[0].i32(), Some(42));
+    abort.store(true, Ordering::Relaxed);
+    let error = runtime
+        .block_on(run.call_async(&store, vec![]))
+        .unwrap_err();
+    assert!(error.is_host_abort());
+    assert!(error.is_exception());
+    Ok(())
+}

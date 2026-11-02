@@ -712,6 +712,7 @@ where
         Err(trap) => {
             let dyn_err_ref = &trap as &dyn Error;
             if let Some(runtime_error) = dyn_err_ref.downcast_ref::<RuntimeError>()
+                && !runtime_error.is_host_abort()
                 && let Some(exception) = runtime_error.to_exception()
             {
                 return InvocationResult::Exception(exception);

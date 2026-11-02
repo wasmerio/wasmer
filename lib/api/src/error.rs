@@ -70,6 +70,7 @@ pub enum InstantiationError {
 #[derive(Clone)]
 pub struct RuntimeError {
     pub(crate) inner: Arc<RuntimeErrorInner>,
+    host_abort: bool,
 }
 
 #[derive(Debug)]
@@ -143,6 +144,7 @@ impl RuntimeError {
                 wasm_trace,
                 trap_code,
             }),
+            host_abort: false,
         }
     }
 
@@ -155,6 +157,23 @@ impl RuntimeError {
             Ok(err) => *err,
             Err(error) => error.into(),
         }
+    }
+
+    /// Aborts the current guest invocation without allowing a guest exception
+    /// handler to resume it. The original typed error remains available through
+    /// [`Self::downcast_ref`], including after cloning or crossing host frames.
+    ///
+    /// Use this for host cancellation and internal execution control only.
+    /// Ordinary guest exceptions should retain their existing catchability.
+    pub fn host_abort(error: Box<dyn std::error::Error + Send + Sync>) -> Self {
+        let mut error = Self::user(error);
+        error.host_abort = true;
+        error
+    }
+
+    /// Whether this error explicitly aborts the invocation through guest handlers.
+    pub fn is_host_abort(&self) -> bool {
+        self.host_abort
     }
 
     /// Creates a `RuntimeError` containing an exception.
@@ -208,8 +227,12 @@ impl RuntimeError {
             Ok(inner) if inner.source.is::<T>() => Ok(inner.source.downcast::<T>().unwrap()),
             Ok(inner) => Err(Self {
                 inner: Arc::new(inner),
+                host_abort: self.host_abort,
             }),
-            Err(inner) => Err(Self { inner }),
+            Err(inner) => Err(Self {
+                inner,
+                host_abort: self.host_abort,
+            }),
         }
     }
 

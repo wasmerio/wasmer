@@ -123,6 +123,150 @@ async fn typed_async_host_and_guest_calls_use_jspi() {
 }
 
 #[wasm_bindgen_test]
+async fn host_abort_keeps_its_type_through_jspi_and_nested_guest_catches() {
+    use std::sync::Arc;
+    use wasmer::{AsyncFunctionEnvMut, FunctionEnv, RuntimeError};
+    #[derive(Debug, thiserror::Error)]
+    #[error("host aborted")]
+    struct Aborted(Arc<()>);
+    let payload = Arc::new(());
+    let original = RuntimeError::host_abort(Box::new(Aborted(payload.clone())));
+    let mut store = Store::default();
+    wasmer::js::set_async_mode(&mut store, wasmer::js::AsyncMode::Jspi).unwrap();
+    let module = Module::new(
+        &store,
+        r#"(module
+          (import "host" "leaf" (func $leaf))
+          (import "host" "nested" (func $nested))
+          (global $continued (mut i32) (i32.const 0))
+          (func (export "leaf_guest")
+            (block $caught
+              (try_table (catch_all $caught) (call $leaf))
+              (global.set $continued (i32.const 1)) (return))
+            (global.set $continued (i32.const 2)))
+          (func (export "run")
+            (block $caught
+              (try_table (catch_all $caught) (call $nested))
+              (global.set $continued (i32.const 3)) (return))
+            (global.set $continued (i32.const 4)))
+          (func (export "continued") (result i32) global.get $continued))"#,
+    )
+    .unwrap();
+    let leaf = Function::new_typed_async(&mut store, {
+        let error = original.clone();
+        move || {
+            let error = error.clone();
+            async move {
+                JsFuture::from(Promise::resolve(&JsValue::UNDEFINED))
+                    .await
+                    .unwrap();
+                Err::<(), _>(error)
+            }
+        }
+    });
+    let env = FunctionEnv::new(&mut store, None::<Function>);
+    let nested = Function::new_typed_with_env_async(
+        &mut store,
+        &env,
+        async |env: AsyncFunctionEnvMut<Option<Function>>| -> Result<(), RuntimeError> {
+            let function = env.read().await.data().clone().unwrap();
+            function.call_async(&env.as_store_async(), vec![]).await?;
+            Ok(())
+        },
+    );
+    let instance = Instance::new(
+        &mut store,
+        &module,
+        &imports! {"host"=>{"leaf"=>leaf, "nested"=>nested}},
+    )
+    .unwrap();
+    *env.as_mut(&mut store) = Some(instance.exports.get_function("leaf_guest").unwrap().clone());
+    let store = store.into_async();
+    for name in ["leaf_guest", "run"] {
+        let error = instance
+            .exports
+            .get_function(name)
+            .unwrap()
+            .call_async(&store, vec![])
+            .await
+            .unwrap_err();
+        assert!(error.is_host_abort());
+        assert!(Arc::ptr_eq(
+            &error.downcast_ref::<Aborted>().unwrap().0,
+            &payload
+        ));
+    }
+    let continued = instance
+        .exports
+        .get_function("continued")
+        .unwrap()
+        .call_async(&store, vec![])
+        .await
+        .unwrap();
+    assert_eq!(continued[0].i32(), Some(0));
+}
+
+#[wasm_bindgen_test]
+fn synchronous_host_abort_bypasses_guest_catches_and_preserves_ordinary_errors() {
+    use std::sync::Arc;
+    use wasmer::RuntimeError;
+    #[derive(Debug, thiserror::Error)]
+    #[error("synchronous host error")]
+    struct Payload(Arc<()>);
+    for abort in [false, true] {
+        let payload = Arc::new(());
+        let error: Box<dyn std::error::Error + Send + Sync> = Box::new(Payload(payload.clone()));
+        let error = if abort {
+            RuntimeError::host_abort(error)
+        } else {
+            RuntimeError::user(error)
+        };
+        let mut store = Store::default();
+        let env = wasmer::FunctionEnv::new(&mut store, error);
+        let host = Function::new_typed_with_env(
+            &mut store,
+            &env,
+            |env: wasmer::FunctionEnvMut<RuntimeError>| Err::<(), _>(env.data().clone()),
+        );
+        let module = Module::new(
+            &store,
+            r#"(module
+          (import "host" "raise" (func $raise))
+          (global $continued (mut i32) (i32.const 0))
+          (func (export "run")
+            (block $caught (try_table (catch_all $caught) call $raise))
+            i32.const 1 global.set $continued)
+          (func (export "continued") (result i32) global.get $continued))"#,
+        )
+        .unwrap();
+        let instance =
+            Instance::new(&mut store, &module, &imports! {"host"=>{"raise"=>host}}).unwrap();
+        let result = instance
+            .exports
+            .get_function("run")
+            .unwrap()
+            .call(&mut store, &[]);
+        if abort {
+            let error = result.unwrap_err();
+            assert!(error.is_host_abort());
+            assert!(Arc::ptr_eq(
+                &error.downcast_ref::<Payload>().unwrap().0,
+                &payload
+            ));
+        } else {
+            result.unwrap();
+        }
+        let continued = instance
+            .exports
+            .get_function("continued")
+            .unwrap()
+            .call(&mut store, &[])
+            .unwrap();
+        assert_eq!(continued[0].i32(), Some(i32::from(!abort)));
+    }
+}
+
+#[wasm_bindgen_test]
 async fn blocking_async_calls_need_no_jspi_and_allow_nested_store_borrows() {
     let _no_jspi = NoJspi::new();
     use wasmer::{AsyncFunctionEnvMut, FunctionEnv};
