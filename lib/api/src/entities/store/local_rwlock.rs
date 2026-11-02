@@ -13,12 +13,30 @@ use std::future::Future;
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
 use std::pin::Pin;
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 use std::task::{Context, Poll, Waker};
 
 /// The main lock type.
 pub struct LocalRwLock<T> {
     inner: Rc<LocalRwLockInner<T>>,
+}
+
+pub(crate) struct WeakLocalRwLock<T> {
+    inner: Weak<LocalRwLockInner<T>>,
+}
+
+impl<T> Clone for WeakLocalRwLock<T> {
+    fn clone(&self) -> Self {
+        Self {
+            inner: self.inner.clone(),
+        }
+    }
+}
+
+impl<T> WeakLocalRwLock<T> {
+    pub(crate) fn upgrade(&self) -> Option<LocalRwLock<T>> {
+        self.inner.upgrade().map(|inner| LocalRwLock { inner })
+    }
 }
 
 struct LocalRwLockInner<T> {
@@ -73,6 +91,12 @@ enum LockState {
 }
 
 impl<T> LocalRwLock<T> {
+    pub(crate) fn downgrade(&self) -> WeakLocalRwLock<T> {
+        WeakLocalRwLock {
+            inner: Rc::downgrade(&self.inner),
+        }
+    }
+
     /// Creates a new `LocalRwLock` with the given value.
     pub fn new(value: T) -> Self {
         Self {

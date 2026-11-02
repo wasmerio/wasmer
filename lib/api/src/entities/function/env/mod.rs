@@ -92,6 +92,27 @@ impl<T: Send + 'static> FunctionEnvMut<'_, T> {
     pub fn as_store_async(&self) -> Option<impl AsStoreAsync + 'static> {
         self.0.as_store_async()
     }
+
+    /// Captures this environment's asynchronous JavaScript Store, when active.
+    /// The returned handle owns the Store; use its weak form for state which
+    /// the Store itself owns.
+    #[cfg(all(feature = "experimental-async", feature = "js"))]
+    pub fn as_async_mut(&self) -> Option<AsyncFunctionEnvMut<T>> {
+        let id = self.as_store_ref().inner.objects.id();
+        match &self.0 {
+            BackendFunctionEnvMut::Js(env) => {
+                let store = crate::backend::js::jspi::active_store(id)?;
+                Some(AsyncFunctionEnvMut(BackendAsyncFunctionEnvMut::Js(
+                    crate::backend::js::function::env::AsyncFunctionEnvMut {
+                        store,
+                        func_env: env.func_env.clone(),
+                    },
+                )))
+            }
+            #[allow(unreachable_patterns)]
+            _ => None,
+        }
+    }
 }
 
 impl<T> AsStoreRef for FunctionEnvMut<'_, T> {
@@ -124,6 +145,53 @@ where
 #[cfg(feature = "experimental-async")]
 pub struct AsyncFunctionEnvMut<T>(pub(crate) BackendAsyncFunctionEnvMut<T>);
 
+/// A function environment handle which does not keep its Store alive.
+#[cfg(feature = "experimental-async")]
+pub struct WeakAsyncFunctionEnvMut<T> {
+    store: crate::WeakStoreAsync,
+    env: FunctionEnv<T>,
+}
+
+#[cfg(feature = "experimental-async")]
+impl<T> Clone for WeakAsyncFunctionEnvMut<T> {
+    fn clone(&self) -> Self {
+        Self {
+            store: self.store.clone(),
+            env: self.env.clone(),
+        }
+    }
+}
+
+#[cfg(feature = "experimental-async")]
+impl<T: 'static> WeakAsyncFunctionEnvMut<T> {
+    /// Acquires an owning handle if the original asynchronous Store still exists.
+    /// This does not acquire a Store lock or borrow an ambient Store context.
+    pub fn upgrade(&self) -> Option<AsyncFunctionEnvMut<T>> {
+        let store = self.store.upgrade()?;
+        let env = match &self.env.0 {
+            #[cfg(feature = "sys")]
+            BackendFunctionEnv::Sys(env) => BackendAsyncFunctionEnvMut::Sys(
+                crate::backend::sys::function::env::AsyncFunctionEnvMut {
+                    store: crate::backend::sys::function::env::AsyncFunctionEnvMutStore::Async(
+                        store,
+                    ),
+                    func_env: env.clone(),
+                },
+            ),
+            #[cfg(feature = "js")]
+            BackendFunctionEnv::Js(env) => BackendAsyncFunctionEnvMut::Js(
+                crate::backend::js::function::env::AsyncFunctionEnvMut {
+                    store,
+                    func_env: env.clone(),
+                },
+            ),
+            #[cfg(feature = "v8")]
+            _ => return None,
+        };
+        Some(AsyncFunctionEnvMut(env))
+    }
+}
+
 /// A read-only handle to the [`FunctionEnv`] in an [`AsyncFunctionEnvMut`].
 #[cfg(feature = "experimental-async")]
 pub struct AsyncFunctionEnvHandle<T>(pub(crate) BackendAsyncFunctionEnvHandle<T>);
@@ -134,6 +202,28 @@ pub struct AsyncFunctionEnvHandleMut<T>(pub(crate) BackendAsyncFunctionEnvHandle
 
 #[cfg(feature = "experimental-async")]
 impl<T: 'static> AsyncFunctionEnvMut<T> {
+    /// Returns a weak handle without retaining the asynchronous Store.
+    /// A synchronous environment has no asynchronous Store to downgrade.
+    pub fn downgrade(&self) -> Option<WeakAsyncFunctionEnvMut<T>> {
+        let store = match &self.0 {
+            #[cfg(feature = "sys")]
+            BackendAsyncFunctionEnvMut::Sys(env) => match &env.store {
+                crate::backend::sys::function::env::AsyncFunctionEnvMutStore::Async(store) => store,
+                crate::backend::sys::function::env::AsyncFunctionEnvMutStore::Sync(_) => {
+                    return None;
+                }
+            },
+            #[cfg(feature = "js")]
+            BackendAsyncFunctionEnvMut::Js(env) => &env.store,
+            #[cfg(feature = "v8")]
+            _ => return None,
+        };
+        Some(WeakAsyncFunctionEnvMut {
+            store: store.downgrade(),
+            env: self.as_ref(),
+        })
+    }
+
     /// Waits for a store lock and returns a read-only handle to the
     /// function environment.
     pub async fn read(&self) -> AsyncFunctionEnvHandle<T> {

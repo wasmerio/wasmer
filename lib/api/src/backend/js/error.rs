@@ -343,6 +343,8 @@ mod tests {
         assert!(!js_sys::Object::is(&first, &second));
         let restored = RuntimeError::from(second);
         assert!(std::sync::Arc::ptr_eq(&abort.inner, &restored.inner));
+        #[allow(clippy::infallible_destructuring_match)]
+        // The fallback applies with other backends enabled.
         let trap = match &restored.inner.source {
             crate::BackendTrap::Js(trap) => trap,
             #[cfg(any(feature = "sys", feature = "v8"))]

@@ -117,6 +117,13 @@ impl Memory {
         Self::from_vm_extern(new_store, VMExternMemory::Js(memory))
     }
 
+    /// Returns the memory's current JavaScript ArrayBuffer or SharedArrayBuffer.
+    /// Obtain it again after growing the memory; previously returned buffers
+    /// retain JavaScript's normal detachment and shared-memory semantics.
+    pub fn js_buffer(&self) -> wasm_bindgen::JsValue {
+        self.handle.memory.buffer()
+    }
+
     pub(crate) fn to_vm_extern(&self) -> VMExtern {
         VMExtern::Js(crate::js::vm::VMExtern::Memory(self.handle.clone()))
     }
