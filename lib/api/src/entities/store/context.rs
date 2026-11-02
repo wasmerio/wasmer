@@ -87,6 +87,8 @@ pub(crate) struct StoreContext {
     // keep track of how many borrows there are so we don't drop
     // it prematurely.
     borrow_count: u32,
+    // A paused reference remains alive on the retained synchronous frame.
+    paused_borrows: u32,
     entry: UnsafeCell<StoreContextEntry>,
 }
 
@@ -122,6 +124,16 @@ pub(crate) enum GetStoreAsyncGuardResult {
 pub(crate) struct ForcedStoreInstallGuard {
     store_id: StoreId,
     installation: StoreContextId,
+}
+
+/// Exact synchronous installations owned by one suspended native stack.
+#[cfg(all(feature = "experimental-async", feature = "sys"))]
+#[derive(Default)]
+pub(crate) struct SuspendedStoreContexts {
+    entries: Vec<StoreContext>,
+    prefix: Vec<StoreContextId>,
+    root_depth: Option<usize>,
+    root_paused_borrows: u32,
 }
 
 pub(crate) struct StoreInstallGuard {
@@ -172,6 +184,7 @@ impl StoreContext {
                 id,
                 installation,
                 borrow_count: 0,
+                paused_borrows: 0,
                 entry: UnsafeCell::new(entry),
             });
         });
@@ -343,6 +356,7 @@ impl StoreContext {
             assert_eq!(top.id, id, "Mismatched store context access");
             let ref_count_decremented = if top.borrow_count > 0 {
                 top.borrow_count -= 1;
+                top.paused_borrows += 1;
                 true
             } else {
                 false
@@ -513,6 +527,84 @@ impl StoreContext {
         });
         // Unlocking an async Store can wake arbitrary code that reenters TLS.
         drop(removed);
+    }
+
+    #[cfg(all(feature = "experimental-async", feature = "sys"))]
+    pub(crate) fn can_suspend_suffix(installation: StoreContextId) -> bool {
+        STORE_CONTEXT_STACK.with(|cell| {
+            let stack = cell.borrow();
+            let Some(depth) = stack
+                .iter()
+                .position(|ctx| ctx.installation == installation)
+            else {
+                return false;
+            };
+            // The existing same-Store path has no synchronous suffix. Its
+            // retained-borrow ownership requires a separate Store loan mechanism.
+            stack.len() == depth + 1 || Self::suspendable_suffix(&stack, depth)
+        })
+    }
+
+    #[cfg(all(feature = "experimental-async", feature = "sys"))]
+    fn suspendable_suffix(stack: &[Self], depth: usize) -> bool {
+        let root = &stack[depth];
+        matches!(unsafe { &*root.entry.get() }, StoreContextEntry::Async(_))
+            && root.borrow_count == 0
+            && root.paused_borrows == 0
+            && stack[depth + 1..].iter().all(|ctx| {
+                ctx.borrow_count == 0
+                    && ctx.paused_borrows == 0
+                    && ctx.id != root.id
+                    && matches!(unsafe { &*ctx.entry.get() }, StoreContextEntry::Sync(_))
+            })
+    }
+}
+
+#[cfg(all(feature = "experimental-async", feature = "sys"))]
+impl ForcedStoreInstallGuard {
+    pub(crate) fn suspend_suffix(&self, suspended: &mut SuspendedStoreContexts) {
+        STORE_CONTEXT_STACK.with(|cell| {
+            let mut stack = cell.borrow_mut();
+            let depth = stack
+                .iter()
+                .position(|ctx| ctx.installation == self.installation)
+                .expect("native Store root is not installed");
+            assert!(suspended.root_depth.is_none() && suspended.entries.is_empty());
+            // Checked before physical suspension; no callback may run before
+            // this transfer of the original derived pointers and installations.
+            if stack.len() > depth + 1 {
+                assert!(StoreContext::suspendable_suffix(&stack, depth));
+            }
+            suspended
+                .prefix
+                .extend(stack[..depth].iter().map(|ctx| ctx.installation));
+            suspended.root_depth = Some(depth);
+            suspended.root_paused_borrows = stack[depth].paused_borrows;
+            suspended.entries = stack.split_off(depth + 1);
+        });
+    }
+
+    pub(crate) fn restore_suffix(&self, suspended: &mut SuspendedStoreContexts) {
+        let Some(depth) = suspended.root_depth else {
+            return;
+        };
+        STORE_CONTEXT_STACK.with(|cell| {
+            let mut stack = cell.borrow_mut();
+            assert_eq!(stack.len(), depth + 1, "native Store prefix changed");
+            stack[depth].assert_installation(self.store_id, self.installation);
+            assert_eq!(stack[depth].paused_borrows, 0);
+            assert!(
+                stack[..depth]
+                    .iter()
+                    .map(|ctx| ctx.installation)
+                    .eq(suspended.prefix.iter().copied()),
+                "native Store prefix installations changed"
+            );
+            stack[depth].paused_borrows = std::mem::take(&mut suspended.root_paused_borrows);
+            stack.append(&mut suspended.entries);
+            suspended.prefix.clear();
+            suspended.root_depth = None;
+        });
     }
 }
 
@@ -686,6 +778,7 @@ impl Drop for StorePtrPauseGuard {
                 .expect("No store context installed on this thread");
             top.assert_installation(self.store_id, self.installation);
             if self.ref_count_decremented {
+                top.paused_borrows -= 1;
                 top.borrow_count += 1;
             }
         })
@@ -964,5 +1057,103 @@ mod borrow_provenance {
 
         drop(wrapper);
         drop(install);
+    }
+}
+
+#[cfg(all(test, feature = "experimental-async", feature = "sys"))]
+mod native_suspension {
+    use super::*;
+    use crate::Store;
+
+    #[test]
+    fn nested_sync_installations_keep_their_pointers_and_identity() {
+        let store = Store::default().into_async();
+        let root_id = StoreContext::new_installation_id();
+        let root = StoreContext::install_async_with_id(store.inner.try_write().unwrap(), root_id);
+        let mut other = Store::default();
+        let other_id = other.id();
+        let other_ptr = other.as_store_mut().inner as *mut StoreInner;
+        let nested = unsafe { StoreContext::install(other_ptr) };
+        let mut third = Store::default();
+        let inner = unsafe { StoreContext::install(third.as_store_mut().inner) };
+        // A -> B -> C -> B: the repeated Store belongs to a distinct Sync
+        // caller. Only A is unlocked; B and C remain owned by this stack.
+        let repeated = unsafe { StoreContext::install(other_ptr) };
+        let identities = STORE_CONTEXT_STACK.with(|stack| {
+            stack
+                .borrow()
+                .iter()
+                .map(|entry| entry.installation)
+                .collect::<Vec<_>>()
+        });
+        assert_ne!(identities[1], identities[3]);
+        assert!(StoreContext::can_suspend_suffix(root_id));
+        let mut suspended = SuspendedStoreContexts::default();
+        root.suspend_suffix(&mut suspended);
+        drop(root);
+        assert!(StoreContext::is_empty());
+
+        let root = StoreContext::install_async_with_id(store.inner.try_write().unwrap(), root_id);
+        root.restore_suffix(&mut suspended);
+        STORE_CONTEXT_STACK.with(|stack| {
+            assert!(
+                stack
+                    .borrow()
+                    .iter()
+                    .map(|entry| entry.installation)
+                    .eq(identities)
+            );
+            assert_eq!(
+                unsafe { &*stack.borrow()[3].entry.get() }.as_ptr(),
+                other_ptr
+            );
+        });
+        let mut borrowed = unsafe { StoreContext::get_current(other_id) };
+        assert_eq!(borrowed.as_mut().objects_mut().id(), other_id);
+        drop(borrowed);
+        drop(repeated);
+        drop(inner);
+        drop(nested);
+        // The original caller's borrow stays usable after the retained child
+        // pointer was restored and accessed. This is also a Miri proof source.
+        assert_eq!(other.as_store_mut().objects_mut().id(), other_id);
+        drop(root);
+        assert!(StoreContext::is_empty());
+    }
+
+    #[test]
+    fn a_sync_suffix_rejects_borrows_root_aliases_and_extra_async_roots() {
+        let store = Store::default().into_async();
+        let root_id = StoreContext::new_installation_id();
+        let root = StoreContext::install_async_with_id(store.inner.try_write().unwrap(), root_id);
+        let borrowed = unsafe { StoreContext::get_current(store.id) };
+        // No suffix: preserve the existing supported same-Store call path.
+        assert!(StoreContext::can_suspend_suffix(root_id));
+        let pause = unsafe { StoreContext::pause(store.id) };
+        let mut other = Store::default();
+        let nested = unsafe { StoreContext::install(other.as_store_mut().inner) };
+        assert!(!StoreContext::can_suspend_suffix(root_id));
+        drop(nested);
+        drop(pause);
+        drop(borrowed);
+
+        let root_ptr = unsafe { StoreContext::get_current_transient(store.id) };
+        let nested = unsafe { StoreContext::install(other.as_store_mut().inner) };
+        let borrowed = unsafe { StoreContext::get_current(other.id()) };
+        assert!(!StoreContext::can_suspend_suffix(root_id));
+        let pause = unsafe { StoreContext::pause(other.id()) };
+        assert!(!StoreContext::can_suspend_suffix(root_id));
+        drop(pause);
+        drop(borrowed);
+        let repeated = unsafe { StoreContext::install(root_ptr) };
+        assert!(!StoreContext::can_suspend_suffix(root_id));
+        drop(repeated);
+        drop(nested);
+        let other = other.into_async();
+        let nested = StoreContext::install_async(other.inner.try_write().unwrap());
+        assert!(!StoreContext::can_suspend_suffix(root_id));
+        drop(nested);
+        drop(root);
+        assert!(StoreContext::is_empty());
     }
 }
