@@ -29,7 +29,7 @@ use object::{
     SymbolKind, SymbolScope, elf,
 };
 use std::{boxed::Box, sync::Arc};
-use target_lexicon::BinaryFormat;
+use target_lexicon::{Architecture, BinaryFormat};
 use wasmer_types::{
     CompilationProgressCallback, Features, FunctionIndex, LocalFunctionIndex,
     entity::{EntityRef, PrimaryMap},
@@ -744,8 +744,21 @@ pub fn emit_metadata_and_link(
                 ]
             }
             BinaryFormat::Elf => {
+                let emulation = match target.triple().architecture {
+                    Architecture::X86_64 => "elf_x86_64",
+                    Architecture::Aarch64(_) => "aarch64linux",
+                    Architecture::Riscv64(_) => "elf64lriscv",
+                    Architecture::LoongArch64 => "elf64loongarch",
+                    architecture => {
+                        return Err(CompileError::UnsupportedTarget(format!(
+                            "unsupported ELF architecture: {architecture:?}"
+                        )));
+                    }
+                };
                 vec![
                     "ld".to_string(),
+                    "-m".to_string(),
+                    emulation.to_string(),
                     // Allow resolution of the public symbols directly without PLT entries!
                     "-Bsymbolic".to_string(),
                     "-shared".to_string(),
