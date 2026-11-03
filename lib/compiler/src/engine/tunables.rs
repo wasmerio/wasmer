@@ -1,5 +1,4 @@
 use crate::{DEFAULT_MAX_TABLE_ELEMENTS, engine::error::LinkError};
-use std::ptr::NonNull;
 use wasmer_types::{
     FunctionType, GlobalType, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex,
     MemoryType, ModuleInfo, TableIndex, TableType, TagKind, entity::PrimaryMap,
@@ -34,12 +33,13 @@ pub trait Tunables {
     /// Create a memory owned by the VM given a [`MemoryType`] and a [`MemoryStyle`].
     ///
     /// # Safety
-    /// - `vm_definition_location` must point to a valid location in VM memory.
+    /// - The location must name valid VM memory. Implementations must preserve
+    ///   its supplied storage custody in the physical definition owner.
     unsafe fn create_vm_memory(
         &self,
         ty: &MemoryType,
         style: &MemoryStyle,
-        vm_definition_location: NonNull<VMMemoryDefinition>,
+        vm_definition_location: wasmer_vm::VMDefinitionLocation<VMMemoryDefinition>,
     ) -> Result<VMMemory, MemoryError>;
 
     /// Create a table owned by the host given a [`TableType`] and a [`TableStyle`].
@@ -48,12 +48,13 @@ pub trait Tunables {
     /// Create a table owned by the VM given a [`TableType`] and a [`TableStyle`].
     ///
     /// # Safety
-    /// - `vm_definition_location` must point to a valid location in VM memory.
+    /// - The location must name valid VM memory. Implementations must preserve
+    ///   its supplied storage custody in the physical definition owner.
     unsafe fn create_vm_table(
         &self,
         ty: &TableType,
         style: &TableStyle,
-        vm_definition_location: NonNull<VMTableDefinition>,
+        vm_definition_location: wasmer_vm::VMDefinitionLocation<VMTableDefinition>,
     ) -> Result<VMTable, String>;
 
     /// Create a global with an unset value.
@@ -64,11 +65,12 @@ pub trait Tunables {
     /// Create a global owned by the VM with backing storage in the `VMContext`.
     ///
     /// # Safety
-    /// - `vm_definition_location` must point to a valid location in VM memory.
+    /// - The location must name valid VM memory. Implementations must preserve
+    ///   its supplied storage custody in the physical definition owner.
     unsafe fn create_vm_global(
         &self,
         ty: GlobalType,
-        vm_definition_location: NonNull<VMGlobalDefinition>,
+        vm_definition_location: wasmer_vm::VMDefinitionLocation<VMGlobalDefinition>,
     ) -> Result<VMGlobal, String> {
         unsafe { Ok(VMGlobal::new_instance(ty, vm_definition_location)) }
     }
@@ -88,7 +90,7 @@ pub trait Tunables {
         context: &mut StoreObjects,
         module: &ModuleInfo,
         memory_styles: &PrimaryMap<MemoryIndex, MemoryStyle>,
-        memory_definition_locations: &[NonNull<VMMemoryDefinition>],
+        memory_definition_locations: &[wasmer_vm::VMDefinitionLocation<VMMemoryDefinition>],
     ) -> Result<PrimaryMap<LocalMemoryIndex, InternalStoreHandle<VMMemory>>, LinkError> {
         unsafe {
             let num_imports = module.num_imported_memories;
@@ -103,7 +105,7 @@ pub trait Tunables {
                 let style = &memory_styles[mi];
                 memories.push(InternalStoreHandle::new(
                     context,
-                    self.create_vm_memory(ty, style, *mdl).map_err(|e| {
+                    self.create_vm_memory(ty, style, mdl.clone()).map_err(|e| {
                         LinkError::Resource(format!("Failed to create memory: {e}"))
                     })?,
                 ));
@@ -123,7 +125,7 @@ pub trait Tunables {
         context: &mut StoreObjects,
         module: &ModuleInfo,
         table_styles: &PrimaryMap<TableIndex, TableStyle>,
-        table_definition_locations: &[NonNull<VMTableDefinition>],
+        table_definition_locations: &[wasmer_vm::VMDefinitionLocation<VMTableDefinition>],
     ) -> Result<PrimaryMap<LocalTableIndex, InternalStoreHandle<VMTable>>, LinkError> {
         let max_table_elements = self.max_table_elements();
         let total_table_elements = module
@@ -148,7 +150,7 @@ pub trait Tunables {
         {
             let style = &table_styles[ti];
             tables.push(InternalStoreHandle::new(context, unsafe {
-                self.create_vm_table(ty, style, *tdl)
+                self.create_vm_table(ty, style, tdl.clone())
                     .map_err(LinkError::Resource)?
             }));
         }
@@ -162,7 +164,7 @@ pub trait Tunables {
         &self,
         context: &mut StoreObjects,
         module: &ModuleInfo,
-        vm_definition_locations: &[NonNull<VMGlobalDefinition>],
+        vm_definition_locations: &[wasmer_vm::VMDefinitionLocation<VMGlobalDefinition>],
     ) -> Result<PrimaryMap<LocalGlobalIndex, InternalStoreHandle<VMGlobal>>, LinkError> {
         let num_imports = module.num_imported_globals;
         let mut vmctx_globals = PrimaryMap::with_capacity(module.globals.len() - num_imports);
@@ -172,7 +174,7 @@ pub trait Tunables {
                 .get(i)
                 .ok_or_else(|| LinkError::Resource("global definition location missing".into()))?;
             vmctx_globals.push(InternalStoreHandle::new(context, unsafe {
-                self.create_vm_global(global_type, *location)
+                self.create_vm_global(global_type, location.clone())
                     .map_err(LinkError::Resource)?
             }));
         }
@@ -240,7 +242,7 @@ impl Tunables for BaseTunables {
         &self,
         ty: &MemoryType,
         style: &MemoryStyle,
-        vm_definition_location: NonNull<VMMemoryDefinition>,
+        vm_definition_location: wasmer_vm::VMDefinitionLocation<VMMemoryDefinition>,
     ) -> Result<VMMemory, MemoryError> {
         unsafe { VMMemory::from_definition(ty, style, vm_definition_location) }
     }
@@ -259,7 +261,7 @@ impl Tunables for BaseTunables {
         &self,
         ty: &TableType,
         style: &TableStyle,
-        vm_definition_location: NonNull<VMTableDefinition>,
+        vm_definition_location: wasmer_vm::VMDefinitionLocation<VMTableDefinition>,
     ) -> Result<VMTable, String> {
         unsafe { VMTable::from_definition(ty, style, vm_definition_location) }
     }
@@ -290,7 +292,7 @@ impl Tunables for Box<dyn Tunables + Send + Sync> {
         &self,
         ty: &MemoryType,
         style: &MemoryStyle,
-        vm_definition_location: NonNull<VMMemoryDefinition>,
+        vm_definition_location: wasmer_vm::VMDefinitionLocation<VMMemoryDefinition>,
     ) -> Result<VMMemory, MemoryError> {
         unsafe {
             self.as_ref()
@@ -306,7 +308,7 @@ impl Tunables for Box<dyn Tunables + Send + Sync> {
         &self,
         ty: &TableType,
         style: &TableStyle,
-        vm_definition_location: NonNull<VMTableDefinition>,
+        vm_definition_location: wasmer_vm::VMDefinitionLocation<VMTableDefinition>,
     ) -> Result<VMTable, String> {
         unsafe {
             self.as_ref()
@@ -340,7 +342,7 @@ impl Tunables for std::sync::Arc<dyn Tunables + Send + Sync> {
         &self,
         ty: &MemoryType,
         style: &MemoryStyle,
-        vm_definition_location: NonNull<VMMemoryDefinition>,
+        vm_definition_location: wasmer_vm::VMDefinitionLocation<VMMemoryDefinition>,
     ) -> Result<VMMemory, MemoryError> {
         unsafe {
             self.as_ref()
@@ -356,7 +358,7 @@ impl Tunables for std::sync::Arc<dyn Tunables + Send + Sync> {
         &self,
         ty: &TableType,
         style: &TableStyle,
-        vm_definition_location: NonNull<VMTableDefinition>,
+        vm_definition_location: wasmer_vm::VMDefinitionLocation<VMTableDefinition>,
     ) -> Result<VMTable, String> {
         unsafe {
             self.as_ref()

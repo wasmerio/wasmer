@@ -1,5 +1,4 @@
 use std::path::PathBuf;
-use std::ptr::NonNull;
 use std::sync::Arc;
 use wasmer::WASM_PAGE_SIZE;
 use wasmer::sys::Features;
@@ -36,7 +35,7 @@ impl Tunables for DynamicMemoryTunables {
         &self,
         ty: &MemoryType,
         style: &MemoryStyle,
-        vm_definition_location: NonNull<VMMemoryDefinition>,
+        vm_definition_location: wasmer::sys::vm::VMDefinitionLocation<VMMemoryDefinition>,
     ) -> Result<VMMemory, MemoryError> {
         unsafe { self.0.create_vm_memory(ty, style, vm_definition_location) }
     }
@@ -49,7 +48,7 @@ impl Tunables for DynamicMemoryTunables {
         &self,
         ty: &TableType,
         style: &TableStyle,
-        vm_definition_location: NonNull<VMTableDefinition>,
+        vm_definition_location: wasmer::sys::vm::VMDefinitionLocation<VMTableDefinition>,
     ) -> Result<VMTable, String> {
         unsafe { self.0.create_vm_table(ty, style, vm_definition_location) }
     }

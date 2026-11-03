@@ -77,6 +77,7 @@ pub struct VMTable {
     /// Our chosen implementation style.
     style: TableStyle,
     vm_table_definition: MaybeInstanceOwned<VMTableDefinition>,
+    _definition_storage: Option<std::sync::Arc<crate::VMInstanceStorage>>,
 }
 
 impl VMTable {
@@ -99,21 +100,32 @@ impl VMTable {
     /// `vm_table_location`: this can be used to create a local table.
     ///
     /// # Safety
-    /// - `vm_table_location` must point to a valid location in VM memory.
+    /// The location must provide aligned, exclusively writable storage for
+    /// initialization. A managed token retains its allocation; for an unmanaged
+    /// raw pointer, the caller must retain the bytes until the last physical
+    /// owner/clone is gone. Later access still requires the original Store or
+    /// memory synchronization; allocation custody alone grants no data access.
     pub unsafe fn from_definition(
         table: &TableType,
         style: &TableStyle,
-        vm_table_location: NonNull<VMTableDefinition>,
+        vm_table_location: impl Into<crate::VMDefinitionLocation<VMTableDefinition>>,
     ) -> Result<Self, String> {
-        unsafe { Self::new_inner(table, style, Some(vm_table_location)) }
+        unsafe { Self::new_inner(table, style, Some(vm_table_location.into())) }
     }
 
     /// Create a new `Table` with either self-owned or VM owned metadata.
     unsafe fn new_inner(
         table: &TableType,
         style: &TableStyle,
-        vm_table_location: Option<NonNull<VMTableDefinition>>,
+        vm_table_location: Option<crate::VMDefinitionLocation<VMTableDefinition>>,
     ) -> Result<Self, String> {
+        let (vm_table_location, definition_storage) = match vm_table_location {
+            Some(location) => {
+                let (pointer, storage) = location.into_parts();
+                (Some(pointer), storage)
+            }
+            None => (None, None),
+        };
         unsafe {
             match table.ty {
                 ValType::FuncRef | ValType::ExternRef => (),
@@ -141,12 +153,13 @@ impl VMTable {
                     maximum: table.maximum,
                     table: *table,
                     style: style.clone(),
+                    _definition_storage: definition_storage,
                     vm_table_definition: if let Some(table_loc) = vm_table_location {
                         {
-                            let mut ptr = table_loc;
-                            let td = ptr.as_mut();
-                            td.base = base as _;
-                            td.current_elements = table_minimum as _;
+                            table_loc.as_ptr().write(VMTableDefinition {
+                                base: base as _,
+                                current_elements: table_minimum as _,
+                            });
                         }
                         MaybeInstanceOwned::Instance(table_loc)
                     } else {
