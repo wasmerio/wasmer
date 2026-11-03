@@ -148,16 +148,6 @@ fn build_v8() {
 
     println!("cargo:rustc-link-search=native={}", v8_lib_dir.display());
 
-    if cfg!(any(target_os = "linux",)) {
-        println!("cargo:rustc-link-lib=stdc++");
-    } else if cfg!(target_os = "windows") {
-        println!("cargo:rustc-link-lib=winmm");
-        println!("cargo:rustc-link-lib=dbghelp");
-        println!("cargo:rustc-link-lib=shlwapi");
-    } else {
-        println!("cargo:rustc-link-lib=c++");
-    }
-
     // Rename the wasm-c-api symbols from V8 so they do not collide with
     // Wasmer's own wasm-c-api exports when this crate is linked into tests.
     static WEE8_RENAMED: LazyLock<Mutex<Vec<(String, String)>>> =
@@ -257,6 +247,17 @@ fn build_v8() {
     }
 
     println!("cargo:rustc-link-lib=static=v8prefixed");
+
+    // Static link dependencies must follow the archive that references them.
+    if cfg!(any(target_os = "linux",)) {
+        println!("cargo:rustc-link-lib=stdc++");
+    } else if cfg!(target_os = "windows") {
+        println!("cargo:rustc-link-lib=winmm");
+        println!("cargo:rustc-link-lib=dbghelp");
+        println!("cargo:rustc-link-lib=shlwapi");
+    } else {
+        println!("cargo:rustc-link-lib=c++");
+    }
 }
 
 #[allow(unused)]
