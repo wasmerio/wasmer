@@ -205,6 +205,7 @@ pub trait VirtualNetworking: fmt::Debug + Send + Sync + 'static {
     async fn bind_udp(
         &self,
         addr: SocketAddr,
+        only_v6: bool,
         reuse_port: bool,
         reuse_addr: bool,
     ) -> Result<Box<dyn VirtualUdpSocket + Sync>> {
