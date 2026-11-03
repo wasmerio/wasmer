@@ -58,7 +58,6 @@ members = [
   "lib/virtual-fs",
   "lib/virtual-net",
   "lib/vm",
-  "lib/wai-bindgen-wasmer",
   "lib/wasi-types",
   "lib/wasix",
   "lib/journal",
@@ -294,7 +293,6 @@ wai-bindgen-gen-core = { version = "0.2.1", default-features = false }
 wai-bindgen-gen-rust = { version = "0.2.1", default-features = false }
 wai-bindgen-gen-rust-wasm = { version = "0.2.1", default-features = false }
 wai-bindgen-rust = { version = "0.2.1", default-features = false }
-wai-bindgen-wasmer-impl = "0.2.2"
 wai-parser = "0.2.1"
 waker-fn = "1.1"
 walkdir = "2.3.2"

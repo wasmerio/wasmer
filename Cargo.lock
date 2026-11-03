@@ -6914,17 +6914,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "wai-bindgen-gen-wasmer"
-version = "0.2.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0f61484185d8c520a86d5a7f7f8265f446617c2f9774b2e20a52de19b6e53432"
-dependencies = [
- "heck 0.3.3",
- "wai-bindgen-gen-core",
- "wai-bindgen-gen-rust",
-]
-
-[[package]]
 name = "wai-bindgen-rust"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6944,32 +6933,6 @@ dependencies = [
  "syn 1.0.109",
  "wai-bindgen-gen-core",
  "wai-bindgen-gen-rust-wasm",
-]
-
-[[package]]
-name = "wai-bindgen-wasmer"
-version = "0.705.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "bitflags 2.13.2",
- "once_cell",
- "thiserror 2.0.21",
- "tracing",
- "wai-bindgen-wasmer-impl",
- "wasmer",
-]
-
-[[package]]
-name = "wai-bindgen-wasmer-impl"
-version = "0.2.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4b3488ed88d4dd0e3bf85bad4e27dac6cb31aae5d122a5dda2424803c8dc863a"
-dependencies = [
- "proc-macro2",
- "syn 1.0.109",
- "wai-bindgen-gen-core",
- "wai-bindgen-gen-wasmer",
 ]
 
 [[package]]
