@@ -15,12 +15,12 @@ use crate::table::TableElement;
 use crate::trap::{Trap, TrapCode};
 use crate::vmcontext::{
     VMBuiltinFunctionsArray, VMCallerCheckedAnyfunc, VMContext, VMFunctionContext,
-    VMFunctionImport, VMFunctionKind, VMGlobalDefinition, VMGlobalImport, VMMemoryDefinition,
-    VMMemoryImport, VMSharedTagIndex, VMSignatureHash, VMTableDefinition, VMTableImport,
-    VMTrampoline, memory_copy, memory_fill, memory32_atomic_check_notify, memory32_atomic_check32,
-    memory32_atomic_check64, memory32_range,
+    VMFunctionImport, VMGlobalDefinition, VMGlobalImport, VMMemoryDefinition, VMMemoryImport,
+    VMSharedTagIndex, VMSignatureHash, VMTableDefinition, VMTableImport, VMTrampoline, memory_copy,
+    memory_fill, memory32_atomic_check_notify, memory32_atomic_check32, memory32_atomic_check64,
+    memory32_range,
 };
-use crate::{FunctionBodyPtr, MaybeInstanceOwned, TrapHandlerFn, VMTag, wasmer_call_trampoline};
+use crate::{FunctionBodyPtr, TrapHandlerFn, VMTag, wasmer_call_trampoline};
 use crate::{VMConfig, VMFuncRef, VMFunction, VMGlobal, VMMemory, VMTable};
 use crate::{export::VMExtern, threadconditions::ExpectedValue};
 pub use allocator::InstanceAllocator;
@@ -34,6 +34,7 @@ use std::convert::TryFrom;
 use std::fmt;
 use std::mem;
 use std::ptr::{self, NonNull};
+use std::rc::Rc;
 use std::slice;
 use std::sync::Arc;
 use wasmer_types::entity::{BoxedSlice, EntityRef, PrimaryMap, packed_option::ReservedValue};
@@ -1092,34 +1093,36 @@ impl Instance {
 /// providing useful higher-level API.
 #[derive(Debug, Eq, PartialEq)]
 pub struct VMInstance {
-    /// The layout of `Instance` (which can vary).
-    instance_layout: Layout,
+    allocation: Rc<InstanceAllocation>,
+}
 
-    /// The `Instance` itself.
-    ///
-    /// `Instance` must not be dropped manually by Rust, because it's
-    /// allocated manually with `alloc` and a specific layout (Rust
-    /// would be able to drop `Instance` itself but it will imply a
-    /// memory leak because of `alloc`).
-    ///
-    /// No one in the code has a copy of the `Instance`'s
-    /// pointer. `Self` is the only one.
+/// Shared allocation custody only. Store access remains the authority for
+/// reading and mutating Instance data; an allocation owner grants no access.
+#[derive(Debug, Eq, PartialEq)]
+pub(crate) struct InstanceAllocation {
+    instance_layout: Layout,
     instance: NonNull<Instance>,
 }
 
-/// VMInstance are created with an InstanceAllocator
-/// and it will "consume" the memory
-/// So the Drop here actually free it (else it would be leaked)
-impl Drop for VMInstance {
+impl Drop for InstanceAllocation {
     fn drop(&mut self) {
-        let instance_ptr = self.instance.as_ptr();
-
-        unsafe {
-            // Need to drop all the actual Instance members
-            instance_ptr.drop_in_place();
-            // And then free the memory allocated for the Instance itself
-            std::alloc::dealloc(instance_ptr as *mut u8, self.instance_layout);
+        // As in InstanceAllocator, allocation custody needs its own Drop guard.
+        // Instance fields can release user-owned imports and panic; free the
+        // raw allocation after their ordinary unwind cleanup has completed.
+        struct Deallocate {
+            pointer: NonNull<Instance>,
+            layout: Layout,
         }
+        impl Drop for Deallocate {
+            fn drop(&mut self) {
+                unsafe { std::alloc::dealloc(self.pointer.as_ptr().cast(), self.layout) };
+            }
+        }
+        let _deallocate = Deallocate {
+            pointer: self.instance,
+            layout: self.instance_layout,
+        };
+        unsafe { self.instance.as_ptr().drop_in_place() };
     }
 }
 
@@ -1268,12 +1271,18 @@ impl VMInstance {
 
     /// Return a reference to the contained `Instance`.
     pub(crate) fn instance(&self) -> &Instance {
-        unsafe { self.instance.as_ref() }
+        unsafe { self.allocation.instance.as_ref() }
     }
 
     /// Return a mutable reference to the contained `Instance`.
     pub(crate) fn instance_mut(&mut self) -> &mut Instance {
-        unsafe { self.instance.as_mut() }
+        unsafe { &mut *self.allocation.instance.as_ptr() }
+    }
+
+    /// Number of owners retaining this Instance allocation, without access to it.
+    #[doc(hidden)]
+    pub fn owner_count(&self) -> usize {
+        Rc::strong_count(&self.allocation)
     }
 
     /// Finishes the instantiation process started by `Instance::new`.
@@ -1344,17 +1353,14 @@ impl VMInstance {
                     // A VMFunction is lazily created only for functions that are
                     // exported.
                     let signature = instance.module.signatures[*sig_index].clone();
-                    // SAFETY: this metadata belongs to the Store's live
-                    // instance. Its allocation lifetime is independently required.
+                    // SAFETY: the metadata belongs to this allocation, which
+                    // the immutable target retains through every call/import pin.
                     let vm_function = unsafe {
-                        VMFunction::new(
-                            MaybeInstanceOwned::Instance(NonNull::from(
-                                &instance.funcrefs[def_index],
-                            )),
+                        VMFunction::new_local(
+                            NonNull::from(&instance.funcrefs[def_index]),
                             signature,
-                            VMFunctionKind::Static,
-                            Box::new(()),
                             instance.context(),
+                            self.allocation.clone(),
                         )
                     };
                     InternalStoreHandle::new(self.instance_mut().context_mut(), vm_function)

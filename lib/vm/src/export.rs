@@ -70,6 +70,8 @@ struct VMFunctionTarget {
     signature: FunctionType,
     kind: VMFunctionKind,
     host_data: Box<dyn Any>,
+    // Last: context/payload destruction must precede final Instance release.
+    _instance: Option<Rc<crate::instance::InstanceAllocation>>,
 }
 
 /// Allocation custody for one exact function target, without Store access.
@@ -112,6 +114,41 @@ impl VMFunction {
         host_data: Box<dyn Any>,
         store: &crate::StoreObjects,
     ) -> Self {
+        unsafe { Self::new_target(anyfunc, signature, kind, host_data, store, None) }
+    }
+
+    /// Create a local Wasm target whose metadata and vmctx belong to `instance`.
+    ///
+    /// # Safety
+    /// The anyfunc must belong to the supplied live allocation and match the
+    /// signature and Store. The retained allocation grants no Store access.
+    pub(crate) unsafe fn new_local(
+        anyfunc: std::ptr::NonNull<VMCallerCheckedAnyfunc>,
+        signature: FunctionType,
+        store: &crate::StoreObjects,
+        instance: Rc<crate::instance::InstanceAllocation>,
+    ) -> Self {
+        unsafe {
+            Self::new_target(
+                MaybeInstanceOwned::Instance(anyfunc),
+                signature,
+                VMFunctionKind::Static,
+                Box::new(()),
+                store,
+                Some(instance),
+            )
+        }
+    }
+
+    // Both constructors establish the raw descriptor's existing invariants.
+    unsafe fn new_target(
+        anyfunc: MaybeInstanceOwned<VMCallerCheckedAnyfunc>,
+        signature: FunctionType,
+        kind: VMFunctionKind,
+        host_data: Box<dyn Any>,
+        store: &crate::StoreObjects,
+        instance: Option<Rc<crate::instance::InstanceAllocation>>,
+    ) -> Self {
         let id = NEXT_FUNCTION_ID
             .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |id| id.checked_add(1))
             .expect("function target identity exhausted");
@@ -124,6 +161,7 @@ impl VMFunction {
                 signature,
                 kind,
                 host_data,
+                _instance: instance,
             }),
         }
     }
@@ -185,8 +223,9 @@ impl VMFunctionPin {
         }
     }
 
-    /// Pointer to the metadata retained by this pin. Instance-backed metadata
-    /// still requires its separate instance-allocation lifetime contract.
+    /// Pointer to the metadata retained by this pin. Local exported targets
+    /// also retain their Instance allocation; raw externally supplied descriptors
+    /// retain the constructor's independent lifetime requirements.
     pub fn anyfunc(&self) -> std::ptr::NonNull<VMCallerCheckedAnyfunc> {
         self.target.anyfunc.as_ptr()
     }
