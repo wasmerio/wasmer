@@ -42,13 +42,14 @@ enum AsyncResume {
 type AsyncCallFutureId = u64;
 
 static NEXT_ASYNC_CALL_FUTURE_ID: AtomicU64 = AtomicU64::new(0);
+static NEXT_NATIVE_FRAME_ID: AtomicU64 = AtomicU64::new(0);
 
 static ASYNC_CALL_FUTURE_WAKERS: LazyLock<
-    DashMap<StoreId, HashMap<AsyncCallFutureId, Arc<RegisteredWaker>>>,
+    DashMap<StoreId, HashMap<AsyncCallFutureId, RegisteredWaker>>,
 > = LazyLock::new(DashMap::new);
 
 struct RegisteredWaker {
-    waker: Waker,
+    waker: Arc<Waker>,
     ancestors: Option<Arc<[AsyncCallFutureId]>>,
 }
 
@@ -59,6 +60,7 @@ pub(crate) struct AsyncCallFuture {
 
     root: Option<Rc<NativeRootOwner>>,
     pending_resume_gate: Option<crate::WriteFuture<()>>,
+    pending_frame_gate: Option<crate::WriteFuture<()>>,
     pending_store_install: Option<Pin<Box<dyn Future<Output = ForcedStoreInstallGuard>>>>,
     pending_future: Option<HostFuture>,
     next_resume: Option<AsyncResume>,
@@ -73,6 +75,8 @@ struct NativeRootOwner {
     control: Rc<NativeRootControl>,
     parked: Cell<bool>,
     loan_gate: OnceCell<LocalRwLock<()>>,
+    frame_gate: OnceCell<LocalRwLock<()>>,
+    frame_resume_waiting: Cell<bool>,
     stack: RefCell<NativeRootStack>,
 }
 
@@ -99,10 +103,17 @@ struct NativeRootControl {
     retiring: Cell<bool>,
     settled: Cell<bool>,
     retained: Cell<bool>,
-    parent: Option<Weak<NativeRootControl>>,
-    previous_row: RefCell<Option<Weak<NativeRootControl>>>,
+    parent: Option<Weak<Self>>,
+    native_edges: RefCell<Vec<NativeParent>>,
+    native_reason: OnceCell<RuntimeError>,
+    previous_row: RefCell<Option<Weak<Self>>>,
     reason: OnceCell<RuntimeError>,
     terminal: OnceCell<RuntimeError>,
+}
+
+struct NativeParent {
+    id: u64,
+    parent: Weak<NativeRootControl>,
 }
 
 thread_local! {
@@ -189,6 +200,22 @@ impl NativeRootControl {
     }
 
     fn error(&self) -> Option<RuntimeError> {
+        if self.has_native_lineage() {
+            return self.error_in_lineage(&mut Vec::new());
+        }
+        self.error_without_native_lineage()
+    }
+
+    fn has_native_lineage(&self) -> bool {
+        !self.native_edges.borrow().is_empty()
+            || self
+                .parent
+                .as_ref()
+                .and_then(Weak::upgrade)
+                .is_some_and(|parent| parent.has_native_lineage())
+    }
+
+    fn error_without_native_lineage(&self) -> Option<RuntimeError> {
         if self.settled.get() {
             return self.terminal.get().cloned();
         }
@@ -197,7 +224,7 @@ impl NativeRootControl {
         {
             return Some(error);
         }
-        if let Some(error) = self.terminal.get() {
+        if let Some(error) = self.terminal.get().or_else(|| self.native_reason.get()) {
             return Some(error.clone());
         }
         self.retiring.get().then(|| {
@@ -206,6 +233,98 @@ impl NativeRootControl {
                 .expect("retirement reason precedes its flag")
                 .clone()
         })
+    }
+
+    fn error_in_lineage(&self, visited: &mut Vec<AsyncCallFutureId>) -> Option<RuntimeError> {
+        if self.settled.get() {
+            return self.terminal.get().cloned();
+        }
+        if visited.contains(&self.future_id) {
+            return None;
+        }
+        visited.push(self.future_id);
+        if let Some(parent) = self.parent.as_ref().and_then(Weak::upgrade)
+            && let Some(error) = parent.error_in_lineage(visited)
+        {
+            return Some(error);
+        }
+        for edge in self.native_edges.borrow().iter().rev() {
+            if let Some(parent) = edge.parent.upgrade()
+                && let Some(error) = parent.error_in_lineage(visited)
+            {
+                return Some(error);
+            }
+        }
+        self.terminal
+            .get()
+            .or_else(|| self.native_reason.get())
+            .cloned()
+            .or_else(|| {
+                self.retiring.get().then(|| {
+                    self.reason
+                        .get()
+                        .expect("retirement reason precedes its flag")
+                        .clone()
+                })
+            })
+    }
+
+    fn combined_ancestors(self: &Rc<Self>) -> Option<Arc<[AsyncCallFutureId]>> {
+        if !self.has_native_lineage() {
+            return self.ancestors.clone();
+        }
+        let mut ids = self.ancestors.as_deref().unwrap_or(&[]).to_vec();
+        let mut visited = Vec::new();
+        let mut pending = vec![self.clone()];
+        while let Some(control) = pending.pop() {
+            if visited.contains(&control.future_id) {
+                continue;
+            }
+            visited.push(control.future_id);
+            if control.future_id != self.future_id && !ids.contains(&control.future_id) {
+                ids.push(control.future_id);
+            }
+            if let Some(parent) = control.parent.as_ref().and_then(Weak::upgrade) {
+                pending.push(parent);
+            }
+            pending.extend(
+                control
+                    .native_edges
+                    .borrow()
+                    .iter()
+                    .filter_map(|edge| edge.parent.upgrade()),
+            );
+        }
+        (!ids.is_empty()).then(|| Arc::from(ids))
+    }
+
+    fn contains_ancestor(self: &Rc<Self>, target: &Rc<Self>) -> bool {
+        let mut visited = Vec::new();
+        let mut pending = vec![self.clone()];
+        while let Some(control) = pending.pop() {
+            if Rc::ptr_eq(&control, target) {
+                return true;
+            }
+            if visited.contains(&control.future_id) {
+                continue;
+            }
+            visited.push(control.future_id);
+            if let Some(parent) = control.parent.as_ref().and_then(Weak::upgrade) {
+                pending.push(parent);
+            }
+            pending.extend(
+                control
+                    .native_edges
+                    .borrow()
+                    .iter()
+                    .filter_map(|edge| edge.parent.upgrade()),
+            );
+        }
+        false
+    }
+
+    fn refresh_registered_ancestors(self: &Rc<Self>) {
+        replace_registered_ancestors(self.store_id, self.future_id, self.combined_ancestors());
     }
 
     fn settle(&self) {
@@ -341,6 +460,169 @@ impl WeakNativeRoot {
             return None;
         }
         Some(NativeRootPin { _owner: owner })
+    }
+}
+
+/// A weak identity for a native invocation, without Store or yielder access.
+///
+/// External engines use this token only to describe physical frame ancestry.
+#[doc(hidden)]
+#[derive(Clone)]
+pub struct WeakNativeInvocation {
+    root: WeakNativeRoot,
+}
+
+impl WeakNativeInvocation {
+    /// Capture the currently executing native coroutine, if one exists.
+    pub fn current() -> Option<Self> {
+        CoroutineContext::current_root().map(|root| Self { root })
+    }
+
+    /// The exact managed cancellation inherited by this invocation.
+    pub fn retirement_error(&self) -> Option<RuntimeError> {
+        self.root.control.error()
+    }
+
+    /// Block this invocation while an external descendant frame is active.
+    ///
+    /// Same-invocation entry owns no pin. With no current coroutine, the guard
+    /// still blocks this ancestor and exposes its cancellation for transport.
+    ///
+    /// # Safety
+    /// This token must identify the actual preceding external-engine frame.
+    /// Drop the returned guard only after exiting the descendant engine's
+    /// thread-local entry scopes, including partially constructed instances.
+    /// Guards describing nested engine frames must be destroyed in LIFO order.
+    /// With no current coroutine, this blocks only the ancestor: the unmanaged
+    /// caller must reject independently parking descendants, or keep its own
+    /// frame active until all such descendants have physically settled.
+    pub unsafe fn enter_descendant_frame(&self) -> Result<NativeFrameGuard, RuntimeError> {
+        if let Some(error) = current_retirement_error().or_else(|| self.retirement_error()) {
+            return Err(error);
+        }
+        let current = CoroutineContext::current_root();
+        if current.as_ref().is_some_and(|root| root.id == self.root.id) {
+            return Ok(NativeFrameGuard {
+                binding: None,
+                _gate: None,
+                _root: None,
+                ancestor: self.clone(),
+            });
+        }
+        if let Some(current) = &current
+            && self.root.control.contains_ancestor(&current.control)
+        {
+            return Err(RuntimeError::new(
+                "native frame ancestry would form a cycle",
+            ));
+        }
+        let root = self.root.try_pin().ok_or_else(|| {
+            self.retirement_error()
+                .unwrap_or_else(|| RuntimeError::new("native ancestor is no longer parked"))
+        })?;
+        if root._owner.frame_resume_waiting.get() {
+            return Err(RuntimeError::new("native ancestor is waiting to resume"));
+        }
+        let gate = root._owner.frame_gate.get_or_init(|| LocalRwLock::new(()));
+        // Never synchronously wait from an external engine's scope constructor.
+        let gate = gate
+            .try_read()
+            .ok_or_else(|| RuntimeError::new("native ancestor is waiting to resume"))?;
+        let mut guard = NativeFrameGuard {
+            binding: None,
+            _gate: Some(gate),
+            _root: Some(root),
+            ancestor: self.clone(),
+        };
+        if let Some(current) = current {
+            guard.binding = Some(NativeFrameBinding::enter(
+                current.control,
+                &self.root.control,
+            )?);
+        }
+        Ok(guard)
+    }
+}
+
+/// Custody for a descendant external-engine frame.
+///
+/// It carries no Store access. Exiting the engine's thread-local scopes must
+/// precede dropping this guard; its final pin may retire a parked ancestor.
+#[doc(hidden)]
+pub struct NativeFrameGuard {
+    // Latch and remove the child edge, unlock resume, then release the final pin.
+    binding: Option<NativeFrameBinding>,
+    _gate: Option<LocalRwLockReadGuard<()>>,
+    _root: Option<NativeRootPin>,
+    ancestor: WeakNativeInvocation,
+}
+
+impl NativeFrameGuard {
+    /// Managed ancestor cancellation, including when no coroutine is current.
+    pub fn retirement_error(&self) -> Option<RuntimeError> {
+        self.ancestor.retirement_error()
+    }
+
+    /// Inherit this weak ancestry through a frame without its own coroutine.
+    pub fn ancestor(&self) -> WeakNativeInvocation {
+        self.ancestor.clone()
+    }
+}
+
+struct NativeFrameBinding {
+    id: u64,
+    child: Rc<NativeRootControl>,
+}
+
+impl NativeFrameBinding {
+    fn enter(
+        child: Rc<NativeRootControl>,
+        parent: &Rc<NativeRootControl>,
+    ) -> Result<Self, RuntimeError> {
+        if parent.contains_ancestor(&child) {
+            return Err(RuntimeError::new(
+                "native frame ancestry would form a cycle",
+            ));
+        }
+        let id = NEXT_NATIVE_FRAME_ID
+            .fetch_update(
+                std::sync::atomic::Ordering::SeqCst,
+                std::sync::atomic::Ordering::SeqCst,
+                |id| id.checked_add(1),
+            )
+            .expect("native frame identity exhausted");
+        child.native_edges.borrow_mut().push(NativeParent {
+            id,
+            parent: Rc::downgrade(parent),
+        });
+        // Construct custody before metadata publication so a later panic also
+        // restores the exact edge. Updating IDs never clones a user Waker.
+        let binding = Self { id, child };
+        binding.child.refresh_registered_ancestors();
+        Ok(binding)
+    }
+}
+
+impl Drop for NativeFrameBinding {
+    fn drop(&mut self) {
+        if let Some(error) = self.child.error() {
+            assert!(
+                error.is_host_abort(),
+                "native ancestry carries only managed aborts"
+            );
+            self.child.native_reason.get_or_init(|| error);
+        }
+        let removed = {
+            let mut edges = self.child.native_edges.borrow_mut();
+            assert_eq!(
+                edges.last().map(|edge| edge.id),
+                Some(self.id),
+                "native frame edge dropped out of order"
+            );
+            edges.pop()
+        };
+        drop(removed);
+        self.child.refresh_registered_ancestors();
     }
 }
 
@@ -631,6 +913,8 @@ impl AsyncCallFuture {
                 .loan
                 .as_ref()
                 .map(|loan| Rc::downgrade(&loan.root.control)),
+            native_edges: RefCell::new(Vec::new()),
+            native_reason: OnceCell::new(),
             previous_row: RefCell::new(None),
             reason: OnceCell::new(),
             terminal: OnceCell::new(),
@@ -660,6 +944,8 @@ impl AsyncCallFuture {
                 control,
                 parked: Cell::new(false),
                 loan_gate: OnceCell::new(),
+                frame_gate: OnceCell::new(),
+                frame_resume_waiting: Cell::new(false),
                 stack: RefCell::new(NativeRootStack {
                     coroutine: Some(coroutine),
                     suspended_stores: SuspendedStoreContexts::default(),
@@ -672,6 +958,7 @@ impl AsyncCallFuture {
             store_id,
             root: Some(root),
             pending_resume_gate: None,
+            pending_frame_gate: None,
             pending_store_install: None,
             pending_future: None,
             next_resume: Some(AsyncResume::Start),
@@ -698,7 +985,7 @@ impl AsyncCallFuture {
     }
 }
 
-fn take_registered_waker(store_id: StoreId, id: AsyncCallFutureId) -> Option<Arc<RegisteredWaker>> {
+fn take_registered_waker(store_id: StoreId, id: AsyncCallFutureId) -> Option<RegisteredWaker> {
     let mut wakers_entry = match ASYNC_CALL_FUTURE_WAKERS.entry(store_id) {
         dashmap::Entry::Occupied(o) => o,
         dashmap::Entry::Vacant(_) => return None,
@@ -732,17 +1019,35 @@ fn register_waker(
         .and_then(|entry| entry.get(&id).map(|old| old.waker.will_wake(waker)))
         .unwrap_or(false);
     if unchanged {
+        replace_registered_ancestors(store_id, id, ancestors.cloned());
         return;
     }
-    let next = Arc::new(RegisteredWaker {
-        waker: waker.clone(),
+    let next = RegisteredWaker {
+        waker: Arc::new(waker.clone()),
         ancestors: ancestors.cloned(),
-    });
+    };
     let previous = {
         let mut entry = ASYNC_CALL_FUTURE_WAKERS.entry(store_id).or_default();
         entry.insert(id, next)
     };
     drop(previous);
+}
+
+fn replace_registered_ancestors(
+    store_id: StoreId,
+    id: AsyncCallFutureId,
+    ancestors: Option<Arc<[AsyncCallFutureId]>>,
+) {
+    let old = {
+        let Some(mut entry) = ASYNC_CALL_FUTURE_WAKERS.get_mut(&store_id) else {
+            return;
+        };
+        let Some(record) = entry.get_mut(&id) else {
+            return;
+        };
+        std::mem::replace(&mut record.ancestors, ancestors)
+    };
+    drop(old);
 }
 
 pub(crate) fn check_async_entry(store: &StoreAsync) -> Result<(), RuntimeError> {
@@ -802,13 +1107,18 @@ impl Future for AsyncCallFuture {
                 register_waker(
                     store_id,
                     self.id,
-                    self.root().control.ancestors.as_ref(),
+                    self.root().control.combined_ancestors().as_ref(),
                     cx.waker(),
                 );
                 // RawWaker clone/replacement callbacks can cancel an ancestor
                 // or end an unstarted child's scope. Recheck before borrowing.
                 if let Err(error) = check_async_entry(self.store()) {
                     self.retire_root(Some(error.clone()));
+                    return Poll::Ready(Err(error));
+                }
+                // An Owned Store may still have a native ancestor on another
+                // Store; that lineage is carried by this control, not the cap.
+                if let Some(error) = self.retire_if_needed() {
                     return Poll::Ready(Err(error));
                 }
             }
@@ -866,6 +1176,35 @@ impl Future for AsyncCallFuture {
             } else {
                 None
             };
+            if self.pending_frame_gate.is_none()
+                && let Some(gate) = self.root().frame_gate.get()
+            {
+                self.pending_frame_gate = Some(gate.write());
+            }
+            if self.pending_frame_gate.is_some() {
+                self.root().frame_resume_waiting.set(true);
+            }
+            let frame_gate = if let Some(wait) = self.pending_frame_gate.as_mut() {
+                match Pin::new(wait).poll(cx) {
+                    Poll::Pending => {
+                        return match self.retire_if_needed() {
+                            Some(error) => Poll::Ready(Err(error)),
+                            None => Poll::Pending,
+                        };
+                    }
+                    Poll::Ready(guard) => {
+                        self.pending_frame_gate = None;
+                        Some(guard)
+                    }
+                }
+            } else {
+                None
+            };
+            // Guard acquisition can run user Waker callbacks. Keep the exact
+            // retained snapshot owned until cancellation selects its driver.
+            if let Some(error) = self.retire_if_needed() {
+                return Poll::Ready(Err(error));
+            }
             let owns_root = self.root().stack.borrow().suspended_stores.owns_root();
             let mut store_context_guard = if owns_root {
                 // This is the ORIGINAL write guard, never unlocked/reacquired.
@@ -899,6 +1238,7 @@ impl Future for AsyncCallFuture {
                 }
             };
             self.root().parked.set(false);
+            self.root().frame_resume_waiting.set(false);
             // Drop after the stack borrow, but before its original write guard
             // unlocks and wakes a fresh invocation on this same Store.
             let mut retirement = RetainedRootBoundary {
@@ -952,6 +1292,7 @@ impl Future for AsyncCallFuture {
             // yields or returns.
             drop(retirement);
             drop(store_context_guard);
+            drop(frame_gate);
             drop(resume_gate);
         }
     }
@@ -974,13 +1315,14 @@ impl AsyncCallFuture {
         let owned = DroppedHostState {
             _pending_future: self.pending_future.take(),
             _pending_resume_gate: self.pending_resume_gate.take(),
+            _pending_frame_gate: self.pending_frame_gate.take(),
             _pending_store_install: self.pending_store_install.take(),
             _next_resume: self.next_resume.take(),
             _result: self.result.take(),
         };
         let own_waker = take_registered_waker(self.store_id, self.id);
         let mut failures = if !root_teardown.root.control.settled.get() {
-            notify_descendant_futures(self.store_id, self.id)
+            notify_descendant_futures(self.id)
         } else {
             Vec::new()
         };
@@ -1033,6 +1375,7 @@ impl Drop for NativeRootOwner {
         // Lock waiters may own user Wakers. Empty the field here so their last
         // destructor cannot escape the detached retirement/VM boundaries.
         let loan_gate = self.loan_gate.take();
+        let frame_gate = self.frame_gate.take();
         let mut owned = DroppedNativeStack {
             _coroutine: stack.coroutine.take(),
             _suspended_stores: std::mem::take(&mut stack.suspended_stores),
@@ -1117,6 +1460,7 @@ impl Drop for NativeRootOwner {
         defer_cleanup(&mut failures, || drop(owned));
         self.control.settle();
         defer_cleanup(&mut failures, || drop(loan_gate));
+        defer_cleanup(&mut failures, || drop(frame_gate));
         resume_cleanup_panics(failures);
     }
 }
@@ -1167,6 +1511,7 @@ impl Drop for SettledNativeRoot {
 struct DroppedHostState {
     _pending_future: Option<HostFuture>,
     _pending_resume_gate: Option<crate::WriteFuture<()>>,
+    _pending_frame_gate: Option<crate::WriteFuture<()>>,
     _pending_store_install: Option<Pin<Box<dyn Future<Output = ForcedStoreInstallGuard>>>>,
     _next_resume: Option<AsyncResume>,
     _result: Option<Result<Box<[Value]>, RuntimeError>>,
@@ -1310,34 +1655,36 @@ pub(crate) fn notify_pending_futures_of_interrupt(store_id: StoreId) {
         };
         // Only Arc cloning happens under the entry. RawWaker clone, wake and
         // Drop can run arbitrary code that reenters this same Store's registry.
-        entry.values().cloned().collect()
+        entry.values().map(|record| record.waker.clone()).collect()
     };
     for waker in wakers {
-        waker.waker.wake_by_ref();
+        waker.wake_by_ref();
     }
 }
 
-fn notify_descendant_futures(store_id: StoreId, ancestor: AsyncCallFutureId) -> Vec<DeferredPanic> {
+fn notify_descendant_futures(ancestor: AsyncCallFutureId) -> Vec<DeferredPanic> {
     let wakers: Vec<_> = {
-        let Some(entry) = ASYNC_CALL_FUTURE_WAKERS.get(&store_id) else {
-            return Vec::new();
-        };
-        entry
-            .values()
-            .filter(|record| {
-                record
-                    .ancestors
-                    .as_ref()
-                    .is_some_and(|ids| ids.contains(&ancestor))
-            })
-            .cloned()
-            .collect()
+        let mut wakers = Vec::new();
+        for entry in ASYNC_CALL_FUTURE_WAKERS.iter() {
+            wakers.extend(
+                entry
+                    .values()
+                    .filter(|record| {
+                        record
+                            .ancestors
+                            .as_ref()
+                            .is_some_and(|ids| ids.contains(&ancestor))
+                    })
+                    .map(|record| record.waker.clone()),
+            );
+        }
+        wakers
     };
     let mut failures = Vec::new();
     {
         let _logical = DetachedRootMetadata::new();
         for waker in &wakers {
-            defer_cleanup(&mut failures, || waker.waker.wake_by_ref());
+            defer_cleanup(&mut failures, || waker.wake_by_ref());
         }
     }
     // Snapshot/removed Waker destructors retain the cancellation metadata.
@@ -1814,13 +2161,720 @@ mod tests {
     }
 
     #[derive(Clone, Copy)]
+    enum FrameProof {
+        Resume,
+        Cancel,
+        CancelInside,
+        CancelOnClone,
+        CancelOnGateClone,
+        Unmanaged,
+    }
+
+    #[test]
+    fn a_native_descendant_blocks_cross_store_ancestor_resume() {
+        native_frame_proof(
+            "backend::sys::async_runtime::tests::a_native_descendant_blocks_cross_store_ancestor_resume",
+            FrameProof::Resume,
+        );
+    }
+
+    #[test]
+    fn native_cancellation_wakes_a_cross_store_frame_and_stays_sticky_after_exit() {
+        native_frame_proof(
+            "backend::sys::async_runtime::tests::native_cancellation_wakes_a_cross_store_frame_and_stays_sticky_after_exit",
+            FrameProof::Cancel,
+        );
+    }
+
+    #[test]
+    fn native_frame_exit_latches_an_abort_before_a_nonretiring_child_returns_success() {
+        native_frame_proof(
+            "backend::sys::async_runtime::tests::native_frame_exit_latches_an_abort_before_a_nonretiring_child_returns_success",
+            FrameProof::CancelInside,
+        );
+    }
+
+    #[test]
+    fn a_changed_waker_cancels_native_lineage_before_the_hostbody_is_polled() {
+        native_frame_proof(
+            "backend::sys::async_runtime::tests::a_changed_waker_cancels_native_lineage_before_the_hostbody_is_polled",
+            FrameProof::CancelOnClone,
+        );
+    }
+
+    #[test]
+    fn a_ready_resume_gate_rechecks_native_lineage_before_taking_the_original_root() {
+        native_frame_proof(
+            "backend::sys::async_runtime::tests::a_ready_resume_gate_rechecks_native_lineage_before_taking_the_original_root",
+            FrameProof::CancelOnGateClone,
+        );
+    }
+
+    #[test]
+    fn an_unmanaged_native_frame_transports_and_passes_on_ancestor_cancellation() {
+        native_frame_proof(
+            "backend::sys::async_runtime::tests::an_unmanaged_native_frame_transports_and_passes_on_ancestor_cancellation",
+            FrameProof::Unmanaged,
+        );
+    }
+
+    fn native_frame_proof(name: &str, proof: FrameProof) {
+        if !runtime_subprocess(name) {
+            return;
+        }
+        use std::sync::{
+            Mutex,
+            atomic::{AtomicBool, AtomicUsize, Ordering},
+        };
+        thread_local! {
+            static ANCESTOR: RefCell<Option<WeakNativeInvocation>> = const { RefCell::new(None) };
+            static CHILD: RefCell<Option<WeakNativeInvocation>> = const { RefCell::new(None) };
+            static PARENT_LOAN: RefCell<Option<StoreAsync>> = const { RefCell::new(None) };
+            static PARENT_CALL: RefCell<Option<RootCall>> = const { RefCell::new(None) };
+            static CHILD_LOAN: RefCell<Option<StoreAsync>> = const { RefCell::new(None) };
+            static CHILD_WRITE: RefCell<Option<crate::StoreAsyncWriteLock>> = const { RefCell::new(None) };
+        }
+        struct Data {
+            leaf: Option<crate::TypedFunction<(), i32>>,
+            descendant: bool,
+            cancel_parent: bool,
+            stack_drops: Arc<AtomicUsize>,
+            frame_exited: Arc<AtomicBool>,
+            caught: Arc<AtomicUsize>,
+            expected: Arc<Mutex<Option<RuntimeError>>>,
+        }
+        struct StackProbe {
+            drops: Arc<AtomicUsize>,
+            must_have_exited: Option<Arc<AtomicBool>>,
+        }
+        impl Drop for StackProbe {
+            fn drop(&mut self) {
+                if let Some(exited) = &self.must_have_exited {
+                    assert!(
+                        exited.load(Ordering::SeqCst),
+                        "ancestor retired before descendant scope exit"
+                    );
+                }
+                self.drops.fetch_add(1, Ordering::SeqCst);
+            }
+        }
+        struct ExternalScope(Arc<AtomicBool>);
+        impl Drop for ExternalScope {
+            fn drop(&mut self) {
+                self.0.store(true, Ordering::SeqCst);
+            }
+        }
+        struct BodyProbe(Arc<AtomicUsize>);
+        impl Drop for BodyProbe {
+            fn drop(&mut self) {
+                self.0.fetch_add(1, Ordering::SeqCst);
+            }
+        }
+        #[derive(Debug)]
+        struct ReturnedError {
+            drops: Arc<AtomicUsize>,
+            active_context: Arc<AtomicUsize>,
+        }
+        impl std::fmt::Display for ReturnedError {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str("host completion error")
+            }
+        }
+        impl std::error::Error for ReturnedError {}
+        impl Drop for ReturnedError {
+            fn drop(&mut self) {
+                if CoroutineContext::get_current().is_some() {
+                    self.active_context.fetch_add(1, Ordering::SeqCst);
+                }
+                self.drops.fetch_add(1, Ordering::SeqCst);
+            }
+        }
+        struct WakeCount(AtomicUsize);
+        impl std::task::Wake for WakeCount {
+            fn wake(self: Arc<Self>) {
+                self.0.fetch_add(1, Ordering::SeqCst);
+            }
+        }
+        type RootCall = Pin<Box<dyn Future<Output = Result<Box<[Value]>, RuntimeError>>>>;
+        struct CancelOnClone {
+            clones: AtomicUsize,
+            trigger: usize,
+            expected: Arc<Mutex<Option<RuntimeError>>>,
+        }
+        impl CancelOnClone {
+            fn waker(self: &Arc<Self>) -> Waker {
+                static VTABLE: RawWakerVTable =
+                    RawWakerVTable::new(clone, wake, wake_by_ref, drop_waker);
+                unsafe fn clone(data: *const ()) -> RawWaker {
+                    let state = std::mem::ManuallyDrop::new(unsafe {
+                        Arc::from_raw(data.cast::<CancelOnClone>())
+                    });
+                    if state.clones.fetch_add(1, Ordering::SeqCst) + 1 == state.trigger {
+                        // A valid clone callback can make a contended lock ready
+                        // and cancel a foreign ancestor before poll returns.
+                        drop(CHILD_WRITE.with(|slot| slot.borrow_mut().take()));
+                        let child =
+                            CHILD.with(|slot| slot.borrow().as_ref().unwrap().root.control.clone());
+                        assert!(!child.retiring.get() && child.reason.get().is_none());
+                        drop(PARENT_CALL.with(|slot| slot.borrow_mut().take().unwrap()));
+                        let error = ANCESTOR.with(|slot| {
+                            slot.borrow().as_ref().unwrap().retirement_error().unwrap()
+                        });
+                        *state.expected.lock().unwrap() = Some(error);
+                        assert!(!child.retiring.get() && child.reason.get().is_none());
+                    }
+                    RawWaker::new(Arc::into_raw(Arc::clone(&state)).cast(), &VTABLE)
+                }
+                unsafe fn wake(data: *const ()) {
+                    drop(unsafe { Arc::from_raw(data.cast::<CancelOnClone>()) });
+                }
+                unsafe fn wake_by_ref(_: *const ()) {}
+                unsafe fn drop_waker(data: *const ()) {
+                    drop(unsafe { Arc::from_raw(data.cast::<CancelOnClone>()) });
+                }
+                // Every raw value owns one Arc; clone/by_ref borrow without
+                // consuming it, and wake/drop reclaim exactly their own Arc.
+                unsafe {
+                    Waker::from_raw(RawWaker::new(Arc::into_raw(self.clone()).cast(), &VTABLE))
+                }
+            }
+        }
+        struct Root {
+            store: StoreAsync,
+            instance: Instance,
+            call: Option<RootCall>,
+            ready: Arc<AtomicBool>,
+            stack_drops: Arc<AtomicUsize>,
+            body_drops: Arc<AtomicUsize>,
+            body_polls: Arc<AtomicUsize>,
+            error_drops: Arc<AtomicUsize>,
+            error_context: Arc<AtomicUsize>,
+            caught: Arc<AtomicUsize>,
+        }
+        fn build_root(
+            descendant: bool,
+            cancel_parent: bool,
+            dynamic_leaf: bool,
+            frame_exited: Arc<AtomicBool>,
+            expected: Arc<Mutex<Option<RuntimeError>>>,
+        ) -> Root {
+            let mut store = Store::default();
+            let ready = Arc::new(AtomicBool::new(false));
+            let body_drops = Arc::new(AtomicUsize::new(0));
+            let body_polls = Arc::new(AtomicUsize::new(0));
+            let error_drops = Arc::new(AtomicUsize::new(0));
+            let error_context = Arc::new(AtomicUsize::new(0));
+            let stack_drops = Arc::new(AtomicUsize::new(0));
+            let caught = Arc::new(AtomicUsize::new(0));
+            let env = crate::FunctionEnv::new(
+                &mut store,
+                Data {
+                    leaf: None,
+                    descendant,
+                    cancel_parent,
+                    stack_drops: stack_drops.clone(),
+                    frame_exited,
+                    caught: caught.clone(),
+                    expected,
+                },
+            );
+            let leaf_ready = ready.clone();
+            let body_drop = body_drops.clone();
+            let body_poll = body_polls.clone();
+            let factory = move || {
+                let root = CoroutineContext::current_root().unwrap();
+                let loan = current_store_loan(root.control.store_id).unwrap();
+                if descendant {
+                    CHILD_LOAN.with(|slot| assert!(slot.borrow_mut().replace(loan).is_none()));
+                } else {
+                    PARENT_LOAN.with(|slot| assert!(slot.borrow_mut().replace(loan).is_none()));
+                }
+                let ready = leaf_ready.clone();
+                let polls = body_poll.clone();
+                let probe = BodyProbe(body_drop.clone());
+                async move {
+                    let _probe = probe;
+                    std::future::poll_fn(|_| {
+                        polls.fetch_add(1, Ordering::SeqCst);
+                        if ready.load(Ordering::SeqCst) {
+                            Poll::Ready(())
+                        } else {
+                            Poll::Pending
+                        }
+                    })
+                    .await;
+                    Ok::<i32, RuntimeError>(42)
+                }
+            };
+            let leaf = if dynamic_leaf {
+                let error_drops = error_drops.clone();
+                let error_context = error_context.clone();
+                Function::new_async(
+                    &mut store,
+                    crate::FunctionType::new([], [crate::Type::I32]),
+                    move |_| {
+                        let future = factory();
+                        let drops = error_drops.clone();
+                        let active_context = error_context.clone();
+                        async move {
+                            future.await?;
+                            Err::<Vec<Value>, RuntimeError>(RuntimeError::user(Box::new(
+                                ReturnedError {
+                                    drops,
+                                    active_context,
+                                },
+                            )))
+                        }
+                    },
+                )
+            } else {
+                Function::new_typed_async(&mut store, factory)
+            };
+            let bridge = Function::new_typed_with_env(
+                &mut store,
+                &env,
+                |mut env: crate::FunctionEnvMut<Data>| -> Result<i32, RuntimeError> {
+                    let current = WeakNativeInvocation::current().unwrap();
+                    let descendant = env.data().descendant;
+                    if !descendant {
+                        ANCESTOR.with(|slot| {
+                            assert!(slot.borrow_mut().replace(current.clone()).is_none())
+                        });
+                        // The same physical invocation must not acquire a pin or gate.
+                        let same = unsafe { current.enter_descendant_frame() }.unwrap();
+                        assert!(same._root.is_none() && same._gate.is_none());
+                        assert!(
+                            current
+                                .root
+                                .owner
+                                .upgrade()
+                                .unwrap()
+                                .frame_gate
+                                .get()
+                                .is_none()
+                        );
+                    } else {
+                        CHILD.with(|slot| assert!(slot.borrow_mut().replace(current).is_none()));
+                    }
+                    let (data, mut store) = env.data_and_store_mut();
+                    let _stack = StackProbe {
+                        drops: data.stack_drops.clone(),
+                        must_have_exited: (!descendant).then(|| data.frame_exited.clone()),
+                    };
+                    let frame = descendant.then(|| {
+                        let ancestor =
+                            ANCESTOR.with(|slot| slot.borrow().as_ref().unwrap().clone());
+                        unsafe { ancestor.enter_descendant_frame() }.unwrap()
+                    });
+                    // Models an external engine's entry scope. This scope must exit
+                    // before frame drops its blocker and possibly the last parent pin.
+                    let external_scope =
+                        descendant.then(|| ExternalScope(data.frame_exited.clone()));
+                    let result = data.leaf.as_ref().unwrap().call(&mut store);
+                    if data.cancel_parent {
+                        assert_eq!(result.as_ref().unwrap(), &42);
+                        let child =
+                            CHILD.with(|slot| slot.borrow().as_ref().unwrap().root.control.clone());
+                        assert!(!child.retiring.get());
+                        assert!(child.reason.get().is_none());
+                        assert!(child.native_reason.get().is_none());
+                        drop(PARENT_CALL.with(|slot| slot.borrow_mut().take().unwrap()));
+                        let error = ANCESTOR.with(|slot| {
+                            slot.borrow().as_ref().unwrap().retirement_error().unwrap()
+                        });
+                        *data.expected.lock().unwrap() = Some(error);
+                        // Only the active native edge knows this abort. The
+                        // ordinary child retirement path has not seeded it.
+                        assert!(!child.retiring.get());
+                        assert!(child.reason.get().is_none());
+                        assert!(child.native_reason.get().is_none());
+                    }
+                    drop(external_scope);
+                    drop(frame);
+                    match result {
+                        Ok(value) => Ok(value),
+                        Err(error) => {
+                            assert!(error.is_host_abort());
+                            let expected = data.expected.lock().unwrap();
+                            assert!(std::ptr::eq(
+                                error.downcast_ref::<std::io::Error>().unwrap(),
+                                expected
+                                    .as_ref()
+                                    .unwrap()
+                                    .downcast_ref::<std::io::Error>()
+                                    .unwrap()
+                            ));
+                            data.caught.fetch_add(1, Ordering::SeqCst);
+                            // The native edge has already gone, so its sticky reason
+                            // must still veto this caught success at import return.
+                            Ok(42)
+                        }
+                    }
+                },
+            );
+            let module = Module::new(
+                &store,
+                r#"(module
+                (import "proof" "bridge" (func $bridge (result i32)))
+                (import "proof" "leaf" (func $leaf (result i32)))
+                (global $continued (mut i32) (i32.const 0))
+                (func (export "run") (result i32)
+                    (block $caught (try_table (catch_all $caught)
+                        call $bridge i32.const 1 global.set $continued return))
+                    i32.const 2 global.set $continued i32.const 0)
+                (func (export "leaf") (result i32) call $leaf)
+                (func (export "continued") (result i32) global.get $continued)
+                (func (export "fresh") (result i32) i32.const 9))"#,
+            )
+            .unwrap();
+            let instance = Instance::new(
+                &mut store,
+                &module,
+                &crate::imports! { "proof" => { "bridge" => bridge, "leaf" => leaf } },
+            )
+            .unwrap();
+            env.as_mut(&mut store).leaf =
+                Some(instance.exports.get_typed_function(&store, "leaf").unwrap());
+            let store = store.into_async();
+            let call = Box::pin(
+                instance
+                    .exports
+                    .get_function("run")
+                    .unwrap()
+                    .call_async(&store, vec![]),
+            );
+            Root {
+                store,
+                instance,
+                call: Some(call),
+                ready,
+                stack_drops,
+                body_drops,
+                body_polls,
+                error_drops,
+                error_context,
+                caught,
+            }
+        }
+        let exited = Arc::new(AtomicBool::new(false));
+        let expected = Arc::new(Mutex::new(None));
+        let mut parent = build_root(false, false, false, exited.clone(), expected.clone());
+        let noop = futures::task::noop_waker();
+        assert!(
+            parent
+                .call
+                .as_mut()
+                .unwrap()
+                .as_mut()
+                .poll(&mut Context::from_waker(&noop))
+                .is_pending()
+        );
+        let ancestor = ANCESTOR.with(|slot| slot.borrow().as_ref().unwrap().clone());
+        let unmanaged = if matches!(proof, FrameProof::Unmanaged) {
+            assert!(WeakNativeInvocation::current().is_none());
+            let guard = unsafe { ancestor.enter_descendant_frame() }.unwrap();
+            assert!(guard.binding.is_none() && guard._root.is_some());
+            ANCESTOR.with(|slot| *slot.borrow_mut() = Some(guard.ancestor()));
+            Some(guard)
+        } else {
+            None
+        };
+        let loan_guard = if matches!(proof, FrameProof::Resume) {
+            // A foreign provider frame carries no access to A's Store. Its
+            // resume blocker must remain independent of this actual write loan.
+            Some(PARENT_LOAN.with(|slot| slot.borrow().as_ref().unwrap().store().write()))
+        } else {
+            None
+        };
+        let mut child = build_root(
+            true,
+            matches!(proof, FrameProof::CancelInside),
+            matches!(proof, FrameProof::CancelOnGateClone),
+            exited.clone(),
+            expected.clone(),
+        );
+        let child_wakes = Arc::new(WakeCount(AtomicUsize::new(0)));
+        let child_waker = Waker::from(child_wakes.clone());
+        assert!(
+            child
+                .call
+                .as_mut()
+                .unwrap()
+                .as_mut()
+                .poll(&mut Context::from_waker(&child_waker))
+                .is_pending()
+        );
+        drop(loan_guard);
+        assert_ne!(parent.store.id, child.store.id);
+        let child_token = CHILD.with(|slot| slot.borrow().as_ref().unwrap().clone());
+        assert_eq!(child_token.root.control.native_edges.borrow().len(), 1);
+        assert!(
+            NativeFrameBinding::enter(ancestor.root.control.clone(), &child_token.root.control)
+                .is_err()
+        );
+        assert!(ancestor.root.control.native_edges.borrow().is_empty());
+
+        parent.ready.store(true, Ordering::SeqCst);
+        assert!(
+            parent
+                .call
+                .as_mut()
+                .unwrap()
+                .as_mut()
+                .poll(&mut Context::from_waker(&noop))
+                .is_pending()
+        );
+        assert_eq!(parent.stack_drops.load(Ordering::SeqCst), 0);
+        // A queued resume writer must not be starved by another scope's reader.
+        let Err(rejected) = (unsafe { ancestor.enter_descendant_frame() }) else {
+            panic!("queued ancestor admitted another native frame");
+        };
+        assert!(rejected.message().contains("waiting to resume"));
+        if matches!(proof, FrameProof::Resume) {
+            child.ready.store(true, Ordering::SeqCst);
+            assert_eq!(
+                futures::executor::block_on(child.call.as_mut().unwrap().as_mut()).unwrap()[0]
+                    .i32(),
+                Some(42)
+            );
+            assert!(exited.load(Ordering::SeqCst));
+            assert!(child_token.root.control.settled.get());
+            assert!(
+                child_token
+                    .root
+                    .owner
+                    .upgrade()
+                    .unwrap()
+                    .stack
+                    .borrow()
+                    .coroutine
+                    .is_none()
+            );
+            assert!(child_token.root.control.native_edges.borrow().is_empty());
+            assert!(child_token.retirement_error().is_none());
+            assert_eq!(
+                futures::executor::block_on(parent.call.as_mut().unwrap().as_mut()).unwrap()[0]
+                    .i32(),
+                Some(42)
+            );
+            drop(parent.call.take());
+        } else if matches!(proof, FrameProof::CancelInside) {
+            PARENT_CALL.with(|slot| {
+                assert!(
+                    slot.borrow_mut()
+                        .replace(parent.call.take().unwrap())
+                        .is_none()
+                )
+            });
+            child.ready.store(true, Ordering::SeqCst);
+            let result = child
+                .call
+                .as_mut()
+                .unwrap()
+                .as_mut()
+                .poll(&mut Context::from_waker(&child_waker));
+            let Poll::Ready(Err(error)) = result else {
+                panic!("native frame exit lost the abort and allowed caught success");
+            };
+            let original = ancestor.retirement_error().unwrap();
+            assert!(std::ptr::eq(
+                error.downcast_ref::<std::io::Error>().unwrap(),
+                original.downcast_ref::<std::io::Error>().unwrap()
+            ));
+            assert!(!child_token.root.control.retiring.get());
+            assert!(child_token.root.control.reason.get().is_none());
+            assert!(std::ptr::eq(
+                child_token
+                    .root
+                    .control
+                    .native_reason
+                    .get()
+                    .unwrap()
+                    .downcast_ref::<std::io::Error>()
+                    .unwrap(),
+                original.downcast_ref::<std::io::Error>().unwrap()
+            ));
+            assert!(child_token.root.control.native_edges.borrow().is_empty());
+            assert!(child_token.root.control.settled.get());
+            assert_eq!(child_token.root.owner.strong_count(), 0);
+            assert_eq!(child.caught.load(Ordering::SeqCst), 0);
+            assert_eq!(parent.caught.load(Ordering::SeqCst), 1);
+            assert_eq!(child_wakes.0.load(Ordering::SeqCst), 1);
+            assert!(PARENT_CALL.with(|slot| slot.borrow().is_none()));
+        } else if matches!(
+            proof,
+            FrameProof::CancelOnClone | FrameProof::CancelOnGateClone
+        ) {
+            let gate_clone = matches!(proof, FrameProof::CancelOnGateClone);
+            if gate_clone {
+                CHILD_WRITE.with(|slot| {
+                    *slot.borrow_mut() = Some(
+                        CHILD_LOAN.with(|loan| loan.borrow().as_ref().unwrap().store().write()),
+                    );
+                });
+                child.ready.store(true, Ordering::SeqCst);
+            }
+            assert_eq!(child.body_polls.load(Ordering::SeqCst), 1);
+            PARENT_CALL.with(|slot| {
+                assert!(
+                    slot.borrow_mut()
+                        .replace(parent.call.take().unwrap())
+                        .is_none()
+                )
+            });
+            let clone_state = Arc::new(CancelOnClone {
+                clones: AtomicUsize::new(0),
+                trigger: if gate_clone { 2 } else { 1 },
+                expected: expected.clone(),
+            });
+            let waker = clone_state.waker();
+            let result = child
+                .call
+                .as_mut()
+                .unwrap()
+                .as_mut()
+                .poll(&mut Context::from_waker(&waker));
+            let Poll::Ready(Err(error)) = result else {
+                panic!("Waker callback cancellation was missed");
+            };
+            let original = ancestor.retirement_error().unwrap();
+            assert!(std::ptr::eq(
+                error.downcast_ref::<std::io::Error>().unwrap(),
+                original.downcast_ref::<std::io::Error>().unwrap()
+            ));
+            assert_eq!(
+                clone_state.clones.load(Ordering::SeqCst),
+                clone_state.trigger
+            );
+            assert_eq!(
+                child.body_polls.load(Ordering::SeqCst),
+                if gate_clone { 2 } else { 1 },
+                "canceled native hostbody was polled again"
+            );
+            assert_eq!(
+                child.caught.load(Ordering::SeqCst),
+                1,
+                "canceled native stack resumed a successful result"
+            );
+            assert_eq!(parent.caught.load(Ordering::SeqCst), 1);
+            if gate_clone {
+                assert_eq!(child.error_drops.load(Ordering::SeqCst), 1);
+                assert_eq!(
+                    child.error_context.load(Ordering::SeqCst),
+                    0,
+                    "completed body error dropped on active native stack"
+                );
+            }
+            assert_eq!(child_token.root.owner.strong_count(), 0);
+            assert!(PARENT_CALL.with(|slot| slot.borrow().is_none()));
+            assert!(CHILD_WRITE.with(|slot| slot.borrow().is_none()));
+        } else {
+            drop(parent.call.take());
+            let error = ancestor.retirement_error().unwrap();
+            *expected.lock().unwrap() = Some(error.clone());
+            assert_eq!(parent.body_drops.load(Ordering::SeqCst), 1);
+            assert_eq!(parent.stack_drops.load(Ordering::SeqCst), 0);
+            assert_eq!(
+                child_wakes.0.load(Ordering::SeqCst),
+                1,
+                "cross-Store native descendant was not woken"
+            );
+            let result = child
+                .call
+                .as_mut()
+                .unwrap()
+                .as_mut()
+                .poll(&mut Context::from_waker(&child_waker));
+            let Poll::Ready(Err(child_error)) = result else {
+                panic!("native child ignored ancestor cancellation");
+            };
+            assert!(std::ptr::eq(
+                child_error.downcast_ref::<std::io::Error>().unwrap(),
+                error.downcast_ref::<std::io::Error>().unwrap()
+            ));
+            assert!(exited.load(Ordering::SeqCst));
+            assert!(child_token.root.control.settled.get());
+            assert_eq!(child_token.root.owner.strong_count(), 0);
+            assert!(child_token.root.control.native_edges.borrow().is_empty());
+            assert!(std::ptr::eq(
+                child_token
+                    .retirement_error()
+                    .unwrap()
+                    .downcast_ref::<std::io::Error>()
+                    .unwrap(),
+                error.downcast_ref::<std::io::Error>().unwrap()
+            ));
+            assert_eq!(child.caught.load(Ordering::SeqCst), 1);
+            if let Some(guard) = unmanaged {
+                // The unmanaged caller explicitly awaited the descendant's
+                // physical settlement before continuing/exiting its own frame.
+                assert_eq!(child.stack_drops.load(Ordering::SeqCst), 1);
+                assert_eq!(parent.stack_drops.load(Ordering::SeqCst), 0);
+                assert!(std::ptr::eq(
+                    guard
+                        .retirement_error()
+                        .unwrap()
+                        .downcast_ref::<std::io::Error>()
+                        .unwrap(),
+                    error.downcast_ref::<std::io::Error>().unwrap()
+                ));
+                // The unmanaged scope is also physically exited before release.
+                drop(guard);
+            }
+            assert_eq!(parent.caught.load(Ordering::SeqCst), 1);
+        }
+        assert_eq!(parent.stack_drops.load(Ordering::SeqCst), 1);
+        assert_eq!(child.stack_drops.load(Ordering::SeqCst), 1);
+        assert!(unsafe { ancestor.enter_descendant_frame() }.is_err());
+        assert!(unsafe { child_token.enter_descendant_frame() }.is_err());
+        for root in [&parent, &child] {
+            let continued = futures::executor::block_on(
+                root.instance
+                    .exports
+                    .get_function("continued")
+                    .unwrap()
+                    .call_async(&root.store, vec![]),
+            )
+            .unwrap();
+            assert_eq!(
+                continued[0].i32(),
+                Some(i32::from(matches!(proof, FrameProof::Resume)))
+            );
+            let fresh = futures::executor::block_on(
+                root.instance
+                    .exports
+                    .get_function("fresh")
+                    .unwrap()
+                    .call_async(&root.store, vec![]),
+            )
+            .unwrap();
+            assert_eq!(fresh[0].i32(), Some(9));
+        }
+        drop(CHILD.with(|slot| slot.borrow_mut().take()));
+        drop(ANCESTOR.with(|slot| slot.borrow_mut().take()));
+        drop(PARENT_LOAN.with(|slot| slot.borrow_mut().take()));
+        drop(CHILD_LOAN.with(|slot| slot.borrow_mut().take()));
+        assert!(StoreContext::is_empty());
+        CURRENT_CONTEXT.with(|current| assert!(current.borrow().is_empty()));
+    }
+
+    #[derive(Clone, Copy)]
     enum ChildProof {
         Return,
+        LoanCycle,
         TypedReturn,
         Cancel,
         EscapedGuard,
         ForeignRoot,
         Notify,
+    }
+
+    #[test]
+    fn native_frame_cycles_through_a_real_store_loan_reject_before_binding() {
+        borrowed_child_proof(
+            "backend::sys::async_runtime::tests::native_frame_cycles_through_a_real_store_loan_reject_before_binding",
+            ChildProof::LoanCycle,
+        );
     }
 
     #[test]
@@ -2166,6 +3220,11 @@ mod tests {
                 .suspended_stores
                 .owns_root()
         );
+        if matches!(proof, ChildProof::LoanCycle) {
+            let parent = PARENT_ROOT.with(|slot| slot.borrow().as_ref().unwrap().control.clone());
+            assert!(NativeFrameBinding::enter(parent.clone(), &child_root.control).is_err());
+            assert!(parent.native_edges.borrow().is_empty());
+        }
         if matches!(proof, ChildProof::Notify) {
             let mut other: ChildCall = Box::pin(
                 instance
@@ -2185,7 +3244,10 @@ mod tests {
             let old = std::mem::replace(&mut waker, futures::task::noop_waker());
             drop(old); // only the parent's registry entry now owns ParentWake
         }
-        if matches!(proof, ChildProof::Return | ChildProof::TypedReturn) {
+        if matches!(
+            proof,
+            ChildProof::Return | ChildProof::TypedReturn | ChildProof::LoanCycle
+        ) {
             let result = futures::executor::block_on(call.as_mut()).unwrap();
             assert_eq!(result[0].i32(), Some(42));
             if matches!(proof, ChildProof::TypedReturn) {
@@ -2341,7 +3403,7 @@ mod tests {
             result[0].i32(),
             Some(i32::from(matches!(
                 proof,
-                ChildProof::Return | ChildProof::TypedReturn
+                ChildProof::Return | ChildProof::TypedReturn | ChildProof::LoanCycle
             )))
         );
         drop(CHILD.with(|slot| slot.borrow_mut().take()));
