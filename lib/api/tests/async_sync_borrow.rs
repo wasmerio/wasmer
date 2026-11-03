@@ -21,6 +21,334 @@ use wasmer::{
     Value, imports,
 };
 
+#[test]
+fn same_store_loan_preserves_split_borrows_and_expires_before_a_sibling_import() {
+    same_store_loan_proof(
+        "same_store_loan_preserves_split_borrows_and_expires_before_a_sibling_import",
+        false,
+    );
+}
+
+#[test]
+fn an_escaped_store_loan_delays_canceled_stack_retirement() {
+    same_store_loan_proof(
+        "an_escaped_store_loan_delays_canceled_stack_retirement",
+        true,
+    );
+}
+
+#[test]
+fn a_dynamic_host_callback_can_reenter_its_same_function_context() {
+    if !run_in_subprocess("a_dynamic_host_callback_can_reenter_its_same_function_context") {
+        return;
+    }
+    let mut store = Store::default();
+    let env = FunctionEnv::new(&mut store, None::<Function>);
+    let callback = Function::new_with_env(
+        &mut store,
+        &env,
+        FunctionType::new([wasmer::Type::I32], [wasmer::Type::I32]),
+        |mut env: FunctionEnvMut<Option<Function>>, values: &[Value]| {
+            let count = values[0].i32().unwrap();
+            if count == 0 {
+                return Ok(vec![Value::I32(42)]);
+            }
+            let target = env.data().clone().unwrap();
+            target
+                .call(&mut env, &[Value::I32(count - 1)])
+                .map(Vec::from)
+        },
+    );
+    let module = Module::new(
+        &store,
+        r#"(module
+        (import "host" "callback" (func $callback (param i32) (result i32)))
+        (func (export "run") (param i32) (result i32) local.get 0 call $callback))"#,
+    )
+    .unwrap();
+    let instance = Instance::new(
+        &mut store,
+        &module,
+        &imports! {
+            "host" => { "callback" => callback }
+        },
+    )
+    .unwrap();
+    let run = instance.exports.get_function("run").unwrap().clone();
+    *env.as_mut(&mut store) = Some(run.clone());
+    let result =
+        futures::executor::block_on(run.call_async(&store.into_async(), vec![Value::I32(3)]))
+            .unwrap();
+    assert_eq!(result[0].i32(), Some(42));
+}
+
+fn same_store_loan_proof(test_name: &str, cancel: bool) {
+    if !run_in_subprocess(test_name) {
+        return;
+    }
+    use std::cell::RefCell;
+    use wasmer::{
+        AsStoreAsync, AsStoreMut, AsyncFunctionEnvHandleMut, AsyncFunctionEnvMut, StoreAsync,
+        TypedFunction,
+    };
+    #[derive(Default)]
+    struct Counter(i32, Option<Function>);
+    struct Parent {
+        leaf: Option<TypedFunction<(), i32>>,
+        spin: Option<TypedFunction<(), i32>>,
+        drops: Arc<AtomicUsize>,
+        continued: Arc<AtomicUsize>,
+        caught: Arc<AtomicUsize>,
+    }
+    thread_local! {
+        static CAP: RefCell<Option<AsyncFunctionEnvMut<Counter>>> = const { RefCell::new(None) };
+        static GUARD: RefCell<Option<AsyncFunctionEnvHandleMut<Counter>>> = const { RefCell::new(None) };
+        static BASE: RefCell<Option<StoreAsync>> = const { RefCell::new(None) };
+        static STOP: RefCell<Option<RuntimeError>> = const { RefCell::new(None) };
+    }
+    let stack_drops = Arc::new(AtomicUsize::new(0));
+    let continued = Arc::new(AtomicUsize::new(0));
+    let caught = Arc::new(AtomicUsize::new(0));
+    let child_entries = Arc::new(AtomicUsize::new(0));
+    let mut store = Store::default();
+    let counter = FunctionEnv::new(&mut store, Counter::default());
+    let count = child_entries.clone();
+    let child = Function::new_typed(&mut store, move || -> i32 {
+        count.fetch_add(1, Ordering::SeqCst);
+        7
+    });
+    counter.as_mut(&mut store).1 = Some(child);
+    let parent = FunctionEnv::new(
+        &mut store,
+        Parent {
+            leaf: None,
+            spin: None,
+            drops: stack_drops.clone(),
+            continued: continued.clone(),
+            caught: caught.clone(),
+        },
+    );
+    let leaf = Function::new_typed_with_env_async(
+        &mut store,
+        &counter,
+        move |mut env: AsyncFunctionEnvMut<Counter>| async move {
+            let mut write = env.write().await;
+            write.data_mut().0 = 42;
+            let child = write.data_mut().1.as_ref().unwrap().clone();
+            let typed = child.typed::<(), i32>(&write).unwrap();
+            assert_eq!(typed.call(&mut write).unwrap(), 7);
+            let waker = futures::task::noop_waker();
+            // This stage supports read/write lending and synchronous entry.
+            // Independent child roots reject before touching this held gate.
+            let mut call = Box::pin(child.call_async(&env.as_store_async(), vec![]));
+            let Poll::Ready(Err(error)) = call.as_mut().poll(&mut Context::from_waker(&waker))
+            else {
+                panic!("borrowed child root entered or waited for the held guard");
+            };
+            assert!(error.message().contains("borrowed Store"));
+            drop(call);
+            let mut call = Box::pin(typed.call_async(&env.as_store_async()));
+            let Poll::Ready(Err(error)) = call.as_mut().poll(&mut Context::from_waker(&waker))
+            else {
+                panic!("typed borrowed child root entered or waited for the held guard");
+            };
+            assert!(error.message().contains("borrowed Store"));
+            drop(call);
+            CAP.with(|slot| assert!(slot.borrow_mut().replace(env.as_mut()).is_none()));
+            if cancel {
+                GUARD.with(|slot| assert!(slot.borrow_mut().replace(write).is_none()));
+            } else {
+                drop(write);
+                let read = env.read().await;
+                assert_eq!(read.data().0, 42);
+                drop(read);
+                let mut first = true;
+                futures::future::poll_fn(|cx| {
+                    if std::mem::take(&mut first) {
+                        cx.waker().wake_by_ref();
+                        Poll::Pending
+                    } else {
+                        Poll::Ready(())
+                    }
+                })
+                .await;
+            }
+            Ok::<i32, RuntimeError>(42)
+        },
+    );
+    let bridge = Function::new_typed_with_env(
+        &mut store,
+        &parent,
+        move |mut env: FunctionEnvMut<Parent>| -> Result<i32, RuntimeError> {
+            let (data, mut store) = env.data_and_store_mut();
+            let _stack = Dropped(data.drops.clone());
+            let result = data.leaf.as_ref().unwrap().call(&mut store);
+            if cancel {
+                let error = result.unwrap_err();
+                assert!(error.is_host_abort());
+                let next = data.spin.as_ref().unwrap().call(&mut store).unwrap_err();
+                assert!(next.is_host_abort());
+                STOP.with(|slot| {
+                    let slot = slot.borrow();
+                    let original = slot.as_ref().unwrap();
+                    assert!(std::ptr::eq(
+                        original.downcast_ref::<std::io::Error>().unwrap(),
+                        error.downcast_ref::<std::io::Error>().unwrap(),
+                    ));
+                    assert!(std::ptr::eq(
+                        original.downcast_ref::<std::io::Error>().unwrap(),
+                        next.downcast_ref::<std::io::Error>().unwrap(),
+                    ));
+                });
+                data.caught.fetch_add(1, Ordering::SeqCst);
+                // Deliberately catch both errors. The import's post-body veto
+                // must still prevent the calling Wasm handler or next instruction.
+                return Ok(42);
+            }
+            let result = result?;
+            data.continued.fetch_add(1, Ordering::SeqCst);
+            Ok(result)
+        },
+    );
+    let sibling = Function::new_typed_async(&mut store, |result: i32| async move {
+        CAP.with(|slot| {
+            let slot = slot.borrow();
+            let expired = slot.as_ref().unwrap();
+            assert!(expired.try_write().is_none());
+            assert!(
+                expired
+                    .downgrade()
+                    .is_some_and(|weak| weak.upgrade().is_none())
+            );
+        });
+        // This import runs on the same still-live root after the borrowed
+        // synchronous scope ended. An expired descriptor cannot fall back to
+        // the now-unlocked ordinary Store handle.
+        BASE.with(|slot| drop(slot.borrow().as_ref().unwrap().read()));
+        result
+    });
+    let module = Module::new(
+        &store,
+        r#"(module
+        (import "host" "bridge" (func $bridge (result i32)))
+        (import "host" "leaf" (func $leaf (result i32)))
+        (import "host" "sibling" (func $sibling (param i32) (result i32)))
+        (global $continued (mut i32) (i32.const 0))
+        (func (export "run") (result i32)
+            (block $caught
+                (try_table (catch_all $caught)
+                    call $bridge
+                    i32.const 1 global.set $continued
+                    call $sibling return))
+            i32.const 2 global.set $continued i32.const 0)
+        (func (export "leaf") (result i32) call $leaf)
+        (func (export "spin") (result i32) (loop $again br $again) i32.const 0)
+        (func (export "continued") (result i32) global.get $continued)
+        (func (export "fresh") (result i32) i32.const 9))"#,
+    )
+    .unwrap();
+    let instance = Instance::new(
+        &mut store,
+        &module,
+        &imports! {
+            "host" => { "bridge" => bridge, "leaf" => leaf, "sibling" => sibling }
+        },
+    )
+    .unwrap();
+    parent.as_mut(&mut store).leaf =
+        Some(instance.exports.get_typed_function(&store, "leaf").unwrap());
+    parent.as_mut(&mut store).spin =
+        Some(instance.exports.get_typed_function(&store, "spin").unwrap());
+    let store = store.into_async();
+    BASE.with(|slot| assert!(slot.borrow_mut().replace(store.store()).is_none()));
+    let mut call = Box::pin(
+        instance
+            .exports
+            .get_function("run")
+            .unwrap()
+            .call_async(&store, vec![]),
+    );
+    let waker = futures::task::noop_waker();
+    assert!(
+        call.as_mut()
+            .poll(&mut Context::from_waker(&waker))
+            .is_pending()
+    );
+    assert_eq!(stack_drops.load(Ordering::SeqCst), 0);
+    assert!(
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| store.read())).is_err(),
+        "the original Store write guard must remain locked"
+    );
+    if cancel {
+        let mut escaped = GUARD.with(|slot| slot.borrow_mut().take().unwrap());
+        {
+            // Derive this before cancellation. A check only in the loan guard's
+            // accessor would miss this still-valid StoreMut at guest reentry.
+            let mut before_cancel = escaped.as_store_mut();
+            drop(call);
+            let error = instance
+                .exports
+                .get_function("spin")
+                .unwrap()
+                .call(&mut before_cancel, &[])
+                .unwrap_err();
+            assert!(error.is_host_abort());
+            STOP.with(|slot| assert!(slot.borrow_mut().replace(error).is_none()));
+        }
+        GUARD.with(|slot| assert!(slot.borrow_mut().replace(escaped).is_none()));
+        assert_eq!(stack_drops.load(Ordering::SeqCst), 0);
+        CAP.with(|slot| assert!(slot.borrow().as_ref().unwrap().try_read().is_none()));
+        let mut foreign = Store::default();
+        let release = Function::new_typed(&mut foreign, || -> i32 {
+            drop(GUARD.with(|slot| slot.borrow_mut().take().unwrap()));
+            42
+        });
+        let result =
+            futures::executor::block_on(release.call_async(&foreign.into_async(), vec![])).unwrap();
+        assert_eq!(result[0].i32(), Some(42));
+        assert_eq!(continued.load(Ordering::SeqCst), 0);
+        assert_eq!(caught.load(Ordering::SeqCst), 1);
+        drop(STOP.with(|slot| slot.borrow_mut().take().unwrap()));
+    } else {
+        let result = futures::executor::block_on(call.as_mut()).unwrap();
+        assert_eq!(result[0].i32(), Some(42));
+        drop(call);
+        assert_eq!(continued.load(Ordering::SeqCst), 1);
+        assert_eq!(caught.load(Ordering::SeqCst), 0);
+    }
+    assert_eq!(stack_drops.load(Ordering::SeqCst), 1);
+    assert_eq!(child_entries.load(Ordering::SeqCst), 1);
+    assert_eq!(counter.as_ref(&store.read()).0, 42);
+    let fresh = futures::executor::block_on(
+        instance
+            .exports
+            .get_function("fresh")
+            .unwrap()
+            .call_async(&store, vec![]),
+    )
+    .unwrap();
+    assert_eq!(fresh[0].i32(), Some(9));
+    let guest_continued = futures::executor::block_on(
+        instance
+            .exports
+            .get_function("continued")
+            .unwrap()
+            .call_async(&store, vec![]),
+    )
+    .unwrap();
+    assert_eq!(guest_continued[0].i32(), Some(i32::from(!cancel)));
+    let expired = CAP.with(|slot| slot.borrow_mut().take().unwrap());
+    assert!(expired.try_write().is_none());
+    let expired_store = expired.as_store_async().store();
+    drop(expired);
+    drop(BASE.with(|slot| slot.borrow_mut().take().unwrap()));
+    drop(store);
+    assert!(
+        expired_store.into_store().is_err(),
+        "an expired loan cannot become an ordinary Store"
+    );
+}
+
 // A broken Store-installation invariant can panic while a native coroutine is
 // suspended. Keep this regression in an owned subprocess so that a fail-first
 // run cannot corrupt the test harness's Store TLS or unwind another test's stack.
