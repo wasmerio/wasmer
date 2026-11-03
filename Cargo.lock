@@ -7260,31 +7260,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "wasmer-argus"
-version = "7.5.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "clap",
- "cynic",
- "derive_more",
- "futures",
- "indicatif",
- "log",
- "reqwest",
- "serde",
- "serde_json",
- "shared-buffer",
- "tokio",
- "tracing",
- "tracing-subscriber",
- "url",
- "wasmer",
- "wasmer-backend-api",
- "webc",
-]
-
-[[package]]
 name = "wasmer-backend-api"
 version = "0.705.0"
 dependencies = [
