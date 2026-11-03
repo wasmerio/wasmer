@@ -22,7 +22,8 @@ pub fn fd_sync(mut ctx: FunctionEnvMut<'_, WasiEnv>, fd: WasiFd) -> Result<Errno
     }
     let inode = fd_entry.inode;
 
-    // TODO: implement this for more than files
+    // Files and directories reach the backing filesystem; the remaining kinds
+    // have no metadata of their own to persist.
     {
         let mut guard = inode.write();
         match guard.deref_mut() {
@@ -53,7 +54,21 @@ pub fn fd_sync(mut ctx: FunctionEnvMut<'_, WasiEnv>, fd: WasiFd) -> Result<Errno
                     return Ok(Errno::Inval);
                 }
             }
-            Kind::Root { .. } | Kind::Dir { .. } => return Ok(Errno::Isdir),
+            Kind::Dir { path, .. } => {
+                // Posix fsyncs a directory to make the entries created, renamed or
+                // removed inside it durable, and databases issue that on every
+                // checkpoint. Directories the guest made in the virtual layer carry
+                // no host path and land in the backing filesystem's own no-op.
+                let path = path.clone();
+                drop(guard);
+
+                if let Err(err) = state.fs.root_fs.sync_dir(&path) {
+                    return Ok(fs_error_into_wasi_err(err));
+                }
+            }
+            // The synthesized root is the mount table itself, not a host directory;
+            // everything mounted below it is a Kind::Dir and flushes on its own.
+            Kind::Root { .. } => return Ok(Errno::Isdir),
             // Linux fsync(2) returns EINVAL for fds "bound to a special file
             // (e.g., a pipe, FIFO, or socket) which does not support
             // synchronization.", mirror that behaviour

@@ -96,6 +96,17 @@ pub trait FileSystem: fmt::Debug + Send + Sync + 'static + Upcastable {
     fn readlink(&self, path: &Path) -> Result<PathBuf>;
     fn read_dir(&self, path: &Path) -> Result<ReadDir>;
     fn create_dir(&self, path: &Path) -> Result<()>;
+    /// Flush a directory itself (its entry list) to stable storage.
+    ///
+    /// Posix `fsync(2)` accepts a directory fd and persists the entries that
+    /// were created, renamed or removed inside it, which is how databases make
+    /// schema changes durable. Filesystems with no backing store to flush
+    /// (memory, read-only volumes) keep the default no-op rather than reporting
+    /// `Unsupported`, because there is genuinely nothing pending: failing here
+    /// would abort a guest's durability protocol for no benefit.
+    fn sync_dir(&self, _path: &Path) -> Result<()> {
+        Ok(())
+    }
     fn create_symlink(&self, _source: &Path, _target: &Path) -> Result<()> {
         Err(FsError::Unsupported)
     }
@@ -141,6 +152,10 @@ where
 
     fn create_dir(&self, path: &Path) -> Result<()> {
         (**self).create_dir(path)
+    }
+
+    fn sync_dir(&self, path: &Path) -> Result<()> {
+        (**self).sync_dir(path)
     }
 
     fn create_symlink(&self, source: &Path, target: &Path) -> Result<()> {
