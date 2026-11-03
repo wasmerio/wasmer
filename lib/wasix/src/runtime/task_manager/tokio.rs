@@ -68,6 +68,9 @@ impl std::fmt::Debug for ThreadPool {
     }
 }
 
+/// How long a pool worker above `core_size` waits for a task before retiring.
+const IDLE_WORKER_TIMEOUT: Duration = Duration::from_secs(10);
+
 /// A task manager that uses tokio to spawn tasks.
 #[derive(Clone, Debug)]
 pub struct TokioTaskManager {
@@ -90,8 +93,22 @@ impl TokioTaskManager {
             pool: Arc::new(ThreadPool {
                 inner: rusty_pool::Builder::new()
                     .name("TokioTaskManager Thread Pool".to_string())
-                    .core_size(max_threads)
+                    // `core_size` must stay well below `max_size`. While the pool's *total* worker
+                    // count is under `core_size`, rusty_pool spawns a brand new worker for every
+                    // submission without first looking for an idle one, and creates it with
+                    // `keep_alive: None` -- which parks it on an untimed `recv()` for the rest of the
+                    // process. Equating the two therefore made the host thread count track how many
+                    // tasks had *ever* been submitted rather than how many were live: measured against
+                    // a threaded pgrust server, +1 host thread and ~4.4 MiB resident per connection
+                    // the guest ever touched, with none of it released after every client had
+                    // disconnected. One worker per parallelism unit stays warm; the rest are now
+                    // spawned on demand and retire once idle.
+                    .core_size(concurrency)
                     .max_size(max_threads)
+                    // Long enough that a guest which wakes sub-second does not thrash thread
+                    // creation, short enough that a server which has drained actually gives its
+                    // worker stacks back.
+                    .keep_alive(IDLE_WORKER_TIMEOUT)
                     .build(),
             }),
         }
