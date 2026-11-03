@@ -38,3 +38,6 @@ pub use wasmer_vm::{HostMemoryMappingChange, HostMemoryPin};
 
 #[doc(hidden)]
 pub use entities::function::env::FunctionEnvFramePin;
+
+#[doc(hidden)]
+pub use entities::memory::with_memory_grow_callback;

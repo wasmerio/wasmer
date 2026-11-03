@@ -906,6 +906,7 @@ thread_local! {
 pub struct SavedTrapState {
     handler: *mut TrapHandlerContext,
     yielder: Option<NonNull<Yielder<(), UnwindReason>>>,
+    memory_grow_depth: usize,
     _thread: std::marker::PhantomData<*mut ()>,
 }
 
@@ -921,10 +922,12 @@ impl SavedTrapState {
         compiler_fence(Ordering::Release);
         let handler = TRAP_HANDLER.with(|ptr| ptr.swap(self.handler, Ordering::Relaxed));
         let yielder = YIELDER.with(|cell| cell.replace(self.yielder));
+        let memory_grow_depth = crate::libcalls::replace_memory_grow_depth(self.memory_grow_depth);
         compiler_fence(Ordering::Acquire);
         Self {
             handler,
             yielder,
+            memory_grow_depth,
             _thread: std::marker::PhantomData,
         }
     }

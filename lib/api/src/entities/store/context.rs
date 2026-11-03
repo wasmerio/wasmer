@@ -157,7 +157,7 @@ pub(crate) struct SuspendedStoreContexts {
     owned_root: bool,
 }
 
-#[cfg(all(feature = "experimental-async", feature = "sys"))]
+#[cfg(feature = "sys")]
 pub(crate) struct DetachedStoreContexts {
     caller: Vec<StoreContext>,
     previous_hidden_depth: Option<usize>,
@@ -172,12 +172,12 @@ pub(crate) struct StoreInstallGuard {
 thread_local! {
     static STORE_CONTEXT_STACK: RefCell<Vec<StoreContext>> = const { RefCell::new(Vec::new()) };
     static NEXT_STORE_CONTEXT_ID: Cell<u64> = const { Cell::new(0) };
-    #[cfg(all(feature = "experimental-async", feature = "sys"))]
+    #[cfg(feature = "sys")]
     static HIDDEN_STORE_CONTEXT_DEPTH: Cell<usize> = const { Cell::new(0) };
 }
 
 impl StoreContext {
-    #[cfg(all(feature = "experimental-async", feature = "sys"))]
+    #[cfg(feature = "sys")]
     pub(crate) fn detach_current() -> DetachedStoreContexts {
         let previous_hidden_depth = STORE_CONTEXT_STACK.with(|stack| {
             (!stack.borrow().is_empty()).then(|| {
@@ -889,7 +889,7 @@ impl Drop for StoreContext {
     }
 }
 
-#[cfg(all(feature = "experimental-async", feature = "sys"))]
+#[cfg(feature = "sys")]
 impl Drop for DetachedStoreContexts {
     fn drop(&mut self) {
         let remaining = STORE_CONTEXT_STACK.with(|stack| {
