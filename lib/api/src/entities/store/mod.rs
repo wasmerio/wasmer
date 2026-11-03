@@ -202,6 +202,8 @@ impl Store {
         StoreAsync {
             id: self.id(),
             inner: LocalRwLock::new(self.inner),
+            #[cfg(feature = "sys")]
+            loan: None,
         }
     }
 }

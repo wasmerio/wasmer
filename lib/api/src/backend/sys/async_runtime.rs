@@ -1,7 +1,6 @@
-#[cfg(test)]
 use std::rc::Weak;
 use std::{
-    cell::{Cell, RefCell},
+    cell::{Cell, OnceCell, RefCell},
     collections::HashMap,
     future::Future,
     marker::PhantomData,
@@ -17,9 +16,9 @@ use dashmap::DashMap;
 
 use super::entities::function::Function as SysFunction;
 use crate::{
-    AsStoreAsync, AsStoreMut, AsStoreRef, ForcedStoreInstallGuard, LocalRwLockWriteGuard,
-    RuntimeError, Store, StoreAsync, StoreContext, StoreContextId, StoreInner, StoreMut, StoreRef,
-    SuspendedStoreContexts, Value,
+    AsStoreAsync, AsStoreMut, AsStoreRef, ForcedStoreInstallGuard, LocalRwLock,
+    LocalRwLockReadGuard, LocalRwLockWriteGuard, RuntimeError, Store, StoreAsync, StoreContext,
+    StoreContextId, StoreInner, StoreMut, StoreRef, SuspendedStoreContexts, Value,
 };
 use wasmer_types::StoreId;
 
@@ -53,6 +52,7 @@ pub(crate) struct AsyncCallFuture {
     id: AsyncCallFutureId,
 
     root: Option<Rc<NativeRootOwner>>,
+    pending_resume_gate: Option<crate::WriteFuture<()>>,
     pending_store_install: Option<Pin<Box<dyn Future<Output = ForcedStoreInstallGuard>>>>,
     pending_future: Option<HostFuture>,
     next_resume: Option<AsyncResume>,
@@ -64,8 +64,9 @@ pub(crate) struct AsyncCallFuture {
 struct NativeRootOwner {
     store: Option<StoreAsync>,
     store_context_id: StoreContextId,
-    retiring: Cell<bool>,
-    settled: Cell<bool>,
+    control: Rc<NativeRootControl>,
+    parked: Cell<bool>,
+    loan_gate: OnceCell<LocalRwLock<()>>,
     stack: RefCell<NativeRootStack>,
 }
 
@@ -76,21 +77,167 @@ struct NativeRootStack {
     trap_state: RootTrapState,
 }
 
-#[cfg(test)]
 #[derive(Clone)]
 struct WeakNativeRoot {
     owner: Weak<NativeRootOwner>,
     id: StoreContextId,
+    control: Rc<NativeRootControl>,
+}
+
+/// This metadata may outlive the stack. It owns no Store, coroutine or task.
+struct NativeRootControl {
+    store_id: StoreId,
+    installation: StoreContextId,
+    retiring: Cell<bool>,
+    settled: Cell<bool>,
+    retained: Cell<bool>,
+    reason: OnceCell<RuntimeError>,
+}
+
+thread_local! {
+    // A retained original write guard makes this a single-owner association.
+    // Weak metadata cannot keep a coroutine, Store or cleanup task alive.
+    static RETAINED_ROOTS: RefCell<HashMap<StoreId, Weak<NativeRootControl>>> = RefCell::new(HashMap::new());
+    static RETIRING_ROOT: RefCell<Option<Rc<NativeRootControl>>> = const { RefCell::new(None) };
+}
+
+// Destructors run without a coroutine yielder or Store authority. Keep only
+// the exact cancellation metadata available to managed entry checks.
+struct RetirementBoundary {
+    previous: Option<Rc<NativeRootControl>>,
+    installed: Option<Rc<NativeRootControl>>,
+}
+
+impl RetirementBoundary {
+    fn enter(control: &Rc<NativeRootControl>) -> Self {
+        let installed = (!control.settled.get() && control.retiring.get()).then(|| control.clone());
+        let previous = installed.as_ref().and_then(|control| {
+            RETIRING_ROOT.with(|current| current.borrow_mut().replace(control.clone()))
+        });
+        Self {
+            previous,
+            installed,
+        }
+    }
+}
+
+impl Drop for RetirementBoundary {
+    fn drop(&mut self) {
+        if let Some(installed) = self.installed.take() {
+            let removed = RETIRING_ROOT.with(|current| {
+                let mut current = current.borrow_mut();
+                assert!(
+                    current
+                        .as_ref()
+                        .is_some_and(|found| Rc::ptr_eq(found, &installed)),
+                    "retirement metadata restored out of order"
+                );
+                std::mem::replace(&mut *current, self.previous.take())
+            });
+            drop(removed);
+        }
+    }
+}
+
+impl NativeRootControl {
+    fn retire(&self) {
+        self.reason.get_or_init(|| {
+            RuntimeError::host_abort(Box::new(std::io::Error::new(
+                std::io::ErrorKind::Interrupted,
+                "native call cancelled",
+            )))
+        });
+        self.retiring.set(true);
+    }
+
+    fn error(&self) -> Option<RuntimeError> {
+        if self.retiring.get() {
+            Some(
+                self.reason
+                    .get()
+                    .expect("retirement reason precedes its flag")
+                    .clone(),
+            )
+        } else {
+            None
+        }
+    }
+
+    fn register(self: &Rc<Self>, stores: &SuspendedStoreContexts) {
+        assert_eq!(
+            stores.owned_root_identity(),
+            Some((self.store_id, self.installation))
+        );
+        let previous = RETAINED_ROOTS.with(|roots| roots.borrow().get(&self.store_id).cloned());
+        if let Some(previous) = previous.and_then(|weak| weak.upgrade()) {
+            assert!(
+                Rc::ptr_eq(&previous, self),
+                "another native root owns this Store"
+            );
+        }
+        let old = RETAINED_ROOTS.with(|roots| {
+            roots
+                .borrow_mut()
+                .insert(self.store_id, Rc::downgrade(self))
+        });
+        self.retained.set(true);
+        drop(old);
+    }
+
+    fn unregister(self: &Rc<Self>) {
+        if !self.retained.replace(false) {
+            return;
+        }
+        let expected = Rc::downgrade(self);
+        let old = RETAINED_ROOTS.with(|roots| {
+            let mut roots = roots.borrow_mut();
+            assert!(
+                roots
+                    .get(&self.store_id)
+                    .is_some_and(|found| Weak::ptr_eq(found, &expected)),
+                "retained Store retirement owner changed"
+            );
+            roots.remove(&self.store_id)
+        });
+        drop(old);
+    }
+}
+
+pub(crate) fn current_retirement_error() -> Option<RuntimeError> {
+    if let Some(current) = CoroutineContext::get_current() {
+        // SAFETY: installed pointers belong to the currently executing native stack.
+        let context = unsafe { &*current };
+        if let Some(root) = &context.owner {
+            assert_eq!(context.store_context_id, root.control.installation);
+            if let Some(error) = root.control.error() {
+                return Some(error);
+            }
+        }
+    }
+    let control = RETIRING_ROOT.with(|current| current.borrow().clone())?;
+    if control.settled.get() {
+        None
+    } else {
+        control.error()
+    }
+}
+
+pub(crate) fn store_retirement_error(store_id: StoreId) -> Option<RuntimeError> {
+    let weak = RETAINED_ROOTS.with(|roots| roots.borrow().get(&store_id).cloned())?;
+    let control = weak.upgrade()?;
+    assert_eq!(control.store_id, store_id);
+    if !control.retained.get() {
+        return None;
+    }
+    control.error()
 }
 
 // This token is intentionally not Clone. A future capability may be copied as
 // a WeakNativeRoot; strong custody belongs only to an actual outside operation.
-#[cfg(test)]
 struct NativeRootPin {
     _owner: Rc<NativeRootOwner>,
 }
 
-#[cfg(test)]
 impl WeakNativeRoot {
     fn try_pin(&self) -> Option<NativeRootPin> {
         // Do this before touching stack state. A pin on its own coroutine stack
@@ -101,11 +248,175 @@ impl WeakNativeRoot {
             return None;
         }
         let owner = self.owner.upgrade()?;
-        if owner.retiring.get() || owner.settled.get() {
+        if owner.store_context_id != self.id || !Rc::ptr_eq(&owner.control, &self.control) {
+            return None;
+        }
+        if !owner.parked.get() || owner.control.retiring.get() || owner.control.settled.get() {
             return None;
         }
         Some(NativeRootPin { _owner: owner })
     }
+}
+
+/// A weak authority for one still-live derived synchronous borrow. The unit
+/// lock owns no Store or coroutine; only an actual outside guard pins the stack.
+#[derive(Clone)]
+pub(crate) struct NativeStoreLoan {
+    root: WeakNativeRoot,
+    scope: StoreContextId,
+    epoch: Rc<Cell<bool>>,
+    gate: LocalRwLock<()>,
+    store_id: StoreId,
+}
+
+pub(crate) struct NativeLoanReadGuard {
+    pointer: *mut StoreInner,
+    _gate: LocalRwLockReadGuard<()>,
+    _root: NativeRootPin,
+}
+
+pub(crate) struct NativeLoanWriteGuard {
+    pointer: *mut StoreInner,
+    _gate: LocalRwLockWriteGuard<()>,
+    _root: NativeRootPin,
+}
+
+impl NativeLoanReadGuard {
+    pub(crate) fn store(&self) -> &StoreInner {
+        // SAFETY: the read gate prevents parent resume and mutable children;
+        // the pin retains the original guard and the pointer's exact ancestry.
+        unsafe { &*self.pointer }
+    }
+}
+
+impl NativeLoanWriteGuard {
+    pub(crate) fn store(&self) -> &StoreInner {
+        // SAFETY: the exclusive gate and root pin cover this shared reborrow.
+        unsafe { &*self.pointer }
+    }
+
+    pub(crate) fn store_mut(&mut self) -> &mut StoreInner {
+        // SAFETY: only this guard has the exclusive gate; the parent is parked.
+        unsafe { &mut *self.pointer }
+    }
+}
+
+impl NativeStoreLoan {
+    pub(crate) fn is_live(&self) -> bool {
+        self.epoch.get()
+            && self
+                .root
+                .owner
+                .upgrade()
+                .is_some_and(|owner| !owner.control.retiring.get() && !owner.control.settled.get())
+    }
+
+    fn pin(&self) -> Option<NativeRootPin> {
+        if !self.epoch.get() {
+            return None;
+        }
+        let pin = self.root.try_pin()?;
+        if !pin._owner.parked.get() {
+            return None;
+        }
+        Some(pin)
+    }
+
+    fn pointer(&self, pin: &NativeRootPin) -> Option<*mut StoreInner> {
+        let stack = pin._owner.stack.borrow();
+        stack
+            .suspended_stores
+            .borrowed_pointer(self.scope, self.store_id)
+    }
+
+    pub(crate) fn try_read(&self) -> Option<NativeLoanReadGuard> {
+        let root = self.pin()?;
+        let gate = self.gate.try_read()?;
+        let pointer = self.pointer(&root)?;
+        Some(NativeLoanReadGuard {
+            pointer,
+            _gate: gate,
+            _root: root,
+        })
+    }
+
+    pub(crate) fn try_write(&self) -> Option<NativeLoanWriteGuard> {
+        let root = self.pin()?;
+        let gate = self.gate.try_write()?;
+        let pointer = self.pointer(&root)?;
+        Some(NativeLoanWriteGuard {
+            pointer,
+            _gate: gate,
+            _root: root,
+        })
+    }
+
+    pub(crate) async fn read(&self) -> NativeLoanReadGuard {
+        let mut wait = self.gate.read();
+        std::future::poll_fn(|cx| {
+            let root = self
+                .pin()
+                .expect("native Store loan is stale, retiring, or still executing");
+            match Pin::new(&mut wait).poll(cx) {
+                Poll::Pending => Poll::Pending,
+                Poll::Ready(gate) => {
+                    let pointer = self.pointer(&root).expect("native Store loan scope ended");
+                    Poll::Ready(NativeLoanReadGuard {
+                        pointer,
+                        _gate: gate,
+                        _root: root,
+                    })
+                }
+            }
+        })
+        .await
+    }
+
+    pub(crate) async fn write(&self) -> NativeLoanWriteGuard {
+        let mut wait = self.gate.write();
+        std::future::poll_fn(|cx| {
+            let root = self
+                .pin()
+                .expect("native Store loan is stale, retiring, or still executing");
+            match Pin::new(&mut wait).poll(cx) {
+                Poll::Pending => Poll::Pending,
+                Poll::Ready(gate) => {
+                    let pointer = self.pointer(&root).expect("native Store loan scope ended");
+                    Poll::Ready(NativeLoanWriteGuard {
+                        pointer,
+                        _gate: gate,
+                        _root: root,
+                    })
+                }
+            }
+        })
+        .await
+    }
+}
+
+pub(crate) fn native_coroutine_active() -> bool {
+    CoroutineContext::current_root().is_some()
+}
+
+pub(crate) fn current_store_loan(store_id: StoreId) -> Option<crate::StoreAsync> {
+    let weak = CoroutineContext::current_root()?;
+    let root = weak.owner.upgrade()?;
+    if root.store().id != store_id || root.control.retiring.get() || root.control.settled.get() {
+        return None;
+    }
+    let (scope, epoch) = StoreContext::borrowed_loan_epoch(root.store_context_id, store_id)?;
+    let gate = root.loan_gate.get_or_init(|| LocalRwLock::new(())).clone();
+    Some(StoreAsync {
+        id: store_id,
+        inner: root.store().inner.clone(),
+        loan: Some(NativeStoreLoan {
+            root: weak,
+            scope,
+            epoch,
+            gate,
+            store_id,
+        }),
+    })
 }
 
 impl NativeRootOwner {
@@ -130,7 +441,20 @@ impl Drop for RootResume<'_> {
         if !self.returned {
             // A panicked resume destroys the engine stack before propagating.
             // Do not admit a new pin while the invalid public future is retained.
-            self.root.settled.set(true);
+            self.root.control.settled.set(true);
+        }
+    }
+}
+
+struct RetainedRootBoundary {
+    control: Rc<NativeRootControl>,
+    keep: bool,
+}
+
+impl Drop for RetainedRootBoundary {
+    fn drop(&mut self) {
+        if !self.keep {
+            self.control.unregister();
         }
     }
 }
@@ -193,26 +517,29 @@ impl AsyncCallFuture {
     pub(crate) fn new(function: SysFunction, store: StoreAsync, params: Vec<Value>) -> Self {
         let store_id = store.id;
         let store_context_id = StoreContext::new_installation_id();
+        let control = Rc::new(NativeRootControl {
+            store_id,
+            installation: store_context_id,
+            retiring: Cell::new(false),
+            settled: Cell::new(false),
+            retained: Cell::new(false),
+            reason: OnceCell::new(),
+        });
         let root = Rc::new_cyclic(|_owner| {
-            #[cfg(test)]
             let weak = WeakNativeRoot {
                 owner: _owner.clone(),
                 id: store_context_id,
+                control: control.clone(),
             };
             let coroutine =
                 Coroutine::new(move |yielder: &Yielder<AsyncResume, AsyncYield>, resume| {
                     assert!(matches!(resume, AsyncResume::Start));
-                    let ctx_state = CoroutineContext::new(yielder, store_context_id);
-                    #[cfg(test)]
-                    let ctx_state = {
-                        let mut ctx_state = ctx_state;
-                        ctx_state.owner = Some(weak);
-                        ctx_state
-                    };
+                    let mut ctx_state = CoroutineContext::new(yielder, store_context_id);
+                    ctx_state.owner = Some(weak);
                     ctx_state.enter();
                     let result = {
                         let mut store_mut = AsyncCallStoreMut { store_id };
-                        function.call(&mut store_mut, &params)
+                        function.call_native_root(&mut store_mut, &params, store_context_id)
                     };
                     ctx_state.leave();
                     result
@@ -220,8 +547,9 @@ impl AsyncCallFuture {
             NativeRootOwner {
                 store: Some(store),
                 store_context_id,
-                retiring: Cell::new(false),
-                settled: Cell::new(false),
+                control,
+                parked: Cell::new(false),
+                loan_gate: OnceCell::new(),
                 stack: RefCell::new(NativeRootStack {
                     coroutine: Some(coroutine),
                     suspended_stores: SuspendedStoreContexts::default(),
@@ -232,6 +560,7 @@ impl AsyncCallFuture {
         Self {
             id: NEXT_ASYNC_CALL_FUTURE_ID.fetch_add(1, std::sync::atomic::Ordering::SeqCst),
             root: Some(root),
+            pending_resume_gate: None,
             pending_store_install: None,
             pending_future: None,
             next_resume: Some(AsyncResume::Start),
@@ -287,14 +616,29 @@ fn register_waker(store_id: StoreId, id: AsyncCallFutureId, waker: &Waker) {
     drop(previous);
 }
 
+pub(crate) fn check_async_entry(store: &StoreAsync) -> Result<(), RuntimeError> {
+    if let Some(error) = current_retirement_error() {
+        return Err(error);
+    }
+    assert!(
+        StoreContext::async_root_admissible(),
+        "Function::call_async futures cannot be polled recursively from within another imported function"
+    );
+    if let Some(loan) = &store.loan {
+        return Err(loan.root.control.error().unwrap_or_else(|| {
+            RuntimeError::new("cannot start an independent async call from this borrowed Store")
+        }));
+    }
+    Ok(())
+}
+
 impl Future for AsyncCallFuture {
     type Output = Result<Box<[Value]>, RuntimeError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        assert!(
-            StoreContext::is_empty(),
-            "Function::call_async futures cannot be polled recursively from within another imported function"
-        );
+        if let Err(error) = check_async_entry(self.store()) {
+            return Poll::Ready(Err(error));
+        }
         loop {
             let store_id = self.store().store_id();
 
@@ -331,31 +675,57 @@ impl Future for AsyncCallFuture {
                 return Poll::Ready(self.result.take().expect("polled after completion"));
             }
 
-            // Start a store installation if not in progress already
-            if self.pending_store_install.is_none() {
-                self.pending_store_install = Some(Box::pin(install_store_context(
-                    StoreAsync {
-                        id: self.store().id,
-                        inner: self.store().inner.clone(),
-                    },
-                    self.root().store_context_id,
-                )));
-            }
-
-            // Acquiring a store lock should be the last step before resuming
-            // the coroutine, to minimize the time we hold the lock.
-            let store_context_guard = match self
-                .pending_store_install
-                .as_mut()
-                .unwrap()
-                .as_mut()
-                .poll(cx)
+            // The established local lock owns all waiting/waking behavior. Its
+            // write guard excludes every actual outside loan guard from resume.
+            if self.pending_resume_gate.is_none()
+                && let Some(gate) = self.root().loan_gate.get()
             {
-                Poll::Ready(guard) => {
-                    self.pending_store_install = None;
-                    guard
+                self.pending_resume_gate = Some(gate.write());
+            }
+            let resume_gate = if let Some(wait) = self.pending_resume_gate.as_mut() {
+                match Pin::new(wait).poll(cx) {
+                    Poll::Pending => return Poll::Pending,
+                    Poll::Ready(guard) => {
+                        self.pending_resume_gate = None;
+                        Some(guard)
+                    }
                 }
-                Poll::Pending => return Poll::Pending,
+            } else {
+                None
+            };
+            let owns_root = self.root().stack.borrow().suspended_stores.owns_root();
+            let mut store_context_guard = if owns_root {
+                // This is the ORIGINAL write guard, never unlocked/reacquired.
+                let root = self.root().clone();
+                let mut stack = root.stack.borrow_mut();
+                ForcedStoreInstallGuard::restore_borrowed_root(&mut stack.suspended_stores)
+            } else {
+                if self.pending_store_install.is_none() {
+                    self.pending_store_install = Some(Box::pin(install_store_context(
+                        self.store().store(),
+                        self.root().store_context_id,
+                    )));
+                }
+                match self
+                    .pending_store_install
+                    .as_mut()
+                    .unwrap()
+                    .as_mut()
+                    .poll(cx)
+                {
+                    Poll::Ready(guard) => {
+                        self.pending_store_install = None;
+                        guard
+                    }
+                    Poll::Pending => return Poll::Pending,
+                }
+            };
+            self.root().parked.set(false);
+            // Drop after the stack borrow, but before its original write guard
+            // unlocks and wakes a fresh invocation on this same Store.
+            let mut retirement = RetainedRootBoundary {
+                control: self.root().control.clone(),
+                keep: false,
             };
 
             {
@@ -364,7 +734,9 @@ impl Future for AsyncCallFuture {
                 // across resume; identity and retirement remain accessible.
                 let root = self.root().clone();
                 let mut stack = root.stack.borrow_mut();
-                store_context_guard.restore_suffix(&mut stack.suspended_stores);
+                if !owns_root {
+                    store_context_guard.restore_suffix(&mut stack.suspended_stores);
+                }
                 let resume_arg = self.next_resume.take().expect("no resume arg available");
                 let trap_boundary = TrapBoundary::enter(std::mem::take(&mut stack.trap_state));
                 let coroutine = stack.coroutine.as_mut().unwrap();
@@ -380,12 +752,19 @@ impl Future for AsyncCallFuture {
                 match result {
                     CoroutineResult::Yield(AsyncYield(fut)) => {
                         stack.trap_state = trap_state;
-                        store_context_guard.suspend_suffix(&mut stack.suspended_stores);
+                        if StoreContext::can_suspend_borrowed_root(root.store_context_id) {
+                            store_context_guard.suspend_borrowed_root(&mut stack.suspended_stores);
+                            root.control.register(&stack.suspended_stores);
+                            retirement.keep = true;
+                        } else {
+                            store_context_guard.suspend_suffix(&mut stack.suspended_stores);
+                        }
                         self.pending_future = Some(fut);
+                        root.parked.set(true);
                     }
                     CoroutineResult::Return(result) => {
                         stack.coroutine = None;
-                        root.settled.set(true);
+                        root.control.settled.set(true);
                         self.result = Some(result);
                     }
                 }
@@ -393,7 +772,9 @@ impl Future for AsyncCallFuture {
 
             // Uninstall the store context to unlock the store after the coroutine
             // yields or returns.
+            drop(retirement);
             drop(store_context_guard);
+            drop(resume_gate);
         }
     }
 }
@@ -402,13 +783,18 @@ impl Drop for AsyncCallFuture {
     fn drop(&mut self) {
         let store_id = self.store().store_id();
         let root = self.root.take().expect("native root already released");
-        root.retiring.set(true);
+        if !root.control.settled.get() {
+            root.control.retire();
+        }
         // A different invocation may be physically active while this one is
         // canceled. None of our destructors may yield through its yielder.
         let _caller = DetachedCoroutineContext::new();
+        let _stores = StoreContext::detach_current();
+        let _retirement = RetirementBoundary::enter(&root.control);
         let _root = RootTeardown::new(root);
         let owned = DroppedHostState {
             _pending_future: self.pending_future.take(),
+            _pending_resume_gate: self.pending_resume_gate.take(),
             _pending_store_install: self.pending_store_install.take(),
             _next_resume: self.next_resume.take(),
             _result: self.result.take(),
@@ -447,20 +833,142 @@ impl Drop for RootTeardown {
 impl Drop for NativeRootOwner {
     fn drop(&mut self) {
         let _caller = DetachedCoroutineContext::new();
+        let _stores = StoreContext::detach_current();
+        let _retirement = RetirementBoundary::enter(&self.control);
         let stack = self.stack.get_mut();
         let _traps = TrapBoundary::enter(std::mem::take(&mut stack.trap_state));
-        let owned = DroppedNativeStack {
+        // Lock waiters may own user Wakers. Empty the field here so their last
+        // destructor cannot escape the detached retirement/VM boundaries.
+        let loan_gate = self.loan_gate.take();
+        let mut owned = DroppedNativeStack {
             _coroutine: stack.coroutine.take(),
             _suspended_stores: std::mem::take(&mut stack.suspended_stores),
             _store: self.store.take(),
         };
-        drop(owned);
-        self.settled.set(true);
+        let mut failures = Vec::new();
+        if owned._suspended_stores.owns_root() {
+            let reason = self
+                .control
+                .error()
+                .expect("borrowed root retires before its final owner");
+            let installed =
+                ForcedStoreInstallGuard::restore_borrowed_root(&mut owned._suspended_stores);
+            let mut retiring = RetiringNativeStack {
+                coroutine: owned._coroutine.take(),
+                yielded: Vec::new(),
+                result: None,
+                failures: Vec::new(),
+                _settled: SettledNativeRoot(self.control.clone()),
+                _retirement: RetainedRootBoundary {
+                    control: self.control.clone(),
+                    keep: false,
+                },
+                _installed: installed,
+            };
+            // Only actual outside guards pin the owner; none remain here.
+            // Keep every yielded/returned payload until the stack is dead. A
+            // destructor panic must never unlock beneath a suspended frame.
+            loop {
+                let mut outcome = None;
+                let resumed = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    let boundary = CoroutineBoundary::new();
+                    outcome = Some(
+                        retiring
+                            .coroutine
+                            .as_mut()
+                            .expect("borrowed coroutine retained")
+                            .resume(AsyncResume::HostFutureReady(Err(reason.clone()))),
+                    );
+                    boundary.returned();
+                }));
+                if let Err(panic) = resumed {
+                    retiring.failures.push(panic);
+                }
+                if let Some(outcome) = outcome {
+                    match outcome {
+                        CoroutineResult::Return(result) => retiring.result = Some(result),
+                        CoroutineResult::Yield(AsyncYield(future)) => retiring.yielded.push(future),
+                    }
+                }
+                if retiring
+                    .coroutine
+                    .as_ref()
+                    .expect("retiring coroutine retained")
+                    .done()
+                {
+                    break;
+                }
+            }
+            defer_cleanup(&mut retiring.failures, || drop(retiring.coroutine.take()));
+            defer_cleanup(&mut retiring.failures, || drop(retiring.result.take()));
+            while !retiring.yielded.is_empty() {
+                let future = retiring.yielded.remove(0);
+                // Never poll or replay an unexpected yield during retirement.
+                defer_cleanup(&mut retiring.failures, || drop(future));
+            }
+            // Asyncify's callback belongs to this finished invocation. Its
+            // resources remain owned until the old stack is dead, and it can
+            // neither execute nor carry into a fresh root after cancellation.
+            defer_cleanup(&mut retiring.failures, || {
+                let callback = {
+                    let mut wrapper = unsafe { StoreContext::get_current(self.control.store_id) };
+                    wrapper.as_mut().inner.on_called.take()
+                };
+                drop(callback);
+            });
+            failures = std::mem::take(&mut retiring.failures);
+            // The sentinel marks settled, then the exact weak row is removed,
+            // then the original guard unlocks. Catch any unlock/Waker panic too.
+            defer_cleanup(&mut failures, || drop(retiring));
+        }
+        defer_cleanup(&mut failures, || drop(owned));
+        self.control.settled.set(true);
+        defer_cleanup(&mut failures, || drop(loan_gate));
+        if !failures.is_empty() {
+            let first = failures.remove(0);
+            // Every stack/Store/guard has settled before panic payload disposal.
+            // As with ordinary Rust cleanup, a repeatedly panicking payload
+            // destructor may replace the first panic; no payload is leaked.
+            for payload in failures {
+                let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| drop(payload)));
+            }
+            std::panic::resume_unwind(first);
+        }
+    }
+}
+
+type DeferredPanic = Box<dyn std::any::Any + Send>;
+
+fn defer_cleanup(failures: &mut Vec<DeferredPanic>, cleanup: impl FnOnce()) {
+    if let Err(panic) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(cleanup)) {
+        failures.push(panic);
+    }
+}
+
+// Field order is also the unwind fallback: dispose the real stack before any
+// owned user payload, mark it settled, remove retirement metadata, then unlock.
+#[allow(clippy::type_complexity)]
+struct RetiringNativeStack {
+    coroutine: Option<Coroutine<AsyncResume, AsyncYield, Result<Box<[Value]>, RuntimeError>>>,
+    yielded: Vec<HostFuture>,
+    result: Option<Result<Box<[Value]>, RuntimeError>>,
+    failures: Vec<DeferredPanic>,
+    _settled: SettledNativeRoot,
+    _retirement: RetainedRootBoundary,
+    _installed: ForcedStoreInstallGuard,
+}
+
+struct SettledNativeRoot(Rc<NativeRootControl>);
+
+impl Drop for SettledNativeRoot {
+    fn drop(&mut self) {
+        self.0.settled.set(true);
     }
 }
 
 struct DroppedHostState {
     _pending_future: Option<HostFuture>,
+    _pending_resume_gate: Option<crate::WriteFuture<()>>,
     _pending_store_install: Option<Pin<Box<dyn Future<Output = ForcedStoreInstallGuard>>>>,
     _next_resume: Option<AsyncResume>,
     _result: Option<Result<Box<[Value]>, RuntimeError>>,
@@ -615,7 +1123,6 @@ thread_local! {
 struct CoroutineContext {
     yielder: *const Yielder<AsyncResume, AsyncYield>,
     store_context_id: StoreContextId,
-    #[cfg(test)]
     owner: Option<WeakNativeRoot>,
 }
 
@@ -695,7 +1202,6 @@ impl CoroutineContext {
         Self {
             yielder: yielder as *const _,
             store_context_id,
-            #[cfg(test)]
             owner: None,
         }
     }
@@ -729,14 +1235,18 @@ impl CoroutineContext {
         CURRENT_CONTEXT.with(|cell| cell.borrow().last().copied())
     }
 
-    #[cfg(test)]
     fn current_root() -> Option<WeakNativeRoot> {
         let current = Self::get_current()?;
         unsafe { &*current }.owner.clone()
     }
 
     fn block_on_future(&self, future: HostFuture) -> Result<Vec<Value>, RuntimeError> {
-        if !StoreContext::can_suspend_suffix(self.store_context_id) {
+        if let Some(error) = self.owner.as_ref().and_then(|root| root.control.error()) {
+            return Err(error);
+        }
+        if !StoreContext::can_suspend_suffix(self.store_context_id)
+            && !StoreContext::can_suspend_borrowed_root(self.store_context_id)
+        {
             return run_immediate(future).map_err(|error| match error {
                 AsyncRuntimeError::RuntimeError(error) => error,
                 AsyncRuntimeError::YieldOutsideAsyncContext => RuntimeError::new(
@@ -913,6 +1423,166 @@ mod tests {
     }
 
     #[test]
+    fn a_panicking_retirement_yield_keeps_the_borrowed_stack_owned() {
+        if !runtime_subprocess(
+            "backend::sys::async_runtime::tests::a_panicking_retirement_yield_keeps_the_borrowed_stack_owned",
+        ) {
+            return;
+        }
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        thread_local! {
+            static BASE: RefCell<Option<StoreAsync>> = const { RefCell::new(None) };
+        }
+        struct StackProbe(Arc<AtomicUsize>);
+        impl Drop for StackProbe {
+            fn drop(&mut self) {
+                BASE.with(|slot| {
+                    assert!(
+                        slot.borrow().as_ref().unwrap().inner.try_write().is_none(),
+                        "original write guard unlocked before borrowed stack destruction"
+                    )
+                });
+                self.0.fetch_add(1, Ordering::SeqCst);
+            }
+        }
+        struct YieldPanic(u32);
+        struct PanickingFuture {
+            polls: Arc<AtomicUsize>,
+            drops: Arc<AtomicUsize>,
+            stack: Arc<AtomicUsize>,
+        }
+        impl Future for PanickingFuture {
+            type Output = Result<Vec<Value>, RuntimeError>;
+            fn poll(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<Self::Output> {
+                self.polls.fetch_add(1, Ordering::SeqCst);
+                Poll::Pending
+            }
+        }
+        impl Drop for PanickingFuture {
+            fn drop(&mut self) {
+                assert_eq!(
+                    self.stack.load(Ordering::SeqCst),
+                    1,
+                    "retirement payload dropped before the borrowed stack was dead"
+                );
+                BASE.with(|slot| {
+                    assert!(
+                        slot.borrow().as_ref().unwrap().inner.try_write().is_none(),
+                        "retirement payload lost the original write guard"
+                    )
+                });
+                self.drops.fetch_add(1, Ordering::SeqCst);
+                std::panic::panic_any(YieldPanic(73));
+            }
+        }
+        struct Parent {
+            leaf: Option<crate::TypedFunction<(), i32>>,
+            stack: Arc<AtomicUsize>,
+            polls: Arc<AtomicUsize>,
+            drops: Arc<AtomicUsize>,
+        }
+        let stack_drops = Arc::new(AtomicUsize::new(0));
+        let future_polls = Arc::new(AtomicUsize::new(0));
+        let future_drops = Arc::new(AtomicUsize::new(0));
+        let mut store = Store::default();
+        let parent = crate::FunctionEnv::new(
+            &mut store,
+            Parent {
+                leaf: None,
+                stack: stack_drops.clone(),
+                polls: future_polls.clone(),
+                drops: future_drops.clone(),
+            },
+        );
+        let wait = Function::new_async(
+            &mut store,
+            crate::FunctionType::new([], [wasmer_types::Type::I32]),
+            |_| std::future::pending::<Result<Vec<Value>, RuntimeError>>(),
+        );
+        let bridge = Function::new_typed_with_env(
+            &mut store,
+            &parent,
+            |mut env: crate::FunctionEnvMut<Parent>| -> Result<i32, RuntimeError> {
+                let (data, mut store) = env.data_and_store_mut();
+                let _stack = StackProbe(data.stack.clone());
+                let error = data.leaf.as_ref().unwrap().call(&mut store).unwrap_err();
+                assert!(error.is_host_abort());
+                let current = CoroutineContext::get_current().expect("borrowed root resumed");
+                // Managed import entry refuses a new yield while retiring. Exercise
+                // the driver's defensive owned-yield path using this exact root's
+                // private yielder, with a valid future whose destructor panics.
+                let context = unsafe { &*current };
+                context.leave();
+                let resumed =
+                    unsafe { &*context.yielder }.suspend(AsyncYield(Box::pin(PanickingFuture {
+                        polls: data.polls.clone(),
+                        drops: data.drops.clone(),
+                        stack: data.stack.clone(),
+                    })));
+                context.enter();
+                assert!(
+                    matches!(resumed, AsyncResume::HostFutureReady(Err(ref next)) if next.is_host_abort())
+                );
+                // Even a trusted callback catching cancellation cannot continue Wasm.
+                Ok(42)
+            },
+        );
+        let module = Module::new(
+            &store,
+            r#"(module
+            (import "proof" "wait" (func $wait (result i32)))
+            (import "proof" "bridge" (func $bridge (result i32)))
+            (func (export "run") (result i32) call $bridge)
+            (func (export "leaf") (result i32) call $wait)
+            (func (export "fresh") (result i32) i32.const 9))"#,
+        )
+        .unwrap();
+        let instance = Instance::new(
+            &mut store,
+            &module,
+            &crate::imports! { "proof" => { "wait" => wait, "bridge" => bridge } },
+        )
+        .unwrap();
+        parent.as_mut(&mut store).leaf =
+            Some(instance.exports.get_typed_function(&store, "leaf").unwrap());
+        let store = store.into_async();
+        BASE.with(|slot| assert!(slot.borrow_mut().replace(store.store()).is_none()));
+        let mut call = Box::pin(
+            instance
+                .exports
+                .get_function("run")
+                .unwrap()
+                .call_async(&store, vec![]),
+        );
+        let waker = futures::task::noop_waker();
+        assert!(
+            call.as_mut()
+                .poll(&mut Context::from_waker(&waker))
+                .is_pending()
+        );
+        assert_eq!(stack_drops.load(Ordering::SeqCst), 0);
+        let panic = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| drop(call)))
+            .expect_err("owned retirement payload panic must propagate after settlement");
+        assert_eq!(panic.downcast_ref::<YieldPanic>().unwrap().0, 73);
+        assert_eq!(stack_drops.load(Ordering::SeqCst), 1);
+        assert_eq!(future_polls.load(Ordering::SeqCst), 0);
+        assert_eq!(future_drops.load(Ordering::SeqCst), 1);
+        assert!(store.inner.try_write().is_some());
+        let fresh = futures::executor::block_on(
+            instance
+                .exports
+                .get_function("fresh")
+                .unwrap()
+                .call_async(&store, vec![]),
+        )
+        .unwrap();
+        assert_eq!(fresh[0].i32(), Some(9));
+        drop(BASE.with(|slot| slot.borrow_mut().take()));
+        assert!(StoreContext::is_empty());
+        CURRENT_CONTEXT.with(|current| assert!(current.borrow().is_empty()));
+    }
+
+    #[test]
     fn registry_callbacks_can_reenter_while_the_current_waker_changes() {
         if !runtime_subprocess(
             "backend::sys::async_runtime::tests::registry_callbacks_can_reenter_while_the_current_waker_changes",
@@ -1068,6 +1738,10 @@ mod tests {
             return;
         }
 
+        type HiddenCaller = (Function, crate::TypedFunction<(), i32>, StoreAsync);
+        thread_local! {
+            static HIDDEN_CALLER: RefCell<Option<HiddenCaller>> = const { RefCell::new(None) };
+        }
         struct Probe(Rc<std::cell::Cell<usize>>);
         impl Drop for Probe {
             fn drop(&mut self) {
@@ -1076,6 +1750,30 @@ mod tests {
                     block_on_host_future(std::future::pending()),
                     Err(AsyncRuntimeError::YieldOutsideAsyncContext)
                 ));
+                let caller = HIDDEN_CALLER.with(|slot| {
+                    slot.borrow().as_ref().map(|(function, typed, store)| {
+                        (function.clone(), typed.clone(), store.store())
+                    })
+                });
+                if let Some((function, typed, store)) = caller {
+                    // The foreign caller's original write guard is hidden, not
+                    // released. A destructor must reject before waiting on it.
+                    let mut call = Box::pin(function.call_async(&store, vec![]));
+                    let waker = futures::task::noop_waker();
+                    let Poll::Ready(Err(error)) =
+                        call.as_mut().poll(&mut Context::from_waker(&waker))
+                    else {
+                        panic!("retirement attempted to wait on its hidden caller");
+                    };
+                    assert!(error.is_host_abort());
+                    let mut call = Box::pin(typed.call_async(&store));
+                    let Poll::Ready(Err(error)) =
+                        call.as_mut().poll(&mut Context::from_waker(&waker))
+                    else {
+                        panic!("typed retirement attempted to wait on its hidden caller");
+                    };
+                    assert!(error.is_host_abort());
+                }
                 self.0.set(self.0.get() + 1);
             }
         }
@@ -1166,6 +1864,12 @@ mod tests {
 
         let first = Rc::new(RefCell::new(Some(first)));
         let mut second_store = Store::default();
+        let caller_entries = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let count = caller_entries.clone();
+        let fresh = Function::new_typed(&mut second_store, move || -> i32 {
+            count.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            9
+        });
         let cancel = Function::new_async(
             &mut second_store,
             crate::FunctionType::new([], []),
@@ -1188,17 +1892,31 @@ mod tests {
             &crate::imports! { "proof" => { "cancel" => cancel } },
         )
         .unwrap();
+        let fresh_typed = fresh.typed::<(), i32>(&second_store).unwrap();
+        let second_store = second_store.into_async();
+        HIDDEN_CALLER.with(|slot| {
+            assert!(
+                slot.borrow_mut()
+                    .replace((fresh.clone(), fresh_typed, second_store.store()))
+                    .is_none()
+            );
+        });
         let result = futures::executor::block_on(
             second
                 .exports
                 .get_function("run")
                 .unwrap()
-                .call_async(&second_store.into_async(), vec![]),
+                .call_async(&second_store, vec![]),
         )
         .unwrap();
         assert_eq!(result[0].i32(), Some(42));
         assert_eq!(drops.get(), 2);
         assert_eq!(waker_drops.load(std::sync::atomic::Ordering::SeqCst), 1);
+        assert_eq!(caller_entries.load(std::sync::atomic::Ordering::SeqCst), 0);
+        HIDDEN_CALLER.with(|slot| drop(slot.borrow_mut().take()));
+        let result = futures::executor::block_on(fresh.call_async(&second_store, vec![])).unwrap();
+        assert_eq!(result[0].i32(), Some(9));
+        assert_eq!(caller_entries.load(std::sync::atomic::Ordering::SeqCst), 1);
         CURRENT_CONTEXT.with(|current| assert!(current.borrow().is_empty()));
         assert!(StoreContext::is_empty());
     }
@@ -1230,6 +1948,19 @@ mod tests {
             .is_err()
         );
         assert_eq!(entered.load(Ordering::SeqCst), 0);
+        {
+            let detached = StoreContext::detach_current();
+            assert!(StoreContext::is_empty());
+            assert!(!StoreContext::async_root_admissible());
+            assert!(
+                std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    call.as_mut().poll(&mut Context::from_waker(&waker))
+                }))
+                .is_err()
+            );
+            drop(detached);
+            assert_eq!(entered.load(Ordering::SeqCst), 0);
+        }
         assert_eq!(
             unsafe { StoreContext::get_current(other.id) }
                 .as_ref()

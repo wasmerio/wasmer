@@ -286,9 +286,11 @@ pub struct AsyncFunctionEnvHandle<T> {
 /// A mutable handle to the [`FunctionEnv`] in an [`AsyncFunctionEnvMut`].
 #[cfg(feature = "experimental-async")]
 pub struct AsyncFunctionEnvHandleMut<T> {
-    write_lock: StoreAsyncWriteLock,
-    pub(crate) func_env: FunctionEnv<T>,
+    // A removed/replaced environment's final T destructor must run while the
+    // Store gate and stack pin still exclude parent resumption.
     split_lease: Option<VMFunctionEnvironmentLease>,
+    pub(crate) func_env: FunctionEnv<T>,
+    write_lock: StoreAsyncWriteLock,
 }
 
 #[cfg(feature = "experimental-async")]
@@ -299,10 +301,12 @@ where
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self.store {
             AsyncFunctionEnvMutStore::Sync(ptr) => self.func_env.as_ref(&ptr.as_ref()).fmt(f),
-            AsyncFunctionEnvMutStore::Async(store) => match store.inner.try_read() {
-                Some(read_lock) => self.func_env.as_ref(&read_lock).fmt(f),
-                None => write!(f, "AsyncFunctionEnvMut {{ <STORE LOCKED> }}"),
-            },
+            AsyncFunctionEnvMutStore::Async(store) => {
+                match StoreAsyncReadLock::try_acquire(store) {
+                    Some(read_lock) => self.func_env.as_ref(&read_lock).fmt(f),
+                    None => write!(f, "AsyncFunctionEnvMut {{ <STORE LOCKED> }}"),
+                }
+            }
         }
     }
 }
@@ -394,10 +398,7 @@ impl<T: 'static> AsyncFunctionEnvMut<T> {
             AsyncFunctionEnvMutStore::Sync(_) => {
                 panic!("Cannot build a StoreAsync within a sync context")
             }
-            AsyncFunctionEnvMutStore::Async(store) => StoreAsync {
-                id: store.id,
-                inner: store.inner.clone(),
-            },
+            AsyncFunctionEnvMutStore::Async(store) => store.store(),
         }
     }
 }
@@ -416,10 +417,7 @@ impl<T> Clone for AsyncFunctionEnvMut<T> {
 impl Clone for AsyncFunctionEnvMutStore {
     fn clone(&self) -> Self {
         match self {
-            Self::Async(store) => Self::Async(StoreAsync {
-                id: store.id,
-                inner: store.inner.clone(),
-            }),
+            Self::Async(store) => Self::Async(store.store()),
             Self::Sync(ptr) => Self::Sync(ptr.clone()),
         }
     }
