@@ -125,6 +125,8 @@ impl Default for Uplink {
 /// Configuration of a namespace's network.
 #[derive(Clone, Debug)]
 pub struct NetConfig {
+    /// Optional embedder admission policy; applies before local routing and host NAT.
+    pub policy: Option<Arc<dyn crate::NetworkPolicy>>,
     /// Whether `lo` starts up. True for a machine's first namespace; Linux starts a namespace
     /// made by `unshare(CLONE_NEWNET)` with `lo` down.
     pub loopback_up: bool,
@@ -154,6 +156,7 @@ impl Default for NetConfig {
     /// Loopback only.
     fn default() -> Self {
         Self {
+            policy: None,
             loopback_up: true,
             uplink: None,
             port_range: PortRange::default(),
@@ -224,6 +227,13 @@ pub(crate) struct UdpPublication {
     guest: SocketAddr,
     endpoint: Arc<dyn BackendDatagram>,
     attached: Option<(SockId, Weak<UdpSocket>)>,
+}
+
+/// Admission for one operation, including the restricted internal DNS permission.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Admission {
+    Allowed,
+    DnsOnly,
 }
 
 /// Where a destination goes.
@@ -372,6 +382,35 @@ impl Net {
             next_id: AtomicU64::new(1),
             me: me.clone(),
         })
+    }
+
+    /// The policy inherited by network namespaces the machine creates.
+    pub fn policy(&self) -> Option<Arc<dyn crate::NetworkPolicy>> {
+        self.config.policy.clone()
+    }
+
+    pub(crate) fn admit(
+        &self,
+        addr: SocketAddr,
+        direction: crate::PolicyDirection,
+    ) -> NetResult<Admission> {
+        if self
+            .config
+            .policy
+            .as_ref()
+            .is_none_or(|p| p.allows_socket(addr, direction))
+        {
+            return Ok(Admission::Allowed);
+        }
+        // This permission is usable only by an actual DNS route, never a local or veth
+        // service that acquired the configured server's address.
+        if direction == crate::PolicyDirection::Outbound
+            && addr.port() == crate::dns::PORT
+            && self.is_dns_server(canonical_ip(addr.ip()))
+        {
+            return Ok(Admission::DnsOnly);
+        }
+        Err(Errno::EPERM)
     }
 
     pub(crate) fn state(&self) -> MutexGuard<'_, NetState> {

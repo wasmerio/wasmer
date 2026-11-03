@@ -33,9 +33,9 @@ mod tests;
 pub use api::{
     Accepted, Answer, Backend, BackendDatagram, BackendStream, Control, Domain, EchoIgnore, Found,
     GroupSources, IcmpEntry, InboundSink, Interface, Lookup, LookupDone, LookupError, Network,
-    NewLink, NewLinkKind, PortEntry, Publication, PublishedDatagram, QueuedError, RecvMsg, Room,
-    SctpAssocEntry, SctpEndpoint, SctpOps, SendMsg, Shutdown, Socket, SocketKind, StreamState,
-    VsockInboundSink, VsockPublication,
+    NetworkPolicy, NewLink, NewLinkKind, PolicyDirection, PortEntry, Publication,
+    PublishedDatagram, QueuedError, RecvMsg, Room, SctpAssocEntry, SctpEndpoint, SctpOps, SendMsg,
+    Shutdown, Socket, SocketKind, StreamState, VsockInboundSink, VsockPublication,
 };
 pub use errors::DatagramErrors;
 pub use icmp::IcmpSocket;

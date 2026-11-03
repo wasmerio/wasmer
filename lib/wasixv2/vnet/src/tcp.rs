@@ -39,6 +39,14 @@ enum Phase {
 }
 
 impl Transport {
+    fn same(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Local(a, side), Self::Local(b, other)) => side == other && Arc::ptr_eq(a, b),
+            (Self::Remote(a), Self::Remote(b)) => Arc::ptr_eq(a, b),
+            _ => false,
+        }
+    }
+
     fn phase(&self) -> Phase {
         match self {
             Self::Local(c, side) => {
@@ -189,6 +197,7 @@ struct Inner {
     cork_armed: bool,
     /// Canonical bound address, once bound.
     local: Option<SocketAddr>,
+    policy_bind: Option<SocketAddr>,
     /// `SOCK_BINDPORT_LOCK`: the port was chosen by `bind`, so it survives a disconnect.
     port_locked: bool,
     /// `SOCK_BINDADDR_LOCK`: the address was chosen by `bind`, so a disconnect keeps it.
@@ -307,6 +316,7 @@ impl TcpSocket {
                 cork_timer: None,
                 cork_armed: false,
                 local,
+                policy_bind: None,
                 port_locked: false,
                 addr_locked: false,
                 put_back: None,
@@ -492,15 +502,16 @@ impl TcpSocket {
         let mut g = self.inner.lock().unwrap();
         self.stop_listening(&mut g);
         let abort = abort || g.opts.linger == Some(0);
-        match std::mem::replace(&mut g.state, State::Closed) {
-            State::Connecting(t, _) | State::Connected(t, _) => t.close(abort),
-            _ => {}
-        }
+        let old = std::mem::replace(&mut g.state, State::Closed);
         if let Some(local) = g.local.take() {
             self.net.state().tcp.unbind(self.id, local.port());
         }
         // `inet_release`: `ip_mc_drop_socket`, `ipv6_sock_mc_close`.
         g.opts.mc.drop_all(&self.net);
+        drop(g);
+        if let State::Connecting(t, _) | State::Connected(t, _) = old {
+            t.close(abort);
+        }
     }
 
     /// A child for a connection to the listener `self`, sharing its port, with `wq` as its
@@ -710,7 +721,12 @@ impl Socket for TcpSocket {
     fn cork_expire(&self) {
         let mut g = self.lock();
         g.cork_armed = false;
-        if let State::Connected(t, _) = &g.state {
+        let transport = match &g.state {
+            State::Connected(t, _) => Some(t.clone()),
+            _ => None,
+        };
+        drop(g);
+        if let Some(t) = transport {
             t.push();
         }
     }
@@ -732,6 +748,8 @@ impl Socket for TcpSocket {
     }
 
     fn bind(&self, addr: SocketAddr, privileged: bool) -> NetResult<()> {
+        self.net.admit(addr, crate::PolicyDirection::Inbound)?;
+        let requested = addr;
         let mapped = matches!(addr, SocketAddr::V6(v6) if v6.ip().to_ipv4_mapped().is_some());
         let addr = canonical(addr);
         let mut g = self.lock();
@@ -748,6 +766,7 @@ impl Socket for TcpSocket {
             && g.opts
                 .flag(0, wasixv2_abi::IpOption::IP_BIND_ADDRESS_NO_PORT.0)
         {
+            g.policy_bind = Some(requested);
             g.saddr = Some(addr.ip());
             g.addr_locked |= !addr.ip().is_unspecified();
             return Ok(());
@@ -758,6 +777,7 @@ impl Socket for TcpSocket {
             addr.port(),
             self.me.clone(),
         )?;
+        g.policy_bind = Some(requested);
         g.local = Some(SocketAddr::new(addr.ip(), port));
         g.saddr = None;
         g.port_locked = addr.port() != 0;
@@ -766,7 +786,17 @@ impl Socket for TcpSocket {
     }
 
     fn listen(&self, backlog: u32) -> NetResult<()> {
-        let mut g = self.lock();
+        let mut g = loop {
+            let requested = self.lock().policy_bind;
+            self.net.admit(
+                requested.unwrap_or(unbound(self.domain())),
+                crate::PolicyDirection::Inbound,
+            )?;
+            let g = self.lock();
+            if g.policy_bind == requested {
+                break g;
+            }
+        };
         match &g.state {
             State::Listening(l) => {
                 l.inner.lock().unwrap().backlog = backlog;
@@ -806,6 +836,15 @@ impl Socket for TcpSocket {
     fn accept(&self) -> NetResult<Accepted> {
         let l = self.listener.lock().unwrap().clone().ok_or(Errno::EINVAL)?;
         let (socket, peer) = l.pop().ok_or(Errno::EAGAIN)?;
+        // Historical host networking admits the accepted peer as an outbound address.
+        if self.net.config.policy.as_ref().is_some_and(|p| {
+            !p.allows_socket(
+                present(self.domain(), peer),
+                crate::PolicyDirection::Outbound,
+            )
+        }) {
+            return Err(Errno::EPERM);
+        }
         Ok(Accepted {
             socket,
             peer: present(self.domain(), peer),
@@ -813,6 +852,7 @@ impl Socket for TcpSocket {
     }
 
     fn connect(&self, addr: SocketAddr) -> NetResult<()> {
+        let admission = self.net.admit(addr, crate::PolicyDirection::Outbound)?;
         let mapped = matches!(addr, SocketAddr::V6(v6) if v6.ip().to_ipv4_mapped().is_some());
         let dst = connect_target(canonical(addr));
         let mut g = self.lock();
@@ -830,6 +870,9 @@ impl Socket for TcpSocket {
             return Err(Errno::ENETUNREACH);
         }
         let path = self.net.path(dst, g.local.map(|l| l.ip()).or(g.saddr))?;
+        if admission == crate::net::Admission::DnsOnly && !matches!(path, Path::Dns { .. }) {
+            return Err(Errno::EPERM);
+        }
         // Nothing answers out there: Linux's connect fails once neighbour resolution gives up.
         if let Path::Nowhere { .. } = path {
             return Err(Errno::EHOSTUNREACH);
@@ -961,8 +1004,13 @@ impl Socket for TcpSocket {
                 _ => 1460,
             }
         };
+        drop(g);
         let result = t.write_more(msg.data, msg.flags.contains(MsgFlags::MSG_OOB), more, mss);
         let pending = t.corked_len() != 0;
+        let mut g = self.lock();
+        if !matches!(&g.state, State::Connected(current, _) if current.same(&t)) {
+            return result;
+        }
         if pending != g.cork_armed
             && let Some(arm) = &g.cork_timer
         {
@@ -1102,12 +1150,13 @@ impl Socket for TcpSocket {
             }
             Changed::Nothing => {}
         }
+        let mut push = None;
         if level == SocketLevel::SOL_TCP.0
             && ((name == TcpOption::TCP_NODELAY.0 && g.opts.flag(level, name))
                 || (name == TcpOption::TCP_CORK.0 && !g.opts.flag(level, name)))
         {
             if let State::Connected(t, _) = &g.state {
-                t.push();
+                push = Some(t.clone());
             }
             if g.cork_armed {
                 if let Some(arm) = &g.cork_timer {
@@ -1119,7 +1168,14 @@ impl Socket for TcpSocket {
         if let State::Connected(Transport::Remote(s), _)
         | State::Connecting(Transport::Remote(s), _) = &g.state
         {
+            let s = s.clone();
+            drop(g);
             s.set_option(level, name, value)?;
+        } else {
+            drop(g);
+        }
+        if let Some(t) = push {
+            t.push();
         }
         Ok(())
     }

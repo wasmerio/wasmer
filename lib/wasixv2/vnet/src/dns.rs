@@ -66,6 +66,7 @@ const FORMERR: u8 = 1;
 const SERVFAIL: u8 = 2;
 const NXDOMAIN: u8 = 3;
 const NOTIMP: u8 = 4;
+const REFUSED: u8 = 5;
 /// `BADVERS` (16): 1 in the OPT record's extended RCODE, 0 in the header (RFC 6891 6.1.3).
 const BADVERS_EXT: u8 = 1;
 
@@ -258,10 +259,10 @@ fn is_localhost(labels: &[Vec<u8>]) -> bool {
         .is_some_and(|l| l.eq_ignore_ascii_case(b"localhost"))
 }
 
-/// The name as the host's resolver takes it, lower case without the trailing dot: `None` for
+/// The question's name without the trailing dot, preserving case for policy matching: `None` for
 /// the root and for labels a host name cannot spell (dots, backslashes, bytes outside
 /// printable ASCII), which go to the name servers as they are.
-fn host_name(labels: &[Vec<u8>]) -> Option<String> {
+fn question_name(labels: &[Vec<u8>]) -> Option<String> {
     let printable = |l: &Vec<u8>| {
         l.iter()
             .all(|&b| b.is_ascii_graphic() && b != b'.' && b != b'\\')
@@ -271,9 +272,14 @@ fn host_name(labels: &[Vec<u8>]) -> Option<String> {
     }
     let labels: Vec<String> = labels
         .iter()
-        .map(|l| String::from_utf8_lossy(l).to_ascii_lowercase())
+        .map(|l| String::from_utf8_lossy(l).into_owned())
         .collect();
     Some(labels.join("."))
+}
+
+/// The host resolver receives the normalized name, independently of policy matching.
+fn host_name(labels: &[Vec<u8>]) -> Option<String> {
+    question_name(labels).map(|name| name.to_ascii_lowercase())
 }
 
 /// The address a whole reverse name stands for (RFC 1035 3.5, RFC 3596 2.5); `None` for a
@@ -561,6 +567,7 @@ fn refusal(id: u16, opcode: u8, rd: bool, rcode: u8) -> Vec<u8> {
 /// for a message that gets none, at once or once the backend's resolver has looked.
 fn serve(
     backend: Option<&Arc<dyn Backend>>,
+    policy: Option<Arc<dyn crate::NetworkPolicy>>,
     msg: &[u8],
     transport: Transport,
     reply: impl FnOnce(Option<Vec<u8>>) + Send + 'static,
@@ -575,6 +582,13 @@ fn serve(
         } => return reply(Some(refusal(id, opcode, rd, rcode))),
         Parsed::Ignore => return reply(None),
     };
+    let name = question_name(&q.labels);
+    if policy
+        .as_ref()
+        .is_some_and(|p| name.as_deref().is_none_or(|name| !p.allows_domain(name)))
+    {
+        return reply(Some(Builder::new(&q, REFUSED).finish(&q, transport, 0)));
+    }
     if q.edns.is_some_and(|(_, version)| version != 0) {
         return reply(Some(Builder::new(&q, NOERROR).finish(
             &q,
@@ -582,15 +596,27 @@ fn serve(
             BADVERS_EXT,
         )));
     }
-    match (plan(&q, msg), backend) {
-        (Plan::Ready(found, want), _) => reply(Some(respond(&q, transport, found, want))),
-        (Plan::Ask(lookup, want), Some(backend)) => backend.lookup(
-            lookup,
-            Box::new(move |found| reply(Some(respond(&q, transport, found, want)))),
-        ),
-        (Plan::Ask(_, want), None) => {
-            reply(Some(respond(&q, transport, Err(LookupError::Failed), want)))
+    let plan = plan(&q, msg);
+    let reply = move |found: Result<Found, LookupError>, want| {
+        if let (
+            Some(policy),
+            Some(name),
+            Ok(Found {
+                answer: Answer::Addrs { addrs, .. },
+                ..
+            }),
+        ) = (&policy, &name, &found)
+        {
+            policy.resolved_domain(name, addrs);
         }
+        reply(Some(respond(&q, transport, found, want)));
+    };
+    match (plan, backend) {
+        (Plan::Ready(found, want), _) => reply(found, want),
+        (Plan::Ask(lookup, want), Some(backend)) => {
+            backend.lookup(lookup, Box::new(move |found| reply(found, want)))
+        }
+        (Plan::Ask(_, want), None) => reply(Err(LookupError::Failed), want),
     }
 }
 
@@ -614,11 +640,17 @@ impl Net {
             return;
         }
         let net = Arc::downgrade(&self.arc());
-        serve(self.backend.as_ref(), data, Transport::Udp, move |answer| {
-            if let Some(answer) = answer {
-                deliver(&net, to, from, &answer);
-            }
-        });
+        serve(
+            self.backend.as_ref(),
+            self.config.policy.clone(),
+            data,
+            Transport::Udp,
+            move |answer| {
+                if let Some(answer) = answer {
+                    deliver(&net, to, from, &answer);
+                }
+            },
+        );
     }
 
     /// A TCP connection to the DNS server at `to`: a DNS stream for port 53, refused
@@ -628,6 +660,7 @@ impl Net {
         Arc::new(DnsStream(Arc::new(Conn {
             peer: to,
             backend: self.backend.clone(),
+            policy: self.config.policy.clone(),
             wq,
             st: Mutex::new(ConnState {
                 err: refused.then_some(Errno::ECONNREFUSED),
@@ -674,6 +707,7 @@ struct DnsStream(Arc<Conn>);
 struct Conn {
     peer: SocketAddr,
     backend: Option<Arc<dyn Backend>>,
+    policy: Option<Arc<dyn crate::NetworkPolicy>>,
     wq: WaitQueue,
     st: Mutex<ConnState>,
 }
@@ -838,6 +872,7 @@ impl BackendStream for DnsStream {
             let conn = Arc::downgrade(&self.0);
             serve(
                 self.0.backend.as_ref(),
+                self.0.policy.clone(),
                 &query,
                 Transport::Tcp,
                 move |answer| {
@@ -1108,7 +1143,9 @@ pub(crate) mod tests {
         ] {
             let msg = query(3, "db.localhost", qtype, None);
             let (tx, rx) = std::sync::mpsc::channel();
-            serve(None, &msg, Transport::Udp, move |a| tx.send(a).unwrap());
+            serve(None, None, &msg, Transport::Udp, move |a| {
+                tx.send(a).unwrap()
+            });
             let answer = rx.recv().unwrap().unwrap();
             assert_eq!(answer[3] & 0xf, NOERROR);
             assert_eq!(counts(&answer), [1, 1, 0, 0]);
@@ -1117,7 +1154,9 @@ pub(crate) mod tests {
         // Without a resolver, other names fail.
         let msg = query(3, "example.com", TYPE_A, None);
         let (tx, rx) = std::sync::mpsc::channel();
-        serve(None, &msg, Transport::Udp, move |a| tx.send(a).unwrap());
+        serve(None, None, &msg, Transport::Udp, move |a| {
+            tx.send(a).unwrap()
+        });
         assert_eq!(rx.recv().unwrap().unwrap()[3] & 0xf, SERVFAIL);
     }
 
@@ -1128,7 +1167,9 @@ pub(crate) mod tests {
         // The OPT record's version byte.
         msg[n - 5] = 1;
         let (tx, rx) = std::sync::mpsc::channel();
-        serve(None, &msg, Transport::Udp, move |a| tx.send(a).unwrap());
+        serve(None, None, &msg, Transport::Udp, move |a| {
+            tx.send(a).unwrap()
+        });
         let answer = rx.recv().unwrap().unwrap();
         assert_eq!(answer[3] & 0xf, 0);
         assert_eq!(counts(&answer), [1, 0, 0, 1]);
