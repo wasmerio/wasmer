@@ -292,8 +292,9 @@ mod target_ownership {
                 .unwrap();
             assert_eq!(run.call(&mut store).unwrap(), 42);
             assert_eq!(run.call(&mut store).unwrap(), 42);
-            // No exported instance pointer is used after this deliberate raw
-            // retirement; local instance/funcref lifetime is a separate contract.
+            // Retire local export descriptors before their Instance owner; the
+            // descriptors now independently retain that allocation.
+            VMFunction::list_mut(store.objects_mut().as_sys_mut()).clear();
             let retired = VMInstance::list_mut(store.objects_mut().as_sys_mut())
                 .pop()
                 .unwrap();
@@ -420,7 +421,6 @@ mod target_ownership {
             std::hint::black_box(&probe);
             42
         });
-        let id = VMFunction::list(store.objects_mut().as_sys_mut())[original].id();
         let replacement = VMFunction::list(store.objects_mut().as_sys_mut()).len();
         let _dummy = Function::new_typed(&mut store, |_: i64| -> i64 { 9 });
         let calls = Arc::new(AtomicUsize::new(0));
@@ -460,7 +460,7 @@ mod target_ownership {
         }
         // Retire aliases only after all real calls. The initialized instance
         // alone still keeps its original import allocation alive.
-        VMFunction::list_mut(store.objects_mut().as_sys_mut()).retain(|f| f.id() != id);
+        VMFunction::list_mut(store.objects_mut().as_sys_mut()).clear();
         assert_eq!(drops.load(Ordering::SeqCst), 0);
         let retired = VMInstance::list_mut(store.objects_mut().as_sys_mut())
             .pop()
@@ -561,5 +561,252 @@ mod target_ownership {
             assert_eq!(calls.load(Ordering::SeqCst), 2);
             assert_eq!(drops.load(Ordering::SeqCst), 1);
         }
+    }
+    #[test]
+    fn local_exports_keep_removed_instances_and_their_imports_alive() {
+        for typed in [false, true] {
+            let mut store = Store::default();
+            let drops = Arc::new(AtomicUsize::new(0));
+            let probe = Capture(drops.clone());
+            let host = Function::new_typed(&mut store, move || -> i32 {
+                std::hint::black_box(&probe);
+                41
+            });
+            let module = Module::new(
+                &store,
+                r#"(module
+                (import "env" "host" (func $host (result i32)))
+                (func (export "run") (result i32) call $host i32.const 1 i32.add))"#,
+            )
+            .unwrap();
+            let instance = Instance::new(
+                &mut store,
+                &module,
+                &imports! { "env" => { "host" => host } },
+            )
+            .unwrap();
+            let run = instance.exports.get_function("run").unwrap().clone();
+            let typed_run = run.typed::<(), i32>(&store).unwrap();
+            // Mutating away the local target pin must fail before freeing any
+            // vmctx that a later baseline-only call would enter.
+            assert!(
+                VMInstance::list(store.objects_mut().as_sys_mut())
+                    .last()
+                    .unwrap()
+                    .owner_count()
+                    > 1,
+                "a local exported target has no Instance allocation owner"
+            );
+            // Replace the host's Store descriptor without shifting the local
+            // export's nonowning handle. The Instance import is its last owner.
+            let _dummy = Function::new_typed(&mut store, || -> i32 { 9 });
+            let functions = VMFunction::list_mut(store.objects_mut().as_sys_mut());
+            let dummy = functions.pop().unwrap();
+            drop(std::mem::replace(&mut functions[0], dummy));
+            let retired = VMInstance::list_mut(store.objects_mut().as_sys_mut())
+                .pop()
+                .unwrap();
+            drop(retired);
+            assert_eq!(drops.load(Ordering::SeqCst), 0);
+            if typed {
+                assert_eq!(typed_run.call(&mut store).unwrap(), 42);
+            } else {
+                assert_eq!(&*run.call(&mut store, &[]).unwrap(), &[Value::I32(42)]);
+            }
+            VMFunction::list_mut(store.objects_mut().as_sys_mut()).clear();
+            assert_eq!(drops.load(Ordering::SeqCst), 1);
+        }
+    }
+
+    #[test]
+    fn wasm_imports_retain_a_removed_local_callee_instance() {
+        let mut store = Store::default();
+        let drops = Arc::new(AtomicUsize::new(0));
+        let probe = Capture(drops.clone());
+        let host = Function::new_typed(&mut store, move || -> i32 {
+            std::hint::black_box(&probe);
+            42
+        });
+        let module = Module::new(
+            &store,
+            r#"(module
+            (import "env" "callee" (func $callee (result i32)))
+            (func (export "run") (result i32) call $callee))"#,
+        )
+        .unwrap();
+        let first = Instance::new(
+            &mut store,
+            &module,
+            &imports! { "env" => { "callee" => host } },
+        )
+        .unwrap();
+        let callee = first.exports.get_function("run").unwrap().clone();
+        let first_target = VMFunction::list(store.objects_mut().as_sys_mut())
+            .last()
+            .unwrap()
+            .id();
+        let second = Instance::new(
+            &mut store,
+            &module,
+            &imports! { "env" => { "callee" => callee } },
+        )
+        .unwrap();
+        assert!(
+            VMInstance::list(store.objects_mut().as_sys_mut())[0].owner_count() > 1,
+            "an imported local target has no Instance allocation owner"
+        );
+        assert!(VMFunction::list(store.objects_mut().as_sys_mut())[1].owner_count() > 1);
+        let run = second
+            .exports
+            .get_typed_function::<(), i32>(&store, "run")
+            .unwrap();
+        // Preserve handle positions: replace both earlier descriptors, leaving
+        // the later B export in its original row.
+        for index in [0, 1] {
+            let _dummy = Function::new_typed(&mut store, || -> i32 { 9 });
+            let functions = VMFunction::list_mut(store.objects_mut().as_sys_mut());
+            let dummy = functions.pop().unwrap();
+            drop(std::mem::replace(&mut functions[index], dummy));
+        }
+        assert!(
+            !VMFunction::list(store.objects_mut().as_sys_mut())
+                .iter()
+                .any(|f| f.id() == first_target)
+        );
+        let instances = VMInstance::list_mut(store.objects_mut().as_sys_mut());
+        let second_owner = instances.pop().unwrap();
+        let first_owner = instances.pop().unwrap();
+        drop(first_owner);
+        drop(second_owner);
+        assert_eq!(drops.load(Ordering::SeqCst), 0);
+        assert_eq!(run.call(&mut store).unwrap(), 42);
+        VMFunction::list_mut(store.objects_mut().as_sys_mut()).clear();
+        assert_eq!(drops.load(Ordering::SeqCst), 1);
+    }
+
+    #[test]
+    fn an_active_local_call_keeps_its_removed_instance_until_return() {
+        for typed in [false, true] {
+            let mut store = Store::default();
+            let drops = Arc::new(AtomicUsize::new(0));
+            let probe = Capture(drops.clone());
+            let env = FunctionEnv::new(&mut store, ());
+            let host = Function::new_typed_with_env(
+                &mut store,
+                &env,
+                move |mut env: FunctionEnvMut<()>| -> i32 {
+                    std::hint::black_box(&probe);
+                    let mut actual = env.as_store_mut();
+                    let objects = actual.objects_mut().as_sys_mut();
+                    assert!(
+                        VMInstance::list(objects)[0].owner_count() > 1,
+                        "active local target has no Instance allocation owner"
+                    );
+                    assert!(
+                        VMFunction::list(objects)[1].owner_count() > 1,
+                        "active local target has no independent call snapshot"
+                    );
+                    let retired = VMInstance::list_mut(objects).pop().unwrap();
+                    drop(retired);
+                    VMFunction::list_mut(objects).clear();
+                    assert_eq!(probe.0.load(Ordering::SeqCst), 0);
+                    41
+                },
+            );
+            let module = Module::new(
+                &store,
+                r#"(module
+                (import "env" "host" (func $host (result i32)))
+                (func (export "run") (result i32) call $host i32.const 1 i32.add))"#,
+            )
+            .unwrap();
+            let instance = Instance::new(
+                &mut store,
+                &module,
+                &imports! { "env" => { "host" => host } },
+            )
+            .unwrap();
+            let run = instance.exports.get_function("run").unwrap().clone();
+            if typed {
+                assert_eq!(
+                    run.typed::<(), i32>(&store)
+                        .unwrap()
+                        .call(&mut store)
+                        .unwrap(),
+                    42
+                );
+            } else {
+                assert_eq!(&*run.call(&mut store, &[]).unwrap(), &[Value::I32(42)]);
+            }
+            assert_eq!(drops.load(Ordering::SeqCst), 1);
+        }
+    }
+
+    #[test]
+    #[cfg(feature = "experimental-async")]
+    fn a_pending_local_call_keeps_its_removed_instance_until_retirement() {
+        use std::{
+            future::Future,
+            task::{Context, Waker},
+        };
+        let mut store = Store::default();
+        let drops = Arc::new(AtomicUsize::new(0));
+        let probe = Capture(drops.clone());
+        let env = FunctionEnv::new(&mut store, ());
+        let host = Function::new_typed_with_env_async(
+            &mut store,
+            &env,
+            move |env: AsyncFunctionEnvMut<()>| {
+                std::hint::black_box(&probe);
+                async move {
+                    let mut write = env.write().await;
+                    let mut actual = write.as_store_mut();
+                    let objects = actual.objects_mut().as_sys_mut();
+                    assert!(
+                        VMInstance::list(objects)[0].owner_count() > 1,
+                        "parked local target has no Instance allocation owner"
+                    );
+                    assert!(
+                        VMFunction::list(objects)[1].owner_count() > 1,
+                        "parked local target has no independent call snapshot"
+                    );
+                    let retired = VMInstance::list_mut(objects).pop().unwrap();
+                    drop(retired);
+                    VMFunction::list_mut(objects).clear();
+                    drop(write);
+                    std::future::pending::<Result<i32, RuntimeError>>().await
+                }
+            },
+        );
+        let module = Module::new(
+            &store,
+            r#"(module
+            (import "env" "host" (func $host (result i32)))
+            (func (export "run") (result i32) call $host))"#,
+        )
+        .unwrap();
+        let instance = Instance::new(
+            &mut store,
+            &module,
+            &imports! { "env" => { "host" => host } },
+        )
+        .unwrap();
+        let run = instance.exports.get_function("run").unwrap().clone();
+        let store = store.into_async();
+        let mut call = Box::pin(run.call_async(&store, vec![]));
+        assert!(
+            call.as_mut()
+                .poll(&mut Context::from_waker(Waker::noop()))
+                .is_pending()
+        );
+        assert_eq!(drops.load(Ordering::SeqCst), 0);
+        drop(call);
+        assert_eq!(drops.load(Ordering::SeqCst), 1);
+        let mut write = store.store().write();
+        let fresh = Function::new_typed(&mut write.as_store_mut(), || -> i32 { 9 });
+        assert_eq!(
+            &*fresh.call(&mut write.as_store_mut(), &[]).unwrap(),
+            &[Value::I32(9)]
+        );
     }
 }

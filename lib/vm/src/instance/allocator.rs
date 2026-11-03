@@ -1,10 +1,11 @@
-use super::{Instance, VMInstance};
+use super::{Instance, InstanceAllocation, VMInstance};
 use crate::vmcontext::VMTableDefinition;
 use crate::{VMGlobalDefinition, VMMemoryDefinition};
 use std::alloc::{self, Layout};
 use std::convert::TryFrom;
 use std::mem;
 use std::ptr::{self, NonNull};
+use std::rc::Rc;
 use wasmer_types::entity::EntityRef;
 use wasmer_types::{LocalGlobalIndex, VMOffsets};
 use wasmer_types::{LocalMemoryIndex, LocalTableIndex, ModuleInfo};
@@ -286,8 +287,10 @@ impl InstanceAllocator {
         // This is correct because of the invariants of `Self` and
         // because we write `Instance` to the pointer in this function.
         VMInstance {
-            instance,
-            instance_layout,
+            allocation: Rc::new(InstanceAllocation {
+                instance,
+                instance_layout,
+            }),
         }
     }
 
