@@ -1102,7 +1102,54 @@ impl ForeignMemory {
     }
 }
 
+#[cfg(all(unix, feature = "sys"))]
+struct NativeHostPin(wasmer::sys::HostMemoryPin);
+
+// SAFETY: the VM pin owns the exact static allocation and shared mapping exclusion.
+#[cfg(all(unix, feature = "sys"))]
+unsafe impl wasixv2_syscalls::HostMemoryPin for NativeHostPin {
+    fn as_ptr(&self) -> *mut u8 {
+        self.0.as_ptr()
+    }
+    fn len(&self) -> u64 {
+        let range = self.0.range();
+        range.end - range.start
+    }
+}
+
 impl UserMemory for ForeignMemory {
+    #[cfg(all(unix, feature = "sys"))]
+    unsafe fn pin_private_host_range(
+        &self,
+        addr: u32,
+        len: u64,
+    ) -> Result<Box<dyn wasixv2_syscalls::HostMemoryPin>, Errno> {
+        let len_usize = usize::try_from(len).map_err(|_| Errno::EINVAL)?;
+        if len == 0 || in_guard(self.low_guard, addr, len_usize) {
+            return Err(Errno::EINVAL);
+        }
+        let pointer = self.at(addr, len_usize).map_err(|_| Errno::EFAULT)?;
+        let end = u64::from(addr).checked_add(len).ok_or(Errno::EINVAL)?;
+        let mapping = self
+            .memory
+            .begin_host_mapping_change(u64::from(addr)..end)
+            .map_err(|_| Errno::EBUSY)?;
+        let ranges = self.read_only.ranges_mut();
+        if in_read_only(&ranges, addr, len_usize) {
+            return Err(Errno::EACCES);
+        }
+        // SAFETY: caller owns the fresh private logical range. The exact allocation
+        // change excludes all host pins/remaps through this physical operation.
+        unsafe { wasixv2_pages::map_private_at(pointer, len_usize) }
+            .map_err(|err| host_errno(&err))?;
+        // SAFETY: the entire exact range now has anonymous private writable pages;
+        // no later physical operation or metadata change remains before publication.
+        let pin = unsafe { self.memory.commit_private_host_pin(mapping) }
+            .map_err(|_| Errno::EOPNOTSUPP)?;
+        drop(ranges);
+        Ok(Box::new(NativeHostPin(pin)))
+    }
+
     fn read<'a>(&'a self, addr: u32, buf: &'a mut [u8]) -> LocalFuture<'a, Result<(), Fault>> {
         copied(self.copy_out(addr, buf, false))
     }
@@ -1562,6 +1609,38 @@ mod tests {
         store_at.call(&mut store, at + PAGE as u32).unwrap();
         assert!(store_at.call(&mut store, at + 8).is_err());
         assert_eq!(memory.view(&store).read_u8(u64::from(at) + 8).unwrap(), 0);
+    }
+
+    #[cfg(all(target_os = "linux", feature = "sys"))]
+    #[test]
+    fn a_fresh_private_host_pin_replaces_unknown_backing_before_publication() {
+        use wasmer::{MemoryType, Store};
+        const PAGE: u64 = 65536;
+        let mut store = Store::default();
+        let memory = Memory::new(&mut store, MemoryType::new(4, Some(8), true)).unwrap();
+        let shared = memory.as_shared(&store).unwrap();
+        memory.view(&store).write(PAGE, &[99]).unwrap();
+        // Simulate an interrupted mapping operation: no retained pointer can
+        // assume this range stayed private, even though its allocation is alive.
+        drop(shared.begin_host_mapping_change(PAGE..2 * PAGE).unwrap());
+        assert!(shared.pin_host_range(PAGE..2 * PAGE).is_err());
+        let remote = ForeignMemory::new(shared.clone(), 0, Arc::new(ReadOnly::default()), None);
+        // SAFETY: this test exclusively owns a whole private logical page, with
+        // no mapping/object or retained host consumer; only its provenance is unknown.
+        let pin = unsafe { remote.pin_private_host_range(PAGE as u32, PAGE) }.unwrap();
+        assert_eq!(pin.len(), PAGE);
+        // SAFETY: the returned pin owns these exact newly zeroed writable bytes.
+        unsafe {
+            assert_eq!(pin.as_ptr().read(), 0);
+            pin.as_ptr().write(42);
+        }
+        assert!(
+            shared.begin_host_mapping_change(PAGE..2 * PAGE).is_err(),
+            "published pin excludes physical replacement"
+        );
+        assert_eq!(memory.view(&store).read_u8(PAGE).unwrap(), 42);
+        drop(pin);
+        assert!(shared.begin_host_mapping_change(PAGE..2 * PAGE).is_ok());
     }
 
     #[cfg(all(target_os = "linux", feature = "sys"))]

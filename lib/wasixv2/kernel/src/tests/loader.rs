@@ -293,3 +293,611 @@ fn loader_startup_uses_committed_environment_identity_and_actual_fresh_mm() {
         Err(Errno::ESRCH)
     ));
 }
+
+// The loader reservation sibling above uses an ordinary growable memory. This
+// backend additionally retains the exact allocation and excludes growth while pinned.
+struct HostPinAllocation {
+    bytes: Vec<std::cell::UnsafeCell<u8>>,
+    pins: usize,
+}
+struct HostPinMemory {
+    allocation: Mutex<HostPinAllocation>,
+    next_size: Mutex<Option<futures::channel::oneshot::Receiver<()>>>,
+    next_grow: Mutex<Option<futures::channel::oneshot::Receiver<()>>>,
+    next_force_read: Mutex<Option<(std::sync::mpsc::Sender<()>, std::sync::mpsc::Receiver<()>)>>,
+}
+impl HostPinMemory {
+    fn new(pages: usize) -> Arc<Self> {
+        Arc::new(Self {
+            allocation: Mutex::new(HostPinAllocation {
+                bytes: (0..pages * WASM_PAGE_SIZE as usize)
+                    .map(|_| std::cell::UnsafeCell::new(0))
+                    .collect(),
+                pins: 0,
+            }),
+            next_size: Mutex::new(None),
+            next_grow: Mutex::new(None),
+            next_force_read: Mutex::new(None),
+        })
+    }
+    fn pause_next_size(&self) -> futures::channel::oneshot::Sender<()> {
+        let (send, receive) = futures::channel::oneshot::channel();
+        assert!(self.next_size.lock().unwrap().replace(receive).is_none());
+        send
+    }
+    fn pause_next_grow(&self) -> futures::channel::oneshot::Sender<()> {
+        let (send, receive) = futures::channel::oneshot::channel();
+        assert!(self.next_grow.lock().unwrap().replace(receive).is_none());
+        send
+    }
+    fn pins(&self) -> usize {
+        self.allocation.lock().unwrap().pins
+    }
+}
+#[derive(Clone)]
+struct HostPinnedMemory(Arc<HostPinMemory>);
+struct TestHostPin {
+    memory: Arc<HostPinMemory>,
+    range: std::ops::Range<usize>,
+}
+// SAFETY: the exact Vec<UnsafeCell<u8>> allocation is retained by Arc; its mutex
+// excludes all relocation while pins > 0. No Rust references to its bytes escape.
+unsafe impl wasixv2_syscalls::HostMemoryPin for TestHostPin {
+    fn as_ptr(&self) -> *mut u8 {
+        let allocation = self.memory.allocation.lock().unwrap();
+        // SAFETY: this exact range was checked at admission and growth is excluded.
+        unsafe {
+            allocation
+                .bytes
+                .as_ptr()
+                .cast::<u8>()
+                .cast_mut()
+                .add(self.range.start)
+        }
+    }
+    fn len(&self) -> u64 {
+        (self.range.end - self.range.start) as u64
+    }
+}
+impl Drop for TestHostPin {
+    fn drop(&mut self) {
+        self.memory.allocation.lock().unwrap().pins -= 1;
+    }
+}
+impl UserMemory for HostPinnedMemory {
+    fn force_read<'a>(
+        &'a self,
+        addr: u32,
+        out: &'a mut [u8],
+    ) -> LocalFuture<'a, Result<(), Fault>> {
+        Box::pin(async move {
+            let pause = self.0.next_force_read.lock().unwrap().take();
+            if let Some((entered, resume)) = pause {
+                entered.send(()).map_err(|_| Fault)?;
+                // Intentionally block within this poll before locking the allocation:
+                // Foreign copies still complete immediately rather than yield Pending.
+                resume
+                    .recv_timeout(std::time::Duration::from_secs(10))
+                    .map_err(|_| Fault)?;
+            }
+            self.read(addr, out).await
+        })
+    }
+    fn layout(&self) -> LocalFuture<'_, Option<wasixv2_syscalls::MemoryLayout>> {
+        Box::pin(async {
+            Some(wasixv2_syscalls::MemoryLayout {
+                image_end: WASM_PAGE_SIZE,
+                data: 0..0,
+                brk: WASM_PAGE_SIZE,
+                maximum: 16 * WASM_PAGE_SIZE,
+                reserved: Vec::new(),
+            })
+        })
+    }
+    fn read<'a>(&'a self, addr: u32, out: &'a mut [u8]) -> LocalFuture<'a, Result<(), Fault>> {
+        Box::pin(async move {
+            let allocation = self.0.allocation.lock().unwrap();
+            let bytes = allocation
+                .bytes
+                .get(addr as usize..addr as usize + out.len())
+                .ok_or(Fault)?;
+            for (out, cell) in out.iter_mut().zip(bytes) {
+                // SAFETY: allocation remains locked; raw users coordinate their accesses.
+                *out = unsafe { cell.get().read() };
+            }
+            Ok(())
+        })
+    }
+    fn write<'a>(&'a self, addr: u32, bytes: &'a [u8]) -> LocalFuture<'a, Result<(), Fault>> {
+        Box::pin(async move {
+            let allocation = self.0.allocation.lock().unwrap();
+            let out = allocation
+                .bytes
+                .get(addr as usize..addr as usize + bytes.len())
+                .ok_or(Fault)?;
+            for (cell, value) in out.iter().zip(bytes) {
+                // SAFETY: allocation remains locked; raw users coordinate their accesses.
+                unsafe { cell.get().write(*value) };
+            }
+            Ok(())
+        })
+    }
+    fn size(&self) -> LocalFuture<'_, u64> {
+        Box::pin(async move {
+            let wait = self.0.next_size.lock().unwrap().take();
+            if let Some(wait) = wait {
+                let _ = wait.await;
+            }
+            self.0.allocation.lock().unwrap().bytes.len() as u64
+        })
+    }
+    fn grow(&self, pages: u32) -> LocalFuture<'_, Option<u64>> {
+        Box::pin(async move {
+            let wait = self.0.next_grow.lock().unwrap().take();
+            if let Some(wait) = wait {
+                let _ = wait.await;
+            }
+            let mut allocation = self.0.allocation.lock().unwrap();
+            if allocation.pins != 0 {
+                return None;
+            }
+            let old = allocation.bytes.len();
+            allocation
+                .bytes
+                .resize_with(old + pages as usize * WASM_PAGE_SIZE as usize, || {
+                    std::cell::UnsafeCell::new(0)
+                });
+            Some(old as u64)
+        })
+    }
+    unsafe fn pin_private_host_range(
+        &self,
+        addr: u32,
+        len: u64,
+    ) -> Result<Box<dyn wasixv2_syscalls::HostMemoryPin>, Errno> {
+        let mut allocation = self.0.allocation.lock().unwrap();
+        let first = addr as usize;
+        let end = first
+            .checked_add(usize::try_from(len).map_err(|_| Errno::EINVAL)?)
+            .ok_or(Errno::EINVAL)?;
+        let range = first..end;
+        let bytes = allocation.bytes.get(range.clone()).ok_or(Errno::EFAULT)?;
+        for cell in bytes {
+            // SAFETY: caller owns this fresh private logical range; no existing pin overlaps.
+            unsafe { cell.get().write(0) };
+        }
+        allocation.pins += 1;
+        Ok(Box::new(TestHostPin {
+            memory: self.0.clone(),
+            range,
+        }))
+    }
+}
+
+#[test]
+fn host_reservation_rejects_guest_replacement_and_reuses_only_after_release() {
+    use wasixv2_abi::{MadviseAdvice, MapFlags, MremapFlags, ProtFlags};
+    let (kernel, task, _) = setup(b"");
+    let memory = Arc::new(HostPinnedMemory(HostPinMemory::new(16)));
+    kernel.attach_memory(task, memory.clone());
+    let caller = Caller::new(task, &*memory);
+    let lease = block_on(kernel.loader_reserve_host(&caller, 17, 64)).unwrap();
+    let address = lease.address();
+    assert_eq!(address % 64, 0);
+    assert_eq!(lease.length(), 17);
+    assert_eq!(memory.0.pins(), 1);
+    // SAFETY: live typed lease owns these writable bytes and this test synchronizes access.
+    unsafe { lease.as_ptr().write(42) };
+    let fixed = MapFlags::MAP_FIXED | MapFlags::MAP_PRIVATE | MapFlags::MAP_ANONYMOUS;
+    assert!(
+        block_on(kernel.mmap(
+            &caller,
+            address,
+            WASM_PAGE_SIZE as u32,
+            ProtFlags::PROT_READ,
+            fixed,
+            Fd(-1),
+            0
+        ))
+        .is_err()
+    );
+    assert_eq!(
+        block_on(kernel.munmap(&caller, address, WASM_PAGE_SIZE as u32)),
+        Err(Errno::EBUSY.into())
+    );
+    assert_eq!(
+        block_on(kernel.mprotect(
+            &caller,
+            address,
+            WASM_PAGE_SIZE as u32,
+            ProtFlags::PROT_READ
+        )),
+        Err(Errno::EBUSY.into())
+    );
+    assert_eq!(
+        block_on(kernel.mremap(
+            &caller,
+            address,
+            WASM_PAGE_SIZE as u32,
+            WASM_PAGE_SIZE as u32,
+            MremapFlags::MREMAP_MAYMOVE,
+            0
+        )),
+        Err(Errno::EBUSY.into())
+    );
+    assert_eq!(
+        block_on(kernel.mremap(
+            &caller,
+            address,
+            0,
+            WASM_PAGE_SIZE as u32,
+            MremapFlags::MREMAP_MAYMOVE,
+            0
+        )),
+        Err(Errno::EBUSY.into())
+    );
+    assert_eq!(
+        block_on(kernel.madvise(
+            &caller,
+            address,
+            WASM_PAGE_SIZE as u32,
+            MadviseAdvice::MADV_DONTNEED
+        )),
+        Err(Errno::EBUSY.into())
+    );
+    // SAFETY: every failed operation preserved this exact live lease.
+    assert_eq!(unsafe { lease.as_ptr().read() }, 42);
+    let child = kernel.mm(task).dup(0x1234);
+    assert!(
+        !child
+            .regions()
+            .iter()
+            .any(|region| region.start <= u64::from(address) && u64::from(address) < region.end)
+    );
+    block_on(lease.release());
+    assert_eq!(memory.0.pins(), 0);
+    let next = block_on(kernel.loader_reserve_host(&caller, 17, 64)).unwrap();
+    assert_eq!(next.address(), address);
+    // SAFETY: fresh replacement zeroes prior host data before publication.
+    assert_eq!(unsafe { next.as_ptr().read() }, 0);
+    drop(next);
+    assert_eq!(memory.0.pins(), 0);
+}
+
+#[test]
+fn host_reservation_cancellation_before_pending_growth_leaves_no_owned_range() {
+    use std::task::{Context, Poll};
+    let (kernel, task, _) = setup(b"");
+    let memory = Arc::new(HostPinnedMemory(HostPinMemory::new(1)));
+    kernel.attach_memory(task, memory.clone());
+    let caller = Caller::new(task, &*memory);
+    let grow = memory.0.pause_next_grow();
+    let mut pending = kernel.loader_reserve_host(&caller, 17, 64);
+    let waker = futures::task::noop_waker();
+    assert!(matches!(
+        pending.as_mut().poll(&mut Context::from_waker(&waker)),
+        Poll::Pending
+    ));
+    drop(pending);
+    assert!(grow.send(()).is_err());
+    assert_eq!(memory.0.pins(), 0);
+    assert!(
+        kernel
+            .mm(task)
+            .regions()
+            .iter()
+            .all(|region| region.end <= WASM_PAGE_SIZE)
+    );
+    let lease = block_on(kernel.loader_reserve_host(&caller, 17, 64)).unwrap();
+    assert_eq!(memory.0.pins(), 1);
+    drop(lease);
+    assert_eq!(memory.0.pins(), 0);
+}
+
+#[test]
+fn host_reservation_drop_is_synchronous_during_another_pending_mm_operation() {
+    use std::{
+        future::Future,
+        task::{Context, Poll},
+    };
+    use wasixv2_abi::{MapFlags, ProtFlags};
+    let (kernel, task, _) = setup(b"");
+    let memory = Arc::new(HostPinnedMemory(HostPinMemory::new(16)));
+    kernel.attach_memory(task, memory.clone());
+    let caller = Caller::new(task, &*memory);
+    let lease = block_on(kernel.loader_reserve_host(&caller, 17, 64)).unwrap();
+    let address = lease.address();
+    let second = block_on(kernel.loader_reserve_host(&caller, 17, 64)).unwrap();
+    let second_address = second.address();
+    assert_eq!(memory.0.pins(), 2);
+    let mm = kernel.mm(task);
+    let resume = memory.0.pause_next_size();
+    let target = 10 * WASM_PAGE_SIZE as u32;
+    let mut pending = Box::pin(kernel.mmap(
+        &caller,
+        target,
+        WASM_PAGE_SIZE as u32,
+        ProtFlags::PROT_READ | ProtFlags::PROT_WRITE,
+        MapFlags::MAP_FIXED | MapFlags::MAP_PRIVATE | MapFlags::MAP_ANONYMOUS,
+        Fd(-1),
+        0,
+    ));
+    let waker = futures::task::noop_waker();
+    assert!(matches!(
+        pending.as_mut().poll(&mut Context::from_waker(&waker)),
+        Poll::Pending
+    ));
+    assert!(
+        mm.op.try_lock().is_none(),
+        "the other operation really holds mm.op"
+    );
+    drop(lease);
+    assert_eq!(memory.0.pins(), 1);
+    let mut release = second.release();
+    assert!(matches!(
+        release.as_mut().poll(&mut Context::from_waker(&waker)),
+        Poll::Pending
+    ));
+    drop(release);
+    assert_eq!(memory.0.pins(), 0);
+    assert!(
+        !mm.regions()
+            .iter()
+            .any(|region| region.start <= u64::from(second_address)
+                && u64::from(second_address) < region.end),
+        "canceling explicit release must synchronously retain exact cleanup custody"
+    );
+    assert!(
+        !mm.regions()
+            .iter()
+            .any(|region| region.start <= u64::from(address) && u64::from(address) < region.end)
+    );
+    resume.send(()).unwrap();
+    assert_eq!(block_on(pending).unwrap(), target);
+    assert_eq!(
+        mm.regions()
+            .iter()
+            .filter(|region| region.start <= u64::from(target) && u64::from(target) < region.end)
+            .count(),
+        1
+    );
+}
+
+#[test]
+fn host_reservation_targets_original_mm_after_exec_and_ignores_stale_generic_release() {
+    use wasixv2_abi::{MapFlags, ProtFlags};
+    let (kernel, task, _) = setup(b"");
+    let old_memory = Arc::new(HostPinnedMemory(HostPinMemory::new(16)));
+    kernel.attach_memory(task, old_memory.clone());
+    let caller = Caller::new(task, &*old_memory);
+    let stale = block_on(kernel.loader_reserve(&caller, 17, 64)).unwrap();
+    let address = stale.address();
+    block_on(kernel.munmap(&caller, address, WASM_PAGE_SIZE as u32)).unwrap();
+    let old = block_on(kernel.loader_reserve_host(&caller, 17, 64)).unwrap();
+    assert_eq!(old.address(), address);
+    block_on(stale.release());
+    assert!(
+        kernel
+            .mm(task)
+            .regions()
+            .iter()
+            .any(|region| region.start <= u64::from(address) && u64::from(address) < region.end),
+        "stale generic release must preserve the live host VMA"
+    );
+    let ordinary = block_on(kernel.mmap(
+        &caller,
+        0,
+        WASM_PAGE_SIZE as u32,
+        ProtFlags::PROT_READ | ProtFlags::PROT_WRITE,
+        MapFlags::MAP_PRIVATE | MapFlags::MAP_ANONYMOUS,
+        Fd(-1),
+        0,
+    ))
+    .unwrap();
+    assert_ne!(
+        ordinary, address,
+        "the allocator must not alias a live host lease"
+    );
+    block_on(kernel.munmap(&caller, ordinary, WASM_PAGE_SIZE as u32)).unwrap();
+    assert_eq!(old_memory.0.pins(), 1);
+    // SAFETY: stale generic release did not unregister or replace this host allocation.
+    unsafe { old.as_ptr().write(42) };
+    let old_mm = kernel.mm(task);
+    kernel.with_task(task, |task| task.mm = Arc::default());
+    let new_memory = Arc::new(HostPinnedMemory(HostPinMemory::new(16)));
+    kernel.attach_memory(task, new_memory.clone());
+    let new_caller = Caller::new(task, &*new_memory);
+    let new = block_on(kernel.loader_reserve_host(&new_caller, 17, 64)).unwrap();
+    assert_eq!(new.address(), address);
+    block_on(old.release());
+    assert_eq!(old_memory.0.pins(), 0);
+    assert_eq!(new_memory.0.pins(), 1);
+    assert!(
+        !old_mm
+            .regions()
+            .iter()
+            .any(|region| region.start <= u64::from(address) && u64::from(address) < region.end)
+    );
+    // The replacement mm still refuses a fixed map over its own live lease.
+    assert!(
+        block_on(kernel.mmap(
+            &new_caller,
+            address,
+            WASM_PAGE_SIZE as u32,
+            ProtFlags::PROT_READ,
+            MapFlags::MAP_FIXED | MapFlags::MAP_PRIVATE | MapFlags::MAP_ANONYMOUS,
+            Fd(-1),
+            0
+        ))
+        .is_err()
+    );
+    drop(new);
+    assert_eq!(new_memory.0.pins(), 0);
+}
+
+#[test]
+fn host_reservation_retained_io_keeps_old_pages_after_adjacent_leases_are_reused() {
+    let (kernel, task, _) = setup(b"");
+    let memory = Arc::new(HostPinnedMemory(HostPinMemory::new(16)));
+    kernel.attach_memory(task, memory.clone());
+    let caller = Caller::new(task, &*memory);
+    let first = block_on(kernel.loader_reserve_host(&caller, WASM_PAGE_SIZE as u32, 64)).unwrap();
+    let second = block_on(kernel.loader_reserve_host(&caller, WASM_PAGE_SIZE as u32, 64)).unwrap();
+    let address = first.address();
+    assert_eq!(second.address(), address + WASM_PAGE_SIZE as u32);
+    // SAFETY: each live lease owns this entire page; this test coordinates accesses.
+    unsafe {
+        first.as_ptr().write(42);
+        second.as_ptr().write(43);
+    }
+    let retained =
+        block_on(kernel.retain_pages(&caller, address, 2 * WASM_PAGE_SIZE as u32)).unwrap();
+    assert!(retained.synchronous());
+    let mut byte = [0];
+    retained.read_sync(0, &mut byte).unwrap();
+    assert_eq!(byte, [42]);
+    drop(first);
+    // Registration spans two separate ownership records: only the first is detached.
+    retained.write_sync(0, &[77]).unwrap();
+    retained.write_sync(WASM_PAGE_SIZE as u32, &[44]).unwrap();
+    // SAFETY: the still-live second lease retains its own writable page.
+    assert_eq!(unsafe { second.as_ptr().read() }, 44);
+    let next = block_on(kernel.loader_reserve_host(&caller, WASM_PAGE_SIZE as u32, 64)).unwrap();
+    assert_eq!(next.address(), address);
+    // SAFETY: the newly published private page is freshly zeroed.
+    assert_eq!(unsafe { next.as_ptr().read() }, 0);
+    retained.read_sync(0, &mut byte).unwrap();
+    assert_eq!(
+        byte,
+        [77],
+        "old IO must address its copied page, not the reused arena"
+    );
+    drop(second);
+    let last = block_on(kernel.loader_reserve_host(&caller, WASM_PAGE_SIZE as u32, 64)).unwrap();
+    assert_eq!(last.address(), address + WASM_PAGE_SIZE as u32);
+    // SAFETY: its prior page owner and retained consumer have been detached.
+    assert_eq!(unsafe { last.as_ptr().read() }, 0);
+    retained
+        .read_sync(WASM_PAGE_SIZE as u32, &mut byte)
+        .unwrap();
+    assert_eq!(byte, [44]);
+    retained.write_sync(WASM_PAGE_SIZE as u32, &[99]).unwrap();
+    assert_eq!(unsafe { last.as_ptr().read() }, 0);
+    drop((next, last));
+    assert_eq!(memory.0.pins(), 0);
+}
+
+#[test]
+fn host_lease_drop_waits_for_a_generic_retained_copy_before_unpinning() {
+    use std::{sync::mpsc, thread, time::Duration};
+    struct ResumeCopy(Option<mpsc::Sender<()>>);
+    impl Drop for ResumeCopy {
+        fn drop(&mut self) {
+            if let Some(send) = self.0.take() {
+                let _ = send.send(());
+            }
+        }
+    }
+    let (kernel, task, _) = setup(b"");
+    let kernel = Arc::new(kernel);
+    let memory = Arc::new(HostPinnedMemory(HostPinMemory::new(16)));
+    kernel.attach_memory(task, memory.clone());
+    let caller = Caller::new(task, &*memory);
+    let lease = block_on(kernel.loader_reserve_host(&caller, 17, 64)).unwrap();
+    let address = lease.address();
+    // SAFETY: the live lease owns these bytes and no concurrent access has begun.
+    unsafe {
+        lease.as_ptr().write(42);
+    }
+    let retained = block_on(kernel.retain_pages(&caller, address, 1)).unwrap();
+    let observed = kernel.mm(task).test_observe_host_detach();
+    let (entered_send, entered) = mpsc::channel();
+    let (resume_send, resume) = mpsc::channel();
+    *memory.0.next_force_read.lock().unwrap() = Some((entered_send, resume));
+    thread::scope(|scope| {
+        // Always unblock the copy before scoped threads are joined, even on failure.
+        let mut resume = ResumeCopy(Some(resume_send));
+        let exit_kernel = kernel.clone();
+        let exit_memory = memory.clone();
+        let exiting = scope.spawn(move || {
+            block_on(exit_kernel.exit_mmap(&Caller::new(task, &*exit_memory)));
+        });
+        entered
+            .recv_timeout(Duration::from_secs(5))
+            .expect("generic copy entered with Source mutex held");
+        let dropping = scope.spawn(move || drop(lease));
+        observed
+            .recv_timeout(Duration::from_secs(5))
+            .expect("host retirement found the visible row before waiting on Source");
+        assert_eq!(
+            memory.0.pins(),
+            1,
+            "generic copy still requires the original physical pin"
+        );
+        resume.0.take().unwrap().send(()).unwrap();
+        exiting.join().unwrap();
+        dropping.join().unwrap();
+    });
+    assert_eq!(memory.0.pins(), 0);
+    let mut byte = [0];
+    retained.read_sync(0, &mut byte).unwrap();
+    assert_eq!(byte, [42]);
+    kernel.attach_memory(task, memory.clone());
+    let next = block_on(kernel.loader_reserve_host(&caller, 17, 64)).unwrap();
+    assert_eq!(next.address(), address);
+    assert_eq!(unsafe { next.as_ptr().read() }, 0);
+    retained.write_sync(0, &[99]).unwrap();
+    assert_eq!(unsafe { next.as_ptr().read() }, 0);
+    drop(next);
+}
+
+#[test]
+fn host_retirement_rejects_a_registration_already_prepared_before_commit() {
+    use std::{sync::mpsc, thread, time::Duration};
+    struct ResumeCommit(Option<mpsc::Sender<()>>);
+    impl Drop for ResumeCommit {
+        fn drop(&mut self) {
+            if let Some(send) = self.0.take() {
+                let _ = send.send(());
+            }
+        }
+    }
+    let (kernel, task, _) = setup(b"");
+    let kernel = Arc::new(kernel);
+    let memory = Arc::new(HostPinnedMemory(HostPinMemory::new(16)));
+    kernel.attach_memory(task, memory.clone());
+    let caller = Caller::new(task, &*memory);
+    let lease = block_on(kernel.loader_reserve_host(&caller, 17, 64)).unwrap();
+    let address = lease.address();
+    let (prepared, resume) = kernel.mm(task).test_pause_retained_commit();
+    thread::scope(|scope| {
+        let mut resume = ResumeCommit(Some(resume));
+        let registering_kernel = kernel.clone();
+        let registering_memory = memory.clone();
+        let registering = scope.spawn(move || {
+            block_on(registering_kernel.retain_pages(
+                &Caller::new(task, &*registering_memory),
+                address,
+                1,
+            ))
+        });
+        prepared
+            .recv_timeout(Duration::from_secs(5))
+            .expect("real retained candidate passed initial access validation");
+        drop(lease);
+        assert_eq!(memory.0.pins(), 0);
+        resume.0.take().unwrap().send(()).unwrap();
+        assert!(
+            matches!(registering.join().unwrap(), Err(Errno::EFAULT)),
+            "candidate may not publish after its original range retired"
+        );
+    });
+    let next = block_on(kernel.loader_reserve_host(&caller, 17, 64)).unwrap();
+    assert_eq!(
+        next.address(),
+        address,
+        "failed admission must leave no live retained row"
+    );
+    assert_eq!(unsafe { next.as_ptr().read() }, 0);
+    drop(next);
+}

@@ -222,6 +222,79 @@ pub(crate) struct Mm {
     retained: retained::RetainedPages,
 }
 
+/// Exclusive private pages, protected before publication and never a Mapping object.
+/// The exact nonce separates their VMA from adjacent leases, so final release cannot
+/// split an area or require asynchronous writeback/allocation.
+pub(crate) struct HostRange {
+    mm: Arc<Mm>,
+    nonce: u64,
+    start: u64,
+    len: u64,
+    retired: bool,
+}
+
+struct HostRangeRecord {
+    nonce: u64,
+    end: u64,
+    published: bool,
+    closing: bool,
+    foreign: std::sync::Weak<dyn UserMemory + Send + Sync>,
+}
+
+impl HostRange {
+    pub(crate) fn mm(&self) -> &Arc<Mm> {
+        &self.mm
+    }
+    pub(crate) fn start(&self) -> u64 {
+        self.start
+    }
+    pub(crate) fn len(&self) -> u64 {
+        self.len
+    }
+    pub(crate) fn publish(&mut self) {
+        self.mm
+            .publish_host_range(self.nonce, self.start, self.start + self.len);
+    }
+    pub(crate) fn detach_retained(&mut self, pin: &dyn wasixv2_syscalls::HostMemoryPin) {
+        assert_eq!(pin.len(), self.len);
+        self.mm
+            .detach_host_retained(self.nonce, self.start, self.start + self.len, pin);
+        self.retired = true;
+    }
+}
+
+impl Drop for HostRange {
+    fn drop(&mut self) {
+        if !self.retired {
+            // Unpublished failure/cancellation: Mm.op still excludes guest admission.
+            self.mm
+                .close_unpublished_host_range(self.nonce, self.start, self.start + self.len);
+        }
+        // No admitted overlapping guest operation can be in flight: all mutation
+        // paths reject this nonce before their first await. Nonoverlap operations
+        // can only observe newly free pages after this single metadata transaction.
+        let mut space = self.mm.space();
+        let record = space
+            .host_ranges
+            .get(&self.start)
+            .expect("owned host range remains registered");
+        assert_eq!(
+            (record.nonce, record.end),
+            (self.nonce, self.start + self.len)
+        );
+        assert!(record.closing);
+        let first = self.start / PAGE_SIZE;
+        let end = (self.start + self.len) / PAGE_SIZE;
+        let record = space.recount(first, end, |space| {
+            let record = space.host_ranges.remove(&self.start);
+            space.clear_private_pages(first, end);
+            record
+        });
+        drop(space);
+        drop(record);
+    }
+}
+
 /// The page map, locked. A change through it reaches the address space's [`PageAccess`] when
 /// it is let go, still under the lock, so the two never disagree for a copy that comes after.
 pub(crate) struct Space<'a> {
@@ -320,6 +393,9 @@ impl Mm {
     /// Same teardown as munmap, while the caller holds this mm's op lock. Loader leases use
     /// the original mm and foreign memory, never a recycled task id or its exec's new mm.
     pub(crate) async fn release_range(&self, memory: &dyn UserMemory, start: u64, end: u64) {
+        if self.space().host_overlap(start, end) {
+            return;
+        }
         self.retain_unmapped(memory, start, end).await;
         for mut mapping in self.take_range(start, end) {
             let _ = mapping.release(memory).await;
@@ -556,6 +632,8 @@ struct AreaKey {
     kind: RegionKind,
     /// The mapping the page lies in, by where it starts, and whether it is shared.
     mapping: Option<(u64, bool)>,
+    /// An exclusive host allocation has its own boundary even beside another one.
+    host_nonce: Option<u64>,
     read: bool,
     write: bool,
     locked: bool,
@@ -576,6 +654,9 @@ pub(crate) enum RegionKind {
 
 #[derive(Default)]
 pub(crate) struct AddressSpace {
+    host_next_nonce: u64,
+    /// Disjoint protected byte ranges; records own no Store, page or lease.
+    host_ranges: BTreeMap<u64, HostRangeRecord>,
     /// Known image bounds and exec-owned reservations; absent for legacy embedders.
     layout: Option<MemoryLayout>,
     /// Lowest address for automatic mappings, above the initial brk growth gap.
@@ -714,6 +795,9 @@ impl AddressSpace {
     /// A copy for the fork child `pid`.
     fn dup(&self, pid: u32) -> Self {
         let mut child = Self {
+            // The child owns a new allocation. Host ranges are VM_DONTCOPY.
+            host_next_nonce: 0,
+            host_ranges: BTreeMap::new(),
             layout: self.layout.clone(),
             mmap_start: self.mmap_start,
             base: self.base,
@@ -908,15 +992,29 @@ impl AddressSpace {
     /// there next is a new mapping, without the flags of the old one.
     pub(crate) fn unmap(&mut self, addr: u64, len: u64) {
         let (first, end) = (addr / PAGE_SIZE, (addr + len).div_ceil(PAGE_SIZE));
-        self.recount(first, end, |space| {
-            space.mark_pages(first, end, false);
-            space.wipe_on_fork.set(first, end, false);
-            space.dont_copy.set(first, end, false);
-            space.dont_dump.set(first, end, false);
-            space.locked.set(first, end, false);
-            space.no_access.set(first, end, false);
-            space.read_only.set(first, end, false);
-        });
+        if self.host_overlap(addr, addr + len) {
+            return;
+        }
+        self.recount(first, end, |space| space.clear_private_pages(first, end));
+    }
+
+    fn clear_private_pages(&mut self, first: u64, end: u64) {
+        self.mark_pages(first, end, false);
+        self.wipe_on_fork.set(first, end, false);
+        self.dont_copy.set(first, end, false);
+        self.dont_dump.set(first, end, false);
+        self.locked.set(first, end, false);
+        self.no_access.set(first, end, false);
+        self.read_only.set(first, end, false);
+    }
+
+    pub(crate) fn host_overlap(&self, start: u64, end: u64) -> bool {
+        start < end
+            && self
+                .host_ranges
+                .range(..end)
+                .next_back()
+                .is_some_and(|(_, record)| record.end > start)
     }
 
     /// `mremap`'s flags: the `new_len` bytes at `to` take those of the `old_len` bytes at
@@ -1130,13 +1228,14 @@ impl AddressSpace {
     /// Exec-owned reservations and addresses past the module's maximum are never allocator
     /// pages, including for MAP_FIXED or brk growth that has not backed memory yet.
     fn allocatable(&self, first: u64, end: u64) -> bool {
-        self.layout.as_ref().is_none_or(|layout| {
-            end * PAGE_SIZE <= layout.maximum
-                && !layout
-                    .reserved
-                    .iter()
-                    .any(|range| first * PAGE_SIZE < range.end && range.start < end * PAGE_SIZE)
-        })
+        !self.host_overlap(first * PAGE_SIZE, end * PAGE_SIZE)
+            && self.layout.as_ref().is_none_or(|layout| {
+                end * PAGE_SIZE <= layout.maximum
+                    && !layout
+                        .reserved
+                        .iter()
+                        .any(|range| first * PAGE_SIZE < range.end && range.start < end * PAGE_SIZE)
+            })
     }
 
     /// `mm/vma.c:unmapped_area`: the lowest free run above the brk reservation.
@@ -1229,6 +1328,12 @@ impl AddressSpace {
         AreaKey {
             kind,
             mapping,
+            host_nonce: self
+                .host_ranges
+                .range(..=page * PAGE_SIZE)
+                .next_back()
+                .filter(|(_, record)| page * PAGE_SIZE < record.end)
+                .map(|(_, record)| record.nonce),
             read,
             write: read && !self.read_only.get(page),
             locked: self.locked.get(page),
@@ -2028,6 +2133,138 @@ impl Kernel {
         Ok(addr)
     }
 
+    /// Fresh private host allocation. Caller holds this exact mm.op through backend
+    /// pin promotion. No mapping/file payload is installed; Drop is host-only metadata.
+    pub(crate) async fn allocate_host_range(
+        &self,
+        caller: &Caller<'_>,
+        mm: &Arc<Mm>,
+        foreign: &Arc<dyn UserMemory + Send + Sync>,
+        bytes: u32,
+    ) -> Result<HostRange, Errno> {
+        let data_limit = self
+            .process(caller.task())
+            .resources
+            .lock_or_recover()
+            .soft(wasixv2_abi::RlimitResource::RLIMIT_DATA);
+        let lock_limit = self.lock_limit(caller);
+        let memory = caller.memory();
+        let size = memory.size().await;
+        if mm.space().base.is_none()
+            && let Some(layout) = memory.layout().await
+        {
+            mm.space().initialize(layout, data_limit);
+        }
+        mm.space().set_seen(size);
+        assert!(bytes != 0 && u64::from(bytes).is_multiple_of(PAGE_SIZE));
+        let pages = u64::from(bytes) / PAGE_SIZE;
+        let (placement, nonce, locked) = {
+            let mut space = mm.space();
+            if !lock_limit.future_ok(space.lock_future, space.locked_vm(), u64::from(bytes)) {
+                return Err(Errno::EAGAIN);
+            }
+            let nonce = space.host_next_nonce.checked_add(1).ok_or(Errno::ENOMEM)?;
+            space.host_next_nonce = nonce;
+            let placement = if space.layout.is_some() {
+                Placement::Reuse(space.bottom_up(pages).ok_or(Errno::ENOMEM)?)
+            } else if let Some(index) = space.free_run(pages) {
+                Placement::Reuse(
+                    (space.base.expect("tracked free pages") + index as u64) * PAGE_SIZE,
+                )
+            } else {
+                Placement::Grow(u32::try_from(pages).map_err(|_| Errno::ENOMEM)?)
+            };
+            (placement, nonce, space.lock_future)
+        };
+        let start = match placement {
+            Placement::Reuse(start) => {
+                let end = start.checked_add(u64::from(bytes)).ok_or(Errno::ENOMEM)?;
+                if end > size {
+                    let grow = u32::try_from((end - size).div_ceil(PAGE_SIZE))
+                        .map_err(|_| Errno::ENOMEM)?;
+                    let previous = memory.grow(grow).await.ok_or(Errno::ENOMEM)?;
+                    mm.space().grown(previous, grow);
+                    if previous != size {
+                        return Err(Errno::ENOMEM);
+                    }
+                }
+                start
+            }
+            Placement::Grow(grow) => {
+                let previous = memory.grow(grow).await.ok_or(Errno::ENOMEM)?;
+                if !previous.is_multiple_of(PAGE_SIZE)
+                    || previous
+                        .checked_add(u64::from(bytes))
+                        .is_none_or(|end| end > 1 << 32)
+                {
+                    return Err(Errno::ENOMEM);
+                }
+                {
+                    let mut space = mm.space();
+                    space.grown(previous, grow);
+                    // This typed reservation grows backing first. Unlike ordinary
+                    // legacy mmap, it grants ownership only with its protected nonce.
+                    // A failed retained-page admission therefore leaves reusable
+                    // capacity, rather than an unowned private VMA.
+                    space.unmap(previous, u64::from(bytes));
+                }
+                previous
+            }
+        };
+        let len = u64::from(bytes);
+        let end = start.checked_add(len).ok_or(Errno::ENOMEM)?;
+        if end > 1 << 32 {
+            return Err(Errno::ENOMEM);
+        }
+        let first = start / PAGE_SIZE;
+        let last = end / PAGE_SIZE;
+        // Fresh allocation must not displace an earlier registered page. Mm.op
+        // excludes new registrations until the nonce and backing pin are published.
+        self.check_host_retained_admission(mm, start, end)?;
+        {
+            let mut space = mm.space();
+            assert!(!space.host_overlap(start, end));
+            assert!(space.mappings.first_in(start, end).is_none());
+            space.recount(first, last, |space| {
+                space.mark_pages(first, last, true);
+                // No ordinary kernel copy may enter before native backing and
+                // its physical pin are ready; forced MM operations hold mm.op.
+                space.no_access.set(first, last, true);
+                space.read_only.set(first, last, false);
+                space.locked.set(first, last, locked);
+                space.dont_copy.set(first, last, true);
+                assert!(
+                    space
+                        .host_ranges
+                        .insert(
+                            start,
+                            HostRangeRecord {
+                                nonce,
+                                end,
+                                published: false,
+                                closing: false,
+                                foreign: Arc::downgrade(foreign),
+                            }
+                        )
+                        .is_none()
+                );
+            });
+        }
+        let owned = HostRange {
+            mm: mm.clone(),
+            nonce,
+            start,
+            len,
+            retired: false,
+        };
+        if mm.space().map_count() > self.vm.map_limit() {
+            return Err(Errno::ENOMEM);
+        }
+        // Native pin promotion replaces these fresh private pages with zeros itself.
+        // There is no await between exact logical ownership and returning its guard.
+        Ok(owned)
+    }
+
     /// `do_vmi_munmap`: writes back the shared mappings in `[start, end)`, takes mapped objects'
     /// pages out, drops every mapping there and frees the pages. The caller holds `Mm::op`.
     async fn unmap_range(&self, caller: &Caller<'_>, start: u64, end: u64) {
@@ -2049,6 +2286,9 @@ impl Kernel {
         let end = (start + u64::from(len)).div_ceil(PAGE_SIZE) * PAGE_SIZE;
         let mm = self.mm(caller.task());
         let _op = mm.op.lock().await;
+        if mm.space().host_overlap(start, end) {
+            return Err(Errno::EBUSY.into());
+        }
         // `vms_gather_munmap_vmas`: a hole in the middle of an area splits it, which
         // `max_map_count` must allow; the other splits are checked by nothing.
         {
@@ -2077,6 +2317,12 @@ impl Kernel {
         let new_pages = new_size / PAGE_SIZE;
         let mm = self.mm(caller.task());
         let _op = mm.op.lock().await;
+        if mm
+            .space()
+            .host_overlap(addr64, addr64 + old_size.max(new_size))
+        {
+            return Err(Errno::EBUSY.into());
+        }
         if old_size == 0 {
             return self.mremap_duplicate(caller, &remap).await;
         }
@@ -2325,6 +2571,12 @@ impl Kernel {
         }
         let mm = self.mm(caller.task());
         let _op = mm.op.lock().await;
+        if mm
+            .space()
+            .host_overlap(u64::from(start), u64::from(start) + u64::from(len))
+        {
+            return Err(Errno::EBUSY.into());
+        }
         self.check_mapped(caller, start.into(), len.into()).await?;
         if prot.contains(ProtFlags::PROT_EXEC) {
             return Err(Errno::EACCES.into());
@@ -2374,6 +2626,9 @@ impl Kernel {
             let _op = mm.op.lock().await;
             let space = mm.space();
             let end = u64::from(start) + len;
+            if space.host_overlap(u64::from(start), end) {
+                return Err(Errno::EBUSY.into());
+            }
             if advice == MadviseAdvice::MADV_FREE
                 && space
                     .locked
@@ -2393,6 +2648,12 @@ impl Kernel {
                 // mm/madvise.c madvise_vma_behavior toggles VM_DONTDUMP.
                 let mm = self.mm(caller.task());
                 let _op = mm.op.lock().await;
+                if mm
+                    .space()
+                    .host_overlap(u64::from(start), u64::from(start) + len)
+                {
+                    return Err(Errno::EBUSY.into());
+                }
                 // Recheck under the operation lock so a concurrent munmap cannot
                 // turn this into flags on a hole (madvise_walk_vmas).
                 self.check_mapped(caller, start.into(), len).await?;
@@ -2593,6 +2854,9 @@ impl Kernel {
             .ok_or(Errno::EINVAL)?;
         let mm = self.mm(caller.task());
         let _op = mm.op.lock().await;
+        if mm.space().host_overlap(start, end) {
+            return Err(Errno::EBUSY.into());
+        }
         let region = mm
             .regions()
             .into_iter()
@@ -2705,6 +2969,9 @@ impl Kernel {
     async fn drop_pages(&self, caller: &Caller<'_>, start: u64, len: u64) -> Result<(), Errno> {
         let mm = self.mm(caller.task());
         let _op = mm.op.lock().await;
+        if mm.space().host_overlap(start, start + len) {
+            return Err(Errno::EBUSY);
+        }
         // mm/madvise.c madvise_dontneed_free_valid_vma checks VM_LOCKED
         // while holding mmap_lock; keep that check under the operation lock.
         if mm
@@ -2755,6 +3022,9 @@ impl Kernel {
         let _op = mm.op.lock().await;
         let mut space = mm.space();
         let end = start + len;
+        if space.host_overlap(start, end) {
+            return Err(Errno::EBUSY);
+        }
         let refused = match wipe {
             true => space
                 .mappings

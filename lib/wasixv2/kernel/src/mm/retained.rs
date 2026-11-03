@@ -17,7 +17,11 @@ use wasixv2_pages::SharedPages;
 use wasixv2_syscalls::{Caller, Errno, Fault, LocalFuture, UserMemory};
 
 #[derive(Default)]
-pub(super) struct RetainedPages(Mutex<BTreeMap<u64, Weak<Page>>>);
+pub(super) struct RetainedPages(
+    Mutex<BTreeMap<u64, Weak<Page>>>,
+    #[cfg(test)] Mutex<Option<(std::sync::mpsc::Sender<()>, std::sync::mpsc::Receiver<()>)>>,
+    #[cfg(test)] Mutex<Option<std::sync::mpsc::Sender<()>>>,
+);
 
 /// Linux io_uring/rsrc.c:__io_account_mem uses user->locked_vm, separately
 /// from the mm->locked_vm that mm/mlock.c accounts for mlock.
@@ -117,10 +121,8 @@ impl Kernel {
         let mm = self.mm(caller.task());
         let _op = mm.op.lock().await;
         let end = u64::from(addr) + u64::from(len);
-        if len == 0
-            || addr < caller.memory().low_guard().await
-            || end > caller.memory().size().await
-        {
+        let size = self.mem_size(caller).await;
+        if len == 0 || addr < caller.memory().low_guard().await || end > size {
             return Err(Errno::EFAULT);
         }
         mm.access
@@ -173,23 +175,42 @@ impl Kernel {
                         spare,
                     }
                 };
-                let kind = match mm.foreign() {
+                let foreign = mm.host_retention_foreign(base)?.or_else(|| mm.foreign());
+                let kind = match foreign {
                     Some(memory) => PageKind::Foreign {
                         memory: Mutex::new(Some(memory)),
                         source: Mutex::new(source),
                     },
                     None => PageKind::Local(AsyncMutex::new(source)),
                 };
-                let page = Arc::new(Page {
+                Arc::new(Page {
                     kind,
                     _charge: charge,
-                });
-                mm.retained
-                    .0
-                    .lock_or_recover()
-                    .insert(base, Arc::downgrade(&page));
-                page
+                })
             };
+            #[cfg(test)]
+            {
+                let pause = mm.retained.1.lock_or_recover().take();
+                if let Some((prepared, resume)) = pause {
+                    prepared
+                        .send(())
+                        .expect("prepared retained test is listening");
+                    resume
+                        .recv_timeout(std::time::Duration::from_secs(10))
+                        .expect("prepared retained test resumes its candidate");
+                }
+            }
+            // Candidate construction/charges and every strong Page drop stay outside
+            // the registry. Closing cannot pass this whole-range recheck and insert.
+            let (replaced, admitted) = {
+                let mut table = mm.retained.0.lock_or_recover();
+                match mm.host_retention_admissible(addr, len) {
+                    Ok(()) => (table.insert(base, Arc::downgrade(&page)), Ok(())),
+                    Err(err) => (None, Err(err)),
+                }
+            };
+            drop(replaced);
+            admitted?;
             records.push(page);
         }
         Ok(Arc::new(Retained {
@@ -201,17 +222,218 @@ impl Kernel {
     }
 }
 
+impl Kernel {
+    /// Mm.op is held; no new guest registration can enter before publication.
+    pub(super) fn check_host_retained_admission(
+        &self,
+        mm: &Mm,
+        start: u64,
+        end: u64,
+    ) -> Result<(), Errno> {
+        let table = mm.retained.0.lock_or_recover();
+        if table
+            .range(start..end)
+            .any(|(_, page)| page.strong_count() != 0)
+        {
+            return Err(Errno::EBUSY);
+        }
+        Ok(())
+    }
+}
+
 impl Mm {
+    #[cfg(test)]
+    pub(crate) fn test_pause_retained_commit(
+        &self,
+    ) -> (std::sync::mpsc::Receiver<()>, std::sync::mpsc::Sender<()>) {
+        let (prepared, ready) = std::sync::mpsc::channel();
+        let (resume, wait) = std::sync::mpsc::channel();
+        assert!(
+            self.retained
+                .1
+                .lock_or_recover()
+                .replace((prepared, wait))
+                .is_none()
+        );
+        (ready, resume)
+    }
+
+    #[cfg(test)]
+    pub(crate) fn test_observe_host_detach(&self) -> std::sync::mpsc::Receiver<()> {
+        let (observed, ready) = std::sync::mpsc::channel();
+        assert!(
+            self.retained
+                .2
+                .lock_or_recover()
+                .replace(observed)
+                .is_none()
+        );
+        ready
+    }
+
+    // Caller holds the retained registry while checking admission or changing
+    // lifecycle state. Neither a page nor a lease is strongly owned by this table.
+    fn host_retention_admissible(&self, addr: u32, len: u32) -> Result<(), Errno> {
+        let start = u64::from(addr);
+        let end = start + u64::from(len);
+        let space = self.space();
+        if space
+            .host_ranges
+            .range(..end)
+            .any(|(_, record)| record.end > start && (!record.published || record.closing))
+        {
+            return Err(Errno::EFAULT);
+        }
+        drop(space);
+        self.access
+            .check(addr, len as usize, true)
+            .map_err(|_| Errno::EFAULT)
+    }
+
+    fn host_retention_foreign(
+        &self,
+        base: u64,
+    ) -> Result<Option<Arc<dyn UserMemory + Send + Sync>>, Errno> {
+        let space = self.space();
+        let host = space
+            .host_ranges
+            .range(..=base)
+            .next_back()
+            .filter(|(_, record)| base < record.end)
+            .map(|(_, record)| record);
+        match host {
+            Some(record) if record.closing || !record.published => Err(Errno::EFAULT),
+            Some(record) => record.foreign.upgrade().map(Some).ok_or(Errno::EFAULT),
+            None => Ok(None),
+        }
+    }
+
+    pub(super) fn publish_host_range(&self, nonce: u64, start: u64, end: u64) {
+        let _registry = self.retained.0.lock_or_recover();
+        let mut space = self.space();
+        let record = space
+            .host_ranges
+            .get_mut(&start)
+            .expect("owned host range remains registered");
+        assert_eq!((record.nonce, record.end), (nonce, end));
+        assert!(!record.closing && !record.published);
+        space.recount(start / PAGE_SIZE, end / PAGE_SIZE, |space| {
+            space
+                .host_ranges
+                .get_mut(&start)
+                .expect("validated host range")
+                .published = true;
+            space
+                .no_access
+                .set(start / PAGE_SIZE, end / PAGE_SIZE, false);
+            space
+                .read_only
+                .set(start / PAGE_SIZE, end / PAGE_SIZE, false);
+        });
+    }
+
+    pub(super) fn close_unpublished_host_range(&self, nonce: u64, start: u64, end: u64) {
+        let registry = self.retained.0.lock_or_recover();
+        let mut space = self.space();
+        let record = space
+            .host_ranges
+            .get_mut(&start)
+            .expect("owned host range remains registered");
+        assert_eq!((record.nonce, record.end), (nonce, end));
+        assert!(
+            !record.published,
+            "published host range requires its still-live pin"
+        );
+        assert!(
+            !registry
+                .range(start..end)
+                .any(|(_, page)| page.strong_count() != 0)
+        );
+        record.closing = true;
+    }
+
+    pub(super) fn detach_host_retained(
+        &self,
+        nonce: u64,
+        start: u64,
+        end: u64,
+        pin: &dyn wasixv2_syscalls::HostMemoryPin,
+    ) {
+        {
+            let _registry = self.retained.0.lock_or_recover();
+            let mut space = self.space();
+            let record = space
+                .host_ranges
+                .get_mut(&start)
+                .expect("owned host range remains registered");
+            assert_eq!((record.nonce, record.end), (nonce, end));
+            assert!(record.published && !record.closing);
+            record.closing = true;
+        }
+        loop {
+            // Closing rejects every new registration before it can insert. Remove
+            // one weak row at a time, with no Drop-time allocation or callback lock.
+            let next = {
+                let mut registry = self.retained.0.lock_or_recover();
+                let at = registry.range(start..end).next().map(|(&at, _)| at);
+                at.map(|at| (at, registry.remove(&at).expect("selected retained row")))
+            };
+            let Some((at, weak)) = next else {
+                break;
+            };
+            let page = weak.upgrade();
+            drop(weak);
+            let Some(page) = page else {
+                continue;
+            };
+            let PageKind::Foreign { memory, source } = &page.kind else {
+                unreachable!("host admission excludes local retained pages");
+            };
+            #[cfg(test)]
+            {
+                let observed = self.retained.2.lock_or_recover().take();
+                if let Some(observed) = observed {
+                    let _ = observed.send(());
+                }
+            }
+            let old_memory = {
+                let mut source = source.lock_or_recover();
+                if let Source::Live { addr, spare } = &mut *source {
+                    assert_eq!(u64::from(*addr), at);
+                    assert_eq!(spare.len(), PAGE_SIZE as usize);
+                    // SAFETY: exact pin still owns every byte of this whole page.
+                    // Source mutex serializes all registered IO; spare is separate,
+                    // preallocated charged memory, with no borrowed Store or await.
+                    unsafe {
+                        std::ptr::copy_nonoverlapping(
+                            pin.as_ptr().add((at - start) as usize),
+                            spare.as_mut_ptr(),
+                            PAGE_SIZE as usize,
+                        );
+                    }
+                    *source = Source::Owned(std::mem::take(spare));
+                }
+                let old_memory = memory.lock_or_recover().take();
+                drop(source);
+                old_memory
+            };
+            // The lease still owns the exact original foreign Arc, so this cannot
+            // run its destructor while other pages still need their live pin.
+            drop(old_memory);
+            drop(page);
+        }
+    }
+
     /// Called under Mm::op before any old bytes or mappings are discarded.
     pub(super) async fn retain_unmapped(&self, memory: &dyn UserMemory, start: u64, end: u64) {
         let pages: Vec<_> = {
-            let mut table = self.retained.0.lock_or_recover();
-            let keys: Vec<_> = table.range(start..end).map(|(&at, _)| at).collect();
-            keys.into_iter()
-                .filter_map(|at| table.remove(&at).and_then(|p| p.upgrade()))
+            let table = self.retained.0.lock_or_recover();
+            table
+                .range(start..end)
+                .filter_map(|(&at, page)| page.upgrade().map(|page| (at, page)))
                 .collect()
         };
-        for page in pages {
+        for (at, page) in pages {
             match &page.kind {
                 PageKind::Local(source) => {
                     let mut source = source.lock().await;
@@ -245,9 +467,28 @@ impl Mm {
                     }
                     // Linux pins only the page, not the entire dead mm. Owned
                     // bytes and SharedPages no longer need the image's handle.
-                    memory.lock_or_recover().take();
+                    let old_memory = memory.lock_or_recover().take();
+                    drop(source);
+                    drop(old_memory);
                 }
             }
+            // Source is now independent of the old mapping. Until this point its
+            // exact weak row stays visible to synchronous host lease retirement.
+            let expected = Arc::downgrade(&page);
+            let removed = {
+                let mut table = self.retained.0.lock_or_recover();
+                if table
+                    .get(&at)
+                    .is_some_and(|old| Weak::ptr_eq(old, &expected))
+                {
+                    table.remove(&at)
+                } else {
+                    None
+                }
+            };
+            drop(removed);
+            drop(expected);
+            drop(page);
         }
     }
 

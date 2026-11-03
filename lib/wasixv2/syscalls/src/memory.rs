@@ -56,10 +56,42 @@ pub struct MemoryLayout {
     pub reserved: Vec<Range<u64>>,
 }
 
+/// An owning native memory pin, independent of a Store or task lookup.
+///
+/// # Safety
+/// The implementation must retain the exact allocation and keep `len()` bytes at
+/// `as_ptr()` private, writable and at the same address until drop. Every physical
+/// replacement/discard and logical reset must respect its exclusion. Ordinary guest
+/// access may race, so callers must still avoid creating uncoordinated Rust references.
+pub unsafe trait HostMemoryPin: Send + Sync {
+    fn as_ptr(&self) -> *mut u8;
+    fn len(&self) -> u64;
+    fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+}
+
 /// The calling task's address space, read and written the way Linux's `copy_{from,to}_user` do:
 /// a copy that touches the low guard or a page its address space's [`PageAccess`] keeps from
 /// it faults. This is independent of the guest's own loads, which may read the low guard.
 pub trait UserMemory {
+    /// Replaces a newly owned private range with fresh native backing and pins it.
+    /// Unsupported backends fail without a substitute allocation or raw growth.
+    ///
+    /// # Safety
+    /// The caller must own this exact private logical range, above its image/guard,
+    /// under its memory-operation lock. No file/shared Mapping or other logical owner
+    /// may cover it. Returned bytes replace its old contents. The pin must outlive all
+    /// host consumers; only its original owner may release the logical allocation.
+    unsafe fn pin_private_host_range(
+        &self,
+        addr: u32,
+        len: u64,
+    ) -> Result<Box<dyn HostMemoryPin>, Errno> {
+        let _ = (addr, len);
+        Err(Errno::EOPNOTSUPP)
+    }
+
     /// Immutable image layout for Linux's separate brk and top-down mmap arenas. The image,
     /// including its main stack, and `reserved` ranges remain owned by the execution layer;
     /// other pages above the image are available for kernel mappings even if linear memory

@@ -452,7 +452,9 @@ impl LinearMemory for VMOwnedMemory {
     /// of wasm pages.
     fn grow(&mut self, delta: Pages) -> Result<Pages, MemoryError> {
         let ranges = self.host_ranges.lock().unwrap();
-        ranges.can_grow()?;
+        if delta.0 != 0 {
+            ranges.can_grow()?;
+        }
         self.mmap.grow(delta, self.config.clone())
     }
 
@@ -460,7 +462,9 @@ impl LinearMemory for VMOwnedMemory {
     /// for the min size then this function does nothing
     fn grow_at_least(&mut self, min_size: u64) -> Result<(), MemoryError> {
         let ranges = self.host_ranges.lock().unwrap();
-        ranges.can_grow()?;
+        if min_size > self.mmap.size.bytes().0 as u64 {
+            ranges.can_grow()?;
+        }
         self.mmap.grow_at_least(min_size, self.config.clone())
     }
 
@@ -841,6 +845,41 @@ impl VMSharedMemory {
         })
     }
 
+    /// Atomically promotes this allocation's in-progress replacement into a pin.
+    /// No other pin or mapping change can enter between commit and publication.
+    ///
+    /// # Safety
+    /// All bytes in `mapping`'s range must have just been replaced with anonymous
+    /// private writable backing; physical operations and metadata must be complete.
+    #[doc(hidden)]
+    pub unsafe fn commit_private_host_pin(
+        &self,
+        mut mapping: HostMemoryMappingChange,
+    ) -> Result<HostMemoryPin, MemoryError> {
+        if !Arc::ptr_eq(&self.host_ranges, &mapping.ranges) {
+            return Err(host_range_unavailable());
+        }
+        let mut ranges = self.host_ranges.lock().unwrap();
+        let (_, size) = self.host_data().ok_or_else(host_range_unavailable)?;
+        if mapping.range.end > size {
+            return Err(host_range_unavailable());
+        }
+        let id = mapping.id.take().expect("mapping change is still active");
+        let index = ranges
+            .changes
+            .iter()
+            .position(|(other, range)| *other == id && *range == mapping.range)
+            .expect("exact mapping change remains registered");
+        ranges.insert_private(mapping.range.clone());
+        ranges.pins.push((id, mapping.range.clone()));
+        ranges.changes.swap_remove(index);
+        Ok(HostMemoryPin {
+            memory: self.clone(),
+            id,
+            range: mapping.range.clone(),
+        })
+    }
+
     /// Copies this memory to a new memory
     pub fn copy(&self) -> Result<Self, MemoryError> {
         let ranges = self.host_ranges.lock().unwrap();
@@ -894,7 +933,9 @@ impl LinearMemory for VMSharedMemory {
     /// of wasm pages.
     fn grow(&mut self, delta: Pages) -> Result<Pages, MemoryError> {
         let ranges = self.host_ranges.lock().unwrap();
-        ranges.can_grow()?;
+        if delta.0 != 0 {
+            ranges.can_grow()?;
+        }
         let mut guard = self.mmap.write().unwrap();
         guard.grow(delta, self.config.clone())
     }
@@ -903,8 +944,10 @@ impl LinearMemory for VMSharedMemory {
     /// for the min size then this function does nothing
     fn grow_at_least(&mut self, min_size: u64) -> Result<(), MemoryError> {
         let ranges = self.host_ranges.lock().unwrap();
-        ranges.can_grow()?;
         let mut guard = self.mmap.write().unwrap();
+        if min_size > guard.size.bytes().0 as u64 {
+            ranges.can_grow()?;
+        }
         guard.grow_at_least(min_size, self.config.clone())
     }
 

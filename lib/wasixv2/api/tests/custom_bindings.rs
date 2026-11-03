@@ -598,3 +598,128 @@ async fn independent_binding_roots_use_distinct_owning_threads() {
         })
         .await;
 }
+
+// Keep the engine-neutral kernel reservation and native backing pin on the same
+// actual import path; neither a test allocator nor an unattached kernel is used.
+struct HostLeaseHook(Arc<AtomicUsize>);
+impl InstantiationHook<MachineSyscalls> for HostLeaseHook {
+    fn requires_owning_thread(&self) -> bool {
+        true
+    }
+
+    fn prepare_imports(
+        &self,
+        _: &Module,
+        store: &mut StoreMut<'_>,
+        exec: &FunctionEnv<ExecEnv<MachineSyscalls>>,
+        imports: &mut Imports,
+    ) -> Result<Option<Box<dyn InstanceAttachment>>, RuntimeError> {
+        let calls = self.0.clone();
+        imports.define(
+            "custom",
+            "host_lease",
+            Function::new_typed_with_env_async(
+                store,
+                exec,
+                move |env: wasmer::AsyncFunctionEnvMut<ExecEnv<MachineSyscalls>>| {
+                    let calls = calls.clone();
+                    async move {
+                        use wasixv2_syscalls::{Caller, LoaderControl, Syscalls, WASM_PAGE_SIZE};
+                        let (syscalls, task) = {
+                            let read = env.read().await;
+                            (read.data().syscalls().clone(), read.data().task())
+                        };
+                        let memory = wasixv2_exec::GuestMemory::new(&env);
+                        let caller = Caller::new(task, &memory);
+                        let lease = syscalls.loader_reserve_host(&caller, 17, 64).await.unwrap();
+                        let address = lease.address();
+                        assert_eq!(address % 64, 0);
+                        assert_eq!(lease.length(), 17);
+                        // SAFETY: this exact native lease exclusively owns the bytes;
+                        // the guest is suspended and no other test thread accesses them.
+                        unsafe {
+                            assert_eq!(lease.as_ptr().read(), 0);
+                            lease.as_ptr().write(42);
+                        }
+                        assert_eq!(
+                            syscalls
+                                .mprotect(
+                                    &caller,
+                                    address,
+                                    WASM_PAGE_SIZE as u32,
+                                    wasixv2_abi::ProtFlags::PROT_READ,
+                                )
+                                .await,
+                            Err(wasixv2_syscalls::Errno::EBUSY.into()),
+                        );
+                        assert_eq!(
+                            syscalls
+                                .munmap(&caller, address, WASM_PAGE_SIZE as u32)
+                                .await,
+                            Err(wasixv2_syscalls::Errno::EBUSY.into()),
+                        );
+                        // A real guest read reaches the same pinned native allocation.
+                        let read = env.read().await;
+                        let memory = read.data().memory().unwrap().clone();
+                        let mut byte = [0];
+                        memory
+                            .view(&read)
+                            .read(u64::from(address), &mut byte)
+                            .unwrap();
+                        assert_eq!(byte, [42]);
+                        drop(read);
+                        lease.release().await;
+                        let replacement =
+                            syscalls.loader_reserve_host(&caller, 17, 64).await.unwrap();
+                        assert_eq!(replacement.address(), address);
+                        // SAFETY: the replacement owns fresh anonymous backing.
+                        unsafe {
+                            assert_eq!(replacement.as_ptr().read(), 0);
+                        }
+                        drop(replacement);
+                        calls.fetch_add(1, Ordering::SeqCst);
+                        Ok::<i32, RuntimeError>(42)
+                    }
+                },
+            ),
+        );
+        Ok(None)
+    }
+}
+
+#[tokio::test]
+async fn a_custom_import_owns_protected_native_kernel_reservations() {
+    tokio::task::LocalSet::new()
+        .run_until(async {
+            let calls = Arc::new(AtomicUsize::new(0));
+            let machine = Machine::builder()
+                .instantiation_hook(Arc::new(HostLeaseHook(calls.clone())))
+                .build();
+            let main = pic(
+                r#"(module
+            (import "env" "memory" (memory 1 65536 shared))
+            (import "env" "__indirect_function_table" (table 3 funcref))
+            (import "env" "__stack_pointer" (global (mut i32)))
+            (import "env" "__memory_base" (global i32))
+            (import "env" "__table_base" (global i32))
+            (import "custom" "host_lease" (func $lease (result i32)))
+            (import "wasixv2" "exit_group" (func $exit (param i32)))
+            (export "__indirect_function_table" (table 0))
+            (func (export "_start") call $lease i32.const 42 i32.ne call $exit))"#,
+                &[],
+            );
+            let result = machine
+                .run_process(
+                    &main,
+                    ProcessConfig {
+                        args: vec!["native-host-lease".into()],
+                        env: vec![],
+                        stdio: Stdio::from_fns(|_| {}, |_| {}),
+                    },
+                )
+                .await;
+            assert_eq!(result.unwrap(), 0);
+            assert_eq!(calls.load(Ordering::SeqCst), 1);
+        })
+        .await;
+}

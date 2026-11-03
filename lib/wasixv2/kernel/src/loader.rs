@@ -84,6 +84,64 @@ impl LoaderControl for Kernel {
         })
     }
 
+    fn loader_reserve_host<'a>(
+        &'a self,
+        caller: &'a wasixv2_syscalls::Caller<'_>,
+        bytes: u32,
+        alignment: u32,
+    ) -> LocalFuture<'a, wasixv2_syscalls::SysResult<Box<dyn wasixv2_syscalls::HostMemoryLease>>>
+    {
+        Box::pin(async move {
+            if !alignment.is_power_of_two() {
+                return Err(Errno::EINVAL.into());
+            }
+            let bytes = bytes.max(1);
+            let len = bytes
+                .checked_add(alignment.saturating_sub(wasixv2_syscalls::WASM_PAGE_SIZE as u32))
+                .and_then(|n| n.checked_add(wasixv2_syscalls::WASM_PAGE_SIZE as u32 - 1))
+                .map(|n| n & !(wasixv2_syscalls::WASM_PAGE_SIZE as u32 - 1))
+                .ok_or(Errno::ENOMEM)?;
+            let mm = {
+                let state = self.state.read_or_recover();
+                state
+                    .tasks
+                    .get(&caller.task())
+                    .ok_or(Errno::ESRCH)?
+                    .mm
+                    .clone()
+            };
+            let memory = mm.foreign().ok_or(Errno::EOPNOTSUPP)?;
+            let _op = mm.op.lock().await;
+            {
+                let state = self.state.read_or_recover();
+                let current = state.tasks.get(&caller.task()).ok_or(Errno::ESRCH)?;
+                if !Arc::ptr_eq(&current.mm, &mm) {
+                    return Err(Errno::ESTALE.into());
+                }
+            }
+            let range = self.allocate_host_range(caller, &mm, &memory, len).await?;
+            let start = u32::try_from(range.start()).map_err(|_| Errno::ENOMEM)?;
+            // SAFETY: original mm.op is held; HostRange exclusively owns this exact
+            // private logical range, registered before backend replacement/publication.
+            let pin = unsafe { memory.pin_private_host_range(start, range.len()) }?;
+            if pin.len() != range.len() {
+                return Err(Errno::EOPNOTSUPP.into());
+            }
+            let address = (range.start() + u64::from(alignment - 1)) & !u64::from(alignment - 1);
+            let offset = usize::try_from(address - range.start()).map_err(|_| Errno::ENOMEM)?;
+            let mut reservation = Box::new(HostReservation {
+                pin: Some(pin),
+                range,
+                _memory: memory,
+                address: address as u32,
+                bytes,
+                offset,
+            });
+            reservation.range.publish();
+            Ok(reservation as Box<dyn wasixv2_syscalls::HostMemoryLease>)
+        })
+    }
+
     fn loader_gate(&self, task: TaskId) -> Option<Arc<LoaderGate>> {
         self.state
             .read_or_recover()
@@ -266,6 +324,54 @@ impl Drop for Reservation {
                 self.start,
                 self.len,
             )));
+        }
+    }
+}
+
+struct HostReservation {
+    // Physical exclusion must end BEFORE logical pages are made available again.
+    pin: Option<Box<dyn wasixv2_syscalls::HostMemoryPin>>,
+    range: crate::mm::HostRange,
+    _memory: Arc<dyn wasixv2_syscalls::UserMemory + Send + Sync>,
+    address: u32,
+    bytes: u32,
+    offset: usize,
+}
+
+// SAFETY: exact HostRange nonce owns private pages; pin owns their stable native
+// allocation. Drop unpins first, then releases only those original-mm pages.
+unsafe impl wasixv2_syscalls::HostMemoryLease for HostReservation {
+    fn address(&self) -> u32 {
+        self.address
+    }
+    fn length(&self) -> u32 {
+        self.bytes
+    }
+    fn as_ptr(&self) -> *mut u8 {
+        // SAFETY: alignment padding plus payload fit in the owning range/pin.
+        unsafe {
+            self.pin
+                .as_ref()
+                .expect("live host reservation")
+                .as_ptr()
+                .add(self.offset)
+        }
+    }
+    fn release(self: Box<Self>) -> LocalFuture<'static, ()> {
+        Box::pin(async move {
+            let mm = self.range.mm().clone();
+            let _op = mm.op.lock().await;
+            drop(self);
+        })
+    }
+}
+impl Drop for HostReservation {
+    fn drop(&mut self) {
+        if let Some(pin) = self.pin.take() {
+            // Existing GUP consumers must own their old bytes before physical
+            // exclusion ends. The exact original foreign handle remains alive.
+            self.range.detach_retained(&*pin);
+            drop(pin);
         }
     }
 }

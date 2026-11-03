@@ -552,6 +552,19 @@ pub trait LoaderReservation: Send + Sync {
     fn release(self: Box<Self>) -> crate::LocalFuture<'static, ()>;
 }
 
+/// An exclusive private mm allocation paired with its exact native backing pin.
+///
+/// # Safety
+/// The implementation must keep the native pointer and logical range owned until
+/// release/drop, independent of task reuse or exec. Drop must release only that exact
+/// allocation, after all host consumers are gone, without an unpolled cleanup job.
+pub unsafe trait HostMemoryLease: Send + Sync {
+    fn address(&self) -> u32;
+    fn length(&self) -> u32;
+    fn as_ptr(&self) -> *mut u8;
+    fn release(self: Box<Self>) -> crate::LocalFuture<'static, ()>;
+}
+
 /// Read-only committed startup inputs. The gate identifies the exact new mm;
 /// `fresh` is false once memory/layout has attached, not an assertion by exec.
 pub struct LoaderStartup {
@@ -584,6 +597,17 @@ pub trait LoaderControl {
     ) -> crate::LocalFuture<'a, crate::SysResult<Box<dyn LoaderReservation>>> {
         let _ = (caller, bytes, alignment);
         Box::pin(async { Err(Errno::ENOSYS.into()) })
+    }
+
+    /// Reserves protected private native backing; never falls back to ordinary reserve.
+    fn loader_reserve_host<'a>(
+        &'a self,
+        caller: &'a crate::Caller<'_>,
+        bytes: u32,
+        alignment: u32,
+    ) -> crate::LocalFuture<'a, crate::SysResult<Box<dyn HostMemoryLease>>> {
+        let _ = (caller, bytes, alignment);
+        Box::pin(async { Err(Errno::EOPNOTSUPP.into()) })
     }
 
     fn loader_gate(&self, task: TaskId) -> Option<Arc<LoaderGate>> {
@@ -669,6 +693,15 @@ impl<L, S: LoaderControl> LoaderControl for Layered<L, S> {
         alignment: u32,
     ) -> crate::LocalFuture<'a, crate::SysResult<Box<dyn LoaderReservation>>> {
         self.inner.loader_reserve(caller, bytes, alignment)
+    }
+
+    fn loader_reserve_host<'a>(
+        &'a self,
+        caller: &'a crate::Caller<'_>,
+        bytes: u32,
+        alignment: u32,
+    ) -> crate::LocalFuture<'a, crate::SysResult<Box<dyn HostMemoryLease>>> {
+        self.inner.loader_reserve_host(caller, bytes, alignment)
     }
 
     fn loader_gate(&self, task: TaskId) -> Option<Arc<LoaderGate>> {
