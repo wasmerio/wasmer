@@ -155,8 +155,22 @@ pub trait AsStoreRef {
     /// [`Function::call_async`](crate::Function::call_async).
     #[cfg(feature = "experimental-async")]
     fn as_store_async(&self) -> Option<impl AsStoreAsync + 'static> {
-        let id = self.as_store_ref().inner.objects.id();
-        StoreAsync::from_context(id)
+        let view = self.as_store_ref();
+        let id = view.inner.objects.id();
+        // Copy metadata through this caller's existing reference. Resolving a
+        // whole mutable Store from the ancestor context would invalidate it.
+        #[cfg(feature = "sys")]
+        let native_invocation = view
+            .inner
+            .native_access_origin
+            .as_ref()
+            .or(view.inner.native_invocation.as_ref())
+            .cloned();
+        StoreAsync::from_context(
+            id,
+            #[cfg(feature = "sys")]
+            native_invocation,
+        )
     }
 }
 

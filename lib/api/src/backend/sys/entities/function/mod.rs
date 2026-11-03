@@ -55,9 +55,16 @@ fn check_native_retirement(store: &impl AsStoreRef) -> Result<(), RuntimeError> 
     if let Some(error) = current_retirement_error() {
         return Err(error);
     }
-    let store_id = store.as_store_ref().objects().id();
+    let view = store.as_store_ref();
+    let store_id = view.objects().id();
     if let Some(error) = store_retirement_error(store_id) {
         return Err(error);
+    }
+    if let Some(origin) = &view.inner.native_access_origin {
+        origin.check()?;
+    }
+    if let Some(generation) = &view.inner.native_invocation {
+        generation.check()?;
     }
     Ok(())
 }
@@ -201,12 +208,14 @@ impl Function {
                         values_vec.add(i).read_unaligned(),
                     ));
                 }
+                let native_invocation = store_mut.inner.native_invocation.clone();
                 let store_async = match context {
                     crate::GetStoreAsyncGuardResult::Ok(wrapper) => {
                         AsyncFunctionEnvMutStore::Async(StoreAsync {
                             id,
                             inner: wrapper.lock_handle(),
                             loan: None,
+                            native_invocation,
                         })
                     }
                     crate::GetStoreAsyncGuardResult::NotAsync(ptr) => {

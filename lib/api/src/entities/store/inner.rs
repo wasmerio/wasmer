@@ -14,6 +14,14 @@ use wasmer_vm::TrapHandlerFn;
 /// various bits of the VM have raw pointers that point back to it. Hence we
 /// wrap the actual context in a box.
 pub(crate) struct StoreInner {
+    #[cfg(all(feature = "sys", feature = "experimental-async"))]
+    pub(crate) native_invocation:
+        Option<std::sync::Arc<crate::backend::sys::async_runtime::NativeInvocationGeneration>>,
+    // Public async write access retains its originating generation independently
+    // of the current image. Cleanup may use old caps; guest entry may not.
+    #[cfg(all(feature = "sys", feature = "experimental-async"))]
+    pub(crate) native_access_origin:
+        Option<std::sync::Arc<crate::backend::sys::async_runtime::NativeInvocationGeneration>>,
     pub(crate) objects: StoreObjects,
     pub(crate) store: BackendStore,
     pub(crate) on_called: Option<OnCalledHandler>,
