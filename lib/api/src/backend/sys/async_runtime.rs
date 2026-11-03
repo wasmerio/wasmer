@@ -253,6 +253,23 @@ impl NativeInvocationScope {
                 "cannot wait for the current native invocation lineage",
             ));
         }
+        self.wait_for_settlement().await;
+        Ok(())
+    }
+
+    /// Close and observe settlement from separately owned host cleanup.
+    ///
+    /// Unlike close_and_wait, this observer may be polled inline while a
+    /// dependent native root is active. It grants no Store or guest authority.
+    /// The cleanup future must be owned by the external executor, never awaited
+    /// by a root whose physical lifetime it observes; that would deadlock.
+    #[doc(hidden)]
+    pub async fn close_and_wait_for_cleanup(&mut self) {
+        self.close();
+        self.wait_for_settlement().await;
+    }
+
+    async fn wait_for_settlement(&mut self) {
         let generation = &self.local.generation;
         let _registration = ScopeWaiterRegistration(generation.clone());
         std::future::poll_fn(|cx| {
@@ -272,7 +289,6 @@ impl NativeInvocationScope {
             }
         })
         .await;
-        Ok(())
     }
 
     /// Begin a new image generation under the actual Store write guard.
@@ -2330,6 +2346,114 @@ fn run_immediate(
 mod tests {
     use super::*;
     use crate::{Function, Instance, Module};
+
+    #[test]
+    fn external_cleanup_can_be_polled_inside_a_native_descendant() {
+        if !runtime_subprocess(
+            "backend::sys::async_runtime::tests::external_cleanup_can_be_polled_inside_a_native_descendant",
+        ) {
+            return;
+        }
+        type Cleanup = Pin<Box<dyn Future<Output = NativeInvocationScope>>>;
+        thread_local! {
+            static ANCESTOR: RefCell<Option<WeakNativeInvocation>> = const { RefCell::new(None) };
+            static CALL: RefCell<Option<Pin<Box<AsyncCallFuture>>>> = const { RefCell::new(None) };
+            static CLEANUP: RefCell<Option<Cleanup>> = const { RefCell::new(None) };
+            static ERROR: RefCell<Option<RuntimeError>> = const { RefCell::new(None) };
+        }
+        let mut first_store = Store::default();
+        let pending = Function::new_typed(&mut first_store, || -> Result<i32, RuntimeError> {
+            ANCESTOR.with(|slot| *slot.borrow_mut() = WeakNativeInvocation::current());
+            block_on_host_future(std::future::pending()).map_err(|error| match error {
+                AsyncRuntimeError::RuntimeError(error) => error,
+                _ => RuntimeError::new("scope cleanup proof failed to suspend"),
+            })?;
+            Ok(42)
+        });
+        let fresh = Function::new_typed(&mut first_store, || -> i32 { 42 });
+        let scope = NativeInvocationScope::bind(&mut first_store).unwrap();
+        let first_store = first_store.into_async();
+        let mut call = Box::pin(AsyncCallFuture::new(
+            pending.into_sys(),
+            first_store.store(),
+            vec![],
+        ));
+        let noop = futures::task::noop_waker();
+        assert!(
+            call.as_mut()
+                .poll(&mut Context::from_waker(&noop))
+                .is_pending()
+        );
+        CALL.with(|slot| *slot.borrow_mut() = Some(call));
+        CLEANUP.with(|slot| {
+            *slot.borrow_mut() = Some(Box::pin(async move {
+                let mut scope = scope;
+                // This first poll occurs inline under B. The public waiter
+                // still refuses awaiting its own native ancestor lifetime.
+                assert!(scope.close_and_wait().await.is_err());
+                scope.close_and_wait_for_cleanup().await;
+                scope
+            }));
+        });
+        let mut second_store = Store::default();
+        let descendant = Function::new_typed(&mut second_store, || -> i32 {
+            let ancestor = ANCESTOR.with(|slot| slot.borrow_mut().take().unwrap());
+            // A pure Rust model of the external native scope: scope exit below
+            // precedes guard release and any deferred ancestor stack retirement.
+            let frame = unsafe { ancestor.enter_descendant_frame() }.unwrap();
+            let before = CoroutineContext::get_current().unwrap();
+            drop(CALL.with(|slot| slot.borrow_mut().take().unwrap()));
+            ERROR.with(|slot| *slot.borrow_mut() = ancestor.retirement_error());
+            CLEANUP.with(|slot| {
+                let mut cleanup = slot.borrow_mut();
+                let noop = futures::task::noop_waker();
+                assert!(
+                    cleanup
+                        .as_mut()
+                        .unwrap()
+                        .as_mut()
+                        .poll(&mut Context::from_waker(&noop))
+                        .is_pending()
+                );
+            });
+            assert_eq!(CoroutineContext::get_current(), Some(before));
+            // The modeled external isolate entry has exited. Only now may its
+            // frame guard release A's last stack pin and complete retirement.
+            drop(frame);
+            assert_eq!(CoroutineContext::get_current(), Some(before));
+            42
+        });
+        let error =
+            futures::executor::block_on(descendant.call_async(&second_store.into_async(), vec![]))
+                .unwrap_err();
+        let expected = ERROR.with(|slot| slot.borrow_mut().take().unwrap());
+        assert!(Arc::ptr_eq(&error.inner, &expected.inner));
+        let mut cleanup = CLEANUP.with(|slot| slot.borrow_mut().take().unwrap());
+        let Poll::Ready(scope) = cleanup.as_mut().poll(&mut Context::from_waker(&noop)) else {
+            panic!("external cleanup did not observe ancestor settlement");
+        };
+        drop(cleanup);
+        assert_eq!(
+            scope
+                .local
+                .generation
+                .active
+                .load(std::sync::atomic::Ordering::Acquire),
+            0
+        );
+        let (next_scope, next_store) = {
+            let mut write = first_store.store().write();
+            scope
+                .successor(&first_store, &mut write.as_store_mut())
+                .unwrap()
+        };
+        assert_eq!(
+            futures::executor::block_on(fresh.call_async(&next_store, vec![])).unwrap()[0].i32(),
+            Some(42)
+        );
+        drop(next_scope);
+        assert!(StoreContext::is_empty());
+    }
 
     #[test]
     fn a_scope_waiter_panic_does_not_replace_a_stack_destructor_panic() {
