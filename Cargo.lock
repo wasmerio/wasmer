@@ -7813,20 +7813,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "wasmer-sys-utils"
-version = "0.705.0"
-dependencies = [
- "libc",
- "region",
- "tracing",
- "tracing-subscriber",
- "wasmer",
- "wasmer-types",
- "wasmer-vm",
- "wasmer-wasix",
-]
-
-[[package]]
 name = "wasmer-types"
 version = "7.5.0"
 dependencies = [
