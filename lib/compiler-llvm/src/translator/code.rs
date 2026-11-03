@@ -50,7 +50,7 @@ use wasmer_compiler::{
     GEF64_LEQ_I64_MAX, GEF64_LEQ_U32_MAX, GEF64_LEQ_U64_MAX, LEF32_GEQ_I32_MIN, LEF32_GEQ_I64_MIN,
     LEF32_GEQ_U32_MIN, LEF32_GEQ_U64_MIN, LEF64_GEQ_I32_MIN, LEF64_GEQ_I64_MIN, LEF64_GEQ_U32_MIN,
     LEF64_GEQ_U64_MIN, MiddlewareBinaryReader, ModuleMiddlewareChain, ModuleTranslationState,
-    WasmSourceMap, from_binaryreadererror_wasmerror,
+    WasmSourceMap, from_binaryreadererror_wasmerror, memarg_memory_index,
     misc::{CompiledFunctionExt, CompiledKind},
     types::{
         relocation::RelocationTarget,
@@ -1484,7 +1484,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         memarg: &MemArg,
         alignment: u32,
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-        let memory_index = MemoryIndex::from_u32(memarg.memory);
+        let memory_index = MemoryIndex::from_u32(memarg_memory_index(memarg)?);
         let pointee_size = usize::try_from(self.target_data.get_store_size(&pointee_ty))
             .map_err(|_| CompileError::Codegen("pointee type size does not fit in usize".into()))?;
         let effective_address = self.resolve_memory_ptr(
@@ -1496,7 +1496,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         )?;
         let result = err!(self.builder.build_load(pointee_ty, effective_address, ""));
         self.annotate_user_memaccess(
-            MemoryIndex::from_u32(memarg.memory),
+            MemoryIndex::from_u32(memarg_memory_index(memarg)?),
             memarg,
             alignment,
             result.as_instruction_value().unwrap(),
@@ -1512,7 +1512,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         memarg: &MemArg,
     ) -> Result<IntValue<'ctx>, CompileError> {
         let alignment = 2u32.pow(memarg.align as u32);
-        let memory_index = MemoryIndex::from_u32(memarg.memory);
+        let memory_index = MemoryIndex::from_u32(memarg_memory_index(memarg)?);
         let inner_size =
             usize::try_from(self.target_data.get_store_size(&inner_ty)).map_err(|_| {
                 CompileError::Codegen("atomic inner type size does not fit in usize".into())
@@ -1565,7 +1565,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         memarg: &MemArg,
         alignment: u32,
     ) -> Result<(), CompileError> {
-        let memory_index = MemoryIndex::from_u32(memarg.memory);
+        let memory_index = MemoryIndex::from_u32(memarg_memory_index(memarg)?);
         let pointee_size = usize::try_from(self.target_data.get_store_size(&pointee_ty))
             .map_err(|_| CompileError::Codegen("pointee type size does not fit in usize".into()))?;
         let effective_address = self.resolve_memory_ptr(
@@ -1595,7 +1595,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         memarg: &MemArg,
     ) -> Result<(), CompileError> {
         let alignment = 2u32.pow(memarg.align as u32);
-        let memory_index = MemoryIndex::from_u32(memarg.memory);
+        let memory_index = MemoryIndex::from_u32(memarg_memory_index(memarg)?);
         let inner_size =
             usize::try_from(self.target_data.get_store_size(&inner_ty)).map_err(|_| {
                 CompileError::Codegen("atomic inner type size does not fit in usize".into())
@@ -1643,7 +1643,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         op: AtomicRMWBinOp,
     ) -> Result<IntValue<'ctx>, CompileError> {
         let alignment = 2u32.pow(memarg.align as u32);
-        let memory_index = MemoryIndex::from_u32(memarg.memory);
+        let memory_index = MemoryIndex::from_u32(memarg_memory_index(memarg)?);
         let inner_size =
             usize::try_from(self.target_data.get_store_size(&inner_ty)).map_err(|_| {
                 CompileError::Codegen("atomic inner type size does not fit in usize".into())
@@ -1706,7 +1706,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         memarg: &MemArg,
     ) -> Result<IntValue<'ctx>, CompileError> {
         let alignment = 2u32.pow(memarg.align as u32);
-        let memory_index = MemoryIndex::from_u32(memarg.memory);
+        let memory_index = MemoryIndex::from_u32(memarg_memory_index(memarg)?);
         let inner_size =
             usize::try_from(self.target_data.get_store_size(&inner_ty)).map_err(|_| {
                 CompileError::Codegen("atomic inner type size does not fit in usize".into())
@@ -10828,7 +10828,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         let vmctx = &self.ctx.basic().into_pointer_value();
 
         match op {
-            Operator::AtomicFence => {
+            Operator::AtomicFence { .. } => {
                 // Fence is a nop.
                 //
                 // Fence was added to preserve information about fences from
@@ -11300,11 +11300,11 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 None,
             )?,
             Operator::MemoryAtomicWait32 { memarg } => {
-                let memory_index = MemoryIndex::from_u32(memarg.memory);
+                let memory_index = MemoryIndex::from_u32(memarg_memory_index(&memarg)?);
                 let index_arg = self
                     .wasm_module
                     .local_memory_index(memory_index)
-                    .map_or(memarg.memory, |index| index.as_u32());
+                    .map_or(memory_index.as_u32(), |index| index.as_u32());
                 let (dst, val, timeout) = self.state.pop3()?;
                 let dst = self.fold_atomic_mem_addr(dst, &memarg)?;
                 let wait32_fn_ptr = self.ctx.memory_wait32(memory_index, self.intrinsics)?;
@@ -11328,11 +11328,11 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 self.state.push1(ret.try_as_basic_value().unwrap_basic());
             }
             Operator::MemoryAtomicWait64 { memarg } => {
-                let memory_index = MemoryIndex::from_u32(memarg.memory);
+                let memory_index = MemoryIndex::from_u32(memarg_memory_index(&memarg)?);
                 let index_arg = self
                     .wasm_module
                     .local_memory_index(memory_index)
-                    .map_or(memarg.memory, |index| index.as_u32());
+                    .map_or(memory_index.as_u32(), |index| index.as_u32());
                 let (dst, val, timeout) = self.state.pop3()?;
                 let dst = self.fold_atomic_mem_addr(dst, &memarg)?;
                 let wait64_fn_ptr = self.ctx.memory_wait64(memory_index, self.intrinsics)?;
@@ -11356,11 +11356,11 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 self.state.push1(ret.try_as_basic_value().unwrap_basic());
             }
             Operator::MemoryAtomicNotify { memarg } => {
-                let memory_index = MemoryIndex::from_u32(memarg.memory);
+                let memory_index = MemoryIndex::from_u32(memarg_memory_index(&memarg)?);
                 let index_arg = self
                     .wasm_module
                     .local_memory_index(memory_index)
-                    .map_or(memarg.memory, |index| index.as_u32());
+                    .map_or(memory_index.as_u32(), |index| index.as_u32());
                 let (dst, count) = self.state.pop2()?;
                 let dst = self.fold_atomic_mem_addr(dst, &memarg)?;
                 let notify_fn_ptr = self.ctx.memory_notify(memory_index, self.intrinsics)?;

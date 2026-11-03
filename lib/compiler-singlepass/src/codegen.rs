@@ -29,7 +29,7 @@ use target_lexicon::Architecture;
 use wasmer_compiler::dwarf::{DwarfState, init_dwarf_unit};
 
 use wasmer_compiler::{
-    FunctionBodyData, WasmSourceMap,
+    FunctionBodyData, WasmSourceMap, memarg_memory_index,
     misc::CompiledKind,
     types::{
         function::{CompiledFunction, CompiledFunctionFrameInfo, FunctionBody},
@@ -3020,7 +3020,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let ret = self.acquire_location(&WpType::I32)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -3045,7 +3045,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let ret = self.acquire_location(&WpType::F32)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -3070,7 +3070,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let ret = self.acquire_location(&WpType::I32)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -3095,7 +3095,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let ret = self.acquire_location(&WpType::I32)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -3120,7 +3120,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let ret = self.acquire_location(&WpType::I32)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -3145,7 +3145,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let ret = self.acquire_location(&WpType::I32)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -3169,7 +3169,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let target_value = self.pop_value_released()?.0;
                 let target_addr = self.pop_value_released()?.0;
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -3193,7 +3193,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let (target_value, canonicalize) = self.pop_value_released()?;
                 let target_addr = self.pop_value_released()?.0;
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -3219,7 +3219,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let target_value = self.pop_value_released()?.0;
                 let target_addr = self.pop_value_released()?.0;
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -3243,7 +3243,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let target_value = self.pop_value_released()?.0;
                 let target_addr = self.pop_value_released()?.0;
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -3268,7 +3268,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let ret = self.acquire_location(&WpType::I64)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -3293,7 +3293,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let ret = self.acquire_location(&WpType::F64)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -3318,7 +3318,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let ret = self.acquire_location(&WpType::I64)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -3343,7 +3343,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let ret = self.acquire_location(&WpType::I64)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -3368,7 +3368,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let ret = self.acquire_location(&WpType::I64)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -3393,7 +3393,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let ret = self.acquire_location(&WpType::I64)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -3418,7 +3418,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let ret = self.acquire_location(&WpType::I64)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -3443,7 +3443,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let ret = self.acquire_location(&WpType::I64)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -3468,7 +3468,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let target_addr = self.pop_value_released()?.0;
 
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -3492,7 +3492,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let (target_value, canonicalize) = self.pop_value_released()?;
                 let target_addr = self.pop_value_released()?.0;
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -3518,7 +3518,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let target_value = self.pop_value_released()?.0;
                 let target_addr = self.pop_value_released()?.0;
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -3542,7 +3542,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let target_value = self.pop_value_released()?.0;
                 let target_addr = self.pop_value_released()?.0;
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -3566,7 +3566,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let target_value = self.pop_value_released()?.0;
                 let target_addr = self.pop_value_released()?.0;
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -3815,7 +3815,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     // are properly canonicalized.
                 }
             }
-            Operator::AtomicFence => {
+            Operator::AtomicFence { .. } => {
                 // Fence is a nop.
                 //
                 // Fence was added to preserve information about fences from
@@ -3830,7 +3830,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let ret = self.acquire_location(&WpType::I32)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -3855,7 +3855,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let ret = self.acquire_location(&WpType::I32)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -3880,7 +3880,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let ret = self.acquire_location(&WpType::I32)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -3904,7 +3904,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let target_value = self.pop_value_released()?.0;
                 let target_addr = self.pop_value_released()?.0;
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -3928,7 +3928,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let target_value = self.pop_value_released()?.0;
                 let target_addr = self.pop_value_released()?.0;
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -3952,7 +3952,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let target_value = self.pop_value_released()?.0;
                 let target_addr = self.pop_value_released()?.0;
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -3977,7 +3977,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let ret = self.acquire_location(&WpType::I64)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -4002,7 +4002,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let ret = self.acquire_location(&WpType::I64)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -4027,7 +4027,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let ret = self.acquire_location(&WpType::I64)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -4052,7 +4052,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let ret = self.acquire_location(&WpType::I64)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -4076,7 +4076,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let target_value = self.pop_value_released()?.0;
                 let target_addr = self.pop_value_released()?.0;
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -4100,7 +4100,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let target_value = self.pop_value_released()?.0;
                 let target_addr = self.pop_value_released()?.0;
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -4124,7 +4124,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let target_value = self.pop_value_released()?.0;
                 let target_addr = self.pop_value_released()?.0;
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -4148,7 +4148,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let target_value = self.pop_value_released()?.0;
                 let target_addr = self.pop_value_released()?.0;
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -4174,7 +4174,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let ret = self.acquire_location(&WpType::I32)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -4201,7 +4201,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let ret = self.acquire_location(&WpType::I64)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -4228,7 +4228,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let ret = self.acquire_location(&WpType::I32)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -4255,7 +4255,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let ret = self.acquire_location(&WpType::I32)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -4282,7 +4282,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let ret = self.acquire_location(&WpType::I64)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -4309,7 +4309,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let ret = self.acquire_location(&WpType::I64)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -4336,7 +4336,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let ret = self.acquire_location(&WpType::I64)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -4363,7 +4363,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let ret = self.acquire_location(&WpType::I32)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -4390,7 +4390,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let ret = self.acquire_location(&WpType::I64)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -4417,7 +4417,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let ret = self.acquire_location(&WpType::I32)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -4444,7 +4444,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let ret = self.acquire_location(&WpType::I32)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -4471,7 +4471,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let ret = self.acquire_location(&WpType::I64)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -4498,7 +4498,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let ret = self.acquire_location(&WpType::I64)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -4525,7 +4525,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let ret = self.acquire_location(&WpType::I64)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -4552,7 +4552,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let ret = self.acquire_location(&WpType::I32)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -4579,7 +4579,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let ret = self.acquire_location(&WpType::I64)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -4606,7 +4606,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let ret = self.acquire_location(&WpType::I32)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -4633,7 +4633,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let ret = self.acquire_location(&WpType::I32)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -4660,7 +4660,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let ret = self.acquire_location(&WpType::I64)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -4687,7 +4687,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let ret = self.acquire_location(&WpType::I64)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -4714,7 +4714,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let ret = self.acquire_location(&WpType::I64)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -4741,7 +4741,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let ret = self.acquire_location(&WpType::I32)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -4768,7 +4768,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let ret = self.acquire_location(&WpType::I64)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -4795,7 +4795,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let ret = self.acquire_location(&WpType::I32)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -4822,7 +4822,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let ret = self.acquire_location(&WpType::I32)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -4849,7 +4849,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let ret = self.acquire_location(&WpType::I64)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -4876,7 +4876,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let ret = self.acquire_location(&WpType::I64)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -4903,7 +4903,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let ret = self.acquire_location(&WpType::I64)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -4930,7 +4930,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let ret = self.acquire_location(&WpType::I32)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -4957,7 +4957,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let ret = self.acquire_location(&WpType::I64)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -4984,7 +4984,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let ret = self.acquire_location(&WpType::I32)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -5011,7 +5011,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let ret = self.acquire_location(&WpType::I32)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -5038,7 +5038,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let ret = self.acquire_location(&WpType::I64)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -5065,7 +5065,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let ret = self.acquire_location(&WpType::I64)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -5092,7 +5092,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let ret = self.acquire_location(&WpType::I64)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -5119,7 +5119,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let ret = self.acquire_location(&WpType::I32)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -5146,7 +5146,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let ret = self.acquire_location(&WpType::I64)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -5173,7 +5173,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let ret = self.acquire_location(&WpType::I32)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -5200,7 +5200,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let ret = self.acquire_location(&WpType::I32)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -5227,7 +5227,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let ret = self.acquire_location(&WpType::I64)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -5254,7 +5254,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let ret = self.acquire_location(&WpType::I64)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -5281,7 +5281,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let ret = self.acquire_location(&WpType::I64)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -5309,7 +5309,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let ret = self.acquire_location(&WpType::I32)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -5338,7 +5338,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let ret = self.acquire_location(&WpType::I64)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -5367,7 +5367,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let ret = self.acquire_location(&WpType::I32)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -5396,7 +5396,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let ret = self.acquire_location(&WpType::I32)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -5425,7 +5425,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let ret = self.acquire_location(&WpType::I64)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -5454,7 +5454,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let ret = self.acquire_location(&WpType::I64)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -5483,7 +5483,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let ret = self.acquire_location(&WpType::I64)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
                 self.op_memory(
-                    MemoryIndex::from_u32(memarg.memory),
+                    MemoryIndex::from_u32(memarg_memory_index(memarg)?),
                     |this,
                      need_check,
                      imported_memories,
@@ -5876,7 +5876,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let dst = self.value_stack.pop().unwrap();
                 let dst = self.fold_atomic_mem_addr(dst, memarg)?;
 
-                let memory_index = MemoryIndex::new(memarg.memory as usize);
+                let memory_index = MemoryIndex::new(memarg_memory_index(memarg)? as usize);
                 let (memory_atomic_wait32, index_arg) =
                     if let Some(local_index) = self.module.local_memory_index(memory_index) {
                         (
@@ -5926,7 +5926,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let dst = self.value_stack.pop().unwrap();
                 let dst = self.fold_atomic_mem_addr(dst, memarg)?;
 
-                let memory_index = MemoryIndex::new(memarg.memory as usize);
+                let memory_index = MemoryIndex::new(memarg_memory_index(memarg)? as usize);
                 let (memory_atomic_wait64, index_arg) =
                     if let Some(local_index) = self.module.local_memory_index(memory_index) {
                         (
@@ -5975,7 +5975,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let dst = self.value_stack.pop().unwrap();
                 let dst = self.fold_atomic_mem_addr(dst, memarg)?;
 
-                let memory_index = MemoryIndex::new(memarg.memory as usize);
+                let memory_index = MemoryIndex::new(memarg_memory_index(memarg)? as usize);
                 let (memory_atomic_notify, index_arg) =
                     if let Some(local_index) = self.module.local_memory_index(memory_index) {
                         (
