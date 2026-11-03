@@ -74,6 +74,7 @@ pub(crate) struct Vfork {
 }
 
 impl Wasix1Instance {
+    #[allow(clippy::too_many_arguments)] // image inputs, compat policy and exact store context
     pub(crate) fn bind(
         procs: Arc<Procs>,
         commands: Arc<RwLock<Commands>>,

@@ -263,9 +263,8 @@ fn preopens() {
     assert_eq!(status, 8);
 }
 
-/// Stubbed `wasix_32v1` calls return their documented errno: `NOTSUP` (58) for what the v2
-/// kernel does not serve, `NOSYS` (52) for what is not implemented yet. The random bytes and
-/// thread id must be served.
+/// Static guests keep v1 loader errors and identity calls. A missing dynamic
+/// linker reports UNKNOWN plus a NUL-terminated diagnostic, as v1 wasi_dl_err! did.
 const WASIX: &str = r#"
 (module
   (import "wasix_32v1" "port_addr_clear" (func $port_addr_clear (result i32)))
@@ -280,9 +279,16 @@ const WASIX: &str = r#"
   (func (export "_start")
     ;; The default non-root guest needs CAP_NET_ADMIN for network configuration.
     (if (i32.ne (call $port_addr_clear) (i32.const 63)) (then (call $proc_exit2 (i32.const 1))))
-    (if (i32.ne (call $dlopen (i32.const 0) (i32.const 0) (i32.const 0) (i32.const 0)
-                              (i32.const 0) (i32.const 0) (i32.const 0) (i32.const 0)) (i32.const 58))
+    ;; Nonzero sentinel makes the trailing-NUL check detect a missing write.
+    (i32.store8 (i32.const 357) (i32.const 255))
+    (if (i32.ne (call $dlopen (i32.const 0) (i32.const 0) (i32.const 0) (i32.const 300)
+                              (i32.const 64) (i32.const 0) (i32.const 0) (i32.const 0)) (i32.const 79))
       (then (call $proc_exit2 (i32.const 2))))
+    ;; Match the old static-loader diagnostic, including its terminator.
+    (if (i32.ne (i32.load (i32.const 300)) (i32.const 0x20656854))
+      (then (call $proc_exit2 (i32.const 10))))
+    (if (i32.load8_u (i32.const 357))
+      (then (call $proc_exit2 (i32.const 11))))
     (if (call $random_get (i32.const 200) (i32.const 64)) (then (call $proc_exit2 (i32.const 3))))
     (if (call $thread_id (i32.const 100)) (then (call $proc_exit2 (i32.const 4))))
     (if (call $proc_id (i32.const 104)) (then (call $proc_exit2 (i32.const 5))))
