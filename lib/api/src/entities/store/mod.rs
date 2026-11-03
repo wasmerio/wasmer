@@ -78,6 +78,10 @@ impl Store {
 
         Self {
             inner: Box::new(StoreInner {
+                #[cfg(all(feature = "sys", feature = "experimental-async"))]
+                native_invocation: None,
+                #[cfg(all(feature = "sys", feature = "experimental-async"))]
+                native_access_origin: None,
                 objects: StoreObjects::from_store_ref(&store),
                 on_called: None,
                 store,
@@ -200,6 +204,8 @@ impl Store {
     /// to invoke [`Function::call_async`](crate::Function::call_async).
     pub fn into_async(self) -> StoreAsync {
         StoreAsync {
+            #[cfg(feature = "sys")]
+            native_invocation: self.inner.native_invocation.clone(),
             id: self.id(),
             inner: LocalRwLock::new(self.inner),
             #[cfg(feature = "sys")]

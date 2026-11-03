@@ -1217,9 +1217,16 @@ mod borrow_provenance {
         let store = Store::default().into_async();
         let root = StoreContext::install_async(store.inner.try_write().unwrap());
         let mut wrapper = unsafe { StoreContext::get_current(store.id) };
-        wrapper
-            .as_mut()
-            .on_called(|_| Ok(wasmer_types::OnCalledAction::Finish));
+        {
+            let mut caller = wrapper.as_mut();
+            caller.on_called(|_| Ok(wasmer_types::OnCalledAction::Finish));
+            let cap = caller.as_store_async().expect("installed async context");
+            // Cap construction must copy through the caller's own reference,
+            // without reborrowing the ancestor write guard behind its back.
+            caller.on_called(|_| Ok(wasmer_types::OnCalledAction::Finish));
+            assert_eq!(crate::AsStoreAsync::store_id(&cap), store.id);
+            assert_eq!(caller.objects_mut().id(), store.id);
+        }
         assert_eq!(wrapper.as_mut().objects_mut().id(), store.id);
         drop(wrapper);
         drop(root);
