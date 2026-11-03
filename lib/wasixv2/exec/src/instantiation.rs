@@ -2,7 +2,7 @@
 
 use std::sync::{Arc, Mutex};
 use wasmer::{
-    AsStoreAsync, AsStoreMut, FunctionEnv, Imports, Instance, Memory, Module, RuntimeError,
+    AsStoreAsync, AsStoreMut, FunctionEnv, Imports, Instance, Memory, Module, RuntimeError, Store,
     StoreAsync, StoreMut,
 };
 
@@ -56,6 +56,60 @@ pub trait InstanceAttachment: Send + 'static {
     /// Release Store-owned roots without guest callbacks. Called on the owning runner,
     /// including after prepare/configure failure; must tolerate partial configuration.
     fn deactivate(&mut self, store: &mut StoreMut<'_>);
+}
+
+/// Owns only native generation metadata, outside the Store's ExecEnv.
+/// The existing attachment guard transfers it with cleanup on cancellation.
+#[derive(Default)]
+pub(crate) struct NativeInvocations {
+    #[cfg(all(feature = "sys", not(target_arch = "wasm32")))]
+    inner: Option<wasmer::sys::NativeInvocationScope>,
+}
+
+impl NativeInvocations {
+    pub(crate) fn bind(store: &mut Store, required: bool) -> Result<Self, crate::ExecError> {
+        if !required {
+            return Ok(Self::default());
+        }
+        #[cfg(all(feature = "sys", not(target_arch = "wasm32")))]
+        {
+            wasmer::sys::NativeInvocationScope::bind(store)
+                .map(|inner| Self { inner: Some(inner) })
+                .map_err(crate::ExecError::StoreMode)
+        }
+        #[cfg(not(all(feature = "sys", not(target_arch = "wasm32"))))]
+        {
+            let _ = store;
+            Err(crate::ExecError::OwningThreadUnsupported)
+        }
+    }
+
+    pub(crate) fn is_some(&self) -> bool {
+        #[cfg(all(feature = "sys", not(target_arch = "wasm32")))]
+        {
+            self.inner.is_some()
+        }
+        #[cfg(not(all(feature = "sys", not(target_arch = "wasm32"))))]
+        {
+            false
+        }
+    }
+
+    pub(crate) fn close(&self) {
+        #[cfg(all(feature = "sys", not(target_arch = "wasm32")))]
+        if let Some(inner) = &self.inner {
+            inner.close();
+        }
+    }
+
+    async fn settle(&mut self) {
+        #[cfg(all(feature = "sys", not(target_arch = "wasm32")))]
+        if let Some(inner) = &mut self.inner {
+            // This observer belongs to the runner's external cleanup custody.
+            // Its poll may be nested in a foreign executor Waker callback.
+            inner.close_and_wait_for_cleanup().await;
+        }
+    }
 }
 
 /// Store-independent declarations retained by an image's symbol planner.
@@ -263,16 +317,18 @@ impl InstanceHooks {
         attached.deactivate(store);
     }
 
+    #[cfg(test)]
     pub(crate) fn guard(
         &self,
         store: &StoreAsync,
         scope: Arc<wasixv2_host::LoaderCleanup>,
     ) -> AttachmentGuard {
-        AttachmentGuard {
-            hooks: Some(self.clone()),
-            store: store.store(),
+        AttachmentGuard::new(
+            Some(self.clone()),
+            store,
             scope,
-        }
+            NativeInvocations::default(),
+        )
     }
 }
 
@@ -281,39 +337,130 @@ pub(crate) struct AttachmentGuard {
     hooks: Option<InstanceHooks>,
     store: StoreAsync,
     scope: Arc<wasixv2_host::LoaderCleanup>,
+    invocations: NativeInvocations,
+    settled: bool,
 }
 
 impl AttachmentGuard {
+    pub(crate) fn for_store(
+        hooks: Option<InstanceHooks>,
+        store: &StoreAsync,
+        scope: Arc<wasixv2_host::LoaderCleanup>,
+        invocations: NativeInvocations,
+    ) -> Option<Self> {
+        if hooks.is_none() && !invocations.is_some() {
+            return None;
+        }
+        Some(Self::new(hooks, store, scope, invocations))
+    }
+
+    pub(crate) fn new(
+        hooks: Option<InstanceHooks>,
+        store: &StoreAsync,
+        scope: Arc<wasixv2_host::LoaderCleanup>,
+        invocations: NativeInvocations,
+    ) -> Self {
+        let settled = !invocations.is_some();
+        Self {
+            hooks,
+            store: store.store(),
+            scope,
+            invocations,
+            settled,
+        }
+    }
+
+    pub(crate) async fn settle(&mut self) {
+        if self.settled {
+            return;
+        }
+        self.invocations.settle().await;
+        // Physical settlement notification precedes the final original unlock.
+        // Actual write custody fences every attachment and memory retirement.
+        drop(self.store.write_lock().await);
+        self.settled = true;
+    }
+
     pub(crate) async fn deactivate(&mut self) {
+        self.settle().await;
         let mut store = self.store.write_lock().await;
         if let Some(hooks) = self.hooks.take() {
             hooks.deactivate(&mut store.as_store_mut());
         }
+        self.invocations = NativeInvocations::default();
     }
 
-    pub(crate) fn disarm(&mut self) {
+    pub(crate) fn disarm(&mut self) -> NativeInvocations {
         self.hooks = None;
+        std::mem::take(&mut self.invocations)
     }
 }
 
 impl Drop for AttachmentGuard {
     fn drop(&mut self) {
-        if let Some(hooks) = self.hooks.take() {
-            if hooks
+        let hooks = self.hooks.take();
+        let invocations = std::mem::take(&mut self.invocations);
+        let attached = hooks.as_ref().is_some_and(|hooks| {
+            hooks
                 .attached
                 .lock()
                 .unwrap_or_else(|e| e.into_inner())
                 .cells
                 .iter()
-                .all(|cell| cell.lock().unwrap_or_else(|e| e.into_inner()).is_none())
-            {
-                return;
-            }
+                .any(|cell| cell.lock().unwrap_or_else(|e| e.into_inner()).is_some())
+        });
+        if !attached && !invocations.is_some() {
+            return;
+        }
+        let scoped = invocations.is_some();
+        let unwinding = std::thread::panicking();
+        let closing = if scoped {
+            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| invocations.close()))
+        } else {
+            Ok(())
+        };
+        if !scoped {
             let store = self.store.store();
             self.scope.spawn(Box::pin(async move {
                 let mut store = store.write_lock().await;
-                hooks.deactivate(&mut store.as_store_mut());
+                if let Some(hooks) = hooks {
+                    hooks.deactivate(&mut store.as_store_mut());
+                }
             }));
+            return;
+        }
+        // Keep cancellation custody inside the queued continuation too. A valid
+        // waiter callback can panic while polling it: dropping that future then
+        // transfers this same guard before its old job completion is released.
+        let mut pending = Self {
+            hooks,
+            store: self.store.store(),
+            scope: self.scope.clone(),
+            invocations,
+            settled: self.settled,
+        };
+        // close can invoke user Wakers. Transfer the exact owner before any
+        // caught failure escapes, including a notification after job admission.
+        let spawned = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            self.scope.spawn(Box::pin(async move {
+                pending.deactivate().await;
+            }))
+        }));
+        let mut failures: Vec<_> = [closing, spawned]
+            .into_iter()
+            .filter_map(Result::err)
+            .collect();
+        if !failures.is_empty() {
+            let first = failures.remove(0);
+            for failure in failures {
+                let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| drop(failure)));
+            }
+            if unwinding {
+                // Preserve the guest failure already unwinding through this Drop.
+                let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| drop(first)));
+            } else {
+                std::panic::resume_unwind(first);
+            }
         }
     }
 }
@@ -586,8 +733,16 @@ mod tests {
         events: Arc<Mutex<Vec<(usize, &'static str)>>>,
         second: Failure,
     ) -> Arc<Abis<Recorder>> {
+        registry_with_abi(events, second, Arc::new(Wasixv2))
+    }
+
+    fn registry_with_abi(
+        events: Arc<Mutex<Vec<(usize, &'static str)>>>,
+        second: Failure,
+        abi: Arc<dyn crate::Abi<Recorder>>,
+    ) -> Arc<Abis<Recorder>> {
         let mut abis = Abis::new();
-        abis.push(Arc::new(Wasixv2));
+        abis.push(abi);
         let next = Arc::new(AtomicUsize::new(11));
         abis.push_instantiation_hook(Arc::new(ProbeHook {
             next: next.clone(),
@@ -901,5 +1056,684 @@ mod tests {
             .map(|(id, _)| *id)
             .collect();
         assert_eq!(retired, [12, 11]);
+    }
+    // Match custom_bindings' bounded child ownership: a broken settlement fence
+    // must fail the test rather than hang this test process during stack teardown.
+    fn native_scope_subprocess(name: &str) -> bool {
+        const CHILD: &str = "WASIXV2_NATIVE_SCOPE_CHILD";
+        if std::env::var_os(CHILD).is_some() {
+            return true;
+        }
+        struct OwnedChild(std::process::Child);
+        impl Drop for OwnedChild {
+            fn drop(&mut self) {
+                let _ = self.0.kill();
+                let _ = self.0.wait();
+            }
+        }
+        let mut child = OwnedChild(
+            std::process::Command::new(std::env::current_exe().unwrap())
+                .args(["--exact", name, "--nocapture"])
+                .env(CHILD, "1")
+                .spawn()
+                .unwrap(),
+        );
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+        loop {
+            match child.0.try_wait() {
+                Ok(Some(status)) => {
+                    assert!(status.success(), "native cleanup proof failed: {status}");
+                    return false;
+                }
+                Ok(None) if std::time::Instant::now() < deadline => {
+                    std::thread::sleep(std::time::Duration::from_millis(10));
+                }
+                result => panic!("native cleanup proof did not finish: {result:?}"),
+            }
+        }
+    }
+
+    type RetainedCall = std::pin::Pin<
+        Box<dyn std::future::Future<Output = Result<Box<[wasmer::Value]>, RuntimeError>>>,
+    >;
+    thread_local! {
+        static NATIVE_WAKER: std::cell::RefCell<Option<std::task::Waker>> = const { std::cell::RefCell::new(None) };
+        static NATIVE_CALL: std::cell::RefCell<Option<RetainedCall>> = const { std::cell::RefCell::new(None) };
+        static NATIVE_ROOT: std::cell::RefCell<Option<wasmer::sys::WeakNativeInvocation>> = const { std::cell::RefCell::new(None) };
+        static NATIVE_FRAME: std::cell::RefCell<Option<wasmer::sys::NativeFrameGuard>> = const { std::cell::RefCell::new(None) };
+        static NATIVE_WEAK: std::cell::RefCell<Option<wasmer::WeakAsyncFunctionEnvMut<ExecEnv<Recorder>>>> = const { std::cell::RefCell::new(None) };
+    }
+
+    #[derive(Clone, Copy, PartialEq, Eq)]
+    enum RetainedPhase {
+        StartError,
+        StartPending,
+        StartPanic,
+        PreparationError,
+    }
+
+    async fn retain_pending_invocation(env: FunctionEnv<ExecEnv<Recorder>>, store: StoreAsync) {
+        use std::task::{Context, Waker};
+        let function = {
+            let mut store_lock = store.write_lock().await;
+            let store = &mut store_lock.as_store_mut();
+            Function::new_typed_with_env_async(
+                store,
+                &env,
+                |env: wasmer::AsyncFunctionEnvMut<ExecEnv<Recorder>>| {
+                    NATIVE_ROOT.with(|slot| {
+                        *slot.borrow_mut() = wasmer::sys::WeakNativeInvocation::current()
+                    });
+                    NATIVE_WEAK.with(|slot| *slot.borrow_mut() = env.downgrade());
+                    std::future::pending::<Result<i32, RuntimeError>>()
+                },
+            )
+        };
+        let mut call: RetainedCall =
+            Box::pin(async move { function.call_async(&store, vec![]).await });
+        let waker = NATIVE_WAKER
+            .with(|slot| slot.borrow_mut().take())
+            .unwrap_or_else(|| Waker::noop().clone());
+        assert!(
+            call.as_mut()
+                .poll(&mut Context::from_waker(&waker))
+                .is_pending()
+        );
+        let root = NATIVE_ROOT.with(|slot| slot.borrow_mut().take().unwrap());
+        // Model a caller-held external native scope. Until it exits, this
+        // test never independently parks another physical native root.
+        let frame = unsafe { root.enter_descendant_frame() }.unwrap();
+        NATIVE_FRAME.with(|slot| *slot.borrow_mut() = Some(frame));
+        NATIVE_CALL.with(|slot| *slot.borrow_mut() = Some(call));
+    }
+
+    // An ABI can fail while an externally owned invocation still retains its
+    // physical stack. This owner is deliberately outside Store/attachment state.
+    struct RetainedInvocation(Arc<dyn crate::AbiInstance<Recorder>>, RetainedPhase);
+    impl crate::AbiInstance<Recorder> for RetainedInvocation {
+        fn start<'a>(
+            &'a self,
+            entry: &'a crate::Entry<'a, Recorder>,
+        ) -> wasixv2_syscalls::LocalFuture<'a, Result<(), RuntimeError>> {
+            Box::pin(async move {
+                retain_pending_invocation(entry.cx().env.clone(), entry.store()).await;
+                if self.1 == RetainedPhase::StartPending {
+                    return std::future::pending().await;
+                }
+                assert!(
+                    self.1 != RetainedPhase::StartPanic,
+                    "retained native guest panic"
+                );
+                Err(RuntimeError::new(
+                    "ABI failed with a retained native invocation",
+                ))
+            })
+        }
+        fn on_entry_return(&self) -> crate::EntryReturn {
+            self.0.on_entry_return()
+        }
+        fn start_thread<'a>(
+            &'a self,
+            entry: &'a crate::Entry<'a, Recorder>,
+            tid: i32,
+            arg: u32,
+        ) -> wasixv2_syscalls::LocalFuture<'a, Result<(), RuntimeError>> {
+            self.0.start_thread(entry, tid, arg)
+        }
+        fn on_thread_return(&self) -> crate::EntryReturn {
+            self.0.on_thread_return()
+        }
+        fn deliver_signal<'a>(
+            &'a self,
+            env: &'a wasmer::AsyncFunctionEnvMut<ExecEnv<Recorder>>,
+            frame: &'a wasixv2_syscalls::SignalFrame,
+            restart: bool,
+        ) -> wasixv2_syscalls::LocalFuture<'a, Result<crate::Sigreturn, RuntimeError>> {
+            self.0.deliver_signal(env, frame, restart)
+        }
+        fn vfork_resume<'a>(
+            &'a self,
+            env: &'a wasmer::AsyncFunctionEnvMut<ExecEnv<Recorder>>,
+            child: TaskId,
+            pid: i32,
+        ) -> wasixv2_syscalls::LocalFuture<'a, crate::VforkResume> {
+            self.0.vfork_resume(env, child, pid)
+        }
+        fn as_any(&self) -> &dyn std::any::Any {
+            self
+        }
+    }
+
+    #[test]
+    fn native_invocations_settle_before_task_fault_and_attachment_deactivation() {
+        if !native_scope_subprocess(
+            "instantiation::tests::native_invocations_settle_before_task_fault_and_attachment_deactivation",
+        ) {
+            return;
+        }
+        use std::{
+            future::Future,
+            task::{Context, Wake, Waker},
+        };
+        struct PendingWaiter {
+            dropped: Arc<AtomicUsize>,
+            woke: Arc<AtomicUsize>,
+        }
+        impl Wake for PendingWaiter {
+            fn wake(self: Arc<Self>) {
+                self.wake_by_ref();
+            }
+            fn wake_by_ref(self: &Arc<Self>) {
+                self.woke.fetch_add(1, Ordering::SeqCst);
+            }
+        }
+        impl Drop for PendingWaiter {
+            fn drop(&mut self) {
+                self.dropped.fetch_add(1, Ordering::SeqCst);
+                panic!("cleanup waiter drop");
+            }
+        }
+        for cancel in [false, true] {
+            assert!(JOBS.with(|jobs| jobs.borrow().is_empty()));
+            let store = Store::default();
+            let module = module(&store);
+            let recorder = Arc::new(Recorder::default());
+            let events = Arc::new(Mutex::new(Vec::new()));
+            let cleanup = wasixv2_host::LoaderCleanup::new(Arc::new(QueueHost));
+            let mut ready = futures::executor::block_on(crate::instantiate(
+                store,
+                &module,
+                recorder.clone(),
+                TaskId(1),
+                Arc::new(QueueHost),
+                registry(events.clone(), Failure::None),
+                cleanup.clone(),
+                None,
+            ))
+            .unwrap();
+            // The exclusive Store owns no async capabilities at this boundary.
+            ready.invocations =
+                NativeInvocations::bind(ready.store.as_mut().unwrap(), true).unwrap();
+            ready.abi = Arc::new(RetainedInvocation(
+                ready.abi.clone(),
+                if cancel {
+                    RetainedPhase::StartPending
+                } else {
+                    RetainedPhase::StartError
+                },
+            ));
+            let profile = crate::thread::OwningThread::acquire().unwrap();
+            let mut run = Box::pin(profile.run(&cleanup, ready.start()));
+            let mut cx = Context::from_waker(Waker::noop());
+            assert!(run.as_mut().poll(&mut cx).is_pending());
+            assert!(
+                recorder.faulted.lock().unwrap().is_empty(),
+                "ended must wait for physical settlement"
+            );
+            assert!(
+                !events
+                    .lock()
+                    .unwrap()
+                    .iter()
+                    .any(|(_, event)| *event == "deactivate")
+            );
+            let initially_closed =
+                NATIVE_WEAK.with(|slot| slot.borrow().as_ref().unwrap().upgrade().is_none());
+            let mut canceled_before_job_poll = true;
+            drop(NATIVE_CALL.with(|slot| slot.borrow_mut().take().unwrap()));
+            assert!(
+                run.as_mut().poll(&mut cx).is_pending(),
+                "frame pin still owns the native stack"
+            );
+            if cancel {
+                drop(run);
+                canceled_before_job_poll =
+                    NATIVE_WEAK.with(|slot| slot.borrow().as_ref().unwrap().upgrade().is_none());
+                let mut jobs = JOBS.with(|jobs| std::mem::take(&mut *jobs.borrow_mut()));
+                assert_eq!(
+                    jobs.len(),
+                    2,
+                    "one attachment cleanup and its transferred runner drain"
+                );
+                let mut failed = jobs.remove(0);
+                let waiter_drops = Arc::new(AtomicUsize::new(0));
+                let waiter_wakes = Arc::new(AtomicUsize::new(0));
+                let waiter = Waker::from(Arc::new(PendingWaiter {
+                    dropped: waiter_drops.clone(),
+                    woke: waiter_wakes.clone(),
+                }));
+                assert!(
+                    failed
+                        .as_mut()
+                        .poll(&mut Context::from_waker(&waiter))
+                        .is_pending()
+                );
+                drop(waiter);
+                let panic = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    failed.as_mut().poll(&mut cx)
+                }))
+                .expect_err("replacing the queued waiter's last Waker invokes its destructor");
+                // A panicked task is dropped by its executor. That must transfer
+                // the exact native guard again before old Completion retires.
+                drop(failed);
+                let replacement = JOBS.with(|jobs| std::mem::take(&mut *jobs.borrow_mut()));
+                let replacement_count = replacement.len();
+                for job in replacement.into_iter().rev() {
+                    jobs.insert(0, job);
+                }
+                let mut early_completion = false;
+                let mut pending = Vec::new();
+                for mut job in jobs {
+                    if job.as_mut().poll(&mut cx).is_pending() {
+                        pending.push(job);
+                    } else {
+                        early_completion = true;
+                    }
+                }
+                let busy = matches!(
+                    crate::thread::OwningThread::acquire(),
+                    Err(ExecError::OwningThreadBusy)
+                );
+                let early_deactivation = events
+                    .lock()
+                    .unwrap()
+                    .iter()
+                    .any(|(_, event)| *event == "deactivate");
+                drop(NATIVE_FRAME.with(|slot| slot.borrow_mut().take().unwrap()));
+                for job in pending {
+                    futures::executor::block_on(job);
+                }
+                assert_eq!(
+                    replacement_count, 1,
+                    "a failed cleanup poll transfers one exact native continuation"
+                );
+                assert!(
+                    !early_completion,
+                    "runner drain still owns pending native cleanup"
+                );
+                assert!(
+                    busy,
+                    "thread lease stays registered while its native stack is pinned"
+                );
+                assert!(!early_deactivation);
+                assert_eq!(panic.downcast_ref::<&str>(), Some(&"cleanup waiter drop"));
+                assert_eq!(waiter_drops.load(Ordering::SeqCst), 1);
+                assert_eq!(waiter_wakes.load(Ordering::SeqCst), 0);
+                assert!(recorder.faulted.lock().unwrap().is_empty());
+                crate::thread::OwningThread::acquire()
+                    .unwrap()
+                    .authorize()
+                    .unwrap();
+            } else {
+                drop(NATIVE_FRAME.with(|slot| slot.borrow_mut().take().unwrap()));
+                assert!(matches!(
+                    futures::executor::block_on(run),
+                    crate::Ended::Fault { .. }
+                ));
+                assert_eq!(recorder.faulted.lock().unwrap().len(), 1);
+            }
+            assert_eq!(
+                events
+                    .lock()
+                    .unwrap()
+                    .iter()
+                    .filter(|(_, event)| *event == "deactivate")
+                    .map(|(id, _)| *id)
+                    .collect::<Vec<_>>(),
+                [12, 11]
+            );
+            NATIVE_WEAK.with(|slot| drop(slot.borrow_mut().take()));
+            assert_eq!(
+                initially_closed, !cancel,
+                "normal completion closes native callback admission before ended"
+            );
+            assert!(
+                canceled_before_job_poll,
+                "cancellation closes callback admission before the cleanup job is polled"
+            );
+            futures::executor::block_on(cleanup.run(async {}));
+            assert!(!cleanup.is_open());
+        }
+    }
+    struct ScopeOnlyHook;
+    impl InstantiationHook<Recorder> for ScopeOnlyHook {
+        fn requires_owning_thread(&self) -> bool {
+            true
+        }
+        fn prepare_imports(
+            &self,
+            _: &Module,
+            _: &mut StoreMut<'_>,
+            _: &FunctionEnv<ExecEnv<Recorder>>,
+            _: &mut Imports,
+        ) -> Result<Option<Box<dyn InstanceAttachment>>, RuntimeError> {
+            Ok(None)
+        }
+    }
+
+    #[test]
+    fn preparation_transfers_scope_without_attachments_on_cancel_and_busy_consume() {
+        use crate::preparation::tests::{Mode, setup, take_retained_store};
+        use std::{
+            future::Future,
+            task::{Context, Waker},
+        };
+        for mode in [Mode::Pending, Mode::RetainedStore] {
+            assert!(JOBS.with(|jobs| jobs.borrow().is_empty()));
+            let (store, module, recorder, probe, mut abis) = setup(mode);
+            Arc::get_mut(&mut abis)
+                .unwrap()
+                .push_instantiation_hook(Arc::new(ScopeOnlyHook));
+            let cleanup = wasixv2_host::LoaderCleanup::new(Arc::new(QueueHost));
+            let mut instantiate = Box::pin(crate::instantiate(
+                store,
+                &module,
+                recorder.clone(),
+                TaskId(1),
+                Arc::new(QueueHost),
+                abis,
+                cleanup.clone(),
+                None,
+            ));
+            if mode == Mode::Pending {
+                assert!(
+                    instantiate
+                        .as_mut()
+                        .poll(&mut Context::from_waker(Waker::noop()))
+                        .is_pending()
+                );
+                drop(instantiate);
+                let jobs = JOBS.with(|jobs| std::mem::take(&mut *jobs.borrow_mut()));
+                assert_eq!(
+                    jobs.len(),
+                    1,
+                    "scope-only preparation still owns a cleanup continuation"
+                );
+                for job in jobs {
+                    futures::executor::block_on(job);
+                }
+            } else {
+                let error = match futures::executor::block_on(instantiate) {
+                    Err(error) => error,
+                    Ok(_) => {
+                        panic!("retained preparation Store must prevent exclusive consumption")
+                    }
+                };
+                assert!(matches!(
+                    error,
+                    ExecError::Load(crate::LoadError::Format(wasixv2_syscalls::Errno::EBUSY))
+                ));
+                let retained = take_retained_store();
+                let mut write = retained.store().write();
+                let fresh = Function::new_typed(&mut write.as_store_mut(), || -> i32 { 42 });
+                assert!(
+                    fresh
+                        .call(&mut write.as_store_mut(), &[])
+                        .unwrap_err()
+                        .is_host_abort(),
+                    "the exact failed preparation generation remains closed"
+                );
+                drop(write);
+                drop(retained);
+                assert!(
+                    JOBS.with(|jobs| jobs.borrow().is_empty()),
+                    "busy cleanup completed before returning the owned error"
+                );
+            }
+            assert_eq!(probe.guest_calls.load(Ordering::Relaxed), 0);
+            assert!(!recorder.loader.as_ref().unwrap().busy());
+            futures::executor::block_on(cleanup.run(async {}));
+            assert!(!cleanup.is_open());
+        }
+    }
+    struct RetainedAbi(RetainedPhase);
+    impl crate::Abi<Recorder> for RetainedAbi {
+        fn prepare<'a>(
+            &'a self,
+            cx: &'a crate::Preparation<'a, Recorder>,
+        ) -> wasixv2_syscalls::LocalFuture<
+            'a,
+            Result<Option<Box<dyn crate::PreparedImage<Recorder>>>, ExecError>,
+        > {
+            Box::pin(async move {
+                if self.0 == RetainedPhase::PreparationError {
+                    // This private test seam deliberately exercises a backend's
+                    // retained-root error. Public preparation remains host-only.
+                    let store = crate::preparation::tests::store_for_retirement_proof(cx);
+                    retain_pending_invocation(cx.environment().clone(), store).await;
+                    return Err(ExecError::Load(crate::LoadError::Format(
+                        wasixv2_syscalls::Errno::EINVAL,
+                    )));
+                }
+                Ok(None)
+            })
+        }
+        fn name(&self) -> &'static str {
+            "native-retirement-panic-proof"
+        }
+        fn matches(&self, module: &Module) -> bool {
+            <Wasixv2 as crate::Abi<Recorder>>::matches(&Wasixv2, module)
+        }
+        fn matches_image(&self, image: &[u8]) -> bool {
+            <Wasixv2 as crate::Abi<Recorder>>::matches_image(&Wasixv2, image)
+        }
+        fn imports(
+            &self,
+            store: &mut Store,
+            env: &FunctionEnv<ExecEnv<Recorder>>,
+            module: &Module,
+        ) -> Imports {
+            <Wasixv2 as crate::Abi<Recorder>>::imports(&Wasixv2, store, env, module)
+        }
+        fn bind(
+            &self,
+            instance: &Instance,
+            store: &mut Store,
+            task: TaskId,
+            role: crate::Role,
+        ) -> Result<Arc<dyn crate::AbiInstance<Recorder>>, ExecError> {
+            let inner =
+                <Wasixv2 as crate::Abi<Recorder>>::bind(&Wasixv2, instance, store, task, role)?;
+            Ok(Arc::new(RetainedInvocation(inner, self.0)))
+        }
+        fn low_guard(&self) -> bool {
+            <Wasixv2 as crate::Abi<Recorder>>::low_guard(&Wasixv2)
+        }
+    }
+
+    #[test]
+    fn profiled_panic_reports_to_kernel_only_after_native_cleanup_and_lease_retirement() {
+        if !native_scope_subprocess(
+            "instantiation::tests::profiled_panic_reports_to_kernel_only_after_native_cleanup_and_lease_retirement",
+        ) {
+            return;
+        }
+        use std::{
+            future::Future,
+            task::{Context, Wake, Waker},
+        };
+        struct ClosePanic(Arc<AtomicUsize>);
+        impl Wake for ClosePanic {
+            fn wake(self: Arc<Self>) {
+                self.wake_by_ref();
+            }
+            fn wake_by_ref(self: &Arc<Self>) {
+                self.0.fetch_add(1, Ordering::SeqCst);
+                panic!("secondary scope notification panic");
+            }
+        }
+        assert!(JOBS.with(|jobs| jobs.borrow().is_empty()));
+        let profile = crate::thread::OwningThread::acquire().unwrap();
+        let store = Store::default();
+        let module = module(&store);
+        let recorder = Arc::new(Recorder::default());
+        let events = Arc::new(Mutex::new(Vec::new()));
+        let mut abis = registry_with_abi(
+            events.clone(),
+            Failure::None,
+            Arc::new(RetainedAbi(RetainedPhase::StartPanic)),
+        );
+        Arc::get_mut(&mut abis)
+            .unwrap()
+            .push_instantiation_hook(Arc::new(ScopeOnlyHook));
+        let wakes = Arc::new(AtomicUsize::new(0));
+        NATIVE_WAKER.with(|slot| {
+            *slot.borrow_mut() = Some(Waker::from(Arc::new(ClosePanic(wakes.clone()))))
+        });
+        let mut run = Box::pin(crate::run_with_abis_profiled(
+            store,
+            &module,
+            recorder.clone(),
+            TaskId(1),
+            Arc::new(QueueHost),
+            abis,
+            Some(profile),
+        ));
+        let mut cx = Context::from_waker(Waker::noop());
+        assert!(run.as_mut().poll(&mut cx).is_pending());
+        let early_faults = recorder.faulted.lock().unwrap().len();
+        let early_releases = recorder.released.lock().unwrap().len();
+        assert_eq!(
+            wakes.load(Ordering::SeqCst),
+            1,
+            "Drop closes admission even while the original guest panic unwinds"
+        );
+        NATIVE_WEAK.with(|slot| assert!(slot.borrow().as_ref().unwrap().upgrade().is_none()));
+        let mut jobs = JOBS.with(|jobs| std::mem::take(&mut *jobs.borrow_mut()));
+        assert_eq!(jobs.len(), 2);
+        for job in &mut jobs {
+            assert!(job.as_mut().poll(&mut cx).is_pending());
+        }
+        assert!(
+            !events
+                .lock()
+                .unwrap()
+                .iter()
+                .any(|(_, event)| *event == "deactivate")
+        );
+        assert!(matches!(
+            crate::thread::OwningThread::acquire(),
+            Err(ExecError::OwningThreadBusy)
+        ));
+        drop(NATIVE_CALL.with(|slot| slot.borrow_mut().take().unwrap()));
+        drop(NATIVE_FRAME.with(|slot| slot.borrow_mut().take().unwrap()));
+        for job in jobs {
+            futures::executor::block_on(job);
+        }
+        let error = futures::executor::block_on(run).unwrap_err();
+        assert!(
+            matches!(error, ExecError::Panic(message) if message == "retained native guest panic")
+        );
+        assert_eq!(recorder.faulted.lock().unwrap().len(), 1);
+        assert_eq!(*recorder.released.lock().unwrap(), [TaskId(1)]);
+        assert_eq!(
+            events
+                .lock()
+                .unwrap()
+                .iter()
+                .filter(|(_, event)| *event == "deactivate")
+                .map(|(id, _)| *id)
+                .collect::<Vec<_>>(),
+            [12, 11]
+        );
+        NATIVE_WEAK.with(|slot| drop(slot.borrow_mut().take()));
+        crate::thread::OwningThread::acquire()
+            .unwrap()
+            .authorize()
+            .unwrap();
+        // Capture before cleanup, assert afterward so a regression still retires
+        // every owned test stack before reporting this controlled failure.
+        assert_eq!(
+            early_faults, 0,
+            "kernel fault must follow actual native retirement"
+        );
+        assert_eq!(
+            early_releases, 0,
+            "task release must follow actual native retirement"
+        );
+    }
+    #[test]
+    fn ordinary_preparation_error_waits_for_its_native_invocation_before_task_release() {
+        if !native_scope_subprocess(
+            "instantiation::tests::ordinary_preparation_error_waits_for_its_native_invocation_before_task_release",
+        ) {
+            return;
+        }
+        use std::{
+            future::Future,
+            task::{Context, Poll, Waker},
+        };
+        assert!(JOBS.with(|jobs| jobs.borrow().is_empty()));
+        let profile = crate::thread::OwningThread::acquire().unwrap();
+        let store = Store::default();
+        let module = module(&store);
+        let recorder = Arc::new(Recorder::default());
+        let events = Arc::new(Mutex::new(Vec::new()));
+        let mut abis = registry_with_abi(
+            events.clone(),
+            Failure::None,
+            Arc::new(RetainedAbi(RetainedPhase::PreparationError)),
+        );
+        Arc::get_mut(&mut abis)
+            .unwrap()
+            .push_instantiation_hook(Arc::new(ScopeOnlyHook));
+        let mut run = Box::pin(crate::run_with_abis_profiled(
+            store,
+            &module,
+            recorder.clone(),
+            TaskId(1),
+            Arc::new(QueueHost),
+            abis,
+            Some(profile),
+        ));
+        let mut cx = Context::from_waker(Waker::noop());
+        assert!(run.as_mut().poll(&mut cx).is_pending());
+        let early_faults = recorder.faulted.lock().unwrap().len();
+        let early_releases = recorder.released.lock().unwrap().len();
+        NATIVE_WEAK.with(|slot| assert!(slot.borrow().as_ref().unwrap().upgrade().is_none()));
+        assert!(
+            events.lock().unwrap().is_empty(),
+            "instance hooks have not run during ABI preparation"
+        );
+        assert!(matches!(
+            crate::thread::OwningThread::acquire(),
+            Err(ExecError::OwningThreadBusy)
+        ));
+        drop(NATIVE_CALL.with(|slot| slot.borrow_mut().take().unwrap()));
+        drop(NATIVE_FRAME.with(|slot| slot.borrow_mut().take().unwrap()));
+        let mut result = None;
+        for _ in 0..4 {
+            let polled = run.as_mut().poll(&mut cx);
+            let jobs = JOBS.with(|jobs| std::mem::take(&mut *jobs.borrow_mut()));
+            for job in jobs {
+                futures::executor::block_on(job);
+            }
+            if let Poll::Ready(value) = polled {
+                result = Some(value);
+                break;
+            }
+        }
+        assert!(matches!(
+            result.expect("bounded cleanup completes after final pin release"),
+            Err(ExecError::Load(crate::LoadError::Format(
+                wasixv2_syscalls::Errno::EINVAL
+            )))
+        ));
+        drop(run);
+        assert_eq!(recorder.faulted.lock().unwrap().len(), 1);
+        assert_eq!(*recorder.released.lock().unwrap(), [TaskId(1)]);
+        NATIVE_WEAK.with(|slot| drop(slot.borrow_mut().take()));
+        crate::thread::OwningThread::acquire()
+            .unwrap()
+            .authorize()
+            .unwrap();
+        assert_eq!(
+            early_faults, 0,
+            "ordinary setup errors must wait for physical retirement"
+        );
+        assert_eq!(
+            early_releases, 0,
+            "ordinary setup errors must retain the task until then"
+        );
     }
 }

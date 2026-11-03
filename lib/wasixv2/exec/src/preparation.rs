@@ -6,7 +6,7 @@
 use std::{cell::RefCell, ops::Range, sync::Arc};
 
 use wasixv2_syscalls::{Control, Errno, LoaderClosing, MemoryLayout, Syscalls, UserMemory};
-use wasmer::{FunctionEnv, Memory, Module, Store};
+use wasmer::{FunctionEnv, Memory, Module, RuntimeError, Store};
 
 use crate::{
     Abi, Binding, ExecEnv, ExecError, LoadError, PreparedImage, Role,
@@ -181,6 +181,7 @@ impl<S: Syscalls + Control + Send + Sync + 'static> Preparation<'_, S> {
     }
 }
 
+#[allow(clippy::too_many_arguments)] // The owned generation follows its exact Store.
 pub(crate) async fn prepare<S>(
     store: Store,
     env: &FunctionEnv<ExecEnv<S>>,
@@ -189,17 +190,37 @@ pub(crate) async fn prepare<S>(
     abi: &dyn Abi<S>,
     imported: Option<&Memory>,
     binding: &mut Option<Binding>,
-) -> Result<(Store, Option<Box<dyn PreparedImage<S>>>, Option<Bootstrap>), ExecError>
+    invocations: crate::instantiation::NativeInvocations,
+) -> Result<
+    (
+        Store,
+        Option<Box<dyn PreparedImage<S>>>,
+        Option<Bootstrap>,
+        crate::instantiation::NativeInvocations,
+    ),
+    ExecError,
+>
 where
     S: Syscalls + Control + Send + Sync + 'static,
 {
     let hooks = env.as_ref(&store).instance_hooks().cloned();
     let scope = env.as_ref(&store).loader_cleanup().cloned();
+    if invocations.is_some() && scope.is_none() {
+        invocations.close();
+        return Err(ExecError::StoreMode(RuntimeError::new(
+            "native invocations require runner cleanup",
+        )));
+    }
     let store = store.into_async();
-    let mut attachments = hooks
-        .clone()
-        .zip(scope.clone())
-        .map(|(hooks, scope)| hooks.guard(&store, scope));
+    let mut attachments = match scope.clone() {
+        Some(scope) => crate::instantiation::AttachmentGuard::for_store(
+            hooks.clone(),
+            &store,
+            scope,
+            invocations,
+        ),
+        None => None,
+    };
     let binding_cell = RefCell::new(binding.take());
     let preparation = Preparation {
         cx: Outside { env, store: &store },
@@ -209,27 +230,45 @@ where
         binding: &binding_cell,
         bootstrap: RefCell::new(None),
     };
-    let prepared = abi.prepare(&preparation).await?;
+    let prepared = match abi.prepare(&preparation).await {
+        Ok(prepared) => prepared,
+        Err(error) => {
+            if let Some(attachments) = &mut attachments {
+                attachments.settle().await;
+            }
+            return Err(error);
+        }
+    };
     let bootstrap = preparation.bootstrap.into_inner();
     if bootstrap.is_some() && prepared.is_none() {
+        if let Some(attachments) = &mut attachments {
+            attachments.settle().await;
+        }
         return Err(ExecError::Load(LoadError::Format(Errno::EINVAL)));
     }
     *binding = binding_cell.into_inner();
-    if let Some(attachments) = &mut attachments {
-        attachments.disarm();
-    }
+    let invocations = attachments
+        .as_mut()
+        .map(|attachments| attachments.disarm())
+        .unwrap_or_default();
     drop(attachments);
     let store = match store.into_store() {
         Ok(store) => store,
         Err(store) => {
-            if let Some((hooks, scope)) = hooks.zip(scope) {
-                let mut attachments = hooks.guard(&store, scope);
+            if let Some(scope) = scope
+                && let Some(mut attachments) = crate::instantiation::AttachmentGuard::for_store(
+                    hooks,
+                    &store,
+                    scope,
+                    invocations,
+                )
+            {
                 attachments.deactivate().await;
             }
             return Err(ExecError::Load(LoadError::Format(Errno::EBUSY)));
         }
     };
-    Ok((store, prepared, bootstrap))
+    Ok((store, prepared, bootstrap, invocations))
 }
 
 pub(crate) fn verify_memory(
@@ -270,10 +309,21 @@ pub(crate) mod tests {
     pub(crate) enum Mode {
         Prepared,
         Pending,
+        RetainedStore,
         BindFailure,
         WrongMemory,
         LayoutMismatch,
         NoneAfterBootstrap,
+    }
+
+    thread_local! {
+        static RETAINED_STORE: RefCell<Option<wasmer::StoreAsync>> = const { RefCell::new(None) };
+    }
+    pub(crate) fn store_for_retirement_proof(cx: &Preparation<'_, Recorder>) -> wasmer::StoreAsync {
+        cx.cx.store()
+    }
+    pub(crate) fn take_retained_store() -> wasmer::StoreAsync {
+        RETAINED_STORE.with(|slot| slot.borrow_mut().take().unwrap())
     }
 
     #[derive(Default)]
@@ -403,6 +453,11 @@ pub(crate) mod tests {
                 .await;
                 if self.mode == Mode::Pending {
                     std::future::pending::<()>().await;
+                }
+                if self.mode == Mode::RetainedStore {
+                    // Deliberately violate prepare's ownership contract to exercise
+                    // the existing busy-consume failure and its cleanup custody.
+                    RETAINED_STORE.with(|slot| *slot.borrow_mut() = Some(cx.cx.store()));
                 }
                 if self.mode == Mode::NoneAfterBootstrap {
                     return Ok(None);
@@ -644,7 +699,7 @@ pub(crate) mod tests {
             self
         }
     }
-    fn setup(
+    pub(crate) fn setup(
         mode: Mode,
     ) -> (
         Store,

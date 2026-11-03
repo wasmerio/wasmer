@@ -282,7 +282,8 @@ where
             let profile = OwningThread::required(self.abis.requires_owning_thread());
             let cleanup = wasixv2_host::LoaderCleanup::new(self.host.clone());
             let syscalls = self.syscalls.clone();
-            let run = self.run(task, tid, start_arg, cleanup.clone());
+            let profiled = matches!(&profile, Ok(Some(_)));
+            let run = self.run(task, tid, start_arg, cleanup.clone(), profiled);
             Box::pin(async move {
                 let profile = match profile {
                     Ok(profile) => profile,
@@ -297,23 +298,17 @@ where
                         return;
                     }
                 };
-                let profile_syscalls = profile.as_ref().map(|_| syscalls.clone());
-                let guest = async move {
-                    if let Err(panic) = crate::catch_panic(run).await {
-                        drop(crate::host_panicked(&*syscalls, task, panic));
-                    }
-                };
                 match profile {
                     Some(profile) => {
-                        if let Err(panic) = crate::catch_panic(profile.run(&cleanup, guest)).await {
-                            drop(crate::host_panicked(
-                                &*profile_syscalls.unwrap(),
-                                task,
-                                panic,
-                            ));
+                        if let Err(panic) = crate::catch_panic(profile.run(&cleanup, run)).await {
+                            drop(crate::host_panicked(&*syscalls, task, panic));
                         }
                     }
-                    None => cleanup.run(guest).await,
+                    None => cleanup.run(async move {
+                        if let Err(panic) = crate::catch_panic(run).await {
+                            drop(crate::host_panicked(&*syscalls, task, panic));
+                        }
+                    }).await,
                 }
             })
         }))
@@ -378,6 +373,7 @@ where
         tid: i32,
         start_arg: u32,
         cleanup: Arc<wasixv2_host::LoaderCleanup>,
+        profiled: bool,
     ) {
         let (syscalls, host) = (self.syscalls.clone(), self.host.clone());
         let (engine, abis) = (self.engine.clone(), self.abis.clone());
@@ -412,6 +408,9 @@ where
                 process::fault(&*syscalls, task, Signal::SIGSEGV.0);
                 syscalls.release(task);
             }
+            // The actual factory's profile owns its exact cleanup drain. Report
+            // only after that outer owner has observed physical settlement.
+            Err(panic) if profiled => std::panic::resume_unwind(panic),
             Err(panic) => drop(crate::host_panicked(&*syscalls, task, panic)),
         }
     }
@@ -441,6 +440,10 @@ where
         };
         let mut store = Store::new(self.engine.clone());
         self.abis.configure_store(&mut store)?;
+        let invocations = crate::instantiation::NativeInvocations::bind(
+            &mut store,
+            self.abis.requires_owning_thread(),
+        )?;
         let spawner = process::spawner(
             self.engine.clone(),
             self.syscalls.clone(),
@@ -473,7 +476,7 @@ where
             data.read_only = self.read_only.clone();
             data.base = self.base.clone();
         }
-        let (mut store, prepared, _) = crate::preparation::prepare(
+        let (mut store, prepared, _, invocations) = crate::preparation::prepare(
             store,
             &env,
             &self.module,
@@ -481,6 +484,7 @@ where
             &*self.abi,
             Some(&memory),
             &mut admission,
+            invocations,
         )
         .await?;
         let hooks = env.as_ref(&store).instance_hooks().cloned();
@@ -553,6 +557,7 @@ where
         let abi = match configured {
             Ok(Ok(abi)) => abi,
             other => {
+                invocations.close();
                 if let Some(hooks) = &hooks {
                     hooks.deactivate(&mut wasmer::AsStoreMut::as_store_mut(&mut store));
                 }
@@ -565,7 +570,8 @@ where
         };
         let scope = env.as_ref(&store).loader_cleanup().unwrap().clone();
         let store = store.into_async();
-        let mut attachments = hooks.map(|hooks| hooks.guard(&store, scope));
+        let mut attachments =
+            crate::instantiation::AttachmentGuard::for_store(hooks, &store, scope, invocations);
         let entry = Entry::new(&env, &store);
         let mut buffer = BufferLease {
             pool: self.buffers.clone(),
@@ -588,19 +594,27 @@ where
         let prepared = abi.prepare_entry(&entry).await;
         let _registration = if prepared.is_ok() {
             match admission {
-                Some(binding) => Some(
-                    binding
-                        .finish(&*self.abi, &*self.syscalls)
-                        .await
-                        .map_err(|e| ExecError::Load(crate::LoadError::Format(e)))?,
-                ),
+                Some(binding) => match binding.finish(&*self.abi, &*self.syscalls).await {
+                    Ok(registration) => Some(registration),
+                    Err(error) => {
+                        if let Some(attachments) = &mut attachments {
+                            attachments.settle().await;
+                        }
+                        return Err(ExecError::Load(crate::LoadError::Format(error)));
+                    }
+                },
                 None => None,
             }
         } else {
             drop(admission);
             None
         };
-        prepared.map_err(|e| ExecError::Load(crate::LoadError::other(e)))?;
+        if let Err(error) = prepared {
+            if let Some(attachments) = &mut attachments {
+                attachments.settle().await;
+            }
+            return Err(ExecError::Load(crate::LoadError::other(error)));
+        }
         let result = match crate::asyncify::prepare_buffer(entry.cx()).await {
             Ok(()) => {
                 buffer.addr = entry
@@ -613,6 +627,9 @@ where
             Err(err) => Err(err),
         };
         let on_return = abi.on_thread_return();
+        if let Some(attachments) = &mut attachments {
+            attachments.settle().await;
+        }
         let ended = crate::ended(entry.cx(), result, on_return, Role::Thread).await;
         if let Some(attachments) = &mut attachments {
             attachments.deactivate().await;

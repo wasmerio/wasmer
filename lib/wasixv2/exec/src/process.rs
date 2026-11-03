@@ -242,23 +242,24 @@ where
                         return;
                     }
                 };
-                let profile_syscalls = profile.as_ref().map(|_| syscalls.clone());
-                let guest = async move {
-                    if let Err(panic) = crate::catch_panic(async move { run(scope).await }).await {
-                        drop(crate::host_panicked(&*syscalls, task, panic));
-                    }
-                };
                 match profile {
                     Some(profile) => {
+                        let guest = async move { run(scope).await };
                         if let Err(panic) = crate::catch_panic(profile.run(&cleanup, guest)).await {
-                            drop(crate::host_panicked(
-                                &*profile_syscalls.unwrap(),
-                                task,
-                                panic,
-                            ));
+                            drop(crate::host_panicked(&*syscalls, task, panic));
                         }
                     }
-                    None => cleanup.run(guest).await,
+                    None => {
+                        cleanup
+                            .run(async move {
+                                if let Err(panic) =
+                                    crate::catch_panic(async move { run(scope).await }).await
+                                {
+                                    drop(crate::host_panicked(&*syscalls, task, panic));
+                                }
+                            })
+                            .await
+                    }
                 }
             }) as wasixv2_host::LocalFuture<'static, ()>
         });
