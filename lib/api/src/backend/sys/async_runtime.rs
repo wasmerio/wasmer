@@ -1,5 +1,7 @@
+#[cfg(test)]
+use std::rc::Weak;
 use std::{
-    cell::RefCell,
+    cell::{Cell, RefCell},
     collections::HashMap,
     future::Future,
     marker::PhantomData,
@@ -50,17 +52,87 @@ static ASYNC_CALL_FUTURE_WAKERS: LazyLock<
 pub(crate) struct AsyncCallFuture {
     id: AsyncCallFutureId,
 
-    coroutine: Option<Coroutine<AsyncResume, AsyncYield, Result<Box<[Value]>, RuntimeError>>>,
-    suspended_stores: SuspendedStoreContexts,
-    trap_state: RootTrapState,
+    root: Option<Rc<NativeRootOwner>>,
     pending_store_install: Option<Pin<Box<dyn Future<Output = ForcedStoreInstallGuard>>>>,
     pending_future: Option<HostFuture>,
     next_resume: Option<AsyncResume>,
     result: Option<Result<Box<[Value]>, RuntimeError>>,
+}
 
-    // Store handle we can use to lock the store down
+/// The stack and its raw TLS snapshots share one physical lifetime. Host futures
+/// remain outside this owner, so capturing a weak root cannot create a cycle.
+struct NativeRootOwner {
     store: Option<StoreAsync>,
     store_context_id: StoreContextId,
+    retiring: Cell<bool>,
+    settled: Cell<bool>,
+    stack: RefCell<NativeRootStack>,
+}
+
+#[allow(clippy::type_complexity)]
+struct NativeRootStack {
+    coroutine: Option<Coroutine<AsyncResume, AsyncYield, Result<Box<[Value]>, RuntimeError>>>,
+    suspended_stores: SuspendedStoreContexts,
+    trap_state: RootTrapState,
+}
+
+#[cfg(test)]
+#[derive(Clone)]
+struct WeakNativeRoot {
+    owner: Weak<NativeRootOwner>,
+    id: StoreContextId,
+}
+
+// This token is intentionally not Clone. A future capability may be copied as
+// a WeakNativeRoot; strong custody belongs only to an actual outside operation.
+#[cfg(test)]
+struct NativeRootPin {
+    _owner: Rc<NativeRootOwner>,
+}
+
+#[cfg(test)]
+impl WeakNativeRoot {
+    fn try_pin(&self) -> Option<NativeRootPin> {
+        // Do this before touching stack state. A pin on its own coroutine stack
+        // would make the owner retain itself, and that stack is currently borrowed.
+        if CoroutineContext::get_current()
+            .is_some_and(|context| unsafe { &*context }.store_context_id == self.id)
+        {
+            return None;
+        }
+        let owner = self.owner.upgrade()?;
+        if owner.retiring.get() || owner.settled.get() {
+            return None;
+        }
+        Some(NativeRootPin { _owner: owner })
+    }
+}
+
+impl NativeRootOwner {
+    fn store(&self) -> &StoreAsync {
+        self.store
+            .as_ref()
+            .expect("native root Store already released")
+    }
+
+    fn has_coroutine(&self) -> bool {
+        self.stack.borrow().coroutine.is_some()
+    }
+}
+
+struct RootResume<'a> {
+    root: &'a NativeRootOwner,
+    returned: bool,
+}
+
+impl Drop for RootResume<'_> {
+    fn drop(&mut self) {
+        if !self.returned {
+            // A panicked resume destroys the engine stack before propagating.
+            // Do not admit a new pin while the invalid public future is retained.
+            self.root.settled.set(true);
+        }
+    }
 }
 
 // We can't use any of the existing AsStoreMut types here, since we keep
@@ -121,38 +193,58 @@ impl AsyncCallFuture {
     pub(crate) fn new(function: SysFunction, store: StoreAsync, params: Vec<Value>) -> Self {
         let store_id = store.id;
         let store_context_id = StoreContext::new_installation_id();
-        let coroutine =
-            Coroutine::new(move |yielder: &Yielder<AsyncResume, AsyncYield>, resume| {
-                assert!(matches!(resume, AsyncResume::Start));
-
-                let ctx_state = CoroutineContext::new(yielder, store_context_id);
-                ctx_state.enter();
-                let result = {
-                    let mut store_mut = AsyncCallStoreMut { store_id };
-                    function.call(&mut store_mut, &params)
-                };
-                ctx_state.leave();
-                result
-            });
-
+        let root = Rc::new_cyclic(|_owner| {
+            #[cfg(test)]
+            let weak = WeakNativeRoot {
+                owner: _owner.clone(),
+                id: store_context_id,
+            };
+            let coroutine =
+                Coroutine::new(move |yielder: &Yielder<AsyncResume, AsyncYield>, resume| {
+                    assert!(matches!(resume, AsyncResume::Start));
+                    let ctx_state = CoroutineContext::new(yielder, store_context_id);
+                    #[cfg(test)]
+                    let ctx_state = {
+                        let mut ctx_state = ctx_state;
+                        ctx_state.owner = Some(weak);
+                        ctx_state
+                    };
+                    ctx_state.enter();
+                    let result = {
+                        let mut store_mut = AsyncCallStoreMut { store_id };
+                        function.call(&mut store_mut, &params)
+                    };
+                    ctx_state.leave();
+                    result
+                });
+            NativeRootOwner {
+                store: Some(store),
+                store_context_id,
+                retiring: Cell::new(false),
+                settled: Cell::new(false),
+                stack: RefCell::new(NativeRootStack {
+                    coroutine: Some(coroutine),
+                    suspended_stores: SuspendedStoreContexts::default(),
+                    trap_state: RootTrapState::default(),
+                }),
+            }
+        });
         Self {
             id: NEXT_ASYNC_CALL_FUTURE_ID.fetch_add(1, std::sync::atomic::Ordering::SeqCst),
-            coroutine: Some(coroutine),
-            suspended_stores: SuspendedStoreContexts::default(),
-            trap_state: RootTrapState::default(),
+            root: Some(root),
             pending_store_install: None,
             pending_future: None,
             next_resume: Some(AsyncResume::Start),
             result: None,
-            store: Some(store),
-            store_context_id,
         }
     }
 
+    fn root(&self) -> &Rc<NativeRootOwner> {
+        self.root.as_ref().expect("native root already released")
+    }
+
     fn store(&self) -> &StoreAsync {
-        self.store
-            .as_ref()
-            .expect("invocation Store already released")
+        self.root().store()
     }
 
     fn remove_from_wakers_list(&self) {
@@ -217,7 +309,7 @@ impl Future for AsyncCallFuture {
                 }
             }
 
-            if self.coroutine.is_some() {
+            if self.root().has_coroutine() {
                 // The pending host future may return before the native stack
                 // resumes. Interrupt notification still needs this poll's Waker.
                 register_waker(store_id, self.id, cx.waker());
@@ -234,7 +326,7 @@ impl Future for AsyncCallFuture {
             }
 
             // If we're ready, return early
-            if self.coroutine.is_none() {
+            if !self.root().has_coroutine() {
                 self.remove_from_wakers_list();
                 return Poll::Ready(self.result.take().expect("polled after completion"));
             }
@@ -246,7 +338,7 @@ impl Future for AsyncCallFuture {
                         id: self.store().id,
                         inner: self.store().inner.clone(),
                     },
-                    self.store_context_id,
+                    self.root().store_context_id,
                 )));
             }
 
@@ -266,23 +358,36 @@ impl Future for AsyncCallFuture {
                 Poll::Pending => return Poll::Pending,
             };
 
-            store_context_guard.restore_suffix(&mut self.suspended_stores);
-            let resume_arg = self.next_resume.take().expect("no resume arg available");
-            let trap_boundary = TrapBoundary::enter(std::mem::take(&mut self.trap_state));
-            let coroutine = self.coroutine.as_mut().unwrap();
-            let boundary = CoroutineBoundary::new();
-            let result = coroutine.resume(resume_arg);
-            boundary.returned();
-            let trap_state = trap_boundary.leave();
-            match result {
-                CoroutineResult::Yield(AsyncYield(fut)) => {
-                    self.trap_state = trap_state;
-                    store_context_guard.suspend_suffix(&mut self.suspended_stores);
-                    self.pending_future = Some(fut);
-                }
-                CoroutineResult::Return(result) => {
-                    self.coroutine = None;
-                    self.result = Some(result);
+            {
+                // This strong reference lives on the executor stack, never on
+                // the coroutine it owns. Only the stack fields stay borrowed
+                // across resume; identity and retirement remain accessible.
+                let root = self.root().clone();
+                let mut stack = root.stack.borrow_mut();
+                store_context_guard.restore_suffix(&mut stack.suspended_stores);
+                let resume_arg = self.next_resume.take().expect("no resume arg available");
+                let trap_boundary = TrapBoundary::enter(std::mem::take(&mut stack.trap_state));
+                let coroutine = stack.coroutine.as_mut().unwrap();
+                let boundary = CoroutineBoundary::new();
+                let mut resume = RootResume {
+                    root: &root,
+                    returned: false,
+                };
+                let result = coroutine.resume(resume_arg);
+                boundary.returned();
+                resume.returned = true;
+                let trap_state = trap_boundary.leave();
+                match result {
+                    CoroutineResult::Yield(AsyncYield(fut)) => {
+                        stack.trap_state = trap_state;
+                        store_context_guard.suspend_suffix(&mut stack.suspended_stores);
+                        self.pending_future = Some(fut);
+                    }
+                    CoroutineResult::Return(result) => {
+                        stack.coroutine = None;
+                        root.settled.set(true);
+                        self.result = Some(result);
+                    }
                 }
             }
 
@@ -296,34 +401,75 @@ impl Future for AsyncCallFuture {
 impl Drop for AsyncCallFuture {
     fn drop(&mut self) {
         let store_id = self.store().store_id();
+        let root = self.root.take().expect("native root already released");
+        root.retiring.set(true);
         // A different invocation may be physically active while this one is
         // canceled. None of our destructors may yield through its yielder.
         let _caller = DetachedCoroutineContext::new();
-        let _traps = TrapBoundary::enter(std::mem::take(&mut self.trap_state));
-        let owned = DroppedInvocation {
+        let _root = RootTeardown::new(root);
+        let owned = DroppedHostState {
             _pending_future: self.pending_future.take(),
             _pending_store_install: self.pending_store_install.take(),
             _next_resume: self.next_resume.take(),
             _result: self.result.take(),
-            _coroutine: self.coroutine.take(),
-            _suspended_stores: std::mem::take(&mut self.suspended_stores),
-            _store: self.store.take(),
         };
-        // Construct custody before running arbitrary Waker destructors, so an
-        // unwind still destroys the native stack before releasing its Store.
         remove_from_wakers_list(store_id, self.id);
         drop(owned);
     }
 }
 
-// Fields also drop in this order if one destructor panics. Keep raw Sync
-// snapshots and the Store alive until all native stack frames have unwound.
-#[allow(clippy::type_complexity)]
-struct DroppedInvocation {
+// Keep the root alive while dropping the external host body, and return its
+// exact trap state before releasing that strong reference. An outside pin can
+// defer final stack destruction to a later, unrelated physical context.
+struct RootTeardown {
+    root: Rc<NativeRootOwner>,
+    boundary: Option<TrapBoundary>,
+}
+
+impl RootTeardown {
+    fn new(root: Rc<NativeRootOwner>) -> Self {
+        let state = std::mem::take(&mut root.stack.borrow_mut().trap_state);
+        Self {
+            root,
+            boundary: Some(TrapBoundary::enter(state)),
+        }
+    }
+}
+
+impl Drop for RootTeardown {
+    fn drop(&mut self) {
+        let state = self.boundary.take().expect("active root teardown").leave();
+        self.root.stack.borrow_mut().trap_state = state;
+        // The root field drops after this method, once its saved state is back.
+    }
+}
+
+impl Drop for NativeRootOwner {
+    fn drop(&mut self) {
+        let _caller = DetachedCoroutineContext::new();
+        let stack = self.stack.get_mut();
+        let _traps = TrapBoundary::enter(std::mem::take(&mut stack.trap_state));
+        let owned = DroppedNativeStack {
+            _coroutine: stack.coroutine.take(),
+            _suspended_stores: std::mem::take(&mut stack.suspended_stores),
+            _store: self.store.take(),
+        };
+        drop(owned);
+        self.settled.set(true);
+    }
+}
+
+struct DroppedHostState {
     _pending_future: Option<HostFuture>,
     _pending_store_install: Option<Pin<Box<dyn Future<Output = ForcedStoreInstallGuard>>>>,
     _next_resume: Option<AsyncResume>,
     _result: Option<Result<Box<[Value]>, RuntimeError>>,
+}
+
+// Fields also drop in this order if a destructor panics. The stack's Store and
+// raw Sync snapshots must outlive every native frame during its forced unwind.
+#[allow(clippy::type_complexity)]
+struct DroppedNativeStack {
     _coroutine: Option<Coroutine<AsyncResume, AsyncYield, Result<Box<[Value]>, RuntimeError>>>,
     _suspended_stores: SuspendedStoreContexts,
     _store: Option<StoreAsync>,
@@ -469,6 +615,8 @@ thread_local! {
 struct CoroutineContext {
     yielder: *const Yielder<AsyncResume, AsyncYield>,
     store_context_id: StoreContextId,
+    #[cfg(test)]
+    owner: Option<WeakNativeRoot>,
 }
 
 /// Hide a foreign physical coroutine from all cancellation destructors.
@@ -547,6 +695,8 @@ impl CoroutineContext {
         Self {
             yielder: yielder as *const _,
             store_context_id,
+            #[cfg(test)]
+            owner: None,
         }
     }
 
@@ -577,6 +727,12 @@ impl CoroutineContext {
 
     fn get_current() -> Option<*const Self> {
         CURRENT_CONTEXT.with(|cell| cell.borrow().last().copied())
+    }
+
+    #[cfg(test)]
+    fn current_root() -> Option<WeakNativeRoot> {
+        let current = Self::get_current()?;
+        unsafe { &*current }.owner.clone()
     }
 
     fn block_on_future(&self, future: HostFuture) -> Result<Vec<Value>, RuntimeError> {
@@ -622,6 +778,139 @@ fn run_immediate(
 mod tests {
     use super::*;
     use crate::{Function, Instance, Module};
+
+    #[test]
+    fn finished_and_panicked_roots_reject_pins_before_the_future_is_dropped() {
+        thread_local! {
+            static ROOT: RefCell<Option<WeakNativeRoot>> = const { RefCell::new(None) };
+        }
+        for panics in [false, true] {
+            let mut store = Store::default();
+            let function = Function::new_typed(&mut store, move || -> i32 {
+                let root = CoroutineContext::current_root().unwrap();
+                ROOT.with(|slot| assert!(slot.borrow_mut().replace(root).is_none()));
+                assert!(!panics, "root lifecycle proof");
+                42
+            });
+            let mut call = Box::pin(AsyncCallFuture::new(
+                function.into_sys(),
+                store.into_async(),
+                vec![],
+            ));
+            let waker = futures::task::noop_waker();
+            let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                call.as_mut().poll(&mut Context::from_waker(&waker))
+            }));
+            assert_eq!(result.is_err(), panics);
+            if let Ok(result) = result {
+                assert!(matches!(result, Poll::Ready(Ok(_))));
+            }
+            let root = ROOT.with(|slot| slot.borrow_mut().take().unwrap());
+            assert_eq!(root.owner.strong_count(), 1);
+            assert!(root.try_pin().is_none());
+            drop(call);
+            assert_eq!(root.owner.strong_count(), 0);
+            assert!(StoreContext::is_empty());
+            CURRENT_CONTEXT.with(|current| assert!(current.borrow().is_empty()));
+        }
+    }
+
+    #[test]
+    fn an_external_pin_retains_the_actual_stack_until_its_last_owner_drops() {
+        if !runtime_subprocess(
+            "backend::sys::async_runtime::tests::an_external_pin_retains_the_actual_stack_until_its_last_owner_drops",
+        ) {
+            return;
+        }
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        thread_local! {
+            static ROOT: RefCell<Option<WeakNativeRoot>> = const { RefCell::new(None) };
+            static PIN: RefCell<Option<NativeRootPin>> = const { RefCell::new(None) };
+        }
+        struct Probe(Arc<AtomicUsize>);
+        impl Drop for Probe {
+            fn drop(&mut self) {
+                self.0.fetch_add(1, Ordering::SeqCst);
+            }
+        }
+        struct PendingBody(Probe);
+        impl Future for PendingBody {
+            type Output = Result<Vec<Value>, RuntimeError>;
+            fn poll(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<Self::Output> {
+                let _ = &self.0;
+                Poll::Pending
+            }
+        }
+        let stack_drops = Arc::new(AtomicUsize::new(0));
+        let body_drops = Arc::new(AtomicUsize::new(0));
+        let continued = Arc::new(AtomicUsize::new(0));
+        let mut store = Store::default();
+        let bridge = Function::new_typed(&mut store, {
+            let stack_drops = stack_drops.clone();
+            let body_drops = body_drops.clone();
+            let continued = continued.clone();
+            move || -> Result<i32, RuntimeError> {
+                let root = CoroutineContext::current_root().expect("root captured before entry");
+                assert!(root.try_pin().is_none(), "a root cannot own its own stack");
+                ROOT.with(|slot| assert!(slot.borrow_mut().replace(root).is_none()));
+                let _stack = Probe(stack_drops.clone());
+                block_on_host_future(PendingBody(Probe(body_drops.clone()))).map_err(|error| {
+                    match error {
+                        AsyncRuntimeError::RuntimeError(error) => error,
+                        AsyncRuntimeError::YieldOutsideAsyncContext => {
+                            RuntimeError::new("stack ownership proof did not enter an async root")
+                        }
+                    }
+                })?;
+                continued.fetch_add(1, Ordering::SeqCst);
+                Ok(42)
+            }
+        });
+        let fresh = Function::new_typed(&mut store, || -> i32 { 9 });
+        let store = store.into_async();
+        let mut call = Box::pin(AsyncCallFuture::new(
+            bridge.into_sys(),
+            store.store(),
+            vec![],
+        ));
+        let waker = futures::task::noop_waker();
+        assert!(
+            call.as_mut()
+                .poll(&mut Context::from_waker(&waker))
+                .is_pending()
+        );
+        let root = ROOT.with(|slot| slot.borrow_mut().take().unwrap());
+        assert_eq!(root.owner.strong_count(), 1, "the stack holds only Weak");
+        let pin = root.try_pin().expect("outside operation retains root");
+        drop(call);
+        assert_eq!(body_drops.load(Ordering::SeqCst), 1);
+        assert_eq!(stack_drops.load(Ordering::SeqCst), 0);
+        assert!(root.try_pin().is_none(), "retirement rejects a new pin");
+        PIN.with(|slot| assert!(slot.borrow_mut().replace(pin).is_none()));
+
+        // Release the last pin from a real foreign root. Its current context
+        // and VM trap/interrupt state must survive the deferred final unwind.
+        let mut foreign_store = Store::default();
+        let release = Function::new_typed(&mut foreign_store, || -> i32 {
+            let current = CoroutineContext::get_current().expect("foreign root active");
+            drop(PIN.with(|slot| slot.borrow_mut().take().unwrap()));
+            assert_eq!(CoroutineContext::get_current(), Some(current));
+            42
+        });
+        let result =
+            futures::executor::block_on(release.call_async(&foreign_store.into_async(), vec![]))
+                .unwrap();
+        assert_eq!(result[0].i32(), Some(42));
+        assert_eq!(stack_drops.load(Ordering::SeqCst), 1);
+        assert_eq!(body_drops.load(Ordering::SeqCst), 1);
+        assert_eq!(continued.load(Ordering::SeqCst), 0);
+        assert_eq!(root.owner.strong_count(), 0);
+        assert!(root.try_pin().is_none());
+        let result = futures::executor::block_on(fresh.call_async(&store, vec![])).unwrap();
+        assert_eq!(result[0].i32(), Some(9));
+        assert!(StoreContext::is_empty());
+        CURRENT_CONTEXT.with(|current| assert!(current.borrow().is_empty()));
+    }
 
     #[test]
     fn registry_callbacks_can_reenter_while_the_current_waker_changes() {
