@@ -2,6 +2,9 @@
 
 #[cfg(feature = "experimental-async")]
 pub(crate) mod async_runtime;
+#[cfg(feature = "experimental-async")]
+#[doc(hidden)]
+pub use async_runtime::{NativeFrameGuard, WeakNativeInvocation};
 pub(crate) mod entities;
 pub(crate) mod error;
 pub(crate) mod tunables;
