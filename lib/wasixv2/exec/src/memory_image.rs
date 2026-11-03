@@ -113,7 +113,15 @@ impl MemoryImage {
         match self {
             Self::Full(bytes) => view.write(0, bytes).map_err(io::Error::other),
             #[cfg(all(target_os = "linux", feature = "sys"))]
-            Self::Sparse(sparse) => sparse.restore(&view),
+            Self::Sparse(sparse) => {
+                if sparse.size == 0 && view.data_size() == 0 {
+                    return sparse.restore(&view);
+                }
+                let _mapping = memory
+                    .begin_host_mapping_change(store, 0..view.data_size())
+                    .map_err(io::Error::other)?;
+                sparse.restore(&view)
+            }
         }
     }
 }
@@ -650,6 +658,21 @@ mod tests {
             let range = 2 * WASM_PAGE as usize..3 * WASM_PAGE as usize;
             assert!(bytes[range].iter().all(|&byte| byte == 0));
         }
+    }
+
+    #[test]
+    fn an_empty_sparse_copy_restores_an_empty_memory() {
+        let mut store = Store::default();
+        let child = memory(&mut store, 0);
+        let image = MemoryImage::Sparse(Sparse {
+            size: 0,
+            runs: Vec::new(),
+            bytes: Vec::new(),
+            base: None,
+            zeroed: Vec::new(),
+        });
+        image.restore(&child, &store).unwrap();
+        assert_eq!(child.view(&store).data_size(), 0);
     }
 
     #[test]

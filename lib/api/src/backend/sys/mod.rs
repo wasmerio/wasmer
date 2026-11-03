@@ -27,3 +27,6 @@ pub use wasmer_compiler_cranelift::{Cranelift, CraneliftOptLevel};
 pub use wasmer_compiler_llvm::{LLVM, LLVMOptLevel};
 #[cfg(feature = "singlepass")]
 pub use wasmer_compiler_singlepass::Singlepass;
+
+#[doc(hidden)]
+pub use wasmer_vm::{HostMemoryMappingChange, HostMemoryPin};

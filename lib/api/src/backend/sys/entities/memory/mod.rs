@@ -349,6 +349,26 @@ unsafe fn volatile_memcpy_write(mut src: *const u8, mut dst: *mut u8, mut len: u
 }
 
 impl crate::Memory {
+    /// Admits a finite physical replacement before any OS operation or callback.
+    /// Keep this memory and its Store alive until the change finishes.
+    #[doc(hidden)]
+    pub fn begin_host_mapping_change(
+        &self,
+        store: &impl AsStoreRef,
+        range: std::ops::Range<u64>,
+    ) -> Result<wasmer_vm::HostMemoryMappingChange, MemoryError> {
+        match &self.0 {
+            BackendMemory::Sys(memory) => memory
+                .handle
+                .get(store.as_store_ref().objects().as_sys())
+                .begin_host_mapping_change(range),
+            #[allow(unreachable_patterns)]
+            _ => Err(MemoryError::UnsupportedOperation {
+                message: "native mapping changes are unsupported by this backend".into(),
+            }),
+        }
+    }
+
     /// Consume [`self`] into a [`crate::backend::sys::memory::Memory`].
     pub fn into_sys(self) -> crate::backend::sys::memory::Memory {
         match self.0 {
