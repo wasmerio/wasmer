@@ -40,7 +40,9 @@ impl AsyncWrite for RandomFile {
         _cx: &mut Context<'_>,
         bufs: &[IoSlice<'_>],
     ) -> Poll<io::Result<usize>> {
-        Poll::Ready(Ok(bufs.len()))
+        // Bytes written, not the number of slices. Writes here are discarded,
+        // so that is the total length.
+        Poll::Ready(Ok(bufs.iter().map(|buf| buf.len()).sum()))
     }
     fn is_write_vectored(&self) -> bool {
         false
@@ -84,5 +86,28 @@ impl VirtualFile for RandomFile {
     }
     fn poll_write_ready(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
         Poll::Ready(Ok(0))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// `poll_write_vectored` reports bytes written, not slices. Returning the
+    /// slice count made a caller believe a 300-byte write had moved 3 bytes.
+    #[tokio::test]
+    async fn write_vectored_reports_bytes_not_slices() {
+        let mut file = RandomFile::default();
+        let bufs = [
+            IoSlice::new(&[0u8; 100]),
+            IoSlice::new(&[0u8; 100]),
+            IoSlice::new(&[0u8; 100]),
+        ];
+
+        let written = std::future::poll_fn(|cx| Pin::new(&mut file).poll_write_vectored(cx, &bufs))
+            .await
+            .unwrap();
+
+        assert_eq!(written, 300);
     }
 }

@@ -131,7 +131,7 @@ impl SinglepassCompiler {
             None
         } else {
             match target.triple().default_calling_convention() {
-                Ok(CallingConvention::SystemV) => {
+                Ok(CallingConvention::SystemV | CallingConvention::AppleAarch64) => {
                     match create_systemv_cie(target.triple().architecture) {
                         Some(cie) => {
                             let mut dwarf_frametable = FrameTable::default();
@@ -155,15 +155,26 @@ impl SinglepassCompiler {
             .collect::<Vec<_>>()
             .into_par_iter()
             .map(|i| {
-                gen_import_call_trampoline(
+                let signature = &module.signatures[module.functions[i]];
+                let body = gen_import_call_trampoline(
                     &vmoffsets,
                     i,
-                    &module.signatures[module.functions[i]],
+                    signature,
                     target,
                     calling_convention,
                     self.config.experimental_artifact,
                     progress_callback,
-                )
+                )?;
+                if let Some(callbacks) = self.config.callbacks.as_ref()
+                    && let CompileOutput::Object(object, _) = &body
+                {
+                    callbacks.obj_memory_buffer(
+                        &CompiledKind::ImportFunctionTrampoline(i, signature.clone()),
+                        &module.hash_string(),
+                        object,
+                    );
+                }
+                Ok(body)
             })
             .collect::<Result<Vec<_>, CompileError>>()?;
         let functions = function_body_inputs
@@ -305,6 +316,11 @@ impl SinglepassCompiler {
                             HashMap::new(),
                         )?;
                     }
+                    if let Some(callbacks) = self.config.callbacks.as_ref()
+                        && let CompileOutput::Object(object, _) = &body
+                    {
+                        callbacks.obj_memory_buffer(&kind, &module_hash, object);
+                    }
                     if let Some(progress) = progress.as_ref() {
                         progress.notify_steps(WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE)?;
                     }
@@ -344,6 +360,11 @@ impl SinglepassCompiler {
                             &body.body,
                             HashMap::new(),
                         )?;
+                    }
+                    if let Some(callbacks) = self.config.callbacks.as_ref()
+                        && let CompileOutput::Object(object, _) = &body
+                    {
+                        callbacks.obj_memory_buffer(&kind, &module_hash, object);
                     }
                     if let Some(progress) = progress.as_ref() {
                         progress.notify_steps(WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE)?;

@@ -307,7 +307,6 @@ impl<'ctx> Intrinsics<'ctx> {
         context: &'ctx Context,
         target_data: &TargetData,
         target_triple: &Triple,
-        binary_fmt: &target_lexicon::BinaryFormat,
     ) -> Self {
         let is_riscv64 = matches!(target_triple.architecture, Architecture::Riscv64(..));
         let void_ty = context.void_type();
@@ -390,13 +389,12 @@ impl<'ctx> Intrinsics<'ctx> {
         let ctx_ptr_ty_basic = ctx_ptr_ty.as_basic_type_enum();
         let ctx_ptr_ty_basic_md: BasicMetadataTypeEnum = ctx_ptr_ty.into();
 
-        // Keep the LLVM view of `VMCallerCheckedAnyfunc` ABI-compatible with the runtime
-        // layout. `call_indirect` only reads the first three fields, but GEP indexing over
-        // fixed funcref tables still depends on the full element stride.
+        // Keep the LLVM view of `VMCallerCheckedAnyfunc` ABI-compatible with the runtime layout.
         let anyfunc_ty = context.struct_type(
             &[
                 i8_ptr_ty_basic,
                 i32_ty.into(),
+                i8_ty.into(),
                 ctx_ptr_ty_basic,
                 ptr_ty.into(),
             ],
@@ -841,13 +839,7 @@ impl<'ctx> Intrinsics<'ctx> {
                 None,
             ),
             personality: add_function_with_attrs(
-                if matches!(binary_fmt, target_lexicon::BinaryFormat::Macho) {
-                    // Note: on macOS+Mach-O the personality function *must* be called like this, otherwise LLVM
-                    // will generate things differently than "normal", wreaking havoc.
-                    "__gxx_personality_v0"
-                } else {
-                    "wasmer_eh_personality"
-                },
+                "__gxx_personality_v0",
                 i32_ty.fn_type(
                     &[
                         i32_ty.into(),

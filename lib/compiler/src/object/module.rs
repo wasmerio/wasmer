@@ -67,6 +67,21 @@ pub fn get_object_for_target(triple: &Triple) -> Result<Object<'static>, ObjectE
     };
 
     let mut object = Object::new(obj_binary_format, obj_architecture, obj_endianness);
+    // TODO: remove with a new libwild release
+    if obj_binary_format == object::BinaryFormat::MachO {
+        // libwild 0.11 skips symbol zero as if Mach-O had an ELF null symbol.
+        // Keep an unreferenced local first: https://github.com/wild-linker/wild/pull/2845
+        object.add_symbol(ObjSymbol {
+            name: b"__wasmer_dummy".to_vec(),
+            value: 0,
+            size: 0,
+            kind: SymbolKind::Data,
+            scope: SymbolScope::Compilation,
+            weak: false,
+            section: SymbolSection::Absolute,
+            flags: SymbolFlags::None,
+        });
+    }
 
     if let Architecture::Riscv64(_) = triple.architecture {
         object.flags = FileFlags::Elf {

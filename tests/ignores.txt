@@ -37,27 +37,23 @@ singlepass return_call
 cranelift return_call
 
 # Traps
-## Traps. Tracing doesn't work properly in Singlepass
-## Unwinding is not properly implemented in Singlepass
-# Needs investigation
-singlepass+aarch64+macos traps::test_trap_trace
+# Experimental Mach-O artifacts lack source-location DWARF; frame names and ordering work.
+singlepass+aarch64+macos traps::trap_display_pretty::singlepass::singlepass_
+singlepass+aarch64+macos traps::trap_display_multi_module::singlepass::singlepass_
+singlepass+aarch64+macos traps::start_trap_pretty::singlepass::singlepass_
 cranelift+aarch64+macos    traps::test_trap_trace
 llvm+aarch64    traps::test_trap_trace
 llvm+riscv64    traps::test_trap_trace
 llvm+loongarch64    traps::test_trap_trace
-singlepass+aarch64+macos traps::test_trap_stack_overflow # Need to investigate
-singlepass+aarch64+macos traps::trap_display_pretty
 llvm       traps::trap_display_pretty
 windows    trap_display_pretty
 windows    traps::test_trap_trace
 cranelift+aarch64+macos    traps::trap_display_pretty
-singlepass+aarch64+macos traps::trap_display_multi_module
 llvm       traps::trap_display_multi_module
 cranelift+aarch64+macos    traps::trap_display_multi_module
 singlepass traps::call_signature_mismatch   # Need to investigate, get foo (a[0]:0x33) instead of 0x30 for indirect call
 llvm       traps::call_signature_mismatch
 macos+aarch64    traps::call_signature_mismatch
-singlepass+aarch64+macos traps::start_trap_pretty
 llvm       traps::start_trap_pretty
 cranelift+aarch64+macos    traps::start_trap_pretty
 

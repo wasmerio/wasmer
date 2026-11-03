@@ -16,11 +16,26 @@ pub struct Table {
     handle: StoreHandle<VMTable>,
 }
 
+fn validate_table_item_type(
+    table_ty: wasmer_types::Type,
+    item: &TableElement,
+) -> Result<(), RuntimeError> {
+    match (table_ty, item) {
+        (wasmer_types::Type::ExternRef, TableElement::ExternRef(_))
+        | (wasmer_types::Type::FuncRef, TableElement::FuncRef(_)) => Ok(()),
+        (ty, item) => Err(RuntimeError::new(format!(
+            "value {item:?} does not match table element type {ty}"
+        ))),
+    }
+}
+
 fn set_table_item(
     table: &mut VMTable,
     item_index: u32,
     item: TableElement,
 ) -> Result<(), RuntimeError> {
+    validate_table_item_type(table.ty().ty, &item)?;
+
     table
         .set(item_index, item)
         .map_err(Into::<RuntimeError>::into)
@@ -64,7 +79,8 @@ impl Table {
         ty: TableType,
         init: Value,
     ) -> Result<Self, RuntimeError> {
-        let item = value_to_table_element(&mut store, init)?;
+        let item = value_to_table_element(store, init)?;
+        validate_table_item_type(ty.ty, &item)?;
         let mut store = store.as_store_mut();
         let tunables = store.engine().tunables();
         let style = tunables.table_style(&ty);

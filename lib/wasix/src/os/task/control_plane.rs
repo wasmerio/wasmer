@@ -120,10 +120,10 @@ impl WasiControlPlane {
     pub(crate) fn register_task(&self) -> Result<TaskCountGuard, ControlPlaneError> {
         let count = self.state.task_count.fetch_add(1, Ordering::SeqCst);
         if let Some(max) = self.state.config.max_task_count
-            && count > max
+            && count >= max
         {
             self.state.task_count.fetch_sub(1, Ordering::SeqCst);
-            return Err(ControlPlaneError::TaskLimitReached { max: count });
+            return Err(ControlPlaneError::TaskLimitReached { max });
         }
         Ok(TaskCountGuard(self.state.task_count.clone()))
     }
@@ -226,14 +226,33 @@ mod tests {
             enable_exponential_cpu_backoff: None,
         });
 
+        let layout = WasiMemoryLayout::default();
         let p1 = p.new_process(ModuleHash::random()).unwrap();
-        let _t1 = p1
-            .new_thread(WasiMemoryLayout::default(), ThreadStartType::MainThread)
-            .unwrap();
-        let _t2 = p1
-            .new_thread(WasiMemoryLayout::default(), ThreadStartType::MainThread)
-            .unwrap();
+        let spawn = || {
+            p1.new_thread(
+                layout.clone(),
+                ThreadStartType::ThreadSpawn { start_ptr: 0 },
+            )
+        };
 
+        let t1 = p1
+            .new_thread(layout.clone(), ThreadStartType::MainThread)
+            .unwrap();
+        let _t2 = spawn().unwrap();
+
+        // The limit is inclusive: the third task has to be refused, not the fourth.
+        assert_eq!(
+            spawn().unwrap_err(),
+            ControlPlaneError::TaskLimitReached { max: 2 }
+        );
+        assert_eq!(
+            p.new_process(ModuleHash::random()).unwrap_err(),
+            ControlPlaneError::TaskLimitReached { max: 2 }
+        );
+
+        // Dropping a task has to hand its slot back.
+        drop(t1);
+        let _t3 = spawn().unwrap();
         assert_eq!(
             p.new_process(ModuleHash::random()).unwrap_err(),
             ControlPlaneError::TaskLimitReached { max: 2 }

@@ -160,10 +160,14 @@ impl OffloadedFile {
         // Calculate the next cursor.
         let next_cursor: i64 = match position {
             io::SeekFrom::Start(offset) => offset.try_into().map_err(to_err)?,
-            io::SeekFrom::End(offset) => self.len() as i64 + offset,
-            io::SeekFrom::Current(offset) => {
-                TryInto::<i64>::try_into(*cursor).map_err(to_err)? + offset
-            }
+            io::SeekFrom::End(offset) => TryInto::<i64>::try_into(self.len())
+                .map_err(to_err)?
+                .checked_add(offset)
+                .ok_or(io::ErrorKind::InvalidInput)?,
+            io::SeekFrom::Current(offset) => TryInto::<i64>::try_into(*cursor)
+                .map_err(to_err)?
+                .checked_add(offset)
+                .ok_or(io::ErrorKind::InvalidInput)?,
         };
 
         // It's an error to seek before byte 0.
@@ -395,6 +399,18 @@ impl OffloadedFile {
 mod tests {
     use super::*;
     use std::io;
+
+    #[test]
+    fn test_seek_overflow_preserves_cursor_for_large_file() {
+        let backing = OffloadBackingStore::new(OwnedBuffer::from_static(b""), None);
+        let mut file = OffloadedFile::new(None, backing);
+        file.resize(u64::MAX, 0);
+
+        let mut cursor = 1;
+        let error = file.seek(io::SeekFrom::End(1), &mut cursor).unwrap_err();
+        assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
+        assert_eq!(cursor, 1);
+    }
 
     #[test]
     #[tracing_test::traced_test]

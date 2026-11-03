@@ -100,7 +100,9 @@ use smallvec::SmallVec;
 use std::vec::Vec;
 
 use wasmer_compiler::wasmparser::{self, Catch, MemArg, Operator};
-use wasmer_compiler::{ModuleTranslationState, from_binaryreadererror_wasmerror, wasm_unsupported};
+use wasmer_compiler::{
+    ModuleTranslationState, from_binaryreadererror_wasmerror, memarg_memory_index, wasm_unsupported,
+};
 use wasmer_types::{
     CATCH_ALL_TAG_VALUE, FunctionIndex, GlobalIndex, MemoryIndex, SignatureIndex, TableIndex,
     TagIndex, WasmError, WasmResult,
@@ -1415,8 +1417,8 @@ pub fn translate_operator(
                 Operator::MemoryAtomicWait32 { .. } => I32,
                 _ => unreachable!(),
             };
-            let heap_index = MemoryIndex::from_u32(memarg.memory);
-            let heap = state.get_heap(builder.func, memarg.memory, environ)?;
+            let heap_index = MemoryIndex::from_u32(memarg_memory_index(memarg)?);
+            let heap = state.get_heap(builder.func, memarg_memory_index(memarg)?, environ)?;
             let timeout = state.pop1(); // 64 (fixed)
             let expected = state.pop1(); // 32 or 64 (per the `Ixx` in `IxxAtomicWait`)
             let addr = state.pop1(); // 32 (fixed)
@@ -1446,8 +1448,8 @@ pub fn translate_operator(
             };
         }
         Operator::MemoryAtomicNotify { memarg } => {
-            let heap_index = MemoryIndex::from_u32(memarg.memory);
-            let heap = state.get_heap(builder.func, memarg.memory, environ)?;
+            let heap_index = MemoryIndex::from_u32(memarg_memory_index(memarg)?);
+            let heap = state.get_heap(builder.func, memarg_memory_index(memarg)?, environ)?;
             let count = state.pop1(); // 32 (fixed)
             let addr = state.pop1(); // 32 (fixed)
             let addr = fold_atomic_mem_addr(addr, memarg, builder);
@@ -2811,7 +2813,7 @@ fn prepare_addr(
     environ: &mut FuncEnvironment<'_>,
 ) -> WasmResult<Reachability<(MemFlagsData, Value, Value)>> {
     let index = state.pop1();
-    let heap = state.get_heap(builder.func, memarg.memory, environ)?;
+    let heap = state.get_heap(builder.func, memarg_memory_index(memarg)?, environ)?;
 
     // How exactly the bounds check is performed here and what it's performed
     // on is a bit tricky. Generally we want to rely on access violations (e.g.

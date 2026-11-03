@@ -1006,6 +1006,64 @@ fn issue_return_call_import(mut config: crate::Config) -> Result<()> {
 
 #[cfg(feature = "llvm")]
 #[compiler_test(issues)]
+fn issue_return_call_import_without_m0(mut config: crate::Config) -> Result<()> {
+    if config.compiler != crate::Compiler::LLVM {
+        return Ok(());
+    }
+
+    let mut features = wasmer::sys::Features::new();
+    features.tail_call(true);
+    config.set_features(features);
+    let mut store = config.store();
+
+    let provider = Module::new(
+        &store,
+        r#"(module
+            (memory 1 1)
+            (data (i32.const 0) "\49\00\00\00")
+            (func (export "read") (param i32 i32) (result i32)
+                i32.const 0 i32.load local.get 0 i32.add))"#,
+    )?;
+    assert_eq!(
+        provider.info().m0_pass_param_enabled,
+        !config.dynamic_memory
+    );
+    let provider = Instance::new(&mut store, &provider, &imports! {})?;
+    let foreign = provider.exports.get_function("read")?.clone();
+    let host = Function::new_typed(&mut store, |value: i32, _: i32| value + 101);
+
+    let caller = Module::new(
+        &store,
+        r#"(module
+            (import "env" "read" (func $read (param i32 i32) (result i32)))
+            (func (export "direct") (param i32 i32) (result i32)
+                local.get 0 local.get 1 call $read)
+            (func (export "tail") (param i32 i32) (result i32)
+                local.get 0 local.get 1 return_call $read
+                unreachable))"#,
+    )?;
+    assert!(!caller.info().m0_pass_param_enabled);
+
+    // Exercise both imported-call ABI branches. A tail call must not execute
+    // the unreachable instruction, even when the callee requires an m0 argument.
+    for (target, expected) in [(foreign, 73), (host, 101)] {
+        let instance = Instance::new(
+            &mut store,
+            &caller,
+            &imports! { "env" => { "read" => target } },
+        )?;
+        for name in ["direct", "tail"] {
+            let run: TypedFunction<(i32, i32), i32> =
+                instance.exports.get_typed_function(&store, name)?;
+            assert_eq!(run.call(&mut store, 0, 37)?, expected);
+        }
+    }
+
+    Ok(())
+}
+
+#[cfg(feature = "llvm")]
+#[compiler_test(issues)]
 fn issue_return_call_indirect_mixed_local_import(mut config: crate::Config) -> Result<()> {
     if config.compiler != crate::Compiler::LLVM {
         return Ok(());
@@ -1689,4 +1747,351 @@ fn llvm_static_memory_without_m0() -> Result<()> {
 #[test]
 fn llvm_static_memory_with_m0() -> Result<()> {
     static_memory_calls(true)
+}
+
+#[compiler_test(control_flow)]
+fn implicit_else_reclaims_inputs(config: crate::Config) -> Result<()> {
+    for param_count in [0, 1, 2] {
+        // Cover register inputs, spills, and both ARM64 stack-alignment parities.
+        for prefix_count in [0, 4, 31, 32] {
+            let types = " i64".repeat(param_count);
+            let block_type = if param_count == 0 { "" } else { "(type $pass)" };
+            let pushes = "local.get $value\n".repeat(prefix_count + param_count);
+            let drops = "drop\n".repeat(prefix_count);
+            let checks = "local.get $expected i64.ne if unreachable end\n".repeat(param_count);
+            let replace = "drop\n".repeat(param_count) + &"i64.const 42\n".repeat(param_count);
+            for (name, body, explicit_else, true_reachable, true_result) in [
+                ("empty", "", false, true, 123),
+                ("replace", replace.as_str(), false, true, 42),
+                ("branch", "br 0", false, true, 123),
+                ("unreachable", "unreachable", false, false, 123),
+                (
+                    "nested-unreachable",
+                    "unreachable block i32.const 0 if end end",
+                    false,
+                    false,
+                    123,
+                ),
+                ("explicit-else", replace.as_str(), true, true, 42),
+            ] {
+                let else_text = if explicit_else { "else" } else { "" };
+                let wat = format!(
+                    r#"(module
+                        (type $pass (func (param {types}) (result {types})))
+                        (func $probe)
+                        (func (export "check")
+                            (param $value i64) (param $condition i32) (param $expected i64)
+                            (result i32) (local $remaining i32)
+                            i32.const 400000 local.set $remaining
+                            loop
+                                {pushes}
+                                local.get $condition
+                                if {block_type} {body} {else_text} end
+                                {checks}
+                                {drops}
+                                call $probe
+                                local.get $remaining i32.const 1 i32.sub
+                                local.tee $remaining br_if 0
+                            end
+                            i32.const 1))"#
+                );
+                let mut store = config.store();
+                let module = Module::new(&store, &wat)?;
+                let instance = Instance::new(&mut store, &module, &imports! {})?;
+                let check = instance
+                    .exports
+                    .get_typed_function::<(i64, i32, i64), i32>(&store, "check")?;
+                for condition in 0..=i32::from(true_reachable) {
+                    let expected = if condition == 0 { 123 } else { true_result };
+                    // A return-value assertion alone misses leaked native stack slots:
+                    // the function epilogue restores SP from FP. Repetition exposes
+                    // the leak, and the nonrecursive probe touches the stack on every
+                    // iteration so an imbalance traps at the stack's guard page.
+                    let result = check
+                        .call(&mut store, 123, condition, expected)
+                        .with_context(|| {
+                            format!(
+                                "{name}: params={param_count}, prefix={prefix_count}, condition={condition}"
+                            )
+                        })?;
+                    assert_eq!(result, 1);
+                }
+            }
+        }
+    }
+
+    Ok(())
+}
+
+#[compiler_test(issues)]
+fn table_mismatch_types(mut config: crate::Config) -> Result<()> {
+    if config.compiler == crate::Compiler::V8 {
+        return Ok(());
+    }
+
+    let mut store = config.store();
+    let table = Table::new(
+        &mut store,
+        TableType::new(Type::ExternRef, 0, Some(1)),
+        Value::ExternRef(None),
+    )?;
+    let funcref = Function::new_typed(&mut store, || {});
+
+    let result = Table::new(
+        &mut store,
+        TableType::new(Type::ExternRef, 1, Some(1)),
+        Value::FuncRef(Some(funcref.clone())),
+    );
+    assert!(result.is_err());
+
+    let result = table.grow(&mut store, 1, Value::FuncRef(Some(funcref.clone())));
+    assert!(result.is_err());
+    assert_eq!(table.size(&store), 0);
+    assert_eq!(table.get(&mut store, 0), None);
+
+    let table = Table::new(
+        &mut store,
+        TableType::new(Type::FuncRef, 0, Some(1)),
+        Value::FuncRef(None),
+    )?;
+    let externref = ExternRef::new(&mut store, 42usize);
+
+    let result = table.grow(&mut store, 1, Value::ExternRef(Some(externref)));
+    assert!(result.is_err());
+    assert_eq!(table.size(&store), 0);
+    assert_eq!(table.get(&mut store, 0), None);
+
+    let table = Table::new(
+        &mut store,
+        TableType::new(Type::ExternRef, 1, Some(1)),
+        Value::ExternRef(None),
+    )?;
+
+    let result = table.set(&mut store, 0, Value::FuncRef(Some(funcref)));
+    assert!(result.is_err());
+    assert!(matches!(
+        table.get(&mut store, 0),
+        Some(Value::ExternRef(None))
+    ));
+
+    let result = table.set(&mut store, 0, Value::I32(42));
+    assert!(result.is_err());
+    assert!(matches!(
+        table.get(&mut store, 0),
+        Some(Value::ExternRef(None))
+    ));
+
+    let table = Table::new(
+        &mut store,
+        TableType::new(Type::FuncRef, 1, Some(1)),
+        Value::FuncRef(None),
+    )?;
+    let externref = ExternRef::new(&mut store, 42usize);
+
+    let result = table.set(&mut store, 0, Value::ExternRef(Some(externref)));
+    assert!(result.is_err());
+    assert!(matches!(
+        table.get(&mut store, 0),
+        Some(Value::FuncRef(None))
+    ));
+
+    let externref_table = Table::new(
+        &mut store,
+        TableType::new(Type::ExternRef, 1, Some(1)),
+        Value::ExternRef(None),
+    )?;
+    let result = Table::copy(&mut store, &externref_table, 0, &table, 0, 1);
+    assert!(result.is_err());
+    assert!(matches!(
+        externref_table.get(&mut store, 0),
+        Some(Value::ExternRef(None))
+    ));
+    Ok(())
+}
+
+#[cfg(feature = "llvm")]
+#[compiler_test(issues)]
+fn indirect_call_runtime_m0_abi(mut config: crate::Config) -> Result<()> {
+    if config.compiler != crate::Compiler::LLVM {
+        return Ok(());
+    }
+    let mut features = wasmer::sys::Features::new();
+    features.tail_call(true);
+    config.set_features(features);
+    let mut store = config.store();
+
+    let provider = Module::new(
+        &store,
+        r#"
+        (module
+          (import "env" "memory" (memory 1 1))
+          (func (export "read") (param i32) (result i32)
+            i32.const 0 i32.load local.get 0 i32.add))
+    "#,
+    )?;
+    let memory = Memory::new(&mut store, MemoryType::new(1, Some(1), false))?;
+    memory.view(&store).write(0, &73_i32.to_le_bytes())?;
+    let provider = Instance::new(
+        &mut store,
+        &provider,
+        &imports! {
+            "env" => { "memory" => memory }
+        },
+    )?;
+    let foreign = provider.exports.get_function("read")?.clone();
+
+    let no_memory = Module::new(
+        &store,
+        r#"
+        (module (func (export "read") (param i32) (result i32)
+          local.get 0 i32.const 91 i32.add))
+    "#,
+    )?;
+    let no_memory = Instance::new(&mut store, &no_memory, &imports! {})?;
+    let no_m0 = no_memory.exports.get_function("read")?.clone();
+    let host = Function::new_typed(&mut store, |value: i32| value + 101);
+
+    for (caller_has_memory, table_max) in [(false, ""), (false, "2"), (true, ""), (true, "2")] {
+        let memory = if caller_has_memory {
+            r#"(memory (export "memory") 1 1)
+               (data (i32.const 0) "\17\00\00\00")"#
+        } else {
+            ""
+        };
+        let local_value = if caller_has_memory {
+            "i32.const 0 i32.load"
+        } else {
+            "i32.const 23"
+        };
+        let module = Module::new(
+            &store,
+            format!(
+                r#"
+            (module
+              (type $t (func (param i32) (result i32)))
+              {memory}
+              (table (export "table") 2 {table_max} funcref)
+              (elem (i32.const 0) $local)
+              (func $local (export "local") (type $t) (param i32) (result i32)
+                {local_value} local.get 0 i32.add)
+              (func (export "set") (param i32 funcref)
+                local.get 0 local.get 1 table.set)
+              (func (export "run") (param i32 i32) (result i32)
+                local.get 0 local.get 1 call_indirect (type $t))
+              (func (export "tail") (param i32 i32) (result i32)
+                local.get 0 local.get 1 return_call_indirect (type $t)))
+        "#
+            ),
+        )?;
+        // The entry-point ABI flag must survive artifact serialization.
+        let module = unsafe { Module::deserialize(&store, module.serialize()?)? };
+        let instance = Instance::new(&mut store, &module, &imports! {})?;
+        let other_instance = Instance::new(&mut store, &module, &imports! {})?;
+        if caller_has_memory {
+            other_instance
+                .exports
+                .get_memory("memory")?
+                .view(&store)
+                .write(0, &53_i32.to_le_bytes())?;
+        }
+        let set = instance.exports.get_function("set")?;
+        let run: TypedFunction<(i32, i32), i32> =
+            instance.exports.get_typed_function(&store, "run")?;
+        let tail: TypedFunction<(i32, i32), i32> =
+            instance.exports.get_typed_function(&store, "tail")?;
+        assert_eq!(run.call(&mut store, 7, 0)?, 30);
+        assert!(run.call(&mut store, 7, 1).is_err());
+        assert!(run.call(&mut store, 7, 2).is_err());
+
+        let local = instance.exports.get_function("local")?.clone();
+        let other = other_instance.exports.get_function("local")?.clone();
+        for (target, base) in [
+            (foreign.clone(), 73),
+            (no_m0.clone(), 91),
+            (host.clone(), 101),
+            (other, if caller_has_memory { 53 } else { 23 }),
+            (local, 23),
+        ] {
+            // Replace both an initialized slot and one absent from the initializer.
+            for slot in 0..2 {
+                let value = Value::FuncRef(Some(target.clone()));
+                if table_max.is_empty() {
+                    instance
+                        .exports
+                        .get_table("table")?
+                        .set(&mut store, slot as u32, value)?;
+                } else {
+                    // Fixed tables also keep an inline cache, updated by the Wasm setter.
+                    set.call(&mut store, &[Value::I32(slot), value])?;
+                }
+                assert_eq!(run.call(&mut store, 7, slot)?, base + 7);
+                assert_eq!(tail.call(&mut store, 7, slot)?, base + 7);
+            }
+        }
+    }
+    Ok(())
+}
+
+#[compiler_test(issues)]
+fn fixed_funcref_table_external_mutations(config: crate::Config) -> Result<()> {
+    if config.compiler == crate::Compiler::V8 {
+        return Ok(());
+    }
+
+    let mut store = config.store();
+    let owner = Module::new(
+        &store,
+        r#"(module
+            (type $ret (func (result i32)))
+            (table (export "table") 2 2 funcref)
+            (func $original (result i32) i32.const 1)
+            (elem (i32.const 0) $original $original)
+            (func (export "call") (param i32) (result i32)
+                local.get 0 call_indirect (type $ret)))"#,
+    )?;
+    let owner = Instance::new(&mut store, &owner, &imports! {})?;
+    let table = owner.exports.get_table("table")?.clone();
+    let call: TypedFunction<i32, i32> = owner.exports.get_typed_function(&store, "call")?;
+    assert_eq!(call.call(&mut store, 0)?, 1);
+
+    let replacement = Function::new_typed(&mut store, || 2i32);
+    table.set(&mut store, 0, Value::FuncRef(Some(replacement)))?;
+    assert_eq!(call.call(&mut store, 0)?, 2);
+    Table::copy(&mut store, &table, 1, &table, 0, 1)?;
+    assert_eq!(call.call(&mut store, 1)?, 2);
+    table.set(&mut store, 0, Value::FuncRef(None))?;
+    assert!(call.call(&mut store, 0).is_err());
+
+    let mutator = Module::new(
+        &store,
+        r#"(module
+            (import "env" "table" (table 2 2 funcref))
+            (func $replacement (result i32) i32.const 3)
+            (elem (i32.const 0) $replacement)
+            (elem $passive func $replacement)
+            (func (export "set")
+                i32.const 0 ref.func $replacement table.set 0)
+            (func (export "fill")
+                i32.const 0 ref.func $replacement i32.const 2 table.fill 0)
+            (func (export "copy")
+                i32.const 0 i32.const 1 i32.const 1 table.copy 0 0)
+            (func (export "init")
+                i32.const 0 i32.const 0 i32.const 1 table.init $passive))"#,
+    )?;
+    let mutator = Instance::new(
+        &mut store,
+        &mutator,
+        &imports! { "env" => { "table" => table.clone() } },
+    )?;
+    // Active element initialization through an import updates the owner's cache too.
+    assert_eq!(call.call(&mut store, 0)?, 3);
+    for operation in ["set", "fill", "copy", "init"] {
+        table.set(&mut store, 0, Value::FuncRef(None))?;
+        assert!(call.call(&mut store, 0).is_err());
+        let mutate: TypedFunction<(), ()> =
+            mutator.exports.get_typed_function(&store, operation)?;
+        mutate.call(&mut store)?;
+        assert_eq!(call.call(&mut store, 0)?, 3, "{operation}");
+    }
+    Ok(())
 }

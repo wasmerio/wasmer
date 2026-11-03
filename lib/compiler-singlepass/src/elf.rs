@@ -57,8 +57,13 @@ pub(crate) fn emit_local_function(
         Some((index, symbol)),
     )?;
 
+    // TODO: support dSYM debug info file creation and loading in the future
     #[cfg(feature = "unwind")]
-    if let Some(dwarf_state) = dwarf_state.as_mut() {
+    if matches!(
+        target.triple().binary_format,
+        target_lexicon::BinaryFormat::Elf
+    ) && let Some(dwarf_state) = dwarf_state.as_mut()
+    {
         dwarf_state.write_sections(
             &mut object,
             symbol,

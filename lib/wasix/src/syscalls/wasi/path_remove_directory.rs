@@ -42,16 +42,19 @@ pub fn path_remove_directory<M: MemorySize>(
 pub(crate) fn path_remove_directory_internal(
     ctx: &mut FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,
-    _base_dir: Fd,
+    base_dir: Fd,
     path: &str,
 ) -> Result<(), Errno> {
     let env = ctx.data();
     let (memory, state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
 
-    let (parent_inode, dir_name) =
+    let (parent_inode, owner, dir_name) =
         state
             .fs
-            .get_parent_inode_at_path(inodes, fd, Path::new(path), true)?;
+            .get_owned_parent_inode_at_path(inodes, fd, Path::new(path), true)?;
+    state
+        .fs
+        .check_path_right(&base_dir, &owner, Rights::PATH_REMOVE_DIRECTORY)?;
 
     let mut guard = parent_inode.write();
     match guard.deref_mut() {

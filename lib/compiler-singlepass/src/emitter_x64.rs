@@ -643,85 +643,16 @@ fn move_src_to_dst(emitter: &mut AssemblerX64, precision: Precision, src: XMM, d
         return;
     }
     match precision {
-        Precision::Single => match src {
-            XMM::XMM0 => dynasm!(emitter ; movss Rx(dst), xmm0),
-            XMM::XMM1 => dynasm!(emitter ; movss Rx(dst), xmm1),
-            XMM::XMM2 => dynasm!(emitter ; movss Rx(dst), xmm2),
-            XMM::XMM3 => dynasm!(emitter ; movss Rx(dst), xmm3),
-            XMM::XMM4 => dynasm!(emitter ; movss Rx(dst), xmm4),
-            XMM::XMM5 => dynasm!(emitter ; movss Rx(dst), xmm5),
-            XMM::XMM6 => dynasm!(emitter ; movss Rx(dst), xmm6),
-            XMM::XMM7 => dynasm!(emitter ; movss Rx(dst), xmm7),
-            XMM::XMM8 => dynasm!(emitter ; movss Rx(dst), xmm8),
-            XMM::XMM9 => dynasm!(emitter ; movss Rx(dst), xmm9),
-            XMM::XMM10 => dynasm!(emitter ; movss Rx(dst), xmm10),
-            XMM::XMM11 => dynasm!(emitter ; movss Rx(dst), xmm11),
-            XMM::XMM12 => dynasm!(emitter ; movss Rx(dst), xmm12),
-            XMM::XMM13 => dynasm!(emitter ; movss Rx(dst), xmm13),
-            XMM::XMM14 => dynasm!(emitter ; movss Rx(dst), xmm14),
-            XMM::XMM15 => dynasm!(emitter ; movss Rx(dst), xmm15),
-        },
-        Precision::Double => match src {
-            XMM::XMM0 => dynasm!(emitter ; movsd Rx(dst), xmm0),
-            XMM::XMM1 => dynasm!(emitter ; movsd Rx(dst), xmm1),
-            XMM::XMM2 => dynasm!(emitter ; movsd Rx(dst), xmm2),
-            XMM::XMM3 => dynasm!(emitter ; movsd Rx(dst), xmm3),
-            XMM::XMM4 => dynasm!(emitter ; movsd Rx(dst), xmm4),
-            XMM::XMM5 => dynasm!(emitter ; movsd Rx(dst), xmm5),
-            XMM::XMM6 => dynasm!(emitter ; movsd Rx(dst), xmm6),
-            XMM::XMM7 => dynasm!(emitter ; movsd Rx(dst), xmm7),
-            XMM::XMM8 => dynasm!(emitter ; movsd Rx(dst), xmm8),
-            XMM::XMM9 => dynasm!(emitter ; movsd Rx(dst), xmm9),
-            XMM::XMM10 => dynasm!(emitter ; movsd Rx(dst), xmm10),
-            XMM::XMM11 => dynasm!(emitter ; movsd Rx(dst), xmm11),
-            XMM::XMM12 => dynasm!(emitter ; movsd Rx(dst), xmm12),
-            XMM::XMM13 => dynasm!(emitter ; movsd Rx(dst), xmm13),
-            XMM::XMM14 => dynasm!(emitter ; movsd Rx(dst), xmm14),
-            XMM::XMM15 => dynasm!(emitter ; movsd Rx(dst), xmm15),
-        },
+        Precision::Single => dynasm!(emitter ; movss Rx(dst), Rx(src)),
+        Precision::Double => dynasm!(emitter ; movsd Rx(dst), Rx(src)),
     }
 }
 
 macro_rules! avx_fn {
     ($ins:ident, $emitter:ident, $src1:ident, $src2:ident, $dst:ident) => {
-        // Dynasm bug: AVX instructions are not encoded correctly.
         match $src2 {
-            XMMOrMemory::XMM(x) => match $src1 {
-                XMM::XMM0 => dynasm!($emitter ; $ins Rx($dst), xmm0, Rx(x)),
-                XMM::XMM1 => dynasm!($emitter ; $ins Rx($dst), xmm1, Rx(x)),
-                XMM::XMM2 => dynasm!($emitter ; $ins Rx($dst), xmm2, Rx(x)),
-                XMM::XMM4 => dynasm!($emitter ; $ins Rx($dst), xmm4, Rx(x)),
-                XMM::XMM3 => dynasm!($emitter ; $ins Rx($dst), xmm3, Rx(x)),
-                XMM::XMM5 => dynasm!($emitter ; $ins Rx($dst), xmm5, Rx(x)),
-                XMM::XMM6 => dynasm!($emitter ; $ins Rx($dst), xmm6, Rx(x)),
-                XMM::XMM7 => dynasm!($emitter ; $ins Rx($dst), xmm7, Rx(x)),
-                XMM::XMM8 => dynasm!($emitter ; $ins Rx($dst), xmm8, Rx(x)),
-                XMM::XMM9 => dynasm!($emitter ; $ins Rx($dst), xmm9, Rx(x)),
-                XMM::XMM10 => dynasm!($emitter ; $ins Rx($dst), xmm10, Rx(x)),
-                XMM::XMM11 => dynasm!($emitter ; $ins Rx($dst), xmm11, Rx(x)),
-                XMM::XMM12 => dynasm!($emitter ; $ins Rx($dst), xmm12, Rx(x)),
-                XMM::XMM13 => dynasm!($emitter ; $ins Rx($dst), xmm13, Rx(x)),
-                XMM::XMM14 => dynasm!($emitter ; $ins Rx($dst), xmm14, Rx(x)),
-                XMM::XMM15 => dynasm!($emitter ; $ins Rx($dst), xmm15, Rx(x)),
-            },
-            XMMOrMemory::Memory(base, disp) => match $src1 {
-                XMM::XMM0 => dynasm!($emitter ; $ins Rx($dst), xmm0, [Rq(base) + disp]),
-                XMM::XMM1 => dynasm!($emitter ; $ins Rx($dst), xmm1, [Rq(base) + disp]),
-                XMM::XMM2 => dynasm!($emitter ; $ins Rx($dst), xmm2, [Rq(base) + disp]),
-                XMM::XMM3 => dynasm!($emitter ; $ins Rx($dst), xmm3, [Rq(base) + disp]),
-                XMM::XMM4 => dynasm!($emitter ; $ins Rx($dst), xmm4, [Rq(base) + disp]),
-                XMM::XMM5 => dynasm!($emitter ; $ins Rx($dst), xmm5, [Rq(base) + disp]),
-                XMM::XMM6 => dynasm!($emitter ; $ins Rx($dst), xmm6, [Rq(base) + disp]),
-                XMM::XMM7 => dynasm!($emitter ; $ins Rx($dst), xmm7, [Rq(base) + disp]),
-                XMM::XMM8 => dynasm!($emitter ; $ins Rx($dst), xmm8, [Rq(base) + disp]),
-                XMM::XMM9 => dynasm!($emitter ; $ins Rx($dst), xmm9, [Rq(base) + disp]),
-                XMM::XMM10 => dynasm!($emitter ; $ins Rx($dst), xmm10, [Rq(base) + disp]),
-                XMM::XMM11 => dynasm!($emitter ; $ins Rx($dst), xmm11, [Rq(base) + disp]),
-                XMM::XMM12 => dynasm!($emitter ; $ins Rx($dst), xmm12, [Rq(base) + disp]),
-                XMM::XMM13 => dynasm!($emitter ; $ins Rx($dst), xmm13, [Rq(base) + disp]),
-                XMM::XMM14 => dynasm!($emitter ; $ins Rx($dst), xmm14, [Rq(base) + disp]),
-                XMM::XMM15 => dynasm!($emitter ; $ins Rx($dst), xmm15, [Rq(base) + disp]),
-            },
+            XMMOrMemory::XMM(x) => dynasm!($emitter ; $ins Rx($dst), Rx($src1), Rx(x)),
+            XMMOrMemory::Memory(base, disp) => dynasm!($emitter ; $ins Rx($dst), Rx($src1), [Rq(base) + disp]),
         }
     }
 }
@@ -760,42 +691,8 @@ macro_rules! sse_fn {
 macro_rules! avx_i2f_64_fn {
     ($ins:ident, $emitter:ident, $src1:ident, $src2:ident, $dst:ident) => {
         match $src2 {
-            GPROrMemory::GPR(x) => match $src1 {
-                XMM::XMM0 => dynasm!($emitter ; $ins Rx($dst), xmm0, Rq(x)),
-                XMM::XMM1 => dynasm!($emitter ; $ins Rx($dst), xmm1, Rq(x)),
-                XMM::XMM2 => dynasm!($emitter ; $ins Rx($dst), xmm2, Rq(x)),
-                XMM::XMM3 => dynasm!($emitter ; $ins Rx($dst), xmm3, Rq(x)),
-                XMM::XMM4 => dynasm!($emitter ; $ins Rx($dst), xmm4, Rq(x)),
-                XMM::XMM5 => dynasm!($emitter ; $ins Rx($dst), xmm5, Rq(x)),
-                XMM::XMM6 => dynasm!($emitter ; $ins Rx($dst), xmm6, Rq(x)),
-                XMM::XMM7 => dynasm!($emitter ; $ins Rx($dst), xmm7, Rq(x)),
-                XMM::XMM8 => dynasm!($emitter ; $ins Rx($dst), xmm8, Rq(x)),
-                XMM::XMM9 => dynasm!($emitter ; $ins Rx($dst), xmm9, Rq(x)),
-                XMM::XMM10 => dynasm!($emitter ; $ins Rx($dst), xmm10, Rq(x)),
-                XMM::XMM11 => dynasm!($emitter ; $ins Rx($dst), xmm11, Rq(x)),
-                XMM::XMM12 => dynasm!($emitter ; $ins Rx($dst), xmm12, Rq(x)),
-                XMM::XMM13 => dynasm!($emitter ; $ins Rx($dst), xmm13, Rq(x)),
-                XMM::XMM14 => dynasm!($emitter ; $ins Rx($dst), xmm14, Rq(x)),
-                XMM::XMM15 => dynasm!($emitter ; $ins Rx($dst), xmm15, Rq(x)),
-            },
-            GPROrMemory::Memory(base, disp) => match $src1 {
-                XMM::XMM0 => dynasm!($emitter ; $ins Rx($dst), xmm0, QWORD [Rq(base) + disp]),
-                XMM::XMM1 => dynasm!($emitter ; $ins Rx($dst), xmm1, QWORD [Rq(base) + disp]),
-                XMM::XMM2 => dynasm!($emitter ; $ins Rx($dst), xmm2, QWORD [Rq(base) + disp]),
-                XMM::XMM3 => dynasm!($emitter ; $ins Rx($dst), xmm3, QWORD [Rq(base) + disp]),
-                XMM::XMM4 => dynasm!($emitter ; $ins Rx($dst), xmm4, QWORD [Rq(base) + disp]),
-                XMM::XMM5 => dynasm!($emitter ; $ins Rx($dst), xmm5, QWORD [Rq(base) + disp]),
-                XMM::XMM6 => dynasm!($emitter ; $ins Rx($dst), xmm6, QWORD [Rq(base) + disp]),
-                XMM::XMM7 => dynasm!($emitter ; $ins Rx($dst), xmm7, QWORD [Rq(base) + disp]),
-                XMM::XMM8 => dynasm!($emitter ; $ins Rx($dst), xmm8, QWORD [Rq(base) + disp]),
-                XMM::XMM9 => dynasm!($emitter ; $ins Rx($dst), xmm9, QWORD [Rq(base) + disp]),
-                XMM::XMM10 => dynasm!($emitter ; $ins Rx($dst), xmm10, QWORD [Rq(base) + disp]),
-                XMM::XMM11 => dynasm!($emitter ; $ins Rx($dst), xmm11, QWORD [Rq(base) + disp]),
-                XMM::XMM12 => dynasm!($emitter ; $ins Rx($dst), xmm12, QWORD [Rq(base) + disp]),
-                XMM::XMM13 => dynasm!($emitter ; $ins Rx($dst), xmm13, QWORD [Rq(base) + disp]),
-                XMM::XMM14 => dynasm!($emitter ; $ins Rx($dst), xmm14, QWORD [Rq(base) + disp]),
-                XMM::XMM15 => dynasm!($emitter ; $ins Rx($dst), xmm15, QWORD [Rq(base) + disp]),
-            },
+            GPROrMemory::GPR(x) => dynasm!($emitter ; $ins Rx($dst), Rx($src1), Rq(x)),
+            GPROrMemory::Memory(base, disp) => dynasm!($emitter ; $ins Rx($dst), Rx($src1), QWORD [Rq(base) + disp]),
         }
     }
 }
@@ -818,42 +715,8 @@ macro_rules! sse_i2f_64_fn {
 macro_rules! avx_i2f_32_fn {
     ($ins:ident, $emitter:ident, $src1:ident, $src2:ident, $dst:ident) => {
         match $src2 {
-            GPROrMemory::GPR(x) => match $src1 {
-                XMM::XMM0 => dynasm!($emitter ; $ins Rx($dst), xmm0, Rd(x)),
-                XMM::XMM1 => dynasm!($emitter ; $ins Rx($dst), xmm1, Rd(x)),
-                XMM::XMM2 => dynasm!($emitter ; $ins Rx($dst), xmm2, Rd(x)),
-                XMM::XMM3 => dynasm!($emitter ; $ins Rx($dst), xmm3, Rd(x)),
-                XMM::XMM4 => dynasm!($emitter ; $ins Rx($dst), xmm4, Rd(x)),
-                XMM::XMM5 => dynasm!($emitter ; $ins Rx($dst), xmm5, Rd(x)),
-                XMM::XMM6 => dynasm!($emitter ; $ins Rx($dst), xmm6, Rd(x)),
-                XMM::XMM7 => dynasm!($emitter ; $ins Rx($dst), xmm7, Rd(x)),
-                XMM::XMM8 => dynasm!($emitter ; $ins Rx($dst), xmm8, Rd(x)),
-                XMM::XMM9 => dynasm!($emitter ; $ins Rx($dst), xmm9, Rd(x)),
-                XMM::XMM10 => dynasm!($emitter ; $ins Rx($dst), xmm10, Rd(x)),
-                XMM::XMM11 => dynasm!($emitter ; $ins Rx($dst), xmm11, Rd(x)),
-                XMM::XMM12 => dynasm!($emitter ; $ins Rx($dst), xmm12, Rd(x)),
-                XMM::XMM13 => dynasm!($emitter ; $ins Rx($dst), xmm13, Rd(x)),
-                XMM::XMM14 => dynasm!($emitter ; $ins Rx($dst), xmm14, Rd(x)),
-                XMM::XMM15 => dynasm!($emitter ; $ins Rx($dst), xmm15, Rd(x)),
-            },
-            GPROrMemory::Memory(base, disp) => match $src1 {
-                XMM::XMM0 => dynasm!($emitter ; $ins Rx($dst), xmm0, DWORD [Rq(base) + disp]),
-                XMM::XMM1 => dynasm!($emitter ; $ins Rx($dst), xmm1, DWORD [Rq(base) + disp]),
-                XMM::XMM2 => dynasm!($emitter ; $ins Rx($dst), xmm2, DWORD [Rq(base) + disp]),
-                XMM::XMM3 => dynasm!($emitter ; $ins Rx($dst), xmm3, DWORD [Rq(base) + disp]),
-                XMM::XMM4 => dynasm!($emitter ; $ins Rx($dst), xmm4, DWORD [Rq(base) + disp]),
-                XMM::XMM5 => dynasm!($emitter ; $ins Rx($dst), xmm5, DWORD [Rq(base) + disp]),
-                XMM::XMM6 => dynasm!($emitter ; $ins Rx($dst), xmm6, DWORD [Rq(base) + disp]),
-                XMM::XMM7 => dynasm!($emitter ; $ins Rx($dst), xmm7, DWORD [Rq(base) + disp]),
-                XMM::XMM8 => dynasm!($emitter ; $ins Rx($dst), xmm8, DWORD [Rq(base) + disp]),
-                XMM::XMM9 => dynasm!($emitter ; $ins Rx($dst), xmm9, DWORD [Rq(base) + disp]),
-                XMM::XMM10 => dynasm!($emitter ; $ins Rx($dst), xmm10, DWORD [Rq(base) + disp]),
-                XMM::XMM11 => dynasm!($emitter ; $ins Rx($dst), xmm11, DWORD [Rq(base) + disp]),
-                XMM::XMM12 => dynasm!($emitter ; $ins Rx($dst), xmm12, DWORD [Rq(base) + disp]),
-                XMM::XMM13 => dynasm!($emitter ; $ins Rx($dst), xmm13, DWORD [Rq(base) + disp]),
-                XMM::XMM14 => dynasm!($emitter ; $ins Rx($dst), xmm14, DWORD [Rq(base) + disp]),
-                XMM::XMM15 => dynasm!($emitter ; $ins Rx($dst), xmm15, DWORD [Rq(base) + disp]),
-            },
+            GPROrMemory::GPR(x) => dynasm!($emitter ; $ins Rx($dst), Rx($src1), Rd(x)),
+            GPROrMemory::Memory(base, disp) => dynasm!($emitter ; $ins Rx($dst), Rx($src1), DWORD [Rq(base) + disp]),
         }
     }
 }
