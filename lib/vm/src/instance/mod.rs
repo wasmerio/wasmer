@@ -23,11 +23,10 @@ use crate::vmcontext::{
 use crate::{FunctionBodyPtr, TrapHandlerFn, VMTag, wasmer_call_trampoline};
 use crate::{VMConfig, VMFuncRef, VMFunction, VMGlobal, VMMemory, VMTable};
 use crate::{export::VMExtern, threadconditions::ExpectedValue};
-pub use allocator::InstanceAllocator;
+pub use allocator::{InstanceAllocator, VMDefinitionLocation, VMInstanceStorage};
 use core::mem::offset_of;
 use itertools::Itertools;
 use more_asserts::assert_lt;
-use std::alloc::Layout;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::convert::TryFrom;
@@ -1091,37 +1090,31 @@ impl Instance {
 ///
 /// This is more or less a public facade of the private `Instance`,
 /// providing useful higher-level API.
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug)]
 pub struct VMInstance {
     allocation: Rc<InstanceAllocation>,
 }
 
 /// Shared allocation custody only. Store access remains the authority for
 /// reading and mutating Instance data; an allocation owner grants no access.
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug)]
 pub(crate) struct InstanceAllocation {
-    instance_layout: Layout,
     instance: NonNull<Instance>,
+    storage: Arc<VMInstanceStorage>,
 }
+
+impl PartialEq for VMInstance {
+    fn eq(&self, other: &Self) -> bool {
+        self.allocation.instance == other.allocation.instance
+    }
+}
+impl Eq for VMInstance {}
 
 impl Drop for InstanceAllocation {
     fn drop(&mut self) {
-        // As in InstanceAllocator, allocation custody needs its own Drop guard.
-        // Instance fields can release user-owned imports and panic; free the
-        // raw allocation after their ordinary unwind cleanup has completed.
-        struct Deallocate {
-            pointer: NonNull<Instance>,
-            layout: Layout,
-        }
-        impl Drop for Deallocate {
-            fn drop(&mut self) {
-                unsafe { std::alloc::dealloc(self.pointer.as_ptr().cast(), self.layout) };
-            }
-        }
-        let _deallocate = Deallocate {
-            pointer: self.instance,
-            layout: self.instance_layout,
-        };
+        // Only nominal Instance fields are dropped here. The vmctx tail was
+        // initialized separately and stays valid for detached definition owners.
+        // The storage field is released after this Drop body, also on unwind.
         unsafe { self.instance.as_ptr().drop_in_place() };
     }
 }
@@ -1283,6 +1276,12 @@ impl VMInstance {
     #[doc(hidden)]
     pub fn owner_count(&self) -> usize {
         Rc::strong_count(&self.allocation)
+    }
+
+    /// Number of owners retaining the raw definition storage, without access.
+    #[doc(hidden)]
+    pub fn storage_owner_count(&self) -> usize {
+        Arc::strong_count(&self.allocation.storage)
     }
 
     /// Finishes the instantiation process started by `Instance::new`.

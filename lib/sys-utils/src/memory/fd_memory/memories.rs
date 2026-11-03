@@ -38,6 +38,8 @@ struct WasmMmap {
     size: Pages,
     /// The owned memory definition used by the generated code
     vm_memory_definition: MaybeInstanceOwned<VMMemoryDefinition>,
+    // Keep the separately initialized definition alive, including detached clones.
+    _definition_storage: Option<Arc<wasmer_vm::VMInstanceStorage>>,
 }
 
 /// # SAFETY: Not safe by rust standards, since guest code may do weird things
@@ -174,6 +176,7 @@ impl WasmMmap {
             ))),
             alloc,
             size: self.size,
+            _definition_storage: None,
         })
     }
 }
@@ -232,21 +235,32 @@ impl VMOwnedMemory {
     /// `vm_memory_location`: this can be used to create a local memory.
     ///
     /// # Safety
-    /// - `vm_memory_location` must point to a valid location in VM memory.
+    /// The location must provide aligned, exclusively writable storage for
+    /// initialization. A managed token retains its allocation; for an unmanaged
+    /// raw pointer, the caller must retain the bytes until the last physical
+    /// owner/clone is gone. Later access still requires the original Store or
+    /// memory synchronization; allocation custody alone grants no data access.
     pub unsafe fn from_definition(
         memory: &MemoryType,
         style: &MemoryStyle,
-        vm_memory_location: NonNull<VMMemoryDefinition>,
+        vm_memory_location: impl Into<wasmer_vm::VMDefinitionLocation<VMMemoryDefinition>>,
     ) -> Result<Self, MemoryError> {
-        unsafe { Self::new_internal(memory, style, Some(vm_memory_location)) }
+        unsafe { Self::new_internal(memory, style, Some(vm_memory_location.into())) }
     }
 
     /// Build a `Memory` with either self-owned or VM owned metadata.
     unsafe fn new_internal(
         memory: &MemoryType,
         style: &MemoryStyle,
-        vm_memory_location: Option<NonNull<VMMemoryDefinition>>,
+        vm_memory_location: Option<wasmer_vm::VMDefinitionLocation<VMMemoryDefinition>>,
     ) -> Result<Self, MemoryError> {
+        let (vm_memory_location, definition_storage) = match vm_memory_location {
+            Some(location) => {
+                let (pointer, storage) = location.into_parts();
+                (Some(pointer), storage)
+            }
+            None => (None, None),
+        };
         if memory.minimum > Pages::max_value() {
             return Err(MemoryError::MinimumMemoryTooLarge {
                 min_requested: memory.minimum,
@@ -294,10 +308,12 @@ impl VMOwnedMemory {
         let mmap = WasmMmap {
             vm_memory_definition: if let Some(mem_loc) = vm_memory_location {
                 {
-                    let mut ptr = mem_loc;
-                    let md = unsafe { ptr.as_mut() };
-                    md.base = base_ptr;
-                    md.current_length = mem_length;
+                    unsafe {
+                        mem_loc.as_ptr().write(VMMemoryDefinition {
+                            base: base_ptr,
+                            current_length: mem_length,
+                        });
+                    }
                 }
                 MaybeInstanceOwned::Instance(mem_loc)
             } else {
@@ -308,6 +324,7 @@ impl VMOwnedMemory {
             },
             alloc,
             size: memory.minimum,
+            _definition_storage: definition_storage,
         };
 
         Ok(Self {
@@ -417,11 +434,15 @@ impl VMSharedMemory {
     /// `vm_memory_location`: this can be used to create a local memory.
     ///
     /// # Safety
-    /// - `vm_memory_location` must point to a valid location in VM memory.
+    /// The location must provide aligned, exclusively writable storage for
+    /// initialization. A managed token retains its allocation; for an unmanaged
+    /// raw pointer, the caller must retain the bytes until the last physical
+    /// owner/clone is gone. Later access still requires the original Store or
+    /// memory synchronization; allocation custody alone grants no data access.
     pub unsafe fn from_definition(
         memory: &MemoryType,
         style: &MemoryStyle,
-        vm_memory_location: NonNull<VMMemoryDefinition>,
+        vm_memory_location: impl Into<wasmer_vm::VMDefinitionLocation<VMMemoryDefinition>>,
     ) -> Result<Self, MemoryError> {
         let owned = unsafe { VMOwnedMemory::from_definition(memory, style, vm_memory_location)? };
         Ok(owned.to_shared())
@@ -630,11 +651,15 @@ impl VMMemory {
     /// `vm_memory_location`: this can be used to create a local memory.
     ///
     /// # Safety
-    /// - `vm_memory_location` must point to a valid location in VM memory.
+    /// The location must provide aligned, exclusively writable storage for
+    /// initialization. A managed token retains its allocation; for an unmanaged
+    /// raw pointer, the caller must retain the bytes until the last physical
+    /// owner/clone is gone. Later access still requires the original Store or
+    /// memory synchronization; allocation custody alone grants no data access.
     pub unsafe fn from_definition(
         memory: &MemoryType,
         style: &MemoryStyle,
-        vm_memory_location: NonNull<VMMemoryDefinition>,
+        vm_memory_location: impl Into<wasmer_vm::VMDefinitionLocation<VMMemoryDefinition>>,
     ) -> Result<Self, MemoryError> {
         Ok(if memory.shared {
             let shared =

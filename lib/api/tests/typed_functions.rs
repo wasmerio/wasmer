@@ -353,7 +353,7 @@ mod target_ownership {
             &self,
             ty: &MemoryType,
             style: &wasmer::sys::vm::MemoryStyle,
-            location: std::ptr::NonNull<wasmer::sys::vm::VMMemoryDefinition>,
+            location: wasmer::sys::vm::VMDefinitionLocation<wasmer::sys::vm::VMMemoryDefinition>,
         ) -> Result<wasmer::sys::vm::VMMemory, wasmer::sys::vm::MemoryError> {
             unsafe { self.base.create_vm_memory(ty, style, location) }
         }
@@ -368,7 +368,7 @@ mod target_ownership {
             &self,
             ty: &TableType,
             style: &wasmer::sys::vm::TableStyle,
-            location: std::ptr::NonNull<wasmer::sys::vm::VMTableDefinition>,
+            location: wasmer::sys::vm::VMDefinitionLocation<wasmer::sys::vm::VMTableDefinition>,
         ) -> Result<wasmer::sys::vm::VMTable, String> {
             unsafe { self.base.create_vm_table(ty, style, location) }
         }
@@ -383,7 +383,9 @@ mod target_ownership {
                 wasmer_types::MemoryIndex,
                 wasmer::sys::vm::MemoryStyle,
             >,
-            locations: &[std::ptr::NonNull<wasmer::sys::vm::VMMemoryDefinition>],
+            locations: &[wasmer::sys::vm::VMDefinitionLocation<
+                wasmer::sys::vm::VMMemoryDefinition,
+            >],
         ) -> Result<
             wasmer_types::entity::PrimaryMap<
                 wasmer_types::LocalMemoryIndex,

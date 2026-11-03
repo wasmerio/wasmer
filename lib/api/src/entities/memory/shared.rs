@@ -394,4 +394,193 @@ mod tests {
         assert_send::<super::MemoryOps>();
         assert_sync::<super::MemoryOps>();
     }
+    #[cfg(all(feature = "sys", feature = "wat", feature = "compiler"))]
+    #[test]
+    fn defined_shared_memory_retains_its_metadata_after_store_drop_and_worker_reattach() {
+        use crate::{AsStoreMut, Function, Instance, Module, Store, imports};
+        use std::sync::{
+            Arc,
+            atomic::{AtomicUsize, Ordering},
+        };
+        use wasmer_vm::{StoreObject, VMInstance};
+        struct OwnerThreadDrop {
+            owner: std::thread::ThreadId,
+            drops: Arc<AtomicUsize>,
+        }
+        impl Drop for OwnerThreadDrop {
+            fn drop(&mut self) {
+                assert_eq!(self.owner, std::thread::current().id());
+                self.drops.fetch_add(1, Ordering::SeqCst);
+            }
+        }
+        fn send_sync<T: Send + Sync>() {}
+        send_sync::<wasmer_vm::VMInstanceStorage>();
+        let drops = Arc::new(AtomicUsize::new(0));
+        let shared = {
+            let mut store = Store::default();
+            let probe = OwnerThreadDrop {
+                owner: std::thread::current().id(),
+                drops: drops.clone(),
+            };
+            let host = Function::new_typed(&mut store, move || {
+                std::hint::black_box(&probe);
+            });
+            let module = Module::new(
+                &store,
+                r#"(module
+                (import "env" "host" (func))
+                (memory (export "memory") 1 3 shared))"#,
+            )
+            .unwrap();
+            let instance = Instance::new(
+                &mut store,
+                &module,
+                &imports! { "env" => { "host" => host } },
+            )
+            .unwrap();
+            let memory = instance.exports.get_memory("memory").unwrap();
+            memory.view(&store).write(0, &[42]).unwrap();
+            let shared = memory.as_shared(&store).unwrap();
+            // Missing memory-side custody must fail before destroying or reading
+            // the original inline definition after Store destruction.
+            assert!(
+                VMInstance::list(store.objects_mut().as_sys_mut())[0].storage_owner_count() > 1,
+                "defined memory has no independent definition storage owner"
+            );
+            shared
+        };
+        assert_eq!(
+            drops.load(Ordering::SeqCst),
+            1,
+            "detached memory must not retain Instance fields or its Store"
+        );
+        let shared = std::thread::spawn(move || {
+            let mut store = Store::default();
+            let memory = shared.clone().try_attach(&mut store).unwrap();
+            assert_eq!(memory.ty(&store).minimum, crate::Pages(1));
+            assert_eq!(
+                memory.grow(&mut store, crate::Pages(1)).unwrap(),
+                crate::Pages(1)
+            );
+            assert_eq!(memory.ty(&store).minimum, crate::Pages(2));
+            let mut byte = [0];
+            memory.view(&store).read(0, &mut byte).unwrap();
+            assert_eq!(byte, [42]);
+            let module = Module::new(
+                &store,
+                r#"(module
+                (import "env" "memory" (memory 1 3 shared))
+                (func (export "size") (result i32) memory.size))"#,
+            )
+            .unwrap();
+            let instance = Instance::new(
+                &mut store,
+                &module,
+                &imports! { "env" => { "memory" => memory } },
+            )
+            .unwrap();
+            assert_eq!(
+                instance
+                    .exports
+                    .get_typed_function::<(), i32>(&store, "size")
+                    .unwrap()
+                    .call(&mut store)
+                    .unwrap(),
+                2
+            );
+            drop(store);
+            shared
+        })
+        .join()
+        .unwrap();
+        assert_eq!(shared.host_data().unwrap().1, 2 * 65536);
+        drop(shared);
+        assert_eq!(drops.load(Ordering::SeqCst), 1);
+    }
+
+    #[cfg(all(feature = "sys", feature = "wat", feature = "compiler"))]
+    #[test]
+    fn a_partial_instantiation_error_keeps_published_definition_storage_alive() {
+        use crate::sys::{BaseTunables, NativeEngineExt, Tunables};
+        use crate::{Imports, Instance, Module, Store};
+        use std::sync::{Arc, Mutex, Weak};
+        use wasmer_types::{MemoryStyle, MemoryType, TableStyle, TableType};
+        use wasmer_vm::{
+            LinearMemory, MemoryError, VMDefinitionLocation, VMInstanceStorage, VMMemory,
+            VMMemoryDefinition, VMSharedMemory, VMTable, VMTableDefinition,
+        };
+        type PublishedMemory = Arc<Mutex<Option<(VMSharedMemory, Weak<VMInstanceStorage>)>>>;
+        struct FailAfterMemory {
+            base: BaseTunables,
+            published: PublishedMemory,
+        }
+        impl Tunables for FailAfterMemory {
+            fn memory_style(&self, ty: &MemoryType) -> MemoryStyle {
+                self.base.memory_style(ty)
+            }
+            fn table_style(&self, ty: &TableType) -> TableStyle {
+                self.base.table_style(ty)
+            }
+            fn create_host_memory(
+                &self,
+                ty: &MemoryType,
+                style: &MemoryStyle,
+            ) -> Result<VMMemory, MemoryError> {
+                self.base.create_host_memory(ty, style)
+            }
+            unsafe fn create_vm_memory(
+                &self,
+                ty: &MemoryType,
+                style: &MemoryStyle,
+                location: VMDefinitionLocation<VMMemoryDefinition>,
+            ) -> Result<VMMemory, MemoryError> {
+                let owner = Arc::downgrade(location.storage().expect("managed definition storage"));
+                // SAFETY: pass the location's exact pointer and custody together.
+                let memory = unsafe { self.base.create_vm_memory(ty, style, location)? };
+                let shared = memory.as_shared()?;
+                *self.published.lock().unwrap() = Some((shared, owner));
+                Ok(memory)
+            }
+            fn create_host_table(
+                &self,
+                ty: &TableType,
+                style: &TableStyle,
+            ) -> Result<VMTable, String> {
+                self.base.create_host_table(ty, style)
+            }
+            unsafe fn create_vm_table(
+                &self,
+                _ty: &TableType,
+                _style: &TableStyle,
+                _location: VMDefinitionLocation<VMTableDefinition>,
+            ) -> Result<VMTable, String> {
+                Err("intentional failure after publishing the memory".into())
+            }
+        }
+        let published = Arc::new(Mutex::new(None));
+        let mut store = Store::default();
+        store.engine_mut().set_tunables(FailAfterMemory {
+            base: BaseTunables::new(),
+            published: published.clone(),
+        });
+        let module =
+            Module::new(&store, r#"(module (memory 1 3 shared) (table 1 funcref))"#).unwrap();
+        assert!(Instance::new(&mut store, &module, &Imports::new()).is_err());
+        let (mut memory, owner) = published.lock().unwrap().take().unwrap();
+        drop(store);
+        // Assert custody before touching a definition whose allocator unwound.
+        assert!(
+            owner.upgrade().is_some(),
+            "partial-error publication lost definition storage"
+        );
+        assert_eq!(memory.ty().minimum, crate::Pages(1));
+        assert_eq!(memory.grow(crate::Pages(1)).unwrap(), crate::Pages(1));
+        let copy = memory.copy().unwrap();
+        drop(memory);
+        assert!(
+            owner.upgrade().is_none(),
+            "a physical copy retained the source definition storage"
+        );
+        assert_eq!(copy.ty().minimum, crate::Pages(2));
+    }
 }
