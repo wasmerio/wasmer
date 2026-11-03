@@ -169,14 +169,22 @@ pub unsafe extern "C" fn wasmer_vm_memory32_grow(
     memory_index: u32,
 ) -> u32 {
     unsafe {
-        on_host_stack(|| {
-            let instance = (*vmctx).instance_mut();
-            let memory_index = LocalMemoryIndex::from_u32(memory_index);
+        let result = on_host_stack(|| {
+            panic::catch_unwind(panic::AssertUnwindSafe(|| {
+                let instance = (*vmctx).instance_mut();
+                let memory_index = LocalMemoryIndex::from_u32(memory_index);
 
-            instance
-                .memory_grow(memory_index, delta_in_pages)
-                .map_or(u32::MAX, |pages| pages.0)
-        })
+                instance
+                    .memory_grow(memory_index, delta_in_pages)
+                    .map_or(u32::MAX, |pages| pages.0)
+            }))
+        });
+        // End the custom memory operation and restore the host-stack scope
+        // before transporting a panic across the compiled Wasm frames.
+        match result {
+            Ok(pages) => pages,
+            Err(panic) => crate::trap::resume_panic(panic),
+        }
     }
 }
 
@@ -192,14 +200,22 @@ pub unsafe extern "C" fn wasmer_vm_imported_memory32_grow(
     memory_index: u32,
 ) -> u32 {
     unsafe {
-        on_host_stack(|| {
-            let instance = (*vmctx).instance_mut();
-            let memory_index = MemoryIndex::from_u32(memory_index);
+        let result = on_host_stack(|| {
+            panic::catch_unwind(panic::AssertUnwindSafe(|| {
+                let instance = (*vmctx).instance_mut();
+                let memory_index = MemoryIndex::from_u32(memory_index);
 
-            instance
-                .imported_memory_grow(memory_index, delta_in_pages)
-                .map_or(u32::MAX, |pages| pages.0)
-        })
+                instance
+                    .imported_memory_grow(memory_index, delta_in_pages)
+                    .map_or(u32::MAX, |pages| pages.0)
+            }))
+        });
+        // End the custom memory operation and restore the host-stack scope
+        // before transporting a panic across the compiled Wasm frames.
+        match result {
+            Ok(pages) => pages,
+            Err(panic) => crate::trap::resume_panic(panic),
+        }
     }
 }
 
