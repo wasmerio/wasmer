@@ -33,3 +33,6 @@ pub use wasmer_compiler_singlepass::Singlepass;
 
 #[doc(hidden)]
 pub use wasmer_vm::{HostMemoryMappingChange, HostMemoryPin};
+
+#[doc(hidden)]
+pub use entities::function::env::FunctionEnvFramePin;
