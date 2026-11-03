@@ -327,7 +327,11 @@ impl InstanceAllocator {
 
     /// Finish preparing by writing the internal `Instance` into memory, and
     /// consume this `InstanceAllocator`.
-    pub(crate) fn into_vminstance(self, instance: Instance) -> VMInstance {
+    pub(crate) fn into_vminstance(
+        self,
+        instance: Instance,
+        store_id: wasmer_types::StoreId,
+    ) -> VMInstance {
         unsafe {
             // `instance` is moved at `Self.instance_ptr`. This
             // pointer has been allocated by `Self::allocate_instance`
@@ -343,6 +347,7 @@ impl InstanceAllocator {
             allocation: Rc::new(InstanceAllocation {
                 instance,
                 storage: self.storage.clone(),
+                store_id,
             }),
         }
     }

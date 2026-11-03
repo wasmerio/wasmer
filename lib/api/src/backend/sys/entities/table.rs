@@ -44,16 +44,25 @@ fn value_to_table_element(
     })
 }
 
-fn value_from_table_element(store: &mut impl AsStoreMut, item: wasmer_vm::TableElement) -> Value {
+fn value_from_table_element(
+    store: &mut impl AsStoreMut,
+    item: wasmer_vm::TableElement,
+) -> Option<Value> {
     match item {
-        wasmer_vm::TableElement::FuncRef(funcref) => Value::FuncRef(
-            funcref
-                .map(|f| unsafe { Function::from_vm_funcref(store, crate::vm::VMFuncRef::Sys(f)) }),
-        ),
+        wasmer_vm::TableElement::FuncRef(None) => Some(Value::FuncRef(None)),
+        wasmer_vm::TableElement::FuncRef(Some(reference)) => {
+            let function =
+                crate::backend::sys::entities::function::Function::from_owned_table_funcref(
+                    store, reference,
+                )?;
+            Some(Value::FuncRef(Some(Function(crate::BackendFunction::Sys(
+                function,
+            )))))
+        }
         wasmer_vm::TableElement::ExternRef(extern_ref) => {
-            Value::ExternRef(extern_ref.map(|e| unsafe {
+            Some(Value::ExternRef(extern_ref.map(|e| unsafe {
                 ExternRef::from_vm_externref(store, crate::vm::VMExternRef::Sys(e))
-            }))
+            })))
         }
     }
 }
@@ -94,7 +103,7 @@ impl Table {
             .handle
             .get(store.as_store_ref().objects().as_sys())
             .get(index)?;
-        Some(value_from_table_element(store, item))
+        value_from_table_element(store, item)
     }
 
     pub(crate) fn set(

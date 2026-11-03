@@ -811,4 +811,348 @@ mod target_ownership {
             &[Value::I32(9)]
         );
     }
+    #[test]
+    fn table_callbacks_capture_their_live_instance_before_removing_its_rows() {
+        for typed in [false, true] {
+            let mut store = Store::default();
+            let drops = Arc::new(AtomicUsize::new(0));
+            let probe = Capture(drops.clone());
+            let env = FunctionEnv::new(&mut store, ());
+            let host = Function::new_typed_with_env(
+                &mut store,
+                &env,
+                move |mut env: FunctionEnvMut<()>| -> i32 {
+                    std::hint::black_box(&probe);
+                    let mut actual = env.as_store_mut();
+                    let objects = actual.objects_mut().as_sys_mut();
+                    assert!(
+                        VMFunction::list(objects).last().unwrap().owner_count() > 1,
+                        "active table callback has no independent call snapshot"
+                    );
+                    VMFunction::list_mut(objects).clear();
+                    assert_eq!(probe.0.load(Ordering::SeqCst), 0);
+                    41
+                },
+            );
+            let module = Module::new(
+                &store,
+                r#"(module
+                (import "env" "host" (func $host (result i32)))
+                (table (export "callbacks") 4 funcref)
+                (func $anchor (result i32) i32.const 0)
+                (func $other (result i32) i32.const 42)
+                (func $callback (result i32) call $host i32.const 1 i32.add)
+                (elem (i32.const 0) $anchor $other $callback))"#,
+            )
+            .unwrap();
+            let instance = Instance::new(
+                &mut store,
+                &module,
+                &imports! { "env" => { "host" => host } },
+            )
+            .unwrap();
+            let table = instance.exports.get_table("callbacks").unwrap();
+            let Value::FuncRef(Some(anchor)) = table.get(&mut store, 0).unwrap() else {
+                panic!("anchor")
+            };
+            assert!(
+                VMInstance::list(store.objects_mut().as_sys_mut())[0].owner_count() > 1,
+                "table lookup did not retain its current Instance allocation"
+            );
+            // With the source row gone, the anchor's local allocation pin must
+            // resolve a DIFFERENT private function in the same allocation.
+            let retired = VMInstance::list_mut(store.objects_mut().as_sys_mut())
+                .pop()
+                .unwrap();
+            drop(retired);
+            let Value::FuncRef(Some(other)) = table.get(&mut store, 1).unwrap() else {
+                panic!("other")
+            };
+            assert_eq!(
+                other
+                    .typed::<(), i32>(&store)
+                    .unwrap()
+                    .call(&mut store)
+                    .unwrap(),
+                42
+            );
+            let local_ids: Vec<_> = VMFunction::list(store.objects_mut().as_sys_mut())
+                .iter()
+                .filter(|target| target.instance_owner_count().is_some())
+                .map(VMFunction::id)
+                .collect();
+            // The next lookup must reach A through B's immutable import pin,
+            // after every A descriptor has also left the Store function vector.
+            let dependent = Module::new(
+                &store,
+                r#"(module
+                (import "env" "anchor" (func (result i32)))
+                (table (export "unused") 0 funcref))"#,
+            )
+            .unwrap();
+            let _dependent = Instance::new(
+                &mut store,
+                &dependent,
+                &imports! { "env" => { "anchor" => anchor } },
+            )
+            .unwrap();
+            VMFunction::list_mut(store.objects_mut().as_sys_mut())
+                .retain(|target| !local_ids.contains(&target.id()));
+            let Value::FuncRef(Some(callback)) = table.get(&mut store, 2).unwrap() else {
+                panic!("callback")
+            };
+            assert!(
+                VMFunction::list(store.objects_mut().as_sys_mut())
+                    .last()
+                    .unwrap()
+                    .instance_owner_count()
+                    .is_some_and(|count| count > 1),
+                "import-DAG lookup did not independently retain the callback allocation"
+            );
+            let dependent = VMInstance::list_mut(store.objects_mut().as_sys_mut())
+                .pop()
+                .unwrap();
+            drop(dependent);
+            assert_eq!(drops.load(Ordering::SeqCst), 0);
+            assert!(matches!(
+                table.get(&mut store, 3),
+                Some(Value::FuncRef(None))
+            ));
+            if typed {
+                assert_eq!(
+                    callback
+                        .typed::<(), i32>(&store)
+                        .unwrap()
+                        .call(&mut store)
+                        .unwrap(),
+                    42
+                );
+            } else {
+                assert_eq!(&*callback.call(&mut store, &[]).unwrap(), &[Value::I32(42)]);
+            }
+            assert_eq!(drops.load(Ordering::SeqCst), 1);
+        }
+    }
+
+    #[test]
+    #[cfg(feature = "experimental-async")]
+    fn pending_table_callbacks_keep_their_removed_instance_until_retirement() {
+        use std::{
+            future::Future,
+            task::{Context, Waker},
+        };
+        let mut store = Store::default();
+        let drops = Arc::new(AtomicUsize::new(0));
+        let probe = Capture(drops.clone());
+        let env = FunctionEnv::new(&mut store, ());
+        let host = Function::new_typed_with_env_async(
+            &mut store,
+            &env,
+            move |env: AsyncFunctionEnvMut<()>| {
+                std::hint::black_box(&probe);
+                async move {
+                    let mut write = env.write().await;
+                    let mut actual = write.as_store_mut();
+                    let objects = actual.objects_mut().as_sys_mut();
+                    assert!(
+                        VMInstance::list(objects)[0].owner_count() > 1,
+                        "pending table callback has no Instance allocation owner"
+                    );
+                    let retired = VMInstance::list_mut(objects).pop().unwrap();
+                    drop(retired);
+                    VMFunction::list_mut(objects).clear();
+                    drop(write);
+                    std::future::pending::<Result<i32, RuntimeError>>().await
+                }
+            },
+        );
+        let module = Module::new(
+            &store,
+            r#"(module
+            (import "env" "host" (func $host (result i32)))
+            (table (export "callbacks") 1 funcref)
+            (func $callback (result i32) call $host)
+            (elem (i32.const 0) $callback))"#,
+        )
+        .unwrap();
+        let instance = Instance::new(
+            &mut store,
+            &module,
+            &imports! { "env" => { "host" => host } },
+        )
+        .unwrap();
+        let table = instance.exports.get_table("callbacks").unwrap();
+        let Value::FuncRef(Some(callback)) = table.get(&mut store, 0).unwrap() else {
+            panic!("callback")
+        };
+        assert!(
+            VMInstance::list(store.objects_mut().as_sys_mut())[0].owner_count() > 1,
+            "table lookup did not retain its current Instance allocation"
+        );
+        let store = store.into_async();
+        let mut call = Box::pin(callback.call_async(&store, vec![]));
+        assert!(
+            call.as_mut()
+                .poll(&mut Context::from_waker(Waker::noop()))
+                .is_pending()
+        );
+        assert_eq!(drops.load(Ordering::SeqCst), 0);
+        drop(call);
+        assert_eq!(drops.load(Ordering::SeqCst), 1);
+        let mut write = store.store().write();
+        let fresh = Function::new_typed(&mut write.as_store_mut(), || -> i32 { 9 });
+        assert_eq!(
+            &*fresh.call(&mut write.as_store_mut(), &[]).unwrap(),
+            &[Value::I32(9)]
+        );
+    }
+
+    #[test]
+    fn table_lookup_checks_instance_origin_and_refuses_an_empty_owner_inventory() {
+        use wasmer::sys::vm::{StoreHandle, VMExtern, VMTable};
+        let mut store = Store::default();
+        let module = Module::new(
+            &store,
+            r#"(module
+            (table (export "callbacks") 1 funcref)
+            (func $callback (result i32) i32.const 42)
+            (elem (i32.const 0) $callback))"#,
+        )
+        .unwrap();
+        let instance = Instance::new(&mut store, &module, &Imports::new()).unwrap();
+        let table = instance.exports.get_table("callbacks").unwrap();
+        let original = store.id();
+        let mut other = Store::default();
+        let other_epoch = other.id();
+        other.objects_mut().as_sys_mut().set_id(original);
+        let copied = VMTable::list(store.objects_mut().as_sys_mut())[0]
+            .copy_on_write()
+            .unwrap();
+        let handle = StoreHandle::new(other.objects_mut().as_sys_mut(), copied);
+        let raw = VMExtern::Table(handle.internal_handle());
+        let wasmer::Extern::Table(other_table) =
+            wasmer::VMExternToExtern::to_extern(raw, &mut other)
+        else {
+            panic!("table")
+        };
+        let moved = VMInstance::list_mut(store.objects_mut().as_sys_mut())
+            .pop()
+            .unwrap();
+        VMInstance::list_mut(other.objects_mut().as_sys_mut()).push(moved);
+        // Equal IDs isolate the actual Store-address check. No wrong-context
+        // pointer is dereferenced to reject this transplanted Instance row.
+        assert!(
+            other_table.get(&mut other, 0).is_none(),
+            "table lookup accepted a transplanted Instance"
+        );
+        let moved = VMInstance::list_mut(other.objects_mut().as_sys_mut())
+            .pop()
+            .unwrap();
+        VMInstance::list_mut(store.objects_mut().as_sys_mut()).push(moved);
+        drop(other);
+
+        let copied = VMTable::list(store.objects_mut().as_sys_mut())[0]
+            .copy_on_write()
+            .unwrap();
+        store.objects_mut().as_sys_mut().set_id(other_epoch);
+        let handle = StoreHandle::new(store.objects_mut().as_sys_mut(), copied);
+        let raw = VMExtern::Table(handle.internal_handle());
+        let wasmer::Extern::Table(rebound) = wasmer::VMExternToExtern::to_extern(raw, &mut store)
+        else {
+            panic!("table")
+        };
+        // The current table handle and actual address match; only the immutable
+        // Instance birth identity can reject rebinding its old code metadata.
+        assert!(
+            rebound.get(&mut store, 0).is_none(),
+            "table lookup rebound an old Instance epoch"
+        );
+        store.objects_mut().as_sys_mut().set_id(original);
+        let Value::FuncRef(Some(callback)) = table.get(&mut store, 0).unwrap() else {
+            panic!("callback")
+        };
+        assert_eq!(
+            callback
+                .typed::<(), i32>(&store)
+                .unwrap()
+                .call(&mut store)
+                .unwrap(),
+            42
+        );
+        VMFunction::list_mut(store.objects_mut().as_sys_mut()).clear();
+        VMInstance::list_mut(store.objects_mut().as_sys_mut()).clear();
+        // With no current owner candidates the API refuses the raw entry without
+        // dereferencing its freed anyfunc. This is not a pointer-ABA guarantee.
+        assert!(table.get(&mut store, 0).is_none());
+    }
+
+    #[test]
+    fn table_host_aliases_keep_the_original_host_calling_convention() {
+        for dynamic in [false, true] {
+            let mut store = Store::default();
+            let host = if dynamic {
+                Function::new(&mut store, FunctionType::new([], [Type::I32]), |_| {
+                    Ok(vec![Value::I32(42)])
+                })
+            } else {
+                Function::new_typed(&mut store, || -> i32 { 42 })
+            };
+            let module = Module::new(
+                &store,
+                r#"(module
+                (import "env" "host" (func $host (result i32)))
+                (table (export "callbacks") 1 funcref)
+                (elem (i32.const 0) $host))"#,
+            )
+            .unwrap();
+            let instance = Instance::new(
+                &mut store,
+                &module,
+                &imports! { "env" => { "host" => host } },
+            )
+            .unwrap();
+            let table = instance.exports.get_table("callbacks").unwrap();
+            let Value::FuncRef(Some(callback)) = table.get(&mut store, 0).unwrap() else {
+                panic!("callback")
+            };
+            assert!(
+                !VMFunction::list(store.objects_mut().as_sys_mut())
+                    .last()
+                    .unwrap()
+                    .host_data()
+                    .is::<()>(),
+                "a host table alias gained the Wasm-only memory-zero parameter"
+            );
+            assert_eq!(
+                callback
+                    .typed::<(), i32>(&store)
+                    .unwrap()
+                    .call(&mut store)
+                    .unwrap(),
+                42
+            );
+            let module = Module::new(
+                &store,
+                r#"(module
+                (import "env" "callback" (func $callback (result i32)))
+                (func (export "run") (result i32) call $callback))"#,
+            )
+            .unwrap();
+            let instance = Instance::new(
+                &mut store,
+                &module,
+                &imports! { "env" => { "callback" => callback } },
+            )
+            .unwrap();
+            assert_eq!(
+                instance
+                    .exports
+                    .get_typed_function::<(), i32>(&store, "run")
+                    .unwrap()
+                    .call(&mut store)
+                    .unwrap(),
+                42
+            );
+        }
+    }
 }

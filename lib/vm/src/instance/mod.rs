@@ -1101,6 +1101,54 @@ pub struct VMInstance {
 pub(crate) struct InstanceAllocation {
     instance: NonNull<Instance>,
     storage: Arc<VMInstanceStorage>,
+    store_id: wasmer_types::StoreId,
+}
+
+impl InstanceAllocation {
+    fn is_from_store(&self, store: &StoreObjects) -> bool {
+        if self.store_id != store.id() {
+            return false;
+        }
+        // Read only the owned Instance header; compare the stored pointer before
+        // dereferencing any Store context that a transplanted row may name.
+        std::ptr::eq(unsafe { self.instance.as_ref() }.context, store)
+    }
+
+    pub(crate) fn local_ref_target(
+        owner: &Rc<Self>,
+        store: &StoreObjects,
+        reference: VMFuncRef,
+    ) -> Option<VMFunction> {
+        if !owner.is_from_store(store) {
+            return None;
+        }
+        let instance = unsafe { owner.instance.as_ref() };
+        let local = instance
+            .funcrefs
+            .keys()
+            .find(|&index| NonNull::from(&instance.funcrefs[index]) == reference.0)?;
+        let signature = instance.module.signatures
+            [instance.module.functions[instance.module.func_index(local)]]
+        .clone();
+        // SAFETY: pointer equality selected metadata in this exact live
+        // allocation, whose original Store address and birth identity match.
+        Some(unsafe { VMFunction::new_local(reference.0, signature, store, owner.clone()) })
+    }
+
+    pub(crate) fn add_import_targets(
+        &self,
+        store: &StoreObjects,
+        targets: &mut Vec<crate::VMFunctionPin>,
+    ) {
+        if self.is_from_store(store) {
+            targets.extend(
+                unsafe { self.instance.as_ref() }
+                    .function_import_pins
+                    .values()
+                    .cloned(),
+            );
+        }
+    }
 }
 
 impl PartialEq for VMInstance {
@@ -1157,6 +1205,7 @@ impl VMInstance {
         vmshared_signatures: BoxedSlice<SignatureIndex, VMSignatureHash>,
     ) -> Result<Self, Trap> {
         unsafe {
+            let birth_store_id = context.id();
             let vmctx_tags = tags
                 .values()
                 .map(|m: &InternalStoreHandle<VMTag>| VMSharedTagIndex::new(m.index() as u32))
@@ -1197,7 +1246,7 @@ impl VMInstance {
                     vmctx: VMContext {},
                 };
 
-                let mut instance_handle = allocator.into_vminstance(instance);
+                let mut instance_handle = allocator.into_vminstance(instance, birth_store_id);
 
                 // Set the funcrefs after we've built the instance
                 {
@@ -1270,6 +1319,10 @@ impl VMInstance {
     /// Return a mutable reference to the contained `Instance`.
     pub(crate) fn instance_mut(&mut self) -> &mut Instance {
         unsafe { &mut *self.allocation.instance.as_ptr() }
+    }
+
+    pub(crate) fn allocation_pin(&self) -> Rc<InstanceAllocation> {
+        self.allocation.clone()
     }
 
     /// Number of owners retaining this Instance allocation, without access to it.
