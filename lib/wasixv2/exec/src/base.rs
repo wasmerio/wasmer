@@ -86,6 +86,9 @@ mod linux {
                     return Ok(None);
                 }
             };
+            let mapping = memory
+                .begin_host_mapping_change(store, 0..base.len)
+                .map_err(io::Error::other)?;
             let ptr = view.data_ptr();
             // SAFETY: the start of the memory's own mapping, at least `len` bytes (its size
             // then), page aligned, with nothing referring into it; the file holds every byte of
@@ -95,6 +98,8 @@ mod linux {
                 // SAFETY: as above; the range is fresh zeroed pages after this.
                 unsafe { wasixv2_pages::map_private_at(ptr, base.len as usize)? };
                 base.copy_out(&view)?;
+                // SAFETY: successful fallback installed anonymous private writable pages.
+                unsafe { mapping.commit_private() };
                 return Ok(None);
             }
             Ok(Some(Arc::new(base)))
