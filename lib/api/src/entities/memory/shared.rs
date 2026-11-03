@@ -14,6 +14,8 @@ use crate::{
 pub struct SharedMemory {
     memory: VMSharedMemory,
     ops: Option<Arc<dyn SharedMemoryOps + Send + Sync>>,
+    #[cfg(feature = "sys")]
+    native_owner: Option<Arc<wasmer_vm::VMMemory>>,
 }
 
 /// Shared memory operations that do not hold the underlying memory alive.
@@ -42,6 +44,8 @@ impl Clone for SharedMemory {
         Self {
             memory: self.memory.clone(),
             ops: self.ops.clone(),
+            #[cfg(feature = "sys")]
+            native_owner: self.native_owner.clone(),
         }
     }
 }
@@ -49,7 +53,12 @@ impl Clone for SharedMemory {
 impl SharedMemory {
     /// Create a new shared memory.
     pub(crate) fn new(memory: VMSharedMemory) -> Self {
-        Self { memory, ops: None }
+        Self {
+            memory,
+            ops: None,
+            #[cfg(feature = "sys")]
+            native_owner: None,
+        }
     }
 
     /// Create a new shared memory with memory operations.
@@ -60,7 +69,25 @@ impl SharedMemory {
         Self {
             memory,
             ops: Some(ops),
+            #[cfg(feature = "sys")]
+            native_owner: None,
         }
+    }
+
+    // Keep custom LinearMemory wrappers through detach/reattach. Flattening to
+    // VMSharedMemory alone loses allocation accounting and wrapped growth.
+    #[cfg(feature = "sys")]
+    pub(crate) fn new_native(
+        memory: VMSharedMemory,
+        owner: wasmer_vm::VMMemory,
+        ops: Option<Arc<dyn SharedMemoryOps + Send + Sync>>,
+    ) -> Self {
+        let mut shared = match ops {
+            Some(ops) => Self::new_with_ops(memory, ops),
+            None => Self::new(memory),
+        };
+        shared.native_owner = Some(Arc::new(owner));
+        shared
     }
 
     /// Attach this shared memory to the provided store.
@@ -76,8 +103,16 @@ impl SharedMemory {
     ///
     /// On the `js` backend this fails if the memory has not been delivered to
     /// the current worker (see `wasmer::js::receive_shared_object_message`).
-    /// Other backends always succeed.
+    /// Custom native memory wrappers may reject cloning for a new attachment.
     pub fn try_attach(self, store: &mut impl AsStoreMut) -> Result<Memory, MemoryError> {
+        #[cfg(feature = "sys")]
+        if let Some(owner) = self.native_owner {
+            let memory = match Arc::try_unwrap(owner) {
+                Ok(memory) => memory,
+                Err(owner) => owner.try_clone()?,
+            };
+            return Ok(Memory::new_from_existing(store, VMMemory::Sys(memory)));
+        }
         let memory = self.memory.try_into_vm_memory(store)?;
         Ok(Memory::new_from_existing(store, memory))
     }
@@ -106,7 +141,11 @@ impl SharedMemory {
         range: std::ops::Range<u64>,
     ) -> Result<crate::sys::HostMemoryPin, MemoryError> {
         match &self.memory {
-            VMSharedMemory::Sys(memory) => memory.pin_host_range(range),
+            VMSharedMemory::Sys(memory) => {
+                let mut pin = memory.pin_host_range(range)?;
+                self.retain_native_owner(&mut pin);
+                Ok(pin)
+            }
             #[allow(unreachable_patterns)]
             _ => Err(MemoryError::UnsupportedOperation {
                 message: "native host pins are unsupported by this backend".into(),
@@ -148,12 +187,23 @@ impl SharedMemory {
         match &self.memory {
             VMSharedMemory::Sys(memory) => {
                 // SAFETY: caller proves successful replacement of the exact range.
-                unsafe { memory.commit_private_host_pin(mapping) }
+                let mut pin = unsafe { memory.commit_private_host_pin(mapping) }?;
+                self.retain_native_owner(&mut pin);
+                Ok(pin)
             }
             #[allow(unreachable_patterns)]
             _ => Err(MemoryError::UnsupportedOperation {
                 message: "native host pins are unsupported by this backend".into(),
             }),
+        }
+    }
+
+    #[cfg(feature = "sys")]
+    fn retain_native_owner(&self, pin: &mut crate::sys::HostMemoryPin) {
+        if let Some(owner) = &self.native_owner {
+            // A newly created pin has no previous wrapper owner. The mapping
+            // state lock was released before retaining or dropping this Arc.
+            assert!(pin.retain_owner(owner.clone()).is_ok());
         }
     }
 

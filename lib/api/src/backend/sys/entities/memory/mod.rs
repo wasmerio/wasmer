@@ -115,12 +115,9 @@ impl Memory {
             let ops: Option<Arc<dyn SharedMemoryOps + Send + Sync>> = copied
                 .thread_conditions()
                 .map(|conditions| Arc::new(conditions.downgrade()) as Arc<_>);
-            let memory = crate::vm::VMMemory::Sys(SysVMMemory::from(copied)).as_shared()?;
-
-            Ok(match ops {
-                Some(ops) => SharedMemory::new_with_ops(memory, ops),
-                None => SharedMemory::new(memory),
-            })
+            let owner = SysVMMemory::from(copied);
+            let memory = crate::vm::VMSharedMemory::Sys(owner.as_shared()?);
+            Ok(SharedMemory::new_native(memory, owner, ops))
         } else {
             Err(MemoryError::MemoryNotShared)
         }
@@ -134,9 +131,11 @@ impl Memory {
             .downgrade();
         let cloned = mem.try_clone()?;
 
-        Ok(SharedMemory::new_with_ops(
-            crate::vm::VMMemory::Sys(cloned).as_shared()?,
-            Arc::new(conds),
+        let memory = crate::vm::VMSharedMemory::Sys(cloned.as_shared()?);
+        Ok(SharedMemory::new_native(
+            memory,
+            cloned,
+            Some(Arc::new(conds)),
         ))
     }
 

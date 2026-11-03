@@ -626,6 +626,8 @@ pub struct HostMemoryPin {
     memory: VMSharedMemory,
     id: u64,
     range: std::ops::Range<u64>,
+    // Optional wrapper resources, such as the allocation's accounting owner.
+    owner: Option<Arc<dyn Send + Sync>>,
 }
 
 impl std::fmt::Debug for HostMemoryPin {
@@ -640,6 +642,21 @@ impl std::fmt::Debug for HostMemoryPin {
 }
 
 impl HostMemoryPin {
+    /// Retains additional allocation ownership before publishing this pin.
+    /// An existing owner is never replaced; rejection returns the supplied owner.
+    /// Owners must not retain this pin or a Store that owns it.
+    #[doc(hidden)]
+    pub fn retain_owner(
+        &mut self,
+        owner: Arc<dyn Send + Sync>,
+    ) -> Result<(), Arc<dyn Send + Sync>> {
+        if self.owner.is_some() {
+            return Err(owner);
+        }
+        self.owner = Some(owner);
+        Ok(())
+    }
+
     /// The pinned writable host address. Guest accesses may race as usual.
     pub fn as_ptr(&self) -> *mut u8 {
         let (base, _) = self.memory.host_data().expect("pinned static memory");
@@ -842,6 +859,7 @@ impl VMSharedMemory {
             memory: self.clone(),
             id,
             range,
+            owner: None,
         })
     }
 
@@ -877,6 +895,7 @@ impl VMSharedMemory {
             memory: self.clone(),
             id,
             range: mapping.range.clone(),
+            owner: None,
         })
     }
 
