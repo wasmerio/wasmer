@@ -805,21 +805,26 @@ impl NativeRootControl {
     }
 }
 
-pub(crate) fn current_retirement_error() -> Option<RuntimeError> {
+fn current_retirement_control() -> Option<Rc<NativeRootControl>> {
     if let Some(current) = CoroutineContext::get_current() {
         // SAFETY: installed pointers belong to the currently executing native stack.
         let context = unsafe { &*current };
         if let Some(root) = &context.owner {
             assert_eq!(context.store_context_id, root.control.installation);
-            return root.control.error();
+            // The physical root is authoritative even when it has no error.
+            return Some(root.control.clone());
         }
     }
-    let control = RETIRING_ROOT.with(|current| current.borrow().clone())?;
-    if control.settled.get() {
-        None
-    } else {
-        control.error()
-    }
+    RETIRING_ROOT.with(|current| {
+        current
+            .borrow()
+            .clone()
+            .filter(|control| !control.settled.get())
+    })
+}
+
+pub(crate) fn current_retirement_error() -> Option<RuntimeError> {
+    current_retirement_control().and_then(|control| control.error())
 }
 
 pub(crate) fn store_retirement_error(store_id: StoreId) -> Option<RuntimeError> {
@@ -1059,6 +1064,22 @@ impl Drop for NativeCleanupNoYield {
             );
             depth.set(self.previous);
         });
+    }
+}
+
+pub(crate) struct MemoryGrowCallbackGuard {
+    control: Option<Rc<NativeRootControl>>,
+    _no_yield: NativeCleanupNoYield,
+}
+impl MemoryGrowCallbackGuard {
+    pub(crate) fn enter() -> Self {
+        Self {
+            control: current_retirement_control(),
+            _no_yield: NativeCleanupNoYield::enter(),
+        }
+    }
+    pub(crate) fn retirement_error(&self) -> Option<RuntimeError> {
+        self.control.as_ref().and_then(|control| control.error())
     }
 }
 
@@ -2181,10 +2202,9 @@ struct DroppedNativeStack {
     _store: Option<StoreAsync>,
 }
 
-// The baremetal backend has no stack-local VM trap handlers to exchange.
+// Baremetal has no trap-handler pointers, but still exchanges numeric VM scopes.
 #[derive(Default)]
 struct RootTrapState {
-    #[cfg(not(feature = "baremetal"))]
     state: wasmer_vm::SavedTrapState,
     #[cfg(all(unix, feature = "experimental-host-interrupt"))]
     interrupts: wasmer_vm::interrupt_registry::SavedInterruptState,
@@ -2198,7 +2218,6 @@ impl RootTrapState {
         Self {
             #[cfg(all(unix, feature = "experimental-host-interrupt"))]
             interrupts: unsafe { self.interrupts.replace_current() },
-            #[cfg(not(feature = "baremetal"))]
             state: unsafe { self.state.replace_current() },
         }
     }
