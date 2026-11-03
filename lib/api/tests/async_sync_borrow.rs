@@ -138,21 +138,21 @@ fn same_store_loan_proof(test_name: &str, cancel: bool) {
             let typed = child.typed::<(), i32>(&write).unwrap();
             assert_eq!(typed.call(&mut write).unwrap(), 7);
             let waker = futures::task::noop_waker();
-            // This stage supports read/write lending and synchronous entry.
-            // Independent child roots reject before touching this held gate.
+            // The parent's actual write guard excludes starting a child root.
+            // Waiting child futures own no strong parent pin and can be canceled.
             let mut call = Box::pin(child.call_async(&env.as_store_async(), vec![]));
-            let Poll::Ready(Err(error)) = call.as_mut().poll(&mut Context::from_waker(&waker))
-            else {
-                panic!("borrowed child root entered or waited for the held guard");
-            };
-            assert!(error.message().contains("borrowed Store"));
+            assert!(
+                call.as_mut()
+                    .poll(&mut Context::from_waker(&waker))
+                    .is_pending()
+            );
             drop(call);
             let mut call = Box::pin(typed.call_async(&env.as_store_async()));
-            let Poll::Ready(Err(error)) = call.as_mut().poll(&mut Context::from_waker(&waker))
-            else {
-                panic!("typed borrowed child root entered or waited for the held guard");
-            };
-            assert!(error.message().contains("borrowed Store"));
+            assert!(
+                call.as_mut()
+                    .poll(&mut Context::from_waker(&waker))
+                    .is_pending()
+            );
             drop(call);
             CAP.with(|slot| assert!(slot.borrow_mut().replace(env.as_mut()).is_none()));
             if cancel {
