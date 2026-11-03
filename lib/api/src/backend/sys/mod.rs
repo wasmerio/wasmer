@@ -4,7 +4,9 @@
 pub(crate) mod async_runtime;
 #[cfg(feature = "experimental-async")]
 #[doc(hidden)]
-pub use async_runtime::{NativeFrameGuard, NativeInvocationScope, WeakNativeInvocation};
+pub use async_runtime::{
+    NativeCleanupGuard, NativeFrameGuard, NativeInvocationScope, WeakNativeInvocation,
+};
 pub(crate) mod entities;
 pub(crate) mod error;
 pub(crate) mod tunables;
