@@ -31,8 +31,3 @@ jobs:
           LLVM_URL: "https://github.com/wasmerio/llvm-custom-builds/releases/download/23.x/llvm-linux-amd64.tar.zst"
       - name: Build & package documentation
         run: make package-docs
-      - name: Publish documentation
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./package/docs
