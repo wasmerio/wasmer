@@ -40,6 +40,7 @@ use wasmer_vm::{
 /// A WebAssembly `function` instance, in the `sys` runtime.
 pub struct Function {
     pub(crate) handle: StoreHandle<VMFunction>,
+    identity: wasmer_vm::VMFunctionId,
 }
 
 #[derive(Clone, Copy)]
@@ -55,20 +56,46 @@ fn check_native_retirement(store: &impl AsStoreRef) -> Result<(), RuntimeError> 
     if let Some(error) = current_retirement_error() {
         return Err(error);
     }
-    let store_id = store.as_store_ref().objects().id();
+    let view = store.as_store_ref();
+    let store_id = view.objects().id();
     if let Some(error) = store_retirement_error(store_id) {
         return Err(error);
+    }
+    if let Some(origin) = &view.inner.native_access_origin {
+        origin.check()?;
+    }
+    if let Some(generation) = &view.inner.native_invocation {
+        generation.check()?;
     }
     Ok(())
 }
 
-impl From<StoreHandle<VMFunction>> for Function {
-    fn from(handle: StoreHandle<VMFunction>) -> Self {
-        Self { handle }
-    }
-}
-
 impl Function {
+    fn from_definition(store: &mut impl AsStoreMut, definition: VMFunction) -> Self {
+        let identity = definition.id();
+        Self {
+            handle: StoreHandle::new(store.objects_mut().as_sys_mut(), definition),
+            identity,
+        }
+    }
+
+    fn from_handle(store: &impl AsStoreRef, handle: StoreHandle<VMFunction>) -> Self {
+        let context = store.as_store_ref();
+        let target = handle.get(context.objects().as_sys());
+        assert!(
+            target.is_from_store(context.objects().as_sys()),
+            "function target belongs to another Store"
+        );
+        let identity = target.id();
+        Self { handle, identity }
+    }
+
+    fn vm_function<'a>(&self, store: &'a impl AsStoreRef) -> &'a VMFunction {
+        self.identity
+            .lookup(&self.handle, store.as_store_ref().objects().as_sys())
+            .expect("function target is detached or replaced")
+    }
+
     pub(crate) fn new_with_env<FT, F, T: Send + 'static>(
         store: &mut impl AsStoreMut,
         env: &FunctionEnv<T>,
@@ -99,12 +126,7 @@ impl Function {
                         values_vec.add(i).read_unaligned(),
                     ));
                 }
-                let env = env::FunctionEnvMut {
-                    store_mut,
-                    func_env: func_env.clone(),
-                    split_lease: None,
-                }
-                .into();
+                let env = env::FunctionEnvMut::new(store_mut, func_env.clone()).into();
                 let sig = func_ty.clone();
                 let result = func(env, &args);
                 HostCallOutcome::Ready {
@@ -142,15 +164,18 @@ impl Function {
             call_trampoline,
         };
 
-        let vm_function = VMFunction {
-            anyfunc: MaybeInstanceOwned::Host(Box::new(UnsafeCell::new(anyfunc))),
-            kind: VMFunctionKind::Dynamic,
-            signature: function_type,
-            host_data,
+        // SAFETY: host_env points into this initialized Box; moving the Box
+        // into the immutable descriptor preserves the context allocation.
+        let vm_function = unsafe {
+            VMFunction::new(
+                MaybeInstanceOwned::Host(Box::new(UnsafeCell::new(anyfunc))),
+                function_type,
+                VMFunctionKind::Dynamic,
+                host_data,
+                store.as_store_ref().objects().as_sys(),
+            )
         };
-        Self {
-            handle: StoreHandle::new(store.objects_mut().as_sys_mut(), vm_function),
-        }
+        Self::from_definition(store, vm_function)
     }
 
     #[cfg(feature = "experimental-async")]
@@ -201,12 +226,14 @@ impl Function {
                         values_vec.add(i).read_unaligned(),
                     ));
                 }
+                let native_invocation = store_mut.inner.native_invocation.clone();
                 let store_async = match context {
                     crate::GetStoreAsyncGuardResult::Ok(wrapper) => {
                         AsyncFunctionEnvMutStore::Async(StoreAsync {
                             id,
                             inner: wrapper.lock_handle(),
                             loan: None,
+                            native_invocation,
                         })
                     }
                     crate::GetStoreAsyncGuardResult::NotAsync(ptr) => {
@@ -261,15 +288,18 @@ impl Function {
             call_trampoline,
         };
 
-        let vm_function = VMFunction {
-            anyfunc: MaybeInstanceOwned::Host(Box::new(UnsafeCell::new(anyfunc))),
-            kind: VMFunctionKind::Dynamic,
-            signature: function_type,
-            host_data,
+        // SAFETY: host_env points into this initialized Box; moving the Box
+        // into the immutable descriptor preserves the context allocation.
+        let vm_function = unsafe {
+            VMFunction::new(
+                MaybeInstanceOwned::Host(Box::new(UnsafeCell::new(anyfunc))),
+                function_type,
+                VMFunctionKind::Dynamic,
+                host_data,
+                store.as_store_ref().objects().as_sys(),
+            )
         };
-        Self {
-            handle: StoreHandle::new(store.objects_mut().as_sys_mut(), vm_function),
-        }
+        Self::from_definition(store, vm_function)
     }
 
     /// Creates a new host `Function` from a native function.
@@ -305,15 +335,18 @@ impl Function {
             call_trampoline,
         };
 
-        let vm_function = VMFunction {
-            anyfunc: MaybeInstanceOwned::Host(Box::new(UnsafeCell::new(anyfunc))),
-            kind: VMFunctionKind::Static,
-            signature: function_type,
-            host_data,
+        // SAFETY: host_env points into this initialized Box; moving the Box
+        // into the immutable descriptor preserves the context allocation.
+        let vm_function = unsafe {
+            VMFunction::new(
+                MaybeInstanceOwned::Host(Box::new(UnsafeCell::new(anyfunc))),
+                function_type,
+                VMFunctionKind::Static,
+                host_data,
+                store.as_store_ref().objects().as_sys(),
+            )
         };
-        Self {
-            handle: StoreHandle::new(store.objects_mut().as_sys_mut(), vm_function),
-        }
+        Self::from_definition(store, vm_function)
     }
 
     #[cfg(feature = "experimental-async")]
@@ -458,22 +491,22 @@ impl Function {
             call_trampoline,
         };
 
-        let vm_function = VMFunction {
-            anyfunc: MaybeInstanceOwned::Host(Box::new(UnsafeCell::new(anyfunc))),
-            kind: VMFunctionKind::Static,
-            signature: function_type,
-            host_data,
+        // SAFETY: host_env points into this initialized Box; moving the Box
+        // into the immutable descriptor preserves the context allocation.
+        let vm_function = unsafe {
+            VMFunction::new(
+                MaybeInstanceOwned::Host(Box::new(UnsafeCell::new(anyfunc))),
+                function_type,
+                VMFunctionKind::Static,
+                host_data,
+                store.as_store_ref().objects().as_sys(),
+            )
         };
-        Self {
-            handle: StoreHandle::new(store.objects_mut().as_sys_mut(), vm_function),
-        }
+        Self::from_definition(store, vm_function)
     }
 
     pub(crate) fn ty(&self, store: &impl AsStoreRef) -> FunctionType {
-        self.handle
-            .get(store.as_store_ref().objects().as_sys())
-            .signature
-            .clone()
+        self.vm_function(store).signature().clone()
     }
 
     fn call_wasm(
@@ -538,6 +571,17 @@ impl Function {
         results: &mut [Value],
         entry: NativeCallEntry,
     ) -> Result<(), RuntimeError> {
+        // Guest code can replace this Store slot. Results still use the exact
+        // signature admitted for this call, not a later occupant's metadata.
+        let (signature, function_pin, anyfunc) = {
+            let target = self.vm_function(store);
+            let pin = target.pin();
+            let anyfunc = unsafe { *pin.anyfunc().as_ref() };
+            (target.signature().clone(), pin, anyfunc)
+        };
+        // Keep this exact target through retries, return conversion and guard
+        // teardown. A callback may replace the Store slot between iterations.
+        let _function_pin = function_pin;
         // Call the trampoline.
         let result = {
             let store_id = store.objects_mut().id();
@@ -567,15 +611,9 @@ impl Function {
             loop {
                 #[cfg(feature = "experimental-async")]
                 check_native_retirement(store)?;
-                let (engine, signal_handler, anyfunc) = {
+                let (engine, signal_handler) = {
                     let storeref = store.as_store_ref();
-                    let vm_function = self.handle.get(storeref.objects().as_sys());
-                    let anyfunc = unsafe { *vm_function.anyfunc.as_ptr().as_ref() };
-                    (
-                        storeref.engine().clone(),
-                        storeref.signal_handler(),
-                        anyfunc,
-                    )
+                    (storeref.engine().clone(), storeref.signal_handler())
                 };
                 let config = engine.tunables().vmconfig();
                 r = unsafe {
@@ -622,8 +660,7 @@ impl Function {
             return Err(error.into());
         }
 
-        // Load the return values out of `values_vec`.
-        let signature = self.ty(store);
+        // Load the return values using the admitted call's signature.
         for (index, &value_type) in signature.results().iter().enumerate() {
             unsafe {
                 results[index] = Value::from_raw(store, value_type, params[index]);
@@ -663,14 +700,7 @@ impl Function {
     ) -> Result<Box<[Value]>, RuntimeError> {
         #[cfg(feature = "experimental-async")]
         check_native_retirement(store)?;
-        let trampoline = unsafe {
-            self.handle
-                .get(store.objects_mut().as_sys())
-                .anyfunc
-                .as_ptr()
-                .as_ref()
-                .call_trampoline
-        };
+        let trampoline = unsafe { self.vm_function(store).anyfunc().as_ref().call_trampoline };
         let mut results = vec![Value::null(); self.result_arity(store)];
         self.call_wasm(store, trampoline, params, &mut results, entry)?;
         Ok(results.into_boxed_slice())
@@ -697,14 +727,7 @@ impl Function {
     ) -> Result<Box<[Value]>, RuntimeError> {
         #[cfg(feature = "experimental-async")]
         check_native_retirement(store)?;
-        let trampoline = unsafe {
-            self.handle
-                .get(store.objects_mut().as_sys())
-                .anyfunc
-                .as_ptr()
-                .as_ref()
-                .call_trampoline
-        };
+        let trampoline = unsafe { self.vm_function(store).anyfunc().as_ref().call_trampoline };
         let mut results = vec![Value::null(); self.result_arity(store)];
         self.call_wasm_raw(
             store,
@@ -717,11 +740,20 @@ impl Function {
     }
 
     pub(crate) fn vm_funcref(&self, store: &impl AsStoreRef) -> VMFuncRef {
-        let vm_function = self.handle.get(store.as_store_ref().objects().as_sys());
-        if vm_function.kind == VMFunctionKind::Dynamic {
+        let vm_function = self.vm_function(store);
+        if vm_function.kind() == VMFunctionKind::Dynamic {
             panic!("dynamic functions cannot be used in tables or as funcrefs");
         }
-        VMFuncRef(vm_function.anyfunc.as_ptr())
+        VMFuncRef(vm_function.anyfunc())
+    }
+
+    pub(crate) fn from_owned_table_funcref(
+        store: &mut impl AsStoreMut,
+        funcref: VMFuncRef,
+    ) -> Option<Self> {
+        let target =
+            VMFunction::resolve_table_reference(store.as_store_ref().objects().as_sys(), funcref)?;
+        Some(Self::from_definition(store, target))
     }
 
     pub(crate) unsafe fn from_vm_funcref(store: &mut impl AsStoreMut, funcref: VMFuncRef) -> Self {
@@ -734,30 +766,32 @@ impl Function {
                 .lookup_signature(anyfunc.type_signature_hash)
                 .expect("Signature not found in store")
         };
-        let vm_function = VMFunction {
-            anyfunc: MaybeInstanceOwned::Instance(funcref.0),
-            signature,
-            // All functions in tables are already Static (as dynamic functions
-            // are converted to use the trampolines with static signatures).
-            kind: wasmer_vm::VMFunctionKind::Static,
-            host_data: Box::new(()),
+        // SAFETY: the caller supplies a valid funcref belonging to this Store.
+        // Its instance allocation remains a separate lifetime requirement.
+        let vm_function = unsafe {
+            VMFunction::new(
+                MaybeInstanceOwned::Instance(funcref.0),
+                signature,
+                // Table targets already use a static trampoline.
+                wasmer_vm::VMFunctionKind::Static,
+                Box::new(()),
+                store.as_store_ref().objects().as_sys(),
+            )
         };
-        Self {
-            handle: StoreHandle::new(store.objects_mut().as_sys_mut(), vm_function),
-        }
+        Self::from_definition(store, vm_function)
     }
 
     pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, vm_extern: VMExternFunction) -> Self {
-        Self {
-            handle: unsafe {
-                StoreHandle::from_internal(store.objects_mut().id(), vm_extern.unwrap_sys())
-            },
-        }
+        let handle =
+            unsafe { StoreHandle::from_internal(store.objects_mut().id(), vm_extern.unwrap_sys()) };
+        Self::from_handle(store, handle)
     }
 
     /// Checks whether this `Function` can be used with the given store.
     pub(crate) fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
-        self.handle.store_id() == store.as_store_ref().objects().id()
+        self.identity
+            .lookup(&self.handle, store.as_store_ref().objects().as_sys())
+            .is_some()
     }
 
     pub(crate) fn to_vm_extern(&self) -> VMExtern {
@@ -1183,11 +1217,10 @@ macro_rules! impl_host_function {
                                 FromToNativeWasmType::from_native(NativeWasmTypeInto::from_abi(&mut store, $x))
                             };
                         )*
-                        let f_env = crate::backend::sys::function::env::FunctionEnvMut {
-                            store_mut: store,
-                            func_env: env.env.as_sys().clone(),
-                            split_lease: None,
-                        }.into();
+                        let f_env = crate::backend::sys::function::env::FunctionEnvMut::new(
+                            store,
+                            env.env.as_sys().clone(),
+                        ).into();
                         to_invocation_result((env.func)(f_env, $($x),* ).into_result())
                     }))
                 });

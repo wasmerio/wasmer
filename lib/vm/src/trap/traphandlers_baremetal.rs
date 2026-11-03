@@ -27,6 +27,26 @@ pub struct VMConfig {
     pub wasm_stack_size: Option<usize>,
 }
 
+/// Numeric VM-operation metadata belonging to one suspended execution stack.
+#[doc(hidden)]
+#[derive(Default)]
+pub struct SavedTrapState {
+    memory_grow_depth: usize,
+    _thread: PhantomData<*mut ()>,
+}
+impl SavedTrapState {
+    /// Exchange this thread's numeric VM scope metadata.
+    ///
+    /// # Safety
+    /// The saved state must be restored on this thread before its caller resumes.
+    pub unsafe fn replace_current(self) -> Self {
+        Self {
+            memory_grow_depth: crate::libcalls::replace_memory_grow_depth(self.memory_grow_depth),
+            _thread: PhantomData,
+        }
+    }
+}
+
 /// Always 0 in baremetal mode — no coroutine stacks to bound.
 pub const MAX_STACK_SIZE: usize = 0;
 

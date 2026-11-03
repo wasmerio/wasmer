@@ -157,6 +157,92 @@ pub extern "C" fn wasmer_vm_f64_nearest(x: f64) -> f64 {
     }
 }
 
+thread_local! {
+    // Numeric metadata follows SavedTrapState when an unrelated root suspends.
+    static MEMORY_GROW_DEPTH: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
+pub(crate) fn replace_memory_grow_depth(depth: usize) -> usize {
+    MEMORY_GROW_DEPTH.with(|current| current.replace(depth))
+}
+
+/// Whether the current physical VM operation is a compiled memory.grow.
+/// This metadata grants no Store or memory access.
+#[doc(hidden)]
+pub fn memory_grow_active() -> bool {
+    MEMORY_GROW_DEPTH.with(|depth| depth.get() != 0)
+}
+
+struct MemoryGrowScope {
+    previous: usize,
+}
+impl MemoryGrowScope {
+    fn enter() -> Self {
+        MEMORY_GROW_DEPTH.with(|depth| {
+            let previous = depth.get();
+            depth.set(
+                previous
+                    .checked_add(1)
+                    .expect("memory grow depth exhausted"),
+            );
+            Self { previous }
+        })
+    }
+}
+impl Drop for MemoryGrowScope {
+    fn drop(&mut self) {
+        MEMORY_GROW_DEPTH.with(|depth| {
+            assert_eq!(
+                depth.get(),
+                self.previous + 1,
+                "memory grow scope left out of order"
+            );
+            depth.set(self.previous);
+        });
+    }
+}
+
+// Only this intentional wrapper is interpreted as a user trap. A user panic
+// whose value happens to be a Trap remains an ordinary panic.
+struct MemoryGrowTrap(Box<dyn std::error::Error + Send + Sync>);
+
+enum MemoryGrowOutcome {
+    Ready(u32),
+    UserTrap(Box<dyn std::error::Error + Send + Sync>),
+    Panic(Box<dyn std::any::Any + Send>),
+}
+
+/// Unwind a callback abort to its memory.grow libcall, after Rust cleanup.
+/// Outside that libcall's catch boundary this remains a Rust panic payload.
+#[doc(hidden)]
+pub fn raise_memory_grow_trap(error: Box<dyn std::error::Error + Send + Sync>) -> ! {
+    assert!(memory_grow_active(), "no memory grow callback boundary");
+    panic::resume_unwind(Box::new(MemoryGrowTrap(error)))
+}
+
+// Classify on the host stack and return normally, including deallocating the
+// marker Box's storage. The Wasm-stack match below owns no cleanup phase.
+fn memory_grow_outcome(result: Result<u32, Box<dyn std::any::Any + Send>>) -> MemoryGrowOutcome {
+    match result {
+        Ok(pages) => MemoryGrowOutcome::Ready(pages),
+        Err(payload) => match payload.downcast::<MemoryGrowTrap>() {
+            Ok(marker) => {
+                let MemoryGrowTrap(error) = *marker;
+                MemoryGrowOutcome::UserTrap(error)
+            }
+            Err(payload) => MemoryGrowOutcome::Panic(payload),
+        },
+    }
+}
+
+unsafe fn finish_memory_grow(outcome: MemoryGrowOutcome) -> u32 {
+    match outcome {
+        MemoryGrowOutcome::Ready(pages) => pages,
+        MemoryGrowOutcome::UserTrap(error) => unsafe { crate::trap::raise_user_trap(error) },
+        MemoryGrowOutcome::Panic(payload) => unsafe { crate::trap::resume_panic(payload) },
+    }
+}
+
 /// Implementation of memory.grow for locally-defined 32-bit memories.
 ///
 /// # Safety
@@ -169,14 +255,20 @@ pub unsafe extern "C" fn wasmer_vm_memory32_grow(
     memory_index: u32,
 ) -> u32 {
     unsafe {
-        on_host_stack(|| {
-            let instance = (*vmctx).instance_mut();
-            let memory_index = LocalMemoryIndex::from_u32(memory_index);
+        let outcome = on_host_stack(|| {
+            let result = panic::catch_unwind(panic::AssertUnwindSafe(|| {
+                let _scope = MemoryGrowScope::enter();
+                let instance = (*vmctx).instance_mut();
+                let memory_index = LocalMemoryIndex::from_u32(memory_index);
 
-            instance
-                .memory_grow(memory_index, delta_in_pages)
-                .map_or(u32::MAX, |pages| pages.0)
-        })
+                instance
+                    .memory_grow(memory_index, delta_in_pages)
+                    .map_or(u32::MAX, |pages| pages.0)
+            }));
+            memory_grow_outcome(result)
+        });
+        // No mutable VM borrow or host-stack destructor remains here.
+        finish_memory_grow(outcome)
     }
 }
 
@@ -192,14 +284,20 @@ pub unsafe extern "C" fn wasmer_vm_imported_memory32_grow(
     memory_index: u32,
 ) -> u32 {
     unsafe {
-        on_host_stack(|| {
-            let instance = (*vmctx).instance_mut();
-            let memory_index = MemoryIndex::from_u32(memory_index);
+        let outcome = on_host_stack(|| {
+            let result = panic::catch_unwind(panic::AssertUnwindSafe(|| {
+                let _scope = MemoryGrowScope::enter();
+                let instance = (*vmctx).instance_mut();
+                let memory_index = MemoryIndex::from_u32(memory_index);
 
-            instance
-                .imported_memory_grow(memory_index, delta_in_pages)
-                .map_or(u32::MAX, |pages| pages.0)
-        })
+                instance
+                    .imported_memory_grow(memory_index, delta_in_pages)
+                    .map_or(u32::MAX, |pages| pages.0)
+            }));
+            memory_grow_outcome(result)
+        });
+        // No mutable VM borrow or host-stack destructor remains here.
+        finish_memory_grow(outcome)
     }
 }
 
@@ -1137,4 +1235,30 @@ unsafe extern "C" {
     fn __ledf2(a: f64, b: f64) -> i32;
     fn __gtsf2(a: f32, b: f32) -> i32;
     fn __gtdf2(a: f64, b: f64) -> i32;
+}
+
+#[cfg(test)]
+mod memory_grow_scope_tests {
+    use super::*;
+    #[test]
+    fn numeric_memory_grow_scope_follows_saved_trap_state() {
+        assert!(!memory_grow_active());
+        let scope = MemoryGrowScope::enter();
+        assert!(memory_grow_active());
+        // SAFETY: this test's scope stays on this thread and is restored before
+        // either caller resumes. No handler pointer is dereferenced.
+        let saved = unsafe { crate::SavedTrapState::default().replace_current() };
+        let detached = !memory_grow_active();
+        let empty = unsafe { saved.replace_current() };
+        let restored = memory_grow_active();
+        // Restore this pure metadata before any assertion so a missing exchange
+        // produces a controlled failure rather than a guard double-panic.
+        replace_memory_grow_depth(scope.previous + 1);
+        drop(scope);
+        let cleared = !memory_grow_active();
+        let _ = unsafe { empty.replace_current() };
+        replace_memory_grow_depth(0);
+        assert!(detached && restored && cleared);
+        assert!(!memory_grow_active());
+    }
 }

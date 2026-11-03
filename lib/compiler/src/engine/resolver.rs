@@ -53,7 +53,7 @@ fn get_extern_type(context: &StoreObjects, extern_: &VMExtern) -> ExternType {
             wasmer_types::TagKind::Exception,
             f.get(context).signature.clone(),
         )),
-        VMExtern::Function(f) => ExternType::Function(f.get(context).signature.clone()),
+        VMExtern::Function(f) => ExternType::Function(f.get(context).signature().clone()),
         VMExtern::Table(t) => ExternType::Table(*t.get(context).ty()),
         VMExtern::Memory(m) => ExternType::Memory(m.get(context).ty()),
         VMExtern::Global(g) => {
@@ -85,6 +85,7 @@ pub fn resolve_imports(
     _table_styles: &PrimaryMap<TableIndex, TableStyle>,
 ) -> Result<Imports, LinkError> {
     let mut function_imports = PrimaryMap::with_capacity(module.num_imported_functions);
+    let mut function_pins = PrimaryMap::with_capacity(module.num_imported_functions);
     let mut table_imports = PrimaryMap::with_capacity(module.num_imported_tables);
     let mut memory_imports = PrimaryMap::with_capacity(module.num_imported_memories);
     let mut global_imports = PrimaryMap::with_capacity(module.num_imported_globals);
@@ -101,8 +102,13 @@ pub fn resolve_imports(
         } = resolve_import(module, imports, context, import_key, import_index)?;
         match *resolved {
             VMExtern::Function(handle) => {
-                let f = handle.get_mut(context);
-                let address = match f.kind {
+                let f = handle.get(context);
+                if !f.is_from_store(context) {
+                    return Err(LinkError::Resource(
+                        "function target belongs to another Store".into(),
+                    ));
+                }
+                let address = match f.kind() {
                     VMFunctionKind::Dynamic => {
                         // If this is a dynamic imported function,
                         // the address of the function is the address of the
@@ -115,19 +121,22 @@ pub fn resolve_imports(
                         // are linked at runtime and not instantiation time. And those will not work properly with the current logic.
                         // Ideally, this logic should be done directly in the `wasmer-vm` crate.
                         // TODO (@syrusakbary): Get rid of `VMFunctionKind`
-                        unsafe { f.anyfunc.as_ptr().as_mut() }.func_ptr = ptr;
+                        unsafe { f.anyfunc().as_mut() }.func_ptr = ptr;
                         ptr
                     }
-                    VMFunctionKind::Static => unsafe { f.anyfunc.as_ptr().as_ref().func_ptr },
+                    VMFunctionKind::Static => unsafe { f.anyfunc().as_ref().func_ptr },
                 };
 
                 function_imports.push(VMFunctionImport {
                     body: address,
-                    environment: unsafe { f.anyfunc.as_ptr().as_ref().vmctx },
+                    environment: unsafe { f.anyfunc().as_ref().vmctx },
                     handle,
                     // TODO: use nicer way of how to detect WA-native functions
-                    include_m0_param: handle.get(context).host_data.is::<()>(),
+                    include_m0_param: f.host_data().is::<()>(),
                 });
+                // Retain before any later Tunables/instance-creation callouts can
+                // replace a Store slot. VMFunctionImport itself keeps its C ABI.
+                function_pins.push(f.pin());
             }
             VMExtern::Table(handle) => {
                 let t = handle.get(context);
@@ -205,6 +214,7 @@ pub fn resolve_imports(
 
     Ok(Imports::new(
         function_imports,
+        function_pins,
         table_imports,
         memory_imports,
         global_imports,

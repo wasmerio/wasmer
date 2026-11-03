@@ -253,3 +253,256 @@ fn imported_memory_aliases_keep_identity_with_different_type_limits() -> Result<
     }
     Ok(())
 }
+
+#[cfg(all(feature = "sys", feature = "compiler", feature = "wat"))]
+mod grow_panic {
+    use super::*;
+    use std::{
+        panic::{AssertUnwindSafe, catch_unwind, panic_any},
+        process::{Child, Command},
+        ptr::NonNull,
+        sync::atomic::AtomicUsize,
+        time::{Duration, Instant},
+    };
+    use wasmer::sys::vm::{
+        LinearMemory, MemoryError, MemoryStyle, TableStyle, VMDefinitionLocation, VMMemory,
+        VMMemoryDefinition, VMTable, VMTableDefinition,
+    };
+    use wasmer::sys::{BaseTunables, NativeEngineExt, Tunables};
+    use wasmer::{Pages, TableType, Value};
+
+    #[derive(Debug)]
+    struct Payload;
+    #[derive(Debug)]
+    struct State {
+        armed: AtomicBool,
+        dropped: AtomicUsize,
+        payload: Arc<Payload>,
+    }
+    struct GrowDrop(Arc<State>);
+    impl Drop for GrowDrop {
+        fn drop(&mut self) {
+            self.0.dropped.fetch_add(1, Ordering::SeqCst);
+        }
+    }
+    #[derive(Debug)]
+    struct PanicMemory {
+        inner: VMMemory,
+        state: Arc<State>,
+    }
+    impl LinearMemory for PanicMemory {
+        fn ty(&self) -> MemoryType {
+            self.inner.ty()
+        }
+        fn size(&self) -> Pages {
+            self.inner.size()
+        }
+        fn style(&self) -> MemoryStyle {
+            self.inner.style()
+        }
+        fn grow(&mut self, delta: Pages) -> Result<Pages, MemoryError> {
+            if self.state.armed.swap(false, Ordering::SeqCst) {
+                let _drop = GrowDrop(self.state.clone());
+                panic_any(self.state.payload.clone());
+            }
+            self.inner.grow(delta)
+        }
+        fn vmmemory(&self) -> NonNull<VMMemoryDefinition> {
+            self.inner.vmmemory()
+        }
+        fn try_clone(&self) -> Result<Box<dyn LinearMemory + Send + Sync>, MemoryError> {
+            Ok(Box::new(Self {
+                inner: self.inner.try_clone()?,
+                state: self.state.clone(),
+            }))
+        }
+        fn copy(&self) -> Result<Box<dyn LinearMemory + Send + Sync>, MemoryError> {
+            Ok(Box::new(Self {
+                inner: VMMemory::from_custom(self.inner.copy()?),
+                state: self.state.clone(),
+            }))
+        }
+    }
+    struct PanicTunables {
+        base: BaseTunables,
+        state: Arc<State>,
+    }
+    impl PanicTunables {
+        fn wrap(&self, inner: VMMemory) -> VMMemory {
+            VMMemory::from_custom(Box::new(PanicMemory {
+                inner,
+                state: self.state.clone(),
+            }) as Box<dyn LinearMemory + Send + Sync>)
+        }
+    }
+    impl Tunables for PanicTunables {
+        fn memory_style(&self, ty: &MemoryType) -> MemoryStyle {
+            self.base.memory_style(ty)
+        }
+        fn table_style(&self, ty: &TableType) -> TableStyle {
+            self.base.table_style(ty)
+        }
+        fn create_host_memory(
+            &self,
+            ty: &MemoryType,
+            style: &MemoryStyle,
+        ) -> Result<VMMemory, MemoryError> {
+            self.base
+                .create_host_memory(ty, style)
+                .map(|inner| self.wrap(inner))
+        }
+        unsafe fn create_vm_memory(
+            &self,
+            ty: &MemoryType,
+            style: &MemoryStyle,
+            location: VMDefinitionLocation<VMMemoryDefinition>,
+        ) -> Result<VMMemory, MemoryError> {
+            // SAFETY: forward the exact definition location and its storage owner.
+            unsafe {
+                self.base
+                    .create_vm_memory(ty, style, location)
+                    .map(|inner| self.wrap(inner))
+            }
+        }
+        fn create_host_table(&self, ty: &TableType, style: &TableStyle) -> Result<VMTable, String> {
+            self.base.create_host_table(ty, style)
+        }
+        unsafe fn create_vm_table(
+            &self,
+            ty: &TableType,
+            style: &TableStyle,
+            location: VMDefinitionLocation<VMTableDefinition>,
+        ) -> Result<VMTable, String> {
+            // SAFETY: forward the exact definition location and its storage owner.
+            unsafe { self.base.create_vm_table(ty, style, location) }
+        }
+    }
+
+    // Match the bounded owned-child native-call proofs in async_sync_borrow.rs.
+    // An uncaught custom-memory panic must not abort the test harness.
+    fn subprocess(test_name: &str) -> bool {
+        const CHILD: &str = "WASMER_MEMORY_GROW_PANIC_CHILD";
+        if std::env::var_os(CHILD).is_some() {
+            return true;
+        }
+        struct OwnedChild(Child);
+        impl Drop for OwnedChild {
+            fn drop(&mut self) {
+                let _ = self.0.kill();
+                let _ = self.0.wait();
+            }
+        }
+        let mut child = OwnedChild(
+            Command::new(std::env::current_exe().unwrap())
+                .args(["--exact", test_name, "--nocapture"])
+                .env(CHILD, "1")
+                .spawn()
+                .unwrap(),
+        );
+        let deadline = Instant::now() + Duration::from_secs(15);
+        loop {
+            match child.0.try_wait() {
+                Ok(Some(status)) => {
+                    assert!(status.success(), "memory grow panic proof failed: {status}");
+                    break;
+                }
+                Ok(None) if Instant::now() < deadline => {
+                    std::thread::sleep(Duration::from_millis(10))
+                }
+                result => panic!("memory grow panic proof did not finish: {result:?}"),
+            }
+        }
+        false
+    }
+
+    fn proof(imported: bool) {
+        for typed in [false, true] {
+            let state = Arc::new(State {
+                armed: AtomicBool::new(false),
+                dropped: AtomicUsize::new(0),
+                payload: Arc::new(Payload),
+            });
+            let mut store = Store::default();
+            store.engine_mut().set_tunables(PanicTunables {
+                base: BaseTunables::new(),
+                state: state.clone(),
+            });
+            let declaration = if imported {
+                "(import \"env\" \"memory\" (memory 1 3))"
+            } else {
+                "(memory 1 3)"
+            };
+            let module = Module::new(
+                &store,
+                format!(
+                    r#"(module {declaration}
+                (func (export "grow") (param i32) (result i32) local.get 0 memory.grow)
+                (func (export "fresh") (result i32) i32.const 42))"#
+                ),
+            )
+            .unwrap();
+            let imports = if imported {
+                let memory = Memory::new(&mut store, MemoryType::new(1, Some(3), false)).unwrap();
+                imports! { "env" => { "memory" => memory } }
+            } else {
+                wasmer::Imports::new()
+            };
+            let instance = Instance::new(&mut store, &module, &imports).unwrap();
+            state.armed.store(true, Ordering::SeqCst);
+            let panic = catch_unwind(AssertUnwindSafe(|| {
+                if typed {
+                    instance
+                        .exports
+                        .get_typed_function::<i32, i32>(&store, "grow")
+                        .unwrap()
+                        .call(&mut store, 1)
+                        .map(|_| ())
+                } else {
+                    instance
+                        .exports
+                        .get_function("grow")
+                        .unwrap()
+                        .call(&mut store, &[Value::I32(1)])
+                        .map(|_| ())
+                }
+            }))
+            .unwrap_err();
+            let payload = panic.downcast::<Arc<Payload>>().unwrap();
+            assert!(
+                Arc::ptr_eq(&payload, &state.payload),
+                "memory grow replaced the original panic"
+            );
+            assert_eq!(
+                state.dropped.load(Ordering::SeqCst),
+                1,
+                "grow locals were not destroyed before panic transport"
+            );
+            let fresh = instance
+                .exports
+                .get_typed_function::<(), i32>(&store, "fresh")
+                .unwrap();
+            assert_eq!(fresh.call(&mut store).unwrap(), 42);
+            let grow = instance
+                .exports
+                .get_typed_function::<i32, i32>(&store, "grow")
+                .unwrap();
+            assert_eq!(grow.call(&mut store, 1).unwrap(), 1);
+            assert_eq!(grow.call(&mut store, 10).unwrap(), -1);
+            assert_eq!(fresh.call(&mut store).unwrap(), 42);
+            drop(store);
+            assert_eq!(state.dropped.load(Ordering::SeqCst), 1);
+        }
+    }
+    #[test]
+    fn defined_memory_grow_preserves_a_custom_memory_panic() {
+        if subprocess("grow_panic::defined_memory_grow_preserves_a_custom_memory_panic") {
+            proof(false);
+        }
+    }
+    #[test]
+    fn imported_memory_grow_preserves_a_custom_memory_panic() {
+        if subprocess("grow_panic::imported_memory_grow_preserves_a_custom_memory_panic") {
+            proof(true);
+        }
+    }
+}

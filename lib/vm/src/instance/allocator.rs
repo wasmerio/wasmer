@@ -1,19 +1,86 @@
-use super::{Instance, VMInstance};
+use super::{Instance, InstanceAllocation, VMInstance};
 use crate::vmcontext::VMTableDefinition;
 use crate::{VMGlobalDefinition, VMMemoryDefinition};
 use std::alloc::{self, Layout};
 use std::convert::TryFrom;
 use std::mem;
 use std::ptr::{self, NonNull};
+use std::rc::Rc;
+use std::sync::{Arc, atomic::AtomicPtr};
 use wasmer_types::entity::EntityRef;
 use wasmer_types::{LocalGlobalIndex, VMOffsets};
 use wasmer_types::{LocalMemoryIndex, LocalTableIndex, ModuleInfo};
 
+/// Raw storage for an Instance header and its separately initialized vmctx tail.
+///
+/// This owner provides no access to the bytes and never drops Instance fields.
+/// The owner-thread Instance allocation drops those fields before releasing its
+/// storage reference. Detached definition owners may then keep the tail alive.
+#[derive(Debug)]
+pub struct VMInstanceStorage {
+    pointer: AtomicPtr<u8>,
+    layout: Layout,
+}
+
+impl Drop for VMInstanceStorage {
+    fn drop(&mut self) {
+        // Only raw allocation disposal can move to another thread. Instance
+        // field destruction belongs exclusively to InstanceAllocation.
+        unsafe { alloc::dealloc(*self.pointer.get_mut(), self.layout) };
+    }
+}
+
+/// A VM definition pointer together with custody of its underlying byte storage.
+/// It grants no authority to read or mutate the definition.
+#[derive(Debug)]
+pub struct VMDefinitionLocation<T> {
+    pointer: NonNull<T>,
+    storage: Option<Arc<VMInstanceStorage>>,
+}
+
+impl<T> Clone for VMDefinitionLocation<T> {
+    fn clone(&self) -> Self {
+        Self {
+            pointer: self.pointer,
+            storage: self.storage.clone(),
+        }
+    }
+}
+
+impl<T> From<NonNull<T>> for VMDefinitionLocation<T> {
+    /// Wrap an unmanaged location without acquiring its lifetime or granting
+    /// data access. The unsafe constructor receiving it still requires aligned,
+    /// writable initialization storage retained through every physical clone.
+    fn from(pointer: NonNull<T>) -> Self {
+        Self {
+            pointer,
+            storage: None,
+        }
+    }
+}
+
+impl<T> VMDefinitionLocation<T> {
+    /// Return the pointer without granting access to the pointed-to data.
+    pub fn as_ptr(&self) -> NonNull<T> {
+        self.pointer
+    }
+
+    /// Return this location's optional allocation custody without data access.
+    pub fn storage(&self) -> Option<&Arc<VMInstanceStorage>> {
+        self.storage.as_ref()
+    }
+
+    /// Transfer the pointer and its optional storage owner into a VM object.
+    pub fn into_parts(self) -> (NonNull<T>, Option<Arc<VMInstanceStorage>>) {
+        (self.pointer, self.storage)
+    }
+}
+
 /// This is an intermediate type that manages the raw allocation and
 /// metadata when creating a [`VMInstance`].
 ///
-/// This type will free the allocated memory if it's dropped before
-/// being used.
+/// Dropping this type releases its allocation custody. Initialized definition
+/// objects may retain the underlying bytes independently.
 ///
 /// It is important to remind that [`VMInstance`] is dynamically-sized
 /// based on `VMOffsets`: The `Instance.vmctx` field represents a
@@ -31,31 +98,12 @@ pub struct InstanceAllocator {
     /// The buffer that will contain the [`VMInstance`] and dynamic fields.
     instance_ptr: NonNull<Instance>,
 
-    /// The layout of the `instance_ptr` buffer.
-    instance_layout: Layout,
-
     /// Information about the offsets into the `instance_ptr` buffer for
     /// the dynamic fields.
     offsets: VMOffsets,
 
-    /// Whether or not this type has transferred ownership of the
-    /// `instance_ptr` buffer. If it has not when being dropped,
-    /// the buffer should be freed.
-    consumed: bool,
-}
-
-impl Drop for InstanceAllocator {
-    fn drop(&mut self) {
-        if !self.consumed {
-            // If `consumed` has not been set, then we still have ownership
-            // over the buffer and must free it.
-            let instance_ptr = self.instance_ptr.as_ptr();
-
-            unsafe {
-                std::alloc::dealloc(instance_ptr as *mut u8, self.instance_layout);
-            }
-        }
-    }
+    // Owns the bytes before any Tunables callback can publish a definition.
+    storage: Arc<VMInstanceStorage>,
 }
 
 impl InstanceAllocator {
@@ -74,9 +122,9 @@ impl InstanceAllocator {
     ) -> Result<
         (
             Self,
-            Vec<NonNull<VMMemoryDefinition>>,
-            Vec<NonNull<VMTableDefinition>>,
-            Vec<NonNull<VMGlobalDefinition>>,
+            Vec<VMDefinitionLocation<VMMemoryDefinition>>,
+            Vec<VMDefinitionLocation<VMTableDefinition>>,
+            Vec<VMDefinitionLocation<VMGlobalDefinition>>,
         ),
         String,
     > {
@@ -109,9 +157,9 @@ impl InstanceAllocator {
         module: &ModuleInfo,
     ) -> (
         Self,
-        Vec<NonNull<VMMemoryDefinition>>,
-        Vec<NonNull<VMTableDefinition>>,
-        Vec<NonNull<VMGlobalDefinition>>,
+        Vec<VMDefinitionLocation<VMMemoryDefinition>>,
+        Vec<VMDefinitionLocation<VMTableDefinition>>,
+        Vec<VMDefinitionLocation<VMGlobalDefinition>>,
     ) {
         // Silence unused warning when the body below does not need
         // `module` directly (it's kept in the signature for API
@@ -130,9 +178,11 @@ impl InstanceAllocator {
 
         let allocator = Self {
             instance_ptr,
-            instance_layout,
             offsets,
-            consumed: false,
+            storage: Arc::new(VMInstanceStorage {
+                pointer: AtomicPtr::new(instance_ptr.as_ptr().cast()),
+                layout: instance_layout,
+            }),
         };
 
         // # Safety
@@ -172,7 +222,7 @@ impl InstanceAllocator {
     ///   the offsets in `Self.offsets` point to valid locations in
     ///   memory, i.e. `Self.instance_ptr` must have been allocated by
     ///   `Self::new`.
-    unsafe fn memory_definition_locations(&self) -> Vec<NonNull<VMMemoryDefinition>> {
+    unsafe fn memory_definition_locations(&self) -> Vec<VMDefinitionLocation<VMMemoryDefinition>> {
         unsafe {
             let num_memories = self.offsets.num_local_memories();
             let num_memories = usize::try_from(num_memories).unwrap();
@@ -190,7 +240,10 @@ impl InstanceAllocator {
 
                 let new_ptr = NonNull::new_unchecked(base_ptr.add(mem_offset));
 
-                out.push(new_ptr.cast());
+                out.push(VMDefinitionLocation {
+                    pointer: new_ptr.cast(),
+                    storage: Some(self.storage.clone()),
+                });
             }
 
             out
@@ -208,7 +261,7 @@ impl InstanceAllocator {
     ///   the offsets in `Self.offsets` point to valid locations in
     ///   memory, i.e. `Self.instance_ptr` must have been allocated by
     ///   `Self::new`.
-    unsafe fn table_definition_locations(&self) -> Vec<NonNull<VMTableDefinition>> {
+    unsafe fn table_definition_locations(&self) -> Vec<VMDefinitionLocation<VMTableDefinition>> {
         unsafe {
             let num_tables = self.offsets.num_local_tables();
             let num_tables = usize::try_from(num_tables).unwrap();
@@ -226,7 +279,10 @@ impl InstanceAllocator {
 
                 let new_ptr = NonNull::new_unchecked(base_ptr.add(table_offset));
 
-                out.push(new_ptr.cast());
+                out.push(VMDefinitionLocation {
+                    pointer: new_ptr.cast(),
+                    storage: Some(self.storage.clone()),
+                });
             }
             out
         }
@@ -243,7 +299,7 @@ impl InstanceAllocator {
     ///   the offsets in `Self.offsets` point to valid locations in
     ///   memory, i.e. `Self.instance_ptr` must have been allocated by
     ///   `Self::new`.
-    unsafe fn global_definition_locations(&self) -> Vec<NonNull<VMGlobalDefinition>> {
+    unsafe fn global_definition_locations(&self) -> Vec<VMDefinitionLocation<VMGlobalDefinition>> {
         unsafe {
             let num_globals = self.offsets.num_local_globals();
             let num_globals = usize::try_from(num_globals).unwrap();
@@ -259,7 +315,10 @@ impl InstanceAllocator {
                 let global_offset = usize::try_from(global_offset).unwrap();
 
                 let new_ptr = NonNull::new_unchecked(base_ptr.add(global_offset));
-                out.push(new_ptr.cast());
+                out.push(VMDefinitionLocation {
+                    pointer: new_ptr.cast(),
+                    storage: Some(self.storage.clone()),
+                });
             }
 
             out
@@ -268,11 +327,11 @@ impl InstanceAllocator {
 
     /// Finish preparing by writing the internal `Instance` into memory, and
     /// consume this `InstanceAllocator`.
-    pub(crate) fn into_vminstance(mut self, instance: Instance) -> VMInstance {
-        // Prevent the old state's drop logic from being called as we
-        // transition into the new state.
-        self.consumed = true;
-
+    pub(crate) fn into_vminstance(
+        self,
+        instance: Instance,
+        store_id: wasmer_types::StoreId,
+    ) -> VMInstance {
         unsafe {
             // `instance` is moved at `Self.instance_ptr`. This
             // pointer has been allocated by `Self::allocate_instance`
@@ -281,13 +340,15 @@ impl InstanceAllocator {
             // Now `instance_ptr` is correctly initialized!
         }
         let instance = self.instance_ptr;
-        let instance_layout = self.instance_layout;
 
         // This is correct because of the invariants of `Self` and
         // because we write `Instance` to the pointer in this function.
         VMInstance {
-            instance,
-            instance_layout,
+            allocation: Rc::new(InstanceAllocation {
+                instance,
+                storage: self.storage.clone(),
+                store_id,
+            }),
         }
     }
 
@@ -328,8 +389,8 @@ mod tests {
     /// substitutes the cached value.
     ///
     /// The allocator owns a heap allocation; both paths allocate and we
-    /// just drop the resulting allocators at end of test (their `Drop`
-    /// frees the allocation since neither was `consumed`).
+    /// just drop the resulting allocators at end of test; no definition owner
+    /// remains, so the final storage reference frees each allocation.
     #[test]
     fn new_with_offsets_matches_new() {
         let module = ModuleInfo::default();
@@ -340,13 +401,13 @@ mod tests {
         let (b, _, _, _) = InstanceAllocator::new_with_offsets(cached, &module);
 
         assert_eq!(
-            a.instance_layout.size(),
-            b.instance_layout.size(),
+            a.storage.layout.size(),
+            b.storage.layout.size(),
             "instance_layout.size() mismatch"
         );
         assert_eq!(
-            a.instance_layout.align(),
-            b.instance_layout.align(),
+            a.storage.layout.align(),
+            b.storage.layout.align(),
             "instance_layout.align() mismatch"
         );
 
@@ -368,13 +429,13 @@ mod tests {
         let ps = mem::size_of::<usize>() as u8;
         let expected_size = {
             let (a, _, _, _) = InstanceAllocator::new(&module).unwrap();
-            a.instance_layout.size()
+            a.storage.layout.size()
         };
 
         for _ in 0..1024 {
             let cached = VMOffsets::try_new(ps, &module).unwrap();
             let (b, _, _, _) = InstanceAllocator::new_with_offsets(cached, &module);
-            assert_eq!(b.instance_layout.size(), expected_size);
+            assert_eq!(b.storage.layout.size(), expected_size);
         }
     }
 }

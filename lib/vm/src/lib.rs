@@ -40,10 +40,13 @@ use std::ptr::NonNull;
 pub use crate::exception::{VMExceptionObj, VMExceptionRef};
 pub use crate::export::*;
 pub use crate::extern_ref::{VMExternObj, VMExternRef};
-pub use crate::function_env::{VMFunctionEnvironment, VMFunctionEnvironmentLease};
+pub use crate::function_env::{
+    VMFunctionEnvironment, VMFunctionEnvironmentFramePin, VMFunctionEnvironmentIdentity,
+    VMFunctionEnvironmentLease,
+};
 pub use crate::global::*;
 pub use crate::imports::Imports;
-pub use crate::instance::{InstanceAllocator, VMInstance};
+pub use crate::instance::{InstanceAllocator, VMDefinitionLocation, VMInstance, VMInstanceStorage};
 pub use crate::memory::{
     HostMemoryMappingChange, HostMemoryPin, LinearMemory, NotifyLocation, VMMemory, VMOwnedMemory,
     VMSharedMemory, initialize_memory_with_data,

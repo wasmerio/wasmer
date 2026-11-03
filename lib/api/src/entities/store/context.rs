@@ -157,7 +157,7 @@ pub(crate) struct SuspendedStoreContexts {
     owned_root: bool,
 }
 
-#[cfg(all(feature = "experimental-async", feature = "sys"))]
+#[cfg(feature = "sys")]
 pub(crate) struct DetachedStoreContexts {
     caller: Vec<StoreContext>,
     previous_hidden_depth: Option<usize>,
@@ -172,12 +172,12 @@ pub(crate) struct StoreInstallGuard {
 thread_local! {
     static STORE_CONTEXT_STACK: RefCell<Vec<StoreContext>> = const { RefCell::new(Vec::new()) };
     static NEXT_STORE_CONTEXT_ID: Cell<u64> = const { Cell::new(0) };
-    #[cfg(all(feature = "experimental-async", feature = "sys"))]
+    #[cfg(feature = "sys")]
     static HIDDEN_STORE_CONTEXT_DEPTH: Cell<usize> = const { Cell::new(0) };
 }
 
 impl StoreContext {
-    #[cfg(all(feature = "experimental-async", feature = "sys"))]
+    #[cfg(feature = "sys")]
     pub(crate) fn detach_current() -> DetachedStoreContexts {
         let previous_hidden_depth = STORE_CONTEXT_STACK.with(|stack| {
             (!stack.borrow().is_empty()).then(|| {
@@ -889,7 +889,7 @@ impl Drop for StoreContext {
     }
 }
 
-#[cfg(all(feature = "experimental-async", feature = "sys"))]
+#[cfg(feature = "sys")]
 impl Drop for DetachedStoreContexts {
     fn drop(&mut self) {
         let remaining = STORE_CONTEXT_STACK.with(|stack| {
@@ -1217,9 +1217,16 @@ mod borrow_provenance {
         let store = Store::default().into_async();
         let root = StoreContext::install_async(store.inner.try_write().unwrap());
         let mut wrapper = unsafe { StoreContext::get_current(store.id) };
-        wrapper
-            .as_mut()
-            .on_called(|_| Ok(wasmer_types::OnCalledAction::Finish));
+        {
+            let mut caller = wrapper.as_mut();
+            caller.on_called(|_| Ok(wasmer_types::OnCalledAction::Finish));
+            let cap = caller.as_store_async().expect("installed async context");
+            // Cap construction must copy through the caller's own reference,
+            // without reborrowing the ancestor write guard behind its back.
+            caller.on_called(|_| Ok(wasmer_types::OnCalledAction::Finish));
+            assert_eq!(crate::AsStoreAsync::store_id(&cap), store.id);
+            assert_eq!(caller.objects_mut().id(), store.id);
+        }
         assert_eq!(wrapper.as_mut().objects_mut().id(), store.id);
         drop(wrapper);
         drop(root);

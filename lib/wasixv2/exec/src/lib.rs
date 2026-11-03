@@ -408,14 +408,19 @@ where
         abis,
         cleanup.clone(),
     );
-    let guest = async move {
-        catch_panic(run)
-            .await
-            .unwrap_or_else(|panic| Err(host_panicked(&*syscalls, task, panic)))
-    };
     match profile {
-        Some(profile) => profile.run(&cleanup, guest).await,
-        None => cleanup.run(guest).await,
+        Some(profile) => catch_panic(profile.run(&cleanup, run))
+            .await
+            .unwrap_or_else(|panic| Err(host_panicked(&*syscalls, task, panic))),
+        None => {
+            cleanup
+                .run(async move {
+                    catch_panic(run)
+                        .await
+                        .unwrap_or_else(|panic| Err(host_panicked(&*syscalls, task, panic)))
+                })
+                .await
+        }
     }
 }
 
@@ -486,14 +491,19 @@ where
         abis,
         cleanup.clone(),
     );
-    let guest = async move {
-        catch_panic(run)
-            .await
-            .unwrap_or_else(|panic| Err(host_panicked(&*syscalls, task, panic)))
-    };
     match profile {
-        Some(profile) => profile.run(&cleanup, guest).await,
-        None => cleanup.run(guest).await,
+        Some(profile) => catch_panic(profile.run(&cleanup, run))
+            .await
+            .unwrap_or_else(|panic| Err(host_panicked(&*syscalls, task, panic))),
+        None => {
+            cleanup
+                .run(async move {
+                    catch_panic(run)
+                        .await
+                        .unwrap_or_else(|panic| Err(host_panicked(&*syscalls, task, panic)))
+                })
+                .await
+        }
     }
 }
 
@@ -902,6 +912,7 @@ impl Drop for Binding {
 
 struct Ready<S: Send + Sync + 'static> {
     store: Option<Store>,
+    invocations: instantiation::NativeInvocations,
     env: FunctionEnv<ExecEnv<S>>,
     instance: Instance,
     abi: Arc<dyn AbiInstance<S>>,
@@ -926,6 +937,8 @@ where
     S: Syscalls + Control + Send + Sync + 'static,
 {
     abis.configure_store(&mut store)?;
+    let invocations =
+        instantiation::NativeInvocations::bind(&mut store, abis.requires_owning_thread())?;
     let abi = abis.require(module)?;
     abi.attach_cleanup(&cleanup);
     let mut admission = syscalls
@@ -952,7 +965,7 @@ where
     let imported = import_memory(&mut store, module, &mut imports, size)?;
     // Fork copies retain their existing rewind/bind contract. Native startup is
     // EH/PIC-only; this opt-in phase does not add multi-module asyncify/fork support.
-    let (mut store, prepared, bootstrap) = if fork.is_none() {
+    let (mut store, prepared, bootstrap, invocations) = if fork.is_none() {
         env.as_mut(&mut store).imports = imports.clone();
         preparation::prepare(
             store,
@@ -962,10 +975,11 @@ where
             &*abi,
             imported.as_ref(),
             &mut admission,
+            invocations,
         )
         .await?
     } else {
-        (store, None, None)
+        (store, None, None, invocations)
     };
     let hooks = env.as_ref(&store).instance_hooks().cloned();
     let configured = std::panic::catch_unwind(AssertUnwindSafe(|| -> Result<_, ExecError> {
@@ -1103,12 +1117,14 @@ where
     let (instance, bound) = match configured {
         Ok(Ok(configured)) => configured,
         Ok(Err(error)) => {
+            invocations.close();
             if let Some(hooks) = hooks {
                 hooks.deactivate(&mut wasmer::AsStoreMut::as_store_mut(&mut store));
             }
             return Err(error);
         }
         Err(panic) => {
+            invocations.close();
             if let Some(hooks) = hooks {
                 hooks.deactivate(&mut wasmer::AsStoreMut::as_store_mut(&mut store));
             }
@@ -1117,6 +1133,7 @@ where
     };
     Ok(Ready {
         store: Some(store),
+        invocations,
         env,
         instance,
         abi: bound,
@@ -1128,6 +1145,7 @@ where
 impl<S: Send + Sync + 'static> Drop for Ready<S> {
     fn drop(&mut self) {
         if let Some(store) = &mut self.store {
+            self.invocations.close();
             let hooks = self.env.as_ref(store).instance_hooks().cloned();
             if let Some(hooks) = hooks {
                 hooks.deactivate(&mut wasmer::AsStoreMut::as_store_mut(store));
@@ -1232,7 +1250,12 @@ impl<S: Syscalls + Control + Send + Sync + 'static> Ready<S> {
             .unwrap()
             .clone();
         let store = self.store.take().unwrap().into_async();
-        let mut attachments = hooks.map(|hooks| hooks.guard(&store, scope));
+        let mut attachments = instantiation::AttachmentGuard::for_store(
+            hooks,
+            &store,
+            scope,
+            std::mem::take(&mut self.invocations),
+        );
         let entry = Entry::new(&self.env, &store);
         let mut prepared = self.abi.prepare_entry(&entry).await;
         let _registration = if prepared.is_ok() {
@@ -1259,6 +1282,9 @@ impl<S: Syscalls + Control + Send + Sync + 'static> Ready<S> {
             Err(e) => Err(e),
         };
         let on_return = self.abi.on_entry_return();
+        if let Some(attachments) = &mut attachments {
+            attachments.settle().await;
+        }
         let ended = ended(entry.cx(), result, on_return, Role::Process).await;
         if let Some(attachments) = &mut attachments {
             attachments.deactivate().await;
@@ -1291,7 +1317,12 @@ impl<S: Syscalls + Control + Send + Sync + 'static> Ready<S> {
             .unwrap()
             .clone();
         let store = self.store.take().unwrap().into_async();
-        let mut attachments = hooks.map(|hooks| hooks.guard(&store, scope));
+        let mut attachments = instantiation::AttachmentGuard::for_store(
+            hooks,
+            &store,
+            scope,
+            std::mem::take(&mut self.invocations),
+        );
         let cx = asyncify::Outside {
             env: &self.env,
             store: &store,
@@ -1303,6 +1334,9 @@ impl<S: Syscalls + Control + Send + Sync + 'static> Ready<S> {
             Err(err) => Err(err),
         };
         let on_return = self.abi.on_entry_return();
+        if let Some(attachments) = &mut attachments {
+            attachments.settle().await;
+        }
         let ended = ended(&cx, result, on_return, Role::Process).await;
         if let Some(attachments) = &mut attachments {
             attachments.deactivate().await;

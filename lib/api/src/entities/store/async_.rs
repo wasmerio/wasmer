@@ -15,6 +15,9 @@ pub struct StoreAsync {
     pub(crate) inner: LocalRwLock<Box<StoreInner>>,
     #[cfg(feature = "sys")]
     pub(crate) loan: Option<crate::backend::sys::async_runtime::NativeStoreLoan>,
+    #[cfg(feature = "sys")]
+    pub(crate) native_invocation:
+        Option<std::sync::Arc<crate::backend::sys::async_runtime::NativeInvocationGeneration>>,
 }
 
 pub(crate) struct WeakStoreAsync {
@@ -22,6 +25,9 @@ pub(crate) struct WeakStoreAsync {
     inner: crate::WeakLocalRwLock<Box<StoreInner>>,
     #[cfg(feature = "sys")]
     loan: Option<crate::backend::sys::async_runtime::NativeStoreLoan>,
+    #[cfg(feature = "sys")]
+    native_invocation:
+        Option<std::sync::Arc<crate::backend::sys::async_runtime::NativeInvocationGeneration>>,
 }
 
 impl Clone for WeakStoreAsync {
@@ -31,6 +37,8 @@ impl Clone for WeakStoreAsync {
             inner: self.inner.clone(),
             #[cfg(feature = "sys")]
             loan: self.loan.clone(),
+            #[cfg(feature = "sys")]
+            native_invocation: self.native_invocation.clone(),
         }
     }
 }
@@ -41,11 +49,21 @@ impl WeakStoreAsync {
         if self.loan.as_ref().is_some_and(|loan| !loan.is_live()) {
             return None;
         }
+        #[cfg(feature = "sys")]
+        if self
+            .native_invocation
+            .as_ref()
+            .is_some_and(|generation| generation.check().is_err())
+        {
+            return None;
+        }
         Some(StoreAsync {
             id: self.id,
             inner: self.inner.upgrade()?,
             #[cfg(feature = "sys")]
             loan: self.loan.clone(),
+            #[cfg(feature = "sys")]
+            native_invocation: self.native_invocation.clone(),
         })
     }
 }
@@ -57,10 +75,17 @@ impl StoreAsync {
             inner: self.inner.downgrade(),
             #[cfg(feature = "sys")]
             loan: self.loan.clone(),
+            #[cfg(feature = "sys")]
+            native_invocation: self.native_invocation.clone(),
         }
     }
 
-    pub(crate) fn from_context(id: StoreId) -> Option<Self> {
+    pub(crate) fn from_context(
+        id: StoreId,
+        #[cfg(feature = "sys")] native_invocation: Option<
+            std::sync::Arc<crate::backend::sys::async_runtime::NativeInvocationGeneration>,
+        >,
+    ) -> Option<Self> {
         #[cfg(feature = "sys")]
         if let Some(loan) = crate::backend::sys::async_runtime::current_store_loan(id) {
             return Some(loan);
@@ -73,6 +98,8 @@ impl StoreAsync {
                 inner: guard.lock_handle(),
                 #[cfg(feature = "sys")]
                 loan: None,
+                #[cfg(feature = "sys")]
+                native_invocation,
             }),
             _ => None,
         }
@@ -85,6 +112,16 @@ impl StoreAsync {
         if self.loan.is_some() {
             return Err(self);
         }
+        #[cfg(feature = "sys")]
+        if self.native_invocation.as_ref().is_some_and(|generation| {
+            generation
+                .superseded
+                .load(std::sync::atomic::Ordering::Acquire)
+        }) {
+            return Err(self);
+        }
+        #[cfg(feature = "sys")]
+        let native_invocation = self.native_invocation;
         match self.inner.consume() {
             Ok(unwrapped) => Ok(Store { inner: unwrapped }),
             Err(lock) => Err(Self {
@@ -92,6 +129,8 @@ impl StoreAsync {
                 inner: lock,
                 #[cfg(feature = "sys")]
                 loan: None,
+                #[cfg(feature = "sys")]
+                native_invocation,
             }),
         }
     }
@@ -137,6 +176,8 @@ pub trait AsStoreAsync {
             inner: store.inner.clone(),
             #[cfg(feature = "sys")]
             loan: store.loan.clone(),
+            #[cfg(feature = "sys")]
+            native_invocation: store.native_invocation.clone(),
         }
     }
 
@@ -217,9 +258,68 @@ pub struct StoreAsyncWriteLock {
 }
 
 enum StoreWriteGuard {
-    Owned(LocalRwLockWriteGuard<Box<StoreInner>>),
+    Owned(OwnedStoreWriteGuard),
     #[cfg(feature = "sys")]
     Loan(crate::backend::sys::async_runtime::NativeLoanWriteGuard),
+}
+
+// This wrapper clears origin before releasing the real lock, including unwind.
+// It adds no Store access beyond that lock and performs no callbacks while held.
+struct OwnedStoreWriteGuard {
+    guard: Option<LocalRwLockWriteGuard<Box<StoreInner>>>,
+    #[cfg(feature = "sys")]
+    origin: Option<std::sync::Arc<crate::backend::sys::async_runtime::NativeInvocationGeneration>>,
+}
+impl OwnedStoreWriteGuard {
+    fn new(
+        guard: LocalRwLockWriteGuard<Box<StoreInner>>,
+        #[cfg(feature = "sys")] origin: Option<
+            std::sync::Arc<crate::backend::sys::async_runtime::NativeInvocationGeneration>,
+        >,
+    ) -> Self {
+        #[cfg(feature = "sys")]
+        let guard = {
+            let mut guard = guard;
+            assert!(guard.native_access_origin.is_none());
+            guard.native_access_origin = origin.clone();
+            guard
+        };
+        // Keep the ordinary JS path's parameter used without changing its data.
+        let guard = Some(guard);
+        Self {
+            guard,
+            #[cfg(feature = "sys")]
+            origin,
+        }
+    }
+    fn store(&self) -> &StoreInner {
+        self.guard.as_ref().unwrap()
+    }
+    fn store_mut(&mut self) -> &mut StoreInner {
+        self.guard.as_mut().unwrap()
+    }
+    fn clear_origin(&mut self) {
+        #[cfg(feature = "sys")]
+        if let Some(guard) = self.guard.as_mut() {
+            assert!(match (&guard.native_access_origin, &self.origin) {
+                (Some(current), Some(expected)) => std::sync::Arc::ptr_eq(current, expected),
+                (None, None) => true,
+                _ => false,
+            });
+            guard.native_access_origin = None;
+            self.origin = None;
+        }
+    }
+    #[cfg(feature = "js")]
+    fn into_inner(mut self) -> LocalRwLockWriteGuard<Box<StoreInner>> {
+        self.clear_origin();
+        self.guard.take().unwrap()
+    }
+}
+impl Drop for OwnedStoreWriteGuard {
+    fn drop(&mut self) {
+        self.clear_origin();
+    }
 }
 
 impl StoreAsyncWriteLock {
@@ -232,7 +332,11 @@ impl StoreAsyncWriteLock {
         }
         let store_guard = store.inner.write().await;
         Self {
-            inner: StoreWriteGuard::Owned(store_guard),
+            inner: StoreWriteGuard::Owned(OwnedStoreWriteGuard::new(
+                store_guard,
+                #[cfg(feature = "sys")]
+                store.native_invocation.clone(),
+            )),
         }
     }
 
@@ -244,14 +348,18 @@ impl StoreAsyncWriteLock {
             });
         }
         store.inner.try_write().map(|inner| Self {
-            inner: StoreWriteGuard::Owned(inner),
+            inner: StoreWriteGuard::Owned(OwnedStoreWriteGuard::new(
+                inner,
+                #[cfg(feature = "sys")]
+                store.native_invocation.clone(),
+            )),
         })
     }
 
     #[cfg(feature = "js")]
     pub(crate) fn into_owned(self) -> LocalRwLockWriteGuard<Box<StoreInner>> {
         match self.inner {
-            StoreWriteGuard::Owned(guard) => guard,
+            StoreWriteGuard::Owned(guard) => guard.into_inner(),
             #[cfg(feature = "sys")]
             StoreWriteGuard::Loan(_) => panic!("native Store loan cannot enter a JS context"),
         }
@@ -261,7 +369,7 @@ impl StoreAsyncWriteLock {
 impl AsStoreRef for StoreAsyncWriteLock {
     fn as_store_ref(&self) -> StoreRef<'_> {
         let inner = match &self.inner {
-            StoreWriteGuard::Owned(guard) => &***guard,
+            StoreWriteGuard::Owned(guard) => guard.store(),
             #[cfg(feature = "sys")]
             StoreWriteGuard::Loan(guard) => guard.store(),
         };
@@ -272,7 +380,7 @@ impl AsStoreRef for StoreAsyncWriteLock {
 impl AsStoreMut for StoreAsyncWriteLock {
     fn as_store_mut(&mut self) -> StoreMut<'_> {
         let inner = match &mut self.inner {
-            StoreWriteGuard::Owned(guard) => &mut ***guard,
+            StoreWriteGuard::Owned(guard) => guard.store_mut(),
             #[cfg(feature = "sys")]
             StoreWriteGuard::Loan(guard) => guard.store_mut(),
         };

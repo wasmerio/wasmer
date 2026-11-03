@@ -4,7 +4,9 @@
 pub(crate) mod async_runtime;
 #[cfg(feature = "experimental-async")]
 #[doc(hidden)]
-pub use async_runtime::{NativeFrameGuard, WeakNativeInvocation};
+pub use async_runtime::{
+    NativeCleanupGuard, NativeFrameGuard, NativeInvocationScope, WeakNativeInvocation,
+};
 pub(crate) mod entities;
 pub(crate) mod error;
 pub(crate) mod tunables;
@@ -33,3 +35,9 @@ pub use wasmer_compiler_singlepass::Singlepass;
 
 #[doc(hidden)]
 pub use wasmer_vm::{HostMemoryMappingChange, HostMemoryPin};
+
+#[doc(hidden)]
+pub use entities::function::env::FunctionEnvFramePin;
+
+#[doc(hidden)]
+pub use entities::memory::with_memory_grow_callback;

@@ -9,7 +9,6 @@ mod tests {
     use crate::TableType;
     #[allow(unused)]
     use crate::sys::NativeEngineExt;
-    use std::ptr::NonNull;
     use wasmer_compiler::Tunables;
     use wasmer_types::{MemoryType, Pages};
     use wasmer_vm::{
@@ -67,7 +66,9 @@ mod tests {
             &self,
             ty: &MemoryType,
             style: &MemoryStyle,
-            vm_definition_location: NonNull<VMMemoryDefinition>,
+            vm_definition_location: crate::backend::sys::vm::VMDefinitionLocation<
+                VMMemoryDefinition,
+            >,
         ) -> Result<VMMemory, MemoryError> {
             unsafe { VMMemory::from_definition(ty, style, vm_definition_location) }
         }
@@ -85,7 +86,9 @@ mod tests {
             &self,
             ty: &TableType,
             style: &TableStyle,
-            vm_definition_location: NonNull<VMTableDefinition>,
+            vm_definition_location: crate::backend::sys::vm::VMDefinitionLocation<
+                VMTableDefinition,
+            >,
         ) -> Result<VMTable, String> {
             unsafe { VMTable::from_definition(ty, style, vm_definition_location) }
         }

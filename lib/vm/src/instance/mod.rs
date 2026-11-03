@@ -10,30 +10,30 @@ mod allocator;
 
 use crate::LinearMemory;
 use crate::imports::Imports;
-use crate::store::{InternalStoreHandle, StoreObjects};
+use crate::store::{InternalStoreHandle, StoreObject, StoreObjects};
 use crate::table::TableElement;
 use crate::trap::{Trap, TrapCode};
 use crate::vmcontext::{
     VMBuiltinFunctionsArray, VMCallerCheckedAnyfunc, VMContext, VMFunctionContext,
-    VMFunctionImport, VMFunctionKind, VMGlobalDefinition, VMGlobalImport, VMMemoryDefinition,
-    VMMemoryImport, VMSharedTagIndex, VMSignatureHash, VMTableDefinition, VMTableImport,
-    VMTrampoline, memory_copy, memory_fill, memory32_atomic_check_notify, memory32_atomic_check32,
-    memory32_atomic_check64, memory32_range,
+    VMFunctionImport, VMGlobalDefinition, VMGlobalImport, VMMemoryDefinition, VMMemoryImport,
+    VMSharedTagIndex, VMSignatureHash, VMTableDefinition, VMTableImport, VMTrampoline, memory_copy,
+    memory_fill, memory32_atomic_check_notify, memory32_atomic_check32, memory32_atomic_check64,
+    memory32_range,
 };
-use crate::{FunctionBodyPtr, MaybeInstanceOwned, TrapHandlerFn, VMTag, wasmer_call_trampoline};
+use crate::{FunctionBodyPtr, TrapHandlerFn, VMTag, wasmer_call_trampoline};
 use crate::{VMConfig, VMFuncRef, VMFunction, VMGlobal, VMMemory, VMTable};
 use crate::{export::VMExtern, threadconditions::ExpectedValue};
-pub use allocator::InstanceAllocator;
+pub use allocator::{InstanceAllocator, VMDefinitionLocation, VMInstanceStorage};
 use core::mem::offset_of;
 use itertools::Itertools;
 use more_asserts::assert_lt;
-use std::alloc::Layout;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::fmt;
 use std::mem;
 use std::ptr::{self, NonNull};
+use std::rc::Rc;
 use std::slice;
 use std::sync::Arc;
 use wasmer_types::entity::{BoxedSlice, EntityRef, PrimaryMap, packed_option::ReservedValue};
@@ -104,6 +104,9 @@ pub(crate) struct Instance {
     /// Mapping of function indices to their func ref backing data. `VMFuncRef`s
     /// will point to elements here for functions imported by this instance.
     imported_funcrefs: BoxedSlice<FunctionIndex, NonNull<VMCallerCheckedAnyfunc>>,
+
+    /// Creation-time owners of imported host call metadata and context boxes.
+    function_import_pins: BoxedSlice<FunctionIndex, crate::VMFunctionPin>,
 
     /// Additional context used by compiled WebAssembly code. This
     /// field is last, and represents a dynamically-sized array that
@@ -1087,36 +1090,80 @@ impl Instance {
 ///
 /// This is more or less a public facade of the private `Instance`,
 /// providing useful higher-level API.
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug)]
 pub struct VMInstance {
-    /// The layout of `Instance` (which can vary).
-    instance_layout: Layout,
-
-    /// The `Instance` itself.
-    ///
-    /// `Instance` must not be dropped manually by Rust, because it's
-    /// allocated manually with `alloc` and a specific layout (Rust
-    /// would be able to drop `Instance` itself but it will imply a
-    /// memory leak because of `alloc`).
-    ///
-    /// No one in the code has a copy of the `Instance`'s
-    /// pointer. `Self` is the only one.
-    instance: NonNull<Instance>,
+    allocation: Rc<InstanceAllocation>,
 }
 
-/// VMInstance are created with an InstanceAllocator
-/// and it will "consume" the memory
-/// So the Drop here actually free it (else it would be leaked)
-impl Drop for VMInstance {
-    fn drop(&mut self) {
-        let instance_ptr = self.instance.as_ptr();
+/// Shared allocation custody only. Store access remains the authority for
+/// reading and mutating Instance data; an allocation owner grants no access.
+#[derive(Debug)]
+pub(crate) struct InstanceAllocation {
+    instance: NonNull<Instance>,
+    storage: Arc<VMInstanceStorage>,
+    store_id: wasmer_types::StoreId,
+}
 
-        unsafe {
-            // Need to drop all the actual Instance members
-            instance_ptr.drop_in_place();
-            // And then free the memory allocated for the Instance itself
-            std::alloc::dealloc(instance_ptr as *mut u8, self.instance_layout);
+impl InstanceAllocation {
+    fn is_from_store(&self, store: &StoreObjects) -> bool {
+        if self.store_id != store.id() {
+            return false;
         }
+        // Read only the owned Instance header; compare the stored pointer before
+        // dereferencing any Store context that a transplanted row may name.
+        std::ptr::eq(unsafe { self.instance.as_ref() }.context, store)
+    }
+
+    pub(crate) fn local_ref_target(
+        owner: &Rc<Self>,
+        store: &StoreObjects,
+        reference: VMFuncRef,
+    ) -> Option<VMFunction> {
+        if !owner.is_from_store(store) {
+            return None;
+        }
+        let instance = unsafe { owner.instance.as_ref() };
+        let local = instance
+            .funcrefs
+            .keys()
+            .find(|&index| NonNull::from(&instance.funcrefs[index]) == reference.0)?;
+        let signature = instance.module.signatures
+            [instance.module.functions[instance.module.func_index(local)]]
+        .clone();
+        // SAFETY: pointer equality selected metadata in this exact live
+        // allocation, whose original Store address and birth identity match.
+        Some(unsafe { VMFunction::new_local(reference.0, signature, store, owner.clone()) })
+    }
+
+    pub(crate) fn add_import_targets(
+        &self,
+        store: &StoreObjects,
+        targets: &mut Vec<crate::VMFunctionPin>,
+    ) {
+        if self.is_from_store(store) {
+            targets.extend(
+                unsafe { self.instance.as_ref() }
+                    .function_import_pins
+                    .values()
+                    .cloned(),
+            );
+        }
+    }
+}
+
+impl PartialEq for VMInstance {
+    fn eq(&self, other: &Self) -> bool {
+        self.allocation.instance == other.allocation.instance
+    }
+}
+impl Eq for VMInstance {}
+
+impl Drop for InstanceAllocation {
+    fn drop(&mut self) {
+        // Only nominal Instance fields are dropped here. The vmctx tail was
+        // initialized separately and stays valid for detached definition owners.
+        // The storage field is released after this Drop body, also on unwind.
+        unsafe { self.instance.as_ptr().drop_in_place() };
     }
 }
 
@@ -1158,6 +1205,7 @@ impl VMInstance {
         vmshared_signatures: BoxedSlice<SignatureIndex, VMSignatureHash>,
     ) -> Result<Self, Trap> {
         unsafe {
+            let birth_store_id = context.id();
             let vmctx_tags = tags
                 .values()
                 .map(|m: &InternalStoreHandle<VMTag>| VMSharedTagIndex::new(m.index() as u32))
@@ -1194,10 +1242,11 @@ impl VMInstance {
                     passive_data,
                     funcrefs,
                     imported_funcrefs,
+                    function_import_pins: imports.function_pins.clone(),
                     vmctx: VMContext {},
                 };
 
-                let mut instance_handle = allocator.into_vminstance(instance);
+                let mut instance_handle = allocator.into_vminstance(instance, birth_store_id);
 
                 // Set the funcrefs after we've built the instance
                 {
@@ -1205,7 +1254,6 @@ impl VMInstance {
                     let vmctx_ptr = instance.vmctx_ptr();
                     (instance.funcrefs, instance.imported_funcrefs) = build_funcrefs(
                         &instance.module,
-                        context,
                         &imports,
                         &instance.functions,
                         &vmshared_signatures,
@@ -1265,12 +1313,28 @@ impl VMInstance {
 
     /// Return a reference to the contained `Instance`.
     pub(crate) fn instance(&self) -> &Instance {
-        unsafe { self.instance.as_ref() }
+        unsafe { self.allocation.instance.as_ref() }
     }
 
     /// Return a mutable reference to the contained `Instance`.
     pub(crate) fn instance_mut(&mut self) -> &mut Instance {
-        unsafe { self.instance.as_mut() }
+        unsafe { &mut *self.allocation.instance.as_ptr() }
+    }
+
+    pub(crate) fn allocation_pin(&self) -> Rc<InstanceAllocation> {
+        self.allocation.clone()
+    }
+
+    /// Number of owners retaining this Instance allocation, without access to it.
+    #[doc(hidden)]
+    pub fn owner_count(&self) -> usize {
+        Rc::strong_count(&self.allocation)
+    }
+
+    /// Number of owners retaining the raw definition storage, without access.
+    #[doc(hidden)]
+    pub fn storage_owner_count(&self) -> usize {
+        Arc::strong_count(&self.allocation.storage)
     }
 
     /// Finishes the instantiation process started by `Instance::new`.
@@ -1341,22 +1405,35 @@ impl VMInstance {
                     // A VMFunction is lazily created only for functions that are
                     // exported.
                     let signature = instance.module.signatures[*sig_index].clone();
-                    let vm_function = VMFunction {
-                        anyfunc: MaybeInstanceOwned::Instance(NonNull::from(
-                            &instance.funcrefs[def_index],
-                        )),
-                        signature,
-                        // Any function received is already static at this point as:
-                        // 1. All locally defined functions in the Wasm have a static signature.
-                        // 2. All the imported functions are already static (because
-                        //    they point to the trampolines rather than the dynamic addresses).
-                        kind: VMFunctionKind::Static,
-                        host_data: Box::new(()),
+                    // SAFETY: the metadata belongs to this allocation, which
+                    // the immutable target retains through every call/import pin.
+                    let vm_function = unsafe {
+                        VMFunction::new_local(
+                            NonNull::from(&instance.funcrefs[def_index]),
+                            signature,
+                            instance.context(),
+                            self.allocation.clone(),
+                        )
                     };
                     InternalStoreHandle::new(self.instance_mut().context_mut(), vm_function)
                 } else {
                     let import = instance.imported_function(index);
-                    import.handle
+                    let pin = &instance.function_import_pins[index];
+                    if VMFunction::list(instance.context())
+                        .get(import.handle.index() - 1)
+                        .is_some_and(|function| {
+                            function.id() == pin.id() && function.is_from_store(instance.context())
+                        })
+                    {
+                        // Preserve the existing handle when it still denotes
+                        // the exact imported target.
+                        import.handle
+                    } else {
+                        // A replacement slot cannot redirect a re-export away
+                        // from the original creation-time imported target.
+                        let function = pin.clone_function();
+                        InternalStoreHandle::new(self.instance_mut().context_mut(), function)
+                    }
                 };
 
                 VMExtern::Function(handle)
@@ -1735,7 +1812,6 @@ fn anyfunc_from_funcref(funcref: Option<VMFuncRef>) -> VMCallerCheckedAnyfunc {
 /// future funcref operations are just looking up this data.
 fn build_funcrefs(
     module_info: &ModuleInfo,
-    ctx: &StoreObjects,
     imports: &Imports,
     finished_functions: &BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
     vmshared_signatures: &BoxedSlice<SignatureIndex, VMSignatureHash>,
@@ -1750,8 +1826,8 @@ fn build_funcrefs(
     let mut imported_func_refs = PrimaryMap::with_capacity(module_info.num_imported_functions);
 
     // do imported functions
-    for import in imports.functions.values() {
-        imported_func_refs.push(import.handle.get(ctx).anyfunc.as_ptr());
+    for pin in imports.function_pins.values() {
+        imported_func_refs.push(pin.anyfunc());
     }
 
     // do local functions
