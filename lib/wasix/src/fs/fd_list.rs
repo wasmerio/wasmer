@@ -693,7 +693,8 @@ mod tests {
             "InodeGuard handle dropped too many times"
         );
 
-        assert_panic!(drop(fd0.inode.write()), String, contains "PoisonError");
+        // The inode stays usable.
+        drop(fd0.inode.write());
     }
 
     #[test]
