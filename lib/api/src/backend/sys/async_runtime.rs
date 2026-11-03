@@ -947,6 +947,125 @@ impl WeakNativeInvocation {
     }
 }
 
+/// Synchronous custody for an inert external-engine cleanup frame.
+///
+/// This guard supplies no Store access and no native cancellation ancestry.
+/// It blocks a preceding parked invocation's resume/final driver while cleanup
+/// runs, including when that invocation is already retiring. New async roots
+/// cannot enter, and existing synchronous calls must complete without yielding.
+#[doc(hidden)]
+pub struct NativeCleanupGuard {
+    no_yield: Option<NativeCleanupNoYield>,
+    gate: Option<LocalRwLockReadGuard<()>>,
+    root: Option<NativeRootPin>,
+}
+
+impl NativeCleanupGuard {
+    /// Enter a host-only provider cleanup frame without admitting guest work.
+    ///
+    /// A queued resume writer may be joined only when its read gate is
+    /// immediately available. A held writer with a still-parked root belongs
+    /// to the synchronous enclosing runtime poll: cleanup returns before that
+    /// poll continues. That case retains the pin and NoYield custody without
+    /// claiming a read guard. The current physical retirement driver needs no
+    /// self-pin, including after its final strong owner has begun dropping.
+    ///
+    /// # Safety
+    /// `previous` must identify the actual preceding external-engine frame, or
+    /// be `None` when it has no managed invocation. Use this only for inert host
+    /// disposal; managed guest finalizers require ordinary frame admission and
+    /// failure transport. Keep the guard until the cleanup isolate has exited
+    /// and its preceding engine-frame header is restored. Nested guards must
+    /// leave in LIFO order. This synchronous guard must be destroyed before
+    /// returning from a resume-lock callback; it cannot be parked or transferred
+    /// to a later cleanup task. An unmanaged caller must finish all synchronous
+    /// descendants before returning; this guard grants no parking authority.
+    pub unsafe fn enter(previous: Option<&WeakNativeInvocation>) -> Result<Self, RuntimeError> {
+        let mut guard = Self {
+            no_yield: None,
+            gate: None,
+            root: None,
+        };
+        if let Some(previous) = previous
+            && !previous.is_current()
+        {
+            let owner =
+                previous.root.owner.upgrade().ok_or_else(|| {
+                    RuntimeError::new("native cleanup ancestor has already ended")
+                })?;
+            if owner.store_context_id != previous.root.id
+                || !Rc::ptr_eq(&owner.control, &previous.root.control)
+                || !owner.parked.get()
+                || owner.control.settled.get()
+            {
+                return Err(RuntimeError::new("native cleanup ancestor is not parked"));
+            }
+            let gate = owner.frame_gate.get_or_init(|| LocalRwLock::new(()));
+            guard.gate = gate.try_read();
+            if guard.gate.is_none() && !owner.frame_resume_waiting.get() {
+                return Err(RuntimeError::new(
+                    "native cleanup ancestor has no resume custody",
+                ));
+            }
+            // The only frame writer is the enclosing AsyncCallFuture::poll.
+            // Its parked/waiting state above proves synchronous caller custody
+            // when try_read found a writer. No callback or suspension occurs
+            // between that check and publishing this final-driver pin.
+            guard.root = Some(NativeRootPin { _owner: owner });
+        }
+        guard.no_yield = Some(NativeCleanupNoYield::enter());
+        Ok(guard)
+    }
+}
+
+impl Drop for NativeCleanupGuard {
+    fn drop(&mut self) {
+        let already_unwinding = std::thread::panicking();
+        let mut failures = Vec::new();
+        // The caller has exited/restored the actual engine frame before Drop.
+        // Remove NoYield before gate/pin release can wake another invocation.
+        defer_cleanup(&mut failures, || drop(self.no_yield.take()));
+        defer_cleanup(&mut failures, || drop(self.gate.take()));
+        defer_cleanup(&mut failures, || drop(self.root.take()));
+        resume_guard_cleanup_panics(failures, already_unwinding);
+    }
+}
+
+struct NativeCleanupNoYield {
+    previous: usize,
+}
+
+impl NativeCleanupNoYield {
+    fn enter() -> Self {
+        NATIVE_CLEANUP_DEPTH.with(|depth| {
+            let previous = depth.get();
+            depth.set(
+                previous
+                    .checked_add(1)
+                    .expect("native cleanup depth exhausted"),
+            );
+            Self { previous }
+        })
+    }
+}
+
+impl Drop for NativeCleanupNoYield {
+    fn drop(&mut self) {
+        NATIVE_CLEANUP_DEPTH.with(|depth| {
+            assert_eq!(
+                depth.get(),
+                self.previous + 1,
+                "native cleanup dropped out of order"
+            );
+            depth.set(self.previous);
+        });
+    }
+}
+
+fn native_cleanup_no_yield() -> bool {
+    NATIVE_CLEANUP_DEPTH.with(|depth| depth.get() != 0)
+}
+
 /// Custody for a descendant external-engine frame.
 ///
 /// It carries no Store access. Exiting the engine's thread-local scopes must
@@ -1575,6 +1694,15 @@ impl AsyncCallFuture {
             self.retire_root(Some(error.clone()));
             return Poll::Ready(Err(error));
         }
+        if native_cleanup_no_yield()
+            && matches!(self.next_resume.as_ref(), Some(AsyncResume::Start))
+        {
+            let error = RuntimeError::new(
+                "cannot enter a new native async root during synchronous cleanup",
+            );
+            self.retire_root(None);
+            return Poll::Ready(Err(error));
+        }
         loop {
             if let Some(error) = self.root().control.error() {
                 self.retire_root(Some(error.clone()));
@@ -1643,6 +1771,11 @@ impl AsyncCallFuture {
                 return Poll::Ready(self.result.take().expect("polled after completion"));
             }
 
+            // Publish resume intent before any loan/frame/Store-lock callback.
+            // A callback must not install a new lazy frame gate after we have
+            // decided that no frame gate exists for this resume.
+            self.root().frame_resume_waiting.set(true);
+
             // The established local lock owns all waiting/waking behavior. Its
             // write guard excludes every actual outside loan guard from resume.
             if self.pending_resume_gate.is_none()
@@ -1670,9 +1803,6 @@ impl AsyncCallFuture {
                 && let Some(gate) = self.root().frame_gate.get()
             {
                 self.pending_frame_gate = Some(gate.write());
-            }
-            if self.pending_frame_gate.is_some() {
-                self.root().frame_resume_waiting.set(true);
             }
             let frame_gate = if let Some(wait) = self.pending_frame_gate.as_mut() {
                 match Pin::new(wait).poll(cx) {
@@ -2221,6 +2351,9 @@ fn notify_descendant_futures(ancestor: AsyncCallFutureId) -> Vec<DeferredPanic> 
 
 thread_local! {
     static CURRENT_CONTEXT: RefCell<Vec<*const CoroutineContext>> = const { RefCell::new(Vec::new()) };
+    // This synchronous physical-scope restriction survives metadata detachment
+    // around arbitrary Waker callbacks. It owns no Store or coroutine authority.
+    static NATIVE_CLEANUP_DEPTH: Cell<usize> = const { Cell::new(0) };
 }
 
 struct CoroutineContext {
@@ -2347,14 +2480,18 @@ impl CoroutineContext {
         if let Some(error) = self.owner.as_ref().and_then(|root| root.control.error()) {
             return Err(error);
         }
-        if !StoreContext::can_suspend_suffix(self.store_context_id)
-            && !StoreContext::can_suspend_borrowed_root(self.store_context_id)
+        let cleanup = native_cleanup_no_yield();
+        if cleanup
+            || (!StoreContext::can_suspend_suffix(self.store_context_id)
+                && !StoreContext::can_suspend_borrowed_root(self.store_context_id))
         {
             return run_immediate(future).map_err(|error| match error {
                 AsyncRuntimeError::RuntimeError(error) => error,
-                AsyncRuntimeError::YieldOutsideAsyncContext => RuntimeError::new(
-                    "cannot suspend a native call while a borrowed or incompatible Store context remains installed",
-                ),
+                AsyncRuntimeError::YieldOutsideAsyncContext => RuntimeError::new(if cleanup {
+                    "cannot suspend during synchronous native cleanup"
+                } else {
+                    "cannot suspend a native call while a borrowed or incompatible Store context remains installed"
+                }),
             });
         }
         // Leave the coroutine context since we're yielding back to the
@@ -2498,6 +2635,941 @@ mod tests {
         );
         drop(next_scope);
         assert!(StoreContext::is_empty());
+    }
+
+    #[test]
+    fn resume_intent_precedes_a_descendant_frame_created_by_a_store_waiter() {
+        if !runtime_subprocess(
+            "backend::sys::async_runtime::tests::resume_intent_precedes_a_descendant_frame_created_by_a_store_waiter",
+        ) {
+            return;
+        }
+        use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+        type RootCall = Pin<Box<dyn Future<Output = Result<Box<[Value]>, RuntimeError>>>>;
+        thread_local! {
+            static ANCESTOR: RefCell<Option<WeakNativeInvocation>> = const { RefCell::new(None) };
+            static LOCKED: RefCell<Option<crate::StoreAsyncWriteLock>> = const { RefCell::new(None) };
+            static ON_READY: RefCell<Option<Box<dyn FnOnce()>>> = const { RefCell::new(None) };
+            static CHILD: RefCell<Option<RootCall>> = const { RefCell::new(None) };
+        }
+        struct CloneState {
+            body_ready: Arc<AtomicBool>,
+        }
+        impl CloneState {
+            fn waker(self: &Arc<Self>) -> Waker {
+                unsafe fn clone(data: *const ()) -> RawWaker {
+                    let state = std::mem::ManuallyDrop::new(unsafe {
+                        Arc::from_raw(data.cast::<CloneState>())
+                    });
+                    if state.body_ready.load(Ordering::SeqCst) {
+                        let callback = ON_READY.with(|slot| slot.borrow_mut().take());
+                        if let Some(callback) = callback {
+                            callback();
+                        }
+                    }
+                    RawWaker::new(Arc::into_raw(Arc::clone(&state)).cast(), &VTABLE)
+                }
+                unsafe fn wake(data: *const ()) {
+                    drop(unsafe { Arc::from_raw(data.cast::<CloneState>()) });
+                }
+                unsafe fn wake_by_ref(_: *const ()) {}
+                unsafe fn drop_waker(data: *const ()) {
+                    drop(unsafe { Arc::from_raw(data.cast::<CloneState>()) });
+                }
+                static VTABLE: RawWakerVTable =
+                    RawWakerVTable::new(clone, wake, wake_by_ref, drop_waker);
+                unsafe {
+                    Waker::from_raw(RawWaker::new(Arc::into_raw(self.clone()).cast(), &VTABLE))
+                }
+            }
+        }
+        struct ExternalScope(Arc<AtomicBool>);
+        impl Drop for ExternalScope {
+            fn drop(&mut self) {
+                self.0.store(false, Ordering::SeqCst);
+            }
+        }
+        struct Descendant {
+            leaf: Option<crate::TypedFunction<(), i32>>,
+            active: Arc<AtomicBool>,
+            denied: Arc<AtomicBool>,
+        }
+        let mut store = Store::default();
+        let ready = Arc::new(AtomicBool::new(false));
+        let body_ready = Arc::new(AtomicBool::new(false));
+        let descendant_active = Arc::new(AtomicBool::new(false));
+        let resumed_above_child = Arc::new(AtomicBool::new(false));
+        let parent_ready = ready.clone();
+        let parent_body = body_ready.clone();
+        let leaf = Function::new_async(
+            &mut store,
+            crate::FunctionType::new([], [crate::Type::I32]),
+            move |_| {
+                ANCESTOR.with(|slot| {
+                    assert!(
+                        slot.borrow_mut()
+                            .replace(WeakNativeInvocation::current().unwrap())
+                            .is_none()
+                    )
+                });
+                let ready = parent_ready.clone();
+                let observed = parent_body.clone();
+                async move {
+                    std::future::poll_fn(|_| {
+                        if ready.load(Ordering::SeqCst) {
+                            observed.store(true, Ordering::SeqCst);
+                            Poll::Ready(())
+                        } else {
+                            Poll::Pending
+                        }
+                    })
+                    .await;
+                    Ok(vec![Value::I32(42)])
+                }
+            },
+        );
+        let child_active = descendant_active.clone();
+        let premature = resumed_above_child.clone();
+        let after = Function::new_typed(&mut store, move || {
+            premature.store(child_active.load(Ordering::SeqCst), Ordering::SeqCst);
+        });
+        let module = Module::new(
+            &store,
+            r#"(module
+            (import "proof" "leaf" (func $leaf (result i32)))
+            (import "proof" "after" (func $after))
+            (func (export "run") (result i32) call $leaf call $after)
+            (func (export "fresh") (result i32) i32.const 42))"#,
+        )
+        .unwrap();
+        let instance = Instance::new(
+            &mut store,
+            &module,
+            &crate::imports! { "proof" => { "leaf" => leaf, "after" => after }},
+        )
+        .unwrap();
+        let store = store.into_async();
+        let mut call = Box::pin(
+            instance
+                .exports
+                .get_function("run")
+                .unwrap()
+                .call_async(&store, vec![]),
+        );
+        let noop = futures::task::noop_waker();
+        assert!(
+            call.as_mut()
+                .poll(&mut Context::from_waker(&noop))
+                .is_pending()
+        );
+        let token = ANCESTOR.with(|slot| slot.borrow().as_ref().unwrap().clone());
+        assert!(
+            token
+                .root
+                .owner
+                .upgrade()
+                .unwrap()
+                .frame_gate
+                .get()
+                .is_none()
+        );
+        assert!(
+            !token
+                .root
+                .owner
+                .upgrade()
+                .unwrap()
+                .stack
+                .borrow()
+                .suspended_stores
+                .owns_root()
+        );
+
+        let mut other = Store::default();
+        let denied = Arc::new(AtomicBool::new(false));
+        let state = crate::FunctionEnv::new(
+            &mut other,
+            Descendant {
+                leaf: None,
+                active: descendant_active.clone(),
+                denied: denied.clone(),
+            },
+        );
+        let wait = Function::new_async(
+            &mut other,
+            crate::FunctionType::new([], [crate::Type::I32]),
+            |_| std::future::pending::<Result<Vec<Value>, RuntimeError>>(),
+        );
+        let bridge = Function::new_typed_with_env(
+            &mut other,
+            &state,
+            |mut env: crate::FunctionEnvMut<Descendant>| -> Result<i32, RuntimeError> {
+                let ancestor = ANCESTOR.with(|slot| slot.borrow().as_ref().unwrap().clone());
+                let frame = match unsafe { ancestor.enter_descendant_frame() } {
+                    Ok(frame) => frame,
+                    Err(_) => {
+                        env.data().denied.store(true, Ordering::SeqCst);
+                        return Ok(7);
+                    }
+                };
+                let (data, mut derived) = env.data_and_store_mut();
+                data.active.store(true, Ordering::SeqCst);
+                let external = ExternalScope(data.active.clone());
+                let result = data.leaf.as_ref().unwrap().call(&mut derived);
+                drop(external);
+                drop(frame);
+                result
+            },
+        );
+        let module = Module::new(
+            &other,
+            r#"(module
+            (import "proof" "wait" (func $wait (result i32)))
+            (import "proof" "bridge" (func $bridge (result i32)))
+            (func (export "run") (result i32) call $bridge)
+            (func (export "leaf") (result i32) call $wait))"#,
+        )
+        .unwrap();
+        let child_instance = Instance::new(
+            &mut other,
+            &module,
+            &crate::imports! { "proof" => { "wait" => wait, "bridge" => bridge }},
+        )
+        .unwrap();
+        state.as_mut(&mut other).leaf = Some(
+            child_instance
+                .exports
+                .get_typed_function(&other, "leaf")
+                .unwrap(),
+        );
+        let other = other.into_async();
+        let child_store = other.store();
+        let child_function = child_instance.exports.get_function("run").unwrap().clone();
+        let callbacks = Arc::new(AtomicUsize::new(0));
+        let fired = callbacks.clone();
+        LOCKED.with(|slot| *slot.borrow_mut() = Some(store.store().write()));
+        ON_READY.with(|slot| {
+            *slot.borrow_mut() = Some(Box::new(move || {
+                fired.fetch_add(1, Ordering::SeqCst);
+                let mut child: RootCall = Box::pin(child_function.call_async(&child_store, vec![]));
+                let noop = futures::task::noop_waker();
+                match child.as_mut().poll(&mut Context::from_waker(&noop)) {
+                    Poll::Pending => {
+                        CHILD.with(|slot| assert!(slot.borrow_mut().replace(child).is_none()))
+                    }
+                    Poll::Ready(Ok(values)) => assert_eq!(values[0].i32(), Some(7)),
+                    Poll::Ready(Err(error)) => {
+                        panic!("child failed outside frame admission: {error}")
+                    }
+                }
+                // This legitimate clone callback makes the original Store lock
+                // ready after a different physical root attempted frame entry.
+                drop(LOCKED.with(|slot| slot.borrow_mut().take()));
+            }));
+        });
+        let state = Arc::new(CloneState { body_ready });
+        let waker = state.waker();
+        ready.store(true, Ordering::SeqCst);
+        let outcome = call.as_mut().poll(&mut Context::from_waker(&waker));
+        let completed =
+            matches!(outcome, Poll::Ready(Ok(ref values)) if values[0].i32() == Some(42));
+        // Every modeled native scope and actual Rust stack settles before any
+        // discriminator, including the old implementation's unsafe ordering.
+        drop(LOCKED.with(|slot| slot.borrow_mut().take()));
+        drop(call);
+        drop(CHILD.with(|slot| slot.borrow_mut().take()));
+        assert!(!descendant_active.load(Ordering::SeqCst));
+        assert!(completed);
+        assert_eq!(callbacks.load(Ordering::SeqCst), 1);
+        assert!(
+            !resumed_above_child.load(Ordering::SeqCst),
+            "ancestor resumed above a descendant frame installed by a lock callback"
+        );
+        assert!(
+            denied.load(Ordering::SeqCst),
+            "resume intent did not reject the new native descendant"
+        );
+        assert_eq!(
+            futures::executor::block_on(
+                instance
+                    .exports
+                    .get_function("fresh")
+                    .unwrap()
+                    .call_async(&store, vec![])
+            )
+            .unwrap()[0]
+                .i32(),
+            Some(42)
+        );
+        ANCESTOR.with(|slot| drop(slot.borrow_mut().take()));
+        assert!(StoreContext::is_empty());
+        assert!(CoroutineContext::current_root().is_none());
+    }
+
+    #[test]
+    fn host_cleanup_uses_enclosing_poll_custody_when_the_resume_writer_is_held() {
+        if !runtime_subprocess(
+            "backend::sys::async_runtime::tests::host_cleanup_uses_enclosing_poll_custody_when_the_resume_writer_is_held",
+        ) {
+            return;
+        }
+        use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+        thread_local! {
+            static TOKEN: RefCell<Option<WeakNativeInvocation>> = const { RefCell::new(None) };
+            static ON_WRITER: RefCell<Option<Box<dyn FnOnce()>>> = const { RefCell::new(None) };
+            static CLOSED: RefCell<Option<NativeInvocationScope>> = const { RefCell::new(None) };
+        }
+        fn maybe_enter_cleanup() {
+            let token = TOKEN.with(|slot| slot.borrow().as_ref().unwrap().clone());
+            let Some(owner) = token.root.owner.upgrade() else {
+                return;
+            };
+            let held = owner.parked.get()
+                && owner.frame_resume_waiting.get()
+                && owner.frame_gate.get().unwrap().try_read().is_none();
+            drop(owner);
+            if held {
+                let callback = ON_WRITER.with(|slot| slot.borrow_mut().take());
+                if let Some(callback) = callback {
+                    callback();
+                }
+            }
+        }
+        struct WakeState {
+            cleanup_wakes: AtomicUsize,
+        }
+        impl WakeState {
+            fn waker(self: &Arc<Self>) -> Waker {
+                unsafe fn clone(data: *const ()) -> RawWaker {
+                    let state = std::mem::ManuallyDrop::new(unsafe {
+                        Arc::from_raw(data.cast::<WakeState>())
+                    });
+                    maybe_enter_cleanup();
+                    RawWaker::new(Arc::into_raw(Arc::clone(&state)).cast(), &VTABLE)
+                }
+                unsafe fn wake(data: *const ()) {
+                    unsafe { wake_by_ref(data) };
+                    drop(unsafe { Arc::from_raw(data.cast::<WakeState>()) });
+                }
+                unsafe fn wake_by_ref(data: *const ()) {
+                    let state = std::mem::ManuallyDrop::new(unsafe {
+                        Arc::from_raw(data.cast::<WakeState>())
+                    });
+                    if native_cleanup_no_yield() {
+                        state.cleanup_wakes.fetch_add(1, Ordering::SeqCst);
+                    }
+                }
+                unsafe fn drop_waker(data: *const ()) {
+                    drop(unsafe { Arc::from_raw(data.cast::<WakeState>()) });
+                }
+                static VTABLE: RawWakerVTable =
+                    RawWakerVTable::new(clone, wake, wake_by_ref, drop_waker);
+                // Every raw value owns one Arc; clone/by_ref borrow their
+                // original, while wake/drop consume only their own Arc.
+                unsafe {
+                    Waker::from_raw(RawWaker::new(Arc::into_raw(self.clone()).cast(), &VTABLE))
+                }
+            }
+        }
+        let mut store = Store::default();
+        let ready = Arc::new(AtomicBool::new(false));
+        let body_ready = ready.clone();
+        let leaf = Function::new_async(
+            &mut store,
+            crate::FunctionType::new([], [crate::Type::I32]),
+            move |_| {
+                TOKEN.with(|slot| {
+                    assert!(
+                        slot.borrow_mut()
+                            .replace(WeakNativeInvocation::current().unwrap())
+                            .is_none()
+                    )
+                });
+                let ready = body_ready.clone();
+                async move {
+                    std::future::poll_fn(|_| {
+                        if ready.load(Ordering::SeqCst) {
+                            Poll::Ready(())
+                        } else {
+                            Poll::Pending
+                        }
+                    })
+                    .await;
+                    Ok(vec![Value::I32(42)])
+                }
+            },
+        );
+        let module = Module::new(
+            &store,
+            r#"(module
+            (import "proof" "leaf" (func $leaf (result i32)))
+            (func (export "run") (result i32) call $leaf)
+            (func (export "fresh") (result i32) i32.const 42))"#,
+        )
+        .unwrap();
+        let instance = Instance::new(
+            &mut store,
+            &module,
+            &crate::imports! { "proof" => { "leaf" => leaf }},
+        )
+        .unwrap();
+        let scope = NativeInvocationScope::bind(&mut store).unwrap();
+        let store = store.into_async();
+        let mut call = Box::pin(
+            instance
+                .exports
+                .get_function("run")
+                .unwrap()
+                .call_async(&store, vec![]),
+        );
+        let noop = futures::task::noop_waker();
+        assert!(
+            call.as_mut()
+                .poll(&mut Context::from_waker(&noop))
+                .is_pending()
+        );
+        let token = TOKEN.with(|slot| slot.borrow().as_ref().unwrap().clone());
+        assert!(
+            !token
+                .root
+                .owner
+                .upgrade()
+                .unwrap()
+                .stack
+                .borrow()
+                .suspended_stores
+                .owns_root()
+        );
+        let frame = unsafe { token.enter_descendant_frame() }.unwrap();
+        drop(frame);
+        let locked = store.store().write();
+        let entered = Arc::new(AtomicUsize::new(0));
+        let entry = entered.clone();
+        let header_exited = Arc::new(AtomicBool::new(false));
+        let exited = header_exited.clone();
+        let ancestor = token.clone();
+        ON_WRITER.with(|slot| {
+            *slot.borrow_mut() = Some(Box::new(move || {
+                let cleanup = unsafe { NativeCleanupGuard::enter(Some(&ancestor)) }.unwrap();
+                assert!(cleanup.root.is_some() && cleanup.gate.is_none());
+                assert!(native_cleanup_no_yield());
+                assert_eq!(scope.local.generation.active.load(Ordering::SeqCst), 1);
+                scope.close();
+                assert!(ancestor.retirement_error().is_some());
+                assert!(!ancestor.root.control.settled.get());
+                entry.fetch_add(1, Ordering::SeqCst);
+                // The enclosing poll cannot resume until this synchronous
+                // callback exits and restores its modeled engine header.
+                exited.store(true, Ordering::SeqCst);
+                drop(cleanup);
+                assert!(!native_cleanup_no_yield());
+                assert!(!ancestor.root.control.settled.get());
+                CLOSED.with(|slot| assert!(slot.borrow_mut().replace(scope).is_none()));
+            }));
+        });
+        let state = Arc::new(WakeState {
+            cleanup_wakes: AtomicUsize::new(0),
+        });
+        let waker = state.waker();
+        ready.store(true, Ordering::SeqCst);
+        let outcome = call.as_mut().poll(&mut Context::from_waker(&waker));
+        // A defective admission path still has only Rust stacks here. Release
+        // its Store guard and cancel before checking the modeled-scope result.
+        drop(locked);
+        let rejected = matches!(outcome, Poll::Ready(Err(ref error)) if error.is_host_abort());
+        drop(call);
+        assert!(
+            rejected,
+            "closed invocation resumed through its cleanup frame"
+        );
+        assert_eq!(entered.load(Ordering::SeqCst), 1);
+        assert!(header_exited.load(Ordering::SeqCst));
+        assert!(state.cleanup_wakes.load(Ordering::SeqCst) > 0);
+        assert!(token.root.control.settled.get());
+        assert!(token.root.owner.upgrade().is_none());
+        assert!(!native_cleanup_no_yield());
+        let scope = CLOSED.with(|slot| slot.borrow_mut().take().unwrap());
+        assert_eq!(scope.local.generation.active.load(Ordering::SeqCst), 0);
+        let (next_scope, next_store) = {
+            let mut write = store.store().write();
+            scope.successor(&store, &mut write.as_store_mut()).unwrap()
+        };
+        assert_eq!(
+            futures::executor::block_on(
+                instance
+                    .exports
+                    .get_function("fresh")
+                    .unwrap()
+                    .call_async(&next_store, vec![])
+            )
+            .unwrap()[0]
+                .i32(),
+            Some(42)
+        );
+        drop(next_scope);
+        TOKEN.with(|slot| drop(slot.borrow_mut().take()));
+        assert!(StoreContext::is_empty());
+        assert!(CoroutineContext::current_root().is_none());
+    }
+
+    #[derive(Clone, Copy)]
+    enum CleanupProof {
+        Parked,
+        Retiring,
+        Queued,
+        Foreign,
+        Driver,
+    }
+
+    // Match native_frame_proof: real borrowed-root stacks and TLS-held weak
+    // metadata model external scopes without introducing native pointers.
+    fn native_cleanup_blocker_proof(mode: CleanupProof) {
+        use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+        type RootCall = Pin<Box<dyn Future<Output = Result<Box<[Value]>, RuntimeError>>>>;
+        thread_local! {
+            static TOKEN: RefCell<Option<WeakNativeInvocation>> = const { RefCell::new(None) };
+            static CALL: RefCell<Option<RootCall>> = const { RefCell::new(None) };
+        }
+        struct Probe {
+            drops: Arc<AtomicUsize>,
+            exited: Arc<AtomicBool>,
+            cleanup_in_driver: bool,
+        }
+        impl Drop for Probe {
+            fn drop(&mut self) {
+                assert!(
+                    self.exited.load(Ordering::SeqCst),
+                    "cleanup frame was still entered"
+                );
+                if self.cleanup_in_driver {
+                    let current = WeakNativeInvocation::current().unwrap();
+                    assert!(current.is_current());
+                    assert!(current.root.owner.upgrade().is_none());
+                    let cleanup = unsafe { NativeCleanupGuard::enter(Some(&current)) }.unwrap();
+                    assert!(cleanup.root.is_none() && cleanup.gate.is_none());
+                    assert!(native_cleanup_no_yield());
+                    // This inner modeled cleanup also exits before SDK Drop.
+                    drop(cleanup);
+                    assert!(!native_cleanup_no_yield());
+                }
+                self.drops.fetch_add(1, Ordering::SeqCst);
+            }
+        }
+        struct Parent {
+            leaf: Option<crate::TypedFunction<(), i32>>,
+            drops: Arc<AtomicUsize>,
+            exited: Arc<AtomicBool>,
+            cleanup_in_driver: bool,
+        }
+        let mut store = Store::default();
+        let ready = Arc::new(AtomicBool::new(false));
+        let drops = Arc::new(AtomicUsize::new(0));
+        let exited = Arc::new(AtomicBool::new(false));
+        let parent = crate::FunctionEnv::new(
+            &mut store,
+            Parent {
+                leaf: None,
+                drops: drops.clone(),
+                exited: exited.clone(),
+                cleanup_in_driver: matches!(mode, CleanupProof::Driver),
+            },
+        );
+        let body_ready = ready.clone();
+        let leaf = Function::new_async(
+            &mut store,
+            crate::FunctionType::new([], [crate::Type::I32]),
+            move |_| {
+                let ready = body_ready.clone();
+                async move {
+                    std::future::poll_fn(|_| {
+                        if ready.load(Ordering::SeqCst) {
+                            Poll::Ready(())
+                        } else {
+                            Poll::Pending
+                        }
+                    })
+                    .await;
+                    Ok(vec![Value::I32(42)])
+                }
+            },
+        );
+        let bridge = Function::new_typed_with_env(
+            &mut store,
+            &parent,
+            |mut env: crate::FunctionEnvMut<Parent>| -> Result<i32, RuntimeError> {
+                TOKEN.with(|slot| {
+                    assert!(
+                        slot.borrow_mut()
+                            .replace(WeakNativeInvocation::current().unwrap())
+                            .is_none()
+                    )
+                });
+                let (data, mut derived) = env.data_and_store_mut();
+                let _probe = Probe {
+                    drops: data.drops.clone(),
+                    exited: data.exited.clone(),
+                    cleanup_in_driver: data.cleanup_in_driver,
+                };
+                data.leaf.as_ref().unwrap().call(&mut derived)
+            },
+        );
+        let module = Module::new(
+            &store,
+            r#"(module
+            (import "proof" "leaf" (func $leaf (result i32)))
+            (import "proof" "bridge" (func $bridge (result i32)))
+            (func (export "run") (result i32) call $bridge)
+            (func (export "leaf") (result i32) call $leaf)
+            (func (export "fresh") (result i32) i32.const 42))"#,
+        )
+        .unwrap();
+        let instance = Instance::new(
+            &mut store,
+            &module,
+            &crate::imports! { "proof" => { "leaf" => leaf, "bridge" => bridge }},
+        )
+        .unwrap();
+        parent.as_mut(&mut store).leaf =
+            Some(instance.exports.get_typed_function(&store, "leaf").unwrap());
+        let store = store.into_async();
+        let mut call: Option<RootCall> = Some(Box::pin(
+            instance
+                .exports
+                .get_function("run")
+                .unwrap()
+                .call_async(&store, vec![]),
+        ));
+        let noop = futures::task::noop_waker();
+        assert!(
+            call.as_mut()
+                .unwrap()
+                .as_mut()
+                .poll(&mut Context::from_waker(&noop))
+                .is_pending()
+        );
+        let token = TOKEN.with(|slot| slot.borrow_mut().take().unwrap());
+        if matches!(mode, CleanupProof::Foreign) {
+            TOKEN.with(|slot| *slot.borrow_mut() = Some(token.clone()));
+            CALL.with(|slot| *slot.borrow_mut() = call.take());
+            let mut other = Store::default();
+            let stack_drops = drops.clone();
+            let header_exited = exited.clone();
+            let foreign = Function::new_typed(&mut other, move || -> i32 {
+                let current = WeakNativeInvocation::current().unwrap();
+                let ancestor = TOKEN.with(|slot| slot.borrow_mut().take().unwrap());
+                let cleanup = unsafe { NativeCleanupGuard::enter(Some(&ancestor)) }.unwrap();
+                assert!(native_cleanup_no_yield());
+                drop(CALL.with(|slot| slot.borrow_mut().take().unwrap()));
+                assert!(ancestor.retirement_error().is_some());
+                assert!(current.retirement_error().is_none());
+                assert_eq!(stack_drops.load(Ordering::SeqCst), 0);
+                header_exited.store(true, Ordering::SeqCst);
+                drop(cleanup);
+                assert_eq!(stack_drops.load(Ordering::SeqCst), 1);
+                assert!(current.is_current());
+                assert!(current.retirement_error().is_none());
+                assert!(!native_cleanup_no_yield());
+                42
+            });
+            assert_eq!(
+                futures::executor::block_on(foreign.call_async(&other.into_async(), vec![]))
+                    .unwrap()[0]
+                    .i32(),
+                Some(42)
+            );
+        } else {
+            let ordinary = matches!(mode, CleanupProof::Retiring | CleanupProof::Queued)
+                .then(|| unsafe { token.enter_descendant_frame() }.unwrap());
+            if matches!(mode, CleanupProof::Retiring) {
+                drop(call.take());
+                assert!(token.retirement_error().is_some());
+            }
+            if matches!(mode, CleanupProof::Queued) {
+                ready.store(true, Ordering::SeqCst);
+                assert!(
+                    call.as_mut()
+                        .unwrap()
+                        .as_mut()
+                        .poll(&mut Context::from_waker(&noop))
+                        .is_pending()
+                );
+                assert!(
+                    token
+                        .root
+                        .owner
+                        .upgrade()
+                        .unwrap()
+                        .frame_resume_waiting
+                        .get()
+                );
+            }
+            let cleanup = unsafe { NativeCleanupGuard::enter(Some(&token)) }.unwrap();
+            let parked_custody = cleanup.root.is_some() && cleanup.gate.is_some();
+            drop(ordinary);
+            if matches!(mode, CleanupProof::Retiring | CleanupProof::Driver) {
+                drop(call.take());
+            } else {
+                ready.store(true, Ordering::SeqCst);
+                assert!(
+                    call.as_mut()
+                        .unwrap()
+                        .as_mut()
+                        .poll(&mut Context::from_waker(&noop))
+                        .is_pending()
+                );
+            }
+            assert_eq!(drops.load(Ordering::SeqCst), 0);
+            exited.store(true, Ordering::SeqCst);
+            drop(cleanup);
+            assert!(!native_cleanup_no_yield());
+            if let Some(mut call) = call.take() {
+                let Poll::Ready(Ok(values)) = call.as_mut().poll(&mut Context::from_waker(&noop))
+                else {
+                    panic!("ancestor did not resume after synchronous cleanup exit");
+                };
+                assert_eq!(values[0].i32(), Some(42));
+                drop(call);
+            }
+            assert!(
+                parked_custody,
+                "host cleanup did not capture its parked root and gate"
+            );
+        }
+        assert_eq!(drops.load(Ordering::SeqCst), 1);
+        assert!(token.root.owner.upgrade().is_none());
+        let Err(error) = (unsafe { NativeCleanupGuard::enter(Some(&token)) }) else {
+            panic!("stale cleanup token was accepted without a physical caller");
+        };
+        assert!(error.message().contains("already ended"));
+        assert_eq!(
+            futures::executor::block_on(
+                instance
+                    .exports
+                    .get_function("fresh")
+                    .unwrap()
+                    .call_async(&store, vec![])
+            )
+            .unwrap()[0]
+                .i32(),
+            Some(42)
+        );
+        assert!(!native_cleanup_no_yield());
+        assert!(StoreContext::is_empty());
+        assert!(CoroutineContext::current_root().is_none());
+    }
+
+    #[test]
+    fn host_cleanup_blocks_resume_and_retirement_without_adding_native_ancestry() {
+        if !runtime_subprocess(
+            "backend::sys::async_runtime::tests::host_cleanup_blocks_resume_and_retirement_without_adding_native_ancestry",
+        ) {
+            return;
+        }
+        for mode in [
+            CleanupProof::Parked,
+            CleanupProof::Retiring,
+            CleanupProof::Queued,
+            CleanupProof::Foreign,
+            CleanupProof::Driver,
+        ] {
+            native_cleanup_blocker_proof(mode);
+        }
+    }
+
+    #[test]
+    fn host_cleanup_rejects_new_async_roots_and_pending_host_futures() {
+        if !runtime_subprocess(
+            "backend::sys::async_runtime::tests::host_cleanup_rejects_new_async_roots_and_pending_host_futures",
+        ) {
+            return;
+        }
+        use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+        struct PendingProbe {
+            ready: Arc<AtomicBool>,
+            polls: Arc<AtomicUsize>,
+            drops: Arc<AtomicUsize>,
+        }
+        impl Future for PendingProbe {
+            type Output = Result<Vec<Value>, RuntimeError>;
+            fn poll(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<Self::Output> {
+                self.polls.fetch_add(1, Ordering::SeqCst);
+                if self.ready.load(Ordering::SeqCst) {
+                    Poll::Ready(Ok(vec![Value::I32(42)]))
+                } else {
+                    Poll::Pending
+                }
+            }
+        }
+        impl Drop for PendingProbe {
+            fn drop(&mut self) {
+                self.drops.fetch_add(1, Ordering::SeqCst);
+            }
+        }
+        let mut store = Store::default();
+        let entries = Arc::new(AtomicUsize::new(0));
+        let entered = entries.clone();
+        let fresh = Function::new_typed(&mut store, move || -> i32 {
+            entered.fetch_add(1, Ordering::SeqCst);
+            42
+        });
+        let polls = Arc::new(AtomicUsize::new(0));
+        let drops = Arc::new(AtomicUsize::new(0));
+        let polled = polls.clone();
+        let dropped = drops.clone();
+        let ready = Arc::new(AtomicBool::new(false));
+        let refused = Arc::new(AtomicBool::new(false));
+        let leaf_ready = ready.clone();
+        struct Synchronous {
+            leaf: Option<crate::TypedFunction<(), i32>>,
+            immediate: Option<crate::TypedFunction<(), i32>>,
+            refused: Arc<AtomicBool>,
+        }
+        let state = crate::FunctionEnv::new(
+            &mut store,
+            Synchronous {
+                leaf: None,
+                immediate: None,
+                refused: refused.clone(),
+            },
+        );
+        let pending_leaf = Function::new_async(
+            &mut store,
+            crate::FunctionType::new([], [crate::Type::I32]),
+            move |_| PendingProbe {
+                ready: leaf_ready.clone(),
+                polls: polled.clone(),
+                drops: dropped.clone(),
+            },
+        );
+        let immediate = Function::new_async(
+            &mut store,
+            crate::FunctionType::new([], [crate::Type::I32]),
+            |_| async { Ok(vec![Value::I32(42)]) },
+        );
+        let synchronous = Function::new_typed_with_env(
+            &mut store,
+            &state,
+            |mut env: crate::FunctionEnvMut<Synchronous>| -> Result<i32, RuntimeError> {
+                let current = WeakNativeInvocation::current().unwrap();
+                let cleanup = unsafe { NativeCleanupGuard::enter(Some(&current)) }.unwrap();
+                assert!(cleanup.root.is_none() && cleanup.gate.is_none());
+                assert!(native_cleanup_no_yield());
+                let (data, mut derived) = env.data_and_store_mut();
+                // Ready and Pending both use the supported borrowed Wasm
+                // suffix. The runtime may yield even an immediate future when
+                // NoYield is deliberately omitted by the sensitivity probe.
+                assert_eq!(
+                    data.immediate.as_ref().unwrap().call(&mut derived).unwrap(),
+                    42
+                );
+                match data.leaf.as_ref().unwrap().call(&mut derived) {
+                    Err(error) if error.is_host_abort() => return Err(error),
+                    Err(error) => data.refused.store(
+                        error.message().contains("synchronous native cleanup"),
+                        Ordering::SeqCst,
+                    ),
+                    // A defective modeled yield is completed normally before
+                    // the post-cleanup discriminator; no forced abort is needed.
+                    Ok(value) => assert_eq!(value, 42),
+                }
+                assert!(current.is_current());
+                // The modeled engine entry has exited before its SDK guard.
+                drop(cleanup);
+                assert!(!native_cleanup_no_yield());
+                Ok(42)
+            },
+        );
+        let module = Module::new(
+            &store,
+            r#"(module
+            (import "proof" "pending" (func $pending (result i32)))
+            (import "proof" "immediate" (func $immediate (result i32)))
+            (import "proof" "bridge" (func $bridge (result i32)))
+            (func (export "run") (result i32) call $bridge)
+            (func (export "leaf") (result i32) call $pending)
+            (func (export "immediate") (result i32) call $immediate))"#,
+        )
+        .unwrap();
+        let instance = Instance::new(
+            &mut store,
+            &module,
+            &crate::imports! { "proof" => { "pending" => pending_leaf, "immediate" => immediate, "bridge" => synchronous }},
+        )
+        .unwrap();
+        state.as_mut(&mut store).leaf =
+            Some(instance.exports.get_typed_function(&store, "leaf").unwrap());
+        state.as_mut(&mut store).immediate = Some(
+            instance
+                .exports
+                .get_typed_function(&store, "immediate")
+                .unwrap(),
+        );
+        let store = store.into_async();
+        let locked = store.store().write();
+        let cleanup = unsafe { NativeCleanupGuard::enter(None) }.unwrap();
+        let nested = unsafe { NativeCleanupGuard::enter(None) }.unwrap();
+        drop(nested);
+        assert!(native_cleanup_no_yield());
+        let mut call = Box::pin(fresh.call_async(&store, vec![]));
+        let noop = futures::task::noop_waker();
+        let rejected = {
+            // Wake callbacks clear logical retirement metadata. Physical
+            // cleanup NoYield must remain in force independently of that scope.
+            let _metadata = DetachedRootMetadata::new();
+            matches!(
+                call.as_mut().poll(&mut Context::from_waker(&noop)),
+                Poll::Ready(Err(ref error)) if error.message().contains("new native async root")
+            )
+        };
+        assert_eq!(entries.load(Ordering::SeqCst), 0);
+        drop(call);
+        drop(locked);
+        // The unmanaged cleanup frame has synchronously completed.
+        drop(cleanup);
+        assert!(!native_cleanup_no_yield());
+        assert!(
+            rejected,
+            "new async root waited for a Store lock during cleanup"
+        );
+        assert_eq!(
+            futures::executor::block_on(fresh.call_async(&store, vec![])).unwrap()[0].i32(),
+            Some(42)
+        );
+        assert_eq!(entries.load(Ordering::SeqCst), 1);
+        let mut call = Box::pin(
+            instance
+                .exports
+                .get_function("run")
+                .unwrap()
+                .call_async(&store, vec![]),
+        );
+        let completed = matches!(
+            call.as_mut().poll(&mut Context::from_waker(&noop)),
+            Poll::Ready(Ok(ref values)) if values[0].i32() == Some(42)
+        );
+        let resumed = if completed {
+            true
+        } else {
+            ready.store(true, Ordering::SeqCst);
+            matches!(
+                call.as_mut().poll(&mut Context::from_waker(&noop)),
+                Poll::Ready(Ok(ref values)) if values[0].i32() == Some(42)
+            )
+        };
+        drop(call);
+        assert!(
+            resumed,
+            "controlled cleanup fixture did not finish its root"
+        );
+        assert!(
+            completed && refused.load(Ordering::SeqCst),
+            "native cleanup allowed a borrowed host future to suspend"
+        );
+        assert_eq!(polls.load(Ordering::SeqCst), 1);
+        assert_eq!(drops.load(Ordering::SeqCst), 1);
+        assert!(!native_cleanup_no_yield());
+        assert!(StoreContext::is_empty());
+        assert!(CoroutineContext::current_root().is_none());
     }
 
     #[test]
