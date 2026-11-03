@@ -64,6 +64,11 @@ enum StoreContextEntry {
 
     #[cfg(feature = "experimental-async")]
     Async(LocalRwLockWriteGuard<Box<StoreInner>>),
+    #[cfg(all(feature = "experimental-async", feature = "sys"))]
+    Loan {
+        pointer: *mut StoreInner,
+        _guard: crate::backend::sys::async_runtime::NativeLoanWriteGuard,
+    },
 }
 
 impl StoreContextEntry {
@@ -72,7 +77,14 @@ impl StoreContextEntry {
             Self::Sync(ptr) => *ptr,
             #[cfg(feature = "experimental-async")]
             Self::Async(guard) => &mut ***guard as *mut _,
+            #[cfg(all(feature = "experimental-async", feature = "sys"))]
+            Self::Loan { pointer, .. } => *pointer,
         }
+    }
+
+    #[cfg(all(feature = "experimental-async", feature = "sys"))]
+    fn owns_native_root(&self) -> bool {
+        matches!(self, Self::Async(_) | Self::Loan { .. })
     }
 }
 
@@ -309,6 +321,37 @@ impl StoreContext {
         }
     }
 
+    #[cfg(all(feature = "experimental-async", feature = "sys"))]
+    pub(crate) fn install_loan(
+        guard: crate::backend::sys::async_runtime::NativeLoanWriteGuard,
+        installation: StoreContextId,
+        store_id: StoreId,
+    ) -> ForcedStoreInstallGuard {
+        assert_eq!(guard.store().objects.id(), store_id);
+        let pointer = guard.context_pointer();
+        STORE_CONTEXT_STACK.with(|cell| {
+            assert!(
+                !cell
+                    .borrow()
+                    .iter()
+                    .any(|ctx| ctx.installation == installation)
+            );
+        });
+        Self::push_with_id(
+            store_id,
+            installation,
+            StoreContextEntry::Loan {
+                pointer,
+                _guard: guard,
+            },
+        );
+        ForcedStoreInstallGuard {
+            store_id,
+            installation,
+            installed: true,
+        }
+    }
+
     /// Whether the active entry is `id`'s, held by an async context.
     fn active_is_async(id: StoreId) -> bool {
         STORE_CONTEXT_STACK.with(|cell| {
@@ -323,6 +366,8 @@ impl StoreContext {
                 StoreContextEntry::Sync(_) => false,
                 #[cfg(feature = "experimental-async")]
                 StoreContextEntry::Async(_) => true,
+                #[cfg(all(feature = "experimental-async", feature = "sys"))]
+                StoreContextEntry::Loan { .. } => false,
             }
         })
     }
@@ -393,10 +438,7 @@ impl StoreContext {
             let stack = cell.borrow();
             let top = stack.last().expect("native root is installed");
             assert_eq!(top.installation, installation, "native root changed");
-            assert!(matches!(
-                unsafe { &*top.entry.get() },
-                StoreContextEntry::Async(_)
-            ));
+            assert!(unsafe { &*top.entry.get() }.owns_native_root());
         });
         StoreInstallGuard { installation: None }
     }
@@ -411,12 +453,10 @@ impl StoreContext {
             let depth = stack
                 .iter()
                 .position(|entry| entry.installation == installation)?;
-            if stack.len() <= depth + 1
+            let root = unsafe { &*stack[depth].entry.get() };
+            if (stack.len() <= depth + 1 && !matches!(root, StoreContextEntry::Loan { .. }))
                 || stack[depth].id != store_id
-                || !matches!(
-                    unsafe { &*stack[depth].entry.get() },
-                    StoreContextEntry::Async(_)
-                )
+                || !root.owns_native_root()
                 || !stack[depth + 1..].iter().all(|entry| {
                     entry.id == store_id
                         && matches!(unsafe { &*entry.entry.get() }, StoreContextEntry::Sync(_))
@@ -445,8 +485,9 @@ impl StoreContext {
             };
             let root = &stack[depth];
             let top = stack.last().unwrap();
-            stack.len() > depth + 1
-                && matches!(unsafe { &*root.entry.get() }, StoreContextEntry::Async(_))
+            let entry = unsafe { &*root.entry.get() };
+            (stack.len() > depth + 1 || matches!(entry, StoreContextEntry::Loan { .. }))
+                && entry.owns_native_root()
                 && top.borrow_count == 0
                 && top.paused_borrows == 0
                 && stack[depth + 1..].iter().all(|entry| {
@@ -603,6 +644,14 @@ impl StoreContext {
                         installation: top.installation,
                     })
                 }
+                #[cfg(feature = "sys")]
+                StoreContextEntry::Loan { pointer, .. } => {
+                    GetStoreAsyncGuardResult::NotAsync(StorePtrWrapper {
+                        store_ptr: *pointer,
+                        store_id: id,
+                        installation: top.installation,
+                    })
+                }
             }
         })
     }
@@ -716,10 +765,7 @@ impl ForcedStoreInstallGuard {
             .entries
             .first()
             .expect("borrowed native root retained");
-        assert!(matches!(
-            unsafe { &*root.entry.get() },
-            StoreContextEntry::Async(_)
-        ));
+        assert!(unsafe { &*root.entry.get() }.owns_native_root());
         let store_id = root.id;
         let installation = root.installation;
         STORE_CONTEXT_STACK.with(|cell| {
@@ -803,7 +849,7 @@ impl SuspendedStoreContexts {
             return None;
         }
         let root = self.entries.first()?;
-        if !matches!(unsafe { &*root.entry.get() }, StoreContextEntry::Async(_)) {
+        if !unsafe { &*root.entry.get() }.owns_native_root() {
             return None;
         }
         Some((root.id, root.installation))
@@ -828,6 +874,7 @@ impl SuspendedStoreContexts {
         }
         match unsafe { &*deepest.entry.get() } {
             StoreContextEntry::Sync(pointer) => Some(*pointer),
+            StoreContextEntry::Loan { pointer, .. } => Some(*pointer),
             StoreContextEntry::Async(_) => None,
         }
     }
@@ -945,6 +992,8 @@ impl Clone for StorePtrWrapper {
             top.assert_installation(self.store_id, self.installation);
             match unsafe { top.entry.get().as_ref().unwrap() } {
                 StoreContextEntry::Sync(ptr) if *ptr == self.store_ptr => (),
+                #[cfg(all(feature = "experimental-async", feature = "sys"))]
+                StoreContextEntry::Loan { pointer, .. } if *pointer == self.store_ptr => (),
                 _ => panic!("Mismatched store context access"),
             }
             top.borrow_count += 1;
@@ -979,6 +1028,8 @@ impl StoreAsyncGuardWrapper {
             match unsafe { &mut *top.entry.get() } {
                 StoreContextEntry::Async(guard) => &mut ***guard as *mut StoreInner,
                 StoreContextEntry::Sync(_) => panic!("Mismatched async store context access"),
+                #[cfg(feature = "sys")]
+                StoreContextEntry::Loan { .. } => panic!("Mismatched async store context access"),
             }
         });
         // SAFETY: this wrapper retains a borrow of this exact Async installation.
@@ -996,6 +1047,8 @@ impl StoreAsyncGuardWrapper {
             match unsafe { &*top.entry.get() } {
                 StoreContextEntry::Async(guard) => LocalRwLockWriteGuard::lock_handle(guard),
                 StoreContextEntry::Sync(_) => panic!("Mismatched async store context access"),
+                #[cfg(feature = "sys")]
+                StoreContextEntry::Loan { .. } => panic!("Mismatched async store context access"),
             }
         })
     }

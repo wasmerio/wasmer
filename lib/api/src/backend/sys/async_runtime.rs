@@ -44,12 +44,18 @@ type AsyncCallFutureId = u64;
 static NEXT_ASYNC_CALL_FUTURE_ID: AtomicU64 = AtomicU64::new(0);
 
 static ASYNC_CALL_FUTURE_WAKERS: LazyLock<
-    DashMap<StoreId, HashMap<AsyncCallFutureId, Arc<Waker>>>,
+    DashMap<StoreId, HashMap<AsyncCallFutureId, Arc<RegisteredWaker>>>,
 > = LazyLock::new(DashMap::new);
+
+struct RegisteredWaker {
+    waker: Waker,
+    ancestors: Option<Arc<[AsyncCallFutureId]>>,
+}
 
 #[allow(clippy::type_complexity)]
 pub(crate) struct AsyncCallFuture {
     id: AsyncCallFutureId,
+    store_id: StoreId,
 
     root: Option<Rc<NativeRootOwner>>,
     pending_resume_gate: Option<crate::WriteFuture<()>>,
@@ -86,12 +92,17 @@ struct WeakNativeRoot {
 
 /// This metadata may outlive the stack. It owns no Store, coroutine or task.
 struct NativeRootControl {
+    future_id: AsyncCallFutureId,
+    ancestors: Option<Arc<[AsyncCallFutureId]>>,
     store_id: StoreId,
     installation: StoreContextId,
     retiring: Cell<bool>,
     settled: Cell<bool>,
     retained: Cell<bool>,
+    parent: Option<Weak<NativeRootControl>>,
+    previous_row: RefCell<Option<Weak<NativeRootControl>>>,
     reason: OnceCell<RuntimeError>,
+    terminal: OnceCell<RuntimeError>,
 }
 
 thread_local! {
@@ -110,7 +121,7 @@ struct RetirementBoundary {
 
 impl RetirementBoundary {
     fn enter(control: &Rc<NativeRootControl>) -> Self {
-        let installed = (!control.settled.get() && control.retiring.get()).then(|| control.clone());
+        let installed = (!control.settled.get()).then(|| control.clone());
         let previous = installed.as_ref().and_then(|control| {
             RETIRING_ROOT.with(|current| current.borrow_mut().replace(control.clone()))
         });
@@ -139,28 +150,71 @@ impl Drop for RetirementBoundary {
     }
 }
 
+// Waking an executor may poll several unrelated tasks inline. Only the explicit
+// child lineage is notified, and ambient logical cancellation is hidden while
+// wake callbacks run. Waker destructors run after the metadata is restored.
+struct DetachedRootMetadata(Option<Rc<NativeRootControl>>);
+impl DetachedRootMetadata {
+    fn new() -> Self {
+        Self(RETIRING_ROOT.with(|current| current.borrow_mut().take()))
+    }
+}
+impl Drop for DetachedRootMetadata {
+    fn drop(&mut self) {
+        RETIRING_ROOT.with(|current| {
+            let mut current = current.borrow_mut();
+            assert!(
+                current.is_none(),
+                "wake callback left logical metadata installed"
+            );
+            *current = self.0.take();
+        });
+    }
+}
+
 impl NativeRootControl {
-    fn retire(&self) {
+    fn retire(&self, managed_reason: Option<RuntimeError>) {
+        let ancestor = self
+            .error()
+            .or_else(|| managed_reason.filter(RuntimeError::is_host_abort));
         self.reason.get_or_init(|| {
-            RuntimeError::host_abort(Box::new(std::io::Error::new(
-                std::io::ErrorKind::Interrupted,
-                "native call cancelled",
-            )))
+            ancestor.unwrap_or_else(|| {
+                RuntimeError::host_abort(Box::new(std::io::Error::new(
+                    std::io::ErrorKind::Interrupted,
+                    "native call cancelled",
+                )))
+            })
         });
         self.retiring.set(true);
     }
 
     fn error(&self) -> Option<RuntimeError> {
-        if self.retiring.get() {
-            Some(
-                self.reason
-                    .get()
-                    .expect("retirement reason precedes its flag")
-                    .clone(),
-            )
-        } else {
-            None
+        if self.settled.get() {
+            return self.terminal.get().cloned();
         }
+        if let Some(parent) = self.parent.as_ref().and_then(Weak::upgrade)
+            && let Some(error) = parent.error()
+        {
+            return Some(error);
+        }
+        if let Some(error) = self.terminal.get() {
+            return Some(error.clone());
+        }
+        self.retiring.get().then(|| {
+            self.reason
+                .get()
+                .expect("retirement reason precedes its flag")
+                .clone()
+        })
+    }
+
+    fn settle(&self) {
+        // A parent edge is weak. Preserve its exact terminal error before the
+        // owned parent guard can release the last strong parent stack owner.
+        if let Some(error) = self.error() {
+            self.terminal.get_or_init(|| error);
+        }
+        self.settled.set(true);
     }
 
     fn register(self: &Rc<Self>, stores: &SuspendedStoreContexts) {
@@ -169,36 +223,70 @@ impl NativeRootControl {
             Some((self.store_id, self.installation))
         );
         let previous = RETAINED_ROOTS.with(|roots| roots.borrow().get(&self.store_id).cloned());
-        if let Some(previous) = previous.and_then(|weak| weak.upgrade()) {
+        let expected = Rc::downgrade(self);
+        if self.retained.get() {
             assert!(
-                Rc::ptr_eq(&previous, self),
-                "another native root owns this Store"
+                previous
+                    .as_ref()
+                    .is_some_and(|row| Weak::ptr_eq(row, &expected)),
+                "retained native root row changed"
             );
+            return;
         }
-        let old = RETAINED_ROOTS.with(|roots| {
-            roots
-                .borrow_mut()
-                .insert(self.store_id, Rc::downgrade(self))
-        });
+        let prior = if let Some(parent) = &self.parent {
+            assert!(
+                previous
+                    .as_ref()
+                    .is_some_and(|row| Weak::ptr_eq(row, parent)),
+                "native child did not acquire its exact parent row"
+            );
+            let owner = parent
+                .upgrade()
+                .expect("parent guard keeps its control alive");
+            assert!(owner.retained.get() && owner.store_id == self.store_id);
+            previous
+        } else {
+            assert!(
+                previous.as_ref().and_then(Weak::upgrade).is_none(),
+                "an unrelated native root owns this Store"
+            );
+            None
+        };
+        assert!(self.previous_row.borrow().is_none());
+        *self.previous_row.borrow_mut() = prior;
+        let old = RETAINED_ROOTS.with(|roots| roots.borrow_mut().insert(self.store_id, expected));
         self.retained.set(true);
         drop(old);
     }
 
     fn unregister(self: &Rc<Self>) {
-        if !self.retained.replace(false) {
+        if !self.retained.get() {
             return;
         }
         let expected = Rc::downgrade(self);
+        let prior = self.previous_row.borrow().clone();
+        if let Some(prior) = &prior {
+            let owner = prior
+                .upgrade()
+                .expect("owned parent guard outlives child retirement");
+            assert!(owner.retained.get() && owner.store_id == self.store_id);
+        }
         let old = RETAINED_ROOTS.with(|roots| {
             let mut roots = roots.borrow_mut();
             assert!(
                 roots
                     .get(&self.store_id)
-                    .is_some_and(|found| Weak::ptr_eq(found, &expected)),
+                    .is_some_and(|row| Weak::ptr_eq(row, &expected)),
                 "retained Store retirement owner changed"
             );
-            roots.remove(&self.store_id)
+            match prior {
+                Some(prior) => roots.insert(self.store_id, prior),
+                None => roots.remove(&self.store_id),
+            }
         });
+        self.retained.set(false);
+        let saved = self.previous_row.borrow_mut().take();
+        drop(saved);
         drop(old);
     }
 }
@@ -209,9 +297,7 @@ pub(crate) fn current_retirement_error() -> Option<RuntimeError> {
         let context = unsafe { &*current };
         if let Some(root) = &context.owner {
             assert_eq!(context.store_context_id, root.control.installation);
-            if let Some(error) = root.control.error() {
-                return Some(error);
-            }
+            return root.control.error();
         }
     }
     let control = RETIRING_ROOT.with(|current| current.borrow().clone())?;
@@ -251,7 +337,7 @@ impl WeakNativeRoot {
         if owner.store_context_id != self.id || !Rc::ptr_eq(&owner.control, &self.control) {
             return None;
         }
-        if !owner.parked.get() || owner.control.retiring.get() || owner.control.settled.get() {
+        if !owner.parked.get() || owner.control.error().is_some() || owner.control.settled.get() {
             return None;
         }
         Some(NativeRootPin { _owner: owner })
@@ -295,6 +381,11 @@ impl NativeLoanWriteGuard {
         unsafe { &*self.pointer }
     }
 
+    pub(crate) fn context_pointer(&self) -> *mut StoreInner {
+        // Copy the exact derived pointer without reborrowing its ancestor guard.
+        self.pointer
+    }
+
     pub(crate) fn store_mut(&mut self) -> &mut StoreInner {
         // SAFETY: only this guard has the exclusive gate; the parent is parked.
         unsafe { &mut *self.pointer }
@@ -304,11 +395,9 @@ impl NativeLoanWriteGuard {
 impl NativeStoreLoan {
     pub(crate) fn is_live(&self) -> bool {
         self.epoch.get()
-            && self
-                .root
-                .owner
-                .upgrade()
-                .is_some_and(|owner| !owner.control.retiring.get() && !owner.control.settled.get())
+            && self.root.owner.upgrade().is_some_and(|owner| {
+                owner.control.error().is_none() && !owner.control.settled.get()
+            })
     }
 
     fn pin(&self) -> Option<NativeRootPin> {
@@ -401,7 +490,7 @@ pub(crate) fn native_coroutine_active() -> bool {
 pub(crate) fn current_store_loan(store_id: StoreId) -> Option<crate::StoreAsync> {
     let weak = CoroutineContext::current_root()?;
     let root = weak.owner.upgrade()?;
-    if root.store().id != store_id || root.control.retiring.get() || root.control.settled.get() {
+    if root.store().id != store_id || root.control.error().is_some() || root.control.settled.get() {
         return None;
     }
     let (scope, epoch) = StoreContext::borrowed_loan_epoch(root.store_context_id, store_id)?;
@@ -441,7 +530,7 @@ impl Drop for RootResume<'_> {
         if !self.returned {
             // A panicked resume destroys the engine stack before propagating.
             // Do not admit a new pin while the invalid public future is retained.
-            self.root.control.settled.set(true);
+            self.root.control.settle();
         }
     }
 }
@@ -517,13 +606,34 @@ impl AsyncCallFuture {
     pub(crate) fn new(function: SysFunction, store: StoreAsync, params: Vec<Value>) -> Self {
         let store_id = store.id;
         let store_context_id = StoreContext::new_installation_id();
+        let id = NEXT_ASYNC_CALL_FUTURE_ID
+            .fetch_update(
+                std::sync::atomic::Ordering::SeqCst,
+                std::sync::atomic::Ordering::SeqCst,
+                |id| id.checked_add(1),
+            )
+            .expect("native future identity exhausted");
+        let ancestors = store.loan.as_ref().map(|loan| {
+            let parent = &loan.root.control;
+            let mut ids = parent.ancestors.as_deref().unwrap_or(&[]).to_vec();
+            ids.push(parent.future_id);
+            Arc::<[AsyncCallFutureId]>::from(ids)
+        });
         let control = Rc::new(NativeRootControl {
+            future_id: id,
+            ancestors,
             store_id,
             installation: store_context_id,
             retiring: Cell::new(false),
             settled: Cell::new(false),
             retained: Cell::new(false),
+            parent: store
+                .loan
+                .as_ref()
+                .map(|loan| Rc::downgrade(&loan.root.control)),
+            previous_row: RefCell::new(None),
             reason: OnceCell::new(),
+            terminal: OnceCell::new(),
         });
         let root = Rc::new_cyclic(|_owner| {
             let weak = WeakNativeRoot {
@@ -558,7 +668,8 @@ impl AsyncCallFuture {
             }
         });
         Self {
-            id: NEXT_ASYNC_CALL_FUTURE_ID.fetch_add(1, std::sync::atomic::Ordering::SeqCst),
+            id,
+            store_id,
             root: Some(root),
             pending_resume_gate: None,
             pending_store_install: None,
@@ -577,14 +688,20 @@ impl AsyncCallFuture {
     }
 
     fn remove_from_wakers_list(&self) {
-        remove_from_wakers_list(self.store().store_id(), self.id);
+        remove_from_wakers_list(self.store_id, self.id);
+    }
+
+    fn retire_if_needed(&mut self) -> Option<RuntimeError> {
+        let error = self.root().control.error()?;
+        self.retire_root(Some(error.clone()));
+        Some(error)
     }
 }
 
-fn remove_from_wakers_list(store_id: StoreId, id: AsyncCallFutureId) {
+fn take_registered_waker(store_id: StoreId, id: AsyncCallFutureId) -> Option<Arc<RegisteredWaker>> {
     let mut wakers_entry = match ASYNC_CALL_FUTURE_WAKERS.entry(store_id) {
         dashmap::Entry::Occupied(o) => o,
-        dashmap::Entry::Vacant(v) => return,
+        dashmap::Entry::Vacant(_) => return None,
     };
 
     let mut waker_map_ref = wakers_entry.get_mut();
@@ -594,21 +711,33 @@ fn remove_from_wakers_list(store_id: StoreId, id: AsyncCallFutureId) {
     } else {
         drop(wakers_entry);
     }
-    // User Waker destructors may reenter this registry.
-    drop(removed);
+    removed
 }
 
-fn register_waker(store_id: StoreId, id: AsyncCallFutureId, waker: &Waker) {
+fn remove_from_wakers_list(store_id: StoreId, id: AsyncCallFutureId) {
+    // User Waker destructors may reenter this registry.
+    drop(take_registered_waker(store_id, id));
+}
+
+fn register_waker(
+    store_id: StoreId,
+    id: AsyncCallFutureId,
+    ancestors: Option<&Arc<[AsyncCallFutureId]>>,
+    waker: &Waker,
+) {
     // will_wake compares RawWaker identity without calling its vtable. A poll
     // with an unchanged Waker needs neither a user clone nor an allocation.
     let unchanged = ASYNC_CALL_FUTURE_WAKERS
         .get(&store_id)
-        .and_then(|entry| entry.get(&id).map(|old| old.will_wake(waker)))
+        .and_then(|entry| entry.get(&id).map(|old| old.waker.will_wake(waker)))
         .unwrap_or(false);
     if unchanged {
         return;
     }
-    let next = Arc::new(waker.clone());
+    let next = Arc::new(RegisteredWaker {
+        waker: waker.clone(),
+        ancestors: ancestors.cloned(),
+    });
     let previous = {
         let mut entry = ASYNC_CALL_FUTURE_WAKERS.entry(store_id).or_default();
         entry.insert(id, next)
@@ -625,9 +754,20 @@ pub(crate) fn check_async_entry(store: &StoreAsync) -> Result<(), RuntimeError> 
         "Function::call_async futures cannot be polled recursively from within another imported function"
     );
     if let Some(loan) = &store.loan {
-        return Err(loan.root.control.error().unwrap_or_else(|| {
-            RuntimeError::new("cannot start an independent async call from this borrowed Store")
-        }));
+        if let Some(error) = loan.root.control.error() {
+            return Err(error);
+        }
+        if !loan.is_live() {
+            return Err(RuntimeError::new("native child Store loan scope has ended"));
+        }
+    } else if RETIRING_ROOT.with(|current| {
+        current.borrow().as_ref().is_some_and(|control| {
+            control.store_id == store.id && control.retained.get() && !control.settled.get()
+        })
+    }) {
+        return Err(RuntimeError::new(
+            "a retained Store requires its explicit loan capability",
+        ));
     }
     Ok(())
 }
@@ -637,36 +777,64 @@ impl Future for AsyncCallFuture {
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         if let Err(error) = check_async_entry(self.store()) {
+            self.retire_root(Some(error.clone()));
             return Poll::Ready(Err(error));
         }
         loop {
+            if let Some(error) = self.root().control.error() {
+                self.retire_root(Some(error.clone()));
+                return Poll::Ready(Err(error));
+            }
             let store_id = self.store().store_id();
 
             #[cfg(feature = "experimental-host-interrupt")]
             {
                 if super::vm::interrupt_registry::is_interrupted(store_id) {
-                    self.remove_from_wakers_list();
-                    return Poll::Ready(Err(super::vm::Trap::lib(
-                        super::vm::TrapCode::HostInterrupt,
-                    )
-                    .into()));
+                    let error = super::vm::Trap::lib(super::vm::TrapCode::HostInterrupt).into();
+                    self.retire_root(None);
+                    return Poll::Ready(Err(error));
                 }
             }
 
             if self.root().has_coroutine() {
                 // The pending host future may return before the native stack
                 // resumes. Interrupt notification still needs this poll's Waker.
-                register_waker(store_id, self.id, cx.waker());
+                register_waker(
+                    store_id,
+                    self.id,
+                    self.root().control.ancestors.as_ref(),
+                    cx.waker(),
+                );
+                // RawWaker clone/replacement callbacks can cancel an ancestor
+                // or end an unstarted child's scope. Recheck before borrowing.
+                if let Err(error) = check_async_entry(self.store()) {
+                    self.retire_root(Some(error.clone()));
+                    return Poll::Ready(Err(error));
+                }
             }
 
+            let logical = RetirementBoundary::enter(&self.root().control);
             if let Some(future) = self.pending_future.as_mut() {
-                match future.as_mut().poll(cx) {
+                let outcome = future.as_mut().poll(cx);
+                if let Some(error) = self.root().control.error() {
+                    if let Poll::Ready(result) = outcome {
+                        assert!(self.next_resume.is_none());
+                        self.next_resume = Some(AsyncResume::HostFutureReady(result));
+                    }
+                    self.retire_root(Some(error.clone()));
+                    return Poll::Ready(Err(error));
+                }
+                match outcome {
                     Poll::Ready(result) => {
                         self.pending_future = None;
                         self.next_resume = Some(AsyncResume::HostFutureReady(result));
                     }
                     Poll::Pending => return Poll::Pending,
                 }
+            }
+            drop(logical);
+            if let Some(error) = self.retire_if_needed() {
+                return Poll::Ready(Err(error));
             }
 
             // If we're ready, return early
@@ -684,7 +852,12 @@ impl Future for AsyncCallFuture {
             }
             let resume_gate = if let Some(wait) = self.pending_resume_gate.as_mut() {
                 match Pin::new(wait).poll(cx) {
-                    Poll::Pending => return Poll::Pending,
+                    Poll::Pending => {
+                        return match self.retire_if_needed() {
+                            Some(error) => Poll::Ready(Err(error)),
+                            None => Poll::Pending,
+                        };
+                    }
                     Poll::Ready(guard) => {
                         self.pending_resume_gate = None;
                         Some(guard)
@@ -717,7 +890,12 @@ impl Future for AsyncCallFuture {
                         self.pending_store_install = None;
                         guard
                     }
-                    Poll::Pending => return Poll::Pending,
+                    Poll::Pending => {
+                        return match self.retire_if_needed() {
+                            Some(error) => Poll::Ready(Err(error)),
+                            None => Poll::Pending,
+                        };
+                    }
                 }
             };
             self.root().parked.set(false);
@@ -764,7 +942,7 @@ impl Future for AsyncCallFuture {
                     }
                     CoroutineResult::Return(result) => {
                         stack.coroutine = None;
-                        root.control.settled.set(true);
+                        root.control.settle();
                         self.result = Some(result);
                     }
                 }
@@ -779,19 +957,20 @@ impl Future for AsyncCallFuture {
     }
 }
 
-impl Drop for AsyncCallFuture {
-    fn drop(&mut self) {
-        let store_id = self.store().store_id();
-        let root = self.root.take().expect("native root already released");
+impl AsyncCallFuture {
+    fn retire_root(&mut self, managed_reason: Option<RuntimeError>) {
+        let Some(root) = self.root.take() else {
+            return;
+        };
         if !root.control.settled.get() {
-            root.control.retire();
+            root.control.retire(managed_reason);
         }
-        // A different invocation may be physically active while this one is
-        // canceled. None of our destructors may yield through its yielder.
+        // Release Future custody even when a terminal Future is retained. Only
+        // actual escaped loan guards may keep this stack and its parent alive.
         let _caller = DetachedCoroutineContext::new();
         let _stores = StoreContext::detach_current();
         let _retirement = RetirementBoundary::enter(&root.control);
-        let _root = RootTeardown::new(root);
+        let root_teardown = RootTeardown::new(root);
         let owned = DroppedHostState {
             _pending_future: self.pending_future.take(),
             _pending_resume_gate: self.pending_resume_gate.take(),
@@ -799,8 +978,22 @@ impl Drop for AsyncCallFuture {
             _next_resume: self.next_resume.take(),
             _result: self.result.take(),
         };
-        remove_from_wakers_list(store_id, self.id);
-        drop(owned);
+        let own_waker = take_registered_waker(self.store_id, self.id);
+        let mut failures = if !root_teardown.root.control.settled.get() {
+            notify_descendant_futures(self.store_id, self.id)
+        } else {
+            Vec::new()
+        };
+        defer_cleanup(&mut failures, || drop(own_waker));
+        defer_cleanup(&mut failures, || drop(owned));
+        defer_cleanup(&mut failures, || drop(root_teardown));
+        resume_cleanup_panics(failures);
+    }
+}
+
+impl Drop for AsyncCallFuture {
+    fn drop(&mut self) {
+        self.retire_root(None);
     }
 }
 
@@ -922,18 +1115,9 @@ impl Drop for NativeRootOwner {
             defer_cleanup(&mut failures, || drop(retiring));
         }
         defer_cleanup(&mut failures, || drop(owned));
-        self.control.settled.set(true);
+        self.control.settle();
         defer_cleanup(&mut failures, || drop(loan_gate));
-        if !failures.is_empty() {
-            let first = failures.remove(0);
-            // Every stack/Store/guard has settled before panic payload disposal.
-            // As with ordinary Rust cleanup, a repeatedly panicking payload
-            // destructor may replace the first panic; no payload is leaked.
-            for payload in failures {
-                let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| drop(payload)));
-            }
-            std::panic::resume_unwind(first);
-        }
+        resume_cleanup_panics(failures);
     }
 }
 
@@ -942,6 +1126,20 @@ type DeferredPanic = Box<dyn std::any::Any + Send>;
 fn defer_cleanup(failures: &mut Vec<DeferredPanic>, cleanup: impl FnOnce()) {
     if let Err(panic) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(cleanup)) {
         failures.push(panic);
+    }
+}
+
+fn resume_cleanup_panics(mut failures: Vec<DeferredPanic>) {
+    if !failures.is_empty() {
+        let first = failures.remove(0);
+        // All owned cleanup has completed before panic payload disposal. An
+        // actual escaped guard still owns its stack until its final driver.
+        // Repeatedly panicking payload destructors have ordinary Rust behavior;
+        // no payload is intentionally leaked.
+        for payload in failures {
+            let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| drop(payload)));
+        }
+        std::panic::resume_unwind(first);
     }
 }
 
@@ -962,7 +1160,7 @@ struct SettledNativeRoot(Rc<NativeRootControl>);
 
 impl Drop for SettledNativeRoot {
     fn drop(&mut self) {
-        self.0.settled.set(true);
+        self.0.settle();
     }
 }
 
@@ -1047,9 +1245,12 @@ async fn install_store_context(
 ) -> ForcedStoreInstallGuard {
     match unsafe { crate::StoreContext::try_get_current_async(store.id) } {
         crate::GetStoreAsyncGuardResult::NotInstalled => {
-            // We always need to acquire a new write lock on the store.
+            if let Some(loan) = &store.loan {
+                let guard = loan.write().await;
+                return StoreContext::install_loan(guard, installation, store.id);
+            }
             let store_guard = store.inner.write().await;
-            crate::StoreContext::install_async_with_id(store_guard, installation)
+            StoreContext::install_async_with_id(store_guard, installation)
         }
         _ => {
             // If we're already in a store context, it is unsafe to reuse
@@ -1112,8 +1313,38 @@ pub(crate) fn notify_pending_futures_of_interrupt(store_id: StoreId) {
         entry.values().cloned().collect()
     };
     for waker in wakers {
-        waker.wake_by_ref();
+        waker.waker.wake_by_ref();
     }
+}
+
+fn notify_descendant_futures(store_id: StoreId, ancestor: AsyncCallFutureId) -> Vec<DeferredPanic> {
+    let wakers: Vec<_> = {
+        let Some(entry) = ASYNC_CALL_FUTURE_WAKERS.get(&store_id) else {
+            return Vec::new();
+        };
+        entry
+            .values()
+            .filter(|record| {
+                record
+                    .ancestors
+                    .as_ref()
+                    .is_some_and(|ids| ids.contains(&ancestor))
+            })
+            .cloned()
+            .collect()
+    };
+    let mut failures = Vec::new();
+    {
+        let _logical = DetachedRootMetadata::new();
+        for waker in &wakers {
+            defer_cleanup(&mut failures, || waker.waker.wake_by_ref());
+        }
+    }
+    // Snapshot/removed Waker destructors retain the cancellation metadata.
+    for waker in wakers {
+        defer_cleanup(&mut failures, || drop(waker));
+    }
+    failures
 }
 
 thread_local! {
@@ -1578,6 +1809,544 @@ mod tests {
         .unwrap();
         assert_eq!(fresh[0].i32(), Some(9));
         drop(BASE.with(|slot| slot.borrow_mut().take()));
+        assert!(StoreContext::is_empty());
+        CURRENT_CONTEXT.with(|current| assert!(current.borrow().is_empty()));
+    }
+
+    #[derive(Clone, Copy)]
+    enum ChildProof {
+        Return,
+        TypedReturn,
+        Cancel,
+        EscapedGuard,
+        ForeignRoot,
+        Notify,
+    }
+
+    #[test]
+    fn an_unrelated_physical_root_does_not_inherit_a_logical_body_abort() {
+        borrowed_child_proof(
+            "backend::sys::async_runtime::tests::an_unrelated_physical_root_does_not_inherit_a_logical_body_abort",
+            ChildProof::ForeignRoot,
+        );
+    }
+
+    #[test]
+    fn descendant_notifications_preserve_unrelated_tasks_and_survive_waker_drop_panic() {
+        borrowed_child_proof(
+            "backend::sys::async_runtime::tests::descendant_notifications_preserve_unrelated_tasks_and_survive_waker_drop_panic",
+            ChildProof::Notify,
+        );
+    }
+
+    #[test]
+    fn a_typed_borrowed_child_converts_results_after_releasing_its_parent_guard() {
+        borrowed_child_proof(
+            "backend::sys::async_runtime::tests::a_typed_borrowed_child_converts_results_after_releasing_its_parent_guard",
+            ChildProof::TypedReturn,
+        );
+    }
+
+    #[test]
+    fn a_borrowed_child_releases_its_parent_when_its_completed_future_is_retained() {
+        borrowed_child_proof(
+            "backend::sys::async_runtime::tests::a_borrowed_child_releases_its_parent_when_its_completed_future_is_retained",
+            ChildProof::Return,
+        );
+    }
+
+    #[test]
+    fn an_ancestor_abort_settles_a_retained_child_error_future() {
+        borrowed_child_proof(
+            "backend::sys::async_runtime::tests::an_ancestor_abort_settles_a_retained_child_error_future",
+            ChildProof::Cancel,
+        );
+    }
+
+    #[test]
+    fn an_escaped_child_guard_delays_both_canceled_stacks_until_its_release() {
+        borrowed_child_proof(
+            "backend::sys::async_runtime::tests::an_escaped_child_guard_delays_both_canceled_stacks_until_its_release",
+            ChildProof::EscapedGuard,
+        );
+    }
+
+    fn borrowed_child_proof(name: &str, proof: ChildProof) {
+        if !runtime_subprocess(name) {
+            return;
+        }
+        use std::sync::{
+            Mutex,
+            atomic::{AtomicUsize, Ordering},
+        };
+        type ChildCall = Pin<Box<dyn Future<Output = Result<Box<[Value]>, RuntimeError>>>>;
+        struct Counter {
+            child: Option<Function>,
+            value: i32,
+        }
+        thread_local! {
+            static CHILD: RefCell<Option<ChildCall>> = const { RefCell::new(None) };
+            static PARENT_ROOT: RefCell<Option<WeakNativeRoot>> = const { RefCell::new(None) };
+            static CHILD_ROOT: RefCell<Option<WeakNativeRoot>> = const { RefCell::new(None) };
+            static CHILD_GUARD: RefCell<Option<crate::AsyncFunctionEnvHandleMut<Counter>>> = const { RefCell::new(None) };
+            static PARENT_CALL: RefCell<Option<ChildCall>> = const { RefCell::new(None) };
+            static UNRELATED: RefCell<Option<ChildCall>> = const { RefCell::new(None) };
+            static CHILD_WAKER: RefCell<Option<Waker>> = const { RefCell::new(None) };
+        }
+        struct ParentWakePanic(u32);
+        struct ParentWake(Arc<AtomicUsize>);
+        impl std::task::Wake for ParentWake {
+            fn wake(self: Arc<Self>) {
+                self.0.fetch_add(1, Ordering::SeqCst);
+            }
+        }
+        impl Drop for ParentWake {
+            fn drop(&mut self) {
+                std::panic::panic_any(ParentWakePanic(98));
+            }
+        }
+        struct ChildWake(Arc<AtomicUsize>);
+        impl std::task::Wake for ChildWake {
+            fn wake(self: Arc<Self>) {
+                self.0.fetch_add(1, Ordering::SeqCst);
+                UNRELATED.with(|slot| {
+                    if let Some(call) = slot.borrow_mut().as_mut() {
+                        let waker = futures::task::noop_waker();
+                        assert!(
+                            call.as_mut()
+                                .poll(&mut Context::from_waker(&waker))
+                                .is_pending(),
+                            "inline descendant wake poisoned an unrelated owned task"
+                        );
+                    }
+                });
+            }
+        }
+        struct OtherWake(Arc<AtomicUsize>);
+        impl std::task::Wake for OtherWake {
+            fn wake(self: Arc<Self>) {
+                self.0.fetch_add(1, Ordering::SeqCst);
+            }
+        }
+        struct StackProbe(Arc<AtomicUsize>);
+        impl Drop for StackProbe {
+            fn drop(&mut self) {
+                CHILD_ROOT.with(|slot| {
+                    assert!(
+                        slot.borrow().as_ref().unwrap().control.settled.get(),
+                        "parent resumed or retired before its child physically settled"
+                    )
+                });
+                self.0.fetch_add(1, Ordering::SeqCst);
+            }
+        }
+        struct Parent {
+            leaf: Option<crate::TypedFunction<(), i32>>,
+            stack: Arc<AtomicUsize>,
+            continued: Arc<AtomicUsize>,
+            caught: Arc<AtomicUsize>,
+            expected: Arc<Mutex<Option<RuntimeError>>>,
+        }
+        let stack_drops = Arc::new(AtomicUsize::new(0));
+        let continued = Arc::new(AtomicUsize::new(0));
+        let caught = Arc::new(AtomicUsize::new(0));
+        let expected = Arc::new(Mutex::new(None::<RuntimeError>));
+        let foreign_completed = Arc::new(AtomicUsize::new(0));
+        let child_wakes = Arc::new(AtomicUsize::new(0));
+        let other_wakes = Arc::new(AtomicUsize::new(0));
+        let foreign_result = foreign_completed.clone();
+        let expected_from_foreign = expected.clone();
+        let mut store = Store::default();
+        let counter = crate::FunctionEnv::new(
+            &mut store,
+            Counter {
+                child: None,
+                value: 0,
+            },
+        );
+        let parent = crate::FunctionEnv::new(
+            &mut store,
+            Parent {
+                leaf: None,
+                stack: stack_drops.clone(),
+                continued: continued.clone(),
+                caught: caught.clone(),
+                expected: expected.clone(),
+            },
+        );
+        let child_wait = Function::new_typed_with_env_async(
+            &mut store,
+            &counter,
+            move |env: crate::AsyncFunctionEnvMut<Counter>| {
+                CHILD_ROOT.with(|slot| {
+                    assert!(
+                        slot.borrow_mut()
+                            .replace(CoroutineContext::current_root().unwrap())
+                            .is_none()
+                    )
+                });
+                let foreign_result = foreign_result.clone();
+                let expected_from_foreign = expected_from_foreign.clone();
+                async move {
+                    let mut write = env.write().await;
+                    write.data_mut().value = 42;
+                    if matches!(proof, ChildProof::EscapedGuard) {
+                        CHILD_GUARD
+                            .with(|slot| assert!(slot.borrow_mut().replace(write).is_none()));
+                        return Ok::<i32, RuntimeError>(42);
+                    }
+                    drop(write);
+                    if matches!(proof, ChildProof::Cancel | ChildProof::Notify) {
+                        return std::future::pending().await;
+                    }
+                    let mut first = true;
+                    std::future::poll_fn(|cx| {
+                        if std::mem::take(&mut first) {
+                            cx.waker().wake_by_ref();
+                            Poll::Pending
+                        } else {
+                            Poll::Ready(())
+                        }
+                    })
+                    .await;
+                    if matches!(proof, ChildProof::ForeignRoot) {
+                        let mut foreign = Store::default();
+                        let expected = expected_from_foreign.clone();
+                        let stop = Function::new_typed(&mut foreign, move || -> i32 {
+                            drop(PARENT_CALL.with(|slot| slot.borrow_mut().take().unwrap()));
+                            let error = PARENT_ROOT.with(|slot| {
+                                slot.borrow().as_ref().unwrap().control.error().unwrap()
+                            });
+                            *expected.lock().unwrap() = Some(error);
+                            42
+                        });
+                        let result = stop
+                            .call_async(&foreign.into_async(), vec![])
+                            .await
+                            .unwrap();
+                        assert_eq!(result[0].i32(), Some(42));
+                        foreign_result.fetch_add(1, Ordering::SeqCst);
+                        return std::future::pending().await;
+                    }
+                    Ok(42)
+                }
+            },
+        );
+        let parent_wait = Function::new_typed_with_env_async(
+            &mut store,
+            &counter,
+            move |env: crate::AsyncFunctionEnvMut<Counter>| async move {
+                let (child, typed) = {
+                    let read = env.read().await;
+                    let child = read.data().child.clone().unwrap();
+                    let typed = child.typed::<(), i32>(&read).unwrap();
+                    (child, typed)
+                };
+                let store = env.as_store_async();
+                let call: ChildCall = if matches!(proof, ChildProof::TypedReturn) {
+                    Box::pin(async move {
+                        let value = typed.call_async(&store).await?;
+                        Ok(vec![Value::I32(value)].into_boxed_slice())
+                    })
+                } else {
+                    Box::pin(child.call_async(&store, vec![]))
+                };
+                CHILD.with(|slot| assert!(slot.borrow_mut().replace(call).is_none()));
+                let values = std::future::poll_fn(|cx| {
+                    let override_waker = CHILD_WAKER.with(|slot| slot.borrow().clone());
+                    CHILD.with(|slot| {
+                        let mut slot = slot.borrow_mut();
+                        let call = slot.as_mut().unwrap();
+                        match override_waker {
+                            Some(waker) => call.as_mut().poll(&mut Context::from_waker(&waker)),
+                            None => call.as_mut().poll(cx),
+                        }
+                    })
+                })
+                .await?;
+                // Keep the completed child Future in CHILD while this host body and
+                // its parent native stack continue. Completion must release its gate.
+                Ok::<i32, RuntimeError>(values[0].i32().unwrap())
+            },
+        );
+        let bridge = Function::new_typed_with_env(
+            &mut store,
+            &parent,
+            |mut env: crate::FunctionEnvMut<Parent>| -> Result<i32, RuntimeError> {
+                PARENT_ROOT.with(|slot| {
+                    assert!(
+                        slot.borrow_mut()
+                            .replace(CoroutineContext::current_root().unwrap())
+                            .is_none()
+                    )
+                });
+                let (data, mut store) = env.data_and_store_mut();
+                let _stack = StackProbe(data.stack.clone());
+                match data.leaf.as_ref().unwrap().call(&mut store) {
+                    Ok(value) => {
+                        data.continued.fetch_add(1, Ordering::SeqCst);
+                        Ok(value)
+                    }
+                    Err(error) => {
+                        assert!(error.is_host_abort());
+                        let expected = data.expected.lock().unwrap();
+                        assert!(std::ptr::eq(
+                            error.downcast_ref::<std::io::Error>().unwrap(),
+                            expected
+                                .as_ref()
+                                .unwrap()
+                                .downcast_ref::<std::io::Error>()
+                                .unwrap()
+                        ));
+                        data.caught.fetch_add(1, Ordering::SeqCst);
+                        // Deliberately catch cancellation; the post-body veto must
+                        // prevent the guest's catch_all or following instruction.
+                        Ok(42)
+                    }
+                }
+            },
+        );
+        let module = Module::new(
+            &store,
+            r#"(module
+            (import "proof" "bridge" (func $bridge (result i32)))
+            (import "proof" "parent_wait" (func $parent_wait (result i32)))
+            (import "proof" "child_wait" (func $child_wait (result i32)))
+            (global $continued (mut i32) (i32.const 0))
+            (func (export "run") (result i32)
+                (block $caught (try_table (catch_all $caught)
+                    call $bridge i32.const 1 global.set $continued return))
+                i32.const 2 global.set $continued i32.const 0)
+            (func (export "parent_leaf") (result i32) call $parent_wait)
+            (func (export "child") (result i32) call $child_wait)
+            (func (export "spin") (result i32) (loop $again br $again) i32.const 0)
+            (func (export "continued") (result i32) global.get $continued)
+            (func (export "fresh") (result i32) i32.const 9))"#,
+        )
+        .unwrap();
+        let instance = Instance::new(&mut store, &module, &crate::imports! { "proof" => { "bridge" => bridge, "parent_wait" => parent_wait, "child_wait" => child_wait } }).unwrap();
+        parent.as_mut(&mut store).leaf = Some(
+            instance
+                .exports
+                .get_typed_function(&store, "parent_leaf")
+                .unwrap(),
+        );
+        counter.as_mut(&mut store).child =
+            Some(instance.exports.get_function("child").unwrap().clone());
+        let store = store.into_async();
+        let mut call: ChildCall = Box::pin(
+            instance
+                .exports
+                .get_function("run")
+                .unwrap()
+                .call_async(&store, vec![]),
+        );
+        let mut waker = if matches!(proof, ChildProof::Notify) {
+            CHILD_WAKER.with(|slot| {
+                *slot.borrow_mut() = Some(Waker::from(Arc::new(ChildWake(child_wakes.clone()))))
+            });
+            Waker::from(Arc::new(ParentWake(Arc::new(AtomicUsize::new(0)))))
+        } else {
+            futures::task::noop_waker()
+        };
+        assert!(
+            call.as_mut()
+                .poll(&mut Context::from_waker(&waker))
+                .is_pending()
+        );
+        assert_eq!(stack_drops.load(Ordering::SeqCst), 0);
+        let child_root = CHILD_ROOT.with(|slot| slot.borrow().as_ref().unwrap().clone());
+        assert!(
+            child_root
+                .owner
+                .upgrade()
+                .unwrap()
+                .stack
+                .borrow()
+                .suspended_stores
+                .owns_root()
+        );
+        if matches!(proof, ChildProof::Notify) {
+            let mut other: ChildCall = Box::pin(
+                instance
+                    .exports
+                    .get_function("fresh")
+                    .unwrap()
+                    .call_async(&store, vec![]),
+            );
+            let other_waker = Waker::from(Arc::new(OtherWake(other_wakes.clone())));
+            assert!(
+                other
+                    .as_mut()
+                    .poll(&mut Context::from_waker(&other_waker))
+                    .is_pending()
+            );
+            UNRELATED.with(|slot| *slot.borrow_mut() = Some(other));
+            let old = std::mem::replace(&mut waker, futures::task::noop_waker());
+            drop(old); // only the parent's registry entry now owns ParentWake
+        }
+        if matches!(proof, ChildProof::Return | ChildProof::TypedReturn) {
+            let result = futures::executor::block_on(call.as_mut()).unwrap();
+            assert_eq!(result[0].i32(), Some(42));
+            if matches!(proof, ChildProof::TypedReturn) {
+                // The typed wrapper finished its inner native future before
+                // reacquiring the parent's loan for result conversion.
+                assert_eq!(child_root.owner.strong_count(), 0);
+            } else {
+                let child = child_root
+                    .owner
+                    .upgrade()
+                    .expect("completed child Future still retained");
+                assert!(child.stack.borrow().coroutine.is_none());
+                assert!(!child.stack.borrow().suspended_stores.owns_root());
+                assert!(!child.control.retained.get());
+            }
+            assert!(child_root.control.settled.get());
+            assert_eq!(continued.load(Ordering::SeqCst), 1);
+            drop(call);
+        } else if matches!(proof, ChildProof::ForeignRoot) {
+            PARENT_CALL.with(|slot| assert!(slot.borrow_mut().replace(call).is_none()));
+            let result = CHILD.with(|slot| {
+                slot.borrow_mut()
+                    .as_mut()
+                    .unwrap()
+                    .as_mut()
+                    .poll(&mut Context::from_waker(&waker))
+            });
+            let Poll::Ready(Err(error)) = result else {
+                panic!("logical body missed ancestor cancellation after unrelated root returned");
+            };
+            assert_eq!(foreign_completed.load(Ordering::SeqCst), 1);
+            assert!(error.is_host_abort());
+            assert!(std::ptr::eq(
+                error.downcast_ref::<std::io::Error>().unwrap(),
+                expected
+                    .lock()
+                    .unwrap()
+                    .as_ref()
+                    .unwrap()
+                    .downcast_ref::<std::io::Error>()
+                    .unwrap()
+            ));
+            assert_eq!(child_root.owner.strong_count(), 0);
+            assert_eq!(caught.load(Ordering::SeqCst), 1);
+            assert_eq!(continued.load(Ordering::SeqCst), 0);
+        } else {
+            let mut escaped = CHILD_GUARD.with(|slot| slot.borrow_mut().take());
+            let mut before_cancel = escaped.as_mut().map(AsStoreMut::as_store_mut);
+            if matches!(proof, ChildProof::Notify) {
+                let panic = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| drop(call)))
+                    .expect_err("parent Waker destructor must panic after notifying descendants");
+                assert_eq!(panic.downcast_ref::<ParentWakePanic>().unwrap().0, 98);
+                assert_eq!(child_wakes.load(Ordering::SeqCst), 1);
+                assert_eq!(other_wakes.load(Ordering::SeqCst), 0);
+            } else {
+                drop(call);
+            }
+            let original =
+                PARENT_ROOT.with(|slot| slot.borrow().as_ref().unwrap().control.error().unwrap());
+            *expected.lock().unwrap() = Some(original.clone());
+            // Remove the test metadata owner too: the child must preserve its
+            // terminal error when the parent's weak control edge later expires.
+            drop(PARENT_ROOT.with(|slot| slot.borrow_mut().take()));
+            if let Some(store) = &mut before_cancel {
+                let error = instance
+                    .exports
+                    .get_function("spin")
+                    .unwrap()
+                    .call(store, &[])
+                    .unwrap_err();
+                assert!(std::ptr::eq(
+                    error.downcast_ref::<std::io::Error>().unwrap(),
+                    original.downcast_ref::<std::io::Error>().unwrap()
+                ));
+            }
+            CHILD_GUARD.with(|slot| *slot.borrow_mut() = escaped);
+            let result = CHILD.with(|slot| {
+                slot.borrow_mut()
+                    .as_mut()
+                    .unwrap()
+                    .as_mut()
+                    .poll(&mut Context::from_waker(&waker))
+            });
+            let Poll::Ready(Err(error)) = result else {
+                panic!("ancestor cancellation did not terminate child");
+            };
+            assert!(std::ptr::eq(
+                error.downcast_ref::<std::io::Error>().unwrap(),
+                original.downcast_ref::<std::io::Error>().unwrap()
+            ));
+            if matches!(proof, ChildProof::EscapedGuard) {
+                assert_eq!(stack_drops.load(Ordering::SeqCst), 0);
+                let mut foreign = Store::default();
+                let release = Function::new_typed(&mut foreign, || -> i32 {
+                    drop(CHILD_GUARD.with(|slot| slot.borrow_mut().take().unwrap()));
+                    42
+                });
+                let result =
+                    futures::executor::block_on(release.call_async(&foreign.into_async(), vec![]))
+                        .unwrap();
+                assert_eq!(result[0].i32(), Some(42));
+            }
+            // CHILD still owns its completed error Future. Its Root must have
+            // been released on terminal poll, independently of Future Drop.
+            assert!(CHILD.with(|slot| slot.borrow().is_some()));
+            assert_eq!(child_root.owner.strong_count(), 0);
+            assert!(
+                child_root
+                    .control
+                    .parent
+                    .as_ref()
+                    .unwrap()
+                    .upgrade()
+                    .is_none()
+            );
+            assert!(std::ptr::eq(
+                child_root
+                    .control
+                    .error()
+                    .unwrap()
+                    .downcast_ref::<std::io::Error>()
+                    .unwrap(),
+                original.downcast_ref::<std::io::Error>().unwrap()
+            ));
+            assert_eq!(caught.load(Ordering::SeqCst), 1);
+            assert_eq!(continued.load(Ordering::SeqCst), 0);
+        }
+        assert_eq!(stack_drops.load(Ordering::SeqCst), 1);
+        if matches!(proof, ChildProof::Notify) {
+            let call = UNRELATED.with(|slot| slot.borrow_mut().take().unwrap());
+            let result = futures::executor::block_on(call).unwrap();
+            assert_eq!(result[0].i32(), Some(9));
+            drop(CHILD_WAKER.with(|slot| slot.borrow_mut().take()));
+        }
+        let result = futures::executor::block_on(
+            instance
+                .exports
+                .get_function("fresh")
+                .unwrap()
+                .call_async(&store, vec![]),
+        )
+        .unwrap();
+        assert_eq!(result[0].i32(), Some(9));
+        let result = futures::executor::block_on(
+            instance
+                .exports
+                .get_function("continued")
+                .unwrap()
+                .call_async(&store, vec![]),
+        )
+        .unwrap();
+        assert_eq!(
+            result[0].i32(),
+            Some(i32::from(matches!(
+                proof,
+                ChildProof::Return | ChildProof::TypedReturn
+            )))
+        );
+        drop(CHILD.with(|slot| slot.borrow_mut().take()));
+        drop(CHILD_ROOT.with(|slot| slot.borrow_mut().take()));
+        drop(PARENT_ROOT.with(|slot| slot.borrow_mut().take()));
         assert!(StoreContext::is_empty());
         CURRENT_CONTEXT.with(|current| assert!(current.borrow().is_empty()));
     }
