@@ -747,6 +747,15 @@ impl Function {
         VMFuncRef(vm_function.anyfunc())
     }
 
+    pub(crate) fn from_owned_table_funcref(
+        store: &mut impl AsStoreMut,
+        funcref: VMFuncRef,
+    ) -> Option<Self> {
+        let target =
+            VMFunction::resolve_table_reference(store.as_store_ref().objects().as_sys(), funcref)?;
+        Some(Self::from_definition(store, target))
+    }
+
     pub(crate) unsafe fn from_vm_funcref(store: &mut impl AsStoreMut, funcref: VMFuncRef) -> Self {
         let signature = {
             let anyfunc = unsafe { funcref.0.as_ref() };

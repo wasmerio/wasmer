@@ -9,6 +9,7 @@ use crate::vmcontext::VMFunctionKind;
 use crate::{MaybeInstanceOwned, VMCallerCheckedAnyfunc};
 use std::{
     any::Any,
+    collections::HashSet,
     rc::Rc,
     sync::atomic::{AtomicU64, Ordering},
 };
@@ -166,6 +167,67 @@ impl VMFunction {
         }
     }
 
+    /// Capture the current allocation of a valid table reference before any
+    /// anyfunc dereference. Unknown owners are refused. Pointer equality cannot
+    /// recover historical provenance after arbitrary raw-reference reuse.
+    pub fn resolve_table_reference(
+        store: &crate::StoreObjects,
+        reference: crate::VMFuncRef,
+    ) -> Option<Self> {
+        use crate::StoreObject;
+        let mut targets: Vec<_> = Self::list(store).iter().map(Self::pin).collect();
+        let mut instances: Vec<_> = crate::VMInstance::list(store)
+            .iter()
+            .map(crate::VMInstance::allocation_pin)
+            .collect();
+        let mut seen_targets = HashSet::new();
+        let mut seen_instances = HashSet::new();
+        while !targets.is_empty() || !instances.is_empty() {
+            if let Some(pin) = targets.pop() {
+                if !seen_targets.insert(pin.id()) || !pin.clone_function().is_from_store(store) {
+                    continue;
+                }
+                // Raw Unit descriptors created by the trusted unsafe value
+                // path do not, by themselves, establish allocation custody.
+                let owns_metadata = matches!(&pin.target.anyfunc, MaybeInstanceOwned::Host(_))
+                    || pin.target._instance.is_some()
+                    || pin.target.host_data.is::<VMFunctionPin>();
+                if owns_metadata && pin.anyfunc() == reference.0 {
+                    if pin.target.kind == VMFunctionKind::Static {
+                        return Some(pin.clone_function());
+                    }
+                    let signature = pin.target.signature.clone();
+                    // SAFETY: this exact pin owns the metadata and host context.
+                    // Keep a non-Unit payload: converted host targets do not use
+                    // the Wasm-only memory-zero calling-convention parameter.
+                    return Some(unsafe {
+                        Self::new(
+                            MaybeInstanceOwned::Instance(reference.0),
+                            signature,
+                            VMFunctionKind::Static,
+                            Box::new(pin),
+                            store,
+                        )
+                    });
+                }
+                if let Some(instance) = &pin.target._instance {
+                    instances.push(instance.clone());
+                }
+            } else if let Some(owner) = instances.pop() {
+                if !seen_instances.insert(Rc::as_ptr(&owner)) {
+                    continue;
+                }
+                if let Some(target) =
+                    crate::instance::InstanceAllocation::local_ref_target(&owner, store, reference)
+                {
+                    return Some(target);
+                }
+                owner.add_import_targets(store, &mut targets);
+            }
+        }
+        None
+    }
+
     /// Identity of this immutable target, independent of its Store slot.
     pub fn id(&self) -> VMFunctionId {
         self.target.id
@@ -203,6 +265,12 @@ impl VMFunction {
         VMFunctionPin {
             target: self.target.clone(),
         }
+    }
+
+    /// Number of owners of a local target's Instance allocation, if present.
+    #[doc(hidden)]
+    pub fn instance_owner_count(&self) -> Option<usize> {
+        self.target._instance.as_ref().map(Rc::strong_count)
     }
 
     /// Number of owners retaining this call-target allocation.
