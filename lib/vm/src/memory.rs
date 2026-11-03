@@ -19,7 +19,7 @@ use std::cell::UnsafeCell;
 use std::convert::TryInto;
 use std::ptr::NonNull;
 use std::slice;
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, Mutex, RwLock};
 use std::time::Duration;
 use wasmer_types::{Bytes, MemoryError, MemoryStyle, MemoryType, Pages, WASM_PAGE_SIZE};
 
@@ -210,6 +210,8 @@ impl VMMemoryConfig {
 /// A linear memory instance.
 #[derive(Debug)]
 pub struct VMOwnedMemory {
+    // File-backed mappings cannot safely back retained host pointers.
+    host_ranges: Arc<Mutex<HostRanges>>,
     // The underlying allocation.
     mmap: WasmMmap,
     // Configuration of this memory
@@ -343,6 +345,7 @@ impl VMOwnedMemory {
             let mapped_pages = memory.minimum;
             let mapped_bytes = mapped_pages.bytes();
 
+            let host_private = backing_file.is_none() && memory_type == MmapType::Private;
             let mut alloc = Mmap::accessible_reserved(
                 mapped_bytes.0,
                 request_bytes,
@@ -378,6 +381,10 @@ impl VMOwnedMemory {
             };
 
             Ok(Self {
+                host_ranges: Arc::new(Mutex::new(HostRanges::new(
+                    host_private,
+                    (mmap.alloc.len() - offset_guard_bytes) as u64,
+                ))),
                 mmap,
                 config: VMMemoryConfig {
                     maximum: memory.maximum,
@@ -392,6 +399,7 @@ impl VMOwnedMemory {
     /// Converts this owned memory into shared memory
     pub fn to_shared(self) -> VMSharedMemory {
         VMSharedMemory {
+            host_ranges: self.host_ranges,
             mmap: Arc::new(RwLock::new(self.mmap)),
             config: self.config,
             conditions: ThreadConditions::new(),
@@ -400,7 +408,13 @@ impl VMOwnedMemory {
 
     /// Copies this memory to a new memory
     pub fn copy(&self) -> Result<Self, MemoryError> {
+        let ranges = self.host_ranges.lock().unwrap();
+        ranges.can_grow()?;
         Ok(Self {
+            host_ranges: Arc::new(Mutex::new(HostRanges::new(
+                true,
+                (self.mmap.alloc.len() - self.config.offset_guard_size) as u64,
+            ))),
             mmap: self.mmap.copy()?,
             config: self.config.clone(),
         })
@@ -420,6 +434,13 @@ impl LinearMemory for VMOwnedMemory {
         self.mmap.size()
     }
 
+    fn begin_host_mapping_change(
+        &self,
+        range: std::ops::Range<u64>,
+    ) -> Result<HostMemoryMappingChange, MemoryError> {
+        HostRanges::begin_change(&self.host_ranges, range, || self.mmap.size.bytes().0 as u64)
+    }
+
     /// Returns the memory style for this memory.
     fn style(&self) -> MemoryStyle {
         self.config.style()
@@ -430,17 +451,27 @@ impl LinearMemory for VMOwnedMemory {
     /// Returns `None` if memory can't be grown by the specified amount
     /// of wasm pages.
     fn grow(&mut self, delta: Pages) -> Result<Pages, MemoryError> {
+        let ranges = self.host_ranges.lock().unwrap();
+        if delta.0 != 0 {
+            ranges.can_grow()?;
+        }
         self.mmap.grow(delta, self.config.clone())
     }
 
     /// Grows the memory to at least a minimum size. If the memory is already big enough
     /// for the min size then this function does nothing
     fn grow_at_least(&mut self, min_size: u64) -> Result<(), MemoryError> {
+        let ranges = self.host_ranges.lock().unwrap();
+        if min_size > self.mmap.size.bytes().0 as u64 {
+            ranges.can_grow()?;
+        }
         self.mmap.grow_at_least(min_size, self.config.clone())
     }
 
     /// Resets the memory down to a zero size
     fn reset(&mut self) -> Result<(), MemoryError> {
+        let ranges = self.host_ranges.lock().unwrap();
+        ranges.can_reset()?;
         self.mmap.reset()?;
         Ok(())
     }
@@ -467,9 +498,247 @@ impl LinearMemory for VMOwnedMemory {
     }
 }
 
+/// Allocation-local knowledge of ranges that may safely back retained host pointers.
+/// Tokens, rather than this mutex, cover physical mapping operations and callouts.
+#[derive(Debug, Default)]
+struct HostRanges {
+    next_id: u64,
+    private: Vec<std::ops::Range<u64>>,
+    pins: Vec<(u64, std::ops::Range<u64>)>,
+    changes: Vec<(u64, std::ops::Range<u64>)>,
+}
+
+impl HostRanges {
+    fn new(private: bool, capacity: u64) -> Self {
+        Self {
+            private: if private {
+                std::iter::once(0..capacity).collect()
+            } else {
+                Vec::new()
+            },
+            ..Self::default()
+        }
+    }
+
+    fn begin_change(
+        state: &Arc<Mutex<Self>>,
+        range: std::ops::Range<u64>,
+        size: impl FnOnce() -> u64,
+    ) -> Result<HostMemoryMappingChange, MemoryError> {
+        let mut ranges = state.lock().unwrap();
+        if range.start >= range.end || range.end > size() || ranges.busy(&range) {
+            return Err(host_range_unavailable());
+        }
+        let was_private = ranges
+            .private
+            .iter()
+            .any(|known| known.start <= range.start && range.end <= known.end);
+        let id = ranges.next_id()?;
+        ranges.changes.push((id, range.clone()));
+        ranges.remove_private(&range);
+        Ok(HostMemoryMappingChange {
+            ranges: state.clone(),
+            id: Some(id),
+            range,
+            was_private,
+        })
+    }
+
+    fn can_reset(&self) -> Result<(), MemoryError> {
+        if self.pins.is_empty() && self.changes.is_empty() {
+            Ok(())
+        } else {
+            Err(host_range_unavailable())
+        }
+    }
+
+    fn can_grow(&self) -> Result<(), MemoryError> {
+        if self.changes.is_empty() {
+            Ok(())
+        } else {
+            Err(host_range_unavailable())
+        }
+    }
+
+    fn next_id(&mut self) -> Result<u64, MemoryError> {
+        self.next_id = self
+            .next_id
+            .checked_add(1)
+            .ok_or_else(host_range_unavailable)?;
+        Ok(self.next_id)
+    }
+
+    fn overlaps(a: &std::ops::Range<u64>, b: &std::ops::Range<u64>) -> bool {
+        a.start < b.end && b.start < a.end
+    }
+
+    fn busy(&self, range: &std::ops::Range<u64>) -> bool {
+        self.pins
+            .iter()
+            .chain(&self.changes)
+            .any(|(_, other)| Self::overlaps(range, other))
+    }
+
+    fn remove_private(&mut self, range: &std::ops::Range<u64>) {
+        let mut remaining = Vec::with_capacity(self.private.len() + 1);
+        for old in self.private.drain(..) {
+            if !Self::overlaps(&old, range) {
+                remaining.push(old);
+            } else {
+                if old.start < range.start {
+                    remaining.push(old.start..range.start);
+                }
+                if range.end < old.end {
+                    remaining.push(range.end..old.end);
+                }
+            }
+        }
+        self.private = remaining;
+    }
+
+    fn insert_private(&mut self, mut range: std::ops::Range<u64>) {
+        self.private.retain(|other| {
+            if other.start <= range.end && range.start <= other.end {
+                range.start = range.start.min(other.start);
+                range.end = range.end.max(other.end);
+                false
+            } else {
+                true
+            }
+        });
+        self.private.push(range);
+        self.private.sort_unstable_by_key(|range| range.start);
+    }
+}
+
+fn host_range_unavailable() -> MemoryError {
+    MemoryError::UnsupportedOperation {
+        message: "memory range is not available for a retained host mapping".into(),
+    }
+}
+
+/// Keeps an exact private, writable range of a static allocation mapped until drop.
+///
+/// Every physical replacement or discard must first obtain a
+/// [`HostMemoryMappingChange`]. Clones of the same memory share this exclusion.
+/// The token owns the allocation; no Store or process lookup is needed to use it.
+pub struct HostMemoryPin {
+    memory: VMSharedMemory,
+    id: u64,
+    range: std::ops::Range<u64>,
+    // Optional wrapper resources, such as the allocation's accounting owner.
+    owner: Option<Arc<dyn Send + Sync>>,
+}
+
+impl std::fmt::Debug for HostMemoryPin {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // Inline VM metadata may already have died with its Store. The pin owns
+        // the allocation, so formatting must not traverse its memory definition.
+        f.debug_struct("HostMemoryPin")
+            .field("id", &self.id)
+            .field("range", &self.range)
+            .finish()
+    }
+}
+
+impl HostMemoryPin {
+    /// Retains additional allocation ownership before publishing this pin.
+    /// An existing owner is never replaced; rejection returns the supplied owner.
+    /// Owners must not retain this pin or a Store that owns it.
+    #[doc(hidden)]
+    pub fn retain_owner(
+        &mut self,
+        owner: Arc<dyn Send + Sync>,
+    ) -> Result<(), Arc<dyn Send + Sync>> {
+        if self.owner.is_some() {
+            return Err(owner);
+        }
+        self.owner = Some(owner);
+        Ok(())
+    }
+
+    /// The pinned writable host address. Guest accesses may race as usual.
+    pub fn as_ptr(&self) -> *mut u8 {
+        let (base, _) = self.memory.host_data().expect("pinned static memory");
+        // SAFETY: admission checked the range against this exact static allocation.
+        unsafe { base.add(self.range.start as usize) }
+    }
+
+    /// The pinned byte range within the allocation.
+    pub fn range(&self) -> std::ops::Range<u64> {
+        self.range.clone()
+    }
+}
+
+impl Drop for HostMemoryPin {
+    fn drop(&mut self) {
+        let mut ranges = self.memory.host_ranges.lock().unwrap();
+        let index = ranges
+            .pins
+            .iter()
+            .position(|(id, _)| *id == self.id)
+            .expect("exact host pin remains registered");
+        ranges.pins.swap_remove(index);
+    }
+}
+
+/// Exclusive custody of an in-progress physical mapping change.
+///
+/// Admission immediately removes private-mapping knowledge. Dropping an unfinished
+/// change releases exclusion but leaves the range unknown, including after errors
+/// or panic in an external mapping callback. No allocation mutex crosses callbacks.
+#[derive(Debug)]
+pub struct HostMemoryMappingChange {
+    was_private: bool,
+    ranges: Arc<Mutex<HostRanges>>,
+    id: Option<u64>,
+    range: std::ops::Range<u64>,
+}
+
+impl HostMemoryMappingChange {
+    /// Whether the entire range had known anonymous private backing on admission.
+    pub fn was_private(&self) -> bool {
+        self.was_private
+    }
+
+    /// Records a completed anonymous private, writable mapping.
+    ///
+    /// # Safety
+    /// Every byte of the exact range must now have anonymous private writable
+    /// backing, with no external file or shared-object owner able to revoke it.
+    /// The caller must finish all physical changes and their metadata first.
+    pub unsafe fn commit_private(mut self) {
+        let mut ranges = self.ranges.lock().unwrap();
+        let id = self.id.take().expect("mapping change is still active");
+        let index = ranges
+            .changes
+            .iter()
+            .position(|(other, _)| *other == id)
+            .expect("exact mapping change remains registered");
+        ranges.insert_private(self.range.clone());
+        ranges.changes.swap_remove(index);
+    }
+}
+
+impl Drop for HostMemoryMappingChange {
+    fn drop(&mut self) {
+        if let Some(id) = self.id.take() {
+            let mut ranges = self.ranges.lock().unwrap();
+            let index = ranges
+                .changes
+                .iter()
+                .position(|(other, _)| *other == id)
+                .expect("exact mapping change remains registered");
+            ranges.changes.swap_remove(index);
+        }
+    }
+}
+
 /// A shared linear memory instance.
 #[derive(Debug, Clone)]
 pub struct VMSharedMemory {
+    // Shared by every handle of this physical allocation, including detached views.
+    host_ranges: Arc<Mutex<HostRanges>>,
     // The underlying allocation.
     mmap: Arc<RwLock<WasmMmap>>,
     // Configuration of this memory
@@ -564,10 +833,82 @@ impl VMSharedMemory {
         Some((mmap.alloc.as_ptr() as *mut u8, mmap.size.bytes().0 as u64))
     }
 
+    /// Pins a known anonymous private writable range against physical replacement.
+    /// Unsupported for movable memory, unknown/file-backed ranges, or overlap with
+    /// another pin or mapping operation. This does not exclude ordinary guest writes.
+    #[doc(hidden)]
+    pub fn pin_host_range(
+        &self,
+        range: std::ops::Range<u64>,
+    ) -> Result<HostMemoryPin, MemoryError> {
+        let mut ranges = self.host_ranges.lock().unwrap();
+        let (_, size) = self.host_data().ok_or_else(host_range_unavailable)?;
+        if range.start >= range.end
+            || range.end > size
+            || ranges.busy(&range)
+            || !ranges
+                .private
+                .iter()
+                .any(|known| known.start <= range.start && range.end <= known.end)
+        {
+            return Err(host_range_unavailable());
+        }
+        let id = ranges.next_id()?;
+        ranges.pins.push((id, range.clone()));
+        Ok(HostMemoryPin {
+            memory: self.clone(),
+            id,
+            range,
+            owner: None,
+        })
+    }
+
+    /// Atomically promotes this allocation's in-progress replacement into a pin.
+    /// No other pin or mapping change can enter between commit and publication.
+    ///
+    /// # Safety
+    /// All bytes in `mapping`'s range must have just been replaced with anonymous
+    /// private writable backing; physical operations and metadata must be complete.
+    #[doc(hidden)]
+    pub unsafe fn commit_private_host_pin(
+        &self,
+        mut mapping: HostMemoryMappingChange,
+    ) -> Result<HostMemoryPin, MemoryError> {
+        if !Arc::ptr_eq(&self.host_ranges, &mapping.ranges) {
+            return Err(host_range_unavailable());
+        }
+        let mut ranges = self.host_ranges.lock().unwrap();
+        let (_, size) = self.host_data().ok_or_else(host_range_unavailable)?;
+        if mapping.range.end > size {
+            return Err(host_range_unavailable());
+        }
+        let id = mapping.id.take().expect("mapping change is still active");
+        let index = ranges
+            .changes
+            .iter()
+            .position(|(other, range)| *other == id && *range == mapping.range)
+            .expect("exact mapping change remains registered");
+        ranges.insert_private(mapping.range.clone());
+        ranges.pins.push((id, mapping.range.clone()));
+        ranges.changes.swap_remove(index);
+        Ok(HostMemoryPin {
+            memory: self.clone(),
+            id,
+            range: mapping.range.clone(),
+            owner: None,
+        })
+    }
+
     /// Copies this memory to a new memory
     pub fn copy(&self) -> Result<Self, MemoryError> {
+        let ranges = self.host_ranges.lock().unwrap();
+        ranges.can_grow()?;
         let guard = self.mmap.read().unwrap();
         Ok(Self {
+            host_ranges: Arc::new(Mutex::new(HostRanges::new(
+                true,
+                (guard.alloc.len() - self.config.offset_guard_size) as u64,
+            ))),
             mmap: Arc::new(RwLock::new(guard.copy()?)),
             config: self.config.clone(),
             conditions: ThreadConditions::new(),
@@ -591,6 +932,15 @@ impl LinearMemory for VMSharedMemory {
         guard.size()
     }
 
+    fn begin_host_mapping_change(
+        &self,
+        range: std::ops::Range<u64>,
+    ) -> Result<HostMemoryMappingChange, MemoryError> {
+        HostRanges::begin_change(&self.host_ranges, range, || {
+            self.mmap.read().unwrap().size.bytes().0 as u64
+        })
+    }
+
     /// Returns the memory style for this memory.
     fn style(&self) -> MemoryStyle {
         self.config.style()
@@ -601,6 +951,10 @@ impl LinearMemory for VMSharedMemory {
     /// Returns `None` if memory can't be grown by the specified amount
     /// of wasm pages.
     fn grow(&mut self, delta: Pages) -> Result<Pages, MemoryError> {
+        let ranges = self.host_ranges.lock().unwrap();
+        if delta.0 != 0 {
+            ranges.can_grow()?;
+        }
         let mut guard = self.mmap.write().unwrap();
         guard.grow(delta, self.config.clone())
     }
@@ -608,12 +962,18 @@ impl LinearMemory for VMSharedMemory {
     /// Grows the memory to at least a minimum size. If the memory is already big enough
     /// for the min size then this function does nothing
     fn grow_at_least(&mut self, min_size: u64) -> Result<(), MemoryError> {
+        let ranges = self.host_ranges.lock().unwrap();
         let mut guard = self.mmap.write().unwrap();
+        if min_size > guard.size.bytes().0 as u64 {
+            ranges.can_grow()?;
+        }
         guard.grow_at_least(min_size, self.config.clone())
     }
 
     /// Resets the memory down to a zero size
     fn reset(&mut self) -> Result<(), MemoryError> {
+        let ranges = self.host_ranges.lock().unwrap();
+        ranges.can_reset()?;
         let mut guard = self.mmap.write().unwrap();
         guard.reset()?;
         Ok(())
@@ -716,6 +1076,13 @@ impl LinearMemory for VMMemory {
     fn reset(&mut self) -> Result<(), MemoryError> {
         self.0.reset()?;
         Ok(())
+    }
+
+    fn begin_host_mapping_change(
+        &self,
+        range: std::ops::Range<u64>,
+    ) -> Result<HostMemoryMappingChange, MemoryError> {
+        self.0.begin_host_mapping_change(range)
     }
 
     /// Returns the memory style for this memory.
@@ -864,6 +1231,17 @@ where
 
     /// Returns the size of the memory in pages
     fn size(&self) -> Pages;
+
+    /// Admits a finite physical mapping change before any OS operation or callback.
+    /// Keep the real memory alive separately until the operation and metadata commit
+    /// finish. Unsupported implementations must not expose retained host pins.
+    #[doc(hidden)]
+    fn begin_host_mapping_change(
+        &self,
+        _range: std::ops::Range<u64>,
+    ) -> Result<HostMemoryMappingChange, MemoryError> {
+        Err(host_range_unavailable())
+    }
 
     /// Returns the memory style for this memory.
     fn style(&self) -> MemoryStyle;

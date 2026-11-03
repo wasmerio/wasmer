@@ -118,7 +118,15 @@ impl StoreMut<'_> {
         // SAFETY: `ptr` comes from `&mut *self.inner`, which `&mut self` keeps
         // alive and unreachable for every frame on this thread until `f`
         // returns and the guard is dropped.
-        let _guard = unsafe { super::StoreContext::install(ptr) };
+        #[cfg(all(feature = "sys", feature = "experimental-async"))]
+        let native = crate::backend::sys::async_runtime::native_coroutine_active();
+        #[cfg(not(all(feature = "sys", feature = "experimental-async")))]
+        let native = false;
+        let _guard = if native {
+            unsafe { super::StoreContext::install_borrowed(ptr) }
+        } else {
+            unsafe { super::StoreContext::install(ptr) }
+        };
         f()
     }
 

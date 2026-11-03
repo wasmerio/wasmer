@@ -106,11 +106,12 @@ impl LoaderCleanup {
         }));
     }
     fn flush(self: &Arc<Self>, cx: &mut Context<'_>) {
-        let jobs = {
-            let mut state = self.state();
-            state.waker = Some(cx.waker().clone());
-            std::mem::take(&mut state.jobs)
-        };
+        let next_waker = cx.waker().clone();
+        let old_waker = self.state().waker.replace(next_waker);
+        drop(old_waker);
+        // A Waker destructor can panic or submit more work. Leave factories in
+        // scope custody until that callback has finished.
+        let jobs = std::mem::take(&mut self.state().jobs);
         for job in jobs {
             self.start(job());
         }
@@ -118,7 +119,7 @@ impl LoaderCleanup {
     async fn drain(self: Arc<Self>) {
         poll_fn(|cx| {
             self.flush(cx);
-            let retire = {
+            let (retire, closed_waker) = {
                 let mut state = self.state();
                 if state.pending != 0 {
                     return Poll::Pending;
@@ -130,12 +131,16 @@ impl LoaderCleanup {
                     .collect();
                 if retire.is_empty() {
                     state.closed = true;
-                    state.waker = None;
-                    return Poll::Ready(());
+                    (retire, state.waker.take())
+                } else {
+                    state.pending = retire.len();
+                    (retire, None)
                 }
-                state.pending = retire.len();
-                retire
             };
+            drop(closed_waker);
+            if retire.is_empty() {
+                return Poll::Ready(());
+            }
             for job in retire {
                 self.start(job());
             }
@@ -154,6 +159,25 @@ impl LoaderCleanup {
             guest: Some(Box::pin(guest)),
             output: None,
             drain: None,
+            keepalive: None,
+            done: false,
+        }
+    }
+
+    /// Retain an owner-local lease until guest teardown and the complete loader
+    /// drain finish, including when cancellation transfers that drain. The lease
+    /// must own no Store, provider, or resource needed by the drain's own jobs.
+    pub fn run_with_keepalive<'a, R: 'a>(
+        self: &Arc<Self>,
+        guest: impl Future<Output = R> + 'a,
+        keepalive: impl std::any::Any,
+    ) -> impl Future<Output = R> + 'a {
+        Runner {
+            scope: self.clone(),
+            guest: Some(Box::pin(guest)),
+            output: None,
+            drain: None,
+            keepalive: Some(Box::new(keepalive)),
             done: false,
         }
     }
@@ -175,6 +199,7 @@ struct Runner<'a, R> {
     guest: Option<LocalFuture<'a, R>>,
     output: Option<R>,
     drain: Option<LocalFuture<'static, ()>>,
+    keepalive: Option<Box<dyn std::any::Any>>,
     done: bool,
 }
 // Only the boxed futures are pinned; output is never projected as pinned.
@@ -190,7 +215,7 @@ impl<R> Future for Runner<'_, R> {
                 Poll::Ready(output) => this.output = Some(output),
             }
             // Drop all frame/image attachments before starting the final drain.
-            this.guest = None;
+            drop(this.guest.take());
             this.drain = Some(Box::pin(this.scope.clone().drain()));
         }
         if this.drain.as_mut().unwrap().as_mut().poll(cx).is_pending() {
@@ -198,7 +223,9 @@ impl<R> Future for Runner<'_, R> {
         }
         this.drain = None;
         this.done = true;
-        Poll::Ready(this.output.take().unwrap())
+        let output = this.output.take().unwrap();
+        drop(this.keepalive.take());
+        Poll::Ready(output)
     }
 }
 impl<R> Drop for Runner<'_, R> {
@@ -206,22 +233,57 @@ impl<R> Drop for Runner<'_, R> {
         if self.done {
             return;
         }
-        // Guest cancellation can enqueue more cleanup. Retain the exact draining
-        // continuation, and never discard it when transferring runner custody.
-        self.guest = None;
-        {
+        // Establish custody before either user destructor can enqueue work or
+        // unwind. Its Drop transfers the exact continuation and lease together.
+        let custody = DrainCustody {
+            scope: self.scope.clone(),
+            drain: self.drain.take(),
+            keepalive: self.keepalive.take(),
+        };
+        let output = self.output.take();
+        let guest = self.guest.take();
+        drop(guest);
+        drop(output);
+        drop(custody);
+    }
+}
+
+struct DrainCustody {
+    scope: Arc<LoaderCleanup>,
+    drain: Option<LocalFuture<'static, ()>>,
+    keepalive: Option<Box<dyn std::any::Any>>,
+}
+
+impl Drop for DrainCustody {
+    fn drop(&mut self) {
+        let (closed, waker) = {
             let mut state = self.scope.state();
             if state.pending == 0 && state.retire.is_empty() {
                 state.closed = true;
-                state.waker = None;
-                return;
+                (true, state.waker.take())
+            } else {
+                (false, None)
             }
+        };
+        drop(waker);
+        if closed {
+            drop(self.drain.take());
+            drop(self.keepalive.take());
+            return;
         }
         let drain = self
             .drain
             .take()
             .unwrap_or_else(|| Box::pin(self.scope.clone().drain()));
-        self.scope.host.executor().spawn_local(drain);
+        if let Some(keepalive) = self.keepalive.take() {
+            self.scope.host.executor().spawn_local(Box::pin(async move {
+                drain.await;
+                drop(keepalive);
+            }));
+        } else {
+            // Ordinary runners keep their existing allocation/custody path.
+            self.scope.host.executor().spawn_local(drain);
+        }
     }
 }
 
@@ -325,6 +387,153 @@ mod tests {
         local.await;
         assert_eq!(phase.load(Ordering::Acquire), 3);
     }
+    async fn keepalive_proof(panic_on_drop: bool) {
+        use std::{cell::Cell, rc::Rc};
+        type Events = Arc<Mutex<Vec<&'static str>>>;
+        struct Lease {
+            scope: Weak<LoaderCleanup>,
+            released: Rc<Cell<bool>>,
+            closed: Rc<Cell<bool>>,
+            events: Events,
+        }
+        impl Drop for Lease {
+            fn drop(&mut self) {
+                self.closed
+                    .set(self.scope.upgrade().is_none_or(|scope| !scope.is_open()));
+                self.events.lock().unwrap().push("lease_drop");
+                self.released.set(true);
+            }
+        }
+        struct Guest {
+            scope: Arc<LoaderCleanup>,
+            job: Option<LocalFuture<'static, ()>>,
+            panic_on_drop: bool,
+            events: Events,
+        }
+        impl Future for Guest {
+            type Output = i32;
+            fn poll(mut self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<i32> {
+                if let Some(job) = self.job.take() {
+                    self.scope.spawn(job);
+                }
+                if self.panic_on_drop {
+                    Poll::Pending
+                } else {
+                    Poll::Ready(42)
+                }
+            }
+        }
+        impl Drop for Guest {
+            fn drop(&mut self) {
+                self.events.lock().unwrap().push("guest_drop");
+                assert!(!self.panic_on_drop, "guest destructor proof");
+            }
+        }
+        tokio::task::LocalSet::new()
+            .run_until(async move {
+                let scope = LoaderCleanup::new(Arc::new(TokioHost::default()));
+                let released = Rc::new(Cell::new(false));
+                let closed = Rc::new(Cell::new(false));
+                let events: Events = Arc::default();
+                let (send, receive) = tokio::sync::oneshot::channel::<()>();
+                let job_events = events.clone();
+                let guest = Guest {
+                    scope: scope.clone(),
+                    job: Some(Box::pin(async move {
+                        receive.await.unwrap();
+                        job_events.lock().unwrap().push("job_done");
+                    })),
+                    panic_on_drop,
+                    events: events.clone(),
+                };
+                let lease = Lease {
+                    scope: Arc::downgrade(&scope),
+                    released: released.clone(),
+                    closed: closed.clone(),
+                    events: events.clone(),
+                };
+                let mut runner = Box::pin(scope.run_with_keepalive(guest, lease));
+                poll_fn(|cx| {
+                    assert!(runner.as_mut().poll(cx).is_pending());
+                    Poll::Ready(())
+                })
+                .await;
+                let result =
+                    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| drop(runner)));
+                assert_eq!(result.is_err(), panic_on_drop);
+                assert!(!released.get(), "pending drain lost its owner-local lease");
+                send.send(()).unwrap();
+                tokio::time::timeout(Duration::from_secs(2), async {
+                    while !released.get() {
+                        tokio::task::yield_now().await;
+                    }
+                })
+                .await
+                .unwrap();
+                assert!(closed.get());
+                assert_eq!(
+                    *events.lock().unwrap(),
+                    ["guest_drop", "job_done", "lease_drop"]
+                );
+            })
+            .await;
+    }
+
+    #[tokio::test]
+    async fn keepalive_survives_cancellation_of_an_in_progress_drain() {
+        keepalive_proof(false).await;
+    }
+
+    #[tokio::test]
+    async fn guest_destructor_panic_keeps_the_lease_until_cleanup_finishes() {
+        keepalive_proof(true).await;
+    }
+
+    #[tokio::test]
+    async fn panicking_old_waker_keeps_queued_factories_in_scope_custody() {
+        struct DropPanic;
+        // The custom destructor is the operation exercised by this regression.
+        #[allow(clippy::manual_noop_waker)]
+        impl std::task::Wake for DropPanic {
+            fn wake(self: Arc<Self>) {}
+        }
+        impl Drop for DropPanic {
+            fn drop(&mut self) {
+                panic!("old cleanup waker destructor proof");
+            }
+        }
+        tokio::task::LocalSet::new()
+            .run_until(async {
+                let scope = LoaderCleanup::new(Arc::new(TokioHost::default()));
+                let executed = Arc::new(AtomicBool::new(false));
+                let job_executed = executed.clone();
+                assert!(
+                    scope
+                        .submit(Box::new(move || {
+                            Box::pin(async move {
+                                job_executed.store(true, Ordering::Release);
+                            })
+                        }))
+                        .is_ok()
+                );
+                scope.state().waker = Some(Waker::from(Arc::new(DropPanic)));
+                let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    scope.flush(&mut Context::from_waker(Waker::noop()));
+                }));
+                assert!(result.is_err());
+                {
+                    let state = scope.state();
+                    assert_eq!(state.pending, 1);
+                    assert_eq!(state.jobs.len(), 1);
+                }
+                assert!(!executed.load(Ordering::Acquire));
+                scope.run(async {}).await;
+                assert!(executed.load(Ordering::Acquire));
+                assert!(!scope.is_open());
+            })
+            .await;
+    }
+
     #[test]
     fn dead_weak_callbacks_stay_bounded_across_image_replacements() {
         let scope = LoaderCleanup::new(Arc::new(TokioHost::default()));

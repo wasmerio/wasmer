@@ -174,6 +174,9 @@ pub(crate) fn protect_low(memory: &Memory, store: &impl AsStoreRef) -> u32 {
     if view.data_size() < u64::from(LOW_GUARD) {
         return 0;
     }
+    let Ok(_mapping) = memory.begin_host_mapping_change(store, 0..u64::from(LOW_GUARD)) else {
+        return 0;
+    };
     // SAFETY: the range is the start of the memory's own mapping, which is page aligned and at
     // least that large; the host writes guest memory only through `write`, which faults there.
     let ret =
@@ -305,6 +308,16 @@ pub(crate) fn zero_pages(
     let inside = u64::from(addr)
         .checked_add(len as u64)
         .is_some_and(|end| end <= view.data_size());
+    #[cfg(all(unix, feature = "sys"))]
+    let mapping = if inside && len != 0 {
+        Some(
+            memory
+                .begin_host_mapping_change(store, u64::from(addr)..u64::from(addr) + len as u64)
+                .map_err(|_| Fault)?,
+        )
+    } else {
+        None
+    };
     let read_only = read_only.ranges();
     if !inside || in_guard(low_guard, addr, len) || in_read_only(&read_only, addr, len) {
         return Err(Fault);
@@ -333,6 +346,13 @@ pub(crate) fn zero_pages(
                 || unsafe { wasixv2_pages::drop_private(ptr.add(over_base), len - over_base) }
                     .is_ok())
         {
+            if over_base == 0
+                && let Some(mapping) = mapping
+                && mapping.was_private()
+            {
+                // SAFETY: a successful discard preserves anonymous private writable backing.
+                unsafe { mapping.commit_private() };
+            }
             return Ok(());
         }
     }
@@ -362,6 +382,9 @@ pub(crate) fn map_shared(
     writable: bool,
 ) -> Result<(), Errno> {
     let ptr = shared_range(memory, low_guard, store, addr, len)?;
+    let mapping = memory
+        .begin_host_mapping_change(store, u64::from(addr)..u64::from(addr) + len)
+        .map_err(|_| Errno::EBUSY)?;
     let mut ranges = read_only.ranges_mut();
     // SAFETY: the range lies inside the memory's own mapping, which never moves (memories are
     // reserved to their maximum) and which the host reaches only through views, by copies, and
@@ -388,6 +411,8 @@ pub(crate) fn map_shared(
         }
         Err(_) => {}
     }
+    drop(ranges);
+    drop(mapping);
     mapped.map_err(|err| host_errno(&err))
 }
 
@@ -402,6 +427,9 @@ pub(crate) fn unmap_shared(
     len: u64,
 ) -> Result<(), Errno> {
     let ptr = shared_range(memory, low_guard, store, addr, len)?;
+    let mapping = memory
+        .begin_host_mapping_change(store, u64::from(addr)..u64::from(addr) + len)
+        .map_err(|_| Errno::EBUSY)?;
     let mut ranges = read_only.ranges_mut();
     // SAFETY: as in `map_shared`.
     let unmapped = unsafe {
@@ -412,6 +440,18 @@ pub(crate) fn unmap_shared(
     };
     if unmapped.is_ok() {
         set_read_only(&mut ranges, u64::from(addr)..u64::from(addr) + len, false);
+    }
+    drop(ranges);
+    let anonymous = match base {
+        None => true,
+        #[cfg(target_os = "linux")]
+        Some(base) => u64::from(addr) >= base.len(),
+        #[cfg(not(target_os = "linux"))]
+        Some(base) => match *base {},
+    };
+    if unmapped.is_ok() && anonymous {
+        // SAFETY: this exact range was replaced with anonymous private writable pages.
+        unsafe { mapping.commit_private() };
     }
     unmapped.map_err(|err| host_errno(&err))
 }
@@ -951,6 +991,15 @@ impl ForeignMemory {
     fn discard_pages(&self, addr: u32, len: u64) -> Result<(), Fault> {
         let len = usize::try_from(len).map_err(|_| Fault)?;
         let ptr = self.at(addr, len)?;
+        let mapping = if len != 0 {
+            Some(
+                self.memory
+                    .begin_host_mapping_change(u64::from(addr)..u64::from(addr) + len as u64)
+                    .map_err(|_| Fault)?,
+            )
+        } else {
+            None
+        };
         let read_only = self.read_only.ranges();
         if in_guard(self.low_guard, addr, len) || in_read_only(&read_only, addr, len) {
             return Err(Fault);
@@ -978,6 +1027,13 @@ impl ForeignMemory {
                 || unsafe { wasixv2_pages::drop_private(ptr.add(over_base), len - over_base) }
                     .is_ok())
         {
+            if over_base == 0
+                && let Some(mapping) = mapping
+                && mapping.was_private()
+            {
+                // SAFETY: a successful discard preserves anonymous private writable backing.
+                unsafe { mapping.commit_private() };
+            }
             return Ok(());
         }
         // SAFETY: as above; on hosts without discard support use the trait's
@@ -1046,7 +1102,54 @@ impl ForeignMemory {
     }
 }
 
+#[cfg(all(unix, feature = "sys"))]
+struct NativeHostPin(wasmer::sys::HostMemoryPin);
+
+// SAFETY: the VM pin owns the exact static allocation and shared mapping exclusion.
+#[cfg(all(unix, feature = "sys"))]
+unsafe impl wasixv2_syscalls::HostMemoryPin for NativeHostPin {
+    fn as_ptr(&self) -> *mut u8 {
+        self.0.as_ptr()
+    }
+    fn len(&self) -> u64 {
+        let range = self.0.range();
+        range.end - range.start
+    }
+}
+
 impl UserMemory for ForeignMemory {
+    #[cfg(all(unix, feature = "sys"))]
+    unsafe fn pin_private_host_range(
+        &self,
+        addr: u32,
+        len: u64,
+    ) -> Result<Box<dyn wasixv2_syscalls::HostMemoryPin>, Errno> {
+        let len_usize = usize::try_from(len).map_err(|_| Errno::EINVAL)?;
+        if len == 0 || in_guard(self.low_guard, addr, len_usize) {
+            return Err(Errno::EINVAL);
+        }
+        let pointer = self.at(addr, len_usize).map_err(|_| Errno::EFAULT)?;
+        let end = u64::from(addr).checked_add(len).ok_or(Errno::EINVAL)?;
+        let mapping = self
+            .memory
+            .begin_host_mapping_change(u64::from(addr)..end)
+            .map_err(|_| Errno::EBUSY)?;
+        let ranges = self.read_only.ranges_mut();
+        if in_read_only(&ranges, addr, len_usize) {
+            return Err(Errno::EACCES);
+        }
+        // SAFETY: caller owns the fresh private logical range. The exact allocation
+        // change excludes all host pins/remaps through this physical operation.
+        unsafe { wasixv2_pages::map_private_at(pointer, len_usize) }
+            .map_err(|err| host_errno(&err))?;
+        // SAFETY: the entire exact range now has anonymous private writable pages;
+        // no later physical operation or metadata change remains before publication.
+        let pin = unsafe { self.memory.commit_private_host_pin(mapping) }
+            .map_err(|_| Errno::EOPNOTSUPP)?;
+        drop(ranges);
+        Ok(Box::new(NativeHostPin(pin)))
+    }
+
     fn read<'a>(&'a self, addr: u32, buf: &'a mut [u8]) -> LocalFuture<'a, Result<(), Fault>> {
         copied(self.copy_out(addr, buf, false))
     }
@@ -1180,9 +1283,9 @@ mod tests {
         ))
         .unwrap();
         let access = Arc::new(PageAccess::default());
-        ready.env.as_mut(&mut ready.store).page_access = Some(access.clone());
+        ready.env.as_mut(ready.store.as_mut().unwrap()).page_access = Some(access.clone());
         let check = wasmer::Function::new_typed_with_env_async(
-            &mut ready.store,
+            ready.store.as_mut().unwrap(),
             &ready.env,
             move |env: AsyncFunctionEnvMut<ExecEnv<Recorder>>| {
                 let access = access.clone();
@@ -1236,7 +1339,10 @@ mod tests {
                 }
             },
         );
-        futures::executor::block_on(check.call_async(&ready.store.into_async(), vec![])).unwrap();
+        futures::executor::block_on(
+            check.call_async(&ready.store.take().unwrap().into_async(), vec![]),
+        )
+        .unwrap();
     }
 
     #[test]
@@ -1503,6 +1609,100 @@ mod tests {
         store_at.call(&mut store, at + PAGE as u32).unwrap();
         assert!(store_at.call(&mut store, at + 8).is_err());
         assert_eq!(memory.view(&store).read_u8(u64::from(at) + 8).unwrap(), 0);
+    }
+
+    #[cfg(all(target_os = "linux", feature = "sys"))]
+    #[test]
+    fn a_fresh_private_host_pin_replaces_unknown_backing_before_publication() {
+        use wasmer::{MemoryType, Store};
+        const PAGE: u64 = 65536;
+        let mut store = Store::default();
+        let memory = Memory::new(&mut store, MemoryType::new(4, Some(8), true)).unwrap();
+        let shared = memory.as_shared(&store).unwrap();
+        memory.view(&store).write(PAGE, &[99]).unwrap();
+        // Simulate an interrupted mapping operation: no retained pointer can
+        // assume this range stayed private, even though its allocation is alive.
+        drop(shared.begin_host_mapping_change(PAGE..2 * PAGE).unwrap());
+        assert!(shared.pin_host_range(PAGE..2 * PAGE).is_err());
+        let remote = ForeignMemory::new(shared.clone(), 0, Arc::new(ReadOnly::default()), None);
+        // SAFETY: this test exclusively owns a whole private logical page, with
+        // no mapping/object or retained host consumer; only its provenance is unknown.
+        let pin = unsafe { remote.pin_private_host_range(PAGE as u32, PAGE) }.unwrap();
+        assert_eq!(pin.len(), PAGE);
+        // SAFETY: the returned pin owns these exact newly zeroed writable bytes.
+        unsafe {
+            assert_eq!(pin.as_ptr().read(), 0);
+            pin.as_ptr().write(42);
+        }
+        assert!(
+            shared.begin_host_mapping_change(PAGE..2 * PAGE).is_err(),
+            "published pin excludes physical replacement"
+        );
+        assert_eq!(memory.view(&store).read_u8(PAGE).unwrap(), 42);
+        drop(pin);
+        assert!(shared.begin_host_mapping_change(PAGE..2 * PAGE).is_ok());
+    }
+
+    #[cfg(all(target_os = "linux", feature = "sys"))]
+    #[test]
+    fn host_pins_block_physical_replacement_through_cloned_memory_handles() {
+        use wasixv2_pages::Memfd;
+        use wasmer::{MemoryType, Store};
+
+        const PAGE: u64 = 65536;
+        let mut store = Store::default();
+        let memory = Memory::new(&mut store, MemoryType::new(4, Some(8), true)).unwrap();
+        let shared = memory.as_shared(&store).unwrap();
+        let sibling = shared.clone().attach(&mut store);
+        let read_only = ReadOnly::default();
+        let pages = Memfd::new(PAGE).unwrap();
+        let pin = shared.pin_host_range(PAGE..2 * PAGE).unwrap();
+        // SAFETY: the pin owns this exact anonymous private writable allocation.
+        unsafe { pin.as_ptr().write(42) };
+        assert_eq!(
+            map_shared(
+                &sibling,
+                (0, &read_only, None),
+                &store,
+                (PAGE as u32, PAGE),
+                &pages,
+                0,
+                false
+            ),
+            Err(Errno::EBUSY)
+        );
+        assert_eq!(
+            unmap_shared(&sibling, (0, &read_only, None), &store, PAGE as u32, PAGE),
+            Err(Errno::EBUSY)
+        );
+        assert_eq!(
+            zero_pages(&sibling, (0, &read_only, None), &store, PAGE as u32, PAGE),
+            Err(Fault)
+        );
+        let remote = ForeignMemory::new(shared.clone(), 0, Arc::new(ReadOnly::default()), None);
+        assert_eq!(remote.discard_pages(PAGE as u32, PAGE), Err(Fault));
+        assert_eq!(memory.view(&store).read_u8(PAGE).unwrap(), 42);
+        assert!(sibling.reset(&mut store).is_err());
+        drop(pin);
+        map_shared(
+            &sibling,
+            (0, &read_only, None),
+            &store,
+            (PAGE as u32, PAGE),
+            &pages,
+            0,
+            false,
+        )
+        .unwrap();
+        assert!(
+            shared.pin_host_range(PAGE..2 * PAGE).is_err(),
+            "file-backed pages cannot become retained writable pointers"
+        );
+        unmap_shared(&sibling, (0, &read_only, None), &store, PAGE as u32, PAGE).unwrap();
+        let pin = shared.pin_host_range(PAGE..2 * PAGE).unwrap();
+        // SAFETY: a successful anonymous restore was committed before admission.
+        unsafe { pin.as_ptr().write(9) };
+        assert_eq!(memory.view(&store).read_u8(PAGE).unwrap(), 9);
     }
 
     #[test]

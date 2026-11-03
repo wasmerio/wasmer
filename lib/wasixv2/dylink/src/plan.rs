@@ -192,6 +192,26 @@ impl Plan {
         mode: BindingMode,
         previously_bound: usize,
     ) -> Result<Self, PlanError> {
+        Self::for_load_with_host_imports(
+            modules,
+            dependencies,
+            root,
+            global_scope,
+            mode,
+            previously_bound,
+            &|_, _| false,
+        )
+    }
+
+    pub(crate) fn for_load_with_host_imports(
+        modules: &[Module],
+        dependencies: &[Vec<usize>],
+        root: usize,
+        global_scope: &[usize],
+        mode: BindingMode,
+        previously_bound: usize,
+        hosts: &dyn Fn(&str, &str) -> bool,
+    ) -> Result<Self, PlanError> {
         if root >= modules.len() || dependencies.len() != modules.len() {
             return Err(PlanError::Graph("missing root or dependency list"));
         }
@@ -246,7 +266,8 @@ impl Plan {
                 .copied()
                 .collect::<Vec<_>>();
             for (index, import) in modules[module].imports.iter().enumerate() {
-                let kind = classify(import)?;
+                let declared = hosts(&import.module, &import.name);
+                let mut kind = classify_with_hosts(import, declared)?;
                 let target = if kind == FixupKind::Host {
                     BindingTarget::Host
                 } else if let Some((provider, export)) = find(modules, module, import, &lookup) {
@@ -259,6 +280,9 @@ impl Plan {
                         &mut slots,
                         &mut table_size,
                     )?
+                } else if declared && kind == FixupKind::DirectFunction {
+                    kind = FixupKind::Host;
+                    BindingTarget::Host
                 } else if import.flags.contains(SymbolFlags::BINDING_WEAK) {
                     BindingTarget::WeakZero
                 } else if mode == BindingMode::Lazy && kind == FixupKind::DirectFunction {
@@ -370,7 +394,12 @@ fn postorder(roots: &[usize], dependencies: &[Vec<usize>]) -> Vec<usize> {
     order
 }
 
+#[cfg(any(feature = "sys", feature = "js"))]
 fn classify(import: &Import) -> Result<FixupKind, PlanError> {
+    classify_with_hosts(import, false)
+}
+
+fn classify_with_hosts(import: &Import, declared: bool) -> Result<FixupKind, PlanError> {
     match import.module.as_str() {
         "GOT.func" | "GOT.mem" => {
             if !matches!(import.ty, ExternType::Global(ty) if ty.content_type == ValType::I32 && ty.mutable && !ty.shared)
@@ -401,6 +430,7 @@ fn classify(import: &Import) -> Result<FixupKind, PlanError> {
             Ok(FixupKind::Host)
         }
         "env" if matches!(import.ty, ExternType::Function(_)) => Ok(FixupKind::DirectFunction),
+        "env" if declared => Ok(FixupKind::Host),
         "env" => Err(PlanError::Unsupported("non-function env symbol")),
         _ => Ok(FixupKind::Host),
     }

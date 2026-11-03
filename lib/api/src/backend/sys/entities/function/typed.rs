@@ -26,6 +26,8 @@ macro_rules! impl_native_traits {
             #[allow(unused_mut)]
             #[allow(clippy::too_many_arguments)]
             pub fn call_sys(&self, store: &mut impl AsStoreMut, $( $x: $x, )* ) -> Result<Rets, RuntimeError> {
+                #[cfg(feature = "experimental-async")]
+                super::check_native_retirement(store)?;
                 let anyfunc = unsafe {
                     *self.func.as_sys()
                         .handle
@@ -69,19 +71,24 @@ macro_rules! impl_native_traits {
 
                 // Install the store into the store context
                 let store_install_guard = unsafe {
-                    StoreContext::install(store.as_store_mut().inner as *mut _)
+                    StoreContext::install_borrowed(store.as_store_mut().inner as *mut _)
                 };
 
                 let mut r;
                 loop {
-                    let storeref = store.as_store_ref();
-                    let config = storeref.engine().tunables().vmconfig();
+                    #[cfg(feature = "experimental-async")]
+                    super::check_native_retirement(store)?;
+                    let (engine, signal_handler) = {
+                        let storeref = store.as_store_ref();
+                        (storeref.engine().clone(), storeref.signal_handler())
+                    };
+                    let config = engine.tunables().vmconfig();
                     r = unsafe {
                         // Safety: This is the intended use-case for StoreContext::pause, as
                         // documented in the function's doc comments.
                         let pause_guard = StoreContext::pause(store_id);
                         wasmer_vm::wasmer_call_trampoline(
-                            store.as_store_ref().signal_handler(),
+                            signal_handler,
                             config,
                             anyfunc.vmctx,
                             anyfunc.call_trampoline,
@@ -89,6 +96,8 @@ macro_rules! impl_native_traits {
                             args_rets.as_mut_ptr() as *mut u8,
                         )
                     };
+                    #[cfg(feature = "experimental-async")]
+                    super::check_native_retirement(store)?;
                     let store_mut = store.as_store_mut();
                     if let Some(callback) = store_mut.inner.on_called.take() {
                         match callback(store_mut) {
@@ -146,6 +155,9 @@ macro_rules! impl_native_traits {
                 $( $x: FromToNativeWasmType + 'static, )*
             {
                 async move {
+                    // Admission precedes the argument-conversion write lock too:
+                    // a hidden caller or borrowed parent still owns that Store.
+                    crate::backend::sys::async_runtime::check_async_entry(&store)?;
                     let mut write = store.write_lock().await;
                     let func_ty = func.ty(&mut write);
                     let mut params_raw = [ $( $x.to_native().into_raw(&mut write) ),* ];
@@ -170,6 +182,8 @@ macro_rules! impl_native_traits {
             #[allow(unused_mut)]
             #[allow(clippy::too_many_arguments)]
             pub fn call_raw_sys(&self, store: &mut impl AsStoreMut, mut params_list: Vec<RawValue> ) -> Result<Rets, RuntimeError> {
+                #[cfg(feature = "experimental-async")]
+                super::check_native_retirement(store)?;
                 let anyfunc = unsafe {
                     *self.func.as_sys()
                         .handle
@@ -206,19 +220,24 @@ macro_rules! impl_native_traits {
 
                 // Install the store into the store context
                 let store_install_guard = unsafe {
-                    StoreContext::install(store.as_store_mut().inner as *mut _)
+                    StoreContext::install_borrowed(store.as_store_mut().inner as *mut _)
                 };
 
                 let mut r;
                 loop {
-                    let storeref = store.as_store_ref();
-                    let config = storeref.engine().tunables().vmconfig();
+                    #[cfg(feature = "experimental-async")]
+                    super::check_native_retirement(store)?;
+                    let (engine, signal_handler) = {
+                        let storeref = store.as_store_ref();
+                        (storeref.engine().clone(), storeref.signal_handler())
+                    };
+                    let config = engine.tunables().vmconfig();
                     r = unsafe {
                         // Safety: This is the intended use-case for StoreContext::pause, as
                         // documented in the function's doc comments.
                         let pause_guard = StoreContext::pause(store_id);
                         wasmer_vm::wasmer_call_trampoline(
-                            store.as_store_ref().signal_handler(),
+                            signal_handler,
                             config,
                             anyfunc.vmctx,
                             anyfunc.call_trampoline,
@@ -226,6 +245,8 @@ macro_rules! impl_native_traits {
                             args_rets.as_mut_ptr() as *mut u8,
                         )
                     };
+                    #[cfg(feature = "experimental-async")]
+                    super::check_native_retirement(store)?;
                     let store_mut = store.as_store_mut();
                     if let Some(callback) = store_mut.inner.on_called.take() {
                         // TODO: OnCalledAction is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451

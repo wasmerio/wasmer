@@ -42,6 +42,26 @@ pub struct Function {
     pub(crate) handle: StoreHandle<VMFunction>,
 }
 
+#[derive(Clone, Copy)]
+enum NativeCallEntry {
+    Borrowed,
+    #[cfg(feature = "experimental-async")]
+    Root(crate::StoreContextId),
+}
+
+#[cfg(feature = "experimental-async")]
+fn check_native_retirement(store: &impl AsStoreRef) -> Result<(), RuntimeError> {
+    use crate::backend::sys::async_runtime::{current_retirement_error, store_retirement_error};
+    if let Some(error) = current_retirement_error() {
+        return Err(error);
+    }
+    let store_id = store.as_store_ref().objects().id();
+    if let Some(error) = store_retirement_error(store_id) {
+        return Err(error);
+    }
+    Ok(())
+}
+
 impl From<StoreHandle<VMFunction>> for Function {
     fn from(handle: StoreHandle<VMFunction>) -> Self {
         Self { handle }
@@ -82,6 +102,7 @@ impl Function {
                 let env = env::FunctionEnvMut {
                     store_mut,
                     func_env: func_env.clone(),
+                    split_lease: None,
                 }
                 .into();
                 let sig = func_ty.clone();
@@ -164,9 +185,7 @@ impl Function {
             unsafe {
                 let mut context = StoreContext::try_get_current_async(store_id);
                 let mut store_mut = match &mut context {
-                    crate::GetStoreAsyncGuardResult::Ok(wrapper) => StoreMut {
-                        inner: wrapper.guard.as_mut().unwrap(),
-                    },
+                    crate::GetStoreAsyncGuardResult::Ok(wrapper) => wrapper.as_mut(),
                     crate::GetStoreAsyncGuardResult::NotAsync(ptr) => ptr.as_mut(),
                     crate::GetStoreAsyncGuardResult::NotInstalled => {
                         panic!("No store context installed on this thread")
@@ -186,13 +205,19 @@ impl Function {
                     crate::GetStoreAsyncGuardResult::Ok(wrapper) => {
                         AsyncFunctionEnvMutStore::Async(StoreAsync {
                             id,
-                            inner: crate::LocalRwLockWriteGuard::lock_handle(
-                                wrapper.guard.as_mut().unwrap(),
-                            ),
+                            inner: wrapper.lock_handle(),
+                            loan: None,
                         })
                     }
                     crate::GetStoreAsyncGuardResult::NotAsync(ptr) => {
-                        AsyncFunctionEnvMutStore::Sync(ptr)
+                        if let Some(store) =
+                            crate::backend::sys::async_runtime::current_store_loan(id)
+                        {
+                            drop(ptr);
+                            AsyncFunctionEnvMutStore::Async(store)
+                        } else {
+                            AsyncFunctionEnvMutStore::Sync(ptr)
+                        }
                     }
                     crate::GetStoreAsyncGuardResult::NotInstalled => unreachable!(),
                 };
@@ -457,6 +482,7 @@ impl Function {
         trampoline: VMTrampoline,
         params: &[Value],
         results: &mut [Value],
+        entry: NativeCallEntry,
     ) -> Result<(), RuntimeError> {
         let format_types_for_error_message = |items: &[Value]| {
             items
@@ -500,7 +526,7 @@ impl Function {
         }
 
         // Invoke the call
-        self.call_wasm_raw(store, trampoline, values_vec, results)?;
+        self.call_wasm_raw(store, trampoline, values_vec, results, entry)?;
         Ok(())
     }
 
@@ -510,6 +536,7 @@ impl Function {
         trampoline: VMTrampoline,
         mut params: Vec<RawValue>,
         results: &mut [Value],
+        entry: NativeCallEntry,
     ) -> Result<(), RuntimeError> {
         // Call the trampoline.
         let result = {
@@ -525,16 +552,32 @@ impl Function {
 
             // Safety: the store context is uninstalled before we return, and the
             // store mut is valid for the duration of the call.
-            let store_install_guard =
-                unsafe { StoreContext::install(store.as_store_mut().inner as *mut _) };
+            let store_install_guard = match entry {
+                NativeCallEntry::Borrowed => unsafe {
+                    StoreContext::install_borrowed(store.as_store_mut().inner as *mut _)
+                },
+                #[cfg(feature = "experimental-async")]
+                NativeCallEntry::Root(installation) => {
+                    StoreContext::native_root_entry(installation)
+                }
+            };
 
             let mut r;
             // TODO: This loop is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451
             loop {
-                let storeref = store.as_store_ref();
-                let vm_function = self.handle.get(storeref.objects().as_sys());
-                let config = storeref.engine().tunables().vmconfig();
-                let signal_handler = storeref.signal_handler();
+                #[cfg(feature = "experimental-async")]
+                check_native_retirement(store)?;
+                let (engine, signal_handler, anyfunc) = {
+                    let storeref = store.as_store_ref();
+                    let vm_function = self.handle.get(storeref.objects().as_sys());
+                    let anyfunc = unsafe { *vm_function.anyfunc.as_ptr().as_ref() };
+                    (
+                        storeref.engine().clone(),
+                        storeref.signal_handler(),
+                        anyfunc,
+                    )
+                };
+                let config = engine.tunables().vmconfig();
                 r = unsafe {
                     // Safety: This is the intended use-case for StoreContext::pause, as
                     // documented in the function's doc comments.
@@ -542,12 +585,14 @@ impl Function {
                     wasmer_call_trampoline(
                         signal_handler,
                         config,
-                        vm_function.anyfunc.as_ptr().as_ref().vmctx,
+                        anyfunc.vmctx,
                         trampoline,
-                        vm_function.anyfunc.as_ptr().as_ref().func_ptr,
+                        anyfunc.func_ptr,
                         params.as_mut_ptr() as *mut u8,
                     )
                 };
+                #[cfg(feature = "experimental-async")]
+                check_native_retirement(store)?;
                 let store_mut = store.as_store_mut();
                 if let Some(callback) = store_mut.inner.on_called.take() {
                     match callback(store_mut) {
@@ -597,6 +642,27 @@ impl Function {
         store: &mut impl AsStoreMut,
         params: &[Value],
     ) -> Result<Box<[Value]>, RuntimeError> {
+        self.call_with_entry(store, params, NativeCallEntry::Borrowed)
+    }
+
+    #[cfg(feature = "experimental-async")]
+    pub(crate) fn call_native_root(
+        &self,
+        store: &mut impl AsStoreMut,
+        params: &[Value],
+        installation: crate::StoreContextId,
+    ) -> Result<Box<[Value]>, RuntimeError> {
+        self.call_with_entry(store, params, NativeCallEntry::Root(installation))
+    }
+
+    fn call_with_entry(
+        &self,
+        store: &mut impl AsStoreMut,
+        params: &[Value],
+        entry: NativeCallEntry,
+    ) -> Result<Box<[Value]>, RuntimeError> {
+        #[cfg(feature = "experimental-async")]
+        check_native_retirement(store)?;
         let trampoline = unsafe {
             self.handle
                 .get(store.objects_mut().as_sys())
@@ -606,7 +672,7 @@ impl Function {
                 .call_trampoline
         };
         let mut results = vec![Value::null(); self.result_arity(store)];
-        self.call_wasm(store, trampoline, params, &mut results)?;
+        self.call_wasm(store, trampoline, params, &mut results, entry)?;
         Ok(results.into_boxed_slice())
     }
 
@@ -629,6 +695,8 @@ impl Function {
         store: &mut impl AsStoreMut,
         params: Vec<RawValue>,
     ) -> Result<Box<[Value]>, RuntimeError> {
+        #[cfg(feature = "experimental-async")]
+        check_native_retirement(store)?;
         let trampoline = unsafe {
             self.handle
                 .get(store.objects_mut().as_sys())
@@ -638,7 +706,13 @@ impl Function {
                 .call_trampoline
         };
         let mut results = vec![Value::null(); self.result_arity(store)];
-        self.call_wasm_raw(store, trampoline, params, &mut results)?;
+        self.call_wasm_raw(
+            store,
+            trampoline,
+            params,
+            &mut results,
+            NativeCallEntry::Borrowed,
+        )?;
         Ok(results.into_boxed_slice())
     }
 
@@ -701,17 +775,24 @@ enum InvocationResult<T, E> {
     Exception(crate::Exception),
     Trap(Box<E>),
     YieldOutsideAsyncContext,
+    #[cfg(feature = "experimental-async")]
+    Retirement(Box<RuntimeError>),
 }
 
 fn to_invocation_result<T, E>(result: Result<T, E>) -> InvocationResult<T, E>
 where
     E: Error + 'static,
 {
+    #[cfg(feature = "experimental-async")]
+    if let Some(error) = crate::backend::sys::async_runtime::current_retirement_error() {
+        return InvocationResult::Retirement(Box::new(error));
+    }
     match result {
         Ok(value) => InvocationResult::Success(value),
         Err(trap) => {
             let dyn_err_ref = &trap as &dyn Error;
             if let Some(runtime_error) = dyn_err_ref.downcast_ref::<RuntimeError>()
+                && !runtime_error.is_host_abort()
                 && let Some(exception) = runtime_error.to_exception()
             {
                 return InvocationResult::Exception(exception);
@@ -830,30 +911,37 @@ where
     // This function wraps our func, to make it compatible with the
     // reverse trampoline signature
     unsafe extern "C-unwind" fn func_wrapper(
-        this: &mut VMDynamicFunctionContext<Self>,
+        this: &VMDynamicFunctionContext<Self>,
         values_vec: *mut RawValue,
     ) {
         let result = on_host_stack(|| {
-            panic::catch_unwind(AssertUnwindSafe(|| match (this.ctx.func)(values_vec) {
-                HostCallOutcome::Ready { func_ty, result } => to_invocation_result(
-                    finalize_dynamic_call(this.ctx.store_id, func_ty, values_vec, result),
-                ),
+            panic::catch_unwind(AssertUnwindSafe(|| {
                 #[cfg(feature = "experimental-async")]
-                HostCallOutcome::Future { func_ty, future } => {
-                    let awaited = block_on_host_future(future);
-                    let result = match awaited {
-                        Ok(value) => Ok(value),
-                        Err(AsyncRuntimeError::RuntimeError(e)) => Err(e),
-                        Err(AsyncRuntimeError::YieldOutsideAsyncContext) => {
-                            return InvocationResult::YieldOutsideAsyncContext;
-                        }
-                    };
-                    to_invocation_result(finalize_dynamic_call(
-                        this.ctx.store_id,
-                        func_ty,
-                        values_vec,
-                        result,
-                    ))
+                if let Some(error) = crate::backend::sys::async_runtime::current_retirement_error()
+                {
+                    return InvocationResult::Retirement(Box::new(error));
+                }
+                match (this.ctx.func)(values_vec) {
+                    HostCallOutcome::Ready { func_ty, result } => to_invocation_result(
+                        finalize_dynamic_call(this.ctx.store_id, func_ty, values_vec, result),
+                    ),
+                    #[cfg(feature = "experimental-async")]
+                    HostCallOutcome::Future { func_ty, future } => {
+                        let awaited = block_on_host_future(future);
+                        let result = match awaited {
+                            Ok(value) => Ok(value),
+                            Err(AsyncRuntimeError::RuntimeError(e)) => Err(e),
+                            Err(AsyncRuntimeError::YieldOutsideAsyncContext) => {
+                                return InvocationResult::YieldOutsideAsyncContext;
+                            }
+                        };
+                        to_invocation_result(finalize_dynamic_call(
+                            this.ctx.store_id,
+                            func_ty,
+                            values_vec,
+                            result,
+                        ))
+                    }
                 }
             }))
         });
@@ -891,6 +979,8 @@ where
                 )
             },
             Ok(InvocationResult::Trap(trap)) => unsafe { raise_user_trap(trap) },
+            #[cfg(feature = "experimental-async")]
+            Ok(InvocationResult::Retirement(error)) => unsafe { raise_user_trap(error) },
             Ok(InvocationResult::YieldOutsideAsyncContext) => unsafe {
                 raise_lib_trap(Trap::lib(TrapCode::YieldOutsideAsyncContext))
             },
@@ -914,7 +1004,7 @@ where
         // The VMFunctionCallback is null here: it is only filled in later
         // by the engine linker.
         unsafe {
-            let dynamic_function = &mut *(vmctx as *mut VMDynamicFunctionContext<Self>);
+            let dynamic_function = &*(vmctx as *const VMDynamicFunctionContext<Self>);
             Self::func_wrapper(dynamic_function, args);
         }
     }
@@ -974,6 +1064,10 @@ macro_rules! impl_host_function {
             {
                 let result = on_host_stack(|| {
                     panic::catch_unwind(AssertUnwindSafe(|| {
+                        #[cfg(feature = "experimental-async")]
+                        if let Some(error) = crate::backend::sys::async_runtime::current_retirement_error() {
+                            return InvocationResult::Retirement(Box::new(error));
+                        }
                         let mut store_wrapper = unsafe { StoreContext::get_current(env.store_id) };
                         let mut store = store_wrapper.as_mut();
                         $(
@@ -981,6 +1075,8 @@ macro_rules! impl_host_function {
                                 FromToNativeWasmType::from_native(NativeWasmTypeInto::from_abi(&mut store, $x))
                             };
                         )*
+                        // Arguments are owned, and this callback receives no Store borrow.
+                        drop(store_wrapper);
                         to_invocation_result((env.func)($($x),* ).into_result())
                     }))
                 });
@@ -1019,6 +1115,8 @@ macro_rules! impl_host_function {
                         )
                     }
                     Ok(InvocationResult::Trap(trap)) => unsafe { raise_user_trap(trap) },
+            #[cfg(feature = "experimental-async")]
+            Ok(InvocationResult::Retirement(error)) => unsafe { raise_user_trap(error) },
                     Ok(InvocationResult::YieldOutsideAsyncContext) => unsafe {
                         raise_lib_trap(Trap::lib(TrapCode::YieldOutsideAsyncContext))
                     },
@@ -1074,6 +1172,10 @@ macro_rules! impl_host_function {
             {
                 let result = wasmer_vm::on_host_stack(|| {
                     panic::catch_unwind(AssertUnwindSafe(|| {
+                        #[cfg(feature = "experimental-async")]
+                        if let Some(error) = crate::backend::sys::async_runtime::current_retirement_error() {
+                            return InvocationResult::Retirement(Box::new(error));
+                        }
                         let mut store_wrapper = unsafe { StoreContext::get_current(env.store_id) };
                         let mut store = store_wrapper.as_mut();
                         $(
@@ -1084,6 +1186,7 @@ macro_rules! impl_host_function {
                         let f_env = crate::backend::sys::function::env::FunctionEnvMut {
                             store_mut: store,
                             func_env: env.env.as_sys().clone(),
+                            split_lease: None,
                         }.into();
                         to_invocation_result((env.func)(f_env, $($x),* ).into_result())
                     }))
@@ -1123,6 +1226,8 @@ macro_rules! impl_host_function {
                         )
                     }
                     Ok(InvocationResult::Trap(trap)) => unsafe { raise_user_trap(trap) },
+            #[cfg(feature = "experimental-async")]
+            Ok(InvocationResult::Retirement(error)) => unsafe { raise_user_trap(error) },
                     Ok(InvocationResult::YieldOutsideAsyncContext) => unsafe {
                         raise_lib_trap(Trap::lib(TrapCode::YieldOutsideAsyncContext))
                     },

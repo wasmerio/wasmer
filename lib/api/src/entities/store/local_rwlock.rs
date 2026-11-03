@@ -13,7 +13,7 @@ use std::future::Future;
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
 use std::pin::Pin;
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 use std::task::{Context, Poll, Waker};
 
 /// The main lock type.
@@ -21,11 +21,66 @@ pub struct LocalRwLock<T> {
     inner: Rc<LocalRwLockInner<T>>,
 }
 
+pub(crate) struct WeakLocalRwLock<T> {
+    inner: Weak<LocalRwLockInner<T>>,
+}
+
+impl<T> Clone for WeakLocalRwLock<T> {
+    fn clone(&self) -> Self {
+        Self {
+            inner: self.inner.clone(),
+        }
+    }
+}
+
+impl<T> WeakLocalRwLock<T> {
+    pub(crate) fn upgrade(&self) -> Option<LocalRwLock<T>> {
+        self.inner.upgrade().map(|inner| LocalRwLock { inner })
+    }
+}
+
 struct LocalRwLockInner<T> {
     value: UnsafeCell<T>,
     state: Cell<LockState>,
-    read_waiters: RefCell<Vec<Option<Waker>>>,
-    write_waiters: RefCell<Vec<Option<Waker>>>,
+    read_waiters: RefCell<Waiters>,
+    write_waiters: RefCell<Waiters>,
+}
+
+#[derive(Clone, Copy)]
+struct WaiterKey {
+    generation: u64,
+    index: usize,
+}
+
+#[derive(Default)]
+struct Waiters {
+    generation: u64,
+    entries: Vec<Option<Waker>>,
+}
+
+impl Waiters {
+    fn contains(&self, key: WaiterKey) -> bool {
+        self.generation == key.generation && key.index < self.entries.len()
+    }
+
+    fn take(&mut self, key: WaiterKey) -> Option<Waker> {
+        if self.contains(key) {
+            self.entries[key.index].take()
+        } else {
+            None
+        }
+    }
+
+    fn take_all(&mut self) -> Vec<Option<Waker>> {
+        if self.entries.is_empty() {
+            return Vec::new();
+        }
+        self.generation = self
+            .generation
+            .checked_add(1)
+            .expect("LocalRwLock waiter generation exhausted");
+        std::mem::take(&mut self.entries)
+    }
 }
 
 #[derive(Clone, Copy, PartialEq, Debug)]
@@ -36,14 +91,20 @@ enum LockState {
 }
 
 impl<T> LocalRwLock<T> {
+    pub(crate) fn downgrade(&self) -> WeakLocalRwLock<T> {
+        WeakLocalRwLock {
+            inner: Rc::downgrade(&self.inner),
+        }
+    }
+
     /// Creates a new `LocalRwLock` with the given value.
     pub fn new(value: T) -> Self {
         Self {
             inner: Rc::new(LocalRwLockInner {
                 value: UnsafeCell::new(value),
                 state: Cell::new(LockState::Unlocked),
-                read_waiters: RefCell::new(Vec::new()),
-                write_waiters: RefCell::new(Vec::new()),
+                read_waiters: RefCell::default(),
+                write_waiters: RefCell::default(),
             }),
         }
     }
@@ -94,8 +155,20 @@ impl<T> LocalRwLock<T> {
     /// readers or writers, and returns the inner value if successful.
     pub fn consume(self) -> Result<T, Self> {
         if self.inner.state.get() == LockState::Unlocked
-            && self.inner.read_waiters.borrow().is_empty()
-            && self.inner.write_waiters.borrow().is_empty()
+            && self
+                .inner
+                .read_waiters
+                .borrow()
+                .entries
+                .iter()
+                .all(Option::is_none)
+            && self
+                .inner
+                .write_waiters
+                .borrow()
+                .entries
+                .iter()
+                .all(Option::is_none)
         {
             match Rc::try_unwrap(self.inner) {
                 Ok(inner) => Ok(inner.value.into_inner()),
@@ -164,20 +237,15 @@ impl<T> LocalRwLockInner<T> {
     }
 
     fn wake_waiters(&self) {
-        // Wake writers first (priority)
-        let mut write_waiters = self.write_waiters.borrow_mut();
-        let has_writers = write_waiters.iter().any(|w| w.is_some());
-
-        if has_writers {
-            // If there are waiting writers, only wake them (they need exclusive access)
-            for waker in write_waiters.drain(..).flatten() {
+        // Invalidate old slot keys before arbitrary wake code can register new waiters.
+        let write_waiters = self.write_waiters.borrow_mut().take_all();
+        if write_waiters.iter().any(Option::is_some) {
+            for waker in write_waiters.into_iter().flatten() {
                 waker.wake();
             }
         } else {
-            // No writers waiting, wake all readers (they can share the lock)
-            drop(write_waiters); // Release borrow before borrowing read_waiters
-            let mut read_waiters = self.read_waiters.borrow_mut();
-            for waker in read_waiters.drain(..).flatten() {
+            let read_waiters = self.read_waiters.borrow_mut().take_all();
+            for waker in read_waiters.into_iter().flatten() {
                 waker.wake();
             }
         }
@@ -187,73 +255,70 @@ impl<T> LocalRwLockInner<T> {
     /// Returns Poll::Ready(()) if the lock was acquired, Poll::Pending otherwise.
     fn poll_lock(
         &self,
-        waiter_index: &Cell<Option<usize>>,
+        waiter_index: &Cell<Option<WaiterKey>>,
         cx: &mut Context<'_>,
-        try_lock: impl FnOnce(&Self) -> bool,
+        try_lock: impl Fn(&Self) -> bool,
         is_write: bool,
     ) -> Poll<()> {
         if try_lock(self) {
-            // If we successfully acquired the lock, remove our waiter slot if we registered one
-            if let Some(index) = waiter_index.get() {
-                let waiters = if is_write {
-                    &self.write_waiters
-                } else {
-                    &self.read_waiters
-                };
-                let mut waiters = waiters.borrow_mut();
-                if index < waiters.len() {
-                    waiters[index] = None;
-                }
-            }
+            // The caller constructs its guard before dropping a previous Waker.
             return Poll::Ready(());
         }
 
-        // Register or update our waker in the appropriate waiters list
         let waiters = if is_write {
             &self.write_waiters
         } else {
             &self.read_waiters
         };
-        let mut waiters = waiters.borrow_mut();
-
-        if let Some(index) = waiter_index.get() {
-            // We already have a slot, check if we need to update it
-            if index < waiters.len() {
-                if let Some(existing) = &waiters[index] {
-                    if !existing.will_wake(cx.waker()) {
-                        waiters[index] = Some(cx.waker().clone());
-                    }
-                } else {
-                    waiters[index] = Some(cx.waker().clone());
-                }
-            } else {
-                // Our slot was somehow removed, register a new one
-                let new_index = waiters.len();
-                waiters.push(Some(cx.waker().clone()));
-                waiter_index.set(Some(new_index));
+        {
+            let waiters = waiters.borrow();
+            if let Some(key) = waiter_index.get()
+                && waiters.contains(key)
+                && waiters.entries[key.index]
+                    .as_ref()
+                    .is_some_and(|existing| existing.will_wake(cx.waker()))
+            {
+                return Poll::Pending;
             }
-        } else {
-            // First time registering
-            let index = waiters.len();
-            waiters.push(Some(cx.waker().clone()));
-            waiter_index.set(Some(index));
         }
 
-        Poll::Pending
+        // Clone and destroy user Wakers outside the queue borrow. Either callback
+        // can release the owner, so check acquisition again after registration.
+        let waker = cx.waker().clone();
+        let previous = {
+            let mut waiters = waiters.borrow_mut();
+            if let Some(key) = waiter_index.get()
+                && waiters.contains(key)
+            {
+                waiters.entries[key.index].replace(waker)
+            } else {
+                let key = WaiterKey {
+                    generation: waiters.generation,
+                    index: waiters.entries.len(),
+                };
+                waiters.entries.push(Some(waker));
+                waiter_index.set(Some(key));
+                None
+            }
+        };
+        drop(previous);
+        if try_lock(self) {
+            Poll::Ready(())
+        } else {
+            Poll::Pending
+        }
     }
 
     /// Cleanup waiter slot on drop
-    fn cleanup_waiter(&self, waiter_index: &Cell<Option<usize>>, is_write: bool) {
-        if let Some(index) = waiter_index.get() {
+    fn cleanup_waiter(&self, waiter_index: &Cell<Option<WaiterKey>>, is_write: bool) {
+        if let Some(key) = waiter_index.take() {
             let waiters = if is_write {
                 &self.write_waiters
             } else {
                 &self.read_waiters
             };
-            let mut waiters = waiters.borrow_mut();
-            if index < waiters.len() {
-                waiters[index] = None;
-            }
+            let previous = waiters.borrow_mut().take(key);
+            drop(previous);
         }
     }
 }
@@ -327,7 +392,7 @@ impl<T> Drop for LocalRwLockWriteGuard<T> {
 /// Future returned by `read_rc()`.
 pub struct ReadFuture<T> {
     inner: Rc<LocalRwLockInner<T>>,
-    waiter_index: Cell<Option<usize>>,
+    waiter_index: Cell<Option<WaiterKey>>,
 }
 
 impl<T> Future for ReadFuture<T> {
@@ -339,9 +404,11 @@ impl<T> Future for ReadFuture<T> {
             .poll_lock(&self.waiter_index, cx, |inner| inner.try_read(), false)
             .is_ready()
         {
-            Poll::Ready(LocalRwLockReadGuard {
+            let guard = LocalRwLockReadGuard {
                 inner: self.inner.clone(),
-            })
+            };
+            self.inner.cleanup_waiter(&self.waiter_index, false);
+            Poll::Ready(guard)
         } else {
             Poll::Pending
         }
@@ -357,7 +424,7 @@ impl<T> Drop for ReadFuture<T> {
 /// Future returned by `write_rc()`.
 pub struct WriteFuture<T> {
     inner: Rc<LocalRwLockInner<T>>,
-    waiter_index: Cell<Option<usize>>,
+    waiter_index: Cell<Option<WaiterKey>>,
 }
 
 impl<T> Future for WriteFuture<T> {
@@ -369,9 +436,11 @@ impl<T> Future for WriteFuture<T> {
             .poll_lock(&self.waiter_index, cx, |inner| inner.try_write(), true)
             .is_ready()
         {
-            Poll::Ready(LocalRwLockWriteGuard {
+            let guard = LocalRwLockWriteGuard {
                 inner: self.inner.clone(),
-            })
+            };
+            self.inner.cleanup_waiter(&self.waiter_index, true);
+            Poll::Ready(guard)
         } else {
             Poll::Pending
         }
@@ -387,6 +456,192 @@ impl<T> Drop for WriteFuture<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::{
+        panic::{AssertUnwindSafe, catch_unwind},
+        sync::{
+            Arc,
+            atomic::{AtomicUsize, Ordering},
+        },
+        task::{RawWaker, RawWakerVTable, Wake},
+    };
+
+    thread_local! {
+        static ON_WAKE: RefCell<Option<Box<dyn FnOnce()>>> = const { RefCell::new(None) };
+        static ON_CLONE: RefCell<Option<Box<dyn FnOnce()>>> = const { RefCell::new(None) };
+    }
+
+    struct ReentrantWake;
+    impl Wake for ReentrantWake {
+        fn wake(self: Arc<Self>) {
+            let callback = ON_WAKE.with(|callback| callback.borrow_mut().take());
+            if let Some(callback) = callback {
+                callback();
+            }
+        }
+    }
+
+    struct DropPanicWake;
+    // This Waker's destructor is the operation exercised by the regression.
+    #[allow(clippy::manual_noop_waker)]
+    impl Wake for DropPanicWake {
+        fn wake(self: Arc<Self>) {}
+    }
+    impl Drop for DropPanicWake {
+        fn drop(&mut self) {
+            panic!("registered Waker destructor");
+        }
+    }
+
+    struct CountWake(Arc<AtomicUsize>);
+    impl Wake for CountWake {
+        fn wake(self: Arc<Self>) {
+            self.0.fetch_add(1, Ordering::SeqCst);
+        }
+    }
+
+    fn clone_callback_waker() -> Waker {
+        unsafe fn clone(data: *const ()) -> RawWaker {
+            let owner = std::mem::ManuallyDrop::new(unsafe { Arc::<()>::from_raw(data) });
+            let cloned = Arc::clone(&owner);
+            let callback = ON_CLONE.with(|callback| callback.borrow_mut().take());
+            if let Some(callback) = callback {
+                callback();
+            }
+            RawWaker::new(Arc::into_raw(cloned), &VTABLE)
+        }
+        unsafe fn wake(data: *const ()) {
+            drop(unsafe { Arc::<()>::from_raw(data) });
+        }
+        unsafe fn wake_by_ref(_: *const ()) {}
+        static VTABLE: RawWakerVTable = RawWakerVTable::new(clone, wake, wake_by_ref, wake);
+        // The data is an Arc, including on foreign threads. The optional test
+        // callback belongs only to the thread performing a clone.
+        unsafe { Waker::from_raw(RawWaker::new(Arc::into_raw(Arc::new(())), &VTABLE)) }
+    }
+
+    #[test]
+    fn panicking_waiter_drop_releases_the_newly_acquired_read_lock() {
+        let lock = LocalRwLock::new(42);
+        let owner = lock.try_write().unwrap();
+        let mut reader = Box::pin(lock.read());
+        let waker = Waker::from(Arc::new(DropPanicWake));
+        assert!(
+            reader
+                .as_mut()
+                .poll(&mut Context::from_waker(&waker))
+                .is_pending()
+        );
+        // Only the registered queue entry now owns the panicking Waker.
+        drop(waker);
+        let mut writer = Box::pin(lock.write());
+        assert!(
+            writer
+                .as_mut()
+                .poll(&mut Context::from_waker(Waker::noop()))
+                .is_pending()
+        );
+        // Writer priority leaves the reader's Waker in its queue.
+        drop(owner);
+        assert!(
+            catch_unwind(AssertUnwindSafe(|| {
+                reader
+                    .as_mut()
+                    .poll(&mut Context::from_waker(Waker::noop()))
+            }))
+            .is_err()
+        );
+        assert!(
+            lock.try_write().is_some(),
+            "a panicking Waker must not leak a reader count"
+        );
+    }
+
+    #[test]
+    fn a_wake_callback_can_poll_and_release_its_original_waiter() {
+        let lock = LocalRwLock::new(42);
+        let owner = lock.try_write().unwrap();
+        let waiter = Rc::new(RefCell::new(Box::pin(lock.write())));
+        let waker = Waker::from(Arc::new(ReentrantWake));
+        assert!(
+            waiter
+                .borrow_mut()
+                .as_mut()
+                .poll(&mut Context::from_waker(&waker))
+                .is_pending()
+        );
+        let called = Rc::new(Cell::new(false));
+        ON_WAKE.with(|callback| {
+            let waiter = waiter.clone();
+            let called = called.clone();
+            *callback.borrow_mut() = Some(Box::new(move || {
+                let Poll::Ready(guard) = waiter
+                    .borrow_mut()
+                    .as_mut()
+                    .poll(&mut Context::from_waker(Waker::noop()))
+                else {
+                    panic!("the owner released the lock before waking its waiter");
+                };
+                assert_eq!(*guard, 42);
+                called.set(true);
+                drop(guard);
+            }));
+        });
+        drop(owner);
+        assert!(called.get());
+        assert!(lock.try_write().is_some());
+    }
+
+    #[test]
+    fn an_old_waiter_cannot_remove_a_new_waiter_from_a_reused_slot() {
+        let lock = LocalRwLock::new(42);
+        let owner = lock.try_write().unwrap();
+        let mut first = Box::pin(lock.write());
+        assert!(
+            first
+                .as_mut()
+                .poll(&mut Context::from_waker(Waker::noop()))
+                .is_pending()
+        );
+        drop(owner);
+        let owner = lock.try_write().unwrap();
+        let mut second = Box::pin(lock.write());
+        let wakes = Arc::new(AtomicUsize::new(0));
+        let waker = Waker::from(Arc::new(CountWake(wakes.clone())));
+        assert!(
+            second
+                .as_mut()
+                .poll(&mut Context::from_waker(&waker))
+                .is_pending()
+        );
+        drop(first);
+        drop(owner);
+        assert_eq!(wakes.load(Ordering::SeqCst), 1);
+        assert!(
+            second
+                .as_mut()
+                .poll(&mut Context::from_waker(&waker))
+                .is_ready()
+        );
+    }
+
+    #[test]
+    fn cloning_a_waiter_can_release_the_owner_without_losing_progress() {
+        let lock = LocalRwLock::new(42);
+        let owner = Rc::new(RefCell::new(Some(lock.try_write().unwrap())));
+        ON_CLONE.with(|callback| {
+            let owner = owner.clone();
+            *callback.borrow_mut() = Some(Box::new(move || drop(owner.borrow_mut().take())));
+        });
+        let mut waiter = Box::pin(lock.write());
+        let waker = clone_callback_waker();
+        let Poll::Ready(guard) = waiter.as_mut().poll(&mut Context::from_waker(&waker)) else {
+            panic!("reentrant release during registration must not lose its wake");
+        };
+        assert!(owner.borrow().is_none());
+        assert_eq!(*guard, 42);
+        drop(guard);
+        assert!(lock.try_read().is_some());
+    }
 
     #[test]
     fn test_basic_read_write() {
@@ -526,6 +781,7 @@ mod tests {
             lock.inner
                 .write_waiters
                 .borrow()
+                .entries
                 .iter()
                 .filter(|w| w.is_some())
                 .count(),
@@ -535,6 +791,7 @@ mod tests {
             lock.inner
                 .read_waiters
                 .borrow()
+                .entries
                 .iter()
                 .filter(|w| w.is_some())
                 .count(),
@@ -614,6 +871,7 @@ mod tests {
             lock.inner
                 .read_waiters
                 .borrow()
+                .entries
                 .iter()
                 .filter(|w| w.is_some())
                 .count(),
@@ -623,6 +881,7 @@ mod tests {
             lock.inner
                 .write_waiters
                 .borrow()
+                .entries
                 .iter()
                 .filter(|w| w.is_some())
                 .count(),

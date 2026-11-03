@@ -56,6 +56,79 @@ use crate::{
     js::{exception::Exception, vm::VMExceptionRef},
 };
 
+// A freshly raised engine trap carries an internal brand which Wasm catch_all
+// cannot catch. Constructing WebAssembly.RuntimeError in JavaScript does not.
+// The symbol owns the Rust payload on that exact error object; there is no
+// registry or reverse edge keeping the JavaScript error alive.
+#[wasm_bindgen(inline_js = r#"
+const hostAbortPayload = Symbol('wasmer.host-abort');
+const defineHostAbortPayload = Object.defineProperty;
+export function wasmerHostAbort(trap, payload) {
+    let error;
+    try { trap(); } catch (raised) { error = raised; }
+    defineHostAbortPayload(error, hostAbortPayload, {value: payload});
+    return error;
+}
+export function wasmerHostAbortPayload(value) {
+    if ((typeof value !== 'object' || value === null) && typeof value !== 'function') return undefined;
+    const payload = value[hostAbortPayload];
+    if (payload === undefined) return undefined;
+    try { return payload.__wasmer_clone_error(); } catch (_) { return null; }
+}
+"#)]
+extern "C" {
+    #[wasm_bindgen(catch, js_name = wasmerHostAbort)]
+    fn host_abort_value(trap: &js_sys::Function, payload: JsValue) -> Result<JsValue, JsValue>;
+
+    #[wasm_bindgen(catch, js_name = wasmerHostAbortPayload)]
+    fn host_abort_payload(value: &JsValue) -> Result<JsValue, JsValue>;
+}
+
+/// An actual runtime instruction supplies the engine's uncatchable trap brand.
+/// Calling its raw export avoids compiling another module or retaining a store.
+#[wasm_bindgen(skip_typescript)]
+pub fn __wasmer_host_abort_trap() {
+    abort_instruction();
+}
+
+fn abort_instruction() -> ! {
+    #[cfg(target_arch = "wasm32")]
+    core::arch::wasm32::unreachable();
+    #[cfg(not(target_arch = "wasm32"))]
+    panic!("JavaScript host abort requires a WebAssembly runtime");
+}
+
+/// Owned by one JavaScript error, with wasm-bindgen's ordinary finalizer custody.
+#[wasm_bindgen(skip_typescript)]
+pub struct HostAbortPayload {
+    error: RuntimeError,
+}
+
+#[wasm_bindgen]
+impl HostAbortPayload {
+    /// Each conversion gets its own wrapper around the same Rust error Arc.
+    /// Diagnostics and repeated rethrows never consume the error's payload.
+    pub fn __wasmer_clone_error(&self) -> JsValue {
+        Trap::user(Box::new(self.error.clone())).into()
+    }
+}
+
+fn host_abort_to_js(error: RuntimeError) -> JsValue {
+    let exports = wasm_bindgen::exports();
+    let trap = Reflect::get(&exports, &JsValue::from_str("__wasmer_host_abort_trap"))
+        .ok()
+        .and_then(|value| value.dyn_into::<js_sys::Function>().ok())
+        .unwrap_or_else(|| {
+            // Broken runtime glue must never resume the canceled guest.
+            abort_instruction()
+        });
+    host_abort_value(&trap, HostAbortPayload { error }.into()).unwrap_or_else(|_| {
+        // Fresh built-in trap objects are extensible. Fail closed if the host
+        // cannot attach custody; a catchable replacement would resume the guest.
+        abort_instruction()
+    })
+}
+
 #[derive(Debug)]
 enum InnerTrap {
     User(Box<dyn Error + Send + Sync>),
@@ -140,6 +213,16 @@ impl std::fmt::Display for Trap {
 
 impl From<JsValue> for RuntimeError {
     fn from(value: JsValue) -> Self {
+        if let Ok(payload) = host_abort_payload(&value)
+            && !payload.is_undefined()
+        {
+            return match downcast_from_ptr(&payload) {
+                Some(trap) => trap.into(),
+                // A recognized abort with broken payload glue must not turn into
+                // a catchable replacement or be mistaken for normal completion.
+                None => abort_instruction(),
+            };
+        }
         // We try to downcast the error and see if it's an instance of Trap
         // instead, so we don't need to re-wrap it.
         if let Some(obj) = value.dyn_ref()
@@ -230,6 +313,50 @@ mod tests {
         );
         drop(error);
         assert_eq!(LOCAL_ERRORS.with_borrow(|errors| errors.len()), before);
+    }
+
+    #[wasm_bindgen_test::wasm_bindgen_test]
+    fn host_abort_diagnostics_clone_the_exact_error_without_consuming_custody() {
+        use super::{JsValue, RuntimeError};
+        #[derive(Debug, thiserror::Error)]
+        #[error("host abort identity")]
+        struct Aborted;
+        let original = RuntimeError::host_abort(Box::new(Aborted));
+        let js: JsValue = original.clone().into();
+        let first = RuntimeError::from(js.clone());
+        let second = RuntimeError::from(js);
+        assert!(std::sync::Arc::ptr_eq(&original.inner, &first.inner));
+        assert!(std::sync::Arc::ptr_eq(&original.inner, &second.inner));
+        assert!(first.is_host_abort());
+        assert!(second.downcast_ref::<Aborted>().is_some());
+    }
+
+    #[wasm_bindgen_test::wasm_bindgen_test]
+    fn host_abort_of_a_javascript_error_keeps_the_original_value_separate() {
+        use super::{InnerTrap, JsValue, RuntimeError};
+        let original_value: JsValue = js_sys::Object::new().into();
+        let original = RuntimeError::from(original_value.clone());
+        let abort = RuntimeError::host_abort(Box::new(original));
+        let first: JsValue = abort.clone().into();
+        let second: JsValue = RuntimeError::from(first.clone()).into();
+        assert!(!js_sys::Object::is(&first, &original_value));
+        assert!(!js_sys::Object::is(&first, &second));
+        let restored = RuntimeError::from(second);
+        assert!(std::sync::Arc::ptr_eq(&abort.inner, &restored.inner));
+        #[allow(clippy::infallible_destructuring_match)]
+        // The fallback applies with other backends enabled.
+        let trap = match &restored.inner.source {
+            crate::BackendTrap::Js(trap) => trap,
+            #[cfg(any(feature = "sys", feature = "v8"))]
+            _ => panic!("expected the original JavaScript error"),
+        };
+        let InnerTrap::Js(thrown) = &trap.inner else {
+            panic!("expected the original thrown value");
+        };
+        assert!(js_sys::Object::is(
+            &thrown.local_value().unwrap(),
+            &original_value
+        ));
     }
 
     #[test]
@@ -328,6 +455,9 @@ impl From<Trap> for RuntimeError {
 
 impl From<RuntimeError> for wasm_bindgen::JsValue {
     fn from(value: RuntimeError) -> Self {
+        if value.is_host_abort() {
+            return host_abort_to_js(value);
+        }
         if let crate::BackendTrap::Js(trap) = &value.inner.source
             && let InnerTrap::Js(thrown) = &trap.inner
             && let Some(original) = thrown.local_value()
@@ -340,6 +470,12 @@ impl From<RuntimeError> for wasm_bindgen::JsValue {
 }
 
 pub(crate) fn raise(error: Box<dyn std::error::Error + Send + Sync>) -> ! {
+    if let Some(runtime_error) = error.downcast_ref::<RuntimeError>()
+        && runtime_error.is_host_abort()
+    {
+        let runtime_error = *error.downcast::<RuntimeError>().unwrap();
+        wasm_bindgen::throw_val(host_abort_to_js(runtime_error));
+    }
     let error = Trap::user(error);
     let js_error: JsValue = error.into();
     wasm_bindgen::throw_val(js_error)

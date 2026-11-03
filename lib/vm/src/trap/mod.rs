@@ -16,6 +16,9 @@ mod traphandlers;
 mod traphandlers;
 
 pub use trap::{Trap, UnwindReason};
+#[cfg(not(feature = "baremetal"))]
+#[doc(hidden)]
+pub use traphandlers::SavedTrapState;
 #[cfg(feature = "baremetal")]
 pub use traphandlers::install_unwinder;
 pub use traphandlers::{

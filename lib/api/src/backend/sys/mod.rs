@@ -2,6 +2,9 @@
 
 #[cfg(feature = "experimental-async")]
 pub(crate) mod async_runtime;
+#[cfg(feature = "experimental-async")]
+#[doc(hidden)]
+pub use async_runtime::{NativeFrameGuard, WeakNativeInvocation};
 pub(crate) mod entities;
 pub(crate) mod error;
 pub(crate) mod tunables;
@@ -27,3 +30,6 @@ pub use wasmer_compiler_cranelift::{Cranelift, CraneliftOptLevel};
 pub use wasmer_compiler_llvm::{LLVM, LLVMOptLevel};
 #[cfg(feature = "singlepass")]
 pub use wasmer_compiler_singlepass::Singlepass;
+
+#[doc(hidden)]
+pub use wasmer_vm::{HostMemoryMappingChange, HostMemoryPin};

@@ -46,15 +46,15 @@ pub use descriptors::{
 pub use future::MaybeFuture;
 pub use generated::{Layer, Layered, Syscall, SyscallRet, Syscalls, dispatch};
 pub use memory::{
-    CstrError, Fault, LocalFuture, MemoryLayout, PageAccess, Restricted, UserMemory, UserSlice,
-    UserSliceMut, WASM_PAGE_SIZE, copied, read_cstr, read_value, write_value,
+    CstrError, Fault, HostMemoryPin, LocalFuture, MemoryLayout, PageAccess, Restricted, UserMemory,
+    UserSlice, UserSliceMut, WASM_PAGE_SIZE, copied, read_cstr, read_value, write_value,
 };
 pub use result::{SysErr, SysResult};
 pub use wasixv2_abi::{Errno, Fd};
 
 pub use loader::{
-    LibraryImage, LoaderAdmission, LoaderClosing, LoaderCommand, LoaderControl, LoaderGate,
-    LoaderPhase, LoaderReservation, LoaderStartup, LoaderTransaction, LoaderWait,
+    HostMemoryLease, LibraryImage, LoaderAdmission, LoaderClosing, LoaderCommand, LoaderControl,
+    LoaderGate, LoaderPhase, LoaderReservation, LoaderStartup, LoaderTransaction, LoaderWait,
 };
 
 pub use dynamic::DynamicLinker;

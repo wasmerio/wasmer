@@ -30,6 +30,156 @@ use crate::{
     process,
 };
 
+// The permit is created only by a ThreadStart factory; ambient TLS alone never
+// authorizes the public prebuilt-Store entry point.
+#[cfg(all(feature = "sys", not(target_arch = "wasm32")))]
+thread_local! {
+    static OWNER_THREAD: std::cell::Cell<Option<u64>> = const { std::cell::Cell::new(None) };
+    static NEXT_OWNER: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
+}
+
+pub(crate) struct OwningThread {
+    lease: OwnerLease,
+    retirement: Arc<process::Handoff>,
+    #[cfg(all(feature = "sys", not(target_arch = "wasm32")))]
+    permit: OwnerPermit,
+}
+
+struct OwnerLease {
+    retired: Option<process::Takeover>,
+    #[cfg(all(feature = "sys", not(target_arch = "wasm32")))]
+    id: u64,
+    #[cfg(all(feature = "sys", not(target_arch = "wasm32")))]
+    thread: std::thread::ThreadId,
+    _local: std::marker::PhantomData<*mut ()>,
+}
+
+#[cfg(all(feature = "sys", not(target_arch = "wasm32")))]
+struct OwnerPermit {
+    #[cfg(all(feature = "sys", not(target_arch = "wasm32")))]
+    id: u64,
+    #[cfg(all(feature = "sys", not(target_arch = "wasm32")))]
+    thread: std::thread::ThreadId,
+    _local: std::marker::PhantomData<*mut ()>,
+}
+
+impl OwningThread {
+    pub(crate) fn acquire() -> Result<Self, ExecError> {
+        #[cfg(all(feature = "sys", not(target_arch = "wasm32")))]
+        {
+            if OWNER_THREAD.with(|owner| owner.get().is_some()) {
+                return Err(ExecError::OwningThreadBusy);
+            }
+            let id = NEXT_OWNER.with(|next| -> Result<u64, ExecError> {
+                let id = next
+                    .get()
+                    .checked_add(1)
+                    .ok_or(ExecError::OwningThreadBusy)?;
+                next.set(id);
+                Ok(id)
+            })?;
+            let thread = std::thread::current().id();
+            let retirement = Arc::new(process::Handoff::default());
+            OWNER_THREAD.with(|owner| owner.set(Some(id)));
+            Ok(Self {
+                lease: OwnerLease {
+                    retired: Some(process::Takeover(retirement.clone())),
+                    id,
+                    thread,
+                    _local: std::marker::PhantomData,
+                },
+                retirement,
+                permit: OwnerPermit {
+                    id,
+                    thread,
+                    _local: std::marker::PhantomData,
+                },
+            })
+        }
+        #[cfg(not(all(feature = "sys", not(target_arch = "wasm32"))))]
+        {
+            Err(ExecError::OwningThreadUnsupported)
+        }
+    }
+
+    pub(crate) fn required(required: bool) -> Result<Option<Self>, ExecError> {
+        required.then(Self::acquire).transpose()
+    }
+
+    pub(crate) fn authorize(&self) -> Result<(), ExecError> {
+        #[cfg(all(feature = "sys", not(target_arch = "wasm32")))]
+        if self.permit.thread == std::thread::current().id()
+            && OWNER_THREAD.with(|owner| owner.get() == Some(self.permit.id))
+        {
+            return Ok(());
+        }
+        Err(ExecError::OwningThreadRequired)
+    }
+
+    pub(crate) async fn run<R>(
+        self,
+        cleanup: &Arc<wasixv2_host::LoaderCleanup>,
+        guest: impl std::future::Future<Output = R>,
+    ) -> R {
+        use std::{
+            future::{Future, poll_fn},
+            panic::{AssertUnwindSafe, catch_unwind, resume_unwind},
+            task::Poll,
+        };
+        self.authorize().expect("private owning-thread permit");
+        let mut runner = Some(Box::pin(cleanup.run_with_keepalive(guest, self.lease)));
+        let result = poll_fn(|cx| {
+            match catch_unwind(AssertUnwindSafe(|| {
+                runner.as_mut().unwrap().as_mut().poll(cx)
+            })) {
+                Ok(Poll::Pending) => Poll::Pending,
+                Ok(Poll::Ready(value)) => Poll::Ready(Ok(value)),
+                Err(panic) => Poll::Ready(Err(panic)),
+            }
+        })
+        .await;
+        // Runner Drop can transfer its drain even if guest/output destruction
+        // panics. Keep this worker alive until that exact drain releases its lease.
+        let dropped = catch_unwind(AssertUnwindSafe(|| drop(runner.take())));
+        self.retirement
+            .wait()
+            .await
+            .expect("owning-thread lease retirement");
+        match (result, dropped) {
+            (Ok(value), Ok(())) => value,
+            (Err(panic), Ok(())) => resume_unwind(panic),
+            (Ok(value), Err(panic)) => {
+                drop(value);
+                resume_unwind(panic)
+            }
+            (Err(first), Err(second)) => {
+                drop(second);
+                resume_unwind(first)
+            }
+        }
+    }
+}
+
+impl Drop for OwnerLease {
+    fn drop(&mut self) {
+        #[cfg(all(feature = "sys", not(target_arch = "wasm32")))]
+        {
+            assert_eq!(
+                self.thread,
+                std::thread::current().id(),
+                "owning-thread lease moved threads"
+            );
+            OWNER_THREAD.with(|owner| {
+                assert_eq!(owner.get(), Some(self.id), "owning-thread lease replaced");
+                owner.set(None);
+            });
+        }
+        if let Some(retired) = self.retired.take() {
+            retired.report(Ok(0));
+        }
+    }
+}
+
 /// The export a `wasixv2` thread starts at, as `wasixv2_thread_start(tid, start_arg)`.
 pub const THREAD_ENTRY: &str = "wasixv2_thread_start";
 
@@ -129,17 +279,42 @@ where
     fn start(self: Arc<Self>, task: TaskId, tid: i32, start_arg: u32) -> io::Result<()> {
         let host = self.host.clone();
         host.executor().spawn_thread(Box::new(move || {
+            let profile = OwningThread::required(self.abis.requires_owning_thread());
             let cleanup = wasixv2_host::LoaderCleanup::new(self.host.clone());
             let syscalls = self.syscalls.clone();
             let run = self.run(task, tid, start_arg, cleanup.clone());
             Box::pin(async move {
-                cleanup
-                    .run(async move {
-                        if let Err(panic) = crate::catch_panic(run).await {
-                            drop(crate::host_panicked(&*syscalls, task, panic));
+                let profile = match profile {
+                    Ok(profile) => profile,
+                    Err(error) => {
+                        let dropped =
+                            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| drop(run)));
+                        let error = match dropped {
+                            Ok(()) => crate::reject_profile(&*syscalls, task, error),
+                            Err(panic) => crate::host_panicked(&*syscalls, task, panic),
+                        };
+                        tracing::warn!(tid = task.0, %error, "cannot enter the owning-thread profile");
+                        return;
+                    }
+                };
+                let profile_syscalls = profile.as_ref().map(|_| syscalls.clone());
+                let guest = async move {
+                    if let Err(panic) = crate::catch_panic(run).await {
+                        drop(crate::host_panicked(&*syscalls, task, panic));
+                    }
+                };
+                match profile {
+                    Some(profile) => {
+                        if let Err(panic) = crate::catch_panic(profile.run(&cleanup, guest)).await {
+                            drop(crate::host_panicked(
+                                &*profile_syscalls.unwrap(),
+                                task,
+                                panic,
+                            ));
                         }
-                    })
-                    .await
+                    }
+                    None => cleanup.run(guest).await,
+                }
             })
         }))
     }
@@ -282,6 +457,7 @@ where
             ),
         );
         env.as_mut(&mut store).cleanup = Some(cleanup);
+        self.abis.install_hooks(&mut store, &env);
         let mut imports = crate::imports(&*self.abi, &mut store, &env, &self.module);
         let memory = self.memory.clone().try_attach(&mut store)?;
         if let Some(import) = self.module.imports().memories().next() {
@@ -307,45 +483,89 @@ where
             &mut admission,
         )
         .await?;
-        {
-            let data = env.as_mut(&mut store);
-            data.imports = wasmer::Imports::new();
-            if prepared.is_none() {
-                // Preserve the ordinary custom ABI's pre-bind environment. Native
-                // preparation alone needs the inherited real memory before bind.
-                data.memory = None;
-                data.low_guard = 0;
-                data.main_stack = 0..0;
-                data.layout = None;
-                data.read_only = Arc::default();
-                data.base = None;
+        let hooks = env.as_ref(&store).instance_hooks().cloned();
+        let configured =
+            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<_, ExecError> {
+                {
+                    let data = env.as_mut(&mut store);
+                    data.imports = wasmer::Imports::new();
+                    if prepared.is_none() {
+                        // Preserve the ordinary custom ABI's pre-bind environment. Native
+                        // preparation alone needs the inherited real memory before bind.
+                        data.memory = None;
+                        data.low_guard = 0;
+                        data.main_stack = 0..0;
+                        data.layout = None;
+                        data.read_only = Arc::default();
+                        data.base = None;
+                    }
+                }
+                if let Some(prepared) = &prepared {
+                    imports.extend(prepared.imports());
+                    crate::preparation::verify_memory(&self.module, &imports, Some(&memory))?;
+                }
+                if hooks.is_some() {
+                    env.as_mut(&mut store).abi_imports = Some(imports.clone());
+                }
+                let attached = hooks
+                    .as_ref()
+                    .map(|hooks| {
+                        hooks.prepare(
+                            &self.module,
+                            &mut wasmer::AsStoreMut::as_store_mut(&mut store),
+                            &mut imports,
+                        )
+                    })
+                    .transpose()
+                    .map_err(ExecError::CustomBinding)?;
+                let instance = Instance::new(&mut store, &self.module, &imports)?;
+                let abi = match prepared {
+                    Some(prepared) => prepared.bind(&instance, &mut store, task, Role::Thread)?,
+                    None => self.abi.bind(&instance, &mut store, task, Role::Thread)?,
+                };
+                let asyncify = crate::asyncify::Asyncify::new(&instance, &mut store)?;
+                let data = env.as_mut(&mut store);
+                data.imports = imports.clone();
+                data.memory = Some(memory);
+                data.low_guard = self.low_guard;
+                data.main_stack = self.main_stack.clone();
+                data.layout = self.layout.clone();
+                data.read_only = self.read_only.clone();
+                data.base = self.base.clone();
+                data.stack_pointer = crate::stack_pointer(&instance);
+                data.abi = Some(abi.clone());
+                data.threads = Some(self.clone());
+                data.proc.set_module(&self.module);
+                data.asyncify = asyncify;
+                let memory = env.as_ref(&store).memory().unwrap().clone();
+                if let Some(attached) = attached {
+                    attached
+                        .configure(
+                            &self.module,
+                            &mut wasmer::AsStoreMut::as_store_mut(&mut store),
+                            &instance,
+                            &memory,
+                        )
+                        .map_err(ExecError::CustomBinding)?;
+                }
+                Ok(abi)
+            }));
+        let abi = match configured {
+            Ok(Ok(abi)) => abi,
+            other => {
+                if let Some(hooks) = &hooks {
+                    hooks.deactivate(&mut wasmer::AsStoreMut::as_store_mut(&mut store));
+                }
+                match other {
+                    Ok(Err(error)) => return Err(error),
+                    Err(panic) => std::panic::resume_unwind(panic),
+                    _ => unreachable!(),
+                }
             }
-        }
-        if let Some(prepared) = &prepared {
-            imports.extend(prepared.imports());
-            crate::preparation::verify_memory(&self.module, &imports, Some(&memory))?;
-        }
-        let instance = Instance::new(&mut store, &self.module, &imports)?;
-        let abi = match prepared {
-            Some(prepared) => prepared.bind(&instance, &mut store, task, Role::Thread)?,
-            None => self.abi.bind(&instance, &mut store, task, Role::Thread)?,
         };
-        let asyncify = crate::asyncify::Asyncify::new(&instance, &mut store)?;
-        let data = env.as_mut(&mut store);
-        data.imports = imports.clone();
-        data.memory = Some(memory);
-        data.low_guard = self.low_guard;
-        data.main_stack = self.main_stack.clone();
-        data.layout = self.layout.clone();
-        data.read_only = self.read_only.clone();
-        data.base = self.base.clone();
-        data.stack_pointer = crate::stack_pointer(&instance);
-        data.abi = Some(abi.clone());
-        data.threads = Some(self.clone());
-        data.proc.set_module(&self.module);
-        data.asyncify = asyncify;
-
+        let scope = env.as_ref(&store).loader_cleanup().unwrap().clone();
         let store = store.into_async();
+        let mut attachments = hooks.map(|hooks| hooks.guard(&store, scope));
         let entry = Entry::new(&env, &store);
         let mut buffer = BufferLease {
             pool: self.buffers.clone(),
@@ -394,6 +614,9 @@ where
         };
         let on_return = abi.on_thread_return();
         let ended = crate::ended(entry.cx(), result, on_return, Role::Thread).await;
+        if let Some(attachments) = &mut attachments {
+            attachments.deactivate().await;
+        }
         abi.retire(&entry)
             .await
             .map_err(|e| ExecError::Load(crate::LoadError::other(e)))?;
@@ -422,7 +645,7 @@ mod tests {
         let mut abis = Abis::new();
         abis.push(selected.clone());
         let abis = Arc::new(abis);
-        let ready = futures::executor::block_on(crate::instantiate(
+        let mut ready = futures::executor::block_on(crate::instantiate(
             store,
             &module,
             recorder.clone(),
@@ -435,13 +658,13 @@ mod tests {
         .unwrap();
         let shared = ready
             .env
-            .as_ref(&ready.store)
+            .as_ref(ready.store.as_ref().unwrap())
             .memory()
             .unwrap()
-            .as_shared(&ready.store)
+            .as_shared(ready.store.as_ref().unwrap())
             .unwrap();
         let image = Image::new(
-            &ready.store,
+            ready.store.as_ref().unwrap(),
             &module,
             shared,
             (0, Arc::default(), None),
@@ -453,12 +676,13 @@ mod tests {
             abis,
             Arc::default(),
         );
-        let store = ready.store.into_async();
+        let store = ready.store.take().unwrap().into_async();
         futures::executor::block_on(async {
             let entry = Entry::new(&ready.env, &store);
             ready.abi.prepare_entry(&entry).await.unwrap();
             let registration = ready
                 .admission
+                .take()
                 .unwrap()
                 .finish(&*selected, &*recorder)
                 .await

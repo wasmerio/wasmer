@@ -93,6 +93,12 @@ macro_rules! impl_native_traits {
                 let store = store.store();
                 let func = self.func.clone();
                 async move {
+                    #[cfg(feature = "sys")]
+                    if matches!(&func.0, crate::BackendFunction::Sys(_)) {
+                        // Native admission must precede even the backend-selection
+                        // read lock: a detached caller may still own its write guard.
+                        crate::backend::sys::async_runtime::check_async_entry(&store)?;
+                    }
                     let read_lock = store.read_lock().await;
                     match read_lock.as_store_ref().inner.store {
                         #[cfg(feature = "sys")]

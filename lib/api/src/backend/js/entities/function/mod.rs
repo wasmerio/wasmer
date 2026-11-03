@@ -147,7 +147,7 @@ impl Function {
                         js_value_to_wasmer(&mut write_lock, ty, &args.get(index as u32))
                     })
                     .collect::<Vec<_>>();
-                let store_context = StoreContext::install_async(write_lock.inner);
+                let store_context = StoreContext::install_async(write_lock.into_owned());
                 let future = func(env_mut, &values);
                 // Imports, including nested signal/vfork/fork calls, acquire the store
                 // themselves. No store guard may survive while polling their future.
@@ -208,10 +208,7 @@ impl Function {
     }
 
     #[cfg(feature = "experimental-async")]
-    pub(crate) fn new_typed_async<F, Args, Rets>(
-        store: &mut impl AsStoreMut,
-        func: F,
-    ) -> Self
+    pub(crate) fn new_typed_async<F, Args, Rets>(store: &mut impl AsStoreMut, func: F) -> Self
     where
         Args: WasmTypeList + 'static,
         Rets: WasmTypeList + 'static,
@@ -226,29 +223,25 @@ impl Function {
             store,
             &env,
             signature,
-            move |mut env_mut, values| -> Pin<
-                Box<dyn Future<Output = Result<Vec<Value>, RuntimeError>>>,
-            > {
+            move |mut env_mut,
+                  values|
+                  -> Pin<Box<dyn Future<Output = Result<Vec<Value>, RuntimeError>>>> {
                 let js_env = match env_mut.0 {
                     BackendAsyncFunctionEnvMut::Js(ref mut js_env) => js_env,
                     _ => panic!("Not a js backend"),
                 };
                 let mut store_wrapper = unsafe { StoreContext::get_current(js_env.store_id()) };
                 let mut store_mut = store_wrapper.as_mut();
-                let args = match typed_args_from_values::<Args>(
-                    &mut store_mut,
-                    args_sig.as_ref(),
-                    values,
-                ) {
-                    Ok(args) => args,
-                    Err(error) => return Box::pin(async { Err(error) }),
-                };
+                let args =
+                    match typed_args_from_values::<Args>(&mut store_mut, args_sig.as_ref(), values)
+                    {
+                        Ok(args) => args,
+                        Err(error) => return Box::pin(async { Err(error) }),
+                    };
                 drop(store_wrapper);
                 let func = Arc::clone(&func);
                 let results_sig = Arc::clone(&results_sig);
-                let future = func
-                    .as_ref()
-                    .call_async(AsyncFunctionEnv::new(), args);
+                let future = func.as_ref().call_async(AsyncFunctionEnv::new(), args);
                 Box::pin(async move {
                     let typed_result = future.await?;
                     let mut store_mut = env_mut.write().await;
@@ -282,23 +275,21 @@ impl Function {
             store,
             env,
             signature,
-            move |mut env_mut, values| -> Pin<
-                Box<dyn Future<Output = Result<Vec<Value>, RuntimeError>>>,
-            > {
+            move |mut env_mut,
+                  values|
+                  -> Pin<Box<dyn Future<Output = Result<Vec<Value>, RuntimeError>>>> {
                 let js_env = match env_mut.0 {
                     BackendAsyncFunctionEnvMut::Js(ref mut js_env) => js_env,
                     _ => panic!("Not a js backend"),
                 };
                 let mut store_wrapper = unsafe { StoreContext::get_current(js_env.store_id()) };
                 let mut store_mut = store_wrapper.as_mut();
-                let args = match typed_args_from_values::<Args>(
-                    &mut store_mut,
-                    args_sig.as_ref(),
-                    values,
-                ) {
-                    Ok(args) => args,
-                    Err(error) => return Box::pin(async { Err(error) }),
-                };
+                let args =
+                    match typed_args_from_values::<Args>(&mut store_mut, args_sig.as_ref(), values)
+                    {
+                        Ok(args) => args,
+                        Err(error) => return Box::pin(async { Err(error) }),
+                    };
                 drop(store_wrapper);
                 let env_mut_clone = env_mut.as_mut();
                 let func = Arc::clone(&func);
@@ -536,9 +527,7 @@ impl Function {
                 Ok(result_array
                     .iter()
                     .enumerate()
-                    .map(|(i, js_val)| {
-                        js_value_to_wasmer(store, &result_types[i], &js_val)
-                    })
+                    .map(|(i, js_val)| js_value_to_wasmer(store, &result_types[i], &js_val))
                     .collect::<Vec<_>>()
                     .into_boxed_slice())
             }
@@ -669,11 +658,7 @@ where
 {
     let mut raw_array = unsafe { results.into_array(store) };
     let mut values = Vec::with_capacity(function_type.results().len());
-    for (raw, ty) in raw_array
-        .as_mut()
-        .iter()
-        .zip(function_type.results())
-    {
+    for (raw, ty) in raw_array.as_mut().iter().zip(function_type.results()) {
         unsafe {
             values.push(Value::from_raw(store, *ty, *raw));
         }
@@ -711,7 +696,9 @@ where
         T: Sized,
     {
         Self {
-            address: function.function_callback(crate::BackendKind::Js).unwrap_js(),
+            address: function
+                .function_callback(crate::BackendKind::Js)
+                .unwrap_js(),
             _phantom: PhantomData,
         }
     }

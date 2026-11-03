@@ -87,6 +87,7 @@ impl Library {
 }
 #[derive(Clone)]
 pub(super) struct Graph {
+    pub host_imports: Option<wasixv2_exec::ImportDeclarations>,
     pub libraries: Vec<Library>,
     pub global: Vec<usize>,
     pub cursor: u32,
@@ -151,7 +152,7 @@ impl Graph {
         self.plan_mode(root, previously_bound, BindingMode::Now)
     }
     fn plan_mode(&self, root: usize, previously_bound: usize, mode: BindingMode) -> Result<Plan> {
-        Plan::for_load(
+        Plan::for_load_with_host_imports(
             &self
                 .libraries
                 .iter()
@@ -166,6 +167,11 @@ impl Graph {
             &self.global,
             mode,
             previously_bound,
+            &|namespace, name| {
+                self.host_imports
+                    .as_ref()
+                    .is_some_and(|hosts| hosts.provides_import(namespace, name))
+            },
         )
         .map_err(failure)
     }
@@ -690,6 +696,7 @@ mod tests {
     }
     fn missing_direct() -> Graph {
         Graph {
+            host_imports: None,
             libraries: vec![
                 lazy_library("(module)"),
                 lazy_library(r#"(module (import "env" "f" (func (param i32) (result i32))))"#),
@@ -948,6 +955,7 @@ mod tests {
         )
         .unwrap();
         let graph = Graph {
+            host_imports: None,
             libraries: vec![main],
             global: vec![0],
             cursor: 3,
@@ -980,6 +988,7 @@ mod tests {
             Library::new(crate::tests::bytes(wat, [0; 4], &[], &[], &[]), None).unwrap()
         };
         let mut graph = Graph {
+            host_imports: None,
             libraries: vec![
                 library("(module)"),
                 library(
@@ -1052,6 +1061,7 @@ mod tests {
             Library::new(crate::tests::bytes(wat, [0; 4], &[], &[], imports), None).unwrap()
         };
         let mut graph = Graph {
+            host_imports: None,
             libraries: vec![
                 library("(module)", &[]),
                 library(
@@ -1084,6 +1094,7 @@ mod tests {
             Library::new(crate::tests::bytes(wat, [0; 4], &[], &[], &[]), None).unwrap()
         };
         let mut graph = Graph {
+            host_imports: None,
             libraries: vec![
                 library("(module)"),
                 library("(module (import \"env\" \"choice\" (func)) (func (export \"choice\")))"),

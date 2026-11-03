@@ -29,8 +29,9 @@ use wasixv2_syscalls::{
     UserSliceMut, read_cstr, write_value,
 };
 use wasmer::{
-    AsEngineRef, AsStoreMut, AsyncFunctionEnvMut, Extern, FunctionEnv, Global, Imports, Instance,
-    Memory, Module, Mutability, RuntimeError, Store, StoreMut, Table, Type, Value,
+    AsEngineRef, AsStoreAsync, AsStoreMut, AsyncFunctionEnvMut, Extern, FunctionEnv, Global,
+    Imports, Instance, Memory, Module, Mutability, RuntimeError, Store, StoreMut, Table, Type,
+    Value,
 };
 type Result<T> = std::result::Result<T, RuntimeError>;
 fn failure(error: impl std::fmt::Debug) -> RuntimeError {
@@ -56,6 +57,22 @@ impl<S: Send + Sync + 'static> Context<'_, S> {
                 f(data, &mut store.as_store_mut())
             }
             Self::Entry(entry) => entry.with_store(f).await,
+        }
+    }
+
+    // Hook callbacks may resolve their exact ExecEnv themselves. Do not lend
+    // that data separately while running their host-only Store operations.
+    async fn with_store<R>(&self, f: impl FnOnce(&mut StoreMut<'_>) -> R) -> R {
+        match self {
+            Self::Import(env) => {
+                let mut guard = env.write().await;
+                f(&mut guard.as_store_mut())
+            }
+            Self::Entry(entry) => {
+                let store = entry.store();
+                let mut guard = store.write_lock().await;
+                f(&mut guard.as_store_mut())
+            }
         }
     }
 }
@@ -135,6 +152,7 @@ pub(crate) fn verify_compiled_source(module: &Module) -> Result<Vec<u8>> {
 type ArtifactKey = (wasmer_types::ModuleHash, Vec<(u32, u32)>, String, String);
 struct Root {
     policy: Arc<dyn LoadPolicy>,
+    declarations: OnceLock<Option<wasixv2_exec::ImportDeclarations>>,
     owner: Arc<()>,
     artifacts: Mutex<BTreeMap<ArtifactKey, Arc<crate::artifact::PreparedArtifact>>>,
     forward_code: Arc<forward::Cache>,
@@ -199,6 +217,7 @@ impl Root {
                     .ok_or_else(|| failure("main alignment"))?,
             )?;
             let mut graph = Graph {
+                host_imports: None,
                 libraries: vec![main],
                 global: vec![0],
                 initialization: vec![0],
@@ -216,6 +235,7 @@ impl Root {
                 let _ = error.set(e.to_string());
                 (
                     Graph {
+                        host_imports: None,
                         libraries: Vec::new(),
                         global: Vec::new(),
                         initialization: Vec::new(),
@@ -227,6 +247,7 @@ impl Root {
         };
         Arc::new(Self {
             policy,
+            declarations: OnceLock::new(),
             owner: Arc::new(()),
             artifacts: Mutex::default(),
             forward_code: Arc::default(),
@@ -480,12 +501,30 @@ impl<S: Syscalls + Control + Send + Sync + 'static> Abi<S> for Image<S> {
         let task = data.task();
         let syscalls = data.syscalls().clone();
         let host = data.host().clone();
+        let declarations = data.instance_hooks().map(|hooks| hooks.declarations());
+        let has_hooks = data.instance_hooks().is_some();
         let setup = (|| -> Result<()> {
             if let Some(error) = self.root.error.get() {
                 return Err(failure(error));
             }
             if self.root.retired.load(Ordering::Acquire) {
                 return Err(failure("image retired"));
+            }
+            let registered = self.root.declarations.get_or_init(|| {
+                if let Some(declarations) = &declarations {
+                    Arc::make_mut(&mut lock(&self.root.state).graph).host_imports =
+                        Some(declarations.clone());
+                }
+                declarations.clone()
+            });
+            if match (registered, &declarations) {
+                (None, None) => false,
+                (Some(registered), Some(declarations)) => !registered.same_hooks(declarations),
+                _ => true,
+            } {
+                return Err(failure(
+                    "peer Store has different custom binding declarations",
+                ));
             }
             if !syscalls.loader_fatal_supported() {
                 return Err(failure("image-wide fatal failure control is unavailable"));
@@ -508,11 +547,11 @@ impl<S: Syscalls + Control + Send + Sync + 'static> Abi<S> for Image<S> {
             for import in module.imports() {
                 match import.ty() {
                     wasmer::ExternType::Global(ty) => {
-                        let value = match import.name() {
-                            "__memory_base" => main.base,
-                            "__table_base" => main.table,
-                            "__stack_pointer" => self.root.stack,
-                            name if matches!(import.module(), "GOT.func" | "GOT.mem") => {
+                        let value = match (import.module(), import.name()) {
+                            ("env", "__memory_base") => main.base,
+                            ("env", "__table_base") => main.table,
+                            ("env", "__stack_pointer") => self.root.stack,
+                            ("GOT.func" | "GOT.mem", name) => {
                                 let end = main
                                     .base
                                     .checked_add(main.metadata.memory_info().memory_size)
@@ -524,6 +563,7 @@ impl<S: Syscalls + Control + Send + Sync + 'static> Abi<S> for Image<S> {
                                 };
                                 value
                             }
+                            _ if has_hooks => continue,
                             _ => {
                                 return Err(failure(format!(
                                     "unsupported dynamic main global {}",
@@ -758,6 +798,7 @@ impl Local {
         graph.symbol_in_scope(scope, name, &tls)
     }
 
+    #[cfg(all(test, feature = "engine-tests"))]
     fn stage_modules(
         &mut self,
         store: &mut StoreMut<'_>,
@@ -766,6 +807,20 @@ impl Local {
         tls: Vec<u32>,
         leases: Vec<Box<dyn LoaderReservation>>,
         task: TaskId,
+    ) -> Result<()> {
+        self.stage_modules_with_hooks(store, base_imports, work, tls, leases, task, None)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn stage_modules_with_hooks(
+        &mut self,
+        store: &mut StoreMut<'_>,
+        base_imports: &Imports,
+        work: &Work,
+        tls: Vec<u32>,
+        leases: Vec<Box<dyn LoaderReservation>>,
+        task: TaskId,
+        hooks: Option<&wasixv2_exec::InstanceHooks>,
     ) -> Result<()> {
         LocalStage::resume(&mut self.stage, tls.clone(), leases);
         let local = self;
@@ -818,7 +873,9 @@ impl Local {
                                 .clone(),
                         ))
                     }
-                    ExternType::Global(_) if import.name == "__stack_pointer" => {
+                    ExternType::Global(_)
+                        if import.module == "env" && import.name == "__stack_pointer" =>
+                    {
                         Some(Extern::Global(
                             local.instances[0]
                                 .exports
@@ -826,6 +883,16 @@ impl Local {
                                 .map_err(failure)?
                                 .clone(),
                         ))
+                    }
+                    ExternType::Global(_)
+                        if fixup.is_some_and(|fixup| fixup.kind == FixupKind::Host)
+                            && !(import.module == "env"
+                                && matches!(
+                                    import.name.as_str(),
+                                    "__memory_base" | "__table_base" | "__tls_base"
+                                )) =>
+                    {
+                        None
                     }
                     ExternType::Global(ty) => {
                         let value = match import.name.as_str() {
@@ -936,12 +1003,12 @@ impl Local {
                 u64::from(tls[index])..u64::from(tls[index]) + u64::from(lib.tls_size)
             };
             let fresh_table = u64::from(lib.table)..u64::from(graph.cursor);
-            let mut prepared = StagedExports::prepare_artifact(
+            let prepared = StagedExports::prepare_artifact_with_hooks(
                 store,
                 lib.prepared
                     .as_deref()
                     .ok_or_else(|| failure("missing prepared module"))?,
-                &imports,
+                &mut imports,
                 local.memory.clone(),
                 local.table.clone(),
                 std::slice::from_ref(&fresh_memory),
@@ -951,16 +1018,24 @@ impl Local {
                 } else {
                     Some(tls[index])
                 },
+                hooks,
             )?;
-            for (function, slot) in &lib.slots {
-                prepared.bind_slot(store, *slot, *function, std::slice::from_ref(&fresh_table))?;
-            }
             local
                 .stage
                 .as_mut()
                 .unwrap()
                 .modules
                 .insert(index, prepared);
+            let prepared = local
+                .stage
+                .as_mut()
+                .unwrap()
+                .modules
+                .get_mut(&index)
+                .unwrap();
+            for (function, slot) in &lib.slots {
+                prepared.bind_slot(store, *slot, *function, std::slice::from_ref(&fresh_table))?;
+            }
         }
         // All definitions now exist. Element/GOT slots must contain actual
         // definition funcrefs, including imported/re-exported aliases, not thunks.
@@ -1336,11 +1411,23 @@ impl<S: Syscalls + Control + Send + Sync + 'static> StoreImage<S> {
                 lock(&self.local).stage.as_mut().unwrap().leases.push(lease);
             }
         }
-        cx.with(|data, store| {
-            self.stage_modules(store, data.imports(), work, tls, Vec::new(), caller.task())
+        let (base_imports, hooks) = cx
+            .with(|data, _| (data.abi_imports().clone(), data.instance_hooks().cloned()))
+            .await;
+        cx.with_store(|store| {
+            self.stage_modules(
+                store,
+                &base_imports,
+                work,
+                tls,
+                Vec::new(),
+                caller.task(),
+                hooks.as_ref(),
+            )
         })
         .await
     }
+    #[allow(clippy::too_many_arguments)]
     fn stage_modules(
         &self,
         store: &mut StoreMut<'_>,
@@ -1349,8 +1436,17 @@ impl<S: Syscalls + Control + Send + Sync + 'static> StoreImage<S> {
         tls: Vec<u32>,
         leases: Vec<Box<dyn LoaderReservation>>,
         task: TaskId,
+        hooks: Option<&wasixv2_exec::InstanceHooks>,
     ) -> Result<()> {
-        lock(&self.local).stage_modules(store, base_imports, work, tls, leases, task)
+        lock(&self.local).stage_modules_with_hooks(
+            store,
+            base_imports,
+            work,
+            tls,
+            leases,
+            task,
+            hooks,
+        )
     }
     async fn execute_command(
         &self,
@@ -1407,7 +1503,7 @@ impl<S: Syscalls + Control + Send + Sync + 'static> StoreImage<S> {
             }
             LoaderPhase::Rollback => {
                 let stage = cx
-                    .with(|_, store| {
+                    .with_store(|store| {
                         let mut local = lock(&self.local);
                         let table = local.table.clone();
                         if let Some(staged) = &mut local.stage {
@@ -1625,15 +1721,21 @@ impl<S: Syscalls + Control + Send + Sync + 'static> AbiInstance<S> for StoreImag
                     committed: AtomicBool::new(true),
                     error: Mutex::new(None),
                 };
-                entry
-                    .with_store(|data, store| {
+                let (base_imports, hooks) = entry
+                    .with_store(|data, _| {
+                        (data.abi_imports().clone(), data.instance_hooks().cloned())
+                    })
+                    .await;
+                Context::Entry(entry)
+                    .with_store(|store| {
                         self.stage_modules(
                             store,
-                            data.imports(),
+                            &base_imports,
                             &work,
                             tls,
                             std::mem::take(&mut ledger.leases),
                             task,
+                            hooks.as_ref(),
                         )
                     })
                     .await?;
@@ -2959,6 +3061,7 @@ mod symbol_tests {
                 &[],
             );
             let graph = Graph {
+                host_imports: None,
                 libraries: vec![Library::new(source.clone(), None).unwrap()],
                 global: vec![0],
                 cursor: 3,
@@ -3066,6 +3169,7 @@ mod cyclic_tests {
             .unwrap()
         };
         let mut graph = Graph {
+            host_imports: None,
             libraries: vec![
                 Library::new(crate::tests::bytes("(module)", [0; 4], &[], &[], &[]), None).unwrap(),
                 library("a", "b", 1),

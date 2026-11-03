@@ -1,13 +1,11 @@
 use std::{any::Any, fmt::Debug, marker::PhantomData};
 
+#[cfg(feature = "experimental-async")]
+use crate::{AsStoreAsync, StoreAsync, StoreAsyncReadLock, StoreAsyncWriteLock};
 use crate::{
     StoreMut,
     js::{store::StoreHandle, vm::VMFunctionEnvironment},
     store::{AsStoreMut, AsStoreRef, StoreRef},
-};
-#[cfg(feature = "experimental-async")]
-use crate::{
-    AsStoreAsync, StoreAsync, StoreAsyncReadLock, StoreAsyncWriteLock,
 };
 #[cfg(feature = "experimental-async")]
 use wasmer_types::StoreId;
@@ -239,10 +237,7 @@ pub struct AsyncFunctionEnvHandleMut<T> {
 impl<T> Clone for AsyncFunctionEnvMut<T> {
     fn clone(&self) -> Self {
         Self {
-            store: StoreAsync {
-                id: self.store.id,
-                inner: self.store.inner.clone(),
-            },
+            store: self.store.store(),
             func_env: self.func_env.clone(),
         }
     }
@@ -304,10 +299,7 @@ impl<T: 'static> AsyncFunctionEnvMut<T> {
     }
 
     pub fn as_store_async(&self) -> impl AsStoreAsync + 'static {
-        StoreAsync {
-            id: self.store.id,
-            inner: self.store.inner.clone(),
-        }
+        self.store.store()
     }
 }
 

@@ -18,12 +18,14 @@ fn error(error: impl std::fmt::Display) -> RuntimeError {
 pub(crate) struct BoundModule {
     pub(crate) exports: Exports,
     module: Module,
+    attachments: Option<wasixv2_exec::InstanceAttachments>,
 }
 impl BoundModule {
     pub(crate) fn new(instance: &Instance) -> Self {
         Self {
             exports: instance.exports.clone(),
             module: instance.module().clone(),
+            attachments: None,
         }
     }
     pub(crate) fn module(&self) -> &Module {
@@ -164,6 +166,68 @@ impl StagedExports {
             tls,
         )?;
         Ok(staged)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn prepare_artifact_with_hooks(
+        store: &mut impl AsStoreMut,
+        artifact: &PreparedArtifact,
+        imports: &mut Imports,
+        memory: Memory,
+        table: Table,
+        fresh_memory: &[Range<u64>],
+        fresh_table: &[Range<u64>],
+        tls: Option<u32>,
+        hooks: Option<&wasixv2_exec::InstanceHooks>,
+    ) -> Result<Self, RuntimeError> {
+        if hooks.is_none() {
+            return Self::prepare_artifact(
+                store,
+                artifact,
+                imports,
+                memory,
+                table,
+                fresh_memory,
+                fresh_table,
+                tls,
+            );
+        }
+        let attachments = hooks
+            .map(|hooks| hooks.prepare(artifact.module(), &mut store.as_store_mut(), imports))
+            .transpose()?;
+        let result = Self::prepare_instance(
+            store,
+            artifact,
+            imports,
+            memory.clone(),
+            table,
+            fresh_memory,
+            fresh_table,
+            tls,
+        );
+        match result {
+            Ok((instance, mut staged)) => {
+                if let Some(attachments) = attachments {
+                    if let Err(error) = attachments.configure(
+                        artifact.module(),
+                        &mut store.as_store_mut(),
+                        &instance,
+                        &memory,
+                    ) {
+                        attachments.deactivate(&mut store.as_store_mut());
+                        return Err(error);
+                    }
+                    staged.instance.attachments = Some(attachments);
+                }
+                Ok(staged)
+            }
+            Err(error) => {
+                if let Some(attachments) = attachments {
+                    attachments.deactivate(&mut store.as_store_mut());
+                }
+                Err(error)
+            }
+        }
     }
 
     /// Instantiate cached loader-owned code; only store-specific values and checked
@@ -387,6 +451,9 @@ impl StagedExports {
         self.applied_writes = 0;
         self.applied = false;
         self.complete = false;
+        if let Some(attachments) = &self.instance.attachments {
+            attachments.deactivate(&mut store.as_store_mut());
+        }
         Ok(())
     }
     /// Called only after the mm-wide coordinator has completed publication in every store.

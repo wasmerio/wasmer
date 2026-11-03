@@ -41,3 +41,46 @@ fn data_and_store_mut() -> Result<(), String> {
 
     Ok(())
 }
+
+#[test]
+#[cfg(all(feature = "sys", feature = "experimental-async"))]
+fn weak_async_environment_does_not_retain_its_store() {
+    use std::{
+        cell::RefCell,
+        rc::Rc,
+        sync::{
+            Arc,
+            atomic::{AtomicUsize, Ordering},
+        },
+    };
+    struct State(Arc<AtomicUsize>);
+    impl Drop for State {
+        fn drop(&mut self) {
+            self.0.fetch_add(1, Ordering::SeqCst);
+        }
+    }
+    let drops = Arc::new(AtomicUsize::new(0));
+    let mut store = Store::default();
+    let env = FunctionEnv::new(&mut store, State(drops.clone()));
+    // The Store owns this callback, which in turn owns its weak environment.
+    let weak_slot = Rc::new(RefCell::new(None));
+    let owned_slot = weak_slot.clone();
+    let function = Function::new_with_env_async(
+        &mut store,
+        &env,
+        FunctionType::new([], []),
+        move |env, _| {
+            *owned_slot.borrow_mut() = Some(env.downgrade().unwrap());
+            async { Ok(vec![]) }
+        },
+    );
+    let store = store.into_async();
+    futures::executor::block_on(function.call_async(&store, vec![])).unwrap();
+    let weak = weak_slot.borrow().as_ref().unwrap().clone();
+    assert!(weak.upgrade().is_some());
+    assert_eq!(drops.load(Ordering::SeqCst), 0);
+    drop(store);
+    assert_eq!(drops.load(Ordering::SeqCst), 1);
+    assert!(weak.upgrade().is_none());
+    assert!(weak_slot.borrow().as_ref().unwrap().upgrade().is_none());
+}

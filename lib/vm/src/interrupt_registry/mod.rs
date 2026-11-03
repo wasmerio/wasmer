@@ -43,11 +43,16 @@ pub enum InterruptError {
 /// Uninstalls interrupt state when dropped
 pub struct InterruptInstallGuard {
     store_id: StoreId,
+    #[cfg(unix)]
+    installation: unix::InstallationId,
 }
 
 impl Drop for InterruptInstallGuard {
     fn drop(&mut self) {
         let store_id = self.store_id;
+        #[cfg(unix)]
+        uninstall(store_id, self.installation);
+        #[cfg(not(unix))]
         uninstall(store_id);
     }
 }
