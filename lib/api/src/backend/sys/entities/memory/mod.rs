@@ -348,6 +348,46 @@ unsafe fn volatile_memcpy_write(mut src: *const u8, mut dst: *mut u8, mut len: u
 }
 
 impl crate::Memory {
+    /// Retains only a native static anonymous allocation's lifetime, independently
+    /// of its Store. Exact host ranges need their own pins before publication.
+    #[doc(hidden)]
+    pub fn retain_host_allocation(
+        &self,
+        store: &impl AsStoreRef,
+    ) -> Result<wasmer_vm::HostMemoryAllocation, MemoryError> {
+        match &self.0 {
+            BackendMemory::Sys(memory) => memory
+                .handle
+                .get(store.as_store_ref().objects().as_sys())
+                .retain_host_allocation(),
+            #[allow(unreachable_patterns)]
+            _ => Err(MemoryError::UnsupportedOperation {
+                message: "native allocation receipts are unsupported by this backend".into(),
+            }),
+        }
+    }
+
+    /// Retains an exact private static range after this memory's Store is dropped.
+    /// This token grants no Store or metadata access and does not make unshared
+    /// memories cloneable. Guest writes still need their ordinary synchronization.
+    #[doc(hidden)]
+    pub fn pin_host_range(
+        &self,
+        store: &impl AsStoreRef,
+        range: std::ops::Range<u64>,
+    ) -> Result<wasmer_vm::HostMemoryPin, MemoryError> {
+        match &self.0 {
+            BackendMemory::Sys(memory) => memory
+                .handle
+                .get(store.as_store_ref().objects().as_sys())
+                .pin_host_range(range),
+            #[allow(unreachable_patterns)]
+            _ => Err(MemoryError::UnsupportedOperation {
+                message: "native host pins are unsupported by this backend".into(),
+            }),
+        }
+    }
+
     /// Admits a finite physical replacement before any OS operation or callback.
     /// Keep this memory and its Store alive until the change finishes.
     #[doc(hidden)]
