@@ -28,14 +28,8 @@ macro_rules! impl_native_traits {
             pub fn call_sys(&self, store: &mut impl AsStoreMut, $( $x: $x, )* ) -> Result<Rets, RuntimeError> {
                 #[cfg(feature = "experimental-async")]
                 super::check_native_retirement(store)?;
-                let anyfunc = unsafe {
-                    *self.func.as_sys()
-                        .handle
-                        .get(store.as_store_ref().objects().as_sys())
-                        .anyfunc
-                        .as_ptr()
-                        .as_ref()
-                };
+                let function_pin = self.func.as_sys().vm_function(store).pin();
+                let anyfunc = unsafe { *function_pin.anyfunc().as_ref() };
                 // Ensure all parameters come from the same context.
                 if $(!FromToNativeWasmType::is_from_store(&$x, store) ||)* false {
                     return Err(RuntimeError::new(
@@ -184,14 +178,8 @@ macro_rules! impl_native_traits {
             pub fn call_raw_sys(&self, store: &mut impl AsStoreMut, mut params_list: Vec<RawValue> ) -> Result<Rets, RuntimeError> {
                 #[cfg(feature = "experimental-async")]
                 super::check_native_retirement(store)?;
-                let anyfunc = unsafe {
-                    *self.func.as_sys()
-                        .handle
-                        .get(store.as_store_ref().objects().as_sys())
-                        .anyfunc
-                        .as_ptr()
-                        .as_ref()
-                };
+                let function_pin = self.func.as_sys().vm_function(store).pin();
+                let anyfunc = unsafe { *function_pin.anyfunc().as_ref() };
                 // TODO: when `const fn` related features mature more, we can declare a single array
                 // of the correct size here.
                 let mut rets_list_array = Rets::empty_array();

@@ -10,7 +10,7 @@ mod allocator;
 
 use crate::LinearMemory;
 use crate::imports::Imports;
-use crate::store::{InternalStoreHandle, StoreObjects};
+use crate::store::{InternalStoreHandle, StoreObject, StoreObjects};
 use crate::table::TableElement;
 use crate::trap::{Trap, TrapCode};
 use crate::vmcontext::{
@@ -104,6 +104,9 @@ pub(crate) struct Instance {
     /// Mapping of function indices to their func ref backing data. `VMFuncRef`s
     /// will point to elements here for functions imported by this instance.
     imported_funcrefs: BoxedSlice<FunctionIndex, NonNull<VMCallerCheckedAnyfunc>>,
+
+    /// Creation-time owners of imported host call metadata and context boxes.
+    function_import_pins: BoxedSlice<FunctionIndex, crate::VMFunctionPin>,
 
     /// Additional context used by compiled WebAssembly code. This
     /// field is last, and represents a dynamically-sized array that
@@ -1194,6 +1197,7 @@ impl VMInstance {
                     passive_data,
                     funcrefs,
                     imported_funcrefs,
+                    function_import_pins: imports.function_pins.clone(),
                     vmctx: VMContext {},
                 };
 
@@ -1205,7 +1209,6 @@ impl VMInstance {
                     let vmctx_ptr = instance.vmctx_ptr();
                     (instance.funcrefs, instance.imported_funcrefs) = build_funcrefs(
                         &instance.module,
-                        context,
                         &imports,
                         &instance.functions,
                         &vmshared_signatures,
@@ -1341,22 +1344,38 @@ impl VMInstance {
                     // A VMFunction is lazily created only for functions that are
                     // exported.
                     let signature = instance.module.signatures[*sig_index].clone();
-                    let vm_function = VMFunction {
-                        anyfunc: MaybeInstanceOwned::Instance(NonNull::from(
-                            &instance.funcrefs[def_index],
-                        )),
-                        signature,
-                        // Any function received is already static at this point as:
-                        // 1. All locally defined functions in the Wasm have a static signature.
-                        // 2. All the imported functions are already static (because
-                        //    they point to the trampolines rather than the dynamic addresses).
-                        kind: VMFunctionKind::Static,
-                        host_data: Box::new(()),
+                    // SAFETY: this metadata belongs to the Store's live
+                    // instance. Its allocation lifetime is independently required.
+                    let vm_function = unsafe {
+                        VMFunction::new(
+                            MaybeInstanceOwned::Instance(NonNull::from(
+                                &instance.funcrefs[def_index],
+                            )),
+                            signature,
+                            VMFunctionKind::Static,
+                            Box::new(()),
+                            instance.context(),
+                        )
                     };
                     InternalStoreHandle::new(self.instance_mut().context_mut(), vm_function)
                 } else {
                     let import = instance.imported_function(index);
-                    import.handle
+                    let pin = &instance.function_import_pins[index];
+                    if VMFunction::list(instance.context())
+                        .get(import.handle.index() - 1)
+                        .is_some_and(|function| {
+                            function.id() == pin.id() && function.is_from_store(instance.context())
+                        })
+                    {
+                        // Preserve the existing handle when it still denotes
+                        // the exact imported target.
+                        import.handle
+                    } else {
+                        // A replacement slot cannot redirect a re-export away
+                        // from the original creation-time imported target.
+                        let function = pin.clone_function();
+                        InternalStoreHandle::new(self.instance_mut().context_mut(), function)
+                    }
                 };
 
                 VMExtern::Function(handle)
@@ -1735,7 +1754,6 @@ fn anyfunc_from_funcref(funcref: Option<VMFuncRef>) -> VMCallerCheckedAnyfunc {
 /// future funcref operations are just looking up this data.
 fn build_funcrefs(
     module_info: &ModuleInfo,
-    ctx: &StoreObjects,
     imports: &Imports,
     finished_functions: &BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
     vmshared_signatures: &BoxedSlice<SignatureIndex, VMSignatureHash>,
@@ -1750,8 +1768,8 @@ fn build_funcrefs(
     let mut imported_func_refs = PrimaryMap::with_capacity(module_info.num_imported_functions);
 
     // do imported functions
-    for import in imports.functions.values() {
-        imported_func_refs.push(import.handle.get(ctx).anyfunc.as_ptr());
+    for pin in imports.function_pins.values() {
+        imported_func_refs.push(pin.anyfunc());
     }
 
     // do local functions
