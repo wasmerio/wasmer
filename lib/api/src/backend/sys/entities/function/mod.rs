@@ -106,12 +106,7 @@ impl Function {
                         values_vec.add(i).read_unaligned(),
                     ));
                 }
-                let env = env::FunctionEnvMut {
-                    store_mut,
-                    func_env: func_env.clone(),
-                    split_lease: None,
-                }
-                .into();
+                let env = env::FunctionEnvMut::new(store_mut, func_env.clone()).into();
                 let sig = func_ty.clone();
                 let result = func(env, &args);
                 HostCallOutcome::Ready {
@@ -1192,11 +1187,10 @@ macro_rules! impl_host_function {
                                 FromToNativeWasmType::from_native(NativeWasmTypeInto::from_abi(&mut store, $x))
                             };
                         )*
-                        let f_env = crate::backend::sys::function::env::FunctionEnvMut {
-                            store_mut: store,
-                            func_env: env.env.as_sys().clone(),
-                            split_lease: None,
-                        }.into();
+                        let f_env = crate::backend::sys::function::env::FunctionEnvMut::new(
+                            store,
+                            env.env.as_sys().clone(),
+                        ).into();
                         to_invocation_result((env.func)(f_env, $($x),* ).into_result())
                     }))
                 });

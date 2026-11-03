@@ -9,65 +9,72 @@ use crate::{
 
 use wasmer_vm::{
     StoreHandle, StoreId, StoreObject, StoreObjects, VMFunctionEnvironment,
-    VMFunctionEnvironmentLease,
+    VMFunctionEnvironmentFramePin, VMFunctionEnvironmentIdentity, VMFunctionEnvironmentLease,
 };
 
 #[derive(Debug)]
-#[repr(transparent)]
 /// An opaque reference to a function environment.
 /// The function environment data is owned by the `Store`.
 pub struct FunctionEnv<T> {
     pub(crate) handle: StoreHandle<VMFunctionEnvironment>,
+    identity: VMFunctionEnvironmentIdentity,
     marker: PhantomData<T>,
 }
 
 impl<T: Any + Send + 'static + Sized> FunctionEnv<T> {
     /// Make a new FunctionEnv
     pub fn new(store: &mut impl AsStoreMut, value: T) -> Self {
+        let owner = VMFunctionEnvironment::new(value);
+        let identity = owner.identity();
         Self {
-            handle: StoreHandle::new(
-                store.as_store_mut().objects_mut().as_sys_mut(),
-                VMFunctionEnvironment::new(value),
-            ),
+            handle: StoreHandle::new(store.objects_mut().as_sys_mut(), owner),
+            identity,
             marker: PhantomData,
         }
     }
 
-    #[allow(dead_code)] // This function is only used in js
-    pub(crate) fn from_handle(handle: StoreHandle<VMFunctionEnvironment>) -> Self {
-        Self {
-            handle,
-            marker: PhantomData,
-        }
-    }
-
-    /// Convert it into a `FunctionEnvMut`
+    /// Convert an attached exact environment into a temporary pinned frame.
     pub fn into_mut(self, store: &mut impl AsStoreMut) -> FunctionEnvMut<'_, T> {
-        FunctionEnvMut {
-            store_mut: store.as_store_mut(),
-            func_env: self,
-            split_lease: None,
-        }
+        FunctionEnvMut::new(store.as_store_mut(), self)
     }
 }
 
 impl<T: Any + 'static + Sized> FunctionEnv<T> {
     /// Get the data as reference
     pub fn as_ref<'a>(&self, store: &'a impl AsStoreRef) -> &'a T {
-        self.handle
-            .get(store.as_store_ref().objects().as_sys())
-            .as_ref()
+        let view = store.as_store_ref();
+        let key = view.inner as *const StoreInner as usize;
+        let owner = self
+            .identity
+            .lookup(&self.handle, view.objects().as_sys())
+            .expect("function environment is detached or replaced");
+        // SAFETY: exact identity in this actual shared Store borrow was checked.
+        unsafe { owner.borrow_for_store(key) }
             .downcast_ref::<T>()
             .unwrap()
     }
 
-    /// Get the data as mutable
     pub fn as_mut<'a>(&self, store: &'a mut impl AsStoreMut) -> &'a mut T {
-        self.handle
-            .get_mut(store.objects_mut().as_sys_mut())
-            .as_mut()
+        let view = store.as_store_mut();
+        let key = view.inner as *const StoreInner as usize;
+        let owner = self
+            .identity
+            .lookup(&self.handle, view.inner.objects.as_sys())
+            .expect("function environment is detached or replaced");
+        // SAFETY: exclusive actual Store borrow and exact allocation identity.
+        unsafe { &mut *owner.borrow_mut_ptr_for_store(key) }
             .downcast_mut::<T>()
             .unwrap()
+    }
+
+    fn pin_for_store(&self, store: &impl AsStoreRef) -> Option<VMFunctionEnvironmentFramePin> {
+        let view = store.as_store_ref();
+        let key = view.inner as *const StoreInner as usize;
+        let owner = self
+            .identity
+            .lookup(&self.handle, view.objects().as_sys())?;
+        // SAFETY: allocation is attached to this exact actual Store borrow.
+        unsafe { owner.pin_for_store(key) }
     }
 }
 
@@ -99,7 +106,7 @@ impl<T> crate::FunctionEnv<T> {
 
 impl<T> PartialEq for FunctionEnv<T> {
     fn eq(&self, other: &Self) -> bool {
-        self.handle == other.handle
+        self.handle == other.handle && self.identity == other.identity
     }
 }
 
@@ -108,6 +115,7 @@ impl<T> Eq for FunctionEnv<T> {}
 impl<T> std::hash::Hash for FunctionEnv<T> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.handle.hash(state);
+        self.identity.hash(state);
         self.marker.hash(state);
     }
 }
@@ -116,6 +124,7 @@ impl<T> Clone for FunctionEnv<T> {
     fn clone(&self) -> Self {
         Self {
             handle: self.handle.clone(),
+            identity: self.identity.clone(),
             marker: self.marker,
         }
     }
@@ -123,9 +132,74 @@ impl<T> Clone for FunctionEnv<T> {
 
 /// A temporary handle to a [`FunctionEnv`].
 pub struct FunctionEnvMut<'a, T: 'a> {
+    // Exact T cleanup must finish before releasing the final allocation pin.
+    pub(crate) split_lease: Option<SplitEnvironmentLease<'a>>,
+    frame: EnvironmentFrame<'a>,
     pub(crate) store_mut: StoreMut<'a>,
     pub(crate) func_env: FunctionEnv<T>,
-    pub(crate) split_lease: Option<SplitEnvironmentLease<'a>>,
+}
+
+enum EnvironmentFrame<'a> {
+    Owned(VMFunctionEnvironmentFramePin),
+    Borrowed(&'a VMFunctionEnvironmentFramePin),
+}
+impl EnvironmentFrame<'_> {
+    fn pin(&self) -> &VMFunctionEnvironmentFramePin {
+        match self {
+            Self::Owned(pin) => pin,
+            Self::Borrowed(pin) => pin,
+        }
+    }
+}
+
+/// A temporary native environment allocation, without independent data access.
+#[doc(hidden)]
+pub struct FunctionEnvFramePin<T> {
+    frame: VMFunctionEnvironmentFramePin,
+    func_env: FunctionEnv<T>,
+}
+impl<T: Send + 'static> FunctionEnvFramePin<T> {
+    /// Reborrow only through an attached exact cell and the actual Store.
+    pub fn try_as_env_mut<'a>(
+        &'a self,
+        store: &'a mut impl AsStoreMut,
+    ) -> Option<crate::FunctionEnvMut<'a, T>> {
+        let store_mut = store.as_store_mut();
+        if !matches!(&store_mut.inner.store, crate::BackendStore::Sys(_)) {
+            return None;
+        }
+        let key = store_mut.inner as *const StoreInner as usize;
+        self.func_env.identity.lookup(
+            &self.func_env.handle,
+            store_mut.as_store_ref().objects().as_sys(),
+        )?;
+        if !self.frame.can_reborrow(key) {
+            return None;
+        }
+        Some(
+            FunctionEnvMut {
+                split_lease: None,
+                frame: EnvironmentFrame::Borrowed(&self.frame),
+                store_mut,
+                func_env: self.func_env.clone(),
+            }
+            .into(),
+        )
+    }
+}
+
+impl<T: Send + 'static> crate::FunctionEnvMut<'_, T> {
+    /// Retain allocation custody for a native import or callback frame.
+    #[doc(hidden)]
+    pub fn pin_frame(&self) -> Option<FunctionEnvFramePin<T>> {
+        match &self.0 {
+            crate::BackendFunctionEnvMut::Sys(env) => Some(env.pin_frame()),
+            #[cfg(feature = "js")]
+            crate::BackendFunctionEnvMut::Js(_) => None,
+            #[cfg(feature = "v8")]
+            crate::BackendFunctionEnvMut::V8(_) => None,
+        }
+    }
 }
 
 pub(crate) enum SplitEnvironmentLease<'a> {
@@ -158,12 +232,40 @@ where
     }
 }
 
-impl<T: Send + 'static> FunctionEnvMut<'_, T> {
+impl<'a, T: Send + 'static> FunctionEnvMut<'a, T> {
+    pub(crate) fn new(store_mut: StoreMut<'a>, func_env: FunctionEnv<T>) -> Self {
+        let pin = func_env
+            .pin_for_store(&store_mut)
+            .expect("function environment is detached or on another Store/thread");
+        Self {
+            split_lease: None,
+            frame: EnvironmentFrame::Owned(pin),
+            store_mut,
+            func_env,
+        }
+    }
+
+    pub fn pin_frame(&self) -> FunctionEnvFramePin<T> {
+        let key = self.store_mut.inner as *const StoreInner as usize;
+        // SAFETY: this temporary frame still holds its original Store borrow.
+        let frame = unsafe { self.frame.pin().duplicate(key) };
+        FunctionEnvFramePin {
+            frame,
+            func_env: self.func_env.clone(),
+        }
+    }
+
     /// Returns a reference to the host state in this function environment.
     pub fn data(&self) -> &T {
         match &self.split_lease {
             Some(lease) => lease.lease().as_ref().downcast_ref().unwrap(),
-            None => self.func_env.as_ref(&self.store_mut),
+            None => {
+                let key = self.store_mut.inner as *const StoreInner as usize;
+                // SAFETY: original frame pin and actual Store borrow remain held.
+                unsafe { self.frame.pin().borrow_for_store(key) }
+                    .downcast_ref()
+                    .unwrap()
+            }
         }
     }
 
@@ -171,7 +273,13 @@ impl<T: Send + 'static> FunctionEnvMut<'_, T> {
     pub fn data_mut(&mut self) -> &mut T {
         match &mut self.split_lease {
             Some(lease) => lease.lease_mut().as_mut().downcast_mut().unwrap(),
-            None => self.func_env.as_mut(&mut self.store_mut),
+            None => {
+                let key = self.store_mut.inner as *const StoreInner as usize;
+                // SAFETY: exclusive actual Store borrow, same original frame cell.
+                unsafe { &mut *self.frame.pin().borrow_mut_ptr_for_store(key) }
+                    .downcast_mut()
+                    .unwrap()
+            }
         }
     }
 
@@ -185,6 +293,7 @@ impl<T: Send + 'static> FunctionEnvMut<'_, T> {
         FunctionEnvMut {
             store_mut: self.store_mut.as_store_mut(),
             func_env: self.func_env.clone(),
+            frame: EnvironmentFrame::Borrowed(self.frame.pin()),
             split_lease: self
                 .split_lease
                 .as_mut()
@@ -197,11 +306,10 @@ impl<T: Send + 'static> FunctionEnvMut<'_, T> {
     /// other handles to the same environment reject access during that time.
     pub fn data_and_store_mut(&mut self) -> (&mut T, StoreMut<'_>) {
         if self.split_lease.is_none() {
-            let lease = self
-                .func_env
-                .handle
-                .get_mut(self.store_mut.objects_mut().as_sys_mut())
-                .lend();
+            let key = self.store_mut.inner as *const StoreInner as usize;
+            // SAFETY: same original frame and exclusive Store borrow; no data
+            // reference is live before this new unique split is installed.
+            let lease = unsafe { self.frame.pin().lend_for_store(key) };
             self.split_lease = Some(SplitEnvironmentLease::Owned(lease));
         }
         let data = self
@@ -457,12 +565,18 @@ impl<T: 'static> AsyncFunctionEnvHandleMut<T> {
     /// The data remains lent to this write handle until it is dropped.
     pub fn data_and_store_mut(&mut self) -> (&mut T, &mut impl AsStoreMut) {
         if self.split_lease.is_none() {
-            self.split_lease = Some(
-                self.func_env
-                    .handle
-                    .get_mut(self.write_lock.objects_mut().as_sys_mut())
-                    .lend(),
-            );
+            let view = self.write_lock.as_store_mut();
+            let key = view.inner as *const StoreInner as usize;
+            let owner = self
+                .func_env
+                .identity
+                .lookup(
+                    &self.func_env.handle,
+                    view.as_store_ref().objects().as_sys(),
+                )
+                .expect("function environment is detached or replaced");
+            // SAFETY: exclusive actual Store borrow and attached exact cell.
+            self.split_lease = Some(unsafe { owner.lend_for_store(key) });
         }
         let data = self
             .split_lease
@@ -476,7 +590,16 @@ impl<T: 'static> AsyncFunctionEnvHandleMut<T> {
 
     /// Borrows a new [`FunctionEnvMut`] from this [`AsyncFunctionEnvHandleMut`].
     pub fn as_function_env_mut(&mut self) -> FunctionEnvMut<'_, T> {
+        let key = self.write_lock.as_store_ref().inner as *const StoreInner as usize;
+        let pin = match &self.split_lease {
+            // SAFETY: the exclusive actual Store lock and original unique lease
+            // remain held, including after the old owner slot was removed.
+            Some(lease) => unsafe { lease.pin_for_store(key) },
+            None => self.func_env.pin_for_store(&self.write_lock),
+        }
+        .expect("function environment is detached or on another Store/thread");
         FunctionEnvMut {
+            frame: EnvironmentFrame::Owned(pin),
             store_mut: self.write_lock.as_store_mut(),
             func_env: self.func_env.clone(),
             split_lease: self
@@ -605,6 +728,210 @@ mod split_ownership {
         }
         assert_eq!(write.data_mut().value, 43);
         drop(write);
+        assert_eq!(drops.load(Ordering::SeqCst), 1);
+    }
+
+    #[test]
+    fn an_import_frame_retains_its_original_cell_and_rejects_replaced_callbacks() {
+        for typed in [true, false] {
+            let mut store = Store::default();
+            let drops = Arc::new(AtomicUsize::new(0));
+            let replaced_drops = Arc::new(AtomicUsize::new(0));
+            let calls = Arc::new(AtomicUsize::new(0));
+            let env = crate::FunctionEnv::new(
+                &mut store,
+                State {
+                    value: 7,
+                    drops: drops.clone(),
+                },
+            );
+            let saved = env.clone();
+            let body_calls = calls.clone();
+            let body_drops = drops.clone();
+            let replacement = replaced_drops.clone();
+            let body = move |mut current: crate::FunctionEnvMut<State>| -> i32 {
+                body_calls.fetch_add(1, Ordering::SeqCst);
+                let pin = current.pin_frame().unwrap();
+                {
+                    let mut actual = current.as_store_mut();
+                    // Same-cell callback reentry gets a fresh borrow from the
+                    // deepest actual Store, without borrowing the old T.
+                    let mut nested = pin.try_as_env_mut(&mut actual).unwrap();
+                    nested.data_mut().value += 1;
+                }
+                {
+                    let mut actual = current.as_store_mut();
+                    let mut removed =
+                        VMFunctionEnvironment::list_mut(actual.objects_mut().as_sys_mut())
+                            .pop()
+                            .unwrap();
+                    VMFunctionEnvironment::list_mut(actual.objects_mut().as_sys_mut()).push(
+                        VMFunctionEnvironment::new(State {
+                            value: 99,
+                            drops: replacement.clone(),
+                        }),
+                    );
+                    // The raw owner is Send. Even after leaving Store, none of
+                    // its safe data APIs may race the original live frame.
+                    let rejected = std::thread::spawn(move || {
+                        let read = catch_unwind(AssertUnwindSafe(|| {
+                            let _ = removed.as_ref();
+                        }))
+                        .is_err();
+                        let write = catch_unwind(AssertUnwindSafe(|| {
+                            let _ = removed.as_mut();
+                        }))
+                        .is_err();
+                        let lend = catch_unwind(AssertUnwindSafe(|| removed.lend())).is_err();
+                        let take =
+                            catch_unwind(AssertUnwindSafe(|| removed.into_contents())).is_err();
+                        read && write && lend && take
+                    })
+                    .join()
+                    .unwrap();
+                    assert!(rejected);
+                    assert!(pin.try_as_env_mut(&mut actual).is_none());
+                    assert_eq!(body_drops.load(Ordering::SeqCst), 0);
+                }
+                // Cleanup uses the same held cell despite replacement at its
+                // old index, and derived temporary handles borrow that pin.
+                current.as_mut().data_mut().value += 34;
+                assert_eq!(current.data().value, 42);
+                42
+            };
+            let function = if typed {
+                crate::Function::new_typed_with_env(&mut store, &env, body)
+            } else {
+                crate::Function::new_with_env(
+                    &mut store,
+                    &env,
+                    crate::FunctionType::new([], [crate::Type::I32]),
+                    move |current, _| Ok(vec![crate::Value::I32(body(current))]),
+                )
+            };
+            assert_eq!(
+                &*function.call(&mut store, &[]).unwrap(),
+                &[crate::Value::I32(42)]
+            );
+            assert_eq!(drops.load(Ordering::SeqCst), 1);
+            assert_eq!(calls.load(Ordering::SeqCst), 1);
+            assert!(catch_unwind(AssertUnwindSafe(|| function.call(&mut store, &[]))).is_err());
+            assert!(catch_unwind(AssertUnwindSafe(|| saved.as_ref(&store))).is_err());
+            assert_eq!(
+                calls.load(Ordering::SeqCst),
+                1,
+                "stale callback must not enter its body"
+            );
+            drop(store);
+            assert_eq!(replaced_drops.load(Ordering::SeqCst), 1);
+        }
+    }
+
+    #[test]
+    fn a_frame_pin_rejects_split_callbacks_and_spoofed_store_transplants() {
+        let mut store = Store::default();
+        let drops = Arc::new(AtomicUsize::new(0));
+        let env = FunctionEnv::new(
+            &mut store,
+            State {
+                value: 7,
+                drops: drops.clone(),
+            },
+        );
+        let saved = env.clone();
+        let mut call = env.into_mut(&mut store);
+        let pin = call.pin_frame();
+        {
+            let (data, mut actual) = call.data_and_store_mut();
+            assert!(pin.try_as_env_mut(&mut actual).is_none());
+            data.value += 1;
+        }
+        // Finish the split without releasing the frame's exact allocation.
+        drop(call.split_lease.take());
+        let original_id = call.store_mut.as_store_ref().objects().id();
+        let removed = VMFunctionEnvironment::list_mut(call.objects_mut().as_sys_mut())
+            .pop()
+            .unwrap();
+        // Isolate allocation identity from thread identity: even on this
+        // thread, copying the numeric StoreId cannot retarget a live frame.
+        let mut other = Store::default();
+        other.objects_mut().as_sys_mut().set_id(original_id);
+        VMFunctionEnvironment::list_mut(other.objects_mut().as_sys_mut()).push(removed);
+        let same_thread_read = catch_unwind(AssertUnwindSafe(|| {
+            let _ = saved.as_ref(&other);
+        }))
+        .is_err();
+        let same_thread_write = catch_unwind(AssertUnwindSafe(|| {
+            let _ = saved.as_mut(&mut other);
+        }))
+        .is_err();
+        let same_thread_frame = catch_unwind(AssertUnwindSafe(|| {
+            let _ = saved.clone().into_mut(&mut other);
+        }))
+        .is_err();
+        assert!(pin.try_as_env_mut(&mut other).is_none());
+        let removed = VMFunctionEnvironment::list_mut(other.objects_mut().as_sys_mut())
+            .pop()
+            .unwrap();
+        drop(other);
+        assert!(same_thread_read && same_thread_write && same_thread_frame);
+        let moved_handle = saved.clone();
+        let worker = std::thread::spawn(move || {
+            let mut other = Store::default();
+            other.objects_mut().as_sys_mut().set_id(original_id);
+            VMFunctionEnvironment::list_mut(other.objects_mut().as_sys_mut()).push(removed);
+            let read_rejected = catch_unwind(AssertUnwindSafe(|| {
+                let _ = moved_handle.as_ref(&other);
+            }))
+            .is_err();
+            let write_rejected = catch_unwind(AssertUnwindSafe(|| {
+                let _ = moved_handle.as_mut(&mut other);
+            }))
+            .is_err();
+            let frame_rejected = catch_unwind(AssertUnwindSafe(|| {
+                let _ = moved_handle.into_mut(&mut other);
+            }))
+            .is_err();
+            let owner = VMFunctionEnvironment::list_mut(other.objects_mut().as_sys_mut())
+                .pop()
+                .unwrap();
+            (owner, read_rejected && write_rejected && frame_rejected)
+        });
+        let (owner, rejected) = worker.join().unwrap();
+        assert!(rejected);
+        assert_eq!(drops.load(Ordering::SeqCst), 0);
+        // Rejections must neither poison metadata nor redirect original cleanup.
+        call.data_mut().value += 34;
+        assert_eq!(call.data().value, 42);
+        let other_id = Store::default().as_store_ref().objects().id();
+        call.objects_mut().as_sys_mut().set_id(other_id);
+        assert_eq!(call.as_mut().data().value, 42);
+        drop(owner);
+        drop(call);
+        assert_eq!(drops.load(Ordering::SeqCst), 0);
+        drop(pin);
+        assert_eq!(drops.load(Ordering::SeqCst), 1);
+    }
+
+    #[test]
+    fn an_escaped_frame_pin_owns_no_store_or_safe_data_access() {
+        let mut store = Store::default();
+        let drops = Arc::new(AtomicUsize::new(0));
+        let env = FunctionEnv::new(
+            &mut store,
+            State {
+                value: 42,
+                drops: drops.clone(),
+            },
+        );
+        let call = env.into_mut(&mut store);
+        let pin = call.pin_frame();
+        drop(call);
+        drop(store);
+        assert_eq!(drops.load(Ordering::SeqCst), 0);
+        let mut other = Store::default();
+        assert!(pin.try_as_env_mut(&mut other).is_none());
+        drop(pin);
         assert_eq!(drops.load(Ordering::SeqCst), 1);
     }
 
