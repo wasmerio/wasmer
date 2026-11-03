@@ -960,6 +960,19 @@ pub struct NativeFrameGuard {
     ancestor: WeakNativeInvocation,
 }
 
+impl Drop for NativeFrameGuard {
+    fn drop(&mut self) {
+        let already_unwinding = std::thread::panicking();
+        let mut failures = Vec::new();
+        // Finish every ownership phase before replaying the first panic. A gate
+        // Waker and the final root driver's stack payload can both panic.
+        defer_cleanup(&mut failures, || drop(self.binding.take()));
+        defer_cleanup(&mut failures, || drop(self._gate.take()));
+        defer_cleanup(&mut failures, || drop(self._root.take()));
+        resume_guard_cleanup_panics(failures, already_unwinding);
+    }
+}
+
 impl NativeFrameGuard {
     /// Managed ancestor cancellation, including when no coroutine is current.
     pub fn retirement_error(&self) -> Option<RuntimeError> {
@@ -1042,14 +1055,24 @@ pub(crate) struct NativeStoreLoan {
 
 pub(crate) struct NativeLoanReadGuard {
     pointer: *mut StoreInner,
-    _gate: LocalRwLockReadGuard<()>,
-    _root: NativeRootPin,
+    _gate: Option<LocalRwLockReadGuard<()>>,
+    _root: Option<NativeRootPin>,
 }
 
 pub(crate) struct NativeLoanWriteGuard {
     pointer: *mut StoreInner,
-    _gate: LocalRwLockWriteGuard<()>,
-    _root: NativeRootPin,
+    _gate: Option<LocalRwLockWriteGuard<()>>,
+    _root: Option<NativeRootPin>,
+}
+
+impl Drop for NativeLoanReadGuard {
+    fn drop(&mut self) {
+        let already_unwinding = std::thread::panicking();
+        let mut failures = Vec::new();
+        defer_cleanup(&mut failures, || drop(self._gate.take()));
+        defer_cleanup(&mut failures, || drop(self._root.take()));
+        resume_guard_cleanup_panics(failures, already_unwinding);
+    }
 }
 
 impl NativeLoanReadGuard {
@@ -1057,6 +1080,16 @@ impl NativeLoanReadGuard {
         // SAFETY: the read gate prevents parent resume and mutable children;
         // the pin retains the original guard and the pointer's exact ancestry.
         unsafe { &*self.pointer }
+    }
+}
+
+impl Drop for NativeLoanWriteGuard {
+    fn drop(&mut self) {
+        let already_unwinding = std::thread::panicking();
+        let mut failures = Vec::new();
+        defer_cleanup(&mut failures, || drop(self._gate.take()));
+        defer_cleanup(&mut failures, || drop(self._root.take()));
+        resume_guard_cleanup_panics(failures, already_unwinding);
     }
 }
 
@@ -1109,8 +1142,8 @@ impl NativeStoreLoan {
         let pointer = self.pointer(&root)?;
         Some(NativeLoanReadGuard {
             pointer,
-            _gate: gate,
-            _root: root,
+            _gate: Some(gate),
+            _root: Some(root),
         })
     }
 
@@ -1120,8 +1153,8 @@ impl NativeStoreLoan {
         let pointer = self.pointer(&root)?;
         Some(NativeLoanWriteGuard {
             pointer,
-            _gate: gate,
-            _root: root,
+            _gate: Some(gate),
+            _root: Some(root),
         })
     }
 
@@ -1137,8 +1170,8 @@ impl NativeStoreLoan {
                     let pointer = self.pointer(&root).expect("native Store loan scope ended");
                     Poll::Ready(NativeLoanReadGuard {
                         pointer,
-                        _gate: gate,
-                        _root: root,
+                        _gate: Some(gate),
+                        _root: Some(root),
                     })
                 }
             }
@@ -1158,8 +1191,8 @@ impl NativeStoreLoan {
                     let pointer = self.pointer(&root).expect("native Store loan scope ended");
                     Poll::Ready(NativeLoanWriteGuard {
                         pointer,
-                        _gate: gate,
-                        _root: root,
+                        _gate: Some(gate),
+                        _root: Some(root),
                     })
                 }
             }
@@ -1953,6 +1986,18 @@ fn defer_cleanup(failures: &mut Vec<DeferredPanic>, cleanup: impl FnOnce()) {
     }
 }
 
+// Safe guard disposal also runs while another Rust failure is unwinding.
+// Settle every owned phase first, then preserve that already-active failure.
+fn resume_guard_cleanup_panics(failures: Vec<DeferredPanic>, already_unwinding: bool) {
+    if already_unwinding {
+        for payload in failures {
+            let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| drop(payload)));
+        }
+    } else {
+        resume_cleanup_panics(failures);
+    }
+}
+
 fn resume_cleanup_panics(mut failures: Vec<DeferredPanic>) {
     if !failures.is_empty() {
         let first = failures.remove(0);
@@ -2453,6 +2498,191 @@ mod tests {
         );
         drop(next_scope);
         assert!(StoreContext::is_empty());
+    }
+
+    #[test]
+    fn gate_wake_panics_do_not_skip_last_frame_or_loan_stack_retirement() {
+        if !runtime_subprocess(
+            "backend::sys::async_runtime::tests::gate_wake_panics_do_not_skip_last_frame_or_loan_stack_retirement",
+        ) {
+            return;
+        }
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        thread_local! {
+            static TOKEN: RefCell<Option<WeakNativeInvocation>> = const { RefCell::new(None) };
+            static LOAN: RefCell<Option<StoreAsync>> = const { RefCell::new(None) };
+        }
+        struct StackPanic;
+        struct GateWakePanic;
+        struct OuterPanic;
+        struct Probe(Arc<AtomicUsize>);
+        impl Drop for Probe {
+            fn drop(&mut self) {
+                self.0.fetch_add(1, Ordering::SeqCst);
+                std::panic::panic_any(StackPanic);
+            }
+        }
+        struct WakePanic(AtomicUsize);
+        impl std::task::Wake for WakePanic {
+            fn wake(self: Arc<Self>) {
+                self.wake_by_ref();
+            }
+            fn wake_by_ref(self: &Arc<Self>) {
+                assert!(CoroutineContext::current_root().is_none());
+                self.0.fetch_add(1, Ordering::SeqCst);
+                std::panic::panic_any(GateWakePanic);
+            }
+        }
+        enum Guard {
+            Frame(NativeFrameGuard),
+            Read(NativeLoanReadGuard),
+            Write(NativeLoanWriteGuard),
+        }
+        struct Parent {
+            leaf: Option<crate::TypedFunction<(), i32>>,
+            dropped: Arc<AtomicUsize>,
+        }
+        for case in 0..6 {
+            let kind = case % 3;
+            let outer_unwind = case >= 3;
+            let mut store = Store::default();
+            let drops = Arc::new(AtomicUsize::new(0));
+            let parent = crate::FunctionEnv::new(
+                &mut store,
+                Parent {
+                    leaf: None,
+                    dropped: drops.clone(),
+                },
+            );
+            let pending = Function::new_async(
+                &mut store,
+                crate::FunctionType::new([], [crate::Type::I32]),
+                |_| {
+                    let current = CoroutineContext::current_root().unwrap();
+                    let loan = current_store_loan(current.control.store_id).unwrap();
+                    LOAN.with(|slot| assert!(slot.borrow_mut().replace(loan).is_none()));
+                    std::future::pending::<Result<Vec<Value>, RuntimeError>>()
+                },
+            );
+            let bridge = Function::new_typed_with_env(
+                &mut store,
+                &parent,
+                |mut env: crate::FunctionEnvMut<Parent>| -> Result<i32, RuntimeError> {
+                    TOKEN.with(|slot| {
+                        assert!(
+                            slot.borrow_mut()
+                                .replace(WeakNativeInvocation::current().unwrap())
+                                .is_none()
+                        )
+                    });
+                    let (data, mut store) = env.data_and_store_mut();
+                    let _probe = Probe(data.dropped.clone());
+                    data.leaf.as_ref().unwrap().call(&mut store)
+                },
+            );
+            let module = Module::new(
+                &store,
+                r#"(module
+                (import "proof" "pending" (func $pending (result i32)))
+                (import "proof" "bridge" (func $bridge (result i32)))
+                (func (export "run") (result i32) call $bridge)
+                (func (export "leaf") (result i32) call $pending)
+                (func (export "fresh") (result i32) i32.const 42))"#,
+            )
+            .unwrap();
+            let instance = Instance::new(
+                &mut store,
+                &module,
+                &crate::imports! { "proof" => { "pending" => pending, "bridge" => bridge }},
+            )
+            .unwrap();
+            parent.as_mut(&mut store).leaf =
+                Some(instance.exports.get_typed_function(&store, "leaf").unwrap());
+            let store = store.into_async();
+            let mut call = Box::pin(
+                instance
+                    .exports
+                    .get_function("run")
+                    .unwrap()
+                    .call_async(&store, vec![]),
+            );
+            let noop = futures::task::noop_waker();
+            assert!(
+                call.as_mut()
+                    .poll(&mut Context::from_waker(&noop))
+                    .is_pending()
+            );
+            let token = TOKEN.with(|slot| slot.borrow_mut().take().unwrap());
+            let capability = LOAN.with(|slot| slot.borrow_mut().take().unwrap());
+            let loan = capability.loan.as_ref().unwrap();
+            let (guard, gate) = match kind {
+                0 => {
+                    let frame = unsafe { token.enter_descendant_frame() }.unwrap();
+                    let gate = token
+                        .root
+                        .owner
+                        .upgrade()
+                        .unwrap()
+                        .frame_gate
+                        .get()
+                        .unwrap()
+                        .clone();
+                    (Guard::Frame(frame), gate)
+                }
+                1 => (Guard::Read(loan.try_read().unwrap()), loan.gate.clone()),
+                _ => (Guard::Write(loan.try_write().unwrap()), loan.gate.clone()),
+            };
+            let wakes = Arc::new(WakePanic(AtomicUsize::new(0)));
+            let waker = Waker::from(wakes.clone());
+            let mut writer = Box::pin(gate.write());
+            assert!(
+                writer
+                    .as_mut()
+                    .poll(&mut Context::from_waker(&waker))
+                    .is_pending()
+            );
+            drop(call);
+            assert_eq!(drops.load(Ordering::SeqCst), 0);
+            // The modeled outside frame/loan use has ended before guard release.
+            // Catch each concrete guard Drop so the enum owns no cleanup phase.
+            let panic = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                if outer_unwind {
+                    let _guard = guard;
+                    std::panic::panic_any(OuterPanic);
+                }
+                match guard {
+                    Guard::Frame(value) => drop(value),
+                    Guard::Read(value) => drop(value),
+                    Guard::Write(value) => drop(value),
+                }
+            }))
+            .expect_err("the first panic must propagate after complete stack retirement");
+            if outer_unwind {
+                assert!(
+                    panic.is::<OuterPanic>(),
+                    "guard cleanup replaced the outer panic"
+                );
+            } else {
+                assert!(
+                    panic.is::<GateWakePanic>(),
+                    "last stack panic replaced the first gate wake panic"
+                );
+            }
+            assert_eq!(wakes.0.load(Ordering::SeqCst), 1);
+            assert_eq!(drops.load(Ordering::SeqCst), 1);
+            let Poll::Ready(write) = writer.as_mut().poll(&mut Context::from_waker(&noop)) else {
+                panic!("gate was not released after its Waker panicked");
+            };
+            drop(write);
+            drop(writer);
+            let fresh = instance.exports.get_function("fresh").unwrap();
+            assert_eq!(
+                futures::executor::block_on(fresh.call_async(&store, vec![])).unwrap()[0].i32(),
+                Some(42)
+            );
+            assert!(StoreContext::is_empty());
+            assert!(CoroutineContext::current_root().is_none());
+        }
     }
 
     #[test]
