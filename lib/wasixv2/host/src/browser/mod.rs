@@ -232,6 +232,8 @@ extern "C" {
     fn jspi_supported() -> bool;
     #[wasm_bindgen(catch, js_name = commitWorker)]
     fn commit_worker(id: u32) -> Result<(), JsValue>;
+    #[wasm_bindgen(catch, js_name = emitEvent)]
+    fn js_emit_event(value: JsValue) -> Result<(), JsValue>;
     #[wasm_bindgen(js_name = waitWord)]
     fn js_wait_word(memory: JsValue, address: usize, observed: i32);
     #[wasm_bindgen(js_name = notifyWord)]
@@ -242,6 +244,14 @@ extern "C" {
     fn js_cancel_word_wait(ticket: f64);
     #[wasm_bindgen(js_name = drivePromise)]
     fn js_drive_promise(poll: JsValue) -> js_sys::Promise;
+}
+
+/// Forward an owned structured-clone notification to the embedder. This does not
+/// complete an entry, release an admission or make the current worker idle.
+/// The coordinator attaches the emitting worker's identity for completion fences.
+#[cfg(target_arch = "wasm32")]
+pub fn emit_event(value: JsValue) -> Result<(), JsValue> {
+    js_emit_event(value)
 }
 
 #[cfg(target_arch = "wasm32")]

@@ -93,9 +93,15 @@ struct Completion {
 pub struct Run {
     machine: Arc<Machine>,
     completion: Arc<Completion>,
+    pid: u32,
 }
 
 impl Run {
+    /// Kernel PID of the admitted initial process.
+    pub fn id(&self) -> u32 {
+        self.pid
+    }
+
     /// Wait repeatedly/concurrently for the final kernel exit status.
     pub async fn wait(&self) -> Result<i32, String> {
         let waiter = Waiter::new();
@@ -148,6 +154,7 @@ pub async fn spawn(
     // cannot race an as-yet-uncreated process (kernel/fork.c:kernel_clone and kernel/sched/core.c:wake_up_new_task).
     crate::preflight(&module)?;
     let (task, admission) = machine.start(config).await?;
+    let pid = wasixv2_syscalls::PidView::pid_in(&machine.syscalls.inner, task, task) as u32;
     let completion = Arc::new(Completion::default());
     let output = completion.clone();
     let running = machine.clone();
@@ -176,6 +183,7 @@ pub async fn spawn(
     Ok(Run {
         machine,
         completion,
+        pid,
     })
 }
 
