@@ -488,6 +488,46 @@ impl LinearMemory for VMOwnedMemory {
         self.mmap.grow_at_least(min_size, self.config.clone())
     }
 
+    fn retain_host_allocation(&self) -> Result<HostMemoryAllocation, MemoryError> {
+        if self.config.style != MemoryStyle::Static
+            || self.config.maximum.unwrap_or(Pages::max_value()) > MemoryStyle::static_bound()
+            || !self.host_ranges.lock().unwrap().pin_capable
+        {
+            return Err(host_range_unavailable());
+        }
+        Ok(HostMemoryAllocation::new(self.mmap.alloc.pin_allocation()))
+    }
+
+    fn pin_host_range(&self, range: std::ops::Range<u64>) -> Result<HostMemoryPin, MemoryError> {
+        if self.config.style != MemoryStyle::Static
+            || self.config.maximum.unwrap_or(Pages::max_value()) > MemoryStyle::static_bound()
+        {
+            return Err(host_range_unavailable());
+        }
+        let mut ranges = self.host_ranges.lock().unwrap();
+        let size = self.mmap.size.bytes().0 as u64;
+        if range.start >= range.end
+            || range.end > size
+            || ranges.busy(&range)
+            || !ranges
+                .private
+                .iter()
+                .any(|known| known.start <= range.start && range.end <= known.end)
+        {
+            return Err(host_range_unavailable());
+        }
+        let id = ranges.next_id()?;
+        ranges.pins.push((id, range.clone()));
+        Ok(HostMemoryPin {
+            _allocation: self.mmap.alloc.pin_allocation(),
+            ranges: self.host_ranges.clone(),
+            base: self.mmap.alloc.as_ptr() as usize,
+            id,
+            range,
+            owner: None,
+        })
+    }
+
     /// Resets the memory down to a zero size
     fn reset(&mut self) -> Result<(), MemoryError> {
         let ranges = self.host_ranges.lock().unwrap();
@@ -522,6 +562,8 @@ impl LinearMemory for VMOwnedMemory {
 /// Tokens, rather than this mutex, cover physical mapping operations and callouts.
 #[derive(Debug, Default)]
 struct HostRanges {
+    // Original backing capability; remapped holes still need exact admission.
+    pin_capable: bool,
     next_id: u64,
     private: Vec<std::ops::Range<u64>>,
     pins: Vec<(u64, std::ops::Range<u64>)>,
@@ -531,6 +573,7 @@ struct HostRanges {
 impl HostRanges {
     fn new(private: bool, capacity: u64) -> Self {
         Self {
+            pin_capable: private,
             private: if private {
                 std::iter::once(0..capacity).collect()
             } else {
@@ -637,13 +680,62 @@ fn host_range_unavailable() -> MemoryError {
     }
 }
 
+/// Retains a native static anonymous allocation without access to its bytes or metadata.
+/// This receipt proves lifetime only; it does not exclude physical mapping changes
+/// or make any user-owned external buffer valid beyond its own lifetime contract.
+pub struct HostMemoryAllocation {
+    allocation: Arc<dyn Send + Sync>,
+    // Keep wrapper accounting until the allocation receipt has been released.
+    owner: Option<Arc<dyn Send + Sync>>,
+}
+
+impl std::fmt::Debug for HostMemoryAllocation {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("HostMemoryAllocation")
+            .field("allocation_owners", &self.allocation_owner_count())
+            .finish()
+    }
+}
+
+impl HostMemoryAllocation {
+    fn new(allocation: Arc<dyn Send + Sync>) -> Self {
+        Self {
+            allocation,
+            owner: None,
+        }
+    }
+
+    /// Retains accounting ownership without replacing any existing owner.
+    /// The owner must not retain this receipt, its heap, or a Store.
+    #[doc(hidden)]
+    pub fn retain_owner(
+        &mut self,
+        owner: Arc<dyn Send + Sync>,
+    ) -> Result<(), Arc<dyn Send + Sync>> {
+        if self.owner.is_some() {
+            return Err(owner);
+        }
+        self.owner = Some(owner);
+        Ok(())
+    }
+
+    /// Counts physical allocation owners without consulting VM metadata.
+    #[doc(hidden)]
+    pub fn allocation_owner_count(&self) -> usize {
+        Arc::strong_count(&self.allocation)
+    }
+}
+
 /// Keeps an exact private, writable range of a static allocation mapped until drop.
 ///
 /// Every physical replacement or discard must first obtain a
 /// [`HostMemoryMappingChange`]. Clones of the same memory share this exclusion.
 /// The token owns the allocation; no Store or process lookup is needed to use it.
 pub struct HostMemoryPin {
-    memory: VMSharedMemory,
+    // The allocation is released before an optional accounting owner.
+    _allocation: Arc<dyn Send + Sync>,
+    ranges: Arc<Mutex<HostRanges>>,
+    base: usize,
     id: u64,
     range: std::ops::Range<u64>,
     // Optional wrapper resources, such as the allocation's accounting owner.
@@ -679,9 +771,15 @@ impl HostMemoryPin {
 
     /// The pinned writable host address. Guest accesses may race as usual.
     pub fn as_ptr(&self) -> *mut u8 {
-        let (base, _) = self.memory.host_data().expect("pinned static memory");
         // SAFETY: admission checked the range against this exact static allocation.
-        unsafe { base.add(self.range.start as usize) }
+        // The cached address does not consult VM metadata after its Store dies.
+        unsafe { (self.base as *mut u8).add(self.range.start as usize) }
+    }
+
+    /// Number of owners of these physical bytes, without consulting VM metadata.
+    #[doc(hidden)]
+    pub fn allocation_owner_count(&self) -> usize {
+        Arc::strong_count(&self._allocation)
     }
 
     /// The pinned byte range within the allocation.
@@ -692,7 +790,7 @@ impl HostMemoryPin {
 
 impl Drop for HostMemoryPin {
     fn drop(&mut self) {
-        let mut ranges = self.memory.host_ranges.lock().unwrap();
+        let mut ranges = self.ranges.lock().unwrap();
         let index = ranges
             .pins
             .iter()
@@ -870,7 +968,7 @@ impl VMSharedMemory {
         range: std::ops::Range<u64>,
     ) -> Result<HostMemoryPin, MemoryError> {
         let mut ranges = self.host_ranges.lock().unwrap();
-        let (_, size) = self.host_data().ok_or_else(host_range_unavailable)?;
+        let (base, size) = self.host_data().ok_or_else(host_range_unavailable)?;
         if range.start >= range.end
             || range.end > size
             || ranges.busy(&range)
@@ -884,7 +982,9 @@ impl VMSharedMemory {
         let id = ranges.next_id()?;
         ranges.pins.push((id, range.clone()));
         Ok(HostMemoryPin {
-            memory: self.clone(),
+            _allocation: self.mmap.read().unwrap().alloc.pin_allocation(),
+            ranges: self.host_ranges.clone(),
+            base: base as usize,
             id,
             range,
             owner: None,
@@ -906,7 +1006,7 @@ impl VMSharedMemory {
             return Err(host_range_unavailable());
         }
         let mut ranges = self.host_ranges.lock().unwrap();
-        let (_, size) = self.host_data().ok_or_else(host_range_unavailable)?;
+        let (base, size) = self.host_data().ok_or_else(host_range_unavailable)?;
         if mapping.range.end > size {
             return Err(host_range_unavailable());
         }
@@ -920,7 +1020,9 @@ impl VMSharedMemory {
         ranges.pins.push((id, mapping.range.clone()));
         ranges.changes.swap_remove(index);
         Ok(HostMemoryPin {
-            memory: self.clone(),
+            _allocation: self.mmap.read().unwrap().alloc.pin_allocation(),
+            ranges: self.host_ranges.clone(),
+            base: base as usize,
             id,
             range: mapping.range.clone(),
             owner: None,
@@ -945,6 +1047,22 @@ impl VMSharedMemory {
 }
 
 impl LinearMemory for VMSharedMemory {
+    fn retain_host_allocation(&self) -> Result<HostMemoryAllocation, MemoryError> {
+        if self.config.style != MemoryStyle::Static
+            || self.config.maximum.unwrap_or(Pages::max_value()) > MemoryStyle::static_bound()
+            || !self.host_ranges.lock().unwrap().pin_capable
+        {
+            return Err(host_range_unavailable());
+        }
+        Ok(HostMemoryAllocation::new(
+            self.mmap.read().unwrap().alloc.pin_allocation(),
+        ))
+    }
+
+    fn pin_host_range(&self, range: std::ops::Range<u64>) -> Result<HostMemoryPin, MemoryError> {
+        Self::pin_host_range(self, range)
+    }
+
     /// Returns the type for this memory.
     fn ty(&self) -> MemoryType {
         let minimum = {
@@ -1113,6 +1231,14 @@ impl LinearMemory for VMMemory {
         self.0.begin_host_mapping_change(range)
     }
 
+    fn retain_host_allocation(&self) -> Result<HostMemoryAllocation, MemoryError> {
+        self.0.retain_host_allocation()
+    }
+
+    fn pin_host_range(&self, range: std::ops::Range<u64>) -> Result<HostMemoryPin, MemoryError> {
+        self.0.pin_host_range(range)
+    }
+
     /// Returns the memory style for this memory.
     fn style(&self) -> MemoryStyle {
         self.0.style()
@@ -1272,6 +1398,20 @@ where
         &self,
         _range: std::ops::Range<u64>,
     ) -> Result<HostMemoryMappingChange, MemoryError> {
+        Err(host_range_unavailable())
+    }
+
+    /// Retains only a static anonymous allocation's lifetime, without growing,
+    /// charging, or consulting user callbacks. Unknown implementations fail closed.
+    #[doc(hidden)]
+    fn retain_host_allocation(&self) -> Result<HostMemoryAllocation, MemoryError> {
+        Err(host_range_unavailable())
+    }
+
+    /// Pins exact anonymous private bytes without retaining a Store or VM metadata.
+    /// Unsupported or movable implementations must reject this operation.
+    #[doc(hidden)]
+    fn pin_host_range(&self, _range: std::ops::Range<u64>) -> Result<HostMemoryPin, MemoryError> {
         Err(host_range_unavailable())
     }
 

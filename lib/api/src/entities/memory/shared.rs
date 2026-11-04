@@ -438,6 +438,169 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "sys")]
+    #[test]
+    fn allocation_receipts_reject_unknown_movable_and_file_backing() {
+        use wasmer_types::{MemoryStyle, MemoryType, Pages};
+        use wasmer_vm::{LinearMemory, MemoryError, VMOwnedMemory};
+        #[derive(Debug)]
+        struct Unknown(VMOwnedMemory);
+        impl LinearMemory for Unknown {
+            fn ty(&self) -> MemoryType {
+                self.0.ty()
+            }
+            fn size(&self) -> Pages {
+                self.0.size()
+            }
+            fn style(&self) -> MemoryStyle {
+                self.0.style()
+            }
+            fn grow(&mut self, delta: Pages) -> Result<Pages, MemoryError> {
+                self.0.grow(delta)
+            }
+            fn vmmemory(&self) -> std::ptr::NonNull<wasmer_vm::VMMemoryDefinition> {
+                self.0.vmmemory()
+            }
+            fn try_clone(&self) -> Result<Box<dyn LinearMemory + Send + Sync>, MemoryError> {
+                Err(MemoryError::MemoryNotShared)
+            }
+            fn copy(&self) -> Result<Box<dyn LinearMemory + Send + Sync>, MemoryError> {
+                Err(MemoryError::MemoryNotShared)
+            }
+        }
+        let ty = MemoryType::new(0, Some(4), false);
+        let raw = VMOwnedMemory::new(&ty, &MemoryStyle::Static).unwrap();
+        let mut receipt = raw.retain_host_allocation().unwrap();
+        assert!(
+            receipt.allocation_owner_count() > 1,
+            "even a zero-sized static memory has owned reservation custody"
+        );
+        let first: std::sync::Arc<dyn Send + Sync> = std::sync::Arc::new(());
+        let second: std::sync::Arc<dyn Send + Sync> = std::sync::Arc::new(());
+        assert!(receipt.retain_owner(first).is_ok());
+        let rejected = receipt.retain_owner(second.clone()).unwrap_err();
+        assert!(
+            std::sync::Arc::ptr_eq(&rejected, &second),
+            "an accounting owner must never be silently replaced"
+        );
+        drop(receipt);
+        assert!(
+            Unknown(raw).retain_host_allocation().is_err(),
+            "unknown wrappers fail closed"
+        );
+        let dynamic = VMOwnedMemory::new(
+            &ty,
+            &MemoryStyle::Dynamic {
+                offset_guard_size: 0,
+            },
+        )
+        .unwrap();
+        assert!(dynamic.retain_host_allocation().is_err());
+        let directory = tempfile::tempdir().unwrap();
+        let backing = directory.path().join("backing");
+        std::fs::write(&backing, b"").unwrap();
+        let file_backed = VMOwnedMemory::new_with_file(
+            &MemoryType::new(1, Some(4), false),
+            &MemoryStyle::Static,
+            backing,
+            wasmer_vm::MmapType::Private,
+        )
+        .unwrap();
+        assert!(file_backed.retain_host_allocation().is_err());
+    }
+
+    #[cfg(all(feature = "sys", feature = "wat", feature = "compiler"))]
+    #[test]
+    fn owned_host_pin_outlives_unshared_instance_and_store() {
+        use crate::{FunctionEnv, Imports, Instance, Module, Store};
+        use std::sync::{
+            Arc,
+            atomic::{AtomicUsize, Ordering},
+        };
+        struct ObserveDrop(Arc<AtomicUsize>);
+        impl Drop for ObserveDrop {
+            fn drop(&mut self) {
+                self.0.fetch_add(1, Ordering::SeqCst);
+            }
+        }
+        let dropped = Arc::new(AtomicUsize::new(0));
+        let pin = {
+            let mut store = Store::default();
+            let _env = FunctionEnv::new(&mut store, ObserveDrop(dropped.clone()));
+            let module = Module::new(&store, r#"(module (memory (export "memory") 2 4))"#).unwrap();
+            let instance = Instance::new(&mut store, &module, &Imports::new()).unwrap();
+            let memory = instance.exports.get_memory("memory").unwrap();
+            assert!(
+                memory.as_shared(&store).is_none(),
+                "pinning must not make unshared memory cloneable"
+            );
+            let pin = memory.pin_host_range(&store, 65536..131072).unwrap();
+            // This discriminator runs before the original owner or metadata dies.
+            assert!(
+                pin.allocation_owner_count() > 1,
+                "unshared pin must own its exact mapping"
+            );
+            assert!(
+                memory
+                    .begin_host_mapping_change(&store, 65536..131072)
+                    .is_err()
+            );
+            assert!(memory.reset(&mut store).is_err());
+            memory.grow(&mut store, 1).unwrap();
+            // SAFETY: the pin owns these private bytes; no guest is executing.
+            unsafe {
+                pin.as_ptr().write(42);
+            }
+            pin
+        };
+        assert_eq!(
+            dropped.load(Ordering::SeqCst),
+            1,
+            "a byte pin must not retain user fields or its Store"
+        );
+        std::thread::spawn(move || {
+            // SAFETY: the originating Store is gone; only this token can access the bytes.
+            assert_eq!(unsafe { pin.as_ptr().read() }, 42);
+            assert!(!format!("{pin:?}").contains("memory:"));
+            drop(pin);
+        })
+        .join()
+        .unwrap();
+    }
+
+    #[cfg(feature = "sys")]
+    #[test]
+    fn owned_host_pins_preserve_copy_conversion_and_mapping_exclusion() {
+        use wasmer_types::{MemoryStyle, MemoryType, Pages};
+        use wasmer_vm::LinearMemory as _;
+        let mut raw = wasmer_vm::VMOwnedMemory::new(
+            &MemoryType::new(2, Some(4), false),
+            &MemoryStyle::Static,
+        )
+        .unwrap();
+        let pin = raw.pin_host_range(65536..131072).unwrap();
+        let copy = raw.copy().unwrap();
+        assert!(
+            copy.pin_host_range(65536..131072).is_ok(),
+            "a physical copy has independent exclusions"
+        );
+        raw.grow(Pages(1)).unwrap();
+        assert!(raw.reset().is_err());
+        let mut shared = raw.to_shared();
+        assert!(shared.pin_host_range(65536..131072).is_err());
+        assert!(shared.reset().is_err());
+        drop(pin);
+        shared.reset().unwrap();
+        let dynamic = wasmer_vm::VMOwnedMemory::new(
+            &MemoryType::new(1, Some(4), false),
+            &MemoryStyle::Dynamic {
+                offset_guard_size: 0,
+            },
+        )
+        .unwrap();
+        assert!(dynamic.pin_host_range(0..65536).is_err());
+    }
+
     #[cfg(all(feature = "sys", feature = "wat", feature = "compiler"))]
     #[test]
     fn a_pin_outlives_the_store_of_an_instance_defined_memory() {
