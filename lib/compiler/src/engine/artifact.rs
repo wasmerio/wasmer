@@ -14,24 +14,17 @@ use std::{
 
 #[cfg(feature = "compiler")]
 use crate::ModuleEnvironment;
-#[cfg(feature = "static-artifact-load")]
-use crate::serialize::MetadataHeader;
-#[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
-use crate::types::symbols::ModuleMetadata;
 use crate::{
-    ArtifactBuild, ArtifactBuildFromArchive, ArtifactCreate, Engine, EngineInner, Features,
-    FunctionExtent, GlobalFrameInfoRegistration, InstantiationError, Tunables,
+    ArtifactBuild, ArtifactCreate, Engine, EngineInner, Features, FunctionExtent,
+    GlobalFrameInfoRegistration, InstantiationError, Tunables,
     WASMER_TRAP_FUNCTION_OFFSETS_SECTION_NAME, WASMER_TRAPS_SECTION_NAME,
     engine::{resolver::resolve_tags, trap::register_frame_info_source},
     get_object_for_target, resolve_imports,
-    serialize::SerializableModule,
+    types::module::CompileModuleInfo,
 };
-#[cfg(feature = "static-artifact-create")]
-use crate::{Compiler, FunctionBodyData, ModuleTranslationState, types::module::CompileModuleInfo};
 use itertools::Itertools;
 #[cfg(unix)]
 use std::os::fd::AsRawFd;
-use std::vec::IntoIter;
 #[cfg(feature = "compiler")]
 use wasmer_types::CompilationProgressCallback;
 
@@ -41,14 +34,10 @@ use shared_buffer::OwnedBuffer;
 
 use crate::engine::mapped_binary::DebugInfoSource;
 
-#[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
-use std::mem;
-
 use wasmer_types::{
-    ArchivedDataInitializerLocation, ArchivedOwnedDataInitializer, CompileError, DataInitializer,
-    DataInitializerLike, DataInitializerLocation, DataInitializerLocationLike, DeserializeError,
-    FunctionIndex, LocalFunctionIndex, MemoryIndex, ModuleInfo, OwnedDataInitializer,
-    SerializeError, SignatureIndex, TableIndex, TrapCode, TrapInformation,
+    CompileError, DataInitializer, DataInitializerLike, DeserializeError, FunctionIndex,
+    LocalFunctionIndex, MemoryIndex, ModuleInfo, SerializeError, SignatureIndex, TableIndex,
+    TrapCode, TrapInformation,
     entity::{BoxedSlice, EntityRef, PrimaryMap},
     target::{CpuFeature, Target},
 };
@@ -77,8 +66,6 @@ pub struct AllocatedArtifact {
     finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, FunctionBodyPtr>,
     signatures: BoxedSlice<SignatureIndex, VMSignatureHash>,
     finished_function_lengths: BoxedSlice<LocalFunctionIndex, usize>,
-    // The maximum stack size used for each function (available only for the Singlepass compiler).
-    function_max_stack_usage: BoxedSlice<LocalFunctionIndex, Option<usize>>,
 
     /// Precomputed `VMOffsets` for this artifact's module, cloned by
     /// `Artifact::instantiate` instead of recomputing on every call.
@@ -88,19 +75,16 @@ pub struct AllocatedArtifact {
     /// only mutable field `name` is not a `VMOffsets` input), and the
     /// host's pointer size is a runtime constant.
     ///
-    /// Built once in `from_parts` and in the deserialization path
-    /// (`deserialize_object_native`); `VMOffsets::try_new` was ~9% of
+    /// Built once during native ELF allocation; `VMOffsets::try_new` was ~9% of
     /// `Instance::new` time on profile traces of a per-request wasm
     /// host calling `Module::instantiate` in a tight loop.
     #[cfg_attr(feature = "artifact-size", loupe(skip))]
     vm_offsets: VMOffsets,
 
-    /// The base address the module's code was loaded at, and the raw ELF
-    /// image bytes it was loaded from, when this artifact was built from a
-    /// native ELF image. Used to lazily build DWARF debug info for frame
-    /// symbolication. `None` for non-ELF artifacts.
+    /// The base address and source of the native image. Used to lazily build
+    /// DWARF debug info for frame symbolication.
     #[cfg_attr(feature = "artifact-size", loupe(skip))]
-    elf_image: Option<(usize, DebugInfoSource)>,
+    elf_image: (usize, DebugInfoSource),
 }
 
 impl AllocatedArtifact {
@@ -154,22 +138,12 @@ impl Default for ArtifactId {
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 pub struct Artifact {
     id: ArtifactId,
-    artifact: ArtifactBuildVariant,
+    artifact: ArtifactBuild,
     #[cfg_attr(feature = "artifact-size", loupe(skip))]
     module_file: Option<PathBuf>,
     // The artifact will only be allocated in memory in case we can execute it
     // (that means, if the target != host then this will be None).
     allocated: Option<AllocatedArtifact>,
-}
-
-/// Artifacts may be created as the result of the compilation of a wasm
-/// module, corresponding to `ArtifactBuildVariant::Plain`, or loaded
-/// from an archive, corresponding to `ArtifactBuildVariant::Archived`.
-#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
-#[allow(clippy::large_enum_variant)]
-pub enum ArtifactBuildVariant {
-    Plain(ArtifactBuild),
-    Archived(ArtifactBuildFromArchive),
 }
 
 impl Artifact {
@@ -205,26 +179,12 @@ impl Artifact {
             progress_callback.as_ref(),
         )?;
 
-        Self::from_parts_with_module_file(
-            &mut inner_engine,
-            ArtifactBuildVariant::Plain(artifact),
-            engine.target(),
-            None,
-        )
-        .map_err(|e| match e {
-            DeserializeError::Compiler(c) => c,
-            DeserializeError::Generic(c) => CompileError::Resource(c),
-
-            // `from_parts` only ever returns `CompileError`s when an
-            // `ArtifactBuildVariant::Plain` is passed in. Other cases
-            // of `DeserializeError` can only happen when an
-            // `ArtifactBuildVariant::Archived` is passed in. We don't
-            // wish to change the return type of this method because
-            // a. it makes no sense and b. it would be a breaking change,
-            // hence this match block and the other cases being
-            // unreachable.
-            _ => unreachable!(),
-        })
+        Self::from_parts_with_module_file(&mut inner_engine, artifact, engine.target(), None)
+            .map_err(|e| match e {
+                DeserializeError::Compiler(c) => c,
+                DeserializeError::Generic(c) => CompileError::Resource(c),
+                other => CompileError::Codegen(other.to_string()),
+            })
     }
 
     /// This indicates if the Artifact is allocated and can be run by the current
@@ -253,7 +213,7 @@ impl Artifact {
 
     /// Load a native artifact directly from a file-backed memory map.
     ///
-    /// Unlike [`Self::deserialize`], this entrypoint only accepts ELF or Mach-O artifacts.
+    /// Like [`Self::deserialize`], this entrypoint only accepts ELF or Mach-O artifacts.
     ///
     /// # Safety
     /// This function loads executable code into memory. The file must be trusted
@@ -288,9 +248,12 @@ impl Artifact {
                     "cannot load ModuleInfo section data: {e}"
                 ))
             })?;
-        let serializable = unsafe { SerializableModule::deserialize(module_info)? };
+        let compile_info = CompileModuleInfo::deserialize(module_info)?;
 
-        let artifact = ArtifactBuildVariant::Plain(ArtifactBuild::from_serializable(serializable));
+        let artifact = ArtifactBuild {
+            compilation: Vec::new(),
+            compile_info,
+        };
         let mut inner_engine = engine.inner_mut();
         Self::from_parts_with_module_file(&mut inner_engine, artifact, engine.target(), Some(path))
     }
@@ -317,10 +280,22 @@ impl Artifact {
         Ok(())
     }
 
-    /// Deserialize an ELF artifact held in memory, if the bytes contain one.
-    fn deserialize_elf(engine: &Engine, bytes: &[u8]) -> Result<Option<Self>, DeserializeError> {
+    /// Deserialize a native ELF or Mach-O artifact.
+    ///
+    /// # Safety
+    /// This function loads executable code into memory.
+    /// You must trust the loaded bytes to be valid for the chosen engine and
+    /// for the host CPU architecture.
+    /// The artifact layout is validated before loading.
+    pub unsafe fn deserialize(
+        engine: &Engine,
+        bytes: OwnedBuffer,
+    ) -> Result<Self, DeserializeError> {
+        let bytes = bytes.as_ref();
         if !ArtifactBuild::is_deserializable(bytes) {
-            return Ok(None);
+            return Err(DeserializeError::Incompatible(
+                "The provided bytes are not a native Wasmer ELF or Mach-O artifact".to_string(),
+            ));
         }
 
         let image = object::File::parse(bytes)
@@ -338,36 +313,13 @@ impl Artifact {
                     "cannot load ModuleInfo section data: {e}"
                 ))
             })?;
-        let mut serializable = unsafe { SerializableModule::deserialize(module_info)? };
-        // The copy embedded in the image has an empty placeholder to avoid
-        // embedding the image in itself. Restore it for allocation and reserialization.
-        serializable.compilation = bytes.to_vec();
-
-        let artifact = ArtifactBuildVariant::Plain(ArtifactBuild::from_serializable(serializable));
+        let compile_info = CompileModuleInfo::deserialize(module_info)?;
+        let artifact = ArtifactBuild {
+            compilation: bytes.to_vec(),
+            compile_info,
+        };
         let mut inner_engine = engine.inner_mut();
-        Self::from_parts(&mut inner_engine, artifact, engine.target()).map(Some)
-    }
-
-    /// Deserialize a serialized artifact.
-    ///
-    /// # Safety
-    /// This function loads executable code into memory.
-    /// You must trust the loaded bytes to be valid for the chosen engine and
-    /// for the host CPU architecture.
-    /// The artifact layout is validated before loading.
-    pub unsafe fn deserialize(
-        engine: &Engine,
-        bytes: OwnedBuffer,
-    ) -> Result<Self, DeserializeError> {
-        if let Some(artifact) = Self::deserialize_elf(engine, bytes.as_ref())? {
-            return Ok(artifact);
-        }
-
-        unsafe { Self::deserialize_object(engine, bytes) }.map_err(|e| {
-            DeserializeError::Incompatible(format!(
-                "The provided bytes are not a Wasmer engine artifact: {e}"
-            ))
-        })
+        Self::from_parts(&mut inner_engine, artifact, engine.target())
     }
 
     /// Deserialize a serialized artifact.
@@ -387,7 +339,7 @@ impl Artifact {
     /// Construct a `ArtifactBuild` from component parts.
     pub fn from_parts(
         engine_inner: &mut EngineInner,
-        artifact: ArtifactBuildVariant,
+        artifact: ArtifactBuild,
         target: &Target,
     ) -> Result<Self, DeserializeError> {
         Self::from_parts_with_module_file(engine_inner, artifact, target, None)
@@ -395,7 +347,7 @@ impl Artifact {
 
     fn from_parts_with_module_file(
         engine_inner: &mut EngineInner,
-        artifact: ArtifactBuildVariant,
+        artifact: ArtifactBuild,
         target: &Target,
         module_file: Option<PathBuf>,
     ) -> Result<Self, DeserializeError> {
@@ -418,37 +370,12 @@ impl Artifact {
         }
         let module_info = artifact.module_info();
 
-        let elf_file_data = match &artifact {
-            ArtifactBuildVariant::Plain(p) => p.serializable.compilation.as_slice(),
-            ArtifactBuildVariant::Archived(a) => a.get_elf_file(),
-        };
-        let mut allocated = if let Some(module_file) = module_file.as_ref() {
+        let elf_file_data = artifact.compilation.as_slice();
+        let allocated = if let Some(module_file) = module_file.as_ref() {
             Self::allocate_elf_artifact_from_path(engine_inner, module_info, module_file)?
         } else {
             Self::allocate_elf_artifact(engine_inner, module_info, elf_file_data)?
         };
-
-        // ELF allocation recovers function addresses from the linked image, but
-        // maximum stack usage is compile metadata rather than an ELF property.
-        // Preserve it from the metadata embedded in the artifact.
-        if allocated.elf_image.is_some() {
-            allocated.function_max_stack_usage = match &artifact {
-                ArtifactBuildVariant::Plain(p) => p
-                    .get_function_max_stack_usage()
-                    .expect("function stack usage metadata expected")
-                    .values()
-                    .cloned()
-                    .collect::<PrimaryMap<LocalFunctionIndex, _>>()
-                    .into_boxed_slice(),
-                ArtifactBuildVariant::Archived(a) => a
-                    .get_function_max_stack_usage()
-                    .expect("function stack usage metadata expected")
-                    .values()
-                    .cloned()
-                    .collect::<PrimaryMap<LocalFunctionIndex, _>>()
-                    .into_boxed_slice(),
-            };
-        }
 
         let mut artifact = Self {
             id: Default::default(),
@@ -457,9 +384,7 @@ impl Artifact {
             allocated: Some(allocated),
         };
 
-        artifact
-            .internal_register_frame_info()
-            .map_err(|e| DeserializeError::CorruptedBinary(format!("{e:?}")))?;
+        artifact.internal_register_frame_info();
         if let Some(frame_info) = artifact.internal_take_frame_info_registration() {
             engine_inner.register_elf_frame_info(frame_info);
         }
@@ -677,11 +602,6 @@ impl Artifact {
             .into_boxed_slice();
         let finished_function_lengths =
             PrimaryMap::<LocalFunctionIndex, _>::from_iter(local_fn_sizes).into_boxed_slice();
-        let function_max_stack_usage = finished_functions
-            .iter()
-            .map(|_| None)
-            .collect::<PrimaryMap<LocalFunctionIndex, Option<usize>>>()
-            .into_boxed_slice();
 
         let vm_offsets = VMOffsets::try_new(std::mem::size_of::<usize>() as u8, module_info)
             .map_err(DeserializeError::Generic)?;
@@ -695,8 +615,7 @@ impl Artifact {
             signatures,
             finished_function_lengths,
             vm_offsets,
-            function_max_stack_usage,
-            elf_image: Some((base as usize, debug_info)),
+            elf_image: (base as usize, debug_info),
         })
     }
 
@@ -723,9 +642,9 @@ impl std::fmt::Debug for Artifact {
 }
 
 impl<'a> ArtifactCreate<'a> for Artifact {
-    type OwnedDataInitializer = <ArtifactBuildVariant as ArtifactCreate<'a>>::OwnedDataInitializer;
+    type OwnedDataInitializer = <ArtifactBuild as ArtifactCreate<'a>>::OwnedDataInitializer;
     type OwnedDataInitializerIterator =
-        <ArtifactBuildVariant as ArtifactCreate<'a>>::OwnedDataInitializerIterator;
+        <ArtifactBuild as ArtifactCreate<'a>>::OwnedDataInitializerIterator;
 
     fn set_module_info_name(&mut self, name: String) -> bool {
         self.artifact.set_module_info_name(name)
@@ -769,194 +688,28 @@ impl<'a> ArtifactCreate<'a> for Artifact {
     }
 }
 
-impl<'a> ArtifactCreate<'a> for ArtifactBuildVariant {
-    type OwnedDataInitializer = OwnedDataInitializerVariant<'a>;
-    type OwnedDataInitializerIterator = IntoIter<Self::OwnedDataInitializer>;
-
-    fn create_module_info(&self) -> Arc<ModuleInfo> {
-        match self {
-            Self::Plain(artifact) => artifact.create_module_info(),
-            Self::Archived(artifact) => artifact.create_module_info(),
-        }
-    }
-
-    fn set_module_info_name(&mut self, name: String) -> bool {
-        match self {
-            Self::Plain(artifact) => artifact.set_module_info_name(name),
-            Self::Archived(artifact) => artifact.set_module_info_name(name),
-        }
-    }
-
-    fn module_info(&self) -> &ModuleInfo {
-        match self {
-            Self::Plain(artifact) => artifact.module_info(),
-            Self::Archived(artifact) => artifact.module_info(),
-        }
-    }
-
-    fn features(&self) -> &Features {
-        match self {
-            Self::Plain(artifact) => artifact.features(),
-            Self::Archived(artifact) => artifact.features(),
-        }
-    }
-
-    fn cpu_features(&self) -> EnumSet<CpuFeature> {
-        match self {
-            Self::Plain(artifact) => artifact.cpu_features(),
-            Self::Archived(artifact) => artifact.cpu_features(),
-        }
-    }
-
-    fn memory_styles(&self) -> &PrimaryMap<MemoryIndex, MemoryStyle> {
-        match self {
-            Self::Plain(artifact) => artifact.memory_styles(),
-            Self::Archived(artifact) => artifact.memory_styles(),
-        }
-    }
-
-    fn table_styles(&self) -> &PrimaryMap<TableIndex, TableStyle> {
-        match self {
-            Self::Plain(artifact) => artifact.table_styles(),
-            Self::Archived(artifact) => artifact.table_styles(),
-        }
-    }
-
-    fn data_initializers(&'a self) -> Self::OwnedDataInitializerIterator {
-        match self {
-            Self::Plain(artifact) => artifact
-                .data_initializers()
-                .map(OwnedDataInitializerVariant::Plain)
-                .collect::<Vec<_>>()
-                .into_iter(),
-            Self::Archived(artifact) => artifact
-                .data_initializers()
-                .map(OwnedDataInitializerVariant::Archived)
-                .collect::<Vec<_>>()
-                .into_iter(),
-        }
-    }
-
-    fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
-        match self {
-            Self::Plain(artifact) => artifact.serialize(),
-            Self::Archived(artifact) => artifact.serialize(),
-        }
-    }
-}
-
-#[derive(Clone, Copy)]
-pub enum OwnedDataInitializerVariant<'a> {
-    Plain(&'a OwnedDataInitializer),
-    Archived(&'a ArchivedOwnedDataInitializer),
-}
-
-impl<'a> DataInitializerLike<'a> for OwnedDataInitializerVariant<'a> {
-    type Location = DataInitializerLocationVariant<'a>;
-
-    fn location(&self) -> Self::Location {
-        match self {
-            Self::Plain(plain) => DataInitializerLocationVariant::Plain(plain.location()),
-            Self::Archived(archived) => {
-                DataInitializerLocationVariant::Archived(archived.location())
-            }
-        }
-    }
-
-    fn data(&self) -> &'a [u8] {
-        match self {
-            Self::Plain(plain) => plain.data(),
-            Self::Archived(archived) => archived.data(),
-        }
-    }
-}
-
-#[derive(Clone, Copy)]
-pub enum DataInitializerLocationVariant<'a> {
-    Plain(&'a DataInitializerLocation),
-    Archived(&'a ArchivedDataInitializerLocation),
-}
-
-impl DataInitializerLocationVariant<'_> {
-    pub fn clone_to_plain(&self) -> DataInitializerLocation {
-        match self {
-            Self::Plain(p) => (*p).clone(),
-            Self::Archived(a) => DataInitializerLocation {
-                memory_index: a.memory_index(),
-                offset_expr: a.offset_expr(),
-            },
-        }
-    }
-}
-
-impl DataInitializerLocationLike for DataInitializerLocationVariant<'_> {
-    fn memory_index(&self) -> MemoryIndex {
-        match self {
-            Self::Plain(plain) => plain.memory_index(),
-            Self::Archived(archived) => archived.memory_index(),
-        }
-    }
-
-    fn offset_expr(&self) -> wasmer_types::InitExpr {
-        match self {
-            Self::Plain(plain) => plain.offset_expr(),
-            Self::Archived(archived) => archived.offset_expr(),
-        }
-    }
-}
-
 impl Artifact {
-    fn internal_register_frame_info(&mut self) -> Result<(), DeserializeError> {
+    fn internal_register_frame_info(&mut self) {
         if self
             .allocated
             .as_ref()
             .expect("It must be allocated")
             .frame_info_registered
         {
-            return Ok(()); // already done
+            return; // already done
         }
 
         // Native artifacts get symbolicated from lazily loaded DWARF debug info.
-        let elf_image = self
-            .allocated
-            .as_ref()
-            .expect("It must be allocated")
-            .elf_image
-            .clone();
-
-        if elf_image.is_some() {
-            let finished_function_extents = self
-                .allocated
-                .as_ref()
-                .expect("It must be allocated")
-                .function_extents()
-                .into_boxed_slice();
-
-            let (image_base, elf_data) = match elf_image {
-                Some((base, data)) => (base, Some(data)),
-                None => (0, None),
-            };
-
-            let frame_info_registration = &mut self
-                .allocated
-                .as_mut()
-                .expect("It must be allocated")
-                .frame_info_registration;
-
-            *frame_info_registration = register_frame_info_source(
-                self.artifact.create_module_info(),
-                &finished_function_extents,
-                image_base,
-                elf_data,
-            );
-        }
-
-        self.allocated
-            .as_mut()
-            .expect("It must be allocated")
-            .frame_info_registered = true;
-
-        Ok(())
+        let allocated = self.allocated.as_mut().expect("It must be allocated");
+        let finished_function_extents = allocated.function_extents().into_boxed_slice();
+        let (image_base, elf_data) = &allocated.elf_image;
+        allocated.frame_info_registration = register_frame_info_source(
+            self.artifact.create_module_info(),
+            &finished_function_extents,
+            *image_base,
+            Some(elf_data.clone()),
+        );
+        allocated.frame_info_registered = true;
     }
 
     fn internal_take_frame_info_registration(&mut self) -> Option<GlobalFrameInfoRegistration> {
@@ -1000,11 +753,18 @@ impl Artifact {
         &self,
     ) -> Option<Vec<(LocalFunctionIndex, Option<usize>)>> {
         let allocated = self.allocated.as_ref()?;
+        let stack_usage = self.artifact.get_function_max_stack_usage();
         Some(
             allocated
-                .function_max_stack_usage
-                .into_iter()
-                .map(|f| (f.0, *f.1))
+                .finished_functions
+                .iter()
+                .map(|(index, _)| {
+                    let usage = stack_usage
+                        .and_then(|usage| usage.get(index))
+                        .copied()
+                        .flatten();
+                    (index, usage)
+                })
                 .collect(),
         )
     }
@@ -1166,284 +926,13 @@ impl Artifact {
             let data_initializers = self
                 .data_initializers()
                 .map(|init| DataInitializer {
-                    location: init.location().clone_to_plain(),
+                    location: init.location().clone(),
                     data: init.data(),
                 })
                 .collect::<Vec<_>>();
             handle
                 .finish_instantiation(config, trap_handler, &data_initializers)
                 .map_err(InstantiationError::Start)
-        }
-    }
-
-    #[allow(clippy::type_complexity)]
-    #[cfg(feature = "static-artifact-create")]
-    /// Generate a compilation
-    pub fn generate_metadata<'data>(
-        data: &'data [u8],
-        compiler: &dyn Compiler,
-        tunables: &dyn Tunables,
-        features: &Features,
-    ) -> Result<
-        (
-            CompileModuleInfo,
-            PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
-            Vec<DataInitializer<'data>>,
-            Option<ModuleTranslationState>,
-        ),
-        CompileError,
-    > {
-        let environ = ModuleEnvironment::new();
-        let translation = environ.translate(data).map_err(CompileError::Wasm)?;
-
-        // We try to apply the middleware first
-        use crate::translator::ModuleMiddlewareChain;
-        let mut module = translation.module;
-        let middlewares = compiler.get_middlewares();
-        middlewares
-            .apply_on_module_info(&mut module)
-            .map_err(|e| CompileError::MiddlewareError(e.to_string()))?;
-
-        let memory_styles: PrimaryMap<MemoryIndex, MemoryStyle> = module
-            .memories
-            .values()
-            .map(|memory_type| tunables.memory_style(memory_type))
-            .collect();
-        let table_styles: PrimaryMap<TableIndex, TableStyle> = module
-            .tables
-            .values()
-            .map(|table_type| tunables.table_style(table_type))
-            .collect();
-
-        module.m0_pass_param_enabled = compiler.m0_pass_param_enabled(&memory_styles);
-        let compile_info = CompileModuleInfo {
-            module: Arc::new(module),
-            features: features.clone(),
-            memory_styles,
-            table_styles,
-            function_max_stack_usage: PrimaryMap::new(),
-        };
-        Ok((
-            compile_info,
-            translation.function_body_inputs,
-            translation.data_initializers,
-            translation.module_translation_state,
-        ))
-    }
-
-    /// Generate the metadata object for the module
-    #[cfg(feature = "static-artifact-create")]
-    #[allow(clippy::type_complexity)]
-    pub fn metadata<'a>(
-        compiler: &dyn Compiler,
-        data: &'a [u8],
-        metadata_prefix: Option<&str>,
-        target: &Target,
-        tunables: &dyn Tunables,
-        features: &Features,
-    ) -> Result<
-        (
-            ModuleMetadata,
-            Option<ModuleTranslationState>,
-            PrimaryMap<LocalFunctionIndex, FunctionBodyData<'a>>,
-        ),
-        CompileError,
-    > {
-        #[allow(dead_code)]
-        let (compile_info, function_body_inputs, data_initializers, module_translation) =
-            Self::generate_metadata(data, compiler, tunables, features)?;
-
-        let data_initializers = data_initializers
-            .iter()
-            .map(OwnedDataInitializer::new)
-            .collect::<Vec<_>>()
-            .into_boxed_slice();
-
-        // TODO: we currently supply all-zero function body lengths.
-        // We don't know the lengths until they're compiled, yet we have to
-        // supply the metadata as an input to the compile.
-        let function_body_lengths = function_body_inputs
-            .keys()
-            .map(|_function_body| 0u64)
-            .collect::<PrimaryMap<LocalFunctionIndex, u64>>();
-
-        let metadata = ModuleMetadata {
-            compile_info,
-            prefix: metadata_prefix.map(|s| s.to_string()).unwrap_or_default(),
-            data_initializers,
-            function_body_lengths,
-            cpu_features: target.cpu_features().as_u64(),
-        };
-
-        Ok((metadata, module_translation, function_body_inputs))
-    }
-    /// Deserialize a ArtifactBuild from an object file
-    ///
-    /// # Safety
-    /// The object must be a valid static object generated by wasmer.
-    #[cfg(not(feature = "static-artifact-load"))]
-    pub unsafe fn deserialize_object(
-        _engine: &Engine,
-        _bytes: OwnedBuffer,
-    ) -> Result<Self, DeserializeError> {
-        Err(DeserializeError::Compiler(
-            CompileError::UnsupportedFeature("static load is not compiled in".to_string()),
-        ))
-    }
-    #[cfg(feature = "static-artifact-load")]
-    fn get_byte_slice(input: &[u8], start: usize, end: usize) -> Result<&[u8], DeserializeError> {
-        if (start == end && input.len() > start)
-            || (start < end && input.len() > start && input.len() >= end)
-        {
-            Ok(&input[start..end])
-        } else {
-            Err(DeserializeError::InvalidByteLength {
-                expected: end - start,
-                got: input.len(),
-            })
-        }
-    }
-
-    /// Deserialize a ArtifactBuild from an object file
-    ///
-    /// # Safety
-    /// The object must be a valid static object generated by wasmer.
-    #[cfg(feature = "static-artifact-load")]
-    pub unsafe fn deserialize_object(
-        engine: &Engine,
-        bytes: OwnedBuffer,
-    ) -> Result<Self, DeserializeError> {
-        unsafe {
-            let bytes = bytes.as_slice();
-            let metadata_len = MetadataHeader::parse(bytes)?;
-            let metadata_slice = Self::get_byte_slice(bytes, MetadataHeader::LEN, bytes.len())?;
-            let metadata_slice = Self::get_byte_slice(metadata_slice, 0, metadata_len)?;
-            let metadata: ModuleMetadata = ModuleMetadata::deserialize(metadata_slice)?;
-
-            const WORD_SIZE: usize = mem::size_of::<usize>();
-            let mut byte_buffer = [0u8; WORD_SIZE];
-
-            let mut cur_offset = MetadataHeader::LEN + metadata_len;
-
-            let byte_buffer_slice =
-                Self::get_byte_slice(bytes, cur_offset, cur_offset + WORD_SIZE)?;
-            byte_buffer[0..WORD_SIZE].clone_from_slice(byte_buffer_slice);
-            cur_offset += WORD_SIZE;
-
-            let num_finished_functions = usize::from_ne_bytes(byte_buffer);
-            let mut finished_functions: PrimaryMap<LocalFunctionIndex, FunctionBodyPtr> =
-                PrimaryMap::new();
-
-            let engine_inner = engine.inner();
-            let signature_registry = engine_inner.signatures();
-
-            // read finished functions in order now...
-            for _i in 0..num_finished_functions {
-                let byte_buffer_slice =
-                    Self::get_byte_slice(bytes, cur_offset, cur_offset + WORD_SIZE)?;
-                byte_buffer[0..WORD_SIZE].clone_from_slice(byte_buffer_slice);
-                let fp = FunctionBodyPtr(usize::from_ne_bytes(byte_buffer) as _);
-                cur_offset += WORD_SIZE;
-
-                // TODO: we can read back the length here if we serialize it. This will improve debug output.
-                finished_functions.push(fp);
-            }
-
-            // We register all the signatures
-            let signatures = {
-                let module = &metadata.compile_info.module;
-                module
-                    .signatures
-                    .values()
-                    .zip(module.signature_hashes.values())
-                    .map(|(sig, sig_hash)| signature_registry.register(sig, *sig_hash))
-                    .collect::<PrimaryMap<_, _>>()
-            };
-
-            // read trampolines in order
-            let mut finished_function_call_trampolines = PrimaryMap::new();
-
-            let byte_buffer_slice =
-                Self::get_byte_slice(bytes, cur_offset, cur_offset + WORD_SIZE)?;
-            byte_buffer[0..WORD_SIZE].clone_from_slice(byte_buffer_slice);
-            cur_offset += WORD_SIZE;
-            let num_function_trampolines = usize::from_ne_bytes(byte_buffer);
-            for _ in 0..num_function_trampolines {
-                let byte_buffer_slice =
-                    Self::get_byte_slice(bytes, cur_offset, cur_offset + WORD_SIZE)?;
-                byte_buffer[0..WORD_SIZE].clone_from_slice(byte_buffer_slice);
-                cur_offset += WORD_SIZE;
-                let trampoline_ptr_bytes = usize::from_ne_bytes(byte_buffer);
-                let trampoline = mem::transmute::<usize, VMTrampoline>(trampoline_ptr_bytes);
-                finished_function_call_trampolines.push(trampoline);
-                // TODO: we can read back the length here if we serialize it. This will improve debug output.
-            }
-
-            // read dynamic function trampolines in order now...
-            let mut finished_dynamic_function_trampolines = PrimaryMap::new();
-            let byte_buffer_slice =
-                Self::get_byte_slice(bytes, cur_offset, cur_offset + WORD_SIZE)?;
-            byte_buffer[0..WORD_SIZE].clone_from_slice(byte_buffer_slice);
-            cur_offset += WORD_SIZE;
-            let num_dynamic_trampoline_functions = usize::from_ne_bytes(byte_buffer);
-            for _i in 0..num_dynamic_trampoline_functions {
-                let byte_buffer_slice =
-                    Self::get_byte_slice(bytes, cur_offset, cur_offset + WORD_SIZE)?;
-                byte_buffer[0..WORD_SIZE].clone_from_slice(byte_buffer_slice);
-                let fp = FunctionBodyPtr(usize::from_ne_bytes(byte_buffer) as _);
-                cur_offset += WORD_SIZE;
-
-                // TODO: we can read back the length here if we serialize it. This will improve debug output.
-
-                finished_dynamic_function_trampolines.push(fp);
-            }
-
-            let artifact = ArtifactBuild::from_serializable(SerializableModule {
-                compilation: Vec::new(),
-                compile_info: metadata.compile_info,
-                data_initializers: metadata.data_initializers,
-                cpu_features: metadata.cpu_features,
-            });
-
-            let finished_function_lengths = finished_functions
-                .values()
-                .map(|_| 0)
-                .collect::<PrimaryMap<LocalFunctionIndex, usize>>()
-                .into_boxed_slice();
-            let function_max_stack_usage = finished_functions
-                .iter()
-                .map(|_| None)
-                .collect::<PrimaryMap<LocalFunctionIndex, Option<usize>>>()
-                .into_boxed_slice();
-
-            // Variant is built first so its module_info is available for
-            // the cached VMOffsets before it is moved into Self.
-            let artifact_variant = ArtifactBuildVariant::Plain(artifact);
-            let vm_offsets = VMOffsets::try_new(
-                std::mem::size_of::<usize>() as u8,
-                artifact_variant.module_info(),
-            )
-            .map_err(DeserializeError::Generic)?;
-
-            Ok(Self {
-                id: Default::default(),
-                artifact: artifact_variant,
-                module_file: None,
-                allocated: Some(AllocatedArtifact {
-                    frame_info_registered: false,
-                    frame_info_registration: None,
-                    finished_functions: finished_functions.into_boxed_slice(),
-                    finished_function_call_trampolines: finished_function_call_trampolines
-                        .into_boxed_slice(),
-                    finished_dynamic_function_trampolines: finished_dynamic_function_trampolines
-                        .into_boxed_slice(),
-                    signatures: signatures.into_boxed_slice(),
-                    finished_function_lengths,
-                    vm_offsets,
-                    function_max_stack_usage,
-                    elf_image: None,
-                }),
-            })
         }
     }
 }

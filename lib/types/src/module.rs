@@ -104,7 +104,7 @@ mod serde_imports {
 /// memory initializers.
 ///
 /// IMPORTANT: since this struct will be serialized as part of the compiled module artifact,
-/// if you change this struct, do not forget to update [`MetadataHeader::version`](crate::serialize::MetadataHeader)
+/// if you change this struct, do not forget to update [`ARTIFACT_VERSION`](crate::ARTIFACT_VERSION)
 /// to make sure we don't break compatibility between versions.
 #[derive(Debug, Clone, Default)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]

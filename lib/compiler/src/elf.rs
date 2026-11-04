@@ -18,9 +18,7 @@ use object::{
     },
 };
 use std::path::PathBuf;
-use wasmer_types::{
-    CompileError, LibCall, LocalFunctionIndex, TrapInformation, entity::PrimaryMap, target::Target,
-};
+use wasmer_types::{CompileError, LibCall, LocalFunctionIndex, TrapInformation, target::Target};
 use wasmer_types::{FunctionIndex, FunctionType};
 
 /// Serialized relocatable object and the unit's maximum stack usage, when known.
@@ -360,9 +358,8 @@ pub fn link_module(
     dynamic_trampoline_objects: Vec<CompileOutput>,
     debug_dir: Option<PathBuf>,
     module_hash: Option<String>,
-    function_max_stack_usage: PrimaryMap<LocalFunctionIndex, Option<usize>>,
 ) -> Result<Compilation, CompileError> {
-    let elf = emit_metadata_and_link(
+    emit_metadata_and_link(
         pool,
         target,
         compile_info_blob,
@@ -375,9 +372,5 @@ pub fn link_module(
         },
         debug_dir,
         module_hash,
-    )?;
-    Ok(Compilation {
-        data: elf,
-        function_max_stack_usage,
-    })
+    )
 }

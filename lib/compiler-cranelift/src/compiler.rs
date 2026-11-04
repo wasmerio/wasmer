@@ -33,7 +33,7 @@ use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use std::sync::Arc;
 use wasmer_compiler::WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE;
 use wasmer_compiler::elf::CompileOutput;
-use wasmer_compiler::types::function::Compilation;
+use wasmer_compiler::types::{function::Compilation, module::CompileModuleInfo};
 
 use wasmer_compiler::progress::ProgressContext;
 #[cfg(feature = "unwind")]
@@ -43,7 +43,6 @@ use wasmer_compiler::{
     ModuleMiddlewareChain, ModuleTranslationState, WasmSourceMap,
     types::{
         function::{CompiledFunction, CompiledFunctionFrameInfo, FunctionBody},
-        module::CompileModuleInfo,
         relocation::{Relocation, RelocationTarget},
     },
 };
@@ -99,8 +98,7 @@ impl CraneliftCompiler {
     fn compile_module_internal(
         &self,
         target: &Target,
-        compile_info: &CompileModuleInfo,
-        compile_info_blob: &[u8],
+        compile_info: &mut CompileModuleInfo,
         module_translation_state: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         progress_callback: Option<&CompilationProgressCallback>,
@@ -472,10 +470,15 @@ impl CraneliftCompiler {
             })
             .collect::<Result<Vec<_>, CompileError>>()?;
 
-        wasmer_compiler::elf::link_module(
+        let module_hash = module.hash_string();
+        compile_info.function_max_stack_usage = function_max_stack_usage;
+        let compile_info_blob = compile_info.serialize().map_err(|e| {
+            CompileError::Codegen(format!("cannot serialize CompileModuleInfo: {e}"))
+        })?;
+        let compilation = wasmer_compiler::elf::link_module(
             &pool,
             target,
-            compile_info_blob,
+            &compile_info_blob,
             object_files,
             Vec::new(),
             trampoline_objects,
@@ -484,9 +487,9 @@ impl CraneliftCompiler {
                 .callbacks
                 .as_ref()
                 .map(|callbacks| callbacks.debug_dir().clone()),
-            module.hash().map(|hash| hash.to_string()),
-            function_max_stack_usage,
-        )
+            module_hash,
+        )?;
+        Ok(compilation)
     }
 }
 
@@ -539,8 +542,7 @@ impl Compiler for CraneliftCompiler {
     fn compile_module(
         &self,
         target: &Target,
-        compile_info: &CompileModuleInfo,
-        compile_info_blob: &[u8],
+        compile_info: &mut CompileModuleInfo,
         module_translation_state: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         progress_callback: Option<&CompilationProgressCallback>,
@@ -548,7 +550,6 @@ impl Compiler for CraneliftCompiler {
         self.compile_module_internal(
             target,
             compile_info,
-            compile_info_blob,
             module_translation_state,
             function_body_inputs,
             progress_callback,

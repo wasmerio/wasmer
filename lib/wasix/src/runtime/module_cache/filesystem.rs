@@ -29,7 +29,7 @@ impl FileSystemCache {
     }
 
     fn path(&self, key: ModuleHash, deterministic_id: &str) -> PathBuf {
-        let artifact_version = wasmer_types::MetadataHeader::CURRENT_VERSION;
+        let artifact_version = wasmer_types::ARTIFACT_VERSION;
         self.cache_dir
             .join(format!("{deterministic_id}-v{artifact_version}"))
             .join(key.to_string())

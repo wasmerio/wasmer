@@ -10,7 +10,7 @@ use super::{
 };
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
-use wasmer_types::{LocalFunctionIndex, TrapInformation, entity::PrimaryMap};
+use wasmer_types::TrapInformation;
 
 /// In-memory frame information used when emitting a native object.
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
@@ -44,10 +44,5 @@ pub struct CompiledFunction {
 
 pub type CompiledFunctionBody = Vec<u8>;
 
-/// The result of compiling a WebAssembly module into a native ELF image.
-#[cfg_attr(feature = "enable-serde", derive(Deserialize, Serialize))]
-#[derive(Debug, PartialEq, Eq)]
-pub struct Compilation {
-    pub data: Vec<u8>,
-    pub function_max_stack_usage: PrimaryMap<LocalFunctionIndex, Option<usize>>,
-}
+/// The compiled native container for a WebAssembly module.
+pub type Compilation = Vec<u8>;

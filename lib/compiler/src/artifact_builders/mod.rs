@@ -2,4 +2,4 @@
 
 mod artifact_builder;
 
-pub use self::artifact_builder::{ArtifactBuild, ArtifactBuildFromArchive, ModuleFromArchive};
+pub use self::artifact_builder::ArtifactBuild;

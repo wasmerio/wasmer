@@ -74,7 +74,7 @@ pub use value::{RawValue, ValueType};
 pub use crate::libcalls::LibCall;
 pub use crate::memory::MemoryStyle;
 pub use crate::table::TableStyle;
-pub use serialize::MetadataHeader;
+pub use serialize::ARTIFACT_VERSION;
 // TODO: OnCalledAction is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451
 pub use crate::exception::CATCH_ALL_TAG_VALUE;
 pub use crate::stack::{FrameInfo, SourceLoc, TrapInformation};
