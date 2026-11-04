@@ -90,14 +90,14 @@ macro_rules! impl_native_traits {
                         1 => {
                             let val = (*results.data.wrapping_add(0)).clone();
                             let val = val.into_wv();
-                            *mut_rets = val.as_raw(&mut store);
+                            *mut_rets = val.as_raw(store);
                         }
                         _n => {
                             for (i, ret_type) in Rets::wasm_types().iter().enumerate() {
                                     let val = (*results.data.wrapping_add(i)).clone();
                                     let val = val.into_wv();
                                     let slot = mut_rets.add(i);
-                                    *slot = val.as_raw(&mut store);
+                                    *slot = val.as_raw(store);
                             }
                         }
                     }
