@@ -15,12 +15,11 @@ use cranelift_codegen::gimli::{
 use cranelift_codegen::isa::TargetIsa;
 #[cfg(feature = "unwind")]
 use object::RelocationKind as ObjectRelocationKind;
+use object::write::{Object, Relocation as ObjectRelocation, StandardSection, SymbolId};
+#[cfg(feature = "unwind")]
 use object::{
     RelocationEncoding, RelocationFlags, SectionKind, SymbolFlags, SymbolKind, SymbolScope,
-    write::{
-        Object, Relocation as ObjectRelocation, StandardSection, StandardSegment, Symbol,
-        SymbolSection,
-    },
+    write::{StandardSegment, Symbol, SymbolSection},
 };
 #[cfg(feature = "unwind")]
 use std::collections::HashMap;
@@ -33,10 +32,9 @@ use wasmer_compiler::{
 };
 use wasmer_compiler::{WasmSourceMap, dwarf::init_dwarf_unit};
 use wasmer_compiler::{
-    elf::{add_relocations, emit_trap_section},
-    get_object_for_target,
-    misc::{CompiledFunctionExt, CompiledKind},
-    types::function::CompiledFunction,
+    elf::emit_trap_section,
+    misc::CompiledKind,
+    types::function::{CompiledFunctionFrameInfo, FunctionBody},
 };
 use wasmer_types::{CompileError, LocalFunctionIndex, target::Target};
 
@@ -241,35 +239,25 @@ pub(crate) fn emit_local_function(
     index: LocalFunctionIndex,
     function_name: &str,
     module_name: Option<&str>,
-    function: &CompiledFunction,
+    body: &FunctionBody,
+    frame_info: &CompiledFunctionFrameInfo,
+    mut object: Object<'static>,
+    function_symbol: SymbolId,
+    relocations: Vec<ObjectRelocation>,
     source_map: &WasmSourceMap,
     #[cfg(feature = "unwind")] fde: Option<FrameDescriptionEntry>,
     #[cfg(feature = "unwind")] lsda: Option<FunctionLsdaData>,
     #[cfg(feature = "unwind")] compact_unwind_encoding: Option<u32>,
 ) -> Result<Vec<u8>, CompileError> {
     let kind = CompiledKind::Local(index, String::new());
-    let mut object = get_object_for_target(target.triple())
-        .map_err(|e| CompileError::Codegen(format!("cannot create object: {e}")))?;
-
     // Emit the function body into the text section.
-    let function_symbol = object.add_symbol(Symbol {
-        name: kind.linkage_name().into_bytes(),
-        value: 0,
-        size: function.body.body.len() as u64,
-        kind: SymbolKind::Text,
-        scope: SymbolScope::Linkage,
-        weak: false,
-        section: SymbolSection::Undefined,
-        flags: SymbolFlags::None,
-    });
     let text = object.section_id(StandardSection::Text);
-    object.add_symbol_data(function_symbol, text, &function.body.body, 16);
-    add_relocations(
-        &mut object,
-        text,
-        &function.relocations,
-        Some((index, function_symbol)),
-    )?;
+    object.add_symbol_data(function_symbol, text, &body.body, 16);
+    for relocation in relocations {
+        object
+            .add_relocation(text, relocation)
+            .map_err(|e| CompileError::Codegen(format!("failed to add relocation: {e}")))?;
+    }
 
     // Populate DWARF line info from the address map.
     // TODO: support dSYM debug info file creation and loading in the future
@@ -279,7 +267,7 @@ pub(crate) fn emit_local_function(
     ) && let Ok(mut dwarf_state) =
         init_dwarf_unit(function_name, module_name, "Wasmer (Cranelift)")
     {
-        for instruction in &function.frame_info.address_map.instructions {
+        for instruction in &frame_info.address_map.instructions {
             dwarf_state.add_source_map_row(
                 instruction.code_offset as u64,
                 instruction.srcloc,
@@ -289,12 +277,12 @@ pub(crate) fn emit_local_function(
         dwarf_state.write_sections(
             &mut object,
             function_symbol,
-            function.body.body.len() as u64,
+            body.body.len() as u64,
             target.triple().endianness().ok(),
         )?;
     }
 
-    emit_trap_section(&mut object, &kind, &function.frame_info.traps);
+    emit_trap_section(&mut object, &kind, &frame_info.traps);
 
     #[cfg(feature = "unwind")]
     {
@@ -379,12 +367,16 @@ pub(crate) fn emit_local_function(
         };
 
         if let Some(encoding) = compact_unwind_encoding {
-            let function_length = function.body.body.len().try_into().map_err(|_| {
+            let function_length = body.body.len().try_into().map_err(|_| {
                 CompileError::Codegen("function body too large for Mach-O compact unwind".into())
             })?;
-            let compact = crate::eh::build_compact_unwind_section(
+            let personality_symbol = wasmer_compiler::elf::add_libcall_symbol(
+                &mut object,
+                wasmer_types::LibCall::EHPersonality,
+            );
+            let text_symbol = object.section_symbol(text);
+            let (compact_bytes, compact_relocations) = crate::eh::build_compact_unwind_section(
                 [crate::eh::CompactUnwindEntryData {
-                    function: index,
                     function_length,
                     compact_encoding: encoding
                         | if lsda_section_symbol.is_some() {
@@ -394,8 +386,9 @@ pub(crate) fn emit_local_function(
                         },
                     lsda_offset: lsda_section_symbol.map(|_| 0),
                 }],
-                lsda_section_symbol
-                    .map(|_| wasmer_compiler::types::section::SectionIndex::from_u32(0)),
+                text_symbol,
+                personality_symbol,
+                lsda_section_symbol,
             )
             .ok_or_else(|| {
                 CompileError::Codegen("missing compact unwind entry for function".into())
@@ -405,35 +398,11 @@ pub(crate) fn emit_local_function(
                 b"__compact_unwind".to_vec(),
                 SectionKind::ReadOnlyData,
             );
-            object.append_section_data(section, compact.bytes.as_slice(), 8);
-            for relocation in &compact.relocations {
-                let symbol = match relocation.reloc_target {
-                    wasmer_compiler::types::relocation::RelocationTarget::LocalFunc(_) => {
-                        object.section_symbol(text)
-                    }
-                    wasmer_compiler::types::relocation::RelocationTarget::LibCall(libcall) => {
-                        wasmer_compiler::elf::add_libcall_symbol(&mut object, libcall)
-                    }
-                    wasmer_compiler::types::relocation::RelocationTarget::CustomSection(_) => {
-                        lsda_section_symbol.expect("compact unwind LSDA")
-                    }
-                    _ => unreachable!("unexpected compact unwind relocation"),
-                };
-                object
-                    .add_relocation(
-                        section,
-                        ObjectRelocation {
-                            offset: relocation.offset.into(),
-                            flags: wasmer_compiler::elf::relocation_kind_to_flags(relocation.kind)?,
-                            symbol,
-                            addend: relocation.addend,
-                        },
-                    )
-                    .map_err(|e| {
-                        CompileError::Codegen(format!(
-                            "failed to add compact unwind relocation: {e}"
-                        ))
-                    })?;
+            object.append_section_data(section, &compact_bytes, 8);
+            for relocation in compact_relocations {
+                object.add_relocation(section, relocation).map_err(|e| {
+                    CompileError::Codegen(format!("failed to add compact unwind relocation: {e}"))
+                })?;
             }
         }
 

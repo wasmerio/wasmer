@@ -15,11 +15,8 @@ use std::collections::{HashMap, HashSet};
 use std::convert::TryFrom;
 use std::io::{Cursor, Write};
 
-use wasmer_compiler::types::{
-    relocation::{Relocation, RelocationKind, RelocationTarget},
-    section::{CustomSection, CustomSectionProtection, SectionBody, SectionIndex},
-};
-use wasmer_types::{LibCall, LocalFunctionIndex};
+use object::write::{Relocation, SymbolId};
+use object::{RelocationEncoding, RelocationFlags, RelocationKind};
 
 /// Relocation information for an LSDA entry that references a tag constant.
 #[derive(Debug, Clone)]
@@ -227,7 +224,6 @@ pub fn build_function_lsda<'a>(
 
 #[derive(Debug, Clone)]
 pub struct CompactUnwindEntryData {
-    pub function: LocalFunctionIndex,
     pub function_length: u32,
     pub compact_encoding: u32,
     pub lsda_offset: Option<u32>,
@@ -237,8 +233,10 @@ pub struct CompactUnwindEntryData {
 /// runtime compact-unwind publisher.
 pub fn build_compact_unwind_section(
     entries: impl IntoIterator<Item = CompactUnwindEntryData>,
-    lsda_section_index: Option<SectionIndex>,
-) -> Option<CustomSection> {
+    function_symbol: SymbolId,
+    personality_symbol: SymbolId,
+    lsda_symbol: Option<SymbolId>,
+) -> Option<(Vec<u8>, Vec<Relocation>)> {
     const ENTRY_SIZE: usize = 32;
     const FUNCTION_ADDR_OFFSET: u32 = 0;
     const PERSONALITY_ADDR_OFFSET: u32 = 16;
@@ -251,6 +249,11 @@ pub fn build_compact_unwind_section(
 
     let mut bytes = Vec::with_capacity(entries.len() * ENTRY_SIZE);
     let mut relocations = Vec::new();
+    let flags = RelocationFlags::Generic {
+        kind: RelocationKind::Absolute,
+        encoding: RelocationEncoding::Generic,
+        size: 64,
+    };
 
     for entry in entries {
         let base = bytes.len() as u32;
@@ -262,36 +265,29 @@ pub fn build_compact_unwind_section(
         bytes.extend_from_slice(&0u64.to_le_bytes());
 
         relocations.push(Relocation {
-            kind: RelocationKind::Abs8,
-            reloc_target: RelocationTarget::LocalFunc(entry.function),
-            offset: base + FUNCTION_ADDR_OFFSET,
+            flags,
+            symbol: function_symbol,
+            offset: u64::from(base + FUNCTION_ADDR_OFFSET),
             addend: 0,
         });
         relocations.push(Relocation {
-            kind: RelocationKind::Abs8,
-            reloc_target: RelocationTarget::LibCall(LibCall::EHPersonality),
-            offset: base + PERSONALITY_ADDR_OFFSET,
+            flags,
+            symbol: personality_symbol,
+            offset: u64::from(base + PERSONALITY_ADDR_OFFSET),
             addend: 0,
         });
 
         if let Some(lsda_offset) = entry.lsda_offset {
             relocations.push(Relocation {
-                kind: RelocationKind::Abs8,
-                reloc_target: RelocationTarget::CustomSection(
-                    lsda_section_index.expect("LSDA section index required for LSDA relocation"),
-                ),
-                offset: base + LSDA_ADDR_OFFSET,
+                flags,
+                symbol: lsda_symbol.expect("LSDA symbol required for LSDA relocation"),
+                offset: u64::from(base + LSDA_ADDR_OFFSET),
                 addend: lsda_offset as i64,
             });
         }
     }
 
-    Some(CustomSection {
-        protection: CustomSectionProtection::Read,
-        alignment: Some(8),
-        bytes: SectionBody::new_with_vec(bytes),
-        relocations,
-    })
+    Some((bytes, relocations))
 }
 
 // Constants are defined in compact_unwind_encoding.h file.

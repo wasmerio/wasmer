@@ -9,11 +9,9 @@ use cranelift_codegen::{
     isa::TargetFrontendConfig,
 };
 use cranelift_frontend::FunctionBuilder;
+use object::{RelocationEncoding, RelocationFlags, RelocationKind};
 use target_lexicon::Architecture;
-use wasmer_compiler::{
-    types::relocation::RelocationKind,
-    wasmparser::{self, RefType},
-};
+use wasmer_compiler::wasmparser::{self, RefType};
 use wasmer_types::{FunctionType, LibCall, Type, WasmError, WasmResult};
 
 /// Materialize a global value as CLIF instructions.
@@ -102,18 +100,29 @@ pub fn irlibcall_to_libcall(libcall: ir::LibCall) -> LibCall {
     }
 }
 
-/// Transform Cranelift Reloc to compiler Relocation
-pub fn irreloc_to_relocationkind(reloc: Reloc) -> RelocationKind {
-    match reloc {
-        Reloc::Abs4 => RelocationKind::Abs4,
-        Reloc::Abs8 => RelocationKind::Abs8,
-        Reloc::X86PCRel4 => RelocationKind::PCRel4,
-        Reloc::X86CallPCRel4 => RelocationKind::X86CallPCRel4,
-        Reloc::X86CallPLTRel4 => RelocationKind::X86CallPLTRel4,
-        Reloc::X86GOTPCRel4 => RelocationKind::X86GOTPCRel4,
-        Reloc::Arm64Call => RelocationKind::Arm64Call,
-        Reloc::RiscvCallPlt => RelocationKind::RiscvCall,
+/// Transform a Cranelift relocation into object-file relocation flags.
+pub fn irreloc_to_relocation_flags(reloc: Reloc) -> RelocationFlags {
+    use RelocationEncoding as E;
+    use RelocationKind as K;
+    let (kind, encoding, size) = match reloc {
+        Reloc::Abs4 => (K::Absolute, E::Generic, 32),
+        Reloc::Abs8 => (K::Absolute, E::Generic, 64),
+        Reloc::X86PCRel4 => (K::Relative, E::Generic, 32),
+        Reloc::X86CallPCRel4 => (K::Relative, E::X86Branch, 32),
+        Reloc::X86CallPLTRel4 => (K::PltRelative, E::X86Branch, 32),
+        Reloc::X86GOTPCRel4 => (K::GotRelative, E::Generic, 32),
+        Reloc::Arm64Call => (K::Relative, E::AArch64Call, 26),
+        Reloc::RiscvCallPlt => {
+            return RelocationFlags::Elf {
+                r_type: object::elf::R_RISCV_CALL_PLT,
+            };
+        }
         _ => panic!("The relocation {reloc} is not yet supported."),
+    };
+    RelocationFlags::Generic {
+        kind,
+        encoding,
+        size,
     }
 }
 

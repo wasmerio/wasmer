@@ -14,7 +14,7 @@ use crate::{
     },
     translator::{
         FuncTranslator, compiled_function_unwind_info, irlibcall_to_libcall,
-        irreloc_to_relocationkind, signature_to_cranelift_ir,
+        irreloc_to_relocation_flags, signature_to_cranelift_ir,
     },
 };
 use cranelift_codegen::{
@@ -29,10 +29,13 @@ use cranelift_codegen::gimli::{
 };
 
 use itertools::Itertools;
+use object::write::{Object, Relocation, SymbolId};
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use std::sync::Arc;
 use wasmer_compiler::WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE;
 use wasmer_compiler::elf::CompileOutput;
+use wasmer_compiler::elf::{add_libcall_symbol, add_undefined_symbol};
+use wasmer_compiler::misc::{CompiledFunctionExt, CompiledKind};
 use wasmer_compiler::types::{function::Compilation, module::CompileModuleInfo};
 
 use wasmer_compiler::progress::ProgressContext;
@@ -41,10 +44,7 @@ use wasmer_compiler::types::unwind::CompiledFunctionUnwindInfo;
 use wasmer_compiler::{
     Compiler, FunctionBinaryReader, FunctionBodyData, MiddlewareBinaryReader, ModuleMiddleware,
     ModuleMiddlewareChain, ModuleTranslationState, WasmSourceMap,
-    types::{
-        function::{CompiledFunction, CompiledFunctionFrameInfo, FunctionBody},
-        relocation::{Relocation, RelocationTarget},
-    },
+    types::function::{CompiledFunctionFrameInfo, FunctionBody},
 };
 use wasmer_compiler::{build_function_buckets, translate_function_buckets};
 #[cfg(feature = "unwind")]
@@ -64,7 +64,8 @@ const FUNCTION_SYMBOL: usize = 0;
 const PERSONALITY_SYMBOL: usize = 1;
 
 pub struct CraneliftCompiledFunction {
-    function: CompiledFunction,
+    body: FunctionBody,
+    frame_info: CompiledFunctionFrameInfo,
     #[cfg(feature = "unwind")]
     fde: Option<FrameDescriptionEntry>,
     #[cfg(feature = "unwind")]
@@ -268,11 +269,19 @@ impl CraneliftCompiler {
                 )?;
             }
 
+            let mut object = wasmer_compiler::get_object_for_target(target.triple())
+                .map_err(|e| CompileError::Codegen(format!("cannot create object: {e}")))?;
+            let function_symbol = add_undefined_symbol(
+                &mut object,
+                CompiledKind::Local(*i, String::new()).linkage_name(),
+            );
             let func_relocs = result
                 .buffer
                 .relocs()
                 .iter()
-                .map(|r| mach_reloc_to_reloc(module, &func_name_map, r))
+                .map(|r| {
+                    mach_reloc_to_reloc(&mut object, *i, function_symbol, module, &func_name_map, r)
+                })
                 .collect::<Vec<_>>();
 
             let traps = result
@@ -344,15 +353,11 @@ impl CraneliftCompiler {
             let address_map = get_function_address_map(&context, range, code_buf.len());
 
             let compiled = CraneliftCompiledFunction {
-                function: CompiledFunction {
-                    body: FunctionBody {
-                        body: code_buf,
-                        unwind_info,
-                    },
-                    relocations: func_relocs,
-                    frame_info: CompiledFunctionFrameInfo { address_map, traps },
-                    maximum_stack_usage: None,
+                body: FunctionBody {
+                    body: code_buf,
+                    unwind_info,
                 },
+                frame_info: CompiledFunctionFrameInfo { address_map, traps },
                 #[cfg(feature = "unwind")]
                 fde,
                 #[cfg(feature = "unwind")]
@@ -368,7 +373,11 @@ impl CraneliftCompiler {
                 *i,
                 &compile_info.module.get_function_name(func_index),
                 compile_info.module.name.as_deref(),
-                &compiled.function,
+                &compiled.body,
+                &compiled.frame_info,
+                object,
+                function_symbol,
+                func_relocs,
                 &source_map,
                 #[cfg(feature = "unwind")]
                 compiled.fde,
@@ -558,6 +567,9 @@ impl Compiler for CraneliftCompiler {
 }
 
 fn mach_reloc_to_reloc(
+    object: &mut Object<'static>,
+    local_index: LocalFunctionIndex,
+    function_symbol: SymbolId,
     module: &ModuleInfo,
     func_index_map: &cranelift_entity::PrimaryMap<ir::UserExternalNameRef, ir::UserExternalName>,
     reloc: &FinalizedMachReloc,
@@ -574,23 +586,28 @@ fn mach_reloc_to_reloc(
             unimplemented!("relocations to offset in the same function are not yet supported")
         }
     };
-    let reloc_target: RelocationTarget = if let ExternalName::User(extname_ref) = name {
+    let symbol = if let ExternalName::User(extname_ref) = name {
         let func_index = func_index_map[*extname_ref].index;
-        //debug_assert_eq!(namespace, 0);
-        RelocationTarget::LocalFunc(
-            module
-                .local_func_index(FunctionIndex::from_u32(func_index))
-                .expect("The provided function should be local"),
-        )
+        let index = module
+            .local_func_index(FunctionIndex::from_u32(func_index))
+            .expect("The provided function should be local");
+        if index == local_index {
+            function_symbol
+        } else {
+            add_undefined_symbol(
+                object,
+                CompiledKind::Local(index, String::new()).linkage_name(),
+            )
+        }
     } else if let ExternalName::LibCall(libcall) = name {
-        RelocationTarget::LibCall(irlibcall_to_libcall(*libcall))
+        add_libcall_symbol(object, irlibcall_to_libcall(*libcall))
     } else {
         panic!("unrecognized external target")
     };
     Relocation {
-        kind: irreloc_to_relocationkind(*kind),
-        reloc_target,
-        offset: *offset,
+        flags: irreloc_to_relocation_flags(*kind),
+        symbol,
+        offset: u64::from(*offset),
         addend: *addend,
     }
 }
