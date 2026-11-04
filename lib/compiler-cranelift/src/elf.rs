@@ -34,8 +34,8 @@ use wasmer_compiler::{
 use wasmer_compiler::{WasmSourceMap, dwarf::init_dwarf_unit};
 use wasmer_compiler::{
     elf::{add_relocations, emit_trap_section},
+    get_object_for_target,
     misc::{CompiledFunctionExt, CompiledKind},
-    object::get_object_for_target,
     types::function::CompiledFunction,
 };
 use wasmer_types::{CompileError, LocalFunctionIndex, target::Target};

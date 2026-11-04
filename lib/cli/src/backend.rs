@@ -139,10 +139,6 @@ pub struct RuntimeOptions {
     ]))]
     v8: bool,
 
-    /// Use the experimental artifact format.
-    #[clap(long = "experimental-artifact")]
-    experimental_artifact: bool,
-
     /// Enable compiler internal verification.
     ///
     /// Available for Cranelift (enabled always for LLVM).
@@ -223,20 +219,6 @@ impl FromStr for Profiler {
 
 impl RuntimeOptions {
     fn validate_options(&self) -> Result<()> {
-        if self.experimental_artifact && !cfg!(any(target_os = "linux", target_os = "macos")) {
-            bail!("--experimental-artifact is only supported on Linux and macOS");
-        }
-        if !self.experimental_artifact {
-            match self.profiler {
-                Some(Profiler::Gdb) => {
-                    bail!("The gdb profiler requires --experimental-artifact")
-                }
-                Some(Profiler::Lldb) => {
-                    bail!("The lldb profiler requires --experimental-artifact")
-                }
-                _ => {}
-            }
-        }
         if self.features.memory64 {
             bail!("--enable-memory64 is unsupported");
         }
@@ -542,13 +524,7 @@ impl RuntimeOptions {
         };
 
         #[allow(unreachable_code)]
-        {
-            let mut compiler_config = compiler_config;
-            if self.experimental_artifact {
-                compiler_config.experimental_artifact(true);
-            }
-            Ok(compiler_config)
-        }
+        Ok(compiler_config)
     }
 }
 
@@ -597,9 +573,6 @@ impl BackendType {
             #[cfg(feature = "singlepass")]
             Self::Singlepass => {
                 let mut config = wasmer_compiler_singlepass::Singlepass::new();
-                if runtime_opts.experimental_artifact {
-                    config.experimental_artifact(true);
-                }
                 if runtime_opts.enable_experimental_unaligned_memory_accesses {
                     config.allow_experimental_unaligned_memory_accesses(true);
                 }
@@ -633,9 +606,6 @@ impl BackendType {
             #[cfg(feature = "cranelift")]
             Self::Cranelift => {
                 let mut config = wasmer_compiler_cranelift::Cranelift::new();
-                if runtime_opts.experimental_artifact {
-                    config.experimental_artifact(true);
-                }
                 if runtime_opts.enable_experimental_unaligned_memory_accesses {
                     config.allow_experimental_unaligned_memory_accesses(true);
                 }
@@ -677,9 +647,6 @@ impl BackendType {
                 let mut config = wasmer_compiler_llvm::LLVM::new();
                 if runtime_opts.disable_m0_pass_param_opt {
                     config.enable_m0_pass_param(false);
-                }
-                if runtime_opts.experimental_artifact {
-                    config.experimental_artifact(true);
                 }
                 if !runtime_opts.disable_non_volatile_memops {
                     config.enable_non_volatile_memops();

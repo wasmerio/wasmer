@@ -6,8 +6,6 @@
 use core::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Once;
 
-use crate::types::unwind::CompiledFunctionUnwindInfoReference;
-
 /// Represents a registry of function unwind information for System V ABI.
 pub struct UnwindRegistry {
     published: bool,
@@ -76,21 +74,6 @@ impl UnwindRegistry {
             #[cfg(target_os = "macos")]
             compact_unwind_mgr: Default::default(),
         }
-    }
-
-    /// Registers a function given the start offset, length, and unwind information.
-    pub fn register(
-        &mut self,
-        _base_address: usize,
-        _func_start: u32,
-        _func_len: u32,
-        info: &CompiledFunctionUnwindInfoReference,
-    ) -> Result<(), String> {
-        match info {
-            CompiledFunctionUnwindInfoReference::Dwarf => {}
-            _ => return Err(format!("unsupported unwind information {info:?}")),
-        };
-        Ok(())
     }
 
     /// Publishes all registered functions (coming from .eh_frame sections).
@@ -185,32 +168,6 @@ impl UnwindRegistry {
         }
         self.compact_unwind_mgr
             .publish_unwind_info(image_range, section);
-        self.published = true;
-        Ok(())
-    }
-
-    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
-    pub(crate) fn publish_compact_unwind(
-        &mut self,
-        compact_unwind: &[u8],
-        eh_personality_addr_in_got: Option<usize>,
-    ) -> Result<(), String> {
-        if self.published {
-            return Err("unwind registry has already been published".to_string());
-        }
-
-        unsafe {
-            self.compact_unwind_mgr.read_compact_unwind_section(
-                compact_unwind.as_ptr() as _,
-                compact_unwind.len(),
-                eh_personality_addr_in_got,
-            )?;
-            self.compact_unwind_mgr
-                .finalize()
-                .map_err(|v| v.to_string())?;
-            self.compact_unwind_mgr.register();
-        }
-
         self.published = true;
         Ok(())
     }

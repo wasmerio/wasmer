@@ -14,7 +14,6 @@ pub struct SharedCache {
 struct SharedCacheKey {
     module_hash: ModuleHash,
     deterministic_id: String,
-    artifact_format: String,
 }
 
 impl SharedCache {
@@ -26,7 +25,6 @@ impl SharedCache {
         SharedCacheKey {
             module_hash: key,
             deterministic_id: engine.deterministic_id(),
-            artifact_format: engine.artifact_format(),
         }
     }
 }

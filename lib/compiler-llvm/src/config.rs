@@ -119,7 +119,6 @@ pub struct LLVM {
     pub(crate) debugger: Option<Debugger>,
     pub(crate) opt_level: LLVMOptLevel,
     pub(crate) is_pic: bool,
-    pub(crate) experimental_artifact: bool,
     pub(crate) max_table_elements: u32,
     pub(crate) callbacks: Option<LLVMCallbacks>,
     /// The middleware chain.
@@ -148,22 +147,13 @@ impl LLVM {
             enable_perfmap: false,
             debugger: None,
             opt_level: LLVMOptLevel::Aggressive,
-            is_pic: false,
-            experimental_artifact: false,
+            is_pic: true,
             max_table_elements: DEFAULT_MAX_TABLE_ELEMENTS,
             callbacks: None,
             middlewares: vec![],
             verbose_asm: false,
             num_threads: std::thread::available_parallelism().unwrap_or(NonZero::new(1).unwrap()),
         }
-    }
-
-    /// Enable the experimental artifact format.
-    pub fn experimental_artifact(&mut self, enable: bool) -> &mut Self {
-        self.experimental_artifact = enable;
-        // We will link a shared library and so PIC must be enabled.
-        self.is_pic = enable;
-        self
     }
 
     /// Set the maximum total number of elements allowed in local fixed-size tables.
@@ -393,10 +383,6 @@ impl LLVM {
 }
 
 impl CompilerConfig for LLVM {
-    fn experimental_artifact(&mut self, enable: bool) {
-        LLVM::experimental_artifact(self, enable);
-    }
-
     fn max_table_elements(&mut self, max_table_elements: u32) {
         self.max_table_elements = max_table_elements;
     }

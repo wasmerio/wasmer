@@ -7,12 +7,12 @@ use std::fs::File;
 use std::path::{Path, PathBuf};
 use std::sync::{LazyLock, Mutex};
 
-use crate::EH_FRAME_SECTION_NAME;
+use crate::elf::CompileOutput;
 use crate::misc::{CompiledFunctionExt, CompiledKind};
-use crate::object::get_object_for_target;
 use crate::progress::ProgressContext;
 use crate::types::function::Compilation;
 use crate::types::module::CompileModuleInfo;
+use crate::{EH_FRAME_SECTION_NAME, get_object_for_target};
 use crate::{
     FunctionBodyData, ModuleTranslationState, WASMER_FUNCTION_OFFSETS_SECTION_NAME,
     WASMER_TRAP_FUNCTION_OFFSETS_SECTION_NAME, translator::ModuleMiddleware,
@@ -29,7 +29,7 @@ use object::{
     SymbolKind, SymbolScope, elf,
 };
 use std::{boxed::Box, sync::Arc};
-use target_lexicon::BinaryFormat;
+use target_lexicon::{Architecture, BinaryFormat};
 use wasmer_types::{
     CompilationProgressCallback, Features, FunctionIndex, LocalFunctionIndex,
     entity::{EntityRef, PrimaryMap},
@@ -89,22 +89,8 @@ pub enum DeterministicIdComponent {
     ExperimentalUnalignedMemoryAccesses,
 }
 
-/// The artifact format used for purpose of serialization.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, strum::Display)]
-pub enum ArtifactFormat {
-    /// rkyv serialization based.
-    #[strum(serialize = "rkyv")]
-    Rkyv,
-    /// Native format, such as ELF.
-    #[strum(serialize = "native")]
-    Native,
-}
-
 /// The compiler configuration options.
 pub trait CompilerConfig {
-    /// Enable the experimental artifact format.
-    fn experimental_artifact(&mut self, _enable: bool) {}
-
     /// Set the maximum total number of elements allowed in local fixed-size tables.
     fn max_table_elements(&mut self, _max_table_elements: u32) {}
 
@@ -202,11 +188,6 @@ pub trait Compiler: Send + std::fmt::Debug {
     /// Returns the deterministic id of this compiler. Same compilers with different
     /// optimizations map to different deterministic IDs.
     fn deterministic_id(&self) -> String;
-
-    /// Returns the used artifact format: `rkyv` or `native`.
-    fn artifact_format(&self) -> String {
-        ArtifactFormat::Rkyv.to_string()
-    }
 
     /// Add suggested optimizations to this compiler.
     #[deprecated(note = "User compilation options are currently unused")]
@@ -347,6 +328,8 @@ pub fn build_function_buckets<'a>(
 /// Represents a function that has been compiled by the backend compiler.
 pub trait CompiledFunction {}
 
+impl CompiledFunction for Vec<u8> {}
+
 /// Translates a function from its input representation to a compiled form.
 pub trait FuncTranslator {}
 
@@ -442,13 +425,13 @@ pub const WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE: u64 = 1_000;
 /// Counts of each category are derived from the slice lengths.
 pub struct CompiledObjects {
     /// Objects for local (user-defined) functions.
-    pub object_files: Vec<Vec<u8>>,
+    pub object_files: Vec<CompileOutput>,
     /// Objects for imported function call trampolines.
-    pub import_trampoline_object_files: Vec<Vec<u8>>,
+    pub import_trampoline_object_files: Vec<CompileOutput>,
     /// Objects for static trampolines.
-    pub trampoline_object_files: Vec<Vec<u8>>,
+    pub trampoline_object_files: Vec<CompileOutput>,
     /// Objects for dynamic trampolines.
-    pub dynamic_trampoline_object_files: Vec<Vec<u8>>,
+    pub dynamic_trampoline_object_files: Vec<CompileOutput>,
     /// Whether the backend emits per-function trap tables to reference in metadata.
     pub emit_trap_offsets: bool,
 }
@@ -767,8 +750,21 @@ pub fn emit_metadata_and_link(
                 ]
             }
             BinaryFormat::Elf => {
+                let emulation = match target.triple().architecture {
+                    Architecture::X86_64 => "elf_x86_64",
+                    Architecture::Aarch64(_) => "aarch64linux",
+                    Architecture::Riscv64(_) => "elf64lriscv",
+                    Architecture::LoongArch64 => "elf64loongarch",
+                    architecture => {
+                        return Err(CompileError::UnsupportedTarget(format!(
+                            "unsupported ELF architecture: {architecture:?}"
+                        )));
+                    }
+                };
                 vec![
                     "ld".to_string(),
+                    "-m".to_string(),
+                    emulation.to_string(),
                     // Allow resolution of the public symbols directly without PLT entries!
                     "-Bsymbolic".to_string(),
                     "-shared".to_string(),
@@ -800,7 +796,7 @@ pub fn emit_metadata_and_link(
                 .enumerate()
             {
                 let path = PathBuf::from(format!("object-{index}.o"));
-                files.insert(path.clone(), Arc::new(object));
+                files.insert(path.clone(), Arc::new(object.object));
                 link_args.push(path.display().to_string());
             }
             files.insert(PathBuf::from(WASMER_META_FILENAME), Arc::new(meta_object));

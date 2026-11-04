@@ -1,5 +1,3 @@
-#[cfg(feature = "unwind")]
-use crate::dwarf::WriterRelocate;
 use crate::{
     address_map::get_function_address_map,
     codegen_error,
@@ -11,7 +9,6 @@ use crate::{
         AssemblyComment, FinalizedAssembly, Label, Machine, NATIVE_PAGE_SIZE, UnsignedCondition,
     },
     output_reporter::ChunkedOutputReporter,
-    unwind::UnwindFrame,
 };
 #[cfg(feature = "unwind")]
 use gimli::write::Address;
@@ -26,7 +23,7 @@ use std::{
 use target_lexicon::Architecture;
 
 #[cfg(feature = "unwind")]
-use wasmer_compiler::dwarf::{DwarfState, init_dwarf_unit};
+use wasmer_compiler::dwarf::{DwarfState, WriterRelocate, init_dwarf_unit};
 
 use wasmer_compiler::{
     FunctionBodyData, WasmSourceMap, memarg_memory_index,
@@ -6040,7 +6037,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         arch: Architecture,
         target: &Target,
         _source_map: &WasmSourceMap,
-    ) -> Result<CompileOutput<(CompiledFunction, Option<UnwindFrame>)>, CompileError> {
+    ) -> Result<CompileOutput, CompileError> {
         self.stack_offset -= RED_ZONE_SIZE;
 
         self.add_assembly_comment(AssemblyComment::TrapHandlersTable);
@@ -6091,13 +6088,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 if let Some(unwind) = unwind {
                     fde = Some(unwind.to_fde(Address::Symbol {
                         symbol: WriterRelocate::FUNCTION_SYMBOL,
-                        // In-memory compilation uses this addend to identify the
-                        // function relocation target.
-                        addend: if self.config.experimental_artifact {
-                            0
-                        } else {
-                            self.local_func_index.index() as _
-                        },
+                        addend: 0,
                     }));
                     unwind_info = Some(CompiledFunctionUnwindInfo::Dwarf);
                 }
@@ -6127,13 +6118,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         self.output_reporter.finish(body.len())?;
 
         if let Some(callbacks) = self.config.callbacks.as_ref() {
-            if !self.config.experimental_artifact {
-                callbacks.obj_memory_buffer(
-                    &CompiledKind::Local(self.local_func_index, self.function_name.clone()),
-                    &self.module.hash_string(),
-                    &body,
-                );
-            }
             callbacks.asm_memory_buffer(
                 &CompiledKind::Local(self.local_func_index, self.function_name.clone()),
                 &self.module.hash_string(),
@@ -6149,27 +6133,26 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             frame_info: CompiledFunctionFrameInfo { traps, address_map },
             maximum_stack_usage: Some(self.stack_offset.maximum_offset),
         };
-        if self.config.experimental_artifact {
-            let maximum_stack_usage = function.maximum_stack_usage;
-            let object = elf::emit_local_function(
-                target,
-                self.local_func_index,
-                function,
-                fde,
-                #[cfg(feature = "unwind")]
-                self.dwarf_state,
-            )?;
-            if let Some(callbacks) = self.config.callbacks.as_ref() {
-                callbacks.obj_memory_buffer(
-                    &CompiledKind::Local(self.local_func_index, self.function_name.clone()),
-                    &self.module.hash_string(),
-                    &object,
-                );
-            }
-            Ok(CompileOutput::Object(object, maximum_stack_usage))
-        } else {
-            Ok(CompileOutput::InMemory((function, fde)))
+        let maximum_stack_usage = function.maximum_stack_usage;
+        let object = elf::emit_local_function(
+            target,
+            self.local_func_index,
+            function,
+            fde,
+            #[cfg(feature = "unwind")]
+            self.dwarf_state,
+        )?;
+        if let Some(callbacks) = self.config.callbacks.as_ref() {
+            callbacks.obj_memory_buffer(
+                &CompiledKind::Local(self.local_func_index, self.function_name.clone()),
+                &self.module.hash_string(),
+                &object,
+            );
         }
+        Ok(CompileOutput {
+            object,
+            maximum_stack_usage,
+        })
     }
     // FIXME: This implementation seems to be not enough to resolve all kinds of register dependencies
     // at call place.

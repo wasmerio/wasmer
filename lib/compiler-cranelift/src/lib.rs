@@ -47,8 +47,6 @@ mod compiler;
 mod config;
 mod debug;
 #[cfg(feature = "unwind")]
-mod dwarf;
-#[cfg(feature = "unwind")]
 mod eh;
 mod elf;
 mod func_environ;

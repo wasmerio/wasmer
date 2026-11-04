@@ -65,18 +65,10 @@ gen_tests! {
                 #[test_log::test]
                 #[cold]
                 #[cfg(feature = "singlepass")]
-                fn singlepass_exp_artifact() {
+                fn singlepass_dynamic_memory() {
                     foo(crate::Config::new(
                         crate::Compiler::Singlepass
-                    ).with_experimental_artifact())
-                }
-                #[test_log::test]
-                #[cold]
-                #[cfg(feature = "singlepass")]
-                fn singlepass_dynamic_memory_exp_artifact() {
-                    foo(crate::Config::new(
-                        crate::Compiler::Singlepass
-                    ).with_experimental_artifact().with_dynamic_memory())
+                    ).with_dynamic_memory())
                 }
             }
 
@@ -94,18 +86,10 @@ gen_tests! {
                 #[test_log::test]
                 #[cold]
                 #[cfg(feature = "cranelift")]
-                fn cranelift_exp_artifact() {
+                fn cranelift_dynamic_memory() {
                     foo(crate::Config::new(
                         crate::Compiler::Cranelift
-                    ).with_experimental_artifact())
-                }
-                #[test_log::test]
-                #[cold]
-                #[cfg(feature = "cranelift")]
-                fn cranelift_dynamic_memory_exp_artifact() {
-                    foo(crate::Config::new(
-                        crate::Compiler::Cranelift
-                    ).with_experimental_artifact().with_dynamic_memory())
+                    ).with_dynamic_memory())
                 }
             }
 
@@ -123,18 +107,10 @@ gen_tests! {
                 #[test_log::test]
                 #[cold]
                 #[cfg(feature = "llvm")]
-                fn llvm_exp_artifact() {
+                fn llvm_dynamic_memory() {
                     foo(crate::Config::new(
                         crate::Compiler::LLVM
-                    ).with_experimental_artifact())
-                }
-                #[test_log::test]
-                #[cold]
-                #[cfg(feature = "llvm")]
-                fn llvm_dynamic_memory_exp_artifact() {
-                    foo(crate::Config::new(
-                        crate::Compiler::LLVM
-                    ).with_experimental_artifact().with_dynamic_memory())
+                    ).with_dynamic_memory())
                 }
             }
 

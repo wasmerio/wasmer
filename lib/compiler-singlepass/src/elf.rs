@@ -17,15 +17,14 @@ use wasmer_compiler::dwarf::{DwarfState, WriterRelocate};
 use wasmer_compiler::elf::emit_eh_frame_section;
 use wasmer_compiler::{
     elf::{add_relocations, emit_trap_section},
+    get_object_for_target,
     misc::{CompiledFunctionExt, CompiledKind},
-    object::get_object_for_target,
     types::function::CompiledFunction,
 };
 use wasmer_types::{CompileError, LocalFunctionIndex, target::Target};
 
 pub(crate) use wasmer_compiler::elf::{
-    CompileOutput, compile_output_in_memory, compile_output_objects, emit_function_body,
-    emit_import_trampoline, link_module,
+    CompileOutput, emit_function_body, emit_import_trampoline, link_module,
 };
 
 pub(crate) fn emit_local_function(

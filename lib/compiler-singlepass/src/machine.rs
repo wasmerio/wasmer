@@ -2356,9 +2356,9 @@ pub fn gen_std_trampoline(
     sig: &FunctionType,
     target: &Target,
     calling_convention: CallingConvention,
-    object: Option<&CompiledKind>,
+    kind: &CompiledKind,
     progress_callback: Option<&CompilationProgressCallback>,
-) -> Result<CompileOutput<FunctionBody>, CompileError> {
+) -> Result<CompileOutput, CompileError> {
     let body = match target.triple().architecture {
         Architecture::X86_64 => {
             let machine = MachineX86_64::new(Some(target.clone()))?;
@@ -2376,13 +2376,10 @@ pub fn gen_std_trampoline(
             "singlepass unimplemented arch for gen_std_trampoline".to_owned(),
         )),
     }?;
-    match object {
-        Some(kind) => Ok(CompileOutput::Object(
-            elf::emit_function_body(target, kind, &body)?,
-            None,
-        )),
-        None => Ok(CompileOutput::InMemory(body)),
-    }
+    Ok(CompileOutput {
+        object: elf::emit_function_body(target, kind, &body)?,
+        maximum_stack_usage: None,
+    })
 }
 
 /// Generates dynamic import function call trampoline for a function type.
@@ -2391,9 +2388,9 @@ pub fn gen_std_dynamic_import_trampoline(
     sig: &FunctionType,
     target: &Target,
     calling_convention: CallingConvention,
-    object: Option<&CompiledKind>,
+    kind: &CompiledKind,
     progress_callback: Option<&CompilationProgressCallback>,
-) -> Result<CompileOutput<FunctionBody>, CompileError> {
+) -> Result<CompileOutput, CompileError> {
     let body = match target.triple().architecture {
         Architecture::X86_64 => {
             let machine = MachineX86_64::new(Some(target.clone()))?;
@@ -2426,13 +2423,10 @@ pub fn gen_std_dynamic_import_trampoline(
             "singlepass unimplemented arch for gen_std_dynamic_import_trampoline".to_owned(),
         )),
     }?;
-    match object {
-        Some(kind) => Ok(CompileOutput::Object(
-            elf::emit_function_body(target, kind, &body)?,
-            None,
-        )),
-        None => Ok(CompileOutput::InMemory(body)),
-    }
+    Ok(CompileOutput {
+        object: elf::emit_function_body(target, kind, &body)?,
+        maximum_stack_usage: None,
+    })
 }
 /// Singlepass calls import functions through a trampoline.
 pub fn gen_import_call_trampoline(
@@ -2441,9 +2435,8 @@ pub fn gen_import_call_trampoline(
     sig: &FunctionType,
     target: &Target,
     calling_convention: CallingConvention,
-    experimental_artifact: bool,
     progress_callback: Option<&CompilationProgressCallback>,
-) -> Result<CompileOutput<CustomSection>, CompileError> {
+) -> Result<CompileOutput, CompileError> {
     let section = match target.triple().architecture {
         Architecture::X86_64 => {
             let machine = MachineX86_64::new(Some(target.clone()))?;
@@ -2479,18 +2472,14 @@ pub fn gen_import_call_trampoline(
             "singlepass unimplemented arch for gen_import_call_trampoline".to_owned(),
         )),
     }?;
-    if experimental_artifact {
-        Ok(CompileOutput::Object(
-            elf::emit_import_trampoline(
-                target,
-                &CompiledKind::ImportFunctionTrampoline(index, sig.to_owned()),
-                &section,
-            )?,
-            None,
-        ))
-    } else {
-        Ok(CompileOutput::InMemory(section))
-    }
+    Ok(CompileOutput {
+        object: elf::emit_import_trampoline(
+            target,
+            &CompiledKind::ImportFunctionTrampoline(index, sig.to_owned()),
+            &section,
+        )?,
+        maximum_stack_usage: None,
+    })
 }
 
 // Constants for the bounds of truncation operations. These are the least or

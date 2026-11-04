@@ -928,7 +928,6 @@ mod tests {
                             register_frame_info(
                                 Arc::new(ModuleInfo::new()),
                                 &functions.into_boxed_slice(),
-                                None,
                                 base as usize,
                                 None,
                             )

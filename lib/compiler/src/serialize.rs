@@ -4,63 +4,17 @@
  */
 #![allow(missing_docs)]
 
-use crate::types::{
-    function::{CompiledFunctionFrameInfo, FunctionBody, GOT, UnwindInfo},
-    module::CompileModuleInfo,
-    relocation::Relocation,
-    section::{CustomSection, SectionIndex},
-};
+use crate::types::module::CompileModuleInfo;
 use enumset::EnumSet;
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 use wasmer_types::{
-    DeserializeError, Features, FunctionIndex, LocalFunctionIndex, MemoryIndex, MemoryStyle,
-    ModuleInfo, OwnedDataInitializer, SerializeError, SignatureIndex, TableIndex, TableStyle,
-    entity::PrimaryMap, target::CpuFeature,
+    DeserializeError, Features, MemoryIndex, MemoryStyle, ModuleInfo, OwnedDataInitializer,
+    SerializeError, TableIndex, TableStyle, entity::PrimaryMap, target::CpuFeature,
 };
 
 pub use wasmer_types::MetadataHeader;
 
-/// The compilation related data for a serialized modules
-#[derive(Archive, Default, RkyvDeserialize, RkyvSerialize)]
-#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
-#[allow(missing_docs)]
-#[rkyv(derive(Debug))]
-pub struct RkyvSerializableCompilation {
-    pub function_bodies: PrimaryMap<LocalFunctionIndex, FunctionBody>,
-    pub function_relocations: PrimaryMap<LocalFunctionIndex, Vec<Relocation>>,
-    pub function_frame_info: PrimaryMap<LocalFunctionIndex, CompiledFunctionFrameInfo>,
-    pub function_call_trampolines: PrimaryMap<SignatureIndex, FunctionBody>,
-    pub dynamic_function_trampolines: PrimaryMap<FunctionIndex, FunctionBody>,
-    pub custom_sections: PrimaryMap<SectionIndex, CustomSection>,
-    pub custom_section_relocations: PrimaryMap<SectionIndex, Vec<Relocation>>,
-    // The section indices corresponding to the Dwarf debug info
-    pub unwind_info: UnwindInfo,
-    pub got: GOT,
-    // Custom section containing libcall trampolines.
-    pub libcall_trampolines: SectionIndex,
-    // Length of each libcall trampoline.
-    pub libcall_trampoline_len: u32,
-}
-
-impl RkyvSerializableCompilation {
-    /// Serialize a Compilation into bytes
-    /// The bytes will have the following format:
-    /// RKYV serialization (any length) + POS (8 bytes)
-    pub fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
-        rkyv::to_bytes::<rkyv::rancor::Error>(self)
-            .map(|v| v.into_vec())
-            .map_err(|e| SerializeError::Generic(e.to_string()))
-    }
-}
-
-#[derive(Archive, RkyvDeserialize, RkyvSerialize)]
-#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
-#[allow(missing_docs)]
-#[rkyv(derive(Debug))]
-pub enum SerializableCompilation {
-    Rkyv(RkyvSerializableCompilation),
-    Elf(Vec<u8>),
-}
+pub type SerializableCompilation = Vec<u8>;
 
 /// Serializable struct that is able to serialize from and to a `ArtifactInfo`.
 #[derive(Archive, RkyvDeserialize, RkyvSerialize)]
