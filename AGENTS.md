@@ -85,25 +85,25 @@ prints `Running wast <path>`.
 
 ## Testing WASIX v2
 
-WASIX v2 (`lib/wasixv2`, design in `lib/wasixv2/DESIGN.md`) spans three
+WASIX v2 (`lib/wasix`, design in `lib/wasix/DESIGN.md`) spans three
 repositories besides this one, all wired in as submodules. Run
 `git submodule update --init --recursive` first: a missing submodule stops the
 cargo workspace from loading, and the test suite has submodules of its own.
 
 | Repository | Here | Holds |
 | ---------- | ---- | ----- |
-| [wasixv2-abi](https://github.com/wasix-org/wasixv2-abi) | `lib/wasixv2/codegen` | The ABI (annotated WIT) and `wasixv2-codegen` |
+| [wasixv2-abi](https://github.com/wasix-org/wasixv2-abi) | `lib/wasix/codegen` | The ABI (annotated WIT) and `wasixv2-codegen` |
 | [wasixv2-tests](https://github.com/wasix-org/wasixv2-tests) | `tests/wasixv2` | The test suite and its runner |
 | [libc2](https://github.com/wasix-org/libc2) | (not a submodule) | The musl-based libc; mounts both repos above under `wasixv2/` |
 
 ### Crate tests
 
 ```bash
-cargo test -p wasixv2 -p wasixv2-abi -p wasixv2-kernel -p wasixv2-codegen  # and the other lib/wasixv2 crates
+cargo test -p wasixv2 -p wasixv2-abi -p wasixv2-kernel -p wasixv2-codegen  # and the other lib/wasix crates
 ```
 
 These are plain Rust: the kernel's unit tests, the facade's WAT tests, and
-`lib/wasixv2/abi/tests/generated.rs`, which checks that the generated
+`lib/wasix/abi/tests/generated.rs`, which checks that the generated
 crates match the ABI at the pinned submodule commit. After an ABI or
 generator change, regenerate with
 `WASIXV2_CODEGEN_BLESS=1 cargo test -p wasixv2-abi --test generated`.
@@ -145,7 +145,7 @@ not run the suite yet.
 - Do not add wasixv2 program tests to this repository, and never check in
   prebuilt wasm for them. New tests go to wasixv2-tests, built from source
   with `wasixcc`.
-- WASIX v1 tests stay in `lib/wasix/tests`; never copy them to wasixv2-tests.
+- WASIX v1 tests stay in `lib/wasix-legacy/tests`; never copy them to wasixv2-tests.
 - An ABI change lands in wasixv2-abi first. Then bump the submodule in both
   wasmer and libc2 to the same commit, regenerating in the same commit as
   the bump.

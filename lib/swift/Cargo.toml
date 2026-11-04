@@ -22,7 +22,7 @@ wasmer = { version = "=7.5.0", path = "../api", default-features = false, featur
   "cranelift",
   "std",
 ] }
-wasmer-wasix = { version = "=0.705.0", path = "../wasix", default-features = false, features = [
+wasmer-wasix = { version = "=0.705.0", path = "../wasix-legacy", default-features = false, features = [
   "sys",
 ] }
 webc.workspace = true

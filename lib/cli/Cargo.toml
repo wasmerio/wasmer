@@ -134,7 +134,7 @@ wasmer-compiler-singlepass = { version = "=7.5.0", path = "../compiler-singlepas
 wasmer-compiler-llvm = { version = "=7.5.0", path = "../compiler-llvm", optional = true }
 wasmer-package = { workspace = true, features = ["authoring"] }
 wasmer-vm = { version = "=7.5.0", path = "../vm", optional = true }
-wasmer-wasix = { path = "../wasix", version = "=0.705.0", features = [
+wasmer-wasix = { path = "../wasix-legacy", version = "=0.705.0", features = [
   "logging",
   "host-fs",
   "ctrlc",
@@ -146,8 +146,8 @@ wasmer-types = { version = "=7.5.0", path = "../types", features = [
   "detect-wasm-features",
 ] }
 # `wasmer run` runs WASIX and WASI programs on the WASIX v2 kernel.
-wasixv2-dylink = { path = "../wasixv2/dylink", default-features = false }
-wasixv2 = { path = "../wasixv2/api", default-features = false, features = [
+wasixv2-dylink = { path = "../wasix/dylink", default-features = false }
+wasixv2 = { path = "../wasix/api", default-features = false, features = [
   "tokio",
   "host-network",
   "wasix1",

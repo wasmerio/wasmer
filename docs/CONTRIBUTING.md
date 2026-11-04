@@ -32,7 +32,7 @@ runs. To apply clippy fixes in bulk:
 cargo clippy --all --exclude wasmer-swift --locked --fix --allow-dirty -- -D clippy::all
 ```
 
-`cargo fmt` does not cover `lib/wasix/tests/wasm_tests`. CI formats those
+`cargo fmt` does not cover `lib/wasix-legacy/tests/wasm_tests`. CI formats those
 files with `rustfmt --edition 2024` directly.
 
 ## Pull Requests

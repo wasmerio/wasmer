@@ -23,7 +23,7 @@ wasmer-compiler-singlepass = { version = "=7.5.0", path = "lib/compiler-singlepa
 wasmer-middlewares = { version = "=7.5.0", path = "lib/middlewares", optional = true }
 wasmer-types = { version = "=7.5.0", path = "lib/types" }
 wasmer-wast = { version = "=7.5.0", path = "tests/lib/wast", optional = true }
-wasmer-wasix = { path = "lib/wasix", optional = true }
+wasmer-wasix = { path = "lib/wasix-legacy", optional = true }
 
 # Third party dependencies
 crossbeam-queue.workspace = true
@@ -61,9 +61,9 @@ members = [
   "lib/vm",
   "lib/wai-bindgen-wasmer",
   "lib/wasi-types",
-  "lib/wasix",
+  "lib/wasix-legacy",
   "lib/journal",
-  "lib/wasixv2/*",
+  "lib/wasix/*",
   "lib/swift",
   "lib/package",
   "tests/integration/cli",
@@ -88,7 +88,7 @@ version = "7.5.0"
 # Repo-local crates
 wasmer-package = { version = "0.705.0", path = "lib/package", default-features = false }
 wasmer-config = { path = "./lib/config" }
-wasmer-wasix = { path = "./lib/wasix" }
+wasmer-wasix = { path = "./lib/wasix-legacy" }
 wasmer-package-sdk = { path = "./lib/package-sdk" }
 
 # Wasmer-owned crates

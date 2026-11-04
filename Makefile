@@ -683,7 +683,7 @@ lint-js:
 	cargo clippy --target wasm32-unknown-unknown --manifest-path lib/api/Cargo.toml --no-default-features --features "js-default" --locked -- -D clippy::all
 
 test-js-wasi:
-	cd lib/wasix && wasm-pack test --node -- --no-default-features --features test-js,wasmer/js,wasmer/std
+	cd lib/wasix-legacy && wasm-pack test --node -- --no-default-features --features test-js,wasmer/js,wasmer/std
 
 #####
 #
@@ -988,7 +988,7 @@ lint-formatting:
 	cargo fmt --manifest-path fuzz/Cargo.toml -- --check
 	# The wasm_tests Rust fixtures are not part of any crate, so `cargo fmt`
 	# does not cover them.
-	cd lib/wasix/tests/wasm_tests && find . -path ./build -prune -o -type f -name '*.rs' -exec rustfmt --edition 2024 --check {} +
+	cd lib/wasix-legacy/tests/wasm_tests && find . -path ./build -prune -o -type f -name '*.rs' -exec rustfmt --edition 2024 --check {} +
 
 lint: lint-yamlfmt lint-clang-format lint-formatting lint-packages lint-taplo
 

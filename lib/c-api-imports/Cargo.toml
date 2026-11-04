@@ -16,7 +16,7 @@ anyhow.workspace = true
 wasmer-api = { version = "=7.5.0", path = "../api", default-features = false, package = "wasmer" }
 # Only needed to implement `wasmer_wasix::runtime::InstantiationHook` for the
 # hooks, so WASIX embedders can register them directly.
-wasmer-wasix = { version = "=0.705.0", path = "../wasix", optional = true, features = [
+wasmer-wasix = { version = "=0.705.0", path = "../wasix-legacy", optional = true, features = [
   "sys",
 ], default-features = false }
 
@@ -27,7 +27,7 @@ tokio = { workspace = true, features = [
   "macros",
 ], default-features = false }
 wasmer-types = { version = "=7.5.0", path = "../types" }
-wasmer-wasix = { path = "../wasix", version = "=0.705.0", features = [
+wasmer-wasix = { path = "../wasix-legacy", version = "=0.705.0", features = [
   "host-fs",
   "host-vnet",
   "sys",
