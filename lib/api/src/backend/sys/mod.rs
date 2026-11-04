@@ -7,6 +7,13 @@ pub(crate) mod async_runtime;
 pub use async_runtime::{
     NativeCleanupGuard, NativeFrameGuard, NativeInvocationScope, WeakNativeInvocation,
 };
+mod native_frame;
+#[doc(hidden)]
+pub use native_frame::{
+    NativeEngineEntryIdentity, NativeEngineFrame, NativeEngineInvocation, NativeEngineStackBounds,
+    NativeSynchronousCallback,
+};
+
 pub(crate) mod entities;
 pub(crate) mod error;
 pub(crate) mod tunables;
