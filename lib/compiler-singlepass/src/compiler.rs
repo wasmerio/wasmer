@@ -172,6 +172,7 @@ impl SinglepassCompiler {
                         let machine = MachineX86_64::new(Some(target.clone()))?;
                         let mut generator = FuncGen::new(
                             module,
+                            target,
                             &self.config,
                             &vmoffsets,
                             memory_styles,
@@ -194,6 +195,7 @@ impl SinglepassCompiler {
                         let machine = MachineARM64::new(Some(target.clone()));
                         let mut generator = FuncGen::new(
                             module,
+                            target,
                             &self.config,
                             &vmoffsets,
                             memory_styles,
@@ -219,6 +221,7 @@ impl SinglepassCompiler {
                         )?;
                         let mut generator = FuncGen::new(
                             module,
+                            target,
                             &self.config,
                             &vmoffsets,
                             memory_styles,

@@ -4,15 +4,14 @@ use dynasmrt::{DynasmError, VecAssembler, riscv::RiscvRelocation};
 use fixedbitset::FixedBitSet;
 #[cfg(feature = "unwind")]
 use gimli::{RiscV, write::CallFrameInstruction};
+use object::{
+    RelocationFlags, elf,
+    write::{Relocation, SymbolId},
+};
 
 use wasmer_compiler::{
     CANONICAL_NAN_F32, CANONICAL_NAN_F64,
-    types::{
-        address_map::InstructionAddressMap,
-        function::FunctionBody,
-        relocation::{Relocation, RelocationKind, RelocationTarget},
-        section::CustomSection,
-    },
+    types::{address_map::InstructionAddressMap, function::FunctionBody, section::CustomSection},
     wasmparser::MemArg,
 };
 use wasmer_types::{
@@ -4228,19 +4227,18 @@ impl Machine for MachineRiscv {
         )
     }
 
-    fn emit_call_with_reloc(
-        &mut self,
-        reloc_target: RelocationTarget,
-    ) -> Result<Vec<Relocation>, CompileError> {
+    fn emit_call_with_reloc(&mut self, symbol: SymbolId) -> Result<Vec<Relocation>, CompileError> {
         let mut relocations = vec![];
         let next = self.get_label();
         let reloc_at = self.assembler.get_offset().0;
         self.emit_label(next)?; // this is to be sure the current imm26 value is 0
         self.assembler.emit_call_label(next)?;
         relocations.push(Relocation {
-            kind: RelocationKind::RiscvCall,
-            reloc_target,
-            offset: reloc_at as u32,
+            flags: RelocationFlags::Elf {
+                r_type: elf::R_RISCV_CALL_PLT,
+            },
+            symbol,
+            offset: reloc_at as u64,
             addend: 0,
         });
         Ok(relocations)

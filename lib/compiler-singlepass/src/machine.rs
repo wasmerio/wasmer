@@ -9,18 +9,14 @@ use crate::{
 };
 
 use dynasmrt::{AssemblyOffset, DynamicLabel};
+use object::write::{Relocation, SymbolId};
 use std::{
     collections::{BTreeMap, HashMap},
     fmt::Debug,
 };
 use wasmer_compiler::{
     misc::CompiledKind,
-    types::{
-        address_map::InstructionAddressMap,
-        function::FunctionBody,
-        relocation::{Relocation, RelocationTarget},
-        section::CustomSection,
-    },
+    types::{address_map::InstructionAddressMap, function::FunctionBody, section::CustomSection},
     wasmparser::MemArg,
 };
 use wasmer_types::{
@@ -1091,11 +1087,8 @@ pub trait Machine {
         unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
 
-    /// emit a move function address to GPR ready for call, using appropriate relocation
-    fn emit_call_with_reloc(
-        &mut self,
-        reloc_target: RelocationTarget,
-    ) -> Result<Vec<Relocation>, CompileError>;
+    /// Emit a call to an object symbol and return its object-file relocations.
+    fn emit_call_with_reloc(&mut self, symbol: SymbolId) -> Result<Vec<Relocation>, CompileError>;
     /// Add with location directly from the stack
     fn emit_binop_add64(
         &mut self,

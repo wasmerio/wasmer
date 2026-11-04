@@ -16,6 +16,7 @@ compile_error!(
     "The Singlepass compiler backend is not supported on Windows. Use the V8 backend instead."
 );
 
+#[cfg(feature = "unwind")]
 mod address_map;
 mod arm64_decl;
 mod codegen;

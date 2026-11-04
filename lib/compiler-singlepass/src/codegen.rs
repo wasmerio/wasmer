@@ -1,5 +1,6 @@
+#[cfg(feature = "unwind")]
+use crate::address_map::get_function_address_map;
 use crate::{
-    address_map::get_function_address_map,
     codegen_error,
     common_decl::*,
     config::Singlepass,
@@ -28,19 +29,11 @@ use wasmer_compiler::dwarf::{DwarfState, WriterRelocate, init_dwarf_unit};
 use wasmer_compiler::{
     FunctionBodyData, WasmSourceMap, memarg_memory_index,
     misc::CompiledKind,
-    types::{
-        function::{CompiledFunction, CompiledFunctionFrameInfo, FunctionBody},
-        relocation::{Relocation, RelocationTarget},
-        section::SectionIndex,
-    },
     wasmparser::{
         BlockType as WpTypeOrFuncType, HeapType as WpHeapType, MemArg, Operator,
         RefType as WpRefType, ValType as WpType,
     },
 };
-
-#[cfg(feature = "unwind")]
-use wasmer_compiler::types::unwind::CompiledFunctionUnwindInfo;
 
 use wasmer_types::{
     CompilationProgressCallback, CompileError, FunctionIndex, FunctionType, GlobalIndex,
@@ -131,8 +124,8 @@ pub struct FuncGen<'a, M: Machine> {
     /// Index of a function defined locally inside the WebAssembly module.
     local_func_index: LocalFunctionIndex,
 
-    /// Relocation information.
-    relocations: Vec<Relocation>,
+    /// Per-function object and its call relocations.
+    object: elf::FunctionObject,
 
     /// A set of special labels for trapping.
     special_labels: SpecialLabelSet,
@@ -1004,6 +997,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         module: &'a ModuleInfo,
+        target: &Target,
         config: &'a Singlepass,
         vmoffsets: &'a VMOffsets,
         memory_styles: &'a PrimaryMap<MemoryIndex, MemoryStyle>,
@@ -1053,7 +1047,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             machine,
             unreachable_depth: 0,
             local_func_index,
-            relocations: vec![],
+            object: elf::FunctionObject::new(target, local_func_index)?,
             special_labels,
             calling_convention,
             #[cfg(feature = "unwind")]
@@ -2375,22 +2369,28 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     }
                 }
 
-                // Imported functions are called through trampolines placed as custom sections.
-                let reloc_target = if function_index < self.module.num_imported_functions {
-                    RelocationTarget::CustomSection(SectionIndex::new(function_index))
+                let call_target = if function_index < self.module.num_imported_functions {
+                    CompiledKind::ImportFunctionTrampoline(
+                        FunctionIndex::new(function_index),
+                        FunctionType::default(),
+                    )
                 } else {
-                    RelocationTarget::LocalFunc(LocalFunctionIndex::new(
-                        function_index - self.module.num_imported_functions,
-                    ))
+                    CompiledKind::Local(
+                        LocalFunctionIndex::new(
+                            function_index - self.module.num_imported_functions,
+                        ),
+                        String::new(),
+                    )
                 };
+                let symbol = self.object.symbol_for_target(call_target);
                 self.emit_call_native(
                     |this| {
                         let offset = this
                             .machine
                             .mark_instruction_with_trap_code(TrapCode::StackOverflow);
-                        let mut relocations = this.machine.emit_call_with_reloc(reloc_target)?;
+                        let relocations = this.machine.emit_call_with_reloc(symbol)?;
                         this.machine.mark_instruction_address_end(offset);
-                        this.relocations.append(&mut relocations);
+                        this.object.relocations.extend(relocations);
                         Ok(())
                     },
                     params.iter().copied(),
@@ -6033,7 +6033,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
     pub fn finalize(
         mut self,
-        data: &FunctionBodyData,
+        _data: &FunctionBodyData,
         arch: Architecture,
         target: &Target,
         _source_map: &WasmSourceMap,
@@ -6075,10 +6075,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         // Notify the assembler backend to generate necessary code at end of function.
         self.machine.finalize_function()?;
 
+        #[cfg(feature = "unwind")]
         let body_len = self.machine.assembler_get_offset().0;
 
-        #[cfg_attr(not(feature = "unwind"), allow(unused_mut))]
-        let mut unwind_info = None;
         #[cfg_attr(not(feature = "unwind"), allow(unused_mut))]
         let mut fde = None;
         #[cfg(feature = "unwind")]
@@ -6090,14 +6089,14 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         symbol: WriterRelocate::FUNCTION_SYMBOL,
                         addend: 0,
                     }));
-                    unwind_info = Some(CompiledFunctionUnwindInfo::Dwarf);
                 }
             }
             _ => (),
         };
 
+        #[cfg(feature = "unwind")]
         let address_map =
-            get_function_address_map(self.machine.instructions_address_map(), data, body_len);
+            get_function_address_map(self.machine.instructions_address_map(), _data, body_len);
         #[cfg(feature = "unwind")]
         if let Some(dwarf_state) = self.dwarf_state.as_mut() {
             for instruction in &address_map.instructions {
@@ -6127,17 +6126,11 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             )?;
         }
 
-        let function = CompiledFunction {
-            body: FunctionBody { body, unwind_info },
-            relocations: self.relocations.clone(),
-            frame_info: CompiledFunctionFrameInfo { traps, address_map },
-            maximum_stack_usage: Some(self.stack_offset.maximum_offset),
-        };
-        let maximum_stack_usage = function.maximum_stack_usage;
-        let object = elf::emit_local_function(
+        let maximum_stack_usage = Some(self.stack_offset.maximum_offset);
+        let object = self.object.emit(
             target,
-            self.local_func_index,
-            function,
+            &body,
+            &traps,
             fde,
             #[cfg(feature = "unwind")]
             self.dwarf_state,
