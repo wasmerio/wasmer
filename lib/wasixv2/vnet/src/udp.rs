@@ -55,6 +55,7 @@ struct Datagram {
 
 /// udp_sock::pending and the first send's cork metadata (udp_sendmsg/udpv6_sendmsg).
 struct Pending {
+    policy_dst: SocketAddr,
     data: Vec<u8>,
     local: SocketAddr,
     dst: SocketAddr,
@@ -75,6 +76,7 @@ struct Inner {
     addr_locked: bool,
     port_locked: bool,
     peer: Option<SocketAddr>,
+    policy_peer: Option<SocketAddr>,
     queue: VecDeque<Datagram>,
     /// `sk_rmem_alloc`, which the error queue is charged against too.
     queued: usize,
@@ -88,6 +90,14 @@ struct Inner {
     /// The publication the socket serves (its id and endpoint), whose endpoint is `backend`
     /// unless the socket is connected inside the namespace.
     published: Option<(u64, Arc<dyn BackendDatagram>)>,
+}
+
+fn policy_destination(g: &Inner, msg: &SendMsg<'_>) -> Option<SocketAddr> {
+    g.pending
+        .as_ref()
+        .map(|p| p.policy_dst)
+        .or(msg.to)
+        .or(g.policy_peer)
 }
 
 /// A UDP socket of a [`Net`].
@@ -126,6 +136,7 @@ impl UdpSocket {
                 addr_locked: false,
                 port_locked: false,
                 peer: None,
+                policy_peer: None,
                 queue: VecDeque::new(),
                 queued: 0,
                 err: None,
@@ -611,7 +622,31 @@ impl UdpSocket {
     /// `inet_sendmsg` and `udp_sendmsg`/`udpv6_sendmsg`, failing in their order: autobind,
     /// the size and flags, the destination, the control messages, the route, the payload
     /// limit, then (`sock_alloc_send_pskb`) a pending error and a shut down sender.
-    fn send_locked(&self, mut g: MutexGuard<'_, Inner>, msg: SendMsg<'_>) -> NetResult<usize> {
+    fn send_locked(
+        &self,
+        mut g: MutexGuard<'_, Inner>,
+        msg: SendMsg<'_>,
+        policy_dst: Option<SocketAddr>,
+        admission: crate::net::Admission,
+    ) -> NetResult<usize> {
+        let dns_source = if admission == crate::net::Admission::DnsOnly {
+            let dst = canonical(policy_dst.ok_or(Errno::EDESTADDRREQ)?);
+            let ctl = match &g.pending {
+                Some(pending) => pending.ctl,
+                None => cmsg::udp(msg.control, self.domain(), dst.is_ipv4(), msg.net_raw)?,
+            };
+            let local = g
+                .local
+                .unwrap_or(SocketAddr::new(g.saddr.unwrap_or(self.any()), 0));
+            // Select the actual route before autobind or consuming a cork. Keep that
+            // decision for this datagram, even if interface configuration changes later.
+            match self.net.udp_route(local, dst, &ctl)? {
+                UdpRoute::Dns { from } => Some(from.ip()),
+                _ => return Err(Errno::EPERM),
+            }
+        } else {
+            None
+        };
         // `inet_send_prepare`: an unbound socket is bound first, `EAGAIN` if that fails.
         let local = self.autobind(&mut g).map_err(|_| Errno::EAGAIN)?;
         if msg.data.len() > MAX_SEND {
@@ -695,6 +730,7 @@ impl UdpSocket {
             }
             if cork {
                 g.pending = Some(Pending {
+                    policy_dst: policy_dst.unwrap_or(dst),
                     data: msg.data.to_vec(),
                     local,
                     dst,
@@ -706,9 +742,14 @@ impl UdpSocket {
             return Ok(msg.data.len());
         }
         if dst.ip().is_multicast() {
-            return self.send_multicast(g, local, dst, scope, &ctl, msg);
+            return self.send_multicast(g, local, dst, scope, &ctl, msg, policy_dst);
         }
-        let route = self.net.udp_route(local, dst, &ctl)?;
+        let route = match dns_source {
+            Some(src) => UdpRoute::Dns {
+                from: SocketAddr::new(src, local.port()),
+            },
+            None => self.net.udp_route(local, dst, &ctl)?,
+        };
         let max = if dst.is_ipv4() {
             MAX_V4_PAYLOAD
         } else {
@@ -733,6 +774,7 @@ impl UdpSocket {
         }
         if cork {
             g.pending = Some(Pending {
+                policy_dst: policy_dst.unwrap_or(dst),
                 data: msg.data.to_vec(),
                 local,
                 dst,
@@ -827,6 +869,7 @@ impl UdpSocket {
     /// A send to the group `dst`, which each socket of the namespaces it reaches that is
     /// bound to the port and allows the group gets a copy of (`__udp4_lib_mcast_deliver`,
     /// `__udp6_lib_mcast_deliver`).
+    #[allow(clippy::too_many_arguments)] // The route and policy destinations are intentionally distinct.
     fn send_multicast(
         &self,
         mut g: MutexGuard<'_, Inner>,
@@ -835,6 +878,7 @@ impl UdpSocket {
         scope: u32,
         ctl: &SendCtl,
         msg: SendMsg<'_>,
+        policy_dst: Option<SocketAddr>,
     ) -> NetResult<usize> {
         let data = msg.data;
         let cork = g.cork || msg.flags.contains(MsgFlags::MSG_MORE);
@@ -862,6 +906,7 @@ impl UdpSocket {
         }
         if cork {
             g.pending = Some(Pending {
+                policy_dst: policy_dst.unwrap_or(dst),
                 data: data.to_vec(),
                 local,
                 dst,
@@ -1081,6 +1126,7 @@ impl Socket for UdpSocket {
     }
 
     fn bind(&self, addr: SocketAddr, privileged: bool) -> NetResult<()> {
+        self.net.admit(addr, crate::PolicyDirection::Inbound)?;
         let mapped = matches!(addr, SocketAddr::V6(v6) if v6.ip().to_ipv4_mapped().is_some());
         let addr = canonical(addr);
         let mut g = self.lock();
@@ -1126,6 +1172,7 @@ impl Socket for UdpSocket {
     /// `ip4_datagram_connect`: sets the default peer, binds if needed, and takes the route's
     /// source address if bound to the wildcard.
     fn connect(&self, addr: SocketAddr) -> NetResult<()> {
+        let admission = self.net.admit(addr, crate::PolicyDirection::Outbound)?;
         let dst = canonical(addr);
         let mut g = self.lock();
         let path = match dst.ip().is_multicast() {
@@ -1139,6 +1186,9 @@ impl Socket for UdpSocket {
             }
             false => self.net.path(dst, g.local.map(|l| l.ip()).or(g.saddr))?,
         };
+        if admission == crate::net::Admission::DnsOnly && !matches!(path, Path::Dns { .. }) {
+            return Err(Errno::EPERM);
+        }
         let src = path.src();
         let local = self.autobind(&mut g)?;
         if local.ip().is_unspecified() {
@@ -1165,6 +1215,7 @@ impl Socket for UdpSocket {
             }
         }
         g.peer = Some(dst);
+        g.policy_peer = Some(addr);
         Ok(())
     }
 
@@ -1172,6 +1223,7 @@ impl Socket for UdpSocket {
     fn disconnect(&self) -> NetResult<()> {
         let mut g = self.lock();
         g.peer = None;
+        g.policy_peer = None;
         if let Some(b) = &g.backend {
             b.connect(None)?;
         }
@@ -1221,7 +1273,23 @@ impl Socket for UdpSocket {
 
     fn send(&self, msg: SendMsg<'_>) -> NetResult<usize> {
         let len = msg.data.len();
-        self.send_locked(self.lock(), msg).map(|_| len)
+        let mut g = self.lock();
+        let mut admission = crate::net::Admission::Allowed;
+        if self.net.config.policy.is_some() {
+            loop {
+                let dst = policy_destination(&g, &msg);
+                drop(g);
+                if let Some(dst) = dst {
+                    admission = self.net.admit(dst, crate::PolicyDirection::Outbound)?;
+                }
+                g = self.lock();
+                if policy_destination(&g, &msg) == dst {
+                    break;
+                }
+            }
+        }
+        let dst = policy_destination(&g, &msg);
+        self.send_locked(g, msg, dst, admission).map(|_| len)
     }
 
     fn recv(&self, buf: &mut [u8], flags: MsgFlags) -> NetResult<RecvMsg> {
@@ -1306,17 +1374,15 @@ impl Socket for UdpSocket {
             {
                 let now = pending.now;
                 // udp_lib_setsockopt ignores push errors; the cork is still cleared.
-                let _ = self.send_locked(
-                    g,
-                    SendMsg {
-                        data: &[],
-                        to: None,
-                        control: &[],
-                        flags: MsgFlags(0),
-                        net_raw: false,
-                        now,
-                    },
-                );
+                drop(g);
+                let _ = self.send(SendMsg {
+                    data: &[],
+                    to: None,
+                    control: &[],
+                    flags: MsgFlags(0),
+                    net_raw: false,
+                    now,
+                });
             }
             return Ok(());
         }

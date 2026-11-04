@@ -712,13 +712,28 @@ pub trait SctpOps {
 /// A published UDP port: the endpoint bound to it and the handle that keeps it published.
 pub type PublishedDatagram = (Arc<dyn BackendDatagram>, Box<dyn Publication>);
 
-/// Where traffic for destinations outside the namespace goes: host sockets, a virtual switch.
-/// Implementations do their I/O off the guest's thread (a reactor).
-///
-/// A guest socket has one wait queue for its whole life (Linux's `sk_sleep`). A backend object
-/// made for it later (on `connect`, on the first datagram to an outside address) wakes that
-/// queue, never one of its own, so a waiter that registered on the socket before the backend
-/// object existed still hears about it.
+/// The guest operation an address is admitted for, before routing or host translation.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PolicyDirection {
+    Inbound,
+    Outbound,
+}
+
+/// Embedder admission policy, shared by sockets in a namespace. Callbacks run without
+/// namespace or socket locks. Internal DNS transport is admitted separately; every question,
+/// including localhost and forwarded queries, still requires domain admission.
+/// The policy covers TCP/UDP. Other IP transports and external vsock connections
+/// are refused while it is installed, so they cannot bypass address admission.
+pub trait NetworkPolicy: std::fmt::Debug + Send + Sync {
+    fn allows_socket(&self, addr: SocketAddr, direction: PolicyDirection) -> bool;
+    fn allows_domain(&self, domain: &str) -> bool;
+    /// Called for an admitted question before its resolved addresses reach the guest.
+    fn resolved_domain(&self, domain: &str, addrs: &[IpAddr]);
+}
+
+/// Where traffic for destinations outside the namespace goes: host sockets or a virtual switch.
+/// Implementations do their I/O off the guest's thread. A backend object wakes the guest
+/// socket's original wait queue, including when the object was created after registration.
 pub trait Backend: Send + Sync {
     /// An in-runtime peer reached by the uplink, if any. The namespace finishes routing
     /// after releasing its own lock, through its ordinary cross-namespace socket path.

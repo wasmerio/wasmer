@@ -125,6 +125,8 @@ impl Default for Uplink {
 /// Configuration of a namespace's network.
 #[derive(Clone, Debug)]
 pub struct NetConfig {
+    /// Optional embedder admission policy; applies before local routing and host NAT.
+    pub policy: Option<Arc<dyn crate::NetworkPolicy>>,
     /// Whether `lo` starts up. True for a machine's first namespace; Linux starts a namespace
     /// made by `unshare(CLONE_NEWNET)` with `lo` down.
     pub loopback_up: bool,
@@ -154,6 +156,7 @@ impl Default for NetConfig {
     /// Loopback only.
     fn default() -> Self {
         Self {
+            policy: None,
             loopback_up: true,
             uplink: None,
             port_range: PortRange::default(),
@@ -224,6 +227,13 @@ pub(crate) struct UdpPublication {
     guest: SocketAddr,
     endpoint: Arc<dyn BackendDatagram>,
     attached: Option<(SockId, Weak<UdpSocket>)>,
+}
+
+/// Admission for one operation, including the restricted internal DNS permission.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Admission {
+    Allowed,
+    DnsOnly,
 }
 
 /// Where a destination goes.
@@ -372,6 +382,45 @@ impl Net {
             next_id: AtomicU64::new(1),
             me: me.clone(),
         })
+    }
+
+    /// The policy inherited by network namespaces the machine creates.
+    pub fn policy(&self) -> Option<Arc<dyn crate::NetworkPolicy>> {
+        self.config.policy.clone()
+    }
+
+    pub(crate) fn admit(
+        &self,
+        addr: SocketAddr,
+        direction: crate::PolicyDirection,
+    ) -> NetResult<Admission> {
+        if self
+            .config
+            .policy
+            .as_ref()
+            .is_none_or(|p| p.allows_socket(addr, direction))
+        {
+            return Ok(Admission::Allowed);
+        }
+        // This permission is usable only by an actual DNS route, never a local or veth
+        // service that acquired the configured server's address.
+        if direction == crate::PolicyDirection::Outbound
+            && addr.port() == crate::dns::PORT
+            && self.is_dns_server(canonical_ip(addr.ip()))
+        {
+            return Ok(Admission::DnsOnly);
+        }
+        Err(Errno::EPERM)
+    }
+
+    // The address policy covers TCP/UDP. Other transports must not bypass it
+    // through packet injection, local SCTP routing or an external vsock backend.
+    fn admit_unfiltered_transport(&self) -> NetResult<()> {
+        if self.config.policy.is_some() {
+            Err(Errno::EPERM)
+        } else {
+            Ok(())
+        }
     }
 
     pub(crate) fn state(&self) -> MutexGuard<'_, NetState> {
@@ -1063,19 +1112,27 @@ impl Network for Net {
             // `inetsw` has SCTP for both of its styles, and is the only `SOCK_SEQPACKET`
             // protocol, which protocol 0 picks.
             (SocketKind::Stream, IPPROTO_SCTP) | (SocketKind::SeqPacket, 0 | IPPROTO_SCTP) => {
+                self.admit_unfiltered_transport()?;
                 Ok(SctpSocket::new(self.arc(), domain, kind, uid))
             }
             (SocketKind::Datagram, 0 | 17) => Ok(UdpSocket::new(self.arc(), domain, uid)),
             (SocketKind::Datagram, p) if p == icmp => {
+                self.admit_unfiltered_transport()?;
                 Ok(IcmpSocket::new(self.arc(), domain, false, uid))
             }
-            (SocketKind::Raw, p) if p == icmp => Ok(IcmpSocket::new(self.arc(), domain, true, uid)),
+            (SocketKind::Raw, p) if p == icmp => {
+                self.admit_unfiltered_transport()?;
+                Ok(IcmpSocket::new(self.arc(), domain, true, uid))
+            }
             (SocketKind::Raw, 0) => Err(Errno::EPROTONOSUPPORT),
             (SocketKind::Raw, p) if !(0..crate::raw::IPPROTO_MAX).contains(&p) => {
                 Err(Errno::EINVAL)
             }
             // `inet_num` is what a packet's protocol is matched against: one past 255 never is.
-            (SocketKind::Raw, p) => Ok(IcmpSocket::raw(self.arc(), domain, p as u8, uid)),
+            (SocketKind::Raw, p) => {
+                self.admit_unfiltered_transport()?;
+                Ok(IcmpSocket::raw(self.arc(), domain, p as u8, uid))
+            }
             _ => Err(Errno::EPROTONOSUPPORT),
         }
     }
@@ -1090,6 +1147,7 @@ impl Network for Net {
         port: u32,
         wq: WaitQueue,
     ) -> Result<Arc<dyn BackendStream>, Errno> {
+        self.admit_unfiltered_transport()?;
         match &self.backend {
             Some(backend) => backend.vsock_connect(cid, port, wq),
             None => Err(Errno::ENODEV),
@@ -1128,6 +1186,7 @@ impl Network for Net {
         backlog: u32,
         sink: Arc<dyn crate::VsockInboundSink>,
     ) -> Result<Box<dyn crate::VsockPublication>, Errno> {
+        self.admit_unfiltered_transport()?;
         self.backend
             .as_ref()
             .ok_or(Errno::ENODEV)?

@@ -55,7 +55,7 @@ use wasixv2_vfs::{Cred, Ctx, Errno, LookupFlags, MountFlags, NAME_MAX, Vfs};
 use wasixv2_vfs_mem::{Limits, MemFs, QuotaLimits};
 use wasixv2_vfs_overlay::{MAX_LOWERS, OverlayFs};
 use wasixv2_vfs_package::PackageFs;
-pub use wasixv2_vnet::{Net, NetConfig};
+pub use wasixv2_vnet::{Net, NetConfig, NetworkPolicy, PolicyDirection};
 #[cfg(all(feature = "host-network", unix))]
 pub use wasixv2_vnet_host::{VsockConfig, VsockRoute};
 #[cfg(feature = "wasix1")]
@@ -232,6 +232,7 @@ pub struct MachineBuilder {
     host: Arc<dyn Host>,
     task_executor: Option<Arc<dyn Executor>>,
     network: Option<Arc<Net>>,
+    network_policy: Option<Arc<dyn NetworkPolicy>>,
     user: Credentials,
     uname: Uname,
     root: Option<Arc<dyn Filesystem>>,
@@ -276,6 +277,7 @@ impl MachineBuilder {
             host,
             task_executor: None,
             network: None,
+            network_policy: None,
             user: Credentials::default(),
             uname: Uname::default(),
             root: None,
@@ -329,6 +331,13 @@ impl MachineBuilder {
     /// configuration. No default host backend is constructed when this is set.
     pub fn network(mut self, network: Arc<Net>) -> Self {
         self.network = Some(network);
+        self
+    }
+
+    /// Admission policy for the default network. An explicit [`Self::network`] instead
+    /// carries its policy in [`NetConfig::policy`].
+    pub fn network_policy(mut self, policy: Arc<dyn NetworkPolicy>) -> Self {
+        self.network_policy = Some(policy);
         self
     }
 
@@ -418,6 +427,7 @@ impl MachineBuilder {
             host,
             task_executor,
             network,
+            network_policy,
             user,
             uname,
             root,
@@ -448,9 +458,9 @@ impl MachineBuilder {
             None => host.clone(),
         };
         #[cfg(all(feature = "host-network", unix))]
-        let network = network.unwrap_or_else(|| default_network(dns, vsock));
+        let network = network.unwrap_or_else(|| default_network(dns, vsock, network_policy));
         #[cfg(not(all(feature = "host-network", unix)))]
-        let network = network.unwrap_or_else(|| default_network(dns));
+        let network = network.unwrap_or_else(|| default_network(dns, network_policy));
         let root = root
             .unwrap_or_else(|| default_root(&host, &network.resolv_conf(), &user, uname.release()));
         #[cfg(feature = "wasix1")]
@@ -1174,11 +1184,13 @@ fn boot(
 ) -> Kernel {
     let host: Arc<dyn Host> = time.clone();
     let host = &host;
+    let network_policy = network.policy();
     let mut kernel = Kernel::with_timekeeper(time.clone(), root)
         .with_binfmt(abis)
         .with_network(network.clone())
-        .with_network_factory(|| {
+        .with_network_factory(move || {
             let config = NetConfig {
+                policy: network_policy.clone(),
                 loopback_up: false,
                 ..NetConfig::default()
             };
@@ -1350,7 +1362,11 @@ impl Drop for Machine {
 }
 
 #[cfg(all(feature = "host-network", unix))]
-fn default_network(dns: Dns, vsock: Option<VsockConfig>) -> Arc<Net> {
+fn default_network(
+    dns: Dns,
+    vsock: Option<VsockConfig>,
+    policy: Option<Arc<dyn NetworkPolicy>>,
+) -> Arc<Net> {
     let resolver = wasixv2_vnet_host::ResolverConfig::default();
     let backend = match vsock {
         Some(vsock) => wasixv2_vnet_host::HostBackend::with_vsock(resolver, vsock),
@@ -1360,10 +1376,17 @@ fn default_network(dns: Dns, vsock: Option<VsockConfig>) -> Arc<Net> {
         Ok(backend) => backend,
         Err(err) => {
             tracing::warn!(%err, "no host network backend; the guest network is loopback-only");
-            return Net::new(NetConfig::default(), None);
+            return Net::new(
+                NetConfig {
+                    policy,
+                    ..NetConfig::default()
+                },
+                None,
+            );
         }
     };
     let mut config = NetConfig::host_default();
+    config.policy = policy;
     match dns {
         Dns::Builtin => {}
         Dns::Host => {
@@ -1386,8 +1409,14 @@ fn default_network(dns: Dns, vsock: Option<VsockConfig>) -> Arc<Net> {
 }
 
 #[cfg(not(all(feature = "host-network", unix)))]
-fn default_network(_: Dns) -> Arc<Net> {
-    Net::new(NetConfig::default(), None)
+fn default_network(_: Dns, policy: Option<Arc<dyn NetworkPolicy>>) -> Arc<Net> {
+    Net::new(
+        NetConfig {
+            policy,
+            ..NetConfig::default()
+        },
+        None,
+    )
 }
 
 /// The guest's `/etc/hosts`: `localhost` resolves without DNS, as on every Linux system.

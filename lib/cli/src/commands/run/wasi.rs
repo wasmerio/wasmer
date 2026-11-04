@@ -109,7 +109,7 @@ pub struct Wasi {
     ///
     /// Programs on the WASIX v2 kernel always reach the host's network for outgoing
     /// connections, so plain `--net` changes nothing; a guest listener is reached from the host
-    /// through `--publish`. Network rulesets (`--net=<RULES>`) are not supported there yet.
+    /// through `--publish`. `--net=<RULES>` restricts socket addresses and DNS names.
     #[clap(long = "net", require_equals = true)]
     // Note that when --net is passed to the cli, the first Option will be initialized: Some(None)
     // and when --net=<ruleset> is specified, the inner Option will be initialized: Some(Some(ruleset))

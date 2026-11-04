@@ -40,6 +40,30 @@ use super::{
 use crate::backend::{BackendType, RuntimeOptions};
 use crate::utils::PublishedProtocol;
 
+/// The CLI's historical rules, independent of the kernel's socket implementation.
+#[derive(Debug)]
+struct NetworkRules(virtual_net::ruleset::Ruleset);
+
+impl wasixv2::NetworkPolicy for NetworkRules {
+    fn allows_socket(&self, addr: SocketAddr, direction: wasixv2::PolicyDirection) -> bool {
+        let direction = match direction {
+            wasixv2::PolicyDirection::Inbound => virtual_net::ruleset::Direction::Inbound,
+            wasixv2::PolicyDirection::Outbound => virtual_net::ruleset::Direction::Outbound,
+        };
+        self.0.allows_socket(addr, direction)
+    }
+
+    fn allows_domain(&self, domain: &str) -> bool {
+        self.0.allows_domain(domain)
+    }
+
+    fn resolved_domain(&self, domain: &str, addrs: &[std::net::IpAddr]) {
+        if let Err(err) = self.0.expand_domain(domain, addrs) {
+            tracing::debug!(%err, domain, "ruleset expansion failed");
+        }
+    }
+}
+
 /// What to start on the machine.
 pub(super) struct MachineProgram {
     argv0: String,
@@ -1031,6 +1055,10 @@ impl Run {
     ) -> Result<Machine, Error> {
         let wasi = &self.wasi;
         let mut builder = Machine::builder().loader(loader).init(!wasi.no_init);
+        if let Some(Some(rules)) = &wasi.networking {
+            let rules = rules.parse().context("invalid --net ruleset")?;
+            builder = builder.network_policy(Arc::new(NetworkRules(rules)));
+        }
         if wasi.http_client {
             let client =
                 wasmer_wasix::http::default_http_client().context("No HTTP client available")?;
@@ -1116,10 +1144,6 @@ impl Run {
         let wasi = &self.wasi;
         #[allow(unused_mut)]
         let mut given = vec![
-            (
-                "network rulesets (--net=<RULES>)",
-                matches!(wasi.networking, Some(Some(_))),
-            ),
             (
                 "--enable-async-threads",
                 wasi.enable_async_threads.is_some(),
@@ -1451,5 +1475,76 @@ impl Reader {
             v3: Arc::new(v3),
             migrated: false,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::NetworkRules;
+    use virtual_net::ruleset::{Direction, Ruleset};
+    use wasixv2::{NetworkPolicy, PolicyDirection};
+
+    #[test]
+    fn machine_network_rules_keep_v1_address_direction_and_deny_precedence() {
+        let rules = "ipv4:allow=127.0.0.0/8:{0,8000-9000}/in,ipv4:allow=192.0.2.0/24:443/out,ipv4:deny=192.0.2.20:443,ipv6:allow=[::1]:8080,ipv6:deny=[::1]:8081";
+        let old: Ruleset = rules.parse().unwrap();
+        let new = NetworkRules(rules.parse().unwrap());
+        for (address, direction, allowed) in [
+            ("127.0.0.1:0", PolicyDirection::Inbound, true),
+            ("127.0.0.1:8080", PolicyDirection::Inbound, true),
+            ("127.0.0.1:8080", PolicyDirection::Outbound, false),
+            ("192.0.2.10:443", PolicyDirection::Outbound, true),
+            ("192.0.2.20:443", PolicyDirection::Outbound, false),
+            ("192.0.2.10:443", PolicyDirection::Inbound, false),
+            ("[::1]:8080", PolicyDirection::Outbound, true),
+            ("[::1]:8080", PolicyDirection::Inbound, true),
+            ("[::1]:8081", PolicyDirection::Outbound, false),
+            ("[::ffff:127.0.0.1]:8080", PolicyDirection::Inbound, false),
+        ] {
+            let address = address.parse().unwrap();
+            let old_direction = match direction {
+                PolicyDirection::Inbound => Direction::Inbound,
+                PolicyDirection::Outbound => Direction::Outbound,
+            };
+            assert_eq!(old.allows_socket(address, old_direction), allowed);
+            assert_eq!(new.allows_socket(address, direction), allowed);
+        }
+    }
+
+    #[test]
+    fn machine_network_rules_expand_dns_and_keep_explicit_ip_denials() {
+        let rules =
+            "dns:allow=*.example.test:443,dns:deny=blocked.example.test:*,ipv4:deny=192.0.2.20:443";
+        let old: Ruleset = rules.parse().unwrap();
+        let new = NetworkRules(rules.parse().unwrap());
+        for (name, allowed) in [
+            ("www.example.test", true),
+            ("blocked.example.test", false),
+            ("other.test", false),
+        ] {
+            assert_eq!(old.allows_domain(name), allowed);
+            assert_eq!(new.allows_domain(name), allowed);
+        }
+        let addresses = [
+            "192.0.2.10".parse().unwrap(),
+            "192.0.2.20".parse().unwrap(),
+            "2001:db8::10".parse().unwrap(),
+        ];
+        old.expand_domain("www.example.test", addresses).unwrap();
+        new.resolved_domain("www.example.test", &addresses);
+        for (address, allowed) in [
+            ("192.0.2.10:443", true),
+            ("192.0.2.20:443", false),
+            ("[2001:db8::10]:443", true),
+            ("192.0.2.10:80", false),
+        ] {
+            let address = address.parse().unwrap();
+            assert_eq!(old.allows_socket(address, Direction::Outbound), allowed);
+            assert_eq!(
+                new.allows_socket(address, PolicyDirection::Outbound),
+                allowed
+            );
+            assert!(!new.allows_socket(address, PolicyDirection::Inbound));
+        }
     }
 }

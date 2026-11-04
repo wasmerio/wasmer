@@ -3799,3 +3799,427 @@ fn udp_ipv6_receive_controls_preserve_queued_packet_metadata() {
         ]
     );
 }
+
+/// Admission records the guest addresses rather than the backend's translated addresses.
+#[derive(Default)]
+struct Admission {
+    denied: Mutex<Vec<(SocketAddr, crate::PolicyDirection)>>,
+    names: Vec<String>,
+    calls: Mutex<Vec<(SocketAddr, crate::PolicyDirection)>>,
+    resolved: Mutex<Vec<(String, Vec<std::net::IpAddr>)>>,
+    reenter: Mutex<Option<std::sync::Weak<dyn Socket>>>,
+    on_socket: Mutex<Option<Box<dyn FnOnce() + Send>>>,
+}
+
+impl std::fmt::Debug for Admission {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Admission").finish_non_exhaustive()
+    }
+}
+
+impl crate::NetworkPolicy for Admission {
+    fn allows_socket(&self, addr: SocketAddr, direction: crate::PolicyDirection) -> bool {
+        self.calls.lock().unwrap().push((addr, direction));
+        let hook = self.on_socket.lock().unwrap().take();
+        if let Some(hook) = hook {
+            hook();
+        }
+        !self.denied.lock().unwrap().contains(&(addr, direction))
+    }
+
+    fn allows_domain(&self, domain: &str) -> bool {
+        let socket = self
+            .reenter
+            .lock()
+            .unwrap()
+            .as_ref()
+            .and_then(|w| w.upgrade());
+        if let Some(socket) = socket {
+            socket.local_addr().unwrap();
+        }
+        self.names.iter().any(|name| name == domain)
+    }
+
+    fn resolved_domain(&self, domain: &str, addrs: &[std::net::IpAddr]) {
+        let socket = self
+            .reenter
+            .lock()
+            .unwrap()
+            .as_ref()
+            .and_then(|w| w.upgrade());
+        if let Some(socket) = socket {
+            socket.local_addr().unwrap();
+        }
+        self.resolved
+            .lock()
+            .unwrap()
+            .push((domain.into(), addrs.to_vec()));
+    }
+}
+
+#[test]
+fn admission_covers_local_backend_and_original_mapped_addresses() {
+    use crate::PolicyDirection::{Inbound, Outbound};
+    let policy = Arc::new(Admission::default());
+    let denied = [
+        a("127.0.0.1:9001"),
+        a("[::1]:9001"),
+        a("10.0.2.2:9001"),
+        a("[::ffff:127.0.0.1]:9001"),
+    ];
+    *policy.denied.lock().unwrap() = denied
+        .iter()
+        .flat_map(|addr| [(*addr, Inbound), (*addr, Outbound)])
+        .collect();
+    let (n, backend) = backed_with(NetConfig {
+        policy: Some(policy.clone()),
+        ..NetConfig::host_default()
+    });
+    for addr in denied {
+        let domain = if addr.is_ipv4() {
+            Domain::Inet
+        } else {
+            Domain::Inet6
+        };
+        for kind in [SocketKind::Stream, SocketKind::Datagram] {
+            let socket = n.socket(domain, kind, 0, UID).unwrap();
+            assert_eq!(socket.bind(addr, false), Err(Errno::EPERM));
+            assert_eq!(socket.connect(addr), Err(Errno::EPERM));
+            assert_eq!(socket.local_addr().unwrap().port(), 0);
+            if kind == SocketKind::Datagram {
+                assert_eq!(send_to(&*socket, b"blocked", Some(addr)), Err(Errno::EPERM));
+                assert_eq!(socket.local_addr().unwrap().port(), 0);
+            }
+        }
+    }
+    assert!(backend.streams.lock().unwrap().is_empty());
+    assert!(backend.dgrams.lock().unwrap().is_empty());
+    let listener = tcp(&n);
+    listener.bind(a("127.0.0.1:9002"), false).unwrap();
+    listener.listen(1).unwrap();
+    let client = tcp(&n);
+    client.connect(a("127.0.0.1:9002")).unwrap();
+    send(&*client, b"allowed").unwrap();
+    assert_eq!(
+        recv(&*listener.accept().unwrap().socket, 20).unwrap(),
+        b"allowed"
+    );
+    policy
+        .denied
+        .lock()
+        .unwrap()
+        .push((a("0.0.0.0:0"), Inbound));
+    let listener = tcp(&n);
+    assert_eq!(listener.listen(1), Err(Errno::EPERM));
+    assert_eq!(listener.local_addr().unwrap().port(), 0);
+}
+
+#[test]
+fn udp_admission_revalidates_peer_and_preserves_cork_destination() {
+    use crate::PolicyDirection::Outbound;
+    let policy = Arc::new(Admission::default());
+    let n = Net::new(
+        NetConfig {
+            policy: Some(policy.clone()),
+            ..NetConfig::default()
+        },
+        None,
+    );
+    let first = udp(&n);
+    let second = udp(&n);
+    first.bind(a("127.0.0.1:9000"), false).unwrap();
+    second.bind(a("127.0.0.1:9001"), false).unwrap();
+    let client = udp(&n);
+    client.connect(a("127.0.0.1:9000")).unwrap();
+    let weak = Arc::downgrade(&client);
+    let policy_weak = Arc::downgrade(&policy);
+    *policy.on_socket.lock().unwrap() = Some(Box::new(move || {
+        weak.upgrade()
+            .unwrap()
+            .connect(a("127.0.0.1:9001"))
+            .unwrap();
+        policy_weak
+            .upgrade()
+            .unwrap()
+            .denied
+            .lock()
+            .unwrap()
+            .push((a("127.0.0.1:9001"), Outbound));
+    }));
+    assert_eq!(send(&*client, b"race"), Err(Errno::EPERM));
+    assert_eq!(recv(&*first, 10), Err(Errno::EAGAIN));
+    assert_eq!(recv(&*second, 10), Err(Errno::EAGAIN));
+    client.set_option(17, 1, &1i32.to_le_bytes()).unwrap();
+    send_to(&*client, b"one", Some(a("127.0.0.1:9000"))).unwrap();
+    // Appending to a cork keeps the first send's destination even when sendto changes it.
+    send_to(&*client, b"two", Some(a("127.0.0.1:9001"))).unwrap();
+    client.set_option(17, 1, &0i32.to_le_bytes()).unwrap();
+    assert_eq!(recv(&*first, 20).unwrap(), b"onetwo");
+    assert_eq!(recv(&*second, 20), Err(Errno::EAGAIN));
+}
+
+#[test]
+fn dns_admission_gates_local_reverse_forward_and_resolver_results() {
+    use crate::dns::tests::query;
+    let policy = Arc::new(Admission {
+        names: vec!["allowed.test".into()],
+        ..Admission::default()
+    });
+    policy
+        .denied
+        .lock()
+        .unwrap()
+        .push((a("10.0.2.3:53"), crate::PolicyDirection::Outbound));
+    let (n, resolver) = with_resolver(NetConfig {
+        policy: Some(policy.clone()),
+        ..NetConfig::host_default()
+    });
+    let socket = udp(&n);
+    for (name, kind) in [
+        ("localhost", 1),
+        ("1.0.0.127.in-addr.arpa", 12),
+        ("denied.test", 16),
+    ] {
+        send_to(
+            &*socket,
+            &query(1, name, kind, None),
+            Some(a("10.0.2.3:53")),
+        )
+        .unwrap();
+        assert_eq!(recv(&*socket, 512).unwrap()[3] & 15, 5);
+    }
+    assert!(resolver.questions().is_empty());
+    send_to(
+        &*socket,
+        &query(2, "allowed.test", 1, None),
+        Some(a("10.0.2.3:53")),
+    )
+    .unwrap();
+    assert_eq!(
+        resolver.questions(),
+        vec![crate::Lookup::Name("allowed.test".into())]
+    );
+    resolver.answer(addrs("canonical.test", &["192.0.2.20", "2001:db8::20"], 30));
+    assert_eq!(recv(&*socket, 512).unwrap()[3] & 15, 0);
+    assert_eq!(
+        *policy.resolved.lock().unwrap(),
+        vec![(
+            "allowed.test".into(),
+            vec![
+                "192.0.2.20".parse().unwrap(),
+                "2001:db8::20".parse().unwrap()
+            ]
+        )]
+    );
+    policy.denied.lock().unwrap().extend([
+        (a("10.0.2.2:53"), crate::PolicyDirection::Outbound),
+        (a("10.0.2.3:54"), crate::PolicyDirection::Outbound),
+    ]);
+    assert_eq!(
+        send_to(&*socket, b"query", Some(a("10.0.2.2:53"))),
+        Err(Errno::EPERM)
+    );
+    assert_eq!(
+        send_to(&*socket, b"query", Some(a("10.0.2.3:54"))),
+        Err(Errno::EPERM)
+    );
+}
+
+#[test]
+fn tcp_dns_admission_can_reenter_on_send_options_timer_shutdown_and_close() {
+    use crate::dns::tests::query;
+    let policy = Arc::new(Admission {
+        names: vec!["localhost".into()],
+        ..Admission::default()
+    });
+    policy
+        .denied
+        .lock()
+        .unwrap()
+        .push((a("10.0.2.3:53"), crate::PolicyDirection::Outbound));
+    let n = Net::new(
+        NetConfig {
+            policy: Some(policy.clone()),
+            ..NetConfig::host_default()
+        },
+        None,
+    );
+    for flush in 0..5 {
+        let socket = tcp(&n);
+        assert_eq!(socket.connect(a("10.0.2.3:53")), Err(Errno::EINPROGRESS));
+        socket.poll(None);
+        *policy.reenter.lock().unwrap() = Some(Arc::downgrade(&socket));
+        let msg = query(4, "localhost", 1, None);
+        let frame: Vec<_> = (msg.len() as u16)
+            .to_be_bytes()
+            .into_iter()
+            .chain(msg)
+            .collect();
+        socket
+            .send(SendMsg {
+                data: &frame,
+                to: None,
+                flags: if flush == 0 {
+                    MsgFlags(0)
+                } else {
+                    MsgFlags::MSG_MORE
+                },
+                control: &[],
+                net_raw: false,
+                now: Duration::ZERO,
+            })
+            .unwrap();
+        match flush {
+            0 => {}
+            1 => socket.set_option(6, 1, &1i32.to_le_bytes()).unwrap(),
+            2 => socket.cork_expire(),
+            3 => socket.shutdown(Shutdown::Write).unwrap(),
+            _ => drop(socket),
+        }
+        assert_eq!(policy.resolved.lock().unwrap().len(), flush + 1);
+    }
+}
+
+#[test]
+fn dns_transport_exception_cannot_reach_a_local_service_at_the_server_address() {
+    let policy = Arc::new(Admission::default());
+    policy
+        .denied
+        .lock()
+        .unwrap()
+        .push((a("10.0.2.3:53"), crate::PolicyDirection::Outbound));
+    let n = Net::new(
+        NetConfig {
+            policy: Some(policy.clone()),
+            ..NetConfig::host_default()
+        },
+        None,
+    );
+    n.add_address(
+        crate::iface::LOOPBACK_INDEX,
+        crate::iface::IfAddr::new(a("10.0.2.3:0").ip(), 32),
+        crate::iface::AddMode::ADD,
+    )
+    .unwrap();
+    let listener = tcp(&n);
+    listener.bind(a("10.0.2.3:53"), true).unwrap();
+    listener.listen(1).unwrap();
+    let receiver = udp(&n);
+    receiver.bind(a("10.0.2.3:53"), true).unwrap();
+    for kind in [SocketKind::Stream, SocketKind::Datagram] {
+        let client = n.socket(Domain::Inet, kind, 0, UID).unwrap();
+        assert_eq!(client.connect(a("10.0.2.3:53")), Err(Errno::EPERM));
+        assert_eq!(client.local_addr().unwrap().port(), 0);
+        if kind == SocketKind::Datagram {
+            assert_eq!(
+                send_to(&*client, b"escape", Some(a("10.0.2.3:53"))),
+                Err(Errno::EPERM)
+            );
+            assert_eq!(client.local_addr().unwrap().port(), 0);
+        }
+    }
+    assert_eq!(recv(&*receiver, 20), Err(Errno::EAGAIN));
+    assert_eq!(listener.accept().unwrap_err(), Errno::EAGAIN);
+    // Explicit IP permission still admits an ordinary local service at this address.
+    policy.denied.lock().unwrap().clear();
+    send_to(&*udp(&n), b"allowed", Some(a("10.0.2.3:53"))).unwrap();
+    assert_eq!(recv(&*receiver, 20).unwrap(), b"allowed");
+}
+
+#[test]
+fn admission_uses_guest_nat_addresses_and_checks_accepted_peers() {
+    use crate::PolicyDirection::Outbound;
+    let policy = Arc::new(Admission::default());
+    policy
+        .denied
+        .lock()
+        .unwrap()
+        .push((a("127.0.0.1:9443"), Outbound));
+    let (n, backend) = backed_with(NetConfig {
+        policy: Some(policy.clone()),
+        ..NetConfig::host_default()
+    });
+    let client = tcp(&n);
+    assert_eq!(client.connect(a("10.0.2.2:9443")), Err(Errno::EINPROGRESS));
+    assert_eq!(
+        backend.streams.lock().unwrap()[0].peer_addr(),
+        a("127.0.0.1:9443")
+    );
+    assert!(
+        policy
+            .calls
+            .lock()
+            .unwrap()
+            .contains(&(a("10.0.2.2:9443"), Outbound))
+    );
+    let listener = tcp(&n);
+    listener.bind(a("127.0.0.1:9000"), false).unwrap();
+    listener.listen(1).unwrap();
+    let local = tcp(&n);
+    local.connect(a("127.0.0.1:9000")).unwrap();
+    policy
+        .denied
+        .lock()
+        .unwrap()
+        .push((local.local_addr().unwrap(), Outbound));
+    assert_eq!(listener.accept().unwrap_err(), Errno::EPERM);
+    assert_eq!(listener.accept().unwrap_err(), Errno::EAGAIN);
+}
+
+/// New Linux transports cannot bypass a legacy TCP/UDP address policy.
+#[test]
+fn admission_refuses_transports_without_policy_coverage() {
+    let filtered = Net::new(
+        NetConfig {
+            policy: Some(Arc::new(Admission::default())),
+            ..NetConfig::default()
+        },
+        None,
+    );
+    let plain = net();
+    for (domain, icmp) in [(Domain::Inet, 1), (Domain::Inet6, 58)] {
+        for (kind, protocol) in [
+            (SocketKind::Stream, 132),
+            (SocketKind::SeqPacket, 0),
+            (SocketKind::SeqPacket, 132),
+            (SocketKind::Datagram, icmp),
+            (SocketKind::Raw, icmp),
+            (SocketKind::Raw, 17),
+            (SocketKind::Raw, 255),
+        ] {
+            assert!(plain.socket(domain, kind, protocol, UID).is_ok());
+            assert_eq!(
+                filtered.socket(domain, kind, protocol, UID).err(),
+                Some(Errno::EPERM)
+            );
+        }
+        for (kind, protocol) in [
+            (SocketKind::Stream, 0),
+            (SocketKind::Stream, 6),
+            (SocketKind::Datagram, 0),
+            (SocketKind::Datagram, 17),
+        ] {
+            assert!(filtered.socket(domain, kind, protocol, UID).is_ok());
+        }
+        assert_eq!(
+            filtered.socket(domain, SocketKind::Raw, 0, UID).err(),
+            Some(Errno::EPROTONOSUPPORT)
+        );
+        assert_eq!(
+            filtered.socket(domain, SocketKind::Raw, -1, UID).err(),
+            Some(Errno::EINVAL)
+        );
+    }
+    assert_eq!(
+        filtered
+            .vsock_connect(2, 9000, wasixv2_wait::WaitQueue::new())
+            .err(),
+        Some(Errno::EPERM)
+    );
+    assert_eq!(
+        plain
+            .vsock_connect(2, 9000, wasixv2_wait::WaitQueue::new())
+            .err(),
+        Some(Errno::ENODEV)
+    );
+}
