@@ -1,5 +1,4 @@
 use enum_iterator::Sequence;
-use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -7,12 +6,9 @@ use std::fmt;
 /// The name of a runtime library routine.
 ///
 /// This list is likely to grow over time.
-#[derive(
-    Copy, Clone, Debug, PartialEq, Eq, Hash, Sequence, RkyvSerialize, RkyvDeserialize, Archive,
-)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Sequence)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
-#[rkyv(derive(Debug, Hash, PartialEq, Eq), compare(PartialEq))]
 #[repr(u16)]
 pub enum LibCall {
     /// ceil.f32

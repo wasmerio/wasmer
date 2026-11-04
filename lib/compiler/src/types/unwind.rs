@@ -5,7 +5,6 @@
 //! function called that one, and so forth.
 //!
 //! [Learn more](https://en.wikipedia.org/wiki/Call_stack).
-use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 use std::vec::Vec;
@@ -19,8 +18,7 @@ use std::vec::Vec;
 /// [unwind info]: https://docs.microsoft.com/en-us/cpp/build/exception-handling-x64?view=vs-2019
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
-#[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, Clone, PartialEq, Eq)]
-#[rkyv(derive(Debug))]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CompiledFunctionUnwindInfo {
     /// Windows UNWIND_INFO.
     WindowsX64(Vec<u8>),

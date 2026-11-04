@@ -11,7 +11,7 @@ use object::{
 
 use wasmer_compiler::{
     CANONICAL_NAN_F32, CANONICAL_NAN_F64,
-    types::{address_map::InstructionAddressMap, function::FunctionBody, section::CustomSection},
+    types::{address_map::InstructionAddressMap, function::FunctionBody},
     wasmparser::MemArg,
 };
 use wasmer_types::{
@@ -6552,7 +6552,7 @@ impl Machine for MachineRiscv {
         sig: &FunctionType,
         calling_convention: CallingConvention,
         progress_callback: Option<&CompilationProgressCallback>,
-    ) -> Result<CustomSection, CompileError> {
+    ) -> Result<Vec<u8>, CompileError> {
         gen_import_call_trampoline_riscv(
             vmoffsets,
             index,

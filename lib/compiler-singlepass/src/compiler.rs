@@ -31,7 +31,6 @@ use wasmer_compiler::{
     types::{
         function::{Compilation, FunctionBody},
         module::CompileModuleInfo,
-        section::SectionIndex,
     },
 };
 use wasmer_types::entity::{EntityRef, PrimaryMap};

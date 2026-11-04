@@ -25,9 +25,8 @@ use target_lexicon::{BinaryFormat, Triple};
 use wasmer_compiler::{
     misc::{CompiledFunctionExt, CompiledKind},
     types::{
-        function::{CompiledFunctionBody, FunctionBody},
+        function::{Compilation, FunctionBody},
         module::CompileModuleInfo,
-        section::{CustomSection, CustomSectionProtection, SectionBody, SectionIndex},
     },
 };
 use wasmer_types::{
@@ -151,7 +150,7 @@ impl FuncTrampoline {
         config: &LLVM,
         function: &CompiledKind,
         compile_info: &CompileModuleInfo,
-    ) -> Result<CompiledFunctionBody, CompileError> {
+    ) -> Result<Compilation, CompileError> {
         let module = self.trampoline_to_module(ty, config, function, compile_info)?;
         let target_machine = &self.target_machine;
 
@@ -235,7 +234,7 @@ impl FuncTrampoline {
         function: &CompiledKind,
         dynamic_trampoline_index: u32,
         module_hash: &Option<String>,
-    ) -> Result<CompiledFunctionBody, CompileError> {
+    ) -> Result<Compilation, CompileError> {
         let target_machine = &self.target_machine;
 
         let module = self.dynamic_trampoline_to_module(ty, config, function, module_hash)?;

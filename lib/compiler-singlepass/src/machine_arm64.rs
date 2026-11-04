@@ -10,7 +10,7 @@ use object::{
 };
 
 use wasmer_compiler::{
-    types::{address_map::InstructionAddressMap, function::FunctionBody, section::CustomSection},
+    types::{address_map::InstructionAddressMap, function::FunctionBody},
     wasmparser::MemArg,
 };
 use wasmer_types::{
@@ -8420,7 +8420,7 @@ impl Machine for MachineARM64 {
         sig: &FunctionType,
         calling_convention: CallingConvention,
         progress_callback: Option<&CompilationProgressCallback>,
-    ) -> Result<CustomSection, CompileError> {
+    ) -> Result<Vec<u8>, CompileError> {
         gen_import_call_trampoline_arm64(
             vmoffsets,
             index,

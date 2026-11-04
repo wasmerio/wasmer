@@ -23,11 +23,7 @@ use std::{
     ops::{Deref, DerefMut},
 };
 use wasmer_compiler::{
-    types::{
-        address_map::InstructionAddressMap,
-        function::FunctionBody,
-        section::{CustomSection, CustomSectionProtection, SectionBody},
-    },
+    types::{address_map::InstructionAddressMap, function::FunctionBody},
     wasmparser::MemArg,
 };
 use wasmer_types::{
@@ -8215,7 +8211,7 @@ impl Machine for MachineX86_64 {
         sig: &FunctionType,
         calling_convention: CallingConvention,
         progress_callback: Option<&CompilationProgressCallback>,
-    ) -> Result<CustomSection, CompileError> {
+    ) -> Result<Vec<u8>, CompileError> {
         // the cpu feature here is irrelevant
         let mut a = AssemblerX64::new(0, None)?;
         let mut output_reporter = ChunkedOutputReporter::new(progress_callback);
@@ -8328,14 +8324,8 @@ impl Machine for MachineX86_64 {
         let mut contents = a.finalize().unwrap();
         contents.shrink_to_fit();
         output_reporter.finish(contents.len())?;
-        let section_body = SectionBody::new_with_vec(contents);
 
-        Ok(CustomSection {
-            protection: CustomSectionProtection::ReadExecute,
-            alignment: None,
-            bytes: section_body,
-            relocations: vec![],
-        })
+        Ok(contents)
     }
 
     #[cfg(feature = "unwind")]

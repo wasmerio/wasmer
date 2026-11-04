@@ -5,9 +5,7 @@
 //! A `Compilation` contains the compiled function bodies for a WebAssembly
 //! module (`CompiledFunction`).
 
-use super::{
-    address_map::FunctionAddressMap, relocation::Relocation, unwind::CompiledFunctionUnwindInfo,
-};
+use super::{address_map::FunctionAddressMap, unwind::CompiledFunctionUnwindInfo};
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 use wasmer_types::TrapInformation;
@@ -31,18 +29,6 @@ pub struct FunctionBody {
     pub body: Vec<u8>,
     pub unwind_info: Option<CompiledFunctionUnwindInfo>,
 }
-
-/// The result of compiling a function before native object emission.
-#[cfg_attr(feature = "enable-serde", derive(Deserialize, Serialize))]
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct CompiledFunction {
-    pub body: FunctionBody,
-    pub relocations: Vec<Relocation>,
-    pub frame_info: CompiledFunctionFrameInfo,
-    pub maximum_stack_usage: Option<usize>,
-}
-
-pub type CompiledFunctionBody = Vec<u8>;
 
 /// The compiled native container for a WebAssembly module.
 pub type Compilation = Vec<u8>;

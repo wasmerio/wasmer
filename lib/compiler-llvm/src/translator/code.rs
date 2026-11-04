@@ -12,7 +12,7 @@ use super::{
     // stackmap::{StackmapEntry, StackmapEntryKind, StackmapRegistry, ValueSemantic},
     state::{ControlFrame, ExtraInfo, IfElseState, PhiLocation, State, TagCatchInfo},
 };
-use crate::{CompiledFunction, compiler::ModuleBasedSymbolRegistry, config::OptimizationStyle};
+use crate::{CompiledFunction, config::OptimizationStyle};
 use enumset::EnumSet;
 use inkwell::support::get_llvm_version;
 use inkwell::{
@@ -49,7 +49,6 @@ use wasmer_compiler::{
     LEF64_GEQ_U64_MIN, MiddlewareBinaryReader, ModuleMiddlewareChain, ModuleTranslationState,
     WasmSourceMap, from_binaryreadererror_wasmerror, memarg_memory_index,
     misc::{CompiledFunctionExt, CompiledKind},
-    types::symbols::SymbolRegistry,
     wasmparser::{Catch, MemArg, Operator},
     wpheaptype_to_type, wptype_to_type,
 };
@@ -175,7 +174,6 @@ impl FuncTranslator {
         config: &LLVM,
         memory_styles: &PrimaryMap<MemoryIndex, MemoryStyle>,
         _table_styles: &PrimaryMap<TableIndex, TableStyle>,
-        symbol_registry: &dyn SymbolRegistry,
         target: &Triple,
         opt_style: OptimizationStyle,
     ) -> Result<Module<'_>, CompileError> {
@@ -462,7 +460,6 @@ impl FuncTranslator {
             module_translation,
             signature_hashes,
             wasm_module,
-            symbol_registry,
             abi: &self.abi,
             config,
             target_triple: self.target_triple.clone(),
@@ -583,7 +580,6 @@ impl FuncTranslator {
         config: &LLVM,
         memory_styles: &PrimaryMap<MemoryIndex, MemoryStyle>,
         table_styles: &PrimaryMap<TableIndex, TableStyle>,
-        symbol_registry: &ModuleBasedSymbolRegistry,
         target: &Triple,
     ) -> Result<CompiledFunction, CompileError> {
         let func_index = wasm_module.func_index(*local_func_index);
@@ -606,7 +602,6 @@ impl FuncTranslator {
             config,
             memory_styles,
             table_styles,
-            symbol_registry,
             target,
             opt_style,
         )?;
@@ -2394,8 +2389,6 @@ pub struct LLVMFunctionCodeGenerator<'ctx, 'a> {
     module_translation: &'a ModuleTranslationState,
     signature_hashes: &'a PrimaryMap<SignatureIndex, SignatureHash>,
     wasm_module: &'a ModuleInfo,
-    #[allow(dead_code)]
-    symbol_registry: &'a dyn SymbolRegistry,
     abi: &'a LLVMAbi,
     config: &'a LLVM,
     target_triple: Triple,

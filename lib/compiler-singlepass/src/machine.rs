@@ -16,7 +16,7 @@ use std::{
 };
 use wasmer_compiler::{
     misc::CompiledKind,
-    types::{address_map::InstructionAddressMap, function::FunctionBody, section::CustomSection},
+    types::{address_map::InstructionAddressMap, function::FunctionBody},
     wasmparser::MemArg,
 };
 use wasmer_types::{
@@ -2337,7 +2337,7 @@ pub trait Machine {
         sig: &FunctionType,
         calling_convention: CallingConvention,
         progress_callback: Option<&CompilationProgressCallback>,
-    ) -> Result<CustomSection, CompileError>;
+    ) -> Result<Vec<u8>, CompileError>;
     /// generate eh_frame instruction (or None if not possible / supported)
     fn gen_dwarf_unwind_info(&mut self, code_len: usize) -> Option<UnwindInstructions>;
     /// generate Windows unwind instructions (or None if not possible / supported)

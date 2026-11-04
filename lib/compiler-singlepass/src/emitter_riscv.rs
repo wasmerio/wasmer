@@ -14,10 +14,7 @@ pub use crate::{
     riscv_decl::{FPR, GPR},
 };
 use dynasmrt::{DynasmApi, DynasmLabelApi, VecAssembler, riscv::RiscvRelocation};
-use wasmer_compiler::types::{
-    function::FunctionBody,
-    section::{CustomSection, CustomSectionProtection, SectionBody},
-};
+use wasmer_compiler::types::function::FunctionBody;
 use wasmer_types::{
     CompilationProgressCallback, CompileError, FunctionIndex, FunctionType, Type, VMOffsets,
     target::{CallingConvention, CpuFeature},
@@ -2039,7 +2036,7 @@ pub fn gen_import_call_trampoline_riscv(
     sig: &FunctionType,
     _calling_convention: CallingConvention,
     progress_callback: Option<&CompilationProgressCallback>,
-) -> Result<CustomSection, CompileError> {
+) -> Result<Vec<u8>, CompileError> {
     let mut a = Assembler::new(0);
     let mut output_reporter = ChunkedOutputReporter::new(progress_callback);
 
@@ -2179,12 +2176,6 @@ pub fn gen_import_call_trampoline_riscv(
     let mut contents = a.finalize().unwrap();
     contents.shrink_to_fit();
     output_reporter.finish(contents.len())?;
-    let section_body = SectionBody::new_with_vec(contents);
 
-    Ok(CustomSection {
-        protection: CustomSectionProtection::ReadExecute,
-        alignment: None,
-        bytes: section_body,
-        relocations: vec![],
-    })
+    Ok(contents)
 }

@@ -7,7 +7,6 @@
 //! relative to the WebAssembly module. This is used mainly for debugging
 //! and tracing errors.
 
-use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -22,10 +21,8 @@ use std::fmt;
     serde(transparent)
 )]
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
-#[derive(RkyvSerialize, RkyvDeserialize, Archive)]
 #[repr(transparent)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[rkyv(derive(Debug))]
 pub struct SourceLoc(u32);
 
 impl SourceLoc {
