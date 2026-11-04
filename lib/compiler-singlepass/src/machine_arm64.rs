@@ -10,7 +10,7 @@ use object::{
 };
 
 use wasmer_compiler::{
-    types::{address_map::InstructionAddressMap, function::FunctionBody},
+    types::{address_map::InstructionAddressMap, function::Compilation},
     wasmparser::MemArg,
 };
 use wasmer_types::{
@@ -8392,7 +8392,7 @@ impl Machine for MachineARM64 {
         sig: &FunctionType,
         calling_convention: CallingConvention,
         progress_callback: Option<&CompilationProgressCallback>,
-    ) -> Result<FunctionBody, CompileError> {
+    ) -> Result<Compilation, CompileError> {
         gen_std_trampoline_arm64(sig, calling_convention, progress_callback)
     }
     // Generates dynamic import function call trampoline for a function type.
@@ -8403,7 +8403,7 @@ impl Machine for MachineARM64 {
         sig: &FunctionType,
         calling_convention: CallingConvention,
         progress_callback: Option<&CompilationProgressCallback>,
-    ) -> Result<FunctionBody, CompileError> {
+    ) -> Result<Compilation, CompileError> {
         gen_std_dynamic_import_trampoline_arm64(
             vmoffsets,
             sig,
@@ -8485,10 +8485,6 @@ impl Machine for MachineARM64 {
     #[cfg(not(feature = "unwind"))]
 
     fn gen_dwarf_unwind_info(&mut self, _code_len: usize) -> Option<UnwindInstructions> {
-        None
-    }
-
-    fn gen_windows_unwind_info(&mut self, _code_len: usize) -> Option<Vec<u8>> {
         None
     }
 }

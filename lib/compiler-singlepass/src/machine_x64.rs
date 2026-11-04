@@ -1,5 +1,3 @@
-#[cfg(feature = "unwind")]
-use crate::unwind_winx64::create_unwind_info_from_insts;
 use crate::{
     codegen_error,
     common_decl::*,
@@ -23,7 +21,7 @@ use std::{
     ops::{Deref, DerefMut},
 };
 use wasmer_compiler::{
-    types::{address_map::InstructionAddressMap, function::FunctionBody},
+    types::{address_map::InstructionAddressMap, function::Compilation},
     wasmparser::MemArg,
 };
 use wasmer_types::{
@@ -7978,7 +7976,7 @@ impl Machine for MachineX86_64 {
         sig: &FunctionType,
         _calling_convention: CallingConvention,
         progress_callback: Option<&CompilationProgressCallback>,
-    ) -> Result<FunctionBody, CompileError> {
+    ) -> Result<Compilation, CompileError> {
         // the cpu feature here is irrelevant
         let mut a = AssemblerX64::new(0, None)?;
         let mut output_reporter = ChunkedOutputReporter::new(progress_callback);
@@ -8093,10 +8091,7 @@ impl Machine for MachineX86_64 {
         body.shrink_to_fit();
         output_reporter.finish(body.len())?;
 
-        Ok(FunctionBody {
-            body,
-            unwind_info: None,
-        })
+        Ok(body)
     }
     // Generates dynamic import function call trampoline for a function type.
 
@@ -8106,7 +8101,7 @@ impl Machine for MachineX86_64 {
         sig: &FunctionType,
         calling_convention: CallingConvention,
         progress_callback: Option<&CompilationProgressCallback>,
-    ) -> Result<FunctionBody, CompileError> {
+    ) -> Result<Compilation, CompileError> {
         // the cpu feature here is irrelevant
         let mut a = AssemblerX64::new(0, None)?;
         let mut output_reporter = ChunkedOutputReporter::new(progress_callback);
@@ -8197,10 +8192,7 @@ impl Machine for MachineX86_64 {
         let mut body = a.finalize().unwrap();
         body.shrink_to_fit();
         output_reporter.finish(body.len())?;
-        Ok(FunctionBody {
-            body,
-            unwind_info: None,
-        })
+        Ok(body)
     }
     // Singlepass calls import functions through a trampoline.
 
@@ -8365,25 +8357,6 @@ impl Machine for MachineX86_64 {
     #[cfg(not(feature = "unwind"))]
 
     fn gen_dwarf_unwind_info(&mut self, _code_len: usize) -> Option<UnwindInstructions> {
-        None
-    }
-
-    #[cfg(feature = "unwind")]
-    fn gen_windows_unwind_info(&mut self, _code_len: usize) -> Option<Vec<u8>> {
-        let unwind_info = create_unwind_info_from_insts(&self.unwind_ops);
-        if let Some(unwind) = unwind_info {
-            let sz = unwind.emit_size();
-            let mut tbl = vec![0; sz];
-            unwind.emit(&mut tbl);
-            Some(tbl)
-        } else {
-            None
-        }
-    }
-
-    #[cfg(not(feature = "unwind"))]
-
-    fn gen_windows_unwind_info(&mut self, _code_len: usize) -> Option<Vec<u8>> {
         None
     }
 }

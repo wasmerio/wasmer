@@ -4,7 +4,7 @@
 use crate::eh::{FunctionLsdaData, build_function_lsda, compact_unwind_encoding_aarch64};
 
 #[cfg(feature = "unwind")]
-use crate::translator::CraneliftUnwindInfo;
+use crate::translator::{CraneliftUnwindInfo, compiled_function_unwind_info};
 use crate::{
     address_map::get_function_address_map,
     config::{Cranelift, CraneliftOptLevel},
@@ -13,8 +13,8 @@ use crate::{
         FunctionBuilderContext, make_trampoline_dynamic_function, make_trampoline_function_call,
     },
     translator::{
-        FuncTranslator, compiled_function_unwind_info, irlibcall_to_libcall,
-        irreloc_to_relocation_flags, signature_to_cranelift_ir,
+        FuncTranslator, irlibcall_to_libcall, irreloc_to_relocation_flags,
+        signature_to_cranelift_ir,
     },
 };
 use cranelift_codegen::{
@@ -39,12 +39,10 @@ use wasmer_compiler::misc::{CompiledFunctionExt, CompiledKind};
 use wasmer_compiler::types::{function::Compilation, module::CompileModuleInfo};
 
 use wasmer_compiler::progress::ProgressContext;
-#[cfg(feature = "unwind")]
-use wasmer_compiler::types::unwind::CompiledFunctionUnwindInfo;
 use wasmer_compiler::{
     Compiler, FunctionBinaryReader, FunctionBodyData, MiddlewareBinaryReader, ModuleMiddleware,
     ModuleMiddlewareChain, ModuleTranslationState, WasmSourceMap,
-    types::function::{CompiledFunctionFrameInfo, FunctionBody},
+    types::function::CompiledFunctionFrameInfo,
 };
 use wasmer_compiler::{build_function_buckets, translate_function_buckets};
 #[cfg(feature = "unwind")]
@@ -64,7 +62,7 @@ const FUNCTION_SYMBOL: usize = 0;
 const PERSONALITY_SYMBOL: usize = 1;
 
 pub struct CraneliftCompiledFunction {
-    body: FunctionBody,
+    body: Compilation,
     frame_info: CompiledFunctionFrameInfo,
     #[cfg(feature = "unwind")]
     fde: Option<FrameDescriptionEntry>,
@@ -320,8 +318,8 @@ impl CraneliftCompiler {
                 None
             };
 
-            #[allow(unused)]
-            let (unwind_info, fde) = match compiled_function_unwind_info(&*isa, &context)? {
+            #[cfg(feature = "unwind")]
+            let fde = match compiled_function_unwind_info(&*isa, &context)? {
                 #[cfg(feature = "unwind")]
                 CraneliftUnwindInfo::Fde(fde) => {
                     if dwarf_frametable.is_some() {
@@ -335,28 +333,19 @@ impl CraneliftCompiler {
                             addend: 0,
                         });
                         // The unwind information is inserted into the dwarf section
-                        (Some(CompiledFunctionUnwindInfo::Dwarf), Some(fde))
+                        Some(fde)
                     } else {
-                        (None, None)
+                        None
                     }
                 }
-                #[cfg(feature = "unwind")]
-                other => (other.maybe_into_to_windows_unwind(), None),
-
-                // This is a bit hacky, but necessary since gimli is not
-                // available when the "unwind" feature is disabled.
-                #[cfg(not(feature = "unwind"))]
-                other => (other.maybe_into_to_windows_unwind(), None::<()>),
+                CraneliftUnwindInfo::None => None,
             };
 
             let range = reader.range();
             let address_map = get_function_address_map(&context, range, code_buf.len());
 
             let compiled = CraneliftCompiledFunction {
-                body: FunctionBody {
-                    body: code_buf,
-                    unwind_info,
-                },
+                body: code_buf,
                 frame_info: CompiledFunctionFrameInfo { address_map, traps },
                 #[cfg(feature = "unwind")]
                 fde,

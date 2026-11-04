@@ -7479,7 +7479,6 @@ dependencies = [
  "wasmer-vm",
  "wasmparser 0.263.0",
  "which",
- "windows-sys 0.61.2",
 ]
 
 [[package]]

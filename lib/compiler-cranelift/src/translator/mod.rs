@@ -4,6 +4,7 @@ mod code_translator;
 mod func_state;
 mod func_translator;
 mod translation_utils;
+#[cfg(feature = "unwind")]
 mod unwind;
 
 pub use self::func_translator::FuncTranslator;
@@ -12,8 +13,7 @@ pub use self::translation_utils::{
 };
 pub(crate) use self::translation_utils::{materialize_global_value, type_to_irtype};
 #[cfg(feature = "unwind")]
-pub(crate) use self::unwind::CraneliftUnwindInfo;
-pub(crate) use self::unwind::compiled_function_unwind_info;
+pub(crate) use self::unwind::{CraneliftUnwindInfo, compiled_function_unwind_info};
 
 pub(crate) use self::code_translator::{MemoryAliasRegion, set_memflags_alias_region};
 pub(crate) use {

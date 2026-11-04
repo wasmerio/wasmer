@@ -58,11 +58,6 @@ which.workspace = true
 rayon.workspace = true
 crossbeam-channel.workspace = true
 
-[target.'cfg(target_os = "windows")'.dependencies]
-windows-sys = { workspace = true, features = [
-  "Win32_System_Diagnostics_Debug",
-] }
-
 [target.'cfg(all(target_os = "macos", target_arch = "aarch64"))'.dependencies]
 macho-unwind-info.workspace = true
 

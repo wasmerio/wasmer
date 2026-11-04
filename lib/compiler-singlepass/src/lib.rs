@@ -35,8 +35,6 @@ mod machine_x64;
 mod output_reporter;
 mod riscv_decl;
 mod unwind;
-#[cfg(feature = "unwind")]
-mod unwind_winx64;
 mod x64_decl;
 
 pub use crate::compiler::SinglepassCompiler;

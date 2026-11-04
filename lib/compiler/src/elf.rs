@@ -6,7 +6,7 @@ use crate::compiler::{CompiledObjects, emit_metadata_and_link};
 use crate::dwarf::{EhRelocation, EhTarget};
 use crate::get_object_for_target;
 use crate::misc::{CompiledFunctionExt, CompiledKind};
-use crate::types::function::{Compilation, FunctionBody};
+use crate::types::function::Compilation;
 use object::{
     RelocationEncoding, RelocationFlags, RelocationKind as ObjectRelocationKind, SectionKind,
     SymbolFlags, SymbolKind, SymbolScope,
@@ -192,14 +192,14 @@ pub fn emit_eh_frame_section(
 pub fn emit_function_body(
     target: &Target,
     kind: &CompiledKind,
-    body: &FunctionBody,
+    body: &Compilation,
 ) -> Result<Vec<u8>, CompileError> {
     let mut object = get_object_for_target(target.triple())
         .map_err(|e| CompileError::Codegen(format!("cannot create object: {e}")))?;
     let symbol = object.add_symbol(Symbol {
         name: kind.linkage_name().into_bytes(),
         value: 0,
-        size: body.body.len() as u64,
+        size: body.len() as u64,
         kind: SymbolKind::Text,
         scope: SymbolScope::Linkage,
         weak: false,
@@ -207,7 +207,7 @@ pub fn emit_function_body(
         flags: SymbolFlags::None,
     });
     let text = object.section_id(StandardSection::Text);
-    object.add_symbol_data(symbol, text, &body.body, 4);
+    object.add_symbol_data(symbol, text, body, 4);
     object
         .write()
         .map_err(|e| CompileError::Codegen(format!("failed to serialize object: {e}")))

@@ -16,7 +16,7 @@ use std::{
 };
 use wasmer_compiler::{
     misc::CompiledKind,
-    types::{address_map::InstructionAddressMap, function::FunctionBody},
+    types::{address_map::InstructionAddressMap, function::Compilation},
     wasmparser::MemArg,
 };
 use wasmer_types::{
@@ -2320,7 +2320,7 @@ pub trait Machine {
         sig: &FunctionType,
         calling_convention: CallingConvention,
         progress_callback: Option<&CompilationProgressCallback>,
-    ) -> Result<FunctionBody, CompileError>;
+    ) -> Result<Compilation, CompileError>;
     /// Generates dynamic import function call trampoline for a function type.
     fn gen_std_dynamic_import_trampoline(
         &self,
@@ -2328,7 +2328,7 @@ pub trait Machine {
         sig: &FunctionType,
         calling_convention: CallingConvention,
         progress_callback: Option<&CompilationProgressCallback>,
-    ) -> Result<FunctionBody, CompileError>;
+    ) -> Result<Compilation, CompileError>;
     /// Singlepass calls import functions through a trampoline.
     fn gen_import_call_trampoline(
         &self,
@@ -2340,8 +2340,6 @@ pub trait Machine {
     ) -> Result<Vec<u8>, CompileError>;
     /// generate eh_frame instruction (or None if not possible / supported)
     fn gen_dwarf_unwind_info(&mut self, code_len: usize) -> Option<UnwindInstructions>;
-    /// generate Windows unwind instructions (or None if not possible / supported)
-    fn gen_windows_unwind_info(&mut self, code_len: usize) -> Option<Vec<u8>>;
 }
 
 /// Standard entry trampoline generation

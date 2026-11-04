@@ -8,10 +8,7 @@
 //! let my_func = instance.exports.get("func");
 //! my_func.call([1, 2])
 //! ```
-use crate::{
-    CraneliftCallbacks, abi,
-    translator::{compiled_function_unwind_info, signature_to_cranelift_ir},
-};
+use crate::{CraneliftCallbacks, abi, translator::signature_to_cranelift_ir};
 use cranelift_codegen::{
     Context,
     ir::{self, InstBuilder},
@@ -20,7 +17,7 @@ use cranelift_codegen::{
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
 use std::mem;
 use target_lexicon::Architecture;
-use wasmer_compiler::{misc::CompiledKind, types::function::FunctionBody};
+use wasmer_compiler::{misc::CompiledKind, types::function::Compilation};
 use wasmer_types::{CompileError, FunctionType};
 
 /// Create a trampoline for invoking a WebAssembly function.
@@ -32,7 +29,7 @@ pub fn make_trampoline_function_call(
     kind: &CompiledKind,
     func_type: &FunctionType,
     module_hash: &Option<String>,
-) -> Result<FunctionBody, CompileError> {
+) -> Result<Compilation, CompileError> {
     let pointer_type = isa.pointer_type();
     let frontend_config = isa.frontend_config();
     let signature = signature_to_cranelift_ir(func_type, frontend_config, arch);
@@ -147,10 +144,5 @@ pub fn make_trampoline_function_call(
         callbacks.asm_memory_buffer(kind, module_hash, arch, &code_buf)?;
     }
 
-    let unwind_info = compiled_function_unwind_info(isa, &context)?.maybe_into_to_windows_unwind();
-
-    Ok(FunctionBody {
-        body: code_buf,
-        unwind_info,
-    })
+    Ok(code_buf)
 }

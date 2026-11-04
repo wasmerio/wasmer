@@ -11,7 +11,7 @@ use object::{
 
 use wasmer_compiler::{
     CANONICAL_NAN_F32, CANONICAL_NAN_F64,
-    types::{address_map::InstructionAddressMap, function::FunctionBody},
+    types::{address_map::InstructionAddressMap, function::Compilation},
     wasmparser::MemArg,
 };
 use wasmer_types::{
@@ -6530,7 +6530,7 @@ impl Machine for MachineRiscv {
         sig: &FunctionType,
         calling_convention: CallingConvention,
         progress_callback: Option<&CompilationProgressCallback>,
-    ) -> Result<FunctionBody, CompileError> {
+    ) -> Result<Compilation, CompileError> {
         gen_std_trampoline_riscv(sig, calling_convention, progress_callback)
     }
 
@@ -6540,7 +6540,7 @@ impl Machine for MachineRiscv {
         sig: &FunctionType,
         _calling_convention: CallingConvention,
         progress_callback: Option<&CompilationProgressCallback>,
-    ) -> Result<FunctionBody, CompileError> {
+    ) -> Result<Compilation, CompileError> {
         gen_std_dynamic_import_trampoline_riscv(vmoffsets, sig, progress_callback)
     }
     // Singlepass calls import functions through a trampoline.
@@ -6605,10 +6605,6 @@ impl Machine for MachineRiscv {
     #[cfg(not(feature = "unwind"))]
 
     fn gen_dwarf_unwind_info(&mut self, _code_len: usize) -> Option<UnwindInstructions> {
-        None
-    }
-
-    fn gen_windows_unwind_info(&mut self, _code_len: usize) -> Option<Vec<u8>> {
         None
     }
 }

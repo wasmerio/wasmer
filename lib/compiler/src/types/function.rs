@@ -5,7 +5,7 @@
 //! A `Compilation` contains the compiled function bodies for a WebAssembly
 //! module (`CompiledFunction`).
 
-use super::{address_map::FunctionAddressMap, unwind::CompiledFunctionUnwindInfo};
+use super::address_map::FunctionAddressMap;
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 use wasmer_types::TrapInformation;
@@ -18,16 +18,6 @@ pub struct CompiledFunctionFrameInfo {
     /// Traps sorted by code offset.
     pub traps: Vec<TrapInformation>,
     pub address_map: FunctionAddressMap,
-}
-
-/// In-memory function body used when emitting a native object.
-#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
-#[cfg_attr(feature = "enable-serde", derive(Deserialize, Serialize))]
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct FunctionBody {
-    #[cfg_attr(feature = "enable-serde", serde(with = "serde_bytes"))]
-    pub body: Vec<u8>,
-    pub unwind_info: Option<CompiledFunctionUnwindInfo>,
 }
 
 /// The compiled native container for a WebAssembly module.

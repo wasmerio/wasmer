@@ -34,7 +34,7 @@ use wasmer_compiler::{WasmSourceMap, dwarf::init_dwarf_unit};
 use wasmer_compiler::{
     elf::emit_trap_section,
     misc::CompiledKind,
-    types::function::{CompiledFunctionFrameInfo, FunctionBody},
+    types::function::{Compilation, CompiledFunctionFrameInfo},
 };
 use wasmer_types::{CompileError, LocalFunctionIndex, target::Target};
 
@@ -239,7 +239,7 @@ pub(crate) fn emit_local_function(
     index: LocalFunctionIndex,
     function_name: &str,
     module_name: Option<&str>,
-    body: &FunctionBody,
+    body: &Compilation,
     frame_info: &CompiledFunctionFrameInfo,
     mut object: Object<'static>,
     function_symbol: SymbolId,
@@ -252,7 +252,7 @@ pub(crate) fn emit_local_function(
     let kind = CompiledKind::Local(index, String::new());
     // Emit the function body into the text section.
     let text = object.section_id(StandardSection::Text);
-    object.add_symbol_data(function_symbol, text, &body.body, 16);
+    object.add_symbol_data(function_symbol, text, body, 16);
     for relocation in relocations {
         object
             .add_relocation(text, relocation)
@@ -277,7 +277,7 @@ pub(crate) fn emit_local_function(
         dwarf_state.write_sections(
             &mut object,
             function_symbol,
-            body.body.len() as u64,
+            body.len() as u64,
             target.triple().endianness().ok(),
         )?;
     }
@@ -367,7 +367,7 @@ pub(crate) fn emit_local_function(
         };
 
         if let Some(encoding) = compact_unwind_encoding {
-            let function_length = body.body.len().try_into().map_err(|_| {
+            let function_length = body.len().try_into().map_err(|_| {
                 CompileError::Codegen("function body too large for Mach-O compact unwind".into())
             })?;
             let personality_symbol = wasmer_compiler::elf::add_libcall_symbol(

@@ -12,7 +12,7 @@ use dynasmrt::{
     AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi, VecAssembler,
     aarch64::Aarch64Relocation,
 };
-use wasmer_compiler::types::function::FunctionBody;
+use wasmer_compiler::types::function::Compilation;
 use wasmer_types::{
     CompilationProgressCallback, CompileError, FunctionIndex, FunctionType, Type, VMOffsets,
     target::CallingConvention, vmctx_offset,
@@ -2805,7 +2805,7 @@ pub fn gen_std_trampoline_arm64(
     sig: &FunctionType,
     calling_convention: CallingConvention,
     progress_callback: Option<&CompilationProgressCallback>,
-) -> Result<FunctionBody, CompileError> {
+) -> Result<Compilation, CompileError> {
     let mut a = Assembler::new(0);
     let mut output_reporter = ChunkedOutputReporter::new(progress_callback);
 
@@ -2937,10 +2937,7 @@ pub fn gen_std_trampoline_arm64(
     let mut body = a.finalize().unwrap();
     body.shrink_to_fit();
     output_reporter.finish(body.len())?;
-    Ok(FunctionBody {
-        body,
-        unwind_info: None,
-    })
+    Ok(body)
 }
 // Generates dynamic import function call trampoline for a function type.
 pub fn gen_std_dynamic_import_trampoline_arm64(
@@ -2948,7 +2945,7 @@ pub fn gen_std_dynamic_import_trampoline_arm64(
     sig: &FunctionType,
     calling_convention: CallingConvention,
     progress_callback: Option<&CompilationProgressCallback>,
-) -> Result<FunctionBody, CompileError> {
+) -> Result<Compilation, CompileError> {
     let mut a = Assembler::new(0);
     let mut output_reporter = ChunkedOutputReporter::new(progress_callback);
     // Allocate argument array.
@@ -3096,10 +3093,7 @@ pub fn gen_std_dynamic_import_trampoline_arm64(
     let mut body = a.finalize().unwrap();
     body.shrink_to_fit();
     output_reporter.finish(body.len())?;
-    Ok(FunctionBody {
-        body,
-        unwind_info: None,
-    })
+    Ok(body)
 }
 // Singlepass calls import functions through a trampoline.
 pub fn gen_import_call_trampoline_arm64(

@@ -28,10 +28,7 @@ use wasmer_compiler::progress::ProgressContext;
 use wasmer_compiler::{
     Compiler, CompilerConfig, FunctionBinaryReader, FunctionBodyData, MiddlewareBinaryReader,
     ModuleMiddleware, ModuleMiddlewareChain, ModuleTranslationState, WasmSourceMap,
-    types::{
-        function::{Compilation, FunctionBody},
-        module::CompileModuleInfo,
-    },
+    types::{function::Compilation, module::CompileModuleInfo},
 };
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::target::{Architecture, CallingConvention, CpuFeature, Target};

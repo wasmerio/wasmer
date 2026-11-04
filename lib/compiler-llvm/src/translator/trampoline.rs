@@ -24,10 +24,7 @@ use std::{cmp, convert::TryInto};
 use target_lexicon::{BinaryFormat, Triple};
 use wasmer_compiler::{
     misc::{CompiledFunctionExt, CompiledKind},
-    types::{
-        function::{Compilation, FunctionBody},
-        module::CompileModuleInfo,
-    },
+    types::{function::Compilation, module::CompileModuleInfo},
 };
 use wasmer_types::{
     CompileError, FunctionIndex, FunctionType as FuncType, LocalFunctionIndex, entity::PrimaryMap,
