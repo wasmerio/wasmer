@@ -101,8 +101,33 @@ impl TokioTaskManager {
         self.rt.handle().clone()
     }
 
+    /// A thread pool for the caller's own blocking work. The task manager no
+    /// longer runs its tasks on it: each runs on a thread of its own, which
+    /// ends with the task.
     pub fn pool_handle(&self) -> Arc<ThreadPool> {
         self.pool.clone()
+    }
+
+    /// Runs `task` on a thread of its own, which ends with the task.
+    ///
+    /// Not on `pool`, which only [`TokioTaskManager::pool_handle`] still
+    /// hands out. Below its core size, which was all of it, rusty_pool starts
+    /// a thread for every task even when idle ones are waiting, and core
+    /// threads never exit: an embedder that runs programs for a long time
+    /// kept every thread they ever ran, up to 100 per CPU, each holding its
+    /// stack. Letting idle threads time out instead races: a task handed to
+    /// a worker that is just timing out waits for another worker to free up,
+    /// which long-running program threads may never do. Below its core size
+    /// the pool already started a thread per task.
+    fn spawn_thread(task: impl FnOnce() + Send + 'static) -> Result<(), WasiThreadError> {
+        std::thread::Builder::new()
+            .name("TokioTaskManager thread".to_string())
+            .spawn(task)
+            .map(drop)
+            .map_err(|error| {
+                tracing::warn!("failed to start a thread: {error}");
+                WasiThreadError::Unsupported
+            })
     }
 }
 
@@ -173,7 +198,7 @@ impl VirtualTaskManager for TokioTaskManager {
 
         if task.callbacks.trigger.is_some() {
             tracing::trace!("spawning task_wasm trigger in async pool");
-            self.pool.execute(move || {
+            Self::spawn_thread(move || {
                 let (mut ctx, mut store, callbacks) = match env_and_store(task) {
                     Ok(x) => {
                         sx.send(Ok(())).unwrap();
@@ -243,12 +268,12 @@ impl VirtualTaskManager for TokioTaskManager {
                     trigger_result: Some(result),
                     recycle: callbacks.recycle,
                 });
-            });
+            })?;
         } else {
             tracing::trace!("spawning task_wasm in blocking thread");
 
             // Run the callback on a dedicated thread
-            self.pool.execute(move || {
+            Self::spawn_thread(move || {
                 tracing::trace!("task_wasm started in blocking thread");
                 let (mut ctx, mut store, callbacks) = match env_and_store(task) {
                     Ok(x) => {
@@ -272,7 +297,7 @@ impl VirtualTaskManager for TokioTaskManager {
                     trigger_result: None,
                     recycle: callbacks.recycle,
                 });
-            });
+            })?;
         }
 
         rx.recv()
@@ -286,9 +311,9 @@ impl VirtualTaskManager for TokioTaskManager {
         &self,
         task: Box<dyn FnOnce() + Send + 'static>,
     ) -> Result<(), WasiThreadError> {
-        self.pool.execute(move || {
+        Self::spawn_thread(move || {
             task();
-        });
+        })?;
         Ok(())
     }
 
@@ -328,6 +353,62 @@ impl Drop for SleepNow {
     fn drop(&mut self) {
         if let Some(h) = self.abort_handle.as_ref() {
             h.abort()
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::cell::Cell;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::mpsc;
+    use std::time::Instant;
+
+    use super::*;
+
+    /// Threads that ran a task of the test below and have ended since.
+    static ENDED: AtomicUsize = AtomicUsize::new(0);
+
+    struct CountsTheEnd;
+
+    impl Drop for CountsTheEnd {
+        fn drop(&mut self) {
+            ENDED.fetch_add(1, Ordering::SeqCst);
+        }
+    }
+
+    thread_local! {
+        static END: Cell<Option<CountsTheEnd>> = const { Cell::new(None) };
+    }
+
+    #[test]
+    fn dedicated_task_threads_end_with_their_task() {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .build()
+            .unwrap();
+        let tasks = TokioTaskManager::new(runtime.handle().clone());
+        const TASKS: usize = 8;
+        let (done, finished) = mpsc::channel();
+        for _ in 0..TASKS {
+            let done = done.clone();
+            tasks
+                .task_dedicated(Box::new(move || {
+                    END.with(|end| end.set(Some(CountsTheEnd)));
+                    done.send(()).unwrap();
+                }))
+                .unwrap();
+            // One at a time: a pool would have an idle thread for the next.
+            finished.recv_timeout(Duration::from_secs(10)).unwrap();
+        }
+        // Each thread's locals are dropped when it ends.
+        let started = Instant::now();
+        while ENDED.load(Ordering::SeqCst) < TASKS {
+            assert!(
+                started.elapsed() < Duration::from_secs(10),
+                "{} of {TASKS} task threads ended",
+                ENDED.load(Ordering::SeqCst)
+            );
+            std::thread::sleep(Duration::from_millis(10));
         }
     }
 }
