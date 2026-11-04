@@ -23,7 +23,12 @@ wasmer-types = { path = "../types", version = "=7.5.0", default-features = false
 ] }
 
 cranelift-entity.workspace = true
-cranelift-codegen = { workspace = true, features = ["x86", "arm64", "riscv64"] }
+cranelift-codegen = { workspace = true, features = [
+  "x86",
+  "arm64",
+  "riscv64",
+  "unwind",
+] }
 cranelift-frontend.workspace = true
 
 itertools.workspace = true
@@ -49,9 +54,10 @@ cranelift-codegen = { workspace = true, features = ["all-arch"] }
 maintenance = { status = "actively-developed" }
 
 [features]
-default = ["std", "unwind"]
-wasm = ["std", "unwind"]
-unwind = ["cranelift-codegen/unwind"]
+default = ["std"]
+wasm = ["std"]
+# Kept for backward compatibility purpose only.
+unwind = []
 std = [
   "cranelift-codegen/std",
   "cranelift-frontend/std",

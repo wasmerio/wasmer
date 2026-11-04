@@ -1,9 +1,7 @@
 //! Support for compiling with Cranelift.
 
-#[cfg(feature = "unwind")]
 use crate::eh::{FunctionLsdaData, build_function_lsda, compact_unwind_encoding_aarch64};
 
-#[cfg(feature = "unwind")]
 use crate::translator::{CraneliftUnwindInfo, compiled_function_unwind_info};
 use crate::{
     address_map::get_function_address_map,
@@ -22,7 +20,6 @@ use cranelift_codegen::{
     ir::{self, ExternalName, UserFuncName},
 };
 
-#[cfg(feature = "unwind")]
 use cranelift_codegen::gimli::{
     constants::DW_EH_PE_absptr,
     write::{Address, FrameDescriptionEntry, FrameTable},
@@ -45,10 +42,8 @@ use wasmer_compiler::{
     types::function::CompiledFunctionFrameInfo,
 };
 use wasmer_compiler::{build_function_buckets, translate_function_buckets};
-#[cfg(feature = "unwind")]
 use wasmer_types::entity::EntityRef;
 use wasmer_types::entity::PrimaryMap;
-#[cfg(feature = "unwind")]
 use wasmer_types::target::CallingConvention;
 use wasmer_types::target::Target;
 use wasmer_types::{
@@ -56,19 +51,14 @@ use wasmer_types::{
     SignatureIndex, TrapCode, TrapInformation,
 };
 
-#[cfg(feature = "unwind")]
 const FUNCTION_SYMBOL: usize = 0;
-#[cfg(feature = "unwind")]
 const PERSONALITY_SYMBOL: usize = 1;
 
 pub struct CraneliftCompiledFunction {
     body: Compilation,
     frame_info: CompiledFunctionFrameInfo,
-    #[cfg(feature = "unwind")]
     fde: Option<FrameDescriptionEntry>,
-    #[cfg(feature = "unwind")]
     function_lsda: Option<FunctionLsdaData>,
-    #[cfg(feature = "unwind")]
     compact_unwind_encoding: Option<u32>,
 }
 
@@ -112,9 +102,7 @@ impl CraneliftCompiler {
             .isa(target)
             .map_err(|error| CompileError::Codegen(error.to_string()))?;
         let frontend_config = isa.frontend_config();
-        #[cfg(feature = "unwind")]
         let pointer_bytes = frontend_config.pointer_bytes();
-        #[cfg(feature = "unwind")]
         let emit_macho_compact_unwind = matches!(
             target.triple(),
             target_lexicon::Triple {
@@ -154,7 +142,6 @@ impl CraneliftCompiler {
             .map(|cb| ProgressContext::new(cb, total_steps, "cranelift::functions"));
 
         // Generate the frametable
-        #[cfg(feature = "unwind")]
         let dwarf_frametable = if function_body_inputs.is_empty() {
             // If we have no function body inputs, we don't need to
             // construct the `FrameTable`. Constructing it, with empty
@@ -289,10 +276,8 @@ impl CraneliftCompiler {
                 .map(mach_trap_to_trap)
                 .collect::<Vec<_>>();
 
-            #[cfg(feature = "unwind")]
             let emit_lsda = dwarf_frametable.is_some() || emit_macho_compact_unwind;
 
-            #[cfg(feature = "unwind")]
             let compact_unwind_encoding = if emit_macho_compact_unwind {
                 Some(
                     compact_unwind_encoding_aarch64(&result.buffer.unwind_info).map_err(|error| {
@@ -306,7 +291,6 @@ impl CraneliftCompiler {
                 None
             };
 
-            #[cfg(feature = "unwind")]
             let function_lsda = if emit_lsda {
                 build_function_lsda(
                     result.buffer.call_sites(),
@@ -318,9 +302,7 @@ impl CraneliftCompiler {
                 None
             };
 
-            #[cfg(feature = "unwind")]
             let fde = match compiled_function_unwind_info(&*isa, &context)? {
-                #[cfg(feature = "unwind")]
                 CraneliftUnwindInfo::Fde(fde) => {
                     if dwarf_frametable.is_some() {
                         // For the ELF artifact format each function's
@@ -347,16 +329,12 @@ impl CraneliftCompiler {
             let compiled = CraneliftCompiledFunction {
                 body: code_buf,
                 frame_info: CompiledFunctionFrameInfo { address_map, traps },
-                #[cfg(feature = "unwind")]
                 fde,
-                #[cfg(feature = "unwind")]
                 function_lsda,
-                #[cfg(feature = "unwind")]
                 compact_unwind_encoding,
             };
 
             let object = crate::elf::emit_local_function(
-                #[cfg(feature = "unwind")]
                 &*isa,
                 target,
                 *i,
@@ -368,11 +346,8 @@ impl CraneliftCompiler {
                 function_symbol,
                 func_relocs,
                 &source_map,
-                #[cfg(feature = "unwind")]
                 compiled.fde,
-                #[cfg(feature = "unwind")]
                 compiled.function_lsda,
-                #[cfg(feature = "unwind")]
                 compiled.compact_unwind_encoding,
             )?;
             Ok(CompileOutput {
