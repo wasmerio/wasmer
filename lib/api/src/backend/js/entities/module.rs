@@ -440,22 +440,6 @@ impl Module {
         unsafe { Self::deserialize(engine, bytes) }
     }
 
-    pub fn set_name(&mut self, name: &str) -> bool {
-        self.name = Some(name.to_string());
-        true
-        // match Reflect::set(self.module.as_ref(), &"wasmer_name".into(), &name.into()) {
-        //     Ok(_) => true,
-        //     _ => false
-        // }
-        // Arc::get_mut(&mut self.artifact)
-        //     .and_then(|artifact| artifact.module_mut())
-        //     .map(|mut module_info| {
-        //         module_info.info.name = Some(name.to_string());
-        //         true
-        //     })
-        //     .unwrap_or(false)
-    }
-
     /// Metadata accessors answer from the parsed module info when it exists, so they
     /// never need this worker's `WebAssembly.Module` (and never trigger the
     /// fallback compile, e.g. on the browser main thread while spawning a task).

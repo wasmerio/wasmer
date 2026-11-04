@@ -97,14 +97,8 @@ impl BackendModule {
         file: impl AsRef<Path>,
     ) -> Result<Self, super::IoCompileError> {
         let file_ref = file.as_ref();
-        let canonical = file_ref.canonicalize()?;
         let wasm_bytes = std::fs::read(file_ref)?;
-        let mut module = Self::new(engine, wasm_bytes)?;
-        // Set the module name to the absolute canonical path as a lossy UTF-8 string.
-        // This is useful for debugging stack traces, and lossy conversion is necessary
-        // because filesystem paths are not always valid UTF-8.
-        module.set_name(canonical.to_string_lossy().as_ref());
-        Ok(module)
+        Self::new(engine, wasm_bytes).map_err(Into::into)
     }
 
     /// Creates a new WebAssembly module from a Wasm binary.
@@ -481,8 +475,7 @@ impl BackendModule {
 
     /// Returns the name of the current module.
     ///
-    /// This name is normally set in the WebAssembly bytecode by some
-    /// compilers, but can be also overwritten using the [`Self::set_name`] method.
+    /// This name is set in the WebAssembly bytecode by some compilers.
     ///
     /// # Example
     ///
@@ -500,34 +493,6 @@ impl BackendModule {
     pub fn name(&self) -> Option<&str> {
         match_rt!(on self => s {
             s.name()
-        })
-    }
-
-    /// Sets the name of the current module.
-    /// This is normally useful for stacktraces and debugging.
-    ///
-    /// It will return `true` if the module name was changed successfully,
-    /// and return `false` otherwise (in case the module is cloned or
-    /// already instantiated).
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use wasmer::*;
-    /// # fn main() -> anyhow::Result<()> {
-    /// # let mut store = Store::default();
-    /// let wat = "(module)";
-    /// let mut module = Module::new(&store, wat)?;
-    /// assert_eq!(module.name(), None);
-    /// module.set_name("foo");
-    /// assert_eq!(module.name(), Some("foo"));
-    /// # Ok(())
-    /// # }
-    /// ```
-    #[inline]
-    pub fn set_name(&mut self, name: &str) -> bool {
-        match_rt!(on self => s {
-            s.set_name(name)
         })
     }
 

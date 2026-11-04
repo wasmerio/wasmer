@@ -283,11 +283,6 @@ impl Module {
         unsafe { Self::deserialize(engine, bytes) }
     }
 
-    pub fn set_name(&mut self, name: &str) -> bool {
-        self.info.name = Some(name.to_string());
-        true
-    }
-
     pub fn imports<'a>(&'a self) -> ImportsIterator<Box<dyn Iterator<Item = ImportType> + 'a>> {
         let imports = self.info.imports.clone();
         let len = imports.len();

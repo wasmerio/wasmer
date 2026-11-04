@@ -26,9 +26,6 @@ pub trait ArtifactCreate<'a>: Send + Sync + Upcastable {
     /// Create a `ModuleInfo` for instantiation
     fn create_module_info(&'a self) -> Arc<ModuleInfo>;
 
-    /// Sets the `ModuleInfo` name
-    fn set_module_info_name(&'a mut self, name: String) -> bool;
-
     /// Returns the `ModuleInfo` for instantiation
     fn module_info(&'a self) -> &'a ModuleInfo;
 

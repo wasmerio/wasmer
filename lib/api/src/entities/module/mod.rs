@@ -335,8 +335,7 @@ impl Module {
 
     /// Returns the name of the current module.
     ///
-    /// This name is normally set in the WebAssembly bytecode by some
-    /// compilers, but can be also overwritten using the [`Module::set_name`] method.
+    /// This name is set in the WebAssembly bytecode by some compilers.
     ///
     /// # Example
     ///
@@ -352,31 +351,6 @@ impl Module {
     /// ```
     pub fn name(&self) -> Option<&str> {
         self.0.name()
-    }
-
-    /// Sets the name of the current module.
-    /// This is normally useful for stacktraces and debugging.
-    ///
-    /// It will return `true` if the module name was changed successfully,
-    /// and return `false` otherwise (in case the module is cloned or
-    /// already instantiated).
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use wasmer::*;
-    /// # fn main() -> anyhow::Result<()> {
-    /// # let mut store = Store::default();
-    /// let wat = "(module)";
-    /// let mut module = Module::new(&store, wat)?;
-    /// assert_eq!(module.name(), None);
-    /// module.set_name("foo");
-    /// assert_eq!(module.name(), Some("foo"));
-    /// # Ok(())
-    /// # }
-    /// ```
-    pub fn set_name(&mut self, name: &str) -> bool {
-        self.0.set_name(name)
     }
 
     /// Returns an iterator over the imported types in the Module.

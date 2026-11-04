@@ -115,14 +115,11 @@ fn module_get_name() -> Result<(), String> {
 }
 
 #[engine_test]
-fn module_set_name() -> Result<(), String> {
+fn module_get_embedded_name() -> Result<(), String> {
     let store = Store::default();
     let wat = r#"(module $name)"#;
-    let mut module = Module::new(&store, wat).map_err(|e| format!("{e:?}"))?;
+    let module = Module::new(&store, wat).map_err(|e| format!("{e:?}"))?;
     assert_eq!(module.name(), Some("name"));
-
-    module.set_name("new_name");
-    assert_eq!(module.name(), Some("new_name"));
 
     Ok(())
 }
@@ -493,7 +490,7 @@ mod function_extents_tests {
 #[cfg(unix)]
 fn module_from_file_non_utf8_path() -> Result<(), String> {
     let store = Store::default();
-    let wasm_bytes = wat2wasm(b"(module)").map_err(|e| format!("{e:?}"))?;
+    let wasm_bytes = wat2wasm(b"(module $name)").map_err(|e| format!("{e:?}"))?;
 
     let dir = tempfile::tempdir().map_err(|e| format!("{e:?}"))?;
     let non_utf8_name = OsStr::from_bytes(b"module_\xff\xfe.wasm");
@@ -505,7 +502,6 @@ fn module_from_file_non_utf8_path() -> Result<(), String> {
     }
 
     let module = Module::from_file(&store, &path).map_err(|e| format!("{e:?}"))?;
-    let canonical = path.canonicalize().map_err(|e| format!("{e:?}"))?;
-    assert_eq!(module.name(), Some(canonical.to_string_lossy().as_ref()),);
+    assert_eq!(module.name(), Some("name"));
     Ok(())
 }

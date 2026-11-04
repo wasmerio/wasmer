@@ -238,11 +238,6 @@ impl Module {
         self.info().name.as_deref()
     }
 
-    pub(crate) fn set_name(&mut self, name: &str) -> bool {
-        Arc::get_mut(&mut self.artifact)
-            .is_some_and(|artifact| artifact.set_module_info_name(name.to_string()))
-    }
-
     pub(crate) fn imports(&self) -> ImportsIterator<Box<dyn Iterator<Item = ImportType> + '_>> {
         self.info().imports()
     }

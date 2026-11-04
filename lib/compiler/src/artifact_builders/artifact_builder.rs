@@ -115,13 +115,6 @@ impl<'a> ArtifactCreate<'a> for ArtifactBuild {
         self.compile_info.module.clone()
     }
 
-    fn set_module_info_name(&mut self, name: String) -> bool {
-        Arc::get_mut(&mut self.compile_info.module).is_some_and(|module_info| {
-            module_info.name = Some(name.to_string());
-            true
-        })
-    }
-
     fn module_info(&self) -> &ModuleInfo {
         &self.compile_info.module
     }

@@ -71,8 +71,7 @@ pub struct AllocatedArtifact {
     /// `Artifact::instantiate` instead of recomputing on every call.
     ///
     /// Safe to cache because `VMOffsets::try_new(pointer_size, module_info)`
-    /// is deterministic, `module_info` is immutable after compile (the
-    /// only mutable field `name` is not a `VMOffsets` input), and the
+    /// is deterministic, `module_info` is immutable after compile, and the
     /// host's pointer size is a runtime constant.
     ///
     /// Built once during native ELF allocation; `VMOffsets::try_new` was ~9% of
@@ -645,10 +644,6 @@ impl<'a> ArtifactCreate<'a> for Artifact {
     type OwnedDataInitializer = <ArtifactBuild as ArtifactCreate<'a>>::OwnedDataInitializer;
     type OwnedDataInitializerIterator =
         <ArtifactBuild as ArtifactCreate<'a>>::OwnedDataInitializerIterator;
-
-    fn set_module_info_name(&mut self, name: String) -> bool {
-        self.artifact.set_module_info_name(name)
-    }
 
     fn create_module_info(&self) -> Arc<ModuleInfo> {
         self.artifact.create_module_info()
