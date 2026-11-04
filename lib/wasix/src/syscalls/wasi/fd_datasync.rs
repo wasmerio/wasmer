@@ -1,5 +1,5 @@
 use super::*;
-use crate::fs::FlushPoller;
+use crate::fs::DataSyncPoller;
 use crate::syscalls::*;
 
 /// ### `fd_datasync()`
@@ -33,6 +33,6 @@ pub fn fd_datasync(mut ctx: FunctionEnvMut<'_, WasiEnv>, fd: WasiFd) -> Result<E
     drop(fd_entry);
 
     Ok(wasi_try_ok!(__asyncify(&mut ctx, None, async move {
-        FlushPoller { file }.await.map(|_| Errno::Success)
+        DataSyncPoller { file }.await.map(|_| Errno::Success)
     })?))
 }

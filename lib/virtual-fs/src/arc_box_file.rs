@@ -87,6 +87,11 @@ impl AsyncRead for ArcBoxFile {
 }
 
 impl VirtualFile for ArcBoxFile {
+    fn poll_sync_data(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        let mut inner = self.inner.lock().unwrap();
+        Pin::new(inner.as_mut()).poll_sync_data(cx)
+    }
+
     fn last_accessed(&self) -> u64 {
         let inner = self.inner.lock().unwrap();
         inner.last_accessed()
