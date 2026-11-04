@@ -4165,3 +4165,61 @@ fn admission_uses_guest_nat_addresses_and_checks_accepted_peers() {
     assert_eq!(listener.accept().unwrap_err(), Errno::EPERM);
     assert_eq!(listener.accept().unwrap_err(), Errno::EAGAIN);
 }
+
+/// New Linux transports cannot bypass a legacy TCP/UDP address policy.
+#[test]
+fn admission_refuses_transports_without_policy_coverage() {
+    let filtered = Net::new(
+        NetConfig {
+            policy: Some(Arc::new(Admission::default())),
+            ..NetConfig::default()
+        },
+        None,
+    );
+    let plain = net();
+    for (domain, icmp) in [(Domain::Inet, 1), (Domain::Inet6, 58)] {
+        for (kind, protocol) in [
+            (SocketKind::Stream, 132),
+            (SocketKind::SeqPacket, 0),
+            (SocketKind::SeqPacket, 132),
+            (SocketKind::Datagram, icmp),
+            (SocketKind::Raw, icmp),
+            (SocketKind::Raw, 17),
+            (SocketKind::Raw, 255),
+        ] {
+            assert!(plain.socket(domain, kind, protocol, UID).is_ok());
+            assert_eq!(
+                filtered.socket(domain, kind, protocol, UID).err(),
+                Some(Errno::EPERM)
+            );
+        }
+        for (kind, protocol) in [
+            (SocketKind::Stream, 0),
+            (SocketKind::Stream, 6),
+            (SocketKind::Datagram, 0),
+            (SocketKind::Datagram, 17),
+        ] {
+            assert!(filtered.socket(domain, kind, protocol, UID).is_ok());
+        }
+        assert_eq!(
+            filtered.socket(domain, SocketKind::Raw, 0, UID).err(),
+            Some(Errno::EPROTONOSUPPORT)
+        );
+        assert_eq!(
+            filtered.socket(domain, SocketKind::Raw, -1, UID).err(),
+            Some(Errno::EINVAL)
+        );
+    }
+    assert_eq!(
+        filtered
+            .vsock_connect(2, 9000, wasixv2_wait::WaitQueue::new())
+            .err(),
+        Some(Errno::EPERM)
+    );
+    assert_eq!(
+        plain
+            .vsock_connect(2, 9000, wasixv2_wait::WaitQueue::new())
+            .err(),
+        Some(Errno::ENODEV)
+    );
+}

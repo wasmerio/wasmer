@@ -596,7 +596,7 @@ fn run_wasixv2_module_rejects_unsupported_options() {
         .failure()
         .stdout("")
         .stderr(contains(
-            "the WASIX v2 kernel does not support network rulesets (--net=<RULES>), --invoke yet",
+            "the WASIX v2 kernel does not support --invoke yet",
         ));
 }
 

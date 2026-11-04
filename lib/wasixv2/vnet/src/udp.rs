@@ -869,6 +869,7 @@ impl UdpSocket {
     /// A send to the group `dst`, which each socket of the namespaces it reaches that is
     /// bound to the port and allows the group gets a copy of (`__udp4_lib_mcast_deliver`,
     /// `__udp6_lib_mcast_deliver`).
+    #[allow(clippy::too_many_arguments)] // The route and policy destinations are intentionally distinct.
     fn send_multicast(
         &self,
         mut g: MutexGuard<'_, Inner>,

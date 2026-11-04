@@ -722,6 +722,8 @@ pub enum PolicyDirection {
 /// Embedder admission policy, shared by sockets in a namespace. Callbacks run without
 /// namespace or socket locks. Internal DNS transport is admitted separately; every question,
 /// including localhost and forwarded queries, still requires domain admission.
+/// The policy covers TCP/UDP. Other IP transports and external vsock connections
+/// are refused while it is installed, so they cannot bypass address admission.
 pub trait NetworkPolicy: std::fmt::Debug + Send + Sync {
     fn allows_socket(&self, addr: SocketAddr, direction: PolicyDirection) -> bool;
     fn allows_domain(&self, domain: &str) -> bool;

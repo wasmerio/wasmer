@@ -413,6 +413,16 @@ impl Net {
         Err(Errno::EPERM)
     }
 
+    // The address policy covers TCP/UDP. Other transports must not bypass it
+    // through packet injection, local SCTP routing or an external vsock backend.
+    fn admit_unfiltered_transport(&self) -> NetResult<()> {
+        if self.config.policy.is_some() {
+            Err(Errno::EPERM)
+        } else {
+            Ok(())
+        }
+    }
+
     pub(crate) fn state(&self) -> MutexGuard<'_, NetState> {
         self.state.lock_or_recover()
     }
@@ -1102,19 +1112,27 @@ impl Network for Net {
             // `inetsw` has SCTP for both of its styles, and is the only `SOCK_SEQPACKET`
             // protocol, which protocol 0 picks.
             (SocketKind::Stream, IPPROTO_SCTP) | (SocketKind::SeqPacket, 0 | IPPROTO_SCTP) => {
+                self.admit_unfiltered_transport()?;
                 Ok(SctpSocket::new(self.arc(), domain, kind, uid))
             }
             (SocketKind::Datagram, 0 | 17) => Ok(UdpSocket::new(self.arc(), domain, uid)),
             (SocketKind::Datagram, p) if p == icmp => {
+                self.admit_unfiltered_transport()?;
                 Ok(IcmpSocket::new(self.arc(), domain, false, uid))
             }
-            (SocketKind::Raw, p) if p == icmp => Ok(IcmpSocket::new(self.arc(), domain, true, uid)),
+            (SocketKind::Raw, p) if p == icmp => {
+                self.admit_unfiltered_transport()?;
+                Ok(IcmpSocket::new(self.arc(), domain, true, uid))
+            }
             (SocketKind::Raw, 0) => Err(Errno::EPROTONOSUPPORT),
             (SocketKind::Raw, p) if !(0..crate::raw::IPPROTO_MAX).contains(&p) => {
                 Err(Errno::EINVAL)
             }
             // `inet_num` is what a packet's protocol is matched against: one past 255 never is.
-            (SocketKind::Raw, p) => Ok(IcmpSocket::raw(self.arc(), domain, p as u8, uid)),
+            (SocketKind::Raw, p) => {
+                self.admit_unfiltered_transport()?;
+                Ok(IcmpSocket::raw(self.arc(), domain, p as u8, uid))
+            }
             _ => Err(Errno::EPROTONOSUPPORT),
         }
     }
@@ -1129,6 +1147,7 @@ impl Network for Net {
         port: u32,
         wq: WaitQueue,
     ) -> Result<Arc<dyn BackendStream>, Errno> {
+        self.admit_unfiltered_transport()?;
         match &self.backend {
             Some(backend) => backend.vsock_connect(cid, port, wq),
             None => Err(Errno::ENODEV),
@@ -1167,6 +1186,7 @@ impl Network for Net {
         backlog: u32,
         sink: Arc<dyn crate::VsockInboundSink>,
     ) -> Result<Box<dyn crate::VsockPublication>, Errno> {
+        self.admit_unfiltered_transport()?;
         self.backend
             .as_ref()
             .ok_or(Errno::ENODEV)?
