@@ -5,8 +5,8 @@ use std::{
     mem::ManuallyDrop,
     pin::pin,
     sync::{
-        Arc, OnceLock,
-        atomic::{AtomicU64, Ordering::Relaxed},
+        Arc, Mutex, MutexGuard, OnceLock, Weak,
+        atomic::{AtomicBool, AtomicU64, Ordering::Relaxed},
     },
     task::{Context, RawWaker, RawWakerVTable, Wake, Waker},
 };
@@ -24,30 +24,66 @@ pub enum TaskState {
 
 /// The state shared by a task's waits and observers such as procfs.
 #[derive(Clone, Default)]
-pub struct TaskStatus(Arc<AtomicU64>);
+pub struct TaskStatus(Arc<Mutex<Projection>>);
 
-const STATE_MASK: u64 = 3;
-const PENDING: u64 = 4;
-const STATUS_MASK: u64 = STATE_MASK | PENDING;
+#[derive(Default)]
+struct Projection {
+    current: Weak<WaitRecord>,
+    polling: Weak<WaitRecord>,
+    state: TaskState,
+}
+
+struct WaitRecord {
+    parent: Weak<WaitRecord>,
+    generation: AtomicU64,
+    retired: AtomicBool,
+}
+
+impl TaskStatus {
+    fn projection(&self) -> MutexGuard<'_, Projection> {
+        self.0
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+    }
+}
 
 /// A wait's immutable forwarding chain. A task-wide cached parent could point back into
 /// itself when a nested wait receives an intermediate waker that forwards to the outer one.
 struct TaskWake {
     status: TaskStatus,
     parent: Waker,
+    record: Arc<WaitRecord>,
 }
 
-fn notify(status: &TaskStatus, parent: &Waker) {
-    // kernel/sched/core.c:try_to_wake_up makes a task runnable at wakeup.
-    let _ = status.0.fetch_update(Relaxed, Relaxed, |old| {
-        Some((old & !STATUS_MASK).wrapping_add(STATUS_MASK + 1))
-    });
+fn notify(status: &TaskStatus, record: &Arc<WaitRecord>, parent: &Waker) {
+    {
+        let mut projection = status.projection();
+        record.generation.fetch_add(1, Relaxed);
+        let current = projection.current.upgrade();
+        let mut ancestor = current.clone();
+        while let Some(wait) = ancestor {
+            if wait.retired.load(Relaxed) {
+                break;
+            }
+            if Arc::ptr_eq(&wait, record) {
+                if let Some(current) = &current
+                    && !Arc::ptr_eq(current, record)
+                {
+                    current.generation.fetch_add(1, Relaxed);
+                }
+                projection.state = TaskState::Running;
+                break;
+            }
+            ancestor = wait.parent.upgrade();
+        }
+    }
     parent.wake_by_ref();
 }
 
 /// Borrowed only during one poll. A clone always owns an ordinary Arc<TaskWake>.
 struct BorrowedWake<'a> {
     status: &'a TaskStatus,
+    record: &'a Arc<WaitRecord>,
     parent: &'a Waker,
     owned: &'a OnceLock<Arc<TaskWake>>,
 }
@@ -63,6 +99,7 @@ impl BorrowedWake<'_> {
             Arc::new(TaskWake {
                 status: this.status.clone(),
                 parent: this.parent.clone(),
+                record: this.record.clone(),
             })
         });
         // Transfer this owning Waker's raw parts; its standard Arc vtable drops
@@ -75,7 +112,7 @@ impl BorrowedWake<'_> {
         // SAFETY: clones use the owning Arc vtable, so only the live borrowed
         // poll can reach this callback. No stack allocation is freed here.
         let this = unsafe { &*data.cast::<BorrowedWake<'_>>() };
-        notify(this.status, this.parent);
+        notify(this.status, this.record, this.parent);
     }
 }
 
@@ -85,37 +122,73 @@ impl Wake for TaskWake {
     }
 
     fn wake_by_ref(self: &Arc<Self>) {
-        notify(&self.status, &self.parent);
+        notify(&self.status, &self.record, &self.parent);
     }
 }
 
 impl TaskStatus {
     pub fn state(&self) -> TaskState {
-        match self.0.load(Relaxed) & STATE_MASK {
-            1 => TaskState::Interruptible,
-            2 => TaskState::Uninterruptible,
-            3 => TaskState::Idle,
-            _ => TaskState::Running,
-        }
+        self.projection().state
     }
 
     /// Reports `state` while `future` is pending; nested waits can supply a more specific
     /// state. During polling the task is running. Wakeup, completion and cancellation make
     /// it runnable. One task's futures must not be polled concurrently, like the task itself.
     pub async fn during<T>(&self, state: TaskState, future: impl Future<Output = T>) -> T {
-        struct Running<'a>(&'a TaskStatus);
+        struct Running<'a> {
+            status: &'a TaskStatus,
+            record: Arc<WaitRecord>,
+        }
         impl Drop for Running<'_> {
             fn drop(&mut self) {
-                self.0.0.fetch_and(!STATUS_MASK, Relaxed);
+                let mut projection = self.status.projection();
+                self.record.retired.store(true, Relaxed);
+                if projection.current.ptr_eq(&Arc::downgrade(&self.record)) {
+                    // A dead immediate parent is never resurrected through an older ancestor.
+                    projection.current = self
+                        .record
+                        .parent
+                        .upgrade()
+                        .filter(|parent| !parent.retired.load(Relaxed))
+                        .map_or_else(Weak::new, |parent| Arc::downgrade(&parent));
+                    projection.state = TaskState::Running;
+                }
             }
         }
-        let _running = Running(self);
+        let running = Running {
+            status: self,
+            record: Arc::new(WaitRecord {
+                parent: self.projection().polling.clone(),
+                generation: AtomicU64::new(0),
+                retired: AtomicBool::new(false),
+            }),
+        };
         let mut future = pin!(future);
         let mut wake: Option<Arc<TaskWake>> = None;
         poll_fn(|cx| {
-            // Low bits: state and a pending marker. High bits: wake generation, so a wake
-            // during poll cannot be lost when Pending publishes the sleeping state.
-            let before = self.0.fetch_and(!STATUS_MASK, Relaxed) & !STATUS_MASK;
+            struct Polling<'a> {
+                status: &'a TaskStatus,
+                previous: Weak<WaitRecord>,
+            }
+            impl Drop for Polling<'_> {
+                fn drop(&mut self) {
+                    self.status.projection().polling = self.previous.clone();
+                }
+            }
+            let (before, _polling) = {
+                let mut projection = self.projection();
+                projection.current = Arc::downgrade(&running.record);
+                projection.state = TaskState::Running;
+                let previous =
+                    std::mem::replace(&mut projection.polling, Arc::downgrade(&running.record));
+                (
+                    running.record.generation.load(Relaxed),
+                    Polling {
+                        status: self,
+                        previous,
+                    },
+                )
+            };
             let result = match wake
                 .as_ref()
                 .filter(|wake| wake.parent.will_wake(cx.waker()))
@@ -128,6 +201,7 @@ impl TaskStatus {
                     let owned = OnceLock::new();
                     let borrowed = BorrowedWake {
                         status: self,
+                        record: &running.record,
                         parent: cx.waker(),
                         owned: &owned,
                     };
@@ -144,14 +218,14 @@ impl TaskStatus {
                 }
             };
             if result.is_pending() {
-                // Preserve a nested wait's state (including runnable, for CPU throttling),
-                // or a concurrent wake that advanced the generation.
-                let _ = self.0.compare_exchange(
-                    before,
-                    before | PENDING | state as u64,
-                    Relaxed,
-                    Relaxed,
-                );
+                let mut projection = self.projection();
+                // Nested waits own their projection even when they report Running.
+                // A sibling's wake or destruction cannot overwrite this record.
+                if projection.current.ptr_eq(&Arc::downgrade(&running.record))
+                    && running.record.generation.load(Relaxed) == before
+                {
+                    projection.state = state;
+                }
             }
             result
         })

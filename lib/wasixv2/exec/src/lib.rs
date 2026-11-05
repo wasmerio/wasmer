@@ -8,6 +8,7 @@ pub mod abi;
 pub mod asyncify;
 mod atomics;
 mod base;
+mod contexts;
 mod cooperative;
 mod cputime;
 mod dynamic;
@@ -40,6 +41,7 @@ use std::{
 pub use abi::{
     Abi, AbiInstance, Abis, Entry, EntryReturn, PreparedImage, Role, Sigreturn, VforkResume,
 };
+pub use contexts::{context_operations_supported, process_fork_allowed};
 pub use dynamic::GuestDynamicLinker;
 pub use function::{CallBufferPolicy, GuestFunctionOperations, TableMetadata};
 pub use generated::IMPORT_MODULE;
@@ -161,6 +163,8 @@ pub struct ExecEnv<S> {
     fork_payload: Option<asyncify::Tag>,
     /// Process accounting for `task`.
     cpu: cputime::CpuSample,
+    contexts: std::sync::Weak<contexts::Shared>,
+    contexts_supported: bool,
 }
 
 impl<S: Control> ExecEnv<S> {
@@ -194,6 +198,8 @@ impl<S: Control> ExecEnv<S> {
             proc,
             asyncify: None,
             fork_payload: None,
+            contexts: std::sync::Weak::new(),
+            contexts_supported: true,
         }
     }
 
@@ -246,6 +252,12 @@ impl<S> ExecEnv<S> {
     }
 
     /// The task the instance runs as; it changes when vfork switches the instance.
+    pub fn process_fork_allowed(&self) -> bool {
+        self.contexts
+            .upgrade()
+            .is_none_or(|group| group.current() == 0)
+    }
+
     pub fn task(&self) -> TaskId {
         self.task
     }
@@ -665,6 +677,9 @@ async fn ended<S: Syscalls + Control + Send + Sync + 'static>(
         }
         (Err(err), _) => err,
     };
+    if err.downcast_ref::<contexts::Returned>().is_some() {
+        return exit_on_return(cx, role, 129).await;
+    }
     let err = match err.downcast::<Exited>() {
         Ok(Exited(status)) => return Ended::Exited(status),
         Err(err) => err,
@@ -937,6 +952,7 @@ where
     S: Syscalls + Control + Send + Sync + 'static,
 {
     abis.configure_store(&mut store)?;
+    let contexts_supported = !abis.requires_owning_thread();
     let invocations =
         instantiation::NativeInvocations::bind(&mut store, abis.requires_owning_thread())?;
     let abi = abis.require(module)?;
@@ -1101,6 +1117,7 @@ where
         data.threads = threads;
         data.proc.set_module(module);
         data.asyncify = asyncify;
+        data.contexts_supported = contexts_supported;
         let memory = env.as_ref(&store).memory().unwrap().clone();
         if let Some(attachments) = &attachments {
             attachments
@@ -1278,13 +1295,26 @@ impl<S: Syscalls + Control + Send + Sync + 'static> Ready<S> {
             None
         };
         let result = match prepared {
-            Ok(()) => cooperative::drive(&entry, &*self.abi, self.abi.start(&entry)).await,
+            Ok(()) => {
+                cooperative::drive(
+                    &entry,
+                    &*self.abi,
+                    contexts::drive(&entry, &mut attachments, {
+                        let abi = self.abi.clone();
+                        let env = self.env.clone();
+                        let store = entry.store();
+                        async move { abi.start(&Entry::new(&env, &store)).await }
+                    }),
+                )
+                .await
+            }
             Err(e) => Err(e),
         };
         let on_return = self.abi.on_entry_return();
-        if let Some(attachments) = &mut attachments {
-            attachments.settle().await;
-        }
+        let result = match &mut attachments {
+            Some(attachments) => attachments.finish(result).await,
+            None => result,
+        };
         let ended = ended(entry.cx(), result, on_return, Role::Process).await;
         if let Some(attachments) = &mut attachments {
             attachments.deactivate().await;
@@ -1328,15 +1358,34 @@ impl<S: Syscalls + Control + Send + Sync + 'static> Ready<S> {
             store: &store,
         };
         let result = match asyncify::start_rewind(&cx, buffer).await {
-            Ok(()) => asyncify::call(&cx, Some(entry), &function, &args)
+            Ok(()) => {
+                let root = Entry::new(&self.env, &store);
+                cooperative::drive(
+                    &root,
+                    &*self.abi,
+                    contexts::drive(&root, &mut attachments, {
+                        let env = self.env.clone();
+                        let store = root.store();
+                        async move {
+                            let cx = asyncify::Outside {
+                                env: &env,
+                                store: &store,
+                            };
+                            asyncify::call(&cx, Some(entry), &function, &args)
+                                .await
+                                .map(drop)
+                        }
+                    }),
+                )
                 .await
-                .map(drop),
+            }
             Err(err) => Err(err),
         };
         let on_return = self.abi.on_entry_return();
-        if let Some(attachments) = &mut attachments {
-            attachments.settle().await;
-        }
+        let result = match &mut attachments {
+            Some(attachments) => attachments.finish(result).await,
+            None => result,
+        };
         let ended = ended(&cx, result, on_return, Role::Process).await;
         if let Some(attachments) = &mut attachments {
             attachments.deactivate().await;
@@ -1787,7 +1836,8 @@ async fn return_to_guest<S: Syscalls + Control + 'static, R: From<i32>>(
             Outcome::Rerun => None,
             Outcome::Restart => {
                 let memory = GuestMemory { env };
-                let caller = Caller::new(task, &memory);
+                let caller = Caller::new(task, &memory)
+                    .with_process_fork_allowed(process_fork_allowed(env).await);
                 ret = Syscalls::restart_syscall(syscalls, &caller)
                     .await
                     .map(R::from);

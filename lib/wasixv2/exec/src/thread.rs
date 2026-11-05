@@ -541,6 +541,7 @@ where
                 data.threads = Some(self.clone());
                 data.proc.set_module(&self.module);
                 data.asyncify = asyncify;
+                data.contexts_supported = !self.abis.requires_owning_thread();
                 let memory = env.as_ref(&store).memory().unwrap().clone();
                 if let Some(attached) = attached {
                     attached
@@ -621,15 +622,28 @@ where
                     .cx()
                     .with(|env, _| env.asyncify.as_ref().and_then(|a| a.buffer_address()))
                     .await;
-                crate::cooperative::drive(&entry, &*abi, abi.start_thread(&entry, tid, start_arg))
-                    .await
+                crate::cooperative::drive(
+                    &entry,
+                    &*abi,
+                    crate::contexts::drive(&entry, &mut attachments, {
+                        let abi = abi.clone();
+                        let env = entry.cx().env.clone();
+                        let store = entry.store();
+                        async move {
+                            abi.start_thread(&Entry::new(&env, &store), tid, start_arg)
+                                .await
+                        }
+                    }),
+                )
+                .await
             }
             Err(err) => Err(err),
         };
         let on_return = abi.on_thread_return();
-        if let Some(attachments) = &mut attachments {
-            attachments.settle().await;
-        }
+        let result = match &mut attachments {
+            Some(attachments) => attachments.finish(result).await,
+            None => result,
+        };
         let ended = crate::ended(entry.cx(), result, on_return, Role::Thread).await;
         if let Some(attachments) = &mut attachments {
             attachments.deactivate().await;

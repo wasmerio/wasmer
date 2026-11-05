@@ -2301,6 +2301,17 @@ pub enum AsyncRuntimeError {
     RuntimeError(RuntimeError),
 }
 
+/// Whether the current native root can release ordinary Store custody for a
+/// sibling invocation. Call synchronously in an async host-import factory,
+/// before its future is polled outside the coroutine. Grants no Store access.
+#[doc(hidden)]
+pub fn context_switch_supported() -> bool {
+    CoroutineContext::get_current().is_some_and(|context| {
+        // The current context pointer is valid only during this synchronous factory.
+        StoreContext::can_switch_context(unsafe { &*context }.store_context_id)
+    })
+}
+
 pub(crate) fn block_on_host_future<Fut>(future: Fut) -> Result<Vec<Value>, AsyncRuntimeError>
 where
     Fut: Future<Output = Result<Vec<Value>, RuntimeError>> + 'static,

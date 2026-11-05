@@ -612,6 +612,10 @@ impl<S: Syscalls + Control + Send + Sync + 'static> StoreImage<S> {
                     local.stage.as_mut().unwrap().apply(store, &table)?;
                     let mut stage = local.stage.take().unwrap();
                     local.leases.append(&mut stage.leases);
+                    local.closure_pools.append(&mut stage.closure_pools);
+                    if let Some(slots) = stage.closure_slots.take() {
+                        local.closure_slots = slots;
+                    }
                     local.forwarders.append(&mut stage.forwarders);
                     for module in stage.modules.into_values() {
                         local.instances.push(module.publish()?);
@@ -918,6 +922,7 @@ mod tests {
         let library =
             || Library::new(crate::tests::bytes("(module)", [0; 4], &[], &[], &[]), None).unwrap();
         let mut graph = Graph {
+            closures: Default::default(),
             host_imports: None,
             libraries: vec![library(), library(), library(), library()],
             global: vec![0, 1, 2, 3],

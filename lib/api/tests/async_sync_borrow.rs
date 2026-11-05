@@ -38,6 +38,43 @@ fn an_escaped_store_loan_delays_canceled_stack_retirement() {
 }
 
 #[test]
+fn a_same_store_loan_without_a_sync_suffix_cannot_switch_contexts() {
+    if !run_in_subprocess("a_same_store_loan_without_a_sync_suffix_cannot_switch_contexts") {
+        return;
+    }
+    use wasmer::AsyncFunctionEnvMut;
+    let mut store = Store::default();
+    let leaf = Function::new_typed_async(&mut store, || {
+        assert!(
+            !wasmer::sys::context_switch_supported(),
+            "a Loan root retains its original caller's mutable Store borrow"
+        );
+        async { 42i32 }
+    });
+    let env = FunctionEnv::new(&mut store, leaf);
+    let bridge = Function::new_typed_with_env_async(
+        &mut store,
+        &env,
+        |env: AsyncFunctionEnvMut<Function>| async move {
+            let function = env.read().await.data().clone();
+            let values = function.call_async(&env.as_store_async(), vec![]).await?;
+            Ok::<i32, RuntimeError>(values[0].i32().unwrap())
+        },
+    );
+    let env = FunctionEnv::new(&mut store, bridge);
+    let outer =
+        Function::new_typed_with_env(&mut store, &env, |mut env: FunctionEnvMut<Function>| {
+            let function = env.data().clone();
+            function
+                .call(&mut env, &[])
+                .map(|values| values[0].i32().unwrap())
+        });
+    let result =
+        futures::executor::block_on(outer.call_async(&store.into_async(), vec![])).unwrap();
+    assert_eq!(result[0].i32(), Some(42));
+}
+
+#[test]
 fn a_dynamic_host_callback_can_reenter_its_same_function_context() {
     if !run_in_subprocess("a_dynamic_host_callback_can_reenter_its_same_function_context") {
         return;

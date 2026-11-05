@@ -22,7 +22,9 @@ impl Layer<Kernel> for EagerProbe {
     ) -> MaybeFuture<'a, SysResult<SyscallRet>> {
         // Linux syscall_trace_enter ran before the selected body, with current set.
         assert_eq!(current_task(), Some(caller.task()));
-        assert!(next.task_ref(caller.task(), |t| t.syscall.lock_or_recover().is_some()));
+        assert!(next.task_ref(caller.task(), |t| {
+            t.syscall.lock_or_recover().current().is_some()
+        }));
         assert!(matches!(call, Syscall::Getpid));
         self.calls.set(self.calls.get() + 1);
         if self.pending {
@@ -54,7 +56,7 @@ fn eager_ready_body_is_inside_entry_and_never_runs_at_construction() {
     assert!(
         stack
             .inner
-            .task_ref(task, |t| t.syscall.lock_or_recover().is_none())
+            .task_ref(task, |t| t.syscall.lock_or_recover().current().is_none())
     );
 }
 
@@ -78,13 +80,50 @@ fn cancelling_deferred_entry_clears_call_and_restores_current() {
     assert!(
         stack
             .inner
-            .task_ref(task, |t| t.syscall.lock_or_recover().is_some())
+            .task_ref(task, |t| t.syscall.lock_or_recover().current().is_some())
     );
     drop(future);
     assert_eq!(current_task(), None);
     assert!(
         stack
             .inner
-            .task_ref(task, |t| t.syscall.lock_or_recover().is_none())
+            .task_ref(task, |t| t.syscall.lock_or_recover().current().is_none())
+    );
+}
+
+#[test]
+fn non_lifo_same_call_records_cannot_clear_or_resurrect_a_sibling() {
+    use crate::entry::{CallSlot, CurrentCall};
+    let slot: CallSlot = Default::default();
+    let info = crate::ptrace::CallInfo {
+        nr: 172,
+        args: [3; 6],
+        ..Default::default()
+    };
+    let a = CurrentCall::new(slot.clone(), Some(info));
+    a.install();
+    let switch_a = CurrentCall::new(slot.clone(), None);
+    switch_a.install();
+    let b = CurrentCall::new(slot.clone(), Some(info));
+    b.install();
+    drop(switch_a);
+    drop(a);
+    assert_eq!(slot.lock_or_recover().current().unwrap().nr, 172);
+    drop(b);
+    assert!(slot.lock_or_recover().current().is_none());
+
+    let a = CurrentCall::new(slot.clone(), Some(info));
+    a.install();
+    let b = CurrentCall::new(slot.clone(), Some(info));
+    b.install();
+    drop(a);
+    assert!(
+        slot.lock_or_recover().current().is_some(),
+        "Info equality is not call identity"
+    );
+    drop(b);
+    assert!(
+        slot.lock_or_recover().current().is_none(),
+        "dead weak parents must stay dead"
     );
 }

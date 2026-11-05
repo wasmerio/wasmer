@@ -170,6 +170,80 @@ fn reflection_overflow_writes_counts_and_preserves_both_type_buffers() {
     assert_eq!(block_on(wat, &["reflect-overflow"]).0, 0);
 }
 
+#[test]
+fn contexts_retain_non_lifo_stacks_and_invalidate_destroyed_ids() {
+    let wat = r#"(module
+      (import "wasix_32v1" "context_create" (func $create (param i32 i32) (result i32)))
+      (import "wasix_32v1" "context_switch" (func $switch (param i64) (result i32)))
+      (import "wasix_32v1" "context_destroy" (func $destroy (param i64) (result i32)))
+      (import "wasi_snapshot_preview1" "proc_exit" (func $exit (param i32)))
+      (memory (export "memory") 1)
+      (table 4 funcref)
+      (elem (i32.const 1) $a $b $bad)
+      (global $phase (mut i32) (i32.const 0))
+      (func $bad (param i32))
+      (func $check (param $actual i32) (param $expected i32)
+        (if (i32.ne (local.get $actual) (local.get $expected)) (then (call $exit (i32.const 90)))))
+      (func $a (local $kept i64)
+        (local.set $kept (i64.const 0x123456789abcdef))
+        (global.set $phase (i32.const 1))
+        (call $check (call $switch (i64.load (i32.const 8))) (i32.const 0))
+        (call $check (global.get $phase) (i32.const 2))
+        (if (i64.ne (local.get $kept) (i64.const 0x123456789abcdef)) (then (call $exit (i32.const 91))))
+        (global.set $phase (i32.const 3))
+        (call $check (call $switch (i64.const 0)) (i32.const 0))
+        ;; Destroy must never resume this suspended body.
+        (call $exit (i32.const 92)))
+      (func $b
+        (call $check (global.get $phase) (i32.const 1))
+        (global.set $phase (i32.const 2))
+        (call $check (call $switch (i64.load (i32.const 0))) (i32.const 0))
+        (call $exit (i32.const 93)))
+      (func (export "_start")
+        (call $check (call $switch (i64.const 0)) (i32.const 0))
+        (call $check (call $create (i32.const 0) (i32.const 1)) (i32.const 0))
+        (call $check (call $create (i32.const 8) (i32.const 2)) (i32.const 0))
+        (call $check (call $create (i32.const 16) (i32.const 3)) (i32.const 28))
+        (call $check (call $create (i32.const 65532) (i32.const 1)) (i32.const 78))
+        (call $check (call $switch (i64.load (i32.const 0))) (i32.const 0))
+        (call $check (global.get $phase) (i32.const 3))
+        (call $check (call $destroy (i64.load (i32.const 8))) (i32.const 0))
+        (call $check (call $destroy (i64.load (i32.const 8))) (i32.const 0))
+        (call $check (call $switch (i64.load (i32.const 8))) (i32.const 28))
+        (call $check (call $destroy (i64.const 0)) (i32.const 28))
+        (call $check (call $destroy (i64.load (i32.const 0))) (i32.const 0))
+        (call $exit (i32.const 0))))"#;
+    assert_eq!(block_on(wat, &["contexts"]).0, 0);
+}
+
+#[test]
+fn context_entry_return_is_129_and_context_exit_preserves_status() {
+    let template = r#"(module
+      (import "wasix_32v1" "context_create" (func $create (param i32 i32) (result i32)))
+      (import "wasix_32v1" "context_switch" (func $switch (param i64) (result i32)))
+      (import "wasi_snapshot_preview1" "proc_exit" (func $exit (param i32)))
+      (memory (export "memory") 1)
+      (table 2 funcref)
+      (elem (i32.const 1) $context)
+      (func $context CONTEXT_BODY)
+      (func (export "_start")
+        (drop (call $create (i32.const 0) (i32.const 1)))
+        (drop (call $switch (i64.load (i32.const 0))))
+        (call $exit (i32.const 94))))"#;
+    assert_eq!(
+        block_on(&template.replace("CONTEXT_BODY", ""), &["context-return"]).0,
+        129
+    );
+    assert_eq!(
+        block_on(
+            &template.replace("CONTEXT_BODY", "(call $exit (i32.const 42))"),
+            &["context-exit"]
+        )
+        .0,
+        42
+    );
+}
+
 /// Prints `argv[1]` and the environment, read back through the v1 calls.
 const ARGS: &str = r#"
 (module

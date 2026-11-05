@@ -1226,6 +1226,11 @@ impl Kernel {
             args.flags |= CloneFlags::CLONE_NEWNS;
         }
         let flags = args.flags;
+        if (!flags.contains(CloneFlags::CLONE_VM) || flags.contains(CloneFlags::CLONE_VFORK))
+            && !caller.process_fork_allowed()
+        {
+            return Err(Errno::EOPNOTSUPP.into());
+        }
         if flags.contains(CloneFlags::CLONE_PIDFD)
             && flags.contains(CloneFlags::CLONE_PARENT_SETTID)
             && args.pidfd == args.parent_tid

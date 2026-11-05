@@ -6,16 +6,55 @@ use wasixv2_syscalls::MaybeFuture;
 use wasixv2_syscalls::{Caller, Layer, SysErr, SysResult, Syscall, SyscallRet, Syscalls, dispatch};
 
 use crate::{Kernel, ptrace::CallInfo, sync::MutexExt as _};
-use std::sync::{Arc, Mutex};
+use std::{
+    future::{Future, poll_fn},
+    pin::pin,
+    sync::{Arc, Mutex, Weak},
+};
 
-/// The syscall visible through /proc, even for an untraced task.
-pub(crate) type CallSlot = Arc<Mutex<Option<CallInfo>>>;
+/// Weak projection of the exact currently executing entry. Pending roots own
+/// their own records; deleting a sibling cannot resurrect or erase another call.
+pub(crate) type CallSlot = Arc<Mutex<CallProjection>>;
 
-struct CurrentCall(CallSlot);
-
+#[derive(Default)]
+pub(crate) struct CallProjection {
+    current: Weak<CallRecord>,
+}
+impl CallProjection {
+    pub(crate) fn current(&self) -> Option<CallInfo> {
+        self.current.upgrade().and_then(|record| record.info)
+    }
+}
+struct CallRecord {
+    info: Option<CallInfo>,
+    parent: Weak<CallRecord>,
+}
+pub(crate) struct CurrentCall {
+    slot: CallSlot,
+    record: Arc<CallRecord>,
+}
+impl CurrentCall {
+    pub(crate) fn new(slot: CallSlot, info: Option<CallInfo>) -> Self {
+        let record = Arc::new(CallRecord {
+            info,
+            parent: slot.lock_or_recover().current.clone(),
+        });
+        Self { slot, record }
+    }
+    pub(crate) fn install(&self) {
+        self.slot.lock_or_recover().current = Arc::downgrade(&self.record);
+    }
+}
 impl Drop for CurrentCall {
     fn drop(&mut self) {
-        *self.0.lock_or_recover() = None;
+        let mut slot = self.slot.lock_or_recover();
+        if slot
+            .current
+            .upgrade()
+            .is_some_and(|current| Arc::ptr_eq(&current, &self.record))
+        {
+            slot.current = self.record.parent.clone();
+        }
     }
 }
 
@@ -75,24 +114,33 @@ impl<L: Layer<Kernel>> Layer<Kernel> for SyscallEntry<L> {
                     wasixv2_syscalls::as_task(caller.task(), async {
                         // fs/proc/base.c `proc_pid_syscall`: retain the call while suspended, including
                         // syscall-exit tracing. Drop clears it on both completion and cancellation.
-                        *slot.lock_or_recover() = call_regs(&call).map(|(nr, args)| CallInfo {
-                            nr,
-                            args,
-                            ..Default::default()
+                        let current = CurrentCall::new(
+                            slot,
+                            call_regs(&call).map(|(nr, args)| CallInfo {
+                                nr,
+                                args,
+                                ..Default::default()
+                            }),
+                        );
+                        let mut body = pin!(async {
+                            let traced = next.tracees.used();
+                            let ret = match next.syscall_entry(caller, &call).await {
+                                Entry::Done(ret) => ret,
+                                Entry::Run(changed) => self.0.call(caller, changed, next).await,
+                            };
+                            let ret = if traced {
+                                next.syscall_exit(caller, &call, ret).await
+                            } else {
+                                ret
+                            };
+                            // The typed wasm import keeps its return type even if ptrace changed the syscall.
+                            ret.map(|ret| call.ret_from_raw(ret.to_raw()))
                         });
-                        let _current = CurrentCall(slot);
-                        let traced = next.tracees.used();
-                        let ret = match next.syscall_entry(caller, &call).await {
-                            Entry::Done(ret) => ret,
-                            Entry::Run(changed) => self.0.call(caller, changed, next).await,
-                        };
-                        let ret = if traced {
-                            next.syscall_exit(caller, &call, ret).await
-                        } else {
-                            ret
-                        };
-                        // The typed wasm import keeps its return type even if ptrace changed the syscall.
-                        ret.map(|ret| call.ret_from_raw(ret.to_raw()))
+                        poll_fn(|cx| {
+                            current.install();
+                            body.as_mut().poll(cx)
+                        })
+                        .await
                     }),
                 )
                 .await

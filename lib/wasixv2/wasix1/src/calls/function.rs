@@ -72,6 +72,121 @@ pub(crate) async fn reflect_signature<S: Syscalls + Control + 'static>(
     .await
 }
 
+pub(crate) async fn closure_allocate<S: Syscalls + Control + 'static>(
+    env: Env<S>,
+    out: i32,
+) -> Result<i32, RuntimeError> {
+    shim::errno(&env, async |frame| {
+        let functions = GuestFunctionOperations::new(frame.env, frame.unwind());
+        let caller = frame.caller().with_functions(&functions);
+        let result = frame
+            .syscalls
+            .closure_allocate(&caller, GuestPtrMut::new(out as u32))
+            .await?;
+        extension_result(result)
+    })
+    .await
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(crate) async fn closure_prepare<S: Syscalls + Control + 'static>(
+    env: Env<S>,
+    backing: i32,
+    closure: i32,
+    arguments: i32,
+    arguments_len: i32,
+    results: i32,
+    results_len: i32,
+    environment: i32,
+) -> Result<i32, RuntimeError> {
+    shim::errno(&env, async |frame| {
+        let functions = GuestFunctionOperations::new(frame.env, frame.unwind());
+        let caller = frame.caller().with_functions(&functions);
+        let result = frame
+            .syscalls
+            .closure_prepare(
+                &caller,
+                backing as u32,
+                closure as u32,
+                UserSlice::new(arguments as u32, arguments_len as u32),
+                UserSlice::new(results as u32, results_len as u32),
+                environment as u32,
+            )
+            .await?;
+        extension_result(result)
+    })
+    .await
+}
+
+pub(crate) async fn closure_free<S: Syscalls + Control + 'static>(
+    env: Env<S>,
+    closure: i32,
+) -> Result<i32, RuntimeError> {
+    shim::errno(&env, async |frame| {
+        let functions =
+            GuestFunctionOperations::new(frame.env, frame.unwind()).with_idempotent_closure_free();
+        let caller = frame.caller().with_functions(&functions);
+        let result = frame.syscalls.closure_free(&caller, closure as u32).await?;
+        extension_result(result)
+    })
+    .await
+}
+
+pub(crate) fn context_create<S: Syscalls + Control + 'static>(
+    env: Env<S>,
+    out: i32,
+    entry: i32,
+) -> impl std::future::Future<Output = Result<i32, RuntimeError>> + 'static {
+    let contexts_supported = wasixv2_exec::context_operations_supported();
+    async move {
+        shim::errno(&env, async |frame| {
+            let functions = GuestFunctionOperations::new(frame.env, frame.unwind())
+                .with_context_support(contexts_supported);
+            let caller = frame.caller().with_functions(&functions);
+            let result = frame
+                .syscalls
+                .context_create(&caller, entry as u32, GuestPtrMut::new(out as u32))
+                .await?;
+            extension_result(result)
+        })
+        .await
+    }
+}
+
+pub(crate) fn context_switch<S: Syscalls + Control + 'static>(
+    env: Env<S>,
+    id: i64,
+) -> impl std::future::Future<Output = Result<i32, RuntimeError>> + 'static {
+    let contexts_supported = wasixv2_exec::context_operations_supported();
+    async move {
+        shim::errno(&env, async |frame| {
+            let functions = GuestFunctionOperations::new(frame.env, frame.unwind())
+                .with_context_support(contexts_supported);
+            let caller = frame.caller().with_functions(&functions);
+            let result = frame.syscalls.context_switch(&caller, id as u64).await?;
+            extension_result(result)
+        })
+        .await
+    }
+}
+
+pub(crate) fn context_destroy<S: Syscalls + Control + 'static>(
+    env: Env<S>,
+    id: i64,
+) -> impl std::future::Future<Output = Result<i32, RuntimeError>> + 'static {
+    let contexts_supported = wasixv2_exec::context_operations_supported();
+    async move {
+        shim::errno(&env, async |frame| {
+            let functions = GuestFunctionOperations::new(frame.env, frame.unwind())
+                .with_context_support(contexts_supported);
+            let caller = frame.caller().with_functions(&functions);
+            let result = frame.syscalls.context_destroy(&caller, id as u64).await?;
+            extension_result(result)
+        })
+        .await
+    }
+}
+
 fn extension_result(value: i32) -> crate::errno::V1Result<()> {
     if value < 0 {
         let errno = value

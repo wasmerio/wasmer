@@ -73,6 +73,13 @@ impl CpuSample {
 
     /// Transfers to a nested guest without another syscall boundary. The owned
     /// guard restores the same sampler synchronously on return, drop or panic.
+    pub(crate) fn context(&mut self) -> CpuContext {
+        let guard = self.guest_mode();
+        let context = CpuContext(guard.sample.clone());
+        drop(guard);
+        context
+    }
+
     pub(crate) fn guest_mode(&mut self) -> CpuModeGuard {
         match self {
             #[cfg(not(target_family = "wasm"))]
@@ -127,10 +134,46 @@ pub(crate) struct CpuModeGuard {
     _local: PhantomData<Rc<()>>,
 }
 
+#[derive(Clone)]
 enum GuardSample {
     #[cfg(not(target_family = "wasm"))]
     Tick(Arc<TickSample>),
     Boundary(Arc<SharedBoundary>),
+}
+
+/// An owned mode handle for explicit context handoffs. Switching modes does not
+/// count a second syscall; retained nested guest-mode guards keep their own state.
+#[derive(Clone)]
+pub(crate) struct CpuContext(GuardSample);
+impl CpuContext {
+    pub(crate) fn run<T>(&self, system: &mut bool, call: impl FnOnce() -> T) -> T {
+        struct Restore<'a>(&'a CpuContext, bool);
+        impl Drop for Restore<'_> {
+            fn drop(&mut self) {
+                self.0.replace(self.1);
+            }
+        }
+        let restore = Restore(self, self.replace(*system));
+        let result = call();
+        *system = self.replace(restore.1);
+        drop(restore);
+        result
+    }
+
+    pub(crate) fn replace(&self, system: bool) -> bool {
+        match &self.0 {
+            #[cfg(not(target_family = "wasm"))]
+            GuardSample::Tick(sample) => sample.mode.system.swap(system, Ordering::Relaxed),
+            GuardSample::Boundary(sample) => {
+                let mut previous = false;
+                sample.with(|state, now| {
+                    state.accumulate_at(now);
+                    previous = state.entered.replace(system);
+                });
+                previous
+            }
+        }
+    }
 }
 
 impl Drop for CpuModeGuard {
@@ -669,6 +712,78 @@ pub(crate) mod tests {
         let account = Arc::new(CpuAccount::detached());
         let sample = CpuSample::new(clocks.clone(), account.clone());
         (clocks, account, sample)
+    }
+
+    #[test]
+    fn explicit_context_modes_preserve_nested_guards_without_counting_another_syscall() {
+        let (clocks, account, mut sample) = setup(true);
+        let cpu = sample.context();
+        let (mut a, mut b) = (false, false);
+        let mut nested = None;
+        cpu.run(&mut a, || {
+            clocks.advance(US, US);
+            sample.enter();
+            clocks.advance(2 * US, 2 * US);
+            nested = Some(sample.guest_mode());
+            clocks.advance(3 * US, 3 * US);
+            // A's nested guest reaches context_switch and suspends in its import.
+            sample.enter();
+        });
+        assert!(a);
+        cpu.run(&mut b, || {
+            clocks.advance(5 * US, 5 * US);
+            sample.enter();
+            clocks.advance(7 * US, 7 * US);
+            sample.exit();
+        });
+        assert!(!b);
+        cpu.run(&mut a, || {
+            clocks.advance(11 * US, 11 * US);
+            sample.exit();
+            clocks.advance(13 * US, 13 * US);
+            drop(nested.take());
+            clocks.advance(17 * US, 17 * US);
+            sample.exit();
+        });
+        let CpuSample::Boundary(boundary) = &sample else {
+            unreachable!()
+        };
+        boundary.with(|state, _| assert_eq!(state.calls.get(), 3));
+        sample.sample();
+        assert_eq!(
+            account.times(),
+            CpuTimes {
+                user: 22 * US,
+                system: 37 * US
+            }
+        );
+        let CpuSample::Boundary(boundary) = &sample else {
+            unreachable!()
+        };
+        boundary.with(|state, _| assert_eq!(state.calls.get(), 0));
+    }
+
+    #[test]
+    fn a_panicking_context_poll_restores_the_outer_cpu_mode() {
+        let (clocks, account, mut sample) = setup(true);
+        let cpu = sample.context();
+        let mut system = true;
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            cpu.run(&mut system, || {
+                clocks.advance(2 * US, 2 * US);
+                panic!("context poll");
+            });
+        }));
+        assert!(result.is_err());
+        clocks.advance(3 * US, 3 * US);
+        sample.sample();
+        assert_eq!(
+            account.times(),
+            CpuTimes {
+                user: 3 * US,
+                system: 2 * US
+            }
+        );
     }
 
     /// The guest computes `user`, then makes a syscall the kernel runs `system` of and that

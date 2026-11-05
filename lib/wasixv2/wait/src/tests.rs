@@ -590,3 +590,81 @@ fn nested_task_waits_preserve_intermediate_waker_forwarding() {
     assert_eq!(calls.load(Ordering::SeqCst), 1);
     assert_eq!(status.state(), TaskState::Running);
 }
+
+#[test]
+fn suspended_sibling_wakes_and_drops_preserve_the_current_wait() {
+    use std::cell::RefCell;
+    let status = TaskStatus::default();
+    let saved = RefCell::new(None);
+    let first = std::future::poll_fn(|cx| {
+        *saved.borrow_mut() = Some(cx.waker().clone());
+        Poll::<()>::Pending
+    });
+    let mut first = Box::pin(status.during(TaskState::Interruptible, first));
+    assert!(poll_once(first.as_mut()).is_pending());
+    let mut second =
+        Box::pin(status.during(TaskState::Uninterruptible, std::future::pending::<()>()));
+    assert!(poll_once(second.as_mut()).is_pending());
+    saved.borrow().as_ref().unwrap().wake_by_ref();
+    assert_eq!(status.state(), TaskState::Uninterruptible);
+    drop(first);
+    assert_eq!(status.state(), TaskState::Uninterruptible);
+    drop(second);
+    assert_eq!(status.state(), TaskState::Running);
+}
+
+#[test]
+fn non_lifo_wait_cleanup_does_not_resurrect_a_dead_parent() {
+    use std::cell::RefCell;
+    let status = TaskStatus::default();
+    let inner = RefCell::new(Some(Box::pin(
+        status.during(TaskState::Idle, std::future::pending::<()>()),
+    )));
+    let middle_body =
+        std::future::poll_fn(|cx| inner.borrow_mut().as_mut().unwrap().as_mut().poll(cx));
+    let middle = RefCell::new(Some(Box::pin(
+        status.during(TaskState::Interruptible, middle_body),
+    )));
+    let outer_body =
+        std::future::poll_fn(|cx| middle.borrow_mut().as_mut().unwrap().as_mut().poll(cx));
+    let mut outer = Box::pin(status.during(TaskState::Uninterruptible, outer_body));
+    assert!(poll_once(outer.as_mut()).is_pending());
+    assert_eq!(status.state(), TaskState::Idle);
+    drop(middle.borrow_mut().take());
+    assert_eq!(status.state(), TaskState::Idle);
+    drop(inner.borrow_mut().take());
+    assert_eq!(status.state(), TaskState::Running);
+    drop(outer);
+    assert_eq!(status.state(), TaskState::Running);
+}
+
+#[test]
+fn waking_an_active_waits_ancestor_makes_the_task_runnable() {
+    use std::cell::RefCell;
+    let status = TaskStatus::default();
+    let saved = RefCell::new(None::<std::task::Waker>);
+    let mut inner = Box::pin(status.during(
+        TaskState::Interruptible,
+        std::future::poll_fn(|_| {
+            saved.borrow().as_ref().unwrap().wake_by_ref();
+            Poll::<()>::Pending
+        }),
+    ));
+    let outer_body = std::future::poll_fn(|cx| {
+        *saved.borrow_mut() = Some(cx.waker().clone());
+        inner.as_mut().poll(cx)
+    });
+    let mut outer = Box::pin(status.during(TaskState::Uninterruptible, outer_body));
+    assert!(poll_once(outer.as_mut()).is_pending());
+    assert_eq!(
+        status.state(),
+        TaskState::Running,
+        "ancestor woke during poll"
+    );
+    saved.borrow().as_ref().unwrap().wake_by_ref();
+    assert_eq!(
+        status.state(),
+        TaskState::Running,
+        "ancestor woke after poll"
+    );
+}

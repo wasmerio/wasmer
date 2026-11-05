@@ -12,23 +12,57 @@ use crate::ExecEnv;
 #[derive(Default)]
 pub struct GuestUnwind {
     state: RefCell<State>,
+    context: Option<(std::sync::Weak<crate::contexts::Shared>, u64)>,
 }
 
 #[derive(Default)]
 enum State {
     #[default]
     Empty,
-    Raised(RuntimeError),
+    Raised(RuntimeError, u64),
+    Finishing(RuntimeError, u64),
     Consumed,
 }
 
+impl Drop for GuestUnwind {
+    fn drop(&mut self) {
+        if let State::Raised(error, order) | State::Finishing(error, order) =
+            std::mem::replace(self.state.get_mut(), State::Consumed)
+            && let Some((context, id)) = &self.context
+            && let Some(context) = context.upgrade()
+        {
+            context.retired_error(*id, order, error);
+        }
+    }
+}
+
 impl GuestUnwind {
+    /// Bind cancellation custody to this import's exact logical context. Ordinary
+    /// errors still live solely in the import until consumed or its root retires.
+    pub async fn new<S: 'static>(env: &AsyncFunctionEnvMut<ExecEnv<S>>) -> Self {
+        let data = env.read().await;
+        let context = data
+            .data()
+            .contexts
+            .upgrade()
+            .filter(|group| group.task() == data.data().task);
+        Self {
+            state: RefCell::default(),
+            context: context.map(|group| (std::sync::Arc::downgrade(&group), group.current())),
+        }
+    }
+
     /// Retains the first original error and returns its engine-free dispatch marker.
     /// A layer cannot replace that error by changing the syscall result afterward.
     pub fn raise<T>(&self, error: RuntimeError) -> SysResult<T> {
         let mut state = self.state.borrow_mut();
         if matches!(*state, State::Empty) {
-            *state = State::Raised(error);
+            let order = self
+                .context
+                .as_ref()
+                .and_then(|(context, _)| context.upgrade())
+                .map_or(0, |context| context.error_order());
+            *state = State::Raised(error, order);
         }
         Err(SysErr::GuestUnwind)
     }
@@ -40,21 +74,44 @@ impl GuestUnwind {
         env: &AsyncFunctionEnvMut<ExecEnv<S>>,
         ret: SysResult<T>,
     ) -> Result<SysResult<T>, RuntimeError> {
-        match self.resolve(ret) {
-            Ok(ret) => Ok(ret),
-            Err((error, finish)) => {
-                if finish {
-                    crate::finish_import(env).await;
+        let finish = {
+            let mut state = self.state.borrow_mut();
+            match &*state {
+                State::Finishing(_, _) => {
+                    return Err(RuntimeError::new(
+                        "an import is already finishing guest unwind",
+                    ));
                 }
-                Err(error)
+                State::Raised(_, _) => {
+                    let State::Raised(error, order) =
+                        std::mem::replace(&mut *state, State::Consumed)
+                    else {
+                        unreachable!()
+                    };
+                    *state = State::Finishing(error, order);
+                    true
+                }
+                State::Empty if matches!(ret, Err(SysErr::GuestUnwind)) => {
+                    *state = State::Finishing(
+                        RuntimeError::new("guest unwind marker has no import-owned error"),
+                        0,
+                    );
+                    true
+                }
+                _ => false,
             }
+        };
+        if finish {
+            crate::finish_import(env).await;
         }
+        self.resolve(ret).map_err(|(error, _)| error)
     }
 
     fn resolve<T>(&self, ret: SysResult<T>) -> Result<SysResult<T>, (RuntimeError, bool)> {
         let mut state = self.state.borrow_mut();
         match std::mem::replace(&mut *state, State::Consumed) {
-            State::Raised(error) => Err((error, true)),
+            State::Raised(error, _) => Err((error, true)),
+            State::Finishing(error, _) => Err((error, false)),
             State::Consumed => Err((
                 RuntimeError::new("an import consumed guest unwind custody more than once"),
                 false,

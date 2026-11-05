@@ -87,6 +87,7 @@ impl Library {
 }
 #[derive(Clone)]
 pub(super) struct Graph {
+    pub closures: super::closures::Ledger,
     pub host_imports: Option<wasixv2_exec::ImportDeclarations>,
     pub libraries: Vec<Library>,
     pub global: Vec<usize>,
@@ -696,6 +697,7 @@ mod tests {
     }
     fn missing_direct() -> Graph {
         Graph {
+            closures: Default::default(),
             host_imports: None,
             libraries: vec![
                 lazy_library("(module)"),
@@ -955,6 +957,7 @@ mod tests {
         )
         .unwrap();
         let graph = Graph {
+            closures: Default::default(),
             host_imports: None,
             libraries: vec![main],
             global: vec![0],
@@ -988,6 +991,7 @@ mod tests {
             Library::new(crate::tests::bytes(wat, [0; 4], &[], &[], &[]), None).unwrap()
         };
         let mut graph = Graph {
+            closures: Default::default(),
             host_imports: None,
             libraries: vec![
                 library("(module)"),
@@ -1061,6 +1065,7 @@ mod tests {
             Library::new(crate::tests::bytes(wat, [0; 4], &[], &[], imports), None).unwrap()
         };
         let mut graph = Graph {
+            closures: Default::default(),
             host_imports: None,
             libraries: vec![
                 library("(module)", &[]),
@@ -1094,6 +1099,7 @@ mod tests {
             Library::new(crate::tests::bytes(wat, [0; 4], &[], &[], &[]), None).unwrap()
         };
         let mut graph = Graph {
+            closures: Default::default(),
             host_imports: None,
             libraries: vec![
                 library("(module)"),

@@ -6,6 +6,7 @@ pub(crate) mod async_runtime;
 #[doc(hidden)]
 pub use async_runtime::{
     NativeCleanupGuard, NativeFrameGuard, NativeInvocationScope, WeakNativeInvocation,
+    context_switch_supported,
 };
 pub(crate) mod entities;
 pub(crate) mod error;

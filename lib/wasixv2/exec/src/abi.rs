@@ -157,7 +157,7 @@ pub trait AbiInstance<S: 'static>: Send + Sync {
         closure: U32Ptr,
     ) -> LocalFuture<'a, SysResult<i32>> {
         let _ = (env, caller, closure);
-        Box::pin(async { Err(Errno::ENOSYS.into()) })
+        Box::pin(async { Err(Errno::EOPNOTSUPP.into()) })
     }
 
     #[allow(clippy::too_many_arguments)] // the existing closure wire arguments plus import context
@@ -180,7 +180,7 @@ pub trait AbiInstance<S: 'static>: Send + Sync {
             result_types,
             env_,
         );
-        Box::pin(async { Err(Errno::ENOSYS.into()) })
+        Box::pin(async { Err(Errno::EOPNOTSUPP.into()) })
     }
 
     fn closure_free<'a>(
@@ -190,7 +190,7 @@ pub trait AbiInstance<S: 'static>: Send + Sync {
         closure: u32,
     ) -> LocalFuture<'a, SysResult<i32>> {
         let _ = (env, caller, closure);
-        Box::pin(async { Err(Errno::ENOSYS.into()) })
+        Box::pin(async { Err(Errno::EOPNOTSUPP.into()) })
     }
 
     #[allow(clippy::too_many_arguments)]
