@@ -85,6 +85,29 @@ rust-version = "1.96"
 version = "7.5.0"
 
 [workspace.dependencies]
+# Engine-independent kernel; Cargo.lock records the selected WLK main revision.
+wasixv2-abi = { git = "https://github.com/wasmerio/wlk", branch = "main" }
+wasixv2-checkpoint = { git = "https://github.com/wasmerio/wlk", branch = "main" }
+wasixv2-host = { git = "https://github.com/wasmerio/wlk", branch = "main" }
+wasixv2-kernel = { git = "https://github.com/wasmerio/wlk", branch = "main" }
+wasixv2-pages = { git = "https://github.com/wasmerio/wlk", branch = "main" }
+wasixv2-policy = { git = "https://github.com/wasmerio/wlk", branch = "main" }
+wasixv2-record = { git = "https://github.com/wasmerio/wlk", branch = "main" }
+wasixv2-stdio-web = { git = "https://github.com/wasmerio/wlk", branch = "main" }
+wasixv2-syscalls = { git = "https://github.com/wasmerio/wlk", branch = "main" }
+wasixv2-trace = { git = "https://github.com/wasmerio/wlk", branch = "main" }
+wasixv2-vfs = { git = "https://github.com/wasmerio/wlk", branch = "main" }
+wasixv2-vfs-host = { git = "https://github.com/wasmerio/wlk", branch = "main" }
+wasixv2-vfs-mem = { git = "https://github.com/wasmerio/wlk", branch = "main" }
+wasixv2-vfs-overlay = { git = "https://github.com/wasmerio/wlk", branch = "main" }
+wasixv2-vfs-package = { git = "https://github.com/wasmerio/wlk", branch = "main" }
+wasixv2-vfs-web = { git = "https://github.com/wasmerio/wlk", branch = "main" }
+wasixv2-vnet = { git = "https://github.com/wasmerio/wlk", branch = "main" }
+wasixv2-vnet-host = { git = "https://github.com/wasmerio/wlk", branch = "main" }
+wasixv2-vnet-switch = { git = "https://github.com/wasmerio/wlk", branch = "main" }
+wasixv2-vnet-web = { git = "https://github.com/wasmerio/wlk", branch = "main" }
+wasixv2-wait = { git = "https://github.com/wasmerio/wlk", branch = "main" }
+
 # Repo-local crates
 wasmer-package = { version = "0.705.0", path = "lib/package", default-features = false }
 wasmer-config = { path = "./lib/config" }

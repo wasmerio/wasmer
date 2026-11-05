@@ -465,13 +465,13 @@ wasixv2_wasm_check_flags := --lib --locked --target wasm32-unknown-unknown
 check-wasixv2-wasm: $(addprefix check-wasixv2-wasm-,$(wasixv2_wasm_checks))
 
 check-wasixv2-wasm-core:
-	$(CARGO_BINARY) check $(wasixv2_wasm_check_flags) \
+	CARGO_TARGET_DIR="$${CARGO_TARGET_DIR:-$(CURDIR)/target}" $(CARGO_BINARY) check --manifest-path "$$(python3 scripts/wlk-source.py kernel)/Cargo.toml" $(wasixv2_wasm_check_flags) \
 		-p wasixv2-kernel -p wasixv2-syscalls -p wasixv2-vfs -p wasixv2-vnet \
 		-p wasixv2-vfs-mem -p wasixv2-vfs-overlay -p wasixv2-vfs-package \
 		-p wasixv2-vfs-host -p wasixv2-vnet-host -p wasixv2-vnet-switch
 
 check-wasixv2-wasm-webhost:
-	$(CARGO_BINARY) check $(wasixv2_wasm_check_flags) -p wasixv2-host --no-default-features --features web
+	CARGO_TARGET_DIR="$${CARGO_TARGET_DIR:-$(CURDIR)/target}" $(CARGO_BINARY) check --manifest-path "$$(python3 scripts/wlk-source.py host)/Cargo.toml" $(wasixv2_wasm_check_flags) -p wasixv2-host --no-default-features --features web
 
 check-wasixv2-wasm-engine:
 	$(CARGO_BINARY) check $(wasixv2_wasm_check_flags) -p wasmer --no-default-features --features js-default,experimental-async

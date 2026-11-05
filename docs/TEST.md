@@ -57,3 +57,13 @@ yet.
 macOS and musl CI jobs run on a PR only when the PR carries the `macos` or
 `musl` label (see [CONTRIBUTING.md](./CONTRIBUTING.md)). A PR can pass CI
 and still break `main` on those platforms.
+
+## WLK versus Wasmer tests
+
+Pure kernel, driver, VFS/VNet and syscall-layer tests now run in the private
+[WLK workspace](https://github.com/wasmerio/wlk) (`cargo nextest run --workspace`).
+Its CI also runs audit, check, Clippy, formatting and separate wasm feature checks.
+Wasmer keeps engine/guest behavior tests, including the v1 network-reference tests
+in `lib/wasix/api/tests/vnet_reference_{codec,relay}.rs` and canonical generator
+checks in `lib/wasix/exec/tests/generated.rs`. Run those with their owning packages;
+there is no local kernel workspace member after extraction.

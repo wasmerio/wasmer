@@ -12,9 +12,10 @@ through v2 and its compatibility adapter, including custom bindings/NAPI. Comple
 the entire Linux syscall surface is not required. Preserve original consumer tests;
 compilation, model tests and feature flags alone do not establish compatibility.
 
-The integration code snapshot is `2854c34dc590c5e832ba727036317af9e42d659f` plus
-this documentation. It combines the delivered parity work, native NAPI frame/GC
-repair and directory migration. The unfinished branches below are **not merged**
+The stopped-parity baseline is `2854c34dc590c5e832ba727036317af9e42d659f`.
+The current branch additionally extracts the engine-independent core to private WLK,
+selected from `main` at the exact revision in `Cargo.lock`. The baseline combines
+the delivered parity work, native NAPI frame/GC repair and directory migration. The unfinished branches below are **not merged**
 into that snapshot. Existing focused component evidence and offline locked Cargo
 metadata passed; no fresh whole-snapshot release/browser/full-suite validation was
 performed for this stop checkpoint. Source revisions are in [SNAPSHOT.json](SNAPSHOT.json).
@@ -22,6 +23,7 @@ performed for this stop checkpoint. Source revisions are in [SNAPSHOT.json](SNAP
 | Repository | Source snapshot | Role |
 | --- | --- | --- |
 | [Wasmer](https://github.com/wasmerio/wasmer/tree/feat/wasixv2) | `feat/wasixv2`, code `2854c34dc59` | Integration target, not a parity GO |
+| [WLK](https://github.com/wasmerio/wlk/tree/main) | `main`, exact source in `Cargo.lock` | 21 engine-independent crates; private repository |
 | [NAPI](https://github.com/wasmerio/napi/tree/wasix/parity-unified) | `bdc247406e9cecd46888ce648a62d51ed2732378` | Native GC repair + relocated legacy dependency paths |
 | [ABI/generator](https://github.com/wasix-org/wasixv2-abi/tree/c2c28b95e0c403b224f9cf83fa0e6d56a5a2f3a0) | `c2c28b95e0c403b224f9cf83fa0e6d56a5a2f3a0` | Canonical integration source |
 | [Guest tests](https://github.com/wasix-org/wasixv2-tests/tree/c2795a1d22e3d00e373c2b3cb31cc1bf57b4de07) | `c2795a1d22e3d00e373c2b3cb31cc1bf57b4de07` | Test source with runtime-path migration |
@@ -124,7 +126,9 @@ Drafts: [runtime `wasixv2/parity-napi-facade-20261104`](https://github.com/wasme
 SDK draft: [wasmer-sdk `codex/sdk-v2-browser-core`](https://github.com/wasmerio/wasmer-sdk/tree/codex/sdk-v2-browser-core)
 `32f497ec6d238c6e44e898a28442bc5b87643615`. Its exact runtime source pin remains
 `25e60218af5d165727f7cdb06439fd61464ef8e4` deliberately; do not silently substitute
-new directory layouts into its old-path build recipe.
+new directory layouts into its old-path build recipe. When upgrading that candidate,
+move its direct kernel/host/VFS/ABI/stdio dependencies to WLK as well; do not mix
+pre-extraction Wasmer-sourced core packages with the WLK-sourced facade types.
 
 Additional source-only package candidates recovered from the RAM staging area:
 [SDK `wip/public-core-stop-20261105`](https://github.com/wasmerio/wasmer-sdk/tree/wip/public-core-stop-20261105)
@@ -195,10 +199,13 @@ Additional reference-lifetime test draft:
 - Record/replay, dedicated embedder-policy implementation, paused memory-accounting
   redesign and host-enforced page-protection/userfaultfd extensions remain future/design
   work beyond delivered per-feature controls; no blanket implementation claim.
-- Separate pure kernel repository: evaluation says the 21 engine-free crates can move,
-  leaving api/exec/dylink/wasix1 in main. No extraction approved or implemented. Before
-  doing it, independently review the cut, shared generator, test ownership, source pins
-  and cross-repo CI. Do not use extraction to defer current compatibility delivery.
+- Pure kernel repository extraction is implemented in private `wasmerio/wlk` with
+  21 crates under `crates/`. Wasmer keeps api/exec/dylink/wasix1 and canonical codegen;
+  git dependencies select WLK `main` with an exact lockfile revision. Maintain the
+  generation/reference integration tests here and kernel CI there. Private-repository
+  credentials are required for downstream CI. Further planner extraction, publication
+  and stable cross-engine API commitments remain separate decisions. This does not
+  close the outstanding compatibility work above.
 
 Deferred source is preserved in
 [runtime `wasixv2/parity-wasix64`](https://github.com/wasmerio/wasmer/tree/wasixv2/parity-wasix64)

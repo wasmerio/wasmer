@@ -99,5 +99,20 @@
       "head": "50804206f722236533d3208cbad9b17ec1d46b74",
       "remote": "https://github.com/wasmerio/wasmer.git"
     }
-  ]
+  ],
+  "kernel_extraction": {
+    "repository": "https://github.com/wasmerio/wlk",
+    "private": true,
+    "branch": "main",
+    "revision": "see Cargo.lock",
+    "layout": "crates/*",
+    "kept_in_wasmer": [
+      "api",
+      "exec",
+      "dylink",
+      "wasix1",
+      "codegen"
+    ],
+    "note": "integration_code_revision records the pre-extraction stopped-work baseline; unfinished parity branches remain separate"
+  }
 }

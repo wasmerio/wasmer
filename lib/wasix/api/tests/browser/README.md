@@ -132,7 +132,7 @@ export WASM_BINDGEN=/path/to/wasm-bindgen-matching-Cargo.lock
 bash lib/wasix/api/tests/browser/build.sh
 npm ci --prefix tests/wasixv2/browser
 node --test lib/wasix/api/tests/browser/*.test.mjs \
-  lib/wasix/host/tests/browser/protocol.test.mjs
+  "$(python3 scripts/wlk-source.py host)/tests/browser/protocol.test.mjs"
 CHROME=/usr/bin/google-chrome node lib/wasix/api/tests/browser/lifecycle.mjs \
   "$CARGO_TARGET_DIR/browser"
 node tests/wasixv2/browser/run.mjs --manifest /source-built/export/manifest.json \

@@ -1,3 +1,8 @@
+> Implementation update (2026-11-05): the approved 21-crate cut is now in the
+> private `wasmerio/wlk` workspace under `crates/`; Wasmer consumes its `main`
+> branch via git dependencies and Cargo.lock. Canonical codegen remains here.
+> The text below preserves the original evaluation and its historical source pins.
+
 # Engine-independent WASIX repository: evaluation only
 
 Audited 2026-11-04: parity-delivery `25e60218af5d165727f7cdb06439fd61464ef8e4`; checked path-migration candidate `577676bd472e81966926321ec2126c7497b0e7f2`. No source, branch, submodule or repository changes; no builds. Read main AGENTS and all five required docs. Source references below are relative to parity-delivery unless stated. Migration changes `lib/wasixv2` to `lib/wasix`, keeps package names, and puts v1 runtime in `lib/wasix-legacy`.

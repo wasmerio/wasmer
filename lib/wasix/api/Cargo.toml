@@ -11,27 +11,27 @@ repository.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-wasixv2-abi = { path = "../abi" }
-wasixv2-syscalls = { path = "../syscalls" }
-wasixv2-trace = { path = "../trace" }
-wasixv2-record = { path = "../record" }
-wasixv2-policy = { path = "../policy" }
-wasixv2-host = { path = "../host" }
-wasixv2-wait = { path = "../wait", optional = true }
-wasixv2-vfs = { path = "../vfs" }
-wasixv2-vfs-mem = { path = "../vfs-mem" }
-wasixv2-vfs-host = { path = "../vfs-host" }
-wasixv2-vfs-overlay = { path = "../vfs-overlay" }
-wasixv2-vfs-package = { path = "../vfs-package" }
-wasixv2-vnet = { path = "../vnet" }
-wasixv2-vnet-host = { path = "../vnet-host", optional = true }
-wasixv2-vnet-switch = { path = "../vnet-switch" }
-wasixv2-vnet-web = { path = "../vnet-web", optional = true }
-wasixv2-vfs-web = { path = "../vfs-web", optional = true }
-wasixv2-stdio-web = { path = "../stdio-web", optional = true }
-wasixv2-kernel = { path = "../kernel" }
-wasixv2-pages = { path = "../pages" }
-wasixv2-checkpoint = { path = "../checkpoint" }
+wasixv2-abi = { workspace = true }
+wasixv2-syscalls = { workspace = true }
+wasixv2-trace = { workspace = true }
+wasixv2-record = { workspace = true }
+wasixv2-policy = { workspace = true }
+wasixv2-host = { workspace = true }
+wasixv2-wait = { workspace = true, optional = true }
+wasixv2-vfs = { workspace = true }
+wasixv2-vfs-mem = { workspace = true }
+wasixv2-vfs-host = { workspace = true }
+wasixv2-vfs-overlay = { workspace = true }
+wasixv2-vfs-package = { workspace = true }
+wasixv2-vnet = { workspace = true }
+wasixv2-vnet-host = { workspace = true, optional = true }
+wasixv2-vnet-switch = { workspace = true }
+wasixv2-vnet-web = { workspace = true, optional = true }
+wasixv2-vfs-web = { workspace = true, optional = true }
+wasixv2-stdio-web = { workspace = true, optional = true }
+wasixv2-kernel = { workspace = true }
+wasixv2-pages = { workspace = true }
+wasixv2-checkpoint = { workspace = true }
 wasixv2-exec = { path = "../exec", default-features = false }
 wasixv2-dylink = { path = "../dylink", default-features = false }
 wasixv2-wasix1 = { path = "../wasix1", default-features = false, optional = true }
@@ -51,6 +51,11 @@ serde_json.workspace = true
 wat.workspace = true
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
+futures-util.workspace = true
+bincode = { workspace = true, features = ["serde"] }
+virtual-net = { path = "../../virtual-net" }
+wasixv2-vnet-web = { workspace = true }
+wasixv2-wait = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt", "sync", "time"] }
 wasmer = { path = "../../api", version = "=7.5.0", default-features = false, features = [
   "cranelift",

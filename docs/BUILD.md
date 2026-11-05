@@ -214,3 +214,23 @@ package/
 >
 > You can generate the C-API for a specific compiler and engine with:
 > `make build-capi-{ENGINE}`
+
+## Private WLK dependency
+
+The WASIX kernel is fetched from private `https://github.com/wasmerio/wlk`, branch
+`main`, at the revision in `Cargo.lock`. GitHub credentials need Contents-read access
+to that repository. For local development, `gh auth login` then `gh auth setup-git`
+configures Git; Cargo uses the Git CLI. CI must provide an organization-approved
+read token (for example `WLK_READ_TOKEN`) to its Git credential helper. A Wasmer
+repository `GITHUB_TOKEN` alone cannot read a different private repository. Do not
+make WLK public to work around missing credentials.
+
+Run `cargo check --locked -p wasixv2 -p wasixv2-exec -p wasixv2-wasix1` for the
+Wasmer integration. WLK owns its independent check, Clippy, nextest and audit CI.
+`python3 scripts/wlk-source.py host` locates assets in the locked dependency
+checkout; `WLK_ROOT=/path/to/wlk` can select developer assets explicitly.
+
+For coordinated source edits, use explicit local `[patch."https://github.com/wasmerio/wlk"]`
+overrides for every affected core package; remove those overrides before committing
+and regenerate the lockfile against the pushed WLK source. Never mix two source
+identities for the same kernel types.

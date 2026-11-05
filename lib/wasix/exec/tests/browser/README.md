@@ -78,10 +78,10 @@ reuses B2's isolated std TLS cleanup recipe, structural checks and headless runn
 export CARGO_TARGET_DIR="$HOME/wasixv2-orch/logs/b3b-foreign/target"
 export WASM_BINDGEN=/path/to/wasm-bindgen
 lib/wasix/exec/tests/browser/build.sh
-nice -n 19 taskset -c 4-7 node lib/wasix/host/tests/browser/run.mjs "$CARGO_TARGET_DIR/browser"
+nice -n 19 taskset -c 4-7 node "$(python3 scripts/wlk-source.py host)/tests/browser/run.mjs" "$CARGO_TARGET_DIR/browser"
 nice -n 19 taskset -c 4-7 node --test \
   lib/wasix/exec/tests/browser/memory.test.mjs \
-  lib/wasix/host/tests/browser/protocol.test.mjs
+  "$(python3 scripts/wlk-source.py host)/tests/browser/protocol.test.mjs"
 ```
 
 The test-artifact-only `browser-memory-test` feature builds the exec sources as a
