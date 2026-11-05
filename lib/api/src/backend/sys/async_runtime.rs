@@ -11,7 +11,10 @@ use std::{
     task::{Context, Poll, RawWaker, RawWakerVTable, Waker},
 };
 
-use corosensei::{Coroutine, CoroutineResult, Yielder};
+use corosensei::{
+    Coroutine, CoroutineResult, Yielder,
+    stack::{DefaultStack, Stack},
+};
 use dashmap::DashMap;
 
 use super::entities::function::Function as SysFunction;
@@ -30,6 +33,291 @@ pub(crate) fn call_function_async(
     params: Vec<Value>,
 ) -> AsyncCallFuture {
     AsyncCallFuture::new(function, store, params)
+}
+
+// Keep the existing default coroutine capacity, excluding its guard pages.
+const NATIVE_COROUTINE_STACK_BYTES: usize = 1024 * 1024;
+
+/// Numeric physical allocation bounds, without a coroutine owner or data access.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) struct NativeStackBounds {
+    pub(super) low: usize,
+    pub(super) base: usize,
+}
+thread_local! {
+    // This is physical call-stack metadata, not cancellation/coroutine TLS.
+    // A wrapper may be executing code on its caller before/after the switch.
+    static NATIVE_STACK_BOUNDS: RefCell<Vec<NativeStackBounds>> = const { RefCell::new(Vec::new()) };
+}
+
+pub(super) fn current_native_stack_bounds() -> Option<NativeStackBounds> {
+    let marker = 0u8;
+    let address = &marker as *const u8 as usize;
+    NATIVE_STACK_BOUNDS.with(|bounds| {
+        bounds
+            .borrow()
+            .iter()
+            .rev()
+            .copied()
+            .find(|bounds| bounds.low <= address && address < bounds.base)
+    })
+}
+
+// Only the audited SysV64 profile exposes paused conservative-GC segments.
+// The record belongs to the caller and stays live until its transfer returns.
+#[cfg(all(
+    target_os = "linux",
+    target_arch = "x86_64",
+    target_pointer_width = "64"
+))]
+#[repr(C, align(16))]
+#[derive(Default)]
+struct NativeStackRegisters {
+    preserved: [usize; 6],
+    entry_sp: usize,
+}
+
+#[cfg(all(
+    target_os = "linux",
+    target_arch = "x86_64",
+    target_pointer_width = "64"
+))]
+core::arch::global_asm!(
+    ".text",
+    ".p2align 4",
+    ".global wasmer_native_stack_pause_capture",
+    ".hidden wasmer_native_stack_pause_capture",
+    ".type wasmer_native_stack_pause_capture,@function",
+    "wasmer_native_stack_pause_capture:",
+    ".cfi_startproc",
+    "endbr64",
+    "mov [rdi], rbx",
+    "mov [rdi + 8], rbp",
+    "mov [rdi + 16], r12",
+    "mov [rdi + 24], r13",
+    "mov [rdi + 32], r14",
+    "mov [rdi + 40], r15",
+    "mov [rdi + 48], rsp",
+    "ret",
+    ".cfi_endproc",
+    ".size wasmer_native_stack_pause_capture, .-wasmer_native_stack_pause_capture",
+);
+
+#[cfg(all(
+    target_os = "linux",
+    target_arch = "x86_64",
+    target_pointer_width = "64"
+))]
+unsafe extern "C" {
+    fn wasmer_native_stack_pause_capture(record: *mut NativeStackRegisters);
+}
+
+#[cfg(all(
+    target_os = "linux",
+    target_arch = "x86_64",
+    target_pointer_width = "64"
+))]
+#[derive(Clone, Copy)]
+struct NativePausedStack {
+    id: u64,
+    bounds: Option<NativeStackBounds>,
+    top: usize,
+}
+#[cfg(all(
+    target_os = "linux",
+    target_arch = "x86_64",
+    target_pointer_width = "64"
+))]
+thread_local! {
+    // Numeric rows own no stack. Each row's caller owns its live spill record;
+    // physical engine-frame custody separately retains parked coroutine bytes.
+    static NATIVE_PAUSED_STACKS: RefCell<Vec<NativePausedStack>> = const { RefCell::new(Vec::new()) };
+    static NEXT_NATIVE_PAUSE: Cell<u64> = const { Cell::new(0) };
+}
+
+#[cfg(all(
+    target_os = "linux",
+    target_arch = "x86_64",
+    target_pointer_width = "64"
+))]
+struct NativeStackPause<'a> {
+    id: u64,
+    registers: &'a NativeStackRegisters,
+}
+#[cfg(all(
+    target_os = "linux",
+    target_arch = "x86_64",
+    target_pointer_width = "64"
+))]
+impl Drop for NativeStackPause<'_> {
+    fn drop(&mut self) {
+        // Yield removes the outer resume row while its inner suspend row lives.
+        // Exact identity removal is required; these physical lifetimes are not LIFO.
+        std::hint::black_box(self.registers);
+        NATIVE_PAUSED_STACKS.with(|rows| {
+            let mut rows = rows.borrow_mut();
+            let index = rows
+                .iter()
+                .position(|row| row.id == self.id)
+                .expect("native pause row lost");
+            rows.remove(index);
+        });
+    }
+}
+
+/// Copy a live used top for the exact coroutine allocation, or the OS caller.
+/// No pointer is dereferenced and no borrow survives the return.
+pub(super) fn native_paused_stack_top(bounds: Option<NativeStackBounds>) -> Option<usize> {
+    #[cfg(all(
+        target_os = "linux",
+        target_arch = "x86_64",
+        target_pointer_width = "64"
+    ))]
+    {
+        NATIVE_PAUSED_STACKS.with(|rows| {
+            rows.borrow()
+                .iter()
+                .filter(|row| row.bounds == bounds)
+                .map(|row| row.top)
+                .min()
+        })
+    }
+    #[cfg(not(all(
+        target_os = "linux",
+        target_arch = "x86_64",
+        target_pointer_width = "64"
+    )))]
+    {
+        let _ = bounds;
+        None
+    }
+}
+
+#[inline(never)]
+fn with_native_stack_pause<R>(transfer: impl FnOnce() -> R) -> R {
+    #[cfg(all(
+        target_os = "linux",
+        target_arch = "x86_64",
+        target_pointer_width = "64"
+    ))]
+    {
+        let mut registers = NativeStackRegisters::default();
+        // A real external SysV call forces caller-saved live values to their
+        // callers' spill locations; the assembly preserves the six remaining
+        // general pointer registers in THIS live record, never its dead frame.
+        unsafe { wasmer_native_stack_pause_capture(&mut registers) };
+        let top = registers
+            .entry_sp
+            .checked_add(size_of::<usize>())
+            .expect("native pause SP overflow");
+        let record = &registers as *const NativeStackRegisters as usize;
+        assert!(top <= record, "native register record below caller SP");
+        let bounds = current_native_stack_bounds();
+        if let Some(bounds) = bounds {
+            assert!(bounds.low <= top && record + size_of::<NativeStackRegisters>() <= bounds.base);
+        }
+        let id = NEXT_NATIVE_PAUSE.with(|next| {
+            let id = next
+                .get()
+                .checked_add(1)
+                .expect("native pause IDs exhausted");
+            next.set(id);
+            id
+        });
+        NATIVE_PAUSED_STACKS.with(|rows| {
+            rows.borrow_mut()
+                .push(NativePausedStack { id, bounds, top })
+        });
+        let pause = NativeStackPause {
+            id,
+            registers: &registers,
+        };
+        let result = transfer();
+        // Numeric metadata is not a Rust reference visible to liveness analysis.
+        // Keep the complete record in its stack slot throughout the transfer.
+        std::hint::black_box(&registers);
+        drop(pause);
+        result
+    }
+    #[cfg(not(all(
+        target_os = "linux",
+        target_arch = "x86_64",
+        target_pointer_width = "64"
+    )))]
+    {
+        transfer()
+    }
+}
+
+struct NativeStackBoundary(NativeStackBounds);
+impl NativeStackBoundary {
+    fn enter(bounds: NativeStackBounds) -> Self {
+        NATIVE_STACK_BOUNDS.with(|active| active.borrow_mut().push(bounds));
+        Self(bounds)
+    }
+}
+impl Drop for NativeStackBoundary {
+    fn drop(&mut self) {
+        NATIVE_STACK_BOUNDS.with(|active| {
+            assert_eq!(active.borrow_mut().pop(), Some(self.0));
+        });
+    }
+}
+
+// A coroutine can resume or force-unwind while its logical metadata is hidden.
+// Own the numeric scope at both actual transfer boundaries. For an unstarted
+// coroutine Drop, closure destruction stays on the caller; range selection
+// deliberately skips this wrapper and finds its actual physical parent.
+#[allow(clippy::type_complexity)]
+struct NativeCoroutine {
+    inner: Option<Coroutine<AsyncResume, AsyncYield, Result<Box<[Value]>, RuntimeError>>>,
+    bounds: NativeStackBounds,
+}
+impl NativeCoroutine {
+    fn new(
+        body: impl FnOnce(
+            &Yielder<AsyncResume, AsyncYield>,
+            AsyncResume,
+        ) -> Result<Box<[Value]>, RuntimeError>
+        + 'static,
+    ) -> Self {
+        let stack = DefaultStack::new(NATIVE_COROUTINE_STACK_BYTES)
+            .expect("failed to allocate native coroutine stack");
+        let base = stack.base().get();
+        // Stack::limit includes guard pages. The requested capacity is the
+        // portable guarantee of usable bytes immediately below Stack::base.
+        let low = base
+            .checked_sub(NATIVE_COROUTINE_STACK_BYTES)
+            .expect("native coroutine stack bounds overflow");
+        Self {
+            inner: Some(Coroutine::with_stack(stack, body)),
+            bounds: NativeStackBounds { low, base },
+        }
+    }
+    fn done(&self) -> bool {
+        self.inner
+            .as_ref()
+            .expect("native coroutine already dropped")
+            .done()
+    }
+    fn resume(
+        &mut self,
+        input: AsyncResume,
+    ) -> CoroutineResult<AsyncYield, Result<Box<[Value]>, RuntimeError>> {
+        let _physical = NativeStackBoundary::enter(self.bounds);
+        with_native_stack_pause(|| {
+            self.inner
+                .as_mut()
+                .expect("native coroutine already dropped")
+                .resume(input)
+        })
+    }
+}
+impl Drop for NativeCoroutine {
+    fn drop(&mut self) {
+        let _physical = NativeStackBoundary::enter(self.bounds);
+        with_native_stack_pause(|| drop(self.inner.take()));
+    }
 }
 
 struct AsyncYield(HostFuture);
@@ -405,7 +693,7 @@ struct NativeRootOwner {
 
 #[allow(clippy::type_complexity)]
 struct NativeRootStack {
-    coroutine: Option<Coroutine<AsyncResume, AsyncYield, Result<Box<[Value]>, RuntimeError>>>,
+    coroutine: Option<NativeCoroutine>,
     suspended_stores: SuspendedStoreContexts,
     trap_state: RootTrapState,
 }
@@ -821,6 +1109,26 @@ fn current_retirement_control() -> Option<Rc<NativeRootControl>> {
             .clone()
             .filter(|control| !control.settled.get())
     })
+}
+
+// Select exact import bookkeeping without granting a new ancestry edge.
+// Physical control is authoritative; host-future bodies use the existing
+// logical boundary only when no coroutine is physically executing.
+#[derive(Clone)]
+pub(crate) struct NativeEngineEntry(Option<Rc<NativeRootControl>>);
+
+impl NativeEngineEntry {
+    pub(crate) fn capture() -> Self {
+        Self(current_retirement_control())
+    }
+
+    pub(crate) fn is_current(&self) -> bool {
+        match (&self.0, current_retirement_control()) {
+            (None, None) => true,
+            (Some(saved), Some(current)) => Rc::ptr_eq(saved, &current),
+            _ => false,
+        }
+    }
 }
 
 pub(crate) fn current_retirement_error() -> Option<RuntimeError> {
@@ -1533,7 +1841,7 @@ impl AsyncCallFuture {
                 control: control.clone(),
             };
             let coroutine =
-                Coroutine::new(move |yielder: &Yielder<AsyncResume, AsyncYield>, resume| {
+                NativeCoroutine::new(move |yielder: &Yielder<AsyncResume, AsyncYield>, resume| {
                     assert!(matches!(resume, AsyncResume::Start));
                     let mut ctx_state = CoroutineContext::new(yielder, store_context_id);
                     ctx_state.owner = Some(weak);
@@ -2131,7 +2439,7 @@ impl NativeRootOwner {
 
 type DeferredPanic = Box<dyn std::any::Any + Send>;
 
-fn defer_cleanup(failures: &mut Vec<DeferredPanic>, cleanup: impl FnOnce()) {
+pub(super) fn defer_cleanup(failures: &mut Vec<DeferredPanic>, cleanup: impl FnOnce()) {
     if let Err(panic) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(cleanup)) {
         failures.push(panic);
     }
@@ -2139,7 +2447,7 @@ fn defer_cleanup(failures: &mut Vec<DeferredPanic>, cleanup: impl FnOnce()) {
 
 // Safe guard disposal also runs while another Rust failure is unwinding.
 // Settle every owned phase first, then preserve that already-active failure.
-fn resume_guard_cleanup_panics(failures: Vec<DeferredPanic>, already_unwinding: bool) {
+pub(super) fn resume_guard_cleanup_panics(failures: Vec<DeferredPanic>, already_unwinding: bool) {
     if already_unwinding {
         for payload in failures {
             let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| drop(payload)));
@@ -2167,7 +2475,7 @@ fn resume_cleanup_panics(mut failures: Vec<DeferredPanic>) {
 // owned user payload, mark it settled, remove retirement metadata, then unlock.
 #[allow(clippy::type_complexity)]
 struct RetiringNativeStack {
-    coroutine: Option<Coroutine<AsyncResume, AsyncYield, Result<Box<[Value]>, RuntimeError>>>,
+    coroutine: Option<NativeCoroutine>,
     yielded: Vec<HostFuture>,
     result: Option<Result<Box<[Value]>, RuntimeError>>,
     failures: Vec<DeferredPanic>,
@@ -2197,7 +2505,7 @@ struct DroppedHostState {
 // raw Sync snapshots must outlive every native frame during its forced unwind.
 #[allow(clippy::type_complexity)]
 struct DroppedNativeStack {
-    _coroutine: Option<Coroutine<AsyncResume, AsyncYield, Result<Box<[Value]>, RuntimeError>>>,
+    _coroutine: Option<NativeCoroutine>,
     _suspended_stores: SuspendedStoreContexts,
     _store: Option<StoreAsync>,
 }
@@ -2518,7 +2826,7 @@ impl CoroutineContext {
         self.leave();
 
         let yielder = unsafe { self.yielder.as_ref().expect("yielder pointer valid") };
-        let result = match yielder.suspend(AsyncYield(future)) {
+        let result = match with_native_stack_pause(|| yielder.suspend(AsyncYield(future))) {
             AsyncResume::HostFutureReady(result) => result,
             AsyncResume::Start => unreachable!("coroutine resumed without start"),
         };
@@ -2547,6 +2855,246 @@ fn run_immediate(
 mod tests {
     use super::*;
     use crate::{Function, Instance, Module};
+
+    #[test]
+    fn physical_stack_bounds_survive_detached_metadata_and_coroutine_drop() {
+        if !runtime_subprocess(
+            "backend::sys::async_runtime::tests::physical_stack_bounds_survive_detached_metadata_and_coroutine_drop",
+        ) {
+            return;
+        }
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        struct Probe {
+            expected: Option<NativeStackBounds>,
+            checks: Arc<AtomicUsize>,
+            bit: usize,
+        }
+        impl Drop for Probe {
+            fn drop(&mut self) {
+                if current_native_stack_bounds() == self.expected {
+                    self.checks.fetch_or(self.bit, Ordering::SeqCst);
+                }
+            }
+        }
+        let checks = Arc::new(AtomicUsize::new(0));
+        let unstarted = Probe {
+            expected: None,
+            checks: checks.clone(),
+            bit: 1,
+        };
+        let child = NativeCoroutine::new(move |_, _| {
+            drop(unstarted);
+            Ok(Vec::<Value>::new().into_boxed_slice())
+        });
+        // Its captured destructor executes on the caller, never on its stack.
+        drop(child);
+        let observed = checks.clone();
+        let mut parent = NativeCoroutine::new(move |yielder, _| {
+            let expected = current_native_stack_bounds();
+            if expected.is_some() {
+                observed.fetch_or(2, Ordering::SeqCst);
+            }
+            let context = CoroutineContext::new(yielder, StoreContext::new_installation_id());
+            context.enter();
+            {
+                let _hidden = DetachedCoroutineContext::new();
+                if CoroutineContext::get_current().is_none()
+                    && current_native_stack_bounds() == expected
+                {
+                    observed.fetch_or(4, Ordering::SeqCst);
+                }
+            }
+            context.leave();
+            let unstarted = Probe {
+                expected,
+                checks: observed.clone(),
+                bit: 8,
+            };
+            let child = NativeCoroutine::new(move |_, _| {
+                drop(unstarted);
+                Ok(Vec::<Value>::new().into_boxed_slice())
+            });
+            // The child's active wrapper must not hide this actual parent range.
+            drop(child);
+            let _forced = Probe {
+                expected,
+                checks: observed,
+                bit: 16,
+            };
+            yielder.suspend(AsyncYield(Box::pin(async { Ok(Vec::new()) })));
+            Ok(Vec::<Value>::new().into_boxed_slice())
+        });
+        let outcome = parent.resume(AsyncResume::Start);
+        let yielded = matches!(outcome, CoroutineResult::Yield(_));
+        drop(outcome);
+        if current_native_stack_bounds().is_none() {
+            checks.fetch_or(32, Ordering::SeqCst);
+        }
+        // Implicit force-unwind runs _forced on its own still-live allocation.
+        drop(parent);
+        assert!(yielded);
+        assert_eq!(checks.load(Ordering::SeqCst), 63);
+        assert!(current_native_stack_bounds().is_none());
+        assert!(CoroutineContext::get_current().is_none());
+        assert!(StoreContext::is_empty());
+    }
+
+    #[test]
+    #[cfg(all(
+        target_os = "linux",
+        target_arch = "x86_64",
+        target_pointer_width = "64"
+    ))]
+    fn paused_native_used_ranges_survive_yield_and_forced_unwind() {
+        if !runtime_subprocess(
+            "backend::sys::async_runtime::tests::paused_native_used_ranges_survive_yield_and_forced_unwind",
+        ) {
+            return;
+        }
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        struct OnDrop(Arc<AtomicUsize>);
+        impl Drop for OnDrop {
+            fn drop(&mut self) {
+                // The suspended child capture was removed during unwind before
+                // this destructor, while the real OS force-unwind caller lives.
+                if current_native_stack_bounds().is_some()
+                    && native_paused_stack_top(None).is_some()
+                {
+                    self.0.fetch_or(8, Ordering::SeqCst);
+                }
+            }
+        }
+        let bits = Arc::new(AtomicUsize::new(0));
+        let observed = bits.clone();
+        let allocation = Rc::new(Cell::new(None));
+        let child_allocation = allocation.clone();
+        let mut coroutine = NativeCoroutine::new(move |yielder, _| {
+            let bounds = current_native_stack_bounds().unwrap();
+            child_allocation.set(Some(bounds));
+            if native_paused_stack_top(None).is_some() {
+                observed.fetch_or(1, Ordering::SeqCst);
+            }
+            let _drop = OnDrop(observed.clone());
+            with_native_stack_pause(|| {
+                let top = native_paused_stack_top(Some(bounds));
+                if top.is_some_and(|top| bounds.low <= top && top < bounds.base) {
+                    observed.fetch_or(2, Ordering::SeqCst);
+                }
+                yielder.suspend(AsyncYield(Box::pin(async { Ok(Vec::new()) })))
+            });
+            Ok(Vec::new().into_boxed_slice())
+        });
+        let yielded = coroutine.resume(AsyncResume::Start);
+        let was_yield = matches!(yielded, CoroutineResult::Yield(_));
+        drop(yielded);
+        let bounds = allocation.get().unwrap();
+        if native_paused_stack_top(Some(bounds)).is_some()
+            && native_paused_stack_top(None).is_none()
+        {
+            bits.fetch_or(4, Ordering::SeqCst);
+        }
+        drop(coroutine);
+        assert!(was_yield);
+        assert_eq!(bits.load(Ordering::SeqCst), 15);
+        assert!(native_paused_stack_top(Some(bounds)).is_none());
+        assert!(native_paused_stack_top(None).is_none());
+        assert!(current_native_stack_bounds().is_none());
+        assert!(StoreContext::is_empty());
+    }
+
+    #[test]
+    fn engine_entry_identity_distinguishes_physical_and_logical_roots() {
+        if !runtime_subprocess(
+            "backend::sys::async_runtime::tests::engine_entry_identity_distinguishes_physical_and_logical_roots",
+        ) {
+            return;
+        }
+        use crate::sys::NativeEngineEntryIdentity;
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        thread_local! {
+            static UNOWNED: RefCell<Option<NativeEngineEntryIdentity>> = const { RefCell::new(None) };
+            static FIRST: RefCell<Option<NativeEngineEntryIdentity>> = const { RefCell::new(None) };
+            static SECOND: RefCell<Option<NativeEngineEntryIdentity>> = const { RefCell::new(None) };
+            static WEAK: RefCell<Vec<WeakNativeInvocation>> = const { RefCell::new(Vec::new()) };
+        }
+        let checks = Arc::new(AtomicUsize::new(0));
+        UNOWNED.with(|slot| *slot.borrow_mut() = Some(NativeEngineEntryIdentity::capture()));
+        let mut roots = Vec::new();
+        for first in [true, false] {
+            let mut store = Store::default();
+            let observed = checks.clone();
+            let function = Function::new_typed_async(&mut store, move || {
+                let own = NativeEngineEntryIdentity::capture();
+                if own.is_current()
+                    && !UNOWNED.with(|slot| slot.borrow().as_ref().unwrap().is_current())
+                {
+                    observed.fetch_add(1, Ordering::SeqCst);
+                }
+                WEAK.with(|slot| {
+                    slot.borrow_mut()
+                        .push(WeakNativeInvocation::current().unwrap())
+                });
+                if first {
+                    FIRST.with(|slot| *slot.borrow_mut() = Some(own));
+                } else {
+                    SECOND.with(|slot| *slot.borrow_mut() = Some(own));
+                }
+                let observed = observed.clone();
+                async move {
+                    // Host bodies run without a physical coroutine but with the
+                    // same exact logical retirement control as their factory.
+                    let own_matches = if first {
+                        FIRST.with(|slot| slot.borrow().as_ref().unwrap().is_current())
+                    } else {
+                        SECOND.with(|slot| slot.borrow().as_ref().unwrap().is_current())
+                            && !FIRST.with(|slot| slot.borrow().as_ref().unwrap().is_current())
+                    };
+                    if CoroutineContext::current_root().is_none()
+                        && own_matches
+                        && !UNOWNED.with(|slot| slot.borrow().as_ref().unwrap().is_current())
+                    {
+                        observed.fetch_add(1, Ordering::SeqCst);
+                    }
+                    std::future::pending::<()>().await;
+                    Ok::<i32, RuntimeError>(42)
+                }
+            });
+            let store = store.into_async();
+            let mut call = Box::pin(function.call_async(&store, vec![]));
+            let noop = futures::task::noop_waker();
+            let pending = call
+                .as_mut()
+                .poll(&mut Context::from_waker(&noop))
+                .is_pending();
+            roots.push((store, call, pending));
+        }
+        let all_pending = roots.iter().all(|(_, _, pending)| *pending);
+        for (_, call, _) in roots {
+            drop(call);
+        }
+        let released = WEAK.with(|slot| {
+            slot.borrow()
+                .iter()
+                .all(|weak| weak.root.owner.upgrade().is_none())
+        });
+        let unowned_restored = UNOWNED.with(|slot| slot.borrow().as_ref().unwrap().is_current());
+        let ended_do_not_match = !FIRST.with(|slot| slot.borrow().as_ref().unwrap().is_current())
+            && !SECOND.with(|slot| slot.borrow().as_ref().unwrap().is_current());
+        UNOWNED.with(|slot| drop(slot.borrow_mut().take()));
+        FIRST.with(|slot| drop(slot.borrow_mut().take()));
+        SECOND.with(|slot| drop(slot.borrow_mut().take()));
+        WEAK.with(|slot| slot.borrow_mut().clear());
+        assert!(all_pending && released && unowned_restored && ended_do_not_match);
+        assert_eq!(checks.load(Ordering::SeqCst), 4);
+        assert!(StoreContext::is_empty());
+        assert!(CoroutineContext::current_root().is_none());
+        let mut fresh_store = Store::default();
+        let fresh = Function::new_typed(&mut fresh_store, || -> i32 { 42 });
+        assert_eq!(
+            fresh.call(&mut fresh_store, &[]).unwrap()[0].i32(),
+            Some(42)
+        );
+    }
 
     #[test]
     fn external_cleanup_can_be_polled_inside_a_native_descendant() {
