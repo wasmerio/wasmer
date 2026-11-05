@@ -92,7 +92,7 @@ impl<L: Layer<Kernel>> Layer<Kernel> for SyscallEntry<L> {
                             ret
                         };
                         // The typed wasm import keeps its return type even if ptrace changed the syscall.
-                        ret.map(|ret| call.ret_from_raw(ret.to_raw()))
+                        ret.map(|ret| call.normalize_host_ret(ret))
                     }),
                 )
                 .await

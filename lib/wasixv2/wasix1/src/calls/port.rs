@@ -1,6 +1,8 @@
 //! WASIX v1 network queries and configuration through `NETLINK_ROUTE`.
 //! Bridge/DHCP require provider controls that this transport does not expose.
 
+use crate::abi::Pointer;
+
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
 use wasixv2_abi::{AddressFamily, GuestPtr, GuestPtrMut, MsgFlags, SocketFlags, SocketType};
@@ -307,18 +309,25 @@ fn mac(msgs: &[(u16, Vec<u8>)]) -> Option<[u8; 6]> {
 /// return; `OVERFLOW` (with the count written) when they do not fit.
 pub(crate) async fn port_addr_list<S: Syscalls + Control + 'static>(
     env: Env<S>,
-    addrs: i32,
-    naddrs: i32,
+    addrs: Pointer,
+    naddrs: Pointer,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
-        let room: u32 = frame.read(naddrs as u32).await?;
+        let room = frame.read_size(naddrs).await?;
         let list = addresses(&dump(frame, RTM_GETADDR, IFADDRMSG).await?);
-        frame.write(naddrs as u32, &(list.len() as u32)).await?;
-        if list.len() > room as usize {
+        frame.write_size(naddrs, list.len() as u64).await?;
+        if list.len() as u64 > room {
             return shim::fail(Errno::OVERFLOW);
         }
+        frame
+            .check_range(
+                addrs,
+                room.checked_mul(AddrCidr::SIZE as u64)
+                    .ok_or(Errno::OVERFLOW)?,
+            )
+            .await?;
         for (i, addr) in list.iter().enumerate() {
-            let at = (addrs as u32).wrapping_add((i * AddrCidr::SIZE) as u32);
+            let at = addrs.offset((i * AddrCidr::SIZE) as u64)?.narrow()?;
             frame.write(at, addr).await?;
         }
         Ok(())
@@ -328,14 +337,14 @@ pub(crate) async fn port_addr_list<S: Syscalls + Control + 'static>(
 
 pub(crate) async fn port_mac<S: Syscalls + Control + 'static>(
     env: Env<S>,
-    ro_mac: i32,
+    ro_mac: Pointer,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
         let Some(octets) = mac(&dump(frame, RTM_GETLINK, IFINFOMSG).await?) else {
             return shim::fail(Errno::NODEV);
         };
         frame
-            .write(ro_mac as u32, &HardwareAddress { octets })
+            .write(ro_mac.narrow()?, &HardwareAddress { octets })
             .await
     })
     .await
@@ -377,10 +386,10 @@ fn routes(msgs: &[(u16, Vec<u8>)]) -> Vec<Route> {
 
 pub(crate) async fn port_addr_add<S: Syscalls + Control + 'static>(
     env: Env<S>,
-    addr: i32,
+    addr: Pointer,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
-        let (ip, prefix) = cidr(&frame.read(addr as u32).await?)?;
+        let (ip, prefix) = cidr(&frame.read(addr.narrow()?).await?)?;
         let Some(index) = link(&dump(frame, RTM_GETLINK, IFINFOMSG).await?) else {
             return shim::fail(Errno::NODEV);
         };
@@ -417,10 +426,10 @@ async fn remove_addresses<S: Syscalls + Control + 'static>(
 
 pub(crate) async fn port_addr_remove<S: Syscalls + Control + 'static>(
     env: Env<S>,
-    addr: i32,
+    addr: Pointer,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
-        let addr: Addr = frame.read(addr as u32).await?;
+        let addr: Addr = frame.read(addr.narrow()?).await?;
         remove_addresses(frame, Some(v1_ip(addr.tag, &addr.payload)?)).await
     })
     .await
@@ -474,17 +483,17 @@ fn lifetime(value: OptionTimestamp) -> V1Result<()> {
 
 pub(crate) async fn port_route_add<S: Syscalls + Control + 'static>(
     env: Env<S>,
-    addr: i32,
-    via: i32,
-    preferred: i32,
-    expires: i32,
+    addr: Pointer,
+    via: Pointer,
+    preferred: Pointer,
+    expires: Pointer,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
-        let (dst, prefix) = cidr(&frame.read(addr as u32).await?)?;
-        let via: Addr = frame.read(via as u32).await?;
+        let (dst, prefix) = cidr(&frame.read(addr.narrow()?).await?)?;
+        let via: Addr = frame.read(via.narrow()?).await?;
         let gateway = v1_ip(via.tag, &via.payload)?;
-        lifetime(frame.read(preferred as u32).await?)?;
-        lifetime(frame.read(expires as u32).await?)?;
+        lifetime(frame.read(preferred.narrow()?).await?)?;
+        lifetime(frame.read(expires.narrow()?).await?)?;
         add_route(frame, dst, prefix, gateway).await
     })
     .await
@@ -492,10 +501,10 @@ pub(crate) async fn port_route_add<S: Syscalls + Control + 'static>(
 
 pub(crate) async fn port_gateway_set<S: Syscalls + Control + 'static>(
     env: Env<S>,
-    addr: i32,
+    addr: Pointer,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
-        let addr: Addr = frame.read(addr as u32).await?;
+        let addr: Addr = frame.read(addr.narrow()?).await?;
         let gateway = v1_ip(addr.tag, &addr.payload)?;
         let dst = ip(family(gateway), &[0; 16]).unwrap();
         add_route(frame, dst, 0, gateway).await
@@ -524,10 +533,10 @@ async fn remove_routes<S: Syscalls + Control + 'static>(
 
 pub(crate) async fn port_route_remove<S: Syscalls + Control + 'static>(
     env: Env<S>,
-    addr: i32,
+    addr: Pointer,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
-        let addr: Addr = frame.read(addr as u32).await?;
+        let addr: Addr = frame.read(addr.narrow()?).await?;
         remove_routes(frame, Some(v1_ip(addr.tag, &addr.payload)?)).await
     })
     .await
@@ -541,19 +550,24 @@ pub(crate) async fn port_route_clear<S: Syscalls + Control + 'static>(
 
 pub(crate) async fn port_route_list<S: Syscalls + Control + 'static>(
     env: Env<S>,
-    out: i32,
-    count: i32,
+    out: Pointer,
+    count: Pointer,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
-        let room: u32 = frame.read(count as u32).await?;
+        let room = frame.read_size(count).await?;
+        let bytes = room
+            .checked_mul(Route::SIZE as u64)
+            .ok_or(Errno::OVERFLOW)?;
+        frame.check_range(out, bytes).await?;
         let list = routes(&dump(frame, RTM_GETROUTE, RTMSG).await?);
-        frame.write(count as u32, &(list.len() as u32)).await?;
-        if list.len() > room as usize {
+        frame.write_size(count, list.len() as u64).await?;
+        if list.len() as u64 > room {
             return shim::fail(Errno::OVERFLOW);
         }
+        frame.check_range(out, bytes).await?;
         for (i, route) in list.iter().enumerate() {
             frame
-                .write((out as u32).wrapping_add((i * Route::SIZE) as u32), route)
+                .write(out.offset((i * Route::SIZE) as u64)?.narrow()?, route)
                 .await?;
         }
         Ok(())

@@ -1,7 +1,8 @@
 //! Store-local authority borrowed by the four generated dynamic-loader shims.
 use crate::ExecEnv;
-use wasixv2_abi::{Cstr, DlFlags, DlHandle, DlHandlePtr, Uptr, UptrPtr};
-use wasixv2_syscalls::{Caller, DynamicLinker, Errno, LocalFuture, SysResult, UserSliceMut};
+use wasixv2_abi::{Cstr, DlFlags, DlHandle, Uptr, UptrPtr};
+use wasixv2_syscalls::{Caller, DynamicLinker, Errno, LocalFuture, SysResult};
+use wasixv2_syscalls::{RawGuestBuffer, RawGuestPointer};
 use wasmer::AsyncFunctionEnvMut;
 
 /// An import-local adapter. Neither the kernel nor its futures retain this borrowed object.
@@ -32,8 +33,8 @@ impl<S: 'static> DynamicLinker for GuestDynamicLinker<'_, S> {
         flags: DlFlags,
         search_path: Cstr,
         caller_addr: Uptr,
-        handle: DlHandlePtr,
-        err: UserSliceMut,
+        handle: RawGuestPointer,
+        err: RawGuestBuffer,
     ) -> LocalFuture<'a, SysResult<i32>> {
         Box::pin(async move {
             // Snapshot the ABI without retaining the store read guard across its work.
@@ -83,8 +84,8 @@ impl<S: 'static> DynamicLinker for GuestDynamicLinker<'_, S> {
         handle: DlHandle,
         symbol: Cstr,
         caller_addr: Uptr,
-        addr: UptrPtr,
-        err: UserSliceMut,
+        addr: RawGuestPointer,
+        err: RawGuestBuffer,
     ) -> LocalFuture<'a, SysResult<i32>> {
         Box::pin(async move {
             // Snapshot the ABI without retaining the store read guard across its work.

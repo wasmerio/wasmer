@@ -1,5 +1,7 @@
 //! `fd_event`: an eventfd.
 
+use crate::abi::Pointer;
+
 use wasixv2_abi::EventfdFlags;
 use wasixv2_syscalls::{Control, Syscalls};
 use wasmer::RuntimeError;
@@ -26,7 +28,7 @@ pub(crate) async fn fd_event<S: Syscalls + Control + 'static>(
     env: Env<S>,
     initial: i64,
     v1_flags: i32,
-    ro_fd: i32,
+    ro_fd: Pointer,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
         let rights = crate::abi::fs::Rights::FD_READ
@@ -56,7 +58,7 @@ pub(crate) async fn fd_event<S: Syscalls + Control + 'static>(
                 return Err(err.into());
             }
         }
-        frame.write(ro_fd as u32, &(fd.0 as u32)).await
+        frame.write(ro_fd.narrow()?, &(fd.0 as u32)).await
     })
     .await
 }

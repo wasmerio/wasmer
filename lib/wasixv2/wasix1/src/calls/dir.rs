@@ -7,6 +7,8 @@
 //! does not fit is cut off, and `bufused == buf_len` tells wasix-libc to grow its buffer and
 //! ask again from the cookie before it.
 
+use crate::abi::{GuestSize, Pointer};
+
 use crate::abi::fs::Rights;
 
 use wasixv2_abi::{Fd, GuestLayout, GuestPtrMut, LinuxDirent64, SeekWhence};
@@ -72,15 +74,16 @@ fn repack(records: &[u8], out: &mut Vec<u8>, limit: usize) -> bool {
 pub(crate) async fn fd_readdir<S: Syscalls + Control + 'static>(
     env: Env<S>,
     fd: i32,
-    buf: i32,
-    buf_len: i32,
+    buf: Pointer,
+    buf_len: GuestSize,
     cookie: i64,
-    used: i32,
+    used: Pointer,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
         crate::rights::require(frame, &[(wasixv2_abi::Fd(fd), Rights::FD_READDIR)]).await?;
         let caller = frame.caller();
-        let limit = buf_len as u32 as usize;
+        frame.check_range(buf, buf_len.0).await?;
+        let limit = buf_len.narrow()? as usize;
         frame
             .syscalls
             .lseek(&caller, Fd(fd), cookie, SeekWhence::SEEK_SET)
@@ -100,8 +103,10 @@ pub(crate) async fn fd_readdir<S: Syscalls + Control + 'static>(
                 break;
             }
         }
-        frame.write_bytes(buf as u32, &out).await?;
-        frame.write(used as u32, &(out.len() as u32)).await
+        if !out.is_empty() {
+            frame.write_bytes(buf.narrow()?, &out).await?;
+        }
+        frame.write_size(used, out.len() as u64).await
     })
     .await
 }

@@ -30,6 +30,7 @@ fn profile(bytes: &[u8]) -> Result<Profile, PlanError> {
                     profile.legacy |= matches!(
                         module,
                         "wasix_32v1"
+                            | "wasix_64v1"
                             | "wasi_snapshot_preview1"
                             | "wasi_unstable"
                             | "wasi"
@@ -43,7 +44,7 @@ fn profile(bytes: &[u8]) -> Result<Profile, PlanError> {
     Ok(profile)
 }
 
-/// Whether source selects raw native or wasm32 v1 dynamic-main preparation. Static
+/// Whether source selects native or nominal v1 dynamic-main preparation. Static
 /// and already-prepared inputs retain their existing compilation path. This classifies
 /// source only; it does not validate prepared source markers or grant runtime admission.
 pub fn needs_preparation(bytes: &[u8]) -> Result<bool, PlanError> {

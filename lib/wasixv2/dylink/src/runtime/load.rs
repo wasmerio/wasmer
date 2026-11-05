@@ -1,4 +1,5 @@
 use super::*;
+use wasixv2_syscalls::{RawGuestBuffer, RawGuestPointer};
 use wasmer::{AsStoreAsync, StoreAsync};
 
 pub(super) struct Coordinator<S: Syscalls + Control + Send + Sync + 'static> {
@@ -218,8 +219,8 @@ impl<S: Syscalls + Control + Send + Sync + 'static> StoreImage<S> {
         flags: DlFlags,
         search: Cstr,
         caller_addr: u32,
-        handle: DlHandlePtr,
-        err: UserSliceMut,
+        handle: RawGuestPointer,
+        err: RawGuestBuffer,
         unwind: Option<&wasixv2_exec::GuestUnwind>,
     ) -> SysResult<i32> {
         self.ensure_live().map_err(|_| Errno::ESTALE)?;
@@ -402,9 +403,15 @@ impl<S: Syscalls + Control + Send + Sync + 'static> StoreImage<S> {
                 .leases
                 .try_reserve(lock(&work.leases).len())
                 .map_err(failure)?;
-            write_value(caller.memory(), handle, &DlHandle(requested as u32 + 1))
+            if !self.root.policy.handle_after_constructors() {
+                write_value(
+                    caller.memory(),
+                    wasixv2_abi::GuestPtrMut::new(handle.narrow().map_err(failure)?),
+                    &DlHandle(requested as u32 + 1),
+                )
                 .await
                 .map_err(failure)?;
+            }
             {
                 let mut state = lock(&self.root.state);
                 state.graph = publication.graph;
@@ -446,6 +453,16 @@ impl<S: Syscalls + Control + Send + Sync + 'static> StoreImage<S> {
                         .expect("host constructors require import error custody")
                         .raise(error);
                 }
+                if self.root.policy.handle_after_constructors() {
+                    // Classic publishes the handle after load_module/constructors. A fault
+                    // here does not undo graph publication or completed guest effects.
+                    write_value(
+                        caller.memory(),
+                        wasixv2_abi::GuestPtrMut::new(handle.narrow()?),
+                        &DlHandle(requested as u32 + 1),
+                    )
+                    .await?;
+                }
                 Ok(0)
             }
             Err(error) => {
@@ -463,12 +480,12 @@ impl<S: Syscalls + Control + Send + Sync + 'static> StoreImage<S> {
 }
 pub(super) async fn report(
     caller: &Caller<'_>,
-    buffer: UserSliceMut,
+    buffer: RawGuestBuffer,
     message: &str,
     errno: Errno,
 ) -> SysResult<i32> {
     let mut bytes = message.as_bytes().to_vec();
-    bytes.truncate(buffer.len.saturating_sub(1) as usize);
+    bytes.truncate(usize::try_from(buffer.len.saturating_sub(1)).unwrap_or(usize::MAX));
     if buffer.len > 0 {
         bytes.push(0);
         buffer

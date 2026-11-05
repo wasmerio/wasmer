@@ -19,6 +19,8 @@ pub enum Module {
     Unstable,
     /// `wasix_32v1`.
     Wasix32,
+    /// `wasix_64v1` pointers and guest words over the same linear memory.
+    Wasix64,
     /// `wasi`, which only holds wasi-threads' `thread-spawn`.
     Wasi,
     /// The historical `wasix_http_client_v1` WAI extension.
@@ -28,10 +30,11 @@ pub enum Module {
 }
 
 impl Module {
-    pub const ALL: [Self; 6] = [
+    pub const ALL: [Self; 7] = [
         Self::Preview1,
         Self::Unstable,
         Self::Wasix32,
+        Self::Wasix64,
         Self::Wasi,
         Self::HttpClient,
         Self::Canonical,
@@ -42,9 +45,17 @@ impl Module {
             Self::Preview1 => "wasi_snapshot_preview1",
             Self::Unstable => "wasi_unstable",
             Self::Wasix32 => "wasix_32v1",
+            Self::Wasix64 => "wasix_64v1",
             Self::Wasi => "wasi",
             Self::HttpClient => crate::http::NAMESPACE,
             Self::Canonical => crate::http::CANONICAL,
+        }
+    }
+
+    pub const fn width(self) -> crate::abi::AbiWidth {
+        match self {
+            Self::Wasix64 => crate::abi::AbiWidth::Wasm64,
+            _ => crate::abi::AbiWidth::Wasm32,
         }
     }
 
@@ -71,23 +82,77 @@ pub struct Entry {
     pub modules: &'static [Module],
     pub params: &'static [Type],
     pub results: &'static [Type],
+    pub roles: &'static [ArgumentRole],
     pub stub: Stub,
 }
 
-use Module::{Canonical, HttpClient, Preview1, Unstable, Wasi, Wasix32};
+use Module::{Canonical, HttpClient, Preview1, Unstable, Wasi, Wasix32, Wasix64};
 use Stub::{Pending, Shim, Unsupported};
 use Type::{I32, I64};
 
 /// The WASI preview1 calls, which every v1 module has.
-const WASI: &[Module] = &[Preview1, Unstable, Wasix32];
-const WASIX: &[Module] = &[Wasix32];
+const WASI: &[Module] = &[Preview1, Unstable, Wasix32, Wasix64];
+const WASIX: &[Module] = &[Wasix32, Wasix64];
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ArgumentRole {
+    I32,
+    I64,
+    Pointer,
+    Size,
+}
+
+impl ArgumentRole {
+    const fn ty32(self) -> Type {
+        match self {
+            Self::I64 => I64,
+            _ => I32,
+        }
+    }
+
+    fn ty(self, width: crate::abi::AbiWidth) -> Type {
+        match self {
+            Self::I32 => I32,
+            Self::I64 => I64,
+            Self::Pointer | Self::Size => match width {
+                crate::abi::AbiWidth::Wasm32 => I32,
+                crate::abi::AbiWidth::Wasm64 => I64,
+            },
+        }
+    }
+}
+
+impl Entry {
+    pub fn signature(&self, module: Module) -> FunctionType {
+        FunctionType::new(
+            self.roles.iter().map(|role| role.ty(module.width())),
+            self.results,
+        )
+    }
+}
+
+macro_rules! role {
+    (P) => {
+        ArgumentRole::Pointer
+    };
+    (Size) => {
+        ArgumentRole::Size
+    };
+    (I32) => {
+        ArgumentRole::I32
+    };
+    (I64) => {
+        ArgumentRole::I64
+    };
+}
 
 macro_rules! table {
     ($($name:literal $modules:ident ($($param:ident)*) -> ($($result:ident)*) $stub:ident;)*) => {
         pub const TABLE: &[Entry] = &[$(Entry {
             name: $name,
             modules: $modules,
-            params: &[$($param),*],
+            params: &[$(role!($param).ty32()),*],
+            roles: &[$(role!($param)),*],
             results: &[$($result),*],
             stub: $stub,
         }),*];
@@ -105,153 +170,153 @@ table! {
     "client::send" HTTP (I32 I32) -> () Shim;
     "resource_drop_client" CANONICAL (I32) -> () Shim;
     // ---- WASI preview1 ----
-    "args_get" WASI (I32 I32) -> (I32) Shim;
-    "args_sizes_get" WASI (I32 I32) -> (I32) Shim;
-    "environ_get" WASI (I32 I32) -> (I32) Shim;
-    "environ_sizes_get" WASI (I32 I32) -> (I32) Shim;
-    "clock_res_get" WASI (I32 I32) -> (I32) Shim;
-    "clock_time_get" WASI (I32 I64 I32) -> (I32) Shim;
+    "args_get" WASI (P P) -> (I32) Shim;
+    "args_sizes_get" WASI (P P) -> (I32) Shim;
+    "environ_get" WASI (P P) -> (I32) Shim;
+    "environ_sizes_get" WASI (P P) -> (I32) Shim;
+    "clock_res_get" WASI (I32 P) -> (I32) Shim;
+    "clock_time_get" WASI (I32 I64 P) -> (I32) Shim;
     "fd_advise" WASI (I32 I64 I64 I32) -> (I32) Shim;
     "fd_allocate" WASI (I32 I64 I64) -> (I32) Shim;
     "fd_close" WASI (I32) -> (I32) Shim;
     "fd_datasync" WASI (I32) -> (I32) Shim;
-    "fd_fdstat_get" WASI (I32 I32) -> (I32) Shim;
+    "fd_fdstat_get" WASI (I32 P) -> (I32) Shim;
     "fd_fdstat_set_flags" WASI (I32 I32) -> (I32) Shim;
     "fd_fdstat_set_rights" WASI (I32 I64 I64) -> (I32) Shim;
-    "fd_filestat_get" WASI (I32 I32) -> (I32) Shim;
+    "fd_filestat_get" WASI (I32 P) -> (I32) Shim;
     "fd_filestat_set_size" WASI (I32 I64) -> (I32) Shim;
     "fd_filestat_set_times" WASI (I32 I64 I64 I32) -> (I32) Shim;
-    "fd_pread" WASI (I32 I32 I32 I64 I32) -> (I32) Shim;
-    "fd_prestat_get" WASI (I32 I32) -> (I32) Shim;
-    "fd_prestat_dir_name" WASI (I32 I32 I32) -> (I32) Shim;
-    "fd_pwrite" WASI (I32 I32 I32 I64 I32) -> (I32) Shim;
-    "fd_read" WASI (I32 I32 I32 I32) -> (I32) Shim;
-    "fd_readdir" WASI (I32 I32 I32 I64 I32) -> (I32) Shim;
+    "fd_pread" WASI (I32 P Size I64 P) -> (I32) Shim;
+    "fd_prestat_get" WASI (I32 P) -> (I32) Shim;
+    "fd_prestat_dir_name" WASI (I32 P Size) -> (I32) Shim;
+    "fd_pwrite" WASI (I32 P Size I64 P) -> (I32) Shim;
+    "fd_read" WASI (I32 P Size P) -> (I32) Shim;
+    "fd_readdir" WASI (I32 P Size I64 P) -> (I32) Shim;
     "fd_renumber" WASI (I32 I32) -> (I32) Shim;
-    "fd_seek" WASI (I32 I64 I32 I32) -> (I32) Shim;
+    "fd_seek" WASI (I32 I64 I32 P) -> (I32) Shim;
     "fd_sync" WASI (I32) -> (I32) Shim;
-    "fd_tell" WASI (I32 I32) -> (I32) Shim;
-    "fd_write" WASI (I32 I32 I32 I32) -> (I32) Shim;
-    "path_create_directory" WASI (I32 I32 I32) -> (I32) Shim;
-    "path_filestat_get" WASI (I32 I32 I32 I32 I32) -> (I32) Shim;
-    "path_filestat_set_times" WASI (I32 I32 I32 I32 I64 I64 I32) -> (I32) Shim;
-    "path_link" WASI (I32 I32 I32 I32 I32 I32 I32) -> (I32) Shim;
-    "path_open" WASI (I32 I32 I32 I32 I32 I64 I64 I32 I32) -> (I32) Shim;
-    "path_readlink" WASI (I32 I32 I32 I32 I32 I32) -> (I32) Shim;
-    "path_remove_directory" WASI (I32 I32 I32) -> (I32) Shim;
-    "path_rename" WASI (I32 I32 I32 I32 I32 I32) -> (I32) Shim;
-    "path_symlink" WASI (I32 I32 I32 I32 I32) -> (I32) Shim;
-    "path_unlink_file" WASI (I32 I32 I32) -> (I32) Shim;
-    "poll_oneoff" WASI (I32 I32 I32 I32) -> (I32) Shim;
+    "fd_tell" WASI (I32 P) -> (I32) Shim;
+    "fd_write" WASI (I32 P Size P) -> (I32) Shim;
+    "path_create_directory" WASI (I32 P Size) -> (I32) Shim;
+    "path_filestat_get" WASI (I32 I32 P Size P) -> (I32) Shim;
+    "path_filestat_set_times" WASI (I32 I32 P Size I64 I64 I32) -> (I32) Shim;
+    "path_link" WASI (I32 I32 P Size I32 P Size) -> (I32) Shim;
+    "path_open" WASI (I32 I32 P Size I32 I64 I64 I32 P) -> (I32) Shim;
+    "path_readlink" WASI (I32 P Size P Size P) -> (I32) Shim;
+    "path_remove_directory" WASI (I32 P Size) -> (I32) Shim;
+    "path_rename" WASI (I32 P Size I32 P Size) -> (I32) Shim;
+    "path_symlink" WASI (P Size I32 P Size) -> (I32) Shim;
+    "path_unlink_file" WASI (I32 P Size) -> (I32) Shim;
+    "poll_oneoff" WASI (P P Size P) -> (I32) Shim;
     "proc_exit" WASI (I32) -> () Shim;
     "proc_raise" WASI (I32) -> (I32) Shim;
-    "random_get" WASI (I32 I32) -> (I32) Shim;
+    "random_get" WASI (P Size) -> (I32) Shim;
     "sched_yield" WASI () -> (I32) Shim;
-    "sock_recv" WASI (I32 I32 I32 I32 I32 I32) -> (I32) Shim;
-    "sock_send" WASI (I32 I32 I32 I32 I32) -> (I32) Shim;
+    "sock_recv" WASI (I32 P Size I32 P P) -> (I32) Shim;
+    "sock_send" WASI (I32 P Size I32 P) -> (I32) Shim;
     "sock_shutdown" WASI (I32 I32) -> (I32) Shim;
     // preview1's form; `wasix_32v1`'s `sock_accept` is `sock_accept_v2`, below.
     "sock_accept" PREVIEW1 (I32 I32 I32) -> (I32) Shim;
     // wasi-threads; `wasix_32v1` has `thread_spawn` instead.
-    "thread-spawn" THREADS (I32) -> (I32) Shim;
+    "thread-spawn" THREADS (P) -> (I32) Shim;
 
     // ---- WASIX ----
     "clock_time_set" WASIX (I32 I64) -> (I32) Shim;
-    "fd_dup" WASIX (I32 I32) -> (I32) Shim;
-    "fd_dup2" WASIX (I32 I32 I32 I32) -> (I32) Shim;
-    "fd_event" WASIX (I64 I32 I32) -> (I32) Shim;
-    "fd_pipe" WASIX (I32 I32) -> (I32) Shim;
-    "fd_fdflags_get" WASIX (I32 I32) -> (I32) Shim;
+    "fd_dup" WASIX (I32 P) -> (I32) Shim;
+    "fd_dup2" WASIX (I32 I32 I32 P) -> (I32) Shim;
+    "fd_event" WASIX (I64 I32 P) -> (I32) Shim;
+    "fd_pipe" WASIX (P P) -> (I32) Shim;
+    "fd_fdflags_get" WASIX (I32 P) -> (I32) Shim;
     "fd_fdflags_set" WASIX (I32 I32) -> (I32) Shim;
-    "path_open2" WASIX (I32 I32 I32 I32 I32 I64 I64 I32 I32 I32) -> (I32) Shim;
-    "tty_get" WASIX (I32) -> (I32) Shim;
-    "tty_set" WASIX (I32) -> (I32) Shim;
-    "getcwd" WASIX (I32 I32) -> (I32) Shim;
-    "chdir" WASIX (I32 I32) -> (I32) Shim;
-    "callback_signal" WASIX (I32 I32) -> () Shim;
-    "thread_spawn" WASIX (I32 I32) -> (I32) Shim;
-    "thread_spawn_v2" WASIX (I32 I32) -> (I32) Shim;
+    "path_open2" WASIX (I32 I32 P Size I32 I64 I64 I32 I32 P) -> (I32) Shim;
+    "tty_get" WASIX (P) -> (I32) Shim;
+    "tty_set" WASIX (P) -> (I32) Shim;
+    "getcwd" WASIX (P P) -> (I32) Shim;
+    "chdir" WASIX (P Size) -> (I32) Shim;
+    "callback_signal" WASIX (P Size) -> () Shim;
+    "thread_spawn" WASIX (P P) -> (I32) Shim;
+    "thread_spawn_v2" WASIX (P P) -> (I32) Shim;
     "thread_sleep" WASIX (I64) -> (I32) Shim;
-    "thread_id" WASIX (I32) -> (I32) Shim;
+    "thread_id" WASIX (P) -> (I32) Shim;
     "thread_join" WASIX (I32) -> (I32) Shim;
-    "thread_parallelism" WASIX (I32) -> (I32) Shim;
+    "thread_parallelism" WASIX (P) -> (I32) Shim;
     "thread_signal" WASIX (I32 I32) -> (I32) Shim;
     "thread_exit" WASIX (I32) -> () Shim;
-    "futex_wait" WASIX (I32 I32 I32 I32) -> (I32) Shim;
-    "futex_wake" WASIX (I32 I32) -> (I32) Shim;
-    "futex_wake_all" WASIX (I32 I32) -> (I32) Shim;
-    "stack_checkpoint" WASIX (I32 I32) -> (I32) Shim;
-    "stack_restore" WASIX (I32 I64) -> () Shim;
+    "futex_wait" WASIX (P I32 P P) -> (I32) Shim;
+    "futex_wake" WASIX (P P) -> (I32) Shim;
+    "futex_wake_all" WASIX (P P) -> (I32) Shim;
+    "stack_checkpoint" WASIX (P P) -> (I32) Shim;
+    "stack_restore" WASIX (P I64) -> () Shim;
     "proc_raise_interval" WASIX (I32 I64 I32) -> (I32) Shim;
-    "proc_fork" WASIX (I32 I32) -> (I32) Shim;
-    "proc_fork_env" WASIX (I32) -> (I32) Shim;
+    "proc_fork" WASIX (I32 P) -> (I32) Shim;
+    "proc_fork_env" WASIX (P) -> (I32) Shim;
     "proc_exit2" WASIX (I32) -> () Shim;
-    "proc_exec" WASIX (I32 I32 I32 I32) -> () Shim;
-    "proc_exec2" WASIX (I32 I32 I32 I32 I32 I32) -> () Shim;
-    "proc_exec3" WASIX (I32 I32 I32 I32 I32 I32 I32 I32 I32) -> (I32) Shim;
-    "proc_exec4" WASIX (I32 I32 I32 I32 I32 I32 I32 I32 I32) -> (I32) Shim;
-    "proc_spawn" WASIX (I32 I32 I32 I32 I32 I32 I32 I32 I32 I32 I32 I32 I32) -> (I32) Shim;
-    "proc_spawn2" WASIX (I32 I32 I32 I32 I32 I32 I32 I32 I32 I32 I32 I32 I32 I32) -> (I32) Shim;
-    "proc_spawn3" WASIX (I32 I32 I32 I32 I32 I32 I32 I32 I32 I32 I32 I32 I32 I32) -> (I32) Shim;
-    "proc_id" WASIX (I32) -> (I32) Shim;
-    "proc_parent" WASIX (I32 I32) -> (I32) Shim;
-    "proc_join" WASIX (I32 I32 I32) -> (I32) Shim;
+    "proc_exec" WASIX (P Size P Size) -> () Shim;
+    "proc_exec2" WASIX (P Size P Size P Size) -> () Shim;
+    "proc_exec3" WASIX (P Size P Size P Size I32 P Size) -> (I32) Shim;
+    "proc_exec4" WASIX (P Size P Size P Size I32 P Size) -> (I32) Shim;
+    "proc_spawn" WASIX (P Size I32 P Size P Size I32 I32 I32 P Size P) -> (I32) Shim;
+    "proc_spawn2" WASIX (P Size P Size P Size P Size P Size I32 P Size P) -> (I32) Shim;
+    "proc_spawn3" WASIX (P Size P Size P Size P Size P Size I32 P Size P) -> (I32) Shim;
+    "proc_id" WASIX (P) -> (I32) Shim;
+    "proc_parent" WASIX (I32 P) -> (I32) Shim;
+    "proc_join" WASIX (P I32 P) -> (I32) Shim;
     "proc_signal" WASIX (I32 I32) -> (I32) Shim;
-    "proc_signals_get" WASIX (I32) -> (I32) Shim;
-    "proc_signals_sizes_get" WASIX (I32) -> (I32) Shim;
+    "proc_signals_get" WASIX (P) -> (I32) Shim;
+    "proc_signals_sizes_get" WASIX (P) -> (I32) Shim;
     "proc_snapshot" WASIX () -> (I32) Unsupported;
-    "port_bridge" WASIX (I32 I32 I32 I32 I32) -> (I32) Unsupported;
+    "port_bridge" WASIX (P Size P Size I32) -> (I32) Unsupported;
     "port_unbridge" WASIX () -> (I32) Unsupported;
     "port_dhcp_acquire" WASIX () -> (I32) Unsupported;
-    "port_addr_add" WASIX (I32) -> (I32) Shim;
-    "port_addr_remove" WASIX (I32) -> (I32) Shim;
+    "port_addr_add" WASIX (P) -> (I32) Shim;
+    "port_addr_remove" WASIX (P) -> (I32) Shim;
     "port_addr_clear" WASIX () -> (I32) Shim;
-    "port_mac" WASIX (I32) -> (I32) Shim;
-    "port_addr_list" WASIX (I32 I32) -> (I32) Shim;
-    "port_gateway_set" WASIX (I32) -> (I32) Shim;
-    "port_route_add" WASIX (I32 I32 I32 I32) -> (I32) Shim;
-    "port_route_remove" WASIX (I32) -> (I32) Shim;
+    "port_mac" WASIX (P) -> (I32) Shim;
+    "port_addr_list" WASIX (P P) -> (I32) Shim;
+    "port_gateway_set" WASIX (P) -> (I32) Shim;
+    "port_route_add" WASIX (P P P P) -> (I32) Shim;
+    "port_route_remove" WASIX (P) -> (I32) Shim;
     "port_route_clear" WASIX () -> (I32) Shim;
-    "port_route_list" WASIX (I32 I32) -> (I32) Shim;
-    "sock_status" WASIX (I32 I32) -> (I32) Shim;
-    "sock_addr_local" WASIX (I32 I32) -> (I32) Shim;
-    "sock_addr_peer" WASIX (I32 I32) -> (I32) Shim;
-    "sock_open" WASIX (I32 I32 I32 I32) -> (I32) Shim;
-    "sock_pair" WASIX (I32 I32 I32 I32 I32) -> (I32) Shim;
+    "port_route_list" WASIX (P P) -> (I32) Shim;
+    "sock_status" WASIX (I32 P) -> (I32) Shim;
+    "sock_addr_local" WASIX (I32 P) -> (I32) Shim;
+    "sock_addr_peer" WASIX (I32 P) -> (I32) Shim;
+    "sock_open" WASIX (I32 I32 I32 P) -> (I32) Shim;
+    "sock_pair" WASIX (I32 I32 I32 P P) -> (I32) Shim;
     "sock_set_opt_flag" WASIX (I32 I32 I32) -> (I32) Shim;
-    "sock_get_opt_flag" WASIX (I32 I32 I32) -> (I32) Shim;
-    "sock_set_opt_time" WASIX (I32 I32 I32) -> (I32) Shim;
-    "sock_get_opt_time" WASIX (I32 I32 I32) -> (I32) Shim;
+    "sock_get_opt_flag" WASIX (I32 I32 P) -> (I32) Shim;
+    "sock_set_opt_time" WASIX (I32 I32 P) -> (I32) Shim;
+    "sock_get_opt_time" WASIX (I32 I32 P) -> (I32) Shim;
     "sock_set_opt_size" WASIX (I32 I32 I64) -> (I32) Shim;
-    "sock_get_opt_size" WASIX (I32 I32 I32) -> (I32) Shim;
-    "sock_join_multicast_v4" WASIX (I32 I32 I32) -> (I32) Shim;
-    "sock_leave_multicast_v4" WASIX (I32 I32 I32) -> (I32) Shim;
-    "sock_join_multicast_v6" WASIX (I32 I32 I32) -> (I32) Shim;
-    "sock_leave_multicast_v6" WASIX (I32 I32 I32) -> (I32) Shim;
-    "sock_bind" WASIX (I32 I32) -> (I32) Shim;
-    "sock_listen" WASIX (I32 I32) -> (I32) Shim;
+    "sock_get_opt_size" WASIX (I32 I32 P) -> (I32) Shim;
+    "sock_join_multicast_v4" WASIX (I32 P P) -> (I32) Shim;
+    "sock_leave_multicast_v4" WASIX (I32 P P) -> (I32) Shim;
+    "sock_join_multicast_v6" WASIX (I32 P I32) -> (I32) Shim;
+    "sock_leave_multicast_v6" WASIX (I32 P I32) -> (I32) Shim;
+    "sock_bind" WASIX (I32 P) -> (I32) Shim;
+    "sock_listen" WASIX (I32 Size) -> (I32) Shim;
     // `wasix_32v1`'s `sock_accept` is the v2 form: wasix-libc imported it under that name until
     // it became `sock_accept_v2` (wasix-libc 528c2ec), and modules built before still do.
-    "sock_accept" WASIX (I32 I32 I32 I32) -> (I32) Shim;
-    "sock_accept_v2" WASIX (I32 I32 I32 I32) -> (I32) Shim;
-    "sock_connect" WASIX (I32 I32) -> (I32) Shim;
-    "sock_recv_from" WASIX (I32 I32 I32 I32 I32 I32 I32) -> (I32) Shim;
-    "sock_send_to" WASIX (I32 I32 I32 I32 I32 I32) -> (I32) Shim;
-    "sock_send_file" WASIX (I32 I32 I64 I64 I32) -> (I32) Shim;
-    "resolve" WASIX (I32 I32 I32 I32 I32 I32) -> (I32) Shim;
-    "epoll_create" WASIX (I32) -> (I32) Shim;
-    "epoll_ctl" WASIX (I32 I32 I32 I32) -> (I32) Shim;
-    "epoll_wait" WASIX (I32 I32 I32 I64 I32) -> (I32) Shim;
+    "sock_accept" WASIX (I32 I32 P P) -> (I32) Shim;
+    "sock_accept_v2" WASIX (I32 I32 P P) -> (I32) Shim;
+    "sock_connect" WASIX (I32 P) -> (I32) Shim;
+    "sock_recv_from" WASIX (I32 P Size I32 P P P) -> (I32) Shim;
+    "sock_send_to" WASIX (I32 P Size I32 P P) -> (I32) Shim;
+    "sock_send_file" WASIX (I32 I32 I64 I64 P) -> (I32) Shim;
+    "resolve" WASIX (P Size I32 P Size P) -> (I32) Shim;
+    "epoll_create" WASIX (P) -> (I32) Shim;
+    "epoll_ctl" WASIX (I32 I32 I32 P) -> (I32) Shim;
+    "epoll_wait" WASIX (I32 P I32 I64 P) -> (I32) Shim;
     // Dynamic linking, closures and reflection.
     "dl_invalid_handle" WASIX (I32) -> (I32) Shim;
-    "dlopen" WASIX (I32 I32 I32 I32 I32 I32 I32 I32) -> (I32) Shim;
-    "dlsym" WASIX (I32 I32 I32 I32 I32 I32) -> (I32) Shim;
-    "call_dynamic" WASIX (I32 I32 I32 I32 I32 I32) -> (I32) Shim;
-    "closure_prepare" WASIX (I32 I32 I32 I32 I32 I32 I32) -> (I32) Unsupported;
-    "closure_allocate" WASIX (I32) -> (I32) Unsupported;
+    "dlopen" WASIX (P Size I32 P Size P Size P) -> (I32) Shim;
+    "dlsym" WASIX (I32 P Size P Size P) -> (I32) Shim;
+    "call_dynamic" WASIX (I32 P Size P Size I32) -> (I32) Shim;
+    "closure_prepare" WASIX (I32 I32 P I32 P I32 P) -> (I32) Unsupported;
+    "closure_allocate" WASIX (P) -> (I32) Unsupported;
     "closure_free" WASIX (I32) -> (I32) Unsupported;
-    "reflect_signature" WASIX (I32 I32 I32 I32 I32 I32) -> (I32) Shim;
-    "context_create" WASIX (I32 I32) -> (I32) Unsupported;
+    "reflect_signature" WASIX (I32 P I32 P I32 P) -> (I32) Shim;
+    "context_create" WASIX (P I32) -> (I32) Unsupported;
     "context_switch" WASIX (I64) -> (I32) Unsupported;
     "context_destroy" WASIX (I64) -> (I32) Unsupported;
 }
@@ -278,7 +343,7 @@ pub fn validate(wasm: &wasmer::Module) -> Result<(), String> {
                     import.name()
                 )
             })?;
-            Some(FunctionType::new(entry.params, entry.results))
+            Some(entry.signature(module))
         } else {
             None
         };
@@ -332,7 +397,7 @@ where
         let function = match entry.stub {
             Shim => shim(store, env, module, entry.name)
                 .unwrap_or_else(|| panic!("`{}` is marked as a shim but has none", entry.name)),
-            stub => stub_function(store, entry, stub),
+            stub => stub_function(store, module, entry, stub),
         };
         imports.define(module.name(), entry.name, function);
     }
@@ -350,9 +415,10 @@ where
     S: Syscalls + Control + Send + Sync + 'static,
 {
     use calls::*;
+    let entry = entry(module, name)?;
     macro_rules! f {
         ($f:path) => {
-            Function::new_typed_with_env_async(store, env, $f)
+            crate::binding::function(store, env, module, entry, $f)
         };
     }
     Some(match name {
@@ -436,7 +502,9 @@ where
         "sock_bind" => f!(sock::sock_bind::<S>),
         "sock_listen" => f!(sock::sock_listen::<S>),
         "sock_connect" => f!(sock::sock_connect::<S>),
-        "sock_accept" if module != Module::Wasix32 => f!(sock::sock_accept_preview1::<S>),
+        "sock_accept" if !matches!(module, Module::Wasix32 | Module::Wasix64) => {
+            f!(sock::sock_accept_preview1::<S>)
+        }
         "sock_accept" | "sock_accept_v2" => f!(sock::sock_accept_v2::<S>),
         "sock_recv" => f!(sock::sock_recv::<S>),
         "sock_recv_from" => f!(sock::sock_recv_from::<S>),
@@ -502,8 +570,8 @@ where
 }
 
 /// A function that serves `entry` with its stub behaviour.
-fn stub_function(store: &mut Store, entry: &'static Entry, stub: Stub) -> Function {
-    let ty = FunctionType::new(entry.params, entry.results);
+fn stub_function(store: &mut Store, module: Module, entry: &'static Entry, stub: Stub) -> Function {
+    let ty = entry.signature(module);
     let name = entry.name;
     let errno = match stub {
         Pending => Errno::NOSYS,

@@ -6,6 +6,8 @@
 //! and an interruption by a signal (whose handler runs before the call returns) count as
 //! woken, which a futex waiter must expect anyway.
 
+use crate::abi::Pointer;
+
 use wasixv2_abi::{FutexOp, GuestLayout, KernelTimespec, U32Ptr};
 use wasixv2_syscalls::{Control, Errno, SysErr, Syscalls};
 use wasmer::RuntimeError;
@@ -23,13 +25,13 @@ use crate::{
 /// `option_timestamp` of nanoseconds, relative to now.
 pub(crate) async fn futex_wait<S: Syscalls + Control + 'static>(
     env: Env<S>,
-    futex: i32,
+    futex: Pointer,
     expected: i32,
-    timeout: i32,
-    woken_out: i32,
+    timeout: Pointer,
+    woken_out: Pointer,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
-        let timeout = match timeout as u32 {
+        let timeout = match timeout.narrow()? {
             0 => OptionTimestamp::ZERO,
             addr => frame.read::<OptionTimestamp>(addr).await?,
         };
@@ -48,7 +50,7 @@ pub(crate) async fn futex_wait<S: Syscalls + Control + 'static>(
             .syscalls
             .futex_time64(
                 &frame.caller(),
-                U32Ptr::new(futex as u32),
+                U32Ptr::new(futex.narrow()?),
                 FutexOp::FUTEX_WAIT_PRIVATE,
                 expected as u32,
                 utime,
@@ -70,14 +72,14 @@ pub(crate) async fn futex_wait<S: Syscalls + Control + 'static>(
 /// Wakes at most `count` waiters on `futex`; whether any woke.
 async fn wake<S: Syscalls + Control + 'static>(
     frame: &Frame<'_, S>,
-    futex: i32,
+    futex: Pointer,
     count: u32,
 ) -> V1Result<bool> {
     let woken = frame
         .syscalls
         .futex_time64(
             &frame.caller(),
-            U32Ptr::new(futex as u32),
+            U32Ptr::new(futex.narrow()?),
             FutexOp::FUTEX_WAKE_PRIVATE,
             count,
             0,
@@ -90,18 +92,18 @@ async fn wake<S: Syscalls + Control + 'static>(
 
 async fn write_bool<S: Syscalls + Control + 'static>(
     frame: &Frame<'_, S>,
-    addr: i32,
+    addr: Pointer,
     value: bool,
 ) -> V1Result<()> {
     let value = if value { Bool::TRUE } else { Bool::FALSE };
-    frame.write(addr as u32, &value).await
+    frame.write(addr.narrow()?, &value).await
 }
 
 /// `futex_wake(futex, woken_out)`: one waiter.
 pub(crate) async fn futex_wake<S: Syscalls + Control + 'static>(
     env: Env<S>,
-    futex: i32,
-    woken_out: i32,
+    futex: Pointer,
+    woken_out: Pointer,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
         let woken = wake(frame, futex, 1).await?;
@@ -113,8 +115,8 @@ pub(crate) async fn futex_wake<S: Syscalls + Control + 'static>(
 /// `futex_wake_all(futex, woken_out)`: every waiter.
 pub(crate) async fn futex_wake_all<S: Syscalls + Control + 'static>(
     env: Env<S>,
-    futex: i32,
-    woken_out: i32,
+    futex: Pointer,
+    woken_out: Pointer,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
         let woken = wake(frame, futex, i32::MAX as u32).await?;

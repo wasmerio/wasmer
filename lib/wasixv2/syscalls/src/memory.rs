@@ -9,6 +9,7 @@ use std::{
     task::{Context, Poll},
 };
 
+use crate::SysResult;
 use wasixv2_abi::{Errno, GuestLayout, GuestPtr, GuestPtrMut};
 use wasixv2_pages::SharedPages;
 
@@ -468,6 +469,92 @@ impl UserSlice {
     }
 }
 
+/// A function packet's original address and capacity, before any fields are consumed.
+/// This host descriptor does not change the kernel's 32-bit address space or wire ABI.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct RawGuestBuffer {
+    pub addr: u64,
+    pub len: u64,
+}
+
+impl RawGuestBuffer {
+    pub const fn new(addr: u64, len: u64) -> Self {
+        Self { addr, len }
+    }
+
+    pub fn from32(addr: u32, len: u32) -> Self {
+        Self::new(u64::from(addr), u64::from(len))
+    }
+
+    pub async fn copy_out(self, memory: &dyn UserMemory, bytes: &[u8]) -> SysResult<()> {
+        self.check_prefix(memory, bytes.len()).await?;
+        if bytes.is_empty() {
+            return Ok(());
+        }
+        let addr = u32::try_from(self.addr).map_err(|_| Errno::EFAULT)?;
+        Ok(memory.write(addr, bytes).await?)
+    }
+
+    /// Check the actual prefix, including an empty range's original address. A valid
+    /// one-past address can be 2^32 and requires no narrowed address until bytes are copied.
+    pub async fn check_prefix(&self, memory: &dyn UserMemory, len: usize) -> SysResult<()> {
+        if len as u64 > self.len {
+            return Err(Errno::EFAULT.into());
+        }
+        let end = self.addr.checked_add(len as u64).ok_or(Errno::EFAULT)?;
+        if end > memory.size().await {
+            return Err(Errno::EFAULT.into());
+        }
+        Ok(())
+    }
+
+    /// The address for an actual nonempty copy after checking its complete prefix.
+    pub async fn prefix(&self, memory: &dyn UserMemory, len: usize) -> SysResult<u32> {
+        self.check_prefix(memory, len).await?;
+        u32::try_from(self.addr).map_err(|_| Errno::EFAULT.into())
+    }
+}
+
+/// Word width at a host compatibility boundary; the linear address space stays32-bit.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum GuestWordWidth {
+    Bits32,
+    Bits64,
+}
+
+/// An original guest pointer and the import's word codec, independent of its pointed-to type.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct RawGuestPointer {
+    pub addr: u64,
+    pub word: GuestWordWidth,
+}
+
+impl RawGuestPointer {
+    pub const fn new(addr: u64, word: GuestWordWidth) -> Self {
+        Self { addr, word }
+    }
+    pub fn from32(addr: u32) -> Self {
+        Self::new(u64::from(addr), GuestWordWidth::Bits32)
+    }
+    pub const fn addr(self) -> u64 {
+        self.addr
+    }
+    pub fn narrow(self) -> SysResult<u32> {
+        u32::try_from(self.addr).map_err(|_| Errno::EFAULT.into())
+    }
+    /// Called only when the operation writes a pointer-sized result, never for fixed structs.
+    pub async fn write_word(self, memory: &dyn UserMemory, value: u64) -> SysResult<()> {
+        let addr = self.narrow()?;
+        match self.word {
+            GuestWordWidth::Bits32 => {
+                let value = u32::try_from(value).map_err(|_| Errno::EOVERFLOW)?;
+                write_value(memory, GuestPtrMut::new(addr), &value).await?;
+            }
+            GuestWordWidth::Bits64 => write_value(memory, GuestPtrMut::new(addr), &value).await?,
+        }
+        Ok(())
+    }
+}
 /// A guest buffer the kernel writes into.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct UserSliceMut {
@@ -525,6 +612,42 @@ mod tests {
         fn grow(&self, _: u32) -> LocalFuture<'_, Option<u64>> {
             Box::pin(async { None })
         }
+    }
+
+    struct FullMemory32;
+
+    impl UserMemory for FullMemory32 {
+        fn read<'a>(&'a self, _: u32, _: &'a mut [u8]) -> LocalFuture<'a, Result<(), Fault>> {
+            panic!("an empty raw range must not read memory")
+        }
+        fn write<'a>(&'a self, _: u32, _: &'a [u8]) -> LocalFuture<'a, Result<(), Fault>> {
+            panic!("an empty raw range must not write memory")
+        }
+        fn size(&self) -> LocalFuture<'_, u64> {
+            Box::pin(async { 1u64 << 32 })
+        }
+        fn grow(&self, _: u32) -> LocalFuture<'_, Option<u64>> {
+            Box::pin(async { None })
+        }
+    }
+
+    #[test]
+    fn an_empty_raw_prefix_validates_a_wide_one_past_address_without_aliasing() {
+        let mut cx = Context::from_waker(std::task::Waker::noop());
+        let one_past = RawGuestBuffer::new(1u64 << 32, 0);
+        assert_eq!(
+            std::pin::pin!(one_past.check_prefix(&FullMemory32, 0)).poll(&mut cx),
+            Poll::Ready(Ok(()))
+        );
+        assert_eq!(
+            std::pin::pin!(one_past.copy_out(&FullMemory32, &[])).poll(&mut cx),
+            Poll::Ready(Ok(()))
+        );
+        let invalid = RawGuestBuffer::new((1u64 << 32) + 1, 0);
+        assert_eq!(
+            std::pin::pin!(invalid.check_prefix(&FullMemory32, 0)).poll(&mut cx),
+            Poll::Ready(Err(Errno::EFAULT.into()))
+        );
     }
 
     #[test]

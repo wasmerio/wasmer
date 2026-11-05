@@ -5,8 +5,8 @@ use wasixv2_abi::{
     LinuxDirent64Ptr, LoffPtr, OpenFlags, RlimitResource, RwfFlags, SeekWhence, SyncFileRangeFlags,
 };
 use wasixv2_syscalls::{
-    Caller, Errno, Fd, LocalFuture, SysResult, TaskId, UserMemory, UserSlice, UserSliceMut,
-    read_value, write_value,
+    Caller, Errno, Fd, IoVectorSource, LocalFuture, RawGuestBuffer, SysResult, TaskId, UserMemory,
+    UserSlice, UserSliceMut, VectorOperation, read_value, write_value,
 };
 use wasixv2_vfs::{AllocMode, DirEntry, DirSink, FileType};
 
@@ -170,6 +170,87 @@ impl<'a> Cursor<'a> {
     }
 }
 
+/// Native vectors keep Linux's decoder and transfer policy. A supplied source describes
+/// the real current import array and checks each complete legacy entry only when entered.
+#[derive(Clone, Copy)]
+enum Vectors<'a> {
+    Native(&'a [Iovec]),
+    Supplied(&'a dyn IoVectorSource),
+}
+
+impl Vectors<'_> {
+    fn total(self) -> SysResult<u64> {
+        match self {
+            Self::Native(entries) => Ok(entries.iter().map(|entry| u64::from(entry.iov_len)).sum()),
+            Self::Supplied(source) => (0..source.count()).try_fold(0u64, |total, index| {
+                total
+                    .checked_add(source.raw(index).len)
+                    .ok_or(Errno::EOVERFLOW.into())
+            }),
+        }
+    }
+}
+
+/// A previously validated entry. Only a nonempty actual copy window narrows its address;
+/// the raw base of a valid empty one-past range is never replaced by an alias.
+struct Entered<'a> {
+    source: &'a dyn IoVectorSource,
+    span: RawGuestBuffer,
+    offset: u64,
+    faulted: bool,
+}
+
+impl<'a> Entered<'a> {
+    fn new(source: &'a dyn IoVectorSource, span: RawGuestBuffer) -> Self {
+        Self {
+            source,
+            span,
+            offset: 0,
+            faulted: false,
+        }
+    }
+
+    async fn copy_in(&mut self, bytes: &mut [u8]) -> SysResult<()> {
+        if bytes.is_empty() {
+            return Ok(());
+        }
+        let address =
+            u32::try_from(self.span.addr + self.offset).map_err(|_| self.source.fault())?;
+        self.source
+            .memory()
+            .read(address, bytes)
+            .await
+            .map_err(|_| self.source.fault())?;
+        self.offset += bytes.len() as u64;
+        Ok(())
+    }
+}
+
+impl ReadSink for Entered<'_> {
+    fn copy_out<'a>(&'a mut self, bytes: &'a [u8]) -> LocalFuture<'a, usize> {
+        Box::pin(async move {
+            if bytes.is_empty() {
+                return 0;
+            }
+            let address = match u32::try_from(self.span.addr + self.offset) {
+                Ok(address) => address,
+                Err(_) => {
+                    self.source.fault();
+                    self.faulted = true;
+                    return 0;
+                }
+            };
+            if self.source.memory().write(address, bytes).await.is_err() {
+                self.source.fault();
+                self.faulted = true;
+                return 0;
+            }
+            self.offset += bytes.len() as u64;
+            bytes.len()
+        })
+    }
+}
+
 /// Guest buffers as a [`ReadSink`].
 pub(super) struct CopyOut<'a> {
     pub(super) cursor: Cursor<'a>,
@@ -205,19 +286,14 @@ struct Target<'a> {
 impl<'a> Target<'a> {
     /// Reads at most `buf.len()` bytes through `buf` to `to`; how many arrived. A file's
     /// position moves by what arrived, and a stream gives up only what arrived.
-    async fn read_to(
-        &self,
-        buf: &mut [u8],
-        done: usize,
-        to: &mut dyn ReadSink,
-    ) -> SysResult<usize> {
+    async fn read_to(&self, buf: &mut [u8], done: u64, to: &mut dyn ReadSink) -> SysResult<usize> {
         let inner = match &self.file.backing {
             Backing::Inode(inner) => inner,
             Backing::Stream(object, _) => {
                 return object.read_to(self.io(None), buf, to).await;
             }
         };
-        let offset = self.start + done as u64;
+        let offset = self.start + done;
         let n = inner.read_at(buf, offset).await?;
         let copied = to.copy_out(&buf[..n]).await;
         if matches!(self.at, At::Position) {
@@ -239,7 +315,7 @@ impl<'a> Target<'a> {
     async fn write(
         &self,
         data: &[u8],
-        done: usize,
+        done: u64,
         guard: Option<&wasixv2_vfs::FileWriteGuard<'_>>,
     ) -> SysResult<usize> {
         let inner = match &self.file.backing {
@@ -258,7 +334,7 @@ impl<'a> Target<'a> {
             }
             return Ok(n);
         }
-        let offset = self.start + done as u64;
+        let offset = self.start + done;
         check_file_size(offset, data.len())?;
         let n = match guard {
             Some(guard) => guard.write_at_as(data, offset, &self.cred).await?,
@@ -340,8 +416,21 @@ impl Kernel {
         at: At,
         flags: RwfFlags,
     ) -> SysResult<u32> {
+        self.read_vectors(caller, file, Vectors::Native(iovecs), at, flags)
+            .await
+            .and_then(|count| u32::try_from(count).map_err(|_| Errno::EOVERFLOW.into()))
+    }
+
+    async fn read_vectors(
+        &self,
+        caller: &Caller<'_>,
+        file: &OpenFile,
+        vectors: Vectors<'_>,
+        at: At,
+        flags: RwfFlags,
+    ) -> SysResult<u64> {
         let ret = self
-            .read_iovecs_unaccounted(caller, file, iovecs, at, flags)
+            .read_iovecs_unaccounted(caller, file, vectors, at, flags)
             .await;
         // `inc_syscr` and `add_rchar`.
         let read = *ret.as_ref().unwrap_or(&0);
@@ -353,15 +442,20 @@ impl Kernel {
         &self,
         caller: &Caller<'_>,
         file: &OpenFile,
-        iovecs: &[Iovec],
+        vectors: Vectors<'_>,
         at: At,
         flags: RwfFlags,
-    ) -> SysResult<u32> {
+    ) -> SysResult<u64> {
         // fanotify's events come with descriptors, which only the kernel can make.
-        if let Some(group) = file.downcast::<super::fanotify::FanotifyFile>() {
-            return self.fanotify_readv(caller, file, group, iovecs).await;
+        if let Vectors::Native(iovecs) = vectors
+            && let Some(group) = file.downcast::<super::fanotify::FanotifyFile>()
+        {
+            return self
+                .fanotify_readv(caller, file, group, iovecs)
+                .await
+                .map(u64::from);
         }
-        let total: usize = iovecs.iter().map(|iov| iov.iov_len as usize).sum();
+        let total = vectors.total()?;
         let interrupt = self.interrupt(caller);
         let _pos = match (at, &file.backing) {
             (At::Position, Backing::Inode(_)) => Some(file.lock_pos().await),
@@ -381,7 +475,7 @@ impl Kernel {
             broken: &Cell::new(false),
             nowait: flags.contains(RwfFlags::RWF_NOWAIT),
         };
-        self.pre_content_permission(caller, file, Some(target.start), total as u64)
+        self.pre_content_permission(caller, file, Some(target.start), total)
             .await?;
         self.access_permission(caller, file).await?;
         let steps = file.fills_reads();
@@ -389,6 +483,18 @@ impl Kernel {
             true => IO_CHUNK,
             false => IO_CHUNK.max(file.read_size()),
         };
+        if let Vectors::Supplied(source) = vectors {
+            self.sync_file_mappings(caller, file).await;
+            let done = self
+                .read_supplied(source, &target, step, file.fills_reads())
+                .await?;
+            self.charge_io(caller.task(), file, done, false);
+            return Ok(done);
+        }
+        let Vectors::Native(iovecs) = vectors else {
+            unreachable!()
+        };
+        let total = total as usize;
         let mut buf = Scratch::new(total.min(step));
         let mut to = CopyOut {
             cursor: Cursor::new(iovecs),
@@ -398,7 +504,7 @@ impl Kernel {
         self.sync_file_mappings(caller, file).await;
         loop {
             let want = (total - done).min(buf.len());
-            let copied = match target.read_to(&mut buf[..want], done, &mut to).await {
+            let copied = match target.read_to(&mut buf[..want], done as u64, &mut to).await {
                 Ok(copied) => copied,
                 Err(_) if done > 0 => break,
                 Err(err) => return Err(err),
@@ -413,8 +519,50 @@ impl Kernel {
                 break;
             }
         }
-        self.charge_io(caller.task(), file, done as u32, false);
-        Ok(done as u32)
+        self.charge_io(caller.task(), file, done as u64, false);
+        Ok(done as u64)
+    }
+
+    /// Compatibility reads enter complete spans in order under the same captured target
+    /// and file-position lock. A nested fault is never turned into partial success.
+    async fn read_supplied(
+        &self,
+        source: &dyn IoVectorSource,
+        target: &Target<'_>,
+        step: usize,
+        fills: bool,
+    ) -> SysResult<u64> {
+        let mut done = 0u64;
+        for index in 0..source.count() {
+            let span = source.enter(index).await?;
+            let mut to = Entered::new(source, span);
+            // Empty entries still reach their old I/O boundary after full validation.
+            loop {
+                let remaining = span.len - to.offset;
+                let want = remaining.min(step as u64) as usize;
+                let mut buf = Scratch::new(want);
+                let copied = target.read_to(&mut buf, done, &mut to).await;
+                if to.faulted {
+                    return Err(source.fault());
+                }
+                let copied = match copied {
+                    Ok(copied) => copied,
+                    Err(_) if done > 0 => return Ok(done),
+                    Err(error) => return Err(error),
+                };
+                done += copied as u64;
+                if copied < want {
+                    return Ok(done);
+                }
+                if to.offset == span.len {
+                    break;
+                }
+                if !fills || target.interrupt.pending() {
+                    return Ok(done);
+                }
+            }
+        }
+        Ok(done)
     }
 
     /// Writes the buffers in order, in steps, until all is written or an object takes less:
@@ -429,8 +577,21 @@ impl Kernel {
         at: At,
         flags: RwfFlags,
     ) -> SysResult<u32> {
+        self.write_vectors(caller, file, Vectors::Native(iovecs), at, flags)
+            .await
+            .and_then(|count| u32::try_from(count).map_err(|_| Errno::EOVERFLOW.into()))
+    }
+
+    async fn write_vectors(
+        &self,
+        caller: &Caller<'_>,
+        file: &OpenFile,
+        vectors: Vectors<'_>,
+        at: At,
+        flags: RwfFlags,
+    ) -> SysResult<u64> {
         let ret = self
-            .write_iovecs_unaccounted(caller, file, iovecs, at, flags)
+            .write_iovecs_unaccounted(caller, file, vectors, at, flags)
             .await;
         // `inc_syscw` and `add_wchar`.
         let written = *ret.as_ref().unwrap_or(&0);
@@ -442,13 +603,13 @@ impl Kernel {
         &self,
         caller: &Caller<'_>,
         file: &OpenFile,
-        iovecs: &[Iovec],
+        vectors: Vectors<'_>,
         at: At,
         flags: RwfFlags,
-    ) -> SysResult<u32> {
+    ) -> SysResult<u64> {
         let broken = Cell::new(false);
         let ret = self
-            .write_steps(caller, file, iovecs, at, flags, &broken)
+            .write_steps(caller, file, vectors, at, flags, &broken)
             .await;
         self.epipe(caller, file, ret, broken.get())
     }
@@ -457,14 +618,18 @@ impl Kernel {
         &self,
         caller: &Caller<'_>,
         file: &OpenFile,
-        iovecs: &[Iovec],
+        vectors: Vectors<'_>,
         at: At,
         flags: RwfFlags,
         broken: &Cell<bool>,
-    ) -> SysResult<u32> {
-        let mut total: usize = iovecs.iter().map(|iov| iov.iov_len as usize).sum();
+    ) -> SysResult<u64> {
+        let mut total = vectors.total()?;
         let messages = file.messages();
-        if messages && total > MAX_MESSAGE {
+        let message_limit = match vectors {
+            Vectors::Native(_) => MAX_MESSAGE as u64,
+            Vectors::Supplied(source) => source.message_limit(),
+        };
+        if messages && total > message_limit {
             return Err(Errno::EMSGSIZE.into());
         }
         // `kiocb_set_rw_flags`: an append-only file is only appended to.
@@ -495,7 +660,7 @@ impl Kernel {
             broken,
             nowait: flags.contains(RwfFlags::RWF_NOWAIT),
         };
-        self.pre_content_permission(caller, file, Some(target.start), total as u64)
+        self.pre_content_permission(caller, file, Some(target.start), total)
             .await?;
         self.sync_file_mappings(caller, file).await;
         let guard = match &file.backing {
@@ -506,8 +671,30 @@ impl Kernel {
             if target.append {
                 target.start = guard.size().await?;
             }
-            total = self.file_write_count(caller, target.start, total)?;
+            // Keep limits wide until the actual bounded copy window.
+            let limit = self
+                .process(caller.task())
+                .resources
+                .lock_or_recover()
+                .soft(RlimitResource::RLIMIT_FSIZE);
+            if total != 0 && target.start >= limit {
+                self.send_sigxfsz(caller);
+                return Err(Errno::EFBIG.into());
+            }
+            total = total.min(limit.saturating_sub(target.start));
         }
+        if let Vectors::Supplied(source) = vectors {
+            let done = self
+                .write_supplied(source, &target, total, messages, guard.as_ref())
+                .await?;
+            drop(guard);
+            self.finish_write(caller, file, flags, done).await?;
+            return Ok(done);
+        }
+        let Vectors::Native(iovecs) = vectors else {
+            unreachable!()
+        };
+        let total = total as usize;
         let step = if messages { total } else { total.min(IO_CHUNK) };
         let mut buf = Scratch::new(step);
         let mut cursor = Cursor::new(iovecs);
@@ -521,7 +708,7 @@ impl Kernel {
                 }
                 break;
             }
-            let written = match target.write(&buf[..n], done, guard.as_ref()).await {
+            let written = match target.write(&buf[..n], done as u64, guard.as_ref()).await {
                 Ok(written) => written,
                 Err(_) if done > 0 => break,
                 Err(err) => return Err(err),
@@ -532,14 +719,114 @@ impl Kernel {
             }
         }
         drop(guard);
+        self.finish_write(caller, file, flags, done as u64).await?;
+        Ok(done as u64)
+    }
+
+    async fn write_supplied(
+        &self,
+        source: &dyn IoVectorSource,
+        target: &Target<'_>,
+        total: u64,
+        messages: bool,
+        guard: Option<&wasixv2_vfs::FileWriteGuard<'_>>,
+    ) -> SysResult<u64> {
+        // Datagram gather and fd_write's socket coalescing use the old skip/window
+        // policy. No public syscall or descriptor acquisition happens inside this loop.
+        let socket = self.socket_net(target.file).is_some();
+        let window = if messages {
+            total as usize
+        } else {
+            source.coalesce_window() as usize
+        };
+        if messages || (socket && window != 0) {
+            let mut done = 0u64;
+            loop {
+                let want = (total - done).min(window as u64) as usize;
+                let mut buf = Scratch::new(want);
+                let mut skipped = 0u64;
+                let mut filled = 0;
+                for index in 0..source.count() {
+                    let raw = source.raw(index);
+                    let end = skipped + raw.len;
+                    // Old coalesce_from skips entries before the offset without entering
+                    // them. Datagram gather instead visits every entry, including empty.
+                    if !messages && end <= done {
+                        skipped = end;
+                        continue;
+                    }
+                    if !messages && filled == want {
+                        break;
+                    }
+                    let span = source.enter(index).await?;
+                    let offset = done.saturating_sub(skipped);
+                    let n = (span.len - offset).min((want - filled) as u64) as usize;
+                    let mut entry = Entered::new(source, span);
+                    entry.offset = offset;
+                    entry.copy_in(&mut buf[filled..filled + n]).await?;
+                    filled += n;
+                    skipped = end;
+                }
+                let written = match target.write(&buf[..filled], done, guard).await {
+                    Ok(written) => written,
+                    Err(_) if done > 0 => return Ok(done),
+                    Err(error) => return Err(error),
+                };
+                done += written as u64;
+                if messages
+                    || done == total
+                    || written == 0
+                    || (target.file.flags().contains(OpenFlags::O_NONBLOCK) && written < filled)
+                {
+                    return Ok(done);
+                }
+            }
+        }
+        let mut done = 0u64;
+        for index in 0..source.count() {
+            let span = source.enter(index).await?;
+            let mut entry = Entered::new(source, span);
+            loop {
+                let want = (span.len - entry.offset)
+                    .min(total - done)
+                    .min(IO_CHUNK as u64) as usize;
+                let mut buf = Scratch::new(want);
+                entry.copy_in(&mut buf).await?;
+                let written = match target.write(&buf, done, guard).await {
+                    Ok(written) => written,
+                    Err(_) if done > 0 => return Ok(done),
+                    Err(error) => return Err(error),
+                };
+                done += written as u64;
+                if written < want {
+                    return Ok(done);
+                }
+                if done == total && span.len != 0 {
+                    return Ok(done);
+                }
+                if entry.offset == span.len {
+                    break;
+                }
+            }
+        }
+        Ok(done)
+    }
+
+    async fn finish_write(
+        &self,
+        caller: &Caller<'_>,
+        file: &OpenFile,
+        flags: RwfFlags,
+        done: u64,
+    ) -> SysResult<()> {
         self.sync_file_mappings(caller, file).await;
         if flags.intersects(RwfFlags::RWF_DSYNC | RwfFlags::RWF_SYNC)
             && let Backing::Inode(inner) = &file.backing
         {
             inner.sync(!flags.contains(RwfFlags::RWF_SYNC)).await?;
         }
-        self.charge_io(caller.task(), file, done as u32, true);
-        Ok(done as u32)
+        self.charge_io(caller.task(), file, done, true);
+        Ok(())
     }
 
     /// `write(2)` on `file`, from one guest buffer.
@@ -598,12 +885,27 @@ impl Kernel {
         fd: Fd,
         vec: ConstIovecArray,
         vlen: u32,
-    ) -> SysResult<u32> {
+    ) -> SysResult<u64> {
         let file = self.caller_file(caller, fd)?;
         file.check_readable()?;
+        if let Some(source) = caller
+            .io_vectors()
+            .filter(|source| source.matches(VectorOperation::Read, fd, vec.addr(), vlen))
+        {
+            return self
+                .read_vectors(
+                    caller,
+                    &file,
+                    Vectors::Supplied(source),
+                    At::Position,
+                    RwfFlags(0),
+                )
+                .await;
+        }
         let iovecs = read_iovecs(caller.memory(), vec, vlen).await?;
         self.read_into_iovecs(caller, &file, &iovecs, At::Position)
             .await
+            .map(u64::from)
     }
 
     pub(crate) async fn sys_writev(
@@ -612,12 +914,27 @@ impl Kernel {
         fd: Fd,
         vec: ConstIovecArray,
         vlen: u32,
-    ) -> SysResult<u32> {
+    ) -> SysResult<u64> {
         let file = self.caller_file(caller, fd)?;
         file.check_writable()?;
+        if let Some(source) = caller
+            .io_vectors()
+            .filter(|source| source.matches(VectorOperation::Write, fd, vec.addr(), vlen))
+        {
+            return self
+                .write_vectors(
+                    caller,
+                    &file,
+                    Vectors::Supplied(source),
+                    At::Position,
+                    RwfFlags(0),
+                )
+                .await;
+        }
         let iovecs = read_iovecs(caller.memory(), vec, vlen).await?;
         self.write_from_iovecs(caller, &file, &iovecs, At::Position, RwfFlags(0))
             .await
+            .map(u64::from)
     }
 
     pub(crate) async fn sys_pread(
@@ -657,7 +974,7 @@ impl Kernel {
         vlen: u32,
         pos: i64,
         flags: RwfFlags,
-    ) -> SysResult<u32> {
+    ) -> SysResult<u64> {
         // `do_preadv`/`do_pwritev` check the offset first; -1 means the file position.
         if pos < -1 {
             return Err(Errno::EINVAL.into());
@@ -666,9 +983,18 @@ impl Kernel {
         let at = self.rw_position(&file, pos)?;
         file.check_readable()?;
         rw_flags(flags)?;
+        if let Some(source) = caller
+            .io_vectors()
+            .filter(|source| source.matches(VectorOperation::ReadAt, fd, vec.addr(), vlen))
+        {
+            return self
+                .read_vectors(caller, &file, Vectors::Supplied(source), at, flags)
+                .await;
+        }
         let iovecs = read_iovecs(caller.memory(), vec, vlen).await?;
         self.read_into_iovecs_flags(caller, &file, &iovecs, at, flags)
             .await
+            .map(u64::from)
     }
 
     pub(crate) async fn sys_pwritev2(
@@ -679,7 +1005,7 @@ impl Kernel {
         vlen: u32,
         pos: i64,
         flags: RwfFlags,
-    ) -> SysResult<u32> {
+    ) -> SysResult<u64> {
         // `do_preadv`/`do_pwritev` check the offset first; -1 means the file position.
         if pos < -1 {
             return Err(Errno::EINVAL.into());
@@ -688,9 +1014,18 @@ impl Kernel {
         let at = self.rw_position(&file, pos)?;
         file.check_writable()?;
         rw_flags(flags)?;
+        if let Some(source) = caller
+            .io_vectors()
+            .filter(|source| source.matches(VectorOperation::WriteAt, fd, vec.addr(), vlen))
+        {
+            return self
+                .write_vectors(caller, &file, Vectors::Supplied(source), at, flags)
+                .await;
+        }
         let iovecs = read_iovecs(caller.memory(), vec, vlen).await?;
         self.write_from_iovecs(caller, &file, &iovecs, at, flags)
             .await
+            .map(u64::from)
     }
 
     fn rw_position(&self, file: &OpenFile, pos: i64) -> Result<At, Errno> {

@@ -1,10 +1,11 @@
-//! `fd_read`, `fd_write`, `fd_close`. v1's `iovec` is Linux's wasm32 `struct iovec`, so the
-//! guest's iovec array goes to the kernel untranslated.
+//! `fd_read`, `fd_write`, `fd_close`, through ordinary v2 dispatch.
+
+use crate::abi::{GuestSize, Pointer};
 
 use crate::abi::fs::Rights;
 
-use wasixv2_abi::{ConstIovecArray, Fd};
-use wasixv2_syscalls::{Control, Syscalls};
+use wasixv2_abi::Fd;
+use wasixv2_syscalls::{Control, IoVectorSource, Syscalls, VectorOperation};
 use wasmer::RuntimeError;
 
 use crate::shim::{self, Env};
@@ -12,18 +13,22 @@ use crate::shim::{self, Env};
 pub(crate) async fn fd_read<S: Syscalls + Control + 'static>(
     env: Env<S>,
     fd: i32,
-    iovs: i32,
-    iovs_len: i32,
-    nread: i32,
+    iovs: Pointer,
+    iovs_len: GuestSize,
+    nread: Pointer,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
         crate::rights::require(frame, &[(wasixv2_abi::Fd(fd), Rights::FD_READ)]).await?;
-        let iovs = ConstIovecArray::new(iovs as u32);
-        let n = frame
+        let vectors =
+            crate::vectors::Vectors::read(frame, VectorOperation::Read, Fd(fd), iovs, iovs_len)
+                .await?;
+        let caller = frame.caller().with_io_vectors(&vectors);
+        let result = frame
             .syscalls
-            .readv(&frame.caller(), Fd(fd), iovs, iovs_len as u32)
-            .await?;
-        frame.write(nread as u32, &n).await
+            .readv(&caller, Fd(fd), vectors.array(), vectors.count())
+            .await;
+        let n = vectors.finish(result)?;
+        frame.write_size(nread, n).await
     })
     .await
 }
@@ -31,18 +36,22 @@ pub(crate) async fn fd_read<S: Syscalls + Control + 'static>(
 pub(crate) async fn fd_write<S: Syscalls + Control + 'static>(
     env: Env<S>,
     fd: i32,
-    iovs: i32,
-    iovs_len: i32,
-    nwritten: i32,
+    iovs: Pointer,
+    iovs_len: GuestSize,
+    nwritten: Pointer,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
         crate::rights::require(frame, &[(wasixv2_abi::Fd(fd), Rights::FD_WRITE)]).await?;
-        let iovs = ConstIovecArray::new(iovs as u32);
-        let n = frame
+        let vectors =
+            crate::vectors::Vectors::read(frame, VectorOperation::Write, Fd(fd), iovs, iovs_len)
+                .await?;
+        let caller = frame.caller().with_io_vectors(&vectors);
+        let result = frame
             .syscalls
-            .writev(&frame.caller(), Fd(fd), iovs, iovs_len as u32)
-            .await?;
-        frame.write(nwritten as u32, &n).await
+            .writev(&caller, Fd(fd), vectors.array(), vectors.count())
+            .await;
+        let n = vectors.finish(result)?;
+        frame.write_size(nwritten, n).await
     })
     .await
 }

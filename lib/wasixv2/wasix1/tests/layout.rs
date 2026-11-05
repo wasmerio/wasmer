@@ -6,7 +6,7 @@ use std::mem::{align_of, offset_of, size_of};
 
 use wasixv2_abi::GuestLayout;
 use wasixv2_wasix1::abi::{fs, poll, proc, sock};
-use wasmer::Memory32;
+use wasmer::{Memory32, Memory64};
 use wasmer_wasix_types::wasi as legacy;
 
 /// Asserts that `$v1` has the size and alignment of `$legacy` and each listed field sits at the
@@ -144,6 +144,30 @@ fn sock_layouts() {
     assert_eq!(sock::AddrPort::SIZE, 110);
     assert_eq!(sock::Addr::SIZE, 110);
     assert_eq!(sock::AddrCidr::SIZE, 28);
+}
+
+#[test]
+fn nominal64_layouts_match_the_legacy_memory64_wrappers() {
+    same_layout!(proc::ThreadStart64, legacy::ThreadStart<Memory64>, {
+        stack => stack_upper, tls_base => tls_base, start_funct => start_funct,
+        start_args => start_args, stack_size => stack_size, guard_size => guard_size,
+    });
+    same_layout!(proc::ProcSpawnFdOp64, legacy::ProcSpawnFdOp<Memory64>, {
+        cmd => cmd, fd => fd, src_fd => src_fd, path => name, path_len => name_len,
+        dirflags => dirflags, oflags => oflags, fs_rights_base => fs_rights_base,
+        fs_rights_inheriting => fs_rights_inheriting, fdflags => fdflags,
+        fdflagsext => fdflagsext,
+    });
+    same_layout!(sock::EpollData64, legacy::EpollData<Memory64>, {
+        ptr => ptr, fd => fd, data1 => data1, data2 => data2,
+    });
+    same_layout!(sock::EpollEvent64, legacy::EpollEvent<Memory64>, {
+        events => events, data => data,
+    });
+    // The old generic wrapper writes this fixed struct even for Memory64.
+    assert_eq!(fs::Prestat::SIZE, size_of::<legacy::Prestat>());
+    assert_eq!(fs::Prestat::SIZE, 8);
+    assert_eq!(offset(fs::Prestat::OFFSETS, "pr_name_len"), 4);
 }
 
 /// wasix-libc api_wasix.h static assertions; the old Rust host's Route is narrower.

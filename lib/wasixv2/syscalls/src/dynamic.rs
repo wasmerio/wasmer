@@ -1,8 +1,8 @@
 //! Borrowed engine authority for the four existing loader imports.
 //! Kept separate from UserMemory and Control: a capability belongs to one import future,
 //! never to the kernel or guest memory. Default/custom callers remain unsupported.
-use crate::{Caller, Errno, LocalFuture, SysResult, UserSliceMut};
-use wasixv2_abi::{Cstr, DlFlags, DlHandle, DlHandlePtr, Uptr, UptrPtr};
+use crate::{Caller, Errno, LocalFuture, RawGuestBuffer, RawGuestPointer, SysResult};
+use wasixv2_abi::{Cstr, DlFlags, DlHandle, Uptr, UptrPtr};
 
 pub trait DynamicLinker {
     #[allow(clippy::too_many_arguments)]
@@ -13,8 +13,8 @@ pub trait DynamicLinker {
         flags: DlFlags,
         search_path: Cstr,
         caller_addr: Uptr,
-        handle: DlHandlePtr,
-        err: UserSliceMut,
+        handle: RawGuestPointer,
+        err: RawGuestBuffer,
     ) -> LocalFuture<'a, SysResult<i32>> {
         let _ = (caller, file, flags, search_path, caller_addr, handle, err);
         Box::pin(async { Err(Errno::ENOSYS.into()) })
@@ -26,8 +26,8 @@ pub trait DynamicLinker {
         handle: DlHandle,
         symbol: Cstr,
         caller_addr: Uptr,
-        addr: UptrPtr,
-        err: UserSliceMut,
+        addr: RawGuestPointer,
+        err: RawGuestBuffer,
     ) -> LocalFuture<'a, SysResult<i32>> {
         let _ = (caller, handle, symbol, caller_addr, addr, err);
         Box::pin(async { Err(Errno::ENOSYS.into()) })

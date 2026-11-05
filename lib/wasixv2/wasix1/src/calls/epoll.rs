@@ -6,6 +6,8 @@
 //! descriptors may name one epoll set (mio `dup`s its set and registers through the copy while
 //! it waits on the original), and only the kernel knows which ones do.
 
+use crate::abi::{AbiWidth, Pointer};
+
 use crate::abi::fs::Rights;
 
 use std::{collections::HashMap, sync::Mutex, time::Duration};
@@ -20,7 +22,7 @@ use wasmer::RuntimeError;
 use crate::{
     abi::{
         Errno,
-        sock::{EpollCtl, EpollData, EpollEvent, EpollType},
+        sock::{EpollCtl, EpollData, EpollData64, EpollEvent, EpollEvent64, EpollType},
     },
     shim::{self, Env},
 };
@@ -82,7 +84,7 @@ pub struct Table(Mutex<Registrations>);
 
 #[derive(Clone, Debug, Default)]
 struct Registrations {
-    data: HashMap<Handle, EpollData>,
+    data: HashMap<Handle, EpollData64>,
     index: HashMap<(Fd, Fd), Handle>,
     next: u32,
 }
@@ -101,7 +103,7 @@ impl Table {
     }
 
     /// Records `data` under `handle`, which the kernel's item for (`epfd`, `fd`) now carries.
-    fn set(&self, epfd: Fd, fd: Fd, handle: Handle, data: EpollData) {
+    fn set(&self, epfd: Fd, fd: Fd, handle: Handle, data: EpollData64) {
         let mut regs = self.0.lock().unwrap();
         if let Some(old) = regs.index.insert((epfd, fd), handle) {
             regs.data.remove(&old);
@@ -131,16 +133,16 @@ impl Table {
 
     /// The data registered under `handle`; just the descriptor if there is none (an item
     /// this process image did not register, such as one inherited across `execve`).
-    fn get(&self, handle: Handle) -> EpollData {
+    fn get(&self, handle: Handle) -> EpollData64 {
         self.0
             .lock()
             .unwrap()
             .data
             .get(&handle)
             .copied()
-            .unwrap_or(EpollData {
+            .unwrap_or(EpollData64 {
                 fd: handle.fd().0 as u32,
-                ..EpollData::ZERO
+                ..EpollData64::ZERO
             })
     }
 }
@@ -159,7 +161,7 @@ pub(crate) async fn forgotten<S: Syscalls + Control + 'static>(
 
 pub(crate) async fn epoll_create<S: Syscalls + Control + 'static>(
     env: Env<S>,
-    ro_fd: i32,
+    ro_fd: Pointer,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
         let rights = Rights::POLL_FD_READWRITE | Rights::FD_FDSTAT_SET_FLAGS;
@@ -171,7 +173,7 @@ pub(crate) async fn epoll_create<S: Syscalls + Control + 'static>(
             .epoll_create1(&frame.caller(), EpollCreateFlags(0))
             .await?;
         frame.proc().await?.net.epoll.forget(fd);
-        frame.write(ro_fd as u32, &(fd.0 as u32)).await
+        frame.write(ro_fd.narrow()?, &(fd.0 as u32)).await
     })
     .await
 }
@@ -181,7 +183,7 @@ pub(crate) async fn epoll_ctl<S: Syscalls + Control + 'static>(
     epfd: i32,
     op: i32,
     fd: i32,
-    event: i32,
+    event: Pointer,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
         crate::rights::require(
@@ -200,7 +202,16 @@ pub(crate) async fn epoll_ctl<S: Syscalls + Control + 'static>(
         let mut registered = None;
         let mut ptr = GuestPtr::NULL;
         if op != EpollCtlOp::EPOLL_CTL_DEL {
-            let v1: EpollEvent = frame.read(event as u32).await?;
+            let v1 = match frame.width() {
+                AbiWidth::Wasm32 => {
+                    let v1: EpollEvent = frame.read(event.narrow()?).await?;
+                    EpollEvent64 {
+                        events: v1.events,
+                        data: v1.data.into(),
+                    }
+                }
+                AbiWidth::Wasm64 => frame.read::<EpollEvent64>(event.narrow()?).await?,
+            };
             let handle = table.handle(fd);
             let linux = LinuxEvent {
                 events: to_linux(v1.events),
@@ -227,10 +238,10 @@ pub(crate) async fn epoll_ctl<S: Syscalls + Control + 'static>(
 pub(crate) async fn epoll_wait<S: Syscalls + Control + 'static>(
     env: Env<S>,
     epfd: i32,
-    events: i32,
+    events: Pointer,
     maxevents: i32,
     timeout: i64,
-    ro_nevents: i32,
+    ro_nevents: Pointer,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
         crate::rights::require(frame, &[(wasixv2_abi::Fd(epfd), Rights::POLL_FD_READWRITE)])
@@ -239,9 +250,12 @@ pub(crate) async fn epoll_wait<S: Syscalls + Control + 'static>(
         if maxevents <= 0 {
             return shim::fail(Errno::INVAL);
         }
-        let buf = frame
-            .mem
-            .alloc_raw(maxevents as u32 * LinuxEvent::SIZE as u32, 8)?;
+        let buf = frame.mem.alloc_raw(
+            (maxevents as u32)
+                .checked_mul(LinuxEvent::SIZE as u32)
+                .ok_or(Errno::NOMEM)?,
+            8,
+        )?;
         let tsp = match timeout as u64 {
             u64::MAX => GuestPtr::NULL,
             ns => {
@@ -266,18 +280,45 @@ pub(crate) async fn epoll_wait<S: Syscalls + Control + 'static>(
             )
             .await?;
         let table = &frame.proc().await?.net.epoll;
+        if n > 0 {
+            frame
+                .check_range(events, maxevents as u64 * EpollEvent64::SIZE as u64)
+                .await?;
+        }
         for i in 0..n.max(0) as u32 {
             let linux: LinuxEvent = frame
                 .mem
                 .take(GuestPtrMut::new(buf + i * LinuxEvent::SIZE as u32));
-            let event = EpollEvent {
+            let event = EpollEvent64 {
                 events: from_linux(linux.events),
                 data: table.get(Handle(u64::from_le_bytes(linux.data.0))),
             };
-            let addr = (events as u32).wrapping_add(i * EpollEvent::SIZE as u32);
-            frame.write(addr, &event).await?;
+            let addr = events
+                .offset(u64::from(i) * EpollEvent64::SIZE as u64)?
+                .narrow()?;
+            match frame.width() {
+                AbiWidth::Wasm32 => {
+                    let data = event.data;
+                    let ptr = u32::try_from(data.ptr).map_err(|_| Errno::OVERFLOW)?;
+                    frame
+                        .write(
+                            addr,
+                            &EpollEvent {
+                                events: event.events,
+                                data: EpollData {
+                                    ptr,
+                                    fd: data.fd,
+                                    data1: data.data1,
+                                    data2: data.data2,
+                                },
+                            },
+                        )
+                        .await?;
+                }
+                AbiWidth::Wasm64 => frame.write(addr, &event).await?,
+            }
         }
-        frame.write(ro_nevents as u32, &(n.max(0) as u32)).await
+        frame.write_size(ro_nevents, n.max(0) as u64).await
     })
     .await
 }
@@ -300,9 +341,9 @@ mod tests {
         assert_ne!(EpollType::EPOLLRDHUP.0, EpollEvents::EPOLLRDHUP.0);
     }
 
-    fn data(n: u32) -> EpollData {
-        EpollData {
-            ptr: n,
+    fn data(n: u32) -> EpollData64 {
+        EpollData64 {
+            ptr: u64::from(n),
             fd: 5,
             data1: n + 1,
             data2: u64::from(n) << 40,
@@ -326,9 +367,9 @@ mod tests {
         assert_eq!(table.get(second), data(2));
         assert_eq!(
             table.get(first),
-            EpollData {
+            EpollData64 {
                 fd: 5,
-                ..EpollData::ZERO
+                ..EpollData64::ZERO
             }
         );
 

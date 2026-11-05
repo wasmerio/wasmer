@@ -1,4 +1,5 @@
 //! Per-image EH/PIC loader. Shared state contains plans/source, never store-local functions.
+use wasixv2_syscalls::{RawGuestBuffer, RawGuestPointer};
 mod forward;
 mod graph;
 mod load;
@@ -19,14 +20,14 @@ use std::{
         atomic::{AtomicBool, Ordering},
     },
 };
-use wasixv2_abi::{Cstr, DlFlags, DlHandle, DlHandlePtr, Uptr, UptrPtr};
+use wasixv2_abi::{Cstr, DlFlags, DlHandle, Uptr, UptrPtr};
 use wasixv2_exec::{
     Abi, AbiInstance, Entry, EntryReturn, ExecEnv, ExecError, Role, Sigreturn, VforkResume, Wasixv2,
 };
 use wasixv2_syscalls::{
     Caller, Control, Errno, LoaderAdmission, LoaderGate, LoaderPhase, LoaderReservation,
     LoaderTransaction, LoaderWait, LocalFuture, SignalFrame, SysResult, Syscalls, TaskId,
-    UserSliceMut, read_cstr, write_value,
+    read_cstr, write_value,
 };
 use wasmer::{
     AsEngineRef, AsStoreAsync, AsStoreMut, AsyncFunctionEnvMut, Extern, FunctionEnv, Global,
@@ -1788,8 +1789,8 @@ impl<S: Syscalls + Control + Send + Sync + 'static> AbiInstance<S> for StoreImag
         flags: DlFlags,
         search: Cstr,
         caller_addr: Uptr,
-        handle: DlHandlePtr,
-        err: UserSliceMut,
+        handle: RawGuestPointer,
+        err: RawGuestBuffer,
     ) -> LocalFuture<'a, SysResult<i32>> {
         Box::pin(self.open(
             env,
@@ -1811,8 +1812,8 @@ impl<S: Syscalls + Control + Send + Sync + 'static> AbiInstance<S> for StoreImag
         flags: DlFlags,
         search: Cstr,
         caller_addr: Uptr,
-        handle: DlHandlePtr,
-        err: UserSliceMut,
+        handle: RawGuestPointer,
+        err: RawGuestBuffer,
         unwind: &'a wasixv2_exec::GuestUnwind,
     ) -> LocalFuture<'a, SysResult<i32>> {
         Box::pin(self.open(
@@ -1865,8 +1866,8 @@ impl<S: Syscalls + Control + Send + Sync + 'static> AbiInstance<S> for StoreImag
         handle: DlHandle,
         symbol: Cstr,
         caller_addr: Uptr,
-        addr: UptrPtr,
-        err: UserSliceMut,
+        addr: RawGuestPointer,
+        err: RawGuestBuffer,
     ) -> LocalFuture<'a, SysResult<i32>> {
         Box::pin(async move {
             self.ensure_live().map_err(|_| Errno::ESTALE)?;
@@ -1951,7 +1952,7 @@ impl<S: Syscalls + Control + Send + Sync + 'static> AbiInstance<S> for StoreImag
                 .await;
             match address {
                 Ok(value) => {
-                    write_value(caller.memory(), addr, &value)
+                    addr.write_word(caller.memory(), u64::from(value))
                         .await
                         .map_err(|_| Errno::EFAULT)?;
                     Ok(0)

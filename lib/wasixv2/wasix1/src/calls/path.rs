@@ -4,6 +4,8 @@
 //! them into scratch as C strings and call the `*at` syscalls, so the kernel resolves them with
 //! Linux's rules (absolute paths ignore the descriptor, `..` stops at the root).
 
+use crate::abi::{GuestSize, Pointer};
+
 use wasixv2_abi::{AtFlags, Fd, OpenFlags, RenameFlags};
 use wasixv2_syscalls::{Control, Syscalls};
 use wasmer::RuntimeError;
@@ -83,13 +85,13 @@ pub(crate) async fn path_open<S: Syscalls + Control + 'static>(
     env: Env<S>,
     fd: i32,
     dirflags: i32,
-    path: i32,
-    path_len: i32,
+    path: Pointer,
+    path_len: GuestSize,
     oflags: i32,
     rights_base: i64,
     rights_inheriting: i64,
     fdflags: i32,
-    out: i32,
+    out: Pointer,
 ) -> Result<i32, RuntimeError> {
     path_open2(
         env,
@@ -113,14 +115,14 @@ pub(crate) async fn path_open2<S: Syscalls + Control + 'static>(
     env: Env<S>,
     fd: i32,
     dirflags: i32,
-    path: i32,
-    path_len: i32,
+    path: Pointer,
+    path_len: GuestSize,
     oflags: i32,
     rights_base: i64,
     rights_inheriting: i64,
     fdflags: i32,
     fdflagsext: i32,
-    out: i32,
+    out: Pointer,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
         let oflags_v1 = Oflags(oflags as u16);
@@ -172,7 +174,7 @@ pub(crate) async fn path_open2<S: Syscalls + Control + 'static>(
             .syscalls
             .openat(&frame.caller(), Fd(fd), path, flags, FILE_MODE)
             .await?;
-        frame.write(out as u32, &(new.0 as u32)).await
+        frame.write(out.narrow()?, &(new.0 as u32)).await
     })
     .await
 }
@@ -180,8 +182,8 @@ pub(crate) async fn path_open2<S: Syscalls + Control + 'static>(
 pub(crate) async fn path_create_directory<S: Syscalls + Control + 'static>(
     env: Env<S>,
     fd: i32,
-    path: i32,
-    path_len: i32,
+    path: Pointer,
+    path_len: GuestSize,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
         crate::rights::require(
@@ -202,8 +204,8 @@ pub(crate) async fn path_create_directory<S: Syscalls + Control + 'static>(
 pub(crate) async fn path_remove_directory<S: Syscalls + Control + 'static>(
     env: Env<S>,
     fd: i32,
-    path: i32,
-    path_len: i32,
+    path: Pointer,
+    path_len: GuestSize,
 ) -> Result<i32, RuntimeError> {
     unlink(env, fd, path, path_len, AtFlags::AT_REMOVEDIR).await
 }
@@ -211,8 +213,8 @@ pub(crate) async fn path_remove_directory<S: Syscalls + Control + 'static>(
 pub(crate) async fn path_unlink_file<S: Syscalls + Control + 'static>(
     env: Env<S>,
     fd: i32,
-    path: i32,
-    path_len: i32,
+    path: Pointer,
+    path_len: GuestSize,
 ) -> Result<i32, RuntimeError> {
     unlink(env, fd, path, path_len, AtFlags(0)).await
 }
@@ -220,8 +222,8 @@ pub(crate) async fn path_unlink_file<S: Syscalls + Control + 'static>(
 async fn unlink<S: Syscalls + Control + 'static>(
     env: Env<S>,
     fd: i32,
-    path: i32,
-    path_len: i32,
+    path: Pointer,
+    path_len: GuestSize,
     flags: AtFlags,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
@@ -246,9 +248,9 @@ pub(crate) async fn path_filestat_get<S: Syscalls + Control + 'static>(
     env: Env<S>,
     fd: i32,
     flags: i32,
-    path: i32,
-    path_len: i32,
-    out: i32,
+    path: Pointer,
+    path_len: GuestSize,
+    out: Pointer,
 ) -> Result<i32, RuntimeError> {
     filestat_get(env, fd, flags, path, path_len, out, false).await
 }
@@ -258,9 +260,9 @@ pub(crate) async fn snapshot0_path_filestat_get<S: Syscalls + Control + 'static>
     env: Env<S>,
     fd: i32,
     flags: i32,
-    path: i32,
-    path_len: i32,
-    out: i32,
+    path: Pointer,
+    path_len: GuestSize,
+    out: Pointer,
 ) -> Result<i32, RuntimeError> {
     filestat_get(env, fd, flags, path, path_len, out, true).await
 }
@@ -271,9 +273,9 @@ async fn filestat_get<S: Syscalls + Control + 'static>(
     env: Env<S>,
     fd: i32,
     lookup: i32,
-    path: i32,
-    path_len: i32,
-    out: i32,
+    path: Pointer,
+    path_len: GuestSize,
+    out: Pointer,
     snapshot0: bool,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
@@ -292,8 +294,8 @@ pub(crate) async fn path_filestat_set_times<S: Syscalls + Control + 'static>(
     env: Env<S>,
     fd: i32,
     lookup: i32,
-    path: i32,
-    path_len: i32,
+    path: Pointer,
+    path_len: GuestSize,
     atim: i64,
     mtim: i64,
     fst_flags: i32,
@@ -328,11 +330,11 @@ pub(crate) async fn path_link<S: Syscalls + Control + 'static>(
     env: Env<S>,
     old_fd: i32,
     old_lookup: i32,
-    old_path: i32,
-    old_len: i32,
+    old_path: Pointer,
+    old_len: GuestSize,
     new_fd: i32,
-    new_path: i32,
-    new_len: i32,
+    new_path: Pointer,
+    new_len: GuestSize,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
         crate::rights::require(
@@ -361,11 +363,11 @@ pub(crate) async fn path_link<S: Syscalls + Control + 'static>(
 pub(crate) async fn path_rename<S: Syscalls + Control + 'static>(
     env: Env<S>,
     old_fd: i32,
-    old_path: i32,
-    old_len: i32,
+    old_path: Pointer,
+    old_len: GuestSize,
     new_fd: i32,
-    new_path: i32,
-    new_len: i32,
+    new_path: Pointer,
+    new_len: GuestSize,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
         crate::rights::require(
@@ -397,11 +399,11 @@ pub(crate) async fn path_rename<S: Syscalls + Control + 'static>(
 /// `symlinkat(target, fd, path)`: the target is stored as given, never resolved.
 pub(crate) async fn path_symlink<S: Syscalls + Control + 'static>(
     env: Env<S>,
-    target: i32,
-    target_len: i32,
+    target: Pointer,
+    target_len: GuestSize,
     fd: i32,
-    path: i32,
-    path_len: i32,
+    path: Pointer,
+    path_len: GuestSize,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
         crate::rights::require(frame, &[(wasixv2_abi::Fd(fd), Rights::PATH_SYMLINK)]).await?;
@@ -421,26 +423,33 @@ pub(crate) async fn path_symlink<S: Syscalls + Control + 'static>(
 pub(crate) async fn path_readlink<S: Syscalls + Control + 'static>(
     env: Env<S>,
     fd: i32,
-    path: i32,
-    path_len: i32,
-    buf: i32,
-    buf_len: i32,
-    used: i32,
+    path: Pointer,
+    path_len: GuestSize,
+    buf: Pointer,
+    buf_len: GuestSize,
+    used: Pointer,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
         crate::rights::require(frame, &[(wasixv2_abi::Fd(fd), Rights::PATH_READLINK)]).await?;
         let path = path_arg(frame, path, path_len).await?;
+        let scratch = frame.mem.alloc_zeroed(4096)?;
         let n = frame
             .syscalls
             .readlinkat(
                 &frame.caller(),
                 Fd(fd),
                 path,
-                wasixv2_abi::GuestPtrMut::new(buf as u32),
-                buf_len.max(0),
+                wasixv2_abi::GuestPtrMut::new(scratch.addr),
+                scratch.len as i32,
             )
             .await?;
-        frame.write(used as u32, &(n as u32)).await
+        if n as u64 >= buf_len.0 {
+            return shim::fail(Errno::OVERFLOW);
+        }
+        let bytes = frame.mem.take_bytes(scratch, n as usize);
+        frame.check_range(buf, bytes.len() as u64).await?;
+        frame.write_bytes(buf.narrow()?, &bytes).await?;
+        frame.write_size(used, n as u64).await
     })
     .await
 }
@@ -450,32 +459,36 @@ pub(crate) async fn path_readlink<S: Syscalls + Control + 'static>(
 /// `len`, so wasix-libc's `getcwd(NULL, 0)` allocates enough and gets a terminated string.
 pub(crate) async fn getcwd<S: Syscalls + Control + 'static>(
     env: Env<S>,
-    buf: i32,
-    len: i32,
+    buf: Pointer,
+    len: Pointer,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
-        let size: u32 = frame.read(len as u32).await?;
+        let size = frame.read_size(len).await?;
         let scratch = frame.mem.alloc_zeroed(4096)?;
         let n = frame.syscalls.getcwd(&frame.caller(), scratch).await?;
-        // The kernel counts the NUL.
         let cwd = frame.mem.take_bytes(scratch, n.saturating_sub(1) as usize);
-        let needed = cwd.len() as u32 + 1;
-        if size < needed {
-            frame.write(len as u32, &needed).await?;
+        let needed = cwd.len() as u64;
+        frame.write_size(len, needed).await?;
+        if needed > size {
             return shim::fail(Errno::RANGE);
         }
-        let mut terminated = cwd;
-        terminated.push(0);
-        frame.write_bytes(buf as u32, &terminated).await?;
-        frame.write(len as u32, &(needed - 1)).await
+        if buf.0 == 0 || size == 0 {
+            return shim::fail(Errno::INVAL);
+        }
+        frame.check_range(buf, needed).await?;
+        frame.write_bytes(buf.narrow()?, &cwd).await?;
+        if needed < size {
+            frame.write(buf.offset(needed)?.narrow()?, &0u8).await?;
+        }
+        Ok(())
     })
     .await
 }
 
 pub(crate) async fn chdir<S: Syscalls + Control + 'static>(
     env: Env<S>,
-    path: i32,
-    path_len: i32,
+    path: Pointer,
+    path_len: GuestSize,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
         let path = path_arg(frame, path, path_len).await?;

@@ -5,6 +5,8 @@
 //! a clock with a timeout of 0 never fires (wasix-libc asks for 1 to mean "now"), and only
 //! the realtime and monotonic clocks can be waited on.
 
+use crate::abi::{GuestSize, Pointer};
+
 use std::time::Duration;
 
 use wasixv2_abi::{
@@ -342,17 +344,17 @@ fn clock_event(sub: &Sub) -> Event {
 /// One `poll_oneoff` over subscriptions of layout `L`.
 async fn poll_oneoff<S, L>(
     env: Env<S>,
-    subs_ptr: i32,
-    out: i32,
-    nsubs: i32,
-    nevents: i32,
+    subs_ptr: Pointer,
+    out: Pointer,
+    nsubs: Pointer,
+    nevents: Pointer,
 ) -> Result<i32, RuntimeError>
 where
     S: Syscalls + Control + 'static,
     L: SubscriptionLayout,
 {
     shim::errno(&env, async |frame| {
-        let nsubs = nsubs as u32;
+        let nsubs = nsubs.0;
         if nsubs == 0 {
             return shim::fail(Errno::INVAL);
         }
@@ -360,15 +362,22 @@ where
             .instance()
             .limits
             .max_poll_subscriptions
-            .is_some_and(|max| nsubs > max)
+            .is_some_and(|max| nsubs > u64::from(max))
         {
             return shim::fail(Errno::TOOBIG);
         }
+        frame
+            .check_range(
+                subs_ptr,
+                nsubs.checked_mul(L::SIZE as u64).ok_or(Errno::OVERFLOW)?,
+            )
+            .await?;
         let mut subs = Vec::new();
         for i in 0..nsubs {
-            let addr = (subs_ptr as u32).wrapping_add(i * L::SIZE as u32);
+            let addr = subs_ptr.offset(i * L::SIZE as u64)?.narrow()?;
             subs.push(frame.read::<L>(addr).await?.sub());
         }
+        frame.write_size(nevents, 0).await?;
         let mut deadlines = Vec::with_capacity(subs.len());
         for sub in &subs {
             deadlines.push(match sub.wait {
@@ -460,21 +469,22 @@ where
         {
             events.push(clock_event(&subs[first]));
         }
+        frame.check_range(out, nsubs * Event::SIZE as u64).await?;
         for (i, event) in events.iter().enumerate() {
-            let addr = (out as u32).wrapping_add((i * Event::SIZE) as u32);
+            let addr = out.offset((i * Event::SIZE) as u64)?.narrow()?;
             frame.write(addr, event).await?;
         }
-        frame.write(nevents as u32, &(events.len() as u32)).await
+        frame.write_size(nevents, events.len() as u64).await
     })
     .await
 }
 
 pub(crate) async fn poll_oneoff_preview1<S: Syscalls + Control + 'static>(
     env: Env<S>,
-    subs: i32,
-    out: i32,
-    nsubs: i32,
-    nevents: i32,
+    subs: Pointer,
+    out: Pointer,
+    nsubs: GuestSize,
+    nevents: Pointer,
 ) -> Result<i32, RuntimeError> {
     poll_oneoff::<S, Subscription>(env, subs, out, nsubs, nevents).await
 }
@@ -482,10 +492,10 @@ pub(crate) async fn poll_oneoff_preview1<S: Syscalls + Control + 'static>(
 /// `wasi_unstable`'s, whose clock subscriptions carry an identifier of their own.
 pub(crate) async fn poll_oneoff_snapshot0<S: Syscalls + Control + 'static>(
     env: Env<S>,
-    subs: i32,
-    out: i32,
-    nsubs: i32,
-    nevents: i32,
+    subs: Pointer,
+    out: Pointer,
+    nsubs: Pointer,
+    nevents: Pointer,
 ) -> Result<i32, RuntimeError> {
     poll_oneoff::<S, Snapshot0Subscription>(env, subs, out, nsubs, nevents).await
 }

@@ -10,6 +10,8 @@
 //! flag's value tested against the local flags (where it is `NOFLSH`), so it says nothing about
 //! the terminal, and v1 never applied it. It round-trips for `tcgetattr` and nothing more.
 
+use crate::abi::Pointer;
+
 use std::sync::Mutex;
 
 use wasixv2_abi::{Fd, IoctlRequest, Termios, TermiosLflag, Winsize};
@@ -162,7 +164,7 @@ fn tty_state(ttys: [bool; 3], winsize: Option<&Winsize>, modes: Modes) -> Tty {
 
 pub(crate) async fn tty_get<S: Syscalls + Control + 'static>(
     env: Env<S>,
-    out: i32,
+    out: Pointer,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
         frame.bind_descriptors(&[Fd(0), Fd(1), Fd(2)])?;
@@ -173,18 +175,18 @@ pub(crate) async fn tty_get<S: Syscalls + Control + 'static>(
             None => kept,
         };
         let tty = tty_state(ttys, first.as_ref().map(|(_, ws)| ws), modes);
-        frame.write(out as u32, &tty).await
+        frame.write(out.narrow()?, &tty).await
     })
     .await
 }
 
 pub(crate) async fn tty_set<S: Syscalls + Control + 'static>(
     env: Env<S>,
-    state: i32,
+    state: Pointer,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
         frame.bind_descriptors(&[Fd(0), Fd(1), Fd(2)])?;
-        let tty: Tty = frame.read(state as u32).await?;
+        let tty: Tty = frame.read(state.narrow()?).await?;
         let modes = Modes {
             echo: tty.echo == Bool::TRUE,
             line_buffered: tty.line_buffered == Bool::TRUE,

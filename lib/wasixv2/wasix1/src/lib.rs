@@ -1,5 +1,5 @@
-//! The WASIX v1 guest ABI (`wasi_snapshot_preview1`, `wasi_unstable`, `wasix_32v1` and `wasi`)
-//! served by the WASIX v2 kernel.
+//! The WASIX v1 guest ABI (`wasi_snapshot_preview1`, `wasi_unstable`, `wasix_32v1`,
+//! nominal `wasix_64v1` and `wasi`) over memory32, served by the WASIX v2 kernel.
 //!
 //! [`Wasix1`] is a second [`Abi`] of the execution layer. Its import shims are clients of the
 //! [`Syscalls`] trait, like the generated `wasixv2` ones, so the kernel never learns about v1 and
@@ -30,6 +30,7 @@
 //!   and stdout. No prebuilt wasm is checked in.
 
 pub mod abi;
+mod binding;
 mod calls;
 pub mod errno;
 pub mod http;
@@ -39,6 +40,7 @@ pub mod memory;
 pub mod process;
 mod rights;
 pub mod shim;
+mod vectors;
 
 use std::sync::{Arc, RwLock};
 
@@ -120,14 +122,14 @@ where
     fn matches(&self, module: &Module) -> bool {
         matches!(
             module_flavor(module),
-            Some(V1Flavor::Wasm32 | V1Flavor::HttpClient)
+            Some(V1Flavor::Wasm32 | V1Flavor::Wasm64 | V1Flavor::HttpClient)
         )
     }
 
     fn matches_image(&self, image: &[u8]) -> bool {
         matches!(
             is_wasix1_module(image),
-            Some(V1Flavor::Wasm32 | V1Flavor::HttpClient)
+            Some(V1Flavor::Wasm32 | V1Flavor::Wasm64 | V1Flavor::HttpClient)
         )
     }
 
@@ -176,44 +178,56 @@ where
 pub enum V1Flavor {
     /// wasm32, served by [`Wasix1`].
     Wasm32,
-    /// `wasix_64v1`: not supported, since the kernel's address spaces are 32-bit.
+    /// `wasix_64v1` arguments and layouts over memory32.
     Wasm64,
+    /// An actual Memory64 linear memory, unsupported by this execution profile.
+    Memory64,
     /// Imports the historical `wasix_http_client_v1` extension, served by an embedder provider.
     HttpClient,
 }
 
 impl V1Flavor {
-    /// Why the flavour cannot run, or `None` for the supported wasm32 flavours.
+    /// Why the flavour cannot run, or `None` for supported memory32 profiles.
     pub fn unsupported_reason(self) -> Option<&'static str> {
         match self {
-            Self::Wasm32 | Self::HttpClient => None,
-            Self::Wasm64 => Some("wasm64 WASIX v1 modules are not supported"),
+            Self::Wasm32 | Self::Wasm64 | Self::HttpClient => None,
+            Self::Memory64 => Some("Memory64 linear memories are not supported"),
         }
     }
 }
 
-/// Whether `wasm` is a WASIX v1 (or plain WASI) module, and which kind. Only the import
-/// section is parsed; a malformed module, a `wasixv2` module or one without v1 imports is
-/// `None`.
+/// Whether `wasm` is a WASIX v1 (or plain WASI) module, and which kind. Its import
+/// and memory headers are parsed before code; malformed headers, a `wasixv2` module or
+/// one without v1 imports produce `None`.
 pub fn is_wasix1_module(wasm: &[u8]) -> Option<V1Flavor> {
-    use wasmparser::{Parser, Payload};
+    use wasmparser::{Parser, Payload, TypeRef};
 
+    let mut namespaces = None;
+    let mut memory64 = false;
     for payload in Parser::new(0).parse_all(wasm) {
         match payload {
             Ok(Payload::ImportSection(imports)) => {
-                let modules = imports
-                    .into_imports()
-                    .filter_map(Result::ok)
-                    .map(|import| import.module.to_owned());
-                return flavor(modules);
+                let mut modules = Vec::new();
+                for import in imports.into_imports() {
+                    let import = import.ok()?;
+                    if let TypeRef::Memory(memory) = import.ty {
+                        memory64 |= memory.memory64;
+                    }
+                    modules.push(import.module.to_owned());
+                }
+                namespaces = flavor(modules.into_iter());
             }
-            Ok(Payload::FunctionSection(_) | Payload::CodeSectionStart { .. }) | Err(_) => {
-                return None;
+            Ok(Payload::MemorySection(memories)) => {
+                for memory in memories {
+                    memory64 |= memory.ok()?.memory64;
+                }
             }
+            Ok(Payload::CodeSectionStart { .. }) => break,
+            Err(_) => return None,
             Ok(_) => {}
         }
     }
-    None
+    namespaces.map(|flavor| if memory64 { V1Flavor::Memory64 } else { flavor })
 }
 
 /// [`is_wasix1_module`] for a compiled module, e.g. one deserialized from an artifact.
@@ -276,6 +290,24 @@ mod tests {
         );
         assert_eq!(flavor(modules(&["env"])), None);
         assert_eq!(flavor(modules(&["canonical_abi"])), None);
+    }
+
+    #[test]
+    fn nominal64_namespaces_do_not_imply_memory64() {
+        for (memory, expected) in [
+            ("(memory (export \"memory\") 1)", V1Flavor::Wasm64),
+            ("(memory (export \"memory\") i64 1)", V1Flavor::Memory64),
+            (
+                "(import \"env\" \"memory\" (memory i64 1))",
+                V1Flavor::Memory64,
+            ),
+        ] {
+            let bytes = wat::parse_str(format!(
+                "(module (import \"wasix_64v1\" \"proc_exit\" (func (param i32))) {memory})"
+            ))
+            .unwrap();
+            assert_eq!(is_wasix1_module(&bytes), Some(expected));
+        }
     }
 
     #[test]

@@ -16,7 +16,7 @@
 //! result in v1 numbering. A body must not make further v2 calls after one failed, and must not
 //! write guest-visible results before the last call that can be interrupted.
 
-use std::{cell::RefCell, sync::Arc};
+use std::{cell::RefCell, ops::Deref, sync::Arc};
 
 use wasixv2_abi::{GuestLayout, GuestPtrMut};
 use wasixv2_exec::{AbiInstance, ExecEnv, GuestMemory, Outcome, complete};
@@ -24,7 +24,7 @@ use wasixv2_syscalls::{Caller, Control, SysErr, Syscalls, TaskId, read_value, wr
 use wasmer::{AsyncFunctionEnvMut, RuntimeError};
 
 use crate::{
-    abi::{self, Errno},
+    abi::{self, AbiWidth, Errno, Pointer},
     errno::{Error, V1Result},
     instance::Wasix1Instance,
     memory::CompatMemory,
@@ -32,7 +32,28 @@ use crate::{
 };
 
 /// The environment every v1 import receives.
-pub type Env<S> = AsyncFunctionEnvMut<ExecEnv<S>>;
+pub struct Env<S: 'static> {
+    inner: AsyncFunctionEnvMut<ExecEnv<S>>,
+    width: AbiWidth,
+}
+
+impl<S: 'static> Env<S> {
+    pub(crate) fn new(inner: AsyncFunctionEnvMut<ExecEnv<S>>, width: AbiWidth) -> Self {
+        Self { inner, width }
+    }
+
+    pub(crate) fn width(&self) -> AbiWidth {
+        self.width
+    }
+}
+
+impl<S: 'static> Deref for Env<S> {
+    type Target = AsyncFunctionEnvMut<ExecEnv<S>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
 
 /// What one import call works with.
 pub struct Frame<'a, S: 'static> {
@@ -49,6 +70,54 @@ pub struct Frame<'a, S: 'static> {
 }
 
 impl<'a, S: Syscalls + Control + 'static> Frame<'a, S> {
+    pub fn width(&self) -> AbiWidth {
+        self.env.width
+    }
+
+    pub fn raw_pointer(&self, pointer: Pointer) -> wasixv2_syscalls::RawGuestPointer {
+        use wasixv2_syscalls::GuestWordWidth;
+        let word = match self.width() {
+            AbiWidth::Wasm32 => GuestWordWidth::Bits32,
+            AbiWidth::Wasm64 => GuestWordWidth::Bits64,
+        };
+        wasixv2_syscalls::RawGuestPointer::new(pointer.0, word)
+    }
+
+    /// Checks the complete legacy range, including the address of an empty range.
+    pub async fn check_range(&self, pointer: Pointer, len: u64) -> V1Result<()> {
+        use wasixv2_syscalls::UserMemory;
+        let end = pointer.0.checked_add(len).ok_or(Errno::OVERFLOW)?;
+        if end > self.mem.guest().size().await {
+            return fail(Errno::MEMVIOLATION);
+        }
+        Ok(())
+    }
+
+    /// Address for an actual nonempty access. Empty ranges can remain raw one-past.
+    pub async fn range(&self, pointer: Pointer, len: u64) -> V1Result<u32> {
+        self.check_range(pointer, len).await?;
+        pointer.narrow()
+    }
+
+    pub async fn read_size(&self, pointer: Pointer) -> V1Result<u64> {
+        let addr = pointer.narrow()?;
+        match self.width() {
+            AbiWidth::Wasm32 => self.read::<u32>(addr).await.map(u64::from),
+            AbiWidth::Wasm64 => self.read::<u64>(addr).await,
+        }
+    }
+
+    pub async fn write_size(&self, pointer: Pointer, value: u64) -> V1Result<()> {
+        let addr = pointer.narrow()?;
+        match self.width() {
+            AbiWidth::Wasm32 => {
+                let value = u32::try_from(value).map_err(|_| Errno::OVERFLOW)?;
+                self.write(addr, &value).await
+            }
+            AbiWidth::Wasm64 => self.write(addr, &value).await,
+        }
+    }
+
     /// The caller to pass to every v2 call: this task, with this call's memory.
     pub fn caller(&self) -> Caller<'_> {
         let mut caller = Caller::new(self.task, &self.mem);
@@ -156,18 +225,26 @@ impl<'a, S: Syscalls + Control + 'static> Frame<'a, S> {
 
     /// Reads a `T` from guest memory (never scratch) at `addr`.
     pub async fn read<T: GuestLayout>(&self, addr: u32) -> V1Result<T> {
-        Ok(read_value(self.mem.guest(), wasixv2_abi::GuestPtr::new(addr)).await?)
+        read_value(self.mem.guest(), wasixv2_abi::GuestPtr::new(addr))
+            .await
+            .map_err(|_| Errno::MEMVIOLATION.into())
     }
 
     /// Writes `value` to guest memory (never scratch) at `addr`.
     pub async fn write<T: GuestLayout>(&self, addr: u32, value: &T) -> V1Result<()> {
-        Ok(write_value(self.mem.guest(), GuestPtrMut::new(addr), value).await?)
+        write_value(self.mem.guest(), GuestPtrMut::new(addr), value)
+            .await
+            .map_err(|_| Errno::MEMVIOLATION.into())
     }
 
     /// Writes `bytes` to guest memory at `addr`.
     pub async fn write_bytes(&self, addr: u32, bytes: &[u8]) -> V1Result<()> {
         use wasixv2_syscalls::UserMemory;
-        Ok(self.mem.guest().write(addr, bytes).await?)
+        self.mem
+            .guest()
+            .write(addr, bytes)
+            .await
+            .map_err(|_| Errno::MEMVIOLATION.into())
     }
 }
 

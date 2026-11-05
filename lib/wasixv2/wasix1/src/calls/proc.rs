@@ -19,6 +19,8 @@
 //! A vfork child runs in its parent's instance, so its compat state is registered by its pid
 //! when it starts and dropped when the parent resumes.
 
+use crate::abi::{AbiWidth, GuestSize, Pointer, proc::ProcSpawnFdOp64};
+
 use std::sync::{
     Arc,
     atomic::{AtomicBool, Ordering},
@@ -93,23 +95,36 @@ const MAX_STRING: usize = 32 * 4096;
 /// `len` bytes of guest memory at `addr`.
 pub(crate) async fn read_bytes<S: Syscalls + Control + 'static>(
     frame: &Frame<'_, S>,
-    addr: u32,
-    len: u32,
+    addr: impl Into<Pointer>,
+    len: impl Into<GuestSize>,
 ) -> V1Result<Vec<u8>> {
-    let mut bytes = vec![0; len as usize];
-    frame.mem.guest().read(addr, &mut bytes).await?;
+    let (addr, len) = (addr.into(), len.into());
+    frame.check_range(addr, len.0).await?;
+    if len.0 == 0 {
+        return Ok(Vec::new());
+    }
+    let len = usize::try_from(len.0).map_err(|_| Errno::OVERFLOW)?;
+    let mut bytes = Vec::new();
+    bytes.try_reserve_exact(len).map_err(|_| Errno::NOMEM)?;
+    bytes.resize(len, 0);
+    frame
+        .mem
+        .guest()
+        .read(addr.narrow()?, &mut bytes)
+        .await
+        .map_err(|_| Errno::MEMVIOLATION)?;
     Ok(bytes)
 }
 
 /// The NUL-terminated string at `addr`.
 async fn read_cstr<S: Syscalls + Control + 'static>(
     frame: &Frame<'_, S>,
-    addr: u32,
+    addr: Pointer,
 ) -> V1Result<Vec<u8>> {
     const CHUNK: u64 = 256;
     let size = frame.mem.guest().size().await;
     let mut out = Vec::new();
-    let mut at = u64::from(addr);
+    let mut at = addr.0;
     while out.len() <= MAX_STRING {
         let len = CHUNK.min(size.saturating_sub(at));
         if len == 0 {
@@ -130,13 +145,19 @@ async fn read_cstr<S: Syscalls + Control + 'static>(
 /// `count` strings through the pointer array at `ptrs`.
 async fn read_cstr_array<S: Syscalls + Control + 'static>(
     frame: &Frame<'_, S>,
-    ptrs: u32,
-    count: u32,
+    ptrs: Pointer,
+    count: GuestSize,
 ) -> V1Result<Vec<Vec<u8>>> {
-    let mut strings = Vec::with_capacity(count.min(4096) as usize);
-    for i in 0..count {
-        let ptr: u32 = frame.read(ptrs.wrapping_add(4 * i)).await?;
-        strings.push(read_cstr(frame, ptr).await?);
+    if ptrs.0 == 0 || count.0 == 0 {
+        return Ok(Vec::new());
+    }
+    let word = u64::from(frame.width().bytes());
+    let len = count.0.checked_mul(word).ok_or(Errno::OVERFLOW)?;
+    frame.check_range(ptrs, len).await?;
+    let mut strings = Vec::with_capacity(count.0.min(4096) as usize);
+    for i in 0..count.0 {
+        let ptr = frame.read_size(ptrs.offset(word * i)?).await?;
+        strings.push(read_cstr(frame, Pointer(ptr)).await?);
     }
     Ok(strings)
 }
@@ -144,12 +165,12 @@ async fn read_cstr_array<S: Syscalls + Control + 'static>(
 /// The string `(ptr, len)`, or `None` for a NULL `ptr`.
 async fn read_optional<S: Syscalls + Control + 'static>(
     frame: &Frame<'_, S>,
-    ptr: i32,
-    len: i32,
+    ptr: Pointer,
+    len: GuestSize,
 ) -> V1Result<Option<Vec<u8>>> {
-    match ptr {
+    match ptr.0 {
         0 => Ok(None),
-        ptr => Ok(Some(read_bytes(frame, ptr as u32, len as u32).await?)),
+        ptr => Ok(Some(read_bytes(frame, Pointer(ptr), len).await?)),
     }
 }
 
@@ -244,13 +265,13 @@ impl Command {
 #[allow(clippy::too_many_arguments)]
 async fn command_from_lists<S: Syscalls + Control + 'static>(
     frame: &Frame<'_, S>,
-    name: (i32, i32),
-    args: (i32, i32),
-    envs: (i32, i32),
+    name: (Pointer, GuestSize),
+    args: (Pointer, GuestSize),
+    envs: (Pointer, GuestSize),
     search: bool,
-    path: (i32, i32),
+    path: (Pointer, GuestSize),
 ) -> V1Result<Command> {
-    let name = read_bytes(frame, name.0 as u32, name.1 as u32).await?;
+    let name = read_bytes(frame, name.0, name.1).await?;
     let args = split_args(
         &read_optional(frame, args.0, args.1)
             .await?
@@ -267,18 +288,18 @@ async fn command_from_lists<S: Syscalls + Control + 'static>(
 /// The same with argument and environment arrays (`proc_exec4`, `proc_spawn3`).
 async fn command_from_arrays<S: Syscalls + Control + 'static>(
     frame: &Frame<'_, S>,
-    name: (i32, i32),
-    args: (i32, i32),
-    envs: (i32, i32),
+    name: (Pointer, GuestSize),
+    args: (Pointer, GuestSize),
+    envs: (Pointer, GuestSize),
     search: bool,
-    path: (i32, i32),
+    path: (Pointer, GuestSize),
 ) -> V1Result<Command> {
-    let name = read_bytes(frame, name.0 as u32, name.1 as u32).await?;
-    let args = read_cstr_array(frame, args.0 as u32, args.1 as u32).await?;
-    let env = match envs.0 {
+    let name = read_bytes(frame, name.0, name.1).await?;
+    let args = read_cstr_array(frame, args.0, args.1).await?;
+    let env = match envs.0.0 {
         0 => None,
         ptrs => Some(check_env(
-            read_cstr_array(frame, ptrs as u32, envs.1 as u32).await?,
+            read_cstr_array(frame, Pointer(ptrs), envs.1).await?,
         )?),
     };
     let path = read_optional(frame, path.0, path.1).await?;
@@ -383,19 +404,19 @@ async fn exec_or_exit<S: Syscalls + Control + 'static>(
 /// `proc_exec(name, args)`: never returns, except in a vfork parent.
 pub(crate) async fn proc_exec<S: Syscalls + Control + 'static>(
     env: Env<S>,
-    name: i32,
-    name_len: i32,
-    args: i32,
-    args_len: i32,
+    name: Pointer,
+    name_len: GuestSize,
+    args: Pointer,
+    args_len: GuestSize,
 ) -> Result<(), RuntimeError> {
     shim::void(&env, "proc_exec", async |frame| {
         let command = command_from_lists(
             frame,
             (name, name_len),
             (args, args_len),
-            (0, 0),
+            (Pointer::NULL, GuestSize(0)),
             false,
-            (0, 0),
+            (Pointer::NULL, GuestSize(0)),
         )
         .await?;
         exec_or_exit(frame, &command).await
@@ -406,12 +427,12 @@ pub(crate) async fn proc_exec<S: Syscalls + Control + 'static>(
 /// `proc_exec2(name, args, envs)`.
 pub(crate) async fn proc_exec2<S: Syscalls + Control + 'static>(
     env: Env<S>,
-    name: i32,
-    name_len: i32,
-    args: i32,
-    args_len: i32,
-    envs: i32,
-    envs_len: i32,
+    name: Pointer,
+    name_len: GuestSize,
+    args: Pointer,
+    args_len: GuestSize,
+    envs: Pointer,
+    envs_len: GuestSize,
 ) -> Result<(), RuntimeError> {
     shim::void(&env, "proc_exec2", async |frame| {
         let command = command_from_lists(
@@ -420,7 +441,7 @@ pub(crate) async fn proc_exec2<S: Syscalls + Control + 'static>(
             (args, args_len),
             (envs, envs_len),
             false,
-            (0, 0),
+            (Pointer::NULL, GuestSize(0)),
         )
         .await?;
         exec_or_exit(frame, &command).await
@@ -433,15 +454,15 @@ pub(crate) async fn proc_exec2<S: Syscalls + Control + 'static>(
 #[allow(clippy::too_many_arguments)]
 pub(crate) async fn proc_exec3<S: Syscalls + Control + 'static>(
     env: Env<S>,
-    name: i32,
-    name_len: i32,
-    args: i32,
-    args_len: i32,
-    envs: i32,
-    envs_len: i32,
+    name: Pointer,
+    name_len: GuestSize,
+    args: Pointer,
+    args_len: GuestSize,
+    envs: Pointer,
+    envs_len: GuestSize,
     search_path: i32,
-    path: i32,
-    path_len: i32,
+    path: Pointer,
+    path_len: GuestSize,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
         let command = command_from_lists(
@@ -462,15 +483,15 @@ pub(crate) async fn proc_exec3<S: Syscalls + Control + 'static>(
 #[allow(clippy::too_many_arguments)]
 pub(crate) async fn proc_exec4<S: Syscalls + Control + 'static>(
     env: Env<S>,
-    name: i32,
-    name_len: i32,
-    args: i32,
-    args_len: i32,
-    envs: i32,
-    envs_len: i32,
+    name: Pointer,
+    name_len: GuestSize,
+    args: Pointer,
+    args_len: GuestSize,
+    envs: Pointer,
+    envs_len: GuestSize,
     search_path: i32,
-    path: i32,
-    path_len: i32,
+    path: Pointer,
+    path_len: GuestSize,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
         let command = command_from_arrays(
@@ -566,7 +587,7 @@ fn start_vfork_child<S: Syscalls + Control + 'static>(
 /// 0 to the child; the parent finds the child's pid at `pid_out` after its longjmp.
 pub(crate) async fn proc_fork_env<S: Syscalls + Control + 'static>(
     env: Env<S>,
-    pid_out: i32,
+    pid_out: Pointer,
 ) -> Result<i32, RuntimeError> {
     if in_vfork_child(&env).await? {
         return Ok(i32::from(Errno::NOTSUP.0));
@@ -577,7 +598,7 @@ pub(crate) async fn proc_fork_env<S: Syscalls + Control + 'static>(
     };
     shim::errno(&env, async |frame| {
         let (_, pid) = start_vfork_child(frame, &parent, None);
-        frame.write(pid_out as u32, &pid).await
+        frame.write(pid_out.narrow()?, &pid).await
     })
     .await
 }
@@ -588,11 +609,14 @@ pub(crate) async fn proc_fork_env<S: Syscalls + Control + 'static>(
 pub(crate) async fn proc_fork<S: Syscalls + Control + 'static>(
     env: Env<S>,
     copy_memory: i32,
-    pid_out: i32,
+    pid_out: Pointer,
 ) -> Result<i32, RuntimeError> {
-    let pid_out = pid_out as u32;
-    let write_pid =
-        async |pid: u32| shim::errno(&env, async |frame| frame.write(pid_out, &pid).await).await;
+    let write_pid = async |pid: u32| {
+        shim::errno(&env, async |frame| {
+            frame.write(pid_out.narrow()?, &pid).await
+        })
+        .await
+    };
     match import::resumed(&env).await? {
         None => {}
         // The fork parent, with the child running on its own copy.
@@ -616,7 +640,7 @@ pub(crate) async fn proc_fork<S: Syscalls + Control + 'static>(
                 if let Some(state) = &state {
                     frame.instance().adopt(process, state.clone());
                 }
-                frame.write(pid_out, &0u32).await
+                frame.write(pid_out.narrow()?, &0u32).await
             })
             .await;
         }
@@ -630,7 +654,7 @@ pub(crate) async fn proc_fork<S: Syscalls + Control + 'static>(
             };
             return shim::errno(&env, async |frame| {
                 start_vfork_child(frame, &parent, Some(point));
-                frame.write(pid_out, &0u32).await
+                frame.write(pid_out.narrow()?, &0u32).await
             })
             .await;
         }
@@ -652,7 +676,12 @@ pub(crate) async fn proc_fork<S: Syscalls + Control + 'static>(
         return Ok(i32::from(Errno::NOTSUP.0));
     }
     // Save the vfork point under `pid_out`, an address unique to this call.
-    import::save(&env, pid_out).await?;
+    let slot = match shim::call(&env, async |_| pid_out.narrow()).await? {
+        Done::Ok(slot) => slot,
+        Done::Err(errno) => return Ok(i32::from(errno.0)),
+        _ => return Err(RuntimeError::new("proc_fork changed tasks before save")),
+    };
+    import::save(&env, slot).await?;
     Ok(0)
 }
 
@@ -697,15 +726,55 @@ fn open_flags(op: &ProcSpawnFdOp) -> OpenFlags {
     flags
 }
 
+/// The path fields retain the import's word width until an action actually uses them.
+struct FileAction {
+    record: ProcSpawnFdOp,
+    path: Pointer,
+    path_len: GuestSize,
+}
+
+impl From<ProcSpawnFdOp> for FileAction {
+    fn from(record: ProcSpawnFdOp) -> Self {
+        Self {
+            path: Pointer::from(record.path),
+            path_len: GuestSize::from(record.path_len),
+            record,
+        }
+    }
+}
+
+impl From<ProcSpawnFdOp64> for FileAction {
+    fn from(record: ProcSpawnFdOp64) -> Self {
+        Self {
+            path: Pointer(record.path),
+            path_len: GuestSize(record.path_len),
+            record: ProcSpawnFdOp {
+                cmd: record.cmd,
+                fd: record.fd,
+                src_fd: record.src_fd,
+                path: 0,
+                path_len: 0,
+                dirflags: record.dirflags,
+                oflags: record.oflags,
+                fs_rights_base: record.fs_rights_base,
+                fs_rights_inheriting: record.fs_rights_inheriting,
+                fdflags: record.fdflags,
+                fdflagsext: record.fdflagsext,
+            },
+        }
+    }
+}
+
 /// Runs one file action as the spawned child, as musl's `posix_spawn` child does.
 async fn file_action<S: Syscalls + Control + 'static>(
     frame: &Frame<'_, S>,
-    op: &ProcSpawnFdOp,
+    action: &FileAction,
 ) -> V1Result<()> {
+    let op = &action.record;
     let caller = frame.caller();
     let fd = Fd(op.fd as i32);
     let path = async || -> V1Result<_> {
-        let path = read_bytes(frame, op.path, op.path_len).await?;
+        let path = read_bytes(frame, action.path, action.path_len).await?;
         Ok(frame.mem.alloc_cstr(&path)?)
     };
     match op.cmd {
@@ -760,24 +829,48 @@ async fn file_action<S: Syscalls + Control + 'static>(
 /// What `proc_spawn*` does in the child before `execve`.
 struct Spawn {
     command: Command,
-    file_actions: Vec<ProcSpawnFdOp>,
+    file_actions: Vec<FileAction>,
     dispositions: Vec<SignalDisposition>,
 }
 
 async fn read_spawn<S: Syscalls + Control + 'static>(
     frame: &Frame<'_, S>,
     command: Command,
-    fd_ops: (i32, i32),
-    dispositions: (i32, i32),
+    fd_ops: (Pointer, GuestSize),
+    dispositions: (Pointer, GuestSize),
 ) -> V1Result<Spawn> {
+    let stride = match frame.width() {
+        AbiWidth::Wasm32 => ProcSpawnFdOp::SIZE,
+        AbiWidth::Wasm64 => ProcSpawnFdOp64::SIZE,
+    } as u64;
+    frame
+        .check_range(
+            fd_ops.0,
+            fd_ops.1.0.checked_mul(stride).ok_or(Errno::OVERFLOW)?,
+        )
+        .await?;
     let mut file_actions = Vec::new();
-    for i in 0..fd_ops.1 as u32 {
-        let addr = (fd_ops.0 as u32).wrapping_add(i * ProcSpawnFdOp::SIZE as u32);
-        file_actions.push(frame.read::<ProcSpawnFdOp>(addr).await?);
+    for i in 0..fd_ops.1.0 {
+        let addr = fd_ops.0.offset(i * stride)?.narrow()?;
+        file_actions.push(match frame.width() {
+            AbiWidth::Wasm32 => FileAction::from(frame.read::<ProcSpawnFdOp>(addr).await?),
+            AbiWidth::Wasm64 => FileAction::from(frame.read::<ProcSpawnFdOp64>(addr).await?),
+        });
     }
+    let stride = SignalDisposition::SIZE as u64;
+    frame
+        .check_range(
+            dispositions.0,
+            dispositions
+                .1
+                .0
+                .checked_mul(stride)
+                .ok_or(Errno::OVERFLOW)?,
+        )
+        .await?;
     let mut signals = Vec::new();
-    for i in 0..dispositions.1 as u32 {
-        let addr = (dispositions.0 as u32).wrapping_add(i * SignalDisposition::SIZE as u32);
+    for i in 0..dispositions.1.0 {
+        let addr = dispositions.0.offset(i * stride)?.narrow()?;
         signals.push(frame.read::<SignalDisposition>(addr).await?);
     }
     Ok(Spawn {
@@ -817,7 +910,7 @@ async fn spawn_child<S: Syscalls + Control + 'static>(
 async fn spawn<S: Syscalls + Control + 'static>(
     env: &Env<S>,
     read: impl AsyncFnOnce(&Frame<'_, S>) -> V1Result<Spawn>,
-    pid_out: i32,
+    pid_out: Pointer,
 ) -> Result<i32, RuntimeError> {
     let mut request = None;
     let mut read = Some(read);
@@ -849,7 +942,10 @@ async fn spawn<S: Syscalls + Control + 'static>(
     match done {
         // `execve` succeeded and the parent resumed.
         Done::Switched(_) => {
-            shim::errno(env, async |frame| frame.write(pid_out as u32, &pid).await).await
+            shim::errno(env, async |frame| {
+                frame.write(pid_out.narrow()?, &pid).await
+            })
+            .await
         }
         // Still the child: end it, which resumes the parent, and reap it.
         Done::Err(errno) => {
@@ -898,10 +994,10 @@ fn legacy_list(list: &[u8]) -> Vec<Vec<u8>> {
 
 async fn legacy_string<S: Syscalls + Control + 'static>(
     frame: &Frame<'_, S>,
-    ptr: i32,
-    len: i32,
+    ptr: Pointer,
+    len: GuestSize,
 ) -> V1Result<Vec<u8>> {
-    let bytes = read_bytes(frame, ptr as u32, len as u32).await?;
+    let bytes = read_bytes(frame, ptr, len).await?;
     if std::str::from_utf8(&bytes).is_err() {
         return shim::fail(Errno::INVAL);
     }
@@ -1008,19 +1104,19 @@ impl LegacyPipes {
 #[allow(clippy::too_many_arguments)]
 pub(crate) async fn proc_spawn<S: Syscalls + Control + 'static>(
     env: Env<S>,
-    name: i32,
-    name_len: i32,
+    name: Pointer,
+    name_len: GuestSize,
     chroot: i32,
-    args: i32,
-    args_len: i32,
-    preopen: i32,
-    preopen_len: i32,
+    args: Pointer,
+    args_len: GuestSize,
+    preopen: Pointer,
+    preopen_len: GuestSize,
     stdin: i32,
     stdout: i32,
     stderr: i32,
-    working_dir: i32,
-    working_dir_len: i32,
-    ret_handles: i32,
+    working_dir: Pointer,
+    working_dir_len: GuestSize,
+    ret_handles: Pointer,
 ) -> Result<i32, RuntimeError> {
     let mut pipes = LegacyPipes::default();
     let read = async |frame: &Frame<'_, S>| {
@@ -1036,7 +1132,7 @@ pub(crate) async fn proc_spawn<S: Syscalls + Control + 'static>(
         frame
             .mem
             .guest()
-            .read(ret_handles as u32, &mut output)
+            .read(ret_handles.narrow()?, &mut output)
             .await?;
         let command = Command {
             name,
@@ -1044,12 +1140,19 @@ pub(crate) async fn proc_spawn<S: Syscalls + Control + 'static>(
             env: None,
             path: None,
         };
-        let mut file_actions = pipes.stdio(frame, [stdin, stdout, stderr]).await?;
+        let mut file_actions: Vec<FileAction> = pipes
+            .stdio(frame, [stdin, stdout, stderr])
+            .await?
+            .into_iter()
+            .map(FileAction::from)
+            .collect();
         let mut chdir = ProcSpawnFdOp::ZERO;
         chdir.cmd = ProcSpawnFdOpName::CHDIR;
-        chdir.path = working_dir as u32;
-        chdir.path_len = cwd.len() as u32;
-        file_actions.push(chdir);
+        file_actions.push(FileAction {
+            record: chdir,
+            path: working_dir,
+            path_len: GuestSize(cwd.len() as u64),
+        });
         Ok(Spawn {
             command,
             file_actions,
@@ -1062,7 +1165,7 @@ pub(crate) async fn proc_spawn<S: Syscalls + Control + 'static>(
         pipes.close(frame, success).await;
         if success {
             frame
-                .write_bytes((ret_handles as u32).wrapping_add(4), &pipes.handles())
+                .write_bytes((ret_handles.narrow()?).wrapping_add(4), &pipes.handles())
                 .await?;
         }
         Ok(())
@@ -1079,20 +1182,20 @@ pub(crate) async fn proc_spawn<S: Syscalls + Control + 'static>(
 #[allow(clippy::too_many_arguments)]
 pub(crate) async fn proc_spawn2<S: Syscalls + Control + 'static>(
     env: Env<S>,
-    name: i32,
-    name_len: i32,
-    args: i32,
-    args_len: i32,
-    envs: i32,
-    envs_len: i32,
-    fd_ops: i32,
-    fd_ops_len: i32,
-    signals: i32,
-    signals_len: i32,
+    name: Pointer,
+    name_len: GuestSize,
+    args: Pointer,
+    args_len: GuestSize,
+    envs: Pointer,
+    envs_len: GuestSize,
+    fd_ops: Pointer,
+    fd_ops_len: GuestSize,
+    signals: Pointer,
+    signals_len: GuestSize,
     search_path: i32,
-    path: i32,
-    path_len: i32,
-    pid_out: i32,
+    path: Pointer,
+    path_len: GuestSize,
+    pid_out: Pointer,
 ) -> Result<i32, RuntimeError> {
     let read = async |frame: &Frame<'_, S>| {
         let command = command_from_lists(
@@ -1113,20 +1216,20 @@ pub(crate) async fn proc_spawn2<S: Syscalls + Control + 'static>(
 #[allow(clippy::too_many_arguments)]
 pub(crate) async fn proc_spawn3<S: Syscalls + Control + 'static>(
     env: Env<S>,
-    name: i32,
-    name_len: i32,
-    args: i32,
-    args_len: i32,
-    envs: i32,
-    envs_len: i32,
-    fd_ops: i32,
-    fd_ops_len: i32,
-    signals: i32,
-    signals_len: i32,
+    name: Pointer,
+    name_len: GuestSize,
+    args: Pointer,
+    args_len: GuestSize,
+    envs: Pointer,
+    envs_len: GuestSize,
+    fd_ops: Pointer,
+    fd_ops_len: GuestSize,
+    signals: Pointer,
+    signals_len: GuestSize,
     search_path: i32,
-    path: i32,
-    path_len: i32,
-    pid_out: i32,
+    path: Pointer,
+    path_len: GuestSize,
+    pid_out: Pointer,
 ) -> Result<i32, RuntimeError> {
     let read = async |frame: &Frame<'_, S>| {
         let command = command_from_arrays(
@@ -1181,13 +1284,13 @@ fn join_status(info: &Siginfo) -> (u32, JoinStatus) {
 /// `NONE`), which it then holds; with `NON_BLOCKING` and no change, pid 0 and `NOTHING`.
 pub(crate) async fn proc_join<S: Syscalls + Control + 'static>(
     env: Env<S>,
-    pid_ptr: i32,
+    pid_ptr: Pointer,
     flags: i32,
-    status_ptr: i32,
+    status_ptr: Pointer,
 ) -> Result<i32, RuntimeError> {
     let flags = JoinFlags(flags as u32);
     shim::errno(&env, async |frame| {
-        let wanted: OptionPid = frame.read(pid_ptr as u32).await?;
+        let wanted: OptionPid = frame.read(pid_ptr.narrow()?).await?;
         let (which, id) = match wanted.tag {
             OptionTag::NONE => (Idtype::P_ALL, 0),
             OptionTag::SOME => (Idtype::P_PID, wanted.pid as i32),
@@ -1210,8 +1313,8 @@ pub(crate) async fn proc_join<S: Syscalls + Control + 'static>(
             tag: OptionTag::SOME,
             pid,
         };
-        frame.write(pid_ptr as u32, &pid).await?;
-        frame.write(status_ptr as u32, &status).await
+        frame.write(pid_ptr.narrow()?, &pid).await?;
+        frame.write(status_ptr.narrow()?, &status).await
     })
     .await
 }
@@ -1221,7 +1324,7 @@ pub(crate) async fn proc_join<S: Syscalls + Control + 'static>(
 pub(crate) async fn proc_parent<S: Syscalls + Control + 'static>(
     env: Env<S>,
     pid: i32,
-    out: i32,
+    out: Pointer,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
         let caller = frame.caller();
@@ -1266,7 +1369,7 @@ pub(crate) async fn proc_parent<S: Syscalls + Control + 'static>(
             }
             info.ppid
         };
-        frame.write(out as u32, &parent).await
+        frame.write(out.narrow()?, &parent).await
     })
     .await
 }

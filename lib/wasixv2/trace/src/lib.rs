@@ -121,6 +121,32 @@ mod tests {
             ]
         );
     }
+    struct ReadyWideVector;
+    impl Syscalls for ReadyWideVector {
+        fn readv<'a>(
+            &'a self,
+            _: &'a Caller<'_>,
+            _: Fd,
+            _: wasixv2_abi::ConstIovecArray,
+            _: u32,
+        ) -> MaybeFuture<'a, SysResult<u64>> {
+            MaybeFuture::Ready(Ok(u32::MAX as u64 + 19))
+        }
+    }
+
+    #[test]
+    fn tracing_preserves_the_full_typed_host_vector_count() {
+        let caller = Caller::new(TaskId(1), &NoMemory);
+        let call = Syscall::Readv {
+            fd: Fd(0),
+            vec: wasixv2_abi::ConstIovecArray::new(0x100),
+            vlen: 1,
+        };
+        let result = block_on(Trace.call(&caller, call, &ReadyWideVector)).unwrap();
+        assert_eq!(result, SyscallRet::Readv(u32::MAX as u64 + 19));
+        assert!(format!("{result:?}").contains("4294967314"));
+    }
+
     struct ReadyPid;
     impl Syscalls for ReadyPid {
         fn getpid<'a>(&'a self, _: &'a Caller<'_>) -> MaybeFuture<'a, SysResult<i32>> {

@@ -6,6 +6,8 @@
 //!
 //! wasix-libc only calls it for names that are neither numeric nor in its own hosts lookup.
 
+use crate::abi::{GuestSize, Pointer};
+
 use std::{
     net::{IpAddr, Ipv4Addr, SocketAddr},
     time::Duration,
@@ -509,16 +511,15 @@ async fn lookup<S: Syscalls + Control + 'static>(
 #[allow(clippy::too_many_arguments)]
 pub(crate) async fn resolve<S: Syscalls + Control + 'static>(
     env: Env<S>,
-    host: i32,
-    host_len: i32,
+    host: Pointer,
+    host_len: GuestSize,
     _port: i32,
-    addrs: i32,
-    naddrs: i32,
-    ro_naddrs: i32,
+    addrs: Pointer,
+    naddrs: GuestSize,
+    ro_naddrs: Pointer,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
-        let mut name = vec![0; host_len as u32 as usize];
-        frame.mem.guest().read(host as u32, &mut name).await?;
+        let mut name = crate::calls::proc::read_bytes(frame, host, host_len).await?;
         while name.last() == Some(&0) {
             name.pop();
         }
@@ -526,12 +527,17 @@ pub(crate) async fn resolve<S: Syscalls + Control + 'static>(
             return shim::fail(Errno::INVAL);
         };
         let found = lookup(frame, &name).await?;
-        let n = found.len().min(naddrs as u32 as usize);
+        let bytes = naddrs
+            .0
+            .checked_mul(AddrIp::SIZE as u64)
+            .ok_or(Errno::OVERFLOW)?;
+        frame.check_range(addrs, bytes).await?;
+        let n = (found.len() as u64).min(naddrs.0) as usize;
         for (i, ip) in found.iter().take(n).enumerate() {
-            let at = (addrs as u32).wrapping_add((i * AddrIp::SIZE) as u32);
+            let at = addrs.offset((i * AddrIp::SIZE) as u64)?.narrow()?;
             frame.write(at, &AddrIp::new(*ip)).await?;
         }
-        frame.write(ro_naddrs as u32, &(n as u32)).await
+        frame.write_size(ro_naddrs, n as u64).await
     })
     .await
 }

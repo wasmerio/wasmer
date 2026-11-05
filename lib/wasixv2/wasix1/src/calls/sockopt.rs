@@ -5,6 +5,8 @@
 //! not have: the compat layer keeps them per socket and applies them in `sock_connect` and
 //! `sock_accept`.
 
+use crate::abi::Pointer;
+
 use crate::abi::fs::Rights;
 
 use std::{collections::HashMap, sync::Mutex, time::Duration};
@@ -355,7 +357,7 @@ pub(crate) async fn sock_get_opt_flag<S: Syscalls + Control + 'static>(
     env: Env<S>,
     fd: i32,
     option: i32,
-    ro_flag: i32,
+    ro_flag: Pointer,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
         crate::rights::require(frame, &[(wasixv2_abi::Fd(fd), Rights::empty())]).await?;
@@ -364,7 +366,7 @@ pub(crate) async fn sock_get_opt_flag<S: Syscalls + Control + 'static>(
             _ => false,
         };
         let flag = if on { Bool::TRUE } else { Bool::FALSE };
-        frame.write(ro_flag as u32, &flag).await
+        frame.write(ro_flag.narrow()?, &flag).await
     })
     .await
 }
@@ -392,12 +394,12 @@ pub(crate) async fn sock_get_opt_size<S: Syscalls + Control + 'static>(
     env: Env<S>,
     fd: i32,
     option: i32,
-    ro_size: i32,
+    ro_size: Pointer,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
         crate::rights::require(frame, &[(wasixv2_abi::Fd(fd), Rights::empty())]).await?;
         let Target::Linux(level, name) = target(option, Kind::Size)? else {
-            return frame.write(ro_size as u32, &0u64).await;
+            return frame.write(ro_size.narrow()?, &0u64).await;
         };
         let value = int_option(frame, Fd(fd), level, name).await?;
         let value = if name == SocketOption::SO_TYPE.0 && level == SocketLevel::SOL_SOCKET {
@@ -411,7 +413,7 @@ pub(crate) async fn sock_get_opt_size<S: Syscalls + Control + 'static>(
         } else {
             value.max(0) as u64
         };
-        frame.write(ro_size as u32, &value).await
+        frame.write(ro_size.narrow()?, &value).await
     })
     .await
 }
@@ -453,12 +455,12 @@ pub(crate) async fn sock_set_opt_time<S: Syscalls + Control + 'static>(
     env: Env<S>,
     fd: i32,
     option: i32,
-    time: i32,
+    time: Pointer,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
         crate::rights::require(frame, &[(wasixv2_abi::Fd(fd), Rights::empty())]).await?;
         let target = target(option, Kind::Time)?;
-        let time = decode_time(frame.read(time as u32).await?)?;
+        let time = decode_time(frame.read(time.narrow()?).await?)?;
         let fd = Fd(fd);
         match target {
             Target::Linux(level, name) => {
@@ -504,7 +506,7 @@ pub(crate) async fn sock_get_opt_time<S: Syscalls + Control + 'static>(
     env: Env<S>,
     fd: i32,
     option: i32,
-    ro_time: i32,
+    ro_time: Pointer,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
         crate::rights::require(frame, &[(wasixv2_abi::Fd(fd), Rights::empty())]).await?;
@@ -532,7 +534,7 @@ pub(crate) async fn sock_get_opt_time<S: Syscalls + Control + 'static>(
             }
             Target::Noop => None,
         };
-        frame.write(ro_time as u32, &encode_time(time)).await
+        frame.write(ro_time.narrow()?, &encode_time(time)).await
     })
     .await
 }
@@ -541,14 +543,14 @@ pub(crate) async fn sock_get_opt_time<S: Syscalls + Control + 'static>(
 async fn multicast_v4<S: Syscalls + Control + 'static>(
     env: Env<S>,
     fd: i32,
-    group: i32,
-    iface: i32,
+    group: Pointer,
+    iface: Pointer,
     name: IpOption,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
         crate::rights::require(frame, &[(Fd(fd), Rights::empty())]).await?;
-        let group: AddrIp4 = frame.read(group as u32).await?;
-        let iface: AddrIp4 = frame.read(iface as u32).await?;
+        let group: AddrIp4 = frame.read(group.narrow()?).await?;
+        let iface: AddrIp4 = frame.read(iface.narrow()?).await?;
         let mut mreq = [0u8; 8];
         mreq[..4].copy_from_slice(&group);
         mreq[4..].copy_from_slice(&iface);
@@ -561,13 +563,13 @@ async fn multicast_v4<S: Syscalls + Control + 'static>(
 async fn multicast_v6<S: Syscalls + Control + 'static>(
     env: Env<S>,
     fd: i32,
-    group: i32,
+    group: Pointer,
     iface: i32,
     name: Ipv6Option,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
         crate::rights::require(frame, &[(Fd(fd), Rights::empty())]).await?;
-        let group: AddrIp6 = frame.read(group as u32).await?;
+        let group: AddrIp6 = frame.read(group.narrow()?).await?;
         let mut mreq = [0u8; 20];
         mreq[..16].copy_from_slice(&group.octets);
         mreq[16..].copy_from_slice(&iface.to_le_bytes());
@@ -579,8 +581,8 @@ async fn multicast_v6<S: Syscalls + Control + 'static>(
 pub(crate) async fn sock_join_multicast_v4<S: Syscalls + Control + 'static>(
     env: Env<S>,
     fd: i32,
-    group: i32,
-    iface: i32,
+    group: Pointer,
+    iface: Pointer,
 ) -> Result<i32, RuntimeError> {
     multicast_v4(env, fd, group, iface, IpOption::IP_ADD_MEMBERSHIP).await
 }
@@ -588,8 +590,8 @@ pub(crate) async fn sock_join_multicast_v4<S: Syscalls + Control + 'static>(
 pub(crate) async fn sock_leave_multicast_v4<S: Syscalls + Control + 'static>(
     env: Env<S>,
     fd: i32,
-    group: i32,
-    iface: i32,
+    group: Pointer,
+    iface: Pointer,
 ) -> Result<i32, RuntimeError> {
     multicast_v4(env, fd, group, iface, IpOption::IP_DROP_MEMBERSHIP).await
 }
@@ -597,7 +599,7 @@ pub(crate) async fn sock_leave_multicast_v4<S: Syscalls + Control + 'static>(
 pub(crate) async fn sock_join_multicast_v6<S: Syscalls + Control + 'static>(
     env: Env<S>,
     fd: i32,
-    group: i32,
+    group: Pointer,
     iface: i32,
 ) -> Result<i32, RuntimeError> {
     multicast_v6(env, fd, group, iface, Ipv6Option::IPV6_ADD_MEMBERSHIP).await
@@ -606,7 +608,7 @@ pub(crate) async fn sock_join_multicast_v6<S: Syscalls + Control + 'static>(
 pub(crate) async fn sock_leave_multicast_v6<S: Syscalls + Control + 'static>(
     env: Env<S>,
     fd: i32,
-    group: i32,
+    group: Pointer,
     iface: i32,
 ) -> Result<i32, RuntimeError> {
     multicast_v6(env, fd, group, iface, Ipv6Option::IPV6_DROP_MEMBERSHIP).await

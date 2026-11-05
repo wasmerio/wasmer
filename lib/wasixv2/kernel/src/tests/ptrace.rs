@@ -2012,3 +2012,105 @@ fn pending_exit_check_tolerates_a_leader_reaped_after_snapshot() {
     assert_eq!(kernel.take_pending(parent), Some(GuestAction::Exit(0)));
     assert_eq!(kernel.take_pending(parent), None);
 }
+
+/// A provider's host result can exceed the native return register. This layer isolates
+/// entry/ptrace normalization from the cost of transferring several gigabytes.
+struct WideVectorResult;
+
+const WIDE_VECTOR_COUNT: u64 = u32::MAX as u64 + 19;
+
+impl wasixv2_syscalls::Layer<Kernel> for WideVectorResult {
+    fn call<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        call: wasixv2_syscalls::Syscall,
+        next: &'a Kernel,
+    ) -> wasixv2_syscalls::MaybeFuture<'a, SysResult<wasixv2_syscalls::SyscallRet>> {
+        match call {
+            wasixv2_syscalls::Syscall::Readv { .. } => wasixv2_syscalls::MaybeFuture::Ready(Ok(
+                wasixv2_syscalls::SyscallRet::Readv(WIDE_VECTOR_COUNT),
+            )),
+            call => wasixv2_syscalls::dispatch(next, caller, call),
+        }
+    }
+}
+
+#[test]
+fn entry_preserves_a_matching_wide_host_vector_result_without_a_tracer() {
+    let (kernel, task, _) = setup(b"");
+    let stack = Layered::new(SyscallEntry(WideVectorResult), kernel);
+    let memory = flat();
+    let caller = Caller::new(task, &memory);
+    assert_eq!(
+        block_on(stack.readv(&caller, Fd(0), wasixv2_abi::ConstIovecArray::new(0x100), 1)),
+        Ok(WIDE_VECTOR_COUNT),
+    );
+}
+
+#[test]
+fn unchanged_ptrace_exit_preserves_host_count_but_result_edits_use_native_registers() {
+    for changed_result in [None, Some(9i64), Some(-i64::from(Errno::EACCES.0))] {
+        let (kernel, parent, _) = setup(b"");
+        let stack = Layered::new(SyscallEntry(WideVectorResult), kernel);
+        let kernel = &stack.inner;
+        let memory = ForkableMemory(flat());
+        let caller = Caller::new(parent, &memory);
+        let child_memory = flat();
+        let child = traced_child(kernel, &caller, &child_memory);
+        let child_caller = Caller::new(child, &child_memory);
+        assert_eq!(
+            ptrace(kernel, &caller, R::PTRACE_SYSCALL, child, 0, 0),
+            Ok(0)
+        );
+        assert_eq!(kernel.take_pending(child), None);
+        let mut call = Box::pin(stack.readv(
+            &child_caller,
+            Fd(0),
+            wasixv2_abi::ConstIovecArray::new(0x100),
+            1,
+        ));
+        assert!(call.as_mut().now_or_never().is_none());
+        assert_eq!(
+            ptrace(kernel, &caller, R::PTRACE_SYSCALL, child, 0, 0),
+            Ok(0)
+        );
+        assert!(call.as_mut().now_or_never().is_none());
+        assert_eq!(
+            ptrace(
+                kernel,
+                &caller,
+                R::PTRACE_GET_SYSCALL_INFO,
+                child,
+                88,
+                0x700
+            ),
+            Ok(33)
+        );
+        assert_eq!(
+            get(&memory.0, 0x718, 8),
+            (WIDE_VECTOR_COUNT as i32 as i64).to_le_bytes(),
+            "the tracer still sees a sign-extended native 32-bit return register",
+        );
+        if let Some(value) = changed_result {
+            syscall_info(&memory.0, 2, value as u64, [0; 6]);
+            assert_eq!(
+                ptrace(
+                    kernel,
+                    &caller,
+                    R::PTRACE_SET_SYSCALL_INFO,
+                    child,
+                    88,
+                    0x700
+                ),
+                Ok(0)
+            );
+        }
+        assert_eq!(ptrace(kernel, &caller, R::PTRACE_CONT, child, 0, 0), Ok(0));
+        let expected = match changed_result {
+            None => Ok(WIDE_VECTOR_COUNT),
+            Some(value) if value < 0 => Err(Errno(-value as i32).into()),
+            Some(value) => Ok(value as u64),
+        };
+        assert_eq!(call.as_mut().now_or_never(), Some(expected));
+    }
+}

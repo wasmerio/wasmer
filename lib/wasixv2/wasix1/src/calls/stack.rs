@@ -7,6 +7,8 @@
 //! saved one, whose `stack_checkpoint` then returns `val`. The snapshot holds the saved
 //! stack's id: its slot, generation and level.
 
+use crate::abi::Pointer;
+
 use wasixv2_exec::asyncify::{
     StackId,
     import::{self, Resumed},
@@ -38,29 +40,33 @@ fn stack_id(snapshot: &StackSnapshot) -> StackId {
 /// `NOTSUP`.
 pub(crate) async fn stack_checkpoint<S: Syscalls + Control + 'static>(
     env: Env<S>,
-    snapshot_ptr: i32,
-    ret: i32,
+    snapshot_ptr: Pointer,
+    ret: Pointer,
 ) -> Result<i32, RuntimeError> {
-    let (snapshot_ptr, ret) = (snapshot_ptr as u32, ret as u32);
     match import::resumed(&env).await? {
         None => {
             if !import::instrumented(&env).await {
                 return Ok(i32::from(Errno::NOTSUP.0));
             }
             // The guest unwinds now and calls again once the stack is saved.
-            import::save(&env, snapshot_ptr).await?;
+            let slot = match shim::call(&env, async |_| snapshot_ptr.narrow()).await? {
+                Done::Ok(slot) => slot,
+                Done::Err(errno) => return Ok(i32::from(errno.0)),
+                _ => return Err(RuntimeError::new("stack_checkpoint changed tasks")),
+            };
+            import::save(&env, slot).await?;
             Ok(0)
         }
         Some(Resumed::Saved(id)) => {
             shim::errno(&env, async |frame| {
-                frame.write(snapshot_ptr, &snapshot(id)).await?;
-                frame.write(ret, &0u64).await
+                frame.write(snapshot_ptr.narrow()?, &snapshot(id)).await?;
+                frame.write(ret.narrow()?, &0u64).await
             })
             .await
         }
         Some(Resumed::Restored(val)) => {
             let val = u64::from(val as u32);
-            shim::errno(&env, async |frame| frame.write(ret, &val).await).await
+            shim::errno(&env, async |frame| frame.write(ret.narrow()?, &val).await).await
         }
         Some(Resumed::Forked { .. }) => {
             Err(RuntimeError::new("stack_checkpoint resumed from a fork"))
@@ -71,11 +77,11 @@ pub(crate) async fn stack_checkpoint<S: Syscalls + Control + 'static>(
 /// `stack_restore(snapshot, val)`: never returns.
 pub(crate) async fn stack_restore<S: Syscalls + Control + 'static>(
     env: Env<S>,
-    snapshot_ptr: i32,
+    snapshot_ptr: Pointer,
     val: i64,
 ) -> Result<(), RuntimeError> {
     let read = shim::call(&env, async |frame| {
-        frame.read::<StackSnapshot>(snapshot_ptr as u32).await
+        frame.read::<StackSnapshot>(snapshot_ptr.narrow()?).await
     })
     .await?;
     let Done::Ok(saved) = read else {

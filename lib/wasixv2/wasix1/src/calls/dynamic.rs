@@ -1,12 +1,14 @@
 //! The unchanged v1 libc loader imports and their historical conventions.
+use crate::abi::{GuestSize, Pointer};
+
 use crate::{
     abi::Errno,
     errno::V1Result,
     shim::{self, Env, Frame},
 };
-use wasixv2_abi::{DlFlags, DlHandle, GuestPtrMut};
+use wasixv2_abi::{DlFlags, DlHandle};
 use wasixv2_exec::GuestDynamicLinker;
-use wasixv2_syscalls::{Control, Syscalls, UserSlice, UserSliceMut};
+use wasixv2_syscalls::{Control, RawGuestBuffer, Syscalls};
 use wasmer::RuntimeError;
 
 pub(crate) struct Policy;
@@ -115,6 +117,9 @@ impl wasixv2_dylink::LoadPolicy for Policy {
     fn host_constructors(&self) -> bool {
         true
     }
+    fn handle_after_constructors(&self) -> bool {
+        true
+    }
     fn resident_handles(&self) -> bool {
         true
     }
@@ -137,15 +142,13 @@ impl wasixv2_dylink::LoadPolicy for Policy {
 
 async fn string<S: Syscalls + Control + 'static>(
     frame: &Frame<'_, S>,
-    ptr: i32,
-    len: i32,
+    ptr: Pointer,
+    len: GuestSize,
 ) -> V1Result<wasixv2_abi::Cstr> {
-    if len as u32 >= crate::memory::SCRATCH_SIZE {
+    if len.0 >= u64::from(crate::memory::SCRATCH_SIZE) {
         return Err(wasixv2_syscalls::Errno::ENOMEM.into());
     }
-    let bytes = UserSlice::new(ptr as u32, len as u32)
-        .copy_in(frame.mem.guest(), crate::memory::SCRATCH_SIZE as usize - 1)
-        .await?;
+    let bytes = crate::calls::proc::read_bytes(frame, ptr, len).await?;
     std::str::from_utf8(&bytes).map_err(|_| crate::errno::Error::V1(Errno::INVAL))?;
     // The native C-string boundary must never resolve a different prefix target.
     if bytes.contains(&0) {
@@ -156,23 +159,25 @@ async fn string<S: Syscalls + Control + 'static>(
 
 async fn error<S: Syscalls + Control + 'static>(
     frame: &Frame<'_, S>,
-    ptr: i32,
-    len: i32,
+    ptr: Pointer,
+    len: GuestSize,
     message: &[u8],
 ) -> V1Result<()> {
-    if len != 0 {
-        let mut bytes =
-            message[..message.len().min((len as u32).saturating_sub(1) as usize)].to_vec();
+    if len.0 != 0 {
+        let mut bytes = message[..message
+            .len()
+            .min(usize::try_from(len.0.saturating_sub(1)).unwrap_or(usize::MAX))]
+            .to_vec();
         bytes.push(0);
-        frame.write_bytes(ptr as u32, &bytes).await?;
+        frame.write_bytes(ptr.narrow()?, &bytes).await?;
     }
     shim::fail(Errno::UNKNOWN)
 }
 
 async fn require_loader<S: Syscalls + Control + 'static>(
     frame: &Frame<'_, S>,
-    err: i32,
-    len: i32,
+    err: Pointer,
+    len: GuestSize,
 ) -> V1Result<()> {
     match frame.dynamic_handle_valid(DlHandle(0)).await {
         Ok(_) => Ok(()),
@@ -192,18 +197,18 @@ async fn require_loader<S: Syscalls + Control + 'static>(
 #[allow(clippy::too_many_arguments)]
 pub(crate) async fn dlopen<S: Syscalls + Control + 'static>(
     env: Env<S>,
-    path: i32,
-    path_len: i32,
+    path: Pointer,
+    path_len: GuestSize,
     _flags: i32,
-    err: i32,
-    err_len: i32,
-    search: i32,
-    search_len: i32,
-    handle: i32,
+    err: Pointer,
+    err_len: GuestSize,
+    search: Pointer,
+    search_len: GuestSize,
+    handle: Pointer,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
         require_loader(frame, err, err_len).await?;
-        let null_path = path == 0;
+        let null_path = path.0 == 0;
         let path = if null_path {
             wasixv2_abi::Cstr::new(0)
         } else {
@@ -214,7 +219,7 @@ pub(crate) async fn dlopen<S: Syscalls + Control + 'static>(
         } else {
             string(frame, search, search_len).await?
         };
-        if !null_path && path_len == 0 {
+        if !null_path && path_len.0 == 0 {
             return error(frame, err, err_len, b"cannot open an empty library path").await;
         }
         let linker = GuestDynamicLinker::new_with_unwind(frame.env, frame.unwind());
@@ -228,8 +233,8 @@ pub(crate) async fn dlopen<S: Syscalls + Control + 'static>(
                 DlFlags::RTLD_LAZY | DlFlags::RTLD_GLOBAL,
                 search,
                 0,
-                GuestPtrMut::new(handle as u32),
-                UserSliceMut::new(err as u32, err_len as u32),
+                frame.raw_pointer(handle),
+                RawGuestBuffer::new(err.0, err_len.0),
             )
             .await?;
         if result < 0 {
@@ -243,11 +248,11 @@ pub(crate) async fn dlopen<S: Syscalls + Control + 'static>(
 pub(crate) async fn dlsym<S: Syscalls + Control + 'static>(
     env: Env<S>,
     handle: i32,
-    name: i32,
-    name_len: i32,
-    err: i32,
-    err_len: i32,
-    output: i32,
+    name: Pointer,
+    name_len: GuestSize,
+    err: Pointer,
+    err_len: GuestSize,
+    output: Pointer,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
         let name = string(frame, name, name_len).await?;
@@ -261,8 +266,8 @@ pub(crate) async fn dlsym<S: Syscalls + Control + 'static>(
                 DlHandle(handle as u32),
                 name,
                 0,
-                GuestPtrMut::new(output as u32),
-                UserSliceMut::new(err as u32, err_len as u32),
+                frame.raw_pointer(output),
+                RawGuestBuffer::new(err.0, err_len.0),
             )
             .await?;
         if result < 0 {

@@ -255,6 +255,34 @@ layout! {
     }
 }
 
+layout! {
+    /// `ptr` is an opaque cookie, not an address the host dereferences.
+    pub struct EpollData64 (size 24, align 8) {
+        pub ptr: u64 = 0,
+        pub fd: Fd = 8,
+        pub data1: u32 = 12,
+        pub data2: u64 = 16,
+    }
+}
+
+layout! {
+    pub struct EpollEvent64 (size 32, align 8) {
+        pub events: EpollType = 0,
+        pub data: EpollData64 = 8,
+    }
+}
+
+impl From<EpollData> for EpollData64 {
+    fn from(data: EpollData) -> Self {
+        Self {
+            ptr: u64::from(data.ptr),
+            fd: data.fd,
+            data1: data.data1,
+            data2: data.data2,
+        }
+    }
+}
+
 /// A decoded [`AddrPort`].
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum SockAddr {

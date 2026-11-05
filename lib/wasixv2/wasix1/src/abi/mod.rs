@@ -10,12 +10,13 @@ pub mod fs;
 pub mod poll;
 pub mod proc;
 pub mod sock;
+pub mod width;
 
 pub use errno::Errno;
 pub use wasixv2_abi::GuestLayout;
+pub use width::{AbiWidth, Pointer, Size as GuestSize};
 
-/// A guest pointer. Every pointer-sized field and argument goes through this alias, so a
-/// wasm64 flavour would only touch this module.
+/// The pointer field in the original wasm32 layouts. Width-dependent codecs are explicit.
 pub type Ptr = u32;
 /// A guest `size_t`.
 pub type Size = u32;

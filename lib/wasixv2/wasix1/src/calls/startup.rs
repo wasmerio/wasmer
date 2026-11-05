@@ -8,6 +8,8 @@
 //! as `.` on 4 and the root again as `/` on 5. Programs and tests that hard-code these numbers
 //! keep working.
 
+use crate::abi::{GuestSize, Pointer};
+
 use std::sync::Arc;
 
 use wasixv2_abi::{AtFd, FcntlCmd, Fd, OpenFlags};
@@ -185,33 +187,39 @@ fn buf_size(strings: &[Vec<u8>]) -> u32 {
 async fn write_strings<S: Syscalls + Control + 'static>(
     frame: &Frame<'_, S>,
     strings: &[Vec<u8>],
-    pointers: u32,
-    buf: u32,
+    pointers: Pointer,
+    buf: Pointer,
 ) -> crate::errno::V1Result<()> {
-    let mut bytes = Vec::with_capacity(buf_size(strings) as usize);
-    let mut addrs = Vec::with_capacity(strings.len() * 4);
-    for string in strings {
-        let addr = buf.wrapping_add(bytes.len() as u32);
-        addrs.extend_from_slice(&addr.to_le_bytes());
-        bytes.extend_from_slice(string);
-        bytes.push(0);
+    let word = u64::from(frame.width().bytes());
+    frame
+        .check_range(pointers, strings.len() as u64 * word)
+        .await?;
+    let mut offset = 0;
+    for (index, string) in strings.iter().enumerate() {
+        let addr = buf.offset(offset)?;
+        frame
+            .write_size(pointers.offset(index as u64 * word)?, addr.0)
+            .await?;
+        frame.check_range(addr, string.len() as u64).await?;
+        frame.write_bytes(addr.narrow()?, string).await?;
+        frame
+            .write(addr.offset(string.len() as u64)?.narrow()?, &0u8)
+            .await?;
+        offset += string.len() as u64 + 1;
     }
-    frame.write_bytes(buf, &bytes).await?;
-    frame.write_bytes(pointers, &addrs).await
+    Ok(())
 }
 
 pub(crate) async fn args_sizes_get<S: Syscalls + Control + 'static>(
     env: Env<S>,
-    count: i32,
-    buf_size_out: i32,
+    count: Pointer,
+    buf_size_out: Pointer,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
         let startup = frame.startup().await?;
+        frame.write_size(count, startup.args.len() as u64).await?;
         frame
-            .write(count as u32, &(startup.args.len() as u32))
-            .await?;
-        frame
-            .write(buf_size_out as u32, &buf_size(&startup.args))
+            .write_size(buf_size_out, u64::from(buf_size(&startup.args)))
             .await
     })
     .await
@@ -219,28 +227,26 @@ pub(crate) async fn args_sizes_get<S: Syscalls + Control + 'static>(
 
 pub(crate) async fn args_get<S: Syscalls + Control + 'static>(
     env: Env<S>,
-    argv: i32,
-    buf: i32,
+    argv: Pointer,
+    buf: Pointer,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
         let startup = frame.startup().await?;
-        write_strings(frame, &startup.args, argv as u32, buf as u32).await
+        write_strings(frame, &startup.args, argv, buf).await
     })
     .await
 }
 
 pub(crate) async fn environ_sizes_get<S: Syscalls + Control + 'static>(
     env: Env<S>,
-    count: i32,
-    buf_size_out: i32,
+    count: Pointer,
+    buf_size_out: Pointer,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
         let startup = frame.startup().await?;
+        frame.write_size(count, startup.env.len() as u64).await?;
         frame
-            .write(count as u32, &(startup.env.len() as u32))
-            .await?;
-        frame
-            .write(buf_size_out as u32, &buf_size(&startup.env))
+            .write_size(buf_size_out, u64::from(buf_size(&startup.env)))
             .await
     })
     .await
@@ -248,12 +254,12 @@ pub(crate) async fn environ_sizes_get<S: Syscalls + Control + 'static>(
 
 pub(crate) async fn environ_get<S: Syscalls + Control + 'static>(
     env: Env<S>,
-    environ: i32,
-    buf: i32,
+    environ: Pointer,
+    buf: Pointer,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
         let startup = frame.startup().await?;
-        write_strings(frame, &startup.env, environ as u32, buf as u32).await
+        write_strings(frame, &startup.env, environ, buf).await
     })
     .await
 }
@@ -262,7 +268,7 @@ pub(crate) async fn environ_get<S: Syscalls + Control + 'static>(
 pub(crate) async fn fd_prestat_get<S: Syscalls + Control + 'static>(
     env: Env<S>,
     fd: i32,
-    out: i32,
+    out: Pointer,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
         let startup = frame.startup().await?;
@@ -276,7 +282,7 @@ pub(crate) async fn fd_prestat_get<S: Syscalls + Control + 'static>(
             pr_type: Preopentype::DIR,
             pr_name_len: preopen.name.len() as u32,
         };
-        frame.write(out as u32, &prestat).await
+        frame.write(out.narrow()?, &prestat).await
     })
     .await
 }
@@ -285,10 +291,11 @@ pub(crate) async fn fd_prestat_get<S: Syscalls + Control + 'static>(
 pub(crate) async fn fd_prestat_dir_name<S: Syscalls + Control + 'static>(
     env: Env<S>,
     fd: i32,
-    path: i32,
-    path_len: i32,
+    path: Pointer,
+    path_len: GuestSize,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
+        frame.check_range(path, path_len.0).await?;
         let startup = frame.startup().await?;
         let Some(preopen) = startup.preopen(Fd(fd)) else {
             return shim::fail(Errno::BADF);
@@ -296,10 +303,10 @@ pub(crate) async fn fd_prestat_dir_name<S: Syscalls + Control + 'static>(
         if !crate::calls::fs::is_preopen(frame, fd).await? {
             return shim::fail(Errno::BADF);
         }
-        if preopen.name.len() > path_len as u32 as usize {
+        if preopen.name.len() as u64 > path_len.0 {
             return shim::fail(Errno::OVERFLOW);
         }
-        frame.write_bytes(path as u32, &preopen.name).await
+        frame.write_bytes(path.narrow()?, &preopen.name).await
     })
     .await
 }

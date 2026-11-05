@@ -1,6 +1,8 @@
 //! Exits and identity: `proc_exit`, `proc_exit2`, `thread_exit`, `proc_id`, `thread_id`,
 //! `sched_yield`.
 
+use crate::abi::Pointer;
+
 use wasixv2_syscalls::{Control, Syscalls};
 use wasmer::RuntimeError;
 
@@ -32,22 +34,22 @@ pub(crate) async fn thread_exit<S: Syscalls + Control + 'static>(
 
 pub(crate) async fn proc_id<S: Syscalls + Control + 'static>(
     env: Env<S>,
-    out: i32,
+    out: Pointer,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
         let pid = frame.syscalls.getpid(&frame.caller()).await?;
-        frame.write(out as u32, &(pid as u32)).await
+        frame.write(out.narrow()?, &(pid as u32)).await
     })
     .await
 }
 
 pub(crate) async fn thread_id<S: Syscalls + Control + 'static>(
     env: Env<S>,
-    out: i32,
+    out: Pointer,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
         let tid = frame.syscalls.gettid(&frame.caller()).await?;
-        frame.write(out as u32, &(tid as u32)).await
+        frame.write(out.narrow()?, &(tid as u32)).await
     })
     .await
 }

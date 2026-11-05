@@ -37,6 +37,11 @@ pub trait LoadPolicy: Send + Sync + 'static {
     fn host_constructors(&self) -> bool {
         false
     }
+    /// Publish a legacy handle only after the load and its host constructors complete.
+    /// Native callers keep their recoverable user-copy-before-publication transaction.
+    fn handle_after_constructors(&self) -> bool {
+        false
+    }
     /// Resident handles remain valid independently of native reference counts.
     fn resident_handles(&self) -> bool {
         false

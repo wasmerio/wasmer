@@ -301,7 +301,7 @@ const EXEC_ARG: &str = r#"
     unreachable))
 "#;
 
-/// Images in no format the machine runs, by the name they are installed under: a module without imports of any ABI, a `wasix_64v1` module, a component and a module cut
+/// Images in no format the machine runs, by the name they are installed under: a module without imports of any ABI, an actual Memory64 module, a component and a module cut
 /// off inside its import section.
 fn unservable() -> Vec<(&'static str, Vec<u8>)> {
     vec![
@@ -312,7 +312,7 @@ fn unservable() -> Vec<(&'static str, Vec<u8>)> {
         (
             "wa64",
             wat(
-                r#"(module (import "wasix_64v1" "proc_exit" (func (param i32))) (func (export "_start")))"#,
+                r#"(module (import "wasix_64v1" "proc_exit" (func (param i32))) (memory (export "memory") i64 1) (func (export "_start")))"#,
             ),
         ),
         ("comp", b"\0asm\x0d\0\x01\0".to_vec()),

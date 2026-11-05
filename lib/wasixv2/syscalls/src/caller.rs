@@ -12,6 +12,7 @@ pub struct Caller<'a> {
     descriptors: Option<crate::DescriptorSet>,
     installations: Option<crate::DescriptorInstallations>,
     functions: Option<&'a dyn crate::FunctionOperations>,
+    io_vectors: Option<&'a dyn crate::IoVectorSource>,
 }
 
 impl<'a> Caller<'a> {
@@ -23,6 +24,7 @@ impl<'a> Caller<'a> {
             descriptors: None,
             installations: None,
             functions: None,
+            io_vectors: None,
         }
     }
 
@@ -45,6 +47,16 @@ impl<'a> Caller<'a> {
 
     pub fn functions(&self) -> Option<&'a dyn crate::FunctionOperations> {
         self.functions
+    }
+
+    /// Borrows the current import's vector decoder; ordinary native dispatch is unchanged.
+    pub fn with_io_vectors(mut self, source: &'a dyn crate::IoVectorSource) -> Self {
+        self.io_vectors = Some(source);
+        self
+    }
+
+    pub fn io_vectors(&self) -> Option<&'a dyn crate::IoVectorSource> {
+        self.io_vectors
     }
 
     pub fn task(&self) -> TaskId {

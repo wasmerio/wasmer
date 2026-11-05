@@ -1,8 +1,9 @@
 //! Function operations on the calling store, through ordinary syscall dispatch.
 
-use wasixv2_abi::{CallDynamicFlags, ReflectionResult, ReflectionResultPtr, U32Ptr, Uptr};
+use wasixv2_abi::{CallDynamicFlags, GuestPtrMut, ReflectionResult, U32Ptr, Uptr};
 use wasixv2_syscalls::{
-    Caller, Errno, FunctionOperations, LocalFuture, SysResult, UserSlice, UserSliceMut, write_value,
+    Caller, Errno, FunctionOperations, LocalFuture, RawGuestBuffer, RawGuestPointer, SysErr,
+    SysResult, UserSlice, write_value,
 };
 use wasmer::{AsyncFunctionEnvMut, Function, FunctionType, Type, Value};
 
@@ -46,6 +47,7 @@ pub struct CallBufferPolicy {
     pub strict_results_before_call: bool,
     pub zero_result_tail: bool,
     pub whole_result_fields: bool,
+    pub validate_empty_reflection_spans: bool,
 }
 
 impl Default for CallBufferPolicy {
@@ -54,6 +56,7 @@ impl Default for CallBufferPolicy {
             strict_results_before_call: true,
             zero_result_tail: true,
             whole_result_fields: false,
+            validate_empty_reflection_spans: false,
         }
     }
 }
@@ -63,6 +66,7 @@ pub struct GuestFunctionOperations<'a, S: 'static> {
     env: &'a AsyncFunctionEnvMut<ExecEnv<S>>,
     unwind: &'a GuestUnwind,
     buffers: CallBufferPolicy,
+    buffer_fault: std::cell::Cell<bool>,
 }
 
 impl<'a, S: 'static> GuestFunctionOperations<'a, S> {
@@ -71,12 +75,27 @@ impl<'a, S: 'static> GuestFunctionOperations<'a, S> {
             env,
             unwind,
             buffers: CallBufferPolicy::default(),
+            buffer_fault: std::cell::Cell::new(false),
         }
     }
 
     pub fn with_buffer_policy(mut self, policy: CallBufferPolicy) -> Self {
         self.buffers = policy;
         self
+    }
+
+    /// Consume only this invocation's engine-buffer failure. An importing ABI can
+    /// restore its own fault numbering after ordinary layers have returned EFAULT.
+    pub fn take_buffer_fault(&self) -> bool {
+        self.buffer_fault.replace(false)
+    }
+
+    fn buffer_result<T, E: Into<SysErr>>(&self, result: Result<T, E>) -> SysResult<T> {
+        let result = result.map_err(Into::into);
+        if matches!(result, Err(SysErr::Errno(Errno::EFAULT))) {
+            self.buffer_fault.set(true);
+        }
+        result
     }
 
     async fn abi(&self) -> SysResult<std::sync::Arc<dyn AbiInstance<S>>> {
@@ -109,8 +128,8 @@ impl<S: 'static> FunctionOperations for GuestFunctionOperations<'_, S> {
         &'a self,
         caller: &'a Caller<'_>,
         index: u32,
-        values: UserSlice,
-        results: UserSliceMut,
+        values: RawGuestBuffer,
+        results: RawGuestBuffer,
         flags: CallDynamicFlags,
     ) -> LocalFuture<'a, SysResult<i32>> {
         Box::pin(async move {
@@ -122,9 +141,9 @@ impl<S: 'static> FunctionOperations for GuestFunctionOperations<'_, S> {
             }
             let strict = flags.contains(CallDynamicFlags::CALL_DYNAMIC_STRICT);
             if strict
-                && (values.len as usize != input_size
+                && (values.len != input_size as u64
                     || (self.buffers.strict_results_before_call
-                        && results.len as usize != output_size))
+                        && results.len != output_size as u64))
             {
                 return Err(Errno::EINVAL.into());
             }
@@ -136,11 +155,17 @@ impl<S: 'static> FunctionOperations for GuestFunctionOperations<'_, S> {
             }
             // A partial field is skipped without consuming or touching its bytes.
             // A later narrower field can still consume the same prefix.
-            let consumed = consumed_input(ty.params(), values.len as usize)?;
+            let consumed = consumed_input(
+                ty.params(),
+                usize::try_from(values.len).unwrap_or(usize::MAX),
+            )?;
             let bytes = if consumed == 0 {
                 Vec::new()
             } else {
-                values.copy_in(caller.memory(), consumed).await?
+                let addr = self.buffer_result(values.prefix(caller.memory(), consumed).await)?;
+                let mut bytes = vec![0; consumed];
+                self.buffer_result(caller.memory().read(addr, &mut bytes).await)?;
+                bytes
             };
             let args = unpack(ty.params(), &bytes)?;
             let returned = match crate::call_guest(self.env, &function, &args).await {
@@ -151,21 +176,23 @@ impl<S: 'static> FunctionOperations for GuestFunctionOperations<'_, S> {
             let (output, written) = output_bytes(
                 &returned,
                 &bytes,
-                results.len as usize,
+                usize::try_from(results.len).unwrap_or(usize::MAX),
                 self.buffers.whole_result_fields,
             )?;
             if !output.is_empty() {
-                caller.memory().write(results.addr, &output).await?;
+                let addr =
+                    self.buffer_result(results.prefix(caller.memory(), output.len()).await)?;
+                self.buffer_result(caller.memory().write(addr, &output).await)?;
             }
-            if strict && !self.buffers.strict_results_before_call && written != results.len as usize
-            {
+            if strict && !self.buffers.strict_results_before_call && written as u64 != results.len {
                 return Err(Errno::EINVAL.into());
             }
-            let mut offset = written as u32;
+            let mut offset = written as u64;
             let zeros = [0; 4096];
             while self.buffers.zero_result_tail && offset < results.len {
-                let len = (results.len - offset).min(zeros.len() as u32);
-                let addr = results.addr.checked_add(offset).ok_or(Errno::EFAULT)?;
+                let len = (results.len - offset).min(zeros.len() as u64);
+                let addr = u32::try_from(results.addr.checked_add(offset).ok_or(Errno::EFAULT)?)
+                    .map_err(|_| Errno::EFAULT)?;
                 caller.memory().write(addr, &zeros[..len as usize]).await?;
                 offset += len;
             }
@@ -177,9 +204,9 @@ impl<S: 'static> FunctionOperations for GuestFunctionOperations<'_, S> {
         &'a self,
         caller: &'a Caller<'_>,
         index: u32,
-        argument_types: UserSliceMut,
-        result_types: UserSliceMut,
-        result: ReflectionResultPtr,
+        argument_types: RawGuestBuffer,
+        result_types: RawGuestBuffer,
+        result: RawGuestPointer,
     ) -> LocalFuture<'a, SysResult<i32>> {
         Box::pin(async move {
             let (_, ty, cacheable) = match self.function(index).await {
@@ -193,16 +220,18 @@ impl<S: 'static> FunctionOperations for GuestFunctionOperations<'_, S> {
                     } else {
                         false
                     };
-                    write_value(
-                        caller.memory(),
-                        result,
-                        &ReflectionResult {
-                            cacheable: u8::from(cacheable),
-                            arguments: 0,
-                            results: 0,
-                        },
-                    )
-                    .await?;
+                    self.buffer_result(
+                        write_value(
+                            caller.memory(),
+                            GuestPtrMut::new(self.buffer_result(result.narrow())?),
+                            &ReflectionResult {
+                                cacheable: u8::from(cacheable),
+                                arguments: 0,
+                                results: 0,
+                            },
+                        )
+                        .await,
+                    )?;
                     return Err(error);
                 }
             };
@@ -211,19 +240,57 @@ impl<S: 'static> FunctionOperations for GuestFunctionOperations<'_, S> {
                 arguments: u16::try_from(ty.params().len()).map_err(|_| Errno::EOVERFLOW)?,
                 results: u16::try_from(ty.results().len()).map_err(|_| Errno::EOVERFLOW)?,
             };
-            write_value(caller.memory(), result, &reflection).await?;
-            if ty.params().len() > argument_types.len as usize
-                || ty.results().len() > result_types.len as usize
+            self.buffer_result(
+                write_value(
+                    caller.memory(),
+                    GuestPtrMut::new(self.buffer_result(result.narrow())?),
+                    &reflection,
+                )
+                .await,
+            )?;
+            if ty.params().len() as u64 > argument_types.len
+                || ty.results().len() as u64 > result_types.len
             {
                 return Err(Errno::EOVERFLOW.into());
             }
             let arguments = types(ty.params())?;
             let results = types(ty.results())?;
-            if !arguments.is_empty() {
-                argument_types.copy_out(caller.memory(), &arguments).await?;
-            }
-            if !results.is_empty() {
-                result_types.copy_out(caller.memory(), &results).await?;
+            if self.buffers.validate_empty_reflection_spans {
+                // Legacy constructs both actual spans before writing either type buffer.
+                self.buffer_result(
+                    argument_types
+                        .check_prefix(caller.memory(), arguments.len())
+                        .await,
+                )?;
+                self.buffer_result(
+                    result_types
+                        .check_prefix(caller.memory(), results.len())
+                        .await,
+                )?;
+                if !arguments.is_empty() {
+                    let address = self.buffer_result(
+                        argument_types
+                            .prefix(caller.memory(), arguments.len())
+                            .await,
+                    )?;
+                    self.buffer_result(caller.memory().write(address, &arguments).await)?;
+                }
+                if !results.is_empty() {
+                    let address = self
+                        .buffer_result(result_types.prefix(caller.memory(), results.len()).await)?;
+                    self.buffer_result(caller.memory().write(address, &results).await)?;
+                }
+            } else {
+                if !arguments.is_empty() {
+                    let addr = argument_types
+                        .prefix(caller.memory(), arguments.len())
+                        .await?;
+                    caller.memory().write(addr, &arguments).await?;
+                }
+                if !results.is_empty() {
+                    let addr = result_types.prefix(caller.memory(), results.len()).await?;
+                    caller.memory().write(addr, &results).await?;
+                }
             }
             Ok(0)
         })

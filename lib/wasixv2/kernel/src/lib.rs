@@ -8,6 +8,8 @@
 // filesystems); proving it `Send` and `Sync` for the VFS's traits goes past the default depth.
 #![recursion_limit = "256"]
 
+use wasixv2_syscalls::{RawGuestBuffer, RawGuestPointer};
+
 mod acct;
 mod aio;
 mod binfmt_misc;
@@ -104,18 +106,17 @@ use wasixv2_abi::{
     ConstFileHandlePtr, ConstGidArray, ConstIovecArray, ConstKernelItimerspecPtr,
     ConstKernelTimespecArray, ConstKernelTimespecPtr, ConstMqAttrPtr, ConstMsgbufPtr,
     ConstOpenHowPtr, ConstRlimit64Ptr, ConstSchedParamPtr, ConstSembufArray, ConstSigeventPtr,
-    ConstSigsetPtr, ConstXattrArgsPtr, Cstr, DlFlags, DlHandle, DlHandlePtr, FadviseAdvice,
-    FallocFlags, FcntlCmd, FileHandlePtr, FlockOp, FutexOp, Gid, GidArray, GidPtr, GrndFlags,
-    IoctlRequest, KernelItimerspecPtr, KernelTimespecPtr, LinuxDirent64Ptr, Loff, LoffPtr,
-    MadviseAdvice, MapFlags, MclFlags, MembarrierCmd, MembarrierCmdFlags, MemfdFlags, MlockFlags,
-    Mode, MqAttrPtr, MremapFlags, MsgbufPtr, Msqid64DsPtr, MsyncFlags, NewUtsnamePtr, OpenFlags,
-    Pid, PrctlOption, PrioWhich, ProtFlags, ReflectionResultPtr, RenameFlags, Rlimit64Ptr,
-    RlimitResource, RobustListHeadPtr, RobustListHeadPtrPtr, RusagePtr, RusageWho, RwfFlags,
-    S32Ptr, SchedAttrPtr, SchedParamPtr, SchedPolicy, SeekWhence, Shmid64DsPtr, Signal,
-    SigprocmaskHow, Sigset, SigsetPtr, SpliceFlags, Statfs64Ptr, StatxMask, StatxPtr,
-    SyncFileRangeFlags, SysinfoPtr, TimerFlags, TimerfdFlags, TimerfdSettimeFlags, TmsPtr, U32Ptr,
-    Uid, UidPtr, Ulong, UlongArray, Uptr, UptrPtr, Usize, UsizePtr, VoidPtr, XattrArgsPtr,
-    XattrFlags,
+    ConstSigsetPtr, ConstXattrArgsPtr, Cstr, DlFlags, DlHandle, FadviseAdvice, FallocFlags,
+    FcntlCmd, FileHandlePtr, FlockOp, FutexOp, Gid, GidArray, GidPtr, GrndFlags, IoctlRequest,
+    KernelItimerspecPtr, KernelTimespecPtr, LinuxDirent64Ptr, Loff, LoffPtr, MadviseAdvice,
+    MapFlags, MclFlags, MembarrierCmd, MembarrierCmdFlags, MemfdFlags, MlockFlags, Mode, MqAttrPtr,
+    MremapFlags, MsgbufPtr, Msqid64DsPtr, MsyncFlags, NewUtsnamePtr, OpenFlags, Pid, PrctlOption,
+    PrioWhich, ProtFlags, RenameFlags, Rlimit64Ptr, RlimitResource, RobustListHeadPtr,
+    RobustListHeadPtrPtr, RusagePtr, RusageWho, RwfFlags, S32Ptr, SchedAttrPtr, SchedParamPtr,
+    SchedPolicy, SeekWhence, Shmid64DsPtr, Signal, SigprocmaskHow, Sigset, SigsetPtr, SpliceFlags,
+    Statfs64Ptr, StatxMask, StatxPtr, SyncFileRangeFlags, SysinfoPtr, TimerFlags, TimerfdFlags,
+    TimerfdSettimeFlags, TmsPtr, U32Ptr, Uid, UidPtr, Ulong, UlongArray, Uptr, UptrPtr, Usize,
+    UsizePtr, VoidPtr, XattrArgsPtr, XattrFlags,
 };
 use wasixv2_host::Host;
 pub use wasixv2_host::{Console, Stdio, WindowSize};
@@ -405,13 +406,13 @@ struct IoAccounting {
 }
 
 impl IoAccounting {
-    fn account(&self, write: bool, bytes: u32) {
+    fn account(&self, write: bool, bytes: u64) {
         use std::sync::atomic::Ordering::Relaxed;
         let (chars, calls) = match write {
             true => (&self.wchar, &self.syscw),
             false => (&self.rchar, &self.syscr),
         };
-        chars.fetch_add(u64::from(bytes), Relaxed);
+        chars.fetch_add(bytes, Relaxed);
         calls.fetch_add(1, Relaxed);
     }
 
@@ -844,8 +845,8 @@ impl Syscalls for Kernel {
         &'a self,
         caller: &'a Caller<'_>,
         function: u32,
-        values: UserSlice,
-        results: UserSliceMut,
+        values: wasixv2_syscalls::RawGuestBuffer,
+        results: wasixv2_syscalls::RawGuestBuffer,
         flags: CallDynamicFlags,
     ) -> MaybeFuture<'a, SysResult<i32>> {
         match caller.functions() {
@@ -860,9 +861,9 @@ impl Syscalls for Kernel {
         &'a self,
         caller: &'a Caller<'_>,
         function: u32,
-        argument_types: UserSliceMut,
-        result_types: UserSliceMut,
-        result: ReflectionResultPtr,
+        argument_types: wasixv2_syscalls::RawGuestBuffer,
+        result_types: wasixv2_syscalls::RawGuestBuffer,
+        result: wasixv2_syscalls::RawGuestPointer,
     ) -> MaybeFuture<'a, SysResult<i32>> {
         match caller.functions() {
             Some(functions) => MaybeFuture::Future(functions.reflect_signature(
@@ -927,8 +928,8 @@ impl Syscalls for Kernel {
         flags: DlFlags,
         search_path: Cstr,
         caller_addr: Uptr,
-        handle: DlHandlePtr,
-        err: UserSliceMut,
+        handle: RawGuestPointer,
+        err: RawGuestBuffer,
     ) -> MaybeFuture<'a, SysResult<i32>> {
         match caller.dynamic_linker() {
             Some(linker) => MaybeFuture::Future(linker.dl_open(
@@ -950,8 +951,8 @@ impl Syscalls for Kernel {
         handle: DlHandle,
         symbol: Cstr,
         caller_addr: Uptr,
-        addr: UptrPtr,
-        err: UserSliceMut,
+        addr: RawGuestPointer,
+        err: RawGuestBuffer,
     ) -> MaybeFuture<'a, SysResult<i32>> {
         match caller.dynamic_linker() {
             Some(linker) => {
@@ -1119,7 +1120,7 @@ impl Syscalls for Kernel {
         fd: Fd,
         vec: ConstIovecArray,
         vlen: Ulong,
-    ) -> MaybeFuture<'a, SysResult<u32>> {
+    ) -> MaybeFuture<'a, SysResult<u64>> {
         MaybeFuture::Future(Box::pin(async move {
             self.sys_readv(caller, fd, vec, vlen).await
         }))
@@ -1131,7 +1132,7 @@ impl Syscalls for Kernel {
         fd: Fd,
         vec: ConstIovecArray,
         vlen: Ulong,
-    ) -> MaybeFuture<'a, SysResult<u32>> {
+    ) -> MaybeFuture<'a, SysResult<u64>> {
         MaybeFuture::Future(Box::pin(async move {
             self.sys_writev(caller, fd, vec, vlen).await
         }))
@@ -1168,7 +1169,7 @@ impl Syscalls for Kernel {
         vec: ConstIovecArray,
         vlen: Ulong,
         pos: i64,
-    ) -> MaybeFuture<'a, SysResult<u32>> {
+    ) -> MaybeFuture<'a, SysResult<u64>> {
         MaybeFuture::Future(Box::pin(async move {
             // `do_preadv`: only preadv2 gives -1 a meaning.
             if pos < 0 {
@@ -1186,7 +1187,7 @@ impl Syscalls for Kernel {
         vec: ConstIovecArray,
         vlen: Ulong,
         pos: i64,
-    ) -> MaybeFuture<'a, SysResult<u32>> {
+    ) -> MaybeFuture<'a, SysResult<u64>> {
         MaybeFuture::Future(Box::pin(async move {
             if pos < 0 {
                 return Err(Errno::EINVAL.into());
@@ -1204,7 +1205,7 @@ impl Syscalls for Kernel {
         vlen: Ulong,
         pos: i64,
         flags: RwfFlags,
-    ) -> MaybeFuture<'a, SysResult<u32>> {
+    ) -> MaybeFuture<'a, SysResult<u64>> {
         MaybeFuture::Future(Box::pin(async move {
             self.sys_preadv2(caller, fd, vec, vlen, pos, flags).await
         }))
@@ -1218,7 +1219,7 @@ impl Syscalls for Kernel {
         vlen: Ulong,
         pos: i64,
         flags: RwfFlags,
-    ) -> MaybeFuture<'a, SysResult<u32>> {
+    ) -> MaybeFuture<'a, SysResult<u64>> {
         MaybeFuture::Future(Box::pin(async move {
             self.sys_pwritev2(caller, fd, vec, vlen, pos, flags).await
         }))
@@ -4465,7 +4466,7 @@ impl Syscalls for Kernel {
         fd: Fd,
         msg: wasixv2_abi::ConstUserMsghdrPtr,
         flags: wasixv2_abi::MsgFlags,
-    ) -> MaybeFuture<'a, SysResult<i32>> {
+    ) -> MaybeFuture<'a, SysResult<u64>> {
         MaybeFuture::Future(Box::pin(async move {
             self.sys_sendmsg(caller, fd, msg, flags).await
         }))
@@ -4477,7 +4478,7 @@ impl Syscalls for Kernel {
         fd: Fd,
         msg: wasixv2_abi::UserMsghdrPtr,
         flags: wasixv2_abi::MsgFlags,
-    ) -> MaybeFuture<'a, SysResult<i32>> {
+    ) -> MaybeFuture<'a, SysResult<u64>> {
         MaybeFuture::Future(Box::pin(async move {
             self.sys_recvmsg(caller, fd, msg, flags).await
         }))

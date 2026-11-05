@@ -1,5 +1,7 @@
 //! V1 clock reads and per-process clock_time_set offsets over Linux clocks.
 
+use crate::abi::Pointer;
+
 use std::sync::Mutex;
 
 use wasixv2_abi::KernelTimespec;
@@ -72,11 +74,11 @@ async fn read_clock<S: Syscalls + Control + 'static>(
 pub(crate) async fn clock_res_get<S: Syscalls + Control + 'static>(
     env: Env<S>,
     id: i32,
-    out: i32,
+    out: Pointer,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
         let res = read_clock(frame, id, true).await?;
-        frame.write(out as u32, &res).await
+        frame.write(out.narrow()?, &res).await
     })
     .await
 }
@@ -86,12 +88,12 @@ pub(crate) async fn clock_time_get<S: Syscalls + Control + 'static>(
     env: Env<S>,
     id: i32,
     _precision: i64,
-    out: i32,
+    out: Pointer,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
         let raw = read_clock(frame, id, false).await?;
         let now = frame.proc().await?.clocks.read(Clockid(id as u32), raw)?;
-        frame.write(out as u32, &now).await
+        frame.write(out.narrow()?, &now).await
     })
     .await
 }

@@ -1,6 +1,6 @@
 //! Engine-free function authority borrowed by one import invocation.
-use crate::{Caller, Errno, LocalFuture, SysResult, UserSlice, UserSliceMut};
-use wasixv2_abi::{CallDynamicFlags, ReflectionResultPtr, U32Ptr, Uptr};
+use crate::{Caller, Errno, LocalFuture, RawGuestBuffer, RawGuestPointer, SysResult, UserSlice};
+use wasixv2_abi::{CallDynamicFlags, U32Ptr, Uptr};
 
 #[allow(unused_variables)]
 pub trait FunctionOperations {
@@ -8,8 +8,8 @@ pub trait FunctionOperations {
         &'a self,
         caller: &'a Caller<'_>,
         function: u32,
-        values: UserSlice,
-        results: UserSliceMut,
+        values: RawGuestBuffer,
+        results: RawGuestBuffer,
         flags: CallDynamicFlags,
     ) -> LocalFuture<'a, SysResult<i32>> {
         Box::pin(async { Err(Errno::ENOSYS.into()) })
@@ -19,9 +19,9 @@ pub trait FunctionOperations {
         &'a self,
         caller: &'a Caller<'_>,
         function: u32,
-        argument_types: UserSliceMut,
-        result_types: UserSliceMut,
-        result: ReflectionResultPtr,
+        argument_types: RawGuestBuffer,
+        result_types: RawGuestBuffer,
+        result: RawGuestPointer,
     ) -> LocalFuture<'a, SysResult<i32>> {
         Box::pin(async { Err(Errno::ENOSYS.into()) })
     }

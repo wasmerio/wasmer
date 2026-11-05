@@ -1759,7 +1759,7 @@ impl crate::Kernel {
         &self,
         task: wasixv2_syscalls::TaskId,
         file: &crate::file::OpenFile,
-        bytes: u32,
+        bytes: u64,
         write: bool,
     ) {
         let crate::file::Backing::Inode(inner) = &file.backing else {
@@ -1774,7 +1774,7 @@ impl crate::Kernel {
             state.tasks.get(&task).map(|t| t.css.clone())
         };
         if let Some(css) = css {
-            css.charge_io((dev.major, dev.minor), u64::from(bytes), write);
+            css.charge_io((dev.major, dev.minor), bytes, write);
         }
     }
 

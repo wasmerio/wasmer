@@ -1,13 +1,13 @@
 //! Guest ABIs: which imports an instance gets, and how the engine enters it, ends it and
 //! interrupts it. The `wasixv2` ABI ([`crate::Wasixv2`]) is the native one; others (such as WASIX
 //! v1) are served by clients of [`Syscalls`] that register here.
+use wasixv2_syscalls::{RawGuestBuffer, RawGuestPointer};
 
 use std::sync::Arc;
 
-use wasixv2_abi::{Cstr, DlFlags, DlHandle, DlHandlePtr, U32Ptr, Uptr, UptrPtr};
+use wasixv2_abi::{Cstr, DlFlags, DlHandle, U32Ptr, Uptr, UptrPtr};
 use wasixv2_syscalls::{
-    Binfmt, Control, Errno, Image, LocalFuture, SignalFrame, SysResult, Syscalls, TaskId,
-    UserSlice, UserSliceMut,
+    Binfmt, Control, Errno, Image, LocalFuture, SignalFrame, SysResult, Syscalls, TaskId, UserSlice,
 };
 use wasmer::{
     AsyncFunctionEnvMut, Function, FunctionEnv, Imports, Instance, Module, RuntimeError, Store,
@@ -202,8 +202,8 @@ pub trait AbiInstance<S: 'static>: Send + Sync {
         flags: DlFlags,
         search_path: Cstr,
         caller_addr: Uptr,
-        handle: DlHandlePtr,
-        err: UserSliceMut,
+        handle: RawGuestPointer,
+        err: RawGuestBuffer,
     ) -> LocalFuture<'a, wasixv2_syscalls::SysResult<i32>> {
         let _ = (
             env,
@@ -229,8 +229,8 @@ pub trait AbiInstance<S: 'static>: Send + Sync {
         flags: DlFlags,
         search_path: Cstr,
         caller_addr: Uptr,
-        handle: DlHandlePtr,
-        err: UserSliceMut,
+        handle: RawGuestPointer,
+        err: RawGuestBuffer,
         unwind: &'a crate::GuestUnwind,
     ) -> LocalFuture<'a, wasixv2_syscalls::SysResult<i32>> {
         let _ = unwind;
@@ -266,8 +266,8 @@ pub trait AbiInstance<S: 'static>: Send + Sync {
         handle: DlHandle,
         symbol: Cstr,
         caller_addr: Uptr,
-        addr: UptrPtr,
-        err: UserSliceMut,
+        addr: RawGuestPointer,
+        err: RawGuestBuffer,
     ) -> LocalFuture<'a, wasixv2_syscalls::SysResult<i32>> {
         let _ = (env, caller, handle, symbol, caller_addr, addr, err);
         Box::pin(async { Err(Errno::ENOSYS.into()) })

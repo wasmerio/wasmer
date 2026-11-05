@@ -436,3 +436,164 @@ fn clock_time_set_is_unprivileged_and_replaces_the_compat_offset() {
     "#;
     assert_eq!(block_on(wat, &["clock-set"]).0, 0);
 }
+
+#[test]
+fn nominal64_words_mix_with_preview1_and_fixed_prestat() {
+    let wat = r#"(module
+      (import "wasix_64v1" "args_sizes_get" (func $sizes64 (param i64 i64) (result i32)))
+      (import "wasix_64v1" "args_get" (func $args64 (param i64 i64) (result i32)))
+      (import "wasi_snapshot_preview1" "args_sizes_get" (func $sizes32 (param i32 i32) (result i32)))
+      (import "wasix_64v1" "fd_prestat_get" (func $prestat (param i32 i64) (result i32)))
+      (import "wasix_64v1" "proc_id" (func $pid (param i64) (result i32)))
+      (import "wasi_snapshot_preview1" "proc_exit" (func $exit (param i32)))
+      (memory (export "memory") 1)
+      (func $check (param $bad i32) (param $code i32)
+        (if (local.get $bad) (then (call $exit (local.get $code)))))
+      (func (export "_start")
+        (i64.store (i32.const 100) (i64.const -1))
+        (call $check (call $sizes64 (i64.const 100) (i64.const 108)) (i32.const 1))
+        (call $check (i64.ne (i64.load (i32.const 100)) (i64.const 2)) (i32.const 2))
+        (call $check (i64.ne (i64.load (i32.const 108)) (i64.const 12)) (i32.const 3))
+        (call $check (call $args64 (i64.const 200) (i64.const 300)) (i32.const 4))
+        (call $check (i64.ne (i64.load (i32.const 200)) (i64.const 300)) (i32.const 5))
+        (call $check (i64.ne (i64.load (i32.const 208)) (i64.const 306)) (i32.const 6))
+        (i32.store (i32.const 408) (i32.const 0x7a7a7a7a))
+        (call $check (call $sizes32 (i32.const 400) (i32.const 404)) (i32.const 7))
+        (call $check (i32.ne (i32.load (i32.const 400)) (i32.const 2)) (i32.const 8))
+        (call $check (i32.ne (i32.load (i32.const 408)) (i32.const 0x7a7a7a7a)) (i32.const 9))
+        (i64.store (i32.const 508) (i64.const 0x7a7a7a7a7a7a7a7a))
+        (call $check (call $prestat (i32.const 3) (i64.const 500)) (i32.const 10))
+        (call $check (i32.ne (i32.load (i32.const 504)) (i32.const 1)) (i32.const 11))
+        (call $check (i64.ne (i64.load (i32.const 508)) (i64.const 0x7a7a7a7a7a7a7a7a)) (i32.const 12))
+        (i64.store (i32.const 600) (i64.const 0x7a7a7a7a7a7a7a7a))
+        (call $check (call $pid (i64.const 600)) (i32.const 13))
+        ;; The pointer is64-bit, but pid remains a fixed32-bit output.
+        (call $check (i32.eqz (i32.load (i32.const 600))) (i32.const 14))
+        (call $check (i32.ne (i32.load (i32.const 604)) (i32.const 0x7a7a7a7a)) (i32.const 15))))"#;
+    assert_eq!(block_on(wat, &["hello", "world"]).0, 0);
+}
+
+#[test]
+fn nominal64_getcwd_capacity_and_prestat_full_span_have_distinct_bounds() {
+    let wat = r#"(module
+      (import "wasix_64v1" "getcwd" (func $cwd (param i64 i64) (result i32)))
+      (import "wasix_64v1" "fd_prestat_dir_name" (func $name (param i32 i64 i64) (result i32)))
+      (import "wasi_snapshot_preview1" "proc_exit" (func $exit (param i32)))
+      (memory (export "memory") 1)
+      (func (export "_start")
+        (i64.store (i32.const 100) (i64.const -1))
+        (if (call $cwd (i64.const 200) (i64.const 100)) (then (call $exit (i32.const 1))))
+        (if (i64.ne (i64.load (i32.const 100)) (i64.const 1)) (then (call $exit (i32.const 2))))
+        (if (i32.ne (i32.load16_u (i32.const 200)) (i32.const 47)) (then (call $exit (i32.const 3))))
+        ;; The full capacity is checked before even the invalid descriptor.
+        (if (i32.ne (call $name (i32.const -1) (i64.const 200) (i64.const 4294967296)) (i32.const 78))
+          (then (call $exit (i32.const 4))))))"#;
+    assert_eq!(block_on(wat, &["capacity"]).0, 0);
+}
+
+#[test]
+fn nominal64_function_packets_keep_unused_pointers_and_original_capacities() {
+    let wat = r#"(module
+      (import "wasix_64v1" "call_dynamic" (func $call (param i32 i64 i64 i64 i64 i32) (result i32)))
+      (import "wasi_snapshot_preview1" "proc_exit" (func $exit (param i32)))
+      (memory (export "memory") 1)
+      (table 3 funcref)
+      (elem (i32.const 1) $wide $small)
+      (global $effects (mut i32) (i32.const 0))
+      (func $wide (param i64) (result i64) local.get 0)
+      (func $small (result i32)
+        (global.set $effects (i32.add (global.get $effects) (i32.const 1))) (i32.const 42))
+      (func (export "_start")
+        ;; An incomplete i64 consumes no input bytes and does not touch its high pointer.
+        (if (call $call (i32.const 1) (i64.const 4294967296) (i64.const 4)
+          (i64.const 100) (i64.const 8) (i32.const 0)) (then (call $exit (i32.const 1))))
+        (if (i64.ne (i64.load (i32.const 100)) (i64.const 0)) (then (call $exit (i32.const 2))))
+        ;; Only the actual4-byte result is touched despite this over-u32 capacity.
+        (if (call $call (i32.const 2) (i64.const 4294967296) (i64.const 0)
+          (i64.const 100) (i64.const 4294967296) (i32.const 0)) (then (call $exit (i32.const 3))))
+        (if (i32.ne (i32.load (i32.const 100)) (i32.const 42)) (then (call $exit (i32.const 4))))
+        (if (i32.ne (call $call (i32.const 2) (i64.const 4294967296) (i64.const 0)
+          (i64.const 100) (i64.const 8) (i32.const 1)) (i32.const 28)) (then (call $exit (i32.const 5))))
+        (if (i32.ne (global.get $effects) (i32.const 2)) (then (call $exit (i32.const 6))))))"#;
+    assert_eq!(block_on(wat, &["wide-packets"]).0, 0);
+}
+
+#[test]
+fn nominal64_empty_reflection_checks_both_spans_only_after_early_errors() {
+    let wat = r#"(module
+      (import "wasix_64v1" "reflect_signature" (func $reflect (param i32 i64 i32 i64 i32 i64) (result i32)))
+      (import "wasi_snapshot_preview1" "proc_exit" (func $exit (param i32)))
+      (memory (export "memory") 1)
+      (table 3 funcref)
+      (elem (i32.const 1) $empty $argument)
+      (func $empty)
+      (func $argument (param i64))
+      (func (export "_start")
+        (if (call $reflect (i32.const 1) (i64.const 65536) (i32.const 0)
+          (i64.const 65536) (i32.const 0) (i64.const 100)) (then (call $exit (i32.const 1))))
+        (if (i32.ne (call $reflect (i32.const 1) (i64.const 65536) (i32.const 0)
+          (i64.const 4294967296) (i32.const 0) (i64.const 100)) (i32.const 78))
+          (then (call $exit (i32.const 2))))
+        ;; Capacity overflow writes counts, then leaves both high type pointers unused.
+        (if (i32.ne (call $reflect (i32.const 2) (i64.const 4294967296) (i32.const 0)
+          (i64.const 4294967296) (i32.const 0) (i64.const 100)) (i32.const 61))
+          (then (call $exit (i32.const 3))))
+        (if (i32.ne (i32.load16_u (i32.const 102)) (i32.const 1)) (then (call $exit (i32.const 4))))))"#;
+    assert_eq!(block_on(wat, &["empty-reflect"]).0, 0);
+}
+
+#[test]
+fn nominal64_empty_startup_array_is_checked_but_empty_random_ignores_its_pointer() {
+    let wat = r#"(module
+      (import "wasix_64v1" "args_get" (func $args (param i64 i64) (result i32)))
+      (import "wasix_64v1" "args_sizes_get" (func $sizes (param i64 i64) (result i32)))
+      (import "wasix_64v1" "random_get" (func $random (param i64 i64) (result i32)))
+      (import "wasi_snapshot_preview1" "proc_exit" (func $exit (param i32)))
+      (memory (export "memory") 1)
+      (func (export "_start")
+        (if (call $sizes (i64.const 100) (i64.const 108)) (then (call $exit (i32.const 1))))
+        (if (i64.ne (i64.load (i32.const 100)) (i64.const 0)) (then (call $exit (i32.const 2))))
+        ;; write_buffer_array constructs the pointer span even with no strings.
+        (if (call $args (i64.const 65536) (i64.const 1099511627776)) (then (call $exit (i32.const 3))))
+        (if (i32.ne (call $args (i64.const 1099511627776) (i64.const 0)) (i32.const 78))
+          (then (call $exit (i32.const 4))))
+        ;; random_get returns before constructing any span for a zero request.
+        (if (call $random (i64.const 1099511627776) (i64.const 0)) (then (call $exit (i32.const 5))))))"#;
+    assert_eq!(block_on(wat, &[]).0, 0);
+}
+
+#[test]
+fn nominal64_epoll_preserves_opaque_high_cookies_and_mixed_width_output_codecs() {
+    let wat = r#"(module
+      (import "wasix_64v1" "fd_event" (func $event (param i64 i32 i64) (result i32)))
+      (import "wasix_64v1" "epoll_create" (func $create (param i64) (result i32)))
+      (import "wasix_64v1" "epoll_ctl" (func $ctl (param i32 i32 i32 i64) (result i32)))
+      (import "wasix_64v1" "epoll_wait" (func $wait64 (param i32 i64 i32 i64 i64) (result i32)))
+      (import "wasix_32v1" "epoll_wait" (func $wait32 (param i32 i32 i32 i64 i32) (result i32)))
+      (import "wasi_snapshot_preview1" "proc_exit" (func $exit (param i32)))
+      (memory (export "memory") 1)
+      (func $check (param $bad i32) (param $code i32)
+        (if (local.get $bad) (then (call $exit (local.get $code)))))
+      (func (export "_start") (local $fd i32) (local $epfd i32)
+        (call $check (call $event (i64.const 1) (i32.const 0) (i64.const 100)) (i32.const 1))
+        (local.set $fd (i32.load (i32.const 100)))
+        (call $check (call $create (i64.const 104)) (i32.const 2))
+        (local.set $epfd (i32.load (i32.const 104)))
+        (i32.store (i32.const 128) (i32.const 1))
+        (i64.store (i32.const 136) (i64.const 0xfedcba9876543210))
+        (i32.store (i32.const 144) (i32.const 777))
+        (i32.store (i32.const 148) (i32.const 0x12345678))
+        (i64.store (i32.const 152) (i64.const 0x1122334455667788))
+        (call $check (call $ctl (local.get $epfd) (i32.const 1) (local.get $fd) (i64.const 128)) (i32.const 3))
+        (i64.store (i32.const 400) (i64.const -1))
+        (call $check (call $wait64 (local.get $epfd) (i64.const 256) (i32.const 1) (i64.const 0) (i64.const 400)) (i32.const 4))
+        (call $check (i64.ne (i64.load (i32.const 400)) (i64.const 1)) (i32.const 5))
+        (call $check (i64.ne (i64.load (i32.const 264)) (i64.const 0xfedcba9876543210)) (i32.const 6))
+        (call $check (i32.ne (i32.load (i32.const 272)) (i32.const 777)) (i32.const 7))
+        (call $check (i32.ne (i32.load (i32.const 276)) (i32.const 0x12345678)) (i32.const 8))
+        (call $check (i64.ne (i64.load (i32.const 280)) (i64.const 0x1122334455667788)) (i32.const 9))
+        ;; The same stored cookie cannot be silently truncated by a32-bit import.
+        (call $check (i32.ne (call $wait32 (local.get $epfd) (i32.const 256) (i32.const 1)
+          (i64.const 0) (i32.const 400)) (i32.const 61)) (i32.const 10))))"#;
+    assert_eq!(block_on(wat, &["wide-epoll"]).0, 0);
+}

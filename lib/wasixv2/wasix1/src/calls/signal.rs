@@ -20,6 +20,8 @@
 //! returns `INTR` once `__wasm_signal` ran) nor a mask of its own: it is `SA_NODEFER`, since
 //! libc applies `sa_mask` and `SA_NODEFER` itself and must see a signal raised from a handler.
 
+use crate::abi::{GuestSize, Pointer};
+
 use std::{
     collections::HashMap,
     sync::{Mutex, atomic::Ordering},
@@ -165,21 +167,21 @@ async fn inherited<S: Syscalls + Control + 'static>(
 
 pub(crate) async fn proc_signals_sizes_get<S: Syscalls + Control + 'static>(
     env: Env<S>,
-    count: i32,
+    count: Pointer,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
         let n = inherited(frame).await?.len() as u32;
-        frame.write(count as u32, &n).await
+        frame.write_size(count, u64::from(n)).await
     })
     .await
 }
 
 pub(crate) async fn proc_signals_get<S: Syscalls + Control + 'static>(
     env: Env<S>,
-    buf: i32,
+    buf: Pointer,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
-        let mut addr = buf as u32;
+        let mut addr = buf.narrow()?;
         for disposition in inherited(frame).await? {
             frame.write(addr, &disposition).await?;
             addr += SignalDisposition::SIZE as u32;
@@ -214,11 +216,11 @@ async fn install<S: Syscalls + Control + 'static>(frame: &Frame<'_, S>) -> V1Res
 /// module does not export holds signals back until a later call names one it does.
 pub(crate) async fn callback_signal<S: Syscalls + Control + 'static>(
     env: Env<S>,
-    name: i32,
-    name_len: i32,
+    name: Pointer,
+    name_len: GuestSize,
 ) -> Result<(), RuntimeError> {
     shim::void(&env, "callback_signal", async |frame| {
-        let name = read_bytes(frame, name as u32, name_len as u32).await?;
+        let name = read_bytes(frame, name, name_len).await?;
         let deliver = std::str::from_utf8(&name)
             .is_ok_and(|name| frame.instance().select_signal_callback(name));
         // A module with no callback at all cannot run a handler: signals keep their default

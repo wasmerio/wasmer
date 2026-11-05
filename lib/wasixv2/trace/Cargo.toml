@@ -16,3 +16,4 @@ tracing.workspace = true
 
 [dev-dependencies]
 futures.workspace = true
+wasixv2-abi = { path = "../abi" }

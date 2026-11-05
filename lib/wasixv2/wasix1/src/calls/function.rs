@@ -1,19 +1,21 @@
 //! V1 function imports select their existing buffer conventions before layered dispatch.
 
+use crate::abi::{GuestSize, Pointer};
+
 use crate::shim::{self, Env};
-use wasixv2_abi::{CallDynamicFlags, GuestPtrMut};
+use wasixv2_abi::CallDynamicFlags;
 use wasixv2_exec::{CallBufferPolicy, GuestFunctionOperations};
-use wasixv2_syscalls::{Control, Syscalls, UserSlice, UserSliceMut};
+use wasixv2_syscalls::{Control, RawGuestBuffer, SysErr, SysResult, Syscalls};
 use wasmer::RuntimeError;
 
 #[allow(clippy::too_many_arguments)]
 pub(crate) async fn call_dynamic<S: Syscalls + Control + 'static>(
     env: Env<S>,
     function: i32,
-    values: i32,
-    values_len: i32,
-    results: i32,
-    results_len: i32,
+    values: Pointer,
+    values_len: GuestSize,
+    results: Pointer,
+    results_len: GuestSize,
     strict: i32,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
@@ -22,6 +24,7 @@ pub(crate) async fn call_dynamic<S: Syscalls + Control + 'static>(
                 strict_results_before_call: false,
                 zero_result_tail: false,
                 whole_result_fields: true,
+                validate_empty_reflection_spans: true,
             },
         );
         let caller = frame.caller().with_functions(&functions);
@@ -35,11 +38,12 @@ pub(crate) async fn call_dynamic<S: Syscalls + Control + 'static>(
             .call_dynamic(
                 &caller,
                 function as u32,
-                UserSlice::new(values as u32, values_len as u32),
-                UserSliceMut::new(results as u32, results_len as u32),
+                RawGuestBuffer::new(values.0, values_len.0),
+                RawGuestBuffer::new(results.0, results_len.0),
                 flags,
             )
-            .await?;
+            .await;
+        let result = function_result(&functions, result)?;
         extension_result(result)
     })
     .await
@@ -48,25 +52,31 @@ pub(crate) async fn call_dynamic<S: Syscalls + Control + 'static>(
 pub(crate) async fn reflect_signature<S: Syscalls + Control + 'static>(
     env: Env<S>,
     function: i32,
-    arguments: i32,
+    arguments: Pointer,
     arguments_len: i32,
-    results: i32,
+    results: Pointer,
     results_len: i32,
-    result: i32,
+    result: Pointer,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
-        let functions = GuestFunctionOperations::new(frame.env, frame.unwind());
+        let functions = GuestFunctionOperations::new(frame.env, frame.unwind()).with_buffer_policy(
+            CallBufferPolicy {
+                validate_empty_reflection_spans: true,
+                ..CallBufferPolicy::default()
+            },
+        );
         let caller = frame.caller().with_functions(&functions);
         let result = frame
             .syscalls
             .reflect_signature(
                 &caller,
                 function as u32,
-                UserSliceMut::new(arguments as u32, u32::from(arguments_len as u16)),
-                UserSliceMut::new(results as u32, u32::from(results_len as u16)),
-                GuestPtrMut::new(result as u32),
+                RawGuestBuffer::new(arguments.0, u64::from(arguments_len as u16)),
+                RawGuestBuffer::new(results.0, u64::from(results_len as u16)),
+                frame.raw_pointer(result),
             )
-            .await?;
+            .await;
+        let result = function_result(&functions, result)?;
         extension_result(result)
     })
     .await
@@ -81,4 +91,17 @@ fn extension_result(value: i32) -> crate::errno::V1Result<()> {
         return Err(wasixv2_abi::Errno(errno).into());
     }
     Ok(())
+}
+
+fn function_result<S: 'static>(
+    functions: &GuestFunctionOperations<'_, S>,
+    result: SysResult<i32>,
+) -> crate::errno::V1Result<i32> {
+    let faulted = functions.take_buffer_fault();
+    match result {
+        Err(SysErr::Errno(wasixv2_abi::Errno::EFAULT)) if faulted => {
+            Err(crate::abi::Errno::MEMVIOLATION.into())
+        }
+        result => result.map_err(Into::into),
+    }
 }

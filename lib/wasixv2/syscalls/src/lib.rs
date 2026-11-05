@@ -32,6 +32,7 @@ mod generated;
 mod loader;
 mod memory;
 mod result;
+mod vectors;
 
 pub use caller::{AsTask, Caller, TaskId, as_task, current_task};
 pub use control::{
@@ -46,10 +47,12 @@ pub use descriptors::{
 pub use future::MaybeFuture;
 pub use generated::{Layer, Layered, Syscall, SyscallRet, Syscalls, dispatch};
 pub use memory::{
-    CstrError, Fault, HostMemoryPin, LocalFuture, MemoryLayout, PageAccess, Restricted, UserMemory,
-    UserSlice, UserSliceMut, WASM_PAGE_SIZE, copied, read_cstr, read_value, write_value,
+    CstrError, Fault, GuestWordWidth, HostMemoryPin, LocalFuture, MemoryLayout, PageAccess,
+    RawGuestBuffer, RawGuestPointer, Restricted, UserMemory, UserSlice, UserSliceMut,
+    WASM_PAGE_SIZE, copied, read_cstr, read_value, write_value,
 };
 pub use result::{SysErr, SysResult};
+pub use vectors::{IoVectorSource, VectorOperation};
 pub use wasixv2_abi::{Errno, Fd};
 
 pub use loader::{

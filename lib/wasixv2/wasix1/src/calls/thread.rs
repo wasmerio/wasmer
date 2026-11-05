@@ -7,8 +7,14 @@
 //! TLS from `start_arg`, and returning from it ends the thread (see [`crate::instance`]).
 //! `thread_exit` and `thread_id` are in `exit.rs`, `thread_signal` in `signal.rs`.
 
+use crate::abi::{
+    AbiWidth, Errno, Pointer,
+    proc::{ThreadStart, ThreadStart64},
+};
+
 use wasixv2_abi::{
-    CloneFlags, ConstKernelTimespecPtr, KernelTimespec, KernelTimespecPtr, S32Ptr, UlongArray,
+    CloneFlags, ConstKernelTimespecPtr, GuestLayout, KernelTimespec, KernelTimespecPtr, S32Ptr,
+    UlongArray,
 };
 use wasixv2_syscalls::{Control, Syscalls};
 use wasmer::RuntimeError;
@@ -54,12 +60,22 @@ async fn spawn<S: Syscalls + Control + 'static>(
 /// libc's `thread_start`, which only the guest reads.
 pub(crate) async fn thread_spawn_v2<S: Syscalls + Control + 'static>(
     env: Env<S>,
-    start: i32,
-    tid_out: i32,
+    start: Pointer,
+    tid_out: Pointer,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
-        let tid = spawn(frame, start as u32).await? as u32;
-        frame.write(tid_out as u32, &tid).await
+        match frame.width() {
+            AbiWidth::Wasm32 => {
+                frame.read::<ThreadStart>(start.narrow()?).await?;
+            }
+            AbiWidth::Wasm64 => {
+                frame.read::<ThreadStart64>(start.narrow()?).await?;
+            }
+        }
+        // The historical guest entry still takes an i32 pointer.
+        let start = i32::try_from(start.0).map_err(|_| Errno::OVERFLOW)? as u32;
+        let tid = spawn(frame, start).await? as u32;
+        frame.write(tid_out.narrow()?, &tid).await
     })
     .await
 }
@@ -67,10 +83,10 @@ pub(crate) async fn thread_spawn_v2<S: Syscalls + Control + 'static>(
 /// wasi-threads' `thread-spawn(start_arg)`: the new thread's tid, or a negative errno.
 pub(crate) async fn wasi_thread_spawn<S: Syscalls + Control + 'static>(
     env: Env<S>,
-    start: i32,
+    start: Pointer,
 ) -> Result<i32, RuntimeError> {
     Ok(
-        match shim::call(&env, async |frame| spawn(frame, start as u32).await).await? {
+        match shim::call(&env, async |frame| spawn(frame, start.narrow()?).await).await? {
             Done::Ok(tid) => tid,
             Done::Err(errno) => -i32::from(errno.0),
             Done::Switched(_) | Done::Unwinding => {
@@ -135,7 +151,7 @@ const CPU_MASK_BYTES: u32 = 128;
 /// `thread_parallelism(out)`: the CPUs the calling thread may run on.
 pub(crate) async fn thread_parallelism<S: Syscalls + Control + 'static>(
     env: Env<S>,
-    out: i32,
+    out: Pointer,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
         let mask = frame.mem.alloc_zeroed(CPU_MASK_BYTES)?;
@@ -150,7 +166,7 @@ pub(crate) async fn thread_parallelism<S: Syscalls + Control + 'static>(
             .await?;
         let bytes = frame.mem.take_bytes(mask, len.max(0) as usize);
         let cpus = bytes.iter().map(|b| b.count_ones()).sum::<u32>().max(1);
-        frame.write(out as u32, &cpus).await
+        frame.write_size(out, u64::from(cpus)).await
     })
     .await
 }

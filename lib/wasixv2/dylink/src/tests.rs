@@ -764,6 +764,7 @@ fn compilation_source_preparation_selects_supported_raw_dynamic_mains() {
     }
     for namespace in [
         "wasix_32v1",
+        "wasix_64v1",
         "wasi_snapshot_preview1",
         "wasi_unstable",
         "wasi",
@@ -781,14 +782,6 @@ fn compilation_source_preparation_selects_supported_raw_dynamic_mains() {
         assert!(!crate::needs_preparation(&legacy_prepared).unwrap());
         assert_eq!(Module::parse(&legacy_prepared).unwrap().start(), None);
     }
-    let wasm64 = bytes(
-        r#"(module (import "wasix_64v1" "probe" (func)))"#,
-        [0; 4],
-        &[],
-        &[],
-        &[],
-    );
-    assert!(!crate::needs_preparation(&wasm64).unwrap());
     let unsupported = bytes(
         r#"(module (import "wasixv2" "exit_group" (func (param i32)))
           (func (export "asyncify_start_unwind")))"#,

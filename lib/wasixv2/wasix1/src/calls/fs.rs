@@ -3,12 +3,14 @@
 //!
 //! Rights are compatibility-owned immutable descriptor attachments, checked on captured files.
 
+use crate::abi::{GuestSize, Pointer};
+
 use wasixv2_abi::{
-    AtFlags, ConstIovecArray, FadviseAdvice, FallocFlags, FcntlCmd, Fd, FdFlags, FileMode,
-    GuestPtr, GuestPtrMut, IoctlRequest, KernelTimespec, OpenFlags, SeekWhence, SocketLevel,
-    SocketOption, SocketType, Statx, StatxMask, StatxTimestamp, UtimeSpecial,
+    AtFlags, FadviseAdvice, FallocFlags, FcntlCmd, Fd, FdFlags, FileMode, GuestPtr, GuestPtrMut,
+    IoctlRequest, KernelTimespec, OpenFlags, SeekWhence, SocketLevel, SocketOption, SocketType,
+    Statx, StatxMask, StatxTimestamp, UtimeSpecial,
 };
-use wasixv2_syscalls::{Control, SysErr, Syscalls, UserMemory};
+use wasixv2_syscalls::{Control, IoVectorSource, SysErr, Syscalls, UserMemory, VectorOperation};
 use wasmer::RuntimeError;
 
 use crate::{
@@ -49,8 +51,8 @@ pub(crate) fn answer<T>(ret: Result<T, SysErr>) -> V1Result<Result<T, wasixv2_ab
 /// The guest path `(ptr, len)` as a C string in scratch, for the kernel's `*at` calls.
 pub(crate) async fn path_arg<S: Syscalls + Control + 'static>(
     frame: &Frame<'_, S>,
-    ptr: i32,
-    len: i32,
+    ptr: Pointer,
+    len: GuestSize,
 ) -> V1Result<wasixv2_abi::Cstr> {
     let path = guest_path(frame, ptr, len).await?;
     Ok(frame.mem.alloc_cstr(&path)?)
@@ -60,15 +62,22 @@ pub(crate) async fn path_arg<S: Syscalls + Control + 'static>(
 /// a path with a NUL in it cannot be expressed and is `INVAL`.
 async fn guest_path<S: Syscalls + Control + 'static>(
     frame: &Frame<'_, S>,
-    ptr: i32,
-    len: i32,
+    ptr: Pointer,
+    len: GuestSize,
 ) -> V1Result<Vec<u8>> {
-    let len = len as u32;
-    if len >= PATH_MAX {
+    frame.check_range(ptr, len.0).await?;
+    if len.0 >= u64::from(PATH_MAX) {
         return shim::fail(Errno::NAMETOOLONG);
     }
-    let mut path = vec![0; len as usize];
-    frame.mem.guest().read(ptr as u32, &mut path).await?;
+    let mut path = vec![0; len.0 as usize];
+    if !path.is_empty() {
+        frame
+            .mem
+            .guest()
+            .read(ptr.narrow()?, &mut path)
+            .await
+            .map_err(|_| Errno::MEMVIOLATION)?;
+    }
     if path.contains(&0) {
         return shim::fail(Errno::INVAL);
     }
@@ -229,13 +238,13 @@ pub(crate) const FILESTAT_MASK: StatxMask = StatxMask(
 /// Writes `stat` in the layout of the module the call came from.
 pub(crate) async fn write_filestat<S: Syscalls + Control + 'static>(
     frame: &Frame<'_, S>,
-    out: i32,
+    out: Pointer,
     stat: Filestat,
     snapshot0: bool,
 ) -> V1Result<()> {
     match snapshot0 {
-        true => frame.write(out as u32, &snapshot0_filestat(stat)).await,
-        false => frame.write(out as u32, &stat).await,
+        true => frame.write(out.narrow()?, &snapshot0_filestat(stat)).await,
+        false => frame.write(out.narrow()?, &stat).await,
     }
 }
 
@@ -350,14 +359,14 @@ pub(crate) async fn infer_fdstat<S: Syscalls + Control + 'static>(
 pub(crate) async fn fd_fdstat_get<S: Syscalls + Control + 'static>(
     env: Env<S>,
     fd: i32,
-    out: i32,
+    out: Pointer,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
         let rights = crate::rights::record(frame, Fd(fd)).await?;
         let mut stat = infer_fdstat(frame, Fd(fd)).await?;
         stat.fs_rights_base = rights.base;
         stat.fs_rights_inheriting = rights.inheriting;
-        frame.write(out as u32, &stat).await
+        frame.write(out.narrow()?, &stat).await
     })
     .await
 }
@@ -411,7 +420,7 @@ pub(crate) async fn fd_fdstat_set_rights<S: Syscalls + Control + 'static>(
 pub(crate) async fn fd_filestat_get<S: Syscalls + Control + 'static>(
     env: Env<S>,
     fd: i32,
-    out: i32,
+    out: Pointer,
 ) -> Result<i32, RuntimeError> {
     filestat_get(env, fd, out, false).await
 }
@@ -420,7 +429,7 @@ pub(crate) async fn fd_filestat_get<S: Syscalls + Control + 'static>(
 pub(crate) async fn snapshot0_fd_filestat_get<S: Syscalls + Control + 'static>(
     env: Env<S>,
     fd: i32,
-    out: i32,
+    out: Pointer,
 ) -> Result<i32, RuntimeError> {
     filestat_get(env, fd, out, true).await
 }
@@ -428,7 +437,7 @@ pub(crate) async fn snapshot0_fd_filestat_get<S: Syscalls + Control + 'static>(
 async fn filestat_get<S: Syscalls + Control + 'static>(
     env: Env<S>,
     fd: i32,
-    out: i32,
+    out: Pointer,
     snapshot0: bool,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
@@ -545,7 +554,7 @@ pub(crate) async fn fd_seek<S: Syscalls + Control + 'static>(
     fd: i32,
     offset: i64,
     whence: i32,
-    out: i32,
+    out: Pointer,
 ) -> Result<i32, RuntimeError> {
     seek(env, fd, offset, whence, out, false).await
 }
@@ -556,7 +565,7 @@ pub(crate) async fn snapshot0_fd_seek<S: Syscalls + Control + 'static>(
     fd: i32,
     offset: i64,
     whence: i32,
-    out: i32,
+    out: Pointer,
 ) -> Result<i32, RuntimeError> {
     seek(env, fd, offset, whence, out, true).await
 }
@@ -566,7 +575,7 @@ async fn seek<S: Syscalls + Control + 'static>(
     fd: i32,
     offset: i64,
     whence_v1: i32,
-    out: i32,
+    out: Pointer,
     snapshot0: bool,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
@@ -578,7 +587,7 @@ async fn seek<S: Syscalls + Control + 'static>(
             .syscalls
             .lseek(&frame.caller(), Fd(fd), offset, whence)
             .await?;
-        frame.write(out as u32, &(pos as u64)).await
+        frame.write(out.narrow()?, &(pos as u64)).await
     })
     .await
 }
@@ -586,7 +595,7 @@ async fn seek<S: Syscalls + Control + 'static>(
 pub(crate) async fn fd_tell<S: Syscalls + Control + 'static>(
     env: Env<S>,
     fd: i32,
-    out: i32,
+    out: Pointer,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
         crate::rights::require(frame, &[(wasixv2_abi::Fd(fd), Rights::FD_TELL)]).await?;
@@ -594,7 +603,7 @@ pub(crate) async fn fd_tell<S: Syscalls + Control + 'static>(
             .syscalls
             .lseek(&frame.caller(), Fd(fd), 0, SeekWhence::SEEK_CUR)
             .await?;
-        frame.write(out as u32, &(pos as u64)).await
+        frame.write(out.narrow()?, &(pos as u64)).await
     })
     .await
 }
@@ -603,24 +612,23 @@ pub(crate) async fn fd_tell<S: Syscalls + Control + 'static>(
 pub(crate) async fn fd_pread<S: Syscalls + Control + 'static>(
     env: Env<S>,
     fd: i32,
-    iovs: i32,
-    iovs_len: i32,
+    iovs: Pointer,
+    iovs_len: GuestSize,
     offset: i64,
-    nread: i32,
+    nread: Pointer,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
         crate::rights::require(frame, &[(wasixv2_abi::Fd(fd), Rights::FD_READ)]).await?;
-        let n = frame
+        let vectors =
+            crate::vectors::Vectors::read(frame, VectorOperation::ReadAt, Fd(fd), iovs, iovs_len)
+                .await?;
+        let caller = frame.caller().with_io_vectors(&vectors);
+        let result = frame
             .syscalls
-            .preadv(
-                &frame.caller(),
-                Fd(fd),
-                ConstIovecArray::new(iovs as u32),
-                iovs_len as u32,
-                offset,
-            )
-            .await?;
-        frame.write(nread as u32, &n).await
+            .preadv(&caller, Fd(fd), vectors.array(), vectors.count(), offset)
+            .await;
+        let n = vectors.finish(result)?;
+        frame.write_size(nread, n).await
     })
     .await
 }
@@ -629,24 +637,23 @@ pub(crate) async fn fd_pread<S: Syscalls + Control + 'static>(
 pub(crate) async fn fd_pwrite<S: Syscalls + Control + 'static>(
     env: Env<S>,
     fd: i32,
-    iovs: i32,
-    iovs_len: i32,
+    iovs: Pointer,
+    iovs_len: GuestSize,
     offset: i64,
-    nwritten: i32,
+    nwritten: Pointer,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
         crate::rights::require(frame, &[(wasixv2_abi::Fd(fd), Rights::FD_WRITE)]).await?;
-        let n = frame
+        let vectors =
+            crate::vectors::Vectors::read(frame, VectorOperation::WriteAt, Fd(fd), iovs, iovs_len)
+                .await?;
+        let caller = frame.caller().with_io_vectors(&vectors);
+        let result = frame
             .syscalls
-            .pwritev(
-                &frame.caller(),
-                Fd(fd),
-                ConstIovecArray::new(iovs as u32),
-                iovs_len as u32,
-                offset,
-            )
-            .await?;
-        frame.write(nwritten as u32, &n).await
+            .pwritev(&caller, Fd(fd), vectors.array(), vectors.count(), offset)
+            .await;
+        let n = vectors.finish(result)?;
+        frame.write_size(nwritten, n).await
     })
     .await
 }
@@ -782,13 +789,13 @@ pub(crate) async fn fd_renumber<S: Syscalls + Control + 'static>(
 pub(crate) async fn fd_dup<S: Syscalls + Control + 'static>(
     env: Env<S>,
     fd: i32,
-    out: i32,
+    out: Pointer,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
         crate::rights::duplicate(frame, Fd(fd)).await?;
         let new = frame.syscalls.dup(&frame.caller(), Fd(fd)).await?;
         frame.proc().await?.net.timeouts.copy(Fd(fd), new);
-        frame.write(out as u32, &(new.0 as u32)).await
+        frame.write(out.narrow()?, &(new.0 as u32)).await
     })
     .await
 }
@@ -799,7 +806,7 @@ pub(crate) async fn fd_dup2<S: Syscalls + Control + 'static>(
     fd: i32,
     min_fd: i32,
     cloexec: i32,
-    out: i32,
+    out: Pointer,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
         crate::rights::duplicate(frame, Fd(fd)).await?;
@@ -812,7 +819,7 @@ pub(crate) async fn fd_dup2<S: Syscalls + Control + 'static>(
             .fcntl64(&frame.caller(), Fd(fd), cmd, min_fd as u32)
             .await?;
         frame.proc().await?.net.timeouts.copy(Fd(fd), Fd(new));
-        frame.write(out as u32, &(new as u32)).await
+        frame.write(out.narrow()?, &(new as u32)).await
     })
     .await
 }
@@ -820,7 +827,7 @@ pub(crate) async fn fd_dup2<S: Syscalls + Control + 'static>(
 pub(crate) async fn fd_fdflags_get<S: Syscalls + Control + 'static>(
     env: Env<S>,
     fd: i32,
-    out: i32,
+    out: Pointer,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
         crate::rights::require(frame, &[(wasixv2_abi::Fd(fd), Rights::empty())]).await?;
@@ -832,7 +839,7 @@ pub(crate) async fn fd_fdflags_get<S: Syscalls + Control + 'static>(
             true => Fdflagsext::CLOEXEC,
             false => Fdflagsext::empty(),
         };
-        frame.write(out as u32, &ext).await
+        frame.write(out.narrow()?, &ext).await
     })
     .await
 }
@@ -861,8 +868,8 @@ pub(crate) async fn fd_fdflags_set<S: Syscalls + Control + 'static>(
 /// `pipe2(fds, 0)`: the read end, then the write end.
 pub(crate) async fn fd_pipe<S: Syscalls + Control + 'static>(
     env: Env<S>,
-    read_out: i32,
-    write_out: i32,
+    read_out: Pointer,
+    write_out: Pointer,
 ) -> Result<i32, RuntimeError> {
     shim::errno(&env, async |frame| {
         let common = Rights::FD_SYNC
@@ -883,8 +890,8 @@ pub(crate) async fn fd_pipe<S: Syscalls + Control + 'static>(
             .pipe2(&frame.caller(), GuestPtrMut::new(fds.addr()), OpenFlags(0))
             .await?;
         let [read, write] = frame.mem.take(fds);
-        frame.write(read_out as u32, &(read.0 as u32)).await?;
-        frame.write(write_out as u32, &(write.0 as u32)).await
+        frame.write(read_out.narrow()?, &(read.0 as u32)).await?;
+        frame.write(write_out.narrow()?, &(write.0 as u32)).await
     })
     .await
 }

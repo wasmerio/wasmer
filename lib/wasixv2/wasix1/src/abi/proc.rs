@@ -171,6 +171,34 @@ layout! {
 }
 
 layout! {
+    /// The nominal64 import's guest-owned thread record.
+    pub struct ThreadStart64 (size 128, align 8) {
+        pub stack: u64 = 0,
+        pub tls_base: u64 = 8,
+        pub start_funct: u64 = 16,
+        pub start_args: u64 = 24,
+        pub stack_size: u64 = 112,
+        pub guard_size: u64 = 120,
+    }
+}
+
+layout! {
+    pub struct ProcSpawnFdOp64 (size 64, align 8) {
+        pub cmd: ProcSpawnFdOpName = 0,
+        pub fd: u32 = 4,
+        pub src_fd: u32 = 8,
+        pub path: u64 = 16,
+        pub path_len: u64 = 24,
+        pub dirflags: u32 = 32,
+        pub oflags: u16 = 36,
+        pub fs_rights_base: u64 = 40,
+        pub fs_rights_inheriting: u64 = 48,
+        pub fdflags: u16 = 56,
+        pub fdflagsext: u16 = 58,
+    }
+}
+
+layout! {
     /// `stack_snapshot`: identical to v2's `stack-snapshot`.
     pub struct StackSnapshot (size 24, align 8) {
         pub user: u64 = 0,
