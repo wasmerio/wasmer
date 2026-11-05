@@ -338,6 +338,41 @@ impl Drop for NativeEngineFrame {
     }
 }
 
+/// Whether host work may use the existing managed future transport now.
+/// NoYield allocator/cleanup callbacks must instead complete synchronously.
+#[doc(hidden)]
+#[cfg(feature = "experimental-async")]
+pub fn native_host_work_can_suspend() -> bool {
+    super::async_runtime::native_coroutine_active()
+        && !super::async_runtime::native_cleanup_no_yield()
+}
+
+/// Runs host-only work through the current native coroutine's existing future
+/// transport. The caller must park its Store borrow before entering this helper.
+/// Existing NoYield and retirement rules apply; this never calls a guest or V8.
+#[doc(hidden)]
+#[cfg(feature = "experimental-async")]
+pub fn run_native_host_future<T: 'static>(
+    future: impl std::future::Future<Output = Result<T, RuntimeError>> + 'static,
+) -> Result<T, RuntimeError> {
+    use std::cell::RefCell;
+    let result = Rc::new(RefCell::new(None));
+    let destination = result.clone();
+    super::async_runtime::block_on_host_future(async move {
+        let value = future.await?;
+        *destination.borrow_mut() = Some(value);
+        Ok(Vec::new())
+    })
+    .map_err(|error| match error {
+        super::async_runtime::AsyncRuntimeError::RuntimeError(error) => error,
+        super::async_runtime::AsyncRuntimeError::YieldOutsideAsyncContext => {
+            RuntimeError::new("native host work cannot suspend outside a managed invocation")
+        }
+    })?;
+    let value = result.borrow_mut().take();
+    value.ok_or_else(|| RuntimeError::new("native host work completed without a result"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

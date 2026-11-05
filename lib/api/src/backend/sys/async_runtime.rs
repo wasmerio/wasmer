@@ -1391,7 +1391,7 @@ impl MemoryGrowCallbackGuard {
     }
 }
 
-fn native_cleanup_no_yield() -> bool {
+pub(crate) fn native_cleanup_no_yield() -> bool {
     NATIVE_CLEANUP_DEPTH.with(|depth| depth.get() != 0)
 }
 

@@ -6,6 +6,9 @@
 #[cfg(all(feature = "browser", target_arch = "wasm32"))]
 pub mod browser;
 
+#[cfg(all(feature = "napi", not(target_arch = "wasm32")))]
+pub mod napi;
+
 mod package;
 pub use package::{Package, install_packages};
 
@@ -301,6 +304,13 @@ impl MachineBuilder {
     pub fn instantiation_hook(mut self, hook: Arc<dyn InstantiationHook<MachineSyscalls>>) -> Self {
         self.instantiation_hooks.push(hook);
         self
+    }
+
+    /// Enables native N-API on owning-thread task Stores. Linear memory backing
+    /// comes only from protected kernel reservations; no legacy grow fallback.
+    #[cfg(all(feature = "napi", not(target_arch = "wasm32")))]
+    pub fn napi(self, context: napi::NapiCtx) -> Self {
+        self.instantiation_hook(Arc::new(napi::NapiHook::new(context)))
     }
 
     /// Caps admitted guest tasks, including root-owned threads/processes. Kernel init is

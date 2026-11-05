@@ -608,6 +608,92 @@ impl<S> ExecEnv<S> {
     }
 }
 
+/// Attempts one host reservation using the exact borrowed Store. No borrowed
+/// future or memory capability escapes this call, including on Pending.
+/// This is the NoYield allocator path; ordinary managed reservations use
+/// GuestMemory and the existing native host-future transport instead.
+#[cfg(all(feature = "sys", not(target_arch = "wasm32")))]
+pub fn poll_native_host_reservation<S: wasixv2_syscalls::LoaderControl + Send + Sync + 'static>(
+    env: &wasmer::FunctionEnv<ExecEnv<S>>,
+    store: &mut wasmer::StoreMut<'_>,
+    bytes: u32,
+) -> std::task::Poll<wasixv2_syscalls::SysResult<Box<dyn wasixv2_syscalls::HostMemoryLease>>> {
+    use std::cell::RefCell;
+    let (memory, layout, syscalls, task) = {
+        let data = env.as_ref(&*store);
+        let Some(memory) = data.memory.clone() else {
+            return std::task::Poll::Ready(Err(wasixv2_syscalls::Errno::ENOSYS.into()));
+        };
+        (
+            memory,
+            data.layout.clone(),
+            data.syscalls.clone(),
+            data.task,
+        )
+    };
+    let memory = ReservationMemory {
+        memory,
+        layout,
+        store: RefCell::new(store.as_store_mut()),
+    };
+    poll_borrowed_reservation(&*syscalls, task, &memory, bytes)
+}
+
+#[cfg(all(feature = "sys", not(target_arch = "wasm32")))]
+fn poll_borrowed_reservation(
+    control: &impl wasixv2_syscalls::LoaderControl,
+    task: wasixv2_syscalls::TaskId,
+    memory: &dyn UserMemory,
+    bytes: u32,
+) -> std::task::Poll<wasixv2_syscalls::SysResult<Box<dyn wasixv2_syscalls::HostMemoryLease>>> {
+    use std::task::{Context, Waker};
+    let caller = wasixv2_syscalls::Caller::new(task, memory);
+    let mut future = control.loader_reserve_host(&caller, bytes, 65536);
+    let mut context = Context::from_waker(Waker::noop());
+    let result = future.as_mut().poll(&mut context);
+    // All cancellation/rollback finishes while the original Store borrow is
+    // still held. Pending is not retained, retried or migrated to another mode.
+    drop(future);
+    result
+}
+
+/// Only the operations used by allocate_host_range: layout, size and growth.
+/// It cannot be registered or returned. Payload copies fail closed; pinning is
+/// performed by loader_reserve_host on its existing protected ForeignMemory.
+#[cfg(all(feature = "sys", not(target_arch = "wasm32")))]
+struct ReservationMemory<'a> {
+    memory: Memory,
+    layout: Option<wasixv2_syscalls::MemoryLayout>,
+    store: std::cell::RefCell<wasmer::StoreMut<'a>>,
+}
+#[cfg(all(feature = "sys", not(target_arch = "wasm32")))]
+impl UserMemory for ReservationMemory<'_> {
+    fn layout(&self) -> LocalFuture<'_, Option<wasixv2_syscalls::MemoryLayout>> {
+        let layout = self.layout.clone();
+        Box::pin(async move { layout })
+    }
+    fn size(&self) -> LocalFuture<'_, u64> {
+        let size = self.memory.view(&*self.store.borrow()).data_size();
+        Box::pin(async move { size })
+    }
+    fn grow(&self, pages: u32) -> LocalFuture<'_, Option<u64>> {
+        // Same Memory::grow path as GuestMemory/OutsideMemory: same budget,
+        // stable mapping, callback guards and backend validation.
+        Box::pin(async move {
+            self.memory
+                .grow(&mut *self.store.borrow_mut(), pages)
+                .ok()
+                .map(|previous| previous.bytes().0 as u64)
+        })
+    }
+    fn read<'a>(&'a self, _: u32, _: &'a mut [u8]) -> LocalFuture<'a, Result<(), Fault>> {
+        Box::pin(async { Err(Fault) })
+    }
+    fn write<'a>(&'a self, _: u32, _: &'a [u8]) -> LocalFuture<'a, Result<(), Fault>> {
+        Box::pin(async { Err(Fault) })
+    }
+}
+
 /// The calling instance's linear memory, reached through its async function environment.
 pub struct GuestMemory<'a, S: 'static> {
     pub(crate) env: &'a AsyncFunctionEnvMut<ExecEnv<S>>,
@@ -1251,6 +1337,48 @@ fn copied_value<T: 'static>(result: T) -> LocalFuture<'static, T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(all(feature = "sys", not(target_arch = "wasm32")))]
+    #[test]
+    fn borrowed_reservation_pending_drops_before_store_is_reused() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        use wasixv2_syscalls::{Caller, HostMemoryLease, LoaderControl, SysResult, TaskId};
+        struct Pending(Arc<AtomicUsize>);
+        impl LoaderControl for Pending {
+            fn loader_reserve_host<'a>(
+                &'a self,
+                _: &'a Caller<'_>,
+                _: u32,
+                _: u32,
+            ) -> LocalFuture<'a, SysResult<Box<dyn HostMemoryLease>>> {
+                struct DropCount(Arc<AtomicUsize>);
+                impl Drop for DropCount {
+                    fn drop(&mut self) {
+                        self.0.fetch_add(1, Ordering::SeqCst);
+                    }
+                }
+                let guard = DropCount(self.0.clone());
+                Box::pin(async move {
+                    let _guard = guard;
+                    std::future::pending().await
+                })
+            }
+        }
+        let drops = Arc::new(AtomicUsize::new(0));
+        let mut store = wasmer::Store::default();
+        let memory = Memory::new(&mut store, wasmer::MemoryType::new(1, Some(4), true)).unwrap();
+        let borrowed = ReservationMemory {
+            memory: memory.clone(),
+            layout: None,
+            store: std::cell::RefCell::new(store.as_store_mut()),
+        };
+        let result =
+            poll_borrowed_reservation(&Pending(drops.clone()), TaskId(1), &borrowed, 65536);
+        assert!(result.is_pending());
+        assert_eq!(drops.load(Ordering::SeqCst), 1);
+        drop(borrowed);
+        assert_eq!(memory.grow(&mut store, 1).unwrap().0, 1);
+    }
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[cfg_attr(not(target_arch = "wasm32"), test)]

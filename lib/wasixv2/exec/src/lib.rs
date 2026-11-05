@@ -48,6 +48,8 @@ pub use instantiation::{
 };
 pub use loader::{Compile, LoadError, Loader};
 pub use memory::GuestMemory;
+#[cfg(all(feature = "sys", not(target_arch = "wasm32")))]
+pub use memory::poll_native_host_reservation;
 pub use preempt::InstrumentError;
 pub use preparation::Preparation;
 pub use process::VFORK_RETURN;

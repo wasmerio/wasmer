@@ -332,6 +332,22 @@ impl<'a, T: Send + 'static> FunctionEnvMut<'a, T> {
     pub fn as_store_async(&self) -> Option<impl AsStoreAsync + 'static> {
         self.store_mut.as_store_async()
     }
+
+    #[cfg(feature = "experimental-async")]
+    pub(crate) fn checked_async(&self) -> Option<AsyncFunctionEnvMut<T>> {
+        // Validate exact attachment before exposing a deferred environment handle.
+        let _pin = self.func_env.pin_for_store(&self.store_mut)?;
+        let store = if crate::backend::sys::async_runtime::native_coroutine_active() {
+            let id = self.store_mut.as_store_ref().objects().id();
+            crate::backend::sys::async_runtime::current_store_loan(id)?
+        } else {
+            self.store_mut.as_store_async()?.store()
+        };
+        Some(AsyncFunctionEnvMut {
+            store: AsyncFunctionEnvMutStore::Async(store),
+            func_env: self.func_env.clone(),
+        })
+    }
 }
 
 impl<T> AsStoreRef for FunctionEnvMut<'_, T> {

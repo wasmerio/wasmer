@@ -7095,6 +7095,7 @@ dependencies = [
  "wasm-bindgen-futures",
  "wasm-bindgen-test",
  "wasmer",
+ "wasmer-napi",
  "wasmparser 0.259.0",
  "wat",
  "webc",

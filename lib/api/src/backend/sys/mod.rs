@@ -13,6 +13,9 @@ pub use native_frame::{
     NativeEngineEntryIdentity, NativeEngineFrame, NativeEngineInvocation, NativeEngineStackBounds,
     NativeSynchronousCallback,
 };
+#[cfg(feature = "experimental-async")]
+#[doc(hidden)]
+pub use native_frame::{native_host_work_can_suspend, run_native_host_future};
 
 pub(crate) mod entities;
 pub(crate) mod error;

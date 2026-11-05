@@ -93,14 +93,19 @@ impl<T: Send + 'static> FunctionEnvMut<'_, T> {
         self.0.as_store_async()
     }
 
-    /// Captures this environment's asynchronous JavaScript Store, when active.
+    /// Captures this exact environment's asynchronous Store, when active.
     /// The returned handle owns the Store; use its weak form for state which
     /// the Store itself owns.
-    #[cfg(all(feature = "experimental-async", feature = "js"))]
+    #[cfg(feature = "experimental-async")]
     pub fn as_async_mut(&self) -> Option<AsyncFunctionEnvMut<T>> {
-        let id = self.as_store_ref().inner.objects.id();
         match &self.0 {
+            #[cfg(feature = "sys")]
+            BackendFunctionEnvMut::Sys(env) => env
+                .checked_async()
+                .map(|env| AsyncFunctionEnvMut(BackendAsyncFunctionEnvMut::Sys(env))),
+            #[cfg(feature = "js")]
             BackendFunctionEnvMut::Js(env) => {
+                let id = self.as_store_ref().inner.objects.id();
                 let store = crate::backend::js::jspi::active_store(id)?;
                 Some(AsyncFunctionEnvMut(BackendAsyncFunctionEnvMut::Js(
                     crate::backend::js::function::env::AsyncFunctionEnvMut {

@@ -47,6 +47,9 @@ wasm-bindgen = { workspace = true, optional = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+wasmer-napi = { path = "../../napi", default-features = false, optional = true, features = ["experimental-async"] }
+
 [dev-dependencies]
 wat.workspace = true
 
@@ -63,6 +66,8 @@ js-sys.workspace = true
 
 [features]
 default = ["sys", "tokio", "host-network", "wasix1"]
+# Native N-API bindings using protected kernel-owned guest reservations.
+napi = ["sys", "dep:wasmer-napi"]
 sys = [
   "wasmer/sys",
   "wasmer/headless",
