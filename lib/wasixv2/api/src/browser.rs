@@ -144,6 +144,54 @@ pub async fn spawn(
     module: Module,
     config: ProcessConfig,
 ) -> Result<Run, crate::RunError> {
+    spawn_program(
+        machine,
+        executor,
+        Program::Module { engine, module },
+        config,
+    )
+    .await
+}
+
+/// Start a guest file with ordinary VFS exec semantics, including interpreters,
+/// the Machine loader and `/proc/self/exe`. The returned Run owns the same
+/// admitted task and cancellation lifecycle as [`spawn`].
+pub async fn spawn_file(
+    machine: Arc<Machine>,
+    executor: &BrowserExecutor,
+    engine: Engine,
+    path: String,
+    config: ProcessConfig,
+) -> Result<Run, crate::RunError> {
+    let bytes = |strings: &[String]| strings.iter().map(|s| s.as_bytes().to_vec()).collect();
+    let program = Program::File {
+        engine,
+        path,
+        args: bytes(&config.args),
+        env: bytes(&config.env),
+    };
+    spawn_program(machine, executor, program, config).await
+}
+
+enum Program {
+    Module {
+        engine: Engine,
+        module: Module,
+    },
+    File {
+        engine: Engine,
+        path: String,
+        args: Vec<Vec<u8>>,
+        env: Vec<Vec<u8>>,
+    },
+}
+
+async fn spawn_program(
+    machine: Arc<Machine>,
+    executor: &BrowserExecutor,
+    program: Program,
+    config: ProcessConfig,
+) -> Result<Run, crate::RunError> {
     if executor.uses_jspi() != (machine.abis.js_async_mode() == wasmer::js::AsyncMode::Jspi) {
         return Err(crate::RunError::Spawn(io::Error::new(
             io::ErrorKind::InvalidInput,
@@ -152,7 +200,9 @@ pub async fn spawn(
     }
     // Publish the kernel task before returning the handle, so an immediate kill
     // cannot race an as-yet-uncreated process (kernel/fork.c:kernel_clone and kernel/sched/core.c:wake_up_new_task).
-    crate::preflight(&module)?;
+    if let Program::Module { module, .. } = &program {
+        crate::preflight(module)?;
+    }
     let (task, admission) = machine.start(config).await?;
     let pid = wasixv2_syscalls::PidView::pid_in(&machine.syscalls.inner, task, task) as u32;
     let completion = Arc::new(Completion::default());
@@ -166,10 +216,20 @@ pub async fn spawn(
                     task,
                     released: false,
                 };
-                let result = running
-                    .run_image(wasmer::Store::new(engine), &module, task)
-                    .await
-                    .map_err(|e| e.to_string());
+                let result = match program {
+                    Program::Module { engine, module } => {
+                        running
+                            .run_image(wasmer::Store::new(engine), &module, task)
+                            .await
+                    }
+                    Program::File {
+                        engine,
+                        path,
+                        args,
+                        env,
+                    } => running.exec_file(&engine, task, &path, args, env).await,
+                }
+                .map_err(|e| e.to_string());
                 guard.released();
                 running.console_sent().await;
                 *output.result.lock().unwrap() = Some(result);

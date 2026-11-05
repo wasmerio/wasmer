@@ -1,6 +1,6 @@
 //! Byte-backed package assembly. Acquisition, credentials and persistent caches belong
 //! to the embedder; execution remains ordinary VFS exec (`fs/exec.c:kernel_execve`).
-use crate::{Layer, Machine, OwnedBuffer};
+use crate::{Filesystem, Layer, Machine, OwnedBuffer};
 use std::{
     collections::{BTreeMap, HashSet},
     io,
@@ -144,24 +144,78 @@ impl Package {
 /// Install a root package followed by additional injected packages. The first
 /// command of a name wins; all file access remains under the Machine's VFS root.
 pub async fn install_packages(machine: &mut Machine, packages: &[&Package]) -> io::Result<()> {
+    let sources = packages
+        .iter()
+        .map(|package| PackageInstallSource::Webc(*package))
+        .collect::<Vec<_>>();
+    install_package_sources(machine, &sources).await
+}
+
+/// Sources in package precedence order. In-memory content has no WEBC archive;
+/// its existing filesystem remains shared as a lower layer, with private writes
+/// in each Machine's upper layer. The embedder owns package identity/validation.
+#[derive(Clone)]
+pub enum PackageInstallSource<'a> {
+    Webc(&'a Package),
+    Memory {
+        commands: &'a [(String, OwnedBuffer)],
+        root: Option<Arc<dyn Filesystem>>,
+    },
+}
+
+/// The same installer as [`install_packages`], with ordered in-memory command
+/// and file contents. Every root/command layer is prepared before any nonroot
+/// mount. As with `install_packages`, a failure can leave partial installation.
+pub async fn install_package_sources(
+    machine: &mut Machine,
+    sources: &[PackageInstallSource<'_>],
+) -> io::Result<()> {
     let mut ordered = Vec::new();
     let mut seen = HashSet::new();
-    let mut pending = packages.iter().rev().copied().collect::<Vec<_>>();
-    while let Some(package) = pending.pop() {
-        if !seen.insert(package as *const Package) {
-            continue;
+    let mut pending = sources.iter().rev().cloned().collect::<Vec<_>>();
+    while let Some(source) = pending.pop() {
+        if let PackageInstallSource::Webc(package) = &source {
+            let package = *package;
+            if !seen.insert(package as *const Package) {
+                continue;
+            }
+            for (alias, _) in &package.reader.manifest().use_map {
+                package.dependency(Some(alias))?;
+            }
+            pending.extend(
+                package
+                    .dependencies
+                    .values()
+                    .rev()
+                    .map(|package| PackageInstallSource::Webc(package.as_ref())),
+            );
+        } else if let PackageInstallSource::Memory {
+            root: Some(root), ..
+        } = &source
+            && root.root().file_type() != wasixv2_vfs::FileType::Directory
+        {
+            return Err(invalid("in-memory package root is not a directory"));
         }
-        ordered.push(package);
-        for (alias, _) in &package.reader.manifest().use_map {
-            package.dependency(Some(alias))?;
-        }
-        pending.extend(package.dependencies.values().rev().map(Arc::as_ref));
+        ordered.push(source);
     }
     let mut commands = Vec::new();
     #[cfg(feature = "wasix1")]
     let mut defaults = Vec::new();
     let mut names = HashSet::new();
-    for package in &ordered {
+    for source in &ordered {
+        let PackageInstallSource::Webc(package) = source else {
+            if let PackageInstallSource::Memory {
+                commands: memory, ..
+            } = source
+            {
+                for (name, bytes) in *memory {
+                    if names.insert(name.clone()) {
+                        commands.push((name.clone(), bytes.clone()));
+                    }
+                }
+            }
+            continue;
+        };
         for name in package.commands() {
             if names.insert(name.to_owned()) {
                 commands.push((name.to_owned(), package.binary(name)?));
@@ -181,7 +235,16 @@ pub async fn install_packages(machine: &mut Machine, packages: &[&Package]) -> i
     }
     let mut root_layers: Vec<Layer> = Vec::new();
     let mut mounts = Vec::new();
-    for package in ordered.iter().rev() {
+    for source in ordered.iter().rev() {
+        let PackageInstallSource::Webc(package) = source else {
+            if let PackageInstallSource::Memory {
+                root: Some(root), ..
+            } = source
+            {
+                root_layers.push(Layer(root.clone()));
+            }
+            continue;
+        };
         if let Some(mappings) = package
             .reader
             .manifest()

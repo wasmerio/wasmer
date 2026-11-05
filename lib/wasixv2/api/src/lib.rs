@@ -7,7 +7,7 @@
 pub mod browser;
 
 mod package;
-pub use package::{Package, install_packages};
+pub use package::{Package, PackageInstallSource, install_package_sources, install_packages};
 
 mod directory;
 pub use directory::{DirectoryEntry, populate_directory};
