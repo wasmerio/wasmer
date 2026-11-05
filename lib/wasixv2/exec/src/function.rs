@@ -63,6 +63,8 @@ pub struct GuestFunctionOperations<'a, S: 'static> {
     env: &'a AsyncFunctionEnvMut<ExecEnv<S>>,
     unwind: &'a GuestUnwind,
     buffers: CallBufferPolicy,
+    idempotent_closure_free: bool,
+    contexts_supported: bool,
 }
 
 impl<'a, S: 'static> GuestFunctionOperations<'a, S> {
@@ -71,7 +73,20 @@ impl<'a, S: 'static> GuestFunctionOperations<'a, S> {
             env,
             unwind,
             buffers: CallBufferPolicy::default(),
+            idempotent_closure_free: false,
+            contexts_supported: false,
         }
+    }
+
+    /// The synchronous import factory checked the exact engine Store boundary.
+    pub fn with_context_support(mut self, supported: bool) -> Self {
+        self.contexts_supported = supported;
+        self
+    }
+
+    pub fn with_idempotent_closure_free(mut self) -> Self {
+        self.idempotent_closure_free = true;
+        self
     }
 
     pub fn with_buffer_policy(mut self, policy: CallBufferPolicy) -> Self {
@@ -105,6 +120,52 @@ impl<'a, S: 'static> GuestFunctionOperations<'a, S> {
 }
 
 impl<S: 'static> FunctionOperations for GuestFunctionOperations<'_, S> {
+    fn context_create<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        entry: u32,
+        id: wasixv2_abi::U64Ptr,
+    ) -> LocalFuture<'a, SysResult<i32>> {
+        Box::pin(async move {
+            if !self.contexts_supported {
+                return Err(Errno::EOPNOTSUPP.into());
+            }
+            let group = crate::contexts::group(self.env).await?;
+            let (function, ty, _) = self.function(entry).await?;
+            if !ty.params().is_empty() || !ty.results().is_empty() {
+                return Err(Errno::EINVAL.into());
+            }
+            let context = group.reserve()?;
+            write_value(caller.memory(), id, &context).await?;
+            group.create(context, function)?;
+            Ok(0)
+        })
+    }
+
+    fn context_switch<'a>(&'a self, _: &'a Caller<'_>, id: u64) -> LocalFuture<'a, SysResult<i32>> {
+        Box::pin(async move {
+            if !self.contexts_supported {
+                return Err(Errno::EOPNOTSUPP.into());
+            }
+            crate::contexts::group(self.env).await?.switch(id).await?;
+            Ok(0)
+        })
+    }
+
+    fn context_destroy<'a>(
+        &'a self,
+        _: &'a Caller<'_>,
+        id: u64,
+    ) -> LocalFuture<'a, SysResult<i32>> {
+        Box::pin(async move {
+            if !self.contexts_supported {
+                return Err(Errno::EOPNOTSUPP.into());
+            }
+            crate::contexts::group(self.env).await?.destroy(id)?;
+            Ok(0)
+        })
+    }
+
     fn call_dynamic<'a>(
         &'a self,
         caller: &'a Caller<'_>,
@@ -273,10 +334,19 @@ impl<S: 'static> FunctionOperations for GuestFunctionOperations<'_, S> {
         closure: u32,
     ) -> LocalFuture<'a, SysResult<i32>> {
         Box::pin(async move {
-            self.abi()
+            match self
+                .abi()
                 .await?
                 .closure_free(self.env, caller, closure)
                 .await
+            {
+                Err(wasixv2_syscalls::SysErr::Errno(Errno::EINVAL))
+                    if self.idempotent_closure_free =>
+                {
+                    Ok(0)
+                }
+                result => result,
+            }
         })
     }
 }

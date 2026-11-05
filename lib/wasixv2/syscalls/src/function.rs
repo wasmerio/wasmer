@@ -1,9 +1,34 @@
 //! Engine-free function authority borrowed by one import invocation.
 use crate::{Caller, Errno, LocalFuture, SysResult, UserSlice, UserSliceMut};
-use wasixv2_abi::{CallDynamicFlags, ReflectionResultPtr, U32Ptr, Uptr};
+use wasixv2_abi::{CallDynamicFlags, ReflectionResultPtr, U32Ptr, U64Ptr, Uptr};
 
 #[allow(unused_variables)]
 pub trait FunctionOperations {
+    fn context_create<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        entry: u32,
+        id: U64Ptr,
+    ) -> LocalFuture<'a, SysResult<i32>> {
+        Box::pin(async { Err(Errno::ENOSYS.into()) })
+    }
+
+    fn context_switch<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        id: u64,
+    ) -> LocalFuture<'a, SysResult<i32>> {
+        Box::pin(async { Err(Errno::ENOSYS.into()) })
+    }
+
+    fn context_destroy<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        id: u64,
+    ) -> LocalFuture<'a, SysResult<i32>> {
+        Box::pin(async { Err(Errno::ENOSYS.into()) })
+    }
+
     fn call_dynamic<'a>(
         &'a self,
         caller: &'a Caller<'_>,

@@ -12,6 +12,7 @@ pub struct Caller<'a> {
     descriptors: Option<crate::DescriptorSet>,
     installations: Option<crate::DescriptorInstallations>,
     functions: Option<&'a dyn crate::FunctionOperations>,
+    process_fork_allowed: bool,
 }
 
 impl<'a> Caller<'a> {
@@ -23,6 +24,7 @@ impl<'a> Caller<'a> {
             descriptors: None,
             installations: None,
             functions: None,
+            process_fork_allowed: true,
         }
     }
 
@@ -45,6 +47,16 @@ impl<'a> Caller<'a> {
 
     pub fn functions(&self) -> Option<&'a dyn crate::FunctionOperations> {
         self.functions
+    }
+
+    /// Execution-owned eligibility, captured before the kernel can create a child.
+    pub fn with_process_fork_allowed(mut self, allowed: bool) -> Self {
+        self.process_fork_allowed = allowed;
+        self
+    }
+
+    pub fn process_fork_allowed(&self) -> bool {
+        self.process_fork_allowed
     }
 
     pub fn task(&self) -> TaskId {

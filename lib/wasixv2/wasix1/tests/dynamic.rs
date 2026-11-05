@@ -15,11 +15,15 @@ fn leb(mut value: u32, out: &mut Vec<u8>) {
 
 // Same dylink.0 source fixture structure as dylink::tests::bytes and api::retirement.
 fn pic(wat: &str, needed: &[&str]) -> Vec<u8> {
+    pic_with_table(wat, needed, 0)
+}
+
+fn pic_with_table(wat: &str, needed: &[&str], table_entries: u32) -> Vec<u8> {
     let mut image = wat::parse_str(wat).unwrap();
     let mut section = vec![8];
     section.extend_from_slice(b"dylink.0");
     let mut info = Vec::new();
-    for value in [512, 0, 0, 0] {
+    for value in [512, 0, table_entries, 0] {
         leb(value, &mut info);
     }
     section.push(1);
@@ -61,15 +65,36 @@ impl Drop for Programs {
 }
 
 fn main_image(body: &str, mark: &str, needed: &[&str]) -> Vec<u8> {
-    pic(
+    main_image_with(
+        body,
+        mark,
+        needed,
+        0,
+        "",
+        "",
+        "(drop (call $load (i32.const 14)))",
+    )
+}
+
+fn main_image_with(
+    body: &str,
+    mark: &str,
+    needed: &[&str],
+    table_entries: u32,
+    extra_imports: &str,
+    extra_code: &str,
+    thread_body: &str,
+) -> Vec<u8> {
+    let table_size = 3 + table_entries;
+    pic_with_table(
         &format!(
             r#"(module
       (type $result (func (result i32)))
       (import "env" "memory" (memory 1 65536 shared))
-      (import "env" "__indirect_function_table" (table 3 funcref))
-      (import "env" "__stack_pointer" (global (mut i32)))
+      (import "env" "__indirect_function_table" (table {table_size} funcref))
+      (import "env" "__stack_pointer" (global $stack (mut i32)))
       (import "env" "__memory_base" (global $base i32))
-      (import "env" "__table_base" (global i32))
+      (import "env" "__table_base" (global $table_base i32))
       (import "wasix_32v1" "dlopen" (func $open (param i32 i32 i32 i32 i32 i32 i32 i32) (result i32)))
       (import "wasix_32v1" "dlsym" (func $sym (param i32 i32 i32 i32 i32 i32) (result i32)))
       (import "wasix_32v1" "dl_invalid_handle" (func $valid (param i32) (result i32)))
@@ -80,6 +105,7 @@ fn main_image(body: &str, mark: &str, needed: &[&str]) -> Vec<u8> {
       (import "wasix_32v1" "thread_spawn_v2" (func $spawn (param i32 i32) (result i32)))
       (import "wasix_32v1" "thread_join" (func $join (param i32) (result i32)))
       (import "wasi_snapshot_preview1" "path_unlink_file" (func $unlink (param i32 i32 i32) (result i32)))
+      {extra_imports}
       (export "__indirect_function_table" (table 0))
       (data (global.get $base) "/prog/side.so\00/prog/nest.so\00value\00main_value\00missing\00/prog\00")
       (func $at (param i32) (result i32) (i32.add (global.get $base) (local.get 0)))
@@ -94,16 +120,34 @@ fn main_image(body: &str, mark: &str, needed: &[&str]) -> Vec<u8> {
         (call $check (call $sym (local.get $handle) (call $at (local.get $name)) (local.get $len)
           (call $at (i32.const 256)) (i32.const 64) (call $at (i32.const 196))) (i32.const 0) (i32.const 11))
         (i32.load (call $at (i32.const 196))))
+      {extra_code}
       (func (export "mark") (param $n i32)
         (i32.store (call $at (i32.const 200))
           (i32.add (i32.mul (i32.load (call $at (i32.const 200))) (i32.const 10)) (local.get $n)))
         {mark})
       (func (export "wasi_thread_start") (param i32 i32)
-        (drop (call $load (i32.const 14))))
+        {thread_body})
       (func (export "main_value") (result i32) (i32.const 7))
       (func (export "_start") (local $handle i32) (local $grown i32) {body}))"#
         ),
         needed,
+        table_entries,
+    )
+}
+
+fn closure_main(body: &str, extra_code: &str, thread_body: &str) -> Vec<u8> {
+    main_image_with(
+        body,
+        "",
+        &[],
+        1,
+        r#"
+      (import "wasix_32v1" "closure_allocate" (func $allocate (param i32) (result i32)))
+      (import "wasix_32v1" "closure_prepare" (func $prepare (param i32 i32 i32 i32 i32 i32 i32) (result i32)))
+      (import "wasix_32v1" "closure_free" (func $free (param i32) (result i32)))
+      "#,
+        extra_code,
+        thread_body,
     )
 }
 
@@ -122,6 +166,56 @@ fn side(mark: i32, needed: &[&str]) -> Vec<u8> {
         needed,
     )
 }
+
+const CLOSURE_BACKING: &str = r#"
+      (type $i32 (func (param i32) (result i32)))
+      (type $i64 (func (param i64) (result i64)))
+      (type $multi (func (param i32 i64 f32 f64 v128) (result i32 i64 f32 f64 v128)))
+      (func $backing (param $values i32) (param $results i32) (param $env i32) (local $value i32)
+        (if (i32.eq (local.get $env) (i32.const 1)) (then
+          (i32.store (local.get $results)
+            (i32.add (i32.load (local.get $values)) (i32.const 1)))))
+        (if (i32.eq (local.get $env) (i32.const 2)) (then
+          (i64.store (local.get $results)
+            (i64.add (i64.load (local.get $values)) (i64.const 7)))))
+        (if (i32.eq (local.get $env) (i32.const 3)) (then
+          (i32.store (local.get $results)
+            (i32.add (i32.load (local.get $values)) (i32.const 1)))
+          (i64.store (i32.add (local.get $results) (i32.const 4))
+            (i64.add (i64.load (i32.add (local.get $values) (i32.const 4))) (i64.const 2)))
+          (f32.store (i32.add (local.get $results) (i32.const 12))
+            (f32.mul (f32.load (i32.add (local.get $values) (i32.const 12))) (f32.const 2)))
+          (f64.store (i32.add (local.get $results) (i32.const 16))
+            (f64.add (f64.load (i32.add (local.get $values) (i32.const 16))) (f64.const 0.75)))
+          (v128.store (i32.add (local.get $results) (i32.const 24))
+            (i32x4.add (v128.load (i32.add (local.get $values) (i32.const 24)))
+              (v128.const i32x4 1 1 1 1)))))
+        (if (i32.eq (local.get $env) (i32.const 4)) (then
+          (local.set $value (i32.add (i32.load (local.get $values)) (i32.const 40)))
+          (call $check
+            (call $prepare (global.get $table_base) (i32.load (call $at (i32.const 224)))
+              (call $at (i32.const 128)) (i32.const 1)
+              (call $at (i32.const 136)) (i32.const 1) (i32.const 1))
+            (i32.const 0) (i32.const 71))
+          (i32.store (local.get $results) (local.get $value))))
+        (if (i32.eq (local.get $env) (i32.const 5)) (then
+          (local.set $value (i32.add (i32.load (local.get $values)) (i32.const 50)))
+          (call $check (call $free (i32.load (call $at (i32.const 224))))
+            (i32.const 0) (i32.const 81))
+          (i32.store (local.get $results) (local.get $value)))))
+      (func $put_multi_types
+        (i32.store8 (call $at (i32.const 128)) (i32.const 0))
+        (i32.store8 (call $at (i32.const 129)) (i32.const 1))
+        (i32.store8 (call $at (i32.const 130)) (i32.const 2))
+        (i32.store8 (call $at (i32.const 131)) (i32.const 3))
+        (i32.store8 (call $at (i32.const 132)) (i32.const 4))
+        (i32.store8 (call $at (i32.const 136)) (i32.const 0))
+        (i32.store8 (call $at (i32.const 137)) (i32.const 1))
+        (i32.store8 (call $at (i32.const 138)) (i32.const 2))
+        (i32.store8 (call $at (i32.const 139)) (i32.const 3))
+        (i32.store8 (call $at (i32.const 140)) (i32.const 4)))
+      (elem (global.get $table_base) $backing)
+"#;
 
 fn run(name: &str, main: &[u8], images: &[(&str, Vec<u8>)]) -> i32 {
     let programs = Programs::new(name, images);
@@ -459,4 +553,287 @@ fn missing_loader_uses_old_unknown_error_before_reading_open_arguments() {
           (i32.const 256) (i32.const 1) (i32.const 512)) (i32.const 79)) (then (call $exit (i32.const 3))))
         (if (i32.ne (call $valid (i32.const 1)) (i32.const 45)) (then (call $exit (i32.const 4))))))"#).unwrap();
     assert_eq!(run("missing-loader", &image, &[]), 0);
+}
+
+#[test]
+fn prepared_closure_crosses_the_wasm_boundary_with_scalar_simd_values_and_restores_sp() {
+    let body = r#"
+      (local $closure i32) (local $sp_before i32)
+      (local $i32_result i32) (local $i64_result i64)
+      (local $f32_result f32) (local $f64_result f64) (local $v128_result v128)
+      (local.set $handle (call $load (i32.const 0)))
+      (call $check (call $allocate (call $at (i32.const 224))) (i32.const 0) (i32.const 20))
+      (local.set $closure (i32.load (call $at (i32.const 224))))
+      (call $put_multi_types)
+      (call $check
+        (call $prepare (global.get $table_base) (local.get $closure)
+          (call $at (i32.const 128)) (i32.const 5)
+          (call $at (i32.const 136)) (i32.const 5) (i32.const 3))
+        (i32.const 0) (i32.const 21))
+      (local.set $sp_before (global.get $stack))
+      (call_indirect (type $multi)
+        (i32.const 17)
+        (i64.const 81985529216486895)
+        (f32.const 2.5)
+        (f64.const -3.25)
+        (v128.const i32x4 10 20 30 40)
+        (local.get $closure))
+      (local.set $v128_result)
+      (local.set $f64_result)
+      (local.set $f32_result)
+      (local.set $i64_result)
+      (local.set $i32_result)
+      (call $check (local.get $i32_result) (i32.const 18) (i32.const 30))
+      (if (i64.ne (local.get $i64_result) (i64.const 81985529216486897))
+        (then (call $exit (i32.const 31))))
+      (if (f32.ne (local.get $f32_result) (f32.const 5)) (then (call $exit (i32.const 32))))
+      (if (f64.ne (local.get $f64_result) (f64.const -2.5)) (then (call $exit (i32.const 33))))
+      (call $check (i32x4.extract_lane 0 (local.get $v128_result)) (i32.const 11) (i32.const 34))
+      (call $check (i32x4.extract_lane 1 (local.get $v128_result)) (i32.const 21) (i32.const 35))
+      (call $check (i32x4.extract_lane 2 (local.get $v128_result)) (i32.const 31) (i32.const 36))
+      (call $check (i32x4.extract_lane 3 (local.get $v128_result)) (i32.const 41) (i32.const 37))
+      (call $check (global.get $stack) (local.get $sp_before) (i32.const 38))
+      (call $exit (i32.const 0))
+    "#;
+    let main = closure_main(body, CLOSURE_BACKING, "(drop (call $load (i32.const 14)))");
+    assert_eq!(run("closure-simd", &main, &[("side.so", side(1, &[]))]), 0);
+}
+
+#[test]
+fn closures_reprepare_reuse_the_freed_slot_and_trap_when_called_after_free() {
+    let body = r#"
+      (local $closure i32) (local $reused i32)
+      (local.set $handle (call $load (i32.const 0)))
+      (call $check (call $allocate (call $at (i32.const 224))) (i32.const 0) (i32.const 20))
+      (local.set $closure (i32.load (call $at (i32.const 224))))
+      (i32.store8 (call $at (i32.const 128)) (i32.const 0))
+      (i32.store8 (call $at (i32.const 136)) (i32.const 0))
+      (call $check
+        (call $prepare (global.get $table_base) (local.get $closure)
+          (call $at (i32.const 128)) (i32.const 1)
+          (call $at (i32.const 136)) (i32.const 1) (i32.const 1))
+        (i32.const 0) (i32.const 21))
+      (call $check (call_indirect (type $i32) (i32.const 10) (local.get $closure))
+        (i32.const 11) (i32.const 22))
+      (call $check (call $free (local.get $closure)) (i32.const 0) (i32.const 23))
+      (if (i32.eqz (ref.is_null (table.get (local.get $closure))))
+        (then (call $exit (i32.const 24))))
+      ;; V1 free is idempotent, and allocation reuses the same logical slot.
+      (call $check (call $free (local.get $closure)) (i32.const 0) (i32.const 25))
+      (call $check (call $allocate (call $at (i32.const 228))) (i32.const 0) (i32.const 26))
+      (local.set $reused (i32.load (call $at (i32.const 228))))
+      (call $check (local.get $reused) (local.get $closure) (i32.const 27))
+      (call $check
+        (call $prepare (global.get $table_base) (local.get $reused)
+          (call $at (i32.const 128)) (i32.const 1)
+          (call $at (i32.const 136)) (i32.const 1) (i32.const 1))
+        (i32.const 0) (i32.const 28))
+      (call $check (call_indirect (type $i32) (i32.const 20) (local.get $reused))
+        (i32.const 21) (i32.const 29))
+      (call $check (call $free (local.get $reused)) (i32.const 0) (i32.const 30))
+      ;; A null closure slot follows the engine's normal indirect-call trap path.
+      (drop (call_indirect (type $i32) (i32.const 1) (local.get $reused)))
+      (call $exit (i32.const 31))
+    "#;
+    let main = closure_main(body, CLOSURE_BACKING, "(drop (call $load (i32.const 14)))");
+    assert_eq!(
+        run("closure-reuse", &main, &[("side.so", side(1, &[]))]),
+        139 // Calls through null pointers follow the existing SIGSEGV path.
+    );
+}
+
+#[test]
+fn closure_callback_can_reprepare_its_own_slot_without_losing_the_captured_binding() {
+    let body = r#"
+      (local $closure i32)
+      (local.set $handle (call $load (i32.const 0)))
+      (call $check (call $allocate (call $at (i32.const 224))) (i32.const 0) (i32.const 20))
+      (local.set $closure (i32.load (call $at (i32.const 224))))
+      (i32.store8 (call $at (i32.const 128)) (i32.const 0))
+      (i32.store8 (call $at (i32.const 136)) (i32.const 0))
+      (call $check
+        (call $prepare (global.get $table_base) (local.get $closure)
+          (call $at (i32.const 128)) (i32.const 1)
+          (call $at (i32.const 136)) (i32.const 1) (i32.const 4))
+        (i32.const 0) (i32.const 21))
+      (call $check (call_indirect (type $i32) (i32.const 5) (local.get $closure))
+        (i32.const 45) (i32.const 22))
+      ;; The callback changed its descriptor to env=1; the next call uses that binding.
+      (call $check (call_indirect (type $i32) (i32.const 5) (local.get $closure))
+        (i32.const 6) (i32.const 23))
+      ;; Free from inside the callback must leave its in-flight call intact.
+      (call $check
+        (call $prepare (global.get $table_base) (local.get $closure)
+          (call $at (i32.const 128)) (i32.const 1)
+          (call $at (i32.const 136)) (i32.const 1) (i32.const 5))
+        (i32.const 0) (i32.const 24))
+      (call $check (call_indirect (type $i32) (i32.const 5) (local.get $closure))
+        (i32.const 55) (i32.const 25))
+      (if (i32.eqz (ref.is_null (table.get (local.get $closure))))
+        (then (call $exit (i32.const 26))))
+      (call $exit (i32.const 0))
+    "#;
+    let main = closure_main(body, CLOSURE_BACKING, "(drop (call $load (i32.const 14)))");
+    assert_eq!(
+        run("closure-reentry", &main, &[("side.so", side(1, &[]))]),
+        0
+    );
+}
+
+#[test]
+fn closure_rethrows_the_same_wasm_exception_after_restoring_shadow_sp() {
+    let extra_code = r#"
+      (tag $closure_error (param i32))
+      (type $i32 (func (param i32) (result i32)))
+      (func $backing (param i32 i32 i32)
+        (throw $closure_error (i32.const 44)))
+      (elem (global.get $table_base) $backing)
+    "#;
+    let body = r#"
+      (local $closure i32) (local $sp_before i32) (local $caught i32)
+      (local.set $handle (call $load (i32.const 0)))
+      (call $check (call $allocate (call $at (i32.const 224))) (i32.const 0) (i32.const 20))
+      (local.set $closure (i32.load (call $at (i32.const 224))))
+      (i32.store8 (call $at (i32.const 128)) (i32.const 0))
+      (i32.store8 (call $at (i32.const 136)) (i32.const 0))
+      (call $check
+        (call $prepare (global.get $table_base) (local.get $closure)
+          (call $at (i32.const 128)) (i32.const 1)
+          (call $at (i32.const 136)) (i32.const 1) (i32.const 0))
+        (i32.const 0) (i32.const 21))
+      (local.set $sp_before (global.get $stack))
+      (local.set $caught
+        (block $caught (result i32)
+          (try_table (catch $closure_error $caught)
+            (drop (call_indirect (type $i32) (i32.const 7) (local.get $closure))))
+          (i32.const -1)))
+      (call $check (local.get $caught) (i32.const 44) (i32.const 22))
+      (call $check (global.get $stack) (local.get $sp_before) (i32.const 23))
+      (call $exit (i32.const 0))
+    "#;
+    let main = closure_main(body, extra_code, "(drop (call $load (i32.const 14)))");
+    assert_eq!(run("closure-eh", &main, &[("side.so", side(1, &[]))]), 0);
+}
+
+#[test]
+fn a_thread_created_after_prepare_gets_the_closure_in_its_store() {
+    let body = r#"
+      (local $closure i32)
+      (local.set $handle (call $load (i32.const 0)))
+      (call $check (call $allocate (call $at (i32.const 224))) (i32.const 0) (i32.const 20))
+      (local.set $closure (i32.load (call $at (i32.const 224))))
+      (i32.store8 (call $at (i32.const 128)) (i32.const 0))
+      (i32.store8 (call $at (i32.const 136)) (i32.const 0))
+      (call $check
+        (call $prepare (global.get $table_base) (local.get $closure)
+          (call $at (i32.const 128)) (i32.const 1)
+          (call $at (i32.const 136)) (i32.const 1) (i32.const 1))
+        (i32.const 0) (i32.const 21))
+      (call $check (call_indirect (type $i32) (i32.const 10) (local.get $closure))
+        (i32.const 11) (i32.const 22))
+      (i32.store (call $at (i32.const 240)) (local.get $closure))
+      (i32.store (call $at (i32.const 248)) (i32.const 0))
+      (call $check (call $spawn (call $at (i32.const 240)) (call $at (i32.const 244)))
+        (i32.const 0) (i32.const 23))
+      (call $check (call $join (i32.load (call $at (i32.const 244)))) (i32.const 0) (i32.const 24))
+      (call $check (i32.load (call $at (i32.const 248))) (i32.const 1) (i32.const 25))
+      (call $exit (i32.const 0))
+    "#;
+    let thread_body = r#"
+      (call $check
+        (call_indirect (type $i32) (i32.const 41) (i32.load (local.get 1)))
+        (i32.const 42) (i32.const 80))
+      (i32.store (call $at (i32.const 248)) (i32.const 1))
+    "#;
+    let main = closure_main(body, CLOSURE_BACKING, thread_body);
+    assert_eq!(
+        run("closure-thread", &main, &[("side.so", side(1, &[]))]),
+        0
+    );
+}
+
+#[test]
+fn a_layer_denied_closure_free_einval_is_not_normalized_as_an_unknown_id() {
+    use std::sync::Arc;
+    use wasixv2::{DirectoryEntry, Host, TokioHost, populate_directory};
+    use wasixv2_exec::{Abis, run_with_abis};
+    use wasixv2_kernel::{Dispatch, HostClock, Kernel, SyscallEntry};
+    use wasixv2_syscalls::{
+        Caller, Errno, Layer, Layered, MaybeFuture, SysErr, SysResult, Syscall, SyscallRet,
+    };
+    use wasixv2_vfs_mem::MemFs;
+    use wasmer::Store;
+
+    struct DenyFree;
+    impl Layer<Kernel> for DenyFree {
+        fn call<'a>(
+            &'a self,
+            caller: &'a Caller<'_>,
+            call: Syscall,
+            next: &'a Kernel,
+        ) -> MaybeFuture<'a, SysResult<SyscallRet>> {
+            MaybeFuture::Future(Box::pin(async move {
+                match call {
+                    Syscall::ClosureFree { .. } => Err(SysErr::Errno(Errno::EINVAL)),
+                    call => Dispatch.call(caller, call, next).await,
+                }
+            }))
+        }
+    }
+
+    let body = r#"
+      (local.set $handle (call $load (i32.const 0)))
+      (call $check (call $free (i32.const 99)) (i32.const 28) (i32.const 90))
+      (call $exit (i32.const 0))
+    "#;
+    let main = closure_main(body, "", "(drop (call $load (i32.const 14)))");
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+    tokio::task::LocalSet::new().block_on(&runtime, async {
+        let host: Arc<dyn Host> = Arc::new(TokioHost::default());
+        let root = Arc::new(MemFs::new(Arc::new(HostClock(host.clone())), 0o755, 1, 1));
+        populate_directory(
+            root.clone(),
+            &[
+                DirectoryEntry::Directory {
+                    path: "".into(),
+                    mode: 0o755,
+                },
+                DirectoryEntry::Directory {
+                    path: "prog".into(),
+                    mode: 0o755,
+                },
+                DirectoryEntry::File {
+                    path: "prog/side.so".into(),
+                    mode: 0o755,
+                    data: side(1, &[]),
+                },
+            ],
+            1,
+            1,
+        )
+        .await
+        .unwrap();
+        let kernel = Kernel::new(host.clone(), root);
+        let task = kernel
+            .spawn(ProcessConfig {
+                args: vec!["dynamic".into()],
+                env: vec!["LD_LIBRARY_PATH=/prog".into()],
+                stdio: wasixv2::Stdio::from_fns(|_| {}, |_| {}),
+            })
+            .unwrap();
+        let stack = Arc::new(Layered::new(SyscallEntry(DenyFree), kernel));
+        let mut abis = Abis::new();
+        abis.push(Arc::new(wasixv2_wasix1::Wasix1::new()));
+        let store = Store::default();
+        let module = wasixv2_dylink::load(store.engine(), &main).unwrap();
+        assert_eq!(
+            run_with_abis(store, &module, stack, task, host, Arc::new(abis))
+                .await
+                .unwrap(),
+            0
+        );
+    });
 }

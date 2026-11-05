@@ -11,6 +11,10 @@ mod acceptance;
 mod lifetime;
 
 #[cfg(target_arch = "wasm32")]
+#[path = "browser/contexts.rs"]
+mod contexts;
+
+#[cfg(target_arch = "wasm32")]
 mod wasm {
     use serde::Deserialize;
     use std::{

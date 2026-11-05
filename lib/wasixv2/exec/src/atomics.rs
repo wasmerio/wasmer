@@ -117,7 +117,8 @@ where
     let addr = effective_address(env, addr, offset, size).await?;
     let (syscalls, task) = caller_parts(env).await;
     let memory = GuestMemory { env };
-    let caller = Caller::new(task, &memory);
+    let caller = Caller::new(task, &memory)
+        .with_process_fork_allowed(crate::process_fork_allowed(env).await);
     // A negative timeout waits forever.
     let timeout = u64::try_from(timeout).ok().map(Duration::from_nanos);
     loop {

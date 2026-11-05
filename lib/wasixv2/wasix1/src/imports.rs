@@ -247,13 +247,13 @@ table! {
     "dlopen" WASIX (I32 I32 I32 I32 I32 I32 I32 I32) -> (I32) Shim;
     "dlsym" WASIX (I32 I32 I32 I32 I32 I32) -> (I32) Shim;
     "call_dynamic" WASIX (I32 I32 I32 I32 I32 I32) -> (I32) Shim;
-    "closure_prepare" WASIX (I32 I32 I32 I32 I32 I32 I32) -> (I32) Unsupported;
-    "closure_allocate" WASIX (I32) -> (I32) Unsupported;
-    "closure_free" WASIX (I32) -> (I32) Unsupported;
+    "closure_prepare" WASIX (I32 I32 I32 I32 I32 I32 I32) -> (I32) Shim;
+    "closure_allocate" WASIX (I32) -> (I32) Shim;
+    "closure_free" WASIX (I32) -> (I32) Shim;
     "reflect_signature" WASIX (I32 I32 I32 I32 I32 I32) -> (I32) Shim;
-    "context_create" WASIX (I32 I32) -> (I32) Unsupported;
-    "context_switch" WASIX (I64) -> (I32) Unsupported;
-    "context_destroy" WASIX (I64) -> (I32) Unsupported;
+    "context_create" WASIX (I32 I32) -> (I32) Shim;
+    "context_switch" WASIX (I64) -> (I32) Shim;
+    "context_destroy" WASIX (I64) -> (I32) Shim;
 }
 
 /// The entry for `name` in `module`.
@@ -481,6 +481,12 @@ where
         "futex_wake" => f!(futex::futex_wake::<S>),
         "futex_wake_all" => f!(futex::futex_wake_all::<S>),
         "call_dynamic" => f!(function::call_dynamic::<S>),
+        "closure_allocate" => f!(function::closure_allocate::<S>),
+        "closure_prepare" => f!(function::closure_prepare::<S>),
+        "closure_free" => f!(function::closure_free::<S>),
+        "context_create" => f!(function::context_create::<S>),
+        "context_switch" => f!(function::context_switch::<S>),
+        "context_destroy" => f!(function::context_destroy::<S>),
         "reflect_signature" => f!(function::reflect_signature::<S>),
         "stack_checkpoint" => f!(stack::stack_checkpoint::<S>),
         "stack_restore" => f!(stack::stack_restore::<S>),

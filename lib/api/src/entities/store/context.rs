@@ -720,6 +720,20 @@ impl StoreContext {
         })
     }
 
+    /// Independent sibling roots require ordinary owned Async custody, including
+    /// the no-suffix case. A Loan may suspend, but retains its original caller's
+    /// actual mutable Store borrow and cannot admit another root on this Store.
+    #[cfg(all(feature = "experimental-async", feature = "sys"))]
+    pub(crate) fn can_switch_context(installation: StoreContextId) -> bool {
+        STORE_CONTEXT_STACK.with(|cell| {
+            let stack = cell.borrow();
+            stack
+                .iter()
+                .position(|entry| entry.installation == installation)
+                .is_some_and(|depth| Self::suspendable_suffix(&stack, depth))
+        })
+    }
+
     #[cfg(all(feature = "experimental-async", feature = "sys"))]
     fn suspendable_suffix(stack: &[Self], depth: usize) -> bool {
         let root = &stack[depth];
@@ -1429,6 +1443,7 @@ mod native_suspension {
         });
         assert_ne!(identities[1], identities[3]);
         assert!(StoreContext::can_suspend_suffix(root_id));
+        assert!(StoreContext::can_switch_context(root_id));
         let mut suspended = SuspendedStoreContexts::default();
         root.suspend_suffix(&mut suspended);
         drop(root);
@@ -1464,13 +1479,22 @@ mod native_suspension {
         let store = Store::default().into_async();
         let root_id = StoreContext::new_installation_id();
         let root = StoreContext::install_async_with_id(store.inner.try_write().unwrap(), root_id);
+        assert!(
+            StoreContext::can_switch_context(root_id),
+            "ordinary Async root without a suffix releases its Store"
+        );
         let borrowed = unsafe { StoreContext::get_current(store.id) };
+        assert!(
+            !StoreContext::can_switch_context(root_id),
+            "a live root borrow cannot admit a sibling"
+        );
         // No suffix: preserve the existing supported same-Store call path.
         assert!(StoreContext::can_suspend_suffix(root_id));
         let pause = unsafe { StoreContext::pause(store.id) };
         let mut other = Store::default();
         let nested = unsafe { StoreContext::install(other.as_store_mut().inner) };
         assert!(!StoreContext::can_suspend_suffix(root_id));
+        assert!(!StoreContext::can_switch_context(root_id));
         drop(nested);
         drop(pause);
         drop(borrowed);
@@ -1479,17 +1503,21 @@ mod native_suspension {
         let nested = unsafe { StoreContext::install(other.as_store_mut().inner) };
         let borrowed = unsafe { StoreContext::get_current(other.id()) };
         assert!(!StoreContext::can_suspend_suffix(root_id));
+        assert!(!StoreContext::can_switch_context(root_id));
         let pause = unsafe { StoreContext::pause(other.id()) };
         assert!(!StoreContext::can_suspend_suffix(root_id));
+        assert!(!StoreContext::can_switch_context(root_id));
         drop(pause);
         drop(borrowed);
         let repeated = unsafe { StoreContext::install(root_ptr) };
         assert!(!StoreContext::can_suspend_suffix(root_id));
+        assert!(!StoreContext::can_switch_context(root_id));
         drop(repeated);
         drop(nested);
         let other = other.into_async();
         let nested = StoreContext::install_async(other.inner.try_write().unwrap());
         assert!(!StoreContext::can_suspend_suffix(root_id));
+        assert!(!StoreContext::can_switch_context(root_id));
         drop(nested);
         drop(root);
         assert!(StoreContext::is_empty());

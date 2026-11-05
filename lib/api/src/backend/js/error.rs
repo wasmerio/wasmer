@@ -75,6 +75,21 @@ export function wasmerHostAbortPayload(value) {
     if (payload === undefined) return undefined;
     try { return payload.__wasmer_clone_error(); } catch (_) { return null; }
 }
+export function wasmerDescribeError(value) {
+    try {
+        if (value instanceof Error) {
+            const message = String(value.message);
+            const stack = Reflect.get(value, "stack");
+            return typeof stack === "string" && stack.length && stack !== message
+                ? `${message}\n${stack}` : message;
+        }
+        if (typeof value === "string") return value;
+        if (value !== null && (typeof value === "object" || typeof value === "function")) {
+            return String(value.toString());
+        }
+    } catch (_) {}
+    return undefined;
+}
 "#)]
 extern "C" {
     #[wasm_bindgen(catch, js_name = wasmerHostAbort)]
@@ -82,6 +97,9 @@ extern "C" {
 
     #[wasm_bindgen(catch, js_name = wasmerHostAbortPayload)]
     fn host_abort_payload(value: &JsValue) -> Result<JsValue, JsValue>;
+
+    #[wasm_bindgen(js_name = wasmerDescribeError)]
+    fn describe_error(value: &JsValue) -> JsValue;
 }
 
 /// An actual runtime instruction supplies the engine's uncatchable trap brand.
@@ -225,9 +243,7 @@ impl From<JsValue> for RuntimeError {
         }
         // We try to downcast the error and see if it's an instance of Trap
         // instead, so we don't need to re-wrap it.
-        if let Some(obj) = value.dyn_ref()
-            && let Some(trap) = downcast_from_ptr(obj)
-        {
+        if let Some(trap) = downcast_from_ptr(&value) {
             return trap.into();
         }
 
@@ -248,14 +264,12 @@ fn downcast_from_ptr(value: &JsValue) -> Option<Trap> {
     }
 
     let prototype = &Reflect::get_prototype_of(value).ok()?;
-    let class = prototype.constructor();
+    let class = Reflect::get(prototype, &JsValue::from_str("constructor")).ok()?;
     let key = JsValue::from_str("__wbg_wasmer_trap");
 
-    let marker_func: Option<js_sys::Function> = Reflect::get(&class, &key)
-        .and_then(|v: JsValue| v.dyn_into())
-        .ok();
-
-    marker_func.as_ref()?;
+    if !Reflect::get(&class, &key).ok()?.is_function() {
+        return None;
+    }
 
     // Safety: The marker function exists, therefore it's safe to convert back
     // to a Trap.
@@ -268,7 +282,8 @@ fn downcast_from_ptr(value: &JsValue) -> Option<Trap> {
         let key = JsValue::from_str("__destroy_into_raw");
         let ptr = Reflect::get(value, &key)
             .ok()
-            .and_then(|v| v.dyn_into::<js_sys::Function>().ok())
+            .filter(JsValue::is_function)
+            .map(JsCast::unchecked_into::<js_sys::Function>)
             .and_then(|destroy_into_raw| destroy_into_raw.call0(value).ok())
             .and_then(|ret| ret.as_f64())
             .and_then(wasm32_pointer_from_js_number)?;
@@ -313,6 +328,29 @@ mod tests {
         );
         drop(error);
         assert_eq!(LOCAL_ERRORS.with_borrow(|errors| errors.len()), before);
+    }
+
+    #[wasm_bindgen_test::wasm_bindgen_test]
+    fn throwing_error_properties_preserve_the_original_rejection() {
+        use super::{JsValue, LOCAL_ERRORS, RuntimeError};
+        for source in [
+            "return { toString() { throw new Error('diagnostic failed'); } };",
+            "return Object.create(Object.defineProperty({}, 'constructor', { get() { throw new Error('constructor failed'); } }));",
+            "return new Proxy({}, { getPrototypeOf() { throw new Error('prototype failed'); }, get() { throw new Error('property failed'); } });",
+            "return Object.defineProperty(new Error(), 'message', { get() { throw new Error('message failed'); } });",
+            "return Object.defineProperty(new Error(), 'stack', { get() { throw new Error('stack failed'); } });",
+        ] {
+            let before = LOCAL_ERRORS.with_borrow(|errors| errors.len());
+            let value = js_sys::Function::new_no_args(source)
+                .call0(&JsValue::UNDEFINED)
+                .unwrap();
+            let error = RuntimeError::from(value.clone());
+            let rethrown: JsValue = error.clone().into();
+            assert!(js_sys::Object::is(&value, &rethrown));
+            assert_eq!(LOCAL_ERRORS.with_borrow(|errors| errors.len()), before + 1);
+            drop(error);
+            assert_eq!(LOCAL_ERRORS.with_borrow(|errors| errors.len()), before);
+        }
     }
 
     #[wasm_bindgen_test::wasm_bindgen_test]
@@ -393,30 +431,9 @@ enum JsTrap {
 
 impl From<JsValue> for JsTrap {
     fn from(value: JsValue) -> Self {
-        // Let's try some easy special cases first
-        if let Some(error) = value.dyn_ref::<js_sys::Error>() {
-            let message = String::from(error.message());
-            let stack = Reflect::get(&value, &JsValue::from_str("stack"))
-                .ok()
-                .and_then(|value| value.as_string())
-                .unwrap_or_default();
-            return Self::Message(if stack.is_empty() || stack == message {
-                message
-            } else {
-                format!("{message}\n{stack}")
-            });
-        }
-
-        if let Some(s) = value.as_string() {
-            return Self::Message(s);
-        }
-
-        // Otherwise, we'll try to stringify the error and hope for the best
-        if let Some(obj) = value.dyn_ref::<js_sys::Object>() {
-            return Self::Message(obj.to_string().into());
-        }
-
-        Self::Unknown
+        describe_error(&value)
+            .as_string()
+            .map_or(Self::Unknown, Self::Message)
     }
 }
 

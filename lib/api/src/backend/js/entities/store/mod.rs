@@ -15,6 +15,10 @@ pub(crate) struct Store {
     pub(crate) async_imports: bool,
     #[cfg(feature = "experimental-async")]
     pub(crate) jspi_executor: crate::js::JspiExecutor,
+    #[cfg(feature = "experimental-async")]
+    pub(crate) jspi_store_executor: Option<crate::js::JspiStoreExecutor>,
+    #[cfg(feature = "experimental-async")]
+    pub(crate) jspi_call_owner: Option<crate::js::JspiCallOwnerFactory>,
 }
 
 impl Store {
@@ -27,6 +31,10 @@ impl Store {
             async_imports: false,
             #[cfg(feature = "experimental-async")]
             jspi_executor: wasm_bindgen_futures::future_to_promise,
+            #[cfg(feature = "experimental-async")]
+            jspi_store_executor: None,
+            #[cfg(feature = "experimental-async")]
+            jspi_call_owner: None,
         }
     }
 

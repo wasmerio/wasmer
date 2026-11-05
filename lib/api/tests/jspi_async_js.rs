@@ -60,6 +60,240 @@ async fn jspi_executors_belong_to_their_store_and_freeze_before_imports() {
     assert_eq!(RIGHT.get(), 1);
 }
 
+#[wasm_bindgen_test]
+async fn store_aware_jspi_gate_vetoes_entry_and_observes_the_exact_store() {
+    use std::cell::{Cell, RefCell};
+    use wasmer::js::{JspiCallOwner, JspiFuture};
+    use wasmer::{AsStoreAsync, AsStoreMut, RuntimeError};
+    thread_local! {
+        static DENY: Cell<bool> = const { Cell::new(true) };
+        static CALLBACK_STORE: Cell<Option<wasmer_types::StoreId>> = const { Cell::new(None) };
+        static PHASES: RefCell<Vec<(wasmer_types::StoreId, &'static str)>> = const { RefCell::new(Vec::new()) };
+    }
+    fn callback(store: wasmer_types::StoreId, future: JspiFuture) -> Promise {
+        CALLBACK_STORE.set(Some(store));
+        wasm_bindgen_futures::future_to_promise(future)
+    }
+    struct Owner(wasmer_types::StoreId);
+    impl JspiCallOwner for Owner {
+        fn settled(self: Box<Self>, _: &mut Result<JsValue, JsValue>) -> Result<(), RuntimeError> {
+            PHASES.with_borrow_mut(|phases| phases.push((self.0, "settled")));
+            Ok(())
+        }
+    }
+    fn observe(
+        store: wasmer_types::StoreId,
+    ) -> Result<Option<Box<dyn JspiCallOwner>>, RuntimeError> {
+        PHASES.with_borrow_mut(|phases| phases.push((store, "before")));
+        if DENY.get() {
+            return Err(RuntimeError::new("entry denied before Wasm"));
+        }
+        Ok(Some(Box::new(Owner(store))))
+    }
+    PHASES.with_borrow_mut(Vec::clear);
+    CALLBACK_STORE.set(None);
+    DENY.set(true);
+    let mut store = Store::default();
+    let id = store.id();
+    wasmer::js::set_async_mode(&mut store, wasmer::js::AsyncMode::Jspi).unwrap();
+    wasmer::js::set_jspi_store_executor(&mut store, callback, observe).unwrap();
+    let answer = Function::new_typed_async(&mut store, || async { 42i32 });
+    assert!(wasmer::js::set_jspi_store_executor(&mut store, callback, observe).is_err());
+    let module = Module::new(
+        &store,
+        r#"(module
+      (import "host" "answer" (func $answer (result i32)))
+      (global $entered (export "entered") (mut i32) (i32.const 0))
+      (func (export "run") (result i32)
+        (global.set $entered (i32.const 1)) (call $answer)))"#,
+    )
+    .unwrap();
+    let instance = Instance::new(
+        &mut store,
+        &module,
+        &imports! { "host" => { "answer" => answer } },
+    )
+    .unwrap();
+    let run: TypedFunction<(), i32> = instance.exports.get_typed_function(&store, "run").unwrap();
+    let entered = instance.exports.get_global("entered").unwrap().clone();
+    let store = store.into_async();
+    assert!(
+        run.call_async(&store)
+            .await
+            .unwrap_err()
+            .to_string()
+            .contains("entry denied before Wasm")
+    );
+    let mut guard = store.write_lock().await;
+    assert_eq!(entered.get(&mut guard.as_store_mut()).unwrap_i32(), 0);
+    drop(guard);
+    assert_eq!(CALLBACK_STORE.get(), None);
+    DENY.set(false);
+    assert_eq!(run.call_async(&store).await.unwrap(), 42);
+    assert_eq!(CALLBACK_STORE.get(), Some(id));
+    PHASES.with_borrow(|phases| {
+        assert_eq!(*phases, [(id, "before"), (id, "before"), (id, "settled"),])
+    });
+}
+
+#[wasm_bindgen_test]
+async fn jspi_guest_rejection_keeps_its_owned_payload_if_settlement_observer_fails() {
+    use std::sync::Arc;
+    use wasmer::{
+        RuntimeError,
+        js::{JspiCallOwner, JspiFuture},
+    };
+    #[derive(Debug, thiserror::Error)]
+    #[error("original guest rejection")]
+    struct Original(Arc<()>);
+    fn callback(_: wasmer_types::StoreId, future: JspiFuture) -> Promise {
+        wasm_bindgen_futures::future_to_promise(future)
+    }
+    struct Owner;
+    impl JspiCallOwner for Owner {
+        fn settled(self: Box<Self>, _: &mut Result<JsValue, JsValue>) -> Result<(), RuntimeError> {
+            Err(RuntimeError::new("settlement observer failed"))
+        }
+    }
+    fn observe(_: wasmer_types::StoreId) -> Result<Option<Box<dyn JspiCallOwner>>, RuntimeError> {
+        Ok(Some(Box::new(Owner)))
+    }
+    let payload = Arc::new(());
+    let captured = payload.clone();
+    let mut store = Store::default();
+    wasmer::js::set_async_mode(&mut store, wasmer::js::AsyncMode::Jspi).unwrap();
+    wasmer::js::set_jspi_store_executor(&mut store, callback, observe).unwrap();
+    let fail = Function::new_typed_async(&mut store, move || {
+        let payload = captured.clone();
+        async move { Err::<(), _>(RuntimeError::user(Box::new(Original(payload)))) }
+    });
+    let module = Module::new(
+        &store,
+        r#"(module
+      (import "host" "fail" (func $fail))
+      (func (export "run") (call $fail)))"#,
+    )
+    .unwrap();
+    let instance = Instance::new(
+        &mut store,
+        &module,
+        &imports! { "host" => { "fail" => fail } },
+    )
+    .unwrap();
+    let run: TypedFunction<(), ()> = instance.exports.get_typed_function(&store, "run").unwrap();
+    let original = run
+        .call_async(&store.into_async())
+        .await
+        .unwrap_err()
+        .downcast::<Original>()
+        .unwrap();
+    assert!(Arc::ptr_eq(&payload, &original.0));
+}
+
+#[wasm_bindgen_test]
+async fn physical_jspi_owner_keeps_callback_store_admission_after_rust_waiter_drop() {
+    use std::{
+        cell::RefCell,
+        future::Future,
+        sync::{
+            Arc, Mutex,
+            atomic::{AtomicUsize, Ordering},
+        },
+        task::{Context, Waker},
+    };
+    use wasmer::{
+        AsStoreAsync, AsStoreMut, RuntimeError,
+        js::{JspiCallOwner, JspiFuture},
+    };
+    struct Probe {
+        done: Mutex<Option<futures::channel::oneshot::Sender<bool>>>,
+    }
+    thread_local! {
+        static PROBE: RefCell<Option<Arc<Probe>>> = const { RefCell::new(None) };
+    }
+    struct Owner(Arc<Probe>);
+    impl JspiCallOwner for Owner {
+        fn settled(
+            self: Box<Self>,
+            outcome: &mut Result<JsValue, JsValue>,
+        ) -> Result<(), RuntimeError> {
+            self.0
+                .done
+                .lock()
+                .unwrap()
+                .take()
+                .unwrap()
+                .send(outcome.is_ok())
+                .unwrap();
+            Ok(())
+        }
+    }
+    fn owner(_: wasmer_types::StoreId) -> Result<Option<Box<dyn JspiCallOwner>>, RuntimeError> {
+        Ok(Some(Box::new(Owner(
+            PROBE.with_borrow(|probe| probe.as_ref().unwrap().clone()),
+        ))))
+    }
+    fn callback(_: wasmer_types::StoreId, future: JspiFuture) -> Promise {
+        wasm_bindgen_futures::future_to_promise(future)
+    }
+    let (finish, finished) = futures::channel::oneshot::channel();
+    PROBE.with_borrow_mut(|probe| {
+        *probe = Some(Arc::new(Probe {
+            done: Mutex::new(Some(finish)),
+        }))
+    });
+    let (resume, resumed) = futures::channel::oneshot::channel::<()>();
+    let resumed = Arc::new(Mutex::new(Some(resumed)));
+    let mut store = Store::default();
+    wasmer::js::set_async_mode(&mut store, wasmer::js::AsyncMode::Jspi).unwrap();
+    wasmer::js::set_jspi_store_executor(&mut store, callback, owner).unwrap();
+    let first = Function::new_typed_async(&mut store, move || {
+        let resumed = resumed.lock().unwrap().take().unwrap();
+        async move { resumed.await.unwrap() }
+    });
+    let entered = Arc::new(AtomicUsize::new(0));
+    let next = entered.clone();
+    let second = Function::new_typed_async(&mut store, move || {
+        next.fetch_add(1, Ordering::SeqCst);
+        async {}
+    });
+    let module = Module::new(
+        &store,
+        r#"(module
+      (import "host" "first" (func $first))
+      (import "host" "second" (func $second))
+      (global $continued (export "continued") (mut i32) (i32.const 0))
+      (func (export "run") (call $first) (call $second)
+        (global.set $continued (i32.const 1))))"#,
+    )
+    .unwrap();
+    let instance = Instance::new(
+        &mut store,
+        &module,
+        &imports! { "host" => { "first" => first, "second" => second } },
+    )
+    .unwrap();
+    let run: TypedFunction<(), ()> = instance.exports.get_typed_function(&store, "run").unwrap();
+    let continued = instance.exports.get_global("continued").unwrap().clone();
+    let store = store.into_async();
+    let mut call = Box::pin(run.call_async(&store));
+    assert!(
+        call.as_mut()
+            .poll(&mut Context::from_waker(Waker::noop()))
+            .is_pending()
+    );
+    drop(call);
+    resume.send(()).unwrap();
+    assert!(
+        finished.await.unwrap(),
+        "physical call rejected after losing its Store admission"
+    );
+    assert_eq!(entered.load(Ordering::SeqCst), 1);
+    let mut guard = store.write_lock().await;
+    assert_eq!(continued.get(&mut guard.as_store_mut()).unwrap_i32(), 1);
+    PROBE.with_borrow_mut(|probe| *probe = None);
+}
+
 struct NoJspi {
     webassembly: JsValue,
     suspending: JsValue,

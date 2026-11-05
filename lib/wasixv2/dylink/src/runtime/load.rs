@@ -100,6 +100,10 @@ pub(super) async fn cleanup<S: wasixv2_syscalls::LoaderControl + Send + Sync + '
                 for module in stage.modules.into_values() {
                     local.instances.push(module.publish()?);
                 }
+                local.closure_pools.extend(stage.closure_pools);
+                if let Some(slots) = stage.closure_slots.take() {
+                    local.closure_slots = slots;
+                }
                 local.forwarders.extend(stage.forwarders);
                 local.tls = stage.tls;
                 local.lazy_targets = stage.lazy_targets;

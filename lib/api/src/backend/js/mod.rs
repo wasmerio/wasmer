@@ -16,6 +16,7 @@ mod blocking;
 pub use blocking::{BlockingExecutor, set_blocking_executor};
 #[cfg(feature = "experimental-async")]
 pub use jspi::{
-    AsyncMode, JspiExecutor, JspiFuture, is_supported as is_jspi_supported, set_async_mode,
-    set_jspi_executor,
+    AsyncMode, JspiCallOwner, JspiCallOwnerFactory, JspiExecutor, JspiFuture, JspiStoreExecutor,
+    async_mode, is_supported as is_jspi_supported, set_async_mode, set_jspi_executor,
+    set_jspi_store_executor,
 };

@@ -528,7 +528,16 @@ async fn vfork<S: Syscalls + Control + 'static>(
         });
         frame
             .syscalls
-            .clone(&frame.caller(), VFORK, 0, S32Ptr::NULL, 0, S32Ptr::NULL)
+            .clone(
+                &frame
+                    .caller()
+                    .with_process_fork_allowed(wasixv2_exec::process_fork_allowed(env).await),
+                VFORK,
+                0,
+                S32Ptr::NULL,
+                0,
+                S32Ptr::NULL,
+            )
             .await?;
         Ok(())
     })
@@ -642,7 +651,16 @@ pub(crate) async fn proc_fork<S: Syscalls + Control + 'static>(
             import::set_fork_payload(frame.env, Arc::new(state)).await;
             frame
                 .syscalls
-                .clone(&frame.caller(), SIGCHLD, 0, S32Ptr::NULL, 0, S32Ptr::NULL)
+                .clone(
+                    &frame
+                        .caller()
+                        .with_process_fork_allowed(wasixv2_exec::process_fork_allowed(&env).await),
+                    SIGCHLD,
+                    0,
+                    S32Ptr::NULL,
+                    0,
+                    S32Ptr::NULL,
+                )
                 .await?;
             Ok(())
         })

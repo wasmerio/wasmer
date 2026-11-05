@@ -524,6 +524,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::startup_size(&*syscalls, &caller).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret.map(|v| v as i32)).await {
@@ -543,6 +544,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::startup_get(
             &*syscalls,
@@ -570,6 +572,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::thread_spawn(
             &*syscalls,
@@ -597,6 +600,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::signal_callback_register(&*syscalls, &caller, callback as u32).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -619,9 +623,10 @@ where
 {
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
-    let unwind = crate::GuestUnwind::default();
+    let unwind = crate::GuestUnwind::new(&env).await;
     let functions = crate::GuestFunctionOperations::new(&env, &unwind);
     let caller = Caller::new(task, &memory).with_functions(&functions);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::call_dynamic(
             &*syscalls,
@@ -653,9 +658,10 @@ where
 {
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
-    let unwind = crate::GuestUnwind::default();
+    let unwind = crate::GuestUnwind::new(&env).await;
     let functions = crate::GuestFunctionOperations::new(&env, &unwind);
     let caller = Caller::new(task, &memory).with_functions(&functions);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::reflect_signature(
             &*syscalls,
@@ -682,9 +688,10 @@ where
 {
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
-    let unwind = crate::GuestUnwind::default();
+    let unwind = crate::GuestUnwind::new(&env).await;
     let functions = crate::GuestFunctionOperations::new(&env, &unwind);
     let caller = Caller::new(task, &memory).with_functions(&functions);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret =
             Syscalls::closure_allocate(&*syscalls, &caller, U32Ptr::new(closure as u32)).await;
@@ -711,9 +718,10 @@ where
 {
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
-    let unwind = crate::GuestUnwind::default();
+    let unwind = crate::GuestUnwind::new(&env).await;
     let functions = crate::GuestFunctionOperations::new(&env, &unwind);
     let caller = Caller::new(task, &memory).with_functions(&functions);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::closure_prepare(
             &*syscalls,
@@ -741,9 +749,10 @@ where
 {
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
-    let unwind = crate::GuestUnwind::default();
+    let unwind = crate::GuestUnwind::new(&env).await;
     let functions = crate::GuestFunctionOperations::new(&env, &unwind);
     let caller = Caller::new(task, &memory).with_functions(&functions);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::closure_free(&*syscalls, &caller, closure as u32).await;
         let ret = unwind.finish(&env, ret).await?;
@@ -760,6 +769,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::checkpoint(&*syscalls, &caller).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -779,6 +789,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::stack_save(
             &*syscalls,
@@ -804,6 +815,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::stack_restore(
             &*syscalls,
@@ -819,59 +831,83 @@ where
     }
 }
 
-async fn context_create<S>(
+fn context_create<S>(
     env: AsyncFunctionEnvMut<ExecEnv<S>>,
     entry: i32,
     id: i32,
-) -> Result<i32, RuntimeError>
+) -> impl std::future::Future<Output = Result<i32, RuntimeError>> + 'static
 where
     S: Syscalls + Control + 'static,
 {
-    let (syscalls, task) = caller_parts(&env).await;
-    let memory = GuestMemory { env: &env };
-    let caller = Caller::new(task, &memory);
-    loop {
-        let ret =
-            Syscalls::context_create(&*syscalls, &caller, entry as u32, U64Ptr::new(id as u32))
-                .await;
-        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
-            return ret;
+    let contexts_supported = crate::context_operations_supported();
+    async move {
+        let (syscalls, task) = caller_parts(&env).await;
+        let memory = GuestMemory { env: &env };
+        let unwind = crate::GuestUnwind::new(&env).await;
+        let functions = crate::GuestFunctionOperations::new(&env, &unwind)
+            .with_context_support(contexts_supported);
+        let caller = Caller::new(task, &memory).with_functions(&functions);
+        let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
+        loop {
+            let ret =
+                Syscalls::context_create(&*syscalls, &caller, entry as u32, U64Ptr::new(id as u32))
+                    .await;
+            let ret = unwind.finish(&env, ret).await?;
+            if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+                return ret;
+            }
         }
     }
 }
 
-async fn context_switch<S>(
+fn context_switch<S>(
     env: AsyncFunctionEnvMut<ExecEnv<S>>,
     id: i64,
-) -> Result<i32, RuntimeError>
+) -> impl std::future::Future<Output = Result<i32, RuntimeError>> + 'static
 where
     S: Syscalls + Control + 'static,
 {
-    let (syscalls, task) = caller_parts(&env).await;
-    let memory = GuestMemory { env: &env };
-    let caller = Caller::new(task, &memory);
-    loop {
-        let ret = Syscalls::context_switch(&*syscalls, &caller, id as u64).await;
-        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
-            return ret;
+    let contexts_supported = crate::context_operations_supported();
+    async move {
+        let (syscalls, task) = caller_parts(&env).await;
+        let memory = GuestMemory { env: &env };
+        let unwind = crate::GuestUnwind::new(&env).await;
+        let functions = crate::GuestFunctionOperations::new(&env, &unwind)
+            .with_context_support(contexts_supported);
+        let caller = Caller::new(task, &memory).with_functions(&functions);
+        let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
+        loop {
+            let ret = Syscalls::context_switch(&*syscalls, &caller, id as u64).await;
+            let ret = unwind.finish(&env, ret).await?;
+            if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+                return ret;
+            }
         }
     }
 }
 
-async fn context_destroy<S>(
+fn context_destroy<S>(
     env: AsyncFunctionEnvMut<ExecEnv<S>>,
     id: i64,
-) -> Result<i32, RuntimeError>
+) -> impl std::future::Future<Output = Result<i32, RuntimeError>> + 'static
 where
     S: Syscalls + Control + 'static,
 {
-    let (syscalls, task) = caller_parts(&env).await;
-    let memory = GuestMemory { env: &env };
-    let caller = Caller::new(task, &memory);
-    loop {
-        let ret = Syscalls::context_destroy(&*syscalls, &caller, id as u64).await;
-        if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
-            return ret;
+    let contexts_supported = crate::context_operations_supported();
+    async move {
+        let (syscalls, task) = caller_parts(&env).await;
+        let memory = GuestMemory { env: &env };
+        let unwind = crate::GuestUnwind::new(&env).await;
+        let functions = crate::GuestFunctionOperations::new(&env, &unwind)
+            .with_context_support(contexts_supported);
+        let caller = Caller::new(task, &memory).with_functions(&functions);
+        let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
+        loop {
+            let ret = Syscalls::context_destroy(&*syscalls, &caller, id as u64).await;
+            let ret = unwind.finish(&env, ret).await?;
+            if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
+                return ret;
+            }
         }
     }
 }
@@ -894,6 +930,7 @@ where
     let memory = GuestMemory { env: &env };
     let dynamic_linker = crate::GuestDynamicLinker::new(&env);
     let caller = Caller::new(task, &memory).with_dynamic_linker(&dynamic_linker);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::dl_open(
             &*syscalls,
@@ -928,6 +965,7 @@ where
     let memory = GuestMemory { env: &env };
     let dynamic_linker = crate::GuestDynamicLinker::new(&env);
     let caller = Caller::new(task, &memory).with_dynamic_linker(&dynamic_linker);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::dl_sym(
             &*syscalls,
@@ -953,6 +991,7 @@ where
     let memory = GuestMemory { env: &env };
     let dynamic_linker = crate::GuestDynamicLinker::new(&env);
     let caller = Caller::new(task, &memory).with_dynamic_linker(&dynamic_linker);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::dl_close(&*syscalls, &caller, DlHandle(handle as u32)).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -972,6 +1011,7 @@ where
     let memory = GuestMemory { env: &env };
     let dynamic_linker = crate::GuestDynamicLinker::new(&env);
     let caller = Caller::new(task, &memory).with_dynamic_linker(&dynamic_linker);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::dl_next_init(&*syscalls, &caller, UptrPtr::new(ctors as u32)).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -993,6 +1033,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::openat(
             &*syscalls,
@@ -1022,6 +1063,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::openat2(
             &*syscalls,
@@ -1045,6 +1087,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::close(&*syscalls, &caller, Fd(fd)).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -1065,6 +1108,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::close_range(
             &*syscalls,
@@ -1087,6 +1131,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::dup(&*syscalls, &caller, Fd(fildes)).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret.map(|v| v.0)).await {
@@ -1107,6 +1152,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::dup3(
             &*syscalls,
@@ -1134,6 +1180,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::fcntl64(&*syscalls, &caller, Fd(fd), FcntlCmd(cmd), arg as u32).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -1153,6 +1200,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::flock(&*syscalls, &caller, Fd(fd), FlockOp(cmd as u32)).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -1173,6 +1221,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::ioctl(
             &*syscalls,
@@ -1200,6 +1249,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::read(
             &*syscalls,
@@ -1226,6 +1276,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::write(
             &*syscalls,
@@ -1252,6 +1303,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::readv(
             &*syscalls,
@@ -1279,6 +1331,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::writev(
             &*syscalls,
@@ -1307,6 +1360,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::pread64(
             &*syscalls,
@@ -1335,6 +1389,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::pwrite64(
             &*syscalls,
@@ -1363,6 +1418,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::preadv(
             &*syscalls,
@@ -1392,6 +1448,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::pwritev(
             &*syscalls,
@@ -1422,6 +1479,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::preadv2(
             &*syscalls,
@@ -1453,6 +1511,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::pwritev2(
             &*syscalls,
@@ -1482,6 +1541,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::lseek(&*syscalls, &caller, Fd(fd), offset, SeekWhence(whence)).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -1503,6 +1563,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::sendfile64(
             &*syscalls,
@@ -1534,6 +1595,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::splice(
             &*syscalls,
@@ -1565,6 +1627,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::tee(
             &*syscalls,
@@ -1594,6 +1657,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::vmsplice(
             &*syscalls,
@@ -1625,6 +1689,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::copy_file_range(
             &*syscalls,
@@ -1654,6 +1719,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::truncate64(&*syscalls, &caller, Cstr::new(path as u32), length).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -1673,6 +1739,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::ftruncate64(&*syscalls, &caller, Fd(fd), length).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -1694,6 +1761,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::fallocate(
             &*syscalls,
@@ -1723,6 +1791,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::fadvise64_64(
             &*syscalls,
@@ -1751,6 +1820,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::readahead(&*syscalls, &caller, Fd(fd), offset, count as u32).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -1766,6 +1836,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::sync(&*syscalls, &caller).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -1781,6 +1852,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::fsync(&*syscalls, &caller, Fd(fd)).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -1796,6 +1868,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::fdatasync(&*syscalls, &caller, Fd(fd)).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -1811,6 +1884,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::syncfs(&*syscalls, &caller, Fd(fd)).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -1832,6 +1906,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::sync_file_range(
             &*syscalls,
@@ -1860,6 +1935,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::getdents64(
             &*syscalls,
@@ -1887,6 +1963,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::mkdirat(
             &*syscalls,
@@ -1915,6 +1992,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::mknodat(
             &*syscalls,
@@ -1943,6 +2021,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::unlinkat(
             &*syscalls,
@@ -1970,6 +2049,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::symlinkat(
             &*syscalls,
@@ -1999,6 +2079,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::linkat(
             &*syscalls,
@@ -2030,6 +2111,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::renameat2(
             &*syscalls,
@@ -2060,6 +2142,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::readlinkat(
             &*syscalls,
@@ -2088,6 +2171,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::faccessat(
             &*syscalls,
@@ -2116,6 +2200,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::faccessat2(
             &*syscalls,
@@ -2139,6 +2224,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::chdir(&*syscalls, &caller, Cstr::new(filename as u32)).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -2154,6 +2240,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::fchdir(&*syscalls, &caller, Fd(fd)).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -2169,6 +2256,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::chroot(&*syscalls, &caller, Cstr::new(filename as u32)).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -2188,6 +2276,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::fchroot(&*syscalls, &caller, Fd(fd), flags as u32).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -2207,6 +2296,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::getcwd(
             &*syscalls,
@@ -2231,6 +2321,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::fchmod(&*syscalls, &caller, Fd(fd), mode as u32).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -2251,6 +2342,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::fchmodat(
             &*syscalls,
@@ -2279,6 +2371,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::fchmodat2(
             &*syscalls,
@@ -2307,6 +2400,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::fchown(&*syscalls, &caller, Fd(fd), user as u32, group as u32).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -2329,6 +2423,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::fchownat(
             &*syscalls,
@@ -2360,6 +2455,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::statx(
             &*syscalls,
@@ -2389,6 +2485,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::statfs64(
             &*syscalls,
@@ -2416,6 +2513,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::fstatfs64(
             &*syscalls,
@@ -2444,6 +2542,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::utimensat_time64(
             &*syscalls,
@@ -2471,6 +2570,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::pipe2(
             &*syscalls,
@@ -2496,6 +2596,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::memfd_create(
             &*syscalls,
@@ -2520,6 +2621,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::memfd_secret(&*syscalls, &caller, flags as u32).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -2542,6 +2644,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::name_to_handle_at(
             &*syscalls,
@@ -2571,6 +2674,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::open_by_handle_at(
             &*syscalls,
@@ -2599,6 +2703,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::cachestat(
             &*syscalls,
@@ -2629,6 +2734,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::file_getattr(
             &*syscalls,
@@ -2660,6 +2766,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::file_setattr(
             &*syscalls,
@@ -2690,6 +2797,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::quotactl(
             &*syscalls,
@@ -2719,6 +2827,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::quotactl_fd(
             &*syscalls,
@@ -2749,6 +2858,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::setxattr(
             &*syscalls,
@@ -2779,6 +2889,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::lsetxattr(
             &*syscalls,
@@ -2809,6 +2920,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::fsetxattr(
             &*syscalls,
@@ -2838,6 +2950,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::getxattr(
             &*syscalls,
@@ -2866,6 +2979,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::lgetxattr(
             &*syscalls,
@@ -2894,6 +3008,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::fgetxattr(
             &*syscalls,
@@ -2921,6 +3036,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::listxattr(
             &*syscalls,
@@ -2947,6 +3063,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::llistxattr(
             &*syscalls,
@@ -2973,6 +3090,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::flistxattr(
             &*syscalls,
@@ -2998,6 +3116,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::removexattr(
             &*syscalls,
@@ -3023,6 +3142,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::lremovexattr(
             &*syscalls,
@@ -3048,6 +3168,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::fremovexattr(&*syscalls, &caller, Fd(fd), Cstr::new(name as u32)).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -3071,6 +3192,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::setxattrat(
             &*syscalls,
@@ -3104,6 +3226,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::getxattrat(
             &*syscalls,
@@ -3136,6 +3259,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::listxattrat(
             &*syscalls,
@@ -3165,6 +3289,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::removexattrat(
             &*syscalls,
@@ -3191,6 +3316,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret =
             Syscalls::epoll_create1(&*syscalls, &caller, EpollCreateFlags(flags as u32)).await;
@@ -3213,6 +3339,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::epoll_ctl(
             &*syscalls,
@@ -3244,6 +3371,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::epoll_pwait(
             &*syscalls,
@@ -3277,6 +3405,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::epoll_pwait2(
             &*syscalls,
@@ -3309,6 +3438,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::ppoll_time64(
             &*syscalls,
@@ -3341,6 +3471,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::pselect6_time64(
             &*syscalls,
@@ -3370,6 +3501,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::eventfd2(
             &*syscalls,
@@ -3397,6 +3529,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::signalfd4(
             &*syscalls,
@@ -3424,6 +3557,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::timerfd_create(
             &*syscalls,
@@ -3451,6 +3585,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::timerfd_settime64(
             &*syscalls,
@@ -3478,6 +3613,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::timerfd_gettime64(
             &*syscalls,
@@ -3502,6 +3638,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret =
             Syscalls::inotify_init1(&*syscalls, &caller, InotifyInitFlags(flags as u32)).await;
@@ -3523,6 +3660,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::inotify_add_watch(
             &*syscalls,
@@ -3549,6 +3687,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::inotify_rm_watch(&*syscalls, &caller, Fd(fd), wd).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -3568,6 +3707,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret =
             Syscalls::fanotify_init(&*syscalls, &caller, flags as u32, event_f_flags as u32).await;
@@ -3591,6 +3731,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::fanotify_mark(
             &*syscalls,
@@ -3621,6 +3762,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::rt_sigaction(
             &*syscalls,
@@ -3650,6 +3792,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::rt_sigprocmask(
             &*syscalls,
@@ -3677,6 +3820,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::rt_sigpending(
             &*syscalls,
@@ -3702,6 +3846,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::rt_sigsuspend(
             &*syscalls,
@@ -3729,6 +3874,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::rt_sigtimedwait_time64(
             &*syscalls,
@@ -3757,6 +3903,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::rt_sigqueueinfo(
             &*syscalls,
@@ -3785,6 +3932,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::rt_tgsigqueueinfo(
             &*syscalls,
@@ -3808,6 +3956,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::rt_sigreturn(&*syscalls, &caller).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret.map(|()| 0)).await {
@@ -3828,6 +3977,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::sigaltstack(
             &*syscalls,
@@ -3853,6 +4003,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::kill(&*syscalls, &caller, pid, Signal(sig)).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -3872,6 +4023,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::tkill(&*syscalls, &caller, pid, Signal(sig)).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -3892,6 +4044,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::tgkill(&*syscalls, &caller, tgid, pid, Signal(sig)).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -3913,6 +4066,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::pidfd_send_signal(
             &*syscalls,
@@ -3936,6 +4090,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::restart_syscall(&*syscalls, &caller).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -3958,6 +4113,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::clone(
             &*syscalls,
@@ -3986,6 +4142,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::clone3(
             &*syscalls,
@@ -4012,6 +4169,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::execve(
             &*syscalls,
@@ -4041,6 +4199,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::execveat(
             &*syscalls,
@@ -4065,6 +4224,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::exit(&*syscalls, &caller, error_code).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret.map(|()| 0)).await {
@@ -4084,6 +4244,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::exit_group(&*syscalls, &caller, error_code).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret.map(|()| 0)).await {
@@ -4107,6 +4268,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::waitid(
             &*syscalls,
@@ -4134,6 +4296,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::set_tid_address(&*syscalls, &caller, S32Ptr::new(tidptr as u32)).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -4152,6 +4315,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::unshare(&*syscalls, &caller, unshare_flags as u32).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -4171,6 +4335,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::setns(&*syscalls, &caller, Fd(fd), flags).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -4186,6 +4351,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::getpid(&*syscalls, &caller).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -4201,6 +4367,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::getppid(&*syscalls, &caller).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -4216,6 +4383,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::gettid(&*syscalls, &caller).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -4231,6 +4399,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::getpgid(&*syscalls, &caller, pid).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -4250,6 +4419,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::setpgid(&*syscalls, &caller, pid, pgid).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -4265,6 +4435,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::getsid(&*syscalls, &caller, pid).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -4280,6 +4451,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::setsid(&*syscalls, &caller).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -4299,6 +4471,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::pidfd_open(&*syscalls, &caller, pid, flags as u32).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret.map(|v| v.0)).await {
@@ -4319,6 +4492,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::pidfd_getfd(&*syscalls, &caller, Fd(pidfd), Fd(fd), flags as u32).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -4338,6 +4512,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::process_mrelease(&*syscalls, &caller, Fd(pidfd), flags as u32).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -4360,6 +4535,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::kcmp(
             &*syscalls,
@@ -4387,6 +4563,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::personality(&*syscalls, &caller, personality as u32).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -4409,6 +4586,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::prctl(
             &*syscalls,
@@ -4439,6 +4617,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::ptrace(
             &*syscalls,
@@ -4470,6 +4649,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::process_vm_readv(
             &*syscalls,
@@ -4503,6 +4683,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::process_vm_writev(
             &*syscalls,
@@ -4533,6 +4714,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::seccomp(
             &*syscalls,
@@ -4561,6 +4743,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::rseq(
             &*syscalls,
@@ -4584,6 +4767,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::rseq_slice_yield(&*syscalls, &caller).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -4603,6 +4787,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::set_robust_list(
             &*syscalls,
@@ -4629,6 +4814,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::get_robust_list(
             &*syscalls,
@@ -4651,6 +4837,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::getuid(&*syscalls, &caller).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -4666,6 +4853,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::geteuid(&*syscalls, &caller).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -4681,6 +4869,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::getgid(&*syscalls, &caller).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -4696,6 +4885,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::getegid(&*syscalls, &caller).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -4711,6 +4901,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::setuid(&*syscalls, &caller, uid as u32).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -4726,6 +4917,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::setgid(&*syscalls, &caller, gid as u32).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -4745,6 +4937,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::setreuid(&*syscalls, &caller, ruid as u32, euid as u32).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -4764,6 +4957,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::setregid(&*syscalls, &caller, rgid as u32, egid as u32).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -4784,6 +4978,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret =
             Syscalls::setresuid(&*syscalls, &caller, ruid as u32, euid as u32, suid as u32).await;
@@ -4805,6 +5000,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::getresuid(
             &*syscalls,
@@ -4832,6 +5028,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret =
             Syscalls::setresgid(&*syscalls, &caller, rgid as u32, egid as u32, sgid as u32).await;
@@ -4853,6 +5050,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::getresgid(
             &*syscalls,
@@ -4875,6 +5073,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::setfsuid(&*syscalls, &caller, uid as u32).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -4890,6 +5089,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::setfsgid(&*syscalls, &caller, gid as u32).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -4909,6 +5109,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::getgroups(
             &*syscalls,
@@ -4934,6 +5135,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::setgroups(
             &*syscalls,
@@ -4959,6 +5161,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::capget(
             &*syscalls,
@@ -4984,6 +5187,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::capset(
             &*syscalls,
@@ -5009,6 +5213,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::sched_setparam(
             &*syscalls,
@@ -5034,6 +5239,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret =
             Syscalls::sched_getparam(&*syscalls, &caller, pid, SchedParamPtr::new(param as u32))
@@ -5056,6 +5262,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::sched_setscheduler(
             &*syscalls,
@@ -5081,6 +5288,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::sched_getscheduler(&*syscalls, &caller, pid).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -5101,6 +5309,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::sched_setattr(
             &*syscalls,
@@ -5129,6 +5338,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::sched_getattr(
             &*syscalls,
@@ -5157,6 +5367,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::sched_setaffinity(
             &*syscalls,
@@ -5184,6 +5395,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::sched_getaffinity(
             &*syscalls,
@@ -5206,6 +5418,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::sched_yield(&*syscalls, &caller).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -5224,6 +5437,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::sched_get_priority_max(&*syscalls, &caller, SchedPolicy(policy)).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -5242,6 +5456,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::sched_get_priority_min(&*syscalls, &caller, SchedPolicy(policy)).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -5261,6 +5476,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::sched_rr_get_interval_time64(
             &*syscalls,
@@ -5286,6 +5502,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::getpriority(&*syscalls, &caller, PrioWhich(which), who).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -5306,6 +5523,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::setpriority(&*syscalls, &caller, PrioWhich(which), who, niceval).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -5325,6 +5543,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::getrusage(
             &*syscalls,
@@ -5352,6 +5571,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::prlimit64(
             &*syscalls,
@@ -5375,6 +5595,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::times(&*syscalls, &caller, TmsPtr::new(tbuf as u32)).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -5395,6 +5616,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::ioprio_set(&*syscalls, &caller, which, who, ioprio).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -5414,6 +5636,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::ioprio_get(&*syscalls, &caller, which, who).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -5434,6 +5657,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::getcpu(
             &*syscalls,
@@ -5456,6 +5680,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::sysinfo(&*syscalls, &caller, SysinfoPtr::new(info as u32)).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -5471,6 +5696,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::uname(&*syscalls, &caller, NewUtsnamePtr::new(name as u32)).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -5490,6 +5716,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::sethostname(&*syscalls, &caller, ConstBuf::new(name as u32), len).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -5509,6 +5736,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret =
             Syscalls::setdomainname(&*syscalls, &caller, ConstBuf::new(name as u32), len).await;
@@ -5525,6 +5753,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::umask(&*syscalls, &caller, mask).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -5545,6 +5774,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::getrandom(
             &*syscalls,
@@ -5571,6 +5801,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::membarrier(
             &*syscalls,
@@ -5601,6 +5832,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::futex_time64(
             &*syscalls,
@@ -5633,6 +5865,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::futex_waitv(
             &*syscalls,
@@ -5663,6 +5896,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::futex_wake(
             &*syscalls,
@@ -5694,6 +5928,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::futex_wait(
             &*syscalls,
@@ -5725,6 +5960,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::futex_requeue(
             &*syscalls,
@@ -5748,6 +5984,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::brk(&*syscalls, &caller, brk as u32).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -5771,6 +6008,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::mmap(
             &*syscalls,
@@ -5800,6 +6038,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::munmap(&*syscalls, &caller, addr as u32, len as u32).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -5822,6 +6061,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::mremap(
             &*syscalls,
@@ -5851,6 +6091,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::mprotect(
             &*syscalls,
@@ -5879,6 +6120,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::pkey_mprotect(
             &*syscalls,
@@ -5906,6 +6148,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::pkey_alloc(&*syscalls, &caller, flags as u32, init_val as u32).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -5921,6 +6164,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::pkey_free(&*syscalls, &caller, pkey).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -5941,6 +6185,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::msync(
             &*syscalls,
@@ -5968,6 +6213,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::madvise(
             &*syscalls,
@@ -5997,6 +6243,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::process_madvise(
             &*syscalls,
@@ -6026,6 +6273,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::mincore(
             &*syscalls,
@@ -6052,6 +6300,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::mlock(&*syscalls, &caller, start as u32, len as u32).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -6072,6 +6321,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::mlock2(
             &*syscalls,
@@ -6098,6 +6348,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::munlock(&*syscalls, &caller, start as u32, len as u32).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -6113,6 +6364,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::mlockall(&*syscalls, &caller, MclFlags(flags as u32)).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -6128,6 +6380,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::munlockall(&*syscalls, &caller).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -6150,6 +6403,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::remap_file_pages(
             &*syscalls,
@@ -6182,6 +6436,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::mbind(
             &*syscalls,
@@ -6214,6 +6469,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::get_mempolicy(
             &*syscalls,
@@ -6243,6 +6499,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::set_mempolicy(
             &*syscalls,
@@ -6271,6 +6528,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::set_mempolicy_home_node(
             &*syscalls,
@@ -6300,6 +6558,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::migrate_pages(
             &*syscalls,
@@ -6331,6 +6590,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::move_pages(
             &*syscalls,
@@ -6361,6 +6621,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret =
             Syscalls::mseal(&*syscalls, &caller, start as u32, len as u32, flags as u32).await;
@@ -6382,6 +6643,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret =
             Syscalls::map_shadow_stack(&*syscalls, &caller, addr as u32, size as u32, flags as u32)
@@ -6402,6 +6664,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::userfaultfd(&*syscalls, &caller, flags).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -6421,6 +6684,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::clock_gettime64(
             &*syscalls,
@@ -6446,6 +6710,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::clock_settime64(
             &*syscalls,
@@ -6471,6 +6736,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::clock_getres_time64(
             &*syscalls,
@@ -6498,6 +6764,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::clock_nanosleep_time64(
             &*syscalls,
@@ -6525,6 +6792,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::clock_adjtime64(
             &*syscalls,
@@ -6550,6 +6818,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::getitimer(
             &*syscalls,
@@ -6576,6 +6845,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::setitimer(
             &*syscalls,
@@ -6603,6 +6873,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::timer_create(
             &*syscalls,
@@ -6631,6 +6902,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::timer_settime64(
             &*syscalls,
@@ -6658,6 +6930,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::timer_gettime64(
             &*syscalls,
@@ -6682,6 +6955,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::timer_getoverrun(&*syscalls, &caller, timer_id).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -6700,6 +6974,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::timer_delete(&*syscalls, &caller, timer_id).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -6720,6 +6995,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret =
             Syscalls::socket(&*syscalls, &caller, AddressFamily(family), r#type, protocol).await;
@@ -6742,6 +7018,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::socketpair(
             &*syscalls,
@@ -6770,6 +7047,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::bind(
             &*syscalls,
@@ -6796,6 +7074,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::listen(&*syscalls, &caller, Fd(fd), backlog).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -6816,6 +7095,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::accept(
             &*syscalls,
@@ -6844,6 +7124,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::accept4(
             &*syscalls,
@@ -6872,6 +7153,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::connect(
             &*syscalls,
@@ -6899,6 +7181,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::getsockname(
             &*syscalls,
@@ -6926,6 +7209,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::getpeername(
             &*syscalls,
@@ -6956,6 +7240,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::sendto(
             &*syscalls,
@@ -6988,6 +7273,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::recvfrom(
             &*syscalls,
@@ -7019,6 +7305,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::setsockopt(
             &*syscalls,
@@ -7049,6 +7336,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::getsockopt(
             &*syscalls,
@@ -7077,6 +7365,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::shutdown(&*syscalls, &caller, Fd(fd), ShutdownHow(how)).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -7097,6 +7386,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::sendmsg(
             &*syscalls,
@@ -7124,6 +7414,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::recvmsg(
             &*syscalls,
@@ -7152,6 +7443,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::sendmmsg(
             &*syscalls,
@@ -7182,6 +7474,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::recvmmsg_time64(
             &*syscalls,
@@ -7210,6 +7503,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::msgget(&*syscalls, &caller, key, msgflg).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -7230,6 +7524,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::msgctl(
             &*syscalls,
@@ -7259,6 +7554,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::msgrcv(
             &*syscalls,
@@ -7289,6 +7585,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::msgsnd(
             &*syscalls,
@@ -7317,6 +7614,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::semget(&*syscalls, &caller, key, nsems, semflg).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -7338,6 +7636,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::semctl(&*syscalls, &caller, semid, semnum, cmd, arg as u32).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -7358,6 +7657,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::semop(
             &*syscalls,
@@ -7386,6 +7686,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::semtimedop_time64(
             &*syscalls,
@@ -7414,6 +7715,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::shmget(&*syscalls, &caller, key, size as u32, shmflg).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -7434,6 +7736,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::shmctl(
             &*syscalls,
@@ -7461,6 +7764,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::shmat(&*syscalls, &caller, shmid, shmaddr as u32, shmflg).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -7476,6 +7780,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::shmdt(&*syscalls, &caller, shmaddr as u32).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -7497,6 +7802,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::mq_open(
             &*syscalls,
@@ -7523,6 +7829,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::mq_unlink(&*syscalls, &caller, Cstr::new(u_name as u32)).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -7545,6 +7852,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::mq_timedsend_time64(
             &*syscalls,
@@ -7576,6 +7884,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::mq_timedreceive_time64(
             &*syscalls,
@@ -7604,6 +7913,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::mq_notify(
             &*syscalls,
@@ -7630,6 +7940,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::mq_getsetattr(
             &*syscalls,
@@ -7656,6 +7967,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::io_setup(
             &*syscalls,
@@ -7677,6 +7989,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::io_destroy(&*syscalls, &caller, ctx as u32).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -7697,6 +8010,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::io_submit(
             &*syscalls,
@@ -7724,6 +8038,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::io_cancel(
             &*syscalls,
@@ -7754,6 +8069,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::io_pgetevents_time64(
             &*syscalls,
@@ -7783,6 +8099,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::io_uring_setup(
             &*syscalls,
@@ -7812,6 +8129,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::io_uring_enter(
             &*syscalls,
@@ -7843,6 +8161,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::io_uring_register(
             &*syscalls,
@@ -7873,6 +8192,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::mount(
             &*syscalls,
@@ -7901,6 +8221,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::umount2(
             &*syscalls,
@@ -7926,6 +8247,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::pivot_root(
             &*syscalls,
@@ -7952,6 +8274,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::open_tree(
             &*syscalls,
@@ -7981,6 +8304,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::open_tree_attr(
             &*syscalls,
@@ -8012,6 +8336,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::move_mount(
             &*syscalls,
@@ -8040,6 +8365,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret =
             Syscalls::fsopen(&*syscalls, &caller, Cstr::new(fs_name as u32), flags as u32).await;
@@ -8063,6 +8389,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::fsconfig(
             &*syscalls,
@@ -8092,6 +8419,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::fsmount(
             &*syscalls,
@@ -8119,6 +8447,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::fspick(
             &*syscalls,
@@ -8148,6 +8477,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::mount_setattr(
             &*syscalls,
@@ -8178,6 +8508,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::statmount(
             &*syscalls,
@@ -8207,6 +8538,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::listmount(
             &*syscalls,
@@ -8236,6 +8568,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::listns(
             &*syscalls,
@@ -8264,6 +8597,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::landlock_create_ruleset(
             &*syscalls,
@@ -8292,6 +8626,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::landlock_add_rule(
             &*syscalls,
@@ -8319,6 +8654,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret =
             Syscalls::landlock_restrict_self(&*syscalls, &caller, Fd(ruleset_fd), flags as u32)
@@ -8342,6 +8678,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::lsm_get_self_attr(
             &*syscalls,
@@ -8371,6 +8708,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::lsm_set_self_attr(
             &*syscalls,
@@ -8399,6 +8737,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::lsm_list_modules(
             &*syscalls,
@@ -8428,6 +8767,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::add_key(
             &*syscalls,
@@ -8458,6 +8798,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::request_key(
             &*syscalls,
@@ -8488,6 +8829,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::keyctl(
             &*syscalls,
@@ -8519,6 +8861,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::bpf(
             &*syscalls,
@@ -8550,6 +8893,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::perf_event_open(
             &*syscalls,
@@ -8580,6 +8924,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::reboot(
             &*syscalls,
@@ -8603,6 +8948,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::acct(&*syscalls, &caller, Cstr::new(name as u32)).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -8622,6 +8968,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::swapon(
             &*syscalls,
@@ -8646,6 +8993,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::swapoff(&*syscalls, &caller, Cstr::new(specialfile as u32)).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -8666,6 +9014,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::syslog(&*syscalls, &caller, r#type, Buf::new(buf as u32), len).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -8681,6 +9030,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::vhangup(&*syscalls, &caller).await;
         if let Some(ret) = return_to_guest(&env, &*syscalls, task, ret).await {
@@ -8702,6 +9052,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::kexec_load(
             &*syscalls,
@@ -8732,6 +9083,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::kexec_file_load(
             &*syscalls,
@@ -8761,6 +9113,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::init_module(
             &*syscalls,
@@ -8788,6 +9141,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret =
             Syscalls::finit_module(&*syscalls, &caller, Fd(fd), Cstr::new(uargs as u32), flags)
@@ -8809,6 +9163,7 @@ where
     let (syscalls, task) = caller_parts(&env).await;
     let memory = GuestMemory { env: &env };
     let caller = Caller::new(task, &memory);
+    let caller = caller.with_process_fork_allowed(crate::process_fork_allowed(&env).await);
     loop {
         let ret = Syscalls::delete_module(
             &*syscalls,

@@ -155,6 +155,16 @@ struct Restore {
     val: i32,
 }
 
+/// Logical continuation ownership belongs to the active explicit context. The
+/// generation allocator and the engine exports/buffer remain instance-wide.
+#[derive(Default)]
+pub(crate) struct ContextState {
+    depth: u32,
+    unwinding: Option<Request>,
+    resume: Option<Resume>,
+    saved: HashMap<u64, Arc<Saved>>,
+}
+
 /// One asyncify instance's exports and unwind state.
 pub(crate) struct Asyncify {
     start_unwind: TypedFunction<i32, ()>,
@@ -176,6 +186,22 @@ pub(crate) struct Asyncify {
 }
 
 impl Asyncify {
+    pub(crate) fn take_context(&mut self) -> ContextState {
+        ContextState {
+            depth: std::mem::take(&mut self.depth),
+            unwinding: self.unwinding.take(),
+            resume: self.resume.take(),
+            saved: std::mem::take(&mut self.saved),
+        }
+    }
+
+    pub(crate) fn put_context(&mut self, state: ContextState) {
+        self.depth = state.depth;
+        self.unwinding = state.unwinding;
+        self.resume = state.resume;
+        self.saved = state.saved;
+    }
+
     pub(crate) fn buffer_address(&self) -> Option<u32> {
         self.buffer
     }
@@ -294,12 +320,18 @@ pub(crate) async fn call<S: 'static>(
     function: &Function,
     args: &[Value],
 ) -> Result<Box<[Value]>, RuntimeError> {
-    let level = cx
+    let (level, owner) = cx
         .with(|env, _| {
-            env.asyncify.as_mut().map(|a| {
+            let owner = env
+                .contexts
+                .upgrade()
+                .filter(|group| group.task() == env.task)
+                .map(|group| (Arc::downgrade(&group), group.current()));
+            let level = env.asyncify.as_mut().map(|a| {
                 a.depth += 1;
                 a.depth
-            })
+            });
+            (level, owner)
         })
         .await;
     let Some(level) = level else {
@@ -307,12 +339,14 @@ pub(crate) async fn call<S: 'static>(
     };
     let result = loop {
         let result = function.call_async(&cx.store(), args.to_vec()).await;
+        let _pending = crate::contexts::PendingError::new(owner.clone(), result.as_ref().err());
         match settle(cx, level, entry, args, result).await {
             Ok(None) => continue,
             Ok(Some(values)) => break Ok(values),
             Err(err) => break Err(err),
         }
     };
+    let _pending = crate::contexts::PendingError::new(owner, result.as_ref().err());
     cx.with(|env, _| {
         let a = env.asyncify.as_mut().expect("entered above");
         a.depth -= 1;
@@ -341,14 +375,18 @@ async fn settle<S: 'static>(
 ) -> Result<Option<Box<[Value]>>, RuntimeError> {
     let values = match result {
         Ok(values) => values,
-        Err(err) => match err.downcast::<Restore>() {
-            Ok(restore) if restore.saved.id.level == level => {
-                rewind_saved(cx, &restore.saved, restore.val).await?;
+        Err(err) => {
+            // Cancellation custody can share this error while bookkeeping awaits
+            // the Store. Classifying a restore must not require a unique Arc.
+            if let Some(restore) = err.downcast_ref::<Restore>()
+                && restore.saved.id.level == level
+            {
+                let (saved, val) = (restore.saved.clone(), restore.val);
+                rewind_saved(cx, &saved, val).await?;
                 return Ok(None);
             }
-            Ok(restore) => return Err(RuntimeError::user(Box::new(restore))),
-            Err(err) => return Err(err),
-        },
+            return Err(err);
+        }
     };
     let Some((request, functions)) = cx
         .with(|env, _| {
@@ -855,6 +893,78 @@ mod tests {
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
     #[cfg_attr(not(target_arch = "wasm32"), test)]
+    fn restore_rewinds_while_pending_error_custody_shares_the_runtime_error() {
+        let mut store = wasmer::Store::default();
+        let module = Module::new(
+            &store,
+            r#"(module
+          (memory (export "memory") 17)
+          (global (export "__stack_pointer") (mut i32) (i32.const 1024))
+          (global $rewinds (export "rewinds") (mut i32) (i32.const 0))
+          (func (export "asyncify_start_unwind") (param i32))
+          (func (export "asyncify_stop_unwind"))
+          (func (export "asyncify_start_rewind") (param i32)
+            (global.set $rewinds (i32.add (global.get $rewinds) (i32.const 1))))
+          (func (export "asyncify_stop_rewind")))"#,
+        )
+        .unwrap();
+        let instance = Instance::new(&mut store, &module, &wasmer::Imports::new()).unwrap();
+        let mut data = ExecEnv::new(
+            Arc::new(crate::process::tests::Recorder::default()),
+            TaskId(1),
+            crate::process::ProcExports::new(Arc::new(NoSpawn), Arc::default()),
+            Arc::new(crate::cputime::tests::Clocks::default()),
+        );
+        data.memory = Some(instance.exports.get_memory("memory").unwrap().clone());
+        let mut asyncify = Asyncify::new(&instance, &mut store).unwrap().unwrap();
+        asyncify.buffer = Some(4096);
+        asyncify.depth = 1;
+        data.asyncify = Some(asyncify);
+        let env = FunctionEnv::new(&mut store, data);
+        let error = RuntimeError::user(Box::new(Restore {
+            saved: Arc::new(saved(128, 8192, 16)),
+            val: 19,
+        }));
+        let custody = crate::contexts::PendingError::new(None, Some(&error));
+        let store = store.into_async();
+        let cx = Outside {
+            env: &env,
+            store: &store,
+        };
+        let result = futures::executor::block_on(settle(&cx, 1, None, &[], Err(error)));
+        assert!(
+            matches!(result, Ok(None)),
+            "the shared restore must reach its saved level"
+        );
+        futures::executor::block_on(cx.with(|data, store| {
+            assert!(matches!(
+                data.asyncify.as_ref().unwrap().resume.as_ref(),
+                Some(Resume::Restored(19))
+            ));
+            assert_eq!(
+                instance
+                    .exports
+                    .get_global("rewinds")
+                    .unwrap()
+                    .get(store)
+                    .unwrap_i32(),
+                1
+            );
+            assert_eq!(
+                instance
+                    .exports
+                    .get_global("__stack_pointer")
+                    .unwrap()
+                    .get(store)
+                    .unwrap_i32(),
+                8192
+            );
+        }));
+        drop(custody);
+    }
+
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test::wasm_bindgen_test)]
+    #[cfg_attr(not(target_arch = "wasm32"), test)]
     fn a_level_that_fails_while_unwinding_leaves_the_instance_still() {
         let mut store = wasmer::Store::default();
         let module = Module::new(&store, wat::parse_str(TRAP_WHILE_UNWINDING).unwrap()).unwrap();
@@ -879,6 +989,8 @@ mod tests {
                 stack_pointer: None,
                 abi: None,
                 threads: None,
+                contexts: Default::default(),
+                contexts_supported: true,
                 proc: crate::process::ProcExports::new(Arc::new(NoSpawn), Arc::default()),
                 asyncify: None,
                 fork_payload: None,

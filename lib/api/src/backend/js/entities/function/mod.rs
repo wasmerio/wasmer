@@ -108,11 +108,15 @@ impl Function {
         Fut: Future<Output = Result<Vec<Value>, RuntimeError>> + 'static,
         T: 'static,
     {
-        let (mode, executor) = {
+        let (mode, executor, store_executor) = {
             let mut store = store.as_store_mut();
             let backend = store.inner.store.as_js_mut();
             backend.async_imports = true;
-            (backend.async_mode, backend.jspi_executor)
+            (
+                backend.async_mode,
+                backend.jspi_executor,
+                backend.jspi_store_executor,
+            )
         };
 
         let function_type = ty.into();
@@ -185,7 +189,11 @@ impl Function {
                     .as_js_mut()
                     .host_callback(Closure::wrap(Box::new(move |args: &Array| -> Promise {
                         let future = callback(args);
-                        executor(Box::pin(async move { future.await.map_err(JsValue::from) }))
+                        let future = Box::pin(async move { future.await.map_err(JsValue::from) });
+                        match store_executor {
+                            Some(executor) => executor(store_id, future),
+                            None => executor(future),
+                        }
                     })
                         as Box<dyn Fn(&Array) -> Promise>))
             }
@@ -544,7 +552,7 @@ impl Function {
         let function = self.clone();
         let store = store.store();
         Box::pin(async move {
-            let _active_store = jspi::install_store(store.store());
+            let mut active_store = Some(jspi::install_store(store.store()));
             let function_type = function.handle.ty.clone();
             let write_lock = store.write_lock().await;
             let arguments = Array::new_with_length(params.len() as u32);
@@ -552,7 +560,11 @@ impl Function {
                 arguments.set(index as u32, param.as_jsvalue(&write_lock));
             }
 
-            let mode = write_lock.as_store_ref().inner.store.as_js().async_mode;
+            let (mode, owner) = {
+                let store = write_lock.as_store_ref();
+                let backend = store.inner.store.as_js();
+                (backend.async_mode, backend.jspi_call_owner)
+            };
             drop(write_lock);
             // JavaScript guest execution does not access Rust StoreInner. Releasing the
             // guard here allows imports and nested guest calls to borrow it independently.
@@ -562,12 +574,21 @@ impl Function {
                         .map_err(RuntimeError::from)?
                 }
                 jspi::AsyncMode::Jspi => {
-                    let promising =
-                        jspi::promising(&function.handle.function).map_err(RuntimeError::from)?;
-                    let promise = Reflect::apply(&promising, &JsValue::NULL, &arguments)
-                        .map_err(RuntimeError::from)?
-                        .dyn_into::<Promise>()
-                        .map_err(RuntimeError::from)?;
+                    let owner = owner.map_or(Ok(None), |owner| owner(store.store_id()))?;
+                    let promise = (|| {
+                        let promising = jspi::promising(&function.handle.function)?;
+                        Reflect::apply(&promising, &JsValue::NULL, &arguments)?
+                            .dyn_into::<Promise>()
+                    })();
+                    let promise = match promise {
+                        Ok(promise) => promise,
+                        Err(error) => {
+                            let error = jspi::settle(owner, Err(error))
+                                .expect_err("physical owner must preserve rejection");
+                            return Err(RuntimeError::from(error));
+                        }
+                    };
+                    let promise = jspi::watch(promise, active_store.take().unwrap(), owner);
                     JsFuture::from(promise).await.map_err(RuntimeError::from)?
                 }
             };

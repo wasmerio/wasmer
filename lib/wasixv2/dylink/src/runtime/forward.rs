@@ -27,7 +27,7 @@ impl Cache {
     pub fn clear(&self) {
         lock(&self.modules).clear();
     }
-    fn module(&self, store: &impl AsStoreRef, bytes: &[u8]) -> Result<wasmer::Module> {
+    pub(super) fn module(&self, store: &impl AsStoreRef, bytes: &[u8]) -> Result<wasmer::Module> {
         let store = store.as_store_ref();
         let engine = store.engine();
         let key = (

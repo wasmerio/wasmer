@@ -840,6 +840,48 @@ impl Kernel {
 }
 
 impl Syscalls for Kernel {
+    fn context_create<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        entry: u32,
+        id: wasixv2_abi::U64Ptr,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        match caller.functions() {
+            Some(functions) => MaybeFuture::Future(functions.context_create(caller, entry, id)),
+            None => MaybeFuture::Ready(Err(Errno::ENOSYS.into())),
+        }
+    }
+
+    fn context_switch<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        id: u64,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        match caller.functions() {
+            Some(functions) => MaybeFuture::Future(Box::pin(async move {
+                let status = self.task_signals(caller.task()).status.clone();
+                status
+                    .during(
+                        wasixv2_wait::TaskState::Running,
+                        functions.context_switch(caller, id),
+                    )
+                    .await
+            })),
+            None => MaybeFuture::Ready(Err(Errno::ENOSYS.into())),
+        }
+    }
+
+    fn context_destroy<'a>(
+        &'a self,
+        caller: &'a Caller<'_>,
+        id: u64,
+    ) -> MaybeFuture<'a, SysResult<i32>> {
+        match caller.functions() {
+            Some(functions) => MaybeFuture::Future(functions.context_destroy(caller, id)),
+            None => MaybeFuture::Ready(Err(Errno::ENOSYS.into())),
+        }
+    }
+
     fn call_dynamic<'a>(
         &'a self,
         caller: &'a Caller<'_>,
