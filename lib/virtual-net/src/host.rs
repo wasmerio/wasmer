@@ -61,6 +61,62 @@ impl LocalNetworking {
             ruleset: Some(ruleset),
         }
     }
+
+    fn bind_udp_unchecked(
+        &self,
+        addr: SocketAddr,
+        reuse_port: bool,
+        reuse_addr: bool,
+    ) -> Result<Box<dyn VirtualUdpSocket + Sync>> {
+        #[cfg(not(windows))]
+        use socket2::{Domain, Socket, Type};
+
+        #[cfg(not(windows))]
+        let socket = {
+            let domain = if addr.is_ipv4() {
+                Domain::IPV4
+            } else {
+                Domain::IPV6
+            };
+            let std_sock = Socket::new(domain, Type::DGRAM, None).map_err(io_err_into_net_error)?;
+            std_sock
+                .set_nonblocking(true)
+                .map_err(io_err_into_net_error)?;
+            std_sock
+                .set_reuse_address(reuse_addr)
+                .map_err(io_err_into_net_error)?;
+            std_sock
+                .set_reuse_port(reuse_port)
+                .map_err(io_err_into_net_error)?;
+            std_sock.bind(&addr.into()).map_err(io_err_into_net_error)?;
+            mio::net::UdpSocket::from_std(std_sock.into())
+        };
+        #[cfg(windows)]
+        let socket = mio::net::UdpSocket::bind(addr).map_err(io_err_into_net_error)?;
+
+        #[allow(unused_mut)]
+        let mut ret = LocalUdpSocket {
+            selector: self.selector.clone(),
+            socket,
+            addr,
+            handler_guard: HandlerGuardState::None,
+            backlog: Default::default(),
+            ruleset: self.ruleset.clone(),
+        };
+
+        // In windows we can not poll the socket as it is not supported and hence
+        // what we do is immediately set the writable flag and relay on `mio` to
+        // refresh that flag when the state changes. In Linux what we do is actually
+        // make a non-blocking `poll` call to determine this state
+        #[cfg(target_os = "windows")]
+        {
+            let (state, selector, socket) = ret.split_borrow();
+            let map = state_as_waker_map(state, selector, socket).map_err(io_err_into_net_error)?;
+            map.push(InterestType::Writable);
+        }
+
+        Ok(Box::new(ret))
+    }
 }
 
 impl Drop for LocalNetworking {
@@ -176,9 +232,6 @@ impl VirtualNetworking for LocalNetworking {
         reuse_port: bool,
         reuse_addr: bool,
     ) -> Result<Box<dyn VirtualUdpSocket + Sync>> {
-        #[cfg(not(windows))]
-        use socket2::{Domain, Socket, Type};
-
         if let Some(ruleset) = self.ruleset.as_ref()
             && !ruleset.allows_socket(addr, Direction::Inbound)
         {
@@ -186,51 +239,18 @@ impl VirtualNetworking for LocalNetworking {
             return Err(NetworkError::PermissionDenied);
         }
 
-        #[cfg(not(windows))]
-        let socket = {
-            let domain = if addr.is_ipv4() {
-                Domain::IPV4
-            } else {
-                Domain::IPV6
-            };
-            let std_sock = Socket::new(domain, Type::DGRAM, None).map_err(io_err_into_net_error)?;
-            std_sock
-                .set_nonblocking(true)
-                .map_err(io_err_into_net_error)?;
-            std_sock
-                .set_reuse_address(reuse_addr)
-                .map_err(io_err_into_net_error)?;
-            std_sock
-                .set_reuse_port(reuse_port)
-                .map_err(io_err_into_net_error)?;
-            std_sock.bind(&addr.into()).map_err(io_err_into_net_error)?;
-            mio::net::UdpSocket::from_std(std_sock.into())
-        };
-        #[cfg(windows)]
-        let socket = mio::net::UdpSocket::bind(addr).map_err(io_err_into_net_error)?;
+        self.bind_udp_unchecked(addr, reuse_port, reuse_addr)
+    }
 
-        #[allow(unused_mut)]
-        let mut ret = LocalUdpSocket {
-            selector: self.selector.clone(),
-            socket,
-            addr,
-            handler_guard: HandlerGuardState::None,
-            backlog: Default::default(),
-            ruleset: self.ruleset.clone(),
-        };
-
-        // In windows we can not poll the socket as it is not supported and hence
-        // what we do is immediately set the writable flag and relay on `mio` to
-        // refresh that flag when the state changes. In Linux what we do is actually
-        // make a non-blocking `poll` call to determine this state
-        #[cfg(target_os = "windows")]
-        {
-            let (state, selector, socket) = ret.split_borrow();
-            let map = state_as_waker_map(state, selector, socket).map_err(io_err_into_net_error)?;
-            map.push(InterestType::Writable);
-        }
-
-        Ok(Box::new(ret))
+    async fn bind_udp_client(
+        &self,
+        addr: SocketAddr,
+        reuse_port: bool,
+        reuse_addr: bool,
+    ) -> Result<Box<dyn VirtualUdpSocket + Sync>> {
+        // Not a listen: LocalUdpSocket::try_send_to checks every destination
+        // against the ruleset as outbound traffic.
+        self.bind_udp_unchecked(addr, reuse_port, reuse_addr)
     }
 
     async fn connect_tcp(
